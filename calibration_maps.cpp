@@ -118,14 +118,8 @@ CalibrationMaps::CalibrationMaps(FileActions::EcuCalDefStructure *ecuCalDef, int
     ui->mapDataTableWidget->setObjectName(mapWindowObjectName);
     ui->mapDataTableWidget->setColumnCount(xSize);
     ui->mapDataTableWidget->setRowCount(ySize);
+    ui->mapDataTableWidget->setStyleSheet("QTableWidget::item { padding: 3px }");
     ui->mapNameLabel->setText(ecuCalDef->NameList.at(mapIndex));
-
-    for (int col = 0; col < ui->mapDataTableWidget->columnCount(); col++){
-        ui->mapDataTableWidget->horizontalHeader()->resizeSection(col, mapCellWidth);
-    }
-    for (int row = 0; row < ui->mapDataTableWidget->rowCount(); row++){
-        ui->mapDataTableWidget->verticalHeader()->resizeSection(row, mapCellHeight);
-    }
 
     if (ecuCalDef->TypeList.at(mapIndex) == "3D")
     {
@@ -136,7 +130,22 @@ CalibrationMaps::CalibrationMaps(FileActions::EcuCalDefStructure *ecuCalDef, int
     }
 
     setMapTableWidgetItems(ecuCalDef, mapIndex);
-    setMapTableWidgetSize(mdiAreaSize.width(), mdiAreaSize.height(), xSize);
+    ui->mapDataTableWidget->horizontalHeader()->resizeSections(QHeaderView::ResizeToContents);
+    ui->mapDataTableWidget->verticalHeader()->resizeSections(QHeaderView::ResizeToContents);
+/*
+    if (ui->mapDataTableWidget->horizontalHeader()->width() < mapCellWidth)
+    {
+        for (int col = 0; col < ui->mapDataTableWidget->columnCount(); col++)
+            ui->mapDataTableWidget->horizontalHeader()->resizeSection(col, mapCellWidth);
+    }
+
+    if (ui->mapDataTableWidget->verticalHeader()->height() < mapCellHeight)
+    {
+        for (int row = 0; row < ui->mapDataTableWidget->rowCount(); row++)
+            ui->mapDataTableWidget->verticalHeader()->resizeSection(row, mapCellHeight);
+    }
+*/
+    setMapTableWidgetSize(mdiAreaSize.width()-15, mdiAreaSize.height()-15, xSize);
 
     if (ecuCalDef->TypeList.at(mapIndex) != "Selectable" && ecuCalDef->TypeList.at(mapIndex) != "Switch")
     {
@@ -159,20 +168,25 @@ void CalibrationMaps::setMapTableWidgetSize(int maxWidth, int maxHeight, int xSi
     w += ui->mapDataTableWidget->contentsMargins().left() + ui->mapDataTableWidget->contentsMargins().right();
     h += ui->mapDataTableWidget->contentsMargins().top() + ui->mapDataTableWidget->contentsMargins().bottom();
     w += ui->mapDataTableWidget->verticalHeader()->width();
-    if (xSize > 17)
-        h += ui->mapDataTableWidget->horizontalHeader()->height() + 15;
-    else
-        h += ui->mapDataTableWidget->horizontalHeader()->height();
-
     for (int i = 0; i < ui->mapDataTableWidget->columnCount(); i++)
         w += ui->mapDataTableWidget->columnWidth(i);
     for (int i=0; i < ui->mapDataTableWidget->rowCount(); i++)
         h += ui->mapDataTableWidget->rowHeight(i);
 
     if (w > maxWidth)
-        w = maxWidth - 55;
+    {
+        w = maxWidth - 40;
+        h += ui->mapDataTableWidget->horizontalHeader()->height() + 15;
+    }
+    else
+        h += ui->mapDataTableWidget->horizontalHeader()->height();
     if (h > maxHeight)
-        h = maxHeight - 55;
+    {
+        h = maxHeight - 40;
+        w += ui->mapDataTableWidget->verticalHeader()->width() + 15;
+    }
+    else
+        w += ui->mapDataTableWidget->verticalHeader()->width();
 
     ui->mapDataTableWidget->setMinimumWidth(w);
     ui->mapDataTableWidget->setMaximumWidth(w);
@@ -215,7 +229,7 @@ void CalibrationMaps::setMapTableWidgetItems(FileActions::EcuCalDefStructure *ec
             QString switch_data = switch_states.at(i + 1);
             QString map_data;
             uint32_t byte_address = ecuCalDef->AddressList.at(mapIndex).toUInt(&bStatus, 16);
-            if (ecuCalDef->RomInfo.at(FlashMethod) == "wrx02" && ecuCalDef->FileSize.toUInt() < (170 * 1024) && byte_address > 0x27FFF)
+            if (ecuCalDef->RomInfo.at(FlashMethod) == "wrx02" && ecuCalDef->FileSize.toUInt() < (190 * 1024) && byte_address > 0x27FFF)
                 byte_address -= 0x8000;
             for (int j = 0; j < switch_data_length.length(); j++)
             {
@@ -278,12 +292,14 @@ void CalibrationMaps::setMapTableWidgetItems(FileActions::EcuCalDefStructure *ec
         for (int j = 0; j < selectionNameList.length() - 1; j++){
             if (selectionNameList.at(j) != "")
                 selectableComboBox->addItem(selectionNameList.at(j));
+            //qDebug() << "Set item: " + selectionNameList.at(j);
         }
         selectableComboBox->setObjectName("selectableComboBox");
         for (int i = 0; i < selectionNameList.length() - 1; i++)
         {
             if (selectionValueList.at(i).toUpper() == mapDataCellText.toUpper())
                 currentIndex = i;
+            //qDebug() << "Set item index: " + selectionNameList.at(i);
         }
         selectableComboBox->setCurrentIndex(currentIndex);
         ui->mapDataTableWidget->setCellWidget(0, 0, selectableComboBox);
@@ -307,12 +323,14 @@ void CalibrationMaps::setMapTableWidgetItems(FileActions::EcuCalDefStructure *ec
                 xScaleCellDataText = xScaleCellText.at(i);
             else
                 xScaleCellDataText = QString::number(xScaleCellText.at(i).toFloat(), 'f', getMapValueDecimalCount(ecuCalDef->XScaleFormatList.at(mapIndex)));
+            //qDebug() << "xScaleCellDataText:" << xScaleCellDataText;
             //qDebug() << "Y: xSize" << i << "/" << xSize;
 
             cellItem->setTextAlignment(Qt::AlignCenter);
             cellItem->setFont(cellFont);
             if (i < xScaleCellText.count())
                 cellItem->setText(xScaleCellDataText);
+            //qDebug() << "cellItem->text():" << cellItem->text();
             ui->mapDataTableWidget->setItem(0, i + xSizeOffset, cellItem);
 /*
             if (ySize > 1)
@@ -361,10 +379,10 @@ void CalibrationMaps::setMapTableWidgetItems(FileActions::EcuCalDefStructure *ec
         cellItem->setTextAlignment(Qt::AlignCenter);
         cellItem->setFont(cellFont);
         cellItem->setForeground(Qt::black);
+        cellItem->setBackground(Qt::white);
 
         cellItem->setText(QString::number(mapDataCellText.at(0).toFloat(), 'f', getMapValueDecimalCount(ecuCalDef->FormatList.at(mapIndex))));
         ui->mapDataTableWidget->setItem(0, 0, cellItem);
-
     }
 
     if (ecuCalDef->TypeList.at(mapIndex) == "2D" || ecuCalDef->TypeList.at(mapIndex) == "3D")
@@ -372,30 +390,41 @@ void CalibrationMaps::setMapTableWidgetItems(FileActions::EcuCalDefStructure *ec
         //qDebug() << "Map:" << ecuCalDef->NameList.at(mapIndex) << "type '2D/3D'";
         QStringList mapDataCellText = ecuCalDef->MapData.at(mapIndex).split(",");
         QStringList xScaleCellText = ecuCalDef->XScaleData.at(mapIndex).split(",");
-        ecuCalDef->MaxValueList[mapIndex] = "-1000";
-        ecuCalDef->MinValueList[mapIndex] = "1000";
 
-        //qDebug() << "xScaleCellText:" << xScaleCellText;
-        for (int i = 0; i < mapDataCellText.length(); i++)
+        ecuCalDef->MapCellColorMin[mapIndex] = QString::number(mapDataCellText.at(0).toFloat());
+        ecuCalDef->MapCellColorMax[mapIndex] = QString::number(mapDataCellText.at(0).toFloat());
+
+        for (int i = 0; i < (xSize * ySize); i++)
         {
-            if (mapDataCellText.at(i).toFloat() < ecuCalDef->MinValueList.at(mapIndex).toFloat())
-                ecuCalDef->MinValueList[mapIndex] = QString::number(mapDataCellText.at(i).toFloat() * 2);
-            if (mapDataCellText.at(i).toFloat() > ecuCalDef->MaxValueList.at(mapIndex).toFloat())
-                ecuCalDef->MaxValueList[mapIndex] = QString::number(mapDataCellText.at(i).toFloat() * 2);
+            if (mapDataCellText.at(i).toFloat() < ecuCalDef->MapCellColorMin.at(mapIndex).toFloat())
+                ecuCalDef->MapCellColorMin[mapIndex] = QString::number(mapDataCellText.at(i).toFloat());
+            if (mapDataCellText.at(i).toFloat() > ecuCalDef->MapCellColorMax.at(mapIndex).toFloat())
+                ecuCalDef->MapCellColorMax[mapIndex] = QString::number(mapDataCellText.at(i).toFloat());
+            //if (ecuCalDef->MapCellColorMin[mapIndex].toFloat() == 0 || ecuCalDef->MapCellColorMin[mapIndex].toFloat() == 0)
+            //    qDebug() << "i:" << i << mapDataCellText.at(i) << ecuCalDef->MapCellColorMin[mapIndex] << ecuCalDef->MapCellColorMax[mapIndex];
         }
 
         for (int i = 0; i < xSize; i++)
         {
             QTableWidgetItem *cellItem = new QTableWidgetItem;
             QString xScaleCellDataText;
-            xScaleCellDataText = QString::number(xScaleCellText.at(i).toFloat(), 'f', getMapValueDecimalCount(ecuCalDef->FormatList.at(mapIndex)));
+
+            if (xScaleCellText.at(i) == " ") {
+                xScaleCellText.insert(i, QString::number(i));
+                xScaleCellDataText = xScaleCellText.at(i);
+            }
+            else if (ecuCalDef->XScaleTypeList.at(mapIndex) == "Static Y Axis" || ecuCalDef->XScaleTypeList.at(mapIndex) == "Static X Axis")
+                xScaleCellDataText = xScaleCellText.at(i);
+            else
+                xScaleCellDataText = QString::number(xScaleCellText.at(i).toFloat(), 'f', getMapValueDecimalCount(ecuCalDef->XScaleFormatList.at(mapIndex)));
+
+            //qDebug() << "xScaleCellDataText:" << xScaleCellDataText;
 
             cellItem->setTextAlignment(Qt::AlignCenter);
             cellItem->setFont(cellFont);
             if (i < xScaleCellText.count())
                 cellItem->setText(xScaleCellDataText);
             ui->mapDataTableWidget->setItem(0, i + xSizeOffset, cellItem);
-            //qDebug() << "xScaleCellText:" << xScaleCellText;
 
             QFontMetrics fm(cellFont);
             int width = fm.horizontalAdvance(xScaleCellDataText) + 20;
@@ -421,10 +450,14 @@ void CalibrationMaps::setMapTableWidgetItems(FileActions::EcuCalDefStructure *ec
             int mapItemColorBlue = mapItemColor & 0xff;
             //qDebug() << mapItemColorRed << mapItemColorGreen << mapItemColorBlue;
             cellItem->setBackground(QBrush(QColor(mapItemColorRed , mapItemColorGreen, mapItemColorBlue, 255)));
-            if (ecuCalDef->TypeList.at(mapIndex) == "1D")
+            if (ecuCalDef->NameList.at(mapIndex) == "MAP Sensor Scale")
+                qDebug() << "MAP Sensor Scale type" << ecuCalDef->TypeList.at(mapIndex);
+            if (ecuCalDef->TypeList.at(mapIndex) == "1D") {
                 cellItem->setForeground(Qt::black);
+                cellItem->setBackground(Qt::white);
+            }
             else
-                cellItem->setForeground(Qt::white);
+                cellItem->setForeground(Qt::black);
 
             if (i < mapDataCellText.count())
                 cellItem->setText(QString::number(mapDataCellText.at(i).toFloat(), 'f', getMapValueDecimalCount(ecuCalDef->FormatList.at(mapIndex))));
@@ -459,51 +492,41 @@ int CalibrationMaps::getMapValueDecimalCount(QString valueFormat)
     if (valueFormat.contains("."))
         return valueFormat.split(".").at(1).count(QLatin1Char('0'));
     else
-        return 0;//valueFormat.count(QLatin1Char('0'));
+        return 0;
 }
 
 int CalibrationMaps::getMapCellColors(FileActions::EcuCalDefStructure *ecuCalDef, float mapDataValue, int mapIndex)
 {
-
     int mapCellColors;
-    int mapCellColorRed = 0;
-    int mapCellColorGreen = 0;
-    int mapCellColorBlue = 0;
     float mapMinValue = 0;
     float mapMaxValue = 0;
+    float scale_start = (210.0/360.0);
 
-    mapMinValue = ecuCalDef->MinValueList.at(mapIndex).toFloat();
-    mapMaxValue = ecuCalDef->MaxValueList.at(mapIndex).toFloat();
-    //qDebug() << ecuCalDef->TypeList.at(mapIndex);
+    mapMinValue = ecuCalDef->MapCellColorMin.at(mapIndex).toFloat();
+    mapMaxValue = ecuCalDef->MapCellColorMax.at(mapIndex).toFloat();
 
-    if (ecuCalDef->TypeList.at(mapIndex) != "1D"){
-        mapCellColorRed = 255 - (int)(mapDataValue / (mapMaxValue - mapMinValue) * 255);
-        if (mapCellColorRed < 0)
-            mapCellColorRed = 0;
-        if (mapCellColorRed > 255)
-            mapCellColorRed = 255;
-        //mapCellColorRed = 0;
-        mapCellColorGreen = 160 - (int)(mapDataValue / (mapMaxValue - mapMinValue) * 64);
-        if (mapCellColorGreen < 0)
-            mapCellColorGreen = 0;
-        if (mapCellColorGreen > 255)
-            mapCellColorGreen = 255;
-        mapCellColorGreen = 0;
-        mapCellColorBlue = (int)(mapDataValue / (mapMaxValue - mapMinValue) * 255);
-        if (mapCellColorBlue < 0)
-            mapCellColorBlue = 0;
-        if (mapCellColorBlue > 255)
-            mapCellColorBlue = 255;
-        //mapCellColorBlue = 0;
-    }
-    else{
-        mapCellColorRed = 255;
-        mapCellColorGreen = 255;
-        mapCellColorBlue = 255;
+    QColor color;
+    float color_scale = (1 - (mapDataValue - mapMinValue) / (mapMaxValue - mapMinValue)) * scale_start;
+    float color_value = scale_start - color_scale;
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    double r = 0;
+    double g = 0;
+    double b = 0;
+#else
+    float r = 0;
+    float g = 0;
+    float b = 0;
+#endif
 
-    }
+    if (color_value < 0)
+        color_value = 0;
 
-    mapCellColors = (mapCellColorRed << 16) + (mapCellColorGreen << 8) + (mapCellColorBlue);
+    color.setHsvF(color_value, 0.85, 0.85);
+    color.getRgbF(&r, &g, &b);
+    mapCellColors = ((int)(r*255)<<16) + ((int)(g*255)<<8) + b*255;
+
+    //qDebug() << "Map min:" << mapMinValue << "Map max:" << mapMaxValue << "color scale:" << color_scale << "scale start:" << scale_start;
+
     return mapCellColors;
 }
 

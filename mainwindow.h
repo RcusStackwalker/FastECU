@@ -28,6 +28,7 @@
 #include <QStackedWidget>
 #include <QSplashScreen>
 #include <QAtomicInteger>
+#include <QFontDatabase>
 
 #include <QFuture>
 #include <QDebug>
@@ -41,13 +42,13 @@
 #include <vehicle_select.h>
 #include <definition_file_convert.h>
 #include <modules/biu/biu_operations_subaru.h>
-#include <hexcommander.h>
+#include <dataterminal.h>
 #include <get_key_operations_subaru.h>
 #include <file_actions.h>
 #include <logbox.h>
 #include <settings.h>
-#include <serial_port/serial_port_actions.h>
 #include <dtc_operations.h>
+#include <hexedit/hexedit.h>
 
 // Flash modules
 // BDM
@@ -91,6 +92,9 @@
 #include <systemlogger.h>
 
 #include <remote_utility/remote_utility.h>
+
+//Forward declaration
+class SerialPortActions;
 
 extern void log_error(const QString &message, bool timestamp, bool linefeed);
 extern void log_warning(const QString &message, bool timestamp, bool linefeed);
@@ -340,6 +344,7 @@ private:
     void set_rom_data_value(uint8_t map_rom_number, uint32_t map_data_address, uint16_t map_value_index, QString map_value_storagetype, QString map_value_endian, float map_value);
     int get_mapvalue_decimal_count(QString valueFormat);
     int get_map_cell_colors(FileActions::EcuCalDefStructure *ecuCalDef, float mapDataValue, int mapIndex);
+    bool check_rom_data_value(QString storagetype, QString rom_data_value, QString new_rom_data_value);
     void show_preferences_window();
 
     void toggle_haltech_ic7_display();
@@ -348,6 +353,7 @@ private:
     void toggle_can_listener();
     int simulate_obd();
     void show_dtc_window();
+    void show_hex_editor();
     void show_subaru_biu_window();
     void show_terminal_window();
     void show_subaru_get_key_window();

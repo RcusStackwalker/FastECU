@@ -4,8 +4,12 @@
 #include <QObject>
 #include <QLabel>
 #include "serial_port_actions_direct.h"
-#include "rep_serial_port_actions_replica.h"
+#include <QtRemoteObjects/qremoteobjectnode.h>
+
 #include "websocketiodevice.h"
+
+//Forward declaration
+class SerialPortActionsRemoteReplica;
 
 class SerialPortActions : public QObject
 {
@@ -34,6 +38,10 @@ public:
     bool get_setDataTerminalReady();
     bool set_setDataTerminalReady(bool value);
 
+    bool get_add_ssm_header();
+    bool set_add_ssm_header(bool value);
+    bool get_add_iso9141_header();
+    bool set_add_iso9141_header(bool value);
     bool get_add_iso14230_header();
     bool set_add_iso14230_header(bool value);
     bool get_is_iso14230_connection();
@@ -62,12 +70,12 @@ public:
     bool get_read_vbatt();
     void set_read_vbatt(bool value);
 
-    uint8_t get_iso14230_startbyte();
-    bool    set_iso14230_startbyte(uint8_t value);
-    uint8_t get_iso14230_tester_id();
-    bool    set_iso14230_tester_id(uint8_t value);
-    uint8_t get_iso14230_target_id();
-    bool    set_iso14230_target_id(uint8_t value);
+    uint8_t get_kline_startbyte();
+    bool    set_kline_startbyte(uint8_t value);
+    uint8_t get_kline_tester_id();
+    bool    set_kline_tester_id(uint8_t value);
+    uint8_t get_kline_target_id();
+    bool    set_kline_target_id(uint8_t value);
 
     QByteArray get_ssm_receive_header_start();
     bool       set_ssm_receive_header_start(QByteArray value);
@@ -127,10 +135,9 @@ public:
     uint32_t get_iso15765_destination_address();
     bool     set_iso15765_destination_address(uint32_t value);
 
-    //struct kline_timings get_kline_timings();
-    bool     set_kline_timings(unsigned long parameter, int value);
+    bool     set_kline_timings(uint32_t parameter, int value);
 
-    int set_j2534_ioctl(unsigned long parameter, int value);
+    int set_j2534_ioctl(uint32_t parameter, int value);
 
     bool is_serial_port_open(void);
     int change_port_speed(QString portSpeed);
@@ -139,6 +146,7 @@ public:
     int set_lec_lines(int lec1, int lec2);
     int pulse_lec_1_line(int timeout);
     int pulse_lec_2_line(int timeout);
+    bool get_is_tx_done();
 
     bool reset_connection(void);
 

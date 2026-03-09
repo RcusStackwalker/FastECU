@@ -1,4 +1,5 @@
 #include "flash_tcu_subaru_denso_sh705x_can.h"
+#include "serial_port_actions.h"
 
 FlashTcuSubaruDensoSH705xCan::FlashTcuSubaruDensoSH705xCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent)
     : QDialog(parent)
@@ -109,6 +110,7 @@ void FlashTcuSubaruDensoSH705xCan::run()
 
     // Set serial port
     serial->set_is_iso14230_connection(false);
+    serial->set_add_iso14230_header(false);
     serial->set_is_can_connection(false);
     serial->set_is_iso15765_connection(true);
     serial->set_is_29_bit_id(false);
@@ -271,14 +273,14 @@ int FlashTcuSubaruDensoSH705xCan::tcu_setparam_subaru_ssm()
         if ((uint8_t)received.at(4) != 0xF8)
         {
             emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-            
+
             return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         return STATUS_ERROR;
     }
 
@@ -293,14 +295,14 @@ int FlashTcuSubaruDensoSH705xCan::tcu_setparam_subaru_ssm()
         if ((uint8_t)received.at(4) != 0xF8)
         {
             emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-            
+
             return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         return STATUS_ERROR;
     }
 
@@ -315,14 +317,14 @@ int FlashTcuSubaruDensoSH705xCan::tcu_setparam_subaru_ssm()
         if ((uint8_t)received.at(4) != 0xF8)
         {
             emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-            
+
             return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         return STATUS_ERROR;
     }
 
@@ -337,14 +339,14 @@ int FlashTcuSubaruDensoSH705xCan::tcu_setparam_subaru_ssm()
         if ((uint8_t)received.at(4) != 0xF8)
         {
             emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-            
+
             return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         return STATUS_ERROR;
     }
 
@@ -359,14 +361,14 @@ int FlashTcuSubaruDensoSH705xCan::tcu_setparam_subaru_ssm()
         if ((uint8_t)received.at(4) != 0xF8)
         {
             emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-            
+
             return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         return STATUS_ERROR;
     }
 
@@ -381,14 +383,14 @@ int FlashTcuSubaruDensoSH705xCan::tcu_setparam_subaru_ssm()
         if ((uint8_t)received.at(4) != 0xF8)
         {
             emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-            
+
             return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         return STATUS_ERROR;
     }
 
@@ -403,14 +405,14 @@ int FlashTcuSubaruDensoSH705xCan::tcu_setparam_subaru_ssm()
         if ((uint8_t)received.at(4) != 0xF8)
         {
             emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-            
+
             return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         return STATUS_ERROR;
     }
 
@@ -425,14 +427,14 @@ int FlashTcuSubaruDensoSH705xCan::tcu_setparam_subaru_ssm()
         if ((uint8_t)received.at(4) != 0xF8)
         {
             emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-            
+
             return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         return STATUS_ERROR;
     }
 
@@ -447,14 +449,14 @@ int FlashTcuSubaruDensoSH705xCan::tcu_setparam_subaru_ssm()
         if ((uint8_t)received.at(4) != 0xF8)
         {
             emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-            
+
             return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         return STATUS_ERROR;
     }
 
@@ -469,14 +471,14 @@ int FlashTcuSubaruDensoSH705xCan::tcu_setparam_subaru_ssm()
         if ((uint8_t)received.at(4) != 0xF8)
         {
             emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-            
+
             return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         return STATUS_ERROR;
     }
 
@@ -493,14 +495,14 @@ int FlashTcuSubaruDensoSH705xCan::tcu_setparam_subaru_ssm()
         if ((uint8_t)received.at(4) != 0xF8)
         {
             emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-            
+
             return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         return STATUS_ERROR;
     }
 
@@ -514,14 +516,14 @@ int FlashTcuSubaruDensoSH705xCan::tcu_setparam_subaru_ssm()
         if ((uint8_t)received.at(4) != 0xF8)
         {
             emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-            
+
             return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         return STATUS_ERROR;
     }
 
@@ -607,14 +609,14 @@ int FlashTcuSubaruDensoSH705xCan::tcu_readparam_subaru_ssm()
     while (try_count < 6 && responseOK == false)
     {
         serial->write_serial_data_echo_check(output);
-        
+
         received = serial->read_serial_data(serial_read_short_timeout);
         if (received.length() > 4)
         {
             if (((uint8_t)received[4] == 0xF8))
             {
                 responseOK = true;
-                
+
             }
         }
         try_count++;
@@ -627,14 +629,14 @@ int FlashTcuSubaruDensoSH705xCan::tcu_readparam_subaru_ssm()
         if ((uint8_t)received.at(4) != 0xE8)
         {
             emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-            
+
             return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         return STATUS_ERROR;
     }
 
@@ -691,14 +693,14 @@ int FlashTcuSubaruDensoSH705xCan::tcu_relearn_subaru_ssm()
     while (try_count < 6 && responseOK == false)
     {
         serial->write_serial_data_echo_check(output);
-        
+
         received = serial->read_serial_data(serial_read_short_timeout);
         if (received.length() > 4)
         {
             if (((uint8_t)received[4] == 0xF8))
             {
                 responseOK = true;
-                
+
             }
         }
         try_count++;
@@ -708,14 +710,14 @@ int FlashTcuSubaruDensoSH705xCan::tcu_relearn_subaru_ssm()
         if ((uint8_t)received.at(4) != 0xF8)
         {
             emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-            
+
             //return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         //return STATUS_ERROR;
     }
 
@@ -727,14 +729,14 @@ int FlashTcuSubaruDensoSH705xCan::tcu_relearn_subaru_ssm()
     while (try_count < 6 && responseOK == false)
     {
         serial->write_serial_data_echo_check(output);
-        
+
         received = serial->read_serial_data(serial_read_short_timeout);
         if (received.length() > 4)
         {
             if (((uint8_t)received[4] == 0xF8))
             {
                 responseOK = true;
-                
+
             }
         }
         try_count++;
@@ -744,14 +746,14 @@ int FlashTcuSubaruDensoSH705xCan::tcu_relearn_subaru_ssm()
         if ((uint8_t)received.at(4) != 0xF8)
         {
             emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-            
+
             //return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         //return STATUS_ERROR;
     }
 
@@ -771,14 +773,14 @@ int FlashTcuSubaruDensoSH705xCan::tcu_relearn_subaru_ssm()
     while (try_count < 200 && responseOK == false)
     {
         serial->write_serial_data_echo_check(output);
-        
+
         received = serial->read_serial_data(serial_read_short_timeout);
         if (received.length() > 4)
         {
             if (((uint8_t)received[4] == 0xF8))
             {
                 responseOK = true;
-                
+
             }
         }
         try_count++;
@@ -788,14 +790,14 @@ int FlashTcuSubaruDensoSH705xCan::tcu_relearn_subaru_ssm()
         if ((uint8_t)received.at(4) != 0xF8)
         {
             emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-            
+
             //return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         //return STATUS_ERROR;
     }
 
@@ -830,13 +832,13 @@ int FlashTcuSubaruDensoSH705xCan::connect_bootloader()
         if ((uint8_t)received.at(4) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(5) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(8) != (SUB_KERNEL_ID | 0x40))
         {
             emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length()-1)), true, true);
-            
+
         }
         else
         {
             received.remove(0, 9);
             emit LOG_I("Kernel ID: " + received, true, true);
-            
+
             kernel_alive = true;
             return STATUS_SUCCESS;
         }
@@ -844,7 +846,7 @@ int FlashTcuSubaruDensoSH705xCan::connect_bootloader()
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
     }
 
     emit LOG_I("No response from kernel, initialising ECU...", true, true);
@@ -856,9 +858,8 @@ int FlashTcuSubaruDensoSH705xCan::connect_bootloader()
     output.append((uint8_t)0x07);
     output.append((uint8_t)0xE1);
     output.append((uint8_t)0xAA);
-
     serial->write_serial_data_echo_check(output);
-    
+
     delay(50);
     received = serial->read_serial_data(serial_read_timeout);
     if (received.length() > 5)
@@ -868,7 +869,7 @@ int FlashTcuSubaruDensoSH705xCan::connect_bootloader()
             QByteArray response = received;
             response.remove(0, 8);
             response.remove(5, response.length()-5);
-            
+
             QString ecuid;
             for (int i = 0; i < 5; i++)
                 ecuid.append(QString("%1").arg((uint8_t)response.at(i),2,16,QLatin1Char('0')).toUpper());
@@ -879,13 +880,13 @@ int FlashTcuSubaruDensoSH705xCan::connect_bootloader()
         else
         {
             emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-            
+
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
     }
 
     emit LOG_I("Requesting CAL ID", true, true);
@@ -897,7 +898,7 @@ int FlashTcuSubaruDensoSH705xCan::connect_bootloader()
     output.append((uint8_t)0x09);
     output.append((uint8_t)0x04);
     serial->write_serial_data_echo_check(output);
-    
+
     delay(50);
     received = serial->read_serial_data(serial_read_timeout);
     if (received.length() > 5)
@@ -906,7 +907,7 @@ int FlashTcuSubaruDensoSH705xCan::connect_bootloader()
         {
             QByteArray response = received;
             response.remove(0, 7);
-            
+
             emit LOG_I("CAL ID: " + response, true, true);
             if (cmd_type == "read")
                 ecuCalDef->RomId.insert(0, QString(response) + "_");
@@ -914,13 +915,13 @@ int FlashTcuSubaruDensoSH705xCan::connect_bootloader()
         else
         {
             emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-            
+
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
     }
 
     emit LOG_I("Requesting session mode", true, true);
@@ -932,7 +933,7 @@ int FlashTcuSubaruDensoSH705xCan::connect_bootloader()
     output.append((uint8_t)0x10);
     output.append((uint8_t)0x03);
     serial->write_serial_data_echo_check(output);
-    
+
     delay(50);
     received = serial->read_serial_data(serial_read_timeout);
     if (received.length() > 5)
@@ -940,14 +941,14 @@ int FlashTcuSubaruDensoSH705xCan::connect_bootloader()
         if ((uint8_t)received.at(4) != 0x50 && (uint8_t)received.at(5) != 0x03)
         {
             emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-            
+
             return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         return STATUS_ERROR;
     }
 
@@ -960,7 +961,7 @@ int FlashTcuSubaruDensoSH705xCan::connect_bootloader()
     output.append((uint8_t)0x01);
 
     serial->write_serial_data_echo_check(output);
-    
+
     delay(50);
     received = serial->read_serial_data(serial_read_timeout);
     if (received.length() > 5)
@@ -968,19 +969,19 @@ int FlashTcuSubaruDensoSH705xCan::connect_bootloader()
         if ((uint8_t)received.at(4) != 0x67 || (uint8_t)received.at(5) != 0x01)
         {
             emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-            
+
             return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         return STATUS_ERROR;
     }
 
     emit LOG_I("Seed request ok", true, true);
-    
+
 
     seed.clear();
     seed.append(received.at(6));
@@ -1001,7 +1002,7 @@ int FlashTcuSubaruDensoSH705xCan::connect_bootloader()
     output.append(seed_key);
 
     serial->write_serial_data_echo_check(output);
-    
+
     delay(50);
     received = serial->read_serial_data(serial_read_timeout);
     if (received.length() > 5)
@@ -1009,19 +1010,19 @@ int FlashTcuSubaruDensoSH705xCan::connect_bootloader()
         if ((uint8_t)received.at(4) != 0x67 || (uint8_t)received.at(5) != 0x02)
         {
             emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-            
+
             return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         return STATUS_ERROR;
     }
 
     emit LOG_I("Seed key ok", true, true);
-    
+
 
     output.clear();
     output.append((uint8_t)0x00);
@@ -1031,7 +1032,7 @@ int FlashTcuSubaruDensoSH705xCan::connect_bootloader()
     output.append((uint8_t)0x10);
     output.append((uint8_t)0x02);
     serial->write_serial_data_echo_check(output);
-    
+
     delay(50);
     received = serial->read_serial_data(serial_read_timeout);
     if (received.length() > 5)
@@ -1044,19 +1045,19 @@ int FlashTcuSubaruDensoSH705xCan::connect_bootloader()
             msg.clear();
             for (int i = 0; i < response.length(); i++)
                 msg.append(QString("%1").arg((uint8_t)response.at(i),2,16,QLatin1Char('0')).toUpper());
-            
+
         }
         else
         {
             emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-            
+
             return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         return STATUS_ERROR;
     }
     emit LOG_I("Succesfully set to programming session", true, true);
@@ -1093,8 +1094,6 @@ int FlashTcuSubaruDensoSH705xCan::upload_kernel(QString kernel, uint32_t kernel_
         emit LOG_E("ERROR: Serial port is not open.", true, true);
         return STATUS_ERROR;
     }
-
-    serial->set_add_iso14230_header(false);
 
     // Check kernel file
     if (!file.open(QIODevice::ReadOnly))
@@ -1144,26 +1143,26 @@ int FlashTcuSubaruDensoSH705xCan::upload_kernel(QString kernel, uint32_t kernel_
     output.append((uint8_t)(data_len & 0xFF));
 
     serial->write_serial_data_echo_check(output);
-    
+
     delay(50);
     received = serial->read_serial_data(serial_read_timeout);
     if (received.length() > 5)
     {
         if ((uint8_t)received.at(4) == 0x74 && (uint8_t)received.at(5) == 0x20)
         {
-            
+
         }
         else
         {
             emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-            
+
             return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         return STATUS_ERROR;
     }
 
@@ -1217,7 +1216,7 @@ int FlashTcuSubaruDensoSH705xCan::upload_kernel(QString kernel, uint32_t kernel_
     output.append((uint8_t)0x37);
 
     serial->write_serial_data_echo_check(output);
-    
+
     delay(50);
     received = serial->read_serial_data(serial_read_timeout);
     if (received.length() > 4)
@@ -1225,17 +1224,17 @@ int FlashTcuSubaruDensoSH705xCan::upload_kernel(QString kernel, uint32_t kernel_
         if ((uint8_t)received.at(4) != 0x77)
         {
             emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-            
+
             return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         return STATUS_ERROR;
     }
-    
+
 
     output.clear();
     output.append((uint8_t)0x00);
@@ -1249,7 +1248,7 @@ int FlashTcuSubaruDensoSH705xCan::upload_kernel(QString kernel, uint32_t kernel_
     output.append((uint8_t)0x02);
 
     serial->write_serial_data_echo_check(output);
-    
+
     delay(50);
     received = serial->read_serial_data(serial_read_timeout);
     if (received.length() > 4)
@@ -1257,17 +1256,17 @@ int FlashTcuSubaruDensoSH705xCan::upload_kernel(QString kernel, uint32_t kernel_
         if ((uint8_t)received.at(4) != 0x71)
         {
             emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-            
+
             return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         return STATUS_ERROR;
     }
-    
+
 
     set_progressbar_value(100);
 
@@ -1295,13 +1294,13 @@ int FlashTcuSubaruDensoSH705xCan::upload_kernel(QString kernel, uint32_t kernel_
         if ((uint8_t)received.at(4) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(5) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(8) != (SUB_KERNEL_ID | 0x40))
         {
             emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length()-1)), true, true);
-            
+
         }
         else
         {
             received.remove(0, 9);
             emit LOG_I("Kernel ID: " + received, true, true);
-            
+
             kernel_alive = true;
             return STATUS_SUCCESS;
         }
@@ -1309,7 +1308,7 @@ int FlashTcuSubaruDensoSH705xCan::upload_kernel(QString kernel, uint32_t kernel_
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
     }
 
     return STATUS_SUCCESS;
@@ -1396,14 +1395,14 @@ int FlashTcuSubaruDensoSH705xCan::read_mem(uint32_t start_addr, uint32_t length)
             if ((uint8_t)received.at(4) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(5) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(8) != (SUB_KERNEL_READ_AREA | 0x40))
             {
                 emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length()-1)), true, true);
-                
+
                 return STATUS_ERROR;
             }
         }
         else
         {
             emit LOG_E("No valid response from ECU", true, true);
-            
+
             return STATUS_ERROR;
         }
 
@@ -1634,18 +1633,18 @@ int FlashTcuSubaruDensoSH705xCan::check_romcrc(const uint8_t *src, uint32_t addr
     output.append((uint8_t)(pagesize >> 16) & 0xFF);
     output.append((uint8_t)(pagesize >> 8) & 0xFF);
     output.append((uint8_t)pagesize & 0xFF);
-    
+
     serial->write_serial_data_echo_check(output);
     received.clear();
     received = serial->read_serial_data(serial_read_extra_long_timeout);
-    
+
     if (received.length() > 5)
     {
         if ((uint8_t)received.at(4) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(5) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(8) != (SUB_KERNEL_CRC | 0x40))
         {
             emit LOG_E("", false, true);
             emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length()-1)), true, true);
-            
+
             return STATUS_ERROR;
         }
     }
@@ -1653,7 +1652,7 @@ int FlashTcuSubaruDensoSH705xCan::check_romcrc(const uint8_t *src, uint32_t addr
     {
         emit LOG_E("", false, true);
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         return STATUS_ERROR;
     }
 
@@ -1741,16 +1740,16 @@ int FlashTcuSubaruDensoSH705xCan::init_flash_write()
     output.append((uint8_t)(datalen + 1) & 0xFF);
     output.append((uint8_t)(SUB_KERNEL_GET_MAX_MSG_SIZE & 0xFF));
     received = serial->write_serial_data_echo_check(output);
-    
+
     received = serial->read_serial_data(serial_read_timeout);
-    
+
     if (received.length() > 9)
     {
         if ((uint8_t)received.at(4) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(5) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(8) != (SUB_KERNEL_GET_MAX_MSG_SIZE | 0x40))
         {
             emit LOG_E("", false, true);
             emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length()-1)), true, true);
-            
+
             return STATUS_ERROR;
         }
     }
@@ -1758,7 +1757,7 @@ int FlashTcuSubaruDensoSH705xCan::init_flash_write()
     {
         emit LOG_E("", false, true);
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         return STATUS_ERROR;
     }
 
@@ -1780,16 +1779,16 @@ int FlashTcuSubaruDensoSH705xCan::init_flash_write()
     output.append((uint8_t)(datalen + 1) & 0xFF);
     output.append((uint8_t)(SUB_KERNEL_GET_MAX_BLK_SIZE & 0xFF));
     received = serial->write_serial_data_echo_check(output);
-    
+
     received = serial->read_serial_data(serial_read_timeout);
-    
+
     if (received.length() > 9)
     {
         if ((uint8_t)received.at(4) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(5) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(8) != (SUB_KERNEL_GET_MAX_BLK_SIZE | 0x40))
         {
             emit LOG_E("", false, true);
             emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length()-1)), true, true);
-            
+
             return STATUS_ERROR;
         }
     }
@@ -1797,7 +1796,7 @@ int FlashTcuSubaruDensoSH705xCan::init_flash_write()
     {
         emit LOG_E("", false, true);
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         return STATUS_ERROR;
     }
 
@@ -1830,22 +1829,22 @@ int FlashTcuSubaruDensoSH705xCan::init_flash_write()
     output.append((uint8_t)(datalen + 1) & 0xFF);
     output.append((uint8_t)(SUB_KERNEL_CMD & 0xFF));
     received = serial->write_serial_data_echo_check(output);
-    
+
     received = serial->read_serial_data(serial_read_timeout);
-    
+
     if (received.length() > 5)
     {
         if ((uint8_t)received.at(4) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(5) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(8) != (SUB_KERNEL_CMD | 0x40))
         {
             emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length()-1)), true, true);
-            
+
             return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         return STATUS_ERROR;
     }
 
@@ -1902,16 +1901,16 @@ int FlashTcuSubaruDensoSH705xCan::reflash_block(const uint8_t *newdata, const st
     output.append((uint8_t)(datalen + 1) & 0xFF);
     output.append((uint8_t)(SUB_KERNEL_PROG_VOLT & 0xFF));
     received = serial->write_serial_data_echo_check(output);
-    
+
     received = serial->read_serial_data(serial_read_medium_timeout);
-    
+
     if (received.length() > 7)
     {
         if ((uint8_t)received.at(4) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(5) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(8) != (SUB_KERNEL_PROG_VOLT | 0x40))
         {
             emit LOG_E("", false, true);
             emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length()-1)), true, true);
-            
+
             return STATUS_ERROR;
         }
     }
@@ -1919,7 +1918,7 @@ int FlashTcuSubaruDensoSH705xCan::reflash_block(const uint8_t *newdata, const st
     {
         emit LOG_E("", false, true);
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         return STATUS_ERROR;
     }
 
@@ -1983,17 +1982,17 @@ int FlashTcuSubaruDensoSH705xCan::flash_block(const uint8_t *src, uint32_t start
     output.append((uint8_t)(start >> 8) & 0xFF);
     output.append((uint8_t)start & 0xFF);
     received = serial->write_serial_data_echo_check(output);
-    
+
     //delay(500);
     received = serial->read_serial_data(serial_read_extra_long_timeout);
-    
+
     if (received.length() > 8)
     {
         if ((uint8_t)received.at(4) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(5) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(8) != (SUB_KERNEL_BLANK_PAGE | 0x40))
         {
             emit LOG_E("", false, true);
             emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length()-1)), true, true);
-            
+
             return STATUS_ERROR;
         }
     }
@@ -2001,7 +2000,7 @@ int FlashTcuSubaruDensoSH705xCan::flash_block(const uint8_t *src, uint32_t start
     {
         emit LOG_E("", false, true);
         emit LOG_E("No valid response from ECU", true, true);
-        
+
         return STATUS_ERROR;
     }
 
@@ -2043,14 +2042,14 @@ int FlashTcuSubaruDensoSH705xCan::flash_block(const uint8_t *src, uint32_t start
             if ((uint8_t)received.at(4) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(5) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(8) != (SUB_KERNEL_WRITE_FLASH_BUFFER | 0x40))
             {
                 emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length()-1)), true, true);
-                
+
                 return STATUS_ERROR;
             }
         }
         else
         {
             emit LOG_E("No valid response from ECU", true, true);
-            
+
             return STATUS_ERROR;
         }
 
@@ -2129,23 +2128,23 @@ int FlashTcuSubaruDensoSH705xCan::flash_block(const uint8_t *src, uint32_t start
             output.append((uint8_t)(imgcrc32 >> 8) & 0xFF);
             output.append((uint8_t)imgcrc32 & 0xFF);
             received = serial->write_serial_data_echo_check(output);
-            
+
             //delay(200);
             received = serial->read_serial_data(serial_read_extra_long_timeout);
-            
+
             if (received.length() > 7)
             {
                 if ((uint8_t)received.at(4) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(5) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(8) != (SUB_KERNEL_CMD + 0x40))
                 {
                     emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length()-1)), true, true);
-                    
+
                     return STATUS_ERROR;
                 }
             }
             else
             {
                 emit LOG_E("No valid response from ECU", true, true);
-                
+
                 return STATUS_ERROR;
             }
             flashblockstart += flashblocksize;

@@ -36,6 +36,11 @@ FileActions::ConfigValuesStructure *FileActions::create_ecuflash_def_id_list(Con
         return configValues;
     }
 
+    configValues->ecuflash_def_cal_id.clear();
+    configValues->ecuflash_def_filename.clear();
+    configValues->ecuflash_def_cal_id_addr.clear();
+    configValues->ecuflash_def_ecu_id.clear();
+
     if (QDir(configValues->ecuflash_definition_files_directory).exists())
     {
         QDirIterator it(dir, QStringList() << "*.xml", QDir::Files, QDirIterator::Subdirectories);
@@ -166,14 +171,17 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
 
     emit LOG_D("Search ID: " + cal_id, true, true);
     QString def_id;
-    for (int index = 0; index < configValues->ecuflash_def_cal_id.length(); index++)
+    if (cal_id.contains("BASE"))
     {
-        if (cal_id.contains("BASE"))
+        for (int index = 0; index < configValues->ecuflash_def_cal_id.length(); index++)
         {
+            if (cal_id_file_found)
+                break;
+
             QFileInfo def_file(configValues->ecuflash_def_filename.at(index));
             def_id = def_file.fileName();
-            if (def_id.contains("BASE"))
-                emit LOG_D("Search ID: " + def_id, true, true);
+            //if (def_id.contains("BASE"))
+            //    emit LOG_D("Search BASE ID: " + def_id, true, true);
 
             if (def_id == (cal_id + ".xml") && configValues->ecuflash_def_cal_id.at(index) == cal_id)
             {
@@ -181,26 +189,48 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
                 emit LOG_D("EcuFlash def file name: " + configValues->ecuflash_def_filename.at(index), true, true);
                 cal_id_file_found = true;
                 file_index = index;
-                break;
-            }
-            else if (def_id.startsWith(cal_id) && def_id.endsWith(".xml") && configValues->ecuflash_def_cal_id.at(index) == cal_id)
-            {
-                emit LOG_D("EcuFlash ID found: " + configValues->ecuflash_def_cal_id.at(index) + " " + cal_id, true, true);
-                emit LOG_D("EcuFlash def file name: " + configValues->ecuflash_def_filename.at(index), true, true);
-                cal_id_file_found = true;
-                file_index = index;
-                break;
-            }
-            else if (configValues->ecuflash_def_cal_id.at(index) == cal_id)
-            {
-                emit LOG_D("EcuFlash ID found: " + configValues->ecuflash_def_cal_id.at(index) + " " + cal_id, true, true);
-                emit LOG_D("EcuFlash def file name: " + configValues->ecuflash_def_filename.at(index), true, true);
-                cal_id_file_found = true;
-                file_index = index;
-                break;
             }
         }
-        else
+        for (int index = 0; index < configValues->ecuflash_def_cal_id.length(); index++)
+        {
+            if (cal_id_file_found)
+                break;
+
+            QFileInfo def_file(configValues->ecuflash_def_filename.at(index));
+            def_id = def_file.fileName();
+            //if (def_id.contains("BASE"))
+            //    emit LOG_D("Search BASE ID: " + def_id, true, true);
+
+            if (def_id.startsWith(cal_id) && def_id.endsWith(".xml") && configValues->ecuflash_def_cal_id.at(index) == cal_id)
+            {
+                emit LOG_D("EcuFlash ID found: " + configValues->ecuflash_def_cal_id.at(index) + " " + cal_id, true, true);
+                emit LOG_D("EcuFlash def file name: " + configValues->ecuflash_def_filename.at(index), true, true);
+                cal_id_file_found = true;
+                file_index = index;
+            }
+        }
+        for (int index = 0; index < configValues->ecuflash_def_cal_id.length(); index++)
+        {
+            if (cal_id_file_found)
+                break;
+
+            QFileInfo def_file(configValues->ecuflash_def_filename.at(index));
+            def_id = def_file.fileName();
+            //if (def_id.contains("BASE"))
+            //    emit LOG_D("Search BASE ID: " + def_id, true, true);
+
+            if (configValues->ecuflash_def_cal_id.at(index) == cal_id)
+            {
+                emit LOG_D("EcuFlash ID found: " + configValues->ecuflash_def_cal_id.at(index) + " " + cal_id, true, true);
+                emit LOG_D("EcuFlash def file name: " + configValues->ecuflash_def_filename.at(index), true, true);
+                cal_id_file_found = true;
+                file_index = index;
+            }
+        }
+    }
+    else
+    {
+        for (int index = 0; index < configValues->ecuflash_def_cal_id.length(); index++)
         {
             if (configValues->ecuflash_def_cal_id.at(index) == cal_id)
             {
@@ -225,7 +255,8 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
     while (ecuCalDef->RomInfo.length() < ecuCalDef->RomInfoStrings.length())
         ecuCalDef->RomInfo.append(" ");
 
-    ecuCalDef->RomInfo.replace(DefFile, filename);
+    if (!cal_id.contains("BASE"))
+        ecuCalDef->RomInfo.replace(DefFile, filename);
 
     QFile file(filename);
 
@@ -236,12 +267,6 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
         return NULL;
     }
 
-    QDomDocument xmlBOM;
-    xmlBOM.setContent(&file);
-    file.close();
-
-    QDomElement root = xmlBOM.documentElement();
-
     if (cal_id.contains("BASE"))
     {
         def_map_index = 0;
@@ -251,14 +276,30 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
     else
         base_defined = false;
 
+    QDomDocument xmlBOM;
+    xmlBOM.setContent(&file);
+    file.close();
+
+    QDomElement root = xmlBOM.documentElement();
+/*
     QDomNodeList rom_childs = xmlBOM.elementsByTagName("rom");
     QDomElement rom_child = rom_childs.at(0).toElement().firstChild().toElement();
     while (!rom_child.isNull())
     {
         if (rom_child.isComment())
             continue;
+*/
+    QDomNodeList rom_childs = xmlBOM.elementsByTagName("rom");
+    QDomElement rom_child_element = rom_childs.at(0).toElement();
+    QDomNodeList items = rom_child_element.childNodes();
+    for(int x = 0; x < items.count(); x++)
+    {
+        if (items.at(x).isComment())
+            continue;
 
-        //emit LOG_D("Checking TAGS";
+        QDomElement rom_child = items.at(x).toElement();
+
+        //emit LOG_D("Checking TAGS:" + rom_child.tagName(), true, true);
         if (rom_child.tagName() == "romid")
         {
             QDomElement rom_id_child = rom_child.firstChild().toElement();
@@ -334,7 +375,7 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
         else if (rom_child.tagName() == "include")
         {
             inherits_cal_id = rom_child.text();
-            emit LOG_D("INCLUDE: " + cal_id + " -> inherits " + inherits_cal_id, true, true);
+            //emit LOG_D("INCLUDE: " + cal_id + " -> inherits " + inherits_cal_id, true, true);
             if (inherits_cal_id.contains("BASE"))
                 ecuCalDef->RomInfo.replace(RomBase, inherits_cal_id);
         }
@@ -352,7 +393,7 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
             ecuCalDef->ScalingFineIncList.append(QString::number(ecuCalDef->ScalingCoarseIncList.at(scaling_index).toFloat() / 10.0f));
             ecuCalDef->ScalingStorageTypeList.append(rom_child.attribute("storagetype"," "));
             ecuCalDef->ScalingEndianList.append(rom_child.attribute("endian"," "));
-            //emit LOG_D("Scaling name: " + rom_child.attribute("name","no name");
+            //emit LOG_D("Scaling " + rom_child.attribute("name"," ") + " min / max: " + rom_child.attribute("min"," ") + " / " + rom_child.attribute("max"," "), true, true);
             QString selection_name;
             QString selection_value;
             if (rom_child.attribute("storagetype"," ") == "bloblist")
@@ -408,7 +449,8 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
             if ((!map_defined && !base_defined) || (map_defined && base_defined))
             {
                 QString type = rom_child.attribute("type"," ");
-                if (type == "1D" || type == "X Axis" || type == "Y Axis")
+                //if (type == "1D" || type == "X Axis" || type == "Y Axis")
+                if (type == "X Axis" || type == "Y Axis")
                     type = "2D";
                 if (ecuCalDef->NameList.at(def_map_index) == " ")
                     ecuCalDef->NameList.replace(def_map_index, rom_child.attribute("name", " "));
@@ -416,11 +458,13 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
                 {
                     if (ecuCalDef->XSizeList.at(def_map_index) == "" || ecuCalDef->XSizeList.at(def_map_index) == " ")
                         ecuCalDef->XSizeList.replace(def_map_index, rom_child.attribute("elements", " "));
+                    ecuCalDef->YSizeList.replace(def_map_index, "1");
                 }
                 if (rom_child.attribute("type"," ") == "Y Axis")
                 {
                     if (ecuCalDef->YSizeList.at(def_map_index) == "" || ecuCalDef->YSizeList.at(def_map_index) == " ")
                         ecuCalDef->YSizeList.replace(def_map_index, rom_child.attribute("elements", " "));
+                    ecuCalDef->XSizeList.replace(def_map_index, "1");
                 }
                 if (ecuCalDef->StartPosList.at(def_map_index) == " ")
                     ecuCalDef->StartPosList.replace(def_map_index, rom_child.attribute("startpos", "1"));
@@ -463,7 +507,7 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
                         if (ecuCalDef->ToByteList.at(def_map_index) == " ")
                             ecuCalDef->ToByteList.replace(def_map_index, rom_scale_child.attribute("frexpr", " "));
                         if (ecuCalDef->FormatList.at(def_map_index) == " ")
-                            ecuCalDef->FormatList.replace(def_map_index, convert_value_format(rom_scale_child.attribute("format", " ")));
+                            ecuCalDef->FormatList.replace(def_map_index, rom_scale_child.attribute("format", " "));
 
                         QString selection_name;
                         QString selection_value;
@@ -513,7 +557,6 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
                                 ecuCalDef->XScaleStartPosList.replace(def_map_index, rom_scale_child.attribute("startpos", "1"));
                             if (ecuCalDef->XScaleIntervalList.at(def_map_index) == " ")
                                 ecuCalDef->XScaleIntervalList.replace(def_map_index, rom_scale_child.attribute("interval", "1"));
-
                             QDomElement rom_scale_sub_child = rom_scale_child.firstChild().toElement();
                             if (rom_scale_sub_child.tagName() == "scaling")
                             {
@@ -537,7 +580,7 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
                                 if (ecuCalDef->XScaleToByteList.at(def_map_index) == " ")
                                     ecuCalDef->XScaleToByteList.replace(def_map_index, rom_scale_sub_child.attribute("frexpr", " "));
                                 if (ecuCalDef->XScaleFormatList.at(def_map_index) == " ")
-                                    ecuCalDef->XScaleFormatList.replace(def_map_index, convert_value_format(rom_scale_sub_child.attribute("format", " ")));
+                                    ecuCalDef->XScaleFormatList.replace(def_map_index, rom_scale_sub_child.attribute("format", " "));
                             }
                         }
                         else if (ScaleType == "Y Axis" && ecuCalDef->TypeList.at(def_map_index) == "3D")
@@ -581,7 +624,7 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
                                 if (ecuCalDef->YScaleToByteList.at(def_map_index) == " ")
                                     ecuCalDef->YScaleToByteList.replace(def_map_index, rom_scale_sub_child.attribute("frexpr", " "));
                                 if (ecuCalDef->YScaleFormatList.at(def_map_index) == " ")
-                                    ecuCalDef->YScaleFormatList.replace(def_map_index, convert_value_format(rom_scale_sub_child.attribute("format", " ")));
+                                    ecuCalDef->YScaleFormatList.replace(def_map_index, rom_scale_sub_child.attribute("format", " "));
                             }
                         }
                         else if (ScaleType == "Static Y Axis" || ScaleType == "Static X Axis" || (ScaleType == "Y Axis" && ecuCalDef->TypeList.at(def_map_index) == "2D"))
@@ -591,6 +634,7 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
                                 ScaleType = "Static X Axis";
                             if (ecuCalDef->XSizeList.at(def_map_index) == " " || ecuCalDef->XSizeList.at(def_map_index) == "")
                                 ecuCalDef->XSizeList.replace(def_map_index, rom_scale_child.attribute("elements", " "));
+                            ecuCalDef->YSizeList.replace(def_map_index, "1");
                             if (ecuCalDef->XScaleNameList.at(def_map_index) == " ")
                                 ecuCalDef->XScaleNameList.replace(def_map_index, rom_scale_child.attribute("name"," "));
                             if (ecuCalDef->XScaleAddressList.at(def_map_index) == " ")
@@ -627,7 +671,7 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
                                 if (ecuCalDef->XScaleToByteList.at(def_map_index) == " ")
                                     ecuCalDef->XScaleToByteList.replace(def_map_index, rom_scale_sub_child.attribute("frexpr", " "));
                                 if (ecuCalDef->XScaleFormatList.at(def_map_index) == " ")
-                                    ecuCalDef->XScaleFormatList.replace(def_map_index, convert_value_format(rom_scale_sub_child.attribute("format", " ")));
+                                    ecuCalDef->XScaleFormatList.replace(def_map_index, rom_scale_sub_child.attribute("format", " "));
                             }
                             if (ScaleType == "Static Y Axis" || ScaleType == "Static X Axis")
                             {
@@ -641,6 +685,7 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
                                     }
                                     rom_scale_child_data = rom_scale_child_data.nextSibling().toElement();
                                 }
+                                //emit LOG_D("Scale " + ecuCalDef->XScaleNameList.at(def_map_index) + " data: " + StaticYScaleData, true, true);
                                 ecuCalDef->XScaleStaticDataList.replace(def_map_index, StaticYScaleData);
                             }
                         }
@@ -703,7 +748,7 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
                 def_map_index++;
             }
         }
-        rom_child = rom_child.nextSibling().toElement();
+        //rom_child = rom_child.nextSibling().toElement();
     }
 
     //emit LOG_D("CAL ID " + cal_id + " read";
@@ -786,46 +831,6 @@ FileActions::EcuCalDefStructure *FileActions::parse_ecuflash_def_scalings(EcuCal
                 ecuCalDef->YScaleFormatList.replace(def_map_index, convert_value_format(ecuCalDef->ScalingFormatList.at(k)));
             }
         }
-        if (ecuCalDef->NameList.at(def_map_index) == "Air Fuel Learning Loads" || ecuCalDef->NameList.at(def_map_index) == "Injector Capacity")
-        {
-/*
-            emit LOG_D("";
-            emit LOG_D("Map data";
-            emit LOG_D(ecuCalDef->NameList.at(def_map_index);
-            emit LOG_D(ecuCalDef->AddressList.at(def_map_index);
-            emit LOG_D(ecuCalDef->TypeList.at(def_map_index);
-            emit LOG_D(ecuCalDef->StorageTypeList.at(def_map_index);
-            emit LOG_D(ecuCalDef->UnitsList.at(def_map_index);
-            emit LOG_D(ecuCalDef->FromByteList.at(def_map_index);
-            emit LOG_D(ecuCalDef->ToByteList.at(def_map_index);
-            emit LOG_D(ecuCalDef->FormatList.at(def_map_index);
-            emit LOG_D(ecuCalDef->MapData.at(def_map_index);
-            emit LOG_D("";
-            emit LOG_D("X Axis data";
-            emit LOG_D(ecuCalDef->XSizeList.at(def_map_index);
-            emit LOG_D(ecuCalDef->XScaleNameList.at(def_map_index);
-            emit LOG_D(ecuCalDef->XScaleAddressList.at(def_map_index);
-            emit LOG_D(ecuCalDef->XScaleTypeList.at(def_map_index);
-            emit LOG_D(ecuCalDef->XScaleScalingNameList.at(def_map_index);
-            emit LOG_D(ecuCalDef->XScaleStorageTypeList.at(def_map_index);
-            emit LOG_D(ecuCalDef->XScaleUnitsList.at(def_map_index);
-            emit LOG_D(ecuCalDef->XScaleFromByteList.at(def_map_index);
-            emit LOG_D(ecuCalDef->XScaleToByteList.at(def_map_index);
-            emit LOG_D(ecuCalDef->XScaleData.at(def_map_index);
-            emit LOG_D("";
-            emit LOG_D("Y Axis data";
-            emit LOG_D(ecuCalDef->YSizeList.at(def_map_index);
-            emit LOG_D(ecuCalDef->YScaleNameList.at(def_map_index);
-            emit LOG_D(ecuCalDef->YScaleAddressList.at(def_map_index);
-            emit LOG_D(ecuCalDef->YScaleTypeList.at(def_map_index);
-            emit LOG_D(ecuCalDef->YScaleScalingNameList.at(def_map_index);
-            emit LOG_D(ecuCalDef->YScaleStorageTypeList.at(def_map_index);
-            emit LOG_D(ecuCalDef->YScaleUnitsList.at(def_map_index);
-            emit LOG_D(ecuCalDef->YScaleFromByteList.at(def_map_index);
-            emit LOG_D(ecuCalDef->YScaleToByteList.at(def_map_index);
-            emit LOG_D(ecuCalDef->YScaleData.at(def_map_index);
-            */
-        }
     }
     //emit LOG_D("EcuFlash scalings parsed, start parsing calibration maps";
     return ecuCalDef;
@@ -856,42 +861,8 @@ FileActions::EcuCalDefStructure *FileActions::add_ecuflash_def_list_item(EcuCalD
     ecuCalDef->StateList.append(" ");
     ecuCalDef->MapScalingNameList.append(" ");
     ecuCalDef->MapData.append(" ");
-
-    ecuCalDef->ScaleTypeList[0].append(" ");
-    ecuCalDef->ScaleNameList[0].append(" ");
-    ecuCalDef->ScaleAddressList[0].append(" ");
-    ecuCalDef->ScaleMinValueList[0].append(" ");
-    ecuCalDef->ScaleMaxValueList[0].append(" ");
-    ecuCalDef->ScaleUnitsList[0].append(" ");
-    ecuCalDef->ScaleFormatList[0].append(" ");
-    ecuCalDef->ScaleFineIncList[0].append(" ");
-    ecuCalDef->ScaleCoarseIncList[0].append(" ");
-    ecuCalDef->ScaleStorageTypeList[0].append(" ");
-    ecuCalDef->ScaleEndianList[0].append(" ");
-    ecuCalDef->ScaleLogParamList[0].append(" ");
-    ecuCalDef->ScaleFromByteList[0].append(" ");
-    ecuCalDef->ScaleToByteList[0].append(" ");
-    ecuCalDef->ScaleStaticDataList[0].append(" ");
-    ecuCalDef->ScaleScalingNameList[0].append(" ");
-    ecuCalDef->ScaleData[0].append(" ");
-
-    ecuCalDef->ScaleTypeList[1].append(" ");
-    ecuCalDef->ScaleNameList[1].append(" ");
-    ecuCalDef->ScaleAddressList[1].append(" ");
-    ecuCalDef->ScaleMinValueList[1].append(" ");
-    ecuCalDef->ScaleMaxValueList[1].append(" ");
-    ecuCalDef->ScaleUnitsList[1].append(" ");
-    ecuCalDef->ScaleFormatList[1].append(" ");
-    ecuCalDef->ScaleFineIncList[1].append(" ");
-    ecuCalDef->ScaleCoarseIncList[1].append(" ");
-    ecuCalDef->ScaleStorageTypeList[1].append(" ");
-    ecuCalDef->ScaleEndianList[1].append(" ");
-    ecuCalDef->ScaleLogParamList[1].append(" ");
-    ecuCalDef->ScaleFromByteList[1].append(" ");
-    ecuCalDef->ScaleToByteList[1].append(" ");
-    ecuCalDef->ScaleStaticDataList[1].append(" ");
-    ecuCalDef->ScaleScalingNameList[1].append(" ");
-    ecuCalDef->ScaleData[1].append(" ");
+    ecuCalDef->MapCellColorMin.append(" ");
+    ecuCalDef->MapCellColorMax.append(" ");
 
     ecuCalDef->XScaleTypeList.append(" ");
     ecuCalDef->XScaleNameList.append(" ");

@@ -6,8 +6,10 @@
 #include <kernelcomms.h>
 #include <kernelmemorymodels.h>
 #include <file_actions.h>
-#include <serial_port/serial_port_actions.h>
 #include <ui_ecu_operations.h>
+
+//Forward declaration
+class SerialPortActions;
 
 QT_BEGIN_NAMESPACE
 namespace Ui
@@ -75,7 +77,7 @@ private:
     int read_memory(uint32_t start_addr, uint32_t length);
     int write_memory(bool test_write);
     int reflash_block(const uint8_t *newdata, const struct flashdev_t *fdt, unsigned blockno, bool test_write);
-    int erase_memory();
+    int erase_memory(const struct flashdev_t *fdt, unsigned blockno);
 
     QByteArray generate_can_seed_key(QByteArray requested_seed);
     QByteArray calculate_seed_key(QByteArray requested_seed, const uint16_t *keytogenerateindex, const uint8_t *indextransformation);

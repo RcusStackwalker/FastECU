@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include <QSplashScreen>
+#include "serial_port_actions.h"
 
 const QColor MainWindow::RED_LIGHT_OFF = QColor(96, 32, 32);
 const QColor MainWindow::YELLOW_LIGHT_OFF = QColor(96, 96, 32);
@@ -18,6 +19,13 @@ MainWindow::MainWindow(QString peerAddress, QString peerPassword, QWidget *paren
     ui->setupUi(this);
     qApp->installEventFilter(this);
     qRegisterMetaType<QVector<int> >("QVector<int>");
+
+    int id = QFontDatabase::addApplicationFont(":/fonts/FastECU_bars.ttf");
+    if (id >= 0)
+    {
+        QString family = QFontDatabase::applicationFontFamilies(id).at(0);
+        QFont monospace(family);
+    }
 
     QPixmap startUpSplashImage(":/images/startup_splash.jpg");
     int startUpSplashProgressBarValue = 0;
@@ -1581,9 +1589,9 @@ void MainWindow::selectable_combobox_item_changed(QString item)
             for (int j = 0; j < selectionsNameList.length(); j++){
                 if (selectionsNameList.at(j) == item)
                 {
-                    emit LOG_D("Old selectable value is: " + ecuCalDef[mapRomNumber]->MapData.at(mapNumber), true, true);
+                    //emit LOG_D("Old selectable value was: " + ecuCalDef[mapRomNumber]->MapData.at(mapNumber), true, true);
                     ecuCalDef[mapRomNumber]->MapData.replace(mapNumber, selectionsValueList.at(j));
-                    emit LOG_D("New selectable value is: " + ecuCalDef[mapRomNumber]->MapData.at(mapNumber), true, true);
+                    //emit LOG_D("New selectable value is: " + ecuCalDef[mapRomNumber]->MapData.at(mapNumber), true, true);
 
                     if (ecuCalDef[mapRomNumber]->StorageTypeList.at(mapNumber) == "bloblist")
                     {
@@ -2285,11 +2293,26 @@ void MainWindow::send_message_to_log_window(QString msg)
             textEdit->ensureCursorVisible();
         }
     }
+    QDialog *dataTerminalWindow = this->findChild<QDialog*>("DataTerminalWindow");
+    if (dataTerminalWindow)
+    {
+        emit LOG_D("Found dataTerminalWindow", true, true);
+        QTextEdit *textEdit = dataTerminalWindow->findChild<QTextEdit*>("text_edit");
+        if (textEdit)
+        {
+            emit LOG_D("Found dataTerminalWindow->textEdit", true, true);
+            textEdit->insertPlainText(msg);
+            textEdit->ensureCursorVisible();
+        }
+    }
 }
 
 void MainWindow::update_vbatt()
 {
     unsigned long vBatt = 0;
+
+    if (!serial->get_use_openport2_adapter())
+        return;
 
     vBatt = serial->read_vbatt();
 
@@ -2316,7 +2339,7 @@ void MainWindow::update_vbatt()
             //emit LOG_D("Found biuOperationsSubaruWindow->vBattLabel", true, true);
             QString vBattText = QString("Battery: %1").arg(vBatt/1000.0, 0, 'f', 3) + " V";
             vBattLabel->setText(vBattText);
-            //emit LOG_D(vBattText, true, true);
+            emit LOG_D(vBattText, true, true);
         }
     }
     QDialog *dtcOperationsWindow = this->findChild<QDialog*>("DtcOperationsWindow");
@@ -2329,7 +2352,20 @@ void MainWindow::update_vbatt()
             //emit LOG_D("Found dtcOperationsWindow->vBattLabel", true, true);
             QString vBattText = QString("Battery: %1").arg(vBatt/1000.0, 0, 'f', 3) + " V";
             vBattLabel->setText(vBattText);
-            //emit LOG_D(vBattText, true, true);
+            emit LOG_D(vBattText, true, true);
+        }
+    }
+    QDialog *dataTerminalWindow = this->findChild<QDialog*>("DataTerminalWindow");
+    if (dataTerminalWindow)
+    {
+        emit LOG_D("Found dataTerminalWindow", true, true);
+        QLabel *vBattLabel = dataTerminalWindow->findChild<QLabel*>("vBattLabel");
+        if (vBattLabel)
+        {
+            emit LOG_D("Found dataTerminalWindow->vBattLabel", true, true);
+            QString vBattText = QString("Battery: %1").arg(vBatt/1000.0, 0, 'f', 3) + " V";
+            vBattLabel->setText(vBattText);
+            emit LOG_D(vBattText, true, true);
         }
     }
 }

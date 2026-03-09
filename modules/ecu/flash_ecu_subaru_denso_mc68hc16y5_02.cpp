@@ -1,4 +1,5 @@
 #include "flash_ecu_subaru_denso_mc68hc16y5_02.h"
+#include "serial_port_actions.h"
 
 FlashEcuSubaruDensoMC68HC16Y5_02::FlashEcuSubaruDensoMC68HC16Y5_02(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent)
     : QDialog(parent)
@@ -73,6 +74,7 @@ void FlashEcuSubaruDensoMC68HC16Y5_02::run()
     serial->open_serial_port();
     //serial->set_serial_port_baudrate("9600");
     serial->set_lec_lines(serial->get_requestToSendDisabled(), serial->get_dataTerminalDisabled());
+    serial->read_serial_data(10);
 
     int ret = QMessageBox::warning(this, tr("Connecting to ECU"),
                                    tr("Turn ignition ON and press OK to start initializing connection to ECU"),
@@ -699,10 +701,14 @@ int FlashEcuSubaruDensoMC68HC16Y5_02::check_romcrc(const uint8_t *src, uint32_t 
         return STATUS_ERROR;
     }
 
+    //received.remove(0, 5);
+    //received.remove(received.length() - 1, 1);
+
     ecucrc32 = 0;
     imgcrc32 = crc32(src, pagesize);
     if (received.length() > 3)
-        ecucrc32 = ((uint8_t)received.at(0) << 24) | ((uint8_t)received.at(1) << 16) | ((uint8_t)received.at(2) << 8) | (uint8_t)received.at(3);
+        ecucrc32 = (uint8_t)received.at(5) << 24 | (uint8_t)received.at(6) << 16 | (uint8_t)received.at(7) << 8 | (uint8_t)received.at(8);
+        //ecucrc32 = ((uint8_t)received.at(0) << 24) | ((uint8_t)received.at(1) << 16) | ((uint8_t)received.at(2) << 8) | (uint8_t)received.at(3);
     msg.clear();
     msg.append(QString("ROM CRC: 0x%1 IMG CRC: 0x%2").arg(ecucrc32,8,16,QLatin1Char('0')).arg(imgcrc32,8,16,QLatin1Char('0')).toUtf8());
     //emit LOG_D(msg, true, true);
@@ -802,7 +808,7 @@ int FlashEcuSubaruDensoMC68HC16Y5_02::init_flash_write()
         return STATUS_ERROR;
     }
 
-    flashmessagesize = (uint8_t)received.at(6) << 24 | (uint8_t)received.at(7) << 16 | (uint8_t)received.at(8) << 8 | (uint8_t)received.at(9) << 0;
+    flashmessagesize = (uint8_t)received.at(5) << 24 | (uint8_t)received.at(6) << 16 | (uint8_t)received.at(7) << 8 | (uint8_t)received.at(8);
     msg.clear();
     msg.append(QString("Max message length: 0x%1").arg(flashmessagesize,4,16,QLatin1Char('0')).toUtf8());
     emit LOG_I(msg, true, true);
@@ -837,7 +843,7 @@ int FlashEcuSubaruDensoMC68HC16Y5_02::init_flash_write()
         return STATUS_ERROR;
     }
 
-    flashblocksize = (uint8_t)received.at(6) << 24 | (uint8_t)received.at(7) << 16 | (uint8_t)received.at(8) << 8 | (uint8_t)received.at(9) << 0;
+    flashblocksize = (uint8_t)received.at(5) << 24 | (uint8_t)received.at(6) << 16 | (uint8_t)received.at(7) << 8 | (uint8_t)received.at(8);
     msg.clear();
     msg.append(QString("Flashblock size: 0x%1").arg(flashblocksize,4,16,QLatin1Char('0')).toUtf8());
     emit LOG_I(msg, true, true);
@@ -1026,8 +1032,8 @@ int FlashEcuSubaruDensoMC68HC16Y5_02::flash_block(const uint8_t *src, uint32_t s
         }
 
         emit LOG_I(" erased", false, true);
-        emit LOG_E("Wrong response from ECU: " + parse_message_to_hex(received), true, true);
-        return STATUS_ERROR;
+        //emit LOG_E("Wrong response from ECU: " + parse_message_to_hex(received), true, true);
+        //return STATUS_ERROR;
     }
 
     timer.start();

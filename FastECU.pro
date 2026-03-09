@@ -1,4 +1,4 @@
-QT       += core gui xml serialport remoteobjects websockets
+QT += core gui xml serialport remoteobjects websockets
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 QT += charts
@@ -20,7 +20,9 @@ win32 {
     #LIBS += -LC:\Qt\5.9.9\mingw53_32\lib\libQt5OpenGL.a -lopengl32 -lsetupapi
     #OpenSSL library must be stated first because in case
     #of static build it cannot be linked static, dynamic only
-    QMAKE_LFLAGS += -lcrypto-3
+    QMAKE_LFLAGS += -L\"C:\Program Files (x86)\OpenSSL-Win32\bin\" \
+                    -L\"C:\Program Files\OpenSSL-Win32\bin\" \
+                    -lcrypto-3
     LIBS += -lopengl32 -lsetupapi
     SOURCES += \
     serial_port/J2534_win.cpp
@@ -37,7 +39,7 @@ unix {
     HEADERS += \
     serial_port/J2534_linux.h
     HEADERS += \
-    serial_port/J2534_tactrix_linux.h \
+    serial_port/J2534_tactrix_linux.h
 }
 
 # Do static build for Windows to have only on portable .exe file that
@@ -67,6 +69,7 @@ SOURCES += \
     calibration_maps.cpp \
     calibration_treewidget.cpp \
     cipher.cpp \
+    dataterminal.cpp \
     definition_file_convert.cpp \
     dtc_operations.cpp \
     ecu_operations.cpp \
@@ -74,7 +77,12 @@ SOURCES += \
     file_defs_ecuflash.cpp \
     file_defs_romraider.cpp \
     get_key_operations_subaru.cpp \
-    hexcommander.cpp \
+    hexedit/hexedit.cpp \
+    hexedit/optionsdialog.cpp \
+    hexedit/qhexedit/chunks.cpp \
+    hexedit/qhexedit/commands.cpp \
+    hexedit/qhexedit/qhexedit.cpp \
+    hexedit/searchdialog.cpp \
     log_operations_ssm.cpp \
     logbox.cpp \
     logvalues.cpp \
@@ -138,13 +146,19 @@ HEADERS += \
     calibration_maps.h \
     calibration_treewidget.h \
     cipher.h \
+    dataterminal.h \
     definition_file_convert.h \
     dtc_operations.h \
     ecu_operations.h \
     error_codes.h \
     file_actions.h \
     get_key_operations_subaru.h \
-    hexcommander.h \
+    hexedit/hexedit.h \
+    hexedit/optionsdialog.h \
+    hexedit/qhexedit/chunks.h \
+    hexedit/qhexedit/commands.h \
+    hexedit/qhexedit/qhexedit.h \
+    hexedit/searchdialog.h \
     kernelcomms.h \
     kernelmemorymodels.h \
     logbox.h \
@@ -209,6 +223,8 @@ FORMS += \
     definition_file_convert.ui \
     dtc_operations.ui \
     ecu_operations.ui \
+    hexedit/optionsdialog.ui \
+    hexedit/searchdialog.ui \
     logvalues.ui \
     mainwindow.ui \
     modules/biu/biu_operations_subaru.ui \
@@ -233,6 +249,8 @@ flatpak {
 
 RESOURCES += \
     config.qrc \
+    fonts.qrc \
+    hexedit/qhexedit.qrc \
     icons.qrc \
     images.qrc \
     kernels.qrc
@@ -263,6 +281,30 @@ DISTFILES += \
     flatpak/fi.fastecu.FastECU_256x256.png \
     flatpak/fi.fastecu.FastECU_32x32.png \
     flatpak/fi.fastecu.FastECU_64x64.png \
+    flatpak/resources/fi.fastecu.FastECU.desktop \
+    flatpak/resources/fi.fastecu.FastECU.ico \
+    flatpak/resources/fi.fastecu.FastECU.metainfo.xml \
+    flatpak/resources/fi.fastecu.FastECU_128x128.png \
+    flatpak/resources/fi.fastecu.FastECU_16x16.png \
+    flatpak/resources/fi.fastecu.FastECU_256x256.png \
+    flatpak/resources/fi.fastecu.FastECU_32x32.png \
+    flatpak/resources/fi.fastecu.FastECU_64x64.png \
+    hexedit/images/find.png \
+    hexedit/images/open.png \
+    hexedit/images/qhexedit.ico \
+    hexedit/images/qhexedit.svg \
+    hexedit/images/qhexedit16.png \
+    hexedit/images/qhexedit32.png \
+    hexedit/images/qhexedit64.png \
+    hexedit/images/redo.png \
+    hexedit/images/save.png \
+    hexedit/images/undo.png \
+    hexedit/translations/qhexedit_cs.qm \
+    hexedit/translations/qhexedit_de.qm \
+    hexedit/translations/qhexedit_es.qm \
+    hexedit/translations/qhexedit_fr.qm \
+    hexedit/translations/qhexedit_it.qm \
+    hexedit/translations/qhexedit_ru.qm \
     kernels/ssmk_can_sh7055.bin \
     kernels/ssmk_can_sh7058.bin \
     kernels/ssmk_can_sh7059d_euro5.bin \
@@ -276,3 +318,11 @@ DISTFILES += \
     kernels/ssmk_tcu_can_sh7058.bin
 
 RC_FILE = fastecu.rc
+
+TRANSLATIONS += \
+    hexedit/translations/qhexedit_cs.ts \
+    hexedit/translations/qhexedit_de.ts \
+    hexedit/translations/qhexedit_es.ts \
+    hexedit/translations/qhexedit_fr.ts \
+    hexedit/translations/qhexedit_it.ts \
+    hexedit/translations/qhexedit_ru.ts

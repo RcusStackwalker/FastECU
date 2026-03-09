@@ -1,6 +1,7 @@
 #include "serial_port_actions.h"
 #include "qdialog.h"
 #include "qtrohelper.hpp"
+#include "rep_serial_port_actions_replica.h"
 
 SerialPortActions::SerialPortActions(QString peerAddress,
                                      QString password,
@@ -109,6 +110,7 @@ void SerialPortActions::waitForSource(void)
     while (!serial_remote->waitForSource(10000))
     {
         sendAutoDiscoveryMessage();
+        delay(50);
         emit LOG_D("SerialPortActions: Waiting for remote peer...", true, true);
     }
 }
@@ -175,6 +177,40 @@ bool SerialPortActions::set_setDataTerminalReady(bool value)
         serial_direct->setDataTerminalReady = value;
     else
         r = qtrohelper::slot_sync(serial_remote->set_setDataTerminalReady(value));
+    return r;
+}
+
+bool SerialPortActions::get_add_ssm_header(void)
+{
+    if (isDirectConnection())
+        return serial_direct->add_ssm_header;
+    else
+        return qtrohelper::slot_sync(serial_remote->get_add_ssm_header());
+}
+bool SerialPortActions::set_add_ssm_header(bool value)
+{
+    bool r = true;
+    if (isDirectConnection())
+        serial_direct->add_ssm_header = value;
+    else
+        r = qtrohelper::slot_sync(serial_remote->set_add_ssm_header(value));
+    return r;
+}
+
+bool SerialPortActions::get_add_iso9141_header(void)
+{
+    if (isDirectConnection())
+        return serial_direct->add_iso9141_header;
+    else
+        return qtrohelper::slot_sync(serial_remote->get_add_iso9141_header());
+}
+bool SerialPortActions::set_add_iso9141_header(bool value)
+{
+    bool r = true;
+    if (isDirectConnection())
+        serial_direct->add_iso9141_header = value;
+    else
+        r = qtrohelper::slot_sync(serial_remote->set_add_iso9141_header(value));
     return r;
 }
 
@@ -341,52 +377,52 @@ bool SerialPortActions::set_dataTerminalDisabled(int value)
     return r;
 }
 
-uint8_t SerialPortActions::get_iso14230_startbyte(void)
+uint8_t SerialPortActions::get_kline_startbyte(void)
 {
     if (isDirectConnection())
-        return serial_direct->iso14230_startbyte;
+        return serial_direct->kline_startbyte;
     else
-        return qtrohelper::slot_sync(serial_remote->get_iso14230_startbyte());
+        return qtrohelper::slot_sync(serial_remote->get_kline_startbyte());
 }
-bool SerialPortActions::set_iso14230_startbyte(uint8_t value)
+bool SerialPortActions::set_kline_startbyte(uint8_t value)
 {
     bool r = true;
     if (isDirectConnection())
-        serial_direct->iso14230_startbyte = value;
+        serial_direct->kline_startbyte = value;
     else
-        r = qtrohelper::slot_sync(serial_remote->set_iso14230_startbyte(value));
+        r = qtrohelper::slot_sync(serial_remote->set_kline_startbyte(value));
     return r;
 }
-uint8_t SerialPortActions::get_iso14230_tester_id(void)
+uint8_t SerialPortActions::get_kline_tester_id(void)
 {
     if (isDirectConnection())
-        return serial_direct->iso14230_tester_id;
+        return serial_direct->kline_tester_id;
     else
-        return qtrohelper::slot_sync(serial_remote->get_iso14230_tester_id());
+        return qtrohelper::slot_sync(serial_remote->get_kline_tester_id());
 }
-bool SerialPortActions::set_iso14230_tester_id(uint8_t value)
+bool SerialPortActions::set_kline_tester_id(uint8_t value)
 {
     bool r = true;
     if (isDirectConnection())
-        serial_direct->iso14230_tester_id = value;
+        serial_direct->kline_tester_id = value;
     else
-        r = qtrohelper::slot_sync(serial_remote->set_iso14230_tester_id(value));
+        r = qtrohelper::slot_sync(serial_remote->set_kline_tester_id(value));
     return r;
 }
-uint8_t SerialPortActions::get_iso14230_target_id(void)
+uint8_t SerialPortActions::get_kline_target_id(void)
 {
     if (isDirectConnection())
-        return serial_direct->iso14230_target_id;
+        return serial_direct->kline_target_id;
     else
-        return qtrohelper::slot_sync(serial_remote->get_iso14230_target_id());
+        return qtrohelper::slot_sync(serial_remote->get_kline_target_id());
 }
-bool SerialPortActions::set_iso14230_target_id(uint8_t value)
+bool SerialPortActions::set_kline_target_id(uint8_t value)
 {
     bool r = true;
     if (isDirectConnection())
-        serial_direct->iso14230_target_id = value;
+        serial_direct->kline_target_id = value;
     else
-        r = qtrohelper::slot_sync(serial_remote->set_iso14230_target_id(value));
+        r = qtrohelper::slot_sync(serial_remote->set_kline_target_id(value));
     return r;
 }
 
@@ -846,7 +882,7 @@ struct SerialPortActions::kline_timings SerialPortActions::get_kline_timings()
     return timings;
 }
 */
-bool SerialPortActions::set_kline_timings(unsigned long parameter, int value)
+bool SerialPortActions::set_kline_timings(uint32_t parameter, int value)
 {
     if (isDirectConnection())
         serial_direct->set_kline_timings(parameter, value);
@@ -854,7 +890,7 @@ bool SerialPortActions::set_kline_timings(unsigned long parameter, int value)
     return STATUS_SUCCESS;
 }
 
-int SerialPortActions::set_j2534_ioctl(unsigned long parameter, int value)
+int SerialPortActions::set_j2534_ioctl(uint32_t parameter, int value)
 {
     bool result = STATUS_SUCCESS;
     this->set_comm_busy(true);
@@ -970,8 +1006,12 @@ QByteArray SerialPortActions::read_serial_obd_data(uint16_t timeout)
 {
     QByteArray response;
     if (isDirectConnection())
+    {
         response = serial_direct->read_serial_obd_data(timeout);
+        emit LOG_D("Response: " + parse_message_to_hex(response.mid(0,20)), true, true);
+    }
 
+    set_comm_busy(false);
     return response;
 }
 
@@ -982,7 +1022,7 @@ QByteArray SerialPortActions::read_serial_data(uint16_t timeout)
     {
         response = serial_direct->read_serial_data(timeout);
         emit LOG_D("Response: " + parse_message_to_hex(response.mid(0,20)), true, true);
-        if (get_read_vbatt() && response.length())
+        if (get_read_vbatt())
         {
             vBatt = serial_direct->read_vbatt();
             set_read_vbatt(false);
@@ -1024,6 +1064,14 @@ QByteArray SerialPortActions::write_serial_data_echo_check(QByteArray output)
         return serial_direct->write_serial_data_echo_check(output);
     else
         return qtrohelper::slot_sync(serial_remote->write_serial_data_echo_check(output));
+}
+
+bool SerialPortActions::get_is_tx_done()
+{
+    if (isDirectConnection())
+        return serial_direct->get_is_tx_done();
+    //else
+    //    return qtrohelper::slot_sync(serial_remote->get_is_tx_done());
 }
 
 int SerialPortActions::clear_rx_buffer()
@@ -1110,9 +1158,7 @@ unsigned long SerialPortActions::read_vbatt()
     else
     {
         if (!get_is_comm_busy() && !get_read_vbatt())
-        {
             vBatt = qtrohelper::slot_sync(serial_remote->read_vbatt());
-        }
         else
             set_read_vbatt(true);
         //emit LOG_D("Remote vBatt: " + QString::number(vBatt), true, true);
