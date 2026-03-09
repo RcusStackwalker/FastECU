@@ -39,7 +39,7 @@ unix {
     HEADERS += \
     serial_port/J2534_linux.h
     HEADERS += \
-    serial_port/J2534_tactrix_linux.h \
+    serial_port/J2534_tactrix_linux.h
 }
 
 # Do static build for Windows to have only on portable .exe file that

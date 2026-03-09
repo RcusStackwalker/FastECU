@@ -637,7 +637,7 @@ void MainWindow::interpolate_value(QString action)
 
                 for (int j = 0; j < interpolateRowCount; j++){
                     for (int i = 0; i < interpolateColCount; i++){
-                        uint16_t map_value_index = j * map_x_size + i;
+                        uint16_t map_value_index = (j + firstRow) * map_x_size + firstCol + i;
                         QString rom_data_value = QString::number(fileActions->calculate_value_from_expression(fileActions->parse_stringlist_from_expression_string(map_value_to_byte, QString::number(cellValue[i][j]))));
                         map_data_value.dword_value = rom_data_value.toUInt();
                         if (map_value_storagetype == "float")
@@ -697,6 +697,18 @@ void MainWindow::copy_value()
 
 void MainWindow::paste_value()
 {
+    union map_data{
+        int8_t sbyte_value[4];
+        int16_t sword_value[2];
+        int32_t sdword_value;
+        uint8_t byte_value[4];
+        uint16_t word_value[2];
+        uint32_t dword_value;
+        float float_value;
+    } map_data_value;
+
+    bool bStatus = false;
+
     int rom_number = 0;
     int map_number = 0;
 
@@ -708,15 +720,20 @@ void MainWindow::paste_value()
         map_number = mapWindowString.at(1).toInt();
 
         QTableWidget* mapTableWidget = w->findChild<QTableWidget*>(w->objectName());
-        if (mapTableWidget){
-            if (!mapTableWidget->selectedRanges().isEmpty()){
-
+        if (mapTableWidget)
+        {
+            if (!mapTableWidget->selectedRanges().isEmpty())
+            {
                 QStringList mapDataCellText = ecuCalDef[rom_number]->MapData.at(map_number).split(",");
                 QString pasteString = QApplication::clipboard()->text();
                 QStringList rows = pasteString.split('\n');
                 //QString mapFormat = ecuCalDef[mapRomNumber]->FormatList[mapNumber];
-                int mapXSize = ecuCalDef[rom_number]->XSizeList[map_number].toInt();
-                int mapYSize = ecuCalDef[rom_number]->YSizeList[map_number].toInt();
+                QString map_value_storagetype = ecuCalDef[rom_number]->StorageTypeList[map_number];
+                QString map_value_to_byte = ecuCalDef[rom_number]->ToByteList[map_number];
+                QString map_value_endian = ecuCalDef[rom_number]->EndianList[map_number];
+                uint32_t map_data_address = ecuCalDef[rom_number]->AddressList[map_number].toUInt(&bStatus, 16);
+                int map_x_size = ecuCalDef[rom_number]->XSizeList[map_number].toInt();
+                int map_y_size = ecuCalDef[rom_number]->YSizeList[map_number].toInt();
 
                 if (!mapTableWidget->selectedRanges().isEmpty()){
                     QList<QTableWidgetSelectionRange> selected_range = mapTableWidget->selectedRanges();
@@ -726,11 +743,23 @@ void MainWindow::paste_value()
                     int numRows = rows.count();
                     int numColumns = rows.first().count('\t') + 1;
 
-                    for (int i = 0; i < numRows; ++i) {
-                        QStringList columns = rows[i].split('\t');
-                        for (int j = 0; j < numColumns; ++j) {
-                                if ((i + firstRow) < mapYSize && (j + firstCol) < mapXSize)
-                                    mapDataCellText.replace((i + firstRow) * mapXSize + (j + firstCol), columns[j]);
+                    for (int j = 0; j < numRows; ++j) {
+                        QStringList columns = rows[j].split('\t');
+                        for (int i = 0; i < numColumns; ++i) {
+                            if ((j + firstRow) < map_y_size && (i + firstCol) < map_x_size)
+                            {
+                                uint16_t map_value_index = (j + firstRow) * map_x_size + firstCol + i;
+                                mapDataCellText.replace((j + firstRow) * map_x_size + (i + firstCol), columns[i]);
+                                QString rom_data_value = QString::number(fileActions->calculate_value_from_expression(fileActions->parse_stringlist_from_expression_string(map_value_to_byte, mapDataCellText.at((j + firstRow) * map_x_size + (i + firstCol)))));
+                                map_data_value.dword_value = rom_data_value.toUInt();
+                                if (map_value_storagetype == "float")
+                                    map_data_value.dword_value = (uint32_t)(qRound(map_data_value.float_value));
+                                else
+                                    rom_data_value = QString::number(qRound(rom_data_value.toFloat()));
+
+                                map_data_value.dword_value = rom_data_value.toInt();
+                                set_rom_data_value(rom_number, map_data_address, map_value_index, map_value_storagetype, map_value_endian, map_data_value.float_value);
+                            }
                         }
                     }
                     ecuCalDef[rom_number]->MapData.replace(map_number, mapDataCellText.join(","));
@@ -1188,7 +1217,7 @@ void MainWindow::set_maptablewidget_items()
                 else
                     xPos = i - (yPos - ySizeOffset) * xSize;
 
-                qDebug() << "X pos:" << xPos << "Y pos:" << yPos;
+                //qDebug() << "X pos:" << xPos << "Y pos:" << yPos;
                 QTableWidgetItem *cellItem;// = new QTableWidgetItem;
                 cellItem = mapTableWidget->item(yPos, xPos);
 

@@ -375,6 +375,11 @@ int FlashEcuSubaruDensoSH7058Can::connect_bootloader()
             seed_alter_addr = 0xffffbba8;
             xor_bytes_addr = 0xffffbc00;
         }
+        else
+        {
+          emit LOG_I("Unknown EcuTek ROM found... exiting...", true, true);
+          return STATUS_ERROR;
+        }
 
         ram_value = read_ram_location(seed_alter_addr);
         seed_alter = ram_value;
