@@ -8,6 +8,9 @@ INCLUDEPATH += $$PWD/..
 SOURCES += \
     main.cpp \
     test_codec.cpp \
-    ../protocol/mut_dma_codec.cpp
+    test_freeform.cpp \
+    ../protocol/mut_dma_codec.cpp \
+    ../protocol/mut_dma_freeform.cpp
 HEADERS += \
-    test_codec.h
+    test_codec.h \
+    test_freeform.h
