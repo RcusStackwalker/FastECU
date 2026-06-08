@@ -21,4 +21,15 @@ bool verifyFrame(const QByteArray& frame) {
     const quint8 t = quint8(frame.at(TRAILER_OFFSET));
     return t == TRAILER_STD || t == TRAILER_FREEFORM;
 }
+StreamFrame parseStreamFrame(const QByteArray& frame) {
+    StreamFrame s;
+    if (frame.size() < 3) return s;                       // id + csum + trailer minimum
+    if (quint8(frame.at(frame.size()-1)) != TRAILER_STD) return s;
+    const int csumIdx = frame.size() - 2;
+    if (quint8(frame.at(csumIdx)) != sum8(frame, 0, csumIdx)) return s;
+    s.logId = quint8(frame.at(0));
+    s.data  = frame.mid(1, csumIdx - 1);
+    s.ok = true;
+    return s;
+}
 }

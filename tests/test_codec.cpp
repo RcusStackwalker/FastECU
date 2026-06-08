@@ -27,6 +27,19 @@ private slots:
         f[49] = char(quint8(f.at(49)) ^ 0xFF);     // corrupt checksum
         QVERIFY(!verifyFrame(f));
     }
+    void stream_frame_parse() {
+        // [LOG_ID][data...][sum8(id..lastData)][0x0D]
+        QByteArray data = QByteArray::fromHex("12340056");
+        QByteArray f; f.append(char(0x51)); f.append(data);
+        f.append(char(sum8(f, 0, f.size())));
+        f.append(char(TRAILER_STD));
+        StreamFrame s = parseStreamFrame(f);
+        QVERIFY(s.ok);
+        QCOMPARE(quint8(s.logId), quint8(0x51));
+        QCOMPARE(s.data, data);
+        f[f.size()-2] = f.at(f.size()-2) ^ 0xFF; // corrupt checksum
+        QVERIFY(!parseStreamFrame(f).ok);
+    }
 };
 int run_test_codec(int argc, char** argv) {
     TestCodec t;

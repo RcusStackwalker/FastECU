@@ -13,4 +13,9 @@ quint8 sum8(const QByteArray& bytes, int from, int len);
 QByteArray buildCommandFrame(quint8 cmd, const QByteArray& payload, quint8 trailer);
 // True iff size==51, byte49==sum8(0..48), byte50 in {0x0D,0x0A}.
 bool verifyFrame(const QByteArray& frame);
+
+struct StreamFrame { quint8 logId = 0; QByteArray data; bool ok = false; };
+// Variable-length streamed frame: [logId][data...][sum8(all but last 2)][0x0D].
+// data = bytes between logId and the checksum.
+StreamFrame parseStreamFrame(const QByteArray& frame);
 }
