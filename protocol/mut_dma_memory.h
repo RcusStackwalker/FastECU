@@ -8,6 +8,7 @@ namespace mutdma {
 constexpr int MAX_WRITE_CHUNK = 43;
 // 0x87 sub-cmd 3 (write arbitrary memory) frames, chunked to MAX_WRITE_CHUNK.
 // Each: cmd 0x87, payload [00 03 addrHi addrLo size data...], trailer 0x0D.
+// Returns no frames if addr + bytes.size() > 0x10000 (out-of-range write).
 QVector<QByteArray> buildWriteFrames(quint16 addr, const QByteArray& bytes);
 // Build 1-byte free-form channels covering [addr, addr+len). Caller chunks to the
 // id-list limit (~43 channels) across multiple streaming cycles.

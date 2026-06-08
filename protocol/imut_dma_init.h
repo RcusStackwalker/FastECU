@@ -22,6 +22,6 @@ public:
     FiveBaudInit(quint8 addrByte, int baud) : addr_(addrByte), baud_(baud) {}
     bool wake(IKlineTransport& t) override;     // see .cpp
 private:
-    quint8 addr_; int baud_;
+    [[maybe_unused]] quint8 addr_; int baud_;
 };
 }

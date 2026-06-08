@@ -2,6 +2,7 @@
 #include "protocol/mut_dma_codec.h"
 namespace mutdma {
 QVector<QByteArray> buildWriteFrames(quint16 addr, const QByteArray& bytes) {
+    if (quint32(addr) + quint32(bytes.size()) > 0x10000u) return {};
     QVector<QByteArray> frames;
     int off = 0;
     while (off < bytes.size()) {
