@@ -93,6 +93,11 @@
 
 #include <remote_utility/remote_utility.h>
 
+// Mitsubishi MUT/DMA protocol core (namespace mutdma)
+#include "protocol/mut_dma_driver.h"
+#include "protocol/fastecu_kline_transport.h"
+#include "protocol/imut_dma_init.h"
+
 //Forward declaration
 class SerialPortActions;
 
@@ -246,6 +251,11 @@ private:
     uint16_t logparams_poll_timer_timeout = 10;
     bool logparams_read_active = false;
 
+    // Mitsubishi MUT/DMA logging state (owned by log_operations_mitsubishi.cpp)
+    mutdma::MutDmaDriver* mut_driver = nullptr;
+    mutdma::FastEcuKlineTransport* mut_transport = nullptr;
+    mutdma::IMutDmaInit* mut_init = nullptr;
+
     QElapsedTimer *log_speed_timer;
 
     LogBox *logBoxes;
@@ -305,6 +315,12 @@ private:
     QByteArray add_ssm_header(QByteArray output, bool dec_0x100);
     uint8_t calculate_checksum(QByteArray output, bool dec_0x100);
     void log_to_file();
+
+    // log_operations_mitsubishi (MUT/DMA)
+    void mitsubishi_dma_start_logging();
+    void mitsubishi_dma_stop_logging();
+    bool mut_write_memory(quint16 addr, const QByteArray& bytes);
+    QByteArray mut_read_memory(quint16 addr, int len);
 
     // logvalues.c
     void change_log_values(int tabIndex, QString protocol);
@@ -382,6 +398,7 @@ private slots:
     bool ecu_init();
     void log_ssm_values();
     void read_log_serial_data();
+    void mitsubishi_dma_poll();
 
     // menu_actions.c
     void menu_action_triggered(QString action);

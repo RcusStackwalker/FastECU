@@ -493,8 +493,15 @@ MainWindow::~MainWindow()
     {
         logging_state = false;
         log_params_request_started = false;
-        log_ssm_values();
-        delay(200);
+        if (configValues->flash_protocol_selected_log_protocol == "MUT_DMA")
+        {
+            mitsubishi_dma_stop_logging();
+        }
+        else
+        {
+            log_ssm_values();
+            delay(200);
+        }
     }
     //ssm_init_poll_timer->stop();
     //serial_poll_timer->stop();

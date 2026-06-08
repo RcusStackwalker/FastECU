@@ -92,6 +92,7 @@ SOURCES += \
     hexedit/qhexedit/qhexedit.cpp \
     hexedit/searchdialog.cpp \
     log_operations_ssm.cpp \
+    log_operations_mitsubishi.cpp \
     logbox.cpp \
     logvalues.cpp \
     main.cpp \
