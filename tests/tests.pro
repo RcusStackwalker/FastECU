@@ -6,4 +6,5 @@ TEMPLATE = app
 TARGET = mut_dma_tests
 INCLUDEPATH += $$PWD/..
 SOURCES += \
-    test_smoke.cpp
+    test_codec.cpp \
+    ../protocol/mut_dma_codec.cpp
