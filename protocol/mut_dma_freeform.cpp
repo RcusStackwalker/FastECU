@@ -32,4 +32,17 @@ QByteArray buildIdListFrame(quint8 listCmd, const QVector<Channel>& channels) {
     f[total - 1] = char(TRAILER_STD);
     return f;
 }
+int responseDataLength(const QVector<Channel>& channels) {
+    int n = 0; for (const Channel& c : channels) n += c.len; return n;
+}
+QVector<quint32> decodeStreamValues(const QVector<Channel>& channels, const QByteArray& data) {
+    QVector<quint32> out; int off = 0;
+    for (const Channel& c : channels) {
+        quint32 v = 0;
+        for (int k = 0; k < c.len && off < data.size(); ++k, ++off)
+            v = (v << 8) | quint8(data.at(off));        // big-endian
+        out.append(v);
+    }
+    return out;
+}
 }

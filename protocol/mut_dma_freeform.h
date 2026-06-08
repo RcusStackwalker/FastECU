@@ -16,4 +16,8 @@ int reqLen(int channelCount);
 // ceil(N/4) bytes, channel i at bits[(3-(i%4))*2]][N x u16 ids big-endian][zero pad]
 // [sum8(0..len-3)][0x0D]. Total length == reqLen(N). listCmd selects the rate slot.
 QByteArray buildIdListFrame(quint8 listCmd, const QVector<Channel>& channels);
+// Sum of element sizes = number of data bytes a stream frame carries for these channels.
+int responseDataLength(const QVector<Channel>& channels);
+// Decode the stream data payload into one big-endian value per channel, in order.
+QVector<quint32> decodeStreamValues(const QVector<Channel>& channels, const QByteArray& data);
 }

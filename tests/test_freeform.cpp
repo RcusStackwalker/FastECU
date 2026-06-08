@@ -37,6 +37,16 @@ private slots:
         QCOMPARE(quint8(f.at(f.size()-2)), sum8(f, 0, f.size()-2));
         QCOMPARE(quint8(f.at(f.size()-1)), quint8(TRAILER_STD));
     }
+    void decode_stream_values() {
+        QVector<Channel> ch = { {0x8000,2}, {0x8004,1}, {0x8008,4} };
+        QCOMPARE(responseDataLength(ch), 2 + 1 + 4);     // 7
+        QByteArray data = QByteArray::fromHex("1234" "56" "89ABCDEF"); // BE per channel
+        QVector<quint32> v = decodeStreamValues(ch, data);
+        QCOMPARE(v.size(), 3);
+        QCOMPARE(v.at(0), quint32(0x1234));
+        QCOMPARE(v.at(1), quint32(0x56));
+        QCOMPARE(v.at(2), quint32(0x89ABCDEF));
+    }
 };
 int run_test_freeform(int argc, char** argv) {
     TestFreeform t;
