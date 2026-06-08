@@ -128,6 +128,10 @@ private slots:
     // End-to-end over a mock serial (PTY): the connect handshake succeeds.
     void j2534Handshake_overMockPty_readVersionSucceeds();
     void spadInitJ2534Connection_overMockPty_succeeds();
+
+    // The full field "Logging" flow over the mock: connect, then a realtime read
+    // loop with a reentrant read + teardown interleaved via the event loop.
+    void loggingFlow_connectReadTeardownReentrancy_overMockPty_doesNotCrash();
 };
 
 void SerialPortCrashTest::isSerialPortOpen_withNullSerial_doesNotCrash()
@@ -239,6 +243,48 @@ void SerialPortCrashTest::spadInitJ2534Connection_overMockPty_succeeds()
 
     QCOMPARE(spad.runInitJ2534Connection(), STATUS_SUCCESS);
 
+    ::close(master);
+}
+
+void SerialPortCrashTest::loggingFlow_connectReadTeardownReentrancy_overMockPty_doesNotCrash()
+{
+    // Drives the field "Logging" scenario at the layer where it crashed, over the
+    // mock dongle, with no hardware:
+    //   1. connect (init_j2534_connection) succeeds over the PTY mock;
+    //   2. a realtime read loop runs (each read pumps the event loop, exactly as
+    //      MainWindow::delay does);
+    //   3. a reentrant read AND a teardown (freeing j2534) are interleaved into
+    //      that pumped loop via the event loop.
+    // Pre-fix this faults (reentrant read derefs a torn-down j2534/serial);
+    // post-fix the read-path/j2534 guards make it safe.
+    int master = -1, slave = -1;
+    char name[256] = {0};
+    QVERIFY2(openpty(&master, &slave, name, nullptr, nullptr) == 0, "openpty failed");
+    MockOpenPort mock(master);
+
+    TestableSerialPortActionsDirect spad;
+    spad.serial_port = QString::fromLocal8Bit(name);
+    QCOMPARE(spad.runInitJ2534Connection(), STATUS_SUCCESS);
+    spad.use_openport2_adapter = true;
+
+    // Realtime read loop over the live mock connection.
+    for (int i = 0; i < 3; ++i)
+        spad.read_vbatt();
+
+    // A still-alive consumer (a running flash module) has a read queued.
+    QObject consumer;
+    bool consumerRan = false;
+    QMetaObject::invokeMethod(&consumer, [&]() { spad.read_vbatt(); consumerRan = true; },
+                              Qt::QueuedConnection);
+
+    // The reentrant operation tears the connection down (frees + nulls j2534).
+    spad.deleteAndNullJ2534();
+
+    // The event loop dispatches the queued reentrant read after teardown.
+    // Pre-fix it dereferences the freed/null j2534; post-fix the guard makes it safe.
+    QCoreApplication::processEvents();
+
+    QVERIFY(consumerRan);
     ::close(master);
 }
 
