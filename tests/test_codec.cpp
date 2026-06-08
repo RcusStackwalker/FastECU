@@ -1,5 +1,6 @@
 #include <QtTest>
 #include "protocol/mut_dma_codec.h"
+#include "test_codec.h"
 using namespace mutdma;
 class TestCodec : public QObject { Q_OBJECT
 private slots:
@@ -27,5 +28,8 @@ private slots:
         QVERIFY(!verifyFrame(f));
     }
 };
-QTEST_MAIN(TestCodec)
+int run_test_codec(int argc, char** argv) {
+    TestCodec t;
+    return QTest::qExec(&t, argc, argv);
+}
 #include "test_codec.moc"
