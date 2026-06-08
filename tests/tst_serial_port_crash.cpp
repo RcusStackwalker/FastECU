@@ -49,6 +49,11 @@ public:
         connect(notifier, &QSocketNotifier::activated, this, &MockOpenPort::onReadable);
     }
 
+    // When false, the READ_VBATT command ("atr ...") gets no reply, so the
+    // caller's read stays parked in read_serial_data's event-loop pump — used to
+    // make the "reset while a read is in-flight" window deterministic.
+    bool answerReadVbatt = true;
+
 private slots:
     void onReadable()
     {
@@ -65,6 +70,9 @@ private slots:
             rx.remove(0, nl + 1);
             if (line.isEmpty())
                 continue;
+
+            if (line.contains("atr") && !answerReadVbatt)
+                continue;   // withhold READ_VBATT reply: keep the caller's read parked
 
             QByteArray resp;
             if (line.contains("ati"))
@@ -132,6 +140,10 @@ private slots:
     // The full field "Logging" flow over the mock: connect, then a realtime read
     // loop with a reentrant read + teardown interleaved via the event loop.
     void loggingFlow_connectReadTeardownReentrancy_overMockPty_doesNotCrash();
+
+    // A real reset_connection() fires from the event loop while a read is in-flight
+    // inside PassThruReadMsgs: must not free j2534 underneath the in-flight read.
+    void reentrantResetDuringInflightRead_overMockPty_doesNotCrash();
 };
 
 void SerialPortCrashTest::isSerialPortOpen_withNullSerial_doesNotCrash()
@@ -285,6 +297,40 @@ void SerialPortCrashTest::loggingFlow_connectReadTeardownReentrancy_overMockPty_
     QCoreApplication::processEvents();
 
     QVERIFY(consumerRan);
+    ::close(master);
+}
+
+void SerialPortCrashTest::reentrantResetDuringInflightRead_overMockPty_doesNotCrash()
+{
+    // The hardest case: a real teardown (reset_connection) fires from the event
+    // loop WHILE a read is already in-flight inside J2534::PassThruReadMsgs. The
+    // in-flight frames hold the j2534 'this'; if reset frees it, they use freed
+    // memory (the residual not covered by entry guards). A reentrancy guard must
+    // make reset_connection skip freeing j2534 while a J2534 read is in-flight.
+    int master = -1, slave = -1;
+    char name[256] = {0};
+    QVERIFY2(openpty(&master, &slave, name, nullptr, nullptr) == 0, "openpty failed");
+    MockOpenPort mock(master);
+
+    TestableSerialPortActionsDirect spad;
+    spad.serial_port = QString::fromLocal8Bit(name);
+    QCOMPARE(spad.runInitJ2534Connection(), STATUS_SUCCESS);
+    spad.use_openport2_adapter = true;
+
+    // Withhold the READ_VBATT reply so the read below stays parked in
+    // read_serial_data's pump while the reset fires (deterministic in-flight).
+    mock.answerReadVbatt = false;
+
+    // Queue a REAL reset_connection to fire from the event loop during the read.
+    QObject consumer;
+    QMetaObject::invokeMethod(&consumer, [&]() { spad.reset_connection(); },
+                              Qt::QueuedConnection);
+
+    // read_vbatt -> PassThruIoctl -> PassThruReadMsgs -> read_serial_data pumps
+    // the event loop, so the queued reset_connection runs mid-read.
+    spad.read_vbatt();
+
+    QVERIFY(true);
     ::close(master);
 }
 

@@ -205,6 +205,11 @@ protected:
 private:
     QSerialPort *serial;
 
+    // Reentrancy guard: >0 while a J2534 read is in-flight (its read paths pump
+    // the Qt event loop). close_j2534_serial_port() must not free j2534 while a
+    // read holds it on the stack, or the in-flight read uses freed memory.
+    int j2534_io_depth_ = 0;
+
     unsigned int baudrate = 4800;
     unsigned long devID = 0;
     unsigned long chanID;

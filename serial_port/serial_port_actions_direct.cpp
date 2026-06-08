@@ -4,6 +4,17 @@
 
 #include "serial_port_actions_direct.h"
 
+namespace {
+// RAII counter: marks a J2534 read as in-flight so a reentrant teardown
+// (close_j2534_serial_port) won't free j2534 underneath it.
+struct J2534IoScope
+{
+    int &depth;
+    explicit J2534IoScope(int &d) : depth(d) { ++depth; }
+    ~J2534IoScope() { --depth; }
+};
+}
+
 SerialPortActionsDirect::SerialPortActionsDirect(QObject *parent)
     : QObject(parent)
     , serial(new QSerialPort(this))
@@ -600,6 +611,14 @@ void SerialPortActionsDirect::close_serial_port()
 
 void SerialPortActionsDirect::close_j2534_serial_port()
 {
+    if (j2534_io_depth_ > 0)
+    {
+        // A J2534 read is in-flight (its read paths pumped the event loop and we
+        // were re-entered). Freeing j2534 now would pull the object out from under
+        // that in-flight read. Skip the teardown; it can run once the read returns.
+        emit LOG_D("Skipping J2534 reset: a read is in-flight (reentrancy guard)", true, true);
+        return;
+    }
     if (j2534->is_serial_port_open())
     {
         bool j2534_disconnect_ok = false;
@@ -1062,6 +1081,8 @@ QByteArray SerialPortActionsDirect::read_j2534_data(unsigned long timeout)
     unsigned long numRxMsg;
     QByteArray received;
 
+    J2534IoScope io(j2534_io_depth_);   // block teardown while this read runs
+
     received.clear();
 
     rxmsg.DataSize = 0;
@@ -1127,6 +1148,7 @@ unsigned long SerialPortActionsDirect::read_vbatt()
     // a reentrant read dereferences a freed/null j2534 (the field use-after-free).
     if (use_openport2_adapter && j2534)
     {
+        J2534IoScope io(j2534_io_depth_);   // block teardown while this read runs
         if (j2534->PassThruIoctl(chanID,READ_VBATT,NULL,&vBatt))
         {
             reportJ2534Error();
