@@ -1,15 +1,23 @@
 #include "mainwindow.h"
+#include <QRegularExpression>
 #include "protocol/mut_dma_freeform.h"
 #include "protocol/mut_dma_memory.h"
 
 using namespace mutdma;
 
 // Build the free-form channel list from the enabled MUT_DMA log values, IN THE SAME
-// ORDER parse_log_params() consumes them (lower_panel order, matching the SSM path in
+// ORDER the SSM display path consumes them (lower_panel order, matching the SSM path in
 // log_operations_ssm.cpp), so the streamed data aligns with the display.
-static QVector<Channel> mut_channels_from_logvalues(FileActions::LogValuesStructure* lv)
+//
+// outIndices is filled in lockstep with the returned channels: outIndices[i] is the
+// index j into logValues->log_value_* for the channel returned at position i. This lets
+// the poller decode/scale/display each channel using that channel's own conversion
+// (log_value_units / log_value_length) instead of relying on a contiguous byte buffer.
+static QVector<Channel> mut_channels_from_logvalues(FileActions::LogValuesStructure* lv,
+                                                    QVector<int>& outIndices)
 {
     QVector<Channel> ch;
+    outIndices.clear();
     for (int i = 0; i < lv->lower_panel_log_value_id.length(); i++)
     {
         for (int j = 0; j < lv->log_value_id.length(); j++)
@@ -22,6 +30,7 @@ static QVector<Channel> mut_channels_from_logvalues(FileActions::LogValuesStruct
                 c.id  = quint16(lv->log_value_address.at(j).toUInt(nullptr, 16));
                 c.len = quint8(lv->log_value_length.at(j).toUInt());
                 ch.append(c);
+                outIndices.append(j);
             }
         }
     }
@@ -36,7 +45,8 @@ void MainWindow::mitsubishi_dma_start_logging()
     mut_init = new AlreadyInMode(125000);
     mut_driver = new MutDmaDriver(*mut_transport, *mut_init);
 
-    QVector<Channel> ch = mut_channels_from_logvalues(logValues);
+    QVector<int> idx;
+    QVector<Channel> ch = mut_channels_from_logvalues(logValues, idx);
     if (!mut_driver->startFreeFormLog(ch, 0xA0, 0xA1))
     {
         emit LOG_E("MUT/DMA: free-form handshake failed", true, true);
@@ -57,17 +67,46 @@ void MainWindow::mitsubishi_dma_poll()
     if (vals.isEmpty())
         return;
 
-    QVector<Channel> ch = mut_channels_from_logvalues(logValues);
+    QVector<int> idx;
+    QVector<Channel> ch = mut_channels_from_logvalues(logValues, idx);
 
-    // Re-serialize each channel's decoded value back to big-endian bytes in channel
-    // order, so parse_log_params() reads them as a contiguous SSM-style byte buffer.
-    QByteArray buf;
+    // Decode/scale/display each channel with a CUMULATIVE byte offset that respects the
+    // channel's own length, instead of feeding a contiguous buffer to parse_log_params()
+    // (which indexes by lower-panel ordinal and only works when every channel is 1 byte).
+    //
+    // Conversion mirrors parse_log_params() in log_operations_ssm.cpp exactly:
+    //   conversion = log_value_units.at(j).split(",");
+    //   from_byte  = conversion.at(2);
+    //   format     = number of '0' chars after '.' in conversion.at(3)
+    //   calc       = calculate_value_from_expression(parse_stringlist_from_expression_string(from_byte, value))
+    //   display    = QString::number(calc, 'f', format) -> log_value.replace(j, ...)
+    //
+    // Raw-value representation: parse_stringlist_from_expression_string() substitutes the
+    // 'x' token with the ENTIRE value string as a single numeric literal (file_actions.cpp:
+    // numbers.append(x)). SSM's loop appends QString::number((uint8_t)byte) per byte, which
+    // is only correct for 1-byte channels (concatenating decimal byte strings for >1 byte
+    // yields garbage, e.g. {0x01,0x2C} -> "144" rather than 300). The table-data path in
+    // file_actions.cpp feeds a single QString::number(value) for the same reason. So here
+    // each channel's value is rendered as ONE decimal integer of its big-endian value,
+    // which is what RomRaider-format from_byte expressions (x, x*0.25, ...) expect and is
+    // identical to SSM for the 1-byte case.
     for (int i = 0; i < vals.size() && i < ch.size(); ++i)
-        for (int k = ch.at(i).len - 1; k >= 0; --k)
-            buf.append(char(quint8((vals.at(i) >> (k * 8)) & 0xFF)));
+    {
+        int j = idx.at(i);
 
-    logging_request_active = false; // allow parse_log_params to refill the display
-    parse_log_params(buf, "MUT_DMA");
+        QStringList conversion = logValues->log_value_units.at(j).split(",");
+        QString from_byte = conversion.at(2);
+        QStringList format_str_lst = conversion.at(3).split(".");
+        uint8_t format = 0;
+        if (format_str_lst.length() > 1)
+            format = format_str_lst.at(1).count(QRegularExpression("0"));
+
+        QString value = QString::number(vals.at(i));
+        float calc_float_value = fileActions->calculate_value_from_expression(
+            fileActions->parse_stringlist_from_expression_string(from_byte, value));
+        QString calc_value = QString::number(calc_float_value, 'f', format);
+        logValues->log_value.replace(j, calc_value);
+    }
 }
 
 void MainWindow::mitsubishi_dma_stop_logging()
