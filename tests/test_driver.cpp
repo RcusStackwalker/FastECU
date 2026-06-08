@@ -2,6 +2,7 @@
 #include "protocol/mut_dma_driver.h"
 #include "protocol/mut_dma_freeform.h"
 #include "protocol/mut_dma_codec.h"
+#include "protocol/mut_dma_memory.h"
 #include "scripted_kline_transport.h"
 #include "test_driver.h"
 using namespace mutdma;
@@ -21,6 +22,16 @@ private slots:
         MutDmaDriver d(t, init);
         QVERIFY(d.startFreeFormLog(ch, 0xA0, 0xA1));
         QVERIFY(d.isStreaming());
+        QVERIFY(t.scriptConsumed());
+    }
+    void write_memory_sends_and_acks() {
+        ScriptedKlineTransport t; AlreadyInMode init(125000);
+        QByteArray bytes = QByteArray::fromHex("DEAD");
+        QVector<QByteArray> frames = buildWriteFrames(0x8010, bytes);
+        t.expectWrite(frames.at(0));
+        t.queueRead(buildCommandFrame(0x87, QByteArray::fromHex("8000"), TRAILER_STD)); // echo ack
+        MutDmaDriver d(t, init);
+        QVERIFY(d.writeMemory(0x8010, bytes));
         QVERIFY(t.scriptConsumed());
     }
     void poll_decodes_stream_frame() {

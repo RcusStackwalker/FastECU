@@ -1,5 +1,6 @@
 #include "protocol/mut_dma_driver.h"
 #include "protocol/mut_dma_codec.h"
+#include "protocol/mut_dma_memory.h"
 namespace mutdma {
 static bool isAck(const QByteArray& f) { return verifyFrame(f); }
 bool MutDmaDriver::startFreeFormLog(const QVector<Channel>& channels,
@@ -11,6 +12,15 @@ bool MutDmaDriver::startFreeFormLog(const QVector<Channel>& channels,
     t_.write(buildIdListFrame(listCmd, channels));
     if (!isAck(t_.read(50, FRAME_LEN))) return false;       // ACK-2
     streaming_ = true;
+    return true;
+}
+bool MutDmaDriver::writeMemory(quint16 addr, const QByteArray& bytes) {
+    if (!init_.wake(t_)) return false;
+    const QVector<QByteArray> frames = buildWriteFrames(addr, bytes);
+    for (const QByteArray& f : frames) {
+        t_.write(f);
+        if (!verifyFrame(t_.read(50, FRAME_LEN))) return false;  // echo ack
+    }
     return true;
 }
 QVector<quint32> MutDmaDriver::pollOnce(int timeoutMs) {
