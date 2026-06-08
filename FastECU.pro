@@ -43,7 +43,9 @@ unix:!macx {                 # Linux only
     LIBS += -lcrypto
 }
 macx {                       # macOS: openssl@3 is keg-only (Intel + Apple Silicon)
+    # Requires: brew install openssl@3
     OPENSSL_PREFIX = $$system(brew --prefix openssl@3)
+    isEmpty(OPENSSL_PREFIX): error("openssl@3 not found via Homebrew. Run: brew install openssl@3")
     INCLUDEPATH += $$OPENSSL_PREFIX/include
     LIBS += -L$$OPENSSL_PREFIX/lib -lcrypto
 }
