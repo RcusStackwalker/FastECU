@@ -19,4 +19,14 @@ QVector<QByteArray> buildWriteFrames(quint16 addr, const QByteArray& bytes) {
     }
     return frames;
 }
+QVector<Channel> planReadChannels(quint16 addr, int len) {
+    QVector<Channel> ch;
+    for (int i = 0; i < len; ++i) ch.append(Channel{ quint16(addr + i), 1 });
+    return ch;
+}
+QByteArray reassembleRead(const QVector<quint32>& values) {
+    QByteArray out;
+    for (quint32 v : values) out.append(char(quint8(v & 0xFF)));
+    return out;
+}
 }

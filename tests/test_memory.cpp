@@ -1,6 +1,7 @@
 #include <QtTest>
 #include "protocol/mut_dma_memory.h"
 #include "protocol/mut_dma_codec.h"
+#include "protocol/mut_dma_freeform.h"
 #include "test_memory.h"
 using namespace mutdma;
 class TestMemory : public QObject { Q_OBJECT
@@ -27,6 +28,17 @@ private slots:
         QVERIFY(frames.size() >= 3);
         int total = 0; for (const QByteArray& f : frames) total += quint8(f.at(5));
         QCOMPARE(total, bytes.size());                  // all bytes accounted for
+    }
+    void read_plan_one_byte_channels() {
+        QVector<Channel> ch = planReadChannels(0x8000, 3);
+        QCOMPARE(ch.size(), 3);
+        QCOMPARE(ch.at(0).id, quint16(0x8000)); QCOMPARE(ch.at(0).len, quint8(1));
+        QCOMPARE(ch.at(2).id, quint16(0x8002));
+    }
+    void read_reassembles_values() {
+        QVector<quint32> vals = {0xDE, 0xAD, 0xBE};
+        QByteArray out = reassembleRead(vals);
+        QCOMPARE(out, QByteArray::fromHex("DEADBE"));
     }
 };
 int run_test_memory(int argc, char** argv) {
