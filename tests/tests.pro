@@ -11,13 +11,16 @@ SOURCES += \
     test_freeform.cpp \
     test_memory.cpp \
     test_transport.cpp \
+    test_init.cpp \
     ../protocol/mut_dma_codec.cpp \
     ../protocol/mut_dma_freeform.cpp \
-    ../protocol/mut_dma_memory.cpp
+    ../protocol/mut_dma_memory.cpp \
+    ../protocol/imut_dma_init.cpp
 HEADERS += \
     test_codec.h \
     test_freeform.h \
     test_memory.h \
     test_transport.h \
+    test_init.h \
     scripted_kline_transport.h \
     ../protocol/ikline_transport.h
