@@ -23,7 +23,7 @@
 #include <chrono>
 
 #if defined Q_OS_UNIX
-#include "J2534_linux.h"
+#include "J2534_unix.h"
 #elif defined Q_OS_WIN32
 #include "J2534_win.h"
 #endif

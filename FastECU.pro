@@ -32,14 +32,20 @@ win32 {
     serial_port/J2534_tactrix_win.h
     INCLUDEPATH += "C:\Program Files (x86)\OpenSSL-Win32\include" "C:\Program Files\OpenSSL-Win32\include"
 }
-unix {
-    LIBS += -lcrypto
+unix {                       # Linux + macOS: shared serial J2534 implementation
     SOURCES += \
-    serial_port/J2534_linux.cpp
+    serial_port/J2534_unix.cpp
     HEADERS += \
-    serial_port/J2534_linux.h
-    HEADERS += \
-    serial_port/J2534_tactrix_linux.h
+    serial_port/J2534_unix.h \
+    serial_port/J2534_tactrix_unix.h
+}
+unix:!macx {                 # Linux only
+    LIBS += -lcrypto
+}
+macx {                       # macOS: openssl@3 is keg-only (Intel + Apple Silicon)
+    OPENSSL_PREFIX = $$system(brew --prefix openssl@3)
+    INCLUDEPATH += $$OPENSSL_PREFIX/include
+    LIBS += -L$$OPENSSL_PREFIX/lib -lcrypto
 }
 
 # Do static build for Windows to have only on portable .exe file that

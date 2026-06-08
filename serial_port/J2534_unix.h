@@ -1,5 +1,5 @@
-#ifndef J2534_LINUX_H
-#define J2534_LINUX_H
+#ifndef J2534_UNIX_H
+#define J2534_UNIX_H
 
 #include <QByteArray>
 #include <QComboBox>
@@ -11,7 +11,7 @@
 
 #include <stdint.h>
 
-#include "J2534_tactrix_linux.h"
+#include "J2534_tactrix_unix.h"
 
 class J2534 : public QWidget
 {
@@ -106,4 +106,4 @@ private slots:
 
 };
 
-#endif // J2534_LINUX_H
+#endif // J2534_UNIX_H

@@ -1,4 +1,4 @@
-#include "J2534_linux.h"
+#include "J2534_unix.h"
 
 J2534::J2534()
 {
