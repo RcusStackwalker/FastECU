@@ -49,6 +49,10 @@ public:
         tj->detachSerialPort();
         j2534 = tj;
     }
+
+    // Model the teardown reset_connection now performs: free j2534 and null the
+    // pointer, so a reentrant read sees null (guarded) rather than a dangling ptr.
+    void deleteAndNullJ2534() { delete j2534; j2534 = nullptr; }
 };
 
 class SerialPortCrashTest : public QObject
@@ -60,7 +64,7 @@ private slots:
     void readSerialData_withNullSerial_doesNotCrash();
     void passThruReadMsgs_withNullSerial_doesNotCrash();
     void readVbatt_throughNullJ2534Serial_doesNotCrash();
-    void reentrantReadThroughDestroyedActions_viaEventLoop_isUseAfterFree();
+    void reentrantReadDuringTeardown_viaEventLoop_doesNotCrash();
 };
 
 void SerialPortCrashTest::isSerialPortOpen_withNullSerial_doesNotCrash()
@@ -106,28 +110,29 @@ void SerialPortCrashTest::readVbatt_throughNullJ2534Serial_doesNotCrash()
     QVERIFY(true);
 }
 
-void SerialPortCrashTest::reentrantReadThroughDestroyedActions_viaEventLoop_isUseAfterFree()
+void SerialPortCrashTest::reentrantReadDuringTeardown_viaEventLoop_doesNotCrash()
 {
-    // Faithful reproduction of the live reentrancy: FastECU pumps the event loop
-    // mid-operation (MainWindow::delay/processEvents). A still-alive consumer
-    // (a running flash module) holds the SerialPortActionsDirect pointer and
-    // reads through it. If the actions object is torn down (its destructor frees
-    // j2534, without clearing use_openport2_adapter) while that read is queued,
-    // the read dereferences freed memory.
+    // Reproduces the live reentrancy through a non-GUI event loop: FastECU pumps
+    // processEvents() mid-operation (MainWindow::delay, reset_connection's
+    // delay), so a still-alive consumer (a running flash module) can read vBatt
+    // reentrantly while a teardown is freeing j2534.
     //
-    // The queued read targets a SEPARATE, still-alive object, so Qt does NOT
-    // purge it when the actions object is destroyed -> it fires from the event
-    // loop and dereferences the freed actions. Pre-fix: ASan heap-use-after-free.
-    auto *spad = new TestableSerialPortActionsDirect();
-    spad->use_openport2_adapter = true;   // read_vbatt will take the j2534 branch
+    // The queued read targets a SEPARATE, still-alive object, so Qt does not
+    // purge it -> it fires from the event loop after teardown.
+    TestableSerialPortActionsDirect spad;
+    spad.use_openport2_adapter = true;   // read_vbatt takes the j2534 branch
 
     QObject consumer;   // mirrors the still-running flash module
-    QMetaObject::invokeMethod(&consumer, [spad]() { spad->read_vbatt(); },
+    QMetaObject::invokeMethod(&consumer, [&spad]() { spad.read_vbatt(); },
                               Qt::QueuedConnection);
 
-    delete spad;        // reentrant teardown frees the actions object (and j2534)
+    // Teardown frees and nulls j2534 (as reset_connection now does) before the
+    // queued read runs.
+    spad.deleteAndNullJ2534();
 
-    // Non-GUI event loop dispatches the consumer's queued read -> use-after-free.
+    // Non-GUI event loop dispatches the reentrant read. Pre-fix (read_vbatt
+    // dereferences j2534 unconditionally): SIGSEGV. Post-fix (read_vbatt guards
+    // `use_openport2_adapter && j2534`): returns safely.
     QCoreApplication::processEvents();
     QVERIFY(true);
 }

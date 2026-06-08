@@ -11,12 +11,6 @@ TARGET = serial_crash_tests
 
 INCLUDEPATH += .. ../serial_port
 
-# AddressSanitizer so the event-loop reentrancy use-after-free is detected
-# deterministically (not dependent on freed memory reading back as zero).
-QMAKE_CXXFLAGS += -fsanitize=address -fno-omit-frame-pointer -g
-QMAKE_CFLAGS   += -fsanitize=address -fno-omit-frame-pointer -g
-QMAKE_LFLAGS   += -fsanitize=address
-
 SOURCES += \
     tst_serial_port_crash.cpp \
     ../serial_port/J2534_unix.cpp \

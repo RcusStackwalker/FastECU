@@ -29,7 +29,7 @@ bool SerialPortActionsDirect::is_serial_port_open()
         if (!J2534_init_ok)
             return false;
         else
-            return j2534->is_serial_port_open();
+            return j2534 && j2534->is_serial_port_open();
     }
 
     return serial->isOpen();
@@ -643,6 +643,10 @@ void SerialPortActionsDirect::close_j2534_serial_port()
     char dllName[256];
     j2534->getDllName(dllName);
     delete j2534;
+    // Null the pointer across the delay(): delay() pumps the event loop, so a
+    // reentrant read can run here. A guarded read sees null (safe) instead of a
+    // dangling pointer (use-after-free).
+    j2534 = nullptr;
     delay(100);
     j2534 = new J2534();
     j2534->setDllName(dllName);
@@ -1118,7 +1122,10 @@ int SerialPortActionsDirect::set_j2534_ioctl(unsigned long parameter, int value)
 
 unsigned long SerialPortActionsDirect::read_vbatt()
 {
-    if (use_openport2_adapter)
+    // Guard j2534: reset_connection()/teardown can free it (and null it) while a
+    // read is dispatched reentrantly from a pumped event loop. Without this guard
+    // a reentrant read dereferences a freed/null j2534 (the field use-after-free).
+    if (use_openport2_adapter && j2534)
     {
         if (j2534->PassThruIoctl(chanID,READ_VBATT,NULL,&vBatt))
         {

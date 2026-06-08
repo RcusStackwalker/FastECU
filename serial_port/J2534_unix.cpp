@@ -53,7 +53,7 @@ QString J2534::open_serial_port(QString serial_port)
 
 void J2534::close_serial_port()
 {
-    if (serial->isOpen())
+    if (is_serial_port_open())
     {
         serial->close();
         delay(100);
@@ -63,7 +63,10 @@ void J2534::close_serial_port()
 
 bool J2534::is_serial_port_open()
 {
-    return serial->isOpen();
+    // Guard the pointer: the serial port can be torn down (reset/reconnect)
+    // while a read is in flight. Dereferencing a null `serial` here is the
+    // crash in the field report (EXC_BAD_ACCESS at 0x8 in QIODevice::isOpen()).
+    return serial && serial->isOpen();
 }
 
 QByteArray J2534::read_serial_data(uint32_t datalen, uint16_t timeout)
@@ -73,7 +76,7 @@ QByteArray J2534::read_serial_data(uint32_t datalen, uint16_t timeout)
 
     ReceivedData.clear();
 
-    if (serial->isOpen())
+    if (is_serial_port_open())
     {
         QTime dieTime = QTime::currentTime().addMSecs(timeout);
         while ((uint32_t)ReceivedData.length() < datalen && (QTime::currentTime() < dieTime))
@@ -97,7 +100,7 @@ int J2534::write_serial_data(QByteArray output)
     QByteArray msg;
     long result = STATUS_NOERROR;
 
-    if (serial->isOpen())
+    if (is_serial_port_open())
     {
         //emit LOG_D("Send J2534 msg:" << parseMessageToHex(output);
         for (int i = 0; i < output.length(); i++)
@@ -999,6 +1002,8 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
         output.clear();
         QString str = "atr " + QString::number((int)pin) + "\r\n";
         output.append(str.toUtf8());
+        if (!is_serial_port_open())
+            return result;
         if (serial->bytesAvailable())
             return result;
         write_serial_data(output);
