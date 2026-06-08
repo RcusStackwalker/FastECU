@@ -148,7 +148,13 @@ SOURCES += \
     settings.cpp \
     systemlogger.cpp \
     vehicle_select.cpp \
-    verticallabel.cpp
+    verticallabel.cpp \
+    protocol/mut_dma_codec.cpp \
+    protocol/mut_dma_freeform.cpp \
+    protocol/mut_dma_memory.cpp \
+    protocol/imut_dma_init.cpp \
+    protocol/mut_dma_driver.cpp \
+    protocol/fastecu_kline_transport.cpp
 
 HEADERS += \
     calibration_maps.h \
@@ -223,7 +229,14 @@ HEADERS += \
     settings.h \
     systemlogger.h \
     vehicle_select.h \
-    verticallabel.h
+    verticallabel.h \
+    protocol/mut_dma_codec.h \
+    protocol/mut_dma_freeform.h \
+    protocol/mut_dma_memory.h \
+    protocol/ikline_transport.h \
+    protocol/imut_dma_init.h \
+    protocol/mut_dma_driver.h \
+    protocol/fastecu_kline_transport.h
 
 FORMS += \
     calibration_map_table.ui \
