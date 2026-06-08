@@ -171,7 +171,6 @@ private:
     long PassThruGetLastError(char *pErrorDescription);
     long PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const void *pInput, void *pOutput);
 
-    int init_j2534_connection();
     int set_j2534_can();
     int unset_j2534_can();
     int set_j2534_can_filters();
@@ -199,7 +198,8 @@ private:
 
 protected:
     // protected so tests can drive the J2534 lifetime (reset_connection
-    // use-after-free reproduction) without a test-only method on the class.
+    // use-after-free reproduction) and the connect sequence over a mock serial.
+    int init_j2534_connection();
     J2534 *j2534;
 
 private:

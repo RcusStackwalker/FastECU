@@ -688,9 +688,12 @@ long J2534::PassThruReadVersion(char *pApiVersion,char *pDllVersion,char *pFirmw
     QString response = QString::fromUtf8(received);
     QStringList fw_ver = response.split("ari ");
     fw_ver = fw_ver.at(fw_ver.length()-1).split("\r\n");
-    std::string fw_ver_str = fw_ver.at(0).toUtf8().data();
-    char *str = fw_ver.at(0).toUtf8().data();
-    strncpy(pFirmwareVersion, str, strlen(str));
+    // Hold the bytes in a named QByteArray: `fw_ver.at(0).toUtf8().data()` would
+    // dangle (the temporary QByteArray is destroyed at the semicolon), leaving
+    // pFirmwareVersion empty/garbage and making the caller's strlen()-1 unsafe.
+    const QByteArray fw_ver_bytes = fw_ver.at(0).toUtf8();
+    strncpy(pFirmwareVersion, fw_ver_bytes.constData(), fw_ver_bytes.size());
+    pFirmwareVersion[fw_ver_bytes.size()] = '\0';
 
     return result;
 }
