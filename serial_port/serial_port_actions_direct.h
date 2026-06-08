@@ -197,7 +197,12 @@ private:
 #define STATUS_SUCCESS							0x00
 #define STATUS_ERROR							0x01
 
+protected:
+    // protected so tests can drive the J2534 lifetime (reset_connection
+    // use-after-free reproduction) without a test-only method on the class.
     J2534 *j2534;
+
+private:
     QSerialPort *serial;
 
     unsigned int baudrate = 4800;
