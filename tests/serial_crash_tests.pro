@@ -1,0 +1,19 @@
+# Headless regression tests reproducing the OpenPort/J2534 read-path crash on
+# macOS (EXC_BAD_ACCESS at 0x8 in QIODevice::isOpen()). Run with:
+#   qmake6 serial_crash_tests.pro && make && ./serial_crash_tests
+# Pre-fix these reproduce the crash (SIGSEGV / ASan abort); post-fix they pass.
+
+QT += core testlib serialport
+CONFIG += c++17 console
+CONFIG -= app_bundle
+
+TARGET = serial_crash_tests
+
+INCLUDEPATH += .. ../serial_port
+
+SOURCES += \
+    tst_serial_port_crash.cpp \
+    ../serial_port/J2534_unix.cpp
+
+HEADERS += \
+    ../serial_port/J2534_unix.h

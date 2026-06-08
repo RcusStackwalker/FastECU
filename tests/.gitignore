@@ -1,0 +1,12 @@
+# qmake / build artifacts in the tests dir
+Makefile
+*.o
+*.moc
+moc_*.cpp
+moc_predefs.h
+.qmake.stash
+*.dSYM/
+# built test binaries
+serial_crash_tests
+mut_dma_tests
+target_wrapper.sh

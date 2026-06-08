@@ -2,9 +2,9 @@
 #define J2534_UNIX_H
 
 #include <QByteArray>
-#include <QComboBox>
 #include <QCoreApplication>
 #include <QDebug>
+#include <QObject>
 #include <QSerialPort>
 #include <QSerialPortInfo>
 #include <QTime>
@@ -13,7 +13,10 @@
 
 #include "J2534_tactrix_unix.h"
 
-class J2534 : public QWidget
+// Note: J2534 derives from QObject (not QWidget) — it has no widget behaviour,
+// only Q_OBJECT signals. QObject also lets it be constructed in a headless
+// (QCoreApplication) test without a GUI platform.
+class J2534 : public QObject
 {
     Q_OBJECT
 
@@ -78,7 +81,12 @@ private:
     uint16_t serial_read_long_timeout = 800;
     uint16_t serial_read_extra_long_timeout = 3000;
 
+protected:
+    // protected (not private) so tests can subclass J2534 and drive it into the
+    // torn-down state (serial == nullptr) that the crash report exhibits.
     QSerialPort *serial = new QSerialPort();
+
+private:
     unsigned long periodic_msg_id;
 
     bool msg_ack = false;
