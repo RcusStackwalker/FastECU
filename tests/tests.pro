@@ -9,8 +9,11 @@ SOURCES += \
     main.cpp \
     test_codec.cpp \
     test_freeform.cpp \
+    test_memory.cpp \
     ../protocol/mut_dma_codec.cpp \
-    ../protocol/mut_dma_freeform.cpp
+    ../protocol/mut_dma_freeform.cpp \
+    ../protocol/mut_dma_memory.cpp
 HEADERS += \
     test_codec.h \
-    test_freeform.h
+    test_freeform.h \
+    test_memory.h
