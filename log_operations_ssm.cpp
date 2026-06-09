@@ -366,7 +366,7 @@ void MainWindow::read_log_serial_data()
             }
             //emit LOG_D("Header data" << parse_message_to_hex(received), true, true);
             loop_count = 0;
-            while (((uint8_t)received.at(0) != 0x80 || (uint8_t)received.at(1) != 0xf0 || (uint8_t)received.at(2) != 0x10) && loop_count < 200)
+            while (received.length() >= 3 && ((uint8_t)received.at(0) != 0x80 || (uint8_t)received.at(1) != 0xf0 || (uint8_t)received.at(2) != 0x10) && loop_count < 200)
             {
                 received.remove(0, 1);
                 received.append(serial->read_serial_data(50));

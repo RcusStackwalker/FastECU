@@ -10,6 +10,8 @@ CONFIG += c++11
 # depend on your compiler). Please consult the documentation of the
 # deprecated API in order to know how to port your code away from it.
 DEFINES += QT_DEPRECATED_WARNINGS #QT_SSL
+# Bounds-check hardening (forced asserts + opt-in sanitizers).
+include(hardening.pri)
 
 # You can also make your code fail to compile if it uses deprecated APIs.
 # In order to do so, uncomment the following line.
@@ -92,6 +94,7 @@ SOURCES += \
     hexedit/qhexedit/qhexedit.cpp \
     hexedit/searchdialog.cpp \
     log_operations_ssm.cpp \
+    log_operations_mitsubishi.cpp \
     logbox.cpp \
     logvalues.cpp \
     main.cpp \
@@ -148,7 +151,13 @@ SOURCES += \
     settings.cpp \
     systemlogger.cpp \
     vehicle_select.cpp \
-    verticallabel.cpp
+    verticallabel.cpp \
+    protocol/mut_dma_codec.cpp \
+    protocol/mut_dma_freeform.cpp \
+    protocol/mut_dma_memory.cpp \
+    protocol/imut_dma_init.cpp \
+    protocol/mut_dma_driver.cpp \
+    protocol/fastecu_kline_transport.cpp
 
 HEADERS += \
     calibration_maps.h \
@@ -223,7 +232,14 @@ HEADERS += \
     settings.h \
     systemlogger.h \
     vehicle_select.h \
-    verticallabel.h
+    verticallabel.h \
+    protocol/mut_dma_codec.h \
+    protocol/mut_dma_freeform.h \
+    protocol/mut_dma_memory.h \
+    protocol/ikline_transport.h \
+    protocol/imut_dma_init.h \
+    protocol/mut_dma_driver.h \
+    protocol/fastecu_kline_transport.h
 
 FORMS += \
     calibration_map_table.ui \

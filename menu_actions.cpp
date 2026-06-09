@@ -921,8 +921,15 @@ void MainWindow::toggle_realtime()
         }
         logging_counter = 0;
         logging_state = true;
-        log_ssm_values();
-        logparams_poll_timer->start();
+        if (configValues->flash_protocol_selected_log_protocol == "MUT_DMA")
+        {
+            mitsubishi_dma_start_logging();
+        }
+        else
+        {
+            log_ssm_values();
+            logparams_poll_timer->start();
+        }
     }
     else
     {
@@ -934,9 +941,16 @@ void MainWindow::toggle_realtime()
 
         logging_state = false;
         log_params_request_started = false;
-        log_ssm_values();
-        delay(200);
-        logparams_poll_timer->stop();
+        if (configValues->flash_protocol_selected_log_protocol == "MUT_DMA")
+        {
+            mitsubishi_dma_stop_logging();
+        }
+        else
+        {
+            log_ssm_values();
+            delay(200);
+            logparams_poll_timer->stop();
+        }
 
         //disconnect_from_ecu();
     }

@@ -1203,7 +1203,7 @@ bool SerialPortActionsDirect::get_serial_num(char* serial)
     inbuf.svcid = 5; // info
     inbuf.infosvcid = 1; // serial
 
-    outbuf.length = sizeof(outbuf.data);
+    outbuf.length = sizeof(outbuf.data) - 1;  // reserve one byte for the null terminator
 /*
     if (j2534->PassThruIoctl(devID,TX_IOCTL_APP_SERVICE,&inbuf,&outbuf))
     {
@@ -1270,10 +1270,10 @@ int SerialPortActionsDirect::init_j2534_connection()
         return STATUS_ERROR;
     }
 
-    strApiVersion[strlen(strApiVersion)-1] = '\0';
-    strDllVersion[strlen(strDllVersion)-1] = '\0';
-    strFirmwareVersion[strlen(strFirmwareVersion)-1] = '\0';
-    strSerial[strlen(strSerial)-1] = '\0';
+    if (strlen(strApiVersion) > 0)      strApiVersion[strlen(strApiVersion)-1]      = '\0';
+    if (strlen(strDllVersion) > 0)      strDllVersion[strlen(strDllVersion)-1]      = '\0';
+    if (strlen(strFirmwareVersion) > 0) strFirmwareVersion[strlen(strFirmwareVersion)-1] = '\0';
+    if (strlen(strSerial) > 0)          strSerial[strlen(strSerial)-1]              = '\0';
     emit LOG_D("J2534 API Version: " + QString(strApiVersion), true, true);
     emit LOG_D("J2534 DLL Version: " + QString(strDllVersion), true, true);
     emit LOG_D("Device Firmware Version: " + QString(strFirmwareVersion), true, true);

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Example RomRaider-format logger definition for the Mitsubishi MUT/DMA protocol.
+
+  This is the file format consumed by FileActions::read_logger_definition_file()
+  (the file selected as "romraider_logger_definition_file" in preferences). It is
+  NOT config/logger.cfg - that file only stores which parameter IDs are selected
+  per ECU, it does not carry addresses/lengths/conversions.
+
+  The two parameters below are PLACEHOLDERS. The <address> values are NOT real
+  33520003 (Z27AG) RAM ids - they must be replaced with bench-confirmed MUT/DMA
+  channel ids before this can log anything meaningful. Channel data is
+  bench-tunable; these addresses are deliberately fake so it is obvious they need
+  real values.
+-->
+<logger version="experimental">
+    <protocols>
+        <protocol id="MUT_DMA">
+            <parameters>
+                <parameter id="M1" name="MUT_DMA EXAMPLE A - replace with real 33520003 id" desc="Placeholder 1-byte channel" length="1">
+                    <address>0x4010</address>
+                    <conversions>
+                        <conversion units="raw" expr="x" format="0" gauge_min="0" gauge_max="255" gauge_step="16"/>
+                    </conversions>
+                </parameter>
+                <parameter id="M2" name="MUT_DMA EXAMPLE B - replace with real 33520003 id" desc="Placeholder 2-byte channel" length="2">
+                    <address>0x4020</address>
+                    <conversions>
+                        <conversion units="raw" expr="x/4" format="0.00" gauge_min="0" gauge_max="16384" gauge_step="1024"/>
+                    </conversions>
+                </parameter>
+            </parameters>
+        </protocol>
+    </protocols>
+</logger>
