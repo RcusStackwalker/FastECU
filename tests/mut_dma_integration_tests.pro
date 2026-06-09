@@ -11,6 +11,7 @@
 QT += core testlib serialport widgets remoteobjects websockets
 CONFIG += c++17 console
 CONFIG -= app_bundle
+include(../hardening.pri)
 
 TARGET = mut_dma_integration_tests
 

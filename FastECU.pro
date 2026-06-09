@@ -10,10 +10,8 @@ CONFIG += c++11
 # depend on your compiler). Please consult the documentation of the
 # deprecated API in order to know how to port your code away from it.
 DEFINES += QT_DEPRECATED_WARNINGS #QT_SSL
-# Bounds-check hardening: re-arm Q_ASSERT even under QT_NO_DEBUG so every
-# QByteArray/QString/QList .at()/operator[] overrun aborts loudly with file:line.
-# See docs/superpowers/specs/2026-06-09-bounds-check-hardening-design.md
-DEFINES += QT_FORCE_ASSERTS
+# Bounds-check hardening (forced asserts + opt-in sanitizers).
+include(hardening.pri)
 
 # You can also make your code fail to compile if it uses deprecated APIs.
 # In order to do so, uncomment the following line.

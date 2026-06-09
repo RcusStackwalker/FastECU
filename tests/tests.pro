@@ -2,6 +2,7 @@ QT += core testlib
 QT -= gui
 CONFIG += console c++11
 CONFIG -= app_bundle
+include(../hardening.pri)
 TEMPLATE = app
 TARGET = mut_dma_tests
 INCLUDEPATH += $$PWD/..

@@ -6,6 +6,7 @@
 QT += core testlib serialport widgets
 CONFIG += c++17 console
 CONFIG -= app_bundle
+include(../hardening.pri)
 
 TARGET = serial_crash_tests
 
