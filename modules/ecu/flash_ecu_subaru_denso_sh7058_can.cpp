@@ -468,10 +468,10 @@ int FlashEcuSubaruDensoSH7058Can::connect_bootloader()
     output.append((uint8_t)0x01);
 
     serial->write_serial_data_echo_check(output);
-    
+
     delay(50);
     received = serial->read_serial_data(serial_read_timeout);
-    if (received.length() > 5)
+    if (received.length() > 9)
     {
         if ((uint8_t)received.at(4) != 0x67 || (uint8_t)received.at(5) != 0x01)
         {
