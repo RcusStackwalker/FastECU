@@ -6,7 +6,10 @@ moc_*.cpp
 moc_predefs.h
 .qmake.stash
 *.dSYM/
+# repc-generated replica headers (from REPC_REPLICA .rep files)
+rep_*_replica.h
 # built test binaries
 serial_crash_tests
 mut_dma_tests
+mut_dma_integration_tests
 target_wrapper.sh
