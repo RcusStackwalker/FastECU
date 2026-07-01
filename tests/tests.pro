@@ -34,4 +34,6 @@ HEADERS += \
     test_mitsu_colt_can_cdbg_protocol.h \
     scripted_kline_transport.h \
     ../protocol/ikline_transport.h \
-    ../protocol/mitsu_colt_can_cdbg_protocol.h
+    ../protocol/mitsu_colt_can_cdbg_protocol.h \
+    scripted_can_transport.h \
+    ../protocol/ican_transport.h

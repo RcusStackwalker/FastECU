@@ -164,7 +164,9 @@ SOURCES += \
     protocol/mut_dma_memory.cpp \
     protocol/imut_dma_init.cpp \
     protocol/mut_dma_driver.cpp \
-    protocol/fastecu_kline_transport.cpp
+    protocol/fastecu_kline_transport.cpp \
+    protocol/mitsu_colt_can_cdbg_protocol.cpp \
+    protocol/fastecu_can_transport.cpp
 
 HEADERS += \
     calibration_maps.h \
@@ -248,7 +250,10 @@ HEADERS += \
     protocol/ikline_transport.h \
     protocol/imut_dma_init.h \
     protocol/mut_dma_driver.h \
-    protocol/fastecu_kline_transport.h
+    protocol/fastecu_kline_transport.h \
+    protocol/mitsu_colt_can_cdbg_protocol.h \
+    protocol/ican_transport.h \
+    protocol/fastecu_can_transport.h
 
 FORMS += \
     calibration_map_table.ui \
