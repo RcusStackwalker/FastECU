@@ -4,6 +4,7 @@
 #include "test_transport.h"
 #include "test_init.h"
 #include "test_driver.h"
+#include "test_mitsu_colt_can_protocol.h"
 
 int main(int argc, char** argv) {
     int status = 0;
@@ -13,5 +14,6 @@ int main(int argc, char** argv) {
     status |= run_test_transport(argc, argv);
     status |= run_test_init(argc, argv);
     status |= run_test_driver(argc, argv);
+    status |= run_test_mitsu_colt_can_protocol(argc, argv);
     return status;
 }
