@@ -35,15 +35,13 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          choco install openssl -y --no-progress
-          $opensslDir = Get-ChildItem -Path 'C:\Program Files*' -Directory -Filter 'OpenSSL*' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
-          if (-not $opensslDir) {
-            $opensslDir = Get-ChildItem -Path 'C:\ProgramData\chocolatey\lib' -Directory -Filter 'openssl*' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+          $installOutput = choco install openssl -y --no-progress
+          $installOutput
+          $deployMatch = $installOutput | Select-String -Pattern "Deployed to '([^']+)'" | Select-Object -First 1
+          if (-not $deployMatch) {
+            throw "Could not find OpenSSL install path ('Deployed to') in choco output"
           }
-          if (-not $opensslDir) {
-            throw "Could not locate OpenSSL install directory after choco install"
-          }
-          $opensslDir = $opensslDir -replace '\\', '/'
+          $opensslDir = $deployMatch.Matches[0].Groups[1].Value.TrimEnd('\') -replace '\\', '/'
           Write-Host "Resolved OPENSSL_ROOT=$opensslDir"
           "OPENSSL_ROOT=$opensslDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 

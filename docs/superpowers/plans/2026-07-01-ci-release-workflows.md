@@ -12,7 +12,9 @@
 
 - Repo: `externals/FastECU` (fork `RcusStackwalker/FastECU`), default branch `master`.
 - Platforms: Windows + macOS only. No Linux job, no Windows installer, no macOS `.dmg`/signing/notarization (per approved spec).
-- Qt version: pin to `6.8.3` (verified available for both Windows and macOS via `aqt list-qt`).
+- Qt version: Windows pins to `6.8.3` (verified available for `win64_mingw`); macOS pins to `6.11.1`. Different versions per platform is intentional, discovered during Task 2's first real CI run: Qt <6.11.1 hits a known Qt bug on macOS (`qyieldcpu.h` calls `__yield()` without a declaration, fatal under `-Werror` on the Xcode 26.5 SDK `macos-latest` now ships — fixed in Qt 6.11.1+, confirmed via Qt forum). That bug is macOS/Xcode-SDK-specific and doesn't affect Windows, so Windows stays on 6.8.3 rather than chasing Qt's Windows-package hosting quirks above 6.9.3 (aqt's per-version Windows metadata becomes unreliable to query above that point; 6.8.3 is confirmed solid).
+- Both platforms' `modules:` list includes `qt5compat` in addition to `qtcharts qtserialport qtremoteobjects qtwebsockets` — also discovered during Task 2's first CI run: `cipher.cpp` (or a header it pulls in) uses `QtCore5Compat/QTextCodec`, which is a separate Qt6 add-on module not included by default.
+- The Windows OpenSSL discovery step parses `choco install openssl`'s own `Deployed to '...'` output line rather than globbing candidate directories — discovered during Task 2's second CI run: the original `Get-ChildItem -Path 'C:\Program Files*' -Filter 'OpenSSL*'` glob returned nothing (root cause not fully diagnosed — the real install landed at `C:\Program Files\OpenSSL\`, confirmed by choco's own log line, which `-Filter 'OpenSSL*'` should have matched), so the discovery silently fell through to the chocolatey package-metadata fallback path (`C:\ProgramData\chocolatey\lib\openssl`), which exists but contains no headers/DLLs — `qmake` then failed with `cipher.h:13:10: fatal error: openssl/conf.h: No such file or directory`. Parsing choco's own authoritative deploy message is more robust than re-deriving the path via glob.
 - Windows Qt arch: `win64_mingw` (the default arch for this action on Windows is MSVC — must be set explicitly since `FastECU.pro`'s `static{}` block uses MinGW-only linker flags).
 - Windows compiler tool: `tools_mingw1310` / variant `qt.tools.win64_mingw1310` (the MinGW version Qt 6.8's `win64_mingw` packages are built against).
 - Action pins: match the SHA-pinned convention already used in `codeinjector/.github/workflows/release.yml` (`actions/checkout@df4cb1c...# v6`, `tomtom-international/commisery-action/bump@f88e873...# v7.0.0`, `softprops/action-gh-release@b430933...# v3`). The one new action, `jurplel/install-qt-action`, is pinned to `48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1` (verified via `gh api repos/jurplel/install-qt-action/git/refs/tags/v4.3.1`).
@@ -136,7 +138,7 @@ jobs:
         with:
           version: '6.8.3'
           arch: 'win64_mingw'
-          modules: 'qtcharts qtserialport qtremoteobjects qtwebsockets'
+          modules: 'qtcharts qtserialport qtremoteobjects qtwebsockets qt5compat'
           tools: 'tools_mingw1310,qt.tools.win64_mingw1310'
           add-tools-to-path: true
 
@@ -144,22 +146,20 @@ jobs:
         if: runner.os == 'macOS'
         uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
         with:
-          version: '6.8.3'
-          modules: 'qtcharts qtserialport qtremoteobjects qtwebsockets'
+          version: '6.11.1'
+          modules: 'qtcharts qtserialport qtremoteobjects qtwebsockets qt5compat'
 
       - name: Install OpenSSL (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          choco install openssl -y --no-progress
-          $opensslDir = Get-ChildItem -Path 'C:\Program Files*' -Directory -Filter 'OpenSSL*' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
-          if (-not $opensslDir) {
-            $opensslDir = Get-ChildItem -Path 'C:\ProgramData\chocolatey\lib' -Directory -Filter 'openssl*' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+          $installOutput = choco install openssl -y --no-progress
+          $installOutput
+          $deployMatch = $installOutput | Select-String -Pattern "Deployed to '([^']+)'" | Select-Object -First 1
+          if (-not $deployMatch) {
+            throw "Could not find OpenSSL install path ('Deployed to') in choco output"
           }
-          if (-not $opensslDir) {
-            throw "Could not locate OpenSSL install directory after choco install"
-          }
-          $opensslDir = $opensslDir -replace '\\', '/'
+          $opensslDir = $deployMatch.Matches[0].Groups[1].Value.TrimEnd('\') -replace '\\', '/'
           Write-Host "Resolved OPENSSL_ROOT=$opensslDir"
           "OPENSSL_ROOT=$opensslDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
@@ -313,7 +313,7 @@ jobs:
         with:
           version: '6.8.3'
           arch: 'win64_mingw'
-          modules: 'qtcharts qtserialport qtremoteobjects qtwebsockets'
+          modules: 'qtcharts qtserialport qtremoteobjects qtwebsockets qt5compat'
           tools: 'tools_mingw1310,qt.tools.win64_mingw1310'
           add-tools-to-path: true
 
@@ -321,22 +321,20 @@ jobs:
         if: runner.os == 'macOS'
         uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
         with:
-          version: '6.8.3'
-          modules: 'qtcharts qtserialport qtremoteobjects qtwebsockets'
+          version: '6.11.1'
+          modules: 'qtcharts qtserialport qtremoteobjects qtwebsockets qt5compat'
 
       - name: Install OpenSSL (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          choco install openssl -y --no-progress
-          $opensslDir = Get-ChildItem -Path 'C:\Program Files*' -Directory -Filter 'OpenSSL*' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
-          if (-not $opensslDir) {
-            $opensslDir = Get-ChildItem -Path 'C:\ProgramData\chocolatey\lib' -Directory -Filter 'openssl*' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+          $installOutput = choco install openssl -y --no-progress
+          $installOutput
+          $deployMatch = $installOutput | Select-String -Pattern "Deployed to '([^']+)'" | Select-Object -First 1
+          if (-not $deployMatch) {
+            throw "Could not find OpenSSL install path ('Deployed to') in choco output"
           }
-          if (-not $opensslDir) {
-            throw "Could not locate OpenSSL install directory after choco install"
-          }
-          $opensslDir = $opensslDir -replace '\\', '/'
+          $opensslDir = $deployMatch.Matches[0].Groups[1].Value.TrimEnd('\') -replace '\\', '/'
           "OPENSSL_ROOT=$opensslDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Install OpenSSL (macOS)
