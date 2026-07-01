@@ -296,11 +296,10 @@ bool FlashEcuMitsuM32rCan::upload_and_commit(uint32_t start, const QByteArray &d
     }
 
     quint16 crc = checksum(data);
-    QByteArray crcPayload;
-    crcPayload.append(char(kServiceTransferData));
-    crcPayload.append(char((crc >> 8) & 0xFF));
-    crcPayload.append(char(crc & 0xFF));
-    output = build_request(crcPayload);
+    QByteArray crcData;
+    crcData.append(char((crc >> 8) & 0xFF));
+    crcData.append(char(crc & 0xFF));
+    output = build_request(buildTransferDataFrames(crcData).first());
     serial->write_serial_data_echo_check(output);
     delay(50);
     received = serial->read_serial_data(serial_read_timeout);
