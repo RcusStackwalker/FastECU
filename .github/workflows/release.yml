@@ -78,10 +78,14 @@ jobs:
           if ($cryptoDlls.Count -eq 0) {
             throw "Could not find a libcrypto-*.dll in $opensslDir/bin"
           }
+          # OpenSSL installers can ship a legacy-SONAME DLL alongside the current one
+          # (e.g. libcrypto-3-x64.dll next to libcrypto-4-x64.dll) for back-compat with
+          # other apps. The headers under $opensslDir/include always match the newest
+          # (highest SONAME) DLL, so prefer that one rather than an arbitrary match.
+          $cryptoDll = ($cryptoDlls | Sort-Object { [int]([regex]::Match($_.Name, 'libcrypto-(\d+)-').Groups[1].Value) } -Descending | Select-Object -First 1).Name
           if ($cryptoDlls.Count -gt 1) {
-            throw "Found multiple libcrypto-*.dll candidates in $opensslDir/bin, refusing to guess: $($cryptoDlls.Name -join ', ')"
+            Write-Host "Multiple libcrypto-*.dll candidates found ($($cryptoDlls.Name -join ', ')), using highest SONAME: $cryptoDll"
           }
-          $cryptoDll = $cryptoDlls[0].Name
           Write-Host "Resolved OPENSSL_CRYPTO_DLL=$cryptoDll"
           "OPENSSL_CRYPTO_DLL=$cryptoDll" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
