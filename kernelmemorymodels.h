@@ -10,6 +10,7 @@ enum mcu_type {
     M32R_512KB,
     M32R_512KB_1block,
     M32R_512KB_4blocks,
+    M32R_384KB_1block,
     MC68HC16Y5,
     MC68HC16Y5_TPU,
     SH7051,
@@ -442,6 +443,17 @@ const struct flashblock fblocks_M32R_512KB_4blocks[] = {
     {0x00008000,    0x00078000},
 };
 
+// Mitsubishi Colt CZT (Z37A, ROM 47110032): 384KB chip, single block
+// covering the whole image for full-chip reads. Writes only ever target
+// the 0x8000-0x60000 "userspace" subrange (see
+// MitsuColtCan::kUserspaceStart/kUserspaceEnd in protocol/mitsu_colt_can_protocol.h);
+// the protected 0x0-0x8000 boot region is never written. rblocks/kblocks/eblocks
+// below are placeholders (not consulted by flash_ecu_mitsu_m32r_can.cpp) — same
+// convention used for SH72531/N83M entries further down this table.
+const struct flashblock fblocks_M32R_384KB_1block[] = {
+    {0x00000000,    0x00060000},
+};
+
 const struct ramblock rblocks_M32R_512KB[] = {
     {0x00804000,    0x0000A000},
 };
@@ -519,6 +531,7 @@ const struct flashdev_t flashdevices[] = {
     { "M32R_512KB", M32R_512KB, 512 * 1024, 11, fblocks_M32R_512KB, rblocks_M32R_512KB, kblocks_M32R_512KB, eblocks_M32R_512KB },
     { "M32R_512KB_1block", M32R_512KB_1block, 512 * 1024, 1, fblocks_M32R_512KB_1block, rblocks_M32R_512KB, kblocks_M32R_512KB, eblocks_M32R_512KB },
     { "M32R_512KB_4blocks", M32R_512KB_4blocks, 512 * 1024, 4, fblocks_M32R_512KB_4blocks, rblocks_M32R_512KB, kblocks_M32R_512KB, eblocks_M32R_512KB },
+    { "M32R_384KB_1block", M32R_384KB_1block, 384 * 1024, 1, fblocks_M32R_384KB_1block, rblocks_M32R_512KB, kblocks_M32R_512KB, eblocks_M32R_512KB },
     { "MC68HC16Y5", MC68HC16Y5, 160 * 1024, 10, fblocks_MC68HC16Y5, rblocks_MC68HC16Y5, kblocks_MC68HC16Y5, eblocks_MC68HC16Y5 },
     { "MC68HC16Y5_TPU", MC68HC16Y5_TPU, 4 * 1024, 4, fblocks_MC68HC16Y5_TPU, rblocks_MC68HC16Y5, kblocks_MC68HC16Y5, eblocks_MC68HC16Y5 },
     { "SH7051", SH7051, 256 * 1024, 1, fblocks_SH7051, rblocks_SH7051, kblocks_SH7051, eblocks_SH7051 },
