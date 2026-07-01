@@ -197,6 +197,32 @@ jobs:
           qmake CONFIG+=release CONFIG-=debug_and_release FastECU.pro
           make
 
+      # release.yml's static+windeployqt packaging path is release-only and was
+      # never exercised by pr.yml -- that's exactly how the missing-OpenSSL-DLL
+      # bug (fixed once already) got past review and only surfaced on a real
+      # release. Rebuild statically here and package it the same way, so a
+      # regression in that path fails a PR instead of a public release. No
+      # upload -- this step exists purely to catch build/packaging failures.
+      - name: Build and package Windows static (verify only)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          qmake CONFIG+=release CONFIG-=debug_and_release CONFIG+=static FastECU.pro
+          mingw32-make
+          mkdir dist
+          copy FastECU.exe dist\
+          copy "$env:OPENSSL_ROOT/bin/$env:OPENSSL_CRYPTO_DLL" dist\
+          windeployqt dist\FastECU.exe
+          Compress-Archive -Path dist\* -DestinationPath pr-check-windows.zip
+
+      - name: Package macOS (verify only)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir dist
+          cp -R FastECU.app dist/
+          macdeployqt dist/FastECU.app
+          cd dist && zip -r ../pr-check-macos.zip FastECU.app
+
       - name: Build and run mut_dma_tests (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
