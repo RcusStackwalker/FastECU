@@ -22,9 +22,9 @@ win32 {
     #LIBS += -LC:\Qt\5.9.9\mingw53_32\lib\libQt5OpenGL.a -lopengl32 -lsetupapi
     #OpenSSL library must be stated first because in case
     #of static build it cannot be linked static, dynamic only
-    QMAKE_LFLAGS += -L\"C:\Program Files (x86)\OpenSSL-Win32\bin\" \
-                    -L\"C:\Program Files\OpenSSL-Win32\bin\" \
-                    -lcrypto-3
+    OPENSSL_ROOT = $$(OPENSSL_ROOT)
+    isEmpty(OPENSSL_ROOT): OPENSSL_ROOT = "C:/Program Files/OpenSSL-Win64"
+    QMAKE_LFLAGS += -L\"$$OPENSSL_ROOT/bin\" -lcrypto-3
     LIBS += -lopengl32 -lsetupapi
     SOURCES += \
     serial_port/J2534_win.cpp
@@ -32,7 +32,7 @@ win32 {
     serial_port/J2534_win.h
     HEADERS += \
     serial_port/J2534_tactrix_win.h
-    INCLUDEPATH += "C:\Program Files (x86)\OpenSSL-Win32\include" "C:\Program Files\OpenSSL-Win32\include"
+    INCLUDEPATH += $$OPENSSL_ROOT/include
 }
 unix {                       # Linux + macOS: shared serial J2534 implementation
     SOURCES += \
