@@ -116,10 +116,79 @@ QByteArray FlashEcuMitsuM32rCan::build_request(const QByteArray &sidPayload)
     return output;
 }
 
+/*
+ * Connect to the Mitsubishi Colt CZT (Z37A) M32R CAN bootloader.
+ * Read only needs the basic diagnostic session; write needs the bootload
+ * session plus security access (matches
+ * externals/livemonitor/obdsessionwidget.cpp's session-id selection and
+ * obdengine.cpp's ObdSessionInitCommandSequence).
+ *
+ * @return success
+ */
 int FlashEcuMitsuM32rCan::connect_bootloader()
 {
-    emit LOG_E("connect_bootloader() not yet implemented", true, true);
-    return STATUS_ERROR;
+    using namespace MitsuColtCan;
+
+    QByteArray output;
+    QByteArray received;
+    QString msg;
+
+    if (!serial->is_serial_port_open())
+    {
+        emit LOG_I("ERROR: Serial port is not open.", true, true);
+        return STATUS_ERROR;
+    }
+
+    bool needSecurity = (cmd_type == "write");
+    quint8 sessionId = needSecurity ? kSessionBootload : kSessionBasic;
+
+    emit LOG_I("Starting diagnostic session...", true, true);
+    output = build_request(buildDiagnosticSessionFrame(sessionId));
+    serial->write_serial_data_echo_check(output);
+    delay(50);
+    received = serial->read_serial_data(serial_read_timeout);
+    if (received.length() <= 5 || (uint8_t)received.at(4) != (kServiceDiagnosticSession + 0x40) || (uint8_t)received.at(5) != sessionId)
+    {
+        emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+        return STATUS_ERROR;
+    }
+    emit LOG_I("Diagnostic session ok", true, true);
+
+    if (!needSecurity)
+        return STATUS_SUCCESS;
+
+    emit LOG_I("Requesting security seed...", true, true);
+    output = build_request(buildSecurityAccessSeedRequestFrame());
+    serial->write_serial_data_echo_check(output);
+    delay(200);
+    received = serial->read_serial_data(serial_read_timeout);
+    if (received.length() <= 9 || (uint8_t)received.at(4) != (kServiceSecurityAccess + 0x40) || (uint8_t)received.at(5) != 5)
+    {
+        emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+        return STATUS_ERROR;
+    }
+
+    QByteArray seed = received.mid(6, 4);
+    msg = parse_message_to_hex(seed);
+    emit LOG_I("Received seed: " + msg, true, true);
+
+    QByteArray key = seedKey(seed);
+    msg = parse_message_to_hex(key);
+    emit LOG_I("Calculated seed key: " + msg, true, true);
+
+    emit LOG_I("Sending seed key to ECU...", true, true);
+    output = build_request(buildSecurityAccessKeyFrame(key));
+    serial->write_serial_data_echo_check(output);
+    delay(200);
+    received = serial->read_serial_data(serial_read_timeout);
+    if (received.length() <= 5 || (uint8_t)received.at(4) != (kServiceSecurityAccess + 0x40) || (uint8_t)received.at(5) != 6)
+    {
+        emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+        return STATUS_ERROR;
+    }
+    emit LOG_I("Security access ok", true, true);
+
+    return STATUS_SUCCESS;
 }
 
 int FlashEcuMitsuM32rCan::read_mem(uint32_t start_addr, uint32_t length)
