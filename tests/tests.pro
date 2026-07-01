@@ -16,8 +16,10 @@ SOURCES += \
     test_driver.cpp \
     test_mitsu_colt_can_protocol.cpp \
     test_mitsu_colt_can_cdbg_protocol.cpp \
+    test_cdbg_driver.cpp \
     ../protocol/mitsu_colt_can_protocol.cpp \
     ../protocol/mitsu_colt_can_cdbg_protocol.cpp \
+    ../protocol/mitsu_colt_can_cdbg_driver.cpp \
     ../protocol/mut_dma_codec.cpp \
     ../protocol/mut_dma_freeform.cpp \
     ../protocol/mut_dma_memory.cpp \
@@ -32,8 +34,10 @@ HEADERS += \
     test_driver.h \
     test_mitsu_colt_can_protocol.h \
     test_mitsu_colt_can_cdbg_protocol.h \
+    test_cdbg_driver.h \
     scripted_kline_transport.h \
     ../protocol/ikline_transport.h \
     ../protocol/mitsu_colt_can_cdbg_protocol.h \
+    ../protocol/mitsu_colt_can_cdbg_driver.h \
     scripted_can_transport.h \
     ../protocol/ican_transport.h

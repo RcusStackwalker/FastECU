@@ -166,7 +166,8 @@ SOURCES += \
     protocol/mut_dma_driver.cpp \
     protocol/fastecu_kline_transport.cpp \
     protocol/mitsu_colt_can_cdbg_protocol.cpp \
-    protocol/fastecu_can_transport.cpp
+    protocol/fastecu_can_transport.cpp \
+    protocol/mitsu_colt_can_cdbg_driver.cpp
 
 HEADERS += \
     calibration_maps.h \
@@ -253,7 +254,8 @@ HEADERS += \
     protocol/fastecu_kline_transport.h \
     protocol/mitsu_colt_can_cdbg_protocol.h \
     protocol/ican_transport.h \
-    protocol/fastecu_can_transport.h
+    protocol/fastecu_can_transport.h \
+    protocol/mitsu_colt_can_cdbg_driver.h
 
 FORMS += \
     calibration_map_table.ui \
