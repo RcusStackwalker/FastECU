@@ -320,22 +320,17 @@ jobs:
   release:
     runs-on: ubuntu-latest
     outputs:
-      tag: ${{ steps.get-tag.outputs.tag }}
+      tag: ${{ steps.bump.outputs.next-version }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           fetch-depth: 0
 
-      - uses: tomtom-international/commisery-action/bump@f88e8737a52bfbe4b20225399da697acdda5035d # v7.0.0
+      - id: bump
+        uses: tomtom-international/commisery-action/bump@f88e8737a52bfbe4b20225399da697acdda5035d # v7.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           create-release: true
-
-      - name: Get created tag
-        id: get-tag
-        run: |
-          git fetch --tags
-          echo "tag=$(git describe --tags --abbrev=0)" >> $GITHUB_OUTPUT
 
   build:
     needs: release
