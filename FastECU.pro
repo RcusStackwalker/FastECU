@@ -153,6 +153,7 @@ SOURCES += \
     systemlogger.cpp \
     vehicle_select.cpp \
     verticallabel.cpp \
+    protocol/mitsu_colt_can_protocol.cpp \
     protocol/mut_dma_codec.cpp \
     protocol/mut_dma_freeform.cpp \
     protocol/mut_dma_memory.cpp \
@@ -235,6 +236,7 @@ HEADERS += \
     systemlogger.h \
     vehicle_select.h \
     verticallabel.h \
+    protocol/mitsu_colt_can_protocol.h \
     protocol/mut_dma_codec.h \
     protocol/mut_dma_freeform.h \
     protocol/mut_dma_memory.h \
