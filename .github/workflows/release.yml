@@ -69,11 +69,13 @@ jobs:
             throw "Could not find OpenSSL install path ('Deployed to') in choco output"
           }
           $opensslDir = $deployMatch.Matches[0].Groups[1].Value.TrimEnd('\') -replace '\\', '/'
+          Write-Host "Resolved OPENSSL_ROOT=$opensslDir"
           "OPENSSL_ROOT=$opensslDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           $cryptoDll = Get-ChildItem -Path "$opensslDir/bin" -Filter 'libcrypto-*.dll' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Name
           if (-not $cryptoDll) {
             throw "Could not find a libcrypto-*.dll in $opensslDir/bin"
           }
+          Write-Host "Resolved OPENSSL_CRYPTO_DLL=$cryptoDll"
           "OPENSSL_CRYPTO_DLL=$cryptoDll" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Install OpenSSL (macOS)
@@ -88,6 +90,7 @@ jobs:
           mingw32-make
           mkdir dist
           copy FastECU.exe dist\
+          copy "$env:OPENSSL_ROOT/bin/$env:OPENSSL_CRYPTO_DLL" dist\
           windeployqt dist\FastECU.exe
           Compress-Archive -Path dist\* -DestinationPath FastECU-${{ needs.release.outputs.tag }}-windows.zip
 

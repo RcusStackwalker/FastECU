@@ -16,6 +16,7 @@
 - Both platforms' `modules:` list includes `qt5compat` in addition to `qtcharts qtserialport qtremoteobjects qtwebsockets` — also discovered during Task 2's first CI run: `cipher.cpp` (or a header it pulls in) uses `QtCore5Compat/QTextCodec`, which is a separate Qt6 add-on module not included by default.
 - The Windows OpenSSL discovery step parses `choco install openssl`'s own `Deployed to '...'` output line rather than globbing candidate directories — discovered during Task 2's second CI run: the original `Get-ChildItem -Path 'C:\Program Files*' -Filter 'OpenSSL*'` glob returned nothing (root cause not fully diagnosed — the real install landed at `C:\Program Files\OpenSSL\`, confirmed by choco's own log line, which `-Filter 'OpenSSL*'` should have matched), so the discovery silently fell through to the chocolatey package-metadata fallback path (`C:\ProgramData\chocolatey\lib\openssl`), which exists but contains no headers/DLLs — `qmake` then failed with `cipher.h:13:10: fatal error: openssl/conf.h: No such file or directory`. Parsing choco's own authoritative deploy message is more robust than re-deriving the path via glob.
 - `FastECU.pro`'s `win32{}` scope also reads an `OPENSSL_CRYPTO_DLL` env var (fallback `libcrypto-3-x64.dll`) and links via GNU ld's `-l:<exact filename>` syntax instead of `-lcrypto-3` — discovered during Task 2's third CI run: the choco-installed OpenSSL 4.0.1's actual runtime DLL is named `libcrypto-3-x64.dll` (confirmed via web research on the slproweb Win64OpenSSL package), which `-lcrypto-3` (searching for `libcrypto-3.dll.a`/`libcrypto-3.a`/`crypto-3.lib`) never matches — `ld.exe: cannot find -lcrypto-3`. The CI step discovers the real filename by globbing `$OPENSSL_ROOT/bin/libcrypto-*.dll` rather than hardcoding the versioned suffix, since OpenSSL's DLL SONAME suffix is not guaranteed stable across releases.
+- Task 3's Windows packaging step copies `$OPENSSL_ROOT/bin/$OPENSSL_CRYPTO_DLL` into `dist\` before running `windeployqt` — caught by Task 3's review, not live CI (this workflow only fires on push to `master`, so it had no CI run to catch it the way `pr.yml` did): `windeployqt` only bundles Qt's own dependencies (Qt DLLs, ICU, ANGLE, platform plugins), not third-party DLLs like OpenSSL, and `FastECU.pro`'s own comment confirms OpenSSL is always linked dynamically even under `CONFIG+=static`. Without this copy, the shipped "portable" Windows zip would be missing a hard runtime dependency and fail to launch on a machine without OpenSSL already installed.
 - Windows Qt arch: `win64_mingw` (the default arch for this action on Windows is MSVC — must be set explicitly since `FastECU.pro`'s `static{}` block uses MinGW-only linker flags).
 - Windows compiler tool: `tools_mingw1310` / variant `qt.tools.win64_mingw1310` (the MinGW version Qt 6.8's `win64_mingw` packages are built against).
 - Action pins: match the SHA-pinned convention already used in `codeinjector/.github/workflows/release.yml` (`actions/checkout@df4cb1c...# v6`, `tomtom-international/commisery-action/bump@f88e873...# v7.0.0`, `softprops/action-gh-release@b430933...# v3`). The one new action, `jurplel/install-qt-action`, is pinned to `48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1` (verified via `gh api repos/jurplel/install-qt-action/git/refs/tags/v4.3.1`).
@@ -344,11 +345,13 @@ jobs:
             throw "Could not find OpenSSL install path ('Deployed to') in choco output"
           }
           $opensslDir = $deployMatch.Matches[0].Groups[1].Value.TrimEnd('\') -replace '\\', '/'
+          Write-Host "Resolved OPENSSL_ROOT=$opensslDir"
           "OPENSSL_ROOT=$opensslDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           $cryptoDll = Get-ChildItem -Path "$opensslDir/bin" -Filter 'libcrypto-*.dll' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Name
           if (-not $cryptoDll) {
             throw "Could not find a libcrypto-*.dll in $opensslDir/bin"
           }
+          Write-Host "Resolved OPENSSL_CRYPTO_DLL=$cryptoDll"
           "OPENSSL_CRYPTO_DLL=$cryptoDll" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Install OpenSSL (macOS)
@@ -363,6 +366,7 @@ jobs:
           mingw32-make
           mkdir dist
           copy FastECU.exe dist\
+          copy "$env:OPENSSL_ROOT/bin/$env:OPENSSL_CRYPTO_DLL" dist\
           windeployqt dist\FastECU.exe
           Compress-Archive -Path dist\* -DestinationPath FastECU-${{ needs.release.outputs.tag }}-windows.zip
 
