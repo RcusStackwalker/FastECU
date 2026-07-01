@@ -49,6 +49,9 @@ CMakeLists.txt.user*
 # QtCreator 4.8< compilation database
 compile_commands.json
 
+# clangd fallback flags (machine-specific absolute paths, e.g. Homebrew prefix)
+compile_flags.txt
+
 # QtCreator local machine specific files for imported projects
 *creator.user*
 

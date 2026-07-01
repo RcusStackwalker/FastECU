@@ -1,0 +1,119 @@
+name: Release
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.get-tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+
+      - uses: tomtom-international/commisery-action/bump@f88e8737a52bfbe4b20225399da697acdda5035d # v7.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          create-release: true
+
+      - name: Get created tag
+        id: get-tag
+        run: |
+          git fetch --tags
+          echo "tag=$(git describe --tags --abbrev=0)" >> $GITHUB_OUTPUT
+
+  build:
+    needs: release
+    if: needs.release.outputs.tag != ''
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+
+      - name: Install Qt (Windows)
+        if: runner.os == 'Windows'
+        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
+        with:
+          version: '6.8.3'
+          arch: 'win64_mingw'
+          modules: 'qtcharts qtserialport qtremoteobjects qtwebsockets qt5compat'
+          tools: 'tools_mingw1310,qt.tools.win64_mingw1310'
+          add-tools-to-path: true
+
+      - name: Install Qt (macOS)
+        if: runner.os == 'macOS'
+        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
+        with:
+          version: '6.11.1'
+          modules: 'qtcharts qtserialport qtremoteobjects qtwebsockets qt5compat'
+
+      - name: Install OpenSSL (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $installOutput = choco install openssl -y --no-progress
+          $installOutput
+          $deployMatch = $installOutput | Select-String -Pattern "Deployed to '([^']+)'" | Select-Object -First 1
+          if (-not $deployMatch) {
+            throw "Could not find OpenSSL install path ('Deployed to') in choco output"
+          }
+          $opensslDir = $deployMatch.Matches[0].Groups[1].Value.TrimEnd('\') -replace '\\', '/'
+          Write-Host "Resolved OPENSSL_ROOT=$opensslDir"
+          "OPENSSL_ROOT=$opensslDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $cryptoDll = Get-ChildItem -Path "$opensslDir/bin" -Filter 'libcrypto-*.dll' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Name
+          if (-not $cryptoDll) {
+            throw "Could not find a libcrypto-*.dll in $opensslDir/bin"
+          }
+          Write-Host "Resolved OPENSSL_CRYPTO_DLL=$cryptoDll"
+          "OPENSSL_CRYPTO_DLL=$cryptoDll" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Install OpenSSL (macOS)
+        if: runner.os == 'macOS'
+        run: brew install openssl@3
+
+      - name: Build Windows portable package
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          qmake CONFIG+=release CONFIG-=debug_and_release CONFIG+=static FastECU.pro
+          mingw32-make
+          mkdir dist
+          copy FastECU.exe dist\
+          copy "$env:OPENSSL_ROOT/bin/$env:OPENSSL_CRYPTO_DLL" dist\
+          windeployqt dist\FastECU.exe
+          Compress-Archive -Path dist\* -DestinationPath FastECU-${{ needs.release.outputs.tag }}-windows.zip
+
+      - name: Build macOS package
+        if: runner.os == 'macOS'
+        run: |
+          qmake CONFIG+=release CONFIG-=debug_and_release FastECU.pro
+          make
+          mkdir dist
+          cp -R FastECU.app dist/
+          macdeployqt dist/FastECU.app
+          cd dist && zip -r ../FastECU-${{ needs.release.outputs.tag }}-macos.zip FastECU.app
+
+      - name: Upload release asset (Windows)
+        if: runner.os == 'Windows'
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
+        with:
+          tag_name: ${{ needs.release.outputs.tag }}
+          files: FastECU-${{ needs.release.outputs.tag }}-windows.zip
+
+      - name: Upload release asset (macOS)
+        if: runner.os == 'macOS'
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
+        with:
+          tag_name: ${{ needs.release.outputs.tag }}
+          files: FastECU-${{ needs.release.outputs.tag }}-macos.zip
