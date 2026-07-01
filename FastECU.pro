@@ -26,6 +26,9 @@ win32 {
     isEmpty(OPENSSL_ROOT): OPENSSL_ROOT = "C:/Program Files/OpenSSL-Win64"
     OPENSSL_CRYPTO_DLL = $$(OPENSSL_CRYPTO_DLL)
     isEmpty(OPENSSL_CRYPTO_DLL): OPENSSL_CRYPTO_DLL = libcrypto-3-x64.dll
+    # -l:<filename> is GNU ld's exact-filename linking syntax (MinGW toolchain only);
+    # it links directly against the DLL since OpenSSL's Windows installer doesn't
+    # ship a MinGW-compatible libcrypto.dll.a import library under a plain -lcrypto name.
     QMAKE_LFLAGS += -L\"$$OPENSSL_ROOT/bin\" -l:$$OPENSSL_CRYPTO_DLL
     LIBS += -lopengl32 -lsetupapi
     SOURCES += \

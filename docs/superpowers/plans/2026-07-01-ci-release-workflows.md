@@ -159,17 +159,24 @@ jobs:
         run: |
           $installOutput = choco install openssl -y --no-progress
           $installOutput
-          $deployMatch = $installOutput | Select-String -Pattern "Deployed to '([^']+)'" | Select-Object -First 1
-          if (-not $deployMatch) {
-            throw "Could not find OpenSSL install path ('Deployed to') in choco output"
+          $deployMatches = $installOutput | Select-String -Pattern "Deployed to '([^']+)'" | Where-Object { $_.Line -match 'openssl' }
+          if ($deployMatches.Count -eq 0) {
+            throw "Could not find an OpenSSL 'Deployed to' line in choco output"
           }
-          $opensslDir = $deployMatch.Matches[0].Groups[1].Value.TrimEnd('\') -replace '\\', '/'
+          if ($deployMatches.Count -gt 1) {
+            throw "Found multiple OpenSSL 'Deployed to' lines in choco output, refusing to guess: $($deployMatches.Line -join ' | ')"
+          }
+          $opensslDir = $deployMatches[0].Matches[0].Groups[1].Value.TrimEnd('\') -replace '\\', '/'
           Write-Host "Resolved OPENSSL_ROOT=$opensslDir"
           "OPENSSL_ROOT=$opensslDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          $cryptoDll = Get-ChildItem -Path "$opensslDir/bin" -Filter 'libcrypto-*.dll' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Name
-          if (-not $cryptoDll) {
+          $cryptoDlls = Get-ChildItem -Path "$opensslDir/bin" -Filter 'libcrypto-*.dll' -ErrorAction SilentlyContinue
+          if ($cryptoDlls.Count -eq 0) {
             throw "Could not find a libcrypto-*.dll in $opensslDir/bin"
           }
+          if ($cryptoDlls.Count -gt 1) {
+            throw "Found multiple libcrypto-*.dll candidates in $opensslDir/bin, refusing to guess: $($cryptoDlls.Name -join ', ')"
+          }
+          $cryptoDll = $cryptoDlls[0].Name
           Write-Host "Resolved OPENSSL_CRYPTO_DLL=$cryptoDll"
           "OPENSSL_CRYPTO_DLL=$cryptoDll" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
@@ -340,17 +347,24 @@ jobs:
         run: |
           $installOutput = choco install openssl -y --no-progress
           $installOutput
-          $deployMatch = $installOutput | Select-String -Pattern "Deployed to '([^']+)'" | Select-Object -First 1
-          if (-not $deployMatch) {
-            throw "Could not find OpenSSL install path ('Deployed to') in choco output"
+          $deployMatches = $installOutput | Select-String -Pattern "Deployed to '([^']+)'" | Where-Object { $_.Line -match 'openssl' }
+          if ($deployMatches.Count -eq 0) {
+            throw "Could not find an OpenSSL 'Deployed to' line in choco output"
           }
-          $opensslDir = $deployMatch.Matches[0].Groups[1].Value.TrimEnd('\') -replace '\\', '/'
+          if ($deployMatches.Count -gt 1) {
+            throw "Found multiple OpenSSL 'Deployed to' lines in choco output, refusing to guess: $($deployMatches.Line -join ' | ')"
+          }
+          $opensslDir = $deployMatches[0].Matches[0].Groups[1].Value.TrimEnd('\') -replace '\\', '/'
           Write-Host "Resolved OPENSSL_ROOT=$opensslDir"
           "OPENSSL_ROOT=$opensslDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          $cryptoDll = Get-ChildItem -Path "$opensslDir/bin" -Filter 'libcrypto-*.dll' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Name
-          if (-not $cryptoDll) {
+          $cryptoDlls = Get-ChildItem -Path "$opensslDir/bin" -Filter 'libcrypto-*.dll' -ErrorAction SilentlyContinue
+          if ($cryptoDlls.Count -eq 0) {
             throw "Could not find a libcrypto-*.dll in $opensslDir/bin"
           }
+          if ($cryptoDlls.Count -gt 1) {
+            throw "Found multiple libcrypto-*.dll candidates in $opensslDir/bin, refusing to guess: $($cryptoDlls.Name -join ', ')"
+          }
+          $cryptoDll = $cryptoDlls[0].Name
           Write-Host "Resolved OPENSSL_CRYPTO_DLL=$cryptoDll"
           "OPENSSL_CRYPTO_DLL=$cryptoDll" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
