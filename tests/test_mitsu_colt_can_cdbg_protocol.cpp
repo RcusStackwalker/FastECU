@@ -49,6 +49,67 @@ private slots:
         // 100000 ms > 65535, so unit flag = 1 and the field carries 100000/10 = 10000 = 0x2710.
         QCOMPARE(buildLogStartFrame(0, 3, 100000), QByteArray::fromHex("0600010003012710"));
     }
+    void batching_packs_channels_into_one_frame_when_they_fit() {
+        QVector<CdbgChannel> channels = { {0x804FBF, 1}, {0x804DF2, 2} };
+        QVector<QVector<CdbgChannel>> frames;
+        QVERIFY(batchChannelsIntoFrames(channels, frames));
+        QCOMPARE(frames.size(), 1);
+        QCOMPARE(frames.at(0).size(), 2);
+    }
+    void batching_starts_a_new_frame_when_the_next_channel_would_overflow() {
+        // byteIndex starts at 1 (byte 0 is the frame-index marker). Two
+        // 4-byte channels can't share a frame (1+4=5 ok, but the second
+        // 4-byte channel would need 5+4=9 > 8), so it spills into frame 1
+        // along with the following 2-byte channel (5+2=7 <= 8).
+        QVector<CdbgChannel> channels = { {0x804FBF, 4}, {0x804DF2, 4}, {0x8054AC, 2} };
+        QVector<QVector<CdbgChannel>> frames;
+        QVERIFY(batchChannelsIntoFrames(channels, frames));
+        QCOMPARE(frames.size(), 2);
+        QCOMPARE(frames.at(0).size(), 1);
+        QCOMPARE(frames.at(1).size(), 2);
+    }
+    void batching_rejects_empty_channel_list() {
+        QVector<CdbgChannel> channels;
+        QVector<QVector<CdbgChannel>> frames;
+        QVERIFY(!batchChannelsIntoFrames(channels, frames));
+    }
+    void batching_rejects_more_than_kMaxFrames_frames() {
+        // 9 single-byte-incompatible channels forcing 9 frames (one 4-byte
+        // channel per frame, since 1+4=5 <= 8 but a second 4-byte channel
+        // would overflow) - one more than kMaxFrames (8).
+        QVector<CdbgChannel> channels;
+        for (int i = 0; i < 9; ++i)
+            channels.append(CdbgChannel{quint32(0x800000 + i), 4});
+        QVector<QVector<CdbgChannel>> frames;
+        QVERIFY(!batchChannelsIntoFrames(channels, frames));
+    }
+    void frame_init_frames_layout_for_two_items() {
+        QVector<CdbgChannel> frameItems = { {0x804FBF, 1}, {0x804DF2, 2} };
+        QVector<QByteArray> cmds = buildFrameInitFrames(0, 0, frameItems);
+        QCOMPARE(cmds.size(), 4);
+        QCOMPARE(cmds.at(0), QByteArray::fromHex("1500000000000000")); // select item 0
+        QCOMPARE(cmds.at(1), QByteArray::fromHex("1600010000804FBF")); // pointer/size item 0
+        QCOMPARE(cmds.at(2), QByteArray::fromHex("1500000001000000")); // select item 1
+        QCOMPARE(cmds.at(3), QByteArray::fromHex("1600020000804DF2")); // pointer/size item 1
+    }
+    void decode_frame_reads_big_endian_values_at_the_right_offsets() {
+        QVector<CdbgChannel> frameItems = { {0x804FBF, 1}, {0x804DF2, 2} };
+        QByteArray frame = QByteArray::fromHex("002A123400000000");
+        QVector<quint32> values = decodeFrame(0, frameItems, frame);
+        QCOMPARE(values.size(), 2);
+        QCOMPARE(values.at(0), quint32(0x2A));
+        QCOMPARE(values.at(1), quint32(0x1234));
+    }
+    void decode_frame_rejects_mismatched_frame_index() {
+        QVector<CdbgChannel> frameItems = { {0x804FBF, 1} };
+        QByteArray frame = QByteArray::fromHex("012A000000000000"); // index byte is 1, not 0
+        QVERIFY(decodeFrame(0, frameItems, frame).isEmpty());
+    }
+    void decode_frame_rejects_too_short_frame() {
+        QVector<CdbgChannel> frameItems = { {0x804FBF, 4} };
+        QByteArray frame = QByteArray::fromHex("0011"); // needs 1+4=5 bytes, only has 2
+        QVERIFY(decodeFrame(0, frameItems, frame).isEmpty());
+    }
 };
 int run_test_mitsu_colt_can_cdbg_protocol(int argc, char** argv) {
     TestMitsuColtCanCdbgProtocol t;

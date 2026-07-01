@@ -123,4 +123,88 @@ QByteArray buildLogStartFrame(quint8 instance, quint8 frameCount, quint32 interv
     return f;
 }
 
+bool batchChannelsIntoFrames(const QVector<CdbgChannel> &channels,
+                              QVector<QVector<CdbgChannel>> &outFrames)
+{
+    if (channels.isEmpty()) return false;
+
+    QVector<QVector<CdbgChannel>> frames;
+    QVector<CdbgChannel> current;
+    int byteIndex = 1;
+
+    for (const CdbgChannel &ch : channels) {
+        if (byteIndex + ch.size > 8) {
+            frames.append(current);
+            current.clear();
+            byteIndex = 1;
+        }
+        current.append(ch);
+        byteIndex += ch.size;
+    }
+    if (!current.isEmpty())
+        frames.append(current);
+
+    if (frames.size() > kMaxFrames)
+        return false;
+
+    outFrames = frames;
+    return true;
+}
+
+QVector<QByteArray> buildFrameInitFrames(quint8 instance, quint8 frameIndex,
+                                          const QVector<CdbgChannel> &frameItems)
+{
+    QVector<QByteArray> out;
+    for (int i = 0; i < frameItems.size(); ++i) {
+        QByteArray select;
+        select.append(char(kCmdLogSelectItem));
+        select.append(char(0));
+        select.append(char(instance));
+        select.append(char(frameIndex));
+        select.append(char(i));
+        select.append(char(0));
+        select.append(char(0));
+        select.append(char(0));
+        out.append(select);
+
+        const CdbgChannel &ch = frameItems.at(i);
+        QByteArray pointer;
+        pointer.append(char(kCmdLogSetPointer));
+        pointer.append(char(0));
+        pointer.append(char(ch.size));
+        pointer.append(char(0));
+        pointer.append(char((ch.pointer >> 24) & 0xFF));
+        pointer.append(char((ch.pointer >> 16) & 0xFF));
+        pointer.append(char((ch.pointer >> 8) & 0xFF));
+        pointer.append(char(ch.pointer & 0xFF));
+        out.append(pointer);
+    }
+    return out;
+}
+
+QVector<quint32> decodeFrame(quint8 expectedFrameIndex,
+                              const QVector<CdbgChannel> &frameItems,
+                              const QByteArray &frame)
+{
+    if (frame.size() < 1 || quint8(frame.at(0)) != expectedFrameIndex)
+        return {};
+
+    int need = 1;
+    for (const CdbgChannel &ch : frameItems)
+        need += ch.size;
+    if (frame.size() < need)
+        return {};
+
+    QVector<quint32> out;
+    int offset = 1;
+    for (const CdbgChannel &ch : frameItems) {
+        quint32 value = 0;
+        for (int k = 0; k < ch.size; ++k)
+            value = (value << 8) | quint32(quint8(frame.at(offset + k)));
+        out.append(value);
+        offset += ch.size;
+    }
+    return out;
+}
+
 } // namespace MitsuColtCanCdbg
