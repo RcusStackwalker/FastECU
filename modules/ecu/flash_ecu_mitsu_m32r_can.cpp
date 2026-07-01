@@ -191,12 +191,56 @@ int FlashEcuMitsuM32rCan::connect_bootloader()
     return STATUS_SUCCESS;
 }
 
+/*
+ * Read ROM from the Colt CZT bootloader via ReadMemoryByAddress(0x23),
+ * kFlashReadBlockSize-byte blocks. No security session required for read
+ * (matches externals/livemonitor/obdsessionwidget.cpp's requestReadFlashBlock,
+ * which only needs ObdEngine::SessionBasic).
+ *
+ * @return success
+ */
 int FlashEcuMitsuM32rCan::read_mem(uint32_t start_addr, uint32_t length)
 {
-    Q_UNUSED(start_addr);
-    Q_UNUSED(length);
-    emit LOG_E("read_mem() not yet implemented", true, true);
-    return STATUS_ERROR;
+    using namespace MitsuColtCan;
+
+    QByteArray output;
+    QByteArray received;
+    QByteArray romdata;
+
+    uint32_t addr = start_addr;
+    uint32_t end_addr = start_addr + length;
+
+    set_progressbar_value(0);
+    emit LOG_I("Start reading ROM, please wait...", true, true);
+
+    while (addr < end_addr)
+    {
+        if (kill_process)
+            return STATUS_ERROR;
+
+        output = build_request(buildReadMemoryByAddressFrame(addr, (quint8)kFlashReadBlockSize));
+        serial->write_serial_data_echo_check(output);
+        delay(50);
+        received = serial->read_serial_data(serial_read_timeout);
+
+        if (received.length() < int(4 + 1 + kFlashReadBlockSize) || (uint8_t)received.at(4) != (kServiceReadMemoryByAddress + 0x40))
+        {
+            emit LOG_E("Wrong response from ECU at 0x" + QString::number(addr, 16) + ": " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+            return STATUS_ERROR;
+        }
+
+        romdata.append(received.mid(5, int(kFlashReadBlockSize)));
+        addr += kFlashReadBlockSize;
+
+        float pleft = (float)(addr - start_addr) / (float)length * 100.0f;
+        set_progressbar_value((int)pleft);
+    }
+
+    emit LOG_I("ROM read complete", true, true);
+    ecuCalDef->FullRomData = romdata;
+    set_progressbar_value(100);
+
+    return STATUS_SUCCESS;
 }
 
 int FlashEcuMitsuM32rCan::write_mem(bool test_write)
