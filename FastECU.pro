@@ -24,7 +24,9 @@ win32 {
     #of static build it cannot be linked static, dynamic only
     OPENSSL_ROOT = $$(OPENSSL_ROOT)
     isEmpty(OPENSSL_ROOT): OPENSSL_ROOT = "C:/Program Files/OpenSSL-Win64"
-    QMAKE_LFLAGS += -L\"$$OPENSSL_ROOT/bin\" -lcrypto-3
+    OPENSSL_CRYPTO_DLL = $$(OPENSSL_CRYPTO_DLL)
+    isEmpty(OPENSSL_CRYPTO_DLL): OPENSSL_CRYPTO_DLL = libcrypto-3-x64.dll
+    QMAKE_LFLAGS += -L\"$$OPENSSL_ROOT/bin\" -l:$$OPENSSL_CRYPTO_DLL
     LIBS += -lopengl32 -lsetupapi
     SOURCES += \
     serial_port/J2534_win.cpp
