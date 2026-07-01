@@ -497,6 +497,10 @@ MainWindow::~MainWindow()
         {
             mitsubishi_dma_stop_logging();
         }
+        else if (configValues->flash_protocol_selected_log_protocol == "CDBG")
+        {
+            cdbg_stop_logging();
+        }
         else
         {
             log_ssm_values();

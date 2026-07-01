@@ -98,6 +98,8 @@
 #include "protocol/mut_dma_driver.h"
 #include "protocol/fastecu_kline_transport.h"
 #include "protocol/imut_dma_init.h"
+#include "protocol/mitsu_colt_can_cdbg_driver.h"
+#include "protocol/fastecu_can_transport.h"
 
 //Forward declaration
 class SerialPortActions;
@@ -257,6 +259,9 @@ private:
     mutdma::FastEcuKlineTransport* mut_transport = nullptr;
     mutdma::IMutDmaInit* mut_init = nullptr;
 
+    MitsuColtCanCdbg::CdbgLogDriver* cdbg_driver = nullptr;
+    cdbg::FastEcuCanTransport* cdbg_transport = nullptr;
+
     QElapsedTimer *log_speed_timer;
 
     LogBox *logBoxes;
@@ -322,6 +327,10 @@ private:
     void mitsubishi_dma_stop_logging();
     bool mut_write_memory(quint16 addr, const QByteArray& bytes);
     QByteArray mut_read_memory(quint16 addr, int len);
+
+    // log_operations_mitsubishi_cdbg (Cdbg CAN logging, Colt CZT 47110032)
+    void cdbg_start_logging();
+    void cdbg_stop_logging();
 
     // logvalues.c
     void change_log_values(int tabIndex, QString protocol);
@@ -400,6 +409,7 @@ private slots:
     void log_ssm_values();
     void read_log_serial_data();
     void mitsubishi_dma_poll();
+    void cdbg_poll();
 
     // menu_actions.c
     void menu_action_triggered(QString action);

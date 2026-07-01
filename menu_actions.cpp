@@ -925,6 +925,10 @@ void MainWindow::toggle_realtime()
         {
             mitsubishi_dma_start_logging();
         }
+        else if (configValues->flash_protocol_selected_log_protocol == "CDBG")
+        {
+            cdbg_start_logging();
+        }
         else
         {
             log_ssm_values();
@@ -944,6 +948,10 @@ void MainWindow::toggle_realtime()
         if (configValues->flash_protocol_selected_log_protocol == "MUT_DMA")
         {
             mitsubishi_dma_stop_logging();
+        }
+        else if (configValues->flash_protocol_selected_log_protocol == "CDBG")
+        {
+            cdbg_stop_logging();
         }
         else
         {
