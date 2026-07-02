@@ -996,7 +996,13 @@ Ports `log_ssm_values()`, `read_log_serial_data()`, and the per-cycle parts of `
 
 Also dropped: `parse_log_params()`'s `log_speed`/`log_speed_timer` computation, which is dead code (the only place its result is used is a commented-out `emit LOG_D(...)` line).
 
+This task also extracts a shared RomRaider-expression-conversion helper (`logging/romraider_conversion.h`/`.cpp`), since all three protocols (`SsmLoggingProtocol` here, `MutDmaLoggingProtocol` in Task 5, `CdbgLoggingProtocol` in Task 6) need the identical "split `log_value_units`, extract the from-byte expression and decimal format, run it through `calculate_value_from_expression`/`parse_stringlist_from_expression_string`, format the result" sequence that `mitsubishi_dma_poll()` and `cdbg_poll()` used to duplicate verbatim. The helper takes the raw value already rendered as a decimal `QString` (SSM builds this differently than MUT/DMA and Cdbg do -- see Step 1 below -- so the helper starts from that common point, not from raw bytes).
+
 **Files:**
+- Create: `logging/romraider_conversion.h`
+- Create: `logging/romraider_conversion.cpp`
+- Create: `tests/test_romraider_conversion.h`
+- Create: `tests/test_romraider_conversion.cpp`
 - Create: `logging/protocols/ssm_logging_protocol.h`
 - Create: `logging/protocols/ssm_logging_protocol.cpp`
 - Create: `tests/test_ssm_logging_protocol.h`
@@ -1007,9 +1013,116 @@ Also dropped: `parse_log_params()`'s `log_speed`/`log_speed_timer` computation, 
 
 **Interfaces:**
 - Consumes: `ISsmTransport` (Task 3, including `isOpen()`), `LoggingProtocol`/`PollResult`/`LogSample` (Task 1), `ScriptedSsmTransport` (Task 3), `FileActions::LogValuesStructure`/`FileActions` (existing, `file_actions.h`).
-- Produces: `class SsmLoggingProtocol : public LoggingProtocol` with constructor `SsmLoggingProtocol(std::unique_ptr<ISsmTransport> transport, FileActions::LogValuesStructure *logValues, FileActions *fileActions, QString logValueProtocolFilter, bool targetIsEcu, bool useOpenport2Adapter)`. Note: no `SerialPortActions*` parameter -- connectivity is checked via `transport_->isOpen()` instead (see Task 3), and `useOpenport2Adapter`/`targetIsEcu` are captured once as plain booleans at construction rather than queried live, so this class has no dependency on `SerialPortActions` at all.
+- Produces: `QString convertRomRaiderValue(FileActions *fileActions, FileActions::LogValuesStructure *logValues, int j, const QString &rawValueString)` (used by this task and Tasks 5-6); `class SsmLoggingProtocol : public LoggingProtocol` with constructor `SsmLoggingProtocol(std::unique_ptr<ISsmTransport> transport, FileActions::LogValuesStructure *logValues, FileActions *fileActions, QString logValueProtocolFilter, bool targetIsEcu, bool useOpenport2Adapter)`. Note: no `SerialPortActions*` parameter -- connectivity is checked via `transport_->isOpen()` instead (see Task 3), and `useOpenport2Adapter`/`targetIsEcu` are captured once as plain booleans at construction rather than queried live, so this class has no dependency on `SerialPortActions` at all.
 
-- [ ] **Step 1: Write `logging/protocols/ssm_logging_protocol.h`**
+- [ ] **Step 1: Write `logging/romraider_conversion.h`**
+
+```cpp
+#pragma once
+#include <QString>
+#include <file_actions.h>
+
+// Converts one already-assembled raw decimal value string into its display-ready
+// form using the RomRaider-format from-byte expression and decimal format stored
+// in logValues->log_value_units.at(j) (comma-separated: name,unit,expr,format).
+// Shared by SsmLoggingProtocol, MutDmaLoggingProtocol, and CdbgLoggingProtocol,
+// which each assemble rawValueString differently (SSM concatenates raw bytes as
+// decimal digits per byte; MUT/DMA and Cdbg convert a single decoded quint32 to
+// one decimal string) but apply the identical conversion from that point on.
+QString convertRomRaiderValue(FileActions *fileActions, FileActions::LogValuesStructure *logValues,
+                               int j, const QString &rawValueString);
+```
+
+- [ ] **Step 2: Write `logging/romraider_conversion.cpp`**
+
+```cpp
+#include "logging/romraider_conversion.h"
+#include <QRegularExpression>
+#include <QStringList>
+
+QString convertRomRaiderValue(FileActions *fileActions, FileActions::LogValuesStructure *logValues,
+                               int j, const QString &rawValueString)
+{
+    QStringList conversion = logValues->log_value_units.at(j).split(",");
+    QString from_byte = conversion.at(2);
+    QStringList format_str_lst = conversion.at(3).split(".");
+    uint8_t format = 0;
+    if (format_str_lst.length() > 1)
+        format = format_str_lst.at(1).count(QRegularExpression("0"));
+
+    double calc_value = fileActions->calculate_value_from_expression(
+        fileActions->parse_stringlist_from_expression_string(from_byte, rawValueString));
+    return QString::number(calc_value, 'f', format);
+}
+```
+
+- [ ] **Step 3: Write `tests/test_romraider_conversion.h`**
+
+```cpp
+#pragma once
+int run_test_romraider_conversion(int argc, char** argv);
+```
+
+- [ ] **Step 4: Write the tests in `tests/test_romraider_conversion.cpp`**
+
+```cpp
+#include <QtTest>
+#include <file_actions.h>
+#include "logging/romraider_conversion.h"
+#include "test_romraider_conversion.h"
+
+class TestRomraiderConversion : public QObject {
+    Q_OBJECT
+private slots:
+    void applies_scaling_expression_and_format() {
+        FileActions fileActions;
+        FileActions::LogValuesStructure lv;
+        lv.log_value_units << "Engine Speed,rpm,x*0.25,0.00";
+
+        QString result = convertRomRaiderValue(&fileActions, &lv, 0, "400");
+        QCOMPARE(result, QString("100.00"));
+    }
+
+    void applies_integer_format_with_no_decimals() {
+        FileActions fileActions;
+        FileActions::LogValuesStructure lv;
+        lv.log_value_units << "Coolant Temperature,C,x,0";
+
+        QString result = convertRomRaiderValue(&fileActions, &lv, 0, "42");
+        QCOMPARE(result, QString("42"));
+    }
+};
+
+int run_test_romraider_conversion(int argc, char** argv) {
+    TestRomraiderConversion t;
+    return QTest::qExec(&t, argc, argv);
+}
+#include "test_romraider_conversion.moc"
+```
+
+- [ ] **Step 5: Wire the helper and its tests into the build**
+
+In `tests/tests.pro`, add to `SOURCES`:
+```
+    test_romraider_conversion.cpp \
+    ../logging/romraider_conversion.cpp \
+```
+and to `HEADERS`:
+```
+    test_romraider_conversion.h \
+    ../logging/romraider_conversion.h \
+```
+
+In `tests/main.cpp`, add: `status |= run_test_romraider_conversion(argc, argv);`
+
+In `FastECU.pro`, add `logging/romraider_conversion.cpp` to `SOURCES` and `logging/romraider_conversion.h` to `HEADERS`.
+
+- [ ] **Step 6: Build and run the helper's tests before continuing**
+
+Run: `cd tests && qmake tests.pro && make && ./mut_dma_tests`
+Expected: all previous suites plus `TestRomraiderConversion` reporting 2 passed, 0 failed.
+
+- [ ] **Step 7: Write `logging/protocols/ssm_logging_protocol.h`**
 
 ```cpp
 #pragma once
@@ -1043,12 +1156,12 @@ private:
 };
 ```
 
-- [ ] **Step 2: Write `logging/protocols/ssm_logging_protocol.cpp`**
+- [ ] **Step 8: Write `logging/protocols/ssm_logging_protocol.cpp`**
 
 ```cpp
 #include "logging/protocols/ssm_logging_protocol.h"
+#include "logging/romraider_conversion.h"
 #include <QElapsedTimer>
-#include <QRegularExpression>
 
 namespace {
 constexpr int kStartTimeoutMs = 1000;
@@ -1175,21 +1288,12 @@ PollResult SsmLoggingProtocol::poll(int timeoutMs)
                 && logValues_->log_value_protocol.at(j) == logValueProtocolFilter_
                 && logValues_->log_value_enabled.at(j) == "1"
                 && i < received.length()) {
-                QStringList conversion = logValues_->log_value_units.at(j).split(",");
-                QString from_byte = conversion.at(2);
-                QStringList format_str_lst = conversion.at(3).split(".");
-                uint8_t format = 0;
-                if (format_str_lst.length() > 1)
-                    format = format_str_lst.at(1).count(QRegularExpression("0"));
-
                 QString value;
                 uint8_t length = logValues_->log_value_length.at(j).toUInt();
                 for (uint8_t k = 0; k < length && (i + k) < (uint8_t)received.length(); k++)
                     value.append(QString::number((uint8_t)received.at(i + k)));
 
-                float calc_float_value = fileActions_->calculate_value_from_expression(
-                    fileActions_->parse_stringlist_from_expression_string(from_byte, value));
-                QString calc_value = QString::number(calc_float_value, 'f', format);
+                QString calc_value = convertRomRaiderValue(fileActions_, logValues_, j, value);
                 result.samples.append(LogSample{j, calc_value});
             }
         }
@@ -1206,14 +1310,14 @@ void SsmLoggingProtocol::stop()
 }
 ```
 
-- [ ] **Step 3: Write `tests/test_ssm_logging_protocol.h`**
+- [ ] **Step 9: Write `tests/test_ssm_logging_protocol.h`**
 
 ```cpp
 #pragma once
 int run_test_ssm_logging_protocol(int argc, char** argv);
 ```
 
-- [ ] **Step 4: Write the tests in `tests/test_ssm_logging_protocol.cpp`**
+- [ ] **Step 10: Write the tests in `tests/test_ssm_logging_protocol.cpp`**
 
 ```cpp
 #include <QtTest>
@@ -1343,7 +1447,7 @@ int run_test_ssm_logging_protocol(int argc, char** argv) {
 #include "test_ssm_logging_protocol.moc"
 ```
 
-- [ ] **Step 5: Wire the new files into the build**
+- [ ] **Step 11: Wire the new files into the build**
 
 In `tests/tests.pro`, add to `SOURCES`:
 ```
@@ -1360,18 +1464,20 @@ In `tests/main.cpp`, add: `status |= run_test_ssm_logging_protocol(argc, argv);`
 
 In `FastECU.pro`, add `logging/protocols/ssm_logging_protocol.cpp` to `SOURCES` and `logging/protocols/ssm_logging_protocol.h` to `HEADERS`.
 
-- [ ] **Step 6: Build and run**
+- [ ] **Step 12: Build and run**
 
 Run: `cd tests && qmake tests.pro && make && ./mut_dma_tests`
 Expected: all previous suites plus `TestSsmLoggingProtocol` reporting 6 passed, 0 failed.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 13: Commit**
 
 ```bash
-git add logging/protocols/ssm_logging_protocol.h logging/protocols/ssm_logging_protocol.cpp \
+git add logging/romraider_conversion.h logging/romraider_conversion.cpp \
+        tests/test_romraider_conversion.h tests/test_romraider_conversion.cpp \
+        logging/protocols/ssm_logging_protocol.h logging/protocols/ssm_logging_protocol.cpp \
         tests/test_ssm_logging_protocol.h tests/test_ssm_logging_protocol.cpp \
         tests/tests.pro tests/main.cpp FastECU.pro
-git commit -m "feat: port SSM logging to SsmLoggingProtocol"
+git commit -m "feat: add shared RomRaider conversion helper and port SSM logging to SsmLoggingProtocol"
 ```
 
 ---
@@ -1390,7 +1496,7 @@ Thin adapter over the existing `MutDmaDriver`, porting `mitsubishi_dma_start_log
 - Modify: `FastECU.pro`
 
 **Interfaces:**
-- Consumes: `mutdma::MutDmaDriver`, `mutdma::Channel` (`protocol/mut_dma_driver.h`, `protocol/mut_dma_freeform.h`, existing), `mutdma::IKlineTransport` (Task 3, including `isOpen()`), `mutdma::IMutDmaInit` (existing), `ScriptedKlineTransport` (`tests/scripted_kline_transport.h`, Task 3), `LoggingProtocol`/`PollResult`/`LogSample` (Task 1).
+- Consumes: `mutdma::MutDmaDriver`, `mutdma::Channel` (`protocol/mut_dma_driver.h`, `protocol/mut_dma_freeform.h`, existing), `mutdma::IKlineTransport` (Task 3, including `isOpen()`), `mutdma::IMutDmaInit` (existing), `ScriptedKlineTransport` (`tests/scripted_kline_transport.h`, Task 3), `LoggingProtocol`/`PollResult`/`LogSample` (Task 1), `convertRomRaiderValue` (`logging/romraider_conversion.h`, Task 4).
 - Produces: `class MutDmaLoggingProtocol : public LoggingProtocol` with constructor `MutDmaLoggingProtocol(std::unique_ptr<mutdma::IKlineTransport> transport, std::unique_ptr<mutdma::IMutDmaInit> init, FileActions::LogValuesStructure *logValues, FileActions *fileActions)`. Note: no `SerialPortActions*` parameter -- the original `mitsubishi_dma_start_logging()`/`poll()` never called any `SerialPortActions` method directly (only through the transport), so connectivity is checked via `transport_->isOpen()` alone.
 
 - [ ] **Step 1: Write `logging/protocols/mut_dma_logging_protocol.h`**
@@ -1429,7 +1535,7 @@ private:
 
 ```cpp
 #include "logging/protocols/mut_dma_logging_protocol.h"
-#include <QRegularExpression>
+#include "logging/romraider_conversion.h"
 
 using namespace mutdma;
 
@@ -1506,18 +1612,8 @@ PollResult MutDmaLoggingProtocol::poll(int timeoutMs)
 
     for (int i = 0; i < vals.size() && i < channelLogValueIndex_.size(); ++i) {
         int j = channelLogValueIndex_.at(i);
-
-        QStringList conversion = logValues_->log_value_units.at(j).split(",");
-        QString from_byte = conversion.at(2);
-        QStringList format_str_lst = conversion.at(3).split(".");
-        uint8_t format = 0;
-        if (format_str_lst.length() > 1)
-            format = format_str_lst.at(1).count(QRegularExpression("0"));
-
         QString value = QString::number(vals.at(i));
-        float calc_float_value = fileActions_->calculate_value_from_expression(
-            fileActions_->parse_stringlist_from_expression_string(from_byte, value));
-        QString calc_value = QString::number(calc_float_value, 'f', format);
+        QString calc_value = convertRomRaiderValue(fileActions_, logValues_, j, value);
         result.samples.append(LogSample{j, calc_value});
     }
 
@@ -1673,7 +1769,7 @@ Thin adapter over the existing `CdbgLogDriver`, porting `cdbg_start_logging()`/`
 - Modify: `FastECU.pro`
 
 **Interfaces:**
-- Consumes: `MitsuColtCanCdbg::CdbgLogDriver`, `MitsuColtCanCdbg::CdbgChannel`, `MitsuColtCanCdbg::kReplyCanId` (`protocol/mitsu_colt_can_cdbg_driver.h`, `protocol/mitsu_colt_can_cdbg_protocol.h`, existing), `cdbg::ICanTransport` (Task 3, including `isOpen()`), `ScriptedCanTransport` (`tests/scripted_can_transport.h`, Task 3), `LoggingProtocol`/`PollResult`/`LogSample` (Task 1).
+- Consumes: `MitsuColtCanCdbg::CdbgLogDriver`, `MitsuColtCanCdbg::CdbgChannel`, `MitsuColtCanCdbg::kReplyCanId` (`protocol/mitsu_colt_can_cdbg_driver.h`, `protocol/mitsu_colt_can_cdbg_protocol.h`, existing), `cdbg::ICanTransport` (Task 3, including `isOpen()`), `ScriptedCanTransport` (`tests/scripted_can_transport.h`, Task 3), `LoggingProtocol`/`PollResult`/`LogSample` (Task 1), `convertRomRaiderValue` (`logging/romraider_conversion.h`, Task 4).
 - Produces: `class CdbgLoggingProtocol : public LoggingProtocol` with constructor `CdbgLoggingProtocol(std::unique_ptr<cdbg::ICanTransport> transport, SerialPortActions *serial, FileActions::LogValuesStructure *logValues, FileActions *fileActions)`. Unlike SSM/MUT-DMA, this one keeps `SerialPortActions*` because `start()` still needs to call the real CAN-mode config setters (`set_is_can_connection`, `set_can_speed`, ...) and `open_serial_port()` -- but connectivity (`TransportError`) is still checked via `transport_->isOpen()`, not `serial_->is_serial_port_open()`, for the same testability reason as the other two protocols.
 
 - [ ] **Step 1: Write `logging/protocols/cdbg_logging_protocol.h`**
@@ -1712,8 +1808,8 @@ private:
 
 ```cpp
 #include "logging/protocols/cdbg_logging_protocol.h"
+#include "logging/romraider_conversion.h"
 #include "serial_port/serial_port_actions.h"
-#include <QRegularExpression>
 
 using namespace MitsuColtCanCdbg;
 
@@ -1795,18 +1891,8 @@ PollResult CdbgLoggingProtocol::poll(int timeoutMs)
 
     for (int i = 0; i < vals.size() && i < channelLogValueIndex_.size(); ++i) {
         int j = channelLogValueIndex_.at(i);
-
-        QStringList conversion = logValues_->log_value_units.at(j).split(",");
-        QString from_byte = conversion.at(2);
-        QStringList format_str_lst = conversion.at(3).split(".");
-        uint8_t format = 0;
-        if (format_str_lst.length() > 1)
-            format = format_str_lst.at(1).count(QRegularExpression("0"));
-
         QString value = QString::number(vals.at(i));
-        double calc_float_value = fileActions_->calculate_value_from_expression(
-            fileActions_->parse_stringlist_from_expression_string(from_byte, value));
-        QString calc_value = QString::number(calc_float_value, 'f', format);
+        QString calc_value = convertRomRaiderValue(fileActions_, logValues_, j, value);
         result.samples.append(LogSample{j, calc_value});
     }
 
