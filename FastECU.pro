@@ -3,7 +3,7 @@ QT += core gui xml serialport remoteobjects websockets
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 QT += charts
 
-CONFIG += c++11
+CONFIG += c++17
 
 # The following define makes your compiler emit warnings if you use
 # any Qt feature that has been marked deprecated (the exact warnings
@@ -243,6 +243,7 @@ HEADERS += \
     protocol_select.h \
     remote_utility/remote_utility.h \
     serial_port/qtrohelper.hpp \
+    serial_port/serial_backend.h \
     serial_port/serial_port_actions.h \
     serial_port/serial_port_actions_direct.h \
     serial_port/websocketiodevice.h \

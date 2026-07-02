@@ -256,6 +256,14 @@ int SerialPortActionsDirect::clear_rx_buffer()
             emit LOG_D("RX BUFFER EMPTY", true, true);
         }
     }
+    else if (serial->isOpen())
+    {
+        // Plain-serial counterpart of the J2534 CLEAR_RX_BUFFER ioctl above:
+        // discard whatever's already landed in QSerialPort's read buffer so a
+        // stale/junk byte from a previous exchange doesn't corrupt the next
+        // read_serial_data() call.
+        serial->clear(QSerialPort::Input);
+    }
 
     return STATUS_SUCCESS;
 }
