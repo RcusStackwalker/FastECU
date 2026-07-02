@@ -171,7 +171,9 @@ SOURCES += \
     protocol/mitsu_colt_can_cdbg_driver.cpp \
     protocol/fastecu_ssm_transport.cpp \
     logging/logging_worker.cpp \
-    logging/logging_engine.cpp
+    logging/logging_engine.cpp \
+    logging/romraider_conversion.cpp \
+    logging/protocols/ssm_logging_protocol.cpp
 
 HEADERS += \
     calibration_maps.h \
@@ -264,7 +266,9 @@ HEADERS += \
     protocol/fastecu_ssm_transport.h \
     logging/logging_protocol.h \
     logging/logging_worker.h \
-    logging/logging_engine.h
+    logging/logging_engine.h \
+    logging/romraider_conversion.h \
+    logging/protocols/ssm_logging_protocol.h
 
 FORMS += \
     calibration_map_table.ui \

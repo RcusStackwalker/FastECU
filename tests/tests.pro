@@ -1,5 +1,4 @@
-QT += core testlib
-QT -= gui
+QT += core testlib widgets xml
 CONFIG += console c++11
 CONFIG -= app_bundle
 include(../hardening.pri)
@@ -19,6 +18,22 @@ SOURCES += \
     test_cdbg_driver.cpp \
     test_logging_worker.cpp \
     test_logging_engine.cpp \
+    test_romraider_conversion.cpp \
+    ../logging/romraider_conversion.cpp \
+    test_ssm_logging_protocol.cpp \
+    ../logging/protocols/ssm_logging_protocol.cpp \
+    ../file_actions.cpp \
+    ../file_defs_ecuflash.cpp \
+    ../file_defs_romraider.cpp \
+    ../modules/checksum/checksum_ecu_subaru_denso_sh705x_diesel.cpp \
+    ../modules/checksum/checksum_ecu_subaru_denso_sh7xxx.cpp \
+    ../modules/checksum/checksum_ecu_subaru_hitachi_m32r_can.cpp \
+    ../modules/checksum/checksum_ecu_subaru_hitachi_m32r_kline.cpp \
+    ../modules/checksum/checksum_ecu_subaru_hitachi_sh7058.cpp \
+    ../modules/checksum/checksum_ecu_subaru_hitachi_sh72543r.cpp \
+    ../modules/checksum/checksum_tcu_mitsu_mh8104_can.cpp \
+    ../modules/checksum/checksum_tcu_subaru_denso_sh7055.cpp \
+    ../modules/checksum/checksum_tcu_subaru_hitachi_m32r_can.cpp \
     ../protocol/mitsu_colt_can_protocol.cpp \
     ../protocol/mitsu_colt_can_cdbg_protocol.cpp \
     ../protocol/mitsu_colt_can_cdbg_driver.cpp \
@@ -41,6 +56,11 @@ HEADERS += \
     test_cdbg_driver.h \
     test_logging_worker.h \
     test_logging_engine.h \
+    test_romraider_conversion.h \
+    ../logging/romraider_conversion.h \
+    test_ssm_logging_protocol.h \
+    ../logging/protocols/ssm_logging_protocol.h \
+    ../file_actions.h \
     scripted_kline_transport.h \
     ../protocol/ikline_transport.h \
     ../protocol/mitsu_colt_can_cdbg_protocol.h \

@@ -9,6 +9,8 @@
 #include "test_cdbg_driver.h"
 #include "test_logging_worker.h"
 #include "test_logging_engine.h"
+#include "test_romraider_conversion.h"
+#include "test_ssm_logging_protocol.h"
 
 int main(int argc, char** argv) {
     int status = 0;
@@ -23,5 +25,7 @@ int main(int argc, char** argv) {
     status |= run_test_cdbg_driver(argc, argv);
     status |= run_test_logging_worker(argc, argv);
     status |= run_test_logging_engine(argc, argv);
+    status |= run_test_romraider_conversion(argc, argv);
+    status |= run_test_ssm_logging_protocol(argc, argv);
     return status;
 }
