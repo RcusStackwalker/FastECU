@@ -32,12 +32,12 @@ public:
     virtual void stop() = 0;
 };
 
-struct RawSample { int logValueIndex; quint32 value; };
+struct LogSample { int logValueIndex; QString displayValue; };  // already expression-converted, display-ready
 
 struct PollResult {
     enum class Status { Ok, NoResponse, TransportError };
     Status status;
-    QVector<RawSample> samples;   // valid when status == Ok
+    QVector<LogSample> samples;   // valid when status == Ok; already display-ready (see below)
     QString errorMessage;         // valid when status == TransportError
 };
 ```
@@ -74,7 +74,7 @@ void LoggingWorker::run() {
                 m_lastStatus = LoggingStatus::Running;
                 emit statusChanged(LoggingStatus::Running);
             }
-            emit valuesUpdated(toLogSamples(r.samples));
+            emit valuesUpdated(r.samples);  // already LogSample, no conversion needed here
             break;
         case PollResult::Status::NoResponse:
             if (++consecutiveMisses == kCarSilenceMissThreshold) {
@@ -82,7 +82,7 @@ void LoggingWorker::run() {
                 emit statusChanged(LoggingStatus::CarNotResponding);
             }
             if (consecutiveMisses >= kReconnectAttemptThreshold
-                && consecutiveMisses % kReconnectRetryPeriod == 0) {
+                && (consecutiveMisses - kReconnectAttemptThreshold) % kReconnectRetryPeriod == 0) {
                 if (m_protocol->start(&err)) {
                     consecutiveMisses = 0;
                     m_lastStatus = LoggingStatus::Running;
@@ -127,7 +127,7 @@ Two distinct failure classes, matching how they differ operationally:
 
 ## GUI integration
 
-- `LoggingWorker` computes display-ready values, so `MainWindow` only needs one new GUI-thread slot (replacing the current inline call to `update_logbox_values()` from inside `parse_log_params()`) that writes each `LogSample` into `logValues->log_value` and updates the corresponding `QLabel`. `LogValuesStructure` is still touched only from the GUI thread — no locking is introduced, just a signal/slot boundary in place of a direct synchronous call from polling code.
+- Each `LoggingProtocol` implementation computes display-ready values itself, so `MainWindow` only needs one new GUI-thread slot (replacing the current inline call to `update_logbox_values()` from inside `parse_log_params()`) that writes each `LogSample` into `logValues->log_value` and updates the corresponding `QLabel`. `LogValuesStructure` is still touched only from the GUI thread — no locking is introduced, just a signal/slot boundary in place of a direct synchronous call from polling code.
 - `menu_actions.cpp::toggle_realtime()` and `MainWindow::~MainWindow()` collapse their three-way protocol branches into `loggingEngine->start(config)` / `loggingEngine->stop()`; `LoggingEngine` picks the right protocol internally via its registry.
 - The `logging_poll_timer` and `logparams_poll_timer` `QTimer`s, and the `MainWindow::` methods in the three `log_operations_*.cpp` files, are removed — their logic moves into the three `LoggingProtocol` implementations.
 - `LogBox`/`LogValues` (gauge drawing/layout) are unchanged; they already only render whatever is in `logValues`.
