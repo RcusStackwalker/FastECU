@@ -23,73 +23,13 @@
 
 #include <QtTest>
 #include <QByteArray>
-#include <QSocketNotifier>
 
 #include <util.h>      // openpty
 #include <unistd.h>    // read/write/close
 
 #include "J2534_unix.h"
 #include "serial_port_actions_direct.h"
-
-// Mock Tactrix Openport 2.0 on the master side of a pseudo-terminal. FastECU's
-// real QSerialPort opens the slave; this responder speaks just enough of the
-// Openport serial protocol for PassThruOpen + PassThruReadVersion to succeed:
-//   ata  (open)         -> "ari\r\n"            (any "ar.." reply passes the check)
-//   ati  (read version) -> "ari 1.17.4877\r\n"  (firmware parsed from after "ari ")
-//   other at* (connect/filters/ioctls) -> "aro\r\n" (generic ack)
-// Driven by a QSocketNotifier, so it fires whenever FastECU pumps the event loop.
-class MockOpenPort : public QObject
-{
-    Q_OBJECT
-public:
-    explicit MockOpenPort(int masterFd, QObject *parent = nullptr)
-        : QObject(parent), fd(masterFd),
-          notifier(new QSocketNotifier(masterFd, QSocketNotifier::Read, this))
-    {
-        connect(notifier, &QSocketNotifier::activated, this, &MockOpenPort::onReadable);
-    }
-
-    // When false, the READ_VBATT command ("atr ...") gets no reply, so the
-    // caller's read stays parked in read_serial_data's event-loop pump — used to
-    // make the "reset while a read is in-flight" window deterministic.
-    bool answerReadVbatt = true;
-
-private slots:
-    void onReadable()
-    {
-        char buf[256];
-        const ssize_t n = ::read(fd, buf, sizeof(buf));
-        if (n <= 0)
-            return;
-        rx.append(buf, static_cast<int>(n));
-
-        int nl;
-        while ((nl = rx.indexOf('\n')) >= 0)
-        {
-            const QByteArray line = rx.left(nl).trimmed();
-            rx.remove(0, nl + 1);
-            if (line.isEmpty())
-                continue;
-
-            if (line.contains("atr") && !answerReadVbatt)
-                continue;   // withhold READ_VBATT reply: keep the caller's read parked
-
-            QByteArray resp;
-            if (line.contains("ati"))
-                resp = "ari 1.17.4877\r\n";
-            else if (line.contains("ata"))
-                resp = "ari\r\n";
-            else
-                resp = "aro\r\n";
-            ::write(fd, resp.constData(), resp.size());
-        }
-    }
-
-private:
-    int fd;
-    QSocketNotifier *notifier;
-    QByteArray rx;
-};
+#include "mock_openport.h"
 
 // `serial` is protected in J2534 so a test subclass can reproduce the torn-down
 // state without adding any test-only method to the production class.
@@ -223,7 +163,7 @@ void SerialPortCrashTest::j2534Handshake_overMockPty_readVersionSucceeds()
     int master = -1, slave = -1;
     char name[256] = {0};
     QVERIFY2(openpty(&master, &slave, name, nullptr, nullptr) == 0, "openpty failed");
-    MockOpenPort mock(master);
+    MockOpenPortThread mock(master);
 
     J2534 j2534;
     const QString ptyPath = QString::fromLocal8Bit(name);
@@ -248,7 +188,7 @@ void SerialPortCrashTest::spadInitJ2534Connection_overMockPty_succeeds()
     int master = -1, slave = -1;
     char name[256] = {0};
     QVERIFY2(openpty(&master, &slave, name, nullptr, nullptr) == 0, "openpty failed");
-    MockOpenPort mock(master);
+    MockOpenPortThread mock(master);
 
     TestableSerialPortActionsDirect spad;
     spad.serial_port = QString::fromLocal8Bit(name);
@@ -272,7 +212,7 @@ void SerialPortCrashTest::loggingFlow_connectReadTeardownReentrancy_overMockPty_
     int master = -1, slave = -1;
     char name[256] = {0};
     QVERIFY2(openpty(&master, &slave, name, nullptr, nullptr) == 0, "openpty failed");
-    MockOpenPort mock(master);
+    MockOpenPortThread mock(master);
 
     TestableSerialPortActionsDirect spad;
     spad.serial_port = QString::fromLocal8Bit(name);
@@ -310,7 +250,7 @@ void SerialPortCrashTest::reentrantResetDuringInflightRead_overMockPty_doesNotCr
     int master = -1, slave = -1;
     char name[256] = {0};
     QVERIFY2(openpty(&master, &slave, name, nullptr, nullptr) == 0, "openpty failed");
-    MockOpenPort mock(master);
+    MockOpenPortThread mock(master);
 
     TestableSerialPortActionsDirect spad;
     spad.serial_port = QString::fromLocal8Bit(name);
@@ -319,7 +259,7 @@ void SerialPortCrashTest::reentrantResetDuringInflightRead_overMockPty_doesNotCr
 
     // Withhold the READ_VBATT reply so the read below stays parked in
     // read_serial_data's pump while the reset fires (deterministic in-flight).
-    mock.answerReadVbatt = false;
+    mock.mock->answerReadVbatt = false;
 
     // Queue a REAL reset_connection to fire from the event loop during the read.
     QObject consumer;

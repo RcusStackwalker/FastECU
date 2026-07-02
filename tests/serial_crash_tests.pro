@@ -18,5 +18,6 @@ SOURCES += \
     ../serial_port/serial_port_actions_direct.cpp
 
 HEADERS += \
+    mock_openport.h \
     ../serial_port/J2534_unix.h \
     ../serial_port/serial_port_actions_direct.h
