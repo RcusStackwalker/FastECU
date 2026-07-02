@@ -163,20 +163,22 @@ void SerialPortCrashTest::j2534Handshake_overMockPty_readVersionSucceeds()
     int master = -1, slave = -1;
     char name[256] = {0};
     QVERIFY2(openpty(&master, &slave, name, nullptr, nullptr) == 0, "openpty failed");
-    MockOpenPortThread mock(master);
+    {
+        MockOpenPortThread mock(master);
 
-    J2534 j2534;
-    const QString ptyPath = QString::fromLocal8Bit(name);
-    QCOMPARE(j2534.open_serial_port(ptyPath), ptyPath);
+        J2534 j2534;
+        const QString ptyPath = QString::fromLocal8Bit(name);
+        QCOMPARE(j2534.open_serial_port(ptyPath), ptyPath);
 
-    unsigned long devID = 1;
-    QCOMPARE(j2534.PassThruOpen(nullptr, &devID), (long)STATUS_NOERROR);
+        unsigned long devID = 1;
+        QCOMPARE(j2534.PassThruOpen(nullptr, &devID), (long)STATUS_NOERROR);
 
-    char api[256] = {0}, dll[256] = {0}, fw[256] = {0};
-    QCOMPARE(j2534.PassThruReadVersion(api, dll, fw, devID), (long)STATUS_NOERROR);
-    QCOMPARE(QString::fromUtf8(fw).trimmed(), QStringLiteral("1.17.4877"));
+        char api[256] = {0}, dll[256] = {0}, fw[256] = {0};
+        QCOMPARE(j2534.PassThruReadVersion(api, dll, fw, devID), (long)STATUS_NOERROR);
+        QCOMPARE(QString::fromUtf8(fw).trimmed(), QStringLiteral("1.17.4877"));
 
-    j2534.close_serial_port();
+        j2534.close_serial_port();
+    }
     ::close(master);
 }
 
@@ -188,13 +190,14 @@ void SerialPortCrashTest::spadInitJ2534Connection_overMockPty_succeeds()
     int master = -1, slave = -1;
     char name[256] = {0};
     QVERIFY2(openpty(&master, &slave, name, nullptr, nullptr) == 0, "openpty failed");
-    MockOpenPortThread mock(master);
+    {
+        MockOpenPortThread mock(master);
 
-    TestableSerialPortActionsDirect spad;
-    spad.serial_port = QString::fromLocal8Bit(name);
+        TestableSerialPortActionsDirect spad;
+        spad.serial_port = QString::fromLocal8Bit(name);
 
-    QCOMPARE(spad.runInitJ2534Connection(), STATUS_SUCCESS);
-
+        QCOMPARE(spad.runInitJ2534Connection(), STATUS_SUCCESS);
+    }
     ::close(master);
 }
 
@@ -212,31 +215,33 @@ void SerialPortCrashTest::loggingFlow_connectReadTeardownReentrancy_overMockPty_
     int master = -1, slave = -1;
     char name[256] = {0};
     QVERIFY2(openpty(&master, &slave, name, nullptr, nullptr) == 0, "openpty failed");
-    MockOpenPortThread mock(master);
+    {
+        MockOpenPortThread mock(master);
 
-    TestableSerialPortActionsDirect spad;
-    spad.serial_port = QString::fromLocal8Bit(name);
-    QCOMPARE(spad.runInitJ2534Connection(), STATUS_SUCCESS);
-    spad.use_openport2_adapter = true;
+        TestableSerialPortActionsDirect spad;
+        spad.serial_port = QString::fromLocal8Bit(name);
+        QCOMPARE(spad.runInitJ2534Connection(), STATUS_SUCCESS);
+        spad.use_openport2_adapter = true;
 
-    // Realtime read loop over the live mock connection.
-    for (int i = 0; i < 3; ++i)
-        spad.read_vbatt();
+        // Realtime read loop over the live mock connection.
+        for (int i = 0; i < 3; ++i)
+            spad.read_vbatt();
 
-    // A still-alive consumer (a running flash module) has a read queued.
-    QObject consumer;
-    bool consumerRan = false;
-    QMetaObject::invokeMethod(&consumer, [&]() { spad.read_vbatt(); consumerRan = true; },
-                              Qt::QueuedConnection);
+        // A still-alive consumer (a running flash module) has a read queued.
+        QObject consumer;
+        bool consumerRan = false;
+        QMetaObject::invokeMethod(&consumer, [&]() { spad.read_vbatt(); consumerRan = true; },
+                                  Qt::QueuedConnection);
 
-    // The reentrant operation tears the connection down (frees + nulls j2534).
-    spad.deleteAndNullJ2534();
+        // The reentrant operation tears the connection down (frees + nulls j2534).
+        spad.deleteAndNullJ2534();
 
-    // The event loop dispatches the queued reentrant read after teardown.
-    // Pre-fix it dereferences the freed/null j2534; post-fix the guard makes it safe.
-    QCoreApplication::processEvents();
+        // The event loop dispatches the queued reentrant read after teardown.
+        // Pre-fix it dereferences the freed/null j2534; post-fix the guard makes it safe.
+        QCoreApplication::processEvents();
 
-    QVERIFY(consumerRan);
+        QVERIFY(consumerRan);
+    }
     ::close(master);
 }
 
@@ -250,27 +255,29 @@ void SerialPortCrashTest::reentrantResetDuringInflightRead_overMockPty_doesNotCr
     int master = -1, slave = -1;
     char name[256] = {0};
     QVERIFY2(openpty(&master, &slave, name, nullptr, nullptr) == 0, "openpty failed");
-    MockOpenPortThread mock(master);
+    {
+        MockOpenPortThread mock(master);
 
-    TestableSerialPortActionsDirect spad;
-    spad.serial_port = QString::fromLocal8Bit(name);
-    QCOMPARE(spad.runInitJ2534Connection(), STATUS_SUCCESS);
-    spad.use_openport2_adapter = true;
+        TestableSerialPortActionsDirect spad;
+        spad.serial_port = QString::fromLocal8Bit(name);
+        QCOMPARE(spad.runInitJ2534Connection(), STATUS_SUCCESS);
+        spad.use_openport2_adapter = true;
 
-    // Withhold the READ_VBATT reply so the read below stays parked in
-    // read_serial_data's pump while the reset fires (deterministic in-flight).
-    mock.mock->answerReadVbatt = false;
+        // Withhold the READ_VBATT reply so the read below stays parked in
+        // read_serial_data's pump while the reset fires (deterministic in-flight).
+        mock.mock->answerReadVbatt = false;
 
-    // Queue a REAL reset_connection to fire from the event loop during the read.
-    QObject consumer;
-    QMetaObject::invokeMethod(&consumer, [&]() { spad.reset_connection(); },
-                              Qt::QueuedConnection);
+        // Queue a REAL reset_connection to fire from the event loop during the read.
+        QObject consumer;
+        QMetaObject::invokeMethod(&consumer, [&]() { spad.reset_connection(); },
+                                  Qt::QueuedConnection);
 
-    // read_vbatt -> PassThruIoctl -> PassThruReadMsgs -> read_serial_data pumps
-    // the event loop, so the queued reset_connection runs mid-read.
-    spad.read_vbatt();
+        // read_vbatt -> PassThruIoctl -> PassThruReadMsgs -> read_serial_data pumps
+        // the event loop, so the queued reset_connection runs mid-read.
+        spad.read_vbatt();
 
-    QVERIFY(true);
+        QVERIFY(true);
+    }
     ::close(master);
 }
 
