@@ -22,6 +22,8 @@ SOURCES += \
     ../logging/romraider_conversion.cpp \
     test_ssm_logging_protocol.cpp \
     ../logging/protocols/ssm_logging_protocol.cpp \
+    test_mut_dma_logging_protocol.cpp \
+    ../logging/protocols/mut_dma_logging_protocol.cpp \
     ../file_actions.cpp \
     ../file_defs_ecuflash.cpp \
     ../file_defs_romraider.cpp \
@@ -60,6 +62,8 @@ HEADERS += \
     ../logging/romraider_conversion.h \
     test_ssm_logging_protocol.h \
     ../logging/protocols/ssm_logging_protocol.h \
+    test_mut_dma_logging_protocol.h \
+    ../logging/protocols/mut_dma_logging_protocol.h \
     ../file_actions.h \
     scripted_kline_transport.h \
     ../protocol/ikline_transport.h \
