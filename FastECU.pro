@@ -169,7 +169,8 @@ SOURCES += \
     protocol/mitsu_colt_can_cdbg_protocol.cpp \
     protocol/fastecu_can_transport.cpp \
     protocol/mitsu_colt_can_cdbg_driver.cpp \
-    logging/logging_worker.cpp
+    logging/logging_worker.cpp \
+    logging/logging_engine.cpp
 
 HEADERS += \
     calibration_maps.h \
@@ -259,7 +260,8 @@ HEADERS += \
     protocol/fastecu_can_transport.h \
     protocol/mitsu_colt_can_cdbg_driver.h \
     logging/logging_protocol.h \
-    logging/logging_worker.h
+    logging/logging_worker.h \
+    logging/logging_engine.h
 
 FORMS += \
     calibration_map_table.ui \

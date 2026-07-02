@@ -18,6 +18,7 @@ SOURCES += \
     test_mitsu_colt_can_cdbg_protocol.cpp \
     test_cdbg_driver.cpp \
     test_logging_worker.cpp \
+    test_logging_engine.cpp \
     ../protocol/mitsu_colt_can_protocol.cpp \
     ../protocol/mitsu_colt_can_cdbg_protocol.cpp \
     ../protocol/mitsu_colt_can_cdbg_driver.cpp \
@@ -26,7 +27,8 @@ SOURCES += \
     ../protocol/mut_dma_memory.cpp \
     ../protocol/imut_dma_init.cpp \
     ../protocol/mut_dma_driver.cpp \
-    ../logging/logging_worker.cpp
+    ../logging/logging_worker.cpp \
+    ../logging/logging_engine.cpp
 HEADERS += \
     test_codec.h \
     test_freeform.h \
@@ -38,6 +40,7 @@ HEADERS += \
     test_mitsu_colt_can_cdbg_protocol.h \
     test_cdbg_driver.h \
     test_logging_worker.h \
+    test_logging_engine.h \
     scripted_kline_transport.h \
     ../protocol/ikline_transport.h \
     ../protocol/mitsu_colt_can_cdbg_protocol.h \
@@ -46,4 +49,5 @@ HEADERS += \
     ../protocol/ican_transport.h \
     scripted_logging_protocol.h \
     ../logging/logging_protocol.h \
-    ../logging/logging_worker.h
+    ../logging/logging_worker.h \
+    ../logging/logging_engine.h
