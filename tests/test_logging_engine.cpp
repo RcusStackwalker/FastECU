@@ -58,6 +58,7 @@ private slots:
 };
 
 int run_test_logging_engine(int argc, char** argv) {
+    QCoreApplication app(argc, argv);
     TestLoggingEngine t;
     return QTest::qExec(&t, argc, argv);
 }
