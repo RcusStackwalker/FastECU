@@ -226,16 +226,17 @@ void MutDmaIntegrationTest::connectsOverMockPty_facadeReportsOpen()
     int master = -1, slave = -1;
     char name[256] = {0};
     QVERIFY2(openpty(&master, &slave, name, nullptr, nullptr) == 0, "openpty failed");
-    MockOpenPortThread mockThread(master);
-    MockOpenPort &mock = *mockThread.mock;
+    {
+        MockOpenPortThread mockThread(master);
+        MockOpenPort &mock = *mockThread.mock;
 
-    SerialPortActions spad;   // empty peerAddress -> direct connection
-    const QString opened = connectFacade(spad, QString::fromLocal8Bit(name));
+        SerialPortActions spad;   // empty peerAddress -> direct connection
+        const QString opened = connectFacade(spad, QString::fromLocal8Bit(name));
 
-    QVERIFY2(!opened.isEmpty(), "facade open_serial_port() returned empty");
-    QVERIFY(spad.is_serial_port_open());
-    QVERIFY(spad.get_use_openport2_adapter());
-
+        QVERIFY2(!opened.isEmpty(), "facade open_serial_port() returned empty");
+        QVERIFY(spad.is_serial_port_open());
+        QVERIFY(spad.get_use_openport2_adapter());
+    }
     ::close(master);
 }
 
@@ -249,18 +250,19 @@ void MutDmaIntegrationTest::setBaud_throughAdapter_trueWhenConnected_falseWhenCl
     int master = -1, slave = -1;
     char name[256] = {0};
     QVERIFY2(openpty(&master, &slave, name, nullptr, nullptr) == 0, "openpty failed");
-    MockOpenPortThread mockThread(master);
-    MockOpenPort &mock = *mockThread.mock;
+    {
+        MockOpenPortThread mockThread(master);
+        MockOpenPort &mock = *mockThread.mock;
 
-    SerialPortActions spad;
-    QVERIFY2(!connectFacade(spad, QString::fromLocal8Bit(name)).isEmpty(), "connect failed");
+        SerialPortActions spad;
+        QVERIFY2(!connectFacade(spad, QString::fromLocal8Bit(name)).isEmpty(), "connect failed");
 
-    FastEcuKlineTransport tr(&spad);
-    // Connected + Openport branch -> change_port_speed routes to SET_CONFIG ioctl
-    // and returns STATUS_SUCCESS -> adapter setBaud() == true.
-    QCOMPARE(tr.setBaud(15625), true);
-    QCOMPARE(tr.setBaud(62500), true);
-
+        FastEcuKlineTransport tr(&spad);
+        // Connected + Openport branch -> change_port_speed routes to SET_CONFIG ioctl
+        // and returns STATUS_SUCCESS -> adapter setBaud() == true.
+        QCOMPARE(tr.setBaud(15625), true);
+        QCOMPARE(tr.setBaud(62500), true);
+    }
     ::close(master);
 }
 
@@ -269,32 +271,33 @@ void MutDmaIntegrationTest::write_throughAdapter_putsExactFrameOnWire()
     int master = -1, slave = -1;
     char name[256] = {0};
     QVERIFY2(openpty(&master, &slave, name, nullptr, nullptr) == 0, "openpty failed");
-    MockOpenPortThread mockThread(master);
-    MockOpenPort &mock = *mockThread.mock;
+    {
+        MockOpenPortThread mockThread(master);
+        MockOpenPort &mock = *mockThread.mock;
 
-    SerialPortActions spad;
-    QVERIFY2(!connectFacade(spad, QString::fromLocal8Bit(name)).isEmpty(), "connect failed");
+        SerialPortActions spad;
+        QVERIFY2(!connectFacade(spad, QString::fromLocal8Bit(name)).isEmpty(), "connect failed");
 
-    FastEcuKlineTransport tr(&spad);
+        FastEcuKlineTransport tr(&spad);
 
-    // A real 0x87 sub-cmd-3 RAM-write frame (51 bytes, contains a 0x0D trailer).
-    QByteArray payload;
-    payload.append(char(0x00)); payload.append(char(0x03));   // sub-cmd 3
-    payload.append(char(0x12)); payload.append(char(0x34));   // addr16 (l_command word)
-    const QByteArray frame = buildCommandFrame(0x87, payload, TRAILER_STD);
-    QCOMPARE(frame.size(), FRAME_LEN);
-    QVERIFY(verifyFrame(frame));
+        // A real 0x87 sub-cmd-3 RAM-write frame (51 bytes, contains a 0x0D trailer).
+        QByteArray payload;
+        payload.append(char(0x00)); payload.append(char(0x03));   // sub-cmd 3
+        payload.append(char(0x12)); payload.append(char(0x34));   // addr16 (l_command word)
+        const QByteArray frame = buildCommandFrame(0x87, payload, TRAILER_STD);
+        QCOMPARE(frame.size(), FRAME_LEN);
+        QVERIFY(verifyFrame(frame));
 
-    QTest::qWait(100);     // let all connect-handshake bytes reach the mock
-    mock.resetParser();    // then start capture from a clean buffer
+        QTest::qWait(100);     // let all connect-handshake bytes reach the mock
+        mock.resetParser();    // then start capture from a clean buffer
 
-    const int written = tr.write(frame);
-    QCOMPARE(written, frame.size());
+        const int written = tr.write(frame);
+        QCOMPARE(written, frame.size());
 
-    // Pump the event loop so the mock's QSocketNotifier drains and captures it.
-    QTRY_VERIFY_WITH_TIMEOUT(mock.sawWrite, 1000);
-    QCOMPARE(mock.lastWrite, frame);   // exact bytes, including the 0x0D trailer
-
+        // Pump the event loop so the mock's QSocketNotifier drains and captures it.
+        QTRY_VERIFY_WITH_TIMEOUT(mock.sawWrite, 1000);
+        QCOMPARE(mock.lastWrite, frame);   // exact bytes, including the 0x0D trailer
+    }
     ::close(master);
 }
 
@@ -303,23 +306,24 @@ void MutDmaIntegrationTest::read_throughAdapter_returnsEcuReplyBytes()
     int master = -1, slave = -1;
     char name[256] = {0};
     QVERIFY2(openpty(&master, &slave, name, nullptr, nullptr) == 0, "openpty failed");
-    MockOpenPortThread mockThread(master);
-    MockOpenPort &mock = *mockThread.mock;
+    {
+        MockOpenPortThread mockThread(master);
+        MockOpenPort &mock = *mockThread.mock;
 
-    SerialPortActions spad;
-    QVERIFY2(!connectFacade(spad, QString::fromLocal8Bit(name)).isEmpty(), "connect failed");
+        SerialPortActions spad;
+        QVERIFY2(!connectFacade(spad, QString::fromLocal8Bit(name)).isEmpty(), "connect failed");
 
-    FastEcuKlineTransport tr(&spad);
-    tr.read(60);   // drain any residual init acks before the scripted exchange
+        FastEcuKlineTransport tr(&spad);
+        tr.read(60);   // drain any residual init acks before the scripted exchange
 
-    QByteArray reply;
-    reply.append(char(0x05)); reply.append(char(0xAA)); reply.append(char(0xBB));
-    reply.append(char(0xCC)); reply.append(char(0xDD));
-    mock.injectDataFrame(reply);
+        QByteArray reply;
+        reply.append(char(0x05)); reply.append(char(0xAA)); reply.append(char(0xBB));
+        reply.append(char(0xCC)); reply.append(char(0xDD));
+        mock.injectDataFrame(reply);
 
-    const QByteArray got = tr.read(500);
-    QCOMPARE(got, reply);
-
+        const QByteArray got = tr.read(500);
+        QCOMPARE(got, reply);
+    }
     ::close(master);
 }
 
@@ -328,39 +332,40 @@ void MutDmaIntegrationTest::driverPollOnce_throughAdapter_decodesStreamFrameFrom
     int master = -1, slave = -1;
     char name[256] = {0};
     QVERIFY2(openpty(&master, &slave, name, nullptr, nullptr) == 0, "openpty failed");
-    MockOpenPortThread mockThread(master);
-    MockOpenPort &mock = *mockThread.mock;
+    {
+        MockOpenPortThread mockThread(master);
+        MockOpenPort &mock = *mockThread.mock;
 
-    SerialPortActions spad;
-    QVERIFY2(!connectFacade(spad, QString::fromLocal8Bit(name)).isEmpty(), "connect failed");
+        SerialPortActions spad;
+        QVERIFY2(!connectFacade(spad, QString::fromLocal8Bit(name)).isEmpty(), "connect failed");
 
-    FastEcuKlineTransport tr(&spad);
-    AlreadyInMode init(125000);
-    MutDmaDriver driver(tr, init);
+        FastEcuKlineTransport tr(&spad);
+        AlreadyInMode init(125000);
+        MutDmaDriver driver(tr, init);
 
-    // Two channels: one 1-byte, one 2-byte, big-endian.
-    QVector<Channel> channels{ {0x1234, 1}, {0x5678, 2} };
-    driver.setChannelsForTest(channels);
+        // Two channels: one 1-byte, one 2-byte, big-endian.
+        QVector<Channel> channels{ {0x1234, 1}, {0x5678, 2} };
+        driver.setChannelsForTest(channels);
 
-    // Streamed frame: [logId][data...][sum8(0..len-3)][0x0D].
-    const quint8 logId = 0x00;
-    QByteArray data;
-    data.append(char(0x42));                       // channel 0 (1B) = 0x42
-    data.append(char(0xDE)); data.append(char(0xAD)); // channel 1 (2B) = 0xDEAD
-    QByteArray frame;
-    frame.append(char(logId));
-    frame.append(data);
-    frame.append(char(sum8(frame, 0, frame.size())));
-    frame.append(char(TRAILER_STD));
+        // Streamed frame: [logId][data...][sum8(0..len-3)][0x0D].
+        const quint8 logId = 0x00;
+        QByteArray data;
+        data.append(char(0x42));                       // channel 0 (1B) = 0x42
+        data.append(char(0xDE)); data.append(char(0xAD)); // channel 1 (2B) = 0xDEAD
+        QByteArray frame;
+        frame.append(char(logId));
+        frame.append(data);
+        frame.append(char(sum8(frame, 0, frame.size())));
+        frame.append(char(TRAILER_STD));
 
-    tr.read(60);   // drain residual
-    mock.injectDataFrame(frame);
+        tr.read(60);   // drain residual
+        mock.injectDataFrame(frame);
 
-    const QVector<quint32> values = driver.pollOnce(500);
-    QCOMPARE(values.size(), 2);
-    QCOMPARE(values.at(0), quint32(0x42));
-    QCOMPARE(values.at(1), quint32(0xDEAD));
-
+        const QVector<quint32> values = driver.pollOnce(500);
+        QCOMPARE(values.size(), 2);
+        QCOMPARE(values.at(0), quint32(0x42));
+        QCOMPARE(values.at(1), quint32(0xDEAD));
+    }
     ::close(master);
 }
 
