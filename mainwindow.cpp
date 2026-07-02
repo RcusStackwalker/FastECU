@@ -495,22 +495,8 @@ MainWindow::~MainWindow()
     {
         logging_state = false;
         log_params_request_started = false;
-        if (configValues->flash_protocol_selected_log_protocol == "MUT_DMA")
-        {
-            mitsubishi_dma_stop_logging();
-        }
-        else if (configValues->flash_protocol_selected_log_protocol == "CDBG")
-        {
-            cdbg_stop_logging();
-        }
-        else
-        {
-            log_ssm_values();
-            delay(200);
-        }
+        loggingEngine->stop();
     }
-    //ssm_init_poll_timer->stop();
-    //serial_poll_timer->stop();
     delete ui;
 }
 

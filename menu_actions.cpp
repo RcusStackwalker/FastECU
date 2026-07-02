@@ -921,18 +921,25 @@ void MainWindow::toggle_realtime()
         }
         logging_counter = 0;
         logging_state = true;
-        if (configValues->flash_protocol_selected_log_protocol == "MUT_DMA")
-        {
-            mitsubishi_dma_start_logging();
+
+        LogSessionConfig config;
+        if (configValues->flash_protocol_selected_log_protocol == "MUT_DMA") {
+            config.protocolId = "MUT_DMA";
+            config.logValueProtocolFilter = "MUT_DMA";
+        } else if (configValues->flash_protocol_selected_log_protocol == "CDBG") {
+            config.protocolId = "CDBG";
+            config.logValueProtocolFilter = "CDBG";
+        } else {
+            config.protocolId = "SSM";
+            config.logValueProtocolFilter = protocol;
         }
-        else if (configValues->flash_protocol_selected_log_protocol == "CDBG")
-        {
-            cdbg_start_logging();
-        }
-        else
-        {
-            log_ssm_values();
-            logparams_poll_timer->start();
+        activeLogValueProtocolFilter = config.logValueProtocolFilter;
+
+        if (!loggingEngine->start(config)) {
+            QMessageBox::information(this, tr("Logging"), "Unable to start logging");
+            logging_state = false;
+            logger->setChecked(false);
+            return;
         }
     }
     else
@@ -945,20 +952,7 @@ void MainWindow::toggle_realtime()
 
         logging_state = false;
         log_params_request_started = false;
-        if (configValues->flash_protocol_selected_log_protocol == "MUT_DMA")
-        {
-            mitsubishi_dma_stop_logging();
-        }
-        else if (configValues->flash_protocol_selected_log_protocol == "CDBG")
-        {
-            cdbg_stop_logging();
-        }
-        else
-        {
-            log_ssm_values();
-            delay(200);
-            logparams_poll_timer->stop();
-        }
+        loggingEngine->stop();
 
         //disconnect_from_ecu();
     }
