@@ -78,6 +78,8 @@ MainWindow::MainWindow(QString peerAddress, QString peerPassword, QWidget *paren
     QObject::connect(syslog_thread, &QThread::started, syslogger, &SystemLogger::run);
     syslog_thread->start();
 
+    setupLoggingEngine();
+
 #if defined Q_OS_UNIX
     emit LOG_D("Running on Linux Desktop ", true, false);
     //serialPort = serialPortLinux;
@@ -2384,4 +2386,72 @@ void MainWindow::update_vbatt()
             emit LOG_D(vBattText, true, true);
         }
     }
+}
+
+void MainWindow::setupLoggingEngine()
+{
+    loggingEngine = new LoggingEngine(this);
+
+    connect(loggingEngine, &LoggingEngine::valuesUpdated, this, &MainWindow::handleLoggingValuesUpdated);
+    connect(loggingEngine, &LoggingEngine::sessionEnded, this, &MainWindow::handleLoggingSessionEnded);
+    connect(loggingEngine, &LoggingEngine::LOG_E, syslogger, &SystemLogger::log_messages);
+    connect(loggingEngine, &LoggingEngine::LOG_W, syslogger, &SystemLogger::log_messages);
+    connect(loggingEngine, &LoggingEngine::LOG_I, syslogger, &SystemLogger::log_messages);
+    connect(loggingEngine, &LoggingEngine::LOG_D, syslogger, &SystemLogger::log_messages);
+
+    loggingEngine->registerProtocol("MUT_DMA",
+        [this](const LogSessionConfig &) {
+            auto transport = std::make_unique<mutdma::FastEcuKlineTransport>(serial);
+            auto init = std::make_unique<mutdma::AlreadyInMode>(125000);
+            return std::unique_ptr<LoggingProtocol>(
+                new MutDmaLoggingProtocol(std::move(transport), std::move(init), logValues, fileActions));
+        },
+        /*pollTimeoutMs=*/50, /*carSilenceMissThreshold=*/20,
+        /*reconnectAttemptThreshold=*/100, /*reconnectRetryPeriod=*/20);
+
+    loggingEngine->registerProtocol("CDBG",
+        [this](const LogSessionConfig &) {
+            auto transport = std::make_unique<cdbg::FastEcuCanTransport>(serial);
+            return std::unique_ptr<LoggingProtocol>(
+                new CdbgLoggingProtocol(std::move(transport), serial, logValues, fileActions));
+        },
+        /*pollTimeoutMs=*/50, /*carSilenceMissThreshold=*/20,
+        /*reconnectAttemptThreshold=*/100, /*reconnectRetryPeriod=*/20);
+
+    loggingEngine->registerProtocol("SSM",
+        [this](const LogSessionConfig &config) {
+            auto transport = std::make_unique<FastEcuSsmTransport>(serial);
+            bool targetIsEcu = ecu_radio_button->isChecked();
+            bool useOpenport2Adapter = serial->get_use_openport2_adapter();
+            return std::unique_ptr<LoggingProtocol>(
+                new SsmLoggingProtocol(std::move(transport), logValues, fileActions,
+                                        config.logValueProtocolFilter, targetIsEcu, useOpenport2Adapter));
+        },
+        /*pollTimeoutMs=*/300, /*carSilenceMissThreshold=*/10,
+        /*reconnectAttemptThreshold=*/30, /*reconnectRetryPeriod=*/10);
+}
+
+void MainWindow::handleLoggingValuesUpdated(QVector<LogSample> samples)
+{
+    for (const LogSample &s : samples)
+        logValues->log_value.replace(s.logValueIndex, s.displayValue);
+    update_logbox_values(activeLogValueProtocolFilter);
+    log_to_file();
+}
+
+void MainWindow::handleLoggingSessionEnded(SessionEndReason reason, QString message)
+{
+    logging_state = false;
+    QList<QMenu*> menus = ui->menubar->findChildren<QMenu*>();
+    foreach (QMenu *menu, menus) {
+        foreach (QAction *action, menu->actions()) {
+            if (action->text() == "Logging")
+                action->setChecked(false);
+        }
+    }
+
+    if (reason == SessionEndReason::AdapterDisconnected)
+        QMessageBox::warning(this, tr("Logging"), "Logging adapter disconnected: " + message);
+    else if (reason == SessionEndReason::HandshakeFailed)
+        QMessageBox::warning(this, tr("Logging"), "Unable to start logging: " + message);
 }
