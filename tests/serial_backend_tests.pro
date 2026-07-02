@@ -19,10 +19,17 @@ unix {
 SOURCES += \
     serial_backend_main.cpp \
     test_direct_backend.cpp \
+    test_remote_backend_smoke.cpp \
     ../serial_port/serial_port_actions_direct.cpp
 
 HEADERS += \
     mock_openport.h \
     test_direct_backend.h \
+    test_remote_backend_smoke.h \
     ../serial_port/serial_backend.h \
     ../serial_port/serial_port_actions_direct.h
+
+SOURCES += ../serial_port/remote_serial_backend.cpp \
+           ../serial_port/websocketiodevice.cpp
+HEADERS += ../serial_port/remote_serial_backend.h \
+           ../serial_port/websocketiodevice.h
