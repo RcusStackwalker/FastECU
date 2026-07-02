@@ -4,6 +4,8 @@
 
 #include "serial_port_actions_direct.h"
 
+#include <QThread>
+
 namespace {
 // RAII counter: marks a J2534 read as in-flight so a reentrant teardown
 // (close_j2534_serial_port) won't free j2534 underneath it.
@@ -708,7 +710,7 @@ QByteArray SerialPortActionsDirect::read_serial_obd_data(uint16_t timeout)
         QTime dieTime = QTime::currentTime().addMSecs(timeout);
         while (!serial->bytesAvailable() && QTime::currentTime() < dieTime)
         {
-            QCoreApplication::processEvents(QEventLoop::AllEvents, 1);
+            serial->waitForReadyRead(1);
         }
         //emit LOG_D("Byte(s) available or timeout", true, true);
         if (serial->bytesAvailable())
@@ -728,7 +730,7 @@ QByteArray SerialPortActionsDirect::read_serial_obd_data(uint16_t timeout)
                     //emit LOG_D("Byte timeout", true, true);
                     break;
                 }
-                QCoreApplication::processEvents(QEventLoop::AllEvents, 1);
+                serial->waitForReadyRead(1);
             }
             //if (QTime::currentTime() > dieTime)
             //    emit LOG_D("Message timeout", true, true);
@@ -756,7 +758,7 @@ QByteArray SerialPortActionsDirect::read_serial_data(uint16_t timeout)
         QTime dieTime = QTime::currentTime().addMSecs(timeout);
         while (!serial->bytesAvailable() && QTime::currentTime() < dieTime)
         {
-            QCoreApplication::processEvents(QEventLoop::AllEvents, 1);
+            serial->waitForReadyRead(1);
         }
         if (serial->bytesAvailable())
         {
@@ -776,7 +778,7 @@ QByteArray SerialPortActionsDirect::read_serial_data(uint16_t timeout)
                     }
                     //emit LOG_D("Error bytes length: " + QString::number(error_bytes.length()) + " : " + parse_message_to_hex(error_bytes), true, true);
                 }
-                QCoreApplication::processEvents(QEventLoop::AllEvents, 1);
+                serial->waitForReadyRead(1);
             }
             //emit LOG_D("1. Response (header): " + parse_message_to_hex(received), true, true);
             if (is_iso14230_connection)
@@ -801,7 +803,7 @@ QByteArray SerialPortActionsDirect::read_serial_data(uint16_t timeout)
             {
                 while (serial->bytesAvailable() && (uint32_t)req_bytes.length() < msglen)
                     req_bytes.append(serial->read(1));
-                QCoreApplication::processEvents(QEventLoop::AllEvents, 1);
+                serial->waitForReadyRead(1);
             }
             //emit LOG_D("2. Response (payload): " + parse_message_to_hex(req_bytes), true, true);
         }
@@ -902,7 +904,7 @@ QByteArray SerialPortActionsDirect::write_serial_data_echo_check(QByteArray outp
                 dieTime = QTime::currentTime().addMSecs(echo_check_timout);
                 received.append(serial->read(1));
             }
-            QCoreApplication::processEvents(QEventLoop::AllEvents, 1);
+            serial->waitForReadyRead(1);
         }
         if (received.length() < output.length())
             emit LOG_D("Write serial data echo read failed!", true, true);
@@ -1666,14 +1668,14 @@ void SerialPortActionsDirect::handle_error(QSerialPort::SerialPortError error)
     }
     else if (error == QSerialPort::TimeoutError)
     {
-        reset_connection();
-        //emit LOG_E("Timeout error";
-        /*
-        if (serial->isOpen())
-            serial->flush();
-        else
-            serial->close();
-        */
+        // The read paths now poll via serial->waitForReadyRead(1) instead of
+        // pumping the event loop; QSerialPort emits this error whenever such a
+        // wait elapses with no new bytes, which is the ordinary case on every
+        // polling tick, not a device/link failure. Previously this branch was
+        // unreachable (nothing called a wait-with-timeout API), so it could
+        // safely reset the connection; now that would tear it down on routine
+        // polling latency. Leave it a no-op, like the other non-fatal branches
+        // above.
     }
     else if (error == QSerialPort::UnknownError)
     {
@@ -1690,20 +1692,12 @@ void SerialPortActionsDirect::accurate_delay(double timeout)
 
 void SerialPortActionsDirect::fast_delay(int timeout)
 {
-    QTime dieTime = QTime::currentTime().addMSecs(timeout);
-    while (QTime::currentTime() < dieTime)
-        QCoreApplication::processEvents(QEventLoop::AllEvents, 1);
+    QThread::msleep(timeout);
 }
 
 void SerialPortActionsDirect::delay(int timeout)
 {
-    double seconds = (double)timeout / 1000.0;
-    auto spinStart = std::chrono::high_resolution_clock::now();
-    while ((std::chrono::high_resolution_clock::now() - spinStart).count() / 1e9 < seconds)
-        QCoreApplication::processEvents(QEventLoop::AllEvents, 1);
-    //QTime dieTime = QTime::currentTime().addMSecs(timeout);
-    //while (QTime::currentTime() < dieTime)
-    //    QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
+    QThread::msleep(timeout);
 }
 
 QString SerialPortActionsDirect::parse_message_to_hex(QByteArray received)

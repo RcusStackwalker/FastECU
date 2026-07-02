@@ -81,9 +81,15 @@ private slots:
     // loop with a reentrant read + teardown interleaved via the event loop.
     void loggingFlow_connectReadTeardownReentrancy_overMockPty_doesNotCrash();
 
-    // A real reset_connection() fires from the event loop while a read is in-flight
-    // inside PassThruReadMsgs: must not free j2534 underneath the in-flight read.
-    void reentrantResetDuringInflightRead_overMockPty_doesNotCrash();
+    // Post-refactor, reads no longer pump the event loop, so a queued
+    // reset_connection() cannot interleave mid-read: it runs strictly after
+    // the read completes and the caller drains the queue.
+    void resetQueuedDuringRead_runsAfterReadCompletes();
+
+    // Post-refactor: a blocking read must not pump the event loop, so any
+    // foreign queued event stays queued (not dispatched reentrantly) until the
+    // caller processes events itself.
+    void blockingRead_doesNotDispatchQueuedEvents();
 };
 
 void SerialPortCrashTest::isSerialPortOpen_withNullSerial_doesNotCrash()
@@ -245,13 +251,13 @@ void SerialPortCrashTest::loggingFlow_connectReadTeardownReentrancy_overMockPty_
     ::close(master);
 }
 
-void SerialPortCrashTest::reentrantResetDuringInflightRead_overMockPty_doesNotCrash()
+void SerialPortCrashTest::resetQueuedDuringRead_runsAfterReadCompletes()
 {
-    // The hardest case: a real teardown (reset_connection) fires from the event
-    // loop WHILE a read is already in-flight inside J2534::PassThruReadMsgs. The
-    // in-flight frames hold the j2534 'this'; if reset frees it, they use freed
-    // memory (the residual not covered by entry guards). A reentrancy guard must
-    // make reset_connection skip freeing j2534 while a J2534 read is in-flight.
+    // Reads are now atomic with respect to the event queue: read_serial_data
+    // waits on the port's own fd (waitForReadyRead) instead of pumping
+    // QCoreApplication::processEvents(), so a reset_connection() queued from
+    // the event loop cannot fire mid-read. It stays queued until the read
+    // returns and the caller (or QTest's own loop) processes events.
     int master = -1, slave = -1;
     char name[256] = {0};
     QVERIFY2(openpty(&master, &slave, name, nullptr, nullptr) == 0, "openpty failed");
@@ -263,21 +269,49 @@ void SerialPortCrashTest::reentrantResetDuringInflightRead_overMockPty_doesNotCr
         QCOMPARE(spad.runInitJ2534Connection(), STATUS_SUCCESS);
         spad.use_openport2_adapter = true;
 
-        // Withhold the READ_VBATT reply so the read below stays parked in
-        // read_serial_data's pump while the reset fires (deterministic in-flight).
+        // Withhold the READ_VBATT reply so the read below waits out its full
+        // timeout (deterministic in-flight window, no reentrant pump to exploit).
         mock.mock->answerReadVbatt = false;
 
-        // Queue a REAL reset_connection to fire from the event loop during the read.
+        bool resetRan = false;
         QObject consumer;
-        QMetaObject::invokeMethod(&consumer, [&]() { spad.reset_connection(); },
+        QMetaObject::invokeMethod(&consumer, [&] { spad.reset_connection(); resetRan = true; },
                                   Qt::QueuedConnection);
 
-        // read_vbatt -> PassThruIoctl -> PassThruReadMsgs -> read_serial_data pumps
-        // the event loop, so the queued reset_connection runs mid-read.
-        spad.read_vbatt();
+        spad.read_vbatt();            // waits out its timeout; must NOT dispatch the reset
+        QCOMPARE(resetRan, false);    // the queue no longer interleaves into reads
 
-        QVERIFY(true);
+        QCoreApplication::processEvents();
+        QCOMPARE(resetRan, true);     // the reset runs after, in order
     }
+    ::close(master);
+}
+
+void SerialPortCrashTest::blockingRead_doesNotDispatchQueuedEvents()
+{
+    // The old read paths pump QCoreApplication::processEvents() while waiting,
+    // so ANY queued event — a timer, a user action, another serial call — runs
+    // reentrantly in the middle of a read. Post-refactor the read must block
+    // without dispatching foreign events.
+    int master = -1, slave = -1;
+    char name[256] = {0};
+    QVERIFY2(openpty(&master, &slave, name, nullptr, nullptr) == 0, "openpty failed");
+    // No responder: nothing arrives, the read waits out its full timeout.
+
+    TestableSerialPortActionsDirect spad;
+    spad.serial_port_prefix_linux = "";
+    spad.serial_port_list = QStringList() << QString::fromLocal8Bit(name);
+    QCOMPARE(spad.open_serial_port(), QString::fromLocal8Bit(name));
+
+    bool dispatched = false;
+    QMetaObject::invokeMethod(this, [&dispatched] { dispatched = true; },
+                              Qt::QueuedConnection);
+
+    spad.read_serial_data(200);
+
+    QCOMPARE(dispatched, false);          // FAILS pre-fix: the pump ran the lambda
+    QCoreApplication::processEvents();    // the event is still queued, not lost
+    QCOMPARE(dispatched, true);
     ::close(master);
 }
 

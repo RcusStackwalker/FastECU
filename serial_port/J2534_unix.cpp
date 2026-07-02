@@ -1,5 +1,7 @@
 #include "J2534_unix.h"
 
+#include <QThread>
+
 J2534::J2534()
 {
 
@@ -86,7 +88,7 @@ QByteArray J2534::read_serial_data(uint32_t datalen, uint16_t timeout)
                 dieTime = QTime::currentTime().addMSecs(timeout);
                 ReceivedData.append(serial->read(1));
             }
-            QCoreApplication::processEvents(QEventLoop::AllEvents, 1);
+            serial->waitForReadyRead(1);
         }
         //emit LOG_D("Read J2534 msg:" << parseMessageToHex(ReceivedData);
     }
@@ -1085,9 +1087,7 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
 
 void J2534::delay(int n)
 {
-    QTime dieTime = QTime::currentTime().addMSecs(n);
-    while (QTime::currentTime() < dieTime)
-        QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
+    QThread::msleep(n);
 }
 
 void J2534::handle_error(QSerialPort::SerialPortError error)
@@ -1140,14 +1140,14 @@ void J2534::handle_error(QSerialPort::SerialPortError error)
     }
     else if (error == QSerialPort::TimeoutError)
     {
-        close_serial_port();
-        //emit LOG_D("Timeout error";
-        /*
-        if (serial->isOpen())
-            serial->flush();
-        else
-            serial->close();
-        */
+        // read_serial_data now polls via serial->waitForReadyRead(1) instead of
+        // pumping the event loop; QSerialPort emits this error whenever such a
+        // wait elapses with no new bytes, which is the ordinary case on every
+        // polling tick, not a device/link failure. Previously this branch was
+        // unreachable (nothing called a wait-with-timeout API), so it could
+        // safely close the port; now that would tear down the connection on
+        // routine polling latency. Leave it a no-op, like the other
+        // non-fatal branches above.
     }
     else if (error == QSerialPort::UnknownError)
     {
