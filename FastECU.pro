@@ -153,6 +153,7 @@ SOURCES += \
     serial_port/serial_port_actions.cpp \
     serial_port/serial_port_actions_direct.cpp \
     serial_port/remote_serial_backend.cpp \
+    serial_port/serial_backend_host.cpp \
     serial_port/websocketiodevice.cpp \
     settings.cpp \
     systemlogger.cpp \
@@ -248,6 +249,7 @@ HEADERS += \
     serial_port/serial_port_actions.h \
     serial_port/serial_port_actions_direct.h \
     serial_port/remote_serial_backend.h \
+    serial_port/serial_backend_host.h \
     serial_port/websocketiodevice.h \
     settings.h \
     systemlogger.h \

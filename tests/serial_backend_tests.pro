@@ -33,3 +33,11 @@ SOURCES += ../serial_port/remote_serial_backend.cpp \
            ../serial_port/websocketiodevice.cpp
 HEADERS += ../serial_port/remote_serial_backend.h \
            ../serial_port/websocketiodevice.h
+
+SOURCES += test_facade_threading.cpp \
+           ../serial_port/serial_port_actions.cpp \
+           ../serial_port/serial_backend_host.cpp
+HEADERS += fake_backend.h \
+           test_facade_threading.h \
+           ../serial_port/serial_port_actions.h \
+           ../serial_port/serial_backend_host.h

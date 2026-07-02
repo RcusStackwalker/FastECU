@@ -1,5 +1,5 @@
 QT += core testlib widgets xml serialport remoteobjects websockets
-CONFIG += console c++11
+CONFIG += console c++17
 CONFIG -= app_bundle
 include(../hardening.pri)
 TEMPLATE = app
@@ -24,6 +24,8 @@ unix {
 SOURCES += \
     ../serial_port/serial_port_actions.cpp \
     ../serial_port/serial_port_actions_direct.cpp \
+    ../serial_port/remote_serial_backend.cpp \
+    ../serial_port/serial_backend_host.cpp \
     ../serial_port/websocketiodevice.cpp \
     main.cpp \
     test_codec.cpp \
@@ -70,6 +72,9 @@ SOURCES += \
 HEADERS += \
     ../serial_port/serial_port_actions.h \
     ../serial_port/serial_port_actions_direct.h \
+    ../serial_port/serial_backend.h \
+    ../serial_port/remote_serial_backend.h \
+    ../serial_port/serial_backend_host.h \
     ../serial_port/websocketiodevice.h \
     test_codec.h \
     test_freeform.h \

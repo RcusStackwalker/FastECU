@@ -1,16 +1,31 @@
 #ifndef SERIAL_PORT_ACTIONS_H
 #define SERIAL_PORT_ACTIONS_H
 
+#include <QCoreApplication>
+#include <QMutex>
 #include <QObject>
-#include <QLabel>
-#include "serial_port_actions_direct.h"
+#include <QSemaphore>
+#include <QThread>
 #include <QtRemoteObjects/qremoteobjectnode.h>
+#include <atomic>
+#include <functional>
+#include <memory>
+#include <type_traits>
 
+// Kept for consumers that relied on this header's transitive includes
+// (QSerialPort types, WebSocketIoDevice). Candidates for removal in spec 1b.
+#include "serial_port_actions_direct.h"
 #include "websocketiodevice.h"
 
-//Forward declaration
-class SerialPortActionsRemoteReplica;
+#include "serial_backend.h"
 
+class SerialBackendHost;
+
+// Thin marshaling facade over a SerialBackend hosted on the SerialIoThread
+// (see docs/superpowers/specs/2026-07-02-serial-backend-decoupling-design.md).
+// The public surface is unchanged from the pre-refactor class; every method
+// forwards to the backend on the I/O thread and blocks the caller until the
+// result is ready.
 class SerialPortActions : public QObject
 {
     Q_OBJECT
@@ -23,10 +38,11 @@ signals:
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
 public:
-    explicit SerialPortActions(QString peerAddress="",
-                               QString password="",
-                               QWebSocket *web_socket=nullptr,
-                               QObject *parent=nullptr);
+    explicit SerialPortActions(QString peerAddress = "",
+                               QString password = "",
+                               QWebSocket *web_socket = nullptr,
+                               QObject *parent = nullptr,
+                               std::function<SerialBackend *()> backendFactoryForTests = {});
     ~SerialPortActions();
 
     bool isDirectConnection(void);
@@ -169,36 +185,54 @@ public:
     unsigned long read_vbatt();
 
 public slots:
-    void websocket_connected(void);
     void waitForSource(void);
 
 private:
-    SerialPortActionsDirect        *serial_direct;
-    SerialPortActionsRemoteReplica *serial_remote;
+    void ensureBackendStarted();
+    void waitForDone(const std::shared_ptr<QSemaphore> &done);
+
+    // Marshal `fn` onto the I/O thread and block until it completes. `fn`
+    // runs with m_backend valid and is the ONLY code that touches it.
+    template <typename Fn>
+    auto runOnBackend(Fn fn)
+    {
+        using Ret = std::invoke_result_t<Fn &>;
+        ensureBackendStarted();
+        if (QThread::currentThread() == m_ioThread)
+            return fn();   // already on the I/O thread (backend-side callback)
+        auto done = std::make_shared<QSemaphore>();
+        if constexpr (std::is_void_v<Ret>)
+        {
+            QMetaObject::invokeMethod(m_ioContext, [fn, done]() mutable
+                                      { fn(); done->release(); },
+                                      Qt::QueuedConnection);
+            waitForDone(done);
+        }
+        else
+        {
+            Ret result{};
+            QMetaObject::invokeMethod(m_ioContext, [fn, done, &result]() mutable
+                                      { result = fn(); done->release(); },
+                                      Qt::QueuedConnection);
+            waitForDone(done);
+            return result;
+        }
+    }
+
     QString peerAddress;
     QString password;
+    QWebSocket *externalSocket = nullptr;
+    std::function<SerialBackend *()> backendFactory;
 
-    const QString autodiscoveryMessage = "FastECU_PTP_Autodiscovery";
-    const QString remoteObjectName = "FastECU";
-    const QString wssPath = "/" + remoteObjectName;
-    const QString webSocketPasswordHeader = "fastecu-basic-password";
-    const int heartbeatInterval; //Inited in constructor initializer list
-    QWebSocket *webSocket;
-    WebSocketIoDevice *socket;
-    QRemoteObjectNode node;
-    void startRemote(void);
-    void startOverNetwok(void);
-    void startLocal(void);
-    void sendAutoDiscoveryMessage();
-    void delay(int timeout);
+    QMutex startMutex;
+    SerialBackendHost *m_host = nullptr;
+    SerialBackend *m_backend = nullptr;
+    QObject *m_ioContext = nullptr;   // == m_host->context(), cached
+    QThread *m_ioThread = nullptr;    // == m_host->ioThread(), cached
 
     QAtomicInteger<bool> is_read_vbatt = false;
     QAtomicInteger<bool> is_comm_busy = false;
-    unsigned long vBatt = 0;
-
-private slots:
-    void serialRemoteStateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState);
-
+    std::atomic<unsigned long> vBatt{0};
 };
 
 #endif // SERIAL_PORT_ACTIONS_H
