@@ -431,15 +431,6 @@ MainWindow::MainWindow(QString peerAddress, QString peerPassword, QWidget *paren
     connect(ssm_init_poll_timer, SIGNAL(timeout()), this, SLOT(ecu_init()));
     ssm_init_poll_timer->start();
 */
-    logging_poll_timer = new QTimer(this);
-    logging_poll_timer->setInterval(logging_poll_timer_timeout);
-    connect(logging_poll_timer, SIGNAL(timeout()), this, SLOT(log_ssm_values()));
-
-    logparams_poll_timer = new QTimer(this);
-    logparams_poll_timer->setInterval(logparams_poll_timer_timeout);
-    connect(logparams_poll_timer, SIGNAL(timeout()), this, SLOT(read_log_serial_data()));
-
-    log_speed_timer = new QElapsedTimer();
     log_file_timer = new QElapsedTimer();
 
     if(ecuCalDefIndex > 0)
@@ -921,7 +912,6 @@ int MainWindow::can_listener()
     // Stop serial timers
     //serial_poll_timer->stop();
     //ssm_init_poll_timer->stop();
-    logging_poll_timer->stop();
 
     //serial->serial_port_list.clear();
     //serial->serial_port_list.append(serial_ports.at(serial_port_list->currentIndex()).split(" - ").at(0));
@@ -1003,9 +993,6 @@ int MainWindow::start_ecu_operations(QString cmd_type)
         QMessageBox::warning(this, tr("Serial port"), "No serial port selected!");
         return 0;
     }
-
-    // Stop serial timers
-    logging_poll_timer->stop();
 
     QStringList spl;
     spl.append(serial_ports.at(serial_port_list->currentIndex()));

@@ -250,27 +250,8 @@ private:
     //QTimer *ssm_init_poll_timer;
     uint16_t ssm_init_poll_timer_timeout = 250;
 
-    QTimer *logging_poll_timer;
-    uint16_t logging_poll_timer_timeout = 150;
-    uint16_t logging_counter = 0;
-    bool logging_request_active = false;
-
-    QTimer *logparams_poll_timer;
-    uint16_t logparams_poll_timer_timeout = 10;
-    bool logparams_read_active = false;
-
-    // Mitsubishi MUT/DMA logging state (owned by log_operations_mitsubishi.cpp)
-    mutdma::MutDmaDriver* mut_driver = nullptr;
-    mutdma::FastEcuKlineTransport* mut_transport = nullptr;
-    mutdma::IMutDmaInit* mut_init = nullptr;
-
-    MitsuColtCanCdbg::CdbgLogDriver* cdbg_driver = nullptr;
-    cdbg::FastEcuCanTransport* cdbg_transport = nullptr;
-
     LoggingEngine *loggingEngine = nullptr;
     QString activeLogValueProtocolFilter;
-
-    QElapsedTimer *log_speed_timer;
 
     LogBox *logBoxes;
 
@@ -324,21 +305,14 @@ private:
     void ssm_init();
     void ssm_kline_init();
     void ssm_can_init();
-    QString parse_log_params(QByteArray received, QString protocol);
     void parse_log_value_list(QByteArray received, QString protocol);
     QByteArray add_ssm_header(QByteArray output, bool dec_0x100);
     uint8_t calculate_checksum(QByteArray output, bool dec_0x100);
     void log_to_file();
 
-    // log_operations_mitsubishi (MUT/DMA)
-    void mitsubishi_dma_start_logging();
-    void mitsubishi_dma_stop_logging();
+    // MUT/DMA memory read/write bench utilities (impl. in log_operations_ssm.cpp)
     bool mut_write_memory(quint16 addr, const QByteArray& bytes);
     QByteArray mut_read_memory(quint16 addr, int len);
-
-    // log_operations_mitsubishi_cdbg (Cdbg CAN logging, Colt CZT 47110032)
-    void cdbg_start_logging();
-    void cdbg_stop_logging();
 
     void setupLoggingEngine();
 
@@ -416,10 +390,6 @@ private slots:
 
     // log_operations.c
     bool ecu_init();
-    void log_ssm_values();
-    void read_log_serial_data();
-    void mitsubishi_dma_poll();
-    void cdbg_poll();
     void handleLoggingValuesUpdated(QVector<LogSample> samples);
     void handleLoggingSessionEnded(SessionEndReason reason, QString message);
 

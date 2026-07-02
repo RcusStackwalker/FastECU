@@ -99,8 +99,6 @@ SOURCES += \
     hexedit/qhexedit/qhexedit.cpp \
     hexedit/searchdialog.cpp \
     log_operations_ssm.cpp \
-    log_operations_mitsubishi.cpp \
-    log_operations_mitsubishi_cdbg.cpp \
     logbox.cpp \
     logvalues.cpp \
     main.cpp \

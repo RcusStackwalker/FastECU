@@ -919,7 +919,6 @@ void MainWindow::toggle_realtime()
                 return;
             }
         }
-        logging_counter = 0;
         logging_state = true;
 
         LogSessionConfig config;
@@ -1092,8 +1091,6 @@ void MainWindow::show_preferences_window()
 
 void MainWindow::show_subaru_biu_window()
 {
-    logging_poll_timer->stop();
-
     serial->reset_connection();
     ecuid.clear();
     ecu_init_complete = false;
@@ -1477,7 +1474,6 @@ int MainWindow::test_haltech_ic7_display()
 
     //serial_poll_timer->stop();
     //ssm_init_poll_timer->stop();
-    logging_poll_timer->stop();
 
     serial->set_is_iso15765_connection(true);
     //serial->set_is_can_connection(true);
@@ -1663,7 +1659,6 @@ int MainWindow::simulate_obd()
 
     //serial_poll_timer->stop();
     //ssm_init_poll_timer->stop();
-    logging_poll_timer->stop();
 
     serial->reset_connection();
     ecuid.clear();

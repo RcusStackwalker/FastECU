@@ -1,6 +1,9 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "serial_port_actions.h"
+#include "protocol/mut_dma_memory.h"
+
+using namespace mutdma;
 
 void MainWindow::kline_listener()
 {
@@ -288,224 +291,6 @@ void MainWindow::ssm_can_init()
     }
 }
 
-void MainWindow::log_ssm_values()
-{
-    QByteArray output;
-    QByteArray received;
-    uint16_t value_count = 0;
-    bool ok = false;
-
-    if (ecu_init_complete)// && !log_params_request_started)
-    {
-        if (!logging_state)
-        {
-            output.append((uint8_t)0xA8);
-            output.append((uint8_t)0x00);
-            output.append((uint8_t)0x00);
-            output.append((uint8_t)0x00);
-            output.append((uint8_t)0x07);
-
-        }
-        else
-        {
-            //emit LOG_D("Send log request";
-            output.append((uint8_t)0xA8);
-            output.append((uint8_t)0x01);
-            for (int i = 0; i < logValues->lower_panel_log_value_id.length(); i++)
-            {
-                for (int j = 0; j < logValues->log_value_id.length(); j++)
-                {
-                    if (logValues->lower_panel_log_value_id.at(i) == logValues->log_value_id.at(j) && logValues->log_value_protocol.at(j) == protocol)
-                    {
-                        value_count++;
-                        //emit LOG_D(logValues->log_value_id.at(i) << "at" << logValues->log_value_address.at(i) << "enabled, length" << logValues->log_value_length.at(i), true, true);
-                        output.append((uint8_t)(logValues->log_value_address.at(j).toUInt(&ok,16) >> 16));
-                        output.append((uint8_t)(logValues->log_value_address.at(j).toUInt(&ok,16) >> 8));
-                        output.append((uint8_t)logValues->log_value_address.at(j).toUInt(&ok,16));
-                    }
-                }
-            }
-/*
-            for (int i = 0; i < logValues->dashboard_log_value_id.length(); i++)
-            {
-                for (int j = 0; j < logValues->log_value_id.length(); j++)
-                {
-                    if (logValues->dashboard_log_value_id.at(i) == logValues->log_value_id.at(j) && logValues->log_value_protocol.at(j) == protocol)
-                    {
-                        value_count++;
-                        //emit LOG_D(logValues->log_value_id.at(i) << "at" << logValues->log_value_address.at(i) << "enabled, length" << logValues->log_value_length.at(i), true, true);
-                        output.append((uint8_t)(logValues->log_value_address.at(j).toUInt(&ok,16) >> 16));
-                        output.append((uint8_t)(logValues->log_value_address.at(j).toUInt(&ok,16) >> 8));
-                        output.append((uint8_t)logValues->log_value_address.at(j).toUInt(&ok,16));
-                    }
-                }
-            }*/
-        }
-        serial->write_serial_data_echo_check(add_ssm_header(output, false));
-        delay(10);
-    }
-}
-
-void MainWindow::read_log_serial_data()
-{
-    QByteArray received;
-
-    if (!logparams_read_active)
-    {
-        logparams_read_active = true;
-        //emit LOG_D("Read logger data from ECU", true, true);
-        if (serial->get_use_openport2_adapter())
-            received = serial->read_serial_data(100);
-        else
-        {
-            int loop_count = 0;
-            while (received.length() < 3 && loop_count < 100)
-            {
-                received.append(serial->read_serial_data(10));
-                loop_count++;
-            }
-            //emit LOG_D("Header data" << parse_message_to_hex(received), true, true);
-            loop_count = 0;
-            while (received.length() >= 3 && ((uint8_t)received.at(0) != 0x80 || (uint8_t)received.at(1) != 0xf0 || (uint8_t)received.at(2) != 0x10) && loop_count < 200)
-            {
-                received.remove(0, 1);
-                received.append(serial->read_serial_data(50));
-                loop_count++;
-            }
-            received.append(serial->read_serial_data(50));
-            received.append(serial->read_serial_data(100));
-        }
-
-        if (received.length() > 6 && (uint8_t)received.at(4) == 0xe8)
-        {
-            received.remove(0, 5);
-            received.remove(received.length() - 1, 1);
-            parse_log_params(received, protocol);
-            //emit LOG_D("Log params data:" << parse_message_to_hex(received), true, true);
-        }
-        else
-        {
-            //emit LOG_D("Log params get failed:" << parse_message_to_hex(received), true, true);
-        }
-
-        logparams_read_active = false;
-    }
-}
-
-QString MainWindow::parse_log_params(QByteArray received, QString protocol)
-{
-    QString params;
-
-    uint16_t log_value_index = 0;
-    uint16_t value_index = 0;
-
-    double timer_elapsed = log_speed_timer->elapsed();
-    if (timer_elapsed < 1)
-        timer_elapsed = 1;
-    double data_received = received.length();
-    double log_speed = 1000.0f / timer_elapsed * data_received;
-
-    //emit LOG_D((uint16_t)log_speed << "values read per second:" << data_received << "bytes at" << timer_elapsed << "milliseconds", true, true);
-
-    if (!logging_request_active)
-    {
-        logging_request_active = true;
-        //emit LOG_D("Log read count:" << logging_counter++, true, true);
-        for (int i = 0; i < logValues->lower_panel_log_value_id.length(); i++)
-        {
-            for (int j = 0; j < logValues->log_value_id.length(); j++)
-            {
-                if (logValues->lower_panel_log_value_id.at(i) == logValues->log_value_id.at(j) && logValues->log_value_protocol.at(j) == protocol)
-                {
-                    if (logValues->log_value_enabled.at(j) == "1" && log_value_index < received.length())
-                    {
-                        QStringList conversion = logValues->log_value_units.at(j).split(",");
-                        QString value_name = logValues->log_value_name.at(j);
-                        QString unit = conversion.at(1);
-                        QString from_byte = conversion.at(2);
-                        QStringList format_str_lst = conversion.at(3).split(".");
-                        uint8_t format = 0;
-                        if (format_str_lst.length() > 1)
-                            format = format_str_lst.at(1).count(QRegularExpression("0"));
-
-                        //QString gauge_min = conversion.at(4);
-                        //QString gauge_max = conversion.at(5);
-                        //QString gauge_step = conversion.at(6);
-                        QString value;
-                        uint8_t log_value_length = logValues->log_value_length.at(j).toUInt();
-                        for (uint8_t k = 0; k < log_value_length; k++)
-                        {
-                            value.append(QString::number((uint8_t)received.at(i + k)));
-                        }
-                        float calc_float_value = fileActions->calculate_value_from_expression(fileActions->parse_stringlist_from_expression_string(from_byte, value));
-                        QString calc_value = QString::number(calc_float_value, 'f', format);
-                        logValues->log_value.replace(j, calc_value);
-
-                        //emit LOG_D(QString::number(log_value_index) + ". " + value_name + ": " + calc_value + " " + unit + " from_byte: " + value + " via expr: " + from_byte, true, true);
-                        //params.append(calc_value);
-                        //params.append(", ");
-
-                        log_value_index++;
-                    }
-                }
-            }
-        }
-/*
-        //emit LOG_D("indexOf " + logValues->log_value_id.indexOf(QString(logValues->dashboard_log_value_id.at(2)))+1, true, true);
-        for (int i = 0; i < logValues->dashboard_log_value_id.length(); i++)
-        {
-            for (int j = 0; j < logValues->log_value_id.length(); j++)
-            {
-                //value_index = logValues->log_value_id.indexOf(QString(logValues->log_values_by_protocol.at(i)))+1;
-                if (logValues->dashboard_log_value_id.at(i) == logValues->log_value_id.at(j) && logValues->log_value_protocol.at(j) == protocol)
-                {
-                    //emit LOG_D(logValues->log_value_name.at(j) << logValues->log_value_enabled.at(j), true, true);
-                    if (logValues->log_value_enabled.at(j) == "1" && log_value_index < received.length())
-                    {
-                        QStringList conversion = logValues->log_value_units.at(j).split(",");
-                        QString value_name = logValues->log_value_name.at(j);
-                        QString unit = conversion.at(1);
-                        QString from_byte = conversion.at(2);
-                        QStringList format_str_lst = conversion.at(3).split(".");
-                        uint8_t format = 0;
-                        if (format_str_lst.length() > 1)
-                            format = format_str_lst.at(1).count(QRegularExpression("0"));
-
-                        //QString gauge_min = conversion.at(4);
-                        //QString gauge_max = conversion.at(5);
-                        //QString gauge_step = conversion.at(6);
-                        QString value;
-                        uint8_t log_value_length = logValues->log_value_length.at(j).toUInt();
-                        for (uint8_t k = 0; k < log_value_length; k++)
-                        {
-                            value.append(QString::number((uint8_t)received.at(log_value_index + k)));
-                        }
-                        float calc_float_value = fileActions->calculate_value_from_expression(fileActions->parse_stringlist_from_expression_string(from_byte, value));
-                        QString calc_value = QString::number(calc_float_value, 'f', format);
-                        logValues->log_value.replace(j, calc_value);
-
-                        //emit LOG_D(QString::number(log_value_index) + ". " + value_name + ": " + calc_value + " " + unit + " from_byte: " + value + " via expr: " + from_byte, true, true);
-                        //params.append(calc_value);
-                        //params.append(", ");
-
-                        log_value_index += log_value_length;
-                    }
-                }
-            }
-        }
-*/
-        //emit LOG_D(parse_message_to_hex(received), true, true);
-        //emit LOG_D(" ", true, true);
-        logging_request_active = false;
-        log_to_file();
-    }
-
-    log_speed_timer->start();
-    update_logbox_values(protocol);
-
-    return params;
-}
-
 void MainWindow::parse_log_value_list(QByteArray received, QString protocol)
 {
     uint16_t enabled_log_value_count = 0;
@@ -670,5 +455,44 @@ void MainWindow::log_to_file(){
             datalog_file_outstream << "\n";
         }
     }
+}
+
+// MUT/DMA memory read/write bench utilities. Preserved here (moved from the now-deleted
+// log_operations_mitsubishi.cpp, which also held the per-cycle MUT/DMA logging loop that
+// Task 8 replaced with MutDmaLoggingProtocol) because they are standalone bench helpers,
+// not part of the per-cycle logging path this refactor removes -- each opens its own
+// short-lived FastEcuKlineTransport/MutDmaDriver rather than using the per-session
+// mut_driver/mut_transport members that were removed along with the old logging loop.
+bool MainWindow::mut_write_memory(quint16 addr, const QByteArray& bytes)
+{
+    if (addr < 0x4000 || addr > 0xBFFF) // writable RAM window guard
+    {
+        emit LOG_E("MUT/DMA: refusing write outside 0x4000-0xBFFF", true, true);
+        return false;
+    }
+    FastEcuKlineTransport tr(serial);
+    AlreadyInMode init(125000);
+    MutDmaDriver d(tr, init);
+    return d.writeMemory(addr, bytes);
+}
+
+QByteArray MainWindow::mut_read_memory(quint16 addr, int len)
+{
+    FastEcuKlineTransport tr(serial);
+    AlreadyInMode init(125000);
+    MutDmaDriver d(tr, init);
+
+    QByteArray out;
+    int off = 0;
+    while (off < len)
+    {
+        int chunk = qMin(40, len - off);
+        QVector<Channel> ch = planReadChannels(quint16(addr + off), chunk);
+        if (!d.startFreeFormLog(ch, 0xA0, 0xA1))
+            break;
+        out.append(reassembleRead(d.pollOnce(50)));
+        off += chunk;
+    }
+    return out;
 }
 
