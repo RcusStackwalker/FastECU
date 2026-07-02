@@ -1,11 +1,30 @@
-QT += core testlib widgets xml
+QT += core testlib widgets xml serialport remoteobjects websockets
 CONFIG += console c++11
 CONFIG -= app_bundle
 include(../hardening.pri)
 TEMPLATE = app
 TARGET = mut_dma_tests
 INCLUDEPATH += $$PWD/..
+
+# CdbgLoggingProtocol::start() configures raw-CAN mode on the real
+# SerialPortActions facade (see logging/protocols/cdbg_logging_protocol.cpp),
+# and test_cdbg_logging_protocol.cpp default-constructs a real SerialPortActions
+# to satisfy the constructor, so the facade and its QtRemoteObjects-generated
+# replica must be linked in here too (same facade mut_dma_integration_tests.pro
+# already pulls in for the same reason).
+REPC_REPLICA = \
+    ../serial_port/serial_port_actions.rep \
+    ../remote_utility/remote_utility.rep
+
+unix {
+    SOURCES += ../serial_port/J2534_unix.cpp
+    HEADERS += ../serial_port/J2534_unix.h
+}
+
 SOURCES += \
+    ../serial_port/serial_port_actions.cpp \
+    ../serial_port/serial_port_actions_direct.cpp \
+    ../serial_port/websocketiodevice.cpp \
     main.cpp \
     test_codec.cpp \
     test_freeform.cpp \
@@ -24,6 +43,8 @@ SOURCES += \
     ../logging/protocols/ssm_logging_protocol.cpp \
     test_mut_dma_logging_protocol.cpp \
     ../logging/protocols/mut_dma_logging_protocol.cpp \
+    test_cdbg_logging_protocol.cpp \
+    ../logging/protocols/cdbg_logging_protocol.cpp \
     ../file_actions.cpp \
     ../file_defs_ecuflash.cpp \
     ../file_defs_romraider.cpp \
@@ -47,6 +68,9 @@ SOURCES += \
     ../logging/logging_worker.cpp \
     ../logging/logging_engine.cpp
 HEADERS += \
+    ../serial_port/serial_port_actions.h \
+    ../serial_port/serial_port_actions_direct.h \
+    ../serial_port/websocketiodevice.h \
     test_codec.h \
     test_freeform.h \
     test_memory.h \
@@ -64,6 +88,8 @@ HEADERS += \
     ../logging/protocols/ssm_logging_protocol.h \
     test_mut_dma_logging_protocol.h \
     ../logging/protocols/mut_dma_logging_protocol.h \
+    test_cdbg_logging_protocol.h \
+    ../logging/protocols/cdbg_logging_protocol.h \
     ../file_actions.h \
     scripted_kline_transport.h \
     ../protocol/ikline_transport.h \

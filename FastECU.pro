@@ -174,7 +174,8 @@ SOURCES += \
     logging/logging_engine.cpp \
     logging/romraider_conversion.cpp \
     logging/protocols/ssm_logging_protocol.cpp \
-    logging/protocols/mut_dma_logging_protocol.cpp
+    logging/protocols/mut_dma_logging_protocol.cpp \
+    logging/protocols/cdbg_logging_protocol.cpp
 
 HEADERS += \
     calibration_maps.h \
@@ -270,7 +271,8 @@ HEADERS += \
     logging/logging_engine.h \
     logging/romraider_conversion.h \
     logging/protocols/ssm_logging_protocol.h \
-    logging/protocols/mut_dma_logging_protocol.h
+    logging/protocols/mut_dma_logging_protocol.h \
+    logging/protocols/cdbg_logging_protocol.h
 
 FORMS += \
     calibration_map_table.ui \
