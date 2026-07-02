@@ -46,8 +46,8 @@ bool MutDmaLoggingProtocol::start(QString *errorOut)
         return false;
     }
 
-    channels_ = channelsFromLogValues(logValues_, channelLogValueIndex_);
-    if (!driver_.startFreeFormLog(channels_, 0xA0, 0xA1)) {
+    QVector<Channel> channels = channelsFromLogValues(logValues_, channelLogValueIndex_);
+    if (!driver_.startFreeFormLog(channels, 0xA0, 0xA1)) {
         if (errorOut) *errorOut = "MUT/DMA free-form handshake failed";
         return false;
     }

@@ -22,6 +22,5 @@ private:
     FileActions::LogValuesStructure *logValues_;
     FileActions *fileActions_;
     MitsuColtCanCdbg::CdbgLogDriver driver_;
-    QVector<MitsuColtCanCdbg::CdbgChannel> channels_;
     QVector<int> channelLogValueIndex_;
 };

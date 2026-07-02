@@ -79,6 +79,36 @@ private slots:
         QCOMPARE(statusSpy.at(2).at(0).value<LoggingStatus>(), LoggingStatus::Running);
     }
 
+    void zero_reconnect_retry_period_never_attempts_reconnect() {
+        ScriptedLoggingProtocol proto;
+        proto.queueStartResult(true);
+        for (int i = 0; i < 1000; ++i) {
+            PollResult r;
+            r.status = PollResult::Status::NoResponse;
+            proto.queuePollResult(r);
+        }
+
+        // reconnectAttemptThreshold=5, reconnectRetryPeriod=0: once consecutiveMisses
+        // crosses 5, the reconnect-retry branch's modulo-by-reconnectRetryPeriod check
+        // must be skipped entirely (guarded against division by zero) rather than crash.
+        LoggingWorker worker(&proto, 5, 3, 5, 0);
+        QSignalSpy statusSpy(&worker, &LoggingWorker::statusChanged);
+
+        worker.start();
+        QTRY_VERIFY_WITH_TIMEOUT(statusSpy.size() >= 2, 3000);
+        // Keep looping well past the reconnect-attempt threshold -- with the guard in
+        // place this must never crash and must never re-invoke protocol->start().
+        QTest::qWait(30);
+        worker.requestStop();
+        QVERIFY(worker.wait(2000));
+
+        QCOMPARE(statusSpy.at(0).at(0).value<LoggingStatus>(), LoggingStatus::Running);
+        QCOMPARE(statusSpy.at(1).at(0).value<LoggingStatus>(), LoggingStatus::CarNotResponding);
+        // Only the initial start() call happened -- no reconnect handshake attempts,
+        // regardless of how many times consecutiveMisses crossed reconnectAttemptThreshold.
+        QCOMPARE(proto.startCallCount(), 1);
+    }
+
     void adapter_loss_ends_session_and_thread_exits() {
         ScriptedLoggingProtocol proto;
         proto.queueStartResult(true);

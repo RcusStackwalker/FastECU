@@ -74,6 +74,26 @@ private slots:
         PollResult r = proto.poll(20);
         QCOMPARE((int)r.status, (int)PollResult::Status::TransportError);
     }
+
+    void poll_returns_transport_error_when_adapter_closes_mid_session() {
+        auto transport = std::make_unique<ScriptedKlineTransport>();
+        FileActions::LogValuesStructure lv = makeOneChannel();
+        QVector<Channel> ch = { {0x8000, 2} };
+        transport->expectWrite(buildSetupFrame(0xA0, 1));
+        transport->queueRead(buildCommandFrame(0xA5, QByteArray(), TRAILER_STD));
+        transport->expectWrite(buildIdListFrame(0xA1, ch));
+        transport->queueRead(buildCommandFrame(0x05, QByteArray(), TRAILER_STD));
+        ScriptedKlineTransport *raw = transport.get();
+
+        FileActions fileActions;
+        MutDmaLoggingProtocol proto(std::move(transport), std::make_unique<AlreadyInMode>(125000), &lv, &fileActions);
+        QString err;
+        QVERIFY(proto.start(&err));
+
+        raw->setOpen(false);
+        PollResult r = proto.poll(20);
+        QCOMPARE((int)r.status, (int)PollResult::Status::TransportError);
+    }
 };
 
 int run_test_mut_dma_logging_protocol(int argc, char** argv) {

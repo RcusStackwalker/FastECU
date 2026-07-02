@@ -55,7 +55,8 @@ void LoggingWorker::run()
                 emit LOG_W("Car not responding", true, true);
                 emit statusChanged(LoggingStatus::CarNotResponding);
             }
-            if (consecutiveMisses >= m_reconnectAttemptThreshold
+            if (m_reconnectRetryPeriod > 0
+                && consecutiveMisses >= m_reconnectAttemptThreshold
                 && (consecutiveMisses - m_reconnectAttemptThreshold) % m_reconnectRetryPeriod == 0) {
                 QString reErr;
                 if (m_protocol->start(&reErr)) {

@@ -38,6 +38,18 @@ private slots:
         QVERIFY(!engine.isRunning());
     }
 
+    void start_with_factory_returning_null_fails_without_crashing() {
+        LoggingEngine engine;
+        engine.registerProtocol("TEST",
+            [](const LogSessionConfig &) { return std::unique_ptr<LoggingProtocol>(); },
+            20, 5, 10, 10);
+
+        LogSessionConfig config;
+        config.protocolId = "TEST";
+        QVERIFY(!engine.start(config));
+        QVERIFY(!engine.isRunning());
+    }
+
     void spontaneous_handshake_failure_propagates_session_ended() {
         LoggingEngine engine;
         auto *proto = new ScriptedLoggingProtocol();

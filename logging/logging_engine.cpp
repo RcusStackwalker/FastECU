@@ -39,6 +39,12 @@ bool LoggingEngine::start(const LogSessionConfig &config)
     }
 
     m_activeProtocol = it->factory(config);
+    if (!m_activeProtocol) {
+        emit LOG_E("Protocol factory for '" + config.protocolId + "' returned null", true, true);
+        m_activeProtocol.reset();
+        return false;
+    }
+
     m_activeWorker = new LoggingWorker(m_activeProtocol.get(), it->pollTimeoutMs,
                                         it->carSilenceMissThreshold, it->reconnectAttemptThreshold,
                                         it->reconnectRetryPeriod, this);

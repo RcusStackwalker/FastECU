@@ -25,12 +25,29 @@ checklist covers what can only be observed with a real adapter and ECU.
 5. Confirm values displayed match the equivalent pre-refactor build for the
    same channels (semantic parity check, not byte-exact -- per this project's
    established port-verification convention).
+6. On a plain-serial (non-J2534/non-OpenPort-2.0) adapter specifically: start
+   logging and confirm gauges update continuously with no Qt warnings about
+   socket notifiers or timers being used from the wrong thread. `SerialPortActionsDirect`
+   creates its `QSerialPort` with GUI-thread affinity, and its blocking reads
+   pump `QCoreApplication::processEvents()`; now that logging runs on
+   `LoggingWorker`'s own thread, cross-thread `QSerialPort` I/O may not deliver
+   data correctly. This is separate from the OpenPort 2.0/J2534 path, which
+   uses thread-agnostic dylib calls and is expected to be unaffected.
 
 ## Regression checks
 
-6. Start a MUT/DMA or Cdbg session (previously never called
+7. Start a MUT/DMA or Cdbg session (previously never called
    `update_logbox_values()` -- see Task 9's completion notes) and confirm the
    lower-panel gauges actually refresh, not just `logValues->log_value` in
    memory.
-7. Confirm no other serial operation (ROM read/flash) can be started while a
+8. Confirm no other serial operation (ROM read/flash) can be started while a
    logging session is active, matching the pre-refactor `logging_state` guard.
+9. On SSM specifically: let a session run for a while and watch for garbled or
+   misaligned frames. `SsmLoggingProtocol::poll()` now re-sends the
+   `0xA8 0x01 <addresses>` "continue" request every single poll cycle
+   (previously, due to a dead timer, this request was effectively sent only
+   once). If the target ECU's `0xA8 0x01` command puts it into a continuous-
+   stream response mode rather than a strict request/response mode, re-issuing
+   the request mid-stream could desync the response framing. Verify on real
+   SSM hardware that repeated `0xA8 0x01` requests behave as clean polling
+   (one response per request) rather than causing this.

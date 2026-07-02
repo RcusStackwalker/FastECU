@@ -52,8 +52,8 @@ bool CdbgLoggingProtocol::start(QString *errorOut)
         return false;
     }
 
-    channels_ = channelsFromLogValues(logValues_, channelLogValueIndex_);
-    if (!driver_.startFreeFormLog(channels_)) {
+    QVector<CdbgChannel> channels = channelsFromLogValues(logValues_, channelLogValueIndex_);
+    if (!driver_.startFreeFormLog(channels)) {
         if (errorOut) *errorOut = "Cdbg session/security handshake failed";
         return false;
     }

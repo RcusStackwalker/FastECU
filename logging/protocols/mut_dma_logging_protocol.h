@@ -22,6 +22,5 @@ private:
     FileActions::LogValuesStructure *logValues_;
     FileActions *fileActions_;
     mutdma::MutDmaDriver driver_;
-    QVector<mutdma::Channel> channels_;
     QVector<int> channelLogValueIndex_;
 };
