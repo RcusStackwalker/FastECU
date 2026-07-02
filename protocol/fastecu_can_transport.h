@@ -11,6 +11,7 @@ public:
     explicit FastEcuCanTransport(SerialPortActions *serial) : serial_(serial) {}
     int write(quint32 canId, const QByteArray &payload) override;
     QByteArray read(int timeoutMs, quint32 &outId) override;
+    bool isOpen() const override;
 private:
     SerialPortActions *serial_;
 };

@@ -11,4 +11,7 @@ int FastEcuKlineTransport::write(const QByteArray& data) {
 QByteArray FastEcuKlineTransport::read(int timeoutMs, int /*wantBytes*/) {
     return serial_->read_serial_data(quint16(timeoutMs));
 }
+bool FastEcuKlineTransport::isOpen() const {
+    return serial_->is_serial_port_open();
+}
 }

@@ -25,4 +25,9 @@ QByteArray FastEcuCanTransport::read(int timeoutMs, quint32 &outId)
     return raw.mid(4);
 }
 
+bool FastEcuCanTransport::isOpen() const
+{
+    return serial_->is_serial_port_open();
+}
+
 }

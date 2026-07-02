@@ -169,6 +169,7 @@ SOURCES += \
     protocol/mitsu_colt_can_cdbg_protocol.cpp \
     protocol/fastecu_can_transport.cpp \
     protocol/mitsu_colt_can_cdbg_driver.cpp \
+    protocol/fastecu_ssm_transport.cpp \
     logging/logging_worker.cpp \
     logging/logging_engine.cpp
 
@@ -259,6 +260,8 @@ HEADERS += \
     protocol/ican_transport.h \
     protocol/fastecu_can_transport.h \
     protocol/mitsu_colt_can_cdbg_driver.h \
+    protocol/issm_transport.h \
+    protocol/fastecu_ssm_transport.h \
     logging/logging_protocol.h \
     logging/logging_worker.h \
     logging/logging_engine.h

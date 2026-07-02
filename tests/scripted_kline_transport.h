@@ -9,6 +9,8 @@ public:
     void queueRead(const QByteArray& b)   { reads_.append(b); }
     bool scriptConsumed() const { return wIdx_ == expected_.size() && rIdx_ == reads_.size(); }
     bool ok() const { return ok_; }
+    void setOpen(bool open) { open_ = open; }
+    bool isOpen() const override { return open_; }
     bool setBaud(int) override { return true; }
     int write(const QByteArray& data) override {
         if (wIdx_ >= expected_.size() || expected_.at(wIdx_) != data) ok_ = false;
@@ -22,5 +24,6 @@ public:
 private:
     QList<QByteArray> expected_, reads_;
     int wIdx_ = 0, rIdx_ = 0; bool ok_ = true;
+    bool open_ = true;
 };
 }

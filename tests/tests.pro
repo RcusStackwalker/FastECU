@@ -50,4 +50,6 @@ HEADERS += \
     scripted_logging_protocol.h \
     ../logging/logging_protocol.h \
     ../logging/logging_worker.h \
-    ../logging/logging_engine.h
+    ../logging/logging_engine.h \
+    scripted_ssm_transport.h \
+    ../protocol/issm_transport.h

@@ -10,6 +10,8 @@ public:
     void queueRead(quint32 id, const QByteArray &payload) { readIds_.append(id); readPayloads_.append(payload); }
     bool scriptConsumed() const { return wIdx_ == expectedIds_.size() && rIdx_ == readIds_.size(); }
     bool ok() const { return ok_; }
+    void setOpen(bool open) { open_ = open; }
+    bool isOpen() const override { return open_; }
     int write(quint32 id, const QByteArray &payload) override {
         if (wIdx_ >= expectedIds_.size() || expectedIds_.at(wIdx_) != id || expectedPayloads_.at(wIdx_) != payload)
             ok_ = false;
@@ -28,5 +30,6 @@ private:
     QList<QByteArray> expectedPayloads_, readPayloads_;
     int wIdx_ = 0, rIdx_ = 0;
     bool ok_ = true;
+    bool open_ = true;
 };
 }

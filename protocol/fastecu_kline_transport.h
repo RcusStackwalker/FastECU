@@ -9,6 +9,7 @@ public:
     bool setBaud(int baud) override;
     int  write(const QByteArray& data) override;
     QByteArray read(int timeoutMs, int wantBytes = -1) override;
+    bool isOpen() const override;
 private:
     SerialPortActions* serial_;
 };

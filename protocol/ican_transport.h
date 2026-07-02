@@ -14,6 +14,8 @@ public:
     // sets outId to its CAN id, or returns an empty QByteArray if nothing
     // arrived in time.
     virtual QByteArray read(int timeoutMs, quint32 &outId) = 0;
+    // True if the underlying adapter connection is open.
+    virtual bool isOpen() const = 0;
 };
 
 } // namespace cdbg
