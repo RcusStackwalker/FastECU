@@ -23,6 +23,15 @@ the most consequential open items:
    request/response, re-issuing it mid-stream could desync response framing. Needs confirmation on
    real hardware before first live SSM flash.
 
+## Flash operation worker migration (phase 1b)
+
+`FlashEcuMitsuM32rCan` is the pattern-proof for the flash-module worker-thread
+migration (see `docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md`).
+Needs real-hardware re-verification before its next live flash: the QEventLoop-based
+run() must correctly service the mid-operation confirm() prompt (the "erase trigger"
+warning in write_mem()) while the worker thread is blocked waiting for it, and the
+progress bar must update live during a real multi-minute read/write.
+
 ## Deliberately deferred (scope cuts, not oversights)
 
 - **No live GUI indicator for `LoggingStatus::CarNotResponding`.** `LoggingWorker`/`LoggingEngine`
