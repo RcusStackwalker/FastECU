@@ -14,6 +14,9 @@ REPC_REPLICA = ../serial_port/serial_port_actions.rep
 unix {
     SOURCES += ../serial_port/J2534_unix.cpp
     HEADERS += ../serial_port/J2534_unix.h
+
+    SOURCES += test_pty_e2e.cpp
+    HEADERS += test_pty_e2e.h
 }
 
 SOURCES += \
