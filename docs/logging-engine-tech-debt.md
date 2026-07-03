@@ -85,10 +85,11 @@ the most consequential open items:
   synchronous calls). The "fake async" `QCoreApplication::processEvents()` pump inside those calls
   was previously a mostly-harmless quirk because it only ever ran on the GUI thread; it's now also
   exercised from `LoggingWorker`'s thread for the direct-serial backend, which is exactly the
-  behavior the bench checklist's item 1 needs to validate. If that turns out to be broken in
-  practice, the real fix is deeper: give `SerialPortActions` a proper thread-safe or per-thread I/O
-  path instead of relying on nested event-loop pumping — a larger undertaking intentionally kept
-  out of this refactor's scope.
+  behavior the bench checklist's item 1 needs to validate. **Update:** the thread-safe I/O path has
+  since landed (see the serial backend decoupling refactor, spec
+  `2026-07-02-serial-backend-decoupling-design.md`) — backends now live on a dedicated
+  `SerialIoThread` behind a marshaling facade, and `processEvents()` remains only as a compat shim
+  in the facade's GUI-thread `waitForDone()`, pending spec 1b's flash-op worker migration.
 - **`TestSsmLoggingProtocol`'s suite runtime (~1050ms)** comes from its timeout-bounded tests
   genuinely waiting out real wall-clock time (`QElapsedTimer`-bounded reassembly loops with no
   artificial delay to short-circuit in tests). Harmless today; worth watching if more

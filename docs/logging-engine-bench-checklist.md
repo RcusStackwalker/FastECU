@@ -33,6 +33,12 @@ checklist covers what can only be observed with a real adapter and ECU.
    `LoggingWorker`'s own thread, cross-thread `QSerialPort` I/O may not deliver
    data correctly. This is separate from the OpenPort 2.0/J2534 path, which
    uses thread-agnostic dylib calls and is expected to be unaffected.
+   **Update:** the architectural fix has since landed (serial backend decoupling
+   refactor) -- `QSerialPort` is now constructed on the dedicated `SerialIoThread`
+   instead of the GUI thread, and the `processEvents()` pump described above is
+   gone from the backend. This item should be re-verified on real hardware
+   against the new stack; the headless analog of this scenario is
+   `tests/test_pty_e2e.cpp`.
 
 ## Regression checks
 
