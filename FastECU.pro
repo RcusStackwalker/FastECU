@@ -136,6 +136,7 @@ SOURCES += \
     modules/ecu/flash_ecu_subaru_denso_sh705x_densocan.cpp \
     modules/ecu/flash_ecu_subaru_denso_sh705x_densocan_operation.cpp \
     modules/ecu/flash_ecu_subaru_denso_sh705x_kline.cpp \
+    modules/ecu/flash_ecu_subaru_denso_sh705x_kline_operation.cpp \
     modules/ecu/flash_ecu_subaru_denso_sh72531_can.cpp \
     modules/ecu/flash_ecu_subaru_denso_sh72543_can_diesel.cpp \
     modules/ecu/flash_ecu_subaru_hitachi_m32r_can.cpp \
@@ -239,6 +240,7 @@ HEADERS += \
     modules/ecu/flash_ecu_subaru_denso_sh705x_densocan.h \
     modules/ecu/flash_ecu_subaru_denso_sh705x_densocan_operation.h \
     modules/ecu/flash_ecu_subaru_denso_sh705x_kline.h \
+    modules/ecu/flash_ecu_subaru_denso_sh705x_kline_operation.h \
     modules/ecu/flash_ecu_subaru_denso_sh72531_can.h \
     modules/ecu/flash_ecu_subaru_denso_sh72543_can_diesel.h \
     modules/ecu/flash_ecu_subaru_hitachi_m32r_can.h \
