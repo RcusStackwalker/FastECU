@@ -27,10 +27,10 @@ the most consequential open items:
 
 `FlashEcuMitsuM32rCan` is the pattern-proof for the flash-module worker-thread
 migration (see `docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md`).
-Needs real-hardware re-verification before its next live flash: the QEventLoop-based
-run() must correctly service the mid-operation confirm() prompt (the "erase trigger"
-warning in write_mem()) while the worker thread is blocked waiting for it, and the
-progress bar must update live during a real multi-minute read/write.
+The real-hardware re-verification this migration needs before its next live flash
+is tracked as part of the module's existing bench-qualification gate — see Step 4
+("Erase trigger") in `docs/colt_czt_47110032_can_bench_checklist.md` for the
+QEventLoop/confirm()-under-worker-thread and live-progress-bar checks.
 
 ## Deliberately deferred (scope cuts, not oversights)
 
