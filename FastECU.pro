@@ -122,6 +122,7 @@ SOURCES += \
     modules/checksum/checksum_tcu_subaru_denso_sh7055.cpp \
     modules/checksum/checksum_tcu_subaru_hitachi_m32r_can.cpp \
     modules/ecu/flash_ecu_subaru_denso_1n83m_1_5m_can.cpp \
+    modules/ecu/flash_ecu_subaru_denso_1n83m_1_5m_can_operation.cpp \
     modules/ecu/flash_ecu_subaru_denso_1n83m_4m_can.cpp \
     modules/ecu/flash_ecu_subaru_denso_mc68hc16y5_02.cpp \
     modules/ecu/flash_ecu_subaru_denso_sh7055_02.cpp \
@@ -218,6 +219,7 @@ HEADERS += \
     modules/checksum/checksum_tcu_subaru_denso_sh7055.h \
     modules/checksum/checksum_tcu_subaru_hitachi_m32r_can.h \
     modules/ecu/flash_ecu_subaru_denso_1n83m_1_5m_can.h \
+    modules/ecu/flash_ecu_subaru_denso_1n83m_1_5m_can_operation.h \
     modules/ecu/flash_ecu_subaru_denso_1n83m_4m_can.h \
     modules/ecu/flash_ecu_subaru_denso_mc68hc16y5_02.h \
     modules/ecu/flash_ecu_subaru_denso_sh7055_02.h \
