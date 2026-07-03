@@ -128,6 +128,7 @@ SOURCES += \
     modules/ecu/flash_ecu_subaru_denso_mc68hc16y5_02.cpp \
     modules/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp \
     modules/ecu/flash_ecu_subaru_denso_sh7055_02.cpp \
+    modules/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp \
     modules/ecu/flash_ecu_subaru_denso_sh7058_can.cpp \
     modules/ecu/flash_ecu_subaru_denso_sh7058_can_diesel.cpp \
     modules/ecu/flash_ecu_subaru_denso_sh705x_densocan.cpp \
@@ -227,6 +228,7 @@ HEADERS += \
     modules/ecu/flash_ecu_subaru_denso_mc68hc16y5_02.h \
     modules/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.h \
     modules/ecu/flash_ecu_subaru_denso_sh7055_02.h \
+    modules/ecu/flash_ecu_subaru_denso_sh7055_02_operation.h \
     modules/ecu/flash_ecu_subaru_denso_sh7058_can.h \
     modules/ecu/flash_ecu_subaru_denso_sh7058_can_diesel.h \
     modules/ecu/flash_ecu_subaru_denso_sh705x_densocan.h \
