@@ -43,6 +43,14 @@ public:
                                QWebSocket *web_socket = nullptr,
                                QObject *parent = nullptr,
                                std::function<SerialBackend *()> backendFactoryForTests = {});
+
+    // Teardown-ordering precondition: no other thread may have a call into
+    // this object in flight (blocked inside runOnBackend()/waitForDone())
+    // when the destructor runs. ~SerialPortActions() joins the I/O thread
+    // and discards any work still queued on it rather than releasing
+    // blocked callers, so a thread waiting on an in-flight call would hang
+    // forever instead of returning. All threads that call into this object
+    // must be stopped/joined before it is destroyed.
     ~SerialPortActions();
 
     bool isDirectConnection(void);
