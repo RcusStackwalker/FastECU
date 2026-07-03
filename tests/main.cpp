@@ -13,6 +13,7 @@
 #include "test_ssm_logging_protocol.h"
 #include "test_mut_dma_logging_protocol.h"
 #include "test_cdbg_logging_protocol.h"
+#include "test_flash_operation_worker.h"
 
 int main(int argc, char** argv) {
     int status = 0;
@@ -31,5 +32,6 @@ int main(int argc, char** argv) {
     status |= run_test_ssm_logging_protocol(argc, argv);
     status |= run_test_mut_dma_logging_protocol(argc, argv);
     status |= run_test_cdbg_logging_protocol(argc, argv);
+    status |= run_test_flash_operation_worker(argc, argv);
     return status;
 }

@@ -22,6 +22,8 @@ unix {
 }
 
 SOURCES += \
+    test_flash_operation_worker.cpp \
+    ../modules/flash_operation_worker.cpp \
     ../serial_port/serial_port_actions.cpp \
     ../serial_port/serial_port_actions_direct.cpp \
     ../serial_port/remote_serial_backend.cpp \
@@ -70,6 +72,8 @@ SOURCES += \
     ../logging/logging_worker.cpp \
     ../logging/logging_engine.cpp
 HEADERS += \
+    test_flash_operation_worker.h \
+    ../modules/flash_operation_worker.h \
     ../serial_port/serial_port_actions.h \
     ../serial_port/serial_port_actions_direct.h \
     ../serial_port/serial_backend.h \
