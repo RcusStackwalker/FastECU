@@ -30,4 +30,9 @@ quint32 challengeTransform(quint32 secret);
 // seed the ECU sends, computes the key value the ECU will accept.
 quint32 challengeInverseTransform(quint32 seed);
 
+// Big-endian byte-array convenience wrappers matching the 4-byte wire
+// layout, mirroring MitsuColtCan::seedKey's shape.
+quint32 bytesToSeed(const QByteArray &seedBytes);  // expects exactly 4 bytes
+QByteArray keyToBytes(quint32 key);                 // produces exactly 4 bytes
+
 } // namespace MitsuColtCanVendorExt

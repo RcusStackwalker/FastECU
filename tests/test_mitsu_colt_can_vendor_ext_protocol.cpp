@@ -32,6 +32,15 @@ private slots:
             QCOMPARE(challengeInverseTransform(challengeTransform(x)), x);
         }
     }
+    void byte_wrappers_round_trip() {
+        QByteArray seedBytes = QByteArray::fromHex("F2E207C5");
+        QCOMPARE(bytesToSeed(seedBytes), quint32(0xF2E207C5u));
+        QCOMPARE(keyToBytes(0xF2E207C5u), seedBytes);
+        // Round trip through the real challenge functions too.
+        quint32 secret = 0x12345678u;
+        QByteArray onWire = keyToBytes(challengeTransform(secret));
+        QCOMPARE(challengeInverseTransform(bytesToSeed(onWire)), secret);
+    }
 };
 int run_test_mitsu_colt_can_vendor_ext_protocol(int argc, char** argv) {
     TestMitsuColtCanVendorExtProtocol t;

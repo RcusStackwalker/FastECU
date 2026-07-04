@@ -48,4 +48,21 @@ quint32 challengeInverseTransform(quint32 seed) {
     return x;
 }
 
+quint32 bytesToSeed(const QByteArray &seedBytes) {
+    Q_ASSERT(seedBytes.size() == 4);
+    return (quint32(quint8(seedBytes.at(0))) << 24)
+         | (quint32(quint8(seedBytes.at(1))) << 16)
+         | (quint32(quint8(seedBytes.at(2))) << 8)
+         |  quint32(quint8(seedBytes.at(3)));
+}
+
+QByteArray keyToBytes(quint32 key) {
+    QByteArray bytes;
+    bytes.append(char((key >> 24) & 0xFF));
+    bytes.append(char((key >> 16) & 0xFF));
+    bytes.append(char((key >> 8) & 0xFF));
+    bytes.append(char(key & 0xFF));
+    return bytes;
+}
+
 } // namespace MitsuColtCanVendorExt
