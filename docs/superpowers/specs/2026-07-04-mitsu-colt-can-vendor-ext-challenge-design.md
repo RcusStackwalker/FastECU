@@ -24,11 +24,11 @@ FastECU, ready for a later session to wire into an actual handshake.
 
 **Update:** a Ghidra-decompiled view of the dispatcher this challenge lives behind
 (the memory read/write hijack from the prior session, `ecutek_read_memory_by_address`,
-decompiled independently) confirms the structure traced by hand and exposes a much
-simpler path than inverting the transform — see "Primary approach" below. The transform
-and its inverse (originally the centerpiece of this spec) remain valuable as the robust,
-timing-independent fallback and as documentation of the mechanism, but are no longer the
-recommended integration path.
+decompiled independently) confirms the structure traced by hand. It also surfaces —
+and, per direct confirmation, rules out — a tempting shortcut: reading the secret's
+own RAM address directly instead of inverting the transform. See "Rejected approach"
+below for why that's a dead end. **The transform/inverse below is the only correct
+client-side implementation** — this spec's original scope stands unchanged.
 
 ```c
 void ecutek_read_memory_by_address(void)
@@ -71,11 +71,9 @@ handler as the memory read/write primitive from the prior session, matching offs
 ## Scope
 
 **In scope:**
-- `kSecretRamAddress` — the RAM location of the secret, enabling the primary
-  direct-read integration path (see below).
 - Forward transform, ported verbatim from the ROM.
-- Inverse transform, analytically derived and verified — the function the fallback
-  path needs (see "Fallback path" below for why).
+- Inverse transform, analytically derived and verified — this is the function a real
+  client actually needs (see "Key finding" below for why).
 - Byte-array convenience wrappers matching the wire's big-endian 4-byte seed/key layout.
 - QtTest unit tests with hardcoded vectors, matching this codebase's existing style.
 
@@ -84,57 +82,29 @@ handler as the memory read/write primitive from the prior session, matching offs
 - Any session-state tracking or handshake orchestration.
 - The ECU-side LCG accumulator that produces the *secret* in the first place
   (`RAM[0x807700] += RAM[0x8003d0] * 0x41c64e6d`) — that's ECU-internal state a client
-  never computes; a client only ever reads or receives the resulting secret/seed value.
+  never computes; a client only ever receives the seed and answers with the inverse.
 - Wiring this into `FlashEcuMitsuM32rCan` or any UI/orchestration code.
 - Anything about the *other* hijacked call site (memory read/write) from the earlier
   session — unrelated to this challenge.
 
-## Primary approach: direct secret disclosure (recommended integration path)
+## Rejected approach: direct secret disclosure (confirmed dead end)
 
-`ecutek_random_seed` (the *secret* traced below, RAM `0x807704`) sits inside the
-handler's own allowed read window (`0x804000`–`0x813FFF`). Since the generic
-memory-read arm advances `ecutek_random_seed` unconditionally and will happily echo
-back whatever is currently at any address inside that window, a client can skip the
-crypto challenge entirely:
+Worth documenting so nobody re-derives and re-attempts this: it was tempting to read
+`ecutek_random_seed` (RAM `0x807704`) directly via the generic memory-read arm — since
+that address sits inside the handler's own allowed read window (`0x804000`–`0x813FFF`)
+— and submit the disclosed value straight back as the key, skipping the transform
+entirely.
 
-1. **Read** — issue a normal memory-read request (this same handler) targeting address
-   `0x807704`, length 4. This read's own side effect (`ecutek_random_seed = next_ecutek_random()`)
-   *is* the "generate a challenge" step — there's no need to go through the official
-   `requestSeed` (`'A'`) sub-function at all.
-2. **Get challenge** — the reply *is* the current secret, un-transformed. No seed, no
-   `transform()`, nothing to invert.
-3. **Send response** — submit that exact 4-byte value as the key via `SecurityAccess`
-   sub-function `'B'` (`sendKey`).
+**This does not work.** Generic reads immediately overwrite the seed afterwards: the
+decompiled source shows `ecutek_random_seed = next_ecutek_random()` running again right
+after `ecutek_can_obd_reply(src, size)` replies. Whatever value the read discloses is
+stale the instant the read completes — by the time a client could submit it as a key via
+`sendKey`, the ECU's comparison value has already moved on. The read-out path is a dead
+end; there is no shortcut around inverting the transform.
 
-```cpp
-constexpr quint32 kSecretRamAddress = 0x807704;  // ecutek_random_seed
-```
+**The transform/inverse below is the correct — and only — client-side implementation.**
 
-**Caveat worth flagging plainly:** the decompiled source above shows `ecutek_random_seed`
-advancing *twice* around a generic read — once at function entry, once more after
-`ecutek_can_obd_reply(src, size)` on a successful generic read. Whether the value
-actually transmitted to the client reflects the pre- or post-second-advance state
-depends on `ecutek_can_obd_reply`'s own semantics (copy-and-transmit immediately, vs.
-queue a pointer for later transmission) — a function this decompile doesn't show. If it
-transmits by reference (plausible for an embedded CAN/K-line stack — the call takes a
-pointer + length, not a value already in hand), the bytes actually sent reflect whatever
-is at that address at *transmission* time, i.e. after both advances, which is exactly
-what `sendKey` later compares against — the simple read-then-answer flow above works
-exactly as described. If it copies immediately at the call site, the reply would be one
-LCG step behind what `sendKey` expects, and the flow would need a compensating step.
-**This needs a bench check against a real ECU (or tracing `ecutek_can_obd_reply` itself)
-before being relied on as the sole method** — which is why the transform/inverse below
-stays in this spec as a fallback that doesn't depend on this timing question at all: the
-official `requestSeed`/`sendKey` round trip has no such ambiguity (traced directly,
-`requestSeed` advances the accumulator exactly once, and `sendKey` captures its
-comparison value before its own trailing advance runs).
-
-## Fallback path: the transform-inversion challenge-response
-
-Kept for robustness in case the direct-read shortcut above doesn't hold up on bench
-verification, and as documentation of the mechanism itself.
-
-### Key finding: client needs the inverse, not the forward function
+## Key finding: client needs the inverse, not the forward function
 
 Tracing `requestSeed` (ROM `0x4fe10`) and `sendKey` (ROM `0x4fe94`):
 
@@ -147,7 +117,7 @@ So: `seed = transform(secret)`, and the ECU expects `key = secret = transform⁻
 A real client must implement the inverse of the ROM's function, not a forward
 re-application of it.
 
-### The forward transform (as it exists in ROM, at `0x510b8`)
+## The forward transform (as it exists in ROM, at `0x510b8`)
 
 4 rounds, `i = 0..3`. Each round: `x = P2(P1(x) + K[i])`, starting from `x = secret`;
 final `x` after 4 rounds is the seed sent to the client.
@@ -169,7 +139,7 @@ final `x` after 4 rounds is the seed sent to the client.
   P2(x) = ((x & 0x0f0f0f0f) << 4) | ((x & 0xf0f0f0f0) >> 4)
   ```
 
-### Deriving the inverse
+## Deriving the inverse
 
 Both `P1` and `P2` are **involutions** (self-inverse):
 - `P1` is built entirely from two disjoint bit-swaps — {even 0..28} ↔ {odd 3..31}, and
@@ -211,16 +181,6 @@ analysis") but not used as a code/file identifier.
 ```cpp
 namespace MitsuColtCanVendorExt {
 
-// RAM address of the ECU-side secret ("ecutek_random_seed"). Primary integration
-// path: read this address (length 4) via the existing memory-read primitive to
-// obtain the secret directly, then submit it as the key via SecurityAccess 'B'.
-// See "Primary approach" in the design doc for the bench-verification caveat.
-constexpr quint32 kSecretRamAddress = 0x807704;
-
-// --- Fallback path: official requestSeed('A')/sendKey('B') round trip ---
-// Only needed if the direct-read shortcut above doesn't hold up on bench
-// verification. See "Fallback path" in the design doc.
-
 // Forward transform, ported verbatim from ROM 47110032 offset 0x510b8. This is
 // what the ECU applies to its internal secret to produce the seed value it
 // sends the client. Provided for documentation/completeness and as the basis
@@ -230,13 +190,14 @@ quint32 challengeTransform(quint32 secret);
 // Inverse of challengeTransform(), analytically derived (see design doc
 // docs/superpowers/specs/2026-07-04-mitsu-colt-can-vendor-ext-challenge-design.md
 // for the derivation) and verified against the forward function across the
-// full 32-bit domain. Fallback-path clients call this: given the 4-byte seed
-// the ECU sends via requestSeed, computes the key value the ECU will accept.
+// full 32-bit domain. THIS is what a real client calls: given the 4-byte seed
+// the ECU sends, computes the key value the ECU will accept. (A simpler
+// direct-memory-read shortcut was considered and confirmed not to work — see
+// "Rejected approach" in the design doc — so this is the only viable path.)
 quint32 challengeInverseTransform(quint32 seed);
 
 // Big-endian byte-array convenience wrappers matching the 4-byte wire layout,
-// mirroring MitsuColtCan::seedKey's shape. Used by both paths (packing the
-// value read/computed into the 4 key bytes sent to sendKey).
+// mirroring MitsuColtCan::seedKey's shape.
 quint32 bytesToSeed(const QByteArray &seedBytes);  // expects exactly 4 bytes
 QByteArray keyToBytes(quint32 key);                 // produces exactly 4 bytes
 
