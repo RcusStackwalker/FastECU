@@ -175,6 +175,7 @@ SOURCES += \
     modules/tcu/flash_tcu_subaru_denso_sh705x_can.cpp \
     modules/tcu/flash_tcu_subaru_denso_sh705x_can_operation.cpp \
     modules/tcu/flash_tcu_subaru_hitachi_m32r_can.cpp \
+    modules/tcu/flash_tcu_subaru_hitachi_m32r_can_operation.cpp \
     modules/tcu/flash_tcu_subaru_hitachi_m32r_kline.cpp \
     protocol_select.cpp \
     remote_utility/remote_utility.cpp \
@@ -297,6 +298,7 @@ HEADERS += \
     modules/tcu/flash_tcu_subaru_denso_sh705x_can.h \
     modules/tcu/flash_tcu_subaru_denso_sh705x_can_operation.h \
     modules/tcu/flash_tcu_subaru_hitachi_m32r_can.h \
+    modules/tcu/flash_tcu_subaru_hitachi_m32r_can_operation.h \
     modules/tcu/flash_tcu_subaru_hitachi_m32r_kline.h \
     protocol_select.h \
     remote_utility/remote_utility.h \
