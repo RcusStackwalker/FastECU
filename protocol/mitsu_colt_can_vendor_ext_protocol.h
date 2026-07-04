@@ -24,4 +24,10 @@ namespace MitsuColtCanVendorExt {
 // basis for the round-trip check in tests — not what a client calls.
 quint32 challengeTransform(quint32 secret);
 
+// Inverse of challengeTransform(), analytically derived (see design doc
+// for the derivation) and verified against the forward function across the
+// full 32-bit domain. THIS is what a real client calls: given the 4-byte
+// seed the ECU sends, computes the key value the ECU will accept.
+quint32 challengeInverseTransform(quint32 seed);
+
 } // namespace MitsuColtCanVendorExt

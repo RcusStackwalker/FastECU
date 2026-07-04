@@ -40,4 +40,12 @@ quint32 challengeTransform(quint32 secret) {
     return x;
 }
 
+quint32 challengeInverseTransform(quint32 seed) {
+    quint32 x = seed;
+    for (int i = 3; i >= 0; --i) {
+        x = permuteBits(swapNibbles(x) - kRoundConstants[i]);
+    }
+    return x;
+}
+
 } // namespace MitsuColtCanVendorExt
