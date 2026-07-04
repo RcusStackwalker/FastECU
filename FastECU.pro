@@ -113,6 +113,7 @@ SOURCES += \
     modules/biu/biu_ops_subaru_input2.cpp \
     modules/biu/biu_ops_subaru_switches.cpp \
     modules/bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode.cpp \
+    modules/bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.cpp \
     modules/checksum/checksum_ecu_subaru_denso_sh705x_diesel.cpp \
     modules/checksum/checksum_ecu_subaru_denso_sh7xxx.cpp \
     modules/checksum/checksum_ecu_subaru_hitachi_m32r_can.cpp \
@@ -229,6 +230,7 @@ HEADERS += \
     modules/biu/biu_ops_subaru_input2.h \
     modules/biu/biu_ops_subaru_switches.h \
     modules/bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode.h \
+    modules/bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.h \
     modules/checksum/checksum_ecu_subaru_denso_sh705x_diesel.h \
     modules/checksum/checksum_ecu_subaru_denso_sh7xxx.h \
     modules/checksum/checksum_ecu_subaru_hitachi_m32r_can.h \
