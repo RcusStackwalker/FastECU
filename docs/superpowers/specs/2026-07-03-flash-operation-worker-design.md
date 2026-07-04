@@ -1,7 +1,7 @@
 # Flash operation worker migration — design
 
 **Date:** 2026-07-03
-**Status:** Approved for planning
+**Status:** Landed — pending bench re-verification per module (see docs/logging-engine-tech-debt.md)
 **Predecessor:** `2026-07-02-serial-backend-decoupling-design.md` ("spec 1a" — restructured
 `SerialPortActions` into a thin marshaling facade over a dedicated I/O thread; named this
 work "spec 1b" as its successor and the compat shim's deletion point)
