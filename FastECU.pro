@@ -167,6 +167,7 @@ SOURCES += \
     modules/jtag/flash_ecu_subaru_hitachi_m32r_jtag.cpp \
     modules/jtag/flash_ecu_subaru_hitachi_m32r_jtag_operation.cpp \
     modules/tcu/flash_tcu_cvt_subaru_hitachi_m32r_can.cpp \
+    modules/tcu/flash_tcu_cvt_subaru_hitachi_m32r_can_operation.cpp \
     modules/tcu/flash_tcu_cvt_subaru_mitsu_mh8104_can.cpp \
     modules/tcu/flash_tcu_cvt_subaru_mitsu_mh8111_can.cpp \
     modules/tcu/flash_tcu_subaru_denso_sh705x_can.cpp \
@@ -285,6 +286,7 @@ HEADERS += \
     modules/jtag/flash_ecu_subaru_hitachi_m32r_jtag.h \
     modules/jtag/flash_ecu_subaru_hitachi_m32r_jtag_operation.h \
     modules/tcu/flash_tcu_cvt_subaru_hitachi_m32r_can.h \
+    modules/tcu/flash_tcu_cvt_subaru_hitachi_m32r_can_operation.h \
     modules/tcu/flash_tcu_cvt_subaru_mitsu_mh8104_can.h \
     modules/tcu/flash_tcu_cvt_subaru_mitsu_mh8111_can.h \
     modules/tcu/flash_tcu_subaru_denso_sh705x_can.h \
