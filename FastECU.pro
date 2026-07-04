@@ -169,6 +169,7 @@ SOURCES += \
     modules/tcu/flash_tcu_cvt_subaru_hitachi_m32r_can.cpp \
     modules/tcu/flash_tcu_cvt_subaru_hitachi_m32r_can_operation.cpp \
     modules/tcu/flash_tcu_cvt_subaru_mitsu_mh8104_can.cpp \
+    modules/tcu/flash_tcu_cvt_subaru_mitsu_mh8104_can_operation.cpp \
     modules/tcu/flash_tcu_cvt_subaru_mitsu_mh8111_can.cpp \
     modules/tcu/flash_tcu_subaru_denso_sh705x_can.cpp \
     modules/tcu/flash_tcu_subaru_hitachi_m32r_can.cpp \
@@ -288,6 +289,7 @@ HEADERS += \
     modules/tcu/flash_tcu_cvt_subaru_hitachi_m32r_can.h \
     modules/tcu/flash_tcu_cvt_subaru_hitachi_m32r_can_operation.h \
     modules/tcu/flash_tcu_cvt_subaru_mitsu_mh8104_can.h \
+    modules/tcu/flash_tcu_cvt_subaru_mitsu_mh8104_can_operation.h \
     modules/tcu/flash_tcu_cvt_subaru_mitsu_mh8111_can.h \
     modules/tcu/flash_tcu_subaru_denso_sh705x_can.h \
     modules/tcu/flash_tcu_subaru_hitachi_m32r_can.h \
