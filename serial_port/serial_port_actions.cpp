@@ -66,21 +66,11 @@ void SerialPortActions::ensureBackendStarted()
 
 void SerialPortActions::waitForDone(const std::shared_ptr<QSemaphore> &done)
 {
-    if (qApp && QThread::currentThread() == qApp->thread())
-    {
-        // COMPAT SHIM — deleted by spec 1b (flash-op worker migration).
-        // Flash modules still run on the GUI thread; pumping here keeps the
-        // progress UI alive during multi-minute operations, exactly like the
-        // old in-backend pumps did. Reentrant facade calls dispatched by this
-        // pump queue behind the in-flight one on the I/O thread instead of
-        // interleaving on the wire.
-        while (!done->tryAcquire())
-            QCoreApplication::processEvents(QEventLoop::AllEvents, 1);
-    }
-    else
-    {
-        done->acquire();
-    }
+    // No GUI-thread pump: every caller either runs on its own worker thread
+    // (flash-module operations, LoggingWorker) or accepts a brief blocking
+    // wait for a short, click-bounded call (dtc_operations, dataterminal,
+    // hexcommander). See docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md.
+    done->acquire();
 }
 
 void SerialPortActions::waitForSource(void)
