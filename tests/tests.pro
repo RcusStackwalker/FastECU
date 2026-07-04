@@ -35,6 +35,7 @@ SOURCES += \
     test_init.cpp \
     test_driver.cpp \
     test_mitsu_colt_can_protocol.cpp \
+    test_mitsu_colt_can_vendor_ext_protocol.cpp \
     test_mitsu_colt_can_cdbg_protocol.cpp \
     test_cdbg_driver.cpp \
     test_logging_worker.cpp \
@@ -60,6 +61,7 @@ SOURCES += \
     ../modules/checksum/checksum_tcu_subaru_denso_sh7055.cpp \
     ../modules/checksum/checksum_tcu_subaru_hitachi_m32r_can.cpp \
     ../protocol/mitsu_colt_can_protocol.cpp \
+    ../protocol/mitsu_colt_can_vendor_ext_protocol.cpp \
     ../protocol/mitsu_colt_can_cdbg_protocol.cpp \
     ../protocol/mitsu_colt_can_cdbg_driver.cpp \
     ../protocol/mut_dma_codec.cpp \
@@ -83,6 +85,7 @@ HEADERS += \
     test_init.h \
     test_driver.h \
     test_mitsu_colt_can_protocol.h \
+    test_mitsu_colt_can_vendor_ext_protocol.h \
     test_mitsu_colt_can_cdbg_protocol.h \
     test_cdbg_driver.h \
     test_logging_worker.h \
