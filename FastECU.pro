@@ -158,6 +158,7 @@ SOURCES += \
     modules/ecu/flash_ecu_subaru_unisia_jecs_m32r.cpp \
     modules/ecu/flash_ecu_subaru_unisia_jecs_m32r_operation.cpp \
     modules/eeprom/eeprom_ecu_subaru_denso_sh705x_can.cpp \
+    modules/eeprom/eeprom_ecu_subaru_denso_sh705x_can_operation.cpp \
     modules/eeprom/eeprom_ecu_subaru_denso_sh705x_kline.cpp \
     modules/flash_operation_worker.cpp \
     modules/jtag/flash_ecu_subaru_hitachi_m32r_jtag.cpp \
@@ -271,6 +272,7 @@ HEADERS += \
     modules/ecu/flash_ecu_subaru_unisia_jecs_m32r.h \
     modules/ecu/flash_ecu_subaru_unisia_jecs_m32r_operation.h \
     modules/eeprom/eeprom_ecu_subaru_denso_sh705x_can.h \
+    modules/eeprom/eeprom_ecu_subaru_denso_sh705x_can_operation.h \
     modules/eeprom/eeprom_ecu_subaru_denso_sh705x_kline.h \
     modules/flash_operation_worker.h \
     modules/jtag/flash_ecu_subaru_hitachi_m32r_jtag.h \
