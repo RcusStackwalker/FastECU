@@ -18,6 +18,10 @@
 // Pure, hardware-independent functions only — no I/O here.
 namespace MitsuColtCanVendorExt {
 
+constexpr quint8 kServiceSecurityAccess = 0x27;
+constexpr quint8 kVendorChallengeSeedSubfunction = 0x41; // ASCII 'A'
+constexpr quint8 kVendorChallengeKeySubfunction = 0x42;  // ASCII 'B'
+
 // Forward transform, ported verbatim from ROM 47110032 offset 0x510b8. This
 // is what the ECU applies to its internal secret to produce the seed value
 // it sends the client. Provided for documentation/completeness and as the
@@ -34,5 +38,11 @@ quint32 challengeInverseTransform(quint32 seed);
 // layout, mirroring MitsuColtCan::seedKey's shape.
 quint32 bytesToSeed(const QByteArray &seedBytes);  // expects exactly 4 bytes
 QByteArray keyToBytes(quint32 key);                 // produces exactly 4 bytes
+
+// SID 0x27/'A' (vendor seed request): [SID][0x41].
+QByteArray buildChallengeSeedRequestFrame();
+
+// SID 0x27/'B' (vendor key answer): [SID][0x42][4-byte key].
+QByteArray buildChallengeKeyFrame(quint32 key);
 
 } // namespace MitsuColtCanVendorExt

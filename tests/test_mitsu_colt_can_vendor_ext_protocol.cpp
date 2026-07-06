@@ -41,6 +41,16 @@ private slots:
         QByteArray onWire = keyToBytes(challengeTransform(secret));
         QCOMPARE(challengeInverseTransform(bytesToSeed(onWire)), secret);
     }
+    void challenge_frame_layout() {
+        QCOMPARE(buildChallengeSeedRequestFrame(), QByteArray::fromHex("2741"));
+        QCOMPARE(buildChallengeKeyFrame(0x12345678u), QByteArray::fromHex("274212345678"));
+    }
+    void challenge_key_frame_uses_inverse_key_bytes() {
+        const QByteArray seedBytes = QByteArray::fromHex("669E0CB4");
+        const quint32 key = challengeInverseTransform(bytesToSeed(seedBytes));
+        QCOMPARE(keyToBytes(key), QByteArray::fromHex("12345678"));
+        QCOMPARE(buildChallengeKeyFrame(key), QByteArray::fromHex("274212345678"));
+    }
 };
 int run_test_mitsu_colt_can_vendor_ext_protocol(int argc, char** argv) {
     TestMitsuColtCanVendorExtProtocol t;

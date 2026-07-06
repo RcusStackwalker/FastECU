@@ -34,7 +34,7 @@ class FlashEcuMitsuM32rCan : public QDialog
     Q_OBJECT
 
 public:
-    explicit FlashEcuMitsuM32rCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent = nullptr);
+    explicit FlashEcuMitsuM32rCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent = nullptr, bool useVendorChallenge = false);
     ~FlashEcuMitsuM32rCan();
 
     void run();
@@ -55,6 +55,7 @@ private:
     #define STATUS_ERROR    0x01
 
     bool kill_process = false;
+    bool useVendorChallenge = false;
     int mcu_type_index;
 
     uint16_t serial_read_timeout = 500;

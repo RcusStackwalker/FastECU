@@ -1306,7 +1306,8 @@ int MainWindow::start_ecu_operations(QString cmd_type)
         }
         else if (configValues->flash_protocol_selected_protocol_name.startsWith("mitsu_ecu_m32r_can"))
         {
-            FlashEcuMitsuM32rCan flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
+            const bool useVendorChallenge = configValues->flash_protocol_selected_protocol_name == "mitsu_ecu_m32r_can_vendor_ext";
+            FlashEcuMitsuM32rCan flash_module(serial, ecuCalDef[rom_number], cmd_type, this, useVendorChallenge);
             connect_signals_and_run_module(&flash_module);
         }
         else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_hitachi_sh7058_can"))

@@ -1,12 +1,15 @@
 #include "flash_ecu_mitsu_m32r_can.h"
 #include "serial_port_actions.h"
 #include "protocol/mitsu_colt_can_protocol.h"
+#include "protocol/mitsu_colt_can_vendor_ext_protocol.h"
 
-FlashEcuMitsuM32rCan::FlashEcuMitsuM32rCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent)
+FlashEcuMitsuM32rCan::FlashEcuMitsuM32rCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent, bool useVendorChallenge)
     : QDialog(parent)
-    , ui(new Ui::EcuOperationsWindow)
     , ecuCalDef(ecuCalDef)
     , cmd_type(cmd_type)
+    , useVendorChallenge(useVendorChallenge)
+    , serial(serial)
+    , ui(new Ui::EcuOperationsWindow)
 {
     ui->setupUi(this);
 
@@ -14,8 +17,6 @@ FlashEcuMitsuM32rCan::FlashEcuMitsuM32rCan(SerialPortActions *serial, FileAction
         this->setWindowTitle("Write ROM " + ecuCalDef->FileName + " to ECU");
     else if (cmd_type == "read")
         this->setWindowTitle("Read ROM from ECU");
-
-    this->serial = serial;
 }
 
 FlashEcuMitsuM32rCan::~FlashEcuMitsuM32rCan()
@@ -141,6 +142,45 @@ int FlashEcuMitsuM32rCan::connect_bootloader()
 
     bool needSecurity = (cmd_type == "write");
     quint8 sessionId = needSecurity ? kSessionBootload : kSessionBasic;
+
+    if (needSecurity && useVendorChallenge)
+    {
+        emit LOG_I("Requesting vendor extension challenge seed...", true, true);
+        output = build_request(MitsuColtCanVendorExt::buildChallengeSeedRequestFrame());
+        serial->write_serial_data_echo_check(output);
+        delay(200);
+        received = serial->read_serial_data(serial_read_timeout);
+        if (received.length() <= 9
+            || (uint8_t)received.at(4) != (MitsuColtCanVendorExt::kServiceSecurityAccess + 0x40)
+            || (uint8_t)received.at(5) != MitsuColtCanVendorExt::kVendorChallengeSeedSubfunction)
+        {
+            emit LOG_E("Wrong vendor challenge response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+            return STATUS_ERROR;
+        }
+
+        QByteArray vendorSeed = received.mid(6, 4);
+        msg = parse_message_to_hex(vendorSeed);
+        emit LOG_I("Received vendor seed: " + msg, true, true);
+
+        quint32 vendorKey = MitsuColtCanVendorExt::challengeInverseTransform(MitsuColtCanVendorExt::bytesToSeed(vendorSeed));
+        QByteArray vendorKeyBytes = MitsuColtCanVendorExt::keyToBytes(vendorKey);
+        msg = parse_message_to_hex(vendorKeyBytes);
+        emit LOG_I("Calculated vendor key: " + msg, true, true);
+
+        emit LOG_I("Sending vendor key to ECU...", true, true);
+        output = build_request(MitsuColtCanVendorExt::buildChallengeKeyFrame(vendorKey));
+        serial->write_serial_data_echo_check(output);
+        delay(200);
+        received = serial->read_serial_data(serial_read_timeout);
+        if (received.length() <= 5
+            || (uint8_t)received.at(4) != (MitsuColtCanVendorExt::kServiceSecurityAccess + 0x40)
+            || (uint8_t)received.at(5) != MitsuColtCanVendorExt::kVendorChallengeKeySubfunction)
+        {
+            emit LOG_E("Vendor challenge key rejected: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+            return STATUS_ERROR;
+        }
+        emit LOG_I("Vendor challenge accepted", true, true);
+    }
 
     emit LOG_I("Starting diagnostic session...", true, true);
     output = build_request(buildDiagnosticSessionFrame(sessionId));

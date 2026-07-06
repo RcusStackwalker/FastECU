@@ -65,4 +65,19 @@ QByteArray keyToBytes(quint32 key) {
     return bytes;
 }
 
+QByteArray buildChallengeSeedRequestFrame() {
+    QByteArray f;
+    f.append(char(kServiceSecurityAccess));
+    f.append(char(kVendorChallengeSeedSubfunction));
+    return f;
+}
+
+QByteArray buildChallengeKeyFrame(quint32 key) {
+    QByteArray f;
+    f.append(char(kServiceSecurityAccess));
+    f.append(char(kVendorChallengeKeySubfunction));
+    f.append(keyToBytes(key));
+    return f;
+}
+
 } // namespace MitsuColtCanVendorExt
