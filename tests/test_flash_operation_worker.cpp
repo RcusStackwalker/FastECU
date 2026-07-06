@@ -36,11 +36,19 @@ protected:
 class TestFlashOperationWorker : public QObject
 {
     Q_OBJECT
+private:
+    static FlashOperationWorker::PromptFn yesPrompt()
+    {
+        return [](QWidget *, QString, QString, int, int) -> int {
+            return QMessageBox::Yes;
+        };
+    }
+
 private slots:
     void run_emitsOperationFinished_withExecuteResult()
     {
         QWidget dialog;
-        ScriptedOperation op(&dialog);
+        ScriptedOperation op(&dialog, nullptr, yesPrompt());
         op.succeedResult = true;
         QSignalSpy finishedSpy(&op, &FlashOperationWorker::operationFinished);
 
@@ -88,7 +96,7 @@ private slots:
     void logAndProgressSignals_arriveAtCallingThread()
     {
         QWidget dialog;
-        ScriptedOperation op(&dialog);
+        ScriptedOperation op(&dialog, nullptr, yesPrompt());
         QSignalSpy logSpy(&op, &FlashOperationWorker::LOG_I);
         QSignalSpy progressSpy(&op, &FlashOperationWorker::progressChanged);
         // execute() calls confirm(), which blocks on a BlockingQueuedConnection
