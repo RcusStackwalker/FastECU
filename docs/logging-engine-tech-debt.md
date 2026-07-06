@@ -23,6 +23,15 @@ the most consequential open items:
    request/response, re-issuing it mid-stream could desync response framing. Needs confirmation on
    real hardware before first live SSM flash.
 
+## Flash operation worker migration (phase 1b)
+
+`FlashEcuMitsuM32rCan` is the pattern-proof for the flash-module worker-thread
+migration (see `docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md`).
+The real-hardware re-verification this migration needs before its next live flash
+is tracked as part of the module's existing bench-qualification gate — see Step 4
+("Erase trigger") in `docs/colt_czt_47110032_can_bench_checklist.md` for the
+QEventLoop/confirm()-under-worker-thread and live-progress-bar checks.
+
 ## Deliberately deferred (scope cuts, not oversights)
 
 - **No live GUI indicator for `LoggingStatus::CarNotResponding`.** `LoggingWorker`/`LoggingEngine`
@@ -88,8 +97,9 @@ the most consequential open items:
   behavior the bench checklist's item 1 needs to validate. **Update:** the thread-safe I/O path has
   since landed (see the serial backend decoupling refactor, spec
   `2026-07-02-serial-backend-decoupling-design.md`) — backends now live on a dedicated
-  `SerialIoThread` behind a marshaling facade, and `processEvents()` remains only as a compat shim
-  in the facade's GUI-thread `waitForDone()`, pending spec 1b's flash-op worker migration.
+  `SerialIoThread` behind a marshaling facade; the GUI-thread compat shim was removed once the
+  flash-op worker migration landed (spec `2026-07-03-flash-operation-worker-design.md`) —
+  `waitForDone()` now blocks unconditionally regardless of caller thread.
 - **`TestSsmLoggingProtocol`'s suite runtime (~1050ms)** comes from its timeout-bounded tests
   genuinely waiting out real wall-clock time (`QElapsedTimer`-bounded reassembly loops with no
   artificial delay to short-circuit in tests). Harmless today; worth watching if more

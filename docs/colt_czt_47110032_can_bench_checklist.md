@@ -23,6 +23,20 @@ utility) available before Step 4.
    path on hand. If the bootloader locks up (matching the original
    author's experience in `externals/livemonitor`), use `boot-talk` to
    recover before continuing.
+   - **Worker-thread re-verification (phase 1b pattern-proof).**
+     `FlashEcuMitsuM32rCan` is the pilot module for the flash-operation
+     worker-thread migration (see
+     `docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md`).
+     This step is the one place `write_mem()` shows a mid-operation
+     `confirm()` prompt (the erase-trigger warning) while the flash
+     operation itself now runs on a worker thread. Confirm on real
+     hardware that the QEventLoop-based `run()` still correctly services
+     that `confirm()` dialog — i.e. the UI remains responsive and the
+     dialog is answerable — while the worker thread is blocked waiting on
+     it, and that it isn't skipped, double-fired, or answered against a
+     stale state. Also confirm the progress bar updates live during the
+     full multi-minute read/write in Steps 2, 3, and 5, not just at
+     start/end.
 5. **Full write + read-back.** Once the erase trigger succeeds, confirm
    the userspace write (`0x8000`-`0x60000`) completes, then re-read the
    full ROM and diff against the file that was written.

@@ -5,6 +5,7 @@
 #include <QByteArray>
 #include <QCoreApplication>
 #include <QDebug>
+#include <QEventLoop>
 #include <QMainWindow>
 #include <QMessageBox>
 #include <QSerialPort>
@@ -16,8 +17,8 @@
 #include <file_actions.h>
 #include <ui_ecu_operations.h>
 
-//Forward declaration
 class SerialPortActions;
+class FlashEcuMitsuM32rCanOperation;
 
 QT_BEGIN_NAMESPACE
 namespace Ui
@@ -26,9 +27,10 @@ namespace Ui
 }
 QT_END_NAMESPACE
 
-// Mitsubishi Colt CZT (Z37A, ROM 47110032) CAN reflash module. Protocol
-// logic lives in protocol/mitsu_colt_can_protocol.h; this class is the
-// orchestration layer (session handling, I/O, UI) around it.
+// Mitsubishi Colt CZT (Z37A, ROM 47110032) CAN reflash module. GUI-thread
+// half of the dialog+operation split (see
+// docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md);
+// protocol logic lives in FlashEcuMitsuM32rCanOperation.
 class FlashEcuMitsuM32rCan : public QDialog
 {
     Q_OBJECT
@@ -51,32 +53,14 @@ private:
     FileActions::EcuCalDefStructure *ecuCalDef;
     QString cmd_type;
 
-    #define STATUS_SUCCESS  0x00
-    #define STATUS_ERROR    0x01
-
-    bool kill_process = false;
     bool useVendorChallenge = false;
-    int mcu_type_index;
-
-    uint16_t serial_read_timeout = 500;
-    uint16_t serial_read_extra_long_timeout = 3000;
-
-    QString mcu_type_string;
 
     void closeEvent(QCloseEvent *event);
-
-    int connect_bootloader();
-    int read_mem(uint32_t start_addr, uint32_t length);
-    int write_mem(bool test_write);
-    bool upload_and_commit(uint32_t start, const QByteArray &data);
-
-    QByteArray build_request(const QByteArray &sidPayload);
-    QString parse_message_to_hex(QByteArray received);
     void set_progressbar_value(int value);
-    void delay(int timeout);
 
     SerialPortActions *serial;
     Ui::EcuOperationsWindow *ui;
+    FlashEcuMitsuM32rCanOperation *m_operation = nullptr;
 };
 
 #endif // FLASH_ECU_MITSU_M32R_CAN_H

@@ -105,6 +105,7 @@ SOURCES += \
     mainwindow.cpp \
     menu_actions.cpp \
     modules/bdm/flash_ecu_subaru_denso_mc68hc16y5_02_bdm.cpp \
+    modules/bdm/flash_ecu_subaru_denso_mc68hc16y5_02_bdm_operation.cpp \
     modules/biu/biu_operations_subaru.cpp \
     modules/biu/biu_ops_subaru_data.cpp \
     modules/biu/biu_ops_subaru_dtcs.cpp \
@@ -112,6 +113,7 @@ SOURCES += \
     modules/biu/biu_ops_subaru_input2.cpp \
     modules/biu/biu_ops_subaru_switches.cpp \
     modules/bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode.cpp \
+    modules/bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.cpp \
     modules/checksum/checksum_ecu_subaru_denso_sh705x_diesel.cpp \
     modules/checksum/checksum_ecu_subaru_denso_sh7xxx.cpp \
     modules/checksum/checksum_ecu_subaru_hitachi_m32r_can.cpp \
@@ -122,32 +124,60 @@ SOURCES += \
     modules/checksum/checksum_tcu_subaru_denso_sh7055.cpp \
     modules/checksum/checksum_tcu_subaru_hitachi_m32r_can.cpp \
     modules/ecu/flash_ecu_subaru_denso_1n83m_1_5m_can.cpp \
+    modules/ecu/flash_ecu_subaru_denso_1n83m_1_5m_can_operation.cpp \
     modules/ecu/flash_ecu_subaru_denso_1n83m_4m_can.cpp \
+    modules/ecu/flash_ecu_subaru_denso_1n83m_4m_can_operation.cpp \
     modules/ecu/flash_ecu_subaru_denso_mc68hc16y5_02.cpp \
+    modules/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp \
     modules/ecu/flash_ecu_subaru_denso_sh7055_02.cpp \
+    modules/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp \
     modules/ecu/flash_ecu_subaru_denso_sh7058_can.cpp \
+    modules/ecu/flash_ecu_subaru_denso_sh7058_can_operation.cpp \
     modules/ecu/flash_ecu_subaru_denso_sh7058_can_diesel.cpp \
+    modules/ecu/flash_ecu_subaru_denso_sh7058_can_diesel_operation.cpp \
     modules/ecu/flash_ecu_subaru_denso_sh705x_densocan.cpp \
+    modules/ecu/flash_ecu_subaru_denso_sh705x_densocan_operation.cpp \
     modules/ecu/flash_ecu_subaru_denso_sh705x_kline.cpp \
+    modules/ecu/flash_ecu_subaru_denso_sh705x_kline_operation.cpp \
     modules/ecu/flash_ecu_subaru_denso_sh72531_can.cpp \
+    modules/ecu/flash_ecu_subaru_denso_sh72531_can_operation.cpp \
     modules/ecu/flash_ecu_subaru_denso_sh72543_can_diesel.cpp \
+    modules/ecu/flash_ecu_subaru_denso_sh72543_can_diesel_operation.cpp \
     modules/ecu/flash_ecu_subaru_hitachi_m32r_can.cpp \
+    modules/ecu/flash_ecu_subaru_hitachi_m32r_can_operation.cpp \
     modules/ecu/flash_ecu_subaru_hitachi_m32r_kline.cpp \
+    modules/ecu/flash_ecu_subaru_hitachi_m32r_kline_operation.cpp \
     modules/ecu/flash_ecu_subaru_hitachi_sh7058_can.cpp \
+    modules/ecu/flash_ecu_subaru_hitachi_sh7058_can_operation.cpp \
     modules/ecu/flash_ecu_subaru_hitachi_sh72543r_can.cpp \
+    modules/ecu/flash_ecu_subaru_hitachi_sh72543r_can_operation.cpp \
     modules/ecu/flash_ecu_subaru_mitsu_m32r_kline.cpp \
+    modules/ecu/flash_ecu_subaru_mitsu_m32r_kline_operation.cpp \
     modules/ecu/flash_ecu_mitsu_m32r_can.cpp \
+    modules/ecu/flash_ecu_mitsu_m32r_can_operation.cpp \
     modules/ecu/flash_ecu_subaru_unisia_jecs.cpp \
+    modules/ecu/flash_ecu_subaru_unisia_jecs_operation.cpp \
     modules/ecu/flash_ecu_subaru_unisia_jecs_m32r.cpp \
+    modules/ecu/flash_ecu_subaru_unisia_jecs_m32r_operation.cpp \
     modules/eeprom/eeprom_ecu_subaru_denso_sh705x_can.cpp \
+    modules/eeprom/eeprom_ecu_subaru_denso_sh705x_can_operation.cpp \
     modules/eeprom/eeprom_ecu_subaru_denso_sh705x_kline.cpp \
+    modules/eeprom/eeprom_ecu_subaru_denso_sh705x_kline_operation.cpp \
+    modules/flash_operation_worker.cpp \
     modules/jtag/flash_ecu_subaru_hitachi_m32r_jtag.cpp \
+    modules/jtag/flash_ecu_subaru_hitachi_m32r_jtag_operation.cpp \
     modules/tcu/flash_tcu_cvt_subaru_hitachi_m32r_can.cpp \
+    modules/tcu/flash_tcu_cvt_subaru_hitachi_m32r_can_operation.cpp \
     modules/tcu/flash_tcu_cvt_subaru_mitsu_mh8104_can.cpp \
+    modules/tcu/flash_tcu_cvt_subaru_mitsu_mh8104_can_operation.cpp \
     modules/tcu/flash_tcu_cvt_subaru_mitsu_mh8111_can.cpp \
+    modules/tcu/flash_tcu_cvt_subaru_mitsu_mh8111_can_operation.cpp \
     modules/tcu/flash_tcu_subaru_denso_sh705x_can.cpp \
+    modules/tcu/flash_tcu_subaru_denso_sh705x_can_operation.cpp \
     modules/tcu/flash_tcu_subaru_hitachi_m32r_can.cpp \
+    modules/tcu/flash_tcu_subaru_hitachi_m32r_can_operation.cpp \
     modules/tcu/flash_tcu_subaru_hitachi_m32r_kline.cpp \
+    modules/tcu/flash_tcu_subaru_hitachi_m32r_kline_operation.cpp \
     protocol_select.cpp \
     remote_utility/remote_utility.cpp \
     serial_port/serial_port_actions.cpp \
@@ -200,6 +230,7 @@ HEADERS += \
     logbox.h \
     mainwindow.h \
     modules/bdm/flash_ecu_subaru_denso_mc68hc16y5_02_bdm.h \
+    modules/bdm/flash_ecu_subaru_denso_mc68hc16y5_02_bdm_operation.h \
     modules/biu/biu_operations_subaru.h \
     modules/biu/biu_ops_subaru_data.h \
     modules/biu/biu_ops_subaru_dtcs.h \
@@ -207,6 +238,7 @@ HEADERS += \
     modules/biu/biu_ops_subaru_input2.h \
     modules/biu/biu_ops_subaru_switches.h \
     modules/bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode.h \
+    modules/bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.h \
     modules/checksum/checksum_ecu_subaru_denso_sh705x_diesel.h \
     modules/checksum/checksum_ecu_subaru_denso_sh7xxx.h \
     modules/checksum/checksum_ecu_subaru_hitachi_m32r_can.h \
@@ -217,32 +249,60 @@ HEADERS += \
     modules/checksum/checksum_tcu_subaru_denso_sh7055.h \
     modules/checksum/checksum_tcu_subaru_hitachi_m32r_can.h \
     modules/ecu/flash_ecu_subaru_denso_1n83m_1_5m_can.h \
+    modules/ecu/flash_ecu_subaru_denso_1n83m_1_5m_can_operation.h \
     modules/ecu/flash_ecu_subaru_denso_1n83m_4m_can.h \
+    modules/ecu/flash_ecu_subaru_denso_1n83m_4m_can_operation.h \
     modules/ecu/flash_ecu_subaru_denso_mc68hc16y5_02.h \
+    modules/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.h \
     modules/ecu/flash_ecu_subaru_denso_sh7055_02.h \
+    modules/ecu/flash_ecu_subaru_denso_sh7055_02_operation.h \
     modules/ecu/flash_ecu_subaru_denso_sh7058_can.h \
+    modules/ecu/flash_ecu_subaru_denso_sh7058_can_operation.h \
     modules/ecu/flash_ecu_subaru_denso_sh7058_can_diesel.h \
+    modules/ecu/flash_ecu_subaru_denso_sh7058_can_diesel_operation.h \
     modules/ecu/flash_ecu_subaru_denso_sh705x_densocan.h \
+    modules/ecu/flash_ecu_subaru_denso_sh705x_densocan_operation.h \
     modules/ecu/flash_ecu_subaru_denso_sh705x_kline.h \
+    modules/ecu/flash_ecu_subaru_denso_sh705x_kline_operation.h \
     modules/ecu/flash_ecu_subaru_denso_sh72531_can.h \
+    modules/ecu/flash_ecu_subaru_denso_sh72531_can_operation.h \
     modules/ecu/flash_ecu_subaru_denso_sh72543_can_diesel.h \
+    modules/ecu/flash_ecu_subaru_denso_sh72543_can_diesel_operation.h \
     modules/ecu/flash_ecu_subaru_hitachi_m32r_can.h \
+    modules/ecu/flash_ecu_subaru_hitachi_m32r_can_operation.h \
     modules/ecu/flash_ecu_subaru_hitachi_m32r_kline.h \
+    modules/ecu/flash_ecu_subaru_hitachi_m32r_kline_operation.h \
     modules/ecu/flash_ecu_subaru_hitachi_sh7058_can.h \
+    modules/ecu/flash_ecu_subaru_hitachi_sh7058_can_operation.h \
     modules/ecu/flash_ecu_subaru_hitachi_sh72543r_can.h \
+    modules/ecu/flash_ecu_subaru_hitachi_sh72543r_can_operation.h \
     modules/ecu/flash_ecu_subaru_mitsu_m32r_kline.h \
+    modules/ecu/flash_ecu_subaru_mitsu_m32r_kline_operation.h \
     modules/ecu/flash_ecu_mitsu_m32r_can.h \
+    modules/ecu/flash_ecu_mitsu_m32r_can_operation.h \
     modules/ecu/flash_ecu_subaru_unisia_jecs.h \
+    modules/ecu/flash_ecu_subaru_unisia_jecs_operation.h \
     modules/ecu/flash_ecu_subaru_unisia_jecs_m32r.h \
+    modules/ecu/flash_ecu_subaru_unisia_jecs_m32r_operation.h \
     modules/eeprom/eeprom_ecu_subaru_denso_sh705x_can.h \
+    modules/eeprom/eeprom_ecu_subaru_denso_sh705x_can_operation.h \
     modules/eeprom/eeprom_ecu_subaru_denso_sh705x_kline.h \
+    modules/eeprom/eeprom_ecu_subaru_denso_sh705x_kline_operation.h \
+    modules/flash_operation_worker.h \
     modules/jtag/flash_ecu_subaru_hitachi_m32r_jtag.h \
+    modules/jtag/flash_ecu_subaru_hitachi_m32r_jtag_operation.h \
     modules/tcu/flash_tcu_cvt_subaru_hitachi_m32r_can.h \
+    modules/tcu/flash_tcu_cvt_subaru_hitachi_m32r_can_operation.h \
     modules/tcu/flash_tcu_cvt_subaru_mitsu_mh8104_can.h \
+    modules/tcu/flash_tcu_cvt_subaru_mitsu_mh8104_can_operation.h \
     modules/tcu/flash_tcu_cvt_subaru_mitsu_mh8111_can.h \
+    modules/tcu/flash_tcu_cvt_subaru_mitsu_mh8111_can_operation.h \
     modules/tcu/flash_tcu_subaru_denso_sh705x_can.h \
+    modules/tcu/flash_tcu_subaru_denso_sh705x_can_operation.h \
     modules/tcu/flash_tcu_subaru_hitachi_m32r_can.h \
+    modules/tcu/flash_tcu_subaru_hitachi_m32r_can_operation.h \
     modules/tcu/flash_tcu_subaru_hitachi_m32r_kline.h \
+    modules/tcu/flash_tcu_subaru_hitachi_m32r_kline_operation.h \
     protocol_select.h \
     remote_utility/remote_utility.h \
     serial_port/qtrohelper.hpp \

@@ -2,7 +2,6 @@
 
 #include <QtTest>
 #include <QSemaphore>
-#include <QTimer>
 #include <QElapsedTimer>
 #include <thread>
 #include <vector>
@@ -19,7 +18,6 @@ private slots:
     void scriptedRead_returnsThroughFacade();
     void workerThreadCaller_noAffinityWarnings();
     void concurrentCallers_serializeWithoutInterleaving();
-    void guiThreadCaller_compatShim_keepsEventLoopAlive();
     void destroyAfterUse_joinsIoThread();
 };
 
@@ -133,29 +131,6 @@ void TestFacadeThreading::concurrentCallers_serializeWithoutInterleaving()
         QVERIFY2(log.at(i + 1).contains(":end"), qPrintable(log.at(i + 1)));
         QCOMPARE(log.at(i).section(':', 0, 0), log.at(i + 1).section(':', 0, 0));
     }
-}
-
-void TestFacadeThreading::guiThreadCaller_compatShim_keepsEventLoopAlive()
-{
-    // Main thread == qApp->thread(): the compat shim path. A timer must keep
-    // firing while the facade blocks in a 300ms backend call — this is what
-    // keeps flash-module progress UI painting until spec 1b.
-    FakeBackend *fake = nullptr;
-    SerialPortActions serial("", "", nullptr, nullptr,
-                             [&fake]() -> SerialBackend * { fake = new FakeBackend(); return fake; });
-    serial.set_add_ssm_header(false);
-    fake->readDelayMs = 300;
-
-    int ticks = 0;
-    QTimer timer;
-    timer.setInterval(10);
-    QObject::connect(&timer, &QTimer::timeout, [&ticks] { ticks++; });
-    timer.start();
-
-    serial.read_serial_data(10);   // blocks ~300ms on the fake backend
-    timer.stop();
-
-    QVERIFY2(ticks >= 5, qPrintable(QString("timer only ticked %1 times").arg(ticks)));
 }
 
 void TestFacadeThreading::destroyAfterUse_joinsIoThread()
