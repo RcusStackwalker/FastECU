@@ -67,14 +67,16 @@ QByteArray keyToBytes(quint32 key) {
 
 QByteArray buildChallengeSeedRequestFrame() {
     QByteArray f;
-    f.append(char(kServiceSecurityAccess));
+    f.append(char(kServiceReadMemoryByAddress));
+    f.append(char(kVendorChallengeSelector));
     f.append(char(kVendorChallengeSeedSubfunction));
     return f;
 }
 
 QByteArray buildChallengeKeyFrame(quint32 key) {
     QByteArray f;
-    f.append(char(kServiceSecurityAccess));
+    f.append(char(kServiceReadMemoryByAddress));
+    f.append(char(kVendorChallengeSelector));
     f.append(char(kVendorChallengeKeySubfunction));
     f.append(keyToBytes(key));
     return f;

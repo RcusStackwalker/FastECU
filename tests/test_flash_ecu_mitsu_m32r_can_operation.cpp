@@ -97,8 +97,8 @@ private slots:
                                  [&fake]() -> SerialBackend * { fake = new QueuedFakeBackend(); return fake; });
         serial.set_add_ssm_header(false);
 
-        fake->responses.enqueue(QByteArray("\x00\x00\x07\xE8\x67\x41\x12\x34\x56\x78", 10));
-        fake->responses.enqueue(QByteArray("\x00\x00\x07\xE8\x67\x42", 6));
+        fake->responses.enqueue(QByteArray("\x00\x00\x07\xE8\x63\x27\x41\x12\x34\x56\x78", 11));
+        fake->responses.enqueue(QByteArray("\x00\x00\x07\xE8\x63\x27\x42", 7));
         fake->responses.enqueue(QByteArray("\x00\x00\x07\xE8\x50\x81", 6));
 
         FileActions::EcuCalDefStructure ecuCalDef;
@@ -114,10 +114,10 @@ private slots:
 
         const QStringList writes = fake->takeCallLog().filter("write_echo_check:begin:");
         QVERIFY(writes.size() >= 3);
-        QCOMPARE(writes.at(0), QString("write_echo_check:begin:000007e02741"));
+        QCOMPARE(writes.at(0), QString("write_echo_check:begin:000007e0232741"));
 
         const quint32 key = MitsuColtCanVendorExt::challengeInverseTransform(0x12345678);
-        const QString expectedKeyFrame = QString("write_echo_check:begin:000007e02742%1")
+        const QString expectedKeyFrame = QString("write_echo_check:begin:000007e0232742%1")
                 .arg(QString::fromLatin1(MitsuColtCanVendorExt::keyToBytes(key).toHex()));
         QCOMPARE(writes.at(1), expectedKeyFrame);
         QCOMPARE(writes.at(2), QString("write_echo_check:begin:000007e01081"));

@@ -98,15 +98,16 @@ int FlashEcuMitsuM32rCanOperation::connect_bootloader()
         serial->write_serial_data_echo_check(output);
         delay(200);
         received = serial->read_serial_data(serial_read_timeout);
-        if (received.length() <= 9
-            || (uint8_t)received.at(4) != (MitsuColtCanVendorExt::kServiceSecurityAccess + 0x40)
-            || (uint8_t)received.at(5) != MitsuColtCanVendorExt::kVendorChallengeSeedSubfunction)
+        if (received.length() <= 10
+            || (uint8_t)received.at(4) != (MitsuColtCanVendorExt::kServiceReadMemoryByAddress + 0x40)
+            || (uint8_t)received.at(5) != MitsuColtCanVendorExt::kVendorChallengeSelector
+            || (uint8_t)received.at(6) != MitsuColtCanVendorExt::kVendorChallengeSeedSubfunction)
         {
             emit LOG_E("Wrong vendor challenge response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
             return STATUS_ERROR;
         }
 
-        QByteArray vendorSeed = received.mid(6, 4);
+        QByteArray vendorSeed = received.mid(7, 4);
         msg = SsmProtocol::toHex(vendorSeed);
         emit LOG_I("Received vendor seed: " + msg, true, true);
 
@@ -120,9 +121,10 @@ int FlashEcuMitsuM32rCanOperation::connect_bootloader()
         serial->write_serial_data_echo_check(output);
         delay(200);
         received = serial->read_serial_data(serial_read_timeout);
-        if (received.length() <= 5
-            || (uint8_t)received.at(4) != (MitsuColtCanVendorExt::kServiceSecurityAccess + 0x40)
-            || (uint8_t)received.at(5) != MitsuColtCanVendorExt::kVendorChallengeKeySubfunction)
+        if (received.length() <= 6
+            || (uint8_t)received.at(4) != (MitsuColtCanVendorExt::kServiceReadMemoryByAddress + 0x40)
+            || (uint8_t)received.at(5) != MitsuColtCanVendorExt::kVendorChallengeSelector
+            || (uint8_t)received.at(6) != MitsuColtCanVendorExt::kVendorChallengeKeySubfunction)
         {
             emit LOG_E("Vendor challenge key rejected: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
             return STATUS_ERROR;
