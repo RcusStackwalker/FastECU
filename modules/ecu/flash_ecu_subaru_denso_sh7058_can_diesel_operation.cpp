@@ -1,4 +1,5 @@
 #include "flash_ecu_subaru_denso_sh7058_can_diesel_operation.h"
+#include "modules/flash_utils.h"
 #include "modules/ssm_protocol.h"
 #include "serial_port_actions.h"
 
@@ -26,13 +27,11 @@ bool FlashEcuSubaruDensoSH7058CanDieselOperation::execute()
     bool ok = false;
 
     mcu_type_string = ecuCalDef->McuType;
-    mcu_type_index = 0;
-
-    while (flashdevices[mcu_type_index].name != 0)
+    mcu_type_index = FlashUtils::findFlashDeviceIndex(mcu_type_string);
+    if (mcu_type_index < 0)
     {
-        if (flashdevices[mcu_type_index].name == mcu_type_string)
-            break;
-        mcu_type_index++;
+        emit LOG_E("Unknown MCU type: " + mcu_type_string, true, true);
+        return false;
     }
     QString mcu_name = flashdevices[mcu_type_index].name;
     emit LOG_D("MCU type: " + mcu_name + " " + mcu_type_string + " and index: " + QString::number(mcu_type_index), true, true);

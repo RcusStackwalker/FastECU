@@ -1,5 +1,6 @@
 #include "flash_ecu_subaru_unisia_jecs.h"
 #include "flash_ecu_subaru_unisia_jecs_operation.h"
+#include "modules/flash_utils.h"
 #include "serial_port_actions.h"
 
 #include <kernelmemorymodels.h>
@@ -29,16 +30,9 @@ void FlashEcuSubaruUnisiaJecs::run()
 
     //result = init_flash_denso_kline_04(ecuCalDef, cmd_type);
 
-    int mcu_type_index = 0;
     QString mcu_type_string = ecuCalDef->McuType;
-
-    while (flashdevices[mcu_type_index].name != 0)
-    {
-        if (flashdevices[mcu_type_index].name == mcu_type_string)
-            break;
-        mcu_type_index++;
-    }
-    if (flashdevices[mcu_type_index].name != mcu_type_string)
+    int mcu_type_index = FlashUtils::findFlashDeviceIndex(mcu_type_string);
+    if (mcu_type_index < 0)
     {
         QMessageBox::warning(this, tr("ECU Operation"), "ECU operation failed, selected MCU does not exists!");
         return;

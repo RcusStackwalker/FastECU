@@ -1,4 +1,5 @@
 #include "flash_tcu_cvt_subaru_mitsu_mh8104_can_operation.h"
+#include "modules/flash_utils.h"
 #include "modules/ssm_protocol.h"
 #include "serial_port_actions.h"
 
@@ -21,13 +22,11 @@ bool FlashTcuCvtSubaruMitsuMH8104CanOperation::execute()
     //result = init_flash_mitsu_can();
 
     mcu_type_string = ecuCalDef->McuType;
-    mcu_type_index = 0;
-
-    while (flashdevices[mcu_type_index].name != 0)
+    mcu_type_index = FlashUtils::findFlashDeviceIndex(mcu_type_string);
+    if (mcu_type_index < 0)
     {
-        if (flashdevices[mcu_type_index].name == mcu_type_string)
-            break;
-        mcu_type_index++;
+        emit LOG_E("Unknown MCU type: " + mcu_type_string, true, true);
+        return false;
     }
     QString mcu_name = flashdevices[mcu_type_index].name;
     //emit LOG_I("MCU type: " + mcu_name + " and index: " + mcu_type_index, true, true);

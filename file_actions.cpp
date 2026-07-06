@@ -1,5 +1,6 @@
 //#include "file_actions.h"
 #include "error_codes.h"
+#include "modules/flash_utils.h"
 
 FileActions::FileActions(QWidget *parent)
     : QWidget(parent)
@@ -2568,14 +2569,13 @@ FileActions::EcuCalDefStructure *FileActions::checksum_correction(FileActions::E
     emit LOG_D("Checksum: " + configValues->flash_protocol_selected_checksum, true, true);
 
     QString mcu_type_string = ecuCalDef->McuType;
-    int mcu_type_index = 0;
+    int mcu_type_index = FlashUtils::findFlashDeviceIndex(mcu_type_string);
     uint32_t fullRomSize = ecuCalDef->FullRomData.length();
 
-    while (flashdevices[mcu_type_index].name != 0)
+    if (mcu_type_index < 0)
     {
-        if (flashdevices[mcu_type_index].name == mcu_type_string)
-            break;
-        mcu_type_index++;
+        emit LOG_E("Unknown MCU type: " + mcu_type_string, true, true);
+        return ecuCalDef;
     }
     emit LOG_D("ecuCalDef->McuType: " + ecuCalDef->McuType + " " + configValues->flash_protocol_selected_mcu, true, true);
     emit LOG_D("Size: 0x" + QString::number(fullRomSize, 16) + " -> 0x" + QString::number(flashdevices[mcu_type_index].romsize, 16), true, true);

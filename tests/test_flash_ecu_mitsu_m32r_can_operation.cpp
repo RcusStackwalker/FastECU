@@ -4,6 +4,7 @@
 #include <QSignalSpy>
 #include <QWidget>
 #include <kernelmemorymodels.h>
+#include "modules/flash_utils.h"
 #include "modules/ecu/flash_ecu_mitsu_m32r_can_operation.h"
 #include "protocol/mitsu_colt_can_vendor_ext_protocol.h"
 #include "serial_port_actions.h"
@@ -32,12 +33,9 @@ class TestFlashEcuMitsuM32rCanOperation : public QObject
 private slots:
     void colt384kReadRangeStartsAtUserspace()
     {
-        int index = 0;
-        while (flashdevices[index].name != nullptr
-               && QString(flashdevices[index].name) != "M32R_384KB_1block")
-            ++index;
+        const int index = FlashUtils::findFlashDeviceIndex("M32R_384KB_1block");
 
-        QVERIFY(flashdevices[index].name != nullptr);
+        QVERIFY(index >= 0);
         QCOMPARE(flashdevices[index].fblocks[0].start, uint32_t(0x00008000));
         QCOMPARE(flashdevices[index].fblocks[0].len, uint32_t(0x00058000));
     }
