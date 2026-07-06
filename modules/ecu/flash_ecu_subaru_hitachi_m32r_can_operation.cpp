@@ -1,4 +1,5 @@
 #include "flash_ecu_subaru_hitachi_m32r_can_operation.h"
+#include "modules/flash_utils.h"
 #include "modules/ssm_protocol.h"
 #include "serial_port_actions.h"
 
@@ -21,13 +22,11 @@ bool FlashEcuSubaruHitachiM32rCanOperation::execute()
     int result = STATUS_ERROR;
 
     mcu_type_string = ecuCalDef->McuType;
-    mcu_type_index = 0;
-
-    while (flashdevices[mcu_type_index].name != 0)
+    mcu_type_index = FlashUtils::findFlashDeviceIndex(mcu_type_string);
+    if (mcu_type_index < 0)
     {
-        if (flashdevices[mcu_type_index].name == mcu_type_string)
-            break;
-        mcu_type_index++;
+        emit LOG_E("Unknown MCU type: " + mcu_type_string, true, true);
+        return false;
     }
     QString mcu_name = flashdevices[mcu_type_index].name;
     emit LOG_D("MCU type: " + mcu_name + " " + mcu_type_string + " and index: " + QString::number(mcu_type_index), true, true);
@@ -45,16 +44,7 @@ bool FlashEcuSubaruHitachiM32rCanOperation::execute()
         emit LOG_I("Write memory with flashmethod '" + flash_method + "'", true, true);
     }
 
-    // Set serial port
-    serial->set_is_iso14230_connection(false);
-    serial->set_add_iso14230_header(false);
-    serial->set_is_can_connection(false);
-    serial->set_is_iso15765_connection(true);
-    serial->set_is_29_bit_id(false);
-    serial->set_can_speed("500000");
-    serial->set_iso15765_source_address(0x7E0);
-    serial->set_iso15765_destination_address(0x7E8);
-    // Open serial port
+    FlashUtils::configureIso15765Can(serial, "500000", 0x7E0, 0x7E8);
     serial->open_serial_port();
 
     emit LOG_I("Connecting to Subaru ECU 512Kb Hitachi CAN bootloader, please wait...", true, true);

@@ -1,4 +1,5 @@
 #include "flash_ecu_mitsu_m32r_can_operation.h"
+#include "modules/flash_utils.h"
 #include "modules/ssm_protocol.h"
 #include "serial_port_actions.h"
 #include "protocol/mitsu_colt_can_protocol.h"
@@ -20,23 +21,15 @@ FlashEcuMitsuM32rCanOperation::FlashEcuMitsuM32rCanOperation(
 bool FlashEcuMitsuM32rCanOperation::execute()
 {
     mcu_type_string = ecuCalDef->McuType;
-    mcu_type_index = 0;
-    while (flashdevices[mcu_type_index].name != 0)
+    mcu_type_index = FlashUtils::findFlashDeviceIndex(mcu_type_string);
+    if (mcu_type_index < 0)
     {
-        if (flashdevices[mcu_type_index].name == mcu_type_string)
-            break;
-        mcu_type_index++;
+        emit LOG_E("Unknown MCU type: " + mcu_type_string, true, true);
+        return false;
     }
     emit LOG_D("MCU type: " + QString(flashdevices[mcu_type_index].name) + " index: " + QString::number(mcu_type_index), true, true);
 
-    serial->set_is_iso14230_connection(false);
-    serial->set_add_iso14230_header(false);
-    serial->set_is_can_connection(false);
-    serial->set_is_iso15765_connection(true);
-    serial->set_is_29_bit_id(false);
-    serial->set_can_speed("500000");
-    serial->set_iso15765_source_address(0x7E0);
-    serial->set_iso15765_destination_address(0x7E8);
+    FlashUtils::configureIso15765Can(serial, "500000", 0x7E0, 0x7E8);
     serial->open_serial_port();
 
     emit LOG_I("Connecting to Mitsubishi Colt CZT M32R CAN bootloader, please wait...", true, true);
@@ -64,13 +57,7 @@ bool FlashEcuMitsuM32rCanOperation::execute()
 
 QByteArray FlashEcuMitsuM32rCanOperation::build_request(const QByteArray &sidPayload)
 {
-    QByteArray output;
-    output.append(char(0x00));
-    output.append(char(0x00));
-    output.append(char(0x07));
-    output.append(char(0xE0));
-    output.append(sidPayload);
-    return output;
+    return FlashUtils::buildIso15765Request(0x7E0, sidPayload);
 }
 
 int FlashEcuMitsuM32rCanOperation::connect_bootloader()

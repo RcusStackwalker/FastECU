@@ -31,8 +31,10 @@ win32 {
 SOURCES += \
     test_flash_operation_worker.cpp \
     ../modules/flash_operation_worker.cpp \
+    ../modules/flash_utils.cpp \
     test_ssm_protocol.cpp \
     ../modules/ssm_protocol.cpp \
+    test_flash_utils.cpp \
     test_flash_ecu_mitsu_m32r_can_operation.cpp \
     ../modules/ecu/flash_ecu_mitsu_m32r_can_operation.cpp \
     ../serial_port/serial_port_actions.cpp \
@@ -87,8 +89,10 @@ SOURCES += \
 HEADERS += \
     test_flash_operation_worker.h \
     ../modules/flash_operation_worker.h \
+    ../modules/flash_utils.h \
     test_ssm_protocol.h \
     ../modules/ssm_protocol.h \
+    test_flash_utils.h \
     test_flash_ecu_mitsu_m32r_can_operation.h \
     ../modules/ecu/flash_ecu_mitsu_m32r_can_operation.h \
     fake_backend.h \
