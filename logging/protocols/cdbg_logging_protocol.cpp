@@ -12,8 +12,7 @@ QVector<CdbgChannel> channelsFromLogValues(FileActions::LogValuesStructure *lv, 
     for (int i = 0; i < lv->lower_panel_log_value_id.length(); i++) {
         for (int j = 0; j < lv->log_value_id.length(); j++) {
             if (lv->lower_panel_log_value_id.at(i) == lv->log_value_id.at(j)
-                && lv->log_value_protocol.at(j) == "CDBG"
-                && lv->log_value_enabled.at(j) == "1") {
+                && lv->log_value_protocol.at(j) == "CDBG") {
                 CdbgChannel c;
                 c.pointer = lv->log_value_address.at(j).toUInt(nullptr, 16);
                 c.size = quint8(lv->log_value_length.at(j).toUInt());
@@ -38,6 +37,12 @@ CdbgLoggingProtocol::CdbgLoggingProtocol(std::unique_ptr<cdbg::ICanTransport> tr
 
 bool CdbgLoggingProtocol::start(QString *errorOut)
 {
+    QVector<CdbgChannel> channels = channelsFromLogValues(logValues_, channelLogValueIndex_);
+    if (channels.isEmpty()) {
+        if (errorOut) *errorOut = "no CDBG log parameters selected";
+        return false;
+    }
+
     serial_->set_is_iso14230_connection(false);
     serial_->set_add_iso14230_header(false);
     serial_->set_is_can_connection(true);
@@ -52,9 +57,11 @@ bool CdbgLoggingProtocol::start(QString *errorOut)
         return false;
     }
 
-    QVector<CdbgChannel> channels = channelsFromLogValues(logValues_, channelLogValueIndex_);
-    if (!driver_.startFreeFormLog(channels)) {
-        if (errorOut) *errorOut = "Cdbg session/security handshake failed";
+    QString driverError;
+    if (!driver_.startFreeFormLog(channels, 0, 10, &driverError)) {
+        if (errorOut) *errorOut = driverError.isEmpty()
+            ? QStringLiteral("CDBG logging session failed")
+            : driverError;
         return false;
     }
     return true;

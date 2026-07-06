@@ -21,6 +21,7 @@ private slots:
         QCOMPARE(seedToKey(0x12345678), quint32(0x8C536B33)); // parity 2
         QCOMPARE(seedToKey(0x00090914), quint32(0x1E0C3241)); // parity 3
         QCOMPARE(seedToKey(0x09090909), quint32(0x1B632D75)); // parity 4 (default branch)
+        QCOMPARE(seedToKey(0xD61B2EEA), quint32(0xBA80A2C1)); // live ECU log sample
     }
     void extract_seed_reads_big_endian_bytes_4_to_7() {
         QCOMPARE(extractSeed(QByteArray::fromHex("0000000012345678")), quint32(0x12345678));
@@ -33,6 +34,7 @@ private slots:
     }
     void security_granted_checks_byte_3() {
         QVERIFY(securityGranted(QByteArray::fromHex("0000000100000000")));
+        QVERIFY(securityGranted(QByteArray::fromHex("FF000002D61B2EEA")));
         QVERIFY(!securityGranted(QByteArray::fromHex("0000000000000000")));
     }
     void security_granted_false_for_short_reply() {

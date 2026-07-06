@@ -48,7 +48,8 @@ bool FlashEcuMitsuM32rCanOperation::execute()
         {
             emit externalLoggerMessage("Reading ROM, please wait...");
             emit LOG_I("Reading ROM from ECU using CAN", true, true);
-            result = read_mem(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
+            result = read_mem(flashdevices[mcu_type_index].fblocks[0].start,
+                              flashdevices[mcu_type_index].fblocks[0].len);
         }
         else if (cmd_type == "write")
         {
@@ -86,10 +87,11 @@ int FlashEcuMitsuM32rCanOperation::connect_bootloader()
         return STATUS_ERROR;
     }
 
-    bool needSecurity = (cmd_type == "write");
-    quint8 sessionId = needSecurity ? kSessionBootload : kSessionBasic;
+    const bool needVendorChallenge = useVendorChallenge;
+    const bool needFactorySecurity = (cmd_type == "write");
+    quint8 sessionId = needFactorySecurity ? kSessionBootload : kSessionBasic;
 
-    if (needSecurity && useVendorChallenge)
+    if (needVendorChallenge)
     {
         emit LOG_I("Requesting vendor extension challenge seed...", true, true);
         output = build_request(MitsuColtCanVendorExt::buildChallengeSeedRequestFrame());
@@ -140,7 +142,7 @@ int FlashEcuMitsuM32rCanOperation::connect_bootloader()
     }
     emit LOG_I("Diagnostic session ok", true, true);
 
-    if (!needSecurity)
+    if (!needFactorySecurity)
         return STATUS_SUCCESS;
 
     emit LOG_I("Requesting security seed...", true, true);

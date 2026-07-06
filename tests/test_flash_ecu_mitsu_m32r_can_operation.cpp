@@ -1,17 +1,47 @@
 #include <QtTest>
 #include <QApplication>
+#include <QQueue>
 #include <QSignalSpy>
 #include <QWidget>
+#include <kernelmemorymodels.h>
 #include "modules/ecu/flash_ecu_mitsu_m32r_can_operation.h"
+#include "protocol/mitsu_colt_can_vendor_ext_protocol.h"
 #include "serial_port_actions.h"
 #include "fake_backend.h"
 #include "file_actions.h"
 #include "test_flash_ecu_mitsu_m32r_can_operation.h"
 
+class QueuedFakeBackend : public FakeBackend
+{
+    Q_OBJECT
+public:
+    QQueue<QByteArray> responses;
+
+    QByteArray read_serial_data(uint16_t timeout) override
+    {
+        Q_UNUSED(timeout)
+        if (responses.isEmpty())
+            return QByteArray();
+        return responses.dequeue();
+    }
+};
+
 class TestFlashEcuMitsuM32rCanOperation : public QObject
 {
     Q_OBJECT
 private slots:
+    void colt384kReadRangeStartsAtUserspace()
+    {
+        int index = 0;
+        while (flashdevices[index].name != nullptr
+               && QString(flashdevices[index].name) != "M32R_384KB_1block")
+            ++index;
+
+        QVERIFY(flashdevices[index].name != nullptr);
+        QCOMPARE(flashdevices[index].fblocks[0].start, uint32_t(0x00008000));
+        QCOMPARE(flashdevices[index].fblocks[0].len, uint32_t(0x00058000));
+    }
+
     void connectFailure_wrongResponse_returnsFalseWithoutLooping()
     {
         FakeBackend *fake = nullptr;
@@ -58,6 +88,39 @@ private slots:
 
         QCOMPARE(finishedSpy.at(0).at(0).toBool(), false);
         QVERIFY(ecuCalDef.FullRomData.isEmpty());   // read never completed
+    }
+
+    void vendorExtensionReadPerformsChallengeBeforeDiagnosticSession()
+    {
+        QueuedFakeBackend *fake = nullptr;
+        SerialPortActions serial("", "", nullptr, nullptr,
+                                 [&fake]() -> SerialBackend * { fake = new QueuedFakeBackend(); return fake; });
+        serial.set_add_ssm_header(false);
+
+        fake->responses.enqueue(QByteArray("\x00\x00\x07\xE8\x67\x41\x12\x34\x56\x78", 10));
+        fake->responses.enqueue(QByteArray("\x00\x00\x07\xE8\x67\x42", 6));
+        fake->responses.enqueue(QByteArray("\x00\x00\x07\xE8\x50\x81", 6));
+
+        FileActions::EcuCalDefStructure ecuCalDef;
+        ecuCalDef.McuType = "M32R_128KB";
+        QWidget dialog;
+        FlashEcuMitsuM32rCanOperation op(&serial, &ecuCalDef, "read", &dialog, true);
+        QSignalSpy finishedSpy(&op, &FlashOperationWorker::operationFinished);
+
+        op.start();
+        op.requestStop();
+        QVERIFY(finishedSpy.wait(2000));
+        QVERIFY(op.wait(2000));
+
+        const QStringList writes = fake->takeCallLog().filter("write_echo_check:begin:");
+        QVERIFY(writes.size() >= 3);
+        QCOMPARE(writes.at(0), QString("write_echo_check:begin:000007e02741"));
+
+        const quint32 key = MitsuColtCanVendorExt::challengeInverseTransform(0x12345678);
+        const QString expectedKeyFrame = QString("write_echo_check:begin:000007e02742%1")
+                .arg(QString::fromLatin1(MitsuColtCanVendorExt::keyToBytes(key).toHex()));
+        QCOMPARE(writes.at(1), expectedKeyFrame);
+        QCOMPARE(writes.at(2), QString("write_echo_check:begin:000007e01081"));
     }
 };
 

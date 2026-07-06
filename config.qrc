@@ -2,6 +2,7 @@
     <qresource prefix="/">
         <file>config/fastecu.cfg</file>
         <file>config/logger.cfg</file>
+        <file>config/logger_cdbg_example.xml</file>
         <file>config/menu.cfg</file>
         <file>config/protocols.cfg</file>
     </qresource>

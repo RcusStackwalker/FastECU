@@ -443,15 +443,12 @@ const struct flashblock fblocks_M32R_512KB_4blocks[] = {
     {0x00008000,    0x00078000},
 };
 
-// Mitsubishi Colt CZT (Z37A, ROM 47110032): 384KB chip, single block
-// covering the whole image for full-chip reads. Writes only ever target
-// the 0x8000-0x60000 "userspace" subrange (see
-// MitsuColtCan::kUserspaceStart/kUserspaceEnd in protocol/mitsu_colt_can_protocol.h);
-// the protected 0x0-0x8000 boot region is never written. rblocks/kblocks/eblocks
-// below are placeholders (not consulted by flash_ecu_mitsu_m32r_can.cpp) — same
-// convention used for SH72531/N83M entries further down this table.
+// Mitsubishi Colt CZT (Z37A, ROM 47110032): readable/writeable userspace
+// range. The ECU rejects ReadMemoryByAddress below 0x8000 in diagnostic
+// session 0x81, and the 0x0-0x8000 boot region is not touched by this
+// protocol.
 const struct flashblock fblocks_M32R_384KB_1block[] = {
-    {0x00000000,    0x00060000},
+    {0x00008000,    0x00058000},
 };
 
 const struct ramblock rblocks_M32R_512KB[] = {

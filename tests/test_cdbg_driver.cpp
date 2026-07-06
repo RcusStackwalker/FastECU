@@ -46,6 +46,48 @@ private slots:
         QCOMPARE(vals.at(1), quint32(0x1234));
     }
 
+    void accepts_live_security_reply_shape() {
+        cdbg::ScriptedCanTransport t;
+        QVector<CdbgChannel> ch = { {0x804FBF, 1} };
+
+        t.expectWrite(kRequestCanId, buildInitFrame());
+        t.queueRead(kReplyCanId, QByteArray::fromHex("FF0001FE00000000"));
+        t.expectWrite(kRequestCanId, buildSecuritySeedRequestFrame());
+        t.queueRead(kReplyCanId, QByteArray::fromHex("FF000001D61B2EEA"));
+        t.expectWrite(kRequestCanId, buildSecurityKeyFrame(0xBA80A2C1));
+        t.queueRead(kReplyCanId, QByteArray::fromHex("FF000002D61B2EEA"));
+        t.expectWrite(kRequestCanId, buildLogResetFrame(0));
+        t.queueRead(kReplyCanId, QByteArray::fromHex("FF00000000000000"));
+
+        QVector<QVector<CdbgChannel>> frames;
+        QVERIFY(batchChannelsIntoFrames(ch, frames));
+        for (const QByteArray &cmd : buildFrameInitFrames(0, 0, frames.at(0))) {
+            t.expectWrite(kRequestCanId, cmd);
+            t.queueRead(kReplyCanId, QByteArray::fromHex("FF00000000000000"));
+        }
+        t.expectWrite(kRequestCanId, buildLogStartFrame(0, 1, 10));
+        t.queueRead(kReplyCanId, QByteArray::fromHex("FF00000000000000"));
+
+        CdbgLogDriver d(t);
+        QString error;
+        QVERIFY(d.startFreeFormLog(ch, 0, 10, &error));
+        QVERIFY(error.isEmpty());
+        QVERIFY(d.isStreaming());
+        QVERIFY(t.scriptConsumed());
+        QVERIFY(t.ok());
+    }
+
+    void fails_before_handshake_when_no_channels_selected() {
+        cdbg::ScriptedCanTransport t;
+        CdbgLogDriver d(t);
+        QString error;
+
+        QVERIFY(!d.startFreeFormLog({}, 0, 10, &error));
+        QCOMPARE(error, QString("no CDBG log parameters selected"));
+        QVERIFY(!d.isStreaming());
+        QVERIFY(t.scriptConsumed());
+    }
+
     void handshake_fails_when_security_not_granted() {
         cdbg::ScriptedCanTransport t;
         QVector<CdbgChannel> ch = { {0x804FBF, 1} };

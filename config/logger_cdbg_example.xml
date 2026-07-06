@@ -1,34 +1,42 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Example RomRaider-format logger definition for the Mitsubishi Cdbg CAN
-  logging protocol (ROM 47110032, Colt CZT Z37A).
+  RomRaider-format logger definition for the Mitsubishi Cdbg CAN logging
+  protocol (ROM 47110032, Colt CZT Z37A).
 
   This is the file format consumed by FileActions::read_logger_definition_file()
   (the file selected as "romraider_logger_definition_file" in preferences). It is
   NOT config/logger.cfg - that file only stores which parameter IDs are selected
   per ECU, it does not carry addresses/lengths/conversions.
 
-  The two parameters below are PLACEHOLDERS, deliberately fake round-number
-  addresses - NOT bench-confirmed 47110032 RAM addresses. Do not substitute
-  livemonitor's schema.xml/czt_schema.xml pointer values here either: those
-  were reverse-engineered against an uncertain/possibly-different ROM
-  revision. Real channels must come from rom-analyzer run against 47110032,
-  confirmed on a bench ECU, per docs/cdbg-can-logging-bench-checklist.md.
+  The parameters below come from
+  ~/claude-hobby/rom-analyzer/reference/47110032.json.
 -->
 <logger version="experimental">
     <protocols>
         <protocol id="CDBG">
             <parameters>
-                <parameter id="C1" name="CDBG EXAMPLE A - replace with real 47110032 address" desc="Placeholder 1-byte channel" length="1">
-                    <address>0x804000</address>
+                <parameter id="CDBG_ENGINE_RPM" name="Engine RPM" desc="engine_rpm uint16, 1000 rpm / 256" length="2" enabled="1">
+                    <address>0x804cfc</address>
                     <conversions>
-                        <conversion units="raw" expr="x" format="0" gauge_min="0" gauge_max="255" gauge_step="16"/>
+                        <conversion units="rpm" expr="x*1000/256" format="0" gauge_min="0" gauge_max="8000" gauge_step="500"/>
                     </conversions>
                 </parameter>
-                <parameter id="C2" name="CDBG EXAMPLE B - replace with real 47110032 address" desc="Placeholder 2-byte channel" length="2">
-                    <address>0x804010</address>
+                <parameter id="CDBG_COIL_DWELL_OPTIMAL_RPM_X_POWER" name="Coil Dwell Optimal RPM x Power" desc="coil_dwell_optimal_rpm_x_power raw uint16" length="2" enabled="1">
+                    <address>0x804f9c</address>
                     <conversions>
                         <conversion units="raw" expr="x" format="0" gauge_min="0" gauge_max="65535" gauge_step="1024"/>
+                    </conversions>
+                </parameter>
+                <parameter id="CDBG_KNOCK_SUM" name="Knock Sum" desc="knock_sum raw uint16" length="2" enabled="1">
+                    <address>0x804fbe</address>
+                    <conversions>
+                        <conversion units="raw" expr="x" format="0" gauge_min="0" gauge_max="65535" gauge_step="1"/>
+                    </conversions>
+                </parameter>
+                <parameter id="CDBG_ECU_LOAD" name="ECU Load" desc="ecu_load uint16, 10 percent / 32" length="2" enabled="1">
+                    <address>0x804d2a</address>
+                    <conversions>
+                        <conversion units="%" expr="x*10/32" format="0.0" gauge_min="0" gauge_max="300" gauge_step="10"/>
                     </conversions>
                 </parameter>
             </parameters>

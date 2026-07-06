@@ -1213,6 +1213,14 @@ FileActions::LogValuesStructure *FileActions::read_logger_definition_file()
     QDomDocument xmlBOM;
 
     QString filename = configValues->romraider_logger_definition_file;
+    if (filename.isEmpty() && configValues->flash_protocol_selected_log_protocol == "CDBG") {
+        const QString userCdbgLogger = configValues->config_files_directory + "logger_cdbg_example.xml";
+        filename = QFileInfo::exists(userCdbgLogger)
+            ? userCdbgLogger
+            : QStringLiteral(":/config/logger_cdbg_example.xml");
+        configValues->romraider_logger_definition_file = filename;
+        emit LOG_D("Using bundled CDBG logger definition: " + filename, true, true);
+    }
     //emit LOG_D("Logger filename = " + filename;
     QFile file(filename);
     if(!file.open(QFile::ReadOnly | QFile::Text)) {
@@ -1290,7 +1298,7 @@ FileActions::LogValuesStructure *FileActions::read_logger_definition_file()
                                         logValues->log_value_ecu_byte_index.append(parameter.attribute("ecubyteindex","No byte index"));
                                         logValues->log_value_ecu_bit.append(parameter.attribute("ecubit","No ecu bit"));
                                         logValues->log_value_target.append(parameter.attribute("target","No target"));
-                                        logValues->log_value_enabled.append("0");
+                                        logValues->log_value_enabled.append(parameter.attribute("enabled","0"));
                                         logValues->log_value.append("0.00");
                                         if (log_value_index < 12)
                                             logValues->lower_panel_log_value_id.append(log_value_id);

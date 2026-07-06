@@ -1002,7 +1002,8 @@ int MainWindow::start_ecu_operations(QString cmd_type)
     if (configValues->kernel_files_directory.at(configValues->kernel_files_directory.length() - 1) != '/')
         configValues->kernel_files_directory.append("/");
 
-    if (configValues->flash_protocol_selected_make == "Subaru")
+    if (configValues->flash_protocol_selected_make == "Subaru"
+        || configValues->flash_protocol_selected_make == "Mitsubishi")
     {
         serial->reset_connection();
         ecuid.clear();
