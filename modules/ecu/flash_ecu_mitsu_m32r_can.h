@@ -28,8 +28,7 @@ namespace Ui
 QT_END_NAMESPACE
 
 // Mitsubishi Colt CZT (Z37A, ROM 47110032) CAN reflash module. GUI-thread
-// half of the dialog+operation split (see
-// docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md);
+// half of the dialog+operation split (worker-thread migration);
 // protocol logic lives in FlashEcuMitsuM32rCanOperation.
 class FlashEcuMitsuM32rCan : public QDialog
 {

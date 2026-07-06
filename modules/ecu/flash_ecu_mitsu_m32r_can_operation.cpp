@@ -1,4 +1,5 @@
 #include "flash_ecu_mitsu_m32r_can_operation.h"
+#include "modules/ssm_protocol.h"
 #include "serial_port_actions.h"
 #include "protocol/mitsu_colt_can_protocol.h"
 #include "protocol/mitsu_colt_can_vendor_ext_protocol.h"
@@ -104,12 +105,12 @@ int FlashEcuMitsuM32rCanOperation::connect_bootloader()
         }
 
         QByteArray vendorSeed = received.mid(6, 4);
-        msg = parse_message_to_hex(vendorSeed);
+        msg = SsmProtocol::toHex(vendorSeed);
         emit LOG_I("Received vendor seed: " + msg, true, true);
 
         quint32 vendorKey = MitsuColtCanVendorExt::challengeInverseTransform(MitsuColtCanVendorExt::bytesToSeed(vendorSeed));
         QByteArray vendorKeyBytes = MitsuColtCanVendorExt::keyToBytes(vendorKey);
-        msg = parse_message_to_hex(vendorKeyBytes);
+        msg = SsmProtocol::toHex(vendorKeyBytes);
         emit LOG_I("Calculated vendor key: " + msg, true, true);
 
         emit LOG_I("Sending vendor key to ECU...", true, true);
@@ -154,11 +155,11 @@ int FlashEcuMitsuM32rCanOperation::connect_bootloader()
     }
 
     QByteArray seed = received.mid(6, 4);
-    msg = parse_message_to_hex(seed);
+    msg = SsmProtocol::toHex(seed);
     emit LOG_I("Received seed: " + msg, true, true);
 
     QByteArray key = seedKey(seed);
-    msg = parse_message_to_hex(key);
+    msg = SsmProtocol::toHex(key);
     emit LOG_I("Calculated seed key: " + msg, true, true);
 
     emit LOG_I("Sending seed key to ECU...", true, true);
@@ -322,7 +323,7 @@ int FlashEcuMitsuM32rCanOperation::write_mem(bool test_write)
     // original author's own comment reads "caused bootloader lockup" during
     // their testing. Only attempt this on a bench/spare ECU with a recovery
     // path available (see this project's boot-talk utility for bricked-ECU
-    // recovery). See docs/superpowers/specs/2026-06-30-fastecu-colt-can-reflash-design.md
+    // recovery).
     // for full context.
     int reflashConfirm = confirm(tr("Erase trigger"),
         tr("About to send the flash-erase trigger command. This exact "
@@ -367,12 +368,4 @@ int FlashEcuMitsuM32rCanOperation::write_mem(bool test_write)
     emit LOG_I("Userspace flash written", true, true);
 
     return STATUS_SUCCESS;
-}
-
-QString FlashEcuMitsuM32rCanOperation::parse_message_to_hex(QByteArray received)
-{
-    QString msg;
-    for (int i = 0; i < received.length(); i++)
-        msg.append(QString("%1 ").arg((uint8_t)received.at(i), 2, 16, QLatin1Char('0')).toUtf8());
-    return msg;
 }

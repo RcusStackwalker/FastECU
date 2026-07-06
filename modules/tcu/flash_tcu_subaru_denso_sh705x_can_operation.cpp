@@ -1,4 +1,5 @@
 #include "flash_tcu_subaru_denso_sh705x_can_operation.h"
+#include "modules/ssm_protocol.h"
 #include "serial_port_actions.h"
 
 #include <QElapsedTimer>
@@ -184,10 +185,10 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
     output.append((uint8_t)0x01);
     output.append((uint8_t)0x6c);  // 0x16c - IC Correction, 3->4
     output.append((uint8_t)(correction_3to4 & 0xff));
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
-    emit LOG_D("Response:" + parse_message_to_hex(received), true, true);
+    emit LOG_D("Response:" + SsmProtocol::toHex(received), true, true);
     if (received.length() > 4)
     {
         if ((uint8_t)received.at(4) != 0xF8)
@@ -206,10 +207,10 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
 
     output[3] = ((uint8_t)0x6d);  // 0x16d - HLRC Correction, 2->3
     output[4] = ((uint8_t)(correction_2to3 & 0xff));
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
-    emit LOG_D("Response:" + parse_message_to_hex(received), true, true);
+    emit LOG_D("Response:" + SsmProtocol::toHex(received), true, true);
     if (received.length() > 4)
     {
         if ((uint8_t)received.at(4) != 0xF8)
@@ -228,10 +229,10 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
 
     output[3] = ((uint8_t)0x6e);  // 0x16e - DC Correction, 1->2
     output[4] = ((uint8_t)(correction_1to2 & 0xff));
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
-    emit LOG_D("Response:" + parse_message_to_hex(received), true, true);
+    emit LOG_D("Response:" + SsmProtocol::toHex(received), true, true);
     if (received.length() > 4)
     {
         if ((uint8_t)received.at(4) != 0xF8)
@@ -250,10 +251,10 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
 
     output[3] = ((uint8_t)0x6f);  // 0x16f - FB correction
     output[4] = ((uint8_t)(correction_4to5 & 0xff));
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
-    emit LOG_D("Response:" + parse_message_to_hex(received), true, true);
+    emit LOG_D("Response:" + SsmProtocol::toHex(received), true, true);
     if (received.length() > 4)
     {
         if ((uint8_t)received.at(4) != 0xF8)
@@ -272,10 +273,10 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
 
     output[3] = ((uint8_t)0x70);  // 0x170 - AWD Clutch Torque High
     output[4] = ((uint8_t)((torque_correction_awd >> 8) & 0xff));
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
-    emit LOG_D("Response:" + parse_message_to_hex(received), true, true);
+    emit LOG_D("Response:" + SsmProtocol::toHex(received), true, true);
     if (received.length() > 4)
     {
         if ((uint8_t)received.at(4) != 0xF8)
@@ -294,10 +295,10 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
 
     output[3] = ((uint8_t)0x71);  // 0x171 - AWD Clutch Torque Low
     output[4] = ((uint8_t)(torque_correction_awd & 0xff));
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
-    emit LOG_D("Response:" + parse_message_to_hex(received), true, true);
+    emit LOG_D("Response:" + SsmProtocol::toHex(received), true, true);
     if (received.length() > 4)
     {
         if ((uint8_t)received.at(4) != 0xF8)
@@ -316,10 +317,10 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
 
     output[3] = ((uint8_t)0xbc);  // 0x1bc - FwdB correction
     output[4] = ((uint8_t)(correction_fwdb & 0xff));
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
-    emit LOG_D("Response:" + parse_message_to_hex(received), true, true);
+    emit LOG_D("Response:" + SsmProtocol::toHex(received), true, true);
     if (received.length() > 4)
     {
         if ((uint8_t)received.at(4) != 0xF8)
@@ -338,10 +339,10 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
 
     output[3] = ((uint8_t)0xbd);  // 0x1bd - 4WD correction
     output[4] = ((uint8_t)(correction_4wd & 0xff));
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
-    emit LOG_D("Response:" + parse_message_to_hex(received), true, true);
+    emit LOG_D("Response:" + SsmProtocol::toHex(received), true, true);
     if (received.length() > 4)
     {
         if ((uint8_t)received.at(4) != 0xF8)
@@ -360,10 +361,10 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
 
     output[3] = ((uint8_t)0xbe);  // 0x1be - PL correction
     output[4] = ((uint8_t)(correction_pl & 0xff));
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
-    emit LOG_D("Response:" + parse_message_to_hex(received), true, true);
+    emit LOG_D("Response:" + SsmProtocol::toHex(received), true, true);
     if (received.length() > 4)
     {
         if ((uint8_t)received.at(4) != 0xF8)
@@ -382,10 +383,10 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
 
     output[3] = ((uint8_t)0xbf);  // 0x1bf - Temp basis
     output[4] = ((uint8_t)(temp_basis & 0xff));
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
-    emit LOG_D("Response:" + parse_message_to_hex(received), true, true);
+    emit LOG_D("Response:" + SsmProtocol::toHex(received), true, true);
     if (received.length() > 4)
     {
         if ((uint8_t)received.at(4) != 0xF8)
@@ -406,10 +407,10 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
     output[2] = ((uint8_t)0x00);
     output[3] = ((uint8_t)0xec);  // 0xec
     output[4] = ((uint8_t)0x55);
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
-    emit LOG_D("Response:" + parse_message_to_hex(received), true, true);
+    emit LOG_D("Response:" + SsmProtocol::toHex(received), true, true);
     if (received.length() > 4)
     {
         if ((uint8_t)received.at(4) != 0xF8)
@@ -427,10 +428,10 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
     }
 
     output[4] = ((uint8_t)0xaa);
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
-    emit LOG_D("Response:" + parse_message_to_hex(received), true, true);
+    emit LOG_D("Response:" + SsmProtocol::toHex(received), true, true);
     if (received.length() > 4)
     {
         if ((uint8_t)received.at(4) != 0xF8)
@@ -1580,7 +1581,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::check_romcrc(const uint8_t *src, uint
 
     ecucrc32 = ((uint8_t)received.at(9) << 24) | ((uint8_t)received.at(10) << 16) | ((uint8_t)received.at(11) << 8) | (uint8_t)received.at(12);
 
-    imgcrc32 = crc32(src, pagesize);
+    imgcrc32 = SsmProtocol::crc32(src, pagesize);
     msg.clear();
     msg.append(QString("ROM CRC: 0x%1 IMG CRC: 0x%2").arg(ecucrc32,8,16,QLatin1Char('0')).arg(imgcrc32,8,16,QLatin1Char('0')).toUtf8());
     emit LOG_D(msg, true, true);
@@ -1601,43 +1602,6 @@ int FlashTcuSubaruDensoSH705xCanOperation::check_romcrc(const uint8_t *src, uint
     *modified = 0;
     serial->read_serial_data(serial_read_short_timeout);
     return 0;
-}
-
-unsigned int FlashTcuSubaruDensoSH705xCanOperation::crc32(const unsigned char *buf, unsigned int len)
-{
-    unsigned int crc = 0xFFFFFFFF;
-
-    if (!crc_tab32_init)
-        init_crc32_tab();
-
-    if (buf == NULL)
-        return 0L;
-    while (len--)
-        crc = crc_tab32[((int)crc ^ (*buf++)) & 0xff] ^ (crc >> 8);
-
-    return crc ^ 0xFFFFFFFF;
-}
-
-void FlashTcuSubaruDensoSH705xCanOperation::init_crc32_tab( void )
-{
-    uint32_t i, j;
-    uint32_t crc, c;
-
-    for (i=0; i<256; i++) {
-        crc = 0;
-        c = (uint32_t)i;
-
-        for (j=0; j<8; j++) {
-            if ( (crc ^ c) & 0x00000001 )
-                crc = ( crc >> 1 ) ^ CRC32;
-            else
-                crc =   crc >> 1;
-            c = c >> 1;
-        }
-        crc_tab32[i] = crc;
-    }
-
-    crc_tab32_init = 1;
 }
 
 int FlashTcuSubaruDensoSH705xCanOperation::init_flash_write()
@@ -2009,7 +1973,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::flash_block(const uint8_t *src, uint3
         if ((flashblockstart + flashblocksize) == start)
         {
             emit LOG_I("Flash buffer write complete... ", true, true);
-            imgcrc32 = crc32(&src[flashblockstart], flashblocksize);
+            imgcrc32 = SsmProtocol::crc32(&src[flashblockstart], flashblocksize);
             emit LOG_D("Image CRC32: 0x" + QString::number(imgcrc32, 16), true, true);
 
             uint8_t SUB_KERNEL_CMD = 0;
@@ -2123,7 +2087,7 @@ QByteArray FlashTcuSubaruDensoSH705xCanOperation::generate_seed_key(QByteArray r
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
     };
 
-    key = calculate_seed_key(requested_seed, keytogenerateindex_1, indextransformation);
+    key = SsmProtocol::calculateSeedKey(requested_seed, keytogenerateindex_1, indextransformation);
 
     return key;
 }
@@ -2134,49 +2098,6 @@ QByteArray FlashTcuSubaruDensoSH705xCanOperation::generate_seed_key(QByteArray r
  *
  * @return seed key (4 bytes)
  */
-QByteArray FlashTcuSubaruDensoSH705xCanOperation::calculate_seed_key(QByteArray requested_seed, const uint16_t *keytogenerateindex, const uint8_t *indextransformation)
-{
-    QByteArray key;
-
-    uint32_t seed, index;
-    uint16_t wordtogenerateindex, wordtobeencrypted, encryptionkey;
-    int ki, n;
-
-    seed = (requested_seed.at(0) << 24) & 0xFF000000;
-    seed += (requested_seed.at(1) << 16) & 0x00FF0000;
-    seed += (requested_seed.at(2) << 8) & 0x0000FF00;
-    seed += requested_seed.at(3) & 0x000000FF;
-    //seed = reconst_32(seed8);
-
-    for (ki = 15; ki >= 0; ki--) {
-
-        wordtogenerateindex = seed;
-        wordtobeencrypted = seed >> 16;
-        index = wordtogenerateindex ^ keytogenerateindex[ki];
-        index += index << 16;
-        encryptionkey = 0;
-
-        for (n = 0; n < 4; n++) {
-            encryptionkey += indextransformation[(index >> (n * 4)) & 0x1F] << (n * 4);
-        }
-
-        encryptionkey = (encryptionkey >> 3) + (encryptionkey << 13);
-        seed = (encryptionkey ^ wordtobeencrypted) + (wordtogenerateindex << 16);
-    }
-
-    seed = (seed >> 16) + (seed << 16);
-
-    key.clear();
-    key.append((uint8_t)(seed >> 24));
-    key.append((uint8_t)(seed >> 16));
-    key.append((uint8_t)(seed >> 8));
-    key.append((uint8_t)seed);
-
-    //write_32b(seed, key);
-
-    return key;
-}
-
 /*
  * Encrypt upload data
  *
@@ -2197,7 +2118,7 @@ QByteArray FlashTcuSubaruDensoSH705xCanOperation::encrypt_payload(QByteArray buf
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
     };
 
-    encrypted = calculate_payload(buf, len, keytogenerateindex, indextransformation);
+    encrypted = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
     return encrypted;
 }
@@ -2217,53 +2138,9 @@ QByteArray FlashTcuSubaruDensoSH705xCanOperation::decrypt_payload(QByteArray buf
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
     };
 
-    decrypt = calculate_payload(buf, len, keytogenerateindex, indextransformation);
+    decrypt = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
     return decrypt;
-}
-
-QByteArray FlashTcuSubaruDensoSH705xCanOperation::calculate_payload(QByteArray buf, uint32_t len, const uint16_t *keytogenerateindex, const uint8_t *indextransformation)
-{
-    QByteArray encrypted;
-    uint32_t datatoencrypt32, index;
-    uint16_t wordtogenerateindex, wordtobeencrypted, encryptionkey;
-    int ki, n;
-
-    if (!buf.length() || !len) {
-        return NULL;
-    }
-
-    encrypted.clear();
-
-    len &= ~3;
-    for (uint32_t i = 0; i < len; i += 4) {
-        datatoencrypt32 = ((buf.at(i) << 24) & 0xFF000000) | ((buf.at(i + 1) << 16) & 0xFF0000) | ((buf.at(i + 2) << 8) & 0xFF00) | (buf.at(i + 3) & 0xFF);
-
-        for (ki = 0; ki < 4; ki++) {
-
-            wordtogenerateindex = datatoencrypt32;
-            wordtobeencrypted = datatoencrypt32 >> 16;
-            index = wordtogenerateindex ^ keytogenerateindex[ki];
-            index += index << 16;
-            encryptionkey = 0;
-
-            for (n = 0; n < 4; n++) {
-                encryptionkey += indextransformation[(index >> (n * 4)) & 0x1F] << (n * 4);
-            }
-
-            encryptionkey = (encryptionkey >> 3) + (encryptionkey << 13);
-            datatoencrypt32 = (encryptionkey ^ wordtobeencrypted) + (wordtogenerateindex << 16);
-        }
-
-        datatoencrypt32 = (datatoencrypt32 >> 16) + (datatoencrypt32 << 16);
-
-        encrypted.append((datatoencrypt32 >> 24) & 0xFF);
-        encrypted.append((datatoencrypt32 >> 16) & 0xFF);
-        encrypted.append((datatoencrypt32 >> 8) & 0xFF);
-        encrypted.append(datatoencrypt32 & 0xFF);
-        //encrypted.append(sub_encrypt(tempbuf));
-    }
-    return encrypted;
 }
 
 /*
@@ -2300,12 +2177,12 @@ QByteArray FlashTcuSubaruDensoSH705xCanOperation::request_kernel_id()
     while (loop < 5 && received == "")
     {
         received = serial->write_serial_data_echo_check(output);
-        emit LOG_I("Kernel ID request: " + parse_message_to_hex(output), true, true);
+        emit LOG_I("Kernel ID request: " + SsmProtocol::toHex(output), true, true);
         delay(100);
         kernelid.clear();
 
         received = serial->read_serial_data(serial_read_long_timeout);
-        emit LOG_I("Kernel ID response: " + parse_message_to_hex(received), true, true);
+        emit LOG_I("Kernel ID response: " + SsmProtocol::toHex(received), true, true);
         received.remove(0, 2);
         kernelid = received;
 
@@ -2327,52 +2204,13 @@ QByteArray FlashTcuSubaruDensoSH705xCanOperation::request_kernel_id()
  *
  * @return parsed message
  */
-QByteArray FlashTcuSubaruDensoSH705xCanOperation::add_ssm_header(QByteArray output, uint8_t tester_id, uint8_t target_id, bool dec_0x100)
-{
-    uint8_t length = output.length();
-
-    output.insert(0, (uint8_t)0x80);
-    output.insert(1, target_id & 0xFF);
-    output.insert(2, tester_id & 0xFF);
-    output.insert(3, length);
-
-    output.append(calculate_checksum(output, dec_0x100));
-
-    //emit LOG_I("Send: " + parse_message_to_hex(output), true, true);
-    return output;
-}
-
 /*
  * Calculate SSM checksum to message
  *
  * @return 8-bit checksum
  */
-uint8_t FlashTcuSubaruDensoSH705xCanOperation::calculate_checksum(QByteArray output, bool dec_0x100)
-{
-    uint8_t checksum = 0;
-
-    for (uint16_t i = 0; i < output.length(); i++)
-        checksum += (uint8_t)output.at(i);
-
-    if (dec_0x100)
-        checksum = (uint8_t) (0x100 - checksum);
-
-    return checksum;
-}
-
 /*
  * Parse QByteArray to readable form
  *
  * @return parsed message
  */
-QString FlashTcuSubaruDensoSH705xCanOperation::parse_message_to_hex(QByteArray received)
-{
-    QString msg;
-
-    for (int i = 0; i < received.length(); i++)
-    {
-        msg.append(QString("%1 ").arg((uint8_t)received.at(i),2,16,QLatin1Char('0')).toUtf8());
-    }
-
-    return msg;
-}

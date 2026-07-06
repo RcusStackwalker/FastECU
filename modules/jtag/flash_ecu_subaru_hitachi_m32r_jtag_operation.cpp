@@ -1,4 +1,5 @@
 #include "flash_ecu_subaru_hitachi_m32r_jtag_operation.h"
+#include "modules/ssm_protocol.h"
 #include "serial_port_actions.h"
 
 FlashEcuSubaruHitachiM32rJtagOperation::FlashEcuSubaruHitachiM32rJtagOperation(
@@ -114,10 +115,10 @@ void FlashEcuSubaruHitachiM32rJtagOperation::hard_reset_jtag()
     output.append((uint8_t)0x80);
     output = add_header(output);
     serial->write_serial_data(output);
-    //emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
+    //emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
     delay(10);
     received = serial->read_serial_data(serial_read_short_timeout);
-    //emit LOG_I("Response: " + parse_message_to_hex(received), true, true);
+    //emit LOG_I("Response: " + SsmProtocol::toHex(received), true, true);
 }
 
 int FlashEcuSubaruHitachiM32rJtagOperation::read_idcode()
@@ -130,7 +131,7 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_idcode()
     output.append((uint8_t)SUB_KERNEL_ID & 0xFF);
     output = add_header(output);
     serial->write_serial_data(output);
-    //emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
+    //emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
     delay(10);
     received = serial->read_serial_data(serial_read_short_timeout);
     if (received.length() > 4)
@@ -182,7 +183,7 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_usercode()
     output.append((uint8_t)SUB_KERNEL_READ_USERCODE & 0xFF);
     output = add_header(output);
     serial->write_serial_data(output);
-    //emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
+    //emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
     delay(10);
     received = serial->read_serial_data(serial_read_short_timeout);
     if (received.length() > 4)
@@ -238,7 +239,7 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_tool_rom_code()
     output.append((uint8_t)SUB_KERNEL_SUB_CMD_READ & 0xFF);
     output = add_header(output);
     serial->write_serial_data(output);
-    //emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
+    //emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
     delay(10);
     received = serial->read_serial_data(serial_read_short_timeout);
     if (received.length() > 4)
@@ -266,7 +267,7 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_tool_rom_code()
     output.append((uint8_t)0x20 & 0xFF);
     output = add_header(output);
     serial->write_serial_data(output);
-    //emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
+    //emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
     delay(10);
     received = serial->read_serial_data(serial_read_short_timeout);
     if (received.length() > 4)
@@ -298,7 +299,7 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_tool_rom_code()
     output.append((uint8_t)bsr_bit_count);
     output = add_header(output);
     serial->write_serial_data(output);
-    //emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
+    //emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
     delay(10);
     received = serial->read_serial_data(serial_read_short_timeout);
     while (received.length())
@@ -338,7 +339,7 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_tool_rom_code()
             output.append((uint8_t)inst_tool_rom_code[j*4+3]);
             output = add_header(output);
             serial->write_serial_data(output);
-            //emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
+            //emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
             delay(10);
             received = serial->read_serial_data(serial_read_short_timeout);
             if (received.length() > 4)
@@ -372,7 +373,7 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_tool_rom_code()
     output.append((uint8_t)inst_tool_rom_code[3*4+3]);
     output = add_header(output);
     serial->write_serial_data(output);
-    //emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
+    //emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
     delay(10);
     received = serial->read_serial_data(serial_read_short_timeout);
     if (received.length() > 4)
@@ -404,7 +405,7 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_tool_rom_code()
     output.append((uint8_t)0x01);
     output = add_header(output);
     serial->write_serial_data(output);
-    //emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
+    //emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
     delay(10);
     received = serial->read_serial_data(serial_read_short_timeout);
     if (received.length() > 4)
@@ -436,7 +437,7 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_tool_rom_code()
     output.append((uint8_t)0x00);
     output = add_header(output);
     serial->write_serial_data(output);
-    //emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
+    //emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
     delay(10);
     received = serial->read_serial_data(serial_read_short_timeout);
     if (received.length() > 4)
@@ -466,7 +467,7 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_tool_rom_code()
         output.append((uint8_t)0x20 & 0xFF);
         output = add_header(output);
         serial->write_serial_data(output);
-        //emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
+        //emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
         delay(10);
         received = serial->read_serial_data(serial_read_short_timeout);
         if (received.length() > 4)
@@ -537,7 +538,7 @@ void FlashEcuSubaruHitachiM32rJtagOperation::write_jtag_ir(QString desc, QString
 
 
     response = read_response();
-    emit LOG_I("Response: " + parse_message_to_hex(response), true, true);
+    emit LOG_I("Response: " + SsmProtocol::toHex(response), true, true);
 }
 
 QByteArray FlashEcuSubaruHitachiM32rJtagOperation::read_jtag_dr(QString desc)
@@ -559,9 +560,9 @@ QByteArray FlashEcuSubaruHitachiM32rJtagOperation::read_jtag_dr(QString desc)
 
     response = read_response();
     if (response.at(0) == 0x7f)
-        emit LOG_I("ERROR: " + parse_message_to_hex(response), true, true);
+        emit LOG_I("ERROR: " + SsmProtocol::toHex(response), true, true);
     else
-        emit LOG_I("Response: " + parse_message_to_hex(response), true, true);
+        emit LOG_I("Response: " + SsmProtocol::toHex(response), true, true);
 
     return response;
 }
@@ -596,7 +597,7 @@ QByteArray FlashEcuSubaruHitachiM32rJtagOperation::write_jtag_dr(QString desc, Q
 
 
     response = read_response();
-    emit LOG_I("Response: " + parse_message_to_hex(response), true, true);
+    emit LOG_I("Response: " + SsmProtocol::toHex(response), true, true);
 
     return response;
 }
@@ -643,7 +644,7 @@ QByteArray FlashEcuSubaruHitachiM32rJtagOperation::add_header(QByteArray output)
     output.insert(2, length << 8);
     output.insert(3, length);
 
-    output.append(calculate_checksum(output));
+    output.append(SsmProtocol::checksum(output));
 
     //
     return output;
@@ -654,29 +655,8 @@ QByteArray FlashEcuSubaruHitachiM32rJtagOperation::add_header(QByteArray output)
  *
  * @return 8-bit checksum
  */
-uint8_t FlashEcuSubaruHitachiM32rJtagOperation::calculate_checksum(QByteArray output)
-{
-    uint8_t checksum = 0;
-
-    for (uint16_t i = 0; i < output.length(); i++)
-        checksum += (uint8_t)output.at(i);
-
-    return checksum;
-}
-
 /*
  * Parse QByteArray to readable form
  *
  * @return parsed message
  */
-QString FlashEcuSubaruHitachiM32rJtagOperation::parse_message_to_hex(QByteArray received)
-{
-    QString msg;
-
-    for (int i = 0; i < received.length(); i++)
-    {
-        msg.append(QString("%1 ").arg((uint8_t)received.at(i),2,16,QLatin1Char('0')).toUtf8());
-    }
-
-    return msg;
-}

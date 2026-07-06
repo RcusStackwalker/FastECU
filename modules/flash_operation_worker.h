@@ -8,8 +8,7 @@
 #include <QWidget>
 #include <functional>
 
-// Worker-thread half of a flash/eeprom module's dialog+operation split (see
-// docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md).
+// Worker-thread half of a flash/eeprom module's dialog+operation split (worker-thread migration).
 // Subclasses relocate a module's protocol methods here and implement
 // execute(); run() wraps it and emits operationFinished(). confirm() lets
 // worker-thread code show a QMessageBox on the GUI thread and block for the

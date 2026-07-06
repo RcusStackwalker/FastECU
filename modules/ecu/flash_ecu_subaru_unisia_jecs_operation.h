@@ -11,8 +11,7 @@
 
 class SerialPortActions;
 
-// Worker-thread half of FlashEcuSubaruUnisiaJecs (see
-// docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md).
+// Worker-thread half of FlashEcuSubaruUnisiaJecs (worker-thread migration).
 // Owns every serial-> call and the Subaru Unisia Jecs SSM-cable read
 // sequence; relocated verbatim from FlashEcuSubaruUnisiaJecs's former
 // private methods.
@@ -47,8 +46,6 @@ private:
     uint16_t serial_read_extra_long_timeout = 3000;
 
     int read_mem(uint32_t start_addr, uint32_t length);
-
-    QString parse_message_to_hex(QByteArray received);
 
     SerialPortActions *serial;
     FileActions::EcuCalDefStructure *ecuCalDef;

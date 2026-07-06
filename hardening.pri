@@ -1,5 +1,4 @@
-# Bounds-check hardening — see docs/superpowers/specs/2026-06-09-bounds-check-hardening-design.md
-#
+# Bounds-check hardening.
 # Re-arm Q_ASSERT even in release (QT_NO_DEBUG) so every QByteArray/QString/QList
 # .at()/operator[] overrun aborts loudly with file:line instead of silent UB.
 DEFINES += QT_FORCE_ASSERTS

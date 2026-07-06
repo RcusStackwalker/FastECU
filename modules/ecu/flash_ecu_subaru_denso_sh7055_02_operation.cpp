@@ -1,4 +1,5 @@
 #include "flash_ecu_subaru_denso_sh7055_02_operation.h"
+#include "modules/ssm_protocol.h"
 #include "serial_port_actions.h"
 
 #include <QElapsedTimer>
@@ -276,9 +277,9 @@ int FlashEcuSubaruDensoSH7055_02Operation::upload_kernel(QString kernel, uint32_
     output.append((uint8_t)0x31 & 0xFF);
     output.append((uint8_t)0x61 & 0xFF);
 
-    output[7] = calculate_checksum(output, true);
+    output[7] = SsmProtocol::checksum(output, true);
     output.append(pl_encr);
-    chk_sum = calculate_checksum(output, true);
+    chk_sum = SsmProtocol::checksum(output, true);
     output.append((uint8_t) chk_sum);
 
     emit LOG_I("Start sending kernel... please wait...", true, true);
@@ -395,7 +396,7 @@ int FlashEcuSubaruDensoSH7055_02Operation::read_mem(uint32_t start_addr, uint32_
         output.append((uint8_t)addr & 0xFF);
         output.append((uint8_t)(pagesize >> 8) & 0xFF);
         output.append((uint8_t)pagesize & 0xFF);
-        chk_sum = calculate_checksum(output, false);
+        chk_sum = SsmProtocol::checksum(output, false);
         output.append((uint8_t) chk_sum);
         received = serial->write_serial_data_echo_check(output);
         delay(10);
@@ -639,7 +640,7 @@ int FlashEcuSubaruDensoSH7055_02Operation::check_romcrc(const uint8_t *src, uint
     output.append((uint8_t)(pagesize >> 16) & 0xFF);
     output.append((uint8_t)(pagesize >> 8) & 0xFF);
     output.append((uint8_t)pagesize & 0xFF);
-    chksum = calculate_checksum(output, false);
+    chksum = SsmProtocol::checksum(output, false);
     output.append((uint8_t)chksum & 0xFF);
     //delay(50);
     received = serial->write_serial_data_echo_check(output);
@@ -692,7 +693,7 @@ int FlashEcuSubaruDensoSH7055_02Operation::check_romcrc(const uint8_t *src, uint
     }
 
     ecucrc32 = 0;
-    imgcrc32 = crc32(src, pagesize);
+    imgcrc32 = SsmProtocol::crc32(src, pagesize);
     if (received.length() > 3)
         ecucrc32 = ((uint8_t)received.at(0) << 24) | ((uint8_t)received.at(1) << 16) | ((uint8_t)received.at(2) << 8) | (uint8_t)received.at(3);
     msg.clear();
@@ -717,44 +718,6 @@ int FlashEcuSubaruDensoSH7055_02Operation::check_romcrc(const uint8_t *src, uint
     return 0;
 }
 
-unsigned int FlashEcuSubaruDensoSH7055_02Operation::crc32(const unsigned char *buf, unsigned int len)
-{
-    unsigned int crc = 0xFFFFFFFF;
-
-    if (!crc_tab32_init)
-        init_crc32_tab();
-
-    if (buf == NULL)
-        return 0L;
-    while (len--)
-        crc = crc_tab32[((int)crc ^ (*buf++)) & 0xff] ^ (crc >> 8);
-
-    return crc ^ 0xFFFFFFFF;
-}
-
-void FlashEcuSubaruDensoSH7055_02Operation::init_crc32_tab(void)
-{
-    uint32_t i, j;
-    uint32_t crc, c;
-
-    for (i=0; i<256; i++) {
-        crc = 0;
-        c = (uint32_t)i;
-
-        for (j=0; j<8; j++) {
-            if ( (crc ^ c) & 0x00000001 )
-                crc = ( crc >> 1 ) ^ CRC32;
-            else
-                crc =   crc >> 1;
-            c = c >> 1;
-        }
-        crc_tab32[i] = crc;
-    }
-
-    crc_tab32_init = 1;
-
-}
-
 int FlashEcuSubaruDensoSH7055_02Operation::init_flash_write()
 {
     QByteArray output;
@@ -771,7 +734,7 @@ int FlashEcuSubaruDensoSH7055_02Operation::init_flash_write()
     output.append((uint8_t)((datalen + 1) >> 8) & 0xFF);
     output.append((uint8_t)(datalen + 1) & 0xFF);
     output.append((uint8_t)(SUB_KERNEL_GET_MAX_MSG_SIZE & 0xFF));
-    chksum = calculate_checksum(output, false);
+    chksum = SsmProtocol::checksum(output, false);
     output.append((uint8_t)chksum & 0xFF);
     received = serial->write_serial_data_echo_check(output);
 
@@ -806,7 +769,7 @@ int FlashEcuSubaruDensoSH7055_02Operation::init_flash_write()
     output.append((uint8_t)((datalen + 1) >> 8) & 0xFF);
     output.append((uint8_t)(datalen + 1) & 0xFF);
     output.append((uint8_t)(SUB_KERNEL_GET_MAX_BLK_SIZE & 0xFF));
-    chksum = calculate_checksum(output, false);
+    chksum = SsmProtocol::checksum(output, false);
     output.append((uint8_t)chksum & 0xFF);
     received = serial->write_serial_data_echo_check(output);
 
@@ -847,7 +810,7 @@ int FlashEcuSubaruDensoSH7055_02Operation::init_flash_write()
     output.append((uint8_t)((datalen + 1) >> 8) & 0xFF);
     output.append((uint8_t)(datalen + 1) & 0xFF);
     output.append((uint8_t)(SUB_KERNEL_CMD & 0xFF));
-    chksum = calculate_checksum(output, false);
+    chksum = SsmProtocol::checksum(output, false);
     output.append((uint8_t)chksum & 0xFF);
     received = serial->write_serial_data_echo_check(output);
 
@@ -915,7 +878,7 @@ int FlashEcuSubaruDensoSH7055_02Operation::reflash_block(const uint8_t *newdata,
     output.append((uint8_t)((datalen + 1) >> 8) & 0xFF);
     output.append((uint8_t)(datalen + 1) & 0xFF);
     output.append((uint8_t)(SUB_KERNEL_PROG_VOLT & 0xFF));
-    chksum = calculate_checksum(output, false);
+    chksum = SsmProtocol::checksum(output, false);
     output.append((uint8_t)chksum & 0xFF);
     received = serial->write_serial_data_echo_check(output);
 
@@ -989,7 +952,7 @@ int FlashEcuSubaruDensoSH7055_02Operation::flash_block(const uint8_t *src, uint3
         output.append((uint8_t)(start >> 16) & 0xFF);
         output.append((uint8_t)(start >> 8) & 0xFF);
         output.append((uint8_t)start & 0xFF);
-        chksum = calculate_checksum(output, false);
+        chksum = SsmProtocol::checksum(output, false);
         output.append((uint8_t)chksum & 0xFF);
         received = serial->write_serial_data_echo_check(output);
 
@@ -1036,7 +999,7 @@ int FlashEcuSubaruDensoSH7055_02Operation::flash_block(const uint8_t *src, uint3
         {
             output.append(src[i]);
         }
-        chksum = calculate_checksum(output, false);
+        chksum = SsmProtocol::checksum(output, false);
         output.append((uint8_t)chksum & 0xFF);
         serial->write_serial_data_echo_check(output);
         delay(50);
@@ -1091,7 +1054,7 @@ int FlashEcuSubaruDensoSH7055_02Operation::flash_block(const uint8_t *src, uint3
         if ((flashblockstart + flashblocksize) == start)
         {
             emit LOG_I("Write complete, validating... ", true, true);
-            imgcrc32 = crc32(&src[flashblockstart], flashblocksize);
+            imgcrc32 = SsmProtocol::crc32(&src[flashblockstart], flashblocksize);
 
             uint8_t SUB_KERNEL_CMD = 0;
             if (test_write)
@@ -1120,7 +1083,7 @@ int FlashEcuSubaruDensoSH7055_02Operation::flash_block(const uint8_t *src, uint3
             output.append((uint8_t)(imgcrc32 >> 16) & 0xFF);
             output.append((uint8_t)(imgcrc32 >> 8) & 0xFF);
             output.append((uint8_t)imgcrc32 & 0xFF);
-            chksum = calculate_checksum(output, false);
+            chksum = SsmProtocol::checksum(output, false);
             output.append((uint8_t)chksum & 0xFF);
             received = serial->write_serial_data_echo_check(output);
 
@@ -1177,7 +1140,7 @@ QByteArray FlashEcuSubaruDensoSH7055_02Operation::request_kernel_id()
     output.append((uint8_t)((datalen + 1) >> 8) & 0xFF);
     output.append((uint8_t)(datalen + 1) & 0xFF);
     output.append((uint8_t)(SUB_KERNEL_ID & 0xFF));
-    chksum = calculate_checksum(output, false);
+    chksum = SsmProtocol::checksum(output, false);
     output.append((uint8_t)chksum & 0xFF);
     received = serial->write_serial_data_echo_check(output);
 
@@ -1203,7 +1166,7 @@ QByteArray FlashEcuSubaruDensoSH7055_02Operation::send_sid_bf_ssm_init()
 
     output.clear();
     output.append((uint8_t)0xBF);
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
@@ -1225,7 +1188,7 @@ QByteArray FlashEcuSubaruDensoSH7055_02Operation::send_sid_27_request_seed()
 
     output.append((uint8_t)0x27);
     output.append((uint8_t)0x01);
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(receive_timeout);
@@ -1249,7 +1212,7 @@ QByteArray FlashEcuSubaruDensoSH7055_02Operation::send_sid_27_send_seed_key(QByt
     output.append((uint8_t)0x27);
     output.append((uint8_t)0x02);
     output.append(seed_key);
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(receive_timeout);
@@ -1263,38 +1226,11 @@ QByteArray FlashEcuSubaruDensoSH7055_02Operation::send_sid_27_send_seed_key(QByt
  *
  * @return parsed message
  */
-QByteArray FlashEcuSubaruDensoSH7055_02Operation::add_ssm_header(QByteArray output, uint8_t tester_id, uint8_t target_id, bool dec_0x100)
-{
-    uint8_t length = output.length();
-
-    output.insert(0, (uint8_t)0x80);
-    output.insert(1, target_id & 0xFF);
-    output.insert(2, tester_id & 0xFF);
-    output.insert(3, length);
-
-    output.append(calculate_checksum(output, dec_0x100));
-
-    return output;
-}
-
 /*
  * Calculate SSM checksum to message
  *
  * @return 8-bit checksum
  */
-uint8_t FlashEcuSubaruDensoSH7055_02Operation::calculate_checksum(QByteArray output, bool dec_0x100)
-{
-    uint8_t checksum = 0;
-
-    for (uint16_t i = 0; i < output.length(); i++)
-        checksum += (uint8_t)output.at(i);
-
-    if (dec_0x100)
-        checksum = (uint8_t) (0x100 - checksum);
-
-    return checksum;
-}
-
 int FlashEcuSubaruDensoSH7055_02Operation::check_received_message(uint8_t *req_response, QByteArray received)
 {
     if (received.length() != 3)
@@ -1307,7 +1243,7 @@ int FlashEcuSubaruDensoSH7055_02Operation::check_received_message(uint8_t *req_r
     {
         if (req_response[i] != (uint8_t)received.at(i))
         {
-            emit LOG_D("Error: Wrong response: " + parse_message_to_hex(received), true, true);
+            emit LOG_D("Error: Wrong response: " + SsmProtocol::toHex(received), true, true);
             return STATUS_ERROR;
         }
     }
@@ -1339,14 +1275,3 @@ int FlashEcuSubaruDensoSH7055_02Operation::connect_bootloader_start_countdown(in
  *
  * @return parsed message
  */
-QString FlashEcuSubaruDensoSH7055_02Operation::parse_message_to_hex(QByteArray received)
-{
-    QString msg;
-
-    for (int i = 0; i < received.length(); i++)
-    {
-        msg.append(QString("%1 ").arg((uint8_t)received.at(i),2,16,QLatin1Char('0')).toUtf8());
-    }
-
-    return msg;
-}

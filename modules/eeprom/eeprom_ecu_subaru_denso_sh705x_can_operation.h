@@ -11,8 +11,7 @@
 
 class SerialPortActions;
 
-// Worker-thread half of EepromEcuSubaruDensoSH705xCan (see
-// docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md).
+// Worker-thread half of EepromEcuSubaruDensoSH705xCan (worker-thread migration).
 // Owns every serial-> call and the Subaru Denso 07+ 32-bit CAN EEPROM
 // dump sequence; relocated verbatim from
 // EepromEcuSubaruDensoSH705xCan's former private methods.
@@ -92,19 +91,12 @@ private:
     QByteArray generate_seed_key(QByteArray seed);
     QByteArray generate_ecutek_seed_key(QByteArray requested_seed);
     QByteArray generate_cobb_seed_key(QByteArray requested_seed);
-    QByteArray calculate_seed_key(QByteArray requested_seed, const uint16_t *keytogenerateindex, const uint8_t *indextransformation);
 
     QByteArray request_kernel_init();
     QByteArray request_kernel_id();
 
     QByteArray encrypt_payload(QByteArray buf, uint32_t len);
     QByteArray decrypt_payload(QByteArray buf, uint32_t len);
-    QByteArray calculate_payload(QByteArray buf, uint32_t len, const uint16_t *keytogenerateindex, const uint8_t *indextransformation);
-
-    QByteArray add_ssm_header(QByteArray output, uint8_t tester_id, uint8_t target_id, bool dec_0x100);
-    uint8_t calculate_checksum(QByteArray output, bool dec_0x100);
-
-    QString parse_message_to_hex(QByteArray received);
 
     QByteArray calculate_ecutek_racerom_seed_key(uint32_t req_seed);//QByteArray requested_seed);
     QByteArray generate_ecutek_racerom_can_seed_key(QByteArray requested_seed);

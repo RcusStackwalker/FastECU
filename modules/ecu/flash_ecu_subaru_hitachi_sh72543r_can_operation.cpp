@@ -1,4 +1,5 @@
 #include "flash_ecu_subaru_hitachi_sh72543r_can_operation.h"
+#include "modules/ssm_protocol.h"
 #include "serial_port_actions.h"
 
 #include <QElapsedTimer>
@@ -117,7 +118,7 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::connect_bootloader()
         if ((uint8_t)received.at(4) == 0x7F && (uint8_t)received.at(5) == 0xB7 && (uint8_t)received.at(6) == 0x13)
         {
             emit LOG_I("OBK is active", true, true);
-            emit LOG_D("Response: " + parse_message_to_hex(output), true, true);
+            emit LOG_D("Response: " + SsmProtocol::toHex(output), true, true);
             kernel_alive = true;
             return STATUS_SUCCESS;
         }
@@ -499,7 +500,7 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::read_mem(uint32_t start_addr, uin
         if (received.length() > 4)
             pagedata = received.remove(0, 5);
 
-        emit LOG_I("Received pagedata: " + parse_message_to_hex(pagedata), true, true);
+        emit LOG_I("Received pagedata: " + SsmProtocol::toHex(pagedata), true, true);
         mapdata.append(pagedata);
 
         // don't count skipped first bytes //
@@ -1074,7 +1075,7 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::erase_mem()
     }
     if (try_count >= 20)
     {
-        emit LOG_E("Flash area erase failed: " + parse_message_to_hex(received), true, true);
+        emit LOG_E("Flash area erase failed: " + SsmProtocol::toHex(received), true, true);
 
         return STATUS_ERROR;
     }
@@ -1114,7 +1115,7 @@ QByteArray FlashEcuSubaruHitachiSH72543rCanOperation::generate_can_seed_key(QByt
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
     };
 
-    key = calculate_seed_key(requested_seed, keytogenerateindex, indextransformation);
+    key = SsmProtocol::calculateSeedKey(requested_seed, keytogenerateindex, indextransformation);
 
     return key;
 }
@@ -1124,48 +1125,6 @@ QByteArray FlashEcuSubaruHitachiSH72543rCanOperation::generate_can_seed_key(QByt
  *
  * @return seed key (4 bytes)
  */
-QByteArray FlashEcuSubaruHitachiSH72543rCanOperation::calculate_seed_key(QByteArray requested_seed, const uint16_t *keytogenerateindex, const uint8_t *indextransformation)
-{
-    QByteArray key;
-
-    uint32_t seed, index;
-    uint16_t wordtogenerateindex, wordtobeencrypted, encryptionkey;
-    int ki, n;
-
-    seed = (requested_seed.at(0) << 24) & 0xFF000000;
-    seed += (requested_seed.at(1) << 16) & 0x00FF0000;
-    seed += (requested_seed.at(2) << 8) & 0x0000FF00;
-    seed += requested_seed.at(3) & 0x000000FF;
-    //seed = reconst_32(seed8);
-
-    for (ki = 15; ki >= 0; ki--) {
-
-        wordtogenerateindex = seed;
-        wordtobeencrypted = seed >> 16;
-        index = wordtogenerateindex ^ keytogenerateindex[ki];
-        index += index << 16;
-        encryptionkey = 0;
-
-        for (n = 0; n < 4; n++) {
-            encryptionkey += indextransformation[(index >> (n * 4)) & 0x1F] << (n * 4);
-        }
-
-        encryptionkey = (encryptionkey >> 3) + (encryptionkey << 13);
-        seed = (encryptionkey ^ wordtobeencrypted) + (wordtogenerateindex << 16);
-    }
-
-    seed = (seed >> 16) + (seed << 16);
-
-    key.clear();
-    key.append((uint8_t)(seed >> 24));
-    key.append((uint8_t)(seed >> 16));
-    key.append((uint8_t)(seed >> 8));
-    key.append((uint8_t)seed);
-
-    //write_32b(seed, key);
-
-    return key;
-}
 /*
  * Encrypt upload data
  *
@@ -1188,7 +1147,7 @@ QByteArray FlashEcuSubaruHitachiSH72543rCanOperation::encrypt_payload(QByteArray
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
     };
 
-    encrypted = calculate_payload(buf, len, keytogenerateindex, indextransformation);
+    encrypted = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
     return encrypted;
 }
@@ -1209,53 +1168,9 @@ QByteArray FlashEcuSubaruHitachiSH72543rCanOperation::decrypt_payload(QByteArray
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
     };
 
-    decrypt = calculate_payload(buf, len, keytogenerateindex, indextransformation);
+    decrypt = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
     return decrypt;
-}
-
-QByteArray FlashEcuSubaruHitachiSH72543rCanOperation::calculate_payload(QByteArray buf, uint32_t len, const uint16_t *keytogenerateindex, const uint8_t *indextransformation)
-{
-    QByteArray encrypted;
-    uint32_t datatoencrypt32, index;
-    uint16_t wordtogenerateindex, wordtobeencrypted, encryptionkey;
-    int ki, n;
-
-    if (!buf.length() || !len) {
-        return NULL;
-    }
-
-    encrypted.clear();
-
-    len &= ~3;
-    for (uint32_t i = 0; i < len; i += 4) {
-        datatoencrypt32 = ((buf.at(i) << 24) & 0xFF000000) | ((buf.at(i + 1) << 16) & 0xFF0000) | ((buf.at(i + 2) << 8) & 0xFF00) | (buf.at(i + 3) & 0xFF);
-
-        for (ki = 0; ki < 4; ki++) {
-
-            wordtogenerateindex = datatoencrypt32;
-            wordtobeencrypted = datatoencrypt32 >> 16;
-            index = wordtogenerateindex ^ keytogenerateindex[ki];
-            index += index << 16;
-            encryptionkey = 0;
-
-            for (n = 0; n < 4; n++) {
-                encryptionkey += indextransformation[(index >> (n * 4)) & 0x1F] << (n * 4);
-            }
-
-            encryptionkey = (encryptionkey >> 3) + (encryptionkey << 13);
-            datatoencrypt32 = (encryptionkey ^ wordtobeencrypted) + (wordtogenerateindex << 16);
-        }
-
-        datatoencrypt32 = (datatoencrypt32 >> 16) + (datatoencrypt32 << 16);
-
-        encrypted.append((datatoencrypt32 >> 24) & 0xFF);
-        encrypted.append((datatoencrypt32 >> 16) & 0xFF);
-        encrypted.append((datatoencrypt32 >> 8) & 0xFF);
-        encrypted.append(datatoencrypt32 & 0xFF);
-        //encrypted.append(sub_encrypt(tempbuf));
-    }
-    return encrypted;
 }
 
 /*
@@ -1263,14 +1178,3 @@ QByteArray FlashEcuSubaruHitachiSH72543rCanOperation::calculate_payload(QByteArr
  *
  * @return parsed message
  */
-QString FlashEcuSubaruHitachiSH72543rCanOperation::parse_message_to_hex(QByteArray received)
-{
-    QString msg;
-
-    for (int i = 0; i < received.length(); i++)
-    {
-        msg.append(QString("%1 ").arg((uint8_t)received.at(i),2,16,QLatin1Char('0')).toUtf8());
-    }
-
-    return msg;
-}

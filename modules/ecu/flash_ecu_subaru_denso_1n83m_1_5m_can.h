@@ -19,8 +19,7 @@ namespace Ui
 QT_END_NAMESPACE
 
 // Subaru Denso 1N83M/1.5M CAN reflash module. GUI-thread half of the
-// dialog+operation split (see
-// docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md);
+// dialog+operation split (worker-thread migration);
 // protocol logic lives in FlashEcuSubaruDenso1N83M_1_5MCanOperation.
 class FlashEcuSubaruDenso1N83M_1_5MCan : public QDialog
 {

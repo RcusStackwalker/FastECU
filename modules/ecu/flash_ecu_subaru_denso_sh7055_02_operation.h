@@ -11,8 +11,7 @@
 
 class SerialPortActions;
 
-// Worker-thread half of FlashEcuSubaruDensoSH7055_02 (see
-// docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md).
+// Worker-thread half of FlashEcuSubaruDensoSH7055_02 (worker-thread migration).
 // Owns every serial-> call and the Subaru Denso SH7055 (02) 32-bit K-Line
 // bootloader protocol sequence; relocated verbatim from
 // FlashEcuSubaruDensoSH7055_02's former private methods.
@@ -38,8 +37,6 @@ private:
     #define KERNEL_MAXSIZE_SUB 8*1024U
 
     uint32_t CRC32 = 0x5AA5A55A;
-    bool crc_tab32_init = 0;
-    uint32_t crc_tab32[256];
 
     bool kernel_alive = false;
     bool test_write = false;
@@ -86,9 +83,6 @@ private:
     int init_flash_write();
     int flash_block(const uint8_t *src, uint32_t start, uint32_t len);
     int reflash_block(const uint8_t *newdata, const struct flashdev_t *fdt, unsigned blockno, bool test_write);
-
-    unsigned int crc32(const unsigned char *buf, unsigned int len);
-    void init_crc32_tab(void);
     uint8_t cks_add8(QByteArray chksum_data, unsigned len);
 
     QByteArray send_sid_bf_ssm_init();
@@ -97,12 +91,8 @@ private:
 
     QByteArray request_kernel_init();
     QByteArray request_kernel_id();
-
-    QByteArray add_ssm_header(QByteArray output, uint8_t tester_id, uint8_t target_id, bool dec_0x100);
-    uint8_t calculate_checksum(QByteArray output, bool dec_0x100);
     int check_received_message(uint8_t *req_response, QByteArray received);
     int connect_bootloader_start_countdown(int timeout);
-    QString parse_message_to_hex(QByteArray received);
 
     SerialPortActions *serial;
     FileActions::EcuCalDefStructure *ecuCalDef;

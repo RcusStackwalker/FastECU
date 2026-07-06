@@ -19,8 +19,7 @@ namespace Ui
 QT_END_NAMESPACE
 
 // Subaru 07+ Diesel SH7058 32-bit CAN (iso15765) reflash module. GUI-thread
-// half of the dialog+operation split (see
-// docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md);
+// half of the dialog+operation split (worker-thread migration);
 // protocol logic lives in FlashEcuSubaruDensoSH7058CanDieselOperation.
 class FlashEcuSubaruDensoSH7058CanDiesel : public QDialog
 {

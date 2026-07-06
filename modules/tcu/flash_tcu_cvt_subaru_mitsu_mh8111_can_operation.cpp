@@ -1,4 +1,5 @@
 #include "flash_tcu_cvt_subaru_mitsu_mh8111_can_operation.h"
+#include "modules/ssm_protocol.h"
 #include "serial_port_actions.h"
 
 #include <QElapsedTimer>
@@ -394,7 +395,7 @@ int FlashTcuCvtSubaruMitsuMH8111CanOperation::read_mem(uint32_t start_addr, uint
     output.append((uint8_t)0x00);
     output.append((uint8_t)0x00);
 
-    emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
+    emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
     serial->write_serial_data_echo_check(output);
     delay(50);
     received = serial->read_serial_data(serial_read_timeout);
@@ -448,7 +449,7 @@ int FlashTcuCvtSubaruMitsuMH8111CanOperation::read_mem(uint32_t start_addr, uint
         output[5] = (uint8_t)((addr >> 16) & 0xFF);
         output[6] = (uint8_t)((addr >> 8) & 0xFF);
         output[7] = (uint8_t)(addr & 0xFF);
-        emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
+        emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
         serial->write_serial_data_echo_check(output);
         received = serial->read_serial_data(serial_read_timeout);
         if (received.length() > 5)
@@ -470,7 +471,7 @@ int FlashTcuCvtSubaruMitsuMH8111CanOperation::read_mem(uint32_t start_addr, uint
         pagedata.clear();
         pagedata = received.remove(0, 5);
 
-        //emit LOG_I("Received pagedata: " + parse_message_to_hex(pagedata), true, true);
+        //emit LOG_I("Received pagedata: " + SsmProtocol::toHex(pagedata), true, true);
         mapdata.append(pagedata);
 
         // don't count skipped first bytes //
@@ -525,7 +526,7 @@ int FlashTcuCvtSubaruMitsuMH8111CanOperation::read_mem(uint32_t start_addr, uint
     while (try_count < 6 && connected == false)
     {
         serial->write_serial_data_echo_check(output);
-        emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
+        emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
         delay(200);
         received = serial->read_serial_data(serial_read_long_timeout);
         if (received != "")
@@ -735,7 +736,7 @@ int FlashTcuCvtSubaruMitsuMH8111CanOperation::reflash_block(const uint8_t *newda
         data_len -= 256;
 
         serial->write_serial_data_echo_check(output);
-        emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
+        emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
         received = serial->read_serial_data(receive_timeout);
 
 
@@ -862,7 +863,7 @@ int FlashTcuCvtSubaruMitsuMH8111CanOperation::erase_mem()
     output.append((uint8_t)0xff);
     output.append((uint8_t)0xff);
     serial->write_serial_data_echo_check(output);
-    emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
+    emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
     delay(100);
     received = serial->read_serial_data(serial_read_timeout);
 
@@ -924,7 +925,7 @@ QByteArray FlashTcuCvtSubaruMitsuMH8111CanOperation::generate_seed_key(QByteArra
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
     };
 
-    key = calculate_seed_key(requested_seed, keytogenerateindex, indextransformation);
+    key = SsmProtocol::calculateSeedKey(requested_seed, keytogenerateindex, indextransformation);
 
     return key;
 }
@@ -934,50 +935,6 @@ QByteArray FlashTcuCvtSubaruMitsuMH8111CanOperation::generate_seed_key(QByteArra
  *
  * @return seed key (4 bytes)
  */
-QByteArray FlashTcuCvtSubaruMitsuMH8111CanOperation::calculate_seed_key(QByteArray requested_seed, const uint16_t *keytogenerateindex, const uint8_t *indextransformation)
-{
-    QByteArray key;
-
-    uint32_t seed, index;
-    uint16_t wordtogenerateindex, wordtobeencrypted, encryptionkey;
-    int ki, n;
-
-    seed = (requested_seed.at(0) << 24) & 0xFF000000;
-    seed += (requested_seed.at(1) << 16) & 0x00FF0000;
-    seed += (requested_seed.at(2) << 8) & 0x0000FF00;
-    seed += requested_seed.at(3) & 0x000000FF;
-    //seed = reconst_32(seed8);
-
-    for (ki = 15; ki >= 0; ki--) {
-
-        wordtogenerateindex = seed;
-        wordtobeencrypted = seed >> 16;
-        index = wordtogenerateindex ^ keytogenerateindex[ki];
-        index += index << 16;
-        encryptionkey = 0;
-
-        for (n = 0; n < 4; n++) {
-            encryptionkey += indextransformation[(index >> (n * 4)) & 0x1F] << (n * 4);
-        }
-
-        encryptionkey = (encryptionkey >> 3) + (encryptionkey << 13);
-        seed = (encryptionkey ^ wordtobeencrypted) + (wordtogenerateindex << 16);
-    }
-
-    seed = (seed >> 16) + (seed << 16);
-
-    key.clear();
-    key.append((uint8_t)(seed >> 24));
-    key.append((uint8_t)(seed >> 16));
-    key.append((uint8_t)(seed >> 8));
-    key.append((uint8_t)seed);
-
-    //write_32b(seed, key);
-
-    return key;
-}
-
-
 //
 //
 //
@@ -1004,7 +961,7 @@ QByteArray FlashTcuCvtSubaruMitsuMH8111CanOperation::encrypt_payload(QByteArray 
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
     };
 
-    encrypted = calculate_payload(buf, len, keytogenerateindex, indextransformation);
+    encrypted = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
     return encrypted;
 }
@@ -1024,53 +981,9 @@ QByteArray FlashTcuCvtSubaruMitsuMH8111CanOperation::decrypt_payload(QByteArray 
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
     };
 
-    decrypt = calculate_payload(buf, len, keytogenerateindex, indextransformation);
+    decrypt = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
     return decrypt;
-}
-
-QByteArray FlashTcuCvtSubaruMitsuMH8111CanOperation::calculate_payload(QByteArray buf, uint32_t len, const uint16_t *keytogenerateindex, const uint8_t *indextransformation)
-{
-    QByteArray encrypted;
-    uint32_t datatoencrypt32, index;
-    uint16_t wordtogenerateindex, wordtobeencrypted, encryptionkey;
-    int ki, n;
-
-    if (!buf.length() || !len) {
-        return NULL;
-    }
-
-    encrypted.clear();
-
-    len &= ~3;
-    for (uint32_t i = 0; i < len; i += 4) {
-        datatoencrypt32 = ((buf.at(i) << 24) & 0xFF000000) | ((buf.at(i + 1) << 16) & 0xFF0000) | ((buf.at(i + 2) << 8) & 0xFF00) | (buf.at(i + 3) & 0xFF);
-
-        for (ki = 0; ki < 4; ki++) {
-
-            wordtogenerateindex = datatoencrypt32;
-            wordtobeencrypted = datatoencrypt32 >> 16;
-            index = wordtogenerateindex ^ keytogenerateindex[ki];
-            index += index << 16;
-            encryptionkey = 0;
-
-            for (n = 0; n < 4; n++) {
-                encryptionkey += indextransformation[(index >> (n * 4)) & 0x1F] << (n * 4);
-            }
-
-            encryptionkey = (encryptionkey >> 3) + (encryptionkey << 13);
-            datatoencrypt32 = (encryptionkey ^ wordtobeencrypted) + (wordtogenerateindex << 16);
-        }
-
-        datatoencrypt32 = (datatoencrypt32 >> 16) + (datatoencrypt32 << 16);
-
-        encrypted.append((datatoencrypt32 >> 24) & 0xFF);
-        encrypted.append((datatoencrypt32 >> 16) & 0xFF);
-        encrypted.append((datatoencrypt32 >> 8) & 0xFF);
-        encrypted.append(datatoencrypt32 & 0xFF);
-        //encrypted.append(sub_encrypt(tempbuf));
-    }
-    return encrypted;
 }
 
 /*
@@ -1078,14 +991,3 @@ QByteArray FlashTcuCvtSubaruMitsuMH8111CanOperation::calculate_payload(QByteArra
  *
  * @return parsed message
  */
-QString FlashTcuCvtSubaruMitsuMH8111CanOperation::parse_message_to_hex(QByteArray received)
-{
-    QString msg;
-
-    for (int i = 0; i < received.length(); i++)
-    {
-        msg.append(QString("%1 ").arg((uint8_t)received.at(i),2,16,QLatin1Char('0')).toUtf8());
-    }
-
-    return msg;
-}

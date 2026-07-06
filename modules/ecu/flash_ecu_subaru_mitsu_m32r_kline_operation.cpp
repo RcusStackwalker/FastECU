@@ -1,4 +1,5 @@
 #include "flash_ecu_subaru_mitsu_m32r_kline_operation.h"
+#include "modules/ssm_protocol.h"
 #include "serial_port_actions.h"
 
 #include <QElapsedTimer>
@@ -190,12 +191,12 @@ int FlashEcuSubaruMitsuM32rKlineOperation::connect_bootloader()
     seed.append(received.at(8));
     seed.append(received.at(9));
 
-    msg = parse_message_to_hex(seed);
+    msg = SsmProtocol::toHex(seed);
     emit LOG_I("Received seed: " + msg, true, true);
 
     seed_key = generate_seed_key(seed);
 
-    msg = parse_message_to_hex(seed_key);
+    msg = SsmProtocol::toHex(seed_key);
     emit LOG_I("Calculated seed key: " + msg, true, true);
 
     emit LOG_I("Sending seed key to ECU", true, true);
@@ -467,7 +468,7 @@ int FlashEcuSubaruMitsuM32rKlineOperation::reflash_block(const uint8_t *newdata,
     output.append((uint8_t)0x07);
     output.append((uint8_t)0x80);
     output.append((uint8_t)0x00);
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(serial_read_timeout);
     if (received.length() > 4)
@@ -495,7 +496,7 @@ int FlashEcuSubaruMitsuM32rKlineOperation::reflash_block(const uint8_t *newdata,
     output.append((uint8_t)0xFF);
     output.append((uint8_t)0xFF);
     output.append((uint8_t)0xFF);
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(serial_read_timeout);
     if (received.length() > 4)
@@ -534,7 +535,7 @@ int FlashEcuSubaruMitsuM32rKlineOperation::reflash_block(const uint8_t *newdata,
         }
         data_len -= blocksize;
 
-        output = add_ssm_header(output, tester_id, target_id, false);
+        output = SsmProtocol::addHeader(output, tester_id, target_id, false);
         serial->write_serial_data_echo_check(output);
         received = serial->read_serial_data(receive_timeout);
 /*
@@ -598,7 +599,7 @@ int FlashEcuSubaruMitsuM32rKlineOperation::reflash_block(const uint8_t *newdata,
     output.append((uint8_t)0x31);
     output.append((uint8_t)0x01);
     output.append((uint8_t)0x02);
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(serial_read_timeout);
     if (received.length() > 6)
@@ -637,7 +638,7 @@ QByteArray FlashEcuSubaruMitsuM32rKlineOperation::send_sid_b8_byte_read(uint32_t
     output.append((uint8_t)(addr >> 16) & 0xFF);
     output.append((uint8_t)(addr >> 8) & 0xFF);
     output.append((uint8_t)addr & 0xFF);
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
@@ -663,7 +664,7 @@ QByteArray FlashEcuSubaruMitsuM32rKlineOperation::send_sid_a0_block_read(uint32_
     output.append((uint8_t)(addr >> 8) & 0xFF);
     output.append((uint8_t)addr & 0xFF);
     output.append((uint8_t)len & 0xFF);
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
@@ -683,7 +684,7 @@ QByteArray FlashEcuSubaruMitsuM32rKlineOperation::send_sid_bf_ssm_init()
 
     output.clear();
     output.append((uint8_t)0xBF);
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
@@ -704,7 +705,7 @@ QByteArray FlashEcuSubaruMitsuM32rKlineOperation::send_sid_81_start_communicatio
 
     output.clear();
     output.append((uint8_t)0x81);
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
@@ -726,7 +727,7 @@ QByteArray FlashEcuSubaruMitsuM32rKlineOperation::send_sid_83_request_timings()
     output.clear();
     output.append((uint8_t)0x83);
     output.append((uint8_t)0x00);
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
@@ -748,7 +749,7 @@ QByteArray FlashEcuSubaruMitsuM32rKlineOperation::send_sid_27_request_seed()
     output.clear();
     output.append((uint8_t)0x27);
     output.append((uint8_t)0x01);
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
@@ -771,7 +772,7 @@ QByteArray FlashEcuSubaruMitsuM32rKlineOperation::send_sid_27_send_seed_key(QByt
     output.append((uint8_t)0x27);
     output.append((uint8_t)0x02);
     output.append(seed_key);
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
@@ -794,7 +795,7 @@ QByteArray FlashEcuSubaruMitsuM32rKlineOperation::send_sid_10_start_diagnostic()
     output.append((uint8_t)0x10);
     output.append((uint8_t)0x85);
     output.append((uint8_t)0x02);
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
@@ -826,7 +827,7 @@ QByteArray FlashEcuSubaruMitsuM32rKlineOperation::generate_seed_key(QByteArray r
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
     };
 
-    key = calculate_seed_key(requested_seed, keytogenerateindex, indextransformation);
+    key = SsmProtocol::calculateSeedKey(requested_seed, keytogenerateindex, indextransformation);
 
     return key;
 }
@@ -836,49 +837,6 @@ QByteArray FlashEcuSubaruMitsuM32rKlineOperation::generate_seed_key(QByteArray r
  *
  * @return seed key (4 bytes)
  */
-QByteArray FlashEcuSubaruMitsuM32rKlineOperation::calculate_seed_key(QByteArray requested_seed, const uint16_t *keytogenerateindex, const uint8_t *indextransformation)
-{
-    QByteArray key;
-
-    uint32_t seed, index;
-    uint16_t wordtogenerateindex, wordtobeencrypted, encryptionkey;
-    int ki, n;
-
-    seed = (requested_seed.at(0) << 24) & 0xFF000000;
-    seed += (requested_seed.at(1) << 16) & 0x00FF0000;
-    seed += (requested_seed.at(2) << 8) & 0x0000FF00;
-    seed += requested_seed.at(3) & 0x000000FF;
-    //seed = reconst_32(seed8);
-
-    for (ki = 15; ki >= 0; ki--) {
-
-        wordtogenerateindex = seed;
-        wordtobeencrypted = seed >> 16;
-        index = wordtogenerateindex ^ keytogenerateindex[ki];
-        index += index << 16;
-        encryptionkey = 0;
-
-        for (n = 0; n < 4; n++) {
-            encryptionkey += indextransformation[(index >> (n * 4)) & 0x1F] << (n * 4);
-        }
-
-        encryptionkey = (encryptionkey >> 3) + (encryptionkey << 13);
-        seed = (encryptionkey ^ wordtobeencrypted) + (wordtogenerateindex << 16);
-    }
-
-    seed = (seed >> 16) + (seed << 16);
-
-    key.clear();
-    key.append((uint8_t)(seed >> 24));
-    key.append((uint8_t)(seed >> 16));
-    key.append((uint8_t)(seed >> 8));
-    key.append((uint8_t)seed);
-
-    //write_32b(seed, key);
-
-    return key;
-}
-
 /*
  * Encrypt upload data
  *
@@ -901,7 +859,7 @@ QByteArray FlashEcuSubaruMitsuM32rKlineOperation::encrypt_payload(QByteArray buf
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
     };
 
-    encrypted = calculate_payload(buf, len, keytogenerateindex, indextransformation);
+    encrypted = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
     return encrypted;
 }
@@ -922,53 +880,9 @@ QByteArray FlashEcuSubaruMitsuM32rKlineOperation::decrypt_payload(QByteArray buf
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
     };
 
-    decrypt = calculate_payload(buf, len, keytogenerateindex, indextransformation);
+    decrypt = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
     return decrypt;
-}
-
-QByteArray FlashEcuSubaruMitsuM32rKlineOperation::calculate_payload(QByteArray buf, uint32_t len, const uint16_t *keytogenerateindex, const uint8_t *indextransformation)
-{
-    QByteArray encrypted;
-    uint32_t datatoencrypt32, index;
-    uint16_t wordtogenerateindex, wordtobeencrypted, encryptionkey;
-    int ki, n;
-
-    if (!buf.length() || !len) {
-        return NULL;
-    }
-
-    encrypted.clear();
-
-    len &= ~3;
-    for (uint32_t i = 0; i < len; i += 4) {
-        datatoencrypt32 = ((buf.at(i) << 24) & 0xFF000000) | ((buf.at(i + 1) << 16) & 0xFF0000) | ((buf.at(i + 2) << 8) & 0xFF00) | (buf.at(i + 3) & 0xFF);
-
-        for (ki = 0; ki < 4; ki++) {
-
-            wordtogenerateindex = datatoencrypt32;
-            wordtobeencrypted = datatoencrypt32 >> 16;
-            index = wordtogenerateindex ^ keytogenerateindex[ki];
-            index += index << 16;
-            encryptionkey = 0;
-
-            for (n = 0; n < 4; n++) {
-                encryptionkey += indextransformation[(index >> (n * 4)) & 0x1F] << (n * 4);
-            }
-
-            encryptionkey = (encryptionkey >> 3) + (encryptionkey << 13);
-            datatoencrypt32 = (encryptionkey ^ wordtobeencrypted) + (wordtogenerateindex << 16);
-        }
-
-        datatoencrypt32 = (datatoencrypt32 >> 16) + (datatoencrypt32 << 16);
-
-        encrypted.append((datatoencrypt32 >> 24) & 0xFF);
-        encrypted.append((datatoencrypt32 >> 16) & 0xFF);
-        encrypted.append((datatoencrypt32 >> 8) & 0xFF);
-        encrypted.append(datatoencrypt32 & 0xFF);
-        //encrypted.append(sub_encrypt(tempbuf));
-    }
-    return encrypted;
 }
 
 /*
@@ -976,55 +890,13 @@ QByteArray FlashEcuSubaruMitsuM32rKlineOperation::calculate_payload(QByteArray b
  *
  * @return parsed message
  */
-QByteArray FlashEcuSubaruMitsuM32rKlineOperation::add_ssm_header(QByteArray output, uint8_t tester_id, uint8_t target_id, bool dec_0x100)
-{
-    QByteArray received;
-    QByteArray msg;
-
-    uint8_t length = output.length();
-
-    output.insert(0, (uint8_t)0x80);
-    output.insert(1, target_id & 0xFF);
-    output.insert(2, tester_id & 0xFF);
-    output.insert(3, length);
-
-    output.append(calculate_checksum(output, dec_0x100));
-
-    //
-    return output;
-}
-
 /*
  * Calculate SSM checksum to message
  *
  * @return 8-bit checksum
  */
-uint8_t FlashEcuSubaruMitsuM32rKlineOperation::calculate_checksum(QByteArray output, bool dec_0x100)
-{
-    uint8_t checksum = 0;
-
-    for (uint16_t i = 0; i < output.length(); i++)
-        checksum += (uint8_t)output.at(i);
-
-    if (dec_0x100)
-        checksum = (uint8_t) (0x100 - checksum);
-
-    return checksum;
-}
-
 /*
  * Parse QByteArray to readable form
  *
  * @return parsed message
  */
-QString FlashEcuSubaruMitsuM32rKlineOperation::parse_message_to_hex(QByteArray received)
-{
-    QString msg;
-
-    for (int i = 0; i < received.length(); i++)
-    {
-        msg.append(QString("%1 ").arg((uint8_t)received.at(i),2,16,QLatin1Char('0')).toUtf8());
-    }
-
-    return msg;
-}

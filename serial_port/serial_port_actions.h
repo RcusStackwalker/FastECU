@@ -21,8 +21,7 @@
 
 class SerialBackendHost;
 
-// Thin marshaling facade over a SerialBackend hosted on the SerialIoThread
-// (see docs/superpowers/specs/2026-07-02-serial-backend-decoupling-design.md).
+// Thin marshaling facade over a SerialBackend hosted on the SerialIoThread.
 // The public surface is unchanged from the pre-refactor class; every method
 // forwards to the backend on the I/O thread and blocks the caller until the
 // result is ready.

@@ -4,9 +4,7 @@
 // Mitsubishi Colt CZT (Z37A, ROM 47110032) vendor diagnostic-extension
 // challenge algorithm. Reverse-engineered by static disassembly of a
 // commercially-tuned ROM's diagnostic-dispatcher hijack (not from any
-// vendor source or documentation) — see
-// docs/superpowers/specs/2026-07-04-mitsu-colt-can-vendor-ext-challenge-design.md
-// for the full derivation.
+// vendor source or documentation).
 //
 // This challenge gates entry into the 0x85 ("bootload") diagnostic session
 // on ROMs carrying this specific third-party extension. It is unrelated to
@@ -28,10 +26,10 @@ constexpr quint8 kVendorChallengeKeySubfunction = 0x42;  // ASCII 'B'
 // basis for the round-trip check in tests — not what a client calls.
 quint32 challengeTransform(quint32 secret);
 
-// Inverse of challengeTransform(), analytically derived (see design doc
-// for the derivation) and verified against the forward function across the
-// full 32-bit domain. THIS is what a real client calls: given the 4-byte
-// seed the ECU sends, computes the key value the ECU will accept.
+// Inverse of challengeTransform(), analytically derived and verified against
+// the forward function across the full 32-bit domain. THIS is what a real
+// client calls: given the 4-byte seed the ECU sends, computes the key value
+// the ECU will accept.
 quint32 challengeInverseTransform(quint32 seed);
 
 // Big-endian byte-array convenience wrappers matching the 4-byte wire

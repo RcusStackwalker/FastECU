@@ -10,8 +10,7 @@
 
 class SerialPortActions;
 
-// Worker-thread half of FlashEcuSubaruHitachiM32rCan (see
-// docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md).
+// Worker-thread half of FlashEcuSubaruHitachiM32rCan (worker-thread migration).
 // Owns every serial-> call and the Subaru Hitachi M32R CAN bootloader
 // protocol sequence; relocated verbatim from FlashEcuSubaruHitachiM32rCan's
 // former private methods.
@@ -74,17 +73,11 @@ private:
     QByteArray send_sid_31_start_routine();
 
     QByteArray generate_seed_key(QByteArray requested_seed);
-    QByteArray calculate_seed_key(QByteArray requested_seed, const uint16_t *keytogenerateindex, const uint8_t *indextransformation);
 
     QByteArray encrypt_payload(QByteArray buf, uint32_t len);
     QByteArray decrypt_payload(QByteArray buf, uint32_t len);
-    QByteArray calculate_payload(QByteArray buf, uint32_t len, const uint16_t *keytogenerateindex, const uint8_t *indextransformation);
-
-    QByteArray add_ssm_header(QByteArray output, uint8_t tester_id, uint8_t target_id, bool dec_0x100);
-    uint8_t calculate_checksum(QByteArray output, bool dec_0x100);
 
     int connect_bootloader_start_countdown(int timeout);
-    QString parse_message_to_hex(QByteArray received);
 
     SerialPortActions *serial;
     FileActions::EcuCalDefStructure *ecuCalDef;

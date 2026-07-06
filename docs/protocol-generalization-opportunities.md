@@ -1,7 +1,7 @@
 # Protocol implementation generalization opportunities
 
-Notes surfaced while migrating all 29 flash/eeprom dialog modules to `FlashOperationWorker`
-(see `docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md`). The migration was
+Notes surfaced while migrating all 29 flash/eeprom dialog modules to `FlashOperationWorker`.
+The migration was
 mechanical relocation only — no protocol behavior was changed — but reading every module's full
 protocol implementation start to finish surfaced duplication worth recording. Nothing here is
 proposed as a next task; it's a map for whoever next touches this code.

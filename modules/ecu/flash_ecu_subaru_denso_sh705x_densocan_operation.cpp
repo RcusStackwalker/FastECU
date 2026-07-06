@@ -1,4 +1,5 @@
 #include "flash_ecu_subaru_denso_sh705x_densocan_operation.h"
+#include "modules/ssm_protocol.h"
 #include "serial_port_actions.h"
 
 #include <QCoreApplication>
@@ -850,7 +851,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::check_romcrc(const uint8_t *src,
 
     ecucrc32 = ((uint8_t)received.at(9) << 24) | ((uint8_t)received.at(10) << 16) | ((uint8_t)received.at(11) << 8) | (uint8_t)received.at(12);
 
-    imgcrc32 = crc32(src, pagesize);
+    imgcrc32 = SsmProtocol::crc32(src, pagesize);
     msg.clear();
     msg.append(QString("ROM CRC: 0x%1 IMG CRC: 0x%2").arg(ecucrc32,8,16,QLatin1Char('0')).arg(imgcrc32,8,16,QLatin1Char('0')).toUtf8());
     emit LOG_D(msg, true, true);
@@ -871,43 +872,6 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::check_romcrc(const uint8_t *src,
     *modified = 0;
     serial->read_serial_data(serial_read_short_timeout);
     return 0;
-}
-
-unsigned int FlashEcuSubaruDensoSH705xDensoCanOperation::crc32(const unsigned char *buf, unsigned int len)
-{
-    unsigned int crc = 0xFFFFFFFF;
-
-    if (!crc_tab32_init)
-        init_crc32_tab();
-
-    if (buf == NULL)
-        return 0L;
-    while (len--)
-        crc = crc_tab32[((int)crc ^ (*buf++)) & 0xff] ^ (crc >> 8);
-
-    return crc ^ 0xFFFFFFFF;
-}
-
-void FlashEcuSubaruDensoSH705xDensoCanOperation::init_crc32_tab( void )
-{
-    uint32_t i, j;
-    uint32_t crc, c;
-
-    for (i=0; i<256; i++) {
-        crc = 0;
-        c = (uint32_t)i;
-
-        for (j=0; j<8; j++) {
-            if ( (crc ^ c) & 0x00000001 )
-                crc = ( crc >> 1 ) ^ CRC32;
-            else
-                crc =   crc >> 1;
-            c = c >> 1;
-        }
-        crc_tab32[i] = crc;
-    }
-
-    crc_tab32_init = 1;
 }
 
 int FlashEcuSubaruDensoSH705xDensoCanOperation::init_flash_write()
@@ -1278,7 +1242,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::flash_block(const uint8_t *src, 
         if ((flashblockstart + flashblocksize) == start)
         {
             emit LOG_I("Flash buffer write complete... ", true, true);
-            imgcrc32 = crc32(&src[flashblockstart], flashblocksize);
+            imgcrc32 = SsmProtocol::crc32(&src[flashblockstart], flashblocksize);
             emit LOG_D("Image CRC32: 0x" + QString::number(imgcrc32, 16), true, true);
 
             uint8_t SUB_KERNEL_CMD = 0;
@@ -1384,7 +1348,7 @@ QByteArray FlashEcuSubaruDensoSH705xDensoCanOperation::encrypt_payload(QByteArra
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
     };
 
-    encrypted = calculate_payload(buf, len, keytogenerateindex, indextransformation);
+    encrypted = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
     return encrypted;
 }
@@ -1404,53 +1368,9 @@ QByteArray FlashEcuSubaruDensoSH705xDensoCanOperation::decrypt_payload(QByteArra
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
     };
 
-    decrypted = calculate_payload(buf, len, keytogenerateindex, indextransformation);
+    decrypted = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
     return decrypted;
-}
-
-QByteArray FlashEcuSubaruDensoSH705xDensoCanOperation::calculate_payload(QByteArray buf, uint32_t len, const uint16_t *keytogenerateindex, const uint8_t *indextransformation)
-{
-    QByteArray encrypted;
-    uint32_t datatoencrypt32, index;
-    uint16_t wordtogenerateindex, wordtobeencrypted, encryptionkey;
-    int ki, n;
-
-    if (!buf.length() || !len) {
-        return NULL;
-    }
-
-    encrypted.clear();
-
-    len &= ~3;
-    for (uint32_t i = 0; i < len; i += 4) {
-        datatoencrypt32 = ((buf.at(i) << 24) & 0xFF000000) | ((buf.at(i + 1) << 16) & 0xFF0000) | ((buf.at(i + 2) << 8) & 0xFF00) | (buf.at(i + 3) & 0xFF);
-
-        for (ki = 0; ki < 4; ki++) {
-
-            wordtogenerateindex = datatoencrypt32;
-            wordtobeencrypted = datatoencrypt32 >> 16;
-            index = wordtogenerateindex ^ keytogenerateindex[ki];
-            index += index << 16;
-            encryptionkey = 0;
-
-            for (n = 0; n < 4; n++) {
-                encryptionkey += indextransformation[(index >> (n * 4)) & 0x1F] << (n * 4);
-            }
-
-            encryptionkey = (encryptionkey >> 3) + (encryptionkey << 13);
-            datatoencrypt32 = (encryptionkey ^ wordtobeencrypted) + (wordtogenerateindex << 16);
-        }
-
-        datatoencrypt32 = (datatoencrypt32 >> 16) + (datatoencrypt32 << 16);
-
-        encrypted.append((datatoencrypt32 >> 24) & 0xFF);
-        encrypted.append((datatoencrypt32 >> 16) & 0xFF);
-        encrypted.append((datatoencrypt32 >> 8) & 0xFF);
-        encrypted.append(datatoencrypt32 & 0xFF);
-        //encrypted.append(sub_encrypt(tempbuf));
-    }
-    return encrypted;
 }
 
 /*
@@ -1499,52 +1419,13 @@ QByteArray FlashEcuSubaruDensoSH705xDensoCanOperation::request_kernel_id()
  *
  * @return parsed message
  */
-QByteArray FlashEcuSubaruDensoSH705xDensoCanOperation::add_ssm_header(QByteArray output, uint8_t tester_id, uint8_t target_id, bool dec_0x100)
-{
-    uint8_t length = output.length();
-
-    output.insert(0, (uint8_t)0x80);
-    output.insert(1, target_id & 0xFF);
-    output.insert(2, tester_id & 0xFF);
-    output.insert(3, length);
-
-    output.append(calculate_checksum(output, dec_0x100));
-
-    //
-    return output;
-}
-
 /*
  * Calculate SSM checksum to message
  *
  * @return 8-bit checksum
  */
-uint8_t FlashEcuSubaruDensoSH705xDensoCanOperation::calculate_checksum(QByteArray output, bool dec_0x100)
-{
-    uint8_t checksum = 0;
-
-    for (uint16_t i = 0; i < output.length(); i++)
-        checksum += (uint8_t)output.at(i);
-
-    if (dec_0x100)
-        checksum = (uint8_t) (0x100 - checksum);
-
-    return checksum;
-}
-
 /*
  * Parse QByteArray to readable form
  *
  * @return parsed message
  */
-QString FlashEcuSubaruDensoSH705xDensoCanOperation::parse_message_to_hex(QByteArray received)
-{
-    QString msg;
-
-    for (int i = 0; i < received.length(); i++)
-    {
-        msg.append(QString("%1 ").arg((uint8_t)received.at(i),2,16,QLatin1Char('0')).toUtf8());
-    }
-
-    return msg;
-}

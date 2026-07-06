@@ -11,8 +11,7 @@
 
 class SerialPortActions;
 
-// Worker-thread half of FlashTcuCvtSubaruMitsuMH8104Can (see
-// docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md).
+// Worker-thread half of FlashTcuCvtSubaruMitsuMH8104Can (worker-thread migration).
 // Owns every serial-> call and the Subaru CVT TCU Mitsubishi MH8104 CAN
 // bootloader protocol sequence; relocated verbatim from
 // FlashTcuCvtSubaruMitsuMH8104Can's former private methods. Every
@@ -72,14 +71,8 @@ private:
     int erase_subaru_tcu_mitsu_can();
 
     QByteArray subaru_tcu_mitsu_generate_can_seed_key(QByteArray requested_seed);
-    QByteArray subaru_tcu_mitsu_calculate_seed_key(QByteArray requested_seed, const uint16_t *keytogenerateindex, const uint8_t *indextransformation);
     QByteArray subaru_tcu_mitsu_encrypt_32bit_payload(QByteArray buf, uint32_t len);
     QByteArray subaru_tcu_mitsu_decrypt_32bit_payload(QByteArray buf, uint32_t len);
-    QByteArray subaru_tcu_mitsu_calculate_32bit_payload(QByteArray buf, uint32_t len, const uint16_t *keytogenerateindex, const uint8_t *indextransformation);
-
-    uint8_t calculate_checksum(QByteArray output, bool dec_0x100);
-
-    QString parse_message_to_hex(QByteArray received);
 
     SerialPortActions *serial;
     FileActions::EcuCalDefStructure *ecuCalDef;

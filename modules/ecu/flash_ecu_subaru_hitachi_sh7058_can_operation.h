@@ -11,8 +11,7 @@
 
 class SerialPortActions;
 
-// Worker-thread half of FlashEcuSubaruHitachiSH7058Can (see
-// docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md).
+// Worker-thread half of FlashEcuSubaruHitachiSH7058Can (worker-thread migration).
 // Owns every serial-> call and the Subaru Hitachi SH7058 CAN bootloader
 // protocol sequence; relocated verbatim from
 // FlashEcuSubaruHitachiSH7058Can's former private methods.
@@ -77,8 +76,6 @@ private:
     QByteArray send_subaru_sid_b8_change_baudrate_38400();
     QByteArray send_subaru_sid_81_start_communication();
     QByteArray send_subaru_sid_83_request_timings();
-    QByteArray add_ssm_header(QByteArray output, uint8_t tester_id, uint8_t target_id, bool dec_0x100);
-//    uint8_t calculate_checksum(QByteArray output, bool dec_0x100);
 
 
     //uint8_t cks_add8(QByteArray chksum_data, unsigned len);
@@ -102,16 +99,10 @@ private:
     //QByteArray request_kernel_id();
 
     QByteArray subaru_ecu_hitachi_generate_can_seed_key(QByteArray requested_seed);
-    QByteArray subaru_ecu_hitachi_calculate_seed_key(QByteArray requested_seed, const uint16_t *keytogenerateindex, const uint8_t *indextransformation);
     QByteArray subaru_ecu_hitachi_encrypt_32bit_payload(QByteArray buf, uint32_t len);
     QByteArray subaru_ecu_hitachi_decrypt_32bit_payload(QByteArray buf, uint32_t len);
-    QByteArray subaru_ecu_hitachi_calculate_32bit_payload(QByteArray buf, uint32_t len, const uint16_t *keytogenerateindex, const uint8_t *indextransformation);
-
-    //QByteArray add_ssm_header(QByteArray output, uint8_t tester_id, uint8_t target_id, bool dec_0x100);
-    uint8_t calculate_checksum(QByteArray output, bool dec_0x100);
 
     //int connect_bootloader_start_countdown(int timeout);
-    QString parse_message_to_hex(QByteArray received);
 
     SerialPortActions *serial;
     FileActions::EcuCalDefStructure *ecuCalDef;

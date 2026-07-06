@@ -69,7 +69,7 @@ void SerialPortActions::waitForDone(const std::shared_ptr<QSemaphore> &done)
     // No GUI-thread pump: every caller either runs on its own worker thread
     // (flash-module operations, LoggingWorker) or accepts a brief blocking
     // wait for a short, click-bounded call (dtc_operations, dataterminal,
-    // hexcommander). See docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md.
+    // hexcommander).
     done->acquire();
 }
 

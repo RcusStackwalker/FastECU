@@ -71,7 +71,7 @@ QByteArray buildRoutineEraseFrame();
 // original author's comment on this exact payload reads "caused bootloader
 // lockup" during their own testing. Treat any call site as the highest-risk
 // step in this protocol; never send without an explicit confirmation gate
-// on a bench/spare ECU. See docs/superpowers/specs/2026-06-30-fastecu-colt-can-reflash-design.md.
+// on a bench/spare ECU.
 QByteArray buildRequestReflashUnlockFrame();
 
 // SID 0x23: [SID][addr>>16][addr>>8][addr][len].

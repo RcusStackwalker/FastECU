@@ -9,8 +9,7 @@
 
 class SerialPortActions;
 
-// Worker-thread half of FlashEcuMitsuM32rCan (see
-// docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md).
+// Worker-thread half of FlashEcuMitsuM32rCan (worker-thread migration).
 // Owns every serial-> call and the Mitsubishi Colt CZT (Z37A) M32R CAN
 // bootloader protocol sequence; relocated verbatim from
 // FlashEcuMitsuM32rCan's former private methods.
@@ -39,7 +38,6 @@ private:
     int write_mem(bool test_write);
     bool upload_and_commit(uint32_t start, const QByteArray &data);
     QByteArray build_request(const QByteArray &sidPayload);
-    QString parse_message_to_hex(QByteArray received);
 
     SerialPortActions *serial;
     FileActions::EcuCalDefStructure *ecuCalDef;

@@ -1,4 +1,5 @@
 #include "eeprom_ecu_subaru_denso_sh705x_can_operation.h"
+#include "modules/ssm_protocol.h"
 #include "serial_port_actions.h"
 
 #include <QElapsedTimer>
@@ -651,7 +652,7 @@ uint32_t EepromEcuSubaruDensoSH705xCanOperation::read_ram_location(uint32_t loc)
         loc++;
     }
     if (!serial->get_is_iso15765_connection())
-        output = add_ssm_header(output, tester_id, target_id, false);
+        output = SsmProtocol::addHeader(output, tester_id, target_id, false);
 
     serial->write_serial_data_echo_check(output);
 
@@ -1023,12 +1024,12 @@ int EepromEcuSubaruDensoSH705xCanOperation::read_mem(uint32_t start_addr, uint32
             {
                 received.remove(0, 9);
                 mapdata.append(received);
-                //qDebug() << "DATA:" << addr << parse_message_to_hex(received);
+                //qDebug() << "DATA:" << addr << SsmProtocol::toHex(received);
             }
         }
         else
         {
-            emit LOG_E("Wrong response from ECU: " + parse_message_to_hex(received), true, true);
+            emit LOG_E("Wrong response from ECU: " + SsmProtocol::toHex(received), true, true);
             return STATUS_ERROR;
         }
 
@@ -1060,9 +1061,9 @@ int EepromEcuSubaruDensoSH705xCanOperation::read_mem(uint32_t start_addr, uint32
             {
                 data.append(pagedata[i + j]);
             }
-            emit LOG_I(parse_message_to_hex(data), true, true);
+            emit LOG_I(SsmProtocol::toHex(data), true, true);
         }
-        emit LOG_D(parse_message_to_hex(pagedata), true, true);
+        emit LOG_D(SsmProtocol::toHex(pagedata), true, true);
         mapdata.append(pagedata);
 
         // don't count skipped first bytes //
@@ -1165,7 +1166,7 @@ QByteArray EepromEcuSubaruDensoSH705xCanOperation::generate_seed_key(QByteArray 
     };
 
     emit LOG_I("Using stock seed key algo", true, true);
-    key = calculate_seed_key(requested_seed, keytogenerateindex_1, indextransformation);
+    key = SsmProtocol::calculateSeedKey(requested_seed, keytogenerateindex_1, indextransformation);
 
     return key;
 }
@@ -1242,7 +1243,7 @@ QByteArray EepromEcuSubaruDensoSH705xCanOperation::generate_ecutek_seed_key(QByt
     };
 
     emit LOG_I("Using EcuTek seed key algo", true, true);
-    seed_key = calculate_seed_key(requested_seed, keytogenerateindex_1, indextransformation);
+    seed_key = SsmProtocol::calculateSeedKey(requested_seed, keytogenerateindex_1, indextransformation);
 
     if (flash_method.endsWith("_ecutek_racerom_alt"))
     {
@@ -1260,7 +1261,7 @@ QByteArray EepromEcuSubaruDensoSH705xCanOperation::generate_ecutek_seed_key(QByt
         seed_key.append((uint8_t)(et_rr_seed >> 16) & 0xff);
         seed_key.append((uint8_t)(et_rr_seed >> 8) & 0xff);
         seed_key.append((uint8_t)(et_rr_seed & 0xff));
-        emit LOG_D("Altered seed key: " + parse_message_to_hex(seed_key), true, true);
+        emit LOG_D("Altered seed key: " + SsmProtocol::toHex(seed_key), true, true);
     }
 
     return seed_key;
@@ -1297,7 +1298,7 @@ QByteArray EepromEcuSubaruDensoSH705xCanOperation::generate_cobb_seed_key(QByteA
     };
 
     emit LOG_I("Using COBB seed key algo", true, true);
-    key = calculate_seed_key(requested_seed, keytogenerateindex_1, indextransformation);
+    key = SsmProtocol::calculateSeedKey(requested_seed, keytogenerateindex_1, indextransformation);
 
     return key;
 }
@@ -1307,52 +1308,6 @@ QByteArray EepromEcuSubaruDensoSH705xCanOperation::generate_cobb_seed_key(QByteA
  *
  * @return seed key (4 bytes)
  */
-QByteArray EepromEcuSubaruDensoSH705xCanOperation::calculate_seed_key(QByteArray requested_seed, const uint16_t *keytogenerateindex, const uint8_t *indextransformation)
-{
-    QByteArray key;
-
-    uint32_t seed, index;
-    uint16_t wordtogenerateindex, wordtobeencrypted, encryptionkey;
-    int ki, n;
-
-    seed = (requested_seed.at(0) << 24) & 0xFF000000;
-    seed += (requested_seed.at(1) << 16) & 0x00FF0000;
-    seed += (requested_seed.at(2) << 8) & 0x0000FF00;
-    seed += requested_seed.at(3) & 0x000000FF;
-
-    QString msg = QString("Seed: 0x%1").arg(seed, 8, 16, QLatin1Char('0')).toUtf8();
-    emit LOG_I(msg, true, true);
-
-    //for (ki = 0; ki < 16; ki++) // Calculate seed from key
-    for (ki = 15; ki >= 0; ki--) // Calculate key from seed
-    {
-        wordtogenerateindex = seed;
-        wordtobeencrypted = seed >> 16;
-        index = wordtogenerateindex ^ keytogenerateindex[ki];
-        index += index << 16;
-        encryptionkey = 0;
-
-        for (n = 0; n < 4; n++) {
-            encryptionkey += indextransformation[(index >> (n * 4)) & 0x1F] << (n * 4);
-        }
-
-        encryptionkey = (encryptionkey >> 3) + (encryptionkey << 13);
-        seed = (encryptionkey ^ wordtobeencrypted) + (wordtogenerateindex << 16);
-    }
-
-    seed = (seed >> 16) + (seed << 16);
-    msg = QString("Seed key: 0x%1").arg(seed, 8, 16, QLatin1Char('0')).toUtf8();
-    emit LOG_I(msg, true, true);
-
-    key.clear();
-    key.append((uint8_t)(seed >> 24));
-    key.append((uint8_t)(seed >> 16));
-    key.append((uint8_t)(seed >> 8));
-    key.append((uint8_t)seed);
-
-    return key;
-}
-
 /*
  * Encrypt upload data
  *
@@ -1373,7 +1328,7 @@ QByteArray EepromEcuSubaruDensoSH705xCanOperation::encrypt_payload(QByteArray bu
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
     };
 
-    encrypted = calculate_payload(buf, len, keytogenerateindex, indextransformation);
+    encrypted = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
     return encrypted;
 }
@@ -1393,53 +1348,9 @@ QByteArray EepromEcuSubaruDensoSH705xCanOperation::decrypt_payload(QByteArray bu
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
     };
 
-    decrypt = calculate_payload(buf, len, keytogenerateindex, indextransformation);
+    decrypt = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
     return decrypt;
-}
-
-QByteArray EepromEcuSubaruDensoSH705xCanOperation::calculate_payload(QByteArray buf, uint32_t len, const uint16_t *keytogenerateindex, const uint8_t *indextransformation)
-{
-    QByteArray encrypted;
-    uint32_t datatoencrypt32, index;
-    uint16_t wordtogenerateindex, wordtobeencrypted, encryptionkey;
-    int ki, n;
-
-    if (!buf.length() || !len) {
-        return NULL;
-    }
-
-    encrypted.clear();
-
-    len &= ~3;
-    for (uint32_t i = 0; i < len; i += 4) {
-        datatoencrypt32 = ((buf.at(i) << 24) & 0xFF000000) | ((buf.at(i + 1) << 16) & 0xFF0000) | ((buf.at(i + 2) << 8) & 0xFF00) | (buf.at(i + 3) & 0xFF);
-
-        for (ki = 0; ki < 4; ki++) {
-
-            wordtogenerateindex = datatoencrypt32;
-            wordtobeencrypted = datatoencrypt32 >> 16;
-            index = wordtogenerateindex ^ keytogenerateindex[ki];
-            index += index << 16;
-            encryptionkey = 0;
-
-            for (n = 0; n < 4; n++) {
-                encryptionkey += indextransformation[(index >> (n * 4)) & 0x1F] << (n * 4);
-            }
-
-            encryptionkey = (encryptionkey >> 3) + (encryptionkey << 13);
-            datatoencrypt32 = (encryptionkey ^ wordtobeencrypted) + (wordtogenerateindex << 16);
-        }
-
-        datatoencrypt32 = (datatoencrypt32 >> 16) + (datatoencrypt32 << 16);
-
-        encrypted.append((datatoencrypt32 >> 24) & 0xFF);
-        encrypted.append((datatoencrypt32 >> 16) & 0xFF);
-        encrypted.append((datatoencrypt32 >> 8) & 0xFF);
-        encrypted.append(datatoencrypt32 & 0xFF);
-        //encrypted.append(sub_encrypt(tempbuf));
-    }
-    return encrypted;
 }
 
 /*
@@ -1489,53 +1400,13 @@ QByteArray EepromEcuSubaruDensoSH705xCanOperation::request_kernel_id()
  *
  * @return parsed message
  */
-QByteArray EepromEcuSubaruDensoSH705xCanOperation::add_ssm_header(QByteArray output, uint8_t tester_id, uint8_t target_id, bool dec_0x100)
-{
-    uint8_t length = output.length();
-
-    output.insert(0, (uint8_t)0x80);
-    output.insert(1, target_id & 0xFF);
-    output.insert(2, tester_id & 0xFF);
-    output.insert(3, length);
-
-    output.append(calculate_checksum(output, dec_0x100));
-
-    //
-    //qDebug () << "Send:" << parse_message_to_hex(output);
-    return output;
-}
-
 /*
  * Calculate SSM checksum to message
  *
  * @return 8-bit checksum
  */
-uint8_t EepromEcuSubaruDensoSH705xCanOperation::calculate_checksum(QByteArray output, bool dec_0x100)
-{
-    uint8_t checksum = 0;
-
-    for (uint16_t i = 0; i < output.length(); i++)
-        checksum += (uint8_t)output.at(i);
-
-    if (dec_0x100)
-        checksum = (uint8_t) (0x100 - checksum);
-
-    return checksum;
-}
-
 /*
  * Parse QByteArray to readable form
  *
  * @return parsed message
  */
-QString EepromEcuSubaruDensoSH705xCanOperation::parse_message_to_hex(QByteArray received)
-{
-    QString msg;
-
-    for (int i = 0; i < received.length(); i++)
-    {
-        msg.append(QString("%1 ").arg((uint8_t)received.at(i),2,16,QLatin1Char('0')).toUtf8());
-    }
-
-    return msg;
-}

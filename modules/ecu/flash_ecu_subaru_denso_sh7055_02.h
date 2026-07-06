@@ -19,8 +19,7 @@ namespace Ui
 QT_END_NAMESPACE
 
 // Subaru Denso SH7055 (02) 32-bit K-Line reflash module. GUI-thread half of
-// the dialog+operation split (see
-// docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md);
+// the dialog+operation split (worker-thread migration);
 // protocol logic lives in FlashEcuSubaruDensoSH7055_02Operation.
 class FlashEcuSubaruDensoSH7055_02 : public QDialog
 {

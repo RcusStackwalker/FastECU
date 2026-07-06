@@ -10,8 +10,7 @@
 
 class SerialPortActions;
 
-// Worker-thread half of FlashEcuSubaruDensoMC68HC16Y5_02_BDM (see
-// docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md).
+// Worker-thread half of FlashEcuSubaruDensoMC68HC16Y5_02_BDM (worker-thread migration).
 // Owns every serial-> call and the Subaru Denso MC68HC16 BDM unbrick
 // sequence; relocated verbatim from
 // FlashEcuSubaruDensoMC68HC16Y5_02_BDM's former private methods.
@@ -54,8 +53,6 @@ private:
     int read_mem(uint32_t start_addr, uint32_t length);
     int write_mem();
     int flash_block(const uint8_t *newdata, const struct flashdev_t *fdt, unsigned blockno);
-
-    QString parse_message_to_hex(QByteArray received);
 
     SerialPortActions *serial;
     FileActions::EcuCalDefStructure *ecuCalDef;

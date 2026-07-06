@@ -10,8 +10,7 @@
 
 class SerialPortActions;
 
-// Worker-thread half of FlashEcuSubaruUnisiaJecsM32rBootMode (see
-// docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md).
+// Worker-thread half of FlashEcuSubaruUnisiaJecsM32rBootMode (worker-thread migration).
 // Owns every serial-> call and the Subaru Unisia Jecs UJ20/30 boot-mode
 // K-Line protocol sequence; relocated verbatim from
 // FlashEcuSubaruUnisiaJecsM32rBootMode's former private methods.
@@ -77,11 +76,6 @@ private:
     QByteArray send_sid_bf_ssm_init();
     QByteArray send_subaru_sid_b8_change_baudrate_4800();
     QByteArray send_subaru_sid_b8_change_baudrate_38400();
-
-    QByteArray add_ssm_header(QByteArray output, uint8_t tester_id, uint8_t target_id, bool dec_0x100);
-    uint8_t calculate_checksum(QByteArray output, bool dec_0x100);
-
-    QString parse_message_to_hex(QByteArray received);
 
     SerialPortActions *serial;
     FileActions::EcuCalDefStructure *ecuCalDef;

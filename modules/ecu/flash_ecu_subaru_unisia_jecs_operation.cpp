@@ -1,4 +1,5 @@
 #include "flash_ecu_subaru_unisia_jecs_operation.h"
+#include "modules/ssm_protocol.h"
 #include "serial_port_actions.h"
 
 #include <QElapsedTimer>
@@ -123,7 +124,7 @@ int FlashEcuSubaruUnisiaJecsOperation::read_mem(uint32_t start_addr, uint32_t le
         output.append((uint8_t)(addr & 0xFF));
         output.append((uint8_t)(0x00 & 0xFF));
 
-        emit LOG_D("Write data: " + parse_message_to_hex(output), true, true);
+        emit LOG_D("Write data: " + SsmProtocol::toHex(output), true, true);
         serial->write_serial_data(output);
         delay(45);
 
@@ -209,14 +210,3 @@ int FlashEcuSubaruUnisiaJecsOperation::read_mem(uint32_t start_addr, uint32_t le
  *
  * @return parsed message
  */
-QString FlashEcuSubaruUnisiaJecsOperation::parse_message_to_hex(QByteArray received)
-{
-    QString msg;
-
-    for (int i = 0; i < received.length(); i++)
-    {
-        msg.append(QString("%1 ").arg((uint8_t)received.at(i),2,16,QLatin1Char('0')).toUtf8());
-    }
-
-    return msg;
-}

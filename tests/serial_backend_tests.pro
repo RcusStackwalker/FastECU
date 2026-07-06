@@ -1,5 +1,4 @@
-# Backend/adapter-level and thread-safety tests for the serial backend
-# decoupling (docs/superpowers/specs/2026-07-02-serial-backend-decoupling-design.md).
+# Backend/adapter-level and thread-safety tests for the serial backend decoupling.
 # Run with: qmake6 serial_backend_tests.pro && make && ./serial_backend_tests
 QT += core testlib serialport remoteobjects websockets widgets
 CONFIG += c++17 console

@@ -1,4 +1,5 @@
 #include "flash_ecu_subaru_hitachi_m32r_can_operation.h"
+#include "modules/ssm_protocol.h"
 #include "serial_port_actions.h"
 
 #include <QCoreApplication>
@@ -448,12 +449,12 @@ int FlashEcuSubaruHitachiM32rCanOperation::connect_bootloader()
             seed.append(received.at(8));
             seed.append(received.at(9));
 
-            msg = parse_message_to_hex(seed);
+            msg = SsmProtocol::toHex(seed);
             emit LOG_I("Received seed: " + msg, true, true);
 
             seed_key = generate_seed_key(seed);
 
-            msg = parse_message_to_hex(seed_key);
+            msg = SsmProtocol::toHex(seed_key);
             emit LOG_I("Calculated seed key: " + msg, true, true);
 
             emit LOG_I("Sending seed key to ECU", true, true);
@@ -673,12 +674,12 @@ int FlashEcuSubaruHitachiM32rCanOperation::connect_bootloader()
             seed.append(received.at(8));
             seed.append(received.at(9));
 
-            msg = parse_message_to_hex(seed);
+            msg = SsmProtocol::toHex(seed);
             emit LOG_I("Received seed: " + msg, true, true);
 
             seed_key = generate_seed_key(seed);
 
-            msg = parse_message_to_hex(seed_key);
+            msg = SsmProtocol::toHex(seed_key);
             emit LOG_I("Calculated seed key: " + msg, true, true);
 
             emit LOG_I("Sending seed key to ECU...", true, true);
@@ -902,7 +903,7 @@ int FlashEcuSubaruHitachiM32rCanOperation::read_mem(uint32_t start_addr, uint32_
         pagedata.clear();
         received.remove(0, 5);
         received = decrypt_payload(received, received.length());
-        //emit LOG_D("Decrypted response: " + parse_message_to_hex(received), true, true);
+        //emit LOG_D("Decrypted response: " + SsmProtocol::toHex(received), true, true);
         mapdata.append(received);
 
         // don't count skipped first bytes //
@@ -1215,13 +1216,13 @@ int FlashEcuSubaruHitachiM32rCanOperation::reflash_block(const uint8_t *newdata,
         {
             if ((uint8_t)received.at(4) != 0x77)
             {
-                emit LOG_I("." + parse_message_to_hex(received), false, false);
+                emit LOG_I("." + SsmProtocol::toHex(received), false, false);
             }
             else if ((uint8_t)received.at(4) == 0x77)
             {
                 connected = true;
                 emit LOG_I("", false, true);
-                emit LOG_I("Closed succesfully: " + parse_message_to_hex(received), true, true);
+                emit LOG_I("Closed succesfully: " + SsmProtocol::toHex(received), true, true);
             }
         }
         try_count++;
@@ -1244,7 +1245,7 @@ int FlashEcuSubaruHitachiM32rCanOperation::reflash_block(const uint8_t *newdata,
 
     delay(1000);
     received = serial->read_serial_data(500);
-    emit LOG_I(QString::number(try_count) + ": 0x31 response: " + parse_message_to_hex(received), true, true);
+    emit LOG_I(QString::number(try_count) + ": 0x31 response: " + SsmProtocol::toHex(received), true, true);
     if (received.length() != 7)
     {
         emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
@@ -1265,7 +1266,7 @@ int FlashEcuSubaruHitachiM32rCanOperation::reflash_block(const uint8_t *newdata,
         {
             delay(200);
             received = serial->read_serial_data(500);
-            //emit LOG_I(QString::number(try_count) + ": 0x31 response: " + parse_message_to_hex(received), true, true);
+            //emit LOG_I(QString::number(try_count) + ": 0x31 response: " + SsmProtocol::toHex(received), true, true);
 
             if (received.length() > 6)
             {
@@ -1353,7 +1354,7 @@ int FlashEcuSubaruHitachiM32rCanOperation::erase_memory()
     }
     if (!connected)
     {
-        emit LOG_E("Flash area erase failed: " + parse_message_to_hex(received), true, true);
+        emit LOG_E("Flash area erase failed: " + SsmProtocol::toHex(received), true, true);
 
         return STATUS_ERROR;
     }
@@ -1387,7 +1388,7 @@ QByteArray FlashEcuSubaruHitachiM32rCanOperation::generate_seed_key(QByteArray r
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
     };
 
-    key = calculate_seed_key(requested_seed, keytogenerateindex, indextransformation);
+    key = SsmProtocol::calculateSeedKey(requested_seed, keytogenerateindex, indextransformation);
 
     return key;
 }
@@ -1397,48 +1398,6 @@ QByteArray FlashEcuSubaruHitachiM32rCanOperation::generate_seed_key(QByteArray r
  *
  * @return seed key (4 bytes)
  */
-QByteArray FlashEcuSubaruHitachiM32rCanOperation::calculate_seed_key(QByteArray requested_seed, const uint16_t *keytogenerateindex, const uint8_t *indextransformation)
-{
-    QByteArray key;
-
-    uint32_t seed, index;
-    uint16_t wordtogenerateindex, wordtobeencrypted, encryptionkey;
-    int ki, n;
-
-    seed = (requested_seed.at(0) << 24) & 0xFF000000;
-    seed += (requested_seed.at(1) << 16) & 0x00FF0000;
-    seed += (requested_seed.at(2) << 8) & 0x0000FF00;
-    seed += requested_seed.at(3) & 0x000000FF;
-    //seed = reconst_32(seed8);
-
-    for (ki = 15; ki >= 0; ki--) {
-
-        wordtogenerateindex = seed;
-        wordtobeencrypted = seed >> 16;
-        index = wordtogenerateindex ^ keytogenerateindex[ki];
-        index += index << 16;
-        encryptionkey = 0;
-
-        for (n = 0; n < 4; n++) {
-            encryptionkey += indextransformation[(index >> (n * 4)) & 0x1F] << (n * 4);
-        }
-
-        encryptionkey = (encryptionkey >> 3) + (encryptionkey << 13);
-        seed = (encryptionkey ^ wordtobeencrypted) + (wordtogenerateindex << 16);
-    }
-
-    seed = (seed >> 16) + (seed << 16);
-
-    key.clear();
-    key.append((uint8_t)(seed >> 24));
-    key.append((uint8_t)(seed >> 16));
-    key.append((uint8_t)(seed >> 8));
-    key.append((uint8_t)seed);
-
-    //write_32b(seed, key);
-
-    return key;
-}
 /*
  * Encrypt upload data
  *
@@ -1461,7 +1420,7 @@ QByteArray FlashEcuSubaruHitachiM32rCanOperation::encrypt_payload(QByteArray buf
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
     };
 
-    encrypted = calculate_payload(buf, len, keytogenerateindex, indextransformation);
+    encrypted = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
     return encrypted;
 }
@@ -1483,53 +1442,9 @@ QByteArray FlashEcuSubaruHitachiM32rCanOperation::decrypt_payload(QByteArray buf
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
     };
 
-    decrypt = calculate_payload(buf, len, keytogenerateindex, indextransformation);
+    decrypt = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
     return decrypt;
-}
-
-QByteArray FlashEcuSubaruHitachiM32rCanOperation::calculate_payload(QByteArray buf, uint32_t len, const uint16_t *keytogenerateindex, const uint8_t *indextransformation)
-{
-    QByteArray encrypted;
-    uint32_t datatoencrypt32, index;
-    uint16_t wordtogenerateindex, wordtobeencrypted, encryptionkey;
-    int ki, n;
-
-    if (!buf.length() || !len) {
-        return NULL;
-    }
-
-    encrypted.clear();
-
-    len &= ~3;
-    for (uint32_t i = 0; i < len; i += 4) {
-        datatoencrypt32 = ((buf.at(i) << 24) & 0xFF000000) | ((buf.at(i + 1) << 16) & 0xFF0000) | ((buf.at(i + 2) << 8) & 0xFF00) | (buf.at(i + 3) & 0xFF);
-
-        for (ki = 0; ki < 4; ki++) {
-
-            wordtogenerateindex = datatoencrypt32;
-            wordtobeencrypted = datatoencrypt32 >> 16;
-            index = wordtogenerateindex ^ keytogenerateindex[ki];
-            index += index << 16;
-            encryptionkey = 0;
-
-            for (n = 0; n < 4; n++) {
-                encryptionkey += indextransformation[(index >> (n * 4)) & 0x1F] << (n * 4);
-            }
-
-            encryptionkey = (encryptionkey >> 3) + (encryptionkey << 13);
-            datatoencrypt32 = (encryptionkey ^ wordtobeencrypted) + (wordtogenerateindex << 16);
-        }
-
-        datatoencrypt32 = (datatoencrypt32 >> 16) + (datatoencrypt32 << 16);
-
-        encrypted.append((datatoencrypt32 >> 24) & 0xFF);
-        encrypted.append((datatoencrypt32 >> 16) & 0xFF);
-        encrypted.append((datatoencrypt32 >> 8) & 0xFF);
-        encrypted.append(datatoencrypt32 & 0xFF);
-        //encrypted.append(sub_encrypt(tempbuf));
-    }
-    return encrypted;
 }
 
 /*
@@ -1537,14 +1452,3 @@ QByteArray FlashEcuSubaruHitachiM32rCanOperation::calculate_payload(QByteArray b
  *
  * @return parsed message
  */
-QString FlashEcuSubaruHitachiM32rCanOperation::parse_message_to_hex(QByteArray received)
-{
-    QString msg;
-
-    for (int i = 0; i < received.length(); i++)
-    {
-        msg.append(QString("%1 ").arg((uint8_t)received.at(i),2,16,QLatin1Char('0')).toUtf8());
-    }
-
-    return msg;
-}

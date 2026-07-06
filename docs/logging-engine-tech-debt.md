@@ -1,9 +1,7 @@
 # Logging engine refactor — technical debt and improvement opportunities
 
 Known gaps, deferred risks, and follow-up ideas surfaced while building and reviewing the
-`LoggingProtocol`/`LoggingWorker`/`LoggingEngine` architecture (see
-`docs/superpowers/specs/2026-07-02-logging-engine-refactor-design.md` and
-`docs/superpowers/plans/2026-07-02-logging-engine-refactor.md`). Nothing here blocks the
+`LoggingProtocol`/`LoggingWorker`/`LoggingEngine` architecture. Nothing here blocks the
 current code — all are deliberate scope cuts or low-risk findings accepted during review.
 
 ## Needs real-hardware verification (already in the bench checklist)
@@ -26,7 +24,7 @@ the most consequential open items:
 ## Flash operation worker migration (phase 1b)
 
 `FlashEcuMitsuM32rCan` is the pattern-proof for the flash-module worker-thread
-migration (see `docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md`).
+migration.
 The real-hardware re-verification this migration needs before its next live flash
 is tracked as part of the module's existing bench-qualification gate — see Step 4
 ("Erase trigger") in `docs/colt_czt_47110032_can_bench_checklist.md` for the
@@ -95,10 +93,8 @@ QEventLoop/confirm()-under-worker-thread and live-progress-bar checks.
   was previously a mostly-harmless quirk because it only ever ran on the GUI thread; it's now also
   exercised from `LoggingWorker`'s thread for the direct-serial backend, which is exactly the
   behavior the bench checklist's item 1 needs to validate. **Update:** the thread-safe I/O path has
-  since landed (see the serial backend decoupling refactor, spec
-  `2026-07-02-serial-backend-decoupling-design.md`) — backends now live on a dedicated
-  `SerialIoThread` behind a marshaling facade; the GUI-thread compat shim was removed once the
-  flash-op worker migration landed (spec `2026-07-03-flash-operation-worker-design.md`) —
+  since landed: backends now live on a dedicated `SerialIoThread` behind a marshaling facade;
+  the GUI-thread compat shim was removed once the flash-op worker migration landed —
   `waitForDone()` now blocks unconditionally regardless of caller thread.
 - **`TestSsmLoggingProtocol`'s suite runtime (~1050ms)** comes from its timeout-bounded tests
   genuinely waiting out real wall-clock time (`QElapsedTimer`-bounded reassembly loops with no

@@ -25,8 +25,7 @@ utility) available before Step 4.
    recover before continuing.
    - **Worker-thread re-verification (phase 1b pattern-proof).**
      `FlashEcuMitsuM32rCan` is the pilot module for the flash-operation
-     worker-thread migration (see
-     `docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md`).
+     worker-thread migration.
      This step is the one place `write_mem()` shows a mid-operation
      `confirm()` prompt (the erase-trigger warning) while the flash
      operation itself now runs on a worker thread. Confirm on real

@@ -10,8 +10,7 @@
 
 class SerialPortActions;
 
-// Worker-thread half of FlashEcuSubaruUnisiaJecsM32r (see
-// docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md).
+// Worker-thread half of FlashEcuSubaruUnisiaJecsM32r (worker-thread migration).
 // Owns every serial-> call and the Subaru Unisia Jecs M32R K-Line bootloader
 // protocol sequence; relocated verbatim from
 // FlashEcuSubaruUnisiaJecsM32r's former private methods.
@@ -81,12 +80,6 @@ private:
 
     QByteArray encrypt_payload(QByteArray buf, uint32_t len);
     QByteArray decrypt_payload(QByteArray buf, uint32_t len);
-    QByteArray calculate_payload(QByteArray buf, uint32_t len, const uint16_t *keytogenerateindex, const uint8_t *indextransformation);
-
-    QByteArray add_ssm_header(QByteArray output, uint8_t tester_id, uint8_t target_id, bool dec_0x100);
-    uint8_t calculate_checksum(QByteArray output, bool dec_0x100);
-
-    QString parse_message_to_hex(QByteArray received);
 
     SerialPortActions *serial;
     FileActions::EcuCalDefStructure *ecuCalDef;

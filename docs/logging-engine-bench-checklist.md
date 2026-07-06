@@ -1,7 +1,6 @@
 # Logging engine refactor -- bench verification checklist
 
-Verifies the LoggingEngine/LoggingWorker/LoggingProtocol refactor (see
-`docs/superpowers/specs/2026-07-02-logging-engine-refactor-design.md`) behaves
+Verifies the LoggingEngine/LoggingWorker/LoggingProtocol refactor behaves
 correctly against real hardware. The unit test suite (`tests/mut_dma_tests`)
 covers the worker/engine/protocol logic against scripted transports; this
 checklist covers what can only be observed with a real adapter and ECU.

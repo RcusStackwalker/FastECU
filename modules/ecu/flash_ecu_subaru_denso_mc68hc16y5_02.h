@@ -19,8 +19,7 @@ namespace Ui
 QT_END_NAMESPACE
 
 // Subaru Denso MC68HC16Y5 (01-05) 16-bit K-Line reflash module. GUI-thread
-// half of the dialog+operation split (see
-// docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md);
+// half of the dialog+operation split (worker-thread migration);
 // protocol logic lives in FlashEcuSubaruDensoMC68HC16Y5_02Operation.
 class FlashEcuSubaruDensoMC68HC16Y5_02 : public QDialog
 {

@@ -16,6 +16,7 @@
 #include "test_cdbg_logging_protocol.h"
 #include "test_flash_operation_worker.h"
 #include "test_flash_ecu_mitsu_m32r_can_operation.h"
+#include "test_ssm_protocol.h"
 
 int main(int argc, char** argv) {
     int status = 0;
@@ -37,5 +38,6 @@ int main(int argc, char** argv) {
     status |= run_test_cdbg_logging_protocol(argc, argv);
     status |= run_test_flash_operation_worker(argc, argv);
     status |= run_test_flash_ecu_mitsu_m32r_can_operation(argc, argv);
+    status |= run_test_ssm_protocol(argc, argv);
     return status;
 }

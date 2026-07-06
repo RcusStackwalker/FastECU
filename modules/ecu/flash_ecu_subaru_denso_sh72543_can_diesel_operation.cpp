@@ -1,4 +1,5 @@
 #include "flash_ecu_subaru_denso_sh72543_can_diesel_operation.h"
+#include "modules/ssm_protocol.h"
 #include "serial_port_actions.h"
 
 #include <QCoreApplication>
@@ -946,7 +947,7 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::read_memory(uint32_t start_add
         pagedata.clear();
         pagedata = received.remove(0, 5);
 
-        //emit LOG_I("Received pagedata: " + parse_message_to_hex(pagedata), true, true);
+        //emit LOG_I("Received pagedata: " + SsmProtocol::toHex(pagedata), true, true);
         mapdata.append(pagedata);
 
         // don't count skipped first bytes //
@@ -1009,7 +1010,7 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::read_memory(uint32_t start_add
             if ((uint8_t)received.at(4) == 0x77)
             {
                 connected = true;
-                emit LOG_I("Stop request response: " + parse_message_to_hex(received), true, true);
+                emit LOG_I("Stop request response: " + SsmProtocol::toHex(received), true, true);
             }
         }
         try_count++;
@@ -1183,7 +1184,7 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::reflash_block(const uint8_t *n
         serial->write_serial_data_echo_check(output);
         //delay(20);
         received = serial->read_serial_data(receive_timeout);
-        //emit LOG_I("Received msg: " + parse_message_to_hex(received), true, true);
+        //emit LOG_I("Received msg: " + SsmProtocol::toHex(received), true, true);
 
         if (received.length() > 4)
         {
@@ -1257,7 +1258,7 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::reflash_block(const uint8_t *n
             if ((uint8_t)received.at(4) == 0x77)
             {
                 connected = true;
-                emit LOG_I("Closed succesfully: " + parse_message_to_hex(received), true, true);
+                emit LOG_I("Closed succesfully: " + SsmProtocol::toHex(received), true, true);
             }
         }
         try_count++;
@@ -1421,7 +1422,7 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::erase_memory(const struct flas
     }
     if (!connected)
     {
-        emit LOG_I("Flash area erase failed: " + parse_message_to_hex(received), true, true);
+        emit LOG_I("Flash area erase failed: " + SsmProtocol::toHex(received), true, true);
         return STATUS_ERROR;
     }
 
@@ -1453,7 +1454,7 @@ QByteArray FlashEcuSubaruDensoSH72543CanDieselOperation::generate_can_seed_key(Q
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
     };
 
-    key = calculate_seed_key(requested_seed, keytogenerateindex, indextransformation);
+    key = SsmProtocol::calculateSeedKey(requested_seed, keytogenerateindex, indextransformation);
 
     return key;
 }
@@ -1463,49 +1464,6 @@ QByteArray FlashEcuSubaruDensoSH72543CanDieselOperation::generate_can_seed_key(Q
  *
  * @return seed key (4 bytes)
  */
-QByteArray FlashEcuSubaruDensoSH72543CanDieselOperation::calculate_seed_key(QByteArray requested_seed, const uint16_t *keytogenerateindex, const uint8_t *indextransformation)
-{
-    QByteArray key;
-
-    uint32_t seed, index;
-    uint16_t wordtogenerateindex, wordtobeencrypted, encryptionkey;
-    int ki, n;
-
-    seed = (requested_seed.at(0) << 24) & 0xFF000000;
-    seed += (requested_seed.at(1) << 16) & 0x00FF0000;
-    seed += (requested_seed.at(2) << 8) & 0x0000FF00;
-    seed += requested_seed.at(3) & 0x000000FF;
-    //seed = reconst_32(seed8);
-
-    for (ki = 15; ki >= 0; ki--) {
-
-        wordtogenerateindex = seed;
-        wordtobeencrypted = seed >> 16;
-        index = wordtogenerateindex ^ keytogenerateindex[ki];
-        index += index << 16;
-        encryptionkey = 0;
-
-        for (n = 0; n < 4; n++) {
-            encryptionkey += indextransformation[(index >> (n * 4)) & 0x1F] << (n * 4);
-        }
-
-        encryptionkey = (encryptionkey >> 3) + (encryptionkey << 13);
-        seed = (encryptionkey ^ wordtobeencrypted) + (wordtogenerateindex << 16);
-    }
-
-    seed = (seed >> 16) + (seed << 16);
-
-    key.clear();
-    key.append((uint8_t)(seed >> 24));
-    key.append((uint8_t)(seed >> 16));
-    key.append((uint8_t)(seed >> 8));
-    key.append((uint8_t)seed);
-
-    //write_32b(seed, key);
-
-    return key;
-}
-
 /*
  * Encrypt upload data
  *
@@ -1527,7 +1485,7 @@ QByteArray FlashEcuSubaruDensoSH72543CanDieselOperation::encrypt_payload(QByteAr
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
     };
 
-    encrypted = calculate_payload(buf, len, keytogenerateindex, indextransformation);
+    encrypted = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
     return encrypted;
 }
@@ -1547,53 +1505,9 @@ QByteArray FlashEcuSubaruDensoSH72543CanDieselOperation::decrypt_payload(QByteAr
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
     };
 
-    decrypt = calculate_payload(buf, len, keytogenerateindex, indextransformation);
+    decrypt = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
     return decrypt;
-}
-
-QByteArray FlashEcuSubaruDensoSH72543CanDieselOperation::calculate_payload(QByteArray buf, uint32_t len, const uint16_t *keytogenerateindex, const uint8_t *indextransformation)
-{
-    QByteArray encrypted;
-    uint32_t datatoencrypt32, index;
-    uint16_t wordtogenerateindex, wordtobeencrypted, encryptionkey;
-    int ki, n;
-
-    if (!buf.length() || !len) {
-        return NULL;
-    }
-
-    encrypted.clear();
-
-    len &= ~3;
-    for (uint32_t i = 0; i < len; i += 4) {
-        datatoencrypt32 = ((buf.at(i) << 24) & 0xFF000000) | ((buf.at(i + 1) << 16) & 0xFF0000) | ((buf.at(i + 2) << 8) & 0xFF00) | (buf.at(i + 3) & 0xFF);
-
-        for (ki = 0; ki < 4; ki++) {
-
-            wordtogenerateindex = datatoencrypt32;
-            wordtobeencrypted = datatoencrypt32 >> 16;
-            index = wordtogenerateindex ^ keytogenerateindex[ki];
-            index += index << 16;
-            encryptionkey = 0;
-
-            for (n = 0; n < 4; n++) {
-                encryptionkey += indextransformation[(index >> (n * 4)) & 0x1F] << (n * 4);
-            }
-
-            encryptionkey = (encryptionkey >> 3) + (encryptionkey << 13);
-            datatoencrypt32 = (encryptionkey ^ wordtobeencrypted) + (wordtogenerateindex << 16);
-        }
-
-        datatoencrypt32 = (datatoencrypt32 >> 16) + (datatoencrypt32 << 16);
-
-        encrypted.append((datatoencrypt32 >> 24) & 0xFF);
-        encrypted.append((datatoencrypt32 >> 16) & 0xFF);
-        encrypted.append((datatoencrypt32 >> 8) & 0xFF);
-        encrypted.append(datatoencrypt32 & 0xFF);
-        //encrypted.append(sub_encrypt(tempbuf));
-    }
-    return encrypted;
 }
 
 /*
@@ -1601,14 +1515,3 @@ QByteArray FlashEcuSubaruDensoSH72543CanDieselOperation::calculate_payload(QByte
  *
  * @return parsed message
  */
-QString FlashEcuSubaruDensoSH72543CanDieselOperation::parse_message_to_hex(QByteArray received)
-{
-    QString msg;
-
-    for (int i = 0; i < received.length(); i++)
-    {
-        msg.append(QString("%1 ").arg((uint8_t)received.at(i),2,16,QLatin1Char('0')).toUtf8());
-    }
-
-    return msg;
-}

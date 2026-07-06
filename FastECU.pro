@@ -178,6 +178,7 @@ SOURCES += \
     modules/tcu/flash_tcu_subaru_hitachi_m32r_can_operation.cpp \
     modules/tcu/flash_tcu_subaru_hitachi_m32r_kline.cpp \
     modules/tcu/flash_tcu_subaru_hitachi_m32r_kline_operation.cpp \
+    modules/ssm_protocol.cpp \
     protocol_select.cpp \
     remote_utility/remote_utility.cpp \
     serial_port/serial_port_actions.cpp \
@@ -303,6 +304,7 @@ HEADERS += \
     modules/tcu/flash_tcu_subaru_hitachi_m32r_can_operation.h \
     modules/tcu/flash_tcu_subaru_hitachi_m32r_kline.h \
     modules/tcu/flash_tcu_subaru_hitachi_m32r_kline_operation.h \
+    modules/ssm_protocol.h \
     protocol_select.h \
     remote_utility/remote_utility.h \
     serial_port/qtrohelper.hpp \

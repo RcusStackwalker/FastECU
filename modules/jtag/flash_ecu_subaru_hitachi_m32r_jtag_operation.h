@@ -11,8 +11,7 @@
 
 class SerialPortActions;
 
-// Worker-thread half of FlashEcuSubaruHitachiM32rJtag (see
-// docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md).
+// Worker-thread half of FlashEcuSubaruHitachiM32rJtag (worker-thread migration).
 // Owns every serial-> call and the Subaru Hitachi M32R JTAG probing
 // sequence; relocated verbatim from
 // FlashEcuSubaruHitachiM32rJtag's former private methods.
@@ -105,9 +104,6 @@ private:
     QByteArray read_response();
 
     QByteArray add_header(QByteArray output);
-    uint8_t calculate_checksum(QByteArray output);
-
-    QString parse_message_to_hex(QByteArray received);
 
     SerialPortActions *serial;
     FileActions::EcuCalDefStructure *ecuCalDef;

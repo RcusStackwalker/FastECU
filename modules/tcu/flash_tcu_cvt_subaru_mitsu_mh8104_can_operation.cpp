@@ -1,4 +1,5 @@
 #include "flash_tcu_cvt_subaru_mitsu_mh8104_can_operation.h"
+#include "modules/ssm_protocol.h"
 #include "serial_port_actions.h"
 
 #include <QElapsedTimer>
@@ -121,11 +122,11 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::connect_bootloader_subaru_tcu_mits
     output.append((uint8_t)0x02);
     output.append((uint8_t)0x02);
     output.append((uint8_t)0x01);
-    emit LOG_I("Send msg: " + parse_message_to_hex(output), true, true);
+    emit LOG_I("Send msg: " + SsmProtocol::toHex(output), true, true);
     serial->write_serial_data_echo_check(output);
     delay(200);
     received = serial->read_serial_data(200);
-    emit LOG_I("Received msg: " + parse_message_to_hex(received), true, true);
+    emit LOG_I("Received msg: " + SsmProtocol::toHex(received), true, true);
     if ((uint8_t)received.at(4) == 0x71 && (uint8_t)received.at(5) == 0x02 && (uint8_t)received.at(6) == 0x02 && (uint8_t)received.at(7) == 0x03)
     {
         emit LOG_I("Kernel already running", true, true);
@@ -150,15 +151,15 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::connect_bootloader_subaru_tcu_mits
     while (try_count < 6 && connected == false)
     {
         serial->write_serial_data_echo_check(output);
-        emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
-        qDebug() << "Sent:" << parse_message_to_hex(output);
+        emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
+        qDebug() << "Sent:" << SsmProtocol::toHex(output);
         //delay(50);
         received = serial->read_serial_data(200);
         if (received != "")
         {
             connected = true;
-            emit LOG_I(QString::number(try_count) + ": 0xAA response: " + parse_message_to_hex(received), true, true);
-            qDebug() << try_count << ": 0xAA response:" << parse_message_to_hex(received) << received;
+            emit LOG_I(QString::number(try_count) + ": 0xAA response: " + SsmProtocol::toHex(received), true, true);
+            qDebug() << try_count << ": 0xAA response:" << SsmProtocol::toHex(received) << received;
         }
         try_count++;
         //delay(try_timeout);
@@ -188,15 +189,15 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::connect_bootloader_subaru_tcu_mits
     while (try_count < 6 && connected == false)
     {
         serial->write_serial_data_echo_check(output);
-        emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
-        qDebug() << "Sent:" << parse_message_to_hex(output);
+        emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
+        qDebug() << "Sent:" << SsmProtocol::toHex(output);
         //delay(50);
         received = serial->read_serial_data(200);
         if (received != "")
         {
             connected = true;
-            emit LOG_I(QString::number(try_count) + ": 0x09 0x04 response: " + parse_message_to_hex(received), true, true);
-            qDebug() << try_count << ": 0x09 0x04 response:" << parse_message_to_hex(received) << received;
+            emit LOG_I(QString::number(try_count) + ": 0x09 0x04 response: " + SsmProtocol::toHex(received), true, true);
+            qDebug() << try_count << ": 0x09 0x04 response:" << SsmProtocol::toHex(received) << received;
         }
         try_count++;
         //delay(try_timeout);
@@ -218,11 +219,11 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::connect_bootloader_subaru_tcu_mits
     output.append((uint8_t)0xE1);
     output.append((uint8_t)0x10);
     output.append((uint8_t)0x43);
-    emit LOG_I("Send msg: " + parse_message_to_hex(output), true, true);
+    emit LOG_I("Send msg: " + SsmProtocol::toHex(output), true, true);
     serial->write_serial_data_echo_check(output);
     delay(200);
     received = serial->read_serial_data(200);
-    emit LOG_I("Received msg: " + parse_message_to_hex(received), true, true);
+    emit LOG_I("Received msg: " + SsmProtocol::toHex(received), true, true);
 
     if ((uint8_t)received.at(4) != 0x50 || (uint8_t)received.at(5) != 0x43)
     {
@@ -241,11 +242,11 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::connect_bootloader_subaru_tcu_mits
     output.append((uint8_t)0xE1);
     output.append((uint8_t)0x27);
     output.append((uint8_t)0x01);
-    emit LOG_I("Send msg: " + parse_message_to_hex(output), true, true);
+    emit LOG_I("Send msg: " + SsmProtocol::toHex(output), true, true);
     serial->write_serial_data_echo_check(output);
     delay(200);
     received = serial->read_serial_data(200);
-    emit LOG_I("Received msg: " + parse_message_to_hex(received), true, true);
+    emit LOG_I("Received msg: " + SsmProtocol::toHex(received), true, true);
     if ((uint8_t)received.at(4) != 0x67 || (uint8_t)received.at(5) != 0x01)
     {
         emit LOG_I("Bad response to seed request", true, true);
@@ -275,11 +276,11 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::connect_bootloader_subaru_tcu_mits
     output.append((uint8_t)0x02);
     output.append(seed_key);
 
-    emit LOG_I("Send msg: " + parse_message_to_hex(output), true, true);
+    emit LOG_I("Send msg: " + SsmProtocol::toHex(output), true, true);
     serial->write_serial_data_echo_check(output);
     delay(200);
     received = serial->read_serial_data(200);
-    emit LOG_I("Received msg: " + parse_message_to_hex(received), true, true);
+    emit LOG_I("Received msg: " + SsmProtocol::toHex(received), true, true);
     if ((uint8_t)received.at(4) != 0x67 || (uint8_t)received.at(5) != 0x02)
     {
         emit LOG_I("Bad response to seed request", true, true);
@@ -300,11 +301,11 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::connect_bootloader_subaru_tcu_mits
     output.append((uint8_t)0xE1);
     output.append((uint8_t)0x10);
     output.append((uint8_t)0x42);
-    emit LOG_I("Send msg: " + parse_message_to_hex(output), true, true);
+    emit LOG_I("Send msg: " + SsmProtocol::toHex(output), true, true);
     serial->write_serial_data_echo_check(output);
     delay(200);
     received = serial->read_serial_data(200);
-    emit LOG_I("Received msg: " + parse_message_to_hex(received), true, true);
+    emit LOG_I("Received msg: " + SsmProtocol::toHex(received), true, true);
     if ((uint8_t)received.at(4) != 0x50 || (uint8_t)received.at(5) != 0x42)
     {
         emit LOG_I("Bad response to jumping to onboard kernel", true, true);
@@ -332,11 +333,11 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::connect_bootloader_subaru_tcu_mits
     output.append((uint8_t)0x08);
     output.append((uint8_t)0x00);
     output.append((uint8_t)0x00);
-    emit LOG_I("Send msg: " + parse_message_to_hex(output), true, true);
+    emit LOG_I("Send msg: " + SsmProtocol::toHex(output), true, true);
     serial->write_serial_data_echo_check(output);
     delay(200);
     received = serial->read_serial_data(200);
-    emit LOG_I("Received msg: " + parse_message_to_hex(received), true, true);
+    emit LOG_I("Received msg: " + SsmProtocol::toHex(received), true, true);
     if ((uint8_t)received.at(4) != 0x74 && (uint8_t)received.at(5) != 0x20 && (uint8_t)received.at(6) != 0x01 && (uint8_t)received.at(7) != 0x04)
     {
         emit LOG_I("Kernel verified to be running", true, true);
@@ -395,11 +396,11 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::read_mem_subaru_tcu_mitsu_can(uint
     output.append((uint8_t)0x00);
     output.append((uint8_t)0x00);
 
-    emit LOG_I("Send msg: " + parse_message_to_hex(output), true, true);
+    emit LOG_I("Send msg: " + SsmProtocol::toHex(output), true, true);
     serial->write_serial_data_echo_check(output);
     delay(200);
     received = serial->read_serial_data(200);
-    emit LOG_I("Received msg: " + parse_message_to_hex(received), true, true);
+    emit LOG_I("Received msg: " + SsmProtocol::toHex(received), true, true);
     if ((uint8_t)received.at(4) != 0x75 || (uint8_t)received.at(5) != 0x20 || (uint8_t)received.at(6) != 0x01 || (uint8_t)received.at(7) != 0x01)
     {
         emit LOG_I("Bad response to setting dump start & length", true, true);
@@ -446,13 +447,13 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::read_mem_subaru_tcu_mitsu_can(uint
         output[5] = (uint8_t)((addr >> 16) & 0xFF);
         output[6] = (uint8_t)((addr >> 8) & 0xFF);
         output[7] = (uint8_t)(addr & 0xFF);
-        emit LOG_I("Send msg: " + parse_message_to_hex(output), true, true);
+        emit LOG_I("Send msg: " + SsmProtocol::toHex(output), true, true);
         serial->write_serial_data_echo_check(output);
         //qDebug() << "0xB7 message sent to kernel to dump 256 bytes";
         delay(50);
         received = serial->read_serial_data(200);
-        //qDebug() << "Response to 0xB7 (dump mem) message:" << parse_message_to_hex(received);
-        emit LOG_I("Received msg: " + parse_message_to_hex(received), true, true);
+        //qDebug() << "Response to 0xB7 (dump mem) message:" << SsmProtocol::toHex(received);
+        emit LOG_I("Received msg: " + SsmProtocol::toHex(received), true, true);
         if ((uint8_t)received.at(4) != 0xF7)
         {
             emit LOG_I("Page data request failed!", true, true);
@@ -462,7 +463,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::read_mem_subaru_tcu_mitsu_can(uint
         pagedata.clear();
         pagedata = received.remove(0, 5);
 
-        emit LOG_I("Received pagedata: " + parse_message_to_hex(pagedata), true, true);
+        emit LOG_I("Received pagedata: " + SsmProtocol::toHex(pagedata), true, true);
         mapdata.append(pagedata);
 
         // don't count skipped first bytes //
@@ -519,15 +520,15 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::read_mem_subaru_tcu_mitsu_can(uint
     while (try_count < 6 && connected == false)
     {
         serial->write_serial_data_echo_check(output);
-        emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
-        qDebug() << "Sent:" << parse_message_to_hex(output);
+        emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
+        qDebug() << "Sent:" << SsmProtocol::toHex(output);
         delay(200);
         received = serial->read_serial_data(200);
         if (received != "")
         {
             connected = true;
-            emit LOG_I(QString::number(try_count) + ": 0x37 response: " + parse_message_to_hex(received), true, true);
-            qDebug() << try_count << ": 0x37 response:" << parse_message_to_hex(received);
+            emit LOG_I(QString::number(try_count) + ": 0x37 response: " + SsmProtocol::toHex(received), true, true);
+            qDebug() << try_count << ": 0x37 response:" << SsmProtocol::toHex(received);
         }
         try_count++;
         //delay(try_timeout);
@@ -544,7 +545,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::read_mem_subaru_tcu_mitsu_can(uint
         padBytes[i] = (uint8_t)0xFF;
     }
     mapdata = mapdata.insert(0, padBytes);
-    //emit LOG_I("Received mapdata: " + parse_message_to_hex(mapdata), true, true);
+    //emit LOG_I("Received mapdata: " + SsmProtocol::toHex(mapdata), true, true);
 
     ecuCalDef->FullRomData = mapdata;
     emit progressChanged(100);
@@ -695,15 +696,15 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::reflash_block_subaru_tcu_mitsu_can
     while (try_count < 6 && connected == false)
     {
         serial->write_serial_data_echo_check(output);
-        emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
-        qDebug() << "Sent:" << parse_message_to_hex(output);
+        emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
+        qDebug() << "Sent:" << SsmProtocol::toHex(output);
         delay(200);
         received = serial->read_serial_data(200);
         if (received != "")
         {
             connected = true;
-            emit LOG_I(QString::number(try_count) + ": 0x34 0x04 response: " + parse_message_to_hex(received), true, true);
-            qDebug() << try_count << ": 0x34 0x04 response:" << parse_message_to_hex(received);
+            emit LOG_I(QString::number(try_count) + ": 0x34 0x04 response: " + SsmProtocol::toHex(received), true, true);
+            qDebug() << try_count << ": 0x34 0x04 response:" << SsmProtocol::toHex(received);
         }
         try_count++;
         //delay(try_timeout);
@@ -728,7 +729,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::reflash_block_subaru_tcu_mitsu_can
         output.append((uint8_t)(blockaddr >> 16) & 0xFF);
         output.append((uint8_t)(blockaddr >> 8) & 0xFF);
         output.append((uint8_t)blockaddr & 0xFF);
-        qDebug() << "Data header:" << parse_message_to_hex(output);
+        qDebug() << "Data header:" << SsmProtocol::toHex(output);
 
         for (int i = 0; i < 128; i++)
         {
@@ -739,8 +740,8 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::reflash_block_subaru_tcu_mitsu_can
         data_len -= 128;
 
         serial->write_serial_data_echo_check(output);
-        emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
-        qDebug() << "Kernel data:" << parse_message_to_hex(output);
+        emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
+        qDebug() << "Kernel data:" << SsmProtocol::toHex(output);
         //delay(20);
         delay(20);
         received = serial->read_serial_data(receive_timeout);
@@ -765,16 +766,16 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::reflash_block_subaru_tcu_mitsu_can
     while (try_count < 6 && connected == false)
     {
         serial->write_serial_data_echo_check(output);
-        emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
-        qDebug() << "Sent:" << parse_message_to_hex(output);
+        emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
+        qDebug() << "Sent:" << SsmProtocol::toHex(output);
         //delay(50);
         delay(200);
         received = serial->read_serial_data(200);
         if (received != "")
         {
             connected = true;
-            emit LOG_I(QString::number(try_count) + ": 0x37 response: " + parse_message_to_hex(received), true, true);
-            qDebug() << try_count << ": 0x37 response:" << parse_message_to_hex(received);
+            emit LOG_I(QString::number(try_count) + ": 0x37 response: " + SsmProtocol::toHex(received), true, true);
+            qDebug() << try_count << ": 0x37 response:" << SsmProtocol::toHex(received);
         }
         try_count++;
         //delay(try_timeout);
@@ -804,16 +805,16 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::reflash_block_subaru_tcu_mitsu_can
     while (try_count < 6 && connected == false)
     {
         serial->write_serial_data_echo_check(output);
-        emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
-        qDebug() << "Sent:" << parse_message_to_hex(output);
+        emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
+        qDebug() << "Sent:" << SsmProtocol::toHex(output);
         //delay(50);
         delay(200);
         received = serial->read_serial_data(200);
         if (received != "")
         {
             connected = true;
-            emit LOG_I(QString::number(try_count) + ": 0x31 response: " + parse_message_to_hex(received), true, true);
-            qDebug() << try_count << ": 0x31 response:" << parse_message_to_hex(received);
+            emit LOG_I(QString::number(try_count) + ": 0x31 response: " + SsmProtocol::toHex(received), true, true);
+            qDebug() << try_count << ": 0x31 response:" << SsmProtocol::toHex(received);
         }
         try_count++;
         //delay(try_timeout);
@@ -863,14 +864,14 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::erase_subaru_tcu_mitsu_can()
     output.append((uint8_t)0xff);
     output.append((uint8_t)0xff);
 
-    emit LOG_I("Send msg: " + parse_message_to_hex(output), true, true);
+    emit LOG_I("Send msg: " + SsmProtocol::toHex(output), true, true);
     serial->write_serial_data_echo_check(output);
     delay(8000);
 
     // should there be a QTime delay to wait for erasing process?
 
     received = serial->read_serial_data(200);
-    emit LOG_I("Received msg: " + parse_message_to_hex(received), true, true);
+    emit LOG_I("Received msg: " + SsmProtocol::toHex(received), true, true);
     delay(5000);
 
     if ((uint8_t)received.at(4) != 0x71 || (uint8_t)received.at(5) != 0x01 || (uint8_t)received.at(6) != 0x02)
@@ -905,7 +906,7 @@ QByteArray FlashTcuCvtSubaruMitsuMH8104CanOperation::subaru_tcu_mitsu_generate_c
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
     };
 
-    key = subaru_tcu_mitsu_calculate_seed_key(requested_seed, keytogenerateindex, indextransformation);
+    key = SsmProtocol::calculateSeedKey(requested_seed, keytogenerateindex, indextransformation);
 
     return key;
 }
@@ -915,48 +916,6 @@ QByteArray FlashTcuCvtSubaruMitsuMH8104CanOperation::subaru_tcu_mitsu_generate_c
  *
  * @return seed key (4 bytes)
  */
-QByteArray FlashTcuCvtSubaruMitsuMH8104CanOperation::subaru_tcu_mitsu_calculate_seed_key(QByteArray requested_seed, const uint16_t *keytogenerateindex, const uint8_t *indextransformation)
-{
-    QByteArray key;
-
-    uint32_t seed, index;
-    uint16_t wordtogenerateindex, wordtobeencrypted, encryptionkey;
-    int ki, n;
-
-    seed = (requested_seed.at(0) << 24) & 0xFF000000;
-    seed += (requested_seed.at(1) << 16) & 0x00FF0000;
-    seed += (requested_seed.at(2) << 8) & 0x0000FF00;
-    seed += requested_seed.at(3) & 0x000000FF;
-    //seed = reconst_32(seed8);
-
-    for (ki = 15; ki >= 0; ki--) {
-
-        wordtogenerateindex = seed;
-        wordtobeencrypted = seed >> 16;
-        index = wordtogenerateindex ^ keytogenerateindex[ki];
-        index += index << 16;
-        encryptionkey = 0;
-
-        for (n = 0; n < 4; n++) {
-            encryptionkey += indextransformation[(index >> (n * 4)) & 0x1F] << (n * 4);
-        }
-
-        encryptionkey = (encryptionkey >> 3) + (encryptionkey << 13);
-        seed = (encryptionkey ^ wordtobeencrypted) + (wordtogenerateindex << 16);
-    }
-
-    seed = (seed >> 16) + (seed << 16);
-
-    key.clear();
-    key.append((uint8_t)(seed >> 24));
-    key.append((uint8_t)(seed >> 16));
-    key.append((uint8_t)(seed >> 8));
-    key.append((uint8_t)seed);
-
-    //write_32b(seed, key);
-
-    return key;
-}
 /*
  * Encrypt upload data
  *
@@ -978,7 +937,7 @@ QByteArray FlashTcuCvtSubaruMitsuMH8104CanOperation::subaru_tcu_mitsu_encrypt_32
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
     };
 
-    encrypted = subaru_tcu_mitsu_calculate_32bit_payload(buf, len, keytogenerateindex, indextransformation);
+    encrypted = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
     return encrypted;
 }
@@ -998,53 +957,9 @@ QByteArray FlashTcuCvtSubaruMitsuMH8104CanOperation::subaru_tcu_mitsu_decrypt_32
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
     };
 
-    decrypt = subaru_tcu_mitsu_calculate_32bit_payload(buf, len, keytogenerateindex, indextransformation);
+    decrypt = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
     return decrypt;
-}
-
-QByteArray FlashTcuCvtSubaruMitsuMH8104CanOperation::subaru_tcu_mitsu_calculate_32bit_payload(QByteArray buf, uint32_t len, const uint16_t *keytogenerateindex, const uint8_t *indextransformation)
-{
-    QByteArray encrypted;
-    uint32_t datatoencrypt32, index;
-    uint16_t wordtogenerateindex, wordtobeencrypted, encryptionkey;
-    int ki, n;
-
-    if (!buf.length() || !len) {
-        return NULL;
-    }
-
-    encrypted.clear();
-
-    len &= ~3;
-    for (uint32_t i = 0; i < len; i += 4) {
-        datatoencrypt32 = ((buf.at(i) << 24) & 0xFF000000) | ((buf.at(i + 1) << 16) & 0xFF0000) | ((buf.at(i + 2) << 8) & 0xFF00) | (buf.at(i + 3) & 0xFF);
-
-        for (ki = 0; ki < 4; ki++) {
-
-            wordtogenerateindex = datatoencrypt32;
-            wordtobeencrypted = datatoencrypt32 >> 16;
-            index = wordtogenerateindex ^ keytogenerateindex[ki];
-            index += index << 16;
-            encryptionkey = 0;
-
-            for (n = 0; n < 4; n++) {
-                encryptionkey += indextransformation[(index >> (n * 4)) & 0x1F] << (n * 4);
-            }
-
-            encryptionkey = (encryptionkey >> 3) + (encryptionkey << 13);
-            datatoencrypt32 = (encryptionkey ^ wordtobeencrypted) + (wordtogenerateindex << 16);
-        }
-
-        datatoencrypt32 = (datatoencrypt32 >> 16) + (datatoencrypt32 << 16);
-
-        encrypted.append((datatoencrypt32 >> 24) & 0xFF);
-        encrypted.append((datatoencrypt32 >> 16) & 0xFF);
-        encrypted.append((datatoencrypt32 >> 8) & 0xFF);
-        encrypted.append(datatoencrypt32 & 0xFF);
-        //encrypted.append(sub_encrypt(tempbuf));
-    }
-    return encrypted;
 }
 
 /*
@@ -1052,14 +967,3 @@ QByteArray FlashTcuCvtSubaruMitsuMH8104CanOperation::subaru_tcu_mitsu_calculate_
  *
  * @return parsed message
  */
-QString FlashTcuCvtSubaruMitsuMH8104CanOperation::parse_message_to_hex(QByteArray received)
-{
-    QString msg;
-
-    for (int i = 0; i < received.length(); i++)
-    {
-        msg.append(QString("%1 ").arg((uint8_t)received.at(i),2,16,QLatin1Char('0')).toUtf8());
-    }
-
-    return msg;
-}

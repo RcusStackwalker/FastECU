@@ -11,8 +11,7 @@
 
 class SerialPortActions;
 
-// Worker-thread half of FlashEcuSubaruDensoSH7058Can (see
-// docs/superpowers/specs/2026-07-03-flash-operation-worker-design.md).
+// Worker-thread half of FlashEcuSubaruDensoSH7058Can (worker-thread migration).
 // Owns every serial-> call and the Subaru Denso SH7058 32-bit CAN (iso15765)
 // bootloader protocol sequence; relocated verbatim from
 // FlashEcuSubaruDensoSH7058Can's former private methods.
@@ -36,8 +35,6 @@ private:
     #define STATUS_ERROR	0x01
 
     #define CRC32   0x5AA5A55A
-    bool crc_tab32_init = 0;
-    uint32_t crc_tab32[256];
 
     bool kernel_alive = false;
     bool test_write = false;
@@ -83,9 +80,6 @@ private:
     int init_flash_write();
     int flash_block(const uint8_t *src, uint32_t addr, uint32_t len);
     int reflash_block(const uint8_t *newdata, const struct flashdev_t *fdt, unsigned blockno, bool test_write);
-
-    unsigned int crc32(const unsigned char *buf, unsigned int len);
-    void init_crc32_tab( void );
     uint8_t cks_add8(QByteArray chksum_data, unsigned len);
 
     QByteArray send_sid_bf_ssm_init();
@@ -101,19 +95,12 @@ private:
     QByteArray generate_seed_key(QByteArray requested_seed);
     QByteArray generate_ecutek_seed_key(QByteArray requested_seed);
     QByteArray generate_cobb_seed_key(QByteArray requested_seed);
-    QByteArray calculate_seed_key(QByteArray requested_seed, const uint16_t *keytogenerateindex, const uint8_t *indextransformation);
 
     QByteArray request_kernel_init();
     QByteArray request_kernel_id();
 
     QByteArray encrypt_payload(QByteArray buf, uint32_t len);
     QByteArray decrypt_payload(QByteArray buf, uint32_t len);
-    QByteArray calculate_payload(QByteArray buf, uint32_t len, const uint16_t *keytogenerateindex, const uint8_t *indextransformation);
-
-    QByteArray add_ssm_header(QByteArray output, uint8_t tester_id, uint8_t target_id, bool dec_0x100);
-    uint8_t calculate_checksum(QByteArray output, bool dec_0x100);
-
-    QString parse_message_to_hex(QByteArray received);
 
     QByteArray calculate_ecutek_racerom_seed_key(uint32_t req_seed);//QByteArray requested_seed);
     QByteArray generate_ecutek_racerom_can_seed_key(QByteArray requested_seed);

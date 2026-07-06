@@ -1,4 +1,5 @@
 #include "flash_ecu_subaru_unisia_jecs_m32r_operation.h"
+#include "modules/ssm_protocol.h"
 #include "serial_port_actions.h"
 
 #include <QElapsedTimer>
@@ -240,7 +241,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::read_mem(uint32_t start_addr, uint32_
         output[8] = (uint8_t)addr & 0xFF;
         output[9] = (uint8_t)(pagesize - 1) & 0xFF;
         output.remove(10, 1);
-        output.append(calculate_checksum(output, false));
+        output.append(SsmProtocol::checksum(output, false));
         serial->write_serial_data_echo_check(output);
         received = serial->read_serial_data(serial_read_extra_long_timeout);
         if (received.length() > 4)
@@ -319,7 +320,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
     emit LOG_I("Checking if OBK is running", true, true);
     output.clear();
     output.append((uint8_t)0xAF);
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
@@ -425,7 +426,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
             {
                 emit LOG_E("", false, true);
                 emit LOG_E("Flash erase cmd failed!", true, true);
-                emit LOG_E("Response: " + parse_message_to_hex(received), true, true);
+                emit LOG_E("Response: " + SsmProtocol::toHex(received), true, true);
                 return STATUS_ERROR;
             }
         }
@@ -435,7 +436,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
     {
         emit LOG_E("", false, true);
         emit LOG_E("Flash erase cmd failed, no answer from ECU!", true, true);
-        emit LOG_E("Response: " + parse_message_to_hex(received), true, true);
+        emit LOG_E("Response: " + SsmProtocol::toHex(received), true, true);
 
         return STATUS_ERROR;
     }
@@ -461,7 +462,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
             {
                 emit LOG_E("", false, true);
                 emit LOG_E("Flash erase failed!", true, true);
-                emit LOG_E("Received: " + parse_message_to_hex(received), true, true);
+                emit LOG_E("Received: " + SsmProtocol::toHex(received), true, true);
                 return STATUS_ERROR;
             }
         }
@@ -503,7 +504,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
         {
             output.append(flashdata.at(i * blocksize + j) ^ encrypt);
         }
-        output = add_ssm_header(output, tester_id, target_id, false);
+        output = SsmProtocol::addHeader(output, tester_id, target_id, false);
         serial->write_serial_data_echo_check(output);
         //
 
@@ -520,14 +521,14 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
                 else
                 {
                     emit LOG_E("Block flash failed!", true, true);
-                    emit LOG_E("Response: " + parse_message_to_hex(received), true, true);
+                    emit LOG_E("Response: " + SsmProtocol::toHex(received), true, true);
                     return STATUS_ERROR;
                 }
             }
             else
             {
                 emit LOG_E("Flash failed!", true, true);
-                emit LOG_E("Response: " + parse_message_to_hex(received), true, true);
+                emit LOG_E("Response: " + SsmProtocol::toHex(received), true, true);
                 return STATUS_ERROR;
             }
         }
@@ -579,7 +580,7 @@ QByteArray FlashEcuSubaruUnisiaJecsM32rOperation::send_sid_bf_ssm_init()
 
     output.clear();
     output.append((uint8_t)0xBF);
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
@@ -599,7 +600,7 @@ QByteArray FlashEcuSubaruUnisiaJecsM32rOperation::send_sid_b8_change_baudrate_48
     output.append((uint8_t)0x00);
     output.append((uint8_t)0x00);
     output.append((uint8_t)0x15);
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
@@ -619,7 +620,7 @@ QByteArray FlashEcuSubaruUnisiaJecsM32rOperation::send_sid_b8_change_baudrate_38
     output.append((uint8_t)0x00);
     output.append((uint8_t)0x00);
     output.append((uint8_t)0x75);
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
@@ -646,7 +647,7 @@ QByteArray FlashEcuSubaruUnisiaJecsM32rOperation::send_sid_af_enter_flash_mode(Q
     output.append((uint8_t)(rom_size >> 16) & 0xFF); // ROM size >> 24
     output.append((uint8_t)(rom_size >> 8) & 0xFF); // ROM size >> 16
     output.append((uint8_t)rom_size & 0xFF); // ROM size
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
@@ -663,7 +664,7 @@ QByteArray FlashEcuSubaruUnisiaJecsM32rOperation::send_sid_af_erase_memory_block
 
     output.append((uint8_t)0xAF);
     output.append((uint8_t)0x31);
-    output = add_ssm_header(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
 
     //received = serial->read_serial_data(serial_read_timeout);
@@ -677,52 +678,13 @@ QByteArray FlashEcuSubaruUnisiaJecsM32rOperation::send_sid_af_erase_memory_block
  *
  * @return parsed message
  */
-QByteArray FlashEcuSubaruUnisiaJecsM32rOperation::add_ssm_header(QByteArray output, uint8_t tester_id, uint8_t target_id, bool dec_0x100)
-{
-    uint8_t length = output.length();
-
-    output.insert(0, (uint8_t)0x80);
-    output.insert(1, target_id & 0xFF);
-    output.insert(2, tester_id & 0xFF);
-    output.insert(3, length);
-
-    output.append(calculate_checksum(output, dec_0x100));
-
-    //
-    return output;
-}
-
 /*
  * Calculate SSM checksum to message
  *
  * @return 8-bit checksum
  */
-uint8_t FlashEcuSubaruUnisiaJecsM32rOperation::calculate_checksum(QByteArray output, bool dec_0x100)
-{
-    uint8_t checksum = 0;
-
-    for (uint16_t i = 0; i < output.length(); i++)
-        checksum += (uint8_t)output.at(i);
-
-    if (dec_0x100)
-        checksum = (uint8_t) (0x100 - checksum);
-
-    return checksum;
-}
-
 /*
  * Parse QByteArray to readable form
  *
  * @return parsed message
  */
-QString FlashEcuSubaruUnisiaJecsM32rOperation::parse_message_to_hex(QByteArray received)
-{
-    QString msg;
-
-    for (int i = 0; i < received.length(); i++)
-    {
-        msg.append(QString("%1 ").arg((uint8_t)received.at(i),2,16,QLatin1Char('0')).toUtf8());
-    }
-
-    return msg;
-}
