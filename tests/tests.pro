@@ -21,6 +21,13 @@ unix {
     HEADERS += ../serial_port/J2534_unix.h
 }
 
+win32 {
+    SOURCES += ../serial_port/J2534_win.cpp
+    HEADERS += \
+        ../serial_port/J2534_win.h \
+        ../serial_port/J2534_tactrix_win.h
+}
+
 SOURCES += \
     test_flash_operation_worker.cpp \
     ../modules/flash_operation_worker.cpp \
