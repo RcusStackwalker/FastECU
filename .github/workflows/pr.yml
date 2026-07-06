@@ -1,8 +1,14 @@
 name: pr
 
 on:
+  push:
+    branches: [master]
   pull_request:
     branches: [master]
+
+permissions:
+  contents: read
+  pull-requests: read
 
 jobs:
   build:
@@ -139,3 +145,72 @@ jobs:
           qmake CONFIG+=release CONFIG-=debug_and_release mut_dma_integration_tests.pro
           make
           ./mut_dma_integration_tests
+
+  sonarcloud:
+    name: SonarCloud
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
+        with:
+          version: '6.11.1'
+          modules: 'qtcharts qtserialport qtremoteobjects qtwebsockets qt5compat'
+
+      - name: Install OpenSSL
+        run: brew install openssl@3
+
+      - name: Install SonarCloud build wrapper
+        uses: SonarSource/sonarqube-scan-action/install-build-wrapper@v7
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: Build FastECU with build wrapper
+        run: |
+          qmake CONFIG+=release CONFIG-=debug_and_release FastECU.pro
+          build-wrapper-macosx-x86 --out-dir bw-output make clean all
+
+      - name: Build and run tests with coverage
+        working-directory: tests
+        run: |
+          set -euo pipefail
+          mkdir -p ../coverage/bin ../coverage/profiles
+
+          build_and_run() {
+            local project="$1"
+            local binary="$2"
+            qmake CONFIG+=debug CONFIG-=release CONFIG-=debug_and_release \
+              "QMAKE_CXXFLAGS+=-fprofile-instr-generate -fcoverage-mapping" \
+              "QMAKE_LFLAGS+=-fprofile-instr-generate -fcoverage-mapping" \
+              "$project"
+            make
+            LLVM_PROFILE_FILE="$PWD/../coverage/profiles/${binary}-%p.profraw" "./$binary"
+            cp "$binary" "../coverage/bin/$binary"
+            make distclean || make clean
+          }
+
+          build_and_run tests.pro mut_dma_tests
+          build_and_run serial_backend_tests.pro serial_backend_tests
+          build_and_run serial_crash_tests.pro serial_crash_tests
+          build_and_run mut_dma_integration_tests.pro mut_dma_integration_tests
+
+      - name: Generate llvm-cov report
+        run: |
+          set -euo pipefail
+          xcrun llvm-profdata merge -sparse coverage/profiles/*.profraw -o coverage/coverage.profdata
+          xcrun llvm-cov show coverage/bin/mut_dma_tests \
+            -object=coverage/bin/serial_backend_tests \
+            -object=coverage/bin/serial_crash_tests \
+            -object=coverage/bin/mut_dma_integration_tests \
+            -instr-profile=coverage/coverage.profdata \
+            -ignore-filename-regex='(^|/)(tests|hexedit)/|(^|/)(moc_|qrc_|ui_)|rep_.*_replica\.h|/Applications/|/opt/homebrew/|/Library/Developer/' \
+            > coverage/llvm-cov.report
+
+      - name: SonarCloud scan
+        uses: SonarSource/sonarqube-scan-action@v7
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -23,6 +23,7 @@ public:
                                    FileActions::EcuCalDefStructure *ecuCalDef,
                                    QString cmd_type,
                                    QWidget *dialog,
+                                   bool useVendorChallenge = false,
                                    QObject *parent = nullptr,
                                    PromptFn promptOverride = {});
 
@@ -43,6 +44,7 @@ private:
     SerialPortActions *serial;
     FileActions::EcuCalDefStructure *ecuCalDef;
     QString cmd_type;
+    bool useVendorChallenge = false;
 
     int mcu_type_index = 0;
     QString mcu_type_string;

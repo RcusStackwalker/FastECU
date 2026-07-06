@@ -2,11 +2,13 @@
 #include "flash_ecu_mitsu_m32r_can_operation.h"
 #include "serial_port_actions.h"
 
-FlashEcuMitsuM32rCan::FlashEcuMitsuM32rCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent)
+FlashEcuMitsuM32rCan::FlashEcuMitsuM32rCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent, bool useVendorChallenge)
     : QDialog(parent)
-    , ui(new Ui::EcuOperationsWindow)
     , ecuCalDef(ecuCalDef)
     , cmd_type(cmd_type)
+    , useVendorChallenge(useVendorChallenge)
+    , serial(serial)
+    , ui(new Ui::EcuOperationsWindow)
 {
     ui->setupUi(this);
 
@@ -14,8 +16,6 @@ FlashEcuMitsuM32rCan::FlashEcuMitsuM32rCan(SerialPortActions *serial, FileAction
         this->setWindowTitle("Write ROM " + ecuCalDef->FileName + " to ECU");
     else if (cmd_type == "read")
         this->setWindowTitle("Read ROM from ECU");
-
-    this->serial = serial;
 }
 
 FlashEcuMitsuM32rCan::~FlashEcuMitsuM32rCan()
@@ -43,7 +43,7 @@ void FlashEcuMitsuM32rCan::run()
     {
         case QMessageBox::Ok:
         {
-            m_operation = new FlashEcuMitsuM32rCanOperation(serial, ecuCalDef, cmd_type, this);
+            m_operation = new FlashEcuMitsuM32rCanOperation(serial, ecuCalDef, cmd_type, this, useVendorChallenge);
             connect(m_operation, &FlashOperationWorker::LOG_E, this, &FlashEcuMitsuM32rCan::LOG_E);
             connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashEcuMitsuM32rCan::LOG_W);
             connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashEcuMitsuM32rCan::LOG_I);

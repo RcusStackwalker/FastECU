@@ -36,7 +36,7 @@ class FlashEcuMitsuM32rCan : public QDialog
     Q_OBJECT
 
 public:
-    explicit FlashEcuMitsuM32rCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent = nullptr);
+    explicit FlashEcuMitsuM32rCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent = nullptr, bool useVendorChallenge = false);
     ~FlashEcuMitsuM32rCan();
 
     void run();
@@ -52,6 +52,8 @@ signals:
 private:
     FileActions::EcuCalDefStructure *ecuCalDef;
     QString cmd_type;
+
+    bool useVendorChallenge = false;
 
     void closeEvent(QCloseEvent *event);
     void set_progressbar_value(int value);
