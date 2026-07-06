@@ -61,14 +61,7 @@ bool FlashEcuSubaruDensoSH705xDensoCanOperation::execute()
     // Set serial port
     serial->reset_connection();
     serial->set_add_iso14230_header(false);
-    serial->set_is_iso14230_connection(false);
-    serial->set_add_iso14230_header(false);
-    serial->set_is_can_connection(false);
-    serial->set_is_iso15765_connection(true);
-    serial->set_is_29_bit_id(false);
-    serial->set_can_speed("500000");
-    serial->set_iso15765_source_address(0x7e0);
-    serial->set_iso15765_destination_address(0x7e8);
+    FlashUtils::configureIso15765Can(serial, "500000", 0x7e0, 0x7e8);
     serial->set_can_source_address(0x000FFFFE);
     serial->set_can_destination_address(0x21);
     // Open serial port

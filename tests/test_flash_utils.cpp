@@ -55,6 +55,20 @@ private slots:
         QCOMPARE(serial.get_iso15765_source_address(), quint32(0x7E1));
         QCOMPARE(serial.get_iso15765_destination_address(), quint32(0x7E9));
     }
+
+    void configureIso15765Can_defaultsTo11BitCanIds()
+    {
+        FakeBackend *fake = nullptr;
+        SerialPortActions serial("", "", nullptr, nullptr,
+                                 [&fake]() -> SerialBackend * { fake = new FakeBackend(); return fake; });
+
+        FlashUtils::configureIso15765Can(&serial, "500000", 0x7E0, 0x7E8);
+
+        QCOMPARE(serial.get_is_29_bit_id(), false);
+        QCOMPARE(serial.get_can_speed(), QString("500000"));
+        QCOMPARE(serial.get_iso15765_source_address(), quint32(0x7E0));
+        QCOMPARE(serial.get_iso15765_destination_address(), quint32(0x7E8));
+    }
 };
 
 int run_test_flash_utils(int argc, char **argv)

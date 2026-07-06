@@ -61,14 +61,7 @@ bool FlashEcuSubaruHitachiSH7058CanOperation::execute()
     serial->set_add_iso14230_header(false);
 
     // Set serial port
-    serial->set_is_iso14230_connection(false);
-    serial->set_add_iso14230_header(false);
-    serial->set_is_can_connection(false);
-    serial->set_is_iso15765_connection(true);
-    serial->set_is_29_bit_id(false);
-    serial->set_can_speed("500000");
-    serial->set_iso15765_source_address(0x7E0);
-    serial->set_iso15765_destination_address(0x7E8);
+    FlashUtils::configureIso15765Can(serial, "500000", 0x7E0, 0x7E8);
     // Open serial port
     serial->open_serial_port();
 */
@@ -108,14 +101,7 @@ int FlashEcuSubaruHitachiSH7058CanOperation::connect_bootloader_subaru_ecu_hitac
     QByteArray seed_key;
 
     // Set serial port
-    serial->set_is_iso14230_connection(false);
-    serial->set_add_iso14230_header(false);
-    serial->set_is_can_connection(false);
-    serial->set_is_iso15765_connection(true);
-    serial->set_is_29_bit_id(false);
-    serial->set_can_speed("500000");
-    serial->set_iso15765_source_address(0x7E0);
-    serial->set_iso15765_destination_address(0x7E8);
+    FlashUtils::configureIso15765Can(serial, "500000", 0x7E0, 0x7E8);
     // Open serial port
     serial->open_serial_port();
 
