@@ -6,6 +6,8 @@
 
 #include <QThread>
 
+#include "serial_port/j2534_driver_selection.h"
+
 namespace {
 // RAII counter: marks a J2534 read as in-flight so a reentrant teardown
 // (close_j2534_serial_port) won't free j2534 underneath it.
@@ -527,8 +529,10 @@ QString SerialPortActionsDirect::open_serial_port()
         user_j2534_drivers[serial_port] = installedDllName;
         if (j2534_driver.isEmpty())
             j2534_driver = check_j2534_devices(user_j2534_drivers);
-        if (!j2534_driver.isEmpty())
-            j2534->setDllName(j2534_driver.at(0).toLocal8Bit().data());
+        const QString resolvedDllName =
+            resolveJ2534DllForConnection(serial_port, installedDllName, j2534_driver);
+        if (!resolvedDllName.isEmpty())
+            j2534->setDllName(resolvedDllName.toLocal8Bit().data());
         else
             emit LOG_D("Initializing interface failed!", true, true);
 #endif
@@ -1719,4 +1723,3 @@ QString SerialPortActionsDirect::parse_message_to_hex(QByteArray received)
 
     return msg;
 }
-

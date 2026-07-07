@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "serial_backend.h"
+#include "serial_port/j2534_driver_selection.h"
 #include "serial_port_actions_direct.h"
 
 // Exercises the SerialBackend contract against the direct implementation
@@ -19,6 +20,7 @@ class TestDirectBackend : public QObject
 private slots:
     void getSet_roundtrip_throughInterface();
     void closedPort_ioCalls_returnEmpty();
+    void j2534Selection_usesInstalledDllPathAfterVendorProbe();
     // Backend behavior over a PTY (spec: reassembly, timeout, buffer
     // clearing, adapter-vanish). J2534 ioctl parameter handling stays with
     // the crash suite's MockOpenPort + the bench checklist.
@@ -69,6 +71,15 @@ void TestDirectBackend::closedPort_ioCalls_returnEmpty()
     // QByteArray(const char*) ctor => empty array. Pin today's behavior.
     QCOMPARE(b->write_serial_data(QByteArray("\x01\x02", 2)), QByteArray());
     b->waitForSource();                // default no-op must not block or crash
+}
+
+void TestDirectBackend::j2534Selection_usesInstalledDllPathAfterVendorProbe()
+{
+    const QString vendor = "Tactrix Inc. - OpenPort 2.0 J2534 DLL";
+    const QString dllPath = "C:\\Program Files (x86)\\OpenECU\\OpenPort 2.0\\op20pt32.dll";
+
+    QCOMPARE(resolveJ2534DllForConnection(vendor, dllPath, QStringList() << vendor),
+             dllPath);
 }
 
 int TestDirectBackend::openPtyBackend(SerialPortActionsDirect &backend)
