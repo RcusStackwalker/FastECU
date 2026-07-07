@@ -1,8 +1,10 @@
 #include "protocol/mitsu_colt_can_protocol.h"
 
+#include "protocol/qt_bytes.h"
+
 namespace MitsuColtCan {
 
-const quint8 kErasePageRoutine[160] = {
+const bytes::Byte kErasePageRoutine[160] = {
     0x94, 0xf0, 0x20, 0x20, 0x24, 0x20, 0xf0, 0x00, 0xe4, 0x00, 0xd0, 0xd0, 0x24, 0x20, 0x64, 0x32,
     0x44, 0xff, 0xf0, 0x00, 0xb0, 0x94, 0xff, 0xff, 0xd8, 0xc0, 0x01, 0x6e, 0x88, 0xe8, 0x36, 0x00,
     0xe1, 0x80, 0x56, 0x54, 0x1e, 0xc1, 0xf0, 0x00, 0xe1, 0x80, 0x07, 0xe1, 0x21, 0x91, 0xf0, 0x00,
@@ -15,7 +17,7 @@ const quint8 kErasePageRoutine[160] = {
     0x70, 0x00, 0x70, 0x00, 0x60, 0x01, 0xf0, 0x00, 0xb0, 0x98, 0x00, 0x02, 0x60, 0x00, 0xf0, 0x00,
 };
 
-const quint8 kWritePageRoutine[176] = {
+const bytes::Byte kWritePageRoutine[176] = {
     0x94, 0xf0, 0x41, 0x41, 0x24, 0x20, 0xf0, 0x00, 0x85, 0xa0, 0x01, 0x00, 0x24, 0xb1, 0x24, 0x20,
     0x40, 0x02, 0x41, 0x02, 0xb0, 0x15, 0xff, 0xfe, 0xe5, 0xff, 0xff, 0xff, 0xe5, 0xff, 0xff, 0xff,
     0xe5, 0xff, 0xff, 0xff, 0xe5, 0xff, 0xff, 0xff, 0xe5, 0xff, 0xff, 0xff, 0xe5, 0xff, 0xff, 0xff,
@@ -29,110 +31,161 @@ const quint8 kWritePageRoutine[176] = {
     0xb0, 0x98, 0xff, 0xf9, 0x60, 0x01, 0xf0, 0x00, 0xb0, 0x98, 0x00, 0x02, 0x60, 0x00, 0xf0, 0x00,
 };
 
-quint16 seedKeyWord(quint16 seedWord) {
-    return quint16(quint32(seedWord) * 135 + 1542);
+std::uint16_t seedKeyWord(std::uint16_t seedWord) {
+    return static_cast<std::uint16_t>(std::uint32_t(seedWord) * 135 + 1542);
 }
 
-QByteArray seedKey(const QByteArray &seed) {
+bytes::Bytes seedKey(bytes::ByteView seed) {
     Q_ASSERT(seed.size() == 4);
-    quint16 pk1 = (quint8(seed.at(0)) << 8) | quint8(seed.at(1));
-    quint16 pk2 = (quint8(seed.at(2)) << 8) | quint8(seed.at(3));
-    quint16 sk1 = seedKeyWord(pk1);
-    quint16 sk2 = seedKeyWord(pk2);
-    QByteArray key;
-    key.append(char((sk1 >> 8) & 0xFF));
-    key.append(char(sk1 & 0xFF));
-    key.append(char((sk2 >> 8) & 0xFF));
-    key.append(char(sk2 & 0xFF));
+    const std::uint16_t pk1 = bytes::readU16Be(seed, 0);
+    const std::uint16_t pk2 = bytes::readU16Be(seed, 2);
+    const std::uint16_t sk1 = seedKeyWord(pk1);
+    const std::uint16_t sk2 = seedKeyWord(pk2);
+    bytes::Bytes key;
+    key.reserve(4);
+    bytes::appendU16Be(key, sk1);
+    bytes::appendU16Be(key, sk2);
     return key;
 }
 
-quint16 checksum(const QByteArray &data) {
-    quint16 sum = 0;
-    for (int i = 0; i < data.size(); ++i)
-        sum += quint8(data.at(i));
+QByteArray seedKey(const QByteArray &seed) {
+    return bytes::toQByteArray(seedKey(bytes::view(seed)));
+}
+
+std::uint16_t checksum(bytes::ByteView data) {
+    std::uint16_t sum = 0;
+    for (bytes::Byte byte : data)
+        sum += byte;
     return sum;
 }
 
-QByteArray buildRequestDownloadFrame(quint32 start, quint32 size) {
-    QByteArray f;
-    f.append(char(kServiceRequestDownload));
-    f.append(char((start >> 16) & 0xFF));
-    f.append(char((start >> 8) & 0xFF));
-    f.append(char(start & 0xFF));
-    f.append(char(0x00));
-    f.append(char((size >> 16) & 0xFF));
-    f.append(char((size >> 8) & 0xFF));
-    f.append(char(size & 0xFF));
+std::uint16_t checksum(const QByteArray &data) {
+    return checksum(bytes::view(data));
+}
+
+bytes::Bytes buildRequestDownload(std::uint32_t start, std::uint32_t size) {
+    bytes::Bytes f;
+    f.reserve(8);
+    f.push_back(kServiceRequestDownload);
+    bytes::appendU24Be(f, start);
+    f.push_back(0x00);
+    bytes::appendU24Be(f, size);
     return f;
 }
 
-QVector<QByteArray> buildTransferDataFrames(const QByteArray &payload) {
-    QVector<QByteArray> frames;
-    for (int offset = 0; offset < payload.size(); offset += int(kTransferChunkSize)) {
-        QByteArray f;
-        f.append(char(kServiceTransferData));
-        f.append(payload.mid(offset, int(kTransferChunkSize)));
-        frames.append(f);
+QByteArray buildRequestDownloadFrame(std::uint32_t start, std::uint32_t size) {
+    return bytes::toQByteArray(buildRequestDownload(start, size));
+}
+
+std::vector<bytes::Bytes> buildTransferDataFrames(bytes::ByteView payload) {
+    std::vector<bytes::Bytes> frames;
+    for (std::size_t offset = 0; offset < payload.size(); offset += kTransferChunkSize) {
+        const std::size_t chunkSize = std::min<std::size_t>(kTransferChunkSize, payload.size() - offset);
+        bytes::Bytes f;
+        f.reserve(1 + chunkSize);
+        f.push_back(kServiceTransferData);
+        f.insert(f.end(), payload.begin() + offset, payload.begin() + offset + chunkSize);
+        frames.push_back(std::move(f));
     }
     return frames;
 }
 
-QByteArray buildRoutineCheckCrcFrame(quint32 targetStart) {
-    QByteArray f;
-    f.append(char(kServiceRoutineControl));
-    f.append(char(kRoutineCheckCrc));
-    f.append(char(targetStart < 0x800000 ? 2 : 1));
+QVector<QByteArray> buildTransferDataFrames(const QByteArray &payload) {
+    QVector<QByteArray> frames;
+    const std::vector<bytes::Bytes> byteFrames = buildTransferDataFrames(bytes::view(payload));
+    frames.reserve(static_cast<qsizetype>(byteFrames.size()));
+    for (const bytes::Bytes &frame : byteFrames)
+        frames.append(bytes::toQByteArray(frame));
+    return frames;
+}
+
+bytes::Bytes buildRoutineCheckCrc(std::uint32_t targetStart) {
+    bytes::Bytes f;
+    f.reserve(3);
+    f.push_back(kServiceRoutineControl);
+    f.push_back(kRoutineCheckCrc);
+    f.push_back(targetStart < 0x800000 ? 2 : 1);
+    return f;
+}
+
+QByteArray buildRoutineCheckCrcFrame(std::uint32_t targetStart) {
+    return bytes::toQByteArray(buildRoutineCheckCrc(targetStart));
+}
+
+bytes::Bytes buildRoutineErase() {
+    bytes::Bytes f;
+    f.reserve(2);
+    f.push_back(kServiceRoutineControl);
+    f.push_back(kRoutineErase);
     return f;
 }
 
 QByteArray buildRoutineEraseFrame() {
-    QByteArray f;
-    f.append(char(kServiceRoutineControl));
-    f.append(char(kRoutineErase));
-    return f;
+    return bytes::toQByteArray(buildRoutineErase());
+}
+
+bytes::Bytes buildRequestReflashUnlock() {
+    // Verbatim from externals/livemonitor/obdsessionwidget.cpp:180-181.
+    // Original author's comment: "caused bootloader lockup". See header doc.
+    static const bytes::Byte kData[12] = {
+        kServiceRequestReflash, 154, 1, 1, 'R', 'c', 'u', 's', '0', '0', 0, 1
+    };
+    return bytes::Bytes(std::begin(kData), std::end(kData));
 }
 
 QByteArray buildRequestReflashUnlockFrame() {
-    // Verbatim from externals/livemonitor/obdsessionwidget.cpp:180-181.
-    // Original author's comment: "caused bootloader lockup". See header doc.
-    static const quint8 kData[12] = {
-        kServiceRequestReflash, 154, 1, 1, 'R', 'c', 'u', 's', '0', '0', 0, 1
-    };
-    return QByteArray(reinterpret_cast<const char *>(kData), sizeof(kData));
+    return bytes::toQByteArray(buildRequestReflashUnlock());
 }
 
-QByteArray buildReadMemoryByAddressFrame(quint32 addr, quint8 len) {
-    QByteArray f;
-    f.append(char(kServiceReadMemoryByAddress));
-    f.append(char((addr >> 16) & 0xFF));
-    f.append(char((addr >> 8) & 0xFF));
-    f.append(char(addr & 0xFF));
-    f.append(char(len));
+bytes::Bytes buildReadMemoryByAddress(std::uint32_t addr, bytes::Byte len) {
+    bytes::Bytes f;
+    f.reserve(5);
+    f.push_back(kServiceReadMemoryByAddress);
+    bytes::appendU24Be(f, addr);
+    f.push_back(len);
     return f;
 }
 
-QByteArray buildDiagnosticSessionFrame(quint8 sessionId) {
-    QByteArray f;
-    f.append(char(kServiceDiagnosticSession));
-    f.append(char(sessionId));
+QByteArray buildReadMemoryByAddressFrame(std::uint32_t addr, bytes::Byte len) {
+    return bytes::toQByteArray(buildReadMemoryByAddress(addr, len));
+}
+
+bytes::Bytes buildDiagnosticSession(bytes::Byte sessionId) {
+    bytes::Bytes f;
+    f.reserve(2);
+    f.push_back(kServiceDiagnosticSession);
+    f.push_back(sessionId);
+    return f;
+}
+
+QByteArray buildDiagnosticSessionFrame(bytes::Byte sessionId) {
+    return bytes::toQByteArray(buildDiagnosticSession(sessionId));
+}
+
+bytes::Bytes buildSecurityAccessSeedRequest() {
+    bytes::Bytes f;
+    f.reserve(2);
+    f.push_back(kServiceSecurityAccess);
+    f.push_back(0x05);
     return f;
 }
 
 QByteArray buildSecurityAccessSeedRequestFrame() {
-    QByteArray f;
-    f.append(char(kServiceSecurityAccess));
-    f.append(char(0x05));
+    return bytes::toQByteArray(buildSecurityAccessSeedRequest());
+}
+
+bytes::Bytes buildSecurityAccessKey(bytes::ByteView key) {
+    Q_ASSERT(key.size() == 4);
+    bytes::Bytes f;
+    f.reserve(6);
+    f.push_back(kServiceSecurityAccess);
+    f.push_back(0x06);
+    f.insert(f.end(), key.begin(), key.end());
     return f;
 }
 
 QByteArray buildSecurityAccessKeyFrame(const QByteArray &key) {
-    Q_ASSERT(key.size() == 4);
-    QByteArray f;
-    f.append(char(kServiceSecurityAccess));
-    f.append(char(0x06));
-    f.append(key);
-    return f;
+    return bytes::toQByteArray(buildSecurityAccessKey(bytes::view(key)));
 }
 
 } // namespace MitsuColtCan

@@ -1,6 +1,11 @@
 #pragma once
+#include "protocol/bytes.h"
+
 #include <QByteArray>
 #include <QVector>
+
+#include <cstdint>
+#include <vector>
 
 // Mitsubishi Colt CZT (Z37A, ROM 47110032) CAN reflash protocol.
 // Ported from externals/livemonitor/obdengine.cpp + colt_flasher.xml.
@@ -8,42 +13,44 @@
 // Pure, hardware-independent frame builders only — no I/O here.
 namespace MitsuColtCan {
 
-constexpr quint8 kServiceDiagnosticSession    = 0x10;
-constexpr quint8 kServiceSecurityAccess       = 0x27;
-constexpr quint8 kServiceReadMemoryByAddress  = 0x23;
-constexpr quint8 kServiceRequestDownload      = 0x34;
-constexpr quint8 kServiceTransferData         = 0x36;
-constexpr quint8 kServiceRoutineControl       = 0x31;
-constexpr quint8 kServiceRequestReflash       = 0x3B;
+constexpr bytes::Byte kServiceDiagnosticSession    = 0x10;
+constexpr bytes::Byte kServiceSecurityAccess       = 0x27;
+constexpr bytes::Byte kServiceReadMemoryByAddress  = 0x23;
+constexpr bytes::Byte kServiceRequestDownload      = 0x34;
+constexpr bytes::Byte kServiceTransferData         = 0x36;
+constexpr bytes::Byte kServiceRoutineControl       = 0x31;
+constexpr bytes::Byte kServiceRequestReflash       = 0x3B;
 
-constexpr quint8 kSessionBasic    = 0x81;
-constexpr quint8 kSessionBootload = 0x85;
+constexpr bytes::Byte kSessionBasic    = 0x81;
+constexpr bytes::Byte kSessionBootload = 0x85;
 
-constexpr quint32 kCrcTransferAddress = 0x200000;
-constexpr quint32 kCrcTransferSize    = 2;
-constexpr quint8  kRoutineCheckCrc    = 225;
-constexpr quint8  kRoutineErase       = 224;
+constexpr std::uint32_t kCrcTransferAddress = 0x200000;
+constexpr std::uint32_t kCrcTransferSize    = 2;
+constexpr bytes::Byte  kRoutineCheckCrc     = 225;
+constexpr bytes::Byte  kRoutineErase        = 224;
 
-constexpr quint32 kUserspaceStart      = 0x008000;
-constexpr quint32 kUserspaceEnd        = 0x060000;
-constexpr quint32 kFlashReadBlockSize  = 192;
-constexpr quint32 kTransferChunkSize   = 256;
+constexpr std::uint32_t kUserspaceStart      = 0x008000;
+constexpr std::uint32_t kUserspaceEnd        = 0x060000;
+constexpr std::uint32_t kFlashReadBlockSize  = 192;
+constexpr std::uint32_t kTransferChunkSize   = 256;
 
-constexpr quint32 kEraseRoutineRamAddr = 0x805568;
-constexpr quint32 kWriteRoutineRamAddr = 0x8054AC;
+constexpr std::uint32_t kEraseRoutineRamAddr = 0x805568;
+constexpr std::uint32_t kWriteRoutineRamAddr = 0x8054AC;
 
 // RAM-resident erase/write helper routines, carried over verbatim (not
 // recompiled) from externals/livemonitor/colt_flasher.xml. Valid only for
 // ROM 47110032 (Colt CZT, Z37A).
-extern const quint8 kErasePageRoutine[160];
-extern const quint8 kWritePageRoutine[176];
+extern const bytes::Byte kErasePageRoutine[160];
+extern const bytes::Byte kWritePageRoutine[176];
 
 // sk = (pk * 135 + 1542) mod 65536. Mitsubishi-specific; ported from
 // ObdSessionInitCommandSequence::messageCallbackCustomAction in
 // externals/livemonitor/obdengine.cpp. Different from (and not compatible
 // with) the table-based algorithms used by the Subaru-targeted modules in
 // this codebase.
-quint16 seedKeyWord(quint16 seedWord);
+std::uint16_t seedKeyWord(std::uint16_t seedWord);
+
+bytes::Bytes seedKey(bytes::ByteView seed);
 
 // Applies seedKeyWord() to both 16-bit halves of a 4-byte seed (big-endian
 // in, big-endian out): seed = [pk1_hi, pk1_lo, pk2_hi, pk2_lo].
@@ -51,20 +58,30 @@ QByteArray seedKey(const QByteArray &seed);
 
 // 16-bit running sum of every raw byte, with natural wraparound. Matches
 // get_crc() in externals/livemonitor/obdengine.cpp — not a real CRC.
-quint16 checksum(const QByteArray &data);
+std::uint16_t checksum(bytes::ByteView data);
+std::uint16_t checksum(const QByteArray &data);
+
+bytes::Bytes buildRequestDownload(std::uint32_t start, std::uint32_t size);
 
 // SID 0x34: [SID][start>>16][start>>8][start][0x00][size>>16][size>>8][size].
-QByteArray buildRequestDownloadFrame(quint32 start, quint32 size);
+QByteArray buildRequestDownloadFrame(std::uint32_t start, std::uint32_t size);
 
 // SID 0x36, chunked at kTransferChunkSize bytes per frame: [SID][up to 256 payload bytes].
+std::vector<bytes::Bytes> buildTransferDataFrames(bytes::ByteView payload);
 QVector<QByteArray> buildTransferDataFrames(const QByteArray &payload);
+
+bytes::Bytes buildRoutineCheckCrc(std::uint32_t targetStart);
 
 // SID 0x31/225: [SID][225][selector]. selector = 2 if targetStart < 0x800000
 // ("flash"), else 1 ("memory") — matches obdengine.cpp's "flash/memory fun".
-QByteArray buildRoutineCheckCrcFrame(quint32 targetStart);
+QByteArray buildRoutineCheckCrcFrame(std::uint32_t targetStart);
+
+bytes::Bytes buildRoutineErase();
 
 // SID 0x31/224, bare 2 bytes, no selector byte. Source comment: "causes reflash".
 QByteArray buildRoutineEraseFrame();
+
+bytes::Bytes buildRequestReflashUnlock();
 
 // SID 0x3B, 12-byte payload ported verbatim from
 // externals/livemonitor/obdsessionwidget.cpp:180-181. KNOWN RISK: the
@@ -74,14 +91,22 @@ QByteArray buildRoutineEraseFrame();
 // on a bench/spare ECU.
 QByteArray buildRequestReflashUnlockFrame();
 
+bytes::Bytes buildReadMemoryByAddress(std::uint32_t addr, bytes::Byte len);
+
 // SID 0x23: [SID][addr>>16][addr>>8][addr][len].
-QByteArray buildReadMemoryByAddressFrame(quint32 addr, quint8 len);
+QByteArray buildReadMemoryByAddressFrame(std::uint32_t addr, bytes::Byte len);
+
+bytes::Bytes buildDiagnosticSession(bytes::Byte sessionId);
 
 // SID 0x10: [SID][sessionId].
-QByteArray buildDiagnosticSessionFrame(quint8 sessionId);
+QByteArray buildDiagnosticSessionFrame(bytes::Byte sessionId);
+
+bytes::Bytes buildSecurityAccessSeedRequest();
 
 // SID 0x27/5 (seed request): [SID][0x05].
 QByteArray buildSecurityAccessSeedRequestFrame();
+
+bytes::Bytes buildSecurityAccessKey(bytes::ByteView key);
 
 // SID 0x27/6 (key answer): [SID][0x06][4-byte key].
 QByteArray buildSecurityAccessKeyFrame(const QByteArray &key);

@@ -1,5 +1,6 @@
 #include <QtTest>
 #include "protocol/mitsu_colt_can_vendor_ext_protocol.h"
+#include "byte_test_utils.h"
 #include "test_mitsu_colt_can_vendor_ext_protocol.h"
 using namespace MitsuColtCanVendorExt;
 
@@ -41,9 +42,22 @@ private slots:
         QByteArray onWire = keyToBytes(challengeTransform(secret));
         QCOMPARE(challengeInverseTransform(bytesToSeed(onWire)), secret);
     }
+    void byte_native_seed_and_key_helpers_round_trip() {
+        const bytes::Bytes seedBytes = test_bytes::bytesFromHex("F2E207C5");
+        QCOMPARE(bytesToSeed(seedBytes), std::uint32_t(0xF2E207C5u));
+        QCOMPARE(keyBytes(0xF2E207C5u), seedBytes);
+
+        const std::uint32_t secret = 0x12345678u;
+        const bytes::Bytes onWire = keyBytes(challengeTransform(secret));
+        QCOMPARE(challengeInverseTransform(bytesToSeed(onWire)), secret);
+    }
     void challenge_frame_layout() {
         QCOMPARE(buildChallengeSeedRequestFrame(), QByteArray::fromHex("232741"));
         QCOMPARE(buildChallengeKeyFrame(0x12345678u), QByteArray::fromHex("23274212345678"));
+    }
+    void byte_native_challenge_frame_layout() {
+        QCOMPARE(buildChallengeSeedRequest(), test_bytes::bytesFromHex("232741"));
+        QCOMPARE(buildChallengeKey(0x12345678u), test_bytes::bytesFromHex("23274212345678"));
     }
     void challenge_key_frame_uses_inverse_key_bytes() {
         const QByteArray seedBytes = QByteArray::fromHex("669E0CB4");
