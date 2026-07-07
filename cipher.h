@@ -4,11 +4,6 @@
 #include <QString>
 #include <QFile>
 #include <QDebug>
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-#include <QtCore/QTextCodec>
-#else
-#include <QtCore5Compat/QTextCodec>
-#endif
 
 #include <openssl/conf.h>
 #include <openssl/evp.h>

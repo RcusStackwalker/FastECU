@@ -10,7 +10,6 @@ qt_resource_via_qrc = _qt_resource_via_qrc
 QT_DEPS = [
     "@rules_qt//:qt_charts",
     "@rules_qt//:qt_core",
-    "@rules_qt//:qt_core5_compat",
     "@rules_qt//:qt_gui",
     "@rules_qt//:qt_remote_objects",
     "@rules_qt//:qt_serial_port",
