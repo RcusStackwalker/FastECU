@@ -111,6 +111,7 @@ HEADERS += \
     fake_backend.h \
     ../serial_port/serial_port_actions.h \
     ../serial_port/serial_port_actions_direct.h \
+    ../serial_port/j2534_driver_selection.h \
     ../serial_port/serial_backend.h \
     ../serial_port/remote_serial_backend.h \
     ../serial_port/serial_backend_host.h \

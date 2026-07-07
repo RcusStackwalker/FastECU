@@ -207,6 +207,7 @@ HEADERS += \
     modules/ssm_protocol_core.h \
     protocol/bytes.h \
     protocol/qt_bytes.h \
+    serial_port/j2534_driver_selection.h \
     calibration_maps.h \
     calibration_treewidget.h \
     cipher.h \
