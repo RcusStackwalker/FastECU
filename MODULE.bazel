@@ -4,6 +4,12 @@ bazel_dep(name = "rules_cc", version = "0.2.16")
 bazel_dep(name = "rules_qt", version = "0.0.6")
 bazel_dep(name = "platforms", version = "1.0.0")
 
+single_version_override(
+    module_name = "rules_qt",
+    patches = ["//bazel/patches:rules_qt_windows_addons.patch"],
+    patch_strip = 1,
+)
+
 qt = use_extension("@rules_qt//extension:qt.bzl", "fetch")
 
 qt.install(

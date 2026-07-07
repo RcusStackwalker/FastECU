@@ -34,14 +34,14 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
 {
     Q_OBJECT
 
-signals:
+  signals:
     void LOG_E(QString message, bool timestamp, bool linefeed);
     void LOG_W(QString message, bool timestamp, bool linefeed);
     void LOG_I(QString message, bool timestamp, bool linefeed);
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
-public:
-    explicit SerialPortActionsDirect(QObject *parent=nullptr);
+  public:
+    explicit SerialPortActionsDirect(QObject *parent = nullptr);
     ~SerialPortActionsDirect();
 
     bool serialPortAvailable = false;
@@ -79,7 +79,7 @@ public:
     uint8_t kline_tester_id = 0;
     uint8_t kline_target_id = 0;
 
-    QByteArray ssm_receive_header_start = { "\x80\xf0\x10" };
+    QByteArray ssm_receive_header_start = {"\x80\xf0\x10"};
 
     QStringList serial_port_list;
     QString openedSerialPort;
@@ -111,14 +111,14 @@ public:
     uint32_t iso15765_source_address = 0;
     uint32_t iso15765_destination_address = 0;
 
-#define SERIAL_P1_MIN   0x00 // J2534 says this may not be changed
-#define SERIAL_P1_MAX   0x01
-#define SERIAL_P2_MIN   0x02 // J2534 says this may not be changed
-#define SERIAL_P2_MAX   0x03 // J2534 says this may not be changed
-#define SERIAL_P3_MIN   0x04
-#define SERIAL_P3_MAX   0x05 // J2534 says this may not be changed
-#define SERIAL_P4_MIN   0x06
-#define SERIAL_P4_MAX   0x07 // J2534 says this may not be changed
+#define SERIAL_P1_MIN 0x00 // J2534 says this may not be changed
+#define SERIAL_P1_MAX 0x01
+#define SERIAL_P2_MIN 0x02 // J2534 says this may not be changed
+#define SERIAL_P2_MAX 0x03 // J2534 says this may not be changed
+#define SERIAL_P3_MIN 0x04
+#define SERIAL_P3_MAX 0x05 // J2534 says this may not be changed
+#define SERIAL_P4_MIN 0x06
+#define SERIAL_P4_MAX 0x07 // J2534 says this may not be changed
 
     uint8_t _P1_MAX = 10;
     bool set_kline_timings(uint32_t parameter, int value) override;
@@ -154,110 +154,423 @@ public:
     bool get_is_tx_done() override;
 
     // -- SerialBackend ----------------------------------------------------
-    QObject *qobject() override { return this; }
+    QObject *qobject() override
+    {
+        return this;
+    }
     // The interface takes uint32_t; the long-standing member takes unsigned
     // long. Distinct overloads on LP64 — adapt explicitly.
     int set_j2534_ioctl(uint32_t parameter, int value) override
-    { return set_j2534_ioctl((unsigned long)parameter, value); }
+    {
+        return set_j2534_ioctl((unsigned long)parameter, value);
+    }
 
-    bool get_serialPortAvailable() override { return serialPortAvailable; }
-    bool set_serialPortAvailable(bool value) override { serialPortAvailable = value; return true; }
-    bool get_setRequestToSend() override { return setRequestToSend; }
-    bool set_setRequestToSend(bool value) override { setRequestToSend = value; return true; }
-    bool get_setDataTerminalReady() override { return setDataTerminalReady; }
-    bool set_setDataTerminalReady(bool value) override { setDataTerminalReady = value; return true; }
-    bool get_add_ssm_header() override { return add_ssm_header; }
-    bool set_add_ssm_header(bool value) override { add_ssm_header = value; return true; }
-    bool get_add_iso9141_header() override { return add_iso9141_header; }
-    bool set_add_iso9141_header(bool value) override { add_iso9141_header = value; return true; }
-    bool get_add_iso14230_header() override { return add_iso14230_header; }
-    bool set_add_iso14230_header(bool value) override { add_iso14230_header = value; return true; }
-    bool get_is_iso14230_connection() override { return is_iso14230_connection; }
-    bool set_is_iso14230_connection(bool value) override { is_iso14230_connection = value; return true; }
-    bool get_is_can_connection() override { return is_can_connection; }
-    bool set_is_can_connection(bool value) override { is_can_connection = value; return true; }
-    bool get_is_iso15765_connection() override { return is_iso15765_connection; }
-    bool set_is_iso15765_connection(bool value) override { is_iso15765_connection = value; return true; }
-    bool get_is_29_bit_id() override { return is_29_bit_id; }
-    bool set_is_29_bit_id(bool value) override { is_29_bit_id = value; return true; }
-    bool get_use_openport2_adapter() override { return use_openport2_adapter; }
-    bool set_use_openport2_adapter(bool value) override { use_openport2_adapter = value; return true; }
+    bool get_serialPortAvailable() override
+    {
+        return serialPortAvailable;
+    }
+    bool set_serialPortAvailable(bool value) override
+    {
+        serialPortAvailable = value;
+        return true;
+    }
+    bool get_setRequestToSend() override
+    {
+        return setRequestToSend;
+    }
+    bool set_setRequestToSend(bool value) override
+    {
+        setRequestToSend = value;
+        return true;
+    }
+    bool get_setDataTerminalReady() override
+    {
+        return setDataTerminalReady;
+    }
+    bool set_setDataTerminalReady(bool value) override
+    {
+        setDataTerminalReady = value;
+        return true;
+    }
+    bool get_add_ssm_header() override
+    {
+        return add_ssm_header;
+    }
+    bool set_add_ssm_header(bool value) override
+    {
+        add_ssm_header = value;
+        return true;
+    }
+    bool get_add_iso9141_header() override
+    {
+        return add_iso9141_header;
+    }
+    bool set_add_iso9141_header(bool value) override
+    {
+        add_iso9141_header = value;
+        return true;
+    }
+    bool get_add_iso14230_header() override
+    {
+        return add_iso14230_header;
+    }
+    bool set_add_iso14230_header(bool value) override
+    {
+        add_iso14230_header = value;
+        return true;
+    }
+    bool get_is_iso14230_connection() override
+    {
+        return is_iso14230_connection;
+    }
+    bool set_is_iso14230_connection(bool value) override
+    {
+        is_iso14230_connection = value;
+        return true;
+    }
+    bool get_is_can_connection() override
+    {
+        return is_can_connection;
+    }
+    bool set_is_can_connection(bool value) override
+    {
+        is_can_connection = value;
+        return true;
+    }
+    bool get_is_iso15765_connection() override
+    {
+        return is_iso15765_connection;
+    }
+    bool set_is_iso15765_connection(bool value) override
+    {
+        is_iso15765_connection = value;
+        return true;
+    }
+    bool get_is_29_bit_id() override
+    {
+        return is_29_bit_id;
+    }
+    bool set_is_29_bit_id(bool value) override
+    {
+        is_29_bit_id = value;
+        return true;
+    }
+    bool get_use_openport2_adapter() override
+    {
+        return use_openport2_adapter;
+    }
+    bool set_use_openport2_adapter(bool value) override
+    {
+        use_openport2_adapter = value;
+        return true;
+    }
 
-    int  get_requestToSendEnabled() override { return requestToSendEnabled; }
-    bool set_requestToSendEnabled(int value) override { requestToSendEnabled = value; return true; }
-    int  get_requestToSendDisabled() override { return requestToSendDisabled; }
-    bool set_requestToSendDisabled(int value) override { requestToSendDisabled = value; return true; }
-    int  get_dataTerminalEnabled() override { return dataTerminalEnabled; }
-    bool set_dataTerminalEnabled(int value) override { dataTerminalEnabled = value; return true; }
-    int  get_dataTerminalDisabled() override { return dataTerminalDisabled; }
-    bool set_dataTerminalDisabled(int value) override { dataTerminalDisabled = value; return true; }
+    int get_requestToSendEnabled() override
+    {
+        return requestToSendEnabled;
+    }
+    bool set_requestToSendEnabled(int value) override
+    {
+        requestToSendEnabled = value;
+        return true;
+    }
+    int get_requestToSendDisabled() override
+    {
+        return requestToSendDisabled;
+    }
+    bool set_requestToSendDisabled(int value) override
+    {
+        requestToSendDisabled = value;
+        return true;
+    }
+    int get_dataTerminalEnabled() override
+    {
+        return dataTerminalEnabled;
+    }
+    bool set_dataTerminalEnabled(int value) override
+    {
+        dataTerminalEnabled = value;
+        return true;
+    }
+    int get_dataTerminalDisabled() override
+    {
+        return dataTerminalDisabled;
+    }
+    bool set_dataTerminalDisabled(int value) override
+    {
+        dataTerminalDisabled = value;
+        return true;
+    }
 
-    uint8_t get_kline_startbyte() override { return kline_startbyte; }
-    bool    set_kline_startbyte(uint8_t value) override { kline_startbyte = value; return true; }
-    uint8_t get_kline_tester_id() override { return kline_tester_id; }
-    bool    set_kline_tester_id(uint8_t value) override { kline_tester_id = value; return true; }
-    uint8_t get_kline_target_id() override { return kline_target_id; }
-    bool    set_kline_target_id(uint8_t value) override { kline_target_id = value; return true; }
-    uint8_t get_serial_port_parity() override { return serial_port_parity; }
-    bool    set_serial_port_parity(uint8_t parity) override { serial_port_parity = parity; return true; }
+    uint8_t get_kline_startbyte() override
+    {
+        return kline_startbyte;
+    }
+    bool set_kline_startbyte(uint8_t value) override
+    {
+        kline_startbyte = value;
+        return true;
+    }
+    uint8_t get_kline_tester_id() override
+    {
+        return kline_tester_id;
+    }
+    bool set_kline_tester_id(uint8_t value) override
+    {
+        kline_tester_id = value;
+        return true;
+    }
+    uint8_t get_kline_target_id() override
+    {
+        return kline_target_id;
+    }
+    bool set_kline_target_id(uint8_t value) override
+    {
+        kline_target_id = value;
+        return true;
+    }
+    uint8_t get_serial_port_parity() override
+    {
+        return serial_port_parity;
+    }
+    bool set_serial_port_parity(uint8_t parity) override
+    {
+        serial_port_parity = parity;
+        return true;
+    }
 
-    QByteArray get_ssm_receive_header_start() override { return ssm_receive_header_start; }
-    bool       set_ssm_receive_header_start(QByteArray value) override { ssm_receive_header_start = value; return true; }
+    QByteArray get_ssm_receive_header_start() override
+    {
+        return ssm_receive_header_start;
+    }
+    bool set_ssm_receive_header_start(QByteArray value) override
+    {
+        ssm_receive_header_start = value;
+        return true;
+    }
 
-    QStringList get_serial_port_list() override { return serial_port_list; }
-    bool        set_serial_port_list(QStringList value) override { serial_port_list = value; return true; }
+    QStringList get_serial_port_list() override
+    {
+        return serial_port_list;
+    }
+    bool set_serial_port_list(QStringList value) override
+    {
+        serial_port_list = value;
+        return true;
+    }
 
-    QString get_openedSerialPort() override { return openedSerialPort; }
-    bool    set_openedSerialPort(QString value) override { openedSerialPort = value; return true; }
-    QString get_subaru_02_16bit_bootloader_baudrate() override { return subaru_02_16bit_bootloader_baudrate; }
-    bool    set_subaru_02_16bit_bootloader_baudrate(QString value) override { subaru_02_16bit_bootloader_baudrate = value; return true; }
-    QString get_subaru_04_16bit_bootloader_baudrate() override { return subaru_04_16bit_bootloader_baudrate; }
-    bool    set_subaru_04_16bit_bootloader_baudrate(QString value) override { subaru_04_16bit_bootloader_baudrate = value; return true; }
-    QString get_subaru_02_32bit_bootloader_baudrate() override { return subaru_02_32bit_bootloader_baudrate; }
-    bool    set_subaru_02_32bit_bootloader_baudrate(QString value) override { subaru_02_32bit_bootloader_baudrate = value; return true; }
-    QString get_subaru_04_32bit_bootloader_baudrate() override { return subaru_04_32bit_bootloader_baudrate; }
-    bool    set_subaru_04_32bit_bootloader_baudrate(QString value) override { subaru_04_32bit_bootloader_baudrate = value; return true; }
-    QString get_subaru_05_32bit_bootloader_baudrate() override { return subaru_05_32bit_bootloader_baudrate; }
-    bool    set_subaru_05_32bit_bootloader_baudrate(QString value) override { subaru_05_32bit_bootloader_baudrate = value; return true; }
-    QString get_subaru_02_16bit_kernel_baudrate() override { return subaru_02_16bit_kernel_baudrate; }
-    bool    set_subaru_02_16bit_kernel_baudrate(QString value) override { subaru_02_16bit_kernel_baudrate = value; return true; }
-    QString get_subaru_04_16bit_kernel_baudrate() override { return subaru_04_16bit_kernel_baudrate; }
-    bool    set_subaru_04_16bit_kernel_baudrate(QString value) override { subaru_04_16bit_kernel_baudrate = value; return true; }
-    QString get_subaru_02_32bit_kernel_baudrate() override { return subaru_02_32bit_kernel_baudrate; }
-    bool    set_subaru_02_32bit_kernel_baudrate(QString value) override { subaru_02_32bit_kernel_baudrate = value; return true; }
-    QString get_subaru_04_32bit_kernel_baudrate() override { return subaru_04_32bit_kernel_baudrate; }
-    bool    set_subaru_04_32bit_kernel_baudrate(QString value) override { subaru_04_32bit_kernel_baudrate = value; return true; }
-    QString get_subaru_05_32bit_kernel_baudrate() override { return subaru_05_32bit_kernel_baudrate; }
-    bool    set_subaru_05_32bit_kernel_baudrate(QString value) override { subaru_05_32bit_kernel_baudrate = value; return true; }
-    QString get_can_speed() override { return can_speed; }
-    bool    set_can_speed(QString value) override { can_speed = value; return true; }
-    QString get_serial_port_baudrate() override { return serial_port_baudrate; }
-    bool    set_serial_port_baudrate(QString value) override { serial_port_baudrate = value; return true; }
-    QString get_serial_port_linux() override { return serial_port_linux; }
-    bool    set_serial_port_linux(QString value) override { serial_port_linux = value; return true; }
-    QString get_serial_port_windows() override { return serial_port_windows; }
-    bool    set_serial_port_windows(QString value) override { serial_port_windows = value; return true; }
-    QString get_serial_port() override { return serial_port; }
-    bool    set_serial_port(QString value) override { serial_port = value; return true; }
-    QString get_serial_port_prefix() override { return serial_port_prefix; }
-    bool    set_serial_port_prefix(QString value) override { serial_port_prefix = value; return true; }
-    QString get_serial_port_prefix_linux() override { return serial_port_prefix_linux; }
-    bool    set_serial_port_prefix_linux(QString value) override { serial_port_prefix_linux = value; return true; }
-    QString get_serial_port_prefix_win() override { return serial_port_prefix_win; }
-    bool    set_serial_port_prefix_win(QString value) override { serial_port_prefix_win = value; return true; }
+    QString get_openedSerialPort() override
+    {
+        return openedSerialPort;
+    }
+    bool set_openedSerialPort(QString value) override
+    {
+        openedSerialPort = value;
+        return true;
+    }
+    QString get_subaru_02_16bit_bootloader_baudrate() override
+    {
+        return subaru_02_16bit_bootloader_baudrate;
+    }
+    bool set_subaru_02_16bit_bootloader_baudrate(QString value) override
+    {
+        subaru_02_16bit_bootloader_baudrate = value;
+        return true;
+    }
+    QString get_subaru_04_16bit_bootloader_baudrate() override
+    {
+        return subaru_04_16bit_bootloader_baudrate;
+    }
+    bool set_subaru_04_16bit_bootloader_baudrate(QString value) override
+    {
+        subaru_04_16bit_bootloader_baudrate = value;
+        return true;
+    }
+    QString get_subaru_02_32bit_bootloader_baudrate() override
+    {
+        return subaru_02_32bit_bootloader_baudrate;
+    }
+    bool set_subaru_02_32bit_bootloader_baudrate(QString value) override
+    {
+        subaru_02_32bit_bootloader_baudrate = value;
+        return true;
+    }
+    QString get_subaru_04_32bit_bootloader_baudrate() override
+    {
+        return subaru_04_32bit_bootloader_baudrate;
+    }
+    bool set_subaru_04_32bit_bootloader_baudrate(QString value) override
+    {
+        subaru_04_32bit_bootloader_baudrate = value;
+        return true;
+    }
+    QString get_subaru_05_32bit_bootloader_baudrate() override
+    {
+        return subaru_05_32bit_bootloader_baudrate;
+    }
+    bool set_subaru_05_32bit_bootloader_baudrate(QString value) override
+    {
+        subaru_05_32bit_bootloader_baudrate = value;
+        return true;
+    }
+    QString get_subaru_02_16bit_kernel_baudrate() override
+    {
+        return subaru_02_16bit_kernel_baudrate;
+    }
+    bool set_subaru_02_16bit_kernel_baudrate(QString value) override
+    {
+        subaru_02_16bit_kernel_baudrate = value;
+        return true;
+    }
+    QString get_subaru_04_16bit_kernel_baudrate() override
+    {
+        return subaru_04_16bit_kernel_baudrate;
+    }
+    bool set_subaru_04_16bit_kernel_baudrate(QString value) override
+    {
+        subaru_04_16bit_kernel_baudrate = value;
+        return true;
+    }
+    QString get_subaru_02_32bit_kernel_baudrate() override
+    {
+        return subaru_02_32bit_kernel_baudrate;
+    }
+    bool set_subaru_02_32bit_kernel_baudrate(QString value) override
+    {
+        subaru_02_32bit_kernel_baudrate = value;
+        return true;
+    }
+    QString get_subaru_04_32bit_kernel_baudrate() override
+    {
+        return subaru_04_32bit_kernel_baudrate;
+    }
+    bool set_subaru_04_32bit_kernel_baudrate(QString value) override
+    {
+        subaru_04_32bit_kernel_baudrate = value;
+        return true;
+    }
+    QString get_subaru_05_32bit_kernel_baudrate() override
+    {
+        return subaru_05_32bit_kernel_baudrate;
+    }
+    bool set_subaru_05_32bit_kernel_baudrate(QString value) override
+    {
+        subaru_05_32bit_kernel_baudrate = value;
+        return true;
+    }
+    QString get_can_speed() override
+    {
+        return can_speed;
+    }
+    bool set_can_speed(QString value) override
+    {
+        can_speed = value;
+        return true;
+    }
+    QString get_serial_port_baudrate() override
+    {
+        return serial_port_baudrate;
+    }
+    bool set_serial_port_baudrate(QString value) override
+    {
+        serial_port_baudrate = value;
+        return true;
+    }
+    QString get_serial_port_linux() override
+    {
+        return serial_port_linux;
+    }
+    bool set_serial_port_linux(QString value) override
+    {
+        serial_port_linux = value;
+        return true;
+    }
+    QString get_serial_port_windows() override
+    {
+        return serial_port_windows;
+    }
+    bool set_serial_port_windows(QString value) override
+    {
+        serial_port_windows = value;
+        return true;
+    }
+    QString get_serial_port() override
+    {
+        return serial_port;
+    }
+    bool set_serial_port(QString value) override
+    {
+        serial_port = value;
+        return true;
+    }
+    QString get_serial_port_prefix() override
+    {
+        return serial_port_prefix;
+    }
+    bool set_serial_port_prefix(QString value) override
+    {
+        serial_port_prefix = value;
+        return true;
+    }
+    QString get_serial_port_prefix_linux() override
+    {
+        return serial_port_prefix_linux;
+    }
+    bool set_serial_port_prefix_linux(QString value) override
+    {
+        serial_port_prefix_linux = value;
+        return true;
+    }
+    QString get_serial_port_prefix_win() override
+    {
+        return serial_port_prefix_win;
+    }
+    bool set_serial_port_prefix_win(QString value) override
+    {
+        serial_port_prefix_win = value;
+        return true;
+    }
 
-    uint32_t get_can_source_address() override { return can_source_address; }
-    bool     set_can_source_address(uint32_t value) override { can_source_address = value; return true; }
-    uint32_t get_can_destination_address() override { return can_destination_address; }
-    bool     set_can_destination_address(uint32_t value) override { can_destination_address = value; return true; }
-    uint32_t get_iso15765_source_address() override { return iso15765_source_address; }
-    bool     set_iso15765_source_address(uint32_t value) override { iso15765_source_address = value; return true; }
-    uint32_t get_iso15765_destination_address() override { return iso15765_destination_address; }
-    bool     set_iso15765_destination_address(uint32_t value) override { iso15765_destination_address = value; return true; }
+    uint32_t get_can_source_address() override
+    {
+        return can_source_address;
+    }
+    bool set_can_source_address(uint32_t value) override
+    {
+        can_source_address = value;
+        return true;
+    }
+    uint32_t get_can_destination_address() override
+    {
+        return can_destination_address;
+    }
+    bool set_can_destination_address(uint32_t value) override
+    {
+        can_destination_address = value;
+        return true;
+    }
+    uint32_t get_iso15765_source_address() override
+    {
+        return iso15765_source_address;
+    }
+    bool set_iso15765_source_address(uint32_t value) override
+    {
+        iso15765_source_address = value;
+        return true;
+    }
+    uint32_t get_iso15765_destination_address() override
+    {
+        return iso15765_destination_address;
+    }
+    bool set_iso15765_destination_address(uint32_t value) override
+    {
+        iso15765_destination_address = value;
+        return true;
+    }
 
-private:
+  private:
 #ifndef ARRAYSIZE
-#define ARRAYSIZE(A) (sizeof(A)/sizeof((A)[0]))
+#define ARRAYSIZE(A) (sizeof(A) / sizeof((A)[0]))
 #endif
 
     long PassThruOpen(const void *pName, unsigned long *pDeviceID);
@@ -271,7 +584,7 @@ private:
     long PassThruStartMsgFilter(unsigned long ChannelID, unsigned long FilterType, const PASSTHRU_MSG *pMaskMsg, const PASSTHRU_MSG *pPatternMsg, const PASSTHRU_MSG *pFlowControlMsg, unsigned long *pMsgID);
     long PassThruStopMsgFilter(unsigned long ChannelID, unsigned long MsgID);
     long PassThruSetProgrammingVoltage(unsigned long DeviceID, unsigned long Pin, unsigned long Voltage);
-    long PassThruReadVersion(char *pApiVersion,char *pDllVersion,char *pFirmwareVersion,unsigned long DeviceID);
+    long PassThruReadVersion(char *pApiVersion, char *pDllVersion, char *pFirmwareVersion, unsigned long DeviceID);
     long PassThruGetLastError(char *pErrorDescription);
     long PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const void *pInput, void *pOutput);
 
@@ -286,7 +599,8 @@ private:
 
     unsigned long msgID = 0;
 
-    enum rx_msg_type {
+    enum rx_msg_type
+    {
         NORM_MSG,
         TX_DONE_MSG = 0x10,
         TX_LB_MSG = 0x20,
@@ -297,16 +611,16 @@ private:
         TX_LB_START_IND = 0xA0,
     };
 
-#define STATUS_SUCCESS							0x00
-#define STATUS_ERROR							0x01
+#define STATUS_SUCCESS 0x00
+#define STATUS_ERROR 0x01
 
-protected:
+  protected:
     // protected so tests can drive the J2534 lifetime (reset_connection
     // use-after-free reproduction) and the connect sequence over a mock serial.
     int init_j2534_connection();
     J2534 *j2534;
 
-private:
+  private:
     QSerialPort *serial;
 
     // Reentrancy guard: >0 while a J2534 read is in-flight (its read paths pump
@@ -324,8 +638,8 @@ private:
     bool ssm_init_ok = false;
 
     void close_j2534_serial_port();
-    bool get_serial_num(char* serial);
-    void dump_msg(PASSTHRU_MSG* msg);
+    bool get_serial_num(char *serial);
+    void dump_msg(PASSTHRU_MSG *msg);
     void reportJ2534Error();
 
 #if defined Q_OS_UNIX
@@ -365,14 +679,13 @@ private:
 #endif
     QStringList check_j2534_devices(QMap<QString, QString> installed_drivers);
 
-private slots:
+  private slots:
 
     void close_serial_port();
     void handle_error(QSerialPort::SerialPortError error);
     void accurate_delay(double timeout);
     void fast_delay(int timeout);
     void delay(int timeout);
-
 };
 
 #endif // SERIAL_PORT_ACTIONS_DIRECT_H

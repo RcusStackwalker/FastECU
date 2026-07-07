@@ -19,22 +19,22 @@ class FlashEcuSubaruDensoSH7055_02Operation : public FlashOperationWorker
 {
     Q_OBJECT
 
-public:
+  public:
     FlashEcuSubaruDensoSH7055_02Operation(SerialPortActions *serial,
-                                           FileActions::EcuCalDefStructure *ecuCalDef,
-                                           QString cmd_type,
-                                           QWidget *dialog,
-                                           QObject *parent = nullptr,
-                                           PromptFn promptOverride = {});
+                                          FileActions::EcuCalDefStructure *ecuCalDef,
+                                          QString cmd_type,
+                                          QWidget *dialog,
+                                          QObject *parent = nullptr,
+                                          PromptFn promptOverride = {});
 
-protected:
+  protected:
     bool execute() override;
 
-private:
-    #define STATUS_SUCCESS	0x00
-    #define STATUS_ERROR	0x01
+  private:
+#define STATUS_SUCCESS 0x00
+#define STATUS_ERROR 0x01
 
-    #define KERNEL_MAXSIZE_SUB 8*1024U
+#define KERNEL_MAXSIZE_SUB 8 * 1024U
 
     uint32_t CRC32 = 0x5AA5A55A;
 
@@ -68,10 +68,10 @@ private:
     QString flash_method;
     QString kernel;
 
-    uint8_t bootloader_init_request_fxt02[3] = { 0x4D, 0xFF, 0xB4 };
-    uint8_t bootloader_init_response_stock_fxt02_ok[3] = { 0x4D, 0x00, 0xB3 };
-    uint8_t bootloader_init_response_ecutek_fxt02_ok[3] = { 0x4D, 0x00, 0xB3 };
-    uint8_t bootloader_init_response_cobb_fxt02_ok[3] = { 0x4D, 0x00, 0xB3 };
+    uint8_t bootloader_init_request_fxt02[3] = {0x4D, 0xFF, 0xB4};
+    uint8_t bootloader_init_response_stock_fxt02_ok[3] = {0x4D, 0x00, 0xB3};
+    uint8_t bootloader_init_response_ecutek_fxt02_ok[3] = {0x4D, 0x00, 0xB3};
+    uint8_t bootloader_init_response_cobb_fxt02_ok[3] = {0x4D, 0x00, 0xB3};
     uint8_t bootloader_init_response_fxt02_ok[3];
 
     int connect_bootloader();

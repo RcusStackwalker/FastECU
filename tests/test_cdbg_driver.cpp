@@ -5,11 +5,14 @@
 #include "test_cdbg_driver.h"
 using namespace MitsuColtCanCdbg;
 
-class TestCdbgDriver : public QObject { Q_OBJECT
-private slots:
-    void handshake_and_single_frame_streaming() {
+class TestCdbgDriver : public QObject
+{
+    Q_OBJECT
+  private slots:
+    void handshake_and_single_frame_streaming()
+    {
         cdbg::ScriptedCanTransport t;
-        QVector<CdbgChannel> ch = { {0x804FBF, 1}, {0x804DF2, 2} };
+        QVector<CdbgChannel> ch = {{0x804FBF, 1}, {0x804DF2, 2}};
 
         t.expectWrite(kRequestCanId, buildInitFrame());
         t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
@@ -17,7 +20,7 @@ private slots:
         t.expectWrite(kRequestCanId, buildSecuritySeedRequestFrame());
         t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000012345678")); // seed=0x12345678
 
-        t.expectWrite(kRequestCanId, buildSecurityKeyFrame(0x8C536B33)); // seedToKey(0x12345678)
+        t.expectWrite(kRequestCanId, buildSecurityKeyFrame(0x8C536B33));        // seedToKey(0x12345678)
         t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000100000000")); // byte3 != 0 -> granted
 
         t.expectWrite(kRequestCanId, buildLogResetFrame(0));
@@ -26,7 +29,8 @@ private slots:
         QVector<QVector<CdbgChannel>> frames;
         QVERIFY(batchChannelsIntoFrames(ch, frames));
         QCOMPARE(frames.size(), 1);
-        for (const CdbgFrame &cmd : buildFrameInitFrames(0, 0, frames.at(0))) {
+        for (const CdbgFrame& cmd : buildFrameInitFrames(0, 0, frames.at(0)))
+        {
             t.expectWrite(kRequestCanId, cmd);
             t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
         }
@@ -47,9 +51,10 @@ private slots:
         QCOMPARE(vals.at(1), std::uint32_t(0x1234));
     }
 
-    void accepts_live_security_reply_shape() {
+    void accepts_live_security_reply_shape()
+    {
         cdbg::ScriptedCanTransport t;
-        QVector<CdbgChannel> ch = { {0x804FBF, 1} };
+        QVector<CdbgChannel> ch = {{0x804FBF, 1}};
 
         t.expectWrite(kRequestCanId, buildInitFrame());
         t.queueRead(kReplyCanId, test_bytes::bytesFromHex("FF0001FE00000000"));
@@ -62,7 +67,8 @@ private slots:
 
         QVector<QVector<CdbgChannel>> frames;
         QVERIFY(batchChannelsIntoFrames(ch, frames));
-        for (const CdbgFrame &cmd : buildFrameInitFrames(0, 0, frames.at(0))) {
+        for (const CdbgFrame& cmd : buildFrameInitFrames(0, 0, frames.at(0)))
+        {
             t.expectWrite(kRequestCanId, cmd);
             t.queueRead(kReplyCanId, test_bytes::bytesFromHex("FF00000000000000"));
         }
@@ -78,7 +84,8 @@ private slots:
         QVERIFY(t.ok());
     }
 
-    void fails_before_handshake_when_no_channels_selected() {
+    void fails_before_handshake_when_no_channels_selected()
+    {
         cdbg::ScriptedCanTransport t;
         CdbgLogDriver d(t);
         QString error;
@@ -89,9 +96,10 @@ private slots:
         QVERIFY(t.scriptConsumed());
     }
 
-    void handshake_fails_when_security_not_granted() {
+    void handshake_fails_when_security_not_granted()
+    {
         cdbg::ScriptedCanTransport t;
-        QVector<CdbgChannel> ch = { {0x804FBF, 1} };
+        QVector<CdbgChannel> ch = {{0x804FBF, 1}};
 
         t.expectWrite(kRequestCanId, buildInitFrame());
         t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
@@ -105,9 +113,10 @@ private slots:
         QVERIFY(!d.isStreaming());
     }
 
-    void handshake_fails_when_init_gets_no_reply() {
+    void handshake_fails_when_init_gets_no_reply()
+    {
         cdbg::ScriptedCanTransport t;
-        QVector<CdbgChannel> ch = { {0x804FBF, 1} };
+        QVector<CdbgChannel> ch = {{0x804FBF, 1}};
         t.expectWrite(kRequestCanId, buildInitFrame());
         // no queued read -> transport returns empty payload -> handshake must fail here.
         CdbgLogDriver d(t);
@@ -115,9 +124,10 @@ private slots:
         QVERIFY(!d.isStreaming());
     }
 
-    void poll_merges_values_across_two_frames() {
+    void poll_merges_values_across_two_frames()
+    {
         cdbg::ScriptedCanTransport t;
-        QVector<CdbgChannel> ch = { {0x804FBF, 4}, {0x804DF2, 4}, {0x8054AC, 2} };
+        QVector<CdbgChannel> ch = {{0x804FBF, 4}, {0x804DF2, 4}, {0x8054AC, 2}};
 
         t.expectWrite(kRequestCanId, buildInitFrame());
         t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
@@ -131,8 +141,10 @@ private slots:
         QVector<QVector<CdbgChannel>> frames;
         QVERIFY(batchChannelsIntoFrames(ch, frames));
         QCOMPARE(frames.size(), 2);
-        for (int f = 0; f < frames.size(); ++f) {
-            for (const CdbgFrame &cmd : buildFrameInitFrames(0, bytes::Byte(f), frames.at(f))) {
+        for (int f = 0; f < frames.size(); ++f)
+        {
+            for (const CdbgFrame& cmd : buildFrameInitFrames(0, bytes::Byte(f), frames.at(f)))
+            {
                 t.expectWrite(kRequestCanId, cmd);
                 t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
             }
@@ -160,13 +172,15 @@ private slots:
         QCOMPARE(v2.at(2), std::uint32_t(0x5566));
     }
 
-    void poll_returns_empty_when_not_streaming() {
+    void poll_returns_empty_when_not_streaming()
+    {
         cdbg::ScriptedCanTransport t;
         CdbgLogDriver d(t);
         QVERIFY(d.pollOnce(50).isEmpty());
     }
 };
-int run_test_cdbg_driver(int argc, char** argv) {
+int run_test_cdbg_driver(int argc, char **argv)
+{
     TestCdbgDriver t;
     return QTest::qExec(&t, argc, argv);
 }

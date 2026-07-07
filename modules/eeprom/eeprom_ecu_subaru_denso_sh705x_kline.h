@@ -9,14 +9,14 @@
 #include <file_actions.h>
 #include <ui_ecu_operations.h>
 
-//Forward declaration
+// Forward declaration
 class SerialPortActions;
 class EepromEcuSubaruDensoSH705xKlineOperation;
 
 QT_BEGIN_NAMESPACE
 namespace Ui
 {
-    class EcuOperationsWindow;
+class EcuOperationsWindow;
 }
 QT_END_NAMESPACE
 
@@ -24,13 +24,13 @@ class EepromEcuSubaruDensoSH705xKline : public QDialog
 {
     Q_OBJECT
 
-public:
+  public:
     EepromEcuSubaruDensoSH705xKline(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent = nullptr);
     ~EepromEcuSubaruDensoSH705xKline();
 
     void run();
 
-signals:
+  signals:
     void external_logger(QString message);
     void external_logger(int value);
     void LOG_E(QString message, bool timestamp, bool linefeed);
@@ -38,7 +38,7 @@ signals:
     void LOG_I(QString message, bool timestamp, bool linefeed);
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
-private:
+  private:
     FileActions::EcuCalDefStructure *ecuCalDef;
     QString cmd_type;
 
@@ -48,10 +48,8 @@ private:
     SerialPortActions *serial;
     EepromEcuSubaruDensoSH705xKlineOperation *m_operation = nullptr;
 
-
-private:
+  private:
     std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
-
 
 #endif // EEPROM_ECU_SUBARU_DENSO_SH705X_KLINE_H

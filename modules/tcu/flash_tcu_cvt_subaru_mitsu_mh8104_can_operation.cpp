@@ -6,12 +6,9 @@
 #include <QElapsedTimer>
 
 FlashTcuCvtSubaruMitsuMH8104CanOperation::FlashTcuCvtSubaruMitsuMH8104CanOperation(
-        SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
-        QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride))
-    , serial(serial)
-    , ecuCalDef(ecuCalDef)
-    , cmd_type(cmd_type)
+    SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
+    QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type)
 {
 }
 
@@ -19,7 +16,7 @@ bool FlashTcuCvtSubaruMitsuMH8104CanOperation::execute()
 {
     int result = STATUS_ERROR;
 
-    //result = init_flash_mitsu_can();
+    // result = init_flash_mitsu_can();
 
     mcu_type_string = ecuCalDef->McuType;
     mcu_type_index = FlashUtils::findFlashDeviceIndex(mcu_type_string);
@@ -29,7 +26,7 @@ bool FlashTcuCvtSubaruMitsuMH8104CanOperation::execute()
         return false;
     }
     QString mcu_name = flashdevices[mcu_type_index].name;
-    //emit LOG_I("MCU type: " + mcu_name + " and index: " + mcu_type_index, true, true);
+    // emit LOG_I("MCU type: " + mcu_name + " and index: " + mcu_type_index, true, true);
     qDebug() << "MCU type:" << mcu_name << mcu_type_string << "and index:" << mcu_type_index;
 
     kernel = ecuCalDef->Kernel;
@@ -40,19 +37,19 @@ bool FlashTcuCvtSubaruMitsuMH8104CanOperation::execute()
     if (cmd_type == "read")
     {
         emit LOG_I("Read memory with flashmethod '" + flash_method + "' and kernel '" + ecuCalDef->Kernel + "'", true, true);
-        //qDebug() << "Read memory with flashmethod" << flash_method << "and kernel" << ecuCalDef->Kernel;
+        // qDebug() << "Read memory with flashmethod" << flash_method << "and kernel" << ecuCalDef->Kernel;
     }
     else if (cmd_type == "test_write")
     {
         test_write = true;
         emit LOG_I("Test write memory with flashmethod '" + flash_method + "' and kernel '" + ecuCalDef->Kernel + "'", true, true);
-        //qDebug() << "Test write memory with flashmethod" << flash_method << "and kernel" << ecuCalDef->Kernel;
+        // qDebug() << "Test write memory with flashmethod" << flash_method << "and kernel" << ecuCalDef->Kernel;
     }
     else if (cmd_type == "write")
     {
         test_write = false;
         emit LOG_I("Write memory with flashmethod '" + flash_method + "' and kernel '" + ecuCalDef->Kernel + "'", true, true);
-        //qDebug() << "Write memory with flashmethod" << flash_method << "and kernel" << ecuCalDef->Kernel;
+        // qDebug() << "Write memory with flashmethod" << flash_method << "and kernel" << ecuCalDef->Kernel;
     }
 
     // Set serial port
@@ -145,7 +142,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::connect_bootloader_subaru_tcu_mits
         serial->write_serial_data_echo_check(output);
         emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
         qDebug() << "Sent:" << SsmProtocol::toHex(output);
-        //delay(50);
+        // delay(50);
         received = serial->read_serial_data(200);
         if (received != "")
         {
@@ -154,14 +151,14 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::connect_bootloader_subaru_tcu_mits
             qDebug() << try_count << ": 0xAA response:" << SsmProtocol::toHex(received) << received;
         }
         try_count++;
-        //delay(try_timeout);
+        // delay(try_timeout);
     }
 
     QByteArray response = received;
     response.remove(0, 8);
     QString calid;
     for (int i = 0; i < 5; i++)
-        calid.append(QString("%1").arg((uint8_t)response.at(i),2,16,QLatin1Char('0')).toUpper());
+        calid.append(QString("%1").arg((uint8_t)response.at(i), 2, 16, QLatin1Char('0')).toUpper());
     emit LOG_I("Init Success: CAL ID = " + calid, true, true);
 
     connected = false;
@@ -183,7 +180,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::connect_bootloader_subaru_tcu_mits
         serial->write_serial_data_echo_check(output);
         emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
         qDebug() << "Sent:" << SsmProtocol::toHex(output);
-        //delay(50);
+        // delay(50);
         received = serial->read_serial_data(200);
         if (received != "")
         {
@@ -192,7 +189,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::connect_bootloader_subaru_tcu_mits
             qDebug() << try_count << ": 0x09 0x04 response:" << SsmProtocol::toHex(received) << received;
         }
         try_count++;
-        //delay(try_timeout);
+        // delay(try_timeout);
     }
 
     response = received;
@@ -221,7 +218,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::connect_bootloader_subaru_tcu_mits
     {
         emit LOG_I("Failed to initialise bootloader", true, true);
 
-        //return STATUS_ERROR;
+        // return STATUS_ERROR;
     }
 
     emit LOG_I("Starting seed request...", true, true);
@@ -243,7 +240,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::connect_bootloader_subaru_tcu_mits
     {
         emit LOG_I("Bad response to seed request", true, true);
 
-        //return STATUS_ERROR;
+        // return STATUS_ERROR;
     }
 
     emit LOG_I("Seed request ok", true, true);
@@ -277,7 +274,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::connect_bootloader_subaru_tcu_mits
     {
         emit LOG_I("Bad response to seed request", true, true);
 
-        //return STATUS_ERROR;
+        // return STATUS_ERROR;
     }
 
     emit LOG_I("Seed key ok", true, true);
@@ -302,7 +299,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::connect_bootloader_subaru_tcu_mits
     {
         emit LOG_I("Bad response to jumping to onboard kernel", true, true);
 
-        //return STATUS_ERROR;
+        // return STATUS_ERROR;
     }
 
     emit LOG_I("Jump to kernel ok", true, true);
@@ -335,7 +332,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::connect_bootloader_subaru_tcu_mits
         emit LOG_I("Kernel verified to be running", true, true);
 
         kernel_alive = true;
-        //return STATUS_SUCCESS;
+        // return STATUS_SUCCESS;
     }
 
     emit LOG_I("Test script complete", true, true);
@@ -362,13 +359,12 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::read_mem_subaru_tcu_mitsu_can(uint
 
     start_addr = 0x8000;
 
-    length = 0x78000;    // hack for testing
+    length = 0x78000; // hack for testing
 
-
-    uint32_t skip_start = start_addr & (pagesize - 1); //if unaligned, we'll be receiving this many extra bytes
+    uint32_t skip_start = start_addr & (pagesize - 1); // if unaligned, we'll be receiving this many extra bytes
     uint32_t addr = start_addr - skip_start;
     uint32_t willget = (skip_start + length + pagesize - 1) & ~(pagesize - 1);
-    uint32_t len_done = 0;  //total data written to file
+    uint32_t len_done = 0; // total data written to file
 
     emit LOG_I("Settting dump start & length...", true, true);
     qDebug() << "Settting dump start & length...";
@@ -397,7 +393,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::read_mem_subaru_tcu_mitsu_can(uint
     {
         emit LOG_I("Bad response to setting dump start & length", true, true);
 
-        //return STATUS_ERROR;
+        // return STATUS_ERROR;
     }
 
     emit LOG_I("Start reading ROM, please wait...", true, true);
@@ -428,28 +424,27 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::read_mem_subaru_tcu_mitsu_can(uint
         float pleft = 0;
         unsigned long chrono;
 
-        //uint32_t curblock = (addr / pagesize);
-
+        // uint32_t curblock = (addr / pagesize);
 
         pleft = (float)(addr - start_addr) / (float)length * 100.0f;
         emit progressChanged(pleft);
 
-        //length = 7FFF0;
+        // length = 7FFF0;
 
         output[5] = (uint8_t)((addr >> 16) & 0xFF);
         output[6] = (uint8_t)((addr >> 8) & 0xFF);
         output[7] = (uint8_t)(addr & 0xFF);
         emit LOG_I("Send msg: " + SsmProtocol::toHex(output), true, true);
         serial->write_serial_data_echo_check(output);
-        //qDebug() << "0xB7 message sent to kernel to dump 256 bytes";
+        // qDebug() << "0xB7 message sent to kernel to dump 256 bytes";
         delay(50);
         received = serial->read_serial_data(200);
-        //qDebug() << "Response to 0xB7 (dump mem) message:" << SsmProtocol::toHex(received);
+        // qDebug() << "Response to 0xB7 (dump mem) message:" << SsmProtocol::toHex(received);
         emit LOG_I("Received msg: " + SsmProtocol::toHex(received), true, true);
         if ((uint8_t)received.at(4) != 0xF7)
         {
             emit LOG_I("Page data request failed!", true, true);
-            //return STATUS_ERROR;
+            // return STATUS_ERROR;
         }
 
         pagedata.clear();
@@ -459,7 +454,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::read_mem_subaru_tcu_mitsu_can(uint
         mapdata.append(pagedata);
 
         // don't count skipped first bytes //
-        cplen = (numblocks * pagesize) - skip_start; //this is the actual # of valid bytes in buf[]
+        cplen = (numblocks * pagesize) - skip_start; // this is the actual # of valid bytes in buf[]
         skip_start = 0;
 
         chrono = timer.elapsed();
@@ -468,24 +463,26 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::read_mem_subaru_tcu_mitsu_can(uint
         if (cplen > 0 && chrono > 0)
             curspeed = cplen * (1000.0f / chrono);
 
-        if (!curspeed) {
+        if (!curspeed)
+        {
             curspeed += 1;
         }
 
         tleft = (willget / curspeed) % 9999;
         tleft++;
 
-        QString start_address = QString("%1").arg(addr,8,16,QLatin1Char('0')).toUpper();
-        QString block_len = QString("%1").arg(pagesize,8,16,QLatin1Char('0')).toUpper();
+        QString start_address = QString("%1").arg(addr, 8, 16, QLatin1Char('0')).toUpper();
+        QString block_len = QString("%1").arg(pagesize, 8, 16, QLatin1Char('0')).toUpper();
         msg = QString("Kernel read addr:  0x%1  length:  0x%2,  %3  B/s  %4 s").arg(start_address).arg(block_len).arg(curspeed, 6, 10, QLatin1Char(' ')).arg(tleft, 6, 10, QLatin1Char(' ')).toUtf8();
         emit LOG_I(msg, true, true);
         delay(1);
 
         // and drop extra bytes at the end //
-        uint32_t extrabytes = (cplen + len_done);   //hypothetical new length
-        if (extrabytes > length) {
+        uint32_t extrabytes = (cplen + len_done); // hypothetical new length
+        if (extrabytes > length)
+        {
             cplen -= (extrabytes - length);
-            //thus, (len_done + cplen) will not exceed len
+            // thus, (len_done + cplen) will not exceed len
         }
 
         // increment addr, len, etc //
@@ -523,7 +520,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::read_mem_subaru_tcu_mitsu_can(uint
             qDebug() << try_count << ": 0x37 response:" << SsmProtocol::toHex(received);
         }
         try_count++;
-        //delay(try_timeout);
+        // delay(try_timeout);
     }
 
     // now decrypt the data obtained
@@ -537,7 +534,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::read_mem_subaru_tcu_mitsu_can(uint
         padBytes[i] = (uint8_t)0xFF;
     }
     mapdata = mapdata.insert(0, padBytes);
-    //emit LOG_I("Received mapdata: " + SsmProtocol::toHex(mapdata), true, true);
+    // emit LOG_I("Received mapdata: " + SsmProtocol::toHex(mapdata), true, true);
 
     ecuCalDef->FullRomData = mapdata;
     emit progressChanged(100);
@@ -559,12 +556,12 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::write_mem_subaru_tcu_mitsu_can(boo
 
     QScopedArrayPointer<uint8_t> data_array(new uint8_t[filedata.length()]);
 
-    int block_modified[16] = {0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0};   // assume blocks after 0x8000 are modified
+    int block_modified[16] = {0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0}; // assume blocks after 0x8000 are modified
 
-    unsigned bcnt;  // 13 blocks in M32R_512kB, but kernelmemorymodels.h has 11. Of these 11, the first 3 are not flashed by OBK
+    unsigned bcnt; // 13 blocks in M32R_512kB, but kernelmemorymodels.h has 11. Of these 11, the first 3 are not flashed by OBK
     unsigned blockno;
 
-    //encrypt the data
+    // encrypt the data
     filedata = subaru_tcu_mitsu_encrypt_32bit_payload(filedata, filedata.length());
 
     for (int i = 0; i < filedata.length(); i++)
@@ -574,8 +571,10 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::write_mem_subaru_tcu_mitsu_can(boo
 
     bcnt = 0;
     emit LOG_I("Blocks to flash : ", true, false);
-    for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++) {
-        if (block_modified[blockno]) {
+    for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++)
+    {
+        if (block_modified[blockno])
+        {
             emit LOG_I(QString::number(blockno) + ", ", false, false);
             bcnt += 1;
         }
@@ -603,7 +602,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::write_mem_subaru_tcu_mitsu_can(boo
         }
 
         emit LOG_I("--- start writing ROM file to ECU flash memory ---", true, true);
-        for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++)  // hack so that only 1 flash loop done for the entire ROM above 0x8000
+        for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++) // hack so that only 1 flash loop done for the entire ROM above 0x8000
         {
             if (block_modified[blockno])
             {
@@ -650,7 +649,8 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::reflash_block_subaru_tcu_mitsu_can
 
     emit progressChanged(0);
 
-    if (blockno >= fdt->numblocks) {
+    if (blockno >= fdt->numblocks)
+    {
         emit LOG_I("block " + QString::number(blockno) + " out of range !", true, true);
         return -1;
     }
@@ -661,8 +661,8 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::reflash_block_subaru_tcu_mitsu_can
     end_addr = (start_address + (maxblocks * 128)) & 0xFFFFFFFF;
     uint32_t data_len = end_addr - start_address;
 
-    QString start_addr = QString("%1").arg((uint32_t)start_address,8,16,QLatin1Char('0')).toUpper();
-    QString length = QString("%1").arg((uint32_t)pl_len,8,16,QLatin1Char('0')).toUpper();
+    QString start_addr = QString("%1").arg((uint32_t)start_address, 8, 16, QLatin1Char('0')).toUpper();
+    QString length = QString("%1").arg((uint32_t)pl_len, 8, 16, QLatin1Char('0')).toUpper();
     msg = QString("Flash block addr: 0x" + start_addr + " len: 0x" + length).toUtf8();
     emit LOG_I(msg, true, true);
 
@@ -699,11 +699,11 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::reflash_block_subaru_tcu_mitsu_can
             qDebug() << try_count << ": 0x34 0x04 response:" << SsmProtocol::toHex(received);
         }
         try_count++;
-        //delay(try_timeout);
+        // delay(try_timeout);
     }
     if (received == "" || (uint8_t)received.at(4) != 0x74)
         emit LOG_I("No or bad response received", true, true);
-        //return STATUS_ERROR;
+    // return STATUS_ERROR;
 
     int data_bytes_sent = 0;
     for (blockctr = 0; blockctr < maxblocks; blockctr++)
@@ -726,7 +726,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::reflash_block_subaru_tcu_mitsu_can
         for (int i = 0; i < 128; i++)
         {
             output.append((uint8_t)(newdata[i + blockaddr] & 0xFF));
-            //output[i + 8] = (uint8_t)(newdata[i + blockaddr] & 0xFF);
+            // output[i + 8] = (uint8_t)(newdata[i + blockaddr] & 0xFF);
             data_bytes_sent++;
         }
         data_len -= 128;
@@ -734,7 +734,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::reflash_block_subaru_tcu_mitsu_can
         serial->write_serial_data_echo_check(output);
         emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
         qDebug() << "Kernel data:" << SsmProtocol::toHex(output);
-        //delay(20);
+        // delay(20);
         delay(20);
         received = serial->read_serial_data(receive_timeout);
 
@@ -760,7 +760,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::reflash_block_subaru_tcu_mitsu_can
         serial->write_serial_data_echo_check(output);
         emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
         qDebug() << "Sent:" << SsmProtocol::toHex(output);
-        //delay(50);
+        // delay(50);
         delay(200);
         received = serial->read_serial_data(200);
         if (received != "")
@@ -770,11 +770,11 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::reflash_block_subaru_tcu_mitsu_can
             qDebug() << try_count << ": 0x37 response:" << SsmProtocol::toHex(received);
         }
         try_count++;
-        //delay(try_timeout);
+        // delay(try_timeout);
     }
     if (received == "" || (uint8_t)received.at(4) != 0x77)
         emit LOG_I("No or bad response received", true, true);
-        //return STATUS_ERROR;
+    // return STATUS_ERROR;
 
     delay(100);
 
@@ -799,7 +799,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::reflash_block_subaru_tcu_mitsu_can
         serial->write_serial_data_echo_check(output);
         emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
         qDebug() << "Sent:" << SsmProtocol::toHex(output);
-        //delay(50);
+        // delay(50);
         delay(200);
         received = serial->read_serial_data(200);
         if (received != "")
@@ -809,11 +809,11 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::reflash_block_subaru_tcu_mitsu_can
             qDebug() << try_count << ": 0x31 response:" << SsmProtocol::toHex(received);
         }
         try_count++;
-        //delay(try_timeout);
+        // delay(try_timeout);
     }
     if (received == "" || (uint8_t)received.at(4) != 0x71 || (uint8_t)received.at(5) != 0x01 || (uint8_t)received.at(6) != 0x02)
         emit LOG_I("No or bad response received", true, true);
-        //return STATUS_ERROR;
+    // return STATUS_ERROR;
 
     emit LOG_I("Checksum verified...", true, true);
     qDebug() << "Checksum verified...";
@@ -869,7 +869,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::erase_subaru_tcu_mitsu_can()
     if ((uint8_t)received.at(4) != 0x71 || (uint8_t)received.at(5) != 0x01 || (uint8_t)received.at(6) != 0x02)
     {
         emit LOG_I("Erasing error! Do not panic, do not reset the TCU immediately. The kernel is most likely still running and receiving commands!", true, true);
-        //return STATUS_ERROR;
+        // return STATUS_ERROR;
     }
 
     return STATUS_SUCCESS;
@@ -884,19 +884,17 @@ QByteArray FlashTcuCvtSubaruMitsuMH8104CanOperation::subaru_tcu_mitsu_generate_c
 {
     QByteArray key;
 
-    const uint16_t keytogenerateindex[]={
+    const uint16_t keytogenerateindex[] = {
         0x9E99, 0x685C, 0x874D, 0xF11E,
         0x27D4, 0xA967, 0xB63B, 0x7A37,
         0xE23B, 0xA8D0, 0x9B82, 0xAC43,
-        0xE874, 0x7FC5, 0x7141, 0x8B44
-    };
+        0xE874, 0x7FC5, 0x7141, 0x8B44};
 
-    const uint8_t indextransformation[]={
+    const uint8_t indextransformation[] = {
         0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8,
         0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
         0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
-        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
-    };
+        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
     key = SsmProtocol::calculateSeedKey(requested_seed, keytogenerateindex, indextransformation);
 
@@ -918,16 +916,14 @@ QByteArray FlashTcuCvtSubaruMitsuMH8104CanOperation::subaru_tcu_mitsu_encrypt_32
 {
     QByteArray encrypted;
 
-    const uint16_t keytogenerateindex[]={
-        0x7bf2, 0xa8b4, 0x4492, 0x6587
-    };
+    const uint16_t keytogenerateindex[] = {
+        0x7bf2, 0xa8b4, 0x4492, 0x6587};
 
-    const uint8_t indextransformation[]={
+    const uint8_t indextransformation[] = {
         0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8,
         0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
         0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
-        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
-    };
+        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
     encrypted = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
@@ -938,16 +934,14 @@ QByteArray FlashTcuCvtSubaruMitsuMH8104CanOperation::subaru_tcu_mitsu_decrypt_32
 {
     QByteArray decrypt;
 
-    const uint16_t keytogenerateindex[]={
-	0x6587, 0x4492, 0xa8b4, 0x7bf2
-    };
+    const uint16_t keytogenerateindex[] = {
+        0x6587, 0x4492, 0xa8b4, 0x7bf2};
 
-    const uint8_t indextransformation[]={
+    const uint8_t indextransformation[] = {
         0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8,
         0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
         0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
-        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
-    };
+        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
     decrypt = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 

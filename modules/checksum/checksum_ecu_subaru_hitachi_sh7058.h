@@ -6,14 +6,13 @@
 
 class ChecksumEcuSubaruHitachiSH7058
 {
-public:
+  public:
     ChecksumEcuSubaruHitachiSH7058();
     ~ChecksumEcuSubaruHitachiSH7058();
 
     static QByteArray calculate_checksum(QByteArray romData);
 
-private:
-
+  private:
 };
 
 #endif // CHECKSUM_ECU_SUBARU_HITACHI_SH7058_H

@@ -3,10 +3,7 @@
 #include "serial_port_actions.h"
 
 FlashEcuSubaruUnisiaJecsM32rBootMode::FlashEcuSubaruUnisiaJecsM32rBootMode(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent)
-    : QDialog(parent)
-    , ecuCalDef(ecuCalDef)
-    , cmd_type(cmd_type)
-    , ui{std::make_unique<Ui::EcuOperationsWindow>()}
+    : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
 
@@ -36,9 +33,9 @@ void FlashEcuSubaruUnisiaJecsM32rBootMode::run()
     else
     {
         ret = QMessageBox::warning(this, tr("Connecting to ECU"),
-                                       tr("Turn ignition ON and press OK to start initializing connection to ECU"),
-                                       QMessageBox::Ok | QMessageBox::Cancel,
-                                       QMessageBox::Ok);
+                                   tr("Turn ignition ON and press OK to start initializing connection to ECU"),
+                                   QMessageBox::Ok | QMessageBox::Cancel,
+                                   QMessageBox::Ok);
     }
     switch (ret)
     {
@@ -50,14 +47,16 @@ void FlashEcuSubaruUnisiaJecsM32rBootMode::run()
         connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashEcuSubaruUnisiaJecsM32rBootMode::LOG_I);
         connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashEcuSubaruUnisiaJecsM32rBootMode::LOG_D);
         connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
-                this, [this](QString msg) { emit external_logger(msg); });
+                this, [this](QString msg)
+                { emit external_logger(msg); });
         connect(m_operation, &FlashOperationWorker::progressChanged,
                 this, &FlashEcuSubaruUnisiaJecsM32rBootMode::set_progressbar_value);
 
         QEventLoop loop;
         bool success = false;
         connect(m_operation, &FlashOperationWorker::operationFinished, &loop,
-                [&success, &loop](bool ok) { success = ok; loop.quit(); });
+                [&success, &loop](bool ok)
+                { success = ok; loop.quit(); });
 
         m_operation->start();
         loop.exec();

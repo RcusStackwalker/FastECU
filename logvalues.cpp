@@ -9,7 +9,7 @@ void MainWindow::change_log_values(int tab_index, QString protocol)
     QDialog *change_log_values_dialog = new QDialog;
     QVBoxLayout *main_layout = new QVBoxLayout();
     QTabWidget *tab_widget = new QTabWidget();
-    QSpacerItem *button_spacer = new QSpacerItem(1,1, QSizePolicy::Expanding, QSizePolicy::Fixed);
+    QSpacerItem *button_spacer = new QSpacerItem(1, 1, QSizePolicy::Expanding, QSizePolicy::Fixed);
 
     QHBoxLayout *button_layout = new QHBoxLayout();
     QPushButton *button_ok = new QPushButton("Ok");
@@ -79,7 +79,7 @@ void MainWindow::change_log_values(int tab_index, QString protocol)
                 if (logValues->dashboard_log_value_id.at(i) == logValues->log_value_id.at(j))
                 {
                     QStringList units = logValues->log_value_units.at(j).split(",");
-                    //qDebug() << "Units:" << units;
+                    // qDebug() << "Units:" << units;
                     for (int k = 1; k < units.length(); k += 7)
                     {
                         log_units_combobox->addItem(units.at(k));
@@ -123,7 +123,7 @@ void MainWindow::change_log_values(int tab_index, QString protocol)
                 if (logValues->lower_panel_log_value_id.at(i) == logValues->log_value_id.at(j))
                 {
                     QStringList units = logValues->log_value_units.at(j).split(",");
-                    //qDebug() << "Units:" << units;
+                    // qDebug() << "Units:" << units;
                     for (int k = 1; k < units.length(); k += 7)
                     {
                         log_units_combobox->addItem(units.at(k));
@@ -191,10 +191,10 @@ void MainWindow::change_log_values(int tab_index, QString protocol)
 
 void MainWindow::change_log_gauge_value(int index)
 {
-    QObject* obj = sender();
+    QObject *obj = sender();
     QStringList comboIndex = obj->objectName().split(" ");
     QComboBox *log_gauge_box;
-    log_gauge_box = obj->parent()->findChild<QComboBox*>(obj->objectName());
+    log_gauge_box = obj->parent()->findChild<QComboBox *>(obj->objectName());
 
     if (log_gauge_box)
     {
@@ -215,10 +215,10 @@ void MainWindow::change_log_gauge_value(int index)
 
 void MainWindow::change_log_digital_value(int index)
 {
-    QObject* obj = sender();
+    QObject *obj = sender();
     QStringList comboIndex = obj->objectName().split(" ");
     QComboBox *log_digital_box;
-    log_digital_box = obj->parent()->findChild<QComboBox*>(obj->objectName());
+    log_digital_box = obj->parent()->findChild<QComboBox *>(obj->objectName());
 
     if (log_digital_box)
     {
@@ -228,25 +228,25 @@ void MainWindow::change_log_digital_value(int index)
             {
                 if (logValues->log_value_name.at(i) == log_digital_box->currentText())
                 {
-                    //qDebug() << "Change value at" << comboIndex.at(2) << "to" << logValues->log_value_id.at(i);
+                    // qDebug() << "Change value at" << comboIndex.at(2) << "to" << logValues->log_value_id.at(i);
                     logValues->lower_panel_log_value_id.replace(comboIndex.at(2).toUInt(), logValues->log_value_id.at(i));
                 }
             }
         }
-        //qDebug() << "Update logboxes";
+        // qDebug() << "Update logboxes";
         update_logboxes(protocol);
-        //qDebug() << "Update logfile";
+        // qDebug() << "Update logfile";
         fileActions->read_logger_conf(logValues, ecuid, true);
-        //qDebug() << "Done";
+        // qDebug() << "Done";
     }
 }
 
 void MainWindow::change_log_switch_value(int index)
 {
-    QObject* obj = sender();
+    QObject *obj = sender();
     QStringList comboIndex = obj->objectName().split(" ");
     QComboBox *log_switch_box;
-    log_switch_box = obj->parent()->findChild<QComboBox*>(obj->objectName());
+    log_switch_box = obj->parent()->findChild<QComboBox *>(obj->objectName());
 
     if (log_switch_box)
     {
@@ -264,4 +264,3 @@ void MainWindow::change_log_switch_value(int index)
         fileActions->read_logger_conf(logValues, ecuid, true);
     }
 }
-

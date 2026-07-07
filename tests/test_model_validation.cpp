@@ -7,7 +7,7 @@ class TestModelValidation : public QObject
 {
     Q_OBJECT
 
-private slots:
+  private slots:
     void flashProtocols_acceptMatchingRows()
     {
         FileActions::ConfigValuesStructure config;
@@ -123,8 +123,8 @@ private slots:
         QVERIFY(!bodyLines.join("").contains("</rom>"));
     }
 
-private:
-    static void appendFlashProtocol(FileActions::ConfigValuesStructure &config)
+  private:
+    static void appendFlashProtocol(FileActions::ConfigValuesStructure& config)
     {
         config.flash_protocol_id << "0";
         config.flash_protocol_alias << "alias";
@@ -158,7 +158,7 @@ private:
         config.flash_protocol_protocol_name << "sub_ecu_denso";
     }
 
-    static void appendLoggerValue(FileActions::LogValuesStructure &logValues)
+    static void appendLoggerValue(FileActions::LogValuesStructure& logValues)
     {
         logValues.log_value_protocol << "SSM";
         logValues.log_value_id << "P1";
@@ -174,7 +174,7 @@ private:
         logValues.log_value_enabled << "1";
     }
 
-    static void appendLoggerSwitch(FileActions::LogValuesStructure &logValues)
+    static void appendLoggerSwitch(FileActions::LogValuesStructure& logValues)
     {
         logValues.log_switch_protocol << "SSM";
         logValues.log_switch_id << "S1";
@@ -188,7 +188,7 @@ private:
         logValues.log_switch_state << "0";
     }
 
-    static void appendCalibrationMap(FileActions::EcuCalDefStructure &ecuCalDef)
+    static void appendCalibrationMap(FileActions::EcuCalDefStructure& ecuCalDef)
     {
         ecuCalDef.IdList << "map1";
         ecuCalDef.TypeList << "3D";

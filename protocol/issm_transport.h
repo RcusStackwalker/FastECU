@@ -4,8 +4,9 @@
 // Raw byte-stream transport for the SSM logging protocol (request/response over
 // K-Line, ISO14230, or CAN depending on vehicle configuration -- the wire framing
 // differences are handled by SerialPortActions itself, not by this seam).
-class ISsmTransport {
-public:
+class ISsmTransport
+{
+  public:
     virtual ~ISsmTransport() = default;
     // Returns bytes written.
     virtual int write(bytes::ByteView data) = 0;

@@ -11,18 +11,19 @@
 // Ported from externals/livemonitor/cdbgengine.cpp + logitemsmodel.cpp.
 // Request CAN ID 0x630, reply CAN ID 0x631. Raw CAN (not ISO-TP): every
 // command and reply is a single 8-byte frame.
-namespace MitsuColtCanCdbg {
+namespace MitsuColtCanCdbg
+{
 
 constexpr std::uint32_t kRequestCanId = 0x630;
-constexpr std::uint32_t kReplyCanId   = 0x631;
+constexpr std::uint32_t kReplyCanId = 0x631;
 
-constexpr bytes::Byte kCmdInit          = 1;
-constexpr bytes::Byte kCmdSecuritySeed  = 18;
-constexpr bytes::Byte kCmdSecurityKey   = 19;
-constexpr bytes::Byte kCmdLogReset      = 20;
+constexpr bytes::Byte kCmdInit = 1;
+constexpr bytes::Byte kCmdSecuritySeed = 18;
+constexpr bytes::Byte kCmdSecurityKey = 19;
+constexpr bytes::Byte kCmdLogReset = 20;
 constexpr bytes::Byte kCmdLogSelectItem = 21;
 constexpr bytes::Byte kCmdLogSetPointer = 22;
-constexpr bytes::Byte kCmdLogStart      = 6;
+constexpr bytes::Byte kCmdLogStart = 6;
 
 constexpr bytes::Byte kSecurityLogAccess = 2;
 
@@ -30,12 +31,13 @@ constexpr bytes::Byte kSecurityLogAccess = 2;
 // frame carries at most 7 payload bytes. getLogStartCommand's frameCount
 // field matches cdbgengine.cpp's Q_ASSERT(frameCount <= 8): 8 frame slots.
 constexpr int kMaxFrameBytes = 7;
-constexpr int kMaxFrames     = 8;
+constexpr int kMaxFrames = 8;
 
 using CdbgFrame = std::array<bytes::Byte, 8>;
 
 // One logged RAM value: address + element size (1, 2, or 4 bytes).
-struct CdbgChannel {
+struct CdbgChannel
+{
     std::uint32_t pointer;
     bytes::Byte size;
 };
@@ -80,15 +82,15 @@ CdbgFrame buildLogStartFrame(bytes::Byte instance, bytes::Byte frameCount, std::
 // LogItemsModel::loadSchema's byteIndex/frameIndex bookkeeping. Returns
 // false (outFrames untouched) if channels is empty or does not fit within
 // kMaxFrames frames.
-bool batchChannelsIntoFrames(const QVector<CdbgChannel> &channels,
-                              QVector<QVector<CdbgChannel>> &outFrames);
+bool batchChannelsIntoFrames(const QVector<CdbgChannel>& channels,
+                             QVector<QVector<CdbgChannel>>& outFrames);
 
 // Builds the {21,...}/{22,...} command pairs (in order: select0, pointer0,
 // select1, pointer1, ...) that configure one frame's items, matching
 // getLogFrameInitCommands. Caller must have already produced frameItems via
 // batchChannelsIntoFrames.
 std::vector<CdbgFrame> buildFrameInitFrames(bytes::Byte instance, bytes::Byte frameIndex,
-                                          const QVector<CdbgChannel> &frameItems);
+                                            const QVector<CdbgChannel>& frameItems);
 
 // Decodes one streamed reply frame (byte 0 = frame index, bytes [1, N) =
 // concatenated big-endian channel values per frameItems, in order) into one
@@ -96,7 +98,7 @@ std::vector<CdbgFrame> buildFrameInitFrames(bytes::Byte instance, bytes::Byte fr
 // shorter than 1 byte, frame[0] doesn't match expectedFrameIndex, or frame
 // is too short to hold every channel in frameItems.
 QVector<std::uint32_t> decodeFrame(bytes::Byte expectedFrameIndex,
-                              const QVector<CdbgChannel> &frameItems,
-                              bytes::ByteView frame);
+                                   const QVector<CdbgChannel>& frameItems,
+                                   bytes::ByteView frame);
 
 } // namespace MitsuColtCanCdbg

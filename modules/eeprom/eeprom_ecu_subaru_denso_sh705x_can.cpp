@@ -3,10 +3,7 @@
 #include "serial_port_actions.h"
 
 EepromEcuSubaruDensoSH705xCan::EepromEcuSubaruDensoSH705xCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent)
-    : QDialog(parent)
-    , ecuCalDef(ecuCalDef)
-    , cmd_type(cmd_type)
-    , ui{std::make_unique<Ui::EcuOperationsWindow>()}
+    : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
 
@@ -45,13 +42,15 @@ void EepromEcuSubaruDensoSH705xCan::run()
         connect(m_operation, &FlashOperationWorker::LOG_I, this, &EepromEcuSubaruDensoSH705xCan::LOG_I);
         connect(m_operation, &FlashOperationWorker::LOG_D, this, &EepromEcuSubaruDensoSH705xCan::LOG_D);
         connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
-                this, [this](QString msg) { emit external_logger(msg); });
+                this, [this](QString msg)
+                { emit external_logger(msg); });
         connect(m_operation, &FlashOperationWorker::progressChanged,
                 this, &EepromEcuSubaruDensoSH705xCan::set_progressbar_value);
 
         QEventLoop loop;
         connect(m_operation, &FlashOperationWorker::operationFinished, &loop,
-                [&success, &loop](bool ok) { success = ok; loop.quit(); });
+                [&success, &loop](bool ok)
+                { success = ok; loop.quit(); });
 
         m_operation->start();
         loop.exec();

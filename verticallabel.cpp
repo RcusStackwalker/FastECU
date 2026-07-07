@@ -5,26 +5,25 @@
 VerticalLabel::VerticalLabel(QWidget *parent)
     : QLabel(parent)
 {
-
 }
 
-VerticalLabel::VerticalLabel(const QString &text, QWidget *parent)
-: QLabel(text, parent)
+VerticalLabel::VerticalLabel(const QString& text, QWidget *parent)
+    : QLabel(text, parent)
 {
 }
 
-void VerticalLabel::paintEvent(QPaintEvent*)
+void VerticalLabel::paintEvent(QPaintEvent *)
 {
     QPainter painter(this);
-//    painter.setPen(Qt::black);
-//    painter.setBrush(Qt::Dense1Pattern);
+    //    painter.setPen(Qt::black);
+    //    painter.setBrush(Qt::Dense1Pattern);
 
-    painter.translate(0,sizeHint().height());
+    painter.translate(0, sizeHint().height());
     painter.rotate(270);
-    painter.drawText(QRect (QPoint(0,0),QLabel::sizeHint()),Qt::AlignCenter,text());
+    painter.drawText(QRect(QPoint(0, 0), QLabel::sizeHint()), Qt::AlignCenter, text());
 
-//    painter.rotate(90);
-//    painter.drawText(0,0, text());
+    //    painter.rotate(90);
+    //    painter.drawText(0,0, text());
 }
 
 QSize VerticalLabel::minimumSizeHint() const

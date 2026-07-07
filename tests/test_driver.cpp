@@ -7,11 +7,24 @@
 #include "scripted_kline_transport.h"
 #include "test_driver.h"
 using namespace mutdma;
-namespace { class FailingInit : public mutdma::IMutDmaInit { public: bool wake(mutdma::IKlineTransport&) override { return false; } }; }
-class TestDriver : public QObject { Q_OBJECT
-private slots:
-    void free_form_handshake_reaches_streaming() {
-        QVector<Channel> ch = { {0x8000,2} };
+namespace
+{
+class FailingInit : public mutdma::IMutDmaInit
+{
+  public:
+    bool wake(mutdma::IKlineTransport&) override
+    {
+        return false;
+    }
+};
+} // namespace
+class TestDriver : public QObject
+{
+    Q_OBJECT
+  private slots:
+    void free_form_handshake_reaches_streaming()
+    {
+        QVector<Channel> ch = {{0x8000, 2}};
         ScriptedKlineTransport t;
         AlreadyInMode init(125000);
         // host setup (0xA0,N=1) -> ECU ACK-1 -> host id-list -> ECU ACK-2
@@ -26,8 +39,10 @@ private slots:
         QVERIFY(d.isStreaming());
         QVERIFY(t.scriptConsumed());
     }
-    void write_memory_sends_and_acks() {
-        ScriptedKlineTransport t; AlreadyInMode init(125000);
+    void write_memory_sends_and_acks()
+    {
+        ScriptedKlineTransport t;
+        AlreadyInMode init(125000);
         const bytes::Bytes data = test_bytes::bytesFromHex("DEAD");
         const std::vector<MutDmaFrame> frames = buildWriteFrames(0x8010, data);
         t.expectWrite(frames.at(0));
@@ -36,9 +51,11 @@ private slots:
         QVERIFY(d.writeMemory(0x8010, data));
         QVERIFY(t.scriptConsumed());
     }
-    void poll_decodes_stream_frame() {
-        QVector<Channel> ch = { {0x8000,2} };
-        ScriptedKlineTransport t; AlreadyInMode init(125000);
+    void poll_decodes_stream_frame()
+    {
+        QVector<Channel> ch = {{0x8000, 2}};
+        ScriptedKlineTransport t;
+        AlreadyInMode init(125000);
         // one streamed frame: [0x51][12 34][csum][0x0D]
         bytes::Bytes fr = {0x51, 0x12, 0x34};
         fr.push_back(sum8(fr));
@@ -47,18 +64,23 @@ private slots:
         MutDmaDriver d(t, init);
         d.setChannelsForTest(ch);
         QVector<std::uint32_t> v = d.pollOnce(50);
-        QCOMPARE(v.size(), 1); QCOMPARE(v.at(0), std::uint32_t(0x1234));
+        QCOMPARE(v.size(), 1);
+        QCOMPARE(v.at(0), std::uint32_t(0x1234));
     }
-    void handshake_fails_on_wake_failure() {
-        QVector<Channel> ch = { {0x8000,2} };
-        ScriptedKlineTransport t; FailingInit init;
+    void handshake_fails_on_wake_failure()
+    {
+        QVector<Channel> ch = {{0x8000, 2}};
+        ScriptedKlineTransport t;
+        FailingInit init;
         MutDmaDriver d(t, init);
         QVERIFY(!d.startFreeFormLog(ch, 0xA0, 0xA1));
         QVERIFY(!d.isStreaming());
     }
-    void handshake_fails_on_bad_ack() {
-        QVector<Channel> ch = { {0x8000,2} };
-        ScriptedKlineTransport t; AlreadyInMode init(125000);
+    void handshake_fails_on_bad_ack()
+    {
+        QVector<Channel> ch = {{0x8000, 2}};
+        ScriptedKlineTransport t;
+        AlreadyInMode init(125000);
         t.expectWrite(buildSetupFrame(0xA0, 1));
         // wrong ACK-1 opcode (0x00 instead of 0xA5/0xB5), though checksum is valid
         t.queueRead(buildCommandFrame(0x00, bytes::Bytes{}, TRAILER_STD));
@@ -66,16 +88,21 @@ private slots:
         QVERIFY(!d.startFreeFormLog(ch, 0xA0, 0xA1));
         QVERIFY(!d.isStreaming());
     }
-    void poll_returns_empty_on_bad_frame() {
-        QVector<Channel> ch = { {0x8000,2} };
-        ScriptedKlineTransport t; AlreadyInMode init(125000);
+    void poll_returns_empty_on_bad_frame()
+    {
+        QVector<Channel> ch = {{0x8000, 2}};
+        ScriptedKlineTransport t;
+        AlreadyInMode init(125000);
         const bytes::Bytes bad = {0x51, 0x12, 0x34, 0x00, TRAILER_STD}; // wrong checksum
         t.queueRead(bad);
-        MutDmaDriver d(t, init); d.setChannelsForTest(ch);
+        MutDmaDriver d(t, init);
+        d.setChannelsForTest(ch);
         QVERIFY(d.pollOnce(50).isEmpty());
     }
-    void write_memory_fails_on_bad_echo() {
-        ScriptedKlineTransport t; AlreadyInMode init(125000);
+    void write_memory_fails_on_bad_echo()
+    {
+        ScriptedKlineTransport t;
+        AlreadyInMode init(125000);
         const bytes::Bytes data = test_bytes::bytesFromHex("DEAD");
         t.expectWrite(buildWriteFrames(0x8010, data).at(0));
         MutDmaFrame badEcho = buildCommandFrame(0x87, bytes::Bytes{0x80, 0x00}, TRAILER_STD);
@@ -84,14 +111,17 @@ private slots:
         MutDmaDriver d(t, init);
         QVERIFY(!d.writeMemory(0x8010, data));
     }
-    void write_memory_rejects_overflow() {
-        ScriptedKlineTransport t; AlreadyInMode init(125000);
+    void write_memory_rejects_overflow()
+    {
+        ScriptedKlineTransport t;
+        AlreadyInMode init(125000);
         MutDmaDriver d(t, init);
         const bytes::Bytes data(32, 0x5A);
         QVERIFY(!d.writeMemory(0xFFF0, data)); // 0xFFF0 + 32 > 0x10000
     }
 };
-int run_test_driver(int argc, char** argv) {
+int run_test_driver(int argc, char **argv)
+{
     TestDriver t;
     return QTest::qExec(&t, argc, argv);
 }

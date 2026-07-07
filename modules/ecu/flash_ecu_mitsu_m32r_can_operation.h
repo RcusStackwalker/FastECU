@@ -17,27 +17,27 @@ class FlashEcuMitsuM32rCanOperation : public FlashOperationWorker
 {
     Q_OBJECT
 
-public:
+  public:
     FlashEcuMitsuM32rCanOperation(SerialPortActions *serial,
-                                   FileActions::EcuCalDefStructure *ecuCalDef,
-                                   QString cmd_type,
-                                   QWidget *dialog,
-                                   bool useVendorChallenge = false,
-                                   QObject *parent = nullptr,
-                                   PromptFn promptOverride = {});
+                                  FileActions::EcuCalDefStructure *ecuCalDef,
+                                  QString cmd_type,
+                                  QWidget *dialog,
+                                  bool useVendorChallenge = false,
+                                  QObject *parent = nullptr,
+                                  PromptFn promptOverride = {});
 
-protected:
+  protected:
     bool execute() override;
 
-private:
-    #define STATUS_SUCCESS  0x00
-    #define STATUS_ERROR    0x01
+  private:
+#define STATUS_SUCCESS 0x00
+#define STATUS_ERROR 0x01
 
     int connect_bootloader();
     int read_mem(uint32_t start_addr, uint32_t length);
     int write_mem(bool test_write);
-    bool upload_and_commit(uint32_t start, const QByteArray &data);
-    QByteArray build_request(const QByteArray &sidPayload);
+    bool upload_and_commit(uint32_t start, const QByteArray& data);
+    QByteArray build_request(const QByteArray& sidPayload);
 
     SerialPortActions *serial;
     FileActions::EcuCalDefStructure *ecuCalDef;

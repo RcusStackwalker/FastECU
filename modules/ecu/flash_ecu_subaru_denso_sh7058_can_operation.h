@@ -19,22 +19,22 @@ class FlashEcuSubaruDensoSH7058CanOperation : public FlashOperationWorker
 {
     Q_OBJECT
 
-public:
+  public:
     FlashEcuSubaruDensoSH7058CanOperation(SerialPortActions *serial,
-                                           FileActions::EcuCalDefStructure *ecuCalDef,
-                                           QString cmd_type,
-                                           QWidget *dialog,
-                                           QObject *parent = nullptr,
-                                           PromptFn promptOverride = {});
+                                          FileActions::EcuCalDefStructure *ecuCalDef,
+                                          QString cmd_type,
+                                          QWidget *dialog,
+                                          QObject *parent = nullptr,
+                                          PromptFn promptOverride = {});
 
-protected:
+  protected:
     bool execute() override;
 
-private:
-    #define STATUS_SUCCESS	0x00
-    #define STATUS_ERROR	0x01
+  private:
+#define STATUS_SUCCESS 0x00
+#define STATUS_ERROR 0x01
 
-    #define CRC32   0x5AA5A55A
+#define CRC32 0x5AA5A55A
 
     bool kernel_alive = false;
     bool test_write = false;
@@ -102,7 +102,7 @@ private:
     QByteArray encrypt_payload(QByteArray buf, uint32_t len);
     QByteArray decrypt_payload(QByteArray buf, uint32_t len);
 
-    QByteArray calculate_ecutek_racerom_seed_key(uint32_t req_seed);//QByteArray requested_seed);
+    QByteArray calculate_ecutek_racerom_seed_key(uint32_t req_seed); // QByteArray requested_seed);
     QByteArray generate_ecutek_racerom_can_seed_key(QByteArray requested_seed);
     unsigned long long decrypt_racerom_seed(const unsigned long long base, const unsigned long long exponent, const unsigned long long modulus);
     uint32_t read_ram_location(uint32_t loc);

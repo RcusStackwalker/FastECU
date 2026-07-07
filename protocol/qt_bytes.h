@@ -5,15 +5,16 @@
 
 #include <QByteArray>
 
-namespace bytes {
+namespace bytes
+{
 
-inline ByteView view(const QByteArray &bytes)
+inline ByteView view(const QByteArray& bytes)
 {
     return ByteView(reinterpret_cast<const Byte *>(bytes.constData()),
                     static_cast<std::size_t>(bytes.size()));
 }
 
-inline Bytes fromQByteArray(const QByteArray &bytes)
+inline Bytes fromQByteArray(const QByteArray& bytes)
 {
     const auto byteView = view(bytes);
     return Bytes(byteView.begin(), byteView.end());

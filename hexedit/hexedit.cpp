@@ -4,10 +4,9 @@
 /* Public methods */
 /*****************************************************************************/
 HexEdit::HexEdit(FileActions::EcuCalDefStructure *ecuCalDef, QWidget *parent)
-    : QMainWindow(parent)
-    , ecuCalDef(ecuCalDef)
+    : QMainWindow(parent), ecuCalDef(ecuCalDef)
 {
-    setAcceptDrops( true );
+    setAcceptDrops(true);
     init();
     setCurrentFile("");
 
@@ -31,30 +30,31 @@ void HexEdit::closeEvent(QCloseEvent *event)
         msgBox.setInformativeText(tr("Do you want to save your changes?"));
         msgBox.setStandardButtons(QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
         msgBox.setDefaultButton(QMessageBox::Save);
-        switch (msgBox.exec()) {
-            case QMessageBox::Save:
-                save();
-                event->accept();
-                break;
-            case QMessageBox::Discard:
-                event->accept();
-                break;
-            default:
-                event->ignore();
-                break;
+        switch (msgBox.exec())
+        {
+        case QMessageBox::Save:
+            save();
+            event->accept();
+            break;
+        case QMessageBox::Discard:
+            event->accept();
+            break;
+        default:
+            event->ignore();
+            break;
         }
-    } else {
+    }
+    else
+    {
         event->accept();
     }
 }
-
 
 void HexEdit::dragEnterEvent(QDragEnterEvent *event)
 {
     if (event->mimeData()->hasUrls())
         event->accept();
 }
-
 
 void HexEdit::dropEvent(QDropEvent *event)
 {
@@ -72,8 +72,8 @@ void HexEdit::dropEvent(QDropEvent *event)
 /*****************************************************************************/
 void HexEdit::about()
 {
-   QMessageBox::about(this, tr("About QHexEdit"),
-            tr("The QHexEdit example is a short Demo of the QHexEdit Widget."));
+    QMessageBox::about(this, tr("About QHexEdit"),
+                       tr("The QHexEdit example is a short Demo of the QHexEdit Widget."));
 }
 
 void HexEdit::dataChanged()
@@ -85,7 +85,8 @@ void HexEdit::dataChanged()
 void HexEdit::open()
 {
     QString fileName = QFileDialog::getOpenFileName(this);
-    if (!fileName.isEmpty()) {
+    if (!fileName.isEmpty())
+    {
         loadFile(fileName);
     }
 }
@@ -103,9 +104,12 @@ void HexEdit::findNext()
 
 bool HexEdit::save()
 {
-    if (isUntitled) {
+    if (isUntitled)
+    {
         return saveAs();
-    } else {
+    }
+    else
+    {
         return saveFile(curFile);
     }
 }
@@ -126,11 +130,12 @@ void HexEdit::saveSelectionToReadableFile()
     if (!fileName.isEmpty())
     {
         QFile file(fileName);
-        if (!file.open(QFile::WriteOnly | QFile::Text)) {
+        if (!file.open(QFile::WriteOnly | QFile::Text))
+        {
             QMessageBox::warning(this, tr("QHexEdit"),
                                  tr("Cannot write file %1:\n%2.")
-                                 .arg(fileName)
-                                 .arg(file.errorString()));
+                                     .arg(fileName)
+                                     .arg(file.errorString()));
             return;
         }
 
@@ -148,11 +153,12 @@ void HexEdit::saveToReadableFile()
     if (!fileName.isEmpty())
     {
         QFile file(fileName);
-        if (!file.open(QFile::WriteOnly | QFile::Text)) {
+        if (!file.open(QFile::WriteOnly | QFile::Text))
+        {
             QMessageBox::warning(this, tr("QHexEdit"),
                                  tr("Cannot write file %1:\n%2.")
-                                 .arg(fileName)
-                                 .arg(file.errorString()));
+                                     .arg(fileName)
+                                     .arg(file.errorString()));
             return;
         }
 
@@ -219,7 +225,7 @@ void HexEdit::init()
 
     readSettings();
 
-    //setUnifiedTitleAndToolBarOnMac(true);
+    // setUnifiedTitleAndToolBarOnMac(true);
     this->show();
 }
 
@@ -358,14 +364,15 @@ void HexEdit::createToolBars()
     editToolBar->addAction(findAct);
 }
 
-void HexEdit::loadFile(const QString &fileName)
+void HexEdit::loadFile(const QString& fileName)
 {
     file.setFileName(fileName);
-    if (!hexEdit->setData(file)) {
+    if (!hexEdit->setData(file))
+    {
         QMessageBox::warning(this, tr("QHexEdit"),
                              tr("Cannot read file %1:\n%2.")
-                             .arg(fileName)
-                             .arg(file.errorString()));
+                                 .arg(fileName)
+                                 .arg(file.errorString()));
         return;
     }
     setCurrentFile(fileName);
@@ -403,7 +410,7 @@ void HexEdit::readSettings()
     hexEdit->setHexCaps(settings.value("HexCaps", true).toBool());
 }
 
-bool HexEdit::saveFile(const QString &fileName)
+bool HexEdit::saveFile(const QString& fileName)
 {
     QString tmpFileName = fileName + ".~tmp";
 
@@ -416,7 +423,8 @@ bool HexEdit::saveFile(const QString &fileName)
     {
         file.setFileName(tmpFileName);
         ok = file.copy(fileName);
-        if (ok) {
+        if (ok)
+        {
             ok = QFile::remove(tmpFileName);
             isModified = false;
             setWindowModified(false);
@@ -424,10 +432,11 @@ bool HexEdit::saveFile(const QString &fileName)
     }
     QApplication::restoreOverrideCursor();
 
-    if (!ok) {
+    if (!ok)
+    {
         QMessageBox::warning(this, tr("QHexEdit"),
                              tr("Cannot write file %1.")
-                             .arg(fileName));
+                                 .arg(fileName));
         return false;
     }
 
@@ -436,7 +445,7 @@ bool HexEdit::saveFile(const QString &fileName)
     return true;
 }
 
-void HexEdit::setCurrentFile(const QString &fileName)
+void HexEdit::setCurrentFile(const QString& fileName)
 {
     curFile = QFileInfo(fileName).canonicalFilePath();
     isUntitled = fileName.isEmpty();
@@ -447,7 +456,7 @@ void HexEdit::setCurrentFile(const QString &fileName)
         setWindowFilePath(curFile + " - QHexEdit");
 }
 
-QString HexEdit::strippedName(const QString &fullFileName)
+QString HexEdit::strippedName(const QString& fullFileName)
 {
     return QFileInfo(fullFileName).fileName();
 }

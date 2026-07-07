@@ -13,14 +13,14 @@
 QT_BEGIN_NAMESPACE
 namespace Ui
 {
-    class Settings;
+class Settings;
 }
 QT_END_NAMESPACE
 
 class LogBox : public QWidget
 {
     Q_OBJECT
-public:
+  public:
     explicit LogBox(QWidget *parent = nullptr);
 
     QGroupBox *drawLogBoxes(QString type, uint8_t index, uint8_t switchBoxCount, QString title, QString unit, QString value);
@@ -29,10 +29,8 @@ public:
     void updateSwitchBox();
     void updateLogBox();
 
-private:
-
-signals:
-
+  private:
+  signals:
 };
 
 #endif // LOGBOX_H

@@ -2,7 +2,6 @@
 
 CalibrationTreeWidget::CalibrationTreeWidget()
 {
-
 }
 
 QTreeWidget *CalibrationTreeWidget::buildCalibrationFilesTree(int ecuCalDefIndex, QTreeWidget *filesTreeWidget, FileActions::EcuCalDefStructure *ecuCalDef)
@@ -15,7 +14,7 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationFilesTree(int ecuCalDefIndex
     QTreeWidget *calFilesTree = filesTreeWidget;
     calFilesTree->setAnimated(true);
     calFilesTree->setFocusPolicy(Qt::NoFocus);
-    //calFilesTree->setStyleSheet("QListView::item:selected {background : transparent; border: solid 2px red;}");
+    // calFilesTree->setStyleSheet("QListView::item:selected {background : transparent; border: solid 2px red;}");
     QFont filesItemFont;
     filesItemFont.setPixelSize(14);
     calFilesTree->setFont(filesItemFont);
@@ -63,7 +62,7 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationDataTree(QTreeWidget *dataTr
     // If OEM ecu file, add ROM info
     if (ecuCalDef->RomInfo.length())
     {
-        QTreeWidgetItem * topLevelDataTreeItem = new QTreeWidgetItem();
+        QTreeWidgetItem *topLevelDataTreeItem = new QTreeWidgetItem();
         topLevelDataTreeItem->setText(0, "ROM Info");
         calDataTree->addTopLevelItem(topLevelDataTreeItem);
         if (ecuCalDef->RomInfoExpanded == "1")
@@ -72,7 +71,7 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationDataTree(QTreeWidget *dataTr
         for (int i = 0; i < ecuCalDef->RomInfo.length(); i++)
         {
             emit LOG_D("Set " + ecuCalDef->RomInfoStrings.at(i) + ": " + ecuCalDef->RomInfo.at(i), true, true);
-            QTreeWidgetItem * item = new QTreeWidgetItem();
+            QTreeWidgetItem *item = new QTreeWidgetItem();
             item->setText(0, ecuCalDef->RomInfoStrings.at(i) + ": " + ecuCalDef->RomInfo.at(i));
             calDataTree->topLevelItem(0)->addChild(item);
         }
@@ -80,33 +79,37 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationDataTree(QTreeWidget *dataTr
 
     for (int j = 0; j < ecuCalDef->NameList.count(); j++)
     {
-        //emit LOG_D("Check map: " + ecuCalDef->NameList[j] + " in category: " + ecuCalDef->CategoryList[j], true, true);
+        // emit LOG_D("Check map: " + ecuCalDef->NameList[j] + " in category: " + ecuCalDef->CategoryList[j], true, true);
         if (ecuCalDef->CategoryList[j] != "" && ecuCalDef->CategoryList[j] != " ")
         {
-            //emit LOG_D("Map category: " + ecuCalDef->CategoryList[j], true, true);
+            // emit LOG_D("Map category: " + ecuCalDef->CategoryList[j], true, true);
             if (ecuCalDef->NameList[j] != "" && ecuCalDef->NameList[j] != " ")
             {
-                //emit LOG_D("Map: " + ecuCalDef->NameList[j], true, true);
+                // emit LOG_D("Map: " + ecuCalDef->NameList[j], true, true);
                 treeCategoryCreated = false;
-                for (int i = 0; i < calDataTree->topLevelItemCount(); i++){
-                    if (calDataTree->topLevelItem(i)->text(0) == ecuCalDef->CategoryList[j]){
+                for (int i = 0; i < calDataTree->topLevelItemCount(); i++)
+                {
+                    if (calDataTree->topLevelItem(i)->text(0) == ecuCalDef->CategoryList[j])
+                    {
                         treeCategoryCreated = true;
                     }
                 }
                 if (!treeCategoryCreated)
                 {
-                    //emit emit LOG_D("Create category: " + ecuCalDef->CategoryList[j], true, true);
-                    QTreeWidgetItem * topLevelDataTreeItem = new QTreeWidgetItem();
+                    // emit emit LOG_D("Create category: " + ecuCalDef->CategoryList[j], true, true);
+                    QTreeWidgetItem *topLevelDataTreeItem = new QTreeWidgetItem();
                     topLevelDataTreeItem->setText(0, ecuCalDef->CategoryList[j]);
                     calDataTree->addTopLevelItem(topLevelDataTreeItem);
-                    //treeChildCreated = false;
+                    // treeChildCreated = false;
                     if (ecuCalDef->CategoryExpandedList.at(j) == "1")
                         topLevelDataTreeItem->setExpanded(true);
                 }
-                for (int i = 0; i < calDataTree->topLevelItemCount(); i++){
-                    if (calDataTree->topLevelItem(i)->text(0) == ecuCalDef->CategoryList[j]){
-                        //emit LOG_D("Add map: " + ecuCalDef->NameList[j] + " to category: " + ecuCalDef->CategoryList[j], true, true);
-                        QTreeWidgetItem * item = new QTreeWidgetItem();
+                for (int i = 0; i < calDataTree->topLevelItemCount(); i++)
+                {
+                    if (calDataTree->topLevelItem(i)->text(0) == ecuCalDef->CategoryList[j])
+                    {
+                        // emit LOG_D("Add map: " + ecuCalDef->NameList[j] + " to category: " + ecuCalDef->CategoryList[j], true, true);
+                        QTreeWidgetItem *item = new QTreeWidgetItem();
                         if (ecuCalDef->TypeList[j] == "1D" || ecuCalDef->TypeList[j] == "Selectable" || (ecuCalDef->YSizeList.at(j).toInt() == 1 && ecuCalDef->XSizeList.at(j).toInt() == 1))
                             item->setIcon(0, QIcon(":/icons/1D-64.png"));
                         else if (ecuCalDef->TypeList[j] == "2D")
@@ -114,9 +117,9 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationDataTree(QTreeWidget *dataTr
                         else if (ecuCalDef->TypeList[j] == "3D")
                             item->setIcon(0, QIcon(":/icons/3D-64.png"));
                         if (ecuCalDef->VisibleList.at(j) == "1")
-                            item ->setCheckState(0,Qt::Checked);
+                            item->setCheckState(0, Qt::Checked);
                         else
-                            item ->setCheckState(0,Qt::Unchecked);
+                            item->setCheckState(0, Qt::Unchecked);
                         item->setText(0, ecuCalDef->NameList[j]);
                         item->setText(1, QString::number(j));
                         calDataTree->topLevelItem(i)->addChild(item);

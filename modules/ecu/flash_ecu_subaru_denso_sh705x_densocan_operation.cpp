@@ -9,12 +9,9 @@
 #include <QScopedPointer>
 
 FlashEcuSubaruDensoSH705xDensoCanOperation::FlashEcuSubaruDensoSH705xDensoCanOperation(
-        SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
-        QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride))
-    , serial(serial)
-    , ecuCalDef(ecuCalDef)
-    , cmd_type(cmd_type)
+    SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
+    QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type)
 {
 }
 
@@ -23,7 +20,7 @@ bool FlashEcuSubaruDensoSH705xDensoCanOperation::execute()
     int result = STATUS_ERROR;
     emit progressChanged(0);
 
-    //result = init_flash_denso_can_02();
+    // result = init_flash_denso_can_02();
 
     bool ok = false;
 
@@ -36,7 +33,6 @@ bool FlashEcuSubaruDensoSH705xDensoCanOperation::execute()
     }
     QString mcu_name = flashdevices[mcu_type_index].name;
     emit LOG_D("MCU type: " + mcu_name + " " + mcu_type_string + " and index: " + QString::number(mcu_type_index), true, true);
-
 
     kernel = ecuCalDef->Kernel;
     flash_method = ecuCalDef->FlashMethod;
@@ -120,8 +116,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::connect_bootloader()
     {
         if ((uint8_t)received.at(4) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(5) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(8) != (SUB_KERNEL_ID | 0x40))
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
         }
         else
         {
@@ -135,7 +130,6 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::connect_bootloader()
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-
     }
 
     emit LOG_I("No response from kernel, continue initializing bootloader...", true, true);
@@ -146,11 +140,10 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::connect_bootloader()
     serial->set_is_29_bit_id(true);
     serial->open_serial_port();
 
-
     confirm(tr("Connecting to ECU"),
-                                   tr("Press OK and then turn ignition ON to start initializing connection to ECU"),
-                                   QMessageBox::Ok | QMessageBox::Cancel,
-                                   QMessageBox::Ok);
+            tr("Press OK and then turn ignition ON to start initializing connection to ECU"),
+            QMessageBox::Ok | QMessageBox::Cancel,
+            QMessageBox::Ok);
 
     emit LOG_I("Initializing bootloader", true, true);
 
@@ -214,9 +207,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::connect_bootloader()
     }
     emit LOG_D("Connected to bootloader", true, true);
 
-
     return STATUS_SUCCESS;
-
 }
 
 /*
@@ -229,22 +220,22 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::upload_kernel(QString kernel, ui
     QFile file(kernel);
 
     QByteArray output;
-    //QByteArray payload;
+    // QByteArray payload;
     QByteArray received;
-    //QByteArray msg;
+    // QByteArray msg;
     QByteArray pl_encr;
     uint32_t file_len = 0;
-    //uint32_t pl_len = 0;
+    // uint32_t pl_len = 0;
     uint32_t start_address = 0;
     uint32_t end_address = 0;
-    //uint32_t len = 0;
-    //QByteArray cks_bypass;
+    // uint32_t len = 0;
+    // QByteArray cks_bypass;
     uint8_t chk_sum = 0;
     int maxblocks = 0;
     int byte_counter = 0;
-    //QString mcu_name;
+    // QString mcu_name;
 
-    start_address = kernel_start_addr;//flashdevices[mcu_type_index].kblocks->start;
+    start_address = kernel_start_addr; // flashdevices[mcu_type_index].kblocks->start;
     emit LOG_D("Start address to upload kernel: " + QString::number(start_address, 16), true, true);
 
     if (!serial->is_serial_port_open())
@@ -254,16 +245,16 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::upload_kernel(QString kernel, ui
     }
 
     // Check kernel file
-    if (!file.open(QIODevice::ReadOnly ))
+    if (!file.open(QIODevice::ReadOnly))
     {
         emit LOG_E("Unable to open kernel file for reading", true, true);
         return STATUS_ERROR;
     }
     file_len = file.size();
-    //pl_len = file_len + 6;
+    // pl_len = file_len + 6;
     pl_encr = file.readAll();
     maxblocks = file_len / 6;
-    if((file_len % 6) != 0)
+    if ((file_len % 6) != 0)
         maxblocks++;
     end_address = (start_address + (maxblocks * 6)) & 0xFFFFFFFF;
 
@@ -301,7 +292,6 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::upload_kernel(QString kernel, ui
     }
     emit LOG_D("Kernel load address set", true, true);
 
-
     output.clear();
     output.append((uint8_t)0x00);
     output.append((uint8_t)0x0F);
@@ -321,13 +311,13 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::upload_kernel(QString kernel, ui
     emit LOG_I("Uploading kernel, please wait...", true, true);
 
     emit LOG_D("Sending " + QString::number(maxblocks) + " blocks", true, true);
-    for(int blockno = 0; blockno < maxblocks; blockno++)
+    for (int blockno = 0; blockno < maxblocks; blockno++)
     {
         if (stopRequested())
             return STATUS_ERROR;
 
-        //emit LOG_D("Send block: " + QString::number(blockno), true, true);
-        for(int j = 0; j < 6; j++)
+        // emit LOG_D("Send block: " + QString::number(blockno), true, true);
+        for (int j = 0; j < 6; j++)
         {
             if (pl_encr.length() > (byte_counter + j))
             {
@@ -341,18 +331,16 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::upload_kernel(QString kernel, ui
             }
 
             chk_sum = ((chk_sum >> 8) & 0xFF) + (chk_sum & 0xFF);
-
         }
 
         byte_counter += 6;
         received = serial->write_serial_data_echo_check(output);
-        //emit LOG_D("Sent kernel block to bootloader: " + QString::number(blockno), true, true);
+        // emit LOG_D("Sent kernel block to bootloader: " + QString::number(blockno), true, true);
 
         delay(1);
 
         float pleft = (float)blockno / (float)maxblocks * 100;
         emit progressChanged(pleft);
-
     }
 
     emit progressChanged(100);
@@ -395,7 +383,6 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::upload_kernel(QString kernel, ui
     }
     emit LOG_D("Checksum ok", true, true);
 
-
     emit LOG_I("Kernel uploaded, jump to kernel", true, true);
 
     output.clear();
@@ -430,7 +417,6 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::upload_kernel(QString kernel, ui
         return STATUS_ERROR;
     }
 
-
     // send 0xA0 command to jump into kernel
     output.clear();
     output.append((uint8_t)0x00);
@@ -455,16 +441,16 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::upload_kernel(QString kernel, ui
         {
             emit LOG_E("Wrong response from ECU", true, true);
 
-            //return STATUS_ERROR;
+            // return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
 
-        //return STATUS_ERROR;
+        // return STATUS_ERROR;
     }
-    //emit LOG_D("Jump succesful", true, true);
+    // emit LOG_D("Jump succesful", true, true);
     //
 
     serial->reset_connection();
@@ -480,7 +466,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::upload_kernel(QString kernel, ui
     {
         if ((uint8_t)received.at(4) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(5) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(8) != (SUB_KERNEL_ID | 0x40))
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
             return STATUS_ERROR;
         }
@@ -518,10 +504,10 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::read_mem(uint32_t start_addr, ui
     uint32_t datalen = 6;
     uint32_t pagesize = 0x0400;
 
-    uint32_t skip_start = start_addr & (pagesize - 1); //if unaligned, we'll be receiving this many extra bytes
+    uint32_t skip_start = start_addr & (pagesize - 1); // if unaligned, we'll be receiving this many extra bytes
     uint32_t addr = start_addr - skip_start;
     uint32_t willget = (skip_start + length + pagesize - 1) & ~(pagesize - 1);
-    uint32_t len_done = 0;  //total data written to file
+    uint32_t len_done = 0; // total data written to file
 
     emit LOG_I("Start reading ROM, please wait..." + received, true, true);
 
@@ -557,8 +543,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::read_mem(uint32_t start_addr, ui
         float pleft = 0;
         unsigned long chrono;
 
-        //uint32_t curblock = (addr / pagesize);
-
+        // uint32_t curblock = (addr / pagesize);
 
         pleft = (float)(addr - start_addr) / (float)length * 100.0f;
         emit progressChanged(pleft);
@@ -571,7 +556,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::read_mem(uint32_t start_addr, ui
         output[14] = (uint8_t)pagesize & 0xFF;
         serial->write_serial_data_echo_check(output);
         //
-        //delay(10);
+        // delay(10);
         received = serial->read_serial_data(serial_read_extra_long_timeout);
         //
 
@@ -579,7 +564,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::read_mem(uint32_t start_addr, ui
         {
             if ((uint8_t)received.at(4) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(5) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(8) != (SUB_KERNEL_READ_AREA | 0x40))
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length()-1)), true, true);
+                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length() - 1)), true, true);
 
                 return STATUS_ERROR;
             }
@@ -595,7 +580,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::read_mem(uint32_t start_addr, ui
         mapdata.append(received);
 
         // don't count skipped first bytes //
-        cplen = (numblocks * pagesize) - skip_start; //this is the actual # of valid bytes in buf[]
+        cplen = (numblocks * pagesize) - skip_start; // this is the actual # of valid bytes in buf[]
         skip_start = 0;
 
         chrono = timer.elapsed();
@@ -604,23 +589,25 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::read_mem(uint32_t start_addr, ui
         if (cplen > 0 && chrono > 0)
             curspeed = cplen * (1000.0f / chrono);
 
-        if (!curspeed) {
+        if (!curspeed)
+        {
             curspeed += 1;
         }
 
         tleft = (willget / curspeed) % 9999;
         tleft++;
 
-        QString start_address = QString("%1").arg(addr,8,16,QLatin1Char('0')).toUpper();
-        QString block_len = QString("%1").arg(pagesize,8,16,QLatin1Char('0')).toUpper();
+        QString start_address = QString("%1").arg(addr, 8, 16, QLatin1Char('0')).toUpper();
+        QString block_len = QString("%1").arg(pagesize, 8, 16, QLatin1Char('0')).toUpper();
         msg = QString("Kernel read addr: 0x%1 length: 0x%2, %3 B/s %4 s").arg(start_address).arg(block_len).arg(curspeed, 6, 10, QLatin1Char(' ')).arg(tleft, 6, 10, QLatin1Char(' ')).toUtf8();
         emit LOG_I(msg, true, true);
 
         // and drop extra bytes at the end //
-        uint32_t extrabytes = (cplen + len_done);   //hypothetical new length
-        if (extrabytes > length) {
+        uint32_t extrabytes = (cplen + len_done); // hypothetical new length
+        if (extrabytes > length)
+        {
             cplen -= (extrabytes - length);
-            //thus, (len_done + cplen) will not exceed len
+            // thus, (len_done + cplen) will not exceed len
         }
 
         // increment addr, len, etc //
@@ -673,8 +660,10 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::write_mem(bool test_write)
 
     bcnt = 0;
     emit LOG_I("Different blocks : ", true, false);
-    for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++) {
-        if (block_modified[blockno]) {
+    for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++)
+    {
+        if (block_modified[blockno])
+        {
             emit LOG_I(QString::number(blockno) + ", ", false, false);
             bcnt += 1;
         }
@@ -724,7 +713,8 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::write_mem(bool test_write)
 
         bcnt = 0;
         emit LOG_I("Different blocks : ", true, false);
-        for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++) {
+        for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++)
+        {
             if (block_modified[blockno])
             {
                 emit LOG_I(QString::number(blockno) + ", ", false, false);
@@ -761,7 +751,8 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::get_changed_blocks(const uint8_t
     unsigned blockno;
     QByteArray msg;
 
-    for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++) {
+    for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++)
+    {
         if (stopRequested())
             return STATUS_ERROR;
 
@@ -769,14 +760,15 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::get_changed_blocks(const uint8_t
         bs = flashdevices[mcu_type_index].fblocks[blockno].start;
         blen = flashdevices[mcu_type_index].fblocks[blockno].len;
 
-        QString block_no = QString("%1").arg((uint8_t)blockno,2,10,QLatin1Char('0')).toUpper();
-        QString block_start = QString("%1").arg((uint32_t)bs,8,16,QLatin1Char('0')).toUpper();
-        QString block_length = QString("%1").arg((uint32_t)blen,8,16,QLatin1Char('0')).toUpper();
+        QString block_no = QString("%1").arg((uint8_t)blockno, 2, 10, QLatin1Char('0')).toUpper();
+        QString block_start = QString("%1").arg((uint32_t)bs, 8, 16, QLatin1Char('0')).toUpper();
+        QString block_length = QString("%1").arg((uint32_t)blen, 8, 16, QLatin1Char('0')).toUpper();
 
         msg = QString("FB" + block_no + "\t0x" + block_start + "\t0x" + block_length).toUtf8();
         emit LOG_I(msg, true, false);
         // do CRC comparison with ECU //
-        if (check_romcrc(&src[bs], bs, blen, &modified[blockno])) {
+        if (check_romcrc(&src[bs], bs, blen, &modified[blockno]))
+        {
             return -1;
         }
         delay(5);
@@ -828,7 +820,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::check_romcrc(const uint8_t *src,
         if ((uint8_t)received.at(4) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(5) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(8) != (SUB_KERNEL_CRC | 0x40))
         {
             emit LOG_E("", false, true);
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length() - 1)), true, true);
 
             return STATUS_ERROR;
         }
@@ -845,11 +837,11 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::check_romcrc(const uint8_t *src,
 
     imgcrc32 = SsmProtocol::crc32(src, pagesize);
     msg.clear();
-    msg.append(QString("ROM CRC: 0x%1 IMG CRC: 0x%2").arg(ecucrc32,8,16,QLatin1Char('0')).arg(imgcrc32,8,16,QLatin1Char('0')).toUtf8());
+    msg.append(QString("ROM CRC: 0x%1 IMG CRC: 0x%2").arg(ecucrc32, 8, 16, QLatin1Char('0')).arg(imgcrc32, 8, 16, QLatin1Char('0')).toUtf8());
     emit LOG_D(msg, true, true);
 
-    QString ecu_crc32 = QString("%1").arg((uint32_t)ecucrc32,8,16,QLatin1Char('0')).toUpper();
-    QString img_crc32 = QString("%1").arg((uint32_t)imgcrc32,8,16,QLatin1Char('0')).toUpper();
+    QString ecu_crc32 = QString("%1").arg((uint32_t)ecucrc32, 8, 16, QLatin1Char('0')).toUpper();
+    QString img_crc32 = QString("%1").arg((uint32_t)imgcrc32, 8, 16, QLatin1Char('0')).toUpper();
     msg = QString("\t" + ecu_crc32 + "\t" + img_crc32).toUtf8();
     emit LOG_I(msg, false, false);
     if (ecucrc32 != imgcrc32)
@@ -895,7 +887,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::init_flash_write()
         if ((uint8_t)received.at(4) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(5) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(8) != (SUB_KERNEL_GET_MAX_MSG_SIZE | 0x40))
         {
             emit LOG_E("", false, true);
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length() - 1)), true, true);
 
             return STATUS_ERROR;
         }
@@ -910,7 +902,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::init_flash_write()
 
     flashmessagesize = (uint8_t)received.at(9) << 24 | (uint8_t)received.at(10) << 16 | (uint8_t)received.at(11) << 8 | (uint8_t)received.at(12) << 0;
     msg.clear();
-    msg.append(QString(": 0x%1").arg(flashmessagesize,4,16,QLatin1Char('0')).toUtf8());
+    msg.append(QString(": 0x%1").arg(flashmessagesize, 4, 16, QLatin1Char('0')).toUtf8());
     emit LOG_I(msg, false, true);
 
     emit LOG_I("Check flashblock size", true, false);
@@ -934,7 +926,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::init_flash_write()
         if ((uint8_t)received.at(4) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(5) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(8) != (SUB_KERNEL_GET_MAX_BLK_SIZE | 0x40))
         {
             emit LOG_E("", false, true);
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length() - 1)), true, true);
 
             return STATUS_ERROR;
         }
@@ -949,7 +941,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::init_flash_write()
 
     flashblocksize = (uint8_t)received.at(9) << 24 | (uint8_t)received.at(10) << 16 | (uint8_t)received.at(11) << 8 | (uint8_t)received.at(12) << 0;
     msg.clear();
-    msg.append(QString(": 0x%1").arg(flashblocksize,4,16,QLatin1Char('0')).toUtf8());
+    msg.append(QString(": 0x%1").arg(flashblocksize, 4, 16, QLatin1Char('0')).toUtf8());
     emit LOG_I(msg, false, true);
 
     uint8_t SUB_KERNEL_CMD = 0;
@@ -983,7 +975,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::init_flash_write()
     {
         if ((uint8_t)received.at(4) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(5) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(8) != (SUB_KERNEL_CMD | 0x40))
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length() - 1)), true, true);
 
             return STATUS_ERROR;
         }
@@ -1030,8 +1022,8 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::reflash_block(const uint8_t *new
     block_start = fdt->fblocks[blockno].start;
     block_len = fdt->fblocks[blockno].len;
 
-    QString start_addr = QString("%1").arg((uint32_t)block_start,8,16,QLatin1Char('0')).toUpper();
-    QString length = QString("%1").arg((uint32_t)block_len,8,16,QLatin1Char('0')).toUpper();
+    QString start_addr = QString("%1").arg((uint32_t)block_start, 8, 16, QLatin1Char('0')).toUpper();
+    QString length = QString("%1").arg((uint32_t)block_len, 8, 16, QLatin1Char('0')).toUpper();
     msg = QString("Flash block addr: 0x" + start_addr + " len: 0x" + length).toUtf8();
     emit LOG_I(msg, true, true);
 
@@ -1056,7 +1048,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::reflash_block(const uint8_t *new
         if ((uint8_t)received.at(4) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(5) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(8) != (SUB_KERNEL_PROG_VOLT | 0x40))
         {
             emit LOG_E("", false, true);
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length() - 1)), true, true);
 
             return STATUS_ERROR;
         }
@@ -1072,7 +1064,8 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::reflash_block(const uint8_t *new
     float prog_voltage = (((uint8_t)received.at(9) << 8) + (uint8_t)received.at(10)) / 50.0;
     emit LOG_I(": " + QString::number(prog_voltage) + "V", false, true);
 
-    if (flash_block(newdata, block_start, block_len)) {
+    if (flash_block(newdata, block_start, block_len))
+    {
         emit LOG_E("Reflash error! Do not panic, do not reset the ECU immediately. The kernel is most likely still running and receiving commands!", true, true);
         return STATUS_ERROR;
     }
@@ -1109,7 +1102,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::flash_block(const uint8_t *src, 
 
     flashblocksize = 0x1000;
 
-    msg = QString("Flash page erase addr: 0x%1 len: 0x%2").arg(block_start,8,16,QLatin1Char('0')).arg(block_len,8,16,QLatin1Char('0')).toUtf8();
+    msg = QString("Flash page erase addr: 0x%1 len: 0x%2").arg(block_start, 8, 16, QLatin1Char('0')).arg(block_len, 8, 16, QLatin1Char('0')).toUtf8();
     emit LOG_I(msg, true, true);
 
     emit LOG_I("Erasing flash page...", true, false);
@@ -1130,7 +1123,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::flash_block(const uint8_t *src, 
     output.append((uint8_t)start & 0xFF);
     received = serial->write_serial_data_echo_check(output);
 
-    //delay(500);
+    // delay(500);
     received = serial->read_serial_data(serial_read_extra_long_timeout);
 
     if (received.length() > 8)
@@ -1138,7 +1131,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::flash_block(const uint8_t *src, 
         if ((uint8_t)received.at(4) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(5) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(8) != (SUB_KERNEL_BLANK_PAGE | 0x40))
         {
             emit LOG_E("", false, true);
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length() - 1)), true, true);
 
             return STATUS_ERROR;
         }
@@ -1153,11 +1146,12 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::flash_block(const uint8_t *src, 
 
     emit LOG_I(" erased", false, true);
 
-    msg = QString("Start flash write addr: 0x%1 len: 0x%2").arg(block_start,8,16,QLatin1Char('0')).arg(block_len,8,16,QLatin1Char('0')).toUtf8();
+    msg = QString("Start flash write addr: 0x%1 len: 0x%2").arg(block_start, 8, 16, QLatin1Char('0')).arg(block_len, 8, 16, QLatin1Char('0')).toUtf8();
     emit LOG_I(msg, true, true);
 
     timer.start();
-    while (remain) {
+    while (remain)
+    {
         if (stopRequested())
             return STATUS_ERROR;
 
@@ -1182,13 +1176,13 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::flash_block(const uint8_t *src, 
         }
         serial->write_serial_data_echo_check(output);
         //
-        //delay(50);
+        // delay(50);
         received = serial->read_serial_data(serial_read_long_timeout);
         if (received.length() > 8)
         {
             if ((uint8_t)received.at(4) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(5) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(8) != (SUB_KERNEL_WRITE_FLASH_BUFFER | 0x40))
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length()-1)), true, true);
+                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length() - 1)), true, true);
 
                 return STATUS_ERROR;
             }
@@ -1202,28 +1196,31 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::flash_block(const uint8_t *src, 
 
         emit LOG_D("Data written to flash buffer", true, true);
 
-        QString start_address = QString("%1").arg(start,8,16,QLatin1Char('0')).toUpper();
-        msg = QString("Write flash buffer: 0x%1 (%2\% - %3 B/s, ~ %4 s)").arg(start_address).arg((unsigned) 100 * (len - remain) / len,1,10,QLatin1Char('0')).arg((uint32_t)curspeed,1,10,QLatin1Char('0')).arg(tleft,1,10,QLatin1Char('0')).toUtf8();
+        QString start_address = QString("%1").arg(start, 8, 16, QLatin1Char('0')).toUpper();
+        msg = QString("Write flash buffer: 0x%1 (%2\% - %3 B/s, ~ %4 s)").arg(start_address).arg((unsigned)100 * (len - remain) / len, 1, 10, QLatin1Char('0')).arg((uint32_t)curspeed, 1, 10, QLatin1Char('0')).arg(tleft, 1, 10, QLatin1Char('0')).toUtf8();
         emit LOG_I(msg, true, true);
 
         remain -= blocksize;
         start += blocksize;
         byteindex += blocksize;
-        //src += blocksize;
+        // src += blocksize;
 
         chrono = timer.elapsed();
         timer.start();
 
-        if (!chrono) {
+        if (!chrono)
+        {
             chrono += 1;
         }
-        curspeed = blocksize * (1000.0f / chrono);  //avg B/s
-        if (!curspeed) {
+        curspeed = blocksize * (1000.0f / chrono); // avg B/s
+        if (!curspeed)
+        {
             curspeed += 1;
         }
 
-        tleft = ((float)flashbytescount - byteindex) / curspeed;  //s
-        if (tleft > 9999) {
+        tleft = ((float)flashbytescount - byteindex) / curspeed; // s
+        if (tleft > 9999)
+        {
             tleft = 9999;
         }
         tleft++;
@@ -1276,14 +1273,14 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::flash_block(const uint8_t *src, 
             output.append((uint8_t)imgcrc32 & 0xFF);
             received = serial->write_serial_data_echo_check(output);
 
-            //delay(200);
+            // delay(200);
             received = serial->read_serial_data(serial_read_extra_long_timeout);
 
             if (received.length() > 7)
             {
                 if ((uint8_t)received.at(4) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(5) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(8) != (SUB_KERNEL_CMD + 0x40))
                 {
-                    emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length()-1)), true, true);
+                    emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length() - 1)), true, true);
 
                     return STATUS_ERROR;
                 }
@@ -1315,7 +1312,7 @@ uint8_t FlashEcuSubaruDensoSH705xDensoCanOperation::cks_add8(QByteArray chksum_d
         sum += (uint8_t)chksum_data.at(i);
         if (sum & 0x100)
             sum += 1;
-        sum = (uint8_t) sum;
+        sum = (uint8_t)sum;
     }
     return sum;
 }
@@ -1329,16 +1326,14 @@ QByteArray FlashEcuSubaruDensoSH705xDensoCanOperation::encrypt_payload(QByteArra
 {
     QByteArray encrypted;
 
-    const uint16_t keytogenerateindex[]={
-        0x7856, 0xCE22, 0xF513, 0x6E86
-    };
+    const uint16_t keytogenerateindex[] = {
+        0x7856, 0xCE22, 0xF513, 0x6E86};
 
-    const uint8_t indextransformation[]={
+    const uint8_t indextransformation[] = {
         0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8,
         0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
         0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
-        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
-    };
+        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
     encrypted = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
@@ -1349,16 +1344,14 @@ QByteArray FlashEcuSubaruDensoSH705xDensoCanOperation::decrypt_payload(QByteArra
 {
     QByteArray decrypted;
 
-    const uint16_t keytogenerateindex[]={
-        0x6E86, 0xF513, 0xCE22, 0x7856
-    };
+    const uint16_t keytogenerateindex[] = {
+        0x6E86, 0xF513, 0xCE22, 0x7856};
 
-    const uint8_t indextransformation[]={
+    const uint8_t indextransformation[] = {
         0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8,
         0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
         0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
-        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
-    };
+        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
     decrypted = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 

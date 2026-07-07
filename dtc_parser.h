@@ -8,12 +8,12 @@
 
 class DtcParser
 {
-public:
+  public:
     static QString parse(uint16_t dtc,
-                         const QHash<int, QString> &pCodes,
-                         const QHash<int, QString> &cCodes,
-                         const QHash<int, QString> &bCodes,
-                         const QHash<int, QString> &uCodes);
+                         const QHash<int, QString>& pCodes,
+                         const QHash<int, QString>& cCodes,
+                         const QHash<int, QString>& bCodes,
+                         const QHash<int, QString>& uCodes);
 };
 
 #endif // DTC_PARSER_H

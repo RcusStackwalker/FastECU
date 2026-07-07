@@ -5,9 +5,8 @@
 #include "optionsdialog.h"
 #include "ui_optionsdialog.h"
 
-OptionsDialog::OptionsDialog(QWidget *parent) :
-    QDialog(parent),
-    ui{std::make_unique<Ui::OptionsDialog>()}
+OptionsDialog::OptionsDialog(QWidget *parent) : QDialog(parent),
+                                                ui{std::make_unique<Ui::OptionsDialog>()}
 {
     ui->setupUi(this);
     readSettings();
@@ -76,7 +75,7 @@ void OptionsDialog::writeSettings()
     settings.setValue("AsciiAreaColor", ui->lbAsciiAreaColor->palette().color(QPalette::Window));
     settings.setValue("AsciiFontColor", ui->lbAsciiFontColor->palette().color(QPalette::Window));
     settings.setValue("HexFontColor", ui->lbHexFontColor->palette().color(QPalette::Window));
-    settings.setValue("WidgetFont",ui->leWidgetFont->font());
+    settings.setValue("WidgetFont", ui->leWidgetFont->font());
 
     settings.setValue("AddressAreaWidth", ui->sbAddressAreaWidth->value());
     settings.setValue("BytesPerLine", ui->sbBytesPerLine->value());

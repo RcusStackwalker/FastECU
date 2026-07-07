@@ -6,23 +6,24 @@
 #include <QtCore>
 #include <QDialog>
 
-namespace Ui {
-    class OptionsDialog;
+namespace Ui
+{
+class OptionsDialog;
 }
 
 class OptionsDialog : public QDialog
 {
     Q_OBJECT
 
-public:
+  public:
     explicit OptionsDialog(QWidget *parent = 0);
     ~OptionsDialog();
     void show();
 
-public slots:
+  public slots:
     virtual void accept();
 
-private slots:
+  private slots:
     void on_pbHighlightingColor_clicked();
     void on_pbAddressAreaColor_clicked();
     void on_pbAddressFontColor_clicked();
@@ -32,12 +33,12 @@ private slots:
     void on_pbSelectionColor_clicked();
     void on_pbWidgetFont_clicked();
 
-private:
+  private:
     void readSettings();
     void writeSettings();
     void setColor(QWidget *widget, QColor color);
 
-private:
+  private:
     std::unique_ptr<Ui::OptionsDialog> ui;
 };
 

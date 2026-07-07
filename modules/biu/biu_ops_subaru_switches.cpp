@@ -7,7 +7,7 @@ BiuOpsSubaruSwitches::BiuOpsSubaruSwitches(QStringList *switch_result, QWidget *
       ui{std::make_unique<Ui::BiuOpsSubaruSwitchesWindow>()}
 {
     ui->setupUi(this);
-    //this->setParent(parent);
+    // this->setParent(parent);
 
     this->switch_result = switch_result;
 
@@ -38,14 +38,16 @@ BiuOpsSubaruSwitches::BiuOpsSubaruSwitches(QStringList *switch_result, QWidget *
         label->setFont(custom_font);
         label->setText(switch_result->at(2 * i + 1));
         label->setAlignment(Qt::AlignCenter);
-        if (switch_result->at(2 * i + 1) == "ON" || switch_result->at(2 * i + 1) == "YES") label->setStyleSheet("QLabel { background-color : green; color : white;}");
-        else if (switch_result->at(2 * i + 1) == "OFF" || switch_result->at(2 * i + 1) == "NO") label->setStyleSheet("QLabel { background-color : red; color : white;}");
-        else label->setStyleSheet("QLabel { background-color : grey; color : white;}");
+        if (switch_result->at(2 * i + 1) == "ON" || switch_result->at(2 * i + 1) == "YES")
+            label->setStyleSheet("QLabel { background-color : green; color : white;}");
+        else if (switch_result->at(2 * i + 1) == "OFF" || switch_result->at(2 * i + 1) == "NO")
+            label->setStyleSheet("QLabel { background-color : red; color : white;}");
+        else
+            label->setStyleSheet("QLabel { background-color : grey; color : white;}");
         ui->gridLayout->addWidget(label, row_num, col_num + 1);
 
         row_num++;
     }
-
 }
 
 BiuOpsSubaruSwitches::~BiuOpsSubaruSwitches()
@@ -55,21 +57,23 @@ BiuOpsSubaruSwitches::~BiuOpsSubaruSwitches()
 void BiuOpsSubaruSwitches::update_switch_results(QStringList *switch_result)
 {
 
-    QLabel* current_label;
+    QLabel *current_label;
 
-    for (int i = 0; i < (switch_result->length() / 2); i++) {
+    for (int i = 0; i < (switch_result->length() / 2); i++)
+    {
 
-        current_label = ui->gridLayoutWidget->findChild< QLabel* >("Result" + QString::number(i));
+        current_label = ui->gridLayoutWidget->findChild<QLabel *>("Result" + QString::number(i));
 
         if (current_label)
         {
             current_label->setText(switch_result->at(2 * i + 1));
-            if (switch_result->at(2 * i + 1) == "ON" || switch_result->at(2 * i + 1) == "YES") current_label->setStyleSheet("QLabel { background-color : green; color : white;}");
-            else if (switch_result->at(2 * i + 1) == "OFF" || switch_result->at(2 * i + 1) == "NO") current_label->setStyleSheet("QLabel { background-color : red; color : white;}");
-            else current_label->setStyleSheet("QLabel { background-color : grey; color : white;}");
-            //current_label->repaint();
+            if (switch_result->at(2 * i + 1) == "ON" || switch_result->at(2 * i + 1) == "YES")
+                current_label->setStyleSheet("QLabel { background-color : green; color : white;}");
+            else if (switch_result->at(2 * i + 1) == "OFF" || switch_result->at(2 * i + 1) == "NO")
+                current_label->setStyleSheet("QLabel { background-color : red; color : white;}");
+            else
+                current_label->setStyleSheet("QLabel { background-color : grey; color : white;}");
+            // current_label->repaint();
         }
     }
 }
-
-

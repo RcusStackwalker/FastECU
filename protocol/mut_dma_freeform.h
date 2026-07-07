@@ -6,8 +6,10 @@
 
 #include <cstdint>
 
-namespace mutdma {
-struct Channel {
+namespace mutdma
+{
+struct Channel
+{
     std::uint16_t id; // PID or RAM address (mapped 0x4000-0xBFFF direct / 0x8000-window -> 0x800000+addr)
     bytes::Byte len;  // element size in bytes: 1, 2, or 4
 };
@@ -25,4 +27,4 @@ bytes::Bytes buildIdListFrame(bytes::Byte listCmd, const QVector<Channel>& chann
 int responseDataLength(const QVector<Channel>& channels);
 // Decode the stream data payload into one big-endian value per channel, in order.
 QVector<std::uint32_t> decodeStreamValues(const QVector<Channel>& channels, bytes::ByteView data);
-}
+} // namespace mutdma

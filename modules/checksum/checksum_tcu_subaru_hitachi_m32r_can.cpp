@@ -2,12 +2,10 @@
 
 ChecksumTcuSubaruHitachiM32rCan::ChecksumTcuSubaruHitachiM32rCan()
 {
-
 }
 
 ChecksumTcuSubaruHitachiM32rCan::~ChecksumTcuSubaruHitachiM32rCan()
 {
-
 }
 
 QByteArray ChecksumTcuSubaruHitachiM32rCan::calculate_checksum(QByteArray romData)
@@ -38,22 +36,22 @@ QByteArray ChecksumTcuSubaruHitachiM32rCan::calculate_checksum(QByteArray romDat
     checksum_2_value_calculated_bytes[0] = 0x100 - (checksum_2_value_calculated & 0xff);
     checksum_2_value_calculated = (checksum_2_value_calculated_bytes[3] << 24) + (checksum_2_value_calculated_bytes[2] << 16) + (checksum_2_value_calculated_bytes[1] << 8) + checksum_2_value_calculated_bytes[0];
 
-    checksum_1_balance_value_stored = ((uint8_t)romData.at(checksum_1_balance_value_address) << 24) + ((uint8_t)romData.at(checksum_1_balance_value_address+1) << 16) + ((uint8_t)romData.at(checksum_1_balance_value_address+2) << 8) + (uint8_t)romData.at(checksum_1_balance_value_address+3);
+    checksum_1_balance_value_stored = ((uint8_t)romData.at(checksum_1_balance_value_address) << 24) + ((uint8_t)romData.at(checksum_1_balance_value_address + 1) << 16) + ((uint8_t)romData.at(checksum_1_balance_value_address + 2) << 8) + (uint8_t)romData.at(checksum_1_balance_value_address + 3);
     msg.clear();
-    msg.append(QString("Checksum 1 balance value stored 0x8020: 0x%1").arg(checksum_1_balance_value_stored,8,16,QLatin1Char('0')).toUtf8());
+    msg.append(QString("Checksum 1 balance value stored 0x8020: 0x%1").arg(checksum_1_balance_value_stored, 8, 16, QLatin1Char('0')).toUtf8());
     qDebug() << msg;
 
     msg.clear();
-    msg.append(QString("Checksum 1 calculated 0x8020: 0x%1").arg(checksum_1_value_calculated,8,16,QLatin1Char('0')).toUtf8());
+    msg.append(QString("Checksum 1 calculated 0x8020: 0x%1").arg(checksum_1_value_calculated, 8, 16, QLatin1Char('0')).toUtf8());
     qDebug() << msg;
 
-    checksum_2_value_stored = ((uint8_t)romData.at(checksum_2_balance_value_address) << 24) + ((uint8_t)romData.at(checksum_2_balance_value_address+1) << 16) + ((uint8_t)romData.at(checksum_2_balance_value_address+2) << 8) + (uint8_t)romData.at(checksum_2_balance_value_address+3);
+    checksum_2_value_stored = ((uint8_t)romData.at(checksum_2_balance_value_address) << 24) + ((uint8_t)romData.at(checksum_2_balance_value_address + 1) << 16) + ((uint8_t)romData.at(checksum_2_balance_value_address + 2) << 8) + (uint8_t)romData.at(checksum_2_balance_value_address + 3);
     msg.clear();
-    msg.append(QString("Checksum 2 stored 0x8000/0x8004: 0x%1").arg(checksum_2_value_stored,8,16,QLatin1Char('0')).toUtf8());
+    msg.append(QString("Checksum 2 stored 0x8000/0x8004: 0x%1").arg(checksum_2_value_stored, 8, 16, QLatin1Char('0')).toUtf8());
     qDebug() << msg;
 
     msg.clear();
-    msg.append(QString("Checksum 2 calculated 0x8000/0x8004: 0x%1").arg(checksum_2_value_calculated,8,16,QLatin1Char('0')).toUtf8());
+    msg.append(QString("Checksum 2 calculated 0x8000/0x8004: 0x%1").arg(checksum_2_value_calculated, 8, 16, QLatin1Char('0')).toUtf8());
     qDebug() << msg;
 
     if (checksum_1_value_calculated != 0x5aa5a55a)
@@ -64,7 +62,7 @@ QByteArray ChecksumTcuSubaruHitachiM32rCan::calculate_checksum(QByteArray romDat
         QByteArray checksum_value_array;
 
         msg.clear();
-        msg.append(QString("Checksum 1 balance value before: 0x%1").arg(checksum_1_balance_value_stored,8,16,QLatin1Char('0')).toUtf8());
+        msg.append(QString("Checksum 1 balance value before: 0x%1").arg(checksum_1_balance_value_stored, 8, 16, QLatin1Char('0')).toUtf8());
         qDebug() << msg;
 
         checksum_1_balance_value_stored += 0x5aa5a55a - checksum_1_value_calculated;
@@ -77,7 +75,7 @@ QByteArray ChecksumTcuSubaruHitachiM32rCan::calculate_checksum(QByteArray romDat
         romData.replace(checksum_1_balance_value_address, checksum_value_array.length(), checksum_value_array);
 
         msg.clear();
-        msg.append(QString("Checksum 1 balance value after: 0x%1").arg(checksum_1_balance_value_stored,8,16,QLatin1Char('0')).toUtf8());
+        msg.append(QString("Checksum 1 balance value after: 0x%1").arg(checksum_1_balance_value_stored, 8, 16, QLatin1Char('0')).toUtf8());
         qDebug() << msg;
     }
 
@@ -89,7 +87,7 @@ QByteArray ChecksumTcuSubaruHitachiM32rCan::calculate_checksum(QByteArray romDat
         QByteArray balance_value_array;
 
         msg.clear();
-        msg.append(QString("Checksum 2 value before: 0x%1").arg(checksum_2_value_calculated,8,16,QLatin1Char('0')).toUtf8());
+        msg.append(QString("Checksum 2 value before: 0x%1").arg(checksum_2_value_calculated, 8, 16, QLatin1Char('0')).toUtf8());
         qDebug() << msg;
 
         checksum_2_value_calculated = 0;
@@ -115,7 +113,7 @@ QByteArray ChecksumTcuSubaruHitachiM32rCan::calculate_checksum(QByteArray romDat
         romData.replace(checksum_2_balance_value_address, balance_value_array.length(), balance_value_array);
 
         msg.clear();
-        msg.append(QString("Checksum 2 value after: 0x%1").arg(checksum_2_value_calculated,8,16,QLatin1Char('0')).toUtf8());
+        msg.append(QString("Checksum 2 value after: 0x%1").arg(checksum_2_value_calculated, 8, 16, QLatin1Char('0')).toUtf8());
         qDebug() << msg;
     }
     if (!checksum_ok)

@@ -7,16 +7,17 @@
 
 class SerialPortActions;
 
-class CdbgLoggingProtocol : public LoggingProtocol {
-public:
+class CdbgLoggingProtocol : public LoggingProtocol
+{
+  public:
     CdbgLoggingProtocol(std::unique_ptr<cdbg::ICanTransport> transport, SerialPortActions *serial,
-                         FileActions::LogValuesStructure *logValues, FileActions *fileActions);
+                        FileActions::LogValuesStructure *logValues, FileActions *fileActions);
 
     bool start(QString *errorOut) override;
     PollResult poll(int timeoutMs) override;
     void stop() override;
 
-private:
+  private:
     std::unique_ptr<cdbg::ICanTransport> transport_;
     SerialPortActions *serial_;
     FileActions::LogValuesStructure *logValues_;

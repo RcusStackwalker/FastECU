@@ -4,12 +4,9 @@
 #include "serial_port_actions.h"
 
 FlashTcuSubaruHitachiM32rKlineOperation::FlashTcuSubaruHitachiM32rKlineOperation(
-        SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
-        QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride))
-    , serial(serial)
-    , ecuCalDef(ecuCalDef)
-    , cmd_type(cmd_type)
+    SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
+    QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type)
 {
 }
 
@@ -64,15 +61,15 @@ bool FlashTcuSubaruHitachiM32rKlineOperation::execute()
             emit externalLoggerMessage("Reading ROM, please wait...");
             emit LOG_I("Reading ROM from TCU using K-Line", true, true);
             result = read_a0_rom(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
-            //result = read_a0_ram_subaru_tcu_hitachi_kline(0x80000, 0x100000);
-            //result = read_b8_subaru_tcu_hitachi_kline(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
-            //result = read_b0_subaru_tcu_hitachi_kline(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
+            // result = read_a0_ram_subaru_tcu_hitachi_kline(0x80000, 0x100000);
+            // result = read_b8_subaru_tcu_hitachi_kline(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
+            // result = read_b0_subaru_tcu_hitachi_kline(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
         }
         else if (cmd_type == "test_write" || cmd_type == "write")
         {
             emit externalLoggerMessage("Writing ROM, please wait...");
             emit LOG_I("Not yet implemented: Writing ROM to TCU Subaru Hitachi using CAN", true, true);
-            //result = write_mem_subaru_denso_can_02_32bit(test_write);
+            // result = write_mem_subaru_denso_can_02_32bit(test_write);
         }
     }
 
@@ -115,7 +112,7 @@ int FlashTcuSubaruHitachiM32rKlineOperation::connect_bootloader()
     {
         if ((uint8_t)received.at(4) != 0xFF)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
             return STATUS_ERROR;
         }
@@ -130,7 +127,7 @@ int FlashTcuSubaruHitachiM32rKlineOperation::connect_bootloader()
     received.remove(0, 8);
     received.remove(5, received.length() - 5);
     for (int i = 0; i < received.length(); i++)
-        msg.append(QString("%1").arg((uint8_t)received.at(i),2,16,QLatin1Char('0')).toUpper());
+        msg.append(QString("%1").arg((uint8_t)received.at(i), 2, 16, QLatin1Char('0')).toUpper());
 
     QString ecuid = msg;
     emit LOG_I("ECU ID: " + ecuid, true, true);
@@ -149,7 +146,7 @@ int FlashTcuSubaruHitachiM32rKlineOperation::connect_bootloader()
     {
         if ((uint8_t)received.at(4) != 0xC1)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
             return STATUS_ERROR;
         }
@@ -175,7 +172,7 @@ int FlashTcuSubaruHitachiM32rKlineOperation::connect_bootloader()
     {
         if ((uint8_t)received.at(4) != 0xC3)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
             return STATUS_ERROR;
         }
@@ -201,7 +198,7 @@ int FlashTcuSubaruHitachiM32rKlineOperation::connect_bootloader()
     {
         if ((uint8_t)received.at(4) != 0x67 || (uint8_t)received.at(5) != 0x01)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
             return STATUS_ERROR;
         }
@@ -241,7 +238,7 @@ int FlashTcuSubaruHitachiM32rKlineOperation::connect_bootloader()
     {
         if ((uint8_t)received.at(4) != 0x67 || (uint8_t)received.at(5) != 0x02)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
             return STATUS_ERROR;
         }
@@ -253,43 +250,43 @@ int FlashTcuSubaruHitachiM32rKlineOperation::connect_bootloader()
         return STATUS_ERROR;
     }
     emit LOG_I("Seed key ok", true, true);
-/*
-    emit LOG_I("Set session mode", true, true);
-    output.clear();
-    output.append((uint8_t)0x10);
-    output.append((uint8_t)0x85);
-    output.append((uint8_t)0x02);
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
-    serial->write_serial_data_echo_check(output);
+    /*
+        emit LOG_I("Set session mode", true, true);
+        output.clear();
+        output.append((uint8_t)0x10);
+        output.append((uint8_t)0x85);
+        output.append((uint8_t)0x02);
+        output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+        serial->write_serial_data_echo_check(output);
 
-    received = serial->read_serial_data(serial_read_timeout);
+        received = serial->read_serial_data(serial_read_timeout);
 
-    if (received.length() > 4)
-    {
-        if ((uint8_t)received.at(4) != 0x50)
+        if (received.length() > 4)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+            if ((uint8_t)received.at(4) != 0x50)
+            {
+                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+
+                return STATUS_ERROR;
+            }
+        }
+        else
+        {
+            emit LOG_E("No valid response from ECU", true, true);
 
             return STATUS_ERROR;
         }
-    }
-    else
-    {
-        emit LOG_E("No valid response from ECU", true, true);
-
-        return STATUS_ERROR;
-    }
-    emit LOG_I("Succesfully set to programming session", true, true);
-*/
+        emit LOG_I("Succesfully set to programming session", true, true);
+    */
     return STATUS_SUCCESS;
 }
-
 
 /*
  * For reading a portion of ROM using a0 command
  *
  *
- */int FlashTcuSubaruHitachiM32rKlineOperation::read_a0_rom(uint32_t start_addr, uint32_t length)
+ */
+int FlashTcuSubaruHitachiM32rKlineOperation::read_a0_rom(uint32_t start_addr, uint32_t length)
 {
 
     QByteArray received;
@@ -300,15 +297,17 @@ int FlashTcuSubaruHitachiM32rKlineOperation::connect_bootloader()
     uint32_t tail_size, block_len, loop_ctr, block_size;
 
     block_size = 96;
-    //length = 0x400;   // hack for testing
+    // length = 0x400;   // hack for testing
 
     emit LOG_I("Commencing TCU ROM read", true, true);
 
     curr_addr = start_addr; //- 0x00100000;          // manual adjustment until fix processor details
     num_blocks = length / block_size;
     tail_size = length % block_size;
-    if (tail_size != 0) num_blocks++;
-    else tail_size = block_size;
+    if (tail_size != 0)
+        num_blocks++;
+    else
+        tail_size = block_size;
 
     for (block_count = 0; block_count < num_blocks; block_count++)
     {
@@ -323,7 +322,8 @@ int FlashTcuSubaruHitachiM32rKlineOperation::connect_bootloader()
         for (loop_ctr = 0; loop_ctr < 5; loop_ctr++)
         {
             received = send_sid_a0_block_read(curr_addr, block_len - 1);
-            if (received.length() > 5) break;
+            if (received.length() > 5)
+                break;
         }
 
         if (received.length() > 5)
@@ -344,7 +344,8 @@ int FlashTcuSubaruHitachiM32rKlineOperation::connect_bootloader()
  * For reading a portion of ROM using b8 command
  *
  *
- */int FlashTcuSubaruHitachiM32rKlineOperation::read_b8(uint32_t start_addr, uint32_t length)
+ */
+int FlashTcuSubaruHitachiM32rKlineOperation::read_b8(uint32_t start_addr, uint32_t length)
 {
 
     QByteArray received;
@@ -355,15 +356,17 @@ int FlashTcuSubaruHitachiM32rKlineOperation::connect_bootloader()
     uint32_t tail_size, block_len, loop_ctr, block_size;
 
     block_size = 1;
-    length = 0x10;  // hack for testing
+    length = 0x10; // hack for testing
 
     emit LOG_I("Commencing TCU ROM read", true, true);
 
-    curr_addr = start_addr - 0x00100000;          // manual adjustment until fix processor details
+    curr_addr = start_addr - 0x00100000; // manual adjustment until fix processor details
     num_blocks = length / block_size;
     tail_size = length % block_size;
-    if (tail_size != 0) num_blocks++;
-    else tail_size = block_size;
+    if (tail_size != 0)
+        num_blocks++;
+    else
+        tail_size = block_size;
 
     for (block_count = 0; block_count < num_blocks; block_count++)
     {
@@ -378,7 +381,8 @@ int FlashTcuSubaruHitachiM32rKlineOperation::connect_bootloader()
         for (loop_ctr = 0; loop_ctr < 5; loop_ctr++)
         {
             received = send_sid_b8_byte_read(curr_addr);
-            if (received.length() > 5) break;
+            if (received.length() > 5)
+                break;
         }
 
         if (received.length() > 5)
@@ -399,7 +403,8 @@ int FlashTcuSubaruHitachiM32rKlineOperation::connect_bootloader()
  * For reading a portion of ROM using b0 command
  *
  *
- */int FlashTcuSubaruHitachiM32rKlineOperation::read_b0(uint32_t start_addr, uint32_t length)
+ */
+int FlashTcuSubaruHitachiM32rKlineOperation::read_b0(uint32_t start_addr, uint32_t length)
 {
 
     QByteArray received;
@@ -410,15 +415,17 @@ int FlashTcuSubaruHitachiM32rKlineOperation::connect_bootloader()
     uint32_t tail_size, block_len, loop_ctr, block_size;
 
     block_size = 96;
-    length = 4;  // for testing
+    length = 4; // for testing
 
     emit LOG_I("Commencing TCU ROM read", true, true);
 
-    curr_addr = 0x804ffc;       // for testing
+    curr_addr = 0x804ffc; // for testing
     num_blocks = length / block_size;
     tail_size = length % block_size;
-    if (tail_size != 0) num_blocks++;
-    else tail_size = block_size;
+    if (tail_size != 0)
+        num_blocks++;
+    else
+        tail_size = block_size;
 
     for (block_count = 0; block_count < num_blocks; block_count++)
     {
@@ -433,7 +440,8 @@ int FlashTcuSubaruHitachiM32rKlineOperation::connect_bootloader()
         for (loop_ctr = 0; loop_ctr < 5; loop_ctr++)
         {
             received = send_sid_b0_block_write(curr_addr, block_len);
-            if (received.length() > 5) break;
+            if (received.length() > 5)
+                break;
         }
 
         if (received.length() > 5)
@@ -473,8 +481,10 @@ int FlashTcuSubaruHitachiM32rKlineOperation::read_a0_ram(uint32_t start_addr, ui
     curr_addr = start_addr;
     num_blocks = length / block_size;
     tail_size = length % block_size;
-    if (tail_size != 0) num_blocks++;
-    else tail_size = block_size;
+    if (tail_size != 0)
+        num_blocks++;
+    else
+        tail_size = block_size;
 
     for (block_count = 0; block_count < num_blocks; block_count++)
     {
@@ -489,7 +499,8 @@ int FlashTcuSubaruHitachiM32rKlineOperation::read_a0_ram(uint32_t start_addr, ui
         for (loop_ctr = 0; loop_ctr < 5; loop_ctr++)
         {
             received = send_sid_a0_block_read(curr_addr, block_len - 1);
-            if (received.length() > 5) break;
+            if (received.length() > 5)
+                break;
         }
 
         if (received.length() > 5)
@@ -515,19 +526,17 @@ QByteArray FlashTcuSubaruHitachiM32rKlineOperation::generate_kline_seed_key(QByt
 {
     QByteArray key;
 
-    const uint16_t keytogenerateindex[]={
+    const uint16_t keytogenerateindex[] = {
         0x0FE9, 0xCA58, 0x5E90, 0xDFF1,
         0x690B, 0xF591, 0x1794, 0x5C7B,
         0xA7BF, 0x98E5, 0x0B63, 0xA1C9,
-        0x79BF, 0xF413, 0x82B1, 0xA895
-    };
+        0x79BF, 0xF413, 0x82B1, 0xA895};
 
-    const uint8_t indextransformation[]={
+    const uint8_t indextransformation[] = {
         0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8,
         0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
         0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
-        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
-    };
+        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
     key = SsmProtocol::calculateSeedKey(requested_seed, keytogenerateindex, indextransformation);
 
@@ -553,7 +562,7 @@ QByteArray FlashTcuSubaruHitachiM32rKlineOperation::send_sid_b0_block_write(uint
     emit LOG_I("Sent: " + SsmProtocol::toHex(SsmProtocol::addHeader(output, tester_id, target_id, false)), true, true);
     delay(100);
     received = serial->read_serial_data(receive_timeout);
-    //received = QByteArray::fromHex("80f018f8e0");
+    // received = QByteArray::fromHex("80f018f8e0");
     delay(100);
     emit LOG_I("Recd: " + SsmProtocol::toHex(received), true, true);
 
@@ -579,7 +588,7 @@ QByteArray FlashTcuSubaruHitachiM32rKlineOperation::send_sid_b8_byte_read(uint32
     emit LOG_I("Sent: " + SsmProtocol::toHex(SsmProtocol::addHeader(output, tester_id, target_id, false)), true, true);
     delay(100);
     received = serial->read_serial_data(receive_timeout);
-    //received = QByteArray::fromHex("80f018f8e0");
+    // received = QByteArray::fromHex("80f018f8e0");
     delay(100);
     emit LOG_I("Recd: " + SsmProtocol::toHex(received), true, true);
 
@@ -608,13 +617,12 @@ QByteArray FlashTcuSubaruHitachiM32rKlineOperation::send_sid_a0_block_read(uint3
     emit LOG_I("Sent: " + SsmProtocol::toHex(SsmProtocol::addHeader(output, tester_id, target_id, false)), true, true);
     delay(100);
     received = serial->read_serial_data(receive_timeout);
-    //received = QByteArray::fromHex("80f01861e06000f000a04115ec6000f000a04115f06000f000a04115f46000f000a04115f86000f000a04115fc1fcef0002e7ff000fe00087e6000f000fe00022684ad806060072004fe0003e07e02f0002eef1fce6200f00081c200ff600401407d0e1081ab");
+    // received = QByteArray::fromHex("80f01861e06000f000a04115ec6000f000a04115f06000f000a04115f46000f000a04115f86000f000a04115fc1fcef0002e7ff000fe00087e6000f000fe00022684ad806060072004fe0003e07e02f0002eef1fce6200f00081c200ff600401407d0e1081ab");
     delay(100);
     emit LOG_I("Recd: " + SsmProtocol::toHex(received), true, true);
 
     return received;
 }
-
 
 /*
  * Generate tcu hitachi can seed key from received seed bytes
@@ -625,19 +633,17 @@ QByteArray FlashTcuSubaruHitachiM32rKlineOperation::generate_can_seed_key(QByteA
 {
     QByteArray key;
 
-    const uint16_t keytogenerateindex[]={
+    const uint16_t keytogenerateindex[] = {
         0xF2CA, 0x2417, 0x21DE, 0x8475,
         0x39AB, 0xF767, 0x6204, 0x6BE0,
         0xBC63, 0x5988, 0x2845, 0x9846,
-        0xEB97, 0x99DE, 0xC7DB, 0xEFAE
-    };
+        0xEB97, 0x99DE, 0xC7DB, 0xEFAE};
 
-    const uint8_t indextransformation[]={
+    const uint8_t indextransformation[] = {
         0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8,
         0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
         0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
-        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
-    };
+        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
     key = SsmProtocol::calculateSeedKey(requested_seed, keytogenerateindex, indextransformation);
 

@@ -26,26 +26,26 @@ struct Chunk
     qint64 absPos;
 };
 
-class Chunks: public QObject
+class Chunks : public QObject
 {
-Q_OBJECT
-public:
+    Q_OBJECT
+  public:
     // Constructors and file settings
     Chunks(QObject *parent);
-    Chunks(QIODevice &ioDevice, QObject *parent);
-    bool setIODevice(QIODevice &ioDevice);
+    Chunks(QIODevice& ioDevice, QObject *parent);
+    bool setIODevice(QIODevice& ioDevice);
 
     // Getting data out of Chunks
-    QByteArray data(qint64 pos=0, qint64 count=-1, QByteArray *highlighted=0);
-    bool write(QIODevice &iODevice, qint64 pos=0, qint64 count=-1);
+    QByteArray data(qint64 pos = 0, qint64 count = -1, QByteArray *highlighted = 0);
+    bool write(QIODevice& iODevice, qint64 pos = 0, qint64 count = -1);
 
     // Set and get highlighting infos
     void setDataChanged(qint64 pos, bool dataChanged);
     bool dataChanged(qint64 pos);
 
     // Search API
-    qint64 indexOf(const QByteArray &ba, qint64 from);
-    qint64 lastIndexOf(const QByteArray &ba, qint64 from);
+    qint64 indexOf(const QByteArray& ba, qint64 from);
+    qint64 lastIndexOf(const QByteArray& ba, qint64 from);
 
     // Char manipulations
     bool insert(qint64 pos, char b);
@@ -57,17 +57,16 @@ public:
     qint64 pos();
     qint64 size();
 
-
-private:
+  private:
     int getChunkIndex(qint64 absPos);
 
-    QIODevice * _ioDevice;
+    QIODevice *_ioDevice;
     qint64 _pos;
     qint64 _size;
     QList<Chunk> _chunks;
 
 #ifdef MODUL_TEST
-public:
+  public:
     int chunkSize();
 #endif
 };

@@ -6,20 +6,19 @@
 #include <algorithm>
 #include <cstdio>
 
-namespace {
+namespace
+{
 
 uint32_t readBigEndianWord(bytes::ByteView data, std::size_t offset)
 {
-    return ((uint32_t(data[offset]) << 24) & 0xFF000000U)
-           | ((uint32_t(data[offset + 1]) << 16) & 0x00FF0000U)
-           | ((uint32_t(data[offset + 2]) << 8) & 0x0000FF00U)
-           | (uint32_t(data[offset + 3]) & 0x000000FFU);
+    return ((uint32_t(data[offset]) << 24) & 0xFF000000U) | ((uint32_t(data[offset + 1]) << 16) & 0x00FF0000U) | ((uint32_t(data[offset + 2]) << 8) & 0x0000FF00U) | (uint32_t(data[offset + 3]) & 0x000000FFU);
 }
 
 uint32_t transformWord(uint32_t word, const uint16_t *keytogenerateindex,
                        const uint8_t *indextransformation, int rounds, bool reverse)
 {
-    for (int r = 0; r < rounds; ++r) {
+    for (int r = 0; r < rounds; ++r)
+    {
         const int ki = reverse ? (rounds - 1 - r) : r;
         const uint16_t wordtogenerateindex = word;
         const uint16_t wordtobeencrypted = word >> 16;
@@ -27,7 +26,8 @@ uint32_t transformWord(uint32_t word, const uint16_t *keytogenerateindex,
         index += index << 16;
 
         uint16_t encryptionkey = 0;
-        for (int n = 0; n < 4; ++n) {
+        for (int n = 0; n < 4; ++n)
+        {
             encryptionkey += indextransformation[(index >> (n * 4)) & 0x1F] << (n * 4);
         }
 
@@ -46,20 +46,26 @@ void appendBigEndianWord(bytes::Bytes *out, uint32_t word)
     out->push_back(bytes::Byte(word));
 }
 
-const std::array<uint32_t, 256> &crcTable()
+const std::array<uint32_t, 256>& crcTable()
 {
-    static const std::array<uint32_t, 256> table = [] {
+    static const std::array<uint32_t, 256> table = []
+    {
         std::array<uint32_t, 256> t = {};
         constexpr uint32_t polynomial = 0x5AA5A55A;
 
-        for (uint32_t i = 0; i < t.size(); ++i) {
+        for (uint32_t i = 0; i < t.size(); ++i)
+        {
             uint32_t crc = 0;
             uint32_t c = i;
 
-            for (uint32_t j = 0; j < 8; ++j) {
-                if ((crc ^ c) & 0x00000001U) {
+            for (uint32_t j = 0; j < 8; ++j)
+            {
+                if ((crc ^ c) & 0x00000001U)
+                {
                     crc = (crc >> 1) ^ polynomial;
-                } else {
+                }
+                else
+                {
                     crc = crc >> 1;
                 }
                 c = c >> 1;
@@ -75,13 +81,15 @@ const std::array<uint32_t, 256> &crcTable()
 
 } // namespace
 
-namespace SsmProtocol {
+namespace SsmProtocol
+{
 
 bytes::Bytes calculateSeedKey(bytes::ByteView seed, const uint16_t *keytogenerateindex,
                               const uint8_t *indextransformation)
 {
     bytes::Bytes key;
-    if (seed.size() < 4 || keytogenerateindex == nullptr || indextransformation == nullptr) {
+    if (seed.size() < 4 || keytogenerateindex == nullptr || indextransformation == nullptr)
+    {
         return key;
     }
 
@@ -95,17 +103,19 @@ bytes::Bytes calculatePayload(bytes::ByteView buf, uint32_t len,
                               const uint8_t *indextransformation)
 {
     bytes::Bytes encrypted;
-    if (buf.empty() || len == 0 || keytogenerateindex == nullptr
-        || indextransformation == nullptr) {
+    if (buf.empty() || len == 0 || keytogenerateindex == nullptr || indextransformation == nullptr)
+    {
         return encrypted;
     }
 
     len &= ~uint32_t(3);
-    if (len > uint32_t(buf.size())) {
+    if (len > uint32_t(buf.size()))
+    {
         len = uint32_t(buf.size()) & ~uint32_t(3);
     }
 
-    for (uint32_t i = 0; i < len; i += 4) {
+    for (uint32_t i = 0; i < len; i += 4)
+    {
         appendBigEndianWord(&encrypted,
                             transformWord(readBigEndianWord(buf, i), keytogenerateindex,
                                           indextransformation, 4, false));
@@ -117,11 +127,13 @@ bytes::Bytes calculatePayload(bytes::ByteView buf, uint32_t len,
 bytes::Byte checksum(bytes::ByteView output, bool dec0x100)
 {
     bytes::Byte value = 0;
-    for (const bytes::Byte byte : output) {
+    for (const bytes::Byte byte : output)
+    {
         value += byte;
     }
 
-    if (dec0x100) {
+    if (dec0x100)
+    {
         value = bytes::Byte(0x100 - value);
     }
 
@@ -150,32 +162,36 @@ bool hasValidFrame(bytes::ByteView frame, bytes::Byte receiverId, bytes::Byte se
 {
     constexpr std::size_t headerLength = 4;
     constexpr std::size_t checksumLength = 1;
-    if (frame.size() < headerLength + checksumLength) {
+    if (frame.size() < headerLength + checksumLength)
+    {
         return false;
     }
 
     const std::size_t payloadLength = frame[3];
-    if (frame.size() != headerLength + payloadLength + checksumLength) {
+    if (frame.size() != headerLength + payloadLength + checksumLength)
+    {
         return false;
     }
 
-    if (frame[0] != 0x80 || frame[1] != receiverId || frame[2] != senderId) {
+    if (frame[0] != 0x80 || frame[1] != receiverId || frame[2] != senderId)
+    {
         return false;
     }
 
-    return checksum(frame.first(frame.size() - checksumLength), dec0x100)
-           == frame[frame.size() - checksumLength];
+    return checksum(frame.first(frame.size() - checksumLength), dec0x100) == frame[frame.size() - checksumLength];
 }
 
 bool hasPayloadPrefix(bytes::ByteView frame, bytes::ByteView prefix,
                       bytes::Byte receiverId, bytes::Byte senderId, bool dec0x100)
 {
-    if (!hasValidFrame(frame, receiverId, senderId, dec0x100)) {
+    if (!hasValidFrame(frame, receiverId, senderId, dec0x100))
+    {
         return false;
     }
 
     const std::size_t payloadLength = frame[3];
-    if (prefix.size() > payloadLength) {
+    if (prefix.size() > payloadLength)
+    {
         return false;
     }
 
@@ -187,7 +203,8 @@ std::string toHex(bytes::ByteView received)
     std::string msg;
     msg.reserve(received.size() * 3);
     char hex[4] = {};
-    for (const bytes::Byte byte : received) {
+    for (const bytes::Byte byte : received)
+    {
         std::snprintf(hex, sizeof(hex), "%02x ", byte);
         msg.append(hex);
     }
@@ -197,22 +214,23 @@ std::string toHex(bytes::ByteView received)
 uint32_t crc32(bytes::ByteView bytes)
 {
     uint32_t crc = 0xFFFFFFFF;
-    const auto &table = crcTable();
-    for (const auto byte : bytes) {
+    const auto& table = crcTable();
+    for (const auto byte : bytes)
+    {
         crc = table[(crc ^ byte) & 0xff] ^ (crc >> 8);
     }
 
     return crc ^ 0xFFFFFFFF;
 }
 
-QByteArray calculateSeedKey(const QByteArray &seed, const uint16_t *keytogenerateindex,
+QByteArray calculateSeedKey(const QByteArray& seed, const uint16_t *keytogenerateindex,
                             const uint8_t *indextransformation)
 {
     return bytes::toQByteArray(calculateSeedKey(bytes::view(seed), keytogenerateindex,
                                                 indextransformation));
 }
 
-QByteArray calculatePayload(const QByteArray &buf, uint32_t len,
+QByteArray calculatePayload(const QByteArray& buf, uint32_t len,
                             const uint16_t *keytogenerateindex,
                             const uint8_t *indextransformation)
 {
@@ -220,7 +238,7 @@ QByteArray calculatePayload(const QByteArray &buf, uint32_t len,
                                                 indextransformation));
 }
 
-uint8_t checksum(const QByteArray &output, bool dec0x100)
+uint8_t checksum(const QByteArray& output, bool dec0x100)
 {
     return checksum(bytes::view(output), dec0x100);
 }
@@ -230,26 +248,27 @@ QByteArray addHeader(QByteArray output, uint8_t testerId, uint8_t targetId, bool
     return bytes::toQByteArray(addHeader(bytes::view(output), testerId, targetId, dec0x100));
 }
 
-bool hasValidFrame(const QByteArray &frame, uint8_t receiverId, uint8_t senderId, bool dec0x100)
+bool hasValidFrame(const QByteArray& frame, uint8_t receiverId, uint8_t senderId, bool dec0x100)
 {
     return hasValidFrame(bytes::view(frame), receiverId, senderId, dec0x100);
 }
 
-bool hasPayloadPrefix(const QByteArray &frame, const QByteArray &prefix,
+bool hasPayloadPrefix(const QByteArray& frame, const QByteArray& prefix,
                       uint8_t receiverId, uint8_t senderId, bool dec0x100)
 {
     return hasPayloadPrefix(bytes::view(frame), bytes::view(prefix), receiverId, senderId,
                             dec0x100);
 }
 
-QString toHex(const QByteArray &received)
+QString toHex(const QByteArray& received)
 {
     return QString::fromStdString(toHex(bytes::view(received)));
 }
 
 uint32_t crc32(const unsigned char *buf, uint32_t len)
 {
-    if (buf == nullptr) {
+    if (buf == nullptr)
+    {
         return 0;
     }
 

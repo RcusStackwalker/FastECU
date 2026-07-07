@@ -4,12 +4,9 @@
 #include "serial_port_actions.h"
 
 FlashEcuSubaruHitachiM32rJtagOperation::FlashEcuSubaruHitachiM32rJtagOperation(
-        SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
-        QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride))
-    , serial(serial)
-    , ecuCalDef(ecuCalDef)
-    , cmd_type(cmd_type)
+    SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
+    QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type)
 {
 }
 
@@ -70,7 +67,7 @@ bool FlashEcuSubaruHitachiM32rJtagOperation::execute()
     {
         emit externalLoggerMessage("Writing ROM, please wait...");
         emit LOG_I("Writing ROM to ECU Subaru Hitachi using K-Line", true, true);
-        //result = write_mem_subaru_denso_can_02_32bit(test_write);
+        // result = write_mem_subaru_denso_can_02_32bit(test_write);
         result = write_mem(test_write);
     }
 
@@ -81,9 +78,9 @@ int FlashEcuSubaruHitachiM32rJtagOperation::init_jtag()
 {
     hard_reset_jtag();
     read_idcode();
-    //delay(100);
+    // delay(100);
     read_usercode();
-    //set_rtdenb();
+    // set_rtdenb();
 
     read_tool_rom_code();
 
@@ -93,13 +90,11 @@ int FlashEcuSubaruHitachiM32rJtagOperation::init_jtag()
 int FlashEcuSubaruHitachiM32rJtagOperation::read_mem(uint32_t start_addr, uint32_t length)
 {
 
-
     return STATUS_SUCCESS;
 }
 
 int FlashEcuSubaruHitachiM32rJtagOperation::write_mem(bool test_write)
 {
-
 
     return STATUS_SUCCESS;
 }
@@ -114,10 +109,10 @@ void FlashEcuSubaruHitachiM32rJtagOperation::hard_reset_jtag()
     output.append((uint8_t)0x80);
     output = add_header(output);
     serial->write_serial_data(output);
-    //emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
+    // emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
     delay(10);
     received = serial->read_serial_data(serial_read_short_timeout);
-    //emit LOG_I("Response: " + SsmProtocol::toHex(received), true, true);
+    // emit LOG_I("Response: " + SsmProtocol::toHex(received), true, true);
 }
 
 int FlashEcuSubaruHitachiM32rJtagOperation::read_idcode()
@@ -130,14 +125,14 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_idcode()
     output.append((uint8_t)SUB_KERNEL_ID & 0xFF);
     output = add_header(output);
     serial->write_serial_data(output);
-    //emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
+    // emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
     delay(10);
     received = serial->read_serial_data(serial_read_short_timeout);
     if (received.length() > 4)
     {
         if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_ID + 0x40) || (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
             return STATUS_ERROR;
         }
@@ -149,7 +144,6 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_idcode()
         return STATUS_ERROR;
     }
     emit LOG_I("Device ID request ok", true, true);
-
 
     QByteArray response = received.mid(9, 4);
     uint32_t dev_id;
@@ -182,14 +176,14 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_usercode()
     output.append((uint8_t)SUB_KERNEL_READ_USERCODE & 0xFF);
     output = add_header(output);
     serial->write_serial_data(output);
-    //emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
+    // emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
     delay(10);
     received = serial->read_serial_data(serial_read_short_timeout);
     if (received.length() > 4)
     {
         if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_READ_USERCODE + 0x40) || (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
             return STATUS_ERROR;
         }
@@ -201,7 +195,6 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_usercode()
         return STATUS_ERROR;
     }
     emit LOG_I("User code request ok", true, true);
-
 
     QByteArray response = received.mid(9, 4);
     uint32_t dev_id;
@@ -221,7 +214,6 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_usercode()
     emit LOG_I("ISA: 0x" + isa, true, true);
     emit LOG_I("SDI: 0x" + sdi, true, true);
 
-
     return STATUS_SUCCESS;
 }
 
@@ -231,78 +223,16 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_tool_rom_code()
     QByteArray received;
 
     emit LOG_I("Tool-ROM setting verification code:", true, true);
-/*
-    output.clear();
-    output.append((uint8_t)SUB_KERNEL_JTAG_COMMAND & 0xFF);
-    output.append((uint8_t)SUB_KERNEL_IR_EXTEST & 0xFF);
-    output.append((uint8_t)SUB_KERNEL_SUB_CMD_READ & 0xFF);
-    output = add_header(output);
-    serial->write_serial_data(output);
-    //emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
-    delay(10);
-    received = serial->read_serial_data(serial_read_short_timeout);
-    if (received.length() > 4)
-    {
-        if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) || (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
-        {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-
-            return STATUS_ERROR;
-        }
-    }
-    else
-    {
-        emit LOG_E("No valid response from ECU", true, true);
-
-        return STATUS_ERROR;
-    }
-    emit LOG_I("IR EXTEST transfer ok", true, true);
-*/
-/*
-    output.clear();
-    output.append((uint8_t)SUB_KERNEL_JTAG_COMMAND & 0xFF);
-    output.append((uint8_t)SUB_KERNEL_IR_SAMPLE & 0xFF);
-    output.append((uint8_t)SUB_KERNEL_SUB_CMD_READ & 0xFF);
-    output.append((uint8_t)0x20 & 0xFF);
-    output = add_header(output);
-    serial->write_serial_data(output);
-    //emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
-    delay(10);
-    received = serial->read_serial_data(serial_read_short_timeout);
-    if (received.length() > 4)
-    {
-        if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) || (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
-        {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-
-            return STATUS_ERROR;
-        }
-    }
-    else
-    {
-        emit LOG_E("No valid response from ECU", true, true);
-
-        return STATUS_ERROR;
-    }
-    emit LOG_I("IR SAMPLE/PRELOAD transfer ok", true, true);
-*/
-    uint32_t bsr_bit_count = 471;
-    output.clear();
-    output.append((uint8_t)SUB_KERNEL_JTAG_COMMAND & 0xFF);
-    output.append((uint8_t)SUB_KERNEL_IR_SAMPLE & 0xFF);
-    output.append((uint8_t)SUB_KERNEL_SUB_CMD_READ_BSR & 0xFF);
-    output.append((uint8_t)0x20 & 0xFF);
-    output.append((uint8_t)(bsr_bit_count >> 24));
-    output.append((uint8_t)(bsr_bit_count >> 16));
-    output.append((uint8_t)(bsr_bit_count >> 8));
-    output.append((uint8_t)bsr_bit_count);
-    output = add_header(output);
-    serial->write_serial_data(output);
-    //emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
-    delay(10);
-    received = serial->read_serial_data(serial_read_short_timeout);
-    while (received.length())
-    {
+    /*
+        output.clear();
+        output.append((uint8_t)SUB_KERNEL_JTAG_COMMAND & 0xFF);
+        output.append((uint8_t)SUB_KERNEL_IR_EXTEST & 0xFF);
+        output.append((uint8_t)SUB_KERNEL_SUB_CMD_READ & 0xFF);
+        output = add_header(output);
+        serial->write_serial_data(output);
+        //emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
+        delay(10);
+        received = serial->read_serial_data(serial_read_short_timeout);
         if (received.length() > 4)
         {
             if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) || (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
@@ -318,150 +248,12 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_tool_rom_code()
 
             return STATUS_ERROR;
         }
-        received = serial->read_serial_data(serial_read_short_timeout);
-    }
-    emit LOG_I("Read BSR OK", true, true);
-
-
-    for (int i = 0; i < 4; i++)
-    {
-        for (int j = 0; j < 3; j++)
-        {
-            output.clear();
-            output.append((uint8_t)SUB_KERNEL_JTAG_COMMAND & 0xFF);
-            output.append((uint8_t)SUB_KERNEL_MON_CODE & 0xFF);
-            output.append((uint8_t)SUB_KERNEL_SUB_CMD_WRITE & 0xFF);
-            output.append((uint8_t)0x20 & 0xFF);
-            output.append((uint8_t)inst_tool_rom_code[j*4+0]);
-            output.append((uint8_t)inst_tool_rom_code[j*4+1]);
-            output.append((uint8_t)inst_tool_rom_code[j*4+2]);
-            output.append((uint8_t)inst_tool_rom_code[j*4+3]);
-            output = add_header(output);
-            serial->write_serial_data(output);
-            //emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
-            delay(10);
-            received = serial->read_serial_data(serial_read_short_timeout);
-            if (received.length() > 4)
-            {
-                if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) || (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
-                {
-                    emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-
-                    return STATUS_ERROR;
-                }
-            }
-            else
-            {
-                emit LOG_E("No valid response from ECU", true, true);
-
-                return STATUS_ERROR;
-            }
-            emit LOG_I("MON_CODE transfer ok", true, true);
-
-        }
-
-    }
-    output.clear();
-    output.append((uint8_t)SUB_KERNEL_JTAG_COMMAND & 0xFF);
-    output.append((uint8_t)SUB_KERNEL_MON_CODE & 0xFF);
-    output.append((uint8_t)SUB_KERNEL_SUB_CMD_WRITE & 0xFF);
-    output.append((uint8_t)0x20 & 0xFF);
-    output.append((uint8_t)inst_tool_rom_code[3*4+0]);
-    output.append((uint8_t)inst_tool_rom_code[3*4+1]);
-    output.append((uint8_t)inst_tool_rom_code[3*4+2]);
-    output.append((uint8_t)inst_tool_rom_code[3*4+3]);
-    output = add_header(output);
-    serial->write_serial_data(output);
-    //emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
-    delay(10);
-    received = serial->read_serial_data(serial_read_short_timeout);
-    if (received.length() > 4)
-    {
-        if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) || (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
-        {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-
-            return STATUS_ERROR;
-        }
-    }
-    else
-    {
-        emit LOG_E("No valid response from ECU", true, true);
-
-        return STATUS_ERROR;
-    }
-    emit LOG_I("MON_CODE transfer ok", true, true);
-
-
-    output.clear();
-    output.append((uint8_t)SUB_KERNEL_JTAG_COMMAND & 0xFF);
-    output.append((uint8_t)SUB_KERNEL_MON_ACCESS & 0xFF);
-    output.append((uint8_t)SUB_KERNEL_SUB_CMD_WRITE & 0xFF);
-    output.append((uint8_t)0x04 & 0xFF);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x01);
-    output = add_header(output);
-    serial->write_serial_data(output);
-    //emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
-    delay(10);
-    received = serial->read_serial_data(serial_read_short_timeout);
-    if (received.length() > 4)
-    {
-        if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) || (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
-        {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-
-            return STATUS_ERROR;
-        }
-    }
-    else
-    {
-        emit LOG_E("No valid response from ECU", true, true);
-
-        return STATUS_ERROR;
-    }
-    emit LOG_I("MON_ACCESS transfer ok", true, true);
-
-
-    output.clear();
-    output.append((uint8_t)SUB_KERNEL_JTAG_COMMAND & 0xFF);
-    output.append((uint8_t)SUB_KERNEL_MON_ACCESS & 0xFF);
-    output.append((uint8_t)SUB_KERNEL_SUB_CMD_WRITE & 0xFF);
-    output.append((uint8_t)0x04 & 0xFF);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output = add_header(output);
-    serial->write_serial_data(output);
-    //emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
-    delay(10);
-    received = serial->read_serial_data(serial_read_short_timeout);
-    if (received.length() > 4)
-    {
-        if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) || (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
-        {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-
-            return STATUS_ERROR;
-        }
-    }
-    else
-    {
-        emit LOG_E("No valid response from ECU", true, true);
-
-        return STATUS_ERROR;
-    }
-    emit LOG_I("MON_ACCESS transfer ok", true, true);
-
-
-    for (int i = 0; i < 5; i++)
-    {
+        emit LOG_I("IR EXTEST transfer ok", true, true);
+    */
+    /*
         output.clear();
         output.append((uint8_t)SUB_KERNEL_JTAG_COMMAND & 0xFF);
-        output.append((uint8_t)SUB_KERNEL_MON_DATA & 0xFF);
+        output.append((uint8_t)SUB_KERNEL_IR_SAMPLE & 0xFF);
         output.append((uint8_t)SUB_KERNEL_SUB_CMD_READ & 0xFF);
         output.append((uint8_t)0x20 & 0xFF);
         output = add_header(output);
@@ -484,8 +276,201 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_tool_rom_code()
 
             return STATUS_ERROR;
         }
-        emit LOG_I("MON_DATA transfer ok", true, true);
+        emit LOG_I("IR SAMPLE/PRELOAD transfer ok", true, true);
+    */
+    uint32_t bsr_bit_count = 471;
+    output.clear();
+    output.append((uint8_t)SUB_KERNEL_JTAG_COMMAND & 0xFF);
+    output.append((uint8_t)SUB_KERNEL_IR_SAMPLE & 0xFF);
+    output.append((uint8_t)SUB_KERNEL_SUB_CMD_READ_BSR & 0xFF);
+    output.append((uint8_t)0x20 & 0xFF);
+    output.append((uint8_t)(bsr_bit_count >> 24));
+    output.append((uint8_t)(bsr_bit_count >> 16));
+    output.append((uint8_t)(bsr_bit_count >> 8));
+    output.append((uint8_t)bsr_bit_count);
+    output = add_header(output);
+    serial->write_serial_data(output);
+    // emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
+    delay(10);
+    received = serial->read_serial_data(serial_read_short_timeout);
+    while (received.length())
+    {
+        if (received.length() > 4)
+        {
+            if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) || (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
+            {
+                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
+                return STATUS_ERROR;
+            }
+        }
+        else
+        {
+            emit LOG_E("No valid response from ECU", true, true);
+
+            return STATUS_ERROR;
+        }
+        received = serial->read_serial_data(serial_read_short_timeout);
+    }
+    emit LOG_I("Read BSR OK", true, true);
+
+    for (int i = 0; i < 4; i++)
+    {
+        for (int j = 0; j < 3; j++)
+        {
+            output.clear();
+            output.append((uint8_t)SUB_KERNEL_JTAG_COMMAND & 0xFF);
+            output.append((uint8_t)SUB_KERNEL_MON_CODE & 0xFF);
+            output.append((uint8_t)SUB_KERNEL_SUB_CMD_WRITE & 0xFF);
+            output.append((uint8_t)0x20 & 0xFF);
+            output.append((uint8_t)inst_tool_rom_code[j * 4 + 0]);
+            output.append((uint8_t)inst_tool_rom_code[j * 4 + 1]);
+            output.append((uint8_t)inst_tool_rom_code[j * 4 + 2]);
+            output.append((uint8_t)inst_tool_rom_code[j * 4 + 3]);
+            output = add_header(output);
+            serial->write_serial_data(output);
+            // emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
+            delay(10);
+            received = serial->read_serial_data(serial_read_short_timeout);
+            if (received.length() > 4)
+            {
+                if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) || (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
+                {
+                    emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+
+                    return STATUS_ERROR;
+                }
+            }
+            else
+            {
+                emit LOG_E("No valid response from ECU", true, true);
+
+                return STATUS_ERROR;
+            }
+            emit LOG_I("MON_CODE transfer ok", true, true);
+        }
+    }
+    output.clear();
+    output.append((uint8_t)SUB_KERNEL_JTAG_COMMAND & 0xFF);
+    output.append((uint8_t)SUB_KERNEL_MON_CODE & 0xFF);
+    output.append((uint8_t)SUB_KERNEL_SUB_CMD_WRITE & 0xFF);
+    output.append((uint8_t)0x20 & 0xFF);
+    output.append((uint8_t)inst_tool_rom_code[3 * 4 + 0]);
+    output.append((uint8_t)inst_tool_rom_code[3 * 4 + 1]);
+    output.append((uint8_t)inst_tool_rom_code[3 * 4 + 2]);
+    output.append((uint8_t)inst_tool_rom_code[3 * 4 + 3]);
+    output = add_header(output);
+    serial->write_serial_data(output);
+    // emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
+    delay(10);
+    received = serial->read_serial_data(serial_read_short_timeout);
+    if (received.length() > 4)
+    {
+        if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) || (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
+        {
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+
+            return STATUS_ERROR;
+        }
+    }
+    else
+    {
+        emit LOG_E("No valid response from ECU", true, true);
+
+        return STATUS_ERROR;
+    }
+    emit LOG_I("MON_CODE transfer ok", true, true);
+
+    output.clear();
+    output.append((uint8_t)SUB_KERNEL_JTAG_COMMAND & 0xFF);
+    output.append((uint8_t)SUB_KERNEL_MON_ACCESS & 0xFF);
+    output.append((uint8_t)SUB_KERNEL_SUB_CMD_WRITE & 0xFF);
+    output.append((uint8_t)0x04 & 0xFF);
+    output.append((uint8_t)0x00);
+    output.append((uint8_t)0x00);
+    output.append((uint8_t)0x00);
+    output.append((uint8_t)0x01);
+    output = add_header(output);
+    serial->write_serial_data(output);
+    // emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
+    delay(10);
+    received = serial->read_serial_data(serial_read_short_timeout);
+    if (received.length() > 4)
+    {
+        if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) || (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
+        {
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+
+            return STATUS_ERROR;
+        }
+    }
+    else
+    {
+        emit LOG_E("No valid response from ECU", true, true);
+
+        return STATUS_ERROR;
+    }
+    emit LOG_I("MON_ACCESS transfer ok", true, true);
+
+    output.clear();
+    output.append((uint8_t)SUB_KERNEL_JTAG_COMMAND & 0xFF);
+    output.append((uint8_t)SUB_KERNEL_MON_ACCESS & 0xFF);
+    output.append((uint8_t)SUB_KERNEL_SUB_CMD_WRITE & 0xFF);
+    output.append((uint8_t)0x04 & 0xFF);
+    output.append((uint8_t)0x00);
+    output.append((uint8_t)0x00);
+    output.append((uint8_t)0x00);
+    output.append((uint8_t)0x00);
+    output = add_header(output);
+    serial->write_serial_data(output);
+    // emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
+    delay(10);
+    received = serial->read_serial_data(serial_read_short_timeout);
+    if (received.length() > 4)
+    {
+        if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) || (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
+        {
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+
+            return STATUS_ERROR;
+        }
+    }
+    else
+    {
+        emit LOG_E("No valid response from ECU", true, true);
+
+        return STATUS_ERROR;
+    }
+    emit LOG_I("MON_ACCESS transfer ok", true, true);
+
+    for (int i = 0; i < 5; i++)
+    {
+        output.clear();
+        output.append((uint8_t)SUB_KERNEL_JTAG_COMMAND & 0xFF);
+        output.append((uint8_t)SUB_KERNEL_MON_DATA & 0xFF);
+        output.append((uint8_t)SUB_KERNEL_SUB_CMD_READ & 0xFF);
+        output.append((uint8_t)0x20 & 0xFF);
+        output = add_header(output);
+        serial->write_serial_data(output);
+        // emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
+        delay(10);
+        received = serial->read_serial_data(serial_read_short_timeout);
+        if (received.length() > 4)
+        {
+            if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) || (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
+            {
+                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+
+                return STATUS_ERROR;
+            }
+        }
+        else
+        {
+            emit LOG_E("No valid response from ECU", true, true);
+
+            return STATUS_ERROR;
+        }
+        emit LOG_I("MON_DATA transfer ok", true, true);
 
         delay(100);
     }
@@ -521,7 +506,7 @@ void FlashEcuSubaruHitachiM32rJtagOperation::write_jtag_ir(QString desc, QString
     msg.clear();
     msg.append("4b051f"); // Reset TAP state machine
     msg.append("4b0303"); // Move to Shift-IR
-    msg.append("3b04"); // Set instruction (first 5 bits)
+    msg.append("3b04");   // Set instruction (first 5 bits)
     msg.append(code);
     if (is_endbit)
         msg.append("7b0001"); // If last bit == 1, set TMS and TDI bits
@@ -530,11 +515,10 @@ void FlashEcuSubaruHitachiM32rJtagOperation::write_jtag_ir(QString desc, QString
     if (is_endbit)
         emit LOG_I("IS ENDBIT", true, true);
     msg.append("4b0101"); // Move to Run/Idle
-    //msg.append("4b0700"); // Idle 8 clockcycles
+    // msg.append("4b0700"); // Idle 8 clockcycles
     msg.append("0D"); // Additional CR
     output = msg.toUtf8();
     serial->write_serial_data(output);
-
 
     response = read_response();
     emit LOG_I("Response: " + SsmProtocol::toHex(response), true, true);
@@ -548,14 +532,13 @@ QByteArray FlashEcuSubaruHitachiM32rJtagOperation::read_jtag_dr(QString desc)
 
     emit LOG_D("Read data from " + desc + " shift-dr", true, true);
 
-    msg.append("4b0700"); // Idle 8 clockcycles
-    msg.append("4b0201"); // Move to Shift-DR
+    msg.append("4b0700");       // Idle 8 clockcycles
+    msg.append("4b0201");       // Move to Shift-DR
     msg.append("6b1f80000000"); // Read 32 bits
-    msg.append("4b0101"); // Move to Run/Idle
-    msg.append("0D"); // Additional CR
+    msg.append("4b0101");       // Move to Run/Idle
+    msg.append("0D");           // Additional CR
     output = msg.toUtf8();
     serial->write_serial_data(output);
-
 
     response = read_response();
     if (response.at(0) == 0x7f)
@@ -574,15 +557,15 @@ QByteArray FlashEcuSubaruHitachiM32rJtagOperation::write_jtag_dr(QString desc, Q
     QString endbit = data.at(0);
     bool ok = false;
     bool is_endbit = endbit.toInt(&ok, 16) & 0x8;
-    //QString endbit = data.at(data.length()-1);
-    //data.remove(data.length()-1, 1);
+    // QString endbit = data.at(data.length()-1);
+    // data.remove(data.length()-1, 1);
 
     emit LOG_D("Write data '" + data + "' to " + desc + " shift-dr", true, true);
 
     msg.append("4b0700"); // Idle 8 clockcycles
     msg.append("4b0201"); // Move to Shift-DR
-    msg.append("3b1e"); // Set 31 bits
-    msg.append(data);   // Append data-1 bit
+    msg.append("3b1e");   // Set 31 bits
+    msg.append(data);     // Append data-1 bit
     if (is_endbit)
         msg.append("7b0001"); // If last bit == 1, set TMS and TDI bits
     else
@@ -590,10 +573,9 @@ QByteArray FlashEcuSubaruHitachiM32rJtagOperation::write_jtag_dr(QString desc, Q
     if (is_endbit)
         emit LOG_I("IS ENDBIT", true, true);
     msg.append("4b0101"); // Move to Run/Idle
-    msg.append("0D"); // Additional CR
+    msg.append("0D");     // Additional CR
     output = msg.toUtf8();
     serial->write_serial_data(output);
-
 
     response = read_response();
     emit LOG_I("Response: " + SsmProtocol::toHex(response), true, true);

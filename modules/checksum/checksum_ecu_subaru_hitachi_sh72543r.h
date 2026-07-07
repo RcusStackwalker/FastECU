@@ -6,14 +6,13 @@
 
 class ChecksumEcuSubaruHitachiSh72543r
 {
-public:
+  public:
     ChecksumEcuSubaruHitachiSh72543r();
     ~ChecksumEcuSubaruHitachiSh72543r();
 
     static QByteArray calculate_checksum(QByteArray romData);
 
-private:
-
+  private:
 };
 
 #endif // CHECKSUM_ECU_SUBARU_HITACHI_SH72543R_H

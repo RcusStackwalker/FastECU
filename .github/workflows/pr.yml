@@ -11,14 +11,27 @@ permissions:
   pull-requests: read
 
 jobs:
+  pre-commit:
+    name: pre-commit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install prek
+        run: pipx install prek
+
+      - name: Run pre-commit hooks
+        run: prek run --all-files
+
   build:
+    needs: pre-commit
     strategy:
       fail-fast: false
       matrix:
         os: [windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@v7
 
       - name: Install Qt (Windows)
         if: runner.os == 'Windows'
@@ -159,9 +172,10 @@ jobs:
 
   sonarcloud:
     name: SonarCloud
+    needs: pre-commit
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -202,13 +216,14 @@ jobs:
 
   bazel:
     name: Bazel (${{ matrix.os }})
+    needs: pre-commit
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@v7
 
       - uses: bazel-contrib/setup-bazel@c5acdfb288317d0b5c0bbd7a396a3dc868bb0f86 # 0.19.0
 

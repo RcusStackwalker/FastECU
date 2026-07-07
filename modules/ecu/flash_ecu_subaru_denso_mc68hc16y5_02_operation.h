@@ -19,20 +19,20 @@ class FlashEcuSubaruDensoMC68HC16Y5_02Operation : public FlashOperationWorker
 {
     Q_OBJECT
 
-public:
+  public:
     FlashEcuSubaruDensoMC68HC16Y5_02Operation(SerialPortActions *serial,
-                                               FileActions::EcuCalDefStructure *ecuCalDef,
-                                               QString cmd_type,
-                                               QWidget *dialog,
-                                               QObject *parent = nullptr,
-                                               PromptFn promptOverride = {});
+                                              FileActions::EcuCalDefStructure *ecuCalDef,
+                                              QString cmd_type,
+                                              QWidget *dialog,
+                                              QObject *parent = nullptr,
+                                              PromptFn promptOverride = {});
 
-protected:
+  protected:
     bool execute() override;
 
-private:
-    #define STATUS_SUCCESS	0x00
-    #define STATUS_ERROR	0x01
+  private:
+#define STATUS_SUCCESS 0x00
+#define STATUS_ERROR 0x01
 
     uint32_t CRC32 = 0xEDB88320;
 
@@ -66,10 +66,10 @@ private:
     QString flash_method;
     QString kernel;
 
-    QByteArray bootloader_init_request_wrx02 = { "\x4D\xFF\xB4" };
-    QByteArray bootloader_init_response_stock_wrx02_ok = { "\x4D\x00\xB3" };
-    QByteArray bootloader_init_response_ecutek_wrx02_ok = { "\x4C\x00\xB4" };
-    QByteArray bootloader_init_response_cobb_wrx02_ok = { "\x4D\x00\xB3" };
+    QByteArray bootloader_init_request_wrx02 = {"\x4D\xFF\xB4"};
+    QByteArray bootloader_init_response_stock_wrx02_ok = {"\x4D\x00\xB3"};
+    QByteArray bootloader_init_response_ecutek_wrx02_ok = {"\x4C\x00\xB4"};
+    QByteArray bootloader_init_response_cobb_wrx02_ok = {"\x4D\x00\xB3"};
     QByteArray bootloader_init_response_wrx02_ok;
 
     int connect_bootloader();

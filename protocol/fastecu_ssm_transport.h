@@ -3,13 +3,16 @@
 class SerialPortActions;
 
 // Adapts FastECU's SerialPortActions to ISsmTransport.
-class FastEcuSsmTransport : public ISsmTransport {
-public:
-    explicit FastEcuSsmTransport(SerialPortActions *serial) : serial_(serial) {}
+class FastEcuSsmTransport : public ISsmTransport
+{
+  public:
+    explicit FastEcuSsmTransport(SerialPortActions *serial) : serial_(serial)
+    {
+    }
     int write(bytes::ByteView data) override;
     bytes::Bytes read(int timeoutMs) override;
     bool isOpen() const override;
 
-private:
+  private:
     SerialPortActions *serial_;
 };

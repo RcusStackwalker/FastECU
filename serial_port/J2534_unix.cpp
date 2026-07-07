@@ -4,18 +4,18 @@
 
 J2534::J2534()
 {
-
 }
 
 J2534::~J2534()
 {
-
 }
 
 QString J2534::open_serial_port(QString serial_port)
 {
-    if (opened_serial_port != serial_port){
-        if (!(serial->isOpen() && serial->isWritable())){
+    if (opened_serial_port != serial_port)
+    {
+        if (!(serial->isOpen() && serial->isWritable()))
+        {
             serial->setPortName(serial_port);
             serial->setBaudRate(serial_port_baudrate.toDouble());
             serial->setDataBits(QSerialPort::Data8);
@@ -23,14 +23,15 @@ QString J2534::open_serial_port(QString serial_port)
             serial->setParity(QSerialPort::NoParity);
             serial->setFlowControl(QSerialPort::NoFlowControl);
 
-            if (serial->open(QIODevice::ReadWrite)){
-                //serial->setDataTerminalReady(setDataTerminalReady);
-                //serial->setRequestToSend(setRequestToSend);
+            if (serial->open(QIODevice::ReadWrite))
+            {
+                // serial->setDataTerminalReady(setDataTerminalReady);
+                // serial->setRequestToSend(setRequestToSend);
                 serial->clearError();
                 serial->clear();
                 serial->flush();
                 opened_serial_port = serial_port;
-                //connect(serial, SIGNAL(readyRead()), this, SLOT(ReadSerialDataSlot()), Qt::DirectConnection);
+                // connect(serial, SIGNAL(readyRead()), this, SLOT(ReadSerialDataSlot()), Qt::DirectConnection);
                 qRegisterMetaType<QSerialPort::SerialPortError>();
                 connect(serial, SIGNAL(errorOccurred(QSerialPort::SerialPortError)), this, SLOT(handle_error(QSerialPort::SerialPortError)));
 
@@ -42,9 +43,9 @@ QString J2534::open_serial_port(QString serial_port)
                 emit LOG_D("Couldn't open Linux j2534 serial port '" + serial_port + "'", true, true);
                 return NULL;
             }
-
         }
-        else{
+        else
+        {
             emit LOG_D("Linux j2534 serial port '" + serial_port + "' is already opened", true, true);
             return opened_serial_port;
         }
@@ -90,7 +91,7 @@ QByteArray J2534::read_serial_data(uint32_t datalen, uint16_t timeout)
             }
             serial->waitForReadyRead(1);
         }
-        //emit LOG_D("Read J2534 msg:" << parseMessageToHex(ReceivedData);
+        // emit LOG_D("Read J2534 msg:" << parseMessageToHex(ReceivedData);
     }
 
     return ReceivedData;
@@ -104,7 +105,7 @@ int J2534::write_serial_data(QByteArray output)
 
     if (is_serial_port_open())
     {
-        //emit LOG_D("Send J2534 msg:" << parseMessageToHex(output);
+        // emit LOG_D("Send J2534 msg:" << parseMessageToHex(output);
         for (int i = 0; i < output.length(); i++)
         {
             msg.clear();
@@ -148,7 +149,7 @@ QString J2534::parseMessageToHex(QByteArray received)
 
     for (int i = 0; i < received.length(); i++)
     {
-        msg.append(QString("%1 ").arg((uint8_t)received.at(i),2,16,QLatin1Char('0')).toUtf8());
+        msg.append(QString("%1 ").arg((uint8_t)received.at(i), 2, 16, QLatin1Char('0')).toUtf8());
     }
 
     return msg;
@@ -158,8 +159,8 @@ uint32_t J2534::parse_ts(const char *data)
 {
     uint32_t timestamp = 0;
     memcpy(&timestamp, data, 4);
-    //if (littleEndian)
-    //    timestamp = bswap(timestamp);
+    // if (littleEndian)
+    //     timestamp = bswap(timestamp);
     return timestamp;
 }
 
@@ -168,8 +169,8 @@ long J2534::PassThruOpen(const void *pName, unsigned long *pDeviceID)
     QByteArray output;
     QByteArray received;
     QByteArray check_result = "ar";
-    QString name = (char*)pName;
-    unsigned long *devID = (unsigned long*)pDeviceID;
+    QString name = (char *)pName;
+    unsigned long *devID = (unsigned long *)pDeviceID;
     long result = ERR_NOT_SUPPORTED;
 
     pDeviceID = 0;
@@ -197,13 +198,13 @@ long J2534::PassThruClose(unsigned long DeviceID)
     QByteArray received;
     long result = STATUS_NOERROR;
 
-    //emit LOG_D("Close J2534 device ID:" << DeviceID;
+    // emit LOG_D("Close J2534 device ID:" << DeviceID;
 
     output = "atz\r\n";
-    //emit LOG_D("Send data:" << output;
+    // emit LOG_D("Send data:" << output;
     write_serial_data(output);
     received = read_serial_data(8, 50);
-    //emit LOG_D("Received:" << received;
+    // emit LOG_D("Received:" << received;
     close_serial_port();
 
     return result;
@@ -216,30 +217,31 @@ long J2534::PassThruConnect(unsigned long DeviceID, unsigned long ProtocolID, un
     unsigned long chanID = (unsigned long)pChannelID;
     long result = STATUS_NOERROR;
 
-    switch ((int)ProtocolID) {
+    switch ((int)ProtocolID)
+    {
     case ISO9141:
-        pChannelID = (unsigned long*)ISO9141;
+        pChannelID = (unsigned long *)ISO9141;
         break;
     case ISO14230:
-        pChannelID = (unsigned long*)ISO14230;
+        pChannelID = (unsigned long *)ISO14230;
         break;
     case CAN:
-        pChannelID = (unsigned long*)CAN;
+        pChannelID = (unsigned long *)CAN;
         break;
     case ISO15765:
-        pChannelID = (unsigned long*)ISO15765;
+        pChannelID = (unsigned long *)ISO15765;
         break;
     case CAN_CH1:
-        pChannelID = (unsigned long*)CAN_CH1;
+        pChannelID = (unsigned long *)CAN_CH1;
         break;
     default:
-        return 0;//J2534_ERR_INVALID_PROTOCOL_ID;
+        return 0; // J2534_ERR_INVALID_PROTOCOL_ID;
     }
 
     output.clear();
     QString str = "ato" + QString::number(ProtocolID) + " " + QString::number(Flags) + " " + QString::number(Baudrate) + " " + QString::number(ProtocolID) + "\r\n";
     output.append(str.toUtf8());
-    //emit LOG_D("Send data:" << output;
+    // emit LOG_D("Send data:" << output;
     write_serial_data(output);
     received = read_serial_data(100, 50);
     emit LOG_D("Connect received: " + parseMessageToHex(received) + " " + received + " " + QString::number(chanID), true, true);
@@ -253,15 +255,15 @@ long J2534::PassThruDisconnect(unsigned long ChannelID)
     QByteArray received;
     long result = STATUS_NOERROR;
 
-    //emit LOG_D("Disconnect J2534 device in channel:" << ChannelID;
+    // emit LOG_D("Disconnect J2534 device in channel:" << ChannelID;
 
     output.clear();
     QString str = "atc" + QString::number(ChannelID) + "\r\n";
     output.append(str.toUtf8());
-    //emit LOG_D("Send data:" << output;
+    // emit LOG_D("Send data:" << output;
     write_serial_data(output);
     received = read_serial_data(100, 50);
-    //emit LOG_D("Received:" << received;
+    // emit LOG_D("Received:" << received;
 
     return result;
 }
@@ -280,16 +282,16 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
     bool stop_reading = false;
 
     received = read_serial_data(3, Timeout);
-    //emit LOG_D("Recieved data: " + parseMessageToHex(received), true, true);
+    // emit LOG_D("Recieved data: " + parseMessageToHex(received), true, true);
     while (received.length() > 0 && is_serial_port_open())
     {
-        //emit LOG_D("Message header: " + parseMessageToHex(received), true, true);
+        // emit LOG_D("Message header: " + parseMessageToHex(received), true, true);
         if (received.at(0) == 0x61 && received.at(1) == 0x72)
         {
             if (received.at(2) == 'o') // ACK 0x6f
             {
                 read_serial_data(2, Timeout);
-                //emit LOG_D("Sent msg ACK: " + parseMessageToHex(received), true, true);
+                // emit LOG_D("Sent msg ACK: " + parseMessageToHex(received), true, true);
                 received.clear();
                 msg_ack = true;
             }
@@ -297,59 +299,59 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
             {
                 while ((uint8_t)received.at(received.length() - 1) == 0x0d)
                     received.append(read_serial_data(1, Timeout));
-                //emit LOG_D("Error sending message: " + parseMessageToHex(received), true, true);
+                // emit LOG_D("Error sending message: " + parseMessageToHex(received), true, true);
                 received.clear();
             }
             else if (received.at(2) == 'm') // 0x6d
             {
                 received.append(read_serial_data(2, Timeout));
                 msg.clear();
-                while ((uint8_t)msg[msg.length()-1] != 0x20)
+                while ((uint8_t)msg[msg.length() - 1] != 0x20)
                     msg.append(read_serial_data(1, Timeout));
                 received.append(msg);
-                periodic_msg_id = msg.remove(msg.length()-1, 1).toULong();
+                periodic_msg_id = msg.remove(msg.length() - 1, 1).toULong();
 
-                while ((uint8_t)msg[msg.length()-1] != 0x0a)
+                while ((uint8_t)msg[msg.length() - 1] != 0x0a)
                     msg.append(read_serial_data(1, Timeout));
                 received.append(msg);
                 msg = read_serial_data(msg_byte_cnt, Timeout);
                 received.append(msg);
 
                 msg_index = 0;
-                //emit LOG_D("Periodic msg response: " + parseMessageToHex(received), true, true);
+                // emit LOG_D("Periodic msg response: " + parseMessageToHex(received), true, true);
             }
             else if (received.at(2) == 'r') // 0x72
             {
-                while ((uint8_t)received.at(received.length()-1) != 0x0a)
+                while ((uint8_t)received.at(received.length() - 1) != 0x0a)
                     received.append(read_serial_data(1, Timeout));
                 for (int i = 0; i < received.length(); i++)
                     pMsg->Data[i] = (uint8_t)received.at(i);
                 pMsg->DataSize = received.length();
 
-                //emit LOG_D("vBatt msg response: " + parseMessageToHex(received), true, true);
+                // emit LOG_D("vBatt msg response: " + parseMessageToHex(received), true, true);
                 return STATUS_NOERROR;
             }
             else if (received.at(2) == 'w') // 0x77
             {
-                while ((uint8_t)received.at(received.length()-1) != 0x0a)
+                while ((uint8_t)received.at(received.length() - 1) != 0x0a)
                     received.append(read_serial_data(1, Timeout));
                 for (int i = 0; i < received.length(); i++)
                     pMsg->Data[i] = (uint8_t)received.at(i);
                 pMsg->DataSize = received.length();
 
-                //emit LOG_D("Five baud init msg response: " + parseMessageToHex(received), true, true);
+                // emit LOG_D("Five baud init msg response: " + parseMessageToHex(received), true, true);
                 return STATUS_NOERROR;
             }
             else if (received.at(2) == 'y') // 0x79
             {
                 received.append(read_serial_data(2, Timeout));
                 msg.clear();
-                while ((uint8_t)msg[msg.length()-1] != 0x20)
+                while ((uint8_t)msg[msg.length() - 1] != 0x20)
                     msg.append(read_serial_data(1, Timeout));
                 received.append(msg);
-                msg_byte_cnt = msg.remove(msg.length()-1, 1).toInt();
+                msg_byte_cnt = msg.remove(msg.length() - 1, 1).toInt();
 
-                while ((uint8_t)msg[msg.length()-1] != 0x0a)
+                while ((uint8_t)msg[msg.length() - 1] != 0x0a)
                     msg.append(read_serial_data(1, Timeout));
                 received.append(msg);
                 msg = read_serial_data(msg_byte_cnt, Timeout);
@@ -362,52 +364,53 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
                 pMsg->RxStatus = NORM_MSG;
                 pMsg->DataSize = msg_index;
                 msg_cnt++;
-                //emit LOG_D("Fast init msg response: " + parseMessageToHex(received), true, true);
+                // emit LOG_D("Fast init msg response: " + parseMessageToHex(received), true, true);
             }
             else if (received.at(2) == '3' || received.at(2) == '4' || received.at(2) == '5' || received.at(2) == '6')
             {
                 received.append(read_serial_data(2, Timeout));
                 msg_byte_cnt = received.at(3) - 1;
                 msg_type = received.at(4);
-                switch (msg_type) {
-                    case NORM_MSG:
-                        msg_type_string = "NORM_MSG";
-                        break;
-                    case START_OF_MESSAGE:
-                        msg_type_string = "START_OF_MESSAGE";
-                        break;
-                    case TX_DONE_MSG:
-                        msg_type_string = "TX_DONE_MSG";
-                        break;
-                    case TX_LB_MSG:
-                        msg_type_string = "TX_LB_MSG";
-                        break;
-                    case RX_MSG_END_IND:
-                        msg_type_string = "RX_MSG_END_IND";
-                        break;
-                    case EXT_ADDR_MSG_END_IND:
-                        msg_type_string = "EXT_ADDR_MSG_END_IND";
-                        break;
-                    case LB_MSG_END_IND:
-                        msg_type_string = "LB_MSG_END_IND";
-                        break;
-                    case NORM_MSG_START_IND:
-                        msg_type_string = "NORM_MSG_START_IND";
-                        break;
-                    case TX_LB_START_IND:
-                        msg_type_string = "TX_LB_START_IND";
-                        break;
-                    default:
-                        //emit LOG_D("HEADER" << parseMessageToHex(received);
-                        break;
+                switch (msg_type)
+                {
+                case NORM_MSG:
+                    msg_type_string = "NORM_MSG";
+                    break;
+                case START_OF_MESSAGE:
+                    msg_type_string = "START_OF_MESSAGE";
+                    break;
+                case TX_DONE_MSG:
+                    msg_type_string = "TX_DONE_MSG";
+                    break;
+                case TX_LB_MSG:
+                    msg_type_string = "TX_LB_MSG";
+                    break;
+                case RX_MSG_END_IND:
+                    msg_type_string = "RX_MSG_END_IND";
+                    break;
+                case EXT_ADDR_MSG_END_IND:
+                    msg_type_string = "EXT_ADDR_MSG_END_IND";
+                    break;
+                case LB_MSG_END_IND:
+                    msg_type_string = "LB_MSG_END_IND";
+                    break;
+                case NORM_MSG_START_IND:
+                    msg_type_string = "NORM_MSG_START_IND";
+                    break;
+                case TX_LB_START_IND:
+                    msg_type_string = "TX_LB_START_IND";
+                    break;
+                default:
+                    // emit LOG_D("HEADER" << parseMessageToHex(received);
+                    break;
                 }
-                //emit LOG_D("Message received at channel: " + QString::number(ChannelID) + ", size is: " + QString::number(msg_byte_cnt) + " and message type: " + msg_type_string + " (0x" + QString::number(msg_type, 16) + ")", true, true);
+                // emit LOG_D("Message received at channel: " + QString::number(ChannelID) + ", size is: " + QString::number(msg_byte_cnt) + " and message type: " + msg_type_string + " (0x" + QString::number(msg_type, 16) + ")", true, true);
 
                 if (msg_type == START_OF_MESSAGE)
                 {
                     msg_index = 0;
                     msg_cnt++;
-                    //emit LOG_D("START_OF_MESSAGE: " + parseMessageToHex(received), true, true);
+                    // emit LOG_D("START_OF_MESSAGE: " + parseMessageToHex(received), true, true);
                 }
 
                 if (msg_type == TX_DONE_MSG)
@@ -416,7 +419,7 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
                     received.append(read_serial_data(msg_byte_cnt, Timeout));
                     msg_index = 0;
                     msg_cnt = 0;
-                    //emit LOG_D("TX_DONE_MSG: " + parseMessageToHex(received), true, true);
+                    // emit LOG_D("TX_DONE_MSG: " + parseMessageToHex(received), true, true);
                     received.clear();
                     is_tx_done = true;
                 }
@@ -426,7 +429,7 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
                     received.append(read_serial_data(msg_byte_cnt, Timeout));
                     msg_index = 0;
                     msg_cnt = 0;
-                    //emit LOG_D("TX_LB_START_IND: " + parseMessageToHex(received), true, true);
+                    // emit LOG_D("TX_LB_START_IND: " + parseMessageToHex(received), true, true);
                     received.clear();
                 }
                 if (msg_type == TX_LB_MSG)
@@ -435,7 +438,7 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
                     received.append(read_serial_data(msg_byte_cnt, Timeout));
                     msg_index = 0;
                     msg_cnt = 0;
-                    //emit LOG_D("TX_LB_MSG: " + parseMessageToHex(received), true, true);
+                    // emit LOG_D("TX_LB_MSG: " + parseMessageToHex(received), true, true);
                     received.clear();
                 }
                 if (msg_type == LB_MSG_END_IND)
@@ -444,7 +447,7 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
                     received.append(read_serial_data(msg_byte_cnt, Timeout));
                     msg_index = 0;
                     msg_cnt = 0;
-                    //emit LOG_D("LB_MSG_END_IND: " + parseMessageToHex(received), true, true);
+                    // emit LOG_D("LB_MSG_END_IND: " + parseMessageToHex(received), true, true);
                     received.clear();
                 }
                 if (msg_type == NORM_MSG_START_IND)
@@ -456,7 +459,7 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
                     msg_cnt++;
                     chunk_cnt = 0;
 
-                    //emit LOG_D("NORM_MSG_START_IND: " + parseMessageToHex(received), true, true);
+                    // emit LOG_D("NORM_MSG_START_IND: " + parseMessageToHex(received), true, true);
                     received.clear();
                 }
                 if (msg_type == NORM_MSG || msg_type == START_OF_MESSAGE)
@@ -464,7 +467,7 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
                     pMsg->RxStatus = NORM_MSG;
 
                     received.append(read_serial_data(msg_byte_cnt, Timeout));
-                    //emit LOG_D("NORM_MSG: " + parseMessageToHex(received), true, true);
+                    // emit LOG_D("NORM_MSG: " + parseMessageToHex(received), true, true);
 
                     if (received.at(2) == '5' || received.at(2) == '6')
                     {
@@ -472,7 +475,7 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
                         if (chunk_cnt)
                             msg_byte_cnt -= 4;
                     }
-                    //emit LOG_D("Message byte count: " + QString::number(msg_byte_cnt), true, true);
+                    // emit LOG_D("Message byte count: " + QString::number(msg_byte_cnt), true, true);
                     for (unsigned long i = 0; i < msg_byte_cnt; i++)
                     {
                         if (received.at(2) == '3' || received.at(2) == '4')
@@ -539,13 +542,13 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
             QByteArray response = read_serial_data(3, Timeout);
             if (response.length() > 0)
             {
-                //emit LOG_D("Added response: " + parseMessageToHex(response), true, true);
+                // emit LOG_D("Added response: " + parseMessageToHex(response), true, true);
                 received.append(response);
             }
             else
                 received.clear();
         }
-        //emit LOG_D("Parsing read messages:" << received.length() << received << parseMessageToHex(received);
+        // emit LOG_D("Parsing read messages:" << received.length() << received << parseMessageToHex(received);
     }
 
     *pNumMsgs = msg_cnt;
@@ -594,7 +597,7 @@ long J2534::PassThruStartPeriodicMsg(unsigned long ChannelID, const PASSTHRU_MSG
     }
 
     write_serial_data(output);
-    //PassThruReadMsgs(ChannelID, &rxmsg, &numRxMsg, timeout);
+    // PassThruReadMsgs(ChannelID, &rxmsg, &numRxMsg, timeout);
 
     *pMsgID = periodic_msg_id;
 
@@ -625,25 +628,25 @@ long J2534::PassThruStartMsgFilter(unsigned long ChannelID, unsigned long Filter
     output.append(str.toUtf8());
     output.append("\r\n");
 
-    for (unsigned long  i = 0; i < pMaskMsg->DataSize; i++)
+    for (unsigned long i = 0; i < pMaskMsg->DataSize; i++)
     {
         output.append(pMaskMsg->Data[i]);
     }
-    for (unsigned long  i = 0; i < pPatternMsg->DataSize; i++)
+    for (unsigned long i = 0; i < pPatternMsg->DataSize; i++)
     {
         output.append(pPatternMsg->Data[i]);
     }
     if (pFlowControlMsg)
     {
-        for (unsigned long  i = 0; i < pFlowControlMsg->DataSize; i++)
+        for (unsigned long i = 0; i < pFlowControlMsg->DataSize; i++)
         {
             output.append(pFlowControlMsg->Data[i]);
         }
     }
-    //emit LOG_D("Send data:" << parseMessageToHex(output);
+    // emit LOG_D("Send data:" << parseMessageToHex(output);
     write_serial_data(output);
     received = read_serial_data(100, 50);
-    //emit LOG_D("Received:" << received;
+    // emit LOG_D("Received:" << received;
 
     return result;
 }
@@ -665,12 +668,12 @@ long J2534::PassThruSetProgrammingVoltage(unsigned long DeviceID, unsigned long 
     QString str = "atv" + QString::number(Pin) + " " + QString::number(Voltage) + "\r\n";
     output.append(str.toUtf8());
     write_serial_data(output);
-    //received = read_serial_data(5, 50);
+    // received = read_serial_data(5, 50);
 
     return result;
 }
 
-long J2534::PassThruReadVersion(char *pApiVersion,char *pDllVersion,char *pFirmwareVersion,unsigned long DeviceID)
+long J2534::PassThruReadVersion(char *pApiVersion, char *pDllVersion, char *pFirmwareVersion, unsigned long DeviceID)
 {
     QByteArray output;
     QByteArray received;
@@ -679,7 +682,7 @@ long J2534::PassThruReadVersion(char *pApiVersion,char *pDllVersion,char *pFirmw
 
     strncpy(pApiVersion, API_VERSION, strlen(API_VERSION));
     strncpy(pDllVersion, DLL_VERSION, strlen(DLL_VERSION));
-    //strncpy(pFirmwareVersion, fw_version, strlen(fw_version));
+    // strncpy(pFirmwareVersion, fw_version, strlen(fw_version));
 
     output = "\r\n\r\nati\r\n";
     emit LOG_D("Sent: " + parseMessageToHex(output), true, true);
@@ -689,7 +692,7 @@ long J2534::PassThruReadVersion(char *pApiVersion,char *pDllVersion,char *pFirmw
     emit LOG_D("Response: " + parseMessageToHex(received), true, true);
     QString response = QString::fromUtf8(received);
     QStringList fw_ver = response.split("ari ");
-    fw_ver = fw_ver.at(fw_ver.length()-1).split("\r\n");
+    fw_ver = fw_ver.at(fw_ver.length() - 1).split("\r\n");
     // Hold the bytes in a named QByteArray: `fw_ver.at(0).toUtf8().data()` would
     // dangle (the temporary QByteArray is destroyed at the semicolon), leaving
     // pFirmwareVersion empty/garbage and making the caller's strlen()-1 unsafe.
@@ -722,11 +725,11 @@ int J2534::is_valid_sconfig_param(SCONFIG s)
     }
 }
 
-void J2534::dump_sbyte_array(const SBYTE_ARRAY* s)
+void J2534::dump_sbyte_array(const SBYTE_ARRAY *s)
 {
-    //emit LOG_D("SBYTE_ARRAY size =" << s->NumOfBytes;
-    //DBGPRINT(("SBYTE_ARRAY size=%u\n",s->NumOfBytes));
-    //DBGDUMP((s->BytePtr,s->NumOfBytes,0));
+    // emit LOG_D("SBYTE_ARRAY size =" << s->NumOfBytes;
+    // DBGPRINT(("SBYTE_ARRAY size=%u\n",s->NumOfBytes));
+    // DBGDUMP((s->BytePtr,s->NumOfBytes,0));
 }
 
 void J2534::dump_sconfig_param(SCONFIG s)
@@ -736,161 +739,160 @@ void J2534::dump_sconfig_param(SCONFIG s)
     switch (s.Parameter)
     {
     case DATA_RATE:
-        strcpy(paramName,"DATA_RATE");
+        strcpy(paramName, "DATA_RATE");
         break;
     case LOOPBACK:
-        strcpy(paramName,"LOOPBACK");
+        strcpy(paramName, "LOOPBACK");
         break;
     case NODE_ADDRESS:
-        strcpy(paramName,"NODE_ADDRESS");
+        strcpy(paramName, "NODE_ADDRESS");
         break;
     case NETWORK_LINE:
-        strcpy(paramName,"NETWORK_LINE");
+        strcpy(paramName, "NETWORK_LINE");
         break;
     case P1_MIN:
-        strcpy(paramName,"P1_MIN");
+        strcpy(paramName, "P1_MIN");
         break;
     case P1_MAX:
-        strcpy(paramName,"P1_MAX");
+        strcpy(paramName, "P1_MAX");
         break;
     case P2_MIN:
-        strcpy(paramName,"P2_MIN");
+        strcpy(paramName, "P2_MIN");
         break;
     case P2_MAX:
-        strcpy(paramName,"P2_MAX");
+        strcpy(paramName, "P2_MAX");
         break;
     case P3_MIN:
-        strcpy(paramName,"P3_MIN");
+        strcpy(paramName, "P3_MIN");
         break;
     case P3_MAX:
-        strcpy(paramName,"P3_MAX");
+        strcpy(paramName, "P3_MAX");
         break;
     case P4_MIN:
-        strcpy(paramName,"P4_MIN");
+        strcpy(paramName, "P4_MIN");
         break;
     case P4_MAX:
-        strcpy(paramName,"P4_MAX");
+        strcpy(paramName, "P4_MAX");
         break;
     case W1:
-        strcpy(paramName,"W1");
+        strcpy(paramName, "W1");
         break;
     case W2:
-        strcpy(paramName,"W2");
+        strcpy(paramName, "W2");
         break;
     case W3:
-        strcpy(paramName,"W3");
+        strcpy(paramName, "W3");
         break;
     case W4:
-        strcpy(paramName,"W4");
+        strcpy(paramName, "W4");
         break;
     case W5:
-        strcpy(paramName,"W5");
+        strcpy(paramName, "W5");
         break;
     case TIDLE:
-        strcpy(paramName,"TIDLE");
+        strcpy(paramName, "TIDLE");
         break;
     case TINIL:
-        strcpy(paramName,"TINIL");
+        strcpy(paramName, "TINIL");
         break;
     case TWUP:
-        strcpy(paramName,"TWUP");
+        strcpy(paramName, "TWUP");
         break;
     case PARITY:
-        strcpy(paramName,"PARITY");
+        strcpy(paramName, "PARITY");
         break;
     case BIT_SAMPLE_POINT:
-        strcpy(paramName,"BIT_SAMPLE_POINT");
+        strcpy(paramName, "BIT_SAMPLE_POINT");
         break;
     case SYNC_JUMP_WIDTH:
-        strcpy(paramName,"SYNC_JUMP_WIDTH");
+        strcpy(paramName, "SYNC_JUMP_WIDTH");
         break;
     case W0:
-        strcpy(paramName,"W0");
+        strcpy(paramName, "W0");
         break;
     case T1_MAX:
-        strcpy(paramName,"T1_MAX");
+        strcpy(paramName, "T1_MAX");
         break;
     case T2_MAX:
-        strcpy(paramName,"T2_MAX");
+        strcpy(paramName, "T2_MAX");
         break;
     case T4_MAX:
-        strcpy(paramName,"T4_MAX");
+        strcpy(paramName, "T4_MAX");
         break;
     case T5_MAX:
-        strcpy(paramName,"T5_MAX");
+        strcpy(paramName, "T5_MAX");
         break;
     case ISO15765_BS:
-        strcpy(paramName,"ISO15765_BS");
+        strcpy(paramName, "ISO15765_BS");
         break;
     case ISO15765_STMIN:
-        strcpy(paramName,"ISO15765_STMIN");
+        strcpy(paramName, "ISO15765_STMIN");
         break;
     case DATA_BITS:
-        strcpy(paramName,"DATA_BITS");
+        strcpy(paramName, "DATA_BITS");
         break;
     case FIVE_BAUD_MOD:
-        strcpy(paramName,"FIVE_BAUD_MOD");
+        strcpy(paramName, "FIVE_BAUD_MOD");
         break;
     case BS_TX:
-        strcpy(paramName,"BS_TX");
+        strcpy(paramName, "BS_TX");
         break;
     case STMIN_TX:
-        strcpy(paramName,"STMIN_TX");
+        strcpy(paramName, "STMIN_TX");
         break;
     case T3_MAX:
-        strcpy(paramName,"T3_MAX");
+        strcpy(paramName, "T3_MAX");
         break;
     case ISO15765_WFT_MAX:
-        strcpy(paramName,"ISO15765_WFT_MAX");
+        strcpy(paramName, "ISO15765_WFT_MAX");
         break;
     case CAN_MIXED_FORMAT:
-        strcpy(paramName,"CAN_MIXED_FORMAT");
+        strcpy(paramName, "CAN_MIXED_FORMAT");
         break;
     case J1962_PINS:
-        strcpy(paramName,"J1962_PINS");
+        strcpy(paramName, "J1962_PINS");
         break;
     case SW_CAN_HS_DATA_RATE:
-        strcpy(paramName,"W_CAN_HS_DATA_RATE");
+        strcpy(paramName, "W_CAN_HS_DATA_RATE");
         break;
     case SW_CAN_SPEEDCHANGE_ENABLE:
-        strcpy(paramName,"SW_CAN_SPEEDCHANGE_ENABLE");
+        strcpy(paramName, "SW_CAN_SPEEDCHANGE_ENABLE");
         break;
     case SW_CAN_RES_SWITCH:
-        strcpy(paramName,"SW_CAN_RES_SWITCH");
+        strcpy(paramName, "SW_CAN_RES_SWITCH");
         break;
     case ACTIVE_CHANNELS:
-        strcpy(paramName,"ACTIVE_CHANNELS");
+        strcpy(paramName, "ACTIVE_CHANNELS");
         break;
     case SAMPLE_RATE:
-        strcpy(paramName,"SAMPLE_RATE");
+        strcpy(paramName, "SAMPLE_RATE");
         break;
     case SAMPLES_PER_READING:
-        strcpy(paramName,"SAMPLES_PER_READING");
+        strcpy(paramName, "SAMPLES_PER_READING");
         break;
     case READINGS_PER_MSG:
-        strcpy(paramName,"READINGS_PER_MSG");
+        strcpy(paramName, "READINGS_PER_MSG");
         break;
     case AVERAGING_METHOD:
-        strcpy(paramName,"AVERAGING_METHOD");
+        strcpy(paramName, "AVERAGING_METHOD");
         break;
     case SAMPLE_RESOLUTION:
-        strcpy(paramName,"SAMPLE_RESOLUTION");
+        strcpy(paramName, "SAMPLE_RESOLUTION");
         break;
     case INPUT_RANGE_LOW:
-        strcpy(paramName,"INPUT_RANGE_LOW");
+        strcpy(paramName, "INPUT_RANGE_LOW");
         break;
     case INPUT_RANGE_HIGH:
-        strcpy(paramName,"INPUT_RANGE_HIGH");
+        strcpy(paramName, "INPUT_RANGE_HIGH");
         break;
     default:
-        sprintf(paramName,"%lu(unknown)",s.Parameter);
+        sprintf(paramName, "%lu(unknown)", s.Parameter);
         break;
     }
 
-    //DBGPRINT(("    %s : %u",paramName,s.Value));
-    //emit LOG_D("    " << paramName << s.Value;
+    // DBGPRINT(("    %s : %u",paramName,s.Value));
+    // emit LOG_D("    " << paramName << s.Value;
 }
-
 
 long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const void *pInput, void *pOutput)
 {
@@ -901,78 +903,77 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
     int input_as_sa = 0;
     int output_as_sa = 0;
     unsigned int i;
-    SCONFIG_LIST* scl;
+    SCONFIG_LIST *scl;
     long result = STATUS_NOERROR;
     char IoctlName[128];
 
     SCONFIG *cfgitem;
-    //const SCONFIG_LIST *inputlist = pInput;
+    // const SCONFIG_LIST *inputlist = pInput;
 
     switch (IoctlID)
     {
     case GET_CONFIG:
-        strcpy(IoctlName,"GET_CONFIG");
+        strcpy(IoctlName, "GET_CONFIG");
         break;
     case SET_CONFIG:
-        strcpy(IoctlName,"SET_CONFIG");
+        strcpy(IoctlName, "SET_CONFIG");
         break;
     case READ_VBATT:
-        strcpy(IoctlName,"READ_VBATT");
+        strcpy(IoctlName, "READ_VBATT");
         break;
     case FIVE_BAUD_INIT:
-        strcpy(IoctlName,"FIVE_BAUD_INIT");
+        strcpy(IoctlName, "FIVE_BAUD_INIT");
         input_as_sa = 1;
         output_as_sa = 1;
         break;
     case FAST_INIT:
-        strcpy(IoctlName,"FAST_INIT");
+        strcpy(IoctlName, "FAST_INIT");
         break;
     case CLEAR_TX_BUFFER:
-        strcpy(IoctlName,"CLEAR_TX_BUFFER");
+        strcpy(IoctlName, "CLEAR_TX_BUFFER");
         break;
     case CLEAR_RX_BUFFER:
-        strcpy(IoctlName,"CLEAR_RX_BUFFER");
+        strcpy(IoctlName, "CLEAR_RX_BUFFER");
         break;
     case CLEAR_PERIODIC_MSGS:
-        strcpy(IoctlName,"CLEAR_PERIODIC_MSGS");
+        strcpy(IoctlName, "CLEAR_PERIODIC_MSGS");
         break;
     case CLEAR_MSG_FILTERS:
-        strcpy(IoctlName,"CLEAR_MSG_FILTERS");
+        strcpy(IoctlName, "CLEAR_MSG_FILTERS");
         break;
     case CLEAR_FUNCT_MSG_LOOKUP_TABLE:
-        strcpy(IoctlName,"CLEAR_FUNCT_MSG_LOOKUP_TABLE");
+        strcpy(IoctlName, "CLEAR_FUNCT_MSG_LOOKUP_TABLE");
         break;
     case ADD_TO_FUNCT_MSG_LOOKUP_TABLE:
-        strcpy(IoctlName,"ADD_TO_FUNCT_MSG_LOOKUP_TABLE");
+        strcpy(IoctlName, "ADD_TO_FUNCT_MSG_LOOKUP_TABLE");
         break;
     case DELETE_FROM_FUNCT_MSG_LOOKUP_TABLE:
-        strcpy(IoctlName,"DELETE_FROM_FUNCT_MSG_LOOKUP_TABLE");
+        strcpy(IoctlName, "DELETE_FROM_FUNCT_MSG_LOOKUP_TABLE");
         break;
     case READ_PROG_VOLTAGE:
-        strcpy(IoctlName,"READ_PROG_VOLTAGE");
+        strcpy(IoctlName, "READ_PROG_VOLTAGE");
         break;
-//    case TX_IOCTL_APP_SERVICE:
-//        strcpy(IoctlName,"APP_SERVICE");
-//        break;
+        //    case TX_IOCTL_APP_SERVICE:
+        //        strcpy(IoctlName,"APP_SERVICE");
+        //        break;
     default:
-        sprintf(IoctlName,"%lu(unknown)",IoctlID);
+        sprintf(IoctlName, "%lu(unknown)", IoctlID);
         break;
     }
 
     if (IoctlID == GET_CONFIG)
     {
-
     }
     if (IoctlID == SET_CONFIG)
     {
         pOutput = NULL; // make some DLLs happy
 
         // dump params
-        scl = (SCONFIG_LIST*)pInput;
+        scl = (SCONFIG_LIST *)pInput;
         for (i = 0; i < scl->NumOfParams; i++)
             dump_sconfig_param((scl->ConfigPtr)[i]);
 
-        //Enabling this could break some J2534 devices such as Denso DST-i
+        // Enabling this could break some J2534 devices such as Denso DST-i
         /*for (i = 0; i < scl->NumOfParams; i++)
             if (!is_valid_sconfig_param((scl->ConfigPtr)[i]))
             {
@@ -1002,7 +1003,7 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
         rxmsg.DataSize = 0;
         numRxMsg = 1;
 
-        unsigned long *vBatt = (unsigned long*)pOutput;
+        unsigned long *vBatt = (unsigned long *)pOutput;
         long pin = 16;
         output.clear();
         QString str = "atr " + QString::number((int)pin) + "\r\n";
@@ -1020,9 +1021,9 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
         for (unsigned long i = 0; i < rxmsg.DataSize; i++)
             received.append(rxmsg.Data[i]);
         emit LOG_D("Response: " + parseMessageToHex(received), true, true);
-        QString response = QString(received).split(" ").at(QString(received).split(" ").length()-1);
+        QString response = QString(received).split(" ").at(QString(received).split(" ").length() - 1);
         response = response.split("\r\n").at(0);
-        //emit LOG_D("Pin 16 voltage: " + response + " mV", true, true);
+        // emit LOG_D("Pin 16 voltage: " + response + " mV", true, true);
         *vBatt = response.toULong();
     }
 
@@ -1033,8 +1034,8 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
         QByteArray received;
         rxmsg.DataSize = 0;
         numRxMsg = 1;
-        SBYTE_ARRAY *msg = (SBYTE_ARRAY*)pInput;
-        SBYTE_ARRAY *response = (SBYTE_ARRAY*)pOutput;
+        SBYTE_ARRAY *msg = (SBYTE_ARRAY *)pInput;
+        SBYTE_ARRAY *response = (SBYTE_ARRAY *)pOutput;
 
         output.clear();
         QString str = "atw" + QString::number(ChannelID) + " " + QString::number(msg->BytePtr[0]) + " 0\r\n";
@@ -1057,7 +1058,7 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
 
     if (IoctlID == FAST_INIT)
     {
-        PASSTHRU_MSG *msg = (PASSTHRU_MSG*)pInput;
+        PASSTHRU_MSG *msg = (PASSTHRU_MSG *)pInput;
 
         output.clear();
         QString str = "aty" + QString::number(ChannelID) + " " + QString::number(msg->DataSize) + " 0\r\n";
@@ -1070,16 +1071,16 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
 
     if (input_as_sa)
     {
-        //emit LOG_D("Input", true, true);
-        dump_sbyte_array((SBYTE_ARRAY*)pInput);
+        // emit LOG_D("Input", true, true);
+        dump_sbyte_array((SBYTE_ARRAY *)pInput);
     }
 
-    //result = (*pfPassThruIoctl)(ChannelID,IoctlID,pInput,pOutput);
+    // result = (*pfPassThruIoctl)(ChannelID,IoctlID,pInput,pOutput);
 
     if (output_as_sa)
     {
-        //emit LOG_D("Output", true, true);
-        dump_sbyte_array((SBYTE_ARRAY*)pOutput);
+        // emit LOG_D("Output", true, true);
+        dump_sbyte_array((SBYTE_ARRAY *)pOutput);
     }
 
     return result;
@@ -1092,7 +1093,7 @@ void J2534::delay(int n)
 
 void J2534::handle_error(QSerialPort::SerialPortError error)
 {
-    //emit LOG_D("Error:" << QString::number(error), true, true);
+    // emit LOG_D("Error:" << QString::number(error), true, true);
 
     if (error == QSerialPort::NoError)
     {

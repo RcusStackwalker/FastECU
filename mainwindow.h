@@ -3,8 +3,8 @@
 
 #include <memory>
 
-//Exit application with this code to restart it instead of quitting:
-//qApp->exit(RESTART_CODE)
+// Exit application with this code to restart it instead of quitting:
+// qApp->exit(RESTART_CODE)
 #define RESTART_CODE 1000
 
 #include <QMainWindow>
@@ -108,18 +108,18 @@
 #include "logging/protocols/cdbg_logging_protocol.h"
 #include "protocol/fastecu_ssm_transport.h"
 
-//Forward declaration
+// Forward declaration
 class SerialPortActions;
 
-extern void log_error(const QString &message, bool timestamp, bool linefeed);
-extern void log_warning(const QString &message, bool timestamp, bool linefeed);
-extern void log_info(const QString &message, bool timestamp, bool linefeed);
-extern void log_debug(const QString &message, bool timestamp, bool linefeed);
+extern void log_error(const QString& message, bool timestamp, bool linefeed);
+extern void log_warning(const QString& message, bool timestamp, bool linefeed);
+extern void log_info(const QString& message, bool timestamp, bool linefeed);
+extern void log_debug(const QString& message, bool timestamp, bool linefeed);
 
 QT_BEGIN_NAMESPACE
 namespace Ui
 {
-    class MainWindow;
+class MainWindow;
 }
 QT_END_NAMESPACE
 
@@ -127,22 +127,23 @@ class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
-public:
+  public:
     MainWindow(QString peerAddress = "", QString peerPassword = "", QWidget *parent = nullptr);
     ~MainWindow();
 
     void delay(int n);
 
-private:
-    enum {
-        _LOG_E = 0,   // error
-        _LOG_W,   // warning
-        _LOG_I,   // info
-        _LOG_D,   // debug
+  private:
+    enum
+    {
+        _LOG_E = 0, // error
+        _LOG_W,     // warning
+        _LOG_I,     // info
+        _LOG_D,     // debug
     };
 
 #ifndef ARRAYSIZE
-#define ARRAYSIZE(A) (sizeof(A)/sizeof((A)[0]))
+#define ARRAYSIZE(A) (sizeof(A) / sizeof((A)[0]))
 #endif
 
     QString software_name;
@@ -199,10 +200,10 @@ private:
     FileActions::LogValuesStructure *logValues;
     FileActions::ConfigValuesStructure *configValues;
     FileActions::EcuCalDefStructure *ecuCalDef[100];
-    //FileActions::EcuCalDefStructure *ecuCalDefTemp;
+    // FileActions::EcuCalDefStructure *ecuCalDefTemp;
 
     SerialPortActions *serial;
-    //QTimer *serial_poll_timer;
+    // QTimer *serial_poll_timer;
     uint16_t serial_poll_timer_timeout = 500;
     QString serial_port_baudrate = "4800";
     QString default_serial_port_baudrate = "4800";
@@ -214,15 +215,16 @@ private:
     QStringList serial_ports;
 
     int ecu_protocols_list_length = 6;
-    QString current_car_model ="";
+    QString current_car_model = "";
 
-    //QStringList flash_methods;
+    // QStringList flash_methods;
     QStringList flash_transports;
     QStringList log_transports;
 
-//        "Mercedes",     "CR3 EDC16C31",     "K-Line",           "K-Line",           "iso14230", "Mercedes Benz 320CDI",
+    //        "Mercedes",     "CR3 EDC16C31",     "K-Line",           "K-Line",           "iso14230", "Mercedes Benz 320CDI",
 
-    enum RomInfoEnum {
+    enum RomInfoEnum
+    {
         XmlId,
         InternalIdAddress,
         InternalIdString,
@@ -249,7 +251,7 @@ private:
     uint16_t vbatt_timer_timeout = 1000;
     uint16_t vbatt_timer_comms_timeout = 5000;
 
-    //QTimer *ssm_init_poll_timer;
+    // QTimer *ssm_init_poll_timer;
     uint16_t ssm_init_poll_timer_timeout = 250;
 
     LoggingEngine *loggingEngine = nullptr;
@@ -321,19 +323,19 @@ private:
     void change_log_values(int tabIndex, QString protocol);
 
     // mainwindow.c
-    //Connect signals for any flash class and execute ::run() method
+    // Connect signals for any flash class and execute ::run() method
     template <typename FLASH_CLASS>
-    FLASH_CLASS* connect_signals_and_run_module(FLASH_CLASS *object);
+    FLASH_CLASS *connect_signals_and_run_module(FLASH_CLASS *object);
     QByteArray aes_ecb_test(QByteArray challenge, QByteArray key);
     void aes_ecb_example();
-    void SetComboBoxItemEnabled(QComboBox * comboBox, int index, bool enabled);
+    void SetComboBoxItemEnabled(QComboBox *comboBox, int index, bool enabled);
     void set_flash_arrow_state();
     void update_protocol_info(int rom_number);
     QStringList create_flash_transports_list();
     QStringList create_log_transports_list();
-    //QString check_kernel(QString flash_method);
+    // QString check_kernel(QString flash_method);
     void setSplashScreenProgress(QString text, int incValue);
-    QTextEdit* iterateWidgetChild(QObjectList children);
+    QTextEdit *iterateWidgetChild(QObjectList children);
     bool write_syslog(QString msg);
 
     // menuactions.c
@@ -369,25 +371,24 @@ private:
     void show_terminal_window();
     void show_subaru_get_key_window();
 
-    //#include <modules/flash_sti04.h>
+    // #include <modules/flash_sti04.h>
 
-protected:
-
+  protected:
     void closeEvent(QCloseEvent *event);
     bool event(QEvent *event);
-    void resizeEvent( QResizeEvent * event);
+    void resizeEvent(QResizeEvent *event);
 
-private slots:
+  private slots:
     // External logger slot for string messages
     void external_logger(QString message);
     // External progress bar slot
     void external_logger_set_progressbar_value(int value);
 
     // calibrationtreewidget.c
-    void calibration_files_treewidget_item_selected(QTreeWidgetItem* item);
-    void calibration_data_treewidget_item_selected(QTreeWidgetItem* item);
-    void calibration_data_treewidget_item_expanded(QTreeWidgetItem* item);
-    void calibration_data_treewidget_item_collapsed(QTreeWidgetItem* item);
+    void calibration_files_treewidget_item_selected(QTreeWidgetItem *item);
+    void calibration_data_treewidget_item_selected(QTreeWidgetItem *item);
+    void calibration_data_treewidget_item_expanded(QTreeWidgetItem *item);
+    void calibration_data_treewidget_item_collapsed(QTreeWidgetItem *item);
 
     // log_operations.c
     bool ecu_init();
@@ -409,7 +410,7 @@ private slots:
     int can_listener();
     int start_ecu_operations(QString cmd_type);
     void close_calibration();
-    void close_calibration_map(QObject* obj);
+    void close_calibration_map(QObject *obj);
     void change_gauge_values();
     void change_digital_values();
     void change_switch_values();
@@ -427,9 +428,9 @@ private slots:
     void checkbox_state_changed(int state);
     void close_app();
     // Logger
-    //void logger(int log_level, QString message, bool timestamp, bool linefeed);
-    //void logger(QString message, bool timestamp, bool linefeed);
-    //void sendMsgToLogWindow(QWidget* parent, QString msg);
+    // void logger(int log_level, QString message, bool timestamp, bool linefeed);
+    // void logger(QString message, bool timestamp, bool linefeed);
+    // void sendMsgToLogWindow(QWidget* parent, QString msg);
     void send_message_to_log_window(QString msg);
     void network_state_changed(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState);
 
@@ -440,18 +441,18 @@ private slots:
 
     void update_vbatt();
 
-signals:
+  signals:
     void check_serial_port();
     void send_serial_data(QByteArray output);
     void LOG_E(QString message, bool timestamp, bool linefeed);
     void LOG_W(QString message, bool timestamp, bool linefeed);
     void LOG_I(QString message, bool timestamp, bool linefeed);
     void LOG_D(QString message, bool timestamp, bool linefeed);
-    //void syslog(int logType, bool write_syslog_to_file, QString message, bool timestamp, bool linefeed);
+    // void syslog(int logType, bool write_syslog_to_file, QString message, bool timestamp, bool linefeed);
     void syslog(QString message, bool timestamp, bool linefeed);
     void enable_log_write_to_file(bool enable);
 
-private:
+  private:
     std::unique_ptr<Ui::MainWindow> ui;
 };
 #endif // MAINWINDOW_H

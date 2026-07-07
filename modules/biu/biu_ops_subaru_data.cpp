@@ -21,8 +21,6 @@ BiuOpsSubaruData::BiuOpsSubaruData(QStringList *data_result, QWidget *parent)
         label->setText(data_result->at(i));
         ui->gridLayout->addWidget(label, i, 0);
     }
-
-
 }
 
 BiuOpsSubaruData::~BiuOpsSubaruData()
@@ -32,12 +30,13 @@ BiuOpsSubaruData::~BiuOpsSubaruData()
 void BiuOpsSubaruData::update_data_results(QStringList *data_result)
 {
 
-    QLabel* current_label;
+    QLabel *current_label;
 
-    for (int i = 0; i < data_result->length(); i++) {
+    for (int i = 0; i < data_result->length(); i++)
+    {
 
-        current_label = ui->gridLayoutWidget->findChild< QLabel* >("Name" + QString::number(i));
-        if (current_label) current_label->setText(data_result->at(i));
-
+        current_label = ui->gridLayoutWidget->findChild<QLabel *>("Name" + QString::number(i));
+        if (current_label)
+            current_label->setText(data_result->at(i));
     }
 }

@@ -7,12 +7,9 @@
 #include <QFile>
 
 FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation(
-        SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
-        QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride))
-    , serial(serial)
-    , ecuCalDef(ecuCalDef)
-    , cmd_type(cmd_type)
+    SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
+    QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type)
 {
 }
 
@@ -62,15 +59,15 @@ bool FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::execute()
         emit externalLoggerMessage("Reading ROM, please wait...");
         emit LOG_I("Reading ROM from Subaru Denso MC68HC16 with BDM", true, true);
         result = read_mem(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
-        //result = read_mem(0x0, 0x1000);
+        // result = read_mem(0x0, 0x1000);
     }
     if (cmd_type == "write")
     {
         emit externalLoggerMessage("Writing ROM, please wait...");
         emit LOG_I("Writing ROM to Subaru Denso MC68HC16 with BDM", true, true);
         result = write_mem();
-        //if (result == STATUS_SUCCESS)
-        //    int read_result = read_mem(0x0, 0x100);
+        // if (result == STATUS_SUCCESS)
+        //     int read_result = read_mem(0x0, 0x100);
     }
 
     return result == STATUS_SUCCESS;
@@ -100,10 +97,10 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::read_mem(uint32_t start_addr,
         length = 0x028000;
     }
 
-    uint32_t skip_start = start_addr & (pagesize - 1); //if unaligned, we'll be receiving this many extra bytes
+    uint32_t skip_start = start_addr & (pagesize - 1); // if unaligned, we'll be receiving this many extra bytes
     uint32_t addr = start_addr - skip_start;
     uint32_t willget = (skip_start + length + pagesize - 1) & ~(pagesize - 1);
-    uint32_t len_done = 0;  //total data written to file
+    uint32_t len_done = 0; // total data written to file
 
     timer.start();
 
@@ -137,8 +134,8 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::read_mem(uint32_t start_addr,
             addr = flashdevices[mcu_type_index].rblocks->start + flashdevices[mcu_type_index].rblocks->len;
         }
 
-        QString start_address = QString("%1").arg(addr,8,16,QLatin1Char('0')).toUpper();
-        QString block_len = QString("%1").arg(pagesize,8,16,QLatin1Char('0')).toUpper();
+        QString start_address = QString("%1").arg(addr, 8, 16, QLatin1Char('0')).toUpper();
+        QString block_len = QString("%1").arg(pagesize, 8, 16, QLatin1Char('0')).toUpper();
         msg = QString("rpmem 0x%1 0x%2").arg(start_address).arg(block_len).toUtf8();
 
         output.clear();
@@ -176,15 +173,16 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::read_mem(uint32_t start_addr,
         if (cplen > 0 && chrono > 0)
             curspeed = cplen * (1000.0f / chrono);
 
-        if (!curspeed) {
+        if (!curspeed)
+        {
             curspeed += 1;
         }
 
         tleft = (willget / curspeed) % 9999;
         tleft++;
 
-        start_address = QString("%1").arg(addr,8,16,QLatin1Char('0')).toUpper();
-        block_len = QString("%1").arg(pagesize,8,16,QLatin1Char('0')).toUpper();
+        start_address = QString("%1").arg(addr, 8, 16, QLatin1Char('0')).toUpper();
+        block_len = QString("%1").arg(pagesize, 8, 16, QLatin1Char('0')).toUpper();
         msg = QString("BDM read addr:  0x%1  length:  0x%2,  %3  B/s  %4 s").arg(start_address).arg(block_len).arg(curspeed, 6, 10, QLatin1Char(' ')).arg(tleft, 6, 10, QLatin1Char(' ')).toUtf8();
         emit LOG_I(msg, true, true);
         delay(1);
@@ -215,11 +213,9 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::write_mem()
     flashbytescount = 0;
     flashbytesindex = 0;
 
-
-
     QFile file(kernel);
     // Check kernel file
-    if (!file.open(QIODevice::ReadOnly ))
+    if (!file.open(QIODevice::ReadOnly))
     {
         emit LOG_I("Unable to open kernel file for reading", true, true);
         return -1;
@@ -273,7 +269,7 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::write_mem()
     {
         received.append(serial->read_serial_data(serial_read_long_timeout));
         qDebug() << "ERROR! Received:" << received << SsmProtocol::toHex(received);
-        //delay(20);
+        // delay(20);
         return STATUS_ERROR;
     }
     received = serial->read_serial_data(serial_read_short_timeout);
@@ -289,17 +285,17 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::write_mem()
 
     received = serial->read_serial_data(serial_read_long_timeout);
     qDebug() << "Received:" << received << SsmProtocol::toHex(received);
-/*
-    msg = QString("rdmem 0x20000 0x600 hex").toUtf8();
-    output.clear();
-    output.append(msg);
-    received = serial->write_serial_data(output);
-    received = serial->read_serial_data(0x600, serial_read_extra_long_timeout);
-    qDebug() << "Received:" << received << SsmProtocol::toHex(received);
+    /*
+        msg = QString("rdmem 0x20000 0x600 hex").toUtf8();
+        output.clear();
+        output.append(msg);
+        received = serial->write_serial_data(output);
+        received = serial->read_serial_data(0x600, serial_read_extra_long_timeout);
+        qDebug() << "Received:" << received << SsmProtocol::toHex(received);
 
-    received = serial->read_serial_data(0x600, serial_read_extra_long_timeout);
-    qDebug() << "Received:" << received << SsmProtocol::toHex(received);
-*/
+        received = serial->read_serial_data(0x600, serial_read_extra_long_timeout);
+        qDebug() << "Received:" << received << SsmProtocol::toHex(received);
+    */
     qDebug() << "GO!!!";
     msg = QString("go").toUtf8();
     output.clear();
@@ -308,29 +304,29 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::write_mem()
     received = serial->read_serial_data(serial_read_long_timeout);
     qDebug() << "Received:" << received << SsmProtocol::toHex(received);
 
-/*
-    for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++)
-    {
-        flashbytescount += flashdevices[mcu_type_index].fblocks[blockno].len;
-    }
-
-    for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++)
-    {
-        if (stopRequested())
-            return STATUS_ERROR;
-
-        if (flash_block(&data_array[flashdevices[mcu_type_index].fblocks->start], &flashdevices[mcu_type_index], blockno))
+    /*
+        for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++)
         {
-            qDebug() << "ERROR in block write!";
-            return STATUS_ERROR;
-        }
-        else
-        {
-            flashbytesindex += flashdevices[mcu_type_index].fblocks[blockno].len;
+            flashbytescount += flashdevices[mcu_type_index].fblocks[blockno].len;
         }
 
-    }
-*/
+        for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++)
+        {
+            if (stopRequested())
+                return STATUS_ERROR;
+
+            if (flash_block(&data_array[flashdevices[mcu_type_index].fblocks->start], &flashdevices[mcu_type_index], blockno))
+            {
+                qDebug() << "ERROR in block write!";
+                return STATUS_ERROR;
+            }
+            else
+            {
+                flashbytesindex += flashdevices[mcu_type_index].fblocks[blockno].len;
+            }
+
+        }
+    */
     return STATUS_SUCCESS;
 }
 
@@ -345,26 +341,26 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::flash_block(const uint8_t *ne
     uint32_t blocksize = 0x20;
     uint32_t start = fdt->rblocks[blockno].start;
     uint32_t len = ecuCalDef->FullRomData.length();
-    //uint32_t start = fdt->fblocks[blockno].start;
-    //uint32_t len = fdt->fblocks[blockno].len;
+    // uint32_t start = fdt->fblocks[blockno].start;
+    // uint32_t len = fdt->fblocks[blockno].len;
     uint32_t remain = len;
     uint32_t byteindex = flashbytesindex;
 
     QString cmd_wr_response = "ACK_CMD_WDMEM";
-    //QString cmd_wr_response = "ACK_CMD_WPMEM";
+    // QString cmd_wr_response = "ACK_CMD_WPMEM";
     QString wr_response = "ACK_WR";
-    //emit progressChanged(0);
+    // emit progressChanged(0);
 
-//    if (start >= flashdevices[mcu_type_index].rblocks->start && start < (flashdevices[mcu_type_index].rblocks->start + flashdevices[mcu_type_index].rblocks->len))
-//        start = flashdevices[mcu_type_index].rblocks->start + flashdevices[mcu_type_index].rblocks->len;
+    //    if (start >= flashdevices[mcu_type_index].rblocks->start && start < (flashdevices[mcu_type_index].rblocks->start + flashdevices[mcu_type_index].rblocks->len))
+    //        start = flashdevices[mcu_type_index].rblocks->start + flashdevices[mcu_type_index].rblocks->len;
 
-    QString start_addr = QString("%1").arg((uint32_t)start,8,16,QLatin1Char('0')).toUpper();
-    QString length = QString("%1").arg((uint32_t)len,8,16,QLatin1Char('0')).toUpper();
-    QString block = QString("%1").arg((uint32_t)blockno,2,16,QLatin1Char('0')).toUpper();
+    QString start_addr = QString("%1").arg((uint32_t)start, 8, 16, QLatin1Char('0')).toUpper();
+    QString length = QString("%1").arg((uint32_t)len, 8, 16, QLatin1Char('0')).toUpper();
+    QString block = QString("%1").arg((uint32_t)blockno, 2, 16, QLatin1Char('0')).toUpper();
     msg = QString("Writing block: " + block + " at address 0x" + start_addr).toUtf8();
     emit LOG_I(msg, true, true);
     msg = QString("wdmem 0x" + start_addr + " 0x" + length).toUtf8();
-    //msg = QString("wdmem 0x" + start_addr + " 0x" + length).toUtf8();
+    // msg = QString("wdmem 0x" + start_addr + " 0x" + length).toUtf8();
     qDebug() << msg;
 
     output.clear();
@@ -382,55 +378,59 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::flash_block(const uint8_t *ne
     }
 
     timer.start();
-    while (remain) {
+    while (remain)
+    {
         if (stopRequested())
             return STATUS_ERROR;
 
         output.clear();
         for (uint32_t i = 0; i < blocksize; i++)
         {
-            //output.append((uint8_t)0xFF);
-            //output.append(ecuCalDef->FullRomData.at(start + i));
+            // output.append((uint8_t)0xFF);
+            // output.append(ecuCalDef->FullRomData.at(start + i));
             output.append(ecuCalDef->FullRomData.at(byteindex + i));
         }
         received = serial->write_serial_data(output);
-        //delay(20);
+        // delay(20);
         qDebug() << "Sent:" << SsmProtocol::toHex(output);
 
         received = serial->read_serial_data(serial_read_long_timeout);
         qDebug() << "Received:" << received << SsmProtocol::toHex(received);
-        //delay(20);
+        // delay(20);
 
         if (received.length() < wr_response.length() || received != wr_response)
         {
             received.append(serial->read_serial_data(serial_read_long_timeout));
             qDebug() << "ERROR! Received:" << received << SsmProtocol::toHex(received);
-            //delay(20);
+            // delay(20);
             return STATUS_ERROR;
         }
 
-        QString start_address = QString("%1").arg(start,8,16,QLatin1Char('0')).toUpper();
-        msg = QString("Writing chunk @ 0x%1 (%2\% - %3 B/s, ~ %4 s)").arg(start_address).arg((unsigned) 100 * (len - remain) / len,1,10,QLatin1Char('0')).arg((uint32_t)curspeed,1,10,QLatin1Char('0')).arg(tleft,1,10,QLatin1Char('0')).toUtf8();
+        QString start_address = QString("%1").arg(start, 8, 16, QLatin1Char('0')).toUpper();
+        msg = QString("Writing chunk @ 0x%1 (%2\% - %3 B/s, ~ %4 s)").arg(start_address).arg((unsigned)100 * (len - remain) / len, 1, 10, QLatin1Char('0')).arg((uint32_t)curspeed, 1, 10, QLatin1Char('0')).arg(tleft, 1, 10, QLatin1Char('0')).toUtf8();
         emit LOG_I(msg, true, true);
 
         remain -= blocksize;
         start += blocksize;
         byteindex += blocksize;
-        //src += blocksize;
+        // src += blocksize;
 
         chrono = timer.elapsed();
         timer.start();
 
-        if (!chrono) {
+        if (!chrono)
+        {
             chrono += 1;
         }
-        curspeed = blocksize * (1000.0f / chrono);  //avg B/s
-        if (!curspeed) {
+        curspeed = blocksize * (1000.0f / chrono); // avg B/s
+        if (!curspeed)
+        {
             curspeed += 1;
         }
 
-        tleft = ((float)flashbytescount - byteindex) / curspeed;  //s
-        if (tleft > 9999) {
+        tleft = ((float)flashbytescount - byteindex) / curspeed; // s
+        if (tleft > 9999)
+        {
             tleft = 9999;
         }
         tleft++;

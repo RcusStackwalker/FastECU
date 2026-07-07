@@ -9,22 +9,23 @@
 
 #include <cstdint>
 
-namespace SsmProtocol {
+namespace SsmProtocol
+{
 
-QByteArray calculateSeedKey(const QByteArray &seed, const uint16_t *keytogenerateindex,
+QByteArray calculateSeedKey(const QByteArray& seed, const uint16_t *keytogenerateindex,
                             const uint8_t *indextransformation);
-QByteArray calculatePayload(const QByteArray &buf, uint32_t len,
+QByteArray calculatePayload(const QByteArray& buf, uint32_t len,
                             const uint16_t *keytogenerateindex,
                             const uint8_t *indextransformation);
-uint8_t checksum(const QByteArray &output, bool dec0x100 = false);
+uint8_t checksum(const QByteArray& output, bool dec0x100 = false);
 QByteArray addHeader(QByteArray output, uint8_t testerId, uint8_t targetId,
                      bool dec0x100 = false);
-bool hasValidFrame(const QByteArray &frame, uint8_t receiverId, uint8_t senderId,
+bool hasValidFrame(const QByteArray& frame, uint8_t receiverId, uint8_t senderId,
                    bool dec0x100 = false);
-bool hasPayloadPrefix(const QByteArray &frame, const QByteArray &prefix,
+bool hasPayloadPrefix(const QByteArray& frame, const QByteArray& prefix,
                       uint8_t receiverId, uint8_t senderId,
                       bool dec0x100 = false);
-QString toHex(const QByteArray &received);
+QString toHex(const QByteArray& received);
 uint32_t crc32(const unsigned char *buf, uint32_t len);
 
 } // namespace SsmProtocol

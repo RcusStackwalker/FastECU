@@ -26,21 +26,24 @@ class RemoteSerialBackend : public QObject, public SerialBackend
 {
     Q_OBJECT
 
-signals:
+  signals:
     void stateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState);
     void LOG_E(QString message, bool timestamp, bool linefeed);
     void LOG_W(QString message, bool timestamp, bool linefeed);
     void LOG_I(QString message, bool timestamp, bool linefeed);
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
-public:
+  public:
     explicit RemoteSerialBackend(QString peerAddress,
                                  QString password,
                                  QWebSocket *externalSocket = nullptr,
                                  QObject *parent = nullptr);
     ~RemoteSerialBackend() override;
 
-    QObject *qobject() override { return this; }
+    QObject *qobject() override
+    {
+        return this;
+    }
     void waitForSource() override;
 
     // -- config get/set pairs (44) --------------------------------------
@@ -67,77 +70,77 @@ public:
     bool get_use_openport2_adapter() override;
     bool set_use_openport2_adapter(bool value) override;
 
-    int  get_requestToSendEnabled() override;
+    int get_requestToSendEnabled() override;
     bool set_requestToSendEnabled(int value) override;
-    int  get_requestToSendDisabled() override;
+    int get_requestToSendDisabled() override;
     bool set_requestToSendDisabled(int value) override;
-    int  get_dataTerminalEnabled() override;
+    int get_dataTerminalEnabled() override;
     bool set_dataTerminalEnabled(int value) override;
-    int  get_dataTerminalDisabled() override;
+    int get_dataTerminalDisabled() override;
     bool set_dataTerminalDisabled(int value) override;
 
     uint8_t get_kline_startbyte() override;
-    bool    set_kline_startbyte(uint8_t value) override;
+    bool set_kline_startbyte(uint8_t value) override;
     uint8_t get_kline_tester_id() override;
-    bool    set_kline_tester_id(uint8_t value) override;
+    bool set_kline_tester_id(uint8_t value) override;
     uint8_t get_kline_target_id() override;
-    bool    set_kline_target_id(uint8_t value) override;
+    bool set_kline_target_id(uint8_t value) override;
     uint8_t get_serial_port_parity() override;
-    bool    set_serial_port_parity(uint8_t parity) override;
+    bool set_serial_port_parity(uint8_t parity) override;
 
     QByteArray get_ssm_receive_header_start() override;
-    bool       set_ssm_receive_header_start(QByteArray value) override;
+    bool set_ssm_receive_header_start(QByteArray value) override;
 
     QStringList get_serial_port_list() override;
-    bool        set_serial_port_list(QStringList value) override;
+    bool set_serial_port_list(QStringList value) override;
 
     QString get_openedSerialPort() override;
-    bool    set_openedSerialPort(QString value) override;
+    bool set_openedSerialPort(QString value) override;
     QString get_subaru_02_16bit_bootloader_baudrate() override;
-    bool    set_subaru_02_16bit_bootloader_baudrate(QString value) override;
+    bool set_subaru_02_16bit_bootloader_baudrate(QString value) override;
     QString get_subaru_04_16bit_bootloader_baudrate() override;
-    bool    set_subaru_04_16bit_bootloader_baudrate(QString value) override;
+    bool set_subaru_04_16bit_bootloader_baudrate(QString value) override;
     QString get_subaru_02_32bit_bootloader_baudrate() override;
-    bool    set_subaru_02_32bit_bootloader_baudrate(QString value) override;
+    bool set_subaru_02_32bit_bootloader_baudrate(QString value) override;
     QString get_subaru_04_32bit_bootloader_baudrate() override;
-    bool    set_subaru_04_32bit_bootloader_baudrate(QString value) override;
+    bool set_subaru_04_32bit_bootloader_baudrate(QString value) override;
     QString get_subaru_05_32bit_bootloader_baudrate() override;
-    bool    set_subaru_05_32bit_bootloader_baudrate(QString value) override;
+    bool set_subaru_05_32bit_bootloader_baudrate(QString value) override;
     QString get_subaru_02_16bit_kernel_baudrate() override;
-    bool    set_subaru_02_16bit_kernel_baudrate(QString value) override;
+    bool set_subaru_02_16bit_kernel_baudrate(QString value) override;
     QString get_subaru_04_16bit_kernel_baudrate() override;
-    bool    set_subaru_04_16bit_kernel_baudrate(QString value) override;
+    bool set_subaru_04_16bit_kernel_baudrate(QString value) override;
     QString get_subaru_02_32bit_kernel_baudrate() override;
-    bool    set_subaru_02_32bit_kernel_baudrate(QString value) override;
+    bool set_subaru_02_32bit_kernel_baudrate(QString value) override;
     QString get_subaru_04_32bit_kernel_baudrate() override;
-    bool    set_subaru_04_32bit_kernel_baudrate(QString value) override;
+    bool set_subaru_04_32bit_kernel_baudrate(QString value) override;
     QString get_subaru_05_32bit_kernel_baudrate() override;
-    bool    set_subaru_05_32bit_kernel_baudrate(QString value) override;
+    bool set_subaru_05_32bit_kernel_baudrate(QString value) override;
     QString get_can_speed() override;
-    bool    set_can_speed(QString value) override;
+    bool set_can_speed(QString value) override;
     QString get_serial_port_baudrate() override;
-    bool    set_serial_port_baudrate(QString value) override;
+    bool set_serial_port_baudrate(QString value) override;
     QString get_serial_port_linux() override;
-    bool    set_serial_port_linux(QString value) override;
+    bool set_serial_port_linux(QString value) override;
     QString get_serial_port_windows() override;
-    bool    set_serial_port_windows(QString value) override;
+    bool set_serial_port_windows(QString value) override;
     QString get_serial_port() override;
-    bool    set_serial_port(QString value) override;
+    bool set_serial_port(QString value) override;
     QString get_serial_port_prefix() override;
-    bool    set_serial_port_prefix(QString value) override;
+    bool set_serial_port_prefix(QString value) override;
     QString get_serial_port_prefix_linux() override;
-    bool    set_serial_port_prefix_linux(QString value) override;
+    bool set_serial_port_prefix_linux(QString value) override;
     QString get_serial_port_prefix_win() override;
-    bool    set_serial_port_prefix_win(QString value) override;
+    bool set_serial_port_prefix_win(QString value) override;
 
     uint32_t get_can_source_address() override;
-    bool     set_can_source_address(uint32_t value) override;
+    bool set_can_source_address(uint32_t value) override;
     uint32_t get_can_destination_address() override;
-    bool     set_can_destination_address(uint32_t value) override;
+    bool set_can_destination_address(uint32_t value) override;
     uint32_t get_iso15765_source_address() override;
-    bool     set_iso15765_source_address(uint32_t value) override;
+    bool set_iso15765_source_address(uint32_t value) override;
     uint32_t get_iso15765_destination_address() override;
-    bool     set_iso15765_destination_address(uint32_t value) override;
+    bool set_iso15765_destination_address(uint32_t value) override;
 
     // -- operations ------------------------------------------------------
     bool is_serial_port_open() override;
@@ -163,7 +166,7 @@ public:
     QString open_serial_port() override;
     unsigned long read_vbatt() override;
 
-private:
+  private:
     QString peerAddress;
     QString password;
 
@@ -183,7 +186,7 @@ private:
     void startLocal();
     void sendAutoDiscoveryMessage();
 
-private slots:
+  private slots:
     void websocket_connected();
     void serialRemoteStateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState);
 };

@@ -17,13 +17,13 @@
 #include <QGroupBox>
 #include <QLabel>
 
-//Forward declaration
+// Forward declaration
 class SerialPortActions;
 
 QT_BEGIN_NAMESPACE
 namespace Ui
 {
-    class BiuOpsSubaruSwitchesWindow;
+class BiuOpsSubaruSwitchesWindow;
 }
 QT_END_NAMESPACE
 
@@ -31,29 +31,25 @@ class BiuOpsSubaruSwitches : public QWidget
 {
     Q_OBJECT
 
-public:
+  public:
     explicit BiuOpsSubaruSwitches(QStringList *switch_result, QWidget *parent = nullptr);
     ~BiuOpsSubaruSwitches();
 
     void update_switch_results(QStringList *switch_result);
 
-private:
-
-    //QGroupBox *gridGroupBox;
-    //QLabel *label;
+  private:
+    // QGroupBox *gridGroupBox;
+    // QLabel *label;
 
     QStringList *switch_result;
 
-    //SerialPortActions *serial;
+    // SerialPortActions *serial;
 
-private slots:
+  private slots:
 
-signals:
+  signals:
 
-
-
-
-private:
+  private:
     std::unique_ptr<Ui::BiuOpsSubaruSwitchesWindow> ui;
 };
 

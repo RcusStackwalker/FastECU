@@ -9,14 +9,14 @@
 #include <file_actions.h>
 #include <ui_ecu_operations.h>
 
-//Forward declaration
+// Forward declaration
 class SerialPortActions;
 class FlashTcuCvtSubaruMitsuMH8104CanOperation;
 
 QT_BEGIN_NAMESPACE
 namespace Ui
 {
-    class EcuOperationsWindow;
+class EcuOperationsWindow;
 }
 QT_END_NAMESPACE
 
@@ -24,13 +24,13 @@ class FlashTcuCvtSubaruMitsuMH8104Can : public QDialog
 {
     Q_OBJECT
 
-public:
+  public:
     explicit FlashTcuCvtSubaruMitsuMH8104Can(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent = nullptr);
     ~FlashTcuCvtSubaruMitsuMH8104Can();
 
     void run();
 
-signals:
+  signals:
     void external_logger(QString message);
     void external_logger(int value);
     void LOG_E(QString message, bool timestamp, bool linefeed);
@@ -38,7 +38,7 @@ signals:
     void LOG_I(QString message, bool timestamp, bool linefeed);
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
-private:
+  private:
     FileActions::EcuCalDefStructure *ecuCalDef;
     QString cmd_type;
 
@@ -49,8 +49,7 @@ private:
     SerialPortActions *serial;
     FlashTcuCvtSubaruMitsuMH8104CanOperation *m_operation = nullptr;
 
-
-private:
+  private:
     std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
 

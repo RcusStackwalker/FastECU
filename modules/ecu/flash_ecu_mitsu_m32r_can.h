@@ -25,7 +25,7 @@ class FlashEcuMitsuM32rCanOperation;
 QT_BEGIN_NAMESPACE
 namespace Ui
 {
-    class EcuOperationsWindow;
+class EcuOperationsWindow;
 }
 QT_END_NAMESPACE
 
@@ -36,13 +36,13 @@ class FlashEcuMitsuM32rCan : public QDialog
 {
     Q_OBJECT
 
-public:
+  public:
     explicit FlashEcuMitsuM32rCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent = nullptr, bool useVendorChallenge = false);
     ~FlashEcuMitsuM32rCan();
 
     void run();
 
-signals:
+  signals:
     void external_logger(QString message);
     void external_logger(int value);
     void LOG_E(QString message, bool timestamp, bool linefeed);
@@ -50,7 +50,7 @@ signals:
     void LOG_I(QString message, bool timestamp, bool linefeed);
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
-private:
+  private:
     FileActions::EcuCalDefStructure *ecuCalDef;
     QString cmd_type;
 
@@ -62,7 +62,7 @@ private:
     SerialPortActions *serial;
     FlashEcuMitsuM32rCanOperation *m_operation = nullptr;
 
-private:
+  private:
     std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
 

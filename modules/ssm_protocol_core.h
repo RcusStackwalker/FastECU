@@ -6,7 +6,8 @@
 #include <cstdint>
 #include <string>
 
-namespace SsmProtocol {
+namespace SsmProtocol
+{
 
 bytes::Bytes calculateSeedKey(bytes::ByteView seed, const std::uint16_t *keytogenerateindex,
                               const std::uint8_t *indextransformation);

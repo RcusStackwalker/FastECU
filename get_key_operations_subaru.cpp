@@ -21,7 +21,7 @@ GetKeyOperationsSubaru::GetKeyOperationsSubaru(QWidget *parent)
     {
         QMessageBox::information(this, tr("Get Key Operation"), "Get Key operation completed succesfully, press OK to exit");
         this->accept();
-        //this->close();
+        // this->close();
     }
     else
     {
@@ -35,13 +35,13 @@ GetKeyOperationsSubaru::~GetKeyOperationsSubaru()
 
 void GetKeyOperationsSubaru::closeEvent(QCloseEvent *bar)
 {
-    //kill_process = true;
-    //ecuOperations->kill_process = true;
+    // kill_process = true;
+    // ecuOperations->kill_process = true;
 }
 
 int GetKeyOperationsSubaru::load_and_apply_linear_approx()
 {
-    //QFileDialog openDialog;
+    // QFileDialog openDialog;
     QString unencryptedFilename = QFileDialog::getOpenFileName(this, tr("Select unencrypted ROM"));
 
     if (unencryptedFilename.isEmpty())
@@ -57,7 +57,7 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
     }
 
     QFile unencryptedFile(unencryptedFilename);
-    if (!unencryptedFile.open(QIODevice::ReadOnly ))
+    if (!unencryptedFile.open(QIODevice::ReadOnly))
     {
         QMessageBox::warning(this, tr("File"), "Unable to open file for reading");
         return STATUS_ERROR;
@@ -66,7 +66,7 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
     unencryptedFile.close();
 
     QFile encryptedFile(encryptedFilename);
-    if (!encryptedFile.open(QIODevice::ReadOnly ))
+    if (!encryptedFile.open(QIODevice::ReadOnly))
     {
         QMessageBox::warning(this, tr("File"), "Unable to open file for reading");
         return STATUS_ERROR;
@@ -76,46 +76,47 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
 
     emit LOG_I("Files loaded successfully", true, true);
 
-    //uint16_t keys[]={
-    //    0x3b61, 0x8bef, 0x9e51, 0x1075
-    //};
+    // uint16_t keys[]={
+    //     0x3b61, 0x8bef, 0x9e51, 0x1075
+    // };
 
-    int inBits[][2]={
-        {20, 21}, {24, 25}, {28, 29}, {32, 17}
-    };
+    int inBits[][2] = {
+        {20, 21}, {24, 25}, {28, 29}, {32, 17}};
 
-    int outBits[][2]={
-        {11, 8}, {15, 12}, {3, 16}, {7, 4}
-    };
+    int outBits[][2] = {
+        {11, 8}, {15, 12}, {3, 16}, {7, 4}};
 
     uint32_t plainText, cipherText;
     uint16_t x2Text, x3Text, k4, k1, k2, k3, x1, x4, fOutcome;
     int counter[4][0x20], nybble, subkey, j, k, total;
-    bool alreadyExists[0x20000/4];
+    bool alreadyExists[0x20000 / 4];
 
-    for (nybble = 0; nybble < 4; nybble++) for (subkey = 0; subkey < 0x20; subkey++) counter[nybble][subkey] = 0;
+    for (nybble = 0; nybble < 4; nybble++)
+        for (subkey = 0; subkey < 0x20; subkey++)
+            counter[nybble][subkey] = 0;
     total = 0;
 
-    for(j = 0; j < 0x20000; j+=4)
+    for (j = 0; j < 0x20000; j += 4)
     {
-        alreadyExists[j/4] = false;
-        for (k = 0; k < j; k+=4)
+        alreadyExists[j / 4] = false;
+        for (k = 0; k < j; k += 4)
         {
-            alreadyExists[j/4] = (unencryptedFileData[j] == unencryptedFileData[k]) && (unencryptedFileData[j+1] == unencryptedFileData[k+1]) && (unencryptedFileData[j+2] == unencryptedFileData[k+2]) && (unencryptedFileData[j+3] == unencryptedFileData[k+3]);
-            if(alreadyExists[j/4]) k = j;
+            alreadyExists[j / 4] = (unencryptedFileData[j] == unencryptedFileData[k]) && (unencryptedFileData[j + 1] == unencryptedFileData[k + 1]) && (unencryptedFileData[j + 2] == unencryptedFileData[k + 2]) && (unencryptedFileData[j + 3] == unencryptedFileData[k + 3]);
+            if (alreadyExists[j / 4])
+                k = j;
         }
     }
 
     emit LOG_I("Start Time", true, true);
-    for (j = 0; j < 0x20000; j+=4)   // 0x20000
+    for (j = 0; j < 0x20000; j += 4) // 0x20000
     {
-        //emit LOG_I("plaintext value = " + parse_message_to_hex(inDWord) + " ciphertext value = " + parse_message_to_hex(outDWord), true, true);
+        // emit LOG_I("plaintext value = " + parse_message_to_hex(inDWord) + " ciphertext value = " + parse_message_to_hex(outDWord), true, true);
 
-        if (!alreadyExists[j/4])
+        if (!alreadyExists[j / 4])
         {
             total++;
-            plainText = ((unencryptedFileData[j] << 24) & 0xFF000000) + ((unencryptedFileData[j+1] << 16) & 0xFF0000) + ((unencryptedFileData[j+2] << 8) & 0xFF00) + (unencryptedFileData[j+3] & 0xFF);
-            cipherText = ((encryptedFileData[j] << 24) & 0xFF000000) + ((encryptedFileData[j+1] << 16) & 0xFF0000) + ((encryptedFileData[j+2] << 8) & 0xFF00) + (encryptedFileData[j+3] & 0xFF);
+            plainText = ((unencryptedFileData[j] << 24) & 0xFF000000) + ((unencryptedFileData[j + 1] << 16) & 0xFF0000) + ((unencryptedFileData[j + 2] << 8) & 0xFF00) + (unencryptedFileData[j + 3] & 0xFF);
+            cipherText = ((encryptedFileData[j] << 24) & 0xFF000000) + ((encryptedFileData[j + 1] << 16) & 0xFF0000) + ((encryptedFileData[j + 2] << 8) & 0xFF00) + (encryptedFileData[j + 3] & 0xFF);
 
             /*
             plainText = QRandomGenerator::global()->generate();
@@ -127,39 +128,40 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
 
             x4 = cipherText & 0xFFFF;
 
-            for(nybble = 0; nybble < 4; nybble++)
+            for (nybble = 0; nybble < 4; nybble++)
             {
 
                 uint8_t p = get_bit(plainText, inBits[nybble][0]) ^ get_bit(plainText, inBits[nybble][1]) ^ get_bit(plainText, outBits[nybble][0]) ^ get_bit(plainText, outBits[nybble][1]);
-                uint8_t c = get_bit(cipherText, outBits[nybble][0]+16) ^ get_bit(cipherText, outBits[nybble][1]+16);
+                uint8_t c = get_bit(cipherText, outBits[nybble][0] + 16) ^ get_bit(cipherText, outBits[nybble][1] + 16);
 
-                for(subkey = 0; subkey < 0x20; subkey++)
+                for (subkey = 0; subkey < 0x20; subkey++)
                 {
 
                     k4 = subkey << (12 - (nybble * 4));
-                    if ((nybble == 0) && (subkey > 0xf)) k4 += 0x01;
+                    if ((nybble == 0) && (subkey > 0xf))
+                        k4 += 0x01;
                     fOutcome = fFunction(x4, k4);
                     x3Text = ((cipherText >> 16) & 0xffff) ^ fOutcome;
-                    //emit LOG_I("plaintext = " + QString::number(plainText, 16) + " ciphertext = " + QString::number(cipherText, 16) + " x3text = " + QString::number(x3Text, 16), true, true);
+                    // emit LOG_I("plaintext = " + QString::number(plainText, 16) + " ciphertext = " + QString::number(cipherText, 16) + " x3text = " + QString::number(x3Text, 16), true, true);
 
                     uint8_t x3_bits = get_bit(x3Text, inBits[nybble][0]) ^ get_bit(x3Text, inBits[nybble][1]);
                     uint8_t z = p ^ c ^ x3_bits;
-                    //emit LOG_I("p3:" + QString::number(p3, 16) + " p15:" + QString::number(p15, 16) + " p16:" + QString::number(p16, 16) + " p28:" + QString::number(p28, 16) + " p29:" + QString::number(p29, 16) + " c19:" + QString::number(c19, 16) + " c31:" + QString::number(c31, 16) + " c32:" + QString::number(c32, 16) + " x3_28:" + QString::number(x3_28, 16) + " x3_29:" + QString::number(x3_29, 16), true, true);
+                    // emit LOG_I("p3:" + QString::number(p3, 16) + " p15:" + QString::number(p15, 16) + " p16:" + QString::number(p16, 16) + " p28:" + QString::number(p28, 16) + " p29:" + QString::number(p29, 16) + " c19:" + QString::number(c19, 16) + " c31:" + QString::number(c31, 16) + " c32:" + QString::number(c32, 16) + " x3_28:" + QString::number(x3_28, 16) + " x3_29:" + QString::number(x3_29, 16), true, true);
 
-                    if (z == 0) counter[nybble][subkey]++;
+                    if (z == 0)
+                        counter[nybble][subkey]++;
                 }
             }
         }
-        //if ((j % 3000) == 0) emit LOG_I("Unique plaintext / ciphertext pair tested: " + QString::number(total), true, true);
+        // if ((j % 3000) == 0) emit LOG_I("Unique plaintext / ciphertext pair tested: " + QString::number(total), true, true);
     }
 
-
     int order[4][0x20];
-    for(nybble = 0; nybble < 4; nybble++)
+    for (nybble = 0; nybble < 4; nybble++)
     {
         for (subkey = 0; subkey < 0x20; subkey++)
         {
-            counter[nybble][subkey] = abs(counter[nybble][subkey] - total/2);
+            counter[nybble][subkey] = abs(counter[nybble][subkey] - total / 2);
             order[nybble][subkey] = subkey;
         }
     }
@@ -169,8 +171,8 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
     for (nybble = 0; nybble < 4; nybble++)
     {
 
-        //uint32_t correctKey = ((keys[3] + ((keys[3] & 0x01) << 16)) >> (12 - (nybble * 4))) & 0x1f;
-        //emit LOG_I("Nybble: " + QString::number(nybble) + "   Correct key: 0x" + QString::number(correctKey, 16) + " Count: " + QString::number(counter[nybble][correctKey]), true, true);
+        // uint32_t correctKey = ((keys[3] + ((keys[3] & 0x01) << 16)) >> (12 - (nybble * 4))) & 0x1f;
+        // emit LOG_I("Nybble: " + QString::number(nybble) + "   Correct key: 0x" + QString::number(correctKey, 16) + " Count: " + QString::number(counter[nybble][correctKey]), true, true);
 
         int tempMax, tempOrder;
         for (subkey = 1; subkey < 0x20; subkey++)
@@ -180,74 +182,76 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
             j = subkey - 1;
             while (j >= 0 && counter[nybble][j] > tempMax)
             {
-                counter[nybble][j+1] = counter[nybble][j];
-                order[nybble][j+1] = order[nybble][j];
+                counter[nybble][j + 1] = counter[nybble][j];
+                order[nybble][j + 1] = order[nybble][j];
                 j--;
             }
-            counter[nybble][j+1] = tempMax;
-            order[nybble][j+1] = tempOrder;
+            counter[nybble][j + 1] = tempMax;
+            order[nybble][j + 1] = tempOrder;
         }
 
         for (j = 0x1f; j > 0x1e; j--)
         {
-            //emit LOG_I("Nybble: " + QString::number(nybble) + " Predicted key: 0x" + QString::number(order[nybble][j], 16) + " Count: " + QString::number(counter[nybble][j]), true, true);
+            // emit LOG_I("Nybble: " + QString::number(nybble) + " Predicted key: 0x" + QString::number(order[nybble][j], 16) + " Count: " + QString::number(counter[nybble][j]), true, true);
             k4 += (order[nybble][0x1f] & 0xf) << (12 - (nybble * 4));
         }
-
     }
     emit LOG_I("Predicted k4: 0x" + QString::number(k4, 16), true, true);
     emit LOG_I("Moving on to k1", true, true);
 
     // now getting k1
 
-    for (nybble = 0; nybble < 4; nybble++) for (subkey = 0; subkey < 0x20; subkey++) counter[nybble][subkey] = 0;
+    for (nybble = 0; nybble < 4; nybble++)
+        for (subkey = 0; subkey < 0x20; subkey++)
+            counter[nybble][subkey] = 0;
     total = 0;
-    for (j = 0; j < 0x20000; j+=4)   // 0x20000
+    for (j = 0; j < 0x20000; j += 4) // 0x20000
     {
-        if (!alreadyExists[j/4])
+        if (!alreadyExists[j / 4])
         {
             total++;
 
-            plainText = ((unencryptedFileData[j] << 24) & 0xFF000000) + ((unencryptedFileData[j+1] << 16) & 0xFF0000) + ((unencryptedFileData[j+2] << 8) & 0xFF00) + (unencryptedFileData[j+3] & 0xFF);
-            cipherText = ((encryptedFileData[j] << 24) & 0xFF000000) + ((encryptedFileData[j+1] << 16) & 0xFF0000) + ((encryptedFileData[j+2] << 8) & 0xFF00) + (encryptedFileData[j+3] & 0xFF);
+            plainText = ((unencryptedFileData[j] << 24) & 0xFF000000) + ((unencryptedFileData[j + 1] << 16) & 0xFF0000) + ((unencryptedFileData[j + 2] << 8) & 0xFF00) + (unencryptedFileData[j + 3] & 0xFF);
+            cipherText = ((encryptedFileData[j] << 24) & 0xFF000000) + ((encryptedFileData[j + 1] << 16) & 0xFF0000) + ((encryptedFileData[j + 2] << 8) & 0xFF00) + (encryptedFileData[j + 3] & 0xFF);
             x4 = cipherText & 0xFFFF;
             fOutcome = fFunction(x4, k4);
             x3Text = ((cipherText >> 16) & 0xffff) ^ fOutcome;
 
             x1 = plainText & 0xFFFF;
 
-            for(nybble = 0; nybble < 4; nybble++)
+            for (nybble = 0; nybble < 4; nybble++)
             {
 
-                uint8_t p = get_bit(plainText, outBits[nybble][0]+16) ^ get_bit(plainText, outBits[nybble][1]+16);
-                uint8_t c = get_bit(x3Text, outBits[nybble][0]+16) ^ get_bit(x3Text, outBits[nybble][1]+16);
+                uint8_t p = get_bit(plainText, outBits[nybble][0] + 16) ^ get_bit(plainText, outBits[nybble][1] + 16);
+                uint8_t c = get_bit(x3Text, outBits[nybble][0] + 16) ^ get_bit(x3Text, outBits[nybble][1] + 16);
 
-                for(subkey = 0; subkey < 0x20; subkey++)
+                for (subkey = 0; subkey < 0x20; subkey++)
                 {
 
                     k1 = subkey << (12 - (nybble * 4));
-                    if ((nybble == 0) && (subkey > 0xf)) k1 += 0x01;
+                    if ((nybble == 0) && (subkey > 0xf))
+                        k1 += 0x01;
                     fOutcome = fFunction(x1, k1);
                     x2Text = ((plainText >> 16) & 0xffff) ^ fOutcome;
-                    //emit LOG_I("plaintext = " + QString::number(plainText, 16) + " ciphertext = " + QString::number(cipherText, 16) + " x3text = " + QString::number(x3Text, 16), true, true);
+                    // emit LOG_I("plaintext = " + QString::number(plainText, 16) + " ciphertext = " + QString::number(cipherText, 16) + " x3text = " + QString::number(x3Text, 16), true, true);
 
                     uint8_t x2_bits = get_bit(x2Text, inBits[nybble][0]) ^ get_bit(x2Text, inBits[nybble][1]);
                     uint8_t z = p ^ c ^ x2_bits;
-                    //emit LOG_I("p3:" + QString::number(p3, 16) + " p15:" + QString::number(p15, 16) + " p16:" + QString::number(p16, 16) + " p28:" + QString::number(p28, 16) + " p29:" + QString::number(p29, 16) + " c19:" + QString::number(c19, 16) + " c31:" + QString::number(c31, 16) + " c32:" + QString::number(c32, 16) + " x3_28:" + QString::number(x3_28, 16) + " x3_29:" + QString::number(x3_29, 16), true, true);
+                    // emit LOG_I("p3:" + QString::number(p3, 16) + " p15:" + QString::number(p15, 16) + " p16:" + QString::number(p16, 16) + " p28:" + QString::number(p28, 16) + " p29:" + QString::number(p29, 16) + " c19:" + QString::number(c19, 16) + " c31:" + QString::number(c31, 16) + " c32:" + QString::number(c32, 16) + " x3_28:" + QString::number(x3_28, 16) + " x3_29:" + QString::number(x3_29, 16), true, true);
 
-                    if (z == 0) counter[nybble][subkey]++;
+                    if (z == 0)
+                        counter[nybble][subkey]++;
                 }
             }
         }
-        //if ((j % 3000) == 0) emit LOG_I("Unique plaintext / ciphertext pair tested: " + QString::number(total), true, true);
+        // if ((j % 3000) == 0) emit LOG_I("Unique plaintext / ciphertext pair tested: " + QString::number(total), true, true);
     }
 
-
-    for(nybble = 0; nybble < 4; nybble++)
+    for (nybble = 0; nybble < 4; nybble++)
     {
         for (subkey = 0; subkey < 0x20; subkey++)
         {
-            counter[nybble][subkey] = abs(counter[nybble][subkey] - total/2);
+            counter[nybble][subkey] = abs(counter[nybble][subkey] - total / 2);
             order[nybble][subkey] = subkey;
         }
     }
@@ -257,8 +261,8 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
     for (nybble = 0; nybble < 4; nybble++)
     {
 
-        //uint32_t correctKey = ((keys[0] + ((keys[0] & 0x01) << 16)) >> (12 - (nybble * 4))) & 0x1f;
-        //emit LOG_I("Nybble: " + QString::number(nybble) + "   Correct key: 0x" + QString::number(correctKey, 16) + " Count: " + QString::number(counter[nybble][correctKey]), true, true);
+        // uint32_t correctKey = ((keys[0] + ((keys[0] & 0x01) << 16)) >> (12 - (nybble * 4))) & 0x1f;
+        // emit LOG_I("Nybble: " + QString::number(nybble) + "   Correct key: 0x" + QString::number(correctKey, 16) + " Count: " + QString::number(counter[nybble][correctKey]), true, true);
 
         int tempMax, tempOrder;
         for (subkey = 1; subkey < 0x20; subkey++)
@@ -268,20 +272,19 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
             j = subkey - 1;
             while (j >= 0 && counter[nybble][j] > tempMax)
             {
-                counter[nybble][j+1] = counter[nybble][j];
-                order[nybble][j+1] = order[nybble][j];
+                counter[nybble][j + 1] = counter[nybble][j];
+                order[nybble][j + 1] = order[nybble][j];
                 j--;
             }
-            counter[nybble][j+1] = tempMax;
-            order[nybble][j+1] = tempOrder;
+            counter[nybble][j + 1] = tempMax;
+            order[nybble][j + 1] = tempOrder;
         }
 
         for (j = 0x1f; j > 0x1e; j--)
         {
-            //emit LOG_I("Nybble: " + QString::number(nybble) + " Predicted key: 0x" + QString::number(order[nybble][j], 16) + " Count: " + QString::number(counter[nybble][j]), true, true);
+            // emit LOG_I("Nybble: " + QString::number(nybble) + " Predicted key: 0x" + QString::number(order[nybble][j], 16) + " Count: " + QString::number(counter[nybble][j]), true, true);
             k1 += (order[nybble][0x1f] & 0xf) << (12 - (nybble * 4));
         }
-
     }
     emit LOG_I("Predicted k1: 0x" + QString::number(k1, 16), true, true);
     emit LOG_I("Moving on to k2", true, true);
@@ -290,12 +293,13 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
 
     x2Text = ((plainText >> 16) & 0xffff) ^ fFunction(plainText & 0xffff, k1);
     x3Text = ((cipherText >> 16) & 0xffff) ^ fFunction(cipherText & 0xffff, k4);
-    //emit LOG_I("Plaintext: " + QString::number(plainText, 16) + " Ciphertext: " + QString::number(cipherText, 16), true, true);
-    //emit LOG_I("x2Text: " + QString::number(x2Text, 16) + " x3 Text: " + QString::number(x3Text, 16), true, true);
+    // emit LOG_I("Plaintext: " + QString::number(plainText, 16) + " Ciphertext: " + QString::number(cipherText, 16), true, true);
+    // emit LOG_I("x2Text: " + QString::number(x2Text, 16) + " x3 Text: " + QString::number(x3Text, 16), true, true);
 
     for (k2 = 0; k2 < 0x10000; k2++)
     {
-        if ((fFunction(x2Text, k2) ^ (plainText & 0xffff)) == x3Text) break;
+        if ((fFunction(x2Text, k2) ^ (plainText & 0xffff)) == x3Text)
+            break;
     }
 
     emit LOG_I("Predicted k2: 0x" + QString::number(k2, 16), true, true);
@@ -305,14 +309,14 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
 
     for (k3 = 0; k3 < 0x10000; k3++)
     {
-        if ((fFunction(x3Text, k3) ^ (cipherText & 0xffff)) == x2Text) break;
+        if ((fFunction(x3Text, k3) ^ (cipherText & 0xffff)) == x2Text)
+            break;
     }
 
     emit LOG_I("Predicted k3: 0x" + QString::number(k3, 16), true, true);
     emit LOG_I("End Time", true, true);
 
     return STATUS_SUCCESS;
-
 }
 
 uint8_t GetKeyOperationsSubaru::get_bit(uint32_t value, int bit_num)
@@ -325,14 +329,15 @@ int GetKeyOperationsSubaru::linear_approx_test()
 
     uint16_t cIndexOfMax, dIndexOfMax;
 
-    uint16_t **approxTable = new uint16_t*[0x20];
-    for(int i = 0; i < 0x20; i++) approxTable[i] = new uint16_t[0x10];
+    uint16_t **approxTable = new uint16_t *[0x20];
+    for (int i = 0; i < 0x20; i++)
+        approxTable[i] = new uint16_t[0x10];
 
     uint16_t c, d;
 
     for (c = 0; c < 0x10; c++)
         for (d = 0; d < 0x20; d++)
-                approxTable[d][c] = 0;
+            approxTable[d][c] = 0;
 
     findApprox(approxTable);
 
@@ -364,7 +369,8 @@ uint32_t GetKeyOperationsSubaru::manyRoundAndFlip(uint32_t input, uint16_t *keys
     int n;
     uint32_t temp = input;
 
-    for(n = 0; n < numRounds; n++) temp = roundAndFlip(temp, keys[n]);
+    for (n = 0; n < numRounds; n++)
+        temp = roundAndFlip(temp, keys[n]);
 
     return temp;
 }
@@ -407,22 +413,21 @@ uint16_t GetKeyOperationsSubaru::fFunction(uint16_t wordInput, uint16_t keyInput
     temp = keyInput ^ wordInput;
     temp += temp << 16;
 
-    for (n = 0; n < 4; n++) fBoxOutcome += sBox((temp >> (n * 4)) & 0x1F) << (n * 4);
+    for (n = 0; n < 4; n++)
+        fBoxOutcome += sBox((temp >> (n * 4)) & 0x1F) << (n * 4);
 
     fBoxOutcome = (fBoxOutcome >> 3) + (fBoxOutcome << 13);
 
     return fBoxOutcome;
 }
 
-
 uint16_t GetKeyOperationsSubaru::sBox(uint16_t sBoxInput)
 {
-    const uint8_t indextransformation[]={
+    const uint8_t indextransformation[] = {
         0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8,
         0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
         0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
-        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
-    };
+        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
     return indextransformation[sBoxInput];
 }
@@ -442,7 +447,7 @@ void GetKeyOperationsSubaru::findApprox(uint16_t **approxTable)
                 if (applyMask(e, d) ^ applyMask(sBox(e), c) == 0)
                 {
                     approxTable[d][c]++;
-                    //emit LOG_I(QString::number(d) + "," + QString::number(c) + "," + QString::number(approxTable[d][c]), true, true);
+                    // emit LOG_I(QString::number(d) + "," + QString::number(c) + "," + QString::number(approxTable[d][c]), true, true);
                 }
             }
         }

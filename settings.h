@@ -19,7 +19,7 @@
 QT_BEGIN_NAMESPACE
 namespace Ui
 {
-    class Settings;
+class Settings;
 }
 QT_END_NAMESPACE
 
@@ -27,15 +27,14 @@ class Settings : public QDialog
 {
     Q_OBJECT
 
-public:
+  public:
     explicit Settings(FileActions::ConfigValuesStructure *configValues, QWidget *parent = nullptr);
     ~Settings();
 
-private slots:
+  private slots:
 
-private:
+  private:
     void closeEvent(QCloseEvent *bar);
-
 
     FileActions::ConfigValuesStructure *configValues;
     FileActions *fileActions;
@@ -60,15 +59,14 @@ private:
     void add_definition_files();
     void remove_definition_files();
 
-private slots:
+  private slots:
     void ecuflash_defs_enabled_checkbox(int state);
     void romraider_defs_enabled_checkbox(int state);
     void romraider_as_primary_def_base_checkbox(int state);
     void toolbar_iconsize_value_changed(int value);
     int save_config_file();
 
-
-private:
+  private:
     std::unique_ptr<Ui::Settings> ui;
 };
 

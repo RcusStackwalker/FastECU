@@ -6,12 +6,9 @@
 #include <QElapsedTimer>
 
 FlashTcuSubaruHitachiM32rCanOperation::FlashTcuSubaruHitachiM32rCanOperation(
-        SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
-        QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride))
-    , serial(serial)
-    , ecuCalDef(ecuCalDef)
-    , cmd_type(cmd_type)
+    SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
+    QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type)
 {
 }
 
@@ -19,7 +16,7 @@ bool FlashTcuSubaruHitachiM32rCanOperation::execute()
 {
     int result = STATUS_ERROR;
 
-    //result = init_flash_hitachi_can();
+    // result = init_flash_hitachi_can();
 
     mcu_type_string = ecuCalDef->McuType;
     mcu_type_index = FlashUtils::findFlashDeviceIndex(mcu_type_string);
@@ -62,13 +59,13 @@ bool FlashTcuSubaruHitachiM32rCanOperation::execute()
         if (cmd_type == "read")
         {
             emit externalLoggerMessage("Reading ROM, please wait...");
-            //emit LOG_I("Not yet implemented: Reading ROM from TCU Subaru Hitachi using CAN", true, true);
+            // emit LOG_I("Not yet implemented: Reading ROM from TCU Subaru Hitachi using CAN", true, true);
             result = read_mem(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
         }
         else if (cmd_type == "test_write" || cmd_type == "write")
         {
             emit externalLoggerMessage("Writing ROM, please wait...");
-            //emit LOG_I("Not yet implemented: Writing ROM to TCU Subaru Hitachi using CAN", true, true);
+            // emit LOG_I("Not yet implemented: Writing ROM to TCU Subaru Hitachi using CAN", true, true);
             result = write_mem(test_write);
         }
     }
@@ -121,16 +118,13 @@ int FlashTcuSubaruHitachiM32rCanOperation::connect_bootloader()
         }
         else
         {
-            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-
+            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-
     }
-
 
     emit LOG_I("Requesting TCU ID", true, true);
     output.clear();
@@ -150,25 +144,23 @@ int FlashTcuSubaruHitachiM32rCanOperation::connect_bootloader()
         {
             QByteArray response = received;
             response.remove(0, 8);
-            response.remove(5, response.length()-5);
+            response.remove(5, response.length() - 5);
 
             QString ecuid;
             for (int i = 0; i < 5; i++)
-                ecuid.append(QString("%1").arg((uint8_t)response.at(i),2,16,QLatin1Char('0')).toUpper());
+                ecuid.append(QString("%1").arg((uint8_t)response.at(i), 2, 16, QLatin1Char('0')).toUpper());
             emit LOG_I("ECU ID: " + ecuid, true, true);
             if (cmd_type == "read")
                 ecuCalDef->RomId = ecuid + "_";
         }
         else
         {
-            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-
+            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-
     }
 
     emit LOG_I("Requesting CAL ID", true, true);
@@ -196,14 +188,12 @@ int FlashTcuSubaruHitachiM32rCanOperation::connect_bootloader()
         }
         else
         {
-            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-
+            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-
     }
 
     emit LOG_I("Requesting session mode", true, true);
@@ -222,11 +212,10 @@ int FlashTcuSubaruHitachiM32rCanOperation::connect_bootloader()
     {
         if ((uint8_t)received.at(4) == 0x50 && (uint8_t)received.at(5) == 0x03)
         {
-
         }
         else
         {
-            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
             return STATUS_ERROR;
         }
@@ -255,7 +244,7 @@ int FlashTcuSubaruHitachiM32rCanOperation::connect_bootloader()
     {
         if ((uint8_t)received.at(4) != 0x67 || (uint8_t)received.at(5) != 0x01)
         {
-            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
             return STATUS_ERROR;
         }
@@ -268,7 +257,6 @@ int FlashTcuSubaruHitachiM32rCanOperation::connect_bootloader()
     }
 
     emit LOG_I("Seed request ok", true, true);
-
 
     seed.append(received.at(6));
     seed.append(received.at(7));
@@ -295,7 +283,7 @@ int FlashTcuSubaruHitachiM32rCanOperation::connect_bootloader()
     {
         if ((uint8_t)received.at(4) != 0x67 || (uint8_t)received.at(5) != 0x02)
         {
-            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
             return STATUS_ERROR;
         }
@@ -308,7 +296,6 @@ int FlashTcuSubaruHitachiM32rCanOperation::connect_bootloader()
     }
 
     emit LOG_I("Seed key ok", true, true);
-
 
     emit LOG_I("Jumping to onboad kernel...", true, true);
 
@@ -328,7 +315,7 @@ int FlashTcuSubaruHitachiM32rCanOperation::connect_bootloader()
     {
         emit LOG_I("Bad response to jumping to onboard kernel", true, true);
 
-        //return STATUS_ERROR;
+        // return STATUS_ERROR;
     }
 
     emit LOG_I("Jump to kernel ok", true, true);
@@ -349,11 +336,11 @@ int FlashTcuSubaruHitachiM32rCanOperation::connect_bootloader()
         {
             emit LOG_I("Kernel verified to be running", true, true);
             kernel_alive = true;
-            //return STATUS_SUCCESS;
+            // return STATUS_SUCCESS;
         }
         else
         {
-            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
             return STATUS_ERROR;
         }
@@ -386,19 +373,19 @@ int FlashTcuSubaruHitachiM32rCanOperation::read_mem(uint32_t start_addr, uint32_
 
     uint32_t pagesize = 0x100;
 
-    start_addr = start_addr - 0x00100000;          // manual adjustment for starting address
-    if (start_addr < 0x8000)                       // TCU code does not allow dumping below 0x8000
+    start_addr = start_addr - 0x00100000; // manual adjustment for starting address
+    if (start_addr < 0x8000)              // TCU code does not allow dumping below 0x8000
     {
         length = length - (0x8000 - start_addr);
         start_addr = 0x8000;
     }
 
-    //length = 0x400;    // hack for testing
+    // length = 0x400;    // hack for testing
 
-    uint32_t skip_start = start_addr & (pagesize - 1); //if unaligned, we'll be receiving this many extra bytes
+    uint32_t skip_start = start_addr & (pagesize - 1); // if unaligned, we'll be receiving this many extra bytes
     uint32_t addr = start_addr - skip_start;
     uint32_t willget = (skip_start + length + pagesize - 1) & ~(pagesize - 1);
-    uint32_t len_done = 0;  //total data written to file
+    uint32_t len_done = 0; // total data written to file
 
     emit LOG_I("Setting dump start & length...", true, true);
 
@@ -417,8 +404,6 @@ int FlashTcuSubaruHitachiM32rCanOperation::read_mem(uint32_t start_addr, uint32_
     output.append((uint8_t)((willget >> 8) & 0xFF));
     output.append((uint8_t)(willget & 0xFF));
 
-
-
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(serial_read_timeout);
     emit LOG_I("Response: " + SsmProtocol::toHex(received), true, true);
@@ -426,7 +411,7 @@ int FlashTcuSubaruHitachiM32rCanOperation::read_mem(uint32_t start_addr, uint32_
     {
         if ((uint8_t)received.at(4) != 0x74 || (uint8_t)received.at(5) != 0x20 || (uint8_t)received.at(6) != 0x01 || (uint8_t)received.at(7) != 0x04)
         {
-            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
             return STATUS_ERROR;
         }
@@ -479,7 +464,7 @@ int FlashTcuSubaruHitachiM32rCanOperation::read_mem(uint32_t start_addr, uint32_
         {
             if ((uint8_t)received.at(4) != 0xF7)
             {
-                emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+                emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
                 return STATUS_ERROR;
             }
@@ -498,7 +483,7 @@ int FlashTcuSubaruHitachiM32rCanOperation::read_mem(uint32_t start_addr, uint32_
         mapdata.append(pagedata);
 
         // don't count skipped first bytes //
-        cplen = (numblocks * pagesize) - skip_start; //this is the actual # of valid bytes in buf[]
+        cplen = (numblocks * pagesize) - skip_start; // this is the actual # of valid bytes in buf[]
         skip_start = 0;
 
         chrono = timer.elapsed();
@@ -507,24 +492,26 @@ int FlashTcuSubaruHitachiM32rCanOperation::read_mem(uint32_t start_addr, uint32_
         if (cplen > 0 && chrono > 0)
             curspeed = cplen * (1000.0f / chrono);
 
-        if (!curspeed) {
+        if (!curspeed)
+        {
             curspeed += 1;
         }
 
         tleft = (willget / curspeed) % 9999;
         tleft++;
 
-        QString start_address = QString("%1").arg(addr,8,16,QLatin1Char('0')).toUpper();
-        QString block_len = QString("%1").arg(pagesize,8,16,QLatin1Char('0')).toUpper();
+        QString start_address = QString("%1").arg(addr, 8, 16, QLatin1Char('0')).toUpper();
+        QString block_len = QString("%1").arg(pagesize, 8, 16, QLatin1Char('0')).toUpper();
         msg = QString("Kernel read addr:  0x%1  length:  0x%2,  %3  B/s  %4 s").arg(start_address).arg(block_len).arg(curspeed, 6, 10, QLatin1Char(' ')).arg(tleft, 6, 10, QLatin1Char(' ')).toUtf8();
         emit LOG_I(msg, true, true);
         delay(1);
 
         // and drop extra bytes at the end //
-        uint32_t extrabytes = (cplen + len_done);   //hypothetical new length
-        if (extrabytes > length) {
+        uint32_t extrabytes = (cplen + len_done); // hypothetical new length
+        if (extrabytes > length)
+        {
             cplen -= (extrabytes - length);
-            //thus, (len_done + cplen) will not exceed len
+            // thus, (len_done + cplen) will not exceed len
         }
 
         // increment addr, len, etc //
@@ -550,16 +537,16 @@ int FlashTcuSubaruHitachiM32rCanOperation::read_mem(uint32_t start_addr, uint32_
     {
         if ((uint8_t)received.at(4) != 0x77)
         {
-            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
-            //return STATUS_ERROR;
+            // return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
 
-        //return STATUS_ERROR;
+        // return STATUS_ERROR;
     }
 
     // now decrypt the data obtained
@@ -594,12 +581,12 @@ int FlashTcuSubaruHitachiM32rCanOperation::write_mem(bool test_write)
 
     QScopedArrayPointer<uint8_t> data_array(new uint8_t[filedata.length()]);
 
-    int block_modified[16] = {0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0};   // assume blocks after 0x8000 are modified
+    int block_modified[16] = {0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0}; // assume blocks after 0x8000 are modified
 
-    unsigned bcnt;  // 13 blocks in M32R_512kB, but kernelmemorymodels.h has 11. Of these 11, the first 3 are not flashed by OBK
+    unsigned bcnt; // 13 blocks in M32R_512kB, but kernelmemorymodels.h has 11. Of these 11, the first 3 are not flashed by OBK
     unsigned blockno;
 
-    //encrypt the data
+    // encrypt the data
     filedata = encrypt_payload(filedata, filedata.length());
 
     for (int i = 0; i < filedata.length(); i++)
@@ -609,8 +596,10 @@ int FlashTcuSubaruHitachiM32rCanOperation::write_mem(bool test_write)
 
     bcnt = 0;
     emit LOG_I("Blocks to flash : ", true, false);
-    for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++) {
-        if (block_modified[blockno]) {
+    for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++)
+    {
+        if (block_modified[blockno])
+        {
             emit LOG_I(QString::number(blockno) + ", ", false, false);
             bcnt += 1;
         }
@@ -638,7 +627,7 @@ int FlashTcuSubaruHitachiM32rCanOperation::write_mem(bool test_write)
         }
 
         emit LOG_I("--- start writing ROM file to ECU flash memory ---", true, true);
-        for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++)  // hack so that only 1 flash loop done for the entire ROM above 0x8000
+        for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++) // hack so that only 1 flash loop done for the entire ROM above 0x8000
         {
             if (block_modified[blockno])
             {
@@ -685,7 +674,8 @@ int FlashTcuSubaruHitachiM32rCanOperation::reflash_block(const uint8_t *newdata,
 
     emit progressChanged(0);
 
-    if (blockno >= fdt->numblocks) {
+    if (blockno >= fdt->numblocks)
+    {
         emit LOG_I("block " + QString::number(blockno) + " out of range !", true, true);
         return -1;
     }
@@ -696,8 +686,8 @@ int FlashTcuSubaruHitachiM32rCanOperation::reflash_block(const uint8_t *newdata,
     end_addr = (start_address + (maxblocks * 128)) & 0xFFFFFFFF;
     uint32_t data_len = end_addr - start_address;
 
-    QString start_addr = QString("%1").arg((uint32_t)start_address,8,16,QLatin1Char('0')).toUpper();
-    QString length = QString("%1").arg((uint32_t)pl_len,8,16,QLatin1Char('0')).toUpper();
+    QString start_addr = QString("%1").arg((uint32_t)start_address, 8, 16, QLatin1Char('0')).toUpper();
+    QString length = QString("%1").arg((uint32_t)pl_len, 8, 16, QLatin1Char('0')).toUpper();
     msg = QString("Flash block addr: 0x" + start_addr + " len: 0x" + length).toUtf8();
     emit LOG_I(msg, true, true);
 
@@ -723,7 +713,7 @@ int FlashTcuSubaruHitachiM32rCanOperation::reflash_block(const uint8_t *newdata,
     {
         if ((uint8_t)received.at(4) != 0x74)
         {
-            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
             return STATUS_ERROR;
         }
@@ -765,7 +755,7 @@ int FlashTcuSubaruHitachiM32rCanOperation::reflash_block(const uint8_t *newdata,
         {
             if ((uint8_t)received.at(4) != 0xF6)
             {
-                emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+                emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
                 return STATUS_ERROR;
             }
@@ -805,15 +795,14 @@ int FlashTcuSubaruHitachiM32rCanOperation::reflash_block(const uint8_t *newdata,
             }
             else
             {
-                emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+                emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
-                //return STATUS_ERROR;
+                // return STATUS_ERROR;
             }
         }
         else
         {
             emit LOG_E("No valid response from ECU", true, true);
-
         }
         try_count++;
     }
@@ -849,15 +838,14 @@ int FlashTcuSubaruHitachiM32rCanOperation::reflash_block(const uint8_t *newdata,
             }
             else
             {
-                emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+                emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
-                //return STATUS_ERROR;
+                // return STATUS_ERROR;
             }
         }
         else
         {
             emit LOG_E("No valid response from ECU", true, true);
-
         }
         try_count++;
     }
@@ -895,7 +883,6 @@ int FlashTcuSubaruHitachiM32rCanOperation::erase_mem()
     output.append((uint8_t)0xff);
     output.append((uint8_t)0xff);
 
-
     serial->write_serial_data_echo_check(output);
     delay(500);
 
@@ -906,7 +893,7 @@ int FlashTcuSubaruHitachiM32rCanOperation::erase_mem()
     if ((uint8_t)received.at(4) != 0x31 || (uint8_t)received.at(5) != 0x02 || (uint8_t)received.at(6) != 0x01)
     {
         emit LOG_I("Erasing error! Do not panic, do not reset the TCU immediately. The kernel is most likely still running and receiving commands!", true, true);
-        //return STATUS_ERROR;
+        // return STATUS_ERROR;
     }
 
     return STATUS_SUCCESS;
@@ -921,19 +908,17 @@ QByteArray FlashTcuSubaruHitachiM32rCanOperation::generate_seed_key(QByteArray r
 {
     QByteArray key;
 
-    const uint16_t keytogenerateindex[]={
+    const uint16_t keytogenerateindex[] = {
         0xF2CA, 0x2417, 0x21DE, 0x8475,
         0x39AB, 0xF767, 0x6204, 0x6BE0,
         0xBC63, 0x5988, 0x2845, 0x9846,
-        0xEB97, 0x99DE, 0xC7DB, 0xEFAE
-    };
+        0xEB97, 0x99DE, 0xC7DB, 0xEFAE};
 
-    const uint8_t indextransformation[]={
+    const uint8_t indextransformation[] = {
         0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8,
         0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
         0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
-        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
-    };
+        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
     key = SsmProtocol::calculateSeedKey(requested_seed, keytogenerateindex, indextransformation);
 
@@ -955,16 +940,14 @@ QByteArray FlashTcuSubaruHitachiM32rCanOperation::encrypt_payload(QByteArray buf
 {
     QByteArray encrypted;
 
-    const uint16_t keytogenerateindex[]={
-        0x3B61, 0x8BEF, 0x9E51, 0x1075
-    };
+    const uint16_t keytogenerateindex[] = {
+        0x3B61, 0x8BEF, 0x9E51, 0x1075};
 
-    const uint8_t indextransformation[]={
+    const uint8_t indextransformation[] = {
         0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8,
         0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
         0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
-        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
-    };
+        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
     encrypted = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
@@ -975,16 +958,14 @@ QByteArray FlashTcuSubaruHitachiM32rCanOperation::decrypt_payload(QByteArray buf
 {
     QByteArray decrypt;
 
-    const uint16_t keytogenerateindex[]={
-        0x1075, 0x9E51, 0x8BEF, 0x3B61
-    };
+    const uint16_t keytogenerateindex[] = {
+        0x1075, 0x9E51, 0x8BEF, 0x3B61};
 
-    const uint8_t indextransformation[]={
+    const uint8_t indextransformation[] = {
         0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8,
         0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
         0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
-        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
-    };
+        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
     decrypt = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 

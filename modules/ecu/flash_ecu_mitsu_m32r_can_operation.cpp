@@ -7,14 +7,10 @@
 #include <kernelmemorymodels.h>
 
 FlashEcuMitsuM32rCanOperation::FlashEcuMitsuM32rCanOperation(
-        SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
-        QString cmd_type, QWidget *dialog, bool useVendorChallenge, QObject *parent,
-        PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride))
-    , serial(serial)
-    , ecuCalDef(ecuCalDef)
-    , cmd_type(cmd_type)
-    , useVendorChallenge(useVendorChallenge)
+    SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
+    QString cmd_type, QWidget *dialog, bool useVendorChallenge, QObject *parent,
+    PromptFn promptOverride)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type), useVendorChallenge(useVendorChallenge)
 {
 }
 
@@ -55,7 +51,7 @@ bool FlashEcuMitsuM32rCanOperation::execute()
     return result == STATUS_SUCCESS;
 }
 
-QByteArray FlashEcuMitsuM32rCanOperation::build_request(const QByteArray &sidPayload)
+QByteArray FlashEcuMitsuM32rCanOperation::build_request(const QByteArray& sidPayload)
 {
     return FlashUtils::buildIso15765Request(0x7E0, sidPayload);
 }
@@ -85,10 +81,7 @@ int FlashEcuMitsuM32rCanOperation::connect_bootloader()
         serial->write_serial_data_echo_check(output);
         delay(200);
         received = serial->read_serial_data(serial_read_timeout);
-        if (received.length() <= 10
-            || (uint8_t)received.at(4) != (MitsuColtCanVendorExt::kServiceReadMemoryByAddress + 0x40)
-            || (uint8_t)received.at(5) != MitsuColtCanVendorExt::kVendorChallengeSelector
-            || (uint8_t)received.at(6) != MitsuColtCanVendorExt::kVendorChallengeSeedSubfunction)
+        if (received.length() <= 10 || (uint8_t)received.at(4) != (MitsuColtCanVendorExt::kServiceReadMemoryByAddress + 0x40) || (uint8_t)received.at(5) != MitsuColtCanVendorExt::kVendorChallengeSelector || (uint8_t)received.at(6) != MitsuColtCanVendorExt::kVendorChallengeSeedSubfunction)
         {
             emit LOG_E("Wrong vendor challenge response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
             return STATUS_ERROR;
@@ -108,10 +101,7 @@ int FlashEcuMitsuM32rCanOperation::connect_bootloader()
         serial->write_serial_data_echo_check(output);
         delay(200);
         received = serial->read_serial_data(serial_read_timeout);
-        if (received.length() <= 6
-            || (uint8_t)received.at(4) != (MitsuColtCanVendorExt::kServiceReadMemoryByAddress + 0x40)
-            || (uint8_t)received.at(5) != MitsuColtCanVendorExt::kVendorChallengeSelector
-            || (uint8_t)received.at(6) != MitsuColtCanVendorExt::kVendorChallengeKeySubfunction)
+        if (received.length() <= 6 || (uint8_t)received.at(4) != (MitsuColtCanVendorExt::kServiceReadMemoryByAddress + 0x40) || (uint8_t)received.at(5) != MitsuColtCanVendorExt::kVendorChallengeSelector || (uint8_t)received.at(6) != MitsuColtCanVendorExt::kVendorChallengeKeySubfunction)
         {
             emit LOG_E("Vendor challenge key rejected: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
             return STATUS_ERROR;
@@ -212,7 +202,7 @@ int FlashEcuMitsuM32rCanOperation::read_mem(uint32_t start_addr, uint32_t length
     return STATUS_SUCCESS;
 }
 
-bool FlashEcuMitsuM32rCanOperation::upload_and_commit(uint32_t start, const QByteArray &data)
+bool FlashEcuMitsuM32rCanOperation::upload_and_commit(uint32_t start, const QByteArray& data)
 {
     using namespace MitsuColtCan;
 
@@ -230,7 +220,7 @@ bool FlashEcuMitsuM32rCanOperation::upload_and_commit(uint32_t start, const QByt
     }
 
     const QVector<QByteArray> chunks = buildTransferDataFrames(data);
-    for (const QByteArray &chunk : chunks)
+    for (const QByteArray& chunk : chunks)
     {
         output = build_request(chunk);
         serial->write_serial_data_echo_check(output);
@@ -317,11 +307,11 @@ int FlashEcuMitsuM32rCanOperation::write_mem(bool test_write)
     // recovery).
     // for full context.
     int reflashConfirm = confirm(tr("Erase trigger"),
-        tr("About to send the flash-erase trigger command. This exact "
-           "sequence is known to have locked up the bootloader during the "
-           "original implementation's testing. Only continue if this is a "
-           "bench/spare ECU with a recovery path available.\n\nContinue?"),
-        QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel);
+                                 tr("About to send the flash-erase trigger command. This exact "
+                                    "sequence is known to have locked up the bootloader during the "
+                                    "original implementation's testing. Only continue if this is a "
+                                    "bench/spare ECU with a recovery path available.\n\nContinue?"),
+                                 QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel);
     if (reflashConfirm != QMessageBox::Yes)
     {
         emit LOG_I("Erase trigger canceled by user", true, true);

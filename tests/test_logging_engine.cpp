@@ -4,16 +4,19 @@
 #include "scripted_logging_protocol.h"
 #include "test_logging_engine.h"
 
-class TestLoggingEngine : public QObject {
+class TestLoggingEngine : public QObject
+{
     Q_OBJECT
-private slots:
-    void initTestCase() {
+  private slots:
+    void initTestCase()
+    {
         qRegisterMetaType<QVector<LogSample>>();
         qRegisterMetaType<LoggingStatus>();
         qRegisterMetaType<SessionEndReason>();
     }
 
-    void start_with_unregistered_protocol_fails_immediately() {
+    void start_with_unregistered_protocol_fails_immediately()
+    {
         LoggingEngine engine;
         LogSessionConfig config;
         config.protocolId = "NOPE";
@@ -21,13 +24,13 @@ private slots:
         QVERIFY(!engine.isRunning());
     }
 
-    void start_and_stop_round_trip() {
+    void start_and_stop_round_trip()
+    {
         LoggingEngine engine;
         auto *proto = new ScriptedLoggingProtocol();
         proto->queueStartResult(true);
-        engine.registerProtocol("TEST",
-            [proto](const LogSessionConfig &) { return std::unique_ptr<LoggingProtocol>(proto); },
-            20, 5, 10, 10);
+        engine.registerProtocol("TEST", [proto](const LogSessionConfig&)
+                                { return std::unique_ptr<LoggingProtocol>(proto); }, 20, 5, 10, 10);
 
         LogSessionConfig config;
         config.protocolId = "TEST";
@@ -38,11 +41,11 @@ private slots:
         QVERIFY(!engine.isRunning());
     }
 
-    void start_with_factory_returning_null_fails_without_crashing() {
+    void start_with_factory_returning_null_fails_without_crashing()
+    {
         LoggingEngine engine;
-        engine.registerProtocol("TEST",
-            [](const LogSessionConfig &) { return std::unique_ptr<LoggingProtocol>(); },
-            20, 5, 10, 10);
+        engine.registerProtocol("TEST", [](const LogSessionConfig&)
+                                { return std::unique_ptr<LoggingProtocol>(); }, 20, 5, 10, 10);
 
         LogSessionConfig config;
         config.protocolId = "TEST";
@@ -50,13 +53,13 @@ private slots:
         QVERIFY(!engine.isRunning());
     }
 
-    void spontaneous_handshake_failure_propagates_session_ended() {
+    void spontaneous_handshake_failure_propagates_session_ended()
+    {
         LoggingEngine engine;
         auto *proto = new ScriptedLoggingProtocol();
         proto->queueStartResult(false, "no ECU");
-        engine.registerProtocol("TEST",
-            [proto](const LogSessionConfig &) { return std::unique_ptr<LoggingProtocol>(proto); },
-            20, 5, 10, 10);
+        engine.registerProtocol("TEST", [proto](const LogSessionConfig&)
+                                { return std::unique_ptr<LoggingProtocol>(proto); }, 20, 5, 10, 10);
 
         QSignalSpy endedSpy(&engine, &LoggingEngine::sessionEnded);
 
@@ -69,7 +72,8 @@ private slots:
     }
 };
 
-int run_test_logging_engine(int argc, char** argv) {
+int run_test_logging_engine(int argc, char **argv)
+{
     QCoreApplication app(argc, argv);
     TestLoggingEngine t;
     return QTest::qExec(&t, argc, argv);

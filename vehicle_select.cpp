@@ -5,9 +5,7 @@
 #include <functional>
 
 VehicleSelect::VehicleSelect(FileActions::ConfigValuesStructure *configValues, QWidget *parent)
-    : QDialog(parent)
-    , configValues(configValues)
-    , ui{std::make_unique<Ui::VehicleSelect>()}
+    : QDialog(parent), configValues(configValues), ui{std::make_unique<Ui::VehicleSelect>()}
 {
     ui->setupUi(this);
 
@@ -15,7 +13,7 @@ VehicleSelect::VehicleSelect(FileActions::ConfigValuesStructure *configValues, Q
 
     ui->car_make_tree_widget->setHeaderLabel("Manufacturer");
     ui->car_model_tree_widget->setHeaderLabel("Model");
-    QStringList car_version_tree_widget_headers = {"Version","Type","kW","HP","Fuel","Year","ECU","Mode","CHK","RD","WR","Protocol"};
+    QStringList car_version_tree_widget_headers = {"Version", "Type", "kW", "HP", "Fuel", "Year", "ECU", "Mode", "CHK", "RD", "WR", "Protocol"};
     ui->car_version_tree_widget->setHeaderLabels(car_version_tree_widget_headers);
     ui->car_version_tree_widget->setColumnWidth(0, 150);
     ui->car_version_tree_widget->setColumnWidth(1, 75);
@@ -34,9 +32,8 @@ VehicleSelect::VehicleSelect(FileActions::ConfigValuesStructure *configValues, Q
     for (int i = 0; i < ui->car_version_tree_widget->columnCount(); i++)
         width += ui->car_version_tree_widget->columnWidth(i);
 
-    //qDebug() << "Full width =" << width;
+    // qDebug() << "Full width =" << width;
     ui->car_version_tree_widget->setMinimumWidth(width);
-
 
     int height = width / 4 * 2.5 + 18;
     this->setFixedHeight(height);
@@ -59,7 +56,7 @@ VehicleSelect::VehicleSelect(FileActions::ConfigValuesStructure *configValues, Q
     {
         if (!car_makes.contains(configValues->flash_protocol_make.at(i)))
         {
-            //qDebug() << "Make found:" << configValues->flash_protocol_make.at(i);
+            // qDebug() << "Make found:" << configValues->flash_protocol_make.at(i);
             car_makes.append(configValues->flash_protocol_make.at(i));
         }
     }
@@ -97,16 +94,16 @@ VehicleSelect::VehicleSelect(FileActions::ConfigValuesStructure *configValues, Q
     ui->car_make_tree_widget->setCurrentIndex(make_index);
     emit ui->car_make_tree_widget->itemSelectionChanged();
 
-    //this->adjustSize();
-/*
-    const QModelIndex model_index = ui->car_model_tree_widget->selectionModel()->currentIndex();
-    ui->car_model_tree_widget->setCurrentIndex(model_index);
-    emit ui->car_model_tree_widget->itemSelectionChanged();
+    // this->adjustSize();
+    /*
+        const QModelIndex model_index = ui->car_model_tree_widget->selectionModel()->currentIndex();
+        ui->car_model_tree_widget->setCurrentIndex(model_index);
+        emit ui->car_model_tree_widget->itemSelectionChanged();
 
-    const QModelIndex version_index = ui->car_version_tree_widget->selectionModel()->currentIndex();
-    ui->car_version_tree_widget->setCurrentIndex(version_index);
-    emit ui->car_version_tree_widget->itemSelectionChanged();
-*/
+        const QModelIndex version_index = ui->car_version_tree_widget->selectionModel()->currentIndex();
+        ui->car_version_tree_widget->setCurrentIndex(version_index);
+        emit ui->car_version_tree_widget->itemSelectionChanged();
+    */
 }
 
 VehicleSelect::~VehicleSelect()
@@ -140,7 +137,7 @@ void VehicleSelect::car_make_treewidget_item_selected()
         QTreeWidgetItem *item = ui->car_make_tree_widget->selectedItems().at(0);
         QString selected_text = item->text(0);
 
-        //qDebug() << "Check models for manufacturer:" << selected_text;
+        // qDebug() << "Check models for manufacturer:" << selected_text;
 
         QString car_make = selected_text;
         flash_protocol_id.clear();
@@ -171,7 +168,7 @@ void VehicleSelect::car_make_treewidget_item_selected()
                 configValues->flash_protocol_make.at(i) == car_make &&
                 !configValues->flash_protocol_model.at(i).isEmpty())
             {
-                //qDebug() << "Model found:" << configValues->flash_protocol_model.at(i);
+                // qDebug() << "Model found:" << configValues->flash_protocol_model.at(i);
                 car_models.append(configValues->flash_protocol_model.at(i));
             }
         }
@@ -212,7 +209,7 @@ void VehicleSelect::car_model_treewidget_item_selected()
         QTreeWidgetItem *item = ui->car_model_tree_widget->selectedItems().at(0);
         QString selected_text = item->text(0);
 
-        //qDebug() << "Check versions for model:" << selected_text;
+        // qDebug() << "Check versions for model:" << selected_text;
 
         QString car_model = selected_text;
         QStringList car_versions;
@@ -256,7 +253,7 @@ void VehicleSelect::car_model_treewidget_item_selected()
         {
             if (configValues->flash_protocol_model.at(i) == car_model && configValues->flash_protocol_make.at(i) == flash_protocol_make)
             {
-                //qDebug() << "Model found:" << configValues->flash_protocol_model.at(i);
+                // qDebug() << "Model found:" << configValues->flash_protocol_model.at(i);
                 id.append(configValues->flash_protocol_id.at(i));
                 version.append(configValues->flash_protocol_version.at(i));
                 type.append(configValues->flash_protocol_type.at(i));
@@ -288,17 +285,20 @@ void VehicleSelect::car_model_treewidget_item_selected()
             item->setText(5, year.at(i));
             item->setText(6, ecu.at(i));
             item->setText(7, mode.at(i));
-            if (checksum.at(i) == "yes") {
+            if (checksum.at(i) == "yes")
+            {
                 item->setCheckState(8, Qt::Checked);
                 item->setForeground(8, Qt::darkGreen);
                 item->setToolTip(8, "Checksum calculation supported");
             }
-            else if (checksum.at(i) == "no") {
+            else if (checksum.at(i) == "no")
+            {
                 item->setCheckState(8, Qt::Unchecked);
                 item->setForeground(8, Qt::gray);
                 item->setToolTip(8, "ROM has no checksum");
             }
-            else if (checksum.at(i) == "n/a") {
+            else if (checksum.at(i) == "n/a")
+            {
                 item->setCheckState(8, Qt::Checked);
                 item->setForeground(8, Qt::red);
                 item->setToolTip(8, "Checksum calculation NOT supported yet");
@@ -316,7 +316,7 @@ void VehicleSelect::car_model_treewidget_item_selected()
             item->setToolTip(11, family.at(i));
             item->setText(12, id.at(i));
             item->setText(13, description.at(i));
-            //topLevelCarVersionTreeItem->setFirstColumnSpanned(true);
+            // topLevelCarVersionTreeItem->setFirstColumnSpanned(true);
             ui->car_version_tree_widget->addTopLevelItem(item);
 
             qDebug() << "Check if car version selected";
@@ -345,7 +345,7 @@ void VehicleSelect::car_version_treewidget_item_selected()
         QTreeWidgetItem *item = ui->car_version_tree_widget->selectedItems().at(0);
         QString selected_text = item->text(0);
 
-        //qDebug() << "Selected version for model" << flash_protocol_model << "is" << selected_text;
+        // qDebug() << "Selected version for model" << flash_protocol_model << "is" << selected_text;
 
         ui->select_button->setEnabled(true);
 
@@ -356,9 +356,9 @@ void VehicleSelect::car_version_treewidget_item_selected()
         flash_protocol_id = item->text(12);
         flash_protocol_description = item->text(13);
 
-        //flash_protocol_id = selected_text;//car_version_treewidget_item->text(11);
+        // flash_protocol_id = selected_text;//car_version_treewidget_item->text(11);
 
-        //qDebug() << "Protocol ID:" << flash_protocol_id;
+        // qDebug() << "Protocol ID:" << flash_protocol_id;
     }
     qDebug() << "Car version selection applied";
 }

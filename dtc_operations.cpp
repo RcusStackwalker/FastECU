@@ -5,9 +5,7 @@
 #include <functional>
 
 DtcOperations::DtcOperations(SerialPortActions *serial, QWidget *parent)
-    : QDialog(parent)
-    , serial(serial)
-    , ui{std::make_unique<Ui::DtcOperationsWindow>()}
+    : QDialog(parent), serial(serial), ui{std::make_unique<Ui::DtcOperationsWindow>()}
 {
     ui->setupUi(this);
 
@@ -18,15 +16,16 @@ DtcOperations::DtcOperations(SerialPortActions *serial, QWidget *parent)
     ui->protocolComboBox->addItem("iso15765");
     ui->protocolComboBox->setCurrentIndex(2);
 
-    auto * model = qobject_cast<QStandardItemModel*>(ui->protocolComboBox->model());
+    auto *model = qobject_cast<QStandardItemModel *>(ui->protocolComboBox->model());
     assert(model);
-    if(!model) return;
+    if (!model)
+        return;
 
     for (int i = 0; i < ui->protocolComboBox->count(); i++)
     {
-        auto * item = model->item(i);
+        auto *item = model->item(i);
         assert(item);
-        if(!item)
+        if (!item)
             return;
         if (item->text().startsWith("SSM "))
             item->setEnabled(false);
@@ -64,7 +63,7 @@ void DtcOperations::run()
     // Open serial port
     serial->open_serial_port();
 
-    //init_obd();
+    // init_obd();
 }
 
 /*************************************
@@ -79,7 +78,6 @@ int DtcOperations::select_operation()
 
     if (ui->protocolComboBox->currentText().startsWith("SSM"))
     {
-
     }
     else if (ui->protocolComboBox->currentText().startsWith("iso9141"))
     {
@@ -182,7 +180,6 @@ int DtcOperations::five_baud_init(QString protocol)
         emit LOG_I(protocol + " five baud init succesfully completed.", true, true);
 
         request_vehicle_info();
-
     }
     else if (five_baud_init_iso14230_ok)
     {
@@ -190,7 +187,6 @@ int DtcOperations::five_baud_init(QString protocol)
         emit LOG_I(protocol + " five baud init succesfully completed.", true, true);
 
         request_vehicle_info();
-
     }
     else
     {
@@ -228,7 +224,7 @@ int DtcOperations::fast_init()
         received = serial->read_serial_data(serial_read_short_timeout);
     else
         received = serial->read_serial_obd_data(serial_read_short_timeout);
-    //emit LOG_I("Response: " + parse_message_to_hex(response), true, true);
+    // emit LOG_I("Response: " + parse_message_to_hex(response), true, true);
 
     if ((uint8_t)received.at(0) == 0x83 && (uint8_t)received.at(1) == 0xf1 && (uint8_t)received.at(2) == 0x10 && (uint8_t)received.at(3) == 0xc1 && (uint8_t)received.at(4) == 0xe9 && (uint8_t)received.at(5) == 0x8f)
         fast_init_ok = true;
@@ -238,7 +234,6 @@ int DtcOperations::fast_init()
         emit LOG_I("iso14230 fast init mode succesfully completed.", true, true);
 
         request_vehicle_info();
-
     }
     else
     {
@@ -282,7 +277,7 @@ int DtcOperations::iso15765_init()
     {
         if (received.at(4) == 0x7f)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(3, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(3, received.length() - 1)), true, true);
             return STATUS_ERROR;
         }
         else if (received.at(4) != 0x41)
@@ -301,7 +296,6 @@ int DtcOperations::iso15765_init()
         emit LOG_I("iso15765 init mode succesfully completed.", true, true);
 
         request_vehicle_info();
-
     }
     else
     {
@@ -345,10 +339,10 @@ QByteArray DtcOperations::request_data(const uint8_t cmd, const uint8_t sub_cmd)
         {
             if (received.at(cmd_index) == 0x7f)
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(cmd_index, received.length()-1)), true, true);
+                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(cmd_index, received.length() - 1)), true, true);
                 break;
             }
-            else if (received.at(cmd_index) != (cmd | 0x40) || received.at(cmd_index+1) != sub_cmd)
+            else if (received.at(cmd_index) != (cmd | 0x40) || received.at(cmd_index + 1) != sub_cmd)
             {
                 emit LOG_E("Wrong response from ECU: " + parse_message_to_hex(received), true, true);
                 break;
@@ -356,14 +350,14 @@ QByteArray DtcOperations::request_data(const uint8_t cmd, const uint8_t sub_cmd)
         }
         if (ui->protocolComboBox->currentText().startsWith("iso15765"))
         {
-            received.remove(0, cmd_index+3);
+            received.remove(0, cmd_index + 3);
             response.append(received);
         }
         else
         {
-            received.remove(received.length()-1, 1);
+            received.remove(received.length() - 1, 1);
             if (received.length() < 7)
-                received.remove(0, received.length()-1);
+                received.remove(0, received.length() - 1);
             else if (received.length() < 10)
                 received.remove(0, 5);
             else
@@ -390,17 +384,17 @@ void DtcOperations::request_vehicle_info()
         if (response.length())
         {
             QString PIDs;
-            int PIDstart = info * 0x20+1;
+            int PIDstart = info * 0x20 + 1;
             int PIDend = PIDstart + 0x1f;
             emit LOG_I("Supported PIDs 0x" + QString::number(PIDstart, 16) + "-0x" + QString::number(PIDend, 16) + ": " + parse_message_to_hex(response), true, true);
-            //emit LOG_I("Supported PIDs: " + QString(response), true, true);
+            // emit LOG_I("Supported PIDs: " + QString(response), true, true);
             emit LOG_I("Supported PIDs: ", true, false);
             for (int i = 0; i < response.length(); i++)
             {
                 for (int j = 7; j >= 0; j--)
                 {
                     int PIDen = (((uint8_t)response.at(i) >> j) & 0x01);
-                    PIDs.append(QString("0x%1 ").arg(PIDen * ((i * 8 + 7 - j) + PIDstart),2,16,QLatin1Char('0')));
+                    PIDs.append(QString("0x%1 ").arg(PIDen * ((i * 8 + 7 - j) + PIDstart), 2, 16, QLatin1Char('0')));
                 }
             }
             emit LOG_I(PIDs, false, true);
@@ -451,7 +445,6 @@ void DtcOperations::request_vehicle_info()
         emit LOG_I("CAL ID num: " + parse_message_to_hex(response), true, true);
     }
     delay(250);
-
 }
 
 QByteArray DtcOperations::request_dtc_list(uint8_t cmd)
@@ -485,7 +478,7 @@ QByteArray DtcOperations::request_dtc_list(uint8_t cmd)
         {
             if (received.at(cmd_index) == 0x7f)
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(cmd_index, received.length()-1)), true, true);
+                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(cmd_index, received.length() - 1)), true, true);
                 break;
             }
             else if (received.at(cmd_index) != (cmd | 0x40))
@@ -496,14 +489,14 @@ QByteArray DtcOperations::request_dtc_list(uint8_t cmd)
         }
         if (ui->protocolComboBox->currentText().startsWith("iso15765"))
         {
-            received.remove(0, cmd_index+2);
+            received.remove(0, cmd_index + 2);
             response.append(received);
         }
         else
         {
-            received.remove(received.length()-1, 1);
+            received.remove(received.length() - 1, 1);
             if (received.length() < 7)
-                received.remove(0, received.length()-1);
+                received.remove(0, received.length() - 1);
             else
                 received.remove(0, 4);
             response.append(received);
@@ -511,7 +504,6 @@ QByteArray DtcOperations::request_dtc_list(uint8_t cmd)
     }
 
     return response;
-
 }
 
 int DtcOperations::read_dtc()
@@ -526,13 +518,13 @@ int DtcOperations::read_dtc()
 
     emit LOG_I("Stored DTCs: " + parse_message_to_hex(response), true, true);
 
-    for (int i = 0; i < response.length(); i+=2)
+    for (int i = 0; i < response.length(); i += 2)
     {
-        uint16_t dtc = ((uint8_t)response.at(i) << 8) + (uint8_t)response.at(i+1);
+        uint16_t dtc = ((uint8_t)response.at(i) << 8) + (uint8_t)response.at(i + 1);
         if (dtc != 0)
         {
-            dtc_list.append(QString("%1").arg(dtc,4,16,QLatin1Char('0')).toUpper());
-            //emit LOG_I("DTC: " + FileActions::parse_dtc_message(dtc), true, true);
+            dtc_list.append(QString("%1").arg(dtc, 4, 16, QLatin1Char('0')).toUpper());
+            // emit LOG_I("DTC: " + FileActions::parse_dtc_message(dtc), true, true);
         }
     }
     std::sort(dtc_list.begin(), dtc_list.end(), std::less<QString>());
@@ -548,19 +540,19 @@ int DtcOperations::read_dtc()
     emit LOG_I("Pending DTCs: " + parse_message_to_hex(response), true, true);
 
     dtc_list.clear();
-    for (int i = 0; i < response.length(); i+=2)
+    for (int i = 0; i < response.length(); i += 2)
     {
-        uint16_t dtc = ((uint8_t)response.at(i) << 8) + (uint8_t)response.at(i+1);
+        uint16_t dtc = ((uint8_t)response.at(i) << 8) + (uint8_t)response.at(i + 1);
         if (dtc != 0)
         {
-            dtc_list.append(QString("%1").arg(dtc,4,16,QLatin1Char('0')).toUpper());
-            //emit LOG_I("DTC: " + FileActions::parse_dtc_message(dtc), true, true);
+            dtc_list.append(QString("%1").arg(dtc, 4, 16, QLatin1Char('0')).toUpper());
+            // emit LOG_I("DTC: " + FileActions::parse_dtc_message(dtc), true, true);
         }
     }
     std::sort(dtc_list.begin(), dtc_list.end(), std::less<QString>());
     for (int i = 0; i < dtc_list.length(); i++)
     {
-            emit LOG_I("DTC: " + FileActions::parse_dtc_message(dtc_list.at(i).toUInt(&ok, 16)), true, true);
+        emit LOG_I("DTC: " + FileActions::parse_dtc_message(dtc_list.at(i).toUInt(&ok, 16)), true, true);
     }
 
     delay(250);
@@ -605,7 +597,7 @@ int DtcOperations::clear_dtc()
         {
             if (received.at(cmd_index) == 0x7f)
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(cmd_index, received.length()-1)), true, true);
+                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(cmd_index, received.length() - 1)), true, true);
                 break;
             }
             else if (received.at(cmd_index) != (clear_DTCs | 0x40))
@@ -629,8 +621,6 @@ int DtcOperations::clear_dtc()
     return STATUS_SUCCESS;
 }
 
-
-
 /*
  * Calculate SSM checksum to message
  *
@@ -644,7 +634,7 @@ uint8_t DtcOperations::calculate_checksum(QByteArray output, bool dec_0x100)
         checksum += (uint8_t)output.at(i);
 
     if (dec_0x100)
-        checksum = (uint8_t) (0x100 - checksum);
+        checksum = (uint8_t)(0x100 - checksum);
 
     return checksum;
 }
@@ -660,7 +650,7 @@ QString DtcOperations::parse_message_to_hex(QByteArray received)
 
     for (int i = 0; i < received.length(); i++)
     {
-        msg.append(QString("%1 ").arg((uint8_t)received.at(i),2,16,QLatin1Char('0')).toUtf8());
+        msg.append(QString("%1 ").arg((uint8_t)received.at(i), 2, 16, QLatin1Char('0')).toUtf8());
     }
 
     return msg;

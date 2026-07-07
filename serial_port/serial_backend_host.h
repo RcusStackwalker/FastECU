@@ -14,19 +14,25 @@ class SerialBackend;
 // correct by construction.
 class SerialBackendHost
 {
-public:
+  public:
     SerialBackendHost();
-    ~SerialBackendHost();   // deletes the backend on the I/O thread, then joins
+    ~SerialBackendHost(); // deletes the backend on the I/O thread, then joins
 
     // Runs `factory` on the I/O thread (blocking) and returns the backend.
-    SerialBackend *createBackend(const std::function<SerialBackend *()> &factory);
+    SerialBackend *createBackend(const std::function<SerialBackend *()>& factory);
 
-    QObject *context() const { return m_context; }
-    QThread *ioThread() { return &m_thread; }
+    QObject *context() const
+    {
+        return m_context;
+    }
+    QThread *ioThread()
+    {
+        return &m_thread;
+    }
 
-private:
+  private:
     QThread m_thread;
-    QObject *m_context = nullptr;   // affinity: m_thread; invokeMethod target
+    QObject *m_context = nullptr; // affinity: m_thread; invokeMethod target
     SerialBackend *m_backend = nullptr;
 };
 

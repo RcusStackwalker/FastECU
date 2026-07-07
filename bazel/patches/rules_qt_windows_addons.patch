@@ -1,0 +1,26 @@
+diff --git a/extension/qt_modules.bzl b/extension/qt_modules.bzl
+--- a/extension/qt_modules.bzl
++++ b/extension/qt_modules.bzl
+@@ -454,6 +454,22 @@ QT_MODULES = {
+                 "url": QT_BASE_DOWNLOAD_URL + "windows_x86/desktop/qt6_683/qt6_683/qt.qt6.683.win64_msvc2022_64/6.8.3-0-202503201308qtdeclarative-Windows-Windows_11_23H2-MSVC2022-Windows-Windows_11_23H2-X86_64.7z",
+                 "sha256": "",
+             },
++            "qtcharts": {
++                "url": QT_BASE_DOWNLOAD_URL + "windows_x86/desktop/qt6_683/qt6_683/qt.qt6.683.addons.qtcharts.win64_msvc2022_64/6.8.3-0-202503201308qtcharts-Windows-Windows_11_23H2-MSVC2022-Windows-Windows_11_23H2-X86_64.7z",
++                "sha256": "",
++            },
++            "qtremoteobjects": {
++                "url": QT_BASE_DOWNLOAD_URL + "windows_x86/desktop/qt6_683/qt6_683/qt.qt6.683.addons.qtremoteobjects.win64_msvc2022_64/6.8.3-0-202503201308qtremoteobjects-Windows-Windows_11_23H2-MSVC2022-Windows-Windows_11_23H2-X86_64.7z",
++                "sha256": "",
++            },
++            "qtserialport": {
++                "url": QT_BASE_DOWNLOAD_URL + "windows_x86/desktop/qt6_683/qt6_683/qt.qt6.683.addons.qtserialport.win64_msvc2022_64/6.8.3-0-202503201308qtserialport-Windows-Windows_11_23H2-MSVC2022-Windows-Windows_11_23H2-X86_64.7z",
++                "sha256": "",
++            },
++            "qtwebsockets": {
++                "url": QT_BASE_DOWNLOAD_URL + "windows_x86/desktop/qt6_683/qt6_683/qt.qt6.683.addons.qtwebsockets.win64_msvc2022_64/6.8.3-0-202503201308qtwebsockets-Windows-Windows_11_23H2-MSVC2022-Windows-Windows_11_23H2-X86_64.7z",
++                "sha256": "",
++            },
+             "qtsvg": {
+                 "url": QT_BASE_DOWNLOAD_URL + "windows_x86/desktop/qt6_683/qt6_683/qt.qt6.683.win64_msvc2022_64/6.8.3-0-202503201308qtsvg-Windows-Windows_11_23H2-MSVC2022-Windows-Windows_11_23H2-X86_64.7z",
+                 "sha256": "",

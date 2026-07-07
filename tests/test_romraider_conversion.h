@@ -1,2 +1,2 @@
 #pragma once
-int run_test_romraider_conversion(int argc, char** argv);
+int run_test_romraider_conversion(int argc, char **argv);

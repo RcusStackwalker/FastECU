@@ -5,23 +5,21 @@
 #include <functional>
 
 ProtocolSelect::ProtocolSelect(FileActions::ConfigValuesStructure *configValues, QWidget *parent)
-    : QDialog(parent)
-    , configValues(configValues)
-    , ui{std::make_unique<Ui::ProtocolSelect>()}
+    : QDialog(parent), configValues(configValues), ui{std::make_unique<Ui::ProtocolSelect>()}
 {
     ui->setupUi(this);
 
-    //ui->select_button->setEnabled(false);
+    // ui->select_button->setEnabled(false);
 
-    QStringList tree_widget_headers = {"Model","Protocol"};
+    QStringList tree_widget_headers = {"Model", "Protocol"};
     ui->treeWidget->setHeaderLabels(tree_widget_headers);
     ui->treeWidget->setFont(font);
 
-    //QRect  screenGeometry = this->geometry();
+    // QRect  screenGeometry = this->geometry();
     QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
 
-    //ui->treeWidget->setColumnWidth(0, 150);
-    //ui->treeWidget->setColumnWidth(1, 75);
+    // ui->treeWidget->setColumnWidth(0, 150);
+    // ui->treeWidget->setColumnWidth(1, 75);
 
     QStringList protocols;
     QStringList protocols_sorted;
@@ -36,7 +34,7 @@ ProtocolSelect::ProtocolSelect(FileActions::ConfigValuesStructure *configValues,
     {
         if (!protocols.contains(configValues->flash_protocol_protocol_name.at(i)))
         {
-            //qDebug() << "Make found:" << configValues->flash_protocol_make.at(i);
+            // qDebug() << "Make found:" << configValues->flash_protocol_make.at(i);
             protocols.append(configValues->flash_protocol_protocol_name.at(i));
         }
     }
@@ -68,12 +66,12 @@ ProtocolSelect::ProtocolSelect(FileActions::ConfigValuesStructure *configValues,
     description_width += 20;
     ui->treeWidget->setColumnWidth(0, protocol_width);
     ui->treeWidget->setColumnWidth(1, description_width);
-/*
-    QScreen *screen = QGuiApplication::primaryScreen();
-    QRect  screenGeometry = screen->geometry();
-    if (this->width() < screenGeometry.width() && this->height() < screenGeometry.height())
-        this->showMaximized();
-*/
+    /*
+        QScreen *screen = QGuiApplication::primaryScreen();
+        QRect  screenGeometry = screen->geometry();
+        if (this->width() < screenGeometry.width() && this->height() < screenGeometry.height())
+            this->showMaximized();
+    */
     ui->treeWidget->setFixedWidth(protocol_width + description_width + 20);
 
     for (int i = 0; i < protocols_sorted.length(); i++)
@@ -100,7 +98,6 @@ ProtocolSelect::ProtocolSelect(FileActions::ConfigValuesStructure *configValues,
     connect(ui->treeWidget, &QTreeWidget::doubleClicked, this, &ProtocolSelect::car_model_selected);
     connect(ui->cancel_button, &QPushButton::clicked, this, &QDialog::close);
     connect(ui->select_button, &QPushButton::clicked, this, &ProtocolSelect::car_model_selected);
-
 }
 
 ProtocolSelect::~ProtocolSelect()
@@ -142,8 +139,7 @@ void ProtocolSelect::protocol_treewidget_item_selected()
         QTreeWidgetItem *item = ui->treeWidget->selectedItems().at(0);
         QString selected_text = item->text(0);
 
-        //ui->select_button->setEnabled(true);
-
+        // ui->select_button->setEnabled(true);
     }
     qDebug() << "protocol selection applied";
 }

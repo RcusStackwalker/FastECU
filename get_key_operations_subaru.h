@@ -11,7 +11,7 @@
 QT_BEGIN_NAMESPACE
 namespace Ui
 {
-    class EcuOperationsWindow;
+class EcuOperationsWindow;
 }
 QT_END_NAMESPACE
 
@@ -19,17 +19,17 @@ class GetKeyOperationsSubaru : public QDialog
 {
     Q_OBJECT
 
-signals:
+  signals:
     void LOG_E(QString message, bool timestamp, bool linefeed);
     void LOG_W(QString message, bool timestamp, bool linefeed);
     void LOG_I(QString message, bool timestamp, bool linefeed);
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
-public:
+  public:
     explicit GetKeyOperationsSubaru(QWidget *parent = nullptr);
     ~GetKeyOperationsSubaru();
 
-private:
+  private:
     void closeEvent(QCloseEvent *bar);
 
     bool kill_process = false;
@@ -48,8 +48,7 @@ private:
 
     EcuOperations *ecuOperations;
 
-
-private:
+  private:
     std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
 

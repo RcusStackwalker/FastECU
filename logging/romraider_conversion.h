@@ -10,4 +10,4 @@
 // decimal digits per byte; MUT/DMA and Cdbg convert a single decoded quint32 to
 // one decimal string) but apply the identical conversion from that point on.
 QString convertRomRaiderValue(FileActions *fileActions, FileActions::LogValuesStructure *logValues,
-                               int j, const QString &rawValueString);
+                              int j, const QString& rawValueString);

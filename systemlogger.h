@@ -11,20 +11,21 @@ class SystemLogger : public QObject
 {
     Q_OBJECT
 
-public:
+  public:
     SystemLogger(QString file_path, QString sw_name, QString sw_ver, QObject *parent = nullptr);
     ~SystemLogger();
 
     void run();
     void delay(int timeout);
 
-private:
-    enum {
-        _LOG_E = 0,   // error
-        _LOG_W,   // warning
-        _LOG_I,   // info
-        _LOG_D,   // debug
-    } ;
+  private:
+    enum
+    {
+        _LOG_E = 0, // error
+        _LOG_W,     // warning
+        _LOG_I,     // info
+        _LOG_D,     // debug
+    };
 
     QString file_path;
     QString software_name;
@@ -39,7 +40,7 @@ private:
 
     bool write_syslog(QString msg);
 
-signals:
+  signals:
     void send_message_to_log_window(QString msg);
     void finished();
     void error(QString err);
@@ -48,7 +49,7 @@ signals:
     void LOG_I(QString message, bool timestamp, bool linefeed);
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
-public slots:
+  public slots:
     void enable_log_write_to_file(bool enable);
     void log_messages(QString message, bool timestamp, bool linefeed);
 };

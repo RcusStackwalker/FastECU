@@ -11,28 +11,29 @@
 // Ported from externals/livemonitor/obdengine.cpp + colt_flasher.xml.
 // Request CAN ID 0x7E0, reply CAN ID 0x7E8 (ISO 15765 / UDS-style OBD).
 // Pure, hardware-independent frame builders only — no I/O here.
-namespace MitsuColtCan {
+namespace MitsuColtCan
+{
 
-constexpr bytes::Byte kServiceDiagnosticSession    = 0x10;
-constexpr bytes::Byte kServiceSecurityAccess       = 0x27;
-constexpr bytes::Byte kServiceReadMemoryByAddress  = 0x23;
-constexpr bytes::Byte kServiceRequestDownload      = 0x34;
-constexpr bytes::Byte kServiceTransferData         = 0x36;
-constexpr bytes::Byte kServiceRoutineControl       = 0x31;
-constexpr bytes::Byte kServiceRequestReflash       = 0x3B;
+constexpr bytes::Byte kServiceDiagnosticSession = 0x10;
+constexpr bytes::Byte kServiceSecurityAccess = 0x27;
+constexpr bytes::Byte kServiceReadMemoryByAddress = 0x23;
+constexpr bytes::Byte kServiceRequestDownload = 0x34;
+constexpr bytes::Byte kServiceTransferData = 0x36;
+constexpr bytes::Byte kServiceRoutineControl = 0x31;
+constexpr bytes::Byte kServiceRequestReflash = 0x3B;
 
-constexpr bytes::Byte kSessionBasic    = 0x81;
+constexpr bytes::Byte kSessionBasic = 0x81;
 constexpr bytes::Byte kSessionBootload = 0x85;
 
 constexpr std::uint32_t kCrcTransferAddress = 0x200000;
-constexpr std::uint32_t kCrcTransferSize    = 2;
-constexpr bytes::Byte  kRoutineCheckCrc     = 225;
-constexpr bytes::Byte  kRoutineErase        = 224;
+constexpr std::uint32_t kCrcTransferSize = 2;
+constexpr bytes::Byte kRoutineCheckCrc = 225;
+constexpr bytes::Byte kRoutineErase = 224;
 
-constexpr std::uint32_t kUserspaceStart      = 0x008000;
-constexpr std::uint32_t kUserspaceEnd        = 0x060000;
-constexpr std::uint32_t kFlashReadBlockSize  = 192;
-constexpr std::uint32_t kTransferChunkSize   = 256;
+constexpr std::uint32_t kUserspaceStart = 0x008000;
+constexpr std::uint32_t kUserspaceEnd = 0x060000;
+constexpr std::uint32_t kFlashReadBlockSize = 192;
+constexpr std::uint32_t kTransferChunkSize = 256;
 
 constexpr std::uint32_t kEraseRoutineRamAddr = 0x805568;
 constexpr std::uint32_t kWriteRoutineRamAddr = 0x8054AC;
@@ -54,12 +55,12 @@ bytes::Bytes seedKey(bytes::ByteView seed);
 
 // Applies seedKeyWord() to both 16-bit halves of a 4-byte seed (big-endian
 // in, big-endian out): seed = [pk1_hi, pk1_lo, pk2_hi, pk2_lo].
-QByteArray seedKey(const QByteArray &seed);
+QByteArray seedKey(const QByteArray& seed);
 
 // 16-bit running sum of every raw byte, with natural wraparound. Matches
 // get_crc() in externals/livemonitor/obdengine.cpp — not a real CRC.
 std::uint16_t checksum(bytes::ByteView data);
-std::uint16_t checksum(const QByteArray &data);
+std::uint16_t checksum(const QByteArray& data);
 
 bytes::Bytes buildRequestDownload(std::uint32_t start, std::uint32_t size);
 
@@ -68,7 +69,7 @@ QByteArray buildRequestDownloadFrame(std::uint32_t start, std::uint32_t size);
 
 // SID 0x36, chunked at kTransferChunkSize bytes per frame: [SID][up to 256 payload bytes].
 std::vector<bytes::Bytes> buildTransferDataFrames(bytes::ByteView payload);
-QVector<QByteArray> buildTransferDataFrames(const QByteArray &payload);
+QVector<QByteArray> buildTransferDataFrames(const QByteArray& payload);
 
 bytes::Bytes buildRoutineCheckCrc(std::uint32_t targetStart);
 
@@ -109,6 +110,6 @@ QByteArray buildSecurityAccessSeedRequestFrame();
 bytes::Bytes buildSecurityAccessKey(bytes::ByteView key);
 
 // SID 0x27/6 (key answer): [SID][0x06][4-byte key].
-QByteArray buildSecurityAccessKeyFrame(const QByteArray &key);
+QByteArray buildSecurityAccessKeyFrame(const QByteArray& key);
 
 } // namespace MitsuColtCan

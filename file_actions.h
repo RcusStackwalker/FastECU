@@ -44,23 +44,24 @@
 #include <kernelmemorymodels.h>
 
 #ifdef WIN32
-    #include <windows.h>
+#include <windows.h>
 #else
-    #include <unistd.h>
+#include <unistd.h>
 #endif // win32
 
 class FileActions : public QWidget
 {
     Q_OBJECT
 
-public:
+  public:
     FileActions(QWidget *parent = nullptr);
 
     uint8_t float_precision = 15;
     int def_map_index = 0;
-    //QString ecu_protocol;
+    // QString ecu_protocol;
 
-    struct ConfigValuesStructure {
+    struct ConfigValuesStructure
+    {
         QString software_name = "FastECU";
         QString software_title = "FastECU";
         QString software_version = "0.1.0-beta.5";
@@ -162,7 +163,8 @@ public:
 
     } ConfigValuesStruct;
 
-    struct protocolsStructure {
+    struct protocolsStructure
+    {
         QStringList protocols;
         QStringList baudrate;
         QStringList databits;
@@ -172,7 +174,8 @@ public:
         QStringList send_timeout;
     } protocolsStruct;
 
-    struct LogValuesStructure {
+    struct LogValuesStructure
+    {
         QString ecu_id;
         QStringList log_value_protocol;
         QStringList log_value_id;
@@ -220,7 +223,8 @@ public:
         QStringList lower_panel_switch_id;
     } LogValuesStruct;
 
-    struct dt_codes_structure {
+    struct dt_codes_structure
+    {
         QStringList dt_code_id;
         QStringList dt_code_name;
         QStringList dt_code_description;
@@ -229,7 +233,8 @@ public:
         QStringList dt_code_ecu_bit;
     } dt_codes_struct;
 
-    struct EcuCalDefStructure {
+    struct EcuCalDefStructure
+    {
         QString FileName;
         QString DefinitionFileName;
         QString FullFileName;
@@ -411,9 +416,10 @@ public:
 
     } EcuCalDefStruct;
 
-    //EcuCalDefStructure *ecuCalDefTemp;
+    // EcuCalDefStructure *ecuCalDefTemp;
 
-    enum RomInfoEnum {
+    enum RomInfoEnum
+    {
         XmlId,
         InternalIdAddress,
         InternalIdString,
@@ -435,11 +441,11 @@ public:
     /***********************************
      * Negative response codes (NRC)
      * ********************************/
-    static const QHash<int, QString> neg_rsp_codes; //Inited at error_codes.h
-    static const QHash<int, QString> dtc_Pxxxx_codes; //Inited at error_codes.h
-    static const QHash<int, QString> dtc_Bxxxx_codes; //Inited at error_codes.h
-    static const QHash<int, QString> dtc_Cxxxx_codes; //Inited at error_codes.h
-    static const QHash<int, QString> dtc_Uxxxx_codes; //Inited at error_codes.h
+    static const QHash<int, QString> neg_rsp_codes;   // Inited at error_codes.h
+    static const QHash<int, QString> dtc_Pxxxx_codes; // Inited at error_codes.h
+    static const QHash<int, QString> dtc_Bxxxx_codes; // Inited at error_codes.h
+    static const QHash<int, QString> dtc_Cxxxx_codes; // Inited at error_codes.h
+    static const QHash<int, QString> dtc_Uxxxx_codes; // Inited at error_codes.h
 
     /****************************************************
      * Check if FastECU dir exists in users home folder
@@ -447,7 +453,7 @@ public:
      ***************************************************/
     ConfigValuesStructure *set_base_dirs(ConfigValuesStructure *configValues);
     ConfigValuesStructure *check_config_dirs(ConfigValuesStructure *configValues);
-    bool copy_directory_files(const QString &source_dir, const QString &target_dir, bool cover_file_if_exist);
+    bool copy_directory_files(const QString& source_dir, const QString& target_dir, bool cover_file_if_exist);
 
     /****************************
      * Read FastECU config file
@@ -463,14 +469,14 @@ public:
      * Read FastECU flash protocols file
      ************************************/
     ConfigValuesStructure *read_protocols_file(FileActions::ConfigValuesStructure *configValues);
-    static bool validate_flash_protocols(const ConfigValuesStructure &configValues, QStringList *errors = nullptr);
-    static bool validate_logger_values(const LogValuesStructure &logValues, QStringList *errors = nullptr);
-    static bool validate_logger_switches(const LogValuesStructure &logValues, QStringList *errors = nullptr);
-    static bool validate_calibration_maps(const EcuCalDefStructure &ecuCalDef, QStringList *errors = nullptr);
-    static QStringList collect_ecuflash_base_header_fields(const EcuCalDefStructure &ecuCalDef,
-                                                           const QStringList &defData,
+    static bool validate_flash_protocols(const ConfigValuesStructure& configValues, QStringList *errors = nullptr);
+    static bool validate_logger_values(const LogValuesStructure& logValues, QStringList *errors = nullptr);
+    static bool validate_logger_switches(const LogValuesStructure& logValues, QStringList *errors = nullptr);
+    static bool validate_calibration_maps(const EcuCalDefStructure& ecuCalDef, QStringList *errors = nullptr);
+    static QStringList collect_ecuflash_base_header_fields(const EcuCalDefStructure& ecuCalDef,
+                                                           const QStringList& defData,
                                                            int *endIndex = nullptr);
-    static QStringList collect_ecuflash_definition_body_lines(const QStringList &defData, int startIndex);
+    static QStringList collect_ecuflash_definition_body_lines(const QStringList& defData, int startIndex);
 
     /************************
      * Read logger def file
@@ -500,12 +506,12 @@ public:
      *****************************************************/
     QString convert_value_format(QString value_format);
     ConfigValuesStructure *create_ecuflash_def_id_list(ConfigValuesStructure *configValues);
-    //EcuCalDefStructure *read_ecuflash_ecu_base_def(FileActions::EcuCalDefStructure *ecuCalDef);
+    // EcuCalDefStructure *read_ecuflash_ecu_base_def(FileActions::EcuCalDefStructure *ecuCalDef);
     EcuCalDefStructure *read_ecuflash_ecu_def(FileActions::EcuCalDefStructure *ecuCalDef, QString cal_id);
     EcuCalDefStructure *parse_ecuflash_def_scalings(EcuCalDefStructure *ecuCalDef);
     EcuCalDefStructure *add_ecuflash_def_list_item(EcuCalDefStructure *ecuCalDef);
 
-    //EcuCalDefStructure *read_ecuflash_ecu_def_test(FileActions::EcuCalDefStructure *ecuCalDef, QString cal_id);
+    // EcuCalDefStructure *read_ecuflash_ecu_def_test(FileActions::EcuCalDefStructure *ecuCalDef, QString cal_id);
 
     QString parse_hex_ecuid(uint8_t byte);
     EcuCalDefStructure *parse_ecuid_ecuflash_def_files(FileActions::EcuCalDefStructure *ecuCalDef, bool is_ascii);
@@ -558,17 +564,15 @@ public:
      *************************************************/
     static QString parse_dtc_message(uint16_t dtc);
 
-private:
+  private:
     QDir copyConfigFromDirectory;
     QDir copyKernelsFromDirectory;
 
-signals:
+  signals:
     void LOG_E(QString message, bool timestamp, bool linefeed);
     void LOG_W(QString message, bool timestamp, bool linefeed);
     void LOG_I(QString message, bool timestamp, bool linefeed);
     void LOG_D(QString message, bool timestamp, bool linefeed);
-
-
 };
 
 #endif // FILE_ACTIONS_H

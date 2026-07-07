@@ -7,7 +7,8 @@
 #include <vector>
 
 #include "protocol/mut_dma_freeform.h"
-namespace mutdma {
+namespace mutdma
+{
 // Max payload bytes per 0x87/3 write frame: 48 payload bytes minus
 // [subHi,subLo,addrHi,addrLo,size] = 5 header bytes => 43.
 constexpr int MAX_WRITE_CHUNK = 43;
@@ -20,4 +21,4 @@ std::vector<MutDmaFrame> buildWriteFrames(std::uint16_t addr, bytes::ByteView by
 QVector<Channel> planReadChannels(std::uint16_t addr, int len);
 // Concatenate the low byte of each decoded 1-byte channel value into a buffer.
 bytes::Bytes reassembleRead(const QVector<std::uint32_t>& values);
-}
+} // namespace mutdma

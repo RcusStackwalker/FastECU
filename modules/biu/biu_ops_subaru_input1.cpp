@@ -40,9 +40,7 @@ BiuOpsSubaruInput1::BiuOpsSubaruInput1(QByteArray *biu_tt_result, QWidget *paren
         ui->label_3->hide();
     }
 
-
     connect(ui->send_setting, SIGNAL(clicked(bool)), this, SLOT(prepare_biu_setting1()));
-
 }
 
 BiuOpsSubaruInput1::~BiuOpsSubaruInput1()
@@ -55,8 +53,8 @@ void BiuOpsSubaruInput1::prepare_biu_setting1()
 
     output.append(ui->light_delay_combo->currentIndex());
     output.append(ui->autolock_combo->currentIndex() + 2);
-    if(biu_tt_result->length() == 3) output.append(ui->outtemp_combo->currentIndex());
+    if (biu_tt_result->length() == 3)
+        output.append(ui->outtemp_combo->currentIndex());
 
     emit send_biu_setting1(output);
-
 }

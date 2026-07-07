@@ -1,10 +1,11 @@
 #include "dtc_parser.h"
 
-namespace {
+namespace
+{
 
 QString defaultDtcMessage(uint16_t dtc)
 {
-    static const char prefixes[] = { 'P', 'C', 'B', 'U' };
+    static const char prefixes[] = {'P', 'C', 'B', 'U'};
     const int category = dtc >> 14;
     const uint16_t code = dtc & 0x3fff;
 
@@ -13,17 +14,18 @@ QString defaultDtcMessage(uint16_t dtc)
         .arg(code, 4, 16, QLatin1Char('0'));
 }
 
-}
+} // namespace
 
 QString DtcParser::parse(uint16_t dtc,
-                         const QHash<int, QString> &pCodes,
-                         const QHash<int, QString> &cCodes,
-                         const QHash<int, QString> &bCodes,
-                         const QHash<int, QString> &uCodes)
+                         const QHash<int, QString>& pCodes,
+                         const QHash<int, QString>& cCodes,
+                         const QHash<int, QString>& bCodes,
+                         const QHash<int, QString>& uCodes)
 {
     const QString fallback = defaultDtcMessage(dtc);
 
-    switch (dtc >> 14) {
+    switch (dtc >> 14)
+    {
     case 0x00:
         return pCodes.value(dtc, fallback);
     case 0x01:

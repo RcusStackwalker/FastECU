@@ -9,7 +9,7 @@
 QT_BEGIN_NAMESPACE
 namespace Ui
 {
-    class BiuOpsSubaruInput1Window;
+class BiuOpsSubaruInput1Window;
 }
 QT_END_NAMESPACE
 
@@ -17,20 +17,20 @@ class BiuOpsSubaruInput1 : public QWidget
 {
     Q_OBJECT
 
-public:
+  public:
     explicit BiuOpsSubaruInput1(QByteArray *biu_tt_result, QWidget *parent = nullptr);
     ~BiuOpsSubaruInput1();
 
-private:
+  private:
     QByteArray *biu_tt_result;
 
-private slots:
+  private slots:
     void prepare_biu_setting1();
 
-signals:
+  signals:
     void send_biu_setting1(QByteArray output);
 
-private:
+  private:
     std::unique_ptr<Ui::BiuOpsSubaruInput1Window> ui;
 };
 

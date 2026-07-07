@@ -2,9 +2,9 @@
 
 SystemLogger::SystemLogger(QString file_path, QString software_name, QString software_version, QObject *parent)
     : QObject(parent),
-    file_path(file_path),
-    software_name(software_name),
-    software_version(software_version)
+      file_path(file_path),
+      software_name(software_name),
+      software_version(software_version)
 {
     QObject::connect(this, &SystemLogger::LOG_E, this, &SystemLogger::log_messages);
     QObject::connect(this, &SystemLogger::LOG_W, this, &SystemLogger::log_messages);
@@ -43,7 +43,7 @@ void SystemLogger::log_messages(QString message, bool timestamp, bool linefeed)
     else
         return;
 
-    //qDebug() << "metaMethod.name:" << metaMethod.name();
+    // qDebug() << "metaMethod.name:" << metaMethod.name();
 
     // Check if timestamp added
     if (timestamp)
@@ -71,13 +71,13 @@ void SystemLogger::log_messages(QString message, bool timestamp, bool linefeed)
     if (metaMethod.name() != "LOG_D")
         emit send_message_to_log_window(msg);
 
-    if(write_syslog_to_file)
+    if (write_syslog_to_file)
         write_syslog(msg);
 }
 
 bool SystemLogger::write_syslog(QString msg)
 {
-    //Open file for writing if needed
+    // Open file for writing if needed
     if (!syslog_file_open)
     {
         QDateTime dateTime = dateTime.currentDateTime();
@@ -90,7 +90,7 @@ bool SystemLogger::write_syslog(QString msg)
 
         syslog_file.setFileName(syslog_file_name);
 
-        //qDebug() << "Create logfile: " << syslog_file_name;
+        // qDebug() << "Create logfile: " << syslog_file_name;
         if (!syslog_file.open(QIODevice::WriteOnly))
         {
             qDebug() << "Cannot open log file for writing";

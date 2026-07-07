@@ -18,17 +18,17 @@ SerialBackendHost::~SerialBackendHost()
     {
         SerialBackend *b = m_backend;
         m_backend = nullptr;
-        QMetaObject::invokeMethod(m_context, [b] { delete b; },
-                                  Qt::BlockingQueuedConnection);
+        QMetaObject::invokeMethod(m_context, [b]
+                                  { delete b; }, Qt::BlockingQueuedConnection);
     }
     m_thread.quit();
     m_thread.wait();
-    delete m_context;   // safe: its thread has finished
+    delete m_context; // safe: its thread has finished
 }
 
-SerialBackend *SerialBackendHost::createBackend(const std::function<SerialBackend *()> &factory)
+SerialBackend *SerialBackendHost::createBackend(const std::function<SerialBackend *()>& factory)
 {
-    QMetaObject::invokeMethod(m_context, [this, &factory] { m_backend = factory(); },
-                              Qt::BlockingQueuedConnection);
+    QMetaObject::invokeMethod(m_context, [this, &factory]
+                              { m_backend = factory(); }, Qt::BlockingQueuedConnection);
     return m_backend;
 }

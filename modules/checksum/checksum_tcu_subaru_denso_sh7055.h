@@ -6,14 +6,13 @@
 
 class ChecksumTcuSubaruDensoSH7055
 {
-public:
+  public:
     ChecksumTcuSubaruDensoSH7055();
     ~ChecksumTcuSubaruDensoSH7055();
 
     static QByteArray calculate_checksum(QByteArray romData);
 
-private:
-
+  private:
 };
 
 #endif // CHECKSUM_TCU_SUBARU_DENSO_SH7055_H

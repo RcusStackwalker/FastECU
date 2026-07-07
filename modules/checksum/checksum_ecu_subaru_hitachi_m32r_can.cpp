@@ -2,12 +2,10 @@
 
 ChecksumEcuSubaruHitachiM32rCan::ChecksumEcuSubaruHitachiM32rCan()
 {
-
 }
 
 ChecksumEcuSubaruHitachiM32rCan::~ChecksumEcuSubaruHitachiM32rCan()
 {
-
 }
 
 QByteArray ChecksumEcuSubaruHitachiM32rCan::calculate_checksum(QByteArray romData)
@@ -59,8 +57,8 @@ QByteArray ChecksumEcuSubaruHitachiM32rCan::calculate_checksum(QByteArray romDat
         checksum_1_value_calculated += ((uint8_t)romData.at(i) << 24) + ((uint8_t)romData.at(i + 1) << 16) + ((uint8_t)romData.at(i + 2) << 8) + (uint8_t)romData.at(i + 3);
         checksum_2_value_calculated ^= ((uint8_t)romData.at(i) << 24) + ((uint8_t)romData.at(i + 1) << 16) + ((uint8_t)romData.at(i + 2) << 8) + (uint8_t)romData.at(i + 3);
     }
-    checksum_1_value_stored = ((uint8_t)romData.at(checksum_1_value_address) << 24) + ((uint8_t)romData.at(checksum_1_value_address+1) << 16) + ((uint8_t)romData.at(checksum_1_value_address+2) << 8) + (uint8_t)romData.at(checksum_1_value_address+3);
-    checksum_2_value_stored = ((uint8_t)romData.at(checksum_2_value_address) << 24) + ((uint8_t)romData.at(checksum_2_value_address+1) << 16) + ((uint8_t)romData.at(checksum_2_value_address+2) << 8) + (uint8_t)romData.at(checksum_2_value_address+3);
+    checksum_1_value_stored = ((uint8_t)romData.at(checksum_1_value_address) << 24) + ((uint8_t)romData.at(checksum_1_value_address + 1) << 16) + ((uint8_t)romData.at(checksum_1_value_address + 2) << 8) + (uint8_t)romData.at(checksum_1_value_address + 3);
+    checksum_2_value_stored = ((uint8_t)romData.at(checksum_2_value_address) << 24) + ((uint8_t)romData.at(checksum_2_value_address + 1) << 16) + ((uint8_t)romData.at(checksum_2_value_address + 2) << 8) + (uint8_t)romData.at(checksum_2_value_address + 3);
     if (checksum_1_value_calculated != checksum_1_value_stored)
     {
         qDebug() << "Checksum 1 value mismatch!";
@@ -110,8 +108,8 @@ QByteArray ChecksumEcuSubaruHitachiM32rCan::calculate_checksum(QByteArray romDat
             checksum_4_value_calculated ^= ((uint8_t)romData.at(i) << 24) + ((uint8_t)romData.at(i + 1) << 16) + ((uint8_t)romData.at(i + 2) << 8) + (uint8_t)romData.at(i + 3);
         }
     }
-    checksum_3_value_stored = ((uint8_t)romData.at(checksum_3_value_address) << 24) + ((uint8_t)romData.at(checksum_3_value_address+1) << 16) + ((uint8_t)romData.at(checksum_3_value_address+2) << 8) + (uint8_t)romData.at(checksum_3_value_address+3);
-    checksum_4_value_stored = ((uint8_t)romData.at(checksum_4_value_address) << 24) + ((uint8_t)romData.at(checksum_4_value_address+1) << 16) + ((uint8_t)romData.at(checksum_4_value_address+2) << 8) + (uint8_t)romData.at(checksum_4_value_address+3);
+    checksum_3_value_stored = ((uint8_t)romData.at(checksum_3_value_address) << 24) + ((uint8_t)romData.at(checksum_3_value_address + 1) << 16) + ((uint8_t)romData.at(checksum_3_value_address + 2) << 8) + (uint8_t)romData.at(checksum_3_value_address + 3);
+    checksum_4_value_stored = ((uint8_t)romData.at(checksum_4_value_address) << 24) + ((uint8_t)romData.at(checksum_4_value_address + 1) << 16) + ((uint8_t)romData.at(checksum_4_value_address + 2) << 8) + (uint8_t)romData.at(checksum_4_value_address + 3);
     if (checksum_3_value_calculated != checksum_3_value_stored)
     {
         qDebug() << "Checksum 3 value mismatch!";
@@ -158,7 +156,7 @@ QByteArray ChecksumEcuSubaruHitachiM32rCan::calculate_checksum(QByteArray romDat
         if (i < 0x10000 || i > 0x10003)
             checksum_5_value_calculated += ((uint8_t)romData.at(i) << 24) + ((uint8_t)romData.at(i + 1) << 16) + ((uint8_t)romData.at(i + 2) << 8) + (uint8_t)romData.at(i + 3);
     }
-    checksum_5_balance_value_stored = ((uint8_t)romData.at(checksum_5_balance_value_address) << 8) + (uint8_t)romData.at(checksum_5_balance_value_address+1);
+    checksum_5_balance_value_stored = ((uint8_t)romData.at(checksum_5_balance_value_address) << 8) + (uint8_t)romData.at(checksum_5_balance_value_address + 1);
 
     if (checksum_5_value_calculated != 0x5aa5)
     {
@@ -169,13 +167,13 @@ QByteArray ChecksumEcuSubaruHitachiM32rCan::calculate_checksum(QByteArray romDat
         uint16_t balance_value = (uint16_t)(romData.at(checksum_5_balance_value_address) << 8) + (uint16_t)(romData.at(checksum_5_balance_value_address + 1));
 
         msg.clear();
-        msg.append(QString("Balance value before: 0x%1").arg(balance_value,4,16,QLatin1Char('0')).toUtf8());
+        msg.append(QString("Balance value before: 0x%1").arg(balance_value, 4, 16, QLatin1Char('0')).toUtf8());
         qDebug() << msg;
 
         balance_value += 0x5aa5 - checksum_5_value_calculated;
 
         msg.clear();
-        msg.append(QString("Balance value after: 0x%1").arg(balance_value,4,16,QLatin1Char('0')).toUtf8());
+        msg.append(QString("Balance value after: 0x%1").arg(balance_value, 4, 16, QLatin1Char('0')).toUtf8());
         qDebug() << msg;
 
         balance_value_array.append((uint8_t)((balance_value >> 8) & 0xff));
@@ -205,59 +203,59 @@ QByteArray ChecksumEcuSubaruHitachiM32rCan::calculate_checksum(QByteArray romDat
     checksum_6_value_stored = ((uint8_t)romData.at(checksum_6_value_address) << 8) + (uint8_t)romData.at(checksum_6_value_address + 1);
     if (checksum_6_value_calculated != checksum_6_value_stored)
     {
-        //qDebug() << "Checksum 6 balance value mismatch!";
+        // qDebug() << "Checksum 6 balance value mismatch!";
         checksum_ok = false;
 
         QByteArray checksum;
         checksum.append((uint8_t)(checksum_6_value_calculated >> 8));
         checksum.append((uint8_t)checksum_6_value_calculated);
-        //romData.replace(checksum_6_value_address, checksum.length(), checksum);
+        // romData.replace(checksum_6_value_address, checksum.length(), checksum);
     }
     else
     {
-        //qDebug() << "Subaru Hitachi M32R K-Line/CAN ECU checksum 6 balance value OK";
+        // qDebug() << "Subaru Hitachi M32R K-Line/CAN ECU checksum 6 balance value OK";
     }
 
     msg.clear();
-    msg.append(QString("Checksum 1 value calculated 0x7ffe8: 0x%1").arg(checksum_1_value_calculated,8,16,QLatin1Char('0')).toUtf8());
+    msg.append(QString("Checksum 1 value calculated 0x7ffe8: 0x%1").arg(checksum_1_value_calculated, 8, 16, QLatin1Char('0')).toUtf8());
     qDebug() << msg;
     msg.clear();
-    msg.append(QString("Checksum 1 value stored 0x7ffe8: 0x%1").arg(checksum_1_value_stored,8,16,QLatin1Char('0')).toUtf8());
-    qDebug() << msg;
-
-    msg.clear();
-    msg.append(QString("Checksum 2 value calculated 0x7ffec: 0x%1").arg(checksum_2_value_calculated,8,16,QLatin1Char('0')).toUtf8());
-    qDebug() << msg;
-    msg.clear();
-    msg.append(QString("Checksum 2 value stored 0x7ffec: 0x%1").arg(checksum_2_value_stored,8,16,QLatin1Char('0')).toUtf8());
+    msg.append(QString("Checksum 1 value stored 0x7ffe8: 0x%1").arg(checksum_1_value_stored, 8, 16, QLatin1Char('0')).toUtf8());
     qDebug() << msg;
 
     msg.clear();
-    msg.append(QString("Checksum 3 value calculated 0x7fff0: 0x%1").arg(checksum_3_value_calculated,8,16,QLatin1Char('0')).toUtf8());
+    msg.append(QString("Checksum 2 value calculated 0x7ffec: 0x%1").arg(checksum_2_value_calculated, 8, 16, QLatin1Char('0')).toUtf8());
     qDebug() << msg;
     msg.clear();
-    msg.append(QString("Checksum 3 value stored 0x7fff0: 0x%1").arg(checksum_3_value_stored,8,16,QLatin1Char('0')).toUtf8());
-    qDebug() << msg;
-
-    msg.clear();
-    msg.append(QString("Checksum 4 value calculated 0x7fff4: 0x%1").arg(checksum_4_value_calculated,8,16,QLatin1Char('0')).toUtf8());
-    qDebug() << msg;
-    msg.clear();
-    msg.append(QString("Checksum 4 value stored 0x7fff4: 0x%1").arg(checksum_4_value_stored,8,16,QLatin1Char('0')).toUtf8());
+    msg.append(QString("Checksum 2 value stored 0x7ffec: 0x%1").arg(checksum_2_value_stored, 8, 16, QLatin1Char('0')).toUtf8());
     qDebug() << msg;
 
     msg.clear();
-    msg.append(QString("Checksum 5 calculated: 0x%1").arg(checksum_5_value_calculated,4,16,QLatin1Char('0')).toUtf8());
+    msg.append(QString("Checksum 3 value calculated 0x7fff0: 0x%1").arg(checksum_3_value_calculated, 8, 16, QLatin1Char('0')).toUtf8());
     qDebug() << msg;
     msg.clear();
-    msg.append(QString("Checksum 5 balance value stored 0x7fffa: 0x%1").arg(checksum_5_balance_value_stored,4,16,QLatin1Char('0')).toUtf8());
+    msg.append(QString("Checksum 3 value stored 0x7fff0: 0x%1").arg(checksum_3_value_stored, 8, 16, QLatin1Char('0')).toUtf8());
     qDebug() << msg;
 
     msg.clear();
-    msg.append(QString("Checksum 6 value calculated 0x10000: 0x%1").arg(checksum_6_value_calculated,4,16,QLatin1Char('0')).toUtf8());
+    msg.append(QString("Checksum 4 value calculated 0x7fff4: 0x%1").arg(checksum_4_value_calculated, 8, 16, QLatin1Char('0')).toUtf8());
     qDebug() << msg;
     msg.clear();
-    msg.append(QString("Checksum 6 value stored 0x10000: 0x%1").arg(checksum_6_value_stored,4,16,QLatin1Char('0')).toUtf8());
+    msg.append(QString("Checksum 4 value stored 0x7fff4: 0x%1").arg(checksum_4_value_stored, 8, 16, QLatin1Char('0')).toUtf8());
+    qDebug() << msg;
+
+    msg.clear();
+    msg.append(QString("Checksum 5 calculated: 0x%1").arg(checksum_5_value_calculated, 4, 16, QLatin1Char('0')).toUtf8());
+    qDebug() << msg;
+    msg.clear();
+    msg.append(QString("Checksum 5 balance value stored 0x7fffa: 0x%1").arg(checksum_5_balance_value_stored, 4, 16, QLatin1Char('0')).toUtf8());
+    qDebug() << msg;
+
+    msg.clear();
+    msg.append(QString("Checksum 6 value calculated 0x10000: 0x%1").arg(checksum_6_value_calculated, 4, 16, QLatin1Char('0')).toUtf8());
+    qDebug() << msg;
+    msg.clear();
+    msg.append(QString("Checksum 6 value stored 0x10000: 0x%1").arg(checksum_6_value_stored, 4, 16, QLatin1Char('0')).toUtf8());
     qDebug() << msg;
 
     if (!checksum_ok)

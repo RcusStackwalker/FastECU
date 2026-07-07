@@ -5,7 +5,8 @@
 
 void MainWindow::menu_action_triggered(QString action)
 {
-    switch (menu_command_from_id(action)) {
+    switch (menu_command_from_id(action))
+    {
     case MenuCommand::New:
         qDebug() << action;
         break;
@@ -105,33 +106,32 @@ void MainWindow::menu_action_triggered(QString action)
         show_terminal_window();
         break;
     case MenuCommand::About:
-        QMessageBox::information(this, tr("FastECU"),       "FastECU is open source tuning software for Subaru ECUs,\n"
-                                                            "TCUs and also modifying BIU and ECUs of other car makes.\n"
-                                                            "\n"
-                                                            "This is beta test version for read and write ROMs via\n"
-                                                            "K-Line and CAN connection with Open Port 2.0 or generic\n"
-                                                            "OBD2 cable. Software is tested in Win7/Win10 32/64bit\n"
-                                                            "and Linux amd64 and aarch64 platforms.\n"
-                                                            "\n"
-                                                            "There WILL be bugs and things that don't work. Be patient\n"
-                                                            "with new versions relesed.\n"
-                                                            "\n"
-                                                            "All liability lies with the user. We are not responsible any\n"
-                                                            "harm, laws broken or bricked ECUs that can follow for using\n"
-                                                            "this software.\n"
-                                                            "\n"
-                                                            "\n"
-                                                            "Huge thanks to following:\n"
-                                                            "\n"
-                                                            "fenugrec - author of nisprog software\n"
-                                                            "rimwall - modifier of nisprog kernels for Subaru use\n"
-                                                            "SergArb - testing and software development\n"
-                                                            "alesv - testing and software development\n"
-                                                            "jimihimisimi - testing and software development\n"
-                                                            "\n"
-                                                            "...and to all of you who had support software development by\n"
-                                                            "donating! All, even the smallest amount of donates are welcome!\n"
-                                 );
+        QMessageBox::information(this, tr("FastECU"), "FastECU is open source tuning software for Subaru ECUs,\n"
+                                                      "TCUs and also modifying BIU and ECUs of other car makes.\n"
+                                                      "\n"
+                                                      "This is beta test version for read and write ROMs via\n"
+                                                      "K-Line and CAN connection with Open Port 2.0 or generic\n"
+                                                      "OBD2 cable. Software is tested in Win7/Win10 32/64bit\n"
+                                                      "and Linux amd64 and aarch64 platforms.\n"
+                                                      "\n"
+                                                      "There WILL be bugs and things that don't work. Be patient\n"
+                                                      "with new versions relesed.\n"
+                                                      "\n"
+                                                      "All liability lies with the user. We are not responsible any\n"
+                                                      "harm, laws broken or bricked ECUs that can follow for using\n"
+                                                      "this software.\n"
+                                                      "\n"
+                                                      "\n"
+                                                      "Huge thanks to following:\n"
+                                                      "\n"
+                                                      "fenugrec - author of nisprog software\n"
+                                                      "rimwall - modifier of nisprog kernels for Subaru use\n"
+                                                      "SergArb - testing and software development\n"
+                                                      "alesv - testing and software development\n"
+                                                      "jimihimisimi - testing and software development\n"
+                                                      "\n"
+                                                      "...and to all of you who had support software development by\n"
+                                                      "donating! All, even the smallest amount of donates are welcome!\n");
         break;
     case MenuCommand::Unknown:
         qWarning() << "Unhandled menu action:" << action;
@@ -141,7 +141,8 @@ void MainWindow::menu_action_triggered(QString action)
 
 void MainWindow::inc_dec_value(QString action)
 {
-    union map_data{
+    union map_data
+    {
         int8_t sbyte_value[4];
         int16_t sword_value[2];
         int32_t sdword_value;
@@ -157,8 +158,8 @@ void MainWindow::inc_dec_value(QString action)
     QString map_type = "";
     bool bStatus;
 
-    //qDebug() << "Inc/dec value:" << action;
-    QMdiSubWindow* w = ui->mdiArea->activeSubWindow();
+    // qDebug() << "Inc/dec value:" << action;
+    QMdiSubWindow *w = ui->mdiArea->activeSubWindow();
     if (w)
     {
         QStringList mapWindowString = w->objectName().split(",");
@@ -167,7 +168,7 @@ void MainWindow::inc_dec_value(QString action)
         map_name = mapWindowString.at(2);
         map_type = mapWindowString.at(3);
 
-        QTableWidget* mapTableWidget = w->findChild<QTableWidget*>(w->objectName());
+        QTableWidget *mapTableWidget = w->findChild<QTableWidget *>(w->objectName());
         if (mapTableWidget)
         {
             emit LOG_D("Map " + ecuCalDef[rom_number]->NameList.at(map_number) + " scaling " + ecuCalDef[rom_number]->MapScalingNameList.at(map_number) + " min / max: " + ecuCalDef[rom_number]->MinValueList.at(map_number) + " / " + ecuCalDef[rom_number]->MaxValueList.at(map_number), true, true);
@@ -193,7 +194,8 @@ void MainWindow::inc_dec_value(QString action)
                 int last_col = selected_range.begin()->rightColumn() - 1;
                 int last_row = selected_range.begin()->bottomRow() - 1;
 
-                if (selected_range.begin()->leftColumn() == 0 && mapYSize > 1){
+                if (selected_range.begin()->leftColumn() == 0 && mapYSize > 1)
+                {
                     if (ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static Y Axis" || ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static X Axis")
                         return;
                     map_data_cell_text = ecuCalDef[rom_number]->YScaleData.at(map_number).split(",");
@@ -211,7 +213,8 @@ void MainWindow::inc_dec_value(QString action)
                     last_col++;
                     mapXSize = 1;
                 }
-                else if (selected_range.begin()->topRow() == 0 && mapXSize > 1){
+                else if (selected_range.begin()->topRow() == 0 && mapXSize > 1)
+                {
                     if (ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static Y Axis" || ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static X Axis")
                         return;
                     map_data_cell_text = ecuCalDef[rom_number]->XScaleData.at(map_number).split(",");
@@ -228,12 +231,15 @@ void MainWindow::inc_dec_value(QString action)
                     first_row++;
                     last_row++;
                 }
-                else{
-                    if (mapXSize == 1 && ecuCalDef[rom_number]->XScaleTypeList.at(map_number) != "Static Y Axis" && ecuCalDef[rom_number]->XScaleTypeList.at(map_number) != "Static X Axis") {
+                else
+                {
+                    if (mapXSize == 1 && ecuCalDef[rom_number]->XScaleTypeList.at(map_number) != "Static Y Axis" && ecuCalDef[rom_number]->XScaleTypeList.at(map_number) != "Static X Axis")
+                    {
                         first_row++;
                         last_row++;
                     }
-                    if (mapYSize == 1) {
+                    if (mapYSize == 1)
+                    {
                         first_col++;
                         last_col++;
                     }
@@ -251,7 +257,8 @@ void MainWindow::inc_dec_value(QString action)
 
                         map_data_value.float_value = 0;
 
-                        do {
+                        do
+                        {
                             if (map_coarse_inc_value == 0 || map_fine_inc_value == 0)
                                 QMessageBox::warning(this, tr("Set value"), "Fine / Coarse inc value not set or set to zero in definition file!");
 
@@ -264,7 +271,8 @@ void MainWindow::inc_dec_value(QString action)
                             if (action == "fine_dec")
                                 map_item_value -= map_fine_inc_value;
 
-                            if (map_min_value != " " && map_item_value < map_min_value.toFloat()) {
+                            if (map_min_value != " " && map_item_value < map_min_value.toFloat())
+                            {
                                 map_item_value = map_min_value.toFloat();
                                 new_rom_data_value = QString::number(fileActions->calculate_value_from_expression(fileActions->parse_stringlist_from_expression_string(map_value_to_byte, QString::number(map_item_value))));
                                 map_data_value.dword_value = new_rom_data_value.toUInt();
@@ -274,7 +282,8 @@ void MainWindow::inc_dec_value(QString action)
                                     new_rom_data_value = QString::number(qRound(new_rom_data_value.toFloat()));
                                 break;
                             }
-                            if (map_max_value != " " && map_item_value > map_max_value.toFloat()) {
+                            if (map_max_value != " " && map_item_value > map_max_value.toFloat())
+                            {
                                 map_item_value = map_max_value.toFloat();
                                 new_rom_data_value = QString::number(fileActions->calculate_value_from_expression(fileActions->parse_stringlist_from_expression_string(map_value_to_byte, QString::number(map_item_value))));
                                 map_data_value.dword_value = new_rom_data_value.toUInt();
@@ -291,34 +300,43 @@ void MainWindow::inc_dec_value(QString action)
                                 map_data_value.dword_value = (uint32_t)(qRound(map_data_value.float_value));
                             else
                                 new_rom_data_value = QString::number(qRound(new_rom_data_value.toFloat()));
-                            if (map_value_storagetype.startsWith("uint")) {
-                                if (map_value_storagetype == "uint8" && new_rom_data_value.toUInt() > 0xff) {
+                            if (map_value_storagetype.startsWith("uint"))
+                            {
+                                if (map_value_storagetype == "uint8" && new_rom_data_value.toUInt() > 0xff)
+                                {
                                     new_rom_data_value = rom_data_value;
                                     break;
                                 }
-                                else if (map_value_storagetype == "uint16" && new_rom_data_value.toUInt() > 0xffff) {
+                                else if (map_value_storagetype == "uint16" && new_rom_data_value.toUInt() > 0xffff)
+                                {
                                     new_rom_data_value = rom_data_value;
                                     break;
                                 }
-                                else if (map_value_storagetype == "uint32" && new_rom_data_value.toUInt() > 0xffffffff) {
+                                else if (map_value_storagetype == "uint32" && new_rom_data_value.toUInt() > 0xffffffff)
+                                {
                                     new_rom_data_value = rom_data_value;
                                     break;
                                 }
-                                if (new_rom_data_value.toInt() < 0) {
+                                if (new_rom_data_value.toInt() < 0)
+                                {
                                     new_rom_data_value = rom_data_value;
                                     break;
                                 }
                             }
-                            if (map_value_storagetype.startsWith("int")) {
-                                if (map_value_storagetype == "int8" && ((rom_data_value.toUInt() <= 0x7f && new_rom_data_value.toUInt() > 0x7f) || ((uint8_t)rom_data_value.toInt() >= 0x80 && (uint8_t)new_rom_data_value.toInt() < 0x80 && new_rom_data_value.toInt() != 0x00))) {
+                            if (map_value_storagetype.startsWith("int"))
+                            {
+                                if (map_value_storagetype == "int8" && ((rom_data_value.toUInt() <= 0x7f && new_rom_data_value.toUInt() > 0x7f) || ((uint8_t)rom_data_value.toInt() >= 0x80 && (uint8_t)new_rom_data_value.toInt() < 0x80 && new_rom_data_value.toInt() != 0x00)))
+                                {
                                     new_rom_data_value = rom_data_value;
                                     break;
                                 }
-                                else if (map_value_storagetype == "int16" && ((rom_data_value.toUInt() <= 0x7fff && new_rom_data_value.toUInt() > 0x7fff) || ((uint16_t)rom_data_value.toInt() >= 0x8000 && (uint16_t)new_rom_data_value.toInt() < 0x8000 && new_rom_data_value.toInt() != 0x00))) {
+                                else if (map_value_storagetype == "int16" && ((rom_data_value.toUInt() <= 0x7fff && new_rom_data_value.toUInt() > 0x7fff) || ((uint16_t)rom_data_value.toInt() >= 0x8000 && (uint16_t)new_rom_data_value.toInt() < 0x8000 && new_rom_data_value.toInt() != 0x00)))
+                                {
                                     new_rom_data_value = rom_data_value;
                                     break;
                                 }
-                                else if ((map_value_storagetype == "int32" || map_value_storagetype == "float") && ((rom_data_value.toUInt() <= 0x7fffffff && new_rom_data_value.toUInt() > 0x7fffffff) || ((uint32_t)rom_data_value.toInt() >= 0x80000000 && (uint32_t)new_rom_data_value.toInt() < 0x80000000 && new_rom_data_value.toInt() != 0x00))) {
+                                else if ((map_value_storagetype == "int32" || map_value_storagetype == "float") && ((rom_data_value.toUInt() <= 0x7fffffff && new_rom_data_value.toUInt() > 0x7fffffff) || ((uint32_t)rom_data_value.toInt() >= 0x80000000 && (uint32_t)new_rom_data_value.toInt() < 0x80000000 && new_rom_data_value.toInt() != 0x00)))
+                                {
                                     new_rom_data_value = rom_data_value;
                                     break;
                                 }
@@ -351,7 +369,8 @@ void MainWindow::inc_dec_value(QString action)
 
 void MainWindow::set_value()
 {
-    union map_data{
+    union map_data
+    {
         int8_t sbyte_value[4];
         int16_t sword_value[2];
         int32_t sdword_value;
@@ -367,7 +386,7 @@ void MainWindow::set_value()
     int map_number = 0;
     QString map_name = "";
 
-    QMdiSubWindow* w = ui->mdiArea->activeSubWindow();
+    QMdiSubWindow *w = ui->mdiArea->activeSubWindow();
     if (w)
     {
         QStringList mapWindowString = w->objectName().split(",");
@@ -375,16 +394,17 @@ void MainWindow::set_value()
         map_number = mapWindowString.at(1).toInt();
         map_name = mapWindowString.at(2);
 
-        QTableWidget* mapTableWidget = w->findChild<QTableWidget*>(w->objectName());
+        QTableWidget *mapTableWidget = w->findChild<QTableWidget *>(w->objectName());
         if (mapTableWidget)
         {
             QString text = QInputDialog::getText(this, tr("QInputDialog::getText()"),
-                                                       tr("Set value: (ie: x20 | +20 | -20 | /20 | 20)"),
-                                                       QLineEdit::Normal, "", &bStatus);
+                                                 tr("Set value: (ie: x20 | +20 | -20 | /20 | 20)"),
+                                                 QLineEdit::Normal, "", &bStatus);
 
             text.replace(",", ".");
 
-            if (bStatus && !text.isEmpty()){
+            if (bStatus && !text.isEmpty())
+            {
                 QStringList map_data_cell_text = ecuCalDef[rom_number]->MapData.at(map_number).split(",");
                 QString map_format = ecuCalDef[rom_number]->FormatList[map_number];
                 QString map_value_to_byte = ecuCalDef[rom_number]->ToByteList[map_number];
@@ -397,14 +417,16 @@ void MainWindow::set_value()
                 int map_x_size = ecuCalDef[rom_number]->XSizeList[map_number].toInt();
                 int map_y_size = ecuCalDef[rom_number]->YSizeList[map_number].toInt();
 
-                if (!mapTableWidget->selectedRanges().isEmpty()){
+                if (!mapTableWidget->selectedRanges().isEmpty())
+                {
                     QList<QTableWidgetSelectionRange> selected_range = mapTableWidget->selectedRanges();
                     int firstCol = selected_range.begin()->leftColumn() - 1;
                     int firstRow = selected_range.begin()->topRow() - 1;
                     int lastCol = selected_range.begin()->rightColumn() - 1;
                     int lastRow = selected_range.begin()->bottomRow() - 1;
 
-                    if (selected_range.begin()->leftColumn() == 0 && map_y_size > 1){
+                    if (selected_range.begin()->leftColumn() == 0 && map_y_size > 1)
+                    {
                         if (ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static Y Axis" || ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static X Axis")
                             return;
                         map_data_cell_text = ecuCalDef[rom_number]->YScaleData.at(map_number).split(",");
@@ -420,7 +442,8 @@ void MainWindow::set_value()
                         lastCol += 1;
                         map_x_size = 1;
                     }
-                    else if (selected_range.begin()->topRow() == 0 && map_x_size > 1){
+                    else if (selected_range.begin()->topRow() == 0 && map_x_size > 1)
+                    {
                         if (ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static Y Axis" || ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static X Axis")
                             return;
                         map_data_cell_text = ecuCalDef[rom_number]->XScaleData.at(map_number).split(",");
@@ -435,13 +458,16 @@ void MainWindow::set_value()
                         firstRow += 1;
                         lastRow += 1;
                     }
-                    else{
+                    else
+                    {
                         qDebug() << "x:" << map_x_size << "y:" << map_y_size;
-                        if (map_x_size == 1 && ecuCalDef[rom_number]->XScaleTypeList.at(map_number) != "Static Y Axis" && ecuCalDef[rom_number]->XScaleTypeList.at(map_number) != "Static X Axis") {
+                        if (map_x_size == 1 && ecuCalDef[rom_number]->XScaleTypeList.at(map_number) != "Static Y Axis" && ecuCalDef[rom_number]->XScaleTypeList.at(map_number) != "Static X Axis")
+                        {
                             firstRow++;
                             lastRow++;
                         }
-                        if (map_y_size == 1) {
+                        if (map_y_size == 1)
+                        {
                             firstCol++;
                             lastCol++;
                         }
@@ -456,19 +482,23 @@ void MainWindow::set_value()
                             uint16_t map_value_index = j * map_x_size + i;
                             QString rom_data_value = get_rom_data_value(rom_number, map_data_address, map_value_index, map_value_storagetype, map_value_endian);
 
-                            if (text.at(0) == '+'){
+                            if (text.at(0) == '+')
+                            {
                                 QStringList mapItemText = text.split("+");
                                 map_item_value = map_item_value + mapItemText[1].toFloat();
                             }
-                            else if (text.at(0) == '-'){
+                            else if (text.at(0) == '-')
+                            {
                                 QStringList mapItemText = text.split("-");
                                 map_item_value = map_item_value - mapItemText[1].toFloat();
                             }
-                            else if (text.at(0) == '*'){
+                            else if (text.at(0) == '*')
+                            {
                                 QStringList mapItemText = text.split("*");
                                 map_item_value = map_item_value * mapItemText[1].toFloat();
                             }
-                            else if (text.at(0) == '/'){
+                            else if (text.at(0) == '/')
+                            {
                                 QStringList mapItemText = text.split("/");
                                 if (mapItemText[1].toFloat() == 0)
                                     QMessageBox::warning(this, tr("Set value"), "Cannot divide by zero!");
@@ -514,7 +544,8 @@ void MainWindow::set_value()
 
 void MainWindow::interpolate_value(QString action)
 {
-    union map_data{
+    union map_data
+    {
         int8_t sbyte_value[4];
         int16_t sword_value[2];
         int32_t sdword_value;
@@ -530,7 +561,7 @@ void MainWindow::interpolate_value(QString action)
     int map_number = 0;
     QString map_name = "";
 
-    QMdiSubWindow* w = ui->mdiArea->activeSubWindow();
+    QMdiSubWindow *w = ui->mdiArea->activeSubWindow();
     if (w)
     {
         QStringList mapWindowString = w->objectName().split(",");
@@ -538,7 +569,7 @@ void MainWindow::interpolate_value(QString action)
         map_number = mapWindowString.at(1).toInt();
         map_name = mapWindowString.at(2);
 
-        QTableWidget* mapTableWidget = w->findChild<QTableWidget*>(w->objectName());
+        QTableWidget *mapTableWidget = w->findChild<QTableWidget *>(w->objectName());
         if (mapTableWidget)
         {
             QStringList map_data_cell_text = ecuCalDef[rom_number]->MapData.at(map_number).split(",");
@@ -553,14 +584,16 @@ void MainWindow::interpolate_value(QString action)
             int map_x_size = ecuCalDef[rom_number]->XSizeList[map_number].toInt();
             int map_y_size = ecuCalDef[rom_number]->YSizeList[map_number].toInt();
 
-            if (!mapTableWidget->selectedRanges().isEmpty()){
+            if (!mapTableWidget->selectedRanges().isEmpty())
+            {
                 QList<QTableWidgetSelectionRange> selected_range = mapTableWidget->selectedRanges();
                 int firstCol = selected_range.begin()->leftColumn() - 1;
                 int firstRow = selected_range.begin()->topRow() - 1;
                 int lastCol = selected_range.begin()->rightColumn() - 1;
                 int lastRow = selected_range.begin()->bottomRow() - 1;
 
-                if (selected_range.begin()->leftColumn() == 0 && map_y_size > 1){
+                if (selected_range.begin()->leftColumn() == 0 && map_y_size > 1)
+                {
                     if (ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static Y Axis" || ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static X Axis")
                         return;
                     map_data_cell_text = ecuCalDef[rom_number]->YScaleData.at(map_number).split(",");
@@ -576,7 +609,8 @@ void MainWindow::interpolate_value(QString action)
                     lastCol += 1;
                     map_x_size = 1;
                 }
-                else if (selected_range.begin()->topRow() == 0 && map_x_size > 1){
+                else if (selected_range.begin()->topRow() == 0 && map_x_size > 1)
+                {
                     if (ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static Y Axis" || ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static X Axis")
                         return;
                     map_data_cell_text = ecuCalDef[rom_number]->XScaleData.at(map_number).split(",");
@@ -591,12 +625,15 @@ void MainWindow::interpolate_value(QString action)
                     firstRow += 1;
                     lastRow += 1;
                 }
-                else{
-                    if (map_x_size == 1 && ecuCalDef[rom_number]->XScaleTypeList.at(map_number) != "Static Y Axis" && ecuCalDef[rom_number]->XScaleTypeList.at(map_number) != "Static X Axis") {
+                else
+                {
+                    if (map_x_size == 1 && ecuCalDef[rom_number]->XScaleTypeList.at(map_number) != "Static Y Axis" && ecuCalDef[rom_number]->XScaleTypeList.at(map_number) != "Static X Axis")
+                    {
                         firstRow++;
                         lastRow++;
                     }
-                    if (map_y_size == 1) {
+                    if (map_y_size == 1)
+                    {
                         firstCol++;
                         lastCol++;
                     }
@@ -605,7 +642,7 @@ void MainWindow::interpolate_value(QString action)
                 int interpolateColCount = lastCol - firstCol + 1;
                 int interpolateRowCount = lastRow - firstRow + 1;
                 float cellValue[128][128];
-                //float cellValue[interpolateColCount][interpolateRowCount];
+                // float cellValue[interpolateColCount][interpolateRowCount];
 
                 float topLeftValue = map_data_cell_text.at(firstRow * map_x_size + firstCol).toFloat();
                 float topRightValue = map_data_cell_text.at(firstRow * map_x_size + lastCol).toFloat();
@@ -616,56 +653,70 @@ void MainWindow::interpolate_value(QString action)
                 float rightRowAdder = 0;
                 float colAdder = 0;
                 float rowAdder = 0;
-                if (interpolateRowCount > 1){
+                if (interpolateRowCount > 1)
+                {
                     leftRowAdder = (bottomLeftValue - topLeftValue) / (float)(interpolateRowCount - 1);
                     rightRowAdder = (bottomRightValue - topRightValue) / (float)(interpolateRowCount - 1);
                 }
-                for (int j = 0; j < interpolateRowCount; j++){
-                    for (int i = 0; i < interpolateColCount; i++){
+                for (int j = 0; j < interpolateRowCount; j++)
+                {
+                    for (int i = 0; i < interpolateColCount; i++)
+                    {
                         cellValue[i][j] = map_data_cell_text.at((firstRow + j) * map_x_size + firstCol + i).toFloat();
                     }
                 }
-                if (action == "interpolate_horizontal"){
-                    for (int j = 0; j < interpolateRowCount; j++){
+                if (action == "interpolate_horizontal")
+                {
+                    for (int j = 0; j < interpolateRowCount; j++)
+                    {
                         if (interpolateColCount > 1)
                             colAdder = (cellValue[interpolateColCount - 1][j] - cellValue[0][j]) / (float)(interpolateColCount - 1);
-                        for (int i = 0; i < interpolateColCount; i++){
+                        for (int i = 0; i < interpolateColCount; i++)
+                        {
                             if (interpolateColCount > 1)
                                 cellValue[i][j] = cellValue[0][j] + i * colAdder;
-
                         }
                     }
                 }
-                if (action == "interpolate_vertical"){
-                    for (int i = 0; i < interpolateColCount; i++){
+                if (action == "interpolate_vertical")
+                {
+                    for (int i = 0; i < interpolateColCount; i++)
+                    {
                         if (interpolateRowCount > 1)
                             rowAdder = (cellValue[i][interpolateRowCount - 1] - cellValue[i][0]) / (float)(interpolateRowCount - 1);
-                        for (int j = 0; j < interpolateRowCount; j++){
+                        for (int j = 0; j < interpolateRowCount; j++)
+                        {
                             if (interpolateRowCount > 1)
                                 cellValue[i][j] = cellValue[i][0] + j * rowAdder;
-
                         }
                     }
                 }
-                if (action == "interpolate_bidirectional"){
-                    for (int j = 0; j < interpolateRowCount; j++){
+                if (action == "interpolate_bidirectional")
+                {
+                    for (int j = 0; j < interpolateRowCount; j++)
+                    {
                         cellValue[0][j] = cellValue[0][0] + j * leftRowAdder;
-                        if (interpolateColCount > 1){
+                        if (interpolateColCount > 1)
+                        {
                             cellValue[interpolateColCount - 1][j] = cellValue[interpolateColCount - 1][0] + j * rightRowAdder;
                         }
                     }
-                    for (int j = 0; j < interpolateRowCount; j++){
+                    for (int j = 0; j < interpolateRowCount; j++)
+                    {
                         if (interpolateColCount > 1)
                             colAdder = (cellValue[interpolateColCount - 1][j] - cellValue[0][j]) / (float)(interpolateColCount - 1);
-                        for (int i = 0; i < interpolateColCount; i++){
+                        for (int i = 0; i < interpolateColCount; i++)
+                        {
                             if (interpolateColCount > 1)
                                 cellValue[i][j] = cellValue[0][j] + i * colAdder;
                         }
                     }
                 }
 
-                for (int j = 0; j < interpolateRowCount; j++){
-                    for (int i = 0; i < interpolateColCount; i++){
+                for (int j = 0; j < interpolateRowCount; j++)
+                {
+                    for (int i = 0; i < interpolateColCount; i++)
+                    {
                         uint16_t map_value_index = (j + firstRow) * map_x_size + firstCol + i;
                         QString rom_data_value = QString::number(fileActions->calculate_value_from_expression(fileActions->parse_stringlist_from_expression_string(map_value_to_byte, QString::number(cellValue[i][j]))));
                         map_data_value.dword_value = rom_data_value.toUInt();
@@ -696,23 +747,30 @@ void MainWindow::interpolate_value(QString action)
 
 void MainWindow::copy_value()
 {
-    QMdiSubWindow* w = ui->mdiArea->activeSubWindow();
+    QMdiSubWindow *w = ui->mdiArea->activeSubWindow();
     if (w)
     {
         QStringList mapWindowString = w->objectName().split(",");
 
-        QTableWidget* mapTableWidget = w->findChild<QTableWidget*>(w->objectName());
-        if (mapTableWidget){
+        QTableWidget *mapTableWidget = w->findChild<QTableWidget *>(w->objectName());
+        if (mapTableWidget)
+        {
             QModelIndexList cells = mapTableWidget->selectionModel()->selectedIndexes();
-            //qSort(cells); // Necessary, otherwise they are in column order
+            // qSort(cells); // Necessary, otherwise they are in column order
 
             QString text;
             int currentRow = 0;
-            foreach (const QModelIndex& cell, cells) {
-                if (text.length() == 0) {
-                } else if (cell.row() != currentRow) {
+            foreach (const QModelIndex& cell, cells)
+            {
+                if (text.length() == 0)
+                {
+                }
+                else if (cell.row() != currentRow)
+                {
                     text += '\n';
-                } else {
+                }
+                else
+                {
                     text += '\t';
                 }
                 currentRow = cell.row();
@@ -726,7 +784,8 @@ void MainWindow::copy_value()
 
 void MainWindow::paste_value()
 {
-    union map_data{
+    union map_data
+    {
         int8_t sbyte_value[4];
         int16_t sword_value[2];
         int32_t sdword_value;
@@ -741,14 +800,14 @@ void MainWindow::paste_value()
     int rom_number = 0;
     int map_number = 0;
 
-    QMdiSubWindow* w = ui->mdiArea->activeSubWindow();
+    QMdiSubWindow *w = ui->mdiArea->activeSubWindow();
     if (w)
     {
         QStringList mapWindowString = w->objectName().split(",");
         rom_number = mapWindowString.at(0).toInt();
         map_number = mapWindowString.at(1).toInt();
 
-        QTableWidget* mapTableWidget = w->findChild<QTableWidget*>(w->objectName());
+        QTableWidget *mapTableWidget = w->findChild<QTableWidget *>(w->objectName());
         if (mapTableWidget)
         {
             if (!mapTableWidget->selectedRanges().isEmpty())
@@ -756,7 +815,7 @@ void MainWindow::paste_value()
                 QStringList mapDataCellText = ecuCalDef[rom_number]->MapData.at(map_number).split(",");
                 QString pasteString = QApplication::clipboard()->text();
                 QStringList rows = pasteString.split('\n');
-                //QString mapFormat = ecuCalDef[mapRomNumber]->FormatList[mapNumber];
+                // QString mapFormat = ecuCalDef[mapRomNumber]->FormatList[mapNumber];
                 QString map_value_storagetype = ecuCalDef[rom_number]->StorageTypeList[map_number];
                 QString map_value_to_byte = ecuCalDef[rom_number]->ToByteList[map_number];
                 QString map_value_endian = ecuCalDef[rom_number]->EndianList[map_number];
@@ -764,7 +823,8 @@ void MainWindow::paste_value()
                 int map_x_size = ecuCalDef[rom_number]->XSizeList[map_number].toInt();
                 int map_y_size = ecuCalDef[rom_number]->YSizeList[map_number].toInt();
 
-                if (!mapTableWidget->selectedRanges().isEmpty()){
+                if (!mapTableWidget->selectedRanges().isEmpty())
+                {
                     QList<QTableWidgetSelectionRange> selected_range = mapTableWidget->selectedRanges();
                     int firstCol = selected_range.begin()->leftColumn() - 1;
                     int firstRow = selected_range.begin()->topRow() - 1;
@@ -772,9 +832,11 @@ void MainWindow::paste_value()
                     int numRows = rows.count();
                     int numColumns = rows.first().count('\t') + 1;
 
-                    for (int j = 0; j < numRows; ++j) {
+                    for (int j = 0; j < numRows; ++j)
+                    {
                         QStringList columns = rows[j].split('\t');
-                        for (int i = 0; i < numColumns; ++i) {
+                        for (int i = 0; i < numColumns; ++i)
+                        {
                             if ((j + firstRow) < map_y_size && (i + firstCol) < map_x_size)
                             {
                                 uint16_t map_value_index = (j + firstRow) * map_x_size + firstCol + i;
@@ -888,25 +950,28 @@ void MainWindow::ecu_definition_manager()
     connect(remove_file, SIGNAL(clicked()), this, SLOT(remove_ecu_definition_file()));
     connect(close, SIGNAL(clicked()), definitions_manager_dialog, SLOT(close()));
     definitions_manager_dialog->exec();
-
 }
 
 void MainWindow::logger_definition_manager()
 {
-
 }
 
 void MainWindow::set_realtime_state(bool state)
 {
     QAction *logger;
-    QList<QMenu*> menus = ui->menubar->findChildren<QMenu*>();
-    foreach (QMenu *menu, menus) {
-        foreach (QAction *action, menu->actions()) {
-            if (action->isSeparator()) {
-
-            } else if (action->menu()) {
-
-            } else {
+    QList<QMenu *> menus = ui->menubar->findChildren<QMenu *>();
+    foreach (QMenu *menu, menus)
+    {
+        foreach (QAction *action, menu->actions())
+        {
+            if (action->isSeparator())
+            {
+            }
+            else if (action->menu())
+            {
+            }
+            else
+            {
                 if (action->text() == "Logging")
                 {
                     action->setChecked(state);
@@ -919,14 +984,19 @@ void MainWindow::set_realtime_state(bool state)
 void MainWindow::toggle_realtime()
 {
     QAction *logger;
-    QList<QMenu*> menus = ui->menubar->findChildren<QMenu*>();
-    foreach (QMenu *menu, menus) {
-        foreach (QAction *action, menu->actions()) {
-            if (action->isSeparator()) {
-
-            } else if (action->menu()) {
-
-            } else {
+    QList<QMenu *> menus = ui->menubar->findChildren<QMenu *>();
+    foreach (QMenu *menu, menus)
+    {
+        foreach (QAction *action, menu->actions())
+        {
+            if (action->isSeparator())
+            {
+            }
+            else if (action->menu())
+            {
+            }
+            else
+            {
                 if (action->text() == "Logging")
                 {
                     logger = action;
@@ -951,19 +1021,25 @@ void MainWindow::toggle_realtime()
         logging_state = true;
 
         LogSessionConfig config;
-        if (configValues->flash_protocol_selected_log_protocol == "MUT_DMA") {
+        if (configValues->flash_protocol_selected_log_protocol == "MUT_DMA")
+        {
             config.protocolId = "MUT_DMA";
             config.logValueProtocolFilter = "MUT_DMA";
-        } else if (configValues->flash_protocol_selected_log_protocol == "CDBG") {
+        }
+        else if (configValues->flash_protocol_selected_log_protocol == "CDBG")
+        {
             config.protocolId = "CDBG";
             config.logValueProtocolFilter = "CDBG";
-        } else {
+        }
+        else
+        {
             config.protocolId = "SSM";
             config.logValueProtocolFilter = protocol;
         }
         activeLogValueProtocolFilter = config.logValueProtocolFilter;
 
-        if (!loggingEngine->start(config)) {
+        if (!loggingEngine->start(config))
+        {
             QMessageBox::information(this, tr("Logging"), "Unable to start logging");
             logging_state = false;
             logger->setChecked(false);
@@ -973,7 +1049,8 @@ void MainWindow::toggle_realtime()
     else
     {
         qDebug() << "Stop datalog";
-        if (datalog_file_open){
+        if (datalog_file_open)
+        {
             datalog_file_open = false;
             datalog_file.close();
         }
@@ -982,28 +1059,35 @@ void MainWindow::toggle_realtime()
         log_params_request_started = false;
         loggingEngine->stop();
 
-        //disconnect_from_ecu();
+        // disconnect_from_ecu();
     }
 }
 
 void MainWindow::toggle_log_to_file()
 {
-    QList<QMenu*> menus = ui->menubar->findChildren<QMenu*>();
-    foreach (QMenu *menu, menus) {
-        foreach (QAction *action, menu->actions()) {
-            if (action->isSeparator()) {
-
-            } else if (action->menu()) {
-
-            } else {
+    QList<QMenu *> menus = ui->menubar->findChildren<QMenu *>();
+    foreach (QMenu *menu, menus)
+    {
+        foreach (QAction *action, menu->actions())
+        {
+            if (action->isSeparator())
+            {
+            }
+            else if (action->menu())
+            {
+            }
+            else
+            {
                 if (action->text() == "Log to file")
                     write_datalog_to_file = action->isChecked();
             }
         }
     }
 
-    if (!write_datalog_to_file){
-        if (datalog_file_open){
+    if (!write_datalog_to_file)
+    {
+        if (datalog_file_open)
+        {
             datalog_file_open = false;
             datalog_file.close();
         }
@@ -1012,14 +1096,19 @@ void MainWindow::toggle_log_to_file()
 
 void MainWindow::toggle_haltech_ic7_display()
 {
-    QList<QMenu*> menus = ui->menubar->findChildren<QMenu*>();
-    foreach (QMenu *menu, menus) {
-        foreach (QAction *action, menu->actions()) {
-            if (action->isSeparator()) {
-
-            } else if (action->menu()) {
-
-            } else {
+    QList<QMenu *> menus = ui->menubar->findChildren<QMenu *>();
+    foreach (QMenu *menu, menus)
+    {
+        foreach (QAction *action, menu->actions())
+        {
+            if (action->isSeparator())
+            {
+            }
+            else if (action->menu())
+            {
+            }
+            else
+            {
                 if (action->text() == "Haltech IC-7")
                     haltech_ic7_display_on = action->isChecked();
             }
@@ -1031,14 +1120,19 @@ void MainWindow::toggle_haltech_ic7_display()
 
 void MainWindow::toggle_simulate_obd()
 {
-    QList<QMenu*> menus = ui->menubar->findChildren<QMenu*>();
-    foreach (QMenu *menu, menus) {
-        foreach (QAction *action, menu->actions()) {
-            if (action->isSeparator()) {
-
-            } else if (action->menu()) {
-
-            } else {
+    QList<QMenu *> menus = ui->menubar->findChildren<QMenu *>();
+    foreach (QMenu *menu, menus)
+    {
+        foreach (QAction *action, menu->actions())
+        {
+            if (action->isSeparator())
+            {
+            }
+            else if (action->menu())
+            {
+            }
+            else
+            {
                 if (action->text() == "Simulate OBD")
                     simulate_obd_on = action->isChecked();
             }
@@ -1050,14 +1144,19 @@ void MainWindow::toggle_simulate_obd()
 
 void MainWindow::toggle_can_listener()
 {
-    QList<QMenu*> menus = ui->menubar->findChildren<QMenu*>();
-    foreach (QMenu *menu, menus) {
-        foreach (QAction *action, menu->actions()) {
-            if (action->isSeparator()) {
-
-            } else if (action->menu()) {
-
-            } else {
+    QList<QMenu *> menus = ui->menubar->findChildren<QMenu *>();
+    foreach (QMenu *menu, menus)
+    {
+        foreach (QAction *action, menu->actions())
+        {
+            if (action->isSeparator())
+            {
+            }
+            else if (action->menu())
+            {
+            }
+            else
+            {
                 if (action->text() == "CAN listener")
                     can_listener_on = action->isChecked();
             }
@@ -1086,7 +1185,7 @@ void MainWindow::show_dtc_window()
     QObject::connect(&dtcOperations, &DtcOperations::LOG_D, syslogger, &SystemLogger::log_messages);
 
     dtcOperations.exec();
-    //dtcOperations->run();
+    // dtcOperations->run();
 
     emit LOG_D("DTC operations stopped", true, true);
 }
@@ -1104,18 +1203,16 @@ void MainWindow::show_hex_editor()
         selectedItem = ui->calibrationFilesTreeWidget->selectedItems().at(0);
         rom_number = ui->calibrationFilesTreeWidget->indexOfTopLevelItem(selectedItem);
 
-        //HexEdit *hexEdit = new HexEdit(ecuCalDef[rom_number], this);
+        // HexEdit *hexEdit = new HexEdit(ecuCalDef[rom_number], this);
         HexEdit *hexEdit = new HexEdit(ecuCalDef[rom_number], this);
     }
-
 }
 
 void MainWindow::show_preferences_window()
 {
     Settings settings(configValues);
     settings.exec();
-    //fileActions->save_config_file();
-
+    // fileActions->save_config_file();
 }
 
 void MainWindow::show_subaru_biu_window()
@@ -1127,7 +1224,7 @@ void MainWindow::show_subaru_biu_window()
     serial->set_is_iso14230_connection(true);
     open_serial_port();
     serial->change_port_speed("10400");
-    //serial->change_port_speed("4800");
+    // serial->change_port_speed("4800");
 
     BiuOperationsSubaru biuOperationsSubaru(serial, this);
     QObject::connect(&biuOperationsSubaru, &BiuOperationsSubaru::LOG_E, syslogger, &SystemLogger::log_messages);
@@ -1159,7 +1256,7 @@ void MainWindow::show_terminal_window()
 void MainWindow::show_subaru_get_key_window()
 {
 
-    GetKeyOperationsSubaru getKeyOperationsSubaru (this);
+    GetKeyOperationsSubaru getKeyOperationsSubaru(this);
     getKeyOperationsSubaru.exec();
 }
 
@@ -1175,7 +1272,7 @@ void MainWindow::set_maptablewidget_items()
     int mapNumber = 0;
     QString mapName = "";
 
-    QMdiSubWindow* w = ui->mdiArea->activeSubWindow();
+    QMdiSubWindow *w = ui->mdiArea->activeSubWindow();
     if (w)
     {
         QStringList mapWindowString = w->objectName().split(",");
@@ -1183,7 +1280,7 @@ void MainWindow::set_maptablewidget_items()
         mapNumber = mapWindowString.at(1).toInt();
         mapName = mapWindowString.at(2);
 
-        QTableWidget* mapTableWidget = w->findChild<QTableWidget*>(w->objectName());
+        QTableWidget *mapTableWidget = w->findChild<QTableWidget *>(w->objectName());
         if (mapTableWidget)
         {
             int xSize = ecuCalDef[mapRomNumber]->XSizeList.at(mapNumber).toInt();
@@ -1218,7 +1315,8 @@ void MainWindow::set_maptablewidget_items()
 
                     QString xScaleCellDataText;
 
-                    if (xScaleCellText.at(i) == " ") {
+                    if (xScaleCellText.at(i) == " ")
+                    {
                         xScaleCellText.insert(i, QString::number(i));
                         xScaleCellDataText = xScaleCellText.at(i);
                     }
@@ -1259,8 +1357,8 @@ void MainWindow::set_maptablewidget_items()
                 else
                     xPos = i - (yPos - ySizeOffset) * xSize;
 
-                //qDebug() << "X pos:" << xPos << "Y pos:" << yPos;
-                QTableWidgetItem *cellItem;// = new QTableWidgetItem;
+                // qDebug() << "X pos:" << xPos << "Y pos:" << yPos;
+                QTableWidgetItem *cellItem; // = new QTableWidgetItem;
                 cellItem = mapTableWidget->item(yPos, xPos);
 
                 cellItem->setTextAlignment(Qt::AlignCenter);
@@ -1269,25 +1367,25 @@ void MainWindow::set_maptablewidget_items()
                 int mapItemColorRed = (mapItemColor >> 16) & 0xff;
                 int mapItemColorGreen = (mapItemColor >> 8) & 0xff;
                 int mapItemColorBlue = mapItemColor & 0xff;
-                cellItem->setBackground(QBrush(QColor(mapItemColorRed , mapItemColorGreen, mapItemColorBlue, 255)));
-                //if (ecuCalDef[mapRomNumber]->TypeList.at(mapNumber) == "1D")
-                    cellItem->setForeground(Qt::black);
-                //else
-                //    cellItem->setForeground(Qt::white);
+                cellItem->setBackground(QBrush(QColor(mapItemColorRed, mapItemColorGreen, mapItemColorBlue, 255)));
+                // if (ecuCalDef[mapRomNumber]->TypeList.at(mapNumber) == "1D")
+                cellItem->setForeground(Qt::black);
+                // else
+                //     cellItem->setForeground(Qt::white);
 
                 if (i < mapDataCellText.count())
                     cellItem->setText(QString::number(mapDataCellText.at(i).toFloat(), 'f', get_mapvalue_decimal_count(ecuCalDef[mapRomNumber]->FormatList.at(mapNumber))));
             }
         }
 
-        //fileActions->checksum_correction(ecuCalDef[mapRomNumber]);
-
+        // fileActions->checksum_correction(ecuCalDef[mapRomNumber]);
     }
 }
 
 QString MainWindow::get_rom_data_value(uint8_t rom_number, uint32_t data_address, uint16_t value_index, QString storagetype, QString endian)
 {
-    union map_data{
+    union map_data
+    {
         int8_t sbyte_value[4];
         int16_t sword_value[2];
         int32_t sdword_value;
@@ -1336,7 +1434,8 @@ QString MainWindow::get_rom_data_value(uint8_t rom_number, uint32_t data_address
         value = QString::number(map_data_value.float_value);
     else if (storagetype.startsWith("uint"))
         value = QString::number(map_data_value.dword_value);
-    else if (storagetype.startsWith("int")) {
+    else if (storagetype.startsWith("int"))
+    {
         if (storagesize == 1)
             value = QString::number(map_data_value.sbyte_value[0]);
         if (storagesize == 2)
@@ -1350,7 +1449,8 @@ QString MainWindow::get_rom_data_value(uint8_t rom_number, uint32_t data_address
 
 void MainWindow::set_rom_data_value(uint8_t rom_number, uint32_t data_address, uint16_t value_index, QString storagetype, QString endian, float map_value)
 {
-    union map_data{
+    union map_data
+    {
         int8_t sbyte_value[4];
         int16_t sword_value[2];
         int32_t sdword_value;
@@ -1395,7 +1495,7 @@ int MainWindow::get_mapvalue_decimal_count(QString valueFormat)
     if (valueFormat.contains("."))
         return valueFormat.split(".").at(1).count(QLatin1Char('0'));
     else
-        return 0;//valueFormat.count(QLatin1Char('0'));
+        return 0; // valueFormat.count(QLatin1Char('0'));
 }
 
 int MainWindow::get_map_cell_colors(FileActions::EcuCalDefStructure *ecuCalDef, float mapDataValue, int mapIndex)
@@ -1403,7 +1503,7 @@ int MainWindow::get_map_cell_colors(FileActions::EcuCalDefStructure *ecuCalDef, 
     int mapCellColors;
     float mapMinValue = 0;
     float mapMaxValue = 0;
-    float scale_start = (210.0/360.0);
+    float scale_start = (210.0 / 360.0);
 
     mapMinValue = ecuCalDef->MapCellColorMin.at(mapIndex).toFloat();
     mapMaxValue = ecuCalDef->MapCellColorMax.at(mapIndex).toFloat();
@@ -1426,9 +1526,9 @@ int MainWindow::get_map_cell_colors(FileActions::EcuCalDefStructure *ecuCalDef, 
 
     color.setHsvF(color_value, 0.85, 0.85);
     color.getRgbF(&r, &g, &b);
-    mapCellColors = ((int)(r*255)<<16) + ((int)(g*255)<<8) + b*255;
+    mapCellColors = ((int)(r * 255) << 16) + ((int)(g * 255) << 8) + b * 255;
 
-    //qDebug() << "Map min:" << mapMinValue << "Map max:" << mapMaxValue << "color scale:" << color_scale << "scale start:" << scale_start;
+    // qDebug() << "Map min:" << mapMinValue << "Map max:" << mapMaxValue << "color scale:" << color_scale << "scale start:" << scale_start;
 
     return mapCellColors;
 }
@@ -1438,7 +1538,8 @@ bool MainWindow::check_rom_data_value(QString storagetype, QString rom_data_valu
     uint8_t storagesize = 1;
     bool result = false;
 
-    union map_data{
+    union map_data
+    {
         int8_t sbyte_value[4];
         int16_t sword_value[2];
         int32_t sdword_value;
@@ -1459,17 +1560,14 @@ bool MainWindow::check_rom_data_value(QString storagetype, QString rom_data_valu
     {
         if (storagetype.startsWith("uint8"))
         {
-//            if (rom_data_value.toUInt() >= 0 && new_rom_data_value.toUInt() )
+            //            if (rom_data_value.toUInt() >= 0 && new_rom_data_value.toUInt() )
         }
-
     }
     if (storagetype.startsWith("int"))
     {
-
     }
     if (storagetype.startsWith("float"))
     {
-
     }
 
     return result;
@@ -1501,11 +1599,11 @@ int MainWindow::test_haltech_ic7_display()
 
     int i = 0;
 
-    //serial_poll_timer->stop();
-    //ssm_init_poll_timer->stop();
+    // serial_poll_timer->stop();
+    // ssm_init_poll_timer->stop();
 
     serial->set_is_iso15765_connection(true);
-    //serial->set_is_can_connection(true);
+    // serial->set_is_can_connection(true);
     serial->set_is_29_bit_id(false);
     serial->set_can_speed("1000000");
 
@@ -1544,8 +1642,8 @@ int MainWindow::test_haltech_ic7_display()
             output.append((uint8_t)0x00);
             output.append((uint8_t)0x03);
             output.append((uint8_t)0x60);
-            //output.append((uint8_t)0x00 & 0xFF);
-            //output.append((uint8_t)0x00 & 0xFF);
+            // output.append((uint8_t)0x00 & 0xFF);
+            // output.append((uint8_t)0x00 & 0xFF);
             output.append((uint8_t)(RPM >> 8) & 0xFF);
             output.append((uint8_t)RPM & 0xFF);
             output.append((uint8_t)(MAP >> 8) & 0xFF);
@@ -1648,8 +1746,8 @@ int MainWindow::test_haltech_ic7_display()
     output.append((uint8_t)0xE2);
 */
     serial->set_can_speed("500000");
-    //serial_poll_timer->start();
-    //ssm_init_poll_timer->start();
+    // serial_poll_timer->start();
+    // ssm_init_poll_timer->start();
 
     return 0;
 }
@@ -1659,44 +1757,43 @@ int MainWindow::simulate_obd()
     QByteArray output;
     QByteArray received;
 
-    QByteArray sid3e = { "\x81\xf1\x12\x7e" };
+    QByteArray sid3e = {"\x81\xf1\x12\x7e"};
 
-    uint8_t sid_4d_ff_b4[] = { 0x4c, 0x00, 0xb4 };
+    uint8_t sid_4d_ff_b4[] = {0x4c, 0x00, 0xb4};
 
-    uint8_t sid_81[] = { 0x83, 0xf1, 0x12, 0xc1, 0xef, 0x8f };
-    uint8_t sid_82[] = { 0x81, 0xf1, 0x12, 0xc2 };
-    uint8_t sid_83_00[] = { 0x80, 0xf1, 0x12, 0x07, 0xc3, 0x00, 0x00, 0xef, 0x00, 0x78, 0x00 };
-    uint8_t sid_83_02[] = { 0x80, 0xf1, 0x12, 0x07, 0xc3, 0x02, 0x00, 0x28, 0x00, 0x14, 0x00 };
-    uint8_t sid_83_03[] = { 0x82, 0xf1, 0x12, 0xc3, 0x03 };
+    uint8_t sid_81[] = {0x83, 0xf1, 0x12, 0xc1, 0xef, 0x8f};
+    uint8_t sid_82[] = {0x81, 0xf1, 0x12, 0xc2};
+    uint8_t sid_83_00[] = {0x80, 0xf1, 0x12, 0x07, 0xc3, 0x00, 0x00, 0xef, 0x00, 0x78, 0x00};
+    uint8_t sid_83_02[] = {0x80, 0xf1, 0x12, 0x07, 0xc3, 0x02, 0x00, 0x28, 0x00, 0x14, 0x00};
+    uint8_t sid_83_03[] = {0x82, 0xf1, 0x12, 0xc3, 0x03};
 
-    uint8_t sid_27_01[] = { 0x80, 0xf1, 0x12, 0x05, 0x67, 0x01, 0xb3, 0x59, 0x2c };
-    uint8_t sid_27_02[] = { 0x82, 0xf1, 0x12, 0x03, 0x67, 0x01, 0x34 };
-    uint8_t sid_27_10[] = { 0x80, 0xf1, 0x12, 0x06, 0x67, 0x10, 0x10, 0x10, 0x10, 0x10 };
-    uint8_t sid_27_11[] = { 0x82, 0xf1, 0x12, 0x03, 0x67, 0x11, 0x34 };
+    uint8_t sid_27_01[] = {0x80, 0xf1, 0x12, 0x05, 0x67, 0x01, 0xb3, 0x59, 0x2c};
+    uint8_t sid_27_02[] = {0x82, 0xf1, 0x12, 0x03, 0x67, 0x01, 0x34};
+    uint8_t sid_27_10[] = {0x80, 0xf1, 0x12, 0x06, 0x67, 0x10, 0x10, 0x10, 0x10, 0x10};
+    uint8_t sid_27_11[] = {0x82, 0xf1, 0x12, 0x03, 0x67, 0x11, 0x34};
 
-    uint8_t sid_1a_90[] = { 0x13, 0x5a, 0x90, 0x57, 0x44, 0x42, 0x32, 0x31, 0x31, 0x32, 0x32, 0x36, 0x31, 0x41, 0x32, 0x39, 0x32, 0x38, 0x36, 0x39 };
-    uint8_t sid_21_09[] = { 0x80, 0xf1, 0x12, 0x66, 0x61, 0x09, 0x43, 0x52, 0x33, 0x30, 0x2d, 0x36, 0x34, 0x38, 0x2d, 0x44,
-                            0x32, 0x4d, 0x31, 0x2d, 0x53, 0x32, 0x31, 0x31, 0x2d, 0x4d, 0x45, 0x30, 0x34, 0x30, 0x33, 0x2d,
-                            0x30, 0x30, 0x31, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-                            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-                            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-                            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-                            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x00
-                          };
+    uint8_t sid_1a_90[] = {0x13, 0x5a, 0x90, 0x57, 0x44, 0x42, 0x32, 0x31, 0x31, 0x32, 0x32, 0x36, 0x31, 0x41, 0x32, 0x39, 0x32, 0x38, 0x36, 0x39};
+    uint8_t sid_21_09[] = {0x80, 0xf1, 0x12, 0x66, 0x61, 0x09, 0x43, 0x52, 0x33, 0x30, 0x2d, 0x36, 0x34, 0x38, 0x2d, 0x44,
+                           0x32, 0x4d, 0x31, 0x2d, 0x53, 0x32, 0x31, 0x31, 0x2d, 0x4d, 0x45, 0x30, 0x34, 0x30, 0x33, 0x2d,
+                           0x30, 0x30, 0x31, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+                           0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+                           0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+                           0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+                           0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x00};
 
     qDebug() << "Simulating OBD communications";
 
-    //serial_poll_timer->stop();
-    //ssm_init_poll_timer->stop();
+    // serial_poll_timer->stop();
+    // ssm_init_poll_timer->stop();
 
     serial->reset_connection();
     ecuid.clear();
     ecu_init_complete = false;
 
     serial->set_add_iso14230_header(false);
-    //serial->set_add_iso14230_header(true);
+    // serial->set_add_iso14230_header(true);
     open_serial_port();
-    //serial->change_port_speed("10400");
+    // serial->change_port_speed("10400");
     serial->change_port_speed("9600");
 
     while (simulate_obd_on)
@@ -1709,37 +1806,38 @@ int MainWindow::simulate_obd()
             qDebug() << "Received:" << parse_message_to_hex(received);
             // sid_4d_ff_b4
             if ((uint8_t)received.at(0) == 0x4d || (uint8_t)received.at(1) == 0xff || (uint8_t)received.at(2) == 0xb4)
-                for (uint8_t i = 0; i < sizeof(sid_4d_ff_b4); i++) output.append((uint8_t)sid_4d_ff_b4[i]);
-/*
-            if ((uint8_t)received.at(3) == 0x3e || (uint8_t)received.at(4) == 0x3e)
-                output = sid3e;
+                for (uint8_t i = 0; i < sizeof(sid_4d_ff_b4); i++)
+                    output.append((uint8_t)sid_4d_ff_b4[i]);
+            /*
+                        if ((uint8_t)received.at(3) == 0x3e || (uint8_t)received.at(4) == 0x3e)
+                            output = sid3e;
 
-            if ((uint8_t)received.at(3) == 0x81 || (uint8_t)received.at(4) == 0x81)
-                for (uint8_t i = 0; i < sizeof(sid_81); i++) output.append((uint8_t)sid_81[i]);
-            if ((uint8_t)received.at(3) == 0x82 || (uint8_t)received.at(4) == 0x82)
-                for (uint8_t i = 0; i < sizeof(sid_82); i++) output.append((uint8_t)sid_82[i]);
-            if (((uint8_t)received.at(3) == 0x83 && (uint8_t)received.at(4) == 0x00) || ((uint8_t)received.at(4) == 0x83 && (uint8_t)received.at(5) == 0x00))
-                for (uint8_t i = 0; i < sizeof(sid_83_00); i++) output.append((uint8_t)sid_83_00[i]);
-            if (((uint8_t)received.at(3) == 0x83 && (uint8_t)received.at(4) == 0x02) || ((uint8_t)received.at(4) == 0x83 && (uint8_t)received.at(5) == 0x02))
-                for (uint8_t i = 0; i < sizeof(sid_83_02); i++) output.append((uint8_t)sid_83_02[i]);
-            if (((uint8_t)received.at(3) == 0x83 && (uint8_t)received.at(4) == 0x03) || ((uint8_t)received.at(4) == 0x83 && (uint8_t)received.at(5) == 0x03))
-                for (uint8_t i = 0; i < sizeof(sid_83_03); i++) output.append((uint8_t)sid_83_03[i]);
+                        if ((uint8_t)received.at(3) == 0x81 || (uint8_t)received.at(4) == 0x81)
+                            for (uint8_t i = 0; i < sizeof(sid_81); i++) output.append((uint8_t)sid_81[i]);
+                        if ((uint8_t)received.at(3) == 0x82 || (uint8_t)received.at(4) == 0x82)
+                            for (uint8_t i = 0; i < sizeof(sid_82); i++) output.append((uint8_t)sid_82[i]);
+                        if (((uint8_t)received.at(3) == 0x83 && (uint8_t)received.at(4) == 0x00) || ((uint8_t)received.at(4) == 0x83 && (uint8_t)received.at(5) == 0x00))
+                            for (uint8_t i = 0; i < sizeof(sid_83_00); i++) output.append((uint8_t)sid_83_00[i]);
+                        if (((uint8_t)received.at(3) == 0x83 && (uint8_t)received.at(4) == 0x02) || ((uint8_t)received.at(4) == 0x83 && (uint8_t)received.at(5) == 0x02))
+                            for (uint8_t i = 0; i < sizeof(sid_83_02); i++) output.append((uint8_t)sid_83_02[i]);
+                        if (((uint8_t)received.at(3) == 0x83 && (uint8_t)received.at(4) == 0x03) || ((uint8_t)received.at(4) == 0x83 && (uint8_t)received.at(5) == 0x03))
+                            for (uint8_t i = 0; i < sizeof(sid_83_03); i++) output.append((uint8_t)sid_83_03[i]);
 
-            if (((uint8_t)received.at(3) == 0x27 && (uint8_t)received.at(4) == 0x01) || ((uint8_t)received.at(4) == 0x27 && (uint8_t)received.at(5) == 0x01))
-                for (uint8_t i = 0; i < sizeof(sid_27_01); i++) output.append((uint8_t)sid_27_01[i]);
-            if (((uint8_t)received.at(3) == 0x27 && (uint8_t)received.at(4) == 0x02) || ((uint8_t)received.at(4) == 0x27 && (uint8_t)received.at(5) == 0x02))
-                for (uint8_t i = 0; i < sizeof(sid_27_02); i++) output.append((uint8_t)sid_27_02[i]);
-            if (((uint8_t)received.at(3) == 0x27 && (uint8_t)received.at(4) == 0x10) || ((uint8_t)received.at(4) == 0x27 && (uint8_t)received.at(5) == 0x10))
-                for (uint8_t i = 0; i < sizeof(sid_27_10); i++) output.append((uint8_t)sid_27_10[i]);
-            if (((uint8_t)received.at(3) == 0x27 && (uint8_t)received.at(4) == 0x11) || ((uint8_t)received.at(4) == 0x27 && (uint8_t)received.at(5) == 0x11))
-                for (uint8_t i = 0; i < sizeof(sid_27_11); i++) output.append((uint8_t)sid_27_11[i]);
+                        if (((uint8_t)received.at(3) == 0x27 && (uint8_t)received.at(4) == 0x01) || ((uint8_t)received.at(4) == 0x27 && (uint8_t)received.at(5) == 0x01))
+                            for (uint8_t i = 0; i < sizeof(sid_27_01); i++) output.append((uint8_t)sid_27_01[i]);
+                        if (((uint8_t)received.at(3) == 0x27 && (uint8_t)received.at(4) == 0x02) || ((uint8_t)received.at(4) == 0x27 && (uint8_t)received.at(5) == 0x02))
+                            for (uint8_t i = 0; i < sizeof(sid_27_02); i++) output.append((uint8_t)sid_27_02[i]);
+                        if (((uint8_t)received.at(3) == 0x27 && (uint8_t)received.at(4) == 0x10) || ((uint8_t)received.at(4) == 0x27 && (uint8_t)received.at(5) == 0x10))
+                            for (uint8_t i = 0; i < sizeof(sid_27_10); i++) output.append((uint8_t)sid_27_10[i]);
+                        if (((uint8_t)received.at(3) == 0x27 && (uint8_t)received.at(4) == 0x11) || ((uint8_t)received.at(4) == 0x27 && (uint8_t)received.at(5) == 0x11))
+                            for (uint8_t i = 0; i < sizeof(sid_27_11); i++) output.append((uint8_t)sid_27_11[i]);
 
-            if ((uint8_t)received.at(1) == 0x1a && (uint8_t)received.at(2) == 0x90)
-                for (uint8_t i = 0; i < sizeof(sid_1a_90); i++) output.append((uint8_t)sid_1a_90[i]);
+                        if ((uint8_t)received.at(1) == 0x1a && (uint8_t)received.at(2) == 0x90)
+                            for (uint8_t i = 0; i < sizeof(sid_1a_90); i++) output.append((uint8_t)sid_1a_90[i]);
 
-            if ((uint8_t)received.at(3) == 0x21 && (uint8_t)received.at(4) == 0x09)
-                for (uint8_t i = 0; i < sizeof(sid_21_09); i++) output.append((uint8_t)sid_21_09[i]);
-*/
+                        if ((uint8_t)received.at(3) == 0x21 && (uint8_t)received.at(4) == 0x09)
+                            for (uint8_t i = 0; i < sizeof(sid_21_09); i++) output.append((uint8_t)sid_21_09[i]);
+            */
             if (output != "")
             {
                 qDebug() << "Send msg:" << parse_message_to_hex(output);
@@ -1753,11 +1851,6 @@ int MainWindow::simulate_obd()
     // 83 f1 12 c1 ef 8f
     // 80 f1 12 07 c3 02 00 28 00 14 00
     // 80 f1 12 07 c3 00 00 ef 00 78 00
-
-
-
-
-
 
     return 0;
 }

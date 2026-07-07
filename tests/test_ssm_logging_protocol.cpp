@@ -6,7 +6,8 @@
 #include "scripted_ssm_transport.h"
 #include "test_ssm_logging_protocol.h"
 
-namespace {
+namespace
+{
 FileActions::LogValuesStructure makeOneChannel()
 {
     FileActions::LogValuesStructure lv;
@@ -48,12 +49,14 @@ bytes::Bytes buildResponse(bytes::ByteView payload)
     msg.push_back(SsmProtocol::checksum(msg));
     return msg;
 }
-}
+} // namespace
 
-class TestSsmLoggingProtocol : public QObject {
+class TestSsmLoggingProtocol : public QObject
+{
     Q_OBJECT
-private slots:
-    void start_succeeds_on_well_formed_response() {
+  private slots:
+    void start_succeeds_on_well_formed_response()
+    {
         auto transport = std::make_unique<ScriptedSsmTransport>();
         transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0x07}));
         transport->queueRead(buildResponse(bytes::Bytes{0, 0, 0}));
@@ -68,7 +71,8 @@ private slots:
         QVERIFY(raw->ok());
     }
 
-    void start_fails_on_short_response() {
+    void start_fails_on_short_response()
+    {
         auto transport = std::make_unique<ScriptedSsmTransport>();
         transport->queueRead(bytes::Bytes{});
         FileActions fileActions;
@@ -80,7 +84,8 @@ private slots:
         QVERIFY(!err.isEmpty());
     }
 
-    void start_fails_when_adapter_is_closed() {
+    void start_fails_when_adapter_is_closed()
+    {
         auto transport = std::make_unique<ScriptedSsmTransport>();
         transport->setOpen(false);
         FileActions fileActions;
@@ -92,7 +97,8 @@ private slots:
         QCOMPARE(err, QString("adapter disconnected"));
     }
 
-    void poll_decodes_one_channel() {
+    void poll_decodes_one_channel()
+    {
         auto transport = std::make_unique<ScriptedSsmTransport>();
         transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
         transport->queueRead(buildResponse(bytes::Bytes{42}));
@@ -111,7 +117,8 @@ private slots:
         QVERIFY(raw->ok());
     }
 
-    void poll_requests_disabled_selected_channels_but_does_not_emit_samples() {
+    void poll_requests_disabled_selected_channels_but_does_not_emit_samples()
+    {
         auto transport = std::make_unique<ScriptedSsmTransport>();
         transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00, 0x00, 0x10, 0x03}));
         transport->queueRead(buildResponse(bytes::Bytes{42, 99}));
@@ -130,7 +137,8 @@ private slots:
         QVERIFY(raw->ok());
     }
 
-    void poll_returns_no_response_on_timeout() {
+    void poll_returns_no_response_on_timeout()
+    {
         auto transport = std::make_unique<ScriptedSsmTransport>();
         FileActions fileActions;
         FileActions::LogValuesStructure lv = makeOneChannel();
@@ -141,7 +149,8 @@ private slots:
         QCOMPARE((int)r.status, (int)PollResult::Status::NoResponse);
     }
 
-    void poll_returns_transport_error_when_adapter_closes_mid_session() {
+    void poll_returns_transport_error_when_adapter_closes_mid_session()
+    {
         auto transport = std::make_unique<ScriptedSsmTransport>();
         transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0x07}));
         transport->queueRead(buildResponse(bytes::Bytes{1}));
@@ -159,7 +168,8 @@ private slots:
     }
 };
 
-int run_test_ssm_logging_protocol(int argc, char** argv) {
+int run_test_ssm_logging_protocol(int argc, char **argv)
+{
     // FileActions derives from QWidget, which requires a QApplication rather than
     // a plain QCoreApplication to construct (even though we never show a widget).
     QApplication app(argc, argv);

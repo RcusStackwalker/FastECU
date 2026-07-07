@@ -18,7 +18,7 @@ class QObject;
 // backend's public config fields.
 class SerialBackend
 {
-public:
+  public:
     virtual ~SerialBackend() = default;
 
     // The QObject identity of the concrete backend, used by the facade to
@@ -49,77 +49,77 @@ public:
     virtual bool get_use_openport2_adapter() = 0;
     virtual bool set_use_openport2_adapter(bool value) = 0;
 
-    virtual int  get_requestToSendEnabled() = 0;
+    virtual int get_requestToSendEnabled() = 0;
     virtual bool set_requestToSendEnabled(int value) = 0;
-    virtual int  get_requestToSendDisabled() = 0;
+    virtual int get_requestToSendDisabled() = 0;
     virtual bool set_requestToSendDisabled(int value) = 0;
-    virtual int  get_dataTerminalEnabled() = 0;
+    virtual int get_dataTerminalEnabled() = 0;
     virtual bool set_dataTerminalEnabled(int value) = 0;
-    virtual int  get_dataTerminalDisabled() = 0;
+    virtual int get_dataTerminalDisabled() = 0;
     virtual bool set_dataTerminalDisabled(int value) = 0;
 
     virtual uint8_t get_kline_startbyte() = 0;
-    virtual bool    set_kline_startbyte(uint8_t value) = 0;
+    virtual bool set_kline_startbyte(uint8_t value) = 0;
     virtual uint8_t get_kline_tester_id() = 0;
-    virtual bool    set_kline_tester_id(uint8_t value) = 0;
+    virtual bool set_kline_tester_id(uint8_t value) = 0;
     virtual uint8_t get_kline_target_id() = 0;
-    virtual bool    set_kline_target_id(uint8_t value) = 0;
+    virtual bool set_kline_target_id(uint8_t value) = 0;
     virtual uint8_t get_serial_port_parity() = 0;
-    virtual bool    set_serial_port_parity(uint8_t parity) = 0;
+    virtual bool set_serial_port_parity(uint8_t parity) = 0;
 
     virtual QByteArray get_ssm_receive_header_start() = 0;
-    virtual bool       set_ssm_receive_header_start(QByteArray value) = 0;
+    virtual bool set_ssm_receive_header_start(QByteArray value) = 0;
 
     virtual QStringList get_serial_port_list() = 0;
-    virtual bool        set_serial_port_list(QStringList value) = 0;
+    virtual bool set_serial_port_list(QStringList value) = 0;
 
     virtual QString get_openedSerialPort() = 0;
-    virtual bool    set_openedSerialPort(QString value) = 0;
+    virtual bool set_openedSerialPort(QString value) = 0;
     virtual QString get_subaru_02_16bit_bootloader_baudrate() = 0;
-    virtual bool    set_subaru_02_16bit_bootloader_baudrate(QString value) = 0;
+    virtual bool set_subaru_02_16bit_bootloader_baudrate(QString value) = 0;
     virtual QString get_subaru_04_16bit_bootloader_baudrate() = 0;
-    virtual bool    set_subaru_04_16bit_bootloader_baudrate(QString value) = 0;
+    virtual bool set_subaru_04_16bit_bootloader_baudrate(QString value) = 0;
     virtual QString get_subaru_02_32bit_bootloader_baudrate() = 0;
-    virtual bool    set_subaru_02_32bit_bootloader_baudrate(QString value) = 0;
+    virtual bool set_subaru_02_32bit_bootloader_baudrate(QString value) = 0;
     virtual QString get_subaru_04_32bit_bootloader_baudrate() = 0;
-    virtual bool    set_subaru_04_32bit_bootloader_baudrate(QString value) = 0;
+    virtual bool set_subaru_04_32bit_bootloader_baudrate(QString value) = 0;
     virtual QString get_subaru_05_32bit_bootloader_baudrate() = 0;
-    virtual bool    set_subaru_05_32bit_bootloader_baudrate(QString value) = 0;
+    virtual bool set_subaru_05_32bit_bootloader_baudrate(QString value) = 0;
     virtual QString get_subaru_02_16bit_kernel_baudrate() = 0;
-    virtual bool    set_subaru_02_16bit_kernel_baudrate(QString value) = 0;
+    virtual bool set_subaru_02_16bit_kernel_baudrate(QString value) = 0;
     virtual QString get_subaru_04_16bit_kernel_baudrate() = 0;
-    virtual bool    set_subaru_04_16bit_kernel_baudrate(QString value) = 0;
+    virtual bool set_subaru_04_16bit_kernel_baudrate(QString value) = 0;
     virtual QString get_subaru_02_32bit_kernel_baudrate() = 0;
-    virtual bool    set_subaru_02_32bit_kernel_baudrate(QString value) = 0;
+    virtual bool set_subaru_02_32bit_kernel_baudrate(QString value) = 0;
     virtual QString get_subaru_04_32bit_kernel_baudrate() = 0;
-    virtual bool    set_subaru_04_32bit_kernel_baudrate(QString value) = 0;
+    virtual bool set_subaru_04_32bit_kernel_baudrate(QString value) = 0;
     virtual QString get_subaru_05_32bit_kernel_baudrate() = 0;
-    virtual bool    set_subaru_05_32bit_kernel_baudrate(QString value) = 0;
+    virtual bool set_subaru_05_32bit_kernel_baudrate(QString value) = 0;
     virtual QString get_can_speed() = 0;
-    virtual bool    set_can_speed(QString value) = 0;
+    virtual bool set_can_speed(QString value) = 0;
     virtual QString get_serial_port_baudrate() = 0;
-    virtual bool    set_serial_port_baudrate(QString value) = 0;
+    virtual bool set_serial_port_baudrate(QString value) = 0;
     virtual QString get_serial_port_linux() = 0;
-    virtual bool    set_serial_port_linux(QString value) = 0;
+    virtual bool set_serial_port_linux(QString value) = 0;
     virtual QString get_serial_port_windows() = 0;
-    virtual bool    set_serial_port_windows(QString value) = 0;
+    virtual bool set_serial_port_windows(QString value) = 0;
     virtual QString get_serial_port() = 0;
-    virtual bool    set_serial_port(QString value) = 0;
+    virtual bool set_serial_port(QString value) = 0;
     virtual QString get_serial_port_prefix() = 0;
-    virtual bool    set_serial_port_prefix(QString value) = 0;
+    virtual bool set_serial_port_prefix(QString value) = 0;
     virtual QString get_serial_port_prefix_linux() = 0;
-    virtual bool    set_serial_port_prefix_linux(QString value) = 0;
+    virtual bool set_serial_port_prefix_linux(QString value) = 0;
     virtual QString get_serial_port_prefix_win() = 0;
-    virtual bool    set_serial_port_prefix_win(QString value) = 0;
+    virtual bool set_serial_port_prefix_win(QString value) = 0;
 
     virtual uint32_t get_can_source_address() = 0;
-    virtual bool     set_can_source_address(uint32_t value) = 0;
+    virtual bool set_can_source_address(uint32_t value) = 0;
     virtual uint32_t get_can_destination_address() = 0;
-    virtual bool     set_can_destination_address(uint32_t value) = 0;
+    virtual bool set_can_destination_address(uint32_t value) = 0;
     virtual uint32_t get_iso15765_source_address() = 0;
-    virtual bool     set_iso15765_source_address(uint32_t value) = 0;
+    virtual bool set_iso15765_source_address(uint32_t value) = 0;
     virtual uint32_t get_iso15765_destination_address() = 0;
-    virtual bool     set_iso15765_destination_address(uint32_t value) = 0;
+    virtual bool set_iso15765_destination_address(uint32_t value) = 0;
 
     // -- operations ------------------------------------------------------
     virtual bool is_serial_port_open() = 0;
@@ -147,7 +147,9 @@ public:
 
     // Remote-only: block until the QtRO source is replicated. No-op for the
     // direct backend.
-    virtual void waitForSource() {}
+    virtual void waitForSource()
+    {
+    }
 };
 
 #endif // SERIAL_BACKEND_H

@@ -1,9 +1,8 @@
 #include "logbox.h"
-//#include "ui_preferences.h"
+// #include "ui_preferences.h"
 
 LogBox::LogBox(QWidget *parent) : QWidget(parent)
 {
-
 }
 
 QGroupBox *LogBox::drawLogBoxes(QString type, uint8_t index, uint8_t logBoxCount, QString title, QString unit, QString value)
@@ -38,11 +37,11 @@ QGroupBox *LogBox::drawLogSwitchBox(uint8_t index, uint8_t switchBoxCount, QStri
     QString labelText = title;
 
     QLabel *switchBoxLabel = new QLabel();
-    //switchBoxLabel->setFixedWidth(100);
+    // switchBoxLabel->setFixedWidth(100);
     switchBoxLabel->setAlignment(Qt::AlignCenter);
     switchBoxLabel->setAlignment(Qt::AlignLeft);
     switchBoxLabel->setText(labelText);
-    //int labelFontSize = size.width() / 180;
+    // int labelFontSize = size.width() / 180;
     int labelFontSize = size.width() / 200;
     QFont f("Arial", labelFontSize, QFont::Bold);
     QFontMetrics fm(f);
@@ -68,13 +67,13 @@ QGroupBox *LogBox::drawLogValueBox(uint8_t index, uint8_t logBoxCount, QString t
     int minWidth = size.width() / (logBoxCount) / 2;
     int maxWidth = size.width() / (logBoxCount);
     int groupBoxFontSize = size.width() / 170;
-    QFont t("Arial",groupBoxFontSize);
-    logGroupBox->setStyleSheet("QGroupBox{font: bold;border:1px solid black;border-radius:5px;margin-left: 1px; margin-right: 1px; margin-top: "+QString::number(groupBoxFontSize)+"px;} QGroupBox::title{subcontrol-origin: margin;left: 7px;padding:0px 3px 0px 3px;}");
+    QFont t("Arial", groupBoxFontSize);
+    logGroupBox->setStyleSheet("QGroupBox{font: bold;border:1px solid black;border-radius:5px;margin-left: 1px; margin-right: 1px; margin-top: " + QString::number(groupBoxFontSize) + "px;} QGroupBox::title{subcontrol-origin: margin;left: 7px;padding:0px 3px 0px 3px;}");
     logGroupBox->setMinimumWidth(minWidth);
     logGroupBox->setMaximumWidth(maxWidth);
     logGroupBox->setFont(t);
 
-    //QString labelText = QString::number(value.toFloat(), 'f', 2);
+    // QString labelText = QString::number(value.toFloat(), 'f', 2);
     QString labelText = "0";
     labelText.append(" <font size=1px color=grey>");
     labelText.append(unit);
@@ -82,12 +81,12 @@ QGroupBox *LogBox::drawLogValueBox(uint8_t index, uint8_t logBoxCount, QString t
 
     QLabel *logBoxLabel = new QLabel();
     logBoxLabel->setObjectName("log_label" + QString::number(index));
-    //logBoxLabel->setFixedWidth(100);
+    // logBoxLabel->setFixedWidth(100);
     logBoxLabel->setAlignment(Qt::AlignRight);
     logBoxLabel->setText(labelText);
     int labelFontSize = size.width() / 90;
-    QFont f("Arial",labelFontSize);
-    //QFontMetrics fm(f);
+    QFont f("Arial", labelFontSize);
+    // QFontMetrics fm(f);
     logBoxLabel->setFont(f);
 
     QVBoxLayout *logBoxLayout = new QVBoxLayout();
@@ -100,11 +99,8 @@ QGroupBox *LogBox::drawLogValueBox(uint8_t index, uint8_t logBoxCount, QString t
 
 void LogBox::updateLogBox()
 {
-
 }
 
 void LogBox::updateSwitchBox()
 {
-
 }
-

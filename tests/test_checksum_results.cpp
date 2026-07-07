@@ -3,7 +3,8 @@
 #include "modules/checksum/checksum_ecu_subaru_denso_sh7xxx.h"
 #include "test_checksum_results.h"
 
-namespace {
+namespace
+{
 
 void appendU32(QByteArray *data, quint32 value)
 {
@@ -31,7 +32,7 @@ class TestChecksumResults : public QObject
 {
     Q_OBJECT
 
-private slots:
+  private slots:
     void densoSh7xxx_returnsUnchangedForMatchingChecksum()
     {
         const QByteArray rom = densoRomWithChecksumTable(0x5aa5a559);

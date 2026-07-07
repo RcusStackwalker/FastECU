@@ -8,12 +8,9 @@
 #include <QTime>
 
 FlashEcuSubaruUnisiaJecsOperation::FlashEcuSubaruUnisiaJecsOperation(
-        SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
-        QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride))
-    , serial(serial)
-    , ecuCalDef(ecuCalDef)
-    , cmd_type(cmd_type)
+    SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
+    QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type)
 {
 }
 
@@ -65,16 +62,16 @@ int FlashEcuSubaruUnisiaJecsOperation::read_mem(uint32_t start_addr, uint32_t le
 
     uint32_t addr = start_addr;
     uint32_t willget = length;
-    uint32_t len_done = 0;  //total data written to file
+    uint32_t len_done = 0; // total data written to file
     uint32_t cplen = 0;
     uint32_t timeout = 0;
 
     bool byte_received = false;
     bool bytes_synced = false;
 
-    #define NP10_MAXBLKS    32   //# of blocks to request per loop. Too high might flood us
+#define NP10_MAXBLKS 32 // # of blocks to request per loop. Too high might flood us
 
-    emit  LOG_I("Set ECU to read mode", true, true);
+    emit LOG_I("Set ECU to read mode", true, true);
 
     output.append((uint8_t)0x78);
     output.append((uint8_t)0x12);
@@ -148,7 +145,7 @@ int FlashEcuSubaruUnisiaJecsOperation::read_mem(uint32_t start_addr, uint32_t le
             received.append(serial->read_serial_data(5));
             while (received.length() >= 3)
             {
-                if (received.at(0) == output.at(1) && received.at(1) == output.at(2))// && received.at(3) == output.at(1) && received.at(4) == output.at(2))
+                if (received.at(0) == output.at(1) && received.at(1) == output.at(2)) // && received.at(3) == output.at(1) && received.at(4) == output.at(2))
                 {
                     byte_received = true;
                     bytes_synced = true;
@@ -177,7 +174,8 @@ int FlashEcuSubaruUnisiaJecsOperation::read_mem(uint32_t start_addr, uint32_t le
         if (cplen > 0 && chrono > 0)
             curspeed = cplen * (1000.0f / chrono);
 
-        if (!curspeed) {
+        if (!curspeed)
+        {
             curspeed += 1;
         }
 
@@ -186,8 +184,8 @@ int FlashEcuSubaruUnisiaJecsOperation::read_mem(uint32_t start_addr, uint32_t le
 
         timer.start();
 
-        QString start_address = QString("%1").arg(addr,8,16,QLatin1Char('0')).toUpper();
-        QString block_len = QString("%1").arg(pagesize,8,16,QLatin1Char('0')).toUpper();
+        QString start_address = QString("%1").arg(addr, 8, 16, QLatin1Char('0')).toUpper();
+        QString block_len = QString("%1").arg(pagesize, 8, 16, QLatin1Char('0')).toUpper();
         msg = QString("Kernel read addr:  0x%1  length:  0x%2,  %3  B/s  %4 s").arg(start_address).arg(block_len).arg(curspeed, 6, 10, QLatin1Char(' ')).arg(tleft, 6, 10, QLatin1Char(' ')).toUtf8();
         emit LOG_I(msg, true, true);
         delay(1);

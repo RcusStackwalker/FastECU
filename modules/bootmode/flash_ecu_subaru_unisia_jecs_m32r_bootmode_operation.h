@@ -18,30 +18,30 @@ class FlashEcuSubaruUnisiaJecsM32rBootModeOperation : public FlashOperationWorke
 {
     Q_OBJECT
 
-public:
+  public:
     FlashEcuSubaruUnisiaJecsM32rBootModeOperation(SerialPortActions *serial,
-                                                   FileActions::EcuCalDefStructure *ecuCalDef,
-                                                   QString cmd_type,
-                                                   QWidget *dialog,
-                                                   QObject *parent = nullptr,
-                                                   PromptFn promptOverride = {});
+                                                  FileActions::EcuCalDefStructure *ecuCalDef,
+                                                  QString cmd_type,
+                                                  QWidget *dialog,
+                                                  QObject *parent = nullptr,
+                                                  PromptFn promptOverride = {});
 
-protected:
+  protected:
     bool execute() override;
 
-private:
-#define STATUS_SUCCESS	0x00
-#define STATUS_ERROR	0x01
+  private:
+#define STATUS_SUCCESS 0x00
+#define STATUS_ERROR 0x01
 
-#define SID_UNISIA_JECS_BLOCK_READ                  0xA0
-#define SID_UNISIA_JECS_ADDR_READ                   0xA8
-#define SID_UNISIA_JECS_BLOCK_WRITE                 0xB0
-#define SID_UNISIA_JECS_ADDR_WRITE                  0xB8
-#define SID_UNISIA_JECS_FLASH_READ                  0x00//???
+#define SID_UNISIA_JECS_BLOCK_READ 0xA0
+#define SID_UNISIA_JECS_ADDR_READ 0xA8
+#define SID_UNISIA_JECS_BLOCK_WRITE 0xB0
+#define SID_UNISIA_JECS_ADDR_WRITE 0xB8
+#define SID_UNISIA_JECS_FLASH_READ 0x00 //???
 
-#define SID_UNISIA_JECS_FLASH_ERASE                 0x31//???
-#define SID_UNISIA_JECS_FLASH_WRITE                 0x61
-#define SID_UNISIA_JECS_FLASH_WRITE_END             0x69//???
+#define SID_UNISIA_JECS_FLASH_ERASE 0x31 //???
+#define SID_UNISIA_JECS_FLASH_WRITE 0x61
+#define SID_UNISIA_JECS_FLASH_WRITE_END 0x69 //???
 
     bool kernel_alive = false;
     bool test_write = false;

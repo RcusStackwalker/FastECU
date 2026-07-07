@@ -4,9 +4,9 @@
 #include <thread>
 
 #if defined(__linux__)
-#include <pty.h>       // openpty
+#include <pty.h> // openpty
 #else
-#include <util.h>      // openpty
+#include <util.h> // openpty
 #endif
 #include <unistd.h>
 
@@ -21,7 +21,7 @@
 class TestDirectBackend : public QObject
 {
     Q_OBJECT
-private slots:
+  private slots:
     void getSet_roundtrip_throughInterface();
     void closedPort_ioCalls_returnEmpty();
     void j2534Selection_usesInstalledDllPathAfterVendorProbe();
@@ -33,10 +33,10 @@ private slots:
     void ptyClearRxBuffer_discardsPendingBytes();
     void ptyAdapterVanish_readReturnsCleanly();
 
-private:
+  private:
     // Opens a pty pair and the direct backend's plain-serial path on the
     // slave end. Returns the master fd; fills `backend`.
-    int openPtyBackend(SerialPortActionsDirect &backend);
+    int openPtyBackend(SerialPortActionsDirect& backend);
 };
 
 void TestDirectBackend::getSet_roundtrip_throughInterface()
@@ -46,7 +46,7 @@ void TestDirectBackend::getSet_roundtrip_throughInterface()
 
     b->set_add_ssm_header(true);
     QCOMPARE(b->get_add_ssm_header(), true);
-    QCOMPARE(direct.add_ssm_header, true);   // same storage the I/O paths read
+    QCOMPARE(direct.add_ssm_header, true); // same storage the I/O paths read
 
     b->set_serial_port_baudrate("10400");
     QCOMPARE(b->get_serial_port_baudrate(), QString("10400"));
@@ -74,7 +74,7 @@ void TestDirectBackend::closedPort_ioCalls_returnEmpty()
     // write_serial_data's `return STATUS_SUCCESS;` converts int 0 through the
     // QByteArray(const char*) ctor => empty array. Pin today's behavior.
     QCOMPARE(b->write_serial_data(QByteArray("\x01\x02", 2)), QByteArray());
-    b->waitForSource();                // default no-op must not block or crash
+    b->waitForSource(); // default no-op must not block or crash
 }
 
 void TestDirectBackend::j2534Selection_usesInstalledDllPathAfterVendorProbe()
@@ -86,7 +86,7 @@ void TestDirectBackend::j2534Selection_usesInstalledDllPathAfterVendorProbe()
              dllPath);
 }
 
-int TestDirectBackend::openPtyBackend(SerialPortActionsDirect &backend)
+int TestDirectBackend::openPtyBackend(SerialPortActionsDirect& backend)
 {
     int master = -1, slave = -1;
     char name[256] = {0};
@@ -107,11 +107,11 @@ void TestDirectBackend::ptyRead_reassemblesFragmentedFrame()
 
     // The "ECU" delivers one framed message in two fragments with a gap:
     // header first, payload+checksum 30ms later. The reader must reassemble.
-    std::thread responder([master] {
+    std::thread responder([master]
+                          {
         ::write(master, "\x80\xf0\x10\x02", 4);
         QThread::msleep(30);
-        ::write(master, "\xaa\xbb\xcc", 3);
-    });
+        ::write(master, "\xaa\xbb\xcc", 3); });
     const QByteArray got = direct.read_serial_data(500);
     responder.join();
     QCOMPARE(got, QByteArray("\x80\xf0\x10\x02\xaa\xbb\xcc", 7));
@@ -139,9 +139,9 @@ void TestDirectBackend::ptyClearRxBuffer_discardsPendingBytes()
     const int master = openPtyBackend(direct);
     QVERIFY(master >= 0);
 
-    ::write(master, "\x11\x22\x33", 3);          // junk arrives...
-    QThread::msleep(50);                          // ...and lands in the buffer
-    direct.clear_rx_buffer();                     // must discard it
+    ::write(master, "\x11\x22\x33", 3); // junk arrives...
+    QThread::msleep(50);                // ...and lands in the buffer
+    direct.clear_rx_buffer();           // must discard it
     QCOMPARE(direct.read_serial_data(100), QByteArray());
     ::close(master);
 }
@@ -152,7 +152,7 @@ void TestDirectBackend::ptyAdapterVanish_readReturnsCleanly()
     const int master = openPtyBackend(direct);
     QVERIFY(master >= 0);
 
-    ::close(master);                              // the adapter disappears
+    ::close(master); // the adapter disappears
     // The read must come back empty (possibly via handle_error ->
     // reset_connection) without crashing or hanging.
     QCOMPARE(direct.read_serial_data(100), QByteArray());

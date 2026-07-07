@@ -8,14 +8,14 @@
 class ScriptedOperation : public FlashOperationWorker
 {
     Q_OBJECT
-public:
+  public:
     using FlashOperationWorker::FlashOperationWorker;
 
     bool succeedResult = true;
     bool checkStopBeforeReturning = false;
     int confirmResultSeen = -1;
 
-protected:
+  protected:
     bool execute() override
     {
         if (checkStopBeforeReturning)
@@ -27,8 +27,8 @@ protected:
         emit LOG_I("scripted operation running", true, true);
         emit progressChanged(50);
         confirmResultSeen = confirm("title", "text",
-                                     QMessageBox::Yes | QMessageBox::Cancel,
-                                     QMessageBox::Cancel);
+                                    QMessageBox::Yes | QMessageBox::Cancel,
+                                    QMessageBox::Cancel);
         return succeedResult;
     }
 };
@@ -36,15 +36,16 @@ protected:
 class TestFlashOperationWorker : public QObject
 {
     Q_OBJECT
-private:
+  private:
     static FlashOperationWorker::PromptFn yesPrompt()
     {
-        return [](QWidget *, QString, QString, int, int) -> int {
+        return [](QWidget *, QString, QString, int, int) -> int
+        {
             return QMessageBox::Yes;
         };
     }
 
-private slots:
+  private slots:
     void run_emitsOperationFinished_withExecuteResult()
     {
         QWidget dialog;
@@ -78,7 +79,8 @@ private slots:
     {
         QWidget dialog;
         QThread *callingThread = nullptr;
-        auto prompt = [&callingThread](QWidget *, QString, QString, int, int) -> int {
+        auto prompt = [&callingThread](QWidget *, QString, QString, int, int) -> int
+        {
             callingThread = QThread::currentThread();
             return QMessageBox::Yes;
         };
@@ -115,7 +117,8 @@ private slots:
     }
 };
 
-int run_test_flash_operation_worker(int argc, char** argv) {
+int run_test_flash_operation_worker(int argc, char **argv)
+{
     // ScriptedOperation constructs a QWidget (the dialog), which requires a
     // QApplication rather than a plain QCoreApplication to construct (even
     // though we never show a widget).

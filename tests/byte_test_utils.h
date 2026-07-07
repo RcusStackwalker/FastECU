@@ -4,7 +4,8 @@
 
 #include <string_view>
 
-namespace test_bytes {
+namespace test_bytes
+{
 
 inline int hexNibble(char c)
 {
@@ -21,11 +22,13 @@ inline bytes::Bytes bytesFromHex(std::string_view hex)
 {
     bytes::Bytes out;
     int high = -1;
-    for (char c : hex) {
+    for (char c : hex)
+    {
         const int nibble = hexNibble(c);
         if (nibble < 0)
             continue;
-        if (high < 0) {
+        if (high < 0)
+        {
             high = nibble;
             continue;
         }

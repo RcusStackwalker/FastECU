@@ -7,10 +7,12 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace {
+namespace
+{
 constexpr int kStartTimeoutMs = 1000;
 
-struct SsmLogChannel {
+struct SsmLogChannel
+{
     int logValueIndex = 0;
     std::size_t responseOffset = 0;
     std::uint32_t address = 0;
@@ -18,29 +20,32 @@ struct SsmLogChannel {
     bool enabled = false;
 };
 
-void appendBytes(bytes::Bytes &target, bytes::Bytes chunk)
+void appendBytes(bytes::Bytes& target, bytes::Bytes chunk)
 {
     target.insert(target.end(), chunk.begin(), chunk.end());
 }
 
 QVector<SsmLogChannel> channelsFromLogValues(FileActions::LogValuesStructure *lv,
-                                             const QString &protocolFilter)
+                                             const QString& protocolFilter)
 {
     QHash<QString, QVector<int>> logValueIndicesById;
     logValueIndicesById.reserve(lv->log_value_id.length());
-    for (int j = 0; j < lv->log_value_id.length(); ++j) {
+    for (int j = 0; j < lv->log_value_id.length(); ++j)
+    {
         if (lv->log_value_protocol.at(j) == protocolFilter)
             logValueIndicesById[lv->log_value_id.at(j)].append(j);
     }
 
     QVector<SsmLogChannel> channels;
     channels.reserve(lv->lower_panel_log_value_id.length());
-    for (int i = 0; i < lv->lower_panel_log_value_id.length(); ++i) {
+    for (int i = 0; i < lv->lower_panel_log_value_id.length(); ++i)
+    {
         const auto it = logValueIndicesById.constFind(lv->lower_panel_log_value_id.at(i));
         if (it == logValueIndicesById.cend())
             continue;
 
-        for (int j : it.value()) {
+        for (int j : it.value())
+        {
             SsmLogChannel channel;
             channel.logValueIndex = j;
             channel.responseOffset = static_cast<std::size_t>(i);
@@ -53,25 +58,20 @@ QVector<SsmLogChannel> channelsFromLogValues(FileActions::LogValuesStructure *lv
     return channels;
 }
 
-bytes::Bytes buildPollRequest(const QVector<SsmLogChannel> &channels)
+bytes::Bytes buildPollRequest(const QVector<SsmLogChannel>& channels)
 {
     bytes::Bytes output{0xA8, 0x01};
     output.reserve(output.size() + channels.size() * 3);
-    for (const SsmLogChannel &channel : channels)
+    for (const SsmLogChannel& channel : channels)
         bytes::appendU24Be(output, channel.address);
     return output;
 }
-}
+} // namespace
 
 SsmLoggingProtocol::SsmLoggingProtocol(std::unique_ptr<ISsmTransport> transport,
-                                        FileActions::LogValuesStructure *logValues, FileActions *fileActions,
-                                        QString logValueProtocolFilter, bool targetIsEcu, bool useOpenport2Adapter)
-    : transport_(std::move(transport))
-    , logValues_(logValues)
-    , fileActions_(fileActions)
-    , logValueProtocolFilter_(std::move(logValueProtocolFilter))
-    , targetIsEcu_(targetIsEcu)
-    , useOpenport2Adapter_(useOpenport2Adapter)
+                                       FileActions::LogValuesStructure *logValues, FileActions *fileActions,
+                                       QString logValueProtocolFilter, bool targetIsEcu, bool useOpenport2Adapter)
+    : transport_(std::move(transport)), logValues_(logValues), fileActions_(fileActions), logValueProtocolFilter_(std::move(logValueProtocolFilter)), targetIsEcu_(targetIsEcu), useOpenport2Adapter_(useOpenport2Adapter)
 {
 }
 
@@ -92,9 +92,8 @@ bytes::Bytes SsmLoggingProtocol::readFramedResponse(int timeoutMs)
     while (received.size() < 3 && clock.elapsed() < timeoutMs)
         appendBytes(received, transport_->read(10));
 
-    while (received.size() >= 3
-           && (received[0] != 0x80 || received[1] != 0xf0 || received[2] != 0x10)
-           && clock.elapsed() < timeoutMs) {
+    while (received.size() >= 3 && (received[0] != 0x80 || received[1] != 0xf0 || received[2] != 0x10) && clock.elapsed() < timeoutMs)
+    {
         received.erase(received.begin());
         appendBytes(received, transport_->read(10));
     }
@@ -108,8 +107,10 @@ bytes::Bytes SsmLoggingProtocol::readFramedResponse(int timeoutMs)
 
 bool SsmLoggingProtocol::start(QString *errorOut)
 {
-    if (!transport_->isOpen()) {
-        if (errorOut) *errorOut = "adapter disconnected";
+    if (!transport_->isOpen())
+    {
+        if (errorOut)
+            *errorOut = "adapter disconnected";
         return false;
     }
 
@@ -117,8 +118,10 @@ bool SsmLoggingProtocol::start(QString *errorOut)
     transport_->write(buildSsmHeader(output));
 
     const bytes::Bytes received = readFramedResponse(kStartTimeoutMs);
-    if (received.size() <= 6 || received[4] != 0xe8) {
-        if (errorOut) *errorOut = "no response to logging start request";
+    if (received.size() <= 6 || received[4] != 0xe8)
+    {
+        if (errorOut)
+            *errorOut = "no response to logging start request";
         return false;
     }
     return true;
@@ -128,7 +131,8 @@ PollResult SsmLoggingProtocol::poll(int timeoutMs)
 {
     PollResult result;
 
-    if (!transport_->isOpen()) {
+    if (!transport_->isOpen())
+    {
         result.status = PollResult::Status::TransportError;
         result.errorMessage = "adapter disconnected";
         return result;
@@ -138,7 +142,8 @@ PollResult SsmLoggingProtocol::poll(int timeoutMs)
     transport_->write(buildSsmHeader(buildPollRequest(channels)));
 
     const bytes::Bytes received = readFramedResponse(timeoutMs);
-    if (received.size() <= 6 || received[4] != 0xe8) {
+    if (received.size() <= 6 || received[4] != 0xe8)
+    {
         result.status = PollResult::Status::NoResponse;
         return result;
     }
@@ -146,7 +151,8 @@ PollResult SsmLoggingProtocol::poll(int timeoutMs)
     const std::size_t payloadOffset = 5;
     const std::size_t payloadLength = received.size() - payloadOffset - 1;
 
-    for (const SsmLogChannel &channel : channels) {
+    for (const SsmLogChannel& channel : channels)
+    {
         const std::size_t channelOffset = channel.responseOffset;
         if (!channel.enabled || channelOffset >= payloadLength)
             continue;

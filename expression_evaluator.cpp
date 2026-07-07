@@ -2,9 +2,10 @@
 
 #include <cmath>
 
-namespace {
+namespace
+{
 
-int precedence(const QString &op)
+int precedence(const QString& op)
 {
     if (op == "*" || op == "/")
         return 2;
@@ -13,10 +14,9 @@ int precedence(const QString &op)
     return 0;
 }
 
-bool shouldPopBefore(const QStringList &operators, const QString &nextOperator)
+bool shouldPopBefore(const QStringList& operators, const QString& nextOperator)
 {
-    return !operators.isEmpty() && operators.last() != "("
-        && precedence(operators.last()) >= precedence(nextOperator);
+    return !operators.isEmpty() && operators.last() != "(" && precedence(operators.last()) >= precedence(nextOperator);
 }
 
 QString normalizedSingleValue(QString value)
@@ -26,9 +26,9 @@ QString normalizedSingleValue(QString value)
     return value;
 }
 
-}
+} // namespace
 
-QStringList ExpressionEvaluator::parse(const QString &expression, const QString &x)
+QStringList ExpressionEvaluator::parse(const QString& expression, const QString& x)
 {
     QStringList numbers;
     QStringList operators;
@@ -121,15 +121,24 @@ double ExpressionEvaluator::evaluate(QStringList expression, int precision)
             if (i < 2)
                 continue;
 
-            if (expression.at(i) == "-") {
+            if (expression.at(i) == "-")
+            {
                 value = expression.at(i - 2).toDouble() - expression.at(i - 1).toDouble();
-            } else if (expression.at(i) == "+") {
+            }
+            else if (expression.at(i) == "+")
+            {
                 value = expression.at(i - 2).toDouble() + expression.at(i - 1).toDouble();
-            } else if (expression.at(i) == "*") {
+            }
+            else if (expression.at(i) == "*")
+            {
                 value = expression.at(i - 2).toDouble() * expression.at(i - 1).toDouble();
-            } else if (expression.at(i) == "/") {
+            }
+            else if (expression.at(i) == "/")
+            {
                 value = expression.at(i - 2).toDouble() / expression.at(i - 1).toDouble();
-            } else {
+            }
+            else
+            {
                 continue;
             }
 
@@ -149,7 +158,7 @@ double ExpressionEvaluator::evaluate(QStringList expression, int precision)
     return value;
 }
 
-double ExpressionEvaluator::evaluate(const QString &expression, const QString &x, int precision)
+double ExpressionEvaluator::evaluate(const QString& expression, const QString& x, int precision)
 {
     return evaluate(parse(expression, x), precision);
 }

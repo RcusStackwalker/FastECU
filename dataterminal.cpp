@@ -2,8 +2,7 @@
 #include "serial_port_actions.h"
 
 DataTerminal::DataTerminal(SerialPortActions *serial, QWidget *parent)
-    : QDialog(parent)
-    , ui{std::make_unique<Ui::DataTerminalWindow>()}
+    : QDialog(parent), ui{std::make_unique<Ui::DataTerminalWindow>()}
 {
     ui->setupUi(this);
 
@@ -63,7 +62,7 @@ void DataTerminal::protocolTypeChanged(int)
     QObject *obj = sender();
     QString interfaceTypeName = obj->objectName();
 
-    QComboBox *protocolType = (QComboBox*)obj;
+    QComboBox *protocolType = (QComboBox *)obj;
 
     if (protocolType)
     {
@@ -79,17 +78,16 @@ void DataTerminal::listenInterface()
     QObject *obj = sender();
     QString interfaceTypeName = obj->objectName();
 
-    QPushButton *btn = (QPushButton*)obj;
+    QPushButton *btn = (QPushButton *)obj;
     if (btn->isChecked())
         if (interfaceTypeName == "klineProtocol")
             emit LOG_I("Start listening K-Line interface", true, true);
         else
             emit LOG_I("Start listening CANbus interface", true, true);
+    else if (interfaceTypeName == "klineProtocol")
+        emit LOG_I("Stop listening K-Line interface", true, true);
     else
-        if (interfaceTypeName == "klineProtocol")
-            emit LOG_I("Stop listening K-Line interface", true, true);
-        else
-            emit LOG_I("Stop listening CANbus interface", true, true);
+        emit LOG_I("Stop listening CANbus interface", true, true);
 }
 
 void DataTerminal::sendToInterface()
@@ -125,7 +123,7 @@ void DataTerminal::sendToInterface()
     {
         emit LOG_D("Read message from file", true, true);
         QFile file(msg);
-        if (!file.open(QIODevice::ReadOnly ))
+        if (!file.open(QIODevice::ReadOnly))
         {
             emit LOG_E("Unable to open datastream file '" + file.fileName() + "' for reading", true, true);
             QMessageBox::warning(this, tr("Data terminal"), "Unable to open datastream file '" + file.fileName() + "' for reading");
@@ -138,7 +136,6 @@ void DataTerminal::sendToInterface()
             msgList.append(line);
         }
         file.close();
-
     }
 
     if (interfaceTypeName.startsWith("sendKlineMessage"))
@@ -154,7 +151,7 @@ void DataTerminal::sendToInterface()
             serialOk = false;
 
         emit LOG_D("Checking baudrate: " + ui->klineBaudRate->text(), true, true);
-        if (ui->klineBaudRate->text().toDouble() >=300 && ui->klineBaudRate->text().toDouble() <=2000000)
+        if (ui->klineBaudRate->text().toDouble() >= 300 && ui->klineBaudRate->text().toDouble() <= 2000000)
             serial->set_serial_port_baudrate(ui->klineBaudRate->text());
         else
             serialOk = false;
@@ -176,7 +173,7 @@ void DataTerminal::sendToInterface()
             serial->open_serial_port();
         }
 
-        QStringList msg;// = ui->klineMsgToSend->text().split(" ");
+        QStringList msg; // = ui->klineMsgToSend->text().split(" ");
         QByteArray output;
         QByteArray received;
         int rspDelay = 10;
@@ -197,12 +194,12 @@ void DataTerminal::sendToInterface()
 
                 emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
             }
-            if (msgList.length() > (j+1))
+            if (msgList.length() > (j + 1))
             {
-                if (msgList.at(j+1).startsWith("delay"))
+                if (msgList.at(j + 1).startsWith("delay"))
                 {
                     emit LOG_D("Set delay", true, true);
-                    delay(msgList.at(j+1).split(")").at(1).split("(").at(0).toUInt());
+                    delay(msgList.at(j + 1).split(")").at(1).split("(").at(0).toUInt());
                     j++;
                 }
             }
@@ -227,7 +224,7 @@ void DataTerminal::sendToInterface()
         else
             serialOk = false;
         emit LOG_D("Checking baudrate: " + ui->canBaudRate->text(), true, true);
-        if (ui->canBaudRate->text().toDouble() >=300 && ui->canBaudRate->text().toDouble() <=2000000)
+        if (ui->canBaudRate->text().toDouble() >= 300 && ui->canBaudRate->text().toDouble() <= 2000000)
             serial->set_can_speed(ui->canBaudRate->text());
         else
             serialOk = false;
@@ -248,7 +245,7 @@ void DataTerminal::sendToInterface()
             serial->open_serial_port();
         }
 
-        QStringList msg;// = ui->canMsgToSend->text().split(" ");
+        QStringList msg; // = ui->canMsgToSend->text().split(" ");
         QByteArray output;
         QByteArray received;
         int rspDelay = 100;
@@ -278,12 +275,12 @@ void DataTerminal::sendToInterface()
                 }
                 emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
             }
-            if (msgList.length() > (j+1))
+            if (msgList.length() > (j + 1))
             {
-                if (msgList.at(j+1).startsWith("delay"))
+                if (msgList.at(j + 1).startsWith("delay"))
                 {
                     emit LOG_D("Set delay", true, true);
-                    rspDelay = msgList.at(j+1).split(")").at(1).split("(").at(0).toUInt();
+                    rspDelay = msgList.at(j + 1).split(")").at(1).split("(").at(0).toUInt();
                     j++;
                 }
             }
@@ -296,9 +293,6 @@ void DataTerminal::sendToInterface()
         serial->reset_connection();
     }
 }
-
-
-
 
 /*
  * Add SSM header to message
@@ -334,7 +328,7 @@ uint8_t DataTerminal::calculate_checksum(QByteArray output, bool dec_0x100)
         checksum += (uint8_t)output.at(i);
 
     if (dec_0x100)
-        checksum = (uint8_t) (0x100 - checksum);
+        checksum = (uint8_t)(0x100 - checksum);
 
     return checksum;
 }
@@ -350,7 +344,7 @@ QString DataTerminal::parse_message_to_hex(QByteArray received)
 
     for (int i = 0; i < received.length(); i++)
     {
-        msg.append(QString("%1 ").arg((uint8_t)received.at(i),2,16,QLatin1Char('0')).toUtf8());
+        msg.append(QString("%1 ").arg((uint8_t)received.at(i), 2, 16, QLatin1Char('0')).toUtf8());
     }
 
     return msg;

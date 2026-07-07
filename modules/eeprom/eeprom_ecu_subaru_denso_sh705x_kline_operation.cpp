@@ -7,12 +7,9 @@
 #include <QFile>
 
 EepromEcuSubaruDensoSH705xKlineOperation::EepromEcuSubaruDensoSH705xKlineOperation(
-        SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
-        QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride))
-    , serial(serial)
-    , ecuCalDef(ecuCalDef)
-    , cmd_type(cmd_type)
+    SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
+    QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type)
 {
 }
 
@@ -90,7 +87,7 @@ bool EepromEcuSubaruDensoSH705xKlineOperation::execute()
             {
                 emit externalLoggerMessage("Writing ROM, please wait...");
                 emit LOG_I("Writing ROM to Subaru 07+ 32-bit using CAN", true, true);
-                //result = write_mem(ecuCalDef, test_write);
+                // result = write_mem(ecuCalDef, test_write);
             }
         }
         emit externalLoggerMessage("Finished");
@@ -98,23 +95,24 @@ bool EepromEcuSubaruDensoSH705xKlineOperation::execute()
         if (result == STATUS_SUCCESS)
         {
             int reply = confirm(tr("Downloaded EEPROM content"),
-                                 tr("If downloaded content looks ok, click 'Save' to save content and exit, otherwise click 'discard' and continue with next method."),
-                                 QMessageBox::Save | QMessageBox::Ignore,
-                                 QMessageBox::Save);
+                                tr("If downloaded content looks ok, click 'Save' to save content and exit, otherwise click 'discard' and continue with next method."),
+                                QMessageBox::Save | QMessageBox::Ignore,
+                                QMessageBox::Save);
 
             switch (reply)
             {
             case QMessageBox::Save:
                 save_and_exit = true;
                 break;
-            case QMessageBox::Ignore: {
+            case QMessageBox::Ignore:
+            {
                 result = STATUS_ERROR;
                 ecuCalDef->FullRomData.clear();
                 EEPROM_MODE++;
                 int retryReply = confirm(tr("Connecting to ECU"),
-                                          tr("Turn ignition OFF and back ON and press OK to start initializing connection to ECU"),
-                                          QMessageBox::Ok | QMessageBox::Cancel,
-                                          QMessageBox::Ok);
+                                         tr("Turn ignition OFF and back ON and press OK to start initializing connection to ECU"),
+                                         QMessageBox::Ok | QMessageBox::Cancel,
+                                         QMessageBox::Ok);
 
                 switch (retryReply)
                 {
@@ -176,8 +174,7 @@ int EepromEcuSubaruDensoSH705xKlineOperation::connect_bootloader()
     {
         if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_ID | 0x40))
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length()-1)), true, true);
-
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(8, received.length() - 1)), true, true);
         }
         else
         {
@@ -190,20 +187,19 @@ int EepromEcuSubaruDensoSH705xKlineOperation::connect_bootloader()
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-
     }
 
     emit LOG_I("No response from kernel, initialising ECU...", true, true);
 
     serial->change_port_speed("4800");
-    //serial->set_add_iso14230_header(false);
+    // serial->set_add_iso14230_header(false);
     delay(100);
 
     emit LOG_I("Initializing K-Line communications", true, true);
     received = send_sid_bf_ssm_init();
     if (received == "" || (uint8_t)received.at(4) != 0xFF)
     {
-        QString nrc = FileActions::parse_nrc_message(received.mid(4, received.length()-1));
+        QString nrc = FileActions::parse_nrc_message(received.mid(4, received.length() - 1));
         emit LOG_E(nrc, true, true);
         return STATUS_ERROR;
     }
@@ -211,7 +207,7 @@ int EepromEcuSubaruDensoSH705xKlineOperation::connect_bootloader()
     received.remove(0, 8);
     received.remove(5, received.length() - 5);
     for (int i = 0; i < received.length(); i++)
-        msg.append(QString("%1").arg((uint8_t)received.at(i),2,16,QLatin1Char('0')).toUpper());
+        msg.append(QString("%1").arg((uint8_t)received.at(i), 2, 16, QLatin1Char('0')).toUpper());
 
     QString ecuid = msg;
     emit LOG_I("Init Success: ECU ID = " + ecuid, true, true);
@@ -222,7 +218,7 @@ int EepromEcuSubaruDensoSH705xKlineOperation::connect_bootloader()
     received = send_sid_81_start_communication();
     if (received == "" || (uint8_t)received.at(4) != 0xC1)
     {
-        QString nrc = FileActions::parse_nrc_message(received.mid(4, received.length()-1));
+        QString nrc = FileActions::parse_nrc_message(received.mid(4, received.length() - 1));
         emit LOG_E(nrc, true, true);
         return STATUS_ERROR;
     }
@@ -232,7 +228,7 @@ int EepromEcuSubaruDensoSH705xKlineOperation::connect_bootloader()
     received = send_sid_83_request_timings();
     if (received == "" || (uint8_t)received.at(4) != 0xC3)
     {
-        QString nrc = FileActions::parse_nrc_message(received.mid(4, received.length()-1));
+        QString nrc = FileActions::parse_nrc_message(received.mid(4, received.length() - 1));
         emit LOG_E(nrc, true, true);
         return STATUS_ERROR;
     }
@@ -242,7 +238,7 @@ int EepromEcuSubaruDensoSH705xKlineOperation::connect_bootloader()
     received = send_sid_27_request_seed();
     if (received == "" || (uint8_t)received.at(4) != 0x67)
     {
-        QString nrc = FileActions::parse_nrc_message(received.mid(4, received.length()-1));
+        QString nrc = FileActions::parse_nrc_message(received.mid(4, received.length() - 1));
         emit LOG_E(nrc, true, true);
         return STATUS_ERROR;
     }
@@ -268,7 +264,7 @@ int EepromEcuSubaruDensoSH705xKlineOperation::connect_bootloader()
     received = send_sid_27_send_seed_key(seed_key);
     if (received == "" || (uint8_t)received.at(4) != 0x67)
     {
-        QString nrc = FileActions::parse_nrc_message(received.mid(4, received.length()-1));
+        QString nrc = FileActions::parse_nrc_message(received.mid(4, received.length() - 1));
         emit LOG_E(nrc, true, true);
         return STATUS_ERROR;
     }
@@ -278,7 +274,7 @@ int EepromEcuSubaruDensoSH705xKlineOperation::connect_bootloader()
     received = send_sid_10_start_diagnostic();
     if (received == "" || (uint8_t)received.at(4) != 0x50)
     {
-        QString nrc = FileActions::parse_nrc_message(received.mid(4, received.length()-1));
+        QString nrc = FileActions::parse_nrc_message(received.mid(4, received.length() - 1));
         emit LOG_E(nrc, true, true);
         return STATUS_ERROR;
     }
@@ -309,7 +305,7 @@ int EepromEcuSubaruDensoSH705xKlineOperation::upload_kernel(QString kernel, uint
 
     QString mcu_name;
 
-    start_address = kernel_start_addr;//flashdevices[mcu_type_index].kblocks->start;
+    start_address = kernel_start_addr; // flashdevices[mcu_type_index].kblocks->start;
     emit LOG_D("Start address to upload kernel: " + QString::number(start_address), true, true);
 
     if (!serial->is_serial_port_open())
@@ -318,10 +314,10 @@ int EepromEcuSubaruDensoSH705xKlineOperation::upload_kernel(QString kernel, uint
         return STATUS_ERROR;
     }
 
-    //serial->set_add_iso14230_header(false);
+    // serial->set_add_iso14230_header(false);
 
     // Check kernel file
-    if (!file.open(QIODevice::ReadOnly ))
+    if (!file.open(QIODevice::ReadOnly))
     {
         emit LOG_E("Unable to open kernel file for reading", true, true);
         return STATUS_ERROR;
@@ -359,16 +355,16 @@ int EepromEcuSubaruDensoSH705xKlineOperation::upload_kernel(QString kernel, uint
         return STATUS_ERROR;
     emit LOG_I("Kernel upload request ok, uploading now, please wait...", true, true);
 
-    //pl_encr = sub_encrypt_buf(pl_encr, (uint32_t) pl_len);
+    // pl_encr = sub_encrypt_buf(pl_encr, (uint32_t) pl_len);
     pl_encr = encrypt_payload(pl_encr, pl_len);
 
     emit LOG_I("Transfer kernel data", true, true);
     received = send_sid_36_transferdata(start_address, pl_encr, len);
     if (received == "" || (uint8_t)received.at(4) != 0x76)
         return STATUS_ERROR;
-    //emit LOG_I("Kernel uploaded", true, true);
+    // emit LOG_I("Kernel uploaded", true, true);
 
-    //emit LOG_I("Kernel checksum bypass", true, true);
+    // emit LOG_I("Kernel checksum bypass", true, true);
     received = send_sid_34_request_upload(start_address + len, 4);
     if (received == "" || (uint8_t)received.at(4) != 0x74)
         return STATUS_ERROR;
@@ -378,15 +374,15 @@ int EepromEcuSubaruDensoSH705xKlineOperation::upload_kernel(QString kernel, uint
     cks_bypass.append((uint8_t)0x5A);
     cks_bypass.append((uint8_t)0xA5);
 
-    cks_bypass = encrypt_payload(cks_bypass, (uint32_t) 4);
+    cks_bypass = encrypt_payload(cks_bypass, (uint32_t)4);
 
     // sid36 transferData for checksum bypass
-    //emit LOG_D("Send 'sid36_transfer_data' for chksum bypass", true, true);
+    // emit LOG_D("Send 'sid36_transfer_data' for chksum bypass", true, true);
     received = send_sid_36_transferdata(start_address + len, cks_bypass, 4);
     if (received == "" || (uint8_t)received.at(4) != 0x76)
         return STATUS_ERROR;
 
-    //emit LOG_I("Checksum bypass ok", true, true);
+    // emit LOG_I("Checksum bypass ok", true, true);
     emit LOG_I("Kernel uploaded", true, true);
 
     emit LOG_I("Jump to kernel", true, true);
@@ -451,7 +447,7 @@ int EepromEcuSubaruDensoSH705xKlineOperation::read_mem(uint32_t start_addr, uint
 
     emit LOG_D("Read EEPROM start at: 0x" + QString::number(start_addr, 16) + " and size of 0x" + QString::number(length, 16), true, true);
 
-    #define NP10_MAXBLKS    32   //# of blocks to request per loop. Too high might flood us
+#define NP10_MAXBLKS 32 // # of blocks to request per loop. Too high might flood us
     serial->set_add_iso14230_header(true);
 
     output.clear();
@@ -475,7 +471,7 @@ int EepromEcuSubaruDensoSH705xKlineOperation::read_mem(uint32_t start_addr, uint
         float pleft = 0;
         unsigned long chrono;
 
-        //delay(1);
+        // delay(1);
         numblocks = willget / 32;
 
         if (numblocks > NP10_MAXBLKS)
@@ -503,7 +499,8 @@ int EepromEcuSubaruDensoSH705xKlineOperation::read_mem(uint32_t start_addr, uint
                 return STATUS_ERROR;
             delay(100);
             received = serial->read_serial_data(serial_read_timeout);
-            if (received.length()) {
+            if (received.length())
+            {
                 pagedata.append(received);
             }
             else
@@ -525,7 +522,7 @@ int EepromEcuSubaruDensoSH705xKlineOperation::read_mem(uint32_t start_addr, uint
         mapdata.append(pagedata);
 
         // don't count skipped first bytes //
-        cplen = (numblocks * 32) - skip_start; //this is the actual # of valid bytes in buf[]
+        cplen = (numblocks * 32) - skip_start; // this is the actual # of valid bytes in buf[]
         skip_start = 0;
 
         chrono = timer.elapsed();
@@ -534,31 +531,32 @@ int EepromEcuSubaruDensoSH705xKlineOperation::read_mem(uint32_t start_addr, uint
         if (cplen > 0 && chrono > 0)
             curspeed = cplen * (1000.0f / chrono);
 
-        if (!curspeed) {
+        if (!curspeed)
+        {
             curspeed += 1;
         }
 
         tleft = (willget / curspeed) % 9999;
         tleft++;
 
-        QString start_address = QString("%1").arg(addr,8,16,QLatin1Char('0')).toUpper();
-        QString block_len = QString("%1").arg(pagesize,8,16,QLatin1Char('0')).toUpper();
+        QString start_address = QString("%1").arg(addr, 8, 16, QLatin1Char('0')).toUpper();
+        QString block_len = QString("%1").arg(pagesize, 8, 16, QLatin1Char('0')).toUpper();
         msg = QString("Kernel read addr:  0x%1  length:  0x%2,  %3  B/s  %4 s").arg(start_address).arg(block_len).arg(curspeed, 6, 10, QLatin1Char(' ')).arg(tleft, 6, 10, QLatin1Char(' ')).toUtf8();
         emit LOG_I(msg, true, true);
         delay(1);
 
         // and drop extra bytes at the end //
-        uint32_t extrabytes = (cplen + len_done);   //hypothetical new length
-        if (extrabytes > length) {
+        uint32_t extrabytes = (cplen + len_done); // hypothetical new length
+        if (extrabytes > length)
+        {
             cplen -= (extrabytes - length);
-            //thus, (len_done + cplen) will not exceed len
+            // thus, (len_done + cplen) will not exceed len
         }
 
         // increment addr, len, etc //
         len_done += cplen;
         addr += (numblocks * 32);
         willget -= (numblocks * 32);
-
     }
 
     ecuCalDef->FullRomData = mapdata;
@@ -576,18 +574,20 @@ uint8_t EepromEcuSubaruDensoSH705xKlineOperation::cks_add8(QByteArray chksum_dat
 {
     uint16_t sum = 0;
     uint8_t data[chksum_data.length()];
-/*
-    for (int i = 0; i < chksum_data.length(); i++)
+    /*
+        for (int i = 0; i < chksum_data.length(); i++)
+        {
+            data[i] = chksum_data.at(i);
+        }
+    */
+    for (unsigned i = 0; i < len; i++)
     {
-        data[i] = chksum_data.at(i);
-    }
-*/
-    for (unsigned i = 0; i < len; i++) {
-        sum += (uint8_t)chksum_data.at(i);//data[i];
-        if (sum & 0x100) {
+        sum += (uint8_t)chksum_data.at(i); // data[i];
+        if (sum & 0x100)
+        {
             sum += 1;
         }
-        sum = (uint8_t) sum;
+        sum = (uint8_t)sum;
     }
     return sum;
 }
@@ -608,7 +608,6 @@ QByteArray EepromEcuSubaruDensoSH705xKlineOperation::send_sid_bf_ssm_init()
 
     received = serial->read_serial_data(serial_read_extra_long_timeout);
 
-
     return received;
 }
 
@@ -627,7 +626,6 @@ QByteArray EepromEcuSubaruDensoSH705xKlineOperation::send_sid_81_start_communica
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_extra_long_timeout);
-
 
     return received;
 }
@@ -649,7 +647,6 @@ QByteArray EepromEcuSubaruDensoSH705xKlineOperation::send_sid_83_request_timings
 
     received = serial->read_serial_data(serial_read_extra_long_timeout);
 
-
     return received;
 }
 
@@ -669,7 +666,6 @@ QByteArray EepromEcuSubaruDensoSH705xKlineOperation::send_sid_27_request_seed()
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_extra_long_timeout);
-
 
     return received;
 }
@@ -692,7 +688,6 @@ QByteArray EepromEcuSubaruDensoSH705xKlineOperation::send_sid_27_send_seed_key(Q
 
     received = serial->read_serial_data(serial_read_extra_long_timeout);
 
-
     return received;
 }
 
@@ -713,7 +708,6 @@ QByteArray EepromEcuSubaruDensoSH705xKlineOperation::send_sid_10_start_diagnosti
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_extra_long_timeout);
-
 
     return received;
 }
@@ -741,7 +735,6 @@ QByteArray EepromEcuSubaruDensoSH705xKlineOperation::send_sid_34_request_upload(
 
     received = serial->read_serial_data(serial_read_extra_long_timeout);
 
-
     return received;
 }
 
@@ -760,12 +753,13 @@ QByteArray EepromEcuSubaruDensoSH705xKlineOperation::send_sid_36_transferdata(ui
     uint16_t maxblocks = 0;
 
     len &= ~0x03;
-    if (!buf.length() || !len) {
+    if (!buf.length() || !len)
+    {
         emit LOG_E("Error in kernel data length!", true, true);
         return NULL;
     }
 
-    maxblocks = (len - 1) / blocksize;  // number of 128 byte blocks - 1
+    maxblocks = (len - 1) / blocksize; // number of 128 byte blocks - 1
 
     emit progressChanged(0);
 
@@ -780,7 +774,6 @@ QByteArray EepromEcuSubaruDensoSH705xKlineOperation::send_sid_36_transferdata(ui
         output.append((uint8_t)(blockaddr >> 16) & 0xFF);
         output.append((uint8_t)(blockaddr >> 8) & 0xFF);
         output.append((uint8_t)blockaddr & 0xFF);
-
 
         if (blockno == maxblocks)
         {
@@ -839,7 +832,6 @@ QByteArray EepromEcuSubaruDensoSH705xKlineOperation::send_sid_31_start_routine()
 
     received = serial->read_serial_data(serial_read_extra_long_timeout);
 
-
     return received;
 }
 
@@ -852,26 +844,23 @@ QByteArray EepromEcuSubaruDensoSH705xKlineOperation::generate_seed_key(QByteArra
 {
     QByteArray key;
 
-    const uint16_t keytogenerateindex_1[]={
+    const uint16_t keytogenerateindex_1[] = {
         0x53DA, 0x33BC, 0x72EB, 0x437D,
         0x7CA3, 0x3382, 0x834F, 0x3608,
         0xAFB8, 0x503D, 0xDBA3, 0x9D34,
-        0x3563, 0x6B70, 0x6E74, 0x88F0
-    };
+        0x3563, 0x6B70, 0x6E74, 0x88F0};
 
-    const uint16_t keytogenerateindex_2[]={
+    const uint16_t keytogenerateindex_2[] = {
         0x24B9, 0x9D91, 0xFF0C, 0xB8D5,
         0x15BB, 0xF998, 0x8723, 0x9E05,
         0x7092, 0xD683, 0xBA03, 0x59E1,
-        0x6136, 0x9B9A, 0x9CFB, 0x9DDB
-    };
+        0x6136, 0x9B9A, 0x9CFB, 0x9DDB};
 
-    const uint8_t indextransformation[]={
+    const uint8_t indextransformation[] = {
         0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8,
         0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
         0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
-        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
-    };
+        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
     key = SsmProtocol::calculateSeedKey(requested_seed, keytogenerateindex_1, indextransformation);
 
@@ -887,26 +876,23 @@ QByteArray EepromEcuSubaruDensoSH705xKlineOperation::generate_ecutek_seed_key(QB
 {
     QByteArray key;
 
-    const uint16_t keytogenerateindex_1[]={
+    const uint16_t keytogenerateindex_1[] = {
         0x53DA, 0x33BC, 0x72EB, 0x437D,
         0x7CA3, 0x3382, 0x834F, 0x3608,
         0xAFB8, 0x503D, 0xDBA3, 0x9D34,
-        0x3563, 0x6B70, 0x6E74, 0x88F0
-    };
+        0x3563, 0x6B70, 0x6E74, 0x88F0};
 
-    const uint16_t keytogenerateindex_2[]={
+    const uint16_t keytogenerateindex_2[] = {
         0x24B9, 0x9D91, 0xFF0C, 0xB8D5,
         0x15BB, 0xF998, 0x8723, 0x9E05,
         0x7092, 0xD683, 0xBA03, 0x59E1,
-        0x6136, 0x9B9A, 0x9CFB, 0x9DDB
-    };
+        0x6136, 0x9B9A, 0x9CFB, 0x9DDB};
 
-    const uint8_t indextransformation[]={
+    const uint8_t indextransformation[] = {
         0x4, 0x2, 0x5, 0x1, 0x8, 0xC, 0xD, 0x8,
         0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
         0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
-        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
-    };
+        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
     key = SsmProtocol::calculateSeedKey(requested_seed, keytogenerateindex_1, indextransformation);
 
@@ -927,16 +913,14 @@ QByteArray EepromEcuSubaruDensoSH705xKlineOperation::encrypt_payload(QByteArray 
 {
     QByteArray encrypted;
 
-    uint16_t keytogenerateindex[]={
-        0x7856, 0xCE22, 0xF513, 0x6E86
-    };
+    uint16_t keytogenerateindex[] = {
+        0x7856, 0xCE22, 0xF513, 0x6E86};
 
-    const uint8_t indextransformation[]={
+    const uint8_t indextransformation[] = {
         0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8,
         0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
         0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
-        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
-    };
+        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
     encrypted = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
@@ -947,16 +931,14 @@ QByteArray EepromEcuSubaruDensoSH705xKlineOperation::decrypt_payload(QByteArray 
 {
     QByteArray decrypted;
 
-    uint16_t keytogenerateindex[]={
-        0x6E86, 0xF513, 0xCE22, 0x7856
-    };
+    uint16_t keytogenerateindex[] = {
+        0x6E86, 0xF513, 0xCE22, 0x7856};
 
-    const uint8_t indextransformation[]={
+    const uint8_t indextransformation[] = {
         0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8,
         0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
         0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
-        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
-    };
+        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
     decrypted = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 

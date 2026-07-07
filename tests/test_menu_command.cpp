@@ -8,7 +8,7 @@ class TestMenuCommand : public QObject
 {
     Q_OBJECT
 
-private slots:
+  private slots:
     void activeMenuIds_mapToCommands_data()
     {
         QTest::addColumn<QString>("id");

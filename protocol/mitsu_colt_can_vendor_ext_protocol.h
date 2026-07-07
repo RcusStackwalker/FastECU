@@ -18,7 +18,8 @@
 // ROMs and this project's own patches never touch it.
 //
 // Pure, hardware-independent functions only — no I/O here.
-namespace MitsuColtCanVendorExt {
+namespace MitsuColtCanVendorExt
+{
 
 constexpr bytes::Byte kServiceReadMemoryByAddress = 0x23;
 constexpr bytes::Byte kVendorChallengeSelector = 0x27;
@@ -48,7 +49,7 @@ bytes::Bytes buildChallengeKey(std::uint32_t key);
 
 // Big-endian byte-array convenience wrappers matching the 4-byte wire
 // layout, mirroring MitsuColtCan::seedKey's shape.
-std::uint32_t bytesToSeed(const QByteArray &seedBytes); // expects exactly 4 bytes
+std::uint32_t bytesToSeed(const QByteArray& seedBytes); // expects exactly 4 bytes
 QByteArray keyToBytes(std::uint32_t key);               // produces exactly 4 bytes
 
 QByteArray buildChallengeSeedRequestFrame();

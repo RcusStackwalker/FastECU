@@ -10,7 +10,7 @@
 class TestRemoteBackendSmoke : public QObject
 {
     Q_OBJECT
-private slots:
+  private slots:
     void constructAndDestroy_localPeer_noBlockNoCrash();
 };
 
