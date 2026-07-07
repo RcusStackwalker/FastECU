@@ -13,7 +13,7 @@ legibility, and structure. The target state is:
 
 Observed on 2026-07-06:
 
-- Qt/qmake C++17 desktop application with app code, serial/J2534 backends,
+- Qt/qmake C++20 desktop application with app code, serial/J2534 backends,
   protocol code, logging, ECU/TCU/EEPROM flash modules, calibration editing,
   config parsing, and packaging assets in one repository.
 - Approximate maintained C++ surface, excluding `tests/`, `hexedit/`, and
@@ -226,6 +226,16 @@ Actions:
 - Move user prompts behind injectable prompt interfaces, as
   `FlashOperationWorker::PromptFn` already does.
 
+Implemented baseline:
+
+- `SsmProtocol` owns reusable SSM frame checksum/header validation and payload
+  prefix checks, with focused QtTest coverage for valid frames, malformed
+  lengths, wrong sender/receiver IDs, and bad checksums.
+- Added a C++20 byte utility boundary with `bytes::Byte`, `bytes::Bytes`, and
+  `bytes::ByteView` (`std::span<const std::uint8_t>`), plus explicit Qt
+  conversion helpers. `SsmProtocol` now exposes byte-native helper overloads and
+  keeps `QByteArray` wrappers for existing operation code.
+
 ### P1: Narrow serial and hardware interfaces
 
 `SerialPortActions` is a compatibility facade over a threaded backend and exposes
@@ -251,6 +261,10 @@ Implemented baseline:
   `SerialPortActions` facade.
 - FastECU transport adapters bridge the existing facade to those smaller
   interfaces for compatibility.
+- K-Line, CAN, and SSM transport interfaces now expose `bytes::ByteView` and
+  `bytes::Bytes` instead of `QByteArray`; Qt conversion is isolated in the
+  FastECU adapters, scripted test transports, and temporary protocol-driver
+  compatibility shims.
 - Facade threading coverage now includes teardown waiting for an in-flight
   backend read before joining the I/O thread.
 

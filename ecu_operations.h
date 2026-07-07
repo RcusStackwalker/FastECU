@@ -10,20 +10,20 @@
 #include <kernelmemorymodels.h>
 #include <file_actions.h>
 
-//Forward declaration
+// Forward declaration
 class SerialPortActions;
 
 class EcuOperations : public QWidget
 {
     Q_OBJECT
 
-signals:
+  signals:
     void LOG_E(QString message, bool timestamp, bool linefeed);
     void LOG_W(QString message, bool timestamp, bool linefeed);
     void LOG_I(QString message, bool timestamp, bool linefeed);
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
-public:
+  public:
     explicit EcuOperations(QWidget *ui, SerialPortActions *serial, QString mcu_type_string, int mcu_type_index);
     ~EcuOperations();
 
@@ -46,14 +46,14 @@ public:
     int read_mem_uj20_30_40_70_kline(FileActions::EcuCalDefStructure *ecuCalDef, uint32_t start_addr, uint32_t length);
     int read_mem_uj70_kline(FileActions::EcuCalDefStructure *ecuCalDef, uint32_t start_addr, uint32_t length);
 
-private:
+  private:
     void closeEvent(QCloseEvent *bar);
 
     int mcu_type_index;
     QString mcu_type_string;
 
-    #define STATUS_SUCCESS							0x00
-    #define STATUS_ERROR							0x01
+#define STATUS_SUCCESS 0x00
+#define STATUS_ERROR 0x01
 
     bool request_denso_kernel_init = false;
     bool request_denso_kernel_id = false;
@@ -69,8 +69,6 @@ private:
     uint16_t serial_read_medium_timeout = 500;
     uint16_t serial_read_long_timeout = 800;
     uint16_t serial_read_extra_long_timeout = 3000;
-
-
 
     SerialPortActions *serial;
     FileActions *fileActions;
@@ -101,15 +99,14 @@ private:
     int byte_to_int32(unsigned char *data);
     int byte_to_int24(unsigned char *data);
     int byte_to_int16(unsigned char *data);
-    void int16_to_byte(unsigned char *data,int i);
-    void int24_to_byte(unsigned char *data,int i);
-    void int32_to_byte(unsigned char *data,int i);
+    void int16_to_byte(unsigned char *data, int i);
+    void int24_to_byte(unsigned char *data, int i);
+    void int32_to_byte(unsigned char *data, int i);
 
-signals:
+  signals:
 
-private slots:
+  private slots:
     void delay(int timeout);
-
 };
 
 #endif // ECU_OPERATIONS_H

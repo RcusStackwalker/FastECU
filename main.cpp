@@ -22,26 +22,28 @@ int main(int argc, char *argv[])
                                 "Enable console debug output");
     cmdParser.addOption(cmdDebug);
 
-    //Locate debug option before QCommandLineParser to open console properly
+    // Locate debug option before QCommandLineParser to open console properly
     for (int i = 1; i < argc; i++)
     {
         if (!strcmp(argv[i], "-d") ||
             !strcmp(argv[i], "--debug") ||
-            !strcmp(argv[i],  "-debug"))
+            !strcmp(argv[i], "-debug"))
             debug_console = true;
     }
 
 #ifdef _WIN32
     if (!debug_console)
     {
-        if (AttachConsole(ATTACH_PARENT_PROCESS)) {
+        if (AttachConsole(ATTACH_PARENT_PROCESS))
+        {
             freopen("CONOUT$", "w", stdout);
             freopen("CONOUT$", "w", stderr);
         }
     }
     else
     {
-        if (AttachConsole(ATTACH_PARENT_PROCESS) || AllocConsole()) {
+        if (AttachConsole(ATTACH_PARENT_PROCESS) || AllocConsole())
+        {
             freopen("CONOUT$", "w", stdout);
             freopen("CONOUT$", "w", stderr);
         }
@@ -54,7 +56,7 @@ int main(int argc, char *argv[])
     {
         QApplication a(argc, argv);
 
-        //Parser works only after QApplication initialization
+        // Parser works only after QApplication initialization
         cmdParser.process(a);
 
         QString addr = cmdParser.value(cmdHost);
@@ -63,7 +65,7 @@ int main(int argc, char *argv[])
         MainWindow w(addr, password, nullptr);
 
         QScreen *screen = QGuiApplication::primaryScreen();
-        QRect  screenGeometry = screen->geometry();
+        QRect screenGeometry = screen->geometry();
         w.move(screenGeometry.center() - w.rect().center());
 
         w.show();

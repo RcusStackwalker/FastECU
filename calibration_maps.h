@@ -17,7 +17,7 @@
 QT_BEGIN_NAMESPACE
 namespace Ui
 {
-    class CalibrationMaps;
+class CalibrationMaps;
 }
 QT_END_NAMESPACE
 
@@ -25,7 +25,7 @@ class CalibrationMaps : public QWidget
 {
     Q_OBJECT
 
-public:
+  public:
     explicit CalibrationMaps(FileActions::EcuCalDefStructure *ecuCalDef, int romIndex, int mapIndex, QRect mdiAreaSize, QWidget *parent = nullptr);
     ~CalibrationMaps();
 
@@ -42,8 +42,9 @@ public:
     int xSizeOffset = 0;
     int ySizeOffset = 0;
 
-private:
-    enum RomInfoEnum {
+  private:
+    enum RomInfoEnum
+    {
         XmlId,
         InternalIdAddress,
         Make,
@@ -66,22 +67,21 @@ private:
     int getMapValueDecimalCount(QString valueFormat);
     int getMapCellColors(FileActions::EcuCalDefStructure *ecuCalDef, float mapDataValue, int mapIndex);
 
-private slots:
-    //void fetchFromEcu();
-    //void storeToEcu();
+  private slots:
+    // void fetchFromEcu();
+    // void storeToEcu();
     void cellClicked(int row, int col);
     void cellPressed(int row, int col);
     void cellChanged(int curRow, int curCol, int prevRow, int prevCol);
 
-signals:
+  signals:
     void fetchFromEcuButtonClicked();
     void storeToEcuButtonClicked();
     void selectable_combobox_item_changed(QString);
     void checkbox_state_changed(int);
 
-private:
-
-private:
+  private:
+  private:
     std::unique_ptr<Ui::CalibrationMaps> ui;
 };
 

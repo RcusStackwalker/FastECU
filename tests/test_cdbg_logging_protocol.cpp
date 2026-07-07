@@ -8,7 +8,8 @@
 
 using namespace MitsuColtCanCdbg;
 
-namespace {
+namespace
+{
 FileActions::LogValuesStructure makeOneChannel()
 {
     FileActions::LogValuesStructure lv;
@@ -22,12 +23,14 @@ FileActions::LogValuesStructure makeOneChannel()
     lv.log_value << "0";
     return lv;
 }
-}
+} // namespace
 
-class TestCdbgLoggingProtocol : public QObject {
+class TestCdbgLoggingProtocol : public QObject
+{
     Q_OBJECT
-private slots:
-    void poll_returns_no_response_before_start() {
+  private slots:
+    void poll_returns_no_response_before_start()
+    {
         auto transport = std::make_unique<cdbg::ScriptedCanTransport>();
         FileActions::LogValuesStructure lv = makeOneChannel();
         FileActions fileActions;
@@ -38,7 +41,8 @@ private slots:
         QCOMPARE((int)r.status, (int)PollResult::Status::NoResponse);
     }
 
-    void poll_returns_transport_error_when_adapter_closed() {
+    void poll_returns_transport_error_when_adapter_closed()
+    {
         auto transport = std::make_unique<cdbg::ScriptedCanTransport>();
         transport->setOpen(false);
         FileActions::LogValuesStructure lv = makeOneChannel();
@@ -51,7 +55,8 @@ private slots:
     }
 };
 
-int run_test_cdbg_logging_protocol(int argc, char** argv) {
+int run_test_cdbg_logging_protocol(int argc, char **argv)
+{
     // FileActions derives from QWidget, which requires a QApplication rather than
     // a plain QCoreApplication to construct (even though we never show a widget).
     QApplication app(argc, argv);

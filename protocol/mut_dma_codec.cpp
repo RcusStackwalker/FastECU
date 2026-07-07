@@ -1,35 +1,54 @@
 #include "protocol/mut_dma_codec.h"
-namespace mutdma {
-quint8 sum8(const QByteArray& bytes, int from, int len) {
-    quint32 s = 0;
-    for (int i = from; i < from + len && i < bytes.size(); ++i)
-        s += quint8(bytes.at(i));
-    return quint8(s & 0xFF);
+
+#include <algorithm>
+
+namespace mutdma
+{
+
+bytes::Byte sum8(bytes::ByteView bytes, std::size_t from, std::size_t len)
+{
+    return bytes::sum8(bytes, from, len);
 }
-QByteArray buildCommandFrame(quint8 cmd, const QByteArray& payload, quint8 trailer) {
-    QByteArray f(FRAME_LEN, char(0));
-    f[0] = char(cmd);
-    const int n = qMin(payload.size(), CHECKSUM_OFFSET - 1); // bytes 1..48 = 48 max
-    for (int i = 0; i < n; ++i) f[1 + i] = payload.at(i);
-    f[CHECKSUM_OFFSET] = char(sum8(f, 0, CHECKSUM_OFFSET));
-    f[TRAILER_OFFSET]  = char(trailer);
+
+bytes::Byte sum8(bytes::ByteView bytes)
+{
+    return bytes::sum8(bytes);
+}
+
+MutDmaFrame buildCommandFrame(bytes::Byte cmd, bytes::ByteView payload, bytes::Byte trailer)
+{
+    MutDmaFrame f{};
+    f[0] = cmd;
+    const std::size_t n = std::min(payload.size(), static_cast<std::size_t>(CHECKSUM_OFFSET - 1)); // bytes 1..48 = 48 max
+    std::copy_n(payload.begin(), n, f.begin() + 1);
+    f[CHECKSUM_OFFSET] = sum8(bytes::ByteView(f.data(), CHECKSUM_OFFSET));
+    f[TRAILER_OFFSET] = trailer;
     return f;
 }
-bool verifyFrame(const QByteArray& frame) {
-    if (frame.size() != FRAME_LEN) return false;
-    if (quint8(frame.at(CHECKSUM_OFFSET)) != sum8(frame, 0, CHECKSUM_OFFSET)) return false;
-    const quint8 t = quint8(frame.at(TRAILER_OFFSET));
+
+bool verifyFrame(bytes::ByteView frame)
+{
+    if (frame.size() != FRAME_LEN)
+        return false;
+    if (frame[CHECKSUM_OFFSET] != sum8(frame, 0, CHECKSUM_OFFSET))
+        return false;
+    const bytes::Byte t = frame[TRAILER_OFFSET];
     return t == TRAILER_STD || t == TRAILER_FREEFORM;
 }
-StreamFrame parseStreamFrame(const QByteArray& frame) {
+
+StreamFrame parseStreamFrame(bytes::ByteView frame)
+{
     StreamFrame s;
-    if (frame.size() < 3) return s;                       // id + csum + trailer minimum
-    if (quint8(frame.at(frame.size()-1)) != TRAILER_STD) return s;
-    const int csumIdx = frame.size() - 2;
-    if (quint8(frame.at(csumIdx)) != sum8(frame, 0, csumIdx)) return s;
-    s.logId = quint8(frame.at(0));
-    s.data  = frame.mid(1, csumIdx - 1);
+    if (frame.size() < 3)
+        return s; // id + csum + trailer minimum
+    if (frame[frame.size() - 1] != TRAILER_STD)
+        return s;
+    const std::size_t csumIdx = frame.size() - 2;
+    if (frame[csumIdx] != sum8(frame, 0, csumIdx))
+        return s;
+    s.logId = frame[0];
+    s.data.assign(frame.begin() + 1, frame.begin() + static_cast<std::ptrdiff_t>(csumIdx));
     s.ok = true;
     return s;
 }
-}
+} // namespace mutdma

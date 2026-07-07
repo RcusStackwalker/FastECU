@@ -1,0 +1,22 @@
+common --enable_bzlmod
+common --enable_platform_specific_config
+
+build:linux --cxxopt=-std=c++20
+build:linux --host_cxxopt=-std=c++20
+build:macos --cxxopt=-std=c++20
+build:macos --host_cxxopt=-std=c++20
+build:windows --cxxopt=/std:c++20
+build:windows --host_cxxopt=/std:c++20
+build:windows --cxxopt=/Zc:__cplusplus
+build:windows --host_cxxopt=/Zc:__cplusplus
+build --features=compiler_param_file
+build --action_env=QT_SELECT=qt6
+build --action_env=PATH
+
+build:release --compilation_mode=opt
+build:release --copt=-DQT_FORCE_ASSERTS
+
+build:clang-tidy --build_tag_filters=clang-tidy
+test:clang-tidy --test_tag_filters=clang-tidy
+
+test --test_output=errors

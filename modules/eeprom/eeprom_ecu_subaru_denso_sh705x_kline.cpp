@@ -45,13 +45,15 @@ void EepromEcuSubaruDensoSH705xKline::run()
         connect(m_operation, &FlashOperationWorker::LOG_I, this, &EepromEcuSubaruDensoSH705xKline::LOG_I);
         connect(m_operation, &FlashOperationWorker::LOG_D, this, &EepromEcuSubaruDensoSH705xKline::LOG_D);
         connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
-                this, [this](QString msg) { emit external_logger(msg); });
+                this, [this](QString msg)
+                { emit external_logger(msg); });
         connect(m_operation, &FlashOperationWorker::progressChanged,
                 this, &EepromEcuSubaruDensoSH705xKline::set_progressbar_value);
 
         QEventLoop loop;
         connect(m_operation, &FlashOperationWorker::operationFinished, &loop,
-                [&success, &loop](bool ok) { success = ok; loop.quit(); });
+                [&success, &loop](bool ok)
+                { success = ok; loop.quit(); });
 
         m_operation->start();
         loop.exec();

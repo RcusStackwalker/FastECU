@@ -1,7 +1,7 @@
 # Backend/adapter-level and thread-safety tests for the serial backend decoupling.
 # Run with: qmake6 serial_backend_tests.pro && make && ./serial_backend_tests
 QT += core testlib serialport remoteobjects websockets widgets
-CONFIG += c++17 console
+CONFIG += c++20 console
 CONFIG -= app_bundle
 include(../hardening.pri)
 

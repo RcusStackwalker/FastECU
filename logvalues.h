@@ -13,7 +13,7 @@
 QT_BEGIN_NAMESPACE
 namespace Ui
 {
-    class LogValues;
+class LogValues;
 }
 QT_END_NAMESPACE
 
@@ -21,16 +21,17 @@ class LogValues : public QWidget
 {
     Q_OBJECT
 
-public:
+  public:
     explicit LogValues(FileActions::LogValuesStructure *logValues, int tabIndex, QString protocol, QWidget *parent = nullptr);
     ~LogValues();
 
-private:
+  private:
     FileActions::LogValuesStructure *logValues;
 
     QString protocol;
 
-    struct log_value {
+    struct log_value
+    {
         uint16_t address;
         uint8_t len;
         QString expr;
@@ -101,14 +102,12 @@ private:
         "",
     };
 
-
-private slots:
+  private slots:
     void change_log_gauge_value(int);
     void change_log_digital_value(int);
     void change_log_switch_value(int);
 
-
-private:
+  private:
     std::unique_ptr<Ui::LogValues> ui;
 };
 

@@ -2,12 +2,10 @@
 
 ChecksumEcuSubaruDensoSH705xDiesel::ChecksumEcuSubaruDensoSH705xDiesel()
 {
-
 }
 
 ChecksumEcuSubaruDensoSH705xDiesel::~ChecksumEcuSubaruDensoSH705xDiesel()
 {
-
 }
 
 QByteArray ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum(QByteArray romData, uint32_t checksum_area_start, uint32_t checksum_area_length)
@@ -26,8 +24,7 @@ QByteArray ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum(QByteArray rom
     bool checksum_ok = true;
     bool sh72543_checksum_ok = true;
 
-
-    for (uint32_t i = checksum_area_start; i < checksum_area_end; i+=12)
+    for (uint32_t i = checksum_area_start; i < checksum_area_end; i += 12)
     {
         checksum = 0;
         checksum_temp = 0;
@@ -50,11 +47,11 @@ QByteArray ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum(QByteArray rom
 
         if (checksum_dword_addr_lo == 0 && checksum_dword_addr_hi == 0 && checksum_diff == 0x5aa5a55a)
         {
-            //QMessageBox::information(nullptr, QObject::tr("32-bit checksum"), "Checksums disabled");
+            // QMessageBox::information(nullptr, QObject::tr("32-bit checksum"), "Checksums disabled");
         }
         if (checksum_dword_addr_lo != 0 && checksum_dword_addr_hi != 0 && checksum_diff != 0x5aa5a55a)
         {
-            for (uint32_t j = checksum_dword_addr_lo; j < checksum_dword_addr_hi; j+=4)
+            for (uint32_t j = checksum_dword_addr_lo; j < checksum_dword_addr_hi; j += 4)
             {
                 for (int k = 0; k < 4; k++)
                 {
@@ -110,7 +107,7 @@ QByteArray ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum(QByteArray rom
         checksum_area_length = 2 * 12;
         checksum_area_end = checksum_area_start + checksum_area_length;
 
-        for (uint32_t i = checksum_area_start; i < checksum_area_end; i+=12)
+        for (uint32_t i = checksum_area_start; i < checksum_area_end; i += 12)
         {
             checksum = 0;
             checksum_temp = 0;
@@ -127,7 +124,7 @@ QByteArray ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum(QByteArray rom
 
             if (checksum_dword_addr_lo != 0 && checksum_dword_addr_hi != 0 && checksum_diff != 0x5aa5a55a)
             {
-                for (uint32_t j = checksum_dword_addr_lo; j < checksum_dword_addr_hi; j+=4)
+                for (uint32_t j = checksum_dword_addr_lo; j < checksum_dword_addr_hi; j += 4)
                 {
                     for (int k = 0; k < 4; k++)
                     {
@@ -176,4 +173,3 @@ QByteArray ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum(QByteArray rom
     }
     return romData;
 }
-

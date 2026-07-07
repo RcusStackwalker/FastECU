@@ -17,8 +17,6 @@ BiuOpsSubaruDtcs::BiuOpsSubaruDtcs(QStringList *dtc_result, QWidget *parent)
         label->setText(dtc_result->at(i));
         ui->gridLayout->addWidget(label, i, 0);
     }
-
-
 }
 
 BiuOpsSubaruDtcs::~BiuOpsSubaruDtcs()
@@ -29,4 +27,3 @@ void BiuOpsSubaruDtcs::closeEvent(QCloseEvent *event)
 {
     qDebug() << "Closing BIU DTC window";
 }
-

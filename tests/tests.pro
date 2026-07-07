@@ -1,5 +1,5 @@
 QT += core testlib widgets xml serialport remoteobjects websockets
-CONFIG += console c++17
+CONFIG += console c++20
 CONFIG -= app_bundle
 include(../hardening.pri)
 include(../protocol/protocol.pri)
@@ -88,6 +88,7 @@ SOURCES += \
     ../logging/logging_worker.cpp \
     ../logging/logging_engine.cpp
 HEADERS += \
+    byte_test_utils.h \
     test_flash_operation_worker.h \
     ../modules/flash_operation_worker.h \
     ../modules/flash_utils.h \
@@ -95,7 +96,10 @@ HEADERS += \
     ../expression_evaluator.h \
     ../nrc_parser.h \
     test_ssm_protocol.h \
+    ../modules/ssm_protocol_core.h \
     ../modules/ssm_protocol.h \
+    ../protocol/bytes.h \
+    ../protocol/qt_bytes.h \
     test_flash_utils.h \
     test_diagnostic_parsers.h \
     test_expression_evaluator.h \
@@ -107,6 +111,7 @@ HEADERS += \
     fake_backend.h \
     ../serial_port/serial_port_actions.h \
     ../serial_port/serial_port_actions_direct.h \
+    ../serial_port/j2534_driver_selection.h \
     ../serial_port/serial_backend.h \
     ../serial_port/remote_serial_backend.h \
     ../serial_port/serial_backend_host.h \

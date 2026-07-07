@@ -15,7 +15,7 @@
 class QueuedFakeBackend : public FakeBackend
 {
     Q_OBJECT
-public:
+  public:
     QQueue<QByteArray> responses;
 
     QByteArray read_serial_data(uint16_t timeout) override
@@ -30,7 +30,7 @@ public:
 class TestFlashEcuMitsuM32rCanOperation : public QObject
 {
     Q_OBJECT
-private slots:
+  private slots:
     void colt384kReadRangeStartsAtUserspace()
     {
         const int index = FlashUtils::findFlashDeviceIndex("M32R_384KB_1block");
@@ -44,9 +44,10 @@ private slots:
     {
         FakeBackend *fake = nullptr;
         SerialPortActions serial("", "", nullptr, nullptr,
-                                 [&fake]() -> SerialBackend * { fake = new FakeBackend(); return fake; });
-        serial.set_add_ssm_header(false);   // create backend
-        fake->scriptedResponse = QByteArray();   // too short: connect_bootloader() rejects it
+                                 [&fake]() -> SerialBackend *
+                                 { fake = new FakeBackend(); return fake; });
+        serial.set_add_ssm_header(false);      // create backend
+        fake->scriptedResponse = QByteArray(); // too short: connect_bootloader() rejects it
 
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.McuType = "M32R_128KB";
@@ -67,7 +68,8 @@ private slots:
     {
         FakeBackend *fake = nullptr;
         SerialPortActions serial("", "", nullptr, nullptr,
-                                 [&fake]() -> SerialBackend * { fake = new FakeBackend(); return fake; });
+                                 [&fake]() -> SerialBackend *
+                                 { fake = new FakeBackend(); return fake; });
         serial.set_add_ssm_header(false);
         // Valid diagnostic-session response for the "read" (basic) session:
         // build_request()'s header (00 00 07 E0) + service 0x50 + session 0x81.
@@ -80,19 +82,20 @@ private slots:
         QSignalSpy finishedSpy(&op, &FlashOperationWorker::operationFinished);
 
         op.start();
-        op.requestStop();   // requested immediately: at most one read-loop iteration runs
+        op.requestStop(); // requested immediately: at most one read-loop iteration runs
         QVERIFY(finishedSpy.wait(2000));
         QVERIFY(op.wait(2000));
 
         QCOMPARE(finishedSpy.at(0).at(0).toBool(), false);
-        QVERIFY(ecuCalDef.FullRomData.isEmpty());   // read never completed
+        QVERIFY(ecuCalDef.FullRomData.isEmpty()); // read never completed
     }
 
     void vendorExtensionReadPerformsChallengeBeforeDiagnosticSession()
     {
         QueuedFakeBackend *fake = nullptr;
         SerialPortActions serial("", "", nullptr, nullptr,
-                                 [&fake]() -> SerialBackend * { fake = new QueuedFakeBackend(); return fake; });
+                                 [&fake]() -> SerialBackend *
+                                 { fake = new QueuedFakeBackend(); return fake; });
         serial.set_add_ssm_header(false);
 
         fake->responses.enqueue(QByteArray("\x00\x00\x07\xE8\x63\x27\x41\x12\x34\x56\x78", 11));
@@ -116,13 +119,14 @@ private slots:
 
         const quint32 key = MitsuColtCanVendorExt::challengeInverseTransform(0x12345678);
         const QString expectedKeyFrame = QString("write_echo_check:begin:000007e0232742%1")
-                .arg(QString::fromLatin1(MitsuColtCanVendorExt::keyToBytes(key).toHex()));
+                                             .arg(QString::fromLatin1(MitsuColtCanVendorExt::keyToBytes(key).toHex()));
         QCOMPARE(writes.at(1), expectedKeyFrame);
         QCOMPARE(writes.at(2), QString("write_echo_check:begin:000007e01081"));
     }
 };
 
-int run_test_flash_ecu_mitsu_m32r_can_operation(int argc, char** argv) {
+int run_test_flash_ecu_mitsu_m32r_can_operation(int argc, char **argv)
+{
     // FlashEcuMitsuM32rCanOperation's constructor takes a QWidget* dialog,
     // and the tests below construct a real QWidget -- that requires a
     // QApplication rather than a plain QCoreApplication (same fix as

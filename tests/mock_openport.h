@@ -20,7 +20,7 @@
 class MockOpenPort : public QObject
 {
     Q_OBJECT
-public:
+  public:
     explicit MockOpenPort(int masterFd, QObject *parent = nullptr)
         : QObject(parent), fd(masterFd),
           notifier(new QSocketNotifier(masterFd, QSocketNotifier::Read, this))
@@ -33,7 +33,7 @@ public:
     // make the "reset while a read is in-flight" window deterministic.
     std::atomic<bool> answerReadVbatt{true};
 
-private slots:
+  private slots:
     void onReadable()
     {
         char buf[256];
@@ -51,7 +51,7 @@ private slots:
                 continue;
 
             if (line.contains("atr") && !answerReadVbatt)
-                continue;   // withhold READ_VBATT reply: keep the caller's read parked
+                continue; // withhold READ_VBATT reply: keep the caller's read parked
 
             QByteArray resp;
             if (line.contains("ati"))
@@ -64,7 +64,7 @@ private slots:
         }
     }
 
-private:
+  private:
     int fd;
     QSocketNotifier *notifier;
     QByteArray rx;
@@ -75,7 +75,7 @@ private:
 // pumps events. Responding starts before the constructor returns.
 class MockOpenPortThread : public QThread
 {
-public:
+  public:
     explicit MockOpenPortThread(int masterFd) : fd(masterFd)
     {
         start();
@@ -90,17 +90,17 @@ public:
     // Safe to flip from the test thread at any time (std::atomic member).
     MockOpenPort *mock = nullptr;
 
-protected:
+  protected:
     void run() override
     {
-        MockOpenPort m(fd);   // created here => notifier lives on this thread
+        MockOpenPort m(fd); // created here => notifier lives on this thread
         mock = &m;
         ready.release();
         exec();
         mock = nullptr;
     }
 
-private:
+  private:
     int fd;
     QSemaphore ready;
 };

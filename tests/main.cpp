@@ -24,7 +24,8 @@
 #include "test_model_validation.h"
 #include "test_checksum_results.h"
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv)
+{
     int status = 0;
     status |= run_test_codec(argc, argv);
     status |= run_test_freeform(argc, argv);

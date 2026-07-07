@@ -1,0 +1,6 @@
+exports_files([
+    "fastecu_sources.bzl",
+    "openssl_ext.bzl",
+    "qt_remote_objects.bzl",
+    "qt_targets.bzl",
+])

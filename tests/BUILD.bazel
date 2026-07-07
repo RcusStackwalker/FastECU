@@ -1,0 +1,121 @@
+load("//bazel:fastecu_sources.bzl", "MUT_DMA_INTEGRATION_TESTS_COMMON_HDRS", "MUT_DMA_INTEGRATION_TESTS_COMMON_SRCS", "MUT_DMA_TESTS_COMMON_HDRS", "MUT_DMA_TESTS_COMMON_SRCS", "SERIAL_BACKEND_TESTS_COMMON_HDRS", "SERIAL_BACKEND_TESTS_COMMON_SRCS", "SERIAL_BACKEND_TESTS_UNIX_HDRS", "SERIAL_BACKEND_TESTS_UNIX_SRCS", "SERIAL_CRASH_TESTS_COMMON_HDRS", "SERIAL_CRASH_TESTS_COMMON_SRCS")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_LINKOPTS", "QT_DEPS", "local_test_hdrs", "local_test_srcs", "qt_cc_library", "qt_cc_test", "qt_cpp_moc_headers", "test_cpp_moc_srcs")
+
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "cpp_sources",
+    srcs = glob(["*.cpp"]),
+)
+
+filegroup(
+    name = "pro_files",
+    srcs = [
+        "mut_dma_integration_tests.pro",
+        "serial_backend_tests.pro",
+        "serial_crash_tests.pro",
+        "tests.pro",
+    ],
+)
+
+qt_cc_library(
+    name = "test_header_mocs",
+    srcs = [],
+    hdrs = [
+        "fake_backend.h",
+        "mock_openport.h",
+    ],
+    copts = COMMON_COPTS,
+    deps = QT_DEPS + ["//:fastecu_core_common"],
+)
+
+qt_cpp_moc_headers(
+    name = "mut_dma_cpp_mocs",
+    srcs = test_cpp_moc_srcs(MUT_DMA_TESTS_COMMON_SRCS),
+    deps = QT_DEPS,
+)
+
+qt_cc_test(
+    name = "mut_dma_tests",
+    srcs = local_test_srcs(MUT_DMA_TESTS_COMMON_SRCS) + local_test_hdrs(MUT_DMA_TESTS_COMMON_HDRS),
+    copts = COMMON_COPTS + ["-I.", "-Itests", "-Iserial_port", "-Iprotocol"],
+    linkopts = COMMON_LINKOPTS,
+    deps = QT_DEPS + [
+        ":mut_dma_cpp_mocs",
+        ":test_header_mocs",
+        "//:fastecu_core_common",
+    ] + select({
+        "@platforms//os:windows": ["//:fastecu_platform_windows"],
+        "//conditions:default": ["//:fastecu_platform_unix"],
+    }),
+)
+
+qt_cpp_moc_headers(
+    name = "serial_backend_cpp_mocs",
+    srcs = test_cpp_moc_srcs(SERIAL_BACKEND_TESTS_COMMON_SRCS + SERIAL_BACKEND_TESTS_UNIX_SRCS),
+    deps = QT_DEPS,
+)
+
+qt_cc_test(
+    name = "serial_backend_tests",
+    srcs = local_test_srcs(SERIAL_BACKEND_TESTS_COMMON_SRCS) + local_test_hdrs(SERIAL_BACKEND_TESTS_COMMON_HDRS) + select({
+        "@platforms//os:windows": [],
+        "//conditions:default": local_test_srcs(SERIAL_BACKEND_TESTS_UNIX_SRCS) + local_test_hdrs(SERIAL_BACKEND_TESTS_UNIX_HDRS),
+    }),
+    copts = COMMON_COPTS + ["-I.", "-Itests", "-Iserial_port", "-Iprotocol"],
+    linkopts = COMMON_LINKOPTS,
+    deps = QT_DEPS + [
+        ":serial_backend_cpp_mocs",
+        ":test_header_mocs",
+        "//:fastecu_core_common",
+    ] + select({
+        "@platforms//os:windows": ["//:fastecu_platform_windows"],
+        "//conditions:default": ["//:fastecu_platform_unix"],
+    }),
+)
+
+qt_cpp_moc_headers(
+    name = "serial_crash_cpp_mocs",
+    srcs = test_cpp_moc_srcs(SERIAL_CRASH_TESTS_COMMON_SRCS),
+    deps = QT_DEPS,
+)
+
+qt_cc_test(
+    name = "serial_crash_tests",
+    srcs = local_test_srcs(SERIAL_CRASH_TESTS_COMMON_SRCS) + local_test_hdrs(SERIAL_CRASH_TESTS_COMMON_HDRS),
+    copts = COMMON_COPTS + ["-I.", "-Itests", "-Iserial_port"],
+    linkopts = COMMON_LINKOPTS,
+    deps = QT_DEPS + [
+        ":serial_crash_cpp_mocs",
+        ":test_header_mocs",
+        "//:fastecu_core_common",
+        "//:fastecu_platform_unix",
+    ],
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+)
+
+qt_cpp_moc_headers(
+    name = "mut_dma_integration_cpp_mocs",
+    srcs = test_cpp_moc_srcs(MUT_DMA_INTEGRATION_TESTS_COMMON_SRCS),
+    deps = QT_DEPS,
+)
+
+qt_cc_test(
+    name = "mut_dma_integration_tests",
+    srcs = local_test_srcs(MUT_DMA_INTEGRATION_TESTS_COMMON_SRCS) + local_test_hdrs(MUT_DMA_INTEGRATION_TESTS_COMMON_HDRS),
+    copts = COMMON_COPTS + ["-I.", "-Itests", "-Iserial_port", "-Iprotocol"],
+    linkopts = COMMON_LINKOPTS,
+    deps = QT_DEPS + [
+        ":mut_dma_integration_cpp_mocs",
+        ":test_header_mocs",
+        "//:fastecu_core_common",
+        "//:fastecu_platform_unix",
+    ],
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+)

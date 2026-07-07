@@ -2,12 +2,10 @@
 
 ChecksumTcuMitsuMH8104Can::ChecksumTcuMitsuMH8104Can()
 {
-
 }
 
 ChecksumTcuMitsuMH8104Can::~ChecksumTcuMitsuMH8104Can()
 {
-
 }
 
 QByteArray ChecksumTcuMitsuMH8104Can::calculate_checksum(QByteArray romData)
@@ -40,7 +38,7 @@ QByteArray ChecksumTcuMitsuMH8104Can::calculate_checksum(QByteArray romData)
         checksum -= 0xffffffff;
     }
     msg.clear();
-    msg.append(QString("Checksum calculated: 0x%1").arg(checksum,8,16,QLatin1Char('0')).toUtf8());
+    msg.append(QString("Checksum calculated: 0x%1").arg(checksum, 8, 16, QLatin1Char('0')).toUtf8());
     qDebug() << msg;
 
     if (checksum != checksum_target)
@@ -56,7 +54,7 @@ QByteArray ChecksumTcuMitsuMH8104Can::calculate_checksum(QByteArray romData)
         checksum_balance_value += ((uint8_t)romData.at(checksum_balance_value_address + 3));
 
         msg.clear();
-        msg.append(QString("Balance value before: 0x%1").arg(checksum_balance_value,8,16,QLatin1Char('0')).toUtf8());
+        msg.append(QString("Balance value before: 0x%1").arg(checksum_balance_value, 8, 16, QLatin1Char('0')).toUtf8());
         qDebug() << msg;
 
         if (checksum > checksum_target)
@@ -68,7 +66,7 @@ QByteArray ChecksumTcuMitsuMH8104Can::calculate_checksum(QByteArray romData)
             checksum_balance_value += checksum_target - checksum;
         }
         msg.clear();
-        msg.append(QString("Balance value after: 0x%1").arg(checksum_balance_value,8,16,QLatin1Char('0')).toUtf8());
+        msg.append(QString("Balance value after: 0x%1").arg(checksum_balance_value, 8, 16, QLatin1Char('0')).toUtf8());
         qDebug() << msg;
 
         balance_value_array.append((uint8_t)((checksum_balance_value >> 24) & 0xff));

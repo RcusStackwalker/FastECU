@@ -8,33 +8,35 @@
 
 class LoggingWorker;
 
-struct LogSessionConfig {
-    QString protocolId;              // registry key: "SSM" / "MUT_DMA" / "CDBG"
-    QString logValueProtocolFilter;  // string compared against log_value_protocol entries
+struct LogSessionConfig
+{
+    QString protocolId;             // registry key: "SSM" / "MUT_DMA" / "CDBG"
+    QString logValueProtocolFilter; // string compared against log_value_protocol entries
 };
 
-using LoggingProtocolFactory = std::function<std::unique_ptr<LoggingProtocol>(const LogSessionConfig &)>;
+using LoggingProtocolFactory = std::function<std::unique_ptr<LoggingProtocol>(const LogSessionConfig&)>;
 
 // GUI-thread-owned façade over the current logging session's LoggingWorker.
 // Adding a future protocol means one call to registerProtocol() -- no changes
 // to LoggingEngine or LoggingWorker themselves.
-class LoggingEngine : public QObject {
+class LoggingEngine : public QObject
+{
     Q_OBJECT
-public:
+  public:
     explicit LoggingEngine(QObject *parent = nullptr);
     ~LoggingEngine() override;
 
-    void registerProtocol(const QString &protocolId, LoggingProtocolFactory factory,
-                           int pollTimeoutMs, int carSilenceMissThreshold,
-                           int reconnectAttemptThreshold, int reconnectRetryPeriod);
+    void registerProtocol(const QString& protocolId, LoggingProtocolFactory factory,
+                          int pollTimeoutMs, int carSilenceMissThreshold,
+                          int reconnectAttemptThreshold, int reconnectRetryPeriod);
 
     // Returns false immediately without starting anything if no factory is
     // registered for config.protocolId, or a session is already running.
-    bool start(const LogSessionConfig &config);
+    bool start(const LogSessionConfig& config);
     void stop();
     bool isRunning() const;
 
-signals:
+  signals:
     void valuesUpdated(QVector<LogSample> samples);
     void statusChanged(LoggingStatus status);
     void sessionEnded(SessionEndReason reason, QString message);
@@ -43,11 +45,12 @@ signals:
     void LOG_I(QString message, bool timestamp, bool linefeed);
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
-private slots:
+  private slots:
     void handleWorkerSessionEnded(SessionEndReason reason, QString message);
 
-private:
-    struct ProtocolRegistration {
+  private:
+    struct ProtocolRegistration
+    {
         LoggingProtocolFactory factory;
         int pollTimeoutMs;
         int carSilenceMissThreshold;

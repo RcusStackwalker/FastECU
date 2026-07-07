@@ -7,7 +7,7 @@ class TestExpressionEvaluator : public QObject
 {
     Q_OBJECT
 
-private slots:
+  private slots:
     void parse_returnsReversePolishTokens()
     {
         QCOMPARE(ExpressionEvaluator::parse("(x*2)+10", "4"),

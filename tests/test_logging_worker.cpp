@@ -4,16 +4,19 @@
 #include "scripted_logging_protocol.h"
 #include "test_logging_worker.h"
 
-class TestLoggingWorker : public QObject {
+class TestLoggingWorker : public QObject
+{
     Q_OBJECT
-private slots:
-    void initTestCase() {
+  private slots:
+    void initTestCase()
+    {
         qRegisterMetaType<QVector<LogSample>>();
         qRegisterMetaType<LoggingStatus>();
         qRegisterMetaType<SessionEndReason>();
     }
 
-    void normal_run_emits_running_then_values() {
+    void normal_run_emits_running_then_values()
+    {
         ScriptedLoggingProtocol proto;
         proto.queueStartResult(true);
         PollResult ok1;
@@ -38,7 +41,8 @@ private slots:
         QCOMPARE(samples.at(0).displayValue, QString("1234"));
     }
 
-    void handshake_failure_ends_session_without_polling() {
+    void handshake_failure_ends_session_without_polling()
+    {
         ScriptedLoggingProtocol proto;
         proto.queueStartResult(false, "handshake rejected");
 
@@ -53,10 +57,12 @@ private slots:
         QCOMPARE(endedSpy.at(0).at(1).toString(), QString("handshake rejected"));
     }
 
-    void car_dropout_then_recovery_flips_status_back() {
+    void car_dropout_then_recovery_flips_status_back()
+    {
         ScriptedLoggingProtocol proto;
         proto.queueStartResult(true);
-        for (int i = 0; i < 5; ++i) {
+        for (int i = 0; i < 5; ++i)
+        {
             PollResult r;
             r.status = PollResult::Status::NoResponse;
             proto.queuePollResult(r);
@@ -79,10 +85,12 @@ private slots:
         QCOMPARE(statusSpy.at(2).at(0).value<LoggingStatus>(), LoggingStatus::Running);
     }
 
-    void zero_reconnect_retry_period_never_attempts_reconnect() {
+    void zero_reconnect_retry_period_never_attempts_reconnect()
+    {
         ScriptedLoggingProtocol proto;
         proto.queueStartResult(true);
-        for (int i = 0; i < 1000; ++i) {
+        for (int i = 0; i < 1000; ++i)
+        {
             PollResult r;
             r.status = PollResult::Status::NoResponse;
             proto.queuePollResult(r);
@@ -109,7 +117,8 @@ private slots:
         QCOMPARE(proto.startCallCount(), 1);
     }
 
-    void adapter_loss_ends_session_and_thread_exits() {
+    void adapter_loss_ends_session_and_thread_exits()
+    {
         ScriptedLoggingProtocol proto;
         proto.queueStartResult(true);
         PollResult err;
@@ -128,10 +137,12 @@ private slots:
         QVERIFY(proto.stopCalled());
     }
 
-    void stop_is_noticed_within_one_poll_cycle() {
+    void stop_is_noticed_within_one_poll_cycle()
+    {
         ScriptedLoggingProtocol proto;
         proto.queueStartResult(true);
-        for (int i = 0; i < 1000; ++i) {
+        for (int i = 0; i < 1000; ++i)
+        {
             PollResult r;
             r.status = PollResult::Status::NoResponse;
             proto.queuePollResult(r);
@@ -145,7 +156,8 @@ private slots:
     }
 };
 
-int run_test_logging_worker(int argc, char** argv) {
+int run_test_logging_worker(int argc, char **argv)
+{
     QCoreApplication app(argc, argv);
     TestLoggingWorker t;
     return QTest::qExec(&t, argc, argv);

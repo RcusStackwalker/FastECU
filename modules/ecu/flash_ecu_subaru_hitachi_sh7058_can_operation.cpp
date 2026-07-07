@@ -6,12 +6,9 @@
 #include <QElapsedTimer>
 
 FlashEcuSubaruHitachiSH7058CanOperation::FlashEcuSubaruHitachiSH7058CanOperation(
-        SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
-        QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride))
-    , serial(serial)
-    , ecuCalDef(ecuCalDef)
-    , cmd_type(cmd_type)
+    SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
+    QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type)
 {
 }
 
@@ -29,7 +26,6 @@ bool FlashEcuSubaruHitachiSH7058CanOperation::execute()
     }
     QString mcu_name = flashdevices[mcu_type_index].name;
     emit LOG_D("MCU type: " + mcu_name + " " + mcu_type_string + " and index: " + QString::number(mcu_type_index), true, true);
-
 
     kernel = ecuCalDef->Kernel;
     flash_method = ecuCalDef->FlashMethod;
@@ -49,22 +45,22 @@ bool FlashEcuSubaruHitachiSH7058CanOperation::execute()
         emit LOG_I("Write memory with flashmethod '" + flash_method + "' and kernel '" + ecuCalDef->Kernel + "'", true, true);
     }
 
-/*    serial->set_is_iso14230_connection(false);
-    serial->set_is_can_connection(false);
-    serial->set_is_iso15765_connection(false);
-    serial->set_is_29_bit_id(false);
-    tester_id = 0xF0;
-    target_id = 0x10;
-    // Open serial port
-    serial->open_serial_port();
-    serial->change_port_speed("4800");
-    serial->set_add_iso14230_header(false);
+    /*    serial->set_is_iso14230_connection(false);
+        serial->set_is_can_connection(false);
+        serial->set_is_iso15765_connection(false);
+        serial->set_is_29_bit_id(false);
+        tester_id = 0xF0;
+        target_id = 0x10;
+        // Open serial port
+        serial->open_serial_port();
+        serial->change_port_speed("4800");
+        serial->set_add_iso14230_header(false);
 
-    // Set serial port
-    FlashUtils::configureIso15765Can(serial, "500000", 0x7E0, 0x7E8);
-    // Open serial port
-    serial->open_serial_port();
-*/
+        // Set serial port
+        FlashUtils::configureIso15765Can(serial, "500000", 0x7E0, 0x7E8);
+        // Open serial port
+        serial->open_serial_port();
+    */
     if (cmd_type == "read")
     {
         emit externalLoggerMessage("Reading ROM, please wait...");
@@ -154,25 +150,23 @@ int FlashEcuSubaruHitachiSH7058CanOperation::connect_bootloader_subaru_ecu_hitac
         {
             QByteArray response = received;
             response.remove(0, 8);
-            response.remove(5, response.length()-5);
+            response.remove(5, response.length() - 5);
 
             QString ecuid;
             for (int i = 0; i < 5; i++)
-                ecuid.append(QString("%1").arg((uint8_t)response.at(i),2,16,QLatin1Char('0')).toUpper());
+                ecuid.append(QString("%1").arg((uint8_t)response.at(i), 2, 16, QLatin1Char('0')).toUpper());
             emit LOG_I("ECU ID: " + ecuid, true, true);
             if (cmd_type == "read")
                 ecuCalDef->RomId = ecuid + "_";
         }
         else
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-
     }
 
     emit LOG_I("Requesting VIN", true, true);
@@ -198,14 +192,12 @@ int FlashEcuSubaruHitachiSH7058CanOperation::connect_bootloader_subaru_ecu_hitac
         }
         else
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-
     }
 
     emit LOG_I("Requesting CAL ID...", true, true);
@@ -233,14 +225,12 @@ int FlashEcuSubaruHitachiSH7058CanOperation::connect_bootloader_subaru_ecu_hitac
         }
         else
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-
     }
 
     emit LOG_I("Requesting CVN", true, true);
@@ -264,25 +254,23 @@ int FlashEcuSubaruHitachiSH7058CanOperation::connect_bootloader_subaru_ecu_hitac
             QString msg;
             msg.clear();
             for (int i = 0; i < response.length(); i++)
-                msg.append(QString("%1").arg((uint8_t)response.at(i),2,16,QLatin1Char('0')).toUpper());
+                msg.append(QString("%1").arg((uint8_t)response.at(i), 2, 16, QLatin1Char('0')).toUpper());
 
             emit LOG_I("CVN: " + msg, true, true);
         }
         else
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-
     }
 
     emit LOG_I("Initializing bootloader...", true, true);
 
-//On car session hack
+    // On car session hack
     output.clear();
     output.append((uint8_t)0x00);
     output.append((uint8_t)0x00);
@@ -294,438 +282,404 @@ int FlashEcuSubaruHitachiSH7058CanOperation::connect_bootloader_subaru_ecu_hitac
     output[7] = (uint8_t)0x00;
     output[8] = (uint8_t)0xD7;
 
-
     serial->write_serial_data_echo_check(output);
-//    delay(200);
+    //    delay(200);
     received = serial->read_serial_data(200);
 
+    if ((uint8_t)received.at(5) != 0xA0 && (uint8_t)received.at(5) != 0x20)
 
- if ((uint8_t)received.at(5) != 0xA0 && (uint8_t)received.at(5) != 0x20)
-
-{
-    emit LOG_I("In Car Programming, Accessing...", true, true);
-    delay(777);
-
-    output.clear();
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x07);
-    output.append((uint8_t)0xE0);
-    output[4] = (uint8_t)0xA8;
-    output[5] = (uint8_t)0x00;
-    output[6] = (uint8_t)0x00;
-    output[7] = (uint8_t)0x01;
-    output[8] = (uint8_t)0x3B;
-
-
-    serial->write_serial_data_echo_check(output);
-//    delay(200);
-    received = serial->read_serial_data(200);
-
-
-    output.clear();
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x07);
-    output.append((uint8_t)0xDF);
-    output[4] = (uint8_t)0x10;
-    output[5] = (uint8_t)0x03;
-
-
-    serial->write_serial_data_echo_check(output);
-//    delay(200);
-    received = serial->read_serial_data(200);
-
-
-    output.clear();
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x07);
-    output.append((uint8_t)0xE1);
-    output[4] = (uint8_t)0x04;
-
-
-    serial->write_serial_data_echo_check(output);
-//    delay(200);
-    received = serial->read_serial_data(200);
-
-
-    output.clear();
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x07);
-    output.append((uint8_t)0xB0);
-    output[4] = (uint8_t)0x10;
-    output[5] = (uint8_t)0x03;
-
-
-    serial->write_serial_data_echo_check(output);
-//    delay(200);
-    received = serial->read_serial_data(200);
-
-
-    output.clear();
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x07);
-    output.append((uint8_t)0xB0);
-    output[4] = (uint8_t)0x85;
-    output[5] = (uint8_t)0x02;
-
-
-    serial->write_serial_data_echo_check(output);
-//    delay(200);
-    received = serial->read_serial_data(200);
-
-
-    output.clear();
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x07);
-    output.append((uint8_t)0xDF);
-    output[4] = (uint8_t)0x85;
-    output[5] = (uint8_t)0x02;
-
-
-    serial->write_serial_data_echo_check(output);
-//    delay(200);
-    received = serial->read_serial_data(200);
-
-
-    output.clear();
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x07);
-    output.append((uint8_t)0xB0);
-    output[4] = (uint8_t)0x85;
-    output[5] = (uint8_t)0x02;
-
-
-    serial->write_serial_data_echo_check(output);
-//    delay(200);
-    received = serial->read_serial_data(200);
-
-
-    output.clear();
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x07);
-    output.append((uint8_t)0xDF);
-    output[4] = (uint8_t)0x85;
-    output[5] = (uint8_t)0x02;
-
-
-    serial->write_serial_data_echo_check(output);
-//    delay(200);
-    received = serial->read_serial_data(200);
-
-
-    output.clear();
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x07);
-    output.append((uint8_t)0xDF);
-    output[4] = (uint8_t)0x28;
-    output[5] = (uint8_t)0x03;
-    output[6] = (uint8_t)0x01;
-
-
-    serial->write_serial_data_echo_check(output);
-//    delay(200);
-    received = serial->read_serial_data(200);
-
-    emit LOG_I("Starting seed request...", true, true);
-
-    output.clear();
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x07);
-    output.append((uint8_t)0xE0);
-    output[4] = (uint8_t)0x27;
-    output[5] = (uint8_t)0x01;
-
-    serial->write_serial_data_echo_check(output);
-    delay(200);
-    received = serial->read_serial_data(200);
-
-    if ((uint8_t)received.at(4) != 0x67 || (uint8_t)received.at(5) != 0x01)
     {
-        emit LOG_I("Bad response to seed request", true, true);
+        emit LOG_I("In Car Programming, Accessing...", true, true);
+        delay(777);
 
-        //return STATUS_ERROR;
+        output.clear();
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x07);
+        output.append((uint8_t)0xE0);
+        output[4] = (uint8_t)0xA8;
+        output[5] = (uint8_t)0x00;
+        output[6] = (uint8_t)0x00;
+        output[7] = (uint8_t)0x01;
+        output[8] = (uint8_t)0x3B;
+
+        serial->write_serial_data_echo_check(output);
+        //    delay(200);
+        received = serial->read_serial_data(200);
+
+        output.clear();
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x07);
+        output.append((uint8_t)0xDF);
+        output[4] = (uint8_t)0x10;
+        output[5] = (uint8_t)0x03;
+
+        serial->write_serial_data_echo_check(output);
+        //    delay(200);
+        received = serial->read_serial_data(200);
+
+        output.clear();
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x07);
+        output.append((uint8_t)0xE1);
+        output[4] = (uint8_t)0x04;
+
+        serial->write_serial_data_echo_check(output);
+        //    delay(200);
+        received = serial->read_serial_data(200);
+
+        output.clear();
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x07);
+        output.append((uint8_t)0xB0);
+        output[4] = (uint8_t)0x10;
+        output[5] = (uint8_t)0x03;
+
+        serial->write_serial_data_echo_check(output);
+        //    delay(200);
+        received = serial->read_serial_data(200);
+
+        output.clear();
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x07);
+        output.append((uint8_t)0xB0);
+        output[4] = (uint8_t)0x85;
+        output[5] = (uint8_t)0x02;
+
+        serial->write_serial_data_echo_check(output);
+        //    delay(200);
+        received = serial->read_serial_data(200);
+
+        output.clear();
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x07);
+        output.append((uint8_t)0xDF);
+        output[4] = (uint8_t)0x85;
+        output[5] = (uint8_t)0x02;
+
+        serial->write_serial_data_echo_check(output);
+        //    delay(200);
+        received = serial->read_serial_data(200);
+
+        output.clear();
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x07);
+        output.append((uint8_t)0xB0);
+        output[4] = (uint8_t)0x85;
+        output[5] = (uint8_t)0x02;
+
+        serial->write_serial_data_echo_check(output);
+        //    delay(200);
+        received = serial->read_serial_data(200);
+
+        output.clear();
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x07);
+        output.append((uint8_t)0xDF);
+        output[4] = (uint8_t)0x85;
+        output[5] = (uint8_t)0x02;
+
+        serial->write_serial_data_echo_check(output);
+        //    delay(200);
+        received = serial->read_serial_data(200);
+
+        output.clear();
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x07);
+        output.append((uint8_t)0xDF);
+        output[4] = (uint8_t)0x28;
+        output[5] = (uint8_t)0x03;
+        output[6] = (uint8_t)0x01;
+
+        serial->write_serial_data_echo_check(output);
+        //    delay(200);
+        received = serial->read_serial_data(200);
+
+        emit LOG_I("Starting seed request...", true, true);
+
+        output.clear();
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x07);
+        output.append((uint8_t)0xE0);
+        output[4] = (uint8_t)0x27;
+        output[5] = (uint8_t)0x01;
+
+        serial->write_serial_data_echo_check(output);
+        delay(200);
+        received = serial->read_serial_data(200);
+
+        if ((uint8_t)received.at(4) != 0x67 || (uint8_t)received.at(5) != 0x01)
+        {
+            emit LOG_I("Bad response to seed request", true, true);
+
+            // return STATUS_ERROR;
+        }
+
+        emit LOG_I("Seed request ok", true, true);
+
+        seed.append(received.at(6));
+        seed.append(received.at(7));
+        seed.append(received.at(8));
+        seed.append(received.at(9));
+
+        seed_key = subaru_ecu_hitachi_generate_can_seed_key(seed);
+
+        emit LOG_I("Sending seed key...", true, true);
+
+        output.clear();
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x07);
+        output.append((uint8_t)0xE0);
+        output[4] = (uint8_t)0x27;
+        output[5] = (uint8_t)0x02;
+        output.append(seed_key);
+
+        serial->write_serial_data_echo_check(output);
+        delay(200);
+        received = serial->read_serial_data(200);
+
+        if ((uint8_t)received.at(4) != 0x67 || (uint8_t)received.at(5) != 0x02)
+        {
+            emit LOG_I("Bad response to seed request", true, true);
+
+            // return STATUS_ERROR;
+        }
+
+        emit LOG_I("Seed key ok", true, true);
+
+        output.clear();
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x07);
+        output.append((uint8_t)0xE0);
+        output[4] = (uint8_t)0xA8;
+        output[5] = (uint8_t)0x00;
+        output[6] = (uint8_t)0x00;
+        output[7] = (uint8_t)0x00;
+        output[8] = (uint8_t)0xD5;
+
+        serial->write_serial_data_echo_check(output);
+        //    delay(200);
+        received = serial->read_serial_data(200);
+
+        output.clear();
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x07);
+        output.append((uint8_t)0xE0);
+        output[4] = (uint8_t)0xA8;
+        output[5] = (uint8_t)0x00;
+        output[6] = (uint8_t)0x00;
+        output[7] = (uint8_t)0x01;
+        output[8] = (uint8_t)0x3B;
+
+        serial->write_serial_data_echo_check(output);
+        //    delay(200);
+        received = serial->read_serial_data(200);
+
+        output.clear();
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x07);
+        output.append((uint8_t)0xE0);
+        output[4] = (uint8_t)0xA8;
+        output[5] = (uint8_t)0x00;
+        output[6] = (uint8_t)0x00;
+        output[7] = (uint8_t)0x00;
+        output[8] = (uint8_t)0x1C;
+
+        serial->write_serial_data_echo_check(output);
+        //    delay(200);
+        received = serial->read_serial_data(200);
+
+        output.clear();
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x07);
+        output.append((uint8_t)0xE0);
+        output[4] = (uint8_t)0xA8;
+        output[5] = (uint8_t)0x00;
+        output[6] = (uint8_t)0x00;
+        output[7] = (uint8_t)0x00;
+        output[8] = (uint8_t)0x0E;
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x0F);
+
+        serial->write_serial_data_echo_check(output);
+        //    delay(200);
+        received = serial->read_serial_data(200);
+
+        output.clear();
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x07);
+        output.append((uint8_t)0xE0);
+        output[4] = (uint8_t)0x10;
+        output[5] = (uint8_t)0x02;
+
+        serial->write_serial_data_echo_check(output);
+        delay(200);
+        received = serial->read_serial_data(200);
+
+        emit LOG_I("Checking if jump successful and kernel alive...", true, true);
+
+        output[4] = (uint8_t)0x34;
+        output[5] = (uint8_t)0x04;
+        output[6] = (uint8_t)0x33;
+        output[7] = (uint8_t)0x00;
+        output[8] = (uint8_t)0x00;
+        output[9] = (uint8_t)0x00;
+        output.append((uint8_t)0x10);
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x00);
+
+        serial->write_serial_data_echo_check(output);
+        delay(200);
+        received = serial->read_serial_data(200);
+
+        if ((uint8_t)received.at(4) != 0x74 && (uint8_t)received.at(5) != 0x20 && (uint8_t)received.at(6) != 0x01 && (uint8_t)received.at(7) != 0x04)
+        {
+            emit LOG_I("Kernel not verified to be running!", true, true);
+
+            kernel_alive = true;
+            return STATUS_ERROR;
+        }
+
+        emit LOG_I("Test script complete", true, true);
+        return STATUS_SUCCESS;
     }
 
-    emit LOG_I("Seed request ok", true, true);
+    else
 
-    seed.append(received.at(6));
-    seed.append(received.at(7));
-    seed.append(received.at(8));
-    seed.append(received.at(9));
-
-    seed_key = subaru_ecu_hitachi_generate_can_seed_key(seed);
-
-    emit LOG_I("Sending seed key...", true, true);
-
-    output.clear();
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x07);
-    output.append((uint8_t)0xE0);
-    output[4] = (uint8_t)0x27;
-    output[5] = (uint8_t)0x02;
-    output.append(seed_key);
-
-
-    serial->write_serial_data_echo_check(output);
-    delay(200);
-    received = serial->read_serial_data(200);
-
-    if ((uint8_t)received.at(4) != 0x67 || (uint8_t)received.at(5) != 0x02)
     {
-        emit LOG_I("Bad response to seed request", true, true);
+        emit LOG_I("Bench Programming, Accessing...", true, true);
+        delay(777);
 
-        //return STATUS_ERROR;
-    }
+        output.clear();
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x07);
+        output.append((uint8_t)0xE0);
+        output[4] = (uint8_t)0x10;
+        output[5] = (uint8_t)0x43;
 
-    emit LOG_I("Seed key ok", true, true);
+        serial->write_serial_data_echo_check(output);
+        delay(200);
+        received = serial->read_serial_data(200);
 
-    output.clear();
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x07);
-    output.append((uint8_t)0xE0);
-    output[4] = (uint8_t)0xA8;
-    output[5] = (uint8_t)0x00;
-    output[6] = (uint8_t)0x00;
-    output[7] = (uint8_t)0x00;
-    output[8] = (uint8_t)0xD5;
+        if ((uint8_t)received.at(4) != 0x50 || (uint8_t)received.at(5) != 0x43)
+        {
+            emit LOG_I("Failed to initialise bootloader", true, true);
 
+            // return STATUS_ERROR;
+        }
 
-    serial->write_serial_data_echo_check(output);
-//    delay(200);
-    received = serial->read_serial_data(200);
+        emit LOG_I("Starting seed request...", true, true);
 
+        output[4] = (uint8_t)0x27;
+        output[5] = (uint8_t)0x01;
 
-    output.clear();
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x07);
-    output.append((uint8_t)0xE0);
-    output[4] = (uint8_t)0xA8;
-    output[5] = (uint8_t)0x00;
-    output[6] = (uint8_t)0x00;
-    output[7] = (uint8_t)0x01;
-    output[8] = (uint8_t)0x3B;
+        serial->write_serial_data_echo_check(output);
+        delay(200);
+        received = serial->read_serial_data(200);
 
+        if ((uint8_t)received.at(4) != 0x67 || (uint8_t)received.at(5) != 0x01)
+        {
+            emit LOG_I("Bad response to seed request", true, true);
 
-    serial->write_serial_data_echo_check(output);
-//    delay(200);
-    received = serial->read_serial_data(200);
+            // return STATUS_ERROR;
+        }
 
+        emit LOG_I("Seed request ok", true, true);
 
-    output.clear();
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x07);
-    output.append((uint8_t)0xE0);
-    output[4] = (uint8_t)0xA8;
-    output[5] = (uint8_t)0x00;
-    output[6] = (uint8_t)0x00;
-    output[7] = (uint8_t)0x00;
-    output[8] = (uint8_t)0x1C;
+        seed.append(received.at(6));
+        seed.append(received.at(7));
+        seed.append(received.at(8));
+        seed.append(received.at(9));
 
+        seed_key = subaru_ecu_hitachi_generate_can_seed_key(seed);
 
-    serial->write_serial_data_echo_check(output);
-//    delay(200);
-    received = serial->read_serial_data(200);
+        emit LOG_I("Sending seed key...", true, true);
 
+        output[4] = (uint8_t)0x27;
+        output[5] = (uint8_t)0x02;
+        output.append(seed_key);
 
-    output.clear();
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x07);
-    output.append((uint8_t)0xE0);
-    output[4] = (uint8_t)0xA8;
-    output[5] = (uint8_t)0x00;
-    output[6] = (uint8_t)0x00;
-    output[7] = (uint8_t)0x00;
-    output[8] = (uint8_t)0x0E;
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x0F);
+        serial->write_serial_data_echo_check(output);
+        delay(200);
+        received = serial->read_serial_data(200);
 
+        if ((uint8_t)received.at(4) != 0x67 || (uint8_t)received.at(5) != 0x02)
+        {
+            emit LOG_I("Bad response to seed request", true, true);
 
-    serial->write_serial_data_echo_check(output);
-//    delay(200);
-    received = serial->read_serial_data(200);
+            // return STATUS_ERROR;
+        }
 
+        emit LOG_I("Seed key ok", true, true);
 
-    output.clear();
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x07);
-    output.append((uint8_t)0xE0);
-    output[4] = (uint8_t)0x10;
-    output[5] = (uint8_t)0x02;
+        emit LOG_I("Jumping to onboad kernel...", true, true);
 
+        output.clear();
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x07);
+        output.append((uint8_t)0xE0);
+        output.append((uint8_t)0x10);
+        output.append((uint8_t)0x42);
 
-    serial->write_serial_data_echo_check(output);
-    delay(200);
-    received = serial->read_serial_data(200);
+        serial->write_serial_data_echo_check(output);
+        delay(200);
+        received = serial->read_serial_data(200);
 
+        if ((uint8_t)received.at(4) != 0x50 || (uint8_t)received.at(5) != 0x42)
+        {
+            emit LOG_I("Bad response to jumping to onboard kernel", true, true);
 
-    emit LOG_I("Checking if jump successful and kernel alive...", true, true);
+            // return STATUS_ERROR;
+        }
 
-    output[4] = (uint8_t)0x34;
-    output[5] = (uint8_t)0x04;
-    output[6] = (uint8_t)0x33;
-    output[7] = (uint8_t)0x00;
-    output[8] = (uint8_t)0x00;
-    output[9] = (uint8_t)0x00;
-    output.append((uint8_t)0x10);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
+        emit LOG_I("Jump to kernel ok", true, true);
 
-    serial->write_serial_data_echo_check(output);
-    delay(200);
-    received = serial->read_serial_data(200);
+        emit LOG_I("Checking if jump successful and kernel alive...", true, true);
 
-    if ((uint8_t)received.at(4) != 0x74 && (uint8_t)received.at(5) != 0x20 && (uint8_t)received.at(6) != 0x01 && (uint8_t)received.at(7) != 0x04)
-    {
-        emit LOG_I("Kernel not verified to be running!", true, true);
+        output[4] = (uint8_t)0x34;
+        output[5] = (uint8_t)0x04;
+        output[6] = (uint8_t)0x33;
+        output[7] = (uint8_t)0x00;
+        output[8] = (uint8_t)0x00;
+        output[9] = (uint8_t)0x00;
+        output.append((uint8_t)0x10);
+        output.append((uint8_t)0x00);
+        output.append((uint8_t)0x00);
 
-        kernel_alive = true;
-        return STATUS_ERROR;
+        serial->write_serial_data_echo_check(output);
+        delay(200);
+        received = serial->read_serial_data(200);
+
+        if ((uint8_t)received.at(4) != 0x74 && (uint8_t)received.at(5) != 0x20 && (uint8_t)received.at(6) != 0x01 && (uint8_t)received.at(7) != 0x04)
+        {
+            emit LOG_I("Kernel verified to be running", true, true);
+
+            kernel_alive = true;
+            // return STATUS_SUCCESS;
+        }
     }
 
     emit LOG_I("Test script complete", true, true);
     return STATUS_SUCCESS;
-
 }
-
-else
-
-{
-    emit LOG_I("Bench Programming, Accessing...", true, true);
-    delay(777);
-
-    output.clear();
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x07);
-    output.append((uint8_t)0xE0);
-    output[4] = (uint8_t)0x10;
-    output[5] = (uint8_t)0x43;
-
-    serial->write_serial_data_echo_check(output);
-    delay(200);
-    received = serial->read_serial_data(200);
-
-
-    if ((uint8_t)received.at(4) != 0x50 || (uint8_t)received.at(5) != 0x43)
-    {
-        emit LOG_I("Failed to initialise bootloader", true, true);
-
-        //return STATUS_ERROR;
-    }
-
-    emit LOG_I("Starting seed request...", true, true);
-
-    output[4] = (uint8_t)0x27;
-    output[5] = (uint8_t)0x01;
-
-    serial->write_serial_data_echo_check(output);
-    delay(200);
-    received = serial->read_serial_data(200);
-
-    if ((uint8_t)received.at(4) != 0x67 || (uint8_t)received.at(5) != 0x01)
-    {
-        emit LOG_I("Bad response to seed request", true, true);
-
-        //return STATUS_ERROR;
-    }
-
-    emit LOG_I("Seed request ok", true, true);
-
-    seed.append(received.at(6));
-    seed.append(received.at(7));
-    seed.append(received.at(8));
-    seed.append(received.at(9));
-
-    seed_key = subaru_ecu_hitachi_generate_can_seed_key(seed);
-
-    emit LOG_I("Sending seed key...", true, true);
-
-    output[4] = (uint8_t)0x27;
-    output[5] = (uint8_t)0x02;
-    output.append(seed_key);
-
-
-    serial->write_serial_data_echo_check(output);
-    delay(200);
-    received = serial->read_serial_data(200);
-
-    if ((uint8_t)received.at(4) != 0x67 || (uint8_t)received.at(5) != 0x02)
-    {
-        emit LOG_I("Bad response to seed request", true, true);
-
-        //return STATUS_ERROR;
-    }
-
-    emit LOG_I("Seed key ok", true, true);
-
-    emit LOG_I("Jumping to onboad kernel...", true, true);
-
-    output.clear();
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x07);
-    output.append((uint8_t)0xE0);
-    output.append((uint8_t)0x10);
-    output.append((uint8_t)0x42);
-
-    serial->write_serial_data_echo_check(output);
-    delay(200);
-    received = serial->read_serial_data(200);
-
-    if ((uint8_t)received.at(4) != 0x50 || (uint8_t)received.at(5) != 0x42)
-    {
-        emit LOG_I("Bad response to jumping to onboard kernel", true, true);
-
-        //return STATUS_ERROR;
-    }
-
-    emit LOG_I("Jump to kernel ok", true, true);
-
-    emit LOG_I("Checking if jump successful and kernel alive...", true, true);
-
-    output[4] = (uint8_t)0x34;
-    output[5] = (uint8_t)0x04;
-    output[6] = (uint8_t)0x33;
-    output[7] = (uint8_t)0x00;
-    output[8] = (uint8_t)0x00;
-    output[9] = (uint8_t)0x00;
-    output.append((uint8_t)0x10);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-
-    serial->write_serial_data_echo_check(output);
-    delay(200);
-    received = serial->read_serial_data(200);
-
-    if ((uint8_t)received.at(4) != 0x74 && (uint8_t)received.at(5) != 0x20 && (uint8_t)received.at(6) != 0x01 && (uint8_t)received.at(7) != 0x04)
-    {
-        emit LOG_I("Kernel verified to be running", true, true);
-
-        kernel_alive = true;
-        //return STATUS_SUCCESS;
-    }
-}
-
-
-    emit LOG_I("Test script complete", true, true);
-    return STATUS_SUCCESS;
- }
 
 /*
  * Read memory from Subaru ECU Hitachi K-line bootloader
@@ -758,12 +712,12 @@ int FlashEcuSubaruHitachiSH7058CanOperation::read_mem_subaru_ecu_hitachi_can(uin
 
     start_addr = 0x100000;
 
-    length = 0x100000;    // hack for testing
+    length = 0x100000; // hack for testing
 
-    uint32_t skip_start = start_addr & (pagesize - 1); //if unaligned, we'll be receiving this many extra bytes
+    uint32_t skip_start = start_addr & (pagesize - 1); // if unaligned, we'll be receiving this many extra bytes
     uint32_t addr = start_addr - skip_start;
     uint32_t willget = (skip_start + length + pagesize - 1) & ~(pagesize - 1);
-    uint32_t len_done = 0;  //total data written to file
+    uint32_t len_done = 0; // total data written to file
 
     emit LOG_I("Checking if OBK is running", true, true);
     serial->change_port_speed("38400");
@@ -774,7 +728,7 @@ int FlashEcuSubaruHitachiSH7058CanOperation::read_mem_subaru_ecu_hitachi_can(uin
         kernel_alive = true;
     }
 
-    if(!kernel_alive)
+    if (!kernel_alive)
     {
         // SSM init
         serial->change_port_speed("4800");
@@ -793,25 +747,25 @@ int FlashEcuSubaruHitachiSH7058CanOperation::read_mem_subaru_ecu_hitachi_can(uin
 
         for (int i = 0; i < received.length(); i++)
         {
-            str.append(QString("%1").arg((uint8_t)received.at(i),2,16,QLatin1Char('0')).toUpper());
+            str.append(QString("%1").arg((uint8_t)received.at(i), 2, 16, QLatin1Char('0')).toUpper());
         }
         msg.append(str.toUtf8());
         QString ecuid = msg;
-        //LOG_I("ECU ID = " + ecuid, true, true);
+        // LOG_I("ECU ID = " + ecuid, true, true);
         emit LOG_I("ECU ID = " + ecuid, true, true);
 
         int reply = confirm(tr("Are we ready to go?"),
-                             tr("Init was OK?, Press OK to continue"),
-                             QMessageBox::Ok | QMessageBox::Cancel,
-                             QMessageBox::Ok);
+                            tr("Init was OK?, Press OK to continue"),
+                            QMessageBox::Ok | QMessageBox::Cancel,
+                            QMessageBox::Ok);
         if (reply != QMessageBox::Ok)
             return STATUS_ERROR;
         else
             emit LOG_I("Let's roll...", true, true);
 
         received = send_subaru_sid_b8_change_baudrate_38400();
-        //LOG_I("0xB8 response: " + SsmProtocol::toHex(received), true, true);
-        //emit LOG_I("0xB8 response: " + SsmProtocol::toHex(received), true, true);
+        // LOG_I("0xB8 response: " + SsmProtocol::toHex(received), true, true);
+        // emit LOG_I("0xB8 response: " + SsmProtocol::toHex(received), true, true);
         if (received == "" || (uint8_t)received.at(4) != 0xf8)
             return STATUS_ERROR;
 
@@ -848,13 +802,12 @@ int FlashEcuSubaruHitachiSH7058CanOperation::read_mem_subaru_ecu_hitachi_can(uin
         float pleft = 0;
         unsigned long chrono;
 
-        //uint32_t curblock = (addr / pagesize);
-
+        // uint32_t curblock = (addr / pagesize);
 
         pleft = (float)(addr - start_addr) / (float)length * 100.0f;
         emit progressChanged(pleft);
 
-        //length = 7FFF0;
+        // length = 7FFF0;
 
         output[6] = (uint8_t)((addr >> 16) & 0xFF);
         output[7] = (uint8_t)((addr >> 8) & 0xFF);
@@ -865,25 +818,25 @@ int FlashEcuSubaruHitachiSH7058CanOperation::read_mem_subaru_ecu_hitachi_can(uin
 
         emit LOG_D("Send msg: " + SsmProtocol::toHex(output), true, true);
         serial->write_serial_data_echo_check(output);
-//        delay(50);
-//        received = serial->read_serial_data(200);
+        //        delay(50);
+        //        received = serial->read_serial_data(200);
         received = serial->read_serial_data(5000);
 
         if ((uint8_t)received.at(4) != 0xE0)
         {
             emit LOG_I("Page data request failed!", true, true);
-//            return STATUS_ERROR;
+            //            return STATUS_ERROR;
         }
 
         pagedata.clear();
         pagedata = received.remove(0, 5);
         pagedata.remove(received.length() - 1, 1);
 
-//        emit LOG_I("Received pagedata: " + SsmProtocol::toHex(pagedata), true, true);
+        //        emit LOG_I("Received pagedata: " + SsmProtocol::toHex(pagedata), true, true);
         mapdata.append(pagedata);
 
         // don't count skipped first bytes //
-        cplen = (numblocks * pagesize) - skip_start; //this is the actual # of valid bytes in buf[]
+        cplen = (numblocks * pagesize) - skip_start; // this is the actual # of valid bytes in buf[]
         skip_start = 0;
 
         chrono = timer.elapsed();
@@ -892,7 +845,8 @@ int FlashEcuSubaruHitachiSH7058CanOperation::read_mem_subaru_ecu_hitachi_can(uin
         if (cplen > 0 && chrono > 0)
             curspeed = cplen * (1000.0f / chrono);
 
-        if (!curspeed) {
+        if (!curspeed)
+        {
             curspeed += 1;
         }
 
@@ -900,14 +854,15 @@ int FlashEcuSubaruHitachiSH7058CanOperation::read_mem_subaru_ecu_hitachi_can(uin
         tleft++;
 
         // and drop extra bytes at the end //
-        uint32_t extrabytes = (cplen + len_done);   //hypothetical new length
-        if (extrabytes > length) {
+        uint32_t extrabytes = (cplen + len_done); // hypothetical new length
+        if (extrabytes > length)
+        {
             cplen -= (extrabytes - length);
-            //thus, (len_done + cplen) will not exceed len
+            // thus, (len_done + cplen) will not exceed len
         }
 
-        QString start_address = QString("%1").arg(addr,8,16,QLatin1Char('0')).toUpper();
-        QString block_len = QString("%1").arg(pagesize,8,16,QLatin1Char('0')).toUpper();
+        QString start_address = QString("%1").arg(addr, 8, 16, QLatin1Char('0')).toUpper();
+        QString block_len = QString("%1").arg(pagesize, 8, 16, QLatin1Char('0')).toUpper();
         msg = QString("Kernel read addr: 0x%1 length: 0x%2, %3 B/s %4 s").arg(start_address).arg(block_len).arg(curspeed, 6, 10, QLatin1Char(' ')).arg(tleft, 6, 10, QLatin1Char(' ')).toUtf8();
         emit LOG_I(msg, true, true);
 
@@ -919,7 +874,7 @@ int FlashEcuSubaruHitachiSH7058CanOperation::read_mem_subaru_ecu_hitachi_can(uin
 
     emit LOG_I("ROM read complete", true, true);
 
-//    mapdata = subaru_ecu_hitachi_decrypt_32bit_payload(mapdata, mapdata.length());
+    //    mapdata = subaru_ecu_hitachi_decrypt_32bit_payload(mapdata, mapdata.length());
 
     ecuCalDef->FullRomData = mapdata;
     emit progressChanged(100);
@@ -941,12 +896,12 @@ int FlashEcuSubaruHitachiSH7058CanOperation::write_mem_subaru_ecu_hitachi_can(bo
 
     uint8_t data_array[filedata.length()];
 
-    int block_modified[16] = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};   // assume blocks after 0x8000 are modified
+    int block_modified[16] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}; // assume blocks after 0x8000 are modified
 
-    unsigned bcnt;  // 13 blocks in M32R_512kB, but kernelmemorymodels.h has 11. Of these 11, the first 3 are not flashed by OBK
+    unsigned bcnt; // 13 blocks in M32R_512kB, but kernelmemorymodels.h has 11. Of these 11, the first 3 are not flashed by OBK
     unsigned blockno;
 
-    //encrypt the data
+    // encrypt the data
     filedata = subaru_ecu_hitachi_encrypt_32bit_payload(filedata, filedata.length());
 
     for (int i = 0; i < filedata.length(); i++)
@@ -956,8 +911,10 @@ int FlashEcuSubaruHitachiSH7058CanOperation::write_mem_subaru_ecu_hitachi_can(bo
 
     bcnt = 0;
     emit LOG_I("Blocks to flash : ", true, false);
-    for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++) {
-        if (block_modified[blockno]) {
+    for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++)
+    {
+        if (block_modified[blockno])
+        {
             emit LOG_I(QString::number(blockno) + ", ", false, false);
             bcnt += 1;
         }
@@ -985,7 +942,7 @@ int FlashEcuSubaruHitachiSH7058CanOperation::write_mem_subaru_ecu_hitachi_can(bo
         }
 
         emit LOG_I("--- start writing ROM file to ECU flash memory ---", true, true);
-        for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++)  // hack so that only 1 flash loop done for the entire ROM above 0x8000
+        for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++) // hack so that only 1 flash loop done for the entire ROM above 0x8000
         {
             if (block_modified[blockno])
             {
@@ -1001,7 +958,6 @@ int FlashEcuSubaruHitachiSH7058CanOperation::write_mem_subaru_ecu_hitachi_can(bo
                 }
             }
         }
-
     }
     else
     {
@@ -1035,7 +991,8 @@ int FlashEcuSubaruHitachiSH7058CanOperation::reflash_block_subaru_ecu_hitachi_ca
 
     emit progressChanged(0);
 
-    if (blockno >= fdt->numblocks) {
+    if (blockno >= fdt->numblocks)
+    {
         emit LOG_I("block " + QString::number(blockno) + " out of range !", true, true);
         return -1;
     }
@@ -1046,8 +1003,8 @@ int FlashEcuSubaruHitachiSH7058CanOperation::reflash_block_subaru_ecu_hitachi_ca
     end_addr = (start_address + (maxblocks * blocksize)) & 0xFFFFFFFF;
     uint32_t data_len = end_addr - start_address;
 
-    QString start_addr = QString("%1").arg((uint32_t)start_address,8,16,QLatin1Char('0')).toUpper();
-    QString length = QString("%1").arg((uint32_t)pl_len,8,16,QLatin1Char('0')).toUpper();
+    QString start_addr = QString("%1").arg((uint32_t)start_address, 8, 16, QLatin1Char('0')).toUpper();
+    QString length = QString("%1").arg((uint32_t)pl_len, 8, 16, QLatin1Char('0')).toUpper();
     msg = QString("Flash block addr: 0x" + start_addr + " len: 0x" + length).toUtf8();
     emit LOG_I(msg, true, true);
 
@@ -1118,7 +1075,6 @@ int FlashEcuSubaruHitachiSH7058CanOperation::reflash_block_subaru_ecu_hitachi_ca
 
         float pleft = (float)blockctr / (float)maxblocks * 100;
         emit progressChanged(pleft);
-
     }
 
     emit progressChanged(100);
@@ -1147,15 +1103,14 @@ int FlashEcuSubaruHitachiSH7058CanOperation::reflash_block_subaru_ecu_hitachi_ca
             }
             else
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
-                //return STATUS_ERROR;
+                // return STATUS_ERROR;
             }
         }
         else
         {
             emit LOG_E("No valid response from ECU", true, true);
-
         }
         try_count++;
     }
@@ -1192,15 +1147,14 @@ int FlashEcuSubaruHitachiSH7058CanOperation::reflash_block_subaru_ecu_hitachi_ca
             }
             else
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
-                //return STATUS_ERROR;
+                // return STATUS_ERROR;
             }
         }
         else
         {
             emit LOG_E("No valid response from ECU", true, true);
-
         }
         try_count++;
     }
@@ -1244,12 +1198,10 @@ int FlashEcuSubaruHitachiSH7058CanOperation::erase_subaru_ecu_hitachi_can()
     output.append((uint8_t)0xff);
     output.append((uint8_t)0xff);
 
-
-//    delay(9000);
+    //    delay(9000);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(200);
-
 
     while (try_count < 20 && connected == false)
     {
@@ -1258,7 +1210,6 @@ int FlashEcuSubaruHitachiSH7058CanOperation::erase_subaru_ecu_hitachi_can()
         {
             if ((uint8_t)received.at(4) != 0x71 || (uint8_t)received.at(5) != 0x01 || (uint8_t)received.at(6) != 0x02)
             {
-
             }
             else if ((uint8_t)received.at(4) == 0x71 && (uint8_t)received.at(5) == 0x01 && (uint8_t)received.at(6) == 0x02)
             {
@@ -1327,7 +1278,6 @@ QByteArray FlashEcuSubaruHitachiSH7058CanOperation::send_subaru_sid_81_start_com
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(200);
 
-
     return received;
 }
 
@@ -1348,7 +1298,6 @@ QByteArray FlashEcuSubaruHitachiSH7058CanOperation::send_subaru_sid_83_request_t
     output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(200);
-
 
     return received;
 }
@@ -1372,7 +1321,6 @@ QByteArray FlashEcuSubaruHitachiSH7058CanOperation::send_subaru_sid_10_start_dia
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
 
-
     return received;
 }
 
@@ -1393,7 +1341,6 @@ QByteArray FlashEcuSubaruHitachiSH7058CanOperation::send_subaru_sid_b8_change_ba
     serial->write_serial_data_echo_check(output);
     delay(50);
     received = serial->read_serial_data(receive_timeout);
-
 
     return received;
 }
@@ -1417,22 +1364,20 @@ QByteArray FlashEcuSubaruHitachiSH7058CanOperation::subaru_ecu_hitachi_generate_
 {
     QByteArray key;
 
-    const uint16_t keytogenerateindex[]={
-//Ori
+    const uint16_t keytogenerateindex[] = {
+        // Ori
         0x90A1, 0x2F92, 0xDE3C, 0xCDC0,
-//Locked
-//        0xDEAD, 0xBEEF, 0xDEAD, 0xBABE,
+        // Locked
+        //        0xDEAD, 0xBEEF, 0xDEAD, 0xBABE,
         0x1A99, 0x437C, 0xF91B, 0xDB57,
         0x96BA, 0xDE10, 0xFCAF, 0x3F31,
-        0xF47F, 0x0BB6, 0x16E9, 0x4645
-    };
+        0xF47F, 0x0BB6, 0x16E9, 0x4645};
 
-    const uint8_t indextransformation[]={
+    const uint8_t indextransformation[] = {
         0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8,
         0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
         0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
-        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
-    };
+        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
     key = SsmProtocol::calculateSeedKey(requested_seed, keytogenerateindex, indextransformation);
 
@@ -1454,16 +1399,14 @@ QByteArray FlashEcuSubaruHitachiSH7058CanOperation::subaru_ecu_hitachi_encrypt_3
 {
     QByteArray encrypted;
 
-    const uint16_t keytogenerateindex[]={
-        0x14CA, 0x77F4, 0x973C, 0xF50E
-    };
+    const uint16_t keytogenerateindex[] = {
+        0x14CA, 0x77F4, 0x973C, 0xF50E};
 
-    const uint8_t indextransformation[]={
+    const uint8_t indextransformation[] = {
         0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8,
         0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
         0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
-        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
-    };
+        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
     encrypted = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
@@ -1474,17 +1417,16 @@ QByteArray FlashEcuSubaruHitachiSH7058CanOperation::subaru_ecu_hitachi_decrypt_3
 {
     QByteArray decrypt;
 
-    const uint16_t keytogenerateindex[]={
+    const uint16_t keytogenerateindex[] = {
         0xF50E, 0x973C, 0x77F4, 0x14CA
 
     };
 
-    const uint8_t indextransformation[]={
+    const uint8_t indextransformation[] = {
         0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8,
         0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
         0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
-        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
-    };
+        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
     decrypt = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 

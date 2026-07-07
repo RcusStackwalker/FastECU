@@ -3,10 +3,7 @@
 #include "serial_port_actions.h"
 
 FlashEcuSubaruUnisiaJecsM32r::FlashEcuSubaruUnisiaJecsM32r(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent)
-    : QDialog(parent)
-    , ecuCalDef(ecuCalDef)
-    , cmd_type(cmd_type)
-    , ui{std::make_unique<Ui::EcuOperationsWindow>()}
+    : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
 
@@ -31,64 +28,66 @@ void FlashEcuSubaruUnisiaJecsM32r::run()
 
     switch (ret)
     {
-        case QMessageBox::Ok:
+    case QMessageBox::Ok:
+    {
+        // vBattTimer->stop();
+
+        m_operation = new FlashEcuSubaruUnisiaJecsM32rOperation(serial, ecuCalDef, cmd_type, this);
+        connect(m_operation, &FlashOperationWorker::LOG_E, this, &FlashEcuSubaruUnisiaJecsM32r::LOG_E);
+        connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashEcuSubaruUnisiaJecsM32r::LOG_W);
+        connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashEcuSubaruUnisiaJecsM32r::LOG_I);
+        connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashEcuSubaruUnisiaJecsM32r::LOG_D);
+        connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
+                this, [this](QString msg)
+                { emit external_logger(msg); });
+        connect(m_operation, &FlashOperationWorker::progressChanged,
+                this, &FlashEcuSubaruUnisiaJecsM32r::set_progressbar_value);
+
+        QEventLoop loop;
+        bool success = false;
+        connect(m_operation, &FlashOperationWorker::operationFinished, &loop,
+                [&success, &loop](bool ok)
+                { success = ok; loop.quit(); });
+
+        m_operation->start();
+        loop.exec();
+        m_operation->wait();
+        delete m_operation;
+        m_operation = nullptr;
+
+        emit external_logger("Finished");
+
+        if (success)
         {
-            //vBattTimer->stop();
-
-            m_operation = new FlashEcuSubaruUnisiaJecsM32rOperation(serial, ecuCalDef, cmd_type, this);
-            connect(m_operation, &FlashOperationWorker::LOG_E, this, &FlashEcuSubaruUnisiaJecsM32r::LOG_E);
-            connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashEcuSubaruUnisiaJecsM32r::LOG_W);
-            connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashEcuSubaruUnisiaJecsM32r::LOG_I);
-            connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashEcuSubaruUnisiaJecsM32r::LOG_D);
-            connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
-                    this, [this](QString msg) { emit external_logger(msg); });
-            connect(m_operation, &FlashOperationWorker::progressChanged,
-                    this, &FlashEcuSubaruUnisiaJecsM32r::set_progressbar_value);
-
-            QEventLoop loop;
-            bool success = false;
-            connect(m_operation, &FlashOperationWorker::operationFinished, &loop,
-                    [&success, &loop](bool ok) { success = ok; loop.quit(); });
-
-            m_operation->start();
-            loop.exec();
-            m_operation->wait();
-            delete m_operation;
-            m_operation = nullptr;
-
-            emit external_logger("Finished");
-
-            if (success)
+            if (!serial->get_use_openport2_adapter())
+                QMessageBox::information(this, tr("Programming voltage"), "Remove VPP voltage from ECU and press OK to exit");
+            else
+                QMessageBox::information(this, tr("ECU Operation"), "ECU operation was succesful, press OK to exit");
+            this->close();
+        }
+        else
+        {
+            if (cmd_type == "write")
             {
-                if (!serial->get_use_openport2_adapter())
-                    QMessageBox::information(this, tr("Programming voltage"), "Remove VPP voltage from ECU and press OK to exit");
-                else
-                    QMessageBox::information(this, tr("ECU Operation"), "ECU operation was succesful, press OK to exit");
-                this->close();
+                QMessageBox::warning(this, tr("ECU Operation"), "ECU operation failed! Don't power off your ECU, kernel is still running and you can try flashing again!");
+                emit LOG_E("*** ERROR IN FLASH PROCESS ***", true, true);
+                emit LOG_E("Don't power off your ECU, kernel is still running and you can try flashing again!", true, true);
             }
             else
-            {
-                if (cmd_type == "write")
-                {
-                    QMessageBox::warning(this, tr("ECU Operation"), "ECU operation failed! Don't power off your ECU, kernel is still running and you can try flashing again!");
-                    emit LOG_E("*** ERROR IN FLASH PROCESS ***", true, true);
-                    emit LOG_E("Don't power off your ECU, kernel is still running and you can try flashing again!", true, true);
-                }
-                else
-                    QMessageBox::warning(this, tr("ECU Operation"), "ECU operation failed, press OK to exit and try again");
-            }
-            break;
+                QMessageBox::warning(this, tr("ECU Operation"), "ECU operation failed, press OK to exit and try again");
         }
-        case QMessageBox::Cancel:
-            emit LOG_D("Operation canceled", true, true);
-            this->close();
-            break;
-        default:
-            QMessageBox::warning(this, tr("Connecting to ECU"), "Unknown operation selected!");
-            emit LOG_D("Unknown operation selected!", true, true);
-            this->close();
-            break;
-        }
+        break;
+    }
+    case QMessageBox::Cancel:
+        emit LOG_D("Operation canceled", true, true);
+        this->close();
+        break;
+    default:
+        QMessageBox::warning(this, tr("Connecting to ECU"), "Unknown operation selected!");
+        emit LOG_D("Unknown operation selected!", true, true);
+        this->close();
+        break;
+    }
 }
 
 FlashEcuSubaruUnisiaJecsM32r::~FlashEcuSubaruUnisiaJecsM32r()
@@ -97,7 +96,7 @@ FlashEcuSubaruUnisiaJecsM32r::~FlashEcuSubaruUnisiaJecsM32r()
 
 void FlashEcuSubaruUnisiaJecsM32r::closeEvent(QCloseEvent *event)
 {
-    //vBattTimer->stop();
+    // vBattTimer->stop();
     if (m_operation)
         m_operation->requestStop();
 }

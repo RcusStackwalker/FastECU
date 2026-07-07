@@ -2,12 +2,10 @@
 
 ChecksumTcuSubaruDensoSH7055::ChecksumTcuSubaruDensoSH7055()
 {
-
 }
 
 ChecksumTcuSubaruDensoSH7055::~ChecksumTcuSubaruDensoSH7055()
 {
-
 }
 
 QByteArray ChecksumTcuSubaruDensoSH7055::calculate_checksum(QByteArray romData)
@@ -19,18 +17,18 @@ QByteArray ChecksumTcuSubaruDensoSH7055::calculate_checksum(QByteArray romData)
      *
      ******************/
 
-    QStringList checksum_areas = {  "0x1000", "0x0800",
-                                    "0x3000", "0x003a",
-                                    "0x3080", "0x4c00",
-                                    "0xc880", "0x83f6",
-                                    "0x1d06c","0x83f6",
-                                    "0x2d858","0x83f8",
-                                    "0x3e048","0x0fdc",
-                                    "0x40000","0x741c",
-                                    "0x4e838","0x83f6",
-                                    "0x5f024","0x83f8",
-                                    "0x6f814","0x8174",
-                                    "0x7fb80","0x0240" };
+    QStringList checksum_areas = {"0x1000", "0x0800",
+                                  "0x3000", "0x003a",
+                                  "0x3080", "0x4c00",
+                                  "0xc880", "0x83f6",
+                                  "0x1d06c", "0x83f6",
+                                  "0x2d858", "0x83f8",
+                                  "0x3e048", "0x0fdc",
+                                  "0x40000", "0x741c",
+                                  "0x4e838", "0x83f6",
+                                  "0x5f024", "0x83f8",
+                                  "0x6f814", "0x8174",
+                                  "0x7fb80", "0x0240"};
     QString msg;
     uint16_t checksum = 0;
     bool ok = false;
@@ -39,11 +37,11 @@ QByteArray ChecksumTcuSubaruDensoSH7055::calculate_checksum(QByteArray romData)
     for (int i = 0; i < checksum_areas.length(); i += 2)
     {
         unsigned int area_start = checksum_areas.at(i).toUInt(&ok, 16);
-        unsigned int area_end = area_start + (2 * checksum_areas.at(i+1).toUInt(&ok, 16));
+        unsigned int area_end = area_start + (2 * checksum_areas.at(i + 1).toUInt(&ok, 16));
 
         msg.clear();
-        msg.append(QString("%1: ").arg(i / 2,2,10,QLatin1Char('0')).toUtf8());
-        msg.append(QString("Read from 0x%1 to 0x%2").arg(area_start,8,16,QLatin1Char('0')).arg(area_end,8,16,QLatin1Char('0')).toUtf8());
+        msg.append(QString("%1: ").arg(i / 2, 2, 10, QLatin1Char('0')).toUtf8());
+        msg.append(QString("Read from 0x%1 to 0x%2").arg(area_start, 8, 16, QLatin1Char('0')).arg(area_end, 8, 16, QLatin1Char('0')).toUtf8());
 
         qDebug() << msg;
 
@@ -54,7 +52,7 @@ QByteArray ChecksumTcuSubaruDensoSH7055::calculate_checksum(QByteArray romData)
     }
 
     msg.clear();
-    msg.append(QString("0x%1").arg(checksum,4,16,QLatin1Char('0')).toUtf8());
+    msg.append(QString("0x%1").arg(checksum, 4, 16, QLatin1Char('0')).toUtf8());
 
     qDebug() << "Checksum =" << msg;
 
@@ -67,13 +65,13 @@ QByteArray ChecksumTcuSubaruDensoSH7055::calculate_checksum(QByteArray romData)
         uint16_t balance_value = ((uint8_t)romData.at(0x7fff4) << 8) + ((uint8_t)romData.at(0x7fff5));
 
         msg.clear();
-        msg.append(QString("Balance value before: 0x%1").arg(balance_value,4,16,QLatin1Char('0')).toUtf8());
+        msg.append(QString("Balance value before: 0x%1").arg(balance_value, 4, 16, QLatin1Char('0')).toUtf8());
         qDebug() << msg;
 
         balance_value += 0x5aa5 - checksum;
 
         msg.clear();
-        msg.append(QString("Balance value after: 0x%1").arg(balance_value,4,16,QLatin1Char('0')).toUtf8());
+        msg.append(QString("Balance value after: 0x%1").arg(balance_value, 4, 16, QLatin1Char('0')).toUtf8());
         qDebug() << msg;
 
         balance_value_array.append((uint8_t)((balance_value >> 8) & 0xff));
@@ -83,8 +81,8 @@ QByteArray ChecksumTcuSubaruDensoSH7055::calculate_checksum(QByteArray romData)
         qDebug() << "Checksums corrected";
         QMessageBox::information(nullptr, QObject::tr("Subaru Denso SH7055 TCU Checksum"), "Checksums corrected");
     }
-    //else
-    //    QMessageBox::information(nullptr, QObject::tr("Subaru Denso SH7055 TCU Checksum"), "Checksums OK");
+    // else
+    //     QMessageBox::information(nullptr, QObject::tr("Subaru Denso SH7055 TCU Checksum"), "Checksums OK");
 
     return romData;
 }

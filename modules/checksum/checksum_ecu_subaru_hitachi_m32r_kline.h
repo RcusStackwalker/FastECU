@@ -6,14 +6,13 @@
 
 class ChecksumEcuSubaruHitachiM32rKline
 {
-public:
+  public:
     ChecksumEcuSubaruHitachiM32rKline();
     ~ChecksumEcuSubaruHitachiM32rKline();
 
     static QByteArray calculate_checksum(QByteArray romData);
 
-private:
-
+  private:
 };
 
 #endif // CHECKSUM_ECU_SUBARU_HITACHI_M32R_KLINE_H

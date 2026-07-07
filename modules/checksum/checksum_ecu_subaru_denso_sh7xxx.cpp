@@ -2,12 +2,10 @@
 
 ChecksumEcuSubaruDensoSH7xxx::ChecksumEcuSubaruDensoSH7xxx()
 {
-
 }
 
 ChecksumEcuSubaruDensoSH7xxx::~ChecksumEcuSubaruDensoSH7xxx()
 {
-
 }
 
 QByteArray ChecksumEcuSubaruDensoSH7xxx::calculate_checksum(QByteArray romData, uint32_t checksum_area_start, uint32_t checksum_area_length, int32_t offset)
@@ -21,14 +19,16 @@ ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(QByteArra
     ChecksumResult result;
     result.romData = romData;
 
-    if (checksum_area_length % 12 != 0) {
+    if (checksum_area_length % 12 != 0)
+    {
         result.status = ChecksumResult::Status::ParseError;
         result.message = "Checksum area length must be a multiple of 12 bytes";
         return result;
     }
 
     if (checksum_area_start > static_cast<uint32_t>(romData.size()) ||
-        checksum_area_length > static_cast<uint32_t>(romData.size()) - checksum_area_start) {
+        checksum_area_length > static_cast<uint32_t>(romData.size()) - checksum_area_start)
+    {
         result.status = ChecksumResult::Status::InvalidSize;
         result.message = "ROM is too small for the configured checksum area";
         return result;
@@ -45,8 +45,7 @@ ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(QByteArra
 
     bool checksum_ok = true;
 
-
-    for (uint32_t i = checksum_area_start; i < checksum_area_end; i+=12)
+    for (uint32_t i = checksum_area_start; i < checksum_area_end; i += 12)
     {
         checksum = 0;
         checksum_temp = 0;
@@ -76,13 +75,14 @@ ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(QByteArra
 
         if (checksum_dword_addr_lo_with_offset == 0 && checksum_dword_addr_hi_with_offset == 0 && checksum_diff == 0x5aa5a55a)
         {
-            //QMessageBox::information(nullptr, QObject::tr("32-bit checksum"), "Checksums disabled");
+            // QMessageBox::information(nullptr, QObject::tr("32-bit checksum"), "Checksums disabled");
         }
         if (checksum_dword_addr_lo_with_offset != 0 && checksum_dword_addr_hi_with_offset != 0 && checksum_diff != 0x5aa5a55a)
         {
-            for (uint32_t j = checksum_dword_addr_lo_with_offset; j < checksum_dword_addr_hi_with_offset; j+=4)
+            for (uint32_t j = checksum_dword_addr_lo_with_offset; j < checksum_dword_addr_hi_with_offset; j += 4)
             {
-                if (j > static_cast<uint32_t>(romData.size()) || 4 > static_cast<uint32_t>(romData.size()) - j) {
+                if (j > static_cast<uint32_t>(romData.size()) || 4 > static_cast<uint32_t>(romData.size()) - j)
+                {
                     result.status = ChecksumResult::Status::InvalidSize;
                     result.message = "ROM is too small for a checksum block range";
                     return result;
@@ -129,7 +129,8 @@ ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(QByteArra
         result.message = "Checksums corrected";
         qDebug() << "Checksums corrected";
     }
-    else {
+    else
+    {
         result.status = ChecksumResult::Status::Unchanged;
         result.message = "Checksums OK";
     }

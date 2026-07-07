@@ -3,7 +3,8 @@
 
 #include <QString>
 
-enum class MenuCommand {
+enum class MenuCommand
+{
     Unknown,
     New,
     OpenCalibration,
@@ -44,7 +45,7 @@ enum class MenuCommand {
     About,
 };
 
-MenuCommand menu_command_from_id(const QString &id);
+MenuCommand menu_command_from_id(const QString& id);
 QString menu_command_id(MenuCommand command);
 
 #endif // MENU_COMMAND_H

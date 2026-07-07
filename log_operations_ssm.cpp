@@ -9,14 +9,14 @@ void MainWindow::kline_listener()
 {
     QByteArray received;
 
-    //serial->change_port_speed("10400");
+    // serial->change_port_speed("10400");
     serial->change_port_speed("125000");
 
     while (haltech_ic7_display_on)
     {
         received = serial->read_serial_data(receive_timeout);
-        //emit LOG_D(parse_message_to_hex(received), true, true);
-        //delay(5);
+        // emit LOG_D(parse_message_to_hex(received), true, true);
+        // delay(5);
     }
 }
 
@@ -27,8 +27,8 @@ void MainWindow::canbus_listener()
     while (haltech_ic7_display_on)
     {
         received = serial->read_serial_data(receive_timeout);
-        //emit LOG_D(parse_message_to_hex(received), true, true);
-        //delay(5);
+        // emit LOG_D(parse_message_to_hex(received), true, true);
+        // delay(5);
     }
 }
 
@@ -43,7 +43,7 @@ bool MainWindow::ecu_init()
                 if (configValues->flash_protocol_selected_log_transport == "CAN" || configValues->flash_protocol_selected_log_transport == "iso15765")
                     ssm_can_init();
                 else if (configValues->flash_protocol_selected_log_transport == "K-Line")
-                    //serial->fast_init(output);
+                    // serial->fast_init(output);
                     ssm_kline_init();
                 else if (configValues->flash_protocol_selected_log_transport == "SSM")
                     ssm_init();
@@ -52,11 +52,11 @@ bool MainWindow::ecu_init()
     }
     else
     {
-        //emit LOG_D("Connection is not ready!", true, true);
+        // emit LOG_D("Connection is not ready!", true, true);
         ecu_init_complete = false;
         ecuid.clear();
     }
-    //emit LOG_D("ECU ID check complete", true, true);
+    // emit LOG_D("ECU ID check complete", true, true);
 
     return ecu_init_complete;
 }
@@ -81,17 +81,16 @@ void MainWindow::ssm_init()
     output.append((uint8_t)0x34);
     output.append((uint8_t)0x00);
     serial->write_serial_data_echo_check(output);
-    //delay(1000);
+    // delay(1000);
     for (int i = 0; i < 10; i++)
     {
         received.append(serial->read_serial_data(500));
     }
     emit LOG_D("Received: " + parse_message_to_hex(received), true, true);
-    //if (received.length() > 0)
-    //    emit LOG_D("Something received " + parse_message_to_hex(received), true, true);
-    //else
-    //    emit LOG_D("No response...", true, true);
-
+    // if (received.length() > 0)
+    //     emit LOG_D("Something received " + parse_message_to_hex(received), true, true);
+    // else
+    //     emit LOG_D("No response...", true, true);
 
     emit LOG_D("Issue init cmd...", true, true);
     received.clear();
@@ -103,14 +102,14 @@ void MainWindow::ssm_init()
     serial->write_serial_data(output);
 
     emit LOG_D("Init sent, delaying 2s...", true, true);
-    //delay(2000);
+    // delay(2000);
     for (int i = 0; i < 2; i++)
     {
         received.append(serial->read_serial_data(500));
     }
     emit LOG_D("Received: " + parse_message_to_hex(received), true, true);
-    //emit LOG_D("Checking response...";
-    //received = serial->read_serial_data(receive_timeout);
+    // emit LOG_D("Checking response...";
+    // received = serial->read_serial_data(receive_timeout);
     received.clear();
     output.clear();
     output.append((uint8_t)0x12);
@@ -136,14 +135,14 @@ void MainWindow::ssm_init()
                 set_status_bar_label(true, true, ecuid);
 
             received = serial->read_serial_data(100);
-            while(received.length() > 0)
+            while (received.length() > 0)
             {
                 ecu_init_complete = true;
                 ecuid = parse_ecuid(received);
                 parse_log_value_list(received, "SSM");
 
                 received = serial->read_serial_data(100);
-                while(received.length() > 0)
+                while (received.length() > 0)
                 {
                     received = serial->read_serial_data(100);
                 }
@@ -152,7 +151,6 @@ void MainWindow::ssm_init()
     }
     else
         emit LOG_D("No response...", true, true);
-
 }
 
 void MainWindow::ssm_kline_init()
@@ -161,7 +159,7 @@ void MainWindow::ssm_kline_init()
     QByteArray received;
     int loopcount = 0;
 
-    //emit LOG_D("ECU K-Line INIT";
+    // emit LOG_D("ECU K-Line INIT";
     if (!ecu_init_started)
     {
         ecu_init_started = true;
@@ -196,11 +194,11 @@ void MainWindow::ssm_kline_init()
         if (received.length() >= (uint8_t)received.at(3) + 5)
         {
             ecu_init_complete = true;
-            //set_status_bar_label(true, true, ecuid);
+            // set_status_bar_label(true, true, ecuid);
             ecuid = parse_ecuid(received);
             emit LOG_D("ECU ID: " + ecuid, true, true);
             parse_log_value_list(received, "SSM");
-            //emit LOG_D("ECU ID: " + ecuid, true, true);
+            // emit LOG_D("ECU ID: " + ecuid, true, true);
             if (ecuid == "")
                 set_status_bar_label(true, false, "");
             else
@@ -283,7 +281,7 @@ void MainWindow::ssm_can_init()
             QString msg;
             for (int i = 0; i < received.length(); i++)
             {
-                msg.append(QString("%1").arg((uint8_t)received.at(i),2,16,QLatin1Char('0')).toUpper());
+                msg.append(QString("%1").arg((uint8_t)received.at(i), 2, 16, QLatin1Char('0')).toUpper());
             }
             emit LOG_D("ECU ID " + msg, true, true);
             set_status_bar_label(true, true, msg);
@@ -300,11 +298,11 @@ void MainWindow::parse_log_value_list(QByteArray received, QString protocol)
 
     received.remove(0, 5);
 
-    //emit LOG_D(parse_message_to_hex(received), true, true);
+    // emit LOG_D(parse_message_to_hex(received), true, true);
 
     logValues->log_values_by_protocol.clear();
 
-    //emit LOG_D("Parsing log values list", true, true), true, true);
+    // emit LOG_D("Parsing log values list", true, true), true, true);
     for (int i = 0; i < log_value_count; i++)
     {
         if (logValues->log_value_protocol.at(i) == protocol)
@@ -314,29 +312,28 @@ void MainWindow::parse_log_value_list(QByteArray received, QString protocol)
             uint16_t ecu_byte_index = logValues->log_value_ecu_byte_index.at(i).toUInt();
             if (ecu_byte_index < received.length() && logValues->log_value_ecu_byte_index.at(i) != "No byte index")
             {
-                //emit LOG_D("Value: " + logValues->log_value_id.at(i) + " " + logValues->log_value_name.at(i), true, true);
+                // emit LOG_D("Value: " + logValues->log_value_id.at(i) + " " + logValues->log_value_name.at(i), true, true);
                 uint8_t ecu_bit = logValues->log_value_ecu_bit.at(i).toUInt();
                 uint16_t value = (uint8_t)received.at(ecu_byte_index);
                 if (((value) & (1 << (ecu_bit))))
                 {
                     logValues->log_value_enabled.replace(i, "1");
-                    emit LOG_D("Byte: 0x" + QString::number(value, 16) + " - ECU byte index " + QString::number(ecu_byte_index) + " and bit " + QString::number(ecu_bit) +  " is enabled: " + logValues->log_value_id.at(i) + " " + logValues->log_value_name.at(i) + " " + logValues->log_value_enabled.at(i), true, true);
+                    emit LOG_D("Byte: 0x" + QString::number(value, 16) + " - ECU byte index " + QString::number(ecu_byte_index) + " and bit " + QString::number(ecu_bit) + " is enabled: " + logValues->log_value_id.at(i) + " " + logValues->log_value_name.at(i) + " " + logValues->log_value_enabled.at(i), true, true);
                     enabled_log_value_count++;
                 }
                 else
                 {
                     logValues->log_value_enabled.replace(i, "0");
-                    //emit LOG_D("Disabled: " + logValues->log_value_id.at(i) + " " + logValues->log_value_name.at(i) + " " + logValues->log_value_enabled.at(i), true, true);
+                    // emit LOG_D("Disabled: " + logValues->log_value_id.at(i) + " " + logValues->log_value_name.at(i) + " " + logValues->log_value_enabled.at(i), true, true);
                 }
             }
             else
                 logValues->log_value_enabled[i] = "0";
-
         }
     }
-    //emit LOG_D("Log values list ready", true, true);
+    // emit LOG_D("Log values list ready", true, true);
 
-    //emit LOG_D("Parsing log switches list", true, true);
+    // emit LOG_D("Parsing log switches list", true, true);
     for (int i = 0; i < log_switch_count; i++)
     {
         if (logValues->log_switch_protocol.at(i) == protocol)
@@ -346,13 +343,13 @@ void MainWindow::parse_log_value_list(QByteArray received, QString protocol)
             if (switch_byte_index < received.length())
             {
                 uint8_t switch_bit = logValues->log_switch_ecu_bit.at(i).toUInt();
-                //emit LOG_D("1 " + switch_byte_index, true, true);
+                // emit LOG_D("1 " + switch_byte_index, true, true);
                 uint8_t value = (uint8_t)received.at(switch_byte_index);
-                //emit LOG_D("2", true, true);
+                // emit LOG_D("2", true, true);
                 if (((value) & (1 << (switch_bit))))
                 {
                     logValues->log_switch_enabled.replace(i, "1");
-                    //emit LOG_D("Switch: " + logValues->log_switch_id.at(i) + " " + logValues->log_switch_name.at(i) + " " + logValues->log_switch_enabled.at(i), true, true);
+                    // emit LOG_D("Switch: " + logValues->log_switch_id.at(i) + " " + logValues->log_switch_name.at(i) + " " + logValues->log_switch_enabled.at(i), true, true);
                     enabled_log_switch_count++;
                 }
                 else
@@ -361,7 +358,7 @@ void MainWindow::parse_log_value_list(QByteArray received, QString protocol)
         }
     }
     fileActions->read_logger_conf(logValues, ecuid, false);
-    //emit LOG_D("Log switches list ready", true, true);
+    // emit LOG_D("Log switches list ready", true, true);
 
     update_logboxes(protocol);
 }
@@ -399,14 +396,17 @@ uint8_t MainWindow::calculate_checksum(QByteArray output, bool dec_0x100)
         checksum += (uint8_t)output.at(i);
     }
     if (dec_0x100)
-        checksum = (uint8_t) (0x100 - checksum);
+        checksum = (uint8_t)(0x100 - checksum);
 
     return checksum;
 }
 
-void MainWindow::log_to_file(){
-    if (write_datalog_to_file){
-        if (!datalog_file_open){
+void MainWindow::log_to_file()
+{
+    if (write_datalog_to_file)
+    {
+        if (!datalog_file_open)
+        {
             QDateTime dateTime = dateTime.currentDateTime();
             QString dateTimeString = dateTime.toString("yyyy-MM-dd_hh'h'mm'm'ss's'");
 
@@ -416,9 +416,10 @@ void MainWindow::log_to_file(){
             log_file_name.append("fastecu_" + dateTimeString + ".csv");
 
             datalog_file.setFileName(log_file_name);
-            if (!datalog_file.open(QIODevice::WriteOnly)) {
+            if (!datalog_file.open(QIODevice::WriteOnly))
+            {
                 QMessageBox::information(this, tr("Unable to open file"),
-                datalog_file.errorString());
+                                         datalog_file.errorString());
                 return;
             }
             else
@@ -429,27 +430,34 @@ void MainWindow::log_to_file(){
 
             datalog_file_outstream.setDevice(&datalog_file);
             datalog_file_outstream << "Time,";
-            for (int j = 0; j < logValues->dashboard_log_value_id.count() ; j++){
+            for (int j = 0; j < logValues->dashboard_log_value_id.count(); j++)
+            {
                 datalog_file_outstream << logValues->log_value_name.at(logValues->log_value_id.indexOf(logValues->dashboard_log_value_id.at(j), 0)) << ",";
             }
-            for (int j = 0; j < logValues->lower_panel_log_value_id.count() ; j++){
+            for (int j = 0; j < logValues->lower_panel_log_value_id.count(); j++)
+            {
                 datalog_file_outstream << logValues->log_value_name.at(logValues->log_value_id.indexOf(logValues->lower_panel_log_value_id.at(j), 0)) << ",";
             }
-            for (int j = 0; j < logValues->lower_panel_switch_id.count() ; j++){
-                datalog_file_outstream << logValues->log_switch_name.at(logValues->log_switch_id.indexOf(logValues->lower_panel_switch_id.at(j),0)) << ",";
+            for (int j = 0; j < logValues->lower_panel_switch_id.count(); j++)
+            {
+                datalog_file_outstream << logValues->log_switch_name.at(logValues->log_switch_id.indexOf(logValues->lower_panel_switch_id.at(j), 0)) << ",";
             }
             datalog_file_outstream << "\n";
         }
-        else{
+        else
+        {
 
             datalog_file_outstream << QString::number(log_file_timer->elapsed() / 1000.0f) << ",";
-            for (int j = 0; j < logValues->dashboard_log_value_id.count() ; j++){
+            for (int j = 0; j < logValues->dashboard_log_value_id.count(); j++)
+            {
                 datalog_file_outstream << logValues->log_value.at(logValues->log_value_id.indexOf(logValues->dashboard_log_value_id.at(j), 0)) << ",";
             }
-            for (int j = 0; j < logValues->lower_panel_log_value_id.count() ; j++){
+            for (int j = 0; j < logValues->lower_panel_log_value_id.count(); j++)
+            {
                 datalog_file_outstream << logValues->log_value.at(logValues->log_value_id.indexOf(logValues->lower_panel_log_value_id.at(j), 0)) << ",";
             }
-            for (int j = 0; j < logValues->lower_panel_switch_id.count() ; j++){
+            for (int j = 0; j < logValues->lower_panel_switch_id.count(); j++)
+            {
                 datalog_file_outstream << logValues->log_switch_state.at(logValues->log_switch_id.indexOf(logValues->lower_panel_switch_id.at(j), 0)) << ",";
             }
             datalog_file_outstream << "\n";
@@ -495,4 +503,3 @@ QByteArray MainWindow::mut_read_memory(quint16 addr, int len)
     }
     return out;
 }
-

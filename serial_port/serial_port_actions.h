@@ -29,14 +29,14 @@ class SerialPortActions : public QObject
 {
     Q_OBJECT
 
-signals:
+  signals:
     void stateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState);
     void LOG_E(QString message, bool timestamp, bool linefeed);
     void LOG_W(QString message, bool timestamp, bool linefeed);
     void LOG_I(QString message, bool timestamp, bool linefeed);
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
-public:
+  public:
     explicit SerialPortActions(QString peerAddress = "",
                                QString password = "",
                                QWebSocket *web_socket = nullptr,
@@ -75,13 +75,13 @@ public:
     bool get_use_openport2_adapter();
     bool set_use_openport2_adapter(bool value);
 
-    int  get_requestToSendEnabled();
+    int get_requestToSendEnabled();
     bool set_requestToSendEnabled(int value);
-    int  get_requestToSendDisabled();
+    int get_requestToSendDisabled();
     bool set_requestToSendDisabled(int value);
-    int  get_dataTerminalEnabled();
+    int get_dataTerminalEnabled();
     bool set_dataTerminalEnabled(int value);
-    int  get_dataTerminalDisabled();
+    int get_dataTerminalDisabled();
     bool set_dataTerminalDisabled(int value);
 
     bool get_is_comm_busy();
@@ -90,71 +90,71 @@ public:
     void set_read_vbatt(bool value);
 
     uint8_t get_kline_startbyte();
-    bool    set_kline_startbyte(uint8_t value);
+    bool set_kline_startbyte(uint8_t value);
     uint8_t get_kline_tester_id();
-    bool    set_kline_tester_id(uint8_t value);
+    bool set_kline_tester_id(uint8_t value);
     uint8_t get_kline_target_id();
-    bool    set_kline_target_id(uint8_t value);
+    bool set_kline_target_id(uint8_t value);
 
     QByteArray get_ssm_receive_header_start();
-    bool       set_ssm_receive_header_start(QByteArray value);
+    bool set_ssm_receive_header_start(QByteArray value);
 
     QStringList get_serial_port_list();
-    bool        set_serial_port_list(QStringList value);
+    bool set_serial_port_list(QStringList value);
     QString get_openedSerialPort();
-    bool    set_openedSerialPort(QString value);
+    bool set_openedSerialPort(QString value);
     QString get_subaru_02_16bit_bootloader_baudrate();
-    bool    set_subaru_02_16bit_bootloader_baudrate(QString value);
+    bool set_subaru_02_16bit_bootloader_baudrate(QString value);
     QString get_subaru_04_16bit_bootloader_baudrate();
-    bool    set_subaru_04_16bit_bootloader_baudrate(QString value);
+    bool set_subaru_04_16bit_bootloader_baudrate(QString value);
     QString get_subaru_02_32bit_bootloader_baudrate();
-    bool    set_subaru_02_32bit_bootloader_baudrate(QString value);
+    bool set_subaru_02_32bit_bootloader_baudrate(QString value);
     QString get_subaru_04_32bit_bootloader_baudrate();
-    bool    set_subaru_04_32bit_bootloader_baudrate(QString value);
+    bool set_subaru_04_32bit_bootloader_baudrate(QString value);
     QString get_subaru_05_32bit_bootloader_baudrate();
-    bool    set_subaru_05_32bit_bootloader_baudrate(QString value);
+    bool set_subaru_05_32bit_bootloader_baudrate(QString value);
 
     QString get_subaru_02_16bit_kernel_baudrate();
-    bool    set_subaru_02_16bit_kernel_baudrate(QString value);
+    bool set_subaru_02_16bit_kernel_baudrate(QString value);
     QString get_subaru_04_16bit_kernel_baudrate();
-    bool    set_subaru_04_16bit_kernel_baudrate(QString value);
+    bool set_subaru_04_16bit_kernel_baudrate(QString value);
     QString get_subaru_02_32bit_kernel_baudrate();
-    bool    set_subaru_02_32bit_kernel_baudrate(QString value);
+    bool set_subaru_02_32bit_kernel_baudrate(QString value);
     QString get_subaru_04_32bit_kernel_baudrate();
-    bool    set_subaru_04_32bit_kernel_baudrate(QString value);
+    bool set_subaru_04_32bit_kernel_baudrate(QString value);
     QString get_subaru_05_32bit_kernel_baudrate();
-    bool    set_subaru_05_32bit_kernel_baudrate(QString value);
+    bool set_subaru_05_32bit_kernel_baudrate(QString value);
 
     QString get_can_speed();
-    bool    set_can_speed(QString value);
+    bool set_can_speed(QString value);
 
     uint8_t get_serial_port_parity();
-    bool    set_serial_port_parity(uint8_t parity);
+    bool set_serial_port_parity(uint8_t parity);
     QString get_serial_port_baudrate();
-    bool    set_serial_port_baudrate(QString value);
+    bool set_serial_port_baudrate(QString value);
     QString get_serial_port_linux();
-    bool    set_serial_port_linux(QString value);
+    bool set_serial_port_linux(QString value);
     QString get_serial_port_windows();
-    bool    set_serial_port_windows(QString value);
+    bool set_serial_port_windows(QString value);
     QString get_serial_port();
-    bool    set_serial_port(QString value);
+    bool set_serial_port(QString value);
     QString get_serial_port_prefix();
-    bool    set_serial_port_prefix(QString value);
+    bool set_serial_port_prefix(QString value);
     QString get_serial_port_prefix_linux();
-    bool    set_serial_port_prefix_linux(QString value);
+    bool set_serial_port_prefix_linux(QString value);
     QString get_serial_port_prefix_win();
-    bool    set_serial_port_prefix_win(QString value);
+    bool set_serial_port_prefix_win(QString value);
 
     uint32_t get_can_source_address();
-    bool     set_can_source_address(uint32_t value);
+    bool set_can_source_address(uint32_t value);
     uint32_t get_can_destination_address();
-    bool     set_can_destination_address(uint32_t value);
+    bool set_can_destination_address(uint32_t value);
     uint32_t get_iso15765_source_address();
-    bool     set_iso15765_source_address(uint32_t value);
+    bool set_iso15765_source_address(uint32_t value);
     uint32_t get_iso15765_destination_address();
-    bool     set_iso15765_destination_address(uint32_t value);
+    bool set_iso15765_destination_address(uint32_t value);
 
-    bool     set_kline_timings(uint32_t parameter, int value);
+    bool set_kline_timings(uint32_t parameter, int value);
 
     int set_j2534_ioctl(uint32_t parameter, int value);
 
@@ -187,36 +187,34 @@ public:
 
     unsigned long read_vbatt();
 
-public slots:
+  public slots:
     void waitForSource(void);
 
-private:
+  private:
     void ensureBackendStarted();
-    void waitForDone(const std::shared_ptr<QSemaphore> &done);
+    void waitForDone(const std::shared_ptr<QSemaphore>& done);
 
     // Marshal `fn` onto the I/O thread and block until it completes. `fn`
     // runs with m_backend valid and is the ONLY code that touches it.
     template <typename Fn>
     auto runOnBackend(Fn fn)
     {
-        using Ret = std::invoke_result_t<Fn &>;
+        using Ret = std::invoke_result_t<Fn&>;
         ensureBackendStarted();
         if (QThread::currentThread() == m_ioThread)
-            return fn();   // already on the I/O thread (backend-side callback)
+            return fn(); // already on the I/O thread (backend-side callback)
         auto done = std::make_shared<QSemaphore>();
         if constexpr (std::is_void_v<Ret>)
         {
             QMetaObject::invokeMethod(m_ioContext, [fn, done]() mutable
-                                      { fn(); done->release(); },
-                                      Qt::QueuedConnection);
+                                      { fn(); done->release(); }, Qt::QueuedConnection);
             waitForDone(done);
         }
         else
         {
             Ret result{};
             QMetaObject::invokeMethod(m_ioContext, [fn, done, &result]() mutable
-                                      { result = fn(); done->release(); },
-                                      Qt::QueuedConnection);
+                                      { result = fn(); done->release(); }, Qt::QueuedConnection);
             waitForDone(done);
             return result;
         }
@@ -230,8 +228,8 @@ private:
     QMutex startMutex;
     SerialBackendHost *m_host = nullptr;
     SerialBackend *m_backend = nullptr;
-    QObject *m_ioContext = nullptr;   // == m_host->context(), cached
-    QThread *m_ioThread = nullptr;    // == m_host->ioThread(), cached
+    QObject *m_ioContext = nullptr; // == m_host->context(), cached
+    QThread *m_ioThread = nullptr;  // == m_host->ioThread(), cached
 
     QAtomicInteger<bool> is_read_vbatt = false;
     QAtomicInteger<bool> is_comm_busy = false;

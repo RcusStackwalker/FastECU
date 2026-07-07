@@ -6,12 +6,9 @@
 #include <QElapsedTimer>
 
 FlashEcuSubaruUnisiaJecsM32rOperation::FlashEcuSubaruUnisiaJecsM32rOperation(
-        SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
-        QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride))
-    , serial(serial)
-    , ecuCalDef(ecuCalDef)
-    , cmd_type(cmd_type)
+    SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
+    QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type)
 {
 }
 
@@ -102,8 +99,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::read_mem(uint32_t start_addr, uint32_
     {
         if ((uint8_t)received.at(4) != 0xFF)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
         }
         else
         {
@@ -111,24 +107,22 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::read_mem(uint32_t start_addr, uint32_
             received.remove(0, 8);
             received.remove(5, received.length() - 5);
             for (int i = 0; i < received.length(); i++)
-                msg.append(QString("%1").arg((uint8_t)received.at(i),2,16,QLatin1Char('0')).toUpper());
+                msg.append(QString("%1").arg((uint8_t)received.at(i), 2, 16, QLatin1Char('0')).toUpper());
 
             QString ecuid = msg;
             emit LOG_I("ECU ID: " + ecuid, true, true);
             if (cmd_type == "read")
                 ecuCalDef->RomId = ecuid + "_";
-
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-
     }
 
     emit LOG_I("Read mode not active, initialising ECU...", true, true);
 
-    if(!kernel_alive)
+    if (!kernel_alive)
     {
         // SSM init
         serial->change_port_speed("4800");
@@ -138,7 +132,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::read_mem(uint32_t start_addr, uint32_
         {
             if ((uint8_t)received.at(4) != 0xFF)
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
                 return STATUS_ERROR;
             }
@@ -153,7 +147,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::read_mem(uint32_t start_addr, uint32_
         received.remove(0, 8);
         received.remove(5, received.length() - 5);
         for (int i = 0; i < received.length(); i++)
-            msg.append(QString("%1").arg((uint8_t)received.at(i),2,16,QLatin1Char('0')).toUpper());
+            msg.append(QString("%1").arg((uint8_t)received.at(i), 2, 16, QLatin1Char('0')).toUpper());
 
         QString ecuid = msg;
         emit LOG_I("ECU ID: " + ecuid, true, true);
@@ -165,7 +159,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::read_mem(uint32_t start_addr, uint32_
         {
             if ((uint8_t)received.at(4) != 0xF8)
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
                 return STATUS_ERROR;
             }
@@ -186,7 +180,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::read_mem(uint32_t start_addr, uint32_
         {
             if ((uint8_t)received.at(4) != 0xFF)
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
                 return STATUS_ERROR;
             }
@@ -202,7 +196,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::read_mem(uint32_t start_addr, uint32_
     start_addr += 0x00100000;
     pagesize = 0x80;
 
-    uint32_t skip_start = start_addr & (pagesize - 1); //if unaligned, we'll be receiving this many extra bytes
+    uint32_t skip_start = start_addr & (pagesize - 1); // if unaligned, we'll be receiving this many extra bytes
     uint32_t addr = start_addr - skip_start;
     uint32_t willget = (skip_start + length + pagesize - 1) & ~(pagesize - 1);
 
@@ -228,7 +222,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::read_mem(uint32_t start_addr, uint32_
 
         uint32_t numblocks = 1;
         unsigned curspeed = 0, tleft;
-        //uint32_t curblock = (addr / pagesize);
+        // uint32_t curblock = (addr / pagesize);
         float pleft = 0;
         unsigned long chrono;
 
@@ -247,7 +241,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::read_mem(uint32_t start_addr, uint32_
         {
             if ((uint8_t)received.at(4) != 0xE0)
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
                 return STATUS_ERROR;
             }
@@ -271,15 +265,16 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::read_mem(uint32_t start_addr, uint32_
         if (cplen > 0 && chrono > 0)
             curspeed = cplen * (1000.0f / chrono);
 
-        if (!curspeed) {
+        if (!curspeed)
+        {
             curspeed += 1;
         }
 
         tleft = (willget / curspeed) % 9999;
         tleft++;
 
-        QString start_address = QString("%1").arg(addr,8,16,QLatin1Char('0')).toUpper();
-        QString block_len = QString("%1").arg(pagesize,8,16,QLatin1Char('0')).toUpper();
+        QString start_address = QString("%1").arg(addr, 8, 16, QLatin1Char('0')).toUpper();
+        QString block_len = QString("%1").arg(pagesize, 8, 16, QLatin1Char('0')).toUpper();
         msg = QString("Kernel read addr: 0x%1 length: 0x%2, %3 B/s %4 s").arg(start_address).arg(block_len).arg(curspeed, 6, 10, QLatin1Char(' ')).arg(tleft, 6, 10, QLatin1Char(' ')).toUtf8();
         emit LOG_I(msg, true, true);
         delay(1);
@@ -327,8 +322,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
     {
         if ((uint8_t)received.at(4) != 0xEF)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
         }
         else
             kernel_alive = true;
@@ -336,9 +330,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-
     }
-
 
     if (!kernel_alive)
     {
@@ -349,7 +341,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
         {
             if ((uint8_t)received.at(4) != 0xFF)
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
                 return STATUS_ERROR;
             }
@@ -364,7 +356,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
         received.remove(0, 8);
         received.remove(5, received.length() - 5);
         for (int i = 0; i < received.length(); i++)
-            msg.append(QString("%1").arg((uint8_t)received.at(i),2,16,QLatin1Char('0')).toUpper());
+            msg.append(QString("%1").arg((uint8_t)received.at(i), 2, 16, QLatin1Char('0')).toUpper());
 
         QString ecuid = msg;
         emit LOG_I("ECU ID: " + ecuid, true, true);
@@ -377,8 +369,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
         {
             if ((uint8_t)received.at(4) != 0xEF)
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-
+                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
             }
             else
                 kernel_alive = true;
@@ -386,12 +377,10 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
         else
         {
             emit LOG_E("No valid response from ECU", true, true);
-
         }
 
         emit LOG_D("Changing baudrate to 19200", true, true);
         serial->change_port_speed("19200");
-
     }
 
     if (!serial->get_use_openport2_adapter())
@@ -468,7 +457,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
         delay(500);
     }
     received = serial->read_serial_data(serial_read_medium_timeout);
-    //delay(500);
+    // delay(500);
 
     QString flashdata_filename = ecuCalDef->FileName;
     int flashdatasize = flashdata.length();
@@ -515,7 +504,6 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
             {
                 if ((uint8_t)received.at(0) == 0x80 && (uint8_t)received.at(1) == 0xf0 && (uint8_t)received.at(2) == 0x10 && (uint8_t)received.at(3) == 0x02 && (uint8_t)received.at(4) == 0xef && (uint8_t)received.at(5) == 0x52)
                 {
-
                 }
                 else
                 {
@@ -532,8 +520,8 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
             }
         }
 
-        QString start_address = QString("%1").arg(start,8,16,QLatin1Char('0')).toUpper();
-        QString block_len = QString("%1").arg(blocksize,8,16,QLatin1Char('0')).toUpper();
+        QString start_address = QString("%1").arg(start, 8, 16, QLatin1Char('0')).toUpper();
+        QString block_len = QString("%1").arg(blocksize, 8, 16, QLatin1Char('0')).toUpper();
         msg = QString("Kernel write addr: 0x%1 length: 0x%2, %3 B/s %4 s remain").arg(start_address).arg(block_len).arg(curspeed, 6, 10, QLatin1Char(' ')).arg(tleft, 6, 10, QLatin1Char(' ')).toUtf8();
         emit LOG_I(msg, true, true);
 
@@ -543,16 +531,19 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
         chrono = timer.elapsed();
         timer.start();
 
-        if (!chrono) {
+        if (!chrono)
+        {
             chrono += 1;
         }
-        curspeed = blocksize * (1000.0f / chrono);  //avg B/s
-        if (!curspeed) {
+        curspeed = blocksize * (1000.0f / chrono); // avg B/s
+        if (!curspeed)
+        {
             curspeed += 1;
         }
 
-        tleft = ((float)flashdatasize - byteindex) / curspeed;  //s
-        if (tleft > 9999) {
+        tleft = ((float)flashdatasize - byteindex) / curspeed; // s
+        if (tleft > 9999)
+        {
             tleft = 9999;
         }
         tleft++;
@@ -584,7 +575,6 @@ QByteArray FlashEcuSubaruUnisiaJecsM32rOperation::send_sid_bf_ssm_init()
 
     received = serial->read_serial_data(serial_read_timeout);
 
-
     return received;
 }
 
@@ -603,7 +593,6 @@ QByteArray FlashEcuSubaruUnisiaJecsM32rOperation::send_sid_b8_change_baudrate_48
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
-
 
     return received;
 }
@@ -624,7 +613,6 @@ QByteArray FlashEcuSubaruUnisiaJecsM32rOperation::send_sid_b8_change_baudrate_38
 
     received = serial->read_serial_data(serial_read_timeout);
 
-
     return received;
 }
 
@@ -638,19 +626,18 @@ QByteArray FlashEcuSubaruUnisiaJecsM32rOperation::send_sid_af_enter_flash_mode(Q
 
     output.append((uint8_t)0xAF);
     output.append((uint8_t)0x11);
-    output.append((uint8_t)ecu_id.at(0)); // ECU ID [0]
-    output.append((uint8_t)ecu_id.at(1)); // ECU ID [1]
-    output.append((uint8_t)ecu_id.at(2)); // ECU ID [2]
-    output.append((uint8_t)ecu_id.at(3)); // ECU ID [3]
-    output.append((uint8_t)ecu_id.at(4)); // ECU ID [4]
+    output.append((uint8_t)ecu_id.at(0));            // ECU ID [0]
+    output.append((uint8_t)ecu_id.at(1));            // ECU ID [1]
+    output.append((uint8_t)ecu_id.at(2));            // ECU ID [2]
+    output.append((uint8_t)ecu_id.at(3));            // ECU ID [3]
+    output.append((uint8_t)ecu_id.at(4));            // ECU ID [4]
     output.append((uint8_t)(rom_size >> 16) & 0xFF); // ROM size >> 24
-    output.append((uint8_t)(rom_size >> 8) & 0xFF); // ROM size >> 16
-    output.append((uint8_t)rom_size & 0xFF); // ROM size
+    output.append((uint8_t)(rom_size >> 8) & 0xFF);  // ROM size >> 16
+    output.append((uint8_t)rom_size & 0xFF);         // ROM size
     output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
-
 
     return received;
 }
@@ -666,7 +653,7 @@ QByteArray FlashEcuSubaruUnisiaJecsM32rOperation::send_sid_af_erase_memory_block
     output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
 
-    //received = serial->read_serial_data(serial_read_timeout);
+    // received = serial->read_serial_data(serial_read_timeout);
     //
 
     return received;

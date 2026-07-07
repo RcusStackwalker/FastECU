@@ -13,8 +13,9 @@
 #include "file_actions.h"
 
 QT_BEGIN_NAMESPACE
-namespace Ui {
-    class ProtocolSelect;
+namespace Ui
+{
+class ProtocolSelect;
 }
 QT_END_NAMESPACE
 
@@ -22,12 +23,11 @@ class ProtocolSelect : public QDialog
 {
     Q_OBJECT
 
-public:
+  public:
     explicit ProtocolSelect(FileActions::ConfigValuesStructure *configValues, QWidget *parent = nullptr);
     ~ProtocolSelect();
 
-private:
-
+  private:
     QFont font;
     int font_size = 10;
     bool font_bold = false;
@@ -38,13 +38,11 @@ private:
 
     FileActions::ConfigValuesStructure *configValues;
 
-private slots:
+  private slots:
     void car_model_selected();
     void protocol_treewidget_item_selected();
 
-
-
-private:
+  private:
     std::unique_ptr<Ui::ProtocolSelect> ui;
 };
 

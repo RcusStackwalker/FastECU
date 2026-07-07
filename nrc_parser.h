@@ -7,8 +7,8 @@
 
 class NrcParser
 {
-public:
-    static QString parse(const QByteArray &nrc, const QHash<int, QString> &codes);
+  public:
+    static QString parse(const QByteArray& nrc, const QHash<int, QString>& codes);
 };
 
 #endif // NRC_PARSER_H

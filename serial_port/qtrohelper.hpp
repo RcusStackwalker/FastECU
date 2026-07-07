@@ -9,7 +9,7 @@
 
 namespace qtrohelper
 {
-//Convert QVariant to scalar templates
+// Convert QVariant to scalar templates
 template <typename T>
 T qvariant_to_scalar(QVariant v);
 
@@ -19,7 +19,7 @@ inline long qvariant_to_scalar<long>(QVariant v)
     return v.toLongLong();
 }
 
-template<>
+template <>
 inline unsigned long qvariant_to_scalar<unsigned long>(QVariant v)
 {
     return v.toULongLong();
@@ -95,22 +95,19 @@ inline QStringList qvariant_to_scalar<QStringList>(QVariant v)
  *   And 'slot_sync(qtro_remote->someFunc("text"))' call deduces to
  *
  *   slot_sync<QRemoteObjectPendingReply<long>, long>(qtro_remote->someFunc("text"))
-*/
+ */
 template <template <typename> typename QRemoteObjectPendingReply, typename RET_TYPE>
 RET_TYPE slot_sync(QRemoteObjectPendingReply<RET_TYPE> SLOT)
 {
     QVariant r;
     QScopedPointer<QRemoteObjectPendingCallWatcher>
         watcher{new QRemoteObjectPendingCallWatcher(SLOT)};
-    QObject::connect(watcher.data(), &QRemoteObjectPendingCallWatcher::finished,
-        watcher.data(), [&](QRemoteObjectPendingCallWatcher* watch)
-        {
-            r = watch->returnValue();
-        }, Qt::DirectConnection);
+    QObject::connect(watcher.data(), &QRemoteObjectPendingCallWatcher::finished, watcher.data(), [&](QRemoteObjectPendingCallWatcher *watch)
+                     { r = watch->returnValue(); }, Qt::DirectConnection);
     watcher->waitForFinished();
     return qvariant_to_scalar<RET_TYPE>(r);
 }
 
-} //namespace qtrohelper
+} // namespace qtrohelper
 
 #endif // QTROHELPER_HPP

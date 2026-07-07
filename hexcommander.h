@@ -36,18 +36,17 @@ class HexCommander : public QDialog
 {
     Q_OBJECT
 
-signals:
+  signals:
     void LOG_E(QString message, bool timestamp, bool linefeed);
     void LOG_W(QString message, bool timestamp, bool linefeed);
     void LOG_I(QString message, bool timestamp, bool linefeed);
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
-public:
+  public:
     explicit HexCommander(SerialPortActions *serial, QWidget *parent = nullptr);
     ~HexCommander();
 
-
-private:
+  private:
     uint16_t receive_timeout = 500;
     uint16_t serial_read_extra_short_timeout = 50;
     uint16_t serial_read_short_timeout = 200;
@@ -64,15 +63,14 @@ private:
 
     SerialPortActions *serial;
 
-signals:
+  signals:
 
-private slots:
+  private slots:
     void protocolTypeChanged(int);
     void listenInterface();
     void sendToInterface();
 
-
-private:
+  private:
     std::unique_ptr<Ui::DataTerminal> ui;
 };
 

@@ -4,7 +4,11 @@
 #include <atomic>
 #include <thread>
 
-#include <util.h>      // openpty (macOS)
+#if defined(__linux__)
+#include <pty.h> // openpty
+#else
+#include <util.h> // openpty
+#endif
 #include <unistd.h>
 #include <poll.h>
 
@@ -17,7 +21,7 @@
 class TestPtyE2e : public QObject
 {
     Q_OBJECT
-private slots:
+  private slots:
     void workerThread_writeRead_overPty_deliversFramedMessage();
 };
 
@@ -47,7 +51,8 @@ void TestPtyE2e::workerThread_writeRead_overPty_deliversFramedMessage()
     // already completed and been joined by the time the hang occurred.
     std::atomic<bool> stop{false};
     QByteArray received;
-    std::thread responder([&] {
+    std::thread responder([&]
+                          {
         const char reply[] = "\x80\xf0\x10\x02\xaa\xbb\xcc";
         char buf[64];
         bool replied = false;
@@ -65,22 +70,21 @@ void TestPtyE2e::workerThread_writeRead_overPty_deliversFramedMessage()
             }
             else if (n < 0)
                 break;
-        }
-    });
+        } });
 
-    SerialPortActions serial;   // default factory: real direct backend
+    SerialPortActions serial; // default factory: real direct backend
     QByteArray response;
     QString opened;
-    std::thread worker([&] {
+    std::thread worker([&]
+                       {
         serial.set_serial_port_prefix_linux("");
         serial.set_serial_port_list(QStringList() << QString::fromLocal8Bit(name));
         opened = serial.open_serial_port();
         serial.write_serial_data(QByteArray("\x01\x02\x03", 3));
-        response = serial.read_serial_data(2000);
-    });
+        response = serial.read_serial_data(2000); });
     worker.join();
     stop.store(true);
-    responder.join();    // joins on its own via the poll timeout + stop check
+    responder.join(); // joins on its own via the poll timeout + stop check
     ::close(master);
 
     QCOMPARE(opened, QString::fromLocal8Bit(name));

@@ -8,7 +8,7 @@ class TestDiagnosticParsers : public QObject
 {
     Q_OBJECT
 
-private slots:
+  private slots:
     void nrc_decodesKnownNegativeResponse()
     {
         const QHash<int, QString> codes = {{0x31, "Request out of range"}};

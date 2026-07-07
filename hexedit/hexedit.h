@@ -34,15 +34,15 @@ class HexEdit : public QMainWindow
 {
     Q_OBJECT
 
-public:
+  public:
     HexEdit(FileActions::EcuCalDefStructure *ecuCalDef, QWidget *parent = nullptr);
 
-protected:
+  protected:
     void closeEvent(QCloseEvent *event);
     void dragEnterEvent(QDragEnterEvent *event);
     void dropEvent(QDropEvent *event);
 
-private slots:
+  private slots:
     void about();
     void dataChanged();
     void open();
@@ -58,10 +58,10 @@ private slots:
     void showOptionsDialog();
     void showSearchDialog();
 
-public:
-    void loadFile(const QString &fileName);
+  public:
+    void loadFile(const QString& fileName);
 
-private:
+  private:
     FileActions::EcuCalDefStructure *ecuCalDef;
 
     void init();
@@ -70,9 +70,9 @@ private:
     void createStatusBar();
     void createToolBars();
     void readSettings();
-    bool saveFile(const QString &fileName);
-    void setCurrentFile(const QString &fileName);
-    QString strippedName(const QString &fullFileName);
+    bool saveFile(const QString& fileName);
+    void setCurrentFile(const QString& fileName);
+    QString strippedName(const QString& fullFileName);
     void writeSettings();
 
     QString curFile;

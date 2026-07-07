@@ -8,7 +8,7 @@
 class TestFlashUtils : public QObject
 {
     Q_OBJECT
-private slots:
+  private slots:
     void findFlashDeviceIndex_returnsKnownDevice()
     {
         const int index = FlashUtils::findFlashDeviceIndex("M32R_384KB_1block");
@@ -42,7 +42,8 @@ private slots:
     {
         FakeBackend *fake = nullptr;
         SerialPortActions serial("", "", nullptr, nullptr,
-                                 [&fake]() -> SerialBackend * { fake = new FakeBackend(); return fake; });
+                                 [&fake]() -> SerialBackend *
+                                 { fake = new FakeBackend(); return fake; });
 
         FlashUtils::configureIso15765Can(&serial, "250000", 0x7E1, 0x7E9, true);
 
@@ -60,7 +61,8 @@ private slots:
     {
         FakeBackend *fake = nullptr;
         SerialPortActions serial("", "", nullptr, nullptr,
-                                 [&fake]() -> SerialBackend * { fake = new FakeBackend(); return fake; });
+                                 [&fake]() -> SerialBackend *
+                                 { fake = new FakeBackend(); return fake; });
 
         FlashUtils::configureIso15765Can(&serial, "500000", 0x7E0, 0x7E8);
 

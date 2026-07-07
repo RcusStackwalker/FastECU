@@ -20,13 +20,13 @@ class J2534 : public QObject
 {
     Q_OBJECT
 
-signals:
+  signals:
     void LOG_E(QString message, bool timestamp, bool linefeed);
     void LOG_W(QString message, bool timestamp, bool linefeed);
     void LOG_I(QString message, bool timestamp, bool linefeed);
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
-public:
+  public:
     explicit J2534();
     ~J2534();
 
@@ -38,10 +38,16 @@ public:
 
     bool is_serial_port_open();
 
-    bool init() { return true; };
-    void setDllName(const char* /*name*/) {}; // For Win/Linux compatibility only
-    void getDllName(char* /*name*/) {}; // For Win/Linux compatibility only
-    void debug(bool enable) { debugMode = enable; };
+    bool init()
+    {
+        return true;
+    };
+    void setDllName(const char * /*name*/) {}; // For Win/Linux compatibility only
+    void getDllName(char * /*name*/) {};       // For Win/Linux compatibility only
+    void debug(bool enable)
+    {
+        debugMode = enable;
+    };
 
     long PassThruOpen(const void *pName, unsigned long *pDeviceID);
     long PassThruClose(unsigned long DeviceID);
@@ -67,7 +73,7 @@ public:
     uint32_t parse_ts(const char *data);
     bool get_is_tx_done();
 
-private:
+  private:
     bool debugMode;
 
     QString opened_serial_port;
@@ -81,18 +87,19 @@ private:
     uint16_t serial_read_long_timeout = 800;
     uint16_t serial_read_extra_long_timeout = 3000;
 
-protected:
+  protected:
     // protected (not private) so tests can subclass J2534 and drive it into the
     // torn-down state (serial == nullptr) that the crash report exhibits.
     QSerialPort *serial = new QSerialPort();
 
-private:
+  private:
     unsigned long periodic_msg_id;
 
     bool msg_ack = false;
     bool is_tx_done = false;
 
-    enum rx_msg_type {
+    enum rx_msg_type
+    {
         NORM_MSG,
         TX_DONE_MSG = 0x10,
         TX_LB_MSG = 0x20,
@@ -104,14 +111,13 @@ private:
     };
 
     int is_valid_sconfig_param(SCONFIG s);
-    void dump_sbyte_array(const SBYTE_ARRAY* s);
+    void dump_sbyte_array(const SBYTE_ARRAY *s);
     void dump_sconfig_param(SCONFIG s);
 
     void delay(int n);
 
-private slots:
+  private slots:
     void handle_error(QSerialPort::SerialPortError error);
-
 };
 
 #endif // J2534_UNIX_H

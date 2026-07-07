@@ -2,13 +2,10 @@
 #include "flash_ecu_subaru_hitachi_sh72543r_can_operation.h"
 #include "serial_port_actions.h"
 
-//QT_CHARTS_USE_NAMESPACE
+// QT_CHARTS_USE_NAMESPACE
 
 FlashEcuSubaruHitachiSH72543rCan::FlashEcuSubaruHitachiSH72543rCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent)
-    : QDialog(parent)
-    , ecuCalDef(ecuCalDef)
-    , cmd_type(cmd_type)
-    , ui{std::make_unique<Ui::EcuOperationsWindow>()}
+    : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
 
@@ -34,51 +31,53 @@ void FlashEcuSubaruHitachiSH72543rCan::run()
 
     switch (ret)
     {
-        case QMessageBox::Ok:
+    case QMessageBox::Ok:
+    {
+        m_operation = new FlashEcuSubaruHitachiSH72543rCanOperation(serial, ecuCalDef, cmd_type, this);
+        connect(m_operation, &FlashOperationWorker::LOG_E, this, &FlashEcuSubaruHitachiSH72543rCan::LOG_E);
+        connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashEcuSubaruHitachiSH72543rCan::LOG_W);
+        connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashEcuSubaruHitachiSH72543rCan::LOG_I);
+        connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashEcuSubaruHitachiSH72543rCan::LOG_D);
+        connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
+                this, [this](QString msg)
+                { emit external_logger(msg); });
+        connect(m_operation, &FlashOperationWorker::progressChanged,
+                this, &FlashEcuSubaruHitachiSH72543rCan::set_progressbar_value);
+
+        QEventLoop loop;
+        bool success = false;
+        connect(m_operation, &FlashOperationWorker::operationFinished, &loop,
+                [&success, &loop](bool ok)
+                { success = ok; loop.quit(); });
+
+        m_operation->start();
+        loop.exec();
+        m_operation->wait();
+        delete m_operation;
+        m_operation = nullptr;
+
+        emit external_logger("Finished");
+
+        if (success)
         {
-            m_operation = new FlashEcuSubaruHitachiSH72543rCanOperation(serial, ecuCalDef, cmd_type, this);
-            connect(m_operation, &FlashOperationWorker::LOG_E, this, &FlashEcuSubaruHitachiSH72543rCan::LOG_E);
-            connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashEcuSubaruHitachiSH72543rCan::LOG_W);
-            connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashEcuSubaruHitachiSH72543rCan::LOG_I);
-            connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashEcuSubaruHitachiSH72543rCan::LOG_D);
-            connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
-                    this, [this](QString msg) { emit external_logger(msg); });
-            connect(m_operation, &FlashOperationWorker::progressChanged,
-                    this, &FlashEcuSubaruHitachiSH72543rCan::set_progressbar_value);
-
-            QEventLoop loop;
-            bool success = false;
-            connect(m_operation, &FlashOperationWorker::operationFinished, &loop,
-                    [&success, &loop](bool ok) { success = ok; loop.quit(); });
-
-            m_operation->start();
-            loop.exec();
-            m_operation->wait();
-            delete m_operation;
-            m_operation = nullptr;
-
-            emit external_logger("Finished");
-
-            if (success)
-            {
-                QMessageBox::information(this, tr("ECU Operation"), "ECU operation was succesful, press OK to exit");
-                this->close();
-            }
-            else
-            {
-                QMessageBox::warning(this, tr("ECU Operation"), "ECU operation failed, press OK to exit and try again");
-            }
-            break;
+            QMessageBox::information(this, tr("ECU Operation"), "ECU operation was succesful, press OK to exit");
+            this->close();
         }
-        case QMessageBox::Cancel:
-            emit LOG_D("Operation canceled", true, true);
-            this->close();
-            break;
-        default:
-            QMessageBox::warning(this, tr("Connecting to ECU"), "Unknown operation selected!");
-            emit LOG_D("Unknown operation selected!", true, true);
-            this->close();
-            break;
+        else
+        {
+            QMessageBox::warning(this, tr("ECU Operation"), "ECU operation failed, press OK to exit and try again");
+        }
+        break;
+    }
+    case QMessageBox::Cancel:
+        emit LOG_D("Operation canceled", true, true);
+        this->close();
+        break;
+    default:
+        QMessageBox::warning(this, tr("Connecting to ECU"), "Unknown operation selected!");
+        emit LOG_D("Unknown operation selected!", true, true);
+        this->close();
+        break;
     }
 }
 

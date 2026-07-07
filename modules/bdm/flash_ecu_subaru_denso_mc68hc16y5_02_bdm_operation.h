@@ -18,20 +18,20 @@ class FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation : public FlashOperationWorke
 {
     Q_OBJECT
 
-public:
+  public:
     FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation(SerialPortActions *serial,
-                                                   FileActions::EcuCalDefStructure *ecuCalDef,
-                                                   QString cmd_type,
-                                                   QWidget *dialog,
-                                                   QObject *parent = nullptr,
-                                                   PromptFn promptOverride = {});
+                                                  FileActions::EcuCalDefStructure *ecuCalDef,
+                                                  QString cmd_type,
+                                                  QWidget *dialog,
+                                                  QObject *parent = nullptr,
+                                                  PromptFn promptOverride = {});
 
-protected:
+  protected:
     bool execute() override;
 
-private:
-#define STATUS_SUCCESS	0x00
-#define STATUS_ERROR	0x01
+  private:
+#define STATUS_SUCCESS 0x00
+#define STATUS_ERROR 0x01
 
     int result;
     int mcu_type_index;

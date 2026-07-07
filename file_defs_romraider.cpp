@@ -11,7 +11,7 @@ FileActions::ConfigValuesStructure *FileActions::create_romraider_def_id_list(Co
     bool cal_id_addr_found = false;
     bool ecu_id_found = false;
 
-    if(!configValues->romraider_definition_files.length())
+    if (!configValues->romraider_definition_files.length())
     {
         emit LOG_D("No RomRaider definition files", true, true);
         return configValues;
@@ -24,7 +24,7 @@ FileActions::ConfigValuesStructure *FileActions::create_romraider_def_id_list(Co
         emit LOG_D("Reading RomRaider ID's from file: " + filename, true, true);
 
         QFile file(filename);
-        if (!file.open(QIODevice::ReadOnly ))
+        if (!file.open(QIODevice::ReadOnly))
         {
             QMessageBox::warning(this, tr("Ecu definition file"), "Unable to open romraider definition file " + filename + " for reading");
         }
@@ -36,7 +36,7 @@ FileActions::ConfigValuesStructure *FileActions::create_romraider_def_id_list(Co
         QDomElement root = xmlBOM.documentElement();
 
         QDomNodeList items = root.childNodes();
-        for(int x=0; x< items.count(); x++)
+        for (int x = 0; x < items.count(); x++)
         {
             if (items.at(x).isComment())
                 continue;
@@ -55,7 +55,7 @@ FileActions::ConfigValuesStructure *FileActions::create_romraider_def_id_list(Co
                         {
                             if (id_child.tagName() == "xmlid")
                             {
-                                //emit LOG_D(cal_id_count + " cal tag:" << id_child.text();
+                                // emit LOG_D(cal_id_count + " cal tag:" << id_child.text();
                                 cal_id_found = true;
                                 configValues->romraider_def_cal_id.append(id_child.text());
                                 configValues->romraider_def_filename.append(filename);
@@ -63,13 +63,13 @@ FileActions::ConfigValuesStructure *FileActions::create_romraider_def_id_list(Co
                             }
                             if (id_child.tagName() == "internalidaddress")
                             {
-                                //emit LOG_D("cal addr:" << id_child.text();
+                                // emit LOG_D("cal addr:" << id_child.text();
                                 cal_id_addr_found = true;
                                 configValues->romraider_def_cal_id_addr.append(id_child.text());
                             }
                             if (id_child.tagName() == "ecuid")
                             {
-                                //emit LOG_D("ecuid:" << id_child.text();
+                                // emit LOG_D("ecuid:" << id_child.text();
                                 ecu_id_found = true;
                                 configValues->romraider_def_ecu_id.append(id_child.text());
                             }
@@ -100,7 +100,7 @@ FileActions::ConfigValuesStructure *FileActions::create_romraider_def_id_list(Co
 
 FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(EcuCalDefStructure *ecuCalDef)
 {
-    //ConfigValuesStructure *configValues = &ConfigValuesStruct;
+    // ConfigValuesStructure *configValues = &ConfigValuesStruct;
 
     bool OemEcuDefBaseFileFound = false;
 
@@ -111,13 +111,13 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(EcuCal
     QDomDocument xmlBOM;
 
     QString filename = ecuCalDef->DefinitionFileName;
-    //QString filename = configValues->romraider_definition_files.at(0);
+    // QString filename = configValues->romraider_definition_files.at(0);
 
     QFile file(filename);
-    if (!file.open(QIODevice::ReadOnly ))
+    if (!file.open(QIODevice::ReadOnly))
     {
         ecuCalDef = NULL;
-        //emit LOG_D("Unable to open OEM ecu base definitions file " + filename + " for reading";
+        // emit LOG_D("Unable to open OEM ecu base definitions file " + filename + " for reading";
         QMessageBox::warning(this, tr("Ecu definitions file"), "Unable to open OEM ecu base definitions file " + filename + " for reading");
         return NULL;
     }
@@ -127,8 +127,8 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(EcuCal
 
     QDomElement root = xmlBOM.documentElement();
     QDomNodeList items = root.childNodes();
-    //emit LOG_D("ECU base child nodes: " + QString::number(items.count()), true, true);
-    for(int x = 0; x < items.count(); x++)
+    // emit LOG_D("ECU base child nodes: " + QString::number(items.count()), true, true);
+    for (int x = 0; x < items.count(); x++)
     {
         if (items.at(x).isComment())
             continue;
@@ -136,8 +136,8 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(EcuCal
         QDomElement TagType = items.at(x).toElement();
         if (TagType.tagName() == "rom")
         {
-            //emit LOG_D("Reading base...", true, true);
-            rombase = TagType.attribute("base","No base");
+            // emit LOG_D("Reading base...", true, true);
+            rombase = TagType.attribute("base", "No base");
             if (rombase == "No base")
             {
                 QDomElement RomId = TagType.firstChild().toElement();
@@ -155,29 +155,29 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(EcuCal
                 }
                 if (xmlid == ecuCalDef->RomInfo[RomBase])
                 {
-                    //emit LOG_D("Found base...", true, true);
+                    // emit LOG_D("Found base...", true, true);
 
                     OemEcuDefBaseFileFound = true;
                     QDomElement Table = TagType.firstChild().toElement();
-                    while(!Table.isNull())
+                    while (!Table.isNull())
                     {
                         if (Table.tagName() == "table")
                         {
                             for (int i = 0; i < ecuCalDef->NameList.length(); i++)
                             {
-                                //emit LOG_D("Checking table:" << ecuCalDef->NameList.at(i);
-                                if (Table.attribute("name","No name") == ecuCalDef->NameList.at(i))
+                                // emit LOG_D("Checking table:" << ecuCalDef->NameList.at(i);
+                                if (Table.attribute("name", "No name") == ecuCalDef->NameList.at(i))
                                 {
-                                    //emit LOG_D("Found table:" << ecuCalDef->NameList.at(i);
-                                    QString type = Table.attribute("type"," ");
-                                    QString storage_type = Table.attribute("storagetype"," ");
+                                    // emit LOG_D("Found table:" << ecuCalDef->NameList.at(i);
+                                    QString type = Table.attribute("type", " ");
+                                    QString storage_type = Table.attribute("storagetype", " ");
                                     if (type == "Switch")
                                     {
                                         type = "Selectable";
                                         storage_type = "bloblist";
                                     }
                                     ecuCalDef->TypeList.replace(i, type);
-                                    ecuCalDef->CategoryList.replace(i, Table.attribute("category"," "));
+                                    ecuCalDef->CategoryList.replace(i, Table.attribute("category", " "));
 
                                     if (ecuCalDef->XSizeList.at(i) == "" || ecuCalDef->XSizeList.at(i) == " ")
                                         ecuCalDef->XSizeList.replace(i, Table.attribute("sizex", "1"));
@@ -185,14 +185,14 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(EcuCal
                                         ecuCalDef->YSizeList.replace(i, Table.attribute("sizey", "1"));
                                     ecuCalDef->StartPosList.replace(i, Table.attribute("startpos", "1"));
                                     ecuCalDef->IntervalList.replace(i, Table.attribute("interval", "1"));
-                                    ecuCalDef->MinValueList.replace(i, Table.attribute("minvalue"," "));
-                                    ecuCalDef->MaxValueList.replace(i, Table.attribute("maxvalue"," "));
+                                    ecuCalDef->MinValueList.replace(i, Table.attribute("minvalue", " "));
+                                    ecuCalDef->MaxValueList.replace(i, Table.attribute("maxvalue", " "));
 
                                     ecuCalDef->StorageTypeList.replace(i, storage_type);
-                                    ecuCalDef->EndianList.replace(i, Table.attribute("endian"," "));
-                                    ecuCalDef->LogParamList.replace(i, Table.attribute("logparam"," "));
+                                    ecuCalDef->EndianList.replace(i, Table.attribute("endian", " "));
+                                    ecuCalDef->LogParamList.replace(i, Table.attribute("logparam", " "));
 
-                                    //emit LOG_D("DEF BASE:" << ecuCalDef->XSizeList.at(i) << ecuCalDef->YSizeList.at(i);
+                                    // emit LOG_D("DEF BASE:" << ecuCalDef->XSizeList.at(i) << ecuCalDef->YSizeList.at(i);
                                     ecuCalDef->SyncedWithEcu = true;
 
                                     QDomElement TableChild = Table.firstChild().toElement();
@@ -204,52 +204,51 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(EcuCal
                                     {
                                         if (TableChild.tagName() == "scaling")
                                         {
-                                            ecuCalDef->UnitsList.replace(i, TableChild.attribute("units"," "));
-                                            ecuCalDef->FormatList.replace(i, TableChild.attribute("format"," "));
-                                            ecuCalDef->FineIncList.replace(i, TableChild.attribute("fineincrement"," "));
-                                            ecuCalDef->CoarseIncList.replace(i, TableChild.attribute("coarseincrement"," "));
+                                            ecuCalDef->UnitsList.replace(i, TableChild.attribute("units", " "));
+                                            ecuCalDef->FormatList.replace(i, TableChild.attribute("format", " "));
+                                            ecuCalDef->FineIncList.replace(i, TableChild.attribute("fineincrement", " "));
+                                            ecuCalDef->CoarseIncList.replace(i, TableChild.attribute("coarseincrement", " "));
 
-                                            ecuCalDef->FromByteList.replace(i, TableChild.attribute("expression","x"));
-                                            ecuCalDef->ToByteList.replace(i, TableChild.attribute("to_byte","x"));
-
+                                            ecuCalDef->FromByteList.replace(i, TableChild.attribute("expression", "x"));
+                                            ecuCalDef->ToByteList.replace(i, TableChild.attribute("to_byte", "x"));
                                         }
                                         else if (TableChild.tagName() == "table")
                                         {
-                                            QString ScaleType = TableChild.attribute("type"," ");
+                                            QString ScaleType = TableChild.attribute("type", " ");
                                             if (ScaleType == "X Axis")
                                             {
-                                                ecuCalDef->XScaleNameList.replace(i, TableChild.attribute("name"," "));
+                                                ecuCalDef->XScaleNameList.replace(i, TableChild.attribute("name", " "));
                                                 ecuCalDef->XScaleTypeList.replace(i, ScaleType);
-                                                ecuCalDef->XScaleStorageTypeList.replace(i, TableChild.attribute("storagetype"," "));
-                                                ecuCalDef->XScaleEndianList.replace(i, TableChild.attribute("endian"," "));
-                                                ecuCalDef->XScaleLogParamList.replace(i, TableChild.attribute("logparam"," "));
-                                                ecuCalDef->XScaleStartPosList.replace(i, TableChild.attribute("startpos","1"));
-                                                ecuCalDef->XScaleIntervalList.replace(i, TableChild.attribute("interval","1"));
+                                                ecuCalDef->XScaleStorageTypeList.replace(i, TableChild.attribute("storagetype", " "));
+                                                ecuCalDef->XScaleEndianList.replace(i, TableChild.attribute("endian", " "));
+                                                ecuCalDef->XScaleLogParamList.replace(i, TableChild.attribute("logparam", " "));
+                                                ecuCalDef->XScaleStartPosList.replace(i, TableChild.attribute("startpos", "1"));
+                                                ecuCalDef->XScaleIntervalList.replace(i, TableChild.attribute("interval", "1"));
 
                                                 QDomElement SubChild = TableChild.firstChild().toElement();
                                                 while (!SubChild.isNull())
                                                 {
                                                     if (SubChild.tagName() == "scaling")
                                                     {
-                                                        ecuCalDef->XScaleUnitsList.replace(i, SubChild.attribute("units"," "));
-                                                        ecuCalDef->XScaleFormatList.replace(i, SubChild.attribute("format"," "));
-                                                        ecuCalDef->XScaleFineIncList.replace(i, SubChild.attribute("fineincrement"," "));
-                                                        ecuCalDef->XScaleCoarseIncList.replace(i, SubChild.attribute("coarseincrement"," "));
-                                                        ecuCalDef->XScaleFromByteList.replace(i, SubChild.attribute("expression","x"));
-                                                        ecuCalDef->XScaleToByteList.replace(i, SubChild.attribute("to_byte","x"));
+                                                        ecuCalDef->XScaleUnitsList.replace(i, SubChild.attribute("units", " "));
+                                                        ecuCalDef->XScaleFormatList.replace(i, SubChild.attribute("format", " "));
+                                                        ecuCalDef->XScaleFineIncList.replace(i, SubChild.attribute("fineincrement", " "));
+                                                        ecuCalDef->XScaleCoarseIncList.replace(i, SubChild.attribute("coarseincrement", " "));
+                                                        ecuCalDef->XScaleFromByteList.replace(i, SubChild.attribute("expression", "x"));
+                                                        ecuCalDef->XScaleToByteList.replace(i, SubChild.attribute("to_byte", "x"));
                                                         SubChild = SubChild.nextSibling().toElement();
                                                     }
                                                 }
                                             }
                                             else if (ScaleType == "Y Axis" && ecuCalDef->TypeList.at(i) == "3D")
                                             {
-                                                ecuCalDef->YScaleNameList.replace(i, TableChild.attribute("name"," "));
+                                                ecuCalDef->YScaleNameList.replace(i, TableChild.attribute("name", " "));
                                                 ecuCalDef->YScaleTypeList.replace(i, ScaleType);
-                                                ecuCalDef->YScaleStorageTypeList.replace(i, TableChild.attribute("storagetype"," "));
-                                                ecuCalDef->YScaleEndianList.replace(i, TableChild.attribute("endian"," "));
-                                                ecuCalDef->YScaleLogParamList.replace(i, TableChild.attribute("logparam"," "));
-                                                ecuCalDef->YScaleStartPosList.replace(i, TableChild.attribute("startpos","1"));
-                                                ecuCalDef->YScaleIntervalList.replace(i, TableChild.attribute("interval","1"));
+                                                ecuCalDef->YScaleStorageTypeList.replace(i, TableChild.attribute("storagetype", " "));
+                                                ecuCalDef->YScaleEndianList.replace(i, TableChild.attribute("endian", " "));
+                                                ecuCalDef->YScaleLogParamList.replace(i, TableChild.attribute("logparam", " "));
+                                                ecuCalDef->YScaleStartPosList.replace(i, TableChild.attribute("startpos", "1"));
+                                                ecuCalDef->YScaleIntervalList.replace(i, TableChild.attribute("interval", "1"));
                                                 ecuCalDef->XScaleStaticDataList.append(" ");
 
                                                 QDomElement SubChild = TableChild.firstChild().toElement();
@@ -257,13 +256,13 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(EcuCal
                                                 {
                                                     if (SubChild.tagName() == "scaling")
                                                     {
-                                                        ecuCalDef->YScaleUnitsList.replace(i, SubChild.attribute("units"," "));
-                                                        ecuCalDef->YScaleFormatList.replace(i, SubChild.attribute("format"," "));
-                                                        ecuCalDef->YScaleFineIncList.replace(i, SubChild.attribute("fineincrement"," "));
-                                                        ecuCalDef->YScaleCoarseIncList.replace(i, SubChild.attribute("coarseincrement"," "));
+                                                        ecuCalDef->YScaleUnitsList.replace(i, SubChild.attribute("units", " "));
+                                                        ecuCalDef->YScaleFormatList.replace(i, SubChild.attribute("format", " "));
+                                                        ecuCalDef->YScaleFineIncList.replace(i, SubChild.attribute("fineincrement", " "));
+                                                        ecuCalDef->YScaleCoarseIncList.replace(i, SubChild.attribute("coarseincrement", " "));
 
-                                                        ecuCalDef->YScaleFromByteList.replace(i, SubChild.attribute("expression","x"));
-                                                        ecuCalDef->YScaleToByteList.replace(i, SubChild.attribute("to_byte","x"));
+                                                        ecuCalDef->YScaleFromByteList.replace(i, SubChild.attribute("expression", "x"));
+                                                        ecuCalDef->YScaleToByteList.replace(i, SubChild.attribute("to_byte", "x"));
 
                                                         SubChild = SubChild.nextSibling().toElement();
                                                     }
@@ -273,44 +272,45 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(EcuCal
                                             {
                                                 if (ScaleType == "Static Y Axis")
                                                     ScaleType = "Static X Axis";
-                                                ecuCalDef->XScaleNameList.replace(i, TableChild.attribute("name"," "));
+                                                ecuCalDef->XScaleNameList.replace(i, TableChild.attribute("name", " "));
                                                 ecuCalDef->XScaleTypeList.replace(i, ScaleType);
-                                                ecuCalDef->XScaleStorageTypeList.replace(i, TableChild.attribute("storagetype"," "));
-                                                ecuCalDef->XScaleEndianList.replace(i, TableChild.attribute("endian"," "));
-                                                ecuCalDef->XScaleLogParamList.replace(i, TableChild.attribute("logparam"," "));
-                                                ecuCalDef->XScaleStartPosList.replace(i, TableChild.attribute("startpos","1"));
-                                                ecuCalDef->XScaleIntervalList.replace(i, TableChild.attribute("interval","1"));
+                                                ecuCalDef->XScaleStorageTypeList.replace(i, TableChild.attribute("storagetype", " "));
+                                                ecuCalDef->XScaleEndianList.replace(i, TableChild.attribute("endian", " "));
+                                                ecuCalDef->XScaleLogParamList.replace(i, TableChild.attribute("logparam", " "));
+                                                ecuCalDef->XScaleStartPosList.replace(i, TableChild.attribute("startpos", "1"));
+                                                ecuCalDef->XScaleIntervalList.replace(i, TableChild.attribute("interval", "1"));
 
                                                 QDomElement SubChild = TableChild.firstChild().toElement();
                                                 QString StaticYScaleData;
                                                 if (SubChild.tagName() == "scaling")
                                                 {
-                                                    ecuCalDef->XScaleUnitsList.replace(i, SubChild.attribute("units"," "));
-                                                    ecuCalDef->XScaleFormatList.replace(i, SubChild.attribute("format"," "));
-                                                    ecuCalDef->XScaleFineIncList.replace(i, SubChild.attribute("fineincrement"," "));
-                                                    ecuCalDef->XScaleCoarseIncList.replace(i, SubChild.attribute("coarseincrement"," "));
+                                                    ecuCalDef->XScaleUnitsList.replace(i, SubChild.attribute("units", " "));
+                                                    ecuCalDef->XScaleFormatList.replace(i, SubChild.attribute("format", " "));
+                                                    ecuCalDef->XScaleFineIncList.replace(i, SubChild.attribute("fineincrement", " "));
+                                                    ecuCalDef->XScaleCoarseIncList.replace(i, SubChild.attribute("coarseincrement", " "));
 
-                                                    ecuCalDef->XScaleFromByteList.replace(i, SubChild.attribute("expression","x"));
-                                                    ecuCalDef->XScaleToByteList.replace(i, SubChild.attribute("to_byte","x"));
+                                                    ecuCalDef->XScaleFromByteList.replace(i, SubChild.attribute("expression", "x"));
+                                                    ecuCalDef->XScaleToByteList.replace(i, SubChild.attribute("to_byte", "x"));
                                                     ecuCalDef->XScaleStaticDataList.replace(i, " ");
-
                                                 }
-                                                if (SubChild.tagName() == "data"){
+                                                if (SubChild.tagName() == "data")
+                                                {
                                                     while (!SubChild.isNull())
                                                     {
-                                                        if (SubChild.tagName() == "data"){
+                                                        if (SubChild.tagName() == "data")
+                                                        {
                                                             StaticYScaleData.append(SubChild.text());
                                                             StaticYScaleData.append(",");
                                                         }
                                                         SubChild = SubChild.nextSibling().toElement();
                                                     }
-                                                    ecuCalDef->XScaleUnitsList.replace(i, SubChild.attribute("units"," "));
-                                                    ecuCalDef->XScaleFormatList.replace(i, SubChild.attribute("format"," "));
-                                                    ecuCalDef->XScaleFineIncList.replace(i, SubChild.attribute("fineincrement"," "));
-                                                    ecuCalDef->XScaleCoarseIncList.replace(i, SubChild.attribute("coarseincrement"," "));
+                                                    ecuCalDef->XScaleUnitsList.replace(i, SubChild.attribute("units", " "));
+                                                    ecuCalDef->XScaleFormatList.replace(i, SubChild.attribute("format", " "));
+                                                    ecuCalDef->XScaleFineIncList.replace(i, SubChild.attribute("fineincrement", " "));
+                                                    ecuCalDef->XScaleCoarseIncList.replace(i, SubChild.attribute("coarseincrement", " "));
 
-                                                    ecuCalDef->XScaleFromByteList.replace(i, SubChild.attribute("expression"," "));
-                                                    ecuCalDef->XScaleToByteList.replace(i, SubChild.attribute("to_byte"," "));
+                                                    ecuCalDef->XScaleFromByteList.replace(i, SubChild.attribute("expression", " "));
+                                                    ecuCalDef->XScaleToByteList.replace(i, SubChild.attribute("to_byte", " "));
                                                     ecuCalDef->XScaleStaticDataList.replace(i, StaticYScaleData);
                                                 }
                                                 ecuCalDef->XSizeList.replace(i, ecuCalDef->YSizeList[i]);
@@ -321,10 +321,10 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(EcuCal
                                         }
                                         else if (TableChild.tagName() == "state")
                                         {
-                                            QString name = TableChild.attribute("name"," ");
+                                            QString name = TableChild.attribute("name", " ");
                                             name.replace(",", ":");
                                             selection_name.append(name + ",");
-                                            selection_value.append(TableChild.attribute("data"," ") + ",");
+                                            selection_value.append(TableChild.attribute("data", " ") + ",");
                                             selection_value.remove(' ');
                                         }
                                         else if (TableChild.tagName() == "description")
@@ -337,13 +337,13 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(EcuCal
                                         }
                                         else
                                         {
-                                            ecuCalDef->UnitsList.replace(i, TableChild.attribute("units"," "));
-                                            ecuCalDef->FormatList.replace(i, TableChild.attribute("format"," "));
-                                            ecuCalDef->FineIncList.replace(i, TableChild.attribute("fineincrement"," "));
-                                            ecuCalDef->CoarseIncList.replace(i, TableChild.attribute("coarseincrement"," "));
+                                            ecuCalDef->UnitsList.replace(i, TableChild.attribute("units", " "));
+                                            ecuCalDef->FormatList.replace(i, TableChild.attribute("format", " "));
+                                            ecuCalDef->FineIncList.replace(i, TableChild.attribute("fineincrement", " "));
+                                            ecuCalDef->CoarseIncList.replace(i, TableChild.attribute("coarseincrement", " "));
 
-                                            ecuCalDef->FromByteList.replace(i, TableChild.attribute("expression","x"));
-                                            ecuCalDef->ToByteList.replace(i, TableChild.attribute("to_byte","x"));
+                                            ecuCalDef->FromByteList.replace(i, TableChild.attribute("expression", "x"));
+                                            ecuCalDef->ToByteList.replace(i, TableChild.attribute("to_byte", "x"));
                                         }
                                         TableChild = TableChild.nextSibling().toElement();
                                     }
@@ -366,8 +366,10 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(EcuCal
         return NULL;
 
     QStringList validationErrors;
-    if (!validate_calibration_maps(*ecuCalDef, &validationErrors)) {
-        for (const QString &error : validationErrors) {
+    if (!validate_calibration_maps(*ecuCalDef, &validationErrors))
+    {
+        for (const QString& error : validationErrors)
+        {
             qWarning().noquote() << "Invalid RomRaider definition:" << error;
         }
     }
@@ -402,7 +404,8 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(EcuCalDefSt
     QString filename;
 
     // Check if any ECU definition file is selected
-    if (!configValues->romraider_definition_files.length() && !configValues->ecuflash_definition_files_directory.length()) {
+    if (!configValues->romraider_definition_files.length() && !configValues->ecuflash_definition_files_directory.length())
+    {
         QMessageBox::warning(this, tr("Ecu definition file"), "No RomRaider definition file(s), use definition manager at 'Edit' menu to choose file(s)");
         ecuCalDef = NULL;
         return NULL;
@@ -417,8 +420,8 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(EcuCalDefSt
     {
         if (configValues->romraider_def_cal_id.at(index) == cal_id)
         {
-            //emit LOG_D("RomRaider ID found:" << configValues->romraider_def_cal_id.at(index) << cal_id;
-            //emit LOG_D("RomRaider file name:" << configValues->romraider_def_filename.at(index);
+            // emit LOG_D("RomRaider ID found:" << configValues->romraider_def_cal_id.at(index) << cal_id;
+            // emit LOG_D("RomRaider file name:" << configValues->romraider_def_filename.at(index);
             cal_id_file_found = true;
             file_index = index;
             continue;
@@ -439,7 +442,7 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(EcuCalDefSt
 
     QFile file(filename);
 
-    if (!file.open(QIODevice::ReadOnly ))
+    if (!file.open(QIODevice::ReadOnly))
     {
         QMessageBox::warning(this, tr("Ecu definitions file"), "Unable to open ECU definition file " + filename + " for reading");
         ecuCalDef = NULL;
@@ -455,8 +458,8 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(EcuCalDefSt
 
     QDomElement root = xmlBOM.documentElement();
     QDomNodeList items = root.childNodes();
-    //emit LOG_D("ECU def child nodes: " + QString::number(items.count()), true, true);
-    for(int x = 0; x < items.count(); x++)
+    // emit LOG_D("ECU def child nodes: " + QString::number(items.count()), true, true);
+    for (int x = 0; x < items.count(); x++)
     {
         if (items.at(x).isComment())
             continue;
@@ -505,7 +508,7 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(EcuCalDefSt
                             checksummodule = rom_id_child.text();
                         else if (rom_id_child.tagName() == "flashmethod")
                             flashmethod = rom_id_child.text();
-                            //flashmethod = configValues->flash_protocol_selected_family;
+                        // flashmethod = configValues->flash_protocol_selected_family;
                         else if (rom_id_child.tagName() == "filesize")
                             filesize = rom_id_child.text();
 
@@ -516,7 +519,7 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(EcuCalDefSt
                         emit LOG_D("XML ID: " + xmlid + " " + cal_id, true, true);
                         if (ecuCalDef->RomInfo.at(XmlId) == " ")
                         {
-                            //bool flashmethod_alias_found = false;
+                            // bool flashmethod_alias_found = false;
                             ecuCalDef->RomInfo.replace(XmlId, xmlid);
                             ecuCalDef->RomInfo.replace(InternalIdAddress, internalidaddress);
                             ecuCalDef->RomInfo.replace(InternalIdString, internalidstring);
@@ -533,12 +536,12 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(EcuCalDefSt
                             ecuCalDef->RomInfo.replace(FileSize, filesize);
                             for (int i = 0; i < configValues->flash_protocol_id.length(); i++)
                             {
-                                QStringList aliases =  configValues->flash_protocol_alias.at(i).split(",");
+                                QStringList aliases = configValues->flash_protocol_alias.at(i).split(",");
                                 for (int j = 0; j < aliases.length(); j++)
                                 {
                                     if (aliases.at(j) == flashmethod)
                                     {
-                                        //flashmethod_alias_found = true;
+                                        // flashmethod_alias_found = true;
                                         emit LOG_D("Alias: " + flashmethod, true, true);
                                         emit LOG_D("Protocol: " + configValues->flash_protocol_protocol_name.at(i), true, true);
                                         ecuCalDef->RomInfo.replace(FlashMethod, configValues->flash_protocol_protocol_name.at(i));
@@ -583,7 +586,6 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(EcuCalDefSt
                                     ecuCalDef->YScaleAddressList.replace(index, rom_sub_child.attribute("storageaddress", " "));
                                 if (rom_sub_child.attribute("type", " ") == "Static Y Axis")
                                 {
-
                                 }
                             }
                         }
@@ -605,8 +607,10 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(EcuCalDefSt
     }
 
     QStringList validationErrors;
-    if (!validate_calibration_maps(*ecuCalDef, &validationErrors)) {
-        for (const QString &error : validationErrors) {
+    if (!validate_calibration_maps(*ecuCalDef, &validationErrors))
+    {
+        for (const QString& error : validationErrors)
+        {
             qWarning().noquote() << "Invalid RomRaider definition:" << error;
         }
     }

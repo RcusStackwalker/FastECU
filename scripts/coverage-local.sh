@@ -18,6 +18,8 @@ rm -rf "$coverage_root/bin" "$coverage_root/profiles"
 rm -f "$coverage_root/coverage.profdata" "$coverage_root/coverage-summary.txt" "$coverage_root/llvm-cov.report"
 mkdir -p "$build_root" "$coverage_root/bin" "$coverage_root/profiles"
 
+coverage_ignore_regex='(^|/)(tests|hexedit)/|(^|/)(moc_|qrc_|ui_)|\.moc$|rep_.*_replica\.h|(^|/)Qt/[0-9][^/]*/|/Applications/|/opt/homebrew/|/Library/Developer/'
+
 build_and_run() {
   project=$1
   binary=$2
@@ -51,7 +53,7 @@ set -- $llvm_cov
   -object="$coverage_root/bin/serial_crash_tests" \
   -object="$coverage_root/bin/mut_dma_integration_tests" \
   -instr-profile="$coverage_root/coverage.profdata" \
-  -ignore-filename-regex='(^|/)(tests|hexedit)/|(^|/)(moc_|qrc_|ui_)|\.moc$|rep_.*_replica\.h|/Applications/|/opt/homebrew/|/Library/Developer/' \
+  -ignore-filename-regex="$coverage_ignore_regex" \
   > "$coverage_root/coverage-summary.txt"
 
 set -- $llvm_cov
@@ -60,7 +62,7 @@ set -- $llvm_cov
   -object="$coverage_root/bin/serial_crash_tests" \
   -object="$coverage_root/bin/mut_dma_integration_tests" \
   -instr-profile="$coverage_root/coverage.profdata" \
-  -ignore-filename-regex='(^|/)(tests|hexedit)/|(^|/)(moc_|qrc_|ui_)|\.moc$|rep_.*_replica\.h|/Applications/|/opt/homebrew/|/Library/Developer/' \
+  -ignore-filename-regex="$coverage_ignore_regex" \
   > "$coverage_root/llvm-cov.report"
 
 cat "$coverage_root/coverage-summary.txt"

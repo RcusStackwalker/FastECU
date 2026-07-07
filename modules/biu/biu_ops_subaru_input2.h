@@ -12,30 +12,29 @@
 QT_BEGIN_NAMESPACE
 namespace Ui
 {
-    class BiuOpsSubaruInput2Window;
+class BiuOpsSubaruInput2Window;
 }
 QT_END_NAMESPACE
-
 
 class BiuOpsSubaruInput2 : public QWidget
 {
     Q_OBJECT
 
-public:
+  public:
     explicit BiuOpsSubaruInput2(QStringList *biu_option_names, QByteArray *biu_option_result, QWidget *parent = nullptr);
     ~BiuOpsSubaruInput2();
 
-private:
+  private:
     QByteArray *biu_option_result;
     QStringList *biu_option_names;
 
-private slots:
+  private slots:
     void prepare_biu_setting2();
 
-signals:
+  signals:
     void send_biu_setting2(QByteArray output);
 
-private:
+  private:
     std::unique_ptr<Ui::BiuOpsSubaruInput2Window> ui;
 };
 

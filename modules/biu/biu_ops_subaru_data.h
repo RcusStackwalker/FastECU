@@ -9,7 +9,7 @@
 QT_BEGIN_NAMESPACE
 namespace Ui
 {
-    class BiuOpsSubaruDataWindow;
+class BiuOpsSubaruDataWindow;
 }
 QT_END_NAMESPACE
 
@@ -17,16 +17,16 @@ class BiuOpsSubaruData : public QWidget
 {
     Q_OBJECT
 
-public:
+  public:
     explicit BiuOpsSubaruData(QStringList *data_result, QWidget *parent = nullptr);
     ~BiuOpsSubaruData();
 
     void update_data_results(QStringList *data_result);
 
-private:
+  private:
     QStringList *data_result;
 
-private:
+  private:
     std::unique_ptr<Ui::BiuOpsSubaruDataWindow> ui;
 };
 

@@ -12,21 +12,20 @@
 QT_BEGIN_NAMESPACE
 namespace Ui
 {
-    class DefinitionFileConvertWindow;
+class DefinitionFileConvertWindow;
 }
 QT_END_NAMESPACE
 
 class DefinitionFileConvert : public QDialog
 {
     Q_OBJECT
-public:
+  public:
     explicit DefinitionFileConvert(QWidget *parent = nullptr);
     ~DefinitionFileConvert();
 
-
-
-private:
-    enum ReturnValues {
+  private:
+    enum ReturnValues
+    {
         STATUS_SUCCESS,
         STATUS_GENERAL_ERROR,
         STATUS_FILE_OPEN_ERROR,
@@ -34,8 +33,7 @@ private:
 
     int convert_mappack_csv_file();
 
-
-private:
+  private:
     std::unique_ptr<Ui::DefinitionFileConvertWindow> ui;
 };
 

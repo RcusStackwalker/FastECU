@@ -12,23 +12,23 @@
 class WebSocketIoDevice : public QIODevice
 {
     Q_OBJECT
-public:
+  public:
     WebSocketIoDevice(QWebSocket *webSocket, QObject *parent = nullptr);
 
-signals:
+  signals:
     void disconnected();
 
     // QIODevice interface
-public:
+  public:
     qint64 bytesAvailable() const override;
     bool isSequential() const override;
     void close() override;
 
-protected:
+  protected:
     qint64 readData(char *data, qint64 maxlen) override;
     qint64 writeData(const char *data, qint64 len) override;
 
-private:
+  private:
     QPointer<QWebSocket> m_socket;
     QByteArray m_buffer;
 };

@@ -19,20 +19,20 @@ class EepromEcuSubaruDensoSH705xKlineOperation : public FlashOperationWorker
 {
     Q_OBJECT
 
-public:
+  public:
     EepromEcuSubaruDensoSH705xKlineOperation(SerialPortActions *serial,
-                                              FileActions::EcuCalDefStructure *ecuCalDef,
-                                              QString cmd_type,
-                                              QWidget *dialog,
-                                              QObject *parent = nullptr,
-                                              PromptFn promptOverride = {});
+                                             FileActions::EcuCalDefStructure *ecuCalDef,
+                                             QString cmd_type,
+                                             QWidget *dialog,
+                                             QObject *parent = nullptr,
+                                             PromptFn promptOverride = {});
 
-protected:
+  protected:
     bool execute() override;
 
-private:
-    #define STATUS_SUCCESS	0x00
-    #define STATUS_ERROR	0x01
+  private:
+#define STATUS_SUCCESS 0x00
+#define STATUS_ERROR 0x01
 
     bool kernel_alive = false;
     bool test_write = false;
@@ -66,7 +66,6 @@ private:
     int connect_bootloader();
     int upload_kernel(QString kernel, uint32_t kernel_start_addr);
     int read_mem(uint32_t start_addr, uint32_t length);
-
 
     uint8_t cks_add8(QByteArray chksum_data, unsigned len);
     void init_crc16_tab(void);

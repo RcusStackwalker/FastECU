@@ -3,7 +3,7 @@
 
 namespace FlashUtils
 {
-int findFlashDeviceIndex(const QString &mcuType)
+int findFlashDeviceIndex(const QString& mcuType)
 {
     int index = 0;
     while (flashdevices[index].name != nullptr)
@@ -15,7 +15,7 @@ int findFlashDeviceIndex(const QString &mcuType)
     return -1;
 }
 
-const flashdev_t *findFlashDevice(const QString &mcuType)
+const flashdev_t *findFlashDevice(const QString& mcuType)
 {
     const int index = findFlashDeviceIndex(mcuType);
     if (index < 0)
@@ -23,7 +23,7 @@ const flashdev_t *findFlashDevice(const QString &mcuType)
     return &flashdevices[index];
 }
 
-QByteArray buildIso15765Request(quint32 sourceAddress, const QByteArray &payload)
+QByteArray buildIso15765Request(quint32 sourceAddress, const QByteArray& payload)
 {
     QByteArray output;
     output.append(char((sourceAddress >> 24) & 0xFF));
@@ -35,7 +35,7 @@ QByteArray buildIso15765Request(quint32 sourceAddress, const QByteArray &payload
 }
 
 void configureIso15765Can(SerialPortActions *serial,
-                          const QString &canSpeed,
+                          const QString& canSpeed,
                           quint32 sourceAddress,
                           quint32 destinationAddress,
                           bool use29BitId)
@@ -49,4 +49,4 @@ void configureIso15765Can(SerialPortActions *serial,
     serial->set_iso15765_source_address(sourceAddress);
     serial->set_iso15765_destination_address(destinationAddress);
 }
-}
+} // namespace FlashUtils

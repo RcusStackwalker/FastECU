@@ -1,0 +1,39 @@
+load("//bazel:qt_targets.bzl", "COMMON_LINKOPTS", "qt_cc_test", "qt_cpp_moc_headers")
+
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "pro_files",
+    srcs = ["force_asserts.pro"],
+)
+
+qt_cpp_moc_headers(
+    name = "force_asserts_cpp_mocs",
+    srcs = ["tst_force_asserts.cpp"],
+    deps = ["@rules_qt//:qt_test"],
+)
+
+qt_cc_test(
+    name = "tst_force_asserts",
+    srcs = ["tst_force_asserts.cpp"],
+    copts = [
+        "-DQT_FORCE_ASSERTS",
+        "-DQT_NO_DEBUG",
+    ] + select({
+        "@platforms//os:macos": [
+            "-mmacosx-version-min=10.15",
+            "-Wno-error=implicit-function-declaration",
+        ],
+        "//conditions:default": [],
+    }),
+    linkopts = COMMON_LINKOPTS,
+    deps = [
+        ":force_asserts_cpp_mocs",
+        "@rules_qt//:qt_core",
+        "@rules_qt//:qt_test",
+    ],
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+)

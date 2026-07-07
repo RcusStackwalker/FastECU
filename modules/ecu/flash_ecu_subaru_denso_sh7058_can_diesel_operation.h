@@ -19,22 +19,22 @@ class FlashEcuSubaruDensoSH7058CanDieselOperation : public FlashOperationWorker
 {
     Q_OBJECT
 
-public:
+  public:
     FlashEcuSubaruDensoSH7058CanDieselOperation(SerialPortActions *serial,
-                                                 FileActions::EcuCalDefStructure *ecuCalDef,
-                                                 QString cmd_type,
-                                                 QWidget *dialog,
-                                                 QObject *parent = nullptr,
-                                                 PromptFn promptOverride = {});
+                                                FileActions::EcuCalDefStructure *ecuCalDef,
+                                                QString cmd_type,
+                                                QWidget *dialog,
+                                                QObject *parent = nullptr,
+                                                PromptFn promptOverride = {});
 
-protected:
+  protected:
     bool execute() override;
 
-private:
-    #define STATUS_SUCCESS	0x00
-    #define STATUS_ERROR	0x01
+  private:
+#define STATUS_SUCCESS 0x00
+#define STATUS_ERROR 0x01
 
-    #define CRC32   0x5AA5A55A
+#define CRC32 0x5AA5A55A
 
     bool kernel_alive = false;
     bool test_write = false;

@@ -3,7 +3,7 @@
 #include <QStringList>
 
 QString convertRomRaiderValue(FileActions *fileActions, FileActions::LogValuesStructure *logValues,
-                               int j, const QString &rawValueString)
+                              int j, const QString& rawValueString)
 {
     QStringList conversion = logValues->log_value_units.at(j).split(",");
     QString from_byte = conversion.at(2);

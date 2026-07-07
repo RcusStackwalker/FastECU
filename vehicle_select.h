@@ -3,7 +3,7 @@
 
 #include <memory>
 
-//#include <QDesktopWidget>
+// #include <QDesktopWidget>
 #include <QWidget>
 #include <QStringListModel>
 #include <QTreeWidget>
@@ -16,7 +16,7 @@
 QT_BEGIN_NAMESPACE
 namespace Ui
 {
-    class VehicleSelect;
+class VehicleSelect;
 }
 QT_END_NAMESPACE
 
@@ -24,12 +24,11 @@ class VehicleSelect : public QDialog
 {
     Q_OBJECT
 
-public:
+  public:
     explicit VehicleSelect(FileActions::ConfigValuesStructure *configValues, QWidget *parent = nullptr);
     ~VehicleSelect();
 
-private:
-
+  private:
     QFont font;
     int font_size = 10;
     bool font_bold = false;
@@ -61,15 +60,13 @@ private:
 
     FileActions::ConfigValuesStructure *configValues;
 
-
-private slots:
+  private slots:
     void car_model_selected();
     void car_make_treewidget_item_selected();
     void car_model_treewidget_item_selected();
     void car_version_treewidget_item_selected();
 
-
-private:
+  private:
     std::unique_ptr<Ui::VehicleSelect> ui;
 };
 

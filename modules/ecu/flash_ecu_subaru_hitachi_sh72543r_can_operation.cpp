@@ -6,12 +6,9 @@
 #include <QElapsedTimer>
 
 FlashEcuSubaruHitachiSH72543rCanOperation::FlashEcuSubaruHitachiSH72543rCanOperation(
-        SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
-        QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride))
-    , serial(serial)
-    , ecuCalDef(ecuCalDef)
-    , cmd_type(cmd_type)
+    SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
+    QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type)
 {
 }
 
@@ -136,25 +133,23 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::connect_bootloader()
         {
             QByteArray response = received;
             response.remove(0, 8);
-            response.remove(5, response.length()-5);
+            response.remove(5, response.length() - 5);
 
             QString ecuid;
             for (int i = 0; i < 5; i++)
-                ecuid.append(QString("%1").arg((uint8_t)response.at(i),2,16,QLatin1Char('0')).toUpper());
+                ecuid.append(QString("%1").arg((uint8_t)response.at(i), 2, 16, QLatin1Char('0')).toUpper());
             emit LOG_I("ECU ID: " + ecuid, true, true);
             if (cmd_type == "read")
                 ecuCalDef->RomId = ecuid + "_";
         }
         else
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-
     }
 
     emit LOG_I("Requesting VIN", true, true);
@@ -180,14 +175,12 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::connect_bootloader()
         }
         else
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-
     }
 
     emit LOG_I("Requesting CAL ID...", true, true);
@@ -215,14 +208,12 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::connect_bootloader()
         }
         else
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-
     }
 
     emit LOG_I("Requesting CVN", true, true);
@@ -246,20 +237,18 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::connect_bootloader()
             QString msg;
             msg.clear();
             for (int i = 0; i < response.length(); i++)
-                msg.append(QString("%1").arg((uint8_t)response.at(i),2,16,QLatin1Char('0')).toUpper());
+                msg.append(QString("%1").arg((uint8_t)response.at(i), 2, 16, QLatin1Char('0')).toUpper());
 
             emit LOG_I("CVN: " + msg, true, true);
         }
         else
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-
     }
 
     emit LOG_I("Initializing bootloader...", true, true);
@@ -275,11 +264,9 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::connect_bootloader()
     output.append((uint8_t)0x00);
     output.append((uint8_t)0xD7);
 
-
     serial->write_serial_data_echo_check(output);
     delay(200);
     received = serial->read_serial_data(serial_read_timeout);
-
 
     output.clear();
     output.append((uint8_t)0x00);
@@ -292,11 +279,9 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::connect_bootloader()
     output.append((uint8_t)0x01);
     output.append((uint8_t)0x3B);
 
-
     serial->write_serial_data_echo_check(output);
     delay(200);
     received = serial->read_serial_data(serial_read_timeout);
-
 
     emit LOG_I("Test script complete", true, true);
     return STATUS_SUCCESS;
@@ -323,12 +308,12 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::read_mem(uint32_t start_addr, uin
 
     start_addr = 0x0;
 
-    length = 0x200000;    // hack for testing
+    length = 0x200000; // hack for testing
 
-    uint32_t skip_start = start_addr & (pagesize - 1); //if unaligned, we'll be receiving this many extra bytes
+    uint32_t skip_start = start_addr & (pagesize - 1); // if unaligned, we'll be receiving this many extra bytes
     uint32_t addr = start_addr - skip_start;
     uint32_t willget = (skip_start + length + pagesize - 1) & ~(pagesize - 1);
-    uint32_t len_done = 0;  //total data written to file
+    uint32_t len_done = 0; // total data written to file
 
     emit LOG_I("Settting dump start & length...", true, true);
 
@@ -344,19 +329,16 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::read_mem(uint32_t start_addr, uin
     delay(200);
     received = serial->read_serial_data(serial_read_timeout);
 
-
     if (received.length() > 5)
     {
         if ((uint8_t)received.at(4) != 0x50 || (uint8_t)received.at(5) != 0x03)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
-
     }
 
     emit LOG_I("Starting seed request...", true, true);
@@ -373,12 +355,11 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::read_mem(uint32_t start_addr, uin
     delay(200);
     received = serial->read_serial_data(serial_read_timeout);
 
-
     if (received.length() > 5)
     {
         if ((uint8_t)received.at(4) != 0x67 || (uint8_t)received.at(5) != 0x01)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
             return STATUS_ERROR;
         }
@@ -411,17 +392,15 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::read_mem(uint32_t start_addr, uin
     output.append((uint8_t)0x02);
     output.append(seed_key);
 
-
     serial->write_serial_data_echo_check(output);
     delay(200);
     received = serial->read_serial_data(serial_read_timeout);
-
 
     if (received.length() > 5)
     {
         if ((uint8_t)received.at(4) != 0x67 || (uint8_t)received.at(5) != 0x02)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
             return STATUS_ERROR;
         }
@@ -464,29 +443,27 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::read_mem(uint32_t start_addr, uin
         float pleft = 0;
         unsigned long chrono;
 
-        //uint32_t curblock = (addr / pagesize);
-
+        // uint32_t curblock = (addr / pagesize);
 
         pleft = (float)(addr - start_addr) / (float)length * 100.0f;
         emit progressChanged(pleft);
 
-        //length = 7FFF0;
+        // length = 7FFF0;
 
         output[7] = (uint8_t)((addr >> 16) & 0xFF);
         output[8] = (uint8_t)((addr >> 8) & 0xFF);
         output[9] = (uint8_t)(addr & 0xFF);
-        //output[10] = ((uint8_t)0x04);
-        //output[11] = ((uint8_t)0x00);
-
+        // output[10] = ((uint8_t)0x04);
+        // output[11] = ((uint8_t)0x00);
 
         serial->write_serial_data_echo_check(output);
         received = serial->read_serial_data(serial_read_timeout);
 
-//        if ((uint8_t)received.at(3) != 0xE8)
-//        {
-//            emit LOG_I("Page data request failed!", true, true);
-//            return STATUS_ERROR;
-//        }
+        //        if ((uint8_t)received.at(3) != 0xE8)
+        //        {
+        //            emit LOG_I("Page data request failed!", true, true);
+        //            return STATUS_ERROR;
+        //        }
 
         pagedata.clear();
         if (received.length() > 4)
@@ -496,7 +473,7 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::read_mem(uint32_t start_addr, uin
         mapdata.append(pagedata);
 
         // don't count skipped first bytes //
-        cplen = (numblocks * pagesize) - skip_start; //this is the actual # of valid bytes in buf[]
+        cplen = (numblocks * pagesize) - skip_start; // this is the actual # of valid bytes in buf[]
         skip_start = 0;
 
         chrono = timer.elapsed();
@@ -505,23 +482,25 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::read_mem(uint32_t start_addr, uin
         if (cplen > 0 && chrono > 0)
             curspeed = cplen * (1000.0f / chrono);
 
-        if (!curspeed) {
+        if (!curspeed)
+        {
             curspeed += 1;
         }
 
         tleft = (willget / curspeed) % 9999;
         tleft++;
 
-        QString start_address = QString("%1").arg(addr,8,16,QLatin1Char('0')).toUpper();
-        QString block_len = QString("%1").arg(pagesize,8,16,QLatin1Char('0')).toUpper();
+        QString start_address = QString("%1").arg(addr, 8, 16, QLatin1Char('0')).toUpper();
+        QString block_len = QString("%1").arg(pagesize, 8, 16, QLatin1Char('0')).toUpper();
         msg = QString("Kernel read addr:  0x%1  length:  0x%2,  %3  B/s  %4 s").arg(start_address).arg(block_len).arg(curspeed, 6, 10, QLatin1Char(' ')).arg(tleft, 6, 10, QLatin1Char(' ')).toUtf8();
         emit LOG_I(msg, true, true);
 
         // and drop extra bytes at the end //
-        uint32_t extrabytes = (cplen + len_done);   //hypothetical new length
-        if (extrabytes > length) {
+        uint32_t extrabytes = (cplen + len_done); // hypothetical new length
+        if (extrabytes > length)
+        {
             cplen -= (extrabytes - length);
-            //thus, (len_done + cplen) will not exceed len
+            // thus, (len_done + cplen) will not exceed len
         }
 
         // increment addr, len, etc //
@@ -576,12 +555,12 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::write_mem(bool test_write)
 
     QScopedArrayPointer<uint8_t> data_array(new uint8_t[filedata.length()]);
 
-    int block_modified[16] = {0,1,1};   // assume blocks after 0x8000 are modified
+    int block_modified[16] = {0, 1, 1}; // assume blocks after 0x8000 are modified
 
-    unsigned bcnt;  // 13 blocks in M32R_512kB, but kernelmemorymodels.h has 11. Of these 11, the first 3 are not flashed by OBK
+    unsigned bcnt; // 13 blocks in M32R_512kB, but kernelmemorymodels.h has 11. Of these 11, the first 3 are not flashed by OBK
     unsigned blockno;
 
-    //encrypt the data
+    // encrypt the data
     filedata = encrypt_payload(filedata, filedata.length());
 
     for (int i = 0; i < filedata.length(); i++)
@@ -591,8 +570,10 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::write_mem(bool test_write)
 
     bcnt = 0;
     emit LOG_I("Blocks to flash: ", true, false);
-    for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++) {
-        if (block_modified[blockno]) {
+    for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++)
+    {
+        if (block_modified[blockno])
+        {
             emit LOG_I(QString::number(blockno) + ", ", false, false);
             bcnt += 1;
         }
@@ -620,7 +601,7 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::write_mem(bool test_write)
         }
 
         emit LOG_I("--- Start writing ROM file to ECU flash memory ---", true, true);
-        for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++)  // hack so that only 1 flash loop done for the entire ROM above 0x8000
+        for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++) // hack so that only 1 flash loop done for the entire ROM above 0x8000
         {
             if (block_modified[blockno])
             {
@@ -636,7 +617,6 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::write_mem(bool test_write)
                 }
             }
         }
-
     }
     else
     {
@@ -644,7 +624,6 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::write_mem(bool test_write)
     }
 
     return STATUS_SUCCESS;
-
 }
 
 /*
@@ -673,7 +652,8 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::reflash_block(const uint8_t *newd
 
     emit progressChanged(0);
 
-    if (blockno >= fdt->numblocks) {
+    if (blockno >= fdt->numblocks)
+    {
         emit LOG_I("block " + QString::number(blockno) + " out of range !", true, true);
         return -1;
     }
@@ -682,8 +662,8 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::reflash_block(const uint8_t *newd
     pl_len = fdt->fblocks[blockno].len;
     maxblocks = pl_len / blocksize;
 
-    QString start_addr = QString("%1").arg((uint32_t)start_address,8,16,QLatin1Char('0')).toUpper();
-    QString length = QString("%1").arg((uint32_t)pl_len,8,16,QLatin1Char('0')).toUpper();
+    QString start_addr = QString("%1").arg((uint32_t)start_address, 8, 16, QLatin1Char('0')).toUpper();
+    QString length = QString("%1").arg((uint32_t)pl_len, 8, 16, QLatin1Char('0')).toUpper();
     msg = QString("Flash block addr: 0x" + start_addr + " len: 0x" + length).toUtf8();
     emit LOG_I(msg, true, true);
 
@@ -713,11 +693,11 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::reflash_block(const uint8_t *newd
         delay(10);
         received = serial->read_serial_data(serial_read_timeout);
 
-        //received = serial->read_serial_data(200, serial_read_short_timeout);
+        // received = serial->read_serial_data(200, serial_read_short_timeout);
         //
 
-        QString start_address = QString("%1").arg(start,8,16,QLatin1Char('0'));
-        QString block_len = QString("%1").arg(blocksize,8,16,QLatin1Char('0')).toUpper();
+        QString start_address = QString("%1").arg(start, 8, 16, QLatin1Char('0'));
+        QString block_len = QString("%1").arg(blocksize, 8, 16, QLatin1Char('0')).toUpper();
         msg = QString("Kernel write addr: 0x%1 length: 0x%2, %3 B/s %4 s remain").arg(start_address).arg(block_len).arg(curspeed, 6, 10, QLatin1Char(' ')).arg(tleft, 6, 10, QLatin1Char(' ')).toUtf8();
         emit LOG_I(msg, true, true);
 
@@ -727,23 +707,25 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::reflash_block(const uint8_t *newd
         chrono = timer.elapsed();
         timer.start();
 
-        if (!chrono) {
+        if (!chrono)
+        {
             chrono += 1;
         }
-        curspeed = blocksize * (1000.0f / chrono);  //avg B/s
-        if (!curspeed) {
+        curspeed = blocksize * (1000.0f / chrono); // avg B/s
+        if (!curspeed)
+        {
             curspeed += 1;
         }
 
-        tleft = ((float)flashbytescount - byteindex) / curspeed;  //s
-        if (tleft > 9999) {
+        tleft = ((float)flashbytescount - byteindex) / curspeed; // s
+        if (tleft > 9999)
+        {
             tleft = 9999;
         }
         tleft++;
 
         float pleft = (float)blockctr / (float)maxblocks * 100;
         emit progressChanged(pleft);
-
     }
 
     emit progressChanged(100);
@@ -772,15 +754,14 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::reflash_block(const uint8_t *newd
             }
             else
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
-                //return STATUS_ERROR;
+                // return STATUS_ERROR;
             }
         }
         else
         {
             emit LOG_E("No valid response from ECU", true, true);
-
         }
         try_count++;
     }
@@ -815,8 +796,8 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::reflash_block(const uint8_t *newd
             }
             else
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
-                //return STATUS_ERROR;
+                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+                // return STATUS_ERROR;
             }
         }
         else
@@ -858,21 +839,20 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::erase_mem()
     delay(200);
     received = serial->read_serial_data(serial_read_timeout);
 
-
     if (received.length() > 5)
     {
         if ((uint8_t)received.at(4) != 0x50 || (uint8_t)received.at(5) != 0x43)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
-            //return STATUS_ERROR;
+            // return STATUS_ERROR;
         }
     }
     else
     {
         emit LOG_E("No valid response from ECU", true, true);
 
-        //return STATUS_ERROR;
+        // return STATUS_ERROR;
     }
 
     emit LOG_I("Starting seed request...", true, true);
@@ -893,7 +873,7 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::erase_mem()
     {
         if ((uint8_t)received.at(4) != 0x67 || (uint8_t)received.at(5) != 0x01)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
             return STATUS_ERROR;
         }
@@ -926,7 +906,6 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::erase_mem()
     output.append((uint8_t)0x02);
     output.append(seed_key);
 
-
     serial->write_serial_data_echo_check(output);
     delay(200);
     received = serial->read_serial_data(serial_read_timeout);
@@ -935,7 +914,7 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::erase_mem()
     {
         if ((uint8_t)received.at(4) != 0x67 || (uint8_t)received.at(5) != 0x02)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
             return STATUS_ERROR;
         }
@@ -963,12 +942,11 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::erase_mem()
     delay(200);
     received = serial->read_serial_data(serial_read_timeout);
 
-
     if (received.length() > 5)
     {
         if ((uint8_t)received.at(4) != 0x50 || (uint8_t)received.at(5) != 0x42)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
             return STATUS_ERROR;
         }
@@ -1001,12 +979,11 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::erase_mem()
     delay(200);
     received = serial->read_serial_data(serial_read_timeout);
 
-
     if (received.length() > 5)
     {
         if ((uint8_t)received.at(4) != 0x74 || (uint8_t)received.at(5) != 0x20)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
 
             return STATUS_ERROR;
         }
@@ -1034,12 +1011,10 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::erase_mem()
     output.append((uint8_t)0xff);
     output.append((uint8_t)0xff);
 
-
     delay(100);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
-
 
     uint8_t try_count = 0;
     while (try_count < 20)
@@ -1077,7 +1052,6 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::erase_mem()
     return STATUS_SUCCESS;
 }
 
-
 /*
  * Generate tcu hitachi can seed key from received seed bytes
  *
@@ -1087,25 +1061,23 @@ QByteArray FlashEcuSubaruHitachiSH72543rCanOperation::generate_can_seed_key(QByt
 {
     QByteArray key;
 
-    const uint16_t keytogenerateindex[]={
-//1
-//        0x78B1, 0x4625, 0x201C, 0x9EA5,
-//        0xAD6B, 0x35F4, 0xFD21, 0x5E71,
-//        0xB046, 0x7F4A, 0x4B75, 0x93F9,
-//        0x1895, 0x8961, 0x3ECC, 0x862B
-//Normal2
+    const uint16_t keytogenerateindex[] = {
+        // 1
+        //        0x78B1, 0x4625, 0x201C, 0x9EA5,
+        //        0xAD6B, 0x35F4, 0xFD21, 0x5E71,
+        //        0xB046, 0x7F4A, 0x4B75, 0x93F9,
+        //        0x1895, 0x8961, 0x3ECC, 0x862B
+        // Normal2
         0x794B, 0x3CAF, 0x3019, 0x8B57,
         0x52A0, 0xA77C, 0x38C9, 0xB0B5,
         0x6520, 0x3B66, 0xA09D, 0x2877,
-        0x479F, 0xB685, 0x7568, 0x84D7
-    };
+        0x479F, 0xB685, 0x7568, 0x84D7};
 
-    const uint8_t indextransformation[]={
+    const uint8_t indextransformation[] = {
         0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8,
         0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
         0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
-        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
-    };
+        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
     key = SsmProtocol::calculateSeedKey(requested_seed, keytogenerateindex, indextransformation);
 
@@ -1127,17 +1099,15 @@ QByteArray FlashEcuSubaruHitachiSH72543rCanOperation::encrypt_payload(QByteArray
 {
     QByteArray encrypted;
 
-    const uint16_t keytogenerateindex[]={
-//	0x5FB1, 0xA7CA, 0x42DA, 0xB740
-       0xB740, 0x42DA, 0xA7CA, 0x5FB1
-    };
+    const uint16_t keytogenerateindex[] = {
+        //	0x5FB1, 0xA7CA, 0x42DA, 0xB740
+        0xB740, 0x42DA, 0xA7CA, 0x5FB1};
 
-    const uint8_t indextransformation[]={
+    const uint8_t indextransformation[] = {
         0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8,
         0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
         0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
-        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
-    };
+        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
     encrypted = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
@@ -1148,17 +1118,15 @@ QByteArray FlashEcuSubaruHitachiSH72543rCanOperation::decrypt_payload(QByteArray
 {
     QByteArray decrypt;
 
-    const uint16_t keytogenerateindex[]={
-//	0xB740, 0x42DA, 0xA7CA, 0x5FB1
-	0x5FB1, 0xA7CA, 0x42DA, 0xB740
-    };
+    const uint16_t keytogenerateindex[] = {
+        //	0xB740, 0x42DA, 0xA7CA, 0x5FB1
+        0x5FB1, 0xA7CA, 0x42DA, 0xB740};
 
-    const uint8_t indextransformation[]={
+    const uint8_t indextransformation[] = {
         0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8,
         0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
         0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
-        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8
-    };
+        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
     decrypt = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 

@@ -1,7 +1,9 @@
 #include "menu_command.h"
 
-namespace {
-struct MenuCommandMapping {
+namespace
+{
+struct MenuCommandMapping
+{
     const char *id;
     MenuCommand command;
 };
@@ -45,11 +47,12 @@ constexpr MenuCommandMapping kMenuCommandMappings[] = {
     {"terminal", MenuCommand::Terminal},
     {"about", MenuCommand::About},
 };
-}
+} // namespace
 
-MenuCommand menu_command_from_id(const QString &id)
+MenuCommand menu_command_from_id(const QString& id)
 {
-    for (const MenuCommandMapping &mapping : kMenuCommandMappings) {
+    for (const MenuCommandMapping& mapping : kMenuCommandMappings)
+    {
         if (id == QLatin1String(mapping.id))
             return mapping.command;
     }
@@ -58,7 +61,8 @@ MenuCommand menu_command_from_id(const QString &id)
 
 QString menu_command_id(MenuCommand command)
 {
-    for (const MenuCommandMapping &mapping : kMenuCommandMappings) {
+    for (const MenuCommandMapping& mapping : kMenuCommandMappings)
+    {
         if (command == mapping.command)
             return QString::fromLatin1(mapping.id);
     }
