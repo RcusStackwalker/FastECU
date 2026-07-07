@@ -1,6 +1,9 @@
 #include "protocol_select.h"
 #include "ui_protocol_select.h"
 
+#include <algorithm>
+#include <functional>
+
 ProtocolSelect::ProtocolSelect(FileActions::ConfigValuesStructure *configValues, QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::ProtocolSelect)
@@ -39,7 +42,7 @@ ProtocolSelect::ProtocolSelect(FileActions::ConfigValuesStructure *configValues,
     }
 
     protocols_sorted = protocols;
-    sort(protocols_sorted.begin(), protocols_sorted.end(), less<QString>());
+    std::sort(protocols_sorted.begin(), protocols_sorted.end(), std::less<QString>());
 
     for (int i = 0; i < protocols_sorted.length(); i++)
     {

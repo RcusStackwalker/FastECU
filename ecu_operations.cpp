@@ -1001,7 +1001,7 @@ int EcuOperations::check_romcrc_16bit_kline(const uint8_t *src, uint32_t start, 
             romcrc = ((received.at(0) & 0xFF) << 24) + ((received.at(1) & 0xFF) << 16) + ((received.at(2) & 0xFF) << 8) + (received.at(3) & 0xFF);
 
             //qDebug() << hex << chunk_cnt << received.length() << parse_message_to_hex(received) << "->" << hex << imgcrc;
-            qDebug() << hex << chunk_cnt << received.length() << parse_message_to_hex(received) << romcrc << "->" << hex << imgcrc;
+            qDebug() << Qt::hex << chunk_cnt << received.length() << parse_message_to_hex(received) << romcrc << "->" << Qt::hex << imgcrc;
 
             start += ROMCRC_CHUNKSIZE_16BIT;
         }
@@ -1478,7 +1478,7 @@ int EcuOperations::npk_raw_flashblock_32bit_can(const uint8_t *src, uint32_t sta
         if((uint8_t)received.at(0) != SUB_DENSOCAN_START_COMM || ((uint8_t)received.at(1) & 0xF8) != SID_CAN_FL_WB)
         {
             qDebug() << "Flashing of 128 byte block unsuccessful, stopping";
-            qDebug() << hex << num_128_byte_blocks << "/" << (i & 0xFFFF);
+            qDebug() << Qt::hex << num_128_byte_blocks << "/" << (i & 0xFFFF);
             //return STATUS_ERROR;
         }
         else
@@ -2220,4 +2220,3 @@ void EcuOperations::int32_to_byte(unsigned char *data,int i)
     data[2] = (i >> 8) & 0xFF;
     data[3] = i & 0xFF;
 }
-

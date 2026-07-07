@@ -1,6 +1,9 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
+#include <algorithm>
+#include <functional>
+
 void MainWindow::change_log_values(int tab_index, QString protocol)
 {
     QDialog *change_log_values_dialog = new QDialog;
@@ -50,7 +53,7 @@ void MainWindow::change_log_values(int tab_index, QString protocol)
             logValues->log_values_names_sorted.append(logValues->log_value_name.at(i));
         }
     }
-    sort(logValues->log_values_names_sorted.begin(), logValues->log_values_names_sorted.end(), less<QString>());
+    std::sort(logValues->log_values_names_sorted.begin(), logValues->log_values_names_sorted.end(), std::less<QString>());
 
     for (int i = 0; i < logValues->dashboard_log_value_id.length(); i++)
     {
@@ -148,7 +151,7 @@ void MainWindow::change_log_values(int tab_index, QString protocol)
             logValues->log_switches_names_sorted.append(logValues->log_switch_name.at(i));
         }
     }
-    sort(logValues->log_switches_names_sorted.begin(), logValues->log_switches_names_sorted.end(), less<QString>());
+    std::sort(logValues->log_switches_names_sorted.begin(), logValues->log_switches_names_sorted.end(), std::less<QString>());
 
     for (int i = 0; i < logValues->lower_panel_switch_id.length(); i++)
     {

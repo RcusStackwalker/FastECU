@@ -741,7 +741,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::reflash_block_subaru_tcu_mitsu_can
         float pleft = (float)blockctr / (float)maxblocks * 100;
         emit progressChanged(pleft);
     }
-    qDebug() << "Data bytes sent:" << hex << data_bytes_sent;
+    qDebug() << "Data bytes sent:" << Qt::hex << data_bytes_sent;
 
     emit LOG_I("Closing out Flashing of this block...", true, true);
     qDebug() << "Closing out Flashing of this block...";

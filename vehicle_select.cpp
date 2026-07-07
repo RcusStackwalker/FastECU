@@ -1,6 +1,9 @@
 #include "vehicle_select.h"
 #include "ui_vehicle_select.h"
 
+#include <algorithm>
+#include <functional>
+
 VehicleSelect::VehicleSelect(FileActions::ConfigValuesStructure *configValues, QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::VehicleSelect)
@@ -62,7 +65,7 @@ VehicleSelect::VehicleSelect(FileActions::ConfigValuesStructure *configValues, Q
     }
 
     car_makes_sorted = car_makes;
-    sort(car_makes_sorted.begin(), car_makes_sorted.end(), less<QString>());
+    std::sort(car_makes_sorted.begin(), car_makes_sorted.end(), std::less<QString>());
     for (int i = 0; i < car_makes_sorted.length(); i++)
     {
         QTreeWidgetItem *item = new QTreeWidgetItem();
@@ -175,7 +178,7 @@ void VehicleSelect::car_make_treewidget_item_selected()
         }
         qDebug() << "Sort models data items alphabetically";
         car_models_sorted = car_models;
-        sort(car_models_sorted.begin(), car_models_sorted.end(), less<QString>());
+        std::sort(car_models_sorted.begin(), car_models_sorted.end(), std::less<QString>());
 
         qDebug() << "Add models data items to select";
         for (int i = 0; i < car_models_sorted.length(); i++)

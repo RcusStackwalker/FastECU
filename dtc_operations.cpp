@@ -1,6 +1,9 @@
 #include "dtc_operations.h"
 #include "serial_port_actions.h"
 
+#include <algorithm>
+#include <functional>
+
 DtcOperations::DtcOperations(SerialPortActions *serial, QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::DtcOperationsWindow)
@@ -533,7 +536,7 @@ int DtcOperations::read_dtc()
             //emit LOG_I("DTC: " + FileActions::parse_dtc_message(dtc), true, true);
         }
     }
-    sort(dtc_list.begin(), dtc_list.end(), less<QString>());
+    std::sort(dtc_list.begin(), dtc_list.end(), std::less<QString>());
     for (int i = 0; i < dtc_list.length(); i++)
         emit LOG_I("DTC: " + FileActions::parse_dtc_message(dtc_list.at(i).toUInt(&ok, 16)), true, true);
 
@@ -555,7 +558,7 @@ int DtcOperations::read_dtc()
             //emit LOG_I("DTC: " + FileActions::parse_dtc_message(dtc), true, true);
         }
     }
-    sort(dtc_list.begin(), dtc_list.end(), less<QString>());
+    std::sort(dtc_list.begin(), dtc_list.end(), std::less<QString>());
     for (int i = 0; i < dtc_list.length(); i++)
     {
             emit LOG_I("DTC: " + FileActions::parse_dtc_message(dtc_list.at(i).toUInt(&ok, 16)), true, true);
