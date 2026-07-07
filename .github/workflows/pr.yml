@@ -76,13 +76,18 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          qmake CONFIG+=release CONFIG-=debug_and_release FastECU.pro
+          New-Item -ItemType Directory -Force build/pr-app | Out-Null
+          Push-Location build/pr-app
+          qmake CONFIG+=release CONFIG-=debug_and_release ../../FastECU.pro
           mingw32-make
+          Pop-Location
 
       - name: Build FastECU (macOS)
         if: runner.os == 'macOS'
         run: |
-          qmake CONFIG+=release CONFIG-=debug_and_release FastECU.pro
+          mkdir -p build/pr-app
+          cd build/pr-app
+          qmake CONFIG+=release CONFIG-=debug_and_release ../../FastECU.pro
           make
 
       # release.yml's static+windeployqt packaging path is release-only and was
@@ -95,10 +100,13 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          qmake CONFIG+=release CONFIG-=debug_and_release CONFIG+=static FastECU.pro
+          New-Item -ItemType Directory -Force build/pr-static | Out-Null
+          Push-Location build/pr-static
+          qmake CONFIG+=release CONFIG-=debug_and_release CONFIG+=static ../../FastECU.pro
           mingw32-make
-          mkdir dist
-          copy FastECU.exe dist\
+          New-Item -ItemType Directory -Force ../../dist | Out-Null
+          copy FastECU.exe ../../dist\
+          Pop-Location
           copy "$env:OPENSSL_ROOT/bin/$env:OPENSSL_CRYPTO_DLL" dist\
           windeployqt dist\FastECU.exe
           Compress-Archive -Path dist\* -DestinationPath pr-check-windows.zip
@@ -107,42 +115,45 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           mkdir dist
-          cp -R FastECU.app dist/
+          cp -R build/pr-app/FastECU.app dist/
           macdeployqt dist/FastECU.app
           cd dist && zip -r ../pr-check-macos.zip FastECU.app
 
       - name: Build and run mut_dma_tests (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        working-directory: tests
         run: |
-          qmake CONFIG+=release CONFIG-=debug_and_release tests.pro
+          New-Item -ItemType Directory -Force build/tests/mut_dma_tests | Out-Null
+          Push-Location build/tests/mut_dma_tests
+          qmake CONFIG+=release CONFIG-=debug_and_release ../../../tests/tests.pro
           mingw32-make
           .\mut_dma_tests.exe
+          Pop-Location
 
       - name: Build and run mut_dma_tests (macOS)
         if: runner.os == 'macOS'
-        working-directory: tests
         run: |
-          qmake CONFIG+=release CONFIG-=debug_and_release tests.pro
+          mkdir -p build/tests/mut_dma_tests
+          cd build/tests/mut_dma_tests
+          qmake CONFIG+=release CONFIG-=debug_and_release ../../../tests/tests.pro
           make
           ./mut_dma_tests
-          make clean
 
       - name: Build and run serial_crash_tests (macOS only)
         if: runner.os == 'macOS'
-        working-directory: tests
         run: |
-          qmake CONFIG+=release CONFIG-=debug_and_release serial_crash_tests.pro
+          mkdir -p build/tests/serial_crash_tests
+          cd build/tests/serial_crash_tests
+          qmake CONFIG+=release CONFIG-=debug_and_release ../../../tests/serial_crash_tests.pro
           make
           ./serial_crash_tests
-          make clean
 
       - name: Build and run mut_dma_integration_tests (macOS only)
         if: runner.os == 'macOS'
-        working-directory: tests
         run: |
-          qmake CONFIG+=release CONFIG-=debug_and_release mut_dma_integration_tests.pro
+          mkdir -p build/tests/mut_dma_integration_tests
+          cd build/tests/mut_dma_integration_tests
+          qmake CONFIG+=release CONFIG-=debug_and_release ../../../tests/mut_dma_integration_tests.pro
           make
           ./mut_dma_integration_tests
 
@@ -170,44 +181,18 @@ jobs:
 
       - name: Build FastECU with build wrapper
         run: |
-          qmake CONFIG+=release CONFIG-=debug_and_release FastECU.pro
-          build-wrapper-macosx-x86 --out-dir bw-output make clean all
+          mkdir -p build/sonar-app
+          cd build/sonar-app
+          qmake CONFIG+=release CONFIG-=debug_and_release ../../FastECU.pro
+          build-wrapper-macosx-x86 --out-dir ../../bw-output make
 
       - name: Build and run tests with coverage
-        working-directory: tests
         run: |
-          set -euo pipefail
-          mkdir -p ../coverage/bin ../coverage/profiles
+          scripts/coverage-local.sh
 
-          build_and_run() {
-            local project="$1"
-            local binary="$2"
-            qmake CONFIG+=debug CONFIG-=release CONFIG-=debug_and_release \
-              "QMAKE_CXXFLAGS+=-fprofile-instr-generate -fcoverage-mapping" \
-              "QMAKE_LFLAGS+=-fprofile-instr-generate -fcoverage-mapping" \
-              "$project"
-            make
-            LLVM_PROFILE_FILE="$PWD/../coverage/profiles/${binary}-%p.profraw" "./$binary"
-            cp "$binary" "../coverage/bin/$binary"
-            make distclean || make clean
-          }
-
-          build_and_run tests.pro mut_dma_tests
-          build_and_run serial_backend_tests.pro serial_backend_tests
-          build_and_run serial_crash_tests.pro serial_crash_tests
-          build_and_run mut_dma_integration_tests.pro mut_dma_integration_tests
-
-      - name: Generate llvm-cov report
+      - name: Check coverage ratchet
         run: |
-          set -euo pipefail
-          xcrun llvm-profdata merge -sparse coverage/profiles/*.profraw -o coverage/coverage.profdata
-          xcrun llvm-cov show coverage/bin/mut_dma_tests \
-            -object=coverage/bin/serial_backend_tests \
-            -object=coverage/bin/serial_crash_tests \
-            -object=coverage/bin/mut_dma_integration_tests \
-            -instr-profile=coverage/coverage.profdata \
-            -ignore-filename-regex='(^|/)(tests|hexedit)/|(^|/)(moc_|qrc_|ui_)|rep_.*_replica\.h|/Applications/|/opt/homebrew/|/Library/Developer/' \
-            > coverage/llvm-cov.report
+          scripts/check-coverage-ratchet.sh coverage/coverage-summary.txt docs/coverage-baseline.txt
 
       - name: SonarCloud scan
         uses: SonarSource/sonarqube-scan-action@v7

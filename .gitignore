@@ -31,8 +31,16 @@ rep_*_replica.h
 Makefile*
 *build-*
 build/*
+coverage/*
 #*.qm
 *.prl
+
+# qmake application/test products
+/FastECU.app/
+/FastECU
+/FastECU.exe
+/tests/*_tests
+/tests/*.exe
 
 # Qt unit tests
 target_wrapper.*
