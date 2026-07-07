@@ -72,6 +72,57 @@ private slots:
         QVERIFY(errors.contains("calibration_map.name has 0 entries, expected 1"));
     }
 
+    void ecuflashBaseHeaderDefaultsMissingOptionalFields()
+    {
+        FileActions::EcuCalDefStructure ecuCalDef;
+        const QStringList xmlLines = {
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n",
+            "<rom>\n",
+            "  <romid>\n",
+            "    <xmlid>BASE_TEST</xmlid>\n",
+            "    <internalidaddress>0x2000</internalidaddress>\n",
+            "    <internalidstring>TESTID</internalidstring>\n",
+            "    <ecuid>TESTECU</ecuid>\n",
+            "    <make>Subaru</make>\n",
+            "    <market>USDM</market>\n",
+            "    <model>Impreza</model>\n",
+            "    <year>2004</year>\n",
+            "    <flashmethod>sub_ecu_denso_sh7055</flashmethod>\n",
+            "    <memmodel>SH7055</memmodel>\n",
+            "    <checksummodule>checksum_ecu_subaru_denso_sh7055</checksummodule>\n",
+            "  </romid>\n",
+            "</rom>\n",
+        };
+
+        int endIndex = -1;
+        const QStringList headerData = FileActions::collect_ecuflash_base_header_fields(ecuCalDef, xmlLines, &endIndex);
+
+        QCOMPARE(headerData.count("include"), 1);
+        QCOMPARE(headerData.at(headerData.indexOf("include") + 1), QString());
+        QCOMPARE(headerData.count("notes"), 1);
+        QCOMPARE(headerData.at(headerData.indexOf("notes") + 1), QString());
+        QVERIFY(endIndex > 0);
+    }
+
+    void ecuflashBaseBodyCopyKeepsMapsInsideGeneratedRom()
+    {
+        const QStringList xmlLines = {
+            "<rom>\n",
+            "  <romid>\n",
+            "    <xmlid>4711a132</xmlid>\n",
+            "  </romid>\n",
+            "  <include>47110032</include>\n",
+            "  <scaling name=\"Patch\" storagetype=\"bloblist\" />\n",
+            "  <table name=\"Patch\" address=\"50022\" category=\"Patches\" type=\"1D\" scaling=\"Patch\" />\n",
+            "</rom>\n",
+        };
+
+        const QStringList bodyLines = FileActions::collect_ecuflash_definition_body_lines(xmlLines, 5);
+
+        QVERIFY(bodyLines.join("").contains("<table name=\"Patch\""));
+        QVERIFY(!bodyLines.join("").contains("</rom>"));
+    }
+
 private:
     static void appendFlashProtocol(FileActions::ConfigValuesStructure &config)
     {

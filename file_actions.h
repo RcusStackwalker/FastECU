@@ -467,6 +467,10 @@ public:
     static bool validate_logger_values(const LogValuesStructure &logValues, QStringList *errors = nullptr);
     static bool validate_logger_switches(const LogValuesStructure &logValues, QStringList *errors = nullptr);
     static bool validate_calibration_maps(const EcuCalDefStructure &ecuCalDef, QStringList *errors = nullptr);
+    static QStringList collect_ecuflash_base_header_fields(const EcuCalDefStructure &ecuCalDef,
+                                                           const QStringList &defData,
+                                                           int *endIndex = nullptr);
+    static QStringList collect_ecuflash_definition_body_lines(const QStringList &defData, int startIndex);
 
     /************************
      * Read logger def file

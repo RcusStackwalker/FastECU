@@ -64,6 +64,17 @@ void showChecksumResult(QWidget *parent, const ChecksumResult &result)
     }
 }
 
+int lineAfterClosingTag(const QStringList &lines, const QString &tagName)
+{
+    const QString closeTag = "</" + tagName + ">";
+    for (int i = 0; i < lines.size(); ++i) {
+        if (lines.at(i).contains(closeTag)) {
+            return i + 1;
+        }
+    }
+    return -1;
+}
+
 void applyDensoSh7xxxChecksum(QWidget *parent,
                               FileActions::EcuCalDefStructure *ecuCalDef,
                               uint32_t checksumAreaStart,
@@ -198,6 +209,63 @@ bool FileActions::validate_calibration_maps(const EcuCalDefStructure &ecuCalDef,
     validateRequiredField("calibration_map", "name", ecuCalDef.NameList, out);
 
     return out->isEmpty();
+}
+
+QStringList FileActions::collect_ecuflash_base_header_fields(const EcuCalDefStructure &ecuCalDef,
+                                                             const QStringList &defData,
+                                                             int *endIndex)
+{
+    QStringList headerData;
+    QHash<QString, QString> values;
+
+    QDomDocument xml;
+    if (xml.setContent(defData.join(QString()))) {
+        QDomElement root = xml.documentElement();
+        int depth = 0;
+        while (!root.isNull() && root.tagName() != "rom" && depth < 5) {
+            root = root.firstChildElement();
+            ++depth;
+        }
+
+        const QDomElement romid = root.firstChildElement("romid");
+        for (const QString &name : ecuCalDef.DefHeaderNames) {
+            const QDomElement element = (name == "include" || name == "notes")
+                                            ? root.firstChildElement(name)
+                                            : romid.firstChildElement(name);
+            if (!element.isNull()) {
+                values.insert(name, element.text());
+            }
+        }
+    }
+
+    for (const QString &name : ecuCalDef.DefHeaderNames) {
+        headerData << name << values.value(name);
+    }
+
+    if (endIndex) {
+        int nextLine = lineAfterClosingTag(defData, "notes");
+        if (nextLine < 0) {
+            nextLine = lineAfterClosingTag(defData, "include");
+        }
+        if (nextLine < 0) {
+            nextLine = lineAfterClosingTag(defData, "romid");
+        }
+        *endIndex = qMax(0, nextLine);
+    }
+
+    return headerData;
+}
+
+QStringList FileActions::collect_ecuflash_definition_body_lines(const QStringList &defData, int startIndex)
+{
+    QStringList bodyLines;
+    for (int i = qMax(0, startIndex); i < defData.size(); ++i) {
+        if (defData.at(i).trimmed() == "</rom>") {
+            continue;
+        }
+        bodyLines.append(defData.at(i));
+    }
+    return bodyLines;
 }
 
 FileActions::ConfigValuesStructure *FileActions::set_base_dirs(ConfigValuesStructure *configValues)
@@ -2097,52 +2165,8 @@ FileActions::EcuCalDefStructure *FileActions::use_existing_definition_for_rom(Fi
     }
     file.close();
 
-    QString xml_id;
-    QString xml_id_addr;
-    QStringList headerData;
     int endIndex = 0;
-
-    for (int i = 0; i < defData.length(); i++)
-    {
-        if (!defData.at(i).contains("<") && !defData.at(i).contains(">"))
-            continue;
-        for (int j = 0; j < ecuCalDef->DefHeaderNames.length(); j++)
-        {
-            QString parsedHeaderName = defData.at(i).split("<").at(1).split(">").at(0);
-            if (parsedHeaderName == ecuCalDef->DefHeaderNames.at(j))
-            {
-                emit LOG_D(parsedHeaderName, true, true);
-                headerData.append(ecuCalDef->DefHeaderNames.at(j));
-                if (parsedHeaderName != "notes")
-                    headerData.append(defData.at(i).split(">").at(1).split("<").at(0));
-                if (parsedHeaderName == "notes")
-                {
-                    QString lineData;
-                    parsedHeaderName.clear();
-
-                    lineData.append(defData.at(i).split(">").at(1).split("<").at(0));
-                    if (defData.at(i).contains("</") && defData.at(i).contains(">"))
-                        parsedHeaderName = defData.at(i).split("</").at(1).split(">").at(0);
-                    while (parsedHeaderName != "notes")
-                    {
-                        i++;
-                        if (defData.at(i).contains("</") && defData.at(i).contains(">"))
-                        {
-                            parsedHeaderName = defData.at(i).split("</").at(1).split(">").at(0);
-                            lineData.append(defData.at(i).split("</").at(0));
-                        }
-                        else
-                            lineData.append(defData.at(i));
-
-                        emit LOG_D("Test: " + parsedHeaderName, true, true);
-                    }
-                    headerData.append(lineData);
-                }
-                endIndex = i;
-            }
-        }
-    }
-    endIndex++;
+    QStringList headerData = collect_ecuflash_base_header_fields(*ecuCalDef, defData, &endIndex);
 
     QDialog *definitionDialog = new QDialog(this);
     QVBoxLayout *vBoxLayout = new QVBoxLayout(definitionDialog);
@@ -2262,9 +2286,10 @@ FileActions::EcuCalDefStructure *FileActions::use_existing_definition_for_rom(Fi
         stream.writeTextElement("notes", textEditList.at(0)->toPlainText());
         stream.writeCharacters("\n");
 
-        QTextStream out(&file);
-        for (int i = endIndex; i < defData.length(); i++)
-            out << defData.at(i);
+        const QStringList bodyLines = collect_ecuflash_definition_body_lines(defData, endIndex);
+        for (const QString &line : bodyLines) {
+            file.write(line.toUtf8());
+        }
 
         stream.writeEndElement();
 
