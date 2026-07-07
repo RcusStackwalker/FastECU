@@ -14,8 +14,7 @@ std::vector<MutDmaFrame> buildWriteFrames(quint16 addr, bytes::ByteView bytes) {
         payload.reserve(5 + chunk);
         payload.push_back(0x00);                 // sub-selector hi
         payload.push_back(0x03);                 // sub-selector lo = write arbitrary
-        payload.push_back(static_cast<bytes::Byte>(a >> 8));
-        payload.push_back(static_cast<bytes::Byte>(a & 0xFF));
+        bytes::appendU16Be(payload, a);
         payload.push_back(static_cast<bytes::Byte>(chunk));
         payload.insert(payload.end(), bytes.begin() + static_cast<std::ptrdiff_t>(off),
                        bytes.begin() + static_cast<std::ptrdiff_t>(off + chunk));

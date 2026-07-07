@@ -52,8 +52,7 @@ quint32 seedToKey(quint32 seed)
 quint32 extractSeed(bytes::ByteView reply)
 {
     if (reply.size() < 8) return 0;
-    return (quint32(reply[4]) << 24) | (quint32(reply[5]) << 16)
-         | (quint32(reply[6]) << 8)  |  quint32(reply[7]);
+    return bytes::readU32Be(reply, 4);
 }
 
 CdbgFrame buildSecurityKeyFrame(quint32 key)
@@ -182,8 +181,21 @@ QVector<quint32> decodeFrame(quint8 expectedFrameIndex,
     int offset = 1;
     for (const CdbgChannel &ch : frameItems) {
         quint32 value = 0;
-        for (int k = 0; k < ch.size; ++k)
-            value = (value << 8) | quint32(frame[static_cast<std::size_t>(offset + k)]);
+        switch (ch.size) {
+        case 1:
+            value = frame[static_cast<std::size_t>(offset)];
+            break;
+        case 2:
+            value = bytes::readU16Be(frame, static_cast<std::size_t>(offset));
+            break;
+        case 4:
+            value = bytes::readU32Be(frame, static_cast<std::size_t>(offset));
+            break;
+        default:
+            for (int k = 0; k < ch.size; ++k)
+                value = (value << 8) | quint32(frame[static_cast<std::size_t>(offset + k)]);
+            break;
+        }
         out.append(value);
         offset += ch.size;
     }

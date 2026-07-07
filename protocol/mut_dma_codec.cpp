@@ -5,15 +5,11 @@
 namespace mutdma {
 
 bytes::Byte sum8(bytes::ByteView bytes, std::size_t from, std::size_t len) {
-    std::uint32_t s = 0;
-    const std::size_t end = std::min(bytes.size(), from + len);
-    for (std::size_t i = from; i < end; ++i)
-        s += bytes[i];
-    return static_cast<bytes::Byte>(s & 0xFF);
+    return bytes::sum8(bytes, from, len);
 }
 
 bytes::Byte sum8(bytes::ByteView bytes) {
-    return sum8(bytes, 0, bytes.size());
+    return bytes::sum8(bytes);
 }
 
 MutDmaFrame buildCommandFrame(bytes::Byte cmd, bytes::ByteView payload, bytes::Byte trailer) {

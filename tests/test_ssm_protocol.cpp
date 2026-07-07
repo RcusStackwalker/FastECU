@@ -28,6 +28,9 @@ private slots:
     void crc32_matches_existing_polynomial_vector_with_byte_view();
     void crc32_null_pointer_returns_zero();
     void crc32_first_touch_is_thread_safe();
+    void byte_utilities_append_and_read_big_endian_values();
+    void byte_utilities_return_zero_for_short_reads();
+    void byte_utilities_sum8_wraps();
 };
 
 static const uint16_t kCommonSeedTable[16] = {
@@ -208,6 +211,33 @@ void TestSsmProtocol::crc32_first_touch_is_thread_safe()
     tb.join();
     QCOMPARE(a, uint32_t(0x8AD85CF9));
     QCOMPARE(b, uint32_t(0x8AD85CF9));
+}
+
+void TestSsmProtocol::byte_utilities_append_and_read_big_endian_values()
+{
+    bytes::Bytes data;
+    bytes::appendU16Be(data, 0x1234);
+    bytes::appendU24Be(data, 0xABCDEF);
+    bytes::appendU32Be(data, 0x10203040);
+
+    QVERIFY(data == fromHex("1234abcdef10203040"));
+    QCOMPARE(bytes::readU16Be(data, 0), uint16_t(0x1234));
+    QCOMPARE(bytes::readU24Be(data, 2), uint32_t(0xABCDEF));
+    QCOMPARE(bytes::readU32Be(data, 5), uint32_t(0x10203040));
+}
+
+void TestSsmProtocol::byte_utilities_return_zero_for_short_reads()
+{
+    const bytes::Bytes data = fromHex("1234");
+    QCOMPARE(bytes::readU16Be(data, 1), uint16_t(0));
+    QCOMPARE(bytes::readU24Be(data, 0), uint32_t(0));
+    QCOMPARE(bytes::readU32Be(data, 0), uint32_t(0));
+}
+
+void TestSsmProtocol::byte_utilities_sum8_wraps()
+{
+    QCOMPARE(bytes::sum8(fromHex("01020304")), bytes::Byte(0x0A));
+    QCOMPARE(bytes::sum8(bytes::Bytes{0xFF, 0xFF, 0xFF}), bytes::Byte(0xFD));
 }
 
 int run_test_ssm_protocol(int argc, char **argv)
