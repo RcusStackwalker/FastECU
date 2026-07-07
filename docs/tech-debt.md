@@ -133,6 +133,15 @@ Actions:
 - Keep `MainWindow` responsible for widgets and signal/slot wiring only.
 - Avoid adding new direct file, protocol, or hardware logic to `MainWindow`.
 
+Implemented baseline:
+
+- Menu action IDs now map through a typed `MenuCommand` registry before
+  `MainWindow` dispatches to existing UI operations.
+- Unknown menu action IDs are reported explicitly instead of silently doing
+  nothing.
+- Focused QtTest coverage checks all active menu IDs from `config/menu.cfg` and
+  the unknown-ID fallback.
+
 ### P1: Split `FileActions`
 
 `FileActions` derives from `QWidget` but also owns config structures, menu

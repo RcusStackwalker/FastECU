@@ -1,86 +1,110 @@
 #include "mainwindow.h"
+#include "menu_command.h"
 #include "ui_mainwindow.h"
 #include "serial_port_actions.h"
 
 void MainWindow::menu_action_triggered(QString action)
 {
-    // FILE MENU
-    if (action == "new"){
-        qDebug() << action;}
-    if (action == "open_calibration")
+    switch (menu_command_from_id(action)) {
+    case MenuCommand::New:
+        qDebug() << action;
+        break;
+    case MenuCommand::OpenCalibration:
         open_calibration_file(NULL);
-    if (action == "save_calibration")
+        break;
+    case MenuCommand::SaveCalibration:
         save_calibration_file();
-    if (action == "save_calibration_as")
+        break;
+    case MenuCommand::SaveCalibrationAs:
         save_calibration_file_as();
-    if (action == "close_calibration")
+        break;
+    case MenuCommand::CloseCalibration:
         close_calibration();
-    if (action == "quit")
+        break;
+    case MenuCommand::Quit:
         close_app();
-
-    // EDIT MENU
-    if (action == "undo")
+        break;
+    case MenuCommand::Undo:
         qDebug() << action;
-    if (action == "redo")
+        break;
+    case MenuCommand::Redo:
         qDebug() << action;
-    if (action == "copy")
+        break;
+    case MenuCommand::Copy:
         copy_value();
-    if (action == "paste")
+        break;
+    case MenuCommand::Paste:
         paste_value();
-    if (action == "winols_csv_to_romraider_xml")
+        break;
+    case MenuCommand::WinolsCsvToRomRaiderXml:
         winols_csv_to_romraider_xml();
-    if (action == "settings")
+        break;
+    case MenuCommand::Settings:
         show_preferences_window();
-
-    // TUNE MENU
-    if (action == "fine_inc" || action == "fine_dec" || action == "coarse_inc" || action == "coarse_dec")
+        break;
+    case MenuCommand::FineIncrement:
+    case MenuCommand::FineDecrement:
+    case MenuCommand::CoarseIncrement:
+    case MenuCommand::CoarseDecrement:
         inc_dec_value(action);
-    if (action == "set_value")
+        break;
+    case MenuCommand::SetValue:
         set_value();
-    if (action == "interpolate_horizontal" || action == "interpolate_vertical" || action == "interpolate_bidirectional")
+        break;
+    case MenuCommand::InterpolateHorizontal:
+    case MenuCommand::InterpolateVertical:
+    case MenuCommand::InterpolateBidirectional:
         interpolate_value(action);
-    if (action == "toggle_realtime")
+        break;
+    case MenuCommand::ToggleRealtime:
         toggle_realtime();
-    if (action == "log_to_file")
+        break;
+    case MenuCommand::LogToFile:
         toggle_log_to_file();
-
-    // ECU MENU
-    if (action == "connect_to_ecu")
+        break;
+    case MenuCommand::ConnectToEcu:
         connect_to_ecu();
-    if (action == "disconnect_from_ecu")
+        break;
+    case MenuCommand::DisconnectFromEcu:
         disconnect_from_ecu();
-    if (action == "read_rom_from_ecu")
+        break;
+    case MenuCommand::ReadRomFromEcu:
         start_ecu_operations("read");
-    if (action == "test_write_rom_to_ecu")
+        break;
+    case MenuCommand::TestWriteRomToEcu:
         start_ecu_operations("test_write");
-    if (action == "write_rom_to_ecu")
+        break;
+    case MenuCommand::WriteRomToEcu:
         start_ecu_operations("write");
-
-    // VIEW MENU
-    if (action == "setlogviews")
+        break;
+    case MenuCommand::SetLogViews:
         change_gauge_values();
-
-    // TESTING MENU
-    if (action == "dtc_window")
+        break;
+    case MenuCommand::DtcWindow:
         show_dtc_window();
-    if (action == "hex_editor")
+        break;
+    case MenuCommand::HexEditor:
         show_hex_editor();
-
-    if (action == "haltech_ic7")
+        break;
+    case MenuCommand::HaltechIc7:
         toggle_haltech_ic7_display();
-    if (action == "simulate_obd")
+        break;
+    case MenuCommand::SimulateObd:
         toggle_simulate_obd();
-    if (action == "can_listener")
+        break;
+    case MenuCommand::CanListener:
         toggle_can_listener();
-    if (action == "biu_communication")
+        break;
+    case MenuCommand::BiuCommunication:
         show_subaru_biu_window();
-    if (action == "get_key")
+        break;
+    case MenuCommand::GetKey:
         show_subaru_get_key_window();
-    if (action == "terminal")
+        break;
+    case MenuCommand::Terminal:
         show_terminal_window();
-
-    // HELP MENU
-    if (action == "about")
+        break;
+    case MenuCommand::About:
         QMessageBox::information(this, tr("FastECU"),       "FastECU is open source tuning software for Subaru ECUs,\n"
                                                             "TCUs and also modifying BIU and ECUs of other car makes.\n"
                                                             "\n"
@@ -108,6 +132,11 @@ void MainWindow::menu_action_triggered(QString action)
                                                             "...and to all of you who had support software development by\n"
                                                             "donating! All, even the smallest amount of donates are welcome!\n"
                                  );
+        break;
+    case MenuCommand::Unknown:
+        qWarning() << "Unhandled menu action:" << action;
+        break;
+    }
 }
 
 void MainWindow::inc_dec_value(QString action)

@@ -40,6 +40,7 @@ SOURCES += \
     test_flash_utils.cpp \
     test_diagnostic_parsers.cpp \
     test_expression_evaluator.cpp \
+    test_menu_command.cpp \
     test_model_validation.cpp \
     test_checksum_results.cpp \
     test_flash_ecu_mitsu_m32r_can_operation.cpp \
@@ -73,6 +74,7 @@ SOURCES += \
     ../file_actions.cpp \
     ../file_defs_ecuflash.cpp \
     ../file_defs_romraider.cpp \
+    ../menu_command.cpp \
     ../modules/checksum/checksum_ecu_subaru_denso_sh705x_diesel.cpp \
     ../modules/checksum/checksum_ecu_subaru_denso_sh7xxx.cpp \
     ../modules/checksum/checksum_ecu_subaru_hitachi_m32r_can.cpp \
@@ -105,6 +107,7 @@ HEADERS += \
     test_flash_utils.h \
     test_diagnostic_parsers.h \
     test_expression_evaluator.h \
+    test_menu_command.h \
     test_model_validation.h \
     test_checksum_results.h \
     test_flash_ecu_mitsu_m32r_can_operation.h \
@@ -137,6 +140,7 @@ HEADERS += \
     test_cdbg_logging_protocol.h \
     ../logging/protocols/cdbg_logging_protocol.h \
     ../file_actions.h \
+    ../menu_command.h \
     ../modules/checksum/checksum_result.h \
     scripted_kline_transport.h \
     ../protocol/ikline_transport.h \

@@ -105,6 +105,7 @@ SOURCES += \
     logvalues.cpp \
     main.cpp \
     mainwindow.cpp \
+    menu_command.cpp \
     menu_actions.cpp \
     modules/bdm/flash_ecu_subaru_denso_mc68hc16y5_02_bdm.cpp \
     modules/bdm/flash_ecu_subaru_denso_mc68hc16y5_02_bdm_operation.cpp \
@@ -236,6 +237,7 @@ HEADERS += \
     kernelmemorymodels.h \
     logbox.h \
     mainwindow.h \
+    menu_command.h \
     modules/bdm/flash_ecu_subaru_denso_mc68hc16y5_02_bdm.h \
     modules/bdm/flash_ecu_subaru_denso_mc68hc16y5_02_bdm_operation.h \
     modules/biu/biu_operations_subaru.h \

@@ -19,6 +19,7 @@
 #include "test_flash_utils.h"
 #include "test_ssm_protocol.h"
 #include "test_expression_evaluator.h"
+#include "test_menu_command.h"
 #include "test_diagnostic_parsers.h"
 #include "test_model_validation.h"
 #include "test_checksum_results.h"
@@ -46,6 +47,7 @@ int main(int argc, char** argv) {
     status |= run_test_flash_utils(argc, argv);
     status |= run_test_ssm_protocol(argc, argv);
     status |= run_test_expression_evaluator(argc, argv);
+    status |= run_test_menu_command(argc, argv);
     status |= run_test_diagnostic_parsers(argc, argv);
     status |= run_test_model_validation(argc, argv);
     status |= run_test_checksum_results(argc, argv);
