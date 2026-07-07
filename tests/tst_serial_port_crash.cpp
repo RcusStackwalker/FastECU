@@ -24,7 +24,11 @@
 #include <QtTest>
 #include <QByteArray>
 
+#if defined(__linux__)
+#include <pty.h>       // openpty
+#else
 #include <util.h>      // openpty
+#endif
 #include <unistd.h>    // read/write/close
 
 #include "J2534_unix.h"

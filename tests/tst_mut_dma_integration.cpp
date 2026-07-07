@@ -33,7 +33,11 @@
 #include <QSemaphore>
 #include <atomic>
 
+#if defined(__linux__)
+#include <pty.h>       // openpty
+#else
 #include <util.h>      // openpty
+#endif
 #include <unistd.h>    // read/write/close
 
 #include "serial_port_actions.h"

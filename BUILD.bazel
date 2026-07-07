@@ -163,6 +163,13 @@ py_test(
 )
 
 py_test(
+    name = "openpty_includes",
+    srcs = ["scripts/check-openpty-includes.py"],
+    main = "scripts/check-openpty-includes.py",
+    data = ["//tests:cpp_sources"],
+)
+
+py_test(
     name = "clang_tidy_report",
     srcs = ["scripts/clang_tidy_report.py"],
     main = "scripts/clang_tidy_report.py",

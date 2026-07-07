@@ -4,7 +4,11 @@
 #include <atomic>
 #include <thread>
 
-#include <util.h>      // openpty (macOS)
+#if defined(__linux__)
+#include <pty.h>       // openpty
+#else
+#include <util.h>      // openpty
+#endif
 #include <unistd.h>
 #include <poll.h>
 

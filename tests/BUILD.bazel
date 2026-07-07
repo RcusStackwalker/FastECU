@@ -4,6 +4,11 @@ load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_LINKOPTS", "QT_DEPS", "lo
 package(default_visibility = ["//visibility:public"])
 
 filegroup(
+    name = "cpp_sources",
+    srcs = glob(["*.cpp"]),
+)
+
+filegroup(
     name = "pro_files",
     srcs = [
         "mut_dma_integration_tests.pro",
