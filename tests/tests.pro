@@ -95,7 +95,10 @@ HEADERS += \
     ../expression_evaluator.h \
     ../nrc_parser.h \
     test_ssm_protocol.h \
+    ../modules/ssm_protocol_core.h \
     ../modules/ssm_protocol.h \
+    ../protocol/bytes.h \
+    ../protocol/qt_bytes.h \
     test_flash_utils.h \
     test_diagnostic_parsers.h \
     test_expression_evaluator.h \

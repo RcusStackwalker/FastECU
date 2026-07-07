@@ -231,6 +231,10 @@ Implemented baseline:
 - `SsmProtocol` owns reusable SSM frame checksum/header validation and payload
   prefix checks, with focused QtTest coverage for valid frames, malformed
   lengths, wrong sender/receiver IDs, and bad checksums.
+- Added a C++20 byte utility boundary with `bytes::Byte`, `bytes::Bytes`, and
+  `bytes::ByteView` (`std::span<const std::uint8_t>`), plus explicit Qt
+  conversion helpers. `SsmProtocol` now exposes byte-native helper overloads and
+  keeps `QByteArray` wrappers for existing operation code.
 
 ### P1: Narrow serial and hardware interfaces
 

@@ -204,6 +204,9 @@ SOURCES += \
     nrc_parser.cpp
 
 HEADERS += \
+    modules/ssm_protocol_core.h \
+    protocol/bytes.h \
+    protocol/qt_bytes.h \
     calibration_maps.h \
     calibration_treewidget.h \
     cipher.h \

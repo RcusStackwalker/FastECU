@@ -1,6 +1,7 @@
 #include <QtTest>
 
 #include "modules/ssm_protocol.h"
+#include "protocol/qt_bytes.h"
 #include "test_ssm_protocol.h"
 
 #include <thread>
@@ -11,15 +12,20 @@ class TestSsmProtocol : public QObject
 
 private slots:
     void seed_key_matches_common_denso_vector();
+    void seed_key_matches_common_denso_vector_with_byte_view();
     void seed_key_matches_alternate_table_vector();
     void payload_matches_common_denso_vector();
+    void payload_matches_common_denso_vector_with_byte_view();
     void payload_truncates_to_four_byte_boundary();
     void checksum_and_header_match_existing_layout();
+    void checksum_and_header_match_existing_layout_with_byte_view();
     void frame_validation_accepts_matching_header_length_and_checksum();
     void frame_validation_rejects_malformed_frames();
     void payload_prefix_checks_validated_payload_start();
     void to_hex_preserves_existing_trailing_space_format();
+    void to_hex_preserves_existing_trailing_space_format_with_byte_view();
     void crc32_matches_existing_polynomial_vector();
+    void crc32_matches_existing_polynomial_vector_with_byte_view();
     void crc32_null_pointer_returns_zero();
     void crc32_first_touch_is_thread_safe();
 };
@@ -56,11 +62,23 @@ static const uint16_t kPayloadTable[4] = {
     0xC85B, 0x32C0, 0xE282, 0x92A0
 };
 
+static bytes::Bytes fromHex(const char *hex)
+{
+    return bytes::fromQByteArray(QByteArray::fromHex(hex));
+}
+
 void TestSsmProtocol::seed_key_matches_common_denso_vector()
 {
     QCOMPARE(SsmProtocol::calculateSeedKey(QByteArray::fromHex("12345678"),
                                            kCommonSeedTable, kCommonTransformTable),
              QByteArray::fromHex("2daa46dc"));
+}
+
+void TestSsmProtocol::seed_key_matches_common_denso_vector_with_byte_view()
+{
+    QVERIFY(SsmProtocol::calculateSeedKey(fromHex("12345678"),
+                                          kCommonSeedTable, kCommonTransformTable)
+            == fromHex("2daa46dc"));
 }
 
 void TestSsmProtocol::seed_key_matches_alternate_table_vector()
@@ -77,6 +95,13 @@ void TestSsmProtocol::payload_matches_common_denso_vector()
              QByteArray::fromHex("ed9fd931afacd594"));
 }
 
+void TestSsmProtocol::payload_matches_common_denso_vector_with_byte_view()
+{
+    QVERIFY(SsmProtocol::calculatePayload(fromHex("0011223344556677"),
+                                          8, kPayloadTable, kCommonTransformTable)
+            == fromHex("ed9fd931afacd594"));
+}
+
 void TestSsmProtocol::payload_truncates_to_four_byte_boundary()
 {
     QCOMPARE(SsmProtocol::calculatePayload(QByteArray::fromHex("0011223344"),
@@ -91,6 +116,15 @@ void TestSsmProtocol::checksum_and_header_match_existing_layout()
     QCOMPARE(SsmProtocol::checksum(payload, true), uint8_t(0xF2));
     QCOMPARE(SsmProtocol::addHeader(payload, 0xF1, 0x10, false),
              QByteArray::fromHex("8010F105A80011223394"));
+}
+
+void TestSsmProtocol::checksum_and_header_match_existing_layout_with_byte_view()
+{
+    const bytes::Bytes payload = fromHex("A800112233");
+    QCOMPARE(SsmProtocol::checksum(payload, false), bytes::Byte(0x0E));
+    QCOMPARE(SsmProtocol::checksum(payload, true), bytes::Byte(0xF2));
+    QVERIFY(SsmProtocol::addHeader(payload, 0xF1, 0x10, false)
+            == fromHex("8010F105A80011223394"));
 }
 
 void TestSsmProtocol::frame_validation_accepts_matching_header_length_and_checksum()
@@ -133,11 +167,23 @@ void TestSsmProtocol::to_hex_preserves_existing_trailing_space_format()
     QCOMPARE(SsmProtocol::toHex(QByteArray()), QString());
 }
 
+void TestSsmProtocol::to_hex_preserves_existing_trailing_space_format_with_byte_view()
+{
+    QCOMPARE(SsmProtocol::toHex(fromHex("800102ff")), std::string("80 01 02 ff "));
+    QCOMPARE(SsmProtocol::toHex(bytes::ByteView()), std::string());
+}
+
 void TestSsmProtocol::crc32_matches_existing_polynomial_vector()
 {
     const QByteArray payload = QByteArray::fromHex("00112233445566778899aabbccddeeff");
     QCOMPARE(SsmProtocol::crc32(reinterpret_cast<const unsigned char *>(payload.constData()),
                                 uint32_t(payload.size())),
+             uint32_t(0x8FA3DEB3));
+}
+
+void TestSsmProtocol::crc32_matches_existing_polynomial_vector_with_byte_view()
+{
+    QCOMPARE(SsmProtocol::crc32(fromHex("00112233445566778899aabbccddeeff")),
              uint32_t(0x8FA3DEB3));
 }
 

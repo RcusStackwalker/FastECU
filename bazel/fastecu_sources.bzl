@@ -162,8 +162,10 @@ APP_COMMON_HDRS = [
     "modules/checksum/checksum_tcu_subaru_denso_sh7055.h",
     "modules/checksum/checksum_tcu_subaru_hitachi_m32r_can.h",
     "modules/flash_utils.h",
+    "modules/ssm_protocol_core.h",
     "modules/ssm_protocol.h",
     "nrc_parser.h",
+    "protocol/bytes.h",
     "protocol/fastecu_can_transport.h",
     "protocol/fastecu_kline_transport.h",
     "protocol/fastecu_ssm_transport.h",
@@ -179,6 +181,7 @@ APP_COMMON_HDRS = [
     "protocol/mut_dma_driver.h",
     "protocol/mut_dma_freeform.h",
     "protocol/mut_dma_memory.h",
+    "protocol/qt_bytes.h",
     "serial_port/qtrohelper.hpp",
     "serial_port/serial_backend.h",
     "serial_port/serial_backend_host.h",
@@ -422,8 +425,10 @@ MUT_DMA_TESTS_COMMON_HDRS = [
     "../modules/ecu/flash_ecu_mitsu_m32r_can_operation.h",
     "../modules/flash_operation_worker.h",
     "../modules/flash_utils.h",
+    "../modules/ssm_protocol_core.h",
     "../modules/ssm_protocol.h",
     "../nrc_parser.h",
+    "../protocol/bytes.h",
     "../serial_port/remote_serial_backend.h",
     "../serial_port/serial_backend.h",
     "../serial_port/serial_backend_host.h",
@@ -445,6 +450,7 @@ MUT_DMA_TESTS_COMMON_HDRS = [
     "protocol/mut_dma_driver.h",
     "protocol/mut_dma_freeform.h",
     "protocol/mut_dma_memory.h",
+    "../protocol/qt_bytes.h",
     "tests/fake_backend.h",
     "tests/scripted_can_transport.h",
     "tests/scripted_kline_transport.h",
@@ -666,4 +672,3 @@ TST_FORCE_ASSERTS_WIN32_HDRS = [
 
 TST_FORCE_ASSERTS_WIN32_REPS = [
 ]
-
