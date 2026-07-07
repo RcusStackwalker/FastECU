@@ -25,7 +25,7 @@ private slots:
         QVector<QVector<CdbgChannel>> frames;
         QVERIFY(batchChannelsIntoFrames(ch, frames));
         QCOMPARE(frames.size(), 1);
-        for (const QByteArray &cmd : buildFrameInitFrames(0, 0, frames.at(0))) {
+        for (const CdbgFrame &cmd : buildFrameInitFrames(0, 0, frames.at(0))) {
             t.expectWrite(kRequestCanId, cmd);
             t.queueRead(kReplyCanId, QByteArray::fromHex("0000000000000000"));
         }
@@ -61,7 +61,7 @@ private slots:
 
         QVector<QVector<CdbgChannel>> frames;
         QVERIFY(batchChannelsIntoFrames(ch, frames));
-        for (const QByteArray &cmd : buildFrameInitFrames(0, 0, frames.at(0))) {
+        for (const CdbgFrame &cmd : buildFrameInitFrames(0, 0, frames.at(0))) {
             t.expectWrite(kRequestCanId, cmd);
             t.queueRead(kReplyCanId, QByteArray::fromHex("FF00000000000000"));
         }
@@ -131,7 +131,7 @@ private slots:
         QVERIFY(batchChannelsIntoFrames(ch, frames));
         QCOMPARE(frames.size(), 2);
         for (int f = 0; f < frames.size(); ++f) {
-            for (const QByteArray &cmd : buildFrameInitFrames(0, quint8(f), frames.at(f))) {
+            for (const CdbgFrame &cmd : buildFrameInitFrames(0, quint8(f), frames.at(f))) {
                 t.expectWrite(kRequestCanId, cmd);
                 t.queueRead(kReplyCanId, QByteArray::fromHex("0000000000000000"));
             }

@@ -1,6 +1,10 @@
 #pragma once
-#include <QByteArray>
+#include "protocol/bytes.h"
+
 #include <QVector>
+
+#include <array>
+#include <vector>
 
 // Mitsubishi Colt CZT (Z37A, ROM 47110032) Cdbg live-data logging protocol.
 // Ported from externals/livemonitor/cdbgengine.cpp + logitemsmodel.cpp.
@@ -27,6 +31,8 @@ constexpr quint8 kSecurityLogAccess = 2;
 constexpr int kMaxFrameBytes = 7;
 constexpr int kMaxFrames     = 8;
 
+using CdbgFrame = std::array<bytes::Byte, 8>;
+
 // One logged RAM value: address + element size (1, 2, or 4 bytes).
 struct CdbgChannel {
     quint32 pointer;
@@ -34,10 +40,10 @@ struct CdbgChannel {
 };
 
 // {1, 1, 0,0,0,0,0,0}
-QByteArray buildInitFrame();
+CdbgFrame buildInitFrame();
 
 // {18, 0, 2, 0,0,0,0,0} - kSecurityLogAccess seed request.
-QByteArray buildSecuritySeedRequestFrame();
+CdbgFrame buildSecuritySeedRequestFrame();
 
 // Ported byte-for-byte from cdbgengine.cpp's seed_to_key(): per-byte
 // increment (keyed on the byte's low 2 bits) + 8-bit left-rotate by 3,
@@ -47,25 +53,25 @@ quint32 seedToKey(quint32 seed);
 
 // Extracts the big-endian 4-byte seed from the security-seed-request reply
 // (reply bytes [4,8)). Returns 0 if reply is shorter than 8 bytes.
-quint32 extractSeed(const QByteArray &reply);
+quint32 extractSeed(bytes::ByteView reply);
 
 // {19, 0, key[0..3] (big-endian), 0, 0}
-QByteArray buildSecurityKeyFrame(quint32 key);
+CdbgFrame buildSecurityKeyFrame(quint32 key);
 
 // True if the key-response reply grants access (byte[3] != 0) - matches
 // livemonitor's security_flags check (the only documented success signal
 // for this step, in mainwindow.cpp's dead-code cdbgSecurityAccessCallback).
 // Returns false if reply is shorter than 4 bytes.
-bool securityGranted(const QByteArray &reply);
+bool securityGranted(bytes::ByteView reply);
 
 // {20, 0, instance, 0, 0, 0, 0x06, 0x31}
-QByteArray buildLogResetFrame(quint8 instance);
+CdbgFrame buildLogResetFrame(quint8 instance);
 
 // {6, 0, 1, instance, frameCount, intervalUnit, intervalHi, intervalLo}.
 // intervalMs is encoded directly in milliseconds if it fits in 16 bits
 // (intervalUnit=0), otherwise in tens-of-milliseconds (intervalUnit=1,
 // truncating division) - matches getLogStartCommand.
-QByteArray buildLogStartFrame(quint8 instance, quint8 frameCount, quint32 intervalMs);
+CdbgFrame buildLogStartFrame(quint8 instance, quint8 frameCount, quint32 intervalMs);
 
 // Packs channels into frames of at most kMaxFrameBytes total size each (byte
 // 0 of every streamed frame is the frame-index marker, so payload starts at
@@ -80,7 +86,7 @@ bool batchChannelsIntoFrames(const QVector<CdbgChannel> &channels,
 // select1, pointer1, ...) that configure one frame's items, matching
 // getLogFrameInitCommands. Caller must have already produced frameItems via
 // batchChannelsIntoFrames.
-QVector<QByteArray> buildFrameInitFrames(quint8 instance, quint8 frameIndex,
+std::vector<CdbgFrame> buildFrameInitFrames(quint8 instance, quint8 frameIndex,
                                           const QVector<CdbgChannel> &frameItems);
 
 // Decodes one streamed reply frame (byte 0 = frame index, bytes [1, N) =
@@ -90,6 +96,6 @@ QVector<QByteArray> buildFrameInitFrames(quint8 instance, quint8 frameIndex,
 // is too short to hold every channel in frameItems.
 QVector<quint32> decodeFrame(quint8 expectedFrameIndex,
                               const QVector<CdbgChannel> &frameItems,
-                              const QByteArray &frame);
+                              bytes::ByteView frame);
 
 } // namespace MitsuColtCanCdbg

@@ -1,15 +1,14 @@
 #include "protocol/mitsu_colt_can_cdbg_driver.h"
-#include "protocol/qt_bytes.h"
 
 namespace MitsuColtCanCdbg {
 
 namespace {
-bool sendAndReceive(cdbg::ICanTransport &t, const QByteArray &cmd, QByteArray &outReply)
+bool sendAndReceive(cdbg::ICanTransport &t, bytes::ByteView cmd, bytes::Bytes &outReply)
 {
-    t.write(kRequestCanId, bytes::view(cmd));
+    t.write(kRequestCanId, cmd);
     std::uint32_t id = 0;
-    outReply = bytes::toQByteArray(t.read(250, id));
-    return !outReply.isEmpty() && id == kReplyCanId;
+    outReply = t.read(250, id);
+    return !outReply.empty() && id == kReplyCanId;
 }
 }
 
@@ -35,7 +34,7 @@ bool CdbgLogDriver::startFreeFormLog(const QVector<CdbgChannel> &channels,
         }
     }
 
-    QByteArray reply;
+    bytes::Bytes reply;
     if (!sendAndReceive(t_, buildInitFrame(), reply)) {
         if (errorOut)
             *errorOut = "CDBG session init failed";
@@ -72,8 +71,8 @@ bool CdbgLogDriver::startFreeFormLog(const QVector<CdbgChannel> &channels,
     }
 
     for (int f = 0; f < frames_.size(); ++f) {
-        const QVector<QByteArray> cmds = buildFrameInitFrames(instance, quint8(f), frames_.at(f));
-        for (const QByteArray &cmd : cmds) {
+        const std::vector<CdbgFrame> cmds = buildFrameInitFrames(instance, quint8(f), frames_.at(f));
+        for (const CdbgFrame &cmd : cmds) {
             if (!sendAndReceive(t_, cmd, reply)) {
                 if (errorOut)
                     *errorOut = "CDBG log frame setup failed";
@@ -103,9 +102,9 @@ QVector<quint32> CdbgLogDriver::pollOnce(int timeoutMs)
         return {};
 
     std::uint32_t id = 0;
-    QByteArray frame = bytes::toQByteArray(t_.read(timeoutMs, id));
-    if (!frame.isEmpty() && id == kReplyCanId) {
-        quint8 frameIdx = quint8(frame.at(0));
+    const bytes::Bytes frame = t_.read(timeoutMs, id);
+    if (!frame.empty() && id == kReplyCanId) {
+        quint8 frameIdx = frame[0];
         if (frameIdx < quint8(frames_.size())) {
             QVector<quint32> decoded = decodeFrame(frameIdx, frames_.at(frameIdx), frame);
             if (!decoded.isEmpty()) {

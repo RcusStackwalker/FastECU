@@ -2,23 +2,14 @@
 
 namespace MitsuColtCanCdbg {
 
-QByteArray buildInitFrame()
+CdbgFrame buildInitFrame()
 {
-    QByteArray f;
-    f.append(char(kCmdInit));
-    f.append(char(1));
-    for (int i = 0; i < 6; ++i) f.append(char(0));
-    return f;
+    return CdbgFrame{kCmdInit, 1, 0, 0, 0, 0, 0, 0};
 }
 
-QByteArray buildSecuritySeedRequestFrame()
+CdbgFrame buildSecuritySeedRequestFrame()
 {
-    QByteArray f;
-    f.append(char(kCmdSecuritySeed));
-    f.append(char(0));
-    f.append(char(kSecurityLogAccess));
-    for (int i = 0; i < 5; ++i) f.append(char(0));
-    return f;
+    return CdbgFrame{kCmdSecuritySeed, 0, kSecurityLogAccess, 0, 0, 0, 0, 0};
 }
 
 quint32 seedToKey(quint32 seed)
@@ -58,48 +49,39 @@ quint32 seedToKey(quint32 seed)
          | (quint32(word1 >> 8) << 8)  |  quint32(word1 & 0xFF);
 }
 
-quint32 extractSeed(const QByteArray &reply)
+quint32 extractSeed(bytes::ByteView reply)
 {
     if (reply.size() < 8) return 0;
-    return (quint32(quint8(reply.at(4))) << 24) | (quint32(quint8(reply.at(5))) << 16)
-         | (quint32(quint8(reply.at(6))) << 8)  |  quint32(quint8(reply.at(7)));
+    return (quint32(reply[4]) << 24) | (quint32(reply[5]) << 16)
+         | (quint32(reply[6]) << 8)  |  quint32(reply[7]);
 }
 
-QByteArray buildSecurityKeyFrame(quint32 key)
+CdbgFrame buildSecurityKeyFrame(quint32 key)
 {
-    QByteArray f;
-    f.append(char(kCmdSecurityKey));
-    f.append(char(0));
-    f.append(char((key >> 24) & 0xFF));
-    f.append(char((key >> 16) & 0xFF));
-    f.append(char((key >> 8) & 0xFF));
-    f.append(char(key & 0xFF));
-    f.append(char(0));
-    f.append(char(0));
-    return f;
+    return CdbgFrame{
+        kCmdSecurityKey,
+        0,
+        static_cast<bytes::Byte>((key >> 24) & 0xFF),
+        static_cast<bytes::Byte>((key >> 16) & 0xFF),
+        static_cast<bytes::Byte>((key >> 8) & 0xFF),
+        static_cast<bytes::Byte>(key & 0xFF),
+        0,
+        0
+    };
 }
 
-bool securityGranted(const QByteArray &reply)
+bool securityGranted(bytes::ByteView reply)
 {
     if (reply.size() < 4) return false;
-    return quint8(reply.at(3)) != 0;
+    return reply[3] != 0;
 }
 
-QByteArray buildLogResetFrame(quint8 instance)
+CdbgFrame buildLogResetFrame(quint8 instance)
 {
-    QByteArray f;
-    f.append(char(kCmdLogReset));
-    f.append(char(0));
-    f.append(char(instance));
-    f.append(char(0));
-    f.append(char(0));
-    f.append(char(0));
-    f.append(char(0x06));
-    f.append(char(0x31));
-    return f;
+    return CdbgFrame{kCmdLogReset, 0, instance, 0, 0, 0, 0x06, 0x31};
 }
 
-QByteArray buildLogStartFrame(quint8 instance, quint8 frameCount, quint32 intervalMs)
+CdbgFrame buildLogStartFrame(quint8 instance, quint8 frameCount, quint32 intervalMs)
 {
     quint8 unitFlag;
     quint16 encoded;
@@ -111,16 +93,16 @@ QByteArray buildLogStartFrame(quint8 instance, quint8 frameCount, quint32 interv
         encoded = quint16(intervalMs);
     }
 
-    QByteArray f;
-    f.append(char(kCmdLogStart));
-    f.append(char(0));
-    f.append(char(1));
-    f.append(char(instance));
-    f.append(char(frameCount));
-    f.append(char(unitFlag));
-    f.append(char((encoded >> 8) & 0xFF));
-    f.append(char(encoded & 0xFF));
-    return f;
+    return CdbgFrame{
+        kCmdLogStart,
+        0,
+        1,
+        instance,
+        frameCount,
+        unitFlag,
+        static_cast<bytes::Byte>((encoded >> 8) & 0xFF),
+        static_cast<bytes::Byte>(encoded & 0xFF)
+    };
 }
 
 bool batchChannelsIntoFrames(const QVector<CdbgChannel> &channels,
@@ -151,42 +133,43 @@ bool batchChannelsIntoFrames(const QVector<CdbgChannel> &channels,
     return true;
 }
 
-QVector<QByteArray> buildFrameInitFrames(quint8 instance, quint8 frameIndex,
+std::vector<CdbgFrame> buildFrameInitFrames(quint8 instance, quint8 frameIndex,
                                           const QVector<CdbgChannel> &frameItems)
 {
-    QVector<QByteArray> out;
+    std::vector<CdbgFrame> out;
+    out.reserve(static_cast<std::size_t>(frameItems.size() * 2));
     for (int i = 0; i < frameItems.size(); ++i) {
-        QByteArray select;
-        select.append(char(kCmdLogSelectItem));
-        select.append(char(0));
-        select.append(char(instance));
-        select.append(char(frameIndex));
-        select.append(char(i));
-        select.append(char(0));
-        select.append(char(0));
-        select.append(char(0));
-        out.append(select);
+        out.push_back(CdbgFrame{
+            kCmdLogSelectItem,
+            0,
+            instance,
+            frameIndex,
+            static_cast<bytes::Byte>(i),
+            0,
+            0,
+            0
+        });
 
         const CdbgChannel &ch = frameItems.at(i);
-        QByteArray pointer;
-        pointer.append(char(kCmdLogSetPointer));
-        pointer.append(char(0));
-        pointer.append(char(ch.size));
-        pointer.append(char(0));
-        pointer.append(char((ch.pointer >> 24) & 0xFF));
-        pointer.append(char((ch.pointer >> 16) & 0xFF));
-        pointer.append(char((ch.pointer >> 8) & 0xFF));
-        pointer.append(char(ch.pointer & 0xFF));
-        out.append(pointer);
+        out.push_back(CdbgFrame{
+            kCmdLogSetPointer,
+            0,
+            ch.size,
+            0,
+            static_cast<bytes::Byte>((ch.pointer >> 24) & 0xFF),
+            static_cast<bytes::Byte>((ch.pointer >> 16) & 0xFF),
+            static_cast<bytes::Byte>((ch.pointer >> 8) & 0xFF),
+            static_cast<bytes::Byte>(ch.pointer & 0xFF)
+        });
     }
     return out;
 }
 
 QVector<quint32> decodeFrame(quint8 expectedFrameIndex,
                               const QVector<CdbgChannel> &frameItems,
-                              const QByteArray &frame)
+                              bytes::ByteView frame)
 {
-    if (frame.size() < 1 || quint8(frame.at(0)) != expectedFrameIndex)
+    if (frame.size() < 1 || frame[0] != expectedFrameIndex)
         return {};
 
     int need = 1;
@@ -200,7 +183,7 @@ QVector<quint32> decodeFrame(quint8 expectedFrameIndex,
     for (const CdbgChannel &ch : frameItems) {
         quint32 value = 0;
         for (int k = 0; k < ch.size; ++k)
-            value = (value << 8) | quint32(quint8(frame.at(offset + k)));
+            value = (value << 8) | quint32(frame[static_cast<std::size_t>(offset + k)]);
         out.append(value);
         offset += ch.size;
     }
