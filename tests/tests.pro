@@ -88,6 +88,7 @@ SOURCES += \
     ../logging/logging_worker.cpp \
     ../logging/logging_engine.cpp
 HEADERS += \
+    byte_test_utils.h \
     test_flash_operation_worker.h \
     ../modules/flash_operation_worker.h \
     ../modules/flash_utils.h \

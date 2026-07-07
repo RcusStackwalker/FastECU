@@ -3,7 +3,7 @@
 #include "protocol/mut_dma_freeform.h"
 #include "protocol/mut_dma_codec.h"
 #include "protocol/mut_dma_memory.h"
-#include "protocol/qt_bytes.h"
+#include "byte_test_utils.h"
 #include "scripted_kline_transport.h"
 #include "test_driver.h"
 using namespace mutdma;
@@ -28,12 +28,12 @@ private slots:
     }
     void write_memory_sends_and_acks() {
         ScriptedKlineTransport t; AlreadyInMode init(125000);
-        QByteArray bytes = QByteArray::fromHex("DEAD");
-        const std::vector<MutDmaFrame> frames = buildWriteFrames(0x8010, bytes::view(bytes));
+        const bytes::Bytes data = test_bytes::bytesFromHex("DEAD");
+        const std::vector<MutDmaFrame> frames = buildWriteFrames(0x8010, data);
         t.expectWrite(frames.at(0));
         t.queueRead(buildCommandFrame(0x87, bytes::Bytes{0x80, 0x00}, TRAILER_STD)); // echo ack
         MutDmaDriver d(t, init);
-        QVERIFY(d.writeMemory(0x8010, bytes));
+        QVERIFY(d.writeMemory(0x8010, data));
         QVERIFY(t.scriptConsumed());
     }
     void poll_decodes_stream_frame() {
@@ -76,19 +76,19 @@ private slots:
     }
     void write_memory_fails_on_bad_echo() {
         ScriptedKlineTransport t; AlreadyInMode init(125000);
-        QByteArray bytes = QByteArray::fromHex("DEAD");
-        t.expectWrite(buildWriteFrames(0x8010, bytes::view(bytes)).at(0));
+        const bytes::Bytes data = test_bytes::bytesFromHex("DEAD");
+        t.expectWrite(buildWriteFrames(0x8010, data).at(0));
         MutDmaFrame badEcho = buildCommandFrame(0x87, bytes::Bytes{0x80, 0x00}, TRAILER_STD);
         badEcho[49] = static_cast<bytes::Byte>(badEcho[49] ^ 0xFF); // corrupt checksum
         t.queueRead(badEcho);
         MutDmaDriver d(t, init);
-        QVERIFY(!d.writeMemory(0x8010, bytes));
+        QVERIFY(!d.writeMemory(0x8010, data));
     }
     void write_memory_rejects_overflow() {
         ScriptedKlineTransport t; AlreadyInMode init(125000);
         MutDmaDriver d(t, init);
-        QByteArray bytes(32, char(0x5A));
-        QVERIFY(!d.writeMemory(0xFFF0, bytes)); // 0xFFF0 + 32 > 0x10000
+        const bytes::Bytes data(32, 0x5A);
+        QVERIFY(!d.writeMemory(0xFFF0, data)); // 0xFFF0 + 32 > 0x10000
     }
 };
 int run_test_driver(int argc, char** argv) {

@@ -1,5 +1,6 @@
 #include <QtTest>
 #include "protocol/mitsu_colt_can_cdbg_driver.h"
+#include "byte_test_utils.h"
 #include "scripted_can_transport.h"
 #include "test_cdbg_driver.h"
 using namespace MitsuColtCanCdbg;
@@ -11,27 +12,27 @@ private slots:
         QVector<CdbgChannel> ch = { {0x804FBF, 1}, {0x804DF2, 2} };
 
         t.expectWrite(kRequestCanId, buildInitFrame());
-        t.queueRead(kReplyCanId, QByteArray::fromHex("0000000000000000"));
+        t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
 
         t.expectWrite(kRequestCanId, buildSecuritySeedRequestFrame());
-        t.queueRead(kReplyCanId, QByteArray::fromHex("0000000012345678")); // seed=0x12345678
+        t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000012345678")); // seed=0x12345678
 
         t.expectWrite(kRequestCanId, buildSecurityKeyFrame(0x8C536B33)); // seedToKey(0x12345678)
-        t.queueRead(kReplyCanId, QByteArray::fromHex("0000000100000000")); // byte3 != 0 -> granted
+        t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000100000000")); // byte3 != 0 -> granted
 
         t.expectWrite(kRequestCanId, buildLogResetFrame(0));
-        t.queueRead(kReplyCanId, QByteArray::fromHex("0000000000000000"));
+        t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
 
         QVector<QVector<CdbgChannel>> frames;
         QVERIFY(batchChannelsIntoFrames(ch, frames));
         QCOMPARE(frames.size(), 1);
         for (const CdbgFrame &cmd : buildFrameInitFrames(0, 0, frames.at(0))) {
             t.expectWrite(kRequestCanId, cmd);
-            t.queueRead(kReplyCanId, QByteArray::fromHex("0000000000000000"));
+            t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
         }
 
         t.expectWrite(kRequestCanId, buildLogStartFrame(0, 1, 10));
-        t.queueRead(kReplyCanId, QByteArray::fromHex("0000000000000000"));
+        t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
 
         CdbgLogDriver d(t);
         QVERIFY(d.startFreeFormLog(ch, 0, 10));
@@ -39,7 +40,7 @@ private slots:
         QVERIFY(t.scriptConsumed());
         QVERIFY(t.ok());
 
-        t.queueRead(kReplyCanId, QByteArray::fromHex("002A123400000000"));
+        t.queueRead(kReplyCanId, test_bytes::bytesFromHex("002A123400000000"));
         QVector<quint32> vals = d.pollOnce(50);
         QCOMPARE(vals.size(), 2);
         QCOMPARE(vals.at(0), quint32(42));
@@ -51,22 +52,22 @@ private slots:
         QVector<CdbgChannel> ch = { {0x804FBF, 1} };
 
         t.expectWrite(kRequestCanId, buildInitFrame());
-        t.queueRead(kReplyCanId, QByteArray::fromHex("FF0001FE00000000"));
+        t.queueRead(kReplyCanId, test_bytes::bytesFromHex("FF0001FE00000000"));
         t.expectWrite(kRequestCanId, buildSecuritySeedRequestFrame());
-        t.queueRead(kReplyCanId, QByteArray::fromHex("FF000001D61B2EEA"));
+        t.queueRead(kReplyCanId, test_bytes::bytesFromHex("FF000001D61B2EEA"));
         t.expectWrite(kRequestCanId, buildSecurityKeyFrame(0xBA80A2C1));
-        t.queueRead(kReplyCanId, QByteArray::fromHex("FF000002D61B2EEA"));
+        t.queueRead(kReplyCanId, test_bytes::bytesFromHex("FF000002D61B2EEA"));
         t.expectWrite(kRequestCanId, buildLogResetFrame(0));
-        t.queueRead(kReplyCanId, QByteArray::fromHex("FF00000000000000"));
+        t.queueRead(kReplyCanId, test_bytes::bytesFromHex("FF00000000000000"));
 
         QVector<QVector<CdbgChannel>> frames;
         QVERIFY(batchChannelsIntoFrames(ch, frames));
         for (const CdbgFrame &cmd : buildFrameInitFrames(0, 0, frames.at(0))) {
             t.expectWrite(kRequestCanId, cmd);
-            t.queueRead(kReplyCanId, QByteArray::fromHex("FF00000000000000"));
+            t.queueRead(kReplyCanId, test_bytes::bytesFromHex("FF00000000000000"));
         }
         t.expectWrite(kRequestCanId, buildLogStartFrame(0, 1, 10));
-        t.queueRead(kReplyCanId, QByteArray::fromHex("FF00000000000000"));
+        t.queueRead(kReplyCanId, test_bytes::bytesFromHex("FF00000000000000"));
 
         CdbgLogDriver d(t);
         QString error;
@@ -93,11 +94,11 @@ private slots:
         QVector<CdbgChannel> ch = { {0x804FBF, 1} };
 
         t.expectWrite(kRequestCanId, buildInitFrame());
-        t.queueRead(kReplyCanId, QByteArray::fromHex("0000000000000000"));
+        t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
         t.expectWrite(kRequestCanId, buildSecuritySeedRequestFrame());
-        t.queueRead(kReplyCanId, QByteArray::fromHex("0000000000000000")); // seed=0
+        t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000")); // seed=0
         t.expectWrite(kRequestCanId, buildSecurityKeyFrame(seedToKey(0)));
-        t.queueRead(kReplyCanId, QByteArray::fromHex("0000000000000000")); // byte3 == 0 -> denied
+        t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000")); // byte3 == 0 -> denied
 
         CdbgLogDriver d(t);
         QVERIFY(!d.startFreeFormLog(ch, 0, 10));
@@ -119,13 +120,13 @@ private slots:
         QVector<CdbgChannel> ch = { {0x804FBF, 4}, {0x804DF2, 4}, {0x8054AC, 2} };
 
         t.expectWrite(kRequestCanId, buildInitFrame());
-        t.queueRead(kReplyCanId, QByteArray::fromHex("0000000000000000"));
+        t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
         t.expectWrite(kRequestCanId, buildSecuritySeedRequestFrame());
-        t.queueRead(kReplyCanId, QByteArray::fromHex("0000000012345678"));
+        t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000012345678"));
         t.expectWrite(kRequestCanId, buildSecurityKeyFrame(0x8C536B33));
-        t.queueRead(kReplyCanId, QByteArray::fromHex("0000000100000000"));
+        t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000100000000"));
         t.expectWrite(kRequestCanId, buildLogResetFrame(0));
-        t.queueRead(kReplyCanId, QByteArray::fromHex("0000000000000000"));
+        t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
 
         QVector<QVector<CdbgChannel>> frames;
         QVERIFY(batchChannelsIntoFrames(ch, frames));
@@ -133,17 +134,17 @@ private slots:
         for (int f = 0; f < frames.size(); ++f) {
             for (const CdbgFrame &cmd : buildFrameInitFrames(0, quint8(f), frames.at(f))) {
                 t.expectWrite(kRequestCanId, cmd);
-                t.queueRead(kReplyCanId, QByteArray::fromHex("0000000000000000"));
+                t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
             }
         }
         t.expectWrite(kRequestCanId, buildLogStartFrame(0, 2, 10));
-        t.queueRead(kReplyCanId, QByteArray::fromHex("0000000000000000"));
+        t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
 
         CdbgLogDriver d(t);
         QVERIFY(d.startFreeFormLog(ch, 0, 10));
 
         // Frame 0 arrives first: channel 0 (4-byte) = 0xAABBCCDD.
-        t.queueRead(kReplyCanId, QByteArray::fromHex("00AABBCCDD000000"));
+        t.queueRead(kReplyCanId, test_bytes::bytesFromHex("00AABBCCDD000000"));
         QVector<quint32> v1 = d.pollOnce(50);
         QCOMPARE(v1.size(), 3);
         QCOMPARE(v1.at(0), quint32(0xAABBCCDD));
@@ -151,7 +152,7 @@ private slots:
         QCOMPARE(v1.at(2), quint32(0));
 
         // Frame 1 arrives next: channel 1 (4-byte) = 0x11223344, channel 2 (2-byte) = 0x5566.
-        t.queueRead(kReplyCanId, QByteArray::fromHex("0111223344556600"));
+        t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0111223344556600"));
         QVector<quint32> v2 = d.pollOnce(50);
         QCOMPARE(v2.size(), 3);
         QCOMPARE(v2.at(0), quint32(0xAABBCCDD)); // retained from frame 0

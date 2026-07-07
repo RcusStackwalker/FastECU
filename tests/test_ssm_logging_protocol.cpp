@@ -56,7 +56,7 @@ private slots:
 
     void start_fails_on_short_response() {
         auto transport = std::make_unique<ScriptedSsmTransport>();
-        transport->queueRead(QByteArray());
+        transport->queueRead(bytes::Bytes{});
         FileActions fileActions;
         FileActions::LogValuesStructure lv = makeOneChannel();
 

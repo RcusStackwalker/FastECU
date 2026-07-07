@@ -1,7 +1,7 @@
 #include <QtTest>
 
 #include "modules/ssm_protocol.h"
-#include "protocol/qt_bytes.h"
+#include "byte_test_utils.h"
 #include "test_ssm_protocol.h"
 
 #include <thread>
@@ -67,7 +67,7 @@ static const uint16_t kPayloadTable[4] = {
 
 static bytes::Bytes fromHex(const char *hex)
 {
-    return bytes::fromQByteArray(QByteArray::fromHex(hex));
+    return test_bytes::bytesFromHex(hex);
 }
 
 void TestSsmProtocol::seed_key_matches_common_denso_vector()
