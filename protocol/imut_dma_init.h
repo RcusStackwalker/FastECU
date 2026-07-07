@@ -19,9 +19,10 @@ private:
 // wake address; baud is the DMA link rate (125000 fast / 62500 slow).
 class FiveBaudInit : public IMutDmaInit {
 public:
-    FiveBaudInit(quint8 addrByte, int baud) : addr_(addrByte), baud_(baud) {}
+    FiveBaudInit(bytes::Byte addrByte, int baud) : addr_(addrByte), baud_(baud) {}
     bool wake(IKlineTransport& t) override;     // see .cpp
 private:
-    [[maybe_unused]] quint8 addr_; int baud_;
+    [[maybe_unused]] bytes::Byte addr_;
+    int baud_;
 };
 }

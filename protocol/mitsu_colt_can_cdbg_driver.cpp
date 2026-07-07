@@ -1,13 +1,14 @@
 #include "protocol/mitsu_colt_can_cdbg_driver.h"
+#include "protocol/qt_bytes.h"
 
 namespace MitsuColtCanCdbg {
 
 namespace {
 bool sendAndReceive(cdbg::ICanTransport &t, const QByteArray &cmd, QByteArray &outReply)
 {
-    t.write(kRequestCanId, cmd);
-    quint32 id = 0;
-    outReply = t.read(250, id);
+    t.write(kRequestCanId, bytes::view(cmd));
+    std::uint32_t id = 0;
+    outReply = bytes::toQByteArray(t.read(250, id));
     return !outReply.isEmpty() && id == kReplyCanId;
 }
 }
@@ -101,8 +102,8 @@ QVector<quint32> CdbgLogDriver::pollOnce(int timeoutMs)
     if (!streaming_)
         return {};
 
-    quint32 id = 0;
-    QByteArray frame = t_.read(timeoutMs, id);
+    std::uint32_t id = 0;
+    QByteArray frame = bytes::toQByteArray(t_.read(timeoutMs, id));
     if (!frame.isEmpty() && id == kReplyCanId) {
         quint8 frameIdx = quint8(frame.at(0));
         if (frameIdx < quint8(frames_.size())) {

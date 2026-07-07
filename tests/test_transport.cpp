@@ -1,4 +1,5 @@
 #include <QtTest>
+#include "protocol/qt_bytes.h"
 #include "scripted_kline_transport.h"
 #include "test_transport.h"
 using namespace mutdma;
@@ -9,14 +10,14 @@ private slots:
         t.expectWrite(QByteArray::fromHex("A0"));
         t.queueRead(QByteArray::fromHex("A5"));
         QCOMPARE(t.setBaud(125000), true);
-        QCOMPARE(t.write(QByteArray::fromHex("A0")), 1);
-        QCOMPARE(t.read(50, -1), QByteArray::fromHex("A5"));
+        QCOMPARE(t.write(bytes::view(QByteArray::fromHex("A0"))), 1);
+        QCOMPARE(bytes::toQByteArray(t.read(50, -1)), QByteArray::fromHex("A5"));
         QVERIFY(t.scriptConsumed());
     }
     void scripted_unexpected_write_flags() {
         ScriptedKlineTransport t;
         t.expectWrite(QByteArray::fromHex("A0"));
-        t.write(QByteArray::fromHex("BB"));
+        t.write(bytes::view(QByteArray::fromHex("BB")));
         QVERIFY(!t.ok());                                 // mismatch recorded
     }
 };

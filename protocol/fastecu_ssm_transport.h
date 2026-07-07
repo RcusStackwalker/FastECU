@@ -6,8 +6,8 @@ class SerialPortActions;
 class FastEcuSsmTransport : public ISsmTransport {
 public:
     explicit FastEcuSsmTransport(SerialPortActions *serial) : serial_(serial) {}
-    int write(const QByteArray &data) override;
-    QByteArray read(int timeoutMs) override;
+    int write(bytes::ByteView data) override;
+    bytes::Bytes read(int timeoutMs) override;
     bool isOpen() const override;
 
 private:

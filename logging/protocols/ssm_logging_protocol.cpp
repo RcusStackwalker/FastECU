@@ -1,5 +1,6 @@
 #include "logging/protocols/ssm_logging_protocol.h"
 #include "logging/romraider_conversion.h"
+#include "protocol/qt_bytes.h"
 #include <QElapsedTimer>
 
 namespace {
@@ -44,21 +45,21 @@ QByteArray SsmLoggingProtocol::readFramedResponse(int timeoutMs)
     clock.start();
 
     if (useOpenport2Adapter_)
-        return transport_->read(timeoutMs);
+        return bytes::toQByteArray(transport_->read(timeoutMs));
 
     while (received.length() < 3 && clock.elapsed() < timeoutMs)
-        received.append(transport_->read(10));
+        received.append(bytes::toQByteArray(transport_->read(10)));
 
     while (received.length() >= 3
            && ((uint8_t)received.at(0) != 0x80 || (uint8_t)received.at(1) != 0xf0 || (uint8_t)received.at(2) != 0x10)
            && clock.elapsed() < timeoutMs) {
         received.remove(0, 1);
-        received.append(transport_->read(10));
+        received.append(bytes::toQByteArray(transport_->read(10)));
     }
 
     int remaining = timeoutMs - int(clock.elapsed());
     if (remaining > 0)
-        received.append(transport_->read(remaining));
+        received.append(bytes::toQByteArray(transport_->read(remaining)));
 
     return received;
 }
@@ -76,7 +77,7 @@ bool SsmLoggingProtocol::start(QString *errorOut)
     output.append((uint8_t)0x00);
     output.append((uint8_t)0x00);
     output.append((uint8_t)0x07);
-    transport_->write(buildSsmHeader(output));
+    transport_->write(bytes::view(buildSsmHeader(output)));
 
     QByteArray received = readFramedResponse(kStartTimeoutMs);
     if (received.length() <= 6 || (uint8_t)received.at(4) != 0xe8) {
@@ -110,7 +111,7 @@ PollResult SsmLoggingProtocol::poll(int timeoutMs)
             }
         }
     }
-    transport_->write(buildSsmHeader(output));
+    transport_->write(bytes::view(buildSsmHeader(output)));
 
     QByteArray received = readFramedResponse(timeoutMs);
     if (received.length() <= 6 || (uint8_t)received.at(4) != 0xe8) {

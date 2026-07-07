@@ -261,6 +261,10 @@ Implemented baseline:
   `SerialPortActions` facade.
 - FastECU transport adapters bridge the existing facade to those smaller
   interfaces for compatibility.
+- K-Line, CAN, and SSM transport interfaces now expose `bytes::ByteView` and
+  `bytes::Bytes` instead of `QByteArray`; Qt conversion is isolated in the
+  FastECU adapters, scripted test transports, and temporary protocol-driver
+  compatibility shims.
 - Facade threading coverage now includes teardown waiting for an in-flight
   backend read before joining the I/O thread.
 

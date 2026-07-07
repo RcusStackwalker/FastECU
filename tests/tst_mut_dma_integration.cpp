@@ -42,6 +42,7 @@
 #include "protocol/mut_dma_freeform.h"
 #include "protocol/mut_dma_driver.h"
 #include "protocol/imut_dma_init.h"
+#include "protocol/qt_bytes.h"
 
 using namespace mutdma;
 
@@ -291,7 +292,7 @@ void MutDmaIntegrationTest::write_throughAdapter_putsExactFrameOnWire()
         QTest::qWait(100);     // let all connect-handshake bytes reach the mock
         mock.resetParser();    // then start capture from a clean buffer
 
-        const int written = tr.write(frame);
+        const int written = tr.write(bytes::view(frame));
         QCOMPARE(written, frame.size());
 
         // Pump the event loop so the mock's QSocketNotifier drains and captures it.
@@ -321,7 +322,7 @@ void MutDmaIntegrationTest::read_throughAdapter_returnsEcuReplyBytes()
         reply.append(char(0xCC)); reply.append(char(0xDD));
         mock.injectDataFrame(reply);
 
-        const QByteArray got = tr.read(500);
+        const QByteArray got = bytes::toQByteArray(tr.read(500));
         QCOMPARE(got, reply);
     }
     ::close(master);

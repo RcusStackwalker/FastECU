@@ -1,15 +1,16 @@
 #include "protocol/fastecu_ssm_transport.h"
+#include "protocol/qt_bytes.h"
 #include "serial_port/serial_port_actions.h"
 
-int FastEcuSsmTransport::write(const QByteArray &data)
+int FastEcuSsmTransport::write(bytes::ByteView data)
 {
-    serial_->write_serial_data_echo_check(data);
-    return data.size();
+    serial_->write_serial_data_echo_check(bytes::toQByteArray(data));
+    return static_cast<int>(data.size());
 }
 
-QByteArray FastEcuSsmTransport::read(int timeoutMs)
+bytes::Bytes FastEcuSsmTransport::read(int timeoutMs)
 {
-    return serial_->read_serial_data(static_cast<uint16_t>(timeoutMs));
+    return bytes::fromQByteArray(serial_->read_serial_data(static_cast<uint16_t>(timeoutMs)));
 }
 
 bool FastEcuSsmTransport::isOpen() const
