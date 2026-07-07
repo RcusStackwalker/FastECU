@@ -244,6 +244,16 @@ Actions:
 - Move J2534 constants/types and adapter probing away from higher-level serial
   behavior where possible.
 
+Implemented baseline:
+
+- New K-Line, CAN, and SSM protocol code can depend on `IKlineTransport`,
+  `ICanTransport`, and `ISsmTransport` instead of the full
+  `SerialPortActions` facade.
+- FastECU transport adapters bridge the existing facade to those smaller
+  interfaces for compatibility.
+- Facade threading coverage now includes teardown waiting for an in-flight
+  backend read before joining the I/O thread.
+
 ### P1: Make checksum and conversion code headless
 
 Checksum modules and definition/parsing code sometimes show `QMessageBox`
@@ -287,6 +297,13 @@ Actions:
 - Keep GUI-only dependencies out of lower-level units.
 - Rename the broad `tests/tests.pro`/`mut_dma_tests` target once it is no longer
   only MUT/DMA-focused.
+
+Implemented baseline:
+
+- Protocol sources and headers now live in `protocol/protocol.pri`, which is
+  included by the app project and the broad protocol/logging QtTest target.
+  This removes one duplicated hand-maintained source group without changing the
+  qmake target layout yet.
 
 ### P2: Naming and source organization
 

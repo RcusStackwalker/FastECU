@@ -3,6 +3,7 @@
 #include <QtTest>
 #include <QSemaphore>
 #include <QElapsedTimer>
+#include <atomic>
 #include <thread>
 #include <vector>
 
@@ -19,6 +20,7 @@ private slots:
     void workerThreadCaller_noAffinityWarnings();
     void concurrentCallers_serializeWithoutInterleaving();
     void destroyAfterUse_joinsIoThread();
+    void destroyWhileReadInFlight_waitsForBackendCall();
 };
 
 void TestFacadeThreading::constructDestroy_withoutUse_noThreadNoHang()
@@ -146,6 +148,45 @@ void TestFacadeThreading::destroyAfterUse_joinsIoThread()
     }
     QVERIFY2(!ioThread || !ioThread->isRunning(),
              "facade destruction must stop and join the I/O thread");
+}
+
+void TestFacadeThreading::destroyWhileReadInFlight_waitsForBackendCall()
+{
+    FakeBackend *fake = nullptr;
+    auto *serial = new SerialPortActions(
+        "", "", nullptr, nullptr,
+        [&fake]() -> SerialBackend * { fake = new FakeBackend(); return fake; });
+
+    serial->set_add_ssm_header(false);   // create backend before wiring gates
+    fake->scriptedResponse = QByteArray("done");
+
+    QSemaphore readEntered;
+    QSemaphore continueRead;
+    fake->readEntered = &readEntered;
+    fake->continueRead = &continueRead;
+
+    QByteArray got;
+    std::thread reader([&] {
+        got = serial->read_serial_data(10);
+    });
+    QVERIFY2(readEntered.tryAcquire(1, 1000), "backend read did not start");
+
+    std::atomic<bool> destroyed{false};
+    std::thread destroyer([&] {
+        delete serial;
+        destroyed.store(true);
+    });
+
+    QTest::qWait(50);
+    QVERIFY2(!destroyed.load(),
+             "facade teardown must wait for the in-flight backend call");
+
+    continueRead.release();
+    reader.join();
+    destroyer.join();
+
+    QCOMPARE(got, QByteArray("done"));
+    QVERIFY(destroyed.load());
 }
 
 int run_test_facade_threading(int argc, char **argv)

@@ -12,6 +12,7 @@ CONFIG += c++17
 DEFINES += QT_DEPRECATED_WARNINGS #QT_SSL
 # Bounds-check hardening (forced asserts + opt-in sanitizers).
 include(hardening.pri)
+include(protocol/protocol.pri)
 
 # You can also make your code fail to compile if it uses deprecated APIs.
 # In order to do so, uncomment the following line.
@@ -194,18 +195,6 @@ SOURCES += \
     systemlogger.cpp \
     vehicle_select.cpp \
     verticallabel.cpp \
-    protocol/mitsu_colt_can_protocol.cpp \
-    protocol/mitsu_colt_can_vendor_ext_protocol.cpp \
-    protocol/mut_dma_codec.cpp \
-    protocol/mut_dma_freeform.cpp \
-    protocol/mut_dma_memory.cpp \
-    protocol/imut_dma_init.cpp \
-    protocol/mut_dma_driver.cpp \
-    protocol/fastecu_kline_transport.cpp \
-    protocol/mitsu_colt_can_cdbg_protocol.cpp \
-    protocol/fastecu_can_transport.cpp \
-    protocol/mitsu_colt_can_cdbg_driver.cpp \
-    protocol/fastecu_ssm_transport.cpp \
     logging/logging_worker.cpp \
     logging/logging_engine.cpp \
     logging/romraider_conversion.cpp \
@@ -328,21 +317,6 @@ HEADERS += \
     systemlogger.h \
     vehicle_select.h \
     verticallabel.h \
-    protocol/mitsu_colt_can_protocol.h \
-    protocol/mitsu_colt_can_vendor_ext_protocol.h \
-    protocol/mut_dma_codec.h \
-    protocol/mut_dma_freeform.h \
-    protocol/mut_dma_memory.h \
-    protocol/ikline_transport.h \
-    protocol/imut_dma_init.h \
-    protocol/mut_dma_driver.h \
-    protocol/fastecu_kline_transport.h \
-    protocol/mitsu_colt_can_cdbg_protocol.h \
-    protocol/ican_transport.h \
-    protocol/fastecu_can_transport.h \
-    protocol/mitsu_colt_can_cdbg_driver.h \
-    protocol/issm_transport.h \
-    protocol/fastecu_ssm_transport.h \
     logging/logging_protocol.h \
     logging/logging_worker.h \
     logging/logging_engine.h \

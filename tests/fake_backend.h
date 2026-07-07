@@ -3,6 +3,7 @@
 
 #include <QMutex>
 #include <QMutexLocker>
+#include <QSemaphore>
 #include <QStringList>
 #include <QThread>
 
@@ -17,6 +18,8 @@ class FakeBackend : public SerialPortActionsDirect
 public:
     int readDelayMs = 0;              // set before use; simulates a slow adapter
     QByteArray scriptedResponse;
+    QSemaphore *readEntered = nullptr;
+    QSemaphore *continueRead = nullptr;
 
     QStringList takeCallLog()
     {
@@ -38,6 +41,10 @@ public:
     QByteArray read_serial_data(uint16_t timeout) override
     {
         log(QString("read:begin:t=%1").arg(timeout));
+        if (readEntered)
+            readEntered->release();
+        if (continueRead)
+            continueRead->acquire();
         if (readDelayMs)
             QThread::msleep(readDelayMs);
         log("read:end");

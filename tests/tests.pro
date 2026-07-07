@@ -2,6 +2,7 @@ QT += core testlib widgets xml serialport remoteobjects websockets
 CONFIG += console c++17
 CONFIG -= app_bundle
 include(../hardening.pri)
+include(../protocol/protocol.pri)
 TEMPLATE = app
 TARGET = mut_dma_tests
 INCLUDEPATH += $$PWD/..
@@ -84,15 +85,6 @@ SOURCES += \
     ../modules/checksum/checksum_tcu_mitsu_mh8104_can.cpp \
     ../modules/checksum/checksum_tcu_subaru_denso_sh7055.cpp \
     ../modules/checksum/checksum_tcu_subaru_hitachi_m32r_can.cpp \
-    ../protocol/mitsu_colt_can_protocol.cpp \
-    ../protocol/mitsu_colt_can_vendor_ext_protocol.cpp \
-    ../protocol/mitsu_colt_can_cdbg_protocol.cpp \
-    ../protocol/mitsu_colt_can_cdbg_driver.cpp \
-    ../protocol/mut_dma_codec.cpp \
-    ../protocol/mut_dma_freeform.cpp \
-    ../protocol/mut_dma_memory.cpp \
-    ../protocol/imut_dma_init.cpp \
-    ../protocol/mut_dma_driver.cpp \
     ../logging/logging_worker.cpp \
     ../logging/logging_engine.cpp
 HEADERS += \
@@ -143,14 +135,9 @@ HEADERS += \
     ../menu_command.h \
     ../modules/checksum/checksum_result.h \
     scripted_kline_transport.h \
-    ../protocol/ikline_transport.h \
-    ../protocol/mitsu_colt_can_cdbg_protocol.h \
-    ../protocol/mitsu_colt_can_cdbg_driver.h \
     scripted_can_transport.h \
-    ../protocol/ican_transport.h \
     scripted_logging_protocol.h \
     ../logging/logging_protocol.h \
     ../logging/logging_worker.h \
     ../logging/logging_engine.h \
-    scripted_ssm_transport.h \
-    ../protocol/issm_transport.h
+    scripted_ssm_transport.h

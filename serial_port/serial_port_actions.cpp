@@ -26,12 +26,9 @@ SerialPortActions::SerialPortActions(QString peerAddress, QString password,
 SerialPortActions::~SerialPortActions()
 {
     QMutexLocker locker(&startMutex);
-    // Precondition (see the doc comment on this destructor in
-    // serial_port_actions.h): no other thread may be blocked in a call to
-    // this object right now. `delete m_host` joins the I/O thread and drops
-    // any lambda queued via runOnBackend() that hasn't run yet, so a caller
-    // still waiting on that lambda's semaphore hangs here rather than
-    // crashing on a freed object as it did pre-refactor.
+    // Precondition (see serial_port_actions.h): no new caller may enter this
+    // facade while teardown is running. Work already queued on the backend
+    // thread is drained before `delete m_host` joins the thread.
     delete m_host;   // deletes the backend on the I/O thread, joins the thread
     m_host = nullptr;
     m_backend = nullptr;
