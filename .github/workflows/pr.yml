@@ -199,3 +199,71 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  bazel:
+    name: Bazel (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - uses: bazelbuild/setup-bazelisk@v3
+
+      - name: Install Qt for host tools (Windows)
+        if: runner.os == 'Windows'
+        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
+        with:
+          version: '6.8.3'
+          arch: 'win64_msvc2022_64'
+          modules: 'qtcharts qtserialport qtremoteobjects qtwebsockets qt5compat'
+          tools: 'tools_msvc2022_64,qt.tools.win64_msvc2022_64'
+          add-tools-to-path: true
+
+      - name: Install Qt for host tools (macOS)
+        if: runner.os == 'macOS'
+        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
+        with:
+          version: '6.8.3'
+          modules: 'qtcharts qtserialport qtremoteobjects qtwebsockets qt5compat'
+
+      - name: Install Qt for host tools (Linux)
+        if: runner.os == 'Linux'
+        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
+        with:
+          version: '6.8.3'
+          modules: 'qtcharts qtserialport qtremoteobjects qtwebsockets qt5compat'
+
+      - name: Install Bazel prerequisites (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install llvm openssl -y --no-progress
+          "C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Install Bazel prerequisites (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install llvm openssl@3
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+
+      - name: Install Bazel prerequisites (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-tidy libssl-dev
+
+      - name: Build Bazel targets
+        run: |
+          bazel build --config=release //:fastecu //tests/...
+
+      - name: Test Bazel targets
+        run: |
+          bazel test --config=release //tests/... //:qmake_bazel_sync
+
+      - name: clang-tidy report
+        continue-on-error: true
+        run: |
+          bazel test //:clang_tidy_report --test_output=all

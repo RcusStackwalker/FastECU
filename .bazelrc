@@ -1,0 +1,15 @@
+common --enable_bzlmod
+
+build --cxxopt=-std=c++17
+build --host_cxxopt=-std=c++17
+build --features=compiler_param_file
+build --action_env=QT_SELECT=qt6
+build --action_env=PATH
+
+build:release --compilation_mode=opt
+build:release --copt=-DQT_FORCE_ASSERTS
+
+build:clang-tidy --build_tag_filters=clang-tidy
+test:clang-tidy --test_tag_filters=clang-tidy
+
+test --test_output=errors
