@@ -219,7 +219,6 @@ jobs:
           version: '6.8.3'
           arch: 'win64_msvc2022_64'
           modules: 'qtcharts qtserialport qtremoteobjects qtwebsockets qt5compat'
-          tools: 'tools_msvc2022_64,qt.tools.win64_msvc2022_64'
           add-tools-to-path: true
 
       - name: Install Qt for host tools (macOS)
