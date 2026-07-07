@@ -365,6 +365,13 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(EcuCal
     if (!OemEcuDefBaseFileFound)
         return NULL;
 
+    QStringList validationErrors;
+    if (!validate_calibration_maps(*ecuCalDef, &validationErrors)) {
+        for (const QString &error : validationErrors) {
+            qWarning().noquote() << "Invalid RomRaider definition:" << error;
+        }
+    }
+
     return ecuCalDef;
 }
 
@@ -597,6 +604,13 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(EcuCalDefSt
         roms_child = roms_child.nextSibling().toElement();
     }
 
+    QStringList validationErrors;
+    if (!validate_calibration_maps(*ecuCalDef, &validationErrors)) {
+        for (const QString &error : validationErrors) {
+            qWarning().noquote() << "Invalid RomRaider definition:" << error;
+        }
+    }
+
     return ecuCalDef;
 }
 
@@ -672,7 +686,7 @@ FileActions::EcuCalDefStructure *FileActions::add_romraider_def_list_item(EcuCal
     ecuCalDef->LogParamList.append(" ");
     ecuCalDef->FromByteList.append(" ");
     ecuCalDef->ToByteList.append(" ");
+    ecuCalDef->MapDefined.append(" ");
 
     return ecuCalDef;
 }
-

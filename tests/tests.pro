@@ -40,6 +40,7 @@ SOURCES += \
     test_flash_utils.cpp \
     test_diagnostic_parsers.cpp \
     test_expression_evaluator.cpp \
+    test_model_validation.cpp \
     test_flash_ecu_mitsu_m32r_can_operation.cpp \
     ../modules/ecu/flash_ecu_mitsu_m32r_can_operation.cpp \
     ../serial_port/serial_port_actions.cpp \
@@ -103,6 +104,7 @@ HEADERS += \
     test_flash_utils.h \
     test_diagnostic_parsers.h \
     test_expression_evaluator.h \
+    test_model_validation.h \
     test_flash_ecu_mitsu_m32r_can_operation.h \
     ../modules/ecu/flash_ecu_mitsu_m32r_can_operation.h \
     fake_backend.h \

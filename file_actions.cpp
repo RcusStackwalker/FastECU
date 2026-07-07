@@ -5,10 +5,166 @@
 #include "modules/flash_utils.h"
 #include "nrc_parser.h"
 
+namespace {
+
+void validateListLength(const QString &group,
+                        const QString &name,
+                        int actual,
+                        int expected,
+                        QStringList *errors)
+{
+    if (actual == expected) {
+        return;
+    }
+    errors->append(QString("%1.%2 has %3 entries, expected %4")
+                       .arg(group, name)
+                       .arg(actual)
+                       .arg(expected));
+}
+
+bool validateRequiredField(const QString &group,
+                           const QString &name,
+                           const QStringList &values,
+                           QStringList *errors)
+{
+    bool valid = true;
+    for (int i = 0; i < values.size(); ++i) {
+        const QString value = values.at(i).trimmed();
+        if (value.isEmpty() || value.startsWith("No ")) {
+            errors->append(QString("%1.%2[%3] is required").arg(group, name).arg(i));
+            valid = false;
+        }
+    }
+    return valid;
+}
+
+void logValidationErrors(const QString &group, const QStringList &errors)
+{
+    for (const QString &error : errors) {
+        qWarning().noquote() << group << error;
+    }
+}
+
+} // namespace
+
 FileActions::FileActions(QWidget *parent)
     : QWidget(parent)
 {
 
+}
+
+bool FileActions::validate_flash_protocols(const ConfigValuesStructure &configValues, QStringList *errors)
+{
+    QStringList localErrors;
+    QStringList *out = errors ? errors : &localErrors;
+    const int rows = configValues.flash_protocol_id.size();
+
+    validateListLength("flash_protocol", "alias", configValues.flash_protocol_alias.size(), rows, out);
+    validateListLength("flash_protocol", "make", configValues.flash_protocol_make.size(), rows, out);
+    validateListLength("flash_protocol", "model", configValues.flash_protocol_model.size(), rows, out);
+    validateListLength("flash_protocol", "version", configValues.flash_protocol_version.size(), rows, out);
+    validateListLength("flash_protocol", "type", configValues.flash_protocol_type.size(), rows, out);
+    validateListLength("flash_protocol", "kw", configValues.flash_protocol_kw.size(), rows, out);
+    validateListLength("flash_protocol", "hp", configValues.flash_protocol_hp.size(), rows, out);
+    validateListLength("flash_protocol", "fuel", configValues.flash_protocol_fuel.size(), rows, out);
+    validateListLength("flash_protocol", "year", configValues.flash_protocol_year.size(), rows, out);
+    validateListLength("flash_protocol", "ecu", configValues.flash_protocol_ecu.size(), rows, out);
+    validateListLength("flash_protocol", "mcu", configValues.flash_protocol_mcu.size(), rows, out);
+    validateListLength("flash_protocol", "mode", configValues.flash_protocol_mode.size(), rows, out);
+    validateListLength("flash_protocol", "checksum", configValues.flash_protocol_checksum.size(), rows, out);
+    validateListLength("flash_protocol", "read", configValues.flash_protocol_read.size(), rows, out);
+    validateListLength("flash_protocol", "test_write", configValues.flash_protocol_test_write.size(), rows, out);
+    validateListLength("flash_protocol", "write", configValues.flash_protocol_write.size(), rows, out);
+    validateListLength("flash_protocol", "flash_transport", configValues.flash_protocol_flash_transport.size(), rows, out);
+    validateListLength("flash_protocol", "log_transport", configValues.flash_protocol_log_transport.size(), rows, out);
+    validateListLength("flash_protocol", "log_protocol", configValues.flash_protocol_log_protocol.size(), rows, out);
+    validateListLength("flash_protocol", "ecu_id_ascii", configValues.flash_protocol_ecu_id_ascii.size(), rows, out);
+    validateListLength("flash_protocol", "ecu_id_addr", configValues.flash_protocol_ecu_id_addr.size(), rows, out);
+    validateListLength("flash_protocol", "ecu_id_length", configValues.flash_protocol_ecu_id_length.size(), rows, out);
+    validateListLength("flash_protocol", "cal_id_ascii", configValues.flash_protocol_cal_id_ascii.size(), rows, out);
+    validateListLength("flash_protocol", "cal_id_addr", configValues.flash_protocol_cal_id_addr.size(), rows, out);
+    validateListLength("flash_protocol", "cal_id_length", configValues.flash_protocol_cal_id_length.size(), rows, out);
+    validateListLength("flash_protocol", "kernel", configValues.flash_protocol_kernel.size(), rows, out);
+    validateListLength("flash_protocol", "kernel_addr", configValues.flash_protocol_kernel_addr.size(), rows, out);
+    validateListLength("flash_protocol", "description", configValues.flash_protocol_description.size(), rows, out);
+    validateListLength("flash_protocol", "protocol_name", configValues.flash_protocol_protocol_name.size(), rows, out);
+
+    validateRequiredField("flash_protocol", "id", configValues.flash_protocol_id, out);
+    validateRequiredField("flash_protocol", "protocol_name", configValues.flash_protocol_protocol_name, out);
+
+    return out->isEmpty();
+}
+
+bool FileActions::validate_logger_values(const LogValuesStructure &logValues, QStringList *errors)
+{
+    QStringList localErrors;
+    QStringList *out = errors ? errors : &localErrors;
+    const int rows = logValues.log_value_id.size();
+
+    validateListLength("log_value", "protocol", logValues.log_value_protocol.size(), rows, out);
+    validateListLength("log_value", "name", logValues.log_value_name.size(), rows, out);
+    validateListLength("log_value", "description", logValues.log_value_description.size(), rows, out);
+    validateListLength("log_value", "ecu_byte_index", logValues.log_value_ecu_byte_index.size(), rows, out);
+    validateListLength("log_value", "ecu_bit", logValues.log_value_ecu_bit.size(), rows, out);
+    validateListLength("log_value", "target", logValues.log_value_target.size(), rows, out);
+    validateListLength("log_value", "address", logValues.log_value_address.size(), rows, out);
+    validateListLength("log_value", "units", logValues.log_value_units.size(), rows, out);
+    validateListLength("log_value", "length", logValues.log_value_length.size(), rows, out);
+    validateListLength("log_value", "value", logValues.log_value.size(), rows, out);
+    validateListLength("log_value", "enabled", logValues.log_value_enabled.size(), rows, out);
+
+    validateRequiredField("log_value", "protocol", logValues.log_value_protocol, out);
+    validateRequiredField("log_value", "id", logValues.log_value_id, out);
+
+    return out->isEmpty();
+}
+
+bool FileActions::validate_logger_switches(const LogValuesStructure &logValues, QStringList *errors)
+{
+    QStringList localErrors;
+    QStringList *out = errors ? errors : &localErrors;
+    const int rows = logValues.log_switch_id.size();
+
+    validateListLength("log_switch", "protocol", logValues.log_switch_protocol.size(), rows, out);
+    validateListLength("log_switch", "name", logValues.log_switch_name.size(), rows, out);
+    validateListLength("log_switch", "description", logValues.log_switch_description.size(), rows, out);
+    validateListLength("log_switch", "address", logValues.log_switch_address.size(), rows, out);
+    validateListLength("log_switch", "ecu_byte_index", logValues.log_switch_ecu_byte_index.size(), rows, out);
+    validateListLength("log_switch", "ecu_bit", logValues.log_switch_ecu_bit.size(), rows, out);
+    validateListLength("log_switch", "target", logValues.log_switch_target.size(), rows, out);
+    validateListLength("log_switch", "enabled", logValues.log_switch_enabled.size(), rows, out);
+    validateListLength("log_switch", "state", logValues.log_switch_state.size(), rows, out);
+
+    validateRequiredField("log_switch", "protocol", logValues.log_switch_protocol, out);
+    validateRequiredField("log_switch", "id", logValues.log_switch_id, out);
+
+    return out->isEmpty();
+}
+
+bool FileActions::validate_calibration_maps(const EcuCalDefStructure &ecuCalDef, QStringList *errors)
+{
+    QStringList localErrors;
+    QStringList *out = errors ? errors : &localErrors;
+    const int rows = ecuCalDef.IdList.size();
+
+    validateListLength("calibration_map", "type", ecuCalDef.TypeList.size(), rows, out);
+    validateListLength("calibration_map", "name", ecuCalDef.NameList.size(), rows, out);
+    validateListLength("calibration_map", "address", ecuCalDef.AddressList.size(), rows, out);
+    validateListLength("calibration_map", "category", ecuCalDef.CategoryList.size(), rows, out);
+    validateListLength("calibration_map", "x_size", ecuCalDef.XSizeList.size(), rows, out);
+    validateListLength("calibration_map", "y_size", ecuCalDef.YSizeList.size(), rows, out);
+    validateListLength("calibration_map", "format", ecuCalDef.FormatList.size(), rows, out);
+    validateListLength("calibration_map", "units", ecuCalDef.UnitsList.size(), rows, out);
+    validateListLength("calibration_map", "storage_type", ecuCalDef.StorageTypeList.size(), rows, out);
+    validateListLength("calibration_map", "endian", ecuCalDef.EndianList.size(), rows, out);
+    validateListLength("calibration_map", "from_byte", ecuCalDef.FromByteList.size(), rows, out);
+    validateListLength("calibration_map", "to_byte", ecuCalDef.ToByteList.size(), rows, out);
+    validateListLength("calibration_map", "defined", ecuCalDef.MapDefined.size(), rows, out);
+
+    validateRequiredField("calibration_map", "id", ecuCalDef.IdList, out);
+    validateRequiredField("calibration_map", "name", ecuCalDef.NameList, out);
+
+    return out->isEmpty();
 }
 
 FileActions::ConfigValuesStructure *FileActions::set_base_dirs(ConfigValuesStructure *configValues)
@@ -929,6 +1085,11 @@ FileActions::ConfigValuesStructure *FileActions::read_protocols_file(FileActions
         }
     }
 
+    QStringList validationErrors;
+    if (!validate_flash_protocols(*configValues, &validationErrors)) {
+        logValidationErrors("Invalid protocols file:", validationErrors);
+    }
+
     return configValues;
 }
 
@@ -1412,6 +1573,13 @@ FileActions::LogValuesStructure *FileActions::read_logger_definition_file()
 
     //log_values_names_sorted
     //log_switch_names_sorted
+    QStringList validationErrors;
+    validate_logger_values(*logValues, &validationErrors);
+    validate_logger_switches(*logValues, &validationErrors);
+    if (!validationErrors.isEmpty()) {
+        logValidationErrors("Invalid logger definition:", validationErrors);
+    }
+
     return logValues;
 }
 

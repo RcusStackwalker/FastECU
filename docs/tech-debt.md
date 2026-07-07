@@ -185,6 +185,18 @@ Actions:
 - Prefer `std::optional`/explicit result types over returning `NULL` or partially
   filled structs.
 
+Implemented baseline:
+
+- Added validation helpers for flash protocol rows, logger parameters, logger
+  switches, and calibration map rows.
+- Protocol, logger definition, RomRaider definition, and EcuFlash definition
+  parsing now reports mismatched parallel-list lengths and missing required row
+  identifiers immediately after parsing.
+- RomRaider calibration map rows now append `MapDefined` consistently with
+  EcuFlash rows.
+- Focused QtTest coverage exercises valid rows, mismatched row lengths, and
+  missing required identifiers.
+
 ### P1: Extract pure protocol and flash-operation helpers
 
 There are 29 flash/eeprom/jtag/bdm operation pairs under `modules/`. The recent

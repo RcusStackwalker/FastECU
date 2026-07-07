@@ -463,6 +463,10 @@ public:
      * Read FastECU flash protocols file
      ************************************/
     ConfigValuesStructure *read_protocols_file(FileActions::ConfigValuesStructure *configValues);
+    static bool validate_flash_protocols(const ConfigValuesStructure &configValues, QStringList *errors = nullptr);
+    static bool validate_logger_values(const LogValuesStructure &logValues, QStringList *errors = nullptr);
+    static bool validate_logger_switches(const LogValuesStructure &logValues, QStringList *errors = nullptr);
+    static bool validate_calibration_maps(const EcuCalDefStructure &ecuCalDef, QStringList *errors = nullptr);
 
     /************************
      * Read logger def file

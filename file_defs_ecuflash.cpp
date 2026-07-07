@@ -774,6 +774,13 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
         }
     }
 
+    QStringList validationErrors;
+    if (!validate_calibration_maps(*ecuCalDef, &validationErrors)) {
+        for (const QString &error : validationErrors) {
+            qWarning().noquote() << "Invalid EcuFlash definition:" << error;
+        }
+    }
+
     emit LOG_D("Definition for CAL ID " + cal_id + " succesfully read, start parsing definition scalings...", true, true);
     return ecuCalDef;
 }
