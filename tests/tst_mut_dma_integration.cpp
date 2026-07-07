@@ -349,7 +349,7 @@ void MutDmaIntegrationTest::driverPollOnce_throughAdapter_decodesStreamFrameFrom
         driver.setChannelsForTest(channels);
 
         // Streamed frame: [logId][data...][sum8(0..len-3)][0x0D].
-        const quint8 logId = 0x00;
+        const bytes::Byte logId = 0x00;
         QByteArray data;
         data.append(char(0x42));                       // channel 0 (1B) = 0x42
         data.append(char(0xDE)); data.append(char(0xAD)); // channel 1 (2B) = 0xDEAD
@@ -362,10 +362,10 @@ void MutDmaIntegrationTest::driverPollOnce_throughAdapter_decodesStreamFrameFrom
         tr.read(60);   // drain residual
         mock.injectDataFrame(frame);
 
-        const QVector<quint32> values = driver.pollOnce(500);
+        const QVector<std::uint32_t> values = driver.pollOnce(500);
         QCOMPARE(values.size(), 2);
-        QCOMPARE(values.at(0), quint32(0x42));
-        QCOMPARE(values.at(1), quint32(0xDEAD));
+        QCOMPARE(values.at(0), std::uint32_t(0x42));
+        QCOMPARE(values.at(1), std::uint32_t(0xDEAD));
     }
     ::close(master);
 }

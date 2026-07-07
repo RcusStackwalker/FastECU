@@ -18,20 +18,20 @@ private slots:
         // (per-byte increment keyed on low 2 bits, 8-bit rotate-left-3, then a
         // parity-keyed byte permutation, then two 16-bit multiply-accumulates).
         // Each case below exercises a different parity (0-4) branch.
-        QCOMPARE(seedToKey(0x00000000), quint32(0xAA04C31C)); // parity 0
-        QCOMPARE(seedToKey(0x00000009), quint32(0x2104C31C)); // parity 1
-        QCOMPARE(seedToKey(0x12345678), quint32(0x8C536B33)); // parity 2
-        QCOMPARE(seedToKey(0x00090914), quint32(0x1E0C3241)); // parity 3
-        QCOMPARE(seedToKey(0x09090909), quint32(0x1B632D75)); // parity 4 (default branch)
-        QCOMPARE(seedToKey(0xD61B2EEA), quint32(0xBA80A2C1)); // live ECU log sample
+        QCOMPARE(seedToKey(0x00000000), std::uint32_t(0xAA04C31C)); // parity 0
+        QCOMPARE(seedToKey(0x00000009), std::uint32_t(0x2104C31C)); // parity 1
+        QCOMPARE(seedToKey(0x12345678), std::uint32_t(0x8C536B33)); // parity 2
+        QCOMPARE(seedToKey(0x00090914), std::uint32_t(0x1E0C3241)); // parity 3
+        QCOMPARE(seedToKey(0x09090909), std::uint32_t(0x1B632D75)); // parity 4 (default branch)
+        QCOMPARE(seedToKey(0xD61B2EEA), std::uint32_t(0xBA80A2C1)); // live ECU log sample
     }
     void extract_seed_reads_big_endian_bytes_4_to_7() {
         const CdbgFrame reply{0, 0, 0, 0, 0x12, 0x34, 0x56, 0x78};
-        QCOMPARE(extractSeed(reply), quint32(0x12345678));
+        QCOMPARE(extractSeed(reply), std::uint32_t(0x12345678));
     }
     void extract_seed_returns_zero_for_short_reply() {
         const bytes::Bytes reply{0x00, 0x11, 0x22};
-        QCOMPARE(extractSeed(reply), quint32(0));
+        QCOMPARE(extractSeed(reply), std::uint32_t(0));
     }
     void security_key_frame_layout() {
         const CdbgFrame expected{0x13, 0, 0x8C, 0x53, 0x6B, 0x33, 0, 0};
@@ -94,7 +94,7 @@ private slots:
         // would overflow) - one more than kMaxFrames (8).
         QVector<CdbgChannel> channels;
         for (int i = 0; i < 9; ++i)
-            channels.append(CdbgChannel{quint32(0x800000 + i), 4});
+            channels.append(CdbgChannel{std::uint32_t(0x800000 + i), 4});
         QVector<QVector<CdbgChannel>> frames;
         QVERIFY(!batchChannelsIntoFrames(channels, frames));
     }
@@ -114,10 +114,10 @@ private slots:
     void decode_frame_reads_big_endian_values_at_the_right_offsets() {
         QVector<CdbgChannel> frameItems = { {0x804FBF, 1}, {0x804DF2, 2} };
         const CdbgFrame frame{0, 0x2A, 0x12, 0x34, 0, 0, 0, 0};
-        QVector<quint32> values = decodeFrame(0, frameItems, frame);
+        QVector<std::uint32_t> values = decodeFrame(0, frameItems, frame);
         QCOMPARE(values.size(), 2);
-        QCOMPARE(values.at(0), quint32(0x2A));
-        QCOMPARE(values.at(1), quint32(0x1234));
+        QCOMPARE(values.at(0), std::uint32_t(0x2A));
+        QCOMPARE(values.at(1), std::uint32_t(0x1234));
     }
     void decode_frame_rejects_mismatched_frame_index() {
         QVector<CdbgChannel> frameItems = { {0x804FBF, 1} };

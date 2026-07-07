@@ -5,7 +5,7 @@ MutDmaFrame buildSetupFrame(bytes::Byte setupCmd, bytes::Byte channelCount) {
     const bytes::Bytes payload{channelCount};
     return buildCommandFrame(setupCmd, payload, TRAILER_FREEFORM);
 }
-quint8 sizeToDescriptor(quint8 len) {
+bytes::Byte sizeToDescriptor(bytes::Byte len) {
     switch (len) { case 1: return 0; case 2: return 1; case 4: return 2; default: return 0; }
 }
 int reqLen(int channelCount) {
@@ -35,10 +35,10 @@ bytes::Bytes buildIdListFrame(bytes::Byte listCmd, const QVector<Channel>& chann
 int responseDataLength(const QVector<Channel>& channels) {
     int n = 0; for (const Channel& c : channels) n += c.len; return n;
 }
-QVector<quint32> decodeStreamValues(const QVector<Channel>& channels, bytes::ByteView data) {
-    QVector<quint32> out; int off = 0;
+QVector<std::uint32_t> decodeStreamValues(const QVector<Channel>& channels, bytes::ByteView data) {
+    QVector<std::uint32_t> out; int off = 0;
     for (const Channel& c : channels) {
-        quint32 v = 0;
+        std::uint32_t v = 0;
         for (int k = 0; k < c.len && off < static_cast<int>(data.size()); ++k, ++off)
             v = (v << 8) | data[static_cast<std::size_t>(off)]; // big-endian
         out.append(v);

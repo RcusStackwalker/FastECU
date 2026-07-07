@@ -46,8 +46,8 @@ private slots:
         t.queueRead(fr);
         MutDmaDriver d(t, init);
         d.setChannelsForTest(ch);
-        QVector<quint32> v = d.pollOnce(50);
-        QCOMPARE(v.size(), 1); QCOMPARE(v.at(0), quint32(0x1234));
+        QVector<std::uint32_t> v = d.pollOnce(50);
+        QCOMPARE(v.size(), 1); QCOMPARE(v.at(0), std::uint32_t(0x1234));
     }
     void handshake_fails_on_wake_failure() {
         QVector<Channel> ch = { {0x8000,2} };

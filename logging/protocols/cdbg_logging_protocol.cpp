@@ -2,6 +2,8 @@
 #include "logging/romraider_conversion.h"
 #include "serial_port/serial_port_actions.h"
 
+#include <cstdint>
+
 using namespace MitsuColtCanCdbg;
 
 namespace {
@@ -15,7 +17,7 @@ QVector<CdbgChannel> channelsFromLogValues(FileActions::LogValuesStructure *lv, 
                 && lv->log_value_protocol.at(j) == "CDBG") {
                 CdbgChannel c;
                 c.pointer = lv->log_value_address.at(j).toUInt(nullptr, 16);
-                c.size = quint8(lv->log_value_length.at(j).toUInt());
+                c.size = static_cast<bytes::Byte>(lv->log_value_length.at(j).toUInt());
                 ch.append(c);
                 outIndices.append(j);
             }
@@ -81,7 +83,7 @@ PollResult CdbgLoggingProtocol::poll(int timeoutMs)
         return result;
     }
 
-    QVector<quint32> vals = driver_.pollOnce(timeoutMs);
+    QVector<std::uint32_t> vals = driver_.pollOnce(timeoutMs);
     if (vals.isEmpty()) {
         result.status = PollResult::Status::NoResponse;
         return result;

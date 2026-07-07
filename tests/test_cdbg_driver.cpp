@@ -41,10 +41,10 @@ private slots:
         QVERIFY(t.ok());
 
         t.queueRead(kReplyCanId, test_bytes::bytesFromHex("002A123400000000"));
-        QVector<quint32> vals = d.pollOnce(50);
+        QVector<std::uint32_t> vals = d.pollOnce(50);
         QCOMPARE(vals.size(), 2);
-        QCOMPARE(vals.at(0), quint32(42));
-        QCOMPARE(vals.at(1), quint32(0x1234));
+        QCOMPARE(vals.at(0), std::uint32_t(42));
+        QCOMPARE(vals.at(1), std::uint32_t(0x1234));
     }
 
     void accepts_live_security_reply_shape() {
@@ -132,7 +132,7 @@ private slots:
         QVERIFY(batchChannelsIntoFrames(ch, frames));
         QCOMPARE(frames.size(), 2);
         for (int f = 0; f < frames.size(); ++f) {
-            for (const CdbgFrame &cmd : buildFrameInitFrames(0, quint8(f), frames.at(f))) {
+            for (const CdbgFrame &cmd : buildFrameInitFrames(0, bytes::Byte(f), frames.at(f))) {
                 t.expectWrite(kRequestCanId, cmd);
                 t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
             }
@@ -145,19 +145,19 @@ private slots:
 
         // Frame 0 arrives first: channel 0 (4-byte) = 0xAABBCCDD.
         t.queueRead(kReplyCanId, test_bytes::bytesFromHex("00AABBCCDD000000"));
-        QVector<quint32> v1 = d.pollOnce(50);
+        QVector<std::uint32_t> v1 = d.pollOnce(50);
         QCOMPARE(v1.size(), 3);
-        QCOMPARE(v1.at(0), quint32(0xAABBCCDD));
-        QCOMPARE(v1.at(1), quint32(0));
-        QCOMPARE(v1.at(2), quint32(0));
+        QCOMPARE(v1.at(0), std::uint32_t(0xAABBCCDD));
+        QCOMPARE(v1.at(1), std::uint32_t(0));
+        QCOMPARE(v1.at(2), std::uint32_t(0));
 
         // Frame 1 arrives next: channel 1 (4-byte) = 0x11223344, channel 2 (2-byte) = 0x5566.
         t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0111223344556600"));
-        QVector<quint32> v2 = d.pollOnce(50);
+        QVector<std::uint32_t> v2 = d.pollOnce(50);
         QCOMPARE(v2.size(), 3);
-        QCOMPARE(v2.at(0), quint32(0xAABBCCDD)); // retained from frame 0
-        QCOMPARE(v2.at(1), quint32(0x11223344));
-        QCOMPARE(v2.at(2), quint32(0x5566));
+        QCOMPARE(v2.at(0), std::uint32_t(0xAABBCCDD)); // retained from frame 0
+        QCOMPARE(v2.at(1), std::uint32_t(0x11223344));
+        QCOMPARE(v2.at(2), std::uint32_t(0x5566));
     }
 
     void poll_returns_empty_when_not_streaming() {

@@ -1,6 +1,8 @@
 #include "logging/protocols/mut_dma_logging_protocol.h"
 #include "logging/romraider_conversion.h"
 
+#include <cstdint>
+
 using namespace mutdma;
 
 namespace {
@@ -17,8 +19,8 @@ QVector<Channel> channelsFromLogValues(FileActions::LogValuesStructure *lv, QVec
                 && lv->log_value_protocol.at(j) == "MUT_DMA"
                 && lv->log_value_enabled.at(j) == "1") {
                 Channel c;
-                c.id = quint16(lv->log_value_address.at(j).toUInt(nullptr, 16));
-                c.len = quint8(lv->log_value_length.at(j).toUInt());
+                c.id = static_cast<std::uint16_t>(lv->log_value_address.at(j).toUInt(nullptr, 16));
+                c.len = static_cast<bytes::Byte>(lv->log_value_length.at(j).toUInt());
                 ch.append(c);
                 outIndices.append(j);
             }
@@ -68,7 +70,7 @@ PollResult MutDmaLoggingProtocol::poll(int timeoutMs)
         return result;
     }
 
-    QVector<quint32> vals = driver_.pollOnce(timeoutMs);
+    QVector<std::uint32_t> vals = driver_.pollOnce(timeoutMs);
     if (vals.isEmpty()) {
         result.status = PollResult::Status::NoResponse;
         return result;

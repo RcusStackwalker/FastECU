@@ -4,15 +4,17 @@
 
 #include <QVector>
 
+#include <cstdint>
+
 namespace mutdma {
 struct Channel {
-    quint16 id;    // PID or RAM address (mapped 0x4000-0xBFFF direct / 0x8000-window -> 0x800000+addr)
-    quint8  len;   // element size in bytes: 1, 2, or 4
+    std::uint16_t id; // PID or RAM address (mapped 0x4000-0xBFFF direct / 0x8000-window -> 0x800000+addr)
+    bytes::Byte len;  // element size in bytes: 1, 2, or 4
 };
 // Setup frame: [setupCmd (0xA0/0xB0)][channelCount][pad][sum8][0x0A], 51 bytes.
 MutDmaFrame buildSetupFrame(bytes::Byte setupCmd, bytes::Byte channelCount);
 // 0 for 1 byte, 1 for 2 bytes, 2 for 4 bytes. Returns 0 for unexpected sizes.
-quint8 sizeToDescriptor(quint8 len);
+bytes::Byte sizeToDescriptor(bytes::Byte len);
 // reqLen = ((N+3)>>2) + N*2 + 0x1c   (header+descriptors+ids+overhead+csum+trailer)
 int reqLen(int channelCount);
 // Id-list (host reply to ACK-1): [listCmd 0xA1..0xA4][N][2-bit size descriptors,
@@ -22,5 +24,5 @@ bytes::Bytes buildIdListFrame(bytes::Byte listCmd, const QVector<Channel>& chann
 // Sum of element sizes = number of data bytes a stream frame carries for these channels.
 int responseDataLength(const QVector<Channel>& channels);
 // Decode the stream data payload into one big-endian value per channel, in order.
-QVector<quint32> decodeStreamValues(const QVector<Channel>& channels, bytes::ByteView data);
+QVector<std::uint32_t> decodeStreamValues(const QVector<Channel>& channels, bytes::ByteView data);
 }

@@ -12,28 +12,28 @@ CdbgFrame buildSecuritySeedRequestFrame()
     return CdbgFrame{kCmdSecuritySeed, 0, kSecurityLogAccess, 0, 0, 0, 0, 0};
 }
 
-quint32 seedToKey(quint32 seed)
+std::uint32_t seedToKey(std::uint32_t seed)
 {
-    quint8 data[4] = {
-        quint8((seed >> 24) & 0xFF),
-        quint8((seed >> 16) & 0xFF),
-        quint8((seed >> 8) & 0xFF),
-        quint8(seed & 0xFF)
+    bytes::Byte data[4] = {
+        static_cast<bytes::Byte>((seed >> 24) & 0xFF),
+        static_cast<bytes::Byte>((seed >> 16) & 0xFF),
+        static_cast<bytes::Byte>((seed >> 8) & 0xFF),
+        static_cast<bytes::Byte>(seed & 0xFF)
     };
 
     for (int i = 0; i < 4; ++i) {
-        quint8 x = data[i];
+        bytes::Byte x = data[i];
         switch (x & 0x03) {
-        case 0: x = quint8(x + 145); break;
-        case 1: x = quint8(x + 24);  break;
-        case 2: x = quint8(x + 211); break;
-        case 3: x = quint8(x + 2);   break;
+        case 0: x = static_cast<bytes::Byte>(x + 145); break;
+        case 1: x = static_cast<bytes::Byte>(x + 24);  break;
+        case 2: x = static_cast<bytes::Byte>(x + 211); break;
+        case 3: x = static_cast<bytes::Byte>(x + 2);   break;
         }
-        data[i] = quint8((x << 3) | (x >> 5)); // 8-bit rotate-left by 3
+        data[i] = static_cast<bytes::Byte>((x << 3) | (x >> 5)); // 8-bit rotate-left by 3
     }
 
     int parity = (data[0] & 1) + (data[1] & 1) + (data[2] & 1) + (data[3] & 1);
-    quint8 n[4];
+    bytes::Byte n[4];
     switch (parity) {
     case 0: n[0]=data[1]; n[1]=data[3]; n[2]=data[2]; n[3]=data[0]; break;
     case 1: n[0]=data[3]; n[1]=data[2]; n[2]=data[0]; n[3]=data[1]; break;
@@ -42,20 +42,20 @@ quint32 seedToKey(quint32 seed)
     default: n[0]=data[2]; n[1]=data[0]; n[2]=data[1]; n[3]=data[3]; break;
     }
 
-    quint16 word0 = quint16(((n[0] << 8) + n[1]) * 3 + n[3] * 8);
-    quint16 word1 = quint16(((n[2] << 8) + n[3]) * 5 + n[1] * 8);
+    std::uint16_t word0 = static_cast<std::uint16_t>(((n[0] << 8) + n[1]) * 3 + n[3] * 8);
+    std::uint16_t word1 = static_cast<std::uint16_t>(((n[2] << 8) + n[3]) * 5 + n[1] * 8);
 
-    return (quint32(word0 >> 8) << 24) | (quint32(word0 & 0xFF) << 16)
-         | (quint32(word1 >> 8) << 8)  |  quint32(word1 & 0xFF);
+    return (std::uint32_t(word0 >> 8) << 24) | (std::uint32_t(word0 & 0xFF) << 16)
+         | (std::uint32_t(word1 >> 8) << 8)  |  std::uint32_t(word1 & 0xFF);
 }
 
-quint32 extractSeed(bytes::ByteView reply)
+std::uint32_t extractSeed(bytes::ByteView reply)
 {
     if (reply.size() < 8) return 0;
     return bytes::readU32Be(reply, 4);
 }
 
-CdbgFrame buildSecurityKeyFrame(quint32 key)
+CdbgFrame buildSecurityKeyFrame(std::uint32_t key)
 {
     return CdbgFrame{
         kCmdSecurityKey,
@@ -75,21 +75,21 @@ bool securityGranted(bytes::ByteView reply)
     return reply[3] != 0;
 }
 
-CdbgFrame buildLogResetFrame(quint8 instance)
+CdbgFrame buildLogResetFrame(bytes::Byte instance)
 {
     return CdbgFrame{kCmdLogReset, 0, instance, 0, 0, 0, 0x06, 0x31};
 }
 
-CdbgFrame buildLogStartFrame(quint8 instance, quint8 frameCount, quint32 intervalMs)
+CdbgFrame buildLogStartFrame(bytes::Byte instance, bytes::Byte frameCount, std::uint32_t intervalMs)
 {
-    quint8 unitFlag;
-    quint16 encoded;
+    bytes::Byte unitFlag;
+    std::uint16_t encoded;
     if (intervalMs > 65535) {
         unitFlag = 1;
-        encoded = quint16(intervalMs / 10);
+        encoded = static_cast<std::uint16_t>(intervalMs / 10);
     } else {
         unitFlag = 0;
-        encoded = quint16(intervalMs);
+        encoded = static_cast<std::uint16_t>(intervalMs);
     }
 
     return CdbgFrame{
@@ -132,7 +132,7 @@ bool batchChannelsIntoFrames(const QVector<CdbgChannel> &channels,
     return true;
 }
 
-std::vector<CdbgFrame> buildFrameInitFrames(quint8 instance, quint8 frameIndex,
+std::vector<CdbgFrame> buildFrameInitFrames(bytes::Byte instance, bytes::Byte frameIndex,
                                           const QVector<CdbgChannel> &frameItems)
 {
     std::vector<CdbgFrame> out;
@@ -164,7 +164,7 @@ std::vector<CdbgFrame> buildFrameInitFrames(quint8 instance, quint8 frameIndex,
     return out;
 }
 
-QVector<quint32> decodeFrame(quint8 expectedFrameIndex,
+QVector<std::uint32_t> decodeFrame(bytes::Byte expectedFrameIndex,
                               const QVector<CdbgChannel> &frameItems,
                               bytes::ByteView frame)
 {
@@ -177,10 +177,10 @@ QVector<quint32> decodeFrame(quint8 expectedFrameIndex,
     if (frame.size() < need)
         return {};
 
-    QVector<quint32> out;
+    QVector<std::uint32_t> out;
     int offset = 1;
     for (const CdbgChannel &ch : frameItems) {
-        quint32 value = 0;
+        std::uint32_t value = 0;
         switch (ch.size) {
         case 1:
             value = frame[static_cast<std::size_t>(offset)];
@@ -193,7 +193,7 @@ QVector<quint32> decodeFrame(quint8 expectedFrameIndex,
             break;
         default:
             for (int k = 0; k < ch.size; ++k)
-                value = (value << 8) | quint32(frame[static_cast<std::size_t>(offset + k)]);
+                value = (value << 8) | std::uint32_t(frame[static_cast<std::size_t>(offset + k)]);
             break;
         }
         out.append(value);

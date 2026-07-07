@@ -13,7 +13,7 @@ bool sendAndReceive(cdbg::ICanTransport &t, bytes::ByteView cmd, bytes::Bytes &o
 }
 
 bool CdbgLogDriver::startFreeFormLog(const QVector<CdbgChannel> &channels,
-                                      quint8 instance, quint32 intervalMs,
+                                      bytes::Byte instance, std::uint32_t intervalMs,
                                       QString *errorOut)
 {
     streaming_ = false;
@@ -46,7 +46,7 @@ bool CdbgLogDriver::startFreeFormLog(const QVector<CdbgChannel> &channels,
             *errorOut = "CDBG security seed request failed";
         return false;
     }
-    quint32 key = seedToKey(extractSeed(reply));
+    std::uint32_t key = seedToKey(extractSeed(reply));
     if (!sendAndReceive(t_, buildSecurityKeyFrame(key), reply)) {
         if (errorOut)
             *errorOut = "CDBG security key request failed";
@@ -71,7 +71,7 @@ bool CdbgLogDriver::startFreeFormLog(const QVector<CdbgChannel> &channels,
     }
 
     for (int f = 0; f < frames_.size(); ++f) {
-        const std::vector<CdbgFrame> cmds = buildFrameInitFrames(instance, quint8(f), frames_.at(f));
+        const std::vector<CdbgFrame> cmds = buildFrameInitFrames(instance, static_cast<bytes::Byte>(f), frames_.at(f));
         for (const CdbgFrame &cmd : cmds) {
             if (!sendAndReceive(t_, cmd, reply)) {
                 if (errorOut)
@@ -81,7 +81,7 @@ bool CdbgLogDriver::startFreeFormLog(const QVector<CdbgChannel> &channels,
         }
     }
 
-    if (!sendAndReceive(t_, buildLogStartFrame(instance, quint8(frames_.size()), intervalMs), reply)) {
+    if (!sendAndReceive(t_, buildLogStartFrame(instance, static_cast<bytes::Byte>(frames_.size()), intervalMs), reply)) {
         if (errorOut)
             *errorOut = "CDBG log start failed";
         return false;
@@ -96,7 +96,7 @@ bool CdbgLogDriver::startFreeFormLog(const QVector<CdbgChannel> &channels,
     return true;
 }
 
-QVector<quint32> CdbgLogDriver::pollOnce(int timeoutMs)
+QVector<std::uint32_t> CdbgLogDriver::pollOnce(int timeoutMs)
 {
     if (!streaming_)
         return {};
@@ -104,9 +104,9 @@ QVector<quint32> CdbgLogDriver::pollOnce(int timeoutMs)
     std::uint32_t id = 0;
     const bytes::Bytes frame = t_.read(timeoutMs, id);
     if (!frame.empty() && id == kReplyCanId) {
-        quint8 frameIdx = frame[0];
-        if (frameIdx < quint8(frames_.size())) {
-            QVector<quint32> decoded = decodeFrame(frameIdx, frames_.at(frameIdx), frame);
+        bytes::Byte frameIdx = frame[0];
+        if (frameIdx < static_cast<bytes::Byte>(frames_.size())) {
+            QVector<std::uint32_t> decoded = decodeFrame(frameIdx, frames_.at(frameIdx), frame);
             if (!decoded.isEmpty()) {
                 int offset = 0;
                 for (int f = 0; f < frameIdx; ++f)

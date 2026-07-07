@@ -6,9 +6,9 @@ using namespace mutdma;
 class TestFreeform : public QObject { Q_OBJECT
 private slots:
     void size_descriptor_mapping() {
-        QCOMPARE(sizeToDescriptor(1), quint8(0));
-        QCOMPARE(sizeToDescriptor(2), quint8(1));
-        QCOMPARE(sizeToDescriptor(4), quint8(2));
+        QCOMPARE(sizeToDescriptor(1), bytes::Byte(0));
+        QCOMPARE(sizeToDescriptor(2), bytes::Byte(1));
+        QCOMPARE(sizeToDescriptor(4), bytes::Byte(2));
     }
     void setup_frame() {
         const MutDmaFrame f = buildSetupFrame(0xA0, 3);
@@ -41,11 +41,11 @@ private slots:
         QVector<Channel> ch = { {0x8000,2}, {0x8004,1}, {0x8008,4} };
         QCOMPARE(responseDataLength(ch), 2 + 1 + 4);     // 7
         const bytes::Bytes data = {0x12, 0x34, 0x56, 0x89, 0xAB, 0xCD, 0xEF}; // BE per channel
-        QVector<quint32> v = decodeStreamValues(ch, data);
+        QVector<std::uint32_t> v = decodeStreamValues(ch, data);
         QCOMPARE(v.size(), 3);
-        QCOMPARE(v.at(0), quint32(0x1234));
-        QCOMPARE(v.at(1), quint32(0x56));
-        QCOMPARE(v.at(2), quint32(0x89ABCDEF));
+        QCOMPARE(v.at(0), std::uint32_t(0x1234));
+        QCOMPARE(v.at(1), std::uint32_t(0x56));
+        QCOMPARE(v.at(2), std::uint32_t(0x89ABCDEF));
     }
 };
 int run_test_freeform(int argc, char** argv) {
