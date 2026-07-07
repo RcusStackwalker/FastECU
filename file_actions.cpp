@@ -45,6 +45,39 @@ void logValidationErrors(const QString &group, const QStringList &errors)
     }
 }
 
+void showChecksumResult(QWidget *parent, const ChecksumResult &result)
+{
+    switch (result.status) {
+    case ChecksumResult::Status::Corrected:
+        QMessageBox::information(parent, QObject::tr("Subaru Denso SH705x Checksum"), result.message);
+        break;
+    case ChecksumResult::Status::Disabled:
+        QMessageBox::information(parent, QObject::tr("32-bit checksum"), result.message);
+        break;
+    case ChecksumResult::Status::InvalidSize:
+    case ChecksumResult::Status::UnsupportedRom:
+    case ChecksumResult::Status::ParseError:
+        QMessageBox::warning(parent, QObject::tr("Checksum module"), result.message);
+        break;
+    case ChecksumResult::Status::Unchanged:
+        break;
+    }
+}
+
+void applyDensoSh7xxxChecksum(QWidget *parent,
+                              FileActions::EcuCalDefStructure *ecuCalDef,
+                              uint32_t checksumAreaStart,
+                              uint32_t checksumAreaLength,
+                              int32_t offset = 0)
+{
+    const ChecksumResult result = ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(
+        ecuCalDef->FullRomData, checksumAreaStart, checksumAreaLength, offset);
+    showChecksumResult(parent, result);
+    if (result.ok()) {
+        ecuCalDef->FullRomData = result.romData;
+    }
+}
+
 } // namespace
 
 FileActions::FileActions(QWidget *parent)
@@ -2784,7 +2817,7 @@ FileActions::EcuCalDefStructure *FileActions::checksum_correction(FileActions::E
             if (flashMethod.startsWith("sub_ecu_denso_sh7055"))
             {
                 chksumModuleAvailable = true;
-                ecuCalDef->FullRomData = ChecksumEcuSubaruDensoSH7xxx::calculate_checksum(ecuCalDef->FullRomData, 0x07FB80, 17 * 12);
+                applyDensoSh7xxxChecksum(this, ecuCalDef, 0x07FB80, 17 * 12);
 
             }
             else if (flashMethod.startsWith("sub_ecu_denso_sh7058_can_diesel"))
@@ -2800,22 +2833,22 @@ FileActions::EcuCalDefStructure *FileActions::checksum_correction(FileActions::E
             else if (flashMethod.startsWith("sub_ecu_denso_sh7058"))
             {
                 chksumModuleAvailable = true;
-                ecuCalDef->FullRomData = ChecksumEcuSubaruDensoSH7xxx::calculate_checksum(ecuCalDef->FullRomData, 0x0FFB80, 17 * 12);
+                applyDensoSh7xxxChecksum(this, ecuCalDef, 0x0FFB80, 17 * 12);
             }
             else if (flashMethod.startsWith("sub_ecu_denso_sh72531_can"))
             {
                 chksumModuleAvailable = true;
-                ecuCalDef->FullRomData = ChecksumEcuSubaruDensoSH7xxx::calculate_checksum(ecuCalDef->FullRomData, 0x13F500, 17 * 12);
+                applyDensoSh7xxxChecksum(this, ecuCalDef, 0x13F500, 17 * 12);
             }
             else if (flashMethod.startsWith("sub_ecu_denso_1n83m_4m_can"))
             {
                 chksumModuleAvailable = true;
-                ecuCalDef->FullRomData = ChecksumEcuSubaruDensoSH7xxx::calculate_checksum(ecuCalDef->FullRomData, 0x3E3E00, 17 * 12, -0x8F9C000);
+                applyDensoSh7xxxChecksum(this, ecuCalDef, 0x3E3E00, 17 * 12, -0x8F9C000);
             }
             else if (flashMethod.startsWith("sub_ecu_denso_1n83m_1_5m_can"))
             {
                 chksumModuleAvailable = true;
-                ecuCalDef->FullRomData = ChecksumEcuSubaruDensoSH7xxx::calculate_checksum(ecuCalDef->FullRomData, 0x183E00, 17 * 12, -0x8F9C000);
+                applyDensoSh7xxxChecksum(this, ecuCalDef, 0x183E00, 17 * 12, -0x8F9C000);
             }
             else if (flashMethod.startsWith("sub_ecu_denso_sh7059_can_diesel"))
             {
@@ -2843,7 +2876,7 @@ FileActions::EcuCalDefStructure *FileActions::checksum_correction(FileActions::E
             else if (flashMethod.startsWith("sub_tcu_denso_sh7058_can"))
             {
                 chksumModuleAvailable = true;
-                ecuCalDef->FullRomData = ChecksumEcuSubaruDensoSH7xxx::calculate_checksum(ecuCalDef->FullRomData, 0x0FFB80, 17 * 12);
+                applyDensoSh7xxxChecksum(this, ecuCalDef, 0x0FFB80, 17 * 12);
             }
             /*
             * Hitachi ECU

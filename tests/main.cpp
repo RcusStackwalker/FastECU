@@ -21,6 +21,7 @@
 #include "test_expression_evaluator.h"
 #include "test_diagnostic_parsers.h"
 #include "test_model_validation.h"
+#include "test_checksum_results.h"
 
 int main(int argc, char** argv) {
     int status = 0;
@@ -47,5 +48,6 @@ int main(int argc, char** argv) {
     status |= run_test_expression_evaluator(argc, argv);
     status |= run_test_diagnostic_parsers(argc, argv);
     status |= run_test_model_validation(argc, argv);
+    status |= run_test_checksum_results(argc, argv);
     return status;
 }

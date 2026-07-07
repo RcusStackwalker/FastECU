@@ -247,6 +247,7 @@ HEADERS += \
     modules/bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode.h \
     modules/bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.h \
     modules/checksum/checksum_ecu_subaru_denso_sh705x_diesel.h \
+    modules/checksum/checksum_result.h \
     modules/checksum/checksum_ecu_subaru_denso_sh7xxx.h \
     modules/checksum/checksum_ecu_subaru_hitachi_m32r_can.h \
     modules/checksum/checksum_ecu_subaru_hitachi_m32r_kline.h \

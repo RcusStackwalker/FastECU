@@ -41,6 +41,7 @@ SOURCES += \
     test_diagnostic_parsers.cpp \
     test_expression_evaluator.cpp \
     test_model_validation.cpp \
+    test_checksum_results.cpp \
     test_flash_ecu_mitsu_m32r_can_operation.cpp \
     ../modules/ecu/flash_ecu_mitsu_m32r_can_operation.cpp \
     ../serial_port/serial_port_actions.cpp \
@@ -105,6 +106,7 @@ HEADERS += \
     test_diagnostic_parsers.h \
     test_expression_evaluator.h \
     test_model_validation.h \
+    test_checksum_results.h \
     test_flash_ecu_mitsu_m32r_can_operation.h \
     ../modules/ecu/flash_ecu_mitsu_m32r_can_operation.h \
     fake_backend.h \
@@ -135,6 +137,7 @@ HEADERS += \
     test_cdbg_logging_protocol.h \
     ../logging/protocols/cdbg_logging_protocol.h \
     ../file_actions.h \
+    ../modules/checksum/checksum_result.h \
     scripted_kline_transport.h \
     ../protocol/ikline_transport.h \
     ../protocol/mitsu_colt_can_cdbg_protocol.h \

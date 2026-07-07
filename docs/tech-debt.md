@@ -251,6 +251,18 @@ Actions:
   data rather than keeping a 3.7k-line hand-maintained header in normal compile
   paths.
 
+Implemented baseline:
+
+- Added `ChecksumResult` as the shared structured checksum result shape.
+- `ChecksumEcuSubaruDensoSH7xxx` now exposes a headless
+  `calculate_checksum_result()` API and keeps the older `calculate_checksum()`
+  wrapper for compatibility.
+- Denso SH7xxx checksum correction reports unchanged, corrected, disabled,
+  invalid-size, and parse-error outcomes without showing dialogs directly.
+- `FileActions` owns the Denso SH7xxx checksum dialogs for existing UI flows.
+- Focused QtTest coverage exercises matching checksums, correction, disabled
+  checksums, out-of-range ROM data, and malformed checksum table lengths.
+
 ### P2: Improve build structure
 
 The app and tests are managed by hand-maintained qmake file lists. Test binaries

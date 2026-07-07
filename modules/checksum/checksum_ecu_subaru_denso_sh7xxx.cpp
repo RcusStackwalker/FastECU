@@ -12,7 +12,27 @@ ChecksumEcuSubaruDensoSH7xxx::~ChecksumEcuSubaruDensoSH7xxx()
 
 QByteArray ChecksumEcuSubaruDensoSH7xxx::calculate_checksum(QByteArray romData, uint32_t checksum_area_start, uint32_t checksum_area_length, int32_t offset)
 {
+    return calculate_checksum_result(romData, checksum_area_start, checksum_area_length, offset).romData;
+}
+
+ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(QByteArray romData, uint32_t checksum_area_start, uint32_t checksum_area_length, int32_t offset)
+{
     QByteArray checksum_array;
+    ChecksumResult result;
+    result.romData = romData;
+
+    if (checksum_area_length % 12 != 0) {
+        result.status = ChecksumResult::Status::ParseError;
+        result.message = "Checksum area length must be a multiple of 12 bytes";
+        return result;
+    }
+
+    if (checksum_area_start > static_cast<uint32_t>(romData.size()) ||
+        checksum_area_length > static_cast<uint32_t>(romData.size()) - checksum_area_start) {
+        result.status = ChecksumResult::Status::InvalidSize;
+        result.message = "ROM is too small for the configured checksum area";
+        return result;
+    }
 
     uint32_t checksum_area_end = checksum_area_start + checksum_area_length;
     uint32_t checksum_dword_addr_lo = 0;
@@ -49,8 +69,9 @@ QByteArray ChecksumEcuSubaruDensoSH7xxx::calculate_checksum(QByteArray romData, 
         if (i == checksum_area_start && checksum_dword_addr_lo_with_offset == 0 && checksum_dword_addr_hi_with_offset == 0 && checksum_diff == 0x5aa5a55a)
         {
             qDebug() << "ROM has all checksums disabled";
-            QMessageBox::information(nullptr, QObject::tr("32-bit checksum"), "ROM has all checksums disabled");
-            return 0;
+            result.status = ChecksumResult::Status::Disabled;
+            result.message = "ROM has all checksums disabled";
+            return result;
         }
 
         if (checksum_dword_addr_lo_with_offset == 0 && checksum_dword_addr_hi_with_offset == 0 && checksum_diff == 0x5aa5a55a)
@@ -61,6 +82,11 @@ QByteArray ChecksumEcuSubaruDensoSH7xxx::calculate_checksum(QByteArray romData, 
         {
             for (uint32_t j = checksum_dword_addr_lo_with_offset; j < checksum_dword_addr_hi_with_offset; j+=4)
             {
+                if (j > static_cast<uint32_t>(romData.size()) || 4 > static_cast<uint32_t>(romData.size()) - j) {
+                    result.status = ChecksumResult::Status::InvalidSize;
+                    result.message = "ROM is too small for a checksum block range";
+                    return result;
+                }
                 for (int k = 0; k < 4; k++)
                 {
                     checksum_temp = (checksum_temp << 8) + (uint8_t)(romData.at(j + k));
@@ -98,13 +124,15 @@ QByteArray ChecksumEcuSubaruDensoSH7xxx::calculate_checksum(QByteArray romData, 
 
     if (!checksum_ok)
     {
-        romData.replace(checksum_area_start, checksum_area_length, checksum_array);
+        result.romData.replace(checksum_area_start, checksum_area_length, checksum_array);
+        result.status = ChecksumResult::Status::Corrected;
+        result.message = "Checksums corrected";
         qDebug() << "Checksums corrected";
-        QMessageBox::information(nullptr, QObject::tr("Subaru Denso SH705x Checksum"), "Checksums corrected");
     }
-    //else
-    //    QMessageBox::information(nullptr, QObject::tr("Subaru Denso SH705x Checksum"), "Checksums OK");
+    else {
+        result.status = ChecksumResult::Status::Unchanged;
+        result.message = "Checksums OK";
+    }
 
-    return romData;
+    return result;
 }
-
