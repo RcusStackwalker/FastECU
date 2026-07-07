@@ -7,7 +7,7 @@
 
 OptionsDialog::OptionsDialog(QWidget *parent) :
     QDialog(parent),
-    ui(new Ui::OptionsDialog)
+    ui{std::make_unique<Ui::OptionsDialog>()}
 {
     ui->setupUi(this);
     readSettings();
@@ -16,7 +16,6 @@ OptionsDialog::OptionsDialog(QWidget *parent) :
 
 OptionsDialog::~OptionsDialog()
 {
-    delete ui;
 }
 
 void OptionsDialog::show()

@@ -8,7 +8,7 @@ FlashEcuMitsuM32rCan::FlashEcuMitsuM32rCan(SerialPortActions *serial, FileAction
     , cmd_type(cmd_type)
     , useVendorChallenge(useVendorChallenge)
     , serial(serial)
-    , ui(new Ui::EcuOperationsWindow)
+    , ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
 
@@ -20,7 +20,6 @@ FlashEcuMitsuM32rCan::FlashEcuMitsuM32rCan(SerialPortActions *serial, FileAction
 
 FlashEcuMitsuM32rCan::~FlashEcuMitsuM32rCan()
 {
-    delete ui;
 }
 
 void FlashEcuMitsuM32rCan::closeEvent(QCloseEvent *event)

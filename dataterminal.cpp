@@ -3,7 +3,7 @@
 
 DataTerminal::DataTerminal(SerialPortActions *serial, QWidget *parent)
     : QDialog(parent)
-    , ui(new Ui::DataTerminalWindow)
+    , ui{std::make_unique<Ui::DataTerminalWindow>()}
 {
     ui->setupUi(this);
 
@@ -55,7 +55,6 @@ DataTerminal::DataTerminal(SerialPortActions *serial, QWidget *parent)
 
 DataTerminal::~DataTerminal()
 {
-    delete ui;
 }
 
 void DataTerminal::protocolTypeChanged(int)

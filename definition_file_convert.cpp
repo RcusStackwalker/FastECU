@@ -3,7 +3,7 @@
 
 DefinitionFileConvert::DefinitionFileConvert(QWidget *parent)
     : QDialog(parent),
-      ui(new Ui::DefinitionFileConvertWindow)
+      ui{std::make_unique<Ui::DefinitionFileConvertWindow>()}
 {
     ui->setupUi(this);
     this->setParent(parent);
@@ -16,7 +16,6 @@ DefinitionFileConvert::DefinitionFileConvert(QWidget *parent)
 
 DefinitionFileConvert::~DefinitionFileConvert()
 {
-    delete ui;
 }
 
 int DefinitionFileConvert::convert_mappack_csv_file()

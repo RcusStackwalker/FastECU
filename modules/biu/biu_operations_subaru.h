@@ -1,6 +1,8 @@
 #ifndef BIUOPERATIONSSUBARU_H
 #define BIUOPERATIONSSUBARU_H
 
+#include <memory>
+
 #include <QApplication>
 #include <QByteArray>
 #include <QCoreApplication>
@@ -424,7 +426,6 @@ private:
     uint8_t current_command;
     ConnectionState connection_state;
 
-    Ui::BiuOperationsSubaruWindow *ui;
 
 private slots:
     void keep_alive();
@@ -433,6 +434,9 @@ private slots:
     void prepare_biu_msg();
     void send_biu_msg();
 
+
+private:
+    std::unique_ptr<Ui::BiuOperationsSubaruWindow> ui;
 };
 
 #endif // BIUOPERATIONSSUBARU_H

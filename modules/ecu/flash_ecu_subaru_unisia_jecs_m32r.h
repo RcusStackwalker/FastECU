@@ -1,6 +1,8 @@
 #ifndef FLASH_ECU_SUBARU_UNISIA_JECS_M32R_H
 #define FLASH_ECU_SUBARU_UNISIA_JECS_M32R_H
 
+#include <memory>
+
 #include <QEventLoop>
 #include <QWidget>
 
@@ -45,10 +47,12 @@ private:
 
     //QTimer *vBattTimer;
     SerialPortActions *serial;
-    Ui::EcuOperationsWindow *ui;
     FlashEcuSubaruUnisiaJecsM32rOperation *m_operation = nullptr;
 
 
+
+private:
+    std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
 
 #endif // FLASH_ECU_SUBARU_UNISIA_JECS_M32R_H

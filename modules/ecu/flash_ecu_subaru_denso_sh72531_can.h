@@ -1,6 +1,8 @@
 #ifndef FLASH_ECU_SUBARU_DENSO_SH72531_CAN_H
 #define FLASH_ECU_SUBARU_DENSO_SH72531_CAN_H
 
+#include <memory>
+
 #include <QEventLoop>
 #include <QWidget>
 
@@ -46,9 +48,11 @@ private:
     void set_progressbar_value(int value);
 
     SerialPortActions *serial;
-    Ui::EcuOperationsWindow *ui;
     FlashEcuSubaruDensoSH72531CanOperation *m_operation = nullptr;
 
+
+private:
+    std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
 
 #endif // FLASH_ECU_SUBARU_DENSO_SH72531_CAN_H

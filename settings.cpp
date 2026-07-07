@@ -3,7 +3,7 @@
 
 Settings::Settings(FileActions::ConfigValuesStructure *configValues, QWidget *parent)
     : QDialog(parent),
-    ui(new Ui::Settings)
+    ui{std::make_unique<Ui::Settings>()}
 {
     ui->setupUi(this);
 
@@ -38,7 +38,6 @@ Settings::~Settings()
     qDebug() << "Save config file before exit, bye bye!";
     save_config_file();
 
-    delete ui;
 }
 
 void Settings::closeEvent(QCloseEvent *bar)

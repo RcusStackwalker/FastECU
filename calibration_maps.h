@@ -1,6 +1,8 @@
 #ifndef CALIBRATION_MAPS_H
 #define CALIBRATION_MAPS_H
 
+#include <memory>
+
 #include <QMainWindow>
 #include <QDebug>
 #include <QWidget>
@@ -78,7 +80,9 @@ signals:
     void checkbox_state_changed(int);
 
 private:
-    Ui::CalibrationMaps *ui;
+
+private:
+    std::unique_ptr<Ui::CalibrationMaps> ui;
 };
 
 #endif // CALIBRATION_MAPS_H

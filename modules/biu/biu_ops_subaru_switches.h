@@ -1,6 +1,8 @@
 #ifndef BIUOPSSUBARUSWITCHES_H
 #define BIUOPSSUBARUSWITCHES_H
 
+#include <memory>
+
 #include <QApplication>
 #include <QByteArray>
 #include <QCoreApplication>
@@ -43,7 +45,6 @@ private:
     QStringList *switch_result;
 
     //SerialPortActions *serial;
-    Ui::BiuOpsSubaruSwitchesWindow *ui;
 
 private slots:
 
@@ -51,6 +52,9 @@ signals:
 
 
 
+
+private:
+    std::unique_ptr<Ui::BiuOpsSubaruSwitchesWindow> ui;
 };
 
 #endif // BIUOPSSUBARUSWITCHES_H

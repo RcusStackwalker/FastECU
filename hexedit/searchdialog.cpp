@@ -5,7 +5,7 @@
 
 SearchDialog::SearchDialog(QHexEdit *hexEdit, QWidget *parent) :
     QDialog(parent),
-    ui(new Ui::SearchDialog)
+    ui{std::make_unique<Ui::SearchDialog>()}
 {
   ui->setupUi(this);
   _hexEdit = hexEdit;
@@ -13,7 +13,6 @@ SearchDialog::SearchDialog(QHexEdit *hexEdit, QWidget *parent) :
 
 SearchDialog::~SearchDialog()
 {
-  delete ui;
 }
 
 qint64 SearchDialog::findNext()

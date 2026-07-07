@@ -4,9 +4,9 @@
 
 FlashEcuSubaruDenso1N83M_1_5MCan::FlashEcuSubaruDenso1N83M_1_5MCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent)
     : QDialog(parent)
-    , ui(new Ui::EcuOperationsWindow)
     , ecuCalDef(ecuCalDef)
     , cmd_type(cmd_type)
+    , ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
 
@@ -22,7 +22,6 @@ FlashEcuSubaruDenso1N83M_1_5MCan::FlashEcuSubaruDenso1N83M_1_5MCan(SerialPortAct
 
 FlashEcuSubaruDenso1N83M_1_5MCan::~FlashEcuSubaruDenso1N83M_1_5MCan()
 {
-    delete ui;
 }
 
 void FlashEcuSubaruDenso1N83M_1_5MCan::closeEvent(QCloseEvent *event)

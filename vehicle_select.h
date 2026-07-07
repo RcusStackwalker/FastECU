@@ -1,6 +1,8 @@
 #ifndef CARMODELSELECT_H
 #define CARMODELSELECT_H
 
+#include <memory>
+
 //#include <QDesktopWidget>
 #include <QWidget>
 #include <QStringListModel>
@@ -58,7 +60,6 @@ private:
     QString flash_protocol_family;
 
     FileActions::ConfigValuesStructure *configValues;
-    Ui::VehicleSelect *ui;
 
 
 private slots:
@@ -67,6 +68,9 @@ private slots:
     void car_model_treewidget_item_selected();
     void car_version_treewidget_item_selected();
 
+
+private:
+    std::unique_ptr<Ui::VehicleSelect> ui;
 };
 
 #endif // CARMODELSELECT_H

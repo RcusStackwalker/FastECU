@@ -1,6 +1,8 @@
 #ifndef FLASH_TCU_MITSU_MH8111_CAN_H
 #define FLASH_TCU_MITSU_MH8111_CAN_H
 
+#include <memory>
+
 #include <QEventLoop>
 #include <QWidget>
 
@@ -44,9 +46,11 @@ private:
     void set_progressbar_value(int value);
 
     SerialPortActions *serial;
-    Ui::EcuOperationsWindow *ui;
     FlashTcuCvtSubaruMitsuMH8111CanOperation *m_operation = nullptr;
 
+
+private:
+    std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
 
 #endif // FLASH_TCU_MITSU_MH8111_CAN_H

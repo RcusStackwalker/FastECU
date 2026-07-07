@@ -1,6 +1,8 @@
 #ifndef BIUOPSSUBARUINPUT1_H
 #define BIUOPSSUBARUINPUT1_H
 
+#include <memory>
+
 #include <QWidget>
 #include <QLabel>
 
@@ -21,13 +23,15 @@ public:
 
 private:
     QByteArray *biu_tt_result;
-    Ui::BiuOpsSubaruInput1Window *ui;
 
 private slots:
     void prepare_biu_setting1();
 
 signals:
     void send_biu_setting1(QByteArray output);
+
+private:
+    std::unique_ptr<Ui::BiuOpsSubaruInput1Window> ui;
 };
 
 #endif // BIUOPSSUBARUINPUT1_H

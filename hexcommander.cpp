@@ -2,7 +2,7 @@
 
 HexCommander::HexCommander(SerialPortActions *serial, QWidget *parent)
     : QDialog(parent)
-    , ui(new Ui::DataTerminal)
+    , ui{std::make_unique<Ui::DataTerminal>()}
 {
     ui->setupUi(this);
 
@@ -54,7 +54,6 @@ HexCommander::HexCommander(SerialPortActions *serial, QWidget *parent)
 
 HexCommander::~HexCommander()
 {
-    delete ui;
 }
 
 void HexCommander::protocolTypeChanged(int)

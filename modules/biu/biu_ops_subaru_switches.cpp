@@ -4,8 +4,7 @@
 
 BiuOpsSubaruSwitches::BiuOpsSubaruSwitches(QStringList *switch_result, QWidget *parent)
     : QWidget(parent),
-      ui(new Ui::BiuOpsSubaruSwitchesWindow)
-
+      ui{std::make_unique<Ui::BiuOpsSubaruSwitchesWindow>()}
 {
     ui->setupUi(this);
     //this->setParent(parent);
@@ -51,7 +50,6 @@ BiuOpsSubaruSwitches::BiuOpsSubaruSwitches(QStringList *switch_result, QWidget *
 
 BiuOpsSubaruSwitches::~BiuOpsSubaruSwitches()
 {
-    delete ui;
 }
 
 void BiuOpsSubaruSwitches::update_switch_results(QStringList *switch_result)

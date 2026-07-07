@@ -3,7 +3,7 @@
 
 BiuOpsSubaruData::BiuOpsSubaruData(QStringList *data_result, QWidget *parent)
     : QWidget(parent),
-      ui(new Ui::BiuOpsSubaruDataWindow)
+      ui{std::make_unique<Ui::BiuOpsSubaruDataWindow>()}
 {
     ui->setupUi(this);
 
@@ -27,7 +27,6 @@ BiuOpsSubaruData::BiuOpsSubaruData(QStringList *data_result, QWidget *parent)
 
 BiuOpsSubaruData::~BiuOpsSubaruData()
 {
-    delete ui;
 }
 
 void BiuOpsSubaruData::update_data_results(QStringList *data_result)

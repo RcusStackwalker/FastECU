@@ -12,9 +12,9 @@ const QColor MainWindow::GREEN_LIGHT_ON = QColor(64, 255, 64);
 
 MainWindow::MainWindow(QString peerAddress, QString peerPassword, QWidget *parent)
     : QMainWindow(parent)
-    , ui(new Ui::MainWindow)
     , peerAddress(peerAddress)
     , peerPassword(peerPassword)
+    , ui{std::make_unique<Ui::MainWindow>()}
 {
     ui->setupUi(this);
     qApp->installEventFilter(this);
@@ -488,7 +488,6 @@ MainWindow::~MainWindow()
         log_params_request_started = false;
         loggingEngine->stop();
     }
-    delete ui;
 }
 
 QByteArray MainWindow::aes_ecb_test(QByteArray challenge, QByteArray key)

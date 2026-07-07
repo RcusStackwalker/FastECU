@@ -1,6 +1,8 @@
 #ifndef FLASH_ECU_MITSU_M32R_CAN_H
 #define FLASH_ECU_MITSU_M32R_CAN_H
 
+#include <memory>
+
 #include <QApplication>
 #include <QByteArray>
 #include <QCoreApplication>
@@ -58,8 +60,10 @@ private:
     void set_progressbar_value(int value);
 
     SerialPortActions *serial;
-    Ui::EcuOperationsWindow *ui;
     FlashEcuMitsuM32rCanOperation *m_operation = nullptr;
+
+private:
+    std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
 
 #endif // FLASH_ECU_MITSU_M32R_CAN_H

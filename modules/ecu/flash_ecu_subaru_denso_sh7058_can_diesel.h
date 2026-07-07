@@ -1,6 +1,8 @@
 #ifndef FLASH_ECU_SUBARU_DENSO_SH7058_CAN_DIESEL_H
 #define FLASH_ECU_SUBARU_DENSO_SH7058_CAN_DIESEL_H
 
+#include <memory>
+
 #include <QEventLoop>
 #include <QWidget>
 
@@ -47,9 +49,11 @@ private:
     void set_progressbar_value(int value);
 
     SerialPortActions *serial;
-    Ui::EcuOperationsWindow *ui;
     FlashEcuSubaruDensoSH7058CanDieselOperation *m_operation = nullptr;
 
+
+private:
+    std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
 
 #endif // FLASH_ECU_SUBARU_DENSO_SH7058_CAN_DIESEL_H

@@ -4,7 +4,7 @@
 
 GetKeyOperationsSubaru::GetKeyOperationsSubaru(QWidget *parent)
     : QDialog(parent),
-      ui(new Ui::EcuOperationsWindow)
+      ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
 
@@ -31,7 +31,6 @@ GetKeyOperationsSubaru::GetKeyOperationsSubaru(QWidget *parent)
 
 GetKeyOperationsSubaru::~GetKeyOperationsSubaru()
 {
-    delete ui;
 }
 
 void GetKeyOperationsSubaru::closeEvent(QCloseEvent *bar)

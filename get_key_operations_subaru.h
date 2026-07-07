@@ -1,6 +1,8 @@
 #ifndef GETKEYOPERATIONSSUBARU_H
 #define GETKEYOPERATIONSSUBARU_H
 
+#include <memory>
+
 #include <QFileDialog>
 #include <QMessageBox>
 
@@ -45,8 +47,10 @@ private:
     void findApprox(uint16_t **approxTable);
 
     EcuOperations *ecuOperations;
-    Ui::EcuOperationsWindow *ui;
 
+
+private:
+    std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
 
 #endif // GETKEYOPERATIONSSUBARU_H

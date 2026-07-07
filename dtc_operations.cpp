@@ -6,8 +6,8 @@
 
 DtcOperations::DtcOperations(SerialPortActions *serial, QWidget *parent)
     : QDialog(parent)
-    , ui(new Ui::DtcOperationsWindow)
     , serial(serial)
+    , ui{std::make_unique<Ui::DtcOperationsWindow>()}
 {
     ui->setupUi(this);
 
@@ -41,7 +41,6 @@ DtcOperations::DtcOperations(SerialPortActions *serial, QWidget *parent)
 
 DtcOperations::~DtcOperations()
 {
-    delete ui;
 }
 
 void DtcOperations::closeEvent(QCloseEvent *event)

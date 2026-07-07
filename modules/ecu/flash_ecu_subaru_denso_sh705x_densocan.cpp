@@ -4,9 +4,9 @@
 
 FlashEcuSubaruDensoSH705xDensoCan::FlashEcuSubaruDensoSH705xDensoCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent)
     : QDialog(parent)
-    , ui(new Ui::EcuOperationsWindow)
     , ecuCalDef(ecuCalDef)
     , cmd_type(cmd_type)
+    , ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
 
@@ -84,7 +84,6 @@ void FlashEcuSubaruDensoSH705xDensoCan::run()
 
 FlashEcuSubaruDensoSH705xDensoCan::~FlashEcuSubaruDensoSH705xDensoCan()
 {
-    delete ui;
 }
 
 void FlashEcuSubaruDensoSH705xDensoCan::closeEvent(QCloseEvent *event)

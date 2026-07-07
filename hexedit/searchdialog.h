@@ -1,6 +1,8 @@
 #ifndef SEARCHDIALOG_H
 #define SEARCHDIALOG_H
 
+#include <memory>
+
 #include <QDialog>
 #include <QtCore>
 #include "./qhexedit/qhexedit.h"
@@ -16,7 +18,6 @@ public:
     explicit SearchDialog(QHexEdit *hexEdit, QWidget *parent = 0);
     ~SearchDialog();
     qint64 findNext();
-    Ui::SearchDialog *ui;
 
 private slots:
     void on_pbFind_clicked();
@@ -29,6 +30,9 @@ private:
 
     QHexEdit *_hexEdit;
     QByteArray _findBa;
+
+private:
+    std::unique_ptr<Ui::SearchDialog> ui;
 };
 
 #endif // SEARCHDIALOG_H

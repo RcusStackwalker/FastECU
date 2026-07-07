@@ -1,6 +1,8 @@
 #ifndef LOGVALUES_H
 #define LOGVALUES_H
 
+#include <memory>
+
 #include <QMainWindow>
 #include <QDebug>
 #include <QWidget>
@@ -99,13 +101,15 @@ private:
         "",
     };
 
-    Ui::LogValues *ui;
 
 private slots:
     void change_log_gauge_value(int);
     void change_log_digital_value(int);
     void change_log_switch_value(int);
 
+
+private:
+    std::unique_ptr<Ui::LogValues> ui;
 };
 
 #endif // LOGVALUES_H

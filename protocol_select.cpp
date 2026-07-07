@@ -6,8 +6,8 @@
 
 ProtocolSelect::ProtocolSelect(FileActions::ConfigValuesStructure *configValues, QWidget *parent)
     : QDialog(parent)
-    , ui(new Ui::ProtocolSelect)
     , configValues(configValues)
+    , ui{std::make_unique<Ui::ProtocolSelect>()}
 {
     ui->setupUi(this);
 
@@ -105,7 +105,6 @@ ProtocolSelect::ProtocolSelect(FileActions::ConfigValuesStructure *configValues,
 
 ProtocolSelect::~ProtocolSelect()
 {
-    delete(ui);
 }
 
 void ProtocolSelect::car_model_selected()

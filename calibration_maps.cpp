@@ -3,7 +3,7 @@
 
 CalibrationMaps::CalibrationMaps(FileActions::EcuCalDefStructure *ecuCalDef, int romIndex, int mapIndex, QRect mdiAreaSize, QWidget *parent)
     : QWidget(parent),
-      ui(new Ui::CalibrationMaps)
+      ui{std::make_unique<Ui::CalibrationMaps>()}
 {
     ui->setupUi(this);
 
@@ -158,7 +158,6 @@ CalibrationMaps::CalibrationMaps(FileActions::EcuCalDefStructure *ecuCalDef, int
 
 CalibrationMaps::~CalibrationMaps()
 {
-    delete ui;
 }
 
 void CalibrationMaps::setMapTableWidgetSize(int maxWidth, int maxHeight, int xSize){

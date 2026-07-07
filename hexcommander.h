@@ -1,6 +1,8 @@
 #ifndef HEXCOMMANDER_H
 #define HEXCOMMANDER_H
 
+#include <memory>
+
 #include <QApplication>
 #include <QButtonGroup>
 #include <QByteArray>
@@ -61,7 +63,6 @@ private:
     void delay(int timeout);
 
     SerialPortActions *serial;
-    Ui::DataTerminal *ui;
 
 signals:
 
@@ -70,6 +71,9 @@ private slots:
     void listenInterface();
     void sendToInterface();
 
+
+private:
+    std::unique_ptr<Ui::DataTerminal> ui;
 };
 
 #endif // HEXCOMMANDER_H

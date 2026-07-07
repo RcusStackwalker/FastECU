@@ -1,6 +1,8 @@
 #ifndef BIUOPSSUBARUINPUT2_H
 #define BIUOPSSUBARUINPUT2_H
 
+#include <memory>
+
 #include <QWidget>
 #include <QLabel>
 #include <QButtonGroup>
@@ -26,13 +28,15 @@ public:
 private:
     QByteArray *biu_option_result;
     QStringList *biu_option_names;
-    Ui::BiuOpsSubaruInput2Window *ui;
 
 private slots:
     void prepare_biu_setting2();
 
 signals:
     void send_biu_setting2(QByteArray output);
+
+private:
+    std::unique_ptr<Ui::BiuOpsSubaruInput2Window> ui;
 };
 
 #endif // BIUOPSSUBARUINPUT2_H

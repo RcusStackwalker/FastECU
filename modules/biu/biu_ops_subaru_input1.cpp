@@ -3,7 +3,7 @@
 
 BiuOpsSubaruInput1::BiuOpsSubaruInput1(QByteArray *biu_tt_result, QWidget *parent)
     : QWidget(parent),
-      ui(new Ui::BiuOpsSubaruInput1Window)
+      ui{std::make_unique<Ui::BiuOpsSubaruInput1Window>()}
 {
     ui->setupUi(this);
 
@@ -47,7 +47,6 @@ BiuOpsSubaruInput1::BiuOpsSubaruInput1(QByteArray *biu_tt_result, QWidget *paren
 
 BiuOpsSubaruInput1::~BiuOpsSubaruInput1()
 {
-    delete ui;
 }
 
 void BiuOpsSubaruInput1::prepare_biu_setting1()

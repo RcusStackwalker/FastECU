@@ -1,6 +1,8 @@
 #ifndef DEFINITIONFILEMAKER_H
 #define DEFINITIONFILEMAKER_H
 
+#include <memory>
+
 #include <QDebug>
 #include <QFileDialog>
 #include <QMessageBox>
@@ -32,7 +34,9 @@ private:
 
     int convert_mappack_csv_file();
 
-    Ui::DefinitionFileConvertWindow *ui;
+
+private:
+    std::unique_ptr<Ui::DefinitionFileConvertWindow> ui;
 };
 
 #endif // DEFINITIONFILEMAKER_H

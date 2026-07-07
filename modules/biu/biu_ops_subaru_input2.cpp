@@ -3,7 +3,7 @@
 
 BiuOpsSubaruInput2::BiuOpsSubaruInput2(QStringList *biu_option_names, QByteArray *biu_option_result, QWidget *parent)
     : QWidget(parent),
-      ui(new Ui::BiuOpsSubaruInput2Window)
+      ui{std::make_unique<Ui::BiuOpsSubaruInput2Window>()}
 {
     ui->setupUi(this);
 
@@ -64,7 +64,6 @@ BiuOpsSubaruInput2::BiuOpsSubaruInput2(QStringList *biu_option_names, QByteArray
 
 BiuOpsSubaruInput2::~BiuOpsSubaruInput2()
 {
-    delete ui;
 }
 
 void BiuOpsSubaruInput2::prepare_biu_setting2()

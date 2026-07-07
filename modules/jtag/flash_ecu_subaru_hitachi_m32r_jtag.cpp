@@ -4,9 +4,9 @@
 
 FlashEcuSubaruHitachiM32rJtag::FlashEcuSubaruHitachiM32rJtag(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent)
     : QDialog(parent)
-    , ui(new Ui::EcuOperationsWindow)
     , ecuCalDef(ecuCalDef)
     , cmd_type(cmd_type)
+    , ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
 
@@ -83,7 +83,6 @@ void FlashEcuSubaruHitachiM32rJtag::run()
 
 FlashEcuSubaruHitachiM32rJtag::~FlashEcuSubaruHitachiM32rJtag()
 {
-    delete ui;
 }
 
 void FlashEcuSubaruHitachiM32rJtag::closeEvent(QCloseEvent *event)

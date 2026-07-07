@@ -4,7 +4,7 @@
 
 BiuOperationsSubaru::BiuOperationsSubaru(SerialPortActions *serial, QWidget *parent)
     : QDialog(parent),
-      ui(new Ui::BiuOperationsSubaruWindow)
+      ui{std::make_unique<Ui::BiuOperationsSubaruWindow>()}
 {
     ui->setupUi(this);
 
@@ -50,7 +50,6 @@ BiuOperationsSubaru::~BiuOperationsSubaru()
 {
     keep_alive_timer->stop();
     /*
-    delete ui;
     delete keep_alive_timer;
     delete biu_tt_result;
     delete biu_option_result;

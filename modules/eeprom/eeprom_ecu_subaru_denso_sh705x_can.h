@@ -1,6 +1,8 @@
 #ifndef EEPROM_ECU_SUBARU_DENSO_SH705X_CAN_H
 #define EEPROM_ECU_SUBARU_DENSO_SH705X_CAN_H
 
+#include <memory>
+
 #include <QEventLoop>
 #include <QWidget>
 
@@ -44,9 +46,11 @@ private:
     void set_progressbar_value(int value);
 
     SerialPortActions *serial;
-    Ui::EcuOperationsWindow *ui;
     EepromEcuSubaruDensoSH705xCanOperation *m_operation = nullptr;
 
+
+private:
+    std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
 
 

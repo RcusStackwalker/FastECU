@@ -1,6 +1,8 @@
 #ifndef OPTIONSDIALOG_H
 #define OPTIONSDIALOG_H
 
+#include <memory>
+
 #include <QtCore>
 #include <QDialog>
 
@@ -15,7 +17,6 @@ class OptionsDialog : public QDialog
 public:
     explicit OptionsDialog(QWidget *parent = 0);
     ~OptionsDialog();
-    Ui::OptionsDialog *ui;
     void show();
 
 public slots:
@@ -35,6 +36,9 @@ private:
     void readSettings();
     void writeSettings();
     void setColor(QWidget *widget, QColor color);
+
+private:
+    std::unique_ptr<Ui::OptionsDialog> ui;
 };
 
 #endif // OPTIONSDIALOG_H

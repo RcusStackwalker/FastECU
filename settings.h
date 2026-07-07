@@ -1,6 +1,8 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
+#include <memory>
+
 #include <QCheckBox>
 #include <QDebug>
 #include <QMainWindow>
@@ -34,7 +36,6 @@ private slots:
 private:
     void closeEvent(QCloseEvent *bar);
 
-    Ui::Settings *ui;
 
     FileActions::ConfigValuesStructure *configValues;
     FileActions *fileActions;
@@ -66,6 +67,9 @@ private slots:
     void toolbar_iconsize_value_changed(int value);
     int save_config_file();
 
+
+private:
+    std::unique_ptr<Ui::Settings> ui;
 };
 
 #endif // SETTINGS_H

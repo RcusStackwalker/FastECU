@@ -1,6 +1,8 @@
 #ifndef BIU_OPS_SUBARU_DATA_H
 #define BIU_OPS_SUBARU_DATA_H
 
+#include <memory>
+
 #include <QWidget>
 #include <QLabel>
 
@@ -23,7 +25,9 @@ public:
 
 private:
     QStringList *data_result;
-    Ui::BiuOpsSubaruDataWindow *ui;
+
+private:
+    std::unique_ptr<Ui::BiuOpsSubaruDataWindow> ui;
 };
 
 #endif // BIU_OPS_SUBARU_DATA_H

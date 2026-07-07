@@ -1,6 +1,8 @@
 #ifndef FLASH_ECU_UNBRICK_SUBARU_DENSO_MC68HC16Y5_02_H
 #define FLASH_ECU_UNBRICK_SUBARU_DENSO_MC68HC16Y5_02_H
 
+#include <memory>
+
 #include <QEventLoop>
 #include <QWidget>
 
@@ -44,9 +46,11 @@ private:
     void set_progressbar_value(int value);
 
     SerialPortActions *serial;
-    Ui::EcuOperationsWindow *ui;
     FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation *m_operation = nullptr;
 
+
+private:
+    std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
 
 

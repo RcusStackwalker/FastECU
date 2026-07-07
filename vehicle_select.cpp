@@ -6,8 +6,8 @@
 
 VehicleSelect::VehicleSelect(FileActions::ConfigValuesStructure *configValues, QWidget *parent)
     : QDialog(parent)
-    , ui(new Ui::VehicleSelect)
     , configValues(configValues)
+    , ui{std::make_unique<Ui::VehicleSelect>()}
 {
     ui->setupUi(this);
 
@@ -111,7 +111,6 @@ VehicleSelect::VehicleSelect(FileActions::ConfigValuesStructure *configValues, Q
 
 VehicleSelect::~VehicleSelect()
 {
-    delete(ui);
 }
 
 void VehicleSelect::car_model_selected()

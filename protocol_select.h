@@ -1,6 +1,8 @@
 #ifndef PROTOCOL_SELECT_H
 #define PROTOCOL_SELECT_H
 
+#include <memory>
+
 #include <QWidget>
 #include <QStringListModel>
 #include <QTreeWidget>
@@ -35,13 +37,15 @@ private:
     QString header_font_family = "Franklin Gothic";
 
     FileActions::ConfigValuesStructure *configValues;
-    Ui::ProtocolSelect *ui;
 
 private slots:
     void car_model_selected();
     void protocol_treewidget_item_selected();
 
 
+
+private:
+    std::unique_ptr<Ui::ProtocolSelect> ui;
 };
 
 #endif // PROTOCOL_SELECT_H

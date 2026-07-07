@@ -1,6 +1,8 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#include <memory>
+
 //Exit application with this code to restart it instead of quitting:
 //qApp->exit(RESTART_CODE)
 #define RESTART_CODE 1000
@@ -288,7 +290,6 @@ private:
     QSize toolbar_item_size = QSize(24, 24);
 
     SystemLogger *syslogger;
-    Ui::MainWindow *ui;
 
     bool eventFilter(QObject *target, QEvent *event);
 
@@ -449,5 +450,8 @@ signals:
     //void syslog(int logType, bool write_syslog_to_file, QString message, bool timestamp, bool linefeed);
     void syslog(QString message, bool timestamp, bool linefeed);
     void enable_log_write_to_file(bool enable);
+
+private:
+    std::unique_ptr<Ui::MainWindow> ui;
 };
 #endif // MAINWINDOW_H

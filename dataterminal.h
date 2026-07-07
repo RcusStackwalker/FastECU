@@ -1,6 +1,8 @@
 #ifndef DATATERMINAL_H
 #define DATATERMINAL_H
 
+#include <memory>
+
 #include <QApplication>
 #include <QButtonGroup>
 #include <QByteArray>
@@ -63,7 +65,6 @@ private:
     void delay(int timeout);
 
     SerialPortActions *serial;
-    Ui::DataTerminalWindow *ui;
 
 signals:
 
@@ -72,6 +73,9 @@ private slots:
     void listenInterface();
     void sendToInterface();
 
+
+private:
+    std::unique_ptr<Ui::DataTerminalWindow> ui;
 };
 
 #endif // DATATERMINAL_H

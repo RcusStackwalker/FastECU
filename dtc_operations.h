@@ -1,6 +1,8 @@
 #ifndef DTC_OPERATIONS_H
 #define DTC_OPERATIONS_H
 
+#include <memory>
+
 #include <QApplication>
 #include <QByteArray>
 #include <QStandardItemModel>
@@ -242,11 +244,13 @@ private:
     void delay(int timeout);
 
     SerialPortActions *serial;
-    Ui::DtcOperationsWindow *ui;
 
 private slots:
     int read_dtc();
     int clear_dtc();
+
+private:
+    std::unique_ptr<Ui::DtcOperationsWindow> ui;
 };
 
 #endif // DTC_OPERATIONS_H

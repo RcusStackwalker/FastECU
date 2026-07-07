@@ -4,9 +4,9 @@
 
 FlashEcuSubaruDensoSH7058CanDiesel::FlashEcuSubaruDensoSH7058CanDiesel(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent)
     : QDialog(parent)
-    , ui(new Ui::EcuOperationsWindow)
     , ecuCalDef(ecuCalDef)
     , cmd_type(cmd_type)
+    , ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     // EURO4 0xFFFF4000 0x3000
     // EURO5 0xFFFEE000 0x2000
@@ -25,7 +25,6 @@ FlashEcuSubaruDensoSH7058CanDiesel::FlashEcuSubaruDensoSH7058CanDiesel(SerialPor
 
 FlashEcuSubaruDensoSH7058CanDiesel::~FlashEcuSubaruDensoSH7058CanDiesel()
 {
-    delete ui;
 }
 
 void FlashEcuSubaruDensoSH7058CanDiesel::closeEvent(QCloseEvent *event)

@@ -1,6 +1,8 @@
 #ifndef BIU_OPS_SUBARU_DTCS_H
 #define BIU_OPS_SUBARU_DTCS_H
 
+#include <memory>
+
 #include <QWidget>
 #include <QLabel>
 #include <QDebug>
@@ -25,7 +27,9 @@ private:
 
     void closeEvent(QCloseEvent *event);
 
-    Ui::BiuOpsSubaruDtcsWindow *ui;
+
+private:
+    std::unique_ptr<Ui::BiuOpsSubaruDtcsWindow> ui;
 };
 
 #endif // BIU_OPS_SUBARU_DTCS_H

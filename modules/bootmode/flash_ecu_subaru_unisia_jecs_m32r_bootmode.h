@@ -1,6 +1,8 @@
 #ifndef FLASH_ECU_SUBARU_UNISIA_JECS_M32R_BOOT_MODE_H
 #define FLASH_ECU_SUBARU_UNISIA_JECS_M32R_BOOT_MODE_H
 
+#include <memory>
+
 #include <QEventLoop>
 #include <QWidget>
 
@@ -44,9 +46,11 @@ private:
     void set_progressbar_value(int value);
 
     SerialPortActions *serial;
-    Ui::EcuOperationsWindow *ui;
     FlashEcuSubaruUnisiaJecsM32rBootModeOperation *m_operation = nullptr;
 
+
+private:
+    std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
 
 #endif // FLASH_ECU_SUBARU_UNISIA_JECS_M32R_BOOT_MODE_H

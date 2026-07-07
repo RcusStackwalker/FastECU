@@ -11,9 +11,9 @@
 
 FlashTcuCvtSubaruMitsuMH8104Can::FlashTcuCvtSubaruMitsuMH8104Can(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent)
     : QDialog(parent)
-    , ui(new Ui::EcuOperationsWindow)
     , ecuCalDef(ecuCalDef)
     , cmd_type(cmd_type)
+    , ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
 
@@ -89,7 +89,6 @@ void FlashTcuCvtSubaruMitsuMH8104Can::run()
 
 FlashTcuCvtSubaruMitsuMH8104Can::~FlashTcuCvtSubaruMitsuMH8104Can()
 {
-    delete ui;
 }
 
 void FlashTcuCvtSubaruMitsuMH8104Can::closeEvent(QCloseEvent *event)

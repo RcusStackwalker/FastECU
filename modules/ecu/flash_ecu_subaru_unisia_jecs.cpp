@@ -9,7 +9,7 @@ FlashEcuSubaruUnisiaJecs::FlashEcuSubaruUnisiaJecs(SerialPortActions *serial, Fi
     : QDialog(parent)
     , ecuCalDef(ecuCalDef)
     , cmd_type(cmd_type)
-    , ui(new Ui::EcuOperationsWindow)
+    , ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
 
@@ -132,7 +132,6 @@ void FlashEcuSubaruUnisiaJecs::run()
 
 FlashEcuSubaruUnisiaJecs::~FlashEcuSubaruUnisiaJecs()
 {
-    delete ui;
 }
 
 void FlashEcuSubaruUnisiaJecs::closeEvent(QCloseEvent *bar)

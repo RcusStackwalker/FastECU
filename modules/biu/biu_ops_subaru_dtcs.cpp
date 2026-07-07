@@ -3,7 +3,7 @@
 
 BiuOpsSubaruDtcs::BiuOpsSubaruDtcs(QStringList *dtc_result, QWidget *parent)
     : QWidget(parent),
-      ui(new Ui::BiuOpsSubaruDtcsWindow)
+      ui{std::make_unique<Ui::BiuOpsSubaruDtcsWindow>()}
 {
     ui->setupUi(this);
 
@@ -23,7 +23,6 @@ BiuOpsSubaruDtcs::BiuOpsSubaruDtcs(QStringList *dtc_result, QWidget *parent)
 
 BiuOpsSubaruDtcs::~BiuOpsSubaruDtcs()
 {
-    delete ui;
 }
 
 void BiuOpsSubaruDtcs::closeEvent(QCloseEvent *event)
