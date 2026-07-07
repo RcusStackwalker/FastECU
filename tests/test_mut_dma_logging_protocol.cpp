@@ -32,9 +32,9 @@ private slots:
         FileActions::LogValuesStructure lv = makeOneChannel();
         QVector<Channel> ch = { {0x8000, 2} };
         transport->expectWrite(buildSetupFrame(0xA0, 1));
-        transport->queueRead(buildCommandFrame(0xA5, QByteArray(), TRAILER_STD));
+        transport->queueRead(buildCommandFrame(0xA5, bytes::Bytes{}, TRAILER_STD));
         transport->expectWrite(buildIdListFrame(0xA1, ch));
-        transport->queueRead(buildCommandFrame(0x05, QByteArray(), TRAILER_STD));
+        transport->queueRead(buildCommandFrame(0x05, bytes::Bytes{}, TRAILER_STD));
 
         FileActions fileActions;
         MutDmaLoggingProtocol proto(std::move(transport), std::make_unique<AlreadyInMode>(125000), &lv, &fileActions);
@@ -80,9 +80,9 @@ private slots:
         FileActions::LogValuesStructure lv = makeOneChannel();
         QVector<Channel> ch = { {0x8000, 2} };
         transport->expectWrite(buildSetupFrame(0xA0, 1));
-        transport->queueRead(buildCommandFrame(0xA5, QByteArray(), TRAILER_STD));
+        transport->queueRead(buildCommandFrame(0xA5, bytes::Bytes{}, TRAILER_STD));
         transport->expectWrite(buildIdListFrame(0xA1, ch));
-        transport->queueRead(buildCommandFrame(0x05, QByteArray(), TRAILER_STD));
+        transport->queueRead(buildCommandFrame(0x05, bytes::Bytes{}, TRAILER_STD));
         ScriptedKlineTransport *raw = transport.get();
 
         FileActions fileActions;

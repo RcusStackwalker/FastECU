@@ -1,6 +1,10 @@
 #pragma once
-#include <QByteArray>
+#include "protocol/bytes.h"
+#include "protocol/mut_dma_codec.h"
 #include <QVector>
+
+#include <vector>
+
 #include "protocol/mut_dma_freeform.h"
 namespace mutdma {
 // Max payload bytes per 0x87/3 write frame: 48 payload bytes minus
@@ -9,10 +13,10 @@ constexpr int MAX_WRITE_CHUNK = 43;
 // 0x87 sub-cmd 3 (write arbitrary memory) frames, chunked to MAX_WRITE_CHUNK.
 // Each: cmd 0x87, payload [00 03 addrHi addrLo size data...], trailer 0x0D.
 // Returns no frames if addr + bytes.size() > 0x10000 (out-of-range write).
-QVector<QByteArray> buildWriteFrames(quint16 addr, const QByteArray& bytes);
+std::vector<MutDmaFrame> buildWriteFrames(quint16 addr, bytes::ByteView bytes);
 // Build 1-byte free-form channels covering [addr, addr+len). Caller chunks to the
 // id-list limit (~43 channels) across multiple streaming cycles.
 QVector<Channel> planReadChannels(quint16 addr, int len);
 // Concatenate the low byte of each decoded 1-byte channel value into a buffer.
-QByteArray reassembleRead(const QVector<quint32>& values);
+bytes::Bytes reassembleRead(const QVector<quint32>& values);
 }

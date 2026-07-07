@@ -3,6 +3,7 @@
 #include "protocol/mut_dma_freeform.h"
 #include "protocol/mut_dma_codec.h"
 #include "protocol/mut_dma_memory.h"
+#include "protocol/qt_bytes.h"
 #include "scripted_kline_transport.h"
 #include "test_driver.h"
 using namespace mutdma;
@@ -15,10 +16,10 @@ private slots:
         AlreadyInMode init(125000);
         // host setup (0xA0,N=1) -> ECU ACK-1 -> host id-list -> ECU ACK-2
         t.expectWrite(buildSetupFrame(0xA0, 1));
-        QByteArray ack1 = buildCommandFrame(0xA5, QByteArray(), TRAILER_STD);
+        const MutDmaFrame ack1 = buildCommandFrame(0xA5, bytes::Bytes{}, TRAILER_STD);
         t.queueRead(ack1);
         t.expectWrite(buildIdListFrame(0xA1, ch));
-        QByteArray ack2 = buildCommandFrame(0x05, QByteArray(), TRAILER_STD);
+        const MutDmaFrame ack2 = buildCommandFrame(0x05, bytes::Bytes{}, TRAILER_STD);
         t.queueRead(ack2);
         MutDmaDriver d(t, init);
         QVERIFY(d.startFreeFormLog(ch, 0xA0, 0xA1));
@@ -28,9 +29,9 @@ private slots:
     void write_memory_sends_and_acks() {
         ScriptedKlineTransport t; AlreadyInMode init(125000);
         QByteArray bytes = QByteArray::fromHex("DEAD");
-        QVector<QByteArray> frames = buildWriteFrames(0x8010, bytes);
+        const std::vector<MutDmaFrame> frames = buildWriteFrames(0x8010, bytes::view(bytes));
         t.expectWrite(frames.at(0));
-        t.queueRead(buildCommandFrame(0x87, QByteArray::fromHex("8000"), TRAILER_STD)); // echo ack
+        t.queueRead(buildCommandFrame(0x87, bytes::Bytes{0x80, 0x00}, TRAILER_STD)); // echo ack
         MutDmaDriver d(t, init);
         QVERIFY(d.writeMemory(0x8010, bytes));
         QVERIFY(t.scriptConsumed());
@@ -39,8 +40,9 @@ private slots:
         QVector<Channel> ch = { {0x8000,2} };
         ScriptedKlineTransport t; AlreadyInMode init(125000);
         // one streamed frame: [0x51][12 34][csum][0x0D]
-        QByteArray fr; fr.append(char(0x51)); fr.append(QByteArray::fromHex("1234"));
-        fr.append(char(sum8(fr,0,fr.size()))); fr.append(char(TRAILER_STD));
+        bytes::Bytes fr = {0x51, 0x12, 0x34};
+        fr.push_back(sum8(fr));
+        fr.push_back(TRAILER_STD);
         t.queueRead(fr);
         MutDmaDriver d(t, init);
         d.setChannelsForTest(ch);
@@ -59,7 +61,7 @@ private slots:
         ScriptedKlineTransport t; AlreadyInMode init(125000);
         t.expectWrite(buildSetupFrame(0xA0, 1));
         // wrong ACK-1 opcode (0x00 instead of 0xA5/0xB5), though checksum is valid
-        t.queueRead(buildCommandFrame(0x00, QByteArray(), TRAILER_STD));
+        t.queueRead(buildCommandFrame(0x00, bytes::Bytes{}, TRAILER_STD));
         MutDmaDriver d(t, init);
         QVERIFY(!d.startFreeFormLog(ch, 0xA0, 0xA1));
         QVERIFY(!d.isStreaming());
@@ -67,8 +69,7 @@ private slots:
     void poll_returns_empty_on_bad_frame() {
         QVector<Channel> ch = { {0x8000,2} };
         ScriptedKlineTransport t; AlreadyInMode init(125000);
-        QByteArray bad; bad.append(char(0x51)); bad.append(QByteArray::fromHex("1234"));
-        bad.append(char(0x00)); bad.append(char(TRAILER_STD)); // wrong checksum
+        const bytes::Bytes bad = {0x51, 0x12, 0x34, 0x00, TRAILER_STD}; // wrong checksum
         t.queueRead(bad);
         MutDmaDriver d(t, init); d.setChannelsForTest(ch);
         QVERIFY(d.pollOnce(50).isEmpty());
@@ -76,9 +77,9 @@ private slots:
     void write_memory_fails_on_bad_echo() {
         ScriptedKlineTransport t; AlreadyInMode init(125000);
         QByteArray bytes = QByteArray::fromHex("DEAD");
-        t.expectWrite(buildWriteFrames(0x8010, bytes).at(0));
-        QByteArray badEcho = buildCommandFrame(0x87, QByteArray::fromHex("8000"), TRAILER_STD);
-        badEcho[49] = badEcho.at(49) ^ 0xFF; // corrupt checksum
+        t.expectWrite(buildWriteFrames(0x8010, bytes::view(bytes)).at(0));
+        MutDmaFrame badEcho = buildCommandFrame(0x87, bytes::Bytes{0x80, 0x00}, TRAILER_STD);
+        badEcho[49] = static_cast<bytes::Byte>(badEcho[49] ^ 0xFF); // corrupt checksum
         t.queueRead(badEcho);
         MutDmaDriver d(t, init);
         QVERIFY(!d.writeMemory(0x8010, bytes));

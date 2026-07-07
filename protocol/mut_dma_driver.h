@@ -1,7 +1,11 @@
 #pragma once
+#include "protocol/bytes.h"
 #include "protocol/ikline_transport.h"
 #include "protocol/imut_dma_init.h"
 #include "protocol/mut_dma_freeform.h"
+
+#include <QByteArray>
+
 namespace mutdma {
 class MutDmaDriver {
 public:
@@ -15,6 +19,7 @@ public:
     QVector<quint32> pollOnce(int timeoutMs);
     // Write `bytes` to RAM at `addr` via 0x87 sub-cmd 3 (chunked). Returns true if
     // every chunk gets a valid echo response. Caller must validate the address range.
+    bool writeMemory(quint16 addr, bytes::ByteView bytes);
     bool writeMemory(quint16 addr, const QByteArray& bytes);
     void setChannelsForTest(const QVector<Channel>& ch) { channels_ = ch; }
 private:

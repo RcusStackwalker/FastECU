@@ -285,9 +285,9 @@ void MutDmaIntegrationTest::write_throughAdapter_putsExactFrameOnWire()
         QByteArray payload;
         payload.append(char(0x00)); payload.append(char(0x03));   // sub-cmd 3
         payload.append(char(0x12)); payload.append(char(0x34));   // addr16 (l_command word)
-        const QByteArray frame = buildCommandFrame(0x87, payload, TRAILER_STD);
+        const QByteArray frame = bytes::toQByteArray(buildCommandFrame(0x87, bytes::view(payload), TRAILER_STD));
         QCOMPARE(frame.size(), FRAME_LEN);
-        QVERIFY(verifyFrame(frame));
+        QVERIFY(verifyFrame(bytes::view(frame)));
 
         QTest::qWait(100);     // let all connect-handshake bytes reach the mock
         mock.resetParser();    // then start capture from a clean buffer
@@ -356,7 +356,7 @@ void MutDmaIntegrationTest::driverPollOnce_throughAdapter_decodesStreamFrameFrom
         QByteArray frame;
         frame.append(char(logId));
         frame.append(data);
-        frame.append(char(sum8(frame, 0, frame.size())));
+        frame.append(char(sum8(bytes::view(frame))));
         frame.append(char(TRAILER_STD));
 
         tr.read(60);   // drain residual
