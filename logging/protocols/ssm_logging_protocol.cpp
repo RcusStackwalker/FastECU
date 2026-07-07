@@ -1,10 +1,15 @@
 #include "logging/protocols/ssm_logging_protocol.h"
 #include "logging/romraider_conversion.h"
-#include "protocol/qt_bytes.h"
+#include "modules/ssm_protocol_core.h"
 #include <QElapsedTimer>
 
 namespace {
 constexpr int kStartTimeoutMs = 1000;
+
+void appendBytes(bytes::Bytes &target, bytes::Bytes chunk)
+{
+    target.insert(target.end(), chunk.begin(), chunk.end());
+}
 }
 
 SsmLoggingProtocol::SsmLoggingProtocol(std::unique_ptr<ISsmTransport> transport,
@@ -19,47 +24,33 @@ SsmLoggingProtocol::SsmLoggingProtocol(std::unique_ptr<ISsmTransport> transport,
 {
 }
 
-uint8_t SsmLoggingProtocol::ssmChecksum(const QByteArray &output) const
+bytes::Bytes SsmLoggingProtocol::buildSsmHeader(bytes::ByteView output) const
 {
-    uint8_t checksum = 0;
-    for (int i = 0; i < output.length(); i++)
-        checksum += (uint8_t)output.at(i);
-    return checksum;
+    return SsmProtocol::addHeader(output, 0xF0, targetIsEcu_ ? 0x10 : 0x18);
 }
 
-QByteArray SsmLoggingProtocol::buildSsmHeader(QByteArray output) const
+bytes::Bytes SsmLoggingProtocol::readFramedResponse(int timeoutMs)
 {
-    uint8_t length = (uint8_t)output.length();
-    output.insert(0, (uint8_t)0x80);
-    output.insert(1, targetIsEcu_ ? (uint8_t)0x10 : (uint8_t)0x18);
-    output.insert(2, (uint8_t)0xF0);
-    output.insert(3, length);
-    output.append((char)ssmChecksum(output));
-    return output;
-}
-
-QByteArray SsmLoggingProtocol::readFramedResponse(int timeoutMs)
-{
-    QByteArray received;
+    bytes::Bytes received;
     QElapsedTimer clock;
     clock.start();
 
     if (useOpenport2Adapter_)
-        return bytes::toQByteArray(transport_->read(timeoutMs));
+        return transport_->read(timeoutMs);
 
-    while (received.length() < 3 && clock.elapsed() < timeoutMs)
-        received.append(bytes::toQByteArray(transport_->read(10)));
+    while (received.size() < 3 && clock.elapsed() < timeoutMs)
+        appendBytes(received, transport_->read(10));
 
-    while (received.length() >= 3
-           && ((uint8_t)received.at(0) != 0x80 || (uint8_t)received.at(1) != 0xf0 || (uint8_t)received.at(2) != 0x10)
+    while (received.size() >= 3
+           && (received[0] != 0x80 || received[1] != 0xf0 || received[2] != 0x10)
            && clock.elapsed() < timeoutMs) {
-        received.remove(0, 1);
-        received.append(bytes::toQByteArray(transport_->read(10)));
+        received.erase(received.begin());
+        appendBytes(received, transport_->read(10));
     }
 
     int remaining = timeoutMs - int(clock.elapsed());
     if (remaining > 0)
-        received.append(bytes::toQByteArray(transport_->read(remaining)));
+        appendBytes(received, transport_->read(remaining));
 
     return received;
 }
@@ -71,16 +62,11 @@ bool SsmLoggingProtocol::start(QString *errorOut)
         return false;
     }
 
-    QByteArray output;
-    output.append((uint8_t)0xA8);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x07);
-    transport_->write(bytes::view(buildSsmHeader(output)));
+    const bytes::Bytes output{0xA8, 0x00, 0x00, 0x00, 0x07};
+    transport_->write(buildSsmHeader(output));
 
-    QByteArray received = readFramedResponse(kStartTimeoutMs);
-    if (received.length() <= 6 || (uint8_t)received.at(4) != 0xe8) {
+    const bytes::Bytes received = readFramedResponse(kStartTimeoutMs);
+    if (received.size() <= 6 || received[4] != 0xe8) {
         if (errorOut) *errorOut = "no response to logging start request";
         return false;
     }
@@ -97,41 +83,39 @@ PollResult SsmLoggingProtocol::poll(int timeoutMs)
         return result;
     }
 
-    QByteArray output;
-    output.append((uint8_t)0xA8);
-    output.append((uint8_t)0x01);
+    bytes::Bytes output{0xA8, 0x01};
     bool ok = false;
     for (int i = 0; i < logValues_->lower_panel_log_value_id.length(); i++) {
         for (int j = 0; j < logValues_->log_value_id.length(); j++) {
             if (logValues_->lower_panel_log_value_id.at(i) == logValues_->log_value_id.at(j)
                 && logValues_->log_value_protocol.at(j) == logValueProtocolFilter_) {
-                output.append((uint8_t)(logValues_->log_value_address.at(j).toUInt(&ok, 16) >> 16));
-                output.append((uint8_t)(logValues_->log_value_address.at(j).toUInt(&ok, 16) >> 8));
-                output.append((uint8_t)logValues_->log_value_address.at(j).toUInt(&ok, 16));
+                output.push_back((uint8_t)(logValues_->log_value_address.at(j).toUInt(&ok, 16) >> 16));
+                output.push_back((uint8_t)(logValues_->log_value_address.at(j).toUInt(&ok, 16) >> 8));
+                output.push_back((uint8_t)logValues_->log_value_address.at(j).toUInt(&ok, 16));
             }
         }
     }
-    transport_->write(bytes::view(buildSsmHeader(output)));
+    transport_->write(buildSsmHeader(output));
 
-    QByteArray received = readFramedResponse(timeoutMs);
-    if (received.length() <= 6 || (uint8_t)received.at(4) != 0xe8) {
+    const bytes::Bytes received = readFramedResponse(timeoutMs);
+    if (received.size() <= 6 || received[4] != 0xe8) {
         result.status = PollResult::Status::NoResponse;
         return result;
     }
 
-    received.remove(0, 5);
-    received.remove(received.length() - 1, 1);
+    const std::size_t payloadOffset = 5;
+    const std::size_t payloadLength = received.size() - payloadOffset - 1;
 
     for (int i = 0; i < logValues_->lower_panel_log_value_id.length(); i++) {
         for (int j = 0; j < logValues_->log_value_id.length(); j++) {
             if (logValues_->lower_panel_log_value_id.at(i) == logValues_->log_value_id.at(j)
                 && logValues_->log_value_protocol.at(j) == logValueProtocolFilter_
                 && logValues_->log_value_enabled.at(j) == "1"
-                && i < received.length()) {
+                && static_cast<std::size_t>(i) < payloadLength) {
                 QString value;
                 uint8_t length = logValues_->log_value_length.at(j).toUInt();
-                for (uint8_t k = 0; k < length && (i + k) < (uint8_t)received.length(); k++)
-                    value.append(QString::number((uint8_t)received.at(i + k)));
+                for (uint8_t k = 0; k < length && static_cast<std::size_t>(i + k) < payloadLength; k++)
+                    value.append(QString::number(received[payloadOffset + static_cast<std::size_t>(i + k)]));
 
                 QString calc_value = convertRomRaiderValue(fileActions_, logValues_, j, value);
                 result.samples.append(LogSample{j, calc_value});

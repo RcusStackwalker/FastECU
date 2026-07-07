@@ -2,6 +2,7 @@
 #include <QApplication>
 #include <file_actions.h>
 #include "logging/protocols/ssm_logging_protocol.h"
+#include "modules/ssm_protocol_core.h"
 #include "scripted_ssm_transport.h"
 #include "test_ssm_logging_protocol.h"
 
@@ -20,20 +21,17 @@ FileActions::LogValuesStructure makeOneChannel()
     return lv;
 }
 
-QByteArray buildResponse(const QByteArray &payload)
+bytes::Bytes buildRequest(bytes::ByteView payload)
+{
+    return SsmProtocol::addHeader(payload, 0xF0, 0x10);
+}
+
+bytes::Bytes buildResponse(bytes::ByteView payload)
 {
     // [0x80][0xf0][0x10][len][0xe8][payload...][checksum]
-    QByteArray msg;
-    msg.append((char)0x80);
-    msg.append((char)0xf0);
-    msg.append((char)0x10);
-    msg.append((char)(payload.size() + 1));
-    msg.append((char)0xe8);
-    msg.append(payload);
-    uint8_t sum = 0;
-    for (char c : msg)
-        sum += (uint8_t)c;
-    msg.append((char)sum);
+    bytes::Bytes msg = {0x80, 0xf0, 0x10, static_cast<bytes::Byte>(payload.size() + 1), 0xe8};
+    msg.insert(msg.end(), payload.begin(), payload.end());
+    msg.push_back(SsmProtocol::checksum(msg));
     return msg;
 }
 }
@@ -43,13 +41,17 @@ class TestSsmLoggingProtocol : public QObject {
 private slots:
     void start_succeeds_on_well_formed_response() {
         auto transport = std::make_unique<ScriptedSsmTransport>();
-        transport->queueRead(buildResponse(QByteArray(3, char(0))));
+        transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0x07}));
+        transport->queueRead(buildResponse(bytes::Bytes{0, 0, 0}));
+        ScriptedSsmTransport *raw = transport.get();
         FileActions fileActions;
         FileActions::LogValuesStructure lv = makeOneChannel();
 
         SsmLoggingProtocol proto(std::move(transport), &lv, &fileActions, "SSM", true, false);
         QString err;
         QVERIFY(proto.start(&err));
+        QVERIFY(raw->scriptConsumed());
+        QVERIFY(raw->ok());
     }
 
     void start_fails_on_short_response() {
@@ -78,7 +80,9 @@ private slots:
 
     void poll_decodes_one_channel() {
         auto transport = std::make_unique<ScriptedSsmTransport>();
-        transport->queueRead(buildResponse(QByteArray(1, char(42))));
+        transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
+        transport->queueRead(buildResponse(bytes::Bytes{42}));
+        ScriptedSsmTransport *raw = transport.get();
         FileActions fileActions;
         FileActions::LogValuesStructure lv = makeOneChannel();
 
@@ -89,6 +93,8 @@ private slots:
         QCOMPARE(r.samples.size(), 1);
         QCOMPARE(r.samples.at(0).logValueIndex, 0);
         QCOMPARE(r.samples.at(0).displayValue, QString("42"));
+        QVERIFY(raw->scriptConsumed());
+        QVERIFY(raw->ok());
     }
 
     void poll_returns_no_response_on_timeout() {
@@ -104,7 +110,8 @@ private slots:
 
     void poll_returns_transport_error_when_adapter_closes_mid_session() {
         auto transport = std::make_unique<ScriptedSsmTransport>();
-        transport->queueRead(buildResponse(QByteArray(1, char(1))));
+        transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0x07}));
+        transport->queueRead(buildResponse(bytes::Bytes{1}));
         FileActions fileActions;
         FileActions::LogValuesStructure lv = makeOneChannel();
         ScriptedSsmTransport *raw = transport.get();
