@@ -20,7 +20,6 @@ QT_DEPS = [
 ]
 
 COMMON_COPTS = [
-    "-std=c++20",
     "-DQT_FORCE_ASSERTS",
     "-DQT_DEPRECATED_WARNINGS",
     "-I.",
