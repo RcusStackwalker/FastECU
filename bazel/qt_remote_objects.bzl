@@ -62,5 +62,8 @@ def qt_replica_library(name, reps, deps):
             ],
             "//conditions:default": [],
         }),
-        deps = deps,
+        deps = deps + select({
+            "@platforms//os:windows": ["@qt_windows_x86_64//:qt_hdrs"],
+            "//conditions:default": [],
+        }),
     )

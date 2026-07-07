@@ -32,4 +32,8 @@ qt_cc_test(
         "@rules_qt//:qt_core",
         "@rules_qt//:qt_test",
     ],
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
 )
