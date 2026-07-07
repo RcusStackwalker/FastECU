@@ -21,6 +21,20 @@ FileActions::LogValuesStructure makeOneChannel()
     return lv;
 }
 
+FileActions::LogValuesStructure makeTwoSelectedChannelsSecondDisabled()
+{
+    FileActions::LogValuesStructure lv;
+    lv.lower_panel_log_value_id << "P1" << "P2";
+    lv.log_value_id << "P1" << "P2";
+    lv.log_value_protocol << "SSM" << "SSM";
+    lv.log_value_address << "1000" << "1003";
+    lv.log_value_units << "raw,unit,x,0" << "raw,unit,x,0";
+    lv.log_value_length << "1" << "1";
+    lv.log_value_enabled << "1" << "0";
+    lv.log_value << "0" << "0";
+    return lv;
+}
+
 bytes::Bytes buildRequest(bytes::ByteView payload)
 {
     return SsmProtocol::addHeader(payload, 0xF0, 0x10);
@@ -85,6 +99,25 @@ private slots:
         ScriptedSsmTransport *raw = transport.get();
         FileActions fileActions;
         FileActions::LogValuesStructure lv = makeOneChannel();
+
+        SsmLoggingProtocol proto(std::move(transport), &lv, &fileActions, "SSM", true, false);
+        PollResult r = proto.poll(200);
+
+        QCOMPARE((int)r.status, (int)PollResult::Status::Ok);
+        QCOMPARE(r.samples.size(), 1);
+        QCOMPARE(r.samples.at(0).logValueIndex, 0);
+        QCOMPARE(r.samples.at(0).displayValue, QString("42"));
+        QVERIFY(raw->scriptConsumed());
+        QVERIFY(raw->ok());
+    }
+
+    void poll_requests_disabled_selected_channels_but_does_not_emit_samples() {
+        auto transport = std::make_unique<ScriptedSsmTransport>();
+        transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00, 0x00, 0x10, 0x03}));
+        transport->queueRead(buildResponse(bytes::Bytes{42, 99}));
+        ScriptedSsmTransport *raw = transport.get();
+        FileActions fileActions;
+        FileActions::LogValuesStructure lv = makeTwoSelectedChannelsSecondDisabled();
 
         SsmLoggingProtocol proto(std::move(transport), &lv, &fileActions, "SSM", true, false);
         PollResult r = proto.poll(200);
