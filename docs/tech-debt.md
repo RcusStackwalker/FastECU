@@ -152,6 +152,15 @@ Actions:
   practical; start with logger channels and protocol definitions.
 - Remove `using namespace std` from `file_actions.h`.
 
+Implemented baseline:
+
+- `ExpressionEvaluator` now owns ROM map expression tokenization/evaluation as
+  pure, headless logic with focused QtTest coverage.
+- `NrcParser` and `DtcParser` now own diagnostic message decoding as pure,
+  headless logic with focused QtTest coverage.
+- `FileActions` keeps compatibility wrappers for existing ROM open paths.
+- `file_actions.h` no longer imports `std` into every includer.
+
 ### P1: Stabilize data models and bounds
 
 Several core models are represented as parallel `QStringList`s and raw pointer

@@ -86,8 +86,10 @@ SOURCES += \
     cipher.cpp \
     dataterminal.cpp \
     definition_file_convert.cpp \
+    dtc_parser.cpp \
     dtc_operations.cpp \
     ecu_operations.cpp \
+    expression_evaluator.cpp \
     file_actions.cpp \
     file_defs_ecuflash.cpp \
     file_defs_romraider.cpp \
@@ -208,7 +210,8 @@ SOURCES += \
     logging/romraider_conversion.cpp \
     logging/protocols/ssm_logging_protocol.cpp \
     logging/protocols/mut_dma_logging_protocol.cpp \
-    logging/protocols/cdbg_logging_protocol.cpp
+    logging/protocols/cdbg_logging_protocol.cpp \
+    nrc_parser.cpp
 
 HEADERS += \
     calibration_maps.h \
@@ -216,9 +219,11 @@ HEADERS += \
     cipher.h \
     dataterminal.h \
     definition_file_convert.h \
+    dtc_parser.h \
     dtc_operations.h \
     ecu_operations.h \
     error_codes.h \
+    expression_evaluator.h \
     file_actions.h \
     get_key_operations_subaru.h \
     hexedit/hexedit.h \
@@ -341,7 +346,8 @@ HEADERS += \
     logging/romraider_conversion.h \
     logging/protocols/ssm_logging_protocol.h \
     logging/protocols/mut_dma_logging_protocol.h \
-    logging/protocols/cdbg_logging_protocol.h
+    logging/protocols/cdbg_logging_protocol.h \
+    nrc_parser.h
 
 FORMS += \
     calibration_map_table.ui \

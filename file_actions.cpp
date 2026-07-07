@@ -1,6 +1,9 @@
 //#include "file_actions.h"
 #include "error_codes.h"
+#include "dtc_parser.h"
+#include "expression_evaluator.h"
 #include "modules/flash_utils.h"
+#include "nrc_parser.h"
 
 FileActions::FileActions(QWidget *parent)
     : QWidget(parent)
@@ -2751,199 +2754,21 @@ FileActions::EcuCalDefStructure *FileActions::checksum_correction(FileActions::E
 
 QStringList FileActions::parse_stringlist_from_expression_string(QString expression, QString x)
 {
-    QStringList numbers;
-    QStringList operators;
-    uint8_t output = 0;
-    uint8_t stack = 0;
-    bool isOperator = true;
-
-    int i = 0;
-
-    //emit LOG_D("Parse expression stringlist " + expression + " " + expression.length(), true, true);
-
-    while (i < expression.length())
-    {
-        QString number;
-        //emit LOG_D("Expression stringlist index: " + i + " " + expression.at(i), true, true);
-
-        if (expression.at(i) == 'x')
-        {
-            isOperator = false;
-            numbers.append(x);
-            output++;
-        }
-        else if ((isOperator && expression.at(i) == '-' && expression.at(i + 1) == 'x') || (expression.at(i) == '-' && expression.at(i + 1) == 'x' && i == 0))
-        {
-            isOperator = false;
-            number.append(expression.at(i));
-            number.append(x);
-            numbers.append(number);
-            i++;
-            output+=2;
-
-        }
-        else if (expression.at(i).isNumber() || expression.at(i) == '.' || (isOperator && expression.at(i) == '-'))
-        {
-            isOperator = false;
-            number.append(expression.at(i));
-            i++;
-            while (i < expression.length() && (expression.at(i).isNumber() || expression.at(i) == '.'))
-            {
-                number.append(expression.at(i));
-                i++;
-            }
-            i--;
-            numbers.append(number);
-            output++;
-        }
-        else if (expression.at(i) == '(')
-        {
-            isOperator = true;
-            operators.append(expression.at(i));
-            stack++;
-        }
-        else if (expression.at(i) == ')')
-        {
-            stack--;
-            while (operators.at(stack) != "(")
-            {
-                numbers.append(operators.at(stack));
-                operators.removeAt(stack);
-                stack--;
-            }
-            operators.removeAt(stack);
-        }
-        else if (expression.at(i) == '*')
-        {
-            isOperator = true;
-            operators.append(expression.at(i));
-            stack++;
-        }
-        else if (expression.at(i) == '/')
-        {
-            isOperator = true;
-            operators.append(expression.at(i));
-            stack++;
-        }
-        else if (expression.at(i) == '+' || expression.at(i) == '-')
-        {
-            isOperator = true;
-            if ((operators.length() > 0 && i > 0) && (operators.at(stack - 1) == '/' || operators.at(stack - 1) == '*'))
-            {
-                while (operators.length() > 0 && (operators.at(stack - 1) == '/' || operators.at(stack - 1) == '*'))
-                {
-                    //qDebug() << "Stack:" << stack << "operators:" << operators.length();
-                    numbers.append(operators.at(stack - 1));
-                    stack--;
-                    operators.removeAt(stack);
-                    output++;
-                    if (!stack || !operators.length()) {
-                        //qDebug() << "Stack:" << stack << "operators:" << operators.length();
-                        break;
-                    }
-                }
-                operators.append(expression.at(i));
-                stack++;
-            }
-            else
-            {
-                //qDebug() << "Append to operators:" << expression.at(i);
-                operators.append(expression.at(i));
-                stack++;
-            }
-        }
-        i++;
-    }
-    while (operators.length() > 0)
-    {
-        stack--;
-        numbers.append(operators.at(stack));
-        operators.removeAt(stack);
-    }
-
-    //emit LOG_D("Parse expression stringlist end";
-
-    return numbers;
+    return ExpressionEvaluator::parse(expression, x);
 }
 
 double FileActions::calculate_value_from_expression(QStringList expression)
 {
-    double value = 0;
-
-    if (expression.length() == 1)
-    {
-        QString valueString = expression.at(0);
-        if (valueString.startsWith("--"))
-            valueString.remove(0, 2);
-        value = valueString.toDouble();
-    }
-
-    //qDebug() << "Expression:" << expression;
-    while (expression.length() > 1)
-    {
-        for (int i = 0; i < expression.length(); i++)
-        {
-            if (expression.at(i) == "-") {
-                value = expression.at(i - 2).toDouble() - expression.at(i - 1).toDouble();
-                expression.replace(i, QString::number(value, 'g', float_precision));
-                expression.removeAt(i - 1);
-                expression.removeAt(i - 2);
-                break;
-            }
-            if (expression.at(i) == "+") {
-                value = expression.at(i - 2).toDouble() + expression.at(i - 1).toDouble();
-                expression.replace(i, QString::number(value, 'g', float_precision));
-                expression.removeAt(i - 1);
-                expression.removeAt(i - 2);
-                break;
-            }
-            if (expression.at(i) == "*") {
-                value = expression.at(i - 2).toDouble() * expression.at(i - 1).toDouble();
-                expression.replace(i, QString::number(value, 'g', float_precision));
-                expression.removeAt(i - 1);
-                expression.removeAt(i - 2);
-                break;
-            }
-            if (expression.at(i) == "/") {
-                value = expression.at(i - 2).toDouble() / expression.at(i - 1).toDouble();
-                expression.replace(i, QString::number(value, 'g', float_precision));
-                expression.removeAt(i - 1);
-                expression.removeAt(i - 2);
-                break;
-            }
-        }
-    }
-
-    if (isnan(value))
-        value = 0;
-    return value;
+    return ExpressionEvaluator::evaluate(expression, float_precision);
 }
 
 QString FileActions::parse_nrc_message(QByteArray nrc)
 {
-    QString ret = "Unknown error code";
-
-    if (nrc.length() > 2 && (uint8_t)nrc.at(0) == 0x7f)
-        ret = neg_rsp_codes.value((uint8_t)nrc.at(2), ret);
-    if (!nrc.isEmpty() && (uint8_t)nrc.at(0) == 0x7f)
-        ret = "Not a valid answer";
-
-    return ret;
+    return NrcParser::parse(nrc, neg_rsp_codes);
 }
 
 QString FileActions::parse_dtc_message(uint16_t dtc)
 {
-    QString ret = QString("P%1 - Unknown error code").arg((uint16_t)dtc,4,16,QLatin1Char('0'));
-
-    int dtc_category = dtc >> 14;
-    if (dtc_category == 0x00)
-        ret = dtc_Pxxxx_codes.value(dtc, ret);
-    if (dtc_category == 0x01)
-        ret = dtc_Cxxxx_codes.value(dtc, ret);
-    if (dtc_category == 0x02)
-        ret = dtc_Bxxxx_codes.value(dtc, ret);
-    if (dtc_category == 0x03)
-        ret = dtc_Uxxxx_codes.value(dtc, ret);
-
-    return ret;
+    return DtcParser::parse(dtc, dtc_Pxxxx_codes, dtc_Cxxxx_codes,
+                            dtc_Bxxxx_codes, dtc_Uxxxx_codes);
 }

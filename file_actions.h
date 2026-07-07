@@ -26,9 +26,9 @@
 #include <QLineEdit>
 #include <QTextEdit>
 
+#include <cstdint>
 #include <string.h>
 #include <iostream>
-#include <math.h>
 
 #include "modules/checksum/checksum_ecu_subaru_denso_sh705x_diesel.h"
 #include "modules/checksum/checksum_ecu_subaru_denso_sh7xxx.h"
@@ -48,8 +48,6 @@
 #else
     #include <unistd.h>
 #endif // win32
-
-using namespace std;
 
 class FileActions : public QWidget
 {
