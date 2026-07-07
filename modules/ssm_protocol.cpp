@@ -137,6 +137,42 @@ QByteArray addHeader(QByteArray output, uint8_t testerId, uint8_t targetId, bool
     return output;
 }
 
+bool hasValidFrame(const QByteArray &frame, uint8_t receiverId, uint8_t senderId, bool dec0x100)
+{
+    constexpr int headerLength = 4;
+    constexpr int checksumLength = 1;
+    if (frame.size() < headerLength + checksumLength) {
+        return false;
+    }
+
+    const auto valueAt = [&frame](int index) {
+        return uint8_t(frame.at(index));
+    };
+
+    const int payloadLength = valueAt(3);
+    if (frame.size() != headerLength + payloadLength + checksumLength) {
+        return false;
+    }
+
+    if (valueAt(0) != 0x80 || valueAt(1) != receiverId || valueAt(2) != senderId) {
+        return false;
+    }
+
+    return checksum(frame.left(frame.size() - checksumLength), dec0x100)
+           == valueAt(frame.size() - checksumLength);
+}
+
+bool hasPayloadPrefix(const QByteArray &frame, const QByteArray &prefix,
+                      uint8_t receiverId, uint8_t senderId, bool dec0x100)
+{
+    if (!hasValidFrame(frame, receiverId, senderId, dec0x100)) {
+        return false;
+    }
+
+    const int payloadLength = uint8_t(frame.at(3));
+    return prefix.size() <= payloadLength && frame.mid(4, prefix.size()) == prefix;
+}
+
 QString toHex(const QByteArray &received)
 {
     QString msg;

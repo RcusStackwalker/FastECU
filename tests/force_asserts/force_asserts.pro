@@ -1,6 +1,6 @@
 QT += core testlib
 QT -= gui
-CONFIG += console c++17 release
+CONFIG += console c++20 release
 CONFIG -= app_bundle
 TEMPLATE = app
 TARGET = tst_force_asserts

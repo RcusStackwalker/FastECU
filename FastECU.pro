@@ -3,7 +3,7 @@ QT += core gui xml serialport remoteobjects websockets
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 QT += charts
 
-CONFIG += c++17
+CONFIG += c++20
 
 # The following define makes your compiler emit warnings if you use
 # any Qt feature that has been marked deprecated (the exact warnings

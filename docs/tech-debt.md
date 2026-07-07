@@ -13,7 +13,7 @@ legibility, and structure. The target state is:
 
 Observed on 2026-07-06:
 
-- Qt/qmake C++17 desktop application with app code, serial/J2534 backends,
+- Qt/qmake C++20 desktop application with app code, serial/J2534 backends,
   protocol code, logging, ECU/TCU/EEPROM flash modules, calibration editing,
   config parsing, and packaging assets in one repository.
 - Approximate maintained C++ surface, excluding `tests/`, `hexedit/`, and
@@ -225,6 +225,12 @@ Actions:
   erase/write response rejection, stop request, and checksum mismatch.
 - Move user prompts behind injectable prompt interfaces, as
   `FlashOperationWorker::PromptFn` already does.
+
+Implemented baseline:
+
+- `SsmProtocol` owns reusable SSM frame checksum/header validation and payload
+  prefix checks, with focused QtTest coverage for valid frames, malformed
+  lengths, wrong sender/receiver IDs, and bad checksums.
 
 ### P1: Narrow serial and hardware interfaces
 

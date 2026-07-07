@@ -9,7 +9,7 @@
 #
 # Run:  qmake6 mut_dma_integration_tests.pro && make && ./mut_dma_integration_tests
 QT += core testlib serialport widgets remoteobjects websockets
-CONFIG += c++17 console
+CONFIG += c++20 console
 CONFIG -= app_bundle
 include(../hardening.pri)
 

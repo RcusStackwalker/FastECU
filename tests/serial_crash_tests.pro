@@ -4,7 +4,7 @@
 # Pre-fix each test reproduces the crash (SIGSEGV at 0x8); post-fix they pass.
 
 QT += core testlib serialport widgets
-CONFIG += c++17 console
+CONFIG += c++20 console
 CONFIG -= app_bundle
 include(../hardening.pri)
 

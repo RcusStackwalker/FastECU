@@ -249,7 +249,7 @@ def main() -> int:
                     "--config-file",
                     str(ROOT / ".clang-tidy"),
                     "--",
-                    "-std=c++17",
+                    "-std=c++20",
                     "-DQT_FORCE_ASSERTS",
                     "-I.",
                     "-Iprotocol",

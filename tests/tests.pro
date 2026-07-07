@@ -1,5 +1,5 @@
 QT += core testlib widgets xml serialport remoteobjects websockets
-CONFIG += console c++17
+CONFIG += console c++20
 CONFIG -= app_bundle
 include(../hardening.pri)
 include(../protocol/protocol.pri)

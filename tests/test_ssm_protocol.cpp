@@ -15,6 +15,9 @@ private slots:
     void payload_matches_common_denso_vector();
     void payload_truncates_to_four_byte_boundary();
     void checksum_and_header_match_existing_layout();
+    void frame_validation_accepts_matching_header_length_and_checksum();
+    void frame_validation_rejects_malformed_frames();
+    void payload_prefix_checks_validated_payload_start();
     void to_hex_preserves_existing_trailing_space_format();
     void crc32_matches_existing_polynomial_vector();
     void crc32_null_pointer_returns_zero();
@@ -88,6 +91,40 @@ void TestSsmProtocol::checksum_and_header_match_existing_layout()
     QCOMPARE(SsmProtocol::checksum(payload, true), uint8_t(0xF2));
     QCOMPARE(SsmProtocol::addHeader(payload, 0xF1, 0x10, false),
              QByteArray::fromHex("8010F105A80011223394"));
+}
+
+void TestSsmProtocol::frame_validation_accepts_matching_header_length_and_checksum()
+{
+    const QByteArray response = SsmProtocol::addHeader(QByteArray::fromHex("EF52"), 0xF0, 0x10);
+
+    QVERIFY(SsmProtocol::hasValidFrame(response, 0x10, 0xF0));
+}
+
+void TestSsmProtocol::frame_validation_rejects_malformed_frames()
+{
+    const QByteArray response = SsmProtocol::addHeader(QByteArray::fromHex("EF52"), 0xF0, 0x10);
+    QByteArray badLength = response;
+    badLength[3] = char(0x03);
+    QByteArray badChecksum = response;
+    badChecksum[badChecksum.size() - 1] = char(0x00);
+
+    QVERIFY(!SsmProtocol::hasValidFrame(QByteArray::fromHex("8010F0"), 0x10, 0xF0));
+    QVERIFY(!SsmProtocol::hasValidFrame(response, 0x11, 0xF0));
+    QVERIFY(!SsmProtocol::hasValidFrame(response, 0x10, 0xF1));
+    QVERIFY(!SsmProtocol::hasValidFrame(badLength, 0x10, 0xF0));
+    QVERIFY(!SsmProtocol::hasValidFrame(badChecksum, 0x10, 0xF0));
+}
+
+void TestSsmProtocol::payload_prefix_checks_validated_payload_start()
+{
+    const QByteArray response = SsmProtocol::addHeader(QByteArray::fromHex("EF5201"), 0xF0, 0x10);
+    QByteArray badChecksum = response;
+    badChecksum[badChecksum.size() - 1] = char(0x00);
+
+    QVERIFY(SsmProtocol::hasPayloadPrefix(response, QByteArray::fromHex("EF52"), 0x10, 0xF0));
+    QVERIFY(!SsmProtocol::hasPayloadPrefix(response, QByteArray::fromHex("EF53"), 0x10, 0xF0));
+    QVERIFY(!SsmProtocol::hasPayloadPrefix(response, QByteArray::fromHex("EF520100"), 0x10, 0xF0));
+    QVERIFY(!SsmProtocol::hasPayloadPrefix(badChecksum, QByteArray::fromHex("EF52"), 0x10, 0xF0));
 }
 
 void TestSsmProtocol::to_hex_preserves_existing_trailing_space_format()
