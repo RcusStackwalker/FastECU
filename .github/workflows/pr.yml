@@ -284,6 +284,12 @@ jobs:
         run: |
           bazel build -k --config=release //:fastecu //tests/...
 
+      - name: Dump Linker Parameters
+        if: failure()
+        run: |
+          cat bazel-out/x64_windows-opt/bin/fastecu.exe-0.params
+        shell: bash
+
       - name: Test Bazel targets
         run: |
           bazel test -k --config=release //tests/... //:qmake_bazel_sync //:bazel_openssl_windows
