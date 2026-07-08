@@ -182,6 +182,16 @@ py_test(
 )
 
 py_test(
+    name = "windows_preprocessor_guards",
+    srcs = ["scripts/check-windows-preprocessor-guards.py"],
+    main = "scripts/check-windows-preprocessor-guards.py",
+    data = [
+        "file_actions.h",
+        "serial_port/serial_port_actions_direct.h",
+    ],
+)
+
+py_test(
     name = "clang_tidy_report",
     srcs = ["scripts/clang_tidy_report.py"],
     main = "scripts/clang_tidy_report.py",
