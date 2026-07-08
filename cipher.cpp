@@ -29,24 +29,26 @@ void Cipher::handleErrors(void)
 
 QByteArray Cipher::encrypt_aes128_ecb(const QByteArray& plaintext, const QByteArray& key)
 {
-    unsigned char ciphertext[size16(plaintext.size())];
+    QByteArray result;
+    result.resizeForOverwrite(plaintext.size() + 16);
     int ciphertext_len = encrypt_aes128_ecb((unsigned char *)plaintext.constData(),
                                             plaintext.size(),
                                             (unsigned char *)key.constData(),
-                                            ciphertext);
-    QByteArray encrypted((const char *)ciphertext, ciphertext_len);
-    return encrypted;
+                                            reinterpret_cast<unsigned char *>(result.data()));
+    result.resize(ciphertext_len);
+    return result;
 }
 
 QByteArray Cipher::decrypt_aes128_ecb(const QByteArray& ciphertext, const QByteArray& key)
 {
-    unsigned char plaintext[size16(ciphertext.size())];
+    QByteArray result;
+    result.resizeForOverwrite(ciphertext.size());
     int plaintext_len = decrypt_aes128_ecb((unsigned char *)ciphertext.constData(),
                                            ciphertext.size(),
                                            (unsigned char *)key.constData(),
-                                           plaintext);
-    QByteArray encrypted((const char *)plaintext, plaintext_len);
-    return encrypted;
+                                           reinterpret_cast<unsigned char *>(result.data()));
+    result.resize(plaintext_len);
+    return result;
 }
 
 int Cipher::encrypt_aes128_ecb(unsigned char *plaintext, int plaintext_len, unsigned char *key, unsigned char *ciphertext)
