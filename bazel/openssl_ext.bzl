@@ -25,11 +25,11 @@ def _openssl_repo_impl(rctx):
             crypto_lib = None
             for lib_candidate in lib_candidates:
                 if rctx.path(root).get_child(lib_candidate).exists:
-                    crypto_lib = "%s/%s" % (root, lib_candidate)
+                    crypto_lib = lib_candidate
                     break
             if crypto_lib:
                 linkopts = """[
-        '\\"%s\\"',
+        "%s",
     ]""" % crypto_lib
             else:
                 linkopts = """[
