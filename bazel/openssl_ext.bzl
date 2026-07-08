@@ -29,7 +29,7 @@ def _openssl_repo_impl(rctx):
                     break
             if crypto_lib:
                 linkopts = """[
-        "%s",
+        '\\"%s\\"',
     ]""" % crypto_lib
             else:
                 linkopts = """[
