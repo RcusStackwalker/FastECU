@@ -3,6 +3,7 @@ def _openssl_repo_impl(rctx):
         rctx.os.environ.get("OPENSSL_ROOT"),
         "/opt/homebrew/opt/openssl@3",
         "/usr/local/opt/openssl@3",
+        "C:/Program Files/OpenSSL-Win64",
     ]
     root = None
     for candidate in candidates:
@@ -13,7 +14,27 @@ def _openssl_repo_impl(rctx):
     if root:
         rctx.symlink(rctx.path(root).get_child("include"), "include")
         rctx.symlink(rctx.path(root).get_child("lib"), "lib")
-        linkopts = """[
+        if "windows" in rctx.os.name.lower():
+            lib_candidates = [
+                "lib/VC/x64/MD/libcrypto.lib",
+                "lib/VC/x64/MT/libcrypto.lib",
+                "lib/libcrypto.lib",
+            ]
+            crypto_lib = None
+            for lib_candidate in lib_candidates:
+                if rctx.path(root).get_child(lib_candidate).exists:
+                    crypto_lib = "%s/%s" % (root, lib_candidate)
+                    break
+            if crypto_lib:
+                linkopts = """[
+        "%s",
+    ]""" % crypto_lib
+            else:
+                linkopts = """[
+        "libcrypto.lib",
+    ]"""
+        else:
+            linkopts = """[
         "-L%s/lib",
         "-lcrypto",
     ]""" % root
@@ -41,6 +62,7 @@ _openssl_repo = repository_rule(
 
 def _openssl_impl(mctx):
     _openssl_repo(name = "openssl_macos")
+    _openssl_repo(name = "openssl_windows")
 
 openssl = module_extension(
     implementation = _openssl_impl,

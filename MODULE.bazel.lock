@@ -145,13 +145,17 @@
   "moduleExtensions": {
     "//bazel:openssl_ext.bzl%openssl": {
       "general": {
-        "bzlTransitiveDigest": "Hpx3551S6meHQAlNbXz5XJrHRVhvHSoNT0d3nTDsCV0=",
+        "bzlTransitiveDigest": "sGu8DpGxRHkBWzzyEJ8SsGZQKWPzm6zwcsSwQI1MVv0=",
         "usagesDigest": "/ZDUPrsRF7GYKHmnR2Ib+AZacdx4kczB+mi2pcYV9GY=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "openssl_macos": {
+            "repoRuleId": "@@//bazel:openssl_ext.bzl%_openssl_repo",
+            "attributes": {}
+          },
+          "openssl_windows": {
             "repoRuleId": "@@//bazel:openssl_ext.bzl%_openssl_repo",
             "attributes": {}
           }
