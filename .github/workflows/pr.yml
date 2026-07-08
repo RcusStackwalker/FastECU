@@ -278,11 +278,11 @@ jobs:
 
       - name: Build Bazel targets
         run: |
-          bazel build --config=release //:fastecu //tests/...
+          bazel build -k --config=release //:fastecu //tests/...
 
       - name: Test Bazel targets
         run: |
-          bazel test --config=release //tests/... //:qmake_bazel_sync //:bazel_openssl_windows
+          bazel test -k --config=release //tests/... //:qmake_bazel_sync //:bazel_openssl_windows
 
       - name: clang-tidy report
         continue-on-error: true
