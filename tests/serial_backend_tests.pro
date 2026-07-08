@@ -14,6 +14,9 @@ unix {
     SOURCES += ../serial_port/J2534_unix.cpp
     HEADERS += ../serial_port/J2534_unix.h
 
+    SOURCES += test_direct_backend_pty.cpp
+    HEADERS += test_direct_backend_pty.h
+
     SOURCES += test_pty_e2e.cpp
     HEADERS += test_pty_e2e.h
 }

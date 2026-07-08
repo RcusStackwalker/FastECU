@@ -1,6 +1,7 @@
 module(name = "fastecu")
 
-bazel_dep(name = "rules_cc", version = "0.2.16")
+bazel_dep(name = "rules_cc", version = "0.2.22")
+bazel_dep(name = "rules_python", version = "2.2.0")
 bazel_dep(name = "rules_qt", version = "0.0.6")
 bazel_dep(name = "platforms", version = "1.0.0")
 
