@@ -1256,13 +1256,6 @@ int FlashEcuSubaruDensoSH705xKlineOperation::flash_block(const uint8_t *src, uin
 uint8_t FlashEcuSubaruDensoSH705xKlineOperation::cks_add8(QByteArray chksum_data, unsigned len)
 {
     uint16_t sum = 0;
-    uint8_t data[chksum_data.length()];
-    /*
-        for (int i = 0; i < chksum_data.length(); i++)
-        {
-            data[i] = chksum_data.at(i);
-        }
-    */
     for (unsigned i = 0; i < len; i++)
     {
         sum += (uint8_t)chksum_data.at(i); // data[i];
