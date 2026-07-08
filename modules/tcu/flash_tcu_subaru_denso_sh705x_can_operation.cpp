@@ -2027,13 +2027,6 @@ int FlashTcuSubaruDensoSH705xCanOperation::flash_block(const uint8_t *src, uint3
 uint8_t FlashTcuSubaruDensoSH705xCanOperation::cks_add8(QByteArray chksum_data, unsigned len)
 {
     uint16_t sum = 0;
-    uint8_t data[chksum_data.length()];
-    /*
-        for (int i = 0; i < chksum_data.length(); i++)
-        {
-            data[i] = chksum_data.at(i);
-        }
-    */
     for (unsigned i = 0; i < len; i++)
     {
         sum += (uint8_t)chksum_data.at(i); // data[i];
