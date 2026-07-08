@@ -1,6 +1,7 @@
+"""Shared Qt Bazel macros and constants for FastECU targets."""
+
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_qt//:qt.bzl", _qt_cc_binary = "qt_cc_binary", _qt_cc_library = "qt_cc_library", _qt_cc_test = "qt_cc_test", _qt_resource_via_qrc = "qt_resource_via_qrc")
-load("//bazel:qt_remote_objects.bzl", "qt_replica_header")
 
 qt_cc_binary = _qt_cc_binary
 qt_cc_library = _qt_cc_library
@@ -90,7 +91,16 @@ def qt_ui_basename_library(name, ui, deps):
         deps = deps,
     )
 
-def qt_ui_basename_libraries(forms, deps):
+def qt_ui_basename_libraries(name, forms, deps):
+    """Create one UI header library per Qt Designer form.
+
+    Args:
+      name: Macro instance name used for validation.
+      forms: Qt Designer .ui files to process.
+      deps: Dependencies passed to each generated UI library.
+    """
+    if not name:
+        fail("name must be non-empty")
     for ui in forms:
         qt_ui_basename_library(
             name = "ui_" + _basename(ui),
@@ -99,6 +109,13 @@ def qt_ui_basename_libraries(forms, deps):
         )
 
 def qt_cpp_moc_headers(name, srcs, deps = []):
+    """Generate moc outputs for C++ headers and expose them as a library.
+
+    Args:
+      name: Name of the generated cc_library.
+      srcs: Header files to pass to moc.
+      deps: Dependencies passed to the generated cc_library.
+    """
     outs = []
     for src in srcs:
         base = _basename(src)

@@ -1,5 +1,16 @@
+"""Macros for generating Qt Remote Objects replica targets."""
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 def qt_replica_header(name, src, out = None, visibility = None):
-    """Generate a Qt Remote Objects replica header from a .rep file."""
+    """Generate a Qt Remote Objects replica header from a .rep file.
+
+    Args:
+      name: Name of the generated genrule.
+      src: Input .rep file.
+      out: Output header path, or None to derive it from src.
+      visibility: Visibility for the generated genrule.
+    """
     if out == None:
         base = src.split("/")[-1].replace(".rep", "")
         out = "rep_%s_replica.h" % base
@@ -26,6 +37,13 @@ def _moc_tools():
     })
 
 def qt_replica_library(name, reps, deps):
+    """Create a cc_library for Qt Remote Objects replicas.
+
+    Args:
+      name: Name of the generated cc_library.
+      reps: Input .rep files to compile.
+      deps: Dependencies passed to the generated cc_library.
+    """
     hdrs = []
     moc_srcs = []
     for rep in reps:
@@ -50,8 +68,7 @@ def qt_replica_library(name, reps, deps):
         )
         hdrs.append(":" + header_target)
         moc_srcs.append(":" + moc_target)
-
-    native.cc_library(
+    cc_library(
         name = name,
         srcs = moc_srcs,
         hdrs = hdrs,

@@ -1,5 +1,7 @@
 # Generated from qmake project files by the initial Bazel migration. Keep explicit lists in sync with scripts/check-bazel-qmake-sync.py.
 
+"""Explicit FastECU source manifests generated from qmake project files."""
+
 APP_MAIN_SRCS = [
     "main.cpp",
 ]

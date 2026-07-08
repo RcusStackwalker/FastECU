@@ -1,3 +1,5 @@
+"""Repository extension for locating system OpenSSL installations."""
+
 def _openssl_repo_impl(rctx):
     candidates = [
         rctx.os.environ.get("OPENSSL_ROOT"),
@@ -60,7 +62,7 @@ _openssl_repo = repository_rule(
     environ = ["OPENSSL_ROOT"],
 )
 
-def _openssl_impl(mctx):
+def _openssl_impl(_mctx):
     _openssl_repo(name = "openssl_macos")
     _openssl_repo(name = "openssl_windows")
 
