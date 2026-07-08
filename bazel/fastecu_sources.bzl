@@ -1,5 +1,7 @@
 # Generated from qmake project files by the initial Bazel migration. Keep explicit lists in sync with scripts/check-bazel-qmake-sync.py.
 
+"""Explicit FastECU source manifests generated from qmake project files."""
+
 APP_MAIN_SRCS = [
     "main.cpp",
 ]
@@ -546,11 +548,13 @@ SERIAL_BACKEND_TESTS_COMMON_REPS = [
 
 SERIAL_BACKEND_TESTS_UNIX_SRCS = [
     "../serial_port/J2534_unix.cpp",
+    "tests/test_direct_backend_pty.cpp",
     "tests/test_pty_e2e.cpp",
 ]
 
 SERIAL_BACKEND_TESTS_UNIX_HDRS = [
     "../serial_port/J2534_unix.h",
+    "tests/test_direct_backend_pty.h",
     "tests/test_pty_e2e.h",
 ]
 

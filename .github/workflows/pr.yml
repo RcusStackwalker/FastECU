@@ -254,8 +254,15 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          choco install llvm openssl -y --no-progress
+          $installOutput = choco install llvm openssl -y --no-progress
           "C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          $deployMatches = $installOutput | Select-String -Pattern "Deployed to '([^']+)'" | Where-Object { $_.Line -match 'openssl' }
+          if ($deployMatches.Count -ne 1) {
+            throw "Expected one OpenSSL 'Deployed to' line in choco output, found $($deployMatches.Count): $($deployMatches.Line -join ' | ')"
+          }
+          $opensslDir = $deployMatches[0].Matches[0].Groups[1].Value.TrimEnd('\') -replace '\\', '/'
+          Write-Host "Resolved OPENSSL_ROOT=$opensslDir"
+          "OPENSSL_ROOT=$opensslDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Install Bazel prerequisites (macOS)
         if: runner.os == 'macOS'
@@ -275,7 +282,7 @@ jobs:
 
       - name: Test Bazel targets
         run: |
-          bazel test --config=release //tests/... //:qmake_bazel_sync
+          bazel test --config=release //tests/... //:qmake_bazel_sync //:bazel_openssl_windows
 
       - name: clang-tidy report
         continue-on-error: true

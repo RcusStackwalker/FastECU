@@ -6,7 +6,12 @@
 #include <QSocketNotifier>
 #include <QThread>
 #include <atomic>
+#if defined(__unix__) || defined(__APPLE__)
 #include <unistd.h>
+#else
+int read(int fd, char *buf, std::size_t size);
+int write(int fd, const char *buf, std::size_t size);
+#endif
 
 // Mock Tactrix Openport 2.0 on the master side of a pseudo-terminal. FastECU's
 // real QSerialPort opens the slave; this responder speaks just enough of the

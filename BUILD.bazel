@@ -1,3 +1,4 @@
+load("@rules_python//python:defs.bzl", "py_test")
 load("//bazel:fastecu_sources.bzl", "APP_COMMON_HDRS", "APP_COMMON_SRCS", "APP_FORMS", "APP_MAIN_SRCS", "APP_MOC_HDRS", "APP_REPS", "APP_RESOURCES", "APP_UNIX_HDRS", "APP_UNIX_SRCS", "APP_WIN_HDRS", "APP_WIN_SRCS")
 load("//bazel:qt_remote_objects.bzl", "qt_replica_library")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "COMMON_LINKOPTS", "QT_DEPS", "qt_cc_binary", "qt_cc_library", "qt_resource_via_qrc", "qt_ui_basename_libraries")
@@ -13,11 +14,15 @@ APP_COMMON_MOC_HDRS = [
 ]
 
 APP_UNIX_MOC_HDRS = [h for h in APP_UNIX_HDRS if h in APP_MOC_HDRS]
+
 APP_WIN_MOC_HDRS = [h for h in APP_WIN_HDRS if h in APP_MOC_HDRS]
+
 APP_UNIX_NORMAL_HDRS = [h for h in APP_UNIX_HDRS if h not in APP_UNIX_MOC_HDRS]
+
 APP_WIN_NORMAL_HDRS = [h for h in APP_WIN_HDRS if h not in APP_WIN_MOC_HDRS]
 
 qt_ui_basename_libraries(
+    name = "fastecu_ui_libraries",
     forms = APP_FORMS,
     deps = ["@rules_qt//:qt_widgets"],
 )
@@ -30,46 +35,46 @@ qt_replica_library(
 
 qt_resource_via_qrc(
     name = "config_resource",
-    qrc_file = "config.qrc",
     files = glob(["config/*"]),
+    qrc_file = "config.qrc",
     deps = ["@rules_qt//:qt_core"],
 )
 
 qt_resource_via_qrc(
     name = "font_resource",
-    qrc_file = "fonts.qrc",
     files = glob(["fonts/*"]),
+    qrc_file = "fonts.qrc",
     deps = ["@rules_qt//:qt_core"],
 )
 
 qt_resource_via_qrc(
     name = "hexedit_resource",
-    qrc_file = "hexedit/qhexedit.qrc",
     files = glob([
         "hexedit/images/*",
         "hexedit/translations/*.qm",
     ]),
+    qrc_file = "hexedit/qhexedit.qrc",
     deps = ["@rules_qt//:qt_core"],
 )
 
 qt_resource_via_qrc(
     name = "icons_resource",
-    qrc_file = "icons.qrc",
     files = glob(["icons/*"]),
+    qrc_file = "icons.qrc",
     deps = ["@rules_qt//:qt_core"],
 )
 
 qt_resource_via_qrc(
     name = "images_resource",
-    qrc_file = "images.qrc",
     files = glob(["images/*"]),
+    qrc_file = "images.qrc",
     deps = ["@rules_qt//:qt_core"],
 )
 
 qt_resource_via_qrc(
     name = "kernels_resource",
-    qrc_file = "kernels.qrc",
     files = glob(["kernels/*"]),
+    qrc_file = "kernels.qrc",
     deps = ["@rules_qt//:qt_core"],
 )
 
@@ -77,12 +82,20 @@ qt_cc_library(
     name = "fastecu_core_common",
     srcs = APP_COMMON_SRCS,
     hdrs = APP_COMMON_MOC_HDRS,
+    copts = COMMON_COPTS,
+    includes = COMMON_INCLUDES,
+    linkopts = COMMON_LINKOPTS + select({
+        "@platforms//os:linux": ["-lcrypto"],
+        "@platforms//os:windows": [
+            "-lopengl32",
+            "-lsetupapi",
+        ],
+        "//conditions:default": ["-lcrypto"],
+    }),
     normal_hdrs = APP_COMMON_HDRS + select({
         "@platforms//os:windows": APP_WIN_HDRS,
         "//conditions:default": APP_UNIX_HDRS,
     }),
-    copts = COMMON_COPTS,
-    includes = COMMON_INCLUDES,
     deps = QT_DEPS + [
         ":config_resource",
         ":fastecu_replicas",
@@ -96,15 +109,8 @@ qt_cc_library(
         for ui in APP_FORMS
     ] + select({
         "@platforms//os:macos": ["@openssl_macos//:openssl"],
+        "@platforms//os:windows": ["@openssl_windows//:openssl"],
         "//conditions:default": [],
-    }),
-    linkopts = COMMON_LINKOPTS + select({
-        "@platforms//os:linux": ["-lcrypto"],
-        "@platforms//os:windows": [
-            "-lopengl32",
-            "-lsetupapi",
-        ],
-        "//conditions:default": ["-lcrypto"],
     }),
 )
 
@@ -112,28 +118,28 @@ qt_cc_library(
     name = "fastecu_platform_unix",
     srcs = APP_UNIX_SRCS,
     hdrs = APP_UNIX_MOC_HDRS,
-    normal_hdrs = APP_UNIX_NORMAL_HDRS,
     copts = COMMON_COPTS,
     includes = COMMON_INCLUDES,
-    deps = QT_DEPS,
+    normal_hdrs = APP_UNIX_NORMAL_HDRS,
     target_compatible_with = select({
         "@platforms//os:windows": ["@platforms//:incompatible"],
         "//conditions:default": [],
     }),
+    deps = QT_DEPS,
 )
 
 qt_cc_library(
     name = "fastecu_platform_windows",
     srcs = APP_WIN_SRCS,
     hdrs = APP_WIN_MOC_HDRS,
-    normal_hdrs = APP_WIN_NORMAL_HDRS,
     copts = COMMON_COPTS,
     includes = COMMON_INCLUDES,
-    deps = QT_DEPS,
+    normal_hdrs = APP_WIN_NORMAL_HDRS,
     target_compatible_with = select({
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],
     }),
+    deps = QT_DEPS,
 )
 
 qt_cc_binary(
@@ -152,28 +158,55 @@ qt_cc_binary(
 py_test(
     name = "qmake_bazel_sync",
     srcs = ["scripts/check-bazel-qmake-sync.py"],
-    main = "scripts/check-bazel-qmake-sync.py",
     data = [
         "FastECU.pro",
-        "//bazel:fastecu_sources.bzl",
         "protocol/protocol.pri",
+        "//bazel:fastecu_sources.bzl",
         "//tests:pro_files",
         "//tests/force_asserts:pro_files",
     ],
+    main = "scripts/check-bazel-qmake-sync.py",
+)
+
+py_test(
+    name = "bazel_openssl_windows",
+    srcs = ["scripts/check-bazel-openssl-windows.py"],
+    data = [
+        ".github/workflows/pr.yml",
+        "BUILD.bazel",
+        "MODULE.bazel",
+    ],
+    main = "scripts/check-bazel-openssl-windows.py",
 )
 
 py_test(
     name = "openpty_includes",
     srcs = ["scripts/check-openpty-includes.py"],
-    main = "scripts/check-openpty-includes.py",
     data = ["//tests:cpp_sources"],
+    main = "scripts/check-openpty-includes.py",
+)
+
+py_test(
+    name = "windows_preprocessor_guards",
+    srcs = ["scripts/check-windows-preprocessor-guards.py"],
+    data = [
+        "file_actions.h",
+        "serial_port/serial_port_actions_direct.h",
+    ],
+    main = "scripts/check-windows-preprocessor-guards.py",
 )
 
 py_test(
     name = "clang_tidy_report",
     srcs = ["scripts/clang_tidy_report.py"],
-    main = "scripts/clang_tidy_report.py",
     args = ["bazel/fastecu_sources.bzl"],
-    data = ["//bazel:fastecu_sources.bzl", ".clang-tidy"],
-    tags = ["clang-tidy", "manual"],
+    data = [
+        ".clang-tidy",
+        "//bazel:fastecu_sources.bzl",
+    ],
+    main = "scripts/clang_tidy_report.py",
+    tags = [
+        "clang-tidy",
+        "manual",
+    ],
 )

@@ -674,7 +674,7 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     QStringList check_serial_ports();
     QString open_serial_port();*/
 
-#ifdef WIN32
+#if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
     QMap<QString, QString> getAllJ2534DriversNames();
 #endif
     QStringList check_j2534_devices(QMap<QString, QString> installed_drivers);
