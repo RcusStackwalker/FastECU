@@ -280,6 +280,22 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang-tidy libssl-dev
 
+      # Temporary diagnostic tooling for the Windows QApplication-construction
+      # hang under investigation (see PR #7). Installs "Debugging Tools for
+      # Windows" (cdb.exe) so a later step can attach to the hung test process
+      # and dump every thread's native call stack straight into the CI log.
+      - name: Install debugging tools (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install windbg -y --no-progress
+          $cdb = Get-ChildItem -Path "C:\Program Files*\Windows Kits\10\Debuggers" -Filter "cdb.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $cdb) {
+            throw "cdb.exe not found after installing windbg"
+          }
+          Write-Host "Found cdb.exe at $($cdb.FullName)"
+          $cdb.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
       - name: Build Bazel targets
         run: |
           bazel build -k --config=release //:fastecu //tests/...
@@ -293,6 +309,30 @@ jobs:
       - name: Test Bazel targets
         run: |
           bazel test -k --config=release //tests/... //:qmake_bazel_sync //:bazel_openssl_wiring
+
+      # Temporary diagnostic (see PR #7): re-run one of the known-hanging
+      # suites in the background, wait until it's confirmed stuck, then
+      # attach cdb non-invasively and print every thread's call stack. This
+      # runs regardless of the previous step's outcome (it's expected to fail).
+      - name: Capture hang stack trace (diagnostic, Windows)
+        if: ${{ !cancelled() && runner.os == 'Windows' }}
+        shell: pwsh
+        run: |
+          $job = Start-Job -ScriptBlock {
+            Set-Location $using:PWD
+            bazel test --test_timeout=120 --nocache_test_results //tests:test_romraider_conversion 2>&1
+          }
+          Start-Sleep -Seconds 45
+          $proc = Get-Process -Name "test_romraider_conversion" -ErrorAction SilentlyContinue
+          if ($proc) {
+            Write-Host "=== [hang-diag] found pid $($proc.Id); capturing stack trace ==="
+            cdb -p $proc.Id -c "~*kb; qd" 2>&1
+          } else {
+            Write-Host "=== [hang-diag] test_romraider_conversion.exe process not found after 45s ==="
+          }
+          Wait-Job $job -Timeout 150 | Out-Null
+          Receive-Job $job
+          Remove-Job $job -Force -ErrorAction SilentlyContinue
 
       - name: clang-tidy report
         continue-on-error: true
