@@ -30,7 +30,7 @@ def main() -> int:
         build,
         flags=re.DOTALL,
     )
-    if not core_common or '"@openssl//:openssl"' not in core_common.group("body"):
+    if not core_common or not re.search(r'"@openssl(?://:openssl)?"', core_common.group("body")):
         errors.append("//:fastecu_core_common deps must include @openssl//:openssl")
 
     bazel_prereq = re.search(
