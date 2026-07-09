@@ -281,17 +281,20 @@ jobs:
           sudo apt-get install -y clang-tidy libssl-dev
 
       # Temporary diagnostic tooling for the Windows QApplication-construction
-      # hang under investigation (see PR #7). Installs "Debugging Tools for
-      # Windows" (cdb.exe) so a later step can attach to the hung test process
-      # and dump every thread's native call stack straight into the CI log.
+      # hang under investigation (see PR #7). "Debugging Tools for Windows"
+      # (cdb.exe) already ships on the windows-latest runner image (confirmed
+      # on PR #7's run: choco's `windbg` package doesn't exist, but cdb.exe was
+      # already present at C:\Program Files (x86)\Windows Kits\10\Debuggers\...),
+      # so this just locates the x64 variant specifically -- the runner is x64,
+      # and the SDK also ships arm/arm64/x86 debugger variants that won't run
+      # natively here.
       - name: Install debugging tools (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          choco install windbg -y --no-progress
-          $cdb = Get-ChildItem -Path "C:\Program Files*\Windows Kits\10\Debuggers" -Filter "cdb.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          $cdb = Get-ChildItem -Path "C:\Program Files*\Windows Kits\10\Debuggers\x64" -Filter "cdb.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $cdb) {
-            throw "cdb.exe not found after installing windbg"
+            throw "cdb.exe (x64) not found under Windows Kits Debuggers"
           }
           Write-Host "Found cdb.exe at $($cdb.FullName)"
           $cdb.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
