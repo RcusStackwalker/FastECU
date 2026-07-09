@@ -303,6 +303,41 @@ jobs:
         run: |
           bazel build -k --config=release //:fastecu //tests/...
 
+      # Temporary diagnostic (see PR #7): the hang stack trace showed Qt never
+      # loads any platform plugin DLL at all on Windows (QT_QPA_PLATFORM is
+      # confirmed correctly read as "offscreen", but createPlatformIntegration
+      # still fails). This inspects qoffscreen.dll directly: its statically
+      # declared dependencies (dumpbin), and a live LoadLibraryExW probe with
+      # GetLastError() to get the actual Win32 failure code, without needing
+      # to wait for anything to hang.
+      - name: Inspect qoffscreen.dll dependencies (diagnostic, Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $dll = Get-ChildItem -Path "D:\_bazel\external" -Filter "qoffscreen.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $dll) {
+            throw "qoffscreen.dll not found under D:\_bazel\external"
+          }
+          Write-Host "Found qoffscreen.dll at $($dll.FullName)"
+
+          $dumpbin = Get-ChildItem -Path "C:\Program Files\Microsoft Visual Studio" -Filter "dumpbin.exe" -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.FullName -match "hostx64\\x64" } | Select-Object -First 1
+          if ($dumpbin) {
+            Write-Host "=== dumpbin /dependents $($dll.Name) ==="
+            & $dumpbin.FullName /dependents $dll.FullName
+          } else {
+            Write-Host "dumpbin.exe not found under Visual Studio install, skipping static dependency dump"
+          }
+
+          Write-Host "=== LoadLibraryExW probe ==="
+          Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class Win32Probe { [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)] public static extern IntPtr LoadLibraryExW(string lpFileName, IntPtr hFile, uint dwFlags); }'
+          $handle = [Win32Probe]::LoadLibraryExW($dll.FullName, [IntPtr]::Zero, 0)
+          if ($handle -eq [IntPtr]::Zero) {
+            $err = [System.Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            Write-Host "LoadLibraryExW FAILED loading $($dll.FullName) with Win32 error code $err"
+          } else {
+            Write-Host "LoadLibraryExW SUCCEEDED loading $($dll.FullName), handle=$handle"
+          }
+
       - name: Dump Linker Parameters
         if: failure()
         run: |
