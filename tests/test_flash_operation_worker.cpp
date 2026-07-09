@@ -1,4 +1,5 @@
 #include <QtTest>
+#include <cstdio>
 #include <QApplication>
 #include <QSignalSpy>
 #include <QWidget>
@@ -122,8 +123,14 @@ int run_test_flash_operation_worker(int argc, char **argv)
     // ScriptedOperation constructs a QWidget (the dialog), which requires a
     // QApplication rather than a plain QCoreApplication to construct (even
     // though we never show a widget).
+    fprintf(stderr, "[diag] before QApplication construction\n");
+    fflush(stderr);
     QApplication app(argc, argv);
+    fprintf(stderr, "[diag] after QApplication construction\n");
+    fflush(stderr);
     TestFlashOperationWorker t;
+    fprintf(stderr, "[diag] before QTest::qExec\n");
+    fflush(stderr);
     return QTest::qExec(&t, argc, argv);
 }
 #include "test_flash_operation_worker.moc"

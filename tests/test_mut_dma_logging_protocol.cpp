@@ -1,4 +1,5 @@
 #include <QtTest>
+#include <cstdio>
 #include <QApplication>
 #include <file_actions.h>
 #include "logging/protocols/mut_dma_logging_protocol.h"
@@ -107,8 +108,14 @@ int run_test_mut_dma_logging_protocol(int argc, char **argv)
 {
     // FileActions derives from QWidget, which requires a QApplication rather than
     // a plain QCoreApplication to construct (even though we never show a widget).
+    fprintf(stderr, "[diag] before QApplication construction\n");
+    fflush(stderr);
     QApplication app(argc, argv);
+    fprintf(stderr, "[diag] after QApplication construction\n");
+    fflush(stderr);
     TestMutDmaLoggingProtocol t;
+    fprintf(stderr, "[diag] before QTest::qExec\n");
+    fflush(stderr);
     return QTest::qExec(&t, argc, argv);
 }
 #include "test_mut_dma_logging_protocol.moc"

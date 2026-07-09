@@ -1,4 +1,5 @@
 #include <QtTest>
+#include <cstdio>
 #include <QApplication>
 #include <file_actions.h>
 #include "logging/romraider_conversion.h"
@@ -34,8 +35,14 @@ int run_test_romraider_conversion(int argc, char **argv)
     // FileActions derives from QWidget (used only for its Q_OBJECT signals/config
     // state here, never shown), which requires a QApplication rather than a plain
     // QCoreApplication to construct.
+    fprintf(stderr, "[diag] before QApplication construction\n");
+    fflush(stderr);
     QApplication app(argc, argv);
+    fprintf(stderr, "[diag] after QApplication construction\n");
+    fflush(stderr);
     TestRomraiderConversion t;
+    fprintf(stderr, "[diag] before QTest::qExec\n");
+    fflush(stderr);
     return QTest::qExec(&t, argc, argv);
 }
 #include "test_romraider_conversion.moc"
