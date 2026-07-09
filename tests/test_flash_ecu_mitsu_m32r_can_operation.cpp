@@ -1,5 +1,4 @@
 #include <QtTest>
-#include <cstdio>
 #include <QApplication>
 #include <QQueue>
 #include <QSignalSpy>
@@ -132,16 +131,8 @@ int run_test_flash_ecu_mitsu_m32r_can_operation(int argc, char **argv)
     // and the tests below construct a real QWidget -- that requires a
     // QApplication rather than a plain QCoreApplication (same fix as
     // test_flash_operation_worker.cpp's run function).
-    fprintf(stderr, "[diag] QT_QPA_PLATFORM='%s'\n", qEnvironmentVariable("QT_QPA_PLATFORM").toUtf8().constData());
-    fflush(stderr);
-    fprintf(stderr, "[diag] before QApplication construction\n");
-    fflush(stderr);
     QApplication app(argc, argv);
-    fprintf(stderr, "[diag] after QApplication construction\n");
-    fflush(stderr);
     TestFlashEcuMitsuM32rCanOperation t;
-    fprintf(stderr, "[diag] before QTest::qExec\n");
-    fflush(stderr);
     return QTest::qExec(&t, argc, argv);
 }
 #include "test_flash_ecu_mitsu_m32r_can_operation.moc"

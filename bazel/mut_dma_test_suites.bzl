@@ -40,13 +40,10 @@ MUT_DMA_TEST_SUITES = [
 ]
 
 # These suites construct a real QApplication (FileActions derives from
-# QWidget), which needs a headless-safe platform plugin on CI runners that
-# have no display/desktop session. Setting QT_QPA_PLATFORM here, via
-# Bazel's own env attribute, means it's present in the test process's
-# environment from the moment it starts -- unlike an in-process qputenv()
-# call, which was confirmed (via zero effect from two different env vars
-# set that way) to not reliably reach Qt's environment reads in this
-# Windows Bazel test-execution context.
+# QWidget), which needs a headless-safe platform plugin on CI runners with
+# no display/desktop session. Setting QT_QPA_PLATFORM via Bazel's own env
+# attribute means it's present in the test process's environment from the
+# moment it starts.
 _NEEDS_OFFSCREEN_QT_PLATFORM = [
     "test_cdbg_logging_protocol",
     "test_flash_ecu_mitsu_m32r_can_operation",
@@ -70,7 +67,6 @@ def mut_dma_test_suites(moc_deps_target, header_mocs_target):
         if base in _NEEDS_OFFSCREEN_QT_PLATFORM:
             env = {
                 "QT_QPA_PLATFORM": "offscreen",
-                "QT_DEBUG_PLUGINS": "1",
             }
         qt_cc_test(
             name = base,

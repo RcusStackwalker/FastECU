@@ -1,7 +1,5 @@
 #include <QtTest>
-#include <cstdio>
 #include <QApplication>
-#include <QDir>
 #include <file_actions.h>
 #include "logging/romraider_conversion.h"
 #include "test_romraider_conversion.h"
@@ -36,28 +34,8 @@ int run_test_romraider_conversion(int argc, char **argv)
     // FileActions derives from QWidget (used only for its Q_OBJECT signals/config
     // state here, never shown), which requires a QApplication rather than a plain
     // QCoreApplication to construct.
-    fprintf(stderr, "[diag] QT_QPA_PLATFORM='%s'\n", qEnvironmentVariable("QT_QPA_PLATFORM").toUtf8().constData());
-    fflush(stderr);
-    {
-        const QString pluginPath = qEnvironmentVariable("QT_QPA_PLATFORM_PLUGIN_PATH");
-        const QString genericPluginPath = qEnvironmentVariable("QT_PLUGIN_PATH");
-        fprintf(stderr, "[diag] QT_QPA_PLATFORM_PLUGIN_PATH='%s'\n", pluginPath.toUtf8().constData());
-        fprintf(stderr, "[diag] QT_PLUGIN_PATH='%s'\n", genericPluginPath.toUtf8().constData());
-        QDir pluginDir(pluginPath);
-        fprintf(stderr, "[diag] plugin dir exists=%d absolutePath='%s' entries='%s'\n",
-                pluginDir.exists() ? 1 : 0,
-                pluginDir.absolutePath().toUtf8().constData(),
-                pluginDir.entryList(QDir::Files).join(", ").toUtf8().constData());
-        fflush(stderr);
-    }
-    fprintf(stderr, "[diag] before QApplication construction\n");
-    fflush(stderr);
     QApplication app(argc, argv);
-    fprintf(stderr, "[diag] after QApplication construction\n");
-    fflush(stderr);
     TestRomraiderConversion t;
-    fprintf(stderr, "[diag] before QTest::qExec\n");
-    fflush(stderr);
     return QTest::qExec(&t, argc, argv);
 }
 #include "test_romraider_conversion.moc"
