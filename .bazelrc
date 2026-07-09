@@ -1,5 +1,6 @@
 common --enable_bzlmod
 common --enable_platform_specific_config
+build --incompatible_default_to_explicit_init_py
 
 # Disable the built-in C++17 default on Windows to stop the D9025 override warning
 # see https://github.com/bazelbuild/rules_cc/issues/591

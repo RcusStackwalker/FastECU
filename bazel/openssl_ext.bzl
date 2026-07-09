@@ -27,6 +27,9 @@ _LINUX_LIB_CANDIDATES = [
 ]
 
 _BUILD_IMPORTED = """\
+load("@rules_cc//cc:cc_import.bzl", "cc_import")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_import(
     name = "crypto_import",
 {import_attrs}
@@ -42,6 +45,8 @@ cc_library(
 """
 
 _BUILD_AMBIENT = """\
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_library(
     name = "openssl",
     linkopts = ["-lcrypto"],
