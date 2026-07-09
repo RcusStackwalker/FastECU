@@ -159,7 +159,7 @@ py_test(
         "//bazel:fastecu_sources.bzl",
         "//tests:pro_files",
         "//tests/force_asserts:pro_files",
-    ],
+    ] + depset(APP_COMMON_HDRS + APP_MOC_HDRS + APP_UNIX_HDRS + APP_WIN_HDRS).to_list(),
     main = "scripts/check-bazel-qmake-sync.py",
 )
 
