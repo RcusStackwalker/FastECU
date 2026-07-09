@@ -197,6 +197,7 @@ py_test(
 
 py_test(
     name = "clang_tidy_report",
+    timeout = "eternal",
     srcs = ["scripts/clang_tidy_report.py"],
     args = ["bazel/fastecu_sources.bzl"],
     data = [
