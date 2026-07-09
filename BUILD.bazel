@@ -106,7 +106,7 @@ qt_cc_library(
     ] + [
         ":ui_" + ui.split("/")[-1].rsplit(".", 1)[0]
         for ui in APP_FORMS
-    ] + ["@openssl"],
+    ] + ["@openssl//:openssl"],  # buildifier: keep
 )
 
 qt_cc_library(
@@ -164,14 +164,14 @@ py_test(
 )
 
 py_test(
-    name = "bazel_openssl_windows",
-    srcs = ["scripts/check-bazel-openssl-windows.py"],
+    name = "bazel_openssl_wiring",
+    srcs = ["scripts/check-bazel-openssl.py"],
     data = [
         ".github/workflows/pr.yml",
         "BUILD.bazel",
         "MODULE.bazel",
     ],
-    main = "scripts/check-bazel-openssl-windows.py",
+    main = "scripts/check-bazel-openssl.py",
 )
 
 py_test(
