@@ -152,6 +152,7 @@ qt_cc_binary(
 
 py_test(
     name = "qmake_bazel_sync",
+    size = "small",
     srcs = ["scripts/check-bazel-qmake-sync.py"],
     data = [
         "FastECU.pro",
@@ -165,6 +166,7 @@ py_test(
 
 py_test(
     name = "bazel_openssl_wiring",
+    size = "small",
     srcs = ["scripts/check-bazel-openssl.py"],
     data = [
         ".github/workflows/pr.yml",
@@ -176,6 +178,7 @@ py_test(
 
 py_test(
     name = "openpty_includes",
+    size = "small",
     srcs = ["scripts/check-openpty-includes.py"],
     data = ["//tests:cpp_sources"],
     main = "scripts/check-openpty-includes.py",
@@ -183,6 +186,7 @@ py_test(
 
 py_test(
     name = "windows_preprocessor_guards",
+    size = "small",
     srcs = ["scripts/check-windows-preprocessor-guards.py"],
     data = [
         "file_actions.h",
