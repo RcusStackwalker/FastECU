@@ -41,4 +41,4 @@ use_repo(
 register_toolchains("@rules_qt//tools:all")
 
 openssl = use_extension("//bazel:openssl_ext.bzl", "openssl")
-use_repo(openssl, "openssl_macos", "openssl_windows")
+use_repo(openssl, "openssl")

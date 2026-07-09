@@ -65,3 +65,6 @@ compile_flags.txt
 *creator.user*
 
 *_qmlcache.qrc
+
+# superpowers brainstorming/planning artifacts (not project documentation)
+/docs/superpowers/

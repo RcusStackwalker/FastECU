@@ -1096,6 +1096,8 @@ bool SerialPortActionsDirect::get_is_tx_done()
 {
 #if defined Q_OS_UNIX
     return j2534->get_is_tx_done();
+#else
+    return true;
 #endif
 }
 

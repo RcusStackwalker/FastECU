@@ -1607,8 +1607,6 @@ int FlashEcuSubaruDensoSH7058CanOperation::flash_block(const uint8_t *src, uint3
 uint8_t FlashEcuSubaruDensoSH7058CanOperation::cks_add8(QByteArray chksum_data, unsigned len)
 {
     uint16_t sum = 0;
-    uint8_t data[chksum_data.length()];
-
     for (unsigned i = 0; i < len; i++)
     {
         sum += (uint8_t)chksum_data.at(i);

@@ -1,4 +1,5 @@
-load("//bazel:fastecu_sources.bzl", "MUT_DMA_INTEGRATION_TESTS_COMMON_HDRS", "MUT_DMA_INTEGRATION_TESTS_COMMON_SRCS", "MUT_DMA_TESTS_COMMON_HDRS", "MUT_DMA_TESTS_COMMON_SRCS", "SERIAL_BACKEND_TESTS_COMMON_HDRS", "SERIAL_BACKEND_TESTS_COMMON_SRCS", "SERIAL_BACKEND_TESTS_UNIX_HDRS", "SERIAL_BACKEND_TESTS_UNIX_SRCS", "SERIAL_CRASH_TESTS_COMMON_HDRS", "SERIAL_CRASH_TESTS_COMMON_SRCS")
+load("//bazel:fastecu_sources.bzl", "MUT_DMA_INTEGRATION_TESTS_COMMON_HDRS", "MUT_DMA_INTEGRATION_TESTS_COMMON_SRCS", "MUT_DMA_TESTS_COMMON_SRCS", "SERIAL_BACKEND_TESTS_COMMON_HDRS", "SERIAL_BACKEND_TESTS_COMMON_SRCS", "SERIAL_BACKEND_TESTS_UNIX_HDRS", "SERIAL_BACKEND_TESTS_UNIX_SRCS", "SERIAL_CRASH_TESTS_COMMON_HDRS", "SERIAL_CRASH_TESTS_COMMON_SRCS")
+load("//bazel:mut_dma_test_suites.bzl", "mut_dma_test_suites")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_LINKOPTS", "QT_DEPS", "local_test_hdrs", "local_test_srcs", "qt_cc_library", "qt_cc_test", "qt_cpp_moc_headers", "test_cpp_moc_srcs")
 
 package(default_visibility = ["//visibility:public"])
@@ -35,24 +36,9 @@ qt_cpp_moc_headers(
     deps = QT_DEPS,
 )
 
-qt_cc_test(
-    name = "mut_dma_tests",
-    srcs = local_test_srcs(MUT_DMA_TESTS_COMMON_SRCS) + local_test_hdrs(MUT_DMA_TESTS_COMMON_HDRS),
-    copts = COMMON_COPTS + [
-        "-I.",
-        "-Itests",
-        "-Iserial_port",
-        "-Iprotocol",
-    ],
-    linkopts = COMMON_LINKOPTS,
-    deps = QT_DEPS + [
-        ":mut_dma_cpp_mocs",
-        ":test_header_mocs",
-        "//:fastecu_core_common",
-    ] + select({
-        "@platforms//os:windows": ["//:fastecu_platform_windows"],
-        "//conditions:default": ["//:fastecu_platform_unix"],
-    }),
+mut_dma_test_suites(
+    header_mocs_target = ":test_header_mocs",
+    moc_deps_target = ":mut_dma_cpp_mocs",
 )
 
 qt_cpp_moc_headers(

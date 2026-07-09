@@ -5,6 +5,8 @@
 
 #include <QElapsedTimer>
 
+#include <span>
+
 FlashEcuSubaruHitachiSH7058CanOperation::FlashEcuSubaruHitachiSH7058CanOperation(
     SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
     QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
@@ -894,8 +896,6 @@ int FlashEcuSubaruHitachiSH7058CanOperation::write_mem_subaru_ecu_hitachi_can(bo
 
     filedata = ecuCalDef->FullRomData;
 
-    uint8_t data_array[filedata.length()];
-
     int block_modified[16] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}; // assume blocks after 0x8000 are modified
 
     unsigned bcnt; // 13 blocks in M32R_512kB, but kernelmemorymodels.h has 11. Of these 11, the first 3 are not flashed by OBK
@@ -904,10 +904,7 @@ int FlashEcuSubaruHitachiSH7058CanOperation::write_mem_subaru_ecu_hitachi_can(bo
     // encrypt the data
     filedata = subaru_ecu_hitachi_encrypt_32bit_payload(filedata, filedata.length());
 
-    for (int i = 0; i < filedata.length(); i++)
-    {
-        data_array[i] = filedata.at(i);
-    }
+    std::span<const std::uint8_t> data_array(reinterpret_cast<const std::uint8_t *>(filedata.constData()), static_cast<std::size_t>(filedata.size()));
 
     bcnt = 0;
     emit LOG_I("Blocks to flash : ", true, false);

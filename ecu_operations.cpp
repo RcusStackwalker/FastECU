@@ -2077,16 +2077,10 @@ void EcuOperations::delay(int n)
 uint8_t EcuOperations::cks_add8(QByteArray chksum_data, unsigned len)
 {
     uint16_t sum = 0;
-    uint8_t data[chksum_data.length()];
-
-    for (int i = 0; i < chksum_data.length(); i++)
-    {
-        data[i] = chksum_data.at(i);
-    }
 
     for (unsigned i = 0; i < len; i++)
     {
-        sum += data[i];
+        sum += static_cast<uint8_t>(chksum_data[i]);
         if (sum & 0x100)
         {
             sum += 1;

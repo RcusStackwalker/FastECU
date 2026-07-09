@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check that Bazel's Windows OpenSSL wiring matches CI setup."""
+"""Check that Bazel's OpenSSL wiring matches the unified `openssl` repo."""
 
 from __future__ import annotations
 
@@ -22,16 +22,16 @@ def main() -> int:
         module,
         flags=re.DOTALL,
     )
-    if not openssl_use_repo or '"openssl_windows"' not in openssl_use_repo.group("body"):
-        errors.append("MODULE.bazel must expose the openssl_windows repository")
+    if not openssl_use_repo or '"openssl"' not in openssl_use_repo.group("body"):
+        errors.append("MODULE.bazel must expose the unified openssl repository")
 
     core_common = re.search(
         r'qt_cc_library\(\s*name = "fastecu_core_common",(?P<body>.*?)\n\)',
         build,
         flags=re.DOTALL,
     )
-    if not core_common or '"@openssl_windows//:openssl"' not in core_common.group("body"):
-        errors.append("//:fastecu_core_common Windows deps must include @openssl_windows//:openssl")
+    if not core_common or not re.search(r'"@openssl(?://:openssl)?"', core_common.group("body")):
+        errors.append("//:fastecu_core_common deps must include @openssl//:openssl")
 
     bazel_prereq = re.search(
         r"name: Install Bazel prerequisites \(Windows\)(?P<body>.*?)(?:\n\s+- name:|\Z)",
@@ -45,7 +45,7 @@ def main() -> int:
         print("\n".join(errors), file=sys.stderr)
         return 1
 
-    print("Bazel Windows OpenSSL wiring is configured.")
+    print("Bazel OpenSSL wiring is configured.")
     return 0
 
 

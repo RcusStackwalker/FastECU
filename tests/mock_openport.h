@@ -42,7 +42,7 @@ class MockOpenPort : public QObject
     void onReadable()
     {
         char buf[256];
-        const ssize_t n = ::read(fd, buf, sizeof(buf));
+        const auto n = ::read(fd, buf, sizeof(buf));
         if (n <= 0)
             return;
         rx.append(buf, static_cast<int>(n));
