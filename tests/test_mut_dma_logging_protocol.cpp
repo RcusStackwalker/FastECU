@@ -108,6 +108,8 @@ int run_test_mut_dma_logging_protocol(int argc, char **argv)
 {
     // FileActions derives from QWidget, which requires a QApplication rather than
     // a plain QCoreApplication to construct (even though we never show a widget).
+    fprintf(stderr, "[diag] QT_QPA_PLATFORM='%s'\n", qEnvironmentVariable("QT_QPA_PLATFORM").toUtf8().constData());
+    fflush(stderr);
     fprintf(stderr, "[diag] before QApplication construction\n");
     fflush(stderr);
     QApplication app(argc, argv);

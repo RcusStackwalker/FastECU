@@ -35,6 +35,8 @@ int run_test_romraider_conversion(int argc, char **argv)
     // FileActions derives from QWidget (used only for its Q_OBJECT signals/config
     // state here, never shown), which requires a QApplication rather than a plain
     // QCoreApplication to construct.
+    fprintf(stderr, "[diag] QT_QPA_PLATFORM='%s'\n", qEnvironmentVariable("QT_QPA_PLATFORM").toUtf8().constData());
+    fflush(stderr);
     fprintf(stderr, "[diag] before QApplication construction\n");
     fflush(stderr);
     QApplication app(argc, argv);
