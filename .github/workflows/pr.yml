@@ -323,15 +323,23 @@ jobs:
         run: |
           $job = Start-Job -ScriptBlock {
             Set-Location $using:PWD
-            bazel test --test_timeout=120 --nocache_test_results //tests:test_romraider_conversion 2>&1
+            bazel test --config=release --test_timeout=120 --nocache_test_results //tests:test_romraider_conversion 2>&1
           }
-          Start-Sleep -Seconds 45
-          $proc = Get-Process -Name "test_romraider_conversion" -ErrorAction SilentlyContinue
+
+          $proc = $null
+          for ($i = 0; $i -lt 24; $i++) {
+            Start-Sleep -Seconds 5
+            $proc = Get-Process -Name "test_romraider_conversion" -ErrorAction SilentlyContinue
+            if ($proc) { break }
+          }
+
           if ($proc) {
-            Write-Host "=== [hang-diag] found pid $($proc.Id); capturing stack trace ==="
+            Write-Host "=== [hang-diag] found pid $($proc.Id) after $((($i + 1) * 5))s; waiting 15s more before capturing ==="
+            Start-Sleep -Seconds 15
+            Write-Host "=== [hang-diag] capturing stack trace ==="
             cdb -p $proc.Id -c "~*kb; qd" 2>&1
           } else {
-            Write-Host "=== [hang-diag] test_romraider_conversion.exe process not found after 45s ==="
+            Write-Host "=== [hang-diag] test_romraider_conversion.exe process not found after 120s ==="
           }
           Wait-Job $job -Timeout 150 | Out-Null
           Receive-Job $job
