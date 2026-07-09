@@ -72,8 +72,6 @@ class EepromEcuSubaruDensoSH705xCanOperation : public FlashOperationWorker
     int connect_bootloader();
     int upload_kernel(QString kernel, uint32_t kernel_start_addr);
     int read_mem(uint32_t start_addr, uint32_t length);
-
-    uint8_t cks_add8(QByteArray chksum_data, unsigned len);
     void init_crc16_tab(void);
     uint16_t crc16(const uint8_t *data, uint32_t siz);
 

@@ -83,7 +83,6 @@ class FlashEcuSubaruDensoSH7055_02Operation : public FlashOperationWorker
     int init_flash_write();
     int flash_block(const uint8_t *src, uint32_t start, uint32_t len);
     int reflash_block(const uint8_t *newdata, const struct flashdev_t *fdt, unsigned blockno, bool test_write);
-    uint8_t cks_add8(QByteArray chksum_data, unsigned len);
 
     QByteArray send_sid_bf_ssm_init();
     QByteArray send_sid_27_request_seed();
