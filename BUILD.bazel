@@ -85,12 +85,11 @@ qt_cc_library(
     copts = COMMON_COPTS,
     includes = COMMON_INCLUDES,
     linkopts = COMMON_LINKOPTS + select({
-        "@platforms//os:linux": ["-lcrypto"],
         "@platforms//os:windows": [
             "-lopengl32",
             "-lsetupapi",
         ],
-        "//conditions:default": ["-lcrypto"],
+        "//conditions:default": [],
     }),
     normal_hdrs = APP_COMMON_HDRS + select({
         "@platforms//os:windows": APP_WIN_HDRS,
@@ -107,11 +106,7 @@ qt_cc_library(
     ] + [
         ":ui_" + ui.split("/")[-1].rsplit(".", 1)[0]
         for ui in APP_FORMS
-    ] + select({
-        "@platforms//os:macos": ["@openssl_macos//:openssl"],
-        "@platforms//os:windows": ["@openssl_windows//:openssl"],
-        "//conditions:default": [],
-    }),
+    ] + ["@openssl"],
 )
 
 qt_cc_library(
