@@ -1,4 +1,5 @@
 #include "ecu_operations.h"
+#include "modules/flash_utils.h"
 #include "serial_port_actions.h"
 
 EcuOperations::EcuOperations(QWidget *ui, SerialPortActions *serial, QString mcu_type_string, int mcu_type_index)
@@ -1246,7 +1247,8 @@ int EcuOperations::npk_raw_flashblock_16bit_kline(const uint8_t *src, uint32_t s
         {
             chksum_data.append(src[i]);
         }
-        chksum_data.append(cks_add8(chksum_data, 131));
+        chksum_data.append(FlashUtils::cks_add8(
+            std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t *>(chksum_data.constData()), 131)));
         output.append(SID_FLASH);
         output.append(SIDFL_WB);
         output.append(chksum_data);
@@ -1363,7 +1365,8 @@ int EcuOperations::npk_raw_flashblock_32bit_kline(const uint8_t *src, uint32_t s
         {
             chksum_data.append(src[i]);
         }
-        chksum_data.append(cks_add8(chksum_data, 131));
+        chksum_data.append(FlashUtils::cks_add8(
+            std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t *>(chksum_data.constData()), 131)));
         output.append(SID_FLASH);
         output.append(SIDFL_WB);
         output.append(chksum_data);
@@ -2069,25 +2072,6 @@ void EcuOperations::delay(int n)
     {
     }
     // QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
-}
-
-/* special checksum for reflash blocks:
- * "one's complement" checksum; if adding causes a carry, add 1 to sum. Slightly better than simple 8bit sum
- */
-uint8_t EcuOperations::cks_add8(QByteArray chksum_data, unsigned len)
-{
-    uint16_t sum = 0;
-
-    for (unsigned i = 0; i < len; i++)
-    {
-        sum += static_cast<uint8_t>(chksum_data[i]);
-        if (sum & 0x100)
-        {
-            sum += 1;
-        }
-        sum = (uint8_t)sum;
-    }
-    return sum;
 }
 
 /*** CRC16 implementation adapted from Lammert Bies

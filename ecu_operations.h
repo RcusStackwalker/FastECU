@@ -90,7 +90,6 @@ class EcuOperations : public QWidget
     QString parse_message_to_hex(QByteArray received);
     void set_progressbar_value(int value);
 
-    uint8_t cks_add8(QByteArray chksum_data, unsigned len);
     void init_crc16_tab(void);
     uint16_t crc16(const uint8_t *data, uint32_t siz);
     uint8_t calculate_checksum(QByteArray output, bool dec_0x100);
