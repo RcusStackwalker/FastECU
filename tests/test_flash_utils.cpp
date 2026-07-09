@@ -1,5 +1,9 @@
 #include <QtTest>
 
+#include <array>
+#include <cstdint>
+#include <span>
+
 #include "modules/flash_utils.h"
 #include "serial_port_actions.h"
 #include "fake_backend.h"
@@ -70,6 +74,40 @@ class TestFlashUtils : public QObject
         QCOMPARE(serial.get_can_speed(), QString("500000"));
         QCOMPARE(serial.get_iso15765_source_address(), quint32(0x7E0));
         QCOMPARE(serial.get_iso15765_destination_address(), quint32(0x7E8));
+    }
+
+    void cksAdd8_returnsZeroForEmptyData()
+    {
+        QCOMPARE(FlashUtils::cks_add8(std::span<const std::uint8_t>{}), std::uint8_t(0));
+    }
+
+    void cksAdd8_sumsBytesWithoutCarry()
+    {
+        const std::array<std::uint8_t, 3> bytes{0x01, 0x02, 0x03};
+        QCOMPARE(FlashUtils::cks_add8(std::span<const std::uint8_t>(bytes)), std::uint8_t(6));
+    }
+
+    void cksAdd8_addsOneOnCarry()
+    {
+        // Plain mod-256 truncation of 0xFF + 0xFF would give 0xFE; the
+        // "add 1 on carry" step this checksum is named for makes it 0xFF.
+        const std::array<std::uint8_t, 2> bytes{0xFF, 0xFF};
+        QCOMPARE(FlashUtils::cks_add8(std::span<const std::uint8_t>(bytes)), std::uint8_t(0xFF));
+    }
+
+    void cksAdd8_matchesReflashBlockShape()
+    {
+        // Matches EcuOperations::npk_raw_flashblock's real call shape: a
+        // 131-byte block (3-byte address header + 128-byte payload).
+        // Repeated carry corrections over 131 additions of 0x02 give 7,
+        // not the naive mod-256 sum of 131*2 = 262 -> 6.
+        const std::array<std::uint8_t, 131> bytes = []
+        {
+            std::array<std::uint8_t, 131> data{};
+            data.fill(0x02);
+            return data;
+        }();
+        QCOMPARE(FlashUtils::cks_add8(std::span<const std::uint8_t>(bytes)), std::uint8_t(7));
     }
 };
 
