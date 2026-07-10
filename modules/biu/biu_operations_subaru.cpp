@@ -1,6 +1,7 @@
 #include "biu_operations_subaru.h"
 #include <ui_biu_operations_subaru.h>
 #include "serial_port_actions.h"
+#include "protocol/qt_bytes.h"
 
 BiuOperationsSubaru::BiuOperationsSubaru(SerialPortActions *serial, QWidget *parent)
     : QDialog(parent),
@@ -753,7 +754,7 @@ void BiuOperationsSubaru::parse_biu_message(QByteArray message)
 
             // front wheel speed
             can_data_result = can_data_names.at(item * 2);
-            calc_result = ((uint8_t)message.at(6) << 8) | (uint8_t)message.at(5);
+            calc_result = bytes::readU16Le(bytes::view(message), 5);
             calc_result = (calc_result * can_data_factors[item * 2]) + can_data_factors[item * 2 + 1];
             can_data_result.append(QString("%1 ").arg(calc_result));
             can_data_result.append(can_data_names.at(item * 2 + 1));
@@ -782,7 +783,7 @@ void BiuOperationsSubaru::parse_biu_message(QByteArray message)
             // Fuel level resistance
             item++;
             can_data_result = can_data_names.at(item * 2);
-            calc_result = ((uint8_t)message.at(11) << 8) | (uint8_t)message.at(10);
+            calc_result = bytes::readU16Le(bytes::view(message), 10);
             calc_result = (calc_result * can_data_factors[item * 2]) + can_data_factors[item * 2 + 1];
             can_data_result.append(QString("%1 ").arg(calc_result));
             can_data_result.append(can_data_names.at(item * 2 + 1));
@@ -792,7 +793,7 @@ void BiuOperationsSubaru::parse_biu_message(QByteArray message)
             // Fuel consumption
             item++;
             can_data_result = can_data_names.at(item * 2);
-            calc_result = ((uint8_t)message.at(13) << 8) | (uint8_t)message.at(12);
+            calc_result = bytes::readU16Le(bytes::view(message), 12);
             calc_result = (calc_result * can_data_factors[item * 2]) + can_data_factors[item * 2 + 1];
             can_data_result.append(QString("%1 ").arg(calc_result));
             can_data_result.append(can_data_names.at(item * 2 + 1));
