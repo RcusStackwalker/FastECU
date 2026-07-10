@@ -32,6 +32,7 @@ MUT_DMA_TEST_SUITES = [
     "test_flash_ecu_mitsu_m32r_can_operation",
     "test_flash_utils",
     "test_ssm_protocol",
+    "test_bytes",
     "test_expression_evaluator",
     "test_menu_command",
     "test_diagnostic_parsers",
