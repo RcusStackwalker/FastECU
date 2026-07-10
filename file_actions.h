@@ -245,6 +245,12 @@ class FileActions : public QWidget
         QStringList AddressList;
         QStringList CategoryList;
         QStringList CategoryExpandedList;
+        QStringList SubCategoryList;
+        QStringList LevelList;
+        QStringList UserLevelList;
+        QStringList SwapXYList;
+        QStringList FlipXList;
+        QStringList FlipYList;
         QStringList XSizeList;
         QStringList YSizeList;
         QStringList StartPosList;

@@ -857,6 +857,12 @@ FileActions::EcuCalDefStructure *FileActions::add_ecuflash_def_list_item(EcuCalD
     ecuCalDef->AddressList.append(" ");
     ecuCalDef->CategoryList.append(" ");
     ecuCalDef->CategoryExpandedList.append(" ");
+    ecuCalDef->SubCategoryList.append(" ");
+    ecuCalDef->LevelList.append(" ");
+    ecuCalDef->UserLevelList.append(" ");
+    ecuCalDef->SwapXYList.append(" ");
+    ecuCalDef->FlipXList.append(" ");
+    ecuCalDef->FlipYList.append(" ");
     ecuCalDef->XSizeList.append(" ");
     ecuCalDef->YSizeList.append(" ");
     ecuCalDef->StartPosList.append(" ");

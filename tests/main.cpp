@@ -23,6 +23,7 @@
 #include "test_menu_command.h"
 #include "test_diagnostic_parsers.h"
 #include "test_model_validation.h"
+#include "test_ecuflash_definition_parsing.h"
 #include "test_checksum_results.h"
 
 int main(int argc, char **argv)
@@ -53,6 +54,7 @@ int main(int argc, char **argv)
     status |= run_test_menu_command(argc, argv);
     status |= run_test_diagnostic_parsers(argc, argv);
     status |= run_test_model_validation(argc, argv);
+    status |= run_test_ecuflash_definition_parsing(argc, argv);
     status |= run_test_checksum_results(argc, argv);
     return status;
 }
