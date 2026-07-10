@@ -279,11 +279,8 @@ int EcuOperations::read_mem_32bit_kline(FileActions::EcuCalDefStructure *ecuCalD
         pleft = (float)(addr - start_addr) / (float)length * 100.0f;
         set_progressbar_value(pleft);
 
-        output[2] = numblocks >> 8;
-        output[3] = numblocks >> 0;
-
-        output[4] = curblock >> 8;
-        output[5] = curblock >> 0;
+        bytes::writeU16Be(output, 2, static_cast<std::uint16_t>(numblocks));
+        bytes::writeU16Be(output, 4, static_cast<std::uint16_t>(curblock));
 
         received = serial->write_serial_data_echo_check(output);
         // delay(10);
@@ -413,12 +410,8 @@ int EcuOperations::read_mem_32bit_can(FileActions::EcuCalDefStructure *ecuCalDef
 
         // length = 256;
 
-        output[6] = (uint8_t)((pagesize >> 24) & 0xFF);
-        output[7] = (uint8_t)((pagesize >> 16) & 0xFF);
-        output[8] = (uint8_t)((pagesize >> 8) & 0xFF);
-        output[9] = (uint8_t)((addr >> 24) & 0xFF);
-        output[10] = (uint8_t)((addr >> 16) & 0xFF);
-        output[11] = (uint8_t)((addr >> 8) & 0xFF);
+        bytes::writeU24Be(output, 6, pagesize >> 8);
+        bytes::writeU24Be(output, 9, addr >> 8);
         serial->write_serial_data_echo_check(output);
         // qDebug() << "0xD8 message sent to kernel initiate dump";
         // delay(100);
@@ -1069,8 +1062,7 @@ int EcuOperations::check_romcrc_32bit_kline(const uint8_t *src, uint32_t start, 
         output.clear();
         output.append(SID_CONF);
         output.append(SID_CONF_CKS1);
-        output.append(chunko >> 8);
-        output.append(chunko & 0xFF);
+        bytes::appendU16Be(output, static_cast<std::uint16_t>(chunko));
 
         // fill the request with n*CRCs
         unsigned chunk_cnt;
@@ -1078,8 +1070,7 @@ int EcuOperations::check_romcrc_32bit_kline(const uint8_t *src, uint32_t start, 
         {
             uint16_t chunk_crc = crc16(src, ROMCRC_CHUNKSIZE_32BIT);
             src += ROMCRC_CHUNKSIZE_32BIT;
-            output.append(chunk_crc >> 8);
-            output.append(chunk_crc & 0xFF);
+            bytes::appendU16Be(output, chunk_crc);
         }
 
         received = serial->write_serial_data_echo_check(output);
@@ -1240,9 +1231,7 @@ int EcuOperations::npk_raw_flashblock_16bit_kline(const uint8_t *src, uint32_t s
         // delay(1);
         chksum_data.clear();
         output.clear();
-        chksum_data.append(start >> 16);
-        chksum_data.append(start >> 8);
-        chksum_data.append(start >> 0);
+        bytes::appendU24Be(chksum_data, start);
         for (unsigned i = start; i < (start + blocksize); i++)
         {
             chksum_data.append(src[i]);
@@ -1358,9 +1347,7 @@ int EcuOperations::npk_raw_flashblock_32bit_kline(const uint8_t *src, uint32_t s
         // delay(1);
         chksum_data.clear();
         output.clear();
-        chksum_data.append(start >> 16);
-        chksum_data.append(start >> 8);
-        chksum_data.append(start >> 0);
+        bytes::appendU24Be(chksum_data, start);
         for (unsigned i = start; i < (start + blocksize); i++)
         {
             chksum_data.append(src[i]);
@@ -1503,8 +1490,7 @@ int EcuOperations::npk_raw_flashblock_32bit_can(const uint8_t *src, uint32_t sta
         // send 0xF8 command to check and flash 128 bytes
         output[4] = (uint8_t)SUB_DENSOCAN_START_COMM;
         output[5] = (uint8_t)(SID_CAN_FL_WB + 0x03);
-        output[6] = (uint8_t)((i >> 8) & 0xFF);
-        output[7] = (uint8_t)(i & 0xFF);
+        bytes::writeU16Be(output, 6, static_cast<std::uint16_t>(i));
         output[8] = (uint8_t)(chk_sum & 0xFF);
         received = serial->write_serial_data_echo_check(output);
         // qDebug() << "0xF8 command sent to kernel to check and flash 128 byte block";
@@ -1879,11 +1865,8 @@ int EcuOperations::reflash_block_32bit_can(const uint8_t *newdata, const struct 
     qDebug() << "Proceeding to attempt erase and flash of block number: " << blockno;
     output[5] = (uint8_t)(SID_CAN_FL_EB + 0x06);
     output[6] = (uint8_t)(blockno & 0xFF);
-    output[7] = (uint8_t)((block_start >> 24) & 0xFF);
-    output[8] = (uint8_t)((block_start >> 16) & 0xFF);
-    output[9] = (uint8_t)((block_start >> 8) & 0xFF);
-    output[10] = (uint8_t)((num_128_byte_blocks >> 8) & 0xFF);
-    output[11] = (uint8_t)(num_128_byte_blocks & 0xFF);
+    bytes::writeU24Be(output, 7, static_cast<std::uint32_t>(block_start) >> 8);
+    bytes::writeU16Be(output, 10, static_cast<std::uint16_t>(num_128_byte_blocks));
     received = serial->write_serial_data_echo_check(output);
     qDebug() << parse_message_to_hex(output);
     // emit LOG_I("0xF0 message sent to kernel to erase block number: " + QString::number(blockno), true, true);
@@ -1980,9 +1963,7 @@ int EcuOperations::read_mem_uj20_30_40_70_kline(FileActions::EcuCalDefStructure 
         pleft = (float)(addr - start_addr) / (float)(length) * 100.0f;
         set_progressbar_value(pleft);
 
-        output[6] = (uint8_t)(addr >> 16) & 0xFF;
-        output[7] = (uint8_t)(addr >> 8) & 0xFF;
-        output[8] = (uint8_t)addr & 0xFF;
+        bytes::writeU24Be(output, 6, addr);
         output[9] = (uint8_t)(pagesize - 1) & 0xFF;
         output.remove(10, 1);
         output.append(calculate_checksum(output, false));
