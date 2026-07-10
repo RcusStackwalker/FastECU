@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "protocol/bytes.h"
+#include "protocol/qt_bytes.h"
 #include "test_bytes.h"
 
 class TestBytes : public QObject
@@ -110,6 +111,34 @@ class TestBytes : public QObject
         std::array<bytes::Byte, 1> data{0xAA};
         bytes::writeU16Be(bytes::MutableByteView(data), 0, 0x1234);
         QCOMPARE(data, (std::array<bytes::Byte, 1>{0xAA}));
+    }
+
+    void qByteArrayAppendU32Be_matchesSpanVersion()
+    {
+        QByteArray out;
+        bytes::appendU32Be(out, 0x12345678);
+        QCOMPARE(out, QByteArray::fromHex("12345678"));
+    }
+
+    void qByteArrayAppendU32Le_matchesSpanVersion()
+    {
+        QByteArray out;
+        bytes::appendU32Le(out, 0x12345678);
+        QCOMPARE(out, QByteArray::fromHex("78563412"));
+    }
+
+    void qByteArrayWriteU16Be_writesAtOffset()
+    {
+        QByteArray out = QByteArray::fromHex("aaaaaaaa");
+        bytes::writeU16Be(out, 1, 0x1234);
+        QCOMPARE(out, QByteArray::fromHex("aa1234aa"));
+    }
+
+    void qByteArrayWriteU32Le_writesLittleEndianBytes()
+    {
+        QByteArray out(4, '\0');
+        bytes::writeU32Le(out, 0, 0x12345678);
+        QCOMPARE(out, QByteArray::fromHex("78563412"));
     }
 };
 
