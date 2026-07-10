@@ -6,6 +6,7 @@
 
 #include <QThread>
 
+#include "protocol/qt_bytes.h"
 #include "serial_port/j2534_driver_selection.h"
 
 namespace
@@ -817,7 +818,7 @@ QByteArray SerialPortActionsDirect::read_serial_data(uint16_t timeout)
             else if (!is_iso14230_connection)
             {
                 if (received.startsWith("\xbe\xef"))
-                    msglen = ((uint8_t)received.at(2) << 8) + (uint8_t)received.at(3) + 1; // +1 for checksum
+                    msglen = bytes::readU16Be(bytes::view(received), 2) + 1; // +1 for checksum
                 if (received.startsWith("\x80\xf0"))
                     msglen = (uint8_t)received.at(3) + 1; // +1 for checksum
             }
@@ -1438,10 +1439,7 @@ int SerialPortActionsDirect::set_j2534_can_filters()
         memset(msgMask.Data, 0xFF, txmsg.DataSize);
         memset(msgPattern.Data, 0xFF, txmsg.DataSize);
 
-        msgPattern.Data[0] = (can_destination_address >> 24) & 0xFF;
-        msgPattern.Data[1] = (can_destination_address >> 16) & 0xFF;
-        msgPattern.Data[2] = (can_destination_address >> 8) & 0xFF;
-        msgPattern.Data[3] = (can_destination_address & 0xFF);
+        bytes::writeU32Be(msgPattern.Data, 0, can_destination_address);
 
         if (j2534->PassThruStartMsgFilter(chanID, PASS_FILTER, &msgMask, &msgPattern, NULL, &msgId))
         {
@@ -1463,14 +1461,8 @@ int SerialPortActionsDirect::set_j2534_can_filters()
         memset(msgPattern.Data, 0xFF, txmsg.DataSize);
         memset(msgFlow.Data, 0xFF, txmsg.DataSize);
 
-        msgPattern.Data[0] = (iso15765_destination_address >> 24) & 0xFF;
-        msgPattern.Data[1] = (iso15765_destination_address >> 16) & 0xFF;
-        msgPattern.Data[2] = (iso15765_destination_address >> 8) & 0xFF;
-        msgPattern.Data[3] = iso15765_destination_address & 0xFF;
-        msgFlow.Data[0] = (iso15765_source_address >> 24) & 0xFF;
-        msgFlow.Data[1] = (iso15765_source_address >> 16) & 0xFF;
-        msgFlow.Data[2] = (iso15765_source_address >> 8) & 0xFF;
-        msgFlow.Data[3] = (iso15765_source_address & 0xFF);
+        bytes::writeU32Be(msgPattern.Data, 0, iso15765_destination_address);
+        bytes::writeU32Be(msgFlow.Data, 0, iso15765_source_address);
 
         if (j2534->PassThruStartMsgFilter(chanID, FLOW_CONTROL_FILTER, &msgMask, &msgPattern, &msgFlow, &msgId))
         {
