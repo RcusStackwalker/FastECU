@@ -96,6 +96,9 @@ QByteArray ChecksumEcuSubaruHitachiM32rKline::calculate_checksum(QByteArray romD
         checksum_ok = false;
 
         QByteArray balance_value_array;
+        // Reads the same bytes as checksum_3_balance_value_stored above via the same
+        // unsigned interpretation; the original here used a sign-extending char cast
+        // that could disagree with that stored read for balance bytes >= 0x80.
         uint16_t balance_value = bytes::readU16Be(bytes::view(romData), checksum_3_balance_value_address);
 
         msg.clear();
