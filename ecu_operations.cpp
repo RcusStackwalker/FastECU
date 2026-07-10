@@ -1,5 +1,6 @@
 #include "ecu_operations.h"
 #include "modules/flash_utils.h"
+#include "protocol/qt_bytes.h"
 #include "serial_port_actions.h"
 
 EcuOperations::EcuOperations(QWidget *ui, SerialPortActions *serial, QString mcu_type_string, int mcu_type_index)
@@ -1015,8 +1016,7 @@ int EcuOperations::check_romcrc_16bit_kline(const uint8_t *src, uint32_t start, 
             received = serial->read_serial_data(serial_read_long_timeout);
 
             imgcrc = crc32(src + start, pagesize);
-            // romcrc = byte_to_int32(received);
-            romcrc = ((received.at(0) & 0xFF) << 24) + ((received.at(1) & 0xFF) << 16) + ((received.at(2) & 0xFF) << 8) + (received.at(3) & 0xFF);
+            romcrc = bytes::readU32Be(bytes::view(received), 0);
 
             // qDebug() << hex << chunk_cnt << received.length() << parse_message_to_hex(received) << "->" << hex << imgcrc;
             qDebug() << Qt::hex << chunk_cnt << received.length() << parse_message_to_hex(received) << romcrc << "->" << Qt::hex << imgcrc;
@@ -2212,40 +2212,4 @@ unsigned int EcuOperations::crc32(const unsigned char *buf, unsigned int len)
         crc = crc_table[((int)crc ^ (*buf++)) & 0xff] ^ (crc >> 8);
 
     return crc ^ 0xFFFFFFFF;
-}
-
-int EcuOperations::byte_to_int32(unsigned char *data)
-{
-    return (data[0] << 24) + (data[1] << 16) + (data[2] << 8) + data[3];
-}
-
-int EcuOperations::byte_to_int24(unsigned char *data)
-{
-    return (data[0] << 16) + (data[1] << 8) + data[2];
-}
-
-int EcuOperations::byte_to_int16(unsigned char *data)
-{
-    return (data[0] << 8) + data[1];
-}
-
-void EcuOperations::int16_to_byte(unsigned char *data, int i)
-{
-    data[0] = i >> 8;
-    data[1] = i & 0xFF;
-}
-
-void EcuOperations::int24_to_byte(unsigned char *data, int i)
-{
-    data[0] = i >> 16;
-    data[1] = (i >> 8) & 0xFF;
-    data[2] = i & 0xFF;
-}
-
-void EcuOperations::int32_to_byte(unsigned char *data, int i)
-{
-    data[0] = i >> 24;
-    data[1] = (i >> 16) & 0xFF;
-    data[2] = (i >> 8) & 0xFF;
-    data[3] = i & 0xFF;
 }
