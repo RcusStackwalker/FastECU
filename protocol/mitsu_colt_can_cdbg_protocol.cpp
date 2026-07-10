@@ -15,11 +15,8 @@ CdbgFrame buildSecuritySeedRequestFrame()
 
 std::uint32_t seedToKey(std::uint32_t seed)
 {
-    bytes::Byte data[4] = {
-        static_cast<bytes::Byte>((seed >> 24) & 0xFF),
-        static_cast<bytes::Byte>((seed >> 16) & 0xFF),
-        static_cast<bytes::Byte>((seed >> 8) & 0xFF),
-        static_cast<bytes::Byte>(seed & 0xFF)};
+    bytes::Byte data[4] = {};
+    bytes::writeU32Be(data, 0, seed);
 
     for (int i = 0; i < 4; ++i)
     {
@@ -93,15 +90,9 @@ std::uint32_t extractSeed(bytes::ByteView reply)
 
 CdbgFrame buildSecurityKeyFrame(std::uint32_t key)
 {
-    return CdbgFrame{
-        kCmdSecurityKey,
-        0,
-        static_cast<bytes::Byte>((key >> 24) & 0xFF),
-        static_cast<bytes::Byte>((key >> 16) & 0xFF),
-        static_cast<bytes::Byte>((key >> 8) & 0xFF),
-        static_cast<bytes::Byte>(key & 0xFF),
-        0,
-        0};
+    CdbgFrame frame{kCmdSecurityKey, 0, 0, 0, 0, 0, 0, 0};
+    bytes::writeU32Be(frame, 2, key);
+    return frame;
 }
 
 bool securityGranted(bytes::ByteView reply)
@@ -131,15 +122,9 @@ CdbgFrame buildLogStartFrame(bytes::Byte instance, bytes::Byte frameCount, std::
         encoded = static_cast<std::uint16_t>(intervalMs);
     }
 
-    return CdbgFrame{
-        kCmdLogStart,
-        0,
-        1,
-        instance,
-        frameCount,
-        unitFlag,
-        static_cast<bytes::Byte>((encoded >> 8) & 0xFF),
-        static_cast<bytes::Byte>(encoded & 0xFF)};
+    CdbgFrame frame{kCmdLogStart, 0, 1, instance, frameCount, unitFlag, 0, 0};
+    bytes::writeU16Be(frame, 6, encoded);
+    return frame;
 }
 
 bool batchChannelsIntoFrames(const QVector<CdbgChannel>& channels,
@@ -191,15 +176,9 @@ std::vector<CdbgFrame> buildFrameInitFrames(bytes::Byte instance, bytes::Byte fr
             0});
 
         const CdbgChannel& ch = frameItems.at(i);
-        out.push_back(CdbgFrame{
-            kCmdLogSetPointer,
-            0,
-            ch.size,
-            0,
-            static_cast<bytes::Byte>((ch.pointer >> 24) & 0xFF),
-            static_cast<bytes::Byte>((ch.pointer >> 16) & 0xFF),
-            static_cast<bytes::Byte>((ch.pointer >> 8) & 0xFF),
-            static_cast<bytes::Byte>(ch.pointer & 0xFF)});
+        CdbgFrame pointerFrame{kCmdLogSetPointer, 0, ch.size, 0, 0, 0, 0, 0};
+        bytes::writeU32Be(pointerFrame, 4, ch.pointer);
+        out.push_back(pointerFrame);
     }
     return out;
 }
