@@ -9,11 +9,6 @@
 namespace
 {
 
-uint32_t readBigEndianWord(bytes::ByteView data, std::size_t offset)
-{
-    return ((uint32_t(data[offset]) << 24) & 0xFF000000U) | ((uint32_t(data[offset + 1]) << 16) & 0x00FF0000U) | ((uint32_t(data[offset + 2]) << 8) & 0x0000FF00U) | (uint32_t(data[offset + 3]) & 0x000000FFU);
-}
-
 uint32_t transformWord(uint32_t word, const uint16_t *keytogenerateindex,
                        const uint8_t *indextransformation, int rounds, bool reverse)
 {
@@ -36,14 +31,6 @@ uint32_t transformWord(uint32_t word, const uint16_t *keytogenerateindex,
     }
 
     return (word >> 16) + (word << 16);
-}
-
-void appendBigEndianWord(bytes::Bytes *out, uint32_t word)
-{
-    out->push_back(bytes::Byte(word >> 24));
-    out->push_back(bytes::Byte(word >> 16));
-    out->push_back(bytes::Byte(word >> 8));
-    out->push_back(bytes::Byte(word));
 }
 
 const std::array<uint32_t, 256>& crcTable()
@@ -93,8 +80,8 @@ bytes::Bytes calculateSeedKey(bytes::ByteView seed, const uint16_t *keytogenerat
         return key;
     }
 
-    appendBigEndianWord(&key, transformWord(readBigEndianWord(seed, 0), keytogenerateindex,
-                                            indextransformation, 16, true));
+    bytes::appendU32Be(key, transformWord(bytes::readU32Be(seed, 0), keytogenerateindex,
+                                          indextransformation, 16, true));
     return key;
 }
 
@@ -116,9 +103,9 @@ bytes::Bytes calculatePayload(bytes::ByteView buf, uint32_t len,
 
     for (uint32_t i = 0; i < len; i += 4)
     {
-        appendBigEndianWord(&encrypted,
-                            transformWord(readBigEndianWord(buf, i), keytogenerateindex,
-                                          indextransformation, 4, false));
+        bytes::appendU32Be(encrypted,
+                           transformWord(bytes::readU32Be(buf, i), keytogenerateindex,
+                                         indextransformation, 4, false));
     }
 
     return encrypted;

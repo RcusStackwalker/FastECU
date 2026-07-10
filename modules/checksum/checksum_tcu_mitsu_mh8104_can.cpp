@@ -1,4 +1,5 @@
 #include "checksum_tcu_mitsu_mh8104_can.h"
+#include "protocol/qt_bytes.h"
 
 ChecksumTcuMitsuMH8104Can::ChecksumTcuMitsuMH8104Can()
 {
@@ -30,7 +31,7 @@ QByteArray ChecksumTcuMitsuMH8104Can::calculate_checksum(QByteArray romData)
 
     for (int i = 0x8000; i < 0x80000; i += 4)
     {
-        checksum += ((uint8_t)romData.at(i) << 24) + ((uint8_t)romData.at(i + 1) << 16) + ((uint8_t)romData.at(i + 2) << 8) + (uint8_t)romData.at(i + 3);
+        checksum += bytes::readU32Be(bytes::view(romData), static_cast<std::size_t>(i));
     }
     checksum -= 0xffff;
     for (int j = 0; j < 5; j++)
@@ -48,10 +49,7 @@ QByteArray ChecksumTcuMitsuMH8104Can::calculate_checksum(QByteArray romData)
 
         QByteArray balance_value_array;
 
-        checksum_balance_value = ((uint8_t)romData.at(checksum_balance_value_address) << 24);
-        checksum_balance_value += ((uint8_t)romData.at(checksum_balance_value_address + 1) << 16);
-        checksum_balance_value += ((uint8_t)romData.at(checksum_balance_value_address + 2) << 8);
-        checksum_balance_value += ((uint8_t)romData.at(checksum_balance_value_address + 3));
+        checksum_balance_value = bytes::readU32Be(bytes::view(romData), checksum_balance_value_address);
 
         msg.clear();
         msg.append(QString("Balance value before: 0x%1").arg(checksum_balance_value, 8, 16, QLatin1Char('0')).toUtf8());
@@ -69,10 +67,7 @@ QByteArray ChecksumTcuMitsuMH8104Can::calculate_checksum(QByteArray romData)
         msg.append(QString("Balance value after: 0x%1").arg(checksum_balance_value, 8, 16, QLatin1Char('0')).toUtf8());
         qDebug() << msg;
 
-        balance_value_array.append((uint8_t)((checksum_balance_value >> 24) & 0xff));
-        balance_value_array.append((uint8_t)((checksum_balance_value >> 16) & 0xff));
-        balance_value_array.append((uint8_t)((checksum_balance_value >> 8) & 0xff));
-        balance_value_array.append((uint8_t)(checksum_balance_value & 0xff));
+        bytes::appendU32Be(balance_value_array, checksum_balance_value);
         romData.replace(checksum_balance_value_address, balance_value_array.length(), balance_value_array);
 
         qDebug() << "Subaru Mitsu MH8104 CAN CVT TCU checksum corrected";

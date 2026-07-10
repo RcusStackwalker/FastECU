@@ -18,6 +18,7 @@
 #include "test_flash_ecu_mitsu_m32r_can_operation.h"
 #include "test_flash_utils.h"
 #include "test_ssm_protocol.h"
+#include "test_bytes.h"
 #include "test_expression_evaluator.h"
 #include "test_menu_command.h"
 #include "test_diagnostic_parsers.h"
@@ -47,6 +48,7 @@ int main(int argc, char **argv)
     status |= run_test_flash_ecu_mitsu_m32r_can_operation(argc, argv);
     status |= run_test_flash_utils(argc, argv);
     status |= run_test_ssm_protocol(argc, argv);
+    status |= run_test_bytes(argc, argv);
     status |= run_test_expression_evaluator(argc, argv);
     status |= run_test_menu_command(argc, argv);
     status |= run_test_diagnostic_parsers(argc, argv);

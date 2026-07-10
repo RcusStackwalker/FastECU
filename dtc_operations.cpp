@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <functional>
 
+#include "protocol/qt_bytes.h"
+
 DtcOperations::DtcOperations(SerialPortActions *serial, QWidget *parent)
     : QDialog(parent), serial(serial), ui{std::make_unique<Ui::DtcOperationsWindow>()}
 {
@@ -520,7 +522,7 @@ int DtcOperations::read_dtc()
 
     for (int i = 0; i < response.length(); i += 2)
     {
-        uint16_t dtc = ((uint8_t)response.at(i) << 8) + (uint8_t)response.at(i + 1);
+        uint16_t dtc = bytes::readU16Be(bytes::view(response), static_cast<std::size_t>(i));
         if (dtc != 0)
         {
             dtc_list.append(QString("%1").arg(dtc, 4, 16, QLatin1Char('0')).toUpper());
@@ -542,7 +544,7 @@ int DtcOperations::read_dtc()
     dtc_list.clear();
     for (int i = 0; i < response.length(); i += 2)
     {
-        uint16_t dtc = ((uint8_t)response.at(i) << 8) + (uint8_t)response.at(i + 1);
+        uint16_t dtc = bytes::readU16Be(bytes::view(response), static_cast<std::size_t>(i));
         if (dtc != 0)
         {
             dtc_list.append(QString("%1").arg(dtc, 4, 16, QLatin1Char('0')).toUpper());

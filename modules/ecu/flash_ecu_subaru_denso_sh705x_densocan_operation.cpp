@@ -1298,24 +1298,6 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::flash_block(const uint8_t *src, 
 }
 
 /*
- * 8bit checksum
- *
- * @return
- */
-uint8_t FlashEcuSubaruDensoSH705xDensoCanOperation::cks_add8(QByteArray chksum_data, unsigned len)
-{
-    uint16_t sum = 0;
-    for (unsigned i = 0; i < len; i++)
-    {
-        sum += (uint8_t)chksum_data.at(i);
-        if (sum & 0x100)
-            sum += 1;
-        sum = (uint8_t)sum;
-    }
-    return sum;
-}
-
-/*
  * Encrypt upload data
  *
  * @return encrypted data

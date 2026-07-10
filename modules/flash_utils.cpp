@@ -1,8 +1,24 @@
 #include "flash_utils.h"
+#include "protocol/qt_bytes.h"
 #include "serial_port_actions.h"
 
 namespace FlashUtils
 {
+std::uint8_t cks_add8(std::span<const std::uint8_t> data)
+{
+    std::uint16_t sum = 0;
+    for (std::uint8_t byte : data)
+    {
+        sum += byte;
+        if (sum & 0x100)
+        {
+            sum += 1;
+        }
+        sum = static_cast<std::uint8_t>(sum);
+    }
+    return static_cast<std::uint8_t>(sum);
+}
+
 int findFlashDeviceIndex(const QString& mcuType)
 {
     int index = 0;
@@ -26,10 +42,7 @@ const flashdev_t *findFlashDevice(const QString& mcuType)
 QByteArray buildIso15765Request(quint32 sourceAddress, const QByteArray& payload)
 {
     QByteArray output;
-    output.append(char((sourceAddress >> 24) & 0xFF));
-    output.append(char((sourceAddress >> 16) & 0xFF));
-    output.append(char((sourceAddress >> 8) & 0xFF));
-    output.append(char(sourceAddress & 0xFF));
+    bytes::appendU32Be(output, sourceAddress);
     output.append(payload);
     return output;
 }

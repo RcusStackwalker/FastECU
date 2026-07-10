@@ -1,4 +1,5 @@
 #include "checksum_ecu_subaru_hitachi_m32r_kline.h"
+#include "protocol/qt_bytes.h"
 
 ChecksumEcuSubaruHitachiM32rKline::ChecksumEcuSubaruHitachiM32rKline()
 {
@@ -86,16 +87,19 @@ QByteArray ChecksumEcuSubaruHitachiM32rKline::calculate_checksum(QByteArray romD
     for (int i = 0x4000; i < romData.length(); i += 4)
     {
         if (i < 0x8100 || i > 0x8103)
-            checksum_3_value_calculated += ((uint8_t)romData.at(i) << 24) + ((uint8_t)romData.at(i + 1) << 16) + ((uint8_t)romData.at(i + 2) << 8) + (uint8_t)romData.at(i + 3);
+            checksum_3_value_calculated += bytes::readU32Be(bytes::view(romData), static_cast<std::size_t>(i));
     }
-    checksum_3_balance_value_stored = ((uint8_t)romData.at(checksum_3_balance_value_address) << 8) + (uint8_t)romData.at(checksum_3_balance_value_address + 1);
+    checksum_3_balance_value_stored = bytes::readU16Be(bytes::view(romData), checksum_3_balance_value_address);
     if (checksum_3_value_calculated != 0x5aa5)
     {
         qDebug() << "Checksum 3 balance value mismatch!";
         checksum_ok = false;
 
         QByteArray balance_value_array;
-        uint16_t balance_value = (uint16_t)(romData.at(checksum_3_balance_value_address) << 8) + (uint16_t)(romData.at(checksum_3_balance_value_address + 1));
+        // Reads the same bytes as checksum_3_balance_value_stored above via the same
+        // unsigned interpretation; the original here used a sign-extending char cast
+        // that could disagree with that stored read for balance bytes >= 0x80.
+        uint16_t balance_value = bytes::readU16Be(bytes::view(romData), checksum_3_balance_value_address);
 
         msg.clear();
         msg.append(QString("Balance value before: 0x%1").arg(balance_value, 4, 16, QLatin1Char('0')).toUtf8());
@@ -107,8 +111,7 @@ QByteArray ChecksumEcuSubaruHitachiM32rKline::calculate_checksum(QByteArray romD
         msg.append(QString("Balance value after: 0x%1").arg(balance_value, 4, 16, QLatin1Char('0')).toUtf8());
         qDebug() << msg;
 
-        balance_value_array.append((uint8_t)((balance_value >> 8) & 0xff));
-        balance_value_array.append((uint8_t)(balance_value & 0xff));
+        bytes::appendU16Be(balance_value_array, balance_value);
         romData.replace(checksum_3_balance_value_address, balance_value_array.length(), balance_value_array);
 
         qDebug() << "Subaru Hitachi M32R K-Line/CAN ECU checksum 3 corrected";

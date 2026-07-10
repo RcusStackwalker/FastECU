@@ -1,6 +1,7 @@
 #include "get_key_operations_subaru.h"
 #include <ui_ecu_operations.h>
 #include <QRandomGenerator>
+#include "protocol/qt_bytes.h"
 
 GetKeyOperationsSubaru::GetKeyOperationsSubaru(QWidget *parent)
     : QDialog(parent),
@@ -74,6 +75,9 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
     QByteArray encryptedFileData = encryptedFile.readAll();
     encryptedFile.close();
 
+    const bytes::ByteView unencryptedView = bytes::view(unencryptedFileData);
+    const bytes::ByteView encryptedView = bytes::view(encryptedFileData);
+
     emit LOG_I("Files loaded successfully", true, true);
 
     // uint16_t keys[]={
@@ -115,8 +119,8 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
         if (!alreadyExists[j / 4])
         {
             total++;
-            plainText = ((unencryptedFileData[j] << 24) & 0xFF000000) + ((unencryptedFileData[j + 1] << 16) & 0xFF0000) + ((unencryptedFileData[j + 2] << 8) & 0xFF00) + (unencryptedFileData[j + 3] & 0xFF);
-            cipherText = ((encryptedFileData[j] << 24) & 0xFF000000) + ((encryptedFileData[j + 1] << 16) & 0xFF0000) + ((encryptedFileData[j + 2] << 8) & 0xFF00) + (encryptedFileData[j + 3] & 0xFF);
+            plainText = bytes::readU32Be(unencryptedView, static_cast<std::size_t>(j));
+            cipherText = bytes::readU32Be(encryptedView, static_cast<std::size_t>(j));
 
             /*
             plainText = QRandomGenerator::global()->generate();
@@ -211,8 +215,8 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
         {
             total++;
 
-            plainText = ((unencryptedFileData[j] << 24) & 0xFF000000) + ((unencryptedFileData[j + 1] << 16) & 0xFF0000) + ((unencryptedFileData[j + 2] << 8) & 0xFF00) + (unencryptedFileData[j + 3] & 0xFF);
-            cipherText = ((encryptedFileData[j] << 24) & 0xFF000000) + ((encryptedFileData[j + 1] << 16) & 0xFF0000) + ((encryptedFileData[j + 2] << 8) & 0xFF00) + (encryptedFileData[j + 3] & 0xFF);
+            plainText = bytes::readU32Be(unencryptedView, static_cast<std::size_t>(j));
+            cipherText = bytes::readU32Be(encryptedView, static_cast<std::size_t>(j));
             x4 = cipherText & 0xFFFF;
             fOutcome = fFunction(x4, k4);
             x3Text = ((cipherText >> 16) & 0xffff) ^ fOutcome;

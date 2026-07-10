@@ -408,6 +408,7 @@ MUT_DMA_TESTS_COMMON_SRCS = [
     "tests/test_mut_dma_logging_protocol.cpp",
     "tests/test_romraider_conversion.cpp",
     "tests/test_ssm_logging_protocol.cpp",
+    "tests/test_bytes.cpp",
     "tests/test_ssm_protocol.cpp",
     "tests/test_transport.cpp",
 ]
@@ -461,6 +462,7 @@ MUT_DMA_TESTS_COMMON_HDRS = [
     "tests/scripted_kline_transport.h",
     "tests/scripted_logging_protocol.h",
     "tests/scripted_ssm_transport.h",
+    "tests/test_bytes.h",
     "tests/test_cdbg_driver.h",
     "tests/test_cdbg_logging_protocol.h",
     "tests/test_checksum_results.h",

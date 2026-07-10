@@ -37,6 +37,7 @@ SOURCES += \
     ../expression_evaluator.cpp \
     ../nrc_parser.cpp \
     test_ssm_protocol.cpp \
+    test_bytes.cpp \
     ../modules/ssm_protocol.cpp \
     test_flash_utils.cpp \
     test_diagnostic_parsers.cpp \
@@ -96,6 +97,7 @@ HEADERS += \
     ../expression_evaluator.h \
     ../nrc_parser.h \
     test_ssm_protocol.h \
+    test_bytes.h \
     ../modules/ssm_protocol_core.h \
     ../modules/ssm_protocol.h \
     ../protocol/bytes.h \
