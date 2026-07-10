@@ -1,4 +1,5 @@
 #include "checksum_tcu_subaru_denso_sh7055.h"
+#include "protocol/qt_bytes.h"
 
 ChecksumTcuSubaruDensoSH7055::ChecksumTcuSubaruDensoSH7055()
 {
@@ -47,7 +48,7 @@ QByteArray ChecksumTcuSubaruDensoSH7055::calculate_checksum(QByteArray romData)
 
         for (unsigned int j = area_start; j < area_end; j += 2)
         {
-            checksum += ((uint8_t)romData.at(j) << 8) + ((uint8_t)romData.at(j + 1));
+            checksum += bytes::readU16Be(bytes::view(romData), j);
         }
     }
 
@@ -62,7 +63,7 @@ QByteArray ChecksumTcuSubaruDensoSH7055::calculate_checksum(QByteArray romData)
 
         QByteArray balance_value_array;
         uint32_t balance_value_array_start = 0x7fff4;
-        uint16_t balance_value = ((uint8_t)romData.at(0x7fff4) << 8) + ((uint8_t)romData.at(0x7fff5));
+        uint16_t balance_value = bytes::readU16Be(bytes::view(romData), 0x7fff4);
 
         msg.clear();
         msg.append(QString("Balance value before: 0x%1").arg(balance_value, 4, 16, QLatin1Char('0')).toUtf8());
@@ -74,8 +75,7 @@ QByteArray ChecksumTcuSubaruDensoSH7055::calculate_checksum(QByteArray romData)
         msg.append(QString("Balance value after: 0x%1").arg(balance_value, 4, 16, QLatin1Char('0')).toUtf8());
         qDebug() << msg;
 
-        balance_value_array.append((uint8_t)((balance_value >> 8) & 0xff));
-        balance_value_array.append((uint8_t)(balance_value & 0xff));
+        bytes::appendU16Be(balance_value_array, balance_value);
         romData.replace(balance_value_array_start, balance_value_array.length(), balance_value_array);
 
         qDebug() << "Checksums corrected";
