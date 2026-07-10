@@ -1,4 +1,5 @@
 #include "checksum_ecu_subaru_denso_sh7xxx.h"
+#include "protocol/qt_bytes.h"
 
 ChecksumEcuSubaruDensoSH7xxx::ChecksumEcuSubaruDensoSH7xxx()
 {
@@ -53,12 +54,9 @@ ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(QByteArra
         checksum_dword_addr_hi = 0;
         checksum_diff = 0;
 
-        for (int j = 0; j < 4; j++)
-        {
-            checksum_dword_addr_lo = (checksum_dword_addr_lo << 8) + (uint8_t)romData.at(i + j);
-            checksum_dword_addr_hi = (checksum_dword_addr_hi << 8) + (uint8_t)romData.at(i + 4 + j);
-            checksum_diff = (checksum_diff << 8) + (uint8_t)romData.at(i + 8 + j);
-        }
+        checksum_dword_addr_lo = bytes::readU32Be(bytes::view(romData), i);
+        checksum_dword_addr_hi = bytes::readU32Be(bytes::view(romData), i + 4);
+        checksum_diff = bytes::readU32Be(bytes::view(romData), i + 8);
         if (checksum_dword_addr_lo == 0 && checksum_dword_addr_hi == 0)
         {
             offset = 0;
@@ -87,10 +85,7 @@ ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(QByteArra
                     result.message = "ROM is too small for a checksum block range";
                     return result;
                 }
-                for (int k = 0; k < 4; k++)
-                {
-                    checksum_temp = (checksum_temp << 8) + (uint8_t)(romData.at(j + k));
-                }
+                checksum_temp = bytes::readU32Be(bytes::view(romData), j);
                 checksum += checksum_temp;
             }
         }
@@ -106,18 +101,9 @@ ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(QByteArra
             checksum_ok = false;
         }
 
-        checksum_array.append(checksum_dword_addr_lo >> 24);
-        checksum_array.append(checksum_dword_addr_lo >> 16);
-        checksum_array.append(checksum_dword_addr_lo >> 8);
-        checksum_array.append(checksum_dword_addr_lo);
-        checksum_array.append(checksum_dword_addr_hi >> 24);
-        checksum_array.append(checksum_dword_addr_hi >> 16);
-        checksum_array.append(checksum_dword_addr_hi >> 8);
-        checksum_array.append(checksum_dword_addr_hi);
-        checksum_array.append(checksum_check >> 24);
-        checksum_array.append(checksum_check >> 16);
-        checksum_array.append(checksum_check >> 8);
-        checksum_array.append(checksum_check);
+        bytes::appendU32Be(checksum_array, checksum_dword_addr_lo);
+        bytes::appendU32Be(checksum_array, checksum_dword_addr_hi);
+        bytes::appendU32Be(checksum_array, checksum_check);
 
         checksum_block++;
     }
