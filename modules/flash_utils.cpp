@@ -1,4 +1,5 @@
 #include "flash_utils.h"
+#include "protocol/qt_bytes.h"
 #include "serial_port_actions.h"
 
 namespace FlashUtils
@@ -41,10 +42,7 @@ const flashdev_t *findFlashDevice(const QString& mcuType)
 QByteArray buildIso15765Request(quint32 sourceAddress, const QByteArray& payload)
 {
     QByteArray output;
-    output.append(char((sourceAddress >> 24) & 0xFF));
-    output.append(char((sourceAddress >> 16) & 0xFF));
-    output.append(char((sourceAddress >> 8) & 0xFF));
-    output.append(char(sourceAddress & 0xFF));
+    bytes::appendU32Be(output, sourceAddress);
     output.append(payload);
     return output;
 }
