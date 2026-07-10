@@ -1,4 +1,5 @@
 #include "checksum_tcu_subaru_hitachi_m32r_can.h"
+#include "protocol/qt_bytes.h"
 
 ChecksumTcuSubaruHitachiM32rCan::ChecksumTcuSubaruHitachiM32rCan()
 {
@@ -24,9 +25,9 @@ QByteArray ChecksumTcuSubaruHitachiM32rCan::calculate_checksum(QByteArray romDat
     for (int i = 0x0; i < romData.length(); i += 4)
     {
         if (i >= 0x8020)
-            checksum_1_value_calculated += ((uint8_t)romData.at(i) << 24) + ((uint8_t)romData.at(i + 1) << 16) + ((uint8_t)romData.at(i + 2) << 8) + (uint8_t)romData.at(i + 3);
+            checksum_1_value_calculated += bytes::readU32Be(bytes::view(romData), static_cast<std::size_t>(i));
         if (i < 0x8000 || i > 0x8007)
-            checksum_2_value_calculated += ((uint8_t)romData.at(i) << 24) + ((uint8_t)romData.at(i + 1) << 16) + ((uint8_t)romData.at(i + 2) << 8) + (uint8_t)romData.at(i + 3);
+            checksum_2_value_calculated += bytes::readU32Be(bytes::view(romData), static_cast<std::size_t>(i));
     }
 
     uint8_t checksum_2_value_calculated_bytes[4];
@@ -36,7 +37,7 @@ QByteArray ChecksumTcuSubaruHitachiM32rCan::calculate_checksum(QByteArray romDat
     checksum_2_value_calculated_bytes[0] = 0x100 - (checksum_2_value_calculated & 0xff);
     checksum_2_value_calculated = (checksum_2_value_calculated_bytes[3] << 24) + (checksum_2_value_calculated_bytes[2] << 16) + (checksum_2_value_calculated_bytes[1] << 8) + checksum_2_value_calculated_bytes[0];
 
-    checksum_1_balance_value_stored = ((uint8_t)romData.at(checksum_1_balance_value_address) << 24) + ((uint8_t)romData.at(checksum_1_balance_value_address + 1) << 16) + ((uint8_t)romData.at(checksum_1_balance_value_address + 2) << 8) + (uint8_t)romData.at(checksum_1_balance_value_address + 3);
+    checksum_1_balance_value_stored = bytes::readU32Be(bytes::view(romData), checksum_1_balance_value_address);
     msg.clear();
     msg.append(QString("Checksum 1 balance value stored 0x8020: 0x%1").arg(checksum_1_balance_value_stored, 8, 16, QLatin1Char('0')).toUtf8());
     qDebug() << msg;
@@ -45,7 +46,7 @@ QByteArray ChecksumTcuSubaruHitachiM32rCan::calculate_checksum(QByteArray romDat
     msg.append(QString("Checksum 1 calculated 0x8020: 0x%1").arg(checksum_1_value_calculated, 8, 16, QLatin1Char('0')).toUtf8());
     qDebug() << msg;
 
-    checksum_2_value_stored = ((uint8_t)romData.at(checksum_2_balance_value_address) << 24) + ((uint8_t)romData.at(checksum_2_balance_value_address + 1) << 16) + ((uint8_t)romData.at(checksum_2_balance_value_address + 2) << 8) + (uint8_t)romData.at(checksum_2_balance_value_address + 3);
+    checksum_2_value_stored = bytes::readU32Be(bytes::view(romData), checksum_2_balance_value_address);
     msg.clear();
     msg.append(QString("Checksum 2 stored 0x8000/0x8004: 0x%1").arg(checksum_2_value_stored, 8, 16, QLatin1Char('0')).toUtf8());
     qDebug() << msg;
@@ -67,10 +68,7 @@ QByteArray ChecksumTcuSubaruHitachiM32rCan::calculate_checksum(QByteArray romDat
 
         checksum_1_balance_value_stored += 0x5aa5a55a - checksum_1_value_calculated;
 
-        checksum_value_array.append((uint8_t)((checksum_1_balance_value_stored >> 24) & 0xff));
-        checksum_value_array.append((uint8_t)((checksum_1_balance_value_stored >> 16) & 0xff));
-        checksum_value_array.append((uint8_t)((checksum_1_balance_value_stored >> 8) & 0xff));
-        checksum_value_array.append((uint8_t)(checksum_1_balance_value_stored & 0xff));
+        bytes::appendU32Be(checksum_value_array, checksum_1_balance_value_stored);
 
         romData.replace(checksum_1_balance_value_address, checksum_value_array.length(), checksum_value_array);
 
@@ -94,7 +92,7 @@ QByteArray ChecksumTcuSubaruHitachiM32rCan::calculate_checksum(QByteArray romDat
         for (int i = 0x0; i < romData.length(); i += 4)
         {
             if (i < 0x8000 || i > 0x8007)
-                checksum_2_value_calculated += ((uint8_t)romData.at(i) << 24) + ((uint8_t)romData.at(i + 1) << 16) + ((uint8_t)romData.at(i + 2) << 8) + (uint8_t)romData.at(i + 3);
+                checksum_2_value_calculated += bytes::readU32Be(bytes::view(romData), static_cast<std::size_t>(i));
         }
         uint8_t checksum_2_value_calculated_bytes[4];
         checksum_2_value_calculated_bytes[3] = 0xff - ((checksum_2_value_calculated >> 24) & 0xff);
@@ -105,10 +103,7 @@ QByteArray ChecksumTcuSubaruHitachiM32rCan::calculate_checksum(QByteArray romDat
 
         for (int i = 0; i < 2; i++)
         {
-            balance_value_array.append((uint8_t)((checksum_2_value_calculated >> 24) & 0xff));
-            balance_value_array.append((uint8_t)((checksum_2_value_calculated >> 16) & 0xff));
-            balance_value_array.append((uint8_t)((checksum_2_value_calculated >> 8) & 0xff));
-            balance_value_array.append((uint8_t)(checksum_2_value_calculated & 0xff));
+            bytes::appendU32Be(balance_value_array, checksum_2_value_calculated);
         }
         romData.replace(checksum_2_balance_value_address, balance_value_array.length(), balance_value_array);
 
