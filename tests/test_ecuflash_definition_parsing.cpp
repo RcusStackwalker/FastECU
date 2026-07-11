@@ -51,6 +51,67 @@ class TestEcuflashDefinitionParsing : public QObject
         QCOMPARE(ecuCalDef.DescriptionList.at(0), QString("A test table"));
     }
 
+    void storageaddress_populates_address_when_address_absent()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString defPath = writeDefFile(dir, "TESTCAL",
+            "<rom>"
+            "<romid><xmlid>TESTCAL</xmlid></romid>"
+            "<table name=\"Test Table\" storageaddress=\"2000\"/>"
+            "</rom>");
+
+        FileActions fileActions;
+        fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
+        fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
+
+        FileActions::EcuCalDefStructure ecuCalDef;
+        fileActions.read_ecuflash_ecu_def(&ecuCalDef, "TESTCAL");
+
+        QCOMPARE(ecuCalDef.AddressList.at(0), QString("2000"));
+    }
+
+    void address_wins_over_storageaddress_when_both_present()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString defPath = writeDefFile(dir, "TESTCAL",
+            "<rom>"
+            "<romid><xmlid>TESTCAL</xmlid></romid>"
+            "<table name=\"Test Table\" address=\"1000\" storageaddress=\"2000\"/>"
+            "</rom>");
+
+        FileActions fileActions;
+        fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
+        fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
+
+        FileActions::EcuCalDefStructure ecuCalDef;
+        fileActions.read_ecuflash_ecu_def(&ecuCalDef, "TESTCAL");
+
+        QCOMPARE(ecuCalDef.AddressList.at(0), QString("1000"));
+    }
+
+    void outer_table_sizex_sizey_populate_x_y_size_lists()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString defPath = writeDefFile(dir, "TESTCAL",
+            "<rom>"
+            "<romid><xmlid>TESTCAL</xmlid></romid>"
+            "<table name=\"Test Table\" address=\"1000\" sizex=\"12\" sizey=\"8\"/>"
+            "</rom>");
+
+        FileActions fileActions;
+        fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
+        fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
+
+        FileActions::EcuCalDefStructure ecuCalDef;
+        fileActions.read_ecuflash_ecu_def(&ecuCalDef, "TESTCAL");
+
+        QCOMPARE(ecuCalDef.XSizeList.at(0), QString("12"));
+        QCOMPARE(ecuCalDef.YSizeList.at(0), QString("8"));
+    }
+
   private:
     static QString writeDefFile(const QTemporaryDir &dir, const QString &baseName, const QString &xml)
     {

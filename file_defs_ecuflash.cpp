@@ -472,7 +472,8 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
                 if (ecuCalDef->IntervalList.at(def_map_index) == " ")
                     ecuCalDef->IntervalList.replace(def_map_index, rom_child.attribute("interval", "1"));
                 if (ecuCalDef->AddressList.at(def_map_index) == " ")
-                    ecuCalDef->AddressList.replace(def_map_index, rom_child.attribute("address", ""));
+                    ecuCalDef->AddressList.replace(def_map_index,
+                        rom_child.attribute("address", rom_child.attribute("storageaddress", "")));
                 if (ecuCalDef->TypeList.at(def_map_index) == " ")
                     ecuCalDef->TypeList.replace(def_map_index, type);
                 if (ecuCalDef->CategoryList.at(def_map_index) == " ")
@@ -487,6 +488,10 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
                     ecuCalDef->DescriptionList.replace(def_map_index, rom_child.attribute("description", " "));
                 if (ecuCalDef->MapScalingNameList.at(def_map_index) == " ")
                     ecuCalDef->MapScalingNameList.replace(def_map_index, rom_child.attribute("scaling", " "));
+                if (ecuCalDef->XSizeList.at(def_map_index) == " " || ecuCalDef->XSizeList.at(def_map_index) == "")
+                    ecuCalDef->XSizeList.replace(def_map_index, rom_child.attribute("sizex", " "));
+                if (ecuCalDef->YSizeList.at(def_map_index) == " " || ecuCalDef->YSizeList.at(def_map_index) == "")
+                    ecuCalDef->YSizeList.replace(def_map_index, rom_child.attribute("sizey", " "));
 
                 // emit LOG_D("Define " + cal_id + " map: " + ecuCalDef->NameList.at(def_map_index) + " in category: " + ecuCalDef->CategoryList.at(def_map_index), true, true);
 
