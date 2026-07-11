@@ -134,7 +134,7 @@ FileActions::ConfigValuesStructure *FileActions::create_ecuflash_def_id_list(Con
     return configValues;
 }
 
-QString FileActions::parse_strict_bool_attribute(const QDomElement &element, const QString &attrName, const QString &tableName)
+QString FileActions::parse_strict_bool_attribute(const QDomElement& element, const QString& attrName, const QString& tableName)
 {
     if (!element.hasAttribute(attrName))
         return "false";
@@ -486,7 +486,7 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
                     ecuCalDef->IntervalList.replace(def_map_index, rom_child.attribute("interval", "1"));
                 if (ecuCalDef->AddressList.at(def_map_index) == " ")
                     ecuCalDef->AddressList.replace(def_map_index,
-                        rom_child.attribute("address", rom_child.attribute("storageaddress", "")));
+                                                   rom_child.attribute("address", rom_child.attribute("storageaddress", "")));
                 if (ecuCalDef->TypeList.at(def_map_index) == " ")
                     ecuCalDef->TypeList.replace(def_map_index, type);
                 if (ecuCalDef->CategoryList.at(def_map_index) == " ")

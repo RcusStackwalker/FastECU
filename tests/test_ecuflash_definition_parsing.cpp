@@ -31,12 +31,12 @@ class TestEcuflashDefinitionParsing : public QObject
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
         const QString defPath = writeDefFile(dir, "TESTCAL",
-            "<rom>"
-            "<romid><xmlid>TESTCAL</xmlid></romid>"
-            "<table name=\"Test Table\" address=\"1000\" category=\"Fuel\" "
-            "subcategory=\"Primary\" level=\"2\" userlevel=\"3\" "
-            "description=\"A test table\"/>"
-            "</rom>");
+                                             "<rom>"
+                                             "<romid><xmlid>TESTCAL</xmlid></romid>"
+                                             "<table name=\"Test Table\" address=\"1000\" category=\"Fuel\" "
+                                             "subcategory=\"Primary\" level=\"2\" userlevel=\"3\" "
+                                             "description=\"A test table\"/>"
+                                             "</rom>");
 
         FileActions fileActions;
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
@@ -57,10 +57,10 @@ class TestEcuflashDefinitionParsing : public QObject
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
         const QString defPath = writeDefFile(dir, "TESTCAL",
-            "<rom>"
-            "<romid><xmlid>TESTCAL</xmlid></romid>"
-            "<table name=\"Test Table\" storageaddress=\"2000\"/>"
-            "</rom>");
+                                             "<rom>"
+                                             "<romid><xmlid>TESTCAL</xmlid></romid>"
+                                             "<table name=\"Test Table\" storageaddress=\"2000\"/>"
+                                             "</rom>");
 
         FileActions fileActions;
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
@@ -77,10 +77,10 @@ class TestEcuflashDefinitionParsing : public QObject
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
         const QString defPath = writeDefFile(dir, "TESTCAL",
-            "<rom>"
-            "<romid><xmlid>TESTCAL</xmlid></romid>"
-            "<table name=\"Test Table\" address=\"1000\" storageaddress=\"2000\"/>"
-            "</rom>");
+                                             "<rom>"
+                                             "<romid><xmlid>TESTCAL</xmlid></romid>"
+                                             "<table name=\"Test Table\" address=\"1000\" storageaddress=\"2000\"/>"
+                                             "</rom>");
 
         FileActions fileActions;
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
@@ -97,10 +97,10 @@ class TestEcuflashDefinitionParsing : public QObject
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
         const QString defPath = writeDefFile(dir, "TESTCAL",
-            "<rom>"
-            "<romid><xmlid>TESTCAL</xmlid></romid>"
-            "<table name=\"Test Table\" address=\"1000\" sizex=\"12\" sizey=\"8\"/>"
-            "</rom>");
+                                             "<rom>"
+                                             "<romid><xmlid>TESTCAL</xmlid></romid>"
+                                             "<table name=\"Test Table\" address=\"1000\" sizex=\"12\" sizey=\"8\"/>"
+                                             "</rom>");
 
         FileActions fileActions;
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
@@ -118,11 +118,11 @@ class TestEcuflashDefinitionParsing : public QObject
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
         const QString defPath = writeDefFile(dir, "TESTCAL",
-            "<rom>"
-            "<romid><xmlid>TESTCAL</xmlid></romid>"
-            "<table name=\"Test Table\" address=\"1000\" "
-            "swapxy=\"true\" flipx=\"false\" flipy=\"true\"/>"
-            "</rom>");
+                                             "<rom>"
+                                             "<romid><xmlid>TESTCAL</xmlid></romid>"
+                                             "<table name=\"Test Table\" address=\"1000\" "
+                                             "swapxy=\"true\" flipx=\"false\" flipy=\"true\"/>"
+                                             "</rom>");
 
         FileActions fileActions;
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
@@ -141,10 +141,10 @@ class TestEcuflashDefinitionParsing : public QObject
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
         const QString defPath = writeDefFile(dir, "TESTCAL",
-            "<rom>"
-            "<romid><xmlid>TESTCAL</xmlid></romid>"
-            "<table name=\"Test Table\" address=\"1000\"/>"
-            "</rom>");
+                                             "<rom>"
+                                             "<romid><xmlid>TESTCAL</xmlid></romid>"
+                                             "<table name=\"Test Table\" address=\"1000\"/>"
+                                             "</rom>");
 
         FileActions fileActions;
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
@@ -163,10 +163,10 @@ class TestEcuflashDefinitionParsing : public QObject
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
         const QString defPath = writeDefFile(dir, "TESTCAL",
-            "<rom>"
-            "<romid><xmlid>TESTCAL</xmlid></romid>"
-            "<table name=\"Test Table\" address=\"1000\" swapxy=\"yes\"/>"
-            "</rom>");
+                                             "<rom>"
+                                             "<romid><xmlid>TESTCAL</xmlid></romid>"
+                                             "<table name=\"Test Table\" address=\"1000\" swapxy=\"yes\"/>"
+                                             "</rom>");
 
         FileActions fileActions;
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
@@ -185,7 +185,7 @@ class TestEcuflashDefinitionParsing : public QObject
     }
 
   private:
-    static QString writeDefFile(const QTemporaryDir &dir, const QString &baseName, const QString &xml)
+    static QString writeDefFile(const QTemporaryDir& dir, const QString& baseName, const QString& xml)
     {
         const QString path = dir.filePath(baseName + ".xml");
         QFile file(path);
