@@ -477,6 +477,14 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
                     ecuCalDef->TypeList.replace(def_map_index, type);
                 if (ecuCalDef->CategoryList.at(def_map_index) == " ")
                     ecuCalDef->CategoryList.replace(def_map_index, rom_child.attribute("category", " "));
+                if (ecuCalDef->SubCategoryList.at(def_map_index) == " ")
+                    ecuCalDef->SubCategoryList.replace(def_map_index, rom_child.attribute("subcategory", " "));
+                if (ecuCalDef->LevelList.at(def_map_index) == " ")
+                    ecuCalDef->LevelList.replace(def_map_index, rom_child.attribute("level", " "));
+                if (ecuCalDef->UserLevelList.at(def_map_index) == " ")
+                    ecuCalDef->UserLevelList.replace(def_map_index, rom_child.attribute("userlevel", " "));
+                if (ecuCalDef->DescriptionList.at(def_map_index) == " ")
+                    ecuCalDef->DescriptionList.replace(def_map_index, rom_child.attribute("description", " "));
                 if (ecuCalDef->MapScalingNameList.at(def_map_index) == " ")
                     ecuCalDef->MapScalingNameList.replace(def_map_index, rom_child.attribute("scaling", " "));
 
