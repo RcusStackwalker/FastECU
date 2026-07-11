@@ -158,42 +158,55 @@ int FlashEcuMitsuM32rCanOperation::connect_bootloader()
     return STATUS_SUCCESS;
 }
 
-int FlashEcuMitsuM32rCanOperation::read_mem(uint32_t start_addr, uint32_t length)
+bool FlashEcuMitsuM32rCanOperation::readFlashRange(uint32_t start_addr, uint32_t length, QByteArray *outData)
 {
     using namespace MitsuColtCan;
 
     QByteArray output;
     QByteArray received;
-    QByteArray romdata;
+    QByteArray data;
 
     uint32_t addr = start_addr;
     uint32_t end_addr = start_addr + length;
 
-    emit progressChanged(0);
-    emit LOG_I("Start reading ROM, please wait...", true, true);
-
     while (addr < end_addr)
     {
         if (stopRequested())
-            return STATUS_ERROR;
+            return false;
 
-        output = build_request(buildReadMemoryByAddressFrame(addr, (quint8)kFlashReadBlockSize));
+        const uint32_t remaining = end_addr - addr;
+        const quint8 chunkLen = (quint8)((remaining < kFlashReadBlockSize) ? remaining : kFlashReadBlockSize);
+
+        output = build_request(buildReadMemoryByAddressFrame(addr, chunkLen));
         serial->write_serial_data_echo_check(output);
         delay(50);
         received = serial->read_serial_data(serial_read_timeout);
 
-        if (received.length() < int(4 + 1 + kFlashReadBlockSize) || (uint8_t)received.at(4) != (kServiceReadMemoryByAddress + 0x40))
+        if (received.length() < int(4 + 1 + chunkLen) || (uint8_t)received.at(4) != (kServiceReadMemoryByAddress + 0x40))
         {
             emit LOG_E("Wrong response from ECU at 0x" + QString::number(addr, 16) + ": " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
-            return STATUS_ERROR;
+            return false;
         }
 
-        romdata.append(received.mid(5, int(kFlashReadBlockSize)));
-        addr += kFlashReadBlockSize;
+        data.append(received.mid(5, int(chunkLen)));
+        addr += chunkLen;
 
         float pleft = (float)(addr - start_addr) / (float)length * 100.0f;
         emit progressChanged((int)pleft);
     }
+
+    *outData = data;
+    return true;
+}
+
+int FlashEcuMitsuM32rCanOperation::read_mem(uint32_t start_addr, uint32_t length)
+{
+    emit progressChanged(0);
+    emit LOG_I("Start reading ROM, please wait...", true, true);
+
+    QByteArray romdata;
+    if (!readFlashRange(start_addr, length, &romdata))
+        return STATUS_ERROR;
 
     emit LOG_I("ROM read complete", true, true);
     ecuCalDef->FullRomData = romdata;
@@ -270,17 +283,109 @@ bool FlashEcuMitsuM32rCanOperation::upload_and_commit(uint32_t start, const QByt
     return true;
 }
 
+bool FlashEcuMitsuM32rCanOperation::ensureTopRegionWritten(const QByteArray& romdata)
+{
+    using namespace MitsuColtCan;
+
+    emit LOG_I("Checking top 128KB (0x" + QString::number(kTopRegionStart, 16) + "-0x" + QString::number(kTopRegionEnd, 16) + ")...", true, true);
+
+    QByteArray currentTop;
+    if (!readFlashRange(kTopRegionStart, kTopRegionLength, &currentTop))
+        return false;
+
+    const QByteArray wantedTop = romdata.mid(int(kTopRegionStart), int(kTopRegionLength));
+    if (currentTop == wantedTop)
+    {
+        emit LOG_I("Top 128KB already matches, no bootstrap needed", true, true);
+        return true;
+    }
+
+    emit LOG_I("Top 128KB mismatch, bootstrapping via redirect routines...", true, true);
+
+    int bootstrapConfirm = confirm(tr("Top 128KB bootstrap"),
+                                   tr("The top 128KB (0x60000-0x80000) does not match the ROM being "
+                                      "written and needs a one-time bootstrap pass through custom "
+                                      "erase/write redirect helpers, outside the range the vendor "
+                                      "bootloader normally allows. This sends the same high-risk erase "
+                                      "trigger sequence used for the main write, once now and once more "
+                                      "for the main write that follows. Only continue on a bench/spare "
+                                      "ECU with a recovery path available.\n\nContinue?"),
+                                   QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel);
+    if (bootstrapConfirm != QMessageBox::Yes)
+    {
+        emit LOG_I("Top 128KB bootstrap canceled by user", true, true);
+        return false;
+    }
+
+    emit LOG_I("Uploading erase redirect routine to RAM 0x" + QString::number(kEraseRoutineRamAddr, 16) + "...", true, true);
+    if (!upload_and_commit(kEraseRoutineRamAddr, QByteArray(reinterpret_cast<const char *>(kEraseRedirectRoutine), sizeof(kEraseRedirectRoutine))))
+    {
+        emit LOG_E("Erase redirect routine upload failed", true, true);
+        return false;
+    }
+
+    emit LOG_I("Uploading write redirect routine to RAM 0x" + QString::number(kWriteRoutineRamAddr, 16) + "...", true, true);
+    if (!upload_and_commit(kWriteRoutineRamAddr, QByteArray(reinterpret_cast<const char *>(kWriteRedirectRoutine), sizeof(kWriteRedirectRoutine))))
+    {
+        emit LOG_E("Write redirect routine upload failed", true, true);
+        return false;
+    }
+
+    QByteArray output = build_request(buildRequestReflashUnlockFrame());
+    serial->write_serial_data_echo_check(output);
+    delay(200);
+    QByteArray received = serial->read_serial_data(serial_read_extra_long_timeout);
+    if (received.length() <= 4 || (uint8_t)received.at(4) != (kServiceRequestReflash + 0x40))
+    {
+        emit LOG_E("Reflash unlock (top 128KB bootstrap) rejected: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+        return false;
+    }
+
+    output = build_request(buildRoutineEraseFrame());
+    serial->write_serial_data_echo_check(output);
+    delay(200);
+    received = serial->read_serial_data(serial_read_extra_long_timeout);
+    if (received.length() <= 4 || (uint8_t)received.at(4) != (kServiceRoutineControl + 0x40))
+    {
+        emit LOG_E("Erase trigger (top 128KB bootstrap) rejected: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+        return false;
+    }
+    emit LOG_I("Carrier window erased", true, true);
+
+    if (!upload_and_commit(kUserspaceStart, wantedTop))
+    {
+        emit LOG_E("Top 128KB redirect write failed", true, true);
+        return false;
+    }
+    emit LOG_I("Top 128KB written via redirect", true, true);
+
+    QByteArray verifyTop;
+    if (!readFlashRange(kTopRegionStart, kTopRegionLength, &verifyTop))
+        return false;
+    if (verifyTop != wantedTop)
+    {
+        emit LOG_E("Top 128KB verify failed after redirect write", true, true);
+        return false;
+    }
+    emit LOG_I("Top 128KB verified", true, true);
+
+    return true;
+}
+
 int FlashEcuMitsuM32rCanOperation::write_mem(bool test_write)
 {
     using namespace MitsuColtCan;
     Q_UNUSED(test_write);
 
     QByteArray romdata = ecuCalDef->FullRomData;
-    if ((uint32_t)romdata.size() < kUserspaceEnd)
+    if ((uint32_t)romdata.size() < kTopRegionEnd)
     {
-        emit LOG_E("ROM file too small: need at least 0x" + QString::number(kUserspaceEnd, 16) + " bytes", true, true);
+        emit LOG_E("ROM file too small: need at least 0x" + QString::number(kTopRegionEnd, 16) + " bytes", true, true);
         return STATUS_ERROR;
     }
+
+    if (!ensureTopRegionWritten(romdata))
+        return STATUS_ERROR;
 
     emit LOG_I("Uploading erase-page routine to RAM 0x" + QString::number(kEraseRoutineRamAddr, 16) + "...", true, true);
     if (!upload_and_commit(kEraseRoutineRamAddr, QByteArray(reinterpret_cast<const char *>(kErasePageRoutine), sizeof(kErasePageRoutine))))

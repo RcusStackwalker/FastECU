@@ -38,6 +38,8 @@ class FlashEcuMitsuM32rCanOperation : public FlashOperationWorker
     int write_mem(bool test_write);
     bool upload_and_commit(uint32_t start, const QByteArray& data);
     QByteArray build_request(const QByteArray& sidPayload);
+    bool readFlashRange(uint32_t start_addr, uint32_t length, QByteArray *outData);
+    bool ensureTopRegionWritten(const QByteArray& romdata);
 
     SerialPortActions *serial;
     FileActions::EcuCalDefStructure *ecuCalDef;
