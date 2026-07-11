@@ -135,6 +135,17 @@ class TestMitsuColtCanProtocol : public QObject
         QCOMPARE(kErasePageRoutine[0], quint8(0x94));
         QCOMPARE(kWritePageRoutine[0], quint8(0x94));
     }
+    void erase_and_write_redirect_routines_match_reflash_dir_checksums()
+    {
+        // Checksums verified against mmc-patches/m32r/47110032/reflash/
+        // build output -- see
+        // docs/superpowers/specs/2026-07-11-z37a-top128k-can-reflash-design.md
+        // in the parent claude-hobby project.
+        QCOMPARE(sizeof(kEraseRedirectRoutine), size_t(192));
+        QCOMPARE(sizeof(kWriteRedirectRoutine), size_t(188));
+        QCOMPARE(checksum(QByteArray(reinterpret_cast<const char *>(kEraseRedirectRoutine), sizeof(kEraseRedirectRoutine))), quint16(0x5079));
+        QCOMPARE(checksum(QByteArray(reinterpret_cast<const char *>(kWriteRedirectRoutine), sizeof(kWriteRedirectRoutine))), quint16(0x514e));
+    }
 };
 int run_test_mitsu_colt_can_protocol(int argc, char **argv)
 {
