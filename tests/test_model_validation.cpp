@@ -72,6 +72,17 @@ class TestModelValidation : public QObject
         QVERIFY(errors.contains("calibration_map.name has 0 entries, expected 1"));
     }
 
+    void calibrationMaps_reportMissingSwapXYRow()
+    {
+        FileActions::EcuCalDefStructure ecuCalDef;
+        appendCalibrationMap(ecuCalDef);
+        ecuCalDef.SwapXYList.clear();
+
+        QStringList errors;
+        QVERIFY(!FileActions::validate_calibration_maps(ecuCalDef, &errors));
+        QVERIFY(errors.contains("calibration_map.swap_xy has 0 entries, expected 1"));
+    }
+
     void ecuflashBaseHeaderDefaultsMissingOptionalFields()
     {
         FileActions::EcuCalDefStructure ecuCalDef;
@@ -204,6 +215,12 @@ class TestModelValidation : public QObject
         ecuCalDef.FromByteList << "0";
         ecuCalDef.ToByteList << "1";
         ecuCalDef.MapDefined << "1";
+        ecuCalDef.SubCategoryList << " ";
+        ecuCalDef.LevelList << " ";
+        ecuCalDef.UserLevelList << " ";
+        ecuCalDef.SwapXYList << "false";
+        ecuCalDef.FlipXList << "false";
+        ecuCalDef.FlipYList << "false";
     }
 };
 
