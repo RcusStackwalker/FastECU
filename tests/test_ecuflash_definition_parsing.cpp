@@ -2,6 +2,7 @@
 #include <QApplication>
 #include <QTemporaryDir>
 #include <QFile>
+#include <QSignalSpy>
 #include <file_actions.h>
 #include "test_ecuflash_definition_parsing.h"
 
@@ -110,6 +111,77 @@ class TestEcuflashDefinitionParsing : public QObject
 
         QCOMPARE(ecuCalDef.XSizeList.at(0), QString("12"));
         QCOMPARE(ecuCalDef.YSizeList.at(0), QString("8"));
+    }
+
+    void parses_swapxy_flipx_flipy_when_valid()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString defPath = writeDefFile(dir, "TESTCAL",
+            "<rom>"
+            "<romid><xmlid>TESTCAL</xmlid></romid>"
+            "<table name=\"Test Table\" address=\"1000\" "
+            "swapxy=\"true\" flipx=\"false\" flipy=\"true\"/>"
+            "</rom>");
+
+        FileActions fileActions;
+        fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
+        fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
+
+        FileActions::EcuCalDefStructure ecuCalDef;
+        fileActions.read_ecuflash_ecu_def(&ecuCalDef, "TESTCAL");
+
+        QCOMPARE(ecuCalDef.SwapXYList.at(0), QString("true"));
+        QCOMPARE(ecuCalDef.FlipXList.at(0), QString("false"));
+        QCOMPARE(ecuCalDef.FlipYList.at(0), QString("true"));
+    }
+
+    void missing_swapxy_flipx_flipy_default_to_false()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString defPath = writeDefFile(dir, "TESTCAL",
+            "<rom>"
+            "<romid><xmlid>TESTCAL</xmlid></romid>"
+            "<table name=\"Test Table\" address=\"1000\"/>"
+            "</rom>");
+
+        FileActions fileActions;
+        fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
+        fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
+
+        FileActions::EcuCalDefStructure ecuCalDef;
+        fileActions.read_ecuflash_ecu_def(&ecuCalDef, "TESTCAL");
+
+        QCOMPARE(ecuCalDef.SwapXYList.at(0), QString("false"));
+        QCOMPARE(ecuCalDef.FlipXList.at(0), QString("false"));
+        QCOMPARE(ecuCalDef.FlipYList.at(0), QString("false"));
+    }
+
+    void invalid_swapxy_value_warns_and_defaults_to_false()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString defPath = writeDefFile(dir, "TESTCAL",
+            "<rom>"
+            "<romid><xmlid>TESTCAL</xmlid></romid>"
+            "<table name=\"Test Table\" address=\"1000\" swapxy=\"yes\"/>"
+            "</rom>");
+
+        FileActions fileActions;
+        fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
+        fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
+
+        QSignalSpy warnSpy(&fileActions, &FileActions::LOG_W);
+
+        FileActions::EcuCalDefStructure ecuCalDef;
+        fileActions.read_ecuflash_ecu_def(&ecuCalDef, "TESTCAL");
+
+        QCOMPARE(ecuCalDef.SwapXYList.at(0), QString("false"));
+        QCOMPARE(warnSpy.count(), 1);
+        const QString warning = warnSpy.at(0).at(0).toString();
+        QVERIFY(warning.contains("swapxy"));
+        QVERIFY(warning.contains("yes"));
     }
 
   private:

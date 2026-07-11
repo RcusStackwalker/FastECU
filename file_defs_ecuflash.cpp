@@ -134,6 +134,19 @@ FileActions::ConfigValuesStructure *FileActions::create_ecuflash_def_id_list(Con
     return configValues;
 }
 
+QString FileActions::parse_strict_bool_attribute(const QDomElement &element, const QString &attrName, const QString &tableName)
+{
+    if (!element.hasAttribute(attrName))
+        return "false";
+
+    const QString value = element.attribute(attrName);
+    if (value == "true" || value == "false")
+        return value;
+
+    emit LOG_W("table " + tableName + ": " + attrName + " must be true or false, not [" + value + "]", true, true);
+    return "false";
+}
+
 FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStructure *ecuCalDef, QString cal_id)
 {
     ConfigValuesStructure *configValues = &ConfigValuesStruct;
@@ -492,6 +505,12 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
                     ecuCalDef->XSizeList.replace(def_map_index, rom_child.attribute("sizex", " "));
                 if (ecuCalDef->YSizeList.at(def_map_index) == " " || ecuCalDef->YSizeList.at(def_map_index) == "")
                     ecuCalDef->YSizeList.replace(def_map_index, rom_child.attribute("sizey", " "));
+                if (ecuCalDef->SwapXYList.at(def_map_index) == " ")
+                    ecuCalDef->SwapXYList.replace(def_map_index, parse_strict_bool_attribute(rom_child, "swapxy", map_name));
+                if (ecuCalDef->FlipXList.at(def_map_index) == " ")
+                    ecuCalDef->FlipXList.replace(def_map_index, parse_strict_bool_attribute(rom_child, "flipx", map_name));
+                if (ecuCalDef->FlipYList.at(def_map_index) == " ")
+                    ecuCalDef->FlipYList.replace(def_map_index, parse_strict_bool_attribute(rom_child, "flipy", map_name));
 
                 // emit LOG_D("Define " + cal_id + " map: " + ecuCalDef->NameList.at(def_map_index) + " in category: " + ecuCalDef->CategoryList.at(def_map_index), true, true);
 
