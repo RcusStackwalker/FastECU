@@ -44,6 +44,7 @@ SOURCES += \
     test_expression_evaluator.cpp \
     test_menu_command.cpp \
     test_model_validation.cpp \
+    test_ecuflash_definition_parsing.cpp \
     test_checksum_results.cpp \
     test_flash_ecu_mitsu_m32r_can_operation.cpp \
     ../modules/ecu/flash_ecu_mitsu_m32r_can_operation.cpp \
@@ -107,6 +108,7 @@ HEADERS += \
     test_expression_evaluator.h \
     test_menu_command.h \
     test_model_validation.h \
+    test_ecuflash_definition_parsing.h \
     test_checksum_results.h \
     test_flash_ecu_mitsu_m32r_can_operation.h \
     ../modules/ecu/flash_ecu_mitsu_m32r_can_operation.h \

@@ -212,6 +212,12 @@ bool FileActions::validate_calibration_maps(const EcuCalDefStructure& ecuCalDef,
     validateListLength("calibration_map", "from_byte", ecuCalDef.FromByteList.size(), rows, out);
     validateListLength("calibration_map", "to_byte", ecuCalDef.ToByteList.size(), rows, out);
     validateListLength("calibration_map", "defined", ecuCalDef.MapDefined.size(), rows, out);
+    validateListLength("calibration_map", "subcategory", ecuCalDef.SubCategoryList.size(), rows, out);
+    validateListLength("calibration_map", "level", ecuCalDef.LevelList.size(), rows, out);
+    validateListLength("calibration_map", "user_level", ecuCalDef.UserLevelList.size(), rows, out);
+    validateListLength("calibration_map", "swap_xy", ecuCalDef.SwapXYList.size(), rows, out);
+    validateListLength("calibration_map", "flip_x", ecuCalDef.FlipXList.size(), rows, out);
+    validateListLength("calibration_map", "flip_y", ecuCalDef.FlipYList.size(), rows, out);
 
     validateRequiredField("calibration_map", "id", ecuCalDef.IdList, out);
     validateRequiredField("calibration_map", "name", ecuCalDef.NameList, out);

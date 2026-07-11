@@ -134,6 +134,19 @@ FileActions::ConfigValuesStructure *FileActions::create_ecuflash_def_id_list(Con
     return configValues;
 }
 
+QString FileActions::parse_strict_bool_attribute(const QDomElement& element, const QString& attrName, const QString& tableName)
+{
+    if (!element.hasAttribute(attrName))
+        return "false";
+
+    const QString value = element.attribute(attrName);
+    if (value == "true" || value == "false")
+        return value;
+
+    emit LOG_W("table " + tableName + ": " + attrName + " must be true or false, not [" + value + "]", true, true);
+    return "false";
+}
+
 FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStructure *ecuCalDef, QString cal_id)
 {
     ConfigValuesStructure *configValues = &ConfigValuesStruct;
@@ -472,13 +485,32 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
                 if (ecuCalDef->IntervalList.at(def_map_index) == " ")
                     ecuCalDef->IntervalList.replace(def_map_index, rom_child.attribute("interval", "1"));
                 if (ecuCalDef->AddressList.at(def_map_index) == " ")
-                    ecuCalDef->AddressList.replace(def_map_index, rom_child.attribute("address", ""));
+                    ecuCalDef->AddressList.replace(def_map_index,
+                                                   rom_child.attribute("address", rom_child.attribute("storageaddress", "")));
                 if (ecuCalDef->TypeList.at(def_map_index) == " ")
                     ecuCalDef->TypeList.replace(def_map_index, type);
                 if (ecuCalDef->CategoryList.at(def_map_index) == " ")
                     ecuCalDef->CategoryList.replace(def_map_index, rom_child.attribute("category", " "));
+                if (ecuCalDef->SubCategoryList.at(def_map_index) == " ")
+                    ecuCalDef->SubCategoryList.replace(def_map_index, rom_child.attribute("subcategory", " "));
+                if (ecuCalDef->LevelList.at(def_map_index) == " ")
+                    ecuCalDef->LevelList.replace(def_map_index, rom_child.attribute("level", " "));
+                if (ecuCalDef->UserLevelList.at(def_map_index) == " ")
+                    ecuCalDef->UserLevelList.replace(def_map_index, rom_child.attribute("userlevel", " "));
+                if (ecuCalDef->DescriptionList.at(def_map_index) == " ")
+                    ecuCalDef->DescriptionList.replace(def_map_index, rom_child.attribute("description", " "));
                 if (ecuCalDef->MapScalingNameList.at(def_map_index) == " ")
                     ecuCalDef->MapScalingNameList.replace(def_map_index, rom_child.attribute("scaling", " "));
+                if (ecuCalDef->XSizeList.at(def_map_index) == " " || ecuCalDef->XSizeList.at(def_map_index) == "")
+                    ecuCalDef->XSizeList.replace(def_map_index, rom_child.attribute("sizex", " "));
+                if (ecuCalDef->YSizeList.at(def_map_index) == " " || ecuCalDef->YSizeList.at(def_map_index) == "")
+                    ecuCalDef->YSizeList.replace(def_map_index, rom_child.attribute("sizey", " "));
+                if (ecuCalDef->SwapXYList.at(def_map_index) == " ")
+                    ecuCalDef->SwapXYList.replace(def_map_index, parse_strict_bool_attribute(rom_child, "swapxy", map_name));
+                if (ecuCalDef->FlipXList.at(def_map_index) == " ")
+                    ecuCalDef->FlipXList.replace(def_map_index, parse_strict_bool_attribute(rom_child, "flipx", map_name));
+                if (ecuCalDef->FlipYList.at(def_map_index) == " ")
+                    ecuCalDef->FlipYList.replace(def_map_index, parse_strict_bool_attribute(rom_child, "flipy", map_name));
 
                 // emit LOG_D("Define " + cal_id + " map: " + ecuCalDef->NameList.at(def_map_index) + " in category: " + ecuCalDef->CategoryList.at(def_map_index), true, true);
 
@@ -857,6 +889,12 @@ FileActions::EcuCalDefStructure *FileActions::add_ecuflash_def_list_item(EcuCalD
     ecuCalDef->AddressList.append(" ");
     ecuCalDef->CategoryList.append(" ");
     ecuCalDef->CategoryExpandedList.append(" ");
+    ecuCalDef->SubCategoryList.append(" ");
+    ecuCalDef->LevelList.append(" ");
+    ecuCalDef->UserLevelList.append(" ");
+    ecuCalDef->SwapXYList.append(" ");
+    ecuCalDef->FlipXList.append(" ");
+    ecuCalDef->FlipYList.append(" ");
     ecuCalDef->XSizeList.append(" ");
     ecuCalDef->YSizeList.append(" ");
     ecuCalDef->StartPosList.append(" ");
