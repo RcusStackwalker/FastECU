@@ -350,7 +350,7 @@ jobs:
           $env:PE_BITNESS_X64_FIXTURE = (Resolve-Path "bazel-bin\bazel\platforms\pe_bitness_x64_fixture.exe").Path
           $env:J2534_BRIDGE_HOST_EXE = (Resolve-Path "bazel-x86-bin\j2534_bridge_host.exe").Path
           $env:FAKE_J2534_DLL_PATH = (Resolve-Path "bazel-x86-bin\tests\fake_j2534_dll.dll").Path
-          bazel test -k --config=release //tests:pe_bitness_test //tests:j2534_win_bridge_test
+          bazel test -k --config=release --test_env=PE_BITNESS_X86_FIXTURE --test_env=PE_BITNESS_X64_FIXTURE --test_env=J2534_BRIDGE_HOST_EXE --test_env=FAKE_J2534_DLL_PATH //tests:pe_bitness_test //tests:j2534_win_bridge_test
 
       # pe_bitness_test and j2534_win_bridge_test are excluded from this
       # wildcard: now that they no longer depend on any x86-only target, they

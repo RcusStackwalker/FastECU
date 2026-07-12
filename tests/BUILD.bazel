@@ -130,6 +130,11 @@ qt_cc_test(
 cc_test(
     name = "j2534_bridge_protocol_test",
     srcs = ["j2534_bridge_protocol_test.cpp"],
+    # --config=release implies -DNDEBUG (via --compilation_mode=opt), which
+    # would silently compile out this test's assert()-based pass/fail checks.
+    # /UNDEBUG re-enables them. MSVC-only flag; safe here since this target is
+    # Windows-only (target_compatible_with below).
+    copts = ["/UNDEBUG"],
     target_compatible_with = select({
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],
@@ -147,6 +152,12 @@ cc_test(
     # --platforms=windows_x86, one under the default platform) and passes
     # their paths in via PE_BITNESS_X86_FIXTURE/PE_BITNESS_X64_FIXTURE env
     # vars -- see .github/workflows/pr.yml.
+    #
+    # --config=release implies -DNDEBUG (via --compilation_mode=opt), which
+    # would silently compile out this test's assert()-based pass/fail checks.
+    # /UNDEBUG re-enables them. MSVC-only flag; safe here since this target is
+    # Windows-only (target_compatible_with below).
+    copts = ["/UNDEBUG"],
     target_compatible_with = select({
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],
@@ -161,6 +172,11 @@ cc_test(
         "$(location //:j2534_bridge_host)",
         "$(location //tests:fake_j2534_dll)",
     ],
+    # --config=release implies -DNDEBUG (via --compilation_mode=opt), which
+    # would silently compile out this test's assert()-based pass/fail checks.
+    # /UNDEBUG re-enables them. MSVC-only flag; safe here since this target is
+    # Windows-only (target_compatible_with below: x86_32 implies windows here).
+    copts = ["/UNDEBUG"],
     data = [
         "//:j2534_bridge_host",
         "//tests:fake_j2534_dll",
@@ -172,6 +188,11 @@ cc_test(
 cc_test(
     name = "j2534_bridge_client_test",
     srcs = ["j2534_bridge_client_test.cpp"],
+    # --config=release implies -DNDEBUG (via --compilation_mode=opt), which
+    # would silently compile out this test's assert()-based pass/fail checks.
+    # /UNDEBUG re-enables them. MSVC-only flag; safe here since this target is
+    # Windows-only (target_compatible_with below).
+    copts = ["/UNDEBUG"],
     data = [
         "//:j2534_bridge_host",
         "//tests:fake_j2534_dll",
@@ -192,6 +213,12 @@ qt_cc_test(
     # x86 artifacts separately (--platforms=windows_x86) and passes their
     # paths in via J2534_BRIDGE_HOST_EXE/FAKE_J2534_DLL_PATH env vars -- see
     # .github/workflows/pr.yml.
+    #
+    # --config=release implies -DNDEBUG (via --compilation_mode=opt), which
+    # would silently compile out this test's assert()-based pass/fail checks.
+    # /UNDEBUG re-enables them. MSVC-only flag; safe here since this target is
+    # Windows-only (target_compatible_with below).
+    copts = ["/UNDEBUG"],
     target_compatible_with = select({
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],
