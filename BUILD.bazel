@@ -167,13 +167,6 @@ cc_library(
     }),
 )
 
-cc_binary(
-    name = "j2534_bridge_host",
-    srcs = ["serial_port/j2534_bridge_host/main.cpp"],
-    target_compatible_with = ["@platforms//cpu:x86_32"],
-    deps = [":j2534_bridge_protocol"],
-)
-
 cc_library(
     name = "j2534_bridge_client",
     srcs = ["serial_port/j2534_bridge_client.cpp"],
@@ -191,6 +184,19 @@ cc_library(
     srcs = ["serial_port/pe_bitness.cpp"],
     hdrs = ["serial_port/pe_bitness.h"],
     includes = ["serial_port"],
+    target_compatible_with = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+)
+
+# 64-bit fixture for tests/pe_bitness_test.cpp's PE-bitness-detector test: a
+# trivial binary built for the default (host) platform, i.e. genuinely x64 on
+# this repo's Windows runners -- no cross-compilation involved, unlike the
+# 32-bit fixture (built outside Bazel; see scripts/compile-x86-bridge-artifacts.ps1).
+cc_binary(
+    name = "pe_bitness_x64_fixture",
+    srcs = ["//bazel/platforms:x86_smoke_test.cc"],
     target_compatible_with = select({
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],

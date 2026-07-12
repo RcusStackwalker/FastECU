@@ -1,4 +1,3 @@
-load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("//bazel:fastecu_sources.bzl", "MUT_DMA_INTEGRATION_TESTS_COMMON_HDRS", "MUT_DMA_INTEGRATION_TESTS_COMMON_SRCS", "MUT_DMA_TESTS_COMMON_SRCS", "SERIAL_BACKEND_TESTS_COMMON_HDRS", "SERIAL_BACKEND_TESTS_COMMON_SRCS", "SERIAL_BACKEND_TESTS_UNIX_HDRS", "SERIAL_BACKEND_TESTS_UNIX_SRCS", "SERIAL_CRASH_TESTS_COMMON_HDRS", "SERIAL_CRASH_TESTS_COMMON_SRCS")
 load("//bazel:mut_dma_test_suites.bzl", "mut_dma_test_suites")
@@ -145,13 +144,13 @@ cc_test(
 cc_test(
     name = "pe_bitness_test",
     srcs = ["pe_bitness_test.cpp"],
-    # No data/args wiring to the x86/x64 fixtures: this test compiles under
-    # the default (host, x64) platform, but //bazel/platforms:x86_smoke_test
-    # is x86-only, so a single --platforms= invocation can't build both this
-    # test and its fixture. CI builds the fixtures separately (one under
-    # --platforms=windows_x86, one under the default platform) and passes
-    # their paths in via PE_BITNESS_X86_FIXTURE/PE_BITNESS_X64_FIXTURE env
-    # vars -- see .github/workflows/pr.yml.
+    # No data/args wiring to the x86/x64 fixtures: the x86 fixture is built
+    # outside Bazel entirely (this Bazel setup has no registered x86 Windows
+    # C++ toolchain -- see scripts/compile-x86-bridge-artifacts.ps1), and the
+    # x64 fixture (//:pe_bitness_x64_fixture) is a separate Bazel target. CI
+    # builds both separately and passes their paths in via
+    # PE_BITNESS_X86_FIXTURE/PE_BITNESS_X64_FIXTURE env vars -- see
+    # .github/workflows/pr.yml.
     #
     # --config=release implies -DNDEBUG (via --compilation_mode=opt), which
     # would silently compile out this test's assert()-based pass/fail checks.
@@ -168,35 +167,44 @@ cc_test(
 cc_test(
     name = "j2534_bridge_integration_test",
     srcs = ["j2534_bridge_integration_test.cpp"],
-    args = [
-        "$(location //:j2534_bridge_host)",
-        "$(location //tests:fake_j2534_dll)",
-    ],
+    # No data/args wiring to //:j2534_bridge_host / //tests:fake_j2534_dll:
+    # both are built outside Bazel entirely (this Bazel setup has no
+    # registered x86 Windows C++ toolchain -- see
+    # scripts/compile-x86-bridge-artifacts.ps1). This test compiles under the
+    # default (host, x64) platform -- it only spawns the 32-bit helper as a
+    # child process and talks to it over pipes, so its own bitness doesn't
+    # matter -- and CI passes the pre-built artifacts' paths in via
+    # J2534_BRIDGE_HOST_EXE/FAKE_J2534_DLL_PATH env vars (--test_env in
+    # .github/workflows/pr.yml).
+    #
     # --config=release implies -DNDEBUG (via --compilation_mode=opt), which
     # would silently compile out this test's assert()-based pass/fail checks.
     # /UNDEBUG re-enables them. MSVC-only flag; safe here since this target is
-    # Windows-only (target_compatible_with below: x86_32 implies windows here).
+    # Windows-only (target_compatible_with below).
     copts = ["/UNDEBUG"],
-    data = [
-        "//:j2534_bridge_host",
-        "//tests:fake_j2534_dll",
-    ],
-    target_compatible_with = ["@platforms//cpu:x86_32"],
+    target_compatible_with = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     deps = ["//:j2534_bridge_protocol"],
 )
 
 cc_test(
     name = "j2534_bridge_client_test",
     srcs = ["j2534_bridge_client_test.cpp"],
+    # No data wiring to //:j2534_bridge_host / //tests:fake_j2534_dll: both are
+    # built outside Bazel entirely (see
+    # scripts/compile-x86-bridge-artifacts.ps1). J2534BridgeClient just spawns
+    # the 32-bit helper as a child process, so this test's own bitness doesn't
+    # matter -- CI passes the pre-built artifacts' paths in via
+    # J2534_BRIDGE_HOST_EXE/FAKE_J2534_DLL_PATH env vars (--test_env in
+    # .github/workflows/pr.yml).
+    #
     # --config=release implies -DNDEBUG (via --compilation_mode=opt), which
     # would silently compile out this test's assert()-based pass/fail checks.
     # /UNDEBUG re-enables them. MSVC-only flag; safe here since this target is
     # Windows-only (target_compatible_with below).
     copts = ["/UNDEBUG"],
-    data = [
-        "//:j2534_bridge_host",
-        "//tests:fake_j2534_dll",
-    ],
     target_compatible_with = select({
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],
@@ -207,11 +215,12 @@ cc_test(
 qt_cc_test(
     name = "j2534_win_bridge_test",
     srcs = ["j2534_win_bridge_test.cpp"],
-    # No data wiring to //:j2534_bridge_host / //tests:fake_j2534_dll: both
-    # are x86-only, while this test needs //:fastecu_platform_windows (Qt,
-    # x64-only) -- no single --platforms= value satisfies both. CI builds the
-    # x86 artifacts separately (--platforms=windows_x86) and passes their
-    # paths in via J2534_BRIDGE_HOST_EXE/FAKE_J2534_DLL_PATH env vars -- see
+    # No data wiring to //:j2534_bridge_host / //tests:fake_j2534_dll: both are
+    # built outside Bazel entirely (this Bazel setup has no registered x86
+    # Windows C++ toolchain -- see scripts/compile-x86-bridge-artifacts.ps1),
+    # while this test needs //:fastecu_platform_windows (Qt, x64-only). CI
+    # builds the x86 artifacts separately and passes their paths in via
+    # J2534_BRIDGE_HOST_EXE/FAKE_J2534_DLL_PATH env vars -- see
     # .github/workflows/pr.yml.
     #
     # --config=release implies -DNDEBUG (via --compilation_mode=opt), which
@@ -224,14 +233,4 @@ qt_cc_test(
         "//conditions:default": ["@platforms//:incompatible"],
     }),
     deps = ["//:fastecu_platform_windows"],
-)
-
-cc_binary(
-    name = "fake_j2534_dll",
-    srcs = ["fake_j2534_dll.cpp"],
-    copts = ["-Iserial_port"],
-    linkshared = True,
-    target_compatible_with = ["@platforms//cpu:x86_32"],
-    win_def_file = "fake_j2534_dll.def",
-    deps = ["//:j2534_bridge_protocol"],
 )

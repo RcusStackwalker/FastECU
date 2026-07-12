@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -163,18 +164,31 @@ void test_child_crash_is_detected_as_broken_pipe(const std::string& hostExe, con
 
 int main(int argc, char **argv)
 {
-    // The host exe and fake DLL paths come from argv, resolved by Bazel's
-    // $(location) expansion in tests/BUILD.bazel's `args` attribute (the same
-    // pattern tests/pe_bitness_test.cpp uses for its fixture paths), rather
-    // than a hardcoded/guessed runfiles-relative path -- Bazel computes the
-    // correct runfiles-relative path for us regardless of package layout.
-    if (argc != 3)
+    // The host exe and fake DLL paths are 32-bit artifacts built outside
+    // Bazel (scripts/compile-x86-bridge-artifacts.ps1 -- this Bazel setup has
+    // no registered x86 Windows C++ toolchain), so CI passes their paths in
+    // via J2534_BRIDGE_HOST_EXE/FAKE_J2534_DLL_PATH environment variables
+    // (--test_env in .github/workflows/pr.yml). argv is kept as a fallback
+    // for running this binary manually outside CI.
+    const char *hostExeEnv = std::getenv("J2534_BRIDGE_HOST_EXE");
+    const char *dllPathEnv = std::getenv("FAKE_J2534_DLL_PATH");
+    std::string hostExe, dllPath;
+    if (hostExeEnv && dllPathEnv)
     {
-        std::fprintf(stderr, "usage: j2534_bridge_integration_test <host-exe-path> <fake-dll-path>\n");
+        hostExe = hostExeEnv;
+        dllPath = dllPathEnv;
+    }
+    else if (argc == 3)
+    {
+        hostExe = argv[1];
+        dllPath = argv[2];
+    }
+    else
+    {
+        std::fprintf(stderr, "usage: set J2534_BRIDGE_HOST_EXE/FAKE_J2534_DLL_PATH, or pass "
+                             "j2534_bridge_integration_test <host-exe-path> <fake-dll-path>\n");
         return 1;
     }
-    const std::string hostExe = argv[1];
-    const std::string dllPath = argv[2];
 
     BridgeProcess bridge;
     assert(bridge.start(hostExe, dllPath) && "failed to spawn j2534_bridge_host");
