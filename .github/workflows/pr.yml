@@ -355,9 +355,20 @@ jobs:
       # //tests/... would otherwise pick them up and run them a second time
       # without the env vars set above. They already ran, with those env
       # vars, in the dedicated step above.
+      #
+      # The exclusion is expressed via `bazel query`'s set-difference operator
+      # and --target_pattern_file, not command-line `-//target` negation:
+      # negative target patterns need a `--` end-of-options marker, which a
+      # real Windows CI run showed does not reliably reach Bazel's argument
+      # parser when the command is invoked through PowerShell (the runner's
+      # default shell) -- "Invalid options syntax: -//tests:pe_bitness_test"
+      # even with `--` present in the command line. Routing the whole target
+      # list through a plain text file sidesteps shell-specific argument
+      # quoting/parsing entirely.
       - name: Test Bazel targets
         run: |
-          bazel test -k --config=release //tests/... //:qmake_bazel_sync //:bazel_openssl_wiring -- -//tests:pe_bitness_test -//tests:j2534_win_bridge_test -//tests:j2534_bridge_integration_test -//tests:j2534_bridge_client_test
+          bazel query "//tests/... + //:qmake_bazel_sync + //:bazel_openssl_wiring - //tests:pe_bitness_test - //tests:j2534_win_bridge_test - //tests:j2534_bridge_integration_test - //tests:j2534_bridge_client_test" > bazel-test-targets.txt
+          bazel test -k --config=release --target_pattern_file=bazel-test-targets.txt
 
       - name: clang-tidy report
         continue-on-error: true
