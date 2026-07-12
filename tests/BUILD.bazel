@@ -170,6 +170,20 @@ cc_test(
     deps = ["//:j2534_bridge_protocol"],
 )
 
+cc_test(
+    name = "j2534_bridge_client_test",
+    srcs = ["j2534_bridge_client_test.cpp"],
+    data = [
+        "//:j2534_bridge_host",
+        "//tests:fake_j2534_dll",
+    ],
+    target_compatible_with = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = ["//:j2534_bridge_client"],
+)
+
 cc_binary(
     name = "fake_j2534_dll",
     srcs = ["fake_j2534_dll.cpp"],

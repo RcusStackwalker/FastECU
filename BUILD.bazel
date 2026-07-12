@@ -175,6 +175,18 @@ cc_binary(
 )
 
 cc_library(
+    name = "j2534_bridge_client",
+    srcs = ["serial_port/j2534_bridge_client.cpp"],
+    hdrs = ["serial_port/j2534_bridge_client.h"],
+    includes = ["serial_port"],
+    target_compatible_with = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [":j2534_bridge_protocol"],
+)
+
+cc_library(
     name = "pe_bitness",
     srcs = ["serial_port/pe_bitness.cpp"],
     hdrs = ["serial_port/pe_bitness.h"],
