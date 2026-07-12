@@ -349,26 +349,24 @@ jobs:
           bazel test -k --config=release --test_env=PE_BITNESS_X86_FIXTURE --test_env=PE_BITNESS_X64_FIXTURE --test_env=J2534_BRIDGE_HOST_EXE --test_env=FAKE_J2534_DLL_PATH //tests:pe_bitness_test //tests:j2534_win_bridge_test //tests:j2534_bridge_integration_test //tests:j2534_bridge_client_test
 
       # pe_bitness_test, j2534_win_bridge_test, j2534_bridge_integration_test,
-      # and j2534_bridge_client_test are excluded from this wildcard: now that
-      # none of them depend on any x86-only Bazel target, they are
-      # platform-compatible here too (Windows, default/x64 platform), so
-      # //tests/... would otherwise pick them up and run them a second time
-      # without the env vars set above. They already ran, with those env
-      # vars, in the dedicated step above.
-      #
-      # The exclusion is expressed via `bazel query`'s set-difference operator
-      # and --target_pattern_file, not command-line `-//target` negation:
-      # negative target patterns need a `--` end-of-options marker, which a
-      # real Windows CI run showed does not reliably reach Bazel's argument
-      # parser when the command is invoked through PowerShell (the runner's
-      # default shell) -- "Invalid options syntax: -//tests:pe_bitness_test"
-      # even with `--` present in the command line. Routing the whole target
-      # list through a plain text file sidesteps shell-specific argument
-      # quoting/parsing entirely.
+      # and j2534_bridge_client_test are tagged "manual" in tests/BUILD.bazel,
+      # which excludes them from this wildcard on every platform: they need
+      # PE_BITNESS_X86_FIXTURE/PE_BITNESS_X64_FIXTURE/J2534_BRIDGE_HOST_EXE/
+      # FAKE_J2534_DLL_PATH env vars, which this step doesn't set -- they
+      # already ran, with those vars, in the dedicated step above. (Two
+      # earlier approaches to this exclusion were tried and failed on real CI:
+      # command-line `-//target` negation broke under PowerShell even with a
+      # `--` end-of-options marker present, and pre-expanding the wildcard via
+      # `bazel query` + --target_pattern_file turned other Windows-only tests
+      # matched by //tests/... -- e.g. j2534_bridge_protocol_test, which is
+      # incompatible and normally silently skipped here on macOS/Linux -- into
+      # explicitly-requested targets, which Bazel treats as a hard error
+      # instead of a skip. The "manual" tag avoids both: it's evaluated by
+      # `bazel test` itself when expanding the live wildcard, with no
+      # command-line negation and no pre-expansion.)
       - name: Test Bazel targets
         run: |
-          bazel query "//tests/... + //:qmake_bazel_sync + //:bazel_openssl_wiring - //tests:pe_bitness_test - //tests:j2534_win_bridge_test - //tests:j2534_bridge_integration_test - //tests:j2534_bridge_client_test" > bazel-test-targets.txt
-          bazel test -k --config=release --target_pattern_file=bazel-test-targets.txt
+          bazel test -k --config=release //tests/... //:qmake_bazel_sync //:bazel_openssl_wiring
 
       - name: clang-tidy report
         continue-on-error: true

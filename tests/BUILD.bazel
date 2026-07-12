@@ -157,6 +157,13 @@ cc_test(
     # /UNDEBUG re-enables them. MSVC-only flag; safe here since this target is
     # Windows-only (target_compatible_with below).
     copts = ["/UNDEBUG"],
+    # "manual" excludes this target from wildcard patterns (//tests/..., :all)
+    # -- it needs PE_BITNESS_X86_FIXTURE/PE_BITNESS_X64_FIXTURE env vars set,
+    # which the wildcard-based "Test Bazel targets" CI step doesn't set; it's
+    # run explicitly, with those vars, in its own dedicated step instead (see
+    # .github/workflows/pr.yml). Explicitly naming a "manual"-tagged target
+    # still runs it normally -- "manual" only affects wildcard expansion.
+    tags = ["manual"],
     target_compatible_with = select({
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],
@@ -182,6 +189,9 @@ cc_test(
     # /UNDEBUG re-enables them. MSVC-only flag; safe here since this target is
     # Windows-only (target_compatible_with below).
     copts = ["/UNDEBUG"],
+    # "manual" excludes this target from wildcard patterns (//tests/..., :all)
+    # -- see the identical note on pe_bitness_test above.
+    tags = ["manual"],
     target_compatible_with = select({
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],
@@ -205,6 +215,9 @@ cc_test(
     # /UNDEBUG re-enables them. MSVC-only flag; safe here since this target is
     # Windows-only (target_compatible_with below).
     copts = ["/UNDEBUG"],
+    # "manual" excludes this target from wildcard patterns (//tests/..., :all)
+    # -- see the identical note on pe_bitness_test above.
+    tags = ["manual"],
     target_compatible_with = select({
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],
@@ -228,6 +241,9 @@ qt_cc_test(
     # /UNDEBUG re-enables them. MSVC-only flag; safe here since this target is
     # Windows-only (target_compatible_with below).
     copts = ["/UNDEBUG"],
+    # "manual" excludes this target from wildcard patterns (//tests/..., :all)
+    # -- see the identical note on pe_bitness_test above.
+    tags = ["manual"],
     target_compatible_with = select({
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],
