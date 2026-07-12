@@ -155,6 +155,21 @@ cc_test(
     deps = ["//:pe_bitness"],
 )
 
+cc_test(
+    name = "j2534_bridge_integration_test",
+    srcs = ["j2534_bridge_integration_test.cpp"],
+    args = [
+        "$(location //:j2534_bridge_host)",
+        "$(location //tests:fake_j2534_dll)",
+    ],
+    data = [
+        "//:j2534_bridge_host",
+        "//tests:fake_j2534_dll",
+    ],
+    target_compatible_with = ["@platforms//cpu:x86_32"],
+    deps = ["//:j2534_bridge_protocol"],
+)
+
 cc_binary(
     name = "fake_j2534_dll",
     srcs = ["fake_j2534_dll.cpp"],
