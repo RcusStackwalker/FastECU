@@ -1,3 +1,4 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("//bazel:fastecu_sources.bzl", "MUT_DMA_INTEGRATION_TESTS_COMMON_HDRS", "MUT_DMA_INTEGRATION_TESTS_COMMON_SRCS", "MUT_DMA_TESTS_COMMON_SRCS", "SERIAL_BACKEND_TESTS_COMMON_HDRS", "SERIAL_BACKEND_TESTS_COMMON_SRCS", "SERIAL_BACKEND_TESTS_UNIX_HDRS", "SERIAL_BACKEND_TESTS_UNIX_SRCS", "SERIAL_CRASH_TESTS_COMMON_HDRS", "SERIAL_CRASH_TESTS_COMMON_SRCS")
 load("//bazel:mut_dma_test_suites.bzl", "mut_dma_test_suites")
@@ -152,4 +153,14 @@ cc_test(
         "//conditions:default": ["@platforms//:incompatible"],
     }),
     deps = ["//:pe_bitness"],
+)
+
+cc_binary(
+    name = "fake_j2534_dll",
+    srcs = ["fake_j2534_dll.cpp"],
+    copts = ["-Iserial_port"],
+    linkshared = True,
+    target_compatible_with = ["@platforms//cpu:x86_32"],
+    win_def_file = "fake_j2534_dll.def",
+    deps = ["//:j2534_bridge_protocol"],
 )
