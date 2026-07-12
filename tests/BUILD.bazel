@@ -140,14 +140,13 @@ cc_test(
 cc_test(
     name = "pe_bitness_test",
     srcs = ["pe_bitness_test.cpp"],
-    args = [
-        "$(location //bazel/platforms:x86_smoke_test)",
-        "$(location //bazel/platforms:pe_bitness_x64_fixture)",
-    ],
-    data = [
-        "//bazel/platforms:pe_bitness_x64_fixture",
-        "//bazel/platforms:x86_smoke_test",
-    ],
+    # No data/args wiring to the x86/x64 fixtures: this test compiles under
+    # the default (host, x64) platform, but //bazel/platforms:x86_smoke_test
+    # is x86-only, so a single --platforms= invocation can't build both this
+    # test and its fixture. CI builds the fixtures separately (one under
+    # --platforms=windows_x86, one under the default platform) and passes
+    # their paths in via PE_BITNESS_X86_FIXTURE/PE_BITNESS_X64_FIXTURE env
+    # vars -- see .github/workflows/pr.yml.
     target_compatible_with = select({
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],
@@ -187,10 +186,12 @@ cc_test(
 qt_cc_test(
     name = "j2534_win_bridge_test",
     srcs = ["j2534_win_bridge_test.cpp"],
-    data = [
-        "//:j2534_bridge_host",
-        "//tests:fake_j2534_dll",
-    ],
+    # No data wiring to //:j2534_bridge_host / //tests:fake_j2534_dll: both
+    # are x86-only, while this test needs //:fastecu_platform_windows (Qt,
+    # x64-only) -- no single --platforms= value satisfies both. CI builds the
+    # x86 artifacts separately (--platforms=windows_x86) and passes their
+    # paths in via J2534_BRIDGE_HOST_EXE/FAKE_J2534_DLL_PATH env vars -- see
+    # .github/workflows/pr.yml.
     target_compatible_with = select({
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],

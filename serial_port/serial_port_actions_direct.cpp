@@ -427,11 +427,6 @@ QStringList SerialPortActionsDirect::check_serial_ports()
 }
 
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
-#if defined(_WIN32) || defined(WIN32)
-#define REGISTRY_FORMAT QSettings::Registry32Format
-#else
-#define REGISTRY_FORMAT QSettings::Registry64Format
-#endif
 
 // Find first connected device
 // TODO find all devices
@@ -480,15 +475,22 @@ QMap<QString, QString> SerialPortActionsDirect::getAllJ2534DriversNames()
     // both so those vendors show up in the adapter list at all. The merge
     // itself lives in mergeJ2534DriverViews() (serial_port/j2534_driver_selection.h)
     // so it's unit-tested without touching the real registry.
-    static const char *kRegistryPaths[] = {
-        "HKEY_LOCAL_MACHINE\\SOFTWARE\\PassThruSupport.04.04",
-        "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\PassThruSupport.04.04",
+    //
+    // Query the SAME registry path under both explicit formats rather than
+    // two different paths under one ambient format: QSettings::Registry32Format
+    // already forces WOW64 redirection, and a literal Wow6432Node-prefixed path
+    // is never re-redirected -- combining the two would silently query the same
+    // 32-bit store twice on a real Windows build. Explicit
+    // Registry64Format/Registry32Format sidesteps that ambiguity entirely.
+    static const QSettings::Format kFormats[] = {
+        QSettings::Registry64Format,
+        QSettings::Registry32Format,
     };
 
     QList<QMap<QString, QString>> views;
-    for (const char *path : kRegistryPaths)
+    for (QSettings::Format format : kFormats)
     {
-        QSettings registry(path, REGISTRY_FORMAT);
+        QSettings registry("HKEY_LOCAL_MACHINE\\SOFTWARE\\PassThruSupport.04.04", format);
         QMap<QString, QString> view;
         for (const QString& i : registry.childGroups())
         {

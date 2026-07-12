@@ -317,15 +317,50 @@ jobs:
         run: |
           bazel build -k --config=release //:fastecu //tests/...
 
-      - name: Build and test x86 J2534 bridge (Windows)
+      # pe_bitness_test and j2534_win_bridge_test mix x64-only deps (Qt via
+      # //:fastecu_platform_windows, and the default-platform pe_bitness_x64_fixture)
+      # with x86-only deps (j2534_bridge_host, fake_j2534_dll, x86_smoke_test) --
+      # no single --platforms= value builds both correctly. So the x86-only
+      # artifacts are built separately here (under a distinct --symlink_prefix
+      # so they don't clobber the default-platform bazel-bin symlink used
+      # elsewhere in this job), and the two mixed-bitness tests below compile
+      # under the default (host, x64) platform and locate the pre-built x86
+      # artifacts via environment variables at runtime instead of Bazel
+      # data=/$(location) deps.
+      - name: Build x86 J2534 bridge artifacts (Windows)
         if: runner.os == 'Windows'
         run: |
-          bazel build -k --config=release --platforms=//bazel/platforms:windows_x86 //:j2534_bridge_host //tests:fake_j2534_dll
-          bazel test -k --config=release --platforms=//bazel/platforms:windows_x86 //tests:j2534_bridge_protocol_test //tests:pe_bitness_test //tests:j2534_bridge_integration_test //tests:j2534_bridge_client_test //tests:j2534_win_bridge_test
+          bazel build -k --config=release --platforms=//bazel/platforms:windows_x86 --symlink_prefix=bazel-x86- //:j2534_bridge_host //tests:fake_j2534_dll //bazel/platforms:x86_smoke_test
 
+      - name: Test x86-only J2534 bridge components (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          bazel test -k --config=release --platforms=//bazel/platforms:windows_x86 //tests:j2534_bridge_protocol_test //tests:j2534_bridge_integration_test //tests:j2534_bridge_client_test
+
+      - name: Build x64 pe_bitness fixture (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          bazel build -k --config=release //bazel/platforms:pe_bitness_x64_fixture
+
+      - name: Test pe_bitness and full J2534 bridge wiring (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:PE_BITNESS_X86_FIXTURE = (Resolve-Path "bazel-x86-bin\bazel\platforms\x86_smoke_test.exe").Path
+          $env:PE_BITNESS_X64_FIXTURE = (Resolve-Path "bazel-bin\bazel\platforms\pe_bitness_x64_fixture.exe").Path
+          $env:J2534_BRIDGE_HOST_EXE = (Resolve-Path "bazel-x86-bin\j2534_bridge_host.exe").Path
+          $env:FAKE_J2534_DLL_PATH = (Resolve-Path "bazel-x86-bin\tests\fake_j2534_dll.dll").Path
+          bazel test -k --config=release //tests:pe_bitness_test //tests:j2534_win_bridge_test
+
+      # pe_bitness_test and j2534_win_bridge_test are excluded from this
+      # wildcard: now that they no longer depend on any x86-only target, they
+      # are platform-compatible here too (Windows, default/x64 platform), so
+      # //tests/... would otherwise pick them up and run them a second time
+      # without PE_BITNESS_X86_FIXTURE/PE_BITNESS_X64_FIXTURE/etc. set. They
+      # already ran, with those env vars, in the dedicated step above.
       - name: Test Bazel targets
         run: |
-          bazel test -k --config=release //tests/... //:qmake_bazel_sync //:bazel_openssl_wiring
+          bazel test -k --config=release //tests/... //:qmake_bazel_sync //:bazel_openssl_wiring -//tests:pe_bitness_test -//tests:j2534_win_bridge_test
 
       - name: clang-tidy report
         continue-on-error: true
