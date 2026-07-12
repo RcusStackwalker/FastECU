@@ -9,11 +9,14 @@
 
 #pragma once
 
+#include <memory>
+
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
 #include <windows.h>
 #endif
 
 #include "J2534_tactrix_win.h"
+#include "j2534_bridge_client.h"
 
 #define PTfn(name) PF_##name *pf##name
 #define PText(name) PT_API PF_##name name
@@ -96,6 +99,9 @@ class J2534
 #else
     void *hDLL;
 #endif
+
+    std::unique_ptr<J2534BridgeClient> bridgeClient;
+    bool useBridge = false;
 
     /* J2534 Interface API function pointers */
 
