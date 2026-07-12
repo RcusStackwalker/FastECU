@@ -135,3 +135,21 @@ cc_test(
     }),
     deps = ["//:j2534_bridge_protocol"],
 )
+
+cc_test(
+    name = "pe_bitness_test",
+    srcs = ["pe_bitness_test.cpp"],
+    args = [
+        "$(location //bazel/platforms:x86_smoke_test)",
+        "$(location //bazel/platforms:pe_bitness_x64_fixture)",
+    ],
+    data = [
+        "//bazel/platforms:pe_bitness_x64_fixture",
+        "//bazel/platforms:x86_smoke_test",
+    ],
+    target_compatible_with = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = ["//:pe_bitness"],
+)

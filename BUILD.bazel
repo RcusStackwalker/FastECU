@@ -166,6 +166,17 @@ cc_library(
     }),
 )
 
+cc_library(
+    name = "pe_bitness",
+    srcs = ["serial_port/pe_bitness.cpp"],
+    hdrs = ["serial_port/pe_bitness.h"],
+    includes = ["serial_port"],
+    target_compatible_with = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+)
+
 py_test(
     name = "qmake_bazel_sync",
     size = "small",
