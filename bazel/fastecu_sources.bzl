@@ -333,11 +333,13 @@ APP_UNIX_HDRS = [
 
 APP_WIN_SRCS = [
     "serial_port/J2534_win.cpp",
+    "serial_port/j2534_bridge_protocol.cpp",
 ]
 
 APP_WIN_HDRS = [
     "serial_port/J2534_tactrix_win.h",
     "serial_port/J2534_win.h",
+    "serial_port/j2534_bridge_protocol.h",
 ]
 
 MUT_DMA_TESTS_COMMON_SRCS = [

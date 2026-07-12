@@ -1,3 +1,4 @@
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("//bazel:fastecu_sources.bzl", "MUT_DMA_INTEGRATION_TESTS_COMMON_HDRS", "MUT_DMA_INTEGRATION_TESTS_COMMON_SRCS", "MUT_DMA_TESTS_COMMON_SRCS", "SERIAL_BACKEND_TESTS_COMMON_HDRS", "SERIAL_BACKEND_TESTS_COMMON_SRCS", "SERIAL_BACKEND_TESTS_UNIX_HDRS", "SERIAL_BACKEND_TESTS_UNIX_SRCS", "SERIAL_CRASH_TESTS_COMMON_HDRS", "SERIAL_CRASH_TESTS_COMMON_SRCS")
 load("//bazel:mut_dma_test_suites.bzl", "mut_dma_test_suites")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_LINKOPTS", "QT_DEPS", "local_test_hdrs", "local_test_srcs", "qt_cc_library", "qt_cc_test", "qt_cpp_moc_headers", "test_cpp_moc_srcs")
@@ -123,4 +124,14 @@ qt_cc_test(
         "//:fastecu_core_common",
         "//:fastecu_platform_unix",
     ],
+)
+
+cc_test(
+    name = "j2534_bridge_protocol_test",
+    srcs = ["j2534_bridge_protocol_test.cpp"],
+    target_compatible_with = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = ["//:j2534_bridge_protocol"],
 )

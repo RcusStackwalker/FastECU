@@ -1,3 +1,4 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_python//python:defs.bzl", "py_test")
 load("//bazel:fastecu_sources.bzl", "APP_COMMON_HDRS", "APP_COMMON_SRCS", "APP_FORMS", "APP_MAIN_SRCS", "APP_MOC_HDRS", "APP_REPS", "APP_RESOURCES", "APP_UNIX_HDRS", "APP_UNIX_SRCS", "APP_WIN_HDRS", "APP_WIN_SRCS")
 load("//bazel:qt_remote_objects.bzl", "qt_replica_library")
@@ -148,6 +149,20 @@ qt_cc_binary(
     ] + select({
         "@platforms//os:windows": [":fastecu_platform_windows"],
         "//conditions:default": [":fastecu_platform_unix"],
+    }),
+)
+
+cc_library(
+    name = "j2534_bridge_protocol",
+    srcs = ["serial_port/j2534_bridge_protocol.cpp"],
+    hdrs = [
+        "serial_port/J2534_tactrix_win.h",
+        "serial_port/j2534_bridge_protocol.h",
+    ],
+    includes = ["serial_port"],
+    target_compatible_with = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["@platforms//:incompatible"],
     }),
 )
 
