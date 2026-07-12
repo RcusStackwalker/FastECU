@@ -1,3 +1,4 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_python//python:defs.bzl", "py_test")
 load("//bazel:fastecu_sources.bzl", "APP_COMMON_HDRS", "APP_COMMON_SRCS", "APP_FORMS", "APP_MAIN_SRCS", "APP_MOC_HDRS", "APP_REPS", "APP_RESOURCES", "APP_UNIX_HDRS", "APP_UNIX_SRCS", "APP_WIN_HDRS", "APP_WIN_SRCS")
@@ -164,6 +165,13 @@ cc_library(
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],
     }),
+)
+
+cc_binary(
+    name = "j2534_bridge_host",
+    srcs = ["serial_port/j2534_bridge_host/main.cpp"],
+    target_compatible_with = ["@platforms//cpu:x86_32"],
+    deps = [":j2534_bridge_protocol"],
 )
 
 cc_library(
