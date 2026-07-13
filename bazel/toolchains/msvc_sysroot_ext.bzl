@@ -1,10 +1,10 @@
 """Repository rule that discovers the MSVC/Windows SDK sysroot (headers and
 x86 import libraries) from a local Visual Studio Build Tools install, for
-//bazel/toolchains/windows_x86_clang_cl to link against.
+//bazel/toolchains/windows_x86_msvc to link against.
 
-Microsoft doesn't allow redistributing the Windows SDK/MSVC CRT, so unlike
-@llvm_windows this can't be a pinned, checksummed fetch -- it has to read
-whatever VS Build Tools install is already on the machine, the same way
+Microsoft doesn't allow redistributing the Windows SDK/MSVC CRT, so this
+can't be a pinned, checksummed fetch -- it has to read whatever VS Build
+Tools install is already on the machine, the same way
 scripts/compile-x86-bridge-artifacts.ps1 discovers it via vcvarsall.bat x86.
 
 On non-Windows hosts (this repo's macOS/Linux Bazel CI matrix, or a

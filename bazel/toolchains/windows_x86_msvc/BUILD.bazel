@@ -8,52 +8,36 @@ load("@rules_cc//cc/toolchains:toolchain.bzl", "cc_toolchain")
 package(default_visibility = ["//visibility:public"])
 
 cc_tool(
-    name = "clang_cl",
-    src = "@llvm_windows//:bin/clang-cl.exe",
-    data = ["@llvm_windows//:builtin_headers"],
+    name = "cl",
+    src = "@msvc_sysroot//:msvc_bin_x86/cl.exe",
+    data = ["@msvc_sysroot//:msvc_tools_x86"],
 )
 
 cc_tool(
-    name = "lld_link",
-    src = "@llvm_windows//:bin/lld-link.exe",
+    name = "link",
+    src = "@msvc_sysroot//:msvc_bin_x86/link.exe",
+    data = ["@msvc_sysroot//:msvc_tools_x86"],
 )
 
 cc_tool_map(
     name = "tools",
     tags = ["manual"],
     tools = {
-        "@rules_cc//cc/toolchains/actions:assembly_actions": ":clang_cl",
-        "@rules_cc//cc/toolchains/actions:c_compile": ":clang_cl",
-        "@rules_cc//cc/toolchains/actions:cpp_compile_actions": ":clang_cl",
-        "@rules_cc//cc/toolchains/actions:link_actions": ":lld_link",
+        "@rules_cc//cc/toolchains/actions:assembly_actions": ":cl",
+        "@rules_cc//cc/toolchains/actions:c_compile": ":cl",
+        "@rules_cc//cc/toolchains/actions:cpp_compile_actions": ":cl",
+        "@rules_cc//cc/toolchains/actions:link_actions": ":link",
     },
-)
-
-cc_args(
-    name = "target_triple",
-    actions = [
-        "@rules_cc//cc/toolchains/actions:compile_actions",
-    ],
-    args = [
-        "--target=i686-pc-windows-msvc",
-        "-m32",
-    ],
 )
 
 cc_args(
     name = "msvc_sysroot_includes",
     actions = ["@rules_cc//cc/toolchains/actions:compile_actions"],
-    allowlist_absolute_include_directories = [
-        MSVC_INCLUDE,
-        UCRT_INCLUDE,
-        UM_INCLUDE,
-        SHARED_INCLUDE,
-    ],
     args = [
-        "/imsvc" + MSVC_INCLUDE,
-        "/imsvc" + UCRT_INCLUDE,
-        "/imsvc" + UM_INCLUDE,
-        "/imsvc" + SHARED_INCLUDE,
+        "/I" + MSVC_INCLUDE,
+        "/I" + UCRT_INCLUDE,
+        "/I" + UM_INCLUDE,
+        "/I" + SHARED_INCLUDE,
     ],
 )
 
@@ -74,18 +58,6 @@ cc_args(
     args = ["/showIncludes"],
 )
 
-cc_args(
-    name = "clang_builtin_headers_allowlist",
-    actions = ["@rules_cc//cc/toolchains/actions:compile_actions"],
-    allowlist_include_directories = ["@llvm_windows//:builtin_headers_dir"],
-)
-
-cc_args(
-    name = "no_canonical_prefixes",
-    actions = ["@rules_cc//cc/toolchains/actions:compile_actions"],
-    args = ["/clang:-no-canonical-prefixes"],
-)
-
 cc_feature(
     name = "parse_showincludes",
     args = [":show_includes"],
@@ -93,22 +65,19 @@ cc_feature(
 )
 
 cc_toolchain(
-    name = "windows_x86_clang_cl",
+    name = "windows_x86_msvc",
     args = [
-        ":target_triple",
         ":msvc_sysroot_includes",
         ":msvc_sysroot_libs",
-        ":clang_builtin_headers_allowlist",
-        ":no_canonical_prefixes",
     ],
-    compiler = "clang-cl",
+    compiler = "msvc-cl",
     enabled_features = [":parse_showincludes"],
     known_features = [":parse_showincludes"],
     tool_map = ":tools",
 )
 
 toolchain(
-    name = "windows_x86_clang_cl_toolchain",
+    name = "windows_x86_msvc_toolchain",
     exec_compatible_with = [
         "@platforms//cpu:x86_64",
         "@platforms//os:windows",
@@ -117,6 +86,6 @@ toolchain(
         "@platforms//cpu:x86_32",
         "@platforms//os:windows",
     ],
-    toolchain = ":windows_x86_clang_cl",
+    toolchain = ":windows_x86_msvc",
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
 )
