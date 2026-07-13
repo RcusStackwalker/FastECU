@@ -48,3 +48,5 @@ use_repo(llvm_windows, "llvm_windows")
 
 msvc_sysroot = use_extension("//bazel/toolchains:msvc_sysroot_ext.bzl", "msvc_sysroot")
 use_repo(msvc_sysroot, "msvc_sysroot")
+
+register_toolchains("//bazel/toolchains/windows_x86_clang_cl:windows_x86_clang_cl_toolchain")

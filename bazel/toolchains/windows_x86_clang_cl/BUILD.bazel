@@ -1,0 +1,87 @@
+load("@msvc_sysroot//:defs.bzl", "MSVC_INCLUDE", "MSVC_LIB_X86", "SHARED_INCLUDE", "UCRT_INCLUDE", "UCRT_LIB_X86", "UM_INCLUDE", "UM_LIB_X86")
+load("@rules_cc//cc/toolchains:args.bzl", "cc_args")
+load("@rules_cc//cc/toolchains:tool.bzl", "cc_tool")
+load("@rules_cc//cc/toolchains:tool_map.bzl", "cc_tool_map")
+load("@rules_cc//cc/toolchains:toolchain.bzl", "cc_toolchain")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_tool(
+    name = "clang_cl",
+    src = "@llvm_windows//:bin/clang-cl.exe",
+)
+
+cc_tool(
+    name = "lld_link",
+    src = "@llvm_windows//:bin/lld-link.exe",
+)
+
+cc_tool_map(
+    name = "tools",
+    tags = ["manual"],
+    tools = {
+        "@rules_cc//cc/toolchains/actions:assembly_actions": ":clang_cl",
+        "@rules_cc//cc/toolchains/actions:c_compile": ":clang_cl",
+        "@rules_cc//cc/toolchains/actions:cpp_compile_actions": ":clang_cl",
+        "@rules_cc//cc/toolchains/actions:link_actions": ":lld_link",
+    },
+)
+
+cc_args(
+    name = "target_triple",
+    actions = [
+        "@rules_cc//cc/toolchains/actions:compile_actions",
+        "@rules_cc//cc/toolchains/actions:link_actions",
+    ],
+    args = [
+        "--target=i686-pc-windows-msvc",
+        "-m32",
+    ],
+)
+
+cc_args(
+    name = "msvc_sysroot_includes",
+    actions = ["@rules_cc//cc/toolchains/actions:compile_actions"],
+    args = [
+        "/imsvc" + MSVC_INCLUDE,
+        "/imsvc" + UCRT_INCLUDE,
+        "/imsvc" + UM_INCLUDE,
+        "/imsvc" + SHARED_INCLUDE,
+    ],
+)
+
+cc_args(
+    name = "msvc_sysroot_libs",
+    actions = ["@rules_cc//cc/toolchains/actions:link_actions"],
+    args = [
+        "/LIBPATH:" + MSVC_LIB_X86,
+        "/LIBPATH:" + UCRT_LIB_X86,
+        "/LIBPATH:" + UM_LIB_X86,
+        "/MACHINE:X86",
+    ],
+)
+
+cc_toolchain(
+    name = "windows_x86_clang_cl",
+    args = [
+        ":target_triple",
+        ":msvc_sysroot_includes",
+        ":msvc_sysroot_libs",
+    ],
+    compiler = "clang-cl",
+    tool_map = ":tools",
+)
+
+toolchain(
+    name = "windows_x86_clang_cl_toolchain",
+    exec_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:windows",
+    ],
+    target_compatible_with = [
+        "@platforms//cpu:x86_32",
+        "@platforms//os:windows",
+    ],
+    toolchain = ":windows_x86_clang_cl",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
