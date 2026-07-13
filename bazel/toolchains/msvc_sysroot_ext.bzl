@@ -47,11 +47,26 @@ def _first_existing(rctx, candidates):
             return candidate
     return None
 
+def _is_version_dirname(name):
+    for c in name.elems():
+        if not (c.isdigit() or c == "."):
+            return False
+    return len(name) > 0
+
 def _latest_child_dirname(rctx, parent):
+    # Picks the lexicographically-last version-looking directory name (e.g.
+    # "14.29.30037", "10.0.22621.0"). This is plain string sort, not numeric
+    # version comparison -- it happens to give the right answer for MSVC's
+    # and Windows Kits' current fixed-width numbering schemes, but would
+    # break on a future scheme change (classic "9" > "10" string-sort trap).
     parent_path = rctx.path(parent)
     if not parent_path.exists:
         return None
-    names = sorted([e.basename for e in parent_path.readdir() if e.is_dir])
+    names = sorted([
+        e.basename
+        for e in parent_path.readdir()
+        if e.is_dir and _is_version_dirname(e.basename)
+    ])
     return names[-1] if names else None
 
 def _configure_windows(rctx):
