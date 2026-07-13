@@ -192,24 +192,19 @@ cc_test(
 cc_test(
     name = "j2534_bridge_integration_test",
     srcs = ["j2534_bridge_integration_test.cpp"],
-    # No data/args wiring to //:j2534_bridge_host / //tests:fake_j2534_dll:
-    # both are built outside Bazel entirely (this Bazel setup has no
-    # registered x86 Windows C++ toolchain -- see
-    # scripts/compile-x86-bridge-artifacts.ps1). This test compiles under the
-    # default (host, x64) platform -- it only spawns the 32-bit helper as a
-    # child process and talks to it over pipes, so its own bitness doesn't
-    # matter -- and CI passes the pre-built artifacts' paths in via
-    # J2534_BRIDGE_HOST_EXE/FAKE_J2534_DLL_PATH env vars (--test_env in
-    # .github/workflows/pr.yml).
-    #
     # --config=release implies -DNDEBUG (via --compilation_mode=opt), which
     # would silently compile out this test's assert()-based pass/fail checks.
     # /UNDEBUG re-enables them. MSVC-only flag; safe here since this target is
     # Windows-only (target_compatible_with below).
     copts = ["/UNDEBUG"],
-    # "manual" excludes this target from wildcard patterns (//tests/..., :all)
-    # -- see the identical note on pe_bitness_test above.
-    tags = ["manual"],
+    data = [
+        ":fake_j2534_dll_x86",
+        "//serial_port/j2534_bridge_host:j2534_bridge_host_x86",
+    ],
+    env = {
+        "FAKE_J2534_DLL_PATH": "$(location :fake_j2534_dll_x86)",
+        "J2534_BRIDGE_HOST_EXE": "$(location //serial_port/j2534_bridge_host:j2534_bridge_host_x86)",
+    },
     target_compatible_with = select({
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],
@@ -220,22 +215,19 @@ cc_test(
 cc_test(
     name = "j2534_bridge_client_test",
     srcs = ["j2534_bridge_client_test.cpp"],
-    # No data wiring to //:j2534_bridge_host / //tests:fake_j2534_dll: both are
-    # built outside Bazel entirely (see
-    # scripts/compile-x86-bridge-artifacts.ps1). J2534BridgeClient just spawns
-    # the 32-bit helper as a child process, so this test's own bitness doesn't
-    # matter -- CI passes the pre-built artifacts' paths in via
-    # J2534_BRIDGE_HOST_EXE/FAKE_J2534_DLL_PATH env vars (--test_env in
-    # .github/workflows/pr.yml).
-    #
     # --config=release implies -DNDEBUG (via --compilation_mode=opt), which
     # would silently compile out this test's assert()-based pass/fail checks.
     # /UNDEBUG re-enables them. MSVC-only flag; safe here since this target is
     # Windows-only (target_compatible_with below).
     copts = ["/UNDEBUG"],
-    # "manual" excludes this target from wildcard patterns (//tests/..., :all)
-    # -- see the identical note on pe_bitness_test above.
-    tags = ["manual"],
+    data = [
+        ":fake_j2534_dll_x86",
+        "//serial_port/j2534_bridge_host:j2534_bridge_host_x86",
+    ],
+    env = {
+        "FAKE_J2534_DLL_PATH": "$(location :fake_j2534_dll_x86)",
+        "J2534_BRIDGE_HOST_EXE": "$(location //serial_port/j2534_bridge_host:j2534_bridge_host_x86)",
+    },
     target_compatible_with = select({
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],
@@ -246,22 +238,19 @@ cc_test(
 qt_cc_test(
     name = "j2534_win_bridge_test",
     srcs = ["j2534_win_bridge_test.cpp"],
-    # No data wiring to //:j2534_bridge_host / //tests:fake_j2534_dll: both are
-    # built outside Bazel entirely (this Bazel setup has no registered x86
-    # Windows C++ toolchain -- see scripts/compile-x86-bridge-artifacts.ps1),
-    # while this test needs //:fastecu_platform_windows (Qt, x64-only). CI
-    # builds the x86 artifacts separately and passes their paths in via
-    # J2534_BRIDGE_HOST_EXE/FAKE_J2534_DLL_PATH env vars -- see
-    # .github/workflows/pr.yml.
-    #
     # --config=release implies -DNDEBUG (via --compilation_mode=opt), which
     # would silently compile out this test's assert()-based pass/fail checks.
     # /UNDEBUG re-enables them. MSVC-only flag; safe here since this target is
     # Windows-only (target_compatible_with below).
     copts = ["/UNDEBUG"],
-    # "manual" excludes this target from wildcard patterns (//tests/..., :all)
-    # -- see the identical note on pe_bitness_test above.
-    tags = ["manual"],
+    data = [
+        ":fake_j2534_dll_x86",
+        "//serial_port/j2534_bridge_host:j2534_bridge_host_x86",
+    ],
+    env = {
+        "FAKE_J2534_DLL_PATH": "$(location :fake_j2534_dll_x86)",
+        "J2534_BRIDGE_HOST_EXE": "$(location //serial_port/j2534_bridge_host:j2534_bridge_host_x86)",
+    },
     target_compatible_with = select({
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],
