@@ -1,5 +1,6 @@
 load("@msvc_sysroot//:defs.bzl", "MSVC_INCLUDE", "MSVC_LIB_X86", "SHARED_INCLUDE", "UCRT_INCLUDE", "UCRT_LIB_X86", "UM_INCLUDE", "UM_LIB_X86")
 load("@rules_cc//cc/toolchains:args.bzl", "cc_args")
+load("@rules_cc//cc/toolchains:feature.bzl", "cc_feature")
 load("@rules_cc//cc/toolchains:tool.bzl", "cc_tool")
 load("@rules_cc//cc/toolchains:tool_map.bzl", "cc_tool_map")
 load("@rules_cc//cc/toolchains:toolchain.bzl", "cc_toolchain")
@@ -66,6 +67,18 @@ cc_args(
     ],
 )
 
+cc_args(
+    name = "show_includes",
+    actions = ["@rules_cc//cc/toolchains/actions:compile_actions"],
+    args = ["/showIncludes"],
+)
+
+cc_feature(
+    name = "parse_showincludes",
+    args = [":show_includes"],
+    feature_name = "parse_showincludes",
+)
+
 cc_toolchain(
     name = "windows_x86_clang_cl",
     args = [
@@ -74,6 +87,8 @@ cc_toolchain(
         ":msvc_sysroot_libs",
     ],
     compiler = "clang-cl",
+    enabled_features = [":parse_showincludes"],
+    known_features = [":parse_showincludes"],
     tool_map = ":tools",
 )
 
