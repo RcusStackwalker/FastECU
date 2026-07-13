@@ -28,6 +28,11 @@ _BUILD_FILE_CONTENT = """\
 package(default_visibility = ["//visibility:public"])
 
 exports_files(glob(["bin/**"]))
+
+filegroup(
+    name = "builtin_headers",
+    srcs = glob(["lib/clang/*/include/**"]),
+)
 """
 
 def _llvm_windows_repo_impl(_mctx):

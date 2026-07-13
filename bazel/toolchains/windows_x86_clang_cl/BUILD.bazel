@@ -10,6 +10,7 @@ package(default_visibility = ["//visibility:public"])
 cc_tool(
     name = "clang_cl",
     src = "@llvm_windows//:bin/clang-cl.exe",
+    data = ["@llvm_windows//:builtin_headers"],
 )
 
 cc_tool(
