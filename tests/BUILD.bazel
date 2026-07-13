@@ -144,26 +144,19 @@ cc_test(
 cc_test(
     name = "pe_bitness_test",
     srcs = ["pe_bitness_test.cpp"],
-    # No data/args wiring to the x86/x64 fixtures: the x86 fixture is built
-    # outside Bazel entirely (this Bazel setup has no registered x86 Windows
-    # C++ toolchain -- see scripts/compile-x86-bridge-artifacts.ps1), and the
-    # x64 fixture (//:pe_bitness_x64_fixture) is a separate Bazel target. CI
-    # builds both separately and passes their paths in via
-    # PE_BITNESS_X86_FIXTURE/PE_BITNESS_X64_FIXTURE env vars -- see
-    # .github/workflows/pr.yml.
-    #
     # --config=release implies -DNDEBUG (via --compilation_mode=opt), which
     # would silently compile out this test's assert()-based pass/fail checks.
     # /UNDEBUG re-enables them. MSVC-only flag; safe here since this target is
     # Windows-only (target_compatible_with below).
     copts = ["/UNDEBUG"],
-    # "manual" excludes this target from wildcard patterns (//tests/..., :all)
-    # -- it needs PE_BITNESS_X86_FIXTURE/PE_BITNESS_X64_FIXTURE env vars set,
-    # which the wildcard-based "Test Bazel targets" CI step doesn't set; it's
-    # run explicitly, with those vars, in its own dedicated step instead (see
-    # .github/workflows/pr.yml). Explicitly naming a "manual"-tagged target
-    # still runs it normally -- "manual" only affects wildcard expansion.
-    tags = ["manual"],
+    data = [
+        "//:pe_bitness_x64_fixture",
+        "//bazel/platforms:x86_smoke_test_x86",
+    ],
+    env = {
+        "PE_BITNESS_X86_FIXTURE": "$(location //bazel/platforms:x86_smoke_test_x86)",
+        "PE_BITNESS_X64_FIXTURE": "$(location //:pe_bitness_x64_fixture)",
+    },
     target_compatible_with = select({
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],

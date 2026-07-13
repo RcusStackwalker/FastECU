@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("//bazel:x86_windows_transition.bzl", "x86_windows_binary")
+
 package(default_visibility = ["//visibility:public"])
 
 platform(
@@ -6,4 +9,27 @@ platform(
         "@platforms//cpu:x86_32",
         "@platforms//os:windows",
     ],
+)
+
+# Exposes the raw source file to //:pe_bitness_x64_fixture (a separate
+# package), which builds it for the host (x64) platform as a distinct
+# target from x86_smoke_test_native below. A file used as one rule's srcs
+# doesn't automatically become visible as another rule's srcs in a
+# different package -- cross-package access to a source file requires
+# exports_files() regardless of this package's default_visibility.
+exports_files(["x86_smoke_test.cc"])
+
+cc_binary(
+    name = "x86_smoke_test_native",
+    srcs = ["x86_smoke_test.cc"],
+    target_compatible_with = [
+        "@platforms//cpu:x86_32",
+        "@platforms//os:windows",
+    ],
+)
+
+x86_windows_binary(
+    name = "x86_smoke_test_x86",
+    binary = ":x86_smoke_test_native",
+    extension = ".exe",
 )
