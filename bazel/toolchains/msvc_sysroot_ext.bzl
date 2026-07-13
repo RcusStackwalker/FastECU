@@ -34,6 +34,17 @@ UCRT_LIB_X86 = ""
 UM_LIB_X86 = ""
 """
 
+_TOOLS_BUILD_FILE = """\
+package(default_visibility = ["//visibility:public"])
+
+exports_files(["msvc_bin_x86/cl.exe", "msvc_bin_x86/link.exe"])
+
+filegroup(
+    name = "msvc_tools_x86",
+    srcs = glob(["msvc_bin_x86/**"]),
+)
+"""
+
 def _fail(detail):
     fail((
         "msvc_sysroot: {detail}. Install Visual Studio Build Tools with the " +
@@ -92,6 +103,7 @@ def _configure_windows(rctx):
     if not msvc_version:
         _fail("no MSVC tools version directories found under {}/VC/Tools/MSVC".format(vs_install))
     msvc_root = "{}/VC/Tools/MSVC/{}".format(vs_install, msvc_version)
+    rctx.symlink(msvc_root + "/bin/Hostx64/x86", "msvc_bin_x86")
 
     kits_root = _first_existing(rctx, _WINDOWS_KITS_ROOT_CANDIDATES)
     if not kits_root:
@@ -124,7 +136,9 @@ def _msvc_sysroot_impl(rctx):
         _configure_windows(rctx)
     else:
         rctx.file("defs.bzl", _STUB_DEFS)
-    rctx.file("BUILD.bazel", "")
+        rctx.file("msvc_bin_x86/cl.exe", "")
+        rctx.file("msvc_bin_x86/link.exe", "")
+    rctx.file("BUILD.bazel", _TOOLS_BUILD_FILE)
 
 _msvc_sysroot_repo = repository_rule(
     implementation = _msvc_sysroot_impl,
