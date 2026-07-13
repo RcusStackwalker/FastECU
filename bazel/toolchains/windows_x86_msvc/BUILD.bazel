@@ -252,14 +252,14 @@ cc_nested_args(
 
 cc_args(
     name = "archiver_input",
-    actions = ["@rules_cc//cc/toolchains/actions:ar_actions"],
+    actions = ["@rules_cc//cc/toolchains/actions:cpp_link_static_library"],
     nested = [":archiver_libraries_to_link_iterate"],
     requires_not_none = "@rules_cc//cc/toolchains/variables:libraries_to_link",
 )
 
 cc_args(
     name = "archiver_output",
-    actions = ["@rules_cc//cc/toolchains/actions:ar_actions"],
+    actions = ["@rules_cc//cc/toolchains/actions:cpp_link_static_library"],
     args = ["/OUT:{output_execpath}"],
     format = {"output_execpath": "@rules_cc//cc/toolchains/variables:output_execpath"},
     requires_not_none = "@rules_cc//cc/toolchains/variables:output_execpath",
