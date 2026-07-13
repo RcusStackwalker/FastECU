@@ -33,6 +33,12 @@ cc_tool_map(
 cc_args(
     name = "msvc_sysroot_includes",
     actions = ["@rules_cc//cc/toolchains/actions:compile_actions"],
+    allowlist_absolute_include_directories = [
+        MSVC_INCLUDE,
+        UCRT_INCLUDE,
+        UM_INCLUDE,
+        SHARED_INCLUDE,
+    ],
     args = [
         "/I" + MSVC_INCLUDE,
         "/I" + UCRT_INCLUDE,
