@@ -45,3 +45,6 @@ use_repo(openssl, "openssl")
 
 llvm_windows = use_extension("//bazel/toolchains:llvm_windows_ext.bzl", "llvm_windows")
 use_repo(llvm_windows, "llvm_windows")
+
+msvc_sysroot = use_extension("//bazel/toolchains:msvc_sysroot_ext.bzl", "msvc_sysroot")
+use_repo(msvc_sysroot, "msvc_sysroot")
