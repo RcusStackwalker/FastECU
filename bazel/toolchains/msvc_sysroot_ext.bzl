@@ -37,7 +37,7 @@ UM_LIB_X86 = ""
 _TOOLS_BUILD_FILE = """\
 package(default_visibility = ["//visibility:public"])
 
-exports_files(["msvc_bin_x86/cl.exe", "msvc_bin_x86/link.exe"])
+exports_files(["msvc_bin_x86/cl.exe", "msvc_bin_x86/link.exe", "msvc_bin_x86/lib.exe"])
 
 filegroup(
     name = "msvc_tools_x86",
@@ -138,6 +138,7 @@ def _msvc_sysroot_impl(rctx):
         rctx.file("defs.bzl", _STUB_DEFS)
         rctx.file("msvc_bin_x86/cl.exe", "")
         rctx.file("msvc_bin_x86/link.exe", "")
+        rctx.file("msvc_bin_x86/lib.exe", "")
     rctx.file("BUILD.bazel", _TOOLS_BUILD_FILE)
 
 _msvc_sysroot_repo = repository_rule(
