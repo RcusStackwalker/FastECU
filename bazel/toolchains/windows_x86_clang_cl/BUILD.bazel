@@ -80,6 +80,12 @@ cc_args(
     allowlist_include_directories = ["@llvm_windows//:builtin_headers_dir"],
 )
 
+cc_args(
+    name = "no_canonical_prefixes",
+    actions = ["@rules_cc//cc/toolchains/actions:compile_actions"],
+    args = ["/clang:-no-canonical-prefixes"],
+)
+
 cc_feature(
     name = "parse_showincludes",
     args = [":show_includes"],
@@ -93,6 +99,7 @@ cc_toolchain(
         ":msvc_sysroot_includes",
         ":msvc_sysroot_libs",
         ":clang_builtin_headers_allowlist",
+        ":no_canonical_prefixes",
     ],
     compiler = "clang-cl",
     enabled_features = [":parse_showincludes"],
