@@ -42,3 +42,6 @@ register_toolchains("@rules_qt//tools:all")
 
 openssl = use_extension("//bazel:openssl_ext.bzl", "openssl")
 use_repo(openssl, "openssl")
+
+llvm_windows = use_extension("//bazel/toolchains:llvm_windows_ext.bzl", "llvm_windows")
+use_repo(llvm_windows, "llvm_windows")

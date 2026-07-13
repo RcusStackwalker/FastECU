@@ -212,6 +212,26 @@
         }
       }
     },
+    "//bazel/toolchains:llvm_windows_ext.bzl%llvm_windows": {
+      "general": {
+        "bzlTransitiveDigest": "c9GDjA9cHT+xGBtLPaABV/e0OxXooAZrbrpSKtKXByQ=",
+        "usagesDigest": "wT1aP+rDrimT8kXWvD71Oe8+FGD1MqujcgTh3kiYD/Q=",
+        "recordedInputs": [
+          "REPO_MAPPING:,bazel_tools bazel_tools"
+        ],
+        "generatedRepoSpecs": {
+          "llvm_windows": {
+            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive",
+            "attributes": {
+              "url": "https://github.com/llvm/llvm-project/releases/download/llvmorg-19.1.7/clang+llvm-19.1.7-x86_64-pc-windows-msvc.tar.xz",
+              "sha256": "b4557b4f012161f56a2f5d9e877ab9635cafd7a08f7affe14829bd60c9d357f0",
+              "strip_prefix": "clang+llvm-19.1.7-x86_64-pc-windows-msvc",
+              "build_file_content": "package(default_visibility = [\"//visibility:public\"])\n\nexports_files(glob([\"bin/**\"]))\n"
+            }
+          }
+        }
+      }
+    },
     "@@rules_kotlin+//src/main/starlark/core/repositories:bzlmod_setup.bzl%rules_kotlin_extensions": {
       "general": {
         "bzlTransitiveDigest": "Ga4z8lQy1YQ5rAMy+dOl0dqcCEBnYNCXku8x3YQmDZI=",
