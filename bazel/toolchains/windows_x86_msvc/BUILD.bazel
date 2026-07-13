@@ -47,6 +47,7 @@ cc_tool_map(
         "@rules_cc//cc/toolchains/actions:cpp_compile_actions": ":cl",
         "@rules_cc//cc/toolchains/actions:link_actions": ":link",
         "@rules_cc//cc/toolchains/actions:ar_actions": ":lib",
+        "@rules_cc//cc/toolchains/actions:strip": ":link",
     },
 )
 
