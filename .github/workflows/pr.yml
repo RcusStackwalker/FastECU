@@ -103,19 +103,19 @@ jobs:
           qmake CONFIG+=release CONFIG-=debug_and_release ../../FastECU.pro
           make
 
-      # j2534_bridge_host.exe is 32-bit-only, and this repo's Bazel setup has
-      # no registered x86 Windows C++ toolchain (confirmed by a real CI
-      # failure: "No matching toolchains found for
-      # @@bazel_tools//tools/cpp:toolchain_type" -- Bazel's built-in Windows
-      # toolchain autodetection only covers the exact host architecture).
-      # Build it directly via cl.exe instead, the same way FastECU.exe itself
-      # is already built outside Bazel.
+      - uses: bazel-contrib/setup-bazel@c5acdfb288317d0b5c0bbd7a396a3dc868bb0f86 # 0.19.0
+        if: runner.os == 'Windows'
+        with:
+          bazelisk-cache: true
+          repository-cache: true
+          disk-cache: ${{ github.workflow }}-x86-bridge
+
       - name: Build 32-bit J2534 bridge helper (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          scripts\compile-x86-bridge-artifacts.ps1 -OutDir x86-bridge-artifacts
-          copy x86-bridge-artifacts\j2534_bridge_host.exe .\j2534_bridge_host.exe
+          bazel build --config=release //serial_port/j2534_bridge_host:j2534_bridge_host_x86
+          copy bazel-bin\serial_port\j2534_bridge_host\j2534_bridge_host_x86.exe .\j2534_bridge_host.exe
 
       # release.yml's static+windeployqt packaging path is release-only and was
       # never exercised by pr.yml -- that's exactly how the missing-OpenSSL-DLL
@@ -316,54 +316,11 @@ jobs:
         run: |
           bazel build -k --config=release //:fastecu //tests/...
 
-      # j2534_bridge_host.exe / fake_j2534_dll.dll are 32-bit-only, and this
-      # repo's Bazel setup has no registered x86 Windows C++ toolchain
-      # (confirmed by a real CI failure: "No matching toolchains found for
-      # @@bazel_tools//tools/cpp:toolchain_type" -- Bazel's built-in Windows
-      # toolchain autodetection only covers the exact host architecture).
-      # Rather than hand-author a custom Bazel toolchain, build these x86
-      # artifacts directly via cl.exe (scripts/compile-x86-bridge-artifacts.ps1),
-      # the same way FastECU.exe itself is already built outside Bazel.
-      # pe_bitness_test, j2534_win_bridge_test, j2534_bridge_integration_test,
-      # and j2534_bridge_client_test then locate them via environment
-      # variables at runtime instead of Bazel data=/$(location) deps.
-      - name: Build x86 J2534 bridge artifacts (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          scripts\compile-x86-bridge-artifacts.ps1 -OutDir x86-bridge-artifacts
-
       - name: Build x64 pe_bitness fixture (Windows)
         if: runner.os == 'Windows'
         run: |
           bazel build -k --config=release //:pe_bitness_x64_fixture
 
-      - name: Test J2534 bridge components needing pre-built x86 artifacts (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $env:PE_BITNESS_X86_FIXTURE = (Resolve-Path "x86-bridge-artifacts\x86_smoke_test.exe").Path
-          $env:PE_BITNESS_X64_FIXTURE = (Resolve-Path "bazel-bin\pe_bitness_x64_fixture.exe").Path
-          $env:J2534_BRIDGE_HOST_EXE = (Resolve-Path "x86-bridge-artifacts\j2534_bridge_host.exe").Path
-          $env:FAKE_J2534_DLL_PATH = (Resolve-Path "x86-bridge-artifacts\fake_j2534_dll.dll").Path
-          bazel test -k --config=release --test_env=PE_BITNESS_X86_FIXTURE --test_env=PE_BITNESS_X64_FIXTURE --test_env=J2534_BRIDGE_HOST_EXE --test_env=FAKE_J2534_DLL_PATH //tests:pe_bitness_test //tests:j2534_win_bridge_test //tests:j2534_bridge_integration_test //tests:j2534_bridge_client_test
-
-      # pe_bitness_test, j2534_win_bridge_test, j2534_bridge_integration_test,
-      # and j2534_bridge_client_test are tagged "manual" in tests/BUILD.bazel,
-      # which excludes them from this wildcard on every platform: they need
-      # PE_BITNESS_X86_FIXTURE/PE_BITNESS_X64_FIXTURE/J2534_BRIDGE_HOST_EXE/
-      # FAKE_J2534_DLL_PATH env vars, which this step doesn't set -- they
-      # already ran, with those vars, in the dedicated step above. (Two
-      # earlier approaches to this exclusion were tried and failed on real CI:
-      # command-line `-//target` negation broke under PowerShell even with a
-      # `--` end-of-options marker present, and pre-expanding the wildcard via
-      # `bazel query` + --target_pattern_file turned other Windows-only tests
-      # matched by //tests/... -- e.g. j2534_bridge_protocol_test, which is
-      # incompatible and normally silently skipped here on macOS/Linux -- into
-      # explicitly-requested targets, which Bazel treats as a hard error
-      # instead of a skip. The "manual" tag avoids both: it's evaluated by
-      # `bazel test` itself when expanding the live wildcard, with no
-      # command-line negation and no pre-expansion.)
       - name: Test Bazel targets
         run: |
           bazel test -k --config=release //tests/... //:qmake_bazel_sync //:bazel_openssl_wiring
