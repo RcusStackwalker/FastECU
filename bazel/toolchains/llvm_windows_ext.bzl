@@ -10,17 +10,19 @@ clang-tidy (see .github/workflows/pr.yml's "bazel" job).
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-_LLVM_VERSION = "19.1.7"
+_LLVM_VERSION = "22.1.8"
 _LLVM_ARCHIVE = "clang+llvm-{version}-x86_64-pc-windows-msvc.tar.xz".format(version = _LLVM_VERSION)
 _LLVM_URL = "https://github.com/llvm/llvm-project/releases/download/llvmorg-{version}/{archive}".format(
     version = _LLVM_VERSION,
     archive = _LLVM_ARCHIVE,
 )
 
-# Verified via `bazel build @llvm_windows//:bin/clang-cl.exe @llvm_windows//:bin/lld-link.exe`,
-# which downloads the archive and reports the checksum it actually computed
-# (see Task 1, Step 4 of the implementation plan this toolchain was built from).
-_LLVM_SHA256 = "b4557b4f012161f56a2f5d9e877ab9635cafd7a08f7affe14829bd60c9d357f0"
+# Verified via `curl -sL <archive-url> | shasum -a 256` against the published
+# release asset. Bumped from 19.1.7 to 22.1.8 because MSVC STL's compiler-version
+# gate (yvals_core.h) started requiring Clang 20+ on Windows CI runners with a
+# newer MSVC toolset; 22.1.8 is the latest stable LLVM release and comfortably
+# clears that floor.
+_LLVM_SHA256 = "d96c2cc1736f4eb7fa43cb9bbdf56d93551a9ae0a9aadb9c99c3c3b2b712a234"
 
 _BUILD_FILE_CONTENT = """\
 package(default_visibility = ["//visibility:public"])
