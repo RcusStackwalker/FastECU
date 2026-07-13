@@ -74,6 +74,12 @@ cc_args(
     args = ["/showIncludes"],
 )
 
+cc_args(
+    name = "clang_builtin_headers_allowlist",
+    actions = ["@rules_cc//cc/toolchains/actions:compile_actions"],
+    allowlist_include_directories = ["@llvm_windows//:builtin_headers_dir"],
+)
+
 cc_feature(
     name = "parse_showincludes",
     args = [":show_includes"],
@@ -86,6 +92,7 @@ cc_toolchain(
         ":target_triple",
         ":msvc_sysroot_includes",
         ":msvc_sysroot_libs",
+        ":clang_builtin_headers_allowlist",
     ],
     compiler = "clang-cl",
     enabled_features = [":parse_showincludes"],

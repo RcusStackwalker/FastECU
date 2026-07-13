@@ -214,7 +214,7 @@
     },
     "//bazel/toolchains:llvm_windows_ext.bzl%llvm_windows": {
       "general": {
-        "bzlTransitiveDigest": "iHG2BbRzPv8KZu7l/6dINMKEMvKn9BsKUVLQZzXZcgw=",
+        "bzlTransitiveDigest": "+N1rL3MYy3Hw0/JGJuYXd7sKmbomzs6c31/OhuF3WdA=",
         "usagesDigest": "wT1aP+rDrimT8kXWvD71Oe8+FGD1MqujcgTh3kiYD/Q=",
         "recordedInputs": [
           "REPO_MAPPING:,bazel_tools bazel_tools"
@@ -226,7 +226,7 @@
               "url": "https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.8/clang+llvm-22.1.8-x86_64-pc-windows-msvc.tar.xz",
               "sha256": "d96c2cc1736f4eb7fa43cb9bbdf56d93551a9ae0a9aadb9c99c3c3b2b712a234",
               "strip_prefix": "clang+llvm-22.1.8-x86_64-pc-windows-msvc",
-              "build_file_content": "package(default_visibility = [\"//visibility:public\"])\n\nexports_files(glob([\"bin/**\"]))\n\nfilegroup(\n    name = \"builtin_headers\",\n    srcs = glob([\"lib/clang/*/include/**\"]),\n)\n"
+              "build_file_content": "load(\"@bazel_skylib//rules/directory:directory.bzl\", \"directory\")\nload(\"@bazel_skylib//rules/directory:subdirectory.bzl\", \"subdirectory\")\n\npackage(default_visibility = [\"//visibility:public\"])\n\nexports_files(glob([\"bin/**\"]))\n\nfilegroup(\n    name = \"builtin_headers\",\n    srcs = glob([\"lib/clang/*/include/**\"]),\n)\n\ndirectory(\n    name = \"clang_lib_root\",\n    srcs = glob([\"lib/clang/**\"]),\n)\n\nsubdirectory(\n    name = \"builtin_headers_dir\",\n    parent = \":clang_lib_root\",\n    path = \"lib/clang/22/include\",\n)\n"
             }
           }
         }

@@ -25,6 +25,9 @@ _LLVM_URL = "https://github.com/llvm/llvm-project/releases/download/llvmorg-{ver
 _LLVM_SHA256 = "d96c2cc1736f4eb7fa43cb9bbdf56d93551a9ae0a9aadb9c99c3c3b2b712a234"
 
 _BUILD_FILE_CONTENT = """\
+load("@bazel_skylib//rules/directory:directory.bzl", "directory")
+load("@bazel_skylib//rules/directory:subdirectory.bzl", "subdirectory")
+
 package(default_visibility = ["//visibility:public"])
 
 exports_files(glob(["bin/**"]))
@@ -32,6 +35,17 @@ exports_files(glob(["bin/**"]))
 filegroup(
     name = "builtin_headers",
     srcs = glob(["lib/clang/*/include/**"]),
+)
+
+directory(
+    name = "clang_lib_root",
+    srcs = glob(["lib/clang/**"]),
+)
+
+subdirectory(
+    name = "builtin_headers_dir",
+    parent = ":clang_lib_root",
+    path = "lib/clang/{major_version}/include",
 )
 """
 
@@ -41,7 +55,7 @@ def _llvm_windows_repo_impl(_mctx):
         url = _LLVM_URL,
         sha256 = _LLVM_SHA256,
         strip_prefix = "clang+llvm-{version}-x86_64-pc-windows-msvc".format(version = _LLVM_VERSION),
-        build_file_content = _BUILD_FILE_CONTENT,
+        build_file_content = _BUILD_FILE_CONTENT.format(major_version = _LLVM_VERSION.split(".")[0]),
     )
 
 llvm_windows = module_extension(
