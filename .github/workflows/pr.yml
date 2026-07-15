@@ -10,8 +10,12 @@ permissions:
   contents: read
   pull-requests: read
 
+concurrency:
+  group: pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
-  QT_MODULES: qtcharts qtserialport qtremoteobjects qtwebsockets qt5compat
+  QT_MODULES: qtcharts qtserialport qtremoteobjects qtwebsockets
   QT_VERSION: '6.8.3'
 
 jobs:

@@ -8,7 +8,7 @@ permissions:
   contents: write
 
 env:
-  QT_MODULES: qtcharts qtserialport qtremoteobjects qtwebsockets qt5compat
+  QT_MODULES: qtcharts qtserialport qtremoteobjects qtwebsockets
   QT_VERSION: '6.8.3'
 
 jobs:
