@@ -212,6 +212,19 @@
         }
       }
     },
+    "//bazel/toolchains:msvc_sysroot_ext.bzl%msvc_sysroot": {
+      "general": {
+        "bzlTransitiveDigest": "Acc7zB6uv0DbY+ley5dNf0+ldHWzgVeNQMEv8xZ1w2w=",
+        "usagesDigest": "NiKweeqgLSgW0JnkPFwXLUOFOmgljS/v3SqFy2etBCE=",
+        "recordedInputs": [],
+        "generatedRepoSpecs": {
+          "msvc_sysroot": {
+            "repoRuleId": "@@//bazel/toolchains:msvc_sysroot_ext.bzl%_msvc_sysroot_repo",
+            "attributes": {}
+          }
+        }
+      }
+    },
     "@@rules_kotlin+//src/main/starlark/core/repositories:bzlmod_setup.bzl%rules_kotlin_extensions": {
       "general": {
         "bzlTransitiveDigest": "Ga4z8lQy1YQ5rAMy+dOl0dqcCEBnYNCXku8x3YQmDZI=",
