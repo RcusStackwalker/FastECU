@@ -42,3 +42,8 @@ register_toolchains("@rules_qt//tools:all")
 
 openssl = use_extension("//bazel:openssl_ext.bzl", "openssl")
 use_repo(openssl, "openssl")
+
+msvc_sysroot = use_extension("//bazel/toolchains:msvc_sysroot_ext.bzl", "msvc_sysroot")
+use_repo(msvc_sysroot, "msvc_sysroot")
+
+register_toolchains("//bazel/toolchains/windows_x86_msvc:windows_x86_msvc_toolchain")

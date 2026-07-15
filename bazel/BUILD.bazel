@@ -3,4 +3,5 @@ exports_files([
     "openssl_ext.bzl",
     "qt_remote_objects.bzl",
     "qt_targets.bzl",
+    "x86_windows_transition.bzl",
 ])
