@@ -107,8 +107,9 @@ jobs:
       # never exercised by pr.yml -- that's exactly how the missing-OpenSSL-DLL
       # bug (fixed once already) got past review and only surfaced on a real
       # release. Rebuild statically here and package it the same way, so a
-      # regression in that path fails a PR instead of a public release. No
-      # upload -- this step exists purely to catch build/packaging failures.
+      # regression in that path fails a PR instead of a public release. Also
+      # uploaded below so a reviewer can test the real build against real
+      # hardware before merging.
       - name: Build and package Windows static (verify only)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -124,6 +125,14 @@ jobs:
           windeployqt dist\FastECU.exe
           Compress-Archive -Path dist\* -DestinationPath pr-check-windows.zip
 
+      - name: Upload Windows build artifact
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v7
+        with:
+          name: fastecu-pr-${{ github.event.pull_request.number || github.sha }}-windows
+          path: pr-check-windows.zip
+          retention-days: 14
+
       - name: Package macOS (verify only)
         if: runner.os == 'macOS'
         run: |
@@ -131,6 +140,14 @@ jobs:
           cp -R build/pr-app/FastECU.app dist/
           macdeployqt dist/FastECU.app
           cd dist && zip -r ../pr-check-macos.zip FastECU.app
+
+      - name: Upload macOS build artifact
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v7
+        with:
+          name: fastecu-pr-${{ github.event.pull_request.number || github.sha }}-macos
+          path: pr-check-macos.zip
+          retention-days: 14
 
       - name: Build and run mut_dma_tests (Windows)
         if: runner.os == 'Windows'
