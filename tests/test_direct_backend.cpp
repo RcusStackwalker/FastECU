@@ -17,6 +17,8 @@ class TestDirectBackend : public QObject
     void getSet_roundtrip_throughInterface();
     void closedPort_ioCalls_returnEmpty();
     void j2534Selection_usesInstalledDllPathAfterVendorProbe();
+    void j2534DriverViews_wow6432NodeVendorIsDiscoverable();
+    void j2534DriverViews_nativeViewWinsOnCollision();
 };
 
 void TestDirectBackend::getSet_roundtrip_throughInterface()
@@ -64,6 +66,36 @@ void TestDirectBackend::j2534Selection_usesInstalledDllPathAfterVendorProbe()
 
     QCOMPARE(resolveJ2534DllForConnection(vendor, dllPath, QStringList() << vendor),
              dllPath);
+}
+
+void TestDirectBackend::j2534DriverViews_wow6432NodeVendorIsDiscoverable()
+{
+    QMap<QString, QString> nativeView;
+    nativeView["Tactrix Inc. - OpenPort 2.0 J2534 DLL"] = "C:\\Program Files\\OpenECU\\OpenPort 2.0\\op20pt32.dll";
+
+    QMap<QString, QString> wow64View;
+    wow64View["Acme 32-bit-only J2534 DLL"] = "C:\\Program Files (x86)\\Acme\\acme_j2534.dll";
+
+    QMap<QString, QString> merged = mergeJ2534DriverViews({nativeView, wow64View});
+
+    QCOMPARE(merged.size(), 2);
+    QCOMPARE(merged.value("Tactrix Inc. - OpenPort 2.0 J2534 DLL"),
+             QString("C:\\Program Files\\OpenECU\\OpenPort 2.0\\op20pt32.dll"));
+    QCOMPARE(merged.value("Acme 32-bit-only J2534 DLL"), QString("C:\\Program Files (x86)\\Acme\\acme_j2534.dll"));
+}
+
+void TestDirectBackend::j2534DriverViews_nativeViewWinsOnCollision()
+{
+    QMap<QString, QString> nativeView;
+    nativeView["Shared Vendor"] = "C:\\native\\path.dll";
+
+    QMap<QString, QString> wow64View;
+    wow64View["Shared Vendor"] = "C:\\wow64\\path.dll";
+
+    QMap<QString, QString> merged = mergeJ2534DriverViews({nativeView, wow64View});
+
+    QCOMPARE(merged.size(), 1);
+    QCOMPARE(merged.value("Shared Vendor"), QString("C:\\native\\path.dll"));
 }
 
 int run_test_direct_backend(int argc, char **argv)
