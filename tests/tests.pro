@@ -23,10 +23,13 @@ unix {
 }
 
 win32 {
-    SOURCES += ../serial_port/J2534_win.cpp
+    SOURCES += \
+        ../serial_port/J2534_win.cpp \
+        ../serial_port/j2534_bridge_protocol.cpp
     HEADERS += \
         ../serial_port/J2534_win.h \
-        ../serial_port/J2534_tactrix_win.h
+        ../serial_port/J2534_tactrix_win.h \
+        ../serial_port/j2534_bridge_protocol.h
 }
 
 SOURCES += \

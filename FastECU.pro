@@ -33,9 +33,11 @@ win32 {
     QMAKE_LFLAGS += -L\"$$OPENSSL_ROOT/bin\" -l:$$OPENSSL_CRYPTO_DLL
     LIBS += -lopengl32 -lsetupapi
     SOURCES += \
-    serial_port/J2534_win.cpp
+    serial_port/J2534_win.cpp \
+    serial_port/j2534_bridge_protocol.cpp
     HEADERS += \
-    serial_port/J2534_win.h
+    serial_port/J2534_win.h \
+    serial_port/j2534_bridge_protocol.h
     HEADERS += \
     serial_port/J2534_tactrix_win.h
     INCLUDEPATH += $$OPENSSL_ROOT/include
