@@ -427,11 +427,6 @@ QStringList SerialPortActionsDirect::check_serial_ports()
 }
 
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
-#if defined(_WIN32) || defined(WIN32)
-#define REGISTRY_FORMAT QSettings::Registry32Format
-#else
-#define REGISTRY_FORMAT QSettings::Registry64Format
-#endif
 
 // Find first connected device
 // TODO find all devices
@@ -474,18 +469,42 @@ QStringList SerialPortActionsDirect::check_j2534_devices(QMap<QString, QString> 
 
 QMap<QString, QString> SerialPortActionsDirect::getAllJ2534DriversNames()
 {
-    QSettings registry("HKEY_LOCAL_MACHINE\\SOFTWARE\\PassThruSupport.04.04", REGISTRY_FORMAT);
-    QMap<QString, QString> drivers_map;
-    emit LOG_D("Found installed drivers: ", true, false);
-    for (const QString& i : registry.childGroups())
+    // A 64-bit process only sees the native registry view by default. J2534
+    // vendors that ship 32-bit-only DLLs typically register themselves under
+    // Wow6432Node (the WOW64 view), which is otherwise invisible here -- merge
+    // both so those vendors show up in the adapter list at all. The merge
+    // itself lives in mergeJ2534DriverViews() (serial_port/j2534_driver_selection.h)
+    // so it's unit-tested without touching the real registry.
+    //
+    // Query the SAME registry path under both explicit formats rather than
+    // two different paths under one ambient format: QSettings::Registry32Format
+    // already forces WOW64 redirection, and a literal Wow6432Node-prefixed path
+    // is never re-redirected -- combining the two would silently query the same
+    // 32-bit store twice on a real Windows build. Explicit
+    // Registry64Format/Registry32Format sidesteps that ambiguity entirely.
+    static const QSettings::Format kFormats[] = {
+        QSettings::Registry64Format,
+        QSettings::Registry32Format,
+    };
+
+    QList<QMap<QString, QString>> views;
+    for (QSettings::Format format : kFormats)
     {
-        QString vendor = i;
-        // emit LOG_D("J2534 Drivers: " + vendor, true, true);
-        vendor.replace("\\", "/");
-        QString dllName = registry.value(i + "/FunctionLibrary").toString();
-        drivers_map[vendor] = dllName;
-        emit LOG_D(dllName + ", ", false, false);
+        QSettings registry("HKEY_LOCAL_MACHINE\\SOFTWARE\\PassThruSupport.04.04", format);
+        QMap<QString, QString> view;
+        for (const QString& i : registry.childGroups())
+        {
+            QString vendor = i;
+            vendor.replace("\\", "/");
+            view[vendor] = registry.value(i + "/FunctionLibrary").toString();
+        }
+        views.append(view);
     }
+
+    QMap<QString, QString> drivers_map = mergeJ2534DriverViews(views);
+    emit LOG_D("Found installed drivers: ", true, false);
+    for (auto it = drivers_map.constBegin(); it != drivers_map.constEnd(); ++it)
+        emit LOG_D(it.value() + ", ", false, false);
     emit LOG_D(" ", false, true);
     return drivers_map;
 }
