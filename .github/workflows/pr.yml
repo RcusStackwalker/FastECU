@@ -301,6 +301,11 @@ jobs:
         run: |
           bazel build -k --config=release //:fastecu //tests/...
 
+      - name: Build x64 pe_bitness fixture (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          bazel build -k --config=release //:pe_bitness_x64_fixture
+
       - name: Test Bazel targets
         run: |
           bazel test -k --config=release //tests/... //:qmake_bazel_sync //:bazel_openssl_wiring
