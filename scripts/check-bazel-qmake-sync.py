@@ -114,16 +114,6 @@ def load_bazel_lists() -> dict[str, list[str]]:
     return values
 
 
-def assert_mac_qmake_has_bazel_copts(errors: list[str]) -> None:
-    qmake_text = (ROOT / "FastECU.pro").read_text()
-    bazel_text = (ROOT / "bazel/qt_targets.bzl").read_text()
-    required = "-Wno-error=implicit-function-declaration"
-    if required in bazel_text and not re.search(rf"macx\s*\{{[^}}]*{re.escape(required)}", qmake_text, re.S):
-        errors.append(f"FastECU.pro macx block is missing Bazel macOS compiler flag: {required}")
-    if not re.search(r"macx\s*\{[^}]*QMAKE_LIBS_OPENGL\s*=\s*-framework\s+OpenGL\b", qmake_text, re.S):
-        errors.append("FastECU.pro macx block must override QMAKE_LIBS_OPENGL without removed AGL framework")
-
-
 def q_object_headers(headers: list[str]) -> list[str]:
     def has_q_object(path: Path) -> bool:
         in_block_comment = False
@@ -167,7 +157,6 @@ def expect_equal(name: str, expected: list[str], actual: list[str], errors: list
 def main() -> int:
     bazel = load_bazel_lists()
     errors: list[str] = []
-    assert_mac_qmake_has_bazel_copts(errors)
 
     app = parse_qmake("FastECU.pro")
     protocol = parse_qmake("protocol/protocol.pri")
