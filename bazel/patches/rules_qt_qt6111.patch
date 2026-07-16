@@ -1,0 +1,80 @@
+diff --git a/extension/download_qt.bzl b/extension/download_qt.bzl
+--- a/extension/download_qt.bzl
++++ b/extension/download_qt.bzl
+@@ -163,11 +163,13 @@ def _download_qt_impl(rctx):
+     rctx.file("MODULE.bazel", content = "module(name = {})".format(rctx.attr.name))
+
++    # Qt 6.11.1 uses the same generic repository BUILD definitions as 6.8.3.
++    build_file = str(rctx.attr.build_file).replace("/6.11.1/", "/6.8.3/")
+     # Write the qt_libraries definition file from the same directory as the build_file
+-    build_file_dir = "/".join(str(rctx.attr.build_file).split("/")[:-1])
++    build_file_dir = "/".join(build_file.split("/")[:-1])
+     qt_libraries_path = build_file_dir + "/qt_libraries.bzl"
+     qt_library_defs = rctx.read(Label(qt_libraries_path))
+     rctx.file("qt_libraries.bzl", content = qt_library_defs)
+
+     # Write the toplevel BUILD.bazel file, removing the @rules_qt since the libraries def is contained therein
+-    build_file_contents = rctx.read(rctx.attr.build_file)
++    build_file_contents = rctx.read(Label(build_file))
+     rctx.file("BUILD.bazel", content = build_file_contents.replace("@rules_qt", ""))
+diff --git a/extension/qt_modules.bzl b/extension/qt_modules.bzl
+--- a/extension/qt_modules.bzl
++++ b/extension/qt_modules.bzl
+@@ -292,6 +292,13 @@ QT_MODULES = {
+                 "sha256": "e330eb3abed3e0b9c9a278da971ec67306969f35020a3d54350a6ee86d57983d",
+             },
+         },
++        "6.11.1": {
++            "qtbase": {"url": QT_BASE_DOWNLOAD_URL + "linux_x64/desktop/qt6_6111/qt6_6111/qt.qt6.6111.linux_gcc_64/6.11.1-0-202605090529qtbase-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z", "sha256": ""},
++            "qtcharts": {"url": QT_BASE_DOWNLOAD_URL + "linux_x64/desktop/qt6_6111/qt6_6111/qt.qt6.6111.addons.qtcharts.linux_gcc_64/6.11.1-0-202605090529qtcharts-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z", "sha256": ""},
++            "qtremoteobjects": {"url": QT_BASE_DOWNLOAD_URL + "linux_x64/desktop/qt6_6111/qt6_6111/qt.qt6.6111.addons.qtremoteobjects.linux_gcc_64/6.11.1-0-202605090529qtremoteobjects-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z", "sha256": ""},
++            "qtserialport": {"url": QT_BASE_DOWNLOAD_URL + "linux_x64/desktop/qt6_6111/qt6_6111/qt.qt6.6111.addons.qtserialport.linux_gcc_64/6.11.1-0-202605090529qtserialport-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z", "sha256": ""},
++            "qtwebsockets": {"url": QT_BASE_DOWNLOAD_URL + "linux_x64/desktop/qt6_6111/qt6_6111/qt.qt6.6111.addons.qtwebsockets.linux_gcc_64/6.11.1-0-202605090529qtwebsockets-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z", "sha256": ""},
++        },
+     },
+     "macos": {
+         "6.8.3": {
+@@ -429,6 +437,13 @@ QT_MODULES = {
+                 "sha256": "",
+             },
+         },
++        "6.11.1": {
++            "qtbase": {"url": QT_BASE_DOWNLOAD_URL + "mac_x64/desktop/qt6_6111/qt6_6111/qt.qt6.6111.clang_64/6.11.1-0-202605090526qtbase-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z", "sha256": ""},
++            "qtcharts": {"url": QT_BASE_DOWNLOAD_URL + "mac_x64/desktop/qt6_6111/qt6_6111/qt.qt6.6111.addons.qtcharts.clang_64/6.11.1-0-202605090526qtcharts-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z", "sha256": ""},
++            "qtremoteobjects": {"url": QT_BASE_DOWNLOAD_URL + "mac_x64/desktop/qt6_6111/qt6_6111/qt.qt6.6111.addons.qtremoteobjects.clang_64/6.11.1-0-202605090526qtremoteobjects-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z", "sha256": ""},
++            "qtserialport": {"url": QT_BASE_DOWNLOAD_URL + "mac_x64/desktop/qt6_6111/qt6_6111/qt.qt6.6111.addons.qtserialport.clang_64/6.11.1-0-202605090526qtserialport-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z", "sha256": ""},
++            "qtwebsockets": {"url": QT_BASE_DOWNLOAD_URL + "mac_x64/desktop/qt6_6111/qt6_6111/qt.qt6.6111.addons.qtwebsockets.clang_64/6.11.1-0-202605090526qtwebsockets-MacOS-MacOS_15-Clang-MacOS-MacOS_15-X86_64-ARM64.7z", "sha256": ""},
++        },
+     },
+     "windows": {
+         "6.4.0": {
+@@ -463,5 +479,12 @@ QT_MODULES = {
+                 "sha256": "",
+             },
+         },
++        "6.11.1": {
++            "qtbase": {"url": QT_BASE_DOWNLOAD_URL + "windows_x86/desktop/qt6_6111/qt6_6111_msvc2022_64/qt.qt6.6111.win64_msvc2022_64/6.11.1-0-202605090529qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z", "sha256": ""},
++            "qtcharts": {"url": QT_BASE_DOWNLOAD_URL + "windows_x86/desktop/qt6_6111/qt6_6111_msvc2022_64/qt.qt6.6111.addons.qtcharts.win64_msvc2022_64/6.11.1-0-202605090529qtcharts-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z", "sha256": ""},
++            "qtremoteobjects": {"url": QT_BASE_DOWNLOAD_URL + "windows_x86/desktop/qt6_6111/qt6_6111_msvc2022_64/qt.qt6.6111.addons.qtremoteobjects.win64_msvc2022_64/6.11.1-0-202605090529qtremoteobjects-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z", "sha256": ""},
++            "qtserialport": {"url": QT_BASE_DOWNLOAD_URL + "windows_x86/desktop/qt6_6111/qt6_6111_msvc2022_64/qt.qt6.6111.addons.qtserialport.win64_msvc2022_64/6.11.1-0-202605090529qtserialport-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z", "sha256": ""},
++            "qtwebsockets": {"url": QT_BASE_DOWNLOAD_URL + "windows_x86/desktop/qt6_6111/qt6_6111_msvc2022_64/qt.qt6.6111.addons.qtwebsockets.win64_msvc2022_64/6.11.1-0-202605090529qtwebsockets-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z", "sha256": ""},
++        },
+     },
+ }
+diff --git a/extension/qt/6.8.3/mac_aarch64.BUILD b/extension/qt/6.8.3/mac_aarch64.BUILD
+--- a/extension/qt/6.8.3/mac_aarch64.BUILD
++++ b/extension/qt/6.8.3/mac_aarch64.BUILD
+@@ -43,6 +43,13 @@ _framework_names = {library_name: ("Qt" + library_name[3:] if library_name.sta
+     if _framework_names[library_name] not in _available_framework_names
+ ]
+
++alias(name = "qt_core", actual = ":qt_core_mac")
++alias(name = "qt_widgets", actual = ":qt_widgets_mac")
++alias(name = "qt_charts", actual = ":qt_charts_mac")
++alias(name = "qt_remote_objects", actual = ":qt_remote_objects_mac")
++alias(name = "qt_serial_port", actual = ":qt_serial_port_mac")
++alias(name = "qt_web_sockets", actual = ":qt_web_sockets_mac")
++
+ cc_library(
+     name = "qt_hdrs",
+     hdrs = glob(["include/**"]),

@@ -1,1 +1,1 @@
-exports_files(["rules_qt_windows_addons.patch"])
+exports_files(["rules_qt_qt6111.patch"])
