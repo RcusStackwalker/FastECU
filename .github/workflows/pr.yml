@@ -300,7 +300,7 @@ jobs:
 
       - name: Test Bazel targets
         run: |
-          bazel test -k --config=release //tests/... //:qmake_bazel_sync //:bazel_openssl_wiring
+          bazel test -k --config=release //tests/... //:qmake_bazel_sync //:bazel_openssl_wiring //:qt_version_sync
 
       - name: clang-tidy report
         continue-on-error: true
