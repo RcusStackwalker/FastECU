@@ -230,6 +230,18 @@ py_test(
 )
 
 py_test(
+    name = "qt_version_sync",
+    size = "small",
+    srcs = ["scripts/check-qt-version-sync.py"],
+    data = [
+        ".github/workflows/pr.yml",
+        ".github/workflows/release.yml",
+        "MODULE.bazel",
+    ],
+    main = "scripts/check-qt-version-sync.py",
+)
+
+py_test(
     name = "openpty_includes",
     size = "small",
     srcs = ["scripts/check-openpty-includes.py"],
