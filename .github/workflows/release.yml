@@ -91,6 +91,20 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install openssl@3
 
+      - uses: bazel-contrib/setup-bazel@c5acdfb288317d0b5c0bbd7a396a3dc868bb0f86 # 0.19.0
+        if: runner.os == 'Windows'
+        with:
+          bazelisk-cache: true
+          repository-cache: true
+          disk-cache: ${{ github.workflow }}-x86-bridge
+
+      - name: Build 32-bit J2534 bridge helper (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          bazel build --config=release //serial_port/j2534_bridge_host:j2534_bridge_host_x86
+          copy bazel-bin\serial_port\j2534_bridge_host\j2534_bridge_host_x86.exe .\j2534_bridge_host.exe
+
       - name: Build Windows portable package
         if: runner.os == 'Windows'
         shell: pwsh
@@ -100,6 +114,7 @@ jobs:
           mkdir dist
           copy FastECU.exe dist\
           copy "$env:OPENSSL_ROOT/bin/$env:OPENSSL_CRYPTO_DLL" dist\
+          copy j2534_bridge_host.exe dist\
           windeployqt dist\FastECU.exe
           Compress-Archive -Path dist\* -DestinationPath FastECU-${{ needs.release.outputs.tag }}-windows.zip
 
