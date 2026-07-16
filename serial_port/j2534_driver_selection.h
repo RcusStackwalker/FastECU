@@ -4,6 +4,8 @@
 #include <QString>
 #include <QStringList>
 
+#include <utility>
+
 inline QString resolveJ2534DllForConnection(const QString& selectedVendor,
                                             const QString& installedDllName,
                                             const QStringList& detectedDrivers)
@@ -11,21 +13,19 @@ inline QString resolveJ2534DllForConnection(const QString& selectedVendor,
     return detectedDrivers.contains(selectedVendor) ? installedDllName : QString();
 }
 
-// Merges vendor -> DLL-path maps from multiple registry views (e.g. the
-// native view and the Wow6432Node view a 32-bit-only J2534 vendor may have
-// registered under instead). Earlier entries in registryViews win on a
-// vendor-name collision -- pure function, no registry access, fully
-// unit-testable independent of QSettings/Windows.
-inline QMap<QString, QString> mergeJ2534DriverViews(const QList<QMap<QString, QString>>& registryViews)
+// Merges vendor -> DLL-path maps from multiple registry views. Later entries
+// overwrite earlier values on vendor-name collision, matching the production
+// Registry32Format base + Registry64Format overlay order.
+template <typename... RegistryViews>
+inline QMap<QString, QString> mergeJ2534DriverViews(QMap<QString, QString> firstView, RegistryViews... registryViews)
 {
-    QMap<QString, QString> merged;
-    for (const auto& view : registryViews)
+    QMap<QString, QString> merged = std::move(firstView);
+    const auto overlay = [&merged](QMap<QString, QString>& view)
     {
-        for (auto it = view.constBegin(); it != view.constEnd(); ++it)
-        {
-            if (!merged.contains(it.key()))
-                merged[it.key()] = it.value();
-        }
-    }
+        for (auto&& [vendor, dllPath] : view.asKeyValueRange())
+            merged[vendor] = std::move(dllPath);
+    };
+
+    (overlay(registryViews), ...);
     return merged;
 }
