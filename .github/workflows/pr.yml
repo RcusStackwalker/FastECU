@@ -135,7 +135,7 @@ jobs:
       # regression in that path fails a PR instead of a public release. Also
       # uploaded below so a reviewer can test the real build (including the
       # 32-bit J2534 bridge helper) against real hardware before merging.
-      - name: Build and package Windows static (verify only)
+      - name: Package app (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
