@@ -15,9 +15,17 @@ def module_qt_versions(text: str) -> set[str]:
 
 
 def workflow_qt_version(text: str, path: str) -> str | None:
-    match = re.search(r"^QT_VERSION:\s*['\"]([^'\"]+)['\"]\s*$", text, re.MULTILINE)
-    if match:
-        return match.group(1)
+    in_top_level_env = False
+    for line in text.splitlines():
+        if re.fullmatch(r"env:\s*", line):
+            in_top_level_env = True
+            continue
+        if in_top_level_env:
+            if line and not line[0].isspace():
+                break
+            match = re.fullmatch(r"  QT_VERSION:\s*['\"]([^'\"]+)['\"]\s*", line)
+            if match:
+                return match.group(1)
     print(f"{path} must define a top-level QT_VERSION", file=sys.stderr)
     return None
 
