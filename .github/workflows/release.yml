@@ -7,6 +7,13 @@ on:
 permissions:
   contents: write
 
+env:
+  QT_MODULES: qtcharts qtserialport qtremoteobjects qtwebsockets
+  # rules_qt6 currently supports Bazel builds on 6.8.3; macOS qmake uses the
+  # newer version that was already working before PR #16.
+  QT_VERSION: '6.8.3'
+  QT_QMAKE_MACOS_VERSION: '6.11.1'
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -40,9 +47,9 @@ jobs:
         if: runner.os == 'Windows'
         uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
         with:
-          version: '6.8.3'
+          version: ${{ env.QT_VERSION }}
           arch: 'win64_mingw'
-          modules: 'qtcharts qtserialport qtremoteobjects qtwebsockets qt5compat'
+          modules: ${{ env.QT_MODULES }}
           tools: 'tools_mingw1310,qt.tools.win64_mingw1310'
           add-tools-to-path: true
 
@@ -50,8 +57,8 @@ jobs:
         if: runner.os == 'macOS'
         uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
         with:
-          version: '6.11.1'
-          modules: 'qtcharts qtserialport qtremoteobjects qtwebsockets qt5compat'
+          version: ${{ env.QT_QMAKE_MACOS_VERSION }}
+          modules: ${{ env.QT_MODULES }}
 
       - name: Install OpenSSL (Windows)
         if: runner.os == 'Windows'
@@ -73,10 +80,6 @@ jobs:
           if ($cryptoDlls.Count -eq 0) {
             throw "Could not find a libcrypto-*.dll in $opensslDir/bin"
           }
-          # OpenSSL installers can ship a legacy-SONAME DLL alongside the current one
-          # (e.g. libcrypto-3-x64.dll next to libcrypto-4-x64.dll) for back-compat with
-          # other apps. The headers under $opensslDir/include always match the newest
-          # (highest SONAME) DLL, so prefer that one rather than an arbitrary match.
           $cryptoDll = ($cryptoDlls | Sort-Object { [int]([regex]::Match($_.Name, 'libcrypto-(\d+)-').Groups[1].Value) } -Descending | Select-Object -First 1).Name
           if ($cryptoDlls.Count -gt 1) {
             Write-Host "Multiple libcrypto-*.dll candidates found ($($cryptoDlls.Name -join ', ')), using highest SONAME: $cryptoDll"
