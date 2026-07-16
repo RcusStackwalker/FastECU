@@ -20,7 +20,8 @@ template <typename... RegistryViews>
 inline QMap<QString, QString> mergeJ2534DriverViews(QMap<QString, QString> firstView, RegistryViews... registryViews)
 {
     QMap<QString, QString> merged = std::move(firstView);
-    const auto overlay = [&merged](QMap<QString, QString>& view) {
+    const auto overlay = [&merged](QMap<QString, QString>& view)
+    {
         for (auto&& [vendor, dllPath] : view.asKeyValueRange())
             merged[vendor] = std::move(dllPath);
     };

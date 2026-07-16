@@ -430,15 +430,17 @@ QStringList SerialPortActionsDirect::check_serial_ports()
 
 namespace
 {
+constexpr auto kJ2534RegistryKey = "HKEY_LOCAL_MACHINE\\SOFTWARE\\PassThruSupport.04.04";
+
 QMap<QString, QString> readJ2534RegistryView(QSettings::Format format)
 {
-    QSettings registry("HKEY_LOCAL_MACHINE\\SOFTWARE\\PassThruSupport.04.04", format);
+    QSettings registry(kJ2534RegistryKey, format);
     QMap<QString, QString> drivers;
-    for (const QString& i : registry.childGroups())
+    for (const QString& group : registry.childGroups())
     {
-        QString vendor = i;
+        QString vendor = group;
         vendor.replace("\\", "/");
-        drivers[vendor] = registry.value(i + "/FunctionLibrary").toString();
+        drivers[vendor] = registry.value(group + "/FunctionLibrary").toString();
     }
     return drivers;
 }
@@ -493,8 +495,8 @@ QMap<QString, QString> SerialPortActionsDirect::getAllJ2534DriversNames()
         readJ2534RegistryView(QSettings::Registry64Format));
 
     emit LOG_D("Found installed drivers: ", true, false);
-    for (auto it = drivers_map.constBegin(); it != drivers_map.constEnd(); ++it)
-        emit LOG_D(it.value() + ", ", false, false);
+    for (const QString& dllPath : drivers_map)
+        emit LOG_D(dllPath + ", ", false, false);
     emit LOG_D(" ", false, true);
     return drivers_map;
 }
