@@ -333,6 +333,7 @@ APP_UNIX_HDRS = [
 
 APP_WIN_SRCS = [
     "serial_port/J2534_win.cpp",
+    "serial_port/j2534_bridge_client.cpp",
     "serial_port/j2534_bridge_protocol.cpp",
     "serial_port/pe_bitness.cpp",
 ]
@@ -340,6 +341,7 @@ APP_WIN_SRCS = [
 APP_WIN_HDRS = [
     "serial_port/J2534_tactrix_win.h",
     "serial_port/J2534_win.h",
+    "serial_port/j2534_bridge_client.h",
     "serial_port/j2534_bridge_protocol.h",
     "serial_port/pe_bitness.h",
 ]
@@ -514,6 +516,7 @@ MUT_DMA_TESTS_UNIX_REPS = [
 
 MUT_DMA_TESTS_WIN32_SRCS = [
     "../serial_port/J2534_win.cpp",
+    "../serial_port/j2534_bridge_client.cpp",
     "../serial_port/j2534_bridge_protocol.cpp",
     "../serial_port/pe_bitness.cpp",
 ]
@@ -521,6 +524,7 @@ MUT_DMA_TESTS_WIN32_SRCS = [
 MUT_DMA_TESTS_WIN32_HDRS = [
     "../serial_port/J2534_tactrix_win.h",
     "../serial_port/J2534_win.h",
+    "../serial_port/j2534_bridge_client.h",
     "../serial_port/j2534_bridge_protocol.h",
     "../serial_port/pe_bitness.h",
 ]
