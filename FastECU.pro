@@ -34,10 +34,12 @@ win32 {
     LIBS += -lopengl32 -lsetupapi
     SOURCES += \
     serial_port/J2534_win.cpp \
-    serial_port/j2534_bridge_protocol.cpp
+    serial_port/j2534_bridge_protocol.cpp \
+    serial_port/pe_bitness.cpp
     HEADERS += \
     serial_port/J2534_win.h \
-    serial_port/j2534_bridge_protocol.h
+    serial_port/j2534_bridge_protocol.h \
+    serial_port/pe_bitness.h
     HEADERS += \
     serial_port/J2534_tactrix_win.h
     INCLUDEPATH += $$OPENSSL_ROOT/include

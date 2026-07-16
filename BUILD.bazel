@@ -1,3 +1,4 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_python//python:defs.bzl", "py_test")
 load("//bazel:fastecu_sources.bzl", "APP_COMMON_HDRS", "APP_COMMON_SRCS", "APP_FORMS", "APP_MAIN_SRCS", "APP_MOC_HDRS", "APP_REPS", "APP_RESOURCES", "APP_UNIX_HDRS", "APP_UNIX_SRCS", "APP_WIN_HDRS", "APP_WIN_SRCS")
@@ -160,6 +161,30 @@ cc_library(
         "serial_port/j2534_bridge_protocol.h",
     ],
     includes = ["serial_port"],
+    target_compatible_with = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+)
+
+cc_library(
+    name = "pe_bitness",
+    srcs = ["serial_port/pe_bitness.cpp"],
+    hdrs = ["serial_port/pe_bitness.h"],
+    includes = ["serial_port"],
+    target_compatible_with = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+)
+
+# 64-bit fixture for tests/pe_bitness_test.cpp's PE-bitness-detector test: a
+# trivial binary built for the default (host) platform, i.e. genuinely x64 on
+# this repo's Windows runners -- no cross-compilation involved, unlike the
+# 32-bit fixture (bazel/platforms:x86_smoke_test_x86).
+cc_binary(
+    name = "pe_bitness_x64_fixture",
+    srcs = ["//bazel/platforms:x86_smoke_test.cc"],
     target_compatible_with = select({
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],

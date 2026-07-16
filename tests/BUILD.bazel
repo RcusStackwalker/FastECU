@@ -140,3 +140,26 @@ cc_test(
     }),
     deps = ["//:j2534_bridge_protocol"],
 )
+
+cc_test(
+    name = "pe_bitness_test",
+    srcs = ["pe_bitness_test.cpp"],
+    # --config=release implies -DNDEBUG (via --compilation_mode=opt), which
+    # would silently compile out this test's assert()-based pass/fail checks.
+    # /UNDEBUG re-enables them. MSVC-only flag; safe here since this target is
+    # Windows-only (target_compatible_with below).
+    copts = ["/UNDEBUG"],
+    data = [
+        "//:pe_bitness_x64_fixture",
+        "//bazel/platforms:x86_smoke_test_x86",
+    ],
+    env = {
+        "PE_BITNESS_X86_FIXTURE": "$(location //bazel/platforms:x86_smoke_test_x86)",
+        "PE_BITNESS_X64_FIXTURE": "$(location //:pe_bitness_x64_fixture)",
+    },
+    target_compatible_with = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = ["//:pe_bitness"],
+)
