@@ -15,7 +15,7 @@ def module_qt_versions(text: str) -> set[str]:
 
 
 def workflow_qt_version(text: str, path: str) -> str | None:
-    match = re.search(r"^\s*QT_VERSION:\s*['\"]([^'\"]+)['\"]\s*$", text, re.MULTILINE)
+    match = re.search(r"^QT_VERSION:\s*['\"]([^'\"]+)['\"]\s*$", text, re.MULTILINE)
     if match:
         return match.group(1)
     print(f"{path} must define a top-level QT_VERSION", file=sys.stderr)
@@ -33,7 +33,9 @@ def main() -> int:
 
     for rel in (".github/workflows/pr.yml", ".github/workflows/release.yml"):
         actual = workflow_qt_version((ROOT / rel).read_text(), rel)
-        if expected and actual and actual != expected:
+        if actual is None:
+            errors.append(f"{rel} must define a top-level QT_VERSION")
+        elif expected and actual != expected:
             errors.append(f"{rel} QT_VERSION is {actual}, expected {expected} from MODULE.bazel")
 
     if errors:
