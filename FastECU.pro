@@ -53,6 +53,9 @@ unix:!macx {                 # Linux only
     LIBS += -lcrypto
 }
 macx {                       # macOS: openssl@3 is keg-only (Intel + Apple Silicon)
+    # Qt 6.8.3's arm64 headers trip newer macOS SDKs by calling __yield()
+    # without declaring it. Keep qmake aligned with Bazel's macOS workaround.
+    QMAKE_CXXFLAGS += -Wno-error=implicit-function-declaration
     # Requires: brew install openssl@3
     OPENSSL_PREFIX = $$system(brew --prefix openssl@3)
     isEmpty(OPENSSL_PREFIX): error("openssl@3 not found via Homebrew. Run: brew install openssl@3")
