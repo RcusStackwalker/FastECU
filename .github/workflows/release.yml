@@ -9,10 +9,7 @@ permissions:
 
 env:
   QT_MODULES: qtcharts qtserialport qtremoteobjects qtwebsockets
-  # rules_qt6 currently supports Bazel builds on 6.8.3; macOS qmake uses the
-  # newer version that was already working before PR #16.
-  QT_VERSION: '6.8.3'
-  QT_QMAKE_MACOS_VERSION: '6.11.1'
+  QT_VERSION: '6.11.1'
 
 jobs:
   release:
@@ -57,7 +54,7 @@ jobs:
         if: runner.os == 'macOS'
         uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
         with:
-          version: ${{ env.QT_QMAKE_MACOS_VERSION }}
+          version: ${{ env.QT_VERSION }}
           modules: ${{ env.QT_MODULES }}
 
       - name: Install OpenSSL (Windows)
