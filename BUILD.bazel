@@ -218,6 +218,17 @@ py_test(
 )
 
 py_test(
+    name = "clang_tidy_runner_test",
+    size = "small",
+    srcs = [
+        "scripts/clang_tidy_runner.py",
+        "scripts/clang_tidy_runner_test.py",
+    ],
+    imports = ["scripts"],
+    main = "scripts/clang_tidy_runner_test.py",
+)
+
+py_test(
     name = "bazel_openssl_wiring",
     size = "small",
     srcs = ["scripts/check-bazel-openssl.py"],
