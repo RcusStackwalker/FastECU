@@ -49,6 +49,9 @@ PLIST
 
 macdeployqt "$app"
 
+[ -d "$app/Contents/Frameworks/QtCore.framework" ] || { echo "macdeployqt did not bundle QtCore.framework" >&2; exit 1; }
+ls "$app"/Contents/Frameworks/libcrypto*.dylib >/dev/null 2>&1 || { echo "OpenSSL libcrypto not bundled in the .app" >&2; exit 1; }
+
 rm -f "$out_zip"
 ( cd "$work" && zip -r -y "$out_zip" FastECU.app )
 echo "wrote $out_zip"
