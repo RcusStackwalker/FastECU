@@ -46,7 +46,7 @@ def load_project_entries(workspace: Path, database: Path) -> list[dict[str, obje
         raise WorkflowError(f"compilation database was not generated: {database}")
     try:
         value = json.loads(database.read_text())
-    except (OSError, json.JSONDecodeError) as error:
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
         raise WorkflowError(f"compilation database is malformed: {error}") from error
     if not isinstance(value, list):
         raise WorkflowError("compilation database is malformed: expected a JSON list")
