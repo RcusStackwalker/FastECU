@@ -226,6 +226,7 @@ py_test(
     ],
     imports = ["scripts"],
     main = "scripts/clang_tidy_runner_test.py",
+    deps = ["@python_deps//pyyaml"],
 )
 
 py_test(
@@ -265,13 +266,14 @@ py_binary(
     args = [
         "report",
         "--compdb-tool",
-        "$(location :clang_tidy_compdb)",
+        "$(location //bazel/compile_commands:refresh)",
     ],
     data = [
         ".clang-tidy",
-        ":clang_tidy_compdb",
+        "//bazel/compile_commands:refresh",
     ],
     main = "scripts/clang_tidy_runner.py",
+    deps = ["@python_deps//pyyaml"],
 )
 
 py_binary(
@@ -280,11 +282,12 @@ py_binary(
     args = [
         "fix",
         "--compdb-tool",
-        "$(location :clang_tidy_compdb)",
+        "$(location //bazel/compile_commands:refresh)",
     ],
     data = [
         ".clang-tidy",
-        ":clang_tidy_compdb",
+        "//bazel/compile_commands:refresh",
     ],
     main = "scripts/clang_tidy_runner.py",
+    deps = ["@python_deps//pyyaml"],
 )
