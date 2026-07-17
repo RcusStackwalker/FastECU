@@ -34,6 +34,28 @@ https://www.paypal.com/paypalme/miikasyvanen
 I can also be reached via email: info@fastecu.fi
 Support forum found here: https://www.fastecu.fi/forum/
 
+### clang-tidy
+
+The Bazel clang-tidy targets require a system LLVM installation containing
+`clang-tidy` and `run-clang-tidy`. Autofix also requires
+`clang-apply-replacements`.
+
+Run advisory analysis on every translation unit buildable for the current
+platform:
+
+```sh
+bazel run //:clang_tidy_report
+```
+
+Apply available fixes on macOS or Linux:
+
+```sh
+bazel run //:clang_tidy_fix
+```
+
+Findings remain advisory. Missing tools, invalid compilation commands, and
+execution failures return a nonzero status.
+
 ### Flashing with OBD
 - **Supported ECU models**
   - Subaru Forester, Impreza, Legacy Turbo 1999-2000 K-Line (UJ WA12212920/128KB)
