@@ -80,8 +80,8 @@ class FlashEcuSubaruHitachiM32rKlineOperation : public FlashOperationWorker
 
     QByteArray generate_seed_key(const QByteArray& seed);
 
-    QByteArray encrypt_32bit_payload(QByteArray buf, uint32_t len);
-    QByteArray decrypt_32bit_payload(QByteArray buf, uint32_t len);
+    QByteArray encrypt_32bit_payload(const QByteArray& buf, uint32_t len);
+    QByteArray decrypt_32bit_payload(const QByteArray& buf, uint32_t len);
     QByteArray calculate_32bit_payload(const QByteArray& buf, uint32_t len, const uint16_t *keytogenerateindex, const uint8_t *indextransformation);
 
     SerialPortActions *serial;

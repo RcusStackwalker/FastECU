@@ -999,7 +999,7 @@ QByteArray FlashEcuSubaruHitachiM32rKlineOperation::generate_seed_key(const QByt
  * @return encrypted data
  */
 
-QByteArray FlashEcuSubaruHitachiM32rKlineOperation::encrypt_32bit_payload(QByteArray buf, uint32_t len)
+QByteArray FlashEcuSubaruHitachiM32rKlineOperation::encrypt_32bit_payload(const QByteArray& buf, uint32_t len)
 {
     QByteArray encrypted;
 
@@ -1012,12 +1012,12 @@ QByteArray FlashEcuSubaruHitachiM32rKlineOperation::encrypt_32bit_payload(QByteA
         0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
-    encrypted = calculate_32bit_payload(std::move(buf), len, keytogenerateindex, indextransformation);
+    encrypted = calculate_32bit_payload(buf, len, keytogenerateindex, indextransformation);
 
     return encrypted;
 }
 
-QByteArray FlashEcuSubaruHitachiM32rKlineOperation::decrypt_32bit_payload(QByteArray buf, uint32_t len)
+QByteArray FlashEcuSubaruHitachiM32rKlineOperation::decrypt_32bit_payload(const QByteArray& buf, uint32_t len)
 {
     QByteArray decrypt;
 
@@ -1031,7 +1031,7 @@ QByteArray FlashEcuSubaruHitachiM32rKlineOperation::decrypt_32bit_payload(QByteA
         0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
-    decrypt = calculate_32bit_payload(std::move(buf), len, keytogenerateindex, indextransformation);
+    decrypt = calculate_32bit_payload(buf, len, keytogenerateindex, indextransformation);
 
     return decrypt;
 }

@@ -24,7 +24,7 @@ class LogBox : public QWidget
     explicit LogBox(QWidget *parent = nullptr);
 
     QGroupBox *drawLogBoxes(const QString& type, uint8_t index, uint8_t switchBoxCount, const QString& title, const QString& unit, const QString& value);
-    QGroupBox *drawLogSwitchBox(uint8_t index, uint8_t switchBoxCount, QString title, const QString& unit, const QString& value);
+    QGroupBox *drawLogSwitchBox(uint8_t index, uint8_t switchBoxCount, const QString& title, const QString& unit, const QString& value);
     QGroupBox *drawLogValueBox(uint8_t index, uint8_t logBoxCount, const QString& title, const QString& unit, const QString& value);
     void updateSwitchBox();
     void updateLogBox();
