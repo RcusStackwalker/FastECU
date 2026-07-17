@@ -111,7 +111,9 @@ class MockOpenPort : public QObject
         char buf[512];
         const ssize_t n = ::read(fd, buf, sizeof(buf));
         if (n <= 0)
+        {
             return;
+        }
         rx.append(buf, static_cast<int>(n));
         process();
     }
@@ -128,19 +130,27 @@ class MockOpenPort : public QObject
                 rx.remove(0, take);
                 rawRemaining -= take;
                 if (rawRemaining == 0)
+                {
                     sawWrite = true;
+                }
                 else
+                {
                     return; // need more raw bytes
+                }
                 continue;
             }
 
             const int nl = rx.indexOf('\n');
             if (nl < 0)
+            {
                 return;
+            }
             const QByteArray line = rx.left(nl).trimmed();
             rx.remove(0, nl + 1);
             if (line.isEmpty())
+            {
                 continue;
+            }
             handleLine(line);
         }
     }
@@ -157,11 +167,17 @@ class MockOpenPort : public QObject
             return; // a data write is not acked by the dongle
         }
         if (line.startsWith("ati"))
+        {
             reply("ari 1.17.4877\r\n");
+        }
         else if (line.startsWith("ata"))
+        {
             reply("ari\r\n");
+        }
         else
+        {
             reply("aro\r\n"); // generic ack
+        }
     }
 
     void reply(const char *s)

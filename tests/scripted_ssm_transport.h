@@ -44,16 +44,22 @@ class ScriptedSsmTransport : public ISsmTransport
     int write(bytes::ByteView data) override
     {
         if (wIdx_ >= expected_.size() || expected_.at(wIdx_) != bytes::Bytes(data.begin(), data.end()))
+        {
             ok_ = false;
+        }
         else
+        {
             ++wIdx_;
+        }
         return static_cast<int>(data.size());
     }
 
     bytes::Bytes read(int) override
     {
         if (rIdx_ >= reads_.size())
+        {
             return {};
+        }
         return reads_.at(rIdx_++);
     }
 

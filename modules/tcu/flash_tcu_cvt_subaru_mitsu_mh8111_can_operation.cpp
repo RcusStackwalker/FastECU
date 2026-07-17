@@ -4,11 +4,12 @@
 #include "serial_port_actions.h"
 
 #include <QElapsedTimer>
+#include <utility>
 
 FlashTcuCvtSubaruMitsuMH8111CanOperation::FlashTcuCvtSubaruMitsuMH8111CanOperation(
     SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
     QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(std::move(cmd_type))
 {
 }
 
@@ -111,10 +112,14 @@ int FlashTcuCvtSubaruMitsuMH8111CanOperation::connect_bootloader()
 
             QString ecuid;
             for (int i = 0; i < 5; i++)
+            {
                 ecuid.append(QString("%1").arg((uint8_t)response.at(i), 2, 16, QLatin1Char('0')).toUpper());
+            }
             emit LOG_I("ECU ID: " + ecuid, true, true);
             if (cmd_type == "read")
+            {
                 ecuCalDef->RomId = ecuid + "_";
+            }
         }
         else
         {
@@ -147,7 +152,9 @@ int FlashTcuCvtSubaruMitsuMH8111CanOperation::connect_bootloader()
 
             emit LOG_I("CAL ID: " + response, true, true);
             if (cmd_type == "read")
+            {
                 ecuCalDef->RomId.insert(0, QString(response) + "_");
+            }
         }
         else
         {
@@ -411,7 +418,9 @@ int FlashTcuCvtSubaruMitsuMH8111CanOperation::read_mem(uint32_t start_addr, uint
     while (willget)
     {
         if (stopRequested())
+        {
             return STATUS_ERROR;
+        }
 
         uint32_t numblocks = 1;
         unsigned curspeed = 0, tleft;
@@ -457,7 +466,9 @@ int FlashTcuCvtSubaruMitsuMH8111CanOperation::read_mem(uint32_t start_addr, uint
         timer.start();
 
         if (cplen > 0 && chrono > 0)
+        {
             curspeed = cplen * (1000.0f / chrono);
+        }
 
         if (!curspeed)
         {
@@ -500,7 +511,7 @@ int FlashTcuCvtSubaruMitsuMH8111CanOperation::read_mem(uint32_t start_addr, uint
     output.append((uint8_t)0xE1);
     output.append((uint8_t)0x37);
 
-    while (try_count < 6 && connected == false)
+    while (try_count < 6 && !connected)
     {
         serial->write_serial_data_echo_check(output);
         emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
@@ -688,13 +699,17 @@ int FlashTcuCvtSubaruMitsuMH8111CanOperation::reflash_block(const uint8_t *newda
         try_count++;
     }
     if (try_count == 6)
+    {
         return STATUS_ERROR;
+    }
 
     int data_bytes_sent = 0;
     for (blockctr = 0; blockctr < maxblocks; blockctr++)
     {
         if (stopRequested())
+        {
             return 0;
+        }
 
         blockaddr = start_address + blockctr * 256;
         output.clear();
@@ -761,7 +776,9 @@ int FlashTcuCvtSubaruMitsuMH8111CanOperation::reflash_block(const uint8_t *newda
         try_count++;
     }
     if (try_count == 20)
+    {
         return STATUS_ERROR;
+    }
 
     delay(100);
 
@@ -864,7 +881,9 @@ int FlashTcuCvtSubaruMitsuMH8111CanOperation::erase_mem()
         try_count++;
     }
     if (try_count == 20)
+    {
         return STATUS_ERROR;
+    }
 
     emit LOG_I("Erased! Starting Writing! Do Not Power Off!", true, true);
 
@@ -881,7 +900,7 @@ int FlashTcuCvtSubaruMitsuMH8111CanOperation::erase_mem()
  *
  * @return seed key (4 bytes)
  */
-QByteArray FlashTcuCvtSubaruMitsuMH8111CanOperation::generate_seed_key(QByteArray requested_seed)
+QByteArray FlashTcuCvtSubaruMitsuMH8111CanOperation::generate_seed_key(const QByteArray& requested_seed)
 {
     QByteArray key;
 
@@ -920,7 +939,7 @@ QByteArray FlashTcuCvtSubaruMitsuMH8111CanOperation::generate_seed_key(QByteArra
  * @return encrypted data
  */
 
-QByteArray FlashTcuCvtSubaruMitsuMH8111CanOperation::encrypt_payload(QByteArray buf, uint32_t len)
+QByteArray FlashTcuCvtSubaruMitsuMH8111CanOperation::encrypt_payload(const QByteArray& buf, uint32_t len)
 {
     QByteArray encrypted;
 
@@ -938,7 +957,7 @@ QByteArray FlashTcuCvtSubaruMitsuMH8111CanOperation::encrypt_payload(QByteArray 
     return encrypted;
 }
 
-QByteArray FlashTcuCvtSubaruMitsuMH8111CanOperation::decrypt_payload(QByteArray buf, uint32_t len)
+QByteArray FlashTcuCvtSubaruMitsuMH8111CanOperation::decrypt_payload(const QByteArray& buf, uint32_t len)
 {
     QByteArray decrypt;
 

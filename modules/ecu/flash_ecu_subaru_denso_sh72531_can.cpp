@@ -1,18 +1,26 @@
 #include <modules/ecu/flash_ecu_subaru_denso_sh72531_can.h>
+
+#include <utility>
 #include "flash_ecu_subaru_denso_sh72531_can_operation.h"
 #include "serial_port_actions.h"
 
-FlashEcuSubaruDensoSH72531Can::FlashEcuSubaruDensoSH72531Can(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent)
+FlashEcuSubaruDensoSH72531Can::FlashEcuSubaruDensoSH72531Can(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
     : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
 
     if (cmd_type == "test_write")
+    {
         this->setWindowTitle("Test write ROM " + ecuCalDef->FileName + " to ECU");
+    }
     else if (cmd_type == "write")
+    {
         this->setWindowTitle("Write ROM " + ecuCalDef->FileName + " to ECU");
+    }
     else if (cmd_type == "read")
+    {
         this->setWindowTitle("Read ROM from ECU");
+    }
 
     this->serial = serial;
 }
@@ -43,7 +51,7 @@ void FlashEcuSubaruDensoSH72531Can::run()
         connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashEcuSubaruDensoSH72531Can::LOG_D);
         connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
                 this, [this](QString msg)
-                { emit external_logger(msg); });
+                { emit external_logger(std::move(msg)); });
         connect(m_operation, &FlashOperationWorker::progressChanged,
                 this, &FlashEcuSubaruDensoSH72531Can::set_progressbar_value);
 
@@ -87,7 +95,9 @@ void FlashEcuSubaruDensoSH72531Can::run()
 void FlashEcuSubaruDensoSH72531Can::closeEvent(QCloseEvent *event)
 {
     if (m_operation)
+    {
         m_operation->requestStop();
+    }
 }
 
 void FlashEcuSubaruDensoSH72531Can::set_progressbar_value(int value)
@@ -99,5 +109,7 @@ void FlashEcuSubaruDensoSH72531Can::set_progressbar_value(int value)
         ui->progressbar->setValue(value);
     }
     if (valueChanged)
+    {
         emit external_logger(value);
+    }
 }

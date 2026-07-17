@@ -65,7 +65,9 @@ QVBoxLayout *Settings::create_files_config_page(FileActions::ConfigValuesStructu
 
     QCheckBox *romraider_defs_enabled = new QCheckBox("Enabled");
     if (configValues->use_romraider_definitions == "enabled")
+    {
         romraider_defs_enabled->setChecked(true);
+    }
     connect(romraider_defs_enabled, SIGNAL(stateChanged(int)), this, SLOT(romraider_defs_enabled_checkbox(int)));
 
     romraider_definition_files_list = new QListWidget;
@@ -77,7 +79,9 @@ QVBoxLayout *Settings::create_files_config_page(FileActions::ConfigValuesStructu
 
     QCheckBox *romraider_as_primary_def_base = new QCheckBox("Use as primary");
     if (configValues->primary_definition_base == "romraider")
+    {
         romraider_as_primary_def_base->setChecked(true);
+    }
     connect(romraider_as_primary_def_base, SIGNAL(stateChanged(int)), this, SLOT(romraider_as_primary_def_base_checkbox(int)));
 
     QPushButton *romraider_def_files_add_button = new QPushButton;
@@ -104,7 +108,9 @@ QVBoxLayout *Settings::create_files_config_page(FileActions::ConfigValuesStructu
 
     QCheckBox *ecuflash_defs_enabled = new QCheckBox("Enabled");
     if (configValues->use_ecuflash_definitions == "enabled")
+    {
         ecuflash_defs_enabled->setChecked(true);
+    }
     connect(ecuflash_defs_enabled, SIGNAL(stateChanged(int)), this, SLOT(ecuflash_defs_enabled_checkbox(int)));
 
     QGroupBox *ecuflash_def_dir_group = new QGroupBox(tr("EcuFlash Definition Files Directory"));
@@ -231,7 +237,9 @@ void Settings::create_list_icons()
 void Settings::change_page(QListWidgetItem *current, QListWidgetItem *previous)
 {
     if (!current)
+    {
         current = previous;
+    }
 
     ui->pages_widget->setCurrentIndex(ui->list_widget->row(current));
 }
@@ -239,25 +247,37 @@ void Settings::change_page(QListWidgetItem *current, QListWidgetItem *previous)
 void Settings::romraider_defs_enabled_checkbox(int state)
 {
     if (state)
+    {
         configValues->use_romraider_definitions = "enabled";
+    }
     else
+    {
         configValues->use_romraider_definitions = "disabled";
+    }
 }
 
 void Settings::ecuflash_defs_enabled_checkbox(int state)
 {
     if (state)
+    {
         configValues->use_ecuflash_definitions = "enabled";
+    }
     else
+    {
         configValues->use_ecuflash_definitions = "disabled";
+    }
 }
 
 void Settings::romraider_as_primary_def_base_checkbox(int state)
 {
     if (state)
+    {
         configValues->primary_definition_base = "romraider";
+    }
     else
+    {
         configValues->primary_definition_base = "ecuflash";
+    }
 }
 
 void Settings::toolbar_iconsize_value_changed(int value)
@@ -297,7 +317,9 @@ void Settings::set_romraider_logger_file()
         file_dir.append(def_file_dir);
     }
     else
+    {
         file_dir.append("./");
+    }
     QString filename = QFileDialog::getOpenFileName(this, tr("Add RomRaider logger file"), file_dir, tr("RomRaider logger file (*.xml)"));
     qDebug() << "Filename:" << filename;
     if (!filename.isEmpty())
@@ -362,7 +384,9 @@ void Settings::add_definition_files()
         file_dir.append(def_file_dir);
     }
     else
+    {
         file_dir.append("./");
+    }
     QString filename = QFileDialog::getOpenFileName(this, tr("Add RomRaider definition file"), file_dir, tr("RomRaider definition file (*.xml)"));
 
     if (!filename.isEmpty())

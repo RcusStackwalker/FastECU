@@ -41,12 +41,18 @@ bool MainWindow::ecu_init()
             if (configValues->flash_protocol_selected_make == "Subaru")
             {
                 if (configValues->flash_protocol_selected_log_transport == "CAN" || configValues->flash_protocol_selected_log_transport == "iso15765")
+                {
                     ssm_can_init();
+                }
                 else if (configValues->flash_protocol_selected_log_transport == "K-Line")
+                {
                     // serial->fast_init(output);
                     ssm_kline_init();
+                }
                 else if (configValues->flash_protocol_selected_log_transport == "SSM")
+                {
                     ssm_init();
+                }
             }
         }
     }
@@ -130,9 +136,13 @@ void MainWindow::ssm_init()
             emit LOG_D("ECU ID: " + ecuid, true, true);
             parse_log_value_list(received, "SSM");
             if (ecuid == "")
+            {
                 set_status_bar_label(true, false, "");
+            }
             else
+            {
                 set_status_bar_label(true, true, ecuid);
+            }
 
             received = serial->read_serial_data(100);
             while (received.length() > 0)
@@ -150,7 +160,9 @@ void MainWindow::ssm_init()
         }
     }
     else
+    {
         emit LOG_D("No response...", true, true);
+    }
 }
 
 void MainWindow::ssm_kline_init()
@@ -178,7 +190,9 @@ void MainWindow::ssm_kline_init()
             loopcount++;
         }
         if (received.length() < 4)
+        {
             return;
+        }
 
         emit LOG_D("SSM Init response header received", true, true);
         loopcount = 0;
@@ -188,7 +202,9 @@ void MainWindow::ssm_kline_init()
             loopcount++;
         }
         if (received.length() < (uint8_t)received.at(3) + 5)
+        {
             return;
+        }
 
         emit LOG_D("ECU INIT length: " + QString::number((uint8_t)received.at(3)) + " " + QString::number(received.length()), true, true);
         if (received.length() >= (uint8_t)received.at(3) + 5)
@@ -200,9 +216,13 @@ void MainWindow::ssm_kline_init()
             parse_log_value_list(received, "SSM");
             // emit LOG_D("ECU ID: " + ecuid, true, true);
             if (ecuid == "")
+            {
                 set_status_bar_label(true, false, "");
+            }
             else
+            {
                 set_status_bar_label(true, true, ecuid);
+            }
             return;
         }
         /*
@@ -233,9 +253,13 @@ void MainWindow::ssm_can_init()
     uint32_t control_unit_addr = 0;
 
     if (ecu_radio_button->isChecked())
+    {
         control_unit_addr = 0x7E0;
+    }
     else if (tcu_radio_button->isChecked())
+    {
         control_unit_addr = 0x7E1;
+    }
 
     const uint8_t cu_addr_b3 = (uint8_t)((control_unit_addr >> 24) & 0xFF);
     const uint8_t cu_addr_b2 = (uint8_t)((control_unit_addr >> 16) & 0xFF);
@@ -245,7 +269,9 @@ void MainWindow::ssm_can_init()
     emit LOG_D(QString(Q_FUNC_INFO) + " " + configValues->flash_protocol_selected_log_protocol, true, true);
 
     if (configValues->flash_protocol_selected_log_protocol == "CAN")
+    {
         received = serial->read_serial_data(receive_timeout);
+    }
     else if (configValues->flash_protocol_selected_log_transport == "iso15765")
     {
         // Set serial port
@@ -289,7 +315,7 @@ void MainWindow::ssm_can_init()
     }
 }
 
-void MainWindow::parse_log_value_list(QByteArray received, QString protocol)
+void MainWindow::parse_log_value_list(QByteArray received, const QString& protocol)
 {
     uint16_t enabled_log_value_count = 0;
     uint16_t enabled_log_switch_count = 0;
@@ -328,7 +354,9 @@ void MainWindow::parse_log_value_list(QByteArray received, QString protocol)
                 }
             }
             else
+            {
                 logValues->log_value_enabled[i] = "0";
+            }
         }
     }
     // emit LOG_D("Log values list ready", true, true);
@@ -353,7 +381,9 @@ void MainWindow::parse_log_value_list(QByteArray received, QString protocol)
                     enabled_log_switch_count++;
                 }
                 else
+                {
                     logValues->log_switch_enabled.replace(i, "0");
+                }
             }
         }
     }
@@ -387,7 +417,7 @@ QByteArray MainWindow::add_ssm_header(QByteArray output, bool dec_0x100)
     return output;
 }
 
-uint8_t MainWindow::calculate_checksum(QByteArray output, bool dec_0x100)
+uint8_t MainWindow::calculate_checksum(const QByteArray& output, bool dec_0x100)
 {
     uint8_t checksum = 0;
 
@@ -396,7 +426,9 @@ uint8_t MainWindow::calculate_checksum(QByteArray output, bool dec_0x100)
         checksum += (uint8_t)output.at(i);
     }
     if (dec_0x100)
+    {
         checksum = (uint8_t)(0x100 - checksum);
+    }
 
     return checksum;
 }
@@ -412,7 +444,9 @@ void MainWindow::log_to_file()
 
             QString log_file_name = configValues->datalog_files_directory;
             if (configValues->datalog_files_directory.at(configValues->datalog_files_directory.length() - 1) != '/')
+            {
                 log_file_name.append("/");
+            }
             log_file_name.append("fastecu_" + dateTimeString + ".csv");
 
             datalog_file.setFileName(log_file_name);
@@ -497,7 +531,9 @@ QByteArray MainWindow::mut_read_memory(quint16 addr, int len)
         int chunk = qMin(40, len - off);
         QVector<Channel> ch = planReadChannels(quint16(addr + off), chunk);
         if (!d.startFreeFormLog(ch, 0xA0, 0xA1))
+        {
             break;
+        }
         out.append(reassembleRead(d.pollOnce(50)));
         off += chunk;
     }

@@ -13,7 +13,7 @@ class RemoteUtility : public QObject
 {
     Q_OBJECT
   public:
-    explicit RemoteUtility(QString peerAddress,
+    explicit RemoteUtility(const QString& peerAddress,
                            QString password,
                            QWebSocket *web_socket = nullptr,
                            QObject *parent = nullptr);
@@ -36,7 +36,7 @@ class RemoteUtility : public QObject
     QString peerAddress;
     QString password;
     const QString autodiscoveryMessage = "FastECU_PTP_Autodiscovery";
-    RemoteUtilityReplica *remote_utility;
+    RemoteUtilityReplica *remote_utility{};
     const QString remoteObjectNameUtility = "FastECU_Utility";
     const QString wssPath = "/" + remoteObjectNameUtility;
     const QString webSocketPasswordHeader = "fastecu-basic-password";

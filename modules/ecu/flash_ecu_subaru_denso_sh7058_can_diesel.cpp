@@ -1,8 +1,10 @@
 #include "flash_ecu_subaru_denso_sh7058_can_diesel.h"
+
+#include <utility>
 #include "flash_ecu_subaru_denso_sh7058_can_diesel_operation.h"
 #include "serial_port_actions.h"
 
-FlashEcuSubaruDensoSH7058CanDiesel::FlashEcuSubaruDensoSH7058CanDiesel(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent)
+FlashEcuSubaruDensoSH7058CanDiesel::FlashEcuSubaruDensoSH7058CanDiesel(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
     : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     // EURO4 0xFFFF4000 0x3000
@@ -11,11 +13,17 @@ FlashEcuSubaruDensoSH7058CanDiesel::FlashEcuSubaruDensoSH7058CanDiesel(SerialPor
     ui->setupUi(this);
 
     if (cmd_type == "test_write")
+    {
         this->setWindowTitle("Test write ROM " + ecuCalDef->FileName + " to ECU");
+    }
     else if (cmd_type == "write")
+    {
         this->setWindowTitle("Write ROM " + ecuCalDef->FileName + " to ECU");
+    }
     else if (cmd_type == "read")
+    {
         this->setWindowTitle("Read ROM from ECU");
+    }
 
     this->serial = serial;
 }
@@ -27,7 +35,9 @@ FlashEcuSubaruDensoSH7058CanDiesel::~FlashEcuSubaruDensoSH7058CanDiesel()
 void FlashEcuSubaruDensoSH7058CanDiesel::closeEvent(QCloseEvent *event)
 {
     if (m_operation)
+    {
         m_operation->requestStop();
+    }
 }
 
 void FlashEcuSubaruDensoSH7058CanDiesel::run()
@@ -52,7 +62,7 @@ void FlashEcuSubaruDensoSH7058CanDiesel::run()
         connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashEcuSubaruDensoSH7058CanDiesel::LOG_D);
         connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
                 this, [this](QString msg)
-                { emit external_logger(msg); });
+                { emit external_logger(std::move(msg)); });
         connect(m_operation, &FlashOperationWorker::progressChanged,
                 this, &FlashEcuSubaruDensoSH7058CanDiesel::set_progressbar_value);
 
@@ -102,5 +112,7 @@ void FlashEcuSubaruDensoSH7058CanDiesel::set_progressbar_value(int value)
         ui->progressbar->setValue(value);
     }
     if (valueChanged)
+    {
         emit external_logger(value);
+    }
 }

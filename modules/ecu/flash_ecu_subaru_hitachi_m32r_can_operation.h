@@ -35,12 +35,12 @@ class FlashEcuSubaruHitachiM32rCanOperation : public FlashOperationWorker
 
     bool kernel_alive = false;
     bool test_write = false;
-    int result;
-    int mcu_type_index;
+    int result{};
+    int mcu_type_index{};
     int bootloader_start_countdown = 3;
 
-    uint8_t tester_id;
-    uint8_t target_id;
+    uint8_t tester_id{};
+    uint8_t target_id{};
 
     uint16_t receive_timeout = 500;
     uint16_t serial_read_timeout = 2000;
@@ -72,10 +72,10 @@ class FlashEcuSubaruHitachiM32rCanOperation : public FlashOperationWorker
     QByteArray send_sid_36_transferdata(uint32_t dataaddr, QByteArray buf, uint32_t len);
     QByteArray send_sid_31_start_routine();
 
-    QByteArray generate_seed_key(QByteArray requested_seed);
+    QByteArray generate_seed_key(const QByteArray& requested_seed);
 
-    QByteArray encrypt_payload(QByteArray buf, uint32_t len);
-    QByteArray decrypt_payload(QByteArray buf, uint32_t len);
+    QByteArray encrypt_payload(const QByteArray& buf, uint32_t len);
+    QByteArray decrypt_payload(const QByteArray& buf, uint32_t len);
 
     int connect_bootloader_start_countdown(int timeout);
 

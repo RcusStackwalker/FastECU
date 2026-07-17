@@ -25,9 +25,13 @@ QByteArray ChecksumTcuSubaruHitachiM32rCan::calculate_checksum(QByteArray romDat
     for (int i = 0x0; i < romData.length(); i += 4)
     {
         if (i >= 0x8020)
+        {
             checksum_1_value_calculated += bytes::readU32Be(bytes::view(romData), static_cast<std::size_t>(i));
+        }
         if (i < 0x8000 || i > 0x8007)
+        {
             checksum_2_value_calculated += bytes::readU32Be(bytes::view(romData), static_cast<std::size_t>(i));
+        }
     }
 
     uint8_t checksum_2_value_calculated_bytes[4];
@@ -92,7 +96,9 @@ QByteArray ChecksumTcuSubaruHitachiM32rCan::calculate_checksum(QByteArray romDat
         for (int i = 0x0; i < romData.length(); i += 4)
         {
             if (i < 0x8000 || i > 0x8007)
+            {
                 checksum_2_value_calculated += bytes::readU32Be(bytes::view(romData), static_cast<std::size_t>(i));
+            }
         }
         uint8_t checksum_2_value_calculated_bytes[4];
         checksum_2_value_calculated_bytes[3] = 0xff - ((checksum_2_value_calculated >> 24) & 0xff);

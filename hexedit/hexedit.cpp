@@ -53,7 +53,9 @@ void HexEdit::closeEvent(QCloseEvent *event)
 void HexEdit::dragEnterEvent(QDragEnterEvent *event)
 {
     if (event->mimeData()->hasUrls())
+    {
         event->accept();
+    }
 }
 
 void HexEdit::dropEvent(QDropEvent *event)
@@ -119,7 +121,9 @@ bool HexEdit::saveAs()
     QString fileName = QFileDialog::getSaveFileName(this, tr("Save As"),
                                                     curFile);
     if (fileName.isEmpty())
+    {
         return false;
+    }
 
     return saveFile(fileName);
 }
@@ -180,9 +184,13 @@ void HexEdit::setOverwriteMode(bool mode)
     QSettings settings;
     settings.setValue("OverwriteMode", mode);
     if (mode)
+    {
         lbOverwriteMode->setText(tr("Overwrite"));
+    }
     else
+    {
         lbOverwriteMode->setText(tr("Insert"));
+    }
 }
 
 void HexEdit::setSize(qint64 size)
@@ -418,7 +426,9 @@ bool HexEdit::saveFile(const QString& fileName)
     QFile file(tmpFileName);
     bool ok = hexEdit->write(file);
     if (QFile::exists(fileName))
+    {
         ok = QFile::remove(fileName);
+    }
     if (ok)
     {
         file.setFileName(tmpFileName);
@@ -451,9 +461,13 @@ void HexEdit::setCurrentFile(const QString& fileName)
     isUntitled = fileName.isEmpty();
     setWindowModified(false);
     if (fileName.isEmpty())
+    {
         setWindowFilePath("QHexEdit");
+    }
     else
+    {
         setWindowFilePath(curFile + " - QHexEdit");
+    }
 }
 
 QString HexEdit::strippedName(const QString& fullFileName)

@@ -37,6 +37,8 @@ void BiuOpsSubaruData::update_data_results(QStringList *data_result)
 
         current_label = ui->gridLayoutWidget->findChild<QLabel *>("Name" + QString::number(i));
         if (current_label)
+        {
             current_label->setText(data_result->at(i));
+        }
     }
 }

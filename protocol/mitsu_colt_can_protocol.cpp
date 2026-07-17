@@ -761,7 +761,9 @@ std::uint16_t checksum(bytes::ByteView data)
 {
     std::uint16_t sum = 0;
     for (bytes::Byte byte : data)
+    {
         sum += byte;
+    }
     return sum;
 }
 
@@ -807,7 +809,9 @@ QVector<QByteArray> buildTransferDataFrames(const QByteArray& payload)
     const std::vector<bytes::Bytes> byteFrames = buildTransferDataFrames(bytes::view(payload));
     frames.reserve(static_cast<qsizetype>(byteFrames.size()));
     for (const bytes::Bytes& frame : byteFrames)
+    {
         frames.append(bytes::toQByteArray(frame));
+    }
     return frames;
 }
 

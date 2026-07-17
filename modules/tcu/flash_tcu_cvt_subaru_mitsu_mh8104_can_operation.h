@@ -43,12 +43,12 @@ class FlashTcuCvtSubaruMitsuMH8104CanOperation : public FlashOperationWorker
     bool request_denso_kernel_init = false;
     bool request_denso_kernel_id = false;
 
-    int result;
-    int mcu_type_index;
+    int result{};
+    int mcu_type_index{};
     int bootloader_start_countdown = 3;
 
-    uint8_t tester_id;
-    uint8_t target_id;
+    uint8_t tester_id{};
+    uint8_t target_id{};
 
     uint16_t receive_timeout = 500;
     uint16_t serial_read_extra_short_timeout = 50;
@@ -70,9 +70,9 @@ class FlashTcuCvtSubaruMitsuMH8104CanOperation : public FlashOperationWorker
     int reflash_block_subaru_tcu_mitsu_can(const uint8_t *newdata, const struct flashdev_t *fdt, unsigned blockno, bool test_write);
     int erase_subaru_tcu_mitsu_can();
 
-    QByteArray subaru_tcu_mitsu_generate_can_seed_key(QByteArray requested_seed);
-    QByteArray subaru_tcu_mitsu_encrypt_32bit_payload(QByteArray buf, uint32_t len);
-    QByteArray subaru_tcu_mitsu_decrypt_32bit_payload(QByteArray buf, uint32_t len);
+    QByteArray subaru_tcu_mitsu_generate_can_seed_key(const QByteArray& requested_seed);
+    QByteArray subaru_tcu_mitsu_encrypt_32bit_payload(const QByteArray& buf, uint32_t len);
+    QByteArray subaru_tcu_mitsu_decrypt_32bit_payload(const QByteArray& buf, uint32_t len);
 
     SerialPortActions *serial;
     FileActions::EcuCalDefStructure *ecuCalDef;

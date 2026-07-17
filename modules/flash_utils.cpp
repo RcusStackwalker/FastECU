@@ -25,7 +25,9 @@ int findFlashDeviceIndex(const QString& mcuType)
     while (flashdevices[index].name != nullptr)
     {
         if (QString::fromLatin1(flashdevices[index].name) == mcuType)
+        {
             return index;
+        }
         ++index;
     }
     return -1;
@@ -35,7 +37,9 @@ const flashdev_t *findFlashDevice(const QString& mcuType)
 {
     const int index = findFlashDeviceIndex(mcuType);
     if (index < 0)
+    {
         return nullptr;
+    }
     return &flashdevices[index];
 }
 

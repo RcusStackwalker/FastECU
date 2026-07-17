@@ -44,7 +44,9 @@ class MockOpenPort : public QObject
         char buf[256];
         const auto n = ::read(fd, buf, sizeof(buf));
         if (n <= 0)
+        {
             return;
+        }
         rx.append(buf, static_cast<int>(n));
 
         int nl;
@@ -53,18 +55,28 @@ class MockOpenPort : public QObject
             const QByteArray line = rx.left(nl).trimmed();
             rx.remove(0, nl + 1);
             if (line.isEmpty())
+            {
                 continue;
+            }
 
             if (line.contains("atr") && !answerReadVbatt)
+            {
                 continue; // withhold READ_VBATT reply: keep the caller's read parked
+            }
 
             QByteArray resp;
             if (line.contains("ati"))
+            {
                 resp = "ari 1.17.4877\r\n";
+            }
             else if (line.contains("ata"))
+            {
                 resp = "ari\r\n";
+            }
             else
+            {
                 resp = "aro\r\n";
+            }
             ::write(fd, resp.constData(), resp.size());
         }
     }

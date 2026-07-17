@@ -1,4 +1,6 @@
 #include "ecu_operations.h"
+
+#include <utility>
 #include "modules/flash_utils.h"
 #include "protocol/qt_bytes.h"
 #include "serial_port_actions.h"
@@ -7,7 +9,7 @@ EcuOperations::EcuOperations(QWidget *ui, SerialPortActions *serial, QString mcu
 {
     this->setParent(ui);
     this->setAttribute(Qt::WA_QuitOnClose, true);
-    this->mcu_type_string = mcu_type_string;
+    this->mcu_type_string = std::move(mcu_type_string);
     this->mcu_type_index = mcu_type_index;
     this->serial = serial;
     this->flash_window = ui;
@@ -72,7 +74,9 @@ QByteArray EcuOperations::request_kernel_id()
             output.append((uint8_t)0xA0);
         }
         else
+        {
             output.append(SID_RECUID);
+        }
 
         received = serial->write_serial_data_echo_check(output);
         delay(100);
@@ -80,7 +84,9 @@ QByteArray EcuOperations::request_kernel_id()
 
         received.remove(0, 1);
         if (serial->get_is_can_connection() || serial->get_is_iso15765_connection())
+        {
             received.remove(0, 1);
+        }
         kernelid = received;
 
         while (received != "")
@@ -88,7 +94,9 @@ QByteArray EcuOperations::request_kernel_id()
             received = serial->read_serial_data(serial_read_short_timeout);
             received.remove(0, 1);
             if (serial->get_is_can_connection() || serial->get_is_iso15765_connection())
+            {
                 received.remove(0, 1);
+            }
             kernelid.append(received);
         }
 
@@ -137,7 +145,9 @@ int EcuOperations::read_mem_16bit_kline(FileActions::EcuCalDefStructure *ecuCalD
     while (willget)
     {
         if (kill_process)
+        {
             return STATUS_ERROR;
+        }
 
         uint32_t numblocks = 1;
         unsigned curspeed = 0, tleft;
@@ -198,7 +208,9 @@ int EcuOperations::read_mem_16bit_kline(FileActions::EcuCalDefStructure *ecuCalD
         timer.start();
 
         if (cplen > 0 && chrono > 0)
+        {
             curspeed = cplen * (1000.0f / chrono);
+        }
 
         if (!curspeed)
         {
@@ -260,7 +272,9 @@ int EcuOperations::read_mem_32bit_kline(FileActions::EcuCalDefStructure *ecuCalD
     while (willget)
     {
         if (kill_process)
+        {
             return STATUS_ERROR;
+        }
 
         uint32_t numblocks = 0;
         unsigned curspeed = 0, tleft;
@@ -271,7 +285,9 @@ int EcuOperations::read_mem_32bit_kline(FileActions::EcuCalDefStructure *ecuCalD
         numblocks = willget / 32;
 
         if (numblocks > NP10_MAXBLKS)
+        {
             numblocks = NP10_MAXBLKS;
+        }
 
         uint32_t curblock = (addr / 32);
 
@@ -295,7 +311,9 @@ int EcuOperations::read_mem_32bit_kline(FileActions::EcuCalDefStructure *ecuCalD
             received = serial->read_serial_data(serial_read_short_timeout);
             qDebug() << "Read received:" << parse_message_to_hex(received);
             if (!received.length())
+            {
                 return STATUS_ERROR;
+            }
         }
         for (uint32_t i = 0; i < numblocks; i++)
         {
@@ -311,7 +329,9 @@ int EcuOperations::read_mem_32bit_kline(FileActions::EcuCalDefStructure *ecuCalD
         timer.start();
 
         if (cplen > 0 && chrono > 0)
+        {
             curspeed = cplen * (1000.0f / chrono);
+        }
 
         if (!curspeed)
         {
@@ -390,7 +410,9 @@ int EcuOperations::read_mem_32bit_can(FileActions::EcuCalDefStructure *ecuCalDef
     while (willget)
     {
         if (kill_process)
+        {
             return STATUS_ERROR;
+        }
 
         uint32_t numblocks = length / pagesize;
         unsigned curspeed = 0, tleft;
@@ -401,7 +423,9 @@ int EcuOperations::read_mem_32bit_can(FileActions::EcuCalDefStructure *ecuCalDef
         numblocks = willget / pagesize;
 
         if (numblocks > NP10_MAXBLKS)
+        {
             numblocks = NP10_MAXBLKS;
+        }
 
         numblocks = 1;
 
@@ -451,7 +475,9 @@ int EcuOperations::read_mem_32bit_can(FileActions::EcuCalDefStructure *ecuCalDef
         timer.start();
 
         if (cplen > 0 && chrono > 0)
+        {
             curspeed = cplen * (1000.0f / chrono);
+        }
 
         if (!curspeed)
         {
@@ -594,7 +620,9 @@ int EcuOperations::write_mem_16bit_kline(FileActions::EcuCalDefStructure *ecuCal
             }
         }
         else
+        {
             emit LOG_I("*** Test write PASS, it's ok to perform actual write! ***", true, true);
+        }
     }
     else
     {
@@ -708,7 +736,9 @@ int EcuOperations::write_mem_32bit_kline(FileActions::EcuCalDefStructure *ecuCal
             }
         }
         else
+        {
             emit LOG_I("*** Test write PASS, it's ok to perform actual write! ***", true, true);
+        }
     }
     else
     {
@@ -822,7 +852,9 @@ int EcuOperations::write_mem_32bit_can(FileActions::EcuCalDefStructure *ecuCalDe
             }
         }
         else
+        {
             emit LOG_I("*** Test write PASS, it's ok to perform actual write! ***", true, true);
+        }
     }
     else
     {
@@ -865,7 +897,9 @@ int EcuOperations::get_changed_blocks_16bit_kline(const uint8_t *src, int *modif
     for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++)
     {
         if (kill_process)
+        {
             return STATUS_ERROR;
+        }
 
         uint32_t bs, blen;
         bs = flashdevices[mcu_type_index].fblocks[blockno].start;
@@ -899,7 +933,9 @@ int EcuOperations::get_changed_blocks_32bit_kline(const uint8_t *src, int *modif
     for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++)
     {
         if (kill_process)
+        {
             return STATUS_ERROR;
+        }
 
         uint32_t bs, blen;
         bs = flashdevices[mcu_type_index].fblocks[blockno].start;
@@ -931,7 +967,9 @@ int EcuOperations::get_changed_blocks_32bit_can(const uint8_t *src, int *modifie
     for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++)
     {
         if (kill_process)
+        {
             return STATUS_ERROR;
+        }
 
         uint32_t bs, blen;
         bs = flashdevices[mcu_type_index].fblocks[blockno].start;
@@ -980,7 +1018,9 @@ int EcuOperations::check_romcrc_16bit_kline(const uint8_t *src, uint32_t start, 
         for (chunk_cnt = 0; chunk_cnt < ROMCRC_NUMCHUNKS_16BIT; chunk_cnt++)
         {
             if (kill_process)
+            {
                 return STATUS_ERROR;
+            }
 
             output.clear();
             output.append((uint8_t)((SUB_KERNEL_START_COMM >> 8) & 0xFF));
@@ -1018,7 +1058,9 @@ int EcuOperations::check_romcrc_16bit_kline(const uint8_t *src, uint32_t start, 
         }
 
         if (imgcrc == romcrc)
+        {
             continue;
+        }
 
         emit LOG_I("\tNO", false, true);
 
@@ -1057,7 +1099,9 @@ int EcuOperations::check_romcrc_32bit_kline(const uint8_t *src, uint32_t start, 
     for (; len > 0; len -= ROMCRC_ITERSIZE_32BIT, chunko += ROMCRC_NUMCHUNKS_32BIT)
     {
         if (kill_process)
+        {
             return STATUS_ERROR;
+        }
 
         output.clear();
         output.append(SID_CONF);
@@ -1147,7 +1191,9 @@ int EcuOperations::check_romcrc_32bit_can(const uint8_t *src, uint32_t start_add
     for (; len > 0; len -= ROMCRC_ITERSIZE_CAN, chunko += ROMCRC_NUMCHUNKS_CAN)
     {
         if (kill_process)
+        {
             return STATUS_ERROR;
+        }
 
         output[6] = (uint8_t)((pagesize >> 24) & 0xFF);
         output[7] = (uint8_t)((pagesize >> 16) & 0xFF);
@@ -1175,7 +1221,9 @@ int EcuOperations::check_romcrc_32bit_can(const uint8_t *src, uint32_t start_add
 
         // qDebug() << "Checksums: File =" << hex << chk_sum << "ROM =" << hex << (uint8_t)received.at(2);
         if ((uint8_t)received.at(0) != SUB_DENSOCAN_START_COMM || ((uint8_t)received.at(1) & 0xF8) != SID_CAN_CONF_CKS || chk_sum == (uint8_t)received.at(2))
+        {
             continue;
+        }
 
         emit LOG_I("\tNO", false, true);
 
@@ -1226,7 +1274,9 @@ int EcuOperations::npk_raw_flashblock_16bit_kline(const uint8_t *src, uint32_t s
     while (remain)
     {
         if (kill_process)
+        {
             return STATUS_ERROR;
+        }
 
         // delay(1);
         chksum_data.clear();
@@ -1342,7 +1392,9 @@ int EcuOperations::npk_raw_flashblock_32bit_kline(const uint8_t *src, uint32_t s
     while (remain)
     {
         if (kill_process)
+        {
             return STATUS_ERROR;
+        }
 
         // delay(1);
         chksum_data.clear();
@@ -1468,7 +1520,9 @@ int EcuOperations::npk_raw_flashblock_32bit_can(const uint8_t *src, uint32_t sta
     for (int i = 0; i < num_128_byte_blocks; i++)
     {
         if (kill_process)
+        {
             return STATUS_ERROR;
+        }
 
         chk_sum = 0;
         for (int j = 0; j < 16; j++)
@@ -1624,7 +1678,9 @@ int EcuOperations::reflash_block_16bit_kline(const uint8_t *newdata, const struc
         emit LOG_I("SID_UNPROTECT: " + parse_message_to_hex(received), true, true);
     }
     else
+    {
         emit LOG_I("ECU write in test_write mode, no real write processed.", true, true);
+    }
 
     // 3- erase block //
     msg = QString("Erasing block %1 (0x%2-0x%3)...").arg((uint8_t)blockno, 2, 16, QLatin1Char('0')).arg((uint8_t)(unsigned)start, 8, 16, QLatin1Char('0')).arg((uint32_t)(unsigned)start + len - 1, 8, 16, QLatin1Char('0')).toUtf8();
@@ -1752,7 +1808,9 @@ int EcuOperations::reflash_block_32bit_kline(const uint8_t *newdata, const struc
         emit LOG_I("SID_UNPROTECT: " + parse_message_to_hex(received), true, true);
     }
     else
+    {
         emit LOG_I("ECU write in test_write mode, no real write processed.", true, true);
+    }
 
     // 3- erase block //
     msg = QString("Erasing block %1 (0x%2-0x%3)...").arg((uint8_t)blockno, 2, 16, QLatin1Char('0')).arg((uint8_t)(unsigned)start, 8, 16, QLatin1Char('0')).arg((uint32_t)(unsigned)start + len - 1, 8, 16, QLatin1Char('0')).toUtf8();
@@ -1839,9 +1897,13 @@ int EcuOperations::reflash_block_32bit_can(const uint8_t *newdata, const struct 
     output.append((uint8_t)SUB_DENSOCAN_START_COMM);
     output.append((uint8_t)(SID_CAN_FLASH + 0x01));
     if (test_write)
+    {
         output.append((uint8_t)SID_CAN_FL_PROTECT);
+    }
     else
+    {
         output.append((uint8_t)SID_CAN_FL_UNPROTECT);
+    }
     output.append((uint8_t)(0x00));
     output.append((uint8_t)(0x00));
     output.append((uint8_t)(0x00));
@@ -1952,7 +2014,9 @@ int EcuOperations::read_mem_uj20_30_40_70_kline(FileActions::EcuCalDefStructure 
     while (willget)
     {
         if (kill_process)
+        {
             return STATUS_ERROR;
+        }
 
         uint32_t numblocks = 1;
         unsigned curspeed = 0, tleft;
@@ -1991,7 +2055,9 @@ int EcuOperations::read_mem_uj20_30_40_70_kline(FileActions::EcuCalDefStructure 
         timer.start();
 
         if (cplen > 0 && chrono > 0)
+        {
             curspeed = cplen * (1000.0f / chrono);
+        }
 
         if (!curspeed)
         {
@@ -2024,7 +2090,7 @@ int EcuOperations::read_mem_uj20_30_40_70_kline(FileActions::EcuCalDefStructure 
  *  Generic subroutines
  *
  ******************************************************/
-QString EcuOperations::parse_message_to_hex(QByteArray received)
+QString EcuOperations::parse_message_to_hex(const QByteArray& received)
 {
     QByteArray msg;
 
@@ -2116,7 +2182,7 @@ uint16_t EcuOperations::crc16(const uint8_t *data, uint32_t siz)
     return crc;
 }
 
-uint8_t EcuOperations::calculate_checksum(QByteArray output, bool dec_0x100)
+uint8_t EcuOperations::calculate_checksum(const QByteArray& output, bool dec_0x100)
 {
     uint8_t checksum = 0;
 
@@ -2125,7 +2191,9 @@ uint8_t EcuOperations::calculate_checksum(QByteArray output, bool dec_0x100)
         checksum += (uint8_t)output.at(i);
     }
     if (dec_0x100)
+    {
         checksum = (uint8_t)(0x100 - checksum);
+    }
 
     return checksum;
 }
@@ -2188,9 +2256,13 @@ unsigned int EcuOperations::crc32(const unsigned char *buf, unsigned int len)
 {
     unsigned int crc = 0xFFFFFFFF;
     if (buf == NULL)
+    {
         return 0L;
+    }
     while (len--)
+    {
         crc = crc_table[((int)crc ^ (*buf++)) & 0xff] ^ (crc >> 8);
+    }
 
     return crc ^ 0xFFFFFFFF;
 }

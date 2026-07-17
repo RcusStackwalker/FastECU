@@ -39,12 +39,12 @@ class FlashEcuSubaruMitsuM32rKlineOperation : public FlashOperationWorker
     bool request_denso_kernel_init = false;
     bool request_denso_kernel_id = false;
 
-    int result;
-    int mcu_type_index;
+    int result{};
+    int mcu_type_index{};
     int bootloader_start_countdown = 3;
 
-    uint8_t tester_id;
-    uint8_t target_id;
+    uint8_t tester_id{};
+    uint8_t target_id{};
 
     uint16_t receive_timeout = 500;
     uint16_t serial_read_timeout = 2000;
@@ -72,12 +72,12 @@ class FlashEcuSubaruMitsuM32rKlineOperation : public FlashOperationWorker
     QByteArray send_sid_81_start_communication();
     QByteArray send_sid_83_request_timings();
     QByteArray send_sid_27_request_seed();
-    QByteArray send_sid_27_send_seed_key(QByteArray seed_key);
+    QByteArray send_sid_27_send_seed_key(const QByteArray& seed_key);
     QByteArray send_sid_10_start_diagnostic();
 
-    QByteArray generate_seed_key(QByteArray requested_seed);
-    QByteArray encrypt_payload(QByteArray buf, uint32_t len);
-    QByteArray decrypt_payload(QByteArray buf, uint32_t len);
+    QByteArray generate_seed_key(const QByteArray& requested_seed);
+    QByteArray encrypt_payload(const QByteArray& buf, uint32_t len);
+    QByteArray decrypt_payload(const QByteArray& buf, uint32_t len);
 
     SerialPortActions *serial;
     FileActions::EcuCalDefStructure *ecuCalDef;

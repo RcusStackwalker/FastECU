@@ -45,12 +45,12 @@ class FlashEcuSubaruUnisiaJecsM32rOperation : public FlashOperationWorker
 
     bool kernel_alive = false;
     bool test_write = false;
-    int result;
-    int mcu_type_index;
+    int result{};
+    int mcu_type_index{};
     int bootloader_start_countdown = 3;
 
-    uint8_t tester_id;
-    uint8_t target_id;
+    uint8_t tester_id{};
+    uint8_t target_id{};
 
     uint8_t comm_try_timeout = 50;
     uint8_t comm_try_count = 4;
@@ -75,7 +75,7 @@ class FlashEcuSubaruUnisiaJecsM32rOperation : public FlashOperationWorker
     QByteArray send_sid_b8_change_baudrate_4800();
     QByteArray send_sid_b8_change_baudrate_38400();
 
-    QByteArray send_sid_af_enter_flash_mode(QByteArray ecu_id);
+    QByteArray send_sid_af_enter_flash_mode(const QByteArray& ecu_id);
     QByteArray send_sid_af_erase_memory_block();
 
     QByteArray encrypt_payload(QByteArray buf, uint32_t len);

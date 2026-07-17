@@ -87,7 +87,9 @@ QByteArray ChecksumEcuSubaruHitachiM32rKline::calculate_checksum(QByteArray romD
     for (int i = 0x4000; i < romData.length(); i += 4)
     {
         if (i < 0x8100 || i > 0x8103)
+        {
             checksum_3_value_calculated += bytes::readU32Be(bytes::view(romData), static_cast<std::size_t>(i));
+        }
     }
     checksum_3_balance_value_stored = bytes::readU16Be(bytes::view(romData), checksum_3_balance_value_address);
     if (checksum_3_value_calculated != 0x5aa5)

@@ -6,11 +6,12 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QScopedPointer>
+#include <utility>
 
 FlashEcuSubaruDensoSH7055_02Operation::FlashEcuSubaruDensoSH7055_02Operation(
     SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
     QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(std::move(cmd_type))
 {
 }
 
@@ -151,12 +152,16 @@ int FlashEcuSubaruDensoSH7055_02Operation::connect_bootloader()
 
         QString msg;
         for (int i = 0; i < received.length(); i++)
+        {
             msg.append(QString("%1").arg((uint8_t)received.at(i), 2, 16, QLatin1Char('0')).toUpper());
+        }
 
         QString ecuid = msg;
         emit LOG_I("ECU ID: " + ecuid, true, true);
         if (cmd_type == "read")
+        {
             ecuCalDef->RomId = ecuid + "_";
+        }
     }
 
     serial->change_port_speed("9600");
@@ -165,15 +170,23 @@ int FlashEcuSubaruDensoSH7055_02Operation::connect_bootloader()
     confirm(tr("ECU Operation"), "Connecting to bootloader, turn ign off / on and click OK to continue", QMessageBox::Ok, QMessageBox::Ok);
 
     if (flash_method.endsWith("_ecutek"))
+    {
         memcpy(bootloader_init_response_fxt02_ok, bootloader_init_response_ecutek_fxt02_ok, 3);
+    }
     else if (flash_method.endsWith("_cobb"))
+    {
         memcpy(bootloader_init_response_fxt02_ok, bootloader_init_response_cobb_fxt02_ok, 3);
+    }
     else
+    {
         memcpy(bootloader_init_response_fxt02_ok, bootloader_init_response_stock_fxt02_ok, 3);
+    }
 
     // Start countdown
     if (connect_bootloader_start_countdown(bootloader_start_countdown))
+    {
         return STATUS_ERROR;
+    }
 
     serial->pulse_lec_2_line(200);
     serial->read_serial_data(10);
@@ -190,7 +203,9 @@ int FlashEcuSubaruDensoSH7055_02Operation::connect_bootloader()
     for (int i = 0; i < loopcount; i++)
     {
         if (stopRequested())
+        {
             return STATUS_ERROR;
+        }
 
         serial->write_serial_data_echo_check(output);
         // delay(185);
@@ -215,7 +230,7 @@ int FlashEcuSubaruDensoSH7055_02Operation::connect_bootloader()
     return STATUS_ERROR;
 }
 
-int FlashEcuSubaruDensoSH7055_02Operation::upload_kernel(QString kernel, uint32_t kernel_start_addr)
+int FlashEcuSubaruDensoSH7055_02Operation::upload_kernel(const QString& kernel, uint32_t kernel_start_addr)
 {
     QFile file(kernel);
 
@@ -284,7 +299,9 @@ int FlashEcuSubaruDensoSH7055_02Operation::upload_kernel(QString kernel, uint32_
 
 #if defined Q_OS_UNIX
     if (serial->get_use_openport2_adapter())
+    {
         delay(5000);
+    }
 #endif
     received = serial->read_serial_data(serial_read_short_timeout);
     msg.clear();
@@ -299,7 +316,9 @@ int FlashEcuSubaruDensoSH7055_02Operation::upload_kernel(QString kernel, uint32_
         return STATUS_ERROR;
     }
     else
+    {
         emit LOG_I("Kernel uploaded succesfully", true, true);
+    }
 
     serial->change_port_speed("62500");
     delay(100);
@@ -371,7 +390,9 @@ int FlashEcuSubaruDensoSH7055_02Operation::read_mem(uint32_t start_addr, uint32_
     while (willget)
     {
         if (stopRequested())
+        {
             return STATUS_ERROR;
+        }
 
         uint32_t numblocks = 1;
         unsigned curspeed = 0, tleft;
@@ -427,7 +448,9 @@ int FlashEcuSubaruDensoSH7055_02Operation::read_mem(uint32_t start_addr, uint32_
         timer.start();
 
         if (cplen > 0 && chrono > 0)
+        {
             curspeed = cplen * (1000.0f / chrono);
+        }
 
         if (!curspeed)
         {
@@ -565,7 +588,9 @@ int FlashEcuSubaruDensoSH7055_02Operation::write_mem(bool test_write)
             }
         }
         else
+        {
             emit LOG_I("*** Test write PASS, it's ok to perform actual write! ***", true, true);
+        }
     }
     else
     {
@@ -587,7 +612,9 @@ int FlashEcuSubaruDensoSH7055_02Operation::get_changed_blocks(const uint8_t *src
     for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++)
     {
         if (stopRequested())
+        {
             return STATUS_ERROR;
+        }
 
         uint32_t bs, blen;
         bs = flashdevices[mcu_type_index].fblocks[blockno].start;
@@ -697,7 +724,9 @@ int FlashEcuSubaruDensoSH7055_02Operation::check_romcrc(const uint8_t *src, uint
     ecucrc32 = 0;
     imgcrc32 = SsmProtocol::crc32(src, pagesize);
     if (received.length() > 3)
+    {
         ecucrc32 = ((uint8_t)received.at(0) << 24) | ((uint8_t)received.at(1) << 16) | ((uint8_t)received.at(2) << 8) | (uint8_t)received.at(3);
+    }
     msg.clear();
     msg.append(QString("ROM CRC: 0x%1 IMG CRC: 0x%2").arg(ecucrc32, 8, 16, QLatin1Char('0')).arg(imgcrc32, 8, 16, QLatin1Char('0')).toUtf8());
     // emit LOG_D(msg, true, true);
@@ -801,9 +830,13 @@ int FlashEcuSubaruDensoSH7055_02Operation::init_flash_write()
 
     uint8_t SUB_KERNEL_CMD = 0;
     if (test_write)
+    {
         SUB_KERNEL_CMD = (uint8_t)(SUB_KERNEL_FLASH_DISABLE & 0xFF);
+    }
     else if (!test_write)
+    {
         SUB_KERNEL_CMD = (uint8_t)(SUB_KERNEL_FLASH_ENABLE & 0xFF);
+    }
 
     datalen = 0;
     output.clear();
@@ -857,8 +890,12 @@ int FlashEcuSubaruDensoSH7055_02Operation::reflash_block(const uint8_t *newdata,
     QByteArray msg;
 
     if (!flash_write_init)
+    {
         if (init_flash_write())
+        {
             return STATUS_ERROR;
+        }
+    }
 
     if (blockno >= fdt->numblocks)
     {
@@ -986,7 +1023,9 @@ int FlashEcuSubaruDensoSH7055_02Operation::flash_block(const uint8_t *src, uint3
     while (remain)
     {
         if (stopRequested())
+        {
             return STATUS_ERROR;
+        }
 
         datalen = blocksize + 4; // 0x200 + 4
         output.clear();
@@ -1206,7 +1245,7 @@ QByteArray FlashEcuSubaruDensoSH7055_02Operation::send_sid_27_request_seed()
  *
  * @return received response
  */
-QByteArray FlashEcuSubaruDensoSH7055_02Operation::send_sid_27_send_seed_key(QByteArray seed_key)
+QByteArray FlashEcuSubaruDensoSH7055_02Operation::send_sid_27_send_seed_key(const QByteArray& seed_key)
 {
     QByteArray output;
     QByteArray received;
@@ -1234,7 +1273,7 @@ QByteArray FlashEcuSubaruDensoSH7055_02Operation::send_sid_27_send_seed_key(QByt
  *
  * @return 8-bit checksum
  */
-int FlashEcuSubaruDensoSH7055_02Operation::check_received_message(uint8_t *req_response, QByteArray received)
+int FlashEcuSubaruDensoSH7055_02Operation::check_received_message(uint8_t *req_response, const QByteArray& received)
 {
     if (received.length() != 3)
     {
@@ -1263,7 +1302,9 @@ int FlashEcuSubaruDensoSH7055_02Operation::connect_bootloader_start_countdown(in
     for (int i = timeout; i > 0; i--)
     {
         if (stopRequested())
+        {
             return STATUS_ERROR;
+        }
         emit LOG_I("Starting in " + QString::number(i), true, true);
         delay(1000);
     }

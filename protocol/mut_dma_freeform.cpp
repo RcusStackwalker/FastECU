@@ -53,7 +53,9 @@ int responseDataLength(const QVector<Channel>& channels)
 {
     int n = 0;
     for (const Channel& c : channels)
+    {
         n += c.len;
+    }
     return n;
 }
 QVector<std::uint32_t> decodeStreamValues(const QVector<Channel>& channels, bytes::ByteView data)
@@ -64,7 +66,9 @@ QVector<std::uint32_t> decodeStreamValues(const QVector<Channel>& channels, byte
     {
         std::uint32_t v = 0;
         for (int k = 0; k < c.len && off < static_cast<int>(data.size()); ++k, ++off)
+        {
             v = (v << 8) | data[static_cast<std::size_t>(off)]; // big-endian
+        }
         out.append(v);
     }
     return out;

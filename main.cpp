@@ -28,7 +28,9 @@ int main(int argc, char *argv[])
         if (!strcmp(argv[i], "-d") ||
             !strcmp(argv[i], "--debug") ||
             !strcmp(argv[i], "-debug"))
+        {
             debug_console = true;
+        }
     }
 
 #ifdef _WIN32

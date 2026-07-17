@@ -230,7 +230,7 @@ uint8_t checksum(const QByteArray& output, bool dec0x100)
     return checksum(bytes::view(output), dec0x100);
 }
 
-QByteArray addHeader(QByteArray output, uint8_t testerId, uint8_t targetId, bool dec0x100)
+QByteArray addHeader(const QByteArray& output, uint8_t testerId, uint8_t targetId, bool dec0x100)
 {
     return bytes::toQByteArray(addHeader(bytes::view(output), testerId, targetId, dec0x100));
 }

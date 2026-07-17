@@ -5,21 +5,28 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QTextEdit>
+#include <utility>
 
 #define STATUS_SUCCESS 0x00
 #define STATUS_ERROR 0x01
 
-FlashTcuCvtSubaruMitsuMH8104Can::FlashTcuCvtSubaruMitsuMH8104Can(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent)
+FlashTcuCvtSubaruMitsuMH8104Can::FlashTcuCvtSubaruMitsuMH8104Can(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
     : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
 
     if (cmd_type == "test_write")
+    {
         this->setWindowTitle("Test write ROM " + ecuCalDef->FileName + " to ECU");
+    }
     else if (cmd_type == "write")
+    {
         this->setWindowTitle("Write ROM " + ecuCalDef->FileName + " to ECU");
+    }
     else if (cmd_type == "read")
+    {
         this->setWindowTitle("Read ROM from TCU");
+    }
 
     this->serial = serial;
 }
@@ -45,7 +52,7 @@ void FlashTcuCvtSubaruMitsuMH8104Can::run()
         connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashTcuCvtSubaruMitsuMH8104Can::LOG_D);
         connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
                 this, [this](QString msg)
-                { emit external_logger(msg); });
+                { emit external_logger(std::move(msg)); });
         connect(m_operation, &FlashOperationWorker::progressChanged,
                 this, &FlashTcuCvtSubaruMitsuMH8104Can::set_progressbar_value);
 
@@ -93,7 +100,9 @@ FlashTcuCvtSubaruMitsuMH8104Can::~FlashTcuCvtSubaruMitsuMH8104Can()
 void FlashTcuCvtSubaruMitsuMH8104Can::closeEvent(QCloseEvent *event)
 {
     if (m_operation)
+    {
         m_operation->requestStop();
+    }
 }
 
 /*
@@ -107,9 +116,13 @@ int FlashTcuCvtSubaruMitsuMH8104Can::send_log_window_message(QString message, bo
     QString dateTimeString = dateTime.toString("[yyyy-MM-dd hh':'mm':'ss'.'zzz']  ");
 
     if (timestamp)
+    {
         message = dateTimeString + message;
+    }
     if (linefeed)
+    {
         message = message + "\n";
+    }
 
     QTextEdit *textedit = this->findChild<QTextEdit *>("text_edit");
     if (textedit)
@@ -132,5 +145,7 @@ void FlashTcuCvtSubaruMitsuMH8104Can::set_progressbar_value(int value)
         ui->progressbar->setValue(value);
     }
     if (valueChanged)
+    {
         emit external_logger(value);
+    }
 }

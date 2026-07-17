@@ -96,8 +96,12 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
     bool alreadyExists[0x20000 / 4];
 
     for (nybble = 0; nybble < 4; nybble++)
+    {
         for (subkey = 0; subkey < 0x20; subkey++)
+        {
             counter[nybble][subkey] = 0;
+        }
+    }
     total = 0;
 
     for (j = 0; j < 0x20000; j += 4)
@@ -107,7 +111,9 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
         {
             alreadyExists[j / 4] = (unencryptedFileData[j] == unencryptedFileData[k]) && (unencryptedFileData[j + 1] == unencryptedFileData[k + 1]) && (unencryptedFileData[j + 2] == unencryptedFileData[k + 2]) && (unencryptedFileData[j + 3] == unencryptedFileData[k + 3]);
             if (alreadyExists[j / 4])
+            {
                 k = j;
+            }
         }
     }
 
@@ -143,7 +149,9 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
 
                     k4 = subkey << (12 - (nybble * 4));
                     if ((nybble == 0) && (subkey > 0xf))
+                    {
                         k4 += 0x01;
+                    }
                     fOutcome = fFunction(x4, k4);
                     x3Text = ((cipherText >> 16) & 0xffff) ^ fOutcome;
                     // emit LOG_I("plaintext = " + QString::number(plainText, 16) + " ciphertext = " + QString::number(cipherText, 16) + " x3text = " + QString::number(x3Text, 16), true, true);
@@ -153,7 +161,9 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
                     // emit LOG_I("p3:" + QString::number(p3, 16) + " p15:" + QString::number(p15, 16) + " p16:" + QString::number(p16, 16) + " p28:" + QString::number(p28, 16) + " p29:" + QString::number(p29, 16) + " c19:" + QString::number(c19, 16) + " c31:" + QString::number(c31, 16) + " c32:" + QString::number(c32, 16) + " x3_28:" + QString::number(x3_28, 16) + " x3_29:" + QString::number(x3_29, 16), true, true);
 
                     if (z == 0)
+                    {
                         counter[nybble][subkey]++;
+                    }
                 }
             }
         }
@@ -206,8 +216,12 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
     // now getting k1
 
     for (nybble = 0; nybble < 4; nybble++)
+    {
         for (subkey = 0; subkey < 0x20; subkey++)
+        {
             counter[nybble][subkey] = 0;
+        }
+    }
     total = 0;
     for (j = 0; j < 0x20000; j += 4) // 0x20000
     {
@@ -234,7 +248,9 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
 
                     k1 = subkey << (12 - (nybble * 4));
                     if ((nybble == 0) && (subkey > 0xf))
+                    {
                         k1 += 0x01;
+                    }
                     fOutcome = fFunction(x1, k1);
                     x2Text = ((plainText >> 16) & 0xffff) ^ fOutcome;
                     // emit LOG_I("plaintext = " + QString::number(plainText, 16) + " ciphertext = " + QString::number(cipherText, 16) + " x3text = " + QString::number(x3Text, 16), true, true);
@@ -244,7 +260,9 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
                     // emit LOG_I("p3:" + QString::number(p3, 16) + " p15:" + QString::number(p15, 16) + " p16:" + QString::number(p16, 16) + " p28:" + QString::number(p28, 16) + " p29:" + QString::number(p29, 16) + " c19:" + QString::number(c19, 16) + " c31:" + QString::number(c31, 16) + " c32:" + QString::number(c32, 16) + " x3_28:" + QString::number(x3_28, 16) + " x3_29:" + QString::number(x3_29, 16), true, true);
 
                     if (z == 0)
+                    {
                         counter[nybble][subkey]++;
+                    }
                 }
             }
         }
@@ -303,7 +321,9 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
     for (k2 = 0; k2 < 0x10000; k2++)
     {
         if ((fFunction(x2Text, k2) ^ (plainText & 0xffff)) == x3Text)
+        {
             break;
+        }
     }
 
     emit LOG_I("Predicted k2: 0x" + QString::number(k2, 16), true, true);
@@ -314,7 +334,9 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
     for (k3 = 0; k3 < 0x10000; k3++)
     {
         if ((fFunction(x3Text, k3) ^ (cipherText & 0xffff)) == x2Text)
+        {
             break;
+        }
     }
 
     emit LOG_I("Predicted k3: 0x" + QString::number(k3, 16), true, true);
@@ -335,19 +357,29 @@ int GetKeyOperationsSubaru::linear_approx_test()
 
     uint16_t **approxTable = new uint16_t *[0x20];
     for (int i = 0; i < 0x20; i++)
+    {
         approxTable[i] = new uint16_t[0x10];
+    }
 
     uint16_t c, d;
 
     for (c = 0; c < 0x10; c++)
+    {
         for (d = 0; d < 0x20; d++)
+        {
             approxTable[d][c] = 0;
+        }
+    }
 
     findApprox(approxTable);
 
     for (c = 0; c < 0x10; c++)
+    {
         for (d = 0; d < 0x20; d++)
+        {
             emit LOG_I("Results of Linear Approx: ," + QString::number(approxTable[d][c]) + "," + QString::number(d) + "," + QString::number(c), true, true);
+        }
+    }
 
     return STATUS_SUCCESS;
 }
@@ -374,7 +406,9 @@ uint32_t GetKeyOperationsSubaru::manyRoundAndFlip(uint32_t input, uint16_t *keys
     uint32_t temp = input;
 
     for (n = 0; n < numRounds; n++)
+    {
         temp = roundAndFlip(temp, keys[n]);
+    }
 
     return temp;
 }
@@ -418,7 +452,9 @@ uint16_t GetKeyOperationsSubaru::fFunction(uint16_t wordInput, uint16_t keyInput
     temp += temp << 16;
 
     for (n = 0; n < 4; n++)
+    {
         fBoxOutcome += sBox((temp >> (n * 4)) & 0x1F) << (n * 4);
+    }
 
     fBoxOutcome = (fBoxOutcome >> 3) + (fBoxOutcome << 13);
 

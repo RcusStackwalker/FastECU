@@ -27,7 +27,7 @@ class FlashEcuSubaruDensoSH72531Can : public QDialog
     Q_OBJECT
 
   public:
-    explicit FlashEcuSubaruDensoSH72531Can(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent = nullptr);
+    explicit FlashEcuSubaruDensoSH72531Can(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent = nullptr);
     ~FlashEcuSubaruDensoSH72531Can();
 
     void run();

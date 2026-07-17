@@ -41,12 +41,12 @@ class FlashEcuSubaruDensoMC68HC16Y5_02Operation : public FlashOperationWorker
     bool request_denso_kernel_id = false;
     bool flash_write_init = false;
 
-    int result;
-    int mcu_type_index;
+    int result{};
+    int mcu_type_index{};
     int bootloader_start_countdown = 3;
 
-    uint8_t tester_id;
-    uint8_t target_id;
+    uint8_t tester_id{};
+    uint8_t target_id{};
 
     uint16_t receive_timeout = 500;
     uint16_t serial_read_timeout = 2000;
@@ -73,7 +73,7 @@ class FlashEcuSubaruDensoMC68HC16Y5_02Operation : public FlashOperationWorker
     QByteArray bootloader_init_response_wrx02_ok;
 
     int connect_bootloader();
-    int upload_kernel(QString kernel, uint32_t kernel_start_addr);
+    int upload_kernel(const QString& kernel, uint32_t kernel_start_addr);
 
     int read_mem(uint32_t start_addr, uint32_t length);
     int write_mem(bool test_write);
@@ -86,7 +86,7 @@ class FlashEcuSubaruDensoMC68HC16Y5_02Operation : public FlashOperationWorker
 
     QByteArray request_kernel_init();
     QByteArray request_kernel_id();
-    int check_received_message(QByteArray msg, QByteArray received);
+    int check_received_message(const QByteArray& msg, const QByteArray& received);
 
     SerialPortActions *serial;
     FileActions::EcuCalDefStructure *ecuCalDef;

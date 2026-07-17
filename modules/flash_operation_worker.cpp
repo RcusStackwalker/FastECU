@@ -5,7 +5,7 @@ FlashOperationWorker::FlashOperationWorker(QWidget *dialog, QObject *parent, Pro
 {
     if (!m_promptOverride)
     {
-        m_promptOverride = [](QWidget *dialog, QString title, QString text,
+        m_promptOverride = [](QWidget *dialog, const QString& title, const QString& text,
                               int buttons, int defaultButton)
         {
             return static_cast<int>(QMessageBox::warning(dialog, title, text,

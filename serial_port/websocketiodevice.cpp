@@ -32,14 +32,18 @@ bool WebSocketIoDevice::isSequential() const
 void WebSocketIoDevice::close()
 {
     if (m_socket)
+    {
         m_socket->close();
+    }
 }
 
 qint64 WebSocketIoDevice::readData(char *data, qint64 maxlen)
 {
     auto sz = std::min(maxlen, qint64(m_buffer.size()));
     if (sz <= 0)
+    {
         return sz;
+    }
     memcpy(data, m_buffer.constData(), size_t(sz));
     m_buffer.remove(0, sz);
     return sz;
@@ -48,6 +52,8 @@ qint64 WebSocketIoDevice::readData(char *data, qint64 maxlen)
 qint64 WebSocketIoDevice::writeData(const char *data, qint64 len)
 {
     if (m_socket)
+    {
         return m_socket->sendBinaryMessage(QByteArray{data, int(len)});
+    }
     return -1;
 }

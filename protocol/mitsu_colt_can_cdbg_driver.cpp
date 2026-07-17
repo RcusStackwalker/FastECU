@@ -25,7 +25,9 @@ bool CdbgLogDriver::startFreeFormLog(const QVector<CdbgChannel>& channels,
     if (channels.isEmpty())
     {
         if (errorOut)
+        {
             *errorOut = "no CDBG log parameters selected";
+        }
         return false;
     }
 
@@ -34,7 +36,9 @@ bool CdbgLogDriver::startFreeFormLog(const QVector<CdbgChannel>& channels,
         if (ch.size != 1 && ch.size != 2 && ch.size != 4)
         {
             if (errorOut)
+            {
                 *errorOut = "CDBG log parameter has unsupported byte length";
+            }
             return false;
         }
     }
@@ -43,41 +47,53 @@ bool CdbgLogDriver::startFreeFormLog(const QVector<CdbgChannel>& channels,
     if (!sendAndReceive(t_, buildInitFrame(), reply))
     {
         if (errorOut)
+        {
             *errorOut = "CDBG session init failed";
+        }
         return false;
     }
 
     if (!sendAndReceive(t_, buildSecuritySeedRequestFrame(), reply))
     {
         if (errorOut)
+        {
             *errorOut = "CDBG security seed request failed";
+        }
         return false;
     }
     std::uint32_t key = seedToKey(extractSeed(reply));
     if (!sendAndReceive(t_, buildSecurityKeyFrame(key), reply))
     {
         if (errorOut)
+        {
             *errorOut = "CDBG security key request failed";
+        }
         return false;
     }
     if (!securityGranted(reply))
     {
         if (errorOut)
+        {
             *errorOut = "CDBG security access denied";
+        }
         return false;
     }
 
     if (!batchChannelsIntoFrames(channels, frames_))
     {
         if (errorOut)
+        {
             *errorOut = "too many CDBG log parameters selected";
+        }
         return false;
     }
 
     if (!sendAndReceive(t_, buildLogResetFrame(instance), reply))
     {
         if (errorOut)
+        {
             *errorOut = "CDBG log reset failed";
+        }
         return false;
     }
 
@@ -89,7 +105,9 @@ bool CdbgLogDriver::startFreeFormLog(const QVector<CdbgChannel>& channels,
             if (!sendAndReceive(t_, cmd, reply))
             {
                 if (errorOut)
+                {
                     *errorOut = "CDBG log frame setup failed";
+                }
                 return false;
             }
         }
@@ -98,13 +116,17 @@ bool CdbgLogDriver::startFreeFormLog(const QVector<CdbgChannel>& channels,
     if (!sendAndReceive(t_, buildLogStartFrame(instance, static_cast<bytes::Byte>(frames_.size()), intervalMs), reply))
     {
         if (errorOut)
+        {
             *errorOut = "CDBG log start failed";
+        }
         return false;
     }
 
     int totalChannels = 0;
     for (const auto& frame : frames_)
+    {
         totalChannels += frame.size();
+    }
     lastValues_.fill(0, totalChannels);
 
     streaming_ = true;
@@ -114,7 +136,9 @@ bool CdbgLogDriver::startFreeFormLog(const QVector<CdbgChannel>& channels,
 QVector<std::uint32_t> CdbgLogDriver::pollOnce(int timeoutMs)
 {
     if (!streaming_)
+    {
         return {};
+    }
 
     std::uint32_t id = 0;
     const bytes::Bytes frame = t_.read(timeoutMs, id);
@@ -128,9 +152,13 @@ QVector<std::uint32_t> CdbgLogDriver::pollOnce(int timeoutMs)
             {
                 int offset = 0;
                 for (int f = 0; f < frameIdx; ++f)
+                {
                     offset += frames_.at(f).size();
+                }
                 for (int i = 0; i < decoded.size(); ++i)
+                {
                     lastValues_[offset + i] = decoded.at(i);
+                }
             }
         }
     }

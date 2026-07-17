@@ -53,11 +53,17 @@ QByteArray ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum(QByteArray rom
             {
                 checksum_temp = bytes::readU32Be(bytes::view(romData), j);
                 if (checksum_area_start == 0x0FFB80 && j == 0x0FFAFC)
+                {
                     checksum += 0xFFFFFFFF;
+                }
                 else if (checksum_area_start == 0x17FB80 && j == 0x17FAFC)
+                {
                     checksum += 0xFFFFFFFF;
+                }
                 else
+                {
                     checksum += checksum_temp;
+                }
             }
         }
         checksum_check = 0x5aa5a55a - checksum;

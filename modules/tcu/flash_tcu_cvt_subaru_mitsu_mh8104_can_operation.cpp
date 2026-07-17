@@ -4,11 +4,12 @@
 #include "serial_port_actions.h"
 
 #include <QElapsedTimer>
+#include <utility>
 
 FlashTcuCvtSubaruMitsuMH8104CanOperation::FlashTcuCvtSubaruMitsuMH8104CanOperation(
     SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
     QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(std::move(cmd_type))
 {
 }
 
@@ -137,7 +138,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::connect_bootloader_subaru_tcu_mits
     bool connected = false;
     int try_count = 0;
 
-    while (try_count < 6 && connected == false)
+    while (try_count < 6 && !connected)
     {
         serial->write_serial_data_echo_check(output);
         emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
@@ -158,7 +159,9 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::connect_bootloader_subaru_tcu_mits
     response.remove(0, 8);
     QString calid;
     for (int i = 0; i < 5; i++)
+    {
         calid.append(QString("%1").arg((uint8_t)response.at(i), 2, 16, QLatin1Char('0')).toUpper());
+    }
     emit LOG_I("Init Success: CAL ID = " + calid, true, true);
 
     connected = false;
@@ -175,7 +178,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::connect_bootloader_subaru_tcu_mits
     output.append((uint8_t)0x09);
     output.append((uint8_t)0x04);
 
-    while (try_count < 6 && connected == false)
+    while (try_count < 6 && !connected)
     {
         serial->write_serial_data_echo_check(output);
         emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
@@ -417,7 +420,9 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::read_mem_subaru_tcu_mitsu_can(uint
     while (willget)
     {
         if (stopRequested())
+        {
             return STATUS_ERROR;
+        }
 
         uint32_t numblocks = 1;
         unsigned curspeed = 0, tleft;
@@ -461,7 +466,9 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::read_mem_subaru_tcu_mitsu_can(uint
         timer.start();
 
         if (cplen > 0 && chrono > 0)
+        {
             curspeed = cplen * (1000.0f / chrono);
+        }
 
         if (!curspeed)
         {
@@ -506,7 +513,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::read_mem_subaru_tcu_mitsu_can(uint
     output.append((uint8_t)0xE1);
     output.append((uint8_t)0x37);
 
-    while (try_count < 6 && connected == false)
+    while (try_count < 6 && !connected)
     {
         serial->write_serial_data_echo_check(output);
         emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
@@ -685,7 +692,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::reflash_block_subaru_tcu_mitsu_can
 
     bool connected = false;
     int try_count = 0;
-    while (try_count < 6 && connected == false)
+    while (try_count < 6 && !connected)
     {
         serial->write_serial_data_echo_check(output);
         emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
@@ -702,14 +709,18 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::reflash_block_subaru_tcu_mitsu_can
         // delay(try_timeout);
     }
     if (received == "" || (uint8_t)received.at(4) != 0x74)
+    {
         emit LOG_I("No or bad response received", true, true);
+    }
     // return STATUS_ERROR;
 
     int data_bytes_sent = 0;
     for (blockctr = 0; blockctr < maxblocks; blockctr++)
     {
         if (stopRequested())
+        {
             return 0;
+        }
 
         blockaddr = start_address + blockctr * 128;
         output.clear();
@@ -755,7 +766,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::reflash_block_subaru_tcu_mitsu_can
     output.append((uint8_t)0xE1);
     output.append((uint8_t)0x37);
 
-    while (try_count < 6 && connected == false)
+    while (try_count < 6 && !connected)
     {
         serial->write_serial_data_echo_check(output);
         emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
@@ -773,7 +784,9 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::reflash_block_subaru_tcu_mitsu_can
         // delay(try_timeout);
     }
     if (received == "" || (uint8_t)received.at(4) != 0x77)
+    {
         emit LOG_I("No or bad response received", true, true);
+    }
     // return STATUS_ERROR;
 
     delay(100);
@@ -794,7 +807,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::reflash_block_subaru_tcu_mitsu_can
     output.append((uint8_t)0x02);
     output.append((uint8_t)0x01);
 
-    while (try_count < 6 && connected == false)
+    while (try_count < 6 && !connected)
     {
         serial->write_serial_data_echo_check(output);
         emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
@@ -812,7 +825,9 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::reflash_block_subaru_tcu_mitsu_can
         // delay(try_timeout);
     }
     if (received == "" || (uint8_t)received.at(4) != 0x71 || (uint8_t)received.at(5) != 0x01 || (uint8_t)received.at(6) != 0x02)
+    {
         emit LOG_I("No or bad response received", true, true);
+    }
     // return STATUS_ERROR;
 
     emit LOG_I("Checksum verified...", true, true);
@@ -880,7 +895,7 @@ int FlashTcuCvtSubaruMitsuMH8104CanOperation::erase_subaru_tcu_mitsu_can()
  *
  * @return seed key (4 bytes)
  */
-QByteArray FlashTcuCvtSubaruMitsuMH8104CanOperation::subaru_tcu_mitsu_generate_can_seed_key(QByteArray requested_seed)
+QByteArray FlashTcuCvtSubaruMitsuMH8104CanOperation::subaru_tcu_mitsu_generate_can_seed_key(const QByteArray& requested_seed)
 {
     QByteArray key;
 
@@ -912,7 +927,7 @@ QByteArray FlashTcuCvtSubaruMitsuMH8104CanOperation::subaru_tcu_mitsu_generate_c
  * @return encrypted data
  */
 
-QByteArray FlashTcuCvtSubaruMitsuMH8104CanOperation::subaru_tcu_mitsu_encrypt_32bit_payload(QByteArray buf, uint32_t len)
+QByteArray FlashTcuCvtSubaruMitsuMH8104CanOperation::subaru_tcu_mitsu_encrypt_32bit_payload(const QByteArray& buf, uint32_t len)
 {
     QByteArray encrypted;
 
@@ -930,7 +945,7 @@ QByteArray FlashTcuCvtSubaruMitsuMH8104CanOperation::subaru_tcu_mitsu_encrypt_32
     return encrypted;
 }
 
-QByteArray FlashTcuCvtSubaruMitsuMH8104CanOperation::subaru_tcu_mitsu_decrypt_32bit_payload(QByteArray buf, uint32_t len)
+QByteArray FlashTcuCvtSubaruMitsuMH8104CanOperation::subaru_tcu_mitsu_decrypt_32bit_payload(const QByteArray& buf, uint32_t len)
 {
     QByteArray decrypt;
 

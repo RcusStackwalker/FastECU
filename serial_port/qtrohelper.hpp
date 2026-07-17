@@ -97,7 +97,7 @@ inline QStringList qvariant_to_scalar<QStringList>(QVariant v)
  *   slot_sync<QRemoteObjectPendingReply<long>, long>(qtro_remote->someFunc("text"))
  */
 template <template <typename> typename QRemoteObjectPendingReply, typename RET_TYPE>
-RET_TYPE slot_sync(QRemoteObjectPendingReply<RET_TYPE> SLOT)
+RET_TYPE slot_sync(const QRemoteObjectPendingReply<RET_TYPE>& SLOT)
 {
     QVariant r;
     QScopedPointer<QRemoteObjectPendingCallWatcher>

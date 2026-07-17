@@ -6,11 +6,13 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QScopedPointer>
+#include <cstddef>
+#include <utility>
 
 FlashEcuSubaruDensoMC68HC16Y5_02Operation::FlashEcuSubaruDensoMC68HC16Y5_02Operation(
     SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
     QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(std::move(cmd_type))
 {
 }
 
@@ -124,11 +126,17 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::connect_bootloader()
      *
      *****************************/
     if (flash_method.endsWith("_ecutek"))
+    {
         bootloader_init_response_wrx02_ok = bootloader_init_response_ecutek_wrx02_ok;
+    }
     else if (flash_method.endsWith("_cobb"))
+    {
         bootloader_init_response_wrx02_ok = bootloader_init_response_cobb_wrx02_ok;
+    }
     else
+    {
         bootloader_init_response_wrx02_ok = bootloader_init_response_stock_wrx02_ok;
+    }
 
     if (received.length() < 3 || !check_received_message(bootloader_init_response_wrx02_ok, received))
     {
@@ -173,7 +181,7 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::connect_bootloader()
     }
 }
 
-int FlashEcuSubaruDensoMC68HC16Y5_02Operation::upload_kernel(QString kernel, uint32_t kernel_start_addr)
+int FlashEcuSubaruDensoMC68HC16Y5_02Operation::upload_kernel(const QString& kernel, uint32_t kernel_start_addr)
 {
     QFile file(kernel);
 
@@ -196,9 +204,13 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::upload_kernel(QString kernel, uin
     }
 
     if (flash_method.endsWith("_ecutek"))
+    {
         serial->change_port_speed("11700");
+    }
     else
+    {
         serial->change_port_speed("9600");
+    }
 
     // Check kernel file
     if (!file.open(QIODevice::ReadOnly))
@@ -211,7 +223,9 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::upload_kernel(QString kernel, uin
     pl_len = (file_len + 3) & ~3;
     pl_encr = file.readAll();
     while (pl_encr.length() % 0x10)
+    {
         pl_encr.append((uint8_t)0x00);
+    }
     len = pl_encr.length();
 
     uint8_t encryption_xor_value = 0;
@@ -268,7 +282,9 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::upload_kernel(QString kernel, uin
         return STATUS_ERROR;
     }
     else
+    {
         emit LOG_I("Kernel uploaded succesfully", true, true);
+    }
 
     emit LOG_I("Requesting kernel ID", true, true);
 
@@ -340,7 +356,9 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::read_mem(uint32_t start_addr, uin
     while (willget)
     {
         if (stopRequested())
+        {
             return STATUS_ERROR;
+        }
 
         uint32_t numblocks = 1;
         unsigned curspeed = 0, tleft;
@@ -409,7 +427,9 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::read_mem(uint32_t start_addr, uin
         timer.start();
 
         if (cplen > 0 && chrono > 0)
+        {
             curspeed = cplen * (1000.0f / chrono);
+        }
 
         if (!curspeed)
         {
@@ -448,11 +468,13 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::write_mem(bool test_write)
 
     filedata = ecuCalDef->FullRomData;
 
-    if (filedata.length() < 190 * 1024)
+    if (filedata.length() < static_cast<qsizetype>(190 * 1024))
     {
         emit LOG_D("Padding 160kb file to 192kb", true, true);
         for (int i = 0; i < 0x8000; i++)
+        {
             filedata.insert(0x20000, (uint8_t)0xff);
+        }
     }
 
     QScopedArrayPointer<uint8_t> data_array(new uint8_t[filedata.length()]);
@@ -553,7 +575,9 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::write_mem(bool test_write)
             }
         }
         else
+        {
             emit LOG_I("*** Test write PASS, it's ok to perform actual write! ***", true, true);
+        }
     }
     else
     {
@@ -573,7 +597,9 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::get_changed_blocks(const uint8_t 
     for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++)
     {
         if (stopRequested())
+        {
             return STATUS_ERROR;
+        }
 
         uint32_t bs, blen;
         bs = flashdevices[mcu_type_index].fblocks[blockno].start;
@@ -664,7 +690,9 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::check_romcrc(const uint8_t *src, 
     ecucrc32 = 0;
     imgcrc32 = SsmProtocol::crc32(src, pagesize);
     if (received.length() > 3)
+    {
         ecucrc32 = (uint8_t)received.at(5) << 24 | (uint8_t)received.at(6) << 16 | (uint8_t)received.at(7) << 8 | (uint8_t)received.at(8);
+    }
     // ecucrc32 = ((uint8_t)received.at(0) << 24) | ((uint8_t)received.at(1) << 16) | ((uint8_t)received.at(2) << 8) | (uint8_t)received.at(3);
     msg.clear();
     msg.append(QString("ROM CRC: 0x%1 IMG CRC: 0x%2").arg(ecucrc32, 8, 16, QLatin1Char('0')).arg(imgcrc32, 8, 16, QLatin1Char('0')).toUtf8());
@@ -769,9 +797,13 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::init_flash_write()
 
     uint8_t SUB_KERNEL_CMD = 0;
     if (test_write)
+    {
         SUB_KERNEL_CMD = (uint8_t)(SUB_KERNEL_FLASH_DISABLE & 0xFF);
+    }
     else if (!test_write)
+    {
         SUB_KERNEL_CMD = (uint8_t)(SUB_KERNEL_FLASH_ENABLE & 0xFF);
+    }
 
     datalen = 0;
     output.clear();
@@ -827,8 +859,12 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::reflash_block(const uint8_t *newd
     QByteArray msg;
 
     if (!flash_write_init)
+    {
         if (init_flash_write())
+        {
             return STATUS_ERROR;
+        }
+    }
 
     if (blockno >= fdt->numblocks)
     {
@@ -961,7 +997,9 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::flash_block(const uint8_t *src, u
     while (remain)
     {
         if (stopRequested())
+        {
             return STATUS_ERROR;
+        }
 
         datalen = blocksize + 4; // 0x200 + 4
         output.clear();
@@ -1142,13 +1180,17 @@ QByteArray FlashEcuSubaruDensoMC68HC16Y5_02Operation::request_kernel_id()
  *
  * @return 8-bit checksum
  */
-int FlashEcuSubaruDensoMC68HC16Y5_02Operation::check_received_message(QByteArray msg, QByteArray received)
+int FlashEcuSubaruDensoMC68HC16Y5_02Operation::check_received_message(const QByteArray& msg, const QByteArray& received)
 {
     for (int i = 0; i < msg.length(); i++)
     {
         if (received.length() > i - 1)
+        {
             if (msg.at(i) != received.at(i))
+            {
                 return 0;
+            }
+        }
     }
 
     return 1;

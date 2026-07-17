@@ -41,12 +41,12 @@ class FlashEcuSubaruDensoSH705xDensoCanOperation : public FlashOperationWorker
     bool request_denso_kernel_id = false;
     bool flash_write_init = false;
 
-    int result;
-    int mcu_type_index;
+    int result{};
+    int mcu_type_index{};
     int bootloader_start_countdown = 3;
 
-    uint8_t tester_id;
-    uint8_t target_id;
+    uint8_t tester_id{};
+    uint8_t target_id{};
 
     uint16_t receive_timeout = 500;
     uint16_t serial_read_timeout = 2000;
@@ -66,7 +66,7 @@ class FlashEcuSubaruDensoSH705xDensoCanOperation : public FlashOperationWorker
     QString kernel;
 
     int connect_bootloader();
-    int upload_kernel(QString kernel, uint32_t kernel_addr);
+    int upload_kernel(const QString& kernel, uint32_t kernel_addr);
     int read_mem(uint32_t addr, uint32_t length);
     int write_mem(bool test_write);
     int get_changed_blocks(const uint8_t *src, int *modified);
@@ -77,8 +77,8 @@ class FlashEcuSubaruDensoSH705xDensoCanOperation : public FlashOperationWorker
 
     QByteArray request_kernel_id();
 
-    QByteArray encrypt_payload(QByteArray buf, uint32_t len);
-    QByteArray decrypt_payload(QByteArray buf, uint32_t len);
+    QByteArray encrypt_payload(const QByteArray& buf, uint32_t len);
+    QByteArray decrypt_payload(const QByteArray& buf, uint32_t len);
 
     SerialPortActions *serial;
     FileActions::EcuCalDefStructure *ecuCalDef;

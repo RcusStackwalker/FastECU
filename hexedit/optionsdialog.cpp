@@ -93,49 +93,63 @@ void OptionsDialog::on_pbHighlightingColor_clicked()
 {
     QColor color = QColorDialog::getColor(ui->lbHighlightingColor->palette().color(QPalette::Window), this);
     if (color.isValid())
+    {
         setColor(ui->lbHighlightingColor, color);
+    }
 }
 
 void OptionsDialog::on_pbAddressAreaColor_clicked()
 {
     QColor color = QColorDialog::getColor(ui->lbAddressAreaColor->palette().color(QPalette::Window), this);
     if (color.isValid())
+    {
         setColor(ui->lbAddressAreaColor, color);
+    }
 }
 
 void OptionsDialog::on_pbAddressFontColor_clicked()
 {
     QColor color = QColorDialog::getColor(ui->lbAddressFontColor->palette().color(QPalette::WindowText), this);
     if (color.isValid())
+    {
         setColor(ui->lbAddressFontColor, color);
+    }
 }
 
 void OptionsDialog::on_pbAsciiAreaColor_clicked()
 {
     QColor color = QColorDialog::getColor(ui->lbAsciiAreaColor->palette().color(QPalette::Window), this);
     if (color.isValid())
+    {
         setColor(ui->lbAsciiAreaColor, color);
+    }
 }
 
 void OptionsDialog::on_pbAsciiFontColor_clicked()
 {
     QColor color = QColorDialog::getColor(ui->lbAsciiFontColor->palette().color(QPalette::WindowText), this);
     if (color.isValid())
+    {
         setColor(ui->lbAsciiFontColor, color);
+    }
 }
 
 void OptionsDialog::on_pbHexFontColor_clicked()
 {
     QColor color = QColorDialog::getColor(ui->lbHexFontColor->palette().color(QPalette::WindowText), this);
     if (color.isValid())
+    {
         setColor(ui->lbHexFontColor, color);
+    }
 }
 
 void OptionsDialog::on_pbSelectionColor_clicked()
 {
     QColor color = QColorDialog::getColor(ui->lbSelectionColor->palette().color(QPalette::Window), this);
     if (color.isValid())
+    {
         setColor(ui->lbSelectionColor, color);
+    }
 }
 
 void OptionsDialog::on_pbWidgetFont_clicked()
@@ -143,5 +157,7 @@ void OptionsDialog::on_pbWidgetFont_clicked()
     bool ok;
     QFont font = QFontDialog::getFont(&ok, ui->leWidgetFont->font(), this);
     if (ok)
+    {
         ui->leWidgetFont->setFont(font);
+    }
 }

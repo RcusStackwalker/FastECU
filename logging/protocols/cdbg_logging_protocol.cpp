@@ -18,7 +18,7 @@ QVector<CdbgChannel> channelsFromLogValues(FileActions::LogValuesStructure *lv, 
         {
             if (lv->lower_panel_log_value_id.at(i) == lv->log_value_id.at(j) && lv->log_value_protocol.at(j) == "CDBG")
             {
-                CdbgChannel c;
+                CdbgChannel c{};
                 c.pointer = lv->log_value_address.at(j).toUInt(nullptr, 16);
                 c.size = static_cast<bytes::Byte>(lv->log_value_length.at(j).toUInt());
                 ch.append(c);
@@ -42,7 +42,9 @@ bool CdbgLoggingProtocol::start(QString *errorOut)
     if (channels.isEmpty())
     {
         if (errorOut)
+        {
             *errorOut = "no CDBG log parameters selected";
+        }
         return false;
     }
 
@@ -58,7 +60,9 @@ bool CdbgLoggingProtocol::start(QString *errorOut)
     if (!transport_->isOpen())
     {
         if (errorOut)
+        {
             *errorOut = "adapter disconnected";
+        }
         return false;
     }
 
@@ -66,9 +70,11 @@ bool CdbgLoggingProtocol::start(QString *errorOut)
     if (!driver_.startFreeFormLog(channels, 0, 10, &driverError))
     {
         if (errorOut)
+        {
             *errorOut = driverError.isEmpty()
                             ? QStringLiteral("CDBG logging session failed")
                             : driverError;
+        }
         return false;
     }
     return true;

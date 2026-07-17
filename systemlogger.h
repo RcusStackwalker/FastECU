@@ -38,7 +38,7 @@ class SystemLogger : public QObject
     QFile syslog_file;
     QTextStream syslog_file_outstream;
 
-    bool write_syslog(QString msg);
+    bool write_syslog(const QString& msg);
 
   signals:
     void send_message_to_log_window(QString msg);
@@ -51,7 +51,7 @@ class SystemLogger : public QObject
 
   public slots:
     void enable_log_write_to_file(bool enable);
-    void log_messages(QString message, bool timestamp, bool linefeed);
+    void log_messages(const QString& message, bool timestamp, bool linefeed);
 };
 
 #endif // SYSTEMLOGGER_H

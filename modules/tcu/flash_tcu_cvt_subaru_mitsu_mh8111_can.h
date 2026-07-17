@@ -25,7 +25,7 @@ class FlashTcuCvtSubaruMitsuMH8111Can : public QDialog
     Q_OBJECT
 
   public:
-    explicit FlashTcuCvtSubaruMitsuMH8111Can(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent = nullptr);
+    explicit FlashTcuCvtSubaruMitsuMH8111Can(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent = nullptr);
     ~FlashTcuCvtSubaruMitsuMH8111Can();
 
     void run();

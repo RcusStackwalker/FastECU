@@ -39,12 +39,12 @@ class FlashEcuSubaruHitachiSH72543rCanOperation : public FlashOperationWorker
     bool request_denso_kernel_init = false;
     bool request_denso_kernel_id = false;
 
-    int result;
-    int mcu_type_index;
+    int result{};
+    int mcu_type_index{};
     int bootloader_start_countdown = 3;
 
-    uint8_t tester_id;
-    uint8_t target_id;
+    uint8_t tester_id{};
+    uint8_t target_id{};
 
     uint16_t receive_timeout = 500;
     uint16_t serial_read_timeout = 2000;
@@ -67,9 +67,9 @@ class FlashEcuSubaruHitachiSH72543rCanOperation : public FlashOperationWorker
     int reflash_block(const uint8_t *newdata, const struct flashdev_t *fdt, unsigned blockno, bool test_write);
     int erase_mem();
 
-    QByteArray generate_can_seed_key(QByteArray requested_seed);
-    QByteArray encrypt_payload(QByteArray buf, uint32_t len);
-    QByteArray decrypt_payload(QByteArray buf, uint32_t len);
+    QByteArray generate_can_seed_key(const QByteArray& requested_seed);
+    QByteArray encrypt_payload(const QByteArray& buf, uint32_t len);
+    QByteArray decrypt_payload(const QByteArray& buf, uint32_t len);
 
     SerialPortActions *serial;
     FileActions::EcuCalDefStructure *ecuCalDef;

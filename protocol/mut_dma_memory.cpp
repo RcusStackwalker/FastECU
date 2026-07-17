@@ -7,7 +7,9 @@ namespace mutdma
 std::vector<MutDmaFrame> buildWriteFrames(std::uint16_t addr, bytes::ByteView bytes)
 {
     if (std::uint32_t(addr) + std::uint32_t(bytes.size()) > 0x10000u)
+    {
         return {};
+    }
     std::vector<MutDmaFrame> frames;
     std::size_t off = 0;
     while (off < bytes.size())
@@ -31,7 +33,9 @@ QVector<Channel> planReadChannels(std::uint16_t addr, int len)
 {
     QVector<Channel> ch;
     for (int i = 0; i < len; ++i)
+    {
         ch.append(Channel{static_cast<std::uint16_t>(addr + i), 1});
+    }
     return ch;
 }
 bytes::Bytes reassembleRead(const QVector<std::uint32_t>& values)
@@ -39,7 +43,9 @@ bytes::Bytes reassembleRead(const QVector<std::uint32_t>& values)
     bytes::Bytes out;
     out.reserve(static_cast<std::size_t>(values.size()));
     for (std::uint32_t v : values)
+    {
         out.push_back(static_cast<bytes::Byte>(v & 0xFF));
+    }
     return out;
 }
 } // namespace mutdma

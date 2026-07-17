@@ -18,7 +18,7 @@ QByteArray calculatePayload(const QByteArray& buf, uint32_t len,
                             const uint16_t *keytogenerateindex,
                             const uint8_t *indextransformation);
 uint8_t checksum(const QByteArray& output, bool dec0x100 = false);
-QByteArray addHeader(QByteArray output, uint8_t testerId, uint8_t targetId,
+QByteArray addHeader(const QByteArray& output, uint8_t testerId, uint8_t targetId,
                      bool dec0x100 = false);
 bool hasValidFrame(const QByteArray& frame, uint8_t receiverId, uint8_t senderId,
                    bool dec0x100 = false);

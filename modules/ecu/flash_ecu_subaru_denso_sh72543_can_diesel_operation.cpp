@@ -6,11 +6,12 @@
 #include <QCoreApplication>
 #include <QElapsedTimer>
 #include <QScopedPointer>
+#include <utility>
 
 FlashEcuSubaruDensoSH72543CanDieselOperation::FlashEcuSubaruDensoSH72543CanDieselOperation(
     SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
     QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(std::move(cmd_type))
 {
 }
 
@@ -143,10 +144,14 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::connect_bootloader()
 
             QString ecuid;
             for (int i = 0; i < 5; i++)
+            {
                 ecuid.append(QString("%1").arg((uint8_t)response.at(i), 2, 16, QLatin1Char('0')).toUpper());
+            }
             emit LOG_I("ECU ID: " + ecuid, true, true);
             if (cmd_type == "read")
+            {
                 ecuCalDef->RomId = ecuid + "_";
+            }
         }
         else
         {
@@ -210,7 +215,9 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::connect_bootloader()
 
             emit LOG_I("CAL ID: " + response, true, true);
             if (cmd_type == "read")
+            {
                 ecuCalDef->RomId.insert(0, QString(response) + "_");
+            }
         }
         else
         {
@@ -243,7 +250,9 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::connect_bootloader()
             QString msg;
             msg.clear();
             for (int i = 0; i < response.length(); i++)
+            {
                 msg.append(QString("%1").arg((uint8_t)response.at(i), 2, 16, QLatin1Char('0')).toUpper());
+            }
 
             emit LOG_I("CVN: " + msg, true, true);
         }
@@ -595,7 +604,9 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::connect_bootloader()
             if (received.length() > 5)
             {
                 if ((uint8_t)received.at(4) == 0x50 && (uint8_t)received.at(5) == 0x62)
+                {
                     init_ready = true;
+                }
             }
             if (!init_ready)
             {
@@ -729,7 +740,9 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::connect_bootloader()
             if (received.length() > 5)
             {
                 if ((uint8_t)received.at(4) == 0x50 && (uint8_t)received.at(5) == 0x42)
+                {
                     init_ready = true;
+                }
             }
             if (!init_ready)
             {
@@ -866,7 +879,9 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::read_memory(uint32_t start_add
     while (willget)
     {
         if (stopRequested())
+        {
             return STATUS_ERROR;
+        }
 
         uint32_t numblocks = 1;
         unsigned curspeed = 0, tleft;
@@ -917,7 +932,9 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::read_memory(uint32_t start_add
         timer.start();
 
         if (cplen > 0 && chrono > 0)
+        {
             curspeed = cplen * (1000.0f / chrono);
+        }
 
         if (!curspeed)
         {
@@ -960,7 +977,7 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::read_memory(uint32_t start_add
     output.append((uint8_t)0xE0);
     output.append((uint8_t)0x37);
 
-    while (try_count < 6 && connected == false)
+    while (try_count < 6 && !connected)
     {
         serial->write_serial_data_echo_check(output);
 
@@ -1123,7 +1140,9 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::reflash_block(const uint8_t *n
     for (blockctr = 0; blockctr < maxblocks; blockctr++)
     {
         if (stopRequested())
+        {
             return 0;
+        }
 
         blockaddr = start_addr + blockctr * blocksize;
         output.clear();
@@ -1212,7 +1231,7 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::reflash_block(const uint8_t *n
     output.append((uint8_t)0xE0);
     output.append((uint8_t)0x37);
 
-    while (try_count < 6 && connected == false)
+    while (try_count < 6 && !connected)
     {
         serial->write_serial_data_echo_check(output);
 
@@ -1363,7 +1382,7 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::erase_memory(const struct flas
 
     connected = false;
     try_count = 0;
-    while (try_count < 20 && connected == false)
+    while (try_count < 20 && !connected)
     {
         received = serial->read_serial_data(receive_timeout);
         if (received.length() > 6)
@@ -1401,7 +1420,7 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::erase_memory(const struct flas
  *
  * @return seed key (4 bytes)
  */
-QByteArray FlashEcuSubaruDensoSH72543CanDieselOperation::generate_can_seed_key(QByteArray requested_seed)
+QByteArray FlashEcuSubaruDensoSH72543CanDieselOperation::generate_can_seed_key(const QByteArray& requested_seed)
 {
     QByteArray key;
 
@@ -1433,7 +1452,7 @@ QByteArray FlashEcuSubaruDensoSH72543CanDieselOperation::generate_can_seed_key(Q
  * @return encrypted data
  */
 
-QByteArray FlashEcuSubaruDensoSH72543CanDieselOperation::encrypt_payload(QByteArray buf, uint32_t len)
+QByteArray FlashEcuSubaruDensoSH72543CanDieselOperation::encrypt_payload(const QByteArray& buf, uint32_t len)
 {
     QByteArray encrypted;
 
@@ -1451,7 +1470,7 @@ QByteArray FlashEcuSubaruDensoSH72543CanDieselOperation::encrypt_payload(QByteAr
     return encrypted;
 }
 
-QByteArray FlashEcuSubaruDensoSH72543CanDieselOperation::decrypt_payload(QByteArray buf, uint32_t len)
+QByteArray FlashEcuSubaruDensoSH72543CanDieselOperation::decrypt_payload(const QByteArray& buf, uint32_t len)
 {
     QByteArray decrypt;
 

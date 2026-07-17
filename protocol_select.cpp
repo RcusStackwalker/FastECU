@@ -52,7 +52,9 @@ ProtocolSelect::ProtocolSelect(FileActions::ConfigValuesStructure *configValues,
                 descriptions_sorted.append(configValues->flash_protocol_description.at(j));
                 text_width = fm.horizontalAdvance(descriptions_sorted.at(i));
                 if (text_width > description_width)
+                {
                     description_width = text_width;
+                }
 
                 break;
             }
@@ -60,7 +62,9 @@ ProtocolSelect::ProtocolSelect(FileActions::ConfigValuesStructure *configValues,
 
         text_width = fm.horizontalAdvance(protocols_sorted.at(i));
         if (text_width > protocol_width)
+        {
             protocol_width = text_width;
+        }
     }
     protocol_width += 20;
     description_width += 20;

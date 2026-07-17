@@ -111,7 +111,9 @@ class TestMitsuColtCanCdbgProtocol : public QObject
         // would overflow) - one more than kMaxFrames (8).
         QVector<CdbgChannel> channels;
         for (int i = 0; i < 9; ++i)
+        {
             channels.append(CdbgChannel{std::uint32_t(0x800000 + i), 4});
+        }
         QVector<QVector<CdbgChannel>> frames;
         QVERIFY(!batchChannelsIntoFrames(channels, frames));
     }

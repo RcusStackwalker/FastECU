@@ -6,11 +6,12 @@
 #include <QElapsedTimer>
 
 #include <span>
+#include <utility>
 
 FlashEcuSubaruHitachiSH7058CanOperation::FlashEcuSubaruHitachiSH7058CanOperation(
     SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
     QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(std::move(cmd_type))
 {
 }
 
@@ -156,10 +157,14 @@ int FlashEcuSubaruHitachiSH7058CanOperation::connect_bootloader_subaru_ecu_hitac
 
             QString ecuid;
             for (int i = 0; i < 5; i++)
+            {
                 ecuid.append(QString("%1").arg((uint8_t)response.at(i), 2, 16, QLatin1Char('0')).toUpper());
+            }
             emit LOG_I("ECU ID: " + ecuid, true, true);
             if (cmd_type == "read")
+            {
                 ecuCalDef->RomId = ecuid + "_";
+            }
         }
         else
         {
@@ -223,7 +228,9 @@ int FlashEcuSubaruHitachiSH7058CanOperation::connect_bootloader_subaru_ecu_hitac
 
             emit LOG_I("CAL ID: " + response, true, true);
             if (cmd_type == "read")
+            {
                 ecuCalDef->RomId.insert(0, QString(response) + "_");
+            }
         }
         else
         {
@@ -256,7 +263,9 @@ int FlashEcuSubaruHitachiSH7058CanOperation::connect_bootloader_subaru_ecu_hitac
             QString msg;
             msg.clear();
             for (int i = 0; i < response.length(); i++)
+            {
                 msg.append(QString("%1").arg((uint8_t)response.at(i), 2, 16, QLatin1Char('0')).toUpper());
+            }
 
             emit LOG_I("CVN: " + msg, true, true);
         }
@@ -736,10 +745,14 @@ int FlashEcuSubaruHitachiSH7058CanOperation::read_mem_subaru_ecu_hitachi_can(uin
         serial->change_port_speed("4800");
         received = send_sid_bf_ssm_init();
         if (received == "" || (uint8_t)received.at(4) != 0xff)
+        {
             return STATUS_ERROR;
+        }
 
         if (received.length() < 13)
+        {
             return STATUS_ERROR;
+        }
 
         received.remove(0, 8);
         received.remove(5, received.length() - 5);
@@ -761,22 +774,30 @@ int FlashEcuSubaruHitachiSH7058CanOperation::read_mem_subaru_ecu_hitachi_can(uin
                             QMessageBox::Ok | QMessageBox::Cancel,
                             QMessageBox::Ok);
         if (reply != QMessageBox::Ok)
+        {
             return STATUS_ERROR;
+        }
         else
+        {
             emit LOG_I("Let's roll...", true, true);
+        }
 
         received = send_subaru_sid_b8_change_baudrate_38400();
         // LOG_I("0xB8 response: " + SsmProtocol::toHex(received), true, true);
         // emit LOG_I("0xB8 response: " + SsmProtocol::toHex(received), true, true);
         if (received == "" || (uint8_t)received.at(4) != 0xf8)
+        {
             return STATUS_ERROR;
+        }
 
         serial->change_port_speed("38400");
 
         // Checking connection after baudrate change with SSM Init
         received = send_sid_bf_ssm_init();
         if (received == "" || (uint8_t)received.at(4) != 0xff)
+        {
             return STATUS_ERROR;
+        }
     }
 
     emit LOG_I("Start reading ROM, please wait...", true, true);
@@ -797,7 +818,9 @@ int FlashEcuSubaruHitachiSH7058CanOperation::read_mem_subaru_ecu_hitachi_can(uin
     while (willget)
     {
         if (stopRequested())
+        {
             return STATUS_ERROR;
+        }
 
         uint32_t numblocks = 1;
         unsigned curspeed = 0, tleft;
@@ -845,7 +868,9 @@ int FlashEcuSubaruHitachiSH7058CanOperation::read_mem_subaru_ecu_hitachi_can(uin
         timer.start();
 
         if (cplen > 0 && chrono > 0)
+        {
             curspeed = cplen * (1000.0f / chrono);
+        }
 
         if (!curspeed)
         {
@@ -1038,12 +1063,16 @@ int FlashEcuSubaruHitachiSH7058CanOperation::reflash_block_subaru_ecu_hitachi_ca
         try_count++;
     }
     if (try_count == 6)
+    {
         return STATUS_ERROR;
+    }
 
     for (blockctr = 0; blockctr < maxblocks; blockctr++)
     {
         if (stopRequested())
+        {
             return 0;
+        }
 
         blockaddr = start_address + blockctr * blocksize;
         output.clear();
@@ -1112,7 +1141,9 @@ int FlashEcuSubaruHitachiSH7058CanOperation::reflash_block_subaru_ecu_hitachi_ca
         try_count++;
     }
     if (try_count == 20)
+    {
         return STATUS_ERROR;
+    }
 
     delay(100);
 
@@ -1200,7 +1231,7 @@ int FlashEcuSubaruHitachiSH7058CanOperation::erase_subaru_ecu_hitachi_can()
 
     received = serial->read_serial_data(200);
 
-    while (try_count < 20 && connected == false)
+    while (try_count < 20 && !connected)
     {
         received = serial->read_serial_data(serial_read_long_timeout);
         if (received.length() > 6)
@@ -1243,7 +1274,9 @@ QByteArray FlashEcuSubaruHitachiSH7058CanOperation::send_sid_bf_ssm_init()
     while (received == "" && loop_cnt < 1)
     {
         if (stopRequested())
+        {
             break;
+        }
 
         emit LOG_I("SSM init", true, true);
         output = SsmProtocol::addHeader(output, tester_id, target_id, false);
@@ -1357,7 +1390,7 @@ QByteArray FlashEcuSubaruHitachiSH7058CanOperation::send_subaru_sid_b8_change_ba
  *
  * @return seed key (4 bytes)
  */
-QByteArray FlashEcuSubaruHitachiSH7058CanOperation::subaru_ecu_hitachi_generate_can_seed_key(QByteArray requested_seed)
+QByteArray FlashEcuSubaruHitachiSH7058CanOperation::subaru_ecu_hitachi_generate_can_seed_key(const QByteArray& requested_seed)
 {
     QByteArray key;
 
@@ -1392,7 +1425,7 @@ QByteArray FlashEcuSubaruHitachiSH7058CanOperation::subaru_ecu_hitachi_generate_
  * @return encrypted data
  */
 
-QByteArray FlashEcuSubaruHitachiSH7058CanOperation::subaru_ecu_hitachi_encrypt_32bit_payload(QByteArray buf, uint32_t len)
+QByteArray FlashEcuSubaruHitachiSH7058CanOperation::subaru_ecu_hitachi_encrypt_32bit_payload(const QByteArray& buf, uint32_t len)
 {
     QByteArray encrypted;
 
@@ -1410,7 +1443,7 @@ QByteArray FlashEcuSubaruHitachiSH7058CanOperation::subaru_ecu_hitachi_encrypt_3
     return encrypted;
 }
 
-QByteArray FlashEcuSubaruHitachiSH7058CanOperation::subaru_ecu_hitachi_decrypt_32bit_payload(QByteArray buf, uint32_t len)
+QByteArray FlashEcuSubaruHitachiSH7058CanOperation::subaru_ecu_hitachi_decrypt_32bit_payload(const QByteArray& buf, uint32_t len)
 {
     QByteArray decrypt;
 

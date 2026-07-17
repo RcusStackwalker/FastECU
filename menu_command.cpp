@@ -54,7 +54,9 @@ MenuCommand menu_command_from_id(const QString& id)
     for (const MenuCommandMapping& mapping : kMenuCommandMappings)
     {
         if (id == QLatin1String(mapping.id))
+        {
             return mapping.command;
+        }
     }
     return MenuCommand::Unknown;
 }
@@ -64,7 +66,9 @@ QString menu_command_id(MenuCommand command)
     for (const MenuCommandMapping& mapping : kMenuCommandMappings)
     {
         if (command == mapping.command)
+        {
             return QString::fromLatin1(mapping.id);
+        }
     }
     return QString();
 }

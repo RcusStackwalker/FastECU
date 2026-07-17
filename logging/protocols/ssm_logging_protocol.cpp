@@ -33,7 +33,9 @@ QVector<SsmLogChannel> channelsFromLogValues(FileActions::LogValuesStructure *lv
     for (int j = 0; j < lv->log_value_id.length(); ++j)
     {
         if (lv->log_value_protocol.at(j) == protocolFilter)
+        {
             logValueIndicesById[lv->log_value_id.at(j)].append(j);
+        }
     }
 
     QVector<SsmLogChannel> channels;
@@ -42,7 +44,9 @@ QVector<SsmLogChannel> channelsFromLogValues(FileActions::LogValuesStructure *lv
     {
         const auto it = logValueIndicesById.constFind(lv->lower_panel_log_value_id.at(i));
         if (it == logValueIndicesById.cend())
+        {
             continue;
+        }
 
         for (int j : it.value())
         {
@@ -63,7 +67,9 @@ bytes::Bytes buildPollRequest(const QVector<SsmLogChannel>& channels)
     bytes::Bytes output{0xA8, 0x01};
     output.reserve(output.size() + channels.size() * 3);
     for (const SsmLogChannel& channel : channels)
+    {
         bytes::appendU24Be(output, channel.address);
+    }
     return output;
 }
 } // namespace
@@ -87,10 +93,14 @@ bytes::Bytes SsmLoggingProtocol::readFramedResponse(int timeoutMs)
     clock.start();
 
     if (useOpenport2Adapter_)
+    {
         return transport_->read(timeoutMs);
+    }
 
     while (received.size() < 3 && clock.elapsed() < timeoutMs)
+    {
         appendBytes(received, transport_->read(10));
+    }
 
     while (received.size() >= 3 && (received[0] != 0x80 || received[1] != 0xf0 || received[2] != 0x10) && clock.elapsed() < timeoutMs)
     {
@@ -100,7 +110,9 @@ bytes::Bytes SsmLoggingProtocol::readFramedResponse(int timeoutMs)
 
     int remaining = timeoutMs - int(clock.elapsed());
     if (remaining > 0)
+    {
         appendBytes(received, transport_->read(remaining));
+    }
 
     return received;
 }
@@ -110,7 +122,9 @@ bool SsmLoggingProtocol::start(QString *errorOut)
     if (!transport_->isOpen())
     {
         if (errorOut)
+        {
             *errorOut = "adapter disconnected";
+        }
         return false;
     }
 
@@ -121,7 +135,9 @@ bool SsmLoggingProtocol::start(QString *errorOut)
     if (received.size() <= 6 || received[4] != 0xe8)
     {
         if (errorOut)
+        {
             *errorOut = "no response to logging start request";
+        }
         return false;
     }
     return true;
@@ -155,11 +171,15 @@ PollResult SsmLoggingProtocol::poll(int timeoutMs)
     {
         const std::size_t channelOffset = channel.responseOffset;
         if (!channel.enabled || channelOffset >= payloadLength)
+        {
             continue;
+        }
 
         QString value;
         for (std::size_t k = 0; k < channel.length && channelOffset + k < payloadLength; ++k)
+        {
             value.append(QString::number(received[payloadOffset + channelOffset + k]));
+        }
 
         QString calc_value = convertRomRaiderValue(fileActions_, logValues_, channel.logValueIndex, value);
         result.samples.append(LogSample{channel.logValueIndex, calc_value});

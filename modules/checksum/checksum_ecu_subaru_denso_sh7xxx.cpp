@@ -1,4 +1,6 @@
 #include "checksum_ecu_subaru_denso_sh7xxx.h"
+
+#include <utility>
 #include "protocol/qt_bytes.h"
 
 ChecksumEcuSubaruDensoSH7xxx::ChecksumEcuSubaruDensoSH7xxx()
@@ -11,10 +13,10 @@ ChecksumEcuSubaruDensoSH7xxx::~ChecksumEcuSubaruDensoSH7xxx()
 
 QByteArray ChecksumEcuSubaruDensoSH7xxx::calculate_checksum(QByteArray romData, uint32_t checksum_area_start, uint32_t checksum_area_length, int32_t offset)
 {
-    return calculate_checksum_result(romData, checksum_area_start, checksum_area_length, offset).romData;
+    return calculate_checksum_result(std::move(romData), checksum_area_start, checksum_area_length, offset).romData;
 }
 
-ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(QByteArray romData, uint32_t checksum_area_start, uint32_t checksum_area_length, int32_t offset)
+ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(const QByteArray& romData, uint32_t checksum_area_start, uint32_t checksum_area_length, int32_t offset)
 {
     QByteArray checksum_array;
     ChecksumResult result;

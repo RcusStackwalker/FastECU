@@ -21,16 +21,22 @@ DtcOperations::DtcOperations(SerialPortActions *serial, QWidget *parent)
     auto *model = qobject_cast<QStandardItemModel *>(ui->protocolComboBox->model());
     assert(model);
     if (!model)
+    {
         return;
+    }
 
     for (int i = 0; i < ui->protocolComboBox->count(); i++)
     {
         auto *item = model->item(i);
         assert(item);
         if (!item)
+        {
             return;
+        }
         if (item->text().startsWith("SSM "))
+        {
             item->setEnabled(false);
+        }
     }
 
     connect(ui->readDtcButton, &QPushButton::clicked, this, &DtcOperations::select_operation);
@@ -97,7 +103,9 @@ int DtcOperations::select_operation()
 
         result = fast_init();
         if (result)
+        {
             result = five_baud_init("iso14230");
+        }
     }
     else if (ui->protocolComboBox->currentText().startsWith("iso15765"))
     {
@@ -126,12 +134,14 @@ int DtcOperations::select_operation()
     serial->reset_connection();
 
     if (result)
+    {
         return result;
+    }
 
     return STATUS_SUCCESS;
 }
 
-int DtcOperations::five_baud_init(QString protocol)
+int DtcOperations::five_baud_init(const QString& protocol)
 {
     QByteArray output;
     QByteArray received;
@@ -152,9 +162,13 @@ int DtcOperations::five_baud_init(QString protocol)
     emit LOG_I("Testing " + protocol + " five baud init, please wait...", true, true);
 
     if (serial->get_use_openport2_adapter())
+    {
         serial->set_j2534_ioctl(P1_MAX, 35);
+    }
     else
+    {
         serial->set_kline_timings(SERIAL_P1_MAX, 35);
+    }
 
     output.clear();
     output.append((uint8_t)five_baud_init_OBD);
@@ -164,16 +178,24 @@ int DtcOperations::five_baud_init(QString protocol)
     if (serial->get_use_openport2_adapter())
     {
         if ((uint8_t)received.at(5) == '8' && (uint8_t)received.at(7) == '8' && protocol == "iso9141")
+        {
             five_baud_init_iso9141_ok = true;
+        }
         if ((uint8_t)received.at(8) == '8' && (uint8_t)received.at(9) == 'f' && protocol == "iso14230")
+        {
             five_baud_init_iso14230_ok = true;
+        }
     }
     else
     {
         if ((uint8_t)received.at(1) == 0x08 && (uint8_t)received.at(2) == 0x08)
+        {
             five_baud_init_iso9141_ok = true;
+        }
         if ((uint8_t)received.at(2) == 0x8f)
+        {
             five_baud_init_iso14230_ok = true;
+        }
         serial->set_kline_timings(SERIAL_P1_MAX, 25);
     }
     if (five_baud_init_iso9141_ok)
@@ -220,16 +242,24 @@ int DtcOperations::fast_init()
     output.append((uint8_t)fast_init_OBD);
     result = serial->fast_init(output);
     if (result)
+    {
         return STATUS_ERROR;
+    }
 
     if (serial->get_use_openport2_adapter())
+    {
         received = serial->read_serial_data(serial_read_short_timeout);
+    }
     else
+    {
         received = serial->read_serial_obd_data(serial_read_short_timeout);
+    }
     // emit LOG_I("Response: " + parse_message_to_hex(response), true, true);
 
     if ((uint8_t)received.at(0) == 0x83 && (uint8_t)received.at(1) == 0xf1 && (uint8_t)received.at(2) == 0x10 && (uint8_t)received.at(3) == 0xc1 && (uint8_t)received.at(4) == 0xe9 && (uint8_t)received.at(5) == 0x8f)
+    {
         fast_init_ok = true;
+    }
 
     if (fast_init_ok)
     {
@@ -289,7 +319,9 @@ int DtcOperations::iso15765_init()
         }
     }
     else
+    {
         return STATUS_ERROR;
+    }
 
     can_init_ok = true;
 
@@ -331,12 +363,18 @@ QByteArray DtcOperations::request_data(const uint8_t cmd, const uint8_t sub_cmd)
     while (1)
     {
         if (serial->get_use_openport2_adapter())
+        {
             received = serial->read_serial_data(serial_read_short_timeout);
+        }
         else
+        {
             received = serial->read_serial_obd_data(serial_read_short_timeout);
+        }
 
         if (!received.length())
+        {
             break;
+        }
         else if (received.length() > cmd_index)
         {
             if (received.at(cmd_index) == 0x7f)
@@ -359,11 +397,17 @@ QByteArray DtcOperations::request_data(const uint8_t cmd, const uint8_t sub_cmd)
         {
             received.remove(received.length() - 1, 1);
             if (received.length() < 7)
+            {
                 received.remove(0, received.length() - 1);
+            }
             else if (received.length() < 10)
+            {
                 received.remove(0, 5);
+            }
             else
+            {
                 received.remove(0, 6);
+            }
             response.append(received);
         }
     }
@@ -470,12 +514,18 @@ QByteArray DtcOperations::request_dtc_list(uint8_t cmd)
     while (1)
     {
         if (serial->get_use_openport2_adapter())
+        {
             received = serial->read_serial_data(serial_read_short_timeout);
+        }
         else
+        {
             received = serial->read_serial_obd_data(serial_read_short_timeout);
+        }
 
         if (!received.length())
+        {
             break;
+        }
         if (received.length() > cmd_index)
         {
             if (received.at(cmd_index) == 0x7f)
@@ -498,9 +548,13 @@ QByteArray DtcOperations::request_dtc_list(uint8_t cmd)
         {
             received.remove(received.length() - 1, 1);
             if (received.length() < 7)
+            {
                 received.remove(0, received.length() - 1);
+            }
             else
+            {
                 received.remove(0, 4);
+            }
             response.append(received);
         }
     }
@@ -516,7 +570,9 @@ int DtcOperations::read_dtc()
 
     response = request_dtc_list(read_stored_DTCs);
     if (!response.length())
+    {
         return STATUS_ERROR;
+    }
 
     emit LOG_I("Stored DTCs: " + parse_message_to_hex(response), true, true);
 
@@ -531,13 +587,17 @@ int DtcOperations::read_dtc()
     }
     std::sort(dtc_list.begin(), dtc_list.end(), std::less<QString>());
     for (int i = 0; i < dtc_list.length(); i++)
+    {
         emit LOG_I("DTC: " + FileActions::parse_dtc_message(dtc_list.at(i).toUInt(&ok, 16)), true, true);
+    }
 
     delay(250);
 
     response = request_dtc_list(read_pending_DTCs);
     if (!response.length())
+    {
         return STATUS_ERROR;
+    }
 
     emit LOG_I("Pending DTCs: " + parse_message_to_hex(response), true, true);
 
@@ -573,7 +633,9 @@ int DtcOperations::clear_dtc()
 
     result = read_dtc();
     if (result)
+    {
         return STATUS_ERROR;
+    }
 
     output.clear();
     if (ui->protocolComboBox->currentText().startsWith("iso15765"))
@@ -589,12 +651,18 @@ int DtcOperations::clear_dtc()
     while (1)
     {
         if (serial->get_use_openport2_adapter())
+        {
             received = serial->read_serial_data(serial_read_short_timeout);
+        }
         else
+        {
             received = serial->read_serial_obd_data(serial_read_short_timeout);
+        }
 
         if (!received.length())
+        {
             break;
+        }
         if (received.length() > cmd_index)
         {
             if (received.at(cmd_index) == 0x7f)
@@ -616,7 +684,9 @@ int DtcOperations::clear_dtc()
     }
 
     if (!clear_dtc_ok)
+    {
         return STATUS_ERROR;
+    }
 
     emit LOG_I("Diagnostic trouble codes succesfully cleared!", true, true);
 
@@ -628,15 +698,19 @@ int DtcOperations::clear_dtc()
  *
  * @return 8-bit checksum
  */
-uint8_t DtcOperations::calculate_checksum(QByteArray output, bool dec_0x100)
+uint8_t DtcOperations::calculate_checksum(const QByteArray& output, bool dec_0x100)
 {
     uint8_t checksum = 0;
 
     for (uint16_t i = 0; i < output.length(); i++)
+    {
         checksum += (uint8_t)output.at(i);
+    }
 
     if (dec_0x100)
+    {
         checksum = (uint8_t)(0x100 - checksum);
+    }
 
     return checksum;
 }
@@ -646,7 +720,7 @@ uint8_t DtcOperations::calculate_checksum(QByteArray output, bool dec_0x100)
  *
  * @return parsed message
  */
-QString DtcOperations::parse_message_to_hex(QByteArray received)
+QString DtcOperations::parse_message_to_hex(const QByteArray& received)
 {
     QString msg;
 
@@ -662,5 +736,7 @@ void DtcOperations::delay(int timeout)
 {
     QTime dieTime = QTime::currentTime().addMSecs(timeout);
     while (QTime::currentTime() < dieTime)
+    {
         QCoreApplication::processEvents(QEventLoop::AllEvents, 1);
+    }
 }

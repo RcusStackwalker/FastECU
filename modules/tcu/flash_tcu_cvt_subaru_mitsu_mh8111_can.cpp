@@ -1,20 +1,28 @@
 #include "flash_tcu_cvt_subaru_mitsu_mh8111_can.h"
+
+#include <utility>
 #include "flash_tcu_cvt_subaru_mitsu_mh8111_can_operation.h"
 #include "serial_port_actions.h"
 
 // QT_CHARTS_USE_NAMESPACE
 
-FlashTcuCvtSubaruMitsuMH8111Can::FlashTcuCvtSubaruMitsuMH8111Can(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent)
+FlashTcuCvtSubaruMitsuMH8111Can::FlashTcuCvtSubaruMitsuMH8111Can(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
     : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
 
     if (cmd_type == "test_write")
+    {
         this->setWindowTitle("Test write ROM " + ecuCalDef->FileName + " to ECU");
+    }
     else if (cmd_type == "write")
+    {
         this->setWindowTitle("Write ROM " + ecuCalDef->FileName + " to ECU");
+    }
     else if (cmd_type == "read")
+    {
         this->setWindowTitle("Read ROM from TCU");
+    }
 
     this->serial = serial;
 }
@@ -40,7 +48,7 @@ void FlashTcuCvtSubaruMitsuMH8111Can::run()
         connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashTcuCvtSubaruMitsuMH8111Can::LOG_D);
         connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
                 this, [this](QString msg)
-                { emit external_logger(msg); });
+                { emit external_logger(std::move(msg)); });
         connect(m_operation, &FlashOperationWorker::progressChanged,
                 this, &FlashTcuCvtSubaruMitsuMH8111Can::set_progressbar_value);
 
@@ -88,7 +96,9 @@ FlashTcuCvtSubaruMitsuMH8111Can::~FlashTcuCvtSubaruMitsuMH8111Can()
 void FlashTcuCvtSubaruMitsuMH8111Can::closeEvent(QCloseEvent *event)
 {
     if (m_operation)
+    {
         m_operation->requestStop();
+    }
 }
 
 void FlashTcuCvtSubaruMitsuMH8111Can::set_progressbar_value(int value)
@@ -100,5 +110,7 @@ void FlashTcuCvtSubaruMitsuMH8111Can::set_progressbar_value(int value)
         ui->progressbar->setValue(value);
     }
     if (valueChanged)
+    {
         emit external_logger(value);
+    }
 }

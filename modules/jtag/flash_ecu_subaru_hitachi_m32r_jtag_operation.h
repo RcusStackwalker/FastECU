@@ -60,15 +60,15 @@ class FlashEcuSubaruHitachiM32rJtagOperation : public FlashOperationWorker
     bool kernel_alive = false;
     bool test_write = false;
 
-    int result;
-    int mcu_type_index;
+    int result{};
+    int mcu_type_index{};
     int bootloader_start_countdown = 3;
 
     uint8_t comm_try_timeout = 50;
     uint8_t comm_try_count = 4;
 
-    uint8_t tester_id;
-    uint8_t target_id;
+    uint8_t tester_id{};
+    uint8_t target_id{};
 
     uint16_t receive_timeout = 500;
     uint16_t serial_read_timeout = 2000;
@@ -98,9 +98,9 @@ class FlashEcuSubaruHitachiM32rJtagOperation : public FlashOperationWorker
     void set_rtdenb();
     int read_tool_rom_code();
 
-    void write_jtag_ir(QString desc, QString code);
-    QByteArray read_jtag_dr(QString desc);
-    QByteArray write_jtag_dr(QString desc, QString data);
+    void write_jtag_ir(const QString& desc, const QString& code);
+    QByteArray read_jtag_dr(const QString& desc);
+    QByteArray write_jtag_dr(const QString& desc, const QString& data);
     QByteArray read_response();
 
     QByteArray add_header(QByteArray output);

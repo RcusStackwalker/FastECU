@@ -20,7 +20,7 @@ QVector<Channel> channelsFromLogValues(FileActions::LogValuesStructure *lv, QVec
         {
             if (lv->lower_panel_log_value_id.at(i) == lv->log_value_id.at(j) && lv->log_value_protocol.at(j) == "MUT_DMA" && lv->log_value_enabled.at(j) == "1")
             {
-                Channel c;
+                Channel c{};
                 c.id = static_cast<std::uint16_t>(lv->log_value_address.at(j).toUInt(nullptr, 16));
                 c.len = static_cast<bytes::Byte>(lv->log_value_length.at(j).toUInt());
                 ch.append(c);
@@ -44,7 +44,9 @@ bool MutDmaLoggingProtocol::start(QString *errorOut)
     if (!transport_->isOpen())
     {
         if (errorOut)
+        {
             *errorOut = "adapter disconnected";
+        }
         return false;
     }
 
@@ -52,7 +54,9 @@ bool MutDmaLoggingProtocol::start(QString *errorOut)
     if (!driver_.startFreeFormLog(channels, 0xA0, 0xA1))
     {
         if (errorOut)
+        {
             *errorOut = "MUT/DMA free-form handshake failed";
+        }
         return false;
     }
     return true;

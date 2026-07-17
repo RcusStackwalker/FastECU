@@ -30,7 +30,9 @@ VehicleSelect::VehicleSelect(FileActions::ConfigValuesStructure *configValues, Q
 
     int width = 0;
     for (int i = 0; i < ui->car_version_tree_widget->columnCount(); i++)
+    {
         width += ui->car_version_tree_widget->columnWidth(i);
+    }
 
     // qDebug() << "Full width =" << width;
     ui->car_version_tree_widget->setMinimumWidth(width);
@@ -139,7 +141,7 @@ void VehicleSelect::car_make_treewidget_item_selected()
 
         // qDebug() << "Check models for manufacturer:" << selected_text;
 
-        QString car_make = selected_text;
+        const QString& car_make = selected_text;
         flash_protocol_id.clear();
         flash_protocol_make = car_make;
         flash_protocol_model.clear();
@@ -211,7 +213,7 @@ void VehicleSelect::car_model_treewidget_item_selected()
 
         // qDebug() << "Check versions for model:" << selected_text;
 
-        QString car_model = selected_text;
+        const QString& car_model = selected_text;
         QStringList car_versions;
         QStringList car_versions_sorted;
         bool car_version_changed_saved = false;
@@ -304,13 +306,21 @@ void VehicleSelect::car_model_treewidget_item_selected()
                 item->setToolTip(8, "Checksum calculation NOT supported yet");
             }
             if (read.at(i) == "yes")
+            {
                 item->setCheckState(9, Qt::Checked);
+            }
             else
+            {
                 item->setCheckState(9, Qt::Unchecked);
+            }
             if (write.at(i) == "yes")
+            {
                 item->setCheckState(10, Qt::Checked);
+            }
             else
+            {
                 item->setCheckState(10, Qt::Unchecked);
+            }
 
             item->setText(11, family.at(i));
             item->setToolTip(11, family.at(i));
@@ -349,7 +359,7 @@ void VehicleSelect::car_version_treewidget_item_selected()
 
         ui->select_button->setEnabled(true);
 
-        QString car_version = selected_text;
+        const QString& car_version = selected_text;
         flash_protocol_version.clear();
         flash_protocol_version = car_version;
         flash_protocol_family = item->text(11);

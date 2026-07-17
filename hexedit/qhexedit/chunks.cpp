@@ -53,15 +53,23 @@ QByteArray Chunks::data(qint64 pos, qint64 maxSize, QByteArray *highlighted)
 
     // Do some checks and some arrangements
     if (highlighted)
+    {
         highlighted->clear();
+    }
 
     if (pos >= _size)
+    {
         return buffer;
+    }
 
     if (maxSize < 0)
+    {
         maxSize = _size;
+    }
     else if ((pos + maxSize) > _size)
+    {
         maxSize = _size - pos;
+    }
 
     _ioDevice->open(QIODevice::ReadOnly);
 
@@ -78,7 +86,9 @@ QByteArray Chunks::data(qint64 pos, qint64 maxSize, QByteArray *highlighted)
 
             chunk = _chunks[chunkIdx];
             if (chunk.absPos > pos)
+            {
                 chunksLoopOngoing = false;
+            }
             else
             {
                 chunkIdx += 1;
@@ -90,14 +100,18 @@ QByteArray Chunks::data(qint64 pos, qint64 maxSize, QByteArray *highlighted)
                     ioDelta += CHUNK_SIZE - chunk.data.size();
                 }
                 else
+                {
                     count = maxSize;
+                }
                 if (count > 0)
                 {
                     buffer += chunk.data.mid(chunkOfs, (int)count);
                     maxSize -= count;
                     pos += count;
                     if (highlighted)
+                    {
                         *highlighted += chunk.dataChanged.mid(chunkOfs, (int)count);
+                    }
                 }
             }
         }
@@ -110,16 +124,22 @@ QByteArray Chunks::data(qint64 pos, qint64 maxSize, QByteArray *highlighted)
             qint64 byteCount;
             QByteArray readBuffer;
             if ((chunk.absPos - pos) > maxSize)
+            {
                 byteCount = maxSize;
+            }
             else
+            {
                 byteCount = chunk.absPos - pos;
+            }
 
             maxSize -= byteCount;
             _ioDevice->seek(pos + ioDelta);
             readBuffer = _ioDevice->read(byteCount);
             buffer += readBuffer;
             if (highlighted)
+            {
                 *highlighted += QByteArray(readBuffer.size(), NORMAL);
+            }
             pos += readBuffer.size();
         }
     }
@@ -130,7 +150,9 @@ QByteArray Chunks::data(qint64 pos, qint64 maxSize, QByteArray *highlighted)
 bool Chunks::write(QIODevice& iODevice, qint64 pos, qint64 count)
 {
     if (count == -1)
+    {
         count = _size;
+    }
     bool ok = iODevice.open(QIODevice::WriteOnly);
     if (ok)
     {
@@ -149,7 +171,9 @@ bool Chunks::write(QIODevice& iODevice, qint64 pos, qint64 count)
 void Chunks::setDataChanged(qint64 pos, bool dataChanged)
 {
     if ((pos < 0) || (pos >= _size))
+    {
         return;
+    }
     int chunkIdx = getChunkIndex(pos);
     qint64 posInBa = pos - _chunks[chunkIdx].absPos;
     _chunks[chunkIdx].dataChanged[(int)posInBa] = char(dataChanged);
@@ -174,7 +198,9 @@ qint64 Chunks::indexOf(const QByteArray& ba, qint64 from)
         buffer = data(pos, BUFFER_SIZE + ba.size() - 1);
         int findPos = buffer.indexOf(ba);
         if (findPos >= 0)
+        {
             result = pos + (qint64)findPos;
+        }
     }
     return result;
 }
@@ -188,11 +214,15 @@ qint64 Chunks::lastIndexOf(const QByteArray& ba, qint64 from)
     {
         qint64 sPos = pos - BUFFER_SIZE - (qint64)ba.size() + 1;
         if (sPos < 0)
+        {
             sPos = 0;
+        }
         buffer = data(sPos, pos - sPos);
         int findPos = buffer.lastIndexOf(ba);
         if (findPos >= 0)
+        {
             result = sPos + (qint64)findPos;
+        }
     }
     return result;
 }
@@ -202,17 +232,25 @@ qint64 Chunks::lastIndexOf(const QByteArray& ba, qint64 from)
 bool Chunks::insert(qint64 pos, char b)
 {
     if ((pos < 0) || (pos > _size))
+    {
         return false;
+    }
     int chunkIdx;
     if (pos == _size)
+    {
         chunkIdx = getChunkIndex(pos - 1);
+    }
     else
+    {
         chunkIdx = getChunkIndex(pos);
+    }
     qint64 posInBa = pos - _chunks[chunkIdx].absPos;
     _chunks[chunkIdx].data.insert(posInBa, b);
     _chunks[chunkIdx].dataChanged.insert(posInBa, char(1));
     for (int idx = chunkIdx + 1; idx < _chunks.size(); idx++)
+    {
         _chunks[idx].absPos += 1;
+    }
     _size += 1;
     _pos = pos;
     return true;
@@ -221,7 +259,9 @@ bool Chunks::insert(qint64 pos, char b)
 bool Chunks::overwrite(qint64 pos, char b)
 {
     if ((pos < 0) || (pos >= _size))
+    {
         return false;
+    }
     int chunkIdx = getChunkIndex(pos);
     qint64 posInBa = pos - _chunks[chunkIdx].absPos;
     _chunks[chunkIdx].data[(int)posInBa] = b;
@@ -233,13 +273,17 @@ bool Chunks::overwrite(qint64 pos, char b)
 bool Chunks::removeAt(qint64 pos)
 {
     if ((pos < 0) || (pos >= _size))
+    {
         return false;
+    }
     int chunkIdx = getChunkIndex(pos);
     qint64 posInBa = pos - _chunks[chunkIdx].absPos;
     _chunks[chunkIdx].data.remove(posInBa, 1);
     _chunks[chunkIdx].dataChanged.remove(posInBa, 1);
     for (int idx = chunkIdx + 1; idx < _chunks.size(); idx++)
+    {
         _chunks[idx].absPos -= 1;
+    }
     _size -= 1;
     _pos = pos;
     return true;

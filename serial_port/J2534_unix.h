@@ -64,17 +64,17 @@ class J2534 : public QObject
     long PassThruGetLastError(char *pErrorDescription);
     long PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const void *pInput, void *pOutput);
 
-    QString open_serial_port(QString serial_port);
+    QString open_serial_port(const QString& serial_port);
     void close_serial_port();
     QByteArray read_serial_data(uint32_t datalen, uint16_t timeout);
-    int write_serial_data(QByteArray output);
+    int write_serial_data(const QByteArray& output);
     QByteArray write_serial_iso14230_data(QByteArray output);
-    QString parseMessageToHex(QByteArray received);
+    QString parseMessageToHex(const QByteArray& received);
     uint32_t parse_ts(const char *data);
     bool get_is_tx_done();
 
   private:
-    bool debugMode;
+    bool debugMode{};
 
     QString opened_serial_port;
     QString serial_port_baudrate = "4800";
@@ -93,7 +93,7 @@ class J2534 : public QObject
     QSerialPort *serial = new QSerialPort();
 
   private:
-    unsigned long periodic_msg_id;
+    unsigned long periodic_msg_id{};
 
     bool msg_ack = false;
     bool is_tx_done = false;

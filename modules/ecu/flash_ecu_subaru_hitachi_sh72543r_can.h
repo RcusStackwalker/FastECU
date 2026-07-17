@@ -25,7 +25,7 @@ class FlashEcuSubaruHitachiSH72543rCan : public QDialog
     Q_OBJECT
 
   public:
-    explicit FlashEcuSubaruHitachiSH72543rCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent = nullptr);
+    explicit FlashEcuSubaruHitachiSH72543rCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent = nullptr);
     ~FlashEcuSubaruHitachiSH72543rCan();
 
     void run();

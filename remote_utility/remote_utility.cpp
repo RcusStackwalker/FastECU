@@ -1,12 +1,14 @@
 #include "remote_utility.h"
+
+#include <utility>
 #include "rep_remote_utility_replica.h"
 
-RemoteUtility::RemoteUtility(QString peerAddress,
+RemoteUtility::RemoteUtility(const QString& peerAddress,
                              QString password,
                              QWebSocket *web_socket,
                              QObject *parent)
-    : QObject{parent}, peerAddress(peerAddress), password(password), webSocket(web_socket == nullptr ? new QWebSocket("", QWebSocketProtocol::VersionLatest, this)
-                                                                                                     : web_socket),
+    : QObject{parent}, peerAddress(peerAddress), password(std::move(password)), webSocket(web_socket == nullptr ? new QWebSocket("", QWebSocketProtocol::VersionLatest, this)
+                                                                                                                : web_socket),
       socket(new WebSocketIoDevice(webSocket, webSocket)), keepalive_timer(new QTimer(this)), heartbeatInterval(0), keepalive_interval(7000), pings_sequently_missed_limit(5)
 {
     if (peerAddress.startsWith("local:"))
@@ -82,7 +84,7 @@ void RemoteUtility::sendAutoDiscoveryMessage()
 
 bool RemoteUtility::send_log_window_message(QString message)
 {
-    return qtrohelper::slot_sync(remote_utility->send_log_window_message(message));
+    return qtrohelper::slot_sync(remote_utility->send_log_window_message(std::move(message)));
 }
 
 bool RemoteUtility::set_progressbar_value(int value)
@@ -99,7 +101,7 @@ void RemoteUtility::ping(QString message)
 {
     // Using pointer because of async response
     QRemoteObjectPendingCallWatcher *watcher =
-        new QRemoteObjectPendingCallWatcher(remote_utility->ping(message));
+        new QRemoteObjectPendingCallWatcher(remote_utility->ping(std::move(message)));
     QObject::connect(watcher, &QRemoteObjectPendingCallWatcher::finished, this, [this](QRemoteObjectPendingCallWatcher *watch)
                      {
             //qDebug() << Q_FUNC_INFO << watch->returnValue().toString();

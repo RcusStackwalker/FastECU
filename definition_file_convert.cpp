@@ -59,7 +59,9 @@ int DefinitionFileConvert::convert_mappack_csv_file()
     }
 
     if (!filename.endsWith(QString(".xml")))
+    {
         filename.append(QString(".xml"));
+    }
 
     QFile destination_file(filename);
     if (!destination_file.open(QIODevice::ReadWrite))
@@ -148,7 +150,9 @@ int DefinitionFileConvert::convert_mappack_csv_file()
             index++;
 
             if (line.at(i) != ';' || is_comment)
+            {
                 column_data.append(line.at(i));
+            }
             else
             {
                 line_data.append(column_data);
@@ -184,16 +188,24 @@ int DefinitionFileConvert::convert_mappack_csv_file()
         for (int i = 0; i < titles.count(); i++)
         {
             if (titles.at(i) == "Columns")
+            {
                 sizex = line_data.at(i).toInt();
+            }
             if (titles.at(i) == "Rows")
+            {
                 sizey = line_data.at(i).toInt();
+            }
         }
         // Add map table tag
         stream.writeStartElement("table");
         if ((sizex == 1 && sizey == 1) || (sizex == 1 && sizey > 1) || (sizex > 1 && sizey == 1))
+        {
             stream.writeAttribute("type", "2D");
+        }
         else
+        {
             stream.writeAttribute("type", "3D");
+        }
         for (int i = 0; i < titles.count(); i++)
         {
             if (titles.at(i) == "Name")
@@ -201,7 +213,9 @@ int DefinitionFileConvert::convert_mappack_csv_file()
                 stream.writeAttribute("name", line_data.at(i));
             }
             if (titles.at(i) == "FolderName")
+            {
                 stream.writeAttribute("category", line_data.at(i));
+            }
             if (titles.at(i) == "DataOrg")
             {
                 if (line_data.at(i) == "eByte")
@@ -226,9 +240,13 @@ int DefinitionFileConvert::convert_mappack_csv_file()
                 }
             }
             if (titles.at(i) == "Columns")
+            {
                 stream.writeAttribute("sizex", line_data.at(i));
+            }
             if (titles.at(i) == "Rows")
+            {
                 stream.writeAttribute("sizey", line_data.at(i));
+            }
         }
 
         // Add map scaling tag
@@ -236,7 +254,9 @@ int DefinitionFileConvert::convert_mappack_csv_file()
         for (int i = 0; i < titles.count(); i++)
         {
             if (titles.at(i) == "Fieldvalues.Name")
+            {
                 stream.writeAttribute("units", line_data.at(i) + " (" + line_data.at(i + 1) + ")");
+            }
             // Fieldvalues.Unit;
             // Fieldvalues.Offset;
         }
@@ -256,9 +276,13 @@ int DefinitionFileConvert::convert_mappack_csv_file()
             {
                 format = "#0.";
                 for (int m = 0; m < line_data.at(i).toInt(); m++)
+                {
                     format.append("0");
+                }
                 if (format.endsWith("."))
+                {
                     format = "#";
+                }
                 stream.writeAttribute("format", format);
             }
         }
@@ -275,7 +299,9 @@ int DefinitionFileConvert::convert_mappack_csv_file()
             for (int i = 0; i < titles.count(); i++)
             {
                 if (titles.at(i) == "AxisX.Name")
+                {
                     stream.writeAttribute("name", line_data.at(i));
+                }
                 if (titles.at(i) == "AxisX.DataOrg")
                 {
                     if (line_data.at(i) == "eByte")
@@ -306,7 +332,9 @@ int DefinitionFileConvert::convert_mappack_csv_file()
             for (int i = 0; i < titles.count(); i++)
             {
                 if (titles.at(i) == "AxisX.Unit")
+                {
                     stream.writeAttribute("units", line_data.at(i));
+                }
             }
             for (int i = 0; i < titles.count(); i++)
             {
@@ -324,9 +352,13 @@ int DefinitionFileConvert::convert_mappack_csv_file()
                 {
                     format = "#0.";
                     for (int m = 0; m < line_data.at(i).toInt(); m++)
+                    {
                         format.append("0");
+                    }
                     if (format.endsWith("."))
+                    {
                         format = "#";
+                    }
                     stream.writeAttribute("format", format);
                 }
             }
@@ -345,7 +377,9 @@ int DefinitionFileConvert::convert_mappack_csv_file()
             for (int i = 0; i < titles.count(); i++)
             {
                 if (titles.at(i) == "AxisY.Name")
+                {
                     stream.writeAttribute("name", line_data.at(i));
+                }
                 if (titles.at(i) == "AxisY.DataOrg")
                 {
                     if (line_data.at(i) == "eByte")
@@ -376,7 +410,9 @@ int DefinitionFileConvert::convert_mappack_csv_file()
             for (int i = 0; i < titles.count(); i++)
             {
                 if (titles.at(i) == "AxisY.Unit")
+                {
                     stream.writeAttribute("units", line_data.at(i));
+                }
             }
             for (int i = 0; i < titles.count(); i++)
             {
@@ -394,9 +430,13 @@ int DefinitionFileConvert::convert_mappack_csv_file()
                 {
                     format = "#0.";
                     for (int m = 0; m < line_data.at(i).toInt(); m++)
+                    {
                         format.append("0");
+                    }
                     if (format.endsWith("."))
+                    {
                         format = "#";
+                    }
                     stream.writeAttribute("format", format);
                 }
             }
@@ -419,7 +459,9 @@ int DefinitionFileConvert::convert_mappack_csv_file()
         for (int i = 0; i < titles.count(); i++)
         {
             if (titles.at(i) == "Comment")
+            {
                 stream.writeTextElement("description", line_data.at(i));
+            }
         }
         stream.writeEndElement();
     }
@@ -498,7 +540,9 @@ int DefinitionFileConvert::convert_mappack_csv_file()
             index++;
 
             if (line.at(i) != ';' || is_comment)
+            {
                 column_data.append(line.at(i));
+            }
             else
             {
                 line_data.append(column_data);
@@ -530,7 +574,9 @@ int DefinitionFileConvert::convert_mappack_csv_file()
         for (int i = 0; i < titles.count(); i++)
         {
             if (titles.at(i) == "Name")
+            {
                 stream.writeAttribute("name", line_data.at(i));
+            }
             if (titles.at(i) == "Fieldvalues.StartAddr")
             {
                 QString storageaddress = line_data.at(i);
@@ -546,7 +592,9 @@ int DefinitionFileConvert::convert_mappack_csv_file()
                 for (int i = 0; i < titles.count(); i++)
                 {
                     if (titles.at(i) == "AxisX.Name")
+                    {
                         stream.writeAttribute("type", "X Axis");
+                    }
                     if (titles.at(i) == "AxisX.DataAddr")
                     {
                         QString storageaddress = line_data.at(i);
@@ -565,7 +613,9 @@ int DefinitionFileConvert::convert_mappack_csv_file()
                 for (int i = 0; i < titles.count(); i++)
                 {
                     if (titles.at(i) == "AxisY.Name")
+                    {
                         stream.writeAttribute("type", "Y Axis");
+                    }
                     if (titles.at(i) == "AxisY.DataAddr")
                     {
                         QString storageaddress = line_data.at(i);

@@ -1,19 +1,23 @@
 #include "serial_port_actions.h"
 
+#include <utility>
+
 #include "remote_serial_backend.h"
 #include "serial_backend_host.h"
 
 SerialPortActions::SerialPortActions(QString peerAddress, QString password,
                                      QWebSocket *web_socket, QObject *parent,
                                      std::function<SerialBackend *()> backendFactoryForTests)
-    : QObject{parent}, peerAddress(peerAddress), password(password), externalSocket(web_socket), backendFactory(std::move(backendFactoryForTests))
+    : QObject{parent}, peerAddress(std::move(peerAddress)), password(std::move(password)), externalSocket(web_socket), backendFactory(std::move(backendFactoryForTests))
 {
     if (!backendFactory)
     {
         backendFactory = [this]() -> SerialBackend *
         {
             if (isDirectConnection())
+            {
                 return new SerialPortActionsDirect();
+            }
             return new RemoteSerialBackend(this->peerAddress, this->password,
                                            this->externalSocket);
         };
@@ -40,7 +44,9 @@ void SerialPortActions::ensureBackendStarted()
 {
     QMutexLocker locker(&startMutex);
     if (m_backend)
+    {
         return;
+    }
     m_host = new SerialBackendHost();
     m_ioContext = m_host->context();
     m_ioThread = m_host->ioThread();
@@ -54,8 +60,10 @@ void SerialPortActions::ensureBackendStarted()
     if (b->metaObject()->indexOfSignal(
             QMetaObject::normalizedSignature(
                 "stateChanged(QRemoteObjectReplica::State,QRemoteObjectReplica::State)")) >= 0)
+    {
         connect(b, SIGNAL(stateChanged(QRemoteObjectReplica::State, QRemoteObjectReplica::State)),
                 this, SIGNAL(stateChanged(QRemoteObjectReplica::State, QRemoteObjectReplica::State)));
+    }
 }
 
 void SerialPortActions::waitForDone(const std::shared_ptr<QSemaphore>& done)
@@ -265,7 +273,7 @@ QByteArray SerialPortActions::get_ssm_receive_header_start(void)
     return runOnBackend([this]
                         { return m_backend->get_ssm_receive_header_start(); });
 }
-bool SerialPortActions::set_ssm_receive_header_start(QByteArray value)
+bool SerialPortActions::set_ssm_receive_header_start(const QByteArray& value)
 {
     return runOnBackend([this, value]
                         { return m_backend->set_ssm_receive_header_start(value); });
@@ -276,7 +284,7 @@ QStringList SerialPortActions::get_serial_port_list(void)
     return runOnBackend([this]
                         { return m_backend->get_serial_port_list(); });
 }
-bool SerialPortActions::set_serial_port_list(QStringList value)
+bool SerialPortActions::set_serial_port_list(const QStringList& value)
 {
     return runOnBackend([this, value]
                         { return m_backend->set_serial_port_list(value); });
@@ -286,7 +294,7 @@ QString SerialPortActions::get_openedSerialPort(void)
     return runOnBackend([this]
                         { return m_backend->get_openedSerialPort(); });
 }
-bool SerialPortActions::set_openedSerialPort(QString value)
+bool SerialPortActions::set_openedSerialPort(const QString& value)
 {
     return runOnBackend([this, value]
                         { return m_backend->set_openedSerialPort(value); });
@@ -296,7 +304,7 @@ QString SerialPortActions::get_subaru_02_16bit_bootloader_baudrate(void)
     return runOnBackend([this]
                         { return m_backend->get_subaru_02_16bit_bootloader_baudrate(); });
 }
-bool SerialPortActions::set_subaru_02_16bit_bootloader_baudrate(QString value)
+bool SerialPortActions::set_subaru_02_16bit_bootloader_baudrate(const QString& value)
 {
     return runOnBackend([this, value]
                         { return m_backend->set_subaru_02_16bit_bootloader_baudrate(value); });
@@ -306,7 +314,7 @@ QString SerialPortActions::get_subaru_04_16bit_bootloader_baudrate(void)
     return runOnBackend([this]
                         { return m_backend->get_subaru_04_16bit_bootloader_baudrate(); });
 }
-bool SerialPortActions::set_subaru_04_16bit_bootloader_baudrate(QString value)
+bool SerialPortActions::set_subaru_04_16bit_bootloader_baudrate(const QString& value)
 {
     return runOnBackend([this, value]
                         { return m_backend->set_subaru_04_16bit_bootloader_baudrate(value); });
@@ -316,7 +324,7 @@ QString SerialPortActions::get_subaru_02_32bit_bootloader_baudrate(void)
     return runOnBackend([this]
                         { return m_backend->get_subaru_02_32bit_bootloader_baudrate(); });
 }
-bool SerialPortActions::set_subaru_02_32bit_bootloader_baudrate(QString value)
+bool SerialPortActions::set_subaru_02_32bit_bootloader_baudrate(const QString& value)
 {
     return runOnBackend([this, value]
                         { return m_backend->set_subaru_02_32bit_bootloader_baudrate(value); });
@@ -326,7 +334,7 @@ QString SerialPortActions::get_subaru_04_32bit_bootloader_baudrate(void)
     return runOnBackend([this]
                         { return m_backend->get_subaru_04_32bit_bootloader_baudrate(); });
 }
-bool SerialPortActions::set_subaru_04_32bit_bootloader_baudrate(QString value)
+bool SerialPortActions::set_subaru_04_32bit_bootloader_baudrate(const QString& value)
 {
     return runOnBackend([this, value]
                         { return m_backend->set_subaru_04_32bit_bootloader_baudrate(value); });
@@ -336,7 +344,7 @@ QString SerialPortActions::get_subaru_05_32bit_bootloader_baudrate(void)
     return runOnBackend([this]
                         { return m_backend->get_subaru_05_32bit_bootloader_baudrate(); });
 }
-bool SerialPortActions::set_subaru_05_32bit_bootloader_baudrate(QString value)
+bool SerialPortActions::set_subaru_05_32bit_bootloader_baudrate(const QString& value)
 {
     return runOnBackend([this, value]
                         { return m_backend->set_subaru_05_32bit_bootloader_baudrate(value); });
@@ -347,7 +355,7 @@ QString SerialPortActions::get_subaru_02_16bit_kernel_baudrate(void)
     return runOnBackend([this]
                         { return m_backend->get_subaru_02_16bit_kernel_baudrate(); });
 }
-bool SerialPortActions::set_subaru_02_16bit_kernel_baudrate(QString value)
+bool SerialPortActions::set_subaru_02_16bit_kernel_baudrate(const QString& value)
 {
     return runOnBackend([this, value]
                         { return m_backend->set_subaru_02_16bit_kernel_baudrate(value); });
@@ -357,7 +365,7 @@ QString SerialPortActions::get_subaru_04_16bit_kernel_baudrate(void)
     return runOnBackend([this]
                         { return m_backend->get_subaru_04_16bit_kernel_baudrate(); });
 }
-bool SerialPortActions::set_subaru_04_16bit_kernel_baudrate(QString value)
+bool SerialPortActions::set_subaru_04_16bit_kernel_baudrate(const QString& value)
 {
     return runOnBackend([this, value]
                         { return m_backend->set_subaru_04_16bit_kernel_baudrate(value); });
@@ -367,7 +375,7 @@ QString SerialPortActions::get_subaru_02_32bit_kernel_baudrate(void)
     return runOnBackend([this]
                         { return m_backend->get_subaru_02_32bit_kernel_baudrate(); });
 }
-bool SerialPortActions::set_subaru_02_32bit_kernel_baudrate(QString value)
+bool SerialPortActions::set_subaru_02_32bit_kernel_baudrate(const QString& value)
 {
     return runOnBackend([this, value]
                         { return m_backend->set_subaru_02_32bit_kernel_baudrate(value); });
@@ -377,7 +385,7 @@ QString SerialPortActions::get_subaru_04_32bit_kernel_baudrate(void)
     return runOnBackend([this]
                         { return m_backend->get_subaru_04_32bit_kernel_baudrate(); });
 }
-bool SerialPortActions::set_subaru_04_32bit_kernel_baudrate(QString value)
+bool SerialPortActions::set_subaru_04_32bit_kernel_baudrate(const QString& value)
 {
     return runOnBackend([this, value]
                         { return m_backend->set_subaru_04_32bit_kernel_baudrate(value); });
@@ -387,7 +395,7 @@ QString SerialPortActions::get_subaru_05_32bit_kernel_baudrate(void)
     return runOnBackend([this]
                         { return m_backend->get_subaru_05_32bit_kernel_baudrate(); });
 }
-bool SerialPortActions::set_subaru_05_32bit_kernel_baudrate(QString value)
+bool SerialPortActions::set_subaru_05_32bit_kernel_baudrate(const QString& value)
 {
     return runOnBackend([this, value]
                         { return m_backend->set_subaru_05_32bit_kernel_baudrate(value); });
@@ -398,7 +406,7 @@ QString SerialPortActions::get_can_speed(void)
     return runOnBackend([this]
                         { return m_backend->get_can_speed(); });
 }
-bool SerialPortActions::set_can_speed(QString value)
+bool SerialPortActions::set_can_speed(const QString& value)
 {
     return runOnBackend([this, value]
                         { return m_backend->set_can_speed(value); });
@@ -418,7 +426,7 @@ QString SerialPortActions::get_serial_port_baudrate(void)
     return runOnBackend([this]
                         { return m_backend->get_serial_port_baudrate(); });
 }
-bool SerialPortActions::set_serial_port_baudrate(QString value)
+bool SerialPortActions::set_serial_port_baudrate(const QString& value)
 {
     emit LOG_D("Setting serialport baudrate in SerialPortActions", true, true);
     return runOnBackend([this, value]
@@ -429,7 +437,7 @@ QString SerialPortActions::get_serial_port_linux(void)
     return runOnBackend([this]
                         { return m_backend->get_serial_port_linux(); });
 }
-bool SerialPortActions::set_serial_port_linux(QString value)
+bool SerialPortActions::set_serial_port_linux(const QString& value)
 {
     return runOnBackend([this, value]
                         { return m_backend->set_serial_port_linux(value); });
@@ -439,7 +447,7 @@ QString SerialPortActions::get_serial_port_windows(void)
     return runOnBackend([this]
                         { return m_backend->get_serial_port_windows(); });
 }
-bool SerialPortActions::set_serial_port_windows(QString value)
+bool SerialPortActions::set_serial_port_windows(const QString& value)
 {
     return runOnBackend([this, value]
                         { return m_backend->set_serial_port_windows(value); });
@@ -449,7 +457,7 @@ QString SerialPortActions::get_serial_port(void)
     return runOnBackend([this]
                         { return m_backend->get_serial_port(); });
 }
-bool SerialPortActions::set_serial_port(QString value)
+bool SerialPortActions::set_serial_port(const QString& value)
 {
     return runOnBackend([this, value]
                         { return m_backend->set_serial_port(value); });
@@ -459,7 +467,7 @@ QString SerialPortActions::get_serial_port_prefix(void)
     return runOnBackend([this]
                         { return m_backend->get_serial_port_prefix(); });
 }
-bool SerialPortActions::set_serial_port_prefix(QString value)
+bool SerialPortActions::set_serial_port_prefix(const QString& value)
 {
     return runOnBackend([this, value]
                         { return m_backend->set_serial_port_prefix(value); });
@@ -469,7 +477,7 @@ QString SerialPortActions::get_serial_port_prefix_linux(void)
     return runOnBackend([this]
                         { return m_backend->get_serial_port_prefix_linux(); });
 }
-bool SerialPortActions::set_serial_port_prefix_linux(QString value)
+bool SerialPortActions::set_serial_port_prefix_linux(const QString& value)
 {
     return runOnBackend([this, value]
                         { return m_backend->set_serial_port_prefix_linux(value); });
@@ -479,7 +487,7 @@ QString SerialPortActions::get_serial_port_prefix_win(void)
     return runOnBackend([this]
                         { return m_backend->get_serial_port_prefix_win(); });
 }
-bool SerialPortActions::set_serial_port_prefix_win(QString value)
+bool SerialPortActions::set_serial_port_prefix_win(const QString& value)
 {
     return runOnBackend([this, value]
                         { return m_backend->set_serial_port_prefix_win(value); });
@@ -534,7 +542,7 @@ bool SerialPortActions::is_serial_port_open()
                         { return m_backend->is_serial_port_open(); });
 }
 
-int SerialPortActions::change_port_speed(QString portSpeed)
+int SerialPortActions::change_port_speed(const QString& portSpeed)
 {
     set_comm_busy(true);
     int result = runOnBackend([this, portSpeed]
@@ -556,14 +564,14 @@ int SerialPortActions::set_j2534_ioctl(uint32_t parameter, int value)
                         { return m_backend->set_j2534_ioctl(parameter, value); });
 }
 
-QByteArray SerialPortActions::five_baud_init(QByteArray output)
+QByteArray SerialPortActions::five_baud_init(const QByteArray& output)
 {
     set_comm_busy(true);
     return runOnBackend([this, output]
                         { return m_backend->five_baud_init(output); });
 }
 
-int SerialPortActions::fast_init(QByteArray output)
+int SerialPortActions::fast_init(const QByteArray& output)
 {
     set_comm_busy(true);
     return runOnBackend([this, output]
@@ -649,7 +657,7 @@ QByteArray SerialPortActions::read_serial_data(uint16_t timeout)
     return response;
 }
 
-QByteArray SerialPortActions::write_serial_data(QByteArray output)
+QByteArray SerialPortActions::write_serial_data(const QByteArray& output)
 {
     set_comm_busy(true);
     emit LOG_D("Sent: " + parse_message_to_hex(output.mid(0, 20)), true, true);
@@ -657,7 +665,7 @@ QByteArray SerialPortActions::write_serial_data(QByteArray output)
                         { return m_backend->write_serial_data(output); });
 }
 
-QByteArray SerialPortActions::write_serial_data_echo_check(QByteArray output)
+QByteArray SerialPortActions::write_serial_data_echo_check(const QByteArray& output)
 {
     set_comm_busy(true);
     emit LOG_D("Sent: " + parse_message_to_hex(output.mid(0, 20)), true, true);
@@ -689,7 +697,7 @@ int SerialPortActions::clear_tx_buffer()
     return result;
 }
 
-int SerialPortActions::send_periodic_j2534_data(QByteArray output, int timeout)
+int SerialPortActions::send_periodic_j2534_data(const QByteArray& output, int timeout)
 {
     set_comm_busy(true);
     int result = runOnBackend([this, output, timeout]
@@ -722,14 +730,18 @@ QString SerialPortActions::open_serial_port()
 unsigned long SerialPortActions::read_vbatt()
 {
     if (!get_is_comm_busy() && !get_read_vbatt())
+    {
         vBatt.store(runOnBackend([this]
                                  { return m_backend->read_vbatt(); }));
+    }
     else
+    {
         set_read_vbatt(true);
+    }
     return vBatt.load();
 }
 
-QString SerialPortActions::parse_message_to_hex(QByteArray received)
+QString SerialPortActions::parse_message_to_hex(const QByteArray& received)
 {
     QString msg;
 

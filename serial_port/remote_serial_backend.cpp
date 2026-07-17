@@ -2,12 +2,13 @@
 
 #include <QThread>
 #include <QWebSocket>
+#include <utility>
 #include "qtrohelper.hpp"
 #include "rep_serial_port_actions_replica.h"
 
 RemoteSerialBackend::RemoteSerialBackend(QString peerAddress, QString password,
                                          QWebSocket *externalSocket, QObject *parent)
-    : QObject{parent}, peerAddress(peerAddress), password(password)
+    : QObject{parent}, peerAddress(std::move(peerAddress)), password(std::move(password))
 {
     if (externalSocket && externalSocket->thread() != thread())
     {
@@ -100,9 +101,13 @@ void RemoteSerialBackend::serialRemoteStateChanged(QRemoteObjectReplica::State s
 {
     emit stateChanged(state, oldState);
     if (state == QRemoteObjectReplica::Valid)
+    {
         emit LOG_D("RemoteSerialBackend remote connection established", true, true);
+    }
     else if (oldState == QRemoteObjectReplica::Valid)
+    {
         emit LOG_D("RemoteSerialBackend remote connection lost", true, true);
+    }
 }
 
 // -- config get/set pairs (44) ------------------------------------------

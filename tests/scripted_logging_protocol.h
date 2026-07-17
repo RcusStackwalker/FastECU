@@ -34,12 +34,16 @@ class ScriptedLoggingProtocol : public LoggingProtocol
         if (startIdx_ >= startResultsOk_.size())
         {
             if (errorOut)
+            {
                 *errorOut = "no scripted start result";
+            }
             return false;
         }
         bool ok = startResultsOk_.at(startIdx_);
         if (errorOut)
+        {
             *errorOut = startResultsError_.at(startIdx_);
+        }
         ++startIdx_;
         return ok;
     }

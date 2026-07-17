@@ -4,11 +4,12 @@
 #include "serial_port_actions.h"
 
 #include <QElapsedTimer>
+#include <utility>
 
 FlashEcuSubaruHitachiM32rKlineOperation::FlashEcuSubaruHitachiM32rKlineOperation(
     SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
     QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(std::move(cmd_type))
 {
 }
 
@@ -118,7 +119,9 @@ int FlashEcuSubaruHitachiM32rKlineOperation::connect_bootloader_subaru_ecu_hitac
         for (int i = 0; i < 1000; i++)
         {
             if (stopRequested())
+            {
                 return STATUS_ERROR;
+            }
 
             serial->write_serial_data_echo_check(output);
             // received = serial->read_serial_data(50);
@@ -128,9 +131,13 @@ int FlashEcuSubaruHitachiM32rKlineOperation::connect_bootloader_subaru_ecu_hitac
             {
                 // if ((uint8_t)received.at(4) == 0xff)
                 if ((uint8_t)received.at(4) == 0xc1)
+                {
                     break;
+                }
                 else
+                {
                     return STATUS_ERROR;
+                }
             }
         }
         emit LOG_I("", false, true);
@@ -144,7 +151,9 @@ int FlashEcuSubaruHitachiM32rKlineOperation::connect_bootloader_subaru_ecu_hitac
         received = serial->read_serial_data(50);
 
         if ((uint8_t)received.at(4) != 0xC3)
+        {
             return STATUS_ERROR;
+        }
 
         output.clear();
         output.append((uint8_t)0x27);
@@ -155,7 +164,9 @@ int FlashEcuSubaruHitachiM32rKlineOperation::connect_bootloader_subaru_ecu_hitac
         received = serial->read_serial_data(50);
 
         if ((uint8_t)received.at(4) != 0x67)
+        {
             return STATUS_ERROR;
+        }
 
         seed.append(received.at(6));
         seed.append(received.at(7));
@@ -180,7 +191,9 @@ int FlashEcuSubaruHitachiM32rKlineOperation::connect_bootloader_subaru_ecu_hitac
         serial->write_serial_data_echo_check(output);
         received = serial->read_serial_data(50);
         if ((uint8_t)received.at(4) != 0x67)
+        {
             return STATUS_ERROR;
+        }
 
         emit LOG_I("Seed key ok", true, true);
 
@@ -192,7 +205,9 @@ int FlashEcuSubaruHitachiM32rKlineOperation::connect_bootloader_subaru_ecu_hitac
         serial->write_serial_data_echo_check(output);
         received = serial->read_serial_data(50);
         if ((uint8_t)received.at(4) != 0x50)
+        {
             return STATUS_ERROR;
+        }
 
         emit LOG_I("Start diagnostic session ok", true, true);
 
@@ -259,12 +274,16 @@ int FlashEcuSubaruHitachiM32rKlineOperation::connect_bootloader_subaru_ecu_hitac
     received.remove(0, 8);
     received.remove(5, received.length() - 5);
     for (int i = 0; i < received.length(); i++)
+    {
         msg.append(QString("%1").arg((uint8_t)received.at(i), 2, 16, QLatin1Char('0')).toUpper());
+    }
 
     QString ecuid = msg;
     emit LOG_I("ECU ID: " + ecuid, true, true);
     if (cmd_type == "read")
+    {
         ecuCalDef->RomId = ecuid + "_";
+    }
 
     emit LOG_I("Requesting to start communication", true, true);
     output.clear();
@@ -455,7 +474,9 @@ int FlashEcuSubaruHitachiM32rKlineOperation::read_mem(uint32_t start_addr, uint3
             received.remove(0, 8);
             received.remove(5, received.length() - 5);
             for (int i = 0; i < received.length(); i++)
+            {
                 msg.append(QString("%1").arg((uint8_t)received.at(i), 2, 16, QLatin1Char('0')).toUpper());
+            }
             ecuid = msg;
             emit LOG_I("ECU ID = " + ecuid, true, true);
         }
@@ -489,13 +510,17 @@ int FlashEcuSubaruHitachiM32rKlineOperation::read_mem(uint32_t start_addr, uint3
         received.remove(0, 8);
         received.remove(5, received.length() - 5);
         for (int i = 0; i < received.length(); i++)
+        {
             msg.append(QString("%1").arg((uint8_t)received.at(i), 2, 16, QLatin1Char('0')).toUpper());
+        }
         ecuid = msg;
         emit LOG_I("ECU ID = " + ecuid, true, true);
 
         received = send_subaru_sid_b8_change_baudrate_38400();
         if (received == "" || (uint8_t)received.at(4) != 0xf8)
+        {
             return STATUS_ERROR;
+        }
 
         serial->change_port_speed("38400");
 
@@ -503,7 +528,9 @@ int FlashEcuSubaruHitachiM32rKlineOperation::read_mem(uint32_t start_addr, uint3
         received = send_sid_bf_ssm_init();
         emit LOG_D("Init response: " + SsmProtocol::toHex(received), true, true);
         if (received == "" || (uint8_t)received.at(4) != 0xff)
+        {
             return STATUS_ERROR;
+        }
     }
 
     ecuCalDef->RomId = ecuid + "_";
@@ -534,7 +561,9 @@ int FlashEcuSubaruHitachiM32rKlineOperation::read_mem(uint32_t start_addr, uint3
     while (willget)
     {
         if (stopRequested())
+        {
             return STATUS_ERROR;
+        }
 
         uint32_t numblocks = 1;
         unsigned curspeed = 0, tleft;
@@ -584,7 +613,9 @@ int FlashEcuSubaruHitachiM32rKlineOperation::read_mem(uint32_t start_addr, uint3
         timer.start();
 
         if (cplen > 0 && chrono > 0)
+        {
             curspeed = cplen * (1000.0f / chrono);
+        }
 
         if (!curspeed)
         {
@@ -754,7 +785,9 @@ int FlashEcuSubaruHitachiM32rKlineOperation::reflash_block(const uint8_t *newdat
     received = serial->read_serial_data(200);
 
     if (received == "" || (uint8_t)received.at(4) != 0x74)
+    {
         return STATUS_ERROR;
+    }
 
     delay(200);
 
@@ -816,7 +849,9 @@ int FlashEcuSubaruHitachiM32rKlineOperation::reflash_block(const uint8_t *newdat
     for (blockctr = 0; blockctr < maxblocks; blockctr++)
     {
         if (stopRequested())
+        {
             return 0;
+        }
 
         blockaddr = start_address + blockctr * blocksize;
         output.clear();
@@ -932,7 +967,7 @@ QByteArray FlashEcuSubaruHitachiM32rKlineOperation::send_subaru_sid_a0_block_rea
  *
  * @return seed key (4 bytes)
  */
-QByteArray FlashEcuSubaruHitachiM32rKlineOperation::generate_seed_key(QByteArray requested_seed)
+QByteArray FlashEcuSubaruHitachiM32rKlineOperation::generate_seed_key(const QByteArray& requested_seed)
 {
     QByteArray key;
 
@@ -977,7 +1012,7 @@ QByteArray FlashEcuSubaruHitachiM32rKlineOperation::encrypt_32bit_payload(QByteA
         0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
-    encrypted = calculate_32bit_payload(buf, len, keytogenerateindex, indextransformation);
+    encrypted = calculate_32bit_payload(std::move(buf), len, keytogenerateindex, indextransformation);
 
     return encrypted;
 }
@@ -996,12 +1031,12 @@ QByteArray FlashEcuSubaruHitachiM32rKlineOperation::decrypt_32bit_payload(QByteA
         0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
         0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
-    decrypt = calculate_32bit_payload(buf, len, keytogenerateindex, indextransformation);
+    decrypt = calculate_32bit_payload(std::move(buf), len, keytogenerateindex, indextransformation);
 
     return decrypt;
 }
 
-QByteArray FlashEcuSubaruHitachiM32rKlineOperation::calculate_32bit_payload(QByteArray buf, uint32_t len, const uint16_t *keytogenerateindex, const uint8_t *indextransformation)
+QByteArray FlashEcuSubaruHitachiM32rKlineOperation::calculate_32bit_payload(const QByteArray& buf, uint32_t len, const uint16_t *keytogenerateindex, const uint8_t *indextransformation)
 {
     QByteArray encrypted;
     uint32_t datatoencrypt32, index;
@@ -1132,7 +1167,7 @@ QByteArray FlashEcuSubaruHitachiM32rKlineOperation::send_subaru_sid_27_request_s
  *
  * @return received response
  */
-QByteArray FlashEcuSubaruHitachiM32rKlineOperation::send_subaru_sid_27_send_seed_key(QByteArray seed_key)
+QByteArray FlashEcuSubaruHitachiM32rKlineOperation::send_subaru_sid_27_send_seed_key(const QByteArray& seed_key)
 {
     QByteArray output;
     QByteArray received;

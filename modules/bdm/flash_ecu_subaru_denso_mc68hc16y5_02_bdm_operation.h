@@ -33,8 +33,8 @@ class FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation : public FlashOperationWorke
 #define STATUS_SUCCESS 0x00
 #define STATUS_ERROR 0x01
 
-    int result;
-    int mcu_type_index;
+    int result{};
+    int mcu_type_index{};
 
     uint16_t receive_timeout = 500;
     uint16_t serial_read_extra_short_timeout = 50;

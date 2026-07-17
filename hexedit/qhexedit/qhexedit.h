@@ -412,27 +412,27 @@ class QHEXEDIT_API QHexEdit : public QAbstractScrollArea
 
   private:
     // Name convention: pixel positions start with _px
-    int _pxCharWidth, _pxCharHeight; // char dimensions (dependend on font)
-    int _pxPosHexX;                  // X-Pos of HeaxArea
-    int _pxPosAdrX;                  // X-Pos of Address Area
-    int _pxPosAsciiX;                // X-Pos of Ascii Area
-    int _pxPosBarX;                  // X-Pos of Bar Area
-    int _pxGapAdr;                   // gap left from AddressArea
-    int _pxGapAdrHex;                // gap between AddressArea and HexAerea
-    int _pxGapHexAscii;              // gap between HexArea and AsciiArea
-    int _pxGapAsciiBar;              // gap between AsciiArea and BarArea
-    int _pxCursorWidth;              // cursor width
-    int _pxSelectionSub;             // offset selection rect
-    int _pxCursorX;                  // current cursor pos
-    int _pxCursorY;                  // current cursor pos
+    int _pxCharWidth{}, _pxCharHeight{}; // char dimensions (dependend on font)
+    int _pxPosHexX{};                    // X-Pos of HeaxArea
+    int _pxPosAdrX{};                    // X-Pos of Address Area
+    int _pxPosAsciiX{};                  // X-Pos of Ascii Area
+    int _pxPosBarX{};                    // X-Pos of Bar Area
+    int _pxGapAdr{};                     // gap left from AddressArea
+    int _pxGapAdrHex{};                  // gap between AddressArea and HexAerea
+    int _pxGapHexAscii{};                // gap between HexArea and AsciiArea
+    int _pxGapAsciiBar{};                // gap between AsciiArea and BarArea
+    int _pxCursorWidth{};                // cursor width
+    int _pxSelectionSub{};               // offset selection rect
+    int _pxCursorX{};                    // current cursor pos
+    int _pxCursorY{};                    // current cursor pos
 
     // Name convention: absolute byte positions in chunks start with _b
-    qint64 _bSelectionBegin; // first position of Selection
-    qint64 _bSelectionEnd;   // end of Selection
-    qint64 _bSelectionInit;  // memory position of Selection
-    qint64 _bPosFirst;       // position of first byte shown
-    qint64 _bPosLast;        // position of last byte shown
-    qint64 _bPosCurrent;     // current position
+    qint64 _bSelectionBegin{}; // first position of Selection
+    qint64 _bSelectionEnd{};   // end of Selection
+    qint64 _bSelectionInit{};  // memory position of Selection
+    qint64 _bPosFirst{};       // position of first byte shown
+    qint64 _bPosLast{};        // position of last byte shown
+    qint64 _bPosCurrent{};     // current position
 
     // variables to store the property values
     bool _addressArea; // left area of QHexEdit
@@ -446,7 +446,7 @@ class QHEXEDIT_API QHexEdit : public QAbstractScrollArea
     int _addressWidth;
     bool _asciiArea;
     bool _barArea;
-    qint64 _addressOffset;
+    qint64 _addressOffset{};
     int _bytesPerLine;
     int _hexCharsInLine;
     bool _highlighting;
@@ -462,8 +462,8 @@ class QHEXEDIT_API QHexEdit : public QAbstractScrollArea
     // other variables
     bool _editAreaIsAscii;    // flag about the ascii mode edited
     bool _editAreaIsBar;      // flag about the ascii mode edited
-    int _addrDigits;          // real no of addressdigits, may be > addressWidth
-    bool _blink;              // help get cursor blinking
+    int _addrDigits{};        // real no of addressdigits, may be > addressWidth
+    bool _blink{};            // help get cursor blinking
     QBuffer _bData;           // buffer, when setup with QByteArray
     Chunks *_chunks;          // IODevice based access to data
     QTimer _cursorTimer;      // for blinking cursor
@@ -474,8 +474,8 @@ class QHEXEDIT_API QHexEdit : public QAbstractScrollArea
     QByteArray _hexDataShown; // data in view, transformed to hex
     qint64 _lastEventSize;    // size, which was emitted last time
     QByteArray _markedShown;  // marked data in view
-    bool _modified;           // Is any data in editor modified?
-    int _rowsShown;           // lines of text shown
+    bool _modified{};         // Is any data in editor modified?
+    int _rowsShown{};         // lines of text shown
     UndoStack *_undoStack;    // Stack to store edit actions for undo/redo
     /*! \endcond docNever */
 };

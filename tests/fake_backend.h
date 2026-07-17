@@ -48,11 +48,17 @@ class FakeBackend : public SerialPortActionsDirect
     {
         log(QString("read:begin:t=%1").arg(timeout));
         if (readEntered)
+        {
             readEntered->release();
+        }
         if (continueRead)
+        {
             continueRead->acquire();
+        }
         if (readDelayMs)
+        {
             QThread::msleep(readDelayMs);
+        }
         log("read:end");
         return scriptedResponse;
     }
@@ -61,7 +67,9 @@ class FakeBackend : public SerialPortActionsDirect
     {
         log("write:begin:" + QString::fromLatin1(output.toHex()));
         if (readDelayMs)
+        {
             QThread::msleep(readDelayMs);
+        }
         log("write:end");
         return QByteArray(); // matches the real backend's empty return
     }
@@ -76,7 +84,9 @@ class FakeBackend : public SerialPortActionsDirect
     {
         log("write_echo_check:begin:" + QString::fromLatin1(output.toHex()));
         if (readDelayMs)
+        {
             QThread::msleep(readDelayMs);
+        }
         log("write_echo_check:end");
         return QByteArray();
     }

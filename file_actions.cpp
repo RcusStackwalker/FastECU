@@ -1,4 +1,6 @@
 // #include "file_actions.h"
+#include <utility>
+
 #include "error_codes.h"
 #include "dtc_parser.h"
 #include "expression_evaluator.h"
@@ -302,7 +304,9 @@ FileActions::ConfigValuesStructure *FileActions::set_base_dirs(ConfigValuesStruc
 #if defined Q_OS_UNIX
     QString AppRootPath = AppFilePath.split("usr").at(0);
     if (AppRootPath.contains("FastECU"))
+    {
         AppRootPath = "/config";
+    }
 #elif defined Q_OS_WIN32
     QString AppRootPath = currentPath.absolutePath();
 #endif
@@ -362,7 +366,9 @@ FileActions::ConfigValuesStructure *FileActions::check_config_dirs(ConfigValuesS
 #if defined Q_OS_UNIX
     QString AppRootPath = AppFilePath.split("usr").at(0);
     if (AppRootPath.contains("FastECU"))
+    {
         AppRootPath = "/config";
+    }
 #elif defined Q_OS_WIN32
     QString AppRootPath = currentPath.absolutePath();
 #endif
@@ -401,8 +407,10 @@ FileActions::ConfigValuesStructure *FileActions::check_config_dirs(ConfigValuesS
             emit LOG_D("Sorted dir by date: " + configDirList.at(i).absoluteFilePath() + " " + configDirList.at(i).lastModified().toString(), true, true);
         }
         // Copy latest version directory path
-        if (configDirList.length())
+        if (!configDirList.empty())
+        {
             latest_config_dir = configDirList.at(0).absoluteFilePath();
+        }
         // else
         //     latest_config_dir = configDirList.at(configDirList.length() - 1).absoluteFilePath();
 
@@ -498,21 +506,27 @@ bool FileActions::copy_directory_files(const QString& source_dir, const QString&
     if (!targetDir.exists())
     { /* if directory don't exists, build it */
         if (!targetDir.mkdir(targetDir.absolutePath()))
+        {
             return false;
+        }
     }
 
     QFileInfoList fileInfoList = sourceDir.entryInfoList();
     foreach (QFileInfo fileInfo, fileInfoList)
     {
         if (fileInfo.fileName() == "." || fileInfo.fileName() == "..")
+        {
             continue;
+        }
 
         if (fileInfo.isDir())
         { /* if it is directory, copy recursively*/
             if (!copy_directory_files(fileInfo.filePath(),
                                       targetDir.filePath(fileInfo.fileName()),
                                       cover_file_if_exist))
+            {
                 return false;
+            }
         }
         else
         { /* if coverFileIfExist == true, remove old file first */
@@ -573,7 +587,9 @@ FileActions::ConfigValuesStructure *FileActions::read_config_file(ConfigValuesSt
                                     reader.skipCurrentElement();
                                 }
                                 else
+                                {
                                     reader.skipCurrentElement();
+                                }
                             }
                             emit LOG_D("Width: " + configValues->window_width + " Height: " + configValues->window_height, true, true);
                         }
@@ -587,7 +603,9 @@ FileActions::ConfigValuesStructure *FileActions::read_config_file(ConfigValuesSt
                                     reader.skipCurrentElement();
                                 }
                                 else
+                                {
                                     reader.skipCurrentElement();
+                                }
                             }
                             emit LOG_D("Serial port: " + configValues->serial_port, true, true);
                         }
@@ -601,7 +619,9 @@ FileActions::ConfigValuesStructure *FileActions::read_config_file(ConfigValuesSt
                                     reader.skipCurrentElement();
                                 }
                                 else
+                                {
                                     reader.skipCurrentElement();
+                                }
                             }
                             emit LOG_D("Serial port: " + configValues->serial_port, true, true);
                         }
@@ -615,7 +635,9 @@ FileActions::ConfigValuesStructure *FileActions::read_config_file(ConfigValuesSt
                                     reader.skipCurrentElement();
                                 }
                                 else
+                                {
                                     reader.skipCurrentElement();
+                                }
                             }
                             emit LOG_D("Protocol ID: " + configValues->flash_protocol_selected_id, true, true);
                         }
@@ -629,7 +651,9 @@ FileActions::ConfigValuesStructure *FileActions::read_config_file(ConfigValuesSt
                                     reader.skipCurrentElement();
                                 }
                                 else
+                                {
                                     reader.skipCurrentElement();
+                                }
                             }
                             emit LOG_D("Flash transport: " + configValues->flash_protocol_selected_flash_transport, true, true);
                         }
@@ -643,7 +667,9 @@ FileActions::ConfigValuesStructure *FileActions::read_config_file(ConfigValuesSt
                                     reader.skipCurrentElement();
                                 }
                                 else
+                                {
                                     reader.skipCurrentElement();
+                                }
                             }
                             emit LOG_D("Log transport: " + configValues->flash_protocol_selected_log_transport, true, true);
                         }
@@ -657,7 +683,9 @@ FileActions::ConfigValuesStructure *FileActions::read_config_file(ConfigValuesSt
                                     reader.skipCurrentElement();
                                 }
                                 else
+                                {
                                     reader.skipCurrentElement();
+                                }
                             }
                             emit LOG_D("Log protocol: " + configValues->flash_protocol_selected_log_protocol, true, true);
                         }
@@ -669,11 +697,15 @@ FileActions::ConfigValuesStructure *FileActions::read_config_file(ConfigValuesSt
                                 {
                                     QString primary_definition_base = reader.attributes().value("data").toString();
                                     if (primary_definition_base == "romraider" || primary_definition_base == "ecuflash")
+                                    {
                                         configValues->primary_definition_base = primary_definition_base;
+                                    }
                                     reader.skipCurrentElement();
                                 }
                                 else
+                                {
                                     reader.skipCurrentElement();
+                                }
                             }
                             emit LOG_D("Primary def base: " + configValues->primary_definition_base, true, true);
                         }
@@ -687,7 +719,9 @@ FileActions::ConfigValuesStructure *FileActions::read_config_file(ConfigValuesSt
                                     reader.skipCurrentElement();
                                 }
                                 else
+                                {
                                     reader.skipCurrentElement();
+                                }
                             }
                             emit LOG_D("Calibration files: " + configValues->calibration_files.join(", "), true, true);
                         }
@@ -701,7 +735,9 @@ FileActions::ConfigValuesStructure *FileActions::read_config_file(ConfigValuesSt
                                     reader.skipCurrentElement();
                                 }
                                 else
+                                {
                                     reader.skipCurrentElement();
+                                }
                             }
                             emit LOG_D("Calibration files directory: " + configValues->calibration_files_directory, true, true);
                         }
@@ -713,11 +749,15 @@ FileActions::ConfigValuesStructure *FileActions::read_config_file(ConfigValuesSt
                                 {
                                     QString filename = reader.attributes().value("data").toString();
                                     if (filename != "")
+                                    {
                                         configValues->romraider_definition_files.append(reader.attributes().value("data").toString());
+                                    }
                                     reader.skipCurrentElement();
                                 }
                                 else
+                                {
                                     reader.skipCurrentElement();
+                                }
                             }
                             emit LOG_D("RomRaider def files: " + configValues->romraider_definition_files.join(", "), true, true);
                         }
@@ -731,7 +771,9 @@ FileActions::ConfigValuesStructure *FileActions::read_config_file(ConfigValuesSt
                                     reader.skipCurrentElement();
                                 }
                                 else
+                                {
                                     reader.skipCurrentElement();
+                                }
                             }
                             emit LOG_D("Use RomRaider definitions: " + configValues->use_romraider_definitions, true, true);
                         }
@@ -745,7 +787,9 @@ FileActions::ConfigValuesStructure *FileActions::read_config_file(ConfigValuesSt
                                     reader.skipCurrentElement();
                                 }
                                 else
+                                {
                                     reader.skipCurrentElement();
+                                }
                             }
                             emit LOG_D("EcuFlash def files directory: " + configValues->ecuflash_definition_files_directory, true, true);
                         }
@@ -759,7 +803,9 @@ FileActions::ConfigValuesStructure *FileActions::read_config_file(ConfigValuesSt
                                     reader.skipCurrentElement();
                                 }
                                 else
+                                {
                                     reader.skipCurrentElement();
+                                }
                             }
                             emit LOG_D("Use EcuFlash definitions: " + configValues->use_ecuflash_definitions, true, true);
                         }
@@ -773,7 +819,9 @@ FileActions::ConfigValuesStructure *FileActions::read_config_file(ConfigValuesSt
                                     reader.skipCurrentElement();
                                 }
                                 else
+                                {
                                     reader.skipCurrentElement();
+                                }
                             }
                             emit LOG_D("Logger def file: " + configValues->romraider_logger_definition_file, true, true);
                         }
@@ -803,12 +851,16 @@ FileActions::ConfigValuesStructure *FileActions::read_config_file(ConfigValuesSt
                                     reader.skipCurrentElement();
                                 }
                                 else
+                                {
                                     reader.skipCurrentElement();
+                                }
                             }
                             emit LOG_D("Logfiles firectory: " + configValues->datalog_files_directory, true, true);
                         }
                         else
+                        {
                             reader.skipCurrentElement();
+                        }
                     }
                 }
             }
@@ -833,13 +885,21 @@ FileActions::ConfigValuesStructure *FileActions::save_config_file(FileActions::C
     }
 
     if (!configValues->calibration_files_directory.endsWith("/") && !configValues->calibration_files_directory.endsWith("\\") && configValues->calibration_files_directory.length())
+    {
         configValues->calibration_files_directory.append("/");
+    }
     if (!configValues->ecuflash_definition_files_directory.endsWith("/") && !configValues->ecuflash_definition_files_directory.endsWith("\\") && configValues->ecuflash_definition_files_directory.length())
+    {
         configValues->ecuflash_definition_files_directory.append("/");
+    }
     if (!configValues->datalog_files_directory.endsWith("/") && !configValues->datalog_files_directory.endsWith("\\") && configValues->datalog_files_directory.length())
+    {
         configValues->datalog_files_directory.append("/");
+    }
     if (!configValues->syslog_files_directory.endsWith("/") && !configValues->syslog_files_directory.endsWith("\\") && configValues->syslog_files_directory.length())
+    {
         configValues->syslog_files_directory.append("/");
+    }
 
     QXmlStreamWriter stream(&file);
     file.resize(0);
@@ -1074,43 +1134,81 @@ FileActions::ConfigValuesStructure *FileActions::read_protocols_file(FileActions
                         while (!protocol_data.isNull())
                         {
                             if (protocol_data.tagName() == "ecu")
+                            {
                                 flash_protocol_ecu.replace(index, protocol_data.text());
+                            }
                             if (protocol_data.tagName() == "mcu")
+                            {
                                 flash_protocol_mcu.replace(index, protocol_data.text());
+                            }
                             if (protocol_data.tagName() == "mode")
+                            {
                                 flash_protocol_mode.replace(index, protocol_data.text());
+                            }
                             if (protocol_data.tagName() == "checksum")
+                            {
                                 flash_protocol_checksum.replace(index, protocol_data.text());
+                            }
                             if (protocol_data.tagName() == "read")
+                            {
                                 flash_protocol_read.replace(index, protocol_data.text());
+                            }
                             if (protocol_data.tagName() == "test_write")
+                            {
                                 flash_protocol_test_write.replace(index, protocol_data.text());
+                            }
                             if (protocol_data.tagName() == "write")
+                            {
                                 flash_protocol_write.replace(index, protocol_data.text());
+                            }
                             if (protocol_data.tagName() == "flash_transport")
+                            {
                                 flash_protocol_flash_transport.replace(index, protocol_data.text());
+                            }
                             if (protocol_data.tagName() == "log_transport")
+                            {
                                 flash_protocol_log_transport.replace(index, protocol_data.text());
+                            }
                             if (protocol_data.tagName() == "log_protocol")
+                            {
                                 flash_protocol_log_protocol.replace(index, protocol_data.text());
+                            }
                             if (protocol_data.tagName() == "ecu_id_ascii")
+                            {
                                 flash_protocol_ecu_id_ascii.replace(index, protocol_data.text());
+                            }
                             if (protocol_data.tagName() == "ecu_id_addr")
+                            {
                                 flash_protocol_ecu_id_addr.replace(index, protocol_data.text());
+                            }
                             if (protocol_data.tagName() == "ecu_id_length")
+                            {
                                 flash_protocol_ecu_id_length.replace(index, protocol_data.text());
+                            }
                             if (protocol_data.tagName() == "cal_id_ascii")
+                            {
                                 flash_protocol_cal_id_ascii.replace(index, protocol_data.text());
+                            }
                             if (protocol_data.tagName() == "cal_id_addr")
+                            {
                                 flash_protocol_cal_id_addr.replace(index, protocol_data.text());
+                            }
                             if (protocol_data.tagName() == "cal_id_length")
+                            {
                                 flash_protocol_cal_id_length.replace(index, protocol_data.text());
+                            }
                             if (protocol_data.tagName() == "kernel")
+                            {
                                 flash_protocol_kernel.replace(index, protocol_data.text());
+                            }
                             if (protocol_data.tagName() == "kernel_addr")
+                            {
                                 flash_protocol_kernel_addr.replace(index, protocol_data.text());
+                            }
                             if (protocol_data.tagName() == "description")
+                            {
                                 flash_protocol_description.replace(index, protocol_data.text());
+                            }
                             // if (protocol_data.tagName() == "protocol_name")
                             // flash_protocol_protocol_name.replace(index, protocol_data.text());
 
@@ -1169,21 +1267,37 @@ FileActions::ConfigValuesStructure *FileActions::read_protocols_file(FileActions
                         {
                             // emit LOG_D(flash_protocol_data.tagName(), true, true);
                             if (car_model_data.tagName() == "make")
+                            {
                                 configValues->flash_protocol_make.replace(index, car_model_data.text());
+                            }
                             if (car_model_data.tagName() == "model")
+                            {
                                 configValues->flash_protocol_model.replace(index, car_model_data.text());
+                            }
                             if (car_model_data.tagName() == "version")
+                            {
                                 configValues->flash_protocol_version.replace(index, car_model_data.text());
+                            }
                             if (car_model_data.tagName() == "type")
+                            {
                                 configValues->flash_protocol_type.replace(index, car_model_data.text());
+                            }
                             if (car_model_data.tagName() == "kw")
+                            {
                                 configValues->flash_protocol_kw.replace(index, car_model_data.text());
+                            }
                             if (car_model_data.tagName() == "hp")
+                            {
                                 configValues->flash_protocol_hp.replace(index, car_model_data.text());
+                            }
                             if (car_model_data.tagName() == "fuel")
+                            {
                                 configValues->flash_protocol_fuel.replace(index, car_model_data.text());
+                            }
                             if (car_model_data.tagName() == "year")
+                            {
                                 configValues->flash_protocol_year.replace(index, car_model_data.text());
+                            }
                             if (car_model_data.tagName() == "protocol")
                             {
                                 configValues->flash_protocol_protocol_name.replace(index, car_model_data.text());
@@ -1238,7 +1352,7 @@ FileActions::ConfigValuesStructure *FileActions::read_protocols_file(FileActions
     return configValues;
 }
 
-FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogValuesStructure *logValues, QString ecu_id, bool modify)
+FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogValuesStructure *logValues, const QString& ecu_id, bool modify)
 {
     ConfigValuesStructure *configValues = &ConfigValuesStruct;
 
@@ -1308,9 +1422,13 @@ FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogV
                                                     if (gauges.tagName() == "parameter")
                                                     {
                                                         if (!modify)
+                                                        {
                                                             logValues->dashboard_log_value_id.append(gauges.attribute("id", "No id"));
+                                                        }
                                                         else
+                                                        {
                                                             gauges.setAttribute("id", logValues->dashboard_log_value_id.at(index));
+                                                        }
                                                     }
                                                     gauges = gauges.nextSibling().toElement();
                                                     index++;
@@ -1325,7 +1443,9 @@ FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogV
                                                     if (lower_panel.tagName() == "parameter")
                                                     {
                                                         if (!modify)
+                                                        {
                                                             logValues->lower_panel_log_value_id.append(lower_panel.attribute("id", "No id"));
+                                                        }
                                                         else
                                                         {
                                                             QDomElement parameter = xmlBOM.createElement("parameter");
@@ -1351,9 +1471,13 @@ FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogV
                                             if (switches.tagName() == "switch")
                                             {
                                                 if (!modify)
+                                                {
                                                     logValues->lower_panel_switch_id.append(switches.attribute("id", "No id"));
+                                                }
                                                 else
+                                                {
                                                     switches.setAttribute("id", logValues->lower_panel_switch_id.at(index));
+                                                }
                                             }
                                             switches = switches.nextSibling().toElement();
                                             index++;
@@ -1371,7 +1495,7 @@ FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogV
         }
         if (!ecu_id_found)
         {
-            if (!logValues->log_value_protocol.length())
+            if (logValues->log_value_protocol.empty())
             {
                 QMessageBox::warning(this, tr("Logger definition file"), "No logger definition file selected, returning without initializing log parameters!");
                 emit LOG_D("No logger definition file selected, returning without initializing log parameters!", true, true);
@@ -1383,19 +1507,25 @@ FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogV
             for (int i = 0; i < logValues->log_value_id.length(); i++)
             {
                 if (logValues->log_value_enabled.at(i) == "1" && logValues->dashboard_log_value_id.length() < 15)
+                {
                     logValues->dashboard_log_value_id.append(logValues->log_value_id.at(i));
+                }
             }
             emit LOG_D("Initializing lower panel parameters", true, true);
             for (int i = 0; i < logValues->log_value_id.length(); i++)
             {
                 if (logValues->log_value_enabled.at(i) == "1" && logValues->lower_panel_log_value_id.length() < 12)
+                {
                     logValues->lower_panel_log_value_id.append(logValues->log_value_id.at(i));
+                }
             }
             emit LOG_D("Initializing switch parameters", true, true);
             for (int i = 0; i < logValues->log_switch_id.length(); i++)
             {
                 if (logValues->log_switch_enabled.at(i) == "1" && logValues->lower_panel_switch_id.length() < 20)
+                {
                     logValues->lower_panel_switch_id.append(logValues->log_switch_id.at(i));
+                }
             }
             emit LOG_D("Values initialized, creating xml data", true, true);
             // save_logger_conf(logValues, ecu_id);
@@ -1614,9 +1744,13 @@ FileActions::LogValuesStructure *FileActions::read_logger_definition_file()
                                         logValues->log_value_enabled.append(parameter.attribute("enabled", "0"));
                                         logValues->log_value.append("0.00");
                                         if (log_value_index < 12)
+                                        {
                                             logValues->lower_panel_log_value_id.append(log_value_id);
+                                        }
                                         if (log_value_index < 15)
+                                        {
                                             logValues->dashboard_log_value_id.append(log_value_id);
+                                        }
 
                                         QDomElement param_options = parameter.firstChild().toElement();
                                         while (!param_options.isNull())
@@ -1648,7 +1782,9 @@ FileActions::LogValuesStructure *FileActions::read_logger_definition_file()
                                                     conversion_count++;
                                                     conversion = conversion.nextSibling().toElement();
                                                     if (!conversion.isNull())
+                                                    {
                                                         param_conversion.append(",");
+                                                    }
                                                 }
                                                 logValues->log_value_units.append(param_conversion);
                                             }
@@ -1678,7 +1814,9 @@ FileActions::LogValuesStructure *FileActions::read_logger_definition_file()
                                         logValues->log_switch_enabled.append("0");
                                         logValues->log_switch_state.append("0");
                                         if (log_switch_index < 20)
+                                        {
                                             logValues->lower_panel_switch_id.append(log_switch_id);
+                                        }
                                         log_switch_index++;
                                         // emit LOG_D("Switch = " + paramswitch.attribute("id","No id") + " " + paramswitch.attribute("name","No name") + " " + paramswitch.attribute("desc","No description");
                                     }
@@ -1820,9 +1958,13 @@ QSignalMapper *FileActions::read_menu_file(QMenuBar *menubar, QToolBar *toolBar)
                                         action->setIconVisibleInMenu(true);
                                         action->setToolTip(subMenuName + "\n\n" + menuItemTooltip);
                                         if (menuItemCheckable == "true")
+                                        {
                                             action->setCheckable(true);
+                                        }
                                         else
+                                        {
                                             action->setCheckable(false);
+                                        }
                                         if (menuItemToolbar == "true")
                                         {
                                             toolBar->addAction(action);
@@ -1868,9 +2010,13 @@ QSignalMapper *FileActions::read_menu_file(QMenuBar *menubar, QToolBar *toolBar)
                                 action->setIconVisibleInMenu(true);
                                 action->setToolTip(menuItemName + "\n\n" + menuItemTooltip);
                                 if (menuItemCheckable == "true")
+                                {
                                     action->setCheckable(true);
+                                }
                                 else
+                                {
                                     action->setCheckable(false);
+                                }
                                 if (menuItemToolbar == "true")
                                 {
                                     toolBar->addAction(action);
@@ -1885,7 +2031,9 @@ QSignalMapper *FileActions::read_menu_file(QMenuBar *menubar, QToolBar *toolBar)
                         menu_item = menu_item.nextSibling().toElement();
                     }
                     if (toolBarIconSet)
+                    {
                         toolBar->addSeparator();
+                    }
                     toolBarIconSet = false;
                 }
                 Component = Component.nextSibling().toElement();
@@ -1966,15 +2114,21 @@ FileActions::EcuCalDefStructure *FileActions::parse_ecuid_ecuflash_def_files(Fil
             {
                 uint8_t byte = (uint8_t)ecuCalDef->FullRomData.at(j);
                 if (cal_id_hex.length() < ecuid_length)
+                {
                     cal_id_hex.append(parse_hex_ecuid(byte));
+                }
                 cal_id_ascii.append((QChar)byte);
             }
         }
 
         if (cal_id_ascii == configValues->ecuflash_def_cal_id.at(i))
+        {
             cal_id_ascii_confirmed = true;
+        }
         if (cal_id_hex == configValues->ecuflash_def_cal_id.at(i))
+        {
             cal_id_hex_confirmed = true;
+        }
 
         // emit LOG_D("EcuFlash cal id: " + i + " " + configValues->ecuflash_def_cal_id.at(i) + " -> " + cal_id_ascii + " -> " + cal_id_hex;
 
@@ -2021,15 +2175,21 @@ FileActions::EcuCalDefStructure *FileActions::parse_ecuid_romraider_def_files(Fi
             {
                 uint8_t byte = (uint8_t)ecuCalDef->FullRomData.at(j);
                 if (cal_id_hex.length() < ecuid_length)
+                {
                     cal_id_hex.append(parse_hex_ecuid(byte));
+                }
                 cal_id_ascii.append((QChar)byte);
             }
         }
 
         if (cal_id_ascii == configValues->romraider_def_cal_id.at(i))
+        {
             cal_id_ascii_confirmed = true;
+        }
         if (cal_id_hex == configValues->romraider_def_cal_id.at(i))
+        {
             cal_id_hex_confirmed = true;
+        }
 
         // emit LOG_D("RomRaider cal id: " + i + " " + configValues->romraider_def_cal_id.at(i) + " -> " + cal_id_ascii + " -> " + cal_id_hex;
 
@@ -2120,13 +2280,19 @@ FileActions::EcuCalDefStructure *FileActions::create_new_definition_for_rom(File
 
                 int result = definitionDialog->exec();
                 if (result == QDialog::Rejected)
+                {
                     isFileSelected = true;
+                }
             }
         }
         if (filename.endsWith(QString(".")))
+        {
             filename.remove(filename.length() - 1, 1);
+        }
         if (!filename.endsWith(QString(".xml")))
+        {
             filename.append(QString(".xml"));
+        }
 
         QFile file(filename);
         QFileInfo fileInfo(file.fileName());
@@ -2159,11 +2325,17 @@ FileActions::EcuCalDefStructure *FileActions::create_new_definition_for_rom(File
             if (ecuCalDef->DefHeaderNames.at(i) != "include" && ecuCalDef->DefHeaderNames.at(i) != "notes")
             {
                 if (ecuCalDef->DefHeaderNames.at(i) == "internalidstring")
+                {
                     configValues->ecuflash_def_cal_id.append(lineEditList.at(i)->text());
+                }
                 if (ecuCalDef->DefHeaderNames.at(i) == "internalidaddress")
+                {
                     configValues->ecuflash_def_cal_id_addr.append(lineEditList.at(i)->text());
+                }
                 if (ecuCalDef->DefHeaderNames.at(i) == "ecuid")
+                {
                     configValues->ecuflash_def_ecu_id.append(lineEditList.at(i)->text());
+                }
 
                 emit LOG_D(lineEditList.at(i)->text(), true, true);
                 stream.writeTextElement(ecuCalDef->RomInfoNames.at(i), lineEditList.at(i)->text());
@@ -2210,7 +2382,9 @@ FileActions::EcuCalDefStructure *FileActions::use_existing_definition_for_rom(Fi
 
             int result = definitionDialog->exec();
             if (result == QDialog::Rejected)
+            {
                 isFileSelected = true;
+            }
         }
     }
 
@@ -2294,13 +2468,19 @@ FileActions::EcuCalDefStructure *FileActions::use_existing_definition_for_rom(Fi
 
                 int result = definitionDialog->exec();
                 if (result == QDialog::Rejected)
+                {
                     isFileSelected = true;
+                }
             }
         }
         if (filename.endsWith(QString(".")))
+        {
             filename.remove(filename.length() - 1, 1);
+        }
         if (!filename.endsWith(QString(".xml")))
+        {
             filename.append(QString(".xml"));
+        }
 
         QFile file(filename);
         QFileInfo fileInfo(file.fileName());
@@ -2332,11 +2512,17 @@ FileActions::EcuCalDefStructure *FileActions::use_existing_definition_for_rom(Fi
         for (int i = 0; i < headerData.length(); i += 2)
         {
             if (headerData.at(i) == "internalidstring")
+            {
                 configValues->ecuflash_def_cal_id.append(lineEditList.at(index)->text());
+            }
             if (headerData.at(i) == "internalidaddress")
+            {
                 configValues->ecuflash_def_cal_id_addr.append(lineEditList.at(index)->text());
+            }
             if (headerData.at(i) == "ecuid")
+            {
                 configValues->ecuflash_def_ecu_id.append(lineEditList.at(index)->text());
+            }
 
             if (headerData.at(i) != "include" && headerData.at(i) != "notes")
             {
@@ -2474,7 +2660,7 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
             }
         }
     }
-    else if (configValues->primary_definition_base == "romraider" && configValues->romraider_definition_files.length())
+    else if (configValues->primary_definition_base == "romraider" && !configValues->romraider_definition_files.empty())
     {
         if (configValues->use_romraider_definitions == "enabled")
         {
@@ -2573,11 +2759,17 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
         }
     }
     if (configValues->flash_protocol_selected_checksum == "yes")
+    {
         ecuCalDef->RomInfo.replace(ChecksumModule, checksum_module);
+    }
     if (configValues->flash_protocol_selected_checksum == "n/a")
+    {
         ecuCalDef->RomInfo.replace(ChecksumModule, "Not implemented yet");
+    }
     if (configValues->flash_protocol_selected_checksum == "no")
+    {
         ecuCalDef->RomInfo.replace(ChecksumModule, "No checksums");
+    }
 
     /*
         if (ecuCalDef == NULL)
@@ -2588,7 +2780,9 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
         }
     */
     if (!file_name_str.length())
+    {
         file_name_str = "default.bin";
+    }
 
     ecuCalDef->McuType = configValues->flash_protocol_selected_mcu;
     ecuCalDef->OemEcuFile = true;
@@ -2612,7 +2806,9 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
     if (ecuCalDef->RomInfo.at(FlashMethod).startsWith("sub_ecu_denso_mc68hc16y5_02") && ecuCalDef->FileSize.toUInt() < 190 * 1024)
     {
         for (int i = 0; i < 0x8000; i++)
+        {
             ecuCalDef->FullRomData.insert(0x20000, (uint8_t)0xff);
+        }
     }
     // emit LOG_D("QByteArray size = " + ecuCalDef->FullRomData.length(), true, true);
 
@@ -2635,18 +2831,24 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
         uint16_t word_alue[2];
         uint32_t dword_value;
         float float_value;
-    } mapDataValue;
+    } mapDataValue{};
 
     for (int i = 0; i < ecuCalDef->NameList.length(); i++)
     {
         storagesize = 1;
         storagetype = ecuCalDef->StorageTypeList.at(i);
         if (storagetype == "uint16" || storagetype == "int16")
+        {
             storagesize = 2;
+        }
         else if (storagetype == "uint24" || storagetype == "int24")
+        {
             storagesize = 3;
+        }
         else if (storagetype == "uint32" || storagetype == "int32" || storagetype == "float")
+        {
             storagesize = 4;
+        }
         mapData.clear();
         if (ecuCalDef->StorageTypeList.at(i) == "bloblist")
         {
@@ -2672,7 +2874,9 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
                 mapDataValue.dword_value = 0;
 
                 if (ecuCalDef->RomInfo.at(FlashMethod) == "wrx02" && (uint32_t)ecuCalDef->FullRomData.length() < byteAddress)
+                {
                     byteAddress -= 0x8000;
+                }
                 for (int k = 0; k < storagesize; k++)
                 {
                     if (ecuCalDef->EndianList.at(i) == "little" || ecuCalDef->StorageTypeList.at(i) == "float")
@@ -2682,22 +2886,32 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
                     else
                     {
                         if (storagetype.startsWith("uint"))
+                        {
                             dataByte = (dataByte << 8) + (uint8_t)ecuCalDef->FullRomData.at(byteAddress + k);
+                        }
                         else
+                        {
                             signedDataByte = (signedDataByte << 8) + ecuCalDef->FullRomData.at(byteAddress + k);
+                        }
                     }
                 }
                 double value = 0;
                 if (ecuCalDef->TypeList.at(i) != "Selectable")
                 {
                     if (ecuCalDef->StorageTypeList.at(i) == "float")
+                    {
                         value = calculate_value_from_expression(parse_stringlist_from_expression_string(ecuCalDef->FromByteList.at(i), QString::number(mapDataValue.float_value, 'g', float_precision)));
+                    }
                     else
                     {
                         if (storagetype.startsWith("uint"))
+                        {
                             value = calculate_value_from_expression(parse_stringlist_from_expression_string(ecuCalDef->FromByteList.at(i), QString::number(dataByte)));
+                        }
                         else
+                        {
                             value = calculate_value_from_expression(parse_stringlist_from_expression_string(ecuCalDef->FromByteList.at(i), QString::number(signedDataByte)));
+                        }
                     }
                 }
                 mapData.append(QString::number(value, 'g', float_precision) + ",");
@@ -2715,11 +2929,17 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
                     storagesize = 1;
                     storagetype = ecuCalDef->XScaleStorageTypeList.at(i);
                     if (storagetype == "uint16" || storagetype == "int16")
+                    {
                         storagesize = 2;
+                    }
                     else if (storagetype == "uint24" || storagetype == "int24")
+                    {
                         storagesize = 3;
+                    }
                     else if (storagetype == "uint32" || storagetype == "int32" || storagetype == "float")
+                    {
                         storagesize = 4;
+                    }
                     mapData.clear();
                     for (unsigned j = 0; j < ecuCalDef->XSizeList.at(i).toUInt(); j++)
                     {
@@ -2730,7 +2950,9 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
                         mapDataValue.dword_value = 0;
 
                         if (ecuCalDef->RomInfo.at(FlashMethod) == "wrx02" && (uint32_t)ecuCalDef->FullRomData.length() < byteAddress)
+                        {
                             byteAddress -= 0x8000;
+                        }
 
                         for (int k = 0; k < storagesize; k++)
                         {
@@ -2741,22 +2963,32 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
                             else
                             {
                                 if (storagetype.startsWith("uint"))
+                                {
                                     dataByte = (dataByte << 8) + (uint8_t)ecuCalDef->FullRomData.at(byteAddress + k);
+                                }
                                 else
+                                {
                                     signedDataByte = (signedDataByte << 8) + ecuCalDef->FullRomData.at(byteAddress + k);
+                                }
                             }
                         }
                         double value = 0;
                         if (ecuCalDef->XScaleTypeList.at(i) != "Selectable")
                         {
                             if (ecuCalDef->XScaleStorageTypeList.at(i) == "float")
+                            {
                                 value = calculate_value_from_expression(parse_stringlist_from_expression_string(ecuCalDef->XScaleFromByteList.at(i), QString::number(mapDataValue.float_value, 'g', float_precision)));
+                            }
                             else
                             {
                                 if (storagetype.startsWith("uint"))
+                                {
                                     value = calculate_value_from_expression(parse_stringlist_from_expression_string(ecuCalDef->XScaleFromByteList.at(i), QString::number(dataByte)));
+                                }
                                 else
+                                {
                                     value = calculate_value_from_expression(parse_stringlist_from_expression_string(ecuCalDef->XScaleFromByteList.at(i), QString::number(signedDataByte)));
+                                }
                             }
                         }
                         mapData.append(QString::number(value, 'g', float_precision) + ",");
@@ -2765,17 +2997,25 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
                 }
             }
             else
+            {
                 ecuCalDef->XScaleData.replace(i, " ");
+            }
             if (ecuCalDef->YSizeList.at(i).toUInt() > 1)
             {
                 storagesize = 1;
                 storagetype = ecuCalDef->YScaleStorageTypeList.at(i);
                 if (storagetype == "uint16" || storagetype == "int16")
+                {
                     storagesize = 2;
+                }
                 else if (storagetype == "uint24" || storagetype == "int24")
+                {
                     storagesize = 3;
+                }
                 else if (storagetype == "uint32" || storagetype == "int32" || storagetype == "float")
+                {
                     storagesize = 4;
+                }
                 mapData.clear();
                 for (unsigned j = 0; j < ecuCalDef->YSizeList.at(i).toUInt(); j++)
                 {
@@ -2786,7 +3026,9 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
                     mapDataValue.dword_value = 0;
 
                     if (ecuCalDef->RomInfo.at(FlashMethod) == "wrx02" && (uint32_t)ecuCalDef->FullRomData.length() < byteAddress)
+                    {
                         byteAddress -= 0x8000;
+                    }
                     for (int k = 0; k < storagesize; k++)
                     {
                         if (ecuCalDef->YScaleEndianList.at(i) == "little" || ecuCalDef->YScaleStorageTypeList.at(i) == "float")
@@ -2796,22 +3038,32 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
                         else
                         {
                             if (storagetype.startsWith("uint"))
+                            {
                                 dataByte = (dataByte << 8) + (uint8_t)ecuCalDef->FullRomData.at(byteAddress + k);
+                            }
                             else
+                            {
                                 signedDataByte = (signedDataByte << 8) + ecuCalDef->FullRomData.at(byteAddress + k);
+                            }
                         }
                     }
                     double value = 0;
                     if (ecuCalDef->YScaleTypeList.at(i) != "Selectable")
                     {
                         if (ecuCalDef->YScaleStorageTypeList.at(i) == "float")
+                        {
                             value = calculate_value_from_expression(parse_stringlist_from_expression_string(ecuCalDef->YScaleFromByteList.at(i), QString::number(mapDataValue.float_value, 'g', float_precision)));
+                        }
                         else
                         {
                             if (storagetype.startsWith("uint"))
+                            {
                                 value = calculate_value_from_expression(parse_stringlist_from_expression_string(ecuCalDef->YScaleFromByteList.at(i), QString::number(dataByte)));
+                            }
                             else
+                            {
                                 value = calculate_value_from_expression(parse_stringlist_from_expression_string(ecuCalDef->YScaleFromByteList.at(i), QString::number(signedDataByte)));
+                            }
                         }
                     }
                     mapData.append(QString::number(value, 'g', float_precision) + ",");
@@ -2819,7 +3071,9 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
                 ecuCalDef->YScaleData.replace(i, mapData);
             }
             else
+            {
                 ecuCalDef->YScaleData.replace(i, " ");
+            }
         }
     }
 
@@ -2832,7 +3086,7 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
     return ecuCalDef;
 }
 
-FileActions::EcuCalDefStructure *FileActions::save_subaru_rom_file(FileActions::EcuCalDefStructure *ecuCalDef, QString filename)
+FileActions::EcuCalDefStructure *FileActions::save_subaru_rom_file(FileActions::EcuCalDefStructure *ecuCalDef, const QString& filename)
 {
     QFile file(filename);
     QFileInfo fileInfo(file.fileName());
@@ -2890,7 +3144,9 @@ FileActions::EcuCalDefStructure *FileActions::checksum_correction(FileActions::E
         msgBox.exec();
 
         if (msgBox.clickedButton() == okButton)
+        {
             return ecuCalDef;
+        }
     }
 
     if (configValues->flash_protocol_selected_checksum == "yes")
@@ -2978,11 +3234,17 @@ FileActions::EcuCalDefStructure *FileActions::checksum_correction(FileActions::E
             {
                 chksumModuleAvailable = true;
                 if (ecuCalDef->RomId.startsWith("3"))
+                {
                     ecuCalDef->FullRomData = ChecksumEcuSubaruHitachiM32rKline::calculate_checksum(ecuCalDef->FullRomData);
+                }
                 if (ecuCalDef->RomId.startsWith("4"))
+                {
                     ecuCalDef->FullRomData = ChecksumEcuSubaruHitachiM32rCan::calculate_checksum(ecuCalDef->FullRomData);
+                }
                 if (ecuCalDef->RomId.startsWith("6"))
+                {
                     ecuCalDef->FullRomData = ChecksumEcuSubaruHitachiM32rCan::calculate_checksum(ecuCalDef->FullRomData);
+                }
             }
             else if (flashMethod.startsWith("sub_ecu_hitachi_m32r_can"))
             {
@@ -3021,7 +3283,9 @@ FileActions::EcuCalDefStructure *FileActions::checksum_correction(FileActions::E
                 ecuCalDef->FullRomData = ChecksumTcuMitsuMH8104Can::calculate_checksum(ecuCalDef->FullRomData);
             }
             else
+            {
                 chksumModuleAvailable = false;
+            }
         }
     }
     if (!chksumModuleAvailable && configValues->flash_protocol_selected_checksum != "no")
@@ -3046,17 +3310,17 @@ FileActions::EcuCalDefStructure *FileActions::checksum_correction(FileActions::E
     return ecuCalDef;
 }
 
-QStringList FileActions::parse_stringlist_from_expression_string(QString expression, QString x)
+QStringList FileActions::parse_stringlist_from_expression_string(const QString& expression, const QString& x)
 {
     return ExpressionEvaluator::parse(expression, x);
 }
 
 double FileActions::calculate_value_from_expression(QStringList expression)
 {
-    return ExpressionEvaluator::evaluate(expression, float_precision);
+    return ExpressionEvaluator::evaluate(std::move(expression), float_precision);
 }
 
-QString FileActions::parse_nrc_message(QByteArray nrc)
+QString FileActions::parse_nrc_message(const QByteArray& nrc)
 {
     return NrcParser::parse(nrc, neg_rsp_codes);
 }

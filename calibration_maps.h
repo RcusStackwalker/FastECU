@@ -64,7 +64,7 @@ class CalibrationMaps : public QWidget
 
     void setMapTableWidgetSize(int maxWidth, int maxHeight, int sizeX);
     void setMapTableWidgetItems(FileActions::EcuCalDefStructure *ecuCalDef, int mapIndex);
-    int getMapValueDecimalCount(QString valueFormat);
+    int getMapValueDecimalCount(const QString& valueFormat);
     int getMapCellColors(FileActions::EcuCalDefStructure *ecuCalDef, float mapDataValue, int mapIndex);
 
   private slots:

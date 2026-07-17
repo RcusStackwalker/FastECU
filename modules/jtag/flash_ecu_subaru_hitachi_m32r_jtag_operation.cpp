@@ -1,4 +1,6 @@
 #include "flash_ecu_subaru_hitachi_m32r_jtag_operation.h"
+
+#include <utility>
 #include "modules/flash_utils.h"
 #include "modules/ssm_protocol.h"
 #include "serial_port_actions.h"
@@ -6,7 +8,7 @@
 FlashEcuSubaruHitachiM32rJtagOperation::FlashEcuSubaruHitachiM32rJtagOperation(
     SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
     QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(std::move(cmd_type))
 {
 }
 
@@ -492,7 +494,7 @@ void FlashEcuSubaruHitachiM32rJtagOperation::set_rtdenb()
  * IR and DR registers
  *
  ************************************/
-void FlashEcuSubaruHitachiM32rJtagOperation::write_jtag_ir(QString desc, QString code)
+void FlashEcuSubaruHitachiM32rJtagOperation::write_jtag_ir(const QString& desc, const QString& code)
 {
     QByteArray output;
     QByteArray response;
@@ -509,11 +511,17 @@ void FlashEcuSubaruHitachiM32rJtagOperation::write_jtag_ir(QString desc, QString
     msg.append("3b04");   // Set instruction (first 5 bits)
     msg.append(code);
     if (is_endbit)
+    {
         msg.append("7b0001"); // If last bit == 1, set TMS and TDI bits
+    }
     else
+    {
         msg.append("6b0001"); // If last bit == 0, set only TMS bit
+    }
     if (is_endbit)
+    {
         emit LOG_I("IS ENDBIT", true, true);
+    }
     msg.append("4b0101"); // Move to Run/Idle
     // msg.append("4b0700"); // Idle 8 clockcycles
     msg.append("0D"); // Additional CR
@@ -524,7 +532,7 @@ void FlashEcuSubaruHitachiM32rJtagOperation::write_jtag_ir(QString desc, QString
     emit LOG_I("Response: " + SsmProtocol::toHex(response), true, true);
 }
 
-QByteArray FlashEcuSubaruHitachiM32rJtagOperation::read_jtag_dr(QString desc)
+QByteArray FlashEcuSubaruHitachiM32rJtagOperation::read_jtag_dr(const QString& desc)
 {
     QByteArray output;
     QByteArray response;
@@ -542,14 +550,18 @@ QByteArray FlashEcuSubaruHitachiM32rJtagOperation::read_jtag_dr(QString desc)
 
     response = read_response();
     if (response.at(0) == 0x7f)
+    {
         emit LOG_I("ERROR: " + SsmProtocol::toHex(response), true, true);
+    }
     else
+    {
         emit LOG_I("Response: " + SsmProtocol::toHex(response), true, true);
+    }
 
     return response;
 }
 
-QByteArray FlashEcuSubaruHitachiM32rJtagOperation::write_jtag_dr(QString desc, QString data)
+QByteArray FlashEcuSubaruHitachiM32rJtagOperation::write_jtag_dr(const QString& desc, const QString& data)
 {
     QByteArray output;
     QByteArray response;
@@ -567,11 +579,17 @@ QByteArray FlashEcuSubaruHitachiM32rJtagOperation::write_jtag_dr(QString desc, Q
     msg.append("3b1e");   // Set 31 bits
     msg.append(data);     // Append data-1 bit
     if (is_endbit)
+    {
         msg.append("7b0001"); // If last bit == 1, set TMS and TDI bits
+    }
     else
+    {
         msg.append("6b0001"); // If last bit == 0, set only TMS bit
+    }
     if (is_endbit)
+    {
         emit LOG_I("IS ENDBIT", true, true);
+    }
     msg.append("4b0101"); // Move to Run/Idle
     msg.append("0D");     // Additional CR
     output = msg.toUtf8();
@@ -594,9 +612,13 @@ QByteArray FlashEcuSubaruHitachiM32rJtagOperation::read_response()
     {
         received = serial->read_serial_data(serial_read_short_timeout);
         if (!received.length())
+        {
             break;
+        }
         if (received.length())
+        {
             response = received.mid(4, (uint8_t)received.at(3));
+        }
         //
     } while (received.length());
 

@@ -1,20 +1,28 @@
 #include "flash_ecu_subaru_mitsu_m32r_kline.h"
+
+#include <utility>
 #include "flash_ecu_subaru_mitsu_m32r_kline_operation.h"
 #include "serial_port_actions.h"
 
 // QT_CHARTS_USE_NAMESPACE
 
-FlashEcuSubaruMitsuM32rKline::FlashEcuSubaruMitsuM32rKline(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent)
+FlashEcuSubaruMitsuM32rKline::FlashEcuSubaruMitsuM32rKline(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
     : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
 
     if (cmd_type == "test_write")
+    {
         this->setWindowTitle("Test write ROM " + ecuCalDef->FileName + " to ECU");
+    }
     else if (cmd_type == "write")
+    {
         this->setWindowTitle("Write ROM " + ecuCalDef->FileName + " to ECU");
+    }
     else if (cmd_type == "read")
+    {
         this->setWindowTitle("Read ROM from TCU");
+    }
 
     this->serial = serial;
 }
@@ -40,7 +48,7 @@ void FlashEcuSubaruMitsuM32rKline::run()
         connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashEcuSubaruMitsuM32rKline::LOG_D);
         connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
                 this, [this](QString msg)
-                { emit external_logger(msg); });
+                { emit external_logger(std::move(msg)); });
         connect(m_operation, &FlashOperationWorker::progressChanged,
                 this, &FlashEcuSubaruMitsuM32rKline::set_progressbar_value);
 
@@ -88,11 +96,15 @@ FlashEcuSubaruMitsuM32rKline::~FlashEcuSubaruMitsuM32rKline()
 void FlashEcuSubaruMitsuM32rKline::closeEvent(QCloseEvent *event)
 {
     if (m_operation)
+    {
         m_operation->requestStop();
+    }
 }
 
 void FlashEcuSubaruMitsuM32rKline::set_progressbar_value(int value)
 {
     if (ui->progressbar)
+    {
         ui->progressbar->setValue(value);
+    }
 }

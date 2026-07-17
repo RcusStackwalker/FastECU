@@ -25,7 +25,7 @@ class FlashEcuSubaruHitachiM32rJtag : public QDialog
     Q_OBJECT
 
   public:
-    explicit FlashEcuSubaruHitachiM32rJtag(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent = nullptr);
+    explicit FlashEcuSubaruHitachiM32rJtag(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent = nullptr);
     ~FlashEcuSubaruHitachiM32rJtag();
 
     void run();

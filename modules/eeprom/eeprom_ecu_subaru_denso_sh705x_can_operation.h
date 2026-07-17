@@ -39,14 +39,14 @@ class EepromEcuSubaruDensoSH705xCanOperation : public FlashOperationWorker
     bool request_denso_kernel_init = false;
     bool request_denso_kernel_id = false;
 
-    int result;
-    int mcu_type_index;
+    int result{};
+    int mcu_type_index{};
     int bootloader_start_countdown = 3;
 
     int EEPROM_MODE = 0;
 
-    uint8_t tester_id;
-    uint8_t target_id;
+    uint8_t tester_id{};
+    uint8_t target_id{};
 
     uint16_t receive_timeout = 500;
     uint16_t serial_read_timeout = 2000;
@@ -70,7 +70,7 @@ class EepromEcuSubaruDensoSH705xCanOperation : public FlashOperationWorker
     QString kernel;
 
     int connect_bootloader();
-    int upload_kernel(QString kernel, uint32_t kernel_start_addr);
+    int upload_kernel(const QString& kernel, uint32_t kernel_start_addr);
     int read_mem(uint32_t start_addr, uint32_t length);
 
     void init_crc16_tab(void);
@@ -86,18 +86,18 @@ class EepromEcuSubaruDensoSH705xCanOperation : public FlashOperationWorker
     QByteArray send_sid_36_transferdata(uint32_t dataaddr, QByteArray buf, uint32_t len);
     QByteArray send_sid_31_start_routine();
 
-    QByteArray generate_seed_key(QByteArray seed);
-    QByteArray generate_ecutek_seed_key(QByteArray requested_seed);
-    QByteArray generate_cobb_seed_key(QByteArray requested_seed);
+    QByteArray generate_seed_key(const QByteArray& seed);
+    QByteArray generate_ecutek_seed_key(const QByteArray& requested_seed);
+    QByteArray generate_cobb_seed_key(const QByteArray& requested_seed);
 
     QByteArray request_kernel_init();
     QByteArray request_kernel_id();
 
-    QByteArray encrypt_payload(QByteArray buf, uint32_t len);
-    QByteArray decrypt_payload(QByteArray buf, uint32_t len);
+    QByteArray encrypt_payload(const QByteArray& buf, uint32_t len);
+    QByteArray decrypt_payload(const QByteArray& buf, uint32_t len);
 
     QByteArray calculate_ecutek_racerom_seed_key(uint32_t req_seed); // QByteArray requested_seed);
-    QByteArray generate_ecutek_racerom_can_seed_key(QByteArray requested_seed);
+    QByteArray generate_ecutek_racerom_can_seed_key(const QByteArray& requested_seed);
     unsigned long long decrypt_racerom_seed(const unsigned long long base, const unsigned long long exponent, const unsigned long long modulus);
     uint32_t read_ram_location(uint32_t loc);
 

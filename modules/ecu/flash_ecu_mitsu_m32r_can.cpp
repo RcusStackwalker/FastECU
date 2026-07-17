@@ -1,16 +1,22 @@
 #include "flash_ecu_mitsu_m32r_can.h"
+
+#include <utility>
 #include "flash_ecu_mitsu_m32r_can_operation.h"
 #include "serial_port_actions.h"
 
-FlashEcuMitsuM32rCan::FlashEcuMitsuM32rCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent, bool useVendorChallenge)
+FlashEcuMitsuM32rCan::FlashEcuMitsuM32rCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent, bool useVendorChallenge)
     : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), useVendorChallenge(useVendorChallenge), serial(serial), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
 
     if (cmd_type == "write")
+    {
         this->setWindowTitle("Write ROM " + ecuCalDef->FileName + " to ECU");
+    }
     else if (cmd_type == "read")
+    {
         this->setWindowTitle("Read ROM from ECU");
+    }
 }
 
 FlashEcuMitsuM32rCan::~FlashEcuMitsuM32rCan()
@@ -20,7 +26,9 @@ FlashEcuMitsuM32rCan::~FlashEcuMitsuM32rCan()
 void FlashEcuMitsuM32rCan::closeEvent(QCloseEvent *event)
 {
     if (m_operation)
+    {
         m_operation->requestStop();
+    }
 }
 
 void FlashEcuMitsuM32rCan::run()
@@ -44,7 +52,7 @@ void FlashEcuMitsuM32rCan::run()
         connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashEcuMitsuM32rCan::LOG_D);
         connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
                 this, [this](QString msg)
-                { emit external_logger(msg); });
+                { emit external_logger(std::move(msg)); });
         connect(m_operation, &FlashOperationWorker::progressChanged,
                 this, &FlashEcuMitsuM32rCan::set_progressbar_value);
 
@@ -94,5 +102,7 @@ void FlashEcuMitsuM32rCan::set_progressbar_value(int value)
         ui->progressbar->setValue(value);
     }
     if (valueChanged)
+    {
         emit external_logger(value);
+    }
 }

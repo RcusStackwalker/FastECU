@@ -28,7 +28,7 @@ class FlashEcuSubaruDenso1N83M_1_5MCan : public QDialog
     Q_OBJECT
 
   public:
-    explicit FlashEcuSubaruDenso1N83M_1_5MCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent = nullptr);
+    explicit FlashEcuSubaruDenso1N83M_1_5MCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent = nullptr);
     ~FlashEcuSubaruDenso1N83M_1_5MCan();
 
     void run();
