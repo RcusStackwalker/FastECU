@@ -197,9 +197,9 @@ class SerialPortActions : public QObject
     // Marshal `fn` onto the I/O thread and block until it completes. `fn`
     // runs with m_backend valid and is the ONLY code that touches it.
     template <typename Fn>
-    auto runOnBackend(Fn fn)
+    auto runOnBackend(const Fn& fn)
     {
-        using Ret = std::invoke_result_t<Fn&>;
+        using Ret = std::invoke_result_t<const Fn&>;
         ensureBackendStarted();
         if (QThread::currentThread() == m_ioThread)
         {
