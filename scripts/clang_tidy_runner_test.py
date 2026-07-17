@@ -120,6 +120,60 @@ class ClangTidyRunnerTest(unittest.TestCase):
             )
         command_runner.assert_not_called()
 
+    def test_macos_report_adds_sdk_sysroot_to_analysis(self) -> None:
+        source = self.root / "main.cpp"
+        source.write_text("int main() { return 0; }\n")
+        self.write_database([source])
+        commands: list[list[str]] = []
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            commands.append(command)
+            return subprocess.CompletedProcess(command, 0, stdout="/SDK/MacOSX.sdk\n")
+
+        tools = runner.Tools(
+            clang_tidy="/llvm/bin/clang-tidy",
+            run_clang_tidy="/llvm/bin/run-clang-tidy",
+        )
+        with mock.patch.object(runner, "discover_tools", return_value=tools):
+            runner.run_workflow(
+                mode="report",
+                workspace=self.root,
+                compdb_tool="/tools/clang_tidy_compdb",
+                platform_name="darwin",
+                environ={},
+                command_runner=fake_run,
+            )
+
+        self.assertIn(["xcrun", "--show-sdk-path"], commands)
+        analysis_command = next(command for command in commands if command[0] == tools.run_clang_tidy)
+        self.assertIn("-extra-arg-before=-isysroot", analysis_command)
+        self.assertIn("-extra-arg-before=/SDK/MacOSX.sdk", analysis_command)
+
+    def test_macos_sdk_lookup_failure_is_actionable(self) -> None:
+        source = self.root / "main.cpp"
+        source.write_text("int main() { return 0; }\n")
+        self.write_database([source])
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            if command == ["xcrun", "--show-sdk-path"]:
+                return subprocess.CompletedProcess(command, 72, stdout="")
+            return subprocess.CompletedProcess(command, 0)
+
+        tools = runner.Tools(
+            clang_tidy="/llvm/bin/clang-tidy",
+            run_clang_tidy="/llvm/bin/run-clang-tidy",
+        )
+        with mock.patch.object(runner, "discover_tools", return_value=tools):
+            with self.assertRaisesRegex(runner.WorkflowError, "xcrun.*72.*Command Line Tools"):
+                runner.run_workflow(
+                    mode="report",
+                    workspace=self.root,
+                    compdb_tool="/tools/clang_tidy_compdb",
+                    platform_name="darwin",
+                    environ={},
+                    command_runner=fake_run,
+                )
+
     def test_fix_uses_deferred_replacements(self) -> None:
         source = self.root / "main.cpp"
         source.write_text("int main() { return 0; }\n")
@@ -128,7 +182,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
 
         def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
             commands.append(command)
-            return subprocess.CompletedProcess(command, 0)
+            return subprocess.CompletedProcess(command, 0, stdout="/SDK/MacOSX.sdk\n")
 
         tools = runner.Tools(
             clang_tidy="/llvm/bin/clang-tidy",
@@ -145,11 +199,14 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 command_runner=fake_run,
             )
 
-        self.assertIn("-export-fixes", commands[1])
-        self.assertNotIn("-fix", commands[1])
-        self.assertNotIn("--fix-errors", commands[1])
-        self.assertEqual("/llvm/bin/clang-apply-replacements", commands[2][0])
-        self.assertIn("-ignore-insert-conflict", commands[2])
+        analysis_command = next(command for command in commands if command[0] == tools.run_clang_tidy)
+        apply_command = next(
+            command for command in commands if command[0] == tools.clang_apply_replacements
+        )
+        self.assertIn("-export-fixes", analysis_command)
+        self.assertNotIn("-fix", analysis_command)
+        self.assertNotIn("--fix-errors", analysis_command)
+        self.assertIn("-ignore-insert-conflict", apply_command)
 
     def test_refresh_failure_stops_before_analysis(self) -> None:
         def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
@@ -172,6 +229,8 @@ class ClangTidyRunnerTest(unittest.TestCase):
         return_codes = iter((0, 7))
 
         def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            if command == ["xcrun", "--show-sdk-path"]:
+                return subprocess.CompletedProcess(command, 0, stdout="/SDK/MacOSX.sdk\n")
             return subprocess.CompletedProcess(command, next(return_codes))
 
         tools = runner.Tools(
@@ -196,6 +255,8 @@ class ClangTidyRunnerTest(unittest.TestCase):
         return_codes = iter((0, 0, 8))
 
         def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            if command == ["xcrun", "--show-sdk-path"]:
+                return subprocess.CompletedProcess(command, 0, stdout="/SDK/MacOSX.sdk\n")
             return subprocess.CompletedProcess(command, next(return_codes))
 
         tools = runner.Tools(
