@@ -1,4 +1,4 @@
-# Generated from qmake project files by the initial Bazel migration. Keep explicit lists in sync with scripts/check-bazel-qmake-sync.py.
+# Source lists originally generated from qmake project files during the initial Bazel migration; Bazel is now the sole source of truth for these lists.
 
 """Explicit FastECU source manifests generated from qmake project files."""
 

@@ -2,7 +2,11 @@
 
 ## Status
 
-Proposed
+Accepted
+
+Accepted 2026-07-17: qmake removed; Bazel is the sole build graph for the
+application, tests, release packaging (via scripts/package-*.{sh,ps1}),
+SonarCloud (compile_commands.json), and coverage.
 
 ## Context
 
