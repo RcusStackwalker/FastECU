@@ -16,10 +16,8 @@ concurrency:
 
 env:
   QT_MODULES: qtcharts qtserialport qtremoteobjects qtwebsockets
-  # rules_qt6 currently supports Bazel builds on 6.8.3; macOS qmake uses the
-  # newer version that was already working before PR #16.
+  # rules_qt supports Bazel builds on Qt 6.8.3.
   QT_VERSION: '6.8.3'
-  QT_QMAKE_MACOS_VERSION: '6.11.1'
 
 jobs:
   pre-commit:
@@ -161,7 +159,7 @@ jobs:
 
       - name: Test Bazel targets
         run: |
-          bazel test -k --config=release //tests/... //:qmake_bazel_sync //:bazel_openssl_wiring
+          bazel test -k --config=release //tests/... //:bazel_openssl_wiring
 
       - name: Package macOS from Bazel (verify only)
         if: runner.os == 'macOS'

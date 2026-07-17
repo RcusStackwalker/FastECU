@@ -101,5 +101,4 @@ Objects, or serial adapters until a local byte-native boundary is practical.
   temporary where practical.
 - Avoid touching UI, QtRO, and platform serial implementation classes unless
   the current migration slice requires it.
-- Run focused tests for each migrated area, plus `//:qmake_bazel_sync` when
-  qmake/Bazel source lists change.
+- Run focused tests for each migrated area.
