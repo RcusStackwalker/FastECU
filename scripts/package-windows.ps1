@@ -15,6 +15,7 @@ if (-not [System.IO.Path]::IsPathRooted($OutZip)) {
 }
 
 bazel build --config=release //:fastecu //serial_port/j2534_bridge_host:j2534_bridge_host_x86
+if ($LASTEXITCODE -ne 0) { throw "bazel build failed (exit $LASTEXITCODE)" }
 $bin = (bazel cquery --config=release --output=files //:fastecu 2>$null | Select-Object -First 1)
 if (-not (Test-Path $bin)) { throw "bazel binary not found: $bin" }
 $bridge = (bazel cquery --config=release --output=files //serial_port/j2534_bridge_host:j2534_bridge_host_x86 2>$null | Select-Object -First 1)
@@ -35,6 +36,8 @@ Copy-Item $cryptoDll $dist
 
 windeployqt (Join-Path $dist "FastECU.exe")
 
+$outDir = Split-Path -Parent $OutZip
+if ($outDir -and -not (Test-Path $outDir)) { New-Item -ItemType Directory -Force $outDir | Out-Null }
 if (Test-Path $OutZip) { Remove-Item $OutZip }
 Compress-Archive -Path (Join-Path $dist "*") -DestinationPath $OutZip
 Write-Host "wrote $OutZip"
