@@ -158,6 +158,35 @@ def _executable_command(executable: str) -> list[str]:
     return [executable]
 
 
+def _macos_sdk_path(command_runner: CommandRunner, workspace: Path) -> str:
+    command = ["xcrun", "--show-sdk-path"]
+    try:
+        result = command_runner(
+            command,
+            cwd=workspace,
+            check=False,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+    except OSError as error:
+        raise WorkflowError(
+            f"could not execute xcrun --show-sdk-path: {error}; "
+            "install the Xcode Command Line Tools"
+        ) from error
+    if result.returncode:
+        raise WorkflowError(
+            f"xcrun --show-sdk-path failed with exit code {result.returncode}; "
+            "install the Xcode Command Line Tools"
+        )
+    sdk_path = (result.stdout or "").strip()
+    if not sdk_path:
+        raise WorkflowError(
+            "xcrun --show-sdk-path returned an empty path; "
+            "install the Xcode Command Line Tools"
+        )
+    return sdk_path
+
+
 def run_workflow(
     *,
     mode: str,
@@ -178,6 +207,9 @@ def run_workflow(
 
     entries = load_project_entries(workspace, workspace / "compile_commands.json")
     tools = discover_tools(mode, platform_name=platform_name, environ=environ)
+    macos_sdk = None
+    if platform_name == "darwin":
+        macos_sdk = _macos_sdk_path(command_runner, workspace)
 
     with tempfile.TemporaryDirectory(prefix="fastecu-clang-tidy-") as directory:
         filtered_database = Path(directory) / "compile_commands.json"
@@ -190,6 +222,13 @@ def run_workflow(
             "-p",
             directory,
         ]
+        if macos_sdk is not None:
+            command.extend(
+                [
+                    "-extra-arg-before=-isysroot",
+                    f"-extra-arg-before={macos_sdk}",
+                ]
+            )
         fixes_directory = Path(directory) / "fixes"
         if mode == "fix":
             fixes_directory.mkdir()
