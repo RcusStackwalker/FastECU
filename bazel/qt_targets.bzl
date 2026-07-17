@@ -60,11 +60,13 @@ def _basename(path):
 
 def _gen_basename_ui_header(ctx):
     info = ctx.toolchains["@rules_qt//tools:toolchain_type"].qtinfo
+    env = {"LD_LIBRARY_PATH": "/".join(info.uic_path.split("/")[:-1]) + "/../lib"}
     ctx.actions.run(
         inputs = [ctx.file.ui_file],
         outputs = [ctx.outputs.ui_header],
         arguments = [ctx.file.ui_file.path, "-o", ctx.outputs.ui_header.path],
         executable = info.uic_path,
+        env = env,
         execution_requirements = {"local": "1"},
     )
 

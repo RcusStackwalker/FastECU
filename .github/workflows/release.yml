@@ -42,13 +42,19 @@ jobs:
 
       - name: Install Qt (Windows)
         if: runner.os == 'Windows'
-        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
-        with:
-          version: ${{ env.QT_VERSION }}
-          arch: 'win64_mingw'
-          modules: ${{ env.QT_MODULES }}
-          tools: 'tools_mingw1310,qt.tools.win64_mingw1310'
-          add-tools-to-path: true
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          python -m pip install aqtinstall==3.3.* py7zr==1.0.*
+          python scripts/patch-aqt-qt6111-windows.py
+          $modules = $env:QT_MODULES -split ' '
+          $qtRoot = Join-Path $env:RUNNER_WORKSPACE 'Qt'
+          python -m aqt install-qt windows desktop $env:QT_VERSION win64_mingw --autodesktop --outputdir $qtRoot --modules $modules --UNSAFE-ignore-hash
+          python -m aqt install-tool windows desktop tools_mingw1310 qt.tools.win64_mingw1310 --outputdir $qtRoot --UNSAFE-ignore-hash
+          "$qtRoot\$env:QT_VERSION\mingw_64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          "$qtRoot\Tools\mingw1310_64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          "QTDIR=$qtRoot\$env:QT_VERSION\mingw_64" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Install Qt (macOS)
         if: runner.os == 'macOS'

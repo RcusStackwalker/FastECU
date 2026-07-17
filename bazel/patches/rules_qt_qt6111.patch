@@ -1,3 +1,41 @@
+diff --git a/qt.bzl b/qt.bzl
+--- a/qt.bzl
++++ b/qt.bzl
+@@ -5,6 +5,13 @@ load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+ load("@rules_cc//cc:cc_library.bzl", "cc_library")
+ load("@rules_cc//cc:cc_test.bzl", "cc_test")
+ 
++def _qt_tool_env(tool_path):
++    tool_dir = "/".join(tool_path.split("/")[:-1])
++    return {"LD_LIBRARY_PATH": tool_dir + "/../lib"}
++
+ def _gen_ui_header(ctx):
+     info = ctx.toolchains["@rules_qt//tools:toolchain_type"].qtinfo
+ 
+@@ -22,6 +29,7 @@ def _gen_ui_header(ctx):
+         outputs = [ctx.outputs.ui_header],
+         arguments = args,
+         executable = info.uic_path,
++        env = _qt_tool_env(info.uic_path),
+         execution_requirements = exec_requirements,
+     )
+ 
+@@ -72,6 +80,7 @@ def _gencpp(ctx):
+         outputs = [ctx.outputs.cpp],
+         arguments = args,
+         executable = info.rcc_path,
++        env = _qt_tool_env(info.rcc_path),
+         execution_requirements = exec_requirements,
+     )
+     return [OutputGroupInfo(cpp = depset([ctx.outputs.cpp]))]
+@@ -105,6 +114,7 @@ def _gencpp2(ctx):
+         outputs = [ctx.outputs.cpp],
+         arguments = args,
+         executable = info.rcc_path,
++        env = _qt_tool_env(info.rcc_path),
+         execution_requirements = exec_requirements,
+     )
+     return [OutputGroupInfo(cpp = depset([ctx.outputs.cpp]))]
 diff --git a/extension/download_qt.bzl b/extension/download_qt.bzl
 --- a/extension/download_qt.bzl
 +++ b/extension/download_qt.bzl
