@@ -1,6 +1,5 @@
 #include "logbox.h"
 
-#include <utility>
 // #include "ui_preferences.h"
 
 LogBox::LogBox(QWidget *parent) : QWidget(parent)
@@ -40,7 +39,7 @@ QGroupBox *LogBox::drawLogSwitchBox(uint8_t index, uint8_t switchBoxCount, const
     switchGroupBox->setMaximumHeight(25);
     switchGroupBox->setStyleSheet("QGroupBox{font: bold;border:1px solid gray;border-radius:5px;margin-top: 0px;padding:0px 0px 0px 0px;} QGroupBox::title{subcontrol-origin: margin;left: 7px;padding:0px 3px 0px 3px;}");
 
-    const QString& labelText = std::move(title);
+    const QString& labelText = title;
 
     QLabel *switchBoxLabel = new QLabel();
     // switchBoxLabel->setFixedWidth(100);
