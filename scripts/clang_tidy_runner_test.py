@@ -60,6 +60,14 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 self.root / "compile_commands.json",
             )
 
+    def test_database_rejects_invalid_utf8(self) -> None:
+        (self.root / "compile_commands.json").write_bytes(b"\xff")
+        with self.assertRaisesRegex(runner.WorkflowError, "malformed"):
+            runner.load_project_entries(
+                self.root,
+                self.root / "compile_commands.json",
+            )
+
     def test_database_rejects_no_project_sources(self) -> None:
         self.write_database([])
         with self.assertRaisesRegex(runner.WorkflowError, "no workspace"):
