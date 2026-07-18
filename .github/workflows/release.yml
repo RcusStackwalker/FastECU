@@ -107,7 +107,7 @@ jobs:
         with:
           bazelisk-cache: true
           repository-cache: true
-          disk-cache: ${{ github.workflow }}-x86-bridge
+          disk-cache: ${{ github.workflow }}-${{ runner.os }}
 
       - name: Build and package Windows (Bazel)
         if: runner.os == 'Windows'
