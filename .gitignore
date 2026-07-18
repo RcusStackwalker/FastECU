@@ -58,6 +58,10 @@ CMakeLists.txt.user*
 # QtCreator 4.8< compilation database
 compile_commands.json
 
+# Hedron drops an `external` symlink to Bazel's external repos at the workspace
+# root when generating compile_commands.json.
+/external
+
 # clangd fallback flags (machine-specific absolute paths, e.g. Homebrew prefix)
 compile_flags.txt
 

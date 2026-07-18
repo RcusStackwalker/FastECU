@@ -1,1 +1,4 @@
-exports_files(["rules_qt_windows_addons.patch"])
+exports_files([
+    "hedron_bazel9_py_binary.patch",
+    "rules_qt_windows_addons.patch",
+])

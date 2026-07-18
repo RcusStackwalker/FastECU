@@ -1,0 +1,20 @@
+load("@hedron_compile_commands//:refresh_compile_commands.bzl", "refresh_compile_commands")
+
+# Shared compile_commands.json foundation. Consumed by the clang-tidy migration
+# (//:clang_tidy_* targets) and the SonarCloud C/C++ analyzer -- keep this target
+# and its label stable for those. Scoped to app + tests: Hedron's default @//...
+# pulls in the Windows MSVC toolchain targets, which fail extraction on
+# non-Windows hosts.
+#   bazel run //bazel/compile_commands:refresh
+# exclude_headers="all": Sonar treats every DB entry as a translation unit;
+# including headers ballooned the DB to ~5000 entries and the scan to 2+ hours.
+# exclude_external_sources: our code only.
+refresh_compile_commands(
+    name = "refresh",
+    exclude_external_sources = True,
+    exclude_headers = "all",
+    targets = {
+        "//:fastecu": "--config=release",
+        "//tests/...": "--config=release",
+    },
+)
