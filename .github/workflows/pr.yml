@@ -361,4 +361,4 @@ jobs:
       - name: clang-tidy report
         continue-on-error: true
         run: |
-          bazel test --config=release //:clang_tidy_report --test_output=all
+          bazel run --config=release //:clang_tidy_report

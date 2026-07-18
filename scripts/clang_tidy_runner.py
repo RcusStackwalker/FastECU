@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Mapping, Sequence
 
+import yaml
+
 SOURCE_SUFFIXES = frozenset((".c", ".cc", ".cpp", ".cxx"))
 
 
@@ -29,6 +31,14 @@ class Tools:
 
 
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
+
+
+@dataclass(frozen=True)
+class _Replacement:
+    file_path: str
+    offset: int
+    length: int
+    text: str
 
 
 def workspace_root(environ: Mapping[str, str]) -> Path:
@@ -72,8 +82,11 @@ def load_project_entries(workspace: Path, database: Path) -> list[dict[str, obje
             source.relative_to(root)
         except ValueError:
             continue
-        if source.is_file() and source.suffix.lower() in SOURCE_SUFFIXES:
-            entries.append(entry)
+        if source.suffix.lower() not in SOURCE_SUFFIXES:
+            continue
+        if not source.is_file():
+            raise WorkflowError(f"missing workspace translation unit: {source}")
+        entries.append(entry)
 
     if not entries:
         raise WorkflowError("compilation database contains no workspace translation units")
@@ -158,6 +171,157 @@ def _executable_command(executable: str) -> list[str]:
     return [executable]
 
 
+def _malformed_fixes(path: Path, detail: str) -> WorkflowError:
+    return WorkflowError(f"exported fixes {path} are malformed: {detail}")
+
+
+def _replacement_messages(
+    path: Path,
+    diagnostic: dict[str, object],
+) -> list[dict[str, object]]:
+    primary = diagnostic.get("DiagnosticMessage")
+    if not isinstance(primary, dict):
+        raise _malformed_fixes(path, "diagnostic lacks DiagnosticMessage")
+    messages = [primary]
+    notes = diagnostic.get("Notes", [])
+    if not isinstance(notes, list) or any(not isinstance(note, dict) for note in notes):
+        raise _malformed_fixes(path, "diagnostic Notes is not a list of messages")
+    messages.extend(notes)
+    return messages
+
+
+def _parse_replacement(path: Path, value: object) -> _Replacement:
+    if not isinstance(value, dict):
+        raise _malformed_fixes(path, "replacement is not an object")
+    expected_types = {
+        "FilePath": str,
+        "Offset": int,
+        "Length": int,
+        "ReplacementText": str,
+    }
+    for field, expected_type in expected_types.items():
+        field_value = value.get(field)
+        if not isinstance(field_value, expected_type) or (
+            expected_type is int and isinstance(field_value, bool)
+        ):
+            raise _malformed_fixes(
+                path,
+                f"replacement field {field} has the wrong type or is missing",
+            )
+    file_path = value["FilePath"]
+    offset = value["Offset"]
+    length = value["Length"]
+    text = value["ReplacementText"]
+    assert isinstance(file_path, str)
+    assert isinstance(offset, int)
+    assert isinstance(length, int)
+    assert isinstance(text, str)
+    if not file_path:
+        raise _malformed_fixes(path, "replacement FilePath is empty")
+    if offset < 0 or length < 0:
+        raise _malformed_fixes(path, "replacement Offset and Length must be non-negative")
+    return _Replacement(file_path, offset, length, text)
+
+
+def _replacement_file_identity(
+    file_path: str,
+    base_directory: Path,
+) -> tuple[object, ...]:
+    target = Path(file_path)
+    if not target.is_absolute():
+        target = base_directory / target
+    try:
+        status = target.stat()
+    except OSError:
+        fallback = os.path.abspath(os.path.normpath(target))
+        return ("path", os.path.normcase(fallback))
+    return ("file", status.st_dev, status.st_ino)
+
+
+def normalize_replacements(
+    fixes_directory: Path,
+    base_directory: Path | None = None,
+) -> None:
+    """Remove duplicate and conflicting replacements before applying fixes."""
+    replacement_base = (base_directory or Path.cwd()).resolve()
+    documents: list[tuple[Path, dict[str, object]]] = []
+    occurrences: list[_Replacement] = []
+    replacement_lists: list[tuple[list[object], list[int]]] = []
+    groups: dict[tuple[tuple[object, ...], int, int], list[int]] = {}
+
+    for path in sorted(fixes_directory.glob("*.yaml")):
+        try:
+            document = yaml.safe_load(path.read_text())
+        except (OSError, UnicodeError, yaml.YAMLError) as error:
+            raise _malformed_fixes(path, str(error)) from error
+        if document is None:
+            continue
+        if not isinstance(document, dict):
+            raise _malformed_fixes(path, "expected a YAML mapping")
+        if not isinstance(document.get("MainSourceFile"), str):
+            raise _malformed_fixes(path, "MainSourceFile is missing or is not a string")
+        diagnostics = document.get("Diagnostics")
+        if not isinstance(diagnostics, list):
+            raise _malformed_fixes(path, "Diagnostics is missing or is not a list")
+        documents.append((path, document))
+        for diagnostic in diagnostics:
+            if not isinstance(diagnostic, dict):
+                raise _malformed_fixes(path, "diagnostic is not an object")
+            for message in _replacement_messages(path, diagnostic):
+                replacements = message.get("Replacements")
+                if not isinstance(replacements, list):
+                    raise _malformed_fixes(
+                        path,
+                        "diagnostic message Replacements is missing or is not a list",
+                    )
+                indexes: list[int] = []
+                for value in replacements:
+                    replacement = _parse_replacement(path, value)
+                    index = len(occurrences)
+                    occurrences.append(replacement)
+                    indexes.append(index)
+                    file_identity = _replacement_file_identity(
+                        replacement.file_path,
+                        replacement_base,
+                    )
+                    key = (file_identity, replacement.offset, replacement.length)
+                    groups.setdefault(key, []).append(index)
+                replacement_lists.append((replacements, indexes))
+
+    retained: set[int] = set()
+    for indexes in groups.values():
+        texts = {occurrences[index].text for index in indexes}
+        if len(texts) == 1:
+            retained.add(indexes[0])
+            continue
+        replacement = occurrences[indexes[0]]
+        print(
+            "clang-tidy: skipped "
+            f"{len(indexes)} conflicting replacements for {replacement.file_path} "
+            f"at offset {replacement.offset}, length {replacement.length}."
+        )
+
+    for replacements, indexes in replacement_lists:
+        replacements[:] = [
+            replacement
+            for replacement, index in zip(replacements, indexes)
+            if index in retained
+        ]
+
+    for path, document in documents:
+        try:
+            path.write_text(
+                yaml.safe_dump(
+                    document,
+                    explicit_end=True,
+                    explicit_start=True,
+                    sort_keys=False,
+                )
+            )
+        except (OSError, UnicodeError, yaml.YAMLError) as error:
+            raise WorkflowError(f"could not normalize exported fixes {path}: {error}") from error
+
+
 def _macos_sdk_path(command_runner: CommandRunner, workspace: Path) -> str:
     command = ["xcrun", "--show-sdk-path"]
     try:
@@ -239,11 +403,11 @@ def run_workflow(
             raise WorkflowError(f"run-clang-tidy failed with exit code {tidy_code}")
         if mode == "fix":
             assert tools.clang_apply_replacements is not None
+            normalize_replacements(fixes_directory, workspace)
             apply_code = _run(
                 command_runner,
                 [
                     tools.clang_apply_replacements,
-                    "-ignore-insert-conflict",
                     str(fixes_directory),
                 ],
                 workspace,

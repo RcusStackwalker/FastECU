@@ -226,6 +226,7 @@ py_test(
     ],
     imports = ["scripts"],
     main = "scripts/clang_tidy_runner_test.py",
+    deps = ["@python_deps//pyyaml"],
 )
 
 py_test(
@@ -272,6 +273,7 @@ py_binary(
         "//bazel/compile_commands:refresh",
     ],
     main = "scripts/clang_tidy_runner.py",
+    deps = ["@python_deps//pyyaml"],
 )
 
 py_binary(
@@ -287,4 +289,5 @@ py_binary(
         "//bazel/compile_commands:refresh",
     ],
     main = "scripts/clang_tidy_runner.py",
+    deps = ["@python_deps//pyyaml"],
 )

@@ -75,3 +75,5 @@ compile_flags.txt
 /dist/
 /FastECU-*.zip
 /bazel-pkg-*.zip
+
+/.worktrees/
