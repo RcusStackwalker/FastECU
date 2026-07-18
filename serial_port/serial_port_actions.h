@@ -208,15 +208,19 @@ class SerialPortActions : public QObject
         auto done = std::make_shared<QSemaphore>();
         if constexpr (std::is_void_v<Ret>)
         {
-            QMetaObject::invokeMethod(m_ioContext, [fn, done]() mutable
-                                      { fn(); done->release(); }, Qt::QueuedConnection);
+            auto invoke = [fn, done]
+            { fn(); done->release(); };
+            static_assert(std::is_invocable_v<const decltype(invoke)&>);
+            QMetaObject::invokeMethod(m_ioContext, invoke, Qt::QueuedConnection);
             waitForDone(done);
         }
         else
         {
             Ret result{};
-            QMetaObject::invokeMethod(m_ioContext, [fn, done, &result]() mutable
-                                      { result = fn(); done->release(); }, Qt::QueuedConnection);
+            auto invoke = [fn, done, &result]
+            { result = fn(); done->release(); };
+            static_assert(std::is_invocable_v<const decltype(invoke)&>);
+            QMetaObject::invokeMethod(m_ioContext, invoke, Qt::QueuedConnection);
             waitForDone(done);
             return result;
         }
