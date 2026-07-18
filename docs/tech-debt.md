@@ -1,7 +1,11 @@
 # FastECU technical debt roadmap
 
-This document tracks project-wide technical debt to improve testability,
-legibility, and structure. The target state is:
+This document tracks unresolved project-wide technical debt that affects
+testability, legibility, and structure. Completed work is intentionally removed
+instead of retained as an implementation log; use Git history and the ADRs for
+that history.
+
+The target state is:
 
 - 80% automated test coverage for maintained, non-generated application code.
 - Clear separation between UI, hardware I/O, protocol logic, and data/model code.
@@ -11,331 +15,300 @@ legibility, and structure. The target state is:
 
 ## Current snapshot
 
-Observed on 2026-07-06:
+Observed on 2026-07-18:
 
-- Qt/qmake C++20 desktop application with app code, serial/J2534 backends,
-  protocol code, logging, ECU/TCU/EEPROM flash modules, calibration editing,
-  config parsing, and packaging assets in one repository.
-- Approximate maintained C++ surface, excluding `tests/`, `hexedit/`, and
-  generated `moc_`/`ui_`/`qrc_` files: 255 `.cpp`/`.h` files and about 77k lines.
-- Tests exist and are valuable, but are concentrated in newer protocol/logging/
-  serial work: about 3.4k lines across 59 `.cpp`/`.h` test files.
-- `FastECU.pro` manually listed the full application source set at the time of
-  this snapshot, with tests split across several qmake project files in
-  `tests/`. qmake was removed once Bazel became the sole build graph (ADR
-  0001); source lists now live in `bazel/fastecu_sources.bzl` and per-directory
-  `BUILD.bazel` files.
-- CI builds the app on Windows/macOS, runs multiple QtTest binaries, and produces
-  an llvm-cov report for SonarCloud. There is no visible coverage threshold or
-  ratchet in `.github/workflows/pr.yml`.
-- Existing focused debt notes should stay linked rather than duplicated:
-  `docs/logging-engine-tech-debt.md` and
-  `docs/protocol-generalization-opportunities.md`.
-- P0 coverage/build hygiene baseline recorded on 2026-07-07:
-  `scripts/coverage-local.sh` builds all maintained test binaries under
-  `build/coverage`, writes reports under `coverage/`, and
-  `docs/coverage-baseline.txt` stores the current llvm-cov summary used by the
-  CI ratchet.
+- FastECU is a Qt 6/C++20 desktop application. Bazel is the sole target graph for
+  the application, tests, release packaging, coverage, compile commands, and
+  clang-tidy; the qmake project files have been removed (ADR 0001).
+- The tracked maintained C++ surface, excluding `tests/`, `hexedit/`, and
+  generated Qt files, is approximately 275 `.cpp`/`.h` files and 84k lines.
+  Tests contain approximately 6k lines across 109 `.cpp`/`.h` files.
+- Tests are strongest around protocol codecs, logging, serial threading, J2534
+  bridge behavior, and recently extracted parser helpers. Definition parsing,
+  checksum families, calibration/map editing, most flash orchestration, and UI
+  workflows remain lightly covered.
+- CI builds and tests on Windows, macOS, and Linux, verifies macOS/Windows
+  packages, produces coverage for SonarCloud, and runs clang-tidy as a
+  non-blocking report.
+- The application is still compiled primarily as one `fastecu_core_common`
+  library whose source manifest spans UI, parsing, logging, serial, protocol,
+  checksum, flash modules, and the bundled hex editor.
+- Focused background notes remain in `docs/logging-engine-tech-debt.md` and
+  `docs/protocol-generalization-opportunities.md`; those documents contain the
+  current logging-specific gaps and safe protocol-sharing boundary.
 
 ## Priorities
 
-### P0: Make coverage actionable
+### P0: Make coverage results trustworthy
 
-The 80% target needs a reproducible baseline and a ratchet. Current CI produces
-coverage, but the workflow does not fail when total or changed-code coverage
-drops.
+The coverage command and CI ratchet exist, but they do not yet provide a tight,
+failure-sensitive signal:
+
+- `docs/coverage-baseline.txt` records the original qmake-era 25.17% line
+  baseline (2,399 covered of 9,531 measured lines). Bazel now builds a broader
+  and different set of test binaries, so the stored baseline is no longer a
+  current measurement of the configured graph.
+- `scripts/coverage-local.sh` suppresses failures from the Bazel build, target
+  query, and every test binary with `|| true`. Coverage can therefore be
+  generated and pass the ratchet even when a test or part of the build failed.
+- The ratchet checks only aggregate covered lines. It does not protect ownership
+  areas or changed code, and the stale baseline leaves avoidable slack.
+- `serial_backend_tests` still has an intermittent Windows-only crash under
+  investigation. That flake should be isolated explicitly rather than used as
+  a reason to ignore unrelated coverage-test failures.
 
 Actions:
 
-- Add a documented local coverage command that builds and runs all maintained
-  test binaries with the same exclusions as CI.
-- Publish the current total and per-area coverage baseline in this file or in a
-  generated report linked from it.
-- Add a CI ratchet: first require "no decrease" for covered lines, then increase
-  thresholds by area until 80% is realistic.
-- Track coverage by ownership area instead of only total percentage:
-  protocol/codecs, logging, serial backend, definition parsing, checksum logic,
-  calibration/map editing logic, flash operation orchestration, and UI.
-- Keep exclusions explicit: generated Qt files, binary assets, `hexedit/` if it
-  remains vendored, and platform packaging outputs.
+- Make compatible target discovery, compilation, and every selected test
+  failure fatal in `scripts/coverage-local.sh`. Handle genuinely incompatible
+  targets through Bazel compatibility or an explicit allowlist.
+- Resolve or explicitly quarantine the intermittent serial backend test with a
+  separate visible CI result and an owner; do not silently discard its exit
+  status.
+- Regenerate and commit the baseline from a clean Bazel coverage run only after
+  the command is failure-sensitive.
+- Add ratchets by ownership area, starting with definition parsing, checksums,
+  calibration/map editing, flash orchestration, serial, logging, and protocol
+  helpers. Add changed-code coverage when the report format can support it
+  reliably.
+- Keep exclusions explicit and reviewed: tests, generated Qt files, vendored
+  `hexedit/`, Bazel/external outputs, system libraries, and platform SDKs.
 
-Implemented baseline:
+### P1: Decompose the Bazel application target
 
-- Local command: `scripts/coverage-local.sh`
-- Ratchet command:
-  `scripts/check-coverage-ratchet.sh coverage/coverage-summary.txt docs/coverage-baseline.txt`
-- Generated report path: `coverage/llvm-cov.report`
-- CI job: SonarCloud now runs the local coverage command and fails if total line
-  coverage decreases below `docs/coverage-baseline.txt`.
-- Exclusions: `tests/`, `hexedit/`, generated Qt `moc_`/`qrc_`/`ui_` files,
-  generated `.moc` files, Qt Remote Objects replica headers, system libraries,
-  Homebrew Qt, and Xcode SDK paths.
-- Current total line coverage: 25.17% (2,399 covered / 9,531 lines).
+`fastecu_core_common` currently compiles almost the entire application as one
+library. The 27 focused QtTest suites generated by
+`bazel/mut_dma_test_suites.bzl`, plus the serial suites, depend on that library
+even when they exercise a small protocol or parser helper.
 
-Deferred re-basing: `scripts/coverage-local.sh` now builds instrumented test
-binaries from Bazel (`--config=coverage`) instead of qmake, which covers a
-broader set of test binaries than the original qmake baseline run and measures
-roughly 33%. `docs/coverage-baseline.txt` still holds the 25.17% figure above,
-so the ratchet currently has slack rather than being tight against the real
-number. Re-basing is deliberately deferred: `coverage-local.sh` runs tests with
-`|| true`, so a failing run would not fail loudly, and the known intermittent
-`serial_backend_tests` flake could red a tightly-set baseline. Revisit once that
-flake is fixed.
+Risks:
 
-Area baseline from the same report:
+- Unit tests inherit QtWidgets, serial, platform, resource, and generated-code
+  dependencies unrelated to the behavior under test.
+- Target dependencies do not enforce the intended UI/model/protocol/hardware
+  boundaries.
+- Broad rebuild and link surfaces make small changes slower and make accidental
+  coupling easy.
 
-| Area | Lines | Missed | Line coverage |
-| --- | ---: | ---: | ---: |
-| protocol/codecs | 574 | 37 | 93.55% |
-| logging | 392 | 94 | 76.02% |
-| serial backend | 3,351 | 2,148 | 35.90% |
-| definition parsing | 3,778 | 3,693 | 2.25% |
-| checksum logic | 958 | 958 | 0.00% |
-| flash operation orchestration | 366 | 196 | 46.45% |
-| calibration/map editing logic | 0 | 0 | not covered by maintained tests yet |
-| UI | 0 | 0 | not covered by maintained tests yet |
+Actions:
 
-Deferred re-basing: `docs/coverage-baseline.txt` still holds the 25.17%
-figure above, but Bazel-based coverage (now covering a broader set of test
-binaries than the original qmake baseline run) measures roughly 33%, so the
-ratchet currently has slack instead of being tight against the real number.
-Re-basing it now is deliberately deferred: `scripts/coverage-local.sh` runs
-tests with `|| true`, so a failing run would not fail loudly, and the known
-intermittent `serial_backend_tests` flake could red a tightly-set baseline.
-Revisit once that flake is fixed.
+- Split cohesive libraries in dependency order: byte/protocol helpers, parsing
+  and models, logging, serial backends/adapters, checksum/flash support, and UI.
+- Make focused tests depend on the smallest owning library instead of
+  `fastecu_core_common`.
+- Keep `//:fastecu` as the composition target and use Bazel visibility to stop
+  lower layers from depending on UI or platform implementations.
+- Move source ownership from the single
+  `bazel/fastecu_sources.bzl` application manifest into the owning targets as
+  boundaries become stable.
 
 ### P1: Separate UI from application logic
 
-`MainWindow` is the central coordinator and currently owns startup, splash
-screens, settings/config loading, menu setup, serial/device setup, logging
-engine wiring, calibration file lifecycle, ECU operation dispatch, log views,
-status bar updates, and many direct dialogs. `mainwindow.h` includes almost all
-flash module headers, and `mainwindow.cpp`/`menu_actions.cpp` are among the
-largest files in the project.
+`MainWindow` remains the central coordinator for startup, settings/config
+loading, serial/device setup, logging wiring, calibration lifecycle, ECU
+operation dispatch, log views, status updates, and dialogs. `mainwindow.h`
+still includes nearly every flash dialog module. `mainwindow.cpp` is about
+2.5k lines and `menu_actions.cpp` is about 2k lines.
 
 Risks:
 
 - Most workflows require a live `QMainWindow` or `QApplication` to test.
-- Adding a protocol or flash module tends to touch central UI code.
-- Business rules are mixed with widget lookup, message boxes, table selection,
-  and config state mutation.
+- Adding a flash module or application workflow tends to touch central UI code
+  and its large include graph.
+- Calibration rules and command behavior remain mixed with widget lookup,
+  message boxes, table selection, and shared state mutation.
 
 Actions:
 
 - Introduce small application services behind `MainWindow`: protocol selection,
-  calibration session management, logging session control, flash operation
-  dispatch, and settings persistence.
-- Move menu command dispatch out of stringly-typed `if (action == "...")` chains
-  into typed actions or a command registry.
-- Keep `MainWindow` responsible for widgets and signal/slot wiring only.
-- Avoid adding new direct file, protocol, or hardware logic to `MainWindow`.
-
-Implemented baseline:
-
-- Menu action IDs now map through a typed `MenuCommand` registry before
-  `MainWindow` dispatches to existing UI operations.
-- Unknown menu action IDs are reported explicitly instead of silently doing
-  nothing.
-- Focused QtTest coverage checks all active menu IDs from `config/menu.cfg` and
-  the unknown-ID fallback.
+  calibration sessions, logging sessions, flash-operation dispatch, and
+  settings persistence.
+- Replace direct construction of all flash dialogs from `MainWindow` with a
+  typed operation registry/factory that owns module-specific dependencies.
+- Move calibration/map commands out of `menu_actions.cpp` into headless model
+  operations; leave only selection extraction, signal wiring, and user feedback
+  in the UI.
+- Keep new file, protocol, and hardware logic out of `MainWindow`.
 
 ### P1: Split `FileActions`
 
-`FileActions` derives from `QWidget` but also owns config structures, menu
-loading, logger definitions, EcuFlash/RomRaider parsing, ROM open/save,
-checksum correction, expression parsing/evaluation, NRC/DTC parsing, and direct
-`QFileDialog`/`QMessageBox` usage. Tests that only need expression conversion or
-logger parsing are forced to link QtWidgets and often construct a `QApplication`.
+`FileActions` is still a 3.3k-line `QWidget` implementation with a 585-line
+header. It owns config and directory persistence, menu loading, logger
+definitions, EcuFlash/RomRaider parsing, ROM open/save, checksum dispatch, many
+nested models, and direct `QFileDialog`/`QMessageBox` behavior. Expression and
+diagnostic parsing have been extracted, but most parsing tests still need the
+widget-heavy dependency graph.
 
 Actions:
 
-- Extract pure, non-widget classes first:
-  `ExpressionEvaluator`, `NrcParser`, `DtcParser`, `RomRaiderParser`,
-  `EcuFlashParser`, `LoggerDefinitionParser`, and `ConfigRepository`.
-- Make dialogs and message boxes caller-owned UI behavior, not parser behavior.
-- Move nested data structures to standalone model headers.
-- Replace the parallel `QStringList` model fields with typed records where
-  practical; start with logger channels and protocol definitions.
-- Remove `using namespace std` from `file_actions.h`.
+- Extract `RomRaiderParser`, `EcuFlashParser`, `LoggerDefinitionParser`, and
+  `ConfigRepository` as non-widget components with explicit inputs and results.
+- Move ROM file I/O and checksum dispatch behind an application service that
+  reports errors without displaying dialogs.
+- Make dialogs and message boxes caller-owned UI behavior.
+- Move nested data structures to standalone model headers so parsers, logging,
+  calibration editing, and tests do not depend on `FileActions`.
+- Remove compatibility wrappers after all callers use the extracted APIs.
 
-Implemented baseline:
+### P1: Replace parallel-list data models
 
-- `ExpressionEvaluator` now owns ROM map expression tokenization/evaluation as
-  pure, headless logic with focused QtTest coverage.
-- `NrcParser` and `DtcParser` now own diagnostic message decoding as pure,
-  headless logic with focused QtTest coverage.
-- `FileActions` keeps compatibility wrappers for existing ROM open paths.
-- `file_actions.h` no longer imports `std` into every includer.
-
-### P1: Stabilize data models and bounds
-
-Several core models are represented as parallel `QStringList`s and raw pointer
-arrays, for example `FileActions::ConfigValuesStructure`,
-`FileActions::LogValuesStructure`, and `FileActions::EcuCalDefStructure`.
-Callers rely on matching list lengths and integer indexes.
+Validation now catches several length mismatches after parsing, but core models
+are still represented by large parallel `QStringList` collections and raw
+index/pointer ownership. Examples include
+`FileActions::ConfigValuesStructure`, `LogValuesStructure`, and
+`EcuCalDefStructure`; `MainWindow` also owns a fixed raw-pointer array of 100
+calibration definitions.
 
 Risks:
 
-- Invalid definition/config files can create mismatched list lengths.
-- UI and protocol code repeatedly indexes into shared mutable structures.
-- Test fixtures are verbose because they must populate unrelated lists.
+- Every mutation must keep many lists aligned, and validation only detects an
+  inconsistency after it has been created.
+- UI, logging, and protocol code use integer indexes into shared mutable state.
+- Tests must populate unrelated fields and cannot express model invariants in
+  the type system.
 
 Actions:
 
-- Add validation functions that check list lengths and required fields directly
-  after parsing.
-- Convert high-churn structures to typed value objects one area at a time:
-  `LoggerChannel`, `ProtocolDefinition`, `CalibrationMap`, `RomDefinition`,
-  `FlashDevice`.
-- Make parsed models immutable where possible after validation.
-- Prefer `std::optional`/explicit result types over returning `NULL` or partially
-  filled structs.
+- Convert high-churn rows to typed values one area at a time, starting with
+  `LoggerChannel`, `LoggerSwitch`, `ProtocolDefinition`, `CalibrationMap`, and
+  `RomDefinition`.
+- Make parsers construct and validate complete records instead of appending to
+  parallel lists.
+- Return immutable models or controlled mutation APIs after parsing.
+- Replace raw fixed-capacity ownership with containers of values or smart
+  pointers, and return `std::optional`/explicit result types instead of null or
+  partially filled structures.
 
-Implemented baseline:
+### P1: Isolate flash-operation orchestration
 
-- Added validation helpers for flash protocol rows, logger parameters, logger
-  switches, and calibration map rows.
-- Protocol, logger definition, RomRaider definition, and EcuFlash definition
-  parsing now reports mismatched parallel-list lengths and missing required row
-  identifiers immediately after parsing.
-- RomRaider calibration map rows now append `MapDefined` consistently with
-  EcuFlash rows.
-- Focused QtTest coverage exercises valid rows, mismatched row lengths, and
-  missing required identifiers.
+All 29 flash/eeprom/jtag/bdm operation pairs use `FlashOperationWorker`, and
+shared SSM framing, seed/payload transforms, CRC, byte formatting, byte
+stuffing, and ISO-15765 setup have been consolidated. The remaining safe
+generalization opportunities are maintained in
+`docs/protocol-generalization-opportunities.md`.
 
-### P1: Extract pure protocol and flash-operation helpers
-
-There are 29 flash/eeprom/jtag/bdm operation pairs under `modules/`. The recent
-`FlashOperationWorker` split is useful, but operation classes still combine
-request construction, response validation, retries, progress reporting, prompts,
-serial I/O calls, and ROM mutation.
+The operation classes still combine request construction, response validation,
+retries, progress reporting, prompts, full-facade serial I/O, and ROM mutation.
+Only a small number of families have scripted operation-level coverage.
 
 Actions:
 
-- Follow the boundary in `docs/protocol-generalization-opportunities.md`:
-  extract pure helpers for SSM headers/checksums, seed-key/payload transforms,
-  CRC, hex formatting, response validation, and block planning.
-- Do not force all ECU families into one shared state machine until a concrete
-  protocol proves that is safe.
-- For each flash family touched, add scripted transport tests around at least:
-  connect/handshake failure, read block success, write confirmation cancel,
-  erase/write response rejection, stop request, and checksum mismatch.
-- Move user prompts behind injectable prompt interfaces, as
-  `FlashOperationWorker::PromptFn` already does.
-
-Implemented baseline:
-
-- `SsmProtocol` owns reusable SSM frame checksum/header validation and payload
-  prefix checks, with focused QtTest coverage for valid frames, malformed
-  lengths, wrong sender/receiver IDs, and bad checksums.
-- Added a C++20 byte utility boundary with `bytes::Byte`, `bytes::Bytes`, and
-  `bytes::ByteView` (`std::span<const std::uint8_t>`), plus explicit Qt
-  conversion helpers. `SsmProtocol` now exposes byte-native helper overloads and
-  keeps `QByteArray` wrappers for existing operation code.
+- For each flash family that changes, extract a family-specific session/driver
+  over the smallest applicable transport interface.
+- Move response validation and block planning into pure byte-native helpers, in
+  line with ADR 0004, while keeping Qt conversion at file/serial boundaries.
+- Add scripted tests for handshake failure, read success, write cancellation,
+  erase/write rejection, stop requests, timeouts, and checksum mismatch before
+  changing wire behavior.
+- Keep prompts behind `FlashOperationWorker::PromptFn` or a narrower injected
+  interface.
+- Do not force all ECU families into one state machine unless verified protocol
+  behavior demonstrates a stable shared abstraction.
 
 ### P1: Narrow serial and hardware interfaces
 
-`SerialPortActions` is a compatibility facade over a threaded backend and exposes
-a very large method surface. `SerialPortActionsDirect` and `J2534_*` contain
-platform-specific blocking I/O, adapter configuration, protocol framing, and
-diagnostics in large classes.
+`IKlineTransport`, `ICanTransport`, and `ISsmTransport` provide byte-native
+boundaries for newer protocol code, and the serial facade now marshals calls to
+a dedicated I/O thread. Most flash operation classes still receive the full
+`SerialPortActions*`, however, and serial/J2534 implementations still combine
+port configuration, adapter discovery, protocol mode setup, blocking I/O, and
+diagnostics.
 
 Actions:
 
-- Keep the existing facade for compatibility, but introduce smaller interfaces
-  for new code: `KLineTransport`, `CanTransport`, `SsmTransport`,
-  `AdapterDiagnostics`, and `PortConfiguration`.
-- Avoid passing the full `SerialPortActions*` into pure protocol code.
-- Add lifecycle tests for teardown while calls are in flight, since
-  `SerialPortActions` has an explicit destructor precondition.
-- Move J2534 constants/types and adapter probing away from higher-level serial
-  behavior where possible.
+- Migrate flash family drivers from `SerialPortActions*` to the existing small
+  transports plus separate port-configuration and adapter-diagnostics
+  interfaces.
+- Move the CDBG logging start path's real port/mode setup out of the protocol
+  class so the handshake can be scripted headlessly.
+- Continue separating J2534 discovery, PE-bitness/bridge lifecycle, PassThru
+  types, configuration, and message transport from higher-level serial
+  behavior.
+- Keep lifecycle coverage for teardown with in-flight calls, helper-process
+  failure, timeouts, and adapter removal on each supported platform.
 
-Implemented baseline:
+### P1: Complete the headless checksum migration
 
-- New K-Line, CAN, and SSM protocol code can depend on `IKlineTransport`,
-  `ICanTransport`, and `ISsmTransport` instead of the full
-  `SerialPortActions` facade.
-- FastECU transport adapters bridge the existing facade to those smaller
-  interfaces for compatibility.
-- K-Line, CAN, and SSM transport interfaces now expose `bytes::ByteView` and
-  `bytes::Bytes` instead of `QByteArray`; Qt conversion is isolated in the
-  FastECU adapters, scripted test transports, and temporary protocol-driver
-  compatibility shims.
-- Facade threading coverage now includes teardown waiting for an in-flight
-  backend read before joining the I/O thread.
-
-### P1: Make checksum and conversion code headless
-
-Checksum modules and definition/parsing code sometimes show `QMessageBox`
-directly. This prevents headless tests from exercising success/failure paths
-cleanly.
+FastECU has nine checksum families. Only the Denso SH7xxx family currently
+returns the shared structured `ChecksumResult` and has focused outcome tests;
+the other eight families still contain direct `QMessageBox` behavior and use
+`QByteArray` throughout their algorithms.
 
 Actions:
 
-- Return structured checksum results: unchanged, corrected, disabled, invalid
-  size, unsupported ROM, and parse error.
-- Let UI code decide whether to show an information/warning dialog.
-- Add golden-vector tests for every checksum family before changing algorithms.
-- Treat `error_codes.h` as data; if practical, generate or load it as structured
-  data rather than keeping a 3.7k-line hand-maintained header in normal compile
-  paths.
+- Migrate each remaining family to a structured result covering unchanged,
+  corrected, disabled, invalid size, unsupported ROM, and parse error as
+  applicable.
+- Move all checksum dialogs to `FileActions`' eventual UI/application boundary.
+- Convert read-only checksum inputs to `bytes::ByteView` where practical, as
+  specified by ADR 0004.
+- Add golden-vector and invalid-input tests for every family before changing its
+  algorithm.
 
-Implemented baseline:
+### P2: Turn static analysis into a ratchet
 
-- Added `ChecksumResult` as the shared structured checksum result shape.
-- `ChecksumEcuSubaruDensoSH7xxx` now exposes a headless
-  `calculate_checksum_result()` API and keeps the older `calculate_checksum()`
-  wrapper for compatibility.
-- Denso SH7xxx checksum correction reports unchanged, corrected, disabled,
-  invalid-size, and parse-error outcomes without showing dialogs directly.
-- `FileActions` owns the Denso SH7xxx checksum dialogs for existing UI flows.
-- Focused QtTest coverage exercises matching checksums, correction, disabled
-  checksums, out-of-range ROM data, and malformed checksum table lengths.
-
-### P2: Naming and source organization
-
-Some file names and comments reflect earlier architecture. Example:
-`log_operations_ssm.cpp` contains MUT/DMA bench utilities, and several headers
-define duplicate `STATUS_SUCCESS`/`STATUS_ERROR` macros.
+The Bazel-driven clang-tidy report and autofix commands are useful and covered
+by runner tests, but the PR workflow marks the report step
+`continue-on-error: true`. New diagnostics can therefore accumulate without a
+failing signal.
 
 Actions:
 
-- Move misplaced code into names that match current ownership.
+- Record a machine-readable baseline or allowlist by check and source path.
+- Fail CI on new diagnostics in changed maintained code, then reduce the
+  baseline by ownership area.
+- Keep generated Qt code, vendored code, Bazel outputs, and external headers out
+  of the baseline.
+- Promote the report to a required CI result after the ratchet is deterministic
+  across Linux, macOS, and Windows compilation commands.
+
+### P2: Naming and source/data organization
+
+Some names and data placement still reflect earlier architecture:
+`log_operations_ssm.cpp` contains MUT/DMA bench utilities, 33 source/header
+files define duplicate `STATUS_SUCCESS`/`STATUS_ERROR` macros, and the 3.7k-line
+`error_codes.h` table is pulled into normal C++ compilation through
+`FileActions`.
+
+Actions:
+
+- Move misplaced code into files and namespaces matching current ownership.
 - Replace repeated status macros with typed enums or shared result types.
-- Prefer local helper namespaces over global free functions and macros.
+- Store diagnostic code tables as structured data or generate a focused lookup
+  source instead of keeping a hand-maintained giant header in common include
+  paths.
 - Remove stale commented-out code while touching nearby behavior.
 
-## Testing roadmap toward 80%
+## Coverage growth sequence toward 80%
 
-1. Coverage infrastructure:
-   - One local command for all tests plus coverage.
-   - CI coverage report with an enforced ratchet.
-   - Baseline coverage recorded by area.
+1. Definition and configuration logic:
+   - Config, logger, RomRaider, and EcuFlash parsers using fixture files.
+   - Typed model construction and validation failures.
 
-2. Pure logic coverage:
-   - Expression parsing/evaluation.
-   - NRC/DTC parsing.
-   - Config, menu, logger, RomRaider, and EcuFlash parsers using fixture files.
-   - Checksum modules with golden vectors.
-   - Protocol codecs/builders/parsers with byte-level vectors.
+2. Checksum and calibration logic:
+   - Golden vectors and invalid inputs for all checksum families.
+   - Calibration-map edit, interpolation, undo/redo, and bounds behavior without
+     widgets.
 
-3. I/O and orchestration coverage:
-   - Serial facade/backend threading and teardown behavior.
-   - Scripted K-Line/CAN/SSM transports for protocol sessions.
-   - Flash operation workers with fake serial backends and prompt overrides.
+3. I/O and orchestration:
+   - Scripted flash-family sessions over K-Line/CAN/SSM transports.
+   - Serial/J2534 lifecycle and failure behavior on platform-specific targets.
 
-4. UI coverage:
-   - Thin Qt widget tests for signal wiring and command dispatch.
-   - Avoid using UI tests to reach 80%; most coverage should come from extracted
+4. UI boundaries:
+   - Thin Qt widget tests for signal wiring, typed command dispatch, and display
+     of service results.
+   - Do not use UI tests to reach 80%; most coverage should come from extracted
      logic and orchestration.
 
 ## Definition of done for new work
 
-- New protocol/math/parser behavior has unit tests or documented bench-only
-  justification.
-- New logic can be exercised without constructing `MainWindow`.
-- No new pure logic depends directly on `QMessageBox`, `QFileDialog`, or a full
-  `SerialPortActions*` unless there is a compatibility reason.
+- New protocol, math, parser, or model behavior has focused tests or a documented
+  bench-only justification.
+- New non-UI logic has an owning Bazel library and can be tested without
+  constructing `MainWindow`.
+- No new pure logic depends directly on `QMessageBox`, `QFileDialog`, or the full
+  `SerialPortActions*` facade unless the compatibility reason is documented.
+- Coverage and static-analysis commands do not hide unexpected build or test
+  failures.
 - Generated files and build outputs remain ignored and out of review.
-- Any new technical debt is added here or to a narrower existing debt document.
+- New debt is added here or to a narrower existing debt document.

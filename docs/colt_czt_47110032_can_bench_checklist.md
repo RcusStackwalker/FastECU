@@ -2,9 +2,11 @@
 
 Gate before any real-vehicle use of `FlashEcuMitsuM32rCan` (protocol
 `mitsu_ecu_m32r_can`). Same convention as this project's other
-bench-qualification gates (e.g. `mmc-patches/m32r/39670016_z27a_mt_audm/mode23-bench-notes.md`).
-Do not skip steps. Have a recovery path (this project's `boot-talk`
-utility) available before Step 4.
+bench-qualification gates (see the parent research repository's
+`mmc-patches/m32r/39670016/z27a_mt_audm/mode23-bench-notes.md`).
+Do not skip steps. Have an independently verified recovery procedure and tool
+available before Step 4. A separate `boot-talk` utility may exist in the
+parent workspace, but it is not part of this repository.
 
 1. **Connect.** Power a bench/spare Z37A ECU, select "Mitsubishi / Colt CZT
    / Z37A 5MT" in FastECU, choose Read. Confirm `connect_bootloader()`
@@ -12,7 +14,8 @@ utility) available before Step 4.
    the basic session).
 2. **Userspace read.** Choose Read to verify the userspace flash region
    (`0x8000`-`0x60000`, 352KB). Compare byte-for-byte against a known-good
-   reference dump of the same ROM (`47110032`, per
+   reference dump of the same ROM (`47110032`, per the parent research
+   repository's
    `mmc-definitions/roms/m32r/47110032/rom.toml`). (The Read button's range
    is hardcoded to userspace; the top 128KB and boot region are verified
    separately in later steps.)
@@ -40,16 +43,17 @@ utility) available before Step 4.
    - The immediate re-read/verify inside `ensureTopRegionWritten()`
      reports a match (log line "Top 128KB verified") before `write_mem()`
      continues to Step 3's stock routine uploads.
-   - If the bootloader locks up here, use `boot-talk` to recover before
-     continuing — same recovery expectation as Step 5.
+   - If the bootloader locks up here, use the verified recovery procedure
+     before continuing — same recovery expectation as Step 5.
 5. **Erase trigger (main write) — the original highest-risk step, now
    the *second* erase-trigger of the session.** Confirm the in-app
    warning dialog appears before the `ServiceRequestReflash`(0x3B) unlock
    frame is sent for the *main* write (distinct from Step 4's bootstrap
    unlock). Only proceed past it with the bench ECU connected and a
-   recovery path on hand. If the bootloader locks up (matching the
-   original author's experience in `externals/livemonitor`), use
-   `boot-talk` to recover before continuing.
+   recovery path on hand. If the bootloader locks up (matching the original
+   author's experience in the parent research repository's
+   `externals/livemonitor`), use the verified recovery procedure before
+   continuing.
    - **Worker-thread re-verification (phase 1b pattern-proof).**
      `FlashEcuMitsuM32rCan` is the pilot module for the flash-operation
      worker-thread migration. Steps 4 and 5 both show a mid-operation

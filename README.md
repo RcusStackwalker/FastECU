@@ -34,6 +34,29 @@ https://www.paypal.com/paypalme/miikasyvanen
 I can also be reached via email: info@fastecu.fi
 Support forum found here: https://www.fastecu.fi/forum/
 
+### Build and test
+
+FastECU uses Bazel 9.1.1 and Qt 6.8.3. Install Bazelisk (or the pinned Bazel
+version), Qt host tools with Qt Charts, Serial Port, Remote Objects, and
+WebSockets, plus the platform compiler and OpenSSL development/runtime files.
+The exact CI setup is documented in `.github/workflows/pr.yml`.
+
+Build the application:
+
+```sh
+bazel build --config=release //:fastecu
+```
+
+Run the maintained test targets:
+
+```sh
+bazel test --config=release //tests/... //:bazel_openssl_wiring
+```
+
+On macOS and Windows, the release packaging entry points are
+`scripts/package-macos.sh` and `scripts/package-windows.ps1`. They build the
+application through Bazel before collecting the Qt and OpenSSL runtime files.
+
 ### clang-tidy
 
 The Bazel clang-tidy targets require a system LLVM installation containing
@@ -105,15 +128,22 @@ Known gaps before this is production-ready:
 - The wake/init step uses `AlreadyInMode`, which assumes the ECU is already in DMA mode. The correct 5-baud wake sequence (`FiveBaudInit`) and the exact on-wire byte exchange still need bench confirmation on a real M32R ECU.
 - Memory writes are untested on a running ECU. The address window guard is a software-only check — no ECU-side acknowledgement is verified.
 
-The protocol logic lives in GUI-free, unit-tested modules under `protocol/mut_dma_*`. To run the test suite:
+The protocol logic lives in GUI-free, unit-tested modules under
+`protocol/mut_dma_*`. Run its focused Bazel test targets with:
 
 ```sh
-cd tests && qmake && make && ./mut_dma_tests
+bazel test --config=release \
+  //tests:test_codec \
+  //tests:test_freeform \
+  //tests:test_memory \
+  //tests:test_transport \
+  //tests:test_init \
+  //tests:test_driver
 ```
 
-Expected: 36 passed, 0 failed across TestCodec, TestFreeform, TestMemory, TestTransport, TestInit, TestDriver.
-
-Protocol derived from reverse-engineering notes; on-wire spec at `docs/superpowers/specs/2026-06-07-oem-kline-dma-activation-and-wire-protocol.md` in the parent repository.
+Protocol derived from reverse-engineering notes; the on-wire spec is in the
+parent repository at
+`docs/superpowers/specs/2026-06-07-oem-kline-dma-activation-and-wire-protocol.md`.
 
 ### Unbrick with FastECU (bench flash)
 - **BDM**

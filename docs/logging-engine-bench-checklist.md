@@ -1,9 +1,11 @@
 # Logging engine refactor -- bench verification checklist
 
 Verifies the LoggingEngine/LoggingWorker/LoggingProtocol refactor behaves
-correctly against real hardware. The unit test suite (`tests/mut_dma_tests`)
-covers the worker/engine/protocol logic against scripted transports; this
-checklist covers what can only be observed with a real adapter and ECU.
+correctly against real hardware. Focused Bazel targets under `//tests:` cover
+the worker, engine, and protocol logic against scripted transports; this
+checklist covers what can only be observed with a real adapter and ECU. Run all
+maintained test targets with `bazel test --config=release //tests/...` before
+bench testing.
 
 ## Per protocol (repeat for SSM, MUT/DMA, Cdbg)
 
@@ -26,18 +28,10 @@ checklist covers what can only be observed with a real adapter and ECU.
    established port-verification convention).
 6. On a plain-serial (non-J2534/non-OpenPort-2.0) adapter specifically: start
    logging and confirm gauges update continuously with no Qt warnings about
-   socket notifiers or timers being used from the wrong thread. `SerialPortActionsDirect`
-   creates its `QSerialPort` with GUI-thread affinity, and its blocking reads
-   pump `QCoreApplication::processEvents()`; now that logging runs on
-   `LoggingWorker`'s own thread, cross-thread `QSerialPort` I/O may not deliver
-   data correctly. This is separate from the OpenPort 2.0/J2534 path, which
-   uses thread-agnostic dylib calls and is expected to be unaffected.
-   **Update:** the architectural fix has since landed (serial backend decoupling
-   refactor) -- `QSerialPort` is now constructed on the dedicated `SerialIoThread`
-   instead of the GUI thread, and the `processEvents()` pump described above is
-   gone from the backend. This item should be re-verified on real hardware
-   against the new stack; the headless analog of this scenario is
-   `tests/test_pty_e2e.cpp`.
+   socket notifiers or timers being used from the wrong thread. The serial
+   backend now constructs `QSerialPort` on the dedicated `SerialIoThread`; this
+   step is the real-hardware verification of that architecture. The headless
+   analog is `tests/test_pty_e2e.cpp`.
 
 ## Regression checks
 

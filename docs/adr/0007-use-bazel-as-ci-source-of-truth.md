@@ -2,23 +2,30 @@
 
 ## Status
 
-Accepted
+Accepted and implemented.
 
 ## Context
 
-ADR 0001 makes Bazel the target build graph. Surrounding CI still runs qmake,
-release packaging, coverage, and platform checks that install some tools
-directly. Those jobs can drift if they choose toolchain inputs independently.
+During the Bazel migration, surrounding CI still selected some toolchain and
+dependency inputs independently for builds, packaging, coverage, and platform
+checks. Those jobs could drift even as Bazel became the target graph.
 
 ## Decision
 
-Treat Bazel configuration as the source of truth for surrounding CI toolchain
-and dependency decisions. For Qt, workflow `QT_VERSION` values must match
-`MODULE.bazel`. Update Bazel first, then update surrounding CI to follow it.
+Treat Bazel configuration as the source of truth for CI build targets,
+dependency choices, platform compatibility, tests, coverage inputs, compile
+commands, and packaging binaries.
+
+Some host-tool values must also be present in GitHub Actions. In particular,
+workflow `QT_VERSION` values must match the Qt version in `MODULE.bazel`.
+Update Bazel first, then update surrounding CI configuration to follow it.
 
 ## Consequences
 
-- qmake, Bazel, and release workflows validate the same dependency assumptions.
-- Workflow-only divergence must be temporary and documented.
-- Some values remain duplicated until qmake and release packaging move behind
-  shared scripts or Bazel-backed artifacts.
+- Local, pull request, and release builds use the same Bazel targets.
+- SonarCloud and clang-tidy consume Bazel-derived compile commands.
+- Coverage enumerates Bazel test targets, and release packages are assembled
+  from Bazel outputs.
+- Host-tool installation and packaging scripts remain outside Bazel actions;
+  duplicated values such as `QT_VERSION` require explicit consistency checks
+  and review.
