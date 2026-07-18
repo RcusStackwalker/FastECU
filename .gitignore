@@ -16,8 +16,6 @@ object_script.*.Debug
 *_plugin_import.cpp
 /.qmake.cache
 /.qmake.stash
-*.pro.user
-*.pro.user.*
 *.qbs.user
 *.qbs.user.*
 *.moc
@@ -72,3 +70,8 @@ compile_flags.txt
 
 # superpowers brainstorming/planning artifacts (not project documentation)
 /docs/superpowers/
+
+# local packaging script output
+/dist/
+/FastECU-*.zip
+/bazel-pkg-*.zip
