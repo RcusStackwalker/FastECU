@@ -223,12 +223,31 @@ def _parse_replacement(path: Path, value: object) -> _Replacement:
     return _Replacement(file_path, offset, length, text)
 
 
-def normalize_replacements(fixes_directory: Path) -> None:
+def _replacement_file_identity(
+    file_path: str,
+    base_directory: Path,
+) -> tuple[object, ...]:
+    target = Path(file_path)
+    if not target.is_absolute():
+        target = base_directory / target
+    try:
+        status = target.stat()
+    except OSError:
+        fallback = os.path.abspath(os.path.normpath(target))
+        return ("path", os.path.normcase(fallback))
+    return ("file", status.st_dev, status.st_ino)
+
+
+def normalize_replacements(
+    fixes_directory: Path,
+    base_directory: Path | None = None,
+) -> None:
     """Remove duplicate and conflicting replacements before applying fixes."""
+    replacement_base = (base_directory or Path.cwd()).resolve()
     documents: list[tuple[Path, dict[str, object]]] = []
     occurrences: list[_Replacement] = []
     replacement_lists: list[tuple[list[object], list[int]]] = []
-    groups: dict[tuple[str, int, int], list[int]] = {}
+    groups: dict[tuple[tuple[object, ...], int, int], list[int]] = {}
 
     for path in sorted(fixes_directory.glob("*.yaml")):
         try:
@@ -261,8 +280,11 @@ def normalize_replacements(fixes_directory: Path) -> None:
                     index = len(occurrences)
                     occurrences.append(replacement)
                     indexes.append(index)
-                    canonical_path = os.path.normcase(os.path.normpath(replacement.file_path))
-                    key = (canonical_path, replacement.offset, replacement.length)
+                    file_identity = _replacement_file_identity(
+                        replacement.file_path,
+                        replacement_base,
+                    )
+                    key = (file_identity, replacement.offset, replacement.length)
                     groups.setdefault(key, []).append(index)
                 replacement_lists.append((replacements, indexes))
 
@@ -381,7 +403,7 @@ def run_workflow(
             raise WorkflowError(f"run-clang-tidy failed with exit code {tidy_code}")
         if mode == "fix":
             assert tools.clang_apply_replacements is not None
-            normalize_replacements(fixes_directory)
+            normalize_replacements(fixes_directory, workspace)
             apply_code = _run(
                 command_runner,
                 [
