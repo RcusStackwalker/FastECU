@@ -204,20 +204,6 @@ cc_library(
 )
 
 py_test(
-    name = "qmake_bazel_sync",
-    size = "small",
-    srcs = ["scripts/check-bazel-qmake-sync.py"],
-    data = [
-        "FastECU.pro",
-        "protocol/protocol.pri",
-        "//bazel:fastecu_sources.bzl",
-        "//tests:pro_files",
-        "//tests/force_asserts:pro_files",
-    ] + depset(APP_COMMON_HDRS + APP_MOC_HDRS + APP_UNIX_HDRS + APP_WIN_HDRS).to_list(),
-    main = "scripts/check-bazel-qmake-sync.py",
-)
-
-py_test(
     name = "clang_tidy_runner_test",
     size = "small",
     srcs = [

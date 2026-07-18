@@ -35,16 +35,6 @@ filegroup(
     srcs = glob(["*.cpp"]),
 )
 
-filegroup(
-    name = "pro_files",
-    srcs = [
-        "mut_dma_integration_tests.pro",
-        "serial_backend_tests.pro",
-        "serial_crash_tests.pro",
-        "tests.pro",
-    ],
-)
-
 qt_cc_library(
     name = "test_header_mocs",
     srcs = [],

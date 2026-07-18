@@ -20,8 +20,11 @@ Observed on 2026-07-06:
   generated `moc_`/`ui_`/`qrc_` files: 255 `.cpp`/`.h` files and about 77k lines.
 - Tests exist and are valuable, but are concentrated in newer protocol/logging/
   serial work: about 3.4k lines across 59 `.cpp`/`.h` test files.
-- `FastECU.pro` manually lists the full application source set; tests are split
-  across several qmake project files in `tests/`.
+- `FastECU.pro` manually listed the full application source set at the time of
+  this snapshot, with tests split across several qmake project files in
+  `tests/`. qmake was removed once Bazel became the sole build graph (ADR
+  0001); source lists now live in `bazel/fastecu_sources.bzl` and per-directory
+  `BUILD.bazel` files.
 - CI builds the app on Windows/macOS, runs multiple QtTest binaries, and produces
   an llvm-cov report for SonarCloud. There is no visible coverage threshold or
   ratchet in `.github/workflows/pr.yml`.
@@ -92,30 +95,14 @@ Area baseline from the same report:
 | calibration/map editing logic | 0 | 0 | not covered by maintained tests yet |
 | UI | 0 | 0 | not covered by maintained tests yet |
 
-### P0: Keep generated/build artifacts out of the source tree
-
-The working tree root can accumulate qmake outputs: `Makefile`, `*.o`, `moc_*`,
-`ui_*`, `qrc_*`, and replica files. They are ignored by git, but they make source
-searches noisy and encourage in-source builds.
-
-Actions:
-
-- Document an out-of-source build directory convention.
-- Add a small cleanup command or script for ignored qmake artifacts.
-- Prefer CI and local instructions that build under `build/` or another ignored
-  directory.
-- Keep Sonar and coverage filters aligned with `.gitignore`.
-
-Implemented convention:
-
-- Use `build/<purpose>/` for qmake build directories. Examples:
-  `build/pr-app`, `build/tests/mut_dma_tests`, and `build/coverage`.
-- Use `coverage/` only for generated local or CI coverage outputs.
-- Use `scripts/clean-qmake-artifacts.sh` to remove ignored in-source qmake
-  artifacts if an old source-tree build left `Makefile`, object files, generated
-  Qt files, replica headers, or app bundles in the repository root or `tests/`.
-- CI app, package-check, test, Sonar build-wrapper, and coverage commands now
-  build under `build/`.
+Deferred re-basing: `docs/coverage-baseline.txt` still holds the 25.17%
+figure above, but Bazel-based coverage (now covering a broader set of test
+binaries than the original qmake baseline run) measures roughly 33%, so the
+ratchet currently has slack instead of being tight against the real number.
+Re-basing it now is deliberately deferred: `scripts/coverage-local.sh` runs
+tests with `|| true`, so a failing run would not fail loudly, and the known
+intermittent `serial_backend_tests` flake could red a tightly-set baseline.
+Revisit once that flake is fixed.
 
 ### P1: Separate UI from application logic
 
@@ -305,29 +292,6 @@ Implemented baseline:
 - `FileActions` owns the Denso SH7xxx checksum dialogs for existing UI flows.
 - Focused QtTest coverage exercises matching checksums, correction, disabled
   checksums, out-of-range ROM data, and malformed checksum table lengths.
-
-### P2: Improve build structure
-
-The app and tests are managed by hand-maintained qmake file lists. Test binaries
-duplicate source lists and link heavy GUI/remoteobjects/websockets dependencies
-when only small pure functions are under test.
-
-Actions:
-
-- Create shared `.pri` files for source groups, or move toward a build system
-  layout that models libraries explicitly.
-- Split reusable code into linkable units such as `core`, `protocol`, `serial`,
-  `logging`, `flash`, and `ui`.
-- Keep GUI-only dependencies out of lower-level units.
-- Rename the broad `tests/tests.pro`/`mut_dma_tests` target once it is no longer
-  only MUT/DMA-focused.
-
-Implemented baseline:
-
-- Protocol sources and headers now live in `protocol/protocol.pri`, which is
-  included by the app project and the broad protocol/logging QtTest target.
-  This removes one duplicated hand-maintained source group without changing the
-  qmake target layout yet.
 
 ### P2: Naming and source organization
 
