@@ -5,6 +5,19 @@ bazel_dep(name = "rules_python", version = "2.2.0")
 bazel_dep(name = "rules_qt", version = "0.0.6")
 bazel_dep(name = "platforms", version = "1.0.0")
 
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.defaults(python_version = "3.11")
+python.toolchain(python_version = "3.11")
+use_repo(python, "python_3_11")
+
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+pip.parse(
+    hub_name = "python_deps",
+    python_version = "3.11",
+    requirements_lock = "//:requirements.txt",
+)
+use_repo(pip, "python_deps")
+
 single_version_override(
     module_name = "rules_qt",
     patch_strip = 1,
