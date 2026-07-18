@@ -380,6 +380,56 @@ class ClangTidyRunnerTest(unittest.TestCase):
         self.assertIn("length 0", advisory)
         self.assertIn("3 conflicting replacements", advisory)
 
+    @unittest.skipIf(os.name == "nt", "clang-tidy fix mode is unsupported on Windows")
+    def test_normalization_deduplicates_symlink_aliases(self) -> None:
+        fixes_directory = Path(self.temp_dir.name) / "fixes"
+        fixes_directory.mkdir()
+        header = self.root / "shared.h"
+        header.write_text("int value;\n")
+        alias = self.root / "shared-alias.h"
+        alias.symlink_to(header)
+        original = self.replacement(header, 0, 0, "const ")
+        duplicate = self.replacement(alias, 0, 0, "const ")
+        self.write_fixes(
+            fixes_directory,
+            "a.yaml",
+            [self.diagnostic("first-check", [original])],
+        )
+        self.write_fixes(
+            fixes_directory,
+            "b.yaml",
+            [self.diagnostic("second-check", [duplicate])],
+        )
+
+        runner.normalize_replacements(fixes_directory)
+
+        self.assertEqual([original], self.read_replacements(fixes_directory))
+
+    @unittest.skipIf(os.name == "nt", "clang-tidy fix mode is unsupported on Windows")
+    def test_normalization_omits_conflicting_symlink_aliases(self) -> None:
+        fixes_directory = Path(self.temp_dir.name) / "fixes"
+        fixes_directory.mkdir()
+        header = self.root / "shared.h"
+        header.write_text("int value;\n")
+        alias = self.root / "shared-alias.h"
+        alias.symlink_to(header)
+        original = self.replacement(header, 0, 0, "const ")
+        conflict = self.replacement(alias, 0, 0, "volatile ")
+        self.write_fixes(
+            fixes_directory,
+            "a.yaml",
+            [self.diagnostic("first-check", [original])],
+        )
+        self.write_fixes(
+            fixes_directory,
+            "b.yaml",
+            [self.diagnostic("second-check", [conflict])],
+        )
+
+        runner.normalize_replacements(fixes_directory)
+
+        self.assertEqual([], self.read_replacements(fixes_directory))
+
     def test_normalization_rejects_malformed_yaml(self) -> None:
         fixes_directory = Path(self.temp_dir.name) / "fixes"
         fixes_directory.mkdir()
