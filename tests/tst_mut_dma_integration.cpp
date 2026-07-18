@@ -7,7 +7,7 @@
 //        -> J2534 (J2534_unix)      (Tactrix serial protocol)
 //        -> QSerialPort (PTY slave) <==> MockOpenPort (PTY master)
 //
-// The unit suite (tests.pro) covers the protocol core via ScriptedKlineTransport,
+// The unit suite (the //tests Bazel targets) covers the protocol core via ScriptedKlineTransport,
 // but explicitly leaves the FastEcuKlineTransport adapter out of the test target
 // (see the plan: "the adapter is not part of the test target") because it pulls in
 // the whole SerialPortActions facade -- only buildable once the macOS build landed.
