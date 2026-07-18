@@ -389,7 +389,7 @@ DISTFILES += \
     config/logger.cfg \
     config/menu.cfg \
     config/protocols.cfg \
-    external/FastECU-mc68hc16-bdm.ino \
+    3rdparty/hardware/FastECU-mc68hc16-bdm.ino \
     fastecu.rc \
     flatpak/fi.fastecu.FastECU.desktop \
     flatpak/fi.fastecu.FastECU.ico \

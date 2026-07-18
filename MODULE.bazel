@@ -47,3 +47,18 @@ msvc_sysroot = use_extension("//bazel/toolchains:msvc_sysroot_ext.bzl", "msvc_sy
 use_repo(msvc_sysroot, "msvc_sysroot")
 
 register_toolchains("//bazel/toolchains/windows_x86_msvc:windows_x86_msvc_toolchain")
+
+bazel_dep(name = "hedron_compile_commands", dev_dependency = True)
+
+# Upstream HEAD still calls native.py_binary / native cc_binary, both removed in
+# Bazel 9. Pin the commit + integrity via archive_override (it carries the patch
+# hermetically) and patch hedron to load py_binary / cc_binary from
+# rules_python / rules_cc. Bump the commit deliberately.
+archive_override(
+    module_name = "hedron_compile_commands",
+    integrity = "sha256-Gwir/7++ifbb7mpbM3U3kugAT2o283wPchFb7IbmhyQ=",
+    patch_strip = 1,
+    patches = ["//bazel/patches:hedron_bazel9_py_binary.patch"],
+    strip_prefix = "bazel-compile-commands-extractor-abb61a688167623088f8768cc9264798df6a9d10",
+    urls = ["https://github.com/hedronvision/bazel-compile-commands-extractor/archive/abb61a688167623088f8768cc9264798df6a9d10.tar.gz"],
+)
