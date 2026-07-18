@@ -36,6 +36,9 @@ Copy-Item $cryptoDll $dist
 
 windeployqt (Join-Path $dist "FastECU.exe")
 
+if (-not (Test-Path (Join-Path $dist "Qt6Core.dll"))) { throw "windeployqt did not stage Qt6Core.dll" }
+if (-not (Get-ChildItem -Path $dist -Filter 'libcrypto*.dll' -ErrorAction SilentlyContinue)) { throw "OpenSSL libcrypto DLL not staged" }
+
 $outDir = Split-Path -Parent $OutZip
 if ($outDir -and -not (Test-Path $outDir)) { New-Item -ItemType Directory -Force $outDir | Out-Null }
 if (Test-Path $OutZip) { Remove-Item $OutZip }
