@@ -23,9 +23,13 @@ qint64 SearchDialog::findNext()
     if (_findBa.length() > 0)
     {
         if (ui->cbBackwards->isChecked())
+        {
             idx = _hexEdit->lastIndexOf(_findBa, from);
+        }
         else
+        {
             idx = _hexEdit->indexOf(_findBa, from);
+        }
     }
     return idx;
 }
@@ -60,15 +64,21 @@ void SearchDialog::on_pbReplaceAll_clicked()
             int result = replaceOccurrence(idx, replaceBa);
 
             if (result == QMessageBox::Yes)
+            {
                 replaceCounter += 1;
+            }
 
             if (result == QMessageBox::Cancel)
+            {
                 goOn = result;
+            }
         }
     }
 
     if (replaceCounter > 0)
+    {
         QMessageBox::information(this, tr("QHexEdit"), QString(tr("%1 occurrences replaced.")).arg(replaceCounter));
+    }
 }
 
 QByteArray SearchDialog::getContent(int comboIndex, const QString& input)

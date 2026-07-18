@@ -19,7 +19,9 @@ bytes::Bytes FastEcuCanTransport::read(int timeoutMs, std::uint32_t& outId)
 {
     const bytes::Bytes raw = bytes::fromQByteArray(serial_->read_serial_data(quint16(timeoutMs)));
     if (raw.size() < 4)
+    {
         return {};
+    }
     outId = bytes::readU32Be(raw, 0);
     return bytes::Bytes(raw.begin() + 4, raw.end());
 }

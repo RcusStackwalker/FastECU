@@ -67,9 +67,13 @@ void DataTerminal::protocolTypeChanged(int)
     if (protocolType)
     {
         if (interfaceTypeName == "klineProtocol")
+        {
             emit LOG_D("K-Line protocol type changed to: " + protocolType->currentText(), true, true);
+        }
         else if (interfaceTypeName == "canProtocol")
+        {
             emit LOG_D("Can protocol type changed to: " + protocolType->currentText(), true, true);
+        }
     }
 }
 
@@ -80,14 +84,24 @@ void DataTerminal::listenInterface()
 
     QPushButton *btn = (QPushButton *)obj;
     if (btn->isChecked())
+    {
         if (interfaceTypeName == "klineProtocol")
+        {
             emit LOG_I("Start listening K-Line interface", true, true);
+        }
         else
+        {
             emit LOG_I("Start listening CANbus interface", true, true);
+        }
+    }
     else if (interfaceTypeName == "klineProtocol")
+    {
         emit LOG_I("Stop listening K-Line interface", true, true);
+    }
     else
+    {
         emit LOG_I("Stop listening CANbus interface", true, true);
+    }
 }
 
 void DataTerminal::sendToInterface()
@@ -103,9 +117,13 @@ void DataTerminal::sendToInterface()
     QStringList msgList;
 
     if (interfaceTypeName.startsWith("sendKlineMessage"))
+    {
         msg = ui->klineMsgToSend->text();
+    }
     else
+    {
         msg = ui->canMsgToSend->text();
+    }
 
     if (msg == "")
     {
@@ -144,17 +162,27 @@ void DataTerminal::sendToInterface()
 
         emit LOG_D("Checking protocol: " + ui->klineProtocol->currentText(), true, true);
         if (ui->klineProtocol->currentText() == "SSM")
+        {
             serial->set_is_iso14230_connection(false);
+        }
         else if (ui->klineProtocol->currentText() == "iso14230")
+        {
             serial->set_is_iso14230_connection(true);
+        }
         else
+        {
             serialOk = false;
+        }
 
         emit LOG_D("Checking baudrate: " + ui->klineBaudRate->text(), true, true);
         if (ui->klineBaudRate->text().toDouble() >= 300 && ui->klineBaudRate->text().toDouble() <= 2000000)
+        {
             serial->set_serial_port_baudrate(ui->klineBaudRate->text());
+        }
         else
+        {
             serialOk = false;
+        }
 
         emit LOG_D("Checking tester id: " + ui->klineTesterId->text(), true, true);
         serial->set_kline_tester_id(ui->klineTesterId->text().toUInt(&ok, 16));
@@ -190,7 +218,9 @@ void DataTerminal::sendToInterface()
                     output.append(msg.at(i).toUInt(&ok, 16));
                 }
                 if (ui->klineProtocol->currentText() == "SSM")
+                {
                     output = add_ssm_header(output, ui->klineTesterId->text().toUInt(&ok, 16), ui->klineTargetId->text().toUInt(&ok, 16), false);
+                }
 
                 emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
             }
@@ -218,16 +248,26 @@ void DataTerminal::sendToInterface()
         serial->set_is_can_connection(false);
         serial->set_is_iso15765_connection(false);
         if (ui->canProtocol->currentText() == "CAN")
+        {
             serial->set_is_can_connection(true);
+        }
         else if (ui->canProtocol->currentText() == "iso15765")
+        {
             serial->set_is_iso15765_connection(true);
+        }
         else
+        {
             serialOk = false;
+        }
         emit LOG_D("Checking baudrate: " + ui->canBaudRate->text(), true, true);
         if (ui->canBaudRate->text().toDouble() >= 300 && ui->canBaudRate->text().toDouble() <= 2000000)
+        {
             serial->set_can_speed(ui->canBaudRate->text());
+        }
         else
+        {
             serialOk = false;
+        }
 
         emit LOG_D("Checking CAN ID length: " + ui->canIdLength->currentText(), true, true);
         serial->set_is_29_bit_id(ui->canIdLength->currentIndex());
@@ -320,15 +360,19 @@ QByteArray DataTerminal::add_ssm_header(QByteArray output, uint8_t tester_id, ui
  *
  * @return 8-bit checksum
  */
-uint8_t DataTerminal::calculate_checksum(QByteArray output, bool dec_0x100)
+uint8_t DataTerminal::calculate_checksum(const QByteArray& output, bool dec_0x100)
 {
     uint8_t checksum = 0;
 
     for (uint16_t i = 0; i < output.length(); i++)
+    {
         checksum += (uint8_t)output.at(i);
+    }
 
     if (dec_0x100)
+    {
         checksum = (uint8_t)(0x100 - checksum);
+    }
 
     return checksum;
 }
@@ -338,7 +382,7 @@ uint8_t DataTerminal::calculate_checksum(QByteArray output, bool dec_0x100)
  *
  * @return parsed message
  */
-QString DataTerminal::parse_message_to_hex(QByteArray received)
+QString DataTerminal::parse_message_to_hex(const QByteArray& received)
 {
     QString msg;
 
@@ -354,5 +398,7 @@ void DataTerminal::delay(int timeout)
 {
     QTime dieTime = QTime::currentTime().addMSecs(timeout);
     while (QTime::currentTime() < dieTime)
+    {
         QCoreApplication::processEvents(QEventLoop::AllEvents, 1);
+    }
 }

@@ -540,9 +540,9 @@ class BiuOperationsSubaru : public QDialog
 
     QTimer *keep_alive_timer;
 
-    uint8_t calculate_checksum(QByteArray out, bool dec_0x100);
-    void parse_biu_message(QByteArray message);
-    QString parse_message_to_hex(QByteArray received);
+    uint8_t calculate_checksum(const QByteArray& out, bool dec_0x100);
+    void parse_biu_message(const QByteArray& message);
+    QString parse_message_to_hex(const QByteArray& received);
     void delay(int timeout);
     BiuOpsSubaruSwitches *update_biu_ops_subaru_switches_window(BiuOpsSubaruSwitches *biuOpsSubaruSwitches);
     BiuOpsSubaruData *update_biu_ops_subaru_data_window(BiuOpsSubaruData *biuOpsSubaruData);
@@ -566,8 +566,8 @@ class BiuOperationsSubaru : public QDialog
     BiuOpsSubaruData *biuOpsSubaruDataDest;
     BiuOpsSubaruData *biuOpsSubaruDataFactory;
 
-    BiuOpsSubaruInput1 *biuOpsSubaruInput1;
-    BiuOpsSubaruInput2 *biuOpsSubaruInput2;
+    BiuOpsSubaruInput1 *biuOpsSubaruInput1{};
+    BiuOpsSubaruInput2 *biuOpsSubaruInput2{};
 
     QByteArray cmd, output;
     int counter;
@@ -577,7 +577,7 @@ class BiuOperationsSubaru : public QDialog
   private slots:
     void keep_alive();
     void parse_biu_cmd();
-    void prepare_biu_set_cmd(QByteArray cmd_settings);
+    void prepare_biu_set_cmd(const QByteArray& cmd_settings);
     void prepare_biu_msg();
     void send_biu_msg();
 

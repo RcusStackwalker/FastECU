@@ -60,16 +60,18 @@ void TestPtyE2e::workerThread_writeRead_overPty_deliversFramedMessage()
         {
             struct pollfd pfd { master, POLLIN, 0 };
             int pr = ::poll(&pfd, 1, 100);   // 100ms: re-check stop periodically
-            if (pr <= 0)
+            if (pr <= 0) {
                 continue;
+}
             ssize_t n = ::read(master, buf, sizeof(buf));
             if (n > 0)
             {
                 received.append(buf, int(n));
                 if (!replied) { ::write(master, reply, 7); replied = true; }
             }
-            else if (n < 0)
+            else if (n < 0) {
                 break;
+}
         } });
 
     SerialPortActions serial; // default factory: real direct backend

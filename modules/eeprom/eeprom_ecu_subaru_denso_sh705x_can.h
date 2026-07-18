@@ -25,7 +25,7 @@ class EepromEcuSubaruDensoSH705xCan : public QDialog
     Q_OBJECT
 
   public:
-    EepromEcuSubaruDensoSH705xCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent = nullptr);
+    EepromEcuSubaruDensoSH705xCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent = nullptr);
     ~EepromEcuSubaruDensoSH705xCan();
 
     void run();

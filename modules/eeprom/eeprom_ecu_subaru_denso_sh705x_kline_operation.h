@@ -39,14 +39,14 @@ class EepromEcuSubaruDensoSH705xKlineOperation : public FlashOperationWorker
     bool request_denso_kernel_init = false;
     bool request_denso_kernel_id = false;
 
-    int result;
-    int mcu_type_index;
+    int result{};
+    int mcu_type_index{};
     int bootloader_start_countdown = 3;
 
     int EEPROM_MODE = 0;
 
-    uint8_t tester_id;
-    uint8_t target_id;
+    uint8_t tester_id{};
+    uint8_t target_id{};
 
     uint16_t receive_timeout = 500;
     uint16_t serial_read_timeout = 2000;
@@ -64,7 +64,7 @@ class EepromEcuSubaruDensoSH705xKlineOperation : public FlashOperationWorker
     QString kernel;
 
     int connect_bootloader();
-    int upload_kernel(QString kernel, uint32_t kernel_start_addr);
+    int upload_kernel(const QString& kernel, uint32_t kernel_start_addr);
     int read_mem(uint32_t start_addr, uint32_t length);
 
     void init_crc16_tab(void);
@@ -74,19 +74,19 @@ class EepromEcuSubaruDensoSH705xKlineOperation : public FlashOperationWorker
     QByteArray send_sid_81_start_communication();
     QByteArray send_sid_83_request_timings();
     QByteArray send_sid_27_request_seed();
-    QByteArray send_sid_27_send_seed_key(QByteArray seed_key);
+    QByteArray send_sid_27_send_seed_key(const QByteArray& seed_key);
     QByteArray send_sid_10_start_diagnostic();
     QByteArray send_sid_34_request_upload(uint32_t dataaddr, uint32_t datalen);
-    QByteArray send_sid_36_transferdata(uint32_t dataaddr, QByteArray buf, uint32_t len);
+    QByteArray send_sid_36_transferdata(uint32_t dataaddr, const QByteArray& buf, uint32_t len);
     QByteArray send_sid_31_start_routine();
 
-    QByteArray generate_seed_key(QByteArray seed);
-    QByteArray generate_ecutek_seed_key(QByteArray requested_seed);
+    QByteArray generate_seed_key(const QByteArray& seed);
+    QByteArray generate_ecutek_seed_key(const QByteArray& requested_seed);
 
     QByteArray request_kernel_id();
 
-    QByteArray encrypt_payload(QByteArray buf, uint32_t len);
-    QByteArray decrypt_payload(QByteArray buf, uint32_t len);
+    QByteArray encrypt_payload(const QByteArray& buf, uint32_t len);
+    QByteArray decrypt_payload(const QByteArray& buf, uint32_t len);
 
     SerialPortActions *serial;
     FileActions::EcuCalDefStructure *ecuCalDef;

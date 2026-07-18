@@ -7,11 +7,12 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QScopedPointer>
+#include <utility>
 
 FlashEcuSubaruDensoSH705xDensoCanOperation::FlashEcuSubaruDensoSH705xDensoCanOperation(
     SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
     QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(std::move(cmd_type))
 {
 }
 
@@ -215,7 +216,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::connect_bootloader()
  *
  * @return success
  */
-int FlashEcuSubaruDensoSH705xDensoCanOperation::upload_kernel(QString kernel, uint32_t kernel_start_addr)
+int FlashEcuSubaruDensoSH705xDensoCanOperation::upload_kernel(const QString& kernel, uint32_t kernel_start_addr)
 {
     QFile file(kernel);
 
@@ -255,7 +256,9 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::upload_kernel(QString kernel, ui
     pl_encr = file.readAll();
     maxblocks = file_len / 6;
     if ((file_len % 6) != 0)
+    {
         maxblocks++;
+    }
     end_address = (start_address + (maxblocks * 6)) & 0xFFFFFFFF;
 
     emit LOG_I("Set kernel upload address", true, true);
@@ -314,7 +317,9 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::upload_kernel(QString kernel, ui
     for (int blockno = 0; blockno < maxblocks; blockno++)
     {
         if (stopRequested())
+        {
             return STATUS_ERROR;
+        }
 
         // emit LOG_D("Send block: " + QString::number(blockno), true, true);
         for (int j = 0; j < 6; j++)
@@ -536,7 +541,9 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::read_mem(uint32_t start_addr, ui
     while (willget)
     {
         if (stopRequested())
+        {
             return STATUS_ERROR;
+        }
 
         uint32_t numblocks = 1;
         unsigned curspeed = 0, tleft;
@@ -587,7 +594,9 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::read_mem(uint32_t start_addr, ui
         timer.start();
 
         if (cplen > 0 && chrono > 0)
+        {
             curspeed = cplen * (1000.0f / chrono);
+        }
 
         if (!curspeed)
         {
@@ -731,7 +740,9 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::write_mem(bool test_write)
             }
         }
         else
+        {
             emit LOG_I("*** Test write PASS, it's ok to perform actual write! ***", true, true);
+        }
     }
     else
     {
@@ -754,7 +765,9 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::get_changed_blocks(const uint8_t
     for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++)
     {
         if (stopRequested())
+        {
             return STATUS_ERROR;
+        }
 
         uint32_t bs, blen;
         bs = flashdevices[mcu_type_index].fblocks[blockno].start;
@@ -1010,8 +1023,12 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::reflash_block(const uint8_t *new
     QByteArray msg;
 
     if (!flash_write_init)
+    {
         if (init_flash_write())
+        {
             return STATUS_ERROR;
+        }
+    }
 
     if (blockno >= fdt->numblocks)
     {
@@ -1153,7 +1170,9 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::flash_block(const uint8_t *src, 
     while (remain)
     {
         if (stopRequested())
+        {
             return STATUS_ERROR;
+        }
 
         datalen = blocksize + 4; // 0x200 + 4
         output.clear();
@@ -1302,7 +1321,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::flash_block(const uint8_t *src, 
  *
  * @return encrypted data
  */
-QByteArray FlashEcuSubaruDensoSH705xDensoCanOperation::encrypt_payload(QByteArray buf, uint32_t len)
+QByteArray FlashEcuSubaruDensoSH705xDensoCanOperation::encrypt_payload(const QByteArray& buf, uint32_t len)
 {
     QByteArray encrypted;
 
@@ -1320,7 +1339,7 @@ QByteArray FlashEcuSubaruDensoSH705xDensoCanOperation::encrypt_payload(QByteArra
     return encrypted;
 }
 
-QByteArray FlashEcuSubaruDensoSH705xDensoCanOperation::decrypt_payload(QByteArray buf, uint32_t len)
+QByteArray FlashEcuSubaruDensoSH705xDensoCanOperation::decrypt_payload(const QByteArray& buf, uint32_t len)
 {
     QByteArray decrypted;
 

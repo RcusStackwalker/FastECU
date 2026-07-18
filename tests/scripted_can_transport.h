@@ -50,15 +50,21 @@ class ScriptedCanTransport : public ICanTransport
     int write(std::uint32_t id, bytes::ByteView payload) override
     {
         if (wIdx_ >= expectedIds_.size() || expectedIds_.at(wIdx_) != id || expectedPayloads_.at(wIdx_) != bytes::Bytes(payload.begin(), payload.end()))
+        {
             ok_ = false;
+        }
         else
+        {
             ++wIdx_;
+        }
         return static_cast<int>(payload.size());
     }
     bytes::Bytes read(int, std::uint32_t& outId) override
     {
         if (rIdx_ >= readIds_.size())
+        {
             return {};
+        }
         outId = readIds_.at(rIdx_);
         return readPayloads_.at(rIdx_++);
     }

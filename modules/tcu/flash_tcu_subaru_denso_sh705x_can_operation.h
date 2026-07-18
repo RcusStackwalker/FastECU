@@ -54,12 +54,12 @@ class FlashTcuSubaruDensoSH705xCanOperation : public FlashOperationWorker
     bool request_denso_kernel_id = false;
     bool flash_write_init = false;
 
-    int result;
-    int mcu_type_index;
+    int result{};
+    int mcu_type_index{};
     int tcuAction = 1;
 
-    uint8_t tester_id;
-    uint8_t target_id;
+    uint8_t tester_id{};
+    uint8_t target_id{};
 
     uint16_t receive_timeout = 500;
     uint16_t serial_read_timeout = 2000;
@@ -82,7 +82,7 @@ class FlashTcuSubaruDensoSH705xCanOperation : public FlashOperationWorker
     int tcu_relearn_subaru_ssm();
     int tcu_readparam_subaru_ssm();
     int tcu_setparam_subaru_ssm();
-    int upload_kernel(QString kernel, uint32_t kernel_start_addr);
+    int upload_kernel(const QString& kernel, uint32_t kernel_start_addr);
     int read_mem(uint32_t start_addr, uint32_t length);
     int write_mem(bool test_write);
     int get_changed_blocks(const uint8_t *src, int *modified);
@@ -91,15 +91,15 @@ class FlashTcuSubaruDensoSH705xCanOperation : public FlashOperationWorker
     int flash_block(const uint8_t *src, uint32_t start, uint32_t len);
     int reflash_block(const uint8_t *newdata, const struct flashdev_t *fdt, unsigned blockno, bool test_write);
 
-    QByteArray generate_seed_key(QByteArray requested_seed);
+    QByteArray generate_seed_key(const QByteArray& requested_seed);
     QByteArray generate_ecutek_seed_key(QByteArray requested_seed);
     QByteArray generate_cobb_seed_key(QByteArray requested_seed);
 
     QByteArray request_kernel_init();
     QByteArray request_kernel_id();
 
-    QByteArray encrypt_payload(QByteArray buf, uint32_t len);
-    QByteArray decrypt_payload(QByteArray buf, uint32_t len);
+    QByteArray encrypt_payload(const QByteArray& buf, uint32_t len);
+    QByteArray decrypt_payload(const QByteArray& buf, uint32_t len);
 
     // Runs QInputDialog::getInt on the GUI thread and blocks this thread
     // for the answer; see class comment above.

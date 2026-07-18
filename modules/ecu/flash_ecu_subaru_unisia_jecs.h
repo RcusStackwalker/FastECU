@@ -25,7 +25,7 @@ class FlashEcuSubaruUnisiaJecs : public QDialog
     Q_OBJECT
 
   public:
-    FlashEcuSubaruUnisiaJecs(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent = nullptr);
+    FlashEcuSubaruUnisiaJecs(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent = nullptr);
     ~FlashEcuSubaruUnisiaJecs();
 
     void run();

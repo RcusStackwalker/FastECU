@@ -1,18 +1,26 @@
 #include "flash_tcu_subaru_hitachi_m32r_can.h"
+
+#include <utility>
 #include "flash_tcu_subaru_hitachi_m32r_can_operation.h"
 #include "serial_port_actions.h"
 
-FlashTcuSubaruHitachiM32rCan::FlashTcuSubaruHitachiM32rCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent)
+FlashTcuSubaruHitachiM32rCan::FlashTcuSubaruHitachiM32rCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
     : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
 
     if (cmd_type == "test_write")
+    {
         this->setWindowTitle("Test write ROM " + ecuCalDef->FileName + " to ECU");
+    }
     else if (cmd_type == "write")
+    {
         this->setWindowTitle("Write ROM " + ecuCalDef->FileName + " to ECU");
+    }
     else if (cmd_type == "read")
+    {
         this->setWindowTitle("Read ROM from TCU");
+    }
 
     this->serial = serial;
 }
@@ -38,7 +46,7 @@ void FlashTcuSubaruHitachiM32rCan::run()
         connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashTcuSubaruHitachiM32rCan::LOG_D);
         connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
                 this, [this](QString msg)
-                { emit external_logger(msg); });
+                { emit external_logger(std::move(msg)); });
         connect(m_operation, &FlashOperationWorker::progressChanged,
                 this, &FlashTcuSubaruHitachiM32rCan::set_progressbar_value);
 
@@ -86,7 +94,9 @@ FlashTcuSubaruHitachiM32rCan::~FlashTcuSubaruHitachiM32rCan()
 void FlashTcuSubaruHitachiM32rCan::closeEvent(QCloseEvent *event)
 {
     if (m_operation)
+    {
         m_operation->requestStop();
+    }
 }
 
 void FlashTcuSubaruHitachiM32rCan::set_progressbar_value(int value)
@@ -98,5 +108,7 @@ void FlashTcuSubaruHitachiM32rCan::set_progressbar_value(int value)
         ui->progressbar->setValue(value);
     }
     if (valueChanged)
+    {
         emit external_logger(value);
+    }
 }

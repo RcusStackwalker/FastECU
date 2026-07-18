@@ -71,7 +71,7 @@ class EcuOperations : public QWidget
     uint16_t serial_read_extra_long_timeout = 3000;
 
     SerialPortActions *serial;
-    FileActions *fileActions;
+    FileActions *fileActions{};
     QWidget *flash_window;
 
     int get_changed_blocks_16bit_kline(const uint8_t *src, int *modified);
@@ -87,12 +87,12 @@ class EcuOperations : public QWidget
     int reflash_block_32bit_kline(const uint8_t *newdata, const struct flashdev_t *fdt, unsigned blockno, bool practice);
     int reflash_block_32bit_can(const uint8_t *newdata, const struct flashdev_t *fdt, unsigned blockno, bool practice);
 
-    QString parse_message_to_hex(QByteArray received);
+    QString parse_message_to_hex(const QByteArray& received);
     void set_progressbar_value(int value);
 
     void init_crc16_tab(void);
     uint16_t crc16(const uint8_t *data, uint32_t siz);
-    uint8_t calculate_checksum(QByteArray output, bool dec_0x100);
+    uint8_t calculate_checksum(const QByteArray& output, bool dec_0x100);
     unsigned int crc32(const unsigned char *buf, unsigned int len);
 
   signals:

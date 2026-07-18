@@ -25,7 +25,7 @@ class FlashEcuSubaruDensoSH705xKline : public QDialog
     Q_OBJECT
 
   public:
-    explicit FlashEcuSubaruDensoSH705xKline(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent = nullptr);
+    explicit FlashEcuSubaruDensoSH705xKline(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent = nullptr);
     ~FlashEcuSubaruDensoSH705xKline();
 
     void run();

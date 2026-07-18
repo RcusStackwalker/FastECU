@@ -6,11 +6,12 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QDataStream>
+#include <utility>
 
 FlashTcuCvtSubaruHitachiM32rCanOperation::FlashTcuCvtSubaruHitachiM32rCanOperation(
     SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
     QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(std::move(cmd_type))
 {
 }
 
@@ -154,10 +155,14 @@ int FlashTcuCvtSubaruHitachiM32rCanOperation::connect_bootloader()
 
             QString ecuid;
             for (int i = 0; i < 5; i++)
+            {
                 ecuid.append(QString("%1").arg((uint8_t)response.at(i), 2, 16, QLatin1Char('0')).toUpper());
+            }
             emit LOG_I("ECU ID: " + ecuid, true, true);
             if (cmd_type == "read")
+            {
                 ecuCalDef->RomId = ecuid + "_";
+            }
         }
         else
         {
@@ -190,7 +195,9 @@ int FlashTcuCvtSubaruHitachiM32rCanOperation::connect_bootloader()
 
             emit LOG_I("CAL ID: " + response, true, true);
             if (cmd_type == "read")
+            {
                 ecuCalDef->RomId.insert(0, QString(response) + "_");
+            }
         }
         else
         {
@@ -432,7 +439,9 @@ int FlashTcuCvtSubaruHitachiM32rCanOperation::hack_words()
     file.close();
 
     for (i = 0; i < 0x100; i++)
+    {
         romdata.append(indata[i]);
+    }
 
     emit LOG_D("Sent: " + SsmProtocol::toHex(pagedata), true, true);
     emit LOG_D("Sent: " + SsmProtocol::toHex(romdata), true, true);
@@ -469,7 +478,9 @@ int FlashTcuCvtSubaruHitachiM32rCanOperation::hack_words()
                         decrypt = SsmProtocol::calculatePayload(testpage, m, keytogenerateindex, indextransformation);
                         emit LOG_I("Decrypted: " + SsmProtocol::toHex(decrypt), true, true);
                         if (decrypt != testrom)
+                        {
                             break;
+                        }
                     }
                 }
             }
@@ -570,7 +581,9 @@ int FlashTcuCvtSubaruHitachiM32rCanOperation::read_mem(uint32_t start_addr, uint
     while (willget)
     {
         if (stopRequested())
+        {
             return STATUS_ERROR;
+        }
 
         uint32_t numblocks = 1;
         unsigned curspeed = 0, tleft;
@@ -622,7 +635,9 @@ int FlashTcuCvtSubaruHitachiM32rCanOperation::read_mem(uint32_t start_addr, uint
         timer.start();
 
         if (cplen > 0 && chrono > 0)
+        {
             curspeed = cplen * (1000.0f / chrono);
+        }
 
         if (!curspeed)
         {
@@ -866,7 +881,9 @@ int FlashTcuCvtSubaruHitachiM32rCanOperation::reflash_block(const uint8_t *newda
     for (blockctr = 0; blockctr < maxblocks; blockctr++)
     {
         if (stopRequested())
+        {
             return 0;
+        }
 
         blockaddr = start_address + blockctr * 128;
         output.clear();
@@ -1030,7 +1047,7 @@ int FlashTcuCvtSubaruHitachiM32rCanOperation::erase_mem()
  *
  * @return seed key (4 bytes)
  */
-QByteArray FlashTcuCvtSubaruHitachiM32rCanOperation::generate_seed_key(QByteArray requested_seed)
+QByteArray FlashTcuCvtSubaruHitachiM32rCanOperation::generate_seed_key(const QByteArray& requested_seed)
 {
     QByteArray key;
 
@@ -1067,7 +1084,7 @@ QByteArray FlashTcuCvtSubaruHitachiM32rCanOperation::generate_seed_key(QByteArra
  * @return encrypted data
  */
 
-QByteArray FlashTcuCvtSubaruHitachiM32rCanOperation::encrypt_payload(QByteArray buf, uint32_t len)
+QByteArray FlashTcuCvtSubaruHitachiM32rCanOperation::encrypt_payload(const QByteArray& buf, uint32_t len)
 {
     QByteArray encrypted;
 
@@ -1085,7 +1102,7 @@ QByteArray FlashTcuCvtSubaruHitachiM32rCanOperation::encrypt_payload(QByteArray 
     return encrypted;
 }
 
-QByteArray FlashTcuCvtSubaruHitachiM32rCanOperation::decrypt_payload(QByteArray buf, uint32_t len)
+QByteArray FlashTcuCvtSubaruHitachiM32rCanOperation::decrypt_payload(const QByteArray& buf, uint32_t len)
 {
     QByteArray decrypt;
 

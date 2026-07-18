@@ -32,7 +32,9 @@ class TestMemory : public QObject
         QVERIFY(frames.size() >= 3);
         int total = 0;
         for (const MutDmaFrame& f : frames)
+        {
             total += f[5];
+        }
         QCOMPARE(total, static_cast<int>(data.size())); // all bytes accounted for
     }
     void read_plan_one_byte_channels()

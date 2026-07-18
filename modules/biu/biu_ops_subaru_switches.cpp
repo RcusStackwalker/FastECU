@@ -1,5 +1,7 @@
 #include "biu_ops_subaru_switches.h"
 #include <ui_biu_ops_subaru_switches.h>
+
+#include <cstddef>
 #include "serial_port_actions.h"
 
 BiuOpsSubaruSwitches::BiuOpsSubaruSwitches(QStringList *switch_result, QWidget *parent)
@@ -30,7 +32,7 @@ BiuOpsSubaruSwitches::BiuOpsSubaruSwitches(QStringList *switch_result, QWidget *
         label = new QLabel();
         label->setObjectName("Name" + QString::number(i));
         label->setFont(custom_font);
-        label->setText(switch_result->at(2 * i));
+        label->setText(switch_result->at(static_cast<qsizetype>(2 * i)));
         ui->gridLayout->addWidget(label, row_num, col_num);
 
         label = new QLabel();
@@ -39,11 +41,17 @@ BiuOpsSubaruSwitches::BiuOpsSubaruSwitches(QStringList *switch_result, QWidget *
         label->setText(switch_result->at(2 * i + 1));
         label->setAlignment(Qt::AlignCenter);
         if (switch_result->at(2 * i + 1) == "ON" || switch_result->at(2 * i + 1) == "YES")
+        {
             label->setStyleSheet("QLabel { background-color : green; color : white;}");
+        }
         else if (switch_result->at(2 * i + 1) == "OFF" || switch_result->at(2 * i + 1) == "NO")
+        {
             label->setStyleSheet("QLabel { background-color : red; color : white;}");
+        }
         else
+        {
             label->setStyleSheet("QLabel { background-color : grey; color : white;}");
+        }
         ui->gridLayout->addWidget(label, row_num, col_num + 1);
 
         row_num++;
@@ -68,11 +76,17 @@ void BiuOpsSubaruSwitches::update_switch_results(QStringList *switch_result)
         {
             current_label->setText(switch_result->at(2 * i + 1));
             if (switch_result->at(2 * i + 1) == "ON" || switch_result->at(2 * i + 1) == "YES")
+            {
                 current_label->setStyleSheet("QLabel { background-color : green; color : white;}");
+            }
             else if (switch_result->at(2 * i + 1) == "OFF" || switch_result->at(2 * i + 1) == "NO")
+            {
                 current_label->setStyleSheet("QLabel { background-color : red; color : white;}");
+            }
             else
+            {
                 current_label->setStyleSheet("QLabel { background-color : grey; color : white;}");
+            }
             // current_label->repaint();
         }
     }

@@ -630,8 +630,8 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
 
     unsigned int baudrate = 4800;
     unsigned long devID = 0;
-    unsigned long chanID;
-    unsigned long flags;
+    unsigned long chanID{};
+    unsigned long flags{};
     unsigned int parity = NO_PARITY;
     unsigned int timeout = 20;
 
@@ -668,7 +668,7 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     QByteArray append_iso14230_header(QByteArray output);
     int write_j2534_data(QByteArray output);
     QByteArray read_j2534_data(unsigned long timeout);
-    QString parse_message_to_hex(QByteArray received);
+    QString parse_message_to_hex(const QByteArray& received);
 
     /*public slots:
     QStringList check_serial_ports();

@@ -145,7 +145,9 @@ QByteArray ChecksumEcuSubaruHitachiM32rCan::calculate_checksum(QByteArray romDat
     for (int i = 0x4000; i < romData.length(); i += 4)
     {
         if (i < 0x10000 || i > 0x10003)
+        {
             checksum_5_value_calculated += bytes::readU32Be(bytes::view(romData), static_cast<std::size_t>(i));
+        }
     }
     checksum_5_balance_value_stored = bytes::readU16Be(bytes::view(romData), checksum_5_balance_value_address);
 

@@ -56,11 +56,11 @@ class DataTerminal : public QDialog
     uint16_t serial_read_long_timeout = 800;
     uint16_t serial_read_extra_long_timeout = 3000;
 
-    QVBoxLayout *vBoxLayout;
+    QVBoxLayout *vBoxLayout{};
 
-    uint8_t calculate_checksum(QByteArray output, bool dec_0x100);
+    uint8_t calculate_checksum(const QByteArray& output, bool dec_0x100);
     QByteArray add_ssm_header(QByteArray output, uint8_t tester_id, uint8_t target_id, bool dec_0x100);
-    QString parse_message_to_hex(QByteArray received);
+    QString parse_message_to_hex(const QByteArray& received);
     void delay(int timeout);
 
     SerialPortActions *serial;

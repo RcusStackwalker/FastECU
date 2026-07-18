@@ -74,9 +74,13 @@ static void warningCapture(QtMsgType type, const QMessageLogContext& ctx, const 
 {
     if (type == QtWarningMsg &&
         (msg.contains("another thread") || msg.contains("different thread")))
+    {
         g_threadWarnings.append(msg);
+    }
     if (g_prevHandler)
+    {
         g_prevHandler(type, ctx, msg);
+    }
 }
 
 void TestFacadeThreading::workerThreadCaller_noAffinityWarnings()

@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <functional>
 
-void MainWindow::change_log_values(int tab_index, QString protocol)
+void MainWindow::change_log_values(int tab_index, const QString& protocol)
 {
     QDialog *change_log_values_dialog = new QDialog;
     QVBoxLayout *main_layout = new QVBoxLayout();

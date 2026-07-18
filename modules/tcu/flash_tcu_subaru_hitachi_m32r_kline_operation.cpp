@@ -1,4 +1,6 @@
 #include "flash_tcu_subaru_hitachi_m32r_kline_operation.h"
+
+#include <utility>
 #include "modules/flash_utils.h"
 #include "modules/ssm_protocol.h"
 #include "serial_port_actions.h"
@@ -6,7 +8,7 @@
 FlashTcuSubaruHitachiM32rKlineOperation::FlashTcuSubaruHitachiM32rKlineOperation(
     SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
     QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(std::move(cmd_type))
 {
 }
 
@@ -127,12 +129,16 @@ int FlashTcuSubaruHitachiM32rKlineOperation::connect_bootloader()
     received.remove(0, 8);
     received.remove(5, received.length() - 5);
     for (int i = 0; i < received.length(); i++)
+    {
         msg.append(QString("%1").arg((uint8_t)received.at(i), 2, 16, QLatin1Char('0')).toUpper());
+    }
 
     QString ecuid = msg;
     emit LOG_I("ECU ID: " + ecuid, true, true);
     if (cmd_type == "read")
+    {
         ecuCalDef->RomId = ecuid + "_";
+    }
 
     emit LOG_I("Requesting to start communication", true, true);
     output.clear();
@@ -305,16 +311,24 @@ int FlashTcuSubaruHitachiM32rKlineOperation::read_a0_rom(uint32_t start_addr, ui
     num_blocks = length / block_size;
     tail_size = length % block_size;
     if (tail_size != 0)
+    {
         num_blocks++;
+    }
     else
+    {
         tail_size = block_size;
+    }
 
     for (block_count = 0; block_count < num_blocks; block_count++)
     {
         if (block_count == (num_blocks - 1))
+        {
             block_len = tail_size;
+        }
         else
+        {
             block_len = block_size;
+        }
 
         msg = QString("ROM read addr: %1 length: %2").arg(curr_addr).arg(block_len).toUtf8();
         emit LOG_I(msg, true, true);
@@ -323,7 +337,9 @@ int FlashTcuSubaruHitachiM32rKlineOperation::read_a0_rom(uint32_t start_addr, ui
         {
             received = send_sid_a0_block_read(curr_addr, block_len - 1);
             if (received.length() > 5)
+            {
                 break;
+            }
         }
 
         if (received.length() > 5)
@@ -364,16 +380,24 @@ int FlashTcuSubaruHitachiM32rKlineOperation::read_b8(uint32_t start_addr, uint32
     num_blocks = length / block_size;
     tail_size = length % block_size;
     if (tail_size != 0)
+    {
         num_blocks++;
+    }
     else
+    {
         tail_size = block_size;
+    }
 
     for (block_count = 0; block_count < num_blocks; block_count++)
     {
         if (block_count == (num_blocks - 1))
+        {
             block_len = tail_size;
+        }
         else
+        {
             block_len = block_size;
+        }
 
         msg = QString("ROM read addr: %1 length: %2").arg(curr_addr).arg(block_len).toUtf8();
         emit LOG_I(msg, true, true);
@@ -382,7 +406,9 @@ int FlashTcuSubaruHitachiM32rKlineOperation::read_b8(uint32_t start_addr, uint32
         {
             received = send_sid_b8_byte_read(curr_addr);
             if (received.length() > 5)
+            {
                 break;
+            }
         }
 
         if (received.length() > 5)
@@ -423,16 +449,24 @@ int FlashTcuSubaruHitachiM32rKlineOperation::read_b0(uint32_t start_addr, uint32
     num_blocks = length / block_size;
     tail_size = length % block_size;
     if (tail_size != 0)
+    {
         num_blocks++;
+    }
     else
+    {
         tail_size = block_size;
+    }
 
     for (block_count = 0; block_count < num_blocks; block_count++)
     {
         if (block_count == (num_blocks - 1))
+        {
             block_len = tail_size;
+        }
         else
+        {
             block_len = block_size;
+        }
 
         msg = QString("ROM read addr: %1 length: %2").arg(curr_addr).arg(block_len).toUtf8();
         emit LOG_I(msg, true, true);
@@ -441,7 +475,9 @@ int FlashTcuSubaruHitachiM32rKlineOperation::read_b0(uint32_t start_addr, uint32
         {
             received = send_sid_b0_block_write(curr_addr, block_len);
             if (received.length() > 5)
+            {
                 break;
+            }
         }
 
         if (received.length() > 5)
@@ -482,16 +518,24 @@ int FlashTcuSubaruHitachiM32rKlineOperation::read_a0_ram(uint32_t start_addr, ui
     num_blocks = length / block_size;
     tail_size = length % block_size;
     if (tail_size != 0)
+    {
         num_blocks++;
+    }
     else
+    {
         tail_size = block_size;
+    }
 
     for (block_count = 0; block_count < num_blocks; block_count++)
     {
         if (block_count == (num_blocks - 1))
+        {
             block_len = tail_size;
+        }
         else
+        {
             block_len = block_size;
+        }
 
         msg = QString("ROM read addr: %1 length: %2").arg(curr_addr).arg(block_len).toUtf8();
         emit LOG_I(msg, true, true);
@@ -500,7 +544,9 @@ int FlashTcuSubaruHitachiM32rKlineOperation::read_a0_ram(uint32_t start_addr, ui
         {
             received = send_sid_a0_block_read(curr_addr, block_len - 1);
             if (received.length() > 5)
+            {
                 break;
+            }
         }
 
         if (received.length() > 5)
@@ -522,7 +568,7 @@ int FlashTcuSubaruHitachiM32rKlineOperation::read_a0_ram(uint32_t start_addr, ui
  *
  * @return seed key (4 bytes)
  */
-QByteArray FlashTcuSubaruHitachiM32rKlineOperation::generate_kline_seed_key(QByteArray requested_seed)
+QByteArray FlashTcuSubaruHitachiM32rKlineOperation::generate_kline_seed_key(const QByteArray& requested_seed)
 {
     QByteArray key;
 
@@ -629,7 +675,7 @@ QByteArray FlashTcuSubaruHitachiM32rKlineOperation::send_sid_a0_block_read(uint3
  *
  * @return seed key (4 bytes)
  */
-QByteArray FlashTcuSubaruHitachiM32rKlineOperation::generate_can_seed_key(QByteArray requested_seed)
+QByteArray FlashTcuSubaruHitachiM32rKlineOperation::generate_can_seed_key(const QByteArray& requested_seed)
 {
     QByteArray key;
 

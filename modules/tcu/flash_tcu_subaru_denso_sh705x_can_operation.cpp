@@ -6,11 +6,12 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QInputDialog>
+#include <utility>
 
 FlashTcuSubaruDensoSH705xCanOperation::FlashTcuSubaruDensoSH705xCanOperation(
     SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
     QString cmd_type, int tcuAction, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), tcuAction(tcuAction), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), tcuAction(tcuAction), serial(serial), ecuCalDef(ecuCalDef), cmd_type(std::move(cmd_type))
 {
 }
 
@@ -109,7 +110,9 @@ int FlashTcuSubaruDensoSH705xCanOperation::promptInt(const QString& title, const
     QMetaObject::invokeMethod(dialog, [dialog, title, label, value, minValue, maxValue, step, &okResult]()
                               { return QInputDialog::getInt(dialog, title, label, value, minValue, maxValue, step, &okResult); }, Qt::BlockingQueuedConnection, &result);
     if (ok)
+    {
         *ok = okResult;
+    }
     return result;
 }
 
@@ -147,31 +150,49 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
     bool ok;
     int correction_1to2 = promptInt("Enter SSM Parameter Data", "1->2 Pressure Correction (DC):", 0, 0, 255, 1, &ok);
     if (!ok)
+    {
         return STATUS_ERROR;
+    }
     int correction_2to3 = promptInt("Enter SSM Parameter Data", "2->3 Pressure Correction (HLRC):", 0, 0, 255, 1, &ok);
     if (!ok)
+    {
         return STATUS_ERROR;
+    }
     int correction_3to4 = promptInt("Enter SSM Parameter Data", "3->4 Pressure Correction (IC):", 0, 0, 255, 1, &ok);
     if (!ok)
+    {
         return STATUS_ERROR;
+    }
     int correction_4to5 = promptInt("Enter SSM Parameter Data", "4->5 Pressure Correction (FB):", 0, 0, 255, 1, &ok);
     if (!ok)
+    {
         return STATUS_ERROR;
+    }
     int correction_fwdb = promptInt("Enter SSM Parameter Data", "Fwd Brake Pressure Correction:", 0, 0, 255, 1, &ok);
     if (!ok)
+    {
         return STATUS_ERROR;
+    }
     int correction_4wd = promptInt("Enter SSM Parameter Data", "4WD Pressure Correction:", 0, 0, 255, 1, &ok);
     if (!ok)
+    {
         return STATUS_ERROR;
+    }
     int correction_pl = promptInt("Enter SSM Parameter Data", "Line Pressure Correction:", 0, 0, 255, 1, &ok);
     if (!ok)
+    {
         return STATUS_ERROR;
+    }
     int temp_basis = promptInt("Enter SSM Parameter Data", "Temp Basis for Corrections:", 0, 0, 255, 1, &ok);
     if (!ok)
+    {
         return STATUS_ERROR;
+    }
     int torque_correction_awd = promptInt("Enter SSM Parameter Data", "AWD Torque Correction:", 0, 0, 65535, 1, &ok);
     if (!ok)
+    {
         return STATUS_ERROR;
+    }
 
     emit LOG_I("Setting TCU parameters...", true, true);
 
@@ -514,7 +535,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_readparam_subaru_ssm()
 
     try_count = 0;
     responseOK = false;
-    while (try_count < 6 && responseOK == false)
+    while (try_count < 6 && !responseOK)
     {
         serial->write_serial_data_echo_check(output);
 
@@ -530,7 +551,9 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_readparam_subaru_ssm()
     }
 
     if (!responseOK)
+    {
         return STATUS_ERROR;
+    }
     if (received.length() > 10)
     {
         if ((uint8_t)received.at(4) != 0xE8)
@@ -598,7 +621,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_relearn_subaru_ssm()
     output.append((uint8_t)0x01);
     try_count = 0;
     responseOK = false;
-    while (try_count < 6 && responseOK == false)
+    while (try_count < 6 && !responseOK)
     {
         serial->write_serial_data_echo_check(output);
 
@@ -633,7 +656,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_relearn_subaru_ssm()
     output[8] = ((uint8_t)0x09);
     try_count = 0;
     responseOK = false;
-    while (try_count < 6 && responseOK == false)
+    while (try_count < 6 && !responseOK)
     {
         serial->write_serial_data_echo_check(output);
 
@@ -677,7 +700,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_relearn_subaru_ssm()
     output[11] = ((uint8_t)0xFD);
     try_count = 0;
     responseOK = false;
-    while (try_count < 200 && responseOK == false)
+    while (try_count < 200 && !responseOK)
     {
         serial->write_serial_data_echo_check(output);
 
@@ -776,10 +799,14 @@ int FlashTcuSubaruDensoSH705xCanOperation::connect_bootloader()
 
             QString ecuid;
             for (int i = 0; i < 5; i++)
+            {
                 ecuid.append(QString("%1").arg((uint8_t)response.at(i), 2, 16, QLatin1Char('0')).toUpper());
+            }
             emit LOG_I("ECU ID: " + ecuid, true, true);
             if (cmd_type == "read")
+            {
                 ecuCalDef->RomId = ecuid + "_";
+            }
         }
         else
         {
@@ -812,7 +839,9 @@ int FlashTcuSubaruDensoSH705xCanOperation::connect_bootloader()
 
             emit LOG_I("CAL ID: " + response, true, true);
             if (cmd_type == "read")
+            {
                 ecuCalDef->RomId.insert(0, QString(response) + "_");
+            }
         }
         else
         {
@@ -942,7 +971,9 @@ int FlashTcuSubaruDensoSH705xCanOperation::connect_bootloader()
             QString msg;
             msg.clear();
             for (int i = 0; i < response.length(); i++)
+            {
                 msg.append(QString("%1").arg((uint8_t)response.at(i), 2, 16, QLatin1Char('0')).toUpper());
+            }
         }
         else
         {
@@ -967,7 +998,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::connect_bootloader()
  *
  * @return success
  */
-int FlashTcuSubaruDensoSH705xCanOperation::upload_kernel(QString kernel, uint32_t kernel_start_addr)
+int FlashTcuSubaruDensoSH705xCanOperation::upload_kernel(const QString& kernel, uint32_t kernel_start_addr)
 {
     QFile file(kernel);
 
@@ -1003,15 +1034,21 @@ int FlashTcuSubaruDensoSH705xCanOperation::upload_kernel(QString kernel, uint32_
     pl_encr = file.readAll();
     maxblocks = pl_len / 128;
     if ((pl_len % 128) != 0)
+    {
         maxblocks++;
+    }
     end_addr = (start_address + (maxblocks * 128)) & 0xFFFFFFFF;
     uint32_t data_len = end_addr - start_address;
     while ((uint32_t)pl_encr.length() < data_len)
+    {
         pl_encr.append((uint8_t)0x00);
+    }
     pl_encr.remove(pl_encr.length() - 4, 4);
     chk_sum = 0;
     for (int i = 0; i < pl_encr.length(); i += 4)
+    {
         chk_sum += ((pl_encr.at(i) << 24) & 0xFF000000) | ((pl_encr.at(i + 1) << 16) & 0xFF0000) | ((pl_encr.at(i + 2) << 8) & 0xFF00) | ((pl_encr.at(i + 3)) & 0xFF);
+    }
     chk_sum = 0x5aa5a55a - chk_sum;
 
     pl_encr.append((uint8_t)((chk_sum >> 24) & 0xFF));
@@ -1066,7 +1103,9 @@ int FlashTcuSubaruDensoSH705xCanOperation::upload_kernel(QString kernel, uint32_
     for (blockno = 0; blockno <= maxblocks; blockno++)
     {
         if (stopRequested())
+        {
             return 0;
+        }
 
         blockaddr = start_address + blockno * 128;
         output.clear();
@@ -1257,7 +1296,9 @@ int FlashTcuSubaruDensoSH705xCanOperation::read_mem(uint32_t start_addr, uint32_
     while (willget)
     {
         if (stopRequested())
+        {
             return STATUS_ERROR;
+        }
 
         uint32_t numblocks = 1;
         unsigned curspeed = 0, tleft;
@@ -1308,7 +1349,9 @@ int FlashTcuSubaruDensoSH705xCanOperation::read_mem(uint32_t start_addr, uint32_
         timer.start();
 
         if (cplen > 0 && chrono > 0)
+        {
             curspeed = cplen * (1000.0f / chrono);
+        }
 
         if (!curspeed)
         {
@@ -1452,7 +1495,9 @@ int FlashTcuSubaruDensoSH705xCanOperation::write_mem(bool test_write)
             }
         }
         else
+        {
             emit LOG_I("*** Test write PASS, it's ok to perform actual write! ***", true, true);
+        }
     }
     else
     {
@@ -1475,7 +1520,9 @@ int FlashTcuSubaruDensoSH705xCanOperation::get_changed_blocks(const uint8_t *src
     for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++)
     {
         if (stopRequested())
+        {
             return STATUS_ERROR;
+        }
 
         uint32_t bs, blen;
         bs = flashdevices[mcu_type_index].fblocks[blockno].start;
@@ -1732,8 +1779,12 @@ int FlashTcuSubaruDensoSH705xCanOperation::reflash_block(const uint8_t *newdata,
     QByteArray msg;
 
     if (!flash_write_init)
+    {
         if (init_flash_write())
+        {
             return STATUS_ERROR;
+        }
+    }
 
     if (blockno >= fdt->numblocks)
     {
@@ -1875,7 +1926,9 @@ int FlashTcuSubaruDensoSH705xCanOperation::flash_block(const uint8_t *src, uint3
     while (remain)
     {
         if (stopRequested())
+        {
             return STATUS_ERROR;
+        }
 
         datalen = blocksize + 4; // 0x200 + 4
         output.clear();
@@ -2024,7 +2077,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::flash_block(const uint8_t *src, uint3
  *
  * @return seed key (4 bytes)
  */
-QByteArray FlashTcuSubaruDensoSH705xCanOperation::generate_seed_key(QByteArray requested_seed)
+QByteArray FlashTcuSubaruDensoSH705xCanOperation::generate_seed_key(const QByteArray& requested_seed)
 {
     QByteArray key;
 
@@ -2055,7 +2108,7 @@ QByteArray FlashTcuSubaruDensoSH705xCanOperation::generate_seed_key(QByteArray r
  *
  * @return encrypted data
  */
-QByteArray FlashTcuSubaruDensoSH705xCanOperation::encrypt_payload(QByteArray buf, uint32_t len)
+QByteArray FlashTcuSubaruDensoSH705xCanOperation::encrypt_payload(const QByteArray& buf, uint32_t len)
 {
     QByteArray encrypted;
 
@@ -2073,7 +2126,7 @@ QByteArray FlashTcuSubaruDensoSH705xCanOperation::encrypt_payload(QByteArray buf
     return encrypted;
 }
 
-QByteArray FlashTcuSubaruDensoSH705xCanOperation::decrypt_payload(QByteArray buf, uint32_t len)
+QByteArray FlashTcuSubaruDensoSH705xCanOperation::decrypt_payload(const QByteArray& buf, uint32_t len)
 {
     QByteArray decrypt;
 

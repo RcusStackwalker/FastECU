@@ -34,7 +34,7 @@ class FlashEcuSubaruDensoSH7055_02Operation : public FlashOperationWorker
 #define STATUS_SUCCESS 0x00
 #define STATUS_ERROR 0x01
 
-#define KERNEL_MAXSIZE_SUB 8 * 1024U
+#define KERNEL_MAXSIZE_SUB (8 * 1024U)
 
     uint32_t CRC32 = 0x5AA5A55A;
 
@@ -43,12 +43,12 @@ class FlashEcuSubaruDensoSH7055_02Operation : public FlashOperationWorker
     bool request_denso_kernel_id = false;
     bool flash_write_init = false;
 
-    int result;
-    int mcu_type_index;
+    int result{};
+    int mcu_type_index{};
     int bootloader_start_countdown = 3;
 
-    uint8_t tester_id;
-    uint8_t target_id;
+    uint8_t tester_id{};
+    uint8_t target_id{};
 
     uint16_t receive_timeout = 500;
     uint16_t serial_read_timeout = 2000;
@@ -72,10 +72,10 @@ class FlashEcuSubaruDensoSH7055_02Operation : public FlashOperationWorker
     uint8_t bootloader_init_response_stock_fxt02_ok[3] = {0x4D, 0x00, 0xB3};
     uint8_t bootloader_init_response_ecutek_fxt02_ok[3] = {0x4D, 0x00, 0xB3};
     uint8_t bootloader_init_response_cobb_fxt02_ok[3] = {0x4D, 0x00, 0xB3};
-    uint8_t bootloader_init_response_fxt02_ok[3];
+    uint8_t bootloader_init_response_fxt02_ok[3]{};
 
     int connect_bootloader();
-    int upload_kernel(QString kernel, uint32_t kernel_start_addr);
+    int upload_kernel(const QString& kernel, uint32_t kernel_start_addr);
     int read_mem(uint32_t start_addr, uint32_t length);
     int write_mem(bool test_write);
     int get_changed_blocks(const uint8_t *src, int *modified);
@@ -86,11 +86,11 @@ class FlashEcuSubaruDensoSH7055_02Operation : public FlashOperationWorker
 
     QByteArray send_sid_bf_ssm_init();
     QByteArray send_sid_27_request_seed();
-    QByteArray send_sid_27_send_seed_key(QByteArray seed_key);
+    QByteArray send_sid_27_send_seed_key(const QByteArray& seed_key);
 
     QByteArray request_kernel_init();
     QByteArray request_kernel_id();
-    int check_received_message(uint8_t *req_response, QByteArray received);
+    int check_received_message(uint8_t *req_response, const QByteArray& received);
     int connect_bootloader_start_countdown(int timeout);
 
     SerialPortActions *serial;

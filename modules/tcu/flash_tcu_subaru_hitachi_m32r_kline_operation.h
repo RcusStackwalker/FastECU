@@ -39,12 +39,12 @@ class FlashTcuSubaruHitachiM32rKlineOperation : public FlashOperationWorker
     bool request_denso_kernel_init = false;
     bool request_denso_kernel_id = false;
 
-    int result;
-    int mcu_type_index;
+    int result{};
+    int mcu_type_index{};
     int bootloader_start_countdown = 3;
 
-    uint8_t tester_id;
-    uint8_t target_id;
+    uint8_t tester_id{};
+    uint8_t target_id{};
 
     uint16_t receive_timeout = 500;
     uint16_t serial_read_timeout = 2000;
@@ -73,8 +73,8 @@ class FlashTcuSubaruHitachiM32rKlineOperation : public FlashOperationWorker
     QByteArray send_sid_b8_byte_read(uint32_t dataaddr);
     QByteArray send_sid_b0_block_write(uint32_t dataaddr, uint32_t datalen);
 
-    QByteArray generate_kline_seed_key(QByteArray seed);
-    QByteArray generate_can_seed_key(QByteArray requested_seed);
+    QByteArray generate_kline_seed_key(const QByteArray& seed);
+    QByteArray generate_can_seed_key(const QByteArray& requested_seed);
 
     SerialPortActions *serial;
     FileActions::EcuCalDefStructure *ecuCalDef;

@@ -1,4 +1,6 @@
 #include "logging/logging_engine.h"
+
+#include <utility>
 #include "logging/logging_worker.h"
 
 LoggingEngine::LoggingEngine(QObject *parent) : QObject(parent)
@@ -18,7 +20,7 @@ void LoggingEngine::registerProtocol(const QString& protocolId, LoggingProtocolF
                                      int reconnectAttemptThreshold, int reconnectRetryPeriod)
 {
     m_registrations.insert(protocolId, ProtocolRegistration{
-                                           factory, pollTimeoutMs, carSilenceMissThreshold, reconnectAttemptThreshold, reconnectRetryPeriod});
+                                           std::move(factory), pollTimeoutMs, carSilenceMissThreshold, reconnectAttemptThreshold, reconnectRetryPeriod});
 }
 
 bool LoggingEngine::isRunning() const
@@ -29,7 +31,9 @@ bool LoggingEngine::isRunning() const
 bool LoggingEngine::start(const LogSessionConfig& config)
 {
     if (isRunning())
+    {
         return false;
+    }
 
     auto it = m_registrations.find(config.protocolId);
     if (it == m_registrations.end())
@@ -65,7 +69,9 @@ bool LoggingEngine::start(const LogSessionConfig& config)
 void LoggingEngine::stop()
 {
     if (!m_activeWorker)
+    {
         return;
+    }
 
     // Disconnect first: a user-requested stop should not also come back through
     // handleWorkerSessionEnded's sessionEnded(StoppedByUser, ...) relay -- the
@@ -80,7 +86,7 @@ void LoggingEngine::stop()
 
 void LoggingEngine::handleWorkerSessionEnded(SessionEndReason reason, QString message)
 {
-    emit sessionEnded(reason, message);
+    emit sessionEnded(reason, std::move(message));
     if (m_activeWorker)
     {
         m_activeWorker->wait();

@@ -77,39 +77,39 @@ class HexEdit : public QMainWindow
 
     QString curFile;
     QFile file;
-    bool isUntitled;
-    bool isModified;
+    bool isUntitled{};
+    bool isModified{};
 
-    QMenu *fileMenu;
-    QMenu *editMenu;
-    QMenu *helpMenu;
+    QMenu *fileMenu{};
+    QMenu *editMenu{};
+    QMenu *helpMenu{};
 
-    QToolBar *fileToolBar;
-    QToolBar *editToolBar;
+    QToolBar *fileToolBar{};
+    QToolBar *editToolBar{};
 
-    QAction *openAct;
-    QAction *saveAct;
-    QAction *saveAsAct;
-    QAction *saveReadable;
-    QAction *closeAct;
-    QAction *exitAct;
+    QAction *openAct{};
+    QAction *saveAct{};
+    QAction *saveAsAct{};
+    QAction *saveReadable{};
+    QAction *closeAct{};
+    QAction *exitAct{};
 
-    QAction *undoAct;
-    QAction *redoAct;
-    QAction *saveSelectionReadable;
+    QAction *undoAct{};
+    QAction *redoAct{};
+    QAction *saveSelectionReadable{};
 
-    QAction *aboutAct;
-    QAction *aboutQtAct;
-    QAction *optionsAct;
-    QAction *findAct;
-    QAction *findNextAct;
+    QAction *aboutAct{};
+    QAction *aboutQtAct{};
+    QAction *optionsAct{};
+    QAction *findAct{};
+    QAction *findNextAct{};
 
-    QHexEdit *hexEdit;
-    OptionsDialog *optionsDialog;
-    SearchDialog *searchDialog;
-    QLabel *lbAddress, *lbAddressName;
-    QLabel *lbOverwriteMode, *lbOverwriteModeName;
-    QLabel *lbSize, *lbSizeName;
+    QHexEdit *hexEdit{};
+    OptionsDialog *optionsDialog{};
+    SearchDialog *searchDialog{};
+    QLabel *lbAddress{}, *lbAddressName{};
+    QLabel *lbOverwriteMode{}, *lbOverwriteModeName{};
+    QLabel *lbSize{}, *lbSizeName{};
 };
 
 #endif

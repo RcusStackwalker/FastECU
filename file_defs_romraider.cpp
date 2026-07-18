@@ -11,7 +11,7 @@ FileActions::ConfigValuesStructure *FileActions::create_romraider_def_id_list(Co
     bool cal_id_addr_found = false;
     bool ecu_id_found = false;
 
-    if (!configValues->romraider_definition_files.length())
+    if (configValues->romraider_definition_files.empty())
     {
         emit LOG_D("No RomRaider definition files", true, true);
         return configValues;
@@ -39,7 +39,9 @@ FileActions::ConfigValuesStructure *FileActions::create_romraider_def_id_list(Co
         for (int x = 0; x < items.count(); x++)
         {
             if (items.at(x).isComment())
+            {
                 continue;
+            }
 
             QDomElement child = items.at(x).toElement();
 
@@ -76,11 +78,17 @@ FileActions::ConfigValuesStructure *FileActions::create_romraider_def_id_list(Co
                             id_child = id_child.nextSibling().toElement();
                         }
                         if (!cal_id_found)
+                        {
                             configValues->romraider_def_cal_id.append("");
+                        }
                         if (!cal_id_addr_found)
+                        {
                             configValues->romraider_def_cal_id_addr.append("");
+                        }
                         if (!ecu_id_found)
+                        {
                             configValues->romraider_def_ecu_id.append("");
+                        }
 
                         cal_id_found = false;
                         cal_id_addr_found = false;
@@ -131,7 +139,9 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(EcuCal
     for (int x = 0; x < items.count(); x++)
     {
         if (items.at(x).isComment())
+        {
             continue;
+        }
 
         QDomElement TagType = items.at(x).toElement();
         if (TagType.tagName() == "rom")
@@ -148,7 +158,9 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(EcuCal
                     {
 
                         if (RomInfo.tagName() == "xmlid")
+                        {
                             xmlid = RomInfo.text();
+                        }
 
                         RomInfo = RomInfo.nextSibling().toElement();
                     }
@@ -180,9 +192,13 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(EcuCal
                                     ecuCalDef->CategoryList.replace(i, Table.attribute("category", " "));
 
                                     if (ecuCalDef->XSizeList.at(i) == "" || ecuCalDef->XSizeList.at(i) == " ")
+                                    {
                                         ecuCalDef->XSizeList.replace(i, Table.attribute("sizex", "1"));
+                                    }
                                     if (ecuCalDef->YSizeList.at(i) == "" || ecuCalDef->YSizeList.at(i) == " ")
+                                    {
                                         ecuCalDef->YSizeList.replace(i, Table.attribute("sizey", "1"));
+                                    }
                                     ecuCalDef->StartPosList.replace(i, Table.attribute("startpos", "1"));
                                     ecuCalDef->IntervalList.replace(i, Table.attribute("interval", "1"));
                                     ecuCalDef->MinValueList.replace(i, Table.attribute("minvalue", " "));
@@ -271,7 +287,9 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(EcuCal
                                             else if (ScaleType == "Static Y Axis" || ScaleType == "Static X Axis" || (ScaleType == "Y Axis" && ecuCalDef->TypeList.at(i) == "2D"))
                                             {
                                                 if (ScaleType == "Static Y Axis")
+                                                {
                                                     ScaleType = "Static X Axis";
+                                                }
                                                 ecuCalDef->XScaleNameList.replace(i, TableChild.attribute("name", " "));
                                                 ecuCalDef->XScaleTypeList.replace(i, ScaleType);
                                                 ecuCalDef->XScaleStorageTypeList.replace(i, TableChild.attribute("storagetype", " "));
@@ -331,9 +349,13 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(EcuCal
                                         {
                                             description = TableChild.text();
                                             if (!description.isEmpty())
+                                            {
                                                 ecuCalDef->DescriptionList.replace(i, "\n\n" + description);
+                                            }
                                             else
+                                            {
                                                 ecuCalDef->DescriptionList.replace(i, " ");
+                                            }
                                         }
                                         else
                                         {
@@ -363,7 +385,9 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(EcuCal
     }
 
     if (!OemEcuDefBaseFileFound)
+    {
         return NULL;
+    }
 
     QStringList validationErrors;
     if (!validate_calibration_maps(*ecuCalDef, &validationErrors))
@@ -377,7 +401,7 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(EcuCal
     return ecuCalDef;
 }
 
-FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(EcuCalDefStructure *ecuCalDef, QString cal_id)
+FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(EcuCalDefStructure *ecuCalDef, const QString& cal_id)
 {
     ConfigValuesStructure *configValues = &ConfigValuesStruct;
 
@@ -404,7 +428,7 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(EcuCalDefSt
     QString filename;
 
     // Check if any ECU definition file is selected
-    if (!configValues->romraider_definition_files.length() && !configValues->ecuflash_definition_files_directory.length())
+    if (configValues->romraider_definition_files.empty() && !configValues->ecuflash_definition_files_directory.length())
     {
         QMessageBox::warning(this, tr("Ecu definition file"), "No RomRaider definition file(s), use definition manager at 'Edit' menu to choose file(s)");
         ecuCalDef = NULL;
@@ -413,8 +437,10 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(EcuCalDefSt
 
     int file_index = 0;
 
-    if (!configValues->romraider_def_cal_id.length())
+    if (configValues->romraider_def_cal_id.empty())
+    {
         return NULL;
+    }
 
     for (int index = 0; index < configValues->romraider_def_cal_id.length(); index++)
     {
@@ -429,14 +455,18 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(EcuCalDefSt
     }
 
     if (!cal_id_file_found)
+    {
         return ecuCalDef;
+    }
 
     ecuCalDef->use_romraider_definition = true;
 
     filename = configValues->romraider_def_filename.at(file_index);
 
     while (ecuCalDef->RomInfo.length() < ecuCalDef->RomInfoStrings.length())
+    {
         ecuCalDef->RomInfo.append(" ");
+    }
 
     ecuCalDef->RomInfo.replace(DefFile, filename);
 
@@ -462,17 +492,18 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(EcuCalDefSt
     for (int x = 0; x < items.count(); x++)
     {
         if (items.at(x).isComment())
+        {
             continue;
+        }
 
         QDomElement roms_child = items.at(x).toElement();
         if (roms_child.tagName() == "rom")
         {
             if (roms_child.attribute("base", "") != "")
+            {
                 rombase = roms_child.attribute("base", "");
-            if (rombase.contains("BASE"))
-                inherits_another_def = false;
-            else
-                inherits_another_def = true;
+            }
+            inherits_another_def = !rombase.contains("BASE");
 
             QDomElement rom_child = roms_child.firstChild().toElement();
             while (!rom_child.isNull())
@@ -483,34 +514,62 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(EcuCalDefSt
                     while (!rom_id_child.isNull())
                     {
                         if (rom_id_child.tagName() == "xmlid")
+                        {
                             xmlid = rom_id_child.text();
+                        }
                         else if (rom_id_child.tagName() == "internalidaddress")
+                        {
                             internalidaddress = rom_id_child.text();
+                        }
                         else if (rom_id_child.tagName() == "internalidstring")
+                        {
                             internalidstring = rom_id_child.text();
+                        }
                         else if (rom_id_child.tagName() == "ecuid")
+                        {
                             ecuid = rom_id_child.text();
+                        }
                         else if (rom_id_child.tagName() == "year")
+                        {
                             year = rom_id_child.text();
+                        }
                         else if (rom_id_child.tagName() == "market")
+                        {
                             market = rom_id_child.text();
+                        }
                         else if (rom_id_child.tagName() == "make")
+                        {
                             make = rom_id_child.text();
+                        }
                         else if (rom_id_child.tagName() == "model")
+                        {
                             model = rom_id_child.text();
+                        }
                         else if (rom_id_child.tagName() == "submodel")
+                        {
                             submodel = rom_id_child.text();
+                        }
                         else if (rom_id_child.tagName() == "transmission")
+                        {
                             transmission = rom_id_child.text();
+                        }
                         else if (rom_id_child.tagName() == "memmodel")
+                        {
                             memmodel = rom_id_child.text();
+                        }
                         else if (rom_id_child.tagName() == "checksummodule")
+                        {
                             checksummodule = rom_id_child.text();
+                        }
                         else if (rom_id_child.tagName() == "flashmethod")
+                        {
                             flashmethod = rom_id_child.text();
-                        // flashmethod = configValues->flash_protocol_selected_family;
+                            // flashmethod = configValues->flash_protocol_selected_family;
+                        }
                         else if (rom_id_child.tagName() == "filesize")
+                        {
                             filesize = rom_id_child.text();
+                        }
 
                         rom_id_child = rom_id_child.nextSibling().toElement();
                     }
@@ -551,7 +610,9 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(EcuCalDefSt
                         }
 
                         if (inherits_another_def)
+                        {
                             read_romraider_ecu_def(ecuCalDef, rombase);
+                        }
 
                         if (!inherits_another_def)
                         {
@@ -581,9 +642,13 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(EcuCalDefSt
                             if (rom_sub_child.tagName() == "table")
                             {
                                 if (rom_sub_child.attribute("type", " ") == "X Axis")
+                                {
                                     ecuCalDef->XScaleAddressList.replace(index, rom_sub_child.attribute("storageaddress", " "));
+                                }
                                 if (rom_sub_child.attribute("type", " ") == "Y Axis")
+                                {
                                     ecuCalDef->YScaleAddressList.replace(index, rom_sub_child.attribute("storageaddress", " "));
+                                }
                                 if (rom_sub_child.attribute("type", " ") == "Static Y Axis")
                                 {
                                 }
@@ -600,7 +665,9 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(EcuCalDefSt
                 read_romraider_ecu_base_def(ecuCalDef);
             }
             if (ecuid_def_found)
+            {
                 ecuCalDef->IdList.append(ecuCalDef->RomInfo.at(EcuId));
+            }
             ecuid_def_found = false;
         }
         roms_child = roms_child.nextSibling().toElement();

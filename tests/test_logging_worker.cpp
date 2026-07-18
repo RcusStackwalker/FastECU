@@ -33,7 +33,7 @@ class TestLoggingWorker : public QObject
         worker.requestStop();
         QVERIFY(worker.wait(2000));
 
-        QVERIFY(statusSpy.size() >= 1);
+        QVERIFY(!statusSpy.empty());
         QCOMPARE(statusSpy.at(0).at(0).value<LoggingStatus>(), LoggingStatus::Running);
         QVector<LogSample> samples = valuesSpy.at(0).at(0).value<QVector<LogSample>>();
         QCOMPARE(samples.size(), 1);

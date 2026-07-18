@@ -45,11 +45,13 @@ bool CharCommand::mergeWith(const QUndoCommand *command)
     if (_cmd != CharCommand::removeAt)
     {
         if (nextCommand->_cmd == overwrite)
+        {
             if (nextCommand->_charPos == _charPos)
             {
                 _newChar = nextCommand->_newChar;
                 result = true;
             }
+        }
     }
     return result;
 }

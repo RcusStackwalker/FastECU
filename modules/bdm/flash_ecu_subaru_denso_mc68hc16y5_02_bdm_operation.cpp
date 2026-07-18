@@ -5,11 +5,12 @@
 
 #include <QElapsedTimer>
 #include <QFile>
+#include <utility>
 
 FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation(
     SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
     QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(std::move(cmd_type))
 {
 }
 
@@ -89,7 +90,9 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::read_mem(uint32_t start_addr,
 
     pagesize = 0x400;
     if (length < pagesize)
+    {
         pagesize = length;
+    }
 
     if (start_addr == 0 && length == 0)
     {
@@ -111,7 +114,9 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::read_mem(uint32_t start_addr,
     while (willget)
     {
         if (stopRequested())
+        {
             return STATUS_ERROR;
+        }
 
         uint32_t numblocks = 1;
         unsigned curspeed = 0, tleft;
@@ -171,7 +176,9 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::read_mem(uint32_t start_addr,
         timer.start();
 
         if (cplen > 0 && chrono > 0)
+        {
             curspeed = cplen * (1000.0f / chrono);
+        }
 
         if (!curspeed)
         {
@@ -229,7 +236,9 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::write_mem()
     QScopedArrayPointer<uint8_t> data_array(new uint8_t[pl_encr.length()]);
 
     while (ecuCalDef->FullRomData.length() % 0x20)
+    {
         ecuCalDef->FullRomData.append((uint8_t)0x00);
+    }
 
     qDebug() << "Kernel file: " << kernel;
     qDebug() << "Kernel length: " << ecuCalDef->FullRomData.length();
@@ -381,7 +390,9 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::flash_block(const uint8_t *ne
     while (remain)
     {
         if (stopRequested())
+        {
             return STATUS_ERROR;
+        }
 
         output.clear();
         for (uint32_t i = 0; i < blocksize; i++)

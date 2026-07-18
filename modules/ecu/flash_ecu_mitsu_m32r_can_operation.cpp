@@ -6,11 +6,13 @@
 #include "protocol/mitsu_colt_can_vendor_ext_protocol.h"
 #include <kernelmemorymodels.h>
 
+#include <utility>
+
 FlashEcuMitsuM32rCanOperation::FlashEcuMitsuM32rCanOperation(
     SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
     QString cmd_type, QWidget *dialog, bool useVendorChallenge, QObject *parent,
     PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type), useVendorChallenge(useVendorChallenge)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(std::move(cmd_type)), useVendorChallenge(useVendorChallenge)
 {
 }
 
@@ -122,7 +124,9 @@ int FlashEcuMitsuM32rCanOperation::connect_bootloader()
     emit LOG_I("Diagnostic session ok", true, true);
 
     if (!needFactorySecurity)
+    {
         return STATUS_SUCCESS;
+    }
 
     emit LOG_I("Requesting security seed...", true, true);
     output = build_request(buildSecurityAccessSeedRequestFrame());
@@ -172,7 +176,9 @@ bool FlashEcuMitsuM32rCanOperation::readFlashRange(uint32_t start_addr, uint32_t
     while (addr < end_addr)
     {
         if (stopRequested())
+        {
             return false;
+        }
 
         const uint32_t remaining = end_addr - addr;
         const quint8 chunkLen = (quint8)((remaining < kFlashReadBlockSize) ? remaining : kFlashReadBlockSize);
@@ -206,7 +212,9 @@ int FlashEcuMitsuM32rCanOperation::read_mem(uint32_t start_addr, uint32_t length
 
     QByteArray romdata;
     if (!readFlashRange(start_addr, length, &romdata))
+    {
         return STATUS_ERROR;
+    }
 
     emit LOG_I("ROM read complete", true, true);
     ecuCalDef->FullRomData = romdata;
@@ -291,7 +299,9 @@ bool FlashEcuMitsuM32rCanOperation::ensureTopRegionWritten(const QByteArray& rom
 
     QByteArray currentTop;
     if (!readFlashRange(kTopRegionStart, kTopRegionLength, &currentTop))
+    {
         return false;
+    }
 
     const QByteArray wantedTop = romdata.mid(int(kTopRegionStart), int(kTopRegionLength));
     if (currentTop == wantedTop)
@@ -361,7 +371,9 @@ bool FlashEcuMitsuM32rCanOperation::ensureTopRegionWritten(const QByteArray& rom
 
     QByteArray verifyTop;
     if (!readFlashRange(kTopRegionStart, kTopRegionLength, &verifyTop))
+    {
         return false;
+    }
     if (verifyTop != wantedTop)
     {
         emit LOG_E("Top 128KB verify failed after redirect write", true, true);
@@ -385,7 +397,9 @@ int FlashEcuMitsuM32rCanOperation::write_mem(bool test_write)
     }
 
     if (!ensureTopRegionWritten(romdata))
+    {
         return STATUS_ERROR;
+    }
 
     emit LOG_I("Uploading erase-page routine to RAM 0x" + QString::number(kEraseRoutineRamAddr, 16) + "...", true, true);
     if (!upload_and_commit(kEraseRoutineRamAddr, QByteArray(reinterpret_cast<const char *>(kErasePageRoutine), sizeof(kErasePageRoutine))))

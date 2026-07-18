@@ -1,8 +1,10 @@
 #include "eeprom_ecu_subaru_denso_sh705x_kline.h"
+
+#include <utility>
 #include "eeprom_ecu_subaru_denso_sh705x_kline_operation.h"
 #include "serial_port_actions.h"
 
-EepromEcuSubaruDensoSH705xKline::EepromEcuSubaruDensoSH705xKline(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent)
+EepromEcuSubaruDensoSH705xKline::EepromEcuSubaruDensoSH705xKline(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
     : QDialog(parent),
       ecuCalDef(ecuCalDef),
       cmd_type(cmd_type),
@@ -11,11 +13,17 @@ EepromEcuSubaruDensoSH705xKline::EepromEcuSubaruDensoSH705xKline(SerialPortActio
     ui->setupUi(this);
 
     if (cmd_type == "test_write")
+    {
         this->setWindowTitle("Test write ROM " + ecuCalDef->FileName + " to ECU");
+    }
     else if (cmd_type == "write")
+    {
         this->setWindowTitle("Write ROM " + ecuCalDef->FileName + " to ECU");
+    }
     else if (cmd_type == "read")
+    {
         this->setWindowTitle("Read ROM from ECU");
+    }
 
     this->serial = serial;
 }
@@ -46,7 +54,7 @@ void EepromEcuSubaruDensoSH705xKline::run()
         connect(m_operation, &FlashOperationWorker::LOG_D, this, &EepromEcuSubaruDensoSH705xKline::LOG_D);
         connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
                 this, [this](QString msg)
-                { emit external_logger(msg); });
+                { emit external_logger(std::move(msg)); });
         connect(m_operation, &FlashOperationWorker::progressChanged,
                 this, &EepromEcuSubaruDensoSH705xKline::set_progressbar_value);
 
@@ -84,7 +92,9 @@ EepromEcuSubaruDensoSH705xKline::~EepromEcuSubaruDensoSH705xKline()
 void EepromEcuSubaruDensoSH705xKline::closeEvent(QCloseEvent *bar)
 {
     if (m_operation)
+    {
         m_operation->requestStop();
+    }
 }
 
 void EepromEcuSubaruDensoSH705xKline::set_progressbar_value(int value)
@@ -96,5 +106,7 @@ void EepromEcuSubaruDensoSH705xKline::set_progressbar_value(int value)
         ui->progressbar->setValue(value);
     }
     if (valueChanged)
+    {
         emit external_logger(value);
+    }
 }

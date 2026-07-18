@@ -4,11 +4,12 @@
 #include "serial_port_actions.h"
 
 #include <QElapsedTimer>
+#include <utility>
 
 FlashEcuSubaruMitsuM32rKlineOperation::FlashEcuSubaruMitsuM32rKlineOperation(
     SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
     QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(std::move(cmd_type))
 {
 }
 
@@ -118,12 +119,16 @@ int FlashEcuSubaruMitsuM32rKlineOperation::connect_bootloader()
     received.remove(0, 8);
     received.remove(5, received.length() - 5);
     for (int i = 0; i < received.length(); i++)
+    {
         msg.append(QString("%1").arg((uint8_t)received.at(i), 2, 16, QLatin1Char('0')).toUpper());
+    }
 
     QString ecuid = msg;
     emit LOG_I("ECU ID: " + ecuid, true, true);
     if (cmd_type == "read")
+    {
         ecuCalDef->RomId = ecuid + "_";
+    }
 
     emit LOG_I("Requesting to start communication", true, true);
     received = send_sid_81_start_communication();
@@ -267,7 +272,9 @@ int FlashEcuSubaruMitsuM32rKlineOperation::read_mem(uint32_t start_addr, uint32_
     while (willget)
     {
         if (stopRequested())
+        {
             return STATUS_ERROR;
+        }
 
         uint32_t numblocks = 1;
         unsigned curspeed = 0, tleft;
@@ -307,7 +314,9 @@ int FlashEcuSubaruMitsuM32rKlineOperation::read_mem(uint32_t start_addr, uint32_
         timer.start();
 
         if (cplen > 0 && chrono > 0)
+        {
             curspeed = cplen * (1000.0f / chrono);
+        }
 
         if (!curspeed)
         {
@@ -518,7 +527,9 @@ int FlashEcuSubaruMitsuM32rKlineOperation::reflash_block(const uint8_t *newdata,
     for (blockctr = 0; blockctr < maxblocks; blockctr++)
     {
         if (stopRequested())
+        {
             return 0;
+        }
 
         blockaddr = start_address + blockctr * blocksize;
         output.clear();
@@ -758,7 +769,7 @@ QByteArray FlashEcuSubaruMitsuM32rKlineOperation::send_sid_27_request_seed()
  *
  * @return received response
  */
-QByteArray FlashEcuSubaruMitsuM32rKlineOperation::send_sid_27_send_seed_key(QByteArray seed_key)
+QByteArray FlashEcuSubaruMitsuM32rKlineOperation::send_sid_27_send_seed_key(const QByteArray& seed_key)
 {
     QByteArray output;
     QByteArray received;
@@ -802,7 +813,7 @@ QByteArray FlashEcuSubaruMitsuM32rKlineOperation::send_sid_10_start_diagnostic()
  *
  * @return seed key (4 bytes)
  */
-QByteArray FlashEcuSubaruMitsuM32rKlineOperation::generate_seed_key(QByteArray requested_seed)
+QByteArray FlashEcuSubaruMitsuM32rKlineOperation::generate_seed_key(const QByteArray& requested_seed)
 {
     QByteArray key;
 
@@ -847,7 +858,7 @@ QByteArray FlashEcuSubaruMitsuM32rKlineOperation::generate_seed_key(QByteArray r
  * @return encrypted data
  */
 
-QByteArray FlashEcuSubaruMitsuM32rKlineOperation::encrypt_payload(QByteArray buf, uint32_t len)
+QByteArray FlashEcuSubaruMitsuM32rKlineOperation::encrypt_payload(const QByteArray& buf, uint32_t len)
 {
     QByteArray encrypted;
 
@@ -866,7 +877,7 @@ QByteArray FlashEcuSubaruMitsuM32rKlineOperation::encrypt_payload(QByteArray buf
     return encrypted;
 }
 
-QByteArray FlashEcuSubaruMitsuM32rKlineOperation::decrypt_payload(QByteArray buf, uint32_t len)
+QByteArray FlashEcuSubaruMitsuM32rKlineOperation::decrypt_payload(const QByteArray& buf, uint32_t len)
 {
     QByteArray decrypt;
 

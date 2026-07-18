@@ -92,7 +92,9 @@ QByteArray ChecksumEcuSubaruHitachiSH7058::calculate_checksum(QByteArray romData
     for (uint32_t i = 0x4000; i < (uint32_t)romData.length(); i += 4)
     {
         if (i != checksum_3_value_address && i != checksum_4_value_address)
+        {
             checksum_5_value_calculated += bytes::readU32Be(bytes::view(romData), static_cast<std::size_t>(i));
+        }
     }
     if (checksum_5_value_calculated != 0x5aa5a55a)
     {

@@ -54,7 +54,9 @@ void BiuOpsSubaruInput1::prepare_biu_setting1()
     output.append(ui->light_delay_combo->currentIndex());
     output.append(ui->autolock_combo->currentIndex() + 2);
     if (biu_tt_result->length() == 3)
+    {
         output.append(ui->outtemp_combo->currentIndex());
+    }
 
     emit send_biu_setting1(output);
 }

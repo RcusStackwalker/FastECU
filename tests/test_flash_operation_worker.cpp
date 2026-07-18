@@ -21,7 +21,9 @@ class ScriptedOperation : public FlashOperationWorker
         if (checkStopBeforeReturning)
         {
             while (!stopRequested())
+            {
                 QThread::msleep(5);
+            }
             return false;
         }
         emit LOG_I("scripted operation running", true, true);
@@ -39,7 +41,7 @@ class TestFlashOperationWorker : public QObject
   private:
     static FlashOperationWorker::PromptFn yesPrompt()
     {
-        return [](QWidget *, QString, QString, int, int) -> int
+        return [](QWidget *, const QString&, const QString&, int, int) -> int
         {
             return QMessageBox::Yes;
         };
@@ -79,7 +81,7 @@ class TestFlashOperationWorker : public QObject
     {
         QWidget dialog;
         QThread *callingThread = nullptr;
-        auto prompt = [&callingThread](QWidget *, QString, QString, int, int) -> int
+        auto prompt = [&callingThread](QWidget *, const QString&, const QString&, int, int) -> int
         {
             callingThread = QThread::currentThread();
             return QMessageBox::Yes;

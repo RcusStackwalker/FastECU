@@ -84,7 +84,9 @@ std::uint32_t seedToKey(std::uint32_t seed)
 std::uint32_t extractSeed(bytes::ByteView reply)
 {
     if (reply.size() < 8)
+    {
         return 0;
+    }
     return bytes::readU32Be(reply, 4);
 }
 
@@ -98,7 +100,9 @@ CdbgFrame buildSecurityKeyFrame(std::uint32_t key)
 bool securityGranted(bytes::ByteView reply)
 {
     if (reply.size() < 4)
+    {
         return false;
+    }
     return reply[3] != 0;
 }
 
@@ -131,7 +135,9 @@ bool batchChannelsIntoFrames(const QVector<CdbgChannel>& channels,
                              QVector<QVector<CdbgChannel>>& outFrames)
 {
     if (channels.isEmpty())
+    {
         return false;
+    }
 
     QVector<QVector<CdbgChannel>> frames;
     QVector<CdbgChannel> current;
@@ -149,10 +155,14 @@ bool batchChannelsIntoFrames(const QVector<CdbgChannel>& channels,
         byteIndex += ch.size;
     }
     if (!current.isEmpty())
+    {
         frames.append(current);
+    }
 
     if (frames.size() > kMaxFrames)
+    {
         return false;
+    }
 
     outFrames = frames;
     return true;
@@ -187,14 +197,20 @@ QVector<std::uint32_t> decodeFrame(bytes::Byte expectedFrameIndex,
                                    const QVector<CdbgChannel>& frameItems,
                                    bytes::ByteView frame)
 {
-    if (frame.size() < 1 || frame[0] != expectedFrameIndex)
+    if (frame.empty() || frame[0] != expectedFrameIndex)
+    {
         return {};
+    }
 
     int need = 1;
     for (const CdbgChannel& ch : frameItems)
+    {
         need += ch.size;
+    }
     if (frame.size() < need)
+    {
         return {};
+    }
 
     QVector<std::uint32_t> out;
     int offset = 1;
@@ -214,7 +230,9 @@ QVector<std::uint32_t> decodeFrame(bytes::Byte expectedFrameIndex,
             break;
         default:
             for (int k = 0; k < ch.size; ++k)
+            {
                 value = (value << 8) | std::uint32_t(frame[static_cast<std::size_t>(offset + k)]);
+            }
             break;
         }
         out.append(value);

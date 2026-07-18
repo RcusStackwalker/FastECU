@@ -1,6 +1,8 @@
 #include "biu_ops_subaru_input2.h"
 #include <ui_biu_ops_subaru_input2.h>
 
+#include <cstddef>
+
 BiuOpsSubaruInput2::BiuOpsSubaruInput2(QStringList *biu_option_names, QByteArray *biu_option_result, QWidget *parent)
     : QWidget(parent),
       ui{std::make_unique<Ui::BiuOpsSubaruInput2Window>()}
@@ -29,7 +31,7 @@ BiuOpsSubaruInput2::BiuOpsSubaruInput2(QStringList *biu_option_names, QByteArray
 
             label = new QLabel();
             label->setObjectName("Name" + QString::number(i));
-            label->setText(biu_option_names->at(3 * i));
+            label->setText(biu_option_names->at(static_cast<qsizetype>(3 * i)));
             ui->gridLayout->addWidget(label, i, 0);
 
             button_group = new QButtonGroup();
@@ -39,7 +41,9 @@ BiuOpsSubaruInput2::BiuOpsSubaruInput2(QStringList *biu_option_names, QByteArray
             radio_button->setObjectName("Name ON" + QString::number(i));
             radio_button->setText(biu_option_names->at(3 * i + 1));
             if (current_value != 0)
+            {
                 radio_button->setChecked(true);
+            }
             button_group->addButton(radio_button, 1);
             ui->gridLayout->addWidget(radio_button, i, 1);
 
@@ -47,7 +51,9 @@ BiuOpsSubaruInput2::BiuOpsSubaruInput2(QStringList *biu_option_names, QByteArray
             radio_button->setObjectName("Name OFF" + QString::number(i));
             radio_button->setText(biu_option_names->at(3 * i + 2));
             if (current_value == 0)
+            {
                 radio_button->setChecked(true);
+            }
             button_group->addButton(radio_button, 0);
             ui->gridLayout->addWidget(radio_button, i, 2);
         }
@@ -80,7 +86,9 @@ void BiuOpsSubaruInput2::prepare_biu_setting2()
             i = byte_counter * 8 + bit_counter;
             current_button = ui->gridLayoutWidget->findChild<QRadioButton *>("Name ON" + QString::number(i));
             if (current_button != nullptr && current_button->isChecked())
+            {
                 output[byte_counter] = output[byte_counter] | bitmask;
+            }
             bitmask = bitmask << 1;
         }
     }

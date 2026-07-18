@@ -23,7 +23,9 @@ class QueuedFakeBackend : public FakeBackend
     {
         Q_UNUSED(timeout)
         if (responses.isEmpty())
+        {
             return QByteArray();
+        }
         return responses.dequeue();
     }
 };
@@ -62,7 +64,7 @@ class TestFlashEcuMitsuM32rCanOperation : public QObject
         QVERIFY(op.wait(2000));
 
         QCOMPARE(finishedSpy.at(0).at(0).toBool(), false);
-        QVERIFY2(errSpy.size() >= 1, "expected an LOG_E about the wrong ECU response");
+        QVERIFY2(!errSpy.empty(), "expected an LOG_E about the wrong ECU response");
     }
 
     void requestStop_duringReadLoop_stopsWithoutFinishingRead()
@@ -152,7 +154,7 @@ class TestFlashEcuMitsuM32rCanOperation : public QObject
         QCOMPARE(finishedSpy.at(0).at(0).toBool(), false);
         const QStringList writes = fake->takeCallLog().filter("write_echo_check:begin:");
         QCOMPARE(writes.size(), 3); // handshake only -- no top-region read attempted
-        QVERIFY2(errSpy.size() >= 1, "expected an LOG_E about the ROM being too small");
+        QVERIFY2(!errSpy.empty(), "expected an LOG_E about the ROM being too small");
     }
 
     void writeChecksTopRegionBeforeUploadingStockRoutines()

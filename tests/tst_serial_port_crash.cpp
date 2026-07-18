@@ -247,7 +247,9 @@ void SerialPortCrashTest::loggingFlow_connectReadTeardownReentrancy_overMockPty_
 
         // Realtime read loop over the live mock connection.
         for (int i = 0; i < 3; ++i)
+        {
             spad.read_vbatt();
+        }
 
         // A still-alive consumer (a running flash module) has a read queued.
         QObject consumer;

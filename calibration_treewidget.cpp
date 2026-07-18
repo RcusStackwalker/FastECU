@@ -26,8 +26,10 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationFilesTree(int ecuCalDefIndex
     calFilesTree->addTopLevelItem(topLevelFilesTreeItem);
 
     topLevelFilesTreeItem->setText(0, filename);
-    if (ecuCalDef->IdList.length())
+    if (!ecuCalDef->IdList.empty())
+    {
         topLevelFilesTreeItem->setText(1, ecuCalDef->IdList.at(0));
+    }
     calFilesTree->expandItem(topLevelFilesTreeItem);
 
     for (int i = 0; i < calFilesTree->topLevelItemCount(); i++)
@@ -60,13 +62,15 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationDataTree(QTreeWidget *dataTr
     calDataTree->setFont(dataItemFont);
 
     // If OEM ecu file, add ROM info
-    if (ecuCalDef->RomInfo.length())
+    if (!ecuCalDef->RomInfo.empty())
     {
         QTreeWidgetItem *topLevelDataTreeItem = new QTreeWidgetItem();
         topLevelDataTreeItem->setText(0, "ROM Info");
         calDataTree->addTopLevelItem(topLevelDataTreeItem);
         if (ecuCalDef->RomInfoExpanded == "1")
+        {
             topLevelDataTreeItem->setExpanded(true);
+        }
 
         for (int i = 0; i < ecuCalDef->RomInfo.length(); i++)
         {
@@ -102,7 +106,9 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationDataTree(QTreeWidget *dataTr
                     calDataTree->addTopLevelItem(topLevelDataTreeItem);
                     // treeChildCreated = false;
                     if (ecuCalDef->CategoryExpandedList.at(j) == "1")
+                    {
                         topLevelDataTreeItem->setExpanded(true);
+                    }
                 }
                 for (int i = 0; i < calDataTree->topLevelItemCount(); i++)
                 {
@@ -111,15 +117,25 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationDataTree(QTreeWidget *dataTr
                         // emit LOG_D("Add map: " + ecuCalDef->NameList[j] + " to category: " + ecuCalDef->CategoryList[j], true, true);
                         QTreeWidgetItem *item = new QTreeWidgetItem();
                         if (ecuCalDef->TypeList[j] == "1D" || ecuCalDef->TypeList[j] == "Selectable" || (ecuCalDef->YSizeList.at(j).toInt() == 1 && ecuCalDef->XSizeList.at(j).toInt() == 1))
+                        {
                             item->setIcon(0, QIcon(":/icons/1D-64.png"));
+                        }
                         else if (ecuCalDef->TypeList[j] == "2D")
+                        {
                             item->setIcon(0, QIcon(":/icons/2D-64.png"));
+                        }
                         else if (ecuCalDef->TypeList[j] == "3D")
+                        {
                             item->setIcon(0, QIcon(":/icons/3D-64.png"));
+                        }
                         if (ecuCalDef->VisibleList.at(j) == "1")
+                        {
                             item->setCheckState(0, Qt::Checked);
+                        }
                         else
+                        {
                             item->setCheckState(0, Qt::Unchecked);
+                        }
                         item->setText(0, ecuCalDef->NameList[j]);
                         item->setText(1, QString::number(j));
                         calDataTree->topLevelItem(i)->addChild(item);
@@ -133,28 +149,36 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationDataTree(QTreeWidget *dataTr
     return calDataTree;
 }
 
-void *CalibrationTreeWidget::calibrationDataTreeWidgetItemExpanded(FileActions::EcuCalDefStructure *ecuCalDef, QString categoryName)
+void *CalibrationTreeWidget::calibrationDataTreeWidgetItemExpanded(FileActions::EcuCalDefStructure *ecuCalDef, const QString& categoryName)
 {
     for (int i = 0; i < ecuCalDef->CategoryList.count(); i++)
     {
         if (ecuCalDef->CategoryList.at(i) == categoryName)
+        {
             ecuCalDef->CategoryExpandedList.replace(i, "1");
+        }
     }
     if (categoryName == "ROM Info")
+    {
         ecuCalDef->RomInfoExpanded = "1";
+    }
 
     return NULL;
 }
 
-void *CalibrationTreeWidget::calibrationDataTreeWidgetItemCollapsed(FileActions::EcuCalDefStructure *ecuCalDef, QString categoryName)
+void *CalibrationTreeWidget::calibrationDataTreeWidgetItemCollapsed(FileActions::EcuCalDefStructure *ecuCalDef, const QString& categoryName)
 {
     for (int i = 0; i < ecuCalDef->CategoryList.count(); i++)
     {
         if (ecuCalDef->CategoryList.at(i) == categoryName)
+        {
             ecuCalDef->CategoryExpandedList.replace(i, "0");
+        }
     }
     if (categoryName == "ROM Info")
+    {
         ecuCalDef->RomInfoExpanded = "0";
+    }
 
     return NULL;
 }

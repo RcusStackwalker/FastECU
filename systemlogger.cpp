@@ -1,10 +1,12 @@
 #include "systemlogger.h"
 
+#include <utility>
+
 SystemLogger::SystemLogger(QString file_path, QString software_name, QString software_version, QObject *parent)
     : QObject(parent),
-      file_path(file_path),
-      software_name(software_name),
-      software_version(software_version)
+      file_path(std::move(file_path)),
+      software_name(std::move(software_name)),
+      software_version(std::move(software_version))
 {
     QObject::connect(this, &SystemLogger::LOG_E, this, &SystemLogger::log_messages);
     QObject::connect(this, &SystemLogger::LOG_W, this, &SystemLogger::log_messages);
@@ -15,7 +17,9 @@ SystemLogger::SystemLogger(QString file_path, QString software_name, QString sof
 SystemLogger::~SystemLogger()
 {
     if (syslog_file_open)
+    {
         syslog_file.close();
+    }
 }
 
 void SystemLogger::run()
@@ -29,7 +33,7 @@ void SystemLogger::enable_log_write_to_file(bool enable)
     write_syslog_to_file = enable;
 }
 
-void SystemLogger::log_messages(QString message, bool timestamp, bool linefeed)
+void SystemLogger::log_messages(const QString& message, bool timestamp, bool linefeed)
 {
     QString msg;
 
@@ -39,9 +43,13 @@ void SystemLogger::log_messages(QString message, bool timestamp, bool linefeed)
     QMetaMethod metaMethod;
 
     if (sender())
+    {
         metaMethod = sender()->metaObject()->method(senderSignalIndex());
+    }
     else
+    {
         return;
+    }
 
     // qDebug() << "metaMethod.name:" << metaMethod.name();
 
@@ -52,13 +60,21 @@ void SystemLogger::log_messages(QString message, bool timestamp, bool linefeed)
 
         // Check log type
         if (metaMethod.name() == "LOG_E")
+        {
             msg += "(EE) ";
+        }
         else if (metaMethod.name() == "LOG_W")
+        {
             msg += "(WW) ";
+        }
         else if (metaMethod.name() == "LOG_I")
+        {
             msg += "(II) ";
+        }
         else if (metaMethod.name() == "LOG_D")
+        {
             msg += "(DD) ";
+        }
     }
     msg += message;
 
@@ -66,16 +82,22 @@ void SystemLogger::log_messages(QString message, bool timestamp, bool linefeed)
 
     // Check if linefeed added
     if (linefeed)
+    {
         msg += "\n";
+    }
 
     if (metaMethod.name() != "LOG_D")
+    {
         emit send_message_to_log_window(msg);
+    }
 
     if (write_syslog_to_file)
+    {
         write_syslog(msg);
+    }
 }
 
-bool SystemLogger::write_syslog(QString msg)
+bool SystemLogger::write_syslog(const QString& msg)
 {
     // Open file for writing if needed
     if (!syslog_file_open)
@@ -85,7 +107,9 @@ bool SystemLogger::write_syslog(QString msg)
 
         QString syslog_file_name = file_path;
         if (file_path.at(file_path.length() - 1) != '/')
+        {
             syslog_file_name.append("/");
+        }
         syslog_file_name.append("log_fastecu_" + dateTimeString + ".txt");
 
         syslog_file.setFileName(syslog_file_name);
@@ -115,5 +139,7 @@ void SystemLogger::delay(int timeout)
 {
     QTime dieTime = QTime::currentTime().addMSecs(timeout);
     while (QTime::currentTime() < dieTime)
+    {
         QCoreApplication::processEvents(QEventLoop::AllEvents, 1);
+    }
 }

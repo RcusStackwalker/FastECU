@@ -60,9 +60,9 @@ class Chunks : public QObject
   private:
     int getChunkIndex(qint64 absPos);
 
-    QIODevice *_ioDevice;
-    qint64 _pos;
-    qint64 _size;
+    QIODevice *_ioDevice{};
+    qint64 _pos{};
+    qint64 _size{};
     QList<Chunk> _chunks;
 
 #ifdef MODUL_TEST

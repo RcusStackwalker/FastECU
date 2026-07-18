@@ -46,7 +46,7 @@ class GetKeyOperationsSubaru : public QDialog
     uint16_t fFunction(uint16_t wordInput, uint16_t keyInput);
     void findApprox(uint16_t **approxTable);
 
-    EcuOperations *ecuOperations;
+    EcuOperations *ecuOperations{};
 
   private:
     std::unique_ptr<Ui::EcuOperationsWindow> ui;

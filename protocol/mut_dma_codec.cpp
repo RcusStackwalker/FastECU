@@ -29,9 +29,13 @@ MutDmaFrame buildCommandFrame(bytes::Byte cmd, bytes::ByteView payload, bytes::B
 bool verifyFrame(bytes::ByteView frame)
 {
     if (frame.size() != FRAME_LEN)
+    {
         return false;
+    }
     if (frame[CHECKSUM_OFFSET] != sum8(frame, 0, CHECKSUM_OFFSET))
+    {
         return false;
+    }
     const bytes::Byte t = frame[TRAILER_OFFSET];
     return t == TRAILER_STD || t == TRAILER_FREEFORM;
 }
@@ -40,12 +44,18 @@ StreamFrame parseStreamFrame(bytes::ByteView frame)
 {
     StreamFrame s;
     if (frame.size() < 3)
+    {
         return s; // id + csum + trailer minimum
+    }
     if (frame[frame.size() - 1] != TRAILER_STD)
+    {
         return s;
+    }
     const std::size_t csumIdx = frame.size() - 2;
     if (frame[csumIdx] != sum8(frame, 0, csumIdx))
+    {
         return s;
+    }
     s.logId = frame[0];
     s.data.assign(frame.begin() + 1, frame.begin() + static_cast<std::ptrdiff_t>(csumIdx));
     s.ok = true;

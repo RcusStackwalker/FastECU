@@ -48,7 +48,7 @@ class DtcOperations : public QDialog
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
   private:
-    FileActions::EcuCalDefStructure *ecuCalDef;
+    FileActions::EcuCalDefStructure *ecuCalDef{};
     QString cmd_type;
 
 #define STATUS_SUCCESS 0x00
@@ -60,7 +60,7 @@ class DtcOperations : public QDialog
     bool fast_init_ok = false;
     bool can_init_ok = false;
 
-    int result;
+    int result{};
 
     uint8_t startbyte = 0;
     uint8_t tester_id = 0;
@@ -226,7 +226,7 @@ class DtcOperations : public QDialog
 
     void closeEvent(QCloseEvent *event);
     int select_operation();
-    int five_baud_init(QString protocol);
+    int five_baud_init(const QString& protocol);
     int fast_init();
     int iso15765_init();
 
@@ -234,8 +234,8 @@ class DtcOperations : public QDialog
     void request_vehicle_info();
     QByteArray request_dtc_list(uint8_t cmd);
 
-    uint8_t calculate_checksum(QByteArray output, bool dec_0x100);
-    QString parse_message_to_hex(QByteArray received);
+    uint8_t calculate_checksum(const QByteArray& output, bool dec_0x100);
+    QString parse_message_to_hex(const QByteArray& received);
     void delay(int timeout);
 
     SerialPortActions *serial;

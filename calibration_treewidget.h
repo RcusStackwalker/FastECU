@@ -24,8 +24,8 @@ class CalibrationTreeWidget : public QWidget
 
     QTreeWidget *buildCalibrationFilesTree(int ecuCalDefIndex, QTreeWidget *filesTreeWidget, FileActions::EcuCalDefStructure *ecuCalDef);
     QTreeWidget *buildCalibrationDataTree(QTreeWidget *dataTreeWidget, FileActions::EcuCalDefStructure *ecuCalDef);
-    void *calibrationDataTreeWidgetItemExpanded(FileActions::EcuCalDefStructure *ecuCalDef, QString categoryName);
-    void *calibrationDataTreeWidgetItemCollapsed(FileActions::EcuCalDefStructure *ecuCalDef, QString categoryName);
+    void *calibrationDataTreeWidgetItemExpanded(FileActions::EcuCalDefStructure *ecuCalDef, const QString& categoryName);
+    void *calibrationDataTreeWidgetItemCollapsed(FileActions::EcuCalDefStructure *ecuCalDef, const QString& categoryName);
     /*
         QStringList RomInfoStrings = {
             "XmlId",

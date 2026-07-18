@@ -1,18 +1,26 @@
 #include "flash_ecu_subaru_denso_sh7055_02.h"
+
+#include <utility>
 #include "flash_ecu_subaru_denso_sh7055_02_operation.h"
 #include "serial_port_actions.h"
 
-FlashEcuSubaruDensoSH7055_02::FlashEcuSubaruDensoSH7055_02(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *parent)
+FlashEcuSubaruDensoSH7055_02::FlashEcuSubaruDensoSH7055_02(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
     : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
 
     if (cmd_type == "test_write")
+    {
         this->setWindowTitle("Test write ROM " + ecuCalDef->FileName + " to ECU");
+    }
     else if (cmd_type == "write")
+    {
         this->setWindowTitle("Write ROM " + ecuCalDef->FileName + " to ECU");
+    }
     else if (cmd_type == "read")
+    {
         this->setWindowTitle("Read ROM from ECU");
+    }
 
     this->serial = serial;
 }
@@ -24,7 +32,9 @@ FlashEcuSubaruDensoSH7055_02::~FlashEcuSubaruDensoSH7055_02()
 void FlashEcuSubaruDensoSH7055_02::closeEvent(QCloseEvent *bar)
 {
     if (m_operation)
+    {
         m_operation->requestStop();
+    }
 }
 
 void FlashEcuSubaruDensoSH7055_02::run()
@@ -49,7 +59,7 @@ void FlashEcuSubaruDensoSH7055_02::run()
         connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashEcuSubaruDensoSH7055_02::LOG_D);
         connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
                 this, [this](QString msg)
-                { emit external_logger(msg); });
+                { emit external_logger(std::move(msg)); });
         connect(m_operation, &FlashOperationWorker::progressChanged,
                 this, &FlashEcuSubaruDensoSH7055_02::set_progressbar_value);
 
@@ -99,5 +109,7 @@ void FlashEcuSubaruDensoSH7055_02::set_progressbar_value(int value)
         ui->progressbar->setValue(value);
     }
     if (valueChanged)
+    {
         emit external_logger(value);
+    }
 }

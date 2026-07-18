@@ -128,7 +128,7 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
   public:
-    MainWindow(QString peerAddress = "", QString peerPassword = "", QWidget *parent = nullptr);
+    MainWindow(const QString& peerAddress = "", const QString& peerPassword = "", QWidget *parent = nullptr);
     ~MainWindow();
 
     void delay(int n);
@@ -199,7 +199,7 @@ class MainWindow : public QMainWindow
     FileActions *fileActions;
     FileActions::LogValuesStructure *logValues;
     FileActions::ConfigValuesStructure *configValues;
-    FileActions::EcuCalDefStructure *ecuCalDef[100];
+    FileActions::EcuCalDefStructure *ecuCalDef[100]{};
     // FileActions::EcuCalDefStructure *ecuCalDefTemp;
 
     SerialPortActions *serial;
@@ -268,7 +268,7 @@ class MainWindow : public QMainWindow
     QLabel *status_bar_connection_label = new QLabel("");
     QLabel *status_bar_ecu_label = new QLabel("");
 
-    QMenu *mainWindowMenu;
+    QMenu *mainWindowMenu{};
 
     QPushButton *refresh_serial_port_list;
     QComboBox *serial_port_list;
@@ -285,9 +285,9 @@ class MainWindow : public QMainWindow
     bool syslog_file_open = false;
     QElapsedTimer *log_file_timer;
 
-    QDialog *settings_dialog;
-    QListWidget *contents_widget;
-    QStackedWidget *pages_widget;
+    QDialog *settings_dialog{};
+    QListWidget *contents_widget{};
+    QStackedWidget *pages_widget{};
 
     QSize toolbar_item_size = QSize(24, 24);
 
@@ -308,9 +308,9 @@ class MainWindow : public QMainWindow
     void ssm_init();
     void ssm_kline_init();
     void ssm_can_init();
-    void parse_log_value_list(QByteArray received, QString protocol);
+    void parse_log_value_list(QByteArray received, const QString& protocol);
     QByteArray add_ssm_header(QByteArray output, bool dec_0x100);
-    uint8_t calculate_checksum(QByteArray output, bool dec_0x100);
+    uint8_t calculate_checksum(const QByteArray& output, bool dec_0x100);
     void log_to_file();
 
     // MUT/DMA memory read/write bench utilities (impl. in log_operations_ssm.cpp)
@@ -320,7 +320,7 @@ class MainWindow : public QMainWindow
     void setupLoggingEngine();
 
     // logvalues.c
-    void change_log_values(int tabIndex, QString protocol);
+    void change_log_values(int tabIndex, const QString& protocol);
 
     // mainwindow.c
     // Connect signals for any flash class and execute ::run() method
@@ -334,14 +334,14 @@ class MainWindow : public QMainWindow
     QStringList create_flash_transports_list();
     QStringList create_log_transports_list();
     // QString check_kernel(QString flash_method);
-    void setSplashScreenProgress(QString text, int incValue);
+    void setSplashScreenProgress(const QString& text, int incValue);
     QTextEdit *iterateWidgetChild(QObjectList children);
     bool write_syslog(QString msg);
 
     // menuactions.c
-    void inc_dec_value(QString action);
+    void inc_dec_value(const QString& action);
     void set_value();
-    void interpolate_value(QString action);
+    void interpolate_value(const QString& action);
     void copy_value();
     void paste_value();
     int connect_to_ecu();
@@ -353,11 +353,11 @@ class MainWindow : public QMainWindow
     void toggle_realtime();
     void toggle_log_to_file();
     void set_maptablewidget_items();
-    QString get_rom_data_value(uint8_t map_rom_number, uint32_t map_data_address, uint16_t map_value_index, QString map_value_storagetype, QString map_value_endian);
-    void set_rom_data_value(uint8_t map_rom_number, uint32_t map_data_address, uint16_t map_value_index, QString map_value_storagetype, QString map_value_endian, float map_value);
-    int get_mapvalue_decimal_count(QString valueFormat);
+    QString get_rom_data_value(uint8_t map_rom_number, uint32_t map_data_address, uint16_t map_value_index, const QString& map_value_storagetype, const QString& map_value_endian);
+    void set_rom_data_value(uint8_t map_rom_number, uint32_t map_data_address, uint16_t map_value_index, const QString& map_value_storagetype, const QString& map_value_endian, float map_value);
+    int get_mapvalue_decimal_count(const QString& valueFormat);
     int get_map_cell_colors(FileActions::EcuCalDefStructure *ecuCalDef, float mapDataValue, int mapIndex);
-    bool check_rom_data_value(QString storagetype, QString rom_data_value, QString new_rom_data_value);
+    bool check_rom_data_value(const QString& storagetype, const QString& rom_data_value, const QString& new_rom_data_value);
     void show_preferences_window();
 
     void toggle_haltech_ic7_display();
@@ -380,7 +380,7 @@ class MainWindow : public QMainWindow
 
   private slots:
     // External logger slot for string messages
-    void external_logger(QString message);
+    void external_logger(const QString& message);
     // External progress bar slot
     void external_logger_set_progressbar_value(int value);
 
@@ -392,11 +392,11 @@ class MainWindow : public QMainWindow
 
     // log_operations.c
     bool ecu_init();
-    void handleLoggingValuesUpdated(QVector<LogSample> samples);
-    void handleLoggingSessionEnded(SessionEndReason reason, QString message);
+    void handleLoggingValuesUpdated(const QVector<LogSample>& samples);
+    void handleLoggingSessionEnded(SessionEndReason reason, const QString& message);
 
     // menu_actions.c
-    void menu_action_triggered(QString action);
+    void menu_action_triggered(const QString& action);
 
     // mainwindow.c
     void select_protocol();
@@ -408,30 +408,30 @@ class MainWindow : public QMainWindow
     void check_serial_ports();
     void open_serial_port();
     int can_listener();
-    int start_ecu_operations(QString cmd_type);
+    int start_ecu_operations(const QString& cmd_type);
     void close_calibration();
     void close_calibration_map(QObject *obj);
     void change_gauge_values();
     void change_digital_values();
     void change_switch_values();
-    void update_logboxes(QString protocol);
-    void update_logbox_values(QString protocol);
+    void update_logboxes(const QString& protocol);
+    void update_logbox_values(const QString& protocol);
     void add_new_ecu_definition_file();
     void remove_ecu_definition_file();
     void add_new_logger_definition_file();
     void remove_logger_definition_file();
-    QString parse_message_to_hex(QByteArray received);
+    QString parse_message_to_hex(const QByteArray& received);
     QString parse_ecuid(QByteArray received);
-    void set_status_bar_label(bool serialConnectionState, bool ecuConnectionState, QString romId);
+    void set_status_bar_label(bool serialConnectionState, bool ecuConnectionState, const QString& romId);
     void custom_menu_requested(QPoint pos);
-    void selectable_combobox_item_changed(QString item);
+    void selectable_combobox_item_changed(const QString& item);
     void checkbox_state_changed(int state);
     void close_app();
     // Logger
     // void logger(int log_level, QString message, bool timestamp, bool linefeed);
     // void logger(QString message, bool timestamp, bool linefeed);
     // void sendMsgToLogWindow(QWidget* parent, QString msg);
-    void send_message_to_log_window(QString msg);
+    void send_message_to_log_window(const QString& msg);
     void network_state_changed(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState);
 
     // logvalues.c

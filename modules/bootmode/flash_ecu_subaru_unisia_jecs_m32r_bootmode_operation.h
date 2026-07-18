@@ -45,12 +45,12 @@ class FlashEcuSubaruUnisiaJecsM32rBootModeOperation : public FlashOperationWorke
 
     bool kernel_alive = false;
     bool test_write = false;
-    int result;
-    int mcu_type_index;
+    int result{};
+    int mcu_type_index{};
     int bootloader_start_countdown = 3;
 
-    uint8_t tester_id;
-    uint8_t target_id;
+    uint8_t tester_id{};
+    uint8_t target_id{};
 
     uint8_t comm_try_timeout = 50;
     uint8_t comm_try_count = 4;
@@ -69,7 +69,7 @@ class FlashEcuSubaruUnisiaJecsM32rBootModeOperation : public FlashOperationWorke
     QString flash_method;
     QString kernel;
 
-    int upload_kernel(QString kernel);
+    int upload_kernel(const QString& kernel);
     int read_mem(uint32_t start_addr, uint32_t length);
     int write_mem();
 

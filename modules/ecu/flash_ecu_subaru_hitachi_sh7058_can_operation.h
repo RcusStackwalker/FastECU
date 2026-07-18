@@ -39,12 +39,12 @@ class FlashEcuSubaruHitachiSH7058CanOperation : public FlashOperationWorker
     bool request_denso_kernel_init = false;
     bool request_denso_kernel_id = false;
 
-    int result;
-    int mcu_type_index;
+    int result{};
+    int mcu_type_index{};
     int bootloader_start_countdown = 3;
 
-    uint8_t tester_id;
-    uint8_t target_id;
+    uint8_t tester_id{};
+    uint8_t target_id{};
 
     uint16_t receive_timeout = 500;
     uint16_t serial_read_timeout = 2000;
@@ -95,9 +95,9 @@ class FlashEcuSubaruHitachiSH7058CanOperation : public FlashOperationWorker
     // QByteArray request_kernel_init();
     // QByteArray request_kernel_id();
 
-    QByteArray subaru_ecu_hitachi_generate_can_seed_key(QByteArray requested_seed);
-    QByteArray subaru_ecu_hitachi_encrypt_32bit_payload(QByteArray buf, uint32_t len);
-    QByteArray subaru_ecu_hitachi_decrypt_32bit_payload(QByteArray buf, uint32_t len);
+    QByteArray subaru_ecu_hitachi_generate_can_seed_key(const QByteArray& requested_seed);
+    QByteArray subaru_ecu_hitachi_encrypt_32bit_payload(const QByteArray& buf, uint32_t len);
+    QByteArray subaru_ecu_hitachi_decrypt_32bit_payload(const QByteArray& buf, uint32_t len);
 
     // int connect_bootloader_start_countdown(int timeout);
 

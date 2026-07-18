@@ -37,16 +37,16 @@ class Settings : public QDialog
     void closeEvent(QCloseEvent *bar);
 
     FileActions::ConfigValuesStructure *configValues;
-    FileActions *fileActions;
+    FileActions *fileActions{};
 
-    QLineEdit *ecuflash_def_dir_lineedit;
-    QLineEdit *romraider_logger_file_lineedit;
-    QLineEdit *ecu_cal_dir_lineedit;
-    QLineEdit *log_files_dir_lineedit;
+    QLineEdit *ecuflash_def_dir_lineedit{};
+    QLineEdit *romraider_logger_file_lineedit{};
+    QLineEdit *ecu_cal_dir_lineedit{};
+    QLineEdit *log_files_dir_lineedit{};
 
-    QSpinBox *toolbar_iconsize_spinbox;
+    QSpinBox *toolbar_iconsize_spinbox{};
 
-    QListWidget *romraider_definition_files_list;
+    QListWidget *romraider_definition_files_list{};
 
     QVBoxLayout *create_files_config_page(FileActions::ConfigValuesStructure *configValues);
     QVBoxLayout *create_ui_config_page(FileActions::ConfigValuesStructure *configValues);

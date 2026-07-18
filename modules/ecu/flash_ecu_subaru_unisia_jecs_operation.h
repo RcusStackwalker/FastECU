@@ -34,7 +34,7 @@ class FlashEcuSubaruUnisiaJecsOperation : public FlashOperationWorker
 #define STATUS_SUCCESS 0x00
 #define STATUS_ERROR 0x01
 
-    int mcu_type_index;
+    int mcu_type_index{};
     QString mcu_type_string;
 
     uint16_t receive_timeout = 500;

@@ -6,11 +6,12 @@
 #include <QElapsedTimer>
 #include <QSerialPort>
 #include <QTime>
+#include <utility>
 
 FlashEcuSubaruUnisiaJecsOperation::FlashEcuSubaruUnisiaJecsOperation(
     SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
     QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(cmd_type)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(std::move(cmd_type))
 {
 }
 
@@ -96,7 +97,9 @@ int FlashEcuSubaruUnisiaJecsOperation::read_mem(uint32_t start_addr, uint32_t le
     while (willget)
     {
         if (stopRequested())
+        {
             return STATUS_ERROR;
+        }
 
         uint32_t numblocks = 0;
         float pleft = 0;
@@ -107,7 +110,9 @@ int FlashEcuSubaruUnisiaJecsOperation::read_mem(uint32_t start_addr, uint32_t le
         numblocks = willget / 32;
 
         if (numblocks > NP10_MAXBLKS)
+        {
             numblocks = NP10_MAXBLKS;
+        }
 
         uint32_t pagesize = numblocks * 32;
 
@@ -133,7 +138,9 @@ int FlashEcuSubaruUnisiaJecsOperation::read_mem(uint32_t start_addr, uint32_t le
         while (!byte_received)
         {
             if (stopRequested())
+            {
                 return STATUS_ERROR;
+            }
 
             if (QTime::currentTime() > dieTime)
             {
@@ -156,14 +163,20 @@ int FlashEcuSubaruUnisiaJecsOperation::read_mem(uint32_t start_addr, uint32_t le
                 else
                 {
                     if (bytes_synced)
+                    {
                         received.remove(0, 3);
+                    }
                     else
+                    {
                         received.remove(0, 1);
+                    }
                 }
                 loop_count++;
             }
             if (loop_count > 10)
+            {
                 bytes_synced = false;
+            }
         }
         received_flush = serial->read_serial_data(5);
 
@@ -172,7 +185,9 @@ int FlashEcuSubaruUnisiaJecsOperation::read_mem(uint32_t start_addr, uint32_t le
         chrono = timer.elapsed();
 
         if (cplen > 0 && chrono > 0)
+        {
             curspeed = cplen * (1000.0f / chrono);
+        }
 
         if (!curspeed)
         {

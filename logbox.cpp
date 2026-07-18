@@ -1,23 +1,28 @@
 #include "logbox.h"
+
 // #include "ui_preferences.h"
 
 LogBox::LogBox(QWidget *parent) : QWidget(parent)
 {
 }
 
-QGroupBox *LogBox::drawLogBoxes(QString type, uint8_t index, uint8_t logBoxCount, QString title, QString unit, QString value)
+QGroupBox *LogBox::drawLogBoxes(const QString& type, uint8_t index, uint8_t logBoxCount, const QString& title, const QString& unit, const QString& value)
 {
     QGroupBox *gb = NULL;
 
     if (type == "switch")
+    {
         gb = drawLogSwitchBox(index, logBoxCount, title, unit, value);
+    }
     if (type == "log")
+    {
         gb = drawLogValueBox(index, logBoxCount, title, unit, value);
+    }
 
     return gb;
 }
 
-QGroupBox *LogBox::drawLogSwitchBox(uint8_t index, uint8_t switchBoxCount, QString title, QString unit, QString value)
+QGroupBox *LogBox::drawLogSwitchBox(uint8_t index, uint8_t switchBoxCount, const QString& title, const QString& unit, const QString& value)
 {
     QScreen *screen = QGuiApplication::primaryScreen();
     QRect size = screen->geometry();
@@ -34,7 +39,7 @@ QGroupBox *LogBox::drawLogSwitchBox(uint8_t index, uint8_t switchBoxCount, QStri
     switchGroupBox->setMaximumHeight(25);
     switchGroupBox->setStyleSheet("QGroupBox{font: bold;border:1px solid gray;border-radius:5px;margin-top: 0px;padding:0px 0px 0px 0px;} QGroupBox::title{subcontrol-origin: margin;left: 7px;padding:0px 3px 0px 3px;}");
 
-    QString labelText = title;
+    const QString& labelText = title;
 
     QLabel *switchBoxLabel = new QLabel();
     // switchBoxLabel->setFixedWidth(100);
@@ -56,7 +61,7 @@ QGroupBox *LogBox::drawLogSwitchBox(uint8_t index, uint8_t switchBoxCount, QStri
     return switchGroupBox;
 }
 
-QGroupBox *LogBox::drawLogValueBox(uint8_t index, uint8_t logBoxCount, QString title, QString unit, QString value)
+QGroupBox *LogBox::drawLogValueBox(uint8_t index, uint8_t logBoxCount, const QString& title, const QString& unit, const QString& value)
 {
     QScreen *screen = QGuiApplication::primaryScreen();
     QRect size = screen->geometry();

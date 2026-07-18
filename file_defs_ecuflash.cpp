@@ -1,6 +1,6 @@
 #include "file_actions.h"
 
-QString FileActions::convert_value_format(QString value_format)
+QString FileActions::convert_value_format(const QString& value_format)
 {
     QStringList format_text = value_format.split(".");
     QString decimal_count;
@@ -8,13 +8,19 @@ QString FileActions::convert_value_format(QString value_format)
     if (format_text.length() > 1)
     {
         if (format_text.at(1).contains("f"))
+        {
             decimal_count = format_text.at(1).split("f").at(0);
+        }
     }
     if (decimal_count.toInt() > 0)
+    {
         decimals.append(".");
+    }
 
     for (int m = 0; m < decimal_count.toInt(); m++)
+    {
         decimals.append("0");
+    }
 
     return decimals;
 }
@@ -112,9 +118,13 @@ FileActions::ConfigValuesStructure *FileActions::create_ecuflash_def_id_list(Con
                                 configValues->ecuflash_def_filename.append("");
                             }
                             if (!cal_id_addr_found)
+                            {
                                 configValues->ecuflash_def_cal_id_addr.append("");
+                            }
                             if (!ecu_id_found)
+                            {
                                 configValues->ecuflash_def_ecu_id.append("");
+                            }
 
                             cal_id_found = false;
                             cal_id_addr_found = false;
@@ -137,17 +147,21 @@ FileActions::ConfigValuesStructure *FileActions::create_ecuflash_def_id_list(Con
 QString FileActions::parse_strict_bool_attribute(const QDomElement& element, const QString& attrName, const QString& tableName)
 {
     if (!element.hasAttribute(attrName))
+    {
         return "false";
+    }
 
     const QString value = element.attribute(attrName);
     if (value == "true" || value == "false")
+    {
         return value;
+    }
 
     emit LOG_W("table " + tableName + ": " + attrName + " must be true or false, not [" + value + "]", true, true);
     return "false";
 }
 
-FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStructure *ecuCalDef, QString cal_id)
+FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStructure *ecuCalDef, const QString& cal_id)
 {
     ConfigValuesStructure *configValues = &ConfigValuesStruct;
 
@@ -179,8 +193,10 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
     int scaling_index = 0;
 
     int file_index = 0;
-    if (!configValues->ecuflash_def_cal_id.length())
+    if (configValues->ecuflash_def_cal_id.empty())
+    {
         return NULL;
+    }
 
     emit LOG_D("Search ID: " + cal_id, true, true);
     QString def_id;
@@ -189,7 +205,9 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
         for (int index = 0; index < configValues->ecuflash_def_cal_id.length(); index++)
         {
             if (cal_id_file_found)
+            {
                 break;
+            }
 
             QFileInfo def_file(configValues->ecuflash_def_filename.at(index));
             def_id = def_file.fileName();
@@ -207,7 +225,9 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
         for (int index = 0; index < configValues->ecuflash_def_cal_id.length(); index++)
         {
             if (cal_id_file_found)
+            {
                 break;
+            }
 
             QFileInfo def_file(configValues->ecuflash_def_filename.at(index));
             def_id = def_file.fileName();
@@ -225,7 +245,9 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
         for (int index = 0; index < configValues->ecuflash_def_cal_id.length(); index++)
         {
             if (cal_id_file_found)
+            {
                 break;
+            }
 
             QFileInfo def_file(configValues->ecuflash_def_filename.at(index));
             def_id = def_file.fileName();
@@ -257,7 +279,9 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
     }
 
     if (!cal_id_file_found)
+    {
         return ecuCalDef;
+    }
 
     emit LOG_D("Found ID: " + cal_id, true, true);
 
@@ -266,10 +290,14 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
     filename = configValues->ecuflash_def_filename.at(file_index);
 
     while (ecuCalDef->RomInfo.length() < ecuCalDef->RomInfoStrings.length())
+    {
         ecuCalDef->RomInfo.append(" ");
+    }
 
     if (!cal_id.contains("BASE"))
+    {
         ecuCalDef->RomInfo.replace(DefFile, filename);
+    }
 
     QFile file(filename);
 
@@ -287,7 +315,9 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
         emit LOG_D("BASE include found: " + cal_id, true, true);
     }
     else
+    {
         base_defined = false;
+    }
 
     QDomDocument xmlBOM;
     xmlBOM.setContent(&file);
@@ -308,7 +338,9 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
     for (int x = 0; x < items.count(); x++)
     {
         if (items.at(x).isComment())
+        {
             continue;
+        }
 
         QDomElement rom_child = items.at(x).toElement();
 
@@ -320,33 +352,61 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
             {
                 // emit LOG_D("ROM ID TAG childs: " + rom_id_child.tagName() << rom_id_child.text();
                 if (rom_id_child.tagName() == "xmlid")
+                {
                     xmlid = rom_id_child.text();
+                }
                 else if (rom_id_child.tagName() == "internalidaddress")
+                {
                     internalidaddress = rom_id_child.text();
+                }
                 else if (rom_id_child.tagName() == "internalidstring")
+                {
                     internalidstring = rom_id_child.text();
+                }
                 else if (rom_id_child.tagName() == "ecuid")
+                {
                     ecuid = rom_id_child.text();
+                }
                 else if (rom_id_child.tagName() == "year")
+                {
                     year = rom_id_child.text();
+                }
                 else if (rom_id_child.tagName() == "market")
+                {
                     market = rom_id_child.text();
+                }
                 else if (rom_id_child.tagName() == "make")
+                {
                     make = rom_id_child.text();
+                }
                 else if (rom_id_child.tagName() == "model")
+                {
                     model = rom_id_child.text();
+                }
                 else if (rom_id_child.tagName() == "submodel")
+                {
                     submodel = rom_id_child.text();
+                }
                 else if (rom_id_child.tagName() == "transmission")
+                {
                     transmission = rom_id_child.text();
+                }
                 else if (rom_id_child.tagName() == "memmodel")
+                {
                     memmodel = rom_id_child.text();
+                }
                 else if (rom_id_child.tagName() == "checksummodule")
+                {
                     checksummodule = rom_id_child.text();
+                }
                 else if (rom_id_child.tagName() == "flashmethod")
+                {
                     flashmethod = rom_id_child.text();
+                }
                 else if (rom_id_child.tagName() == "filesize")
+                {
                     filesize = rom_id_child.text();
+                }
 
                 rom_id_child = rom_id_child.nextSibling().toElement();
             }
@@ -381,7 +441,9 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
                         }
                     }
                     if (flashmethod_alias_found)
+                    {
                         break;
+                    }
                 }
             }
         }
@@ -390,7 +452,9 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
             inherits_cal_id = rom_child.text();
             // emit LOG_D("INCLUDE: " + cal_id + " -> inherits " + inherits_cal_id, true, true);
             if (inherits_cal_id.contains("BASE"))
+            {
                 ecuCalDef->RomInfo.replace(RomBase, inherits_cal_id);
+            }
         }
         else if (rom_child.tagName() == "scaling")
         {
@@ -418,18 +482,26 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
                     {
                         selection_name.append(sub_child.attribute("name", " ") + ",");
                         if (sub_child.attribute("value", " ") != " ")
+                        {
                             selection_value.append(sub_child.attribute("value", " ") + ",");
+                        }
                         else
+                        {
                             selection_value.append(sub_child.attribute("data", " ") + ",");
+                        }
                     }
                     sub_child = sub_child.nextSibling().toElement();
                 }
             }
             selection_value = selection_value.replace(" ", "");
             if (selection_name == "")
+            {
                 selection_name.append(" ");
+            }
             if (selection_value == "")
+            {
                 selection_value.append(" ");
+            }
             ecuCalDef->ScalingSelectionsNameList.append(selection_name);
             ecuCalDef->ScalingSelectionsValueList.append(selection_value);
             scaling_index++;
@@ -445,7 +517,9 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
                 if (ecuCalDef->NameList.at(i) == map_name)
                 {
                     if (base_defined)
+                    {
                         def_map_index = i;
+                    }
                     map_defined = true;
                     // emit LOG_D("Map defined";
                 }
@@ -465,52 +539,90 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
                 QString type = rom_child.attribute("type", " ");
                 // if (type == "1D" || type == "X Axis" || type == "Y Axis")
                 if (type == "X Axis" || type == "Y Axis")
+                {
                     type = "2D";
+                }
                 if (ecuCalDef->NameList.at(def_map_index) == " ")
+                {
                     ecuCalDef->NameList.replace(def_map_index, rom_child.attribute("name", " "));
+                }
                 if (rom_child.attribute("type", " ") == "X Axis")
                 {
                     if (ecuCalDef->XSizeList.at(def_map_index) == "" || ecuCalDef->XSizeList.at(def_map_index) == " ")
+                    {
                         ecuCalDef->XSizeList.replace(def_map_index, rom_child.attribute("elements", " "));
+                    }
                     ecuCalDef->YSizeList.replace(def_map_index, "1");
                 }
                 if (rom_child.attribute("type", " ") == "Y Axis")
                 {
                     if (ecuCalDef->YSizeList.at(def_map_index) == "" || ecuCalDef->YSizeList.at(def_map_index) == " ")
+                    {
                         ecuCalDef->YSizeList.replace(def_map_index, rom_child.attribute("elements", " "));
+                    }
                     ecuCalDef->XSizeList.replace(def_map_index, "1");
                 }
                 if (ecuCalDef->StartPosList.at(def_map_index) == " ")
+                {
                     ecuCalDef->StartPosList.replace(def_map_index, rom_child.attribute("startpos", "1"));
+                }
                 if (ecuCalDef->IntervalList.at(def_map_index) == " ")
+                {
                     ecuCalDef->IntervalList.replace(def_map_index, rom_child.attribute("interval", "1"));
+                }
                 if (ecuCalDef->AddressList.at(def_map_index) == " ")
+                {
                     ecuCalDef->AddressList.replace(def_map_index,
                                                    rom_child.attribute("address", rom_child.attribute("storageaddress", "")));
+                }
                 if (ecuCalDef->TypeList.at(def_map_index) == " ")
+                {
                     ecuCalDef->TypeList.replace(def_map_index, type);
+                }
                 if (ecuCalDef->CategoryList.at(def_map_index) == " ")
+                {
                     ecuCalDef->CategoryList.replace(def_map_index, rom_child.attribute("category", " "));
+                }
                 if (ecuCalDef->SubCategoryList.at(def_map_index) == " ")
+                {
                     ecuCalDef->SubCategoryList.replace(def_map_index, rom_child.attribute("subcategory", " "));
+                }
                 if (ecuCalDef->LevelList.at(def_map_index) == " ")
+                {
                     ecuCalDef->LevelList.replace(def_map_index, rom_child.attribute("level", " "));
+                }
                 if (ecuCalDef->UserLevelList.at(def_map_index) == " ")
+                {
                     ecuCalDef->UserLevelList.replace(def_map_index, rom_child.attribute("userlevel", " "));
+                }
                 if (ecuCalDef->DescriptionList.at(def_map_index) == " ")
+                {
                     ecuCalDef->DescriptionList.replace(def_map_index, rom_child.attribute("description", " "));
+                }
                 if (ecuCalDef->MapScalingNameList.at(def_map_index) == " ")
+                {
                     ecuCalDef->MapScalingNameList.replace(def_map_index, rom_child.attribute("scaling", " "));
+                }
                 if (ecuCalDef->XSizeList.at(def_map_index) == " " || ecuCalDef->XSizeList.at(def_map_index) == "")
+                {
                     ecuCalDef->XSizeList.replace(def_map_index, rom_child.attribute("sizex", " "));
+                }
                 if (ecuCalDef->YSizeList.at(def_map_index) == " " || ecuCalDef->YSizeList.at(def_map_index) == "")
+                {
                     ecuCalDef->YSizeList.replace(def_map_index, rom_child.attribute("sizey", " "));
+                }
                 if (ecuCalDef->SwapXYList.at(def_map_index) == " ")
+                {
                     ecuCalDef->SwapXYList.replace(def_map_index, parse_strict_bool_attribute(rom_child, "swapxy", map_name));
+                }
                 if (ecuCalDef->FlipXList.at(def_map_index) == " ")
+                {
                     ecuCalDef->FlipXList.replace(def_map_index, parse_strict_bool_attribute(rom_child, "flipx", map_name));
+                }
                 if (ecuCalDef->FlipYList.at(def_map_index) == " ")
+                {
                     ecuCalDef->FlipYList.replace(def_map_index, parse_strict_bool_attribute(rom_child, "flipy", map_name));
+                }
 
                 // emit LOG_D("Define " + cal_id + " map: " + ecuCalDef->NameList.at(def_map_index) + " in category: " + ecuCalDef->CategoryList.at(def_map_index), true, true);
 
@@ -522,25 +634,45 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
                     {
                         // emit LOG_D("Table scaling", true, true);
                         if (ecuCalDef->StorageTypeList.at(def_map_index) == " ")
+                        {
                             ecuCalDef->StorageTypeList.replace(def_map_index, rom_scale_child.attribute("storagetype", " "));
+                        }
                         if (ecuCalDef->UnitsList.at(def_map_index) == " ")
+                        {
                             ecuCalDef->UnitsList.replace(def_map_index, rom_scale_child.attribute("units", " "));
+                        }
                         if (ecuCalDef->CoarseIncList.at(def_map_index) == " ")
+                        {
                             ecuCalDef->CoarseIncList.replace(def_map_index, rom_scale_child.attribute("inc", " "));
+                        }
                         if (ecuCalDef->FineIncList.at(def_map_index) == " ")
+                        {
                             ecuCalDef->FineIncList.replace(def_map_index, QString::number(ecuCalDef->CoarseIncList.at(def_map_index).toFloat() / 10.0f));
+                        }
                         if (ecuCalDef->MinValueList.at(def_map_index) == " ")
+                        {
                             ecuCalDef->MinValueList.replace(def_map_index, rom_scale_child.attribute("min", " "));
+                        }
                         if (ecuCalDef->MaxValueList.at(def_map_index) == " ")
+                        {
                             ecuCalDef->MaxValueList.replace(def_map_index, rom_scale_child.attribute("max", " "));
+                        }
                         if (ecuCalDef->EndianList.at(def_map_index) == " ")
+                        {
                             ecuCalDef->EndianList.replace(def_map_index, rom_scale_child.attribute("endian", " "));
+                        }
                         if (ecuCalDef->FromByteList.at(def_map_index) == " ")
+                        {
                             ecuCalDef->FromByteList.replace(def_map_index, rom_scale_child.attribute("toexpr", " "));
+                        }
                         if (ecuCalDef->ToByteList.at(def_map_index) == " ")
+                        {
                             ecuCalDef->ToByteList.replace(def_map_index, rom_scale_child.attribute("frexpr", " "));
+                        }
                         if (ecuCalDef->FormatList.at(def_map_index) == " ")
+                        {
                             ecuCalDef->FormatList.replace(def_map_index, rom_scale_child.attribute("format", " "));
+                        }
 
                         QString selection_name;
                         QString selection_value;
@@ -554,21 +686,33 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
                                 {
                                     selection_name.append(rom_scale_sub_child.attribute("name", " ") + ",");
                                     if (rom_scale_child.attribute("value", " ") != " ")
+                                    {
                                         selection_value.append(rom_scale_child.attribute("value", " ") + ",");
+                                    }
                                     else
+                                    {
                                         selection_value.append(rom_scale_child.attribute("data", " ") + ",");
+                                    }
                                 }
                                 rom_scale_sub_child = rom_scale_sub_child.nextSibling().toElement();
                             }
                         }
                         if (selection_name == "")
+                        {
                             selection_name.append(" ");
+                        }
                         if (selection_value == "")
+                        {
                             selection_value.append(" ");
+                        }
                         if (ecuCalDef->SelectionsNameList.at(def_map_index) == " ")
+                        {
                             ecuCalDef->SelectionsNameList.replace(def_map_index, selection_name);
+                        }
                         if (ecuCalDef->SelectionsValueList.at(def_map_index) == " ")
+                        {
                             ecuCalDef->SelectionsValueList.replace(def_map_index, selection_value);
+                        }
                     }
                     else if (rom_scale_child.tagName() == "table")
                     {
@@ -578,134 +722,238 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
                         {
                             // emit LOG_D("X Axis";
                             if (ecuCalDef->XSizeList.at(def_map_index) == "" || ecuCalDef->XSizeList.at(def_map_index) == " ")
+                            {
                                 ecuCalDef->XSizeList.replace(def_map_index, rom_scale_child.attribute("elements", " "));
+                            }
                             if (ecuCalDef->XScaleNameList.at(def_map_index) == " ")
+                            {
                                 ecuCalDef->XScaleNameList.replace(def_map_index, rom_scale_child.attribute("name", " "));
+                            }
                             if (ecuCalDef->XScaleAddressList.at(def_map_index) == " ")
+                            {
                                 ecuCalDef->XScaleAddressList.replace(def_map_index, rom_scale_child.attribute("address", " "));
+                            }
                             if (ecuCalDef->XScaleTypeList.at(def_map_index) == " ")
+                            {
                                 ecuCalDef->XScaleTypeList.replace(def_map_index, ScaleType);
+                            }
                             if (ecuCalDef->XScaleScalingNameList.at(def_map_index) == " ")
+                            {
                                 ecuCalDef->XScaleScalingNameList.replace(def_map_index, rom_scale_child.attribute("scaling", " "));
+                            }
                             if (ecuCalDef->XScaleStartPosList.at(def_map_index) == " ")
+                            {
                                 ecuCalDef->XScaleStartPosList.replace(def_map_index, rom_scale_child.attribute("startpos", "1"));
+                            }
                             if (ecuCalDef->XScaleIntervalList.at(def_map_index) == " ")
+                            {
                                 ecuCalDef->XScaleIntervalList.replace(def_map_index, rom_scale_child.attribute("interval", "1"));
+                            }
                             QDomElement rom_scale_sub_child = rom_scale_child.firstChild().toElement();
                             if (rom_scale_sub_child.tagName() == "scaling")
                             {
                                 // emit LOG_D("X Axis scaling";
                                 if (ecuCalDef->XScaleStorageTypeList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->XScaleStorageTypeList.replace(def_map_index, rom_scale_sub_child.attribute("storagetype", " "));
+                                }
                                 if (ecuCalDef->XScaleUnitsList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->XScaleUnitsList.replace(def_map_index, rom_scale_sub_child.attribute("units", " "));
+                                }
                                 if (ecuCalDef->XScaleCoarseIncList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->XScaleCoarseIncList.replace(def_map_index, rom_scale_sub_child.attribute("inc", " "));
+                                }
                                 if (ecuCalDef->XScaleFineIncList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->XScaleFineIncList.replace(def_map_index, QString::number(ecuCalDef->CoarseIncList.at(def_map_index).toFloat() / 10.0f));
+                                }
                                 if (ecuCalDef->XScaleMinValueList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->XScaleMinValueList.replace(def_map_index, rom_scale_sub_child.attribute("min", " "));
+                                }
                                 if (ecuCalDef->XScaleMaxValueList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->XScaleMaxValueList.replace(def_map_index, rom_scale_sub_child.attribute("max", " "));
+                                }
                                 if (ecuCalDef->XScaleEndianList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->XScaleEndianList.replace(def_map_index, rom_scale_sub_child.attribute("endian", " "));
+                                }
                                 if (ecuCalDef->XScaleFromByteList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->XScaleFromByteList.replace(def_map_index, rom_scale_sub_child.attribute("toexpr", " "));
+                                }
                                 if (ecuCalDef->XScaleToByteList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->XScaleToByteList.replace(def_map_index, rom_scale_sub_child.attribute("frexpr", " "));
+                                }
                                 if (ecuCalDef->XScaleFormatList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->XScaleFormatList.replace(def_map_index, rom_scale_sub_child.attribute("format", " "));
+                                }
                             }
                         }
                         else if (ScaleType == "Y Axis" && ecuCalDef->TypeList.at(def_map_index) == "3D")
                         {
                             // emit LOG_D("Y Axis";
                             if (ecuCalDef->YSizeList.at(def_map_index) == " " || ecuCalDef->YSizeList.at(def_map_index) == "")
+                            {
                                 ecuCalDef->YSizeList.replace(def_map_index, rom_scale_child.attribute("elements", " "));
+                            }
                             if (ecuCalDef->YScaleNameList.at(def_map_index) == " ")
+                            {
                                 ecuCalDef->YScaleNameList.replace(def_map_index, rom_scale_child.attribute("name", " "));
+                            }
                             if (ecuCalDef->YScaleAddressList.at(def_map_index) == " ")
+                            {
                                 ecuCalDef->YScaleAddressList.replace(def_map_index, rom_scale_child.attribute("address", " "));
+                            }
                             if (ecuCalDef->YScaleTypeList.at(def_map_index) == " ")
+                            {
                                 ecuCalDef->YScaleTypeList.replace(def_map_index, ScaleType);
+                            }
                             if (ecuCalDef->YScaleScalingNameList.at(def_map_index) == " ")
+                            {
                                 ecuCalDef->YScaleScalingNameList.replace(def_map_index, rom_scale_child.attribute("scaling", " "));
+                            }
                             if (ecuCalDef->YScaleStartPosList.at(def_map_index) == " ")
+                            {
                                 ecuCalDef->YScaleStartPosList.replace(def_map_index, rom_scale_child.attribute("startpos", "1"));
+                            }
                             if (ecuCalDef->YScaleIntervalList.at(def_map_index) == " ")
+                            {
                                 ecuCalDef->YScaleIntervalList.replace(def_map_index, rom_scale_child.attribute("interval", "1"));
+                            }
 
                             QDomElement rom_scale_sub_child = rom_scale_child.firstChild().toElement();
                             if (rom_scale_sub_child.tagName() == "scaling")
                             {
                                 // emit LOG_D("Y Axis scaling";
                                 if (ecuCalDef->YScaleStorageTypeList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->YScaleStorageTypeList.replace(def_map_index, rom_scale_sub_child.attribute("storagetype", " "));
+                                }
                                 if (ecuCalDef->YScaleUnitsList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->YScaleUnitsList.replace(def_map_index, rom_scale_sub_child.attribute("units", " "));
+                                }
                                 if (ecuCalDef->YScaleCoarseIncList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->YScaleCoarseIncList.replace(def_map_index, rom_scale_sub_child.attribute("inc", " "));
+                                }
                                 if (ecuCalDef->YScaleFineIncList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->YScaleFineIncList.replace(def_map_index, QString::number(ecuCalDef->CoarseIncList.at(def_map_index).toFloat() / 10.0f));
+                                }
                                 if (ecuCalDef->YScaleMinValueList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->YScaleMinValueList.replace(def_map_index, rom_scale_sub_child.attribute("min", " "));
+                                }
                                 if (ecuCalDef->YScaleMaxValueList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->YScaleMaxValueList.replace(def_map_index, rom_scale_sub_child.attribute("max", " "));
+                                }
                                 if (ecuCalDef->YScaleEndianList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->YScaleEndianList.replace(def_map_index, rom_scale_sub_child.attribute("endian", " "));
+                                }
                                 if (ecuCalDef->YScaleFromByteList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->YScaleFromByteList.replace(def_map_index, rom_scale_sub_child.attribute("toexpr", " "));
+                                }
                                 if (ecuCalDef->YScaleToByteList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->YScaleToByteList.replace(def_map_index, rom_scale_sub_child.attribute("frexpr", " "));
+                                }
                                 if (ecuCalDef->YScaleFormatList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->YScaleFormatList.replace(def_map_index, rom_scale_sub_child.attribute("format", " "));
+                                }
                             }
                         }
                         else if (ScaleType == "Static Y Axis" || ScaleType == "Static X Axis" || (ScaleType == "Y Axis" && ecuCalDef->TypeList.at(def_map_index) == "2D"))
                         {
                             // emit LOG_D("Static X Axis";
                             if (ScaleType == "Static Y Axis")
+                            {
                                 ScaleType = "Static X Axis";
+                            }
                             if (ecuCalDef->XSizeList.at(def_map_index) == " " || ecuCalDef->XSizeList.at(def_map_index) == "")
+                            {
                                 ecuCalDef->XSizeList.replace(def_map_index, rom_scale_child.attribute("elements", " "));
+                            }
                             ecuCalDef->YSizeList.replace(def_map_index, "1");
                             if (ecuCalDef->XScaleNameList.at(def_map_index) == " ")
+                            {
                                 ecuCalDef->XScaleNameList.replace(def_map_index, rom_scale_child.attribute("name", " "));
+                            }
                             if (ecuCalDef->XScaleAddressList.at(def_map_index) == " ")
+                            {
                                 ecuCalDef->XScaleAddressList.replace(def_map_index, rom_scale_child.attribute("address", " "));
+                            }
                             if (ecuCalDef->XScaleTypeList.at(def_map_index) == " ")
+                            {
                                 ecuCalDef->XScaleTypeList.replace(def_map_index, ScaleType);
+                            }
                             if (ecuCalDef->XScaleScalingNameList.at(def_map_index) == " ")
+                            {
                                 ecuCalDef->XScaleScalingNameList.replace(def_map_index, rom_scale_child.attribute("scaling", " "));
+                            }
                             if (ecuCalDef->XScaleStartPosList.at(def_map_index) == " ")
+                            {
                                 ecuCalDef->XScaleStartPosList.replace(def_map_index, rom_scale_child.attribute("startpos", "1"));
+                            }
                             if (ecuCalDef->XScaleIntervalList.at(def_map_index) == " ")
+                            {
                                 ecuCalDef->XScaleIntervalList.replace(def_map_index, rom_scale_child.attribute("interval", "1"));
+                            }
 
                             QDomElement rom_scale_sub_child = rom_scale_child.firstChild().toElement();
                             if (rom_scale_sub_child.tagName() == "scaling")
                             {
                                 // emit LOG_D("Static X Axis scaling";
                                 if (ecuCalDef->XScaleStorageTypeList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->XScaleStorageTypeList.replace(def_map_index, rom_scale_sub_child.attribute("storagetype", " "));
+                                }
                                 if (ecuCalDef->XScaleUnitsList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->XScaleUnitsList.replace(def_map_index, rom_scale_sub_child.attribute("units", " "));
+                                }
                                 if (ecuCalDef->XScaleCoarseIncList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->XScaleCoarseIncList.replace(def_map_index, rom_scale_sub_child.attribute("inc", " "));
+                                }
                                 if (ecuCalDef->XScaleFineIncList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->XScaleFineIncList.replace(def_map_index, QString::number(ecuCalDef->CoarseIncList.at(def_map_index).toFloat() / 10.0f));
+                                }
                                 if (ecuCalDef->XScaleMinValueList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->XScaleMinValueList.replace(def_map_index, rom_scale_sub_child.attribute("min", " "));
+                                }
                                 if (ecuCalDef->XScaleMaxValueList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->XScaleMaxValueList.replace(def_map_index, rom_scale_sub_child.attribute("max", " "));
+                                }
                                 if (ecuCalDef->XScaleEndianList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->XScaleEndianList.replace(def_map_index, rom_scale_sub_child.attribute("endian", " "));
+                                }
                                 if (ecuCalDef->XScaleFromByteList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->XScaleFromByteList.replace(def_map_index, rom_scale_sub_child.attribute("toexpr", " "));
+                                }
                                 if (ecuCalDef->XScaleToByteList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->XScaleToByteList.replace(def_map_index, rom_scale_sub_child.attribute("frexpr", " "));
+                                }
                                 if (ecuCalDef->XScaleFormatList.at(def_map_index) == " ")
+                                {
                                     ecuCalDef->XScaleFormatList.replace(def_map_index, rom_scale_sub_child.attribute("format", " "));
+                                }
                             }
                             if (ScaleType == "Static Y Axis" || ScaleType == "Static X Axis")
                             {
