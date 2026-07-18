@@ -40,8 +40,8 @@ The Bazel clang-tidy targets require a system LLVM installation containing
 `clang-tidy` and `run-clang-tidy`. Autofix also requires
 `clang-apply-replacements`.
 
-Run advisory analysis on every translation unit buildable for the current
-platform:
+Report mode supports Windows, macOS, and Linux and runs advisory analysis on
+every translation unit buildable for the current platform:
 
 ```sh
 bazel run //:clang_tidy_report
