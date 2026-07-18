@@ -35,3 +35,13 @@ build:clang-tidy --build_tag_filters=clang-tidy
 test:clang-tidy --test_tag_filters=clang-tidy
 
 test --test_output=errors
+
+# Source-based coverage instrumentation for the local llvm-cov pipeline
+# (scripts/coverage-local.sh). Kept separate from `bazel coverage` so the
+# existing llvm-profdata/llvm-cov report format is preserved for SonarCloud
+# and the coverage ratchet.
+build:coverage --compilation_mode=dbg
+build:coverage --copt=-fprofile-instr-generate
+build:coverage --copt=-fcoverage-mapping
+build:coverage --linkopt=-fprofile-instr-generate
+build:coverage --linkopt=-fcoverage-mapping

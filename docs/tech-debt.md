@@ -69,6 +69,16 @@ Implemented baseline:
   Homebrew Qt, and Xcode SDK paths.
 - Current total line coverage: 25.17% (2,399 covered / 9,531 lines).
 
+Deferred re-basing: `scripts/coverage-local.sh` now builds instrumented test
+binaries from Bazel (`--config=coverage`) instead of qmake, which covers a
+broader set of test binaries than the original qmake baseline run and measures
+roughly 33%. `docs/coverage-baseline.txt` still holds the 25.17% figure above,
+so the ratchet currently has slack rather than being tight against the real
+number. Re-basing is deliberately deferred: `coverage-local.sh` runs tests with
+`|| true`, so a failing run would not fail loudly, and the known intermittent
+`serial_backend_tests` flake could red a tightly-set baseline. Revisit once that
+flake is fixed.
+
 Area baseline from the same report:
 
 | Area | Lines | Missed | Line coverage |
