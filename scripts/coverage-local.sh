@@ -2,10 +2,7 @@
 set -eu
 
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-build_root=${BUILD_DIR:-"$repo_root/build/coverage"}
 coverage_root=${COVERAGE_DIR:-"$repo_root/coverage"}
-make_cmd=${MAKE:-make}
-qmake_cmd=${QMAKE:-qmake}
 llvm_profdata=${LLVM_PROFDATA:-llvm-profdata}
 llvm_cov=${LLVM_COV:-llvm-cov}
 
@@ -16,51 +13,64 @@ fi
 
 rm -rf "$coverage_root/bin" "$coverage_root/profiles"
 rm -f "$coverage_root/coverage.profdata" "$coverage_root/coverage-summary.txt" "$coverage_root/llvm-cov.report"
-mkdir -p "$build_root" "$coverage_root/bin" "$coverage_root/profiles"
+mkdir -p "$coverage_root/bin" "$coverage_root/profiles"
 
-coverage_ignore_regex='(^|/)(tests|hexedit)/|(^|/)(moc_|qrc_|ui_)|\.moc$|rep_.*_replica\.h|(^|/)Qt/[0-9][^/]*/|/Applications/|/opt/homebrew/|/Library/Developer/'
+coverage_ignore_regex='(^|/)(tests|hexedit)/|(^|/)(moc_|qrc_|ui_)|\.moc$|rep_.*_replica\.h|(^|/)Qt/[0-9][^/]*/|/Applications/|/opt/homebrew/|/Library/Developer/|bazel-out/|external/'
 
-build_and_run() {
-  project=$1
-  binary=$2
-  build_dir="$build_root/$binary"
+cd "$repo_root"
 
-  rm -rf "$build_dir"
-  mkdir -p "$build_dir"
-  (
-    cd "$build_dir"
-    "$qmake_cmd" CONFIG+=debug CONFIG-=release CONFIG-=debug_and_release \
-      "QMAKE_CXXFLAGS+=-fprofile-instr-generate -fcoverage-mapping" \
-      "QMAKE_LFLAGS+=-fprofile-instr-generate -fcoverage-mapping" \
-      "$repo_root/$project"
-    "$make_cmd"
-    LLVM_PROFILE_FILE="$coverage_root/profiles/$binary-%p.profraw" "./$binary"
-    cp "$binary" "$coverage_root/bin/$binary"
-  )
-}
+# rules_qt's macOS test binaries locate Qt frameworks via a bazel-internal
+# relative rpath that only resolves inside `bazel test`'s sandbox. To run them
+# standalone (required to collect llvm profiles) point the dynamic loader at the
+# Qt framework directory explicitly. Harmless/empty on non-Darwin.
+qt_framework_path=""
+if [ "$(uname -s)" = "Darwin" ]; then
+  qtcore=$(find "$(bazel info output_base 2>/dev/null)/external" -maxdepth 3 -name QtCore.framework -type d 2>/dev/null | head -n1)
+  [ -n "$qtcore" ] && qt_framework_path=$(dirname "$qtcore")
+fi
 
-build_and_run tests/tests.pro mut_dma_tests
-build_and_run tests/serial_backend_tests.pro serial_backend_tests
-build_and_run tests/serial_crash_tests.pro serial_crash_tests
-build_and_run tests/mut_dma_integration_tests.pro mut_dma_integration_tests
+# Build every macOS-compatible cc_test under //tests with coverage
+# instrumentation. Incompatible (Windows-only) targets are skipped by Bazel.
+bazel build --config=coverage -k //tests/... || true
+
+# Enumerate the instrumented test executables from the configured graph.
+test_files=$(bazel cquery --config=coverage --output=files \
+  'kind("cc_test", //tests/...)' 2>/dev/null || true)
+
+primary=""
+objects=""
+for f in $test_files; do
+  [ -x "$f" ] || continue
+  case "$f" in *.dll|*.so|*.dylib) continue ;; esac
+  name=$(basename "$f")
+  dest="$coverage_root/bin/$name"
+  cp "$f" "$dest"
+  DYLD_FRAMEWORK_PATH="$qt_framework_path" LLVM_PROFILE_FILE="$coverage_root/profiles/$name-%p.profraw" "$dest" || true
+  if [ -z "$primary" ]; then
+    primary="$dest"
+  else
+    objects="$objects -object=$dest"
+  fi
+done
+
+if [ -z "$primary" ]; then
+  echo "no instrumented test binaries were produced" >&2
+  exit 1
+fi
 
 set -- $llvm_profdata
 "$@" merge -sparse "$coverage_root"/profiles/*.profraw -o "$coverage_root/coverage.profdata"
 
 set -- $llvm_cov
-"$@" report "$coverage_root/bin/mut_dma_tests" \
-  -object="$coverage_root/bin/serial_backend_tests" \
-  -object="$coverage_root/bin/serial_crash_tests" \
-  -object="$coverage_root/bin/mut_dma_integration_tests" \
+# shellcheck disable=SC2086
+"$@" report "$primary" $objects \
   -instr-profile="$coverage_root/coverage.profdata" \
   -ignore-filename-regex="$coverage_ignore_regex" \
   > "$coverage_root/coverage-summary.txt"
 
 set -- $llvm_cov
-"$@" show "$coverage_root/bin/mut_dma_tests" \
-  -object="$coverage_root/bin/serial_backend_tests" \
-  -object="$coverage_root/bin/serial_crash_tests" \
-  -object="$coverage_root/bin/mut_dma_integration_tests" \
+# shellcheck disable=SC2086
+"$@" show "$primary" $objects \
   -instr-profile="$coverage_root/coverage.profdata" \
   -ignore-filename-regex="$coverage_ignore_regex" \
   > "$coverage_root/llvm-cov.report"
