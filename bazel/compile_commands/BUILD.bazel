@@ -17,4 +17,5 @@ refresh_compile_commands(
         "//:fastecu": "--config=release",
         "//tests/...": "--config=release",
     },
+    visibility = ["//visibility:public"],
 )
