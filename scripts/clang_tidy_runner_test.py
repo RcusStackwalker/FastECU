@@ -380,6 +380,52 @@ class ClangTidyRunnerTest(unittest.TestCase):
         self.assertIn("length 0", advisory)
         self.assertIn("3 conflicting replacements", advisory)
 
+    def test_normalization_omits_partially_overlapping_replacements(self) -> None:
+        fixes_directory = Path(self.temp_dir.name) / "fixes"
+        fixes_directory.mkdir()
+        header = self.root / "shared.h"
+        first = self.replacement(header, 0, 5, "AAAAA")  # [0, 5)
+        second = self.replacement(header, 3, 4, "BBBB")  # [3, 7) overlaps first
+        preserved = self.replacement(header, 20, 2, "safe")  # [20, 22) disjoint
+        self.write_fixes(
+            fixes_directory,
+            "a.yaml",
+            [self.diagnostic("first-check", [first, preserved])],
+        )
+        self.write_fixes(
+            fixes_directory,
+            "b.yaml",
+            [self.diagnostic("second-check", [second])],
+        )
+        output = StringIO()
+
+        with redirect_stdout(output):
+            runner.normalize_replacements(fixes_directory)
+
+        self.assertEqual([preserved], self.read_replacements(fixes_directory))
+        advisory = output.getvalue()
+        self.assertIn(str(header), advisory)
+        self.assertIn("2 overlapping replacements", advisory)
+
+    def test_normalization_keeps_adjacent_replacements(self) -> None:
+        fixes_directory = Path(self.temp_dir.name) / "fixes"
+        fixes_directory.mkdir()
+        header = self.root / "shared.h"
+        left = self.replacement(header, 0, 5, "AAAAA")  # [0, 5)
+        right = self.replacement(header, 5, 3, "BBB")  # [5, 8) touches but no overlap
+        self.write_fixes(
+            fixes_directory,
+            "a.yaml",
+            [self.diagnostic("adjacent-check", [left, right])],
+        )
+        output = StringIO()
+
+        with redirect_stdout(output):
+            runner.normalize_replacements(fixes_directory)
+
+        self.assertEqual([left, right], self.read_replacements(fixes_directory))
+        self.assertNotIn("overlapping", output.getvalue())
+
     @unittest.skipIf(os.name == "nt", "clang-tidy fix mode is unsupported on Windows")
     def test_normalization_deduplicates_symlink_aliases(self) -> None:
         fixes_directory = Path(self.temp_dir.name) / "fixes"

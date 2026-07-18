@@ -301,6 +301,44 @@ def normalize_replacements(
             f"at offset {replacement.offset}, length {replacement.length}."
         )
 
+    # Same-range conflicts are handled above; replacements whose ranges *partially*
+    # overlap within one file also make clang-apply-replacements abort (we no longer
+    # pass -ignore-insert-conflict). Drop every replacement involved in an overlap so
+    # none reach the tool. Ranges are half-open [offset, offset + length); a
+    # zero-length insertion strictly inside another replacement's range counts as
+    # overlapping, while insertions at a boundary and disjoint ranges are preserved.
+    retained_ranges: dict[tuple[object, ...], list[tuple[int, int, int]]] = {}
+    for (file_identity, offset, length), group_indexes in groups.items():
+        representative = group_indexes[0]
+        if representative in retained:
+            retained_ranges.setdefault(file_identity, []).append(
+                (offset, length, representative)
+            )
+
+    overlapping: set[int] = set()
+    for ranges in retained_ranges.values():
+        ordered = sorted(ranges)
+        for position, (offset, length, index) in enumerate(ordered):
+            end = offset + length
+            for other_offset, other_length, other_index in ordered[position + 1 :]:
+                if other_offset >= end:
+                    break
+                if offset < other_offset + other_length:
+                    overlapping.add(index)
+                    overlapping.add(other_index)
+
+    if overlapping:
+        retained -= overlapping
+        for ranges in retained_ranges.values():
+            dropped = [index for _, _, index in ranges if index in overlapping]
+            if dropped:
+                replacement = occurrences[dropped[0]]
+                print(
+                    "clang-tidy: skipped "
+                    f"{len(dropped)} overlapping replacements for "
+                    f"{replacement.file_path}."
+                )
+
     for replacements, indexes in replacement_lists:
         replacements[:] = [
             replacement
