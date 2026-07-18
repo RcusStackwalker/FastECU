@@ -34,9 +34,8 @@ Observed on 2026-07-18:
   library whose source manifest spans UI, parsing, logging, serial, protocol,
   checksum, flash modules, and the bundled hex editor.
 - Focused background notes remain in `docs/logging-engine-tech-debt.md` and
-  `docs/protocol-generalization-opportunities.md`. Some resolved implementation
-  history remains in those narrower documents; this roadmap treats only the
-  open work below as current.
+  `docs/protocol-generalization-opportunities.md`; those documents contain the
+  current logging-specific gaps and safe protocol-sharing boundary.
 
 ## Priorities
 
@@ -184,9 +183,9 @@ Actions:
 
 All 29 flash/eeprom/jtag/bdm operation pairs use `FlashOperationWorker`, and
 shared SSM framing, seed/payload transforms, CRC, byte formatting, byte
-stuffing, and ISO-15765 setup have been consolidated. The old duplication counts
-in `docs/protocol-generalization-opportunities.md` therefore describe the
-pre-consolidation state.
+stuffing, and ISO-15765 setup have been consolidated. The remaining safe
+generalization opportunities are maintained in
+`docs/protocol-generalization-opportunities.md`.
 
 The operation classes still combine request construction, response validation,
 retries, progress reporting, prompts, full-facade serial I/O, and ROM mutation.

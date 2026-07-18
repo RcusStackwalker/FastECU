@@ -2,65 +2,46 @@
 
 ## Status
 
-Accepted
+Accepted and implemented.
 
-Accepted 2026-07-17: qmake removed; Bazel is the sole build graph for the
-application, tests, release packaging (via scripts/package-*.{sh,ps1}),
-SonarCloud (compile_commands.json), and coverage.
+The migration completed on 2026-07-17. Bazel is the sole build graph for the
+application, tests, release packaging, SonarCloud compile commands, coverage,
+and clang-tidy. The qmake project files and source-list synchronization checks
+were removed after the Bazel paths covered their responsibilities.
 
 ## Context
 
-FastECU currently has more than one build path. qmake remains the primary path
-for packaging and several tests, while Bazel already models the application and
-test targets.
-
-This split creates avoidable maintenance cost:
-
-- Source lists, dependency wiring, and platform behavior can drift.
-- Local developer workflows can differ from release jobs.
-- Dependency setup is harder when qmake, Bazel, and CI scripts each own part of
-  the build graph.
-- Regression coverage is weaker when one path is only exercised by releases.
+Before this decision, FastECU maintained overlapping qmake and Bazel graphs.
+Packaging and several tests used qmake while Bazel modeled an increasing share
+of the application and test targets. The split allowed source lists, dependency
+wiring, platform behavior, and local/CI workflows to drift.
 
 ## Decision
 
-The desired final state is to abandon qmake for project builds in favor of a
-single Bazel-based build graph.
+Use Bazel as the only project target graph. Bazel owns application and test
+targets, third-party dependencies, platform selects, generated Qt artifacts,
+compile commands, static-analysis inputs, and release-package build inputs.
 
-Bazel should become the source of truth for application targets, tests,
-third-party dependencies, platform selects, generated Qt artifacts, clang-tidy
-analysis, and release packaging inputs once packaging is migrated.
+Platform packaging remains in `scripts/package-macos.sh` and
+`scripts/package-windows.ps1`; both scripts build their binaries from Bazel
+targets before invoking the platform Qt deployment tools.
 
 ## Consequences
 
 Positive consequences:
 
-- One build graph reduces drift between local development, pull request CI, and
-  release verification.
-- Bazel gives a clearer model for libraries, generated sources, platform
-  selects, and third-party dependencies than hand-maintained qmake lists.
-- Bazel can run clang-tidy from the same target graph used for compilation, so
-  static analysis sees the same sources, includes, and generated headers.
-- Dependencies can be represented once in `MODULE.bazel` instead of split
-  across qmake and CI scripts.
+- One graph defines what builds in local development, pull requests, and
+  releases.
+- Qt generation, platform sources, dependencies, coverage, and analysis share
+  the same target configuration.
+- `MODULE.bazel` and the Bazel extensions own project dependencies instead of
+  duplicating them across project formats.
 
-Negative consequences and risks:
+Costs and remaining risks:
 
-- qmake cannot be removed immediately because release packaging still depends on
-  it.
-- Bazel rules for Qt packaging and deployment must be mature enough first.
-- Developers who currently rely on qmake will need documented Bazel commands
-  and setup instructions.
-- CI may initially do duplicate work while Bazel and qmake paths overlap during
-  migration.
-
-## Migration Notes
-
-The migration should be incremental:
-
-1. Keep qmake and Bazel source lists synchronized while both paths exist.
-2. Add new tests, reusable build structure, and clang-tidy checks in Bazel first.
-3. Move third-party dependencies into Bazel module declarations where practical.
-4. Port release packaging verification to Bazel-backed artifacts.
-5. Remove qmake CI jobs and project files after Bazel covers equivalent build,
-   test, and packaging behavior.
+- Developers need Bazel/Bazelisk and the platform host tools documented in the
+  README and CI workflows.
+- Qt deployment and platform runtime collection still happen in packaging
+  scripts outside Bazel actions.
+- Much of the application remains in the broad `fastecu_core_common` target;
+  target decomposition is tracked in `docs/tech-debt.md`.
