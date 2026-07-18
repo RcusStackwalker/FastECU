@@ -1,6 +1,6 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("@rules_python//python:defs.bzl", "py_test")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load("//bazel:fastecu_sources.bzl", "APP_COMMON_HDRS", "APP_COMMON_SRCS", "APP_FORMS", "APP_MAIN_SRCS", "APP_MOC_HDRS", "APP_REPS", "APP_RESOURCES", "APP_UNIX_HDRS", "APP_UNIX_SRCS", "APP_WIN_HDRS", "APP_WIN_SRCS")
 load("//bazel:qt_remote_objects.bzl", "qt_replica_library")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "COMMON_LINKOPTS", "QT_DEPS", "qt_cc_binary", "qt_cc_library", "qt_resource_via_qrc", "qt_ui_basename_libraries")
@@ -218,6 +218,17 @@ py_test(
 )
 
 py_test(
+    name = "clang_tidy_runner_test",
+    size = "small",
+    srcs = [
+        "scripts/clang_tidy_runner.py",
+        "scripts/clang_tidy_runner_test.py",
+    ],
+    imports = ["scripts"],
+    main = "scripts/clang_tidy_runner_test.py",
+)
+
+py_test(
     name = "bazel_openssl_wiring",
     size = "small",
     srcs = ["scripts/check-bazel-openssl.py"],
@@ -248,18 +259,32 @@ py_test(
     main = "scripts/check-windows-preprocessor-guards.py",
 )
 
-py_test(
+py_binary(
     name = "clang_tidy_report",
-    timeout = "eternal",
-    srcs = ["scripts/clang_tidy_report.py"],
-    args = ["bazel/fastecu_sources.bzl"],
+    srcs = ["scripts/clang_tidy_runner.py"],
+    args = [
+        "report",
+        "--compdb-tool",
+        "$(location //bazel/compile_commands:refresh)",
+    ],
     data = [
         ".clang-tidy",
-        "//bazel:fastecu_sources.bzl",
+        "//bazel/compile_commands:refresh",
     ],
-    main = "scripts/clang_tidy_report.py",
-    tags = [
-        "clang-tidy",
-        "manual",
+    main = "scripts/clang_tidy_runner.py",
+)
+
+py_binary(
+    name = "clang_tidy_fix",
+    srcs = ["scripts/clang_tidy_runner.py"],
+    args = [
+        "fix",
+        "--compdb-tool",
+        "$(location //bazel/compile_commands:refresh)",
     ],
+    data = [
+        ".clang-tidy",
+        "//bazel/compile_commands:refresh",
+    ],
+    main = "scripts/clang_tidy_runner.py",
 )

@@ -18,6 +18,7 @@ refresh_compile_commands(
         "//:fastecu": "--config=release",
         "//tests/...": "--config=release",
     },
+    visibility = ["//visibility:public"],
 )
 
 # SonarCloud entry point: `bazel run //bazel/compile_commands:refresh_sonar`.
