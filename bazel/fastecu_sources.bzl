@@ -309,12 +309,12 @@ APP_FORMS = [
 ]
 
 APP_RESOURCES = [
-    "config.qrc",
-    "fonts.qrc",
-    "hexedit/qhexedit.qrc",
-    "icons.qrc",
-    "images.qrc",
-    "kernels.qrc",
+    "resources/shared/config.qrc",
+    "resources/desktop/fonts.qrc",
+    "resources/desktop/hexedit/qhexedit.qrc",
+    "resources/desktop/icons.qrc",
+    "resources/desktop/images.qrc",
+    "resources/shared/kernels.qrc",
 ]
 
 APP_REPS = [
