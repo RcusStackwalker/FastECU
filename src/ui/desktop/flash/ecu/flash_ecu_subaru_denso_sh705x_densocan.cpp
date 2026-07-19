@@ -1,10 +1,10 @@
-#include <modules/ecu/flash_ecu_subaru_denso_sh705x_kline.h>
+#include <src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh705x_densocan.h>
 
 #include <utility>
-#include "flash_ecu_subaru_denso_sh705x_kline_operation.h"
+#include "src/backend/flash/ecu/flash_ecu_subaru_denso_sh705x_densocan_operation.h"
 #include "serial_port_actions.h"
 
-FlashEcuSubaruDensoSH705xKline::FlashEcuSubaruDensoSH705xKline(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
+FlashEcuSubaruDensoSH705xDensoCan::FlashEcuSubaruDensoSH705xDensoCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
     : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
@@ -25,7 +25,7 @@ FlashEcuSubaruDensoSH705xKline::FlashEcuSubaruDensoSH705xKline(SerialPortActions
     this->serial = serial;
 }
 
-void FlashEcuSubaruDensoSH705xKline::run()
+void FlashEcuSubaruDensoSH705xDensoCan::run()
 {
     this->show();
 
@@ -40,16 +40,16 @@ void FlashEcuSubaruDensoSH705xKline::run()
     {
     case QMessageBox::Ok:
     {
-        m_operation = new FlashEcuSubaruDensoSH705xKlineOperation(serial, ecuCalDef, cmd_type, this);
-        connect(m_operation, &FlashOperationWorker::LOG_E, this, &FlashEcuSubaruDensoSH705xKline::LOG_E);
-        connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashEcuSubaruDensoSH705xKline::LOG_W);
-        connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashEcuSubaruDensoSH705xKline::LOG_I);
-        connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashEcuSubaruDensoSH705xKline::LOG_D);
+        m_operation = new FlashEcuSubaruDensoSH705xDensoCanOperation(serial, ecuCalDef, cmd_type, this);
+        connect(m_operation, &FlashOperationWorker::LOG_E, this, &FlashEcuSubaruDensoSH705xDensoCan::LOG_E);
+        connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashEcuSubaruDensoSH705xDensoCan::LOG_W);
+        connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashEcuSubaruDensoSH705xDensoCan::LOG_I);
+        connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashEcuSubaruDensoSH705xDensoCan::LOG_D);
         connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
                 this, [this](QString msg)
                 { emit external_logger(std::move(msg)); });
         connect(m_operation, &FlashOperationWorker::progressChanged,
-                this, &FlashEcuSubaruDensoSH705xKline::set_progressbar_value);
+                this, &FlashEcuSubaruDensoSH705xDensoCan::set_progressbar_value);
 
         QEventLoop loop;
         bool success = false;
@@ -88,11 +88,11 @@ void FlashEcuSubaruDensoSH705xKline::run()
     }
 }
 
-FlashEcuSubaruDensoSH705xKline::~FlashEcuSubaruDensoSH705xKline()
+FlashEcuSubaruDensoSH705xDensoCan::~FlashEcuSubaruDensoSH705xDensoCan()
 {
 }
 
-void FlashEcuSubaruDensoSH705xKline::closeEvent(QCloseEvent *event)
+void FlashEcuSubaruDensoSH705xDensoCan::closeEvent(QCloseEvent *event)
 {
     if (m_operation)
     {
@@ -100,7 +100,7 @@ void FlashEcuSubaruDensoSH705xKline::closeEvent(QCloseEvent *event)
     }
 }
 
-void FlashEcuSubaruDensoSH705xKline::set_progressbar_value(int value)
+void FlashEcuSubaruDensoSH705xDensoCan::set_progressbar_value(int value)
 {
     bool valueChanged = true;
     if (ui->progressbar)
