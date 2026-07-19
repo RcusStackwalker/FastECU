@@ -5,7 +5,10 @@ package(default_visibility = ["//visibility:public"])
 
 cc_library(
     name = "protocol",
-    srcs = glob(["*.cpp"], allow_empty = True),
+    srcs = glob(
+        ["*.cpp"],
+        allow_empty = True,
+    ),
     hdrs = glob(["*.h"]),
     copts = COMMON_COPTS,
     includes = COMMON_INCLUDES,

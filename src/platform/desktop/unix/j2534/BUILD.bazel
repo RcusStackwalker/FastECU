@@ -10,7 +10,10 @@ qt_cc_library(
     hdrs = MOC_HDRS,
     copts = COMMON_COPTS,
     includes = COMMON_INCLUDES,
-    normal_hdrs = glob(["*.h"], exclude = MOC_HDRS),
+    normal_hdrs = glob(
+        ["*.h"],
+        exclude = MOC_HDRS,
+    ),
     target_compatible_with = select({
         "@platforms//os:windows": ["@platforms//:incompatible"],
         "//conditions:default": [],

@@ -11,11 +11,14 @@ WINDOWS_ONLY = select({
 
 qt_cc_library(
     name = "j2534",
-    srcs = glob(["*.cpp"], exclude = [
-        "j2534_bridge_protocol.cpp",
-        "j2534_bridge_client.cpp",
-        "pe_bitness.cpp",
-    ]),
+    srcs = glob(
+        ["*.cpp"],
+        exclude = [
+            "j2534_bridge_protocol.cpp",
+            "j2534_bridge_client.cpp",
+            "pe_bitness.cpp",
+        ],
+    ),
     hdrs = [],
     copts = COMMON_COPTS,
     includes = COMMON_INCLUDES,

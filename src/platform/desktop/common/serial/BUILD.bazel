@@ -30,7 +30,13 @@ qt_cc_library(
     # *.hpp because qtrohelper.hpp (included by remote_serial_backend.cpp
     # in this package, and by remote_utility.h in the sibling package) is
     # not matched by *.h alone.
-    normal_hdrs = glob(["*.h", "*.hpp"], exclude = MOC_HDRS),
+    normal_hdrs = glob(
+        [
+            "*.h",
+            "*.hpp",
+        ],
+        exclude = MOC_HDRS,
+    ),
     deps = QT_DEPS + [
         ":serial_replicas",
         "//src/algorithms/protocol",
