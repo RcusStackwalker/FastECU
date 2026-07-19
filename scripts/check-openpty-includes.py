@@ -15,7 +15,9 @@ def main() -> int:
         if "#if defined(__linux__)" not in text or "#include <pty.h>" not in text:
             errors.append(f"{path.relative_to(ROOT)}: openpty users must include <pty.h> on Linux")
         if "#include <util.h>" not in text:
-            errors.append(f"{path.relative_to(ROOT)}: openpty users must include <util.h> off Linux")
+            errors.append(
+                f"{path.relative_to(ROOT)}: openpty users must include <util.h> off Linux"
+            )
         if path.name == "test_direct_backend.cpp":
             errors.append(
                 f"{path.relative_to(ROOT)}: openpty coverage must live in a Unix-only source file"
