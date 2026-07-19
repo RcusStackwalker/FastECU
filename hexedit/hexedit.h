@@ -19,7 +19,7 @@
 #include "optionsdialog.h"
 #include "qmainwindow.h"
 #include "searchdialog.h"
-#include "file_actions.h"
+#include "src/backend/definitions/file_actions.h"
 
 QT_BEGIN_NAMESPACE
 class QAction;

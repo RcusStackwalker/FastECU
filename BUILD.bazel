@@ -240,8 +240,8 @@ py_test(
     size = "small",
     srcs = ["scripts/check-windows-preprocessor-guards.py"],
     data = [
-        "file_actions.h",
         "serial_port/serial_port_actions_direct.h",
+        "src/backend/definitions/file_actions.h",
     ],
     main = "scripts/check-windows-preprocessor-guards.py",
 )

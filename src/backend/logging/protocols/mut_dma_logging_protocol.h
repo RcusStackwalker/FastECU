@@ -1,10 +1,10 @@
 #pragma once
 #include <memory>
-#include "logging/logging_protocol.h"
-#include "protocol/ikline_transport.h"
-#include "protocol/imut_dma_init.h"
-#include "protocol/mut_dma_driver.h"
-#include <file_actions.h>
+#include "src/backend/logging/logging_protocol.h"
+#include "src/backend/protocol/ikline_transport.h"
+#include "src/backend/protocol/imut_dma_init.h"
+#include "src/backend/protocol/mut_dma_driver.h"
+#include "src/backend/definitions/file_actions.h"
 
 class MutDmaLoggingProtocol : public LoggingProtocol
 {

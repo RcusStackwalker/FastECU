@@ -1,7 +1,7 @@
-#include "logging/logging_engine.h"
+#include "src/backend/logging/logging_engine.h"
 
 #include <utility>
-#include "logging/logging_worker.h"
+#include "src/backend/logging/logging_worker.h"
 
 LoggingEngine::LoggingEngine(QObject *parent) : QObject(parent)
 {

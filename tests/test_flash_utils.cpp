@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <span>
 
-#include "modules/flash_utils.h"
+#include "src/backend/flash/flash_utils.h"
 #include "serial_port_actions.h"
 #include "fake_backend.h"
 #include "test_flash_utils.h"

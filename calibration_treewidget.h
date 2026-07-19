@@ -7,7 +7,7 @@
 #include <QLabel>
 #include <QPushButton>
 
-#include <file_actions.h>
+#include "src/backend/definitions/file_actions.h"
 
 class CalibrationTreeWidget : public QWidget
 {

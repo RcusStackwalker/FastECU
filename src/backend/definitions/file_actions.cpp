@@ -1,10 +1,10 @@
-// #include "file_actions.h"
+// #include "src/backend/definitions/file_actions.h"
 #include <utility>
 
-#include "error_codes.h"
+#include "src/backend/definitions/error_codes.h"
 #include "src/algorithms/diagnostics/dtc_parser.h"
 #include "src/algorithms/expression/expression_evaluator.h"
-#include "modules/flash_utils.h"
+#include "src/backend/flash/flash_utils.h"
 #include "src/algorithms/diagnostics/nrc_parser.h"
 
 namespace

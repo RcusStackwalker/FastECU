@@ -3,7 +3,7 @@
 #include <QTemporaryDir>
 #include <QFile>
 #include <QSignalSpy>
-#include <file_actions.h>
+#include "src/backend/definitions/file_actions.h"
 #include "test_ecuflash_definition_parsing.h"
 
 class TestEcuflashDefinitionParsing : public QObject

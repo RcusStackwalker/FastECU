@@ -1,9 +1,9 @@
 #include "flash_ecu_subaru_unisia_jecs.h"
 #include "flash_ecu_subaru_unisia_jecs_operation.h"
-#include "modules/flash_utils.h"
+#include "src/backend/flash/flash_utils.h"
 #include "serial_port_actions.h"
 
-#include <kernelmemorymodels.h>
+#include "src/backend/definitions/kernelmemorymodels.h"
 
 #include <utility>
 

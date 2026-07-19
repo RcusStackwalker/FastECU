@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "protocol/mitsu_colt_can_cdbg_driver.h"
+#include "src/backend/protocol/mitsu_colt_can_cdbg_driver.h"
 #include "byte_test_utils.h"
 #include "scripted_can_transport.h"
 using namespace MitsuColtCanCdbg;

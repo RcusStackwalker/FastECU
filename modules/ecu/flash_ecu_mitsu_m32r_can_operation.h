@@ -4,8 +4,8 @@
 #include <QByteArray>
 #include <QString>
 
-#include <file_actions.h>
-#include "modules/flash_operation_worker.h"
+#include "src/backend/definitions/file_actions.h"
+#include "src/backend/flash/flash_operation_worker.h"
 
 class SerialPortActions;
 

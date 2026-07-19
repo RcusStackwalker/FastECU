@@ -1,5 +1,5 @@
-#include "logging/protocols/mut_dma_logging_protocol.h"
-#include "logging/romraider_conversion.h"
+#include "src/backend/logging/protocols/mut_dma_logging_protocol.h"
+#include "src/backend/logging/romraider_conversion.h"
 
 #include <cstdint>
 

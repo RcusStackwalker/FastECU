@@ -1,6 +1,6 @@
 #include <QtTest>
 
-#include <file_actions.h>
+#include "src/backend/definitions/file_actions.h"
 #include "test_model_validation.h"
 
 class TestModelValidation : public QObject

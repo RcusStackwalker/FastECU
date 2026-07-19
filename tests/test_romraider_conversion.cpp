@@ -1,7 +1,7 @@
 #include <QtTest>
 #include <QApplication>
-#include <file_actions.h>
-#include "logging/romraider_conversion.h"
+#include "src/backend/definitions/file_actions.h"
+#include "src/backend/logging/romraider_conversion.h"
 #include "test_romraider_conversion.h"
 
 class TestRomraiderConversion : public QObject

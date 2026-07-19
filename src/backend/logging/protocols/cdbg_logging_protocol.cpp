@@ -1,5 +1,5 @@
-#include "logging/protocols/cdbg_logging_protocol.h"
-#include "logging/romraider_conversion.h"
+#include "src/backend/logging/protocols/cdbg_logging_protocol.h"
+#include "src/backend/logging/romraider_conversion.h"
 #include "serial_port/serial_port_actions.h"
 
 #include <cstdint>

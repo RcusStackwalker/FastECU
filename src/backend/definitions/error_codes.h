@@ -2,7 +2,7 @@
 #define ERROR_CODES_H
 
 #include <QString>
-#include "file_actions.h"
+#include "src/backend/definitions/file_actions.h"
 
 const QHash<int, QString> FileActions::neg_rsp_codes{
     {0x10, "General reject"},

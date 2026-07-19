@@ -4,7 +4,7 @@
 #include <QString>
 #include <functional>
 #include <memory>
-#include "logging/logging_protocol.h"
+#include "src/backend/logging/logging_protocol.h"
 
 class LoggingWorker;
 

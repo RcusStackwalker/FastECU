@@ -1,5 +1,5 @@
 #pragma once
-#include "logging/logging_protocol.h"
+#include "src/backend/logging/logging_protocol.h"
 #include <QList>
 
 // Test double: scripts a sequence of start()/poll() outcomes for LoggingWorker

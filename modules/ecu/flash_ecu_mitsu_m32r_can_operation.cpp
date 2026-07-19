@@ -1,10 +1,10 @@
 #include "flash_ecu_mitsu_m32r_can_operation.h"
-#include "modules/flash_utils.h"
+#include "src/backend/flash/flash_utils.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
 #include "serial_port_actions.h"
 #include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
 #include "src/algorithms/protocol/colt/mitsu_colt_can_vendor_ext_protocol.h"
-#include <kernelmemorymodels.h>
+#include "src/backend/definitions/kernelmemorymodels.h"
 
 #include <utility>
 

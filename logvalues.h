@@ -8,7 +8,7 @@
 #include <QWidget>
 #include <QComboBox>
 
-#include <file_actions.h>
+#include "src/backend/definitions/file_actions.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui

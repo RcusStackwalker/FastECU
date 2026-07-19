@@ -1,10 +1,10 @@
 #pragma once
 #include <memory>
 #include <QString>
-#include "logging/logging_protocol.h"
+#include "src/backend/logging/logging_protocol.h"
 #include "src/algorithms/protocol/bytes.h"
-#include "protocol/issm_transport.h"
-#include <file_actions.h>
+#include "src/backend/protocol/issm_transport.h"
+#include "src/backend/definitions/file_actions.h"
 
 class SsmLoggingProtocol : public LoggingProtocol
 {

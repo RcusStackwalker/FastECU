@@ -1,7 +1,7 @@
 #include "ecu_operations.h"
 
 #include <utility>
-#include "modules/flash_utils.h"
+#include "src/backend/flash/flash_utils.h"
 #include "src/algorithms/protocol/qt_bytes.h"
 #include "serial_port_actions.h"
 

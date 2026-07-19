@@ -44,8 +44,8 @@
 #include "protocol/fastecu_kline_transport.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_codec.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_freeform.h"
-#include "protocol/mut_dma_driver.h"
-#include "protocol/imut_dma_init.h"
+#include "src/backend/protocol/mut_dma_driver.h"
+#include "src/backend/protocol/imut_dma_init.h"
 #include "src/algorithms/protocol/qt_bytes.h"
 
 using namespace mutdma;

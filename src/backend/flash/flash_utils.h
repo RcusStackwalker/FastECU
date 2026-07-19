@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <span>
 
-#include <kernelmemorymodels.h>
+#include "src/backend/definitions/kernelmemorymodels.h"
 
 class SerialPortActions;
 
