@@ -1,6 +1,6 @@
 #pragma once
 #include "src/algorithms/protocol/bytes.h"
-#include "protocol/mut_dma_codec.h"
+#include "src/algorithms/protocol/mut_dma/mut_dma_codec.h"
 
 #include <QVector>
 

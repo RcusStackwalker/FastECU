@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 
-#include "protocol/mut_dma_codec.h"
-#include "protocol/mut_dma_freeform.h"
-#include "protocol/mut_dma_memory.h"
+#include "src/algorithms/protocol/mut_dma/mut_dma_codec.h"
+#include "src/algorithms/protocol/mut_dma/mut_dma_freeform.h"
+#include "src/algorithms/protocol/mut_dma/mut_dma_memory.h"
 
 using namespace mutdma;
 

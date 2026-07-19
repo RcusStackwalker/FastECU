@@ -1,4 +1,4 @@
-#include "protocol/mut_dma_codec.h"
+#include "src/algorithms/protocol/mut_dma/mut_dma_codec.h"
 
 #include <algorithm>
 

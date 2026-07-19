@@ -2,7 +2,7 @@
 #include <QApplication>
 #include <file_actions.h>
 #include "logging/protocols/mut_dma_logging_protocol.h"
-#include "protocol/mut_dma_codec.h"
+#include "src/algorithms/protocol/mut_dma/mut_dma_codec.h"
 #include "scripted_kline_transport.h"
 #include "test_mut_dma_logging_protocol.h"
 

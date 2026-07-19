@@ -1,4 +1,4 @@
-#include "protocol/mut_dma_memory.h"
+#include "src/algorithms/protocol/mut_dma/mut_dma_memory.h"
 
 #include <algorithm>
 

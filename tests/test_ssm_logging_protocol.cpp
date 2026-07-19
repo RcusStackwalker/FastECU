@@ -2,7 +2,7 @@
 #include <QApplication>
 #include <file_actions.h>
 #include "logging/protocols/ssm_logging_protocol.h"
-#include "modules/ssm_protocol_core.h"
+#include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "scripted_ssm_transport.h"
 #include "test_ssm_logging_protocol.h"
 

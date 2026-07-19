@@ -1,12 +1,12 @@
 #pragma once
 #include "src/algorithms/protocol/bytes.h"
-#include "protocol/mut_dma_codec.h"
+#include "src/algorithms/protocol/mut_dma/mut_dma_codec.h"
 #include <QVector>
 
 #include <cstdint>
 #include <vector>
 
-#include "protocol/mut_dma_freeform.h"
+#include "src/algorithms/protocol/mut_dma/mut_dma_freeform.h"
 namespace mutdma
 {
 // Max payload bytes per 0x87/3 write frame: 48 payload bytes minus

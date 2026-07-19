@@ -1,10 +1,10 @@
 #include <gtest/gtest.h>
 
 #include "byte_test_utils.h"
-#include "protocol/mut_dma_codec.h"
+#include "src/algorithms/protocol/mut_dma/mut_dma_codec.h"
 #include "protocol/mut_dma_driver.h"
-#include "protocol/mut_dma_freeform.h"
-#include "protocol/mut_dma_memory.h"
+#include "src/algorithms/protocol/mut_dma/mut_dma_freeform.h"
+#include "src/algorithms/protocol/mut_dma/mut_dma_memory.h"
 #include "scripted_kline_transport.h"
 
 using namespace mutdma;

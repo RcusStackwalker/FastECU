@@ -65,7 +65,7 @@ Already byte-native:
 
 Still intentionally Qt-bound or partially migrated:
 
-- `modules/ssm_protocol.cpp` keeps `QByteArray` wrappers over byte-native core
+- `src/algorithms/protocol/ssm/ssm_protocol.cpp` keeps `QByteArray` wrappers over byte-native core
   helpers.
 - Checksum modules still use `QByteArray` broadly.
 - Flash operation modules still use `QByteArray` for command construction, file
