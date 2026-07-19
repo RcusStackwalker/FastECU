@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 #include "scripted_kline_transport.h"
 
 using namespace mutdma;

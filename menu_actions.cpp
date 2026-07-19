@@ -1,5 +1,5 @@
 #include "mainwindow.h"
-#include "menu_command.h"
+#include "src/algorithms/menu/menu_command.h"
 #include "ui_mainwindow.h"
 #include "serial_port_actions.h"
 

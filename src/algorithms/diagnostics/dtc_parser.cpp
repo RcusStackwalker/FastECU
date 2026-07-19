@@ -1,4 +1,4 @@
-#include "dtc_parser.h"
+#include "src/algorithms/diagnostics/dtc_parser.h"
 
 namespace
 {

@@ -6,7 +6,7 @@
 
 #include <QThread>
 
-#include "protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 #include "serial_port/j2534_driver_selection.h"
 
 namespace

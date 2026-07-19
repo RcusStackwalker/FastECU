@@ -1,6 +1,6 @@
 #pragma once
 #include "protocol/ikline_transport.h"
-#include "protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 #include <QList>
 namespace mutdma
 {

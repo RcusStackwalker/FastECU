@@ -1,4 +1,4 @@
-#include "nrc_parser.h"
+#include "src/algorithms/diagnostics/nrc_parser.h"
 
 QString NrcParser::parse(const QByteArray& nrc, const QHash<int, QString>& codes)
 {

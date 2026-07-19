@@ -1,5 +1,5 @@
 #pragma once
-#include "protocol/bytes.h"
+#include "src/algorithms/protocol/bytes.h"
 #include "protocol/ikline_transport.h"
 #include "protocol/imut_dma_init.h"
 #include "protocol/mut_dma_freeform.h"

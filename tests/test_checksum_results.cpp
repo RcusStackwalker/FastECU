@@ -1,15 +1,15 @@
 #include <QtTest>
 #include <QApplication>
 
-#include "modules/checksum/checksum_ecu_subaru_denso_sh705x_diesel.h"
-#include "modules/checksum/checksum_ecu_subaru_denso_sh7xxx.h"
-#include "modules/checksum/checksum_ecu_subaru_hitachi_m32r_can.h"
-#include "modules/checksum/checksum_ecu_subaru_hitachi_m32r_kline.h"
-#include "modules/checksum/checksum_ecu_subaru_hitachi_sh7058.h"
-#include "modules/checksum/checksum_ecu_subaru_hitachi_sh72543r.h"
-#include "modules/checksum/checksum_tcu_mitsu_mh8104_can.h"
-#include "modules/checksum/checksum_tcu_subaru_denso_sh7055.h"
-#include "modules/checksum/checksum_tcu_subaru_hitachi_m32r_can.h"
+#include "src/algorithms/checksum/checksum_ecu_subaru_denso_sh705x_diesel.h"
+#include "src/algorithms/checksum/checksum_ecu_subaru_denso_sh7xxx.h"
+#include "src/algorithms/checksum/checksum_ecu_subaru_hitachi_m32r_can.h"
+#include "src/algorithms/checksum/checksum_ecu_subaru_hitachi_m32r_kline.h"
+#include "src/algorithms/checksum/checksum_ecu_subaru_hitachi_sh7058.h"
+#include "src/algorithms/checksum/checksum_ecu_subaru_hitachi_sh72543r.h"
+#include "src/algorithms/checksum/checksum_tcu_mitsu_mh8104_can.h"
+#include "src/algorithms/checksum/checksum_tcu_subaru_denso_sh7055.h"
+#include "src/algorithms/checksum/checksum_tcu_subaru_hitachi_m32r_can.h"
 #include "expected_message_box.h"
 #include "test_checksum_results.h"
 

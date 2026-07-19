@@ -1,5 +1,5 @@
 #pragma once
-#include "protocol/bytes.h"
+#include "src/algorithms/protocol/bytes.h"
 
 // Raw byte-stream transport for the SSM logging protocol (request/response over
 // K-Line, ISO14230, or CAN depending on vehicle configuration -- the wire framing

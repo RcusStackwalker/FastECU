@@ -1,6 +1,6 @@
 #include "protocol/mitsu_colt_can_vendor_ext_protocol.h"
 
-#include "protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 
 namespace MitsuColtCanVendorExt
 {

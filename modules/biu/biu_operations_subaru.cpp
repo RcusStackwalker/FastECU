@@ -3,7 +3,7 @@
 
 #include <cstddef>
 #include "serial_port_actions.h"
-#include "protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 
 BiuOperationsSubaru::BiuOperationsSubaru(SerialPortActions *serial, QWidget *parent)
     : QDialog(parent),

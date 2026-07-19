@@ -1,5 +1,5 @@
 #include "checksum_tcu_subaru_denso_sh7055.h"
-#include "protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 
 ChecksumTcuSubaruDensoSH7055::ChecksumTcuSubaruDensoSH7055()
 {

@@ -1,6 +1,6 @@
 #pragma once
 #include "protocol/issm_transport.h"
-#include "protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 #include <QList>
 
 // Test double: assert the exact sequence of writes, feed canned reads in order.

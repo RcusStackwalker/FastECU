@@ -1,5 +1,5 @@
 #include "checksum_ecu_subaru_hitachi_sh7058.h"
-#include "protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 
 ChecksumEcuSubaruHitachiSH7058::ChecksumEcuSubaruHitachiSH7058()
 {

@@ -1,7 +1,7 @@
 #include "protocol/mut_dma_driver.h"
 #include "protocol/mut_dma_codec.h"
 #include "protocol/mut_dma_memory.h"
-#include "protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 namespace mutdma
 {
 static bool ackOk(bytes::ByteView f, bytes::Byte cA, bytes::Byte cB)

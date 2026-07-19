@@ -1,5 +1,5 @@
 #include "checksum_ecu_subaru_denso_sh705x_diesel.h"
-#include "protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 
 ChecksumEcuSubaruDensoSH705xDiesel::ChecksumEcuSubaruDensoSH705xDiesel()
 {

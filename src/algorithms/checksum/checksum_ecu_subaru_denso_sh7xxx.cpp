@@ -1,6 +1,6 @@
 #include "checksum_ecu_subaru_denso_sh7xxx.h"
 
-#include "protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 
 ChecksumEcuSubaruDensoSH7xxx::ChecksumEcuSubaruDensoSH7xxx()
 {

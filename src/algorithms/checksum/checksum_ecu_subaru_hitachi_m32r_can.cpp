@@ -1,5 +1,5 @@
 #include "checksum_ecu_subaru_hitachi_m32r_can.h"
-#include "protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 
 ChecksumEcuSubaruHitachiM32rCan::ChecksumEcuSubaruHitachiM32rCan()
 {

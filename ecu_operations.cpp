@@ -2,7 +2,7 @@
 
 #include <utility>
 #include "modules/flash_utils.h"
-#include "protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 #include "serial_port_actions.h"
 
 EcuOperations::EcuOperations(QWidget *ui, SerialPortActions *serial, QString mcu_type_string, int mcu_type_index)

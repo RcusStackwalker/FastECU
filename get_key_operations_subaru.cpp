@@ -1,7 +1,7 @@
 #include "get_key_operations_subaru.h"
 #include <ui_ecu_operations.h>
 #include <QRandomGenerator>
-#include "protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 
 GetKeyOperationsSubaru::GetKeyOperationsSubaru(QWidget *parent)
     : QDialog(parent),

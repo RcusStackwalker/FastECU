@@ -1,5 +1,5 @@
 #pragma once
-#include "protocol/bytes.h"
+#include "src/algorithms/protocol/bytes.h"
 
 #include <QVector>
 

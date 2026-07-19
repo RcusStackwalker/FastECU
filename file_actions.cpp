@@ -2,10 +2,10 @@
 #include <utility>
 
 #include "error_codes.h"
-#include "dtc_parser.h"
-#include "expression_evaluator.h"
+#include "src/algorithms/diagnostics/dtc_parser.h"
+#include "src/algorithms/expression/expression_evaluator.h"
 #include "modules/flash_utils.h"
-#include "nrc_parser.h"
+#include "src/algorithms/diagnostics/nrc_parser.h"
 
 namespace
 {

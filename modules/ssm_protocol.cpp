@@ -1,6 +1,6 @@
 #include "modules/ssm_protocol.h"
 
-#include "protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 
 #include <array>
 #include <algorithm>
