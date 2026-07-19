@@ -17,7 +17,6 @@ def fastecu_gtest(
             "-I.",
             "-Itests",
             "-Isrc/platform/desktop/common/serial",
-            "-Iprotocol",
         ],
         linkopts = COMMON_LINKOPTS,
         data = select({

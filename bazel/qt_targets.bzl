@@ -24,7 +24,6 @@ COMMON_COPTS = [
     "-DQT_FORCE_ASSERTS",
     "-DQT_DEPRECATED_WARNINGS",
     "-I.",
-    "-Iprotocol",
     "-Isrc/platform/desktop/common/serial",
 ] + select({
     "@platforms//os:macos": [
@@ -42,7 +41,6 @@ COMMON_LINKOPTS = select({
 })
 
 COMMON_INCLUDES = [
-    "protocol",
     "src/platform/desktop/common/serial",
 ]
 
