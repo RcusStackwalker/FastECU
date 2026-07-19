@@ -371,8 +371,6 @@ class MainWindow : public QMainWindow
     void show_terminal_window();
     void show_subaru_get_key_window();
 
-    // #include <modules/flash_sti04.h>
-
   protected:
     void closeEvent(QCloseEvent *event);
     bool event(QEvent *event);

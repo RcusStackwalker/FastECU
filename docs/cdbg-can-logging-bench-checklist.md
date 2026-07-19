@@ -16,8 +16,8 @@ project's other bench-qualification gates (e.g.
 3. **Security access.** Confirm the seed/key exchange grants access
    (security-flags byte nonzero in the key-response reply).
 4. **Streaming.** With the placeholder channels from
-   `config/logger_cdbg_example.xml`, confirm frames arrive on `0x631` at
-   the configured interval and decode to *some* value (even if the
+   `resources/shared/config/logger_cdbg_example.xml`, confirm frames arrive on
+   `0x631` at the configured interval and decode to *some* value (even if the
    placeholder address doesn't mean anything meaningful yet).
 5. **Only after 1-4 pass repeatably**, invest in deriving real channel
    addresses via `rom-analyzer` against `47110032` for a first useful

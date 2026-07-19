@@ -77,7 +77,6 @@ qt_cc_test(
         "-I.",
         "-Itests",
         "-Isrc/platform/desktop/common/serial",
-        "-Iprotocol",
     ],
     linkopts = COMMON_LINKOPTS,
     deps = QT_DEPS + [
@@ -130,7 +129,6 @@ qt_cc_test(
         "-I.",
         "-Itests",
         "-Isrc/platform/desktop/common/serial",
-        "-Iprotocol",
     ],
     linkopts = COMMON_LINKOPTS,
     target_compatible_with = select({

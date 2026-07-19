@@ -118,7 +118,7 @@ execution failures return a nonzero status.
 
 A `MUT_DMA` log protocol has been added for Mitsubishi M32R ECUs communicating over K-Line (MUT-II/MUT-III physical layer). It supports two modes:
 
-- **Free-form logging** — user-defined channel list loaded from a RomRaider-format logger XML (see `config/logger_mut_dma_example.xml`). The address IDs in the example file are placeholders; replace them with real ECU parameter IDs before use.
+- **Free-form logging** — user-defined channel list loaded from a RomRaider-format logger XML (see `resources/shared/config/logger_mut_dma_example.xml`). The address IDs in the example file are placeholders; replace them with real ECU parameter IDs before use.
 - **Programmatic memory access** — `MainWindow::mut_read_memory` / `mut_write_memory` read and write arbitrary RAM. Writes are gated to the `0x4000–0xBFFF` window.
 
 **Status: NOT bench-qualified. Do not use on a live vehicle.**
@@ -128,8 +128,11 @@ Known gaps before this is production-ready:
 - The wake/init step uses `AlreadyInMode`, which assumes the ECU is already in DMA mode. The correct 5-baud wake sequence (`FiveBaudInit`) and the exact on-wire byte exchange still need bench confirmation on a real M32R ECU.
 - Memory writes are untested on a running ECU. The address window guard is a software-only check — no ECU-side acknowledgement is verified.
 
-The protocol logic lives in GUI-free, unit-tested modules under
-`protocol/mut_dma_*`. Run its focused Bazel test targets with:
+The GUI-free codec, free-form, and memory algorithms live under
+`src/algorithms/protocol/mut_dma/`; the driver, initialization strategy, and
+transport interfaces live under `src/backend/protocol/`; and the desktop K-Line
+transport adapter lives under `src/platform/desktop/common/transport/`. Run the
+focused Bazel test targets with:
 
 ```sh
 bazel test --config=release \
