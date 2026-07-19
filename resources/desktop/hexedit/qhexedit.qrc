@@ -1,0 +1,17 @@
+<RCC>
+    <qresource prefix="/">
+        <file alias="images/open.png">images/open.png</file>
+        <file alias="images/save.png">images/save.png</file>
+        <file alias="images/undo.png">images/undo.png</file>
+        <file alias="images/redo.png">images/redo.png</file>
+        <file alias="images/find.png">images/find.png</file>
+        <file alias="images/qhexedit.ico">images/qhexedit.ico</file>
+
+        <file alias="translations/qhexedit_cs.qm">translations/qhexedit_cs.qm</file>
+        <file alias="translations/qhexedit_de.qm">translations/qhexedit_de.qm</file>
+        <file alias="translations/qhexedit_es.qm">translations/qhexedit_es.qm</file>
+        <file alias="translations/qhexedit_fr.qm">translations/qhexedit_fr.qm</file>
+        <file alias="translations/qhexedit_it.qm">translations/qhexedit_it.qm</file>
+        <file alias="translations/qhexedit_ru.qm">translations/qhexedit_ru.qm</file>
+    </qresource>
+</RCC>

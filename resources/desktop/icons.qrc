@@ -1,0 +1,43 @@
+<RCC>
+    <qresource prefix="/">
+        <file alias="icons/application-exit.png">icons/application-exit.png</file>
+        <file alias="icons/document-new.png">icons/document-new.png</file>
+        <file alias="icons/document-open.png">icons/document-open.png</file>
+        <file alias="icons/document-save.png">icons/document-save.png</file>
+        <file alias="icons/document-save-as.png">icons/document-save-as.png</file>
+        <file alias="icons/edit-copy.png">icons/edit-copy.png</file>
+        <file alias="icons/edit-delete.png">icons/edit-delete.png</file>
+        <file alias="icons/edit-paste.png">icons/edit-paste.png</file>
+        <file alias="icons/edit-redo.png">icons/edit-redo.png</file>
+        <file alias="icons/edit-undo.png">icons/edit-undo.png</file>
+        <file alias="icons/help-browser.png">icons/help-browser.png</file>
+        <file alias="icons/list-add.png">icons/list-add.png</file>
+        <file alias="icons/list-remove.png">icons/list-remove.png</file>
+        <file alias="icons/media-playback-start.png">icons/media-playback-start.png</file>
+        <file alias="icons/media-record.png">icons/media-record.png</file>
+        <file alias="icons/preferences-system.png">icons/preferences-system.png</file>
+        <file alias="icons/tools-check-spelling.png">icons/tools-check-spelling.png</file>
+        <file alias="icons/utilities-system-monitor.png">icons/utilities-system-monitor.png</file>
+        <file alias="icons/view-sort-ascending.png">icons/view-sort-ascending.png</file>
+        <file alias="icons/window-close.png">icons/window-close.png</file>
+        <file alias="icons/zoom-in.png">icons/zoom-in.png</file>
+        <file alias="icons/zoom-original.png">icons/zoom-original.png</file>
+        <file alias="icons/zoom-out.png">icons/zoom-out.png</file>
+        <file alias="icons/go-down.png">icons/go-down.png</file>
+        <file alias="icons/go-forward.png">icons/go-forward.png</file>
+        <file alias="icons/1D-64.png">icons/1D-64.png</file>
+        <file alias="icons/2D-64.png">icons/2D-64.png</file>
+        <file alias="icons/3D-64.png">icons/3D-64.png</file>
+        <file alias="icons/1D-64-W.png">icons/1D-64-W.png</file>
+        <file alias="icons/2D-64-W.png">icons/2D-64-W.png</file>
+        <file alias="icons/3D-64-W.png">icons/3D-64-W.png</file>
+        <file alias="icons/view-refresh.png">icons/view-refresh.png</file>
+        <file alias="icons/read.png">icons/read.png</file>
+        <file alias="icons/test_write.png">icons/test_write.png</file>
+        <file alias="icons/write.png">icons/write.png</file>
+        <file alias="icons/media-stop.png">icons/media-stop.png</file>
+        <file alias="icons/disconnect.png">icons/disconnect.png</file>
+        <file alias="icons/connect.png">icons/connect.png</file>
+        <file alias="icons/help-about.png">icons/help-about.png</file>
+    </qresource>
+</RCC>

@@ -1,0 +1,9 @@
+<RCC>
+    <qresource prefix="/">
+        <file alias="config/fastecu.cfg">config/fastecu.cfg</file>
+        <file alias="config/logger.cfg">config/logger.cfg</file>
+        <file alias="config/logger_cdbg_example.xml">config/logger_cdbg_example.xml</file>
+        <file alias="config/menu.cfg">config/menu.cfg</file>
+        <file alias="config/protocols.cfg">config/protocols.cfg</file>
+    </qresource>
+</RCC>

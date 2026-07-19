@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/">
+        <file alias="fonts/DejaVuSansMono.ttf">fonts/DejaVuSansMono.ttf</file>
+        <file alias="fonts/FastECU_bars.ttf">fonts/FastECU_bars.ttf</file>
+    </qresource>
+</RCC>
