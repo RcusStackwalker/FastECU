@@ -44,7 +44,7 @@ flashing are tracked separately in
 
 ## Minor code-level findings
 
-- `protocol/issm_transport.h` defines `ISsmTransport` in the global namespace,
+- `src/backend/protocol/issm_transport.h` defines `ISsmTransport` in the global namespace,
   unlike `mutdma::IKlineTransport` and `cdbg::ICanTransport`.
 - `FastEcuSsmTransport::write()` discards the bytes returned by
   `write_serial_data_echo_check()` and reports the input size unconditionally.
