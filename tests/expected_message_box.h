@@ -12,7 +12,8 @@ class ExpectedMessageBoxCloser : public QObject
     {
         timer_.setSingleShot(true);
         timer_.setInterval(0);
-        connect(&timer_, &QTimer::timeout, this, [this]() {
+        connect(&timer_, &QTimer::timeout, this, [this]()
+                {
             for (QWidget *widget : QApplication::topLevelWidgets())
             {
                 auto *box = qobject_cast<QMessageBox *>(widget);
@@ -34,8 +35,7 @@ class ExpectedMessageBoxCloser : public QObject
                 box->reject();
                 return;
             }
-            failure_ = "Expected QMessageBox was not visible";
-        });
+            failure_ = "Expected QMessageBox was not visible"; });
     }
 
     void arm(const QString& title, const QString& text)
@@ -53,8 +53,14 @@ class ExpectedMessageBoxCloser : public QObject
         if (!sawExpected_ && failure_.isEmpty())
             failure_ = "Expected QMessageBox was not shown";
     }
-    bool sawExpected() const { return sawExpected_; }
-    QString failure() const { return failure_; }
+    bool sawExpected() const
+    {
+        return sawExpected_;
+    }
+    QString failure() const
+    {
+        return failure_;
+    }
 
   private:
     QTimer timer_;

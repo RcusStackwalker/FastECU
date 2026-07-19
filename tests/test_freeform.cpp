@@ -50,7 +50,7 @@ TEST(TestFreeform, id_list_frame)
 TEST(TestFreeform, decode_stream_values)
 {
     QVector<Channel> ch = {{0x8000, 2}, {0x8004, 1}, {0x8008, 4}};
-    ASSERT_EQ(responseDataLength(ch), 2 + 1 + 4);                          // 7
+    ASSERT_EQ(responseDataLength(ch), 2 + 1 + 4);                         // 7
     const bytes::Bytes data = {0x12, 0x34, 0x56, 0x89, 0xAB, 0xCD, 0xEF}; // BE per channel
     QVector<std::uint32_t> v = decodeStreamValues(ch, data);
     ASSERT_EQ(v.size(), 3);
