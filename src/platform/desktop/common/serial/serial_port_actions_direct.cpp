@@ -2,12 +2,12 @@
 
 // PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
 
-#include "serial_port_actions_direct.h"
+#include "src/platform/desktop/common/serial/serial_port_actions_direct.h"
 
 #include <QThread>
 
 #include "src/algorithms/protocol/qt_bytes.h"
-#include "serial_port/j2534_driver_selection.h"
+#include "src/platform/desktop/common/serial/j2534_driver_selection.h"
 
 namespace
 {

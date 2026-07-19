@@ -14,7 +14,7 @@
 
 // Kept for consumers that relied on this header's transitive includes
 // (QSerialPort types, WebSocketIoDevice). Candidates for removal in spec 1b.
-#include "serial_port_actions_direct.h"
+#include "src/platform/desktop/common/serial/serial_port_actions_direct.h"
 #include "websocketiodevice.h"
 
 #include "serial_backend.h"

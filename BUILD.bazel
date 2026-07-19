@@ -155,12 +155,12 @@ qt_cc_binary(
 
 cc_library(
     name = "j2534_bridge_protocol",
-    srcs = ["serial_port/j2534_bridge_protocol.cpp"],
+    srcs = ["src/platform/desktop/windows/j2534/j2534_bridge_protocol.cpp"],
     hdrs = [
-        "serial_port/J2534_tactrix_win.h",
-        "serial_port/j2534_bridge_protocol.h",
+        "src/platform/desktop/windows/j2534/J2534_tactrix_win.h",
+        "src/platform/desktop/windows/j2534/j2534_bridge_protocol.h",
     ],
-    includes = ["serial_port"],
+    includes = ["src/platform/desktop/windows/j2534"],
     target_compatible_with = select({
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],
@@ -169,9 +169,9 @@ cc_library(
 
 cc_library(
     name = "pe_bitness",
-    srcs = ["serial_port/pe_bitness.cpp"],
-    hdrs = ["serial_port/pe_bitness.h"],
-    includes = ["serial_port"],
+    srcs = ["src/platform/desktop/windows/j2534/pe_bitness.cpp"],
+    hdrs = ["src/platform/desktop/windows/j2534/pe_bitness.h"],
+    includes = ["src/platform/desktop/windows/j2534"],
     target_compatible_with = select({
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],
@@ -193,9 +193,9 @@ cc_binary(
 
 cc_library(
     name = "j2534_bridge_client",
-    srcs = ["serial_port/j2534_bridge_client.cpp"],
-    hdrs = ["serial_port/j2534_bridge_client.h"],
-    includes = ["serial_port"],
+    srcs = ["src/platform/desktop/windows/j2534/j2534_bridge_client.cpp"],
+    hdrs = ["src/platform/desktop/windows/j2534/j2534_bridge_client.h"],
+    includes = ["src/platform/desktop/windows/j2534"],
     target_compatible_with = select({
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],
@@ -240,8 +240,8 @@ py_test(
     size = "small",
     srcs = ["scripts/check-windows-preprocessor-guards.py"],
     data = [
-        "serial_port/serial_port_actions_direct.h",
         "src/backend/definitions/file_actions.h",
+        "src/platform/desktop/common/serial/serial_port_actions_direct.h",
     ],
     main = "scripts/check-windows-preprocessor-guards.py",
 )

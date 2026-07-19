@@ -2,7 +2,7 @@
 
 #include <utility>
 #include "src/backend/flash/ecu/flash_ecu_subaru_denso_sh705x_kline_operation.h"
-#include "serial_port_actions.h"
+#include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 FlashEcuSubaruDensoSH705xKline::FlashEcuSubaruDensoSH705xKline(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
     : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}

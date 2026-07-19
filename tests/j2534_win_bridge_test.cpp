@@ -1,4 +1,4 @@
-#include "J2534_win.h"
+#include "src/platform/desktop/windows/j2534/J2534_win.h"
 
 #include <cassert>
 #include <cstdio>

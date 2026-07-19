@@ -40,8 +40,8 @@
 #endif
 #include <unistd.h> // read/write/close
 
-#include "serial_port_actions.h"
-#include "protocol/fastecu_kline_transport.h"
+#include "src/platform/desktop/common/serial/serial_port_actions.h"
+#include "src/platform/desktop/common/transport/fastecu_kline_transport.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_codec.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_freeform.h"
 #include "src/backend/protocol/mut_dma_driver.h"

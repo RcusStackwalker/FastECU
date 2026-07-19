@@ -2,7 +2,7 @@
 
 #include <utility>
 #include "src/backend/flash/ecu/flash_ecu_subaru_denso_1n83m_1_5m_can_operation.h"
-#include "serial_port_actions.h"
+#include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 FlashEcuSubaruDenso1N83M_1_5MCan::FlashEcuSubaruDenso1N83M_1_5MCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
     : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}

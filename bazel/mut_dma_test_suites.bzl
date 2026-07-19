@@ -126,7 +126,7 @@ def mut_dma_test_suites(moc_deps_target, header_mocs_target):
             copts = COMMON_COPTS + [
                 "-I.",
                 "-Itests",
-                "-Iserial_port",
+                "-Isrc/platform/desktop/common/serial",
                 "-Iprotocol",
             ],
             linkopts = COMMON_LINKOPTS,

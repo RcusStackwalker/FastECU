@@ -76,7 +76,7 @@ qt_cc_test(
     copts = COMMON_COPTS + [
         "-I.",
         "-Itests",
-        "-Iserial_port",
+        "-Isrc/platform/desktop/common/serial",
         "-Iprotocol",
     ],
     linkopts = COMMON_LINKOPTS,
@@ -102,7 +102,7 @@ qt_cc_test(
     copts = COMMON_COPTS + [
         "-I.",
         "-Itests",
-        "-Iserial_port",
+        "-Isrc/platform/desktop/common/serial",
     ],
     linkopts = COMMON_LINKOPTS,
     target_compatible_with = select({
@@ -129,7 +129,7 @@ qt_cc_test(
     copts = COMMON_COPTS + [
         "-I.",
         "-Itests",
-        "-Iserial_port",
+        "-Isrc/platform/desktop/common/serial",
         "-Iprotocol",
     ],
     linkopts = COMMON_LINKOPTS,
@@ -193,11 +193,11 @@ cc_test(
     copts = ["/UNDEBUG"],
     data = [
         ":fake_j2534_dll_x86",
-        "//serial_port/j2534_bridge_host:j2534_bridge_host_x86",
+        "//src/platform/desktop/windows/j2534/j2534_bridge_host:j2534_bridge_host_x86",
     ],
     env = {
         "FAKE_J2534_DLL_PATH": "$(location :fake_j2534_dll_x86)",
-        "J2534_BRIDGE_HOST_EXE": "$(location //serial_port/j2534_bridge_host:j2534_bridge_host_x86)",
+        "J2534_BRIDGE_HOST_EXE": "$(location //src/platform/desktop/windows/j2534/j2534_bridge_host:j2534_bridge_host_x86)",
     },
     target_compatible_with = select({
         "@platforms//os:windows": [],
@@ -216,11 +216,11 @@ cc_test(
     copts = ["/UNDEBUG"],
     data = [
         ":fake_j2534_dll_x86",
-        "//serial_port/j2534_bridge_host:j2534_bridge_host_x86",
+        "//src/platform/desktop/windows/j2534/j2534_bridge_host:j2534_bridge_host_x86",
     ],
     env = {
         "FAKE_J2534_DLL_PATH": "$(location :fake_j2534_dll_x86)",
-        "J2534_BRIDGE_HOST_EXE": "$(location //serial_port/j2534_bridge_host:j2534_bridge_host_x86)",
+        "J2534_BRIDGE_HOST_EXE": "$(location //src/platform/desktop/windows/j2534/j2534_bridge_host:j2534_bridge_host_x86)",
     },
     target_compatible_with = select({
         "@platforms//os:windows": [],
@@ -239,11 +239,11 @@ qt_cc_test(
     copts = ["/UNDEBUG"],
     data = [
         ":fake_j2534_dll_x86",
-        "//serial_port/j2534_bridge_host:j2534_bridge_host_x86",
+        "//src/platform/desktop/windows/j2534/j2534_bridge_host:j2534_bridge_host_x86",
     ],
     env = {
         "FAKE_J2534_DLL_PATH": "$(location :fake_j2534_dll_x86)",
-        "J2534_BRIDGE_HOST_EXE": "$(location //serial_port/j2534_bridge_host:j2534_bridge_host_x86)",
+        "J2534_BRIDGE_HOST_EXE": "$(location //src/platform/desktop/windows/j2534/j2534_bridge_host:j2534_bridge_host_x86)",
     },
     target_compatible_with = select({
         "@platforms//os:windows": [],

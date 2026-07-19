@@ -1,4 +1,4 @@
-#include "j2534_bridge_protocol.h"
+#include "src/platform/desktop/windows/j2534/j2534_bridge_protocol.h"
 
 #include <cstdio>
 #include <cstring>

@@ -1,7 +1,7 @@
 #include "src/backend/flash/ecu/flash_ecu_subaru_unisia_jecs_m32r_operation.h"
 #include "src/backend/flash/flash_utils.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
-#include "serial_port_actions.h"
+#include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <QElapsedTimer>
 #include <utility>

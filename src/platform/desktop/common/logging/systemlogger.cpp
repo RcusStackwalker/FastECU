@@ -1,4 +1,4 @@
-#include "systemlogger.h"
+#include "src/platform/desktop/common/logging/systemlogger.h"
 
 #include <utility>
 

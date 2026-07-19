@@ -2,7 +2,7 @@
 
 #include <utility>
 #include "src/backend/flash/ecu/flash_ecu_subaru_hitachi_sh72543r_can_operation.h"
-#include "serial_port_actions.h"
+#include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 // QT_CHARTS_USE_NAMESPACE
 

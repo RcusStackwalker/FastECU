@@ -2,7 +2,7 @@
 
 #include <utility>
 #include "src/backend/flash/eeprom/eeprom_ecu_subaru_denso_sh705x_kline_operation.h"
-#include "serial_port_actions.h"
+#include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 EepromEcuSubaruDensoSH705xKline::EepromEcuSubaruDensoSH705xKline(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
     : QDialog(parent),

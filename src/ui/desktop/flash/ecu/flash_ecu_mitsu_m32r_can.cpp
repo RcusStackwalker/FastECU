@@ -2,7 +2,7 @@
 
 #include <utility>
 #include "src/backend/flash/ecu/flash_ecu_mitsu_m32r_can_operation.h"
-#include "serial_port_actions.h"
+#include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 FlashEcuMitsuM32rCan::FlashEcuMitsuM32rCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent, bool useVendorChallenge)
     : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), useVendorChallenge(useVendorChallenge), serial(serial), ui{std::make_unique<Ui::EcuOperationsWindow>()}

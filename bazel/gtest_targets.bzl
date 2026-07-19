@@ -16,7 +16,7 @@ def fastecu_gtest(
         copts = COMMON_COPTS + [
             "-I.",
             "-Itests",
-            "-Iserial_port",
+            "-Isrc/platform/desktop/common/serial",
             "-Iprotocol",
         ],
         linkopts = COMMON_LINKOPTS,

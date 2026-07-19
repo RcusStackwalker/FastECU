@@ -1,4 +1,4 @@
-#include "J2534_unix.h"
+#include "src/platform/desktop/unix/j2534/J2534_unix.h"
 
 #include <QThread>
 

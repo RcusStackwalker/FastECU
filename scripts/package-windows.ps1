@@ -14,11 +14,11 @@ if (-not [System.IO.Path]::IsPathRooted($OutZip)) {
   $OutZip = Join-Path $repoRoot $OutZip
 }
 
-bazel build --config=release //:fastecu //serial_port/j2534_bridge_host:j2534_bridge_host_x86
+bazel build --config=release //:fastecu //src/platform/desktop/windows/j2534/j2534_bridge_host:j2534_bridge_host_x86
 if ($LASTEXITCODE -ne 0) { throw "bazel build failed (exit $LASTEXITCODE)" }
 $bin = (bazel cquery --config=release --output=files //:fastecu 2>$null | Select-Object -First 1)
 if (-not (Test-Path $bin)) { throw "bazel binary not found: $bin" }
-$bridge = (bazel cquery --config=release --output=files //serial_port/j2534_bridge_host:j2534_bridge_host_x86 2>$null | Select-Object -First 1)
+$bridge = (bazel cquery --config=release --output=files //src/platform/desktop/windows/j2534/j2534_bridge_host:j2534_bridge_host_x86 2>$null | Select-Object -First 1)
 if (-not (Test-Path $bridge)) { throw "bridge helper not found: $bridge" }
 
 if (-not $env:OPENSSL_ROOT) { throw "OPENSSL_ROOT not set" }

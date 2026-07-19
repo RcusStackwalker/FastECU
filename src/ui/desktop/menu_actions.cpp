@@ -1,7 +1,7 @@
 #include "mainwindow.h"
 #include "src/algorithms/menu/menu_command.h"
 #include "ui_mainwindow.h"
-#include "serial_port_actions.h"
+#include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 void MainWindow::menu_action_triggered(const QString& action)
 {

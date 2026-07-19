@@ -1,5 +1,5 @@
-#include "j2534_bridge_client.h"
-#include "j2534_bridge_protocol.h"
+#include "src/platform/desktop/windows/j2534/j2534_bridge_client.h"
+#include "src/platform/desktop/windows/j2534/j2534_bridge_protocol.h"
 
 #include <cstring>
 #include <vector>

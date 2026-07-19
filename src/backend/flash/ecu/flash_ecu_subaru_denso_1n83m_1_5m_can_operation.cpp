@@ -1,7 +1,7 @@
 #include "src/backend/flash/ecu/flash_ecu_subaru_denso_1n83m_1_5m_can_operation.h"
 #include "src/backend/flash/flash_utils.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
-#include "serial_port_actions.h"
+#include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <QElapsedTimer>
 #include <QScopedPointer>

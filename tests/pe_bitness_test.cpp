@@ -1,4 +1,4 @@
-#include "pe_bitness.h"
+#include "src/platform/desktop/windows/j2534/pe_bitness.h"
 
 #include <cassert>
 #include <cstdio>

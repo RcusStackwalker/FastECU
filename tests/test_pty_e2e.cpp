@@ -12,7 +12,7 @@
 #include <unistd.h>
 #include <poll.h>
 
-#include "serial_port_actions.h"
+#include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 // End-to-end over a pseudo-terminal, all through the production stack:
 // facade -> I/O thread -> real SerialPortActionsDirect -> QSerialPort(pty).
