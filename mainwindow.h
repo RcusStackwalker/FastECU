@@ -46,7 +46,7 @@
 #include <modules/biu/biu_operations_subaru.h>
 #include <dataterminal.h>
 #include <get_key_operations_subaru.h>
-#include <file_actions.h>
+#include "src/backend/definitions/file_actions.h"
 #include <logbox.h>
 #include <settings.h>
 #include <dtc_operations.h>
@@ -97,15 +97,15 @@
 #include <remote_utility/remote_utility.h>
 
 // Mitsubishi MUT/DMA protocol core (namespace mutdma)
-#include "protocol/mut_dma_driver.h"
+#include "src/backend/protocol/mut_dma_driver.h"
 #include "protocol/fastecu_kline_transport.h"
-#include "protocol/imut_dma_init.h"
-#include "protocol/mitsu_colt_can_cdbg_driver.h"
+#include "src/backend/protocol/imut_dma_init.h"
+#include "src/backend/protocol/mitsu_colt_can_cdbg_driver.h"
 #include "protocol/fastecu_can_transport.h"
-#include "logging/logging_engine.h"
-#include "logging/protocols/ssm_logging_protocol.h"
-#include "logging/protocols/mut_dma_logging_protocol.h"
-#include "logging/protocols/cdbg_logging_protocol.h"
+#include "src/backend/logging/logging_engine.h"
+#include "src/backend/logging/protocols/ssm_logging_protocol.h"
+#include "src/backend/logging/protocols/mut_dma_logging_protocol.h"
+#include "src/backend/logging/protocols/cdbg_logging_protocol.h"
 #include "protocol/fastecu_ssm_transport.h"
 
 // Forward declaration

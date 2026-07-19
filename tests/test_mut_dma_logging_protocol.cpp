@@ -1,7 +1,7 @@
 #include <QtTest>
 #include <QApplication>
-#include <file_actions.h>
-#include "logging/protocols/mut_dma_logging_protocol.h"
+#include "src/backend/definitions/file_actions.h"
+#include "src/backend/logging/protocols/mut_dma_logging_protocol.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_codec.h"
 #include "scripted_kline_transport.h"
 #include "test_mut_dma_logging_protocol.h"

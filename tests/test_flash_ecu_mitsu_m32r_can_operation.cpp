@@ -3,14 +3,14 @@
 #include <QQueue>
 #include <QSignalSpy>
 #include <QWidget>
-#include <kernelmemorymodels.h>
-#include "modules/flash_utils.h"
+#include "src/backend/definitions/kernelmemorymodels.h"
+#include "src/backend/flash/flash_utils.h"
 #include "modules/ecu/flash_ecu_mitsu_m32r_can_operation.h"
 #include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
 #include "src/algorithms/protocol/colt/mitsu_colt_can_vendor_ext_protocol.h"
 #include "serial_port_actions.h"
 #include "fake_backend.h"
-#include "file_actions.h"
+#include "src/backend/definitions/file_actions.h"
 #include "test_flash_ecu_mitsu_m32r_can_operation.h"
 
 class QueuedFakeBackend : public FakeBackend

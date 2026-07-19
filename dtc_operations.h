@@ -14,9 +14,9 @@
 #include <QTimer>
 #include <QWidget>
 
-#include <kernelcomms.h>
-#include <kernelmemorymodels.h>
-#include <file_actions.h>
+#include "src/backend/definitions/kernelcomms.h"
+#include "src/backend/definitions/kernelmemorymodels.h"
+#include "src/backend/definitions/file_actions.h"
 #include <ui_dtc_operations.h>
 
 // Forward declaration

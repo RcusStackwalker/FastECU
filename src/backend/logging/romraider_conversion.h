@@ -1,6 +1,6 @@
 #pragma once
 #include <QString>
-#include <file_actions.h>
+#include "src/backend/definitions/file_actions.h"
 
 // Converts one already-assembled raw decimal value string into its display-ready
 // form using the RomRaider-format from-byte expression and decimal format stored

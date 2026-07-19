@@ -1,6 +1,6 @@
 #include <QtTest>
 #include <QSignalSpy>
-#include "logging/logging_engine.h"
+#include "src/backend/logging/logging_engine.h"
 #include "scripted_logging_protocol.h"
 #include "test_logging_engine.h"
 

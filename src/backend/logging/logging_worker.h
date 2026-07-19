@@ -1,7 +1,7 @@
 #pragma once
 #include <QAtomicInteger>
 #include <QThread>
-#include "logging/logging_protocol.h"
+#include "src/backend/logging/logging_protocol.h"
 
 // Drives one LoggingProtocol in a dedicated thread. Does not use a QTimer or the
 // thread's own event loop for pacing: run() is a tight loop where each protocol's

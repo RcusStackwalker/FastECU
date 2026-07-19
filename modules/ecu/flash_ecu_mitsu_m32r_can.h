@@ -15,8 +15,8 @@
 #include <QTimer>
 #include <QWidget>
 
-#include <kernelmemorymodels.h>
-#include <file_actions.h>
+#include "src/backend/definitions/kernelmemorymodels.h"
+#include "src/backend/definitions/file_actions.h"
 #include <ui_ecu_operations.h>
 
 class SerialPortActions;

@@ -1,5 +1,5 @@
-#include "logging/protocols/ssm_logging_protocol.h"
-#include "logging/romraider_conversion.h"
+#include "src/backend/logging/protocols/ssm_logging_protocol.h"
+#include "src/backend/logging/romraider_conversion.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include <QElapsedTimer>
 #include <QHash>

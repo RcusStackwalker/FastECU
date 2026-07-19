@@ -1,9 +1,9 @@
 #pragma once
 #include <memory>
-#include "logging/logging_protocol.h"
-#include "protocol/ican_transport.h"
-#include "protocol/mitsu_colt_can_cdbg_driver.h"
-#include <file_actions.h>
+#include "src/backend/logging/logging_protocol.h"
+#include "src/backend/protocol/ican_transport.h"
+#include "src/backend/protocol/mitsu_colt_can_cdbg_driver.h"
+#include "src/backend/definitions/file_actions.h"
 
 class SerialPortActions;
 

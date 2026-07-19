@@ -1,7 +1,7 @@
 #include <QtTest>
 #include <QApplication>
-#include <file_actions.h>
-#include "logging/protocols/ssm_logging_protocol.h"
+#include "src/backend/definitions/file_actions.h"
+#include "src/backend/logging/protocols/ssm_logging_protocol.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "scripted_ssm_transport.h"
 #include "test_ssm_logging_protocol.h"

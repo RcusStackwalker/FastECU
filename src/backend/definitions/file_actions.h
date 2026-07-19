@@ -41,7 +41,7 @@
 #include "src/algorithms/checksum/checksum_tcu_subaru_hitachi_m32r_can.h"
 #include "src/algorithms/checksum/checksum_tcu_mitsu_mh8104_can.h"
 
-#include <kernelmemorymodels.h>
+#include "src/backend/definitions/kernelmemorymodels.h"
 
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
 #include <windows.h>

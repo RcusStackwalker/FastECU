@@ -2,7 +2,7 @@
 #include <QApplication>
 #include <QSignalSpy>
 #include <QWidget>
-#include "modules/flash_operation_worker.h"
+#include "src/backend/flash/flash_operation_worker.h"
 #include "test_flash_operation_worker.h"
 
 class ScriptedOperation : public FlashOperationWorker

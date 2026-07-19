@@ -1,5 +1,5 @@
 #include "flash_ecu_subaru_denso_mc68hc16y5_02_bdm_operation.h"
-#include "modules/flash_utils.h"
+#include "src/backend/flash/flash_utils.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
 #include "serial_port_actions.h"
 

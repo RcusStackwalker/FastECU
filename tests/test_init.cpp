@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "protocol/imut_dma_init.h"
+#include "src/backend/protocol/imut_dma_init.h"
 #include "scripted_kline_transport.h"
 
 using namespace mutdma;

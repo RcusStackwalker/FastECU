@@ -1,7 +1,7 @@
 #pragma once
 #include "src/algorithms/protocol/bytes.h"
-#include "protocol/ikline_transport.h"
-#include "protocol/imut_dma_init.h"
+#include "src/backend/protocol/ikline_transport.h"
+#include "src/backend/protocol/imut_dma_init.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_freeform.h"
 
 #include <QByteArray>

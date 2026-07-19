@@ -3,7 +3,7 @@
 #include <QFile>
 #include <QTemporaryDir>
 
-#include "file_actions.h"
+#include "src/backend/definitions/file_actions.h"
 #include "test_file_actions_parsing.h"
 
 namespace

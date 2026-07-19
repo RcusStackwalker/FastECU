@@ -11,7 +11,7 @@
 #include <QComboBox>
 #include <QCheckBox>
 
-#include <file_actions.h>
+#include "src/backend/definitions/file_actions.h"
 #include <verticallabel.h>
 
 QT_BEGIN_NAMESPACE
