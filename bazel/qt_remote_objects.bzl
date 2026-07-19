@@ -79,6 +79,14 @@ def qt_replica_library(name, reps, deps):
             ],
             "//conditions:default": [],
         }),
+        # Exposes this package's own directory (where the generated replica
+        # headers land) as an include path, so consumers outside this
+        # package can #include the bare replica header filename -- as
+        # opposed to only the target's own srcs, which get same-package
+        # quote-resolution for free. Needed once this macro is called from
+        # a non-root package (root worked before only because "-I." happened
+        # to cover it there).
+        includes = ["."],
         deps = deps + select({
             "@platforms//os:windows": ["@qt_windows_x86_64//:qt_hdrs"],
             "//conditions:default": [],

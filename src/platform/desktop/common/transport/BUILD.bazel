@@ -1,0 +1,17 @@
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+qt_cc_library(
+    name = "transport",
+    srcs = glob(["*.cpp"]),
+    hdrs = [],
+    copts = COMMON_COPTS,
+    includes = COMMON_INCLUDES,
+    normal_hdrs = glob(["*.h"]),
+    deps = QT_DEPS + [
+        "//src/algorithms/protocol",
+        "//src/backend/protocol",
+        "//src/platform/desktop/common/serial:serial_qt_compat",
+    ],
+)

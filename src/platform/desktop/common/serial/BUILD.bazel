@@ -1,0 +1,44 @@
+load("//bazel:qt_remote_objects.bzl", "qt_replica_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+qt_replica_library(
+    name = "serial_replicas",
+    reps = ["serial_port_actions.rep"],
+    deps = QT_DEPS,
+)
+
+MOC_HDRS = [
+    "remote_serial_backend.h",
+    "serial_port_actions.h",
+    "serial_port_actions_direct.h",
+    "websocketiodevice.h",
+]
+
+# TRANSITIONAL. Carries serial_port_actions.h to its backend and UI
+# callers, all of which are layering violations that step 5 (backend)
+# and step 6 (ui) remove. Task 8 replaces the public visibility below
+# with an enumerated allowlist frozen by
+# scripts/check-serial-compat-allowlist.py. Do not add new callers.
+qt_cc_library(
+    name = "serial_qt_compat",
+    srcs = glob(["*.cpp"]),
+    hdrs = MOC_HDRS,
+    copts = COMMON_COPTS,
+    includes = COMMON_INCLUDES,
+    # *.hpp because qtrohelper.hpp (included by remote_serial_backend.cpp
+    # in this package, and by remote_utility.h in the sibling package) is
+    # not matched by *.h alone.
+    normal_hdrs = glob(["*.h", "*.hpp"], exclude = MOC_HDRS),
+    deps = QT_DEPS + [
+        ":serial_replicas",
+        "//src/algorithms/protocol",
+    ] + select({
+        # serial_port_actions_direct.h #includes J2534_unix.h or J2534_win.h
+        # behind a Q_OS_UNIX/Q_OS_WIN32 guard; the header must be a declared
+        # input on whichever platform is actually compiling it.
+        "@platforms//os:windows": ["//src/platform/desktop/windows/j2534"],
+        "//conditions:default": ["//src/platform/desktop/unix/j2534"],
+    }),
+)

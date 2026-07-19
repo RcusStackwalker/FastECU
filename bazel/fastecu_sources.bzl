@@ -100,18 +100,8 @@ APP_COMMON_SRCS = [
     "src/backend/flash/tcu/flash_tcu_subaru_hitachi_m32r_can_operation.cpp",
     "src/ui/desktop/flash/tcu/flash_tcu_subaru_hitachi_m32r_kline.cpp",
     "src/backend/flash/tcu/flash_tcu_subaru_hitachi_m32r_kline_operation.cpp",
-    "src/platform/desktop/common/transport/fastecu_can_transport.cpp",
-    "src/platform/desktop/common/transport/fastecu_kline_transport.cpp",
-    "src/platform/desktop/common/transport/fastecu_ssm_transport.cpp",
     "src/ui/desktop/protocol_select.cpp",
-    "src/platform/desktop/common/remote_utility/remote_utility.cpp",
-    "src/platform/desktop/common/serial/remote_serial_backend.cpp",
-    "src/platform/desktop/common/serial/serial_backend_host.cpp",
-    "src/platform/desktop/common/serial/serial_port_actions.cpp",
-    "src/platform/desktop/common/serial/serial_port_actions_direct.cpp",
-    "src/platform/desktop/common/serial/websocketiodevice.cpp",
     "src/ui/desktop/settings.cpp",
-    "src/platform/desktop/common/logging/systemlogger.cpp",
     "src/ui/desktop/vehicle_select.cpp",
     "src/ui/desktop/verticallabel.cpp",
 ]
@@ -126,13 +116,6 @@ APP_COMMON_HDRS = [
     "src/backend/logging/protocols/ssm_logging_protocol.h",
     "src/backend/logging/romraider_conversion.h",
     "src/backend/flash/flash_utils.h",
-    "src/platform/desktop/common/transport/fastecu_can_transport.h",
-    "src/platform/desktop/common/transport/fastecu_kline_transport.h",
-    "src/platform/desktop/common/transport/fastecu_ssm_transport.h",
-    "src/platform/desktop/common/serial/j2534_driver_selection.h",
-    "src/platform/desktop/common/serial/qtrohelper.hpp",
-    "src/platform/desktop/common/serial/serial_backend.h",
-    "src/platform/desktop/common/serial/serial_backend_host.h",
 ]
 
 APP_MOC_HDRS = [
@@ -220,14 +203,7 @@ APP_MOC_HDRS = [
     "src/ui/desktop/flash/tcu/flash_tcu_subaru_hitachi_m32r_kline.h",
     "src/backend/flash/tcu/flash_tcu_subaru_hitachi_m32r_kline_operation.h",
     "src/ui/desktop/protocol_select.h",
-    "src/platform/desktop/common/remote_utility/remote_utility.h",
-    "src/platform/desktop/unix/j2534/J2534_unix.h",
-    "src/platform/desktop/common/serial/remote_serial_backend.h",
-    "src/platform/desktop/common/serial/serial_port_actions.h",
-    "src/platform/desktop/common/serial/serial_port_actions_direct.h",
-    "src/platform/desktop/common/serial/websocketiodevice.h",
     "src/ui/desktop/settings.h",
-    "src/platform/desktop/common/logging/systemlogger.h",
     "src/ui/desktop/vehicle_select.h",
     "src/ui/desktop/verticallabel.h",
 ]
@@ -262,34 +238,15 @@ APP_RESOURCES = [
     "resources/shared/kernels.qrc",
 ]
 
-APP_REPS = [
-    "src/platform/desktop/common/remote_utility/remote_utility.rep",
-    "src/platform/desktop/common/serial/serial_port_actions.rep",
-]
+APP_REPS = []
 
-APP_UNIX_SRCS = [
-    "src/platform/desktop/unix/j2534/J2534_unix.cpp",
-]
+APP_UNIX_SRCS = []
 
-APP_UNIX_HDRS = [
-    "src/platform/desktop/unix/j2534/J2534_tactrix_unix.h",
-    "src/platform/desktop/unix/j2534/J2534_unix.h",
-]
+APP_UNIX_HDRS = []
 
-APP_WIN_SRCS = [
-    "src/platform/desktop/windows/j2534/J2534_win.cpp",
-    "src/platform/desktop/windows/j2534/j2534_bridge_client.cpp",
-    "src/platform/desktop/windows/j2534/j2534_bridge_protocol.cpp",
-    "src/platform/desktop/windows/j2534/pe_bitness.cpp",
-]
+APP_WIN_SRCS = []
 
-APP_WIN_HDRS = [
-    "src/platform/desktop/windows/j2534/J2534_tactrix_win.h",
-    "src/platform/desktop/windows/j2534/J2534_win.h",
-    "src/platform/desktop/windows/j2534/j2534_bridge_client.h",
-    "src/platform/desktop/windows/j2534/j2534_bridge_protocol.h",
-    "src/platform/desktop/windows/j2534/pe_bitness.h",
-]
+APP_WIN_HDRS = []
 
 MUT_DMA_TESTS_COMMON_SRCS = [
     "../src/algorithms/diagnostics/dtc_parser.cpp",
