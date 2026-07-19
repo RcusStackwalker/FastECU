@@ -11,9 +11,8 @@ from io import StringIO
 from pathlib import Path
 from unittest import mock
 
-import yaml
-
 import clang_tidy_runner as runner
+import yaml
 
 
 class ClangTidyRunnerTest(unittest.TestCase):
@@ -153,13 +152,15 @@ class ClangTidyRunnerTest(unittest.TestCase):
             )
 
     def test_missing_tool_is_actionable(self) -> None:
-        with mock.patch.object(runner.shutil, "which", return_value=None):
-            with self.assertRaisesRegex(runner.WorkflowError, "Install LLVM"):
-                runner.find_executable(
-                    ("clang-tidy",),
-                    platform_name="linux",
-                    environ={"PATH": ""},
-                )
+        with (
+            mock.patch.object(runner.shutil, "which", return_value=None),
+            self.assertRaisesRegex(runner.WorkflowError, "Install LLVM"),
+        ):
+            runner.find_executable(
+                ("clang-tidy",),
+                platform_name="linux",
+                environ={"PATH": ""},
+            )
 
     def test_windows_report_builds_parallel_runner_command(self) -> None:
         source = self.root / "windows.cpp"
@@ -249,16 +250,18 @@ class ClangTidyRunnerTest(unittest.TestCase):
             clang_tidy="/llvm/bin/clang-tidy",
             run_clang_tidy="/llvm/bin/run-clang-tidy",
         )
-        with mock.patch.object(runner, "discover_tools", return_value=tools):
-            with self.assertRaisesRegex(runner.WorkflowError, "xcrun.*72.*Command Line Tools"):
-                runner.run_workflow(
-                    mode="report",
-                    workspace=self.root,
-                    compdb_tool="/tools/clang_tidy_compdb",
-                    platform_name="darwin",
-                    environ={},
-                    command_runner=fake_run,
-                )
+        with (
+            mock.patch.object(runner, "discover_tools", return_value=tools),
+            self.assertRaisesRegex(runner.WorkflowError, "xcrun.*72.*Command Line Tools"),
+        ):
+            runner.run_workflow(
+                mode="report",
+                workspace=self.root,
+                compdb_tool="/tools/clang_tidy_compdb",
+                platform_name="darwin",
+                environ={},
+                command_runner=fake_run,
+            )
 
     def test_fix_uses_deferred_replacements(self) -> None:
         source = self.root / "main.cpp"
@@ -538,16 +541,18 @@ class ClangTidyRunnerTest(unittest.TestCase):
             clang_tidy="/llvm/bin/clang-tidy",
             run_clang_tidy="/llvm/bin/run-clang-tidy",
         )
-        with mock.patch.object(runner, "discover_tools", return_value=tools):
-            with self.assertRaisesRegex(runner.WorkflowError, "failed.*7"):
-                runner.run_workflow(
-                    mode="report",
-                    workspace=self.root,
-                    compdb_tool="/tools/clang_tidy_compdb",
-                    platform_name="darwin",
-                    environ={},
-                    command_runner=fake_run,
-                )
+        with (
+            mock.patch.object(runner, "discover_tools", return_value=tools),
+            self.assertRaisesRegex(runner.WorkflowError, "failed.*7"),
+        ):
+            runner.run_workflow(
+                mode="report",
+                workspace=self.root,
+                compdb_tool="/tools/clang_tidy_compdb",
+                platform_name="darwin",
+                environ={},
+                command_runner=fake_run,
+            )
 
     def test_replacement_failure_is_propagated(self) -> None:
         source = self.root / "main.cpp"
@@ -565,16 +570,18 @@ class ClangTidyRunnerTest(unittest.TestCase):
             run_clang_tidy="/llvm/bin/run-clang-tidy",
             clang_apply_replacements="/llvm/bin/clang-apply-replacements",
         )
-        with mock.patch.object(runner, "discover_tools", return_value=tools):
-            with self.assertRaisesRegex(runner.WorkflowError, "replacement application failed.*8"):
-                runner.run_workflow(
-                    mode="fix",
-                    workspace=self.root,
-                    compdb_tool="/tools/clang_tidy_compdb",
-                    platform_name="darwin",
-                    environ={},
-                    command_runner=fake_run,
-                )
+        with (
+            mock.patch.object(runner, "discover_tools", return_value=tools),
+            self.assertRaisesRegex(runner.WorkflowError, "replacement application failed.*8"),
+        ):
+            runner.run_workflow(
+                mode="fix",
+                workspace=self.root,
+                compdb_tool="/tools/clang_tidy_compdb",
+                platform_name="darwin",
+                environ={},
+                command_runner=fake_run,
+            )
 
 
 if __name__ == "__main__":

@@ -10,9 +10,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Mapping, Sequence
 
 import yaml
 
@@ -339,7 +339,9 @@ def normalize_replacements(
 
     for replacements, indexes in replacement_lists:
         replacements[:] = [
-            replacement for replacement, index in zip(replacements, indexes) if index in retained
+            replacement
+            for replacement, index in zip(replacements, indexes, strict=True)
+            if index in retained
         ]
 
     for path, document in documents:

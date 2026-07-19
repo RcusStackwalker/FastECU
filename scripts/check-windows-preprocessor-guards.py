@@ -27,7 +27,8 @@ def main() -> int:
         for lineno, line in enumerate(path.read_text(errors="ignore").splitlines(), 1):
             if BARE_WIN32.search(line) and not any(token in line for token in ALLOWED):
                 errors.append(
-                    f"{path.relative_to(ROOT)}:{lineno}: use _WIN32 or Q_OS_WIN32 instead of bare WIN32"
+                    f"{path.relative_to(ROOT)}:{lineno}: "
+                    "use _WIN32 or Q_OS_WIN32 instead of bare WIN32"
                 )
 
     if errors:
