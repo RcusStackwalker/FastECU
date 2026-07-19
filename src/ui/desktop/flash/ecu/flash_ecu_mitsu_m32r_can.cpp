@@ -1,19 +1,15 @@
-#include "flash_ecu_subaru_denso_sh7055_02.h"
+#include "src/ui/desktop/flash/ecu/flash_ecu_mitsu_m32r_can.h"
 
 #include <utility>
-#include "flash_ecu_subaru_denso_sh7055_02_operation.h"
+#include "src/backend/flash/ecu/flash_ecu_mitsu_m32r_can_operation.h"
 #include "serial_port_actions.h"
 
-FlashEcuSubaruDensoSH7055_02::FlashEcuSubaruDensoSH7055_02(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
-    : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}
+FlashEcuMitsuM32rCan::FlashEcuMitsuM32rCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent, bool useVendorChallenge)
+    : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), useVendorChallenge(useVendorChallenge), serial(serial), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
 
-    if (cmd_type == "test_write")
-    {
-        this->setWindowTitle("Test write ROM " + ecuCalDef->FileName + " to ECU");
-    }
-    else if (cmd_type == "write")
+    if (cmd_type == "write")
     {
         this->setWindowTitle("Write ROM " + ecuCalDef->FileName + " to ECU");
     }
@@ -21,15 +17,13 @@ FlashEcuSubaruDensoSH7055_02::FlashEcuSubaruDensoSH7055_02(SerialPortActions *se
     {
         this->setWindowTitle("Read ROM from ECU");
     }
-
-    this->serial = serial;
 }
 
-FlashEcuSubaruDensoSH7055_02::~FlashEcuSubaruDensoSH7055_02()
+FlashEcuMitsuM32rCan::~FlashEcuMitsuM32rCan()
 {
 }
 
-void FlashEcuSubaruDensoSH7055_02::closeEvent(QCloseEvent *bar)
+void FlashEcuMitsuM32rCan::closeEvent(QCloseEvent *event)
 {
     if (m_operation)
     {
@@ -37,10 +31,9 @@ void FlashEcuSubaruDensoSH7055_02::closeEvent(QCloseEvent *bar)
     }
 }
 
-void FlashEcuSubaruDensoSH7055_02::run()
+void FlashEcuMitsuM32rCan::run()
 {
     this->show();
-
     set_progressbar_value(0);
 
     int ret = QMessageBox::warning(this, tr("Connecting to ECU"),
@@ -52,16 +45,16 @@ void FlashEcuSubaruDensoSH7055_02::run()
     {
     case QMessageBox::Ok:
     {
-        m_operation = new FlashEcuSubaruDensoSH7055_02Operation(serial, ecuCalDef, cmd_type, this);
-        connect(m_operation, &FlashOperationWorker::LOG_E, this, &FlashEcuSubaruDensoSH7055_02::LOG_E);
-        connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashEcuSubaruDensoSH7055_02::LOG_W);
-        connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashEcuSubaruDensoSH7055_02::LOG_I);
-        connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashEcuSubaruDensoSH7055_02::LOG_D);
+        m_operation = new FlashEcuMitsuM32rCanOperation(serial, ecuCalDef, cmd_type, this, useVendorChallenge);
+        connect(m_operation, &FlashOperationWorker::LOG_E, this, &FlashEcuMitsuM32rCan::LOG_E);
+        connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashEcuMitsuM32rCan::LOG_W);
+        connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashEcuMitsuM32rCan::LOG_I);
+        connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashEcuMitsuM32rCan::LOG_D);
         connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
                 this, [this](QString msg)
                 { emit external_logger(std::move(msg)); });
         connect(m_operation, &FlashOperationWorker::progressChanged,
-                this, &FlashEcuSubaruDensoSH7055_02::set_progressbar_value);
+                this, &FlashEcuMitsuM32rCan::set_progressbar_value);
 
         QEventLoop loop;
         bool success = false;
@@ -100,7 +93,7 @@ void FlashEcuSubaruDensoSH7055_02::run()
     }
 }
 
-void FlashEcuSubaruDensoSH7055_02::set_progressbar_value(int value)
+void FlashEcuMitsuM32rCan::set_progressbar_value(int value)
 {
     bool valueChanged = true;
     if (ui->progressbar)
