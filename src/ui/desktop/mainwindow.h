@@ -38,19 +38,19 @@
 #include <QMutex>
 
 #include <src/algorithms/crypto/cipher.h>
-#include <calibration_maps.h>
-#include <calibration_treewidget.h>
-#include <protocol_select.h>
-#include <vehicle_select.h>
-#include <definition_file_convert.h>
-#include <modules/biu/biu_operations_subaru.h>
-#include <dataterminal.h>
-#include <get_key_operations_subaru.h>
+#include <src/ui/desktop/calibration_maps.h>
+#include <src/ui/desktop/calibration_treewidget.h>
+#include <src/ui/desktop/protocol_select.h>
+#include <src/ui/desktop/vehicle_select.h>
+#include <src/ui/desktop/definition_file_convert.h>
+#include <src/ui/desktop/biu/biu_operations_subaru.h>
+#include <src/ui/desktop/dataterminal.h>
+#include <src/ui/desktop/get_key_operations_subaru.h>
 #include "src/backend/definitions/file_actions.h"
-#include <logbox.h>
-#include <settings.h>
-#include <dtc_operations.h>
-#include <hexedit/hexedit.h>
+#include <src/ui/desktop/logbox.h>
+#include <src/ui/desktop/settings.h>
+#include <src/ui/desktop/dtc_operations.h>
+#include <src/ui/desktop/hexedit/hexedit.h>
 
 // Flash modules
 // BDM
