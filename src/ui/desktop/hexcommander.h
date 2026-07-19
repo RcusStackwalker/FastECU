@@ -22,7 +22,7 @@
 #include <QTimer>
 #include <QWidget>
 
-#include <serial_port/serial_port_actions.h>
+#include <src/platform/desktop/common/serial/serial_port_actions.h>
 #include <ui_data_terminal.h>
 
 QT_BEGIN_NAMESPACE

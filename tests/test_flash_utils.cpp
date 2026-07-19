@@ -5,7 +5,7 @@
 #include <span>
 
 #include "src/backend/flash/flash_utils.h"
-#include "serial_port_actions.h"
+#include "src/platform/desktop/common/serial/serial_port_actions.h"
 #include "fake_backend.h"
 #include "test_flash_utils.h"
 

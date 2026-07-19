@@ -2,7 +2,7 @@
 
 #include <utility>
 #include "src/backend/flash/bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.h"
-#include "serial_port_actions.h"
+#include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 FlashEcuSubaruUnisiaJecsM32rBootMode::FlashEcuSubaruUnisiaJecsM32rBootMode(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
     : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}

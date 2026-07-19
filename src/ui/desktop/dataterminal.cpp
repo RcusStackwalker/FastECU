@@ -1,5 +1,5 @@
 #include "dataterminal.h"
-#include "serial_port_actions.h"
+#include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 DataTerminal::DataTerminal(SerialPortActions *serial, QWidget *parent)
     : QDialog(parent), ui{std::make_unique<Ui::DataTerminalWindow>()}

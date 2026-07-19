@@ -1,7 +1,7 @@
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_unisia_jecs.h"
 #include "src/backend/flash/ecu/flash_ecu_subaru_unisia_jecs_operation.h"
 #include "src/backend/flash/flash_utils.h"
-#include "serial_port_actions.h"
+#include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include "src/backend/definitions/kernelmemorymodels.h"
 

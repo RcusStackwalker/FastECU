@@ -2,7 +2,7 @@
 
 #include <utility>
 #include "src/backend/flash/tcu/flash_tcu_cvt_subaru_hitachi_m32r_can_operation.h"
-#include "serial_port_actions.h"
+#include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 // QT_CHARTS_USE_NAMESPACE
 

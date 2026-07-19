@@ -1,6 +1,6 @@
 #include "flash_utils.h"
 #include "src/algorithms/protocol/qt_bytes.h"
-#include "serial_port_actions.h"
+#include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 namespace FlashUtils
 {

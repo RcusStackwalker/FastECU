@@ -7,7 +7,7 @@
 #include <QStringList>
 #include <QThread>
 
-#include "serial_port_actions_direct.h"
+#include "src/platform/desktop/common/serial/serial_port_actions_direct.h"
 
 // Scripted backend for facade-level tests. Subclasses the direct backend so
 // the 44 config accessors come for free (real fields, no port ever opened);

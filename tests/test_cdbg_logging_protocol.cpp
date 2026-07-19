@@ -2,7 +2,7 @@
 #include <QApplication>
 #include "src/backend/definitions/file_actions.h"
 #include "src/backend/logging/protocols/cdbg_logging_protocol.h"
-#include "serial_port/serial_port_actions.h"
+#include "src/platform/desktop/common/serial/serial_port_actions.h"
 #include "scripted_can_transport.h"
 #include "test_cdbg_logging_protocol.h"
 

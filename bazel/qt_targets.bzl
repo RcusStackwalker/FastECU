@@ -25,7 +25,7 @@ COMMON_COPTS = [
     "-DQT_DEPRECATED_WARNINGS",
     "-I.",
     "-Iprotocol",
-    "-Iserial_port",
+    "-Isrc/platform/desktop/common/serial",
 ] + select({
     "@platforms//os:macos": [
         "-mmacosx-version-min=10.15",
@@ -43,7 +43,7 @@ COMMON_LINKOPTS = select({
 
 COMMON_INCLUDES = [
     "protocol",
-    "serial_port",
+    "src/platform/desktop/common/serial",
 ]
 
 def platform_srcs(unix = [], windows = []):

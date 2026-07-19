@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
-#include "J2534_win.h"
-#include "pe_bitness.h"
+#include "src/platform/desktop/windows/j2534/J2534_win.h"
+#include "src/platform/desktop/windows/j2534/pe_bitness.h"
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
 #else
 #include <dlfcn.h>

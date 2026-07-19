@@ -16,7 +16,7 @@
 #endif
 
 #include "J2534_tactrix_win.h"
-#include "j2534_bridge_client.h"
+#include "src/platform/desktop/windows/j2534/j2534_bridge_client.h"
 
 #define PTfn(name) PF_##name *pf##name
 #define PText(name) PT_API PF_##name name

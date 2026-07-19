@@ -23,9 +23,9 @@
 #include <chrono>
 
 #if defined Q_OS_UNIX
-#include "J2534_unix.h"
+#include "src/platform/desktop/unix/j2534/J2534_unix.h"
 #elif defined Q_OS_WIN32
-#include "J2534_win.h"
+#include "src/platform/desktop/windows/j2534/J2534_win.h"
 #endif
 
 #include "serial_backend.h"

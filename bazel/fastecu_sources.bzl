@@ -115,9 +115,9 @@ APP_COMMON_SRCS = [
     "src/ui/desktop/flash/tcu/flash_tcu_subaru_hitachi_m32r_kline.cpp",
     "src/backend/flash/tcu/flash_tcu_subaru_hitachi_m32r_kline_operation.cpp",
     "src/algorithms/diagnostics/nrc_parser.cpp",
-    "protocol/fastecu_can_transport.cpp",
-    "protocol/fastecu_kline_transport.cpp",
-    "protocol/fastecu_ssm_transport.cpp",
+    "src/platform/desktop/common/transport/fastecu_can_transport.cpp",
+    "src/platform/desktop/common/transport/fastecu_kline_transport.cpp",
+    "src/platform/desktop/common/transport/fastecu_ssm_transport.cpp",
     "src/backend/protocol/imut_dma_init.cpp",
     "src/backend/protocol/mitsu_colt_can_cdbg_driver.cpp",
     "src/algorithms/protocol/colt/mitsu_colt_can_cdbg_protocol.cpp",
@@ -128,14 +128,14 @@ APP_COMMON_SRCS = [
     "src/algorithms/protocol/mut_dma/mut_dma_freeform.cpp",
     "src/algorithms/protocol/mut_dma/mut_dma_memory.cpp",
     "src/ui/desktop/protocol_select.cpp",
-    "remote_utility/remote_utility.cpp",
-    "serial_port/remote_serial_backend.cpp",
-    "serial_port/serial_backend_host.cpp",
-    "serial_port/serial_port_actions.cpp",
-    "serial_port/serial_port_actions_direct.cpp",
-    "serial_port/websocketiodevice.cpp",
+    "src/platform/desktop/common/remote_utility/remote_utility.cpp",
+    "src/platform/desktop/common/serial/remote_serial_backend.cpp",
+    "src/platform/desktop/common/serial/serial_backend_host.cpp",
+    "src/platform/desktop/common/serial/serial_port_actions.cpp",
+    "src/platform/desktop/common/serial/serial_port_actions_direct.cpp",
+    "src/platform/desktop/common/serial/websocketiodevice.cpp",
     "src/ui/desktop/settings.cpp",
-    "systemlogger.cpp",
+    "src/platform/desktop/common/logging/systemlogger.cpp",
     "src/ui/desktop/vehicle_select.cpp",
     "src/ui/desktop/verticallabel.cpp",
 ]
@@ -168,9 +168,9 @@ APP_COMMON_HDRS = [
     "src/algorithms/protocol/ssm/ssm_protocol.h",
     "src/algorithms/diagnostics/nrc_parser.h",
     "src/algorithms/protocol/bytes.h",
-    "protocol/fastecu_can_transport.h",
-    "protocol/fastecu_kline_transport.h",
-    "protocol/fastecu_ssm_transport.h",
+    "src/platform/desktop/common/transport/fastecu_can_transport.h",
+    "src/platform/desktop/common/transport/fastecu_kline_transport.h",
+    "src/platform/desktop/common/transport/fastecu_ssm_transport.h",
     "src/backend/protocol/ican_transport.h",
     "src/backend/protocol/ikline_transport.h",
     "src/backend/protocol/imut_dma_init.h",
@@ -184,10 +184,10 @@ APP_COMMON_HDRS = [
     "src/algorithms/protocol/mut_dma/mut_dma_freeform.h",
     "src/algorithms/protocol/mut_dma/mut_dma_memory.h",
     "src/algorithms/protocol/qt_bytes.h",
-    "serial_port/j2534_driver_selection.h",
-    "serial_port/qtrohelper.hpp",
-    "serial_port/serial_backend.h",
-    "serial_port/serial_backend_host.h",
+    "src/platform/desktop/common/serial/j2534_driver_selection.h",
+    "src/platform/desktop/common/serial/qtrohelper.hpp",
+    "src/platform/desktop/common/serial/serial_backend.h",
+    "src/platform/desktop/common/serial/serial_backend_host.h",
 ]
 
 APP_MOC_HDRS = [
@@ -275,14 +275,14 @@ APP_MOC_HDRS = [
     "src/ui/desktop/flash/tcu/flash_tcu_subaru_hitachi_m32r_kline.h",
     "src/backend/flash/tcu/flash_tcu_subaru_hitachi_m32r_kline_operation.h",
     "src/ui/desktop/protocol_select.h",
-    "remote_utility/remote_utility.h",
-    "serial_port/J2534_unix.h",
-    "serial_port/remote_serial_backend.h",
-    "serial_port/serial_port_actions.h",
-    "serial_port/serial_port_actions_direct.h",
-    "serial_port/websocketiodevice.h",
+    "src/platform/desktop/common/remote_utility/remote_utility.h",
+    "src/platform/desktop/unix/j2534/J2534_unix.h",
+    "src/platform/desktop/common/serial/remote_serial_backend.h",
+    "src/platform/desktop/common/serial/serial_port_actions.h",
+    "src/platform/desktop/common/serial/serial_port_actions_direct.h",
+    "src/platform/desktop/common/serial/websocketiodevice.h",
     "src/ui/desktop/settings.h",
-    "systemlogger.h",
+    "src/platform/desktop/common/logging/systemlogger.h",
     "src/ui/desktop/vehicle_select.h",
     "src/ui/desktop/verticallabel.h",
 ]
@@ -318,32 +318,32 @@ APP_RESOURCES = [
 ]
 
 APP_REPS = [
-    "remote_utility/remote_utility.rep",
-    "serial_port/serial_port_actions.rep",
+    "src/platform/desktop/common/remote_utility/remote_utility.rep",
+    "src/platform/desktop/common/serial/serial_port_actions.rep",
 ]
 
 APP_UNIX_SRCS = [
-    "serial_port/J2534_unix.cpp",
+    "src/platform/desktop/unix/j2534/J2534_unix.cpp",
 ]
 
 APP_UNIX_HDRS = [
-    "serial_port/J2534_tactrix_unix.h",
-    "serial_port/J2534_unix.h",
+    "src/platform/desktop/unix/j2534/J2534_tactrix_unix.h",
+    "src/platform/desktop/unix/j2534/J2534_unix.h",
 ]
 
 APP_WIN_SRCS = [
-    "serial_port/J2534_win.cpp",
-    "serial_port/j2534_bridge_client.cpp",
-    "serial_port/j2534_bridge_protocol.cpp",
-    "serial_port/pe_bitness.cpp",
+    "src/platform/desktop/windows/j2534/J2534_win.cpp",
+    "src/platform/desktop/windows/j2534/j2534_bridge_client.cpp",
+    "src/platform/desktop/windows/j2534/j2534_bridge_protocol.cpp",
+    "src/platform/desktop/windows/j2534/pe_bitness.cpp",
 ]
 
 APP_WIN_HDRS = [
-    "serial_port/J2534_tactrix_win.h",
-    "serial_port/J2534_win.h",
-    "serial_port/j2534_bridge_client.h",
-    "serial_port/j2534_bridge_protocol.h",
-    "serial_port/pe_bitness.h",
+    "src/platform/desktop/windows/j2534/J2534_tactrix_win.h",
+    "src/platform/desktop/windows/j2534/J2534_win.h",
+    "src/platform/desktop/windows/j2534/j2534_bridge_client.h",
+    "src/platform/desktop/windows/j2534/j2534_bridge_protocol.h",
+    "src/platform/desktop/windows/j2534/pe_bitness.h",
 ]
 
 MUT_DMA_TESTS_COMMON_SRCS = [
@@ -373,14 +373,14 @@ MUT_DMA_TESTS_COMMON_SRCS = [
     "../src/backend/flash/flash_utils.cpp",
     "../src/algorithms/protocol/ssm/ssm_protocol.cpp",
     "../src/algorithms/diagnostics/nrc_parser.cpp",
-    "../serial_port/remote_serial_backend.cpp",
-    "../serial_port/serial_backend_host.cpp",
-    "../serial_port/serial_port_actions.cpp",
-    "../serial_port/serial_port_actions_direct.cpp",
-    "../serial_port/websocketiodevice.cpp",
-    "protocol/fastecu_can_transport.cpp",
-    "protocol/fastecu_kline_transport.cpp",
-    "protocol/fastecu_ssm_transport.cpp",
+    "../src/platform/desktop/common/serial/remote_serial_backend.cpp",
+    "../src/platform/desktop/common/serial/serial_backend_host.cpp",
+    "../src/platform/desktop/common/serial/serial_port_actions.cpp",
+    "../src/platform/desktop/common/serial/serial_port_actions_direct.cpp",
+    "../src/platform/desktop/common/serial/websocketiodevice.cpp",
+    "src/platform/desktop/common/transport/fastecu_can_transport.cpp",
+    "src/platform/desktop/common/transport/fastecu_kline_transport.cpp",
+    "src/platform/desktop/common/transport/fastecu_ssm_transport.cpp",
     "../src/backend/protocol/imut_dma_init.cpp",
     "../src/backend/protocol/mitsu_colt_can_cdbg_driver.cpp",
     "../src/algorithms/protocol/colt/mitsu_colt_can_cdbg_protocol.cpp",
@@ -441,16 +441,16 @@ MUT_DMA_TESTS_COMMON_HDRS = [
     "../src/algorithms/protocol/ssm/ssm_protocol.h",
     "../src/algorithms/diagnostics/nrc_parser.h",
     "../src/algorithms/protocol/bytes.h",
-    "../serial_port/j2534_driver_selection.h",
-    "../serial_port/remote_serial_backend.h",
-    "../serial_port/serial_backend.h",
-    "../serial_port/serial_backend_host.h",
-    "../serial_port/serial_port_actions.h",
-    "../serial_port/serial_port_actions_direct.h",
-    "../serial_port/websocketiodevice.h",
-    "protocol/fastecu_can_transport.h",
-    "protocol/fastecu_kline_transport.h",
-    "protocol/fastecu_ssm_transport.h",
+    "../src/platform/desktop/common/serial/j2534_driver_selection.h",
+    "../src/platform/desktop/common/serial/remote_serial_backend.h",
+    "../src/platform/desktop/common/serial/serial_backend.h",
+    "../src/platform/desktop/common/serial/serial_backend_host.h",
+    "../src/platform/desktop/common/serial/serial_port_actions.h",
+    "../src/platform/desktop/common/serial/serial_port_actions_direct.h",
+    "../src/platform/desktop/common/serial/websocketiodevice.h",
+    "src/platform/desktop/common/transport/fastecu_can_transport.h",
+    "src/platform/desktop/common/transport/fastecu_kline_transport.h",
+    "src/platform/desktop/common/transport/fastecu_ssm_transport.h",
     "../src/backend/protocol/ican_transport.h",
     "../src/backend/protocol/ikline_transport.h",
     "../src/backend/protocol/imut_dma_init.h",
@@ -490,45 +490,45 @@ MUT_DMA_TESTS_COMMON_HDRS = [
 ]
 
 MUT_DMA_TESTS_COMMON_REPS = [
-    "../remote_utility/remote_utility.rep",
-    "../serial_port/serial_port_actions.rep",
+    "../src/platform/desktop/common/remote_utility/remote_utility.rep",
+    "../src/platform/desktop/common/serial/serial_port_actions.rep",
 ]
 
 MUT_DMA_TESTS_UNIX_SRCS = [
-    "../serial_port/J2534_unix.cpp",
+    "../src/platform/desktop/unix/j2534/J2534_unix.cpp",
 ]
 
 MUT_DMA_TESTS_UNIX_HDRS = [
-    "../serial_port/J2534_unix.h",
+    "../src/platform/desktop/unix/j2534/J2534_unix.h",
 ]
 
 MUT_DMA_TESTS_UNIX_REPS = [
 ]
 
 MUT_DMA_TESTS_WIN32_SRCS = [
-    "../serial_port/J2534_win.cpp",
-    "../serial_port/j2534_bridge_client.cpp",
-    "../serial_port/j2534_bridge_protocol.cpp",
-    "../serial_port/pe_bitness.cpp",
+    "../src/platform/desktop/windows/j2534/J2534_win.cpp",
+    "../src/platform/desktop/windows/j2534/j2534_bridge_client.cpp",
+    "../src/platform/desktop/windows/j2534/j2534_bridge_protocol.cpp",
+    "../src/platform/desktop/windows/j2534/pe_bitness.cpp",
 ]
 
 MUT_DMA_TESTS_WIN32_HDRS = [
-    "../serial_port/J2534_tactrix_win.h",
-    "../serial_port/J2534_win.h",
-    "../serial_port/j2534_bridge_client.h",
-    "../serial_port/j2534_bridge_protocol.h",
-    "../serial_port/pe_bitness.h",
+    "../src/platform/desktop/windows/j2534/J2534_tactrix_win.h",
+    "../src/platform/desktop/windows/j2534/J2534_win.h",
+    "../src/platform/desktop/windows/j2534/j2534_bridge_client.h",
+    "../src/platform/desktop/windows/j2534/j2534_bridge_protocol.h",
+    "../src/platform/desktop/windows/j2534/pe_bitness.h",
 ]
 
 MUT_DMA_TESTS_WIN32_REPS = [
 ]
 
 SERIAL_BACKEND_TESTS_COMMON_SRCS = [
-    "../serial_port/remote_serial_backend.cpp",
-    "../serial_port/serial_backend_host.cpp",
-    "../serial_port/serial_port_actions.cpp",
-    "../serial_port/serial_port_actions_direct.cpp",
-    "../serial_port/websocketiodevice.cpp",
+    "../src/platform/desktop/common/serial/remote_serial_backend.cpp",
+    "../src/platform/desktop/common/serial/serial_backend_host.cpp",
+    "../src/platform/desktop/common/serial/serial_port_actions.cpp",
+    "../src/platform/desktop/common/serial/serial_port_actions_direct.cpp",
+    "../src/platform/desktop/common/serial/websocketiodevice.cpp",
     "tests/serial_backend_main.cpp",
     "tests/test_direct_backend.cpp",
     "tests/test_facade_threading.cpp",
@@ -536,12 +536,12 @@ SERIAL_BACKEND_TESTS_COMMON_SRCS = [
 ]
 
 SERIAL_BACKEND_TESTS_COMMON_HDRS = [
-    "../serial_port/remote_serial_backend.h",
-    "../serial_port/serial_backend.h",
-    "../serial_port/serial_backend_host.h",
-    "../serial_port/serial_port_actions.h",
-    "../serial_port/serial_port_actions_direct.h",
-    "../serial_port/websocketiodevice.h",
+    "../src/platform/desktop/common/serial/remote_serial_backend.h",
+    "../src/platform/desktop/common/serial/serial_backend.h",
+    "../src/platform/desktop/common/serial/serial_backend_host.h",
+    "../src/platform/desktop/common/serial/serial_port_actions.h",
+    "../src/platform/desktop/common/serial/serial_port_actions_direct.h",
+    "../src/platform/desktop/common/serial/websocketiodevice.h",
     "tests/fake_backend.h",
     "tests/mock_openport.h",
     "tests/test_direct_backend.h",
@@ -550,17 +550,17 @@ SERIAL_BACKEND_TESTS_COMMON_HDRS = [
 ]
 
 SERIAL_BACKEND_TESTS_COMMON_REPS = [
-    "../serial_port/serial_port_actions.rep",
+    "../src/platform/desktop/common/serial/serial_port_actions.rep",
 ]
 
 SERIAL_BACKEND_TESTS_UNIX_SRCS = [
-    "../serial_port/J2534_unix.cpp",
+    "../src/platform/desktop/unix/j2534/J2534_unix.cpp",
     "tests/test_direct_backend_pty.cpp",
     "tests/test_pty_e2e.cpp",
 ]
 
 SERIAL_BACKEND_TESTS_UNIX_HDRS = [
-    "../serial_port/J2534_unix.h",
+    "../src/platform/desktop/unix/j2534/J2534_unix.h",
     "tests/test_direct_backend_pty.h",
     "tests/test_pty_e2e.h",
 ]
@@ -578,14 +578,14 @@ SERIAL_BACKEND_TESTS_WIN32_REPS = [
 ]
 
 SERIAL_CRASH_TESTS_COMMON_SRCS = [
-    "../serial_port/J2534_unix.cpp",
-    "../serial_port/serial_port_actions_direct.cpp",
+    "../src/platform/desktop/unix/j2534/J2534_unix.cpp",
+    "../src/platform/desktop/common/serial/serial_port_actions_direct.cpp",
     "tests/tst_serial_port_crash.cpp",
 ]
 
 SERIAL_CRASH_TESTS_COMMON_HDRS = [
-    "../serial_port/J2534_unix.h",
-    "../serial_port/serial_port_actions_direct.h",
+    "../src/platform/desktop/unix/j2534/J2534_unix.h",
+    "../src/platform/desktop/common/serial/serial_port_actions_direct.h",
     "tests/mock_openport.h",
 ]
 
@@ -611,34 +611,34 @@ SERIAL_CRASH_TESTS_WIN32_REPS = [
 ]
 
 MUT_DMA_INTEGRATION_TESTS_COMMON_SRCS = [
-    "../protocol/fastecu_kline_transport.cpp",
+    "../src/platform/desktop/common/transport/fastecu_kline_transport.cpp",
     "../src/backend/protocol/imut_dma_init.cpp",
     "../src/algorithms/protocol/mut_dma/mut_dma_codec.cpp",
     "../src/backend/protocol/mut_dma_driver.cpp",
     "../src/algorithms/protocol/mut_dma/mut_dma_freeform.cpp",
     "../src/algorithms/protocol/mut_dma/mut_dma_memory.cpp",
-    "../serial_port/J2534_unix.cpp",
-    "../serial_port/remote_serial_backend.cpp",
-    "../serial_port/serial_backend_host.cpp",
-    "../serial_port/serial_port_actions.cpp",
-    "../serial_port/serial_port_actions_direct.cpp",
-    "../serial_port/websocketiodevice.cpp",
+    "../src/platform/desktop/unix/j2534/J2534_unix.cpp",
+    "../src/platform/desktop/common/serial/remote_serial_backend.cpp",
+    "../src/platform/desktop/common/serial/serial_backend_host.cpp",
+    "../src/platform/desktop/common/serial/serial_port_actions.cpp",
+    "../src/platform/desktop/common/serial/serial_port_actions_direct.cpp",
+    "../src/platform/desktop/common/serial/websocketiodevice.cpp",
     "tests/tst_mut_dma_integration.cpp",
 ]
 
 MUT_DMA_INTEGRATION_TESTS_COMMON_HDRS = [
-    "../serial_port/J2534_unix.h",
-    "../serial_port/remote_serial_backend.h",
-    "../serial_port/serial_backend.h",
-    "../serial_port/serial_backend_host.h",
-    "../serial_port/serial_port_actions.h",
-    "../serial_port/serial_port_actions_direct.h",
-    "../serial_port/websocketiodevice.h",
+    "../src/platform/desktop/unix/j2534/J2534_unix.h",
+    "../src/platform/desktop/common/serial/remote_serial_backend.h",
+    "../src/platform/desktop/common/serial/serial_backend.h",
+    "../src/platform/desktop/common/serial/serial_backend_host.h",
+    "../src/platform/desktop/common/serial/serial_port_actions.h",
+    "../src/platform/desktop/common/serial/serial_port_actions_direct.h",
+    "../src/platform/desktop/common/serial/websocketiodevice.h",
 ]
 
 MUT_DMA_INTEGRATION_TESTS_COMMON_REPS = [
-    "../remote_utility/remote_utility.rep",
-    "../serial_port/serial_port_actions.rep",
+    "../src/platform/desktop/common/remote_utility/remote_utility.rep",
+    "../src/platform/desktop/common/serial/serial_port_actions.rep",
 ]
 
 MUT_DMA_INTEGRATION_TESTS_UNIX_SRCS = [

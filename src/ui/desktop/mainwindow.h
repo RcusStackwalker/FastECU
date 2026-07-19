@@ -92,21 +92,21 @@
 // JTAG
 #include <src/ui/desktop/flash/jtag/flash_ecu_subaru_hitachi_m32r_jtag.h>
 
-#include <systemlogger.h>
+#include <src/platform/desktop/common/logging/systemlogger.h>
 
-#include <remote_utility/remote_utility.h>
+#include <src/platform/desktop/common/remote_utility/remote_utility.h>
 
 // Mitsubishi MUT/DMA protocol core (namespace mutdma)
 #include "src/backend/protocol/mut_dma_driver.h"
-#include "protocol/fastecu_kline_transport.h"
+#include "src/platform/desktop/common/transport/fastecu_kline_transport.h"
 #include "src/backend/protocol/imut_dma_init.h"
 #include "src/backend/protocol/mitsu_colt_can_cdbg_driver.h"
-#include "protocol/fastecu_can_transport.h"
+#include "src/platform/desktop/common/transport/fastecu_can_transport.h"
 #include "src/backend/logging/logging_engine.h"
 #include "src/backend/logging/protocols/ssm_logging_protocol.h"
 #include "src/backend/logging/protocols/mut_dma_logging_protocol.h"
 #include "src/backend/logging/protocols/cdbg_logging_protocol.h"
-#include "protocol/fastecu_ssm_transport.h"
+#include "src/platform/desktop/common/transport/fastecu_ssm_transport.h"
 
 // Forward declaration
 class SerialPortActions;

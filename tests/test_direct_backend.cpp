@@ -3,8 +3,8 @@
 #include <QtTest>
 
 #include "serial_backend.h"
-#include "serial_port/j2534_driver_selection.h"
-#include "serial_port_actions_direct.h"
+#include "src/platform/desktop/common/serial/j2534_driver_selection.h"
+#include "src/platform/desktop/common/serial/serial_port_actions_direct.h"
 
 // Exercises the SerialBackend contract against the direct implementation
 // purely through the base-class pointer: get/set roundtrips hit the same

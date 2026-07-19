@@ -2,7 +2,7 @@
 #include <ui_biu_operations_subaru.h>
 
 #include <cstddef>
-#include "serial_port_actions.h"
+#include "src/platform/desktop/common/serial/serial_port_actions.h"
 #include "src/algorithms/protocol/qt_bytes.h"
 
 BiuOperationsSubaru::BiuOperationsSubaru(SerialPortActions *serial, QWidget *parent)
