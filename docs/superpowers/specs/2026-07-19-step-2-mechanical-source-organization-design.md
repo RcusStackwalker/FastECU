@@ -20,8 +20,10 @@ not change.
   path ownership.
 - Classify protocol algorithms, backend orchestration, and concrete desktop
   transports into their intended layers.
-- Preserve behavior, class and file names, public labels, packaging entry
-  points, generated Qt header names, and runtime resource identifiers.
+- Preserve behavior, class and file names, public labels except for the
+  platform-owned J2534 bridge-host package relocation described below,
+  packaging entry points, generated Qt header names, and runtime resource
+  identifiers.
 - Keep every pull request independently buildable, testable, and mergeable.
 - Retain the aggregate root Bazel graph until Step 3.
 
@@ -182,8 +184,15 @@ Step 2 verification gate before merging.
 
 - Move concrete CAN/K-Line/SSM adapters, common serial implementations, remote
   objects, WebSocket/remote utility, J2534, PE-bitness, and bridge support.
-- Preserve all standalone target names and existing platform compatibility
-  constraints.
+- Relocate the J2534 bridge-host package label with its Windows platform
+  ownership. Its target names and existing platform compatibility constraints
+  remain unchanged; do not retain the old package through an alias or shim.
+- Keep the root standalone `//:j2534_bridge_protocol`,
+  `//:j2534_bridge_client`, and `//:pe_bitness` labels unchanged.
+
+This package-label relocation is an approved deviation from the general
+public-label preservation rule. It applies only to the J2534 bridge-host
+package prefix; it does not authorize target renames or compatibility changes.
 
 ### PR 11: Mechanical closeout
 
@@ -213,15 +222,20 @@ sources.
 - `//:fastecu`, `//:fastecu_core_common`,
   `//:fastecu_platform_unix`, and `//:fastecu_platform_windows` retain their
   roles.
-- Standalone J2534 bridge and PE-bitness target labels remain unchanged.
+- The root standalone `//:j2534_bridge_protocol`,
+  `//:j2534_bridge_client`, and `//:pe_bitness` target labels remain unchanged.
+- The J2534 bridge-host package moves to its Windows platform-owned path while
+  retaining its target names and platform compatibility constraints. No
+  old-path package, alias, or shim remains.
 - Cross-directory C++ includes use canonical paths such as
   `src/algorithms/protocol/bytes.h`.
 - Generated Qt headers retain existing basenames, including `ui_*.h` and
   replica headers.
 
-No package-owned production `BUILD.bazel` files are introduced in Step 2.
-Their creation and the removal of the central source manifest belong to Step
-3.
+Except for relocating the existing J2534 bridge-host `BUILD.bazel` with its
+platform-owned sources, no package-owned production `BUILD.bazel` files are
+introduced in Step 2. Their creation and the removal of the central source
+manifest belong to Step 3.
 
 ## Resource and Packaging Mechanics
 
@@ -295,7 +309,9 @@ Step 2 is complete when:
   no production files;
 - public class names, file names, test labels, application target labels,
   generated Qt header names, runtime resource identifiers, and packaging entry
-  points are unchanged;
+  points are unchanged, except that the J2534 bridge-host package label moves
+  with platform ownership while its target names and compatibility constraints
+  remain unchanged and no old-path package, alias, or shim remains;
 - the aggregate root Bazel graph builds and tests on Windows, macOS, and Linux;
   and
 - the series contains no portability conversion, dependency cleanup, API
