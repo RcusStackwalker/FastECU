@@ -106,6 +106,15 @@ qt_cc_library(
         ":images_resource",
         ":kernels_resource",
         "@openssl",
+        "//src/algorithms/checksum",
+        "//src/algorithms/crypto",
+        "//src/algorithms/diagnostics",
+        "//src/algorithms/expression",
+        "//src/algorithms/menu",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/colt",
+        "//src/algorithms/protocol/mut_dma",
+        "//src/algorithms/protocol/ssm",
     ] + [
         ":ui_" + ui.split("/")[-1].rsplit(".", 1)[0]
         for ui in APP_FORMS
