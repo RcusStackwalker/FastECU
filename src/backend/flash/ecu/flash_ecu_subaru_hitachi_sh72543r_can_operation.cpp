@@ -1,4 +1,4 @@
-#include "flash_ecu_subaru_hitachi_sh72543r_can_operation.h"
+#include "src/backend/flash/ecu/flash_ecu_subaru_hitachi_sh72543r_can_operation.h"
 #include "src/backend/flash/flash_utils.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
 #include "serial_port_actions.h"
