@@ -39,6 +39,7 @@ MUT_DMA_TEST_SUITES = [
     "test_model_validation",
     "test_ecuflash_definition_parsing",
     "test_file_actions_parsing",
+    "test_rom_transformations",
     "test_checksum_results",
 ]
 
@@ -89,6 +90,7 @@ _NEEDS_OFFSCREEN_QT_PLATFORM = [
     "test_flash_ecu_mitsu_m32r_can_operation",
     "test_flash_operation_worker",
     "test_mut_dma_logging_protocol",
+    "test_rom_transformations",
     "test_romraider_conversion",
     "test_ssm_logging_protocol",
 ]

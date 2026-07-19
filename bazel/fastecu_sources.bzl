@@ -413,6 +413,7 @@ MUT_DMA_TESTS_COMMON_SRCS = [
     "tests/test_mitsu_colt_can_vendor_ext_protocol.cpp",
     "tests/test_model_validation.cpp",
     "tests/test_mut_dma_logging_protocol.cpp",
+    "tests/test_rom_transformations.cpp",
     "tests/test_romraider_conversion.cpp",
     "tests/test_ssm_logging_protocol.cpp",
     "tests/test_bytes.cpp",
@@ -483,6 +484,7 @@ MUT_DMA_TESTS_COMMON_HDRS = [
     "tests/test_menu_command.h",
     "tests/test_model_validation.h",
     "tests/test_mut_dma_logging_protocol.h",
+    "tests/test_rom_transformations.h",
     "tests/test_romraider_conversion.h",
     "tests/test_ssm_logging_protocol.h",
 ]
