@@ -2,7 +2,7 @@
 
 #include <utility>
 #include "modules/flash_utils.h"
-#include "modules/ssm_protocol.h"
+#include "src/algorithms/protocol/ssm/ssm_protocol.h"
 #include "serial_port_actions.h"
 
 FlashEcuSubaruHitachiM32rJtagOperation::FlashEcuSubaruHitachiM32rJtagOperation(

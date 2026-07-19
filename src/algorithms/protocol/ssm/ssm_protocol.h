@@ -1,7 +1,7 @@
 #ifndef SSM_PROTOCOL_H
 #define SSM_PROTOCOL_H
 
-#include "modules/ssm_protocol_core.h"
+#include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 
 #include <QByteArray>
 #include <QString>

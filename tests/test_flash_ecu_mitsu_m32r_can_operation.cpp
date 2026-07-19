@@ -6,8 +6,8 @@
 #include <kernelmemorymodels.h>
 #include "modules/flash_utils.h"
 #include "modules/ecu/flash_ecu_mitsu_m32r_can_operation.h"
-#include "protocol/mitsu_colt_can_protocol.h"
-#include "protocol/mitsu_colt_can_vendor_ext_protocol.h"
+#include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
+#include "src/algorithms/protocol/colt/mitsu_colt_can_vendor_ext_protocol.h"
 #include "serial_port_actions.h"
 #include "fake_backend.h"
 #include "file_actions.h"

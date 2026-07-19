@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "protocol/mitsu_colt_can_protocol.h"
+#include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
 #include "byte_test_utils.h"
 using namespace MitsuColtCan;
 

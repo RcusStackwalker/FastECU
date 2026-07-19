@@ -1,4 +1,4 @@
-#include "protocol/mitsu_colt_can_cdbg_protocol.h"
+#include "src/algorithms/protocol/colt/mitsu_colt_can_cdbg_protocol.h"
 
 namespace MitsuColtCanCdbg
 {
