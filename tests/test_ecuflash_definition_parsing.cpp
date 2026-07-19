@@ -37,6 +37,7 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "subcategory=\"Primary\" level=\"2\" userlevel=\"3\" "
                                              "description=\"A test table\"/>"
                                              "</rom>");
+        QVERIFY(!defPath.isEmpty());
 
         FileActions fileActions;
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
@@ -61,6 +62,7 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "<romid><xmlid>TESTCAL</xmlid></romid>"
                                              "<table name=\"Test Table\" storageaddress=\"2000\"/>"
                                              "</rom>");
+        QVERIFY(!defPath.isEmpty());
 
         FileActions fileActions;
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
@@ -81,6 +83,7 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "<romid><xmlid>TESTCAL</xmlid></romid>"
                                              "<table name=\"Test Table\" address=\"1000\" storageaddress=\"2000\"/>"
                                              "</rom>");
+        QVERIFY(!defPath.isEmpty());
 
         FileActions fileActions;
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
@@ -101,6 +104,7 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "<romid><xmlid>TESTCAL</xmlid></romid>"
                                              "<table name=\"Test Table\" address=\"1000\" sizex=\"12\" sizey=\"8\"/>"
                                              "</rom>");
+        QVERIFY(!defPath.isEmpty());
 
         FileActions fileActions;
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
@@ -123,6 +127,7 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "<table name=\"Test Table\" address=\"1000\" "
                                              "swapxy=\"true\" flipx=\"false\" flipy=\"true\"/>"
                                              "</rom>");
+        QVERIFY(!defPath.isEmpty());
 
         FileActions fileActions;
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
@@ -145,6 +150,7 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "<romid><xmlid>TESTCAL</xmlid></romid>"
                                              "<table name=\"Test Table\" address=\"1000\"/>"
                                              "</rom>");
+        QVERIFY(!defPath.isEmpty());
 
         FileActions fileActions;
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
@@ -167,6 +173,7 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "<romid><xmlid>TESTCAL</xmlid></romid>"
                                              "<table name=\"Test Table\" address=\"1000\" swapxy=\"yes\"/>"
                                              "</rom>");
+        QVERIFY(!defPath.isEmpty());
 
         FileActions fileActions;
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
@@ -184,13 +191,60 @@ class TestEcuflashDefinitionParsing : public QObject
         QVERIFY(warning.contains("yes"));
     }
 
+    void inherits_base_table_and_scaling()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString basePath = writeDefFile(
+            dir,
+            "BASE_TEST",
+            "<rom>"
+            "<romid><xmlid>BASE_TEST</xmlid></romid>"
+            "<scaling name=\"FuelScale\" units=\"%\" toexpr=\"x*0.5\" frexpr=\"x*2\" "
+            "format=\"0.0\" min=\"0\" max=\"100\" inc=\"1\" "
+            "storagetype=\"uint16\" endian=\"big\"/>"
+            "<table name=\"Fuel\" address=\"1000\" type=\"1D\" sizex=\"1\" sizey=\"1\" "
+            "scaling=\"FuelScale\"/>"
+            "</rom>");
+        QVERIFY(!basePath.isEmpty());
+        const QString childPath = writeDefFile(
+            dir,
+            "CHILD_TEST",
+            "<rom>"
+            "<romid><xmlid>CHILD_TEST</xmlid><ecuid>TEST_ECU</ecuid></romid>"
+            "<include>BASE_TEST</include>"
+            "<table name=\"Fuel\" address=\"2000\"/>"
+            "</rom>");
+        QVERIFY(!childPath.isEmpty());
+
+        FileActions fileActions;
+        fileActions.ConfigValuesStruct.ecuflash_def_cal_id = {"CHILD_TEST", "BASE_TEST"};
+        fileActions.ConfigValuesStruct.ecuflash_def_filename = {childPath, basePath};
+
+        FileActions::EcuCalDefStructure ecuCalDef;
+        QCOMPARE(fileActions.read_ecuflash_ecu_def(&ecuCalDef, "CHILD_TEST"), &ecuCalDef);
+        QCOMPARE(fileActions.parse_ecuflash_def_scalings(&ecuCalDef), &ecuCalDef);
+
+        QCOMPARE(ecuCalDef.RomInfo.at(FileActions::XmlId), QString("CHILD_TEST"));
+        QCOMPARE(ecuCalDef.NameList.at(0), QString("Fuel"));
+        QCOMPARE(ecuCalDef.AddressList.at(0), QString("2000"));
+        QCOMPARE(ecuCalDef.StorageTypeList.at(0), QString("uint16"));
+        QCOMPARE(ecuCalDef.EndianList.at(0), QString("big"));
+        QCOMPARE(ecuCalDef.FromByteList.at(0), QString("x*0.5"));
+        QCOMPARE(ecuCalDef.ToByteList.at(0), QString("x*2"));
+        QCOMPARE(ecuCalDef.FormatList.at(0), QString("0"));
+    }
+
   private:
     static QString writeDefFile(const QTemporaryDir& dir, const QString& baseName, const QString& xml)
     {
         const QString path = dir.filePath(baseName + ".xml");
         QFile file(path);
-        file.open(QIODevice::WriteOnly | QIODevice::Text);
-        file.write(xml.toUtf8());
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+            return {};
+        const QByteArray contents = xml.toUtf8();
+        if (file.write(contents) != contents.size())
+            return {};
         file.close();
         return path;
     }
