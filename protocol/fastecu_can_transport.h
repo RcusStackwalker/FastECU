@@ -5,7 +5,7 @@ namespace cdbg
 {
 // Adapts FastECU's SerialPortActions raw-CAN mode to ICanTransport. Matches
 // the wire convention already used by
-// modules/ecu/flash_ecu_subaru_denso_sh705x_densocan.cpp: each frame is 4
+// src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh705x_densocan.cpp: each frame is 4
 // big-endian CAN-id bytes followed by the payload.
 class FastEcuCanTransport : public ICanTransport
 {

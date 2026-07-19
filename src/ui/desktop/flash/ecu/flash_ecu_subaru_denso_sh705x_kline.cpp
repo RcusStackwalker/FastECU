@@ -1,10 +1,10 @@
-#include "flash_ecu_subaru_denso_sh72543_can_diesel.h"
+#include <src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh705x_kline.h>
 
 #include <utility>
-#include "flash_ecu_subaru_denso_sh72543_can_diesel_operation.h"
+#include "src/backend/flash/ecu/flash_ecu_subaru_denso_sh705x_kline_operation.h"
 #include "serial_port_actions.h"
 
-FlashEcuSubaruDensoSH72543CanDiesel::FlashEcuSubaruDensoSH72543CanDiesel(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
+FlashEcuSubaruDensoSH705xKline::FlashEcuSubaruDensoSH705xKline(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
     : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
@@ -25,11 +25,7 @@ FlashEcuSubaruDensoSH72543CanDiesel::FlashEcuSubaruDensoSH72543CanDiesel(SerialP
     this->serial = serial;
 }
 
-FlashEcuSubaruDensoSH72543CanDiesel::~FlashEcuSubaruDensoSH72543CanDiesel()
-{
-}
-
-void FlashEcuSubaruDensoSH72543CanDiesel::run()
+void FlashEcuSubaruDensoSH705xKline::run()
 {
     this->show();
 
@@ -44,16 +40,16 @@ void FlashEcuSubaruDensoSH72543CanDiesel::run()
     {
     case QMessageBox::Ok:
     {
-        m_operation = new FlashEcuSubaruDensoSH72543CanDieselOperation(serial, ecuCalDef, cmd_type, this);
-        connect(m_operation, &FlashOperationWorker::LOG_E, this, &FlashEcuSubaruDensoSH72543CanDiesel::LOG_E);
-        connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashEcuSubaruDensoSH72543CanDiesel::LOG_W);
-        connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashEcuSubaruDensoSH72543CanDiesel::LOG_I);
-        connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashEcuSubaruDensoSH72543CanDiesel::LOG_D);
+        m_operation = new FlashEcuSubaruDensoSH705xKlineOperation(serial, ecuCalDef, cmd_type, this);
+        connect(m_operation, &FlashOperationWorker::LOG_E, this, &FlashEcuSubaruDensoSH705xKline::LOG_E);
+        connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashEcuSubaruDensoSH705xKline::LOG_W);
+        connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashEcuSubaruDensoSH705xKline::LOG_I);
+        connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashEcuSubaruDensoSH705xKline::LOG_D);
         connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
                 this, [this](QString msg)
                 { emit external_logger(std::move(msg)); });
         connect(m_operation, &FlashOperationWorker::progressChanged,
-                this, &FlashEcuSubaruDensoSH72543CanDiesel::set_progressbar_value);
+                this, &FlashEcuSubaruDensoSH705xKline::set_progressbar_value);
 
         QEventLoop loop;
         bool success = false;
@@ -92,7 +88,11 @@ void FlashEcuSubaruDensoSH72543CanDiesel::run()
     }
 }
 
-void FlashEcuSubaruDensoSH72543CanDiesel::closeEvent(QCloseEvent *event)
+FlashEcuSubaruDensoSH705xKline::~FlashEcuSubaruDensoSH705xKline()
+{
+}
+
+void FlashEcuSubaruDensoSH705xKline::closeEvent(QCloseEvent *event)
 {
     if (m_operation)
     {
@@ -100,7 +100,7 @@ void FlashEcuSubaruDensoSH72543CanDiesel::closeEvent(QCloseEvent *event)
     }
 }
 
-void FlashEcuSubaruDensoSH72543CanDiesel::set_progressbar_value(int value)
+void FlashEcuSubaruDensoSH705xKline::set_progressbar_value(int value)
 {
     bool valueChanged = true;
     if (ui->progressbar)
