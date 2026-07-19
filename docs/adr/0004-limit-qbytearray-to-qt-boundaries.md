@@ -13,7 +13,7 @@ couple to UI, file, serial, and Qt Remote Objects boundaries.
 
 The project already builds as C++20, so `std::span` is available. Several
 protocol areas have already moved to the shared byte aliases in
-`protocol/bytes.h`.
+`src/algorithms/protocol/bytes.h`.
 
 ## Decision
 
@@ -21,7 +21,7 @@ Use `QByteArray` as a boundary type for Qt adapters, UI/file code, serial
 integration, tests that verify Qt boundary behavior, and temporary
 compatibility wrappers.
 
-Use the standard byte types from `protocol/bytes.h` for pure protocol,
+Use the standard byte types from `src/algorithms/protocol/bytes.h` for pure protocol,
 checksum, logging, and flash-planning logic:
 
 - `bytes::Byte` for one byte.
@@ -30,7 +30,7 @@ checksum, logging, and flash-planning logic:
 - `std::array<bytes::Byte, N>` for protocol-defined fixed-size frames and
   fixed seed/key fields.
 
-Keep Qt conversion explicit through `protocol/qt_bytes.h`. New pure helpers
+Keep Qt conversion explicit through `src/algorithms/protocol/qt_bytes.h`. New pure helpers
 should not include `QByteArray`.
 
 ## Consequences
@@ -60,7 +60,7 @@ Already byte-native:
 - CDBG raw-CAN logging helpers.
 - Mitsubishi CAN flashing and vendor-extension protocol helpers.
 - SSM logging helper internals.
-- Shared byte utilities in `protocol/bytes.h`.
+- Shared byte utilities in `src/algorithms/protocol/bytes.h`.
 - Byte-native test fixtures in `tests/byte_test_utils.h`.
 
 Still intentionally Qt-bound or partially migrated:

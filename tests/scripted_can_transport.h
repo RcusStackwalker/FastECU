@@ -1,6 +1,6 @@
 #pragma once
 #include "protocol/ican_transport.h"
-#include "protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 #include <QList>
 
 #include <cstdint>

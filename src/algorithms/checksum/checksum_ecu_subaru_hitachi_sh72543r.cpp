@@ -1,5 +1,5 @@
 #include "checksum_ecu_subaru_hitachi_sh72543r.h"
-#include "protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 
 ChecksumEcuSubaruHitachiSh72543r::ChecksumEcuSubaruHitachiSh72543r()
 {

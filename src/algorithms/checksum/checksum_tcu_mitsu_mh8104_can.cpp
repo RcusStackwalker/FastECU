@@ -1,5 +1,5 @@
 #include "checksum_tcu_mitsu_mh8104_can.h"
-#include "protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 
 ChecksumTcuMitsuMH8104Can::ChecksumTcuMitsuMH8104Can()
 {

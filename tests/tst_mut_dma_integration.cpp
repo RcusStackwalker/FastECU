@@ -46,7 +46,7 @@
 #include "protocol/mut_dma_freeform.h"
 #include "protocol/mut_dma_driver.h"
 #include "protocol/imut_dma_init.h"
-#include "protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 
 using namespace mutdma;
 

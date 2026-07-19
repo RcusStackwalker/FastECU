@@ -1,5 +1,5 @@
 #include "protocol/fastecu_can_transport.h"
-#include "protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 #include "serial_port/serial_port_actions.h"
 
 namespace cdbg

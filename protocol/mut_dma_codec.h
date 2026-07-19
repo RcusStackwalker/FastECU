@@ -1,7 +1,7 @@
 #ifndef FASTECU_MUT_DMA_CODEC_H
 #define FASTECU_MUT_DMA_CODEC_H
 
-#include "protocol/bytes.h"
+#include "src/algorithms/protocol/bytes.h"
 
 #include <array>
 #include <cstddef>

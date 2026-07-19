@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <functional>
 
-#include "protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 
 DtcOperations::DtcOperations(SerialPortActions *serial, QWidget *parent)
     : QDialog(parent), serial(serial), ui{std::make_unique<Ui::DtcOperationsWindow>()}

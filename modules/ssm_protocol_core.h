@@ -1,7 +1,7 @@
 #ifndef SSM_PROTOCOL_CORE_H
 #define SSM_PROTOCOL_CORE_H
 
-#include "protocol/bytes.h"
+#include "src/algorithms/protocol/bytes.h"
 
 #include <cstdint>
 #include <string>

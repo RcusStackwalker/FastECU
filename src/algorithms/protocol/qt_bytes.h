@@ -1,7 +1,7 @@
 #ifndef FASTECU_QT_BYTES_H
 #define FASTECU_QT_BYTES_H
 
-#include "protocol/bytes.h"
+#include "src/algorithms/protocol/bytes.h"
 
 #include <QByteArray>
 

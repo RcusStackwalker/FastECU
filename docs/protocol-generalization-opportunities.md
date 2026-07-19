@@ -12,7 +12,7 @@ The following are shared today and are no longer open extraction work:
 - `modules/ssm_protocol.*` owns SSM headers/checksums, seed-key and payload
   transforms, the non-standard CRC, frame validation, and byte formatting.
 - `modules/flash_utils.*` owns common byte stuffing and ISO-15765 flash setup.
-- `protocol/bytes.h` and `protocol/qt_bytes.h` provide the C++20 byte boundary
+- `src/algorithms/protocol/bytes.h` and `src/algorithms/protocol/qt_bytes.h` provide the C++20 byte boundary
   and explicit Qt conversions.
 - `FlashOperationWorker` owns logging signals, prompt injection, progress,
   cancellation, and worker-thread plumbing.

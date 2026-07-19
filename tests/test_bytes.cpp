@@ -3,8 +3,8 @@
 #include <array>
 #include <cstdint>
 
-#include "protocol/bytes.h"
-#include "protocol/qt_bytes.h"
+#include "src/algorithms/protocol/bytes.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 
 TEST(TestBytes, readU16Le_readsLowByteFirst)
 {

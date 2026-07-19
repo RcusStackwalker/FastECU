@@ -2,7 +2,7 @@
 #include <memory>
 #include <QString>
 #include "logging/logging_protocol.h"
-#include "protocol/bytes.h"
+#include "src/algorithms/protocol/bytes.h"
 #include "protocol/issm_transport.h"
 #include <file_actions.h>
 
