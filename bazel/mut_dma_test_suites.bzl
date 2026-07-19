@@ -82,6 +82,7 @@ _MUT_DMA_GTEST_HELPER_HDRS = {
 # moment it starts.
 _NEEDS_OFFSCREEN_QT_PLATFORM = [
     "test_cdbg_logging_protocol",
+    "test_checksum_results",
     "test_ecuflash_definition_parsing",
     "test_flash_ecu_mitsu_m32r_can_operation",
     "test_flash_operation_worker",

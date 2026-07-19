@@ -463,6 +463,7 @@ MUT_DMA_TESTS_COMMON_HDRS = [
     "protocol/mut_dma_memory.h",
     "../protocol/qt_bytes.h",
     "tests/byte_test_utils.h",
+    "tests/expected_message_box.h",
     "tests/fake_backend.h",
     "tests/scripted_can_transport.h",
     "tests/scripted_kline_transport.h",
