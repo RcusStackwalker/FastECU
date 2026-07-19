@@ -288,8 +288,8 @@ APP_MOC_HDRS = [
 ]
 
 APP_FORMS = [
-    "calibration_map_table.ui",
-    "data_terminal.ui",
+    "src/ui/desktop/calibration_map_table.ui",
+    "src/ui/desktop/data_terminal.ui",
     "src/ui/desktop/definition_file_convert.ui",
     "src/ui/desktop/dtc_operations.ui",
     "src/ui/desktop/ecu_operations.ui",
