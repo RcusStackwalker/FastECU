@@ -1,23 +1,14 @@
-#include <QtTest>
+#include <gtest/gtest.h>
+
 #include "protocol/imut_dma_init.h"
 #include "scripted_kline_transport.h"
-#include "test_init.h"
+
 using namespace mutdma;
-class TestInit : public QObject
+
+TEST(TestInit, already_in_mode_just_sets_baud)
 {
-    Q_OBJECT
-  private slots:
-    void already_in_mode_just_sets_baud()
-    {
-        ScriptedKlineTransport t;
-        AlreadyInMode init(125000);
-        QVERIFY(init.wake(t));
-        QVERIFY(t.scriptConsumed()); // no writes expected
-    }
-};
-int run_test_init(int argc, char **argv)
-{
-    TestInit t;
-    return QTest::qExec(&t, argc, argv);
+    ScriptedKlineTransport t;
+    AlreadyInMode init(125000);
+    ASSERT_TRUE(init.wake(t));
+    ASSERT_TRUE(t.scriptConsumed()); // no writes expected
 }
-#include "test_init.moc"
