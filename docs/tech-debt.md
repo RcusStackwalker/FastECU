@@ -20,8 +20,9 @@ Observed on 2026-07-18:
 - FastECU is a Qt 6/C++20 desktop application. Bazel is the sole target graph for
   the application, tests, release packaging, coverage, compile commands, and
   clang-tidy; the qmake project files have been removed (ADR 0001).
-- The tracked maintained C++ surface, excluding `tests/`, `hexedit/`, and
-  generated Qt files, is approximately 275 `.cpp`/`.h` files and 84k lines.
+- The tracked maintained C++ surface, excluding `tests/`,
+  `src/ui/desktop/hexedit/`, and generated Qt files, is approximately 275
+  `.cpp`/`.h` files and 84k lines.
   Tests contain approximately 6k lines across 109 `.cpp`/`.h` files.
 - Tests are strongest around protocol codecs, logging, serial threading, J2534
   bridge behavior, and recently extracted parser helpers. Definition parsing,
@@ -72,7 +73,7 @@ Actions:
   helpers. Add changed-code coverage when the report format can support it
   reliably.
 - Keep exclusions explicit and reviewed: tests, generated Qt files, vendored
-  `hexedit/`, Bazel/external outputs, system libraries, and platform SDKs.
+  `src/ui/desktop/hexedit/`, Bazel/external outputs, system libraries, and platform SDKs.
 
 ### P1: Decompose the Bazel application target
 
