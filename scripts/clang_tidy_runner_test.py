@@ -229,7 +229,9 @@ class ClangTidyRunnerTest(unittest.TestCase):
             )
 
         self.assertIn(["xcrun", "--show-sdk-path"], commands)
-        analysis_command = next(command for command in commands if command[0] == tools.run_clang_tidy)
+        analysis_command = next(
+            command for command in commands if command[0] == tools.run_clang_tidy
+        )
         self.assertIn("-extra-arg-before=-isysroot", analysis_command)
         self.assertIn("-extra-arg-before=/SDK/MacOSX.sdk", analysis_command)
 
@@ -299,7 +301,9 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 command_runner=fake_run,
             )
 
-        analysis_command = next(command for command in commands if command[0] == tools.run_clang_tidy)
+        analysis_command = next(
+            command for command in commands if command[0] == tools.run_clang_tidy
+        )
         apply_command = next(
             command for command in commands if command[0] == tools.clang_apply_replacements
         )

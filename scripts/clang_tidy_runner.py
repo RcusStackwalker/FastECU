@@ -311,9 +311,7 @@ def normalize_replacements(
     for (file_identity, offset, length), group_indexes in groups.items():
         representative = group_indexes[0]
         if representative in retained:
-            retained_ranges.setdefault(file_identity, []).append(
-                (offset, length, representative)
-            )
+            retained_ranges.setdefault(file_identity, []).append((offset, length, representative))
 
     overlapping: set[int] = set()
     for ranges in retained_ranges.values():
@@ -341,9 +339,7 @@ def normalize_replacements(
 
     for replacements, indexes in replacement_lists:
         replacements[:] = [
-            replacement
-            for replacement, index in zip(replacements, indexes)
-            if index in retained
+            replacement for replacement, index in zip(replacements, indexes) if index in retained
         ]
 
     for path, document in documents:
@@ -383,8 +379,7 @@ def _macos_sdk_path(command_runner: CommandRunner, workspace: Path) -> str:
     sdk_path = (result.stdout or "").strip()
     if not sdk_path:
         raise WorkflowError(
-            "xcrun --show-sdk-path returned an empty path; "
-            "install the Xcode Command Line Tools"
+            "xcrun --show-sdk-path returned an empty path; install the Xcode Command Line Tools"
         )
     return sdk_path
 
@@ -451,9 +446,7 @@ def run_workflow(
                 workspace,
             )
             if apply_code:
-                raise WorkflowError(
-                    f"replacement application failed with exit code {apply_code}"
-                )
+                raise WorkflowError(f"replacement application failed with exit code {apply_code}")
     return 0
 
 
