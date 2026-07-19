@@ -106,9 +106,16 @@ class TestChecksumResults : public QObject
         const ChecksumResult result = ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(rom, 16, 12);
 
         QCOMPARE(result.status, ChecksumResult::Status::Corrected);
-        QCOMPARE(result.romData.mid(24, 4), QByteArray::fromHex("5aa5a559"));
+        QByteArray expected = rom;
+        expected.replace(24, 4, QByteArray::fromHex("5aa5a559"));
+        QCOMPARE(result.romData, expected);
         QVERIFY(result.ok());
         QVERIFY(result.changed());
+
+        const ChecksumResult unchangedResult =
+            ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(result.romData, 16, 12);
+        QCOMPARE(unchangedResult.status, ChecksumResult::Status::Unchanged);
+        QCOMPARE(unchangedResult.romData, result.romData);
     }
 
     void densoSh7xxx_returnsDisabledWithoutClearingRomData()
