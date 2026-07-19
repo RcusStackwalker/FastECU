@@ -1,7 +1,7 @@
-#include "eeprom_ecu_subaru_denso_sh705x_kline.h"
+#include "src/ui/desktop/flash/eeprom/eeprom_ecu_subaru_denso_sh705x_kline.h"
 
 #include <utility>
-#include "eeprom_ecu_subaru_denso_sh705x_kline_operation.h"
+#include "src/backend/flash/eeprom/eeprom_ecu_subaru_denso_sh705x_kline_operation.h"
 #include "serial_port_actions.h"
 
 EepromEcuSubaruDensoSH705xKline::EepromEcuSubaruDensoSH705xKline(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)

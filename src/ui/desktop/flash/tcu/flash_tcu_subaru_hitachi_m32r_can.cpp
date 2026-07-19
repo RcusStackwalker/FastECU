@@ -1,10 +1,10 @@
-#include "flash_tcu_subaru_hitachi_m32r_kline.h"
+#include "src/ui/desktop/flash/tcu/flash_tcu_subaru_hitachi_m32r_can.h"
 
 #include <utility>
-#include "flash_tcu_subaru_hitachi_m32r_kline_operation.h"
+#include "src/backend/flash/tcu/flash_tcu_subaru_hitachi_m32r_can_operation.h"
 #include "serial_port_actions.h"
 
-FlashTcuSubaruHitachiM32rKline::FlashTcuSubaruHitachiM32rKline(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
+FlashTcuSubaruHitachiM32rCan::FlashTcuSubaruHitachiM32rCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
     : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
@@ -25,7 +25,7 @@ FlashTcuSubaruHitachiM32rKline::FlashTcuSubaruHitachiM32rKline(SerialPortActions
     this->serial = serial;
 }
 
-void FlashTcuSubaruHitachiM32rKline::run()
+void FlashTcuSubaruHitachiM32rCan::run()
 {
     this->show();
     set_progressbar_value(0);
@@ -39,16 +39,16 @@ void FlashTcuSubaruHitachiM32rKline::run()
     {
     case QMessageBox::Ok:
     {
-        m_operation = new FlashTcuSubaruHitachiM32rKlineOperation(serial, ecuCalDef, cmd_type, this);
-        connect(m_operation, &FlashOperationWorker::LOG_E, this, &FlashTcuSubaruHitachiM32rKline::LOG_E);
-        connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashTcuSubaruHitachiM32rKline::LOG_W);
-        connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashTcuSubaruHitachiM32rKline::LOG_I);
-        connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashTcuSubaruHitachiM32rKline::LOG_D);
+        m_operation = new FlashTcuSubaruHitachiM32rCanOperation(serial, ecuCalDef, cmd_type, this);
+        connect(m_operation, &FlashOperationWorker::LOG_E, this, &FlashTcuSubaruHitachiM32rCan::LOG_E);
+        connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashTcuSubaruHitachiM32rCan::LOG_W);
+        connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashTcuSubaruHitachiM32rCan::LOG_I);
+        connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashTcuSubaruHitachiM32rCan::LOG_D);
         connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
                 this, [this](QString msg)
                 { emit external_logger(std::move(msg)); });
         connect(m_operation, &FlashOperationWorker::progressChanged,
-                this, &FlashTcuSubaruHitachiM32rKline::set_progressbar_value);
+                this, &FlashTcuSubaruHitachiM32rCan::set_progressbar_value);
 
         QEventLoop loop;
         bool success = false;
@@ -87,11 +87,11 @@ void FlashTcuSubaruHitachiM32rKline::run()
     }
 }
 
-FlashTcuSubaruHitachiM32rKline::~FlashTcuSubaruHitachiM32rKline()
+FlashTcuSubaruHitachiM32rCan::~FlashTcuSubaruHitachiM32rCan()
 {
 }
 
-void FlashTcuSubaruHitachiM32rKline::closeEvent(QCloseEvent *event)
+void FlashTcuSubaruHitachiM32rCan::closeEvent(QCloseEvent *event)
 {
     if (m_operation)
     {
@@ -99,7 +99,7 @@ void FlashTcuSubaruHitachiM32rKline::closeEvent(QCloseEvent *event)
     }
 }
 
-void FlashTcuSubaruHitachiM32rKline::set_progressbar_value(int value)
+void FlashTcuSubaruHitachiM32rCan::set_progressbar_value(int value)
 {
     bool valueChanged = true;
     if (ui->progressbar)

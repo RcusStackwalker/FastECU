@@ -1,12 +1,16 @@
-#include "flash_tcu_cvt_subaru_hitachi_m32r_can.h"
-
-#include <utility>
-#include "flash_tcu_cvt_subaru_hitachi_m32r_can_operation.h"
+#include "src/ui/desktop/flash/tcu/flash_tcu_cvt_subaru_mitsu_mh8104_can.h"
+#include "src/backend/flash/tcu/flash_tcu_cvt_subaru_mitsu_mh8104_can_operation.h"
 #include "serial_port_actions.h"
 
-// QT_CHARTS_USE_NAMESPACE
+#include <QDateTime>
+#include <QDebug>
+#include <QTextEdit>
+#include <utility>
 
-FlashTcuCvtSubaruHitachiM32rCan::FlashTcuCvtSubaruHitachiM32rCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
+#define STATUS_SUCCESS 0x00
+#define STATUS_ERROR 0x01
+
+FlashTcuCvtSubaruMitsuMH8104Can::FlashTcuCvtSubaruMitsuMH8104Can(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
     : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
@@ -27,7 +31,7 @@ FlashTcuCvtSubaruHitachiM32rCan::FlashTcuCvtSubaruHitachiM32rCan(SerialPortActio
     this->serial = serial;
 }
 
-void FlashTcuCvtSubaruHitachiM32rCan::run()
+void FlashTcuCvtSubaruMitsuMH8104Can::run()
 {
     this->show();
     set_progressbar_value(0);
@@ -41,16 +45,16 @@ void FlashTcuCvtSubaruHitachiM32rCan::run()
     {
     case QMessageBox::Ok:
     {
-        m_operation = new FlashTcuCvtSubaruHitachiM32rCanOperation(serial, ecuCalDef, cmd_type, this);
-        connect(m_operation, &FlashOperationWorker::LOG_E, this, &FlashTcuCvtSubaruHitachiM32rCan::LOG_E);
-        connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashTcuCvtSubaruHitachiM32rCan::LOG_W);
-        connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashTcuCvtSubaruHitachiM32rCan::LOG_I);
-        connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashTcuCvtSubaruHitachiM32rCan::LOG_D);
+        m_operation = new FlashTcuCvtSubaruMitsuMH8104CanOperation(serial, ecuCalDef, cmd_type, this);
+        connect(m_operation, &FlashOperationWorker::LOG_E, this, &FlashTcuCvtSubaruMitsuMH8104Can::LOG_E);
+        connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashTcuCvtSubaruMitsuMH8104Can::LOG_W);
+        connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashTcuCvtSubaruMitsuMH8104Can::send_log_window_message);
+        connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashTcuCvtSubaruMitsuMH8104Can::LOG_D);
         connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
                 this, [this](QString msg)
                 { emit external_logger(std::move(msg)); });
         connect(m_operation, &FlashOperationWorker::progressChanged,
-                this, &FlashTcuCvtSubaruHitachiM32rCan::set_progressbar_value);
+                this, &FlashTcuCvtSubaruMitsuMH8104Can::set_progressbar_value);
 
         QEventLoop loop;
         bool success = false;
@@ -78,22 +82,22 @@ void FlashTcuCvtSubaruHitachiM32rCan::run()
         break;
     }
     case QMessageBox::Cancel:
-        emit LOG_D("Operation canceled", true, true);
+        qDebug() << "Operation canceled";
         this->close();
         break;
     default:
         QMessageBox::warning(this, tr("Connecting to ECU"), "Unknown operation selected!");
-        emit LOG_D("Unknown operation selected!", true, true);
+        qDebug() << "Unknown operation selected!";
         this->close();
         break;
     }
 }
 
-FlashTcuCvtSubaruHitachiM32rCan::~FlashTcuCvtSubaruHitachiM32rCan()
+FlashTcuCvtSubaruMitsuMH8104Can::~FlashTcuCvtSubaruMitsuMH8104Can()
 {
 }
 
-void FlashTcuCvtSubaruHitachiM32rCan::closeEvent(QCloseEvent *event)
+void FlashTcuCvtSubaruMitsuMH8104Can::closeEvent(QCloseEvent *event)
 {
     if (m_operation)
     {
@@ -101,7 +105,38 @@ void FlashTcuCvtSubaruHitachiM32rCan::closeEvent(QCloseEvent *event)
     }
 }
 
-void FlashTcuCvtSubaruHitachiM32rCan::set_progressbar_value(int value)
+/*
+ * Output text to log window
+ *
+ * @return
+ */
+int FlashTcuCvtSubaruMitsuMH8104Can::send_log_window_message(QString message, bool timestamp, bool linefeed)
+{
+    QDateTime dateTime = dateTime.currentDateTime();
+    QString dateTimeString = dateTime.toString("[yyyy-MM-dd hh':'mm':'ss'.'zzz']  ");
+
+    if (timestamp)
+    {
+        message = dateTimeString + message;
+    }
+    if (linefeed)
+    {
+        message = message + "\n";
+    }
+
+    QTextEdit *textedit = this->findChild<QTextEdit *>("text_edit");
+    if (textedit)
+    {
+        ui->text_edit->insertPlainText(message);
+        ui->text_edit->ensureCursorVisible();
+
+        return STATUS_SUCCESS;
+    }
+
+    return STATUS_ERROR;
+}
+
+void FlashTcuCvtSubaruMitsuMH8104Can::set_progressbar_value(int value)
 {
     bool valueChanged = true;
     if (ui->progressbar)
