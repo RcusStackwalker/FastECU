@@ -115,6 +115,7 @@ qt_cc_library(
         "//src/algorithms/protocol/colt",
         "//src/algorithms/protocol/mut_dma",
         "//src/algorithms/protocol/ssm",
+        "//src/backend/protocol",
     ] + [
         ":ui_" + ui.split("/")[-1].rsplit(".", 1)[0]
         for ui in APP_FORMS
