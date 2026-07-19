@@ -468,7 +468,6 @@ MUT_DMA_TESTS_COMMON_HDRS = [
     "tests/scripted_kline_transport.h",
     "tests/scripted_logging_protocol.h",
     "tests/scripted_ssm_transport.h",
-    "tests/test_cdbg_driver.h",
     "tests/test_cdbg_logging_protocol.h",
     "tests/test_checksum_results.h",
     "tests/test_diagnostic_parsers.h",
@@ -479,14 +478,10 @@ MUT_DMA_TESTS_COMMON_HDRS = [
     "tests/test_logging_engine.h",
     "tests/test_logging_worker.h",
     "tests/test_menu_command.h",
-    "tests/test_mitsu_colt_can_cdbg_protocol.h",
-    "tests/test_mitsu_colt_can_protocol.h",
-    "tests/test_mitsu_colt_can_vendor_ext_protocol.h",
     "tests/test_model_validation.h",
     "tests/test_mut_dma_logging_protocol.h",
     "tests/test_romraider_conversion.h",
     "tests/test_ssm_logging_protocol.h",
-    "tests/test_ssm_protocol.h",
 ]
 
 MUT_DMA_TESTS_COMMON_REPS = [

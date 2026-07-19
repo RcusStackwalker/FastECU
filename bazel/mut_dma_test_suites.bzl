@@ -43,23 +43,35 @@ MUT_DMA_TEST_SUITES = [
 
 MUT_DMA_GTEST_SUITES = [
     "test_bytes",
+    "test_cdbg_driver",
     "test_codec",
     "test_driver",
     "test_expression_evaluator",
     "test_freeform",
     "test_init",
     "test_memory",
+    "test_mitsu_colt_can_cdbg_protocol",
+    "test_mitsu_colt_can_protocol",
+    "test_mitsu_colt_can_vendor_ext_protocol",
+    "test_ssm_protocol",
     "test_transport",
 ]
 
 MUT_DMA_GTEST_SRCS = [base + ".cpp" for base in MUT_DMA_GTEST_SUITES]
 
 _MUT_DMA_GTEST_HELPER_HDRS = {
+    "test_cdbg_driver": [
+        "byte_test_utils.h",
+        "scripted_can_transport.h",
+    ],
     "test_driver": [
         "byte_test_utils.h",
         "scripted_kline_transport.h",
     ],
     "test_init": ["scripted_kline_transport.h"],
+    "test_mitsu_colt_can_protocol": ["byte_test_utils.h"],
+    "test_mitsu_colt_can_vendor_ext_protocol": ["byte_test_utils.h"],
+    "test_ssm_protocol": ["byte_test_utils.h"],
     "test_transport": ["scripted_kline_transport.h"],
 }
 
