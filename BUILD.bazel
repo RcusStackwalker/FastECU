@@ -1,38 +1,15 @@
-load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
-load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
-load("//bazel:fastecu_sources.bzl", "APP_COMMON_HDRS", "APP_COMMON_SRCS", "APP_FORMS", "APP_MAIN_SRCS", "APP_MOC_HDRS", "APP_REPS", "APP_RESOURCES", "APP_UNIX_HDRS", "APP_UNIX_SRCS", "APP_WIN_HDRS", "APP_WIN_SRCS")
-load("//bazel:qt_remote_objects.bzl", "qt_replica_library")
+load("//bazel:fastecu_sources.bzl", "APP_COMMON_HDRS", "APP_COMMON_SRCS", "APP_FORMS", "APP_MAIN_SRCS", "APP_MOC_HDRS", "APP_RESOURCES")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "COMMON_LINKOPTS", "QT_DEPS", "qt_cc_binary", "qt_cc_library", "qt_resource_via_qrc", "qt_ui_basename_libraries")
 
 package(default_visibility = ["//visibility:public"])
 
-exports_files(APP_COMMON_HDRS + APP_MOC_HDRS + APP_REPS + APP_RESOURCES)
-
-APP_COMMON_MOC_HDRS = [
-    h
-    for h in APP_MOC_HDRS
-    if h not in APP_UNIX_HDRS and h not in APP_WIN_HDRS
-]
-
-APP_UNIX_MOC_HDRS = [h for h in APP_UNIX_HDRS if h in APP_MOC_HDRS]
-
-APP_WIN_MOC_HDRS = [h for h in APP_WIN_HDRS if h in APP_MOC_HDRS]
-
-APP_UNIX_NORMAL_HDRS = [h for h in APP_UNIX_HDRS if h not in APP_UNIX_MOC_HDRS]
-
-APP_WIN_NORMAL_HDRS = [h for h in APP_WIN_HDRS if h not in APP_WIN_MOC_HDRS]
+exports_files(APP_COMMON_HDRS + APP_MOC_HDRS + APP_RESOURCES)
 
 qt_ui_basename_libraries(
     name = "fastecu_ui_libraries",
     forms = APP_FORMS,
     deps = ["@rules_qt//:qt_widgets"],
-)
-
-qt_replica_library(
-    name = "fastecu_replicas",
-    reps = APP_REPS,
-    deps = QT_DEPS,
 )
 
 qt_resource_via_qrc(
@@ -83,7 +60,7 @@ qt_resource_via_qrc(
 qt_cc_library(
     name = "fastecu_core_common",
     srcs = APP_COMMON_SRCS,
-    hdrs = APP_COMMON_MOC_HDRS,
+    hdrs = APP_MOC_HDRS,
     copts = COMMON_COPTS,
     includes = COMMON_INCLUDES,
     linkopts = COMMON_LINKOPTS + select({
@@ -93,18 +70,30 @@ qt_cc_library(
         ],
         "//conditions:default": [],
     }),
-    normal_hdrs = APP_COMMON_HDRS + select({
-        "@platforms//os:windows": APP_WIN_HDRS,
-        "//conditions:default": APP_UNIX_HDRS,
-    }),
+    normal_hdrs = APP_COMMON_HDRS,
     deps = QT_DEPS + [
         ":config_resource",
-        ":fastecu_replicas",
         ":font_resource",
         ":hexedit_resource",
         ":icons_resource",
         ":images_resource",
         ":kernels_resource",
+        "//src/algorithms/checksum",
+        "//src/algorithms/crypto",
+        "//src/algorithms/diagnostics",
+        "//src/algorithms/expression",
+        "//src/algorithms/menu",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/colt",
+        "//src/algorithms/protocol/mut_dma",
+        "//src/algorithms/protocol/ssm",
+        "//src/backend/protocol",
+        "//src/platform/desktop/common/logging",
+        "//src/platform/desktop/common/remote_utility",
+        "//src/platform/desktop/common/remote_utility:remote_utility_replicas",
+        "//src/platform/desktop/common/serial:serial_qt_compat",
+        "//src/platform/desktop/common/serial:serial_replicas",
+        "//src/platform/desktop/common/transport",
         "@openssl",
     ] + [
         ":ui_" + ui.split("/")[-1].rsplit(".", 1)[0]
@@ -112,32 +101,18 @@ qt_cc_library(
     ],
 )
 
-qt_cc_library(
+# TRANSITIONAL. These names held the platform-specific j2534 sources
+# directly until this step; the real targets now live in the per-platform
+# packages below. Kept as aliases because bazel/gtest_targets.bzl and
+# tests/BUILD.bazel still reference these root-level labels.
+alias(
     name = "fastecu_platform_unix",
-    srcs = APP_UNIX_SRCS,
-    hdrs = APP_UNIX_MOC_HDRS,
-    copts = COMMON_COPTS,
-    includes = COMMON_INCLUDES,
-    normal_hdrs = APP_UNIX_NORMAL_HDRS,
-    target_compatible_with = select({
-        "@platforms//os:windows": ["@platforms//:incompatible"],
-        "//conditions:default": [],
-    }),
-    deps = QT_DEPS,
+    actual = "//src/platform/desktop/unix/j2534:j2534",
 )
 
-qt_cc_library(
+alias(
     name = "fastecu_platform_windows",
-    srcs = APP_WIN_SRCS,
-    hdrs = APP_WIN_MOC_HDRS,
-    copts = COMMON_COPTS,
-    includes = COMMON_INCLUDES,
-    normal_hdrs = APP_WIN_NORMAL_HDRS,
-    target_compatible_with = select({
-        "@platforms//os:windows": [],
-        "//conditions:default": ["@platforms//:incompatible"],
-    }),
-    deps = QT_DEPS,
+    actual = "//src/platform/desktop/windows/j2534:j2534",
 )
 
 qt_cc_binary(
@@ -151,56 +126,6 @@ qt_cc_binary(
         "@platforms//os:windows": [":fastecu_platform_windows"],
         "//conditions:default": [":fastecu_platform_unix"],
     }),
-)
-
-cc_library(
-    name = "j2534_bridge_protocol",
-    srcs = ["src/platform/desktop/windows/j2534/j2534_bridge_protocol.cpp"],
-    hdrs = [
-        "src/platform/desktop/windows/j2534/J2534_tactrix_win.h",
-        "src/platform/desktop/windows/j2534/j2534_bridge_protocol.h",
-    ],
-    includes = ["src/platform/desktop/windows/j2534"],
-    target_compatible_with = select({
-        "@platforms//os:windows": [],
-        "//conditions:default": ["@platforms//:incompatible"],
-    }),
-)
-
-cc_library(
-    name = "pe_bitness",
-    srcs = ["src/platform/desktop/windows/j2534/pe_bitness.cpp"],
-    hdrs = ["src/platform/desktop/windows/j2534/pe_bitness.h"],
-    includes = ["src/platform/desktop/windows/j2534"],
-    target_compatible_with = select({
-        "@platforms//os:windows": [],
-        "//conditions:default": ["@platforms//:incompatible"],
-    }),
-)
-
-# 64-bit fixture for tests/pe_bitness_test.cpp's PE-bitness-detector test: a
-# trivial binary built for the default (host) platform, i.e. genuinely x64 on
-# this repo's Windows runners -- no cross-compilation involved, unlike the
-# 32-bit fixture (bazel/platforms:x86_smoke_test_x86).
-cc_binary(
-    name = "pe_bitness_x64_fixture",
-    srcs = ["//bazel/platforms:x86_smoke_test.cc"],
-    target_compatible_with = select({
-        "@platforms//os:windows": [],
-        "//conditions:default": ["@platforms//:incompatible"],
-    }),
-)
-
-cc_library(
-    name = "j2534_bridge_client",
-    srcs = ["src/platform/desktop/windows/j2534/j2534_bridge_client.cpp"],
-    hdrs = ["src/platform/desktop/windows/j2534/j2534_bridge_client.h"],
-    includes = ["src/platform/desktop/windows/j2534"],
-    target_compatible_with = select({
-        "@platforms//os:windows": [],
-        "//conditions:default": ["@platforms//:incompatible"],
-    }),
-    deps = [":j2534_bridge_protocol"],
 )
 
 py_test(
@@ -241,7 +166,7 @@ py_test(
     srcs = ["scripts/check-windows-preprocessor-guards.py"],
     data = [
         "src/backend/definitions/file_actions.h",
-        "src/platform/desktop/common/serial/serial_port_actions_direct.h",
+        "//src/platform/desktop/common/serial:serial_port_actions_direct.h",
     ],
     main = "scripts/check-windows-preprocessor-guards.py",
 )

@@ -11,7 +11,8 @@ platform(
     ],
 )
 
-# Exposes the raw source file to //:pe_bitness_x64_fixture (a separate
+# Exposes the raw source file to
+# //src/platform/desktop/windows/j2534:pe_bitness_x64_fixture (a separate
 # package), which builds it for the host (x64) platform as a distinct
 # target from x86_smoke_test_native below. A file used as one rule's srcs
 # doesn't automatically become visible as another rule's srcs in a

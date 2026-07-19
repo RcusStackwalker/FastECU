@@ -17,7 +17,7 @@ cc_binary(
         "@platforms//cpu:x86_32",
         "@platforms//os:windows",
     ],
-    deps = ["//:j2534_bridge_protocol"],
+    deps = ["//src/platform/desktop/windows/j2534:j2534_bridge_protocol"],
 )
 
 x86_windows_binary(
@@ -155,7 +155,7 @@ cc_test(
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],
     }),
-    deps = ["//:j2534_bridge_protocol"],
+    deps = ["//src/platform/desktop/windows/j2534:j2534_bridge_protocol"],
 )
 
 cc_test(
@@ -167,18 +167,18 @@ cc_test(
     # Windows-only (target_compatible_with below).
     copts = ["/UNDEBUG"],
     data = [
-        "//:pe_bitness_x64_fixture",
         "//bazel/platforms:x86_smoke_test_x86",
+        "//src/platform/desktop/windows/j2534:pe_bitness_x64_fixture",
     ],
     env = {
         "PE_BITNESS_X86_FIXTURE": "$(location //bazel/platforms:x86_smoke_test_x86)",
-        "PE_BITNESS_X64_FIXTURE": "$(location //:pe_bitness_x64_fixture)",
+        "PE_BITNESS_X64_FIXTURE": "$(location //src/platform/desktop/windows/j2534:pe_bitness_x64_fixture)",
     },
     target_compatible_with = select({
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],
     }),
-    deps = ["//:pe_bitness"],
+    deps = ["//src/platform/desktop/windows/j2534:pe_bitness"],
 )
 
 cc_test(
@@ -201,7 +201,7 @@ cc_test(
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],
     }),
-    deps = ["//:j2534_bridge_protocol"],
+    deps = ["//src/platform/desktop/windows/j2534:j2534_bridge_protocol"],
 )
 
 cc_test(
@@ -224,7 +224,7 @@ cc_test(
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],
     }),
-    deps = ["//:j2534_bridge_client"],
+    deps = ["//src/platform/desktop/windows/j2534:j2534_bridge_client"],
 )
 
 qt_cc_test(

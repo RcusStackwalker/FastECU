@@ -10,7 +10,7 @@ cc_binary(
         "@platforms//cpu:x86_32",
         "@platforms//os:windows",
     ],
-    deps = ["//:j2534_bridge_protocol"],
+    deps = ["//src/platform/desktop/windows/j2534:j2534_bridge_protocol"],
 )
 
 x86_windows_binary(

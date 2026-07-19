@@ -1,0 +1,75 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+WINDOWS_ONLY = select({
+    "@platforms//os:windows": [],
+    "//conditions:default": ["@platforms//:incompatible"],
+})
+
+qt_cc_library(
+    name = "j2534",
+    srcs = glob(
+        ["*.cpp"],
+        exclude = [
+            "j2534_bridge_protocol.cpp",
+            "j2534_bridge_client.cpp",
+            "pe_bitness.cpp",
+        ],
+    ),
+    hdrs = [],
+    copts = COMMON_COPTS,
+    includes = COMMON_INCLUDES,
+    normal_hdrs = glob(["*.h"]),
+    target_compatible_with = WINDOWS_ONLY,
+    # J2534_win.cpp calls isDll32Bit() (pe_bitness.h:8, defined only in
+    # pe_bitness.cpp) and constructs J2534BridgeClient (J2534_win.h:19,
+    # defined only in j2534_bridge_client.cpp). Both .cpp files are excluded
+    # from srcs above because they belong to the standalone libraries, so
+    # those libraries must be linked back in or Windows fails with undefined
+    # symbols. :j2534_bridge_client pulls :j2534_bridge_protocol transitively.
+    deps = QT_DEPS + [
+        ":j2534_bridge_client",
+        ":pe_bitness",
+    ],
+)
+
+cc_library(
+    name = "j2534_bridge_protocol",
+    srcs = ["j2534_bridge_protocol.cpp"],
+    hdrs = [
+        "J2534_tactrix_win.h",
+        "j2534_bridge_protocol.h",
+    ],
+    includes = ["."],
+    target_compatible_with = WINDOWS_ONLY,
+)
+
+cc_library(
+    name = "pe_bitness",
+    srcs = ["pe_bitness.cpp"],
+    hdrs = ["pe_bitness.h"],
+    includes = ["."],
+    target_compatible_with = WINDOWS_ONLY,
+)
+
+cc_library(
+    name = "j2534_bridge_client",
+    srcs = ["j2534_bridge_client.cpp"],
+    hdrs = ["j2534_bridge_client.h"],
+    includes = ["."],
+    target_compatible_with = WINDOWS_ONLY,
+    deps = [":j2534_bridge_protocol"],
+)
+
+# 64-bit fixture for tests/pe_bitness_test.cpp's PE-bitness-detector test: a
+# trivial binary built for the default (host) platform, i.e. genuinely x64 on
+# this repo's Windows runners -- no cross-compilation involved, unlike the
+# 32-bit fixture (bazel/platforms:x86_smoke_test_x86).
+cc_binary(
+    name = "pe_bitness_x64_fixture",
+    srcs = ["//bazel/platforms:x86_smoke_test.cc"],
+    target_compatible_with = WINDOWS_ONLY,
+)

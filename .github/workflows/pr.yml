@@ -155,7 +155,7 @@ jobs:
       - name: Build x64 pe_bitness fixture (Windows)
         if: runner.os == 'Windows'
         run: |
-          bazel build -k --config=release //:pe_bitness_x64_fixture
+          bazel build -k --config=release //src/platform/desktop/windows/j2534:pe_bitness_x64_fixture
 
       - name: Test Bazel targets
         run: |
