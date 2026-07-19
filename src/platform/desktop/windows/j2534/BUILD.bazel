@@ -21,7 +21,16 @@ qt_cc_library(
     includes = COMMON_INCLUDES,
     normal_hdrs = glob(["*.h"]),
     target_compatible_with = WINDOWS_ONLY,
-    deps = QT_DEPS,
+    # J2534_win.cpp calls isDll32Bit() (pe_bitness.h:8, defined only in
+    # pe_bitness.cpp) and constructs J2534BridgeClient (J2534_win.h:19,
+    # defined only in j2534_bridge_client.cpp). Both .cpp files are excluded
+    # from srcs above because they belong to the standalone libraries, so
+    # those libraries must be linked back in or Windows fails with undefined
+    # symbols. :j2534_bridge_client pulls :j2534_bridge_protocol transitively.
+    deps = QT_DEPS + [
+        ":j2534_bridge_client",
+        ":pe_bitness",
+    ],
 )
 
 cc_library(
