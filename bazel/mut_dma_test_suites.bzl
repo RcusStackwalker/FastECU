@@ -43,10 +43,25 @@ MUT_DMA_TEST_SUITES = [
 
 MUT_DMA_GTEST_SUITES = [
     "test_bytes",
+    "test_codec",
+    "test_driver",
     "test_expression_evaluator",
+    "test_freeform",
+    "test_init",
+    "test_memory",
+    "test_transport",
 ]
 
 MUT_DMA_GTEST_SRCS = [base + ".cpp" for base in MUT_DMA_GTEST_SUITES]
+
+_MUT_DMA_GTEST_HELPER_HDRS = {
+    "test_driver": [
+        "byte_test_utils.h",
+        "scripted_kline_transport.h",
+    ],
+    "test_init": ["scripted_kline_transport.h"],
+    "test_transport": ["scripted_kline_transport.h"],
+}
 
 # These suites construct a real QApplication (FileActions derives from
 # QWidget), which needs a headless-safe platform plugin on CI runners with
@@ -76,7 +91,7 @@ def mut_dma_test_suites(moc_deps_target, header_mocs_target):
         if base in MUT_DMA_GTEST_SUITES:
             fastecu_gtest(
                 name = base,
-                srcs = [base + ".cpp"],
+                srcs = [base + ".cpp"] + _MUT_DMA_GTEST_HELPER_HDRS.get(base, []),
             )
             continue
 

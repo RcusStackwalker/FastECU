@@ -471,18 +471,13 @@ MUT_DMA_TESTS_COMMON_HDRS = [
     "tests/test_cdbg_driver.h",
     "tests/test_cdbg_logging_protocol.h",
     "tests/test_checksum_results.h",
-    "tests/test_codec.h",
     "tests/test_diagnostic_parsers.h",
-    "tests/test_driver.h",
     "tests/test_ecuflash_definition_parsing.h",
     "tests/test_flash_ecu_mitsu_m32r_can_operation.h",
     "tests/test_flash_operation_worker.h",
     "tests/test_flash_utils.h",
-    "tests/test_freeform.h",
-    "tests/test_init.h",
     "tests/test_logging_engine.h",
     "tests/test_logging_worker.h",
-    "tests/test_memory.h",
     "tests/test_menu_command.h",
     "tests/test_mitsu_colt_can_cdbg_protocol.h",
     "tests/test_mitsu_colt_can_protocol.h",
@@ -492,7 +487,6 @@ MUT_DMA_TESTS_COMMON_HDRS = [
     "tests/test_romraider_conversion.h",
     "tests/test_ssm_logging_protocol.h",
     "tests/test_ssm_protocol.h",
-    "tests/test_transport.h",
 ]
 
 MUT_DMA_TESTS_COMMON_REPS = [

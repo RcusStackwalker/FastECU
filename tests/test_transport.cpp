@@ -1,33 +1,25 @@
-#include <QtTest>
+#include <gtest/gtest.h>
+
 #include "protocol/qt_bytes.h"
 #include "scripted_kline_transport.h"
-#include "test_transport.h"
+
 using namespace mutdma;
-class TestTransport : public QObject
+
+TEST(TestTransport, scripted_write_then_read)
 {
-    Q_OBJECT
-  private slots:
-    void scripted_write_then_read()
-    {
-        ScriptedKlineTransport t;
-        t.expectWrite(QByteArray::fromHex("A0"));
-        t.queueRead(QByteArray::fromHex("A5"));
-        QCOMPARE(t.setBaud(125000), true);
-        QCOMPARE(t.write(bytes::view(QByteArray::fromHex("A0"))), 1);
-        QCOMPARE(bytes::toQByteArray(t.read(50, -1)), QByteArray::fromHex("A5"));
-        QVERIFY(t.scriptConsumed());
-    }
-    void scripted_unexpected_write_flags()
-    {
-        ScriptedKlineTransport t;
-        t.expectWrite(QByteArray::fromHex("A0"));
-        t.write(bytes::view(QByteArray::fromHex("BB")));
-        QVERIFY(!t.ok()); // mismatch recorded
-    }
-};
-int run_test_transport(int argc, char **argv)
-{
-    TestTransport t;
-    return QTest::qExec(&t, argc, argv);
+    ScriptedKlineTransport t;
+    t.expectWrite(QByteArray::fromHex("A0"));
+    t.queueRead(QByteArray::fromHex("A5"));
+    ASSERT_EQ(t.setBaud(125000), true);
+    ASSERT_EQ(t.write(bytes::view(QByteArray::fromHex("A0"))), 1);
+    ASSERT_EQ(bytes::toQByteArray(t.read(50, -1)), QByteArray::fromHex("A5"));
+    ASSERT_TRUE(t.scriptConsumed());
 }
-#include "test_transport.moc"
+
+TEST(TestTransport, scripted_unexpected_write_flags)
+{
+    ScriptedKlineTransport t;
+    t.expectWrite(QByteArray::fromHex("A0"));
+    t.write(bytes::view(QByteArray::fromHex("BB")));
+    ASSERT_FALSE(t.ok()); // mismatch recorded
+}
