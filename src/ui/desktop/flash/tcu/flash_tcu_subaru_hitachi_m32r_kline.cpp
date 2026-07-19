@@ -1,10 +1,10 @@
-#include "flash_ecu_subaru_hitachi_m32r_jtag.h"
+#include "src/ui/desktop/flash/tcu/flash_tcu_subaru_hitachi_m32r_kline.h"
 
 #include <utility>
-#include "flash_ecu_subaru_hitachi_m32r_jtag_operation.h"
+#include "src/backend/flash/tcu/flash_tcu_subaru_hitachi_m32r_kline_operation.h"
 #include "serial_port_actions.h"
 
-FlashEcuSubaruHitachiM32rJtag::FlashEcuSubaruHitachiM32rJtag(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
+FlashTcuSubaruHitachiM32rKline::FlashTcuSubaruHitachiM32rKline(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
     : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
@@ -25,13 +25,13 @@ FlashEcuSubaruHitachiM32rJtag::FlashEcuSubaruHitachiM32rJtag(SerialPortActions *
     this->serial = serial;
 }
 
-void FlashEcuSubaruHitachiM32rJtag::run()
+void FlashTcuSubaruHitachiM32rKline::run()
 {
     this->show();
     set_progressbar_value(0);
 
-    int ret = QMessageBox::warning(this, tr("Connecting to ECU"),
-                                   tr("Turn ignition ON and press OK to start initializing connection to ECU"),
+    int ret = QMessageBox::warning(this, tr("Connecting to TCU"),
+                                   tr("Turn ignition ON and press OK to start initializing connection to TCU"),
                                    QMessageBox::Ok | QMessageBox::Cancel,
                                    QMessageBox::Ok);
 
@@ -39,16 +39,16 @@ void FlashEcuSubaruHitachiM32rJtag::run()
     {
     case QMessageBox::Ok:
     {
-        m_operation = new FlashEcuSubaruHitachiM32rJtagOperation(serial, ecuCalDef, cmd_type, this);
-        connect(m_operation, &FlashOperationWorker::LOG_E, this, &FlashEcuSubaruHitachiM32rJtag::LOG_E);
-        connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashEcuSubaruHitachiM32rJtag::LOG_W);
-        connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashEcuSubaruHitachiM32rJtag::LOG_I);
-        connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashEcuSubaruHitachiM32rJtag::LOG_D);
+        m_operation = new FlashTcuSubaruHitachiM32rKlineOperation(serial, ecuCalDef, cmd_type, this);
+        connect(m_operation, &FlashOperationWorker::LOG_E, this, &FlashTcuSubaruHitachiM32rKline::LOG_E);
+        connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashTcuSubaruHitachiM32rKline::LOG_W);
+        connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashTcuSubaruHitachiM32rKline::LOG_I);
+        connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashTcuSubaruHitachiM32rKline::LOG_D);
         connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
                 this, [this](QString msg)
                 { emit external_logger(std::move(msg)); });
         connect(m_operation, &FlashOperationWorker::progressChanged,
-                this, &FlashEcuSubaruHitachiM32rJtag::set_progressbar_value);
+                this, &FlashTcuSubaruHitachiM32rKline::set_progressbar_value);
 
         QEventLoop loop;
         bool success = false;
@@ -66,32 +66,32 @@ void FlashEcuSubaruHitachiM32rJtag::run()
 
         if (success)
         {
-            QMessageBox::information(this, tr("ECU Operation"), "ECU operation was succesful, press OK to exit");
+            QMessageBox::information(this, tr("TCU Operation"), "TCU operation was succesful, press OK to exit");
             this->close();
         }
         else
         {
-            QMessageBox::warning(this, tr("ECU Operation"), "ECU operation failed, press OK to exit and try again");
+            QMessageBox::warning(this, tr("TCU Operation"), "TCU operation failed, press OK to exit and try again");
         }
         break;
     }
     case QMessageBox::Cancel:
-        emit LOG_D("Operation canceled", true, true);
+        LOG_D("Operation canceled", true, true);
         this->close();
         break;
     default:
         QMessageBox::warning(this, tr("Connecting to ECU"), "Unknown operation selected!");
-        emit LOG_D("Unknown operation selected!", true, true);
+        LOG_D("Unknown operation selected!", true, true);
         this->close();
         break;
     }
 }
 
-FlashEcuSubaruHitachiM32rJtag::~FlashEcuSubaruHitachiM32rJtag()
+FlashTcuSubaruHitachiM32rKline::~FlashTcuSubaruHitachiM32rKline()
 {
 }
 
-void FlashEcuSubaruHitachiM32rJtag::closeEvent(QCloseEvent *event)
+void FlashTcuSubaruHitachiM32rKline::closeEvent(QCloseEvent *event)
 {
     if (m_operation)
     {
@@ -99,7 +99,7 @@ void FlashEcuSubaruHitachiM32rJtag::closeEvent(QCloseEvent *event)
     }
 }
 
-void FlashEcuSubaruHitachiM32rJtag::set_progressbar_value(int value)
+void FlashTcuSubaruHitachiM32rKline::set_progressbar_value(int value)
 {
     bool valueChanged = true;
     if (ui->progressbar)

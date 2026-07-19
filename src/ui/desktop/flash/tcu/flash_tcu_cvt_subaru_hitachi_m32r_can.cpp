@@ -1,12 +1,12 @@
-#include "flash_tcu_cvt_subaru_mitsu_mh8111_can.h"
+#include "src/ui/desktop/flash/tcu/flash_tcu_cvt_subaru_hitachi_m32r_can.h"
 
 #include <utility>
-#include "flash_tcu_cvt_subaru_mitsu_mh8111_can_operation.h"
+#include "src/backend/flash/tcu/flash_tcu_cvt_subaru_hitachi_m32r_can_operation.h"
 #include "serial_port_actions.h"
 
 // QT_CHARTS_USE_NAMESPACE
 
-FlashTcuCvtSubaruMitsuMH8111Can::FlashTcuCvtSubaruMitsuMH8111Can(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
+FlashTcuCvtSubaruHitachiM32rCan::FlashTcuCvtSubaruHitachiM32rCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
     : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
@@ -27,7 +27,7 @@ FlashTcuCvtSubaruMitsuMH8111Can::FlashTcuCvtSubaruMitsuMH8111Can(SerialPortActio
     this->serial = serial;
 }
 
-void FlashTcuCvtSubaruMitsuMH8111Can::run()
+void FlashTcuCvtSubaruHitachiM32rCan::run()
 {
     this->show();
     set_progressbar_value(0);
@@ -41,16 +41,16 @@ void FlashTcuCvtSubaruMitsuMH8111Can::run()
     {
     case QMessageBox::Ok:
     {
-        m_operation = new FlashTcuCvtSubaruMitsuMH8111CanOperation(serial, ecuCalDef, cmd_type, this);
-        connect(m_operation, &FlashOperationWorker::LOG_E, this, &FlashTcuCvtSubaruMitsuMH8111Can::LOG_E);
-        connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashTcuCvtSubaruMitsuMH8111Can::LOG_W);
-        connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashTcuCvtSubaruMitsuMH8111Can::LOG_I);
-        connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashTcuCvtSubaruMitsuMH8111Can::LOG_D);
+        m_operation = new FlashTcuCvtSubaruHitachiM32rCanOperation(serial, ecuCalDef, cmd_type, this);
+        connect(m_operation, &FlashOperationWorker::LOG_E, this, &FlashTcuCvtSubaruHitachiM32rCan::LOG_E);
+        connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashTcuCvtSubaruHitachiM32rCan::LOG_W);
+        connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashTcuCvtSubaruHitachiM32rCan::LOG_I);
+        connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashTcuCvtSubaruHitachiM32rCan::LOG_D);
         connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
                 this, [this](QString msg)
                 { emit external_logger(std::move(msg)); });
         connect(m_operation, &FlashOperationWorker::progressChanged,
-                this, &FlashTcuCvtSubaruMitsuMH8111Can::set_progressbar_value);
+                this, &FlashTcuCvtSubaruHitachiM32rCan::set_progressbar_value);
 
         QEventLoop loop;
         bool success = false;
@@ -78,22 +78,22 @@ void FlashTcuCvtSubaruMitsuMH8111Can::run()
         break;
     }
     case QMessageBox::Cancel:
-        LOG_D("Operation canceled", true, true);
+        emit LOG_D("Operation canceled", true, true);
         this->close();
         break;
     default:
         QMessageBox::warning(this, tr("Connecting to ECU"), "Unknown operation selected!");
-        LOG_D("Unknown operation selected!", true, true);
+        emit LOG_D("Unknown operation selected!", true, true);
         this->close();
         break;
     }
 }
 
-FlashTcuCvtSubaruMitsuMH8111Can::~FlashTcuCvtSubaruMitsuMH8111Can()
+FlashTcuCvtSubaruHitachiM32rCan::~FlashTcuCvtSubaruHitachiM32rCan()
 {
 }
 
-void FlashTcuCvtSubaruMitsuMH8111Can::closeEvent(QCloseEvent *event)
+void FlashTcuCvtSubaruHitachiM32rCan::closeEvent(QCloseEvent *event)
 {
     if (m_operation)
     {
@@ -101,7 +101,7 @@ void FlashTcuCvtSubaruMitsuMH8111Can::closeEvent(QCloseEvent *event)
     }
 }
 
-void FlashTcuCvtSubaruMitsuMH8111Can::set_progressbar_value(int value)
+void FlashTcuCvtSubaruHitachiM32rCan::set_progressbar_value(int value)
 {
     bool valueChanged = true;
     if (ui->progressbar)

@@ -1,7 +1,7 @@
-#include "flash_tcu_subaru_denso_sh705x_can.h"
+#include "src/ui/desktop/flash/tcu/flash_tcu_subaru_denso_sh705x_can.h"
 
 #include <utility>
-#include "flash_tcu_subaru_denso_sh705x_can_operation.h"
+#include "src/backend/flash/tcu/flash_tcu_subaru_denso_sh705x_can_operation.h"
 #include "serial_port_actions.h"
 
 FlashTcuSubaruDensoSH705xCan::FlashTcuSubaruDensoSH705xCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
