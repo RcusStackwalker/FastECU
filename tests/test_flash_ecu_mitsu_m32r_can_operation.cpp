@@ -127,6 +127,32 @@ class TestFlashEcuMitsuM32rCanOperation : public QObject
         QCOMPARE(writes.at(2), QString("write_echo_check:begin:000007e01081"));
     }
 
+    void testWriteCommand_currentlyPerformsBasicHandshakeOnly()
+    {
+        // Compatibility quirk: the operation has explicit read and write
+        // branches, while test_write returns the successful basic-handshake
+        // result without planning a write.
+        QueuedFakeBackend *fake = nullptr;
+        SerialPortActions serial("", "", nullptr, nullptr,
+                                 [&fake]() -> SerialBackend *
+                                 { fake = new QueuedFakeBackend(); return fake; });
+        serial.set_add_ssm_header(false);
+        fake->responses.enqueue(QByteArray("\x00\x00\x07\xE8\x50\x81", 6));
+
+        FileActions::EcuCalDefStructure ecuCalDef;
+        ecuCalDef.McuType = "M32R_128KB";
+        QWidget dialog;
+        FlashEcuMitsuM32rCanOperation op(&serial, &ecuCalDef, "test_write", &dialog);
+        QSignalSpy finishedSpy(&op, &FlashOperationWorker::operationFinished);
+
+        op.start();
+        QVERIFY(finishedSpy.wait(2000));
+        QVERIFY(op.wait(2000));
+        QCOMPARE(finishedSpy.at(0).at(0).toBool(), true);
+        QCOMPARE(fake->takeCallLog().filter("write_echo_check:begin:"),
+                 QStringList{"write_echo_check:begin:000007e01081"});
+    }
+
     void writeFailsFastWhenRomTooSmallForTopRegion()
     {
         QueuedFakeBackend *fake = nullptr;
