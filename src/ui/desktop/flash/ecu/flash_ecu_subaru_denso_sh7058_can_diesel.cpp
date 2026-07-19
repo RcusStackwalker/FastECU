@@ -1,12 +1,15 @@
-#include "flash_ecu_subaru_denso_1n83m_4m_can.h"
+#include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh7058_can_diesel.h"
 
 #include <utility>
-#include "flash_ecu_subaru_denso_1n83m_4m_can_operation.h"
+#include "src/backend/flash/ecu/flash_ecu_subaru_denso_sh7058_can_diesel_operation.h"
 #include "serial_port_actions.h"
 
-FlashEcuSubaruDenso1N83M_4MCan::FlashEcuSubaruDenso1N83M_4MCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
+FlashEcuSubaruDensoSH7058CanDiesel::FlashEcuSubaruDensoSH7058CanDiesel(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
     : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
+    // EURO4 0xFFFF4000 0x3000
+    // EURO5 0xFFFEE000 0x2000
+
     ui->setupUi(this);
 
     if (cmd_type == "test_write")
@@ -25,11 +28,11 @@ FlashEcuSubaruDenso1N83M_4MCan::FlashEcuSubaruDenso1N83M_4MCan(SerialPortActions
     this->serial = serial;
 }
 
-FlashEcuSubaruDenso1N83M_4MCan::~FlashEcuSubaruDenso1N83M_4MCan()
+FlashEcuSubaruDensoSH7058CanDiesel::~FlashEcuSubaruDensoSH7058CanDiesel()
 {
 }
 
-void FlashEcuSubaruDenso1N83M_4MCan::closeEvent(QCloseEvent *event)
+void FlashEcuSubaruDensoSH7058CanDiesel::closeEvent(QCloseEvent *event)
 {
     if (m_operation)
     {
@@ -37,9 +40,10 @@ void FlashEcuSubaruDenso1N83M_4MCan::closeEvent(QCloseEvent *event)
     }
 }
 
-void FlashEcuSubaruDenso1N83M_4MCan::run()
+void FlashEcuSubaruDensoSH7058CanDiesel::run()
 {
     this->show();
+
     set_progressbar_value(0);
 
     int ret = QMessageBox::warning(this, tr("Connecting to ECU"),
@@ -51,16 +55,16 @@ void FlashEcuSubaruDenso1N83M_4MCan::run()
     {
     case QMessageBox::Ok:
     {
-        m_operation = new FlashEcuSubaruDenso1N83M_4MCanOperation(serial, ecuCalDef, cmd_type, this);
-        connect(m_operation, &FlashOperationWorker::LOG_E, this, &FlashEcuSubaruDenso1N83M_4MCan::LOG_E);
-        connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashEcuSubaruDenso1N83M_4MCan::LOG_W);
-        connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashEcuSubaruDenso1N83M_4MCan::LOG_I);
-        connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashEcuSubaruDenso1N83M_4MCan::LOG_D);
+        m_operation = new FlashEcuSubaruDensoSH7058CanDieselOperation(serial, ecuCalDef, cmd_type, this);
+        connect(m_operation, &FlashOperationWorker::LOG_E, this, &FlashEcuSubaruDensoSH7058CanDiesel::LOG_E);
+        connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashEcuSubaruDensoSH7058CanDiesel::LOG_W);
+        connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashEcuSubaruDensoSH7058CanDiesel::LOG_I);
+        connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashEcuSubaruDensoSH7058CanDiesel::LOG_D);
         connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
                 this, [this](QString msg)
                 { emit external_logger(std::move(msg)); });
         connect(m_operation, &FlashOperationWorker::progressChanged,
-                this, &FlashEcuSubaruDenso1N83M_4MCan::set_progressbar_value);
+                this, &FlashEcuSubaruDensoSH7058CanDiesel::set_progressbar_value);
 
         QEventLoop loop;
         bool success = false;
@@ -99,7 +103,7 @@ void FlashEcuSubaruDenso1N83M_4MCan::run()
     }
 }
 
-void FlashEcuSubaruDenso1N83M_4MCan::set_progressbar_value(int value)
+void FlashEcuSubaruDensoSH7058CanDiesel::set_progressbar_value(int value)
 {
     bool valueChanged = true;
     if (ui->progressbar)

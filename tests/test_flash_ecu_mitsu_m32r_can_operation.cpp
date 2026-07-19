@@ -5,7 +5,7 @@
 #include <QWidget>
 #include "src/backend/definitions/kernelmemorymodels.h"
 #include "src/backend/flash/flash_utils.h"
-#include "modules/ecu/flash_ecu_mitsu_m32r_can_operation.h"
+#include "src/backend/flash/ecu/flash_ecu_mitsu_m32r_can_operation.h"
 #include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
 #include "src/algorithms/protocol/colt/mitsu_colt_can_vendor_ext_protocol.h"
 #include "serial_port_actions.h"

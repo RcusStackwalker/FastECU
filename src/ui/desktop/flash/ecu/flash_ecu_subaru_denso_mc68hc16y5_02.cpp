@@ -1,7 +1,7 @@
-#include "flash_ecu_subaru_denso_mc68hc16y5_02.h"
+#include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_mc68hc16y5_02.h"
 
 #include <utility>
-#include "flash_ecu_subaru_denso_mc68hc16y5_02_operation.h"
+#include "src/backend/flash/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.h"
 #include "serial_port_actions.h"
 
 FlashEcuSubaruDensoMC68HC16Y5_02::FlashEcuSubaruDensoMC68HC16Y5_02(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
