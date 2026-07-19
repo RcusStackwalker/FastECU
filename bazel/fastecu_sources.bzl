@@ -238,16 +238,6 @@ APP_RESOURCES = [
     "resources/shared/kernels.qrc",
 ]
 
-APP_REPS = []
-
-APP_UNIX_SRCS = []
-
-APP_UNIX_HDRS = []
-
-APP_WIN_SRCS = []
-
-APP_WIN_HDRS = []
-
 MUT_DMA_TESTS_COMMON_SRCS = [
     "../src/algorithms/diagnostics/dtc_parser.cpp",
     "../src/algorithms/expression/expression_evaluator.cpp",

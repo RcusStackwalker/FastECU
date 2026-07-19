@@ -1,16 +1,10 @@
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
-load("//bazel:fastecu_sources.bzl", "APP_COMMON_HDRS", "APP_COMMON_SRCS", "APP_FORMS", "APP_MAIN_SRCS", "APP_MOC_HDRS", "APP_REPS", "APP_RESOURCES", "APP_UNIX_HDRS", "APP_WIN_HDRS")
+load("//bazel:fastecu_sources.bzl", "APP_COMMON_HDRS", "APP_COMMON_SRCS", "APP_FORMS", "APP_MAIN_SRCS", "APP_MOC_HDRS", "APP_RESOURCES")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "COMMON_LINKOPTS", "QT_DEPS", "qt_cc_binary", "qt_cc_library", "qt_resource_via_qrc", "qt_ui_basename_libraries")
 
 package(default_visibility = ["//visibility:public"])
 
-exports_files(APP_COMMON_HDRS + APP_MOC_HDRS + APP_REPS + APP_RESOURCES)
-
-APP_COMMON_MOC_HDRS = [
-    h
-    for h in APP_MOC_HDRS
-    if h not in APP_UNIX_HDRS and h not in APP_WIN_HDRS
-]
+exports_files(APP_COMMON_HDRS + APP_MOC_HDRS + APP_RESOURCES)
 
 qt_ui_basename_libraries(
     name = "fastecu_ui_libraries",
@@ -66,7 +60,7 @@ qt_resource_via_qrc(
 qt_cc_library(
     name = "fastecu_core_common",
     srcs = APP_COMMON_SRCS,
-    hdrs = APP_COMMON_MOC_HDRS,
+    hdrs = APP_MOC_HDRS,
     copts = COMMON_COPTS,
     includes = COMMON_INCLUDES,
     linkopts = COMMON_LINKOPTS + select({
@@ -76,10 +70,7 @@ qt_cc_library(
         ],
         "//conditions:default": [],
     }),
-    normal_hdrs = APP_COMMON_HDRS + select({
-        "@platforms//os:windows": APP_WIN_HDRS,
-        "//conditions:default": APP_UNIX_HDRS,
-    }),
+    normal_hdrs = APP_COMMON_HDRS,
     deps = QT_DEPS + [
         ":config_resource",
         ":font_resource",
