@@ -1,0 +1,36 @@
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library", "qt_ui_basename_libraries")
+
+package(default_visibility = ["//visibility:public"])
+
+FORMS = [
+    "optionsdialog.ui",
+    "searchdialog.ui",
+]
+
+qt_ui_basename_libraries(
+    name = "hexedit_ui_libraries",
+    forms = FORMS,
+    deps = ["@rules_qt//:qt_widgets"],
+)
+
+MOC_HDRS = [
+    "hexedit.h",
+    "optionsdialog.h",
+    "searchdialog.h",
+]
+
+qt_cc_library(
+    name = "hexedit",
+    srcs = glob(["*.cpp"]),
+    hdrs = MOC_HDRS,
+    copts = COMMON_COPTS,
+    includes = COMMON_INCLUDES,
+    deps = QT_DEPS + [
+        # hexedit.cpp includes src/backend/definitions/file_actions.h
+        # directly; full :definitions (not :models) required, same
+        # reasoning as the flash dialog packages.
+        "//resources/desktop:hexedit_resource",
+        "//src/backend/definitions",
+        "//src/ui/desktop/hexedit/qhexedit",
+    ] + [":ui_" + f.removesuffix(".ui") for f in FORMS],
+)

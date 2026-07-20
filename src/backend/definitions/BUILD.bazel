@@ -31,6 +31,8 @@ qt_cc_library(
     ),
     deps = QT_DEPS + [
         ":models",
+        "//resources/shared:config_resource",
+        "//resources/shared:kernels_resource",
         "//src/algorithms/checksum",
         # file_actions.h includes dtc_parser.h/nrc_parser.h directly; not in
         # the original plan's dep list, added after checking the real

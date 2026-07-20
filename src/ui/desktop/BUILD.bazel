@@ -1,0 +1,95 @@
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "COMMON_LINKOPTS", "QT_DEPS", "qt_cc_library", "qt_ui_basename_libraries")
+
+package(default_visibility = ["//visibility:public"])
+
+FORMS = [
+    "calibration_map_table.ui",
+    "data_terminal.ui",
+    "definition_file_convert.ui",
+    "dtc_operations.ui",
+    "ecu_operations.ui",
+    "logvalues.ui",
+    "mainwindow.ui",
+    "protocol_select.ui",
+    "settings.ui",
+    "vehicle_select.ui",
+]
+
+qt_ui_basename_libraries(
+    name = "desktop_ui_libraries",
+    forms = FORMS,
+    deps = ["@rules_qt//:qt_widgets"],
+)
+
+MOC_HDRS = [
+    "calibration_maps.h",
+    "calibration_treewidget.h",
+    "dataterminal.h",
+    "definition_file_convert.h",
+    "dtc_operations.h",
+    "ecu_operations.h",
+    "get_key_operations_subaru.h",
+    "logbox.h",
+    "mainwindow.h",
+    "protocol_select.h",
+    "settings.h",
+    "vehicle_select.h",
+    "verticallabel.h",
+]
+
+qt_cc_library(
+    name = "desktop",
+    # hexcommander.cpp excluded: dead code, never in APP_COMMON_SRCS or the
+    # legacy FastECU.pro, and its header (also excluded below) declares
+    # Q_OBJECT but isn't in MOC_HDRS -- pulling it in via a bare glob would
+    # silently add it to the build for the first time and fail to link.
+    srcs = glob(
+        ["*.cpp"],
+        exclude = ["hexcommander.cpp"],
+    ),
+    hdrs = MOC_HDRS,
+    copts = COMMON_COPTS,
+    includes = COMMON_INCLUDES,
+    linkopts = COMMON_LINKOPTS + select({
+        "@platforms//os:windows": [
+            "-lopengl32",
+            "-lsetupapi",
+        ],
+        "//conditions:default": [],
+    }),
+    normal_hdrs = glob(
+        ["*.h"],
+        allow_empty = True,
+        exclude = MOC_HDRS + ["hexcommander.h"],
+    ),
+    deps = QT_DEPS + [
+        "//resources/desktop:font_resource",
+        "//resources/desktop:icons_resource",
+        "//resources/desktop:images_resource",
+        "//src/algorithms/crypto",
+        "//src/algorithms/menu",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/mut_dma",
+        "//src/backend/definitions",
+        "//src/backend/flash",
+        "//src/backend/logging",
+        # mainwindow.h includes cdbg/mut_dma/ssm_logging_protocol.h
+        # directly, which live in the separate :protocols package.
+        "//src/backend/logging/protocols",
+        # mainwindow.h includes imut_dma_init.h, mitsu_colt_can_cdbg_driver.h
+        # and mut_dma_driver.h directly.
+        "//src/backend/protocol",
+        "//src/platform/desktop/common/logging",
+        "//src/platform/desktop/common/remote_utility",
+        "//src/platform/desktop/common/serial:serial_qt_compat",
+        "//src/platform/desktop/common/transport",
+        "//src/ui/desktop/biu",
+        "//src/ui/desktop/flash/bdm",
+        "//src/ui/desktop/flash/bootmode",
+        "//src/ui/desktop/flash/ecu",
+        "//src/ui/desktop/flash/eeprom",
+        "//src/ui/desktop/flash/jtag",
+        "//src/ui/desktop/flash/tcu",
+        "//src/ui/desktop/hexedit",
+    ] + [":ui_" + f.removesuffix(".ui") for f in FORMS],
+)

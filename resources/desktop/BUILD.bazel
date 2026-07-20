@@ -1,0 +1,34 @@
+load("//bazel:qt_targets.bzl", "qt_resource_via_qrc")
+
+package(default_visibility = ["//src/ui:__subpackages__"])
+
+qt_resource_via_qrc(
+    name = "font_resource",
+    files = glob(["fonts/*"]),
+    qrc_file = "fonts.qrc",
+    deps = ["@rules_qt//:qt_core"],
+)
+
+qt_resource_via_qrc(
+    name = "icons_resource",
+    files = glob(["icons/*"]),
+    qrc_file = "icons.qrc",
+    deps = ["@rules_qt//:qt_core"],
+)
+
+qt_resource_via_qrc(
+    name = "images_resource",
+    files = glob(["images/*"]),
+    qrc_file = "images.qrc",
+    deps = ["@rules_qt//:qt_core"],
+)
+
+qt_resource_via_qrc(
+    name = "hexedit_resource",
+    files = glob([
+        "hexedit/images/*",
+        "hexedit/translations/*.qm",
+    ]),
+    qrc_file = "hexedit/qhexedit.qrc",
+    deps = ["@rules_qt//:qt_core"],
+)

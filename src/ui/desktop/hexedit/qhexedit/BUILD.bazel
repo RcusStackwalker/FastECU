@@ -1,0 +1,18 @@
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+MOC_HDRS = [
+    "chunks.h",
+    "commands.h",
+    "qhexedit.h",
+]
+
+qt_cc_library(
+    name = "qhexedit",
+    srcs = glob(["*.cpp"]),
+    hdrs = MOC_HDRS,
+    copts = COMMON_COPTS,
+    includes = COMMON_INCLUDES,
+    deps = QT_DEPS,
+)
