@@ -1,7 +1,24 @@
 load("//bazel:qt_remote_objects.bzl", "qt_replica_library")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
 
-package(default_visibility = ["//visibility:public"])
+package(default_visibility = [
+    "//apps/desktop:__pkg__",
+    "//src/platform:__subpackages__",
+    "//tests:__pkg__",
+])
+
+# root //:serial_compat_allowlist reads BUILD.bazel, and root
+# //:windows_preprocessor_guards reads serial_port_actions_direct.h, both as
+# `data`; those references are plumbing, not a layer dependency, so export
+# them to the root package specifically rather than widen the package's
+# general default_visibility.
+exports_files(
+    [
+        "BUILD.bazel",
+        "serial_port_actions_direct.h",
+    ],
+    visibility = ["//:__pkg__"],
+)
 
 qt_replica_library(
     name = "serial_replicas",
@@ -37,6 +54,37 @@ qt_cc_library(
         ],
         exclude = MOC_HDRS,
     ),
+    visibility = [
+        # Legitimate platform-internal edge, NOT part of the debt frozen
+        # below: remote_utility.h #includes websocketiodevice.h and
+        # qtrohelper.hpp, both owned by this package (see the normal_hdrs
+        # comment above). Same-layer sibling dependency, not a layering
+        # violation, so it is not expected to shrink.
+        "//src/platform/desktop/common/remote_utility:__pkg__",
+        # TRANSITIONAL. Every entry below is a layering violation removed by
+        # step 5 (backend) or step 6 (ui). Frozen by
+        # scripts/check-serial-compat-allowlist.py -- this list may
+        # shrink, never grow.
+        "//src/backend/flash:__pkg__",
+        "//src/backend/flash/bdm:__pkg__",
+        "//src/backend/flash/bootmode:__pkg__",
+        "//src/backend/flash/ecu:__pkg__",
+        "//src/backend/flash/eeprom:__pkg__",
+        "//src/backend/flash/jtag:__pkg__",
+        "//src/backend/flash/tcu:__pkg__",
+        "//src/backend/logging/protocols:__pkg__",
+        "//src/platform/desktop/common/serial:__pkg__",
+        "//src/platform/desktop/common/transport:__pkg__",
+        "//src/ui/desktop:__pkg__",
+        "//src/ui/desktop/biu:__pkg__",
+        "//src/ui/desktop/flash/bdm:__pkg__",
+        "//src/ui/desktop/flash/bootmode:__pkg__",
+        "//src/ui/desktop/flash/ecu:__pkg__",
+        "//src/ui/desktop/flash/eeprom:__pkg__",
+        "//src/ui/desktop/flash/jtag:__pkg__",
+        "//src/ui/desktop/flash/tcu:__pkg__",
+        "//tests:__pkg__",
+    ],
     deps = QT_DEPS + [
         ":serial_replicas",
         "//src/algorithms/protocol",

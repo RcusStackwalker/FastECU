@@ -2,20 +2,6 @@ load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 
 package(default_visibility = ["//visibility:public"])
 
-# TRANSITIONAL. These names held the platform-specific j2534 sources
-# directly until this step; the real targets now live in the per-platform
-# packages below. Kept as aliases because tests/BUILD.bazel still
-# references these root-level labels.
-alias(
-    name = "fastecu_platform_unix",
-    actual = "//src/platform/desktop/unix/j2534:j2534",
-)
-
-alias(
-    name = "fastecu_platform_windows",
-    actual = "//src/platform/desktop/windows/j2534:j2534",
-)
-
 alias(
     name = "fastecu",
     actual = "//apps/desktop:fastecu",
@@ -43,6 +29,14 @@ py_test(
         "//src/algorithms/crypto:BUILD.bazel",
     ],
     main = "scripts/check-bazel-openssl.py",
+)
+
+py_test(
+    name = "serial_compat_allowlist",
+    size = "small",
+    srcs = ["scripts/check-serial-compat-allowlist.py"],
+    data = ["//src/platform/desktop/common/serial:BUILD.bazel"],
+    main = "scripts/check-serial-compat-allowlist.py",
 )
 
 py_test(

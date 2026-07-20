@@ -1,6 +1,7 @@
 load("//bazel:qt_targets.bzl", "qt_resource_via_qrc")
 
-package(default_visibility = ["//visibility:public"])
+# Only //src/backend/definitions consumes these resources today.
+package(default_visibility = ["//src/backend/definitions:__pkg__"])
 
 qt_resource_via_qrc(
     name = "config_resource",

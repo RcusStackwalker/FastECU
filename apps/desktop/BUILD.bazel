@@ -1,6 +1,7 @@
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_LINKOPTS", "qt_cc_binary")
 
-package(default_visibility = ["//visibility:public"])
+# Only the root //:fastecu alias consumes this composition root.
+package(default_visibility = ["//:__pkg__"])
 
 qt_cc_binary(
     name = "fastecu",

@@ -1,7 +1,13 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS")
 
-package(default_visibility = ["//visibility:public"])
+package(default_visibility = [
+    "//src/algorithms:__subpackages__",
+    "//src/backend:__subpackages__",
+    "//src/platform:__subpackages__",
+    "//src/ui:__subpackages__",
+    "//tests:__pkg__",
+])
 
 cc_library(
     name = "ssm",

@@ -108,8 +108,8 @@ qt_cc_test(
     deps = QT_DEPS + [
         ":serial_crash_cpp_mocs",
         ":test_header_mocs",
-        "//:fastecu_platform_unix",
         "//src/platform/desktop/common/serial:serial_qt_compat",
+        "//src/platform/desktop/unix/j2534",
     ],
 )
 
@@ -247,5 +247,5 @@ qt_cc_test(
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],
     }),
-    deps = ["//:fastecu_platform_windows"],
+    deps = ["//src/platform/desktop/windows/j2534"],
 )

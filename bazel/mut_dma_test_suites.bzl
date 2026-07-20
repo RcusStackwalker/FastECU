@@ -100,7 +100,7 @@ _NEEDS_OFFSCREEN_QT_PLATFORM = [
 # its obvious package is step 4/5 scope surfacing early -- record it in
 # the PR description rather than widening quietly.
 SUITE_DEPS = {
-    "test_bytes": ["//src/algorithms/protocol/mut_dma"],
+    "test_bytes": ["//src/algorithms/protocol"],
     "test_codec": ["//src/algorithms/protocol/mut_dma"],
     "test_freeform": ["//src/algorithms/protocol/mut_dma"],
     "test_memory": ["//src/algorithms/protocol/mut_dma"],
