@@ -17,8 +17,6 @@ qt_cc_library(
         exclude = MOC_HDRS,
     ),
     deps = QT_DEPS + [
-        "//src/algorithms/checksum",
-        "//src/algorithms/protocol",
         "//src/algorithms/protocol/colt",
         "//src/algorithms/protocol/ssm",
         # Full :definitions (not :models) because file_actions.h -- part of
@@ -26,7 +24,6 @@ qt_cc_library(
         # -- is included directly; see task-4-report.md.
         "//src/backend/definitions",
         "//src/backend/flash",
-        "//src/backend/protocol",
         "//src/platform/desktop/common/serial:serial_qt_compat",
     ],
 )

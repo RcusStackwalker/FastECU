@@ -17,7 +17,6 @@ qt_cc_library(
     deps = QT_DEPS + [
         "//src/algorithms/protocol",
         "//src/backend/definitions:models",
-        "//src/backend/protocol",
         "//src/platform/desktop/common/serial:serial_qt_compat",
     ],
 )
