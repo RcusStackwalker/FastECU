@@ -3,6 +3,10 @@
 
 #include <QApplication>
 
+#include <algorithm>
+#include <span>
+#include <string_view>
+
 int main(int argc, char *argv[])
 {
     QCommandLineParser cmdParser;
