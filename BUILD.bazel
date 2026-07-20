@@ -1,6 +1,5 @@
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
-load("//bazel:fastecu_sources.bzl", "APP_MAIN_SRCS")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_LINKOPTS", "QT_DEPS", "qt_cc_binary", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -54,17 +53,9 @@ alias(
     actual = "//src/platform/desktop/windows/j2534:j2534",
 )
 
-qt_cc_binary(
+alias(
     name = "fastecu",
-    srcs = APP_MAIN_SRCS,
-    copts = COMMON_COPTS,
-    linkopts = COMMON_LINKOPTS,
-    deps = [
-        ":fastecu_core_common",
-    ] + select({
-        "@platforms//os:windows": [":fastecu_platform_windows"],
-        "//conditions:default": [":fastecu_platform_unix"],
-    }),
+    actual = "//apps/desktop:fastecu",
 )
 
 py_test(

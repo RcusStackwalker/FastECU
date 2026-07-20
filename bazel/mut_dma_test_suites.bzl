@@ -7,9 +7,9 @@ with no indication of which suite was responsible. This macro instead
 builds one independently selectable QtTest or GoogleTest target per suite.
 """
 
-load("//bazel:fastecu_sources.bzl", "MUT_DMA_TESTS_COMMON_HDRS")
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_LINKOPTS", "QT_DEPS", "local_test_hdrs", "qt_cc_test")
+load("//bazel:test_sources.bzl", "MUT_DMA_TESTS_COMMON_HDRS")
 
 MUT_DMA_TEST_SUITES = [
     "test_codec",

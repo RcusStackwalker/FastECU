@@ -1,0 +1,13 @@
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_LINKOPTS", "qt_cc_binary")
+
+package(default_visibility = ["//visibility:public"])
+
+qt_cc_binary(
+    name = "fastecu",
+    srcs = ["main.cpp"],
+    copts = COMMON_COPTS,
+    linkopts = COMMON_LINKOPTS,
+    deps = [
+        "//src/ui/desktop",
+    ],
+)

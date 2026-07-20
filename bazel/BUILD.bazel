@@ -1,8 +1,8 @@
 exports_files([
-    "fastecu_sources.bzl",
     "gtest_targets.bzl",
     "openssl_ext.bzl",
     "qt_remote_objects.bzl",
     "qt_targets.bzl",
+    "test_sources.bzl",
     "x86_windows_transition.bzl",
 ])
