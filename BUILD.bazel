@@ -1,48 +1,11 @@
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
-load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = ["//visibility:public"])
 
-qt_cc_library(
-    name = "fastecu_core_common",
-    srcs = [],
-    hdrs = [],
-    deps = QT_DEPS + [
-        "//src/algorithms/checksum",
-        "//src/algorithms/crypto",
-        "//src/algorithms/diagnostics",
-        "//src/algorithms/expression",
-        "//src/algorithms/menu",
-        "//src/algorithms/protocol",
-        "//src/algorithms/protocol/colt",
-        "//src/algorithms/protocol/mut_dma",
-        "//src/algorithms/protocol/ssm",
-        "//src/backend/definitions",
-        "//src/backend/flash",
-        "//src/backend/flash/bdm",
-        "//src/backend/flash/bootmode",
-        "//src/backend/flash/ecu",
-        "//src/backend/flash/eeprom",
-        "//src/backend/flash/jtag",
-        "//src/backend/flash/tcu",
-        "//src/backend/logging",
-        "//src/backend/logging/protocols",
-        "//src/backend/protocol",
-        "//src/platform/desktop/common/logging",
-        "//src/platform/desktop/common/remote_utility",
-        "//src/platform/desktop/common/remote_utility:remote_utility_replicas",
-        "//src/platform/desktop/common/serial:serial_qt_compat",
-        "//src/platform/desktop/common/serial:serial_replicas",
-        "//src/platform/desktop/common/transport",
-        "//src/ui/desktop",
-        "@openssl",
-    ],
-)
-
 # TRANSITIONAL. These names held the platform-specific j2534 sources
 # directly until this step; the real targets now live in the per-platform
-# packages below. Kept as aliases because bazel/gtest_targets.bzl and
-# tests/BUILD.bazel still reference these root-level labels.
+# packages below. Kept as aliases because tests/BUILD.bazel still
+# references these root-level labels.
 alias(
     name = "fastecu_platform_unix",
     actual = "//src/platform/desktop/unix/j2534:j2534",
@@ -76,8 +39,8 @@ py_test(
     srcs = ["scripts/check-bazel-openssl.py"],
     data = [
         ".github/workflows/pr.yml",
-        "BUILD.bazel",
         "MODULE.bazel",
+        "//src/algorithms/crypto:BUILD.bazel",
     ],
     main = "scripts/check-bazel-openssl.py",
 )

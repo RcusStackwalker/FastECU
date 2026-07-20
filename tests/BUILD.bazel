@@ -43,7 +43,7 @@ qt_cc_library(
         "mock_openport.h",
     ],
     copts = COMMON_COPTS,
-    deps = QT_DEPS + ["//:fastecu_core_common"],
+    deps = QT_DEPS + ["//src/platform/desktop/common/serial:serial_qt_compat"],
 )
 
 qt_cpp_moc_headers(
@@ -82,11 +82,8 @@ qt_cc_test(
     deps = QT_DEPS + [
         ":serial_backend_cpp_mocs",
         ":test_header_mocs",
-        "//:fastecu_core_common",
-    ] + select({
-        "@platforms//os:windows": ["//:fastecu_platform_windows"],
-        "//conditions:default": ["//:fastecu_platform_unix"],
-    }),
+        "//src/platform/desktop/common/serial:serial_qt_compat",
+    ],
 )
 
 qt_cpp_moc_headers(
@@ -111,8 +108,8 @@ qt_cc_test(
     deps = QT_DEPS + [
         ":serial_crash_cpp_mocs",
         ":test_header_mocs",
-        "//:fastecu_core_common",
         "//:fastecu_platform_unix",
+        "//src/platform/desktop/common/serial:serial_qt_compat",
     ],
 )
 
@@ -138,8 +135,11 @@ qt_cc_test(
     deps = QT_DEPS + [
         ":mut_dma_integration_cpp_mocs",
         ":test_header_mocs",
-        "//:fastecu_core_common",
-        "//:fastecu_platform_unix",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/mut_dma",
+        "//src/backend/protocol",
+        "//src/platform/desktop/common/serial:serial_qt_compat",
+        "//src/platform/desktop/common/transport",
     ],
 )
 

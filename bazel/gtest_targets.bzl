@@ -28,9 +28,5 @@ def fastecu_gtest(
         target_compatible_with = target_compatible_with,
         deps = QT_DEPS + [
             "@googletest//:gtest_main",
-            "//:fastecu_core_common",
-        ] + deps + select({
-            "@platforms//os:windows": ["//:fastecu_platform_windows"],
-            "//conditions:default": ["//:fastecu_platform_unix"],
-        }),
+        ] + deps,
     )
