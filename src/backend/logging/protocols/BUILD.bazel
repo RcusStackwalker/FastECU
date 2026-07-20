@@ -1,0 +1,20 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "protocols",
+    srcs = glob(["*.cpp"]),
+    hdrs = glob(["*.h"]),
+    copts = COMMON_COPTS,
+    includes = COMMON_INCLUDES,
+    deps = QT_DEPS + [
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+        "//src/backend/definitions",
+        "//src/backend/logging",
+        "//src/backend/protocol",
+        "//src/platform/desktop/common/serial:serial_qt_compat",
+    ],
+)

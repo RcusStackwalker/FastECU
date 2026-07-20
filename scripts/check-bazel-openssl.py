@@ -14,7 +14,6 @@ def main() -> int:
     errors: list[str] = []
 
     module = (ROOT / "MODULE.bazel").read_text()
-    build = (ROOT / "BUILD.bazel").read_text()
     workflow = (ROOT / ".github/workflows/pr.yml").read_text()
 
     openssl_use_repo = re.search(
@@ -25,13 +24,14 @@ def main() -> int:
     if not openssl_use_repo or '"openssl"' not in openssl_use_repo.group("body"):
         errors.append("MODULE.bazel must expose the unified openssl repository")
 
-    core_common = re.search(
-        r'qt_cc_library\(\s*name = "fastecu_core_common",(?P<body>.*?)\n\)',
-        build,
+    crypto = (ROOT / "src/algorithms/crypto/BUILD.bazel").read_text()
+    cc_lib = re.search(
+        r'cc_library\(\s*name = "crypto",(?P<body>.*?)\n\)',
+        crypto,
         flags=re.DOTALL,
     )
-    if not core_common or not re.search(r'"@openssl(?://:openssl)?"', core_common.group("body")):
-        errors.append("//:fastecu_core_common deps must include @openssl//:openssl")
+    if not cc_lib or not re.search(r'"@openssl(?://:openssl)?"', cc_lib.group("body")):
+        errors.append("//src/algorithms/crypto deps must include @openssl//:openssl")
 
     bazel_prereq = re.search(
         r"name: Install Bazel prerequisites \(Windows\)(?P<body>.*?)(?:\n\s+- name:|\Z)",

@@ -1,0 +1,17 @@
+load("//bazel:qt_targets.bzl", "qt_resource_via_qrc")
+
+package(default_visibility = ["//visibility:public"])
+
+qt_resource_via_qrc(
+    name = "config_resource",
+    files = glob(["config/*"]),
+    qrc_file = "config.qrc",
+    deps = ["@rules_qt//:qt_core"],
+)
+
+qt_resource_via_qrc(
+    name = "kernels_resource",
+    files = glob(["kernels/*"]),
+    qrc_file = "kernels.qrc",
+    deps = ["@rules_qt//:qt_core"],
+)

@@ -1,0 +1,30 @@
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library", "qt_ui_basename_libraries")
+
+package(default_visibility = ["//visibility:public"])
+
+FORMS = [
+    "biu_operations_subaru.ui",
+    "biu_ops_subaru_data.ui",
+    "biu_ops_subaru_dtcs.ui",
+    "biu_ops_subaru_input1.ui",
+    "biu_ops_subaru_input2.ui",
+    "biu_ops_subaru_switches.ui",
+]
+
+qt_ui_basename_libraries(
+    name = "biu_ui_libraries",
+    forms = FORMS,
+    deps = ["@rules_qt//:qt_widgets"],
+)
+
+qt_cc_library(
+    name = "biu",
+    srcs = glob(["*.cpp"]),
+    hdrs = glob(["*.h"]),
+    copts = COMMON_COPTS,
+    includes = COMMON_INCLUDES,
+    deps = QT_DEPS + [
+        "//src/algorithms/protocol",
+        "//src/platform/desktop/common/serial:serial_qt_compat",
+    ] + [":ui_" + f.removesuffix(".ui") for f in FORMS],
+)

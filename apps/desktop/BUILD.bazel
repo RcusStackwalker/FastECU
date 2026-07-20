@@ -1,0 +1,19 @@
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_LINKOPTS", "qt_cc_binary")
+
+package(default_visibility = ["//visibility:public"])
+
+qt_cc_binary(
+    name = "fastecu",
+    srcs = ["main.cpp"],
+    copts = COMMON_COPTS,
+    linkopts = COMMON_LINKOPTS,
+    # main.cpp includes no J2534 header, so the platform j2534 libraries are not
+    # declared here. They reach the link transitively via //src/ui/desktop ->
+    # //src/platform/desktop/common/serial:serial_qt_compat, whose own select()
+    # picks unix vs windows. serial_qt_compat is TRANSITIONAL: if its deps change
+    # or it is removed, add the platform select() back here or the Windows link
+    # loses J2534 with no signal in this file.
+    deps = [
+        "//src/ui/desktop",
+    ],
+)

@@ -1,0 +1,23 @@
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+qt_cc_library(
+    name = "ecu",
+    srcs = glob(["*.cpp"]),
+    hdrs = glob(["*.h"]),
+    copts = COMMON_COPTS,
+    includes = COMMON_INCLUDES,
+    deps = QT_DEPS + [
+        # Full :definitions (not :models) because file_actions.h -- part of
+        # the moc'd :definitions target, not the header-only :models split
+        # -- is included directly; see task-4-report.md.
+        "//src/backend/definitions",
+        "//src/backend/flash",
+        "//src/backend/flash/ecu",
+        "//src/platform/desktop/common/serial:serial_qt_compat",
+        # Every dialog header in this package includes ui_ecu_operations.h,
+        # the generated form owned by the top-level desktop package.
+        "//src/ui/desktop:ui_ecu_operations",
+    ],
+)

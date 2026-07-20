@@ -1,110 +1,11 @@
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
-load("//bazel:fastecu_sources.bzl", "APP_COMMON_HDRS", "APP_COMMON_SRCS", "APP_FORMS", "APP_MAIN_SRCS", "APP_MOC_HDRS", "APP_RESOURCES")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "COMMON_LINKOPTS", "QT_DEPS", "qt_cc_binary", "qt_cc_library", "qt_resource_via_qrc", "qt_ui_basename_libraries")
 
 package(default_visibility = ["//visibility:public"])
 
-exports_files(APP_COMMON_HDRS + APP_MOC_HDRS + APP_RESOURCES)
-
-qt_ui_basename_libraries(
-    name = "fastecu_ui_libraries",
-    forms = APP_FORMS,
-    deps = ["@rules_qt//:qt_widgets"],
-)
-
-qt_resource_via_qrc(
-    name = "config_resource",
-    files = glob(["resources/shared/config/*"]),
-    qrc_file = "resources/shared/config.qrc",
-    deps = ["@rules_qt//:qt_core"],
-)
-
-qt_resource_via_qrc(
-    name = "font_resource",
-    files = glob(["resources/desktop/fonts/*"]),
-    qrc_file = "resources/desktop/fonts.qrc",
-    deps = ["@rules_qt//:qt_core"],
-)
-
-qt_resource_via_qrc(
-    name = "hexedit_resource",
-    files = glob([
-        "resources/desktop/hexedit/images/*",
-        "resources/desktop/hexedit/translations/*.qm",
-    ]),
-    qrc_file = "resources/desktop/hexedit/qhexedit.qrc",
-    deps = ["@rules_qt//:qt_core"],
-)
-
-qt_resource_via_qrc(
-    name = "icons_resource",
-    files = glob(["resources/desktop/icons/*"]),
-    qrc_file = "resources/desktop/icons.qrc",
-    deps = ["@rules_qt//:qt_core"],
-)
-
-qt_resource_via_qrc(
-    name = "images_resource",
-    files = glob(["resources/desktop/images/*"]),
-    qrc_file = "resources/desktop/images.qrc",
-    deps = ["@rules_qt//:qt_core"],
-)
-
-qt_resource_via_qrc(
-    name = "kernels_resource",
-    files = glob(["resources/shared/kernels/*"]),
-    qrc_file = "resources/shared/kernels.qrc",
-    deps = ["@rules_qt//:qt_core"],
-)
-
-qt_cc_library(
-    name = "fastecu_core_common",
-    srcs = APP_COMMON_SRCS,
-    hdrs = APP_MOC_HDRS,
-    copts = COMMON_COPTS,
-    includes = COMMON_INCLUDES,
-    linkopts = COMMON_LINKOPTS + select({
-        "@platforms//os:windows": [
-            "-lopengl32",
-            "-lsetupapi",
-        ],
-        "//conditions:default": [],
-    }),
-    normal_hdrs = APP_COMMON_HDRS,
-    deps = QT_DEPS + [
-        ":config_resource",
-        ":font_resource",
-        ":hexedit_resource",
-        ":icons_resource",
-        ":images_resource",
-        ":kernels_resource",
-        "//src/algorithms/checksum",
-        "//src/algorithms/crypto",
-        "//src/algorithms/diagnostics",
-        "//src/algorithms/expression",
-        "//src/algorithms/menu",
-        "//src/algorithms/protocol",
-        "//src/algorithms/protocol/colt",
-        "//src/algorithms/protocol/mut_dma",
-        "//src/algorithms/protocol/ssm",
-        "//src/backend/protocol",
-        "//src/platform/desktop/common/logging",
-        "//src/platform/desktop/common/remote_utility",
-        "//src/platform/desktop/common/remote_utility:remote_utility_replicas",
-        "//src/platform/desktop/common/serial:serial_qt_compat",
-        "//src/platform/desktop/common/serial:serial_replicas",
-        "//src/platform/desktop/common/transport",
-        "@openssl",
-    ] + [
-        ":ui_" + ui.split("/")[-1].rsplit(".", 1)[0]
-        for ui in APP_FORMS
-    ],
-)
-
 # TRANSITIONAL. These names held the platform-specific j2534 sources
 # directly until this step; the real targets now live in the per-platform
-# packages below. Kept as aliases because bazel/gtest_targets.bzl and
-# tests/BUILD.bazel still reference these root-level labels.
+# packages below. Kept as aliases because tests/BUILD.bazel still
+# references these root-level labels.
 alias(
     name = "fastecu_platform_unix",
     actual = "//src/platform/desktop/unix/j2534:j2534",
@@ -115,17 +16,9 @@ alias(
     actual = "//src/platform/desktop/windows/j2534:j2534",
 )
 
-qt_cc_binary(
+alias(
     name = "fastecu",
-    srcs = APP_MAIN_SRCS,
-    copts = COMMON_COPTS,
-    linkopts = COMMON_LINKOPTS,
-    deps = [
-        ":fastecu_core_common",
-    ] + select({
-        "@platforms//os:windows": [":fastecu_platform_windows"],
-        "//conditions:default": [":fastecu_platform_unix"],
-    }),
+    actual = "//apps/desktop:fastecu",
 )
 
 py_test(
@@ -146,8 +39,8 @@ py_test(
     srcs = ["scripts/check-bazel-openssl.py"],
     data = [
         ".github/workflows/pr.yml",
-        "BUILD.bazel",
         "MODULE.bazel",
+        "//src/algorithms/crypto:BUILD.bazel",
     ],
     main = "scripts/check-bazel-openssl.py",
 )
@@ -165,7 +58,7 @@ py_test(
     size = "small",
     srcs = ["scripts/check-windows-preprocessor-guards.py"],
     data = [
-        "src/backend/definitions/file_actions.h",
+        "//src/backend/definitions:file_actions.h",
         "//src/platform/desktop/common/serial:serial_port_actions_direct.h",
     ],
     main = "scripts/check-windows-preprocessor-guards.py",

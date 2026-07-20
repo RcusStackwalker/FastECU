@@ -7,9 +7,9 @@ with no indication of which suite was responsible. This macro instead
 builds one independently selectable QtTest or GoogleTest target per suite.
 """
 
-load("//bazel:fastecu_sources.bzl", "MUT_DMA_TESTS_COMMON_HDRS")
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_LINKOPTS", "QT_DEPS", "local_test_hdrs", "qt_cc_test")
+load("//bazel:test_sources.bzl", "MUT_DMA_TESTS_COMMON_HDRS")
 
 MUT_DMA_TEST_SUITES = [
     "test_codec",
@@ -95,6 +95,67 @@ _NEEDS_OFFSCREEN_QT_PLATFORM = [
     "test_ssm_logging_protocol",
 ]
 
+# Each suite depends only on the packages it includes. Derived from the
+# #include graph; see the step 3 design doc. A suite needing more than
+# its obvious package is step 4/5 scope surfacing early -- record it in
+# the PR description rather than widening quietly.
+SUITE_DEPS = {
+    "test_bytes": ["//src/algorithms/protocol/mut_dma"],
+    "test_codec": ["//src/algorithms/protocol/mut_dma"],
+    "test_freeform": ["//src/algorithms/protocol/mut_dma"],
+    "test_memory": ["//src/algorithms/protocol/mut_dma"],
+    # test_init.cpp includes imut_dma_init.h directly; scripted_kline_transport.h
+    # (compiled into the same TU) includes ikline_transport.h -- both live in
+    # backend/protocol. No mut_dma header is directly included; that package
+    # is a phantom edge here and reaches the test only transitively (via
+    # backend/protocol's own dep on it), so it is not declared.
+    "test_init": ["//src/backend/protocol"],
+    # test_driver.cpp includes mut_dma_codec/freeform/memory.h (mut_dma) AND
+    # mut_dma_driver.h (backend/protocol) directly -- both are real edges.
+    "test_driver": [
+        "//src/algorithms/protocol/mut_dma",
+        "//src/backend/protocol",
+    ],
+    # test_transport.cpp includes qt_bytes.h (algorithms/protocol root) only
+    # directly; scripted_kline_transport.h pulls in backend/protocol's
+    # ikline_transport.h, which itself depends on algorithms/protocol root,
+    # so backend/protocol alone covers both real edges.
+    "test_transport": ["//src/backend/protocol"],
+    "test_mitsu_colt_can_protocol": ["//src/algorithms/protocol/colt"],
+    "test_mitsu_colt_can_vendor_ext_protocol": ["//src/algorithms/protocol/colt"],
+    "test_mitsu_colt_can_cdbg_protocol": ["//src/algorithms/protocol/colt"],
+    # test_cdbg_driver.cpp includes mitsu_colt_can_cdbg_driver.h, which lives
+    # in backend/protocol, NOT algorithms/protocol/colt (a different file:
+    # mitsu_colt_can_cdbg_protocol.h). colt was a phantom edge here.
+    "test_cdbg_driver": ["//src/backend/protocol"],
+    "test_ssm_protocol": ["//src/algorithms/protocol/ssm"],
+    "test_expression_evaluator": ["//src/algorithms/expression"],
+    "test_menu_command": ["//src/algorithms/menu"],
+    "test_diagnostic_parsers": ["//src/algorithms/diagnostics"],
+    "test_checksum_results": ["//src/algorithms/checksum"],
+    "test_logging_worker": ["//src/backend/logging"],
+    "test_logging_engine": ["//src/backend/logging"],
+    "test_romraider_conversion": ["//src/backend/logging"],
+    # These three include a src/backend/logging/protocols/*.h header directly
+    # (a subpackage of backend/logging, not the same label) -- backend/logging
+    # alone doesn't expose it.
+    "test_ssm_logging_protocol": ["//src/backend/logging/protocols"],
+    "test_mut_dma_logging_protocol": ["//src/backend/logging/protocols"],
+    "test_cdbg_logging_protocol": ["//src/backend/logging/protocols"],
+    "test_flash_operation_worker": ["//src/backend/flash"],
+    "test_flash_ecu_mitsu_m32r_can_operation": ["//src/backend/flash/ecu"],
+    "test_flash_utils": [
+        "//src/backend/flash",
+        # test_flash_utils.cpp includes serial_port_actions.h directly;
+        # this package is on the serial_qt_compat allowlist in Task 8.
+        "//src/platform/desktop/common/serial:serial_qt_compat",
+    ],
+    "test_ecuflash_definition_parsing": ["//src/backend/definitions"],
+    "test_file_actions_parsing": ["//src/backend/definitions"],
+    "test_rom_transformations": ["//src/backend/definitions"],
+    "test_model_validation": ["//src/backend/definitions"],
+}
+
 def mut_dma_test_suites(moc_deps_target, header_mocs_target):
     """Create one QtTest or GoogleTest target per MUT_DMA_TEST_SUITES entry.
 
@@ -109,6 +170,7 @@ def mut_dma_test_suites(moc_deps_target, header_mocs_target):
             fastecu_gtest(
                 name = base,
                 srcs = [base + ".cpp"] + _MUT_DMA_GTEST_HELPER_HDRS.get(base, []),
+                deps = SUITE_DEPS[base],
             )
             continue
 
@@ -133,9 +195,5 @@ def mut_dma_test_suites(moc_deps_target, header_mocs_target):
             deps = QT_DEPS + [
                 moc_deps_target,
                 header_mocs_target,
-                "//:fastecu_core_common",
-            ] + select({
-                "@platforms//os:windows": ["//:fastecu_platform_windows"],
-                "//conditions:default": ["//:fastecu_platform_unix"],
-            }),
+            ] + SUITE_DEPS[base],
         )
