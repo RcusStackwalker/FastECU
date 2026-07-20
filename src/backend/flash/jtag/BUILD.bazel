@@ -1,0 +1,31 @@
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+# Every *_operation.h in this package declares Q_OBJECT.
+MOC_HDRS = glob(["*_operation.h"])
+
+qt_cc_library(
+    name = "jtag",
+    srcs = glob(["*.cpp"]),
+    hdrs = MOC_HDRS,
+    copts = COMMON_COPTS,
+    includes = COMMON_INCLUDES,
+    normal_hdrs = glob(
+        ["*.h"],
+        allow_empty = True,
+        exclude = MOC_HDRS,
+    ),
+    deps = QT_DEPS + [
+        "//src/algorithms/checksum",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+        # Full :definitions (not :models) because file_actions.h -- part of
+        # the moc'd :definitions target, not the header-only :models split
+        # -- is included directly; see task-4-report.md.
+        "//src/backend/definitions",
+        "//src/backend/flash",
+        "//src/backend/protocol",
+        "//src/platform/desktop/common/serial:serial_qt_compat",
+    ],
+)
