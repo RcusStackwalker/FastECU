@@ -1,7 +1,12 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
 
-package(default_visibility = ["//visibility:public"])
+package(default_visibility = [
+    "//src/backend:__subpackages__",
+    "//src/platform:__subpackages__",
+    "//src/ui:__subpackages__",
+    "//tests:__pkg__",
+])
 
 MODEL_HDRS = [
     "kernelcomms.h",
@@ -9,6 +14,15 @@ MODEL_HDRS = [
 ]
 
 MOC_HDRS = ["file_actions.h"]
+
+# root //:windows_preprocessor_guards reads this header directly as `data`;
+# that reference is plumbing, not a layer dependency, so export it to the
+# root package specifically rather than widen the package's general
+# default_visibility.
+exports_files(
+    ["file_actions.h"],
+    visibility = ["//:__pkg__"],
+)
 
 # Pure data headers, no project includes. Split out so that
 # //src/backend/flash can depend on them without creating a

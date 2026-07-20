@@ -159,7 +159,7 @@ jobs:
 
       - name: Test Bazel targets
         run: |
-          bazel test -k --config=release //tests/... //:bazel_openssl_wiring
+          bazel test -k --config=release //tests/... //:bazel_openssl_wiring //:serial_compat_allowlist
 
       - name: Package macOS from Bazel (verify only)
         if: runner.os == 'macOS'

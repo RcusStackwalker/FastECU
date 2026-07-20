@@ -1,6 +1,14 @@
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
 
-package(default_visibility = ["//visibility:public"])
+package(default_visibility = [
+    "//apps/desktop:__pkg__",
+    "//src/platform:__subpackages__",
+    "//tests:__pkg__",
+    # TRANSITIONAL: root //BUILD.bazel's fastecu_platform_unix alias (kept
+    # for tests/BUILD.bazel's legacy label) is declared in the root package,
+    # so the alias itself needs this package's target visible from //.
+    "//:__pkg__",
+])
 
 MOC_HDRS = ["J2534_unix.h"]
 

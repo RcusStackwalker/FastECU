@@ -46,6 +46,14 @@ py_test(
 )
 
 py_test(
+    name = "serial_compat_allowlist",
+    size = "small",
+    srcs = ["scripts/check-serial-compat-allowlist.py"],
+    data = ["//src/platform/desktop/common/serial:BUILD.bazel"],
+    main = "scripts/check-serial-compat-allowlist.py",
+)
+
+py_test(
     name = "openpty_includes",
     size = "small",
     srcs = ["scripts/check-openpty-includes.py"],
