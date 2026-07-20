@@ -30,6 +30,7 @@ MOC_HDRS = [
     "ecu_operations.h",
     "get_key_operations_subaru.h",
     "logbox.h",
+    "logvalues.h",
     "mainwindow.h",
     "protocol_select.h",
     "settings.h",
