@@ -3,10 +3,12 @@
 
 #include <QApplication>
 
+#include <algorithm>
+#include <span>
+#include <string_view>
+
 int main(int argc, char *argv[])
 {
-    bool debug_console = false;
-
     QCommandLineParser cmdParser;
     cmdParser.setApplicationDescription("FastECU - software to work on and modify ECUs");
     cmdParser.addHelpOption();
@@ -23,15 +25,10 @@ int main(int argc, char *argv[])
     cmdParser.addOption(cmdDebug);
 
     // Locate debug option before QCommandLineParser to open console properly
-    for (int i = 1; i < argc; i++)
-    {
-        if (!strcmp(argv[i], "-d") ||
-            !strcmp(argv[i], "--debug") ||
-            !strcmp(argv[i], "-debug"))
-        {
-            debug_console = true;
-        }
-    }
+    const auto debug_console = std::ranges::any_of(std::span(argv + 1, argc - 1), [](std::string_view arg)
+                                                   {
+        using namespace std::string_view_literals;
+        return arg == "-d"sv || arg == "--debug"sv || arg == "-debug"sv; });
 
 #ifdef _WIN32
     if (!debug_console)

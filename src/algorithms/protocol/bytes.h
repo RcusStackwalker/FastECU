@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <algorithm>
+#include <numeric>
 #include <span>
 #include <vector>
 
@@ -158,10 +159,8 @@ inline Byte sum8(ByteView bytes, std::size_t from, std::size_t len)
 {
     if (from >= bytes.size())
         return 0;
-    std::uint32_t sum = 0;
-    const std::size_t end = std::min(bytes.size(), from + std::min(len, bytes.size() - from));
-    for (std::size_t i = from; i < end; ++i)
-        sum += bytes[i];
+    const auto slice = bytes.subspan(from, std::min(len, bytes.size() - from));
+    const auto sum = std::accumulate(slice.begin(), slice.end(), 0u);
     return static_cast<Byte>(sum & 0xFF);
 }
 
