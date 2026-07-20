@@ -32,6 +32,24 @@ py_test(
 )
 
 py_test(
+    name = "portable_closure",
+    size = "small",
+    srcs = ["scripts/check-portable-closure.py"],
+    data = [
+        "//src/algorithms/checksum:BUILD.bazel",
+        "//src/algorithms/crypto:BUILD.bazel",
+        "//src/algorithms/diagnostics:BUILD.bazel",
+        "//src/algorithms/expression:BUILD.bazel",
+        "//src/algorithms/menu:BUILD.bazel",
+        "//src/algorithms/protocol:BUILD.bazel",
+        "//src/algorithms/protocol/colt:BUILD.bazel",
+        "//src/algorithms/protocol/mut_dma:BUILD.bazel",
+        "//src/algorithms/protocol/ssm:BUILD.bazel",
+    ],
+    main = "scripts/check-portable-closure.py",
+)
+
+py_test(
     name = "serial_compat_allowlist",
     size = "small",
     srcs = ["scripts/check-serial-compat-allowlist.py"],

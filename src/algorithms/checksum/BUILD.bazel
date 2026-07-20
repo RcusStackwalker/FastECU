@@ -9,10 +9,25 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
+# root //:portable_closure reads this file as `data` to check that portable
+# algorithms targets stay Qt-free; that reference is plumbing, not a layer
+# dependency, so export it to the root package specifically rather than
+# widen the package's general default_visibility.
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//:__pkg__"],
+)
+
 cc_library(
     name = "checksum",
-    srcs = glob(["*.cpp"]),
-    hdrs = glob(["*.h"]),
+    srcs = glob(
+        ["*.cpp"],
+        exclude = ["*_test.cpp"],
+    ),
+    hdrs = glob(
+        ["*.h"],
+        exclude = ["*_test.h"],
+    ),
     copts = COMMON_COPTS,
     includes = COMMON_INCLUDES,
     deps = QT_DEPS + ["//src/algorithms/protocol"],

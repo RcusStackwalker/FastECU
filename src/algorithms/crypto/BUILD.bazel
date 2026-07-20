@@ -20,8 +20,14 @@ exports_files(
 
 cc_library(
     name = "crypto",
-    srcs = glob(["*.cpp"]),
-    hdrs = glob(["*.h"]),
+    srcs = glob(
+        ["*.cpp"],
+        exclude = ["*_test.cpp"],
+    ),
+    hdrs = glob(
+        ["*.h"],
+        exclude = ["*_test.h"],
+    ),
     copts = COMMON_COPTS,
     includes = COMMON_INCLUDES,
     deps = QT_DEPS + ["@openssl"],
