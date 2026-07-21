@@ -1443,7 +1443,7 @@ QByteArray FlashEcuSubaruDensoSH705xKlineOperation::send_sid_36_transferdata(uin
     if (!buf.length() || !len)
     {
         emit LOG_E("Error in kernel data length!", true, true);
-        return NULL;
+        return {};
     }
 
     maxblocks = (len - 1) / blocksize; // number of 128 byte blocks - 1
@@ -1454,7 +1454,7 @@ QByteArray FlashEcuSubaruDensoSH705xKlineOperation::send_sid_36_transferdata(uin
     {
         if (stopRequested())
         {
-            return NULL;
+            return {};
         }
 
         blockaddr = addr + blockno * blocksize;

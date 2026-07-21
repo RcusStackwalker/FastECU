@@ -195,7 +195,7 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
     int file_index = 0;
     if (configValues->ecuflash_def_cal_id.empty())
     {
-        return NULL;
+        return nullptr;
     }
 
     emit LOG_D("Search ID: " + cal_id, true, true);
@@ -304,8 +304,8 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
     if (!file.open(QIODevice::ReadOnly))
     {
         QMessageBox::warning(this, tr("Ecu definitions file"), "Unable to open ECU definition file " + filename + " for reading");
-        ecuCalDef = NULL;
-        return NULL;
+        ecuCalDef = nullptr;
+        return nullptr;
     }
 
     if (cal_id.contains("BASE"))

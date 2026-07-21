@@ -2255,7 +2255,7 @@ static unsigned int crc_table[256] = {
 unsigned int EcuOperations::crc32(const unsigned char *buf, unsigned int len)
 {
     unsigned int crc = 0xFFFFFFFF;
-    if (buf == NULL)
+    if (buf == nullptr)
     {
         return 0L;
     }

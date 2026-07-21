@@ -34,7 +34,7 @@ int DefinitionFileConvert::convert_mappack_csv_file()
 
     QFileDialog openDialog;
     openDialog.setDefaultSuffix("*.csv");
-    filename = QFileDialog::getOpenFileName(this, tr("Select MapPack CSV file"), NULL, tr("CSV file (*.csv)"));
+    filename = QFileDialog::getOpenFileName(this, tr("Select MapPack CSV file"), nullptr, tr("CSV file (*.csv)"));
 
     if (filename.isEmpty())
     {
@@ -50,7 +50,7 @@ int DefinitionFileConvert::convert_mappack_csv_file()
     }
 
     openDialog.setDefaultSuffix("*.xml");
-    filename = QFileDialog::getSaveFileName(this, tr("Select RomRaider definition file"), NULL, tr("XML file (*.xml)"));
+    filename = QFileDialog::getSaveFileName(this, tr("Select RomRaider definition file"), nullptr, tr("XML file (*.xml)"));
 
     if (filename.isEmpty())
     {

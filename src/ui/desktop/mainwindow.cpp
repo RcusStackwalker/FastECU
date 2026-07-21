@@ -420,7 +420,7 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
     logValues = fileActions->read_logger_definition_file();
     logBoxes = new LogBox();
 
-    if (logValues != NULL)
+    if (logValues != nullptr)
     {
         update_logboxes(configValues->flash_protocol_selected_log_protocol);
     }
@@ -1033,7 +1033,7 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
 
     int rom_number = 0;
 
-    QTreeWidgetItem *selectedItem = NULL;
+    QTreeWidgetItem *selectedItem = nullptr;
     int item_count = ui->calibrationFilesTreeWidget->selectedItems().count();
 
     QComboBox *serial_port_list = ui->toolBar->findChild<QComboBox *>("serial_port_list");
@@ -1125,7 +1125,7 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
                 ecuCalDef[rom_number] = fileActions->checksum_correction(ecuCalDef[rom_number]);
             }
 
-            if (ecuCalDef[rom_number] == NULL)
+            if (ecuCalDef[rom_number] == nullptr)
             {
                 ecuCalDef[rom_number]->FullRomData = fullRomDataTmp;
                 return 0;
@@ -1494,7 +1494,7 @@ bool MainWindow::open_calibration_file(QString filename)
     }
 
     ecuCalDef[ecuCalDefIndex] = fileActions->open_subaru_rom_file(ecuCalDef[ecuCalDefIndex], std::move(filename));
-    if (ecuCalDef[ecuCalDefIndex] != NULL)
+    if (ecuCalDef[ecuCalDefIndex] != nullptr)
     {
         update_protocol_info(ecuCalDefIndex);
 
@@ -1547,7 +1547,7 @@ void MainWindow::save_calibration_file()
     */
     ecuCalDef[rom_number] = fileActions->checksum_correction(ecuCalDef[rom_number]);
 
-    if (ecuCalDef[rom_number] != NULL)
+    if (ecuCalDef[rom_number] != nullptr)
     {
         fileActions->save_subaru_rom_file(ecuCalDef[rom_number], ecuCalDef[rom_number]->FullFileName);
     }
@@ -1594,7 +1594,7 @@ void MainWindow::save_calibration_file_as()
     */
     ecuCalDef[rom_number] = fileActions->checksum_correction(ecuCalDef[rom_number]);
 
-    if (ecuCalDef[rom_number] != NULL)
+    if (ecuCalDef[rom_number] != nullptr)
     {
         QString filename = ui->calibrationFilesTreeWidget->selectedItems().at(0)->text(0);
         // QString filename = "";

@@ -1045,7 +1045,7 @@ QByteArray FlashEcuSubaruHitachiM32rKlineOperation::calculate_32bit_payload(cons
 
     if (!buf.length() || !len)
     {
-        return NULL;
+        return {};
     }
 
     encrypted.clear();

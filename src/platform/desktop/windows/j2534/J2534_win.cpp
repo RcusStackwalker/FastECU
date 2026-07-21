@@ -12,7 +12,7 @@
 
 J2534::J2534()
 {
-    hDLL = NULL;
+    hDLL = nullptr;
     debugMode = false;
     isLibraryInitialized = false;
     // default to the Openport 2.0 J2534 DLL
@@ -38,7 +38,7 @@ void J2534::disable()
     if (hDLL)
     {
         FreeLibrary(hDLL);
-        hDLL = NULL;
+        hDLL = nullptr;
     }
     if (bridgeClient)
     {
@@ -56,7 +56,7 @@ bool J2534::valid()
 {
     if (bridgeClient)
         return bridgeClient->isRunning();
-    return hDLL != NULL;
+    return hDLL != nullptr;
 }
 
 J2534::~J2534()
@@ -199,14 +199,14 @@ long J2534::LoadJ2534DLL(const char *szDLL)
     getPTfns();
 #else
 
-    if (szDLL == NULL)
+    if (szDLL == nullptr)
     {
-        DBGPRINT(("NULL string pointer to J2534 DLL location.\n"));
+        DBGPRINT(("nullptr string pointer to J2534 DLL location.\n"));
         return (1);
     }
 
     FreeLibrary(hDLL);
-    hDLL = NULL;
+    hDLL = nullptr;
 
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
     if (!(hDLL = LoadLibraryA(szDLL)))
@@ -218,7 +218,7 @@ long J2534::LoadJ2534DLL(const char *szDLL)
     {
         // assume unusable if we don't have everything we need
         FreeLibrary(hDLL);
-        hDLL = NULL;
+        hDLL = nullptr;
         strcpy(lastError, "error loading J2534 DLL function pointers");
         return false;
     }
@@ -253,7 +253,7 @@ long J2534::LoadJ2534DLL(const char *szDLL)
     {
         // assume unusable if we don't have everything we need
         dlclose(hDLL);
-        hDLL = NULL;
+        hDLL = nullptr;
         strcpy(lastError, "error loading J2534 dylib function pointers");
         chdir(oldPath);
         return false;
@@ -288,7 +288,7 @@ bool J2534::checkDLL()
     }
 
     LoadJ2534DLL(dllName);
-    return (hDLL != NULL);
+    return (hDLL != nullptr);
 }
 
 bool J2534::is_serial_port_open()
@@ -732,7 +732,7 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
 
     if (IoctlID == SET_CONFIG)
     {
-        pOutput = NULL; // make some DLLs happy
+        pOutput = nullptr; // make some DLLs happy
 
         // dump params
         scl = (SCONFIG_LIST *)pInput;

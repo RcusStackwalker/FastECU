@@ -124,10 +124,10 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(EcuCal
     QFile file(filename);
     if (!file.open(QIODevice::ReadOnly))
     {
-        ecuCalDef = NULL;
+        ecuCalDef = nullptr;
         // emit LOG_D("Unable to open OEM ecu base definitions file " + filename + " for reading";
         QMessageBox::warning(this, tr("Ecu definitions file"), "Unable to open OEM ecu base definitions file " + filename + " for reading");
-        return NULL;
+        return nullptr;
     }
 
     xmlBOM.setContent(&file);
@@ -386,7 +386,7 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(EcuCal
 
     if (!OemEcuDefBaseFileFound)
     {
-        return NULL;
+        return nullptr;
     }
 
     QStringList validationErrors;
@@ -431,15 +431,15 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(EcuCalDefSt
     if (configValues->romraider_definition_files.empty() && !configValues->ecuflash_definition_files_directory.length())
     {
         QMessageBox::warning(this, tr("Ecu definition file"), "No RomRaider definition file(s), use definition manager at 'Edit' menu to choose file(s)");
-        ecuCalDef = NULL;
-        return NULL;
+        ecuCalDef = nullptr;
+        return nullptr;
     }
 
     int file_index = 0;
 
     if (configValues->romraider_def_cal_id.empty())
     {
-        return NULL;
+        return nullptr;
     }
 
     for (int index = 0; index < configValues->romraider_def_cal_id.length(); index++)
@@ -475,8 +475,8 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(EcuCalDefSt
     if (!file.open(QIODevice::ReadOnly))
     {
         QMessageBox::warning(this, tr("Ecu definitions file"), "Unable to open ECU definition file " + filename + " for reading");
-        ecuCalDef = NULL;
-        return NULL;
+        ecuCalDef = nullptr;
+        return nullptr;
     }
 
     ecuCalDef->DefinitionFileName = filename;

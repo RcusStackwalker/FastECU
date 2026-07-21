@@ -11,7 +11,7 @@ void MainWindow::menu_action_triggered(const QString& action)
         qDebug() << action;
         break;
     case MenuCommand::OpenCalibration:
-        open_calibration_file(NULL);
+        open_calibration_file(nullptr);
         break;
     case MenuCommand::SaveCalibration:
         save_calibration_file();
@@ -1300,7 +1300,7 @@ void MainWindow::show_hex_editor()
 
     int rom_number = 0;
 
-    QTreeWidgetItem *selectedItem = NULL;
+    QTreeWidgetItem *selectedItem = nullptr;
     int item_count = ui->calibrationFilesTreeWidget->selectedItems().count();
     if (item_count)
     {

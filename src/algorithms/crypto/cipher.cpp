@@ -57,7 +57,7 @@ int Cipher::encrypt_aes128_ecb(unsigned char *plaintext, int plaintext_len, unsi
     /* Initialise the encryption operation. IMPORTANT - ensure you use a key
      * In this example we are using 128 bit AES (i.e. a 128 bit key).
      */
-    if (1 != EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), NULL, key, NULL))
+    if (1 != EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), nullptr, key, nullptr))
     {
         handleErrors();
     }
@@ -94,7 +94,7 @@ int Cipher::decrypt_aes128_ecb(unsigned char *ciphertext, int ciphertext_len, un
     /* Initialise the decryption operation. IMPORTANT - ensure you use a key
      * In this example we are using 128 bit AES (i.e. a 128 bit key). The
      */
-    if (1 != EVP_DecryptInit_ex(ctx, EVP_aes_128_ecb(), NULL, key, NULL))
+    if (1 != EVP_DecryptInit_ex(ctx, EVP_aes_128_ecb(), nullptr, key, nullptr))
     {
         handleErrors();
     }
