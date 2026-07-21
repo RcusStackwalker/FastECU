@@ -2,9 +2,7 @@
 #define CHECKSUM_TCU_MITSU_MH8104_CAN_H
 
 #include "checksum_result.h"
-
-#include <QDebug>
-#include <QObject>
+#include "src/algorithms/protocol/bytes.h"
 
 class ChecksumTcuMitsuMH8104Can
 {
@@ -12,7 +10,7 @@ class ChecksumTcuMitsuMH8104Can
     ChecksumTcuMitsuMH8104Can();
     ~ChecksumTcuMitsuMH8104Can();
 
-    static ChecksumResult calculate_checksum_result(QByteArray romData);
+    static ChecksumResult calculate_checksum_result(bytes::ByteView romData);
 
   private:
 };

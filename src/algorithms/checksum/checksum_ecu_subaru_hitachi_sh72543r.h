@@ -2,9 +2,7 @@
 #define CHECKSUM_ECU_SUBARU_HITACHI_SH72543R_H
 
 #include "checksum_result.h"
-
-#include <QDebug>
-#include <QObject>
+#include "src/algorithms/protocol/bytes.h"
 
 class ChecksumEcuSubaruHitachiSh72543r
 {
@@ -12,7 +10,7 @@ class ChecksumEcuSubaruHitachiSh72543r
     ChecksumEcuSubaruHitachiSh72543r();
     ~ChecksumEcuSubaruHitachiSh72543r();
 
-    static ChecksumResult calculate_checksum_result(QByteArray romData);
+    static ChecksumResult calculate_checksum_result(bytes::ByteView romData);
 
   private:
 };

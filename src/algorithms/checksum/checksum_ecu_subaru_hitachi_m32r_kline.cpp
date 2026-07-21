@@ -1,5 +1,25 @@
 #include "checksum_ecu_subaru_hitachi_m32r_kline.h"
-#include "src/algorithms/protocol/qt_bytes.h"
+#include "src/algorithms/protocol/bytes.h"
+
+#include <algorithm>
+
+namespace
+{
+
+// Mirrors QByteArray::replace(pos, len, payload) for the same-size,
+// in-bounds overwrites this file performs (len == payload.size() at every
+// call site).
+void overwriteAt(bytes::Bytes& data, std::size_t pos, bytes::ByteView payload)
+{
+    if (pos >= data.size())
+    {
+        return;
+    }
+    const std::size_t count = std::min(payload.size(), data.size() - pos);
+    std::copy_n(payload.begin(), count, data.begin() + static_cast<std::ptrdiff_t>(pos));
+}
+
+} // namespace
 
 ChecksumEcuSubaruHitachiM32rKline::ChecksumEcuSubaruHitachiM32rKline()
 {
@@ -9,7 +29,7 @@ ChecksumEcuSubaruHitachiM32rKline::~ChecksumEcuSubaruHitachiM32rKline()
 {
 }
 
-ChecksumResult ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result(QByteArray romData)
+ChecksumResult ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result(bytes::ByteView romView)
 {
     /*******************
      *
@@ -18,7 +38,7 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result(QByt
      *  Checksum 3 calculated between 0x4000 - 0x7ffff excluding 0x8100 - 0x8103, 32bit sum, 16bit result must mach 0x5aa5, balancing address 0x7fffa
      *
      * ****************/
-    QString msg;
+    bytes::Bytes romData(romView.begin(), romView.end());
 
     uint8_t checksum_1_value_stored = 0;
     uint8_t checksum_1_value_calculated = 0;
@@ -38,45 +58,31 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result(QByt
      * Calculate and fix checksums 1 and 2
      *
      * *************************************/
-    for (int i = 0x0000; i < romData.length(); i += 1)
+    for (int i = 0x0000; i < static_cast<int>(romData.size()); i += 1)
     {
         if (i < 0x8100 || i > 0x8101)
         {
-            checksum_1_value_calculated += (uint8_t)romData.at(i);
-            checksum_2_value_calculated ^= (uint8_t)romData.at(i);
+            checksum_1_value_calculated += romData[static_cast<std::size_t>(i)];
+            checksum_2_value_calculated ^= romData[static_cast<std::size_t>(i)];
         }
     }
-    checksum_1_value_stored = (uint8_t)romData.at(checksum_1_value_address);
-    checksum_2_value_stored = (uint8_t)romData.at(checksum_2_value_address);
+    checksum_1_value_stored = romData[checksum_1_value_address];
+    checksum_2_value_stored = romData[checksum_2_value_address];
     if (checksum_1_value_calculated != checksum_1_value_stored)
     {
-        qDebug() << "Checksum 1 value mismatch!";
         checksum_ok = false;
 
-        QByteArray checksum;
-        checksum.append((uint8_t)checksum_1_value_calculated);
-        romData.replace(checksum_1_value_address, checksum.length(), checksum);
-
-        qDebug() << "Subaru Hitachi M32R K-Line/CAN ECU checksum 1 corrected";
-    }
-    else
-    {
-        qDebug() << "Subaru Hitachi M32R K-Line/CAN ECU checksum 1 OK";
+        bytes::Bytes checksum;
+        checksum.push_back(checksum_1_value_calculated);
+        overwriteAt(romData, checksum_1_value_address, checksum);
     }
     if (checksum_2_value_calculated != checksum_2_value_stored)
     {
-        qDebug() << "Checksum 2 value mismatch!";
         checksum_ok = false;
 
-        QByteArray checksum;
-        checksum.append((uint8_t)checksum_2_value_calculated);
-        romData.replace(checksum_2_value_address, checksum.length(), checksum);
-
-        qDebug() << "Subaru Hitachi M32R K-Line/CAN ECU checksum 2 corrected";
-    }
-    else
-    {
-        qDebug() << "Subaru Hitachi M32R K-Line/CAN ECU checksum 2 OK";
+        bytes::Bytes checksum;
+        checksum.push_back(checksum_2_value_calculated);
+        overwriteAt(romData, checksum_2_value_address, checksum);
     }
 
     /****************************************
@@ -84,72 +90,36 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result(QByt
      * Calculate and fix checksum 5
      *
      * *************************************/
-    for (int i = 0x4000; i < romData.length(); i += 4)
+    for (int i = 0x4000; i < static_cast<int>(romData.size()); i += 4)
     {
         if (i < 0x8100 || i > 0x8103)
         {
-            checksum_3_value_calculated += bytes::readU32Be(bytes::view(romData), static_cast<std::size_t>(i));
+            checksum_3_value_calculated += bytes::readU32Be(romData, static_cast<std::size_t>(i));
         }
     }
-    checksum_3_balance_value_stored = bytes::readU16Be(bytes::view(romData), checksum_3_balance_value_address);
+    checksum_3_balance_value_stored = bytes::readU16Be(romData, checksum_3_balance_value_address);
     if (checksum_3_value_calculated != 0x5aa5)
     {
-        qDebug() << "Checksum 3 balance value mismatch!";
         checksum_ok = false;
 
-        QByteArray balance_value_array;
+        bytes::Bytes balance_value_array;
         // Reads the same bytes as checksum_3_balance_value_stored above via the same
         // unsigned interpretation; the original here used a sign-extending char cast
         // that could disagree with that stored read for balance bytes >= 0x80.
-        uint16_t balance_value = bytes::readU16Be(bytes::view(romData), checksum_3_balance_value_address);
-
-        msg.clear();
-        msg.append(QString("Balance value before: 0x%1").arg(balance_value, 4, 16, QLatin1Char('0')).toUtf8());
-        qDebug() << msg;
+        uint16_t balance_value = bytes::readU16Be(romData, checksum_3_balance_value_address);
 
         balance_value += 0x5aa5 - checksum_3_value_calculated;
 
-        msg.clear();
-        msg.append(QString("Balance value after: 0x%1").arg(balance_value, 4, 16, QLatin1Char('0')).toUtf8());
-        qDebug() << msg;
-
         bytes::appendU16Be(balance_value_array, balance_value);
-        romData.replace(checksum_3_balance_value_address, balance_value_array.length(), balance_value_array);
-
-        qDebug() << "Subaru Hitachi M32R K-Line/CAN ECU checksum 3 corrected";
+        overwriteAt(romData, checksum_3_balance_value_address, balance_value_array);
     }
-    else
-    {
-        qDebug() << "Subaru Hitachi M32R K-Line/CAN ECU checksum 3 OK";
-    }
-
-    msg.clear();
-    msg.append(QString("Checksum 1 value calculated 0x8100: 0x%1").arg(checksum_1_value_calculated, 2, 16, QLatin1Char('0')).toUtf8());
-    qDebug() << msg;
-    msg.clear();
-    msg.append(QString("Checksum 1 value stored 0x8100: 0x%1").arg(checksum_1_value_stored, 2, 16, QLatin1Char('0')).toUtf8());
-    qDebug() << msg;
-
-    msg.clear();
-    msg.append(QString("Checksum 2 value calculated 0x8101: 0x%1").arg(checksum_2_value_calculated, 2, 16, QLatin1Char('0')).toUtf8());
-    qDebug() << msg;
-    msg.clear();
-    msg.append(QString("Checksum 2 value stored 0x8101: 0x%1").arg(checksum_2_value_stored, 2, 16, QLatin1Char('0')).toUtf8());
-    qDebug() << msg;
-
-    msg.clear();
-    msg.append(QString("Checksum 3 value calculated: 0x%1").arg(checksum_3_value_calculated, 4, 16, QLatin1Char('0')).toUtf8());
-    qDebug() << msg;
-    msg.clear();
-    msg.append(QString("Checksum 3 balance value stored 0x7fffa: 0x%1").arg(checksum_3_balance_value_stored, 4, 16, QLatin1Char('0')).toUtf8());
-    qDebug() << msg;
 
     ChecksumResult result;
     result.romData = romData;
     if (!checksum_ok)
     {
         result.status = ChecksumResult::Status::Corrected;
-        result.message = QObject::tr("Subaru Hitachi M32R K-Line ECU Checksum");
+        result.message = "Subaru Hitachi M32R K-Line ECU Checksum";
     }
     else
     {

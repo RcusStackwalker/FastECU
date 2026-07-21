@@ -146,7 +146,10 @@ SUITE_DEPS = {
     "test_expression_evaluator": ["//src/algorithms/expression:qt_compat"],
     "test_menu_command": ["//src/algorithms/menu:qt_compat"],
     "test_diagnostic_parsers": ["//src/algorithms/diagnostics:qt_compat"],
-    "test_checksum_results": ["//src/algorithms/checksum"],
+    # test_checksum_results.cpp was retargeted (Task 10) to the Qt shim
+    # (qt_checksum.h / QtChecksumResult) so it can keep asserting the frozen
+    # QByteArray/QString contract now that ChecksumResult itself is portable.
+    "test_checksum_results": ["//src/algorithms/checksum:qt_compat"],
     "test_logging_worker": ["//src/backend/logging"],
     "test_logging_engine": ["//src/backend/logging"],
     "test_romraider_conversion": ["//src/backend/logging"],

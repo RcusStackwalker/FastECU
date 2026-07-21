@@ -1,5 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "PORTABLE_COPTS", "QT_DEPS")
 
 package(default_visibility = [
     "//src/algorithms:__subpackages__",
@@ -22,16 +23,42 @@ cc_library(
     name = "checksum",
     srcs = glob(
         ["*.cpp"],
-        exclude = ["*_test.cpp"],
+        exclude = [
+            "*_test.cpp",
+            "qt_*.cpp",
+        ],
     ),
     hdrs = glob(
         ["*.h"],
-        exclude = ["*_test.h"],
+        exclude = [
+            "*_test.h",
+            "qt_*.h",
+        ],
     ),
+    copts = PORTABLE_COPTS,
+    deps = ["//src/algorithms/protocol"],
+)
+
+# TRANSITIONAL. QByteArray/QString conversion for file_actions.cpp, which is
+# not portable until step 5. Delete when that caller moves.
+cc_library(
+    name = "qt_compat",
+    hdrs = ["qt_checksum.h"],
     copts = COMMON_COPTS,
     includes = COMMON_INCLUDES,
     deps = QT_DEPS + [
-        "//src/algorithms/protocol",
+        ":checksum",
         "//src/algorithms/protocol:qt_compat",
+    ],
+)
+
+cc_test(
+    name = "checksum_test",
+    size = "small",
+    srcs = ["checksum_test.cpp"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":checksum",
+        "@googletest//:gtest_main",
     ],
 )

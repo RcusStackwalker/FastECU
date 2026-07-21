@@ -2,9 +2,7 @@
 #define CHECKSUM_TCU_SUBARU_HITACHI_M32R_CAN_H
 
 #include "checksum_result.h"
-
-#include <QDebug>
-#include <QObject>
+#include "src/algorithms/protocol/bytes.h"
 
 class ChecksumTcuSubaruHitachiM32rCan
 {
@@ -12,7 +10,7 @@ class ChecksumTcuSubaruHitachiM32rCan
     ChecksumTcuSubaruHitachiM32rCan();
     ~ChecksumTcuSubaruHitachiM32rCan();
 
-    static ChecksumResult calculate_checksum_result(QByteArray romData);
+    static ChecksumResult calculate_checksum_result(bytes::ByteView romData);
 
   private:
 };
