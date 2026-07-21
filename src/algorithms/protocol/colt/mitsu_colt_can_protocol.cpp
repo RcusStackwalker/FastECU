@@ -1,6 +1,6 @@
 #include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
 
-#include "src/algorithms/protocol/qt_bytes.h"
+#include <cassert>
 
 namespace MitsuColtCan
 {
@@ -740,7 +740,7 @@ std::uint16_t seedKeyWord(std::uint16_t seedWord)
 
 bytes::Bytes seedKey(bytes::ByteView seed)
 {
-    Q_ASSERT(seed.size() == 4);
+    assert(seed.size() == 4);
     const std::uint16_t pk1 = bytes::readU16Be(seed, 0);
     const std::uint16_t pk2 = bytes::readU16Be(seed, 2);
     const std::uint16_t sk1 = seedKeyWord(pk1);
@@ -750,11 +750,6 @@ bytes::Bytes seedKey(bytes::ByteView seed)
     bytes::appendU16Be(key, sk1);
     bytes::appendU16Be(key, sk2);
     return key;
-}
-
-QByteArray seedKey(const QByteArray& seed)
-{
-    return bytes::toQByteArray(seedKey(bytes::view(seed)));
 }
 
 std::uint16_t checksum(bytes::ByteView data)
@@ -767,11 +762,6 @@ std::uint16_t checksum(bytes::ByteView data)
     return sum;
 }
 
-std::uint16_t checksum(const QByteArray& data)
-{
-    return checksum(bytes::view(data));
-}
-
 bytes::Bytes buildRequestDownload(std::uint32_t start, std::uint32_t size)
 {
     bytes::Bytes f;
@@ -781,11 +771,6 @@ bytes::Bytes buildRequestDownload(std::uint32_t start, std::uint32_t size)
     f.push_back(0x00);
     bytes::appendU24Be(f, size);
     return f;
-}
-
-QByteArray buildRequestDownloadFrame(std::uint32_t start, std::uint32_t size)
-{
-    return bytes::toQByteArray(buildRequestDownload(start, size));
 }
 
 std::vector<bytes::Bytes> buildTransferDataFrames(bytes::ByteView payload)
@@ -803,18 +788,6 @@ std::vector<bytes::Bytes> buildTransferDataFrames(bytes::ByteView payload)
     return frames;
 }
 
-QVector<QByteArray> buildTransferDataFrames(const QByteArray& payload)
-{
-    QVector<QByteArray> frames;
-    const std::vector<bytes::Bytes> byteFrames = buildTransferDataFrames(bytes::view(payload));
-    frames.reserve(static_cast<qsizetype>(byteFrames.size()));
-    for (const bytes::Bytes& frame : byteFrames)
-    {
-        frames.append(bytes::toQByteArray(frame));
-    }
-    return frames;
-}
-
 bytes::Bytes buildRoutineCheckCrc(std::uint32_t targetStart)
 {
     bytes::Bytes f;
@@ -823,11 +796,6 @@ bytes::Bytes buildRoutineCheckCrc(std::uint32_t targetStart)
     f.push_back(kRoutineCheckCrc);
     f.push_back(targetStart < 0x800000 ? 2 : 1);
     return f;
-}
-
-QByteArray buildRoutineCheckCrcFrame(std::uint32_t targetStart)
-{
-    return bytes::toQByteArray(buildRoutineCheckCrc(targetStart));
 }
 
 bytes::Bytes buildRoutineErase()
@@ -839,11 +807,6 @@ bytes::Bytes buildRoutineErase()
     return f;
 }
 
-QByteArray buildRoutineEraseFrame()
-{
-    return bytes::toQByteArray(buildRoutineErase());
-}
-
 bytes::Bytes buildRequestReflashUnlock()
 {
     // Verbatim from externals/livemonitor/obdsessionwidget.cpp:180-181.
@@ -851,11 +814,6 @@ bytes::Bytes buildRequestReflashUnlock()
     static const bytes::Byte kData[12] = {
         kServiceRequestReflash, 154, 1, 1, 'R', 'c', 'u', 's', '0', '0', 0, 1};
     return bytes::Bytes(std::begin(kData), std::end(kData));
-}
-
-QByteArray buildRequestReflashUnlockFrame()
-{
-    return bytes::toQByteArray(buildRequestReflashUnlock());
 }
 
 bytes::Bytes buildReadMemoryByAddress(std::uint32_t addr, bytes::Byte len)
@@ -868,11 +826,6 @@ bytes::Bytes buildReadMemoryByAddress(std::uint32_t addr, bytes::Byte len)
     return f;
 }
 
-QByteArray buildReadMemoryByAddressFrame(std::uint32_t addr, bytes::Byte len)
-{
-    return bytes::toQByteArray(buildReadMemoryByAddress(addr, len));
-}
-
 bytes::Bytes buildDiagnosticSession(bytes::Byte sessionId)
 {
     bytes::Bytes f;
@@ -880,11 +833,6 @@ bytes::Bytes buildDiagnosticSession(bytes::Byte sessionId)
     f.push_back(kServiceDiagnosticSession);
     f.push_back(sessionId);
     return f;
-}
-
-QByteArray buildDiagnosticSessionFrame(bytes::Byte sessionId)
-{
-    return bytes::toQByteArray(buildDiagnosticSession(sessionId));
 }
 
 bytes::Bytes buildSecurityAccessSeedRequest()
@@ -896,25 +844,15 @@ bytes::Bytes buildSecurityAccessSeedRequest()
     return f;
 }
 
-QByteArray buildSecurityAccessSeedRequestFrame()
-{
-    return bytes::toQByteArray(buildSecurityAccessSeedRequest());
-}
-
 bytes::Bytes buildSecurityAccessKey(bytes::ByteView key)
 {
-    Q_ASSERT(key.size() == 4);
+    assert(key.size() == 4);
     bytes::Bytes f;
     f.reserve(6);
     f.push_back(kServiceSecurityAccess);
     f.push_back(0x06);
     f.insert(f.end(), key.begin(), key.end());
     return f;
-}
-
-QByteArray buildSecurityAccessKeyFrame(const QByteArray& key)
-{
-    return bytes::toQByteArray(buildSecurityAccessKey(bytes::view(key)));
 }
 
 } // namespace MitsuColtCan

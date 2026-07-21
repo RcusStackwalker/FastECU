@@ -1,8 +1,6 @@
 #pragma once
 #include "src/algorithms/protocol/bytes.h"
 
-#include <QVector>
-
 #include <array>
 #include <cstdint>
 #include <vector>
@@ -82,23 +80,23 @@ CdbgFrame buildLogStartFrame(bytes::Byte instance, bytes::Byte frameCount, std::
 // LogItemsModel::loadSchema's byteIndex/frameIndex bookkeeping. Returns
 // false (outFrames untouched) if channels is empty or does not fit within
 // kMaxFrames frames.
-bool batchChannelsIntoFrames(const QVector<CdbgChannel>& channels,
-                             QVector<QVector<CdbgChannel>>& outFrames);
+bool batchChannelsIntoFrames(const std::vector<CdbgChannel>& channels,
+                             std::vector<std::vector<CdbgChannel>>& outFrames);
 
 // Builds the {21,...}/{22,...} command pairs (in order: select0, pointer0,
 // select1, pointer1, ...) that configure one frame's items, matching
 // getLogFrameInitCommands. Caller must have already produced frameItems via
 // batchChannelsIntoFrames.
 std::vector<CdbgFrame> buildFrameInitFrames(bytes::Byte instance, bytes::Byte frameIndex,
-                                            const QVector<CdbgChannel>& frameItems);
+                                            const std::vector<CdbgChannel>& frameItems);
 
 // Decodes one streamed reply frame (byte 0 = frame index, bytes [1, N) =
 // concatenated big-endian channel values per frameItems, in order) into one
 // raw unsigned value per channel. Returns an empty vector if frame is
 // shorter than 1 byte, frame[0] doesn't match expectedFrameIndex, or frame
 // is too short to hold every channel in frameItems.
-QVector<std::uint32_t> decodeFrame(bytes::Byte expectedFrameIndex,
-                                   const QVector<CdbgChannel>& frameItems,
-                                   bytes::ByteView frame);
+std::vector<std::uint32_t> decodeFrame(bytes::Byte expectedFrameIndex,
+                                       const std::vector<CdbgChannel>& frameItems,
+                                       bytes::ByteView frame);
 
 } // namespace MitsuColtCanCdbg

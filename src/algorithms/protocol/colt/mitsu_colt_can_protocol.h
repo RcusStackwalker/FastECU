@@ -1,9 +1,6 @@
 #pragma once
 #include "src/algorithms/protocol/bytes.h"
 
-#include <QByteArray>
-#include <QVector>
-
 #include <cstdint>
 #include <vector>
 
@@ -77,38 +74,26 @@ extern const bytes::Byte kWriteRedirectRoutine[188];
 // this codebase.
 std::uint16_t seedKeyWord(std::uint16_t seedWord);
 
-bytes::Bytes seedKey(bytes::ByteView seed);
-
 // Applies seedKeyWord() to both 16-bit halves of a 4-byte seed (big-endian
 // in, big-endian out): seed = [pk1_hi, pk1_lo, pk2_hi, pk2_lo].
-QByteArray seedKey(const QByteArray& seed);
+bytes::Bytes seedKey(bytes::ByteView seed);
 
 // 16-bit running sum of every raw byte, with natural wraparound. Matches
 // get_crc() in externals/livemonitor/obdengine.cpp — not a real CRC.
 std::uint16_t checksum(bytes::ByteView data);
-std::uint16_t checksum(const QByteArray& data);
-
-bytes::Bytes buildRequestDownload(std::uint32_t start, std::uint32_t size);
 
 // SID 0x34: [SID][start>>16][start>>8][start][0x00][size>>16][size>>8][size].
-QByteArray buildRequestDownloadFrame(std::uint32_t start, std::uint32_t size);
+bytes::Bytes buildRequestDownload(std::uint32_t start, std::uint32_t size);
 
 // SID 0x36, chunked at kTransferChunkSize bytes per frame: [SID][up to 256 payload bytes].
 std::vector<bytes::Bytes> buildTransferDataFrames(bytes::ByteView payload);
-QVector<QByteArray> buildTransferDataFrames(const QByteArray& payload);
-
-bytes::Bytes buildRoutineCheckCrc(std::uint32_t targetStart);
 
 // SID 0x31/225: [SID][225][selector]. selector = 2 if targetStart < 0x800000
 // ("flash"), else 1 ("memory") — matches obdengine.cpp's "flash/memory fun".
-QByteArray buildRoutineCheckCrcFrame(std::uint32_t targetStart);
-
-bytes::Bytes buildRoutineErase();
+bytes::Bytes buildRoutineCheckCrc(std::uint32_t targetStart);
 
 // SID 0x31/224, bare 2 bytes, no selector byte. Source comment: "causes reflash".
-QByteArray buildRoutineEraseFrame();
-
-bytes::Bytes buildRequestReflashUnlock();
+bytes::Bytes buildRoutineErase();
 
 // SID 0x3B, 12-byte payload ported verbatim from
 // externals/livemonitor/obdsessionwidget.cpp:180-181. KNOWN RISK: the
@@ -116,26 +101,18 @@ bytes::Bytes buildRequestReflashUnlock();
 // lockup" during their own testing. Treat any call site as the highest-risk
 // step in this protocol; never send without an explicit confirmation gate
 // on a bench/spare ECU.
-QByteArray buildRequestReflashUnlockFrame();
-
-bytes::Bytes buildReadMemoryByAddress(std::uint32_t addr, bytes::Byte len);
+bytes::Bytes buildRequestReflashUnlock();
 
 // SID 0x23: [SID][addr>>16][addr>>8][addr][len].
-QByteArray buildReadMemoryByAddressFrame(std::uint32_t addr, bytes::Byte len);
-
-bytes::Bytes buildDiagnosticSession(bytes::Byte sessionId);
+bytes::Bytes buildReadMemoryByAddress(std::uint32_t addr, bytes::Byte len);
 
 // SID 0x10: [SID][sessionId].
-QByteArray buildDiagnosticSessionFrame(bytes::Byte sessionId);
-
-bytes::Bytes buildSecurityAccessSeedRequest();
+bytes::Bytes buildDiagnosticSession(bytes::Byte sessionId);
 
 // SID 0x27/5 (seed request): [SID][0x05].
-QByteArray buildSecurityAccessSeedRequestFrame();
-
-bytes::Bytes buildSecurityAccessKey(bytes::ByteView key);
+bytes::Bytes buildSecurityAccessSeedRequest();
 
 // SID 0x27/6 (key answer): [SID][0x06][4-byte key].
-QByteArray buildSecurityAccessKeyFrame(const QByteArray& key);
+bytes::Bytes buildSecurityAccessKey(bytes::ByteView key);
 
 } // namespace MitsuColtCan

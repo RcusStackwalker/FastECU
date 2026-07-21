@@ -1,8 +1,6 @@
 #pragma once
 #include "src/algorithms/protocol/bytes.h"
 
-#include <QByteArray>
-
 #include <cstdint>
 
 // Mitsubishi Colt CZT (Z37A, ROM 47110032) vendor diagnostic-extension
@@ -46,14 +44,5 @@ bytes::Bytes buildChallengeSeedRequest();
 
 // SID 0x23 vendor extension key answer: [0x23][0x27][0x42][4-byte key].
 bytes::Bytes buildChallengeKey(std::uint32_t key);
-
-// Big-endian byte-array convenience wrappers matching the 4-byte wire
-// layout, mirroring MitsuColtCan::seedKey's shape.
-std::uint32_t bytesToSeed(const QByteArray& seedBytes); // expects exactly 4 bytes
-QByteArray keyToBytes(std::uint32_t key);               // produces exactly 4 bytes
-
-QByteArray buildChallengeSeedRequestFrame();
-
-QByteArray buildChallengeKeyFrame(std::uint32_t key);
 
 } // namespace MitsuColtCanVendorExt

@@ -1,6 +1,6 @@
 #include "src/algorithms/protocol/colt/mitsu_colt_can_vendor_ext_protocol.h"
 
-#include "src/algorithms/protocol/qt_bytes.h"
+#include <cassert>
 
 namespace MitsuColtCanVendorExt
 {
@@ -57,7 +57,7 @@ std::uint32_t challengeInverseTransform(std::uint32_t seed)
 
 std::uint32_t bytesToSeed(bytes::ByteView seedBytes)
 {
-    Q_ASSERT(seedBytes.size() == 4);
+    assert(seedBytes.size() == 4);
     return bytes::readU32Be(seedBytes);
 }
 
@@ -88,26 +88,6 @@ bytes::Bytes buildChallengeKey(std::uint32_t key)
     f.push_back(kVendorChallengeKeySubfunction);
     bytes::appendU32Be(f, key);
     return f;
-}
-
-std::uint32_t bytesToSeed(const QByteArray& seedBytes)
-{
-    return bytesToSeed(bytes::view(seedBytes));
-}
-
-QByteArray keyToBytes(std::uint32_t key)
-{
-    return bytes::toQByteArray(keyBytes(key));
-}
-
-QByteArray buildChallengeSeedRequestFrame()
-{
-    return bytes::toQByteArray(buildChallengeSeedRequest());
-}
-
-QByteArray buildChallengeKeyFrame(std::uint32_t key)
-{
-    return bytes::toQByteArray(buildChallengeKey(key));
 }
 
 } // namespace MitsuColtCanVendorExt

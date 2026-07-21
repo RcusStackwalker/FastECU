@@ -127,13 +127,21 @@ SUITE_DEPS = {
     # ikline_transport.h, which itself depends on algorithms/protocol root,
     # so backend/protocol alone covers both real edges.
     "test_transport": ["//src/backend/protocol"],
-    "test_mitsu_colt_can_protocol": ["//src/algorithms/protocol/colt"],
-    "test_mitsu_colt_can_vendor_ext_protocol": ["//src/algorithms/protocol/colt"],
-    "test_mitsu_colt_can_cdbg_protocol": ["//src/algorithms/protocol/colt"],
+    # These three include qt_colt.h (the Qt shim) alongside the portable
+    # header, since the tests exercise both the bytes::-native functions and
+    # the QByteArray/QVector overloads (Task 8).
+    "test_mitsu_colt_can_protocol": ["//src/algorithms/protocol/colt:qt_compat"],
+    "test_mitsu_colt_can_vendor_ext_protocol": ["//src/algorithms/protocol/colt:qt_compat"],
+    "test_mitsu_colt_can_cdbg_protocol": ["//src/algorithms/protocol/colt:qt_compat"],
     # test_cdbg_driver.cpp includes mitsu_colt_can_cdbg_driver.h, which lives
     # in backend/protocol, NOT algorithms/protocol/colt (a different file:
-    # mitsu_colt_can_cdbg_protocol.h). colt was a phantom edge here.
-    "test_cdbg_driver": ["//src/backend/protocol"],
+    # mitsu_colt_can_cdbg_protocol.h). It also includes qt_colt.h directly
+    # (Task 8) to bridge QVector<CdbgChannel> locals into the still-QVector-
+    # based CdbgLogDriver API, so it needs the colt Qt shim as a real edge.
+    "test_cdbg_driver": [
+        "//src/algorithms/protocol/colt:qt_compat",
+        "//src/backend/protocol",
+    ],
     "test_ssm_protocol": ["//src/algorithms/protocol/ssm:qt_compat"],
     "test_expression_evaluator": ["//src/algorithms/expression:qt_compat"],
     "test_menu_command": ["//src/algorithms/menu:qt_compat"],
@@ -149,7 +157,13 @@ SUITE_DEPS = {
     "test_mut_dma_logging_protocol": ["//src/backend/logging/protocols"],
     "test_cdbg_logging_protocol": ["//src/backend/logging/protocols"],
     "test_flash_operation_worker": ["//src/backend/flash"],
-    "test_flash_ecu_mitsu_m32r_can_operation": ["//src/backend/flash/ecu"],
+    # test_flash_ecu_mitsu_m32r_can_operation.cpp includes qt_colt.h directly
+    # (Task 8) for QByteArray-typed Colt helper wrappers, so it needs the
+    # colt Qt shim as a real edge in addition to backend/flash/ecu.
+    "test_flash_ecu_mitsu_m32r_can_operation": [
+        "//src/algorithms/protocol/colt:qt_compat",
+        "//src/backend/flash/ecu",
+    ],
     "test_flash_utils": [
         "//src/backend/flash",
         # test_flash_utils.cpp includes serial_port_actions.h directly;
