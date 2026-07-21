@@ -48,10 +48,12 @@ qt_cc_library(
         "//resources/shared:config_resource",
         "//resources/shared:kernels_resource",
         "//src/algorithms/checksum",
-        # file_actions.h includes dtc_parser.h/nrc_parser.h directly; not in
-        # the original plan's dep list, added after checking the real
-        # #include graph (see task-4-report.md).
-        "//src/algorithms/diagnostics",
+        # file_actions.cpp includes qt_dtc_parser.h/qt_nrc_parser.h directly
+        # (its neg_rsp_codes/dtc_*_codes lookup tables are still QHash
+        # statics defined in error_codes.h); not in the original plan's dep
+        # list, added after checking the real #include graph (see
+        # task-4-report.md, task-5-report.md).
+        "//src/algorithms/diagnostics:qt_compat",
         "//src/algorithms/expression:qt_compat",
         "//src/backend/flash",
     ],

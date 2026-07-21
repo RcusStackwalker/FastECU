@@ -134,7 +134,7 @@ SUITE_DEPS = {
     "test_ssm_protocol": ["//src/algorithms/protocol/ssm:qt_compat"],
     "test_expression_evaluator": ["//src/algorithms/expression:qt_compat"],
     "test_menu_command": ["//src/algorithms/menu:qt_compat"],
-    "test_diagnostic_parsers": ["//src/algorithms/diagnostics"],
+    "test_diagnostic_parsers": ["//src/algorithms/diagnostics:qt_compat"],
     "test_checksum_results": ["//src/algorithms/checksum"],
     "test_logging_worker": ["//src/backend/logging"],
     "test_logging_engine": ["//src/backend/logging"],
