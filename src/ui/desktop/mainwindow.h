@@ -37,7 +37,7 @@
 #include <QThread>
 #include <QMutex>
 
-#include <src/algorithms/crypto/cipher.h>
+#include <src/algorithms/crypto/qt_cipher.h>
 #include <src/ui/desktop/calibration_maps.h>
 #include <src/ui/desktop/calibration_treewidget.h>
 #include <src/ui/desktop/protocol_select.h>

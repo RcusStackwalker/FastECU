@@ -576,7 +576,7 @@ void MainWindow::aes_ecb_example()
 
     emit LOG_D("aes_ecb_example:", true, true);
 
-    Cipher cipher;
+    QtCipher cipher;
     // A 128 bit key
     unsigned char key[] = {0x46, 0x9a, 0x20, 0xab, 0x30, 0x8d, 0x5c, 0xa6, 0x4b, 0xcd, 0x5b, 0xbe, 0x53, 0x5b, 0xd8, 0x5f};
     QByteArray engine_key_1((const char *)key, ARRAYSIZE(key));
