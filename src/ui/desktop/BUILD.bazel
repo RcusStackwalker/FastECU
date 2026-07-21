@@ -74,6 +74,7 @@ qt_cc_library(
         "//src/algorithms/crypto",
         "//src/algorithms/menu",
         "//src/algorithms/protocol",
+        "//src/algorithms/protocol:qt_compat",
         "//src/algorithms/protocol/mut_dma",
         "//src/backend/definitions",
         "//src/backend/flash",

@@ -29,6 +29,7 @@ qt_cc_library(
     includes = COMMON_INCLUDES,
     deps = QT_DEPS + [
         "//src/algorithms/protocol",
+        "//src/algorithms/protocol:qt_compat",
         "//src/platform/desktop/common/serial:serial_qt_compat",
     ] + [":ui_" + f.removesuffix(".ui") for f in FORMS],
 )

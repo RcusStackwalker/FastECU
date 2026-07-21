@@ -30,5 +30,8 @@ cc_library(
     ),
     copts = COMMON_COPTS,
     includes = COMMON_INCLUDES,
-    deps = QT_DEPS + ["//src/algorithms/protocol"],
+    deps = QT_DEPS + [
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol:qt_compat",
+    ],
 )

@@ -88,6 +88,7 @@ qt_cc_library(
     deps = QT_DEPS + [
         ":serial_replicas",
         "//src/algorithms/protocol",
+        "//src/algorithms/protocol:qt_compat",
     ] + select({
         # serial_port_actions_direct.h #includes J2534_unix.h or J2534_win.h
         # behind a Q_OS_UNIX/Q_OS_WIN32 guard; the header must be a declared
