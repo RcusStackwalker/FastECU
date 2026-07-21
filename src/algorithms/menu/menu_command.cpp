@@ -73,7 +73,7 @@ QString menu_command_id(MenuCommand command)
     {
         if (command == mapping.command)
         {
-            mapping.id.toString();
+            return mapping.id.toString();
         }
     }
     return QString();
