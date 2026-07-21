@@ -1,8 +1,10 @@
 #ifndef CHECKSUM_ECU_SUBARU_DENSO_SH705X_DIESEL_H
 #define CHECKSUM_ECU_SUBARU_DENSO_SH705X_DIESEL_H
 
+#include "checksum_result.h"
+
 #include <QDebug>
-#include <QMessageBox>
+#include <QObject>
 
 class ChecksumEcuSubaruDensoSH705xDiesel
 {
@@ -10,7 +12,7 @@ class ChecksumEcuSubaruDensoSH705xDiesel
     ChecksumEcuSubaruDensoSH705xDiesel();
     ~ChecksumEcuSubaruDensoSH705xDiesel();
 
-    static QByteArray calculate_checksum(QByteArray romData, uint32_t checksum_area_start, uint32_t checksum_area_length);
+    static ChecksumResult calculate_checksum_result(QByteArray romData, uint32_t checksum_area_start, uint32_t checksum_area_length);
 
   private:
 };

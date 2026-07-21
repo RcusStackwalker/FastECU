@@ -9,7 +9,7 @@ ChecksumTcuSubaruDensoSH7055::~ChecksumTcuSubaruDensoSH7055()
 {
 }
 
-QByteArray ChecksumTcuSubaruDensoSH7055::calculate_checksum(QByteArray romData)
+ChecksumResult ChecksumTcuSubaruDensoSH7055::calculate_checksum_result(QByteArray romData)
 {
     /*******************
      *
@@ -57,6 +57,7 @@ QByteArray ChecksumTcuSubaruDensoSH7055::calculate_checksum(QByteArray romData)
 
     qDebug() << "Checksum =" << msg;
 
+    ChecksumResult result;
     if (checksum != 0x5aa5)
     {
         qDebug() << "Checksum mismatch!";
@@ -79,10 +80,13 @@ QByteArray ChecksumTcuSubaruDensoSH7055::calculate_checksum(QByteArray romData)
         romData.replace(balance_value_array_start, balance_value_array.length(), balance_value_array);
 
         qDebug() << "Checksums corrected";
-        QMessageBox::information(nullptr, QObject::tr("Subaru Denso SH7055 TCU Checksum"), "Checksums corrected");
+        result.status = ChecksumResult::Status::Corrected;
+        result.message = QObject::tr("Subaru Denso SH7055 TCU Checksum");
     }
-    // else
-    //     QMessageBox::information(nullptr, QObject::tr("Subaru Denso SH7055 TCU Checksum"), "Checksums OK");
-
-    return romData;
+    else
+    {
+        result.status = ChecksumResult::Status::Unchanged;
+    }
+    result.romData = romData;
+    return result;
 }

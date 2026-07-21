@@ -1,8 +1,10 @@
 #ifndef CHECKSUM_ECU_SUBARU_HITACHI_SH7058_H
 #define CHECKSUM_ECU_SUBARU_HITACHI_SH7058_H
 
+#include "checksum_result.h"
+
 #include <QDebug>
-#include <QMessageBox>
+#include <QObject>
 
 class ChecksumEcuSubaruHitachiSH7058
 {
@@ -10,7 +12,7 @@ class ChecksumEcuSubaruHitachiSH7058
     ChecksumEcuSubaruHitachiSH7058();
     ~ChecksumEcuSubaruHitachiSH7058();
 
-    static QByteArray calculate_checksum(QByteArray romData);
+    static ChecksumResult calculate_checksum_result(QByteArray romData);
 
   private:
 };

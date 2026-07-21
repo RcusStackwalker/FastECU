@@ -9,7 +9,7 @@ ChecksumEcuSubaruHitachiSH7058::~ChecksumEcuSubaruHitachiSH7058()
 {
 }
 
-QByteArray ChecksumEcuSubaruHitachiSH7058::calculate_checksum(QByteArray romData)
+ChecksumResult ChecksumEcuSubaruHitachiSH7058::calculate_checksum_result(QByteArray romData)
 {
     /*******************
      *
@@ -228,10 +228,16 @@ QByteArray ChecksumEcuSubaruHitachiSH7058::calculate_checksum(QByteArray romData
     msg.append(QString("Checksum 5 calculated: 0x%1").arg(checksum_5_value_calculated, 4, 16, QLatin1Char('0')).toUtf8());
     qDebug() << msg;
 
+    ChecksumResult result;
+    result.romData = romData;
     if (!checksum_ok)
     {
-        QMessageBox::information(nullptr, QObject::tr("Subaru Hitachi SH7058 CAN ECU Checksum"), "Checksums corrected");
+        result.status = ChecksumResult::Status::Corrected;
+        result.message = QObject::tr("Subaru Hitachi SH7058 CAN ECU Checksum");
     }
-
-    return romData;
+    else
+    {
+        result.status = ChecksumResult::Status::Unchanged;
+    }
+    return result;
 }

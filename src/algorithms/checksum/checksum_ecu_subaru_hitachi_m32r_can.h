@@ -1,8 +1,10 @@
 #ifndef CHECKSUM_ECU_SUBARU_HITACHI_M32R_CAN_H
 #define CHECKSUM_ECU_SUBARU_HITACHI_M32R_CAN_H
 
+#include "checksum_result.h"
+
 #include <QDebug>
-#include <QMessageBox>
+#include <QObject>
 
 class ChecksumEcuSubaruHitachiM32rCan
 {
@@ -10,7 +12,7 @@ class ChecksumEcuSubaruHitachiM32rCan
     ChecksumEcuSubaruHitachiM32rCan();
     ~ChecksumEcuSubaruHitachiM32rCan();
 
-    static QByteArray calculate_checksum(QByteArray romData);
+    static ChecksumResult calculate_checksum_result(QByteArray romData);
 
   private:
 };

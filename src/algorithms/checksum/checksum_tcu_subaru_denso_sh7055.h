@@ -1,8 +1,10 @@
 #ifndef CHECKSUM_TCU_SUBARU_DENSO_SH7055_H
 #define CHECKSUM_TCU_SUBARU_DENSO_SH7055_H
 
+#include "checksum_result.h"
+
 #include <QDebug>
-#include <QMessageBox>
+#include <QObject>
 
 class ChecksumTcuSubaruDensoSH7055
 {
@@ -10,7 +12,7 @@ class ChecksumTcuSubaruDensoSH7055
     ChecksumTcuSubaruDensoSH7055();
     ~ChecksumTcuSubaruDensoSH7055();
 
-    static QByteArray calculate_checksum(QByteArray romData);
+    static ChecksumResult calculate_checksum_result(QByteArray romData);
 
   private:
 };

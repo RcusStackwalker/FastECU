@@ -10,7 +10,6 @@
 #include "src/algorithms/checksum/checksum_tcu_mitsu_mh8104_can.h"
 #include "src/algorithms/checksum/checksum_tcu_subaru_denso_sh7055.h"
 #include "src/algorithms/checksum/checksum_tcu_subaru_hitachi_m32r_can.h"
-#include "expected_message_box.h"
 #include "test_checksum_results.h"
 
 namespace
@@ -57,12 +56,11 @@ class TestChecksumResults : public QObject
     {
         const QByteArray original(12, '\0');
 
-        ExpectedMessageBoxCloser closer;
-        closer.arm("Subaru Denso SH705x Checksum", "Checksums corrected");
-        const QByteArray actual = ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum(original, 0, 12);
-        closer.stop();
-        QVERIFY2(closer.sawExpected(), qPrintable(closer.failure()));
-        compareChangedBytes(original, actual,
+        const ChecksumResult result = ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(original, 0, 12);
+
+        QCOMPARE(result.status, ChecksumResult::Status::Corrected);
+        QCOMPARE(result.message, QString("Subaru Denso SH705x Checksum"));
+        compareChangedBytes(original, result.romData,
                             {{0, QByteArray::fromHex("00000000000000005aa5a55a")}});
     }
 
@@ -70,21 +68,23 @@ class TestChecksumResults : public QObject
     {
         const QByteArray original = QByteArray::fromHex("00000000000000005aa5a55a");
 
-        ExpectedMessageBoxCloser closer;
-        closer.arm("32-bit checksum", "ROM has all checksums disabled");
-        const QByteArray actual = ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum(original, 0, 12);
-        closer.stop();
-        QVERIFY2(closer.sawExpected(), qPrintable(closer.failure()));
-        QCOMPARE(actual, QByteArray());
+        const ChecksumResult result = ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(original, 0, 12);
+
+        QCOMPARE(result.status, ChecksumResult::Status::Disabled);
+        QCOMPARE(result.message, QString("ROM has all checksums disabled"));
+        // Matches the legacy calculate_checksum()'s `return 0;` on this path:
+        // romData comes back empty rather than the original ROM bytes.
+        QCOMPARE(result.romData, QByteArray());
     }
 
     void densoSh705xDiesel_keepsMatchingRecord()
     {
         const QByteArray original = QByteArray::fromHex("00000004000000085aa5a552");
 
-        const QByteArray actual = ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum(original, 0, 12);
+        const ChecksumResult result = ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(original, 0, 12);
 
-        QCOMPARE(actual, original);
+        QCOMPARE(result.status, ChecksumResult::Status::Unchanged);
+        QCOMPARE(result.romData, original);
     }
 
     void densoSh7xxx_returnsUnchangedForMatchingChecksum()
@@ -158,120 +158,115 @@ class TestChecksumResults : public QObject
     {
         const QByteArray original(0x80000, '\0');
 
-        ExpectedMessageBoxCloser closer;
-        closer.arm("Subaru Hitachi M32R CAN ECU Checksum", "Checksums corrected");
-        const QByteArray actual = ChecksumEcuSubaruHitachiM32rCan::calculate_checksum(original);
-        closer.stop();
-        QVERIFY2(closer.sawExpected(), qPrintable(closer.failure()));
-        compareChangedBytes(original, actual, {{0x7fffa, QByteArray::fromHex("5aa5")}});
+        const ChecksumResult result = ChecksumEcuSubaruHitachiM32rCan::calculate_checksum_result(original);
+        QCOMPARE(result.status, ChecksumResult::Status::Corrected);
+        QCOMPARE(result.message, QString("Subaru Hitachi M32R CAN ECU Checksum"));
+        compareChangedBytes(original, result.romData, {{0x7fffa, QByteArray::fromHex("5aa5")}});
 
-        closer.arm("Subaru Hitachi M32R CAN ECU Checksum", "Checksums corrected");
-        const QByteArray unchanged = ChecksumEcuSubaruHitachiM32rCan::calculate_checksum(actual);
-        closer.stop();
-        QVERIFY2(closer.sawExpected(), qPrintable(closer.failure()));
-        QCOMPARE(unchanged, actual);
+        // Checksum 6's mismatch handling never writes the fix back to romData
+        // (dead code in the algorithm, unchanged by this task), so checksum_ok
+        // stays false forever and a second pass keeps reporting Corrected even
+        // though the bytes have stopped changing. Matches the pre-existing
+        // legacy calculate_checksum() behavior, which only asserted byte
+        // stability across a second pass, not a status transition.
+        const ChecksumResult secondPass = ChecksumEcuSubaruHitachiM32rCan::calculate_checksum_result(result.romData);
+        QCOMPARE(secondPass.status, ChecksumResult::Status::Corrected);
+        QCOMPARE(secondPass.romData, result.romData);
     }
 
     void hitachiM32rKline_balancesZeroRom()
     {
         const QByteArray original(0x80000, '\0');
 
-        ExpectedMessageBoxCloser closer;
-        closer.arm("Subaru Hitachi M32R K-Line ECU Checksum", "Checksums corrected");
-        const QByteArray actual = ChecksumEcuSubaruHitachiM32rKline::calculate_checksum(original);
-        closer.stop();
-        QVERIFY2(closer.sawExpected(), qPrintable(closer.failure()));
-        compareChangedBytes(original, actual, {{0x7fffa, QByteArray::fromHex("5aa5")}});
+        const ChecksumResult result = ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result(original);
+        QCOMPARE(result.status, ChecksumResult::Status::Corrected);
+        QCOMPARE(result.message, QString("Subaru Hitachi M32R K-Line ECU Checksum"));
+        compareChangedBytes(original, result.romData, {{0x7fffa, QByteArray::fromHex("5aa5")}});
 
-        closer.arm("Subaru Hitachi M32R K-Line ECU Checksum", "Checksums corrected");
-        const QByteArray secondPass = ChecksumEcuSubaruHitachiM32rKline::calculate_checksum(actual);
-        closer.stop();
-        QVERIFY2(closer.sawExpected(), qPrintable(closer.failure()));
-        compareChangedBytes(actual, secondPass, {{0x8100, QByteArray::fromHex("ffff")}});
+        const ChecksumResult secondPass = ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result(result.romData);
+        QCOMPARE(secondPass.status, ChecksumResult::Status::Corrected);
+        QCOMPARE(secondPass.message, QString("Subaru Hitachi M32R K-Line ECU Checksum"));
+        compareChangedBytes(result.romData, secondPass.romData, {{0x8100, QByteArray::fromHex("ffff")}});
 
-        const QByteArray unchanged = ChecksumEcuSubaruHitachiM32rKline::calculate_checksum(secondPass);
-        QCOMPARE(unchanged, secondPass);
+        const ChecksumResult unchangedResult = ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result(secondPass.romData);
+        QCOMPARE(unchangedResult.status, ChecksumResult::Status::Unchanged);
+        QCOMPARE(unchangedResult.romData, secondPass.romData);
     }
 
     void hitachiSh7058_balancesZeroRom()
     {
         const QByteArray original(0x100000, '\0');
 
-        ExpectedMessageBoxCloser closer;
-        closer.arm("Subaru Hitachi SH7058 CAN ECU Checksum", "Checksums corrected");
-        const QByteArray actual = ChecksumEcuSubaruHitachiSH7058::calculate_checksum(original);
-        closer.stop();
-        QVERIFY2(closer.sawExpected(), qPrintable(closer.failure()));
-        compareChangedBytes(original, actual,
+        const ChecksumResult result = ChecksumEcuSubaruHitachiSH7058::calculate_checksum_result(original);
+        QCOMPARE(result.status, ChecksumResult::Status::Corrected);
+        QCOMPARE(result.message, QString("Subaru Hitachi SH7058 CAN ECU Checksum"));
+        compareChangedBytes(original, result.romData,
                             {{0xffff0, QByteArray::fromHex("5aa5a55a")},
                              {0xffff4, QByteArray::fromHex("5aa5a55a")},
                              {0xffff8, QByteArray::fromHex("5aa5a55a")}});
 
-        const QByteArray unchanged = ChecksumEcuSubaruHitachiSH7058::calculate_checksum(actual);
-        QCOMPARE(unchanged, actual);
+        const ChecksumResult unchangedResult = ChecksumEcuSubaruHitachiSH7058::calculate_checksum_result(result.romData);
+        QCOMPARE(unchangedResult.status, ChecksumResult::Status::Unchanged);
+        QCOMPARE(unchangedResult.romData, result.romData);
     }
 
     void hitachiSh72543r_balancesZeroRom()
     {
         const QByteArray original(0x200000, '\0');
 
-        ExpectedMessageBoxCloser closer;
-        closer.arm("Subaru Hitachi SH72543r ECU Checksum", "Checksums corrected");
-        const QByteArray actual = ChecksumEcuSubaruHitachiSh72543r::calculate_checksum(original);
-        closer.stop();
-        QVERIFY2(closer.sawExpected(), qPrintable(closer.failure()));
-        compareChangedBytes(original, actual, {{0x1ffffe, QByteArray::fromHex("5aa5")}});
+        const ChecksumResult result = ChecksumEcuSubaruHitachiSh72543r::calculate_checksum_result(original);
+        QCOMPARE(result.status, ChecksumResult::Status::Corrected);
+        QCOMPARE(result.message, QString("Subaru Hitachi SH72543r ECU Checksum"));
+        compareChangedBytes(original, result.romData, {{0x1ffffe, QByteArray::fromHex("5aa5")}});
 
-        const QByteArray unchanged = ChecksumEcuSubaruHitachiSh72543r::calculate_checksum(actual);
-        QCOMPARE(unchanged, actual);
+        const ChecksumResult unchangedResult = ChecksumEcuSubaruHitachiSh72543r::calculate_checksum_result(result.romData);
+        QCOMPARE(unchangedResult.status, ChecksumResult::Status::Unchanged);
+        QCOMPARE(unchangedResult.romData, result.romData);
     }
 
     void mitsuMh8104Tcu_balancesZeroRom()
     {
         const QByteArray original(0x80000, '\0');
 
-        ExpectedMessageBoxCloser closer;
-        closer.arm("Subaru Hitachi M32R K-Line/CAN ECU Checksum", "Checksums corrected");
-        const QByteArray actual = ChecksumTcuMitsuMH8104Can::calculate_checksum(original);
-        closer.stop();
-        QVERIFY2(closer.sawExpected(), qPrintable(closer.failure()));
-        compareChangedBytes(original, actual, {{0x81fc, QByteArray::fromHex("5aa55aa5")}});
+        const ChecksumResult result = ChecksumTcuMitsuMH8104Can::calculate_checksum_result(original);
+        QCOMPARE(result.status, ChecksumResult::Status::Corrected);
+        QCOMPARE(result.message, QString("Subaru Hitachi M32R K-Line/CAN ECU Checksum"));
+        compareChangedBytes(original, result.romData, {{0x81fc, QByteArray::fromHex("5aa55aa5")}});
 
-        const QByteArray unchanged = ChecksumTcuMitsuMH8104Can::calculate_checksum(actual);
-        QCOMPARE(unchanged, actual);
+        const ChecksumResult unchangedResult = ChecksumTcuMitsuMH8104Can::calculate_checksum_result(result.romData);
+        QCOMPARE(unchangedResult.status, ChecksumResult::Status::Unchanged);
+        QCOMPARE(unchangedResult.romData, result.romData);
     }
 
     void densoSh7055Tcu_balancesZeroRom()
     {
         const QByteArray original(0x80000, '\0');
 
-        ExpectedMessageBoxCloser closer;
-        closer.arm("Subaru Denso SH7055 TCU Checksum", "Checksums corrected");
-        const QByteArray actual = ChecksumTcuSubaruDensoSH7055::calculate_checksum(original);
-        closer.stop();
-        QVERIFY2(closer.sawExpected(), qPrintable(closer.failure()));
-        compareChangedBytes(original, actual, {{0x7fff4, QByteArray::fromHex("5aa5")}});
+        const ChecksumResult result = ChecksumTcuSubaruDensoSH7055::calculate_checksum_result(original);
+        QCOMPARE(result.status, ChecksumResult::Status::Corrected);
+        QCOMPARE(result.message, QString("Subaru Denso SH7055 TCU Checksum"));
+        compareChangedBytes(original, result.romData, {{0x7fff4, QByteArray::fromHex("5aa5")}});
 
-        const QByteArray unchanged = ChecksumTcuSubaruDensoSH7055::calculate_checksum(actual);
-        QCOMPARE(unchanged, actual);
+        const ChecksumResult unchangedResult = ChecksumTcuSubaruDensoSH7055::calculate_checksum_result(result.romData);
+        QCOMPARE(unchangedResult.status, ChecksumResult::Status::Unchanged);
+        QCOMPARE(unchangedResult.romData, result.romData);
     }
 
     void hitachiM32rCanTcu_balancesZeroRom()
     {
         const QByteArray original(0x10000, '\0');
 
-        ExpectedMessageBoxCloser closer;
-        closer.arm("Subaru Hitachi M32R K-Line/CAN ECU Checksum", "Checksums corrected");
-        const QByteArray actual = ChecksumTcuSubaruHitachiM32rCan::calculate_checksum(original);
-        closer.stop();
-        QVERIFY2(closer.sawExpected(), qPrintable(closer.failure()));
-        compareChangedBytes(original, actual,
+        const ChecksumResult result = ChecksumTcuSubaruHitachiM32rCan::calculate_checksum_result(original);
+        QCOMPARE(result.status, ChecksumResult::Status::Corrected);
+        QCOMPARE(result.message, QString("Subaru Hitachi M32R K-Line/CAN ECU Checksum"));
+        compareChangedBytes(original, result.romData,
                             {{0x8000, QByteArray::fromHex("a55a5aa6")},
                              {0x8004, QByteArray::fromHex("a55a5aa6")},
                              {0x8020, QByteArray::fromHex("5aa5a55a")}});
 
-        const QByteArray unchanged = ChecksumTcuSubaruHitachiM32rCan::calculate_checksum(actual);
-        QCOMPARE(unchanged, actual);
+        const ChecksumResult unchangedResult = ChecksumTcuSubaruHitachiM32rCan::calculate_checksum_result(result.romData);
+        QCOMPARE(unchangedResult.status, ChecksumResult::Status::Unchanged);
+        QCOMPARE(unchangedResult.romData, result.romData);
     }
 };
 

@@ -52,23 +52,48 @@ void logValidationErrors(const QString& group, const QStringList& errors)
     }
 }
 
-void showChecksumResult(QWidget *parent, const ChecksumResult& result)
+// Handles every checksum outcome except Corrected. Corrected outcomes are
+// collected by the caller into one aggregated dialog raised after every
+// family has run (see FileActions::checksum_correction) instead of popping
+// a dialog per family.
+void showChecksumResult(const ChecksumResult& result)
 {
     switch (result.status)
     {
-    case ChecksumResult::Status::Corrected:
-        QMessageBox::information(parent, QObject::tr("Subaru Denso SH705x Checksum"), result.message);
-        break;
     case ChecksumResult::Status::Disabled:
-        QMessageBox::information(parent, QObject::tr("32-bit checksum"), result.message);
+        QMessageBox::information(nullptr, QObject::tr("32-bit checksum"), result.message);
         break;
     case ChecksumResult::Status::InvalidSize:
     case ChecksumResult::Status::UnsupportedRom:
     case ChecksumResult::Status::ParseError:
-        QMessageBox::warning(parent, QObject::tr("Checksum module"), result.message);
+        QMessageBox::warning(nullptr, QObject::tr("Checksum module"), result.message);
         break;
+    case ChecksumResult::Status::Corrected:
     case ChecksumResult::Status::Unchanged:
         break;
+    }
+}
+
+// Applies a checksum result to ecuCalDef->FullRomData. If the outcome was
+// Corrected, appends the family's display name to *correctedFamilies for the
+// single aggregated dialog raised once every family has run; any other
+// non-Unchanged outcome (Disabled / error) is still surfaced immediately via
+// showChecksumResult since it needs the user's attention on its own.
+void applyChecksumResult(FileActions::EcuCalDefStructure *ecuCalDef,
+                         const ChecksumResult& result,
+                         QStringList *correctedFamilies)
+{
+    if (result.ok())
+    {
+        ecuCalDef->FullRomData = result.romData;
+    }
+    if (result.changed())
+    {
+        correctedFamilies->append(result.message);
+    }
+    else
+    {
+        showChecksumResult(result);
     }
 }
 
@@ -85,18 +110,30 @@ int lineAfterClosingTag(const QStringList& lines, const QString& tagName)
     return -1;
 }
 
-void applyDensoSh7xxxChecksum(QWidget *parent,
-                              FileActions::EcuCalDefStructure *ecuCalDef,
+void applyDensoSh7xxxChecksum(FileActions::EcuCalDefStructure *ecuCalDef,
                               uint32_t checksumAreaStart,
                               uint32_t checksumAreaLength,
+                              QStringList *correctedFamilies,
                               int32_t offset = 0)
 {
     const ChecksumResult result = ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(
         ecuCalDef->FullRomData, checksumAreaStart, checksumAreaLength, offset);
-    showChecksumResult(parent, result);
     if (result.ok())
     {
         ecuCalDef->FullRomData = result.romData;
+    }
+    if (result.changed())
+    {
+        // ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result's message is
+        // body text ("Checksums corrected"), not a family title (this family
+        // predates the title-as-message convention the other result variants
+        // use) - use the same title text the per-family dialog previously
+        // showed for this call site.
+        correctedFamilies->append(QObject::tr("Subaru Denso SH705x Checksum"));
+    }
+    else
+    {
+        showChecksumResult(result);
     }
 }
 
@@ -3149,6 +3186,8 @@ FileActions::EcuCalDefStructure *FileActions::checksum_correction(FileActions::E
         }
     }
 
+    QStringList correctedFamilies;
+
     if (configValues->flash_protocol_selected_checksum == "yes")
     {
         if (configValues->flash_protocol_selected_make == "Subaru")
@@ -3167,52 +3206,57 @@ FileActions::EcuCalDefStructure *FileActions::checksum_correction(FileActions::E
             if (flashMethod.startsWith("sub_ecu_denso_sh7055"))
             {
                 chksumModuleAvailable = true;
-                applyDensoSh7xxxChecksum(this, ecuCalDef, 0x07FB80, 17 * 12);
+                applyDensoSh7xxxChecksum(ecuCalDef, 0x07FB80, 17 * 12, &correctedFamilies);
             }
             else if (flashMethod.startsWith("sub_ecu_denso_sh7058_can_diesel"))
             {
                 chksumModuleAvailable = true;
-                ecuCalDef->FullRomData = ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum(ecuCalDef->FullRomData, 0x0FFB80, 17 * 12);
+                const ChecksumResult result = ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(ecuCalDef->FullRomData, 0x0FFB80, 17 * 12);
+                applyChecksumResult(ecuCalDef, result, &correctedFamilies);
             }
             else if (flashMethod.startsWith("sub_ecu_denso_sh7058s_diesel_densocan"))
             {
                 chksumModuleAvailable = true;
-                ecuCalDef->FullRomData = ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum(ecuCalDef->FullRomData, 0x0FFB80, 17 * 12);
+                const ChecksumResult result = ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(ecuCalDef->FullRomData, 0x0FFB80, 17 * 12);
+                applyChecksumResult(ecuCalDef, result, &correctedFamilies);
             }
             else if (flashMethod.startsWith("sub_ecu_denso_sh7058"))
             {
                 chksumModuleAvailable = true;
-                applyDensoSh7xxxChecksum(this, ecuCalDef, 0x0FFB80, 17 * 12);
+                applyDensoSh7xxxChecksum(ecuCalDef, 0x0FFB80, 17 * 12, &correctedFamilies);
             }
             else if (flashMethod.startsWith("sub_ecu_denso_sh72531_can"))
             {
                 chksumModuleAvailable = true;
-                applyDensoSh7xxxChecksum(this, ecuCalDef, 0x13F500, 17 * 12);
+                applyDensoSh7xxxChecksum(ecuCalDef, 0x13F500, 17 * 12, &correctedFamilies);
             }
             else if (flashMethod.startsWith("sub_ecu_denso_1n83m_4m_can"))
             {
                 chksumModuleAvailable = true;
-                applyDensoSh7xxxChecksum(this, ecuCalDef, 0x3E3E00, 17 * 12, -0x8F9C000);
+                applyDensoSh7xxxChecksum(ecuCalDef, 0x3E3E00, 17 * 12, &correctedFamilies, -0x8F9C000);
             }
             else if (flashMethod.startsWith("sub_ecu_denso_1n83m_1_5m_can"))
             {
                 chksumModuleAvailable = true;
-                applyDensoSh7xxxChecksum(this, ecuCalDef, 0x183E00, 17 * 12, -0x8F9C000);
+                applyDensoSh7xxxChecksum(ecuCalDef, 0x183E00, 17 * 12, &correctedFamilies, -0x8F9C000);
             }
             else if (flashMethod.startsWith("sub_ecu_denso_sh7059_can_diesel"))
             {
                 chksumModuleAvailable = true;
-                ecuCalDef->FullRomData = ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum(ecuCalDef->FullRomData, 0x17FB80, 17 * 12);
+                const ChecksumResult result = ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(ecuCalDef->FullRomData, 0x17FB80, 17 * 12);
+                applyChecksumResult(ecuCalDef, result, &correctedFamilies);
             }
             else if (flashMethod.startsWith("sub_ecu_denso_sh7059_diesel_densocan"))
             {
                 chksumModuleAvailable = true;
-                ecuCalDef->FullRomData = ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum(ecuCalDef->FullRomData, 0x17FB80, 17 * 12);
+                const ChecksumResult result = ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(ecuCalDef->FullRomData, 0x17FB80, 17 * 12);
+                applyChecksumResult(ecuCalDef, result, &correctedFamilies);
             }
             else if (flashMethod.startsWith("sub_ecu_denso_sh72543_can_diesel"))
             {
                 chksumModuleAvailable = true;
-                ecuCalDef->FullRomData = ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum(ecuCalDef->FullRomData, 0x1FF800, 17 * 12);
+                const ChecksumResult result = ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(ecuCalDef->FullRomData, 0x1FF800, 17 * 12);
+                applyChecksumResult(ecuCalDef, result, &correctedFamilies);
             }
             /*
              * Denso TCU
@@ -3220,12 +3264,13 @@ FileActions::EcuCalDefStructure *FileActions::checksum_correction(FileActions::E
             else if (flashMethod.startsWith("sub_tcu_denso_sh7055_can"))
             {
                 chksumModuleAvailable = true;
-                ecuCalDef->FullRomData = ChecksumTcuSubaruDensoSH7055::calculate_checksum(ecuCalDef->FullRomData);
+                const ChecksumResult result = ChecksumTcuSubaruDensoSH7055::calculate_checksum_result(ecuCalDef->FullRomData);
+                applyChecksumResult(ecuCalDef, result, &correctedFamilies);
             }
             else if (flashMethod.startsWith("sub_tcu_denso_sh7058_can"))
             {
                 chksumModuleAvailable = true;
-                applyDensoSh7xxxChecksum(this, ecuCalDef, 0x0FFB80, 17 * 12);
+                applyDensoSh7xxxChecksum(ecuCalDef, 0x0FFB80, 17 * 12, &correctedFamilies);
             }
             /*
              * Hitachi ECU
@@ -3235,31 +3280,37 @@ FileActions::EcuCalDefStructure *FileActions::checksum_correction(FileActions::E
                 chksumModuleAvailable = true;
                 if (ecuCalDef->RomId.startsWith("3"))
                 {
-                    ecuCalDef->FullRomData = ChecksumEcuSubaruHitachiM32rKline::calculate_checksum(ecuCalDef->FullRomData);
+                    const ChecksumResult result = ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result(ecuCalDef->FullRomData);
+                    applyChecksumResult(ecuCalDef, result, &correctedFamilies);
                 }
                 if (ecuCalDef->RomId.startsWith("4"))
                 {
-                    ecuCalDef->FullRomData = ChecksumEcuSubaruHitachiM32rCan::calculate_checksum(ecuCalDef->FullRomData);
+                    const ChecksumResult result = ChecksumEcuSubaruHitachiM32rCan::calculate_checksum_result(ecuCalDef->FullRomData);
+                    applyChecksumResult(ecuCalDef, result, &correctedFamilies);
                 }
                 if (ecuCalDef->RomId.startsWith("6"))
                 {
-                    ecuCalDef->FullRomData = ChecksumEcuSubaruHitachiM32rCan::calculate_checksum(ecuCalDef->FullRomData);
+                    const ChecksumResult result = ChecksumEcuSubaruHitachiM32rCan::calculate_checksum_result(ecuCalDef->FullRomData);
+                    applyChecksumResult(ecuCalDef, result, &correctedFamilies);
                 }
             }
             else if (flashMethod.startsWith("sub_ecu_hitachi_m32r_can"))
             {
                 chksumModuleAvailable = true;
-                ecuCalDef->FullRomData = ChecksumEcuSubaruHitachiM32rCan::calculate_checksum(ecuCalDef->FullRomData);
+                const ChecksumResult result = ChecksumEcuSubaruHitachiM32rCan::calculate_checksum_result(ecuCalDef->FullRomData);
+                applyChecksumResult(ecuCalDef, result, &correctedFamilies);
             }
             else if (flashMethod.startsWith("sub_ecu_hitachi_sh7058_can"))
             {
                 chksumModuleAvailable = true;
-                ecuCalDef->FullRomData = ChecksumEcuSubaruHitachiSH7058::calculate_checksum(ecuCalDef->FullRomData);
+                const ChecksumResult result = ChecksumEcuSubaruHitachiSH7058::calculate_checksum_result(ecuCalDef->FullRomData);
+                applyChecksumResult(ecuCalDef, result, &correctedFamilies);
             }
             else if (flashMethod.startsWith("sub_ecu_hitachi_sh72543r"))
             {
                 chksumModuleAvailable = true;
-                ecuCalDef->FullRomData = ChecksumEcuSubaruHitachiSh72543r::calculate_checksum(ecuCalDef->FullRomData);
+                const ChecksumResult result = ChecksumEcuSubaruHitachiSh72543r::calculate_checksum_result(ecuCalDef->FullRomData);
+                applyChecksumResult(ecuCalDef, result, &correctedFamilies);
             }
             /*
              * Hitachi TCU
@@ -3267,12 +3318,14 @@ FileActions::EcuCalDefStructure *FileActions::checksum_correction(FileActions::E
             else if (flashMethod.startsWith("sub_tcu_hitachi_m32r_can"))
             {
                 chksumModuleAvailable = true;
-                ecuCalDef->FullRomData = ChecksumTcuSubaruHitachiM32rCan::calculate_checksum(ecuCalDef->FullRomData);
+                const ChecksumResult result = ChecksumTcuSubaruHitachiM32rCan::calculate_checksum_result(ecuCalDef->FullRomData);
+                applyChecksumResult(ecuCalDef, result, &correctedFamilies);
             }
             else if (flashMethod.startsWith("sub_tcu_hitachi_m32r_kline"))
             {
                 chksumModuleAvailable = true;
-                ecuCalDef->FullRomData = ChecksumTcuSubaruHitachiM32rCan::calculate_checksum(ecuCalDef->FullRomData);
+                const ChecksumResult result = ChecksumTcuSubaruHitachiM32rCan::calculate_checksum_result(ecuCalDef->FullRomData);
+                applyChecksumResult(ecuCalDef, result, &correctedFamilies);
             }
             /*
              * Mitsu TCU
@@ -3280,7 +3333,8 @@ FileActions::EcuCalDefStructure *FileActions::checksum_correction(FileActions::E
             else if (flashMethod.startsWith("sub_tcu_cvt_mitsu_mh8104_can"))
             {
                 chksumModuleAvailable = true;
-                ecuCalDef->FullRomData = ChecksumTcuMitsuMH8104Can::calculate_checksum(ecuCalDef->FullRomData);
+                const ChecksumResult result = ChecksumTcuMitsuMH8104Can::calculate_checksum_result(ecuCalDef->FullRomData);
+                applyChecksumResult(ecuCalDef, result, &correctedFamilies);
             }
             else
             {
@@ -3288,6 +3342,15 @@ FileActions::EcuCalDefStructure *FileActions::checksum_correction(FileActions::E
             }
         }
     }
+
+    if (!correctedFamilies.isEmpty())
+    {
+        QMessageBox::information(
+            nullptr,
+            QObject::tr("Checksum Correction"),
+            QObject::tr("Checksums corrected:\n\n%1").arg(correctedFamilies.join("\n")));
+    }
+
     if (!chksumModuleAvailable && configValues->flash_protocol_selected_checksum != "no")
     {
         QMessageBox msgBox;

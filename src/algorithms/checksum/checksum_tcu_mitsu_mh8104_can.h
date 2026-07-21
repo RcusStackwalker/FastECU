@@ -1,8 +1,10 @@
 #ifndef CHECKSUM_TCU_MITSU_MH8104_CAN_H
 #define CHECKSUM_TCU_MITSU_MH8104_CAN_H
 
+#include "checksum_result.h"
+
 #include <QDebug>
-#include <QMessageBox>
+#include <QObject>
 
 class ChecksumTcuMitsuMH8104Can
 {
@@ -10,7 +12,7 @@ class ChecksumTcuMitsuMH8104Can
     ChecksumTcuMitsuMH8104Can();
     ~ChecksumTcuMitsuMH8104Can();
 
-    static QByteArray calculate_checksum(QByteArray romData);
+    static ChecksumResult calculate_checksum_result(QByteArray romData);
 
   private:
 };

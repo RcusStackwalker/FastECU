@@ -10,11 +10,6 @@ ChecksumEcuSubaruDensoSH7xxx::~ChecksumEcuSubaruDensoSH7xxx()
 {
 }
 
-QByteArray ChecksumEcuSubaruDensoSH7xxx::calculate_checksum(const QByteArray& romData, uint32_t checksum_area_start, uint32_t checksum_area_length, int32_t offset)
-{
-    return calculate_checksum_result(romData, checksum_area_start, checksum_area_length, offset).romData;
-}
-
 ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(const QByteArray& romData, uint32_t checksum_area_start, uint32_t checksum_area_length, int32_t offset)
 {
     QByteArray checksum_array;
@@ -72,10 +67,6 @@ ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(const QBy
             return result;
         }
 
-        if (checksum_dword_addr_lo_with_offset == 0 && checksum_dword_addr_hi_with_offset == 0 && checksum_diff == 0x5aa5a55a)
-        {
-            // QMessageBox::information(nullptr, QObject::tr("32-bit checksum"), "Checksums disabled");
-        }
         if (checksum_dword_addr_lo_with_offset != 0 && checksum_dword_addr_hi_with_offset != 0 && checksum_diff != 0x5aa5a55a)
         {
             for (uint32_t j = checksum_dword_addr_lo_with_offset; j < checksum_dword_addr_hi_with_offset; j += 4)

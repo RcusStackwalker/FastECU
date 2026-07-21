@@ -9,7 +9,7 @@ ChecksumTcuSubaruHitachiM32rCan::~ChecksumTcuSubaruHitachiM32rCan()
 {
 }
 
-QByteArray ChecksumTcuSubaruHitachiM32rCan::calculate_checksum(QByteArray romData)
+ChecksumResult ChecksumTcuSubaruHitachiM32rCan::calculate_checksum_result(QByteArray romData)
 {
     QByteArray msg;
     uint32_t checksum = 0;
@@ -117,10 +117,16 @@ QByteArray ChecksumTcuSubaruHitachiM32rCan::calculate_checksum(QByteArray romDat
         msg.append(QString("Checksum 2 value after: 0x%1").arg(checksum_2_value_calculated, 8, 16, QLatin1Char('0')).toUtf8());
         qDebug() << msg;
     }
+    ChecksumResult result;
+    result.romData = romData;
     if (!checksum_ok)
     {
-        QMessageBox::information(nullptr, QObject::tr("Subaru Hitachi M32R K-Line/CAN ECU Checksum"), "Checksums corrected");
+        result.status = ChecksumResult::Status::Corrected;
+        result.message = QObject::tr("Subaru Hitachi M32R K-Line/CAN ECU Checksum");
     }
-
-    return romData;
+    else
+    {
+        result.status = ChecksumResult::Status::Unchanged;
+    }
+    return result;
 }

@@ -9,7 +9,7 @@ ChecksumEcuSubaruHitachiSh72543r::~ChecksumEcuSubaruHitachiSh72543r()
 {
 }
 
-QByteArray ChecksumEcuSubaruHitachiSh72543r::calculate_checksum(QByteArray romData)
+ChecksumResult ChecksumEcuSubaruHitachiSh72543r::calculate_checksum_result(QByteArray romData)
 {
     /*******************
      *
@@ -28,6 +28,8 @@ QByteArray ChecksumEcuSubaruHitachiSh72543r::calculate_checksum(QByteArray romDa
     msg.clear();
     msg.append(QString("CHKSUM: 0x%1").arg(chksum, 4, 16, QLatin1Char('0')).toUtf8());
     qDebug() << msg;
+
+    ChecksumResult result;
     if (chksum != 0x5aa5)
     {
         qDebug() << "Checksum mismatch!";
@@ -50,8 +52,13 @@ QByteArray ChecksumEcuSubaruHitachiSh72543r::calculate_checksum(QByteArray romDa
         romData.replace(balance_value_array_start, balance_value_array.length(), balance_value_array);
 
         qDebug() << "Checksums corrected";
-        QMessageBox::information(nullptr, QObject::tr("Subaru Hitachi SH72543r ECU Checksum"), "Checksums corrected");
+        result.status = ChecksumResult::Status::Corrected;
+        result.message = QObject::tr("Subaru Hitachi SH72543r ECU Checksum");
     }
-
-    return romData;
+    else
+    {
+        result.status = ChecksumResult::Status::Unchanged;
+    }
+    result.romData = romData;
+    return result;
 }

@@ -13,7 +13,6 @@ class ChecksumEcuSubaruDensoSH7xxx
     ~ChecksumEcuSubaruDensoSH7xxx();
 
     // Note that offset is added to all addresses
-    static QByteArray calculate_checksum(const QByteArray& romData, uint32_t checksum_area_start, uint32_t checksum_area_length, int32_t offset = 0);
     static ChecksumResult calculate_checksum_result(const QByteArray& romData, uint32_t checksum_area_start, uint32_t checksum_area_length, int32_t offset = 0);
 
   private:

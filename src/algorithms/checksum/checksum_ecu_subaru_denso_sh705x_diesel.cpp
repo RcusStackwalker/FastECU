@@ -9,7 +9,7 @@ ChecksumEcuSubaruDensoSH705xDiesel::~ChecksumEcuSubaruDensoSH705xDiesel()
 {
 }
 
-QByteArray ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum(QByteArray romData, uint32_t checksum_area_start, uint32_t checksum_area_length)
+ChecksumResult ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(QByteArray romData, uint32_t checksum_area_start, uint32_t checksum_area_length)
 {
     QByteArray checksum_array;
 
@@ -39,14 +39,17 @@ QByteArray ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum(QByteArray rom
         if (i == checksum_area_start && checksum_dword_addr_lo == 0 && checksum_dword_addr_hi == 0 && checksum_diff == 0x5aa5a55a)
         {
             qDebug() << "ROM has all checksums disabled";
-            QMessageBox::information(nullptr, QObject::tr("32-bit checksum"), "ROM has all checksums disabled");
-            return 0;
+            ChecksumResult result;
+            result.status = ChecksumResult::Status::Disabled;
+            // Preserves the legacy calculate_checksum() contract: this early-return
+            // path returned QByteArray() (via `return 0;`), so callers that assign
+            // the result straight into FullRomData see it wiped, not the original
+            // ROM bytes. Not changed here — only the dialog is being removed.
+            result.romData = QByteArray();
+            result.message = QObject::tr("ROM has all checksums disabled");
+            return result;
         }
 
-        if (checksum_dword_addr_lo == 0 && checksum_dword_addr_hi == 0 && checksum_diff == 0x5aa5a55a)
-        {
-            // QMessageBox::information(nullptr, QObject::tr("32-bit checksum"), "Checksums disabled");
-        }
         if (checksum_dword_addr_lo != 0 && checksum_dword_addr_hi != 0 && checksum_diff != 0x5aa5a55a)
         {
             for (uint32_t j = checksum_dword_addr_lo; j < checksum_dword_addr_hi; j += 4)
@@ -144,9 +147,16 @@ QByteArray ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum(QByteArray rom
             qDebug() << "SH72543 EURO6 additional checksums corrected";
         }
     }
+    ChecksumResult result;
+    result.romData = romData;
     if (!checksum_ok || !sh72543_checksum_ok)
     {
-        QMessageBox::information(nullptr, QObject::tr("Subaru Denso SH705x Checksum"), "Checksums corrected");
+        result.status = ChecksumResult::Status::Corrected;
+        result.message = QObject::tr("Subaru Denso SH705x Checksum");
     }
-    return romData;
+    else
+    {
+        result.status = ChecksumResult::Status::Unchanged;
+    }
+    return result;
 }
