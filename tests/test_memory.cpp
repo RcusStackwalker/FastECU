@@ -39,7 +39,7 @@ TEST(TestMemory, write_chunks_large_payload)
 
 TEST(TestMemory, read_plan_one_byte_channels)
 {
-    QVector<Channel> ch = planReadChannels(0x8000, 3);
+    std::vector<Channel> ch = planReadChannels(0x8000, 3);
     ASSERT_EQ(ch.size(), 3);
     ASSERT_EQ(ch.at(0).id, std::uint16_t(0x8000));
     ASSERT_EQ(ch.at(0).len, bytes::Byte(1));
@@ -48,7 +48,7 @@ TEST(TestMemory, read_plan_one_byte_channels)
 
 TEST(TestMemory, read_reassembles_values)
 {
-    QVector<std::uint32_t> vals = {0xDE, 0xAD, 0xBE};
+    std::vector<std::uint32_t> vals = {0xDE, 0xAD, 0xBE};
     const bytes::Bytes out = reassembleRead(vals);
     const bytes::Bytes expected = {0xDE, 0xAD, 0xBE};
     ASSERT_TRUE(out == expected);

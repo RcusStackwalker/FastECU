@@ -29,16 +29,17 @@ std::vector<MutDmaFrame> buildWriteFrames(std::uint16_t addr, bytes::ByteView by
     }
     return frames;
 }
-QVector<Channel> planReadChannels(std::uint16_t addr, int len)
+std::vector<Channel> planReadChannels(std::uint16_t addr, int len)
 {
-    QVector<Channel> ch;
+    std::vector<Channel> ch;
+    ch.reserve(len > 0 ? static_cast<std::size_t>(len) : 0);
     for (int i = 0; i < len; ++i)
     {
-        ch.append(Channel{static_cast<std::uint16_t>(addr + i), 1});
+        ch.push_back(Channel{static_cast<std::uint16_t>(addr + i), 1});
     }
     return ch;
 }
-bytes::Bytes reassembleRead(const QVector<std::uint32_t>& values)
+bytes::Bytes reassembleRead(const std::vector<std::uint32_t>& values)
 {
     bytes::Bytes out;
     out.reserve(static_cast<std::size_t>(values.size()));

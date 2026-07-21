@@ -1,5 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "PORTABLE_COPTS", "QT_DEPS")
 
 package(default_visibility = [
     "//src/algorithms:__subpackages__",
@@ -22,13 +23,40 @@ cc_library(
     name = "mut_dma",
     srcs = glob(
         ["*.cpp"],
-        exclude = ["*_test.cpp"],
+        exclude = [
+            "*_test.cpp",
+            "qt_*.cpp",
+        ],
     ),
     hdrs = glob(
         ["*.h"],
-        exclude = ["*_test.h"],
+        exclude = [
+            "*_test.h",
+            "qt_*.h",
+        ],
     ),
+    copts = PORTABLE_COPTS,
+    deps = ["//src/algorithms/protocol"],
+)
+
+# TRANSITIONAL Qt shim: QVector<Channel>/QVector<uint32_t> overloads delegating
+# to :mut_dma, for callers not yet converted (src/backend/protocol/mut_dma_driver
+# and src/ui/desktop's bench memory helpers).
+cc_library(
+    name = "qt_compat",
+    hdrs = ["qt_mut_dma.h"],
     copts = COMMON_COPTS,
     includes = COMMON_INCLUDES,
-    deps = QT_DEPS + ["//src/algorithms/protocol"],
+    deps = QT_DEPS + [":mut_dma"],
+)
+
+cc_test(
+    name = "mut_dma_test",
+    size = "small",
+    srcs = ["mut_dma_test.cpp"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":mut_dma",
+        "@googletest//:gtest_main",
+    ],
 )

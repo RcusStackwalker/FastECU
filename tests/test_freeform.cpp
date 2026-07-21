@@ -30,7 +30,7 @@ TEST(TestFreeform, reqlen_formula)
 
 TEST(TestFreeform, id_list_frame)
 {
-    QVector<Channel> ch = {{0x8000, 2}, {0x8004, 1}}; // N=2
+    std::vector<Channel> ch = {{0x8000, 2}, {0x8004, 1}}; // N=2
     const bytes::Bytes f = buildIdListFrame(0xA1, ch);
     ASSERT_EQ(static_cast<int>(f.size()), reqLen(2)); // ((2+3)>>2)+4+28 = 1+4+28 = 33
     ASSERT_EQ(f[0], bytes::Byte(0xA1));               // rate selector
@@ -49,10 +49,10 @@ TEST(TestFreeform, id_list_frame)
 
 TEST(TestFreeform, decode_stream_values)
 {
-    QVector<Channel> ch = {{0x8000, 2}, {0x8004, 1}, {0x8008, 4}};
+    std::vector<Channel> ch = {{0x8000, 2}, {0x8004, 1}, {0x8008, 4}};
     ASSERT_EQ(responseDataLength(ch), 2 + 1 + 4);                         // 7
     const bytes::Bytes data = {0x12, 0x34, 0x56, 0x89, 0xAB, 0xCD, 0xEF}; // BE per channel
-    QVector<std::uint32_t> v = decodeStreamValues(ch, data);
+    std::vector<std::uint32_t> v = decodeStreamValues(ch, data);
     ASSERT_EQ(v.size(), 3);
     ASSERT_EQ(v.at(0), std::uint32_t(0x1234));
     ASSERT_EQ(v.at(1), std::uint32_t(0x56));
@@ -61,7 +61,7 @@ TEST(TestFreeform, decode_stream_values)
 
 TEST(TestFreeform, decode_stream_values_zeroFillsMissingBytesCompatibility)
 {
-    const QVector<Channel> channels = {{0x8000, 2}, {0x8004, 1}};
-    const QVector<std::uint32_t> values = decodeStreamValues(channels, bytes::Bytes{0x12});
-    ASSERT_EQ(values, QVector<std::uint32_t>({0x12, 0x00}));
+    const std::vector<Channel> channels = {{0x8000, 2}, {0x8004, 1}};
+    const std::vector<std::uint32_t> values = decodeStreamValues(channels, bytes::Bytes{0x12});
+    ASSERT_EQ(values, std::vector<std::uint32_t>({0x12, 0x00}));
 }

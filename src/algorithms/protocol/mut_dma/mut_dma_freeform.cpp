@@ -25,9 +25,9 @@ int reqLen(int channelCount)
 {
     return ((channelCount + 3) >> 2) + channelCount * 2 + 0x1c;
 }
-bytes::Bytes buildIdListFrame(bytes::Byte listCmd, const QVector<Channel>& channels)
+bytes::Bytes buildIdListFrame(bytes::Byte listCmd, const std::vector<Channel>& channels)
 {
-    const int n = channels.size();
+    const int n = static_cast<int>(channels.size());
     const int total = reqLen(n);
     bytes::Bytes f(static_cast<std::size_t>(total), 0);
     f[0] = listCmd;
@@ -49,7 +49,7 @@ bytes::Bytes buildIdListFrame(bytes::Byte listCmd, const QVector<Channel>& chann
     f[total - 1] = TRAILER_STD;
     return f;
 }
-int responseDataLength(const QVector<Channel>& channels)
+int responseDataLength(const std::vector<Channel>& channels)
 {
     int n = 0;
     for (const Channel& c : channels)
@@ -58,9 +58,10 @@ int responseDataLength(const QVector<Channel>& channels)
     }
     return n;
 }
-QVector<std::uint32_t> decodeStreamValues(const QVector<Channel>& channels, bytes::ByteView data)
+std::vector<std::uint32_t> decodeStreamValues(const std::vector<Channel>& channels, bytes::ByteView data)
 {
-    QVector<std::uint32_t> out;
+    std::vector<std::uint32_t> out;
+    out.reserve(channels.size());
     int off = 0;
     for (const Channel& c : channels)
     {
@@ -69,7 +70,7 @@ QVector<std::uint32_t> decodeStreamValues(const QVector<Channel>& channels, byte
         {
             v = (v << 8) | data[static_cast<std::size_t>(off)]; // big-endian
         }
-        out.append(v);
+        out.push_back(v);
     }
     return out;
 }

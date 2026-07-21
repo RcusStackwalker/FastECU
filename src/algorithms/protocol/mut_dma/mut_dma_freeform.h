@@ -2,9 +2,8 @@
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_codec.h"
 
-#include <QVector>
-
 #include <cstdint>
+#include <vector>
 
 namespace mutdma
 {
@@ -22,9 +21,9 @@ int reqLen(int channelCount);
 // Id-list (host reply to ACK-1): [listCmd 0xA1..0xA4][N][2-bit size descriptors,
 // ceil(N/4) bytes, channel i at bits[(3-(i%4))*2]][N x u16 ids big-endian][zero pad]
 // [sum8(0..len-3)][0x0D]. Total length == reqLen(N). listCmd selects the rate slot.
-bytes::Bytes buildIdListFrame(bytes::Byte listCmd, const QVector<Channel>& channels);
+bytes::Bytes buildIdListFrame(bytes::Byte listCmd, const std::vector<Channel>& channels);
 // Sum of element sizes = number of data bytes a stream frame carries for these channels.
-int responseDataLength(const QVector<Channel>& channels);
+int responseDataLength(const std::vector<Channel>& channels);
 // Decode the stream data payload into one big-endian value per channel, in order.
-QVector<std::uint32_t> decodeStreamValues(const QVector<Channel>& channels, bytes::ByteView data);
+std::vector<std::uint32_t> decodeStreamValues(const std::vector<Channel>& channels, bytes::ByteView data);
 } // namespace mutdma

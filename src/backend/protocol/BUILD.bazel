@@ -18,6 +18,6 @@ cc_library(
         "//src/algorithms/protocol",
         "//src/algorithms/protocol:qt_compat",
         "//src/algorithms/protocol/colt",
-        "//src/algorithms/protocol/mut_dma",
+        "//src/algorithms/protocol/mut_dma:qt_compat",
     ],
 )

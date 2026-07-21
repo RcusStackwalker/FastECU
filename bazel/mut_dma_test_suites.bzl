@@ -114,9 +114,12 @@ SUITE_DEPS = {
     # backend/protocol's own dep on it), so it is not declared.
     "test_init": ["//src/backend/protocol"],
     # test_driver.cpp includes mut_dma_codec/freeform/memory.h (mut_dma) AND
-    # mut_dma_driver.h (backend/protocol) directly -- both are real edges.
+    # mut_dma_driver.h (backend/protocol) directly -- both are real edges. It also
+    # includes qt_mut_dma.h to bridge std::vector<Channel> locals into the
+    # still-QVector-based MutDmaDriver API, so it needs the mut_dma Qt shim
+    # (which transitively provides :mut_dma's portable headers too).
     "test_driver": [
-        "//src/algorithms/protocol/mut_dma",
+        "//src/algorithms/protocol/mut_dma:qt_compat",
         "//src/backend/protocol",
     ],
     # test_transport.cpp includes qt_bytes.h (algorithms/protocol root) only

@@ -2,6 +2,7 @@
 #include "ui_mainwindow.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_memory.h"
+#include "src/algorithms/protocol/mut_dma/qt_mut_dma.h"
 
 using namespace mutdma;
 
@@ -529,7 +530,7 @@ QByteArray MainWindow::mut_read_memory(quint16 addr, int len)
     while (off < len)
     {
         int chunk = qMin(40, len - off);
-        QVector<Channel> ch = planReadChannels(quint16(addr + off), chunk);
+        QVector<Channel> ch = planReadChannelsQt(quint16(addr + off), chunk);
         if (!d.startFreeFormLog(ch, 0xA0, 0xA1))
         {
             break;

@@ -75,7 +75,7 @@ qt_cc_library(
         "//src/algorithms/menu:qt_compat",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol:qt_compat",
-        "//src/algorithms/protocol/mut_dma",
+        "//src/algorithms/protocol/mut_dma:qt_compat",
         "//src/backend/definitions",
         "//src/backend/flash",
         "//src/backend/logging",
