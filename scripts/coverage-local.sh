@@ -73,6 +73,22 @@ set -- $llvm_cov
 "$@" show "$primary" $objects \
   -instr-profile="$coverage_root/coverage.profdata" \
   -ignore-filename-regex="$coverage_ignore_regex" \
-  > "$coverage_root/llvm-cov.report"
+  > "$coverage_root/llvm-cov.report.tmp"
+
+# Bazel compiles with `-ffile-compilation-dir=.` for reproducible builds, so
+# the coverage mapping embedded in the binaries carries workspace-relative
+# source paths (e.g. "src/foo.cpp") instead of absolute ones. `llvm-cov show`
+# then prints those relative paths verbatim as each file's section header.
+# SonarCloud's llvm-cov sensor resolves those headers with
+# PathResolver.relativePath(), which expects an absolute path to relativize
+# against sonar.projectBaseDir; fed a relative one, it silently matches no
+# indexed file, so every line reports as uncovered even though the section
+# headers and hit counts are otherwise correct. Rewrite the headers to
+# absolute paths so the sensor can match them.
+awk -v prefix="$repo_root/" '
+  /^[^[:space:]][^:]*\.(c|cc|cpp|cxx|h|hh|hpp):$/ { print prefix $0; next }
+  { print }
+' "$coverage_root/llvm-cov.report.tmp" > "$coverage_root/llvm-cov.report"
+rm -f "$coverage_root/llvm-cov.report.tmp"
 
 cat "$coverage_root/coverage-summary.txt"
