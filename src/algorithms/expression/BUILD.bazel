@@ -1,5 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "PORTABLE_COPTS", "QT_DEPS")
 
 package(default_visibility = [
     "//src/algorithms:__subpackages__",
@@ -20,15 +21,30 @@ exports_files(
 
 cc_library(
     name = "expression",
-    srcs = glob(
-        ["*.cpp"],
-        exclude = ["*_test.cpp"],
-    ),
-    hdrs = glob(
-        ["*.h"],
-        exclude = ["*_test.h"],
-    ),
+    srcs = ["expression_evaluator.cpp"],
+    hdrs = ["expression_evaluator.h"],
+    copts = PORTABLE_COPTS,
+)
+
+# TRANSITIONAL Qt shim: reinstates the pre-conversion ExpressionEvaluator
+# QString/QStringList static-method API for src/backend/definitions
+# (FileActions is not yet converted), delegating to :expression.
+cc_library(
+    name = "qt_compat",
+    srcs = ["qt_expression_evaluator.cpp"],
+    hdrs = ["qt_expression_evaluator.h"],
     copts = COMMON_COPTS,
     includes = COMMON_INCLUDES,
-    deps = QT_DEPS,
+    deps = QT_DEPS + [":expression"],
+)
+
+cc_test(
+    name = "expression_evaluator_test",
+    size = "small",
+    srcs = ["expression_evaluator_test.cpp"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":expression",
+        "@googletest//:gtest_main",
+    ],
 )

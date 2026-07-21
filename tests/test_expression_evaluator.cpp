@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "src/algorithms/expression/expression_evaluator.h"
+#include "src/algorithms/expression/qt_expression_evaluator.h"
 
 TEST(TestExpressionEvaluator, parse_returnsReversePolishTokens)
 {

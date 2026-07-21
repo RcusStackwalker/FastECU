@@ -72,7 +72,7 @@ qt_cc_library(
         "//resources/desktop:icons_resource",
         "//resources/desktop:images_resource",
         "//src/algorithms/crypto",
-        "//src/algorithms/menu",
+        "//src/algorithms/menu:qt_compat",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol:qt_compat",
         "//src/algorithms/protocol/mut_dma",

@@ -52,7 +52,7 @@ qt_cc_library(
         # the original plan's dep list, added after checking the real
         # #include graph (see task-4-report.md).
         "//src/algorithms/diagnostics",
-        "//src/algorithms/expression",
+        "//src/algorithms/expression:qt_compat",
         "//src/backend/flash",
     ],
 )

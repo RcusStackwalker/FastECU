@@ -1,11 +1,12 @@
 #include "src/algorithms/expression/expression_evaluator.h"
 
 #include <cmath>
+#include <cstdio>
 
 namespace
 {
 
-int precedence(const QString& op)
+int precedence(const std::string& op)
 {
     if (op == "*" || op == "/")
     {
@@ -18,35 +19,69 @@ int precedence(const QString& op)
     return 0;
 }
 
-bool shouldPopBefore(const QStringList& operators, const QString& nextOperator)
+bool shouldPopBefore(const std::vector<std::string>& operators, const std::string& nextOperator)
 {
-    return !operators.isEmpty() && operators.last() != "(" && precedence(operators.last()) >= precedence(nextOperator);
+    return !operators.empty() && operators.back() != "(" && precedence(operators.back()) >= precedence(nextOperator);
 }
 
-QString normalizedSingleValue(QString value)
+std::string normalizedSingleValue(std::string value)
 {
-    if (value.startsWith("--"))
+    if (value.rfind("--", 0) == 0)
     {
-        value.remove(0, 2);
+        value.erase(0, 2);
     }
     return value;
 }
 
+double toDouble(const std::string& value)
+{
+    try
+    {
+        size_t consumed = 0;
+        const double result = std::stod(value, &consumed);
+        return result;
+    }
+    catch (const std::exception&)
+    {
+        return 0.0;
+    }
+}
+
+std::string formatNumber(double value, int precision)
+{
+    if (precision < 1)
+    {
+        precision = 1;
+    }
+    std::vector<char> buffer(64);
+    int written = std::snprintf(buffer.data(), buffer.size(), "%.*g", precision, value);
+    if (written < 0)
+    {
+        return "0";
+    }
+    if (static_cast<size_t>(written) >= buffer.size())
+    {
+        buffer.resize(static_cast<size_t>(written) + 1);
+        std::snprintf(buffer.data(), buffer.size(), "%.*g", precision, value);
+    }
+    return std::string(buffer.data());
+}
+
 } // namespace
 
-QStringList ExpressionEvaluator::parse(const QString& expression, const QString& x)
+std::vector<std::string> expression_parse(std::string_view expression, std::string_view x)
 {
-    QStringList numbers;
-    QStringList operators;
+    std::vector<std::string> numbers;
+    std::vector<std::string> operators;
     bool isOperator = true;
 
-    int i = 0;
+    size_t i = 0;
     while (i < expression.length())
     {
-        const QChar ch = expression.at(i);
-        QString number;
+        const char ch = expression[i];
+        std::string number;
 
-        if (ch.isSpace())
+        if (std::isspace(static_cast<unsigned char>(ch)))
         {
             i++;
             continue;
@@ -55,116 +90,122 @@ QStringList ExpressionEvaluator::parse(const QString& expression, const QString&
         if (ch == 'x')
         {
             isOperator = false;
-            numbers.append(x);
+            numbers.emplace_back(x);
         }
-        else if (isOperator && ch == '-' && i + 1 < expression.length() && expression.at(i + 1) == 'x')
+        else if (isOperator && ch == '-' && i + 1 < expression.length() && expression[i + 1] == 'x')
         {
             isOperator = false;
-            numbers.append("-" + x);
+            numbers.push_back(std::string("-") + std::string(x));
             i++;
         }
-        else if (ch.isNumber() || ch == '.' || (isOperator && ch == '-'))
+        else if (std::isdigit(static_cast<unsigned char>(ch)) || ch == '.' || (isOperator && ch == '-'))
         {
             isOperator = false;
-            number.append(ch);
+            number.push_back(ch);
             i++;
-            while (i < expression.length() && (expression.at(i).isNumber() || expression.at(i) == '.'))
+            while (i < expression.length() && (std::isdigit(static_cast<unsigned char>(expression[i])) || expression[i] == '.'))
             {
-                number.append(expression.at(i));
+                number.push_back(expression[i]);
                 i++;
             }
             i--;
-            numbers.append(number);
+            numbers.push_back(number);
         }
         else if (ch == '(')
         {
             isOperator = true;
-            operators.append(ch);
+            operators.emplace_back(1, ch);
         }
         else if (ch == ')')
         {
-            while (!operators.isEmpty() && operators.last() != "(")
+            while (!operators.empty() && operators.back() != "(")
             {
-                numbers.append(operators.takeLast());
+                numbers.push_back(operators.back());
+                operators.pop_back();
             }
 
-            if (!operators.isEmpty())
+            if (!operators.empty())
             {
-                operators.removeLast();
+                operators.pop_back();
             }
         }
         else if (ch == '*' || ch == '/')
         {
             isOperator = true;
-            while (shouldPopBefore(operators, ch))
+            const std::string opStr(1, ch);
+            while (shouldPopBefore(operators, opStr))
             {
-                numbers.append(operators.takeLast());
+                numbers.push_back(operators.back());
+                operators.pop_back();
             }
-            operators.append(ch);
+            operators.push_back(opStr);
         }
         else if (ch == '+' || ch == '-')
         {
             isOperator = true;
-            while (shouldPopBefore(operators, ch))
+            const std::string opStr(1, ch);
+            while (shouldPopBefore(operators, opStr))
             {
-                numbers.append(operators.takeLast());
+                numbers.push_back(operators.back());
+                operators.pop_back();
             }
-            operators.append(ch);
+            operators.push_back(opStr);
         }
         i++;
     }
 
-    while (!operators.isEmpty())
+    while (!operators.empty())
     {
-        numbers.append(operators.takeLast());
+        numbers.push_back(operators.back());
+        operators.pop_back();
     }
 
     return numbers;
 }
 
-double ExpressionEvaluator::evaluate(QStringList expression, int precision)
+double expression_evaluate(std::vector<std::string> expression, int precision)
 {
     double value = 0;
 
-    if (expression.length() == 1)
+    if (expression.size() == 1)
     {
-        value = normalizedSingleValue(expression.at(0)).toDouble();
+        value = toDouble(normalizedSingleValue(expression[0]));
     }
 
-    while (expression.length() > 1)
+    while (expression.size() > 1)
     {
         bool reduced = false;
-        for (int i = 0; i < expression.length(); i++)
+        for (size_t i = 0; i < expression.size(); i++)
         {
             if (i < 2)
             {
                 continue;
             }
 
-            if (expression.at(i) == "-")
+            if (expression[i] == "-")
             {
-                value = expression.at(i - 2).toDouble() - expression.at(i - 1).toDouble();
+                value = toDouble(expression[i - 2]) - toDouble(expression[i - 1]);
             }
-            else if (expression.at(i) == "+")
+            else if (expression[i] == "+")
             {
-                value = expression.at(i - 2).toDouble() + expression.at(i - 1).toDouble();
+                value = toDouble(expression[i - 2]) + toDouble(expression[i - 1]);
             }
-            else if (expression.at(i) == "*")
+            else if (expression[i] == "*")
             {
-                value = expression.at(i - 2).toDouble() * expression.at(i - 1).toDouble();
+                value = toDouble(expression[i - 2]) * toDouble(expression[i - 1]);
             }
-            else if (expression.at(i) == "/")
+            else if (expression[i] == "/")
             {
-                value = expression.at(i - 2).toDouble() / expression.at(i - 1).toDouble();
+                value = toDouble(expression[i - 2]) / toDouble(expression[i - 1]);
             }
             else
             {
                 continue;
             }
 
-            expression.replace(i, QString::number(value, 'g', precision));
-            expression.removeAt(i - 1);
-            expression.removeAt(i - 2);
+            expression[i] = formatNumber(value, precision);
+            expression.erase(expression.begin() + static_cast<long>(i) - 1);
+            expression.erase(expression.begin() + static_cast<long>(i) - 2);
             reduced = true;
             break;
         }
@@ -182,7 +223,7 @@ double ExpressionEvaluator::evaluate(QStringList expression, int precision)
     return value;
 }
 
-double ExpressionEvaluator::evaluate(const QString& expression, const QString& x, int precision)
+double expression_evaluate(std::string_view expression, std::string_view x, int precision)
 {
-    return evaluate(parse(expression, x), precision);
+    return expression_evaluate(expression_parse(expression, x), precision);
 }

@@ -1,6 +1,6 @@
 #include <QtTest>
 
-#include <src/algorithms/menu/menu_command.h>
+#include <src/algorithms/menu/qt_menu_command.h>
 
 #include "test_menu_command.h"
 
@@ -53,14 +53,17 @@ class TestMenuCommand : public QObject
         QFETCH(MenuCommand, command);
 
         QCOMPARE(menu_command_from_id(id), command);
-        QCOMPARE(menu_command_id(command), id);
+        // menu_command_id() now returns std::string (the portable overload);
+        // C++ cannot overload on return type, so the Qt shim exposes the
+        // QString-returning path under a distinct name.
+        QCOMPARE(menu_command_id_qt(command), id);
     }
 
     void unknownIds_returnUnknown()
     {
         QCOMPARE(menu_command_from_id(QStringLiteral("separator")), MenuCommand::Unknown);
         QCOMPARE(menu_command_from_id(QStringLiteral("missing_command")), MenuCommand::Unknown);
-        QVERIFY(menu_command_id(MenuCommand::Unknown).isEmpty());
+        QVERIFY(menu_command_id_qt(MenuCommand::Unknown).isEmpty());
     }
 };
 

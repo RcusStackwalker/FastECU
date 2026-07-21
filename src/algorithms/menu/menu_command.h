@@ -1,7 +1,8 @@
 #ifndef MENU_COMMAND_H
 #define MENU_COMMAND_H
 
-#include <QString>
+#include <string>
+#include <string_view>
 
 enum class MenuCommand
 {
@@ -45,7 +46,7 @@ enum class MenuCommand
     About,
 };
 
-MenuCommand menu_command_from_id(const QString& id);
-QString menu_command_id(MenuCommand command);
+MenuCommand menu_command_from_id(std::string_view id);
+std::string menu_command_id(MenuCommand command);
 
 #endif // MENU_COMMAND_H

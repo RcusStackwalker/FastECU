@@ -1,5 +1,5 @@
 #include "mainwindow.h"
-#include "src/algorithms/menu/menu_command.h"
+#include "src/algorithms/menu/qt_menu_command.h"
 #include "ui_mainwindow.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 

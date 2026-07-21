@@ -132,8 +132,8 @@ SUITE_DEPS = {
     # mitsu_colt_can_cdbg_protocol.h). colt was a phantom edge here.
     "test_cdbg_driver": ["//src/backend/protocol"],
     "test_ssm_protocol": ["//src/algorithms/protocol/ssm:qt_compat"],
-    "test_expression_evaluator": ["//src/algorithms/expression"],
-    "test_menu_command": ["//src/algorithms/menu"],
+    "test_expression_evaluator": ["//src/algorithms/expression:qt_compat"],
+    "test_menu_command": ["//src/algorithms/menu:qt_compat"],
     "test_diagnostic_parsers": ["//src/algorithms/diagnostics"],
     "test_checksum_results": ["//src/algorithms/checksum"],
     "test_logging_worker": ["//src/backend/logging"],
