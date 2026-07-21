@@ -22,7 +22,7 @@ qt_cc_library(
         exclude = MOC_HDRS,
     ),
     deps = QT_DEPS + [
-        "//src/algorithms/protocol/ssm",
+        "//src/algorithms/protocol/ssm:qt_compat",
         # Full :definitions (not :models) because file_actions.h -- part of
         # the moc'd :definitions target, not the header-only :models split
         # -- is included directly; see task-4-report.md.

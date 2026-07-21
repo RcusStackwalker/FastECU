@@ -131,7 +131,7 @@ SUITE_DEPS = {
     # in backend/protocol, NOT algorithms/protocol/colt (a different file:
     # mitsu_colt_can_cdbg_protocol.h). colt was a phantom edge here.
     "test_cdbg_driver": ["//src/backend/protocol"],
-    "test_ssm_protocol": ["//src/algorithms/protocol/ssm"],
+    "test_ssm_protocol": ["//src/algorithms/protocol/ssm:qt_compat"],
     "test_expression_evaluator": ["//src/algorithms/expression"],
     "test_menu_command": ["//src/algorithms/menu"],
     "test_diagnostic_parsers": ["//src/algorithms/diagnostics"],
