@@ -36,13 +36,16 @@ cc_library(
     srcs = [
         "portable_cdbg_logging_protocol.cpp",
         "portable_mut_dma_logging_protocol.cpp",
+        "portable_ssm_logging_protocol.cpp",
     ],
     hdrs = [
         "portable_cdbg_logging_protocol.h",
         "portable_mut_dma_logging_protocol.h",
+        "portable_ssm_logging_protocol.h",
     ],
     copts = PORTABLE_COPTS,
     deps = [
+        "//src/algorithms/protocol/ssm",
         "//src/backend/logging:logging_use_case",
         "//src/backend/protocol",
     ],

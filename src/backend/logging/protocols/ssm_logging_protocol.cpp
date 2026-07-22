@@ -1,183 +1,121 @@
 #include "src/backend/logging/protocols/ssm_logging_protocol.h"
-#include "src/backend/logging/romraider_conversion.h"
-#include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
-#include "src/backend/protocol/transport_legacy_compat.h"
-#include <QHash>
 
-#include <cstddef>
+#include <algorithm>
 #include <cstdint>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include "src/backend/logging/romraider_conversion.h"
+#include "src/backend/protocol/transport_legacy_compat.h"
 
 namespace
 {
-constexpr int kStartTimeoutMs = 1000;
-
-struct SsmLogChannel
+std::vector<fastecu::logging::LoggingChannel> channelsFromLogValues(
+    FileActions::LogValuesStructure *lv, const QString& protocolFilter,
+    QVector<int>& outIndices, QVector<bool>& outEnabled,
+    std::vector<std::size_t>& outResponseOffsets)
 {
-    int logValueIndex = 0;
-    std::size_t responseOffset = 0;
-    std::uint32_t address = 0;
-    std::size_t length = 0;
-    bool enabled = false;
-};
-
-void appendBytes(bytes::Bytes& target, bytes::Bytes chunk)
-{
-    target.insert(target.end(), chunk.begin(), chunk.end());
-}
-
-QVector<SsmLogChannel> channelsFromLogValues(FileActions::LogValuesStructure *lv,
-                                             const QString& protocolFilter)
-{
-    QHash<QString, QVector<int>> logValueIndicesById;
-    logValueIndicesById.reserve(lv->log_value_id.length());
+    std::unordered_map<std::string, std::vector<int>> logValueIndicesById;
+    logValueIndicesById.reserve(
+        static_cast<std::size_t>(lv->log_value_id.length()));
     for (int j = 0; j < lv->log_value_id.length(); ++j)
     {
         if (lv->log_value_protocol.at(j) == protocolFilter)
         {
-            logValueIndicesById[lv->log_value_id.at(j)].append(j);
+            logValueIndicesById[lv->log_value_id.at(j).toStdString()].push_back(j);
         }
     }
 
-    QVector<SsmLogChannel> channels;
-    channels.reserve(lv->lower_panel_log_value_id.length());
+    std::vector<fastecu::logging::LoggingChannel> channels;
+    outIndices.clear();
+    outEnabled.clear();
+    outResponseOffsets.clear();
+    channels.reserve(static_cast<std::size_t>(lv->lower_panel_log_value_id.length()));
     for (int i = 0; i < lv->lower_panel_log_value_id.length(); ++i)
     {
-        const auto it = logValueIndicesById.constFind(lv->lower_panel_log_value_id.at(i));
-        if (it == logValueIndicesById.cend())
+        const auto it = logValueIndicesById.find(
+            lv->lower_panel_log_value_id.at(i).toStdString());
+        if (it == logValueIndicesById.end())
         {
             continue;
         }
 
-        for (int j : it.value())
+        for (int j : it->second)
         {
-            SsmLogChannel channel;
-            channel.logValueIndex = j;
-            channel.responseOffset = static_cast<std::size_t>(i);
-            channel.address = lv->log_value_address.at(j).toUInt(nullptr, 16);
-            channel.length = lv->log_value_length.at(j).toUInt();
-            channel.enabled = lv->log_value_enabled.at(j) == "1";
-            channels.append(channel);
+            channels.push_back(fastecu::logging::LoggingChannel{
+                .id = lv->log_value_id.at(j).toStdString(),
+                .address = lv->log_value_address.at(j).toUInt(nullptr, 16),
+                .length = static_cast<std::size_t>(
+                    lv->log_value_length.at(j).toUInt()),
+                .raw_assembly =
+                    fastecu::logging::RawAssembly::DecimalBytesConcatenated,
+                .from_byte_expression = "x",
+                .unit = "",
+                .decimal_precision = 0,
+            });
+            outIndices.append(j);
+            outEnabled.append(lv->log_value_enabled.at(j) == "1");
+            outResponseOffsets.push_back(static_cast<std::size_t>(i));
         }
     }
     return channels;
 }
-
-bytes::Bytes buildPollRequest(const QVector<SsmLogChannel>& channels)
-{
-    bytes::Bytes output{0xA8, 0x01};
-    output.reserve(output.size() + channels.size() * 3);
-    for (const SsmLogChannel& channel : channels)
-    {
-        bytes::appendU24Be(output, channel.address);
-    }
-    return output;
-}
 } // namespace
 
-SsmLoggingProtocol::SsmLoggingProtocol(fastecu::IClock& clock, std::unique_ptr<ISsmTransport> transport,
-                                       FileActions::LogValuesStructure *logValues, FileActions *fileActions,
-                                       QString logValueProtocolFilter, bool targetIsEcu, bool useOpenport2Adapter)
-    : clock_(clock), transport_(std::move(transport)), logValues_(logValues), fileActions_(fileActions), logValueProtocolFilter_(std::move(logValueProtocolFilter)), targetIsEcu_(targetIsEcu), useOpenport2Adapter_(useOpenport2Adapter)
+SsmLoggingProtocol::SsmLoggingProtocol(
+    fastecu::IClock& clock, std::unique_ptr<ISsmTransport> transport,
+    FileActions::LogValuesStructure *logValues, FileActions *fileActions,
+    QString logValueProtocolFilter, bool targetIsEcu, bool useOpenport2Adapter)
+    : logValues_(logValues), fileActions_(fileActions)
 {
-}
-
-bytes::Bytes SsmLoggingProtocol::buildSsmHeader(bytes::ByteView output) const
-{
-    return SsmProtocol::addHeader(output, 0xF0, targetIsEcu_ ? 0x10 : 0x18);
-}
-
-bytes::Bytes SsmLoggingProtocol::readFramedResponse(int timeoutMs)
-{
-    bytes::Bytes received;
-    const std::uint64_t start = clock_.now_ms();
-
-    if (useOpenport2Adapter_)
-    {
-        return fastecu::transport_legacy_compat::read(*transport_, timeoutMs);
-    }
-
-    while (received.size() < 3 && int(clock_.now_ms() - start) < timeoutMs)
-    {
-        appendBytes(received, fastecu::transport_legacy_compat::read(*transport_, 10));
-    }
-
-    while (received.size() >= 3 && (received[0] != 0x80 || received[1] != 0xf0 || received[2] != 0x10) && int(clock_.now_ms() - start) < timeoutMs)
-    {
-        received.erase(received.begin());
-        appendBytes(received, fastecu::transport_legacy_compat::read(*transport_, 10));
-    }
-
-    int remaining = timeoutMs - int(clock_.now_ms() - start);
-    if (remaining > 0)
-    {
-        appendBytes(received, fastecu::transport_legacy_compat::read(*transport_, remaining));
-    }
-
-    return received;
+    std::vector<std::size_t> responseOffsets;
+    auto channels = channelsFromLogValues(
+        logValues_, logValueProtocolFilter, channelLogValueIndex_, channelEnabled_,
+        responseOffsets);
+    core_ = std::make_unique<fastecu::logging::SsmLoggingProtocol>(
+        clock, std::move(transport), std::move(channels),
+        std::move(responseOffsets), targetIsEcu, useOpenport2Adapter);
 }
 
 fastecu::Status SsmLoggingProtocol::start()
 {
-    if (!transport_->isOpen())
-    {
-        return fastecu::fail(fastecu::ErrorKind::Disconnected, "adapter disconnected");
-    }
-
-    const bytes::Bytes output{0xA8, 0x00, 0x00, 0x00, 0x07};
-    fastecu::transport_legacy_compat::write(*transport_, buildSsmHeader(output));
-
-    const bytes::Bytes received = readFramedResponse(kStartTimeoutMs);
-    if (received.size() <= 6 || received[4] != 0xe8)
-    {
-        return fastecu::fail(fastecu::ErrorKind::BadResponse, "no response to logging start request");
-    }
-    return {};
+    return core_->start(
+        fastecu::transport_legacy_compat::detail::never_cancelled());
 }
 
 fastecu::Result<PollData> SsmLoggingProtocol::poll(int timeoutMs)
 {
-    if (!transport_->isOpen())
+    auto result = core_->poll(
+        timeoutMs, fastecu::transport_legacy_compat::detail::never_cancelled());
+    if (!result)
     {
-        return fastecu::fail(fastecu::ErrorKind::Disconnected, "adapter disconnected");
+        return std::unexpected(result.error());
     }
-
-    const QVector<SsmLogChannel> channels = channelsFromLogValues(logValues_, logValueProtocolFilter_);
-    fastecu::transport_legacy_compat::write(*transport_, buildSsmHeader(buildPollRequest(channels)));
-
-    const bytes::Bytes received = readFramedResponse(timeoutMs);
-    if (received.size() <= 6 || received[4] != 0xe8)
-    {
-        return PollData{false, {}};
-    }
-
-    const std::size_t payloadOffset = 5;
-    const std::size_t payloadLength = received.size() - payloadOffset - 1;
 
     PollData data;
-    data.responded = true;
-    for (const SsmLogChannel& channel : channels)
+    data.responded = result->responded;
+    const auto sampleCount = std::min(
+        result->samples.size(),
+        static_cast<std::size_t>(channelLogValueIndex_.size()));
+    for (std::size_t i = 0; i < sampleCount; ++i)
     {
-        const std::size_t channelOffset = channel.responseOffset;
-        if (!channel.enabled || channelOffset >= payloadLength)
+        const auto qtIndex = static_cast<qsizetype>(i);
+        if (!channelEnabled_.at(qtIndex))
         {
             continue;
         }
-
-        QString value;
-        for (std::size_t k = 0; k < channel.length && channelOffset + k < payloadLength; ++k)
-        {
-            value.append(QString::number(received[payloadOffset + channelOffset + k]));
-        }
-
-        QString calc_value = convertRomRaiderValue(fileActions_, logValues_, channel.logValueIndex, value);
-        data.samples.append(LogSample{channel.logValueIndex, calc_value});
+        const int j = channelLogValueIndex_.at(qtIndex);
+        const QString value = QString::fromStdString(result->samples[i].raw_value);
+        const QString calcValue =
+            convertRomRaiderValue(fileActions_, logValues_, j, value);
+        data.samples.append(LogSample{j, calcValue});
     }
-
     return data;
 }
 
 void SsmLoggingProtocol::stop()
 {
-    // No explicit "stop logging" wire command in the original protocol; the ECU
-    // simply stops being polled once this object is destroyed.
+    (void)core_->stop();
 }

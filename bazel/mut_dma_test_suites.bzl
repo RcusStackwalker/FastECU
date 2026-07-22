@@ -57,6 +57,7 @@ MUT_DMA_GTEST_SUITES = [
     "test_mitsu_colt_can_cdbg_protocol",
     "test_mitsu_colt_can_protocol",
     "test_mitsu_colt_can_vendor_ext_protocol",
+    "test_ssm_logging_protocol",
     "test_ssm_protocol",
     "test_transport",
 ]
@@ -68,6 +69,8 @@ MUT_DMA_PORTABLE_GTEST_SUITES = [
     "test_cdbg_logging_protocol",
     "test_driver",
     "test_mut_dma_logging_protocol",
+    "test_ssm_logging_protocol",
+    "test_transport",
 ]
 
 _MUT_DMA_GTEST_HELPER_HDRS = {
@@ -85,6 +88,7 @@ _MUT_DMA_GTEST_HELPER_HDRS = {
     ],
     "test_init": ["scripted_kline_transport.h"],
     "test_mut_dma_logging_protocol": ["scripted_kline_transport.h"],
+    "test_ssm_logging_protocol": ["scripted_ssm_transport.h"],
     "test_transport": [
         "byte_test_utils.h",
         "scripted_can_transport.h",
@@ -109,7 +113,6 @@ _NEEDS_OFFSCREEN_QT_PLATFORM = [
     "test_flash_operation_worker",
     "test_rom_transformations",
     "test_romraider_conversion",
-    "test_ssm_logging_protocol",
 ]
 
 # Each suite depends only on the packages it includes. Derived from the
@@ -136,12 +139,8 @@ SUITE_DEPS = {
         "//src/algorithms/protocol/mut_dma",
         "//src/backend/protocol",
     ],
-    # The K-Line/CAN scripted helpers are portable. The shared SSM helper remains
-    # Qt-based until SSM's later conversion and therefore keeps an explicit shim.
-    "test_transport": [
-        "//src/algorithms/protocol:qt_compat",
-        "//src/backend/protocol",
-    ],
+    # All three scripted transport helpers use bytes::Bytes and are portable.
+    "test_transport": ["//src/backend/protocol"],
     # These three include qt_colt.h (the Qt shim) alongside the portable
     # header, since the tests exercise both the bytes::-native functions and
     # the QByteArray/QVector overloads (Task 8).
@@ -164,7 +163,7 @@ SUITE_DEPS = {
     # These three include a src/backend/logging/protocols/*.h header directly
     # (a subpackage of backend/logging, not the same label) -- backend/logging
     # alone doesn't expose it.
-    "test_ssm_logging_protocol": ["//src/backend/logging/protocols"],
+    "test_ssm_logging_protocol": ["//src/backend/logging/protocols:portable_protocols"],
     "test_mut_dma_logging_protocol": ["//src/backend/logging/protocols:portable_protocols"],
     "test_cdbg_logging_protocol": ["//src/backend/logging/protocols:portable_protocols"],
     "test_flash_operation_worker": ["//src/backend/flash"],
