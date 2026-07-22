@@ -20,12 +20,12 @@ jobs:
     outputs:
       tag: ${{ steps.bump.outputs.next-version }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
       - id: bump
-        uses: tomtom-international/commisery-action/bump@f88e8737a52bfbe4b20225399da697acdda5035d # v7.0.0
+        uses: tomtom-international/commisery-action/bump@1910dece6192da25e159477b7de11ec1b722eefc # v8.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           create-release: true
@@ -39,7 +39,7 @@ jobs:
         os: [windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.release.outputs.tag }}
 
@@ -120,14 +120,14 @@ jobs:
 
       - name: Upload release asset (Windows)
         if: runner.os == 'Windows'
-        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
+        uses: softprops/action-gh-release@fe965f7af51af5f2602596916f38a38df2e33de0 # v3.0.2
         with:
           tag_name: ${{ needs.release.outputs.tag }}
           files: FastECU-${{ needs.release.outputs.tag }}-windows.zip
 
       - name: Upload release asset (macOS)
         if: runner.os == 'macOS'
-        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
+        uses: softprops/action-gh-release@fe965f7af51af5f2602596916f38a38df2e33de0 # v3.0.2
         with:
           tag_name: ${{ needs.release.outputs.tag }}
           files: FastECU-${{ needs.release.outputs.tag }}-macos.zip
