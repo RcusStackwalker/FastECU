@@ -68,15 +68,18 @@ jobs:
         run: |
           scripts/coverage-local.sh
 
-      - name: Check coverage ratchet
-        run: |
-          scripts/check-coverage-ratchet.sh coverage/coverage-summary.txt docs/coverage-baseline.txt
-
       - name: SonarCloud scan
+        id: sonarcloud
         uses: SonarSource/sonarqube-scan-action@v7
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check SonarCloud Quality Gate
+        uses: SonarSource/sonarqube-quality-gate-action@cf038b0e0cdecfa9e56c198bbb7d21d751d62c3b # v1.2.0
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   bazel:
     name: Bazel (${{ matrix.os }})

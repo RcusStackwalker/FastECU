@@ -42,18 +42,21 @@ Observed on 2026-07-18:
 
 ### P0: Make coverage results trustworthy
 
-The coverage command and CI ratchet exist, but they do not yet provide a tight,
-failure-sensitive signal:
+Coverage gating now happens once, via the SonarCloud Quality Gate: `pr.yml`
+runs `scripts/coverage-local.sh`, imports `coverage/llvm-cov.report` into the
+SonarCloud scan, and the `Check SonarCloud Quality Gate` step fails the job
+when the gate (including the new-code coverage condition) is not `OK`. The
+previously separate `scripts/check-coverage-ratchet.sh` /
+`docs/coverage-baseline.txt` overall-coverage ratchet has been removed — it
+duplicated this signal with a stale qmake-era baseline (25.17% line coverage)
+that predated the Bazel source reorganization and didn't actually block merges.
 
-- `docs/coverage-baseline.txt` records the original qmake-era 25.17% line
-  baseline (2,399 covered of 9,531 measured lines). Bazel now builds a broader
-  and different set of test binaries, so the stored baseline is no longer a
-  current measurement of the configured graph.
+Remaining gaps:
+
 - `scripts/coverage-local.sh` suppresses failures from the Bazel build, target
   query, and every test binary with `|| true`. Coverage can therefore be
-  generated and pass the ratchet even when a test or part of the build failed.
-- The ratchet checks only aggregate covered lines. It does not protect ownership
-  areas or changed code, and the stale baseline leaves avoidable slack.
+  generated (and the Quality Gate can pass) even when a test or part of the
+  build failed.
 - `serial_backend_tests` still has an intermittent Windows-only crash under
   investigation. That flake should be isolated explicitly rather than used as
   a reason to ignore unrelated coverage-test failures.
@@ -66,12 +69,6 @@ Actions:
 - Resolve or explicitly quarantine the intermittent serial backend test with a
   separate visible CI result and an owner; do not silently discard its exit
   status.
-- Regenerate and commit the baseline from a clean Bazel coverage run only after
-  the command is failure-sensitive.
-- Add ratchets by ownership area, starting with definition parsing, checksums,
-  calibration/map editing, flash orchestration, serial, logging, and protocol
-  helpers. Add changed-code coverage when the report format can support it
-  reliably.
 - Keep exclusions explicit and reviewed: tests, generated Qt files, vendored
   `src/ui/desktop/hexedit/`, Bazel/external outputs, system libraries, and platform SDKs.
 
