@@ -6,12 +6,12 @@ build --incompatible_default_to_explicit_init_py
 # see https://github.com/bazelbuild/rules_cc/issues/591
 build --features=-default_cpp_std
 
-build:linux --cxxopt=-std=c++20
-build:linux --host_cxxopt=-std=c++20
-build:macos --cxxopt=-std=c++20
-build:macos --host_cxxopt=-std=c++20
-build:windows --cxxopt=/std:c++20
-build:windows --host_cxxopt=/std:c++20
+build:linux --cxxopt=-std=c++23
+build:linux --host_cxxopt=-std=c++23
+build:macos --cxxopt=-std=c++23
+build:macos --host_cxxopt=-std=c++23
+build:windows --cxxopt=/std:c++23
+build:windows --host_cxxopt=/std:c++23
 build:windows --cxxopt=/Zc:__cplusplus
 build:windows --host_cxxopt=/Zc:__cplusplus
 
