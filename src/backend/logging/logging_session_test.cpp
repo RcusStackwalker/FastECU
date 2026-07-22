@@ -73,6 +73,26 @@ TEST(LoggingSessionTest, RejectsInvalidChannelShape)
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::InvalidConfig);
 }
 
+TEST(LoggingSessionTest, RejectsInvalidChannelIdentityAndAssembly)
+{
+    auto c = channel("", 0x10);
+    auto empty_id = make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy());
+    ASSERT_FALSE(empty_id);
+    EXPECT_EQ(empty_id.error().kind, fastecu::ErrorKind::InvalidConfig);
+
+    c = channel("rpm", 0x10);
+    c.length = 256;
+    auto excessive_length = make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy());
+    ASSERT_FALSE(excessive_length);
+    EXPECT_EQ(excessive_length.error().kind, fastecu::ErrorKind::InvalidConfig);
+
+    c = channel("rpm", 0x10);
+    c.raw_assembly = static_cast<RawAssembly>(99);
+    auto invalid_assembly = make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy());
+    ASSERT_FALSE(invalid_assembly);
+    EXPECT_EQ(invalid_assembly.error().kind, fastecu::ErrorKind::InvalidConfig);
+}
+
 TEST(LoggingSessionTest, RejectsOutOfRangeProtocolAddresses)
 {
     auto c = channel("rpm", 0x1000000);
@@ -103,6 +123,20 @@ TEST(LoggingSessionTest, RejectsInvalidConversionConfiguration)
     c.decimal_precision = 16;
     auto excessive_precision = make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy());
     ASSERT_FALSE(excessive_precision);
+}
+
+TEST(LoggingSessionTest, RejectsExpressionsWithoutFiniteEvaluation)
+{
+    auto c = channel("rpm", 0x10);
+    c.from_byte_expression = "x/0";
+    auto division_by_zero = make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy());
+    ASSERT_FALSE(division_by_zero);
+    EXPECT_EQ(division_by_zero.error().kind, fastecu::ErrorKind::InvalidConfig);
+
+    c.from_byte_expression = "0/0";
+    auto indeterminate = make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy());
+    ASSERT_FALSE(indeterminate);
+    EXPECT_EQ(indeterminate.error().kind, fastecu::ErrorKind::InvalidConfig);
 }
 
 TEST(LoggingSessionTest, RequiresAtLeastOneCdbgChannel)

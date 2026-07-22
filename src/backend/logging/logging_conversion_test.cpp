@@ -72,3 +72,14 @@ TEST(LoggingConversionTest, PreservesProtocolRawValueWithoutReassembly)
     EXPECT_EQ(result->raw_value, "0012");
     EXPECT_DOUBLE_EQ(result->numeric_value, 12.0);
 }
+
+TEST(LoggingConversionTest, RejectsNonFiniteConvertedValues)
+{
+    auto c = channel("rpm", 0x10);
+    c.from_byte_expression = "x/(x-1)";
+    auto session = make_session_with_channel(c);
+
+    auto result = convert_sample(session, ProtocolSample{"rpm", "1"});
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Internal);
+}

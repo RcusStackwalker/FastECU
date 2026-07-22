@@ -1,7 +1,9 @@
 #include "src/backend/logging/logging_session.h"
 
+#include <array>
 #include <cctype>
 #include <cmath>
+#include <string>
 #include <string_view>
 #include <unordered_set>
 #include <utility>
@@ -21,7 +23,8 @@ class ExpressionValidator
     bool valid()
     {
         skip_spaces();
-        if (!parse_expression())
+        const ParsedValue value = parse_expression();
+        if (!value.valid)
         {
             return false;
         }
@@ -30,60 +33,117 @@ class ExpressionValidator
     }
 
   private:
-    bool parse_expression()
+    struct ParsedValue
     {
-        if (!parse_term())
+        bool valid = false;
+        bool depends_on_x = false;
+        double value = 0.0;
+    };
+
+    ParsedValue parse_expression()
+    {
+        ParsedValue left = parse_term();
+        if (!left.valid)
         {
-            return false;
+            return {};
         }
-        while (consume('+') || consume('-'))
+        while (true)
         {
-            if (!parse_term())
+            char operation = '\0';
+            if (consume('+'))
             {
-                return false;
+                operation = '+';
+            }
+            else if (consume('-'))
+            {
+                operation = '-';
+            }
+            else
+            {
+                return left;
+            }
+
+            ParsedValue right = parse_term();
+            if (!right.valid)
+            {
+                return {};
+            }
+            left = combine(left, right, operation);
+            if (!left.valid)
+            {
+                return {};
             }
         }
-        return true;
     }
 
-    bool parse_term()
+    ParsedValue parse_term()
     {
-        if (!parse_factor())
+        ParsedValue left = parse_factor();
+        if (!left.valid)
         {
-            return false;
+            return {};
         }
-        while (consume('*') || consume('/'))
+        while (true)
         {
-            if (!parse_factor())
+            char operation = '\0';
+            if (consume('*'))
             {
-                return false;
+                operation = '*';
+            }
+            else if (consume('/'))
+            {
+                operation = '/';
+            }
+            else
+            {
+                return left;
+            }
+
+            ParsedValue right = parse_factor();
+            if (!right.valid)
+            {
+                return {};
+            }
+            left = combine(left, right, operation);
+            if (!left.valid)
+            {
+                return {};
             }
         }
-        return true;
     }
 
-    bool parse_factor()
+    ParsedValue parse_factor()
     {
         if (consume('-'))
         {
-            return consume('x') || parse_number();
+            if (consume('x'))
+            {
+                return {.valid = true, .depends_on_x = true};
+            }
+            ParsedValue number = parse_number();
+            if (number.valid)
+            {
+                number.value = -number.value;
+            }
+            return number;
         }
         if (consume('x'))
         {
-            return true;
+            return {.valid = true, .depends_on_x = true};
         }
         if (consume('('))
         {
-            if (!parse_expression() || !consume(')'))
+            ParsedValue nested = parse_expression();
+            if (!nested.valid || !consume(')'))
             {
-                return false;
+                return {};
             }
-            return true;
+            return nested;
         }
         return parse_number();
     }
 
-    bool parse_number()
+    ParsedValue parse_number()
     {
         skip_spaces();
         const std::size_t start = position_;
@@ -107,7 +167,50 @@ class ExpressionValidator
                 break;
             }
         }
-        return saw_digit && position_ != start;
+        if (!saw_digit || position_ == start)
+        {
+            return {};
+        }
+        try
+        {
+            const double value = std::stod(std::string(expression_.substr(start, position_ - start)));
+            return std::isfinite(value) ? ParsedValue{.valid = true, .value = value} : ParsedValue{};
+        }
+        catch (const std::exception&)
+        {
+            return {};
+        }
+    }
+
+    ParsedValue combine(ParsedValue left, ParsedValue right, char operation) const
+    {
+        if (operation == '/' && !right.depends_on_x && right.value == 0.0)
+        {
+            return {};
+        }
+        if (left.depends_on_x || right.depends_on_x)
+        {
+            return {.valid = true, .depends_on_x = true};
+        }
+
+        switch (operation)
+        {
+        case '+':
+            left.value += right.value;
+            break;
+        case '-':
+            left.value -= right.value;
+            break;
+        case '*':
+            left.value *= right.value;
+            break;
+        case '/':
+            left.value /= right.value;
+            break;
+        default:
+            return {};
+        }
+        return std::isfinite(left.value) ? left : ParsedValue{};
     }
 
     bool consume(char expected)
@@ -141,8 +244,16 @@ bool valid_expression(const LoggingChannel& channel)
     {
         return false;
     }
-    return std::isfinite(expression_evaluate(
-        channel.from_byte_expression, "0", static_cast<int>(channel.decimal_precision)));
+    constexpr std::array<std::string_view, 3> probes{"1", "16", "1616"};
+    for (std::string_view probe : probes)
+    {
+        if (std::isfinite(expression_evaluate(
+                channel.from_byte_expression, probe, static_cast<int>(channel.decimal_precision))))
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool valid_address(LoggingProtocolId protocol, std::uint32_t address)
