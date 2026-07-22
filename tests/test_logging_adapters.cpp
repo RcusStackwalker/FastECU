@@ -157,6 +157,30 @@ TEST(DesktopLoggingSnapshotAdapterTest, SsmRetainsDisabledOffsetsButDoesNotUpdat
     EXPECT_EQ(values.log_value.at(1), QStringLiteral("2.00"));
 }
 
+TEST(DesktopLoggingValueAdapterTest, DisabledSsmSampleRejectsMutatedSnapshotRow)
+{
+    FileActions::LogValuesStructure values;
+    append_value(values, QStringLiteral("ssm-disabled"), QStringLiteral("CAR_SSM"), QStringLiteral("0"));
+    append_value(values, QStringLiteral("ssm-enabled"), QStringLiteral("CAR_SSM"), QStringLiteral("1"));
+    values.lower_panel_log_value_id = {
+        QStringLiteral("ssm-disabled"),
+        QStringLiteral("ssm-enabled"),
+    };
+    const auto snapshot = desktop_logging::make_desktop_logging_snapshot(
+        values, portable_logging::LoggingProtocolId::Ssm, QStringLiteral("CAR_SSM"), valid_policy());
+    ASSERT_TRUE(snapshot.has_value());
+
+    values.log_value_id.replace(0, QStringLiteral("reordered-other-row"));
+    const portable_logging::LogSample sample{
+        .channel_id = "ssm-disabled", .numeric_value = 1.0, .raw_value = "1", .unit = "rpm"};
+    const auto status = desktop_logging::apply_log_sample(*snapshot, sample, values);
+
+    ASSERT_FALSE(status.has_value());
+    EXPECT_EQ(status.error().kind, fastecu::ErrorKind::Internal);
+    EXPECT_EQ(values.log_value.at(0), QStringLiteral("unchanged- ssm-disabled"));
+    EXPECT_EQ(values.log_value.at(1), QStringLiteral("unchanged- ssm-enabled"));
+}
+
 TEST(DesktopLoggingSnapshotAdapterTest, RejectsDuplicateStableIds)
 {
     FileActions::LogValuesStructure values = reordered_log_values();

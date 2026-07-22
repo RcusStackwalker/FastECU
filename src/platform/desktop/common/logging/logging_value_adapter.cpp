@@ -26,17 +26,17 @@ fastecu::Status apply_log_sample(const DesktopLoggingSnapshot& snapshot,
                              "logging snapshot map and session disagree");
     }
 
-    if (!snapshot.enabled_ids.contains(sample.channel_id))
-    {
-        return {};
-    }
-
     const int row = legacy_index->second;
     if (row < 0 || row >= log_values.log_value.size() || row >= log_values.log_value_id.size() ||
         log_values.log_value_id.at(row).toStdString() != sample.channel_id)
     {
         return fastecu::fail(fastecu::ErrorKind::Internal,
                              "legacy logging values no longer match the desktop snapshot");
+    }
+
+    if (!snapshot.enabled_ids.contains(sample.channel_id))
+    {
+        return {};
     }
 
     log_values.log_value.replace(row,
