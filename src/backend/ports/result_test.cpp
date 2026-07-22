@@ -35,6 +35,10 @@ TEST(Status, VoidSuccessAndFailure)
 TEST(ErrorKind, StableSpellings)
 {
     EXPECT_STREQ(fastecu::to_string(ErrorKind::InvalidConfig), "InvalidConfig");
+    EXPECT_STREQ(fastecu::to_string(ErrorKind::Timeout), "Timeout");
+    EXPECT_STREQ(fastecu::to_string(ErrorKind::Disconnected), "Disconnected");
     EXPECT_STREQ(fastecu::to_string(ErrorKind::BadResponse), "BadResponse");
     EXPECT_STREQ(fastecu::to_string(ErrorKind::Cancelled), "Cancelled");
+    EXPECT_STREQ(fastecu::to_string(ErrorKind::Unsupported), "Unsupported");
+    EXPECT_STREQ(fastecu::to_string(ErrorKind::Internal), "Internal");
 }
