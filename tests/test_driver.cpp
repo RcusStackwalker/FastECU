@@ -14,9 +14,10 @@ namespace
 class FailingInit : public mutdma::IMutDmaInit
 {
   public:
-    bool wake(mutdma::IKlineTransport&) override
+    fastecu::Status wake(mutdma::IKlineTransport&) override
     {
-        return false;
+        return fastecu::fail(fastecu::ErrorKind::BadResponse,
+                             "sentinel init wake failure");
     }
 };
 
@@ -101,7 +102,82 @@ TEST(TestDriver, handshake_fails_on_wake_failure)
     const auto result = d.startFreeFormLog(ch, 0xA0, 0xA1, cancellation);
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::BadResponse);
+    EXPECT_EQ(result.error().detail, "sentinel init wake failure");
     ASSERT_FALSE(d.isStreaming());
+}
+
+TEST(TestDriver, start_propagates_disconnected_set_baud_error_kind_and_detail)
+{
+    const std::vector<Channel> channels = {{0x8000, 2}};
+    ScriptedKlineTransport transport;
+    transport.queue_set_baud_error(fastecu::ErrorKind::Disconnected,
+                                   "sentinel set-baud disconnect");
+    AlreadyInMode init(125000);
+    MutDmaDriver driver(transport, init);
+    NeverCancelled cancellation;
+
+    const auto result = driver.startFreeFormLog(
+        channels, 0xA0, 0xA1, cancellation);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
+    EXPECT_EQ(result.error().detail, "sentinel set-baud disconnect");
+}
+
+TEST(TestDriver, start_propagates_internal_set_baud_error_kind_and_detail)
+{
+    const std::vector<Channel> channels = {{0x8000, 2}};
+    ScriptedKlineTransport transport;
+    transport.queue_set_baud_error(fastecu::ErrorKind::Internal,
+                                   "sentinel set-baud internal");
+    AlreadyInMode init(125000);
+    MutDmaDriver driver(transport, init);
+    NeverCancelled cancellation;
+
+    const auto result = driver.startFreeFormLog(
+        channels, 0xA0, 0xA1, cancellation);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Internal);
+    EXPECT_EQ(result.error().detail, "sentinel set-baud internal");
+}
+
+TEST(TestDriver, start_propagates_queued_write_error_kind_and_detail)
+{
+    const std::vector<Channel> channels = {{0x8000, 2}};
+    ScriptedKlineTransport transport;
+    transport.expectWrite(buildSetupFrame(0xA0, 1));
+    transport.queue_write_error(fastecu::ErrorKind::Disconnected,
+                                "sentinel setup write disconnect");
+    AlreadyInMode init(125000);
+    MutDmaDriver driver(transport, init);
+    NeverCancelled cancellation;
+
+    const auto result = driver.startFreeFormLog(
+        channels, 0xA0, 0xA1, cancellation);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
+    EXPECT_EQ(result.error().detail, "sentinel setup write disconnect");
+}
+
+TEST(TestDriver, start_propagates_queued_read_error_kind_and_detail)
+{
+    const std::vector<Channel> channels = {{0x8000, 2}};
+    ScriptedKlineTransport transport;
+    transport.expectWrite(buildSetupFrame(0xA0, 1));
+    transport.queue_error(fastecu::ErrorKind::Internal,
+                          "sentinel setup read internal");
+    AlreadyInMode init(125000);
+    MutDmaDriver driver(transport, init);
+    NeverCancelled cancellation;
+
+    const auto result = driver.startFreeFormLog(
+        channels, 0xA0, 0xA1, cancellation);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Internal);
+    EXPECT_EQ(result.error().detail, "sentinel setup read internal");
 }
 
 TEST(TestDriver, handshake_fails_on_bad_ack)

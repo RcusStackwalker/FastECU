@@ -27,9 +27,18 @@ class ScriptedKlineTransport : public IKlineTransport
     {
         reads_.emplace_back(fastecu::fail(kind, std::move(detail)));
     }
+    void queue_set_baud_error(fastecu::ErrorKind kind, std::string detail = {})
+    {
+        set_baud_results_.emplace_back(fastecu::fail(kind, std::move(detail)));
+    }
+    void queue_write_error(fastecu::ErrorKind kind, std::string detail = {})
+    {
+        write_results_.emplace_back(fastecu::fail(kind, std::move(detail)));
+    }
     bool scriptConsumed() const
     {
-        return wIdx_ == expected_.size() && reads_.empty();
+        return wIdx_ == expected_.size() && reads_.empty() &&
+               set_baud_results_.empty() && write_results_.empty();
     }
     bool ok() const
     {
@@ -45,6 +54,12 @@ class ScriptedKlineTransport : public IKlineTransport
     }
     fastecu::Status setBaud(int) override
     {
+        if (!set_baud_results_.empty())
+        {
+            auto result = std::move(set_baud_results_.front());
+            set_baud_results_.pop_front();
+            return result;
+        }
         return {};
     }
     fastecu::Result<std::size_t> write(bytes::ByteView data) override
@@ -57,6 +72,12 @@ class ScriptedKlineTransport : public IKlineTransport
         else
         {
             ++wIdx_;
+        }
+        if (!write_results_.empty())
+        {
+            auto result = std::move(write_results_.front());
+            write_results_.pop_front();
+            return result;
         }
         return data.size();
     }
@@ -78,6 +99,8 @@ class ScriptedKlineTransport : public IKlineTransport
 
   private:
     std::vector<bytes::Bytes> expected_;
+    std::deque<fastecu::Status> set_baud_results_;
+    std::deque<fastecu::Result<std::size_t>> write_results_;
     std::deque<fastecu::Result<OptionalBytes>> reads_;
     std::size_t wIdx_ = 0;
     bool ok_ = true;

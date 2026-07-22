@@ -108,6 +108,70 @@ TEST(MutDmaLoggingProtocolTest, StartFailurePinsBadResponseForInvalidHandshake)
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::BadResponse);
 }
 
+TEST(MutDmaLoggingProtocolTest,
+     StartPropagatesDisconnectedSetBaudErrorKindAndDetail)
+{
+    auto transport = std::make_unique<ScriptedKlineTransport>();
+    transport->queue_set_baud_error(fastecu::ErrorKind::Disconnected,
+                                    "sentinel core set-baud disconnect");
+    auto protocol = makeProtocol(std::move(transport));
+    NeverCancelled cancellation;
+
+    const auto result = protocol->start(cancellation);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
+    EXPECT_EQ(result.error().detail, "sentinel core set-baud disconnect");
+}
+
+TEST(MutDmaLoggingProtocolTest,
+     StartPropagatesInternalSetBaudErrorKindAndDetail)
+{
+    auto transport = std::make_unique<ScriptedKlineTransport>();
+    transport->queue_set_baud_error(fastecu::ErrorKind::Internal,
+                                    "sentinel core set-baud internal");
+    auto protocol = makeProtocol(std::move(transport));
+    NeverCancelled cancellation;
+
+    const auto result = protocol->start(cancellation);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Internal);
+    EXPECT_EQ(result.error().detail, "sentinel core set-baud internal");
+}
+
+TEST(MutDmaLoggingProtocolTest, StartPropagatesQueuedWriteErrorKindAndDetail)
+{
+    auto transport = std::make_unique<ScriptedKlineTransport>();
+    transport->expectWrite(mutdma::buildSetupFrame(0xA0, 1));
+    transport->queue_write_error(fastecu::ErrorKind::Disconnected,
+                                 "sentinel core setup write disconnect");
+    auto protocol = makeProtocol(std::move(transport));
+    NeverCancelled cancellation;
+
+    const auto result = protocol->start(cancellation);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
+    EXPECT_EQ(result.error().detail, "sentinel core setup write disconnect");
+}
+
+TEST(MutDmaLoggingProtocolTest, StartPropagatesQueuedReadErrorKindAndDetail)
+{
+    auto transport = std::make_unique<ScriptedKlineTransport>();
+    transport->expectWrite(mutdma::buildSetupFrame(0xA0, 1));
+    transport->queue_error(fastecu::ErrorKind::Internal,
+                           "sentinel core setup read internal");
+    auto protocol = makeProtocol(std::move(transport));
+    NeverCancelled cancellation;
+
+    const auto result = protocol->start(cancellation);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Internal);
+    EXPECT_EQ(result.error().detail, "sentinel core setup read internal");
+}
+
 TEST(MutDmaLoggingProtocolTest, PollReturnsNoResponseBeforeStart)
 {
     auto protocol = makeProtocol(std::make_unique<ScriptedKlineTransport>());

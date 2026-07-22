@@ -32,9 +32,9 @@ fastecu::Status MutDmaDriver::startFreeFormLog(
 {
     channels_ = channels;
     streaming_ = false;
-    if (!init_.wake(t_))
+    if (auto wake = init_.wake(t_); !wake)
     {
-        return fastecu::fail(fastecu::ErrorKind::BadResponse, "MUT/DMA wake failed");
+        return wake;
     }
     const auto setup = buildSetupFrame(setupCmd, static_cast<bytes::Byte>(channels.size()));
     if (auto written = writeFrame(t_, setup); !written)
@@ -74,9 +74,9 @@ fastecu::Status MutDmaDriver::writeMemory(
     std::uint16_t addr, bytes::ByteView data,
     const fastecu::ICancellationToken& cancellation)
 {
-    if (!init_.wake(t_))
+    if (auto wake = init_.wake(t_); !wake)
     {
-        return fastecu::fail(fastecu::ErrorKind::BadResponse, "MUT/DMA wake failed");
+        return wake;
     }
     const std::vector<MutDmaFrame> frames = buildWriteFrames(addr, data);
     if (frames.empty() && !data.empty())

@@ -6,8 +6,8 @@ class IMutDmaInit
 {
   public:
     virtual ~IMutDmaInit() = default;
-    // Bring the ECU to the MUT-DMA listening state. Returns true on success.
-    virtual bool wake(IKlineTransport& t) = 0;
+    // Bring the ECU to the MUT-DMA listening state.
+    virtual fastecu::Status wake(IKlineTransport& t) = 0;
 };
 // For ROMs that already boot into DMA mode (or patched ROMs): just set the link baud.
 class AlreadyInMode : public IMutDmaInit
@@ -16,9 +16,9 @@ class AlreadyInMode : public IMutDmaInit
     explicit AlreadyInMode(int baud) : baud_(baud)
     {
     }
-    bool wake(IKlineTransport& t) override
+    fastecu::Status wake(IKlineTransport& t) override
     {
-        return t.setBaud(baud_).has_value();
+        return t.setBaud(baud_);
     }
 
   private:
@@ -32,7 +32,7 @@ class FiveBaudInit : public IMutDmaInit
     FiveBaudInit(bytes::Byte addrByte, int baud) : addr_(addrByte), baud_(baud)
     {
     }
-    bool wake(IKlineTransport& t) override; // see .cpp
+    fastecu::Status wake(IKlineTransport& t) override; // see .cpp
   private:
     [[maybe_unused]] bytes::Byte addr_;
     int baud_;
