@@ -1,15 +1,19 @@
 #include "src/algorithms/menu/menu_command.h"
 
+#include <array>
+#include <string>
+#include <string_view>
+
 namespace
 {
 struct MenuCommandMapping
 {
-    const char *id;
+    std::string_view id;
     MenuCommand command;
 };
 
-constexpr MenuCommandMapping kMenuCommandMappings[] = {
-    {"new", MenuCommand::New},
+constexpr std::array<MenuCommandMapping, 37> kMenuCommandMappings = {
+    MenuCommandMapping{"new", MenuCommand::New},
     {"open_calibration", MenuCommand::OpenCalibration},
     {"save_calibration", MenuCommand::SaveCalibration},
     {"save_calibration_as", MenuCommand::SaveCalibrationAs},
