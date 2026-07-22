@@ -106,6 +106,7 @@
 #include "src/backend/logging/protocols/ssm_logging_protocol.h"
 #include "src/backend/logging/protocols/mut_dma_logging_protocol.h"
 #include "src/backend/logging/protocols/cdbg_logging_protocol.h"
+#include "src/platform/desktop/common/ports/qt_clock.h"
 #include "src/platform/desktop/common/transport/fastecu_ssm_transport.h"
 
 // Forward declaration
@@ -255,6 +256,7 @@ class MainWindow : public QMainWindow
     uint16_t ssm_init_poll_timer_timeout = 250;
 
     LoggingEngine *loggingEngine = nullptr;
+    QtClock m_loggingClock;
     QString activeLogValueProtocolFilter;
 
     LogBox *logBoxes;

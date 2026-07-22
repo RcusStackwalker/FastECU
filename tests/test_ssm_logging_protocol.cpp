@@ -1,14 +1,40 @@
 #include <QtTest>
 #include <QApplication>
+#include <cstdint>
 #include "src/backend/definitions/file_actions.h"
 #include "src/backend/logging/protocols/ssm_logging_protocol.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
+#include "src/backend/ports/clock.h"
 #include "src/backend/ports/result.h"
 #include "scripted_ssm_transport.h"
 #include "test_ssm_logging_protocol.h"
 
 namespace
 {
+// Deterministic clock for readFramedResponse's deadline loops: now_ms()
+// advances by a fixed step on every call, so `elapsed < timeoutMs` loops
+// are guaranteed to terminate within a bounded number of iterations instead
+// of spinning forever (a constant now_ms() would hang the car-silent path).
+class FakeClock : public fastecu::IClock
+{
+  public:
+    std::uint64_t now_ms() const override
+    {
+        const std::uint64_t value = now_;
+        now_ += kStepMs;
+        return value;
+    }
+    fastecu::Status sleep(int, const fastecu::ICancellationToken&) override
+    {
+        now_ += kStepMs;
+        return {};
+    }
+
+  private:
+    static constexpr std::uint64_t kStepMs = 10;
+    mutable std::uint64_t now_ = 0;
+};
+
 FileActions::LogValuesStructure makeOneChannel()
 {
     FileActions::LogValuesStructure lv;
@@ -64,8 +90,9 @@ class TestSsmLoggingProtocol : public QObject
         ScriptedSsmTransport *raw = transport.get();
         FileActions fileActions;
         FileActions::LogValuesStructure lv = makeOneChannel();
+        FakeClock clock;
 
-        SsmLoggingProtocol proto(std::move(transport), &lv, &fileActions, "SSM", true, false);
+        SsmLoggingProtocol proto(clock, std::move(transport), &lv, &fileActions, "SSM", true, false);
         QVERIFY(proto.start().has_value());
         QVERIFY(raw->scriptConsumed());
         QVERIFY(raw->ok());
@@ -77,8 +104,9 @@ class TestSsmLoggingProtocol : public QObject
         transport->queueRead(bytes::Bytes{});
         FileActions fileActions;
         FileActions::LogValuesStructure lv = makeOneChannel();
+        FakeClock clock;
 
-        SsmLoggingProtocol proto(std::move(transport), &lv, &fileActions, "SSM", true, false);
+        SsmLoggingProtocol proto(clock, std::move(transport), &lv, &fileActions, "SSM", true, false);
         auto s = proto.start();
         QVERIFY(!s.has_value());
         QCOMPARE((int)s.error().kind, (int)fastecu::ErrorKind::BadResponse);
@@ -91,8 +119,9 @@ class TestSsmLoggingProtocol : public QObject
         transport->setOpen(false);
         FileActions fileActions;
         FileActions::LogValuesStructure lv = makeOneChannel();
+        FakeClock clock;
 
-        SsmLoggingProtocol proto(std::move(transport), &lv, &fileActions, "SSM", true, false);
+        SsmLoggingProtocol proto(clock, std::move(transport), &lv, &fileActions, "SSM", true, false);
         auto s = proto.start();
         QVERIFY(!s.has_value());
         QCOMPARE((int)s.error().kind, (int)fastecu::ErrorKind::Disconnected);
@@ -107,8 +136,9 @@ class TestSsmLoggingProtocol : public QObject
         ScriptedSsmTransport *raw = transport.get();
         FileActions fileActions;
         FileActions::LogValuesStructure lv = makeOneChannel();
+        FakeClock clock;
 
-        SsmLoggingProtocol proto(std::move(transport), &lv, &fileActions, "SSM", true, false);
+        SsmLoggingProtocol proto(clock, std::move(transport), &lv, &fileActions, "SSM", true, false);
         auto r = proto.poll(200);
 
         QVERIFY(r.has_value());
@@ -128,8 +158,9 @@ class TestSsmLoggingProtocol : public QObject
         ScriptedSsmTransport *raw = transport.get();
         FileActions fileActions;
         FileActions::LogValuesStructure lv = makeTwoSelectedChannelsSecondDisabled();
+        FakeClock clock;
 
-        SsmLoggingProtocol proto(std::move(transport), &lv, &fileActions, "SSM", true, false);
+        SsmLoggingProtocol proto(clock, std::move(transport), &lv, &fileActions, "SSM", true, false);
         auto r = proto.poll(200);
 
         QVERIFY(r.has_value());
@@ -146,9 +177,30 @@ class TestSsmLoggingProtocol : public QObject
         auto transport = std::make_unique<ScriptedSsmTransport>();
         FileActions fileActions;
         FileActions::LogValuesStructure lv = makeOneChannel();
+        FakeClock clock;
 
-        SsmLoggingProtocol proto(std::move(transport), &lv, &fileActions, "SSM", true, false);
+        SsmLoggingProtocol proto(clock, std::move(transport), &lv, &fileActions, "SSM", true, false);
         auto r = proto.poll(50);
+
+        QVERIFY(r.has_value());
+        QVERIFY(!r->responded);
+    }
+
+    void poll_returns_car_silent_when_frame_header_never_resyncs()
+    {
+        // Header-resync loop (readFramedResponse's second while): bytes keep
+        // arriving but never start with the 0x80,0xf0,0x10 frame header, so
+        // the loop must be bounded by the clock, not by running out of bytes
+        // to erase. 64 garbage bytes comfortably outlasts the handful of
+        // FakeClock ticks needed to cross timeoutMs.
+        auto transport = std::make_unique<ScriptedSsmTransport>();
+        transport->queueRead(bytes::Bytes(64, 0x01));
+        FileActions fileActions;
+        FileActions::LogValuesStructure lv = makeOneChannel();
+        FakeClock clock;
+
+        SsmLoggingProtocol proto(clock, std::move(transport), &lv, &fileActions, "SSM", true, false);
+        auto r = proto.poll(100);
 
         QVERIFY(r.has_value());
         QVERIFY(!r->responded);
@@ -162,8 +214,9 @@ class TestSsmLoggingProtocol : public QObject
         FileActions fileActions;
         FileActions::LogValuesStructure lv = makeOneChannel();
         ScriptedSsmTransport *raw = transport.get();
+        FakeClock clock;
 
-        SsmLoggingProtocol proto(std::move(transport), &lv, &fileActions, "SSM", true, false);
+        SsmLoggingProtocol proto(clock, std::move(transport), &lv, &fileActions, "SSM", true, false);
         QVERIFY(proto.start().has_value());
 
         raw->setOpen(false);

@@ -5,11 +5,12 @@
 #include "src/algorithms/protocol/bytes.h"
 #include "src/backend/protocol/issm_transport.h"
 #include "src/backend/definitions/file_actions.h"
+#include "src/backend/ports/clock.h"
 
 class SsmLoggingProtocol : public LoggingProtocol
 {
   public:
-    SsmLoggingProtocol(std::unique_ptr<ISsmTransport> transport,
+    SsmLoggingProtocol(fastecu::IClock& clock, std::unique_ptr<ISsmTransport> transport,
                        FileActions::LogValuesStructure *logValues, FileActions *fileActions,
                        QString logValueProtocolFilter, bool targetIsEcu, bool useOpenport2Adapter);
 
@@ -21,6 +22,7 @@ class SsmLoggingProtocol : public LoggingProtocol
     bytes::Bytes buildSsmHeader(bytes::ByteView output) const;
     bytes::Bytes readFramedResponse(int timeoutMs);
 
+    fastecu::IClock& clock_;
     std::unique_ptr<ISsmTransport> transport_;
     FileActions::LogValuesStructure *logValues_;
     FileActions *fileActions_;

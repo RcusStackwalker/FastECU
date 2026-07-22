@@ -1,7 +1,6 @@
 #include "src/backend/logging/protocols/ssm_logging_protocol.h"
 #include "src/backend/logging/romraider_conversion.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
-#include <QElapsedTimer>
 #include <QHash>
 
 #include <cstddef>
@@ -74,10 +73,10 @@ bytes::Bytes buildPollRequest(const QVector<SsmLogChannel>& channels)
 }
 } // namespace
 
-SsmLoggingProtocol::SsmLoggingProtocol(std::unique_ptr<ISsmTransport> transport,
+SsmLoggingProtocol::SsmLoggingProtocol(fastecu::IClock& clock, std::unique_ptr<ISsmTransport> transport,
                                        FileActions::LogValuesStructure *logValues, FileActions *fileActions,
                                        QString logValueProtocolFilter, bool targetIsEcu, bool useOpenport2Adapter)
-    : transport_(std::move(transport)), logValues_(logValues), fileActions_(fileActions), logValueProtocolFilter_(std::move(logValueProtocolFilter)), targetIsEcu_(targetIsEcu), useOpenport2Adapter_(useOpenport2Adapter)
+    : clock_(clock), transport_(std::move(transport)), logValues_(logValues), fileActions_(fileActions), logValueProtocolFilter_(std::move(logValueProtocolFilter)), targetIsEcu_(targetIsEcu), useOpenport2Adapter_(useOpenport2Adapter)
 {
 }
 
@@ -89,26 +88,25 @@ bytes::Bytes SsmLoggingProtocol::buildSsmHeader(bytes::ByteView output) const
 bytes::Bytes SsmLoggingProtocol::readFramedResponse(int timeoutMs)
 {
     bytes::Bytes received;
-    QElapsedTimer clock;
-    clock.start();
+    const std::uint64_t start = clock_.now_ms();
 
     if (useOpenport2Adapter_)
     {
         return transport_->read(timeoutMs);
     }
 
-    while (received.size() < 3 && clock.elapsed() < timeoutMs)
+    while (received.size() < 3 && int(clock_.now_ms() - start) < timeoutMs)
     {
         appendBytes(received, transport_->read(10));
     }
 
-    while (received.size() >= 3 && (received[0] != 0x80 || received[1] != 0xf0 || received[2] != 0x10) && clock.elapsed() < timeoutMs)
+    while (received.size() >= 3 && (received[0] != 0x80 || received[1] != 0xf0 || received[2] != 0x10) && int(clock_.now_ms() - start) < timeoutMs)
     {
         received.erase(received.begin());
         appendBytes(received, transport_->read(10));
     }
 
-    int remaining = timeoutMs - int(clock.elapsed());
+    int remaining = timeoutMs - int(clock_.now_ms() - start);
     if (remaining > 0)
     {
         appendBytes(received, transport_->read(remaining));
