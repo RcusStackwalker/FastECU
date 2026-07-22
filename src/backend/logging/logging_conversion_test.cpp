@@ -81,5 +81,5 @@ TEST(LoggingConversionTest, RejectsNonFiniteConvertedValues)
 
     auto result = convert_sample(session, ProtocolSample{"rpm", "1"});
     ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Internal);
+    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::InvalidConfig);
 }

@@ -19,7 +19,7 @@ fastecu::Result<LogSample> convert_sample(const LoggingSession& session,
         static_cast<int>(channel->decimal_precision));
     if (!std::isfinite(numeric_value))
     {
-        return fastecu::fail(fastecu::ErrorKind::Internal,
+        return fastecu::fail(fastecu::ErrorKind::InvalidConfig,
                              "protocol sample evaluates to a non-finite logging value");
     }
 
