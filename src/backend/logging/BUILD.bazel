@@ -9,15 +9,24 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//:__pkg__"],
+)
+
+cc_library(
+    name = "logging_types",
+    hdrs = ["logging_types.h"],
+    copts = PORTABLE_COPTS,
+)
+
 cc_library(
     name = "logging_session",
     srcs = ["logging_session.cpp"],
-    hdrs = [
-        "logging_session.h",
-        "logging_types.h",
-    ],
+    hdrs = ["logging_session.h"],
     copts = PORTABLE_COPTS,
     deps = [
+        ":logging_types",
         "//src/algorithms/expression",
         "//src/backend/ports",
     ],
