@@ -175,6 +175,23 @@ TEST(CdbgLoggingProtocolTest, PollReturnsStableIdAndRawDecimalString)
     EXPECT_EQ(result->samples[0].raw_value, "42");
 }
 
+TEST(CdbgLoggingProtocolTest, PollReportsSilenceAfterStartWithoutCachedSamples)
+{
+    auto transport = std::make_unique<cdbg::ScriptedCanTransport>();
+    scriptValidHandshake(*transport);
+    auto *script = transport.get();
+    auto protocol = makeProtocol(std::move(transport));
+    NeverCancelled cancellation;
+    ASSERT_TRUE(protocol->start(cancellation));
+    script->queue_no_frame();
+
+    const auto result = protocol->poll(50, cancellation);
+
+    ASSERT_TRUE(result);
+    EXPECT_FALSE(result->responded);
+    EXPECT_TRUE(result->samples.empty());
+}
+
 TEST(CdbgLoggingProtocolTest, StartPropagatesCancellation)
 {
     auto protocol = makeProtocol(std::make_unique<cdbg::ScriptedCanTransport>());

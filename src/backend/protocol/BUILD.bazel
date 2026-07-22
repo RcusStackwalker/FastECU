@@ -8,6 +8,11 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//:__pkg__"],
+)
+
 # Portable. Qt-only container adapters belong in the algorithms' :qt_compat
 # targets and platform callers adapt at their boundary.
 cc_library(

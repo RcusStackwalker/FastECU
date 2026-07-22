@@ -1,5 +1,6 @@
 #include "src/backend/logging/logging_session.h"
 
+#include <algorithm>
 #include <array>
 #include <cctype>
 #include <cmath>
@@ -9,6 +10,7 @@
 #include <utility>
 
 #include "src/algorithms/expression/expression_evaluator.h"
+#include "src/algorithms/protocol/colt/mitsu_colt_can_cdbg_protocol.h"
 
 namespace fastecu::logging
 {
@@ -285,6 +287,41 @@ bool valid_raw_assembly(RawAssembly raw_assembly)
            raw_assembly == RawAssembly::UnsignedIntegerDecimal;
 }
 
+bool valid_wire_shape(LoggingProtocolId protocol,
+                      const std::vector<LoggingChannel>& channels)
+{
+    switch (protocol)
+    {
+    case LoggingProtocolId::Ssm:
+        // A8 + mode + three address bytes per channel must fit the SSM
+        // one-byte payload-length field.
+        return channels.size() <= 84;
+    case LoggingProtocolId::MutDma:
+        if (channels.size() > 255)
+        {
+            return false;
+        }
+        return std::all_of(channels.begin(), channels.end(), [](const LoggingChannel& channel)
+                           { return channel.length == 1 || channel.length == 2 || channel.length == 4; });
+    case LoggingProtocolId::Cdbg:
+    {
+        std::vector<MitsuColtCanCdbg::CdbgChannel> wire_channels;
+        wire_channels.reserve(channels.size());
+        for (const LoggingChannel& channel : channels)
+        {
+            if (channel.length != 1 && channel.length != 2 && channel.length != 4)
+            {
+                return false;
+            }
+            wire_channels.push_back({channel.address, static_cast<bytes::Byte>(channel.length)});
+        }
+        std::vector<std::vector<MitsuColtCanCdbg::CdbgChannel>> frames;
+        return MitsuColtCanCdbg::batchChannelsIntoFrames(wire_channels, frames);
+    }
+    }
+    return false;
+}
+
 } // namespace
 
 LoggingSession::LoggingSession(LoggingProtocolId protocol, std::vector<LoggingChannel> channels,
@@ -344,6 +381,12 @@ fastecu::Result<LoggingSession> make_logging_session(
         {
             return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "invalid logging channel");
         }
+    }
+
+    if (!valid_wire_shape(protocol, channels))
+    {
+        return fastecu::fail(fastecu::ErrorKind::InvalidConfig,
+                             "logging channels do not fit the selected protocol");
     }
 
     return LoggingSession(protocol, std::move(channels), policy);

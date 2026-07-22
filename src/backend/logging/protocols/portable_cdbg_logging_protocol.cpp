@@ -81,19 +81,19 @@ fastecu::Result<PollData> CdbgLoggingProtocol::poll(
     {
         return std::unexpected(values.error());
     }
-    if (values->empty())
+    if (!values->responded)
     {
         return PollData{.responded = false};
     }
 
     PollData data{.responded = true};
-    const std::size_t sample_count = std::min(values->size(), channels_.size());
+    const std::size_t sample_count = std::min(values->values.size(), channels_.size());
     data.samples.reserve(sample_count);
     for (std::size_t i = 0; i < sample_count; ++i)
     {
         data.samples.push_back(ProtocolSample{
             .channel_id = channels_[i].id,
-            .raw_value = std::to_string(values->at(i)),
+            .raw_value = std::to_string(values->values.at(i)),
         });
     }
     return data;

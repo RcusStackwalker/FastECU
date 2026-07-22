@@ -132,12 +132,12 @@ fastecu::Status CdbgLogDriver::startFreeFormLog(
     return {};
 }
 
-fastecu::Result<std::vector<std::uint32_t>> CdbgLogDriver::pollOnce(
+fastecu::Result<CdbgLogDriver::PollResult> CdbgLogDriver::pollOnce(
     int timeoutMs, const fastecu::ICancellationToken& cancellation)
 {
     if (!streaming_)
     {
-        return std::vector<std::uint32_t>{};
+        return PollResult{};
     }
 
     auto read = t_.read(timeoutMs, cancellation);
@@ -145,6 +145,7 @@ fastecu::Result<std::vector<std::uint32_t>> CdbgLogDriver::pollOnce(
     {
         return std::unexpected(read.error());
     }
+    bool decoded_response = false;
     if (read->has_value() && read->value().id == kReplyCanId &&
         !read->value().payload.empty())
     {
@@ -155,6 +156,7 @@ fastecu::Result<std::vector<std::uint32_t>> CdbgLogDriver::pollOnce(
             std::vector<std::uint32_t> decoded = decodeFrame(frameIdx, frames_.at(frameIdx), frame);
             if (!decoded.empty())
             {
+                decoded_response = true;
                 std::size_t offset = 0;
                 for (std::size_t f = 0; f < frameIdx; ++f)
                 {
@@ -167,7 +169,11 @@ fastecu::Result<std::vector<std::uint32_t>> CdbgLogDriver::pollOnce(
             }
         }
     }
-    return lastValues_;
+    if (!decoded_response)
+    {
+        return PollResult{};
+    }
+    return PollResult{.responded = true, .values = lastValues_};
 }
 
 } // namespace MitsuColtCanCdbg

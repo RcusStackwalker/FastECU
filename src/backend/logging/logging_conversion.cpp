@@ -17,9 +17,11 @@ fastecu::Result<LogSample> convert_sample(const LoggingSession& session,
                              "protocol sample channel is not in the logging session");
     }
 
+    // Legacy logging always evaluated intermediate expression results at 15
+    // significant digits. Display precision is applied only by the UI adapter.
+    constexpr int kCalculationPrecision = 15;
     const double numeric_value = expression_evaluate(
-        channel->from_byte_expression, raw.raw_value,
-        static_cast<int>(channel->decimal_precision));
+        channel->from_byte_expression, raw.raw_value, kCalculationPrecision);
     if (!std::isfinite(numeric_value))
     {
         return fastecu::fail(fastecu::ErrorKind::InvalidConfig,

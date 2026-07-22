@@ -196,6 +196,35 @@ TEST(DesktopLoggingSnapshotAdapterTest, RejectsDuplicateStableIds)
     EXPECT_EQ(snapshot.error().kind, fastecu::ErrorKind::InvalidConfig);
 }
 
+TEST(DesktopLoggingSnapshotAdapterTest, AllowsSameOpaqueIdInDifferentProtocols)
+{
+    FileActions::LogValuesStructure values;
+    append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"));
+    append_value(values, QStringLiteral("rpm"), QStringLiteral("CDBG"), QStringLiteral("1"));
+    values.lower_panel_log_value_id = {QStringLiteral("rpm")};
+
+    const auto snapshot = desktop_logging::make_desktop_logging_snapshot(
+        values, portable_logging::LoggingProtocolId::Ssm, QStringLiteral("SSM"), valid_policy());
+
+    ASSERT_TRUE(snapshot.has_value());
+    ASSERT_EQ(snapshot->session.channels().size(), 1u);
+    EXPECT_EQ(snapshot->index_by_id.at("rpm"), 0);
+}
+
+TEST(DesktopLoggingSnapshotAdapterTest, RejectsDuplicateOpaqueIdWithinSelectedProtocol)
+{
+    FileActions::LogValuesStructure values;
+    append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"));
+    append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"));
+    values.lower_panel_log_value_id = {QStringLiteral("rpm")};
+
+    const auto snapshot = desktop_logging::make_desktop_logging_snapshot(
+        values, portable_logging::LoggingProtocolId::Ssm, QStringLiteral("SSM"), valid_policy());
+
+    ASSERT_FALSE(snapshot.has_value());
+    EXPECT_EQ(snapshot.error().kind, fastecu::ErrorKind::InvalidConfig);
+}
+
 int main(int argc, char **argv)
 {
     ::testing::InitGoogleTest(&argc, argv);

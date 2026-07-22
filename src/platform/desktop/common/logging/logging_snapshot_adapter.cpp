@@ -100,18 +100,6 @@ fastecu::Result<DesktopLoggingSnapshot> make_desktop_logging_snapshot(
         return std::unexpected(filter.error());
     }
 
-    std::unordered_map<std::string, int> all_indices_by_id;
-    all_indices_by_id.reserve(static_cast<std::size_t>(log_values.log_value_id.size()));
-    for (int row = 0; row < log_values.log_value_id.size(); ++row)
-    {
-        const std::string id = log_values.log_value_id.at(row).toStdString();
-        if (!all_indices_by_id.emplace(id, row).second)
-        {
-            return fastecu::fail(fastecu::ErrorKind::InvalidConfig,
-                                 "duplicate logging value id");
-        }
-    }
-
     std::vector<fastecu::logging::LoggingChannel> channels;
     std::vector<std::size_t> response_offsets;
     std::unordered_map<std::string, int> selected_indices_by_id;
@@ -127,29 +115,39 @@ fastecu::Result<DesktopLoggingSnapshot> make_desktop_logging_snapshot(
     {
         const QString& lower_panel_id =
             log_values.lower_panel_log_value_id.at(lower_panel_index);
-        const auto row = all_indices_by_id.find(lower_panel_id.toStdString());
-        if (row == all_indices_by_id.end())
+        int selected_row = -1;
+        for (int row = 0; row < log_values.log_value_id.size(); ++row)
         {
-            continue;
+            if (log_values.log_value_id.at(row) != lower_panel_id ||
+                log_values.log_value_protocol.at(row) != *filter ||
+                !selected_by_protocol(protocol, log_values.log_value_enabled.at(row)))
+            {
+                continue;
+            }
+            if (selected_row >= 0)
+            {
+                return fastecu::fail(fastecu::ErrorKind::InvalidConfig,
+                                     "duplicate logging value id in selected protocol");
+            }
+            selected_row = row;
         }
-        if (log_values.log_value_protocol.at(row->second) != *filter ||
-            !selected_by_protocol(protocol, log_values.log_value_enabled.at(row->second)))
+        if (selected_row < 0)
         {
             continue;
         }
 
-        auto channel = channel_from_legacy_row(log_values, row->second, protocol);
+        auto channel = channel_from_legacy_row(log_values, selected_row, protocol);
         if (!channel)
         {
             return std::unexpected(channel.error());
         }
-        if (!selected_indices_by_id.emplace(channel->id, row->second).second)
+        if (!selected_indices_by_id.emplace(channel->id, selected_row).second)
         {
             return fastecu::fail(fastecu::ErrorKind::InvalidConfig,
                                  "duplicate lower-panel logging value id");
         }
         if (protocol != fastecu::logging::LoggingProtocolId::Ssm ||
-            log_values.log_value_enabled.at(row->second) == "1")
+            log_values.log_value_enabled.at(selected_row) == "1")
         {
             enabled_ids.insert(channel->id);
         }

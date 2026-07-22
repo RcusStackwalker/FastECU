@@ -28,12 +28,27 @@ class CdbgLogDriver
         return streaming_;
     }
 
-    // Reads at most one streamed frame (within timeoutMs) and merges any
-    // decoded channel values into this driver's per-channel cache. Returns
-    // the full per-channel raw value vector (using cached/last-known values
-    // for channels whose frame hasn't arrived since streaming started, 0
-    // until then), or an empty vector if not currently streaming.
-    fastecu::Result<std::vector<std::uint32_t>> pollOnce(
+    struct PollResult
+    {
+        bool responded = false;
+        std::vector<std::uint32_t> values;
+        std::size_t size() const
+        {
+            return values.size();
+        }
+        bool empty() const
+        {
+            return values.empty();
+        }
+        std::uint32_t at(std::size_t index) const
+        {
+            return values.at(index);
+        }
+    };
+
+    // Reads at most one streamed frame and reports whether a usable frame was
+    // actually received. Cached values are returned only with responded=true.
+    fastecu::Result<PollResult> pollOnce(
         int timeoutMs, const fastecu::ICancellationToken& cancellation);
 
   private:

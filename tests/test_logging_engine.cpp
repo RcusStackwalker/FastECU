@@ -81,6 +81,39 @@ class TestLoggingEngine : public QObject
         QVERIFY(!engine.isRunning());
     }
 
+    void factory_error_preserves_structured_kind_and_detail()
+    {
+        LoggingEngine engine;
+        engine.registerProtocol(
+            "TEST", [](const DesktopLoggingSnapshot&) -> fastecu::Result<std::unique_ptr<LoggingProtocol>>
+            { return fastecu::fail(fastecu::ErrorKind::Disconnected, "open failed"); });
+        QSignalSpy ended_spy(&engine, &LoggingEngine::sessionEnded);
+
+        QVERIFY(!engine.start(LogSessionConfig{.protocolId = "TEST"}, snapshot()));
+
+        QCOMPARE(ended_spy.size(), 1);
+        QCOMPARE(ended_spy.at(0).at(0).value<SessionEndReason>(),
+                 SessionEndReason::AdapterDisconnected);
+        QCOMPARE(ended_spy.at(0).at(1).toString(), QString("open failed"));
+        QVERIFY(!engine.isRunning());
+    }
+
+    void factory_exception_is_contained_at_platform_boundary()
+    {
+        LoggingEngine engine;
+        engine.registerProtocol(
+            "TEST", [](const DesktopLoggingSnapshot&) -> std::unique_ptr<LoggingProtocol>
+            { throw std::runtime_error("driver setup exploded"); });
+        QSignalSpy ended_spy(&engine, &LoggingEngine::sessionEnded);
+
+        QVERIFY(!engine.start(LogSessionConfig{.protocolId = "TEST"}, snapshot()));
+
+        QCOMPARE(ended_spy.size(), 1);
+        QCOMPARE(ended_spy.at(0).at(0).value<SessionEndReason>(),
+                 SessionEndReason::HandshakeFailed);
+        QCOMPARE(ended_spy.at(0).at(1).toString(), QString("driver setup exploded"));
+    }
+
     void start_error_preserves_handshake_failure_ui_path()
     {
         LoggingEngine engine;
@@ -121,6 +154,27 @@ class TestLoggingEngine : public QObject
                  SessionEndReason::AdapterDisconnected);
         QCOMPARE(ended_spy.at(0).at(1).toString(), QString("port closed"));
         QVERIFY(!engine.isRunning());
+    }
+
+    void post_start_failure_is_not_reported_as_handshake_failure()
+    {
+        LoggingEngine engine;
+        auto *protocol = new ScriptedLoggingProtocol();
+        protocol->queueStartResult({});
+        protocol->queuePollResult(
+            fastecu::fail(fastecu::ErrorKind::Internal, "bad stream frame"));
+        engine.registerProtocol("TEST", [protocol](const DesktopLoggingSnapshot&)
+                                { return std::unique_ptr<LoggingProtocol>(protocol); });
+        QSignalSpy ended_spy(&engine, &LoggingEngine::sessionEnded);
+        QSignalSpy error_spy(&engine, &LoggingEngine::LOG_E);
+
+        QVERIFY(engine.start(LogSessionConfig{.protocolId = "TEST"}, snapshot()));
+        QVERIFY(ended_spy.wait(2000));
+
+        QCOMPARE(ended_spy.at(0).at(0).value<SessionEndReason>(),
+                 SessionEndReason::RuntimeFailed);
+        QCOMPARE(error_spy.at(0).at(0).toString(),
+                 QString("Logging session failed: bad stream frame"));
     }
 
     void portable_events_map_to_existing_status_and_value_signals()

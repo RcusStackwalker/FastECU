@@ -28,6 +28,7 @@ cc_library(
     deps = [
         ":logging_types",
         "//src/algorithms/expression",
+        "//src/algorithms/protocol/colt",
         "//src/backend/ports",
     ],
 )

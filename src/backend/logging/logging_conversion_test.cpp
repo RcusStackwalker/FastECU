@@ -85,3 +85,17 @@ TEST(LoggingConversionTest, RejectsNonFiniteConvertedValues)
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::InvalidConfig);
 }
+
+TEST(LoggingConversionTest, UsesHistoricalFifteenDigitIntermediatePrecision)
+{
+    auto c = channel("rpm", 0x10);
+    c.from_byte_expression = "x/3*3";
+    c.decimal_precision = 2;
+    auto session = make_session_with_channel(c);
+
+    auto result = convert_sample(session, ProtocolSample{"rpm", "10"});
+
+    ASSERT_TRUE(result);
+    EXPECT_DOUBLE_EQ(result->numeric_value, 9.9999999999999893);
+    EXPECT_NE(result->numeric_value, 9.9);
+}

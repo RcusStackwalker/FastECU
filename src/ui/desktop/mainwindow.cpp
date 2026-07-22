@@ -2484,6 +2484,7 @@ void MainWindow::setupLoggingEngine()
     loggingEngine->registerProtocol(
         "CDBG",
         [this](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
+            -> fastecu::Result<std::unique_ptr<fastecu::logging::LoggingProtocol>>
         {
             serial->set_is_iso14230_connection(false);
             serial->set_add_iso14230_header(false);
@@ -2492,10 +2493,16 @@ void MainWindow::setupLoggingEngine()
             serial->set_is_29_bit_id(false);
             serial->set_can_speed("500000");
             serial->set_can_destination_address(MitsuColtCanCdbg::kReplyCanId);
-            serial->open_serial_port();
+            const QString opened_port = serial->open_serial_port();
+            if (opened_port.isEmpty() || !serial->is_serial_port_open())
+            {
+                return fastecu::fail(fastecu::ErrorKind::Disconnected,
+                                     "unable to open CAN adapter for CDBG logging");
+            }
             auto transport = std::make_unique<cdbg::FastEcuCanTransport>(serial);
-            return std::make_unique<fastecu::logging::CdbgLoggingProtocol>(
-                std::move(transport), snapshot.session.channels());
+            return std::unique_ptr<fastecu::logging::LoggingProtocol>(
+                std::make_unique<fastecu::logging::CdbgLoggingProtocol>(
+                    std::move(transport), snapshot.session.channels()));
         });
 
     loggingEngine->registerProtocol(
@@ -2554,5 +2561,9 @@ void MainWindow::handleLoggingSessionEnded(SessionEndReason reason, const QStrin
     else if (reason == SessionEndReason::HandshakeFailed)
     {
         QMessageBox::warning(this, tr("Logging"), "Unable to start logging: " + message);
+    }
+    else if (reason == SessionEndReason::RuntimeFailed)
+    {
+        QMessageBox::warning(this, tr("Logging"), "Logging stopped: " + message);
     }
 }

@@ -26,6 +26,7 @@ enum class SessionEndReason
     StoppedByUser,
     HandshakeFailed,
     AdapterDisconnected,
+    RuntimeFailed,
 };
 
 struct LogSessionConfig
@@ -33,8 +34,9 @@ struct LogSessionConfig
     QString protocolId;
 };
 
-using LoggingProtocolFactory = std::function<std::unique_ptr<fastecu::logging::LoggingProtocol>(
-    const fastecu::desktop::logging::DesktopLoggingSnapshot&)>;
+using LoggingProtocolFactory = std::function<
+    fastecu::Result<std::unique_ptr<fastecu::logging::LoggingProtocol>>(
+        const fastecu::desktop::logging::DesktopLoggingSnapshot&)>;
 
 class LoggingEngine final : public QObject
 {
@@ -65,6 +67,7 @@ class LoggingEngine final : public QObject
 
   private:
     void clearActiveSession();
+    void reportSessionError(const fastecu::Error& error, bool reached_running);
 
     QMap<QString, LoggingProtocolFactory> registrations_;
     std::optional<fastecu::desktop::logging::DesktopLoggingSnapshot> active_snapshot_;
@@ -72,6 +75,7 @@ class LoggingEngine final : public QObject
     LoggingWorker *active_worker_ = nullptr;
     QtEventSink diagnostics_;
     std::optional<LoggingStatus> last_status_;
+    bool worker_reached_running_ = false;
 };
 
 Q_DECLARE_METATYPE(LoggingStatus)

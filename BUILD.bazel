@@ -48,6 +48,7 @@ py_test(
         "//src/backend/logging:BUILD.bazel",
         "//src/backend/logging/protocols:BUILD.bazel",
         "//src/backend/ports:BUILD.bazel",
+        "//src/backend/protocol:BUILD.bazel",
     ],
     main = "scripts/check-portable-closure.py",
 )
