@@ -36,6 +36,7 @@ qt_cc_library(
             "logging_session.h",
             "logging_types.h",
             "logging_use_case.h",
+            "portable_logging_protocol.h",
         ],
     ),
     deps = QT_DEPS + [
@@ -85,8 +86,8 @@ cc_library(
     srcs = ["logging_use_case.cpp"],
     hdrs = [
         "logging_event_sink.h",
-        "logging_protocol.h",
         "logging_use_case.h",
+        "portable_logging_protocol.h",
     ],
     copts = PORTABLE_COPTS,
     deps = [

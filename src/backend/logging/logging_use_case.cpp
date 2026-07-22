@@ -12,7 +12,7 @@ namespace
 class StopGuard
 {
   public:
-    StopGuard(LoggingProtocol& protocol, fastecu::IEventSink& diagnostics)
+    StopGuard(PortableLoggingProtocol& protocol, fastecu::IEventSink& diagnostics)
         : protocol_(protocol), diagnostics_(diagnostics)
     {
     }
@@ -27,7 +27,7 @@ class StopGuard
     }
 
   private:
-    LoggingProtocol& protocol_;
+    PortableLoggingProtocol& protocol_;
     fastecu::IEventSink& diagnostics_;
 };
 
@@ -42,9 +42,9 @@ bool reconnect_due(const LoggingPolicy& policy, int consecutive_misses)
 
 } // namespace
 
-fastecu::Status LoggingUseCase::run(const LoggingSession& session, LoggingProtocol& protocol,
-                                    const fastecu::ICancellationToken& cancellation,
-                                    ILoggingEventSink& events,
+fastecu::Status LoggingUseCase::run(const LoggingSession& session,
+                                    PortableLoggingProtocol& protocol,
+                                    const fastecu::ICancellationToken& cancellation, ILoggingEventSink& events,
                                     fastecu::IEventSink& diagnostics) const
 {
     if (cancellation.cancelled())
