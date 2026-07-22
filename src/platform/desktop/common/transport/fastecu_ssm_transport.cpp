@@ -78,5 +78,12 @@ fastecu::Result<ISsmTransport::OptionalBytes> FastEcuSsmTransport::read(
 
 bool FastEcuSsmTransport::isOpen() const
 {
-    return serial_ && serial_->is_serial_port_open();
+    try
+    {
+        return serial_ && serial_->is_serial_port_open();
+    }
+    catch (...)
+    {
+        return false;
+    }
 }

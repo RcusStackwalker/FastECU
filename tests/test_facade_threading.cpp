@@ -1,14 +1,46 @@
 #include "test_facade_threading.h"
 
 #include <QtTest>
+#include <QCoreApplication>
 #include <QSemaphore>
 #include <QElapsedTimer>
+#include <QProcess>
+#include <QProcessEnvironment>
 #include <atomic>
+#include <stdexcept>
 #include <thread>
 #include <vector>
 
 #include "fake_backend.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
+#include "src/platform/desktop/common/transport/fastecu_can_transport.h"
+#include "src/platform/desktop/common/transport/fastecu_kline_transport.h"
+#include "src/platform/desktop/common/transport/fastecu_ssm_transport.h"
+
+namespace
+{
+class MutableCancellationToken final : public fastecu::ICancellationToken
+{
+  public:
+    bool cancelled() const override
+    {
+        return cancelled_.load();
+    }
+
+    void cancel()
+    {
+        cancelled_.store(true);
+    }
+
+    void reset()
+    {
+        cancelled_.store(false);
+    }
+
+  private:
+    std::atomic<bool> cancelled_{false};
+};
+} // namespace
 
 class TestFacadeThreading : public QObject
 {
@@ -17,6 +49,13 @@ class TestFacadeThreading : public QObject
     void constructDestroy_withoutUse_noThreadNoHang();
     void getSet_marshalsToBackendThread();
     void scriptedRead_returnsThroughFacade();
+    void backendException_propagatesWithoutHangingAndCleansUp();
+    void transportAdapters_isOpenContainsBackendException();
+    void transportAdapters_normalEmptyReadIsSuccess();
+    void transportAdapters_preCancelledReadSkipsBackend();
+    void transportAdapters_postCallCancellationPrecedesDisconnect();
+    void transportAdapters_backendReadExceptionMapsToInternal();
+    void canTransport_truncatedFrameMapsToInternal();
     void workerThreadCaller_noAffinityWarnings();
     void concurrentCallers_serializeWithoutInterleaving();
     void destroyAfterUse_joinsIoThread();
@@ -64,6 +103,201 @@ void TestFacadeThreading::scriptedRead_returnsThroughFacade()
     const QStringList log = fake->takeCallLog();
     QCOMPARE(log.first(), QString("read:begin:t=100"));
     QCOMPARE(log.last(), QString("read:end"));
+}
+
+void TestFacadeThreading::backendException_propagatesWithoutHangingAndCleansUp()
+{
+    QProcess child;
+    QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+    environment.insert("FASTECU_THROWING_BACKEND_CHILD", "1");
+    child.setProcessEnvironment(environment);
+    child.start(QCoreApplication::applicationFilePath(), {});
+    QVERIFY2(child.waitForStarted(1000), qPrintable(child.errorString()));
+
+    if (!child.waitForFinished(2000))
+    {
+        child.kill();
+        child.waitForFinished(1000);
+        QFAIL("backend exception left the facade caller blocked");
+    }
+
+    QCOMPARE(child.exitStatus(), QProcess::NormalExit);
+    QCOMPARE(child.exitCode(), 0);
+}
+
+void TestFacadeThreading::transportAdapters_isOpenContainsBackendException()
+{
+    FakeBackend *fake = nullptr;
+    SerialPortActions serial("", "", nullptr, nullptr,
+                             [&fake]() -> SerialBackend *
+                             { fake = new FakeBackend(); return fake; });
+    serial.set_add_ssm_header(false);
+    FastEcuSsmTransport ssm(&serial);
+    mutdma::FastEcuKlineTransport kline(&serial);
+    cdbg::FastEcuCanTransport can(&serial);
+    fake->throwOnIsOpen = true;
+
+    bool open = true;
+    try
+    {
+        open = ssm.isOpen();
+    }
+    catch (...)
+    {
+        QFAIL("SSM standalone isOpen propagated a backend exception");
+    }
+    QVERIFY(!open);
+
+    open = true;
+    try
+    {
+        open = kline.isOpen();
+    }
+    catch (...)
+    {
+        QFAIL("K-Line standalone isOpen propagated a backend exception");
+    }
+    QVERIFY(!open);
+
+    open = true;
+    try
+    {
+        open = can.isOpen();
+    }
+    catch (...)
+    {
+        QFAIL("CAN standalone isOpen propagated a backend exception");
+    }
+    QVERIFY(!open);
+}
+
+void TestFacadeThreading::transportAdapters_normalEmptyReadIsSuccess()
+{
+    FakeBackend *fake = nullptr;
+    SerialPortActions serial("", "", nullptr, nullptr,
+                             [&fake]() -> SerialBackend *
+                             { fake = new FakeBackend(); return fake; });
+    serial.set_add_ssm_header(false);
+    FastEcuSsmTransport ssm(&serial);
+    mutdma::FastEcuKlineTransport kline(&serial);
+    cdbg::FastEcuCanTransport can(&serial);
+    MutableCancellationToken cancellation;
+
+    const auto ssmResult = ssm.read(10, cancellation);
+    QVERIFY(ssmResult.has_value());
+    QVERIFY(!ssmResult->has_value());
+
+    const auto klineResult = kline.read(10, cancellation);
+    QVERIFY(klineResult.has_value());
+    QVERIFY(!klineResult->has_value());
+
+    const auto canResult = can.read(10, cancellation);
+    QVERIFY(canResult.has_value());
+    QVERIFY(!canResult->has_value());
+}
+
+void TestFacadeThreading::transportAdapters_preCancelledReadSkipsBackend()
+{
+    FakeBackend *fake = nullptr;
+    SerialPortActions serial("", "", nullptr, nullptr,
+                             [&fake]() -> SerialBackend *
+                             { fake = new FakeBackend(); return fake; });
+    serial.set_add_ssm_header(false);
+    fake->takeCallLog();
+    FastEcuSsmTransport ssm(&serial);
+    mutdma::FastEcuKlineTransport kline(&serial);
+    cdbg::FastEcuCanTransport can(&serial);
+    MutableCancellationToken cancellation;
+    cancellation.cancel();
+
+    const auto ssmResult = ssm.read(10, cancellation);
+    QVERIFY(!ssmResult.has_value());
+    QVERIFY(ssmResult.error().kind == fastecu::ErrorKind::Cancelled);
+
+    const auto klineResult = kline.read(10, cancellation);
+    QVERIFY(!klineResult.has_value());
+    QVERIFY(klineResult.error().kind == fastecu::ErrorKind::Cancelled);
+
+    const auto canResult = can.read(10, cancellation);
+    QVERIFY(!canResult.has_value());
+    QVERIFY(canResult.error().kind == fastecu::ErrorKind::Cancelled);
+    QVERIFY(fake->takeCallLog().isEmpty());
+}
+
+void TestFacadeThreading::transportAdapters_postCallCancellationPrecedesDisconnect()
+{
+    FakeBackend *fake = nullptr;
+    SerialPortActions serial("", "", nullptr, nullptr,
+                             [&fake]() -> SerialBackend *
+                             { fake = new FakeBackend(); return fake; });
+    serial.set_add_ssm_header(false);
+    FastEcuSsmTransport ssm(&serial);
+    mutdma::FastEcuKlineTransport kline(&serial);
+    cdbg::FastEcuCanTransport can(&serial);
+    MutableCancellationToken cancellation;
+    fake->afterRead = [&]
+    {
+        cancellation.cancel();
+        fake->portOpen.store(false);
+    };
+
+    const auto ssmResult = ssm.read(10, cancellation);
+    QVERIFY(!ssmResult.has_value());
+    QVERIFY(ssmResult.error().kind == fastecu::ErrorKind::Cancelled);
+
+    cancellation.reset();
+    fake->portOpen.store(true);
+    const auto klineResult = kline.read(10, cancellation);
+    QVERIFY(!klineResult.has_value());
+    QVERIFY(klineResult.error().kind == fastecu::ErrorKind::Cancelled);
+
+    cancellation.reset();
+    fake->portOpen.store(true);
+    const auto canResult = can.read(10, cancellation);
+    QVERIFY(!canResult.has_value());
+    QVERIFY(canResult.error().kind == fastecu::ErrorKind::Cancelled);
+}
+
+void TestFacadeThreading::transportAdapters_backendReadExceptionMapsToInternal()
+{
+    FakeBackend *fake = nullptr;
+    SerialPortActions serial("", "", nullptr, nullptr,
+                             [&fake]() -> SerialBackend *
+                             { fake = new FakeBackend(); return fake; });
+    serial.set_add_ssm_header(false);
+    FastEcuSsmTransport ssm(&serial);
+    mutdma::FastEcuKlineTransport kline(&serial);
+    cdbg::FastEcuCanTransport can(&serial);
+    MutableCancellationToken cancellation;
+    fake->throwOnRead = true;
+
+    const auto ssmResult = ssm.read(10, cancellation);
+    QVERIFY(!ssmResult.has_value());
+    QVERIFY(ssmResult.error().kind == fastecu::ErrorKind::Internal);
+
+    const auto klineResult = kline.read(10, cancellation);
+    QVERIFY(!klineResult.has_value());
+    QVERIFY(klineResult.error().kind == fastecu::ErrorKind::Internal);
+
+    const auto canResult = can.read(10, cancellation);
+    QVERIFY(!canResult.has_value());
+    QVERIFY(canResult.error().kind == fastecu::ErrorKind::Internal);
+}
+
+void TestFacadeThreading::canTransport_truncatedFrameMapsToInternal()
+{
+    FakeBackend *fake = nullptr;
+    SerialPortActions serial("", "", nullptr, nullptr,
+                             [&fake]() -> SerialBackend *
+                             { fake = new FakeBackend(); return fake; });
+    serial.set_add_ssm_header(false);
+    fake->scriptedResponse = QByteArray("\x01\x02\x03", 3);
+    cdbg::FastEcuCanTransport can(&serial);
+    MutableCancellationToken cancellation;
+
+    const auto result = can.read(10, cancellation);
+    QVERIFY(!result.has_value());
+    QVERIFY(result.error().kind == fastecu::ErrorKind::Internal);
 }
 
 // ---- affinity-warning capture ------------------------------------------
@@ -203,6 +437,32 @@ int run_test_facade_threading(int argc, char **argv)
 {
     TestFacadeThreading t;
     return QTest::qExec(&t, argc, argv);
+}
+
+int run_throwing_backend_child()
+{
+    bool backendDestroyed = false;
+    bool exceptionPropagated = false;
+    {
+        FakeBackend *fake = nullptr;
+        SerialPortActions serial("", "", nullptr, nullptr,
+                                 [&fake]() -> SerialBackend *
+                                 { fake = new FakeBackend(); return fake; });
+        serial.set_add_ssm_header(false);
+        fake->throwOnRead = true;
+        fake->destroyed = &backendDestroyed;
+
+        try
+        {
+            serial.read_serial_data(10);
+        }
+        catch (const std::runtime_error& error)
+        {
+            exceptionPropagated = QString::fromUtf8(error.what()) ==
+                                  QStringLiteral("scripted backend read failure");
+        }
+    }
+    return exceptionPropagated && backendDestroyed ? 0 : 1;
 }
 
 #include "test_facade_threading.moc"

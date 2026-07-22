@@ -107,6 +107,13 @@ fastecu::Result<IKlineTransport::OptionalBytes> FastEcuKlineTransport::read(
 }
 bool FastEcuKlineTransport::isOpen() const
 {
-    return serial_ && serial_->is_serial_port_open();
+    try
+    {
+        return serial_ && serial_->is_serial_port_open();
+    }
+    catch (...)
+    {
+        return false;
+    }
 }
 } // namespace mutdma

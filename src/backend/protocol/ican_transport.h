@@ -22,7 +22,9 @@ class ICanTransport
 {
   public:
     virtual ~ICanTransport() = default;
-    // Sends `payload` (up to 8 bytes) on CAN id `canId`. Returns bytes written.
+    // Sends `payload` (up to 8 bytes) on CAN id `canId`. The desktop serial
+    // facade exposes success, not a measured driver count; its successful
+    // result is therefore the requested payload size.
     virtual fastecu::Result<std::size_t> write(
         std::uint32_t canId, bytes::ByteView payload) = 0;
     // A normal logging deadline is a successful empty optional. Cancellation,

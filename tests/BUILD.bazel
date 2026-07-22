@@ -83,6 +83,7 @@ qt_cc_test(
         ":serial_backend_cpp_mocs",
         ":test_header_mocs",
         "//src/platform/desktop/common/serial:serial_qt_compat",
+        "//src/platform/desktop/common/transport",
     ],
 )
 

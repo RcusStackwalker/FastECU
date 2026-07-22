@@ -15,6 +15,8 @@ class IKlineTransport
 
     virtual ~IKlineTransport() = default;
     virtual fastecu::Status setBaud(int baud) = 0;
+    // The desktop serial facade exposes success, not a measured driver count;
+    // its successful result is therefore the requested data size.
     virtual fastecu::Result<std::size_t> write(bytes::ByteView data) = 0;
     virtual fastecu::Result<OptionalBytes> read(
         int timeoutMs, const fastecu::ICancellationToken& cancellation) = 0;

@@ -7,6 +7,10 @@
 #include <QStringList>
 #include <QThread>
 
+#include <atomic>
+#include <functional>
+#include <stdexcept>
+
 #include "src/platform/desktop/common/serial/serial_port_actions_direct.h"
 
 // Scripted backend for facade-level tests. Subclasses the direct backend so
@@ -20,6 +24,19 @@ class FakeBackend : public SerialPortActionsDirect
     QByteArray scriptedResponse;
     QSemaphore *readEntered = nullptr;
     QSemaphore *continueRead = nullptr;
+    bool throwOnRead = false;
+    bool throwOnIsOpen = false;
+    std::atomic<bool> portOpen{true};
+    std::function<void()> afterRead;
+    bool *destroyed = nullptr;
+
+    ~FakeBackend() override
+    {
+        if (destroyed)
+        {
+            *destroyed = true;
+        }
+    }
 
     QStringList takeCallLog()
     {
@@ -31,7 +48,11 @@ class FakeBackend : public SerialPortActionsDirect
 
     bool is_serial_port_open() override
     {
-        return true;
+        if (throwOnIsOpen)
+        {
+            throw std::runtime_error("scripted backend open-state failure");
+        }
+        return portOpen.load();
     }
 
     // Real open_serial_port() unconditionally indexes serial_port_list.at(0)
@@ -58,6 +79,14 @@ class FakeBackend : public SerialPortActionsDirect
         if (readDelayMs)
         {
             QThread::msleep(readDelayMs);
+        }
+        if (throwOnRead)
+        {
+            throw std::runtime_error("scripted backend read failure");
+        }
+        if (afterRead)
+        {
+            afterRead();
         }
         log("read:end");
         return scriptedResponse;
