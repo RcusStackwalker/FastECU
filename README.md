@@ -1,23 +1,31 @@
 # FastECU
 
-Open source software to work on and modify Subaru ECUs and TCUs!
+> **Fork notice:** This is an independently maintained fork of
+> [miikasyvanen/FastECU](https://github.com/miikasyvanen/FastECU) (a rename
+> of this fork is planned). It is not affiliated with or endorsed by the
+> original project or author.
 
-Software contains some modified source code and kernels from nisprog by fenugrec:
-https://github.com/fenugrec
+Open source software to work on and modify Subaru, Mitsubishi ECUs and TCUs!
 
-And from forked nisprog/npkernel project by rimwall (modified for Subaru):
-https://github.com/rimwall
+## Acknowledgments
 
-Huge thanks to following:
+This project is built on [miikasyvanen/FastECU](https://github.com/miikasyvanen/FastECU).
+If you'd like to support that original work, its donation and support
+channels are linked from the upstream repository.
+
+The upstream project itself contains modified source code and kernels from
+nisprog by fenugrec (https://github.com/fenugrec), and from the forked
+nisprog/npkernel project by rimwall, modified for Subaru
+(https://github.com/rimwall). Upstream credits, predating this fork:
+
 - rimwall
 - SergArb
 - alesv
 - jimihimisimi
+- fenugrec, whose kernel development with rimwall for Renesas SH-processors
+  made the original project possible in the first place.
 
-Also big thanks to:
-- fenugrec, whos kernel development with rimwall for Renesas SH-processors made this project to start at the first place.
-
-**Without all mentioned efforts this project would not be succeeded so far!**
+**Without all mentioned efforts this project would not have succeeded so far!**
 
 The code, unless otherwise specified, is licensed under GPLv3 which has certain restrictions. Here is a short summary:
 
@@ -26,13 +34,6 @@ Source: https://tldrlegal.com/license/gnu-general-public-license-v3-(gpl-3)
 You may copy, distribute and modify the software as long as you track changes/dates in source files. Any modifications to or **software including (via compiler) GPL-licensed code** must also be made available under the GPL along with build & install instructions.
 
 Commercial uses is possible, but **all code linked with GPL 3.0 source code must be disclosed under a GPL 3.0 compatible license.**
-
-If you find **FastECU** useful, please consider supporting us as this software is developed on our free time and will always be open source and free of charge. Donations will be used to aquire new hardware and software to help reverse engineer ROMs and software development. Also lots of coffee plays important role!
-
-https://www.paypal.com/paypalme/miikasyvanen
-
-I can also be reached via email: info@fastecu.fi
-Support forum found here: https://www.fastecu.fi/forum/
 
 ### Build and test
 
