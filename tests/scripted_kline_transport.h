@@ -1,28 +1,19 @@
 #pragma once
 #include "src/backend/protocol/ikline_transport.h"
-#include "src/algorithms/protocol/qt_bytes.h"
-#include <QList>
 
 #include <deque>
 #include <string>
 #include <utility>
+#include <vector>
 namespace mutdma
 {
 // Test double: assert the exact sequence of writes, feed canned reads in order.
 class ScriptedKlineTransport : public IKlineTransport
 {
   public:
-    void expectWrite(const QByteArray& b)
-    {
-        expected_.append(bytes::fromQByteArray(b));
-    }
     void expectWrite(bytes::ByteView b)
     {
-        expected_.append(bytes::Bytes(b.begin(), b.end()));
-    }
-    void queueRead(const QByteArray& b)
-    {
-        reads_.emplace_back(OptionalBytes{bytes::fromQByteArray(b)});
+        expected_.emplace_back(b.begin(), b.end());
     }
     void queueRead(bytes::ByteView b)
     {
@@ -86,9 +77,9 @@ class ScriptedKlineTransport : public IKlineTransport
     }
 
   private:
-    QList<bytes::Bytes> expected_;
+    std::vector<bytes::Bytes> expected_;
     std::deque<fastecu::Result<OptionalBytes>> reads_;
-    int wIdx_ = 0;
+    std::size_t wIdx_ = 0;
     bool ok_ = true;
     bool open_ = true;
 };

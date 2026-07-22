@@ -1,8 +1,7 @@
 #pragma once
 #include <memory>
 #include "src/backend/logging/logging_protocol.h"
-#include "src/backend/protocol/ican_transport.h"
-#include "src/backend/protocol/mitsu_colt_can_cdbg_driver.h"
+#include "src/backend/logging/protocols/portable_cdbg_logging_protocol.h"
 #include "src/backend/definitions/file_actions.h"
 
 class SerialPortActions;
@@ -18,10 +17,8 @@ class CdbgLoggingProtocol : public LoggingProtocol
     void stop() override;
 
   private:
-    std::unique_ptr<cdbg::ICanTransport> transport_;
-    SerialPortActions *serial_;
     FileActions::LogValuesStructure *logValues_;
     FileActions *fileActions_;
-    MitsuColtCanCdbg::CdbgLogDriver driver_;
     QVector<int> channelLogValueIndex_;
+    std::unique_ptr<fastecu::logging::CdbgLoggingProtocol> core_;
 };

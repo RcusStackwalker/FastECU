@@ -2482,6 +2482,14 @@ void MainWindow::setupLoggingEngine()
 
     loggingEngine->registerProtocol("CDBG", [this](const LogSessionConfig&)
                                     {
+            serial->set_is_iso14230_connection(false);
+            serial->set_add_iso14230_header(false);
+            serial->set_is_can_connection(true);
+            serial->set_is_iso15765_connection(false);
+            serial->set_is_29_bit_id(false);
+            serial->set_can_speed("500000");
+            serial->set_can_destination_address(MitsuColtCanCdbg::kReplyCanId);
+            serial->open_serial_port();
             auto transport = std::make_unique<cdbg::FastEcuCanTransport>(serial);
             return std::unique_ptr<LoggingProtocol>(
                 new CdbgLoggingProtocol(std::move(transport), serial, logValues, fileActions)); },

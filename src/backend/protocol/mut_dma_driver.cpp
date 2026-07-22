@@ -1,74 +1,129 @@
 #include "src/backend/protocol/mut_dma_driver.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_codec.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_memory.h"
-#include "src/algorithms/protocol/mut_dma/qt_mut_dma.h"
-#include "src/algorithms/protocol/qt_bytes.h"
-#include "src/backend/protocol/transport_legacy_compat.h"
+
 namespace mutdma
 {
-namespace legacy_transport = fastecu::transport_legacy_compat;
-
 static bool ackOk(bytes::ByteView f, bytes::Byte cA, bytes::Byte cB)
 {
     return verifyFrame(f) && (f[0] == cA || f[0] == cB);
 }
-bool MutDmaDriver::startFreeFormLog(const QVector<Channel>& channels,
-                                    bytes::Byte setupCmd, bytes::Byte listCmd)
+
+namespace
+{
+fastecu::Status writeFrame(IKlineTransport& transport, bytes::ByteView frame)
+{
+    auto result = transport.write(frame);
+    if (!result)
+    {
+        return std::unexpected(result.error());
+    }
+    if (*result != frame.size())
+    {
+        return fastecu::fail(fastecu::ErrorKind::Internal, "partial K-Line write");
+    }
+    return {};
+}
+} // namespace
+
+fastecu::Status MutDmaDriver::startFreeFormLog(
+    const std::vector<Channel>& channels, bytes::Byte setupCmd, bytes::Byte listCmd,
+    const fastecu::ICancellationToken& cancellation)
 {
     channels_ = channels;
     streaming_ = false;
     if (!init_.wake(t_))
     {
-        return false;
+        return fastecu::fail(fastecu::ErrorKind::BadResponse, "MUT/DMA wake failed");
     }
-    legacy_transport::write(t_, buildSetupFrame(setupCmd, static_cast<bytes::Byte>(channels.size())));
-    const bytes::Bytes resp1 = legacy_transport::read(t_, 50, FRAME_LEN);
-    if (!ackOk(resp1, 0xA5, 0xB5))
+    const auto setup = buildSetupFrame(setupCmd, static_cast<bytes::Byte>(channels.size()));
+    if (auto written = writeFrame(t_, setup); !written)
     {
-        return false; // ACK-1
+        return written;
     }
-    legacy_transport::write(t_, buildIdListFrame(listCmd, channels));
-    const bytes::Bytes resp2 = legacy_transport::read(t_, 50, FRAME_LEN);
-    if (!ackOk(resp2, 0x05, 0x15))
+    auto resp1 = t_.read(50, cancellation);
+    if (!resp1)
     {
-        return false; // ACK-2
+        return std::unexpected(resp1.error());
+    }
+    if (!resp1->has_value() || !ackOk(resp1->value(), 0xA5, 0xB5))
+    {
+        return fastecu::fail(fastecu::ErrorKind::BadResponse,
+                             "MUT/DMA setup acknowledgement invalid");
+    }
+    const auto idList = buildIdListFrame(listCmd, channels);
+    if (auto written = writeFrame(t_, idList); !written)
+    {
+        return written;
+    }
+    auto resp2 = t_.read(50, cancellation);
+    if (!resp2)
+    {
+        return std::unexpected(resp2.error());
+    }
+    if (!resp2->has_value() || !ackOk(resp2->value(), 0x05, 0x15))
+    {
+        return fastecu::fail(fastecu::ErrorKind::BadResponse,
+                             "MUT/DMA channel-list acknowledgement invalid");
     }
     streaming_ = true;
-    return true;
+    return {};
 }
-bool MutDmaDriver::writeMemory(std::uint16_t addr, bytes::ByteView bytes)
+
+fastecu::Status MutDmaDriver::writeMemory(
+    std::uint16_t addr, bytes::ByteView data,
+    const fastecu::ICancellationToken& cancellation)
 {
     if (!init_.wake(t_))
     {
-        return false;
+        return fastecu::fail(fastecu::ErrorKind::BadResponse, "MUT/DMA wake failed");
     }
-    const std::vector<MutDmaFrame> frames = buildWriteFrames(addr, bytes);
-    if (frames.empty() && !bytes.empty())
+    const std::vector<MutDmaFrame> frames = buildWriteFrames(addr, data);
+    if (frames.empty() && !data.empty())
     {
-        return false;
+        return fastecu::fail(fastecu::ErrorKind::InvalidConfig,
+                             "MUT/DMA memory write range is invalid");
     }
     for (const MutDmaFrame& f : frames)
     {
-        legacy_transport::write(t_, f);
-        if (!verifyFrame(legacy_transport::read(t_, 50, FRAME_LEN)))
+        if (auto written = writeFrame(t_, f); !written)
         {
-            return false; // echo ack
+            return written;
+        }
+        auto echo = t_.read(50, cancellation);
+        if (!echo)
+        {
+            return std::unexpected(echo.error());
+        }
+        if (!echo->has_value() || !verifyFrame(echo->value()))
+        {
+            return fastecu::fail(fastecu::ErrorKind::BadResponse,
+                                 "MUT/DMA memory-write echo invalid");
         }
     }
-    return true;
+    return {};
 }
-bool MutDmaDriver::writeMemory(std::uint16_t addr, const QByteArray& bytes)
+
+fastecu::Result<std::vector<std::uint32_t>> MutDmaDriver::pollOnce(
+    int timeoutMs, const fastecu::ICancellationToken& cancellation)
 {
-    return writeMemory(addr, bytes::view(bytes));
-}
-QVector<std::uint32_t> MutDmaDriver::pollOnce(int timeoutMs)
-{
-    const int want = 1 + responseDataLength(channels_) + 2; // id + data + csum + trailer
-    const bytes::Bytes fr = legacy_transport::read(t_, timeoutMs, want);
-    StreamFrame s = parseStreamFrame(fr);
+    if (!streaming_)
+    {
+        return std::vector<std::uint32_t>{};
+    }
+    auto frame = t_.read(timeoutMs, cancellation);
+    if (!frame)
+    {
+        return std::unexpected(frame.error());
+    }
+    if (!frame->has_value())
+    {
+        return std::vector<std::uint32_t>{};
+    }
+    StreamFrame s = parseStreamFrame(frame->value());
     if (!s.ok)
     {
-        return {};
+        return std::vector<std::uint32_t>{};
     }
     return decodeStreamValues(channels_, s.data);
 }

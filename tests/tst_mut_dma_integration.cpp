@@ -32,6 +32,7 @@
 #include <QThread>
 #include <QSemaphore>
 #include <atomic>
+#include <vector>
 
 #if defined(__linux__)
 #include <pty.h> // openpty
@@ -403,7 +404,7 @@ void MutDmaIntegrationTest::driverPollOnce_throughAdapter_decodesStreamFrameFrom
         MutDmaDriver driver(tr, init);
 
         // Two channels: one 1-byte, one 2-byte, big-endian.
-        QVector<Channel> channels{{0x1234, 1}, {0x5678, 2}};
+        std::vector<Channel> channels{{0x1234, 1}, {0x5678, 2}};
         driver.setChannelsForTest(channels);
 
         // Streamed frame: [logId][data...][sum8(0..len-3)][0x0D].
@@ -421,10 +422,11 @@ void MutDmaIntegrationTest::driverPollOnce_throughAdapter_decodesStreamFrameFrom
         tr.read(60, cancellation); // drain residual
         mock.injectDataFrame(frame);
 
-        const QVector<std::uint32_t> values = driver.pollOnce(500);
-        QCOMPARE(values.size(), 2);
-        QCOMPARE(values.at(0), std::uint32_t(0x42));
-        QCOMPARE(values.at(1), std::uint32_t(0xDEAD));
+        const auto values = driver.pollOnce(500, cancellation);
+        QVERIFY(values);
+        QCOMPARE(values->size(), std::size_t(2));
+        QCOMPARE(values->at(0), std::uint32_t(0x42));
+        QCOMPARE(values->at(1), std::uint32_t(0xDEAD));
     }
     ::close(master);
 }

@@ -7,7 +7,7 @@ with no indication of which suite was responsible. This macro instead
 builds one independently selectable QtTest or GoogleTest target per suite.
 """
 
-load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:gtest_targets.bzl", "fastecu_gtest", "fastecu_portable_gtest")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_LINKOPTS", "QT_DEPS", "local_test_hdrs", "qt_cc_test")
 load("//bazel:test_sources.bzl", "MUT_DMA_TESTS_COMMON_HDRS")
 
@@ -46,12 +46,14 @@ MUT_DMA_TEST_SUITES = [
 MUT_DMA_GTEST_SUITES = [
     "test_bytes",
     "test_cdbg_driver",
+    "test_cdbg_logging_protocol",
     "test_codec",
     "test_driver",
     "test_expression_evaluator",
     "test_freeform",
     "test_init",
     "test_memory",
+    "test_mut_dma_logging_protocol",
     "test_mitsu_colt_can_cdbg_protocol",
     "test_mitsu_colt_can_protocol",
     "test_mitsu_colt_can_vendor_ext_protocol",
@@ -61,8 +63,19 @@ MUT_DMA_GTEST_SUITES = [
 
 MUT_DMA_GTEST_SRCS = [base + ".cpp" for base in MUT_DMA_GTEST_SUITES]
 
+MUT_DMA_PORTABLE_GTEST_SUITES = [
+    "test_cdbg_driver",
+    "test_cdbg_logging_protocol",
+    "test_driver",
+    "test_mut_dma_logging_protocol",
+]
+
 _MUT_DMA_GTEST_HELPER_HDRS = {
     "test_cdbg_driver": [
+        "byte_test_utils.h",
+        "scripted_can_transport.h",
+    ],
+    "test_cdbg_logging_protocol": [
         "byte_test_utils.h",
         "scripted_can_transport.h",
     ],
@@ -71,14 +84,16 @@ _MUT_DMA_GTEST_HELPER_HDRS = {
         "scripted_kline_transport.h",
     ],
     "test_init": ["scripted_kline_transport.h"],
-    "test_mitsu_colt_can_protocol": ["byte_test_utils.h"],
-    "test_mitsu_colt_can_vendor_ext_protocol": ["byte_test_utils.h"],
-    "test_ssm_protocol": ["byte_test_utils.h"],
+    "test_mut_dma_logging_protocol": ["scripted_kline_transport.h"],
     "test_transport": [
+        "byte_test_utils.h",
         "scripted_can_transport.h",
         "scripted_kline_transport.h",
         "scripted_ssm_transport.h",
     ],
+    "test_mitsu_colt_can_protocol": ["byte_test_utils.h"],
+    "test_mitsu_colt_can_vendor_ext_protocol": ["byte_test_utils.h"],
+    "test_ssm_protocol": ["byte_test_utils.h"],
 }
 
 # These suites construct a real QApplication (FileActions derives from
@@ -87,13 +102,11 @@ _MUT_DMA_GTEST_HELPER_HDRS = {
 # attribute means it's present in the test process's environment from the
 # moment it starts.
 _NEEDS_OFFSCREEN_QT_PLATFORM = [
-    "test_cdbg_logging_protocol",
     "test_checksum_results",
     "test_ecuflash_definition_parsing",
     "test_file_actions_parsing",
     "test_flash_ecu_mitsu_m32r_can_operation",
     "test_flash_operation_worker",
-    "test_mut_dma_logging_protocol",
     "test_rom_transformations",
     "test_romraider_conversion",
     "test_ssm_logging_protocol",
@@ -118,34 +131,25 @@ SUITE_DEPS = {
     # backend/protocol's own dep on it), so it is not declared.
     "test_init": ["//src/backend/protocol"],
     # test_driver.cpp includes mut_dma_codec/freeform/memory.h (mut_dma) AND
-    # mut_dma_driver.h (backend/protocol) directly -- both are real edges. It also
-    # includes qt_mut_dma.h to bridge std::vector<Channel> locals into the
-    # still-QVector-based MutDmaDriver API, so it needs the mut_dma Qt shim
-    # (which transitively provides :mut_dma's portable headers too).
+    # mut_dma_driver.h (backend/protocol) directly -- both are real portable edges.
     "test_driver": [
-        "//src/algorithms/protocol/mut_dma:qt_compat",
+        "//src/algorithms/protocol/mut_dma",
         "//src/backend/protocol",
     ],
-    # test_transport.cpp includes qt_bytes.h (algorithms/protocol root) only
-    # directly; scripted_kline_transport.h pulls in backend/protocol's
-    # ikline_transport.h, which itself depends on algorithms/protocol root,
-    # so backend/protocol alone covers both real edges.
-    "test_transport": ["//src/backend/protocol"],
+    # The K-Line/CAN scripted helpers are portable. The shared SSM helper remains
+    # Qt-based until SSM's later conversion and therefore keeps an explicit shim.
+    "test_transport": [
+        "//src/algorithms/protocol:qt_compat",
+        "//src/backend/protocol",
+    ],
     # These three include qt_colt.h (the Qt shim) alongside the portable
     # header, since the tests exercise both the bytes::-native functions and
     # the QByteArray/QVector overloads (Task 8).
     "test_mitsu_colt_can_protocol": ["//src/algorithms/protocol/colt:qt_compat"],
     "test_mitsu_colt_can_vendor_ext_protocol": ["//src/algorithms/protocol/colt:qt_compat"],
     "test_mitsu_colt_can_cdbg_protocol": ["//src/algorithms/protocol/colt:qt_compat"],
-    # test_cdbg_driver.cpp includes mitsu_colt_can_cdbg_driver.h, which lives
-    # in backend/protocol, NOT algorithms/protocol/colt (a different file:
-    # mitsu_colt_can_cdbg_protocol.h). It also includes qt_colt.h directly
-    # (Task 8) to bridge QVector<CdbgChannel> locals into the still-QVector-
-    # based CdbgLogDriver API, so it needs the colt Qt shim as a real edge.
-    "test_cdbg_driver": [
-        "//src/algorithms/protocol/colt:qt_compat",
-        "//src/backend/protocol",
-    ],
+    # The CDBG driver header and implementation now form a Qt-free backend edge.
+    "test_cdbg_driver": ["//src/backend/protocol"],
     "test_ssm_protocol": ["//src/algorithms/protocol/ssm:qt_compat"],
     "test_expression_evaluator": ["//src/algorithms/expression:qt_compat"],
     "test_menu_command": ["//src/algorithms/menu:qt_compat"],
@@ -161,8 +165,8 @@ SUITE_DEPS = {
     # (a subpackage of backend/logging, not the same label) -- backend/logging
     # alone doesn't expose it.
     "test_ssm_logging_protocol": ["//src/backend/logging/protocols"],
-    "test_mut_dma_logging_protocol": ["//src/backend/logging/protocols"],
-    "test_cdbg_logging_protocol": ["//src/backend/logging/protocols"],
+    "test_mut_dma_logging_protocol": ["//src/backend/logging/protocols:portable_protocols"],
+    "test_cdbg_logging_protocol": ["//src/backend/logging/protocols:portable_protocols"],
     "test_flash_operation_worker": ["//src/backend/flash"],
     # test_flash_ecu_mitsu_m32r_can_operation.cpp includes qt_colt.h directly
     # (Task 8) for QByteArray-typed Colt helper wrappers, so it needs the
@@ -193,6 +197,13 @@ def mut_dma_test_suites(moc_deps_target, header_mocs_target):
         (e.g. ":test_header_mocs").
     """
     for base in MUT_DMA_TEST_SUITES:
+        if base in MUT_DMA_PORTABLE_GTEST_SUITES:
+            fastecu_portable_gtest(
+                name = base,
+                srcs = [base + ".cpp"] + _MUT_DMA_GTEST_HELPER_HDRS.get(base, []),
+                deps = SUITE_DEPS[base],
+            )
+            continue
         if base in MUT_DMA_GTEST_SUITES:
             fastecu_gtest(
                 name = base,

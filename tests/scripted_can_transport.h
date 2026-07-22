@@ -1,12 +1,11 @@
 #pragma once
 #include "src/backend/protocol/ican_transport.h"
-#include "src/algorithms/protocol/qt_bytes.h"
-#include <QList>
 
 #include <cstdint>
 #include <deque>
 #include <string>
 #include <utility>
+#include <vector>
 namespace cdbg
 {
 // Test double: assert the exact sequence of (id,payload) writes, feed canned
@@ -14,19 +13,10 @@ namespace cdbg
 class ScriptedCanTransport : public ICanTransport
 {
   public:
-    void expectWrite(std::uint32_t id, const QByteArray& payload)
-    {
-        expectedIds_.append(id);
-        expectedPayloads_.append(bytes::fromQByteArray(payload));
-    }
     void expectWrite(std::uint32_t id, bytes::ByteView payload)
     {
-        expectedIds_.append(id);
-        expectedPayloads_.append(bytes::Bytes(payload.begin(), payload.end()));
-    }
-    void queueRead(std::uint32_t id, const QByteArray& payload)
-    {
-        reads_.emplace_back(std::optional<CanFrame>{CanFrame{id, bytes::fromQByteArray(payload)}});
+        expectedIds_.push_back(id);
+        expectedPayloads_.emplace_back(payload.begin(), payload.end());
     }
     void queueRead(std::uint32_t id, bytes::ByteView payload)
     {
@@ -86,10 +76,10 @@ class ScriptedCanTransport : public ICanTransport
     }
 
   private:
-    QList<std::uint32_t> expectedIds_;
-    QList<bytes::Bytes> expectedPayloads_;
+    std::vector<std::uint32_t> expectedIds_;
+    std::vector<bytes::Bytes> expectedPayloads_;
     std::deque<fastecu::Result<std::optional<CanFrame>>> reads_;
-    int wIdx_ = 0;
+    std::size_t wIdx_ = 0;
     bool ok_ = true;
     bool open_ = true;
 };

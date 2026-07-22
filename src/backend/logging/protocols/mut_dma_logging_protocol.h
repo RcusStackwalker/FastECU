@@ -1,9 +1,7 @@
 #pragma once
 #include <memory>
 #include "src/backend/logging/logging_protocol.h"
-#include "src/backend/protocol/ikline_transport.h"
-#include "src/backend/protocol/imut_dma_init.h"
-#include "src/backend/protocol/mut_dma_driver.h"
+#include "src/backend/logging/protocols/portable_mut_dma_logging_protocol.h"
 #include "src/backend/definitions/file_actions.h"
 
 class MutDmaLoggingProtocol : public LoggingProtocol
@@ -18,10 +16,8 @@ class MutDmaLoggingProtocol : public LoggingProtocol
     void stop() override;
 
   private:
-    std::unique_ptr<mutdma::IKlineTransport> transport_;
-    std::unique_ptr<mutdma::IMutDmaInit> init_;
     FileActions::LogValuesStructure *logValues_;
     FileActions *fileActions_;
-    mutdma::MutDmaDriver driver_;
     QVector<int> channelLogValueIndex_;
+    std::unique_ptr<fastecu::logging::MutDmaLoggingProtocol> core_;
 };

@@ -1,5 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "PORTABLE_COPTS", "QT_DEPS")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -10,17 +10,40 @@ package(default_visibility = [
 
 cc_library(
     name = "protocols",
-    srcs = glob(["*.cpp"]),
-    hdrs = glob(["*.h"]),
+    srcs = glob(
+        ["*.cpp"],
+        exclude = ["portable_*.cpp"],
+    ),
+    hdrs = glob(
+        ["*.h"],
+        exclude = ["portable_*.h"],
+    ),
     copts = COMMON_COPTS,
     includes = COMMON_INCLUDES,
     deps = QT_DEPS + [
+        ":portable_protocols",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/backend/definitions",
         "//src/backend/logging",
         "//src/backend/ports",
         "//src/backend/protocol",
-        "//src/platform/desktop/common/serial:serial_qt_compat",
+    ],
+)
+
+cc_library(
+    name = "portable_protocols",
+    srcs = [
+        "portable_cdbg_logging_protocol.cpp",
+        "portable_mut_dma_logging_protocol.cpp",
+    ],
+    hdrs = [
+        "portable_cdbg_logging_protocol.h",
+        "portable_mut_dma_logging_protocol.h",
+    ],
+    copts = PORTABLE_COPTS,
+    deps = [
+        "//src/backend/logging:logging_use_case",
+        "//src/backend/protocol",
     ],
 )

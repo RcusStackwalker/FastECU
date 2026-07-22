@@ -1,18 +1,19 @@
 #include "src/backend/logging/protocols/mut_dma_logging_protocol.h"
 #include "src/backend/logging/romraider_conversion.h"
+#include "src/backend/protocol/transport_legacy_compat.h"
 
+#include <algorithm>
 #include <cstdint>
-
-using namespace mutdma;
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace
 {
-// Build the free-form channel list from the enabled MUT_DMA log values, in the
-// same order the display path consumes them. outIndices[i] is the index j into
-// logValues->log_value_* for the channel returned at position i.
-QVector<Channel> channelsFromLogValues(FileActions::LogValuesStructure *lv, QVector<int>& outIndices)
+std::vector<fastecu::logging::LoggingChannel> channelsFromLogValues(
+    FileActions::LogValuesStructure *lv, QVector<int>& outIndices)
 {
-    QVector<Channel> ch;
+    std::vector<fastecu::logging::LoggingChannel> channels;
     outIndices.clear();
     for (int i = 0; i < lv->lower_panel_log_value_id.length(); i++)
     {
@@ -20,63 +21,56 @@ QVector<Channel> channelsFromLogValues(FileActions::LogValuesStructure *lv, QVec
         {
             if (lv->lower_panel_log_value_id.at(i) == lv->log_value_id.at(j) && lv->log_value_protocol.at(j) == "MUT_DMA" && lv->log_value_enabled.at(j) == "1")
             {
-                Channel c{};
-                c.id = static_cast<std::uint16_t>(lv->log_value_address.at(j).toUInt(nullptr, 16));
-                c.len = static_cast<bytes::Byte>(lv->log_value_length.at(j).toUInt());
-                ch.append(c);
+                channels.push_back(fastecu::logging::LoggingChannel{
+                    .id = lv->log_value_id.at(j).toStdString(),
+                    .address = lv->log_value_address.at(j).toUInt(nullptr, 16),
+                    .length = static_cast<std::size_t>(lv->log_value_length.at(j).toUInt()),
+                    .raw_assembly = fastecu::logging::RawAssembly::UnsignedIntegerDecimal,
+                    .from_byte_expression = "x",
+                    .unit = "",
+                    .decimal_precision = 0,
+                });
                 outIndices.append(j);
             }
         }
     }
-    return ch;
+    return channels;
 }
 } // namespace
 
-MutDmaLoggingProtocol::MutDmaLoggingProtocol(std::unique_ptr<IKlineTransport> transport,
-                                             std::unique_ptr<IMutDmaInit> init,
+MutDmaLoggingProtocol::MutDmaLoggingProtocol(std::unique_ptr<mutdma::IKlineTransport> transport,
+                                             std::unique_ptr<mutdma::IMutDmaInit> init,
                                              FileActions::LogValuesStructure *logValues, FileActions *fileActions)
-    : transport_(std::move(transport)), init_(std::move(init)), logValues_(logValues), fileActions_(fileActions), driver_(*transport_, *init_)
+    : logValues_(logValues), fileActions_(fileActions)
 {
+    auto channels = channelsFromLogValues(logValues_, channelLogValueIndex_);
+    core_ = std::make_unique<fastecu::logging::MutDmaLoggingProtocol>(
+        std::move(transport), std::move(init), std::move(channels));
 }
 
 fastecu::Status MutDmaLoggingProtocol::start()
 {
-    if (!transport_->isOpen())
-    {
-        return fastecu::fail(fastecu::ErrorKind::Disconnected, "adapter disconnected");
-    }
-
-    QVector<Channel> channels = channelsFromLogValues(logValues_, channelLogValueIndex_);
-    if (!driver_.startFreeFormLog(channels, 0xA0, 0xA1))
-    {
-        return fastecu::fail(fastecu::ErrorKind::BadResponse, "MUT/DMA free-form handshake failed");
-    }
-    return {};
+    return core_->start(
+        fastecu::transport_legacy_compat::detail::never_cancelled());
 }
 
 fastecu::Result<PollData> MutDmaLoggingProtocol::poll(int timeoutMs)
 {
-    if (!transport_->isOpen())
+    auto result = core_->poll(
+        timeoutMs, fastecu::transport_legacy_compat::detail::never_cancelled());
+    if (!result)
     {
-        return fastecu::fail(fastecu::ErrorKind::Disconnected, "adapter disconnected");
-    }
-    if (!driver_.isStreaming())
-    {
-        return PollData{false, {}};
-    }
-
-    QVector<std::uint32_t> vals = driver_.pollOnce(timeoutMs);
-    if (vals.isEmpty())
-    {
-        return PollData{false, {}};
+        return std::unexpected(result.error());
     }
 
     PollData data;
-    data.responded = true;
-    for (int i = 0; i < vals.size() && i < channelLogValueIndex_.size(); ++i)
+    data.responded = result->responded;
+    const auto sampleCount = std::min(
+        result->samples.size(), static_cast<std::size_t>(channelLogValueIndex_.size()));
+    for (std::size_t i = 0; i < sampleCount; ++i)
     {
-        int j = channelLogValueIndex_.at(i);
-        QString value = QString::number(vals.at(i));
+        const int j = channelLogValueIndex_.at(static_cast<qsizetype>(i));
+        const QString value = QString::fromStdString(result->samples[i].raw_value);
         QString calc_value = convertRomRaiderValue(fileActions_, logValues_, j, value);
         data.samples.append(LogSample{j, calc_value});
     }
@@ -86,6 +80,5 @@ fastecu::Result<PollData> MutDmaLoggingProtocol::poll(int timeoutMs)
 
 void MutDmaLoggingProtocol::stop()
 {
-    // MutDmaDriver has no explicit "stop streaming" wire command; the ECU's
-    // stream simply stops being read once this protocol/driver is destroyed.
+    (void)core_->stop();
 }

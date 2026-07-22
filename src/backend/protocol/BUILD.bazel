@@ -1,5 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS")
+load("//bazel:qt_targets.bzl", "PORTABLE_COPTS")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -8,17 +8,17 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
+# Portable. Qt-only container adapters belong in the algorithms' :qt_compat
+# targets and platform callers adapt at their boundary.
 cc_library(
     name = "protocol",
     srcs = glob(["*.cpp"]),
     hdrs = glob(["*.h"]),
-    copts = COMMON_COPTS,
-    includes = COMMON_INCLUDES,
-    deps = QT_DEPS + [
+    copts = PORTABLE_COPTS,
+    deps = [
         "//src/algorithms/protocol",
-        "//src/algorithms/protocol:qt_compat",
-        "//src/algorithms/protocol/colt:qt_compat",
-        "//src/algorithms/protocol/mut_dma:qt_compat",
+        "//src/algorithms/protocol/colt",
+        "//src/algorithms/protocol/mut_dma",
         "//src/backend/ports",
     ],
 )

@@ -1,16 +1,19 @@
 #include "src/backend/logging/protocols/cdbg_logging_protocol.h"
 #include "src/backend/logging/romraider_conversion.h"
-#include "src/platform/desktop/common/serial/serial_port_actions.h"
+#include "src/backend/protocol/transport_legacy_compat.h"
 
+#include <algorithm>
 #include <cstdint>
-
-using namespace MitsuColtCanCdbg;
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace
 {
-QVector<CdbgChannel> channelsFromLogValues(FileActions::LogValuesStructure *lv, QVector<int>& outIndices)
+std::vector<fastecu::logging::LoggingChannel> channelsFromLogValues(
+    FileActions::LogValuesStructure *lv, QVector<int>& outIndices)
 {
-    QVector<CdbgChannel> ch;
+    std::vector<fastecu::logging::LoggingChannel> channels;
     outIndices.clear();
     for (int i = 0; i < lv->lower_panel_log_value_id.length(); i++)
     {
@@ -18,78 +21,58 @@ QVector<CdbgChannel> channelsFromLogValues(FileActions::LogValuesStructure *lv, 
         {
             if (lv->lower_panel_log_value_id.at(i) == lv->log_value_id.at(j) && lv->log_value_protocol.at(j) == "CDBG")
             {
-                CdbgChannel c{};
-                c.pointer = lv->log_value_address.at(j).toUInt(nullptr, 16);
-                c.size = static_cast<bytes::Byte>(lv->log_value_length.at(j).toUInt());
-                ch.append(c);
+                channels.push_back(fastecu::logging::LoggingChannel{
+                    .id = lv->log_value_id.at(j).toStdString(),
+                    .address = lv->log_value_address.at(j).toUInt(nullptr, 16),
+                    .length = static_cast<std::size_t>(lv->log_value_length.at(j).toUInt()),
+                    .raw_assembly = fastecu::logging::RawAssembly::UnsignedIntegerDecimal,
+                    .from_byte_expression = "x",
+                    .unit = "",
+                    .decimal_precision = 0,
+                });
                 outIndices.append(j);
             }
         }
     }
-    return ch;
+    return channels;
 }
 } // namespace
 
 CdbgLoggingProtocol::CdbgLoggingProtocol(std::unique_ptr<cdbg::ICanTransport> transport, SerialPortActions *serial,
                                          FileActions::LogValuesStructure *logValues, FileActions *fileActions)
-    : transport_(std::move(transport)), serial_(serial), logValues_(logValues), fileActions_(fileActions), driver_(*transport_)
+    : logValues_(logValues), fileActions_(fileActions)
 {
+    // Transitional signature retained until the Qt worker is removed in Task 7.
+    // Raw-CAN setup/open is platform-owned; this wrapper intentionally ignores it.
+    (void)serial;
+    auto channels = channelsFromLogValues(logValues_, channelLogValueIndex_);
+    core_ = std::make_unique<fastecu::logging::CdbgLoggingProtocol>(
+        std::move(transport), std::move(channels));
 }
 
 fastecu::Status CdbgLoggingProtocol::start()
 {
-    QVector<CdbgChannel> channels = channelsFromLogValues(logValues_, channelLogValueIndex_);
-    if (channels.isEmpty())
-    {
-        return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "no CDBG log parameters selected");
-    }
-
-    serial_->set_is_iso14230_connection(false);
-    serial_->set_add_iso14230_header(false);
-    serial_->set_is_can_connection(true);
-    serial_->set_is_iso15765_connection(false);
-    serial_->set_is_29_bit_id(false);
-    serial_->set_can_speed("500000");
-    serial_->set_can_destination_address(kReplyCanId);
-    serial_->open_serial_port();
-
-    if (!transport_->isOpen())
-    {
-        return fastecu::fail(fastecu::ErrorKind::Disconnected, "adapter disconnected");
-    }
-
-    QString driverError;
-    if (!driver_.startFreeFormLog(channels, 0, 10, &driverError))
-    {
-        QString err = driverError.isEmpty() ? QStringLiteral("CDBG logging session failed") : driverError;
-        return fastecu::fail(fastecu::ErrorKind::BadResponse, err.toStdString());
-    }
-    return {};
+    return core_->start(
+        fastecu::transport_legacy_compat::detail::never_cancelled());
 }
 
 fastecu::Result<PollData> CdbgLoggingProtocol::poll(int timeoutMs)
 {
-    if (!transport_->isOpen())
+    auto result = core_->poll(
+        timeoutMs, fastecu::transport_legacy_compat::detail::never_cancelled());
+    if (!result)
     {
-        return fastecu::fail(fastecu::ErrorKind::Disconnected, "adapter disconnected");
-    }
-    if (!driver_.isStreaming())
-    {
-        return PollData{false, {}};
-    }
-
-    QVector<std::uint32_t> vals = driver_.pollOnce(timeoutMs);
-    if (vals.isEmpty())
-    {
-        return PollData{false, {}};
+        return std::unexpected(result.error());
     }
 
     PollData data;
-    data.responded = true;
-    for (int i = 0; i < vals.size() && i < channelLogValueIndex_.size(); ++i)
+    data.responded = result->responded;
+    const auto sampleCount = std::min(
+        result->samples.size(), static_cast<std::size_t>(channelLogValueIndex_.size()));
+    for (std::size_t i = 0; i < sampleCount; ++i)
     {
-        int j = channelLogValueIndex_.at(i);
-        QString value = QString::number(vals.at(i));
+        const int j = channelLogValueIndex_.at(static_cast<qsizetype>(i));
+        const QString value = QString::fromStdString(result->samples[i].raw_value);
         QString calc_value = convertRomRaiderValue(fileActions_, logValues_, j, value);
         data.samples.append(LogSample{j, calc_value});
     }
@@ -99,6 +82,5 @@ fastecu::Result<PollData> CdbgLoggingProtocol::poll(int timeoutMs)
 
 void CdbgLoggingProtocol::stop()
 {
-    // CdbgLogDriver has no explicit "stop streaming" wire command; the ECU's
-    // stream simply stops being read once this protocol/driver is destroyed.
+    (void)core_->stop();
 }
