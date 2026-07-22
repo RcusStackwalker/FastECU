@@ -1,0 +1,22 @@
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
+
+package(default_visibility = [
+    "//apps:__subpackages__",
+    "//src/ui:__subpackages__",
+    "//tests:__pkg__",
+])
+
+qt_cc_library(
+    name = "ports",
+    srcs = glob(["*.cpp"]),
+    hdrs = ["qt_event_sink.h"],  # MOC header
+    copts = COMMON_COPTS,
+    includes = COMMON_INCLUDES,
+    normal_hdrs = glob(
+        ["*.h"],
+        exclude = ["qt_event_sink.h"],
+    ),
+    deps = QT_DEPS + [
+        "//src/backend/ports",
+    ],
+)
