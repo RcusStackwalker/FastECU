@@ -2,6 +2,7 @@
 
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 #include <QString>
 
@@ -17,6 +18,7 @@ namespace fastecu::desktop::logging
 struct DesktopLoggingSnapshot
 {
     const fastecu::logging::LoggingSession session;
+    std::vector<std::size_t> response_offsets;
     std::unordered_map<std::string, int> index_by_id;
     std::unordered_set<std::string> enabled_ids;
 };

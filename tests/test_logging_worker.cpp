@@ -1,150 +1,133 @@
 #include <QtTest>
+#include <QElapsedTimer>
 #include <QSignalSpy>
-#include "src/backend/logging/logging_worker.h"
+
 #include "scripted_logging_protocol.h"
+#include "src/platform/desktop/common/logging/logging_worker.h"
 #include "test_logging_worker.h"
+
+namespace
+{
+
+using namespace fastecu::logging;
+
+class NullDiagnostics final : public fastecu::IEventSink
+{
+  public:
+    void log(fastecu::LogLevel, std::string_view) override
+    {
+    }
+    void progress(int, int) override
+    {
+    }
+    void notice(std::string_view) override
+    {
+    }
+};
+
+LoggingSession session(LoggingPolicy policy = {.poll_timeout_ms = 5,
+                                               .car_silence_miss_threshold = 2,
+                                               .reconnect_attempt_threshold = 1000,
+                                               .reconnect_retry_period = 0})
+{
+    auto result = make_logging_session(
+        LoggingProtocolId::Ssm,
+        {LoggingChannel{.id = "rpm",
+                        .address = 0x10,
+                        .length = 1,
+                        .raw_assembly = RawAssembly::UnsignedIntegerDecimal,
+                        .from_byte_expression = "x",
+                        .unit = "rpm",
+                        .decimal_precision = 0}},
+        policy);
+    Q_ASSERT(result.has_value());
+    return std::move(*result);
+}
+
+} // namespace
 
 class TestLoggingWorker : public QObject
 {
     Q_OBJECT
   private slots:
-    void initTestCase()
+    void forwards_portable_states_samples_and_cancelled_result()
     {
-        qRegisterMetaType<QVector<LogSample>>();
-        qRegisterMetaType<LoggingStatus>();
-        qRegisterMetaType<SessionEndReason>();
-    }
-
-    void normal_run_emits_running_then_values()
-    {
-        ScriptedLoggingProtocol proto;
-        proto.queueStartResult(true);
-        proto.queuePollResult(true, {LogSample{0, "1234"}});
-
-        LoggingWorker worker(&proto, 20, 5, 10, 10);
-        QSignalSpy statusSpy(&worker, &LoggingWorker::statusChanged);
-        QSignalSpy valuesSpy(&worker, &LoggingWorker::valuesUpdated);
+        ScriptedLoggingProtocol protocol;
+        protocol.queueStartResult({});
+        protocol.queuePollResult(PollData{.responded = false});
+        protocol.queuePollResult(PollData{.responded = false});
+        protocol.queuePollResult(PollData{
+            .responded = true,
+            .samples = {ProtocolSample{.channel_id = "rpm", .raw_value = "1234"}}});
+        NullDiagnostics diagnostics;
+        LoggingWorker worker(session(), &protocol, diagnostics);
+        QSignalSpy state_spy(&worker, &LoggingWorker::stateChanged);
+        QSignalSpy samples_spy(&worker, &LoggingWorker::samplesReady);
+        QSignalSpy finished_spy(&worker, &LoggingWorker::sessionFinished);
 
         worker.start();
-        QVERIFY(valuesSpy.wait(2000));
-        worker.requestStop();
-        QVERIFY(worker.wait(2000));
-
-        QVERIFY(!statusSpy.empty());
-        QCOMPARE(statusSpy.at(0).at(0).value<LoggingStatus>(), LoggingStatus::Running);
-        QVector<LogSample> samples = valuesSpy.at(0).at(0).value<QVector<LogSample>>();
-        QCOMPARE(samples.size(), 1);
-        QCOMPARE(samples.at(0).logValueIndex, 0);
-        QCOMPARE(samples.at(0).displayValue, QString("1234"));
-    }
-
-    void handshake_failure_ends_session_without_polling()
-    {
-        ScriptedLoggingProtocol proto;
-        proto.queueStartResult(false, "handshake rejected");
-
-        LoggingWorker worker(&proto, 20, 5, 10, 10);
-        QSignalSpy endedSpy(&worker, &LoggingWorker::sessionEnded);
-
-        worker.start();
-        QVERIFY(worker.wait(2000));
-
-        QCOMPARE(endedSpy.size(), 1);
-        QCOMPARE(endedSpy.at(0).at(0).value<SessionEndReason>(), SessionEndReason::HandshakeFailed);
-        QCOMPARE(endedSpy.at(0).at(1).toString(), QString("handshake rejected"));
-    }
-
-    void car_dropout_then_recovery_flips_status_back()
-    {
-        ScriptedLoggingProtocol proto;
-        proto.queueStartResult(true);
-        for (int i = 0; i < 5; ++i)
-        {
-            proto.queuePollResult(false);
-        }
-        proto.queuePollResult(true, {LogSample{0, "1"}});
-
-        LoggingWorker worker(&proto, 5, 5, 1000, 1000);
-        QSignalSpy statusSpy(&worker, &LoggingWorker::statusChanged);
-
-        worker.start();
-        QTRY_COMPARE_WITH_TIMEOUT(statusSpy.size(), 3, 3000);
-        worker.requestStop();
-        QVERIFY(worker.wait(2000));
-
-        QCOMPARE(statusSpy.at(0).at(0).value<LoggingStatus>(), LoggingStatus::Running);
-        QCOMPARE(statusSpy.at(1).at(0).value<LoggingStatus>(), LoggingStatus::CarNotResponding);
-        QCOMPARE(statusSpy.at(2).at(0).value<LoggingStatus>(), LoggingStatus::Running);
-    }
-
-    void zero_reconnect_retry_period_never_attempts_reconnect()
-    {
-        ScriptedLoggingProtocol proto;
-        proto.queueStartResult(true);
-        for (int i = 0; i < 1000; ++i)
-        {
-            proto.queuePollResult(false);
-        }
-
-        // reconnectAttemptThreshold=5, reconnectRetryPeriod=0: once consecutiveMisses
-        // crosses 5, the reconnect-retry branch's modulo-by-reconnectRetryPeriod check
-        // must be skipped entirely (guarded against division by zero) rather than crash.
-        LoggingWorker worker(&proto, 5, 3, 5, 0);
-        QSignalSpy statusSpy(&worker, &LoggingWorker::statusChanged);
-
-        worker.start();
-        QTRY_VERIFY_WITH_TIMEOUT(statusSpy.size() >= 2, 3000);
-        // Keep looping well past the reconnect-attempt threshold -- with the guard in
-        // place this must never crash and must never re-invoke protocol->start().
-        QTest::qWait(30);
-        worker.requestStop();
-        QVERIFY(worker.wait(2000));
-
-        QCOMPARE(statusSpy.at(0).at(0).value<LoggingStatus>(), LoggingStatus::Running);
-        QCOMPARE(statusSpy.at(1).at(0).value<LoggingStatus>(), LoggingStatus::CarNotResponding);
-        // Only the initial start() call happened -- no reconnect handshake attempts,
-        // regardless of how many times consecutiveMisses crossed reconnectAttemptThreshold.
-        QCOMPARE(proto.startCallCount(), 1);
-    }
-
-    void adapter_loss_ends_session_and_thread_exits()
-    {
-        ScriptedLoggingProtocol proto;
-        proto.queueStartResult(true);
-        proto.queuePollError("port closed");
-
-        LoggingWorker worker(&proto, 20, 5, 10, 10);
-        QSignalSpy endedSpy(&worker, &LoggingWorker::sessionEnded);
-
-        worker.start();
-        QVERIFY(worker.wait(2000));
-
-        QCOMPARE(endedSpy.size(), 1);
-        QCOMPARE(endedSpy.at(0).at(0).value<SessionEndReason>(), SessionEndReason::AdapterDisconnected);
-        QVERIFY(proto.stopCalled());
-    }
-
-    void stop_is_noticed_within_one_poll_cycle()
-    {
-        ScriptedLoggingProtocol proto;
-        proto.queueStartResult(true);
-        for (int i = 0; i < 1000; ++i)
-        {
-            proto.queuePollResult(false);
-        }
-
-        LoggingWorker worker(&proto, 10, 100000, 100000, 100000);
-        worker.start();
-        QTest::qWait(30);
+        QVERIFY(samples_spy.wait(2000));
         worker.requestStop();
         QVERIFY(worker.wait(500));
+
+        QVERIFY(state_spy.size() >= 3);
+        QCOMPARE(state_spy.at(0).at(0).value<LoggingState>(), LoggingState::Running);
+        QCOMPARE(state_spy.at(1).at(0).value<LoggingState>(), LoggingState::CarNotResponding);
+        QCOMPARE(state_spy.at(2).at(0).value<LoggingState>(), LoggingState::Running);
+        const auto samples =
+            samples_spy.at(0).at(0).value<QVector<fastecu::logging::LogSample>>();
+        QCOMPARE(samples.size(), 1);
+        QCOMPARE(samples.at(0).channel_id, std::string("rpm"));
+        QCOMPARE(samples.at(0).numeric_value, 1234.0);
+        QCOMPARE(finished_spy.size(), 1);
+        const auto result = finished_spy.at(0).at(0).value<fastecu::Status>();
+        QVERIFY(!result.has_value());
+        QCOMPARE(result.error().kind, fastecu::ErrorKind::Cancelled);
+        QVERIFY(protocol.stopCalled());
+    }
+
+    void forwards_final_start_error_without_policy_mapping()
+    {
+        ScriptedLoggingProtocol protocol;
+        protocol.queueStartResult(
+            fastecu::fail(fastecu::ErrorKind::BadResponse, "handshake rejected"));
+        NullDiagnostics diagnostics;
+        LoggingWorker worker(session(), &protocol, diagnostics);
+        QSignalSpy finished_spy(&worker, &LoggingWorker::sessionFinished);
+
+        worker.start();
+        QVERIFY(finished_spy.wait(2000));
+        QVERIFY(worker.wait(500));
+
+        const auto result = finished_spy.at(0).at(0).value<fastecu::Status>();
+        QVERIFY(!result.has_value());
+        QCOMPARE(result.error().kind, fastecu::ErrorKind::BadResponse);
+        QCOMPARE(result.error().detail, std::string("handshake rejected"));
+    }
+
+    void destruction_cancels_and_joins_a_blocked_poll()
+    {
+        ScriptedLoggingProtocol protocol;
+        protocol.queueStartResult({});
+        protocol.blockPollUntilCancelled();
+        NullDiagnostics diagnostics;
+        QElapsedTimer elapsed;
+        elapsed.start();
+        {
+            LoggingWorker worker(session(), &protocol, diagnostics);
+            worker.start();
+            QVERIFY(protocol.waitUntilPollEntered(std::chrono::milliseconds(500)));
+        }
+
+        QVERIFY2(elapsed.elapsed() < 500, "worker destruction exceeded cancellation bound");
+        QVERIFY(protocol.stopCalled());
     }
 };
 
 int run_test_logging_worker(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
-    TestLoggingWorker t;
-    return QTest::qExec(&t, argc, argv);
+    TestLoggingWorker test;
+    return QTest::qExec(&test, argc, argv);
 }
 #include "test_logging_worker.moc"

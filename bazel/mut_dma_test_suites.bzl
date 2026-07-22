@@ -24,7 +24,6 @@ MUT_DMA_TEST_SUITES = [
     "test_cdbg_driver",
     "test_logging_worker",
     "test_logging_engine",
-    "test_romraider_conversion",
     "test_ssm_logging_protocol",
     "test_mut_dma_logging_protocol",
     "test_cdbg_logging_protocol",
@@ -112,7 +111,6 @@ _NEEDS_OFFSCREEN_QT_PLATFORM = [
     "test_flash_ecu_mitsu_m32r_can_operation",
     "test_flash_operation_worker",
     "test_rom_transformations",
-    "test_romraider_conversion",
 ]
 
 # Each suite depends only on the packages it includes. Derived from the
@@ -157,15 +155,17 @@ SUITE_DEPS = {
     # (qt_checksum.h / QtChecksumResult) so it can keep asserting the frozen
     # QByteArray/QString contract now that ChecksumResult itself is portable.
     "test_checksum_results": ["//src/algorithms/checksum:qt_compat"],
-    "test_logging_worker": ["//src/backend/logging"],
-    "test_logging_engine": ["//src/backend/logging"],
-    "test_romraider_conversion": ["//src/backend/logging"],
+    "test_logging_worker": ["//src/platform/desktop/common/logging:logging_runtime"],
+    "test_logging_engine": [
+        "//src/platform/desktop/common/logging:logging_adapters",
+        "//src/platform/desktop/common/logging:logging_runtime",
+    ],
     # These three include a src/backend/logging/protocols/*.h header directly
     # (a subpackage of backend/logging, not the same label) -- backend/logging
     # alone doesn't expose it.
-    "test_ssm_logging_protocol": ["//src/backend/logging/protocols:portable_protocols"],
-    "test_mut_dma_logging_protocol": ["//src/backend/logging/protocols:portable_protocols"],
-    "test_cdbg_logging_protocol": ["//src/backend/logging/protocols:portable_protocols"],
+    "test_ssm_logging_protocol": ["//src/backend/logging/protocols:protocols"],
+    "test_mut_dma_logging_protocol": ["//src/backend/logging/protocols:protocols"],
+    "test_cdbg_logging_protocol": ["//src/backend/logging/protocols:protocols"],
     "test_flash_operation_worker": ["//src/backend/flash"],
     # test_flash_ecu_mitsu_m32r_can_operation.cpp includes qt_colt.h directly
     # (Task 8) for QByteArray-typed Colt helper wrappers, so it needs the

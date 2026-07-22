@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "src/algorithms/protocol/bytes.h"
-#include "src/backend/logging/portable_logging_protocol.h"
+#include "src/backend/logging/logging_protocol.h"
 #include "src/backend/ports/clock.h"
 #include "src/backend/protocol/issm_transport.h"
 

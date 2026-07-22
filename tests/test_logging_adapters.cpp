@@ -131,9 +131,11 @@ TEST(DesktopLoggingSnapshotAdapterTest, PreservesLegacyProtocolSelectionRules)
 TEST(DesktopLoggingSnapshotAdapterTest, SsmRetainsDisabledOffsetsButDoesNotUpdateDisabledRows)
 {
     FileActions::LogValuesStructure values;
+    append_value(values, QStringLiteral("other-protocol"), QStringLiteral("OTHER"), QStringLiteral("1"));
     append_value(values, QStringLiteral("ssm-disabled"), QStringLiteral("CAR_SSM"), QStringLiteral("0"));
     append_value(values, QStringLiteral("ssm-enabled"), QStringLiteral("CAR_SSM"), QStringLiteral("1"));
     values.lower_panel_log_value_id = {
+        QStringLiteral("other-protocol"),
         QStringLiteral("ssm-disabled"),
         QStringLiteral("ssm-enabled"),
     };
@@ -144,6 +146,7 @@ TEST(DesktopLoggingSnapshotAdapterTest, SsmRetainsDisabledOffsetsButDoesNotUpdat
     ASSERT_EQ(snapshot->session.channels().size(), 2u);
     EXPECT_EQ(snapshot->session.channels().at(0).id, "ssm-disabled");
     EXPECT_EQ(snapshot->session.channels().at(1).id, "ssm-enabled");
+    EXPECT_EQ(snapshot->response_offsets, (std::vector<std::size_t>{1, 2}));
     EXPECT_FALSE(snapshot->enabled_ids.contains("ssm-disabled"));
     EXPECT_TRUE(snapshot->enabled_ids.contains("ssm-enabled"));
 
@@ -153,8 +156,8 @@ TEST(DesktopLoggingSnapshotAdapterTest, SsmRetainsDisabledOffsetsButDoesNotUpdat
         .channel_id = "ssm-enabled", .numeric_value = 2.0, .raw_value = "2", .unit = "rpm"};
     ASSERT_TRUE(desktop_logging::apply_log_sample(*snapshot, disabled_sample, values).has_value());
     ASSERT_TRUE(desktop_logging::apply_log_sample(*snapshot, enabled_sample, values).has_value());
-    EXPECT_EQ(values.log_value.at(0), QStringLiteral("unchanged- ssm-disabled"));
-    EXPECT_EQ(values.log_value.at(1), QStringLiteral("2.00"));
+    EXPECT_EQ(values.log_value.at(1), QStringLiteral("unchanged- ssm-disabled"));
+    EXPECT_EQ(values.log_value.at(2), QStringLiteral("2.00"));
 }
 
 TEST(DesktopLoggingValueAdapterTest, DisabledSsmSampleRejectsMutatedSnapshotRow)

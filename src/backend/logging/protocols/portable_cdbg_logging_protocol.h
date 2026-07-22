@@ -3,7 +3,7 @@
 #include <memory>
 #include <vector>
 
-#include "src/backend/logging/portable_logging_protocol.h"
+#include "src/backend/logging/logging_protocol.h"
 #include "src/backend/protocol/ican_transport.h"
 #include "src/backend/protocol/mitsu_colt_can_cdbg_driver.h"
 

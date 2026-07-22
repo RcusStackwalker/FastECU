@@ -2471,17 +2471,20 @@ void MainWindow::setupLoggingEngine()
     connect(loggingEngine, &LoggingEngine::LOG_I, syslogger, &SystemLogger::log_messages);
     connect(loggingEngine, &LoggingEngine::LOG_D, syslogger, &SystemLogger::log_messages);
 
-    loggingEngine->registerProtocol("MUT_DMA", [this](const LogSessionConfig&)
-                                    {
+    loggingEngine->registerProtocol(
+        "MUT_DMA",
+        [this](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
+        {
             auto transport = std::make_unique<mutdma::FastEcuKlineTransport>(serial);
             auto init = std::make_unique<mutdma::AlreadyInMode>(125000);
-            return std::unique_ptr<LoggingProtocol>(
-                new MutDmaLoggingProtocol(std::move(transport), std::move(init), logValues, fileActions)); },
-                                    /*pollTimeoutMs=*/50, /*carSilenceMissThreshold=*/20,
-                                    /*reconnectAttemptThreshold=*/100, /*reconnectRetryPeriod=*/20);
+            return std::make_unique<fastecu::logging::MutDmaLoggingProtocol>(
+                std::move(transport), std::move(init), snapshot.session.channels());
+        });
 
-    loggingEngine->registerProtocol("CDBG", [this](const LogSessionConfig&)
-                                    {
+    loggingEngine->registerProtocol(
+        "CDBG",
+        [this](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
+        {
             serial->set_is_iso14230_connection(false);
             serial->set_add_iso14230_header(false);
             serial->set_is_can_connection(true);
@@ -2491,28 +2494,38 @@ void MainWindow::setupLoggingEngine()
             serial->set_can_destination_address(MitsuColtCanCdbg::kReplyCanId);
             serial->open_serial_port();
             auto transport = std::make_unique<cdbg::FastEcuCanTransport>(serial);
-            return std::unique_ptr<LoggingProtocol>(
-                new CdbgLoggingProtocol(std::move(transport), serial, logValues, fileActions)); },
-                                    /*pollTimeoutMs=*/50, /*carSilenceMissThreshold=*/20,
-                                    /*reconnectAttemptThreshold=*/100, /*reconnectRetryPeriod=*/20);
+            return std::make_unique<fastecu::logging::CdbgLoggingProtocol>(
+                std::move(transport), snapshot.session.channels());
+        });
 
-    loggingEngine->registerProtocol("SSM", [this](const LogSessionConfig& config)
-                                    {
+    loggingEngine->registerProtocol(
+        "SSM",
+        [this](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
+        {
             auto transport = std::make_unique<FastEcuSsmTransport>(serial);
             bool targetIsEcu = ecu_radio_button->isChecked();
             bool useOpenport2Adapter = serial->get_use_openport2_adapter();
-            return std::unique_ptr<LoggingProtocol>(
-                new SsmLoggingProtocol(m_loggingClock, std::move(transport), logValues, fileActions,
-                                        config.logValueProtocolFilter, targetIsEcu, useOpenport2Adapter)); },
-                                    /*pollTimeoutMs=*/300, /*carSilenceMissThreshold=*/10,
-                                    /*reconnectAttemptThreshold=*/30, /*reconnectRetryPeriod=*/10);
+            return std::make_unique<fastecu::logging::SsmLoggingProtocol>(
+                m_loggingClock, std::move(transport), snapshot.session.channels(),
+                snapshot.response_offsets, targetIsEcu, useOpenport2Adapter);
+        });
 }
 
-void MainWindow::handleLoggingValuesUpdated(const QVector<LogSample>& samples)
+void MainWindow::handleLoggingValuesUpdated(
+    const QVector<fastecu::logging::LogSample>& samples)
 {
-    for (const LogSample& s : samples)
+    if (!activeLoggingSnapshot)
     {
-        logValues->log_value.replace(s.logValueIndex, s.displayValue);
+        return;
+    }
+    for (const auto& sample : samples)
+    {
+        const auto applied = fastecu::desktop::logging::apply_log_sample(
+            *activeLoggingSnapshot, sample, *logValues);
+        if (!applied)
+        {
+            emit LOG_E(QString::fromStdString(applied.error().detail), true, true);
+        }
     }
     update_logbox_values(activeLogValueProtocolFilter);
     log_to_file();
@@ -2520,6 +2533,7 @@ void MainWindow::handleLoggingValuesUpdated(const QVector<LogSample>& samples)
 
 void MainWindow::handleLoggingSessionEnded(SessionEndReason reason, const QString& message)
 {
+    activeLoggingSnapshot.reset();
     logging_state = false;
     QList<QMenu *> menus = ui->menubar->findChildren<QMenu *>();
     foreach (QMenu *menu, menus)

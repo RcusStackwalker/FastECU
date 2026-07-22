@@ -1,5 +1,5 @@
 #include "src/backend/logging/logging_event_sink.h"
-#include "src/backend/logging/portable_logging_protocol.h"
+#include "src/backend/logging/logging_protocol.h"
 #include "src/backend/logging/logging_use_case.h"
 
 #include <deque>

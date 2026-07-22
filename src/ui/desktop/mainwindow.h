@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include <memory>
+#include <optional>
 
 // Exit application with this code to restart it instead of quitting:
 // qApp->exit(RESTART_CODE)
@@ -102,10 +103,12 @@
 #include "src/backend/protocol/imut_dma_init.h"
 #include "src/backend/protocol/mitsu_colt_can_cdbg_driver.h"
 #include "src/platform/desktop/common/transport/fastecu_can_transport.h"
-#include "src/backend/logging/logging_engine.h"
-#include "src/backend/logging/protocols/ssm_logging_protocol.h"
-#include "src/backend/logging/protocols/mut_dma_logging_protocol.h"
-#include "src/backend/logging/protocols/cdbg_logging_protocol.h"
+#include "src/backend/logging/protocols/portable_ssm_logging_protocol.h"
+#include "src/backend/logging/protocols/portable_mut_dma_logging_protocol.h"
+#include "src/backend/logging/protocols/portable_cdbg_logging_protocol.h"
+#include "src/platform/desktop/common/logging/logging_engine.h"
+#include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
+#include "src/platform/desktop/common/logging/logging_value_adapter.h"
 #include "src/platform/desktop/common/ports/qt_clock.h"
 #include "src/platform/desktop/common/transport/fastecu_ssm_transport.h"
 
@@ -256,6 +259,8 @@ class MainWindow : public QMainWindow
     uint16_t ssm_init_poll_timer_timeout = 250;
 
     LoggingEngine *loggingEngine = nullptr;
+    std::optional<fastecu::desktop::logging::DesktopLoggingSnapshot>
+        activeLoggingSnapshot;
     QtClock m_loggingClock;
     QString activeLogValueProtocolFilter;
 
@@ -392,7 +397,8 @@ class MainWindow : public QMainWindow
 
     // log_operations.c
     bool ecu_init();
-    void handleLoggingValuesUpdated(const QVector<LogSample>& samples);
+    void handleLoggingValuesUpdated(
+        const QVector<fastecu::logging::LogSample>& samples);
     void handleLoggingSessionEnded(SessionEndReason reason, const QString& message);
 
     // menu_actions.c

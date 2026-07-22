@@ -113,15 +113,20 @@ fastecu::Result<DesktopLoggingSnapshot> make_desktop_logging_snapshot(
     }
 
     std::vector<fastecu::logging::LoggingChannel> channels;
+    std::vector<std::size_t> response_offsets;
     std::unordered_map<std::string, int> selected_indices_by_id;
     std::unordered_set<std::string> enabled_ids;
     channels.reserve(static_cast<std::size_t>(log_values.lower_panel_log_value_id.size()));
+    response_offsets.reserve(static_cast<std::size_t>(log_values.lower_panel_log_value_id.size()));
     selected_indices_by_id.reserve(
         static_cast<std::size_t>(log_values.lower_panel_log_value_id.size()));
     enabled_ids.reserve(static_cast<std::size_t>(log_values.lower_panel_log_value_id.size()));
 
-    for (const QString& lower_panel_id : log_values.lower_panel_log_value_id)
+    for (qsizetype lower_panel_index = 0;
+         lower_panel_index < log_values.lower_panel_log_value_id.size(); ++lower_panel_index)
     {
+        const QString& lower_panel_id =
+            log_values.lower_panel_log_value_id.at(lower_panel_index);
         const auto row = all_indices_by_id.find(lower_panel_id.toStdString());
         if (row == all_indices_by_id.end())
         {
@@ -148,6 +153,10 @@ fastecu::Result<DesktopLoggingSnapshot> make_desktop_logging_snapshot(
         {
             enabled_ids.insert(channel->id);
         }
+        if (protocol == fastecu::logging::LoggingProtocolId::Ssm)
+        {
+            response_offsets.push_back(static_cast<std::size_t>(lower_panel_index));
+        }
         channels.push_back(std::move(*channel));
     }
 
@@ -158,6 +167,7 @@ fastecu::Result<DesktopLoggingSnapshot> make_desktop_logging_snapshot(
     }
     return DesktopLoggingSnapshot{
         .session = std::move(*session),
+        .response_offsets = std::move(response_offsets),
         .index_by_id = std::move(selected_indices_by_id),
         .enabled_ids = std::move(enabled_ids),
     };

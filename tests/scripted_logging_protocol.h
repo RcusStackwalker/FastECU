@@ -1,93 +1,105 @@
 #pragma once
-#include "src/backend/logging/logging_protocol.h"
-#include "src/backend/ports/result.h"
-#include <QList>
 
-// Test double: scripts a sequence of start()/poll() outcomes for LoggingWorker
-// and LoggingEngine tests. Once a queue is exhausted, start() fails with a
-// diagnostic message and poll() returns a responded=true PollData with no
-// samples (a safe default that never spuriously degrades a test's status
-// assertions).
-class ScriptedLoggingProtocol : public LoggingProtocol
+#include "src/backend/logging/logging_protocol.h"
+
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <deque>
+#include <mutex>
+#include <string>
+#include <utility>
+
+// Portable protocol test double shared by the desktop worker and engine tests.
+// A blocking poll observes cancellation so teardown has a deterministic bound.
+class ScriptedLoggingProtocol final : public fastecu::logging::LoggingProtocol
 {
   public:
-    void queueStartResult(bool ok, const QString& error = QString())
+    void queueStartResult(fastecu::Status result)
     {
-        startResultsOk_.append(ok);
-        startResultsError_.append(error);
+        start_results_.push_back(std::move(result));
     }
-    // Scripted "Ok" step: pass responded=true with samples.
-    // Scripted "NoResponse" step: pass responded=false (samples ignored).
-    void queuePollResult(bool responded, const QVector<LogSample>& samples = {})
+
+    void queuePollResult(fastecu::Result<fastecu::logging::PollData> result)
     {
-        pollIsError_.append(false);
-        pollResponded_.append(responded);
-        pollSamples_.append(samples);
-        pollErrorMessage_.append(QString());
+        poll_results_.push_back(std::move(result));
     }
-    // Scripted "TransportError" step.
-    void queuePollError(const QString& errorMessage)
+
+    void blockPollUntilCancelled()
     {
-        pollIsError_.append(true);
-        pollResponded_.append(false);
-        pollSamples_.append(QVector<LogSample>());
-        pollErrorMessage_.append(errorMessage);
+        block_poll_.store(true, std::memory_order_relaxed);
+    }
+
+    bool waitUntilPollEntered(std::chrono::milliseconds timeout)
+    {
+        std::unique_lock lock(mutex_);
+        return poll_entered_cv_.wait_for(lock, timeout, [this]
+                                         { return poll_entered_; });
     }
 
     int startCallCount() const
     {
-        return startCalls_;
-    }
-    bool stopCalled() const
-    {
-        return stopCalled_;
+        return start_calls_.load(std::memory_order_relaxed);
     }
 
-    fastecu::Status start() override
+    bool stopCalled() const
     {
-        ++startCalls_;
-        if (startIdx_ >= startResultsOk_.size())
+        return stop_called_.load(std::memory_order_relaxed);
+    }
+
+    fastecu::Status start(const fastecu::ICancellationToken&) override
+    {
+        start_calls_.fetch_add(1, std::memory_order_relaxed);
+        if (start_results_.empty())
         {
-            return fastecu::fail(fastecu::ErrorKind::Disconnected, "no scripted start result");
+            return {};
         }
-        bool ok = startResultsOk_.at(startIdx_);
-        QString error = startResultsError_.at(startIdx_);
-        ++startIdx_;
-        if (!ok)
+        auto result = std::move(start_results_.front());
+        start_results_.pop_front();
+        return result;
+    }
+
+    fastecu::Result<fastecu::logging::PollData> poll(
+        int, const fastecu::ICancellationToken& cancellation) override
+    {
+        if (block_poll_.load(std::memory_order_relaxed))
         {
-            return fastecu::fail(fastecu::ErrorKind::Disconnected, error.toStdString());
+            {
+                std::lock_guard lock(mutex_);
+                poll_entered_ = true;
+            }
+            poll_entered_cv_.notify_all();
+            while (!cancellation.cancelled())
+            {
+                std::unique_lock lock(mutex_);
+                cancellation_poll_cv_.wait_for(lock, std::chrono::milliseconds(1));
+            }
+            return fastecu::fail(fastecu::ErrorKind::Cancelled, "scripted poll cancelled");
         }
+
+        if (poll_results_.empty())
+        {
+            return fastecu::logging::PollData{.responded = false};
+        }
+        auto result = std::move(poll_results_.front());
+        poll_results_.pop_front();
+        return result;
+    }
+
+    fastecu::Status stop() override
+    {
+        stop_called_.store(true, std::memory_order_relaxed);
         return {};
     }
 
-    fastecu::Result<PollData> poll(int) override
-    {
-        if (pollIdx_ >= pollIsError_.size())
-        {
-            return PollData{true, {}};
-        }
-        int i = pollIdx_++;
-        if (pollIsError_.at(i))
-        {
-            return fastecu::fail(fastecu::ErrorKind::Disconnected, pollErrorMessage_.at(i).toStdString());
-        }
-        return PollData{pollResponded_.at(i), pollSamples_.at(i)};
-    }
-
-    void stop() override
-    {
-        stopCalled_ = true;
-    }
-
   private:
-    QList<bool> startResultsOk_;
-    QList<QString> startResultsError_;
-    QList<bool> pollIsError_;
-    QList<bool> pollResponded_;
-    QList<QVector<LogSample>> pollSamples_;
-    QList<QString> pollErrorMessage_;
-    int startIdx_ = 0;
-    int pollIdx_ = 0;
-    int startCalls_ = 0;
-    bool stopCalled_ = false;
+    std::deque<fastecu::Status> start_results_;
+    std::deque<fastecu::Result<fastecu::logging::PollData>> poll_results_;
+    std::atomic<int> start_calls_{0};
+    std::atomic<bool> stop_called_{false};
+    std::atomic<bool> block_poll_{false};
+    std::mutex mutex_;
+    std::condition_variable poll_entered_cv_;
+    std::condition_variable cancellation_poll_cv_;
+    bool poll_entered_ = false;
 };

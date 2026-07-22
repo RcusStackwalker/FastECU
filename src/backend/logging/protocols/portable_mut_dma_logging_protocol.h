@@ -3,7 +3,7 @@
 #include <memory>
 #include <vector>
 
-#include "src/backend/logging/portable_logging_protocol.h"
+#include "src/backend/logging/logging_protocol.h"
 #include "src/backend/protocol/ikline_transport.h"
 #include "src/backend/protocol/imut_dma_init.h"
 #include "src/backend/protocol/mut_dma_driver.h"

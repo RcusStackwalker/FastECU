@@ -2,6 +2,7 @@ load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt
 
 package(default_visibility = [
     "//apps:__subpackages__",
+    "//src/platform:__subpackages__",
     "//src/ui:__subpackages__",
     "//tests:__pkg__",
 ])
