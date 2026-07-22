@@ -1,0 +1,70 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("//bazel:qt_targets.bzl", "PORTABLE_COPTS")
+
+package(default_visibility = [
+    "//src/backend:__subpackages__",
+    "//src/platform:__subpackages__",
+    "//src/ui:__subpackages__",
+    "//tests:__pkg__",
+])
+
+# Portable. Declares no QT_DEPS -- enforced by //:portable_closure.
+cc_library(
+    name = "ports",
+    hdrs = glob(
+        ["*.h"],
+        exclude = ["*_test.cpp"],
+    ),
+)
+
+# //:portable_closure reads this BUILD file as `data`; the export makes the
+# label referenceable (mirrors every src/algorithms package).
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//:__pkg__"],
+)
+
+cc_test(
+    name = "result_test",
+    size = "small",
+    srcs = ["result_test.cpp"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":ports",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "clock_test",
+    size = "small",
+    srcs = ["clock_test.cpp"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":ports",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "event_sink_test",
+    size = "small",
+    srcs = ["event_sink_test.cpp"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":ports",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "file_repository_test",
+    size = "small",
+    srcs = ["file_repository_test.cpp"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":ports",
+        "@googletest//:gtest_main",
+    ],
+)

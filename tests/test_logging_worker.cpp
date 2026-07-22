@@ -19,10 +19,7 @@ class TestLoggingWorker : public QObject
     {
         ScriptedLoggingProtocol proto;
         proto.queueStartResult(true);
-        PollResult ok1;
-        ok1.status = PollResult::Status::Ok;
-        ok1.samples.append(LogSample{0, "1234"});
-        proto.queuePollResult(ok1);
+        proto.queuePollResult(true, {LogSample{0, "1234"}});
 
         LoggingWorker worker(&proto, 20, 5, 10, 10);
         QSignalSpy statusSpy(&worker, &LoggingWorker::statusChanged);
@@ -63,14 +60,9 @@ class TestLoggingWorker : public QObject
         proto.queueStartResult(true);
         for (int i = 0; i < 5; ++i)
         {
-            PollResult r;
-            r.status = PollResult::Status::NoResponse;
-            proto.queuePollResult(r);
+            proto.queuePollResult(false);
         }
-        PollResult recovered;
-        recovered.status = PollResult::Status::Ok;
-        recovered.samples.append(LogSample{0, "1"});
-        proto.queuePollResult(recovered);
+        proto.queuePollResult(true, {LogSample{0, "1"}});
 
         LoggingWorker worker(&proto, 5, 5, 1000, 1000);
         QSignalSpy statusSpy(&worker, &LoggingWorker::statusChanged);
@@ -91,9 +83,7 @@ class TestLoggingWorker : public QObject
         proto.queueStartResult(true);
         for (int i = 0; i < 1000; ++i)
         {
-            PollResult r;
-            r.status = PollResult::Status::NoResponse;
-            proto.queuePollResult(r);
+            proto.queuePollResult(false);
         }
 
         // reconnectAttemptThreshold=5, reconnectRetryPeriod=0: once consecutiveMisses
@@ -121,10 +111,7 @@ class TestLoggingWorker : public QObject
     {
         ScriptedLoggingProtocol proto;
         proto.queueStartResult(true);
-        PollResult err;
-        err.status = PollResult::Status::TransportError;
-        err.errorMessage = "port closed";
-        proto.queuePollResult(err);
+        proto.queuePollError("port closed");
 
         LoggingWorker worker(&proto, 20, 5, 10, 10);
         QSignalSpy endedSpy(&worker, &LoggingWorker::sessionEnded);
@@ -143,9 +130,7 @@ class TestLoggingWorker : public QObject
         proto.queueStartResult(true);
         for (int i = 0; i < 1000; ++i)
         {
-            PollResult r;
-            r.status = PollResult::Status::NoResponse;
-            proto.queuePollResult(r);
+            proto.queuePollResult(false);
         }
 
         LoggingWorker worker(&proto, 10, 100000, 100000, 100000);

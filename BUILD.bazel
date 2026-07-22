@@ -45,6 +45,7 @@ py_test(
         "//src/algorithms/protocol/colt:BUILD.bazel",
         "//src/algorithms/protocol/mut_dma:BUILD.bazel",
         "//src/algorithms/protocol/ssm:BUILD.bazel",
+        "//src/backend/ports:BUILD.bazel",
     ],
     main = "scripts/check-portable-closure.py",
 )

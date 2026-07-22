@@ -6,12 +6,15 @@ build --incompatible_default_to_explicit_init_py
 # see https://github.com/bazelbuild/rules_cc/issues/591
 build --features=-default_cpp_std
 
-build:linux --cxxopt=-std=c++20
-build:linux --host_cxxopt=-std=c++20
-build:macos --cxxopt=-std=c++20
-build:macos --host_cxxopt=-std=c++20
-build:windows --cxxopt=/std:c++20
-build:windows --host_cxxopt=/std:c++20
+build:linux --cxxopt=-std=c++23
+build:linux --host_cxxopt=-std=c++23
+build:macos --cxxopt=-std=c++23
+build:macos --host_cxxopt=-std=c++23
+# MSVC does not accept a plain /std:c++23 (it warns D9002 and falls back to its
+# default standard); /std:c++latest is the accepted spelling that enables the
+# C++23 library features we need (std::expected). clang/gcc use -std=c++23 above.
+build:windows --cxxopt=/std:c++latest
+build:windows --host_cxxopt=/std:c++latest
 build:windows --cxxopt=/Zc:__cplusplus
 build:windows --host_cxxopt=/Zc:__cplusplus
 

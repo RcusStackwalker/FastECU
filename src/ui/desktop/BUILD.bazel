@@ -86,6 +86,7 @@ qt_cc_library(
         # and mut_dma_driver.h directly.
         "//src/backend/protocol",
         "//src/platform/desktop/common/logging",
+        "//src/platform/desktop/common/ports",
         "//src/platform/desktop/common/remote_utility",
         "//src/platform/desktop/common/serial:serial_qt_compat",
         "//src/platform/desktop/common/transport",

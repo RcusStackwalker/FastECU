@@ -29,13 +29,15 @@ if [ "$(uname -s)" = "Darwin" ]; then
   [ -n "$qtcore" ] && qt_framework_path=$(dirname "$qtcore")
 fi
 
-# Build every macOS-compatible cc_test under //tests with coverage
-# instrumentation. Incompatible (Windows-only) targets are skipped by Bazel.
-bazel build --config=coverage -k //tests/... || true
+# Build every macOS-compatible cc_test under //tests and the co-located
+# //src/**/*_test targets with coverage instrumentation. Incompatible
+# (Windows-only) targets are skipped by Bazel.
+bazel build --config=coverage -k //tests/... //src/... || true
 
-# Enumerate the instrumented test executables from the configured graph.
+# Enumerate the instrumented test executables from the configured graph,
+# including co-located src tests so they contribute to the coverage report.
 test_files=$(bazel cquery --config=coverage --output=files \
-  'kind("cc_test", //tests/...)' 2>/dev/null || true)
+  'kind("cc_test", //tests/... + //src/...)' 2>/dev/null || true)
 
 primary=""
 objects=""

@@ -2494,7 +2494,7 @@ void MainWindow::setupLoggingEngine()
             bool targetIsEcu = ecu_radio_button->isChecked();
             bool useOpenport2Adapter = serial->get_use_openport2_adapter();
             return std::unique_ptr<LoggingProtocol>(
-                new SsmLoggingProtocol(std::move(transport), logValues, fileActions,
+                new SsmLoggingProtocol(m_loggingClock, std::move(transport), logValues, fileActions,
                                         config.logValueProtocolFilter, targetIsEcu, useOpenport2Adapter)); },
                                     /*pollTimeoutMs=*/300, /*carSilenceMissThreshold=*/10,
                                     /*reconnectAttemptThreshold=*/30, /*reconnectRetryPeriod=*/10);

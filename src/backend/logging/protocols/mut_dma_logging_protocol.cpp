@@ -39,62 +39,49 @@ MutDmaLoggingProtocol::MutDmaLoggingProtocol(std::unique_ptr<IKlineTransport> tr
 {
 }
 
-bool MutDmaLoggingProtocol::start(QString *errorOut)
+fastecu::Status MutDmaLoggingProtocol::start()
 {
     if (!transport_->isOpen())
     {
-        if (errorOut)
-        {
-            *errorOut = "adapter disconnected";
-        }
-        return false;
+        return fastecu::fail(fastecu::ErrorKind::Disconnected, "adapter disconnected");
     }
 
     QVector<Channel> channels = channelsFromLogValues(logValues_, channelLogValueIndex_);
     if (!driver_.startFreeFormLog(channels, 0xA0, 0xA1))
     {
-        if (errorOut)
-        {
-            *errorOut = "MUT/DMA free-form handshake failed";
-        }
-        return false;
+        return fastecu::fail(fastecu::ErrorKind::BadResponse, "MUT/DMA free-form handshake failed");
     }
-    return true;
+    return {};
 }
 
-PollResult MutDmaLoggingProtocol::poll(int timeoutMs)
+fastecu::Result<PollData> MutDmaLoggingProtocol::poll(int timeoutMs)
 {
-    PollResult result;
-
     if (!transport_->isOpen())
     {
-        result.status = PollResult::Status::TransportError;
-        result.errorMessage = "adapter disconnected";
-        return result;
+        return fastecu::fail(fastecu::ErrorKind::Disconnected, "adapter disconnected");
     }
     if (!driver_.isStreaming())
     {
-        result.status = PollResult::Status::NoResponse;
-        return result;
+        return PollData{false, {}};
     }
 
     QVector<std::uint32_t> vals = driver_.pollOnce(timeoutMs);
     if (vals.isEmpty())
     {
-        result.status = PollResult::Status::NoResponse;
-        return result;
+        return PollData{false, {}};
     }
 
+    PollData data;
+    data.responded = true;
     for (int i = 0; i < vals.size() && i < channelLogValueIndex_.size(); ++i)
     {
         int j = channelLogValueIndex_.at(i);
         QString value = QString::number(vals.at(i));
         QString calc_value = convertRomRaiderValue(fileActions_, logValues_, j, value);
-        result.samples.append(LogSample{j, calc_value});
+        data.samples.append(LogSample{j, calc_value});
     }
 
-    result.status = PollResult::Status::Ok;
-    return result;
+    return data;
 }
 
 void MutDmaLoggingProtocol::stop()
