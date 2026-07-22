@@ -57,3 +57,14 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_test(
+    name = "file_repository_test",
+    size = "small",
+    srcs = ["file_repository_test.cpp"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":ports",
+        "@googletest//:gtest_main",
+    ],
+)
