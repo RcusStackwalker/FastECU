@@ -53,21 +53,22 @@ cc_tool_map(
 
 # --- MSVC/Windows SDK sysroot (unchanged from before) ---
 
-cc_args(
-    name = "msvc_sysroot_includes",
-    actions = ["@rules_cc//cc/toolchains/actions:compile_actions"],
-    allowlist_absolute_include_directories = [
+MSVC_SYSROOT_INCLUDE_DIRS = [
+    path
+    for path in [
         MSVC_INCLUDE,
         UCRT_INCLUDE,
         UM_INCLUDE,
         SHARED_INCLUDE,
-    ],
-    args = [
-        "/I" + MSVC_INCLUDE,
-        "/I" + UCRT_INCLUDE,
-        "/I" + UM_INCLUDE,
-        "/I" + SHARED_INCLUDE,
-    ],
+    ]
+    if path
+]
+
+cc_args(
+    name = "msvc_sysroot_includes",
+    actions = ["@rules_cc//cc/toolchains/actions:compile_actions"],
+    allowlist_absolute_include_directories = MSVC_SYSROOT_INCLUDE_DIRS,
+    args = ["/I" + path for path in MSVC_SYSROOT_INCLUDE_DIRS],
 )
 
 cc_args(
