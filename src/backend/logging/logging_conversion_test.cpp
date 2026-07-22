@@ -5,6 +5,8 @@
 namespace
 {
 
+using namespace fastecu::logging;
+
 LoggingChannel channel(std::string id, std::uint32_t address)
 {
     return LoggingChannel{

@@ -4,6 +4,9 @@
 
 #include "src/algorithms/expression/expression_evaluator.h"
 
+namespace fastecu::logging
+{
+
 fastecu::Result<LogSample> convert_sample(const LoggingSession& session,
                                           const ProtocolSample& raw)
 {
@@ -30,3 +33,5 @@ fastecu::Result<LogSample> convert_sample(const LoggingSession& session,
         .unit = channel->unit,
     };
 }
+
+} // namespace fastecu::logging

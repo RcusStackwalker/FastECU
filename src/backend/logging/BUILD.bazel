@@ -82,6 +82,16 @@ cc_test(
 )
 
 cc_library(
+    name = "logging_protocol_coexistence_compile",
+    srcs = ["logging_protocol_coexistence_test.cpp"],
+    copts = COMMON_COPTS,
+    deps = [
+        ":logging",
+        ":logging_use_case",
+    ],
+)
+
+cc_library(
     name = "logging_use_case",
     srcs = ["logging_use_case.cpp"],
     hdrs = [

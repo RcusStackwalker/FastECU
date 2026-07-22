@@ -6,13 +6,16 @@
 
 #include "src/backend/logging/logging_conversion.h"
 
+namespace fastecu::logging
+{
+
 namespace
 {
 
 class StopGuard
 {
   public:
-    StopGuard(PortableLoggingProtocol& protocol, fastecu::IEventSink& diagnostics)
+    StopGuard(LoggingProtocol& protocol, fastecu::IEventSink& diagnostics)
         : protocol_(protocol), diagnostics_(diagnostics)
     {
     }
@@ -27,7 +30,7 @@ class StopGuard
     }
 
   private:
-    PortableLoggingProtocol& protocol_;
+    LoggingProtocol& protocol_;
     fastecu::IEventSink& diagnostics_;
 };
 
@@ -43,7 +46,7 @@ bool reconnect_due(const LoggingPolicy& policy, int consecutive_misses)
 } // namespace
 
 fastecu::Status LoggingUseCase::run(const LoggingSession& session,
-                                    PortableLoggingProtocol& protocol,
+                                    LoggingProtocol& protocol,
                                     const fastecu::ICancellationToken& cancellation, ILoggingEventSink& events,
                                     fastecu::IEventSink& diagnostics) const
 {
@@ -127,3 +130,5 @@ fastecu::Status LoggingUseCase::run(const LoggingSession& session,
 
     return fastecu::fail(fastecu::ErrorKind::Cancelled, "logging cancelled");
 }
+
+} // namespace fastecu::logging

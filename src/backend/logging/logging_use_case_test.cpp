@@ -12,7 +12,9 @@
 namespace
 {
 
-class ScriptedProtocol final : public PortableLoggingProtocol
+using namespace fastecu::logging;
+
+class ScriptedProtocol final : public LoggingProtocol
 {
   public:
     fastecu::Status start(const fastecu::ICancellationToken&) override

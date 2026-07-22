@@ -6,6 +6,9 @@
 #include "src/backend/logging/logging_types.h"
 #include "src/backend/ports/result.h"
 
+namespace fastecu::logging
+{
+
 class LoggingSession
 {
   public:
@@ -28,3 +31,5 @@ class LoggingSession
 
 fastecu::Result<LoggingSession> make_logging_session(
     LoggingProtocolId protocol, std::vector<LoggingChannel> channels, LoggingPolicy policy);
+
+} // namespace fastecu::logging

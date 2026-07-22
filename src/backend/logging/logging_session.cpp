@@ -10,6 +10,9 @@
 
 #include "src/algorithms/expression/expression_evaluator.h"
 
+namespace fastecu::logging
+{
+
 namespace
 {
 
@@ -345,3 +348,5 @@ fastecu::Result<LoggingSession> make_logging_session(
 
     return LoggingSession(protocol, std::move(channels), policy);
 }
+
+} // namespace fastecu::logging

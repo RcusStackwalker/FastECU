@@ -7,10 +7,15 @@
 #include "src/backend/ports/event_sink.h"
 #include "src/backend/ports/result.h"
 
+namespace fastecu::logging
+{
+
 class LoggingUseCase
 {
   public:
-    fastecu::Status run(const LoggingSession& session, PortableLoggingProtocol& protocol,
+    fastecu::Status run(const LoggingSession& session, LoggingProtocol& protocol,
                         const fastecu::ICancellationToken& cancellation,
                         ILoggingEventSink& events, fastecu::IEventSink& diagnostics) const;
 };
+
+} // namespace fastecu::logging

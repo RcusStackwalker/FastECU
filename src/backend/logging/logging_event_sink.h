@@ -4,6 +4,9 @@
 
 #include "src/backend/logging/logging_types.h"
 
+namespace fastecu::logging
+{
+
 class ILoggingEventSink
 {
   public:
@@ -11,3 +14,5 @@ class ILoggingEventSink
     virtual void state_changed(LoggingState state) = 0;
     virtual void samples(std::span<const LogSample> samples) = 0;
 };
+
+} // namespace fastecu::logging

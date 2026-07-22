@@ -4,6 +4,9 @@
 #include <cstdint>
 #include <string>
 
+namespace fastecu::logging
+{
+
 enum class LoggingProtocolId
 {
     Ssm,
@@ -55,3 +58,5 @@ enum class LoggingState
     Running,
     CarNotResponding,
 };
+
+} // namespace fastecu::logging
