@@ -41,7 +41,7 @@ QString J2534::open_serial_port(const QString& serial_port)
             else
             {
                 emit LOG_D("Couldn't open Linux j2534 serial port '" + serial_port + "'", true, true);
-                return NULL;
+                return {};
             }
         }
         else
@@ -1004,7 +1004,7 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
     }
     if (IoctlID == SET_CONFIG)
     {
-        pOutput = NULL; // make some DLLs happy
+        pOutput = nullptr; // make some DLLs happy
 
         // dump params
         scl = (SCONFIG_LIST *)pInput;

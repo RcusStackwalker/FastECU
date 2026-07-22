@@ -102,7 +102,7 @@ int SerialPortActionsDirect::change_port_speed(QString portSpeed)
             scl.NumOfParams = 1;
             scp[0].Value = baudrate;
             scl.ConfigPtr = scp;
-            if (!j2534->PassThruIoctl(chanID, SET_CONFIG, &scl, NULL))
+            if (!j2534->PassThruIoctl(chanID, SET_CONFIG, &scl, nullptr))
             {
                 emit LOG_D("Baudrate set to " + portSpeed + " OK", true, true);
                 delay(50);
@@ -269,7 +269,7 @@ int SerialPortActionsDirect::clear_rx_buffer()
     {
         unsigned long status;
 
-        status = j2534->PassThruIoctl(chanID, CLEAR_RX_BUFFER, NULL, NULL);
+        status = j2534->PassThruIoctl(chanID, CLEAR_RX_BUFFER, nullptr, nullptr);
         if (status)
         {
             reportJ2534Error();
@@ -298,7 +298,7 @@ int SerialPortActionsDirect::clear_tx_buffer()
     {
         unsigned long status;
 
-        status = j2534->PassThruIoctl(chanID, CLEAR_TX_BUFFER, NULL, NULL);
+        status = j2534->PassThruIoctl(chanID, CLEAR_TX_BUFFER, nullptr, nullptr);
         if (status)
         {
             reportJ2534Error();
@@ -479,7 +479,7 @@ QStringList SerialPortActionsDirect::check_j2534_devices(QMap<QString, QString> 
         {
             emit LOG_D(j2534DllName + " init successfull", true, true);
             // 0 means no error
-            if (!j2534->PassThruOpen(NULL, &devID))
+            if (!j2534->PassThruOpen(nullptr, &devID))
             {
                 emit LOG_D("Successfully opened " + QString::number(devID) + " / " + vendor + " / " + j2534DllName, true, true);
                 j2534_devices.append(vendor);
@@ -630,7 +630,7 @@ QString SerialPortActionsDirect::open_serial_port()
             else
             {
                 emit LOG_E("Couldn't open serial port '" + serial_port + "'", true, true);
-                return NULL;
+                return {};
             }
         }
         else
@@ -1247,7 +1247,7 @@ int SerialPortActionsDirect::set_j2534_ioctl(unsigned long parameter, int value)
     scl.NumOfParams = 1;
     scp[0].Value = value;
     scl.ConfigPtr = scp;
-    if (j2534->PassThruIoctl(chanID, SET_CONFIG, &scl, NULL))
+    if (j2534->PassThruIoctl(chanID, SET_CONFIG, &scl, nullptr))
     {
         reportJ2534Error();
         return STATUS_ERROR;
@@ -1268,7 +1268,7 @@ unsigned long SerialPortActionsDirect::read_vbatt()
     if (use_openport2_adapter && j2534)
     {
         J2534IoScope io(j2534_io_depth_); // block teardown while this read runs
-        if (j2534->PassThruIoctl(chanID, READ_VBATT, NULL, &vBatt))
+        if (j2534->PassThruIoctl(chanID, READ_VBATT, nullptr, &vBatt))
         {
             reportJ2534Error();
             return STATUS_ERROR;
@@ -1359,7 +1359,7 @@ int SerialPortActionsDirect::init_j2534_connection()
 
     devID++;
     // Open J2534 connection
-    if (j2534->PassThruOpen(NULL, &devID))
+    if (j2534->PassThruOpen(nullptr, &devID))
     {
 #if defined Q_OS_UNIX
         j2534->close_serial_port();
@@ -1516,7 +1516,7 @@ int SerialPortActionsDirect::set_j2534_can_timings()
     SCONFIG scp[] = {{LOOPBACK, 0}};
     scl.NumOfParams = ARRAYSIZE(scp);
     scl.ConfigPtr = scp;
-    if (j2534->PassThruIoctl(chanID, SET_CONFIG, &scl, NULL))
+    if (j2534->PassThruIoctl(chanID, SET_CONFIG, &scl, nullptr))
     {
         reportJ2534Error();
         return STATUS_ERROR;
@@ -1536,7 +1536,7 @@ int SerialPortActionsDirect::set_j2534_can_filters()
     PASSTHRU_MSG msgMask, msgPattern, msgFlow;
     unsigned long msgId;
 
-    j2534->PassThruIoctl(chanID, CLEAR_MSG_FILTERS, NULL, NULL);
+    j2534->PassThruIoctl(chanID, CLEAR_MSG_FILTERS, nullptr, nullptr);
 
     if (is_can_connection)
     {
@@ -1554,7 +1554,7 @@ int SerialPortActionsDirect::set_j2534_can_filters()
 
         bytes::writeU32Be(msgPattern.Data, 0, can_destination_address);
 
-        if (j2534->PassThruStartMsgFilter(chanID, PASS_FILTER, &msgMask, &msgPattern, NULL, &msgId))
+        if (j2534->PassThruStartMsgFilter(chanID, PASS_FILTER, &msgMask, &msgPattern, nullptr, &msgId))
         {
             reportJ2534Error();
             return STATUS_ERROR;
@@ -1677,7 +1677,7 @@ int SerialPortActionsDirect::set_j2534_iso9141_timings()
             break;
         }
 
-        if (j2534->PassThruIoctl(chanID, SET_CONFIG, &scl, NULL))
+        if (j2534->PassThruIoctl(chanID, SET_CONFIG, &scl, nullptr))
         {
             reportJ2534Error();
             return STATUS_ERROR;
@@ -1704,7 +1704,7 @@ int SerialPortActionsDirect::set_j2534_iso9141_timings()
         }
         scp[5].Value = 25;
         scl.ConfigPtr = scp;
-        if (j2534->PassThruIoctl(chanID, SET_CONFIG, &scl, NULL))
+        if (j2534->PassThruIoctl(chanID, SET_CONFIG, &scl, nullptr))
         {
             reportJ2534Error();
             return STATUS_ERROR;
@@ -1737,7 +1737,7 @@ int SerialPortActionsDirect::set_j2534_iso9141_filters()
     msgMask = msgPattern = txmsg;
     memset(msgMask.Data, 0, txmsg.DataSize);    // mask the first 4 byte to 0
     memset(msgPattern.Data, 0, txmsg.DataSize); // match it with 0 (i.e. pass everything)
-    if (j2534->PassThruStartMsgFilter(chanID, PASS_FILTER, &msgMask, &msgPattern, NULL, &msgId))
+    if (j2534->PassThruStartMsgFilter(chanID, PASS_FILTER, &msgMask, &msgPattern, nullptr, &msgId))
     {
         reportJ2534Error();
         return STATUS_ERROR;

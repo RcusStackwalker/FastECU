@@ -163,7 +163,7 @@ void *CalibrationTreeWidget::calibrationDataTreeWidgetItemExpanded(FileActions::
         ecuCalDef->RomInfoExpanded = "1";
     }
 
-    return NULL;
+    return nullptr;
 }
 
 void *CalibrationTreeWidget::calibrationDataTreeWidgetItemCollapsed(FileActions::EcuCalDefStructure *ecuCalDef, const QString& categoryName)
@@ -180,5 +180,5 @@ void *CalibrationTreeWidget::calibrationDataTreeWidgetItemCollapsed(FileActions:
         ecuCalDef->RomInfoExpanded = "0";
     }
 
-    return NULL;
+    return nullptr;
 }

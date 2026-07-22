@@ -8,7 +8,7 @@ LogBox::LogBox(QWidget *parent) : QWidget(parent)
 
 QGroupBox *LogBox::drawLogBoxes(const QString& type, uint8_t index, uint8_t logBoxCount, const QString& title, const QString& unit, const QString& value)
 {
-    QGroupBox *gb = NULL;
+    QGroupBox *gb = nullptr;
 
     if (type == "switch")
     {

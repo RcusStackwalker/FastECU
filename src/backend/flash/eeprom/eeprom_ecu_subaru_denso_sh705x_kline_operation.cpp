@@ -765,7 +765,7 @@ QByteArray EepromEcuSubaruDensoSH705xKlineOperation::send_sid_36_transferdata(ui
     if (!buf.length() || !len)
     {
         emit LOG_E("Error in kernel data length!", true, true);
-        return NULL;
+        return {};
     }
 
     maxblocks = (len - 1) / blocksize; // number of 128 byte blocks - 1
@@ -776,7 +776,7 @@ QByteArray EepromEcuSubaruDensoSH705xKlineOperation::send_sid_36_transferdata(ui
     {
         if (stopRequested())
         {
-            return NULL;
+            return {};
         }
 
         blockaddr = dataaddr + blockno * blocksize;

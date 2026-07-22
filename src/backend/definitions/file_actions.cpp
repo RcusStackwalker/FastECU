@@ -1119,7 +1119,7 @@ FileActions::ConfigValuesStructure *FileActions::read_protocols_file(FileActions
     if (!file.open(QFile::ReadWrite | QFile::Text))
     {
         QMessageBox::warning(this, tr("Protocols file"), "Unable to open protocols file '" + file.fileName() + "' for reading");
-        return NULL;
+        return nullptr;
     }
     xmlBOM.setContent(&file);
     file.close();
@@ -1405,7 +1405,7 @@ FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogV
     if (!file.open(QFile::ReadWrite | QFile::Text))
     {
         QMessageBox::warning(this, tr("Logger file"), "Unable to open logger config file '" + file.fileName() + "' for reading");
-        return NULL;
+        return nullptr;
     }
     xmlBOM.setContent(&file);
 
@@ -2340,7 +2340,7 @@ FileActions::EcuCalDefStructure *FileActions::create_new_definition_for_rom(File
         if (!file.open(QIODevice::ReadWrite))
         {
             QMessageBox::warning(this, tr("Definition file"), "Unable to open definition file for writing");
-            return NULL;
+            return nullptr;
         }
 
         QString rombase;
@@ -2434,7 +2434,7 @@ FileActions::EcuCalDefStructure *FileActions::use_existing_definition_for_rom(Fi
     if (!file.open(QIODevice::ReadOnly))
     {
         QMessageBox::warning(this, tr("Definition file"), "Unable to open definition file for reading");
-        return NULL;
+        return nullptr;
     }
     QStringList defData;
     while (!file.atEnd())
@@ -2528,7 +2528,7 @@ FileActions::EcuCalDefStructure *FileActions::use_existing_definition_for_rom(Fi
         if (!file.open(QIODevice::ReadWrite))
         {
             QMessageBox::warning(this, tr("Definition file"), "Unable to open definition file for writing");
-            return NULL;
+            return nullptr;
         }
 
         QString rombase;
@@ -2640,7 +2640,7 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
             {
                 QMessageBox::information(this, tr("Calibration file"), "No file selected");
                 free(ecuCalDef);
-                return NULL;
+                return nullptr;
             }
         }
 
@@ -2651,7 +2651,7 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
         if (!file.open(QIODevice::ReadOnly))
         {
             QMessageBox::warning(this, tr("Calibration file"), "Unable to open calibration file for reading");
-            return NULL;
+            return nullptr;
         }
         ecuCalDef->FullRomData = file.readAll();
     }
@@ -2811,11 +2811,11 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
     }
 
     /*
-        if (ecuCalDef == NULL)
+        if (ecuCalDef == nullptr)
         {
             QMessageBox::warning(this, tr("Calibration file"), "Unable to find definition for selected ROM file with ECU ID: " + ecuId);
-            ecuCalDef = NULL;
-            return NULL;
+            ecuCalDef = nullptr;
+            return nullptr;
         }
     */
     if (!file_name_str.length())
@@ -3116,10 +3116,10 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
         }
     }
 
-    if (ecuCalDef == NULL)
+    if (ecuCalDef == nullptr)
     {
         QMessageBox::warning(this, tr("Calibration file"), "Unable to find definition for selected calibration file with ECU ID: " + selected_id + ".");
-        return NULL;
+        return nullptr;
     }
 
     return ecuCalDef;
@@ -3135,7 +3135,7 @@ FileActions::EcuCalDefStructure *FileActions::save_subaru_rom_file(FileActions::
     {
         // emit LOG_D("Unable to open file for writing", true, true);
         QMessageBox::warning(this, tr("Ecu calibration file"), "Unable to open file " + filename + " for writing");
-        return NULL;
+        return nullptr;
     }
 
     file.write(ecuCalDef->FullRomData);
