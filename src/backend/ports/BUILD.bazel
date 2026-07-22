@@ -35,3 +35,14 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_test(
+    name = "clock_test",
+    size = "small",
+    srcs = ["clock_test.cpp"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":ports",
+        "@googletest//:gtest_main",
+    ],
+)
