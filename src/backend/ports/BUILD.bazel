@@ -9,13 +9,13 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
+# Portable. Declares no QT_DEPS -- enforced by //:portable_closure.
 cc_library(
     name = "ports",
     hdrs = glob(
         ["*.h"],
         exclude = ["*_test.cpp"],
     ),
-    # No QT_DEPS: this package is portable and enforced by //:portable_closure.
 )
 
 # //:portable_closure reads this BUILD file as `data`; the export makes the

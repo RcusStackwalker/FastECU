@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-ALGORITHMS = ROOT / "src/algorithms"
+PORTABLE_ROOTS = (ROOT / "src/algorithms", ROOT / "src/backend/ports")
 
 FORBIDDEN = (
     re.compile(r'"@rules_qt//'),
@@ -33,10 +33,13 @@ def portable_targets(text):
 
 
 def main():
-    build_files = sorted(ALGORITHMS.rglob("BUILD.bazel"))
-    if not build_files:
-        print(f"FAIL: no BUILD.bazel files found under {ALGORITHMS}")
-        return 1
+    build_files = []
+    for root in PORTABLE_ROOTS:
+        found = sorted(root.rglob("BUILD.bazel"))
+        if not found:
+            print(f"FAIL: no BUILD.bazel files found under {root}")
+            return 1
+        build_files += found
 
     errors = []
     checked = 0
@@ -61,7 +64,7 @@ def main():
         print(":qt_compat target and have the consumer depend on that instead.")
         return 1
 
-    print(f"OK: {checked} portable algorithms targets, none reach Qt.")
+    print(f"OK: {checked} portable targets across {len(PORTABLE_ROOTS)} roots, none reach Qt/JNI.")
     return 0
 
 
