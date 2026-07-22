@@ -34,6 +34,17 @@ struct LogSessionConfig
     QString protocolId;
 };
 
+struct LoggingStartResult
+{
+    bool started = false;
+    bool failure_reported = false;
+
+    explicit operator bool() const
+    {
+        return started;
+    }
+};
+
 using LoggingProtocolFactory = std::function<
     fastecu::Result<std::unique_ptr<fastecu::logging::LoggingProtocol>>(
         const fastecu::desktop::logging::DesktopLoggingSnapshot&)>;
@@ -46,8 +57,8 @@ class LoggingEngine final : public QObject
     ~LoggingEngine() override;
 
     void registerProtocol(const QString& protocol_id, LoggingProtocolFactory factory);
-    bool start(LogSessionConfig config,
-               fastecu::desktop::logging::DesktopLoggingSnapshot snapshot);
+    LoggingStartResult start(LogSessionConfig config,
+                             fastecu::desktop::logging::DesktopLoggingSnapshot snapshot);
     void stop();
     bool isRunning() const;
 

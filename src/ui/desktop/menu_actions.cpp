@@ -1158,7 +1158,9 @@ void MainWindow::toggle_realtime()
         }
 
         activeLoggingSnapshot.emplace(*snapshot);
-        if (!loggingEngine->start(config, std::move(*snapshot)))
+        const LoggingStartResult start_result =
+            loggingEngine->start(config, std::move(*snapshot));
+        if (!start_result && !start_result.failure_reported)
         {
             QMessageBox::information(this, tr("Logging"), "Unable to start logging");
             activeLoggingSnapshot.reset();

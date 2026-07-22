@@ -29,20 +29,20 @@ bool LoggingEngine::isRunning() const
     return active_worker_ != nullptr;
 }
 
-bool LoggingEngine::start(
+LoggingStartResult LoggingEngine::start(
     LogSessionConfig config,
     fastecu::desktop::logging::DesktopLoggingSnapshot snapshot)
 {
     if (isRunning())
     {
-        return false;
+        return {};
     }
 
     const auto registration = registrations_.constFind(config.protocolId);
     if (registration == registrations_.constEnd())
     {
         emit LOG_E("No logging protocol registered for '" + config.protocolId + "'", true, true);
-        return false;
+        return {};
     }
 
     active_snapshot_.emplace(std::move(snapshot));
@@ -65,14 +65,14 @@ bool LoggingEngine::start(
         const fastecu::Error error = protocol_result.error();
         active_snapshot_.reset();
         reportSessionError(error, false);
-        return false;
+        return {.failure_reported = true};
     }
     active_protocol_ = std::move(*protocol_result);
     if (!active_protocol_)
     {
         emit LOG_E("Protocol factory for '" + config.protocolId + "' returned null", true, true);
         active_snapshot_.reset();
-        return false;
+        return {};
     }
 
     last_status_.reset();
@@ -85,7 +85,7 @@ bool LoggingEngine::start(
     connect(active_worker_, &LoggingWorker::sessionFinished, this,
             &LoggingEngine::handleWorkerSessionFinished);
     active_worker_->start();
-    return true;
+    return {.started = true};
 }
 
 void LoggingEngine::stop()

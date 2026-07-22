@@ -3,6 +3,7 @@
 #include <QSplashScreen>
 #include <cstddef>
 #include <utility>
+#include "src/platform/desktop/common/logging/cdbg_serial_setup.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 const QColor MainWindow::RED_LIGHT_OFF = QColor(96, 32, 32);
@@ -2486,13 +2487,26 @@ void MainWindow::setupLoggingEngine()
         [this](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
             -> fastecu::Result<std::unique_ptr<fastecu::logging::LoggingProtocol>>
         {
-            serial->set_is_iso14230_connection(false);
-            serial->set_add_iso14230_header(false);
-            serial->set_is_can_connection(true);
-            serial->set_is_iso15765_connection(false);
-            serial->set_is_29_bit_id(false);
-            serial->set_can_speed("500000");
-            serial->set_can_destination_address(MitsuColtCanCdbg::kReplyCanId);
+            const auto configured = fastecu::desktop::logging::configure_cdbg_serial({
+                .disable_iso14230 = [this]()
+                { return serial->set_is_iso14230_connection(false); },
+                .disable_iso14230_header = [this]()
+                { return serial->set_add_iso14230_header(false); },
+                .enable_raw_can = [this]()
+                { return serial->set_is_can_connection(true); },
+                .disable_iso15765 = [this]()
+                { return serial->set_is_iso15765_connection(false); },
+                .select_11_bit_ids = [this]()
+                { return serial->set_is_29_bit_id(false); },
+                .select_500k_baud = [this]()
+                { return serial->set_can_speed("500000"); },
+                .select_reply_id = [this]()
+                { return serial->set_can_destination_address(MitsuColtCanCdbg::kReplyCanId); },
+            });
+            if (!configured)
+            {
+                return std::unexpected(configured.error());
+            }
             const QString opened_port = serial->open_serial_port();
             if (opened_port.isEmpty() || !serial->is_serial_port_open())
             {

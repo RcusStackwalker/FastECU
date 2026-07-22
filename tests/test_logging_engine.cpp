@@ -2,6 +2,7 @@
 #include <QSignalSpy>
 
 #include "scripted_logging_protocol.h"
+#include "src/platform/desktop/common/logging/cdbg_serial_setup.h"
 #include "src/platform/desktop/common/logging/logging_engine.h"
 #include "test_logging_engine.h"
 
@@ -41,7 +42,9 @@ class TestLoggingEngine : public QObject
     void unregistered_protocol_fails_immediately()
     {
         LoggingEngine engine;
-        QVERIFY(!engine.start(LogSessionConfig{.protocolId = "NOPE"}, snapshot()));
+        const auto result = engine.start(LogSessionConfig{.protocolId = "NOPE"}, snapshot());
+        QVERIFY(!result);
+        QVERIFY(!result.failure_reported);
         QVERIFY(!engine.isRunning());
     }
 
@@ -89,13 +92,41 @@ class TestLoggingEngine : public QObject
             { return fastecu::fail(fastecu::ErrorKind::Disconnected, "open failed"); });
         QSignalSpy ended_spy(&engine, &LoggingEngine::sessionEnded);
 
-        QVERIFY(!engine.start(LogSessionConfig{.protocolId = "TEST"}, snapshot()));
+        const auto result = engine.start(LogSessionConfig{.protocolId = "TEST"}, snapshot());
+        QVERIFY(!result);
+        QVERIFY(result.failure_reported);
 
         QCOMPARE(ended_spy.size(), 1);
         QCOMPARE(ended_spy.at(0).at(0).value<SessionEndReason>(),
                  SessionEndReason::AdapterDisconnected);
         QCOMPARE(ended_spy.at(0).at(1).toString(), QString("open failed"));
         QVERIFY(!engine.isRunning());
+    }
+
+    void every_cdbg_serial_setup_failure_is_structured_and_stops_before_later_steps()
+    {
+        using fastecu::desktop::logging::CdbgSerialSetupActions;
+        using fastecu::desktop::logging::configure_cdbg_serial;
+
+        for (int failure = 0; failure < 7; ++failure)
+        {
+            int calls = 0;
+            const auto step = [&calls, failure]()
+            { return calls++ != failure; };
+            const auto status = configure_cdbg_serial(CdbgSerialSetupActions{
+                .disable_iso14230 = step,
+                .disable_iso14230_header = step,
+                .enable_raw_can = step,
+                .disable_iso15765 = step,
+                .select_11_bit_ids = step,
+                .select_500k_baud = step,
+                .select_reply_id = step,
+            });
+
+            QVERIFY(!status);
+            QCOMPARE(status.error().kind, fastecu::ErrorKind::InvalidConfig);
+            QCOMPARE(calls, failure + 1);
+        }
     }
 
     void factory_exception_is_contained_at_platform_boundary()
