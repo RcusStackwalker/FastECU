@@ -26,3 +26,22 @@ qt_cc_library(
     ),
     deps = QT_DEPS,
 )
+
+qt_cc_library(
+    name = "logging_adapters",
+    srcs = [
+        "logging_snapshot_adapter.cpp",
+        "logging_value_adapter.cpp",
+    ],
+    hdrs = [
+        "logging_snapshot_adapter.h",
+        "logging_value_adapter.h",
+    ],
+    copts = COMMON_COPTS,
+    includes = COMMON_INCLUDES,
+    deps = QT_DEPS + [
+        "//src/backend/definitions",
+        "//src/backend/logging:logging_session",
+        "//src/backend/ports",
+    ],
+)

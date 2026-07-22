@@ -99,6 +99,17 @@ qt_cc_test(
     ],
 )
 
+qt_cc_test(
+    name = "test_logging_adapters",
+    srcs = ["test_logging_adapters.cpp"],
+    copts = COMMON_COPTS + ["-I."],
+    linkopts = COMMON_LINKOPTS,
+    deps = QT_DEPS + [
+        "//src/platform/desktop/common/logging:logging_adapters",
+        "@googletest//:gtest",
+    ],
+)
+
 qt_cpp_moc_headers(
     name = "serial_crash_cpp_mocs",
     srcs = test_cpp_moc_srcs(SERIAL_CRASH_TESTS_COMMON_SRCS),
