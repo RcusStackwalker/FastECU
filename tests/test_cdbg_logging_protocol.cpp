@@ -3,6 +3,7 @@
 #include "src/backend/definitions/file_actions.h"
 #include "src/backend/logging/protocols/cdbg_logging_protocol.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
+#include "src/backend/ports/result.h"
 #include "scripted_can_transport.h"
 #include "test_cdbg_logging_protocol.h"
 
@@ -37,8 +38,9 @@ class TestCdbgLoggingProtocol : public QObject
         SerialPortActions serial;
         CdbgLoggingProtocol proto(std::move(transport), &serial, &lv, &fileActions);
 
-        PollResult r = proto.poll(20);
-        QCOMPARE((int)r.status, (int)PollResult::Status::NoResponse);
+        auto r = proto.poll(20);
+        QVERIFY(r.has_value());
+        QVERIFY(!r->responded);
     }
 
     void poll_returns_transport_error_when_adapter_closed()
@@ -50,8 +52,10 @@ class TestCdbgLoggingProtocol : public QObject
         SerialPortActions serial;
         CdbgLoggingProtocol proto(std::move(transport), &serial, &lv, &fileActions);
 
-        PollResult r = proto.poll(20);
-        QCOMPARE((int)r.status, (int)PollResult::Status::TransportError);
+        auto r = proto.poll(20);
+        QVERIFY(!r.has_value());
+        QCOMPARE((int)r.error().kind, (int)fastecu::ErrorKind::Disconnected);
+        QCOMPARE(QString::fromStdString(r.error().detail), QString("adapter disconnected"));
     }
 };
 

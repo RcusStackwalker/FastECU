@@ -13,8 +13,8 @@ class MutDmaLoggingProtocol : public LoggingProtocol
                           std::unique_ptr<mutdma::IMutDmaInit> init,
                           FileActions::LogValuesStructure *logValues, FileActions *fileActions);
 
-    bool start(QString *errorOut) override;
-    PollResult poll(int timeoutMs) override;
+    fastecu::Status start() override;
+    fastecu::Result<PollData> poll(int timeoutMs) override;
     void stop() override;
 
   private:

@@ -19,6 +19,7 @@ cc_library(
         "//src/algorithms/protocol/ssm",
         "//src/backend/definitions",
         "//src/backend/logging",
+        "//src/backend/ports",
         "//src/backend/protocol",
         "//src/platform/desktop/common/serial:serial_qt_compat",
     ],

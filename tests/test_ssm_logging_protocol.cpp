@@ -3,6 +3,7 @@
 #include "src/backend/definitions/file_actions.h"
 #include "src/backend/logging/protocols/ssm_logging_protocol.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
+#include "src/backend/ports/result.h"
 #include "scripted_ssm_transport.h"
 #include "test_ssm_logging_protocol.h"
 
@@ -65,8 +66,7 @@ class TestSsmLoggingProtocol : public QObject
         FileActions::LogValuesStructure lv = makeOneChannel();
 
         SsmLoggingProtocol proto(std::move(transport), &lv, &fileActions, "SSM", true, false);
-        QString err;
-        QVERIFY(proto.start(&err));
+        QVERIFY(proto.start().has_value());
         QVERIFY(raw->scriptConsumed());
         QVERIFY(raw->ok());
     }
@@ -79,9 +79,10 @@ class TestSsmLoggingProtocol : public QObject
         FileActions::LogValuesStructure lv = makeOneChannel();
 
         SsmLoggingProtocol proto(std::move(transport), &lv, &fileActions, "SSM", true, false);
-        QString err;
-        QVERIFY(!proto.start(&err));
-        QVERIFY(!err.isEmpty());
+        auto s = proto.start();
+        QVERIFY(!s.has_value());
+        QCOMPARE((int)s.error().kind, (int)fastecu::ErrorKind::BadResponse);
+        QVERIFY(!s.error().detail.empty());
     }
 
     void start_fails_when_adapter_is_closed()
@@ -92,9 +93,10 @@ class TestSsmLoggingProtocol : public QObject
         FileActions::LogValuesStructure lv = makeOneChannel();
 
         SsmLoggingProtocol proto(std::move(transport), &lv, &fileActions, "SSM", true, false);
-        QString err;
-        QVERIFY(!proto.start(&err));
-        QCOMPARE(err, QString("adapter disconnected"));
+        auto s = proto.start();
+        QVERIFY(!s.has_value());
+        QCOMPARE((int)s.error().kind, (int)fastecu::ErrorKind::Disconnected);
+        QCOMPARE(QString::fromStdString(s.error().detail), QString("adapter disconnected"));
     }
 
     void poll_decodes_one_channel()
@@ -107,12 +109,13 @@ class TestSsmLoggingProtocol : public QObject
         FileActions::LogValuesStructure lv = makeOneChannel();
 
         SsmLoggingProtocol proto(std::move(transport), &lv, &fileActions, "SSM", true, false);
-        PollResult r = proto.poll(200);
+        auto r = proto.poll(200);
 
-        QCOMPARE((int)r.status, (int)PollResult::Status::Ok);
-        QCOMPARE(r.samples.size(), 1);
-        QCOMPARE(r.samples.at(0).logValueIndex, 0);
-        QCOMPARE(r.samples.at(0).displayValue, QString("42"));
+        QVERIFY(r.has_value());
+        QVERIFY(r->responded);
+        QCOMPARE(r->samples.size(), 1);
+        QCOMPARE(r->samples.at(0).logValueIndex, 0);
+        QCOMPARE(r->samples.at(0).displayValue, QString("42"));
         QVERIFY(raw->scriptConsumed());
         QVERIFY(raw->ok());
     }
@@ -127,12 +130,13 @@ class TestSsmLoggingProtocol : public QObject
         FileActions::LogValuesStructure lv = makeTwoSelectedChannelsSecondDisabled();
 
         SsmLoggingProtocol proto(std::move(transport), &lv, &fileActions, "SSM", true, false);
-        PollResult r = proto.poll(200);
+        auto r = proto.poll(200);
 
-        QCOMPARE((int)r.status, (int)PollResult::Status::Ok);
-        QCOMPARE(r.samples.size(), 1);
-        QCOMPARE(r.samples.at(0).logValueIndex, 0);
-        QCOMPARE(r.samples.at(0).displayValue, QString("42"));
+        QVERIFY(r.has_value());
+        QVERIFY(r->responded);
+        QCOMPARE(r->samples.size(), 1);
+        QCOMPARE(r->samples.at(0).logValueIndex, 0);
+        QCOMPARE(r->samples.at(0).displayValue, QString("42"));
         QVERIFY(raw->scriptConsumed());
         QVERIFY(raw->ok());
     }
@@ -144,9 +148,10 @@ class TestSsmLoggingProtocol : public QObject
         FileActions::LogValuesStructure lv = makeOneChannel();
 
         SsmLoggingProtocol proto(std::move(transport), &lv, &fileActions, "SSM", true, false);
-        PollResult r = proto.poll(50);
+        auto r = proto.poll(50);
 
-        QCOMPARE((int)r.status, (int)PollResult::Status::NoResponse);
+        QVERIFY(r.has_value());
+        QVERIFY(!r->responded);
     }
 
     void poll_returns_transport_error_when_adapter_closes_mid_session()
@@ -159,12 +164,13 @@ class TestSsmLoggingProtocol : public QObject
         ScriptedSsmTransport *raw = transport.get();
 
         SsmLoggingProtocol proto(std::move(transport), &lv, &fileActions, "SSM", true, false);
-        QString err;
-        QVERIFY(proto.start(&err));
+        QVERIFY(proto.start().has_value());
 
         raw->setOpen(false);
-        PollResult r = proto.poll(50);
-        QCOMPARE((int)r.status, (int)PollResult::Status::TransportError);
+        auto r = proto.poll(50);
+        QVERIFY(!r.has_value());
+        QCOMPARE((int)r.error().kind, (int)fastecu::ErrorKind::Disconnected);
+        QCOMPARE(QString::fromStdString(r.error().detail), QString("adapter disconnected"));
     }
 };
 

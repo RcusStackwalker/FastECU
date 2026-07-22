@@ -24,5 +24,6 @@ qt_cc_library(
     ),
     deps = QT_DEPS + [
         "//src/backend/definitions",
+        "//src/backend/ports",
     ],
 )

@@ -36,16 +36,12 @@ CdbgLoggingProtocol::CdbgLoggingProtocol(std::unique_ptr<cdbg::ICanTransport> tr
 {
 }
 
-bool CdbgLoggingProtocol::start(QString *errorOut)
+fastecu::Status CdbgLoggingProtocol::start()
 {
     QVector<CdbgChannel> channels = channelsFromLogValues(logValues_, channelLogValueIndex_);
     if (channels.isEmpty())
     {
-        if (errorOut)
-        {
-            *errorOut = "no CDBG log parameters selected";
-        }
-        return false;
+        return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "no CDBG log parameters selected");
     }
 
     serial_->set_is_iso14230_connection(false);
@@ -59,60 +55,46 @@ bool CdbgLoggingProtocol::start(QString *errorOut)
 
     if (!transport_->isOpen())
     {
-        if (errorOut)
-        {
-            *errorOut = "adapter disconnected";
-        }
-        return false;
+        return fastecu::fail(fastecu::ErrorKind::Disconnected, "adapter disconnected");
     }
 
     QString driverError;
     if (!driver_.startFreeFormLog(channels, 0, 10, &driverError))
     {
-        if (errorOut)
-        {
-            *errorOut = driverError.isEmpty()
-                            ? QStringLiteral("CDBG logging session failed")
-                            : driverError;
-        }
-        return false;
+        QString err = driverError.isEmpty() ? QStringLiteral("CDBG logging session failed") : driverError;
+        return fastecu::fail(fastecu::ErrorKind::BadResponse, err.toStdString());
     }
-    return true;
+    return {};
 }
 
-PollResult CdbgLoggingProtocol::poll(int timeoutMs)
+fastecu::Result<PollData> CdbgLoggingProtocol::poll(int timeoutMs)
 {
-    PollResult result;
-
     if (!transport_->isOpen())
     {
-        result.status = PollResult::Status::TransportError;
-        result.errorMessage = "adapter disconnected";
-        return result;
+        return fastecu::fail(fastecu::ErrorKind::Disconnected, "adapter disconnected");
     }
     if (!driver_.isStreaming())
     {
-        result.status = PollResult::Status::NoResponse;
-        return result;
+        return PollData{false, {}};
     }
 
     QVector<std::uint32_t> vals = driver_.pollOnce(timeoutMs);
     if (vals.isEmpty())
     {
-        result.status = PollResult::Status::NoResponse;
-        return result;
+        return PollData{false, {}};
     }
 
+    PollData data;
+    data.responded = true;
     for (int i = 0; i < vals.size() && i < channelLogValueIndex_.size(); ++i)
     {
         int j = channelLogValueIndex_.at(i);
         QString value = QString::number(vals.at(i));
         QString calc_value = convertRomRaiderValue(fileActions_, logValues_, j, value);
-        result.samples.append(LogSample{j, calc_value});
+        data.samples.append(LogSample{j, calc_value});
     }
 
-    result.status = PollResult::Status::Ok;
-    return result;
+    return data;
 }
 
 void CdbgLoggingProtocol::stop()

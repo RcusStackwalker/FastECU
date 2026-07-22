@@ -117,15 +117,11 @@ bytes::Bytes SsmLoggingProtocol::readFramedResponse(int timeoutMs)
     return received;
 }
 
-bool SsmLoggingProtocol::start(QString *errorOut)
+fastecu::Status SsmLoggingProtocol::start()
 {
     if (!transport_->isOpen())
     {
-        if (errorOut)
-        {
-            *errorOut = "adapter disconnected";
-        }
-        return false;
+        return fastecu::fail(fastecu::ErrorKind::Disconnected, "adapter disconnected");
     }
 
     const bytes::Bytes output{0xA8, 0x00, 0x00, 0x00, 0x07};
@@ -134,24 +130,16 @@ bool SsmLoggingProtocol::start(QString *errorOut)
     const bytes::Bytes received = readFramedResponse(kStartTimeoutMs);
     if (received.size() <= 6 || received[4] != 0xe8)
     {
-        if (errorOut)
-        {
-            *errorOut = "no response to logging start request";
-        }
-        return false;
+        return fastecu::fail(fastecu::ErrorKind::BadResponse, "no response to logging start request");
     }
-    return true;
+    return {};
 }
 
-PollResult SsmLoggingProtocol::poll(int timeoutMs)
+fastecu::Result<PollData> SsmLoggingProtocol::poll(int timeoutMs)
 {
-    PollResult result;
-
     if (!transport_->isOpen())
     {
-        result.status = PollResult::Status::TransportError;
-        result.errorMessage = "adapter disconnected";
-        return result;
+        return fastecu::fail(fastecu::ErrorKind::Disconnected, "adapter disconnected");
     }
 
     const QVector<SsmLogChannel> channels = channelsFromLogValues(logValues_, logValueProtocolFilter_);
@@ -160,13 +148,14 @@ PollResult SsmLoggingProtocol::poll(int timeoutMs)
     const bytes::Bytes received = readFramedResponse(timeoutMs);
     if (received.size() <= 6 || received[4] != 0xe8)
     {
-        result.status = PollResult::Status::NoResponse;
-        return result;
+        return PollData{false, {}};
     }
 
     const std::size_t payloadOffset = 5;
     const std::size_t payloadLength = received.size() - payloadOffset - 1;
 
+    PollData data;
+    data.responded = true;
     for (const SsmLogChannel& channel : channels)
     {
         const std::size_t channelOffset = channel.responseOffset;
@@ -182,11 +171,10 @@ PollResult SsmLoggingProtocol::poll(int timeoutMs)
         }
 
         QString calc_value = convertRomRaiderValue(fileActions_, logValues_, channel.logValueIndex, value);
-        result.samples.append(LogSample{channel.logValueIndex, calc_value});
+        data.samples.append(LogSample{channel.logValueIndex, calc_value});
     }
 
-    result.status = PollResult::Status::Ok;
-    return result;
+    return data;
 }
 
 void SsmLoggingProtocol::stop()

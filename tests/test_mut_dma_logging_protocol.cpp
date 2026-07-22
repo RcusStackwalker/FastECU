@@ -3,6 +3,7 @@
 #include "src/backend/definitions/file_actions.h"
 #include "src/backend/logging/protocols/mut_dma_logging_protocol.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_codec.h"
+#include "src/backend/ports/result.h"
 #include "scripted_kline_transport.h"
 #include "test_mut_dma_logging_protocol.h"
 
@@ -41,8 +42,7 @@ class TestMutDmaLoggingProtocol : public QObject
 
         FileActions fileActions;
         MutDmaLoggingProtocol proto(std::move(transport), std::make_unique<AlreadyInMode>(125000), &lv, &fileActions);
-        QString err;
-        QVERIFY(proto.start(&err));
+        QVERIFY(proto.start().has_value());
     }
 
     void start_fails_when_adapter_is_closed()
@@ -53,9 +53,10 @@ class TestMutDmaLoggingProtocol : public QObject
         FileActions fileActions;
         MutDmaLoggingProtocol proto(std::move(transport), std::make_unique<AlreadyInMode>(125000), &lv, &fileActions);
 
-        QString err;
-        QVERIFY(!proto.start(&err));
-        QCOMPARE(err, QString("adapter disconnected"));
+        auto s = proto.start();
+        QVERIFY(!s.has_value());
+        QCOMPARE((int)s.error().kind, (int)fastecu::ErrorKind::Disconnected);
+        QCOMPARE(QString::fromStdString(s.error().detail), QString("adapter disconnected"));
     }
 
     void poll_returns_no_response_before_start()
@@ -65,8 +66,9 @@ class TestMutDmaLoggingProtocol : public QObject
         FileActions fileActions;
         MutDmaLoggingProtocol proto(std::move(transport), std::make_unique<AlreadyInMode>(125000), &lv, &fileActions);
 
-        PollResult r = proto.poll(20);
-        QCOMPARE((int)r.status, (int)PollResult::Status::NoResponse);
+        auto r = proto.poll(20);
+        QVERIFY(r.has_value());
+        QVERIFY(!r->responded);
     }
 
     void poll_returns_transport_error_when_adapter_closed()
@@ -77,8 +79,10 @@ class TestMutDmaLoggingProtocol : public QObject
         FileActions fileActions;
         MutDmaLoggingProtocol proto(std::move(transport), std::make_unique<AlreadyInMode>(125000), &lv, &fileActions);
 
-        PollResult r = proto.poll(20);
-        QCOMPARE((int)r.status, (int)PollResult::Status::TransportError);
+        auto r = proto.poll(20);
+        QVERIFY(!r.has_value());
+        QCOMPARE((int)r.error().kind, (int)fastecu::ErrorKind::Disconnected);
+        QCOMPARE(QString::fromStdString(r.error().detail), QString("adapter disconnected"));
     }
 
     void poll_returns_transport_error_when_adapter_closes_mid_session()
@@ -94,12 +98,13 @@ class TestMutDmaLoggingProtocol : public QObject
 
         FileActions fileActions;
         MutDmaLoggingProtocol proto(std::move(transport), std::make_unique<AlreadyInMode>(125000), &lv, &fileActions);
-        QString err;
-        QVERIFY(proto.start(&err));
+        QVERIFY(proto.start().has_value());
 
         raw->setOpen(false);
-        PollResult r = proto.poll(20);
-        QCOMPARE((int)r.status, (int)PollResult::Status::TransportError);
+        auto r = proto.poll(20);
+        QVERIFY(!r.has_value());
+        QCOMPARE((int)r.error().kind, (int)fastecu::ErrorKind::Disconnected);
+        QCOMPARE(QString::fromStdString(r.error().detail), QString("adapter disconnected"));
     }
 };
 

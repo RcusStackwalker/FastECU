@@ -3,6 +3,7 @@
 #include <QMetaType>
 #include <QString>
 #include <QVector>
+#include "src/backend/ports/result.h"
 
 // One converted, display-ready value for a single FileActions::LogValuesStructure
 // entry (identified by its index into that struct's parallel QStringLists).
@@ -12,18 +13,12 @@ struct LogSample
     QString displayValue;
 };
 
-// Outcome of one LoggingProtocol::poll() call.
-struct PollResult
+// Outcome of one successful LoggingProtocol::poll() call. Transport faults are
+// reported as fastecu::Error, not as a status here.
+struct PollData
 {
-    enum class Status
-    {
-        Ok,
-        NoResponse,
-        TransportError
-    };
-    Status status = Status::NoResponse;
-    QVector<LogSample> samples; // valid when status == Ok; already expression-converted
-    QString errorMessage;       // valid when status == TransportError
+    bool responded = false;     // false == car silent this cycle (was NoResponse)
+    QVector<LogSample> samples; // valid when responded; already expression-converted
 };
 
 // Recoverable connectivity state of an active logging session.
@@ -49,8 +44,8 @@ class LoggingProtocol
 {
   public:
     virtual ~LoggingProtocol() = default;
-    virtual bool start(QString *errorOut) = 0;
-    virtual PollResult poll(int timeoutMs) = 0;
+    virtual fastecu::Status start() = 0;
+    virtual fastecu::Result<PollData> poll(int timeoutMs) = 0;
     virtual void stop() = 0;
 };
 

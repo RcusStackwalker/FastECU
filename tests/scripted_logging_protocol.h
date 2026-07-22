@@ -1,11 +1,13 @@
 #pragma once
 #include "src/backend/logging/logging_protocol.h"
+#include "src/backend/ports/result.h"
 #include <QList>
 
 // Test double: scripts a sequence of start()/poll() outcomes for LoggingWorker
 // and LoggingEngine tests. Once a queue is exhausted, start() fails with a
-// diagnostic message and poll() returns Ok with no samples (a safe default that
-// never spuriously degrades a test's status assertions).
+// diagnostic message and poll() returns a responded=true PollData with no
+// samples (a safe default that never spuriously degrades a test's status
+// assertions).
 class ScriptedLoggingProtocol : public LoggingProtocol
 {
   public:
@@ -14,9 +16,22 @@ class ScriptedLoggingProtocol : public LoggingProtocol
         startResultsOk_.append(ok);
         startResultsError_.append(error);
     }
-    void queuePollResult(const PollResult& result)
+    // Scripted "Ok" step: pass responded=true with samples.
+    // Scripted "NoResponse" step: pass responded=false (samples ignored).
+    void queuePollResult(bool responded, const QVector<LogSample>& samples = {})
     {
-        pollResults_.append(result);
+        pollIsError_.append(false);
+        pollResponded_.append(responded);
+        pollSamples_.append(samples);
+        pollErrorMessage_.append(QString());
+    }
+    // Scripted "TransportError" step.
+    void queuePollError(const QString& errorMessage)
+    {
+        pollIsError_.append(true);
+        pollResponded_.append(false);
+        pollSamples_.append(QVector<LogSample>());
+        pollErrorMessage_.append(errorMessage);
     }
 
     int startCallCount() const
@@ -28,35 +43,35 @@ class ScriptedLoggingProtocol : public LoggingProtocol
         return stopCalled_;
     }
 
-    bool start(QString *errorOut) override
+    fastecu::Status start() override
     {
         ++startCalls_;
         if (startIdx_ >= startResultsOk_.size())
         {
-            if (errorOut)
-            {
-                *errorOut = "no scripted start result";
-            }
-            return false;
+            return fastecu::fail(fastecu::ErrorKind::Disconnected, "no scripted start result");
         }
         bool ok = startResultsOk_.at(startIdx_);
-        if (errorOut)
-        {
-            *errorOut = startResultsError_.at(startIdx_);
-        }
+        QString error = startResultsError_.at(startIdx_);
         ++startIdx_;
-        return ok;
+        if (!ok)
+        {
+            return fastecu::fail(fastecu::ErrorKind::Disconnected, error.toStdString());
+        }
+        return {};
     }
 
-    PollResult poll(int) override
+    fastecu::Result<PollData> poll(int) override
     {
-        if (pollIdx_ >= pollResults_.size())
+        if (pollIdx_ >= pollIsError_.size())
         {
-            PollResult r;
-            r.status = PollResult::Status::Ok;
-            return r;
+            return PollData{true, {}};
         }
-        return pollResults_.at(pollIdx_++);
+        int i = pollIdx_++;
+        if (pollIsError_.at(i))
+        {
+            return fastecu::fail(fastecu::ErrorKind::Disconnected, pollErrorMessage_.at(i).toStdString());
+        }
+        return PollData{pollResponded_.at(i), pollSamples_.at(i)};
     }
 
     void stop() override
@@ -67,7 +82,10 @@ class ScriptedLoggingProtocol : public LoggingProtocol
   private:
     QList<bool> startResultsOk_;
     QList<QString> startResultsError_;
-    QList<PollResult> pollResults_;
+    QList<bool> pollIsError_;
+    QList<bool> pollResponded_;
+    QList<QVector<LogSample>> pollSamples_;
+    QList<QString> pollErrorMessage_;
     int startIdx_ = 0;
     int pollIdx_ = 0;
     int startCalls_ = 0;

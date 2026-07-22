@@ -20,9 +20,9 @@ void LoggingWorker::requestStop()
 
 void LoggingWorker::run()
 {
-    QString err;
-    if (!m_protocol->start(&err))
+    if (auto s = m_protocol->start(); !s)
     {
+        QString err = QString::fromStdString(s.error().detail);
         emit LOG_E("Logging session failed to start: " + err, true, true);
         emit sessionEnded(SessionEndReason::HandshakeFailed, err);
         return;
@@ -34,20 +34,27 @@ void LoggingWorker::run()
 
     while (!m_stopRequested.loadRelaxed())
     {
-        PollResult r = m_protocol->poll(m_pollTimeoutMs);
-        switch (r.status)
+        fastecu::Result<PollData> r = m_protocol->poll(m_pollTimeoutMs);
+        if (!r)
         {
-        case PollResult::Status::Ok:
+            m_protocol->stop();
+            QString msg = QString::fromStdString(r.error().detail);
+            emit LOG_E("Adapter disconnected: " + msg, true, true);
+            emit sessionEnded(SessionEndReason::AdapterDisconnected, msg);
+            return;
+        }
+        if (r->responded)
+        {
             consecutiveMisses = 0;
             if (lastStatus != LoggingStatus::Running)
             {
                 lastStatus = LoggingStatus::Running;
                 emit statusChanged(LoggingStatus::Running);
             }
-            emit valuesUpdated(r.samples);
-            break;
-
-        case PollResult::Status::NoResponse:
+            emit valuesUpdated(r->samples);
+        }
+        else
+        {
             ++consecutiveMisses;
             if (consecutiveMisses == m_carSilenceMissThreshold)
             {
@@ -57,8 +64,7 @@ void LoggingWorker::run()
             }
             if (m_reconnectRetryPeriod > 0 && consecutiveMisses >= m_reconnectAttemptThreshold && (consecutiveMisses - m_reconnectAttemptThreshold) % m_reconnectRetryPeriod == 0)
             {
-                QString reErr;
-                if (m_protocol->start(&reErr))
+                if (m_protocol->start())
                 {
                     consecutiveMisses = 0;
                     lastStatus = LoggingStatus::Running;
@@ -66,13 +72,6 @@ void LoggingWorker::run()
                     emit statusChanged(LoggingStatus::Running);
                 }
             }
-            break;
-
-        case PollResult::Status::TransportError:
-            m_protocol->stop();
-            emit LOG_E("Adapter disconnected: " + r.errorMessage, true, true);
-            emit sessionEnded(SessionEndReason::AdapterDisconnected, r.errorMessage);
-            return;
         }
     }
 

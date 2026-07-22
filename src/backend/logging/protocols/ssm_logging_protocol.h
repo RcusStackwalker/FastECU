@@ -13,8 +13,8 @@ class SsmLoggingProtocol : public LoggingProtocol
                        FileActions::LogValuesStructure *logValues, FileActions *fileActions,
                        QString logValueProtocolFilter, bool targetIsEcu, bool useOpenport2Adapter);
 
-    bool start(QString *errorOut) override;
-    PollResult poll(int timeoutMs) override;
+    fastecu::Status start() override;
+    fastecu::Result<PollData> poll(int timeoutMs) override;
     void stop() override;
 
   private:
