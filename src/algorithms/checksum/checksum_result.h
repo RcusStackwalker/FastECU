@@ -1,8 +1,9 @@
 #ifndef CHECKSUM_RESULT_H
 #define CHECKSUM_RESULT_H
 
-#include <QByteArray>
-#include <QString>
+#include "src/algorithms/protocol/bytes.h"
+
+#include <string>
 
 struct ChecksumResult
 {
@@ -17,8 +18,8 @@ struct ChecksumResult
     };
 
     Status status = Status::Unchanged;
-    QByteArray romData;
-    QString message;
+    bytes::Bytes romData;
+    std::string message;
 
     bool changed() const
     {

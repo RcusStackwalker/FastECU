@@ -16,7 +16,8 @@ cc_library(
     includes = COMMON_INCLUDES,
     deps = QT_DEPS + [
         "//src/algorithms/protocol",
-        "//src/algorithms/protocol/colt",
-        "//src/algorithms/protocol/mut_dma",
+        "//src/algorithms/protocol:qt_compat",
+        "//src/algorithms/protocol/colt:qt_compat",
+        "//src/algorithms/protocol/mut_dma:qt_compat",
     ],
 )

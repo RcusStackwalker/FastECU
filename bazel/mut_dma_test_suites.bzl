@@ -100,7 +100,10 @@ _NEEDS_OFFSCREEN_QT_PLATFORM = [
 # its obvious package is step 4/5 scope surfacing early -- record it in
 # the PR description rather than widening quietly.
 SUITE_DEPS = {
-    "test_bytes": ["//src/algorithms/protocol"],
+    "test_bytes": [
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol:qt_compat",
+    ],
     "test_codec": ["//src/algorithms/protocol/mut_dma"],
     "test_freeform": ["//src/algorithms/protocol/mut_dma"],
     "test_memory": ["//src/algorithms/protocol/mut_dma"],
@@ -111,9 +114,12 @@ SUITE_DEPS = {
     # backend/protocol's own dep on it), so it is not declared.
     "test_init": ["//src/backend/protocol"],
     # test_driver.cpp includes mut_dma_codec/freeform/memory.h (mut_dma) AND
-    # mut_dma_driver.h (backend/protocol) directly -- both are real edges.
+    # mut_dma_driver.h (backend/protocol) directly -- both are real edges. It also
+    # includes qt_mut_dma.h to bridge std::vector<Channel> locals into the
+    # still-QVector-based MutDmaDriver API, so it needs the mut_dma Qt shim
+    # (which transitively provides :mut_dma's portable headers too).
     "test_driver": [
-        "//src/algorithms/protocol/mut_dma",
+        "//src/algorithms/protocol/mut_dma:qt_compat",
         "//src/backend/protocol",
     ],
     # test_transport.cpp includes qt_bytes.h (algorithms/protocol root) only
@@ -121,18 +127,29 @@ SUITE_DEPS = {
     # ikline_transport.h, which itself depends on algorithms/protocol root,
     # so backend/protocol alone covers both real edges.
     "test_transport": ["//src/backend/protocol"],
-    "test_mitsu_colt_can_protocol": ["//src/algorithms/protocol/colt"],
-    "test_mitsu_colt_can_vendor_ext_protocol": ["//src/algorithms/protocol/colt"],
-    "test_mitsu_colt_can_cdbg_protocol": ["//src/algorithms/protocol/colt"],
+    # These three include qt_colt.h (the Qt shim) alongside the portable
+    # header, since the tests exercise both the bytes::-native functions and
+    # the QByteArray/QVector overloads (Task 8).
+    "test_mitsu_colt_can_protocol": ["//src/algorithms/protocol/colt:qt_compat"],
+    "test_mitsu_colt_can_vendor_ext_protocol": ["//src/algorithms/protocol/colt:qt_compat"],
+    "test_mitsu_colt_can_cdbg_protocol": ["//src/algorithms/protocol/colt:qt_compat"],
     # test_cdbg_driver.cpp includes mitsu_colt_can_cdbg_driver.h, which lives
     # in backend/protocol, NOT algorithms/protocol/colt (a different file:
-    # mitsu_colt_can_cdbg_protocol.h). colt was a phantom edge here.
-    "test_cdbg_driver": ["//src/backend/protocol"],
-    "test_ssm_protocol": ["//src/algorithms/protocol/ssm"],
-    "test_expression_evaluator": ["//src/algorithms/expression"],
-    "test_menu_command": ["//src/algorithms/menu"],
-    "test_diagnostic_parsers": ["//src/algorithms/diagnostics"],
-    "test_checksum_results": ["//src/algorithms/checksum"],
+    # mitsu_colt_can_cdbg_protocol.h). It also includes qt_colt.h directly
+    # (Task 8) to bridge QVector<CdbgChannel> locals into the still-QVector-
+    # based CdbgLogDriver API, so it needs the colt Qt shim as a real edge.
+    "test_cdbg_driver": [
+        "//src/algorithms/protocol/colt:qt_compat",
+        "//src/backend/protocol",
+    ],
+    "test_ssm_protocol": ["//src/algorithms/protocol/ssm:qt_compat"],
+    "test_expression_evaluator": ["//src/algorithms/expression:qt_compat"],
+    "test_menu_command": ["//src/algorithms/menu:qt_compat"],
+    "test_diagnostic_parsers": ["//src/algorithms/diagnostics:qt_compat"],
+    # test_checksum_results.cpp was retargeted (Task 10) to the Qt shim
+    # (qt_checksum.h / QtChecksumResult) so it can keep asserting the frozen
+    # QByteArray/QString contract now that ChecksumResult itself is portable.
+    "test_checksum_results": ["//src/algorithms/checksum:qt_compat"],
     "test_logging_worker": ["//src/backend/logging"],
     "test_logging_engine": ["//src/backend/logging"],
     "test_romraider_conversion": ["//src/backend/logging"],
@@ -143,7 +160,13 @@ SUITE_DEPS = {
     "test_mut_dma_logging_protocol": ["//src/backend/logging/protocols"],
     "test_cdbg_logging_protocol": ["//src/backend/logging/protocols"],
     "test_flash_operation_worker": ["//src/backend/flash"],
-    "test_flash_ecu_mitsu_m32r_can_operation": ["//src/backend/flash/ecu"],
+    # test_flash_ecu_mitsu_m32r_can_operation.cpp includes qt_colt.h directly
+    # (Task 8) for QByteArray-typed Colt helper wrappers, so it needs the
+    # colt Qt shim as a real edge in addition to backend/flash/ecu.
+    "test_flash_ecu_mitsu_m32r_can_operation": [
+        "//src/algorithms/protocol/colt:qt_compat",
+        "//src/backend/flash/ecu",
+    ],
     "test_flash_utils": [
         "//src/backend/flash",
         # test_flash_utils.cpp includes serial_port_actions.h directly;

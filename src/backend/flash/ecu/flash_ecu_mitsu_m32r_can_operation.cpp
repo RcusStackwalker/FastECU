@@ -4,6 +4,7 @@
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 #include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
 #include "src/algorithms/protocol/colt/mitsu_colt_can_vendor_ext_protocol.h"
+#include "src/algorithms/protocol/colt/qt_colt.h"
 #include "src/backend/definitions/kernelmemorymodels.h"
 
 #include <utility>

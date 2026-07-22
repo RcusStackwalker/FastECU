@@ -131,35 +131,35 @@ CdbgFrame buildLogStartFrame(bytes::Byte instance, bytes::Byte frameCount, std::
     return frame;
 }
 
-bool batchChannelsIntoFrames(const QVector<CdbgChannel>& channels,
-                             QVector<QVector<CdbgChannel>>& outFrames)
+bool batchChannelsIntoFrames(const std::vector<CdbgChannel>& channels,
+                             std::vector<std::vector<CdbgChannel>>& outFrames)
 {
-    if (channels.isEmpty())
+    if (channels.empty())
     {
         return false;
     }
 
-    QVector<QVector<CdbgChannel>> frames;
-    QVector<CdbgChannel> current;
+    std::vector<std::vector<CdbgChannel>> frames;
+    std::vector<CdbgChannel> current;
     int byteIndex = 1;
 
     for (const CdbgChannel& ch : channels)
     {
         if (byteIndex + ch.size > 8)
         {
-            frames.append(current);
+            frames.push_back(current);
             current.clear();
             byteIndex = 1;
         }
-        current.append(ch);
+        current.push_back(ch);
         byteIndex += ch.size;
     }
-    if (!current.isEmpty())
+    if (!current.empty())
     {
-        frames.append(current);
+        frames.push_back(current);
     }
 
-    if (frames.size() > kMaxFrames)
+    if (frames.size() > static_cast<std::size_t>(kMaxFrames))
     {
         return false;
     }
@@ -169,11 +169,11 @@ bool batchChannelsIntoFrames(const QVector<CdbgChannel>& channels,
 }
 
 std::vector<CdbgFrame> buildFrameInitFrames(bytes::Byte instance, bytes::Byte frameIndex,
-                                            const QVector<CdbgChannel>& frameItems)
+                                            const std::vector<CdbgChannel>& frameItems)
 {
     std::vector<CdbgFrame> out;
-    out.reserve(static_cast<std::size_t>(frameItems.size() * 2));
-    for (int i = 0; i < frameItems.size(); ++i)
+    out.reserve(frameItems.size() * 2);
+    for (std::size_t i = 0; i < frameItems.size(); ++i)
     {
         out.push_back(CdbgFrame{
             kCmdLogSelectItem,
@@ -193,9 +193,9 @@ std::vector<CdbgFrame> buildFrameInitFrames(bytes::Byte instance, bytes::Byte fr
     return out;
 }
 
-QVector<std::uint32_t> decodeFrame(bytes::Byte expectedFrameIndex,
-                                   const QVector<CdbgChannel>& frameItems,
-                                   bytes::ByteView frame)
+std::vector<std::uint32_t> decodeFrame(bytes::Byte expectedFrameIndex,
+                                       const std::vector<CdbgChannel>& frameItems,
+                                       bytes::ByteView frame)
 {
     if (frame.empty() || frame[0] != expectedFrameIndex)
     {
@@ -212,7 +212,7 @@ QVector<std::uint32_t> decodeFrame(bytes::Byte expectedFrameIndex,
         return {};
     }
 
-    QVector<std::uint32_t> out;
+    std::vector<std::uint32_t> out;
     int offset = 1;
     for (const CdbgChannel& ch : frameItems)
     {
@@ -235,7 +235,7 @@ QVector<std::uint32_t> decodeFrame(bytes::Byte expectedFrameIndex,
             }
             break;
         }
-        out.append(value);
+        out.push_back(value);
         offset += ch.size;
     }
     return out;

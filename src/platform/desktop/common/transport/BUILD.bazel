@@ -20,6 +20,7 @@ qt_cc_library(
     normal_hdrs = glob(["*.h"]),
     deps = QT_DEPS + [
         "//src/algorithms/protocol",
+        "//src/algorithms/protocol:qt_compat",
         "//src/backend/protocol",
         "//src/platform/desktop/common/serial:serial_qt_compat",
     ],

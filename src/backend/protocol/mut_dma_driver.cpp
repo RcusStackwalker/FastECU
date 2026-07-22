@@ -1,6 +1,7 @@
 #include "src/backend/protocol/mut_dma_driver.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_codec.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_memory.h"
+#include "src/algorithms/protocol/mut_dma/qt_mut_dma.h"
 #include "src/algorithms/protocol/qt_bytes.h"
 namespace mutdma
 {

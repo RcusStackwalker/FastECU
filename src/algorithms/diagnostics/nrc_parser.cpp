@@ -1,11 +1,16 @@
 #include "src/algorithms/diagnostics/nrc_parser.h"
 
-QString NrcParser::parse(const QByteArray& nrc, const QHash<int, QString>& codes)
+std::string nrc_description(bytes::ByteView nrc, const std::unordered_map<int, std::string>& codes)
 {
-    if (nrc.length() < 3 || static_cast<unsigned char>(nrc.at(0)) != 0x7f)
+    if (nrc.size() < 3 || nrc[0] != 0x7f)
     {
         return "Not a valid answer";
     }
 
-    return codes.value(static_cast<unsigned char>(nrc.at(2)), "Unknown error code");
+    const auto it = codes.find(static_cast<int>(nrc[2]));
+    if (it != codes.end())
+    {
+        return it->second;
+    }
+    return "Unknown error code";
 }

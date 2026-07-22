@@ -1,5 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "PORTABLE_COPTS", "QT_DEPS")
 
 package(default_visibility = [
     "//src/algorithms:__subpackages__",
@@ -9,11 +10,56 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
+# root //:portable_closure reads this file as `data` to check that portable
+# algorithms targets stay Qt-free; that reference is plumbing, not a layer
+# dependency, so export it to the root package specifically rather than
+# widen the package's general default_visibility.
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//:__pkg__"],
+)
+
 cc_library(
     name = "colt",
-    srcs = glob(["*.cpp"]),
-    hdrs = glob(["*.h"]),
+    srcs = glob(
+        ["*.cpp"],
+        exclude = [
+            "*_test.cpp",
+            "qt_*.cpp",
+        ],
+    ),
+    hdrs = glob(
+        ["*.h"],
+        exclude = [
+            "*_test.h",
+            "qt_*.h",
+        ],
+    ),
+    copts = PORTABLE_COPTS,
+    deps = ["//src/algorithms/protocol"],
+)
+
+# TRANSITIONAL Qt shim: QByteArray/QVector overloads delegating to :colt, for
+# callers not yet converted (src/backend/protocol/mitsu_colt_can_cdbg_driver
+# and src/backend/flash/ecu/flash_ecu_mitsu_m32r_can_operation).
+cc_library(
+    name = "qt_compat",
+    hdrs = ["qt_colt.h"],
     copts = COMMON_COPTS,
     includes = COMMON_INCLUDES,
-    deps = QT_DEPS + ["//src/algorithms/protocol"],
+    deps = QT_DEPS + [
+        ":colt",
+        "//src/algorithms/protocol:qt_compat",
+    ],
+)
+
+cc_test(
+    name = "colt_test",
+    size = "small",
+    srcs = ["colt_test.cpp"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":colt",
+        "@googletest//:gtest_main",
+    ],
 )

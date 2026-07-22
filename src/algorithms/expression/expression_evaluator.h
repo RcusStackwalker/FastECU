@@ -1,15 +1,12 @@
 #ifndef EXPRESSION_EVALUATOR_H
 #define EXPRESSION_EVALUATOR_H
 
-#include <QString>
-#include <QStringList>
+#include <string>
+#include <string_view>
+#include <vector>
 
-class ExpressionEvaluator
-{
-  public:
-    static QStringList parse(const QString& expression, const QString& x);
-    static double evaluate(QStringList expression, int precision = 15);
-    static double evaluate(const QString& expression, const QString& x, int precision = 15);
-};
+std::vector<std::string> expression_parse(std::string_view expression, std::string_view x);
+double expression_evaluate(std::vector<std::string> expression, int precision = 15);
+double expression_evaluate(std::string_view expression, std::string_view x, int precision = 15);
 
 #endif // EXPRESSION_EVALUATOR_H

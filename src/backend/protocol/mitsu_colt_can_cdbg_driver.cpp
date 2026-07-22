@@ -1,5 +1,7 @@
 #include "src/backend/protocol/mitsu_colt_can_cdbg_driver.h"
 
+#include "src/algorithms/protocol/colt/qt_colt.h"
+
 namespace MitsuColtCanCdbg
 {
 

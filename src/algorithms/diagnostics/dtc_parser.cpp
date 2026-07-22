@@ -1,40 +1,51 @@
 #include "src/algorithms/diagnostics/dtc_parser.h"
 
+#include <array>
+#include <cstdio>
+
 namespace
 {
 
-QString defaultDtcMessage(uint16_t dtc)
+std::string default_dtc_message(std::uint16_t dtc)
 {
-    static const char prefixes[] = {'P', 'C', 'B', 'U'};
-    const int category = dtc >> 14;
-    const uint16_t code = dtc & 0x3fff;
+    static constexpr std::array<char, 4> prefixes = {'P', 'C', 'B', 'U'};
+    const std::size_t category = dtc >> 14;
+    const std::uint16_t code = dtc & 0x3fff;
 
-    return QString("%1%2 - Unknown error code")
-        .arg(prefixes[category])
-        .arg(code, 4, 16, QLatin1Char('0'));
+    char hex[8];
+    std::snprintf(hex, sizeof(hex), "%04x", code);
+    return std::string(1, prefixes[category]) + hex + " - Unknown error code";
 }
 
 } // namespace
 
-QString DtcParser::parse(uint16_t dtc,
-                         const QHash<int, QString>& pCodes,
-                         const QHash<int, QString>& cCodes,
-                         const QHash<int, QString>& bCodes,
-                         const QHash<int, QString>& uCodes)
+std::string dtc_description(std::uint16_t dtc,
+                            const std::unordered_map<int, std::string>& pCodes,
+                            const std::unordered_map<int, std::string>& cCodes,
+                            const std::unordered_map<int, std::string>& bCodes,
+                            const std::unordered_map<int, std::string>& uCodes)
 {
-    const QString fallback = defaultDtcMessage(dtc);
+    const std::string fallback = default_dtc_message(dtc);
 
+    const std::unordered_map<int, std::string> *table = nullptr;
     switch (dtc >> 14)
     {
     case 0x00:
-        return pCodes.value(dtc, fallback);
+        table = &pCodes;
+        break;
     case 0x01:
-        return cCodes.value(dtc, fallback);
+        table = &cCodes;
+        break;
     case 0x02:
-        return bCodes.value(dtc, fallback);
+        table = &bCodes;
+        break;
     case 0x03:
-        return uCodes.value(dtc, fallback);
+        table = &uCodes;
+        break;
     default:
         return fallback;
     }
+
+    const auto it = table->find(dtc);
+    return it != table->end() ? it->second : fallback;
 }

@@ -1,7 +1,7 @@
 #include <QtTest>
 
-#include "src/algorithms/diagnostics/dtc_parser.h"
-#include "src/algorithms/diagnostics/nrc_parser.h"
+#include "src/algorithms/diagnostics/qt_dtc_parser.h"
+#include "src/algorithms/diagnostics/qt_nrc_parser.h"
 #include "test_diagnostic_parsers.h"
 
 class TestDiagnosticParsers : public QObject

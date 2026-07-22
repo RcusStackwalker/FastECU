@@ -5,6 +5,7 @@
 #include "src/backend/protocol/mut_dma_driver.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_freeform.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_memory.h"
+#include "src/algorithms/protocol/mut_dma/qt_mut_dma.h"
 #include "scripted_kline_transport.h"
 
 using namespace mutdma;
@@ -23,7 +24,7 @@ class FailingInit : public mutdma::IMutDmaInit
 
 TEST(TestDriver, free_form_handshake_reaches_streaming)
 {
-    QVector<Channel> ch = {{0x8000, 2}};
+    std::vector<Channel> ch = {{0x8000, 2}};
     ScriptedKlineTransport t;
     AlreadyInMode init(125000);
     // host setup (0xA0,N=1) -> ECU ACK-1 -> host id-list -> ECU ACK-2
@@ -34,7 +35,7 @@ TEST(TestDriver, free_form_handshake_reaches_streaming)
     const MutDmaFrame ack2 = buildCommandFrame(0x05, bytes::Bytes{}, TRAILER_STD);
     t.queueRead(ack2);
     MutDmaDriver d(t, init);
-    ASSERT_TRUE(d.startFreeFormLog(ch, 0xA0, 0xA1));
+    ASSERT_TRUE(d.startFreeFormLog(toQVector(ch), 0xA0, 0xA1));
     ASSERT_TRUE(d.isStreaming());
     ASSERT_TRUE(t.scriptConsumed());
 }
@@ -54,7 +55,7 @@ TEST(TestDriver, write_memory_sends_and_acks)
 
 TEST(TestDriver, poll_decodes_stream_frame)
 {
-    QVector<Channel> ch = {{0x8000, 2}};
+    std::vector<Channel> ch = {{0x8000, 2}};
     ScriptedKlineTransport t;
     AlreadyInMode init(125000);
     // one streamed frame: [0x51][12 34][csum][0x0D]
@@ -63,7 +64,7 @@ TEST(TestDriver, poll_decodes_stream_frame)
     fr.push_back(TRAILER_STD);
     t.queueRead(fr);
     MutDmaDriver d(t, init);
-    d.setChannelsForTest(ch);
+    d.setChannelsForTest(toQVector(ch));
     QVector<std::uint32_t> v = d.pollOnce(50);
     ASSERT_EQ(v.size(), 1);
     ASSERT_EQ(v.at(0), std::uint32_t(0x1234));
@@ -71,36 +72,36 @@ TEST(TestDriver, poll_decodes_stream_frame)
 
 TEST(TestDriver, handshake_fails_on_wake_failure)
 {
-    QVector<Channel> ch = {{0x8000, 2}};
+    std::vector<Channel> ch = {{0x8000, 2}};
     ScriptedKlineTransport t;
     FailingInit init;
     MutDmaDriver d(t, init);
-    ASSERT_FALSE(d.startFreeFormLog(ch, 0xA0, 0xA1));
+    ASSERT_FALSE(d.startFreeFormLog(toQVector(ch), 0xA0, 0xA1));
     ASSERT_FALSE(d.isStreaming());
 }
 
 TEST(TestDriver, handshake_fails_on_bad_ack)
 {
-    QVector<Channel> ch = {{0x8000, 2}};
+    std::vector<Channel> ch = {{0x8000, 2}};
     ScriptedKlineTransport t;
     AlreadyInMode init(125000);
     t.expectWrite(buildSetupFrame(0xA0, 1));
     // wrong ACK-1 opcode (0x00 instead of 0xA5/0xB5), though checksum is valid
     t.queueRead(buildCommandFrame(0x00, bytes::Bytes{}, TRAILER_STD));
     MutDmaDriver d(t, init);
-    ASSERT_FALSE(d.startFreeFormLog(ch, 0xA0, 0xA1));
+    ASSERT_FALSE(d.startFreeFormLog(toQVector(ch), 0xA0, 0xA1));
     ASSERT_FALSE(d.isStreaming());
 }
 
 TEST(TestDriver, poll_returns_empty_on_bad_frame)
 {
-    QVector<Channel> ch = {{0x8000, 2}};
+    std::vector<Channel> ch = {{0x8000, 2}};
     ScriptedKlineTransport t;
     AlreadyInMode init(125000);
     const bytes::Bytes bad = {0x51, 0x12, 0x34, 0x00, TRAILER_STD}; // wrong checksum
     t.queueRead(bad);
     MutDmaDriver d(t, init);
-    d.setChannelsForTest(ch);
+    d.setChannelsForTest(toQVector(ch));
     ASSERT_TRUE(d.pollOnce(50).isEmpty());
 }
 

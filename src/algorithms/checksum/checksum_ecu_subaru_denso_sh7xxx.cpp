@@ -1,6 +1,26 @@
 #include "checksum_ecu_subaru_denso_sh7xxx.h"
 
-#include "src/algorithms/protocol/qt_bytes.h"
+#include "src/algorithms/protocol/bytes.h"
+
+#include <algorithm>
+
+namespace
+{
+
+// Mirrors QByteArray::replace(pos, len, payload) for the same-size,
+// in-bounds overwrite this file performs (len == payload.size() at the
+// call site).
+void overwriteAt(bytes::Bytes& data, std::size_t pos, bytes::ByteView payload)
+{
+    if (pos >= data.size())
+    {
+        return;
+    }
+    const std::size_t count = std::min(payload.size(), data.size() - pos);
+    std::copy_n(payload.begin(), count, data.begin() + static_cast<std::ptrdiff_t>(pos));
+}
+
+} // namespace
 
 ChecksumEcuSubaruDensoSH7xxx::ChecksumEcuSubaruDensoSH7xxx()
 {
@@ -10,16 +30,11 @@ ChecksumEcuSubaruDensoSH7xxx::~ChecksumEcuSubaruDensoSH7xxx()
 {
 }
 
-QByteArray ChecksumEcuSubaruDensoSH7xxx::calculate_checksum(const QByteArray& romData, uint32_t checksum_area_start, uint32_t checksum_area_length, int32_t offset)
+ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(bytes::ByteView romData, uint32_t checksum_area_start, uint32_t checksum_area_length, int32_t offset)
 {
-    return calculate_checksum_result(romData, checksum_area_start, checksum_area_length, offset).romData;
-}
-
-ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(const QByteArray& romData, uint32_t checksum_area_start, uint32_t checksum_area_length, int32_t offset)
-{
-    QByteArray checksum_array;
+    bytes::Bytes checksum_array;
     ChecksumResult result;
-    result.romData = romData;
+    result.romData = bytes::Bytes(romData.begin(), romData.end());
 
     if (checksum_area_length % 12 != 0)
     {
@@ -55,9 +70,9 @@ ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(const QBy
         checksum_dword_addr_hi = 0;
         checksum_diff = 0;
 
-        checksum_dword_addr_lo = bytes::readU32Be(bytes::view(romData), i);
-        checksum_dword_addr_hi = bytes::readU32Be(bytes::view(romData), i + 4);
-        checksum_diff = bytes::readU32Be(bytes::view(romData), i + 8);
+        checksum_dword_addr_lo = bytes::readU32Be(romData, i);
+        checksum_dword_addr_hi = bytes::readU32Be(romData, i + 4);
+        checksum_diff = bytes::readU32Be(romData, i + 8);
         if (checksum_dword_addr_lo == 0 && checksum_dword_addr_hi == 0)
         {
             offset = 0;
@@ -66,16 +81,11 @@ ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(const QBy
         uint32_t checksum_dword_addr_hi_with_offset = checksum_dword_addr_hi + offset;
         if (i == checksum_area_start && checksum_dword_addr_lo_with_offset == 0 && checksum_dword_addr_hi_with_offset == 0 && checksum_diff == 0x5aa5a55a)
         {
-            qDebug() << "ROM has all checksums disabled";
             result.status = ChecksumResult::Status::Disabled;
             result.message = "ROM has all checksums disabled";
             return result;
         }
 
-        if (checksum_dword_addr_lo_with_offset == 0 && checksum_dword_addr_hi_with_offset == 0 && checksum_diff == 0x5aa5a55a)
-        {
-            // QMessageBox::information(nullptr, QObject::tr("32-bit checksum"), "Checksums disabled");
-        }
         if (checksum_dword_addr_lo_with_offset != 0 && checksum_dword_addr_hi_with_offset != 0 && checksum_diff != 0x5aa5a55a)
         {
             for (uint32_t j = checksum_dword_addr_lo_with_offset; j < checksum_dword_addr_hi_with_offset; j += 4)
@@ -86,19 +96,14 @@ ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(const QBy
                     result.message = "ROM is too small for a checksum block range";
                     return result;
                 }
-                checksum_temp = bytes::readU32Be(bytes::view(romData), j);
+                checksum_temp = bytes::readU32Be(romData, j);
                 checksum += checksum_temp;
             }
         }
         checksum_check = 0x5aa5a55a - checksum;
 
-        if (checksum_diff == checksum_check)
+        if (checksum_diff != checksum_check)
         {
-            qDebug() << "Checksum block " + QString::number(checksum_block) + " OK";
-        }
-        else
-        {
-            qDebug() << "Checksum block " + QString::number(checksum_block) + " NOK";
             checksum_ok = false;
         }
 
@@ -111,10 +116,9 @@ ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(const QBy
 
     if (!checksum_ok)
     {
-        result.romData.replace(checksum_area_start, checksum_area_length, checksum_array);
+        overwriteAt(result.romData, checksum_area_start, checksum_array);
         result.status = ChecksumResult::Status::Corrected;
         result.message = "Checksums corrected";
-        qDebug() << "Checksums corrected";
     }
     else
     {

@@ -2,9 +2,7 @@
 #define CHECKSUM_ECU_SUBARU_DENSO_SH7XXX_H
 
 #include "checksum_result.h"
-
-#include <QByteArray>
-#include <QDebug>
+#include "src/algorithms/protocol/bytes.h"
 
 class ChecksumEcuSubaruDensoSH7xxx
 {
@@ -13,8 +11,7 @@ class ChecksumEcuSubaruDensoSH7xxx
     ~ChecksumEcuSubaruDensoSH7xxx();
 
     // Note that offset is added to all addresses
-    static QByteArray calculate_checksum(const QByteArray& romData, uint32_t checksum_area_start, uint32_t checksum_area_length, int32_t offset = 0);
-    static ChecksumResult calculate_checksum_result(const QByteArray& romData, uint32_t checksum_area_start, uint32_t checksum_area_length, int32_t offset = 0);
+    static ChecksumResult calculate_checksum_result(bytes::ByteView romData, uint32_t checksum_area_start, uint32_t checksum_area_length, int32_t offset = 0);
 
   private:
 };

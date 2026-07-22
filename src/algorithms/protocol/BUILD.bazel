@@ -1,5 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "PORTABLE_COPTS", "QT_DEPS")
 
 package(default_visibility = [
     "//src/algorithms:__subpackages__",
@@ -9,14 +10,48 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
+# root //:portable_closure reads this file as `data` to check that portable
+# algorithms targets stay Qt-free; that reference is plumbing, not a layer
+# dependency, so export it to the root package specifically rather than
+# widen the package's general default_visibility.
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//:__pkg__"],
+)
+
+# Portable. Declares no QT_DEPS -- Bazel's sandbox therefore keeps Qt headers
+# off the include path, so any residual Qt include fails to compile.
 cc_library(
     name = "protocol",
     srcs = glob(
         ["*.cpp"],
         allow_empty = True,
+        exclude = [
+            "*_test.cpp",
+            "qt_*.cpp",
+        ],
     ),
-    hdrs = glob(["*.h"]),
+    hdrs = ["bytes.h"],
+    copts = PORTABLE_COPTS,
+)
+
+# TRANSITIONAL Qt shim. Converts between Qt containers and bytes:: types.
+# Shrinks as steps 5 and 6 move callers onto the portable types.
+cc_library(
+    name = "qt_compat",
+    hdrs = ["qt_bytes.h"],
     copts = COMMON_COPTS,
     includes = COMMON_INCLUDES,
-    deps = QT_DEPS,
+    deps = QT_DEPS + [":protocol"],
+)
+
+cc_test(
+    name = "bytes_test",
+    size = "small",
+    srcs = ["bytes_test.cpp"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":protocol",
+        "@googletest//:gtest_main",
+    ],
 )

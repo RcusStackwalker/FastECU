@@ -1,7 +1,6 @@
 #pragma once
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_codec.h"
-#include <QVector>
 
 #include <cstdint>
 #include <vector>
@@ -18,7 +17,7 @@ constexpr int MAX_WRITE_CHUNK = 43;
 std::vector<MutDmaFrame> buildWriteFrames(std::uint16_t addr, bytes::ByteView bytes);
 // Build 1-byte free-form channels covering [addr, addr+len). Caller chunks to the
 // id-list limit (~43 channels) across multiple streaming cycles.
-QVector<Channel> planReadChannels(std::uint16_t addr, int len);
+std::vector<Channel> planReadChannels(std::uint16_t addr, int len);
 // Concatenate the low byte of each decoded 1-byte channel value into a buffer.
-bytes::Bytes reassembleRead(const QVector<std::uint32_t>& values);
+bytes::Bytes reassembleRead(const std::vector<std::uint32_t>& values);
 } // namespace mutdma

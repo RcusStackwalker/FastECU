@@ -1,10 +1,6 @@
 #include "src/algorithms/crypto/cipher.h"
 
-// Size rounded up to closest 16 byte limit
-qsizetype size16(qsizetype size)
-{
-    return size + 16 - (size % 16);
-}
+#include <iostream>
 
 Cipher::Cipher()
 {
@@ -26,28 +22,26 @@ void Cipher::handleErrors(void)
 {
     // ERR_print_errors_fp(stderr);
     // abort();
-    qDebug() << "Cipher error";
+    std::cerr << "Cipher error" << std::endl;
 }
 
-QByteArray Cipher::encrypt_aes128_ecb(const QByteArray& plaintext, const QByteArray& key)
+bytes::Bytes Cipher::encrypt_aes128_ecb(bytes::ByteView plaintext, bytes::ByteView key)
 {
-    QByteArray result;
-    result.resizeForOverwrite(plaintext.size() + 16);
-    int ciphertext_len = encrypt_aes128_ecb((unsigned char *)plaintext.constData(),
-                                            plaintext.size(),
-                                            (unsigned char *)key.constData(),
+    bytes::Bytes result(plaintext.size() + 16);
+    int ciphertext_len = encrypt_aes128_ecb(reinterpret_cast<unsigned char *>(const_cast<bytes::Byte *>(plaintext.data())),
+                                            static_cast<int>(plaintext.size()),
+                                            reinterpret_cast<unsigned char *>(const_cast<bytes::Byte *>(key.data())),
                                             reinterpret_cast<unsigned char *>(result.data()));
     result.resize(ciphertext_len);
     return result;
 }
 
-QByteArray Cipher::decrypt_aes128_ecb(const QByteArray& ciphertext, const QByteArray& key)
+bytes::Bytes Cipher::decrypt_aes128_ecb(bytes::ByteView ciphertext, bytes::ByteView key)
 {
-    QByteArray result;
-    result.resizeForOverwrite(ciphertext.size());
-    int plaintext_len = decrypt_aes128_ecb((unsigned char *)ciphertext.constData(),
-                                           ciphertext.size(),
-                                           (unsigned char *)key.constData(),
+    bytes::Bytes result(ciphertext.size());
+    int plaintext_len = decrypt_aes128_ecb(reinterpret_cast<unsigned char *>(const_cast<bytes::Byte *>(ciphertext.data())),
+                                           static_cast<int>(ciphertext.size()),
+                                           reinterpret_cast<unsigned char *>(const_cast<bytes::Byte *>(key.data())),
                                            reinterpret_cast<unsigned char *>(result.data()));
     result.resize(plaintext_len);
     return result;

@@ -136,6 +136,7 @@ qt_cc_test(
         ":mut_dma_integration_cpp_mocs",
         ":test_header_mocs",
         "//src/algorithms/protocol",
+        "//src/algorithms/protocol:qt_compat",
         "//src/algorithms/protocol/mut_dma",
         "//src/backend/protocol",
         "//src/platform/desktop/common/serial:serial_qt_compat",

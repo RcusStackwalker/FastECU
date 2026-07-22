@@ -1,5 +1,25 @@
 #include "checksum_ecu_subaru_hitachi_sh7058.h"
-#include "src/algorithms/protocol/qt_bytes.h"
+#include "src/algorithms/protocol/bytes.h"
+
+#include <algorithm>
+
+namespace
+{
+
+// Mirrors QByteArray::replace(pos, len, payload) for the same-size,
+// in-bounds overwrites this file performs (len == payload.size() at every
+// call site).
+void overwriteAt(bytes::Bytes& data, std::size_t pos, bytes::ByteView payload)
+{
+    if (pos >= data.size())
+    {
+        return;
+    }
+    const std::size_t count = std::min(payload.size(), data.size() - pos);
+    std::copy_n(payload.begin(), count, data.begin() + static_cast<std::ptrdiff_t>(pos));
+}
+
+} // namespace
 
 ChecksumEcuSubaruHitachiSH7058::ChecksumEcuSubaruHitachiSH7058()
 {
@@ -9,7 +29,7 @@ ChecksumEcuSubaruHitachiSH7058::~ChecksumEcuSubaruHitachiSH7058()
 {
 }
 
-QByteArray ChecksumEcuSubaruHitachiSH7058::calculate_checksum(QByteArray romData)
+ChecksumResult ChecksumEcuSubaruHitachiSH7058::calculate_checksum_result(bytes::ByteView romView)
 {
     /*******************
      *
@@ -21,7 +41,7 @@ QByteArray ChecksumEcuSubaruHitachiSH7058::calculate_checksum(QByteArray romData
      *  Checksum 4 calculated between 0x0000 - 0xfffff excluding 0xffff0 - 0xffff7, 32-bit XOR, result at 0x7fff4
      *
      * ****************/
-    QString msg;
+    bytes::Bytes romData(romView.begin(), romView.end());
 
     uint32_t checksum_1_value_stored = 0;
     uint32_t checksum_1_value_calculated = 0;
@@ -48,71 +68,49 @@ QByteArray ChecksumEcuSubaruHitachiSH7058::calculate_checksum(QByteArray romData
      * *************************************/
     for (int i = 0x18400; i < 0x1e000; i += 4)
     {
-        const std::uint32_t word = bytes::readU32Be(bytes::view(romData), static_cast<std::size_t>(i));
+        const std::uint32_t word = bytes::readU32Be(romData, static_cast<std::size_t>(i));
         checksum_1_value_calculated += word;
         checksum_2_value_calculated ^= word;
     }
-    checksum_1_value_stored = bytes::readU32Be(bytes::view(romData), checksum_1_value_address);
-    checksum_2_value_stored = bytes::readU32Be(bytes::view(romData), checksum_2_value_address);
+    checksum_1_value_stored = bytes::readU32Be(romData, checksum_1_value_address);
+    checksum_2_value_stored = bytes::readU32Be(romData, checksum_2_value_address);
     if (checksum_1_value_calculated != checksum_1_value_stored)
     {
-        qDebug() << "Checksum 1 value mismatch!";
         checksum_ok = false;
 
-        QByteArray checksum;
+        bytes::Bytes checksum;
         bytes::appendU32Be(checksum, checksum_1_value_calculated);
-        romData.replace(checksum_1_value_address, checksum.length(), checksum);
-
-        qDebug() << "Subaru Hitachi SH7058 CAN ECU checksum 1 corrected";
-    }
-    else
-    {
-        qDebug() << "Subaru Hitachi SH7058 CAN ECU checksum 1 OK";
+        overwriteAt(romData, checksum_1_value_address, checksum);
     }
     if (checksum_2_value_calculated != checksum_2_value_stored)
     {
-        qDebug() << "Checksum 2 value mismatch!";
         checksum_ok = false;
 
-        QByteArray checksum;
+        bytes::Bytes checksum;
         bytes::appendU32Be(checksum, checksum_2_value_calculated);
-        romData.replace(checksum_2_value_address, checksum.length(), checksum);
-
-        qDebug() << "Subaru Hitachi SH7058 CAN ECU checksum 2 corrected";
-    }
-    else
-    {
-        qDebug() << "Subaru Hitachi SH7058 CAN ECU checksum 2 OK";
+        overwriteAt(romData, checksum_2_value_address, checksum);
     }
     /****************************************
      *
      * Calculate and fix checksum 5
      *
      * *************************************/
-    for (uint32_t i = 0x4000; i < (uint32_t)romData.length(); i += 4)
+    for (uint32_t i = 0x4000; i < (uint32_t)romData.size(); i += 4)
     {
         if (i != checksum_3_value_address && i != checksum_4_value_address)
         {
-            checksum_5_value_calculated += bytes::readU32Be(bytes::view(romData), static_cast<std::size_t>(i));
+            checksum_5_value_calculated += bytes::readU32Be(romData, static_cast<std::size_t>(i));
         }
     }
     if (checksum_5_value_calculated != 0x5aa5a55a)
     {
-        QByteArray balance_value_array;
-        uint32_t balance_value = bytes::readU32Be(bytes::view(romData), checksum_5_balance_value_address);
-
-        msg.clear();
-        msg.append(QString("Balance value before: 0x%1").arg(balance_value, 8, 16, QLatin1Char('0')).toUtf8());
-        qDebug() << msg;
+        bytes::Bytes balance_value_array;
+        uint32_t balance_value = bytes::readU32Be(romData, checksum_5_balance_value_address);
 
         balance_value += 0x5aa5a55a - checksum_5_value_calculated;
 
-        msg.clear();
-        msg.append(QString("Balance value after: 0x%1").arg(balance_value, 8, 16, QLatin1Char('0')).toUtf8());
-        qDebug() << msg;
-
         bytes::appendU32Be(balance_value_array, balance_value);
-        romData.replace(checksum_5_balance_value_address, balance_value_array.length(), balance_value_array);
+        overwriteAt(romData, checksum_5_balance_value_address, balance_value_array);
     }
     /****************************************
      *
@@ -123,21 +121,20 @@ QByteArray ChecksumEcuSubaruHitachiSH7058::calculate_checksum(QByteArray romData
     {
         if (i != checksum_3_value_address && i != checksum_4_value_address)
         {
-            const std::uint32_t word2 = bytes::readU32Be(bytes::view(romData), static_cast<std::size_t>(i));
+            const std::uint32_t word2 = bytes::readU32Be(romData, static_cast<std::size_t>(i));
             checksum_3_value_calculated += word2;
             checksum_4_value_calculated ^= word2;
         }
     }
-    checksum_3_value_stored = bytes::readU32Be(bytes::view(romData), checksum_3_value_address);
-    checksum_4_value_stored = bytes::readU32Be(bytes::view(romData), checksum_4_value_address);
+    checksum_3_value_stored = bytes::readU32Be(romData, checksum_3_value_address);
+    checksum_4_value_stored = bytes::readU32Be(romData, checksum_4_value_address);
     if (checksum_3_value_calculated != checksum_3_value_stored)
     {
-        qDebug() << "Checksum 3 value mismatch!";
         checksum_ok = false;
 
-        QByteArray checksum;
+        bytes::Bytes checksum;
         bytes::appendU32Be(checksum, checksum_3_value_calculated);
-        romData.replace(checksum_3_value_address, checksum.length(), checksum);
+        overwriteAt(romData, checksum_3_value_address, checksum);
 
         /*
                 QByteArray balance_value_array;
@@ -161,77 +158,35 @@ QByteArray ChecksumEcuSubaruHitachiSH7058::calculate_checksum(QByteArray romData
                 balance_value_array.append((uint8_t)(balance_value & 0xff));
                 romData.replace(checksum_3_balance_value_address, balance_value_array.length(), balance_value_array);
         */
-        qDebug() << "Subaru Hitachi SH7058 CAN ECU checksum 3 corrected";
-    }
-    else
-    {
-        qDebug() << "Subaru Hitachi SH7058 CAN ECU checksum 3 OK";
     }
     if (checksum_4_value_calculated != checksum_4_value_stored)
     {
-        qDebug() << "Checksum 4 value mismatch!";
         checksum_ok = false;
-
-        msg.clear();
-        msg.append(QString("CHKSUM: 0x%1").arg(checksum_4_value_calculated, 8, 16, QLatin1Char('0')).toUtf8());
-        qDebug() << msg;
 
         checksum_4_value_calculated = 0;
         for (uint32_t i = 0x0000; i < 0x100000; i += 4)
         {
             if (i != checksum_3_value_address && i != checksum_4_value_address)
             {
-                checksum_4_value_calculated ^= bytes::readU32Be(bytes::view(romData), i);
+                checksum_4_value_calculated ^= bytes::readU32Be(romData, i);
             }
         }
 
-        QByteArray checksum;
+        bytes::Bytes checksum;
         bytes::appendU32Be(checksum, checksum_4_value_calculated);
-        romData.replace(checksum_4_value_address, checksum.length(), checksum);
+        overwriteAt(romData, checksum_4_value_address, checksum);
+    }
 
-        qDebug() << "Subaru Hitachi SH7058 CAN ECU checksum 4 corrected";
+    ChecksumResult result;
+    result.romData = romData;
+    if (!checksum_ok)
+    {
+        result.status = ChecksumResult::Status::Corrected;
+        result.message = "Subaru Hitachi SH7058 CAN ECU Checksum";
     }
     else
     {
-        qDebug() << "Subaru Hitachi SH7058 CAN ECU checksum 4 OK";
+        result.status = ChecksumResult::Status::Unchanged;
     }
-
-    msg.clear();
-    msg.append(QString("Checksum 1 value calculated 0x7ffe8: 0x%1").arg(checksum_1_value_calculated, 8, 16, QLatin1Char('0')).toUtf8());
-    qDebug() << msg;
-    msg.clear();
-    msg.append(QString("Checksum 1 value stored 0x7ffe8: 0x%1").arg(checksum_1_value_stored, 8, 16, QLatin1Char('0')).toUtf8());
-    qDebug() << msg;
-
-    msg.clear();
-    msg.append(QString("Checksum 2 value calculated 0x7ffec: 0x%1").arg(checksum_2_value_calculated, 8, 16, QLatin1Char('0')).toUtf8());
-    qDebug() << msg;
-    msg.clear();
-    msg.append(QString("Checksum 2 value stored 0x7ffec: 0x%1").arg(checksum_2_value_stored, 8, 16, QLatin1Char('0')).toUtf8());
-    qDebug() << msg;
-
-    msg.clear();
-    msg.append(QString("Checksum 3 value calculated 0x7fff0: 0x%1").arg(checksum_3_value_calculated, 8, 16, QLatin1Char('0')).toUtf8());
-    qDebug() << msg;
-    msg.clear();
-    msg.append(QString("Checksum 3 value stored 0x7fff0: 0x%1").arg(checksum_3_value_stored, 8, 16, QLatin1Char('0')).toUtf8());
-    qDebug() << msg;
-
-    msg.clear();
-    msg.append(QString("Checksum 4 value calculated 0x7fff4: 0x%1").arg(checksum_4_value_calculated, 8, 16, QLatin1Char('0')).toUtf8());
-    qDebug() << msg;
-    msg.clear();
-    msg.append(QString("Checksum 4 value stored 0x7fff4: 0x%1").arg(checksum_4_value_stored, 8, 16, QLatin1Char('0')).toUtf8());
-    qDebug() << msg;
-
-    msg.clear();
-    msg.append(QString("Checksum 5 calculated: 0x%1").arg(checksum_5_value_calculated, 4, 16, QLatin1Char('0')).toUtf8());
-    qDebug() << msg;
-
-    if (!checksum_ok)
-    {
-        QMessageBox::information(nullptr, QObject::tr("Subaru Hitachi SH7058 CAN ECU Checksum"), "Checksums corrected");
-    }
-
-    return romData;
+    return result;
 }

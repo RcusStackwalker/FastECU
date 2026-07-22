@@ -1,5 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "PORTABLE_COPTS", "QT_DEPS")
 
 package(default_visibility = [
     "//src/algorithms:__subpackages__",
@@ -9,11 +10,38 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
+# root //:portable_closure reads this file as `data` to check that portable
+# algorithms targets stay Qt-free; that reference is plumbing, not a layer
+# dependency, so export it to the root package specifically rather than
+# widen the package's general default_visibility.
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//:__pkg__"],
+)
+
 cc_library(
     name = "menu",
-    srcs = glob(["*.cpp"]),
-    hdrs = glob(["*.h"]),
+    srcs = ["menu_command.cpp"],
+    hdrs = ["menu_command.h"],
+    copts = PORTABLE_COPTS,
+)
+
+# TRANSITIONAL Qt shim: QString overloads delegating to :menu.
+cc_library(
+    name = "qt_compat",
+    hdrs = ["qt_menu_command.h"],
     copts = COMMON_COPTS,
     includes = COMMON_INCLUDES,
-    deps = QT_DEPS,
+    deps = QT_DEPS + [":menu"],
+)
+
+cc_test(
+    name = "menu_command_test",
+    size = "small",
+    srcs = ["menu_command_test.cpp"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":menu",
+        "@googletest//:gtest_main",
+    ],
 )

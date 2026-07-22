@@ -5,6 +5,7 @@
 #include "src/algorithms/protocol/mut_dma/mut_dma_freeform.h"
 
 #include <QByteArray>
+#include <QVector>
 
 #include <cstdint>
 
