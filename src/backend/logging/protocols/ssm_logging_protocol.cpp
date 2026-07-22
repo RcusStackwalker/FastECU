@@ -1,6 +1,7 @@
 #include "src/backend/logging/protocols/ssm_logging_protocol.h"
 #include "src/backend/logging/romraider_conversion.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
+#include "src/backend/protocol/transport_legacy_compat.h"
 #include <QHash>
 
 #include <cstddef>
@@ -92,24 +93,24 @@ bytes::Bytes SsmLoggingProtocol::readFramedResponse(int timeoutMs)
 
     if (useOpenport2Adapter_)
     {
-        return transport_->read(timeoutMs);
+        return fastecu::transport_legacy_compat::read(*transport_, timeoutMs);
     }
 
     while (received.size() < 3 && int(clock_.now_ms() - start) < timeoutMs)
     {
-        appendBytes(received, transport_->read(10));
+        appendBytes(received, fastecu::transport_legacy_compat::read(*transport_, 10));
     }
 
     while (received.size() >= 3 && (received[0] != 0x80 || received[1] != 0xf0 || received[2] != 0x10) && int(clock_.now_ms() - start) < timeoutMs)
     {
         received.erase(received.begin());
-        appendBytes(received, transport_->read(10));
+        appendBytes(received, fastecu::transport_legacy_compat::read(*transport_, 10));
     }
 
     int remaining = timeoutMs - int(clock_.now_ms() - start);
     if (remaining > 0)
     {
-        appendBytes(received, transport_->read(remaining));
+        appendBytes(received, fastecu::transport_legacy_compat::read(*transport_, remaining));
     }
 
     return received;
@@ -123,7 +124,7 @@ fastecu::Status SsmLoggingProtocol::start()
     }
 
     const bytes::Bytes output{0xA8, 0x00, 0x00, 0x00, 0x07};
-    transport_->write(buildSsmHeader(output));
+    fastecu::transport_legacy_compat::write(*transport_, buildSsmHeader(output));
 
     const bytes::Bytes received = readFramedResponse(kStartTimeoutMs);
     if (received.size() <= 6 || received[4] != 0xe8)
@@ -141,7 +142,7 @@ fastecu::Result<PollData> SsmLoggingProtocol::poll(int timeoutMs)
     }
 
     const QVector<SsmLogChannel> channels = channelsFromLogValues(logValues_, logValueProtocolFilter_);
-    transport_->write(buildSsmHeader(buildPollRequest(channels)));
+    fastecu::transport_legacy_compat::write(*transport_, buildSsmHeader(buildPollRequest(channels)));
 
     const bytes::Bytes received = readFramedResponse(timeoutMs);
     if (received.size() <= 6 || received[4] != 0xe8)

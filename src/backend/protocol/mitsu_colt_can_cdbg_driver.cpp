@@ -1,6 +1,7 @@
 #include "src/backend/protocol/mitsu_colt_can_cdbg_driver.h"
 
 #include "src/algorithms/protocol/colt/qt_colt.h"
+#include "src/backend/protocol/transport_legacy_compat.h"
 
 namespace MitsuColtCanCdbg
 {
@@ -9,9 +10,9 @@ namespace
 {
 bool sendAndReceive(cdbg::ICanTransport& t, bytes::ByteView cmd, bytes::Bytes& outReply)
 {
-    t.write(kRequestCanId, cmd);
+    fastecu::transport_legacy_compat::write(t, kRequestCanId, cmd);
     std::uint32_t id = 0;
-    outReply = t.read(250, id);
+    outReply = fastecu::transport_legacy_compat::read(t, 250, id);
     return !outReply.empty() && id == kReplyCanId;
 }
 } // namespace
@@ -143,7 +144,7 @@ QVector<std::uint32_t> CdbgLogDriver::pollOnce(int timeoutMs)
     }
 
     std::uint32_t id = 0;
-    const bytes::Bytes frame = t_.read(timeoutMs, id);
+    const bytes::Bytes frame = fastecu::transport_legacy_compat::read(t_, timeoutMs, id);
     if (!frame.empty() && id == kReplyCanId)
     {
         bytes::Byte frameIdx = frame[0];

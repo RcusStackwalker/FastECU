@@ -50,6 +50,18 @@
 
 using namespace mutdma;
 
+namespace
+{
+class NeverCancelledToken final : public fastecu::ICancellationToken
+{
+  public:
+    bool cancelled() const override
+    {
+        return false;
+    }
+};
+} // namespace
+
 // Scripted mock Openport 2.0 on the master side of a PTY. Buffer-driven (not purely
 // line-based) so it can faithfully consume the raw data bytes that trail an "att"
 // write header -- those bytes are an arbitrary 51-byte MUT frame and may contain
@@ -280,7 +292,9 @@ void MutDmaIntegrationTest::setBaud_throughAdapter_trueWhenConnected_falseWhenCl
     SerialPortActions closed; // never opened
     FastEcuKlineTransport closedTr(&closed);
     // change_port_speed returns STATUS_ERROR when the port is not open -> false.
-    QCOMPARE(closedTr.setBaud(15625), false);
+    const auto closedResult = closedTr.setBaud(15625);
+    QVERIFY(!closedResult);
+    QCOMPARE(closedResult.error().kind, fastecu::ErrorKind::Disconnected);
 
     int master = -1, slave = -1;
     char name[256] = {0};
@@ -295,8 +309,8 @@ void MutDmaIntegrationTest::setBaud_throughAdapter_trueWhenConnected_falseWhenCl
         FastEcuKlineTransport tr(&spad);
         // Connected + Openport branch -> change_port_speed routes to SET_CONFIG ioctl
         // and returns STATUS_SUCCESS -> adapter setBaud() == true.
-        QCOMPARE(tr.setBaud(15625), true);
-        QCOMPARE(tr.setBaud(62500), true);
+        QVERIFY(tr.setBaud(15625));
+        QVERIFY(tr.setBaud(62500));
     }
     ::close(master);
 }
@@ -328,8 +342,9 @@ void MutDmaIntegrationTest::write_throughAdapter_putsExactFrameOnWire()
         QTest::qWait(100);  // let all connect-handshake bytes reach the mock
         mock.resetParser(); // then start capture from a clean buffer
 
-        const int written = tr.write(bytes::view(frame));
-        QCOMPARE(written, frame.size());
+        const auto written = tr.write(bytes::view(frame));
+        QVERIFY(written);
+        QCOMPARE(*written, static_cast<std::size_t>(frame.size()));
 
         // Pump the event loop so the mock's QSocketNotifier drains and captures it.
         QTRY_VERIFY_WITH_TIMEOUT(mock.sawWrite, 1000);
@@ -351,7 +366,8 @@ void MutDmaIntegrationTest::read_throughAdapter_returnsEcuReplyBytes()
         QVERIFY2(!connectFacade(spad, QString::fromLocal8Bit(name)).isEmpty(), "connect failed");
 
         FastEcuKlineTransport tr(&spad);
-        tr.read(60); // drain any residual init acks before the scripted exchange
+        NeverCancelledToken cancellation;
+        tr.read(60, cancellation); // drain any residual init acks before the scripted exchange
 
         QByteArray reply;
         reply.append(char(0x05));
@@ -361,8 +377,10 @@ void MutDmaIntegrationTest::read_throughAdapter_returnsEcuReplyBytes()
         reply.append(char(0xDD));
         mock.injectDataFrame(reply);
 
-        const QByteArray got = bytes::toQByteArray(tr.read(500));
-        QCOMPARE(got, reply);
+        const auto read = tr.read(500, cancellation);
+        QVERIFY(read);
+        QVERIFY(read->has_value());
+        QCOMPARE(bytes::toQByteArray(read->value()), reply);
     }
     ::close(master);
 }
@@ -380,6 +398,7 @@ void MutDmaIntegrationTest::driverPollOnce_throughAdapter_decodesStreamFrameFrom
         QVERIFY2(!connectFacade(spad, QString::fromLocal8Bit(name)).isEmpty(), "connect failed");
 
         FastEcuKlineTransport tr(&spad);
+        NeverCancelledToken cancellation;
         AlreadyInMode init(125000);
         MutDmaDriver driver(tr, init);
 
@@ -399,7 +418,7 @@ void MutDmaIntegrationTest::driverPollOnce_throughAdapter_decodesStreamFrameFrom
         frame.append(char(sum8(bytes::view(frame))));
         frame.append(char(TRAILER_STD));
 
-        tr.read(60); // drain residual
+        tr.read(60, cancellation); // drain residual
         mock.injectDataFrame(frame);
 
         const QVector<std::uint32_t> values = driver.pollOnce(500);

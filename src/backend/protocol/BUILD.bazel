@@ -19,5 +19,6 @@ cc_library(
         "//src/algorithms/protocol:qt_compat",
         "//src/algorithms/protocol/colt:qt_compat",
         "//src/algorithms/protocol/mut_dma:qt_compat",
+        "//src/backend/ports",
     ],
 )

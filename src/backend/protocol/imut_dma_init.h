@@ -18,7 +18,7 @@ class AlreadyInMode : public IMutDmaInit
     }
     bool wake(IKlineTransport& t) override
     {
-        return t.setBaud(baud_);
+        return t.setBaud(baud_).has_value();
     }
 
   private:

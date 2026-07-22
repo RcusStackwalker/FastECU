@@ -74,7 +74,11 @@ _MUT_DMA_GTEST_HELPER_HDRS = {
     "test_mitsu_colt_can_protocol": ["byte_test_utils.h"],
     "test_mitsu_colt_can_vendor_ext_protocol": ["byte_test_utils.h"],
     "test_ssm_protocol": ["byte_test_utils.h"],
-    "test_transport": ["scripted_kline_transport.h"],
+    "test_transport": [
+        "scripted_can_transport.h",
+        "scripted_kline_transport.h",
+        "scripted_ssm_transport.h",
+    ],
 }
 
 # These suites construct a real QApplication (FileActions derives from

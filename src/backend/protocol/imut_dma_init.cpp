@@ -7,6 +7,6 @@ bool FiveBaudInit::wake(IKlineTransport& t)
     // address byte addr_) is the one carried VERIFY item and is wired during bench
     // bring-up - at which point IKlineTransport gains a fiveBaudInit() method backed
     // by SerialPortActions::five_baud_init, called here before setBaud(baud_).
-    return t.setBaud(baud_);
+    return t.setBaud(baud_).has_value();
 }
 } // namespace mutdma
