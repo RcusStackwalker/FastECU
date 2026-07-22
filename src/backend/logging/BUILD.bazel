@@ -22,6 +22,7 @@ qt_cc_library(
             "*_test.cpp",
             "logging_conversion.cpp",
             "logging_session.cpp",
+            "logging_use_case.cpp",
         ],
     ),
     hdrs = MOC_HDRS,
@@ -31,8 +32,10 @@ qt_cc_library(
         ["*.h"],
         exclude = MOC_HDRS + [
             "logging_conversion.h",
+            "logging_event_sink.h",
             "logging_session.h",
             "logging_types.h",
+            "logging_use_case.h",
         ],
     ),
     deps = QT_DEPS + [
@@ -63,6 +66,33 @@ cc_test(
     deps = [
         ":logging_session",
         "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "logging_use_case_test",
+    size = "small",
+    srcs = ["logging_use_case_test.cpp"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":logging_use_case",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "logging_use_case",
+    srcs = ["logging_use_case.cpp"],
+    hdrs = [
+        "logging_event_sink.h",
+        "logging_protocol.h",
+        "logging_use_case.h",
+    ],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":logging_conversion",
+        ":logging_session",
+        "//src/backend/ports",
     ],
 )
 
