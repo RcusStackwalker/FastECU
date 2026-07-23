@@ -23,6 +23,25 @@ fastecu_portable_gtest(
     deps = [":flash_types"],
 )
 
+# Portable. No Qt, no platform, no filesystem, no thread.
+cc_library(
+    name = "flash_plan",
+    srcs = ["flash_plan.cpp"],
+    hdrs = ["flash_plan.h"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":flash_types",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "flash_plan_test",
+    srcs = ["flash_plan_test.cpp"],
+    copts = ["-DFASTECU_FLASH_PLAN_ENABLE_TEST_CONSTRUCTION"],
+    deps = [":flash_plan"],
+)
+
 MOC_HDRS = ["flash_operation_worker.h"]
 
 qt_cc_library(
