@@ -63,18 +63,56 @@ MOC_HDRS = ["flash_operation_worker.h"]
 PORTABLE_SRCS = [
     "flash_plan.cpp",
     "flash_validation.cpp",
+    "flash_executor.cpp",
 ]
 
 PORTABLE_HDRS = [
     "flash_types.h",
     "flash_plan.h",
     "flash_validation.h",
+    "flash_executor.h",
+    "flash_cancellation.h",
 ]
 
 PORTABLE_TEST_SRCS = [
     "flash_types_test.cpp",
     "flash_validation_test.cpp",
+    "flash_executor_test.cpp",
+    "flash_cancellation_test.cpp",
 ]
+
+# Portable. No Qt, no platform, no filesystem, no thread.
+cc_library(
+    name = "flash_executor",
+    srcs = ["flash_executor.cpp"],
+    hdrs = [
+        "flash_cancellation.h",
+        "flash_executor.h",
+    ],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":flash_plan",
+        ":flash_types",
+        "//src/algorithms/protocol",
+        "//src/backend/ports",
+        "//src/backend/protocol",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "flash_executor_test",
+    srcs = ["flash_executor_test.cpp"],
+    deps = [
+        ":flash_executor",
+        ":flash_validation",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "flash_cancellation_test",
+    srcs = ["flash_cancellation_test.cpp"],
+    deps = [":flash_executor"],
+)
 
 qt_cc_library(
     name = "flash",
