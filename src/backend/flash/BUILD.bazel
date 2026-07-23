@@ -1,4 +1,6 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "PORTABLE_COPTS", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -6,6 +8,20 @@ package(default_visibility = [
     "//src/ui:__subpackages__",
     "//tests:__pkg__",
 ])
+
+# Portable. No Qt, no platform, no filesystem, no thread.
+cc_library(
+    name = "flash_types",
+    hdrs = ["flash_types.h"],
+    copts = PORTABLE_COPTS,
+    deps = ["//src/algorithms/protocol"],
+)
+
+fastecu_portable_gtest(
+    name = "flash_types_test",
+    srcs = ["flash_types_test.cpp"],
+    deps = [":flash_types"],
+)
 
 MOC_HDRS = ["flash_operation_worker.h"]
 
