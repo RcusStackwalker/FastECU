@@ -75,6 +75,29 @@ class TestLoggingEngine : public QObject
         QCOMPARE(error_spy.size(), 0);
     }
 
+    void second_start_while_worker_active_is_rejected_without_disrupting_running_session()
+    {
+        LoggingEngine engine;
+        auto *protocol = new ScriptedLoggingProtocol();
+        protocol->queueStartResult({});
+        protocol->blockPollUntilCancelled();
+        engine.registerProtocol("TEST", [protocol](const DesktopLoggingSnapshot&)
+                                { return std::unique_ptr<LoggingProtocol>(protocol); });
+
+        QVERIFY(engine.start(LogSessionConfig{.protocolId = "TEST"}, snapshot()));
+        QVERIFY(protocol->waitUntilPollEntered(std::chrono::milliseconds(500)));
+        QVERIFY(engine.isRunning());
+
+        const auto second = engine.start(LogSessionConfig{.protocolId = "TEST"}, snapshot());
+        QVERIFY(!second);
+        QVERIFY(!second.failure_reported);
+        QVERIFY(engine.isRunning());
+        QCOMPARE(protocol->startCallCount(), 1);
+
+        engine.stop();
+        QVERIFY(!engine.isRunning());
+    }
+
     void null_factory_result_fails_without_starting()
     {
         LoggingEngine engine;
@@ -145,6 +168,30 @@ class TestLoggingEngine : public QObject
         QCOMPARE(ended_spy.at(0).at(1).toString(), QString("driver setup exploded"));
     }
 
+    void factory_non_std_exception_is_contained_at_platform_boundary()
+    {
+        LoggingEngine engine;
+        engine.registerProtocol(
+            "TEST", [](const DesktopLoggingSnapshot&) -> std::unique_ptr<LoggingProtocol>
+            { throw 42; });
+        QSignalSpy ended_spy(&engine, &LoggingEngine::sessionEnded);
+        QSignalSpy error_spy(&engine, &LoggingEngine::LOG_E);
+
+        const auto result = engine.start(LogSessionConfig{.protocolId = "TEST"}, snapshot());
+        QVERIFY(!result);
+        QVERIFY(result.failure_reported);
+
+        QCOMPARE(ended_spy.size(), 1);
+        QCOMPARE(ended_spy.at(0).at(0).value<SessionEndReason>(),
+                 SessionEndReason::HandshakeFailed);
+        QCOMPARE(ended_spy.at(0).at(1).toString(),
+                 QString("protocol factory threw an unknown exception"));
+        QCOMPARE(error_spy.at(0).at(0).toString(),
+                 QString("Logging session failed to start: protocol factory threw an "
+                         "unknown exception"));
+        QVERIFY(!engine.isRunning());
+    }
+
     void start_error_preserves_handshake_failure_ui_path()
     {
         LoggingEngine engine;
@@ -206,6 +253,89 @@ class TestLoggingEngine : public QObject
                  SessionEndReason::RuntimeFailed);
         QCOMPARE(error_spy.at(0).at(0).toString(),
                  QString("Logging session failed: bad stream frame"));
+    }
+
+    void worker_completion_with_cancelled_outcome_produces_no_session_error()
+    {
+        LoggingEngine engine;
+        auto *protocol = new ScriptedLoggingProtocol();
+        protocol->queueStartResult({});
+        protocol->queuePollResult(
+            fastecu::fail(fastecu::ErrorKind::Cancelled, "scripted poll cancelled"));
+        engine.registerProtocol("TEST", [protocol](const DesktopLoggingSnapshot&)
+                                { return std::unique_ptr<LoggingProtocol>(protocol); });
+        QSignalSpy ended_spy(&engine, &LoggingEngine::sessionEnded);
+        QSignalSpy error_spy(&engine, &LoggingEngine::LOG_E);
+
+        QVERIFY(engine.start(LogSessionConfig{.protocolId = "TEST"}, snapshot()));
+        QTRY_VERIFY(!engine.isRunning());
+
+        QCOMPARE(ended_spy.size(), 0);
+        QCOMPARE(error_spy.size(), 0);
+    }
+
+    void diagnostic_slot_forwards_error_level_with_timestamp_and_linefeed()
+    {
+        LoggingEngine engine;
+        QSignalSpy error_spy(&engine, &LoggingEngine::LOG_E);
+
+        QVERIFY(QMetaObject::invokeMethod(
+            &engine, "handleDiagnostic", Qt::DirectConnection,
+            Q_ARG(int, static_cast<int>(fastecu::LogLevel::Error)),
+            Q_ARG(QString, QString("error diagnostic"))));
+
+        QCOMPARE(error_spy.size(), 1);
+        QCOMPARE(error_spy.at(0).at(0).toString(), QString("error diagnostic"));
+        QCOMPARE(error_spy.at(0).at(1).toBool(), true);
+        QCOMPARE(error_spy.at(0).at(2).toBool(), true);
+    }
+
+    void diagnostic_slot_forwards_warning_level_with_timestamp_and_linefeed()
+    {
+        LoggingEngine engine;
+        QSignalSpy warning_spy(&engine, &LoggingEngine::LOG_W);
+
+        QVERIFY(QMetaObject::invokeMethod(
+            &engine, "handleDiagnostic", Qt::DirectConnection,
+            Q_ARG(int, static_cast<int>(fastecu::LogLevel::Warning)),
+            Q_ARG(QString, QString("warning diagnostic"))));
+
+        QCOMPARE(warning_spy.size(), 1);
+        QCOMPARE(warning_spy.at(0).at(0).toString(), QString("warning diagnostic"));
+        QCOMPARE(warning_spy.at(0).at(1).toBool(), true);
+        QCOMPARE(warning_spy.at(0).at(2).toBool(), true);
+    }
+
+    void diagnostic_slot_forwards_info_level_with_timestamp_and_linefeed()
+    {
+        LoggingEngine engine;
+        QSignalSpy info_spy(&engine, &LoggingEngine::LOG_I);
+
+        QVERIFY(QMetaObject::invokeMethod(
+            &engine, "handleDiagnostic", Qt::DirectConnection,
+            Q_ARG(int, static_cast<int>(fastecu::LogLevel::Info)),
+            Q_ARG(QString, QString("info diagnostic"))));
+
+        QCOMPARE(info_spy.size(), 1);
+        QCOMPARE(info_spy.at(0).at(0).toString(), QString("info diagnostic"));
+        QCOMPARE(info_spy.at(0).at(1).toBool(), true);
+        QCOMPARE(info_spy.at(0).at(2).toBool(), true);
+    }
+
+    void diagnostic_slot_forwards_debug_level_with_timestamp_and_linefeed()
+    {
+        LoggingEngine engine;
+        QSignalSpy debug_spy(&engine, &LoggingEngine::LOG_D);
+
+        QVERIFY(QMetaObject::invokeMethod(
+            &engine, "handleDiagnostic", Qt::DirectConnection,
+            Q_ARG(int, static_cast<int>(fastecu::LogLevel::Debug)),
+            Q_ARG(QString, QString("debug diagnostic"))));
+
+        QCOMPARE(debug_spy.size(), 1);
+        QCOMPARE(debug_spy.at(0).at(0).toString(), QString("debug diagnostic"));
+        QCOMPARE(debug_spy.at(0).at(1).toBool(), true);
+        QCOMPARE(debug_spy.at(0).at(2).toBool(), true);
     }
 
     void portable_events_map_to_existing_status_and_value_signals()
