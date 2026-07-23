@@ -1,4 +1,6 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("//bazel:qt_targets.bzl", "PORTABLE_COPTS")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -7,23 +9,87 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
-MOC_HDRS = [
-    "logging_engine.h",
-    "logging_worker.h",
-]
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//:__pkg__"],
+)
 
-qt_cc_library(
-    name = "logging",
-    srcs = glob(["*.cpp"]),
-    hdrs = MOC_HDRS,
-    copts = COMMON_COPTS,
-    includes = COMMON_INCLUDES,
-    normal_hdrs = glob(
-        ["*.h"],
-        exclude = MOC_HDRS,
-    ),
-    deps = QT_DEPS + [
-        "//src/backend/definitions",
+cc_library(
+    name = "logging_types",
+    hdrs = ["logging_types.h"],
+    copts = PORTABLE_COPTS,
+)
+
+cc_library(
+    name = "logging_session",
+    srcs = ["logging_session.cpp"],
+    hdrs = ["logging_session.h"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":logging_types",
+        "//src/algorithms/expression",
+        "//src/algorithms/protocol/colt",
         "//src/backend/ports",
+    ],
+)
+
+cc_test(
+    name = "logging_session_test",
+    size = "small",
+    srcs = ["logging_session_test.cpp"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":logging_session",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "logging_conversion",
+    srcs = ["logging_conversion.cpp"],
+    hdrs = ["logging_conversion.h"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":logging_session",
+        "//src/algorithms/expression",
+        "//src/backend/ports",
+    ],
+)
+
+cc_test(
+    name = "logging_conversion_test",
+    size = "small",
+    srcs = ["logging_conversion_test.cpp"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":logging_conversion",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "logging_use_case",
+    srcs = ["logging_use_case.cpp"],
+    hdrs = [
+        "logging_event_sink.h",
+        "logging_protocol.h",
+        "logging_use_case.h",
+    ],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":logging_conversion",
+        ":logging_session",
+        "//src/backend/ports",
+    ],
+)
+
+cc_test(
+    name = "logging_use_case_test",
+    size = "small",
+    srcs = ["logging_use_case_test.cpp"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":logging_use_case",
+        "@googletest//:gtest_main",
     ],
 )

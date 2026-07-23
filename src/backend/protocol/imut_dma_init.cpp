@@ -1,7 +1,7 @@
 #include "src/backend/protocol/imut_dma_init.h"
 namespace mutdma
 {
-bool FiveBaudInit::wake(IKlineTransport& t)
+fastecu::Status FiveBaudInit::wake(IKlineTransport& t)
 {
     // Scaffold: sets the DMA link baud. The physical 5-baud slow-init pulse (and its
     // address byte addr_) is the one carried VERIFY item and is wired during bench

@@ -1,9 +1,11 @@
 #pragma once
 #include "src/backend/protocol/ican_transport.h"
-#include "src/algorithms/protocol/qt_bytes.h"
-#include <QList>
 
 #include <cstdint>
+#include <deque>
+#include <string>
+#include <utility>
+#include <vector>
 namespace cdbg
 {
 // Test double: assert the exact sequence of (id,payload) writes, feed canned
@@ -11,29 +13,26 @@ namespace cdbg
 class ScriptedCanTransport : public ICanTransport
 {
   public:
-    void expectWrite(std::uint32_t id, const QByteArray& payload)
-    {
-        expectedIds_.append(id);
-        expectedPayloads_.append(bytes::fromQByteArray(payload));
-    }
     void expectWrite(std::uint32_t id, bytes::ByteView payload)
     {
-        expectedIds_.append(id);
-        expectedPayloads_.append(bytes::Bytes(payload.begin(), payload.end()));
-    }
-    void queueRead(std::uint32_t id, const QByteArray& payload)
-    {
-        readIds_.append(id);
-        readPayloads_.append(bytes::fromQByteArray(payload));
+        expectedIds_.push_back(id);
+        expectedPayloads_.emplace_back(payload.begin(), payload.end());
     }
     void queueRead(std::uint32_t id, bytes::ByteView payload)
     {
-        readIds_.append(id);
-        readPayloads_.append(bytes::Bytes(payload.begin(), payload.end()));
+        reads_.emplace_back(std::optional<CanFrame>{CanFrame{id, bytes::Bytes(payload.begin(), payload.end())}});
+    }
+    void queue_no_frame()
+    {
+        reads_.emplace_back(std::optional<CanFrame>{});
+    }
+    void queue_error(fastecu::ErrorKind kind, std::string detail = {})
+    {
+        reads_.emplace_back(fastecu::fail(kind, std::move(detail)));
     }
     bool scriptConsumed() const
     {
-        return wIdx_ == expectedIds_.size() && rIdx_ == readIds_.size();
+        return wIdx_ == expectedIds_.size() && reads_.empty();
     }
     bool ok() const
     {
@@ -47,32 +46,40 @@ class ScriptedCanTransport : public ICanTransport
     {
         return open_;
     }
-    int write(std::uint32_t id, bytes::ByteView payload) override
+    fastecu::Result<std::size_t> write(std::uint32_t id, bytes::ByteView payload) override
     {
         if (wIdx_ >= expectedIds_.size() || expectedIds_.at(wIdx_) != id || expectedPayloads_.at(wIdx_) != bytes::Bytes(payload.begin(), payload.end()))
         {
             ok_ = false;
+            return fastecu::fail(fastecu::ErrorKind::Internal, "unexpected scripted CAN write");
         }
         else
         {
             ++wIdx_;
         }
-        return static_cast<int>(payload.size());
+        return payload.size();
     }
-    bytes::Bytes read(int, std::uint32_t& outId) override
+    fastecu::Result<std::optional<CanFrame>> read(
+        int, const fastecu::ICancellationToken& cancellation) override
     {
-        if (rIdx_ >= readIds_.size())
+        if (cancellation.cancelled())
         {
-            return {};
+            return fastecu::fail(fastecu::ErrorKind::Cancelled, "scripted CAN read cancelled");
         }
-        outId = readIds_.at(rIdx_);
-        return readPayloads_.at(rIdx_++);
+        if (reads_.empty())
+        {
+            return fastecu::fail(fastecu::ErrorKind::Internal, "no scripted CAN read outcome");
+        }
+        auto result = std::move(reads_.front());
+        reads_.pop_front();
+        return result;
     }
 
   private:
-    QList<std::uint32_t> expectedIds_, readIds_;
-    QList<bytes::Bytes> expectedPayloads_, readPayloads_;
-    int wIdx_ = 0, rIdx_ = 0;
+    std::vector<std::uint32_t> expectedIds_;
+    std::vector<bytes::Bytes> expectedPayloads_;
+    std::deque<fastecu::Result<std::optional<CanFrame>>> reads_;
+    std::size_t wIdx_ = 0;
     bool ok_ = true;
     bool open_ = true;
 };

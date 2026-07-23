@@ -78,14 +78,13 @@ qt_cc_library(
         "//src/algorithms/protocol/mut_dma:qt_compat",
         "//src/backend/definitions",
         "//src/backend/flash",
-        "//src/backend/logging",
-        # mainwindow.h includes cdbg/mut_dma/ssm_logging_protocol.h
-        # directly, which live in the separate :protocols package.
         "//src/backend/logging/protocols",
         # mainwindow.h includes imut_dma_init.h, mitsu_colt_can_cdbg_driver.h
         # and mut_dma_driver.h directly.
         "//src/backend/protocol",
         "//src/platform/desktop/common/logging",
+        "//src/platform/desktop/common/logging:logging_adapters",
+        "//src/platform/desktop/common/logging:logging_runtime",
         "//src/platform/desktop/common/ports",
         "//src/platform/desktop/common/remote_utility",
         "//src/platform/desktop/common/serial:serial_qt_compat",

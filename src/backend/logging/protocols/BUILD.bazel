@@ -1,5 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS")
+load("//bazel:qt_targets.bzl", "PORTABLE_COPTS")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -8,19 +8,27 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//:__pkg__"],
+)
+
 cc_library(
     name = "protocols",
-    srcs = glob(["*.cpp"]),
-    hdrs = glob(["*.h"]),
-    copts = COMMON_COPTS,
-    includes = COMMON_INCLUDES,
-    deps = QT_DEPS + [
-        "//src/algorithms/protocol",
+    srcs = [
+        "portable_cdbg_logging_protocol.cpp",
+        "portable_mut_dma_logging_protocol.cpp",
+        "portable_ssm_logging_protocol.cpp",
+    ],
+    hdrs = [
+        "portable_cdbg_logging_protocol.h",
+        "portable_mut_dma_logging_protocol.h",
+        "portable_ssm_logging_protocol.h",
+    ],
+    copts = PORTABLE_COPTS,
+    deps = [
         "//src/algorithms/protocol/ssm",
-        "//src/backend/definitions",
-        "//src/backend/logging",
-        "//src/backend/ports",
+        "//src/backend/logging:logging_use_case",
         "//src/backend/protocol",
-        "//src/platform/desktop/common/serial:serial_qt_compat",
     ],
 )

@@ -3,6 +3,7 @@
 #include <QSplashScreen>
 #include <cstddef>
 #include <utility>
+#include "src/platform/desktop/common/logging/cdbg_serial_setup.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 const QColor MainWindow::RED_LIGHT_OFF = QColor(96, 32, 32);
@@ -2471,40 +2472,81 @@ void MainWindow::setupLoggingEngine()
     connect(loggingEngine, &LoggingEngine::LOG_I, syslogger, &SystemLogger::log_messages);
     connect(loggingEngine, &LoggingEngine::LOG_D, syslogger, &SystemLogger::log_messages);
 
-    loggingEngine->registerProtocol("MUT_DMA", [this](const LogSessionConfig&)
-                                    {
+    loggingEngine->registerProtocol(
+        "MUT_DMA",
+        [this](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
+        {
             auto transport = std::make_unique<mutdma::FastEcuKlineTransport>(serial);
             auto init = std::make_unique<mutdma::AlreadyInMode>(125000);
-            return std::unique_ptr<LoggingProtocol>(
-                new MutDmaLoggingProtocol(std::move(transport), std::move(init), logValues, fileActions)); },
-                                    /*pollTimeoutMs=*/50, /*carSilenceMissThreshold=*/20,
-                                    /*reconnectAttemptThreshold=*/100, /*reconnectRetryPeriod=*/20);
+            return std::make_unique<fastecu::logging::MutDmaLoggingProtocol>(
+                std::move(transport), std::move(init), snapshot.session.channels());
+        });
 
-    loggingEngine->registerProtocol("CDBG", [this](const LogSessionConfig&)
-                                    {
+    loggingEngine->registerProtocol(
+        "CDBG",
+        [this](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
+            -> fastecu::Result<std::unique_ptr<fastecu::logging::LoggingProtocol>>
+        {
+            const auto configured = fastecu::desktop::logging::configure_cdbg_serial({
+                .disable_iso14230 = [this]()
+                { return serial->set_is_iso14230_connection(false); },
+                .disable_iso14230_header = [this]()
+                { return serial->set_add_iso14230_header(false); },
+                .enable_raw_can = [this]()
+                { return serial->set_is_can_connection(true); },
+                .disable_iso15765 = [this]()
+                { return serial->set_is_iso15765_connection(false); },
+                .select_11_bit_ids = [this]()
+                { return serial->set_is_29_bit_id(false); },
+                .select_500k_baud = [this]()
+                { return serial->set_can_speed("500000"); },
+                .select_reply_id = [this]()
+                { return serial->set_can_destination_address(MitsuColtCanCdbg::kReplyCanId); },
+            });
+            if (!configured)
+            {
+                return std::unexpected(configured.error());
+            }
+            const QString opened_port = serial->open_serial_port();
+            if (opened_port.isEmpty() || !serial->is_serial_port_open())
+            {
+                return fastecu::fail(fastecu::ErrorKind::Disconnected,
+                                     "unable to open CAN adapter for CDBG logging");
+            }
             auto transport = std::make_unique<cdbg::FastEcuCanTransport>(serial);
-            return std::unique_ptr<LoggingProtocol>(
-                new CdbgLoggingProtocol(std::move(transport), serial, logValues, fileActions)); },
-                                    /*pollTimeoutMs=*/50, /*carSilenceMissThreshold=*/20,
-                                    /*reconnectAttemptThreshold=*/100, /*reconnectRetryPeriod=*/20);
+            return std::unique_ptr<fastecu::logging::LoggingProtocol>(
+                std::make_unique<fastecu::logging::CdbgLoggingProtocol>(
+                    std::move(transport), snapshot.session.channels()));
+        });
 
-    loggingEngine->registerProtocol("SSM", [this](const LogSessionConfig& config)
-                                    {
+    loggingEngine->registerProtocol(
+        "SSM",
+        [this](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
+        {
             auto transport = std::make_unique<FastEcuSsmTransport>(serial);
             bool targetIsEcu = ecu_radio_button->isChecked();
             bool useOpenport2Adapter = serial->get_use_openport2_adapter();
-            return std::unique_ptr<LoggingProtocol>(
-                new SsmLoggingProtocol(m_loggingClock, std::move(transport), logValues, fileActions,
-                                        config.logValueProtocolFilter, targetIsEcu, useOpenport2Adapter)); },
-                                    /*pollTimeoutMs=*/300, /*carSilenceMissThreshold=*/10,
-                                    /*reconnectAttemptThreshold=*/30, /*reconnectRetryPeriod=*/10);
+            return std::make_unique<fastecu::logging::SsmLoggingProtocol>(
+                m_loggingClock, std::move(transport), snapshot.session.channels(),
+                snapshot.response_offsets, targetIsEcu, useOpenport2Adapter);
+        });
 }
 
-void MainWindow::handleLoggingValuesUpdated(const QVector<LogSample>& samples)
+void MainWindow::handleLoggingValuesUpdated(
+    const QVector<fastecu::logging::LogSample>& samples)
 {
-    for (const LogSample& s : samples)
+    if (!activeLoggingSnapshot)
     {
-        logValues->log_value.replace(s.logValueIndex, s.displayValue);
+        return;
+    }
+    for (const auto& sample : samples)
+    {
+        const auto applied = fastecu::desktop::logging::apply_log_sample(
+            *activeLoggingSnapshot, sample, *logValues);
+        if (!applied)
+        {
+            emit LOG_E(QString::fromStdString(applied.error().detail), true, true);
+        }
     }
     update_logbox_values(activeLogValueProtocolFilter);
     log_to_file();
@@ -2512,6 +2554,7 @@ void MainWindow::handleLoggingValuesUpdated(const QVector<LogSample>& samples)
 
 void MainWindow::handleLoggingSessionEnded(SessionEndReason reason, const QString& message)
 {
+    activeLoggingSnapshot.reset();
     logging_state = false;
     QList<QMenu *> menus = ui->menubar->findChildren<QMenu *>();
     foreach (QMenu *menu, menus)
@@ -2532,5 +2575,9 @@ void MainWindow::handleLoggingSessionEnded(SessionEndReason reason, const QStrin
     else if (reason == SessionEndReason::HandshakeFailed)
     {
         QMessageBox::warning(this, tr("Logging"), "Unable to start logging: " + message);
+    }
+    else if (reason == SessionEndReason::RuntimeFailed)
+    {
+        QMessageBox::warning(this, tr("Logging"), "Logging stopped: " + message);
     }
 }

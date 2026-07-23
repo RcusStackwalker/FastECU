@@ -8,6 +8,7 @@
 #include <QThread>
 #include <QtRemoteObjects/qremoteobjectnode.h>
 #include <atomic>
+#include <exception>
 #include <functional>
 #include <memory>
 #include <type_traits>
@@ -206,22 +207,67 @@ class SerialPortActions : public QObject
             return fn(); // already on the I/O thread (backend-side callback)
         }
         auto done = std::make_shared<QSemaphore>();
+        std::exception_ptr failure;
         if constexpr (std::is_void_v<Ret>)
         {
-            auto invoke = [fn, done]
-            { fn(); done->release(); };
+            auto invoke = [fn, done, &failure]
+            {
+                struct Completion
+                {
+                    std::shared_ptr<QSemaphore> done;
+                    ~Completion()
+                    {
+                        done->release();
+                    }
+                } completion{done};
+
+                try
+                {
+                    fn();
+                }
+                catch (...)
+                {
+                    failure = std::current_exception();
+                }
+            };
             static_assert(std::is_invocable_v<const decltype(invoke)&>);
             QMetaObject::invokeMethod(m_ioContext, invoke, Qt::QueuedConnection);
             waitForDone(done);
+            if (failure)
+            {
+                std::rethrow_exception(failure);
+            }
         }
         else
         {
             Ret result{};
-            auto invoke = [fn, done, &result]
-            { result = fn(); done->release(); };
+            auto invoke = [fn, done, &result, &failure]
+            {
+                struct Completion
+                {
+                    std::shared_ptr<QSemaphore> done;
+                    ~Completion()
+                    {
+                        done->release();
+                    }
+                } completion{done};
+
+                try
+                {
+                    result = fn();
+                }
+                catch (...)
+                {
+                    failure = std::current_exception();
+                }
+            };
             static_assert(std::is_invocable_v<const decltype(invoke)&>);
             QMetaObject::invokeMethod(m_ioContext, invoke, Qt::QueuedConnection);
             waitForDone(done);
+            if (failure)
+            {
+                std::rethrow_exception(failure);
+            }
             return result;
         }
     }

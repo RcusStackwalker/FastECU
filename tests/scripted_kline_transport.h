@@ -1,32 +1,44 @@
 #pragma once
 #include "src/backend/protocol/ikline_transport.h"
-#include "src/algorithms/protocol/qt_bytes.h"
-#include <QList>
+
+#include <deque>
+#include <string>
+#include <utility>
+#include <vector>
 namespace mutdma
 {
 // Test double: assert the exact sequence of writes, feed canned reads in order.
 class ScriptedKlineTransport : public IKlineTransport
 {
   public:
-    void expectWrite(const QByteArray& b)
-    {
-        expected_.append(bytes::fromQByteArray(b));
-    }
     void expectWrite(bytes::ByteView b)
     {
-        expected_.append(bytes::Bytes(b.begin(), b.end()));
-    }
-    void queueRead(const QByteArray& b)
-    {
-        reads_.append(bytes::fromQByteArray(b));
+        expected_.emplace_back(b.begin(), b.end());
     }
     void queueRead(bytes::ByteView b)
     {
-        reads_.append(bytes::Bytes(b.begin(), b.end()));
+        reads_.emplace_back(OptionalBytes{bytes::Bytes(b.begin(), b.end())});
+    }
+    void queue_no_frame()
+    {
+        reads_.emplace_back(OptionalBytes{});
+    }
+    void queue_error(fastecu::ErrorKind kind, std::string detail = {})
+    {
+        reads_.emplace_back(fastecu::fail(kind, std::move(detail)));
+    }
+    void queue_set_baud_error(fastecu::ErrorKind kind, std::string detail = {})
+    {
+        set_baud_results_.emplace_back(fastecu::fail(kind, std::move(detail)));
+    }
+    void queue_write_error(fastecu::ErrorKind kind, std::string detail = {})
+    {
+        write_results_.emplace_back(fastecu::fail(kind, std::move(detail)));
     }
     bool scriptConsumed() const
     {
-        return wIdx_ == expected_.size() && rIdx_ == reads_.size();
+        return wIdx_ == expected_.size() && reads_.empty() &&
+               set_baud_results_.empty() && write_results_.empty();
     }
     bool ok() const
     {
@@ -40,34 +52,57 @@ class ScriptedKlineTransport : public IKlineTransport
     {
         return open_;
     }
-    bool setBaud(int) override
+    fastecu::Status setBaud(int) override
     {
-        return true;
+        if (!set_baud_results_.empty())
+        {
+            auto result = std::move(set_baud_results_.front());
+            set_baud_results_.pop_front();
+            return result;
+        }
+        return {};
     }
-    int write(bytes::ByteView data) override
+    fastecu::Result<std::size_t> write(bytes::ByteView data) override
     {
         if (wIdx_ >= expected_.size() || expected_.at(wIdx_) != bytes::Bytes(data.begin(), data.end()))
         {
             ok_ = false;
+            return fastecu::fail(fastecu::ErrorKind::Internal, "unexpected scripted K-Line write");
         }
         else
         {
             ++wIdx_;
         }
-        return static_cast<int>(data.size());
-    }
-    bytes::Bytes read(int, int) override
-    {
-        if (rIdx_ >= reads_.size())
+        if (!write_results_.empty())
         {
-            return {};
+            auto result = std::move(write_results_.front());
+            write_results_.pop_front();
+            return result;
         }
-        return reads_.at(rIdx_++);
+        return data.size();
+    }
+    fastecu::Result<OptionalBytes> read(
+        int, const fastecu::ICancellationToken& cancellation) override
+    {
+        if (cancellation.cancelled())
+        {
+            return fastecu::fail(fastecu::ErrorKind::Cancelled, "scripted K-Line read cancelled");
+        }
+        if (reads_.empty())
+        {
+            return fastecu::fail(fastecu::ErrorKind::Internal, "no scripted K-Line read outcome");
+        }
+        auto result = std::move(reads_.front());
+        reads_.pop_front();
+        return result;
     }
 
   private:
-    QList<bytes::Bytes> expected_, reads_;
-    int wIdx_ = 0, rIdx_ = 0;
+    std::vector<bytes::Bytes> expected_;
+    std::deque<fastecu::Status> set_baud_results_;
+    std::deque<fastecu::Result<std::size_t>> write_results_;
+    std::deque<fastecu::Result<OptionalBytes>> reads_;
+    std::size_t wIdx_ = 0;
     bool ok_ = true;
     bool open_ = true;
 };

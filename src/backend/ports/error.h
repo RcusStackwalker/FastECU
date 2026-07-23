@@ -19,6 +19,8 @@ struct Error
 {
     ErrorKind kind;
     std::string detail; // human-readable context; never the sole control signal
+
+    bool operator==(const Error&) const = default;
 };
 
 inline const char *to_string(ErrorKind k)

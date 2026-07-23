@@ -24,6 +24,11 @@ int main(int argc, char **argv)
     setvbuf(stderr, nullptr, _IONBF, 0);
 
     QCoreApplication app(argc, argv);
+    if (qEnvironmentVariableIsSet("FASTECU_THROWING_BACKEND_CHILD"))
+    {
+        return run_throwing_backend_child();
+    }
+
     int status = 0;
     status |= run_test_direct_backend(argc, argv);
     status |= run_test_remote_backend_smoke(argc, argv);

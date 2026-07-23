@@ -1,32 +1,39 @@
 #pragma once
 #include "src/backend/protocol/issm_transport.h"
-#include "src/algorithms/protocol/qt_bytes.h"
-#include <QList>
+
+#include <deque>
+#include <string>
+#include <utility>
+#include <vector>
 
 // Test double: assert the exact sequence of writes, feed canned reads in order.
 // Mirrors tests/scripted_kline_transport.h's shape.
 class ScriptedSsmTransport : public ISsmTransport
 {
   public:
-    void expectWrite(const QByteArray& b)
-    {
-        expected_.append(bytes::fromQByteArray(b));
-    }
     void expectWrite(bytes::ByteView b)
     {
-        expected_.append(bytes::Bytes(b.begin(), b.end()));
-    }
-    void queueRead(const QByteArray& b)
-    {
-        reads_.append(bytes::fromQByteArray(b));
+        expected_.emplace_back(b.begin(), b.end());
     }
     void queueRead(bytes::ByteView b)
     {
-        reads_.append(bytes::Bytes(b.begin(), b.end()));
+        reads_.emplace_back(OptionalBytes{bytes::Bytes(b.begin(), b.end())});
+    }
+    void queue_no_frame()
+    {
+        reads_.emplace_back(OptionalBytes{});
+    }
+    void queue_error(fastecu::ErrorKind kind, std::string detail = {})
+    {
+        reads_.emplace_back(fastecu::fail(kind, std::move(detail)));
+    }
+    void queue_write_error(fastecu::ErrorKind kind, std::string detail = {})
+    {
+        write_errors_.emplace_back(fastecu::fail(kind, std::move(detail)));
     }
     bool scriptConsumed() const
     {
-        return wIdx_ == expected_.size() && rIdx_ == reads_.size();
+        return wIdx_ == expected_.size() && reads_.empty();
     }
     bool ok() const
     {
@@ -41,31 +48,47 @@ class ScriptedSsmTransport : public ISsmTransport
         return open_;
     }
 
-    int write(bytes::ByteView data) override
+    fastecu::Result<std::size_t> write(bytes::ByteView data) override
     {
         if (wIdx_ >= expected_.size() || expected_.at(wIdx_) != bytes::Bytes(data.begin(), data.end()))
         {
             ok_ = false;
+            return fastecu::fail(fastecu::ErrorKind::Internal, "unexpected scripted SSM write");
         }
         else
         {
             ++wIdx_;
         }
-        return static_cast<int>(data.size());
+        if (!write_errors_.empty())
+        {
+            auto result = std::move(write_errors_.front());
+            write_errors_.pop_front();
+            return result;
+        }
+        return data.size();
     }
 
-    bytes::Bytes read(int) override
+    fastecu::Result<OptionalBytes> read(
+        int, const fastecu::ICancellationToken& cancellation) override
     {
-        if (rIdx_ >= reads_.size())
+        if (cancellation.cancelled())
         {
-            return {};
+            return fastecu::fail(fastecu::ErrorKind::Cancelled, "scripted SSM read cancelled");
         }
-        return reads_.at(rIdx_++);
+        if (reads_.empty())
+        {
+            return fastecu::fail(fastecu::ErrorKind::Internal, "no scripted SSM read outcome");
+        }
+        auto result = std::move(reads_.front());
+        reads_.pop_front();
+        return result;
     }
 
   private:
-    QList<bytes::Bytes> expected_, reads_;
-    int wIdx_ = 0, rIdx_ = 0;
+    std::vector<bytes::Bytes> expected_;
+    std::deque<fastecu::Result<OptionalBytes>> reads_;
+    std::deque<fastecu::Result<std::size_t>> write_errors_;
+    int wIdx_ = 0;
     bool ok_ = true;
     bool open_ = true;
 };

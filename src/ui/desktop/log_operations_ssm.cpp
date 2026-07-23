@@ -1,8 +1,9 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_memory.h"
-#include "src/algorithms/protocol/mut_dma/qt_mut_dma.h"
+#include "src/backend/protocol/transport_legacy_compat.h"
 
 using namespace mutdma;
 
@@ -516,7 +517,10 @@ bool MainWindow::mut_write_memory(quint16 addr, const QByteArray& bytes)
     FastEcuKlineTransport tr(serial);
     AlreadyInMode init(125000);
     MutDmaDriver d(tr, init);
-    return d.writeMemory(addr, bytes);
+    return d.writeMemory(
+                addr, bytes::view(bytes),
+                fastecu::transport_legacy_compat::detail::never_cancelled())
+        .has_value();
 }
 
 QByteArray MainWindow::mut_read_memory(quint16 addr, int len)
@@ -530,12 +534,19 @@ QByteArray MainWindow::mut_read_memory(quint16 addr, int len)
     while (off < len)
     {
         int chunk = qMin(40, len - off);
-        QVector<Channel> ch = planReadChannelsQt(quint16(addr + off), chunk);
-        if (!d.startFreeFormLog(ch, 0xA0, 0xA1))
+        const std::vector<Channel> ch = planReadChannels(quint16(addr + off), chunk);
+        const auto& cancellation =
+            fastecu::transport_legacy_compat::detail::never_cancelled();
+        if (!d.startFreeFormLog(ch, 0xA0, 0xA1, cancellation))
         {
             break;
         }
-        out.append(reassembleRead(d.pollOnce(50)));
+        auto values = d.pollOnce(50, cancellation);
+        if (!values)
+        {
+            break;
+        }
+        out.append(bytes::toQByteArray(reassembleRead(*values)));
         off += chunk;
     }
     return out;

@@ -1111,26 +1111,59 @@ void MainWindow::toggle_realtime()
         logging_state = true;
 
         LogSessionConfig config;
+        fastecu::logging::LoggingProtocolId protocol_id;
+        fastecu::logging::LoggingPolicy logging_policy;
         if (configValues->flash_protocol_selected_log_protocol == "MUT_DMA")
         {
             config.protocolId = "MUT_DMA";
-            config.logValueProtocolFilter = "MUT_DMA";
+            activeLogValueProtocolFilter = "MUT_DMA";
+            protocol_id = fastecu::logging::LoggingProtocolId::MutDma;
+            logging_policy = {.poll_timeout_ms = 50,
+                              .car_silence_miss_threshold = 20,
+                              .reconnect_attempt_threshold = 100,
+                              .reconnect_retry_period = 20};
         }
         else if (configValues->flash_protocol_selected_log_protocol == "CDBG")
         {
             config.protocolId = "CDBG";
-            config.logValueProtocolFilter = "CDBG";
+            activeLogValueProtocolFilter = "CDBG";
+            protocol_id = fastecu::logging::LoggingProtocolId::Cdbg;
+            logging_policy = {.poll_timeout_ms = 50,
+                              .car_silence_miss_threshold = 20,
+                              .reconnect_attempt_threshold = 100,
+                              .reconnect_retry_period = 20};
         }
         else
         {
             config.protocolId = "SSM";
-            config.logValueProtocolFilter = protocol;
+            activeLogValueProtocolFilter = protocol;
+            protocol_id = fastecu::logging::LoggingProtocolId::Ssm;
+            logging_policy = {.poll_timeout_ms = 300,
+                              .car_silence_miss_threshold = 10,
+                              .reconnect_attempt_threshold = 30,
+                              .reconnect_retry_period = 10};
         }
-        activeLogValueProtocolFilter = config.logValueProtocolFilter;
 
-        if (!loggingEngine->start(config))
+        auto snapshot = fastecu::desktop::logging::make_desktop_logging_snapshot(
+            *logValues, protocol_id, activeLogValueProtocolFilter, logging_policy);
+        if (!snapshot)
+        {
+            emit LOG_E("Logging session failed to start: " +
+                           QString::fromStdString(snapshot.error().detail),
+                       true, true);
+            QMessageBox::information(this, tr("Logging"), "Unable to start logging");
+            logging_state = false;
+            logger->setChecked(false);
+            return;
+        }
+
+        activeLoggingSnapshot.emplace(*snapshot);
+        const LoggingStartResult start_result =
+            loggingEngine->start(config, std::move(*snapshot));
+        if (!start_result && !start_result.failure_reported)
         {
             QMessageBox::information(this, tr("Logging"), "Unable to start logging");
+            activeLoggingSnapshot.reset();
             logging_state = false;
             logger->setChecked(false);
             return;
@@ -1148,6 +1181,7 @@ void MainWindow::toggle_realtime()
         logging_state = false;
         log_params_request_started = false;
         loggingEngine->stop();
+        activeLoggingSnapshot.reset();
 
         // disconnect_from_ecu();
     }

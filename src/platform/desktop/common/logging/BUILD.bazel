@@ -14,15 +14,53 @@ MOC_HDRS = ["systemlogger.h"]
 
 qt_cc_library(
     name = "logging",
-    srcs = glob(["*.cpp"]),
+    srcs = ["systemlogger.cpp"],
     hdrs = MOC_HDRS,
     copts = COMMON_COPTS,
     includes = COMMON_INCLUDES,
     # allow_empty: this package's only header is the MOC_HDRS entry above.
-    normal_hdrs = glob(
-        ["*.h"],
-        allow_empty = True,
-        exclude = MOC_HDRS,
-    ),
+    normal_hdrs = [],
     deps = QT_DEPS,
+)
+
+qt_cc_library(
+    name = "logging_runtime",
+    srcs = [
+        "cdbg_serial_setup.cpp",
+        "logging_engine.cpp",
+        "logging_worker.cpp",
+    ],
+    hdrs = [
+        "cdbg_serial_setup.h",
+        "logging_engine.h",
+        "logging_worker.h",
+    ],
+    copts = COMMON_COPTS,
+    includes = COMMON_INCLUDES,
+    normal_hdrs = [],
+    deps = QT_DEPS + [
+        ":logging_adapters",
+        "//src/backend/logging:logging_use_case",
+        "//src/backend/ports",
+        "//src/platform/desktop/common/ports",
+    ],
+)
+
+qt_cc_library(
+    name = "logging_adapters",
+    srcs = [
+        "logging_snapshot_adapter.cpp",
+        "logging_value_adapter.cpp",
+    ],
+    hdrs = [
+        "logging_snapshot_adapter.h",
+        "logging_value_adapter.h",
+    ],
+    copts = COMMON_COPTS,
+    includes = COMMON_INCLUDES,
+    deps = QT_DEPS + [
+        "//src/backend/definitions",
+        "//src/backend/logging:logging_session",
+        "//src/backend/ports",
+    ],
 )

@@ -83,6 +83,7 @@ qt_cc_test(
         ":serial_backend_cpp_mocs",
         ":test_header_mocs",
         "//src/platform/desktop/common/serial:serial_qt_compat",
+        "//src/platform/desktop/common/transport",
     ],
 )
 
@@ -94,6 +95,17 @@ qt_cc_test(
     deps = QT_DEPS + [
         "//src/backend/ports",
         "//src/platform/desktop/common/ports",
+        "@googletest//:gtest",
+    ],
+)
+
+qt_cc_test(
+    name = "test_logging_adapters",
+    srcs = ["test_logging_adapters.cpp"],
+    copts = COMMON_COPTS + ["-I."],
+    linkopts = COMMON_LINKOPTS,
+    deps = QT_DEPS + [
+        "//src/platform/desktop/common/logging:logging_adapters",
         "@googletest//:gtest",
     ],
 )

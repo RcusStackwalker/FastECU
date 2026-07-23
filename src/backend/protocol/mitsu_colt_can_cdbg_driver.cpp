@@ -1,170 +1,179 @@
 #include "src/backend/protocol/mitsu_colt_can_cdbg_driver.h"
 
-#include "src/algorithms/protocol/colt/qt_colt.h"
+#include <string>
+#include <string_view>
+#include <utility>
 
 namespace MitsuColtCanCdbg
 {
 
 namespace
 {
-bool sendAndReceive(cdbg::ICanTransport& t, bytes::ByteView cmd, bytes::Bytes& outReply)
+fastecu::Result<bytes::Bytes> sendAndReceive(
+    cdbg::ICanTransport& transport, bytes::ByteView command,
+    const fastecu::ICancellationToken& cancellation, std::string_view failureDetail)
 {
-    t.write(kRequestCanId, cmd);
-    std::uint32_t id = 0;
-    outReply = t.read(250, id);
-    return !outReply.empty() && id == kReplyCanId;
+    auto written = transport.write(kRequestCanId, command);
+    if (!written)
+    {
+        return std::unexpected(written.error());
+    }
+    if (*written != command.size())
+    {
+        return fastecu::fail(fastecu::ErrorKind::Internal, "partial CAN write");
+    }
+    auto reply = transport.read(250, cancellation);
+    if (!reply)
+    {
+        return std::unexpected(reply.error());
+    }
+    if (!reply->has_value() || reply->value().id != kReplyCanId ||
+        reply->value().payload.empty())
+    {
+        return fastecu::fail(fastecu::ErrorKind::BadResponse, std::string(failureDetail));
+    }
+    return std::move(reply->value().payload);
 }
 } // namespace
 
-bool CdbgLogDriver::startFreeFormLog(const QVector<CdbgChannel>& channels,
-                                     bytes::Byte instance, std::uint32_t intervalMs,
-                                     QString *errorOut)
+fastecu::Status CdbgLogDriver::startFreeFormLog(
+    const std::vector<CdbgChannel>& channels, bytes::Byte instance,
+    std::uint32_t intervalMs, const fastecu::ICancellationToken& cancellation)
 {
     streaming_ = false;
     frames_.clear();
     lastValues_.clear();
 
-    if (channels.isEmpty())
+    if (channels.empty())
     {
-        if (errorOut)
-        {
-            *errorOut = "no CDBG log parameters selected";
-        }
-        return false;
+        return fastecu::fail(fastecu::ErrorKind::InvalidConfig,
+                             "no CDBG log parameters selected");
     }
 
     for (const CdbgChannel& ch : channels)
     {
         if (ch.size != 1 && ch.size != 2 && ch.size != 4)
         {
-            if (errorOut)
-            {
-                *errorOut = "CDBG log parameter has unsupported byte length";
-            }
-            return false;
+            return fastecu::fail(fastecu::ErrorKind::InvalidConfig,
+                                 "CDBG log parameter has unsupported byte length");
         }
     }
 
-    bytes::Bytes reply;
-    if (!sendAndReceive(t_, buildInitFrame(), reply))
+    auto reply = sendAndReceive(t_, buildInitFrame(), cancellation,
+                                "CDBG session init failed");
+    if (!reply)
     {
-        if (errorOut)
-        {
-            *errorOut = "CDBG session init failed";
-        }
-        return false;
+        return std::unexpected(reply.error());
     }
 
-    if (!sendAndReceive(t_, buildSecuritySeedRequestFrame(), reply))
+    reply = sendAndReceive(t_, buildSecuritySeedRequestFrame(), cancellation,
+                           "CDBG security seed request failed");
+    if (!reply)
     {
-        if (errorOut)
-        {
-            *errorOut = "CDBG security seed request failed";
-        }
-        return false;
+        return std::unexpected(reply.error());
     }
-    std::uint32_t key = seedToKey(extractSeed(reply));
-    if (!sendAndReceive(t_, buildSecurityKeyFrame(key), reply))
+    std::uint32_t key = seedToKey(extractSeed(*reply));
+    reply = sendAndReceive(t_, buildSecurityKeyFrame(key), cancellation,
+                           "CDBG security key request failed");
+    if (!reply)
     {
-        if (errorOut)
-        {
-            *errorOut = "CDBG security key request failed";
-        }
-        return false;
+        return std::unexpected(reply.error());
     }
-    if (!securityGranted(reply))
+    if (!securityGranted(*reply))
     {
-        if (errorOut)
-        {
-            *errorOut = "CDBG security access denied";
-        }
-        return false;
+        return fastecu::fail(fastecu::ErrorKind::BadResponse,
+                             "CDBG security access denied");
     }
 
     if (!batchChannelsIntoFrames(channels, frames_))
     {
-        if (errorOut)
-        {
-            *errorOut = "too many CDBG log parameters selected";
-        }
-        return false;
+        return fastecu::fail(fastecu::ErrorKind::InvalidConfig,
+                             "too many CDBG log parameters selected");
     }
 
-    if (!sendAndReceive(t_, buildLogResetFrame(instance), reply))
+    reply = sendAndReceive(t_, buildLogResetFrame(instance), cancellation,
+                           "CDBG log reset failed");
+    if (!reply)
     {
-        if (errorOut)
-        {
-            *errorOut = "CDBG log reset failed";
-        }
-        return false;
+        return std::unexpected(reply.error());
     }
 
-    for (int f = 0; f < frames_.size(); ++f)
+    for (std::size_t f = 0; f < frames_.size(); ++f)
     {
-        const std::vector<CdbgFrame> cmds = buildFrameInitFrames(instance, static_cast<bytes::Byte>(f), frames_.at(f));
+        const std::vector<CdbgFrame> cmds = buildFrameInitFrames(
+            instance, static_cast<bytes::Byte>(f), frames_.at(f));
         for (const CdbgFrame& cmd : cmds)
         {
-            if (!sendAndReceive(t_, cmd, reply))
+            reply = sendAndReceive(t_, cmd, cancellation,
+                                   "CDBG log frame setup failed");
+            if (!reply)
             {
-                if (errorOut)
-                {
-                    *errorOut = "CDBG log frame setup failed";
-                }
-                return false;
+                return std::unexpected(reply.error());
             }
         }
     }
 
-    if (!sendAndReceive(t_, buildLogStartFrame(instance, static_cast<bytes::Byte>(frames_.size()), intervalMs), reply))
+    reply = sendAndReceive(
+        t_, buildLogStartFrame(instance, static_cast<bytes::Byte>(frames_.size()), intervalMs),
+        cancellation, "CDBG log start failed");
+    if (!reply)
     {
-        if (errorOut)
-        {
-            *errorOut = "CDBG log start failed";
-        }
-        return false;
+        return std::unexpected(reply.error());
     }
 
-    int totalChannels = 0;
+    std::size_t totalChannels = 0;
     for (const auto& frame : frames_)
     {
         totalChannels += frame.size();
     }
-    lastValues_.fill(0, totalChannels);
+    lastValues_.assign(totalChannels, 0);
 
     streaming_ = true;
-    return true;
+    return {};
 }
 
-QVector<std::uint32_t> CdbgLogDriver::pollOnce(int timeoutMs)
+fastecu::Result<CdbgLogDriver::PollResult> CdbgLogDriver::pollOnce(
+    int timeoutMs, const fastecu::ICancellationToken& cancellation)
 {
     if (!streaming_)
     {
-        return {};
+        return PollResult{};
     }
 
-    std::uint32_t id = 0;
-    const bytes::Bytes frame = t_.read(timeoutMs, id);
-    if (!frame.empty() && id == kReplyCanId)
+    auto read = t_.read(timeoutMs, cancellation);
+    if (!read)
     {
-        bytes::Byte frameIdx = frame[0];
+        return std::unexpected(read.error());
+    }
+    bool decoded_response = false;
+    if (read->has_value() && read->value().id == kReplyCanId &&
+        !read->value().payload.empty())
+    {
+        const bytes::Bytes& frame = read->value().payload;
+        bytes::Byte frameIdx = frame.front();
         if (frameIdx < static_cast<bytes::Byte>(frames_.size()))
         {
-            QVector<std::uint32_t> decoded = decodeFrame(frameIdx, frames_.at(frameIdx), frame);
-            if (!decoded.isEmpty())
+            std::vector<std::uint32_t> decoded = decodeFrame(frameIdx, frames_.at(frameIdx), frame);
+            if (!decoded.empty())
             {
-                int offset = 0;
-                for (int f = 0; f < frameIdx; ++f)
+                decoded_response = true;
+                std::size_t offset = 0;
+                for (std::size_t f = 0; f < frameIdx; ++f)
                 {
                     offset += frames_.at(f).size();
                 }
-                for (int i = 0; i < decoded.size(); ++i)
+                for (std::size_t i = 0; i < decoded.size(); ++i)
                 {
                     lastValues_[offset + i] = decoded.at(i);
                 }
             }
         }
     }
-    return lastValues_;
+    if (!decoded_response)
+    {
+        return PollResult{};
+    }
+    return PollResult{.responded = true, .values = lastValues_};
 }
 
 } // namespace MitsuColtCanCdbg
