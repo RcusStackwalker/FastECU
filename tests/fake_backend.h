@@ -13,6 +13,15 @@
 
 #include "src/platform/desktop/common/serial/serial_port_actions_direct.h"
 
+// Thrown by the throwNonStandardOn* controls below: deliberately NOT derived
+// from std::exception, so it only matches a bare `catch (...)` -- exercises
+// the adapters' generic catch-all branches (distinct from their
+// `catch (const std::exception&)` branches, which the standard throwOnRead
+// -style runtime_error controls exercise).
+struct FakeBackendNonStandardFailure
+{
+};
+
 // Scripted backend for facade-level tests. Subclasses the direct backend so
 // the 44 config accessors come for free (real fields, no port ever opened);
 // overrides the I/O entry points with scripted, observable behavior.
@@ -29,6 +38,26 @@ class FakeBackend : public SerialPortActionsDirect
     std::atomic<bool> portOpen{true};
     std::function<void()> afterRead;
     bool *destroyed = nullptr;
+
+    // -- opt-in controls added for adapter-level coverage; every one of them
+    // defaults to a no-op so pre-existing tests that never touch these
+    // fields keep observing the original behavior. --
+    bool throwNonStandardOnRead = false;
+    bool throwOnWrite = false;
+    bool throwNonStandardOnWrite = false;
+    bool closePortAfterRead = false;        // set portOpen=false right after a successful read
+    bool closePortAfterWrite = false;       // set portOpen=false right after a successful write
+    std::function<void()> beforeReadThrow;  // fires immediately before a scripted read failure
+    std::function<void()> beforeWriteThrow; // fires immediately before a scripted write failure
+    std::function<void()> beforeBaudThrow;  // fires immediately before a scripted baud-change failure
+
+    // change_port_speed() result/exception controls. Default mirrors the
+    // real backend's success code (STATUS_SUCCESS == 0) since no
+    // pre-existing test exercises baud change through FakeBackend.
+    int baudChangeResult = STATUS_SUCCESS;
+    bool throwOnBaudChange = false;
+    bool throwNonStandardOnBaudChange = false;
+    bool closePortAfterBaud = false; // set portOpen=false after a non-throwing baud-change result
 
     ~FakeBackend() override
     {
@@ -80,13 +109,25 @@ class FakeBackend : public SerialPortActionsDirect
         {
             QThread::msleep(readDelayMs);
         }
-        if (throwOnRead)
+        if (throwOnRead || throwNonStandardOnRead)
         {
+            if (beforeReadThrow)
+            {
+                beforeReadThrow();
+            }
+            if (throwNonStandardOnRead)
+            {
+                throw FakeBackendNonStandardFailure{};
+            }
             throw std::runtime_error("scripted backend read failure");
         }
         if (afterRead)
         {
             afterRead();
+        }
+        if (closePortAfterRead)
+        {
+            portOpen.store(false);
         }
         log("read:end");
         return scriptedResponse;
@@ -94,13 +135,7 @@ class FakeBackend : public SerialPortActionsDirect
 
     QByteArray write_serial_data(QByteArray output) override
     {
-        log("write:begin:" + QString::fromLatin1(output.toHex()));
-        if (readDelayMs)
-        {
-            QThread::msleep(readDelayMs);
-        }
-        log("write:end");
-        return QByteArray(); // matches the real backend's empty return
+        return writeImpl("write", output);
     }
 
     // Distinct virtual from write_serial_data() in the backend interface --
@@ -111,16 +146,67 @@ class FakeBackend : public SerialPortActionsDirect
     // through to that real-hardware path and hang/warn on an unopened port.
     QByteArray write_serial_data_echo_check(QByteArray output) override
     {
-        log("write_echo_check:begin:" + QString::fromLatin1(output.toHex()));
+        return writeImpl("write_echo_check", output);
+    }
+
+    // Overrides the real (hardware-touching) change_port_speed() with a
+    // scripted result; no pre-existing test calls it, so this is a pure
+    // addition rather than a behavior change.
+    int change_port_speed(QString portSpeed) override
+    {
+        log("baud:begin:" + portSpeed);
+        if (throwOnBaudChange || throwNonStandardOnBaudChange)
+        {
+            if (beforeBaudThrow)
+            {
+                beforeBaudThrow();
+            }
+            if (throwNonStandardOnBaudChange)
+            {
+                throw FakeBackendNonStandardFailure{};
+            }
+            throw std::runtime_error("scripted backend baud-change failure");
+        }
+        if (closePortAfterBaud)
+        {
+            portOpen.store(false);
+        }
+        log("baud:end");
+        return baudChangeResult;
+    }
+
+  private:
+    // Shared by write_serial_data() and write_serial_data_echo_check(): both
+    // production write paths (K-Line's plain write, CAN/SSM's echo-check
+    // write) route through here so a single set of controls governs "write"
+    // behavior regardless of which adapter is under test.
+    QByteArray writeImpl(const char *label, const QByteArray& output)
+    {
+        log(QString(label) + ":begin:" + QString::fromLatin1(output.toHex()));
         if (readDelayMs)
         {
             QThread::msleep(readDelayMs);
         }
-        log("write_echo_check:end");
-        return QByteArray();
+        if (throwOnWrite || throwNonStandardOnWrite)
+        {
+            if (beforeWriteThrow)
+            {
+                beforeWriteThrow();
+            }
+            if (throwNonStandardOnWrite)
+            {
+                throw FakeBackendNonStandardFailure{};
+            }
+            throw std::runtime_error("scripted backend write failure");
+        }
+        if (closePortAfterWrite)
+        {
+            portOpen.store(false);
+        }
+        log(QString(label) + ":end");
+        return QByteArray(); // matches the real backend's empty return
     }
 
-  private:
     void log(const QString& s)
     {
         QMutexLocker l(&logMutex);
