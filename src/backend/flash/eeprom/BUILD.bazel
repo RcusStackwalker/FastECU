@@ -16,11 +16,20 @@ MOC_HDRS = glob(["*_operation.h"])
 # Excluded from the globs below so the legacy `eeprom` target keeps building
 # exactly the two legacy operation files it always has -- these portable
 # files get their own cc_library/cc_test targets further down instead.
-PORTABLE_SRCS = ["denso_sh705x_eeprom_common.cpp"]
+PORTABLE_SRCS = [
+    "denso_sh705x_eeprom_common.cpp",
+    "denso_sh705x_eeprom_kline_executor.cpp",
+]
 
-PORTABLE_HDRS = ["denso_sh705x_eeprom_common.h"]
+PORTABLE_HDRS = [
+    "denso_sh705x_eeprom_common.h",
+    "denso_sh705x_eeprom_kline_executor.h",
+]
 
-PORTABLE_TEST_SRCS = ["denso_sh705x_eeprom_common_test.cpp"]
+PORTABLE_TEST_SRCS = [
+    "denso_sh705x_eeprom_common_test.cpp",
+    "denso_sh705x_eeprom_kline_executor_test.cpp",
+]
 
 qt_cc_library(
     name = "eeprom",
@@ -50,8 +59,8 @@ qt_cc_library(
 # Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
     name = "denso_sh705x_eeprom_common",
-    srcs = PORTABLE_SRCS,
-    hdrs = PORTABLE_HDRS,
+    srcs = ["denso_sh705x_eeprom_common.cpp"],
+    hdrs = ["denso_sh705x_eeprom_common.h"],
     copts = PORTABLE_COPTS,
     visibility = [
         "//src/backend/flash/eeprom:__subpackages__",
@@ -68,6 +77,35 @@ cc_library(
 
 fastecu_portable_gtest(
     name = "denso_sh705x_eeprom_common_test",
-    srcs = PORTABLE_TEST_SRCS,
+    srcs = ["denso_sh705x_eeprom_common_test.cpp"],
     deps = [":denso_sh705x_eeprom_common"],
+)
+
+# Portable. No Qt, no platform, no filesystem, no thread.
+cc_library(
+    name = "denso_sh705x_eeprom_kline",
+    srcs = ["denso_sh705x_eeprom_kline_executor.cpp"],
+    hdrs = ["denso_sh705x_eeprom_kline_executor.h"],
+    copts = PORTABLE_COPTS,
+    visibility = [
+        "//src/platform:__subpackages__",
+        "//tests:__pkg__",
+    ],
+    deps = [
+        ":denso_sh705x_eeprom_common",
+        "//src/algorithms/protocol/ssm",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "denso_sh705x_eeprom_kline_executor_test",
+    srcs = ["denso_sh705x_eeprom_kline_executor_test.cpp"],
+    deps = [
+        ":denso_sh705x_eeprom_common",
+        ":denso_sh705x_eeprom_kline",
+        "//src/backend/ports",
+        "//tests:scripted_kline_flash_transport",
+    ],
 )
