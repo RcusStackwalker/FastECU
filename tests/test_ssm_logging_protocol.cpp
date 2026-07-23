@@ -342,3 +342,188 @@ TEST(SsmLoggingProtocolTest, PollPropagatesTypedReadFailure)
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Internal);
     EXPECT_EQ(result.error().detail, "sentinel SSM read failure");
 }
+
+TEST(SsmLoggingProtocolTest, StartPropagatesTypedWriteFailure)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    transport->expectWrite(
+        buildRequest(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0x07}));
+    transport->queue_write_error(fastecu::ErrorKind::Disconnected,
+                                 "sentinel SSM start write disconnect");
+    FakeClock clock;
+    NeverCancelled cancellation;
+    SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
+
+    const auto result = protocol.start(cancellation);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
+    EXPECT_EQ(result.error().detail, "sentinel SSM start write disconnect");
+}
+
+TEST(SsmLoggingProtocolTest, StartPropagatesTypedReadFailure)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    transport->expectWrite(
+        buildRequest(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0x07}));
+    transport->queue_error(fastecu::ErrorKind::Internal,
+                           "sentinel SSM start read failure");
+    FakeClock clock;
+    NeverCancelled cancellation;
+    SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
+
+    const auto result = protocol.start(cancellation);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Internal);
+    EXPECT_EQ(result.error().detail, "sentinel SSM start read failure");
+}
+
+TEST(SsmLoggingProtocolTest, PollPropagatesOpenPort2DirectReadFailure)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    transport->expectWrite(
+        buildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
+    transport->queue_error(fastecu::ErrorKind::Disconnected,
+                           "sentinel OpenPort2 direct read failure");
+    FakeClock clock;
+    NeverCancelled cancellation;
+    SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, true);
+
+    const auto result = protocol.poll(50, cancellation);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
+    EXPECT_EQ(result.error().detail, "sentinel OpenPort2 direct read failure");
+}
+
+TEST(SsmLoggingProtocolTest, HeaderResynchronizationPropagatesReadFailure)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    transport->expectWrite(
+        buildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
+    // Enough bytes to leave the initial accumulation loop, but not framed as
+    // an SSM response (0x80 0xf0 0x10), so resynchronization must shift and
+    // re-read -- and that re-read fails.
+    transport->queueRead(bytes::Bytes{0x01, 0x02, 0x03});
+    transport->queue_error(fastecu::ErrorKind::Internal,
+                           "sentinel SSM resync read failure");
+    FakeClock clock;
+    NeverCancelled cancellation;
+    SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
+
+    const auto result = protocol.poll(50, cancellation);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Internal);
+    EXPECT_EQ(result.error().detail, "sentinel SSM resync read failure");
+}
+
+TEST(SsmLoggingProtocolTest, FinalReadAfterHeaderMatchPropagatesReadFailure)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    transport->expectWrite(
+        buildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
+    // Exactly a matching header: the accumulation loop stops (size >= 3), the
+    // resynchronization loop is a no-op (header already matches), so the
+    // trailing "read remaining payload" call executes -- and that read fails.
+    transport->queueRead(bytes::Bytes{0x80, 0xf0, 0x10});
+    transport->queue_error(fastecu::ErrorKind::Internal,
+                           "sentinel SSM final read failure");
+    FakeClock clock;
+    NeverCancelled cancellation;
+    SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
+
+    const auto result = protocol.poll(50, cancellation);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Internal);
+    EXPECT_EQ(result.error().detail, "sentinel SSM final read failure");
+}
+
+TEST(SsmLoggingProtocolTest, PollCancellationReturnsCancelledWithoutIo)
+{
+    FakeClock clock;
+    Cancelled cancellation;
+    SsmLoggingProtocol protocol(
+        clock, std::make_unique<ScriptedSsmTransport>(), {channel()}, true, false);
+
+    const auto result = protocol.poll(50, cancellation);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Cancelled);
+}
+
+TEST(SsmLoggingProtocolTest, PollFailsWhenAdapterIsClosed)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    transport->setOpen(false);
+    FakeClock clock;
+    NeverCancelled cancellation;
+    SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
+
+    const auto result = protocol.poll(50, cancellation);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
+    EXPECT_EQ(result.error().detail, "adapter disconnected");
+}
+
+TEST(SsmLoggingProtocolTest, PollSkipsChannelWhenResponseOffsetBeyondPayload)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    transport->expectWrite(buildRequest(bytes::Bytes{
+        0xA8, 0x01, 0x00, 0x10, 0x00, 0x00, 0x10, 0x03}));
+    // Payload is only 2 bytes long; the "second" channel's offset (5) lies
+    // beyond it and must be skipped entirely rather than read out of bounds.
+    transport->queueRead(buildResponse(bytes::Bytes{42, 99}));
+    transport->queue_no_frame();
+    FakeClock clock;
+    NeverCancelled cancellation;
+    SsmLoggingProtocol protocol(
+        clock, std::move(transport),
+        {channel("first", 0x1000), channel("second", 0x1003)},
+        std::vector<std::size_t>{0, 5}, true, false);
+
+    const auto result = protocol.poll(50, cancellation);
+
+    ASSERT_TRUE(result);
+    ASSERT_TRUE(result->responded);
+    ASSERT_EQ(result->samples.size(), 1u);
+    EXPECT_EQ(result->samples[0].channel_id, "first");
+    EXPECT_EQ(result->samples[0].raw_value, "42");
+}
+
+TEST(SsmLoggingProtocolTest, PollTruncatesRawValueWhenLengthExtendsBeyondPayload)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    transport->expectWrite(
+        buildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
+    // Channel wants 3 bytes starting at offset 0, but the payload is only 2
+    // bytes long -- the raw value must be built from just what's available.
+    transport->queueRead(buildResponse(bytes::Bytes{7, 8}));
+    transport->queue_no_frame();
+    FakeClock clock;
+    NeverCancelled cancellation;
+    SsmLoggingProtocol protocol(
+        clock, std::move(transport), {channel("rpm", 0x1000, 3)}, true, false);
+
+    const auto result = protocol.poll(50, cancellation);
+
+    ASSERT_TRUE(result);
+    ASSERT_TRUE(result->responded);
+    ASSERT_EQ(result->samples.size(), 1u);
+    EXPECT_EQ(result->samples[0].channel_id, "rpm");
+    EXPECT_EQ(result->samples[0].raw_value, "78");
+}
+
+TEST(SsmLoggingProtocolTest, StopSucceeds)
+{
+    FakeClock clock;
+    SsmLoggingProtocol protocol(
+        clock, std::make_unique<ScriptedSsmTransport>(), {channel()}, true, false);
+
+    const auto result = protocol.stop();
+
+    EXPECT_TRUE(result);
+}
