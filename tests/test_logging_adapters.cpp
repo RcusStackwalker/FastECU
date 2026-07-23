@@ -1,6 +1,10 @@
 #include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
 #include "src/platform/desktop/common/logging/logging_value_adapter.h"
 
+#include <functional>
+#include <string>
+#include <vector>
+
 #include <QString>
 #include <gtest/gtest.h>
 
@@ -20,9 +24,13 @@ portable_logging::LoggingPolicy valid_policy()
     };
 }
 
-void append_value(FileActions::LogValuesStructure& values, const QString& id,
-                  const QString& protocol, const QString& enabled,
-                  const QString& format = QStringLiteral("0.00"))
+// Appends a row with an explicit, fully-formed "units" (conversion) field so
+// malformed-conversion cases can hand in a deliberately broken string.
+void append_value_with_units(FileActions::LogValuesStructure& values, const QString& id,
+                             const QString& protocol, const QString& enabled,
+                             const QString& units,
+                             const QString& address = QStringLiteral("000010"),
+                             const QString& length = QStringLiteral("1"))
 {
     values.log_value_id.append(id);
     values.log_value_protocol.append(protocol);
@@ -31,12 +39,20 @@ void append_value(FileActions::LogValuesStructure& values, const QString& id,
     values.log_value_ecu_byte_index.append(QStringLiteral("0"));
     values.log_value_ecu_bit.append(QStringLiteral("0"));
     values.log_value_target.append(QStringLiteral("ECU"));
-    values.log_value_address.append(QStringLiteral("000010"));
-    values.log_value_units.append(
-        QStringLiteral("conversion 0,rpm,x,") + format + QStringLiteral(",0,100,1"));
-    values.log_value_length.append(QStringLiteral("1"));
+    values.log_value_address.append(address);
+    values.log_value_units.append(units);
+    values.log_value_length.append(length);
     values.log_value.append(QStringLiteral("unchanged- ") + id);
     values.log_value_enabled.append(enabled);
+}
+
+void append_value(FileActions::LogValuesStructure& values, const QString& id,
+                  const QString& protocol, const QString& enabled,
+                  const QString& format = QStringLiteral("0.00"))
+{
+    append_value_with_units(values, id, protocol, enabled,
+                            QStringLiteral("conversion 0,rpm,x,") + format +
+                                QStringLiteral(",0,100,1"));
 }
 
 FileActions::LogValuesStructure reordered_log_values()
@@ -223,6 +239,229 @@ TEST(DesktopLoggingSnapshotAdapterTest, RejectsDuplicateOpaqueIdWithinSelectedPr
 
     ASSERT_FALSE(snapshot.has_value());
     EXPECT_EQ(snapshot.error().kind, fastecu::ErrorKind::InvalidConfig);
+}
+
+namespace
+{
+
+// Table-driven coverage of the legacy-input validation/error paths in
+// make_desktop_logging_snapshot: each case builds a deliberately invalid
+// FileActions::LogValuesStructure (or protocol/filter pairing) and asserts
+// both the resulting ErrorKind and a substring of the human-readable detail,
+// so the assertion is tied to the specific validation branch it targets.
+struct SnapshotFailureCase
+{
+    const char *name;
+    std::function<FileActions::LogValuesStructure()> build_values;
+    portable_logging::LoggingProtocolId protocol;
+    QString protocol_filter;
+    fastecu::ErrorKind expected_kind;
+    std::string expected_detail_substring;
+};
+
+std::vector<SnapshotFailureCase> snapshot_failure_cases()
+{
+    return {
+        {
+            "EmptySsmProtocolFilter",
+            []
+            {
+                FileActions::LogValuesStructure values;
+                append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"),
+                             QStringLiteral("1"));
+                values.lower_panel_log_value_id = {QStringLiteral("rpm")};
+                return values;
+            },
+            portable_logging::LoggingProtocolId::Ssm,
+            QString(),
+            fastecu::ErrorKind::InvalidConfig,
+            "protocol filter is empty",
+        },
+        {
+            "UnknownProtocolId",
+            []
+            {
+                FileActions::LogValuesStructure values;
+                append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"),
+                             QStringLiteral("1"));
+                values.lower_panel_log_value_id = {QStringLiteral("rpm")};
+                return values;
+            },
+            static_cast<portable_logging::LoggingProtocolId>(99),
+            QStringLiteral("SSM"),
+            fastecu::ErrorKind::InvalidConfig,
+            "invalid logging protocol",
+        },
+        {
+            "MalformedConversionTooFewFields",
+            []
+            {
+                FileActions::LogValuesStructure values;
+                append_value_with_units(values, QStringLiteral("rpm"), QStringLiteral("SSM"),
+                                        QStringLiteral("1"),
+                                        QStringLiteral("conversion 0,rpm,x"));
+                values.lower_panel_log_value_id = {QStringLiteral("rpm")};
+                return values;
+            },
+            portable_logging::LoggingProtocolId::Ssm,
+            QStringLiteral("SSM"),
+            fastecu::ErrorKind::InvalidConfig,
+            "malformed logging conversion",
+        },
+        {
+            "MalformedConversionEmptyByteExpression",
+            []
+            {
+                FileActions::LogValuesStructure values;
+                append_value_with_units(
+                    values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"),
+                    QStringLiteral("conversion 0,rpm,,0.00,0,100,1"));
+                values.lower_panel_log_value_id = {QStringLiteral("rpm")};
+                return values;
+            },
+            portable_logging::LoggingProtocolId::Ssm,
+            QStringLiteral("SSM"),
+            fastecu::ErrorKind::InvalidConfig,
+            "malformed logging conversion",
+        },
+        {
+            "InvalidHexAddress",
+            []
+            {
+                FileActions::LogValuesStructure values;
+                append_value_with_units(values, QStringLiteral("rpm"), QStringLiteral("SSM"),
+                                        QStringLiteral("1"),
+                                        QStringLiteral("conversion 0,rpm,x,0.00,0,100,1"),
+                                        QStringLiteral("zzzzzz"));
+                values.lower_panel_log_value_id = {QStringLiteral("rpm")};
+                return values;
+            },
+            portable_logging::LoggingProtocolId::Ssm,
+            QStringLiteral("SSM"),
+            fastecu::ErrorKind::InvalidConfig,
+            "invalid logging address or length",
+        },
+        {
+            "InvalidDecimalLength",
+            []
+            {
+                FileActions::LogValuesStructure values;
+                append_value_with_units(
+                    values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"),
+                    QStringLiteral("conversion 0,rpm,x,0.00,0,100,1"),
+                    QStringLiteral("000010"), QStringLiteral("not-a-number"));
+                values.lower_panel_log_value_id = {QStringLiteral("rpm")};
+                return values;
+            },
+            portable_logging::LoggingProtocolId::Ssm,
+            QStringLiteral("SSM"),
+            fastecu::ErrorKind::InvalidConfig,
+            "invalid logging address or length",
+        },
+        {
+            "PrecisionExceedsUint8Max",
+            []
+            {
+                FileActions::LogValuesStructure values;
+                const QString format = QStringLiteral("0.") + QString(300, QChar('0'));
+                append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"),
+                             QStringLiteral("1"), format);
+                values.lower_panel_log_value_id = {QStringLiteral("rpm")};
+                return values;
+            },
+            portable_logging::LoggingProtocolId::Ssm,
+            QStringLiteral("SSM"),
+            fastecu::ErrorKind::InvalidConfig,
+            "precision is too large",
+        },
+        {
+            "StructurallyInconsistentValueLists",
+            []
+            {
+                FileActions::LogValuesStructure values;
+                append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"),
+                             QStringLiteral("1"));
+                // Appends an id with no matching entry in the other parallel
+                // lists, breaking the list-length invariant.
+                values.log_value_id.append(QStringLiteral("stray"));
+                values.lower_panel_log_value_id = {QStringLiteral("rpm")};
+                return values;
+            },
+            portable_logging::LoggingProtocolId::Ssm,
+            QStringLiteral("SSM"),
+            fastecu::ErrorKind::InvalidConfig,
+            "malformed legacy logging value lists",
+        },
+        {
+            "ChannelValidationFailureFromInvalidByteExpression",
+            []
+            {
+                FileActions::LogValuesStructure values;
+                append_value_with_units(
+                    values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"),
+                    QStringLiteral("conversion 0,rpm,not_an_expr,0.00,0,100,1"));
+                values.lower_panel_log_value_id = {QStringLiteral("rpm")};
+                return values;
+            },
+            portable_logging::LoggingProtocolId::Ssm,
+            QStringLiteral("SSM"),
+            fastecu::ErrorKind::InvalidConfig,
+            "invalid logging channel",
+        },
+        {
+            "SessionValidationFailureFromEmptyCdbgSelection",
+            []
+            {
+                FileActions::LogValuesStructure values;
+                append_value(values, QStringLiteral("ssm-only"), QStringLiteral("SSM"),
+                             QStringLiteral("1"));
+                values.lower_panel_log_value_id = {QStringLiteral("ssm-only")};
+                return values;
+            },
+            portable_logging::LoggingProtocolId::Cdbg,
+            QStringLiteral("ignored"),
+            fastecu::ErrorKind::InvalidConfig,
+            "no CDBG log parameters selected",
+        },
+        {
+            "DuplicateLowerPanelId",
+            []
+            {
+                FileActions::LogValuesStructure values;
+                append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"),
+                             QStringLiteral("1"));
+                values.lower_panel_log_value_id = {QStringLiteral("rpm"), QStringLiteral("rpm")};
+                return values;
+            },
+            portable_logging::LoggingProtocolId::Ssm,
+            QStringLiteral("SSM"),
+            fastecu::ErrorKind::InvalidConfig,
+            "duplicate lower-panel logging value id",
+        },
+    };
+}
+
+void expect_snapshot_rejected(const SnapshotFailureCase& test_case)
+{
+    SCOPED_TRACE(test_case.name);
+    const FileActions::LogValuesStructure values = test_case.build_values();
+    const auto snapshot = desktop_logging::make_desktop_logging_snapshot(
+        values, test_case.protocol, test_case.protocol_filter, valid_policy());
+
+    ASSERT_FALSE(snapshot.has_value());
+    EXPECT_EQ(snapshot.error().kind, test_case.expected_kind);
+    EXPECT_NE(snapshot.error().detail.find(test_case.expected_detail_substring), std::string::npos)
+        << "detail was: " << snapshot.error().detail;
+}
+
+} // namespace
+
+TEST(DesktopLoggingSnapshotAdapterTest, RejectsInvalidLegacyInputs)
+{
+    for (const auto& test_case : snapshot_failure_cases())
+    {
+        ASSERT_NO_FATAL_FAILURE(expect_snapshot_rejected(test_case));
+    }
 }
 
 int main(int argc, char **argv)
