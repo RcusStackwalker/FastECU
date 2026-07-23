@@ -9,6 +9,11 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//:__pkg__"],
+)
+
 # This package used to also host a legacy `eeprom` qt_cc_library target
 # (built EepromEcuSubaruDensoSH705x{Kline,Can}Operation). Step 5c/Task 8
 # deleted the K-Line operation file; this task (Task 9) deletes the last

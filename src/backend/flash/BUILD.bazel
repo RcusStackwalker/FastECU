@@ -9,6 +9,11 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//:__pkg__"],
+)
+
 # Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
     name = "flash_types",

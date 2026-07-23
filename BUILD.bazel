@@ -31,11 +31,41 @@ py_test(
     main = "scripts/check-bazel-openssl.py",
 )
 
+# Computes the resolved transitive label closure of every required portable
+# flash target, so the Python check below can catch a platform dependency
+# reached through several layers of `deps` -- something the per-BUILD-file
+# text scan in check-portable-closure.py cannot see, since that scan only
+# looks at each target's own immediate BUILD-file text.
+genquery(
+    name = "portable_backend_closure",
+    expression = "deps(set(" + " ".join([
+        "//src/backend/flash:flash_types",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
+        "//src/backend/flash/eeprom:denso_sh705x_eeprom_kline",
+        "//src/backend/flash/eeprom:denso_sh705x_eeprom_can",
+        "//src/backend/protocol:protocol",
+    ]) + "))",
+    scope = [
+        "//src/backend/flash:flash_types",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
+        "//src/backend/flash/eeprom:denso_sh705x_eeprom_kline",
+        "//src/backend/flash/eeprom:denso_sh705x_eeprom_can",
+        "//src/backend/protocol",
+    ],
+)
+
 py_test(
     name = "portable_closure",
     size = "small",
     srcs = ["scripts/check-portable-closure.py"],
     data = [
+        ":portable_backend_closure",
         "//src/algorithms/checksum:BUILD.bazel",
         "//src/algorithms/crypto:BUILD.bazel",
         "//src/algorithms/diagnostics:BUILD.bazel",
@@ -45,6 +75,8 @@ py_test(
         "//src/algorithms/protocol/colt:BUILD.bazel",
         "//src/algorithms/protocol/mut_dma:BUILD.bazel",
         "//src/algorithms/protocol/ssm:BUILD.bazel",
+        "//src/backend/flash:BUILD.bazel",
+        "//src/backend/flash/eeprom:BUILD.bazel",
         "//src/backend/logging:BUILD.bazel",
         "//src/backend/logging/protocols:BUILD.bazel",
         "//src/backend/ports:BUILD.bazel",
