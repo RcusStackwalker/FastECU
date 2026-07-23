@@ -35,11 +35,23 @@ cc_library(
     ],
 )
 
+# Portable. No Qt, no platform, no filesystem, no thread.
+cc_library(
+    name = "flash_validation",
+    srcs = ["flash_validation.cpp"],
+    hdrs = ["flash_validation.h"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":flash_plan",
+        ":flash_types",
+        "//src/backend/ports",
+    ],
+)
+
 fastecu_portable_gtest(
-    name = "flash_plan_test",
-    srcs = ["flash_plan_test.cpp"],
-    copts = ["-DFASTECU_FLASH_PLAN_ENABLE_TEST_CONSTRUCTION"],
-    deps = [":flash_plan"],
+    name = "flash_validation_test",
+    srcs = ["flash_validation_test.cpp"],
+    deps = [":flash_validation"],
 )
 
 MOC_HDRS = ["flash_operation_worker.h"]

@@ -57,6 +57,20 @@ struct ConfirmationSpec
     std::vector<std::pair<std::string, std::string>> arguments;
 };
 
+} // namespace fastecu::flash
+
+template <>
+struct std::hash<fastecu::flash::ConfirmationSpec::Id>
+{
+    std::size_t operator()(fastecu::flash::ConfirmationSpec::Id id) const noexcept
+    {
+        return std::hash<int>{}(static_cast<int>(id));
+    }
+};
+
+namespace fastecu::flash
+{
+
 enum class DensoSecurityVariant
 {
     Stock,

@@ -87,20 +87,6 @@ class FlashPlan
 
   private:
     friend Result<FlashPlan> validate_and_build(FlashPlanFields fields);
-#if defined(FASTECU_FLASH_PLAN_ENABLE_TEST_CONSTRUCTION)
-  public:
-    // Test-only escape hatch so FlashPlan's public surface can be exercised
-    // before Task 3 lands the real validating builder. Guarded by a macro
-    // defined only on the flash_plan_test target so production code cannot
-    // reach it.
-    static Result<FlashPlan> for_test(FlashPlanFields fields)
-    {
-        std::uint64_t total = fields.transfer_region.length;
-        return FlashPlan(std::move(fields), total);
-    }
-
-  private:
-#endif
 
     explicit FlashPlan(FlashPlanFields fields, std::uint64_t total_transfer_bytes)
         : fields_(std::move(fields)), total_transfer_bytes_(total_transfer_bytes)
