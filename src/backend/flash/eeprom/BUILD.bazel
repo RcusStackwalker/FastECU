@@ -1,4 +1,6 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "PORTABLE_COPTS", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -10,16 +12,29 @@ package(default_visibility = [
 # Every *_operation.h in this package declares Q_OBJECT.
 MOC_HDRS = glob(["*_operation.h"])
 
+# Portable files added alongside the legacy Qt sources by step 5c (Task 4).
+# Excluded from the globs below so the legacy `eeprom` target keeps building
+# exactly the two legacy operation files it always has -- these portable
+# files get their own cc_library/cc_test targets further down instead.
+PORTABLE_SRCS = ["denso_sh705x_eeprom_common.cpp"]
+
+PORTABLE_HDRS = ["denso_sh705x_eeprom_common.h"]
+
+PORTABLE_TEST_SRCS = ["denso_sh705x_eeprom_common_test.cpp"]
+
 qt_cc_library(
     name = "eeprom",
-    srcs = glob(["*.cpp"]),
+    srcs = glob(
+        ["*.cpp"],
+        exclude = PORTABLE_SRCS + PORTABLE_TEST_SRCS,
+    ),
     hdrs = MOC_HDRS,
     copts = COMMON_COPTS,
     includes = COMMON_INCLUDES,
     normal_hdrs = glob(
         ["*.h"],
         allow_empty = True,
-        exclude = MOC_HDRS,
+        exclude = MOC_HDRS + PORTABLE_HDRS,
     ),
     deps = QT_DEPS + [
         "//src/algorithms/protocol/ssm:qt_compat",
@@ -30,4 +45,29 @@ qt_cc_library(
         "//src/backend/flash",
         "//src/platform/desktop/common/serial:serial_qt_compat",
     ],
+)
+
+# Portable. No Qt, no platform, no filesystem, no thread.
+cc_library(
+    name = "denso_sh705x_eeprom_common",
+    srcs = PORTABLE_SRCS,
+    hdrs = PORTABLE_HDRS,
+    copts = PORTABLE_COPTS,
+    visibility = [
+        "//src/backend/flash/eeprom:__subpackages__",
+        "//src/platform:__subpackages__",
+        "//tests:__pkg__",
+    ],
+    deps = [
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_types",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "denso_sh705x_eeprom_common_test",
+    srcs = PORTABLE_TEST_SRCS,
+    deps = [":denso_sh705x_eeprom_common"],
 )
