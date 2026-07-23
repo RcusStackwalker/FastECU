@@ -56,15 +56,38 @@ fastecu_portable_gtest(
 
 MOC_HDRS = ["flash_operation_worker.h"]
 
+# Portable files added alongside the legacy Qt sources by step 5c.
+# Excluded from the globs below so the legacy `flash` target keeps building
+# exactly the legacy operation files it always has -- these portable
+# files get their own cc_library/cc_test targets further down instead.
+PORTABLE_SRCS = [
+    "flash_plan.cpp",
+    "flash_validation.cpp",
+]
+
+PORTABLE_HDRS = [
+    "flash_types.h",
+    "flash_plan.h",
+    "flash_validation.h",
+]
+
+PORTABLE_TEST_SRCS = [
+    "flash_types_test.cpp",
+    "flash_validation_test.cpp",
+]
+
 qt_cc_library(
     name = "flash",
-    srcs = glob(["*.cpp"]),
+    srcs = glob(
+        ["*.cpp"],
+        exclude = PORTABLE_SRCS + PORTABLE_TEST_SRCS,
+    ),
     hdrs = MOC_HDRS,
     copts = COMMON_COPTS,
     includes = COMMON_INCLUDES,
     normal_hdrs = glob(
         ["*.h"],
-        exclude = MOC_HDRS,
+        exclude = MOC_HDRS + PORTABLE_HDRS,
     ),
     deps = QT_DEPS + [
         "//src/algorithms/protocol",
