@@ -37,6 +37,7 @@ MUT_DMA_TEST_SUITES = [
     "test_diagnostic_parsers",
     "test_model_validation",
     "test_ecuflash_definition_parsing",
+    "test_eeprom_ecu_subaru_denso_sh705x_can_operation_characterization",
     "test_eeprom_ecu_subaru_denso_sh705x_kline_operation_characterization",
     "test_file_actions_parsing",
     "test_rom_transformations",
@@ -108,6 +109,7 @@ _MUT_DMA_GTEST_HELPER_HDRS = {
 _NEEDS_OFFSCREEN_QT_PLATFORM = [
     "test_checksum_results",
     "test_ecuflash_definition_parsing",
+    "test_eeprom_ecu_subaru_denso_sh705x_can_operation_characterization",
     "test_eeprom_ecu_subaru_denso_sh705x_kline_operation_characterization",
     "test_file_actions_parsing",
     "test_flash_ecu_mitsu_m32r_can_operation",
@@ -118,16 +120,25 @@ _NEEDS_OFFSCREEN_QT_PLATFORM = [
 # The protocols.cfg capability pin (see SUITE_DEPS/mut_dma_test_suites()
 # below) reads the real, checked-in resources/shared/config/protocols.cfg --
 # not a synthetic fixture -- so the test target needs it as a bazel `data`
-# dependency and a way to locate it at runtime via $(location).
+# dependency and a way to locate it at runtime via $(location). Both the
+# K-Line and CAN characterization suites pin the same six protocols.cfg
+# entries (all EEPROM protocols, not just each suite's own protocol family),
+# mirroring Task 6's precedent.
 # resources/shared/BUILD.bazel exports this one file to //tests:__pkg__ for
 # exactly this purpose.
 _EXTRA_DATA = {
+    "test_eeprom_ecu_subaru_denso_sh705x_can_operation_characterization": [
+        "//resources/shared:config/protocols.cfg",
+    ],
     "test_eeprom_ecu_subaru_denso_sh705x_kline_operation_characterization": [
         "//resources/shared:config/protocols.cfg",
     ],
 }
 
 _EXTRA_ENV = {
+    "test_eeprom_ecu_subaru_denso_sh705x_can_operation_characterization": {
+        "PROTOCOLS_CFG_PATH": "$(location //resources/shared:config/protocols.cfg)",
+    },
     "test_eeprom_ecu_subaru_denso_sh705x_kline_operation_characterization": {
         "PROTOCOLS_CFG_PATH": "$(location //resources/shared:config/protocols.cfg)",
     },
@@ -201,6 +212,7 @@ SUITE_DEPS = {
         "//src/platform/desktop/common/serial:serial_qt_compat",
     ],
     "test_ecuflash_definition_parsing": ["//src/backend/definitions"],
+    "test_eeprom_ecu_subaru_denso_sh705x_can_operation_characterization": ["//src/backend/flash/eeprom"],
     "test_eeprom_ecu_subaru_denso_sh705x_kline_operation_characterization": ["//src/backend/flash/eeprom"],
     "test_file_actions_parsing": ["//src/backend/definitions"],
     "test_rom_transformations": ["//src/backend/definitions"],
