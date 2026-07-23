@@ -130,32 +130,33 @@ Result<FlashPlan> build_denso_sh705x_eeprom_plan(DensoSh705xEepromInput input)
     }
     else
     {
-        // OPEN QUESTION, resolve before this task is done: the legacy CAN
-        // operation has a fifth crypto branch, "_ecutek_racerom_alt", which
+        // RESOLVED by Task 9 (see denso_sh705x_eeprom_can_executor.cpp's long
+        // comment above DensoSh705xEepromCanExecutor::connect_bootloader(),
+        // and task-9-report.md): this was an OPEN QUESTION about the legacy
+        // CAN operation's fifth crypto branch, "_ecutek_racerom_alt", which
         // calls the *same* generate_ecutek_seed_key() as plain "_ecutek"
         // (not generate_ecutek_racerom_can_seed_key(), which plain
         // "_ecutek_racerom" uses) but with an extra RAM-location
         // preprocessing step folded in via that function's own internal
-        // flash_method check. DensoSecurityVariant has only four values
-        // (Stock/EcuTek/Cobb/EcuTekRaceRom per the design spec verbatim) and
-        // this input struct does not carry the raw flash_method string, so
-        // there is currently no field this builder can populate to tell the
-        // executor "this is the _alt RAM-preprocessing variant, not plain
-        // EcuTek." Do not silently map "_ecutek_racerom_alt" onto
-        // EcuTekRaceRom -- that selects the wrong cryptographic function.
-        // Either (a) confirm with whoever owns this design that
-        // "_ecutek_racerom_alt" is out of scope for 5c (the earlier
-        // characterization work found read_ram_location() has a
-        // pre-existing bug reading from an unpopulated buffer, so this path
-        // may already be unreachable/broken on real hardware today -- if
-        // so, record that explicitly in docs/flash-qualification-matrix.md's
-        // notes column rather than silently dropping it), or (b) add a
-        // field to DensoSh705xEepromCanPlan (e.g.
-        // `bool ecutek_racerom_alt_ram_preprocessing`) and thread it through
-        // here and through DensoSh705xEepromInput. Do not guess silently --
-        // this is exactly the kind of behavior-preservation gap the design
-        // spec's "compatibility contracts unless explicitly identified as
-        // unsupported" rule is meant to catch.
+        // flash_method check.
+        //
+        // Resolution: option (a) from the original comment -- this path is
+        // out of scope for step 5c. DensoSecurityVariant deliberately keeps
+        // only its four values (Stock/EcuTek/Cobb/EcuTekRaceRom); no field
+        // was added to represent "_ecutek_racerom_alt" here or on
+        // DensoSh705xEepromCanPlan/DensoSh705xEepromInput. Two independent
+        // reasons: (1) the RAM-preprocessing step needs a temporary
+        // K-Line-shaped exchange multiplexed over the same physical adapter
+        // the plan declares as CAN -- a transport-architecture capability
+        // that does not exist anywhere in the portable seam yet, well beyond
+        // a per-security-variant plan field; (2) Task 7's characterization
+        // work could only pin read_ram_location()'s FAILURE path -- its
+        // "success" path reads from a buffer that is never populated
+        // anywhere in the legacy function, so it is undefined behavior on
+        // real hardware, not a stable, reproducible contract, and there is no
+        // golden trace for the resulting seed key to reproduce. Do NOT
+        // silently map "_ecutek_racerom_alt" onto EcuTekRaceRom -- that would
+        // select the wrong cryptographic function.
         family_plan = DensoSh705xEepromCanPlan{
             .mode = input.mode,
             .security = input.security,

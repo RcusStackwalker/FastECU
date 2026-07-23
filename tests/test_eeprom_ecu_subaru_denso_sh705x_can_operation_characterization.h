@@ -1,4 +1,0 @@
-#ifndef TEST_EEPROM_ECU_SUBARU_DENSO_SH705X_CAN_OPERATION_CHARACTERIZATION_H
-#define TEST_EEPROM_ECU_SUBARU_DENSO_SH705X_CAN_OPERATION_CHARACTERIZATION_H
-int run_test_eeprom_ecu_subaru_denso_sh705x_can_operation_characterization(int argc, char **argv);
-#endif

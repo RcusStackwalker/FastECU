@@ -37,7 +37,6 @@ MUT_DMA_TEST_SUITES = [
     "test_diagnostic_parsers",
     "test_model_validation",
     "test_ecuflash_definition_parsing",
-    "test_eeprom_ecu_subaru_denso_sh705x_can_operation_characterization",
     "test_file_actions_parsing",
     "test_rom_transformations",
     "test_checksum_results",
@@ -108,7 +107,6 @@ _MUT_DMA_GTEST_HELPER_HDRS = {
 _NEEDS_OFFSCREEN_QT_PLATFORM = [
     "test_checksum_results",
     "test_ecuflash_definition_parsing",
-    "test_eeprom_ecu_subaru_denso_sh705x_can_operation_characterization",
     "test_file_actions_parsing",
     "test_flash_ecu_mitsu_m32r_can_operation",
     "test_flash_operation_worker",
@@ -116,26 +114,19 @@ _NEEDS_OFFSCREEN_QT_PLATFORM = [
 ]
 
 # The protocols.cfg capability pin (see SUITE_DEPS/mut_dma_test_suites()
-# below) reads the real, checked-in resources/shared/config/protocols.cfg --
-# not a synthetic fixture -- so the test target needs it as a bazel `data`
-# dependency and a way to locate it at runtime via $(location). This
-# mirrors Task 6's precedent; the K-Line characterization suite carried the
-# same wiring until step 5c/Task 8 relocated its protocols.cfg pin to the
-# standalone //tests:test_protocols_cfg_eeprom_capabilities target (see
-# tests/BUILD.bazel) when the K-Line operation class itself was deleted.
-# resources/shared/BUILD.bazel exports this one file to //tests:__pkg__ for
-# exactly this purpose.
-_EXTRA_DATA = {
-    "test_eeprom_ecu_subaru_denso_sh705x_can_operation_characterization": [
-        "//resources/shared:config/protocols.cfg",
-    ],
-}
+# below) used to read the real, checked-in
+# resources/shared/config/protocols.cfg for both the K-Line and CAN legacy
+# EEPROM characterization suites, requiring a bazel `data` dependency and a
+# way to locate it at runtime via $(location). Step 5c/Task 8 relocated the
+# K-Line suite's pin to the standalone
+# //tests:test_protocols_cfg_eeprom_capabilities target (see tests/BUILD.bazel)
+# when the K-Line operation class itself was deleted -- that standalone test
+# already covers every protocol name (K-Line and CAN alike), so Task 9's
+# deletion of the CAN characterization suite needs no equivalent relocation,
+# just removal of these now-empty-by-suite dicts' entries.
+_EXTRA_DATA = {}
 
-_EXTRA_ENV = {
-    "test_eeprom_ecu_subaru_denso_sh705x_can_operation_characterization": {
-        "PROTOCOLS_CFG_PATH": "$(location //resources/shared:config/protocols.cfg)",
-    },
-}
+_EXTRA_ENV = {}
 
 # Each suite depends only on the packages it includes. Derived from the
 # #include graph; see the step 3 design doc. A suite needing more than
@@ -205,7 +196,6 @@ SUITE_DEPS = {
         "//src/platform/desktop/common/serial:serial_qt_compat",
     ],
     "test_ecuflash_definition_parsing": ["//src/backend/definitions"],
-    "test_eeprom_ecu_subaru_denso_sh705x_can_operation_characterization": ["//src/backend/flash/eeprom"],
     "test_file_actions_parsing": ["//src/backend/definitions"],
     "test_rom_transformations": ["//src/backend/definitions"],
     "test_model_validation": ["//src/backend/definitions"],

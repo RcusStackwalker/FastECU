@@ -288,6 +288,17 @@ cc_library(
     deps = ["//src/backend/flash:flash_executor"],
 )
 
+# Portable. Header-only test double for ICanFlashTransport, consumed by
+# //src/backend/flash/eeprom's CAN executor test (step 5c, Task 9) -- same
+# cross-package shape as :scripted_kline_flash_transport above.
+cc_library(
+    name = "scripted_can_flash_transport",
+    testonly = True,
+    hdrs = ["scripted_can_flash_transport.h"],
+    copts = PORTABLE_COPTS,
+    deps = ["//src/backend/flash:flash_executor"],
+)
+
 # Portable. Relocated verbatim (step 5c, Task 8) from the now-deleted
 # tests/test_eeprom_ecu_subaru_denso_sh705x_kline_operation_characterization.cpp
 # -- this test never exercised that legacy operation class, only the real,
