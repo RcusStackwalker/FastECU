@@ -599,7 +599,7 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(
     const std::uint8_t target_id = kline_plan.target_id;
 
     // line 361: change port speed to upload kernel.
-    if (Status baud = transport.setBaud(15625); !baud.has_value())
+    if (Status baud = transport.setBaud(kline_plan.kernel_baud); !baud.has_value())
     {
         return std::unexpected(baud.error());
     }
