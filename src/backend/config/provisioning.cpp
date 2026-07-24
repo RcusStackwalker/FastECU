@@ -54,6 +54,12 @@ Status provision_config_directories(const ConfigPaths& paths, IFileSystem& fs,
     const bool has_version_subdirectory = paths.version_config_directory != paths.base_config_directory;
     if (has_version_subdirectory && !fs.exists(paths.version_config_directory))
     {
+        // Find the newest previous-version sibling directory (if any) before
+        // touching the filesystem, since discovering it needs the
+        // not-yet-created version directory's siblings to still be exactly
+        // what's there today.
+        std::string previous_config_file;
+        bool has_previous_config_file = false;
         Result<std::vector<DirEntry>> siblings = fs.list_directory(paths.base_config_directory);
         if (siblings.has_value() && !siblings->empty())
         {
@@ -65,15 +71,29 @@ Status provision_config_directories(const ConfigPaths& paths, IFileSystem& fs,
                       { return a.modified_time_epoch_seconds > b.modified_time_epoch_seconds; });
             if (!dirs.empty())
             {
-                const std::string previous_config_file =
-                    paths.base_config_directory + "/" + dirs.front().name + "/config/fastecu.cfg";
-                // A missing previous config is not an error for this step;
-                // matches QFile::copy's legacy silent-failure behavior.
-                fs.copy_file(previous_config_file, paths.config_files_directory + "fastecu.cfg", false);
+                previous_config_file = paths.base_config_directory + "/" + dirs.front().name + "/config/fastecu.cfg";
+                has_previous_config_file = true;
             }
         }
+
+        // Create the version directory and its config subdirectory *before*
+        // attempting the migration copy -- mirroring the legacy
+        // FileActions::check_config_dirs ordering (parent directories exist
+        // before the copy is attempted). copy_file has no mkpath behavior
+        // (matches QFile::copy), so doing this in the other order would
+        // make the migration copy always target a directory tree that
+        // doesn't exist yet, permanently defeating it.
         if (Status r = ensure_directory(fs, paths.version_config_directory, events); !r.has_value())
             return r;
+        if (Status r = ensure_directory(fs, paths.config_files_directory, events); !r.has_value())
+            return r;
+
+        if (has_previous_config_file)
+        {
+            // A missing previous config is not an error for this step;
+            // matches QFile::copy's legacy silent-failure behavior.
+            fs.copy_file(previous_config_file, paths.config_files_directory + "fastecu.cfg", false);
+        }
     }
 
     for (const std::string& dir : {paths.calibration_files_directory, paths.config_files_directory,

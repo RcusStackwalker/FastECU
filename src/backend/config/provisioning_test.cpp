@@ -32,10 +32,16 @@ class FakeFileSystem : public IFileSystem
     {
         if (!files.count(std::string(src)))
             return fastecu::fail(ErrorKind::Internal, "source missing");
-        if (!overwrite && files.count(std::string(dst)))
+        std::string dst_str(dst);
+        // Mirrors QFile::copy: no implicit mkpath. A destination whose parent
+        // directory doesn't exist yet fails, it isn't silently created.
+        auto slash = dst_str.find_last_of('/');
+        if (slash != std::string::npos && !directories.count(dst_str.substr(0, slash + 1)))
+            return fastecu::fail(ErrorKind::Internal, "destination directory missing");
+        if (!overwrite && files.count(dst_str))
             return fastecu::fail(ErrorKind::Internal, "destination exists");
-        files[std::string(dst)] = files[std::string(src)];
-        copy_calls.push_back({std::string(src), std::string(dst)});
+        files[dst_str] = files[std::string(src)];
+        copy_calls.push_back({std::string(src), dst_str});
         return {};
     }
     Status remove_file(std::string_view path) override
@@ -205,6 +211,23 @@ TEST(ProvisionConfigDirectories, PrunesSyslogsKeepingNewest20)
         EXPECT_FALSE(fs.exists(paths.syslog_files_directory + "log" + std::to_string(i) + ".txt"));
     for (int i = 5; i < 25; ++i)
         EXPECT_TRUE(fs.exists(paths.syslog_files_directory + "log" + std::to_string(i) + ".txt"));
+}
+
+TEST(ProvisionConfigDirectories, MigratesPreviousVersionConfigFileForward)
+{
+    FakeFileSystem fs;
+    FakeResourceBundle bundle;
+    RecordingEventSink events;
+    ConfigPaths paths = test_paths();
+    // A previous-version directory "0.9" already exists under base, newer
+    // than nothing else, with its own config/fastecu.cfg.
+    fs.subdirectories_by_parent[paths.base_config_directory].push_back({"0.9", 100});
+    fs.files[paths.base_config_directory + "/0.9/config/fastecu.cfg"] = {7, 7, 7};
+
+    ASSERT_TRUE(provision_config_directories(paths, fs, bundle, events).has_value());
+
+    ASSERT_TRUE(fs.exists(paths.config_files_directory + "fastecu.cfg"));
+    EXPECT_EQ(fs.files[paths.config_files_directory + "fastecu.cfg"], (std::vector<std::uint8_t>{7, 7, 7}));
 }
 
 TEST(ProvisionConfigDirectories, FirstCreateDirectoryFailureStopsTheSequence)
