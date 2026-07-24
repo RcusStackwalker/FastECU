@@ -27,3 +27,20 @@ fastecu_portable_gtest(
     srcs = ["config_paths_test.cpp"],
     deps = [":config_paths"],
 )
+
+cc_library(
+    name = "provisioning",
+    srcs = ["provisioning.cpp"],
+    hdrs = ["provisioning.h"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":config_paths",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "provisioning_test",
+    srcs = ["provisioning_test.cpp"],
+    deps = [":provisioning"],
+)
