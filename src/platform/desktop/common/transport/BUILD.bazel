@@ -11,17 +11,59 @@ package(default_visibility = [
     "//src/ui/desktop:__pkg__",
 ])
 
+# Desktop K-Line/CAN flash transport adapters (step 5c, Task 12): a
+# separate target from `transport` above rather than folding into its glob,
+# because these implement fastecu::flash::{IKlineFlashTransport,
+# ICanFlashTransport} (Task 5) for FlashWorker, a different consumer set
+# than the mutdma/cdbg/ssm logging adapters in `transport` -- excluded from
+# that target's globs below to avoid compiling them twice under two
+# separate library targets.
+_FLASH_TRANSPORT_SRCS = [
+    "desktop_can_flash_transport.cpp",
+    "desktop_kline_flash_transport.cpp",
+]
+
+_FLASH_TRANSPORT_HDRS = [
+    "desktop_can_flash_transport.h",
+    "desktop_kline_flash_transport.h",
+]
+
 qt_cc_library(
     name = "transport",
-    srcs = glob(["*.cpp"]),
+    srcs = glob(
+        ["*.cpp"],
+        exclude = _FLASH_TRANSPORT_SRCS,
+    ),
     hdrs = [],
     copts = COMMON_COPTS,
     includes = COMMON_INCLUDES,
-    normal_hdrs = glob(["*.h"]),
+    normal_hdrs = glob(
+        ["*.h"],
+        exclude = _FLASH_TRANSPORT_HDRS,
+    ),
     deps = QT_DEPS + [
         "//src/algorithms/protocol",
         "//src/algorithms/protocol:qt_compat",
         "//src/backend/protocol",
+        "//src/platform/desktop/common/serial:serial_qt_compat",
+    ],
+)
+
+qt_cc_library(
+    name = "flash_transports",
+    srcs = _FLASH_TRANSPORT_SRCS,
+    hdrs = [],
+    copts = COMMON_COPTS,
+    includes = COMMON_INCLUDES,
+    # Neither adapter derives from QObject (no Q_OBJECT, no signals/slots),
+    # so their headers go through normal_hdrs rather than hdrs (which would
+    # run every header through moc unconditionally) -- same convention as
+    # `transport` above.
+    normal_hdrs = _FLASH_TRANSPORT_HDRS,
+    deps = QT_DEPS + [
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol:qt_compat",
+        "//src/backend/flash:flash_executor",
         "//src/platform/desktop/common/serial:serial_qt_compat",
     ],
 )

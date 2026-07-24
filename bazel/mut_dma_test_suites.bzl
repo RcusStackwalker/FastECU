@@ -31,6 +31,8 @@ MUT_DMA_TEST_SUITES = [
     "test_flash_ecu_mitsu_m32r_can_operation",
     "test_flash_utils",
     "test_flash_worker",
+    "test_desktop_kline_flash_transport",
+    "test_desktop_can_flash_transport",
     "test_ssm_protocol",
     "test_bytes",
     "test_expression_evaluator",
@@ -205,6 +207,17 @@ SUITE_DEPS = {
         # SsmProtocol::checksum() directly.
         "//src/algorithms/protocol/ssm",
         "//tests:scripted_kline_flash_transport",
+    ],
+    # Both suites directly include serial_port_actions.h (for the FakeBackend
+    # harness's SerialPortActions construction) as well as their own
+    # respective adapter target -- same shape as test_flash_utils above.
+    "test_desktop_kline_flash_transport": [
+        "//src/platform/desktop/common/serial:serial_qt_compat",
+        "//src/platform/desktop/common/transport:flash_transports",
+    ],
+    "test_desktop_can_flash_transport": [
+        "//src/platform/desktop/common/serial:serial_qt_compat",
+        "//src/platform/desktop/common/transport:flash_transports",
     ],
     "test_ecuflash_definition_parsing": ["//src/backend/definitions"],
     "test_file_actions_parsing": ["//src/backend/definitions"],
