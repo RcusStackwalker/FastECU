@@ -24,6 +24,14 @@ struct DensoSh705xEepromInput
     MemoryRegion eeprom_region;
 };
 
+// Resolves the fixed SH705x EEPROM address range for mcu_name ("SH7055" or
+// "SH7058") from the same MCU table build_denso_sh705x_eeprom_plan validates
+// DensoSh705xEepromInput::eeprom_region against. Exposed so callers that
+// assemble a DensoSh705xEepromInput from platform state (e.g.
+// LegacyFlashSnapshotAdapter, step 5c Task 14) can supply a matching region
+// without independently re-transcribing the kernelmemorymodels.h literals.
+Result<MemoryRegion> resolve_sh705x_eeprom_region(const std::string& mcu_name);
+
 Result<FlashPlan> build_denso_sh705x_eeprom_plan(DensoSh705xEepromInput input);
 
 } // namespace fastecu::flash

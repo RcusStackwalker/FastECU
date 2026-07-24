@@ -5,13 +5,36 @@
 
 namespace fastecu::flash
 {
+
+// Literal values transcribed from src/backend/definitions/kernelmemorymodels.h
+// (eblocks_SH7055[0], line 279-281; eblocks_SH7058[0], line 221-223). Do not
+// derive these from anywhere else; the MCU table is the single source of
+// truth both this function and resolve_mcu_bounds() below read from -- and
+// the only place these two literals are written (LegacyFlashSnapshotAdapter,
+// step 5c Task 14, calls this function directly rather than keeping its own
+// copy).
+Result<MemoryRegion> resolve_sh705x_eeprom_region(const std::string& mcu_name)
+{
+    if (mcu_name == "SH7055")
+    {
+        return MemoryRegion{.start = /* eblocks_SH7055[0].start */ 0x00000000,
+                            .length = /* eblocks_SH7055[0].len */ 0x00000100};
+    }
+    if (mcu_name == "SH7058")
+    {
+        return MemoryRegion{.start = /* eblocks_SH7058[0].start */ 0x00000000,
+                            .length = /* eblocks_SH7058[0].len */ 0x00000100};
+    }
+    return fail(ErrorKind::InvalidConfig, "unknown SH705x mcu_name: " + mcu_name);
+}
+
 namespace
 {
 
 // Literal values transcribed from src/backend/definitions/kernelmemorymodels.h
-// (eblocks_SH7055/eblocks_SH7058, kblocks_SH7055/kblocks_SH7058). Do not
-// derive these from anywhere else; the MCU table is the single source of
-// truth the legacy code also reads from.
+// (kblocks_SH7055/kblocks_SH7058). Do not derive these from anywhere else;
+// the MCU table is the single source of truth the legacy code also reads
+// from.
 struct McuBounds
 {
     MemoryRegion eeprom;
@@ -20,11 +43,15 @@ struct McuBounds
 
 Result<McuBounds> resolve_mcu_bounds(const std::string& mcu_name)
 {
+    Result<MemoryRegion> eeprom = resolve_sh705x_eeprom_region(mcu_name);
+    if (!eeprom.has_value())
+    {
+        return std::unexpected(eeprom.error());
+    }
     if (mcu_name == "SH7055")
     {
         return McuBounds{
-            .eeprom = MemoryRegion{.start = /* eblocks_SH7055[0].start */ 0x00000000,
-                                   .length = /* eblocks_SH7055[0].len */ 0x00000100},
+            .eeprom = *eeprom,
             .kernel_ram = MemoryRegion{.start = /* kblocks_SH7055[0].start */ 0xFFFF6004,
                                        .length = /* kblocks_SH7055[0].len */ 0x00006000},
         };
@@ -32,8 +59,7 @@ Result<McuBounds> resolve_mcu_bounds(const std::string& mcu_name)
     if (mcu_name == "SH7058")
     {
         return McuBounds{
-            .eeprom = MemoryRegion{.start = /* eblocks_SH7058[0].start */ 0x00000000,
-                                   .length = /* eblocks_SH7058[0].len */ 0x00000100},
+            .eeprom = *eeprom,
             .kernel_ram = MemoryRegion{.start = /* kblocks_SH7058[0].start */ 0xFFFF3000,
                                        .length = /* kblocks_SH7058[0].len */ 0x00009000},
         };

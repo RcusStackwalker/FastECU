@@ -143,6 +143,30 @@ TEST(DensoSh705xEepromCommonTest, KernelLoadAddressOutsideRamRangeIsRejected)
     EXPECT_EQ(build_denso_sh705x_eeprom_plan(input).error().kind, ErrorKind::InvalidConfig);
 }
 
+TEST(DensoSh705xEepromCommonTest, ResolveSh705xEepromRegionReturnsKnownMcuBounds)
+{
+    // Exercised directly because step 5c Task 14's LegacyFlashSnapshotAdapter
+    // calls this exported function to avoid keeping its own copy of these
+    // literals; a regression here would silently break that caller too.
+    auto sh7055 = resolve_sh705x_eeprom_region("SH7055");
+    ASSERT_TRUE(sh7055.has_value());
+    EXPECT_EQ(sh7055->start, kSh7055EepromStart);
+    EXPECT_EQ(sh7055->length, kSh7055EepromLen);
+
+    auto sh7058 = resolve_sh705x_eeprom_region("SH7058");
+    ASSERT_TRUE(sh7058.has_value());
+    EXPECT_EQ(sh7058->start, 0x00000000u);
+    EXPECT_EQ(sh7058->length, 0x00000100u);
+}
+
+TEST(DensoSh705xEepromCommonTest, ResolveSh705xEepromRegionRejectsUnknownMcu)
+{
+    auto region = resolve_sh705x_eeprom_region("NOT_A_REAL_MCU");
+
+    ASSERT_FALSE(region.has_value());
+    EXPECT_EQ(region.error().kind, ErrorKind::InvalidConfig);
+}
+
 TEST(DensoSh705xEepromCommonTest, NoTransportOrConfigurationCallOccursOnRejection)
 {
     // Structural guarantee, not a mock assertion: build_denso_sh705x_eeprom_plan

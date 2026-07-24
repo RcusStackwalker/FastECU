@@ -111,6 +111,24 @@ qt_cc_test(
     ],
 )
 
+# LegacyFlashSnapshotAdapter takes FileActions::EcuCalDefStructure (Qt-typed)
+# by const reference but is not a QObject and needs no QApplication, so this
+# is a qt_cc_test with its own main() rather than QTEST_MAIN's GUI bootstrap
+# -- same shape as :test_qt_port_adapters and :test_logging_adapters above.
+qt_cc_test(
+    name = "test_flash_snapshot_adapter",
+    srcs = ["test_flash_snapshot_adapter.cpp"],
+    copts = COMMON_COPTS + ["-I."],
+    linkopts = COMMON_LINKOPTS,
+    deps = QT_DEPS + [
+        "//src/backend/definitions",
+        "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
+        "//src/backend/ports",
+        "//src/platform/desktop/common/flash:flash_snapshot_adapter",
+        "@googletest//:gtest",
+    ],
+)
+
 qt_cpp_moc_headers(
     name = "serial_crash_cpp_mocs",
     srcs = test_cpp_moc_srcs(SERIAL_CRASH_TESTS_COMMON_SRCS),
