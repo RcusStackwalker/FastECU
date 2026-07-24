@@ -1,7 +1,7 @@
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_unisia_jecs_m32r.h"
 
 #include <utility>
-#include "src/backend/flash/ecu/flash_ecu_subaru_unisia_jecs_m32r_operation.h"
+#include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_unisia_jecs_m32r_operation.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 FlashEcuSubaruUnisiaJecsM32r::FlashEcuSubaruUnisiaJecsM32r(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)

@@ -1,7 +1,7 @@
 #include "src/ui/desktop/flash/jtag/flash_ecu_subaru_hitachi_m32r_jtag.h"
 
 #include <utility>
-#include "src/backend/flash/jtag/flash_ecu_subaru_hitachi_m32r_jtag_operation.h"
+#include "src/platform/desktop/common/flash/legacy/jtag/flash_ecu_subaru_hitachi_m32r_jtag_operation.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 FlashEcuSubaruHitachiM32rJtag::FlashEcuSubaruHitachiM32rJtag(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)

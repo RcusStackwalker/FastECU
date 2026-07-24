@@ -1,32 +1,16 @@
 #include "src/backend/ports/clock.h"
 #include "src/backend/ports/cancellation.h"
+#include "src/backend/ports/clock_test_helpers.h"
 #include <gtest/gtest.h>
 
 using fastecu::ErrorKind;
+using fastecu::FakeClock;
 using fastecu::ICancellationToken;
 using fastecu::IClock;
 using fastecu::Status;
 
 namespace
 {
-// A deterministic clock for tests: now advances only when told; sleep is
-// instantaneous but honours the token.
-class FakeClock : public IClock
-{
-  public:
-    std::uint64_t now_ms() const override
-    {
-        return now_;
-    }
-    Status sleep(int ms, const ICancellationToken& t) override
-    {
-        if (t.cancelled())
-            return fastecu::fail(ErrorKind::Cancelled);
-        now_ += static_cast<std::uint64_t>(ms < 0 ? 0 : ms);
-        return {};
-    }
-    std::uint64_t now_ = 0;
-};
 
 class FlagToken : public ICancellationToken
 {

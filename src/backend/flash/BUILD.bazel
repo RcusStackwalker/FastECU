@@ -1,4 +1,6 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "PORTABLE_COPTS", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -7,17 +9,133 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
-MOC_HDRS = ["flash_operation_worker.h"]
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//:__pkg__"],
+)
 
+# Portable. No Qt, no platform, no filesystem, no thread.
+cc_library(
+    name = "flash_types",
+    hdrs = ["flash_types.h"],
+    copts = PORTABLE_COPTS,
+    deps = ["//src/algorithms/protocol"],
+)
+
+fastecu_portable_gtest(
+    name = "flash_types_test",
+    srcs = ["flash_types_test.cpp"],
+    deps = [":flash_types"],
+)
+
+# Portable. No Qt, no platform, no filesystem, no thread.
+cc_library(
+    name = "flash_plan",
+    srcs = ["flash_plan.cpp"],
+    hdrs = ["flash_plan.h"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":flash_types",
+        "//src/backend/ports",
+    ],
+)
+
+# Portable. No Qt, no platform, no filesystem, no thread.
+cc_library(
+    name = "flash_validation",
+    srcs = ["flash_validation.cpp"],
+    hdrs = ["flash_validation.h"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":flash_plan",
+        ":flash_types",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "flash_validation_test",
+    srcs = ["flash_validation_test.cpp"],
+    deps = [":flash_validation"],
+)
+
+# Portable files added alongside the legacy Qt sources by step 5c.
+# Excluded from the globs below so the legacy `flash` target keeps building
+# exactly the legacy operation files it always has -- these portable
+# files get their own cc_library/cc_test targets further down instead.
+PORTABLE_SRCS = [
+    "flash_plan.cpp",
+    "flash_validation.cpp",
+    "flash_executor.cpp",
+]
+
+PORTABLE_HDRS = [
+    "flash_types.h",
+    "flash_plan.h",
+    "flash_validation.h",
+    "flash_executor.h",
+    "flash_cancellation.h",
+]
+
+PORTABLE_TEST_SRCS = [
+    "flash_types_test.cpp",
+    "flash_validation_test.cpp",
+    "flash_executor_test.cpp",
+    "flash_cancellation_test.cpp",
+]
+
+# Portable. No Qt, no platform, no filesystem, no thread.
+cc_library(
+    name = "flash_executor",
+    srcs = ["flash_executor.cpp"],
+    hdrs = [
+        "flash_cancellation.h",
+        "flash_executor.h",
+    ],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":flash_plan",
+        ":flash_types",
+        "//src/algorithms/protocol",
+        "//src/backend/ports",
+        "//src/backend/protocol",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "flash_executor_test",
+    srcs = ["flash_executor_test.cpp"],
+    deps = [
+        ":flash_executor",
+        ":flash_validation",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "flash_cancellation_test",
+    srcs = ["flash_cancellation_test.cpp"],
+    deps = [":flash_executor"],
+)
+
+# FlashOperationWorker and the bdm/bootmode/ecu/jtag/tcu legacy Qt operation
+# classes moved to //src/platform/desktop/common/flash/legacy (step 5c, Task
+# 15) -- backend owns no thread. What's left here is flash_utils.{h,cpp}: Qt
+# types (QString/QByteArray) and SerialPortActions plumbing, but no QThread,
+# so it isn't in scope for that move and keeps living in backend/flash under
+# the same `flash` label so its existing consumers (backend/definitions,
+# ui/desktop, ui/desktop/flash/ecu, tests/test_flash_utils) resolve unchanged.
 qt_cc_library(
     name = "flash",
-    srcs = glob(["*.cpp"]),
-    hdrs = MOC_HDRS,
+    srcs = glob(
+        ["*.cpp"],
+        exclude = PORTABLE_SRCS + PORTABLE_TEST_SRCS,
+    ),
+    hdrs = [],
     copts = COMMON_COPTS,
     includes = COMMON_INCLUDES,
     normal_hdrs = glob(
         ["*.h"],
-        exclude = MOC_HDRS,
+        exclude = PORTABLE_HDRS,
     ),
     deps = QT_DEPS + [
         "//src/algorithms/protocol",

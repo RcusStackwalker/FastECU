@@ -1,7 +1,7 @@
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_hitachi_m32r_can.h"
 
 #include <utility>
-#include "src/backend/flash/ecu/flash_ecu_subaru_hitachi_m32r_can_operation.h"
+#include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_hitachi_m32r_can_operation.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 FlashEcuSubaruHitachiM32rCan::FlashEcuSubaruHitachiM32rCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)

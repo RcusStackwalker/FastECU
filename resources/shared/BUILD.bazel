@@ -3,6 +3,16 @@ load("//bazel:qt_targets.bzl", "qt_resource_via_qrc")
 # Only //src/backend/definitions consumes these resources today.
 package(default_visibility = ["//src/backend/definitions:__pkg__"])
 
+# tests/test_eeprom_ecu_subaru_denso_sh705x_kline_operation_characterization.cpp
+# pins protocols.cfg's write=no/test_write=no capability flags for the Denso
+# SH705x EEPROM protocols by reading the real, checked-in file (not a
+# synthetic copy that could silently drift) -- exported narrowly to //tests
+# rather than widening config_resource's own visibility.
+exports_files(
+    ["config/protocols.cfg"],
+    visibility = ["//tests:__pkg__"],
+)
+
 qt_resource_via_qrc(
     name = "config_resource",
     files = glob(["config/*"]),

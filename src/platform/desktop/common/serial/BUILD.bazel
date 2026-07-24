@@ -66,12 +66,6 @@ qt_cc_library(
         # scripts/check-serial-compat-allowlist.py -- this list may
         # shrink, never grow.
         "//src/backend/flash:__pkg__",
-        "//src/backend/flash/bdm:__pkg__",
-        "//src/backend/flash/bootmode:__pkg__",
-        "//src/backend/flash/ecu:__pkg__",
-        "//src/backend/flash/eeprom:__pkg__",
-        "//src/backend/flash/jtag:__pkg__",
-        "//src/backend/flash/tcu:__pkg__",
         "//src/backend/logging/protocols:__pkg__",
         "//src/platform/desktop/common/serial:__pkg__",
         "//src/platform/desktop/common/transport:__pkg__",
@@ -96,4 +90,19 @@ qt_cc_library(
         "@platforms//os:windows": ["//src/platform/desktop/windows/j2534"],
         "//conditions:default": ["//src/platform/desktop/unix/j2534"],
     }),
+)
+
+# Same-layer facade over serial_qt_compat's transitional debt target, for
+# platform packages (e.g. src/platform/desktop/common/flash/legacy) that need
+# an explicit, non-debt handle to depend on instead of reaching directly into
+# the frozen serial_qt_compat allowlist above. Wraps the existing
+# implementation without changing it.
+qt_cc_library(
+    name = "serial_platform_api",
+    srcs = [],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    includes = COMMON_INCLUDES,
+    visibility = ["//src/platform:__subpackages__"],
+    deps = [":serial_qt_compat"],
 )

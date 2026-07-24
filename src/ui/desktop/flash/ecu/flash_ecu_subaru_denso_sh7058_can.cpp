@@ -1,7 +1,7 @@
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh7058_can.h"
 
 #include <utility>
-#include "src/backend/flash/ecu/flash_ecu_subaru_denso_sh7058_can_operation.h"
+#include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7058_can_operation.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 FlashEcuSubaruDensoSH7058Can::FlashEcuSubaruDensoSH7058Can(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)

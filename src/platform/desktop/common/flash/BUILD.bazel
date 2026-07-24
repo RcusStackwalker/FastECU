@@ -1,0 +1,46 @@
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
+
+package(default_visibility = [
+    "//src/platform:__subpackages__",
+    "//src/ui:__subpackages__",
+    "//tests:__pkg__",
+])
+
+qt_cc_library(
+    name = "flash_event_adapter",
+    srcs = ["flash_event_adapter.cpp"],
+    hdrs = ["flash_event_adapter.h"],
+    copts = COMMON_COPTS,
+    includes = COMMON_INCLUDES,
+    deps = QT_DEPS + ["//src/backend/ports"],
+)
+
+qt_cc_library(
+    name = "flash_worker",
+    srcs = ["flash_worker.cpp"],
+    hdrs = ["flash_worker.h"],
+    copts = COMMON_COPTS,
+    includes = COMMON_INCLUDES,
+    deps = QT_DEPS + [
+        ":flash_event_adapter",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/ports",
+    ],
+)
+
+# This target links Qt only because FileActions::EcuCalDefStructure is
+# Qt-typed (QString fields); it does not depend on serial_qt_compat,
+# SerialPortActions, or any widget.
+qt_cc_library(
+    name = "flash_snapshot_adapter",
+    srcs = ["flash_snapshot_adapter.cpp"],
+    hdrs = ["flash_snapshot_adapter.h"],
+    copts = COMMON_COPTS,
+    includes = COMMON_INCLUDES,
+    deps = QT_DEPS + [
+        "//src/backend/definitions",
+        "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
+        "//src/backend/ports",
+    ],
+)

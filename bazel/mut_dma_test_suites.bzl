@@ -30,6 +30,12 @@ MUT_DMA_TEST_SUITES = [
     "test_flash_operation_worker",
     "test_flash_ecu_mitsu_m32r_can_operation",
     "test_flash_utils",
+    "test_flash_worker",
+    "test_flash_event_adapter",
+    "test_desktop_kline_flash_transport",
+    "test_desktop_can_flash_transport",
+    "test_eeprom_ecu_subaru_denso_sh705x_kline_dialog",
+    "test_eeprom_ecu_subaru_denso_sh705x_can_dialog",
     "test_ssm_protocol",
     "test_bytes",
     "test_expression_evaluator",
@@ -107,11 +113,28 @@ _MUT_DMA_GTEST_HELPER_HDRS = {
 _NEEDS_OFFSCREEN_QT_PLATFORM = [
     "test_checksum_results",
     "test_ecuflash_definition_parsing",
+    "test_eeprom_ecu_subaru_denso_sh705x_kline_dialog",
+    "test_eeprom_ecu_subaru_denso_sh705x_can_dialog",
     "test_file_actions_parsing",
     "test_flash_ecu_mitsu_m32r_can_operation",
     "test_flash_operation_worker",
     "test_rom_transformations",
 ]
+
+# The protocols.cfg capability pin (see SUITE_DEPS/mut_dma_test_suites()
+# below) used to read the real, checked-in
+# resources/shared/config/protocols.cfg for both the K-Line and CAN legacy
+# EEPROM characterization suites, requiring a bazel `data` dependency and a
+# way to locate it at runtime via $(location). Step 5c/Task 8 relocated the
+# K-Line suite's pin to the standalone
+# //tests:test_protocols_cfg_eeprom_capabilities target (see tests/BUILD.bazel)
+# when the K-Line operation class itself was deleted -- that standalone test
+# already covers every protocol name (K-Line and CAN alike), so Task 9's
+# deletion of the CAN characterization suite needs no equivalent relocation,
+# just removal of these now-empty-by-suite dicts' entries.
+_EXTRA_DATA = {}
+
+_EXTRA_ENV = {}
 
 # Each suite depends only on the packages it includes. Derived from the
 # #include graph; see the step 3 design doc. A suite needing more than
@@ -166,19 +189,69 @@ SUITE_DEPS = {
     "test_ssm_logging_protocol": ["//src/backend/logging/protocols:protocols"],
     "test_mut_dma_logging_protocol": ["//src/backend/logging/protocols:protocols"],
     "test_cdbg_logging_protocol": ["//src/backend/logging/protocols:protocols"],
-    "test_flash_operation_worker": ["//src/backend/flash"],
+    "test_flash_operation_worker": ["//src/platform/desktop/common/flash/legacy:legacy_flash_operations"],
     # test_flash_ecu_mitsu_m32r_can_operation.cpp includes qt_colt.h directly
     # (Task 8) for QByteArray-typed Colt helper wrappers, so it needs the
-    # colt Qt shim as a real edge in addition to backend/flash/ecu.
+    # colt Qt shim as a real edge in addition to legacy_flash_operations
+    # (relocated from backend/flash/ecu in step 5c, Task 15).
     "test_flash_ecu_mitsu_m32r_can_operation": [
         "//src/algorithms/protocol/colt:qt_compat",
-        "//src/backend/flash/ecu",
+        "//src/platform/desktop/common/flash/legacy:legacy_flash_operations",
     ],
     "test_flash_utils": [
         "//src/backend/flash",
         # test_flash_utils.cpp includes serial_port_actions.h directly;
         # this package is on the serial_qt_compat allowlist in Task 8.
         "//src/platform/desktop/common/serial:serial_qt_compat",
+    ],
+    "test_flash_worker": [
+        "//src/platform/desktop/common/flash:flash_worker",
+        "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
+        "//src/backend/flash/eeprom:denso_sh705x_eeprom_kline",
+        # test_flash_worker.cpp reconstructs request_kernel_id_frame()'s
+        # exact bytes to script the transport's first write, requiring
+        # SsmProtocol::checksum() directly.
+        "//src/algorithms/protocol/ssm",
+        "//tests:scripted_kline_flash_transport",
+    ],
+    # Independently testable without constructing a FlashWorker/QThread at
+    # all -- see flash_event_adapter's own doc comment for why.
+    "test_flash_event_adapter": [
+        "//src/platform/desktop/common/flash:flash_event_adapter",
+    ],
+    # Both suites directly include serial_port_actions.h (for the FakeBackend
+    # harness's SerialPortActions construction) as well as their own
+    # respective adapter target -- same shape as test_flash_utils above.
+    "test_desktop_kline_flash_transport": [
+        "//src/platform/desktop/common/serial:serial_qt_compat",
+        "//src/platform/desktop/common/transport:flash_transports",
+    ],
+    "test_desktop_can_flash_transport": [
+        "//src/platform/desktop/common/serial:serial_qt_compat",
+        "//src/platform/desktop/common/transport:flash_transports",
+    ],
+    # Exercises the rewritten dialog's one-attempt-per-mode orchestration
+    # (step 5c, Task 17) via scripted IFlashExecutor/IFlashTransport doubles
+    # injected through its protected test seams; no real SerialPortActions,
+    # QtFileRepository, or hardware is touched.
+    "test_eeprom_ecu_subaru_denso_sh705x_kline_dialog": [
+        "//src/backend/definitions",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
+        "//src/backend/ports",
+        "//src/platform/desktop/common/flash:flash_worker",
+        "//src/ui/desktop/flash/eeprom",
+    ],
+    # CAN sibling of the K-Line suite above -- same rationale (scripted
+    # IFlashExecutor/IFlashTransport doubles through the dialog's protected
+    # test seams; no real SerialPortActions, QtFileRepository, or hardware).
+    "test_eeprom_ecu_subaru_denso_sh705x_can_dialog": [
+        "//src/backend/definitions",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
+        "//src/backend/ports",
+        "//src/platform/desktop/common/flash:flash_worker",
+        "//src/ui/desktop/flash/eeprom",
     ],
     "test_ecuflash_definition_parsing": ["//src/backend/definitions"],
     "test_file_actions_parsing": ["//src/backend/definitions"],
@@ -216,6 +289,7 @@ def mut_dma_test_suites(moc_deps_target, header_mocs_target):
             env = {
                 "QT_QPA_PLATFORM": "offscreen",
             }
+        env.update(_EXTRA_ENV.get(base, {}))
         qt_cc_test(
             name = base,
             srcs = [
@@ -228,6 +302,7 @@ def mut_dma_test_suites(moc_deps_target, header_mocs_target):
                 "-Isrc/platform/desktop/common/serial",
             ],
             linkopts = COMMON_LINKOPTS,
+            data = _EXTRA_DATA.get(base, []),
             env = env,
             deps = QT_DEPS + [
                 moc_deps_target,

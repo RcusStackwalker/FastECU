@@ -1,7 +1,7 @@
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_hitachi_m32r_kline.h"
 
 #include <utility>
-#include "src/backend/flash/ecu/flash_ecu_subaru_hitachi_m32r_kline_operation.h"
+#include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_hitachi_m32r_kline_operation.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 FlashEcuSubaruHitachiM32rKline::FlashEcuSubaruHitachiM32rKline(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)

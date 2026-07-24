@@ -59,6 +59,102 @@ class FakeBackend : public SerialPortActionsDirect
     bool throwNonStandardOnBaudChange = false;
     bool closePortAfterBaud = false; // set portOpen=false after a non-throwing baud-change result
 
+    // -- config-setter result controls for the desktop K-Line/CAN flash
+    // transport adapter tests (step 5c, Task 12): every setter below
+    // unconditionally `return true`s in the real backend
+    // (serial_port_actions_direct.h) -- none of them touch the port or
+    // hardware, they just assign a member. Each override still delegates
+    // to SerialPortActionsDirect's own implementation first so the
+    // underlying member -- and therefore the paired getter -- keeps
+    // working exactly as before for every pre-existing test (e.g.
+    // test_facade_threading.cpp's getSet_marshalsToBackendThread(),
+    // test_flash_utils.cpp's configureIso15765Can_* tests); only the
+    // *returned* bool is swapped for the controllable field below. Each
+    // field defaults to that always-succeeds behavior; set one to false to
+    // force the corresponding setter to fail and prove an adapter's
+    // configure() stops at exactly that step. Every call is logged (via
+    // the shared call log) as "cfg:<setter name>:<value>" so a test can
+    // assert both which setters ran and in what order.
+    bool isIso14230ConnectionResult = true;
+    bool isCanConnectionResult = true;
+    bool isIso15765ConnectionResult = true;
+    bool is29BitIdResult = true;
+    bool serialPortBaudrateResult = true;
+    bool canSpeedResult = true;
+    bool canSourceAddressResult = true;
+    bool canDestinationAddressResult = true;
+    bool iso15765SourceAddressResult = true;
+    bool iso15765DestinationAddressResult = true;
+
+    bool set_is_iso14230_connection(bool value) override
+    {
+        log(QString("cfg:set_is_iso14230_connection:%1").arg(value ? "1" : "0"));
+        SerialPortActionsDirect::set_is_iso14230_connection(value);
+        return isIso14230ConnectionResult;
+    }
+    bool set_is_can_connection(bool value) override
+    {
+        log(QString("cfg:set_is_can_connection:%1").arg(value ? "1" : "0"));
+        SerialPortActionsDirect::set_is_can_connection(value);
+        return isCanConnectionResult;
+    }
+    bool set_is_iso15765_connection(bool value) override
+    {
+        log(QString("cfg:set_is_iso15765_connection:%1").arg(value ? "1" : "0"));
+        SerialPortActionsDirect::set_is_iso15765_connection(value);
+        return isIso15765ConnectionResult;
+    }
+    bool set_is_29_bit_id(bool value) override
+    {
+        log(QString("cfg:set_is_29_bit_id:%1").arg(value ? "1" : "0"));
+        SerialPortActionsDirect::set_is_29_bit_id(value);
+        return is29BitIdResult;
+    }
+    bool set_serial_port_baudrate(QString value) override
+    {
+        log("cfg:set_serial_port_baudrate:" + value);
+        SerialPortActionsDirect::set_serial_port_baudrate(value);
+        return serialPortBaudrateResult;
+    }
+    bool set_can_speed(QString value) override
+    {
+        log("cfg:set_can_speed:" + value);
+        SerialPortActionsDirect::set_can_speed(value);
+        return canSpeedResult;
+    }
+    bool set_can_source_address(uint32_t value) override
+    {
+        log(QString("cfg:set_can_source_address:%1").arg(value));
+        SerialPortActionsDirect::set_can_source_address(value);
+        return canSourceAddressResult;
+    }
+    bool set_can_destination_address(uint32_t value) override
+    {
+        log(QString("cfg:set_can_destination_address:%1").arg(value));
+        SerialPortActionsDirect::set_can_destination_address(value);
+        return canDestinationAddressResult;
+    }
+    bool set_iso15765_source_address(uint32_t value) override
+    {
+        log(QString("cfg:set_iso15765_source_address:%1").arg(value));
+        SerialPortActionsDirect::set_iso15765_source_address(value);
+        return iso15765SourceAddressResult;
+    }
+    bool set_iso15765_destination_address(uint32_t value) override
+    {
+        log(QString("cfg:set_iso15765_destination_address:%1").arg(value));
+        SerialPortActionsDirect::set_iso15765_destination_address(value);
+        return iso15765DestinationAddressResult;
+    }
+
+    // open_serial_port() success/failure control (step 5c, Task 12): the
+    // pre-existing hardcoded override just below this used to unconditionally
+    // return an empty QString (every pre-existing test that touches
+    // FakeBackend relies on that -- see the comment there), so the default
+    // of an empty string preserves it exactly. Set to a non-empty string to
+    // simulate a successful open.
+    QString openSerialPortResult;
+
     ~FakeBackend() override
     {
         if (destroyed)
@@ -91,7 +187,8 @@ class FakeBackend : public SerialPortActionsDirect
     // other I/O entry points below rather than touch real hardware/J2534.
     QString open_serial_port() override
     {
-        return QString();
+        log("open_serial_port");
+        return openSerialPortResult;
     }
 
     QByteArray read_serial_data(uint16_t timeout) override

@@ -17,7 +17,7 @@ qt_cc_library(
         # the moc'd :definitions target, not the header-only :models split
         # -- is included directly; see task-4-report.md.
         "//src/backend/definitions",
-        "//src/backend/flash/jtag",
+        "//src/platform/desktop/common/flash/legacy:legacy_flash_operations",
         "//src/platform/desktop/common/serial:serial_qt_compat",
         # flash_ecu_subaru_hitachi_m32r_jtag.h includes ui_ecu_operations.h,
         # the generated form owned by the top-level desktop package.

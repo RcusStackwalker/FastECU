@@ -1,5 +1,5 @@
 #include "src/ui/desktop/flash/tcu/flash_tcu_cvt_subaru_mitsu_mh8104_can.h"
-#include "src/backend/flash/tcu/flash_tcu_cvt_subaru_mitsu_mh8104_can_operation.h"
+#include "src/platform/desktop/common/flash/legacy/tcu/flash_tcu_cvt_subaru_mitsu_mh8104_can_operation.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <QDateTime>
