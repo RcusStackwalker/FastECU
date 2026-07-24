@@ -1,0 +1,67 @@
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
+
+package(default_visibility = [
+    "//src/platform:__subpackages__",
+    "//src/ui:__subpackages__",
+    "//tests:__pkg__",
+])
+
+# FlashOperationWorker (the shared QThread base) and the bdm/bootmode/ecu/
+# jtag/tcu legacy Qt operation classes, relocated together from
+# //src/backend/flash (step 5c, Task 15) -- backend owns no thread, and
+# FlashOperationWorker was the last QThread-derived class left there.
+# Every *_operation.h in the five family subdirectories declares Q_OBJECT.
+MOC_HDRS = ["flash_operation_worker.h"] + glob([
+    "bdm/*_operation.h",
+    "bootmode/*_operation.h",
+    "ecu/*_operation.h",
+    "jtag/*_operation.h",
+    "tcu/*_operation.h",
+])
+
+qt_cc_library(
+    name = "legacy_flash_operations",
+    srcs = glob([
+        "*.cpp",
+        "bdm/*.cpp",
+        "bootmode/*.cpp",
+        "ecu/*.cpp",
+        "jtag/*.cpp",
+        "tcu/*.cpp",
+    ]),
+    hdrs = MOC_HDRS,
+    copts = COMMON_COPTS,
+    includes = COMMON_INCLUDES,
+    normal_hdrs = glob(
+        [
+            "*.h",
+            "bdm/*.h",
+            "bootmode/*.h",
+            "ecu/*.h",
+            "jtag/*.h",
+            "tcu/*.h",
+        ],
+        allow_empty = True,
+        exclude = MOC_HDRS,
+    ),
+    deps = QT_DEPS + [
+        "//src/algorithms/protocol/colt:qt_compat",
+        "//src/algorithms/protocol/ssm:qt_compat",
+        # Full :definitions (not :models) because file_actions.h -- part of
+        # the moc'd :definitions target, not the header-only :models split
+        # -- is included directly; see task-4-report.md.
+        "//src/backend/definitions",
+        # flash_utils.h (FlashUtils::) stays behind in backend/flash -- it's
+        # Qt-dependent but not QThread-derived, so it wasn't part of this
+        # move; see src/backend/flash/BUILD.bazel's `flash` target comment.
+        # This also supplies serial_port_actions.h transitively (:flash
+        # deps on serial_qt_compat): the operation classes include it
+        # directly, but this package deliberately does NOT depend on
+        # //src/platform/desktop/common/serial:serial_qt_compat directly --
+        # that target's visibility is a frozen allowlist
+        # (scripts/check-serial-compat-allowlist.py) that Task 15 must not
+        # grow; Task 16 removes the stale bdm/bootmode/ecu/jtag/tcu entries
+        # left over from the pre-move package layout.
+        "//src/backend/flash",
+    ],
+)

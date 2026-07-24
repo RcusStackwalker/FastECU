@@ -59,8 +59,6 @@ fastecu_portable_gtest(
     deps = [":flash_validation"],
 )
 
-MOC_HDRS = ["flash_operation_worker.h"]
-
 # Portable files added alongside the legacy Qt sources by step 5c.
 # Excluded from the globs below so the legacy `flash` target keeps building
 # exactly the legacy operation files it always has -- these portable
@@ -119,18 +117,25 @@ fastecu_portable_gtest(
     deps = [":flash_executor"],
 )
 
+# FlashOperationWorker and the bdm/bootmode/ecu/jtag/tcu legacy Qt operation
+# classes moved to //src/platform/desktop/common/flash/legacy (step 5c, Task
+# 15) -- backend owns no thread. What's left here is flash_utils.{h,cpp}: Qt
+# types (QString/QByteArray) and SerialPortActions plumbing, but no QThread,
+# so it isn't in scope for that move and keeps living in backend/flash under
+# the same `flash` label so its existing consumers (backend/definitions,
+# ui/desktop, ui/desktop/flash/ecu, tests/test_flash_utils) resolve unchanged.
 qt_cc_library(
     name = "flash",
     srcs = glob(
         ["*.cpp"],
         exclude = PORTABLE_SRCS + PORTABLE_TEST_SRCS,
     ),
-    hdrs = MOC_HDRS,
+    hdrs = [],
     copts = COMMON_COPTS,
     includes = COMMON_INCLUDES,
     normal_hdrs = glob(
         ["*.h"],
-        exclude = MOC_HDRS + PORTABLE_HDRS,
+        exclude = PORTABLE_HDRS,
     ),
     deps = QT_DEPS + [
         "//src/algorithms/protocol",

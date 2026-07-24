@@ -62,7 +62,7 @@ Result<DensoSecurityVariant> security_for_flash_method(const std::string& flash_
 // "<kernel_addr>0xFFFF6004</kernel_addr>" for
 // sub_ecu_eeprom_denso_sh7055_kline), and every legacy call site parses it
 // the same way -- QString::toUInt(&ok, 16) -- e.g.
-// src/backend/flash/ecu/flash_ecu_subaru_denso_sh705x_kline_operation.cpp:78,
+// src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh705x_kline_operation.cpp:78,
 // flash_ecu_subaru_denso_sh7058_can_operation.cpp:78, and five more
 // sibling operation classes. Qt's QString::toUInt accepts the "0x"/"0X"
 // prefix when base is 16, so this matches both prefixed and bare-hex-digit

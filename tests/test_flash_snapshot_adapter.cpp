@@ -40,7 +40,7 @@ TEST(LegacyFlashSnapshotAdapterTest, ValidSnapshotProducesAKlinePlan)
     // resources/shared/config/protocols.cfg:922
     // <kernel_addr>0xFFFF6004</kernel_addr> for sub_ecu_eeprom_denso_sh7055_kline,
     // parsed via QString::toUInt(&ok, 16) everywhere in the legacy code (e.g.
-    // src/backend/flash/ecu/flash_ecu_subaru_denso_sh705x_kline_operation.cpp:78).
+    // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh705x_kline_operation.cpp:78).
     FileActions::EcuCalDefStructure ecu_cal_def;
     ecu_cal_def.McuType = "SH7055";
     ecu_cal_def.FlashMethod = "sub_ecu_eeprom_denso_sh7055_kline";

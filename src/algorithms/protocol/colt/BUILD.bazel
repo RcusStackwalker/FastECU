@@ -41,7 +41,7 @@ cc_library(
 
 # TRANSITIONAL Qt shim: QByteArray/QVector overloads delegating to :colt, for
 # callers not yet converted (src/backend/protocol/mitsu_colt_can_cdbg_driver
-# and src/backend/flash/ecu/flash_ecu_mitsu_m32r_can_operation).
+# and src/platform/desktop/common/flash/legacy/ecu/flash_ecu_mitsu_m32r_can_operation).
 cc_library(
     name = "qt_compat",
     hdrs = ["qt_colt.h"],

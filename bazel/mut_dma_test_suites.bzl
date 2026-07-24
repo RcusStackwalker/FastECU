@@ -185,13 +185,14 @@ SUITE_DEPS = {
     "test_ssm_logging_protocol": ["//src/backend/logging/protocols:protocols"],
     "test_mut_dma_logging_protocol": ["//src/backend/logging/protocols:protocols"],
     "test_cdbg_logging_protocol": ["//src/backend/logging/protocols:protocols"],
-    "test_flash_operation_worker": ["//src/backend/flash"],
+    "test_flash_operation_worker": ["//src/platform/desktop/common/flash/legacy:legacy_flash_operations"],
     # test_flash_ecu_mitsu_m32r_can_operation.cpp includes qt_colt.h directly
     # (Task 8) for QByteArray-typed Colt helper wrappers, so it needs the
-    # colt Qt shim as a real edge in addition to backend/flash/ecu.
+    # colt Qt shim as a real edge in addition to legacy_flash_operations
+    # (relocated from backend/flash/ecu in step 5c, Task 15).
     "test_flash_ecu_mitsu_m32r_can_operation": [
         "//src/algorithms/protocol/colt:qt_compat",
-        "//src/backend/flash/ecu",
+        "//src/platform/desktop/common/flash/legacy:legacy_flash_operations",
     ],
     "test_flash_utils": [
         "//src/backend/flash",

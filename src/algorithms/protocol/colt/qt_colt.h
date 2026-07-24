@@ -11,7 +11,7 @@
 // portable bytes::-based Colt protocol functions in mitsu_colt_can_protocol,
 // mitsu_colt_can_vendor_ext_protocol, and mitsu_colt_can_cdbg_protocol, for
 // callers not yet converted (src/backend/protocol/mitsu_colt_can_cdbg_driver
-// and src/backend/flash/ecu/flash_ecu_mitsu_m32r_can_operation). C++ allows
+// and src/platform/desktop/common/flash/legacy/ecu/flash_ecu_mitsu_m32r_can_operation). C++ allows
 // overloading free functions across headers by parameter type, so
 // seedKey/checksum/buildTransferDataFrames/bytesToSeed/
 // batchChannelsIntoFrames/buildFrameInitFrames/decodeFrame keep their names
