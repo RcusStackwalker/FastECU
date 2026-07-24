@@ -1,7 +1,10 @@
 load("//bazel:qt_targets.bzl", "qt_resource_via_qrc")
 
-# Only //src/backend/definitions consumes these resources today.
-package(default_visibility = ["//src/backend/definitions:__pkg__"])
+# //src/backend/definitions and tests consume these resources.
+package(default_visibility = [
+    "//src/backend/definitions:__pkg__",
+    "//tests:__pkg__",
+])
 
 # tests/test_protocols_cfg_eeprom_capabilities.cpp pins protocols.cfg's
 # write=no/test_write=no capability flags for the Denso SH705x EEPROM
