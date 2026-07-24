@@ -155,6 +155,19 @@ qt_cc_test(
     ],
 )
 
+qt_cc_test(
+    name = "test_legacy_config_adapter",
+    srcs = ["test_legacy_config_adapter.cpp"],
+    copts = COMMON_COPTS + ["-I."],
+    linkopts = COMMON_LINKOPTS,
+    deps = QT_DEPS + [
+        "//src/backend/config:legacy_config_adapter",
+        "//src/backend/definitions",
+        "//src/backend/ports",
+        "@googletest//:gtest",
+    ],
+)
+
 qt_cpp_moc_headers(
     name = "serial_crash_cpp_mocs",
     srcs = test_cpp_moc_srcs(SERIAL_CRASH_TESTS_COMMON_SRCS),

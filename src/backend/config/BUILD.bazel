@@ -1,7 +1,7 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
-load("//bazel:qt_targets.bzl", "PORTABLE_COPTS")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "PORTABLE_COPTS", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -91,5 +91,28 @@ cc_test(
     deps = [
         ":protocol_catalog",
         "@googletest//:gtest_main",
+    ],
+)
+
+# Qt-linked (FileActions::ConfigValuesStructure is Qt-typed). Explicit srcs so
+# this neither collides with nor is swept into
+# //src/backend/definitions:definitions's glob. legacy_config_adapter.h
+# declares no QObject/Q_OBJECT, so it goes through normal_hdrs rather than
+# hdrs (which would run it through moc unconditionally) -- same convention as
+# src/platform/desktop/common/transport/BUILD.bazel's flash_transports.
+qt_cc_library(
+    name = "legacy_config_adapter",
+    srcs = ["legacy_config_adapter.cpp"],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    includes = COMMON_INCLUDES,
+    normal_hdrs = ["legacy_config_adapter.h"],
+    deps = QT_DEPS + [
+        ":app_config",
+        ":config_paths",
+        ":protocol_catalog",
+        ":provisioning",
+        "//src/backend/definitions",
+        "//src/backend/ports",
     ],
 )
