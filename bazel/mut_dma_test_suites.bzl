@@ -31,6 +31,7 @@ MUT_DMA_TEST_SUITES = [
     "test_flash_ecu_mitsu_m32r_can_operation",
     "test_flash_utils",
     "test_flash_worker",
+    "test_flash_event_adapter",
     "test_desktop_kline_flash_transport",
     "test_desktop_can_flash_transport",
     "test_ssm_protocol",
@@ -207,6 +208,11 @@ SUITE_DEPS = {
         # SsmProtocol::checksum() directly.
         "//src/algorithms/protocol/ssm",
         "//tests:scripted_kline_flash_transport",
+    ],
+    # Independently testable without constructing a FlashWorker/QThread at
+    # all -- see flash_event_adapter's own doc comment for why.
+    "test_flash_event_adapter": [
+        "//src/platform/desktop/common/flash:flash_event_adapter",
     ],
     # Both suites directly include serial_port_actions.h (for the FakeBackend
     # harness's SerialPortActions construction) as well as their own

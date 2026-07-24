@@ -1,34 +1,11 @@
 #include "src/platform/desktop/common/flash/flash_worker.h"
 
+#include "src/platform/desktop/common/flash/flash_event_adapter.h"
+
 namespace fastecu::flash
 {
 namespace
 {
-
-class QtEventSinkForwarder final : public IEventSink
-{
-  public:
-    explicit QtEventSinkForwarder(FlashWorker& worker) : worker_(worker)
-    {
-    }
-    void log(LogLevel level, std::string_view message) override
-    {
-        emit worker_.logEvent(static_cast<int>(level),
-                              QString::fromUtf8(message.data(), static_cast<qsizetype>(message.size())));
-    }
-    void progress(int done, int total) override
-    {
-        emit worker_.progressChanged(done, total);
-    }
-    void notice(std::string_view message) override
-    {
-        emit worker_.logEvent(static_cast<int>(LogLevel::Info),
-                              QString::fromUtf8(message.data(), static_cast<qsizetype>(message.size())));
-    }
-
-  private:
-    FlashWorker& worker_;
-};
 
 // Bounded, not absent: requestStop() (tripping cancellation_ and calling
 // transport_->request_unblock()) is what actually makes run() return
@@ -64,7 +41,25 @@ void FlashWorker::requestStop()
 
 void FlashWorker::run()
 {
-    QtEventSinkForwarder events(*this);
+    // events is constructed here, so its thread affinity is this worker
+    // thread. FlashWorker (this), however, is a QThread subclass -- and a
+    // QThread object's own thread() is the thread that CONSTRUCTED it (the
+    // caller of `new FlashWorker(...)`/start()), not the thread run()
+    // executes on; QThread never moves itself onto the thread it manages.
+    // So `this` and `events` are NOT on the same thread here, and plain
+    // Qt::AutoConnection would resolve to a QueuedConnection (deferring the
+    // re-emission of FlashWorker::logEvent/progressChanged onto whatever
+    // thread constructed this FlashWorker, instead of firing synchronously
+    // from run() the way the previous direct
+    // `emit worker_.logEvent(...)` did). Forcing Qt::DirectConnection here
+    // reproduces that prior synchronous-on-worker-thread behavior exactly,
+    // so this is a pure wiring change with no timing/ordering difference --
+    // not an accidental switch to queued delivery.
+    QtEventSinkAdapter events;
+    connect(&events, &QtEventSinkAdapter::logEvent, this, &FlashWorker::logEvent,
+            Qt::DirectConnection);
+    connect(&events, &QtEventSinkAdapter::progressChanged, this, &FlashWorker::progressChanged,
+            Qt::DirectConnection);
 
     Result<FlashExecutionResult> result =
         executor_->execute(plan_, *transport_, *clock_, cancellation_.token(), events);
