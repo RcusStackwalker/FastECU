@@ -213,6 +213,26 @@ TEST(ProvisionConfigDirectories, PrunesSyslogsKeepingNewest20)
         EXPECT_TRUE(fs.exists(paths.syslog_files_directory + "log" + std::to_string(i) + ".txt"));
 }
 
+TEST(ProvisionConfigDirectories, BundleCopyFailurePropagatesRatherThanBeingSwallowed)
+{
+    FakeFileSystem fs;
+    FakeResourceBundle bundle;
+    RecordingEventSink events;
+    ConfigPaths paths = test_paths();
+    // A bundled kernel file nested under a subdirectory that provisioning
+    // never creates. Its destination's parent directory doesn't exist, so
+    // copy_file fails for a genuine I/O-style reason -- not the "already
+    // exists" case the fs.exists(target) pre-check already carves out as
+    // non-fatal -- and that failure must propagate, not be swallowed.
+    bundle.bundles["kernels"]["missing_subdir/k2.bin"] = {3};
+    fs.files["kernels/missing_subdir/k2.bin"] = {3};
+
+    auto result = provision_config_directories(paths, fs, bundle, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+}
+
 TEST(ProvisionConfigDirectories, MigratesPreviousVersionConfigFileForward)
 {
     FakeFileSystem fs;

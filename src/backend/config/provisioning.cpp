@@ -21,12 +21,12 @@ Status ensure_directory(IFileSystem& fs, const std::string& path, IEventSink& ev
     return {};
 }
 
-void copy_bundle_if_absent(IFileSystem& fs, IResourceBundle& bundle, const std::string& bundle_id,
-                           const std::string& target_directory, IEventSink& events)
+Status copy_bundle_if_absent(IFileSystem& fs, IResourceBundle& bundle, const std::string& bundle_id,
+                             const std::string& target_directory, IEventSink& events)
 {
     Result<std::vector<std::string>> names = bundle.list(bundle_id);
     if (!names.has_value())
-        return;
+        return {};
     for (const std::string& name : *names)
     {
         const std::string target = target_directory + name;
@@ -39,8 +39,20 @@ void copy_bundle_if_absent(IFileSystem& fs, IResourceBundle& bundle, const std::
         // this loop asks the filesystem port to copy from a bundle-resolved
         // source name, matching how the legacy code copied from the ":/..."
         // resource path directly with QFile::copy.
-        fs.copy_file(bundle_id + "/" + name, target, false);
+        //
+        // The fs.exists(target) check above already carved out "already
+        // provisioned" (the one non-fatal case for this step), so any
+        // failure copy_file returns here is a genuine I/O error and must
+        // stop the sequence, per the plan's global create_directory/
+        // copy_file/remove_file failure contract.
+        Status result = fs.copy_file(bundle_id + "/" + name, target, false);
+        if (!result.has_value())
+        {
+            events.log(LogLevel::Error, "Unable to provision default file: " + target);
+            return result;
+        }
     }
+    return {};
 }
 
 } // namespace
@@ -104,8 +116,12 @@ Status provision_config_directories(const ConfigPaths& paths, IFileSystem& fs,
             return r;
     }
 
-    copy_bundle_if_absent(fs, resource_bundle, "config", paths.config_files_directory, events);
-    copy_bundle_if_absent(fs, resource_bundle, "kernels", paths.kernel_files_directory, events);
+    if (Status r = copy_bundle_if_absent(fs, resource_bundle, "config", paths.config_files_directory, events);
+        !r.has_value())
+        return r;
+    if (Status r = copy_bundle_if_absent(fs, resource_bundle, "kernels", paths.kernel_files_directory, events);
+        !r.has_value())
+        return r;
 
     Result<std::vector<DirEntry>> syslogs = fs.list_directory(paths.syslog_files_directory);
     if (syslogs.has_value())
