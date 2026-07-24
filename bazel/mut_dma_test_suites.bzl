@@ -35,6 +35,7 @@ MUT_DMA_TEST_SUITES = [
     "test_desktop_kline_flash_transport",
     "test_desktop_can_flash_transport",
     "test_eeprom_ecu_subaru_denso_sh705x_kline_dialog",
+    "test_eeprom_ecu_subaru_denso_sh705x_can_dialog",
     "test_ssm_protocol",
     "test_bytes",
     "test_expression_evaluator",
@@ -113,6 +114,7 @@ _NEEDS_OFFSCREEN_QT_PLATFORM = [
     "test_checksum_results",
     "test_ecuflash_definition_parsing",
     "test_eeprom_ecu_subaru_denso_sh705x_kline_dialog",
+    "test_eeprom_ecu_subaru_denso_sh705x_can_dialog",
     "test_file_actions_parsing",
     "test_flash_ecu_mitsu_m32r_can_operation",
     "test_flash_operation_worker",
@@ -233,6 +235,17 @@ SUITE_DEPS = {
     # injected through its protected test seams; no real SerialPortActions,
     # QtFileRepository, or hardware is touched.
     "test_eeprom_ecu_subaru_denso_sh705x_kline_dialog": [
+        "//src/backend/definitions",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
+        "//src/backend/ports",
+        "//src/platform/desktop/common/flash:flash_worker",
+        "//src/ui/desktop/flash/eeprom",
+    ],
+    # CAN sibling of the K-Line suite above -- same rationale (scripted
+    # IFlashExecutor/IFlashTransport doubles through the dialog's protected
+    # test seams; no real SerialPortActions, QtFileRepository, or hardware).
+    "test_eeprom_ecu_subaru_denso_sh705x_can_dialog": [
         "//src/backend/definitions",
         "//src/backend/flash:flash_executor",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
