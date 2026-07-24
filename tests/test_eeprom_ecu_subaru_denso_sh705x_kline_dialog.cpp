@@ -246,6 +246,49 @@ class TestEepromKlineDialog : public QObject
         QCOMPARE(dialog.showFailureDialogCallCount, 1);
         QCOMPARE(static_cast<int>(dialog.lastFailureKind), static_cast<int>(errorKind));
     }
+
+    // Regression test (Task 17 review finding): this dialog's buildPlan()
+    // unconditionally calls adapter.build_read_plan() -- it has no write
+    // path at all. MainWindow dispatches this dialog by protocol name only,
+    // and cmd_type flows through unfiltered from the generic top-level menu
+    // commands, so a user who selects "Write ROM to ECU" (cmd_type "write")
+    // or "Test write ROM to ECU" (cmd_type "test_write") on this protocol
+    // must never reach a real EEPROM read -- the dialog must reject before
+    // buildPlan()/makeWorker() and must never touch FullRomData.
+    void nonReadCmdTypeIsRejectedBeforeBuildingAnyPlanOrWorker_data()
+    {
+        QTest::addColumn<QString>("cmdType");
+        QTest::newRow("write") << QString("write");
+        QTest::newRow("test_write") << QString("test_write");
+    }
+
+    void nonReadCmdTypeIsRejectedBeforeBuildingAnyPlanOrWorker()
+    {
+        QFETCH(QString, cmdType);
+
+        FileActions::EcuCalDefStructure ecuCalDef;
+        TestableKlineDialog dialog(nullptr, &ecuCalDef, cmdType);
+        // A successful read result, scripted so that if the guard were
+        // absent (or bypassed) the attempt would succeed and the follow-up
+        // Save confirm() would overwrite FullRomData -- proving the guard,
+        // not an unrelated scripted failure, is what stops this.
+        const std::vector<std::uint8_t> readBytes{0xDE, 0xAD, 0xBE, 0xEF};
+        dialog.executorResult =
+            FlashExecutionResult{.operation = FlashOperation::Read, .read_bytes = readBytes};
+        // Pre-flight Ok, then Save if a preview dialog were ever (wrongly)
+        // reached.
+        dialog.confirmAnswers = {QMessageBox::Ok, QMessageBox::Save};
+
+        dialog.run();
+
+        QVERIFY(!dialog.makeWorkerCalled);
+        QCOMPARE(dialog.planRequestedModes.size(), std::size_t(0));
+        QCOMPARE(dialog.seenModes.size(), std::size_t(0));
+        QCOMPARE(dialog.showFailureDialogCallCount, 1);
+        QCOMPARE(static_cast<int>(dialog.lastFailureKind),
+                 static_cast<int>(ErrorKind::Unsupported));
+        QVERIFY(ecuCalDef.FullRomData.isEmpty());
+    }
 };
 
 int run_test_eeprom_ecu_subaru_denso_sh705x_kline_dialog(int argc, char **argv)

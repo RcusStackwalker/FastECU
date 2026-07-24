@@ -60,6 +60,39 @@ void EepromEcuSubaruDensoSH705xKline::run()
     this->show();
     set_progressbar_value(0);
 
+    if (cmd_type_ != "read")
+    {
+        // This dialog only ever builds an EEPROM *read* plan (buildPlan()
+        // calls adapter.build_read_plan() unconditionally) -- MainWindow
+        // dispatches this dialog by protocol name only, and cmd_type flows
+        // through unfiltered from the generic top-level menu commands
+        // (menu_actions.cpp's start_ecu_operations("write"/"test_write")),
+        // so selecting "Write ROM to ECU" on this protocol is a real,
+        // reachable path here, not a theoretical one. Without this guard it
+        // would silently perform a real EEPROM read while the dialog is
+        // titled "Write ROM ... to ECU", and a subsequent Save could
+        // overwrite ecuCalDef_->FullRomData with the read bytes. Reject
+        // before building any plan or starting a worker, matching the
+        // InvalidConfig/Unsupported -> preflight message, no worker start
+        // rule.
+        //
+        // Deliberately checked here rather than inside runAttempt(): the
+        // very first runAttempt(Mode2) call below runs synchronously,
+        // *before* the QEventLoop below has entered exec() -- and
+        // QEventLoop::exec() unconditionally clears any pending quit()
+        // requested before it starts (Qt resets its exit flag on entry), so
+        // a close() (which requests loop_->quit() via closeEvent()) issued
+        // from inside that first synchronous call is silently dropped and
+        // loop.exec() blocks forever. Rejecting here, before the loop is
+        // even constructed, avoids that hazard entirely -- exactly like the
+        // ret != Ok decline path just below.
+        showFailureDialog(fastecu::ErrorKind::Unsupported,
+                          QString("cmd_type '%1' is not supported by this EEPROM read dialog")
+                              .arg(cmd_type_));
+        close();
+        return;
+    }
+
     const int ret = confirm(
         tr("Connecting to ECU"),
         tr("Downloading EEPROM content. There is 3 different option depends on "
