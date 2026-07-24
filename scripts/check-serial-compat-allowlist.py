@@ -22,12 +22,6 @@ BUILD = "src/platform/desktop/common/serial/BUILD.bazel"
 FROZEN = {
     "//src/platform/desktop/common/remote_utility:__pkg__",
     "//src/backend/flash:__pkg__",
-    "//src/backend/flash/bdm:__pkg__",
-    "//src/backend/flash/bootmode:__pkg__",
-    "//src/backend/flash/ecu:__pkg__",
-    "//src/backend/flash/eeprom:__pkg__",
-    "//src/backend/flash/jtag:__pkg__",
-    "//src/backend/flash/tcu:__pkg__",
     "//src/backend/logging/protocols:__pkg__",
     "//src/platform/desktop/common/serial:__pkg__",
     "//src/platform/desktop/common/transport:__pkg__",
