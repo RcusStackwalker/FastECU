@@ -1,4 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 load("//bazel:qt_targets.bzl", "PORTABLE_COPTS")
 
@@ -61,4 +62,34 @@ fastecu_portable_gtest(
     name = "app_config_test",
     srcs = ["app_config_test.cpp"],
     deps = [":app_config"],
+)
+
+cc_library(
+    name = "protocol_catalog",
+    srcs = ["protocol_catalog.cpp"],
+    hdrs = ["protocol_catalog.h"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":config_paths",
+        "//src/backend/ports",
+        "@pugixml",
+    ],
+)
+
+# Not fastecu_portable_gtest: that macro has no `data` parameter, and this
+# target needs one to depend on the real, checked-in protocols.cfg (see
+# tests/BUILD.bazel's test_protocols_cfg_eeprom_capabilities for the same
+# precedent -- a raw cc_test instead of the macro).
+cc_test(
+    name = "protocol_catalog_test",
+    srcs = ["protocol_catalog_test.cpp"],
+    copts = PORTABLE_COPTS,
+    data = ["//resources/shared:config/protocols.cfg"],
+    env = {
+        "PROTOCOLS_CFG_PATH": "$(location //resources/shared:config/protocols.cfg)",
+    },
+    deps = [
+        ":protocol_catalog",
+        "@googletest//:gtest_main",
+    ],
 )
