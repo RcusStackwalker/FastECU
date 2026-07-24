@@ -79,3 +79,14 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_test(
+    name = "resource_bundle_test",
+    size = "small",
+    srcs = ["resource_bundle_test.cpp"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":ports",
+        "@googletest//:gtest_main",
+    ],
+)
