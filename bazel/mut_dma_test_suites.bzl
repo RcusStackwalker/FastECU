@@ -30,6 +30,7 @@ MUT_DMA_TEST_SUITES = [
     "test_flash_operation_worker",
     "test_flash_ecu_mitsu_m32r_can_operation",
     "test_flash_utils",
+    "test_flash_worker",
     "test_ssm_protocol",
     "test_bytes",
     "test_expression_evaluator",
@@ -194,6 +195,16 @@ SUITE_DEPS = {
         # test_flash_utils.cpp includes serial_port_actions.h directly;
         # this package is on the serial_qt_compat allowlist in Task 8.
         "//src/platform/desktop/common/serial:serial_qt_compat",
+    ],
+    "test_flash_worker": [
+        "//src/platform/desktop/common/flash:flash_worker",
+        "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
+        "//src/backend/flash/eeprom:denso_sh705x_eeprom_kline",
+        # test_flash_worker.cpp reconstructs request_kernel_id_frame()'s
+        # exact bytes to script the transport's first write, requiring
+        # SsmProtocol::checksum() directly.
+        "//src/algorithms/protocol/ssm",
+        "//tests:scripted_kline_flash_transport",
     ],
     "test_ecuflash_definition_parsing": ["//src/backend/definitions"],
     "test_file_actions_parsing": ["//src/backend/definitions"],

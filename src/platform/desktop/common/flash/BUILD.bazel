@@ -1,0 +1,20 @@
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
+
+package(default_visibility = [
+    "//src/platform:__subpackages__",
+    "//src/ui:__subpackages__",
+    "//tests:__pkg__",
+])
+
+qt_cc_library(
+    name = "flash_worker",
+    srcs = ["flash_worker.cpp"],
+    hdrs = ["flash_worker.h"],
+    copts = COMMON_COPTS,
+    includes = COMMON_INCLUDES,
+    deps = QT_DEPS + [
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/ports",
+    ],
+)
