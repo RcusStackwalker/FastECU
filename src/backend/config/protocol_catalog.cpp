@@ -35,8 +35,14 @@ Result<ProtocolCatalog> load_protocol_catalog(const ConfigPaths& paths, IFileRep
     for (pugi::xml_node protocol : protocols.children("protocol"))
     {
         ProtocolEntry entry;
-        entry.protocol_name = protocol.attribute("name").value();
-        entry.alias = protocol.attribute("alias").value();
+        // Legacy read_protocols_file (file_actions.cpp:1146/1148) reads
+        // these via Qt's three-arg QDomElement::attribute(name, default),
+        // defaulting to the literal strings "No name"/"No alias" when the
+        // attribute is absent -- not empty string. 42 of the 61 real
+        // shipped <protocol> elements omit alias, so this default is hit in
+        // the majority of real entries; match it exactly.
+        entry.protocol_name = protocol.attribute("name").as_string("No name");
+        entry.alias = protocol.attribute("alias").as_string("No alias");
         entry.ecu = text_or_empty(protocol, "ecu");
         entry.mcu = text_or_empty(protocol, "mcu");
         entry.mode = text_or_empty(protocol, "mode");

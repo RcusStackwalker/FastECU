@@ -20,8 +20,11 @@ namespace fastecu::config
 // ProtocolCatalog, scoped to <protocols>/<protocol> only).
 struct ProtocolEntry
 {
-    std::string protocol_name; // <protocol name="...">
-    std::string alias;         // <protocol alias="...">, empty if absent
+    std::string protocol_name; // <protocol name="...">, "No name" if absent
+    std::string alias;         // <protocol alias="...">, "No alias" if absent
+                               // (matches legacy read_protocols_file's Qt
+                               // QDomElement::attribute(name, default)
+                               // defaulting -- not empty string)
     std::string ecu;
     std::string mcu;
     std::string mode;

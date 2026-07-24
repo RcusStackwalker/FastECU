@@ -123,7 +123,7 @@ TEST(LoadProtocolCatalog, ParsesEveryFieldOfFirstProtocol)
     EXPECT_EQ(first.description, "Subaru Forester/Impreza/Legacy SH7055 DensoCAN bootloader");
 }
 
-TEST(LoadProtocolCatalog, MissingOptionalFieldsDefaultToEmptyOrFalse)
+TEST(LoadProtocolCatalog, MissingOptionalFieldsDefaultToLegacyDefaults)
 {
     InMemoryFileRepository repo;
     ConfigPaths paths = test_paths();
@@ -133,8 +133,12 @@ TEST(LoadProtocolCatalog, MissingOptionalFieldsDefaultToEmptyOrFalse)
 
     ASSERT_TRUE(catalog.has_value());
     const auto& second = (*catalog)[1];
-    EXPECT_EQ(second.alias, "");       // no alias attribute on this <protocol>
-    EXPECT_FALSE(second.ecu_id_ascii); // no <ecu_id_ascii> element at all
+    // Matches legacy read_protocols_file's Qt
+    // QDomElement::attribute(name, default) defaulting (file_actions.cpp:
+    // 1146/1148): absent name/alias attributes read as the literal strings
+    // "No name"/"No alias", not empty string.
+    EXPECT_EQ(second.alias, "No alias"); // no alias attribute on this <protocol>
+    EXPECT_FALSE(second.ecu_id_ascii);   // no <ecu_id_ascii> element at all
     EXPECT_EQ(second.ecu_id_addr, "");
 }
 
