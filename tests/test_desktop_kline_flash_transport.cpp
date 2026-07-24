@@ -483,6 +483,38 @@ class TestDesktopKlineFlashTransport : public QObject
         const auto readResult = transport.read(50, cancellation);
         QVERIFY(!readResult.has_value());
         QCOMPARE(readResult.error().kind, ErrorKind::Disconnected);
+
+        const auto headerResult = transport.set_add_iso14230_header(true);
+        QVERIFY(!headerResult.has_value());
+        QCOMPARE(headerResult.error().kind, ErrorKind::Disconnected);
+    }
+
+    // set_add_iso14230_header() forwards straight to
+    // SerialPortActions::set_add_iso14230_header() -- the seam
+    // DensoSh705xEepromKlineExecutor::execute() uses to turn the driver's
+    // auto-header on for read_mem()'s raw SID_DUMP requests and back off for
+    // connect_bootloader()/upload_kernel()'s self-framed exchanges. Verified
+    // through the real (non-owning) SerialPortActions, not just a call log,
+    // so this actually proves the flag the driver reads changes.
+    void setAddIso14230HeaderForwardsToSerialAndSucceeds()
+    {
+        FakeBackend *fake = nullptr;
+        auto serial = std::make_unique<SerialPortActions>(
+            "", "", nullptr, nullptr,
+            [&fake]() -> SerialBackend *
+            { fake = new FakeBackend(); return fake; });
+        serial->set_add_ssm_header(false);                  // forces backend creation
+        QCOMPARE(serial->get_add_iso14230_header(), false); // default
+
+        DesktopKlineFlashTransport transport(serial.get()); // non-owning: query `serial` after
+
+        const auto onResult = transport.set_add_iso14230_header(true);
+        QVERIFY(onResult.has_value());
+        QCOMPARE(serial->get_add_iso14230_header(), true);
+
+        const auto offResult = transport.set_add_iso14230_header(false);
+        QVERIFY(offResult.has_value());
+        QCOMPARE(serial->get_add_iso14230_header(), false);
     }
 
     // write() must be skipped once request_unblock() has fired, exactly

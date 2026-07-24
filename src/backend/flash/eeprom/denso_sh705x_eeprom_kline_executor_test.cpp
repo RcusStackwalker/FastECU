@@ -649,6 +649,99 @@ TEST(DensoSh705xEepromKlineExecutorTest, OriginalErrorWinsOverCloseFailure)
     EXPECT_EQ(transport.close_call_count_, 1);
 }
 
+// Transport-seam regression test for the ISO14230 auto-header bug found in
+// final whole-branch review: the legacy, now-deleted
+// EepromEcuSubaruDensoSH705xKlineOperation::read_mem() called
+// serial->set_add_iso14230_header(true) before its raw SID_DUMP request
+// (connect/upload self-frame via SsmProtocol::addHeader() and need it OFF).
+// The golden-trace equivalence tests above only assert bytes handed to
+// transport.write()/read() -- they cannot see this, because the header-add
+// happens one layer below that seam, inside the real serial driver. This
+// test asserts the actual set_add_iso14230_header() call sequence relative
+// to connect/upload/read, which is the only way to prove the seam exists and
+// is used correctly.
+TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeIsOffForBootloaderOnForReadThenResetToOff)
+{
+    auto plan = valid_kline_plan(EepromReadMode::Mode2);
+    ASSERT_TRUE(plan.has_value());
+
+    ScriptedKlineFlashTransport transport;
+    const bytes::Bytes seed{0x11, 0x22, 0x33, 0x44};
+    enqueueFullBootloaderAndKernelUpload(transport, seed, kernelFixtureBytes(), kKernelStartAddr);
+    transport.expectWrite(sidDumpRequestForSh7055(2));
+    transport.queueRead(eepromPayload280Bytes());
+
+    DensoSh705xEepromKlineExecutor executor;
+    FakeClock clock;
+    NeverCancelled cancellation;
+    RecordingEventSink events;
+
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_TRUE(result.has_value()) << to_string(result.error().kind) << ": " << result.error().detail;
+    ASSERT_TRUE(result->read_bytes.has_value());
+    EXPECT_EQ(*result->read_bytes, expectedDecodedEeprom256Bytes());
+    // false before connect_bootloader()/upload_kernel() (self-framed via
+    // SsmProtocol::addHeader(), must not double-frame), true right before
+    // read_mem()'s raw SID_DUMP requests, false again afterward so a shared,
+    // session-lifetime serial instance isn't left dirtied for the next
+    // unrelated operation.
+    EXPECT_EQ(transport.header_mode_calls_, (std::vector<bool>{false, true, false}));
+}
+
+// Same assertion on the "kernel already running" path (connect_bootloader()
+// short-circuits, upload_kernel() is skipped entirely) -- proves the OFF ->
+// ON -> OFF sequence doesn't depend on the upload phase actually running.
+TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeSequenceHoldsWhenKernelAlreadyRunning)
+{
+    auto plan = valid_kline_plan(EepromReadMode::Mode2);
+    ASSERT_TRUE(plan.has_value());
+
+    ScriptedKlineFlashTransport transport;
+    transport.expectWrite(requestKernelIdRequest());
+    transport.queueRead(kernelAliveResponse());
+    transport.expectWrite(sidDumpRequestForSh7055(2));
+    transport.queueRead(eepromPayload280Bytes());
+
+    DensoSh705xEepromKlineExecutor executor;
+    FakeClock clock;
+    NeverCancelled cancellation;
+    RecordingEventSink events;
+
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_TRUE(result.has_value()) << to_string(result.error().kind) << ": " << result.error().detail;
+    EXPECT_EQ(transport.header_mode_calls_, (std::vector<bool>{false, true, false}));
+}
+
+// Proves the header is still forced back OFF even when read_mem() itself
+// fails (e.g. a hard transport error mid-read) -- the reset is unconditional
+// on the result, not just on the happy path, since a stuck `true` on a
+// shared, session-lifetime serial instance would corrupt every subsequent
+// unrelated K-Line operation the user runs.
+TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeResetToOffEvenWhenReadMemFails)
+{
+    auto plan = valid_kline_plan(EepromReadMode::Mode2);
+    ASSERT_TRUE(plan.has_value());
+
+    ScriptedKlineFlashTransport transport;
+    transport.expectWrite(requestKernelIdRequest());
+    transport.queueRead(kernelAliveResponse());
+    transport.expectWrite(sidDumpRequestForSh7055(2));
+    transport.queue_error(ErrorKind::Disconnected, "port dropped mid-read");
+
+    DensoSh705xEepromKlineExecutor executor;
+    FakeClock clock;
+    NeverCancelled cancellation;
+    RecordingEventSink events;
+
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
+    EXPECT_EQ(transport.header_mode_calls_, (std::vector<bool>{false, true, false}));
+}
+
 TEST(DensoSh705xEepromKlineExecutorTest, WrongConcreteTransportTypeReturnsInvalidConfigWithNoIo)
 {
     auto plan = valid_kline_plan(EepromReadMode::Mode2);

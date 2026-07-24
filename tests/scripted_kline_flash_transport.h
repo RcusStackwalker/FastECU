@@ -65,6 +65,11 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
         open_ = false;
         return close_result_;
     }
+    Status set_add_iso14230_header(bool add_header) override
+    {
+        header_mode_calls_.push_back(add_header);
+        return set_add_iso14230_header_result_;
+    }
     void request_unblock() noexcept override
     {
         std::lock_guard lock(mutex_);
@@ -118,6 +123,13 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     Status open_result_;
     Status close_result_;
     std::optional<KlineConfig> last_config_;
+
+    // Records every set_add_iso14230_header() call in order (true == "add
+    // header", false == "don't") so tests can assert the exact transitions
+    // relative to connect/upload/read -- see denso_sh705x_eeprom_kline_
+    // executor.cpp's execute() for the call sites this proves.
+    std::vector<bool> header_mode_calls_;
+    Status set_add_iso14230_header_result_;
 
   private:
     std::vector<bytes::Bytes> expected_;

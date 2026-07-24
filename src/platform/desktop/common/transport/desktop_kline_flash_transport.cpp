@@ -111,6 +111,36 @@ Status DesktopKlineFlashTransport::close()
     return {};
 }
 
+Status DesktopKlineFlashTransport::set_add_iso14230_header(bool add_header)
+{
+    if (!serial_)
+    {
+        return fail(ErrorKind::Disconnected, "set_add_iso14230_header() called after close()");
+    }
+
+    try
+    {
+        // Same shape as configure()'s setters above: SerialPortActionsDirect::
+        // set_add_iso14230_header() (serial_port_actions_direct.h:217-221)
+        // just assigns a member and unconditionally `return true` -- it
+        // cannot plausibly report "adapter gone", so any failure here is
+        // InvalidConfig, never Disconnected.
+        if (!serial_->set_add_iso14230_header(add_header))
+        {
+            return fail(ErrorKind::InvalidConfig, "set_add_iso14230_header failed");
+        }
+        return {};
+    }
+    catch (const std::exception& error)
+    {
+        return fail(ErrorKind::Internal, error.what());
+    }
+    catch (...)
+    {
+        return fail(ErrorKind::Internal, "set_add_iso14230_header exception");
+    }
+}
+
 void DesktopKlineFlashTransport::request_unblock() noexcept
 {
     // Best-effort: SerialPortActions has no interrupt primitive, so an

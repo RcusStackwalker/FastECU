@@ -363,6 +363,29 @@ Result<FlashExecutionResult> DensoSh705xEepromKlineExecutor::execute(
         }
     } scoped_close{kline_transport};
 
+    // Force a known-good starting state for the driver's ISO14230 auto-header
+    // flag before connect_bootloader()/upload_kernel(), which self-frame
+    // every exchange via SsmProtocol::addHeader() and need this OFF to avoid
+    // double-framing (legacy's implicit reliance on the default false --
+    // eeprom_ecu_subaru_denso_sh705x_kline_operation.cpp lines 199/329,
+    // commented out). Explicit here (rather than trusting the default)
+    // because DesktopKlineFlashTransport's non-owning constructor wraps a
+    // SerialPortActions instance that outlives a single execute() call
+    // (MainWindow's session-lifetime serial member, shared across every
+    // dialog attempt) -- a `true` left behind by an earlier attempt's
+    // read_mem() phase (see below) must not leak into this attempt's
+    // connect/upload phase.
+    if (Status header_off = kline_transport.set_add_iso14230_header(false); !header_off.has_value())
+    {
+        Status close_status = kline_transport.close();
+        scoped_close.done = true;
+        if (!close_status.has_value())
+        {
+            events.log(LogLevel::Warning, "close failed after set_add_iso14230_header(false) error");
+        }
+        return std::unexpected(header_off.error());
+    }
+
     bool kernel_alive = false;
     if (Status connected = connect_bootloader(kline_transport, clock, cancellation, events,
                                               kline_plan, kernel_alive);
@@ -393,8 +416,38 @@ Result<FlashExecutionResult> DensoSh705xEepromKlineExecutor::execute(
         }
     }
 
+    // read_mem()'s raw SID_DUMP request is NOT pre-framed by
+    // SsmProtocol::addHeader() (unlike every connect/upload exchange above)
+    // -- it needs the real serial driver to add the ISO14230 header itself,
+    // which only happens with this flag ON. This is the exact regression
+    // this call fixes: the legacy, now-deleted
+    // EepromEcuSubaruDensoSH705xKlineOperation::read_mem() (commit 8ac6ba2,
+    // line 477) called serial->set_add_iso14230_header(true) at exactly
+    // this point, and the portable rewrite never called it at all.
+    if (Status header_on = kline_transport.set_add_iso14230_header(true); !header_on.has_value())
+    {
+        Status close_status = kline_transport.close();
+        scoped_close.done = true;
+        if (!close_status.has_value())
+        {
+            events.log(LogLevel::Warning, "close failed after set_add_iso14230_header(true) error");
+        }
+        return std::unexpected(header_on.error());
+    }
+
     Result<bytes::Bytes> read_result =
         read_mem(kline_transport, clock, cancellation, events, plan.transfer_region(), kline_plan.mode);
+
+    // Best-effort restore to the default OFF state before closing: a
+    // failure here must never mask read_mem()'s own result/error (it's
+    // logged, not propagated), and it keeps the shared, session-lifetime
+    // serial instance (non-owning transport case) from being left dirtied
+    // for whatever unrelated K-Line operation the user runs next.
+    if (Status header_off_after = kline_transport.set_add_iso14230_header(false);
+        !header_off_after.has_value())
+    {
+        events.log(LogLevel::Warning, "failed to reset ISO14230 header mode after EEPROM read");
+    }
 
     Status close_status = kline_transport.close();
     scoped_close.done = true;

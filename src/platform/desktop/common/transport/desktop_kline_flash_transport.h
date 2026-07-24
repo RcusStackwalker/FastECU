@@ -41,6 +41,7 @@ class DesktopKlineFlashTransport final : public IKlineFlashTransport
     Status configure(const KlineConfig& config) override;
     Status open() override;
     Status close() override;
+    Status set_add_iso14230_header(bool add_header) override;
     void request_unblock() noexcept override;
 
     Status setBaud(int baud) override;
