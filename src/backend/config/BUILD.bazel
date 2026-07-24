@@ -1,0 +1,29 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+load("//bazel:qt_targets.bzl", "PORTABLE_COPTS")
+
+package(default_visibility = [
+    "//src/backend:__subpackages__",
+    "//src/platform:__subpackages__",
+    "//src/ui:__subpackages__",
+    "//tests:__pkg__",
+])
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//:__pkg__"],
+)
+
+# Portable. No Qt, no platform, no filesystem, no thread.
+cc_library(
+    name = "config_paths",
+    srcs = ["config_paths.cpp"],
+    hdrs = ["config_paths.h"],
+    copts = PORTABLE_COPTS,
+)
+
+fastecu_portable_gtest(
+    name = "config_paths_test",
+    srcs = ["config_paths_test.cpp"],
+    deps = [":config_paths"],
+)
