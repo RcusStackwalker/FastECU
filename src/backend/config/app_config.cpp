@@ -90,6 +90,14 @@ Result<AppConfig> load_app_config(const ConfigPaths& paths, IFileRepository& fil
             config.datalog_files_directory = setting.child("value").attribute("data").value();
     }
 
+    // Matches legacy FileActions::read_config_file (file_actions.cpp:910),
+    // which rewrites the config file on every load by calling
+    // save_config_file on the just-parsed struct. The save's result is
+    // fire-and-forget (legacy disregards it too): a failure here must not be
+    // surfaced as a load failure, and the caller of load_app_config sees the
+    // pre-save, unnormalized value, not save_app_config's normalized copy.
+    (void)save_app_config(config, paths, file_repository);
+
     return config;
 }
 
