@@ -44,3 +44,21 @@ fastecu_portable_gtest(
     srcs = ["provisioning_test.cpp"],
     deps = [":provisioning"],
 )
+
+cc_library(
+    name = "app_config",
+    srcs = ["app_config.cpp"],
+    hdrs = ["app_config.h"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":config_paths",
+        "//src/backend/ports",
+        "@pugixml",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "app_config_test",
+    srcs = ["app_config_test.cpp"],
+    deps = [":app_config"],
+)
