@@ -7,7 +7,12 @@ namespace fastecu::flash
 {
 
 DesktopCanFlashTransport::DesktopCanFlashTransport(std::unique_ptr<SerialPortActions> serial)
-    : serial_(std::move(serial))
+    : owned_serial_(std::move(serial)), serial_(owned_serial_.get())
+{
+}
+
+DesktopCanFlashTransport::DesktopCanFlashTransport(SerialPortActions *serial)
+    : owned_serial_(), serial_(serial)
 {
 }
 
@@ -113,7 +118,10 @@ Status DesktopCanFlashTransport::open()
 
 Status DesktopCanFlashTransport::close()
 {
-    serial_.reset(); // idempotent: resetting an already-null unique_ptr is a no-op
+    // Idempotent, and non-destructive of a non-owning serial_ -- see
+    // DesktopKlineFlashTransport::close() for the full rationale.
+    owned_serial_.reset();
+    serial_ = nullptr;
     return {};
 }
 

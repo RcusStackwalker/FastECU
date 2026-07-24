@@ -17,8 +17,21 @@ qt_cc_library(
         # the moc'd :definitions target, not the header-only :models split
         # -- is included directly; see task-4-report.md.
         "//src/backend/definitions",
-        "//src/backend/flash/eeprom",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash/eeprom:denso_sh705x_eeprom_can",
+        "//src/backend/flash/eeprom:denso_sh705x_eeprom_kline",
+        "//src/backend/ports",
+        # One-attempt-per-mode orchestration (step 5c, Task 17): each dialog
+        # drives a FlashWorker per EEPROM read mode, built from
+        # LegacyFlashSnapshotAdapter over a real QtFileRepository/QtClock and
+        # a DesktopKline/CanFlashTransport wrapping the (non-owned) serial
+        # connection MainWindow passes in.
+        "//src/platform/desktop/common/flash:flash_snapshot_adapter",
+        "//src/platform/desktop/common/flash:flash_worker",
+        "//src/platform/desktop/common/ports",
         "//src/platform/desktop/common/serial:serial_qt_compat",
+        "//src/platform/desktop/common/transport:flash_transports",
         # Both dialog headers in this package include ui_ecu_operations.h,
         # the generated form owned by the top-level desktop package.
         "//src/ui/desktop:ui_ecu_operations",

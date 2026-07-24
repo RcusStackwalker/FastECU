@@ -128,6 +128,45 @@ class TestDesktopCanFlashTransport : public QObject
         QVERIFY(closeResult.has_value());
     }
 
+    // Proves the non-owning constructor (step 5c, Task 17) -- see
+    // test_desktop_kline_flash_transport.cpp's identically-named test for
+    // the full rationale: MainWindow's single, session-lifetime
+    // SerialPortActions instance must survive close() on a transport that
+    // does not own it.
+    void closeOnANonOwningSerialPortActionsDoesNotDestroyIt()
+    {
+        bool destroyed = false;
+        FakeBackend *fake = nullptr;
+        auto serial = std::make_unique<SerialPortActions>(
+            "", "", nullptr, nullptr,
+            [&fake, &destroyed]() -> SerialBackend *
+            { fake = new FakeBackend(); fake->destroyed = &destroyed; return fake; });
+        serial->set_add_ssm_header(false); // forces backend creation
+
+        {
+            DesktopCanFlashTransport transport(serial.get()); // non-owning
+            QVERIFY(!destroyed);
+
+            auto closeResult = transport.close();
+            QVERIFY(closeResult.has_value());
+            // The proof this test exists for: close() on a non-owning
+            // transport must NOT destroy the externally-owned
+            // SerialPortActions.
+            QVERIFY(!destroyed);
+
+            // Idempotent, same as the owning path.
+            closeResult = transport.close();
+            QVERIFY(closeResult.has_value());
+            QVERIFY(!destroyed);
+        }
+        // transport is gone now; `serial` must still be alive and usable.
+        QVERIFY(!destroyed);
+        const bool stillCallable = serial->is_serial_port_open(); // must not crash
+        Q_UNUSED(stillCallable);
+        serial.reset(); // only now does the real teardown happen
+        QVERIFY(destroyed);
+    }
+
     // request_unblock() has no real interrupt primitive to fire --
     // SerialPortActions exposes none -- so it can only set a flag checked
     // before the *next* read call. This test proves both halves of that

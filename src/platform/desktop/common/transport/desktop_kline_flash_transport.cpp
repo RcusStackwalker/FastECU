@@ -7,7 +7,12 @@ namespace fastecu::flash
 {
 
 DesktopKlineFlashTransport::DesktopKlineFlashTransport(std::unique_ptr<SerialPortActions> serial)
-    : serial_(std::move(serial))
+    : owned_serial_(std::move(serial)), serial_(owned_serial_.get())
+{
+}
+
+DesktopKlineFlashTransport::DesktopKlineFlashTransport(SerialPortActions *serial)
+    : owned_serial_(), serial_(serial)
 {
 }
 
@@ -96,7 +101,13 @@ Status DesktopKlineFlashTransport::open()
 
 Status DesktopKlineFlashTransport::close()
 {
-    serial_.reset(); // idempotent: resetting an already-null unique_ptr is a no-op
+    // Idempotent: resetting an already-null unique_ptr, and clearing an
+    // already-null raw pointer, are both no-ops. Only owned_serial_ is ever
+    // destroyed here -- a non-owning serial_ (raw-pointer constructor) is
+    // just forgotten, never deleted; the caller that gave it to us keeps
+    // owning its lifetime (see the non-owning constructor's header comment).
+    owned_serial_.reset();
+    serial_ = nullptr;
     return {};
 }
 

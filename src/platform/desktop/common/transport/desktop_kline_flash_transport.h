@@ -9,18 +9,33 @@ class SerialPortActions;
 namespace fastecu::flash
 {
 
-// Owns its SerialPortActions instance so close() has a well-defined
-// teardown trigger -- SerialPortActions itself exposes no close()/
-// disconnect() (confirmed absent from both serial_port_actions.h and
-// serial_port_actions.cpp, step 5c Task 12); its destructor is the only
-// teardown path, and it already drains in-flight backend calls before
-// joining its I/O thread. Constructing this adapter with the instance it
-// should own, then having close() reset() it, gives that destructor a
-// well-defined trigger.
+// Owning constructor: has its own well-defined teardown trigger --
+// SerialPortActions itself exposes no close()/disconnect() (confirmed
+// absent from both serial_port_actions.h and serial_port_actions.cpp, step
+// 5c Task 12); its destructor is the only teardown path, and it already
+// drains in-flight backend calls before joining its I/O thread. Owning
+// construction gives close() a destructor to trigger.
+//
+// Non-owning constructor (added Task 17): required for MainWindow's single,
+// session-lifetime SerialPortActions instance (mainwindow.h/.cpp:
+// `serial = new SerialPortActions(...)`, constructed once and reused across
+// every read/write/flash/logging operation for the app's entire lifetime,
+// including every EEPROM dialog attempt). The owning constructor's
+// close() == serial_.reset() would DESTROY that shared instance the moment
+// any one FlashWorker attempt finishes (success or failure) -- breaking
+// every subsequent operation for the rest of the session. The non-owning
+// constructor stores only a raw, externally-owned pointer; close() drops
+// this adapter's reference to it (so post-close() calls still correctly
+// fail with Disconnected, matching the owning path's contract) without
+// invoking its destructor. Callers using this constructor must keep the
+// pointed-to SerialPortActions alive for at least this transport's
+// lifetime -- trivially true for MainWindow's serial member, which outlives
+// every dialog.
 class DesktopKlineFlashTransport final : public IKlineFlashTransport
 {
   public:
     explicit DesktopKlineFlashTransport(std::unique_ptr<SerialPortActions> serial);
+    explicit DesktopKlineFlashTransport(SerialPortActions *serial);
     ~DesktopKlineFlashTransport() override;
 
     Status configure(const KlineConfig& config) override;
@@ -34,7 +49,12 @@ class DesktopKlineFlashTransport final : public IKlineFlashTransport
     bool isOpen() const override;
 
   private:
-    std::unique_ptr<SerialPortActions> serial_;
+    // Null when constructed from the non-owning (raw pointer) constructor;
+    // close() only ever resets THIS, never touches serial_ directly, so a
+    // non-owning instance's serial_ pointer survives close() while the
+    // owning path's underlying object is destroyed exactly as before.
+    std::unique_ptr<SerialPortActions> owned_serial_;
+    SerialPortActions *serial_ = nullptr;
 
     // Best-effort cancellation: SerialPortActions exposes no interrupt
     // primitive, so this can only be checked before the *next* read/write

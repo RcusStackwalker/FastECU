@@ -9,6 +9,11 @@ package(default_visibility = [
     # This is a real ui -> platform edge the modularization plan has not yet
     # removed.
     "//src/ui/desktop:__pkg__",
+    # The rewritten EEPROM dialogs (step 5c, Task 17) construct
+    # DesktopKlineFlashTransport/DesktopCanFlashTransport directly (via the
+    # non-owning SerialPortActions* constructor) to drive their FlashWorker
+    # attempts.
+    "//src/ui/desktop/flash/eeprom:__pkg__",
 ])
 
 # Desktop K-Line/CAN flash transport adapters (step 5c, Task 12): a
