@@ -42,7 +42,7 @@ void RemoteUtility::startOverNetwok()
     // Start node when Web Socket will be up
     QObject::connect(webSocket, &QWebSocket::connected, this, &RemoteUtility::websocket_connected);
     node.setHeartbeatInterval(heartbeatInterval);
-    QObject::connect(webSocket, QOverload<QAbstractSocket::SocketError>::of(&QWebSocket::error),
+    QObject::connect(webSocket, &QWebSocket::errorOccurred,
                      this, [this](QAbstractSocket::SocketError error)
                      { qDebug() << this->metaObject()->className() << "startOverNetwok QWebSocket error:" << error; });
     // WebSocket over SSL
