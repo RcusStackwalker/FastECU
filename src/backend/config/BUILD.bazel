@@ -94,6 +94,35 @@ cc_test(
     ],
 )
 
+cc_library(
+    name = "car_model_catalog",
+    srcs = ["car_model_catalog.cpp"],
+    hdrs = ["car_model_catalog.h"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":config_paths",
+        "//src/backend/ports",
+        "@pugixml",
+    ],
+)
+
+# Not fastecu_portable_gtest: that macro has no `data` parameter, and this
+# target needs one to depend on the real, checked-in protocols.cfg -- same
+# reasoning as protocol_catalog_test above.
+cc_test(
+    name = "car_model_catalog_test",
+    srcs = ["car_model_catalog_test.cpp"],
+    copts = PORTABLE_COPTS,
+    data = ["//resources/shared:config/protocols.cfg"],
+    env = {
+        "PROTOCOLS_CFG_PATH": "$(location //resources/shared:config/protocols.cfg)",
+    },
+    deps = [
+        ":car_model_catalog",
+        "@googletest//:gtest_main",
+    ],
+)
+
 # Qt-linked (FileActions::ConfigValuesStructure is Qt-typed). Explicit srcs so
 # this neither collides with nor is swept into
 # //src/backend/definitions:definitions's glob. legacy_config_adapter.h
@@ -117,6 +146,7 @@ qt_cc_library(
     normal_hdrs = ["legacy_config_adapter.h"],
     deps = QT_DEPS + [
         ":app_config",
+        ":car_model_catalog",
         ":config_paths",
         ":protocol_catalog",
         ":provisioning",

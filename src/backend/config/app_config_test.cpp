@@ -139,6 +139,26 @@ TEST(LoadAppConfig, InvalidPrimaryDefinitionBaseValueIsDiscarded)
     EXPECT_EQ(config->primary_definition_base, ""); // default-constructed, not overwritten
 }
 
+// Matches legacy FileActions::read_config_file's gate (file_actions.cpp:
+// 606): a <config> element whose name attribute isn't "FastECU" (or is
+// absent) is left unparsed -- config stays at its defaults rather than
+// picking up settings from a file that isn't really this app's config.
+TEST(LoadAppConfig, ConfigElementWithWrongNameAttributeIsNotParsed)
+{
+    InMemoryFileRepository repo;
+    ConfigPaths paths = test_paths();
+    std::string xml =
+        R"(<?xml version="1.0"?><config name="SomeOtherApp" version="x"><software_settings>)"
+        R"(<setting name="serial_port"><value data="COM7"/></setting>)"
+        R"(</software_settings></config>)";
+    repo.files[paths.config_file] = std::vector<std::uint8_t>(xml.begin(), xml.end());
+
+    auto config = load_app_config(paths, repo);
+
+    ASSERT_TRUE(config.has_value());
+    EXPECT_EQ(config->serial_port, ""); // default-constructed, not "COM7"
+}
+
 TEST(LoadAppConfig, MissingFileIsPropagatedAsInvalidConfig)
 {
     InMemoryFileRepository repo;

@@ -357,7 +357,29 @@ FileActions::ConfigValuesStructure *FileActions::save_config_file(FileActions::C
 
 FileActions::ConfigValuesStructure *FileActions::read_protocols_file(FileActions::ConfigValuesStructure *configValues)
 {
-    return configAdapter_.read_protocols_file(configValues);
+    configAdapter_.read_protocols_file(configValues);
+
+    // Restores legacy read_protocols_file's final step (file_actions.cpp
+    // history, formerly lines ~1385-1389): validate the populated
+    // flash_protocol_* lists and log (not surface as an error) whatever
+    // validate_flash_protocols finds. This runs here rather than inside
+    // LegacyConfigAdapter::read_protocols_file because validate_flash_protocols
+    // is a FileActions static method, and //src/backend/definitions
+    // (FileActions's target) already depends on
+    // //src/backend/config:legacy_config_adapter -- the adapter calling
+    // back into FileActions would form a hard Bazel dependency cycle (see
+    // src/backend/config/BUILD.bazel's legacy_config_adapter comment for
+    // the same constraint already documented there). FileActions is the
+    // only public entry point every caller (MainWindow, protocol_select,
+    // vehicle_select) actually uses, so validation still runs on every
+    // real read_protocols_file call.
+    QStringList validationErrors;
+    if (!validate_flash_protocols(*configValues, &validationErrors))
+    {
+        logValidationErrors("Invalid protocols file:", validationErrors);
+    }
+
+    return configValues;
 }
 
 FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogValuesStructure *logValues, const QString& ecu_id, bool modify)

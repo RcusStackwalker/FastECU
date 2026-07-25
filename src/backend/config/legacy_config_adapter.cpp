@@ -1,5 +1,6 @@
 #include "src/backend/config/legacy_config_adapter.h"
 
+#include "src/backend/config/car_model_catalog.h"
 #include "src/backend/config/provisioning.h"
 #include "src/backend/ports/event_sink.h"
 
@@ -121,10 +122,37 @@ AppConfig app_config_from_legacy(const fastecu::definitions::ConfigValuesStructu
     return config;
 }
 
-void copy_protocol_catalog_into_legacy(const ProtocolCatalog& catalog,
-                                       fastecu::definitions::ConfigValuesStructure *values)
+// Legacy read_protocols_file (file_actions.cpp:1089-1393) parses <protocols>
+// into *local-only* QStringLists (file_actions.cpp:1095-1116/1145-1170) --
+// never `configValues->flash_protocol_*` -- and uses those purely as a
+// lookup table for the <car_models> loop that follows. Every
+// `configValues->flash_protocol_*` list is instead populated exclusively by
+// the <car_models> loop (file_actions.cpp:1262-1379), one entry per
+// <car_model>, with the protocol-derived fields (alias/ecu/mcu/mode/
+// checksum/.../description) cross-referenced by matching the car_model's
+// <protocol> text against the local protocol lookup table's `name`
+// (file_actions.cpp:1340-1369) -- confirmed independently by
+// MainWindow/protocol_select.cpp/vehicle_select.cpp, which all iterate
+// `flash_protocol_id`/`flash_protocol_make`/`flash_protocol_protocol_name`
+// (car_model-only fields) as the shared length for every parallel list, and
+// by FileActions::validate_flash_protocols (file_actions.cpp:150), which
+// validates every flash_protocol_* list's length against
+// `flash_protocol_id.size()`. So this function takes both catalogs and
+// builds car_models.size() rows, not protocols.size() + car_models.size()
+// rows.
+void copy_car_models_into_legacy(const ProtocolCatalog& protocols, const CarModelCatalog& car_models,
+                                 fastecu::definitions::ConfigValuesStructure *values)
 {
+    values->flash_protocol_id.clear();
     values->flash_protocol_alias.clear();
+    values->flash_protocol_make.clear();
+    values->flash_protocol_model.clear();
+    values->flash_protocol_version.clear();
+    values->flash_protocol_type.clear();
+    values->flash_protocol_kw.clear();
+    values->flash_protocol_hp.clear();
+    values->flash_protocol_fuel.clear();
+    values->flash_protocol_year.clear();
     values->flash_protocol_ecu.clear();
     values->flash_protocol_mcu.clear();
     values->flash_protocol_mode.clear();
@@ -146,29 +174,87 @@ void copy_protocol_catalog_into_legacy(const ProtocolCatalog& catalog,
     values->flash_protocol_description.clear();
     values->flash_protocol_protocol_name.clear();
 
-    for (const ProtocolEntry& entry : catalog)
+    // Legacy's placeholder for a field it never got around to filling in
+    // (file_actions.cpp:1273 et al., `.append(" ")` before the cross-
+    // reference loop runs) -- a single space, not empty string. Left as-is
+    // for an unmatched protocol_name because legacy's replace() is simply
+    // never reached for that row's protocol-derived fields.
+    const QString kPlaceholder(" ");
+
+    int id = 0;
+    for (const CarModelEntry& entry : car_models)
     {
-        values->flash_protocol_alias.append(qs(entry.alias));
-        values->flash_protocol_ecu.append(qs(entry.ecu));
-        values->flash_protocol_mcu.append(qs(entry.mcu));
-        values->flash_protocol_mode.append(qs(entry.mode));
-        values->flash_protocol_checksum.append(entry.checksum ? "yes" : "no");
-        values->flash_protocol_read.append(entry.read ? "yes" : "no");
-        values->flash_protocol_test_write.append(entry.test_write ? "yes" : "no");
-        values->flash_protocol_write.append(entry.write ? "yes" : "no");
-        values->flash_protocol_flash_transport.append(qs(entry.flash_transport));
-        values->flash_protocol_log_transport.append(qs(entry.log_transport));
-        values->flash_protocol_log_protocol.append(qs(entry.log_protocol));
-        values->flash_protocol_ecu_id_ascii.append(entry.ecu_id_ascii ? "yes" : "no");
-        values->flash_protocol_ecu_id_addr.append(qs(entry.ecu_id_addr));
-        values->flash_protocol_ecu_id_length.append(qs(entry.ecu_id_length));
-        values->flash_protocol_cal_id_ascii.append(entry.cal_id_ascii ? "yes" : "no");
-        values->flash_protocol_cal_id_addr.append(qs(entry.cal_id_addr));
-        values->flash_protocol_cal_id_length.append(qs(entry.cal_id_length));
-        values->flash_protocol_kernel.append(qs(entry.kernel));
-        values->flash_protocol_kernel_addr.append(qs(entry.kernel_addr));
-        values->flash_protocol_description.append(qs(entry.description));
+        values->flash_protocol_id.append(QString::number(id));
+        id++;
+
+        values->flash_protocol_make.append(qs(entry.make));
+        values->flash_protocol_model.append(qs(entry.model));
+        values->flash_protocol_version.append(qs(entry.version));
+        values->flash_protocol_type.append(qs(entry.type));
+        values->flash_protocol_kw.append(qs(entry.kw));
+        values->flash_protocol_hp.append(qs(entry.hp));
+        values->flash_protocol_fuel.append(qs(entry.fuel));
+        values->flash_protocol_year.append(qs(entry.year));
         values->flash_protocol_protocol_name.append(qs(entry.protocol_name));
+
+        // Legacy's inner loop (file_actions.cpp:1343-1368) doesn't break on
+        // the first name match -- it replaces on every match found, so with
+        // (hypothetical, none in the real shipped file today) duplicate
+        // protocol names the *last* match in document order wins. Mirror
+        // that rather than stopping at the first hit.
+        const ProtocolEntry *matched = nullptr;
+        for (const ProtocolEntry& protocol : protocols)
+        {
+            if (protocol.protocol_name == entry.protocol_name)
+                matched = &protocol;
+        }
+
+        if (matched != nullptr)
+        {
+            values->flash_protocol_alias.append(qs(matched->alias));
+            values->flash_protocol_ecu.append(qs(matched->ecu));
+            values->flash_protocol_mcu.append(qs(matched->mcu));
+            values->flash_protocol_mode.append(qs(matched->mode));
+            values->flash_protocol_checksum.append(matched->checksum ? "yes" : "no");
+            values->flash_protocol_read.append(matched->read ? "yes" : "no");
+            values->flash_protocol_test_write.append(matched->test_write ? "yes" : "no");
+            values->flash_protocol_write.append(matched->write ? "yes" : "no");
+            values->flash_protocol_flash_transport.append(qs(matched->flash_transport));
+            values->flash_protocol_log_transport.append(qs(matched->log_transport));
+            values->flash_protocol_log_protocol.append(qs(matched->log_protocol));
+            values->flash_protocol_ecu_id_ascii.append(matched->ecu_id_ascii ? "yes" : "no");
+            values->flash_protocol_ecu_id_addr.append(qs(matched->ecu_id_addr));
+            values->flash_protocol_ecu_id_length.append(qs(matched->ecu_id_length));
+            values->flash_protocol_cal_id_ascii.append(matched->cal_id_ascii ? "yes" : "no");
+            values->flash_protocol_cal_id_addr.append(qs(matched->cal_id_addr));
+            values->flash_protocol_cal_id_length.append(qs(matched->cal_id_length));
+            values->flash_protocol_kernel.append(qs(matched->kernel));
+            values->flash_protocol_kernel_addr.append(qs(matched->kernel_addr));
+            values->flash_protocol_description.append(qs(matched->description));
+        }
+        else
+        {
+            values->flash_protocol_alias.append(kPlaceholder);
+            values->flash_protocol_ecu.append(kPlaceholder);
+            values->flash_protocol_mcu.append(kPlaceholder);
+            values->flash_protocol_mode.append(kPlaceholder);
+            values->flash_protocol_checksum.append(kPlaceholder);
+            values->flash_protocol_read.append(kPlaceholder);
+            values->flash_protocol_test_write.append(kPlaceholder);
+            values->flash_protocol_write.append(kPlaceholder);
+            values->flash_protocol_flash_transport.append(kPlaceholder);
+            values->flash_protocol_log_transport.append(kPlaceholder);
+            values->flash_protocol_log_protocol.append(kPlaceholder);
+            values->flash_protocol_ecu_id_ascii.append(kPlaceholder);
+            values->flash_protocol_ecu_id_addr.append(kPlaceholder);
+            values->flash_protocol_ecu_id_length.append(kPlaceholder);
+            values->flash_protocol_cal_id_ascii.append(kPlaceholder);
+            values->flash_protocol_cal_id_addr.append(kPlaceholder);
+            values->flash_protocol_cal_id_length.append(kPlaceholder);
+            values->flash_protocol_kernel.append(kPlaceholder);
+            values->flash_protocol_kernel_addr.append(kPlaceholder);
+            values->flash_protocol_description.append(kPlaceholder);
+        }
     }
 }
 } // namespace
@@ -238,9 +324,22 @@ fastecu::definitions::ConfigValuesStructure *LegacyConfigAdapter::read_protocols
     fastecu::definitions::ConfigValuesStructure *values)
 {
     ConfigPaths paths = paths_from_legacy(values);
-    Result<ProtocolCatalog> catalog = load_protocol_catalog(paths, file_repository_);
-    if (catalog.has_value())
-        copy_protocol_catalog_into_legacy(*catalog, values);
+    Result<ProtocolCatalog> protocols = load_protocol_catalog(paths, file_repository_);
+    Result<CarModelCatalog> car_models = load_car_model_catalog(paths, file_repository_);
+    if (protocols.has_value() && car_models.has_value())
+        copy_car_models_into_legacy(*protocols, *car_models, values);
+
+    // Legacy's final step (file_actions.cpp:1385-1389): validate the
+    // populated lists and log (not surface as an error) whatever
+    // validate_flash_protocols finds. That method lives on FileActions
+    // (src/backend/definitions/file_actions.h/.cpp, unrelated to and
+    // unchanged by this branch) rather than here: FileActions's Bazel
+    // target already depends on //src/backend/config:legacy_config_adapter
+    // (see this package's BUILD.bazel legacy_config_adapter comment), so
+    // this adapter calling back into FileActions would form the exact hard
+    // Bazel cycle that split was built to avoid. FileActions::read_protocols_file
+    // (its one-line delegation to this method) runs the validation
+    // immediately after this call instead -- see that method's comment.
     return values;
 }
 

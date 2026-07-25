@@ -30,7 +30,15 @@ Result<AppConfig> load_app_config(const ConfigPaths& paths, IFileRepository& fil
         return fail(ErrorKind::InvalidConfig, std::string("config parse error: ") + parsed.description());
 
     AppConfig config;
-    pugi::xml_node settings = doc.child("config").child("software_settings");
+    // Matches legacy FileActions::read_config_file's gate (file_actions.cpp:
+    // 606): <software_settings> is only parsed when the root <config>
+    // element's name attribute is "FastECU" -- any other (or missing) name
+    // leaves the whole block skipped and `config` at its defaults, same as
+    // legacy silently doing nothing past that check.
+    pugi::xml_node config_node = doc.child("config");
+    pugi::xml_node settings = (std::string(config_node.attribute("name").as_string()) == "FastECU")
+                                  ? config_node.child("software_settings")
+                                  : pugi::xml_node();
     for (pugi::xml_node setting : settings.children("setting"))
     {
         const std::string name = setting.attribute("name").value();
