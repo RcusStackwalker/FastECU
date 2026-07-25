@@ -105,17 +105,17 @@ TEST(LoadProtocolCatalog, ParsesEveryFieldOfFirstProtocol)
     EXPECT_EQ(first.ecu, "Denso SH7055");
     EXPECT_EQ(first.mcu, "SH7055");
     EXPECT_EQ(first.mode, "OBD2");
-    EXPECT_TRUE(first.checksum);
-    EXPECT_TRUE(first.read);
-    EXPECT_TRUE(first.test_write);
-    EXPECT_TRUE(first.write);
+    EXPECT_EQ(first.checksum, "yes");
+    EXPECT_EQ(first.read, "yes");
+    EXPECT_EQ(first.test_write, "yes");
+    EXPECT_EQ(first.write, "yes");
     EXPECT_EQ(first.flash_transport, "CAN");
     EXPECT_EQ(first.log_transport, "K-Line");
     EXPECT_EQ(first.log_protocol, "SSM");
-    EXPECT_FALSE(first.ecu_id_ascii);
+    EXPECT_EQ(first.ecu_id_ascii, "no");
     EXPECT_EQ(first.ecu_id_addr, "0x0");
     EXPECT_EQ(first.ecu_id_length, "0");
-    EXPECT_TRUE(first.cal_id_ascii);
+    EXPECT_EQ(first.cal_id_ascii, "yes");
     EXPECT_EQ(first.cal_id_addr, "0x2000");
     EXPECT_EQ(first.cal_id_length, "8");
     EXPECT_EQ(first.kernel, "ssmk_can_sh7055.bin");
@@ -138,8 +138,33 @@ TEST(LoadProtocolCatalog, MissingOptionalFieldsDefaultToLegacyDefaults)
     // 1146/1148): absent name/alias attributes read as the literal strings
     // "No name"/"No alias", not empty string.
     EXPECT_EQ(second.alias, "No alias"); // no alias attribute on this <protocol>
-    EXPECT_FALSE(second.ecu_id_ascii);   // no <ecu_id_ascii> element at all
+    EXPECT_EQ(second.ecu_id_ascii, "");  // no <ecu_id_ascii> element at all
     EXPECT_EQ(second.ecu_id_addr, "");
+}
+
+TEST(LoadProtocolCatalog, ChecksumPreservesRawTextIncludingNonBooleanValues)
+{
+    // Real shipped protocols.cfg entries (e.g. sub_ecu_mitsu_m32r_kline) use
+    // "n/a" for <checksum>/<read>, not just "yes"/"no". A bool-typed field
+    // would collapse "n/a" into false/"no", which is observable downstream:
+    // legacy branches on "n/a" specifically for both RomInfo text
+    // (file_actions.cpp:1795) and whether the checksum-module-missing
+    // warning dialog fires at flash time (file_actions.cpp:2347). This test
+    // pins that the raw text -- not a lossy bool -- is what's stored.
+    InMemoryFileRepository repo;
+    ConfigPaths paths = test_paths();
+    std::string xml =
+        R"(<?xml version="1.0"?><config name="FastECU" version="x"><protocols>)"
+        R"(<protocol name="p_na"><checksum>n/a</checksum><read>n/a</read></protocol>)"
+        R"(</protocols></config>)";
+    repo.files[paths.protocols_file] = std::vector<std::uint8_t>(xml.begin(), xml.end());
+
+    auto catalog = load_protocol_catalog(paths, repo);
+
+    ASSERT_TRUE(catalog.has_value());
+    ASSERT_EQ(catalog->size(), 1u);
+    EXPECT_EQ((*catalog)[0].checksum, "n/a");
+    EXPECT_EQ((*catalog)[0].read, "n/a");
 }
 
 TEST(LoadProtocolCatalog, MissingFileIsInvalidConfig)

@@ -28,17 +28,26 @@ struct ProtocolEntry
     std::string ecu;
     std::string mcu;
     std::string mode;
-    bool checksum = false;
-    bool read = false;
-    bool test_write = false;
-    bool write = false;
+    // Raw text, not bool: legacy read_protocols_file stores whatever
+    // protocol_data.text() returns verbatim (file_actions.cpp), and real
+    // shipped protocols.cfg entries use "n/a" as well as "yes"/"no" (e.g.
+    // sub_ecu_mitsu_m32r_kline's <checksum>n/a</checksum>). A bool
+    // representation collapses "n/a" into "no", which is observable: legacy
+    // branches on "n/a" specifically at file_actions.cpp:1795 (RomInfo text)
+    // and file_actions.cpp:2347 (whether the checksum-module-missing warning
+    // dialog fires at flash time) -- collapsing to "no" silently suppresses
+    // that warning for real M32R K-Line and CVT-CAN targets.
+    std::string checksum;
+    std::string read;
+    std::string test_write;
+    std::string write;
     std::string flash_transport;
     std::string log_transport;
     std::string log_protocol;
-    bool ecu_id_ascii = false;
+    std::string ecu_id_ascii;
     std::string ecu_id_addr;
     std::string ecu_id_length;
-    bool cal_id_ascii = false;
+    std::string cal_id_ascii;
     std::string cal_id_addr;
     std::string cal_id_length;
     std::string kernel;

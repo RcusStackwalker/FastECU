@@ -7,11 +7,6 @@ namespace fastecu::config
 namespace
 {
 
-bool is_yes(pugi::xml_node protocol, const char *tag)
-{
-    return std::string(protocol.child(tag).text().as_string()) == "yes";
-}
-
 std::string text_or_empty(pugi::xml_node protocol, const char *tag)
 {
     return protocol.child(tag).text().as_string();
@@ -46,17 +41,17 @@ Result<ProtocolCatalog> load_protocol_catalog(const ConfigPaths& paths, IFileRep
         entry.ecu = text_or_empty(protocol, "ecu");
         entry.mcu = text_or_empty(protocol, "mcu");
         entry.mode = text_or_empty(protocol, "mode");
-        entry.checksum = is_yes(protocol, "checksum");
-        entry.read = is_yes(protocol, "read");
-        entry.test_write = is_yes(protocol, "test_write");
-        entry.write = is_yes(protocol, "write");
+        entry.checksum = text_or_empty(protocol, "checksum");
+        entry.read = text_or_empty(protocol, "read");
+        entry.test_write = text_or_empty(protocol, "test_write");
+        entry.write = text_or_empty(protocol, "write");
         entry.flash_transport = text_or_empty(protocol, "flash_transport");
         entry.log_transport = text_or_empty(protocol, "log_transport");
         entry.log_protocol = text_or_empty(protocol, "log_protocol");
-        entry.ecu_id_ascii = is_yes(protocol, "ecu_id_ascii");
+        entry.ecu_id_ascii = text_or_empty(protocol, "ecu_id_ascii");
         entry.ecu_id_addr = text_or_empty(protocol, "ecu_id_addr");
         entry.ecu_id_length = text_or_empty(protocol, "ecu_id_length");
-        entry.cal_id_ascii = is_yes(protocol, "cal_id_ascii");
+        entry.cal_id_ascii = text_or_empty(protocol, "cal_id_ascii");
         entry.cal_id_addr = text_or_empty(protocol, "cal_id_addr");
         entry.cal_id_length = text_or_empty(protocol, "cal_id_length");
         entry.kernel = text_or_empty(protocol, "kernel");
