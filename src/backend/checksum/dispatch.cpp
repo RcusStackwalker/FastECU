@@ -29,7 +29,17 @@ bool starts_with(std::string_view s, std::string_view prefix)
 
 ChecksumResult denso_sh7xxx(bytes::ByteView rom, std::uint32_t area_start, std::int32_t offset = 0)
 {
-    return ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(rom, area_start, kDensoRecordSize, offset);
+    ChecksumResult result = ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(rom, area_start, kDensoRecordSize, offset);
+    if (result.changed())
+    {
+        // Mirrors legacy applyDensoSh7xxxChecksum: this algorithm's own
+        // message is generic body text ("Checksums corrected"), not a family
+        // title, so the display title is substituted here -- but only on the
+        // Corrected path; any other status keeps the algorithm's own message
+        // unmodified for its own (non-aggregated) dialog.
+        result.message = "Subaru Denso SH705x Checksum";
+    }
+    return result;
 }
 
 ChecksumResult denso_sh705x_diesel(bytes::ByteView rom, std::uint32_t area_start)

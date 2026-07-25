@@ -28,7 +28,7 @@ TEST(ApplyChecksumCorrection, DensoSh7xxxRoutesForPlainSh7055)
     ASSERT_EQ(outcome.status, Status::FamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
     EXPECT_EQ(outcome.family_result->status, ChecksumResult::Status::Corrected);
-    EXPECT_EQ(outcome.family_result->message, "Checksums corrected");
+    EXPECT_EQ(outcome.family_result->message, "Subaru Denso SH705x Checksum");
 }
 
 TEST(ApplyChecksumCorrection, Sh705xDieselTakesPriorityOverPlainSh7058Prefix)
