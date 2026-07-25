@@ -36,3 +36,22 @@ fastecu_portable_gtest(
     srcs = ["flash_device_lookup_test.cpp"],
     deps = [":flash_device_lookup"],
 )
+
+# Portable. No Qt, no platform, no filesystem, no thread.
+cc_library(
+    name = "dispatch",
+    srcs = ["dispatch.cpp"],
+    hdrs = ["dispatch.h"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":checksum_selection",
+        ":flash_device_lookup",
+        "//src/algorithms/checksum",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "dispatch_test",
+    srcs = ["dispatch_test.cpp"],
+    deps = [":dispatch"],
+)
