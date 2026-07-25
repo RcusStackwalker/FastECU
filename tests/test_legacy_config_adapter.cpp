@@ -109,6 +109,33 @@ TEST(LegacyConfigAdapterTest, ReadConfigFilePopulatesConfigValuesStructureFields
     EXPECT_EQ(returned->serial_port.toStdString(), "COM7");
 }
 
+// Legacy read_config_file called save_config_file(configValues) on the same
+// shared struct as its last step, so save's trailing-slash normalization
+// landed in the in-memory struct immediately -- callers saw the normalized
+// path right after read_config_file returned, not only on a later read.
+// load_app_config deliberately returns the pre-save (unnormalized) parse,
+// so LegacyConfigAdapter::read_config_file must save again and copy that
+// normalized result into `values`, not the raw parse.
+TEST(LegacyConfigAdapterTest, ReadConfigFileNormalizesTrailingSlashInMemory)
+{
+    InMemoryFileSystem fs;
+    InMemoryResourceBundle bundle;
+    InMemoryFileRepository repo;
+    LegacyConfigAdapter adapter(fs, bundle, repo);
+    FileActions::ConfigValuesStructure values;
+    values.config_file = "fastecu.cfg";
+    std::string xml =
+        R"(<?xml version="1.0"?><config name="FastECU" version="x"><software_settings>)"
+        R"(<setting name="calibration_files_directory"><value data="/cal/no/trailing/slash"/></setting>)"
+        R"(</software_settings></config>)";
+    repo.files["fastecu.cfg"] = std::vector<std::uint8_t>(xml.begin(), xml.end());
+
+    auto *returned = adapter.read_config_file(&values);
+
+    ASSERT_NE(returned, nullptr);
+    EXPECT_EQ(returned->calibration_files_directory.toStdString(), "/cal/no/trailing/slash/");
+}
+
 TEST(LegacyConfigAdapterTest, ReadProtocolsFilePopulatesParallelListsInLockstep)
 {
     InMemoryFileSystem fs;

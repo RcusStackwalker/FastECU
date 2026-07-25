@@ -57,20 +57,23 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
     fileActions = new FileActions(m_configFileSystem, m_configResourceBundle, m_configFileRepository);
     configValues = &fileActions->ConfigValuesStruct;
 
-    QString appFilePath = QApplication::applicationFilePath();
     QDir currentPath(QDir::currentPath());
     QStringList isDevPath = currentPath.absolutePath().split("build");
     bool isDevFile = QFileInfo::exists("./build.txt");
-#if defined Q_OS_UNIX
-    QString appRootPath = appFilePath.split("usr").at(0);
-    if (appRootPath.contains("FastECU"))
-        appRootPath = "/config";
-#elif defined Q_OS_WIN32
-    QString appRootPath = currentPath.absolutePath();
-#endif
     const bool isDev = isDevPath.length() > 1 || isDevFile;
+    // Prod branch: the legacy set_base_dirs never reassigned
+    // base_config_directory here -- it just kept whatever
+    // ConfigValuesStructure's field initializer already set
+    // (QDir::homePath() + "/.config/FastECU/" on Unix,
+    // QDir::homePath() + "/AppData/Local/FastECU/" on Windows; see
+    // config_values.h). configValues->base_config_directory already holds
+    // that default at this point (FileActions was just constructed, before
+    // set_base_dirs runs), so pass it straight through rather than the
+    // executable-derived path -- using the latter would resolve every
+    // config/calibration/definition/kernel/datalog/syslog directory under
+    // the wrong root in an installed build.
     fastecu::config::AppRootInfo rootInfo{
-        (isDev ? currentPath.absolutePath() : appRootPath).toStdString(), isDev};
+        (isDev ? currentPath.absolutePath() : configValues->base_config_directory).toStdString(), isDev};
     fileActions->set_base_dirs(configValues, rootInfo);
 
     software_name = configValues->software_name;

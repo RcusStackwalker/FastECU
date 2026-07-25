@@ -202,7 +202,24 @@ fastecu::definitions::ConfigValuesStructure *LegacyConfigAdapter::read_config_fi
     ConfigPaths paths = paths_from_legacy(values);
     Result<AppConfig> config = load_app_config(paths, file_repository_);
     if (config.has_value())
-        copy_app_config_into_legacy(*config, values);
+    {
+        // Legacy read_config_file called save_config_file(configValues) on
+        // the same shared struct as its last step, so save's trailing-slash
+        // normalization (calibration_files_directory/
+        // ecuflash_definition_files_directory/datalog_files_directory)
+        // landed in the in-memory struct immediately -- callers saw
+        // normalized paths right after read_config_file returned, not only
+        // on a subsequent read. load_app_config deliberately returns the
+        // pre-save parsed value (see app_config.cpp's own comment and
+        // app_config_test.cpp's contract for it), so reproduce the second
+        // step explicitly here: save again (idempotent; matches legacy's
+        // actual outcome) and copy the *normalized* result, not the raw
+        // parse. A save failure here must not be surfaced as a load
+        // failure (same reasoning as app_config.cpp's own fire-and-forget
+        // save), so fall back to the unnormalized parse if it fails.
+        Result<AppConfig> saved = save_app_config(*config, paths, file_repository_);
+        copy_app_config_into_legacy(saved.has_value() ? *saved : *config, values);
+    }
     return values;
 }
 
