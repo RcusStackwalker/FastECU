@@ -59,8 +59,8 @@ void RemoteSerialBackend::startOverNetwork()
     // Start node when Web Socket will be up
     QObject::connect(webSocket, &QWebSocket::connected, this, &RemoteSerialBackend::websocket_connected);
     node.setHeartbeatInterval(heartbeatInterval);
-    QObject::connect(webSocket, QOverload<QAbstractSocket::SocketError>::of(&QWebSocket::error),
-                     this, [=](QAbstractSocket::SocketError error)
+    QObject::connect(webSocket, &QWebSocket::errorOccurred,
+                     this, [this](QAbstractSocket::SocketError error)
                      { emit LOG_D(QString(this->metaObject()->className()) + " startOverNetwork QWebSocket error: " + QMetaEnum::fromType<QAbstractSocket::SocketError>().valueToKey(error), true, true); });
     // WebSocket over SSL
     QUrl url("wss://" + peerAddress);

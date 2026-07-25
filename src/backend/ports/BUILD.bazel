@@ -1,6 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
-load("//bazel:qt_targets.bzl", "PORTABLE_COPTS")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -29,7 +28,6 @@ cc_test(
     name = "result_test",
     size = "small",
     srcs = ["result_test.cpp"],
-    copts = PORTABLE_COPTS,
     deps = [
         ":ports",
         "@googletest//:gtest_main",
@@ -40,7 +38,6 @@ cc_test(
     name = "clock_test",
     size = "small",
     srcs = ["clock_test.cpp"],
-    copts = PORTABLE_COPTS,
     deps = [
         ":ports",
         "@googletest//:gtest_main",
@@ -51,7 +48,6 @@ cc_test(
     name = "event_sink_test",
     size = "small",
     srcs = ["event_sink_test.cpp"],
-    copts = PORTABLE_COPTS,
     deps = [
         ":ports",
         "@googletest//:gtest_main",
@@ -62,7 +58,6 @@ cc_test(
     name = "file_repository_test",
     size = "small",
     srcs = ["file_repository_test.cpp"],
-    copts = PORTABLE_COPTS,
     deps = [
         ":ports",
         "@googletest//:gtest_main",
@@ -73,7 +68,6 @@ cc_test(
     name = "file_system_test",
     size = "small",
     srcs = ["file_system_test.cpp"],
-    copts = PORTABLE_COPTS,
     deps = [
         ":ports",
         "@googletest//:gtest_main",
@@ -84,7 +78,6 @@ cc_test(
     name = "resource_bundle_test",
     size = "small",
     srcs = ["resource_bundle_test.cpp"],
-    copts = PORTABLE_COPTS,
     deps = [
         ":ports",
         "@googletest//:gtest_main",

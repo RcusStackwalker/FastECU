@@ -74,8 +74,7 @@ def qt_replica_library(name, reps, deps):
         hdrs = hdrs,
         copts = select({
             "@platforms//os:macos": [
-                "-mmacosx-version-min=10.15",
-                "-Wno-error=implicit-function-declaration",
+                "-Wno-implicit-function-declaration",
             ],
             "//conditions:default": [],
         }),

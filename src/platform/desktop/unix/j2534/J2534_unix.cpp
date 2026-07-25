@@ -2,6 +2,8 @@
 
 #include <QThread>
 
+#include <cstdio>
+
 J2534::J2534()
 {
 }
@@ -924,7 +926,7 @@ void J2534::dump_sconfig_param(SCONFIG s)
         strcpy(paramName, "INPUT_RANGE_HIGH");
         break;
     default:
-        sprintf(paramName, "%lu(unknown)", s.Parameter);
+        std::snprintf(paramName, sizeof(paramName), "%lu(unknown)", s.Parameter);
         break;
     }
 
@@ -995,7 +997,7 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
         //        strcpy(IoctlName,"APP_SERVICE");
         //        break;
     default:
-        sprintf(IoctlName, "%lu(unknown)", IoctlID);
+        std::snprintf(IoctlName, sizeof(IoctlName), "%lu(unknown)", IoctlID);
         break;
     }
 

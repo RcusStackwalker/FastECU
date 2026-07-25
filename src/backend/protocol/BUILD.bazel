@@ -1,5 +1,4 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:qt_targets.bzl", "PORTABLE_COPTS")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -19,7 +18,6 @@ cc_library(
     name = "protocol",
     srcs = glob(["*.cpp"]),
     hdrs = glob(["*.h"]),
-    copts = PORTABLE_COPTS,
     deps = [
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/colt",

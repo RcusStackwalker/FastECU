@@ -1,5 +1,4 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:qt_targets.bzl", "PORTABLE_COPTS")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -25,7 +24,6 @@ cc_library(
         "portable_mut_dma_logging_protocol.h",
         "portable_ssm_logging_protocol.h",
     ],
-    copts = PORTABLE_COPTS,
     deps = [
         "//src/algorithms/protocol/ssm",
         "//src/backend/logging:logging_use_case",

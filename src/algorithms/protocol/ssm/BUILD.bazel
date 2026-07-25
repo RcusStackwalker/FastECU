@@ -1,6 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "PORTABLE_COPTS", "QT_DEPS")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS")
 
 package(default_visibility = [
     "//src/algorithms:__subpackages__",
@@ -23,7 +23,6 @@ cc_library(
     name = "ssm",
     srcs = ["ssm_protocol_core.cpp"],
     hdrs = ["ssm_protocol_core.h"],
-    copts = PORTABLE_COPTS,
     deps = ["//src/algorithms/protocol"],
 )
 
@@ -44,7 +43,6 @@ cc_test(
     name = "ssm_protocol_core_test",
     size = "small",
     srcs = ["ssm_protocol_core_test.cpp"],
-    copts = PORTABLE_COPTS,
     deps = [
         ":ssm",
         "@googletest//:gtest_main",

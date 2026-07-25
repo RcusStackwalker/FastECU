@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "COMMON_LINKOPTS", "qt_cc_test", "qt_cpp_moc_headers")
+load("//bazel:qt_targets.bzl", "qt_cc_test", "qt_cpp_moc_headers")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -21,7 +21,6 @@ qt_cc_test(
         ],
         "//conditions:default": [],
     }),
-    linkopts = COMMON_LINKOPTS,
     target_compatible_with = select({
         "@platforms//os:windows": ["@platforms//:incompatible"],
         "//conditions:default": [],

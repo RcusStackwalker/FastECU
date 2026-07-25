@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_LINKOPTS", "qt_cc_binary")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "qt_cc_binary")
 
 # Only the root //:fastecu alias consumes this composition root.
 package(default_visibility = ["//:__pkg__"])
@@ -7,7 +7,6 @@ qt_cc_binary(
     name = "fastecu",
     srcs = ["main.cpp"],
     copts = COMMON_COPTS,
-    linkopts = COMMON_LINKOPTS,
     # main.cpp includes no J2534 header, so the platform j2534 libraries are not
     # declared here. They reach the link transitively via //src/ui/desktop ->
     # //src/platform/desktop/common/serial:serial_qt_compat, whose own select()

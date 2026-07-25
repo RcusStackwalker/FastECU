@@ -1,6 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
-load("//bazel:qt_targets.bzl", "PORTABLE_COPTS")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -26,7 +25,6 @@ cc_library(
     name = "denso_sh705x_eeprom_common",
     srcs = ["denso_sh705x_eeprom_common.cpp"],
     hdrs = ["denso_sh705x_eeprom_common.h"],
-    copts = PORTABLE_COPTS,
     visibility = [
         "//src/backend/flash/eeprom:__subpackages__",
         "//src/platform:__subpackages__",
@@ -51,7 +49,6 @@ cc_library(
     name = "denso_sh705x_eeprom_kline",
     srcs = ["denso_sh705x_eeprom_kline_executor.cpp"],
     hdrs = ["denso_sh705x_eeprom_kline_executor.h"],
-    copts = PORTABLE_COPTS,
     visibility = [
         "//src/platform:__subpackages__",
         # The rewritten K-Line EEPROM dialog (step 5c, Task 17) constructs
@@ -83,7 +80,6 @@ cc_library(
     name = "denso_sh705x_eeprom_can",
     srcs = ["denso_sh705x_eeprom_can_executor.cpp"],
     hdrs = ["denso_sh705x_eeprom_can_executor.h"],
-    copts = PORTABLE_COPTS,
     visibility = [
         "//src/platform:__subpackages__",
         # The rewritten CAN EEPROM dialog (step 5c, Task 17) constructs
