@@ -30,19 +30,9 @@
 #include <string.h>
 #include <iostream>
 
-#include "src/algorithms/checksum/checksum_ecu_subaru_denso_sh705x_diesel.h"
-#include "src/algorithms/checksum/checksum_ecu_subaru_denso_sh7xxx.h"
-#include "src/algorithms/checksum/checksum_ecu_subaru_hitachi_m32r_kline.h"
-#include "src/algorithms/checksum/checksum_ecu_subaru_hitachi_m32r_can.h"
-#include "src/algorithms/checksum/checksum_ecu_subaru_hitachi_sh7058.h"
-#include "src/algorithms/checksum/checksum_ecu_subaru_hitachi_sh72543r.h"
-
-#include "src/algorithms/checksum/checksum_tcu_subaru_denso_sh7055.h"
-#include "src/algorithms/checksum/checksum_tcu_subaru_hitachi_m32r_can.h"
-#include "src/algorithms/checksum/checksum_tcu_mitsu_mh8104_can.h"
-
 #include "src/backend/definitions/kernelmemorymodels.h"
 #include "src/backend/definitions/config_values.h"
+#include "src/backend/checksum/legacy_checksum_adapter.h"
 #include "src/backend/config/legacy_config_adapter.h"
 #include "src/backend/config/config_paths.h"
 #include "src/backend/ports/file_repository.h"
@@ -484,6 +474,7 @@ class FileActions : public QWidget
 
   private:
     fastecu::config::LegacyConfigAdapter configAdapter_;
+    fastecu::checksum::LegacyChecksumAdapter checksumAdapter_;
 
   signals:
     void LOG_E(QString message, bool timestamp, bool linefeed);
