@@ -2,6 +2,7 @@
 #include <QApplication>
 #include <QFile>
 #include <QTemporaryDir>
+#include <QTimer>
 
 #include "src/backend/definitions/file_actions.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
@@ -272,6 +273,56 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(ecu.RomInfo.at(FileActions::ChecksumModule), QString(""));
         QCOMPARE(ecu.RomInfo.at(FileActions::FileSize), QString(""));
         QCOMPARE(ecu.RomInfo.at(FileActions::DefFile), definitionPath);
+    }
+
+    void checksum_correction_unknown_mcu_type_logs_and_returns_unmodified_rom()
+    {
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
+        actions.ConfigValuesStruct.flash_protocol_selected_make = "Subaru";
+        actions.ConfigValuesStruct.flash_protocol_selected_checksum = "yes";
+        actions.ConfigValuesStruct.flash_protocol_selected_protocol_name = "sub_ecu_hitachi_m32r_can";
+        actions.ConfigValuesStruct.flash_protocol_selected_mcu = "M32170";
+
+        FileActions::EcuCalDefStructure ecu;
+        // "M32170" is sub_ecu_mitsu_m32r_can's real, currently shipped <mcu>
+        // value in resources/shared/config/protocols.cfg; it has no
+        // flashdevices[] entry, exercising checksum_correction's
+        // unknown-MCU early return (no dialog, just a LOG_E signal).
+        ecu.McuType = "M32170";
+        ecu.RomId = "39670016";
+        ecu.FullRomData = QByteArray(100, '\0');
+
+        QCOMPARE(actions.checksum_correction(&ecu), &ecu);
+        QCOMPARE(ecu.FullRomData, QByteArray(100, '\0'));
+    }
+
+    void checksum_correction_valid_mcu_corrects_rom_and_writes_back_bytes()
+    {
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
+        actions.ConfigValuesStruct.flash_protocol_selected_make = "Subaru";
+        actions.ConfigValuesStruct.flash_protocol_selected_checksum = "yes";
+        actions.ConfigValuesStruct.flash_protocol_selected_protocol_name = "sub_ecu_denso_sh7055";
+        actions.ConfigValuesStruct.flash_protocol_selected_mcu = "SH7055";
+
+        FileActions::EcuCalDefStructure ecu;
+        ecu.McuType = "SH7055";
+        ecu.RomId = "39670016";
+        ecu.FullRomData = QByteArray(524288, '\0'); // SH7055 romsize, all-zero -> Corrected
+        ecu.use_romraider_definition = true;        // skip the "no definition linked" gate
+
+        // The Corrected outcome shows a real "Checksums corrected"
+        // QMessageBox; auto-dismiss whatever modal appears rather than
+        // hang, matching this suite's existing offscreen-QApplication
+        // convention (see _NEEDS_OFFSCREEN_QT_PLATFORM in
+        // bazel/mut_dma_test_suites.bzl).
+        QTimer::singleShot(0, []()
+                           {
+            if (QWidget *modal = QApplication::activeModalWidget())
+                modal->close(); });
+
+        QCOMPARE(actions.checksum_correction(&ecu), &ecu);
+        QCOMPARE(ecu.FullRomData.size(), 524288);
+        QVERIFY(ecu.FullRomData != QByteArray(524288, '\0'));
     }
 
   private:

@@ -220,3 +220,110 @@ TEST(ApplyChecksumCorrection, UnmatchedFlashMethodReturnsNoModuleForProtocol)
 
     EXPECT_EQ(outcome.status, Status::NoModuleForProtocol);
 }
+
+// The remaining Denso branches below all route through one of the two
+// already-exercised family classes (SH7xxx or SH705xDiesel); each test here
+// exists to prove ITS specific flash_method prefix reaches dispatch_family's
+// chain at all (routing), not to re-verify algorithm math already covered by
+// DensoSh7xxxRoutesForPlainSh7055/Sh705xDieselTakesPriorityOverPlainSh7058Prefix
+// and by src/algorithms/checksum:checksum_test.
+
+TEST(ApplyChecksumCorrection, Sh7058sDieselDensocanRoutesToSh705xDiesel)
+{
+    const bytes::Bytes rom(1024 * 1024, 0); // SH7058 romsize, 0x0FFB80 + 204 in bounds
+    const auto outcome = apply_checksum_correction(
+        rom, subaruSelection("sub_ecu_denso_sh7058s_diesel_densocan", "SH7058"));
+
+    ASSERT_EQ(outcome.status, Status::FamilyRan);
+    ASSERT_TRUE(outcome.family_result.has_value());
+    EXPECT_EQ(outcome.family_result->status, ChecksumResult::Status::Corrected);
+}
+
+TEST(ApplyChecksumCorrection, PlainSh7058RoutesToSh7xxx)
+{
+    const bytes::Bytes rom(1024 * 1024, 0); // SH7058 romsize, 0x0FFB80 + 204 in bounds
+    const auto outcome = apply_checksum_correction(rom, subaruSelection("sub_ecu_denso_sh7058", "SH7058"));
+
+    ASSERT_EQ(outcome.status, Status::FamilyRan);
+    ASSERT_TRUE(outcome.family_result.has_value());
+    EXPECT_EQ(outcome.family_result->status, ChecksumResult::Status::Corrected);
+}
+
+TEST(ApplyChecksumCorrection, Sh72531CanRoutesToSh7xxx)
+{
+    const bytes::Bytes rom(1280 * 1024, 0); // SH72531 romsize, 0x13F500 + 204 in bounds
+    const auto outcome = apply_checksum_correction(rom, subaruSelection("sub_ecu_denso_sh72531_can", "SH72531"));
+
+    ASSERT_EQ(outcome.status, Status::FamilyRan);
+    ASSERT_TRUE(outcome.family_result.has_value());
+    EXPECT_EQ(outcome.family_result->status, ChecksumResult::Status::Corrected);
+}
+
+TEST(ApplyChecksumCorrection, N83m4mCanRoutesToSh7xxxWithNegativeOffset)
+{
+    const bytes::Bytes rom(3984 * 1024, 0); // N83M_4MB romsize, 0x3E3E00 + 204 in bounds
+    const auto outcome = apply_checksum_correction(rom, subaruSelection("sub_ecu_denso_1n83m_4m_can", "N83M_4MB"));
+
+    ASSERT_EQ(outcome.status, Status::FamilyRan);
+    ASSERT_TRUE(outcome.family_result.has_value());
+    EXPECT_EQ(outcome.family_result->status, ChecksumResult::Status::Corrected);
+}
+
+TEST(ApplyChecksumCorrection, N83m1_5mCanRoutesToSh7xxxWithNegativeOffset)
+{
+    // Uses N83M_4MB, not the "naturally" paired N83M_1_5MB: this
+    // flash_method's hardcoded area_start (0x183E00) is 1,588,736 bytes in,
+    // which exceeds N83M_1_5MB's own romsize (1,523,712) -- a pre-existing
+    // legacy quirk this port preserves verbatim, not something to fix here.
+    // N83M_4MB is large enough to prove routing without hitting that quirk.
+    const bytes::Bytes rom(3984 * 1024, 0);
+    const auto outcome =
+        apply_checksum_correction(rom, subaruSelection("sub_ecu_denso_1n83m_1_5m_can", "N83M_4MB"));
+
+    ASSERT_EQ(outcome.status, Status::FamilyRan);
+    ASSERT_TRUE(outcome.family_result.has_value());
+    EXPECT_EQ(outcome.family_result->status, ChecksumResult::Status::Corrected);
+}
+
+TEST(ApplyChecksumCorrection, Sh7059CanDieselRoutesToSh705xDiesel)
+{
+    const bytes::Bytes rom(1536 * 1024, 0); // SH7059d romsize, 0x17FB80 + 204 in bounds
+    const auto outcome =
+        apply_checksum_correction(rom, subaruSelection("sub_ecu_denso_sh7059_can_diesel", "SH7059d"));
+
+    ASSERT_EQ(outcome.status, Status::FamilyRan);
+    ASSERT_TRUE(outcome.family_result.has_value());
+    EXPECT_EQ(outcome.family_result->status, ChecksumResult::Status::Corrected);
+}
+
+TEST(ApplyChecksumCorrection, Sh7059DieselDensocanRoutesToSh705xDiesel)
+{
+    const bytes::Bytes rom(1536 * 1024, 0); // SH7059d romsize, 0x17FB80 + 204 in bounds
+    const auto outcome =
+        apply_checksum_correction(rom, subaruSelection("sub_ecu_denso_sh7059_diesel_densocan", "SH7059d"));
+
+    ASSERT_EQ(outcome.status, Status::FamilyRan);
+    ASSERT_TRUE(outcome.family_result.has_value());
+    EXPECT_EQ(outcome.family_result->status, ChecksumResult::Status::Corrected);
+}
+
+TEST(ApplyChecksumCorrection, Sh72543CanDieselRoutesToSh705xDiesel)
+{
+    const bytes::Bytes rom(2 * 1024 * 1024, 0); // SH72543d romsize, 0x1FF800 + 204 in bounds
+    const auto outcome =
+        apply_checksum_correction(rom, subaruSelection("sub_ecu_denso_sh72543_can_diesel", "SH72543d"));
+
+    ASSERT_EQ(outcome.status, Status::FamilyRan);
+    ASSERT_TRUE(outcome.family_result.has_value());
+    EXPECT_EQ(outcome.family_result->status, ChecksumResult::Status::Corrected);
+}
+
+TEST(ApplyChecksumCorrection, TcuDensoSh7058CanRoutesToSh7xxx)
+{
+    const bytes::Bytes rom(1024 * 1024, 0); // SH7058 romsize, 0x0FFB80 + 204 in bounds
+    const auto outcome = apply_checksum_correction(rom, subaruSelection("sub_tcu_denso_sh7058_can", "SH7058"));
+
+    ASSERT_EQ(outcome.status, Status::FamilyRan);
+    ASSERT_TRUE(outcome.family_result.has_value());
+    EXPECT_EQ(outcome.family_result->status, ChecksumResult::Status::Corrected);
+}
