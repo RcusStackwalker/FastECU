@@ -6,7 +6,6 @@
 #include "src/algorithms/expression/qt_expression_evaluator.h"
 #include "src/algorithms/protocol/qt_bytes.h"
 #include "src/backend/checksum/flash_device_lookup.h"
-#include "src/backend/flash/flash_utils.h"
 #include "src/algorithms/diagnostics/qt_nrc_parser.h"
 
 namespace

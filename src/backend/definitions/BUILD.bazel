@@ -77,7 +77,6 @@ qt_cc_library(
         "//src/backend/checksum:legacy_checksum_adapter",
         "//src/backend/checksum:flash_device_lookup",
         "//src/backend/config:legacy_config_adapter",
-        "//src/backend/flash",
         "//src/backend/ports",
     ],
 )
