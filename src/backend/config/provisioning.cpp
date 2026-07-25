@@ -1,6 +1,7 @@
 #include "src/backend/config/provisioning.h"
 
 #include <algorithm>
+#include <iterator>
 #include <vector>
 
 namespace fastecu::config
