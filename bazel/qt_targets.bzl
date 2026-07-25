@@ -28,7 +28,7 @@ COMMON_COPTS = [
 ] + select({
     "@platforms//os:macos": [
         "-mmacosx-version-min=10.15",
-        "-Wno-error=implicit-function-declaration",
+        "-Wno-implicit-function-declaration",
     ],
     "//conditions:default": [],
 })
@@ -41,7 +41,7 @@ PORTABLE_COPTS = [
 ] + select({
     "@platforms//os:macos": [
         "-mmacosx-version-min=10.15",
-        "-Wno-error=implicit-function-declaration",
+        "-Werror=implicit-function-declaration",
     ],
     "//conditions:default": [],
 })
