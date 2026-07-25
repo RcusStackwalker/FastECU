@@ -27,7 +27,6 @@ COMMON_COPTS = [
     "-Isrc/platform/desktop/common/serial",
 ] + select({
     "@platforms//os:macos": [
-        "-mmacosx-version-min=10.15",
         "-Wno-implicit-function-declaration",
     ],
     "//conditions:default": [],
@@ -40,19 +39,12 @@ PORTABLE_COPTS = [
     "-I.",
 ] + select({
     "@platforms//os:macos": [
-        "-mmacosx-version-min=10.15",
         "-Werror=implicit-function-declaration",
     ],
     "//conditions:default": [],
 })
 
-COMMON_LINKOPTS = select({
-    "@platforms//os:macos": [
-        "-mmacosx-version-min=10.15",
-    ],
-    "//conditions:default": [],
-})
-
+COMMON_LINKOPTS = []
 COMMON_INCLUDES = [
     "src/platform/desktop/common/serial",
 ]
