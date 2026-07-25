@@ -127,7 +127,7 @@ Result<AppConfig> save_app_config(AppConfig config, const ConfigPaths& paths,
         pugi::xml_node setting = settings.append_child("setting");
         setting.append_attribute("name") = name;
         pugi::xml_node value = setting.append_child("value");
-        value.append_attribute("data") = data.c_str();
+        value.append_attribute("data") = data;
     };
     auto add_list = [&](const char *name, const std::vector<std::string>& items)
     {
@@ -136,14 +136,14 @@ Result<AppConfig> save_app_config(AppConfig config, const ConfigPaths& paths,
         for (const std::string& item : items)
         {
             pugi::xml_node value = setting.append_child("value");
-            value.append_attribute("data") = item.c_str();
+            value.append_attribute("data") = item;
         }
     };
 
     pugi::xml_node window = settings.append_child("setting");
     window.append_attribute("name") = "window_size";
-    window.append_child("value").append_attribute("width") = config.window_width.c_str();
-    window.append_child("value").append_attribute("height") = config.window_height.c_str();
+    window.append_child("value").append_attribute("width") = config.window_width;
+    window.append_child("value").append_attribute("height") = config.window_height;
 
     add_single("toolbar_iconsize", config.toolbar_iconsize);
     add_single("serial_port", config.serial_port);
