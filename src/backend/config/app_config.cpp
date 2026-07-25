@@ -1,8 +1,10 @@
 #include "src/backend/config/app_config.h"
 
-#include <pugixml.hpp>
 #include <cstring>
 #include <sstream>
+#include <string_view>
+
+#include <pugixml.hpp>
 
 namespace fastecu::config
 {
@@ -122,14 +124,14 @@ Result<AppConfig> save_app_config(AppConfig config, const ConfigPaths& paths,
     config_node.append_attribute("version") = "0.1.0-beta.5";
     pugi::xml_node settings = config_node.append_child("software_settings");
 
-    auto add_single = [&](const char *name, const std::string& data)
+    auto add_single = [&](std::string_view name, const std::string& data)
     {
         pugi::xml_node setting = settings.append_child("setting");
         setting.append_attribute("name") = name;
         pugi::xml_node value = setting.append_child("value");
         value.append_attribute("data") = data;
     };
-    auto add_list = [&](const char *name, const std::vector<std::string>& items)
+    auto add_list = [&](std::string_view name, const std::vector<std::string>& items)
     {
         pugi::xml_node setting = settings.append_child("setting");
         setting.append_attribute("name") = name;

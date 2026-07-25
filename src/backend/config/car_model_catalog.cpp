@@ -1,5 +1,7 @@
 #include "src/backend/config/car_model_catalog.h"
 
+#include <string_view>
+
 #include <pugixml.hpp>
 
 namespace fastecu::config
@@ -7,7 +9,7 @@ namespace fastecu::config
 namespace
 {
 
-std::string text_or_empty(pugi::xml_node car_model, const char *tag)
+std::string text_or_empty(pugi::xml_node car_model, std::string_view tag)
 {
     return car_model.child(tag).text().as_string();
 }

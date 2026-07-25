@@ -1,5 +1,7 @@
 #include "src/backend/config/protocol_catalog.h"
 
+#include <string_view>
+
 #include <pugixml.hpp>
 
 namespace fastecu::config
@@ -7,7 +9,7 @@ namespace fastecu::config
 namespace
 {
 
-std::string text_or_empty(pugi::xml_node protocol, const char *tag)
+std::string text_or_empty(pugi::xml_node protocol, std::string_view tag)
 {
     return protocol.child(tag).text().as_string();
 }
