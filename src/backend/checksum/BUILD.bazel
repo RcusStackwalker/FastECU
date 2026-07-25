@@ -1,0 +1,38 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+load("//bazel:qt_targets.bzl", "PORTABLE_COPTS")
+
+package(default_visibility = [
+    "//src/backend:__subpackages__",
+    "//src/platform:__subpackages__",
+    "//src/ui:__subpackages__",
+    "//tests:__pkg__",
+])
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//:__pkg__"],
+)
+
+# Portable. No Qt, no platform, no filesystem, no thread.
+cc_library(
+    name = "checksum_selection",
+    hdrs = ["checksum_selection.h"],
+    copts = PORTABLE_COPTS,
+    deps = ["//src/algorithms/checksum"],
+)
+
+# Portable. No Qt, no platform, no filesystem, no thread.
+cc_library(
+    name = "flash_device_lookup",
+    srcs = ["flash_device_lookup.cpp"],
+    hdrs = ["flash_device_lookup.h"],
+    copts = PORTABLE_COPTS,
+    deps = ["//src/backend/definitions:models"],
+)
+
+fastecu_portable_gtest(
+    name = "flash_device_lookup_test",
+    srcs = ["flash_device_lookup_test.cpp"],
+    deps = [":flash_device_lookup"],
+)
