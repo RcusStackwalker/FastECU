@@ -9,7 +9,6 @@ bazel/qt_targets.bzl), which keep only "tests/"-prefixed paths. The qmake-era
 MUT_DMA_TESTS_COMMON_SRCS = [
     "tests/test_cdbg_driver.cpp",
     "tests/test_cdbg_logging_protocol.cpp",
-    "tests/test_checksum_results.cpp",
     "tests/test_codec.cpp",
     "tests/test_desktop_can_flash_transport.cpp",
     "tests/test_desktop_kline_flash_transport.cpp",
@@ -52,7 +51,6 @@ MUT_DMA_TESTS_COMMON_HDRS = [
     "tests/scripted_logging_protocol.h",
     "tests/scripted_ssm_transport.h",
     "tests/test_cdbg_logging_protocol.h",
-    "tests/test_checksum_results.h",
     "tests/test_desktop_can_flash_transport.h",
     "tests/test_desktop_kline_flash_transport.h",
     "tests/test_diagnostic_parsers.h",
