@@ -1,6 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "PORTABLE_COPTS", "QT_DEPS")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS")
 
 package(default_visibility = [
     "//src/algorithms:__subpackages__",
@@ -32,7 +32,6 @@ cc_library(
         ],
     ),
     hdrs = ["bytes.h"],
-    copts = PORTABLE_COPTS,
 )
 
 # TRANSITIONAL Qt shim. Converts between Qt containers and bytes:: types.
@@ -49,7 +48,6 @@ cc_test(
     name = "bytes_test",
     size = "small",
     srcs = ["bytes_test.cpp"],
-    copts = PORTABLE_COPTS,
     deps = [
         ":protocol",
         "@googletest//:gtest_main",

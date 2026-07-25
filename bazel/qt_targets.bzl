@@ -32,18 +32,6 @@ COMMON_COPTS = [
     "//conditions:default": [],
 })
 
-# Copts for targets that must not link Qt. Deliberately omits
-# -DQT_FORCE_ASSERTS / -DQT_DEPRECATED_WARNINGS (Qt-only) and the serial
-# include path (platform code, not reachable from portable algorithms).
-PORTABLE_COPTS = [
-    "-I.",
-] + select({
-    "@platforms//os:macos": [
-        "-Werror=implicit-function-declaration",
-    ],
-    "//conditions:default": [],
-})
-
 COMMON_INCLUDES = [
     "src/platform/desktop/common/serial",
 ]

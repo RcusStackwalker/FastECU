@@ -1,6 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "PORTABLE_COPTS", "QT_DEPS")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS")
 
 package(default_visibility = [
     "//src/algorithms:__subpackages__",
@@ -37,7 +37,6 @@ cc_library(
             "qt_*.h",
         ],
     ),
-    copts = PORTABLE_COPTS,
     deps = [
         "//src/algorithms/protocol",
         "@openssl",
@@ -62,7 +61,6 @@ cc_test(
     name = "cipher_test",
     size = "small",
     srcs = ["cipher_test.cpp"],
-    copts = PORTABLE_COPTS,
     deps = [
         ":crypto",
         "@googletest//:gtest_main",

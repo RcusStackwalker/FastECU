@@ -1,6 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "PORTABLE_COPTS", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -18,7 +18,6 @@ exports_files(
 cc_library(
     name = "checksum_selection",
     hdrs = ["checksum_selection.h"],
-    copts = PORTABLE_COPTS,
     deps = ["//src/algorithms/checksum"],
 )
 
@@ -27,7 +26,6 @@ cc_library(
     name = "flash_device_lookup",
     srcs = ["flash_device_lookup.cpp"],
     hdrs = ["flash_device_lookup.h"],
-    copts = PORTABLE_COPTS,
     deps = ["//src/backend/definitions:models"],
 )
 
@@ -42,7 +40,6 @@ cc_library(
     name = "dispatch",
     srcs = ["dispatch.cpp"],
     hdrs = ["dispatch.h"],
-    copts = PORTABLE_COPTS,
     deps = [
         ":checksum_selection",
         ":flash_device_lookup",

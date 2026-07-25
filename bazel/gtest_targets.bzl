@@ -1,7 +1,7 @@
 """Shared GoogleTest target shapes for portable and Qt-linked FastECU code."""
 
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "PORTABLE_COPTS", "QT_DEPS")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS")
 
 def fastecu_portable_gtest(
         name,
@@ -15,7 +15,7 @@ def fastecu_portable_gtest(
     cc_test(
         name = name,
         srcs = srcs,
-        copts = PORTABLE_COPTS + [
+        copts = [
             "-I.",
             "-Itests",
         ] + copts,
