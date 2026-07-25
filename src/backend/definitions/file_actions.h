@@ -42,6 +42,12 @@
 #include "src/algorithms/checksum/checksum_tcu_mitsu_mh8104_can.h"
 
 #include "src/backend/definitions/kernelmemorymodels.h"
+#include "src/backend/definitions/config_values.h"
+#include "src/backend/config/legacy_config_adapter.h"
+#include "src/backend/config/config_paths.h"
+#include "src/backend/ports/file_repository.h"
+#include "src/backend/ports/file_system.h"
+#include "src/backend/ports/resource_bundle.h"
 
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
 #include <windows.h>
@@ -54,114 +60,19 @@ class FileActions : public QWidget
     Q_OBJECT
 
   public:
-    FileActions(QWidget *parent = nullptr);
+    FileActions(fastecu::IFileSystem& file_system, fastecu::IResourceBundle& resource_bundle,
+                fastecu::IFileRepository& file_repository, QWidget *parent = nullptr);
 
     uint8_t float_precision = 15;
     int def_map_index = 0;
     // QString ecu_protocol;
 
-    struct ConfigValuesStructure
-    {
-        QString software_name = "FastECU";
-        QString software_title = "FastECU";
-        QString software_version = "0.1.0-beta.5";
-
-        QString serial_port = "ttyUSB0";
-        QString baudrate = "4800";
-        QString window_size = "default";
-        QString window_width = "default";
-        QString window_height = "default";
-        QString toolbar_iconsize = "32";
-
-#if defined Q_OS_UNIX
-        QString app_base_config_directory = QDir::homePath() + "/.config/FastECU/";
-#elif defined Q_OS_WIN32
-        QString app_base_config_directory = QDir::homePath() + "/AppData/Local/FastECU/";
-#endif
-        QString base_config_directory = app_base_config_directory;
-        QString calibration_files_base_directory = base_config_directory + software_version + "/calibrations/";
-        QString config_files_base_directory = base_config_directory + software_version + "/config/";
-        QString definition_files_base_directory = base_config_directory + software_version + "/definitions/";
-        QString kernel_files_base_directory = base_config_directory + software_version + "/kernels/";
-        QString datalog_files_base_directory = base_config_directory + software_version + "/datalogs/";
-        QString syslog_files_base_directory = base_config_directory + software_version + "/syslogs/";
-
-        QString version_config_directory;
-        QString calibration_files_directory;
-        QString config_files_directory;
-        QString definition_files_directory;
-        QString kernel_files_directory;
-        QString datalog_files_directory;
-        QString syslog_files_directory;
-
-        QString config_file = "fastecu.cfg";
-        QString menu_file = "menu.cfg";
-        QString logger_file = "logger.cfg";
-        QString protocols_file = "protocols.cfg";
-
-        QStringList calibration_files;
-        QStringList romraider_definition_files;
-        QString ecuflash_definition_files_directory;
-        QString romraider_logger_definition_file;
-        QString kernel_files;
-
-        QString use_romraider_definitions = "disabled";
-        QString use_ecuflash_definitions = "disabled";
-        QString primary_definition_base = "ecuflash";
-
-        QStringList ecuflash_def_cal_id;
-        QStringList ecuflash_def_cal_id_addr;
-        QStringList ecuflash_def_ecu_id;
-        QStringList ecuflash_def_filename;
-        QStringList romraider_def_cal_id;
-        QStringList romraider_def_cal_id_addr;
-        QStringList romraider_def_ecu_id;
-        QStringList romraider_def_filename;
-
-        QStringList flash_protocol_id;
-        QStringList flash_protocol_alias;
-        QStringList flash_protocol_make;
-        QStringList flash_protocol_model;
-        QStringList flash_protocol_version;
-        QStringList flash_protocol_type;
-        QStringList flash_protocol_kw;
-        QStringList flash_protocol_hp;
-        QStringList flash_protocol_fuel;
-        QStringList flash_protocol_year;
-        QStringList flash_protocol_ecu;
-        QStringList flash_protocol_mcu;
-        QStringList flash_protocol_mode;
-        QStringList flash_protocol_checksum;
-        QStringList flash_protocol_read;
-        QStringList flash_protocol_test_write;
-        QStringList flash_protocol_write;
-        QStringList flash_protocol_flash_transport;
-        QStringList flash_protocol_log_transport;
-        QStringList flash_protocol_log_protocol;
-        QStringList flash_protocol_ecu_id_ascii;
-        QStringList flash_protocol_ecu_id_addr;
-        QStringList flash_protocol_ecu_id_length;
-        QStringList flash_protocol_cal_id_ascii;
-        QStringList flash_protocol_cal_id_addr;
-        QStringList flash_protocol_cal_id_length;
-        QStringList flash_protocol_kernel;
-        QStringList flash_protocol_kernel_addr;
-        QStringList flash_protocol_description;
-        QStringList flash_protocol_protocol_name;
-
-        QString flash_protocol_selected_id;
-        QString flash_protocol_selected_make;
-        QString flash_protocol_selected_model;
-        QString flash_protocol_selected_version;
-        QString flash_protocol_selected_mcu;
-        QString flash_protocol_selected_checksum;
-        QString flash_protocol_selected_flash_transport;
-        QString flash_protocol_selected_log_transport;
-        QString flash_protocol_selected_log_protocol;
-        QString flash_protocol_selected_protocol_name;
-        QString flash_protocol_selected_description;
-
-    } ConfigValuesStruct;
+    // Defined in config_values.h (see that file's comment for why it is not
+    // a nested struct here anymore) and re-exposed under its historical
+    // name so every existing `FileActions::ConfigValuesStructure` call site
+    // keeps compiling unchanged.
+    using ConfigValuesStructure = fastecu::definitions::ConfigValuesStructure;
+    ConfigValuesStructure ConfigValuesStruct;
 
     struct protocolsStructure
     {
@@ -457,9 +368,9 @@ class FileActions : public QWidget
      * Check if FastECU dir exists in users home folder
      * If not, create one with appropriate files
      ***************************************************/
-    ConfigValuesStructure *set_base_dirs(ConfigValuesStructure *configValues);
+    ConfigValuesStructure *set_base_dirs(ConfigValuesStructure *configValues,
+                                         const fastecu::config::AppRootInfo& root_info);
     ConfigValuesStructure *check_config_dirs(ConfigValuesStructure *configValues);
-    bool copy_directory_files(const QString& source_dir, const QString& target_dir, bool cover_file_if_exist);
 
     /****************************
      * Read FastECU config file
@@ -572,8 +483,7 @@ class FileActions : public QWidget
     static QString parse_dtc_message(uint16_t dtc);
 
   private:
-    QDir copyConfigFromDirectory;
-    QDir copyKernelsFromDirectory;
+    fastecu::config::LegacyConfigAdapter configAdapter_;
 
   signals:
     void LOG_E(QString message, bool timestamp, bool linefeed);

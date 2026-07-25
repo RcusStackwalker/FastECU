@@ -4,6 +4,9 @@
 #include <QTemporaryDir>
 
 #include "src/backend/definitions/file_actions.h"
+#include "src/platform/desktop/common/ports/qt_file_repository.h"
+#include "src/platform/desktop/common/ports/qt_file_system.h"
+#include "src/platform/desktop/common/ports/qt_resource_bundle.h"
 #include "test_rom_transformations.h"
 
 namespace
@@ -99,7 +102,7 @@ class TestRomTransformations : public QObject
         const QString romPath = writeBinaryFile(dir, "synthetic.bin", rom);
         QVERIFY(!romPath.isEmpty());
 
-        FileActions actions;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
         actions.ConfigValuesStruct.primary_definition_base = "romraider";
         actions.ConfigValuesStruct.use_romraider_definitions = "enabled";
         actions.ConfigValuesStruct.use_ecuflash_definitions = "disabled";
@@ -133,6 +136,15 @@ class TestRomTransformations : public QObject
         QCOMPARE(ecu.YScaleData.at(5), QString("30,40,"));
         QCOMPARE(ecu.FullRomData, original);
     }
+
+  private:
+    // FileActions's constructor now takes the config/settings ports (Task
+    // 11 of the step5d-1 plan); these are unused by the parsing paths this
+    // test exercises, so plain default-constructed Qt port implementations
+    // are sufficient.
+    QtFileSystem fileSystem_;
+    QtResourceBundle resourceBundle_;
+    QtFileRepository fileRepository_;
 };
 
 int run_test_rom_transformations(int argc, char **argv)

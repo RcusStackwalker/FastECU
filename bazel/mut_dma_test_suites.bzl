@@ -253,9 +253,21 @@ SUITE_DEPS = {
         "//src/platform/desktop/common/flash:flash_worker",
         "//src/ui/desktop/flash/eeprom",
     ],
-    "test_ecuflash_definition_parsing": ["//src/backend/definitions"],
-    "test_file_actions_parsing": ["//src/backend/definitions"],
-    "test_rom_transformations": ["//src/backend/definitions"],
+    # FileActions's constructor now takes the config/settings ports (Task 11
+    # of the step5d-1 plan); these tests construct plain QtFileSystem/
+    # QtResourceBundle/QtFileRepository instances to satisfy it.
+    "test_ecuflash_definition_parsing": [
+        "//src/backend/definitions",
+        "//src/platform/desktop/common/ports",
+    ],
+    "test_file_actions_parsing": [
+        "//src/backend/definitions",
+        "//src/platform/desktop/common/ports",
+    ],
+    "test_rom_transformations": [
+        "//src/backend/definitions",
+        "//src/platform/desktop/common/ports",
+    ],
     "test_model_validation": ["//src/backend/definitions"],
 }
 

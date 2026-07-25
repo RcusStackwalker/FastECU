@@ -1,0 +1,156 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "PORTABLE_COPTS", "QT_DEPS", "qt_cc_library")
+
+package(default_visibility = [
+    "//src/backend:__subpackages__",
+    "//src/platform:__subpackages__",
+    "//src/ui:__subpackages__",
+    "//tests:__pkg__",
+])
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//:__pkg__"],
+)
+
+# Portable. No Qt, no platform, no filesystem, no thread.
+cc_library(
+    name = "config_paths",
+    srcs = ["config_paths.cpp"],
+    hdrs = ["config_paths.h"],
+    copts = PORTABLE_COPTS,
+)
+
+fastecu_portable_gtest(
+    name = "config_paths_test",
+    srcs = ["config_paths_test.cpp"],
+    deps = [":config_paths"],
+)
+
+cc_library(
+    name = "provisioning",
+    srcs = ["provisioning.cpp"],
+    hdrs = ["provisioning.h"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":config_paths",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "provisioning_test",
+    srcs = ["provisioning_test.cpp"],
+    deps = [":provisioning"],
+)
+
+cc_library(
+    name = "app_config",
+    srcs = ["app_config.cpp"],
+    hdrs = ["app_config.h"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":config_paths",
+        "//src/backend/ports",
+        "@pugixml",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "app_config_test",
+    srcs = ["app_config_test.cpp"],
+    deps = [":app_config"],
+)
+
+cc_library(
+    name = "protocol_catalog",
+    srcs = ["protocol_catalog.cpp"],
+    hdrs = ["protocol_catalog.h"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":config_paths",
+        "//src/backend/ports",
+        "@pugixml",
+    ],
+)
+
+# Not fastecu_portable_gtest: that macro has no `data` parameter, and this
+# target needs one to depend on the real, checked-in protocols.cfg (see
+# tests/BUILD.bazel's test_protocols_cfg_eeprom_capabilities for the same
+# precedent -- a raw cc_test instead of the macro).
+cc_test(
+    name = "protocol_catalog_test",
+    srcs = ["protocol_catalog_test.cpp"],
+    copts = PORTABLE_COPTS,
+    data = ["//resources/shared:config/protocols.cfg"],
+    env = {
+        "PROTOCOLS_CFG_PATH": "$(location //resources/shared:config/protocols.cfg)",
+    },
+    deps = [
+        ":protocol_catalog",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "car_model_catalog",
+    srcs = ["car_model_catalog.cpp"],
+    hdrs = ["car_model_catalog.h"],
+    copts = PORTABLE_COPTS,
+    deps = [
+        ":config_paths",
+        "//src/backend/ports",
+        "@pugixml",
+    ],
+)
+
+# Not fastecu_portable_gtest: that macro has no `data` parameter, and this
+# target needs one to depend on the real, checked-in protocols.cfg -- same
+# reasoning as protocol_catalog_test above.
+cc_test(
+    name = "car_model_catalog_test",
+    srcs = ["car_model_catalog_test.cpp"],
+    copts = PORTABLE_COPTS,
+    data = ["//resources/shared:config/protocols.cfg"],
+    env = {
+        "PROTOCOLS_CFG_PATH": "$(location //resources/shared:config/protocols.cfg)",
+    },
+    deps = [
+        ":car_model_catalog",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# Qt-linked (FileActions::ConfigValuesStructure is Qt-typed). Explicit srcs so
+# this neither collides with nor is swept into
+# //src/backend/definitions:definitions's glob. legacy_config_adapter.h
+# declares no QObject/Q_OBJECT, so it goes through normal_hdrs rather than
+# hdrs (which would run it through moc unconditionally) -- same convention as
+# src/platform/desktop/common/transport/BUILD.bazel's flash_transports.
+#
+# Depends on //src/backend/definitions:config_values (the extracted value
+# struct), not the full //src/backend/definitions target: FileActions owns a
+# LegacyConfigAdapter member (wired in Task 11), so a dependency on the full
+# `definitions` target here would form a hard Bazel cycle with
+# `definitions`'s own dependency on `legacy_config_adapter`. config_values is
+# a leaf with no dependency on `definitions`, so both can depend on it
+# without cycling. See config_values.h's comment for the full rationale.
+qt_cc_library(
+    name = "legacy_config_adapter",
+    srcs = ["legacy_config_adapter.cpp"],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    includes = COMMON_INCLUDES,
+    normal_hdrs = ["legacy_config_adapter.h"],
+    deps = QT_DEPS + [
+        ":app_config",
+        ":car_model_catalog",
+        ":config_paths",
+        ":protocol_catalog",
+        ":provisioning",
+        "//src/backend/definitions:config_values",
+        "//src/backend/ports",
+    ],
+)

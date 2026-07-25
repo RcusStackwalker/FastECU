@@ -49,6 +49,12 @@ PORTABLE_ROOTS = {
         "denso_sh705x_eeprom_kline",
         "denso_sh705x_eeprom_can",
     },
+    ROOT / "src/backend/config": {
+        "config_paths",
+        "app_config",
+        "protocol_catalog",
+        "provisioning",
+    },
 }
 
 FORBIDDEN = (

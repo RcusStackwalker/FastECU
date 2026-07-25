@@ -129,6 +129,45 @@ qt_cc_test(
     ],
 )
 
+qt_cc_test(
+    name = "test_qt_file_system",
+    srcs = ["test_qt_file_system.cpp"],
+    copts = COMMON_COPTS + ["-I."],
+    linkopts = COMMON_LINKOPTS,
+    deps = QT_DEPS + [
+        "//src/backend/ports",
+        "//src/platform/desktop/common/ports",
+        "@googletest//:gtest",
+    ],
+)
+
+qt_cc_test(
+    name = "test_qt_resource_bundle",
+    srcs = ["test_qt_resource_bundle.cpp"],
+    copts = COMMON_COPTS + ["-I."],
+    linkopts = COMMON_LINKOPTS,
+    deps = QT_DEPS + [
+        "//resources/shared:config_resource",
+        "//resources/shared:kernels_resource",
+        "//src/backend/ports",
+        "//src/platform/desktop/common/ports",
+        "@googletest//:gtest",
+    ],
+)
+
+qt_cc_test(
+    name = "test_legacy_config_adapter",
+    srcs = ["test_legacy_config_adapter.cpp"],
+    copts = COMMON_COPTS + ["-I."],
+    linkopts = COMMON_LINKOPTS,
+    deps = QT_DEPS + [
+        "//src/backend/config:legacy_config_adapter",
+        "//src/backend/definitions",
+        "//src/backend/ports",
+        "@googletest//:gtest",
+    ],
+)
+
 qt_cpp_moc_headers(
     name = "serial_crash_cpp_mocs",
     srcs = test_cpp_moc_srcs(SERIAL_CRASH_TESTS_COMMON_SRCS),

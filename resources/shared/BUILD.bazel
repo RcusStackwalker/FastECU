@@ -1,16 +1,28 @@
 load("//bazel:qt_targets.bzl", "qt_resource_via_qrc")
 
-# Only //src/backend/definitions consumes these resources today.
-package(default_visibility = ["//src/backend/definitions:__pkg__"])
+# //src/backend/definitions and tests consume these resources.
+package(default_visibility = [
+    "//src/backend/definitions:__pkg__",
+    "//tests:__pkg__",
+])
 
-# tests/test_eeprom_ecu_subaru_denso_sh705x_kline_operation_characterization.cpp
-# pins protocols.cfg's write=no/test_write=no capability flags for the Denso
-# SH705x EEPROM protocols by reading the real, checked-in file (not a
-# synthetic copy that could silently drift) -- exported narrowly to //tests
-# rather than widening config_resource's own visibility.
+# tests/test_protocols_cfg_eeprom_capabilities.cpp pins protocols.cfg's
+# write=no/test_write=no capability flags for the Denso SH705x EEPROM
+# protocols, and src/backend/config:protocol_catalog_test parses the whole
+# file through load_protocol_catalog, both by reading the real, checked-in
+# file (not a synthetic copy that could silently drift) -- exported narrowly
+# to those two packages rather than widening config_resource's own
+# visibility. Deliberately NOT a nested resources/shared/config/BUILD.bazel:
+# that would turn config/ into its own Bazel package, which silently
+# excludes it from config_resource's glob(["config/*"]) below (verified: an
+# empty glob() there fails the build outright since allow_empty defaults to
+# false).
 exports_files(
     ["config/protocols.cfg"],
-    visibility = ["//tests:__pkg__"],
+    visibility = [
+        "//src/backend/config:__pkg__",
+        "//tests:__pkg__",
+    ],
 )
 
 qt_resource_via_qrc(

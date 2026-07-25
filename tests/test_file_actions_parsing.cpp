@@ -4,6 +4,9 @@
 #include <QTemporaryDir>
 
 #include "src/backend/definitions/file_actions.h"
+#include "src/platform/desktop/common/ports/qt_file_repository.h"
+#include "src/platform/desktop/common/ports/qt_file_system.h"
+#include "src/platform/desktop/common/ports/qt_resource_bundle.h"
 #include "test_file_actions_parsing.h"
 
 namespace
@@ -48,7 +51,7 @@ class TestFileActionsParsing : public QObject
 </config>)");
         QVERIFY(!path.isEmpty());
 
-        FileActions actions;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
         FileActions::ConfigValuesStructure config;
         config.config_file = path;
 
@@ -75,7 +78,7 @@ class TestFileActionsParsing : public QObject
         const QString path = writeTextFile(dir, "malformed.cfg", "<config><software_settings>");
         QVERIFY(!path.isEmpty());
 
-        FileActions actions;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
         FileActions::ConfigValuesStructure config;
         config.config_file = path;
 
@@ -103,7 +106,7 @@ class TestFileActionsParsing : public QObject
 </switches></protocol></protocols></logger>)");
         QVERIFY(!path.isEmpty());
 
-        FileActions actions;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
         actions.ConfigValuesStruct.romraider_logger_definition_file = path;
 
         FileActions::LogValuesStructure *values = actions.read_logger_definition_file();
@@ -140,7 +143,7 @@ class TestFileActionsParsing : public QObject
 </parameters></protocol></protocols></logger>)");
         QVERIFY(!path.isEmpty());
 
-        FileActions actions;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
         actions.ConfigValuesStruct.romraider_logger_definition_file = path;
 
         FileActions::LogValuesStructure *values = actions.read_logger_definition_file();
@@ -166,7 +169,7 @@ class TestFileActionsParsing : public QObject
 </protocol></ecu></logger></config>)");
         QVERIFY(!path.isEmpty());
 
-        FileActions actions;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
         actions.ConfigValuesStruct.logger_file = path;
         FileActions::LogValuesStructure values;
 
@@ -202,7 +205,7 @@ class TestFileActionsParsing : public QObject
 </roms>)");
         QVERIFY(!definitionPath.isEmpty());
 
-        FileActions actions;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
         actions.ConfigValuesStruct.romraider_definition_files = {definitionPath};
         QCOMPARE(actions.create_romraider_def_id_list(&actions.ConfigValuesStruct),
                  &actions.ConfigValuesStruct);
@@ -238,7 +241,7 @@ class TestFileActionsParsing : public QObject
             "<roms><rom><romid><xmlid>MINIMAL_TEST</xmlid></romid></rom></roms>");
         QVERIFY(!definitionPath.isEmpty());
 
-        FileActions actions;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
         actions.ConfigValuesStruct.romraider_definition_files = {definitionPath};
         QCOMPARE(actions.create_romraider_def_id_list(&actions.ConfigValuesStruct),
                  &actions.ConfigValuesStruct);
@@ -270,6 +273,15 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(ecu.RomInfo.at(FileActions::FileSize), QString(""));
         QCOMPARE(ecu.RomInfo.at(FileActions::DefFile), definitionPath);
     }
+
+  private:
+    // FileActions's constructor now takes the config/settings ports (Task
+    // 11 of the step5d-1 plan); these are unused by the parsing paths this
+    // test exercises, so plain default-constructed Qt port implementations
+    // are sufficient.
+    QtFileSystem fileSystem_;
+    QtResourceBundle resourceBundle_;
+    QtFileRepository fileRepository_;
 };
 
 int run_test_file_actions_parsing(int argc, char **argv)

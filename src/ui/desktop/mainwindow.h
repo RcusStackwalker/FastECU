@@ -110,6 +110,9 @@
 #include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
 #include "src/platform/desktop/common/logging/logging_value_adapter.h"
 #include "src/platform/desktop/common/ports/qt_clock.h"
+#include "src/platform/desktop/common/ports/qt_file_repository.h"
+#include "src/platform/desktop/common/ports/qt_file_system.h"
+#include "src/platform/desktop/common/ports/qt_resource_bundle.h"
 #include "src/platform/desktop/common/transport/fastecu_ssm_transport.h"
 
 // Forward declaration
@@ -200,6 +203,9 @@ class MainWindow : public QMainWindow
     int connectionTimeOutDelay = 5;
     int connectionTimeOutDelayCount = 50;
 
+    QtFileSystem m_configFileSystem;
+    QtResourceBundle m_configResourceBundle;
+    QtFileRepository m_configFileRepository;
     FileActions *fileActions;
     FileActions::LogValuesStructure *logValues;
     FileActions::ConfigValuesStructure *configValues;
