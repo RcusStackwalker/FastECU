@@ -55,6 +55,11 @@ PORTABLE_ROOTS = {
         "protocol_catalog",
         "provisioning",
     },
+    ROOT / "src/backend/checksum": {
+        "checksum_selection",
+        "flash_device_lookup",
+        "dispatch",
+    },
 }
 
 FORBIDDEN = (
