@@ -371,7 +371,6 @@ class FileActions : public QWidget
     ConfigValuesStructure *set_base_dirs(ConfigValuesStructure *configValues,
                                          const fastecu::config::AppRootInfo& root_info);
     ConfigValuesStructure *check_config_dirs(ConfigValuesStructure *configValues);
-    bool copy_directory_files(const QString& source_dir, const QString& target_dir, bool cover_file_if_exist);
 
     /****************************
      * Read FastECU config file
@@ -484,8 +483,6 @@ class FileActions : public QWidget
     static QString parse_dtc_message(uint16_t dtc);
 
   private:
-    QDir copyConfigFromDirectory;
-    QDir copyKernelsFromDirectory;
     fastecu::config::LegacyConfigAdapter configAdapter_;
 
   signals:

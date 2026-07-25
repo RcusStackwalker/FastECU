@@ -345,53 +345,6 @@ FileActions::ConfigValuesStructure *FileActions::check_config_dirs(ConfigValuesS
     return configAdapter_.check_config_dirs(configValues);
 }
 
-bool FileActions::copy_directory_files(const QString& source_dir, const QString& target_dir, bool cover_file_if_exist)
-{
-    QDir sourceDir(source_dir);
-    QDir targetDir(target_dir);
-    if (!targetDir.exists())
-    { /* if directory don't exists, build it */
-        if (!targetDir.mkdir(targetDir.absolutePath()))
-        {
-            return false;
-        }
-    }
-
-    QFileInfoList fileInfoList = sourceDir.entryInfoList();
-    foreach (QFileInfo fileInfo, fileInfoList)
-    {
-        if (fileInfo.fileName() == "." || fileInfo.fileName() == "..")
-        {
-            continue;
-        }
-
-        if (fileInfo.isDir())
-        { /* if it is directory, copy recursively*/
-            if (!copy_directory_files(fileInfo.filePath(),
-                                      targetDir.filePath(fileInfo.fileName()),
-                                      cover_file_if_exist))
-            {
-                return false;
-            }
-        }
-        else
-        { /* if coverFileIfExist == true, remove old file first */
-            if (cover_file_if_exist && targetDir.exists(fileInfo.fileName()))
-            {
-                targetDir.remove(fileInfo.fileName());
-            }
-
-            // files copy
-            if (!QFile::copy(fileInfo.filePath(),
-                             targetDir.filePath(fileInfo.fileName())))
-            {
-                return false;
-            }
-        }
-    }
-    return true;
-}
-
 FileActions::ConfigValuesStructure *FileActions::read_config_file(ConfigValuesStructure *configValues)
 {
     return configAdapter_.read_config_file(configValues);
