@@ -13,6 +13,13 @@ MODEL_HDRS = [
     "kernelmemorymodels.h",
 ]
 
+# ConfigValuesStructure, extracted out of FileActions (see config_values.h's
+# comment). Kept out of `definitions`'s own normal_hdrs glob and given its
+# own qt_cc_library, mirroring the MODEL_HDRS/`models` split above -- for the
+# identical reason (avoiding a Bazel dependency cycle), this time with
+# //src/backend/config:legacy_config_adapter rather than //src/backend/flash.
+CONFIG_VALUES_HDRS = ["config_values.h"]
+
 MOC_HDRS = ["file_actions.h"]
 
 # root //:windows_preprocessor_guards reads this header directly as `data`;
@@ -33,6 +40,18 @@ cc_library(
     includes = COMMON_INCLUDES,
 )
 
+# Qt-typed (QString/QStringList/QDir members) but no QObject/Q_OBJECT, so
+# (like legacy_config_adapter) it goes through normal_hdrs rather than hdrs.
+qt_cc_library(
+    name = "config_values",
+    srcs = [],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    includes = COMMON_INCLUDES,
+    normal_hdrs = CONFIG_VALUES_HDRS,
+    deps = QT_DEPS,
+)
+
 qt_cc_library(
     name = "definitions",
     srcs = glob(["*.cpp"]),
@@ -41,9 +60,10 @@ qt_cc_library(
     includes = COMMON_INCLUDES,
     normal_hdrs = glob(
         ["*.h"],
-        exclude = MOC_HDRS + MODEL_HDRS,
+        exclude = MOC_HDRS + MODEL_HDRS + CONFIG_VALUES_HDRS,
     ),
     deps = QT_DEPS + [
+        ":config_values",
         ":models",
         "//resources/shared:config_resource",
         "//resources/shared:kernels_resource",
@@ -56,6 +76,8 @@ qt_cc_library(
         # task-4-report.md, task-5-report.md).
         "//src/algorithms/diagnostics:qt_compat",
         "//src/algorithms/expression:qt_compat",
+        "//src/backend/config:legacy_config_adapter",
         "//src/backend/flash",
+        "//src/backend/ports",
     ],
 )

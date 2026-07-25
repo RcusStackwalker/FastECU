@@ -4,6 +4,9 @@
 #include <QFile>
 #include <QSignalSpy>
 #include "src/backend/definitions/file_actions.h"
+#include "src/platform/desktop/common/ports/qt_file_repository.h"
+#include "src/platform/desktop/common/ports/qt_file_system.h"
+#include "src/platform/desktop/common/ports/qt_resource_bundle.h"
 #include "test_ecuflash_definition_parsing.h"
 
 class TestEcuflashDefinitionParsing : public QObject
@@ -12,7 +15,7 @@ class TestEcuflashDefinitionParsing : public QObject
   private slots:
     void add_list_item_defaults_new_fields_to_placeholder()
     {
-        FileActions fileActions;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_);
         FileActions::EcuCalDefStructure ecuCalDef;
 
         fileActions.add_ecuflash_def_list_item(&ecuCalDef);
@@ -39,7 +42,7 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "</rom>");
         QVERIFY(!defPath.isEmpty());
 
-        FileActions fileActions;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_);
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
         fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
 
@@ -64,7 +67,7 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "</rom>");
         QVERIFY(!defPath.isEmpty());
 
-        FileActions fileActions;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_);
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
         fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
 
@@ -85,7 +88,7 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "</rom>");
         QVERIFY(!defPath.isEmpty());
 
-        FileActions fileActions;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_);
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
         fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
 
@@ -106,7 +109,7 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "</rom>");
         QVERIFY(!defPath.isEmpty());
 
-        FileActions fileActions;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_);
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
         fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
 
@@ -129,7 +132,7 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "</rom>");
         QVERIFY(!defPath.isEmpty());
 
-        FileActions fileActions;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_);
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
         fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
 
@@ -152,7 +155,7 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "</rom>");
         QVERIFY(!defPath.isEmpty());
 
-        FileActions fileActions;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_);
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
         fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
 
@@ -175,7 +178,7 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "</rom>");
         QVERIFY(!defPath.isEmpty());
 
-        FileActions fileActions;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_);
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
         fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
 
@@ -217,7 +220,7 @@ class TestEcuflashDefinitionParsing : public QObject
             "</rom>");
         QVERIFY(!childPath.isEmpty());
 
-        FileActions fileActions;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_);
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id = {"CHILD_TEST", "BASE_TEST"};
         fileActions.ConfigValuesStruct.ecuflash_def_filename = {childPath, basePath};
 
@@ -248,6 +251,14 @@ class TestEcuflashDefinitionParsing : public QObject
         file.close();
         return path;
     }
+
+    // FileActions's constructor now takes the config/settings ports (Task
+    // 11 of the step5d-1 plan); these are unused by the parsing paths this
+    // test exercises, so plain default-constructed Qt port implementations
+    // are sufficient.
+    QtFileSystem fileSystem_;
+    QtResourceBundle resourceBundle_;
+    QtFileRepository fileRepository_;
 };
 
 int run_test_ecuflash_definition_parsing(int argc, char **argv)

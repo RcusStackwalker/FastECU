@@ -100,6 +100,14 @@ cc_test(
 # declares no QObject/Q_OBJECT, so it goes through normal_hdrs rather than
 # hdrs (which would run it through moc unconditionally) -- same convention as
 # src/platform/desktop/common/transport/BUILD.bazel's flash_transports.
+#
+# Depends on //src/backend/definitions:config_values (the extracted value
+# struct), not the full //src/backend/definitions target: FileActions owns a
+# LegacyConfigAdapter member (wired in Task 11), so a dependency on the full
+# `definitions` target here would form a hard Bazel cycle with
+# `definitions`'s own dependency on `legacy_config_adapter`. config_values is
+# a leaf with no dependency on `definitions`, so both can depend on it
+# without cycling. See config_values.h's comment for the full rationale.
 qt_cc_library(
     name = "legacy_config_adapter",
     srcs = ["legacy_config_adapter.cpp"],
@@ -112,7 +120,7 @@ qt_cc_library(
         ":config_paths",
         ":protocol_catalog",
         ":provisioning",
-        "//src/backend/definitions",
+        "//src/backend/definitions:config_values",
         "//src/backend/ports",
     ],
 )

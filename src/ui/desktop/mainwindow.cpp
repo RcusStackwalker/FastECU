@@ -54,9 +54,24 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
     QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
 
     setSplashScreenProgress("Reading config files...", 10);
-    fileActions = new FileActions();
+    fileActions = new FileActions(m_configFileSystem, m_configResourceBundle, m_configFileRepository);
     configValues = &fileActions->ConfigValuesStruct;
-    fileActions->set_base_dirs(configValues);
+
+    QString appFilePath = QApplication::applicationFilePath();
+    QDir currentPath(QDir::currentPath());
+    QStringList isDevPath = currentPath.absolutePath().split("build");
+    bool isDevFile = QFileInfo::exists("./build.txt");
+#if defined Q_OS_UNIX
+    QString appRootPath = appFilePath.split("usr").at(0);
+    if (appRootPath.contains("FastECU"))
+        appRootPath = "/config";
+#elif defined Q_OS_WIN32
+    QString appRootPath = currentPath.absolutePath();
+#endif
+    const bool isDev = isDevPath.length() > 1 || isDevFile;
+    fastecu::config::AppRootInfo rootInfo{
+        (isDev ? currentPath.absolutePath() : appRootPath).toStdString(), isDev};
+    fileActions->set_base_dirs(configValues, rootInfo);
 
     software_name = configValues->software_name;
     software_title = configValues->software_title;

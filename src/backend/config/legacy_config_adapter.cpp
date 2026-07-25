@@ -12,7 +12,7 @@ QString qs(const std::string& s)
     return QString::fromStdString(s);
 }
 
-void copy_paths_into_legacy(const ConfigPaths& paths, FileActions::ConfigValuesStructure *values)
+void copy_paths_into_legacy(const ConfigPaths& paths, fastecu::definitions::ConfigValuesStructure *values)
 {
     values->base_config_directory = qs(paths.base_config_directory);
     values->version_config_directory = qs(paths.version_config_directory);
@@ -36,7 +36,7 @@ void copy_paths_into_legacy(const ConfigPaths& paths, FileActions::ConfigValuesS
 // state threading them together, and callers (e.g. tests, or code invoking
 // read_config_file straight off a hand-populated struct) may reasonably not
 // have called set_base_dirs first.
-ConfigPaths paths_from_legacy(const FileActions::ConfigValuesStructure *values)
+ConfigPaths paths_from_legacy(const fastecu::definitions::ConfigValuesStructure *values)
 {
     ConfigPaths paths;
     paths.base_config_directory = values->base_config_directory.toStdString();
@@ -54,32 +54,49 @@ ConfigPaths paths_from_legacy(const FileActions::ConfigValuesStructure *values)
     return paths;
 }
 
-void copy_app_config_into_legacy(const AppConfig& config, FileActions::ConfigValuesStructure *values)
+// AppConfig's fields are blank ("") when load_app_config found no matching
+// <setting> element in the file (see app_config_test.cpp's
+// InvalidPrimaryDefinitionBaseValueIsDiscarded, which pins "" as AppConfig's
+// own not-present sentinel -- it must NOT gain a legacy-matching default of
+// its own). The legacy Qt reader only ever assigned `configValues->field`
+// when it found the corresponding element (file_actions.cpp's old
+// read_config_file, one `if (setting name == ...)` branch per field), so a
+// setting genuinely absent from the file left the caller's pre-existing
+// value (typically ConfigValuesStructure's compiled-in default, e.g.
+// "disabled"/"ecuflash") untouched rather than being blanked out. Skipping
+// the copy when AppConfig's value is still "" reproduces that byte-for-byte.
+void assign_if_present(QString& field, const std::string& value)
 {
-    values->window_width = qs(config.window_width);
-    values->window_height = qs(config.window_height);
-    values->toolbar_iconsize = qs(config.toolbar_iconsize);
-    values->serial_port = qs(config.serial_port);
-    values->flash_protocol_selected_id = qs(config.selected_protocol_id);
-    values->flash_protocol_selected_flash_transport = qs(config.selected_flash_transport);
-    values->flash_protocol_selected_log_transport = qs(config.selected_log_transport);
-    values->flash_protocol_selected_log_protocol = qs(config.selected_log_protocol);
-    values->primary_definition_base = qs(config.primary_definition_base);
+    if (!value.empty())
+        field = qs(value);
+}
+
+void copy_app_config_into_legacy(const AppConfig& config, fastecu::definitions::ConfigValuesStructure *values)
+{
+    assign_if_present(values->window_width, config.window_width);
+    assign_if_present(values->window_height, config.window_height);
+    assign_if_present(values->toolbar_iconsize, config.toolbar_iconsize);
+    assign_if_present(values->serial_port, config.serial_port);
+    assign_if_present(values->flash_protocol_selected_id, config.selected_protocol_id);
+    assign_if_present(values->flash_protocol_selected_flash_transport, config.selected_flash_transport);
+    assign_if_present(values->flash_protocol_selected_log_transport, config.selected_log_transport);
+    assign_if_present(values->flash_protocol_selected_log_protocol, config.selected_log_protocol);
+    assign_if_present(values->primary_definition_base, config.primary_definition_base);
     values->calibration_files.clear();
     for (const std::string& f : config.calibration_files)
         values->calibration_files.append(qs(f));
-    values->calibration_files_directory = qs(config.calibration_files_directory);
-    values->use_romraider_definitions = qs(config.use_romraider_definitions);
+    assign_if_present(values->calibration_files_directory, config.calibration_files_directory);
+    assign_if_present(values->use_romraider_definitions, config.use_romraider_definitions);
     values->romraider_definition_files.clear();
     for (const std::string& f : config.romraider_definition_files)
         values->romraider_definition_files.append(qs(f));
-    values->use_ecuflash_definitions = qs(config.use_ecuflash_definitions);
-    values->ecuflash_definition_files_directory = qs(config.ecuflash_definition_files_directory);
-    values->romraider_logger_definition_file = qs(config.romraider_logger_definition_file);
-    values->datalog_files_directory = qs(config.datalog_files_directory);
+    assign_if_present(values->use_ecuflash_definitions, config.use_ecuflash_definitions);
+    assign_if_present(values->ecuflash_definition_files_directory, config.ecuflash_definition_files_directory);
+    assign_if_present(values->romraider_logger_definition_file, config.romraider_logger_definition_file);
+    assign_if_present(values->datalog_files_directory, config.datalog_files_directory);
 }
 
-AppConfig app_config_from_legacy(const FileActions::ConfigValuesStructure *values)
+AppConfig app_config_from_legacy(const fastecu::definitions::ConfigValuesStructure *values)
 {
     AppConfig config;
     config.window_width = values->window_width.toStdString();
@@ -105,7 +122,7 @@ AppConfig app_config_from_legacy(const FileActions::ConfigValuesStructure *value
 }
 
 void copy_protocol_catalog_into_legacy(const ProtocolCatalog& catalog,
-                                       FileActions::ConfigValuesStructure *values)
+                                       fastecu::definitions::ConfigValuesStructure *values)
 {
     values->flash_protocol_alias.clear();
     values->flash_protocol_ecu.clear();
@@ -162,16 +179,16 @@ LegacyConfigAdapter::LegacyConfigAdapter(IFileSystem& file_system, IResourceBund
 {
 }
 
-FileActions::ConfigValuesStructure *LegacyConfigAdapter::set_base_dirs(
-    FileActions::ConfigValuesStructure *values, const AppRootInfo& root_info)
+fastecu::definitions::ConfigValuesStructure *LegacyConfigAdapter::set_base_dirs(
+    fastecu::definitions::ConfigValuesStructure *values, const AppRootInfo& root_info)
 {
     ConfigPaths paths = resolve_config_paths(root_info, values->software_version.toStdString());
     copy_paths_into_legacy(paths, values);
     return values;
 }
 
-FileActions::ConfigValuesStructure *LegacyConfigAdapter::check_config_dirs(
-    FileActions::ConfigValuesStructure *values)
+fastecu::definitions::ConfigValuesStructure *LegacyConfigAdapter::check_config_dirs(
+    fastecu::definitions::ConfigValuesStructure *values)
 {
     fastecu::NullEventSink events;
     ConfigPaths paths = paths_from_legacy(values);
@@ -179,8 +196,8 @@ FileActions::ConfigValuesStructure *LegacyConfigAdapter::check_config_dirs(
     return values;
 }
 
-FileActions::ConfigValuesStructure *LegacyConfigAdapter::read_config_file(
-    FileActions::ConfigValuesStructure *values)
+fastecu::definitions::ConfigValuesStructure *LegacyConfigAdapter::read_config_file(
+    fastecu::definitions::ConfigValuesStructure *values)
 {
     ConfigPaths paths = paths_from_legacy(values);
     Result<AppConfig> config = load_app_config(paths, file_repository_);
@@ -189,8 +206,8 @@ FileActions::ConfigValuesStructure *LegacyConfigAdapter::read_config_file(
     return values;
 }
 
-FileActions::ConfigValuesStructure *LegacyConfigAdapter::save_config_file(
-    FileActions::ConfigValuesStructure *values)
+fastecu::definitions::ConfigValuesStructure *LegacyConfigAdapter::save_config_file(
+    fastecu::definitions::ConfigValuesStructure *values)
 {
     ConfigPaths paths = paths_from_legacy(values);
     Result<AppConfig> saved =
@@ -200,8 +217,8 @@ FileActions::ConfigValuesStructure *LegacyConfigAdapter::save_config_file(
     return values;
 }
 
-FileActions::ConfigValuesStructure *LegacyConfigAdapter::read_protocols_file(
-    FileActions::ConfigValuesStructure *values)
+fastecu::definitions::ConfigValuesStructure *LegacyConfigAdapter::read_protocols_file(
+    fastecu::definitions::ConfigValuesStructure *values)
 {
     ConfigPaths paths = paths_from_legacy(values);
     Result<ProtocolCatalog> catalog = load_protocol_catalog(paths, file_repository_);

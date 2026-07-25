@@ -46,7 +46,7 @@ void Settings::closeEvent(QCloseEvent *bar)
 int Settings::save_config_file()
 {
     qDebug() << "Save config file";
-    fileActions = new FileActions();
+    fileActions = new FileActions(m_configFileSystem, m_configResourceBundle, m_configFileRepository);
     fileActions->save_config_file(configValues);
     qDebug() << "Config file saved";
 
