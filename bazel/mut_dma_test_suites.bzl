@@ -8,7 +8,7 @@ builds one independently selectable QtTest or GoogleTest target per suite.
 """
 
 load("//bazel:gtest_targets.bzl", "fastecu_gtest", "fastecu_portable_gtest")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_LINKOPTS", "QT_DEPS", "local_test_hdrs", "qt_cc_test")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "local_test_hdrs", "qt_cc_test")
 load("//bazel:test_sources.bzl", "MUT_DMA_TESTS_COMMON_HDRS")
 
 MUT_DMA_TEST_SUITES = [
@@ -307,7 +307,6 @@ def mut_dma_test_suites(moc_deps_target, header_mocs_target):
                 "-Itests",
                 "-Isrc/platform/desktop/common/serial",
             ],
-            linkopts = COMMON_LINKOPTS,
             data = _EXTRA_DATA.get(base, []),
             env = env,
             deps = QT_DEPS + [

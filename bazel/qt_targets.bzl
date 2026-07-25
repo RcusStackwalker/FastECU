@@ -44,7 +44,6 @@ PORTABLE_COPTS = [
     "//conditions:default": [],
 })
 
-COMMON_LINKOPTS = []
 COMMON_INCLUDES = [
     "src/platform/desktop/common/serial",
 ]
