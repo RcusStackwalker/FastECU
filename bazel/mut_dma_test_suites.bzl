@@ -45,7 +45,6 @@ MUT_DMA_TEST_SUITES = [
     "test_ecuflash_definition_parsing",
     "test_file_actions_parsing",
     "test_rom_transformations",
-    "test_checksum_results",
 ]
 
 MUT_DMA_GTEST_SUITES = [
@@ -111,7 +110,6 @@ _MUT_DMA_GTEST_HELPER_HDRS = {
 # attribute means it's present in the test process's environment from the
 # moment it starts.
 _NEEDS_OFFSCREEN_QT_PLATFORM = [
-    "test_checksum_results",
     "test_ecuflash_definition_parsing",
     "test_eeprom_ecu_subaru_denso_sh705x_kline_dialog",
     "test_eeprom_ecu_subaru_denso_sh705x_can_dialog",
@@ -174,10 +172,6 @@ SUITE_DEPS = {
     "test_expression_evaluator": ["//src/algorithms/expression:qt_compat"],
     "test_menu_command": ["//src/algorithms/menu:qt_compat"],
     "test_diagnostic_parsers": ["//src/algorithms/diagnostics:qt_compat"],
-    # test_checksum_results.cpp was retargeted (Task 10) to the Qt shim
-    # (qt_checksum.h / QtChecksumResult) so it can keep asserting the frozen
-    # QByteArray/QString contract now that ChecksumResult itself is portable.
-    "test_checksum_results": ["//src/algorithms/checksum:qt_compat"],
     "test_logging_worker": ["//src/platform/desktop/common/logging:logging_runtime"],
     "test_logging_engine": [
         "//src/platform/desktop/common/logging:logging_adapters",
