@@ -61,7 +61,9 @@ class InMemoryFileRepository : public IFileRepository
     {
         auto it = files.find(std::string(handle));
         if (it == files.end())
+        {
             return fastecu::fail(ErrorKind::InvalidConfig, "no such handle");
+        }
         return it->second;
     }
     Status write(std::string_view handle, std::span<const std::uint8_t> data) override

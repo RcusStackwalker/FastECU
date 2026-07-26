@@ -19,9 +19,9 @@ LoggingEngine::~LoggingEngine()
 }
 
 void LoggingEngine::registerProtocol(const QString& protocol_id,
-                                     LoggingProtocolFactory factory)
+                                     const LoggingProtocolFactory& factory)
 {
-    registrations_.insert(protocol_id, std::move(factory));
+    registrations_.insert(protocol_id, factory);
 }
 
 bool LoggingEngine::isRunning() const
@@ -30,7 +30,7 @@ bool LoggingEngine::isRunning() const
 }
 
 LoggingStartResult LoggingEngine::start(
-    LogSessionConfig config,
+    const LogSessionConfig& config,
     fastecu::desktop::logging::DesktopLoggingSnapshot snapshot)
 {
     if (isRunning())
@@ -62,7 +62,7 @@ LoggingStartResult LoggingEngine::start(
     }
     if (!protocol_result)
     {
-        const fastecu::Error error = protocol_result.error();
+        const fastecu::Error& error = protocol_result.error();
         active_snapshot_.reset();
         reportSessionError(error, false);
         return {.failure_reported = true};

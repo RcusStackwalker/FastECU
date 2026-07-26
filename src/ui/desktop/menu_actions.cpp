@@ -1112,7 +1112,7 @@ void MainWindow::toggle_realtime()
 
         LogSessionConfig config;
         fastecu::logging::LoggingProtocolId protocol_id;
-        fastecu::logging::LoggingPolicy logging_policy;
+        fastecu::logging::LoggingPolicy logging_policy{};
         if (configValues->flash_protocol_selected_log_protocol == "MUT_DMA")
         {
             config.protocolId = "MUT_DMA";

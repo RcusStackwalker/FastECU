@@ -12,7 +12,7 @@ DesktopCanFlashTransport::DesktopCanFlashTransport(std::unique_ptr<SerialPortAct
 }
 
 DesktopCanFlashTransport::DesktopCanFlashTransport(SerialPortActions *serial)
-    : owned_serial_(), serial_(serial)
+    : serial_(serial)
 {
 }
 

@@ -85,7 +85,9 @@ class TestFlashUtils : public QObject
             {
                 QVERIFY(actual.fblocks[blockIndex].len > 0);
                 if (blockIndex > 0)
+                {
                     QVERIFY(actual.fblocks[blockIndex - 1].start <= actual.fblocks[blockIndex].start);
+                }
             }
         }
 

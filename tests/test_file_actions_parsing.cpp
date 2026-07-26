@@ -19,9 +19,13 @@ QString writeTextFile(const QTemporaryDir& dir,
     const QString path = dir.filePath(name);
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
         return {};
+    }
     if (file.write(contents) != contents.size())
+    {
         return {};
+    }
     file.close();
     return path;
 }
@@ -218,7 +222,9 @@ class TestFileActionsParsing : public QObject
 
         FileActions::EcuCalDefStructure ecu;
         while (ecu.RomInfo.size() < ecu.RomInfoStrings.size())
+        {
             ecu.RomInfo.append(" ");
+        }
         QCOMPARE(actions.read_romraider_ecu_def(&ecu, "CAL_TEST"), &ecu);
 
         QCOMPARE(ecu.RomInfo.at(FileActions::XmlId), QString("CAL_TEST"));
@@ -255,7 +261,9 @@ class TestFileActionsParsing : public QObject
 
         FileActions::EcuCalDefStructure ecu;
         while (ecu.RomInfo.size() < ecu.RomInfoStrings.size())
+        {
             ecu.RomInfo.append(" ");
+        }
         QCOMPARE(actions.read_romraider_ecu_def(&ecu, "MINIMAL_TEST"), &ecu);
 
         QCOMPARE(ecu.RomInfo.at(FileActions::XmlId), QString("MINIMAL_TEST"));
@@ -317,8 +325,9 @@ class TestFileActionsParsing : public QObject
         // bazel/mut_dma_test_suites.bzl).
         QTimer::singleShot(0, []()
                            {
-            if (QWidget *modal = QApplication::activeModalWidget())
-                modal->close(); });
+            if (QWidget *modal = QApplication::activeModalWidget()) {
+                modal->close(); 
+} });
 
         QCOMPARE(actions.checksum_correction(&ecu), &ecu);
         QCOMPARE(ecu.FullRomData.size(), 524288);

@@ -18,9 +18,13 @@ QString writeBinaryFile(const QTemporaryDir& dir,
     const QString path = dir.filePath(name);
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly))
+    {
         return {};
+    }
     if (file.write(contents) != contents.size())
+    {
         return {};
+    }
     file.close();
     return path;
 }

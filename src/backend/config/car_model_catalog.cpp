@@ -20,12 +20,16 @@ Result<CarModelCatalog> load_car_model_catalog(const ConfigPaths& paths, IFileRe
 {
     Result<std::vector<std::uint8_t>> bytes = file_repository.read(paths.protocols_file);
     if (!bytes.has_value())
+    {
         return std::unexpected(bytes.error());
+    }
 
     pugi::xml_document doc;
     pugi::xml_parse_result parsed = doc.load_buffer(bytes->data(), bytes->size());
     if (!parsed)
+    {
         return fail(ErrorKind::InvalidConfig, std::string("protocols parse error: ") + parsed.description());
+    }
 
     CarModelCatalog catalog;
     // <car_models> is a sibling of <protocols> under <config>, not nested

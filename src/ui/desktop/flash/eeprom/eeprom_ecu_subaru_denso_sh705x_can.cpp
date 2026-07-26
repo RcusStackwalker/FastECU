@@ -135,7 +135,7 @@ void EepromEcuSubaruDensoSH705xCan::runAttempt(fastecu::flash::EepromReadMode mo
     worker_ = makeWorker(std::move(*planResult));
 
     connect(worker_.get(), &fastecu::flash::FlashWorker::logEvent, this,
-            [this](int level, QString message)
+            [this](int level, const QString& message)
             {
                 switch (static_cast<fastecu::LogLevel>(level))
                 {

@@ -20,12 +20,16 @@ Result<ProtocolCatalog> load_protocol_catalog(const ConfigPaths& paths, IFileRep
 {
     Result<std::vector<std::uint8_t>> bytes = file_repository.read(paths.protocols_file);
     if (!bytes.has_value())
+    {
         return std::unexpected(bytes.error());
+    }
 
     pugi::xml_document doc;
     pugi::xml_parse_result parsed = doc.load_buffer(bytes->data(), bytes->size());
     if (!parsed)
+    {
         return fail(ErrorKind::InvalidConfig, std::string("protocols parse error: ") + parsed.description());
+    }
 
     ProtocolCatalog catalog;
     pugi::xml_node protocols = doc.child("config").child("protocols");

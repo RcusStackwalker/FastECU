@@ -71,24 +71,32 @@ class PassthroughChecksumAdapter : public LegacyChecksumAdapter
     bool confirmProceedWithoutDefinition(QWidget *parent) override
     {
         if (passthroughDefinitionGate)
+        {
             return LegacyChecksumAdapter::confirmProceedWithoutDefinition(parent);
+        }
         return true;
     }
     void showBadRomSizeDialog(QWidget *parent) override
     {
         if (passthroughBadRomSize)
+        {
             LegacyChecksumAdapter::showBadRomSizeDialog(parent);
+        }
     }
     bool confirmProceedWithoutChecksumModule() override
     {
         if (passthroughNoModule)
+        {
             return LegacyChecksumAdapter::confirmProceedWithoutChecksumModule();
+        }
         return false;
     }
     void showFamilyResultDialog(const ChecksumResult& family_result) override
     {
         if (passthroughFamilyResult)
+        {
             LegacyChecksumAdapter::showFamilyResultDialog(family_result);
+        }
     }
 };
 

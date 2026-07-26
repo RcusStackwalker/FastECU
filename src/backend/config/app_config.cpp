@@ -14,7 +14,9 @@ namespace
 void append_trailing_slash_if_missing(std::string& path)
 {
     if (!path.empty() && path.back() != '/' && path.back() != '\\')
+    {
         path += '/';
+    }
 }
 
 } // namespace
@@ -23,13 +25,17 @@ Result<AppConfig> load_app_config(const ConfigPaths& paths, IFileRepository& fil
 {
     Result<std::vector<std::uint8_t>> bytes = file_repository.read(paths.config_file);
     if (!bytes.has_value())
+    {
         return std::unexpected(bytes.error());
+    }
 
     pugi::xml_document doc;
     pugi::xml_parse_result parsed =
         doc.load_buffer(bytes->data(), bytes->size());
     if (!parsed)
+    {
         return fail(ErrorKind::InvalidConfig, std::string("config parse error: ") + parsed.description());
+    }
 
     AppConfig config;
     // Matches legacy FileActions::read_config_file's gate (file_actions.cpp:
@@ -49,55 +55,89 @@ Result<AppConfig> load_app_config(const ConfigPaths& paths, IFileRepository& fil
             for (pugi::xml_node value : setting.children("value"))
             {
                 if (!std::string(value.attribute("width").value()).empty())
+                {
                     config.window_width = value.attribute("width").value();
+                }
                 else if (!std::string(value.attribute("height").value()).empty())
+                {
                     config.window_height = value.attribute("height").value();
+                }
             }
         }
         else if (name == "toolbar_iconsize")
+        {
             config.toolbar_iconsize = setting.child("value").attribute("data").value();
+        }
         else if (name == "serial_port")
+        {
             config.serial_port = setting.child("value").attribute("data").value();
+        }
         else if (name == "protocol_id")
+        {
             config.selected_protocol_id = setting.child("value").attribute("data").value();
+        }
         else if (name == "flash_transport")
+        {
             config.selected_flash_transport = setting.child("value").attribute("data").value();
+        }
         else if (name == "log_transport")
+        {
             config.selected_log_transport = setting.child("value").attribute("data").value();
+        }
         else if (name == "log_protocol")
+        {
             config.selected_log_protocol = setting.child("value").attribute("data").value();
+        }
         else if (name == "primary_definition_base")
         {
             const std::string value = setting.child("value").attribute("data").value();
             if (value == "romraider" || value == "ecuflash")
+            {
                 config.primary_definition_base = value;
+            }
         }
         else if (name == "calibration_files")
         {
             for (pugi::xml_node value : setting.children("value"))
+            {
                 config.calibration_files.push_back(value.attribute("data").value());
+            }
         }
         else if (name == "calibration_files_directory")
+        {
             config.calibration_files_directory = setting.child("value").attribute("data").value();
+        }
         else if (name == "romraider_definition_files")
         {
             for (pugi::xml_node value : setting.children("value"))
             {
                 const std::string filename = value.attribute("data").value();
                 if (!filename.empty())
+                {
                     config.romraider_definition_files.push_back(filename);
+                }
             }
         }
         else if (name == "use_romraider_definitions")
+        {
             config.use_romraider_definitions = setting.child("value").attribute("data").value();
+        }
         else if (name == "ecuflash_definition_files_directory")
+        {
             config.ecuflash_definition_files_directory = setting.child("value").attribute("data").value();
+        }
         else if (name == "use_ecuflash_definitions")
+        {
             config.use_ecuflash_definitions = setting.child("value").attribute("data").value();
+        }
         else if (name == "logger_definition_file")
+        {
             config.romraider_logger_definition_file = setting.child("value").attribute("data").value();
+        }
         else if (name == "datalog_files_directory")
+        {
             config.datalog_files_directory = setting.child("value").attribute("data").value();
+        }
     }
 
     // Matches legacy FileActions::read_config_file (file_actions.cpp:910),
@@ -175,7 +215,9 @@ Result<AppConfig> save_app_config(AppConfig config, const ConfigPaths& paths,
         std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t *>(serialized.data()),
                                       serialized.size()));
     if (!write_result.has_value())
+    {
         return std::unexpected(write_result.error());
+    }
 
     return config;
 }
