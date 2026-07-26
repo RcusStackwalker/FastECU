@@ -10,6 +10,7 @@
 
 // ********************************************************************** Constructor, destructor
 
+/*
 static auto const bars = QStringLiteral(
     " ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁"
     "▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂"
@@ -24,6 +25,7 @@ static inline QChar decode_bars(char ch)
 {
     return bars[uchar(ch)];
 }
+*/
 
 QHexEdit::QHexEdit(QWidget *parent) : QAbstractScrollArea(parent), _addressArea(true), _addressWidth(4), _asciiArea(true), _barArea(true), _bytesPerLine(16), _hexCharsInLine(47), _highlighting(true), _overwriteMode(true), _readOnly(false), _hexCaps(false), _dynamicBytesPerLine(false), _editAreaIsAscii(false), _editAreaIsBar(false), _chunks(new Chunks(this)), _cursorPosition(0), _lastEventSize(0), _undoStack(new UndoStack(_chunks, this))
 {
