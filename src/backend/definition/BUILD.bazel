@@ -10,8 +10,25 @@ cc_library(
     deps = ["//src/backend/ports"],
 )
 
+cc_library(
+    name = "romraider_parser",
+    srcs = ["romraider_parser.cpp"],
+    hdrs = ["romraider_parser.h"],
+    deps = [
+        ":definition_model",
+        "//src/backend/ports",
+        "@pugixml",
+    ],
+)
+
 fastecu_portable_gtest(
     name = "definition_model_test",
     srcs = ["definition_model_test.cpp"],
     deps = [":definition_model"],
+)
+
+fastecu_portable_gtest(
+    name = "romraider_parser_test",
+    srcs = ["romraider_parser_test.cpp"],
+    deps = [":romraider_parser"],
 )
