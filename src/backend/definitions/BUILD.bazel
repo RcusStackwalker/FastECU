@@ -20,6 +20,8 @@ MODEL_HDRS = [
 # //src/backend/config:legacy_config_adapter rather than //src/backend/flash.
 CONFIG_VALUES_HDRS = ["config_values.h"]
 
+ECU_CAL_DEF_HDRS = ["ecu_cal_def.h"]
+
 MOC_HDRS = ["file_actions.h"]
 
 # root //:windows_preprocessor_guards reads this header directly as `data`;
@@ -51,16 +53,26 @@ qt_cc_library(
 )
 
 qt_cc_library(
+    name = "ecu_cal_def",
+    srcs = [],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ECU_CAL_DEF_HDRS,
+    deps = QT_DEPS,
+)
+
+qt_cc_library(
     name = "definitions",
     srcs = glob(["*.cpp"]),
     hdrs = MOC_HDRS,
     copts = COMMON_COPTS,
     normal_hdrs = glob(
         ["*.h"],
-        exclude = MOC_HDRS + MODEL_HDRS + CONFIG_VALUES_HDRS,
+        exclude = MOC_HDRS + MODEL_HDRS + CONFIG_VALUES_HDRS + ECU_CAL_DEF_HDRS,
     ),
     deps = QT_DEPS + [
         ":config_values",
+        ":ecu_cal_def",
         ":models",
         "//resources/shared:config_resource",
         "//resources/shared:kernels_resource",
