@@ -547,6 +547,11 @@ Result<CalibrationMap> parse_table(
         const std::string type = attribute_or_empty(axis_table, "type");
         if (type == "X Axis" || type == "Static X Axis" || type == "Static Y Axis" || (type == "Y Axis" && map.type == "2D"))
         {
+            if (type == "Static Y Axis" || type == "Y Axis")
+            {
+                map.x_size = map.y_size;
+                map.y_size = 1;
+            }
             auto axis = parse_axis(
                 axis_table, map.x_size, source, definition_id, scalings);
             if (!axis)
