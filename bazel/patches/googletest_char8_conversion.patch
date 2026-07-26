@@ -1,0 +1,8 @@
+--- googletest/include/gtest/gtest-printers.h
++++ googletest/include/gtest/gtest-printers.h
+@@ -525,1 +525,1 @@
+-  PrintTo(ImplicitCast_<char32_t>(c), os);
++  PrintTo(static_cast<char32_t>(c), os);
+@@ -528,1 +528,1 @@
+-  PrintTo(ImplicitCast_<char32_t>(c), os);
++  PrintTo(static_cast<char32_t>(c), os);
