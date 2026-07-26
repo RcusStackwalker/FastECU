@@ -9,7 +9,7 @@ RemoteUtility::RemoteUtility(const QString& peerAddress,
                              QObject *parent)
     : QObject{parent}, peerAddress(peerAddress), password(std::move(password)), webSocket(web_socket == nullptr ? new QWebSocket("", QWebSocketProtocol::VersionLatest, this)
                                                                                                                 : web_socket),
-      socket(new WebSocketIoDevice(webSocket, webSocket)), keepalive_timer(new QTimer(this)), heartbeatInterval(0), keepalive_interval(7000), pings_sequently_missed_limit(5)
+      socket(new WebSocketIoDevice(webSocket, webSocket)), keepalive_timer(new QTimer(this))
 {
     if (peerAddress.startsWith("local:"))
     {
