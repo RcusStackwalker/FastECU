@@ -77,3 +77,12 @@ archive_override(
     strip_prefix = "bazel-compile-commands-extractor-abb61a688167623088f8768cc9264798df6a9d10",
     urls = ["https://github.com/hedronvision/bazel-compile-commands-extractor/archive/abb61a688167623088f8768cc9264798df6a9d10.tar.gz"],
 )
+
+# Fixes a warning for mixing different character types https://github.com/google/googletest/commit/fa8438ae6b70c57010177de47a9f13d7041a6328
+single_version_override(
+    module_name = "googletest",
+    patches = [
+        "//bazel/patches:googletest_char8_conversion.patch",
+    ],
+    version = "1.17.0.bcr.2",
+)
