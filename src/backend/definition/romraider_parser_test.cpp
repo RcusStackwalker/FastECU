@@ -188,11 +188,11 @@ TEST(RomRaiderParserTest, ConvertsSwitchStatesToSelectableScaling)
               }));
 }
 
-TEST(RomRaiderParserTest, MapsLegacyTwoDimensionalYAxisIntoXAxisSlot)
+TEST(RomRaiderParserTest, NormalizesLegacyTwoDimensionalYAxisDimensions)
 {
     const auto xml = bytes(R"xml(
       <roms><rom><romid><xmlid>CURVE</xmlid></romid>
-      <table name="Curve" type="2D" sizex="3">
+      <table name="Curve" type="2D" sizey="4">
         <table type="Y Axis" name="Curve Points" storageaddress="80"/>
       </table></rom></roms>)xml");
 
@@ -203,7 +203,29 @@ TEST(RomRaiderParserTest, MapsLegacyTwoDimensionalYAxisIntoXAxisSlot)
     EXPECT_EQ(result->maps.front().x_axis.type, "Y Axis");
     EXPECT_EQ(result->maps.front().x_axis.name, "Curve Points");
     EXPECT_EQ(result->maps.front().x_axis.address, 0x80U);
-    EXPECT_EQ(result->maps.front().x_axis.size, 3U);
+    EXPECT_EQ(result->maps.front().x_axis.size, 4U);
+    EXPECT_EQ(result->maps.front().x_size, 4U);
+    EXPECT_EQ(result->maps.front().y_size, 1U);
+    EXPECT_TRUE(result->maps.front().y_axis.type.empty());
+}
+
+TEST(RomRaiderParserTest, NormalizesLegacyStaticYAxisDimensions)
+{
+    const auto xml = bytes(R"xml(
+      <roms><rom><romid><xmlid>STATIC_CURVE</xmlid></romid>
+      <table name="Static Curve" type="3D" sizey="5">
+        <table type="Static Y Axis" name="Static Points"/>
+      </table></rom></roms>)xml");
+
+    auto result = parse_romraider_definition(xml, "static-curve.xml", "STATIC_CURVE");
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->maps.size(), 1U);
+    EXPECT_EQ(result->maps.front().x_axis.type, "Static X Axis");
+    EXPECT_EQ(result->maps.front().x_axis.name, "Static Points");
+    EXPECT_EQ(result->maps.front().x_axis.size, 5U);
+    EXPECT_EQ(result->maps.front().x_size, 5U);
+    EXPECT_EQ(result->maps.front().y_size, 1U);
     EXPECT_TRUE(result->maps.front().y_axis.type.empty());
 }
 
