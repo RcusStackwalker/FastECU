@@ -1112,8 +1112,8 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
             fullRomDataTmp = ecuCalDef[rom_number]->FullRomData;
             if (configValues->flash_protocol_selected_checksum == "n/a")
             {
-                QMessageBox msgBox(QMessageBox::Warning, "Checksum warning", "WARNING! There is no checksum module for this ROM!\
-                                    Be aware that if this ROM need checksum correction it must be done with another software!",
+                QMessageBox msgBox(QMessageBox::Warning, "Checksum warning", "WARNING! There is no checksum module for this ROM!\n"
+                                    "Be aware that if this ROM need checksum correction it must be done with another software!",
                                    QMessageBox::Ok | QMessageBox::Cancel);
                 const auto ret = msgBox.exec();
 
