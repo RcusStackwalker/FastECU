@@ -10,6 +10,7 @@
 #include <sstream>
 #include <string>
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 namespace
@@ -47,13 +48,14 @@ TEST(ProtocolsCfgEepromCapabilitiesTest, DeclaresEepromWriteAndTestWriteUnsuppor
              "sub_ecu_eeprom_denso_sh7055_densocan", "sub_ecu_eeprom_denso_sh7058_densocan",
              "sub_ecu_eeprom_denso_sh7058_can", "sub_ecu_eeprom_denso_sh7058_can_diesel"})
     {
+        SCOPED_TRACE(name);
         const std::string needle = "name=\"" + name + "\"";
         const std::size_t nameIndex = contents.find(needle);
-        ASSERT_NE(nameIndex, std::string::npos) << name;
+        ASSERT_NE(nameIndex, std::string::npos);
         const std::size_t entryEnd = contents.find("</protocol>", nameIndex);
-        ASSERT_NE(entryEnd, std::string::npos) << name;
+        ASSERT_NE(entryEnd, std::string::npos);
         const std::string entry = contents.substr(nameIndex, entryEnd - nameIndex);
-        EXPECT_NE(entry.find("<test_write>no</test_write>"), std::string::npos) << name;
-        EXPECT_NE(entry.find("<write>no</write>"), std::string::npos) << name;
+        EXPECT_THAT(entry, testing::HasSubstr("<test_write>no</test_write>"));
+        EXPECT_THAT(entry, testing::HasSubstr("<write>no</write>"));
     }
 }
