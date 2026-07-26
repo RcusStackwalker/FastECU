@@ -1112,17 +1112,12 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
             fullRomDataTmp = ecuCalDef[rom_number]->FullRomData;
             if (configValues->flash_protocol_selected_checksum == "n/a")
             {
-                QMessageBox msgBox;
-                msgBox.setIcon(QMessageBox::Warning);
-                msgBox.setWindowTitle("Checksum warning");
-                // msgBox.setDetailedText("Write Flash - Checksum Warning");
-                msgBox.setText("WARNING! There is no checksum module for this ROM!\
-                                    Be aware that if this ROM need checksum correction it must be done with another software!");
-                QPushButton *cancelButton = msgBox.addButton(QMessageBox::Cancel);
-                QPushButton *okButton = msgBox.addButton(QMessageBox::Ok);
-                msgBox.exec();
+                QMessageBox msgBox(QMessageBox::Warning, "Checksum warning", "WARNING! There is no checksum module for this ROM!\
+                                    Be aware that if this ROM need checksum correction it must be done with another software!",
+                                   QMessageBox::Ok | QMessageBox::Cancel);
+                const auto ret = msgBox.exec();
 
-                if (msgBox.clickedButton() == cancelButton)
+                if (ret == QMessageBox::Cancel)
                 {
                     emit LOG_D("Write canceled!", true, true);
                     ecuCalDef[rom_number]->FullRomData = fullRomDataTmp;
