@@ -784,7 +784,7 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(
         // "Legacy behavior surprises" #1). Faithfully reproduced, not
         // corrected: an N-block kernel produces N+1 wire frames.
         const bytes::ByteView chunk =
-            blockno < max_blocks ? encrypted_view.subspan(static_cast<size_type>(blockno * kUploadChunkBytes), kUploadChunkBytes)
+            blockno < max_blocks ? encrypted_view.subspan(static_cast<std::size_t>(blockno * kUploadChunkBytes), kUploadChunkBytes)
                                  : bytes::ByteView{};
 
         Status written = transport.write(sid_b6_request(request_id, block_addr, chunk), cancellation);
