@@ -386,6 +386,28 @@ def _macos_sdk_path(command_runner: CommandRunner, workspace: Path) -> str:
     return sdk_path
 
 
+def _prebuild(command_runner: CommandRunner, build_args: Sequence[str], workspace: Path) -> None:
+    """Best-effort build of the analyzed targets.
+
+    Hedron's aquery-based compdb refresh never executes compile actions, so
+    build-generated header trees (e.g. rules_qt's per-framework
+    _virtual_includes symlink farms) may not exist on disk yet even though
+    the emitted compile flags reference them. Building first materializes
+    them; --keep_going mirrors Hedron's own guidance so an unrelated failure
+    doesn't block analysis of everything else.
+    """
+    if not build_args:
+        return
+    print("Building analyzed targets so generated headers exist before analysis.")
+    code = _run(command_runner, ["bazel", "build", "--keep_going", *build_args], workspace)
+    if code:
+        print(
+            f"clang-tidy: warning: prebuild exited with code {code}; "
+            "some generated headers may be stale or missing.",
+            file=sys.stderr,
+        )
+
+
 def run_workflow(
     *,
     mode: str,
@@ -394,12 +416,14 @@ def run_workflow(
     platform_name: str,
     environ: Mapping[str, str],
     command_runner: CommandRunner = subprocess.run,
+    build_args: Sequence[str] = (),
 ) -> int:
     if mode not in ("report", "fix"):
         raise WorkflowError(f"unsupported mode: {mode}")
     if mode == "fix" and platform_name not in ("darwin", "linux"):
         raise WorkflowError("clang-tidy fix mode is supported only on macOS and Linux")
 
+    _prebuild(command_runner, build_args, workspace)
     refresh_code = _run(command_runner, [compdb_tool], workspace)
     if refresh_code:
         raise WorkflowError(f"compilation database refresher failed with exit code {refresh_code}")
@@ -456,6 +480,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("mode", choices=("report", "fix"))
     parser.add_argument("--compdb-tool", required=True)
+    parser.add_argument("--build-arg", action="append", default=[], dest="build_args")
     args = parser.parse_args(argv)
     try:
         root = workspace_root(os.environ)
@@ -468,6 +493,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             compdb_tool=str(tool),
             platform_name=sys.platform,
             environ=os.environ,
+            build_args=args.build_args,
         )
     except WorkflowError as error:
         print(f"clang-tidy: {error}", file=sys.stderr)
