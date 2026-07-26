@@ -243,8 +243,9 @@ entry it:
    representation; and
 5. returns the first exact match in catalog precedence order.
 
-No-match is a normal `NotFound` result. An invalid address or representation is
-`InvalidData`. The unused legacy `is_ascii` parameter remains only on the
+No-match is an `InvalidConfig` result with explicit "no matching definition"
+detail. An invalid address or representation is also `InvalidConfig`. The
+unused legacy `is_ascii` parameter remains only on the
 compatibility wrapper; portable matching derives representation from the
 catalog entry.
 
@@ -306,12 +307,12 @@ Golden fixtures determine which omissions are valid in each format.
 
 ## Error handling
 
-Use the existing error taxonomy:
+Use the existing error taxonomy without extending `ErrorKind`:
 
-- `InvalidData`: XML, field, catalog, inheritance, merge, and validation
-  failures;
-- `NotFound`: missing selected definition, parent, source, or ROM ID match;
-- `Io`: discovery, read, or atomic replacement failure.
+- `InvalidConfig`: XML, field, catalog, inheritance, merge, validation,
+  missing-definition/parent/source, and no-ROM-match failures;
+- port errors propagate unchanged; the existing filesystem/repository/desktop
+  writer adapters use `Internal` for operational I/O failures.
 
 Errors identify the format, source handle, definition ID when known, and
 relevant XML element/attribute. Recursive failures include the inheritance
@@ -456,4 +457,3 @@ during development rather than waiting for the full final gate.
   parallel lists.
 - Portable closure, serial compatibility, release build/test, coverage, and
   quality gates pass.
-
