@@ -56,8 +56,8 @@ class LoggingEngine final : public QObject
     explicit LoggingEngine(QObject *parent = nullptr);
     ~LoggingEngine() override;
 
-    void registerProtocol(const QString& protocol_id, LoggingProtocolFactory factory);
-    LoggingStartResult start(LogSessionConfig config,
+    void registerProtocol(const QString& protocol_id, const LoggingProtocolFactory& factory);
+    LoggingStartResult start(const LogSessionConfig& config,
                              fastecu::desktop::logging::DesktopLoggingSnapshot snapshot);
     void stop();
     bool isRunning() const;

@@ -40,14 +40,11 @@ class RemoteUtility : public QObject
     const QString remoteObjectNameUtility = "FastECU_Utility";
     const QString wssPath = "/" + remoteObjectNameUtility;
     const QString webSocketPasswordHeader = "fastecu-basic-password";
-    const int heartbeatInterval; // Inited in constructor initializer list
     QWebSocket *webSocket;
     WebSocketIoDevice *socket;
     QRemoteObjectNode node;
-    int keepalive_interval; // Inited in constructor initializer list
     QTimer *keepalive_timer;
     int pings_sequently_missed = 0;
-    int pings_sequently_missed_limit; // Inited in constructor initializer list
     void start_keepalive(void);
     void stop_keepalive(void);
     void startRemote(void);
@@ -55,6 +52,10 @@ class RemoteUtility : public QObject
     void startLocal(void);
     void send_keepalive(void);
     void sendAutoDiscoveryMessage();
+
+    static constexpr int heartbeatInterval{0};
+    static constexpr int keepalive_interval{7000};
+    static constexpr int pings_sequently_missed_limit{5};
 
   private slots:
     void utilityRemoteStateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState);

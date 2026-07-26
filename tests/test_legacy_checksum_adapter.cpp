@@ -71,42 +71,34 @@ class PassthroughChecksumAdapter : public LegacyChecksumAdapter
     bool confirmProceedWithoutDefinition(QWidget *parent) override
     {
         if (passthroughDefinitionGate)
+        {
             return LegacyChecksumAdapter::confirmProceedWithoutDefinition(parent);
+        }
         return true;
     }
     void showBadRomSizeDialog(QWidget *parent) override
     {
         if (passthroughBadRomSize)
+        {
             LegacyChecksumAdapter::showBadRomSizeDialog(parent);
+        }
     }
     bool confirmProceedWithoutChecksumModule() override
     {
         if (passthroughNoModule)
+        {
             return LegacyChecksumAdapter::confirmProceedWithoutChecksumModule();
+        }
         return false;
     }
     void showFamilyResultDialog(const ChecksumResult& family_result) override
     {
         if (passthroughFamilyResult)
+        {
             LegacyChecksumAdapter::showFamilyResultDialog(family_result);
+        }
     }
 };
-
-// Arms a one-shot timer that closes whatever modal widget is active once the
-// call under test starts its nested event loop. Used instead of
-// tests/expected_message_box.h's ExpectedMessageBoxCloser: that helper calls
-// QDialog::accept()/reject() directly, which does not set QMessageBox's
-// clickedButton() for the custom-role buttons these dialogs use (only a real
-// button click does) -- fine here, since these tests exist to exercise the
-// real dialog-construction code paths for coverage, not to re-verify
-// button-click semantics (already covered by the scripted tests above).
-void closeNextModal()
-{
-    QTimer::singleShot(0, []()
-                       {
-        if (QWidget *modal = QApplication::activeModalWidget())
-            modal->close(); });
-}
 
 } // namespace
 

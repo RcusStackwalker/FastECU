@@ -12,7 +12,7 @@ DesktopKlineFlashTransport::DesktopKlineFlashTransport(std::unique_ptr<SerialPor
 }
 
 DesktopKlineFlashTransport::DesktopKlineFlashTransport(SerialPortActions *serial)
-    : owned_serial_(), serial_(serial)
+    : serial_(serial)
 {
 }
 

@@ -244,10 +244,14 @@ class TestEcuflashDefinitionParsing : public QObject
         const QString path = dir.filePath(baseName + ".xml");
         QFile file(path);
         if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+        {
             return {};
+        }
         const QByteArray contents = xml.toUtf8();
         if (file.write(contents) != contents.size())
+        {
             return {};
+        }
         file.close();
         return path;
     }

@@ -122,6 +122,11 @@ py_test(
     main = "scripts/check-windows-preprocessor-guards.py",
 )
 
+# --build-arg targets mirror //bazel/compile_commands:refresh's `targets` above --
+# keep them in sync. Hedron's refresh is aquery-based and never executes compile
+# actions, so build-generated header trees (e.g. rules_qt's per-framework
+# _virtual_includes symlink farms) can be absent from disk even though the
+# emitted compile flags reference them; a real build first materializes them.
 py_binary(
     name = "clang_tidy_report",
     srcs = ["scripts/clang_tidy_runner.py"],
@@ -129,6 +134,9 @@ py_binary(
         "report",
         "--compdb-tool",
         "$(location //bazel/compile_commands:refresh)",
+        "--build-arg=--config=release",
+        "--build-arg=//:fastecu",
+        "--build-arg=//tests/...",
     ],
     data = [
         ".clang-tidy",
@@ -145,6 +153,9 @@ py_binary(
         "fix",
         "--compdb-tool",
         "$(location //bazel/compile_commands:refresh)",
+        "--build-arg=--config=release",
+        "--build-arg=//:fastecu",
+        "--build-arg=//tests/...",
     ],
     data = [
         ".clang-tidy",

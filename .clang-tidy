@@ -11,7 +11,7 @@ Checks: >
   readability-redundant-member-init,
   readability-simplify-boolean-expr,
   readability-use-anyofallof
-WarningsAsErrors: ''
+WarningsAsErrors: 'performance-avoid-endl,readability-braces-around-statements'
 HeaderFilterRegex: '^(calibration|cipher|dataterminal|definition|dtc|ecu|expression|file|logging|menu|modules|nrc|protocol|remote_utility|serial_port|settings|systemlogger|vehicle|tests)/.*'
 FormatStyle: none
 CheckOptions:

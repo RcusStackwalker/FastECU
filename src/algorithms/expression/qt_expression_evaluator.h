@@ -17,7 +17,7 @@ class ExpressionEvaluator
 {
   public:
     static QStringList parse(const QString& expression, const QString& x);
-    static double evaluate(QStringList expression, int precision = 15);
+    static double evaluate(const QStringList& expression, int precision = 15);
     static double evaluate(const QString& expression, const QString& x, int precision = 15);
 };
 

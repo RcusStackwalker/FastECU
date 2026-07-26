@@ -203,7 +203,7 @@ Result<FlashPlan> build_denso_sh705x_eeprom_plan(DensoSh705xEepromInput input)
         .erase_regions = {},
         .image = std::nullopt,
         .kernel = std::move(input.kernel),
-        .family_plan = std::move(family_plan),
+        .family_plan = family_plan,
         .confirmations = confirmations_for_mode(input.mode),
     };
     return validate_and_build(std::move(fields));

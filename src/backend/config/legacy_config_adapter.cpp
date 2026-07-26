@@ -69,7 +69,9 @@ ConfigPaths paths_from_legacy(const fastecu::definitions::ConfigValuesStructure 
 void assign_if_present(QString& field, const std::string& value)
 {
     if (!value.empty())
+    {
         field = qs(value);
+    }
 }
 
 void copy_app_config_into_legacy(const AppConfig& config, fastecu::definitions::ConfigValuesStructure *values)
@@ -85,12 +87,16 @@ void copy_app_config_into_legacy(const AppConfig& config, fastecu::definitions::
     assign_if_present(values->primary_definition_base, config.primary_definition_base);
     values->calibration_files.clear();
     for (const std::string& f : config.calibration_files)
+    {
         values->calibration_files.append(qs(f));
+    }
     assign_if_present(values->calibration_files_directory, config.calibration_files_directory);
     assign_if_present(values->use_romraider_definitions, config.use_romraider_definitions);
     values->romraider_definition_files.clear();
     for (const std::string& f : config.romraider_definition_files)
+    {
         values->romraider_definition_files.append(qs(f));
+    }
     assign_if_present(values->use_ecuflash_definitions, config.use_ecuflash_definitions);
     assign_if_present(values->ecuflash_definition_files_directory, config.ecuflash_definition_files_directory);
     assign_if_present(values->romraider_logger_definition_file, config.romraider_logger_definition_file);
@@ -110,11 +116,15 @@ AppConfig app_config_from_legacy(const fastecu::definitions::ConfigValuesStructu
     config.selected_log_protocol = values->flash_protocol_selected_log_protocol.toStdString();
     config.primary_definition_base = values->primary_definition_base.toStdString();
     for (const QString& f : values->calibration_files)
+    {
         config.calibration_files.push_back(f.toStdString());
+    }
     config.calibration_files_directory = values->calibration_files_directory.toStdString();
     config.use_romraider_definitions = values->use_romraider_definitions.toStdString();
     for (const QString& f : values->romraider_definition_files)
+    {
         config.romraider_definition_files.push_back(f.toStdString());
+    }
     config.use_ecuflash_definitions = values->use_ecuflash_definitions.toStdString();
     config.ecuflash_definition_files_directory = values->ecuflash_definition_files_directory.toStdString();
     config.romraider_logger_definition_file = values->romraider_logger_definition_file.toStdString();
@@ -206,7 +216,9 @@ void copy_car_models_into_legacy(const ProtocolCatalog& protocols, const CarMode
         for (const ProtocolEntry& protocol : protocols)
         {
             if (protocol.protocol_name == entry.protocol_name)
+            {
                 matched = &protocol;
+            }
         }
 
         if (matched != nullptr)
@@ -316,7 +328,9 @@ fastecu::definitions::ConfigValuesStructure *LegacyConfigAdapter::save_config_fi
     Result<AppConfig> saved =
         save_app_config(app_config_from_legacy(values), paths, file_repository_);
     if (saved.has_value())
+    {
         copy_app_config_into_legacy(*saved, values);
+    }
     return values;
 }
 
@@ -327,7 +341,9 @@ fastecu::definitions::ConfigValuesStructure *LegacyConfigAdapter::read_protocols
     Result<ProtocolCatalog> protocols = load_protocol_catalog(paths, file_repository_);
     Result<CarModelCatalog> car_models = load_car_model_catalog(paths, file_repository_);
     if (protocols.has_value() && car_models.has_value())
+    {
         copy_car_models_into_legacy(*protocols, *car_models, values);
+    }
 
     // Legacy's final step (file_actions.cpp:1385-1389): validate the
     // populated lists and log (not surface as an error) whatever

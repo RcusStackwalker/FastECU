@@ -20,7 +20,9 @@ fastecu::Status QtClock::sleep(int ms, const fastecu::ICancellationToken& t)
     while (remaining > 0)
     {
         if (t.cancelled())
+        {
             return fastecu::fail(fastecu::ErrorKind::Cancelled);
+        }
         int step = remaining < slice ? remaining : slice;
         QThread::msleep(static_cast<unsigned long>(step));
         remaining -= step;

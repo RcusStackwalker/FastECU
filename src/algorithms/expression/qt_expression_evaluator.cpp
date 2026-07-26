@@ -15,7 +15,7 @@ QStringList ExpressionEvaluator::parse(const QString& expression, const QString&
     return result;
 }
 
-double ExpressionEvaluator::evaluate(QStringList expression, int precision)
+double ExpressionEvaluator::evaluate(const QStringList& expression, int precision)
 {
     std::vector<std::string> tokens;
     tokens.reserve(static_cast<size_t>(expression.size()));

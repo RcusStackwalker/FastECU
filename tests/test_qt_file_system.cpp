@@ -73,9 +73,13 @@ TEST(QtFileSystemTest, ListDirectoryReturnsEntriesWithModifiedTime)
     for (auto& e : *entries)
     {
         if (e.name == "subdir" && e.is_directory)
+        {
             found_dir = true;
+        }
         if (e.name == "file.txt" && !e.is_directory)
+        {
             found_file = true;
+        }
     }
     EXPECT_TRUE(found_dir);
     EXPECT_TRUE(found_file);

@@ -12,7 +12,9 @@ namespace
 Status ensure_directory(IFileSystem& fs, const std::string& path, IEventSink& events)
 {
     if (fs.exists(path))
+    {
         return {};
+    }
     Status result = fs.create_directory(path);
     if (!result.has_value())
     {
@@ -27,12 +29,16 @@ Status copy_bundle_if_absent(IFileSystem& fs, IResourceBundle& bundle, const std
 {
     Result<std::vector<std::string>> names = bundle.list(bundle_id);
     if (!names.has_value())
+    {
         return {};
+    }
     for (const std::string& name : *names)
     {
         const std::string target = target_directory + name;
         if (fs.exists(target))
+        {
             continue;
+        }
         events.log(LogLevel::Debug, "Provisioning default file: " + target);
         // The bundle port has no direct filesystem-to-filesystem copy; write
         // through IFileSystem by reading bytes from the bundle and treating
@@ -62,7 +68,9 @@ Status provision_config_directories(const ConfigPaths& paths, IFileSystem& fs,
                                     IResourceBundle& resource_bundle, IEventSink& events)
 {
     if (Status r = ensure_directory(fs, paths.base_config_directory, events); !r.has_value())
+    {
         return r;
+    }
 
     const bool has_version_subdirectory = paths.version_config_directory != paths.base_config_directory;
     if (has_version_subdirectory && !fs.exists(paths.version_config_directory))
@@ -97,9 +105,13 @@ Status provision_config_directories(const ConfigPaths& paths, IFileSystem& fs,
         // make the migration copy always target a directory tree that
         // doesn't exist yet, permanently defeating it.
         if (Status r = ensure_directory(fs, paths.version_config_directory, events); !r.has_value())
+        {
             return r;
+        }
         if (Status r = ensure_directory(fs, paths.config_files_directory, events); !r.has_value())
+        {
             return r;
+        }
 
         if (has_previous_config_file)
         {
@@ -114,15 +126,21 @@ Status provision_config_directories(const ConfigPaths& paths, IFileSystem& fs,
                                    paths.datalog_files_directory, paths.syslog_files_directory})
     {
         if (Status r = ensure_directory(fs, dir, events); !r.has_value())
+        {
             return r;
+        }
     }
 
     if (Status r = copy_bundle_if_absent(fs, resource_bundle, "config", paths.config_files_directory, events);
         !r.has_value())
+    {
         return r;
+    }
     if (Status r = copy_bundle_if_absent(fs, resource_bundle, "kernels", paths.kernel_files_directory, events);
         !r.has_value())
+    {
         return r;
+    }
 
     Result<std::vector<DirEntry>> syslogs = fs.list_directory(paths.syslog_files_directory);
     if (syslogs.has_value())
@@ -137,7 +155,9 @@ Status provision_config_directories(const ConfigPaths& paths, IFileSystem& fs,
         {
             Status r = fs.remove_file(paths.syslog_files_directory + files[i].name);
             if (!r.has_value())
+            {
                 return r;
+            }
         }
     }
 

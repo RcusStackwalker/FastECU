@@ -22,7 +22,7 @@ void Cipher::handleErrors(void)
 {
     // ERR_print_errors_fp(stderr);
     // abort();
-    std::cerr << "Cipher error" << std::endl;
+    std::cerr << "Cipher error\n";
 }
 
 bytes::Bytes Cipher::encrypt_aes128_ecb(bytes::ByteView plaintext, bytes::ByteView key)

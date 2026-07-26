@@ -12,7 +12,9 @@ std::optional<std::string> QtSettings::get(std::string_view key) const
 {
     QString k = QString::fromUtf8(key.data(), static_cast<int>(key.size()));
     if (!settings_->contains(k))
+    {
         return std::nullopt;
+    }
     return settings_->value(k).toString().toStdString();
 }
 
