@@ -29,6 +29,7 @@
 #include <cstdint>
 #include <string.h>
 #include <iostream>
+#include <string_view>
 
 #include "src/backend/definitions/kernelmemorymodels.h"
 #include "src/backend/definitions/config_values.h"
@@ -293,6 +294,14 @@ class FileActions : public QWidget
     static QString parse_dtc_message(uint16_t dtc);
 
   private:
+    friend class TestFileActionsParsing;
+
+    fastecu::Status submit_new_definition(
+        std::string_view destination,
+        const fastecu::definition::DefinitionHeaderInput&);
+    fastecu::Status submit_imported_definition(
+        std::string_view source, std::string_view destination,
+        const fastecu::definition::DefinitionHeaderInput&);
     fastecu::Result<fastecu::definition::DefinitionCatalog> build_definition_catalog(
         fastecu::definition::DefinitionFormat format);
     QString definition_source(
@@ -307,6 +316,7 @@ class FileActions : public QWidget
     fastecu::config::LegacyConfigAdapter configAdapter_;
     fastecu::checksum::LegacyChecksumAdapter checksumAdapter_;
     fastecu::IFileSystem& definitionFileSystem_;
+    fastecu::IFileRepository& definitionFileRepository_;
     fastecu::definition::DefinitionService definitionService_;
     fastecu::definition::LegacyDefinitionAdapter definitionAdapter_;
 

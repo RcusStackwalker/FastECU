@@ -255,6 +255,7 @@ SUITE_DEPS = {
         "//src/platform/desktop/common/ports",
     ],
     "test_file_actions_parsing": [
+        "//src/backend/definition:ecuflash_parser",
         "//src/backend/definitions",
         "//src/platform/desktop/common/ports",
     ],
