@@ -3,11 +3,50 @@
 #include <QTemporaryDir>
 #include <QFile>
 #include <QSignalSpy>
+#include <QTimer>
+
+#include <cstdint>
+#include <map>
+#include <span>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include "src/backend/ports/atomic_file_writer.h"
 #include "src/backend/definitions/file_actions.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
 #include "src/platform/desktop/common/ports/qt_resource_bundle.h"
 #include "test_ecuflash_definition_parsing.h"
+
+namespace
+{
+class InMemoryAtomicFileWriter : public fastecu::IAtomicFileWriter
+{
+  public:
+    fastecu::Status replace(std::string_view handle,
+                            std::span<const std::uint8_t> data) override
+    {
+        files[std::string(handle)] =
+            std::vector<std::uint8_t>(data.begin(), data.end());
+        return {};
+    }
+
+    std::map<std::string, std::vector<std::uint8_t>> files;
+};
+
+bool spyContainsMessage(const QSignalSpy& spy, const QString& text)
+{
+    for (const QList<QVariant>& arguments : spy)
+    {
+        if (!arguments.isEmpty() && arguments.at(0).toString().contains(text))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+} // namespace
 
 class TestEcuflashDefinitionParsing : public QObject
 {
@@ -15,7 +54,7 @@ class TestEcuflashDefinitionParsing : public QObject
   private slots:
     void add_list_item_defaults_new_fields_to_placeholder()
     {
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         FileActions::EcuCalDefStructure ecuCalDef;
 
         fileActions.add_ecuflash_def_list_item(&ecuCalDef);
@@ -42,13 +81,20 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "</rom>");
         QVERIFY(!defPath.isEmpty());
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
         fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
+        QSignalSpy errorSpy(&fileActions, &FileActions::LOG_E);
 
         FileActions::EcuCalDefStructure ecuCalDef;
-        fileActions.read_ecuflash_ecu_def(&ecuCalDef, "TESTCAL");
+        QCOMPARE(fileActions.read_ecuflash_ecu_def(&ecuCalDef, "TESTCAL"),
+                 &ecuCalDef);
 
+        QVERIFY2(
+            errorSpy.isEmpty(),
+            errorSpy.isEmpty()
+                ? ""
+                : qPrintable(errorSpy.at(0).at(0).toString()));
         QCOMPARE(ecuCalDef.NameList.size(), 1);
         QCOMPARE(ecuCalDef.SubCategoryList.at(0), QString("Primary"));
         QCOMPARE(ecuCalDef.LevelList.at(0), QString("2"));
@@ -67,7 +113,7 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "</rom>");
         QVERIFY(!defPath.isEmpty());
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
         fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
 
@@ -88,7 +134,7 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "</rom>");
         QVERIFY(!defPath.isEmpty());
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
         fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
 
@@ -109,7 +155,7 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "</rom>");
         QVERIFY(!defPath.isEmpty());
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
         fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
 
@@ -132,7 +178,7 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "</rom>");
         QVERIFY(!defPath.isEmpty());
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
         fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
 
@@ -155,7 +201,7 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "</rom>");
         QVERIFY(!defPath.isEmpty());
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
         fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
 
@@ -167,7 +213,7 @@ class TestEcuflashDefinitionParsing : public QObject
         QCOMPARE(ecuCalDef.FlipYList.at(0), QString("false"));
     }
 
-    void invalid_swapxy_value_warns_and_defaults_to_false()
+    void invalid_swapxy_value_preserves_caller_state_and_logs_error()
     {
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
@@ -178,20 +224,29 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "</rom>");
         QVERIFY(!defPath.isEmpty());
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
         fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
 
-        QSignalSpy warnSpy(&fileActions, &FileActions::LOG_W);
+        QSignalSpy errorSpy(&fileActions, &FileActions::LOG_E);
 
         FileActions::EcuCalDefStructure ecuCalDef;
-        fileActions.read_ecuflash_ecu_def(&ecuCalDef, "TESTCAL");
+        ecuCalDef.RomInfo =
+            QStringList(ecuCalDef.RomInfoStrings.size(), "sentinel-rom-info");
+        ecuCalDef.NameList = {"sentinel-map"};
+        ecuCalDef.SwapXYList = {"sentinel-swap"};
+        const QStringList romInfo = ecuCalDef.RomInfo;
+        const QStringList names = ecuCalDef.NameList;
+        const QStringList swapXY = ecuCalDef.SwapXYList;
+        QCOMPARE(fileActions.read_ecuflash_ecu_def(&ecuCalDef, "TESTCAL"),
+                 &ecuCalDef);
 
-        QCOMPARE(ecuCalDef.SwapXYList.at(0), QString("false"));
-        QCOMPARE(warnSpy.count(), 1);
-        const QString warning = warnSpy.at(0).at(0).toString();
-        QVERIFY(warning.contains("swapxy"));
-        QVERIFY(warning.contains("yes"));
+        QCOMPARE(ecuCalDef.RomInfo, romInfo);
+        QCOMPARE(ecuCalDef.NameList, names);
+        QCOMPARE(ecuCalDef.SwapXYList, swapXY);
+        QCOMPARE(errorSpy.count(), 1);
+        QVERIFY(spyContainsMessage(errorSpy, "swapxy"));
+        QVERIFY(spyContainsMessage(errorSpy, "yes"));
     }
 
     void inherits_base_table_and_scaling()
@@ -220,7 +275,8 @@ class TestEcuflashDefinitionParsing : public QObject
             "</rom>");
         QVERIFY(!childPath.isEmpty());
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        QSignalSpy debugSpy(&fileActions, &FileActions::LOG_D);
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id = {"CHILD_TEST", "BASE_TEST"};
         fileActions.ConfigValuesStruct.ecuflash_def_filename = {childPath, basePath};
 
@@ -236,6 +292,149 @@ class TestEcuflashDefinitionParsing : public QObject
         QCOMPARE(ecuCalDef.FromByteList.at(0), QString("x*0.5"));
         QCOMPARE(ecuCalDef.ToByteList.at(0), QString("x*2"));
         QCOMPARE(ecuCalDef.FormatList.at(0), QString("0"));
+        QVERIFY(spyContainsMessage(
+            debugSpy,
+            "Definition for CAL ID CHILD_TEST succesfully read"));
+    }
+
+    void malformed_ecuflash_catalog_preserves_existing_rows_and_logs_error()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString definitionPath =
+            writeDefFile(dir, "BROKEN", "<rom><romid>");
+        QVERIFY(!definitionPath.isEmpty());
+
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        auto& config = fileActions.ConfigValuesStruct;
+        config.ecuflash_definition_files_directory = dir.path();
+        config.ecuflash_def_cal_id = {"sentinel-id"};
+        config.ecuflash_def_cal_id_addr = {"sentinel-address"};
+        config.ecuflash_def_ecu_id = {"sentinel-ecu"};
+        config.ecuflash_def_filename = {"sentinel-source"};
+        const QStringList ids = config.ecuflash_def_cal_id;
+        const QStringList addresses = config.ecuflash_def_cal_id_addr;
+        const QStringList ecuIds = config.ecuflash_def_ecu_id;
+        const QStringList sources = config.ecuflash_def_filename;
+        QSignalSpy errorSpy(&fileActions, &FileActions::LOG_E);
+
+        QCOMPARE(fileActions.create_ecuflash_def_id_list(&config), &config);
+
+        QCOMPARE(config.ecuflash_def_cal_id, ids);
+        QCOMPARE(config.ecuflash_def_cal_id_addr, addresses);
+        QCOMPARE(config.ecuflash_def_ecu_id, ecuIds);
+        QCOMPARE(config.ecuflash_def_filename, sources);
+        QCOMPARE(errorSpy.count(), 1);
+        QVERIFY(spyContainsMessage(errorSpy, "malformed XML"));
+    }
+
+    void malformed_ecuflash_definition_preserves_caller_state()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString definitionPath =
+            writeDefFile(dir, "BROKEN", "<rom><romid>");
+        QVERIFY(!definitionPath.isEmpty());
+
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        auto& config = fileActions.ConfigValuesStruct;
+        config.ecuflash_def_cal_id = {"BROKEN"};
+        config.ecuflash_def_cal_id_addr = {"0"};
+        config.ecuflash_def_ecu_id = {"sentinel-ecu"};
+        config.ecuflash_def_filename = {definitionPath};
+
+        FileActions::EcuCalDefStructure ecuCalDef;
+        ecuCalDef.RomInfo =
+            QStringList(ecuCalDef.RomInfoStrings.size(), "sentinel-rom-info");
+        ecuCalDef.DefinitionFileName = "sentinel-definition-file";
+        ecuCalDef.NameList = {"sentinel-map"};
+        ecuCalDef.use_ecuflash_definition = false;
+        const QStringList romInfo = ecuCalDef.RomInfo;
+        const QString definitionFileName = ecuCalDef.DefinitionFileName;
+        const QStringList names = ecuCalDef.NameList;
+        QSignalSpy errorSpy(&fileActions, &FileActions::LOG_E);
+
+        QCOMPARE(fileActions.read_ecuflash_ecu_def(&ecuCalDef, "BROKEN"),
+                 &ecuCalDef);
+
+        QCOMPARE(ecuCalDef.RomInfo, romInfo);
+        QCOMPARE(ecuCalDef.DefinitionFileName, definitionFileName);
+        QCOMPARE(ecuCalDef.NameList, names);
+        QVERIFY(!ecuCalDef.use_ecuflash_definition);
+        QCOMPARE(errorSpy.count(), 1);
+        QVERIFY(spyContainsMessage(errorSpy, "malformed XML"));
+    }
+
+    void missing_ecuflash_definition_returns_null_and_preserves_caller_state()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        auto& config = fileActions.ConfigValuesStruct;
+        config.ecuflash_def_cal_id = {"MISSING"};
+        config.ecuflash_def_cal_id_addr = {"0"};
+        config.ecuflash_def_ecu_id = {"sentinel-ecu"};
+        config.ecuflash_def_filename = {dir.filePath("missing.xml")};
+
+        FileActions::EcuCalDefStructure ecuCalDef;
+        ecuCalDef.RomInfo =
+            QStringList(ecuCalDef.RomInfoStrings.size(), "sentinel-rom-info");
+        ecuCalDef.DefinitionFileName = "sentinel-definition-file";
+        ecuCalDef.NameList = {"sentinel-map"};
+        const QStringList romInfo = ecuCalDef.RomInfo;
+        const QString definitionFileName = ecuCalDef.DefinitionFileName;
+        const QStringList names = ecuCalDef.NameList;
+        QSignalSpy errorSpy(&fileActions, &FileActions::LOG_E);
+        QTimer::singleShot(0, []()
+                           {
+            if (QWidget *modal = QApplication::activeModalWidget())
+            {
+                modal->close();
+            } });
+
+        QCOMPARE(fileActions.read_ecuflash_ecu_def(&ecuCalDef, "MISSING"),
+                 nullptr);
+
+        QCOMPARE(ecuCalDef.RomInfo, romInfo);
+        QCOMPARE(ecuCalDef.DefinitionFileName, definitionFileName);
+        QCOMPARE(ecuCalDef.NameList, names);
+        QCOMPARE(errorSpy.count(), 1);
+        QVERIFY(spyContainsMessage(errorSpy, "cannot open file"));
+    }
+
+    void ecuflash_rom_match_failure_preserves_rom_id_and_logs_error()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString definitionPath = writeDefFile(
+            dir,
+            "TESTCAL",
+            "<rom><romid><xmlid>TESTCAL</xmlid>"
+            "<internalidaddress>0</internalidaddress>"
+            "<internalidstring>TESTCAL</internalidstring></romid></rom>");
+        QVERIFY(!definitionPath.isEmpty());
+
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fileActions.ConfigValuesStruct.ecuflash_definition_files_directory =
+            dir.path();
+        QCOMPARE(
+            fileActions.create_ecuflash_def_id_list(
+                &fileActions.ConfigValuesStruct),
+            &fileActions.ConfigValuesStruct);
+
+        FileActions::EcuCalDefStructure ecuCalDef;
+        ecuCalDef.RomId = "sentinel-rom-id";
+        ecuCalDef.FullRomData = QByteArray("NO_MATCH");
+        QSignalSpy errorSpy(&fileActions, &FileActions::LOG_E);
+
+        QCOMPARE(
+            fileActions.parse_ecuid_ecuflash_def_files(&ecuCalDef, true),
+            &ecuCalDef);
+
+        QCOMPARE(ecuCalDef.RomId, QString("sentinel-rom-id"));
+        QCOMPARE(errorSpy.count(), 1);
+        QVERIFY(spyContainsMessage(errorSpy, "no matching ROM definition"));
     }
 
   private:
@@ -263,6 +462,7 @@ class TestEcuflashDefinitionParsing : public QObject
     QtFileSystem fileSystem_;
     QtResourceBundle resourceBundle_;
     QtFileRepository fileRepository_;
+    InMemoryAtomicFileWriter atomicFileWriter_;
 };
 
 int run_test_ecuflash_definition_parsing(int argc, char **argv)

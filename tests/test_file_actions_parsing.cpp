@@ -1,9 +1,18 @@
 #include <QtTest>
 #include <QApplication>
 #include <QFile>
+#include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTimer>
 
+#include <cstdint>
+#include <map>
+#include <span>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include "src/backend/ports/atomic_file_writer.h"
 #include "src/backend/definitions/file_actions.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
@@ -12,6 +21,20 @@
 
 namespace
 {
+class InMemoryAtomicFileWriter : public fastecu::IAtomicFileWriter
+{
+  public:
+    fastecu::Status replace(std::string_view handle,
+                            std::span<const std::uint8_t> data) override
+    {
+        files[std::string(handle)] =
+            std::vector<std::uint8_t>(data.begin(), data.end());
+        return {};
+    }
+
+    std::map<std::string, std::vector<std::uint8_t>> files;
+};
+
 QString writeTextFile(const QTemporaryDir& dir,
                       const QString& name,
                       const QByteArray& contents)
@@ -28,6 +51,18 @@ QString writeTextFile(const QTemporaryDir& dir,
     }
     file.close();
     return path;
+}
+
+bool spyContainsMessage(const QSignalSpy& spy, const QString& text)
+{
+    for (const QList<QVariant>& arguments : spy)
+    {
+        if (!arguments.isEmpty() && arguments.at(0).toString().contains(text))
+        {
+            return true;
+        }
+    }
+    return false;
 }
 } // namespace
 
@@ -56,7 +91,7 @@ class TestFileActionsParsing : public QObject
 </config>)");
         QVERIFY(!path.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         FileActions::ConfigValuesStructure config;
         config.config_file = path;
 
@@ -83,7 +118,7 @@ class TestFileActionsParsing : public QObject
         const QString path = writeTextFile(dir, "malformed.cfg", "<config><software_settings>");
         QVERIFY(!path.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         FileActions::ConfigValuesStructure config;
         config.config_file = path;
 
@@ -111,7 +146,7 @@ class TestFileActionsParsing : public QObject
 </switches></protocol></protocols></logger>)");
         QVERIFY(!path.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         actions.ConfigValuesStruct.romraider_logger_definition_file = path;
 
         FileActions::LogValuesStructure *values = actions.read_logger_definition_file();
@@ -148,7 +183,7 @@ class TestFileActionsParsing : public QObject
 </parameters></protocol></protocols></logger>)");
         QVERIFY(!path.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         actions.ConfigValuesStruct.romraider_logger_definition_file = path;
 
         FileActions::LogValuesStructure *values = actions.read_logger_definition_file();
@@ -174,7 +209,7 @@ class TestFileActionsParsing : public QObject
 </protocol></ecu></logger></config>)");
         QVERIFY(!path.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         actions.ConfigValuesStruct.logger_file = path;
         FileActions::LogValuesStructure values;
 
@@ -210,7 +245,8 @@ class TestFileActionsParsing : public QObject
 </roms>)");
         QVERIFY(!definitionPath.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        QSignalSpy debugSpy(&actions, &FileActions::LOG_D);
         actions.ConfigValuesStruct.romraider_definition_files = {definitionPath};
         QCOMPARE(actions.create_romraider_def_id_list(&actions.ConfigValuesStruct),
                  &actions.ConfigValuesStruct);
@@ -236,6 +272,9 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(ecu.EndianList.at(0), QString("big"));
         QCOMPARE(ecu.FromByteList.at(0), QString("x*0.5"));
         QCOMPARE(ecu.FormatList.at(0), QString("0.0"));
+        QVERIFY(spyContainsMessage(debugSpy, "1 RomRaider definition files found"));
+        QVERIFY(spyContainsMessage(debugSpy, "2 RomRaider ecu id's found"));
+        QVERIFY(spyContainsMessage(debugSpy, "XML ID: CAL_TEST CAL_TEST"));
     }
 
     void romraider_definition_uses_blank_optional_rom_id_fields()
@@ -248,7 +287,7 @@ class TestFileActionsParsing : public QObject
             "<roms><rom><romid><xmlid>MINIMAL_TEST</xmlid></romid></rom></roms>");
         QVERIFY(!definitionPath.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         actions.ConfigValuesStruct.romraider_definition_files = {definitionPath};
         QCOMPARE(actions.create_romraider_def_id_list(&actions.ConfigValuesStruct),
                  &actions.ConfigValuesStruct);
@@ -283,9 +322,106 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(ecu.RomInfo.at(FileActions::DefFile), definitionPath);
     }
 
+    void malformed_romraider_catalog_preserves_existing_rows_and_logs_error()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString definitionPath =
+            writeTextFile(dir, "malformed-romraider.xml", "<roms><rom>");
+        QVERIFY(!definitionPath.isEmpty());
+
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        auto& config = actions.ConfigValuesStruct;
+        config.romraider_definition_files = {definitionPath};
+        config.romraider_def_cal_id = {"sentinel-id"};
+        config.romraider_def_cal_id_addr = {"sentinel-address"};
+        config.romraider_def_ecu_id = {"sentinel-ecu"};
+        config.romraider_def_filename = {"sentinel-source"};
+        const QStringList ids = config.romraider_def_cal_id;
+        const QStringList addresses = config.romraider_def_cal_id_addr;
+        const QStringList ecuIds = config.romraider_def_ecu_id;
+        const QStringList sources = config.romraider_def_filename;
+        QSignalSpy errorSpy(&actions, &FileActions::LOG_E);
+
+        QCOMPARE(actions.create_romraider_def_id_list(&config), &config);
+
+        QCOMPARE(config.romraider_def_cal_id, ids);
+        QCOMPARE(config.romraider_def_cal_id_addr, addresses);
+        QCOMPARE(config.romraider_def_ecu_id, ecuIds);
+        QCOMPARE(config.romraider_def_filename, sources);
+        QCOMPARE(errorSpy.count(), 1);
+        QVERIFY(spyContainsMessage(errorSpy, "malformed XML"));
+    }
+
+    void malformed_romraider_definition_preserves_caller_state()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString definitionPath =
+            writeTextFile(dir, "malformed-romraider.xml", "<roms><rom>");
+        QVERIFY(!definitionPath.isEmpty());
+
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        auto& config = actions.ConfigValuesStruct;
+        config.romraider_definition_files = {definitionPath};
+        config.romraider_def_cal_id = {"BROKEN"};
+        config.romraider_def_cal_id_addr = {"0"};
+        config.romraider_def_ecu_id = {"sentinel-ecu"};
+        config.romraider_def_filename = {definitionPath};
+
+        FileActions::EcuCalDefStructure ecu;
+        ecu.RomInfo = QStringList(ecu.RomInfoStrings.size(), "sentinel-rom-info");
+        ecu.DefinitionFileName = "sentinel-definition-file";
+        ecu.NameList = {"sentinel-map"};
+        ecu.use_romraider_definition = false;
+        const QStringList romInfo = ecu.RomInfo;
+        const QString definitionFileName = ecu.DefinitionFileName;
+        const QStringList names = ecu.NameList;
+        QSignalSpy errorSpy(&actions, &FileActions::LOG_E);
+
+        QCOMPARE(actions.read_romraider_ecu_def(&ecu, "BROKEN"), &ecu);
+
+        QCOMPARE(ecu.RomInfo, romInfo);
+        QCOMPARE(ecu.DefinitionFileName, definitionFileName);
+        QCOMPARE(ecu.NameList, names);
+        QVERIFY(!ecu.use_romraider_definition);
+        QCOMPARE(errorSpy.count(), 1);
+        QVERIFY(spyContainsMessage(errorSpy, "malformed XML"));
+    }
+
+    void missing_romraider_base_returns_null_and_preserves_caller_state()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        FileActions::EcuCalDefStructure ecu;
+        ecu.RomInfo = QStringList(ecu.RomInfoStrings.size(), "sentinel-rom-info");
+        ecu.DefinitionFileName = dir.filePath("missing-romraider.xml");
+        ecu.NameList = {"sentinel-map"};
+        const QStringList romInfo = ecu.RomInfo;
+        const QString definitionFileName = ecu.DefinitionFileName;
+        const QStringList names = ecu.NameList;
+        QSignalSpy errorSpy(&actions, &FileActions::LOG_E);
+        QTimer::singleShot(0, []()
+                           {
+            if (QWidget *modal = QApplication::activeModalWidget())
+            {
+                modal->close();
+            } });
+
+        QCOMPARE(actions.read_romraider_ecu_base_def(&ecu), nullptr);
+
+        QCOMPARE(ecu.RomInfo, romInfo);
+        QCOMPARE(ecu.DefinitionFileName, definitionFileName);
+        QCOMPARE(ecu.NameList, names);
+        QCOMPARE(errorSpy.count(), 1);
+        QVERIFY(spyContainsMessage(errorSpy, "cannot open file"));
+    }
+
     void checksum_correction_unknown_mcu_type_logs_and_returns_unmodified_rom()
     {
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         actions.ConfigValuesStruct.flash_protocol_selected_make = "Subaru";
         actions.ConfigValuesStruct.flash_protocol_selected_checksum = "yes";
         actions.ConfigValuesStruct.flash_protocol_selected_protocol_name = "sub_ecu_hitachi_m32r_can";
@@ -306,7 +442,7 @@ class TestFileActionsParsing : public QObject
 
     void checksum_correction_valid_mcu_corrects_rom_and_writes_back_bytes()
     {
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         actions.ConfigValuesStruct.flash_protocol_selected_make = "Subaru";
         actions.ConfigValuesStruct.flash_protocol_selected_checksum = "yes";
         actions.ConfigValuesStruct.flash_protocol_selected_protocol_name = "sub_ecu_denso_sh7055";
@@ -342,6 +478,7 @@ class TestFileActionsParsing : public QObject
     QtFileSystem fileSystem_;
     QtResourceBundle resourceBundle_;
     QtFileRepository fileRepository_;
+    InMemoryAtomicFileWriter atomicFileWriter_;
 };
 
 int run_test_file_actions_parsing(int argc, char **argv)

@@ -1,5 +1,8 @@
 // #include "src/backend/definitions/file_actions.h"
+#include <optional>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "src/backend/definitions/error_codes.h"
 #include "src/algorithms/diagnostics/qt_dtc_parser.h"
@@ -10,6 +13,80 @@
 
 namespace
 {
+
+using fastecu::definition::DefinitionCatalog;
+using fastecu::definition::DefinitionFormat;
+using fastecu::definition::DefinitionIndexEntry;
+using fastecu::definition::IdEncoding;
+
+std::string utf8(const QString& value)
+{
+    const QByteArray bytes = value.toUtf8();
+    return std::string(bytes.constData(), static_cast<std::size_t>(bytes.size()));
+}
+
+fastecu::Result<DefinitionCatalog> catalogFromLegacyLists(
+    const FileActions::ConfigValuesStructure& config,
+    DefinitionFormat format)
+{
+    const QStringList *ids =
+        format == DefinitionFormat::RomRaider
+            ? &config.romraider_def_cal_id
+            : &config.ecuflash_def_cal_id;
+    const QStringList *addresses =
+        format == DefinitionFormat::RomRaider
+            ? &config.romraider_def_cal_id_addr
+            : &config.ecuflash_def_cal_id_addr;
+    const QStringList *ecuIds =
+        format == DefinitionFormat::RomRaider
+            ? &config.romraider_def_ecu_id
+            : &config.ecuflash_def_ecu_id;
+    const QStringList *sources =
+        format == DefinitionFormat::RomRaider
+            ? &config.romraider_def_filename
+            : &config.ecuflash_def_filename;
+
+    if (sources->size() != ids->size())
+    {
+        return fastecu::fail(
+            fastecu::ErrorKind::InvalidConfig,
+            "legacy definition catalog ID/source lists are not aligned");
+    }
+
+    std::vector<DefinitionIndexEntry> entries;
+    entries.reserve(static_cast<std::size_t>(ids->size()));
+    for (qsizetype index = 0; index < ids->size(); ++index)
+    {
+        std::optional<std::uint64_t> address;
+        const QString addressText =
+            index < addresses->size() ? addresses->at(index) : QString{};
+        if (!addressText.trimmed().isEmpty())
+        {
+            bool valid = false;
+            const qulonglong parsed = addressText.toULongLong(&valid, 16);
+            if (!valid)
+            {
+                return fastecu::fail(
+                    fastecu::ErrorKind::InvalidConfig,
+                    "invalid hexadecimal internal ID address '" +
+                        utf8(addressText) + "'");
+            }
+            address = static_cast<std::uint64_t>(parsed);
+        }
+
+        entries.push_back(DefinitionIndexEntry{
+            .format = format,
+            .definition_id = utf8(ids->at(index)),
+            .internal_id = utf8(ids->at(index)),
+            .internal_id_address = address,
+            .internal_id_encoding = IdEncoding::Ascii,
+            .ecu_id =
+                index < ecuIds->size() ? utf8(ecuIds->at(index)) : std::string{},
+            .source = utf8(sources->at(index)),
+        });
+    }
+    return DefinitionCatalog::create(std::move(entries));
+}
 
 void validateListLength(const QString& group,
                         const QString& name,
@@ -69,9 +146,127 @@ int lineAfterClosingTag(const QStringList& lines, const QString& tagName)
 } // namespace
 
 FileActions::FileActions(fastecu::IFileSystem& file_system, fastecu::IResourceBundle& resource_bundle,
-                         fastecu::IFileRepository& file_repository, QWidget *parent)
-    : QWidget(parent), configAdapter_(file_system, resource_bundle, file_repository)
+                         fastecu::IFileRepository& file_repository,
+                         fastecu::IAtomicFileWriter& atomic_file_writer,
+                         QWidget *parent)
+    : QWidget(parent),
+      configAdapter_(file_system, resource_bundle, file_repository),
+      definitionFileSystem_(file_system),
+      definitionService_(file_system, file_repository, atomic_file_writer),
+      definitionAdapter_(definitionService_)
 {
+}
+
+fastecu::Result<DefinitionCatalog> FileActions::build_definition_catalog(
+    DefinitionFormat format)
+{
+    if (format == DefinitionFormat::RomRaider &&
+        !ConfigValuesStruct.romraider_definition_files.isEmpty())
+    {
+        std::vector<std::string> handles;
+        handles.reserve(static_cast<std::size_t>(
+            ConfigValuesStruct.romraider_definition_files.size()));
+        for (const QString& handle :
+             ConfigValuesStruct.romraider_definition_files)
+        {
+            handles.push_back(utf8(handle));
+        }
+        return definitionService_.build_romraider_catalog(handles);
+    }
+    if (format == DefinitionFormat::EcuFlash &&
+        !ConfigValuesStruct.ecuflash_definition_files_directory.isEmpty())
+    {
+        return definitionService_.build_ecuflash_catalog(
+            utf8(ConfigValuesStruct.ecuflash_definition_files_directory));
+    }
+    return catalogFromLegacyLists(ConfigValuesStruct, format);
+}
+
+QString FileActions::definition_source(
+    DefinitionFormat format,
+    const QString& id) const
+{
+    const QStringList *ids =
+        format == DefinitionFormat::RomRaider
+            ? &ConfigValuesStruct.romraider_def_cal_id
+            : &ConfigValuesStruct.ecuflash_def_cal_id;
+    const QStringList *sources =
+        format == DefinitionFormat::RomRaider
+            ? &ConfigValuesStruct.romraider_def_filename
+            : &ConfigValuesStruct.ecuflash_def_filename;
+    const qsizetype index = ids->indexOf(id);
+    return index >= 0 && index < sources->size()
+               ? sources->at(index)
+               : QString{};
+}
+
+void FileActions::log_definition_error(
+    const QString& operation,
+    const fastecu::Error& error)
+{
+    emit LOG_E(
+        operation + " [" +
+            QString::fromUtf8(fastecu::to_string(error.kind)) + "]: " +
+            QString::fromStdString(error.detail),
+        true,
+        true);
+}
+
+void FileActions::apply_flash_method_alias(EcuCalDefStructure& ecuCalDef)
+{
+    if (ecuCalDef.RomInfo.size() <= FlashMethod)
+    {
+        return;
+    }
+    const QString flashMethod = ecuCalDef.RomInfo.at(FlashMethod);
+    for (qsizetype index = 0;
+         index < ConfigValuesStruct.flash_protocol_id.size() &&
+         index < ConfigValuesStruct.flash_protocol_alias.size() &&
+         index < ConfigValuesStruct.flash_protocol_protocol_name.size();
+         ++index)
+    {
+        const QStringList aliases =
+            ConfigValuesStruct.flash_protocol_alias.at(index).split(",");
+        if (aliases.contains(flashMethod))
+        {
+            emit LOG_D("Alias: " + flashMethod, true, true);
+            emit LOG_D(
+                "Protocol: " +
+                    ConfigValuesStruct.flash_protocol_protocol_name.at(index),
+                true,
+                true);
+            ecuCalDef.RomInfo.replace(
+                FlashMethod,
+                ConfigValuesStruct.flash_protocol_protocol_name.at(index));
+            return;
+        }
+    }
+}
+
+void FileActions::normalize_definition_addresses(
+    EcuCalDefStructure& ecuCalDef)
+{
+    const auto removePrefix = [](QString& address)
+    {
+        if (address.startsWith("0x"))
+        {
+            address.remove(0, 2);
+        }
+    };
+    if (ecuCalDef.RomInfo.size() > InternalIdAddress)
+    {
+        removePrefix(ecuCalDef.RomInfo[InternalIdAddress]);
+    }
+    for (QStringList *addresses :
+         {&ecuCalDef.AddressList,
+          &ecuCalDef.XScaleAddressList,
+          &ecuCalDef.YScaleAddressList})
+    {
+        for (QString& address : *addresses)
+        {
+            removePrefix(address);
+        }
+    }
 }
 
 bool FileActions::validate_flash_protocols(const ConfigValuesStructure& configValues, QStringList *errors)
@@ -1048,123 +1243,61 @@ QString FileActions::parse_hex_ecuid(uint8_t byte)
 
 FileActions::EcuCalDefStructure *FileActions::parse_ecuid_ecuflash_def_files(FileActions::EcuCalDefStructure *ecuCalDef, bool is_ascii)
 {
-    ConfigValuesStructure *configValues = &ConfigValuesStruct;
-
-    QString cal_id_ascii;
-    QString cal_id_hex;
-
-    bool bStatus = false;
-    bool cal_id_ascii_confirmed = false;
-    bool cal_id_hex_confirmed = false;
-
-    // emit LOG_D("Parse EcuFlash def files " + ecuCalDef->RomId;
-
-    for (int i = 0; i < configValues->ecuflash_def_cal_id.length(); i++)
+    (void)is_ascii;
+    auto catalog =
+        build_definition_catalog(DefinitionFormat::EcuFlash);
+    if (!catalog)
     {
-        cal_id_ascii.clear();
-        cal_id_hex.clear();
-        int addr = configValues->ecuflash_def_cal_id_addr.at(i).toUInt(&bStatus, 16);
-        int ecuid_length = configValues->ecuflash_def_cal_id.at(i).length();
-        for (int j = addr; j < addr + ecuid_length; j++)
-        {
-            if (ecuCalDef->FullRomData.length() > addr + ecuid_length)
-            {
-                uint8_t byte = (uint8_t)ecuCalDef->FullRomData.at(j);
-                if (cal_id_hex.length() < ecuid_length)
-                {
-                    cal_id_hex.append(parse_hex_ecuid(byte));
-                }
-                cal_id_ascii.append((QChar)byte);
-            }
-        }
-
-        if (cal_id_ascii == configValues->ecuflash_def_cal_id.at(i))
-        {
-            cal_id_ascii_confirmed = true;
-        }
-        if (cal_id_hex == configValues->ecuflash_def_cal_id.at(i))
-        {
-            cal_id_hex_confirmed = true;
-        }
-
-        // emit LOG_D("EcuFlash cal id: " + i + " " + configValues->ecuflash_def_cal_id.at(i) + " -> " + cal_id_ascii + " -> " + cal_id_hex;
-
-        if (cal_id_ascii_confirmed)
-        {
-            emit LOG_D("EcuFlash cal id " + cal_id_ascii + " found", true, true);
-            ecuCalDef->RomId = cal_id_ascii;
-            break;
-        }
-        if (cal_id_hex_confirmed)
-        {
-            emit LOG_D("EcuFlash cal id " + cal_id_hex + "found", true, true);
-            ecuCalDef->RomId = cal_id_hex;
-            break;
-        }
+        log_definition_error("Unable to match EcuFlash definition", catalog.error());
+        return ecuCalDef;
     }
-    // emit LOG_D("Parse EcuFlash def files no ID found... " + ecuCalDef->RomId;
-
+    const auto *bytes = reinterpret_cast<const std::uint8_t *>(
+        ecuCalDef->FullRomData.constData());
+    auto match = definitionService_.match_rom(
+        *catalog,
+        std::span<const std::uint8_t>(
+            bytes,
+            static_cast<std::size_t>(ecuCalDef->FullRomData.size())));
+    if (!match)
+    {
+        log_definition_error("Unable to match EcuFlash definition", match.error());
+        return ecuCalDef;
+    }
+    ecuCalDef->RomId = QString::fromStdString(match->definition_id);
+    emit LOG_D(
+        "EcuFlash cal id " + ecuCalDef->RomId + " found",
+        true,
+        true);
     return ecuCalDef;
 }
 
 FileActions::EcuCalDefStructure *FileActions::parse_ecuid_romraider_def_files(FileActions::EcuCalDefStructure *ecuCalDef, bool is_ascii)
 {
-    ConfigValuesStructure *configValues = &ConfigValuesStruct;
-
-    QString cal_id_ascii;
-    QString cal_id_hex;
-
-    bool bStatus = false;
-    bool cal_id_ascii_confirmed = false;
-    bool cal_id_hex_confirmed = false;
-
-    // emit LOG_D("Parse RomRaider def files " + ecuCalDef->RomId;
-
-    for (int i = 0; i < configValues->romraider_def_cal_id.length(); i++)
+    (void)is_ascii;
+    auto catalog =
+        build_definition_catalog(DefinitionFormat::RomRaider);
+    if (!catalog)
     {
-        cal_id_ascii.clear();
-        cal_id_hex.clear();
-        int addr = configValues->romraider_def_cal_id_addr.at(i).toUInt(&bStatus, 16);
-        int ecuid_length = configValues->romraider_def_cal_id.at(i).length();
-        for (int j = addr; j < addr + ecuid_length; j++)
-        {
-            if (ecuCalDef->FullRomData.length() > addr + ecuid_length)
-            {
-                uint8_t byte = (uint8_t)ecuCalDef->FullRomData.at(j);
-                if (cal_id_hex.length() < ecuid_length)
-                {
-                    cal_id_hex.append(parse_hex_ecuid(byte));
-                }
-                cal_id_ascii.append((QChar)byte);
-            }
-        }
-
-        if (cal_id_ascii == configValues->romraider_def_cal_id.at(i))
-        {
-            cal_id_ascii_confirmed = true;
-        }
-        if (cal_id_hex == configValues->romraider_def_cal_id.at(i))
-        {
-            cal_id_hex_confirmed = true;
-        }
-
-        // emit LOG_D("RomRaider cal id: " + i + " " + configValues->romraider_def_cal_id.at(i) + " -> " + cal_id_ascii + " -> " + cal_id_hex;
-
-        if (cal_id_ascii_confirmed)
-        {
-            emit LOG_D("RomRaider cal id " + cal_id_ascii + " found", true, true);
-            ecuCalDef->RomId = cal_id_ascii;
-            break;
-        }
-        if (cal_id_hex_confirmed)
-        {
-            emit LOG_D("RomRaider cal id " + cal_id_hex + " found", true, true);
-            ecuCalDef->RomId = cal_id_hex;
-            break;
-        }
+        log_definition_error("Unable to match RomRaider definition", catalog.error());
+        return ecuCalDef;
     }
-    // emit LOG_D("Parse RomRaider def files no ID found... " + ecuCalDef->RomId;
-
+    const auto *bytes = reinterpret_cast<const std::uint8_t *>(
+        ecuCalDef->FullRomData.constData());
+    auto match = definitionService_.match_rom(
+        *catalog,
+        std::span<const std::uint8_t>(
+            bytes,
+            static_cast<std::size_t>(ecuCalDef->FullRomData.size())));
+    if (!match)
+    {
+        log_definition_error("Unable to match RomRaider definition", match.error());
+        return ecuCalDef;
+    }
+    ecuCalDef->RomId = QString::fromStdString(match->definition_id);
+    emit LOG_D(
+        "RomRaider cal id " + ecuCalDef->RomId + " found",
+        true,
+        true);
     return ecuCalDef;
 }
 

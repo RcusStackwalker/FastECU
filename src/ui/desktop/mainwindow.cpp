@@ -54,7 +54,11 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
     QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
 
     setSplashScreenProgress("Reading config files...", 10);
-    fileActions = new FileActions(m_configFileSystem, m_configResourceBundle, m_configFileRepository);
+    fileActions = new FileActions(
+        m_configFileSystem,
+        m_configResourceBundle,
+        m_configFileRepository,
+        m_definitionFileWriter);
     configValues = &fileActions->ConfigValuesStruct;
 
     QDir currentPath(QDir::currentPath());

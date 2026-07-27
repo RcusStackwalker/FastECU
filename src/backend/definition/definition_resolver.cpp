@@ -473,6 +473,10 @@ Result<void> validate_axis(
             "incomplete " + std::string(axis_context) + " in definition '" +
                 std::string(definition_id) + "'");
     }
+    if (axis.supplied.tracked && !axis.supplied.size)
+    {
+        axis.size = required_size;
+    }
     if (axis.size == 0)
     {
         return fail(

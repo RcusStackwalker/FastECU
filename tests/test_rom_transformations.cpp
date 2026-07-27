@@ -1,8 +1,18 @@
 #include <QtTest>
 #include <QApplication>
 #include <QFile>
+#include <QSignalSpy>
 #include <QTemporaryDir>
+#include <QTimer>
 
+#include <cstdint>
+#include <map>
+#include <span>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include "src/backend/ports/atomic_file_writer.h"
 #include "src/backend/definitions/file_actions.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
@@ -11,6 +21,20 @@
 
 namespace
 {
+class InMemoryAtomicFileWriter : public fastecu::IAtomicFileWriter
+{
+  public:
+    fastecu::Status replace(std::string_view handle,
+                            std::span<const std::uint8_t> data) override
+    {
+        files[std::string(handle)] =
+            std::vector<std::uint8_t>(data.begin(), data.end());
+        return {};
+    }
+
+    std::map<std::string, std::vector<std::uint8_t>> files;
+};
+
 QString writeBinaryFile(const QTemporaryDir& dir,
                         const QString& name,
                         const QByteArray& contents)
@@ -106,7 +130,7 @@ class TestRomTransformations : public QObject
         const QString romPath = writeBinaryFile(dir, "synthetic.bin", rom);
         QVERIFY(!romPath.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         actions.ConfigValuesStruct.primary_definition_base = "romraider";
         actions.ConfigValuesStruct.use_romraider_definitions = "enabled";
         actions.ConfigValuesStruct.use_ecuflash_definitions = "disabled";
@@ -115,9 +139,29 @@ class TestRomTransformations : public QObject
         actions.ConfigValuesStruct.romraider_def_cal_id_addr = {"0"};
         actions.ConfigValuesStruct.romraider_def_ecu_id = {"TEST_ECU"};
         actions.ConfigValuesStruct.romraider_def_filename = {definitionPath};
+        QSignalSpy errorSpy(&actions, &FileActions::LOG_E);
+
+        FileActions::EcuCalDefStructure parsed;
+        QCOMPARE(actions.read_romraider_ecu_def(&parsed, "CAL1"), &parsed);
+        QVERIFY2(
+            errorSpy.isEmpty(),
+            errorSpy.isEmpty()
+                ? ""
+                : qPrintable(errorSpy.at(0).at(0).toString()));
+        QTimer::singleShot(0, []()
+                           {
+            if (QWidget *modal = QApplication::activeModalWidget())
+            {
+                modal->close();
+            } });
 
         FileActions::EcuCalDefStructure ecu;
         QCOMPARE(actions.open_subaru_rom_file(&ecu, romPath), &ecu);
+        QVERIFY2(
+            errorSpy.isEmpty(),
+            errorSpy.isEmpty()
+                ? ""
+                : qPrintable(errorSpy.at(0).at(0).toString()));
 
         QCOMPARE(ecu.NameList,
                  QStringList({"U8Scaled",
@@ -149,6 +193,7 @@ class TestRomTransformations : public QObject
     QtFileSystem fileSystem_;
     QtResourceBundle resourceBundle_;
     QtFileRepository fileRepository_;
+    InMemoryAtomicFileWriter atomicFileWriter_;
 };
 
 int run_test_rom_transformations(int argc, char **argv)

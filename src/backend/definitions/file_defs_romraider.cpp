@@ -1,691 +1,219 @@
 #include "src/backend/definitions/file_actions.h"
 
-FileActions::ConfigValuesStructure *FileActions::create_romraider_def_id_list(ConfigValuesStructure *configValues)
+#include <string>
+#include <vector>
+
+namespace
 {
-    QString filename;
 
-    int file_count = 0;
-    int cal_id_count = 0;
+std::string romraiderUtf8(const QString& value)
+{
+    const QByteArray bytes = value.toUtf8();
+    return std::string(bytes.constData(), static_cast<std::size_t>(bytes.size()));
+}
 
-    bool cal_id_found = false;
-    bool cal_id_addr_found = false;
-    bool ecu_id_found = false;
+} // namespace
 
-    if (configValues->romraider_definition_files.empty())
+FileActions::ConfigValuesStructure *FileActions::create_romraider_def_id_list(
+    ConfigValuesStructure *configValues)
+{
+    if (configValues->romraider_definition_files.isEmpty())
     {
         emit LOG_D("No RomRaider definition files", true, true);
         return configValues;
     }
 
-    for (int i = 0; i < configValues->romraider_definition_files.length(); i++)
+    std::vector<std::string> handles;
+    handles.reserve(static_cast<std::size_t>(
+        configValues->romraider_definition_files.size()));
+    for (const QString& handle : configValues->romraider_definition_files)
     {
-        filename = configValues->romraider_definition_files.at(i);
-
-        emit LOG_D("Reading RomRaider ID's from file: " + filename, true, true);
-
-        QFile file(filename);
-        if (!file.open(QIODevice::ReadOnly))
-        {
-            QMessageBox::warning(this, tr("Ecu definition file"), "Unable to open romraider definition file " + filename + " for reading");
-        }
-
-        QDomDocument xmlBOM;
-        xmlBOM.setContent(&file);
-        file.close();
-
-        QDomElement root = xmlBOM.documentElement();
-
-        QDomNodeList items = root.childNodes();
-        for (int x = 0; x < items.count(); x++)
-        {
-            if (items.at(x).isComment())
-            {
-                continue;
-            }
-
-            QDomElement child = items.at(x).toElement();
-
-            if (child.tagName() == "rom")
-            {
-                QDomElement sub_child = child.firstChild().toElement();
-                while (!sub_child.tagName().isNull())
-                {
-                    if (sub_child.tagName() == "romid")
-                    {
-                        QDomElement id_child = sub_child.firstChild().toElement();
-                        while (!id_child.tagName().isNull())
-                        {
-                            if (id_child.tagName() == "xmlid")
-                            {
-                                // emit LOG_D(cal_id_count + " cal tag:" << id_child.text();
-                                cal_id_found = true;
-                                configValues->romraider_def_cal_id.append(id_child.text());
-                                configValues->romraider_def_filename.append(filename);
-                                cal_id_count++;
-                            }
-                            if (id_child.tagName() == "internalidaddress")
-                            {
-                                // emit LOG_D("cal addr:" << id_child.text();
-                                cal_id_addr_found = true;
-                                configValues->romraider_def_cal_id_addr.append(id_child.text());
-                            }
-                            if (id_child.tagName() == "ecuid")
-                            {
-                                // emit LOG_D("ecuid:" << id_child.text();
-                                ecu_id_found = true;
-                                configValues->romraider_def_ecu_id.append(id_child.text());
-                            }
-                            id_child = id_child.nextSibling().toElement();
-                        }
-                        if (!cal_id_found)
-                        {
-                            configValues->romraider_def_cal_id.append("");
-                        }
-                        if (!cal_id_addr_found)
-                        {
-                            configValues->romraider_def_cal_id_addr.append("");
-                        }
-                        if (!ecu_id_found)
-                        {
-                            configValues->romraider_def_ecu_id.append("");
-                        }
-
-                        cal_id_found = false;
-                        cal_id_addr_found = false;
-                        ecu_id_found = false;
-                    }
-                    sub_child = sub_child.nextSibling().toElement();
-                }
-            }
-        }
-        file_count++;
+        emit LOG_D(
+            "Reading RomRaider ID's from file: " + handle,
+            true,
+            true);
+        handles.push_back(romraiderUtf8(handle));
     }
-    emit LOG_D(QString::number(file_count) + " RomRaider definition files found", true, true);
-    emit LOG_D(QString::number(cal_id_count) + " RomRaider ecu id's found", true, true);
 
+    const fastecu::Status replaced =
+        definitionAdapter_.replace_romraider_catalog(*configValues, handles);
+    if (!replaced)
+    {
+        log_definition_error(
+            "Unable to build RomRaider definition catalog",
+            replaced.error());
+        for (const QString& handle :
+             configValues->romraider_definition_files)
+        {
+            if (!definitionFileSystem_.exists(romraiderUtf8(handle)))
+            {
+                QMessageBox::warning(
+                    this,
+                    tr("Ecu definition file"),
+                    "Unable to open romraider definition file " + handle +
+                        " for reading");
+                break;
+            }
+        }
+        return configValues;
+    }
+
+    for (QString& address : configValues->romraider_def_cal_id_addr)
+    {
+        if (address.startsWith("0x"))
+        {
+            address.remove(0, 2);
+        }
+    }
+    emit LOG_D(
+        QString::number(configValues->romraider_definition_files.size()) +
+            " RomRaider definition files found",
+        true,
+        true);
+    emit LOG_D(
+        QString::number(configValues->romraider_def_cal_id.size()) +
+            " RomRaider ecu id's found",
+        true,
+        true);
     return configValues;
 }
 
-FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(EcuCalDefStructure *ecuCalDef)
+FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(
+    EcuCalDefStructure *ecuCalDef)
 {
-    // ConfigValuesStructure *configValues = &ConfigValuesStruct;
-
-    bool OemEcuDefBaseFileFound = false;
-
-    QString rombase;
-    QString xmlid;
-    QString description;
-
-    QDomDocument xmlBOM;
-
-    QString filename = ecuCalDef->DefinitionFileName;
-    // QString filename = configValues->romraider_definition_files.at(0);
-
-    QFile file(filename);
-    if (!file.open(QIODevice::ReadOnly))
-    {
-        ecuCalDef = nullptr;
-        // emit LOG_D("Unable to open OEM ecu base definitions file " + filename + " for reading";
-        QMessageBox::warning(this, tr("Ecu definitions file"), "Unable to open OEM ecu base definitions file " + filename + " for reading");
-        return nullptr;
-    }
-
-    xmlBOM.setContent(&file);
-    file.close();
-
-    QDomElement root = xmlBOM.documentElement();
-    QDomNodeList items = root.childNodes();
-    // emit LOG_D("ECU base child nodes: " + QString::number(items.count()), true, true);
-    for (int x = 0; x < items.count(); x++)
-    {
-        if (items.at(x).isComment())
-        {
-            continue;
-        }
-
-        QDomElement TagType = items.at(x).toElement();
-        if (TagType.tagName() == "rom")
-        {
-            // emit LOG_D("Reading base...", true, true);
-            rombase = TagType.attribute("base", "No base");
-            if (rombase == "No base")
-            {
-                QDomElement RomId = TagType.firstChild().toElement();
-                if (RomId.tagName() == "romid")
-                {
-                    QDomElement RomInfo = RomId.firstChild().toElement();
-                    while (!RomInfo.tagName().isNull())
-                    {
-
-                        if (RomInfo.tagName() == "xmlid")
-                        {
-                            xmlid = RomInfo.text();
-                        }
-
-                        RomInfo = RomInfo.nextSibling().toElement();
-                    }
-                }
-                if (xmlid == ecuCalDef->RomInfo[RomBase])
-                {
-                    // emit LOG_D("Found base...", true, true);
-
-                    OemEcuDefBaseFileFound = true;
-                    QDomElement Table = TagType.firstChild().toElement();
-                    while (!Table.isNull())
-                    {
-                        if (Table.tagName() == "table")
-                        {
-                            for (int i = 0; i < ecuCalDef->NameList.length(); i++)
-                            {
-                                // emit LOG_D("Checking table:" << ecuCalDef->NameList.at(i);
-                                if (Table.attribute("name", "No name") == ecuCalDef->NameList.at(i))
-                                {
-                                    // emit LOG_D("Found table:" << ecuCalDef->NameList.at(i);
-                                    QString type = Table.attribute("type", " ");
-                                    QString storage_type = Table.attribute("storagetype", " ");
-                                    if (type == "Switch")
-                                    {
-                                        type = "Selectable";
-                                        storage_type = "bloblist";
-                                    }
-                                    ecuCalDef->TypeList.replace(i, type);
-                                    ecuCalDef->CategoryList.replace(i, Table.attribute("category", " "));
-
-                                    if (ecuCalDef->XSizeList.at(i) == "" || ecuCalDef->XSizeList.at(i) == " ")
-                                    {
-                                        ecuCalDef->XSizeList.replace(i, Table.attribute("sizex", "1"));
-                                    }
-                                    if (ecuCalDef->YSizeList.at(i) == "" || ecuCalDef->YSizeList.at(i) == " ")
-                                    {
-                                        ecuCalDef->YSizeList.replace(i, Table.attribute("sizey", "1"));
-                                    }
-                                    ecuCalDef->StartPosList.replace(i, Table.attribute("startpos", "1"));
-                                    ecuCalDef->IntervalList.replace(i, Table.attribute("interval", "1"));
-                                    ecuCalDef->MinValueList.replace(i, Table.attribute("minvalue", " "));
-                                    ecuCalDef->MaxValueList.replace(i, Table.attribute("maxvalue", " "));
-
-                                    ecuCalDef->StorageTypeList.replace(i, storage_type);
-                                    ecuCalDef->EndianList.replace(i, Table.attribute("endian", " "));
-                                    ecuCalDef->LogParamList.replace(i, Table.attribute("logparam", " "));
-
-                                    // emit LOG_D("DEF BASE:" << ecuCalDef->XSizeList.at(i) << ecuCalDef->YSizeList.at(i);
-                                    ecuCalDef->SyncedWithEcu = true;
-
-                                    QDomElement TableChild = Table.firstChild().toElement();
-
-                                    QString selection_name;
-                                    QString selection_value;
-
-                                    while (!TableChild.isNull())
-                                    {
-                                        if (TableChild.tagName() == "scaling")
-                                        {
-                                            ecuCalDef->UnitsList.replace(i, TableChild.attribute("units", " "));
-                                            ecuCalDef->FormatList.replace(i, TableChild.attribute("format", " "));
-                                            ecuCalDef->FineIncList.replace(i, TableChild.attribute("fineincrement", " "));
-                                            ecuCalDef->CoarseIncList.replace(i, TableChild.attribute("coarseincrement", " "));
-
-                                            ecuCalDef->FromByteList.replace(i, TableChild.attribute("expression", "x"));
-                                            ecuCalDef->ToByteList.replace(i, TableChild.attribute("to_byte", "x"));
-                                        }
-                                        else if (TableChild.tagName() == "table")
-                                        {
-                                            QString ScaleType = TableChild.attribute("type", " ");
-                                            if (ScaleType == "X Axis")
-                                            {
-                                                ecuCalDef->XScaleNameList.replace(i, TableChild.attribute("name", " "));
-                                                ecuCalDef->XScaleTypeList.replace(i, ScaleType);
-                                                ecuCalDef->XScaleStorageTypeList.replace(i, TableChild.attribute("storagetype", " "));
-                                                ecuCalDef->XScaleEndianList.replace(i, TableChild.attribute("endian", " "));
-                                                ecuCalDef->XScaleLogParamList.replace(i, TableChild.attribute("logparam", " "));
-                                                ecuCalDef->XScaleStartPosList.replace(i, TableChild.attribute("startpos", "1"));
-                                                ecuCalDef->XScaleIntervalList.replace(i, TableChild.attribute("interval", "1"));
-
-                                                QDomElement SubChild = TableChild.firstChild().toElement();
-                                                while (!SubChild.isNull())
-                                                {
-                                                    if (SubChild.tagName() == "scaling")
-                                                    {
-                                                        ecuCalDef->XScaleUnitsList.replace(i, SubChild.attribute("units", " "));
-                                                        ecuCalDef->XScaleFormatList.replace(i, SubChild.attribute("format", " "));
-                                                        ecuCalDef->XScaleFineIncList.replace(i, SubChild.attribute("fineincrement", " "));
-                                                        ecuCalDef->XScaleCoarseIncList.replace(i, SubChild.attribute("coarseincrement", " "));
-                                                        ecuCalDef->XScaleFromByteList.replace(i, SubChild.attribute("expression", "x"));
-                                                        ecuCalDef->XScaleToByteList.replace(i, SubChild.attribute("to_byte", "x"));
-                                                        SubChild = SubChild.nextSibling().toElement();
-                                                    }
-                                                }
-                                            }
-                                            else if (ScaleType == "Y Axis" && ecuCalDef->TypeList.at(i) == "3D")
-                                            {
-                                                ecuCalDef->YScaleNameList.replace(i, TableChild.attribute("name", " "));
-                                                ecuCalDef->YScaleTypeList.replace(i, ScaleType);
-                                                ecuCalDef->YScaleStorageTypeList.replace(i, TableChild.attribute("storagetype", " "));
-                                                ecuCalDef->YScaleEndianList.replace(i, TableChild.attribute("endian", " "));
-                                                ecuCalDef->YScaleLogParamList.replace(i, TableChild.attribute("logparam", " "));
-                                                ecuCalDef->YScaleStartPosList.replace(i, TableChild.attribute("startpos", "1"));
-                                                ecuCalDef->YScaleIntervalList.replace(i, TableChild.attribute("interval", "1"));
-                                                ecuCalDef->XScaleStaticDataList.append(" ");
-
-                                                QDomElement SubChild = TableChild.firstChild().toElement();
-                                                while (!SubChild.isNull())
-                                                {
-                                                    if (SubChild.tagName() == "scaling")
-                                                    {
-                                                        ecuCalDef->YScaleUnitsList.replace(i, SubChild.attribute("units", " "));
-                                                        ecuCalDef->YScaleFormatList.replace(i, SubChild.attribute("format", " "));
-                                                        ecuCalDef->YScaleFineIncList.replace(i, SubChild.attribute("fineincrement", " "));
-                                                        ecuCalDef->YScaleCoarseIncList.replace(i, SubChild.attribute("coarseincrement", " "));
-
-                                                        ecuCalDef->YScaleFromByteList.replace(i, SubChild.attribute("expression", "x"));
-                                                        ecuCalDef->YScaleToByteList.replace(i, SubChild.attribute("to_byte", "x"));
-
-                                                        SubChild = SubChild.nextSibling().toElement();
-                                                    }
-                                                }
-                                            }
-                                            else if (ScaleType == "Static Y Axis" || ScaleType == "Static X Axis" || (ScaleType == "Y Axis" && ecuCalDef->TypeList.at(i) == "2D"))
-                                            {
-                                                if (ScaleType == "Static Y Axis")
-                                                {
-                                                    ScaleType = "Static X Axis";
-                                                }
-                                                ecuCalDef->XScaleNameList.replace(i, TableChild.attribute("name", " "));
-                                                ecuCalDef->XScaleTypeList.replace(i, ScaleType);
-                                                ecuCalDef->XScaleStorageTypeList.replace(i, TableChild.attribute("storagetype", " "));
-                                                ecuCalDef->XScaleEndianList.replace(i, TableChild.attribute("endian", " "));
-                                                ecuCalDef->XScaleLogParamList.replace(i, TableChild.attribute("logparam", " "));
-                                                ecuCalDef->XScaleStartPosList.replace(i, TableChild.attribute("startpos", "1"));
-                                                ecuCalDef->XScaleIntervalList.replace(i, TableChild.attribute("interval", "1"));
-
-                                                QDomElement SubChild = TableChild.firstChild().toElement();
-                                                QString StaticYScaleData;
-                                                if (SubChild.tagName() == "scaling")
-                                                {
-                                                    ecuCalDef->XScaleUnitsList.replace(i, SubChild.attribute("units", " "));
-                                                    ecuCalDef->XScaleFormatList.replace(i, SubChild.attribute("format", " "));
-                                                    ecuCalDef->XScaleFineIncList.replace(i, SubChild.attribute("fineincrement", " "));
-                                                    ecuCalDef->XScaleCoarseIncList.replace(i, SubChild.attribute("coarseincrement", " "));
-
-                                                    ecuCalDef->XScaleFromByteList.replace(i, SubChild.attribute("expression", "x"));
-                                                    ecuCalDef->XScaleToByteList.replace(i, SubChild.attribute("to_byte", "x"));
-                                                    ecuCalDef->XScaleStaticDataList.replace(i, " ");
-                                                }
-                                                if (SubChild.tagName() == "data")
-                                                {
-                                                    while (!SubChild.isNull())
-                                                    {
-                                                        if (SubChild.tagName() == "data")
-                                                        {
-                                                            StaticYScaleData.append(SubChild.text());
-                                                            StaticYScaleData.append(",");
-                                                        }
-                                                        SubChild = SubChild.nextSibling().toElement();
-                                                    }
-                                                    ecuCalDef->XScaleUnitsList.replace(i, SubChild.attribute("units", " "));
-                                                    ecuCalDef->XScaleFormatList.replace(i, SubChild.attribute("format", " "));
-                                                    ecuCalDef->XScaleFineIncList.replace(i, SubChild.attribute("fineincrement", " "));
-                                                    ecuCalDef->XScaleCoarseIncList.replace(i, SubChild.attribute("coarseincrement", " "));
-
-                                                    ecuCalDef->XScaleFromByteList.replace(i, SubChild.attribute("expression", " "));
-                                                    ecuCalDef->XScaleToByteList.replace(i, SubChild.attribute("to_byte", " "));
-                                                    ecuCalDef->XScaleStaticDataList.replace(i, StaticYScaleData);
-                                                }
-                                                ecuCalDef->XSizeList.replace(i, ecuCalDef->YSizeList[i]);
-                                                ecuCalDef->YSizeList[i] = "1";
-                                                ecuCalDef->XScaleAddressList.replace(i, ecuCalDef->YScaleAddressList[i]);
-                                                ecuCalDef->YScaleAddressList[i] = " ";
-                                            }
-                                        }
-                                        else if (TableChild.tagName() == "state")
-                                        {
-                                            QString name = TableChild.attribute("name", " ");
-                                            name.replace(",", ":");
-                                            selection_name.append(name + ",");
-                                            selection_value.append(TableChild.attribute("data", " ") + ",");
-                                            selection_value.remove(' ');
-                                        }
-                                        else if (TableChild.tagName() == "description")
-                                        {
-                                            description = TableChild.text();
-                                            if (!description.isEmpty())
-                                            {
-                                                ecuCalDef->DescriptionList.replace(i, "\n\n" + description);
-                                            }
-                                            else
-                                            {
-                                                ecuCalDef->DescriptionList.replace(i, " ");
-                                            }
-                                        }
-                                        else
-                                        {
-                                            ecuCalDef->UnitsList.replace(i, TableChild.attribute("units", " "));
-                                            ecuCalDef->FormatList.replace(i, TableChild.attribute("format", " "));
-                                            ecuCalDef->FineIncList.replace(i, TableChild.attribute("fineincrement", " "));
-                                            ecuCalDef->CoarseIncList.replace(i, TableChild.attribute("coarseincrement", " "));
-
-                                            ecuCalDef->FromByteList.replace(i, TableChild.attribute("expression", "x"));
-                                            ecuCalDef->ToByteList.replace(i, TableChild.attribute("to_byte", "x"));
-                                        }
-                                        TableChild = TableChild.nextSibling().toElement();
-                                    }
-                                    selection_name.replace("on", "enabled");
-                                    selection_name.replace("off", "disabled");
-                                    ecuCalDef->SelectionsNameList.replace(i, selection_name);
-                                    ecuCalDef->SelectionsValueList.replace(i, selection_value);
-                                }
-                            }
-                        }
-                        Table = Table.nextSibling().toElement();
-                    }
-                }
-            }
-        }
-        TagType = TagType.nextSibling().toElement();
-    }
-
-    if (!OemEcuDefBaseFileFound)
+    const QString source = ecuCalDef->DefinitionFileName;
+    if (source.isEmpty())
     {
         return nullptr;
     }
 
-    QStringList validationErrors;
-    if (!validate_calibration_maps(*ecuCalDef, &validationErrors))
+    QString definitionId;
+    if (ecuCalDef->RomInfo.size() > XmlId)
     {
-        for (const QString& error : validationErrors)
-        {
-            qWarning().noquote() << "Invalid RomRaider definition:" << error;
-        }
+        definitionId = ecuCalDef->RomInfo.at(XmlId).trimmed();
+    }
+    if (definitionId.isEmpty() && ecuCalDef->RomInfo.size() > RomBase)
+    {
+        definitionId = ecuCalDef->RomInfo.at(RomBase).trimmed();
+    }
+    if (definitionId.isEmpty())
+    {
+        return nullptr;
     }
 
+    const std::vector<std::string> handles{romraiderUtf8(source)};
+    auto catalog = definitionService_.build_romraider_catalog(handles);
+    if (!catalog)
+    {
+        log_definition_error(
+            "Unable to read RomRaider base definition",
+            catalog.error());
+        if (!definitionFileSystem_.exists(romraiderUtf8(source)))
+        {
+            QMessageBox::warning(
+                this,
+                tr("Ecu definitions file"),
+                "Unable to open OEM ecu base definitions file " + source +
+                    " for reading");
+        }
+        return nullptr;
+    }
+
+    const fastecu::Status replaced = definitionAdapter_.replace_definition(
+        *ecuCalDef,
+        *catalog,
+        fastecu::definition::DefinitionFormat::RomRaider,
+        romraiderUtf8(definitionId));
+    if (!replaced)
+    {
+        log_definition_error(
+            "Unable to read RomRaider base definition",
+            replaced.error());
+        return nullptr;
+    }
+    normalize_definition_addresses(*ecuCalDef);
+    apply_flash_method_alias(*ecuCalDef);
     return ecuCalDef;
 }
 
-FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(EcuCalDefStructure *ecuCalDef, const QString& cal_id)
+FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(
+    EcuCalDefStructure *ecuCalDef,
+    const QString& cal_id)
 {
-    ConfigValuesStructure *configValues = &ConfigValuesStruct;
-
-    bool cal_id_file_found = false;
-    bool inherits_another_def = false;
-    bool ecuid_def_found = false;
-
-    QString rombase;
-    QString xmlid;
-    QString internalidaddress;
-    QString internalidstring;
-    QString ecuid;
-    QString year;
-    QString market;
-    QString make;
-    QString model;
-    QString submodel;
-    QString transmission;
-    QString memmodel;
-    QString checksummodule;
-    QString flashmethod;
-    QString filesize;
-
-    QString filename;
-
-    // Check if any ECU definition file is selected
-    if (configValues->romraider_definition_files.empty() && !configValues->ecuflash_definition_files_directory.length())
+    if (ConfigValuesStruct.romraider_definition_files.isEmpty() &&
+        ConfigValuesStruct.ecuflash_definition_files_directory.isEmpty())
     {
-        QMessageBox::warning(this, tr("Ecu definition file"), "No RomRaider definition file(s), use definition manager at 'Edit' menu to choose file(s)");
-        ecuCalDef = nullptr;
+        QMessageBox::warning(
+            this,
+            tr("Ecu definition file"),
+            "No RomRaider definition file(s), use definition manager at "
+            "'Edit' menu to choose file(s)");
         return nullptr;
     }
-
-    int file_index = 0;
-
-    if (configValues->romraider_def_cal_id.empty())
+    if (ConfigValuesStruct.romraider_def_cal_id.isEmpty())
     {
         return nullptr;
     }
-
-    for (int index = 0; index < configValues->romraider_def_cal_id.length(); index++)
-    {
-        if (configValues->romraider_def_cal_id.at(index) == cal_id)
-        {
-            // emit LOG_D("RomRaider ID found:" << configValues->romraider_def_cal_id.at(index) << cal_id;
-            // emit LOG_D("RomRaider file name:" << configValues->romraider_def_filename.at(index);
-            cal_id_file_found = true;
-            file_index = index;
-            continue;
-        }
-    }
-
-    if (!cal_id_file_found)
+    if (!ConfigValuesStruct.romraider_def_cal_id.contains(cal_id))
     {
         return ecuCalDef;
     }
 
-    ecuCalDef->use_romraider_definition = true;
-
-    filename = configValues->romraider_def_filename.at(file_index);
-
-    while (ecuCalDef->RomInfo.length() < ecuCalDef->RomInfoStrings.length())
+    const QString source = definition_source(
+        fastecu::definition::DefinitionFormat::RomRaider,
+        cal_id);
+    auto catalog =
+        build_definition_catalog(
+            fastecu::definition::DefinitionFormat::RomRaider);
+    if (!catalog)
     {
-        ecuCalDef->RomInfo.append(" ");
-    }
-
-    ecuCalDef->RomInfo.replace(DefFile, filename);
-
-    QFile file(filename);
-
-    if (!file.open(QIODevice::ReadOnly))
-    {
-        QMessageBox::warning(this, tr("Ecu definitions file"), "Unable to open ECU definition file " + filename + " for reading");
-        ecuCalDef = nullptr;
-        return nullptr;
-    }
-
-    ecuCalDef->DefinitionFileName = filename;
-    QDomDocument xmlBOM;
-    xmlBOM.setContent(&file);
-    file.close();
-
-    uint16_t index = 0;
-
-    QDomElement root = xmlBOM.documentElement();
-    QDomNodeList items = root.childNodes();
-    // emit LOG_D("ECU def child nodes: " + QString::number(items.count()), true, true);
-    for (int x = 0; x < items.count(); x++)
-    {
-        if (items.at(x).isComment())
+        log_definition_error(
+            "Unable to read RomRaider definition " + cal_id,
+            catalog.error());
+        if (!source.isEmpty() &&
+            !definitionFileSystem_.exists(romraiderUtf8(source)))
         {
-            continue;
+            QMessageBox::warning(
+                this,
+                tr("Ecu definitions file"),
+                "Unable to open ECU definition file " + source +
+                    " for reading");
+            return nullptr;
         }
-
-        QDomElement roms_child = items.at(x).toElement();
-        if (roms_child.tagName() == "rom")
-        {
-            if (roms_child.attribute("base", "") != "")
-            {
-                rombase = roms_child.attribute("base", "");
-            }
-            inherits_another_def = !rombase.contains("BASE");
-
-            QDomElement rom_child = roms_child.firstChild().toElement();
-            while (!rom_child.isNull())
-            {
-                if (rom_child.tagName() == "romid")
-                {
-                    QDomElement rom_id_child = rom_child.firstChild().toElement();
-                    while (!rom_id_child.isNull())
-                    {
-                        if (rom_id_child.tagName() == "xmlid")
-                        {
-                            xmlid = rom_id_child.text();
-                        }
-                        else if (rom_id_child.tagName() == "internalidaddress")
-                        {
-                            internalidaddress = rom_id_child.text();
-                        }
-                        else if (rom_id_child.tagName() == "internalidstring")
-                        {
-                            internalidstring = rom_id_child.text();
-                        }
-                        else if (rom_id_child.tagName() == "ecuid")
-                        {
-                            ecuid = rom_id_child.text();
-                        }
-                        else if (rom_id_child.tagName() == "year")
-                        {
-                            year = rom_id_child.text();
-                        }
-                        else if (rom_id_child.tagName() == "market")
-                        {
-                            market = rom_id_child.text();
-                        }
-                        else if (rom_id_child.tagName() == "make")
-                        {
-                            make = rom_id_child.text();
-                        }
-                        else if (rom_id_child.tagName() == "model")
-                        {
-                            model = rom_id_child.text();
-                        }
-                        else if (rom_id_child.tagName() == "submodel")
-                        {
-                            submodel = rom_id_child.text();
-                        }
-                        else if (rom_id_child.tagName() == "transmission")
-                        {
-                            transmission = rom_id_child.text();
-                        }
-                        else if (rom_id_child.tagName() == "memmodel")
-                        {
-                            memmodel = rom_id_child.text();
-                        }
-                        else if (rom_id_child.tagName() == "checksummodule")
-                        {
-                            checksummodule = rom_id_child.text();
-                        }
-                        else if (rom_id_child.tagName() == "flashmethod")
-                        {
-                            flashmethod = rom_id_child.text();
-                            // flashmethod = configValues->flash_protocol_selected_family;
-                        }
-                        else if (rom_id_child.tagName() == "filesize")
-                        {
-                            filesize = rom_id_child.text();
-                        }
-
-                        rom_id_child = rom_id_child.nextSibling().toElement();
-                    }
-                    if (xmlid == cal_id)
-                    {
-                        emit LOG_D("XML ID: " + xmlid + " " + cal_id, true, true);
-                        if (ecuCalDef->RomInfo.at(XmlId) == " ")
-                        {
-                            // bool flashmethod_alias_found = false;
-                            ecuCalDef->RomInfo.replace(XmlId, xmlid);
-                            ecuCalDef->RomInfo.replace(InternalIdAddress, internalidaddress);
-                            ecuCalDef->RomInfo.replace(InternalIdString, internalidstring);
-                            ecuCalDef->RomInfo.replace(EcuId, ecuid);
-                            ecuCalDef->RomInfo.replace(Year, year);
-                            ecuCalDef->RomInfo.replace(Market, market);
-                            ecuCalDef->RomInfo.replace(Make, make);
-                            ecuCalDef->RomInfo.replace(Model, model);
-                            ecuCalDef->RomInfo.replace(SubModel, submodel);
-                            ecuCalDef->RomInfo.replace(Transmission, transmission);
-                            ecuCalDef->RomInfo.replace(MemModel, memmodel);
-                            ecuCalDef->RomInfo.replace(ChecksumModule, checksummodule);
-                            ecuCalDef->RomInfo.replace(FlashMethod, flashmethod);
-                            ecuCalDef->RomInfo.replace(FileSize, filesize);
-                            for (int i = 0; i < configValues->flash_protocol_id.length(); i++)
-                            {
-                                QStringList aliases = configValues->flash_protocol_alias.at(i).split(",");
-                                for (int j = 0; j < aliases.length(); j++)
-                                {
-                                    if (aliases.at(j) == flashmethod)
-                                    {
-                                        // flashmethod_alias_found = true;
-                                        emit LOG_D("Alias: " + flashmethod, true, true);
-                                        emit LOG_D("Protocol: " + configValues->flash_protocol_protocol_name.at(i), true, true);
-                                        ecuCalDef->RomInfo.replace(FlashMethod, configValues->flash_protocol_protocol_name.at(i));
-                                    }
-                                }
-                            }
-                        }
-
-                        if (inherits_another_def)
-                        {
-                            read_romraider_ecu_def(ecuCalDef, rombase);
-                        }
-
-                        if (!inherits_another_def)
-                        {
-                            ecuCalDef->RomInfo.replace(RomBase, rombase);
-                            ecuCalDef->RomBase = rombase;
-                        }
-                    }
-                }
-                else if (rom_child.tagName() == "table" && xmlid == cal_id)
-                {
-                    ecuid_def_found = true;
-                    ecuCalDef->use_romraider_definition = true;
-
-                    add_romraider_def_list_item(ecuCalDef);
-
-                    ecuCalDef->NameList.replace(index, rom_child.attribute("name", " "));
-                    ecuCalDef->AddressList.replace(index, rom_child.attribute("storageaddress", " "));
-                    ecuCalDef->XSizeList.replace(index, rom_child.attribute("sizex", " "));
-                    ecuCalDef->YSizeList.replace(index, rom_child.attribute("sizey", " "));
-
-                    QDomElement rom_sub_child = rom_child.firstChild().toElement();
-
-                    while (!rom_sub_child.isNull())
-                    {
-                        if (rom_sub_child.tagName() == "table")
-                        {
-                            if (rom_sub_child.tagName() == "table")
-                            {
-                                if (rom_sub_child.attribute("type", " ") == "X Axis")
-                                {
-                                    ecuCalDef->XScaleAddressList.replace(index, rom_sub_child.attribute("storageaddress", " "));
-                                }
-                                if (rom_sub_child.attribute("type", " ") == "Y Axis")
-                                {
-                                    ecuCalDef->YScaleAddressList.replace(index, rom_sub_child.attribute("storageaddress", " "));
-                                }
-                                if (rom_sub_child.attribute("type", " ") == "Static Y Axis")
-                                {
-                                }
-                            }
-                        }
-                        rom_sub_child = rom_sub_child.nextSibling().toElement();
-                    }
-                    index++;
-                }
-                rom_child = rom_child.nextSibling().toElement();
-            }
-            if (!inherits_another_def && ecuid_def_found)
-            {
-                read_romraider_ecu_base_def(ecuCalDef);
-            }
-            if (ecuid_def_found)
-            {
-                ecuCalDef->IdList.append(ecuCalDef->RomInfo.at(EcuId));
-            }
-            ecuid_def_found = false;
-        }
-        roms_child = roms_child.nextSibling().toElement();
+        return ecuCalDef;
     }
 
-    QStringList validationErrors;
-    if (!validate_calibration_maps(*ecuCalDef, &validationErrors))
+    const fastecu::Status replaced = definitionAdapter_.replace_definition(
+        *ecuCalDef,
+        *catalog,
+        fastecu::definition::DefinitionFormat::RomRaider,
+        romraiderUtf8(cal_id));
+    if (!replaced)
     {
-        for (const QString& error : validationErrors)
+        log_definition_error(
+            "Unable to read RomRaider definition " + cal_id,
+            replaced.error());
+        if (!source.isEmpty() &&
+            !definitionFileSystem_.exists(romraiderUtf8(source)))
         {
-            qWarning().noquote() << "Invalid RomRaider definition:" << error;
+            QMessageBox::warning(
+                this,
+                tr("Ecu definitions file"),
+                "Unable to open ECU definition file " + source +
+                    " for reading");
+            return nullptr;
         }
+        return ecuCalDef;
     }
 
+    normalize_definition_addresses(*ecuCalDef);
+    apply_flash_method_alias(*ecuCalDef);
+    emit LOG_D("XML ID: " + cal_id + " " + cal_id, true, true);
     return ecuCalDef;
 }
 
-FileActions::EcuCalDefStructure *FileActions::add_romraider_def_list_item(EcuCalDefStructure *ecuCalDef)
+FileActions::EcuCalDefStructure *FileActions::add_romraider_def_list_item(
+    EcuCalDefStructure *ecuCalDef)
 {
     ecuCalDef->IdList.append(" ");
     ecuCalDef->TypeList.append(" ");

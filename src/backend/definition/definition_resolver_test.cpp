@@ -669,6 +669,45 @@ TEST(DefinitionResolverTest, OmittedAxisSizeDoesNotFollowExplicitChildMapDimensi
     EXPECT_EQ(*child, original);
 }
 
+TEST(DefinitionResolverTest, ImplicitInheritedAxisSizeFollowsExplicitChildMapDimension)
+{
+    const auto xml = xml_bytes(R"xml(
+      <roms>
+        <rom>
+          <romid><xmlid>BASE</xmlid></romid>
+          <table id="grid" name="Grid" type="3D">
+            <table type="X Axis" name="X"/>
+            <table type="Y Axis" name="Y"/>
+          </table>
+        </rom>
+        <rom base="BASE">
+          <romid><xmlid>CHILD</xmlid></romid>
+          <table id="grid" name="Grid" sizex="2" sizey="2">
+            <table type="X Axis" name="X" storageaddress="50"/>
+            <table type="Y Axis" name="Y" storageaddress="60"/>
+          </table>
+        </rom>
+      </roms>)xml");
+    auto base = parse_romraider_definition(xml, "romraider.xml", "BASE");
+    auto child = parse_romraider_definition(xml, "romraider.xml", "CHILD");
+    ASSERT_TRUE(base);
+    ASSERT_TRUE(child);
+    const auto original = *child;
+    DefinitionSet definitions{{"BASE", *base}};
+
+    auto result = resolve_definition(*child, definitions.loader());
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->maps.size(), 1U);
+    EXPECT_EQ(result->maps.front().x_size, 2U);
+    EXPECT_EQ(result->maps.front().y_size, 2U);
+    EXPECT_EQ(result->maps.front().x_axis.size, 2U);
+    EXPECT_EQ(result->maps.front().y_axis.size, 2U);
+    EXPECT_EQ(result->maps.front().x_axis.address, 0x50U);
+    EXPECT_EQ(result->maps.front().y_axis.address, 0x60U);
+    EXPECT_EQ(*child, original);
+}
+
 TEST(DefinitionResolverTest, ResolvesMapAndAxisScalingReferences)
 {
     auto root = doc("ROOT");
