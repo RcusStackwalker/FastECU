@@ -10,6 +10,8 @@ namespace fastecu::definitions
 
 struct EcuCalDefStructure
 {
+    bool operator==(const EcuCalDefStructure&) const = default;
+
     QString FileName;
     QString DefinitionFileName;
     QString FullFileName;

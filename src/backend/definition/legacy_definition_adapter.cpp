@@ -78,6 +78,21 @@ QString selection_values(const Scaling *scaling)
     return result;
 }
 
+QString static_data_text(const AxisDefinition& axis)
+{
+    if (axis.static_data.empty())
+    {
+        return qs(kPlaceholder);
+    }
+    QString result;
+    for (const std::string& value : axis.static_data)
+    {
+        result += qs(value);
+        result += ",";
+    }
+    return result;
+}
+
 const Scaling *find_scaling(const RomDefinition& definition, std::string_view name)
 {
     for (const Scaling& scaling : definition.scalings)
@@ -290,8 +305,8 @@ void append_axis(
     type->append(text(axis.type));
     name->append(text(axis.name));
     address->append(present ? address_text(axis.address, true) : qs(kPlaceholder));
-    start->append(present ? "1" : qs(kPlaceholder));
-    interval->append(present ? "1" : qs(kPlaceholder));
+    start->append(present ? legacy_value(axis.start_position) : qs(kPlaceholder));
+    interval->append(present ? legacy_value(axis.interval) : qs(kPlaceholder));
     minimum->append(present && scaling ? legacy_value(scaling->minimum) : qs(kPlaceholder));
     maximum->append(present && scaling ? legacy_value(scaling->maximum) : qs(kPlaceholder));
     units->append(text(axis.units));
@@ -301,14 +316,14 @@ void append_axis(
     coarse->append(present && scaling ? legacy_value(scaling->coarse_increment) : qs(kPlaceholder));
     storage->append(text(axis.storage_type));
     endian->append(text(axis.endian));
-    log_param->append(qs(kPlaceholder));
+    log_param->append(present ? legacy_value(axis.log_parameter) : qs(kPlaceholder));
     from->append(text(axis.from_byte));
     to->append(text(axis.to_byte));
     scaling_name->append(text(axis.scaling_name));
     data->append(qs(kPlaceholder));
     if (x_axis)
     {
-        value.XScaleStaticDataList.append(qs(kPlaceholder));
+        value.XScaleStaticDataList.append(static_data_text(axis));
     }
 }
 
@@ -342,8 +357,8 @@ void append_map(definitions::EcuCalDefStructure& value, const RomDefinition& def
     value.FlipYList.append(bool_text(map.flip_y));
     value.XSizeList.append(QString::number(map.x_size));
     value.YSizeList.append(QString::number(map.y_size));
-    value.StartPosList.append("1");
-    value.IntervalList.append("1");
+    value.StartPosList.append(legacy_value(map.start_position));
+    value.IntervalList.append(legacy_value(map.interval));
     value.MinValueList.append(scaling ? legacy_value(scaling->minimum) : qs(kPlaceholder));
     value.MaxValueList.append(scaling ? legacy_value(scaling->maximum) : qs(kPlaceholder));
     value.UnitsList.append(scaling ? legacy_value(scaling->units) : qs(kPlaceholder));
@@ -364,10 +379,10 @@ void append_map(definitions::EcuCalDefStructure& value, const RomDefinition& def
     append_axis(value, y, y_scaling, false);
     value.StorageTypeList.append(legacy_value(storage));
     value.EndianList.append(legacy_value(endian));
-    value.LogParamList.append(qs(kPlaceholder));
+    value.LogParamList.append(legacy_value(map.log_parameter));
     value.FromByteList.append(scaling ? legacy_value(scaling->from_byte) : qs(kPlaceholder));
     value.ToByteList.append(scaling ? legacy_value(scaling->to_byte) : qs(kPlaceholder));
-    value.MapDefined.append("1");
+    value.MapDefined.append(qs(kPlaceholder));
 }
 
 void append_scaling(definitions::EcuCalDefStructure& value, const Scaling& scaling)
@@ -502,7 +517,9 @@ Status validate_definition_alignment(const definitions::EcuCalDefStructure& valu
     return {};
 }
 
-void populate_rom_info(definitions::EcuCalDefStructure& value, const RomDefinition& definition)
+Status populate_rom_info(
+    definitions::EcuCalDefStructure& value,
+    const RomDefinition& definition)
 {
     enum RomInfoIndex
     {
@@ -524,9 +541,20 @@ void populate_rom_info(definitions::EcuCalDefStructure& value, const RomDefiniti
         DefFile,
     };
 
+    constexpr qsizetype kRequiredSlots = DefFile + 1;
+    if (value.RomInfoStrings.size() < kRequiredSlots ||
+        value.RomInfoNames.size() < kRequiredSlots ||
+        value.RomInfoStrings.size() != value.RomInfoNames.size())
+    {
+        return fail(
+            ErrorKind::InvalidConfig,
+            "legacy RomInfo labels must provide matching names and text for all 16 slots");
+    }
     value.RomInfo = QStringList(value.RomInfoStrings.size(), QString{});
     const QString parent =
-        definition.parents.empty() ? QString{} : qs(definition.parents.front());
+        definition.resolved_definition_ids.size() > 1
+            ? qs(definition.resolved_definition_ids.front())
+            : QString{};
     value.RomInfo[XmlId] = qs(definition.identity.xml_id);
     value.RomInfo[InternalIdAddress] =
         address_text(definition.identity.internal_id_address, false);
@@ -546,6 +574,7 @@ void populate_rom_info(definitions::EcuCalDefStructure& value, const RomDefiniti
     value.RomInfo[DefFile] = qs(definition.source);
     value.RomBase = parent;
     value.DefinitionFileName = qs(definition.source);
+    return {};
 }
 
 } // namespace
@@ -608,7 +637,11 @@ Status LegacyDefinitionAdapter::replace_definition(
     definitions::EcuCalDefStructure next = current;
     clear_map_rows(next);
     clear_scaling_rows(next);
-    populate_rom_info(next, *definition);
+    auto rom_info = populate_rom_info(next, *definition);
+    if (!rom_info)
+    {
+        return rom_info;
+    }
     next.use_romraider_definition = format == DefinitionFormat::RomRaider;
     next.use_ecuflash_definition = format == DefinitionFormat::EcuFlash;
     for (const Scaling& scaling : definition->scalings)

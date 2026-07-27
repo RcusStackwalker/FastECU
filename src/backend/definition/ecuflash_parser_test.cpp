@@ -274,5 +274,55 @@ TEST(EcuFlashParserTest, RejectsStructurallyIncompleteAxis)
     expect_invalid_with_context(result, "bad-axis.xml", "X Axis");
 }
 
+TEST(EcuFlashParserTest, PreservesRuntimeRowOffsetsAndStaticAxisData)
+{
+    auto result = parse_ecuflash_definition(bytes(R"xml(
+      <rom><romid><xmlid>ROWS</xmlid></romid>
+      <table id="fuel" name="Fuel" type="2D" sizex="3" sizey="1"
+             startpos="7" interval="2">
+        <table type="Static X Axis" name="Load" elements="3"
+               startpos="9" interval="4">
+          <data>0.5</data><data>1.0</data><data>1.5</data>
+        </table>
+      </table></rom>)xml"),
+                                            "rows.xml");
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->maps.size(), 1U);
+    const auto& map = result->maps.front();
+    EXPECT_EQ(map.start_position, "7");
+    EXPECT_EQ(map.interval, "2");
+    EXPECT_TRUE(map.supplied.start_position);
+    EXPECT_TRUE(map.supplied.interval);
+    EXPECT_EQ(map.x_axis.start_position, "9");
+    EXPECT_EQ(map.x_axis.interval, "4");
+    EXPECT_EQ(map.x_axis.static_data, (std::vector<std::string>{"0.5", "1.0", "1.5"}));
+    EXPECT_TRUE(map.x_axis.supplied.start_position);
+    EXPECT_TRUE(map.x_axis.supplied.interval);
+    EXPECT_TRUE(map.x_axis.supplied.static_data);
+}
+
+TEST(EcuFlashParserTest, ConvertsDirectMapDataToLegacyStaticXAxis)
+{
+    auto result = parse_ecuflash_definition(bytes(R"xml(
+      <rom><romid><xmlid>STATIC</xmlid></romid>
+      <table id="load" name="Load Breakpoints" type="2D">
+        <data>0.5</data><data>1.0</data>
+      </table></rom>)xml"),
+                                            "static.xml");
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->maps.size(), 1U);
+    const auto& map = result->maps.front();
+    EXPECT_EQ(map.x_size, 2U);
+    EXPECT_EQ(map.y_size, 1U);
+    EXPECT_EQ(map.x_axis.type, "Static X Axis");
+    EXPECT_TRUE(map.x_axis.name.empty());
+    EXPECT_EQ(map.x_axis.size, 2U);
+    EXPECT_EQ(map.x_axis.start_position, "");
+    EXPECT_EQ(map.x_axis.interval, "");
+    EXPECT_EQ(map.x_axis.static_data, (std::vector<std::string>{"0.5", "1.0"}));
+}
+
 } // namespace
 } // namespace fastecu::definition

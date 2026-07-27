@@ -139,6 +139,93 @@ TEST(DefinitionResolverTest, ResolvesMultiLevelInheritance)
     EXPECT_THAT(
         result->resolved_sources,
         ElementsAre("GRANDPARENT.xml", "PARENT.xml", "CHILD.xml"));
+    EXPECT_THAT(
+        result->resolved_definition_ids,
+        ElementsAre("GRANDPARENT", "PARENT", "CHILD"));
+}
+
+TEST(DefinitionResolverTest, InheritsRuntimeRowsAndAllowsExplicitDefaultOverrides)
+{
+    auto base = doc("BASE");
+    auto base_map = map("fuel", "Fuel");
+    base_map.start_position = "7";
+    base_map.interval = "2";
+    base_map.log_parameter = "P_BASE";
+    base_map.supplied = CalibrationMapPresence{
+        .tracked = true,
+        .stable_id = true,
+        .start_position = true,
+        .interval = true,
+        .log_parameter = true,
+    };
+    base_map.x_axis = AxisDefinition{
+        .type = "Static X Axis",
+        .name = "Load",
+        .size = 1,
+        .start_position = "9",
+        .interval = "4",
+        .log_parameter = "P_AXIS",
+        .static_data = {"1.0"},
+        .supplied =
+            AxisDefinitionPresence{
+                .tracked = true,
+                .size = true,
+                .start_position = true,
+                .interval = true,
+                .log_parameter = true,
+                .static_data = true,
+            },
+    };
+    base.maps.push_back(base_map);
+
+    auto child = doc("CHILD", {"BASE"});
+    auto child_map = map("fuel", "Fuel");
+    child_map.start_position = "1";
+    child_map.interval = "1";
+    child_map.supplied = CalibrationMapPresence{
+        .tracked = true,
+        .stable_id = true,
+        .start_position = true,
+        .interval = true,
+    };
+    child.maps.push_back(child_map);
+
+    DefinitionSet definitions{{"BASE", base}};
+    auto result = resolve_definition(child, definitions.loader());
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->maps.size(), 1U);
+    EXPECT_EQ(result->maps.front().start_position, "1");
+    EXPECT_EQ(result->maps.front().interval, "1");
+    EXPECT_EQ(result->maps.front().log_parameter, "P_BASE");
+    EXPECT_EQ(result->maps.front().x_axis.start_position, "9");
+    EXPECT_EQ(result->maps.front().x_axis.interval, "4");
+    EXPECT_EQ(result->maps.front().x_axis.log_parameter, "P_AXIS");
+    EXPECT_EQ(result->maps.front().x_axis.static_data, std::vector<std::string>{"1.0"});
+}
+
+TEST(DefinitionResolverTest, RejectsStaticAxisDataThatDoesNotMatchAxisSize)
+{
+    auto root = doc("ROOT");
+    auto fuel = map("fuel", "Fuel");
+    fuel.x_size = 2;
+    fuel.x_axis = AxisDefinition{
+        .type = "Static X Axis",
+        .name = "Load",
+        .size = 2,
+        .static_data = {"1.0"},
+    };
+    root.maps.push_back(fuel);
+    const auto original = root;
+    DefinitionSet definitions{};
+
+    auto result = resolve_definition(root, definitions.loader());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(result.error().detail, HasSubstr("static data"));
+    EXPECT_THAT(result.error().detail, HasSubstr("x axis"));
+    EXPECT_EQ(root, original);
 }
 
 TEST(DefinitionResolverTest, MissingParentIsContextualInvalidConfig)

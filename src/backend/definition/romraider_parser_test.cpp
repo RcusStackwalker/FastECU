@@ -311,5 +311,38 @@ TEST(RomRaiderParserTest, WrongRootIsInvalidConfigWithExpectedRootContext)
     expect_invalid_with_context(result, "wrong-root.xml", "<roms>");
 }
 
+TEST(RomRaiderParserTest, PreservesRuntimeRowOffsetsLogParametersAndStaticAxisData)
+{
+    auto result = parse_romraider_definition(bytes(R"xml(
+      <roms><rom><romid><xmlid>ROWS</xmlid></romid>
+      <table id="fuel" name="Fuel" type="2D" sizex="3" sizey="1"
+             startpos="7" interval="2" logparam="P_MAP">
+        <table type="Static X Axis" name="Load" elements="3"
+               startpos="9" interval="4" logparam="P_LOAD">
+          <data>0.5</data><data>1.0</data><data>1.5</data>
+        </table>
+      </table></rom></roms>)xml"),
+                                             "rows.xml",
+                                             "ROWS");
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->maps.size(), 1U);
+    const auto& map = result->maps.front();
+    EXPECT_EQ(map.start_position, "7");
+    EXPECT_EQ(map.interval, "2");
+    EXPECT_EQ(map.log_parameter, "P_MAP");
+    EXPECT_TRUE(map.supplied.start_position);
+    EXPECT_TRUE(map.supplied.interval);
+    EXPECT_TRUE(map.supplied.log_parameter);
+    EXPECT_EQ(map.x_axis.start_position, "9");
+    EXPECT_EQ(map.x_axis.interval, "4");
+    EXPECT_EQ(map.x_axis.log_parameter, "P_LOAD");
+    EXPECT_EQ(map.x_axis.static_data, (std::vector<std::string>{"0.5", "1.0", "1.5"}));
+    EXPECT_TRUE(map.x_axis.supplied.start_position);
+    EXPECT_TRUE(map.x_axis.supplied.interval);
+    EXPECT_TRUE(map.x_axis.supplied.log_parameter);
+    EXPECT_TRUE(map.x_axis.supplied.static_data);
+}
+
 } // namespace
 } // namespace fastecu::definition

@@ -108,6 +108,31 @@ void overlay_axis(AxisDefinition& value, const AxisDefinition& supplied)
         value.supplied.to_byte = true;
     }
     overlay_string(value.scaling_name, supplied.scaling_name);
+    if (supplied.supplied.start_position ||
+        (!supplied.supplied.tracked &&
+         supplied.start_position != AxisDefinition{}.start_position))
+    {
+        value.start_position = supplied.start_position;
+        value.supplied.start_position = true;
+    }
+    if (supplied.supplied.interval ||
+        (!supplied.supplied.tracked && supplied.interval != AxisDefinition{}.interval))
+    {
+        value.interval = supplied.interval;
+        value.supplied.interval = true;
+    }
+    if (supplied.supplied.log_parameter ||
+        (!supplied.supplied.tracked && !supplied.log_parameter.empty()))
+    {
+        value.log_parameter = supplied.log_parameter;
+        value.supplied.log_parameter = true;
+    }
+    if (supplied.supplied.static_data ||
+        (!supplied.supplied.tracked && !supplied.static_data.empty()))
+    {
+        value.static_data = supplied.static_data;
+        value.supplied.static_data = true;
+    }
 }
 
 void overlay_map(CalibrationMap& value, const CalibrationMap& supplied)
@@ -155,6 +180,25 @@ void overlay_map(CalibrationMap& value, const CalibrationMap& supplied)
     overlay_string(value.scaling_name, supplied.scaling_name);
     overlay_string(value.storage_type, supplied.storage_type);
     overlay_string(value.endian, supplied.endian);
+    if (supplied.supplied.start_position ||
+        (!supplied.supplied.tracked &&
+         supplied.start_position != CalibrationMap{}.start_position))
+    {
+        value.start_position = supplied.start_position;
+        value.supplied.start_position = true;
+    }
+    if (supplied.supplied.interval ||
+        (!supplied.supplied.tracked && supplied.interval != CalibrationMap{}.interval))
+    {
+        value.interval = supplied.interval;
+        value.supplied.interval = true;
+    }
+    if (supplied.supplied.log_parameter ||
+        (!supplied.supplied.tracked && !supplied.log_parameter.empty()))
+    {
+        value.log_parameter = supplied.log_parameter;
+        value.supplied.log_parameter = true;
+    }
     overlay_axis(value.x_axis, supplied.x_axis);
     overlay_axis(value.y_axis, supplied.y_axis);
 }
@@ -420,7 +464,8 @@ Result<void> validate_axis(
     {
         return {};
     }
-    if (axis.type.empty() || axis.name.empty())
+    if (axis.type.empty() ||
+        (axis.name.empty() && axis.static_data.empty()))
     {
         return fail(
             ErrorKind::InvalidConfig,
@@ -440,6 +485,31 @@ Result<void> validate_axis(
             ErrorKind::InvalidConfig,
             "inconsistent dimension for " + std::string(axis_context) + " in definition '" +
                 std::string(definition_id) + "'");
+    }
+    if (!axis.static_data.empty())
+    {
+        if (axis.type != "Static X Axis")
+        {
+            return fail(
+                ErrorKind::InvalidConfig,
+                "static data on non-static " + std::string(axis_context) +
+                    " in definition '" + std::string(definition_id) + "'");
+        }
+        if (axis.static_data.size() != axis.size ||
+            std::any_of(
+                axis.static_data.begin(),
+                axis.static_data.end(),
+                [](const std::string& value)
+                {
+                    return value.empty();
+                }))
+        {
+            return fail(
+                ErrorKind::InvalidConfig,
+                "static data count for " + std::string(axis_context) +
+                    " does not match its size in definition '" +
+                    std::string(definition_id) + "'");
+        }
     }
     return apply_axis_scaling(axis, axis_context, scalings, definition_id);
 }
@@ -702,6 +772,9 @@ class ResolverState
                 }
             }
             append_unique(resolved.resolved_sources, parent->second.resolved_sources);
+            append_unique(
+                resolved.resolved_definition_ids,
+                parent->second.resolved_definition_ids);
         }
 
         auto merged = overlay_definition(resolved, definition);
@@ -712,6 +785,9 @@ class ResolverState
                 merged.error().detail + " in inheritance chain " + chain_text(stack));
         }
         append_unique(resolved.resolved_sources, {resolved.source});
+        append_unique(
+            resolved.resolved_definition_ids,
+            {resolved.identity.xml_id});
 
         stack.pop_back();
         visiting.erase(id);

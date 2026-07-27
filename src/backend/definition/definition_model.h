@@ -63,6 +63,7 @@ struct AxisDefinitionPresence
 {
     bool tracked{false}; // False keeps value-built callers source-compatible.
     bool size{false}, from_byte{false}, to_byte{false};
+    bool start_position{false}, interval{false}, log_parameter{false}, static_data{false};
 
     bool operator==(const AxisDefinitionPresence&) const = default;
 };
@@ -73,6 +74,8 @@ struct AxisDefinition
     std::optional<std::uint64_t> address;
     std::uint32_t size{1};
     std::string from_byte{"x"}, to_byte{"x"}, scaling_name;
+    std::string start_position{"1"}, interval{"1"}, log_parameter;
+    std::vector<std::string> static_data;
     AxisDefinitionPresence supplied;
 
     bool operator==(const AxisDefinition&) const = default;
@@ -83,6 +86,7 @@ struct CalibrationMapPresence
     bool tracked{false}; // False keeps value-built callers source-compatible.
     bool stable_id{false}, x_size{false}, y_size{false};
     bool swap_xy{false}, flip_x{false}, flip_y{false};
+    bool start_position{false}, interval{false}, log_parameter{false};
 
     bool operator==(const CalibrationMapPresence&) const = default;
 };
@@ -94,6 +98,7 @@ struct CalibrationMap
     std::uint32_t x_size{1}, y_size{1};
     bool swap_xy{false}, flip_x{false}, flip_y{false};
     std::string level, user_level, scaling_name, storage_type, endian;
+    std::string start_position{"1"}, interval{"1"}, log_parameter;
     AxisDefinition x_axis, y_axis;
     CalibrationMapPresence supplied;
 
@@ -132,6 +137,7 @@ struct UnresolvedDefinition
 struct RomDefinition : UnresolvedDefinition
 {
     std::vector<std::string> resolved_sources;
+    std::vector<std::string> resolved_definition_ids;
 
     bool operator==(const RomDefinition&) const = default;
 };

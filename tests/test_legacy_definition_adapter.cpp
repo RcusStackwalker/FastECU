@@ -320,21 +320,13 @@ TEST_F(LegacyDefinitionAdapterTest, CatalogFailurePreservesCompleteOriginalValue
     value.ecuflash_def_cal_id_addr = {"other-address"};
     value.ecuflash_def_ecu_id = {"other-ecu"};
     value.ecuflash_def_filename = {"other-file"};
+    const auto original = value;
 
     auto result = adapter.replace_romraider_catalog(value, std::vector<std::string>{"bad.xml"});
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error(), (Error{ErrorKind::Disconnected, "read failed"}));
-    EXPECT_EQ(value.software_name, "unchanged software");
-    EXPECT_EQ(value.primary_definition_base, "unchanged base");
-    EXPECT_EQ(value.romraider_def_cal_id, QStringList({"sentinel-id"}));
-    EXPECT_EQ(value.romraider_def_cal_id_addr, QStringList({"sentinel-address"}));
-    EXPECT_EQ(value.romraider_def_ecu_id, QStringList({"sentinel-ecu"}));
-    EXPECT_EQ(value.romraider_def_filename, QStringList({"sentinel-file"}));
-    EXPECT_EQ(value.ecuflash_def_cal_id, QStringList({"other-id"}));
-    EXPECT_EQ(value.ecuflash_def_cal_id_addr, QStringList({"other-address"}));
-    EXPECT_EQ(value.ecuflash_def_ecu_id, QStringList({"other-ecu"}));
-    EXPECT_EQ(value.ecuflash_def_filename, QStringList({"other-file"}));
+    EXPECT_EQ(value, original);
 }
 
 TEST_F(LegacyDefinitionAdapterTest, MapsFullTypedDefinitionIntoEveryLegacySlice)
@@ -347,7 +339,7 @@ TEST_F(LegacyDefinitionAdapterTest, MapsFullTypedDefinitionIntoEveryLegacySlice)
         <flashmethod>denso</flashmethod><memmodel>SH7058</memmodel>
         <checksummodule>subaru</checksummodule><filesize>1048576</filesize>
         <notes>All metadata</notes></romid>
-        <include>BASE</include>
+        <include>MID</include>
         <scaling name="mode-scale" units="state" toexpr="x" frexpr="x"
                  format="%d" min="0" max="1" inc="1" storagetype="bloblist" endian="big">
           <data name="disabled" value="00"/><data name="enabled" data="01"/>
@@ -357,32 +349,42 @@ TEST_F(LegacyDefinitionAdapterTest, MapsFullTypedDefinitionIntoEveryLegacySlice)
         <table id="mode-id" name="Mode" address="210" type="1D"
                category="Switches" subcategory="Drive" description="Mode selection"
                level="1" userlevel="2" sizex="1" sizey="1"
-               swapxy="false" flipx="true" flipy="false" scaling="mode-scale"/>
+               swapxy="false" flipx="true" flipy="false" scaling="mode-scale"
+               startpos="11" interval="2"/>
         <table id="fuel-id" name="Fuel" address="220" type="2D"
                category="Fuel" subcategory="Primary" description="Fuel map"
                level="3" userlevel="4" sizex="4" sizey="1"
-               swapxy="true" flipx="false" flipy="true" scaling="fuel-scale">
-          <table type="X Axis" name="Engine Speed" address="300" elements="4">
+               swapxy="true" flipx="false" flipy="true" scaling="fuel-scale"
+               startpos="12" interval="3">
+          <table type="Static X Axis" name="Engine Speed" address="300" elements="4"
+                 startpos="21" interval="5">
             <scaling name="rpm-scale" units="rpm" toexpr="x" frexpr="x"
                      format="%d" min="0" max="8000" inc="100"
                      storagetype="uint16" endian="big"/>
+            <data>1000</data><data>2000</data><data>3000</data><data>4000</data>
           </table>
         </table>
-        <table id="timing-id" name="Timing" address="230" type="3D" sizex="2" sizey="2">
-          <table type="X Axis" name="Load" address="310" elements="2">
+        <table id="timing-id" name="Timing" address="230" type="3D" sizex="2" sizey="2"
+               startpos="13" interval="4">
+          <table type="X Axis" name="Load" address="310" elements="2"
+                 startpos="22" interval="6">
             <scaling name="load-scale" units="g/rev" toexpr="x/10" frexpr="x*10"
                      format="%.2f" min="0" max="4" inc="0.1" storagetype="uint8" endian="little"/>
           </table>
-          <table type="Y Axis" name="Temperature" address="320" elements="2">
+          <table type="Y Axis" name="Temperature" address="320" elements="2"
+                 startpos="23" interval="7">
             <scaling name="temp-scale" units="C" toexpr="x-40" frexpr="x+40"
                      format="%d" min="-40" max="200" inc="1" storagetype="uint8" endian="little"/>
           </table>
         </table>
       </rom>)xml");
+    repository.files["mid.xml"] =
+        bytes("<rom><romid><xmlid>MID</xmlid></romid><include>BASE</include></rom>");
     repository.files["base.xml"] =
         bytes("<rom><romid><xmlid>BASE</xmlid></romid></rom>");
     auto catalog = DefinitionCatalog::create({
         entry(DefinitionFormat::EcuFlash, "FULL", "full.xml"),
+        entry(DefinitionFormat::EcuFlash, "MID", "mid.xml"),
         entry(DefinitionFormat::EcuFlash, "BASE", "base.xml"),
     });
     ASSERT_TRUE(catalog);
@@ -446,6 +448,10 @@ TEST_F(LegacyDefinitionAdapterTest, MapsFullTypedDefinitionIntoEveryLegacySlice)
     EXPECT_EQ(value.FlipYList, QStringList({"false", "true", "false"}));
     EXPECT_EQ(value.XSizeList, QStringList({"1", "4", "2"}));
     EXPECT_EQ(value.YSizeList, QStringList({"1", "1", "2"}));
+    EXPECT_EQ(value.StartPosList, QStringList({"11", "12", "13"}));
+    EXPECT_EQ(value.IntervalList, QStringList({"2", "3", "4"}));
+    EXPECT_EQ(value.LogParamList, QStringList({" ", " ", " "}));
+    EXPECT_EQ(value.MapDefined, QStringList({" ", " ", " "}));
     EXPECT_EQ(value.MapScalingNameList, QStringList({"mode-scale", "fuel-scale", " "}));
     EXPECT_EQ(value.StorageTypeList, QStringList({"bloblist", "uint16", " "}));
     EXPECT_EQ(value.UnitsList, QStringList({"state", "%", " "}));
@@ -460,7 +466,7 @@ TEST_F(LegacyDefinitionAdapterTest, MapsFullTypedDefinitionIntoEveryLegacySlice)
     EXPECT_EQ(value.SelectionsNameList, QStringList({"disabled,enabled,", " ", " "}));
     EXPECT_EQ(value.SelectionsValueList, QStringList({"00,01,", " ", " "}));
 
-    EXPECT_EQ(value.XScaleTypeList, QStringList({" ", "X Axis", "X Axis"}));
+    EXPECT_EQ(value.XScaleTypeList, QStringList({" ", "Static X Axis", "X Axis"}));
     EXPECT_EQ(value.XScaleNameList, QStringList({" ", "Engine Speed", "Load"}));
     EXPECT_EQ(value.XScaleAddressList, QStringList({" ", "0x300", "0x310"}));
     EXPECT_EQ(value.XScaleScalingNameList, QStringList({" ", "rpm-scale", "load-scale"}));
@@ -470,6 +476,10 @@ TEST_F(LegacyDefinitionAdapterTest, MapsFullTypedDefinitionIntoEveryLegacySlice)
     EXPECT_EQ(value.XScaleEndianList, QStringList({" ", "big", "little"}));
     EXPECT_EQ(value.XScaleFromByteList, QStringList({" ", "x", "x/10"}));
     EXPECT_EQ(value.XScaleToByteList, QStringList({" ", "x", "x*10"}));
+    EXPECT_EQ(value.XScaleStartPosList, QStringList({" ", "21", "22"}));
+    EXPECT_EQ(value.XScaleIntervalList, QStringList({" ", "5", "6"}));
+    EXPECT_EQ(value.XScaleLogParamList, QStringList({" ", " ", " "}));
+    EXPECT_EQ(value.XScaleStaticDataList, QStringList({" ", "1000,2000,3000,4000,", " "}));
 
     EXPECT_EQ(value.YScaleTypeList, QStringList({" ", " ", "Y Axis"}));
     EXPECT_EQ(value.YScaleNameList, QStringList({" ", " ", "Temperature"}));
@@ -481,6 +491,9 @@ TEST_F(LegacyDefinitionAdapterTest, MapsFullTypedDefinitionIntoEveryLegacySlice)
     EXPECT_EQ(value.YScaleEndianList, QStringList({" ", " ", "little"}));
     EXPECT_EQ(value.YScaleFromByteList, QStringList({" ", " ", "x-40"}));
     EXPECT_EQ(value.YScaleToByteList, QStringList({" ", " ", "x+40"}));
+    EXPECT_EQ(value.YScaleStartPosList, QStringList({" ", " ", "23"}));
+    EXPECT_EQ(value.YScaleIntervalList, QStringList({" ", " ", "7"}));
+    EXPECT_EQ(value.YScaleLogParamList, QStringList({" ", " ", " "}));
 
     ASSERT_EQ(value.ScalingNameList.size(), 5);
     EXPECT_EQ(value.ScalingNameList.at(0), "mode-scale");
@@ -501,6 +514,78 @@ TEST_F(LegacyDefinitionAdapterTest, MapsFullTypedDefinitionIntoEveryLegacySlice)
     expect_scaling_rows_aligned(value);
 }
 
+TEST_F(LegacyDefinitionAdapterTest, MapsRomRaiderRuntimeLogParameters)
+{
+    repository.files["rr.xml"] = bytes(R"xml(
+      <roms><rom><romid><xmlid>RR</xmlid></romid>
+      <table id="fuel" name="Fuel" type="2D" sizex="2" sizey="1"
+             startpos="7" interval="2" logparam="P_MAP">
+        <table type="Static X Axis" name="Load" elements="2"
+               startpos="9" interval="4" logparam="P_AXIS">
+          <data>0.5</data><data>1.0</data>
+        </table>
+      </table></rom></roms>)xml");
+    auto catalog = DefinitionCatalog::create({
+        entry(DefinitionFormat::RomRaider, "RR", "rr.xml"),
+    });
+    ASSERT_TRUE(catalog);
+    definitions::EcuCalDefStructure value;
+    value.OemEcuFile = false;
+    value.SyncedWithEcu = false;
+    value.use_romraider_definition = false;
+    value.use_ecuflash_definition = false;
+
+    auto result = adapter.replace_definition(
+        value, *catalog, DefinitionFormat::RomRaider, "RR");
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(value.StartPosList, QStringList({"7"}));
+    EXPECT_EQ(value.IntervalList, QStringList({"2"}));
+    EXPECT_EQ(value.LogParamList, QStringList({"P_MAP"}));
+    EXPECT_EQ(value.XScaleStartPosList, QStringList({"9"}));
+    EXPECT_EQ(value.XScaleIntervalList, QStringList({"4"}));
+    EXPECT_EQ(value.XScaleLogParamList, QStringList({"P_AXIS"}));
+    EXPECT_EQ(value.XScaleStaticDataList, QStringList({"0.5,1.0,"}));
+    EXPECT_EQ(value.MapDefined, QStringList({" "}));
+}
+
+TEST_F(LegacyDefinitionAdapterTest, ShortRomInfoShapeFailsAtomically)
+{
+    repository.files["shape.xml"] =
+        bytes("<rom><romid><xmlid>SHAPE</xmlid></romid></rom>");
+    auto catalog = DefinitionCatalog::create({
+        entry(DefinitionFormat::EcuFlash, "SHAPE", "shape.xml"),
+    });
+    ASSERT_TRUE(catalog);
+    definitions::EcuCalDefStructure value;
+    value.FileName = "rom.bin";
+    value.NameList = {"sentinel-map"};
+    value.ScalingNameList = {"sentinel-scale"};
+    value.RomInfo = {"sentinel-info"};
+    value.RomInfoStrings = {"too short"};
+    value.OemEcuFile = true;
+    value.SyncedWithEcu = true;
+    value.use_romraider_definition = true;
+    value.use_ecuflash_definition = false;
+    const auto original = value;
+
+    auto result = adapter.replace_definition(
+        value, *catalog, DefinitionFormat::EcuFlash, "SHAPE");
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_NE(result.error().detail.find("RomInfo"), std::string::npos);
+    EXPECT_EQ(value.FileName, original.FileName);
+    EXPECT_EQ(value.NameList, original.NameList);
+    EXPECT_EQ(value.ScalingNameList, original.ScalingNameList);
+    EXPECT_EQ(value.RomInfo, original.RomInfo);
+    EXPECT_EQ(value.RomInfoStrings, original.RomInfoStrings);
+    EXPECT_EQ(value.OemEcuFile, original.OemEcuFile);
+    EXPECT_EQ(value.SyncedWithEcu, original.SyncedWithEcu);
+    EXPECT_EQ(value.use_romraider_definition, original.use_romraider_definition);
+    EXPECT_EQ(value.use_ecuflash_definition, original.use_ecuflash_definition);
+}
+
 TEST_F(LegacyDefinitionAdapterTest, DefinitionLoadFailureDoesNotMutateCaller)
 {
     auto catalog = DefinitionCatalog::create({
@@ -514,20 +599,18 @@ TEST_F(LegacyDefinitionAdapterTest, DefinitionLoadFailureDoesNotMutateCaller)
     value.NameList = {"sentinel-map"};
     value.ScalingNameList = {"sentinel-scaling"};
     value.RomInfo = {"sentinel-info"};
+    value.OemEcuFile = false;
+    value.SyncedWithEcu = false;
     value.use_romraider_definition = true;
     value.use_ecuflash_definition = false;
+    const auto original = value;
 
     auto result = adapter.replace_definition(
         value, *catalog, DefinitionFormat::EcuFlash, "MISSING");
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error(), (Error{ErrorKind::Disconnected, "definition read failed"}));
-    EXPECT_EQ(value.FileName, "rom.bin");
-    EXPECT_EQ(value.NameList, QStringList({"sentinel-map"}));
-    EXPECT_EQ(value.ScalingNameList, QStringList({"sentinel-scaling"}));
-    EXPECT_EQ(value.RomInfo, QStringList({"sentinel-info"}));
-    EXPECT_TRUE(value.use_romraider_definition);
-    EXPECT_FALSE(value.use_ecuflash_definition);
+    EXPECT_EQ(value, original);
 }
 
 TEST_F(LegacyDefinitionAdapterTest, CreationAndImportDelegateToDefinitionService)
@@ -549,6 +632,31 @@ TEST_F(LegacyDefinitionAdapterTest, CreationAndImportDelegateToDefinitionService
     ASSERT_EQ(writer.calls.size(), 2U);
     EXPECT_EQ(writer.calls.at(0).first, "created.xml");
     EXPECT_EQ(writer.calls.at(1).first, "imported.xml");
+}
+
+TEST_F(LegacyDefinitionAdapterTest, CreationAndImportPropagateExactServiceFailures)
+{
+    const DefinitionHeaderInput input{
+        .xml_id = "NEW",
+        .internal_id = "INTERNAL",
+        .ecu_id = "ECU",
+        .internal_id_address = 0x20,
+    };
+    writer.error = Error{ErrorKind::Internal, "atomic replace failed"};
+
+    auto created = adapter.create_definition("created.xml", input);
+
+    ASSERT_FALSE(created);
+    EXPECT_EQ(created.error(), (Error{ErrorKind::Internal, "atomic replace failed"}));
+    ASSERT_EQ(writer.calls.size(), 1U);
+    repository.read_errors["source.xml"] =
+        Error{ErrorKind::Disconnected, "source read failed"};
+
+    auto imported = adapter.import_definition("source.xml", "imported.xml", input);
+
+    ASSERT_FALSE(imported);
+    EXPECT_EQ(imported.error(), (Error{ErrorKind::Disconnected, "source read failed"}));
+    EXPECT_EQ(writer.calls.size(), 1U);
 }
 
 } // namespace

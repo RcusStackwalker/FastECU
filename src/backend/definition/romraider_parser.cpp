@@ -379,6 +379,26 @@ Result<AxisDefinition> parse_axis(
     }
     axis.storage_type = attribute_or_empty(table, "storagetype");
     axis.endian = attribute_or_empty(table, "endian");
+    if (table.attribute("startpos"))
+    {
+        axis.start_position = attribute_or_empty(table, "startpos");
+        axis.supplied.start_position = true;
+    }
+    if (table.attribute("interval"))
+    {
+        axis.interval = attribute_or_empty(table, "interval");
+        axis.supplied.interval = true;
+    }
+    if (table.attribute("logparam"))
+    {
+        axis.log_parameter = attribute_or_empty(table, "logparam");
+        axis.supplied.log_parameter = true;
+    }
+    for (pugi::xml_node data : table.children("data"))
+    {
+        axis.static_data.push_back(trim_copy(data.child_value()));
+        axis.supplied.static_data = true;
+    }
 
     auto address = optional_address(table, source, definition_id);
     if (!address)
@@ -469,6 +489,21 @@ Result<CalibrationMap> parse_table(
     map.user_level = attribute_or_empty(table, "userlevel");
     map.storage_type = attribute_or_empty(table, "storagetype");
     map.endian = attribute_or_empty(table, "endian");
+    if (table.attribute("startpos"))
+    {
+        map.start_position = attribute_or_empty(table, "startpos");
+        map.supplied.start_position = true;
+    }
+    if (table.attribute("interval"))
+    {
+        map.interval = attribute_or_empty(table, "interval");
+        map.supplied.interval = true;
+    }
+    if (table.attribute("logparam"))
+    {
+        map.log_parameter = attribute_or_empty(table, "logparam");
+        map.supplied.log_parameter = true;
+    }
 
     auto address = optional_address(table, source, definition_id);
     if (!address)

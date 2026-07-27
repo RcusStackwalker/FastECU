@@ -402,6 +402,21 @@ Result<AxisDefinition> parse_axis(
     }
     axis.storage_type = attribute_or_empty(table, "storagetype");
     axis.endian = attribute_or_empty(table, "endian");
+    if (table.attribute("startpos"))
+    {
+        axis.start_position = attribute_or_empty(table, "startpos");
+        axis.supplied.start_position = true;
+    }
+    if (table.attribute("interval"))
+    {
+        axis.interval = attribute_or_empty(table, "interval");
+        axis.supplied.interval = true;
+    }
+    for (pugi::xml_node data : table.children("data"))
+    {
+        axis.static_data.push_back(trim_copy(data.child_value()));
+        axis.supplied.static_data = true;
+    }
 
     auto address = optional_address(table, source, definition_id);
     if (!address)
@@ -484,6 +499,16 @@ Result<CalibrationMap> parse_table(
     map.user_level = attribute_or_empty(table, "userlevel");
     map.storage_type = attribute_or_empty(table, "storagetype");
     map.endian = attribute_or_empty(table, "endian");
+    if (table.attribute("startpos"))
+    {
+        map.start_position = attribute_or_empty(table, "startpos");
+        map.supplied.start_position = true;
+    }
+    if (table.attribute("interval"))
+    {
+        map.interval = attribute_or_empty(table, "interval");
+        map.supplied.interval = true;
+    }
 
     auto address = optional_address(table, source, definition_id);
     if (!address)
@@ -602,6 +627,27 @@ Result<CalibrationMap> parse_table(
             }
             map.y_axis = std::move(*axis);
         }
+    }
+    if (!map.x_axis.supplied.tracked && table.child("data"))
+    {
+        map.x_axis.supplied.tracked = true;
+        map.x_axis.type = "Static X Axis";
+        map.x_axis.start_position.clear();
+        map.x_axis.interval.clear();
+        map.x_axis.supplied.start_position = true;
+        map.x_axis.supplied.interval = true;
+        for (pugi::xml_node data : table.children("data"))
+        {
+            map.x_axis.static_data.push_back(trim_copy(data.child_value()));
+        }
+        map.x_axis.supplied.static_data = true;
+        map.x_axis.size =
+            static_cast<std::uint32_t>(map.x_axis.static_data.size());
+        map.x_axis.supplied.size = true;
+        map.x_size = map.x_axis.size;
+        map.y_size = 1;
+        map.supplied.x_size = true;
+        map.supplied.y_size = true;
     }
     return map;
 }
