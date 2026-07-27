@@ -241,14 +241,24 @@ Result<void> overlay_definition(
 
     for (const CalibrationMap& map : supplied.maps)
     {
-        auto existing = std::find_if(
-            value.maps.begin(),
-            value.maps.end(),
-            [&map](const CalibrationMap& candidate)
+        CalibrationMap *existing = nullptr;
+        for (CalibrationMap& candidate : value.maps)
+        {
+            if (!maps_match(candidate, map))
             {
-                return maps_match(candidate, map);
-            });
-        if (existing == value.maps.end())
+                continue;
+            }
+            if (existing != nullptr)
+            {
+                return fail(
+                    ErrorKind::InvalidConfig,
+                    "ambiguous map name fallback '" + map.name +
+                        "' while resolving definition '" + supplied.identity.xml_id +
+                        "' from '" + supplied.source + "'");
+            }
+            existing = &candidate;
+        }
+        if (existing == nullptr)
         {
             value.maps.push_back(map);
         }

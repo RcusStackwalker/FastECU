@@ -351,6 +351,26 @@ TEST(DefinitionResolverTest, FallsBackToNameWhenOnlyChildHasStableMapId)
     EXPECT_EQ(result->maps[0].description, "Override");
 }
 
+TEST(DefinitionResolverTest, RejectsAmbiguousNameFallbackAcrossStableIds)
+{
+    auto base = doc("BASE");
+    base.maps.push_back(map("fuel-a", "Fuel"));
+    base.maps.push_back(map("fuel-b", "Fuel"));
+
+    auto child = doc("CHILD", {"BASE"});
+    child.maps.push_back(map("", "Fuel"));
+    const auto original = child;
+    DefinitionSet definitions{{"BASE", base}};
+
+    auto result = resolve_definition(child, definitions.loader());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(result.error().detail, HasSubstr("ambiguous"));
+    EXPECT_THAT(result.error().detail, HasSubstr("Fuel"));
+    EXPECT_EQ(child, original);
+}
+
 TEST(DefinitionResolverTest, RomRaiderOmittedFieldsDoNotResetInheritedValues)
 {
     const auto xml = xml_bytes(R"xml(
