@@ -42,6 +42,25 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "definition_service",
+    srcs = ["definition_service.cpp"],
+    hdrs = ["definition_service.h"],
+    deps = [
+        ":definition_model",
+        ":definition_resolver",
+        ":ecuflash_parser",
+        ":romraider_parser",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "definition_service_test",
+    srcs = ["definition_service_test.cpp"],
+    deps = [":definition_service"],
+)
+
 fastecu_portable_gtest(
     name = "definition_model_test",
     srcs = ["definition_model_test.cpp"],
