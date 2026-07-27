@@ -19,6 +19,10 @@ class TestModelValidation : public QObject
         FileActions::EcuCalDefStructure value;
         QCOMPARE(value.RomInfoNames.at(FileActions::XmlId), QString("xmlid"));
         QCOMPARE(value.DefHeaderNames.last(), QString("notes"));
+        QVERIFY(!value.OemEcuFile);
+        QVERIFY(!value.SyncedWithEcu);
+        QVERIFY(!value.use_romraider_definition);
+        QVERIFY(!value.use_ecuflash_definition);
     }
 
     void flashProtocols_acceptMatchingRows()

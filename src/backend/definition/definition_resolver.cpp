@@ -457,6 +457,7 @@ Result<void> validate_axis(
     AxisDefinition& axis,
     std::string_view axis_context,
     std::uint32_t required_size,
+    bool supports_static_data,
     const std::unordered_map<std::string, const Scaling *>& scalings,
     std::string_view definition_id)
 {
@@ -486,15 +487,16 @@ Result<void> validate_axis(
             "inconsistent dimension for " + std::string(axis_context) + " in definition '" +
                 std::string(definition_id) + "'");
     }
-    if (!axis.static_data.empty())
+    const bool is_static_axis = axis.type == "Static X Axis";
+    if (is_static_axis && !supports_static_data)
     {
-        if (axis.type != "Static X Axis")
-        {
-            return fail(
-                ErrorKind::InvalidConfig,
-                "static data on non-static " + std::string(axis_context) +
-                    " in definition '" + std::string(definition_id) + "'");
-        }
+        return fail(
+            ErrorKind::InvalidConfig,
+            "static data is not supported for " + std::string(axis_context) +
+                " in definition '" + std::string(definition_id) + "'");
+    }
+    if (is_static_axis)
+    {
         if (axis.static_data.size() != axis.size ||
             std::any_of(
                 axis.static_data.begin(),
@@ -510,6 +512,13 @@ Result<void> validate_axis(
                     " does not match its size in definition '" +
                     std::string(definition_id) + "'");
         }
+    }
+    else if (!axis.static_data.empty())
+    {
+        return fail(
+            ErrorKind::InvalidConfig,
+            "static data on non-static " + std::string(axis_context) +
+                " in definition '" + std::string(definition_id) + "'");
     }
     return apply_axis_scaling(axis, axis_context, scalings, definition_id);
 }
@@ -613,13 +622,23 @@ Result<void> validate_and_resolve_scalings(RomDefinition& definition)
         }
 
         auto x_axis = validate_axis(
-            map.x_axis, "x axis for map '" + key + "'", map.x_size, scalings, definition.identity.xml_id);
+            map.x_axis,
+            "x axis for map '" + key + "'",
+            map.x_size,
+            true,
+            scalings,
+            definition.identity.xml_id);
         if (!x_axis)
         {
             return std::unexpected(x_axis.error());
         }
         auto y_axis = validate_axis(
-            map.y_axis, "y axis for map '" + key + "'", map.y_size, scalings, definition.identity.xml_id);
+            map.y_axis,
+            "y axis for map '" + key + "'",
+            map.y_size,
+            false,
+            scalings,
+            definition.identity.xml_id);
         if (!y_axis)
         {
             return std::unexpected(y_axis.error());

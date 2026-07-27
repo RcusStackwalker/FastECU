@@ -632,10 +632,6 @@ Result<CalibrationMap> parse_table(
     {
         map.x_axis.supplied.tracked = true;
         map.x_axis.type = "Static X Axis";
-        map.x_axis.start_position.clear();
-        map.x_axis.interval.clear();
-        map.x_axis.supplied.start_position = true;
-        map.x_axis.supplied.interval = true;
         for (pugi::xml_node data : table.children("data"))
         {
             map.x_axis.static_data.push_back(trim_copy(data.child_value()));

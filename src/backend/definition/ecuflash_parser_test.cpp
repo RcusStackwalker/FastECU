@@ -319,8 +319,10 @@ TEST(EcuFlashParserTest, ConvertsDirectMapDataToLegacyStaticXAxis)
     EXPECT_EQ(map.x_axis.type, "Static X Axis");
     EXPECT_TRUE(map.x_axis.name.empty());
     EXPECT_EQ(map.x_axis.size, 2U);
-    EXPECT_EQ(map.x_axis.start_position, "");
-    EXPECT_EQ(map.x_axis.interval, "");
+    EXPECT_EQ(map.x_axis.start_position, "1");
+    EXPECT_EQ(map.x_axis.interval, "1");
+    EXPECT_FALSE(map.x_axis.supplied.start_position);
+    EXPECT_FALSE(map.x_axis.supplied.interval);
     EXPECT_EQ(map.x_axis.static_data, (std::vector<std::string>{"0.5", "1.0"}));
 }
 

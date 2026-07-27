@@ -575,15 +575,46 @@ TEST_F(LegacyDefinitionAdapterTest, ShortRomInfoShapeFailsAtomically)
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
     EXPECT_NE(result.error().detail.find("RomInfo"), std::string::npos);
-    EXPECT_EQ(value.FileName, original.FileName);
-    EXPECT_EQ(value.NameList, original.NameList);
-    EXPECT_EQ(value.ScalingNameList, original.ScalingNameList);
-    EXPECT_EQ(value.RomInfo, original.RomInfo);
-    EXPECT_EQ(value.RomInfoStrings, original.RomInfoStrings);
-    EXPECT_EQ(value.OemEcuFile, original.OemEcuFile);
-    EXPECT_EQ(value.SyncedWithEcu, original.SyncedWithEcu);
-    EXPECT_EQ(value.use_romraider_definition, original.use_romraider_definition);
-    EXPECT_EQ(value.use_ecuflash_definition, original.use_ecuflash_definition);
+    EXPECT_EQ(value, original);
+}
+
+TEST_F(LegacyDefinitionAdapterTest, InvalidStaticAxisFailsAtomically)
+{
+    repository.files["invalid-static.xml"] = bytes(R"xml(
+      <rom>
+        <romid><xmlid>INVALID_STATIC</xmlid></romid>
+        <table id="load" name="Load" type="2D" sizex="2" sizey="1">
+          <table type="Static X Axis" name="Breakpoints" elements="2"/>
+        </table>
+      </rom>)xml");
+    auto catalog = DefinitionCatalog::create({
+        entry(
+            DefinitionFormat::EcuFlash,
+            "INVALID_STATIC",
+            "invalid-static.xml"),
+    });
+    ASSERT_TRUE(catalog);
+    definitions::EcuCalDefStructure value;
+    value.FileName = "rom.bin";
+    value.NameList = {"sentinel-map"};
+    value.ScalingNameList = {"sentinel-scale"};
+    value.RomInfo = {"sentinel-info"};
+    value.OemEcuFile = true;
+    value.SyncedWithEcu = true;
+    value.use_romraider_definition = true;
+    value.use_ecuflash_definition = false;
+    const auto original = value;
+
+    auto result = adapter.replace_definition(
+        value,
+        *catalog,
+        DefinitionFormat::EcuFlash,
+        "INVALID_STATIC");
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_NE(result.error().detail.find("static data"), std::string::npos);
+    EXPECT_EQ(value, original);
 }
 
 TEST_F(LegacyDefinitionAdapterTest, DefinitionLoadFailureDoesNotMutateCaller)

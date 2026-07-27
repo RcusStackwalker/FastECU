@@ -228,6 +228,53 @@ TEST(DefinitionResolverTest, RejectsStaticAxisDataThatDoesNotMatchAxisSize)
     EXPECT_EQ(root, original);
 }
 
+TEST(DefinitionResolverTest, RejectsStaticXAxisWithoutData)
+{
+    auto root = doc("ROOT");
+    auto fuel = map("fuel", "Fuel");
+    fuel.x_size = 2;
+    fuel.x_axis = AxisDefinition{
+        .type = "Static X Axis",
+        .name = "Load",
+        .size = 2,
+    };
+    root.maps.push_back(fuel);
+    const auto original = root;
+    DefinitionSet definitions{};
+
+    auto result = resolve_definition(root, definitions.loader());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(result.error().detail, HasSubstr("static data"));
+    EXPECT_THAT(result.error().detail, HasSubstr("x axis"));
+    EXPECT_EQ(root, original);
+}
+
+TEST(DefinitionResolverTest, RejectsStaticDataOutsideXAxisPosition)
+{
+    auto root = doc("ROOT");
+    auto fuel = map("fuel", "Fuel");
+    fuel.y_size = 2;
+    fuel.y_axis = AxisDefinition{
+        .type = "Static X Axis",
+        .name = "Load",
+        .size = 2,
+        .static_data = {"1.0", "2.0"},
+    };
+    root.maps.push_back(fuel);
+    const auto original = root;
+    DefinitionSet definitions{};
+
+    auto result = resolve_definition(root, definitions.loader());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(result.error().detail, HasSubstr("static data"));
+    EXPECT_THAT(result.error().detail, HasSubstr("y axis"));
+    EXPECT_EQ(root, original);
+}
+
 TEST(DefinitionResolverTest, MissingParentIsContextualInvalidConfig)
 {
     const auto root = doc("CHILD", {"MISSING"});
@@ -548,6 +595,45 @@ TEST(DefinitionResolverTest, EcuFlashExplicitDefaultsOverrideInheritedValuesAndM
     EXPECT_EQ(fuel.x_axis.size, 1U);
     EXPECT_EQ(fuel.x_axis.from_byte, "x");
     EXPECT_EQ(fuel.x_axis.to_byte, "x");
+    EXPECT_EQ(*child, original);
+}
+
+TEST(DefinitionResolverTest, EcuFlashDirectDataInheritsOmittedAxisOffsets)
+{
+    auto base = parse_ecuflash_definition(xml_bytes(R"xml(
+      <rom>
+        <romid><xmlid>BASE</xmlid></romid>
+        <table id="load" name="Load" type="2D" sizex="2" sizey="1">
+          <table type="Static X Axis" name="Breakpoints" elements="2"
+                 startpos="9" interval="4">
+            <data>0.5</data><data>1.0</data>
+          </table>
+        </table>
+      </rom>)xml"),
+                                          "base.xml");
+    auto child = parse_ecuflash_definition(xml_bytes(R"xml(
+      <rom>
+        <romid><xmlid>CHILD</xmlid></romid>
+        <include>BASE</include>
+        <table id="load" name="Load" type="2D">
+          <data>0.6</data><data>1.1</data>
+        </table>
+      </rom>)xml"),
+                                           "child.xml");
+    ASSERT_TRUE(base);
+    ASSERT_TRUE(child);
+    const auto original = *child;
+    DefinitionSet definitions{{"BASE", *base}};
+
+    auto result = resolve_definition(*child, definitions.loader());
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->maps.size(), 1U);
+    EXPECT_EQ(result->maps.front().x_axis.start_position, "9");
+    EXPECT_EQ(result->maps.front().x_axis.interval, "4");
+    EXPECT_EQ(
+        result->maps.front().x_axis.static_data,
+        (std::vector<std::string>{"0.6", "1.1"}));
     EXPECT_EQ(*child, original);
 }
 
