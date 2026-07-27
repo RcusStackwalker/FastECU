@@ -1,5 +1,6 @@
 #include "src/backend/config/provisioning.h"
 #include "src/backend/ports/testing/in_memory_file_system.h"
+#include "src/backend/ports/testing/in_memory_resource_bundle.h"
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <map>
@@ -8,7 +9,7 @@ using fastecu::DirEntry;
 using fastecu::ErrorKind;
 using fastecu::IEventSink;
 using fastecu::InMemoryFileSystem;
-using fastecu::IResourceBundle;
+using fastecu::InMemoryResourceBundle;
 using fastecu::LogLevel;
 using fastecu::Result;
 using fastecu::Status;
@@ -17,24 +18,6 @@ using fastecu::config::provision_config_directories;
 
 namespace
 {
-class FakeResourceBundle : public IResourceBundle
-{
-  public:
-    Result<std::vector<std::string>> list(std::string_view bundle_id) override
-    {
-        std::vector<std::string> names;
-        for (auto& [name, bytes] : bundles[std::string(bundle_id)])
-            names.push_back(name);
-        return names;
-    }
-    Result<std::vector<std::uint8_t>> read(std::string_view bundle_id, std::string_view name) override
-    {
-        return bundles[std::string(bundle_id)][std::string(name)];
-    }
-
-    std::map<std::string, std::map<std::string, std::vector<std::uint8_t>>> bundles;
-};
-
 class RecordingEventSink : public IEventSink
 {
   public:
@@ -67,7 +50,7 @@ ConfigPaths test_paths()
 TEST(ProvisionConfigDirectories, CreatesEveryDirectoryOnFirstRun)
 {
     InMemoryFileSystem fs;
-    FakeResourceBundle bundle;
+    InMemoryResourceBundle bundle;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
 
@@ -85,7 +68,7 @@ TEST(ProvisionConfigDirectories, CreatesEveryDirectoryOnFirstRun)
 TEST(ProvisionConfigDirectories, IdempotentOnSecondRun)
 {
     InMemoryFileSystem fs;
-    FakeResourceBundle bundle;
+    InMemoryResourceBundle bundle;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
 
@@ -98,7 +81,7 @@ TEST(ProvisionConfigDirectories, IdempotentOnSecondRun)
 TEST(ProvisionConfigDirectories, CopiesBundledResourceFilesNotAlreadyPresent)
 {
     InMemoryFileSystem fs;
-    FakeResourceBundle bundle;
+    InMemoryResourceBundle bundle;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
     bundle.bundles["config"]["fastecu.cfg"] = {1};
@@ -121,7 +104,7 @@ TEST(ProvisionConfigDirectories, CopiesBundledResourceFilesNotAlreadyPresent)
 TEST(ProvisionConfigDirectories, DoesNotOverwriteAnExistingUserFile)
 {
     InMemoryFileSystem fs;
-    FakeResourceBundle bundle;
+    InMemoryResourceBundle bundle;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
     bundle.bundles["config"]["fastecu.cfg"] = {9, 9, 9};
@@ -137,7 +120,7 @@ TEST(ProvisionConfigDirectories, DoesNotOverwriteAnExistingUserFile)
 TEST(ProvisionConfigDirectories, PrunesSyslogsKeepingNewest20)
 {
     InMemoryFileSystem fs;
-    FakeResourceBundle bundle;
+    InMemoryResourceBundle bundle;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
     fs.create_directory(paths.syslog_files_directory);
@@ -165,7 +148,7 @@ TEST(ProvisionConfigDirectories, PrunesSyslogsKeepingNewest20)
 TEST(ProvisionConfigDirectories, BundleCopyFailurePropagatesRatherThanBeingSwallowed)
 {
     InMemoryFileSystem fs;
-    FakeResourceBundle bundle;
+    InMemoryResourceBundle bundle;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
     // A bundled kernel file nested under a subdirectory that provisioning
@@ -185,7 +168,7 @@ TEST(ProvisionConfigDirectories, BundleCopyFailurePropagatesRatherThanBeingSwall
 TEST(ProvisionConfigDirectories, MigratesPreviousVersionConfigFileForward)
 {
     InMemoryFileSystem fs;
-    FakeResourceBundle bundle;
+    InMemoryResourceBundle bundle;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
     // A previous-version directory "0.9" already exists under base, newer
@@ -211,7 +194,7 @@ TEST(ProvisionConfigDirectories, FirstCreateDirectoryFailureStopsTheSequence)
             return InMemoryFileSystem::create_directory(path);
         }
     } fs;
-    FakeResourceBundle bundle;
+    InMemoryResourceBundle bundle;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
 

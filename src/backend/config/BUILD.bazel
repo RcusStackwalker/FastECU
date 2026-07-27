@@ -44,6 +44,7 @@ fastecu_portable_gtest(
     deps = [
         ":provisioning",
         "//src/backend/ports/testing:in_memory_file_system",
+        "//src/backend/ports/testing:in_memory_resource_bundle",
     ],
 )
 
