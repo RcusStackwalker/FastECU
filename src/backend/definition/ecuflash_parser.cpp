@@ -461,6 +461,8 @@ Result<CalibrationMap> parse_table(
         map.id = map.name;
     }
     map.type = attribute_or_empty(table, "type");
+    const bool is_top_level_x_axis = map.type == "X Axis";
+    const bool is_top_level_y_axis = map.type == "Y Axis";
     map.category = attribute_or_empty(table, "category");
     map.subcategory = attribute_or_empty(table, "subcategory");
     map.description = attribute_or_empty(table, "description");
@@ -480,18 +482,32 @@ Result<CalibrationMap> parse_table(
     }
     map.address = *address;
 
-    auto x_size = dimension_attribute(table, "sizex", 1, source, definition_id);
-    if (!x_size)
+    if (is_top_level_x_axis || is_top_level_y_axis)
     {
-        return std::unexpected(x_size.error());
+        auto elements = dimension_attribute(table, "elements", 1, source, definition_id);
+        if (!elements)
+        {
+            return std::unexpected(elements.error());
+        }
+        map.type = "2D";
+        map.x_size = is_top_level_x_axis ? *elements : 1;
+        map.y_size = is_top_level_y_axis ? *elements : 1;
     }
-    map.x_size = *x_size;
-    auto y_size = dimension_attribute(table, "sizey", 1, source, definition_id);
-    if (!y_size)
+    else
     {
-        return std::unexpected(y_size.error());
+        auto x_size = dimension_attribute(table, "sizex", 1, source, definition_id);
+        if (!x_size)
+        {
+            return std::unexpected(x_size.error());
+        }
+        map.x_size = *x_size;
+        auto y_size = dimension_attribute(table, "sizey", 1, source, definition_id);
+        if (!y_size)
+        {
+            return std::unexpected(y_size.error());
+        }
+        map.y_size = *y_size;
     }
-    map.y_size = *y_size;
 
     auto swap_xy = strict_boolean_attribute(table, "swapxy", source, definition_id);
     if (!swap_xy)

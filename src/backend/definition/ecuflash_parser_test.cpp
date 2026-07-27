@@ -163,6 +163,34 @@ TEST(EcuFlashParserTest, AddressWinsAndStrictFlagsParse)
     EXPECT_TRUE(result->maps.at(0).flip_y);
 }
 
+TEST(EcuFlashParserTest, NormalizesTopLevelXAxisMapToTwoDimensional)
+{
+    auto result = parse_ecuflash_definition(bytes(R"xml(
+      <rom><romid><xmlid>TEST</xmlid></romid>
+      <table name="Engine Speed" type="X Axis" elements="4"/></rom>)xml"),
+                                            "test.xml");
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->maps.size(), 1U);
+    EXPECT_EQ(result->maps.front().type, "2D");
+    EXPECT_EQ(result->maps.front().x_size, 4U);
+    EXPECT_EQ(result->maps.front().y_size, 1U);
+}
+
+TEST(EcuFlashParserTest, NormalizesTopLevelYAxisMapToTwoDimensional)
+{
+    auto result = parse_ecuflash_definition(bytes(R"xml(
+      <rom><romid><xmlid>TEST</xmlid></romid>
+      <table name="Load" type="Y Axis" elements="5"/></rom>)xml"),
+                                            "test.xml");
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->maps.size(), 1U);
+    EXPECT_EQ(result->maps.front().type, "2D");
+    EXPECT_EQ(result->maps.front().x_size, 1U);
+    EXPECT_EQ(result->maps.front().y_size, 5U);
+}
+
 TEST(EcuFlashParserTest, KeepsInputBytesAndSymbolicScalingReferencesUnchanged)
 {
     const auto xml = bytes(R"xml(
