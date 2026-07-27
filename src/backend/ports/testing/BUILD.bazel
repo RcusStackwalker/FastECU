@@ -40,3 +40,23 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "in_memory_resource_bundle",
+    testonly = True,
+    hdrs = ["in_memory_resource_bundle.h"],
+    visibility = [
+        "//src/backend:__subpackages__",
+        "//tests:__pkg__",
+    ],
+    deps = ["//src/backend/ports"],
+)
+
+cc_test(
+    name = "in_memory_resource_bundle_test",
+    srcs = ["in_memory_resource_bundle_test.cpp"],
+    deps = [
+        ":in_memory_resource_bundle",
+        "@googletest//:gtest_main",
+    ],
+)

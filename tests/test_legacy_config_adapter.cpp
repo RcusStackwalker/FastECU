@@ -1,61 +1,19 @@
 #include "src/backend/config/legacy_config_adapter.h"
 #include "src/backend/definitions/file_actions.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
+#include "src/backend/ports/testing/in_memory_file_system.h"
+#include "src/backend/ports/testing/in_memory_resource_bundle.h"
 #include <gtest/gtest.h>
 #include <map>
 
 using fastecu::DirEntry;
 using fastecu::ErrorKind;
-using fastecu::IFileSystem;
 using fastecu::InMemoryFileRepository;
-using fastecu::IResourceBundle;
+using fastecu::InMemoryFileSystem;
+using fastecu::InMemoryResourceBundle;
 using fastecu::Result;
 using fastecu::Status;
 using fastecu::config::LegacyConfigAdapter;
-
-namespace
-{
-class InMemoryFileSystem : public IFileSystem
-{
-  public:
-    bool exists(std::string_view path) override
-    {
-        return dirs.count(std::string(path)) > 0;
-    }
-    Status create_directory(std::string_view path) override
-    {
-        dirs.insert(std::string(path));
-        return {};
-    }
-    Status copy_file(std::string_view, std::string_view, bool) override
-    {
-        return {};
-    }
-    Status remove_file(std::string_view) override
-    {
-        return {};
-    }
-    Result<std::vector<DirEntry>> list_directory(std::string_view) override
-    {
-        return std::vector<DirEntry>{};
-    }
-    std::set<std::string> dirs;
-};
-
-class InMemoryResourceBundle : public IResourceBundle
-{
-  public:
-    Result<std::vector<std::string>> list(std::string_view) override
-    {
-        return std::vector<std::string>{};
-    }
-    Result<std::vector<std::uint8_t>> read(std::string_view, std::string_view) override
-    {
-        return fastecu::fail(ErrorKind::InvalidConfig, "not used by this test");
-    }
-};
-
-} // namespace
 
 TEST(LegacyConfigAdapterTest, SetBaseDirsPopulatesConfigValuesStructureAndReturnsSamePointer)
 {

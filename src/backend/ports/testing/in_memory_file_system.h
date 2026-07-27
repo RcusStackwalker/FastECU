@@ -39,6 +39,7 @@ class InMemoryFileSystem : public IFileSystem
     }
     Status remove_file(std::string_view path) override
     {
+        directories.erase(std::string(path));
         files.erase(std::string(path));
         removed.push_back(std::string(path));
         return {};
