@@ -1,3 +1,4 @@
+#pragma once
 #include "src/backend/ports/settings.h"
 
 #include <map>

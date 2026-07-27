@@ -1,5 +1,4 @@
-#ifndef SERIAL_BACKEND_H
-#define SERIAL_BACKEND_H
+#pragma once
 
 #include <QByteArray>
 #include <QString>
@@ -151,5 +150,3 @@ class SerialBackend
     {
     }
 };
-
-#endif // SERIAL_BACKEND_H

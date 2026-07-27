@@ -1,5 +1,4 @@
-#ifndef BIUOPERATIONSSUBARU_H
-#define BIUOPERATIONSSUBARU_H
+#pragma once
 
 #include <memory>
 
@@ -584,5 +583,3 @@ class BiuOperationsSubaru : public QDialog
   private:
     std::unique_ptr<Ui::BiuOperationsSubaruWindow> ui;
 };
-
-#endif // BIUOPERATIONSSUBARU_H

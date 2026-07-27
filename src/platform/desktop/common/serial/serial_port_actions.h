@@ -1,5 +1,4 @@
-#ifndef SERIAL_PORT_ACTIONS_H
-#define SERIAL_PORT_ACTIONS_H
+#pragma once
 
 #include <QCoreApplication>
 #include <QMutex>
@@ -287,5 +286,3 @@ class SerialPortActions : public QObject
     QAtomicInteger<bool> is_comm_busy = false;
     std::atomic<unsigned long> vBatt{0};
 };
-
-#endif // SERIAL_PORT_ACTIONS_H

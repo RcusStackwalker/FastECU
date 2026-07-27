@@ -1,5 +1,4 @@
-#ifndef QT_NRC_PARSER_H
-#define QT_NRC_PARSER_H
+#pragma once
 
 #include "src/algorithms/diagnostics/nrc_parser.h"
 
@@ -17,5 +16,3 @@ class NrcParser
   public:
     static QString parse(const QByteArray& nrc, const QHash<int, QString>& codes);
 };
-
-#endif // QT_NRC_PARSER_H

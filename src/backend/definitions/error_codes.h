@@ -1,5 +1,4 @@
-#ifndef ERROR_CODES_H
-#define ERROR_CODES_H
+#pragma once
 
 #include <QString>
 #include "src/backend/definitions/file_actions.h"
@@ -3743,5 +3742,3 @@ const QHash<int, QString> FileActions::dtc_Uxxxx_codes{
     {0x2195, "U2195 - SCP (J1850) Invalid Data from SCLM"},
     {0x2500, "U2500 - (CAN) Lack of Acknowledgement From Engine Management"},
 };
-
-#endif // ERROR_CODES_H

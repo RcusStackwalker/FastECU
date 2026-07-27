@@ -1,5 +1,4 @@
-#ifndef FLASH_TCU_DENSO_CAN_H
-#define FLASH_TCU_DENSO_CAN_H
+#pragma once
 
 #include <memory>
 
@@ -51,5 +50,3 @@ class FlashTcuSubaruDensoSH705xCan : public QDialog
   private:
     std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
-
-#endif // FLASH_TCU_DENSO_CAN_H

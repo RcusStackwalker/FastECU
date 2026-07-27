@@ -1,5 +1,4 @@
-#ifndef FLASH_ECU_SUBARU_HITACHI_M32R_JTAG_H
-#define FLASH_ECU_SUBARU_HITACHI_M32R_JTAG_H
+#pragma once
 
 #include <memory>
 
@@ -51,5 +50,3 @@ class FlashEcuSubaruHitachiM32rJtag : public QDialog
   private:
     std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
-
-#endif // FLASH_ECU_SUBARU_HITACHI_M32R_JTAG_H

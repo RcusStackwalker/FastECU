@@ -1,5 +1,4 @@
-#ifndef CHECKSUM_ECU_SUBARU_DENSO_SH7XXX_H
-#define CHECKSUM_ECU_SUBARU_DENSO_SH7XXX_H
+#pragma once
 
 #include "checksum_result.h"
 #include "src/algorithms/protocol/bytes.h"
@@ -15,5 +14,3 @@ class ChecksumEcuSubaruDensoSH7xxx
 
   private:
 };
-
-#endif // CHECKSUM_ECU_SUBARU_DENSO_SH7XXX_H

@@ -1,5 +1,4 @@
-#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
+#pragma once
 
 #include <memory>
 #include <optional>
@@ -467,4 +466,3 @@ class MainWindow : public QMainWindow
   private:
     std::unique_ptr<Ui::MainWindow> ui;
 };
-#endif // MAINWINDOW_H

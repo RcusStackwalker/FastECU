@@ -1,5 +1,4 @@
-#ifndef FLASH_ECU_SUBARU_DENSO_SH7055_02_H
-#define FLASH_ECU_SUBARU_DENSO_SH7055_02_H
+#pragma once
 
 #include <memory>
 
@@ -54,5 +53,3 @@ class FlashEcuSubaruDensoSH7055_02 : public QDialog
   private:
     std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
-
-#endif // FLASH_ECU_SUBARU_DENSO_SH7055_02_H

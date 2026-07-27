@@ -1,5 +1,4 @@
-#ifndef CHECKSUM_TCU_SUBARU_DENSO_SH7055_H
-#define CHECKSUM_TCU_SUBARU_DENSO_SH7055_H
+#pragma once
 
 #include "checksum_result.h"
 #include "src/algorithms/protocol/bytes.h"
@@ -14,5 +13,3 @@ class ChecksumTcuSubaruDensoSH7055
 
   private:
 };
-
-#endif // CHECKSUM_TCU_SUBARU_DENSO_SH7055_H

@@ -1,5 +1,4 @@
-#ifndef J2534_TACTRIX_UNIX_H
-#define J2534_TACTRIX_UNIX_H
+#pragma once
 
 ////////////////
 // Protocol IDs
@@ -299,5 +298,3 @@ typedef struct
     unsigned long NumOfBytes;
     unsigned char *BytePtr;
 } SBYTE_ARRAY;
-
-#endif // J2534_TACTRIX_UNIX_H

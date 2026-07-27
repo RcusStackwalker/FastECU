@@ -1,5 +1,4 @@
-#ifndef SERIAL_PORT_ACTIONS_DIRECT_H
-#define SERIAL_PORT_ACTIONS_DIRECT_H
+#pragma once
 
 #include <QCoreApplication>
 #include <QByteArray>
@@ -687,5 +686,3 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     void fast_delay(int timeout);
     void delay(int timeout);
 };
-
-#endif // SERIAL_PORT_ACTIONS_DIRECT_H

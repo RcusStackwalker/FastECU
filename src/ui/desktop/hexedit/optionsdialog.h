@@ -1,5 +1,4 @@
-#ifndef OPTIONSDIALOG_H
-#define OPTIONSDIALOG_H
+#pragma once
 
 #include <memory>
 
@@ -41,5 +40,3 @@ class OptionsDialog : public QDialog
   private:
     std::unique_ptr<Ui::OptionsDialog> ui;
 };
-
-#endif // OPTIONSDIALOG_H

@@ -1,5 +1,4 @@
-#ifndef HEXEDIT_H
-#define HEXEDIT_H
+#pragma once
 
 #include <QFileDialog>
 #include <QMessageBox>
@@ -111,5 +110,3 @@ class HexEdit : public QMainWindow
     QLabel *lbOverwriteMode{}, *lbOverwriteModeName{};
     QLabel *lbSize{}, *lbSizeName{};
 };
-
-#endif

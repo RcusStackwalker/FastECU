@@ -1,5 +1,4 @@
-#ifndef FILE_ACTIONS_H
-#define FILE_ACTIONS_H
+#pragma once
 
 #include <QApplication>
 #include <QWidget>
@@ -482,5 +481,3 @@ class FileActions : public QWidget
     void LOG_I(QString message, bool timestamp, bool linefeed);
     void LOG_D(QString message, bool timestamp, bool linefeed);
 };
-
-#endif // FILE_ACTIONS_H

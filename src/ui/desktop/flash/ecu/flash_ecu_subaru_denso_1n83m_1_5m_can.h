@@ -1,5 +1,4 @@
-#ifndef FLASH_ECU_SUBARU_DENSO_1N83M_1_5M_CAN_H
-#define FLASH_ECU_SUBARU_DENSO_1N83M_1_5M_CAN_H
+#pragma once
 
 #include <memory>
 
@@ -54,5 +53,3 @@ class FlashEcuSubaruDenso1N83M_1_5MCan : public QDialog
   private:
     std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
-
-#endif // FLASH_ECU_SUBARU_DENSO_1N83M_1_5M_CAN_H

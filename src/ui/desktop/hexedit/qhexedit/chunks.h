@@ -1,5 +1,4 @@
-#ifndef CHUNKS_H
-#define CHUNKS_H
+#pragma once
 
 /** \cond docNever */
 
@@ -72,5 +71,3 @@ class Chunks : public QObject
 };
 
 /** \endcond docNever */
-
-#endif // CHUNKS_H

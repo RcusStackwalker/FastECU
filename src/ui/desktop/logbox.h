@@ -1,5 +1,4 @@
-#ifndef LOGBOX_H
-#define LOGBOX_H
+#pragma once
 
 #include <QWidget>
 #include <QGroupBox>
@@ -32,5 +31,3 @@ class LogBox : public QWidget
   private:
   signals:
 };
-
-#endif // LOGBOX_H

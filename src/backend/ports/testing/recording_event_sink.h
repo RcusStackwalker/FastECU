@@ -1,3 +1,4 @@
+#pragma once
 #include "src/backend/ports/event_sink.h"
 
 #include <pair>

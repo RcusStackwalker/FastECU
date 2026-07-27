@@ -1,5 +1,4 @@
-#ifndef DTC_OPERATIONS_H
-#define DTC_OPERATIONS_H
+#pragma once
 
 #include <memory>
 
@@ -247,5 +246,3 @@ class DtcOperations : public QDialog
   private:
     std::unique_ptr<Ui::DtcOperationsWindow> ui;
 };
-
-#endif // DTC_OPERATIONS_H

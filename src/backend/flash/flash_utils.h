@@ -1,5 +1,4 @@
-#ifndef FLASH_UTILS_H
-#define FLASH_UTILS_H
+#pragma once
 
 #include <QByteArray>
 #include <QString>
@@ -28,5 +27,3 @@ void configureIso15765Can(SerialPortActions *serial,
                           quint32 destinationAddress,
                           bool use29BitId = false);
 } // namespace FlashUtils
-
-#endif // FLASH_UTILS_H

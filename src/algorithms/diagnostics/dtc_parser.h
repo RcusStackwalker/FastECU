@@ -1,5 +1,4 @@
-#ifndef DTC_PARSER_H
-#define DTC_PARSER_H
+#pragma once
 
 #include <cstdint>
 #include <string>
@@ -14,5 +13,3 @@ std::string dtc_description(std::uint16_t dtc,
                             const std::unordered_map<int, std::string>& cCodes,
                             const std::unordered_map<int, std::string>& bCodes,
                             const std::unordered_map<int, std::string>& uCodes);
-
-#endif // DTC_PARSER_H

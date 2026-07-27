@@ -1,5 +1,4 @@
-#ifndef FASTECU_BYTES_H
-#define FASTECU_BYTES_H
+#pragma once
 
 #include <cstdint>
 #include <cstddef>
@@ -170,5 +169,3 @@ inline Byte sum8(ByteView bytes)
 }
 
 } // namespace bytes
-
-#endif // FASTECU_BYTES_H

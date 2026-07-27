@@ -1,5 +1,4 @@
-#ifndef COMMANDS_H
-#define COMMANDS_H
+#pragma once
 
 /** \cond docNever */
 
@@ -43,5 +42,3 @@ class UndoStack : public QUndoStack
 };
 
 /** \endcond docNever */
-
-#endif // COMMANDS_H

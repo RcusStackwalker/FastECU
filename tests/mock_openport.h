@@ -1,5 +1,4 @@
-#ifndef MOCK_OPENPORT_H
-#define MOCK_OPENPORT_H
+#pragma once
 
 #include <QObject>
 #include <QSemaphore>
@@ -121,5 +120,3 @@ class MockOpenPortThread : public QThread
     int fd;
     QSemaphore ready;
 };
-
-#endif // MOCK_OPENPORT_H

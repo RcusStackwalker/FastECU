@@ -1,5 +1,4 @@
-#ifndef FLASH_ECU_SUBARU_UNISIA_JECS_M32R_BOOT_MODE_H
-#define FLASH_ECU_SUBARU_UNISIA_JECS_M32R_BOOT_MODE_H
+#pragma once
 
 #include <memory>
 
@@ -51,5 +50,3 @@ class FlashEcuSubaruUnisiaJecsM32rBootMode : public QDialog
   private:
     std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
-
-#endif // FLASH_ECU_SUBARU_UNISIA_JECS_M32R_BOOT_MODE_H

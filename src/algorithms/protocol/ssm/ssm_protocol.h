@@ -1,5 +1,4 @@
-#ifndef SSM_PROTOCOL_H
-#define SSM_PROTOCOL_H
+#pragma once
 
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 
@@ -29,5 +28,3 @@ QString toHex(const QByteArray& received);
 uint32_t crc32(const unsigned char *buf, uint32_t len);
 
 } // namespace SsmProtocol
-
-#endif // SSM_PROTOCOL_H

@@ -1,5 +1,4 @@
-#ifndef FLASH_ECU_SUBARU_DENSO_SH72531_CAN_H
-#define FLASH_ECU_SUBARU_DENSO_SH72531_CAN_H
+#pragma once
 
 #include <memory>
 
@@ -53,5 +52,3 @@ class FlashEcuSubaruDensoSH72531Can : public QDialog
   private:
     std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
-
-#endif // FLASH_ECU_SUBARU_DENSO_SH72531_CAN_H

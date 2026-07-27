@@ -1,5 +1,4 @@
-#ifndef FLASH_ECU_SUBARU_HITACHI_SH7058_CAN_OPERATION_H
-#define FLASH_ECU_SUBARU_HITACHI_SH7058_CAN_OPERATION_H
+#pragma once
 
 #include <QByteArray>
 #include <QString>
@@ -105,5 +104,3 @@ class FlashEcuSubaruHitachiSH7058CanOperation : public FlashOperationWorker
     FileActions::EcuCalDefStructure *ecuCalDef;
     QString cmd_type;
 };
-
-#endif // FLASH_ECU_SUBARU_HITACHI_SH7058_CAN_OPERATION_H

@@ -1,4 +1,2 @@
-#ifndef TEST_DESKTOP_CAN_FLASH_TRANSPORT_H
-#define TEST_DESKTOP_CAN_FLASH_TRANSPORT_H
+#pragma once
 int run_test_desktop_can_flash_transport(int argc, char **argv);
-#endif

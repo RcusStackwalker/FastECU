@@ -1,3 +1,4 @@
+#pragma once
 #include "src/backend/ports/resource_bundle.h"
 
 #include <cstdint>

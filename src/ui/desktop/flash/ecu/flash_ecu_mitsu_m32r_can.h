@@ -1,5 +1,4 @@
-#ifndef FLASH_ECU_MITSU_M32R_CAN_H
-#define FLASH_ECU_MITSU_M32R_CAN_H
+#pragma once
 
 #include <memory>
 
@@ -65,5 +64,3 @@ class FlashEcuMitsuM32rCan : public QDialog
   private:
     std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
-
-#endif // FLASH_ECU_MITSU_M32R_CAN_H

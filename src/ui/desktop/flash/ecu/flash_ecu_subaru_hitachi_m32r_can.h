@@ -1,5 +1,4 @@
-#ifndef FLASH_ECU_SUBARU_HITACHI_M32R_CAN_H
-#define FLASH_ECU_SUBARU_HITACHI_M32R_CAN_H
+#pragma once
 
 #include <memory>
 
@@ -60,5 +59,3 @@ class FlashEcuSubaruHitachiM32rCan : public QDialog
   private:
     std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
-
-#endif // FLASH_ECU_SUBARU_HITACHI_M32R_CAN_H

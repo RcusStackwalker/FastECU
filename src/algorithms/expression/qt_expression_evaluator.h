@@ -1,5 +1,4 @@
-#ifndef QT_EXPRESSION_EVALUATOR_H
-#define QT_EXPRESSION_EVALUATOR_H
+#pragma once
 
 #include "src/algorithms/expression/expression_evaluator.h"
 
@@ -20,5 +19,3 @@ class ExpressionEvaluator
     static double evaluate(const QStringList& expression, int precision = 15);
     static double evaluate(const QString& expression, const QString& x, int precision = 15);
 };
-
-#endif // QT_EXPRESSION_EVALUATOR_H

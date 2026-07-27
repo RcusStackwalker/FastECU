@@ -1,5 +1,4 @@
-#ifndef DEFINITIONFILEMAKER_H
-#define DEFINITIONFILEMAKER_H
+#pragma once
 
 #include <memory>
 
@@ -36,5 +35,3 @@ class DefinitionFileConvert : public QDialog
   private:
     std::unique_ptr<Ui::DefinitionFileConvertWindow> ui;
 };
-
-#endif // DEFINITIONFILEMAKER_H

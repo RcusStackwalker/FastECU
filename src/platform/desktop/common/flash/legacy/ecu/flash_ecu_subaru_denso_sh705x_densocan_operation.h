@@ -1,5 +1,4 @@
-#ifndef FLASH_ECU_SUBARU_DENSO_SH705X_DENSOCAN_OPERATION_H
-#define FLASH_ECU_SUBARU_DENSO_SH705X_DENSOCAN_OPERATION_H
+#pragma once
 
 #include <QByteArray>
 #include <QString>
@@ -84,5 +83,3 @@ class FlashEcuSubaruDensoSH705xDensoCanOperation : public FlashOperationWorker
     FileActions::EcuCalDefStructure *ecuCalDef;
     QString cmd_type;
 };
-
-#endif // FLASH_ECU_SUBARU_DENSO_SH705X_DENSOCAN_OPERATION_H
