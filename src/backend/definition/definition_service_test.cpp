@@ -133,10 +133,27 @@ class FakeFileRepository : public IFileRepository
 class FakeAtomicFileWriter : public IAtomicFileWriter
 {
   public:
-    Status replace(std::string_view, std::span<const std::uint8_t>) override
+    struct Call
     {
+        std::string handle;
+        std::vector<std::uint8_t> data;
+    };
+
+    Status replace(std::string_view handle, std::span<const std::uint8_t> data) override
+    {
+        calls.push_back(Call{
+            .handle = std::string(handle),
+            .data = std::vector<std::uint8_t>(data.begin(), data.end()),
+        });
+        if (error)
+        {
+            return std::unexpected(*error);
+        }
         return {};
     }
+
+    std::vector<Call> calls;
+    std::optional<Error> error;
 };
 
 class DefinitionServiceTest : public ::testing::Test
@@ -147,6 +164,25 @@ class DefinitionServiceTest : public ::testing::Test
     FakeAtomicFileWriter writer;
     DefinitionService service{file_system, repository, writer};
 };
+
+DefinitionHeaderInput valid_header_input()
+{
+    return DefinitionHeaderInput{
+        .xml_id = "NEW",
+        .internal_id = "INTERNAL",
+        .ecu_id = "ECU",
+        .internal_id_address = 0x20,
+        .metadata =
+            RomMetadata{
+                .make = "Subaru",
+                .market = "US",
+                .model = "Legacy",
+                .year = "2009",
+            },
+        .include = "BASE",
+        .notes = "Document notes",
+    };
+}
 
 TEST_F(DefinitionServiceTest, DiscoversEcuFlashXmlRecursivelyInLexicalFullPathOrder)
 {
@@ -536,6 +572,109 @@ TEST_F(DefinitionServiceTest, LoadPropagatesResolutionFailure)
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
     EXPECT_NE(result.error().detail.find("MISSING"), std::string::npos);
     EXPECT_EQ(repository.read_counts["child.xml"], 1);
+}
+
+TEST_F(DefinitionServiceTest, CreatesDefinitionWithOneExactAtomicReplacement)
+{
+    const DefinitionHeaderInput input = valid_header_input();
+    auto expected = create_ecuflash_xml(input);
+    ASSERT_TRUE(expected);
+
+    auto result = service.create_definition("created.xml", input);
+
+    ASSERT_TRUE(result) << result.error().detail;
+    ASSERT_EQ(writer.calls.size(), 1U);
+    EXPECT_EQ(writer.calls.front().handle, "created.xml");
+    EXPECT_EQ(writer.calls.front().data, *expected);
+}
+
+TEST_F(DefinitionServiceTest, RejectsInvalidCreationInputBeforeAtomicReplacement)
+{
+    DefinitionHeaderInput input = valid_header_input();
+    input.internal_id = " \t ";
+
+    auto result = service.create_definition("untouched.xml", input);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_TRUE(writer.calls.empty());
+}
+
+TEST_F(DefinitionServiceTest, ImportsDefinitionWithOneExactAtomicReplacement)
+{
+    const DefinitionHeaderInput input = valid_header_input();
+    repository.files["source.xml"] = bytes(R"xml(
+<rom>
+  <!-- preserved -->
+  <romid><xmlid>OLD</xmlid></romid>
+  <include>OLD_BASE</include>
+  <vendor-extension/>
+</rom>)xml");
+    auto expected = rewrite_ecuflash_xml(repository.files["source.xml"], input);
+    ASSERT_TRUE(expected);
+
+    auto result = service.import_definition("source.xml", "imported.xml", input);
+
+    ASSERT_TRUE(result) << result.error().detail;
+    EXPECT_EQ(repository.read_counts["source.xml"], 1);
+    ASSERT_EQ(writer.calls.size(), 1U);
+    EXPECT_EQ(writer.calls.front().handle, "imported.xml");
+    EXPECT_EQ(writer.calls.front().data, *expected);
+}
+
+TEST_F(DefinitionServiceTest, ImportPropagatesSourceReadFailureBeforeAtomicReplacement)
+{
+    repository.read_errors["source.xml"] =
+        Error{ErrorKind::Disconnected, "source vanished"};
+
+    auto result =
+        service.import_definition("source.xml", "untouched.xml", valid_header_input());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error(), (Error{ErrorKind::Disconnected, "source vanished"}));
+    EXPECT_TRUE(writer.calls.empty());
+}
+
+TEST_F(DefinitionServiceTest, ImportRejectsMalformedSourceBeforeAtomicReplacement)
+{
+    repository.files["source.xml"] = bytes("<rom><romid>");
+
+    auto result =
+        service.import_definition("source.xml", "untouched.xml", valid_header_input());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_TRUE(writer.calls.empty());
+}
+
+TEST_F(DefinitionServiceTest, ImportRejectsInvalidTransformedTreeBeforeAtomicReplacement)
+{
+    repository.files["source.xml"] = bytes(R"xml(
+<rom>
+  <romid><xmlid>OLD</xmlid></romid>
+  <table name="Fuel" address="100">
+    <table type="X Axis" elements="1"/>
+  </table>
+</rom>)xml");
+
+    auto result =
+        service.import_definition("source.xml", "untouched.xml", valid_header_input());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_TRUE(writer.calls.empty());
+}
+
+TEST_F(DefinitionServiceTest, PropagatesAtomicReplacementFailureUnchanged)
+{
+    writer.error = Error{ErrorKind::Internal, "atomic commit failed"};
+
+    auto result = service.create_definition("destination.xml", valid_header_input());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error(), (Error{ErrorKind::Internal, "atomic commit failed"}));
+    ASSERT_EQ(writer.calls.size(), 1U);
+    EXPECT_EQ(writer.calls.front().handle, "destination.xml");
 }
 
 } // namespace

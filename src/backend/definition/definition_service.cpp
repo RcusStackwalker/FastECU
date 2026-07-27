@@ -290,4 +290,34 @@ Result<RomDefinition> DefinitionService::load(
     return resolved;
 }
 
+Status DefinitionService::create_definition(
+    std::string_view destination,
+    const DefinitionHeaderInput& input)
+{
+    auto contents = create_ecuflash_xml(input);
+    if (!contents)
+    {
+        return std::unexpected(contents.error());
+    }
+    return writer_.replace(destination, *contents);
+}
+
+Status DefinitionService::import_definition(
+    std::string_view source,
+    std::string_view destination,
+    const DefinitionHeaderInput& input)
+{
+    auto source_contents = repository_.read(source);
+    if (!source_contents)
+    {
+        return std::unexpected(source_contents.error());
+    }
+    auto rewritten = rewrite_ecuflash_xml(*source_contents, input);
+    if (!rewritten)
+    {
+        return std::unexpected(rewritten.error());
+    }
+    return writer_.replace(destination, *rewritten);
+}
+
 } // namespace fastecu::definition

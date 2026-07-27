@@ -49,9 +49,31 @@ cc_library(
     deps = [
         ":definition_model",
         ":definition_resolver",
+        ":definition_writer",
         ":ecuflash_parser",
         ":romraider_parser",
         "//src/backend/ports",
+    ],
+)
+
+cc_library(
+    name = "definition_writer",
+    srcs = ["definition_writer.cpp"],
+    hdrs = ["definition_writer.h"],
+    deps = [
+        ":definition_model",
+        ":ecuflash_parser",
+        "//src/backend/ports",
+        "@pugixml",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "definition_writer_test",
+    srcs = ["definition_writer_test.cpp"],
+    deps = [
+        ":definition_writer",
+        ":ecuflash_parser",
     ],
 )
 
