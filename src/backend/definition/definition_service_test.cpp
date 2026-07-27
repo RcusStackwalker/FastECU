@@ -281,7 +281,7 @@ TEST_F(DefinitionServiceTest, MatchesUpperAndLowerCaseHexText)
     EXPECT_EQ(upper->definition_id, "UPPER");
 }
 
-TEST_F(DefinitionServiceTest, SkipsInvalidOddLengthHexIdentifier)
+TEST_F(DefinitionServiceTest, RejectsOddLengthHexIdentifierBeforeLaterMatch)
 {
     auto catalog = DefinitionCatalog::create({
         index_entry("ODD", "ABC", 0U, IdEncoding::Hex),
@@ -292,11 +292,48 @@ TEST_F(DefinitionServiceTest, SkipsInvalidOddLengthHexIdentifier)
 
     auto result = service.match_rom(*catalog, rom);
 
-    ASSERT_TRUE(result);
-    EXPECT_EQ(result->definition_id, "VALID");
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_NE(result.error().detail.find("ODD"), std::string::npos);
+    EXPECT_NE(result.error().detail.find("definitions.xml"), std::string::npos);
+    EXPECT_NE(result.error().detail.find("odd"), std::string::npos);
 }
 
-TEST_F(DefinitionServiceTest, SkipsAddressBeyondRomBounds)
+TEST_F(DefinitionServiceTest, RejectsInvalidHexDigitBeforeLaterMatch)
+{
+    auto catalog = DefinitionCatalog::create({
+        index_entry("INVALID_HEX", "AG", 0U, IdEncoding::Hex),
+        index_entry("VALID", "41", 0U, IdEncoding::Hex),
+    });
+    ASSERT_TRUE(catalog);
+    const std::vector<std::uint8_t> rom{'A'};
+
+    auto result = service.match_rom(*catalog, rom);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_NE(result.error().detail.find("INVALID_HEX"), std::string::npos);
+    EXPECT_NE(result.error().detail.find("hexadecimal"), std::string::npos);
+}
+
+TEST_F(DefinitionServiceTest, RejectsMissingAddressBeforeLaterMatch)
+{
+    auto catalog = DefinitionCatalog::create({
+        index_entry("NO_ADDRESS", "A", std::nullopt),
+        index_entry("VALID", "A", 0U),
+    });
+    ASSERT_TRUE(catalog);
+    const std::vector<std::uint8_t> rom{'A'};
+
+    auto result = service.match_rom(*catalog, rom);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_NE(result.error().detail.find("NO_ADDRESS"), std::string::npos);
+    EXPECT_NE(result.error().detail.find("address"), std::string::npos);
+}
+
+TEST_F(DefinitionServiceTest, RejectsAddressBeyondRomBoundsBeforeLaterMatch)
 {
     auto catalog = DefinitionCatalog::create({
         index_entry("OUT_OF_RANGE", "A", 2U),
@@ -307,8 +344,10 @@ TEST_F(DefinitionServiceTest, SkipsAddressBeyondRomBounds)
 
     auto result = service.match_rom(*catalog, rom);
 
-    ASSERT_TRUE(result);
-    EXPECT_EQ(result->definition_id, "VALID");
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_NE(result.error().detail.find("OUT_OF_RANGE"), std::string::npos);
+    EXPECT_NE(result.error().detail.find("address"), std::string::npos);
 }
 
 TEST_F(DefinitionServiceTest, ReturnsFirstCatalogEntryWhenMatchesAreAmbiguous)
@@ -418,6 +457,28 @@ TEST_F(DefinitionServiceTest, LoadPropagatesRepositoryFailure)
               (Error{ErrorKind::Disconnected, "definition read failed"}));
 }
 
+TEST_F(DefinitionServiceTest, LoadPropagatesParentRepositoryFailureUnchanged)
+{
+    repository.files["child.xml"] = bytes(R"xml(
+      <rom><romid><xmlid>CHILD</xmlid></romid><include>BASE</include></rom>)xml");
+    repository.read_errors["base.xml"] =
+        Error{ErrorKind::InvalidConfig, "parent definition read failed"};
+    auto catalog = DefinitionCatalog::create({
+        load_entry(DefinitionFormat::EcuFlash, "CHILD", "child.xml"),
+        load_entry(DefinitionFormat::EcuFlash, "BASE", "base.xml"),
+    });
+    ASSERT_TRUE(catalog);
+
+    auto result = service.load(*catalog, DefinitionFormat::EcuFlash, "CHILD");
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(
+        result.error(),
+        (Error{ErrorKind::InvalidConfig, "parent definition read failed"}));
+    EXPECT_EQ(repository.read_counts["child.xml"], 1);
+    EXPECT_EQ(repository.read_counts["base.xml"], 1);
+}
+
 TEST_F(DefinitionServiceTest, LoadRejectsMissingCatalogIdWithoutReading)
 {
     auto catalog = DefinitionCatalog::create(
@@ -429,6 +490,22 @@ TEST_F(DefinitionServiceTest, LoadRejectsMissingCatalogIdWithoutReading)
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
     EXPECT_TRUE(repository.read_counts.empty());
+}
+
+TEST_F(DefinitionServiceTest, LoadRejectsEcuFlashIdentityThatDoesNotMatchCatalogId)
+{
+    auto catalog = DefinitionCatalog::create(
+        {load_entry(DefinitionFormat::EcuFlash, "EXPECTED", "stale.xml")});
+    ASSERT_TRUE(catalog);
+    repository.files["stale.xml"] = ecuflash_xml("OTHER");
+
+    auto result = service.load(*catalog, DefinitionFormat::EcuFlash, "EXPECTED");
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_NE(result.error().detail.find("EXPECTED"), std::string::npos);
+    EXPECT_NE(result.error().detail.find("OTHER"), std::string::npos);
+    EXPECT_NE(result.error().detail.find("stale.xml"), std::string::npos);
 }
 
 TEST_F(DefinitionServiceTest, LoadPropagatesDefinitionParseFailure)

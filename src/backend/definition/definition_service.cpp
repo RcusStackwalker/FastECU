@@ -65,21 +65,19 @@ std::optional<std::uint8_t> hex_nibble(char character)
     return std::nullopt;
 }
 
-std::optional<std::vector<std::uint8_t>> identifier_bytes(
+Result<std::vector<std::uint8_t>> identifier_bytes(
     std::string_view identifier,
     IdEncoding encoding)
 {
-    if (identifier.empty())
-    {
-        return std::nullopt;
-    }
     if (encoding == IdEncoding::Ascii)
     {
         return std::vector<std::uint8_t>(identifier.begin(), identifier.end());
     }
     if (identifier.size() % 2 != 0)
     {
-        return std::nullopt;
+        return fail(
+            ErrorKind::InvalidConfig,
+            "hexadecimal identifier has odd length");
     }
 
     std::vector<std::uint8_t> decoded;
@@ -90,11 +88,23 @@ std::optional<std::vector<std::uint8_t>> identifier_bytes(
         auto low = hex_nibble(identifier[index + 1]);
         if (!high || !low)
         {
-            return std::nullopt;
+            return fail(
+                ErrorKind::InvalidConfig,
+                "identifier contains a non-hexadecimal digit");
         }
         decoded.push_back(static_cast<std::uint8_t>((*high << 4U) | *low));
     }
     return decoded;
+}
+
+std::unexpected<Error> invalid_match_metadata(
+    const DefinitionIndexEntry& entry,
+    std::string detail)
+{
+    return fail(
+        ErrorKind::InvalidConfig,
+        "invalid ROM match metadata for definition '" + entry.definition_id +
+            "' from '" + entry.source + "': " + std::move(detail));
 }
 
 Result<void> discover_xml(
@@ -188,16 +198,27 @@ Result<DefinitionIndexEntry> DefinitionService::match_rom(
 {
     for (const DefinitionIndexEntry& entry : catalog.entries())
     {
-        auto candidate = identifier_bytes(entry.internal_id, entry.internal_id_encoding);
-        if (!candidate || !entry.internal_id_address)
+        if (entry.internal_id.empty())
         {
             continue;
+        }
+        auto candidate = identifier_bytes(entry.internal_id, entry.internal_id_encoding);
+        if (!candidate)
+        {
+            return invalid_match_metadata(entry, candidate.error().detail);
+        }
+        if (!entry.internal_id_address)
+        {
+            return invalid_match_metadata(entry, "internal ID address is absent");
         }
 
         const std::uint64_t address = *entry.internal_id_address;
         if (address > rom.size())
         {
-            continue;
+            return invalid_match_metadata(
+                entry,
+                "internal ID address " + std::to_string(address) +
+                    " exceeds ROM size " + std::to_string(rom.size()));
         }
         const std::size_t offset = static_cast<std::size_t>(address);
         if (candidate->size() > rom.size() - offset)
@@ -217,8 +238,9 @@ Result<RomDefinition> DefinitionService::load(
     DefinitionFormat format,
     std::string_view id)
 {
+    std::optional<Error> repository_error;
     DefinitionLoader loader =
-        [this, &catalog](
+        [this, &catalog, &repository_error](
             DefinitionFormat requested_format,
             std::string_view requested_id) -> Result<UnresolvedDefinition>
     {
@@ -231,6 +253,7 @@ Result<RomDefinition> DefinitionService::load(
         auto contents = repository_.read(entry.source);
         if (!contents)
         {
+            repository_error = contents.error();
             return std::unexpected(contents.error());
         }
 
@@ -238,7 +261,20 @@ Result<RomDefinition> DefinitionService::load(
         {
             return parse_romraider_definition(*contents, entry.source, requested_id);
         }
-        return parse_ecuflash_definition(*contents, entry.source);
+        auto parsed = parse_ecuflash_definition(*contents, entry.source);
+        if (!parsed)
+        {
+            return std::unexpected(parsed.error());
+        }
+        if (parsed->identity.xml_id != requested_id)
+        {
+            return fail(
+                ErrorKind::InvalidConfig,
+                "EcuFlash catalog ID '" + std::string(requested_id) +
+                    "' from '" + entry.source + "' loaded definition '" +
+                    parsed->identity.xml_id + "'");
+        }
+        return parsed;
     };
 
     auto root = loader(format, id);
@@ -246,7 +282,12 @@ Result<RomDefinition> DefinitionService::load(
     {
         return std::unexpected(root.error());
     }
-    return resolve_definition(std::move(*root), loader);
+    auto resolved = resolve_definition(std::move(*root), loader);
+    if (!resolved && repository_error)
+    {
+        return std::unexpected(*repository_error);
+    }
+    return resolved;
 }
 
 } // namespace fastecu::definition
