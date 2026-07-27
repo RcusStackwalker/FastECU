@@ -20,3 +20,23 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "in_memory_file_system",
+    testonly = True,
+    hdrs = ["in_memory_file_system.h"],
+    visibility = [
+        "//src/backend:__subpackages__",
+        "//tests:__pkg__",
+    ],
+    deps = ["//src/backend/ports"],
+)
+
+cc_test(
+    name = "in_memory_file_system_test",
+    srcs = ["in_memory_file_system_test.cpp"],
+    deps = [
+        ":in_memory_file_system",
+        "@googletest//:gtest_main",
+    ],
+)
