@@ -1,0 +1,22 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "in_memory_file_repository",
+    testonly = True,
+    hdrs = ["in_memory_file_repository.h"],
+    visibility = [
+        "//src/backend:__subpackages__",
+        "//tests:__pkg__",
+    ],
+    deps = ["//src/backend/ports"],
+)
+
+cc_test(
+    name = "in_memory_file_repository_test",
+    srcs = ["in_memory_file_repository_test.cpp"],
+    deps = [
+        ":in_memory_file_repository",
+        "@googletest//:gtest_main",
+    ],
+)

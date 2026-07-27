@@ -1,4 +1,5 @@
 #include "src/backend/config/protocol_catalog.h"
+#include "src/backend/ports/testing/in_memory_file_repository.h"
 
 #include <cstdlib>
 #include <cstring>
@@ -9,7 +10,7 @@
 #include <gtest/gtest.h>
 
 using fastecu::ErrorKind;
-using fastecu::IFileRepository;
+using fastecu::InMemoryFileRepository;
 using fastecu::Result;
 using fastecu::Status;
 using fastecu::config::ConfigPaths;
@@ -18,23 +19,6 @@ using fastecu::config::ProtocolCatalog;
 
 namespace
 {
-class InMemoryFileRepository : public IFileRepository
-{
-  public:
-    Result<std::vector<std::uint8_t>> read(std::string_view handle) override
-    {
-        auto it = files.find(std::string(handle));
-        if (it == files.end())
-            return fastecu::fail(ErrorKind::InvalidConfig, "no such handle");
-        return it->second;
-    }
-    Status write(std::string_view, std::span<const std::uint8_t>) override
-    {
-        return {};
-    }
-    std::map<std::string, std::vector<std::uint8_t>> files;
-};
-
 ConfigPaths test_paths()
 {
     ConfigPaths p;

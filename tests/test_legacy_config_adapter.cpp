@@ -1,12 +1,13 @@
 #include "src/backend/config/legacy_config_adapter.h"
 #include "src/backend/definitions/file_actions.h"
+#include "src/backend/ports/testing/in_memory_file_repository.h"
 #include <gtest/gtest.h>
 #include <map>
 
 using fastecu::DirEntry;
 using fastecu::ErrorKind;
-using fastecu::IFileRepository;
 using fastecu::IFileSystem;
+using fastecu::InMemoryFileRepository;
 using fastecu::IResourceBundle;
 using fastecu::Result;
 using fastecu::Status;
@@ -54,25 +55,6 @@ class InMemoryResourceBundle : public IResourceBundle
     }
 };
 
-class InMemoryFileRepository : public IFileRepository
-{
-  public:
-    Result<std::vector<std::uint8_t>> read(std::string_view handle) override
-    {
-        auto it = files.find(std::string(handle));
-        if (it == files.end())
-        {
-            return fastecu::fail(ErrorKind::InvalidConfig, "no such handle");
-        }
-        return it->second;
-    }
-    Status write(std::string_view handle, std::span<const std::uint8_t> data) override
-    {
-        files[std::string(handle)].assign(data.begin(), data.end());
-        return {};
-    }
-    std::map<std::string, std::vector<std::uint8_t>> files;
-};
 } // namespace
 
 TEST(LegacyConfigAdapterTest, SetBaseDirsPopulatesConfigValuesStructureAndReturnsSamePointer)
