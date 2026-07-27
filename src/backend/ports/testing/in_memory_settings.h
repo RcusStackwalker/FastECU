@@ -1,11 +1,8 @@
 #include "src/backend/ports/settings.h"
-#include <gtest/gtest.h>
+
 #include <map>
-#include <string>
 
-using fastecu::ISettings;
-
-namespace
+namespace fastecu
 {
 class InMemorySettings : public ISettings
 {
@@ -23,13 +20,4 @@ class InMemorySettings : public ISettings
     }
     std::map<std::string, std::string> kv;
 };
-} // namespace
-
-TEST(Settings, GetMissingReturnsNullopt)
-{
-    InMemorySettings s;
-    EXPECT_FALSE(s.get("k").has_value());
-    s.set("k", "v");
-    ASSERT_TRUE(s.get("k").has_value());
-    EXPECT_EQ(*s.get("k"), "v");
-}
+} // namespace fastecu
