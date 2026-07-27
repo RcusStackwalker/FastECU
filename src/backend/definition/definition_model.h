@@ -24,6 +24,7 @@ enum class IdEncoding
 {
     Ascii,
     Hex,
+    AsciiOrHex,
 };
 
 struct DefinitionIndexEntry

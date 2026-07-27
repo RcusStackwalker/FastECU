@@ -97,6 +97,33 @@ Result<std::vector<std::uint8_t>> identifier_bytes(
     return decoded;
 }
 
+Result<std::vector<std::vector<std::uint8_t>>> identifier_candidates(
+    std::string_view identifier,
+    IdEncoding encoding)
+{
+    if (encoding != IdEncoding::AsciiOrHex)
+    {
+        auto candidate = identifier_bytes(identifier, encoding);
+        if (!candidate)
+        {
+            return std::unexpected(candidate.error());
+        }
+        return std::vector<std::vector<std::uint8_t>>{
+            std::move(*candidate),
+        };
+    }
+
+    std::vector<std::vector<std::uint8_t>> candidates{
+        std::vector<std::uint8_t>(identifier.begin(), identifier.end()),
+    };
+    auto hexadecimal = identifier_bytes(identifier, IdEncoding::Hex);
+    if (hexadecimal)
+    {
+        candidates.push_back(std::move(*hexadecimal));
+    }
+    return candidates;
+}
+
 std::unexpected<Error> invalid_match_metadata(
     const DefinitionIndexEntry& entry,
     std::string detail)
@@ -202,10 +229,12 @@ Result<DefinitionIndexEntry> DefinitionService::match_rom(
         {
             continue;
         }
-        auto candidate = identifier_bytes(entry.internal_id, entry.internal_id_encoding);
-        if (!candidate)
+        auto candidates = identifier_candidates(
+            entry.internal_id,
+            entry.internal_id_encoding);
+        if (!candidates)
         {
-            return invalid_match_metadata(entry, candidate.error().detail);
+            return invalid_match_metadata(entry, candidates.error().detail);
         }
         if (!entry.internal_id_address)
         {
@@ -221,13 +250,16 @@ Result<DefinitionIndexEntry> DefinitionService::match_rom(
                     " exceeds ROM size " + std::to_string(rom.size()));
         }
         const std::size_t offset = static_cast<std::size_t>(address);
-        if (candidate->size() > rom.size() - offset)
+        for (const std::vector<std::uint8_t>& candidate : *candidates)
         {
-            continue;
-        }
-        if (std::equal(candidate->begin(), candidate->end(), rom.begin() + offset))
-        {
-            return entry;
+            if (candidate.size() <= rom.size() - offset &&
+                std::equal(
+                    candidate.begin(),
+                    candidate.end(),
+                    rom.begin() + offset))
+            {
+                return entry;
+            }
         }
     }
     return fail(ErrorKind::InvalidConfig, "no matching ROM definition found");

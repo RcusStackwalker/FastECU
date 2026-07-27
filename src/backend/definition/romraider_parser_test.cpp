@@ -49,7 +49,7 @@ TEST(RomRaiderParserTest, IndexesMultipleDefinitionsAndRecordsParentReferences)
     ASSERT_EQ(result->size(), 2U);
     EXPECT_EQ(result->at(0).definition_id, "BASE");
     EXPECT_EQ(result->at(0).internal_id, "BASE-ID");
-    EXPECT_EQ(result->at(0).internal_id_encoding, IdEncoding::Ascii);
+    EXPECT_EQ(result->at(0).internal_id_encoding, IdEncoding::AsciiOrHex);
     EXPECT_EQ(result->at(0).source, "rr.xml");
     EXPECT_TRUE(result->at(0).parents.empty());
     EXPECT_EQ(result->at(1).definition_id, "CHILD");

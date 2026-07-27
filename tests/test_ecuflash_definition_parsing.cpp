@@ -35,6 +35,29 @@ class InMemoryAtomicFileWriter : public fastecu::IAtomicFileWriter
     std::map<std::string, std::vector<std::uint8_t>> files;
 };
 
+class CountingFileRepository : public fastecu::IFileRepository
+{
+  public:
+    fastecu::Result<std::vector<std::uint8_t>> read(
+        std::string_view handle) override
+    {
+        ++readCount;
+        return repository.read(handle);
+    }
+
+    fastecu::Status write(
+        std::string_view handle,
+        std::span<const std::uint8_t> data) override
+    {
+        return repository.write(handle, data);
+    }
+
+    int readCount{0};
+
+  private:
+    QtFileRepository repository;
+};
+
 bool spyContainsMessage(const QSignalSpy& spy, const QString& text)
 {
     for (const QList<QVariant>& arguments : spy)
@@ -100,6 +123,35 @@ class TestEcuflashDefinitionParsing : public QObject
         QCOMPARE(ecuCalDef.LevelList.at(0), QString("2"));
         QCOMPARE(ecuCalDef.UserLevelList.at(0), QString("3"));
         QCOMPARE(ecuCalDef.DescriptionList.at(0), QString("A test table"));
+    }
+
+    void successful_read_translates_flash_method_alias_to_protocol_name()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString defPath = writeDefFile(
+            dir,
+            "TESTCAL",
+            "<rom><romid><xmlid>TESTCAL</xmlid>"
+            "<flashmethod>denso_can</flashmethod></romid></rom>");
+        QVERIFY(!defPath.isEmpty());
+
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        auto& config = fileActions.ConfigValuesStruct;
+        config.ecuflash_def_cal_id = {"TESTCAL"};
+        config.ecuflash_def_filename = {defPath};
+        config.flash_protocol_id = {"subaru-denso"};
+        config.flash_protocol_alias = {"denso_kline,denso_can"};
+        config.flash_protocol_protocol_name = {"sub_ecu_denso_can"};
+
+        FileActions::EcuCalDefStructure ecuCalDef;
+        QCOMPARE(
+            fileActions.read_ecuflash_ecu_def(&ecuCalDef, "TESTCAL"),
+            &ecuCalDef);
+
+        QCOMPARE(
+            ecuCalDef.RomInfo.at(FileActions::FlashMethod),
+            QString("sub_ecu_denso_can"));
     }
 
     void storageaddress_populates_address_when_address_absent()
@@ -259,7 +311,7 @@ class TestEcuflashDefinitionParsing : public QObject
             "<rom>"
             "<romid><xmlid>BASE_TEST</xmlid></romid>"
             "<scaling name=\"FuelScale\" units=\"%\" toexpr=\"x*0.5\" frexpr=\"x*2\" "
-            "format=\"0.0\" min=\"0\" max=\"100\" inc=\"1\" "
+            "format=\"%.1f\" min=\"0\" max=\"100\" inc=\"1\" "
             "storagetype=\"uint16\" endian=\"big\"/>"
             "<table name=\"Fuel\" address=\"1000\" type=\"1D\" sizex=\"1\" sizey=\"1\" "
             "scaling=\"FuelScale\"/>"
@@ -282,7 +334,14 @@ class TestEcuflashDefinitionParsing : public QObject
 
         FileActions::EcuCalDefStructure ecuCalDef;
         QCOMPARE(fileActions.read_ecuflash_ecu_def(&ecuCalDef, "CHILD_TEST"), &ecuCalDef);
+        const int readsAfterDefinition = fileRepository_.readCount;
+        const FileActions::EcuCalDefStructure resolved = ecuCalDef;
         QCOMPARE(fileActions.parse_ecuflash_def_scalings(&ecuCalDef), &ecuCalDef);
+        QCOMPARE(fileRepository_.readCount, readsAfterDefinition);
+        QVERIFY(ecuCalDef == resolved);
+        QCOMPARE(fileActions.parse_ecuflash_def_scalings(&ecuCalDef), &ecuCalDef);
+        QCOMPARE(fileRepository_.readCount, readsAfterDefinition);
+        QVERIFY(ecuCalDef == resolved);
 
         QCOMPARE(ecuCalDef.RomInfo.at(FileActions::XmlId), QString("CHILD_TEST"));
         QCOMPARE(ecuCalDef.NameList.at(0), QString("Fuel"));
@@ -291,10 +350,63 @@ class TestEcuflashDefinitionParsing : public QObject
         QCOMPARE(ecuCalDef.EndianList.at(0), QString("big"));
         QCOMPARE(ecuCalDef.FromByteList.at(0), QString("x*0.5"));
         QCOMPARE(ecuCalDef.ToByteList.at(0), QString("x*2"));
-        QCOMPARE(ecuCalDef.FormatList.at(0), QString("0"));
+        QCOMPARE(ecuCalDef.FormatList.at(0), QString("0.0"));
         QVERIFY(spyContainsMessage(
             debugSpy,
             "Definition for CAL ID CHILD_TEST succesfully read"));
+    }
+
+    void standalone_scaling_parse_uses_prepopulated_rows_without_file_io()
+    {
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        FileActions::EcuCalDefStructure ecuCalDef;
+        fileActions.add_ecuflash_def_list_item(&ecuCalDef);
+        ecuCalDef.NameList[0] = "Fuel";
+        ecuCalDef.MapScalingNameList[0] = "FuelScale";
+        ecuCalDef.ScalingNameList = {"FuelScale"};
+        ecuCalDef.ScalingUnitsList = {"%"};
+        ecuCalDef.ScalingFromByteList = {"x*0.5"};
+        ecuCalDef.ScalingToByteList = {"x*2"};
+        ecuCalDef.ScalingFormatList = {"%.2f"};
+        ecuCalDef.ScalingMinValueList = {"0"};
+        ecuCalDef.ScalingMaxValueList = {"100"};
+        ecuCalDef.ScalingCoarseIncList = {"1"};
+        ecuCalDef.ScalingFineIncList = {"0.1"};
+        ecuCalDef.ScalingStorageTypeList = {"bloblist"};
+        ecuCalDef.ScalingEndianList = {"big"};
+        ecuCalDef.ScalingSelectionsNameList = {"disabled,enabled,"};
+        ecuCalDef.ScalingSelectionsValueList = {"00,01,"};
+        const int readsBeforeScaling = fileRepository_.readCount;
+
+        QCOMPARE(
+            fileActions.parse_ecuflash_def_scalings(&ecuCalDef),
+            &ecuCalDef);
+
+        QCOMPARE(fileRepository_.readCount, readsBeforeScaling);
+        QCOMPARE(ecuCalDef.TypeList.at(0), QString("Selectable"));
+        QCOMPARE(ecuCalDef.StorageTypeList.at(0), QString("bloblist"));
+        QCOMPARE(ecuCalDef.UnitsList.at(0), QString("%"));
+        QCOMPARE(ecuCalDef.FineIncList.at(0), QString("0.1"));
+        QCOMPARE(ecuCalDef.CoarseIncList.at(0), QString("1"));
+        QCOMPARE(ecuCalDef.MinValueList.at(0), QString("0"));
+        QCOMPARE(ecuCalDef.MaxValueList.at(0), QString("100"));
+        QCOMPARE(ecuCalDef.EndianList.at(0), QString("big"));
+        QCOMPARE(ecuCalDef.FromByteList.at(0), QString("x*0.5"));
+        QCOMPARE(ecuCalDef.ToByteList.at(0), QString("x*2"));
+        QCOMPARE(ecuCalDef.FormatList.at(0), QString("0.00"));
+        QCOMPARE(
+            ecuCalDef.SelectionsNameList.at(0),
+            QString("disabled,enabled,"));
+        QCOMPARE(
+            ecuCalDef.SelectionsValueList.at(0),
+            QString("00,01,"));
+
+        const FileActions::EcuCalDefStructure parsed = ecuCalDef;
+        QCOMPARE(
+            fileActions.parse_ecuflash_def_scalings(&ecuCalDef),
+            &ecuCalDef);
+        QCOMPARE(fileRepository_.readCount, readsBeforeScaling);
+        QVERIFY(ecuCalDef == parsed);
     }
 
     void malformed_ecuflash_catalog_preserves_existing_rows_and_logs_error()
@@ -437,6 +549,34 @@ class TestEcuflashDefinitionParsing : public QObject
         QVERIFY(spyContainsMessage(errorSpy, "no matching ROM definition"));
     }
 
+    void ecuflash_rom_match_accepts_legacy_hex_identifier()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString definitionPath = writeDefFile(
+            dir,
+            "AB10",
+            "<rom><romid><xmlid>AB10</xmlid>"
+            "<internalidaddress>0</internalidaddress>"
+            "<internalidstring>AB10</internalidstring></romid></rom>");
+        QVERIFY(!definitionPath.isEmpty());
+
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        auto& config = fileActions.ConfigValuesStruct;
+        config.ecuflash_definition_files_directory = dir.path();
+
+        FileActions::EcuCalDefStructure ecuCalDef;
+        ecuCalDef.FullRomData = QByteArray::fromHex("AB10");
+        QSignalSpy errorSpy(&fileActions, &FileActions::LOG_E);
+
+        QCOMPARE(
+            fileActions.parse_ecuid_ecuflash_def_files(&ecuCalDef, false),
+            &ecuCalDef);
+
+        QCOMPARE(ecuCalDef.RomId, QString("AB10"));
+        QVERIFY(errorSpy.isEmpty());
+    }
+
   private:
     static QString writeDefFile(const QTemporaryDir& dir, const QString& baseName, const QString& xml)
     {
@@ -461,7 +601,7 @@ class TestEcuflashDefinitionParsing : public QObject
     // are sufficient.
     QtFileSystem fileSystem_;
     QtResourceBundle resourceBundle_;
-    QtFileRepository fileRepository_;
+    CountingFileRepository fileRepository_;
     InMemoryAtomicFileWriter atomicFileWriter_;
 };
 

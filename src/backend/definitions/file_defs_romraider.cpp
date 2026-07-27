@@ -84,6 +84,12 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(
     const QString source = ecuCalDef->DefinitionFileName;
     if (source.isEmpty())
     {
+        log_definition_error(
+            "Unable to read RomRaider base definition",
+            fastecu::Error{
+                fastecu::ErrorKind::InvalidConfig,
+                "definition source is missing",
+            });
         return nullptr;
     }
 
@@ -98,6 +104,12 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(
     }
     if (definitionId.isEmpty())
     {
+        log_definition_error(
+            "Unable to read RomRaider base definition",
+            fastecu::Error{
+                fastecu::ErrorKind::InvalidConfig,
+                "definition ID is missing",
+            });
         return nullptr;
     }
 

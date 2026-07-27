@@ -317,6 +317,26 @@ TEST_F(DefinitionServiceTest, MatchesUpperAndLowerCaseHexText)
     EXPECT_EQ(upper->definition_id, "UPPER");
 }
 
+TEST_F(DefinitionServiceTest, MatchesEitherAsciiOrHexForLegacyCompatibleEntry)
+{
+    auto ascii_catalog = DefinitionCatalog::create(
+        {index_entry("ASCII", "AB10", 0U, IdEncoding::AsciiOrHex)});
+    auto hex_catalog = DefinitionCatalog::create(
+        {index_entry("HEX", "AB10", 0U, IdEncoding::AsciiOrHex)});
+    ASSERT_TRUE(ascii_catalog);
+    ASSERT_TRUE(hex_catalog);
+    const std::vector<std::uint8_t> ascii_rom{'A', 'B', '1', '0'};
+    const std::vector<std::uint8_t> hex_rom{0xAB, 0x10};
+
+    auto ascii = service.match_rom(*ascii_catalog, ascii_rom);
+    auto hex = service.match_rom(*hex_catalog, hex_rom);
+
+    ASSERT_TRUE(ascii);
+    ASSERT_TRUE(hex);
+    EXPECT_EQ(ascii->definition_id, "ASCII");
+    EXPECT_EQ(hex->definition_id, "HEX");
+}
+
 TEST_F(DefinitionServiceTest, RejectsOddLengthHexIdentifierBeforeLaterMatch)
 {
     auto catalog = DefinitionCatalog::create({

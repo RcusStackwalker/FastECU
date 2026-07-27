@@ -46,11 +46,21 @@ fastecu::Result<DefinitionCatalog> catalogFromLegacyLists(
             ? &config.romraider_def_filename
             : &config.ecuflash_def_filename;
 
-    if (sources->size() != ids->size())
+    const bool completeShape =
+        sources->size() == ids->size() &&
+        addresses->size() == ids->size() &&
+        ecuIds->size() == ids->size();
+    const bool readOnlyShape =
+        sources->size() == ids->size() &&
+        addresses->isEmpty() &&
+        ecuIds->isEmpty();
+    if (!completeShape && !readOnlyShape)
     {
         return fastecu::fail(
             fastecu::ErrorKind::InvalidConfig,
-            "legacy definition catalog ID/source lists are not aligned");
+            "legacy definition catalog ID/source/address/ECU columns are not "
+            "aligned; expected four complete columns or the documented "
+            "ID/source-only read shape");
     }
 
     std::vector<DefinitionIndexEntry> entries;
@@ -59,7 +69,7 @@ fastecu::Result<DefinitionCatalog> catalogFromLegacyLists(
     {
         std::optional<std::uint64_t> address;
         const QString addressText =
-            index < addresses->size() ? addresses->at(index) : QString{};
+            readOnlyShape ? QString{} : addresses->at(index);
         if (!addressText.trimmed().isEmpty())
         {
             bool valid = false;
@@ -79,9 +89,9 @@ fastecu::Result<DefinitionCatalog> catalogFromLegacyLists(
             .definition_id = utf8(ids->at(index)),
             .internal_id = utf8(ids->at(index)),
             .internal_id_address = address,
-            .internal_id_encoding = IdEncoding::Ascii,
+            .internal_id_encoding = IdEncoding::AsciiOrHex,
             .ecu_id =
-                index < ecuIds->size() ? utf8(ecuIds->at(index)) : std::string{},
+                readOnlyShape ? std::string{} : utf8(ecuIds->at(index)),
             .source = utf8(sources->at(index)),
         });
     }

@@ -389,6 +389,44 @@ class TestFileActionsParsing : public QObject
         QVERIFY(spyContainsMessage(errorSpy, "malformed XML"));
     }
 
+    void romraider_base_missing_source_logs_context_and_preserves_state()
+    {
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        FileActions::EcuCalDefStructure ecu;
+        ecu.RomInfo =
+            QStringList(ecu.RomInfoStrings.size(), "sentinel-rom-info");
+        ecu.RomInfo[FileActions::XmlId] = "BASE";
+        ecu.NameList = {"sentinel-map"};
+        const FileActions::EcuCalDefStructure original = ecu;
+        QSignalSpy errorSpy(&actions, &FileActions::LOG_E);
+
+        QCOMPARE(actions.read_romraider_ecu_base_def(&ecu), nullptr);
+
+        QVERIFY(ecu == original);
+        QCOMPARE(errorSpy.count(), 1);
+        QVERIFY(spyContainsMessage(errorSpy, "RomRaider base definition"));
+        QVERIFY(spyContainsMessage(errorSpy, "source"));
+    }
+
+    void romraider_base_missing_definition_id_logs_context_and_preserves_state()
+    {
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        FileActions::EcuCalDefStructure ecu;
+        ecu.DefinitionFileName = "base.xml";
+        ecu.RomInfo =
+            QStringList(ecu.RomInfoStrings.size(), " ");
+        ecu.NameList = {"sentinel-map"};
+        const FileActions::EcuCalDefStructure original = ecu;
+        QSignalSpy errorSpy(&actions, &FileActions::LOG_E);
+
+        QCOMPARE(actions.read_romraider_ecu_base_def(&ecu), nullptr);
+
+        QVERIFY(ecu == original);
+        QCOMPARE(errorSpy.count(), 1);
+        QVERIFY(spyContainsMessage(errorSpy, "RomRaider base definition"));
+        QVERIFY(spyContainsMessage(errorSpy, "definition ID"));
+    }
+
     void missing_romraider_base_returns_null_and_preserves_caller_state()
     {
         QTemporaryDir dir;
@@ -417,6 +455,57 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(ecu.NameList, names);
         QCOMPARE(errorSpy.count(), 1);
         QVERIFY(spyContainsMessage(errorSpy, "cannot open file"));
+    }
+
+    void romraider_rom_match_accepts_legacy_hex_identifier()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString definitionPath = writeTextFile(
+            dir,
+            "hex-romraider.xml",
+            "<roms><rom><romid><xmlid>AB10</xmlid>"
+            "<internalidaddress>0</internalidaddress>"
+            "<internalidstring>AB10</internalidstring></romid></rom></roms>");
+        QVERIFY(!definitionPath.isEmpty());
+
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        auto& config = actions.ConfigValuesStruct;
+        config.romraider_definition_files = {definitionPath};
+
+        FileActions::EcuCalDefStructure ecu;
+        ecu.FullRomData = QByteArray::fromHex("AB10");
+        QSignalSpy errorSpy(&actions, &FileActions::LOG_E);
+
+        QCOMPARE(
+            actions.parse_ecuid_romraider_def_files(&ecu, false),
+            &ecu);
+
+        QCOMPARE(ecu.RomId, QString("AB10"));
+        QVERIFY(errorSpy.isEmpty());
+    }
+
+    void malformed_compatibility_catalog_columns_preserve_rom_id()
+    {
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        auto& config = actions.ConfigValuesStruct;
+        config.romraider_def_cal_id = {"AB10"};
+        config.romraider_def_cal_id_addr = {"0", "1"};
+        config.romraider_def_ecu_id = {};
+        config.romraider_def_filename = {"hex-definition.xml"};
+
+        FileActions::EcuCalDefStructure ecu;
+        ecu.RomId = "sentinel-rom-id";
+        ecu.FullRomData = QByteArray::fromHex("AB10");
+        QSignalSpy errorSpy(&actions, &FileActions::LOG_E);
+
+        QCOMPARE(
+            actions.parse_ecuid_romraider_def_files(&ecu, false),
+            &ecu);
+
+        QCOMPARE(ecu.RomId, QString("sentinel-rom-id"));
+        QCOMPARE(errorSpy.count(), 1);
+        QVERIFY(spyContainsMessage(errorSpy, "ID/source/address/ECU"));
     }
 
     void checksum_correction_unknown_mcu_type_logs_and_returns_unmodified_rom()

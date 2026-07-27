@@ -44,7 +44,7 @@ TEST(EcuFlashParserTest, IndexesIdentityAndIncludeWithoutResolvingIt)
     EXPECT_EQ(result->front().definition_id, "CHILD");
     EXPECT_EQ(result->front().internal_id_address, 0x1A0U);
     EXPECT_EQ(result->front().internal_id, "CHILD-ID");
-    EXPECT_EQ(result->front().internal_id_encoding, IdEncoding::Ascii);
+    EXPECT_EQ(result->front().internal_id_encoding, IdEncoding::AsciiOrHex);
     EXPECT_EQ(result->front().ecu_id, "ECU-1");
     EXPECT_EQ(result->front().source, "ecuflash.xml");
     EXPECT_EQ(result->front().parents, std::vector<std::string>{"BASE"});

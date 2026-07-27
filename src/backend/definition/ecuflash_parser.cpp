@@ -707,7 +707,7 @@ Result<std::vector<DefinitionIndexEntry>> parse_ecuflash_index(
         .definition_id = std::move(*definition_id),
         .internal_id = child_text(rom_id, "internalidstring"),
         .internal_id_address = *internal_id_address,
-        .internal_id_encoding = IdEncoding::Ascii,
+        .internal_id_encoding = IdEncoding::AsciiOrHex,
         .ecu_id = child_text(rom_id, "ecuid"),
         .source = std::string(source),
         .parents = parent_references(*root),
