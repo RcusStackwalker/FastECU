@@ -181,7 +181,7 @@ void J2534::dbgprintptmsg(const PASSTHRU_MSG *pMsg, int kind)
         dbgprint("(null message)\n");
         return;
     }
-    dbgprint("ProtocolID=%u,RxStatus=%u,TxFlags=%u,Timestamp=%u,DataSize=%u,ExtraDataIndex=%u\n", pMsg->ProtocolID, pMsg->RxStatus, pMsg->TxFlags, pMsg->Timestamp, pMsg->DataSize, pMsg->ExtraDataIndex);
+    dbgprint("ProtocolID=%lu,RxStatus=%lu,TxFlags=%lu,Timestamp=%lu,DataSize=%lu,ExtraDataIndex=%lu\n", pMsg->ProtocolID, pMsg->RxStatus, pMsg->TxFlags, pMsg->Timestamp, pMsg->DataSize, pMsg->ExtraDataIndex);
     dbgdump(pMsg->Data, pMsg->DataSize, kind);
 }
 
@@ -401,7 +401,7 @@ long J2534::PassThruStopPeriodicMsg(unsigned long ChannelID, unsigned long MsgID
         return ERR_DEVICE_NOT_CONNECTED;
     if (useBridge)
         return bridgeClient->PassThruStopPeriodicMsg(ChannelID, MsgID);
-    DBGPRINT(("PassThruStopPeriodicMsg(ChannelID=%u,MsgID=@%08X,TimeInterval=%u)\n", ChannelID, MsgID));
+    DBGPRINT(("PassThruStopPeriodicMsg(ChannelID=%lu,MsgID=@%08lX)\n", ChannelID, MsgID));
     result = (*pfPassThruStopPeriodicMsg)(ChannelID, MsgID);
     DBGPRINT(("PassThruStopPeriodicMsg returned result %d\n", result));
     return result;
@@ -436,7 +436,7 @@ long J2534::PassThruStopMsgFilter(unsigned long ChannelID, unsigned long MsgID)
         return ERR_DEVICE_NOT_CONNECTED;
     if (useBridge)
         return bridgeClient->PassThruStopMsgFilter(ChannelID, MsgID);
-    DBGPRINT(("PassThruStopMsgFilter(ChannelID=%u,MsgID=@%08X,TimeInterval=%u)\n", ChannelID, MsgID));
+    DBGPRINT(("PassThruStopMsgFilter(ChannelID=%lu,MsgID=@%08lX)\n", ChannelID, MsgID));
     result = (*pfPassThruStopMsgFilter)(ChannelID, MsgID);
     DBGPRINT(("PassThruStopMsgFilter returned result %d\n", result));
     return result;
