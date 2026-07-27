@@ -1,0 +1,519 @@
+#include "src/backend/definition/definition_resolver.h"
+
+#include <map>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
+namespace fastecu::definition
+{
+namespace
+{
+
+using ::testing::ElementsAre;
+using ::testing::HasSubstr;
+
+UnresolvedDefinition doc(
+    std::string id,
+    std::vector<std::string> parents = {},
+    DefinitionFormat format = DefinitionFormat::RomRaider)
+{
+    return UnresolvedDefinition{
+        .format = format,
+        .source = id + ".xml",
+        .identity = RomIdentity{.xml_id = std::move(id)},
+        .parents = std::move(parents),
+    };
+}
+
+CalibrationMap map(std::string id, std::string name = {})
+{
+    if (name.empty())
+    {
+        name = id;
+    }
+    return CalibrationMap{
+        .id = std::move(id),
+        .name = std::move(name),
+        .type = "2D",
+    };
+}
+
+Scaling scaling(std::string name, std::string storage_type = "uint16")
+{
+    return Scaling{
+        .name = std::move(name),
+        .from_byte = "x*0.5",
+        .to_byte = "x*2",
+        .format = "0.0",
+        .storage_type = std::move(storage_type),
+        .endian = "big",
+    };
+}
+
+class DefinitionSet
+{
+  public:
+    DefinitionSet(std::initializer_list<std::pair<const std::string, UnresolvedDefinition>> definitions)
+        : definitions_(definitions)
+    {
+    }
+
+    DefinitionLoader loader()
+    {
+        return [this](DefinitionFormat, std::string_view id) -> Result<UnresolvedDefinition>
+        {
+            ++loads_[std::string(id)];
+            auto definition = definitions_.find(std::string(id));
+            if (definition == definitions_.end())
+            {
+                return fail(ErrorKind::InvalidConfig, "definition ID not found: '" + std::string(id) + "'");
+            }
+            return definition->second;
+        };
+    }
+
+    int loads(std::string_view id) const
+    {
+        auto count = loads_.find(std::string(id));
+        return count == loads_.end() ? 0 : count->second;
+    }
+
+  private:
+    std::map<std::string, UnresolvedDefinition> definitions_;
+    std::map<std::string, int> loads_;
+};
+
+TEST(DefinitionResolverTest, ResolvesSingleLevelBaseBeforeChildOverrides)
+{
+    auto base = doc("BASE");
+    base.metadata.make = "Subaru";
+    base.metadata.model = "Impreza";
+    base.identity.internal_id = "BASE-ID";
+
+    auto child = doc("CHILD", {"BASE"});
+    child.metadata.model = "WRX";
+
+    DefinitionSet definitions{{"BASE", base}};
+    auto result = resolve_definition(child, definitions.loader());
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->identity.xml_id, "CHILD");
+    EXPECT_EQ(result->identity.internal_id, "BASE-ID");
+    EXPECT_EQ(result->metadata.make, "Subaru");
+    EXPECT_EQ(result->metadata.model, "WRX");
+    EXPECT_THAT(result->resolved_sources, ElementsAre("BASE.xml", "CHILD.xml"));
+}
+
+TEST(DefinitionResolverTest, ResolvesMultiLevelInheritance)
+{
+    auto grandparent = doc("GRANDPARENT");
+    grandparent.metadata.make = "Subaru";
+    auto parent = doc("PARENT", {"GRANDPARENT"});
+    parent.metadata.model = "Legacy";
+    auto child = doc("CHILD", {"PARENT"});
+    child.metadata.year = "2008";
+
+    DefinitionSet definitions{
+        {"GRANDPARENT", grandparent},
+        {"PARENT", parent},
+    };
+    auto result = resolve_definition(child, definitions.loader());
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->metadata.make, "Subaru");
+    EXPECT_EQ(result->metadata.model, "Legacy");
+    EXPECT_EQ(result->metadata.year, "2008");
+    EXPECT_THAT(
+        result->resolved_sources,
+        ElementsAre("GRANDPARENT.xml", "PARENT.xml", "CHILD.xml"));
+}
+
+TEST(DefinitionResolverTest, MissingParentIsContextualInvalidConfig)
+{
+    const auto root = doc("CHILD", {"MISSING"});
+    const auto original = root;
+    DefinitionSet definitions{};
+
+    auto result = resolve_definition(root, definitions.loader());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(result.error().detail, HasSubstr("MISSING"));
+    EXPECT_THAT(result.error().detail, HasSubstr("CHILD -> MISSING"));
+    EXPECT_THAT(result.error().detail, HasSubstr("RomRaider"));
+    EXPECT_THAT(result.error().detail, HasSubstr("CHILD.xml"));
+    EXPECT_EQ(root, original);
+}
+
+TEST(DefinitionResolverTest, RecursiveDefinitionFailureIncludesInheritanceChain)
+{
+    const auto root = doc("ROOT", {"BASE"});
+    const auto original = root;
+    auto invalid_base = doc("BASE");
+    invalid_base.source.clear();
+    DefinitionSet definitions{{"BASE", invalid_base}};
+
+    auto result = resolve_definition(root, definitions.loader());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(result.error().detail, HasSubstr("ROOT -> BASE"));
+    EXPECT_THAT(result.error().detail, HasSubstr("BASE"));
+    EXPECT_THAT(result.error().detail, HasSubstr("source"));
+    EXPECT_EQ(root, original);
+}
+
+TEST(DefinitionResolverTest, ReportsSelfCycle)
+{
+    const auto root = doc("A", {"A"});
+    const auto original = root;
+    DefinitionSet definitions{};
+
+    auto result = resolve_definition(root, definitions.loader());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(result.error().detail, HasSubstr("A -> A"));
+    EXPECT_THAT(result.error().detail, HasSubstr("RomRaider"));
+    EXPECT_THAT(result.error().detail, HasSubstr("A.xml"));
+    EXPECT_EQ(root, original);
+}
+
+TEST(DefinitionResolverTest, ReportsCompleteCycle)
+{
+    const auto root = doc("A", {"B"});
+    const auto original = root;
+    DefinitionSet definitions{
+        {"B", doc("B", {"C"})},
+        {"C", doc("C", {"A"})},
+    };
+
+    auto result = resolve_definition(root, definitions.loader());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(result.error().detail, HasSubstr("A -> B -> C -> A"));
+    EXPECT_EQ(root, original);
+}
+
+TEST(DefinitionResolverTest, RejectsCrossFormatParent)
+{
+    const auto root = doc("CHILD", {"BASE"}, DefinitionFormat::RomRaider);
+    const auto original = root;
+    DefinitionSet definitions{
+        {"BASE", doc("BASE", {}, DefinitionFormat::EcuFlash)},
+    };
+
+    auto result = resolve_definition(root, definitions.loader());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(result.error().detail, HasSubstr("cross-format"));
+    EXPECT_THAT(result.error().detail, HasSubstr("CHILD -> BASE"));
+    EXPECT_EQ(root, original);
+}
+
+TEST(DefinitionResolverTest, MemoizesSharedBaseInDiamondGraph)
+{
+    DefinitionSet definitions{
+        {"LEFT", doc("LEFT", {"SHARED"})},
+        {"RIGHT", doc("RIGHT", {"SHARED"})},
+        {"SHARED", doc("SHARED")},
+    };
+
+    auto result = resolve_definition(doc("ROOT", {"LEFT", "RIGHT"}), definitions.loader());
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(definitions.loads("SHARED"), 1);
+    EXPECT_THAT(
+        result->resolved_sources,
+        ElementsAre("SHARED.xml", "LEFT.xml", "RIGHT.xml", "ROOT.xml"));
+}
+
+TEST(DefinitionResolverTest, MergesMapsByStableIdAndAppendsChildMaps)
+{
+    auto base = doc("BASE");
+    base.maps.push_back(map("boost", "Boost Limit"));
+    auto fuel = map("fuel", "Fuel");
+    fuel.category = "Fuel";
+    fuel.address = 0x100;
+    fuel.storage_type = "uint16";
+    fuel.x_axis = AxisDefinition{
+        .type = "X Axis",
+        .name = "Engine Speed",
+        .units = "rpm",
+        .address = 0x200,
+        .size = 4,
+    };
+    base.maps.push_back(fuel);
+
+    auto child = doc("CHILD", {"BASE"});
+    auto fuel_override = map("fuel", "Fuel");
+    fuel_override.description = "Child fuel map";
+    fuel_override.address = 0x300;
+    fuel_override.x_axis.units = "r/min";
+    child.maps.push_back(fuel_override);
+    child.maps.push_back(map("timing", "Ignition Timing"));
+
+    DefinitionSet definitions{{"BASE", base}};
+    auto result = resolve_definition(child, definitions.loader());
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->maps.size(), 3U);
+    EXPECT_EQ(result->maps[0].id, "boost");
+    EXPECT_EQ(result->maps[1].id, "fuel");
+    EXPECT_EQ(result->maps[1].category, "Fuel");
+    EXPECT_EQ(result->maps[1].description, "Child fuel map");
+    EXPECT_EQ(result->maps[1].address, 0x300U);
+    EXPECT_EQ(result->maps[1].storage_type, "uint16");
+    EXPECT_EQ(result->maps[1].x_axis.name, "Engine Speed");
+    EXPECT_EQ(result->maps[1].x_axis.units, "r/min");
+    EXPECT_EQ(result->maps[1].x_axis.address, 0x200U);
+    EXPECT_EQ(result->maps[2].id, "timing");
+}
+
+TEST(DefinitionResolverTest, FallsBackToMapNameWhenStableIdIsAbsent)
+{
+    auto base = doc("BASE");
+    auto base_map = map("", "Fuel");
+    base_map.category = "Fuel";
+    base.maps.push_back(base_map);
+
+    auto child = doc("CHILD", {"BASE"});
+    auto child_map = map("", "Fuel");
+    child_map.description = "Override";
+    child.maps.push_back(child_map);
+
+    DefinitionSet definitions{{"BASE", base}};
+    auto result = resolve_definition(child, definitions.loader());
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->maps.size(), 1U);
+    EXPECT_EQ(result->maps[0].category, "Fuel");
+    EXPECT_EQ(result->maps[0].description, "Override");
+}
+
+TEST(DefinitionResolverTest, ResolvesMapAndAxisScalingReferences)
+{
+    auto root = doc("ROOT");
+    auto value_scaling = scaling("value");
+    value_scaling.units = "%";
+    auto axis_scaling = scaling("axis", "uint8");
+    axis_scaling.units = "rpm";
+    root.scalings = {value_scaling, axis_scaling};
+
+    auto fuel = map("fuel", "Fuel");
+    fuel.scaling_name = "value";
+    fuel.x_size = 4;
+    fuel.x_axis = AxisDefinition{
+        .type = "X Axis",
+        .name = "Engine Speed",
+        .size = 4,
+        .scaling_name = "axis",
+    };
+    root.maps.push_back(fuel);
+
+    DefinitionSet definitions{};
+    auto result = resolve_definition(root, definitions.loader());
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->maps.size(), 1U);
+    EXPECT_EQ(result->maps[0].storage_type, "uint16");
+    EXPECT_EQ(result->maps[0].endian, "big");
+    EXPECT_EQ(result->maps[0].x_axis.units, "rpm");
+    EXPECT_EQ(result->maps[0].x_axis.format, "0.0");
+    EXPECT_EQ(result->maps[0].x_axis.storage_type, "uint8");
+    EXPECT_EQ(result->maps[0].x_axis.endian, "big");
+    EXPECT_EQ(result->maps[0].x_axis.from_byte, "x*0.5");
+    EXPECT_EQ(result->maps[0].x_axis.to_byte, "x*2");
+}
+
+TEST(DefinitionResolverTest, RejectsConflictingDuplicateScalingDefinitions)
+{
+    auto base = doc("BASE");
+    base.scalings.push_back(scaling("shared"));
+    auto child = doc("CHILD", {"BASE"});
+    child.scalings.push_back(scaling("shared", "uint8"));
+    const auto original = child;
+    DefinitionSet definitions{{"BASE", base}};
+
+    auto result = resolve_definition(child, definitions.loader());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(result.error().detail, HasSubstr("shared"));
+    EXPECT_THAT(result.error().detail, HasSubstr("conflicting"));
+    EXPECT_EQ(child, original);
+}
+
+TEST(DefinitionResolverTest, AcceptsOneCanonicalCopyOfIdenticalScaling)
+{
+    auto base = doc("BASE");
+    base.scalings.push_back(scaling("shared"));
+    auto child = doc("CHILD", {"BASE"});
+    child.scalings.push_back(scaling("shared"));
+    DefinitionSet definitions{{"BASE", base}};
+
+    auto result = resolve_definition(child, definitions.loader());
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->scalings.size(), 1U);
+    EXPECT_EQ(result->scalings.front().name, "shared");
+}
+
+TEST(DefinitionResolverTest, CanonicalizesIdenticalLocalScalingDefinitions)
+{
+    auto root = doc("ROOT");
+    root.scalings = {scaling("shared"), scaling("shared")};
+    DefinitionSet definitions{};
+
+    auto result = resolve_definition(root, definitions.loader());
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->scalings.size(), 1U);
+    EXPECT_EQ(result->scalings.front().name, "shared");
+}
+
+TEST(DefinitionResolverTest, RejectsSelectableMapWithoutSelectionScaling)
+{
+    auto root = doc("ROOT");
+    auto modes = map("modes", "Modes");
+    modes.type = "Selectable";
+    modes.storage_type = "bloblist";
+    root.maps.push_back(modes);
+    const auto original = root;
+    DefinitionSet definitions{};
+
+    auto result = resolve_definition(root, definitions.loader());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(result.error().detail, HasSubstr("modes"));
+    EXPECT_THAT(result.error().detail, HasSubstr("scaling"));
+    EXPECT_EQ(root, original);
+}
+
+TEST(DefinitionResolverTest, KeepsResolvedSourceProvenanceUnique)
+{
+    auto base = doc("BASE");
+    base.source = "romraider.xml";
+    auto child = doc("CHILD", {"BASE"});
+    child.source = "romraider.xml";
+    DefinitionSet definitions{{"BASE", base}};
+
+    auto result = resolve_definition(child, definitions.loader());
+
+    ASSERT_TRUE(result);
+    EXPECT_THAT(result->resolved_sources, ElementsAre("romraider.xml"));
+}
+
+TEST(DefinitionResolverTest, RejectsUnresolvedScalingWithoutMutatingInput)
+{
+    auto root = doc("ROOT");
+    auto fuel = map("fuel", "Fuel");
+    fuel.scaling_name = "missing";
+    root.maps.push_back(fuel);
+    const auto original = root;
+    DefinitionSet definitions{};
+
+    auto result = resolve_definition(root, definitions.loader());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(result.error().detail, HasSubstr("missing"));
+    EXPECT_THAT(result.error().detail, HasSubstr("fuel"));
+    EXPECT_EQ(root, original);
+}
+
+TEST(DefinitionResolverTest, RejectsZeroRequiredDimensionWithoutMutatingInput)
+{
+    auto root = doc("ROOT");
+    auto fuel = map("fuel", "Fuel");
+    fuel.x_size = 0;
+    root.maps.push_back(fuel);
+    const auto original = root;
+    DefinitionSet definitions{};
+
+    auto result = resolve_definition(root, definitions.loader());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(result.error().detail, HasSubstr("zero"));
+    EXPECT_THAT(result.error().detail, HasSubstr("fuel"));
+    EXPECT_EQ(root, original);
+}
+
+TEST(DefinitionResolverTest, RejectsIncompleteAxisWithoutMutatingInput)
+{
+    auto root = doc("ROOT");
+    auto fuel = map("fuel", "Fuel");
+    fuel.x_axis.type = "X Axis";
+    root.maps.push_back(fuel);
+    const auto original = root;
+    DefinitionSet definitions{};
+
+    auto result = resolve_definition(root, definitions.loader());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(result.error().detail, HasSubstr("incomplete"));
+    EXPECT_THAT(result.error().detail, HasSubstr("x axis"));
+    EXPECT_EQ(root, original);
+}
+
+TEST(DefinitionResolverTest, RejectsDuplicateMapKeyWithoutMutatingInput)
+{
+    auto root = doc("ROOT");
+    root.maps = {map("fuel", "Primary Fuel"), map("fuel", "Secondary Fuel")};
+    const auto original = root;
+    DefinitionSet definitions{};
+
+    auto result = resolve_definition(root, definitions.loader());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(result.error().detail, HasSubstr("duplicate map key"));
+    EXPECT_THAT(result.error().detail, HasSubstr("fuel"));
+    EXPECT_EQ(root, original);
+}
+
+TEST(DefinitionResolverTest, RejectsContradictorySelectionStorageWithoutMutatingInput)
+{
+    auto root = doc("ROOT");
+    auto modes = scaling("modes", "uint8");
+    modes.selections = {{"disabled", "00"}, {"enabled", "01"}};
+    root.scalings.push_back(modes);
+    const auto original = root;
+    DefinitionSet definitions{};
+
+    auto result = resolve_definition(root, definitions.loader());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(result.error().detail, HasSubstr("modes"));
+    EXPECT_THAT(result.error().detail, HasSubstr("bloblist"));
+    EXPECT_EQ(root, original);
+}
+
+TEST(DefinitionResolverTest, RejectsLoaderDefinitionWhoseIdentityDoesNotMatchReference)
+{
+    const auto root = doc("ROOT", {"EXPECTED"});
+    const auto original = root;
+    DefinitionSet definitions{{"EXPECTED", doc("OTHER")}};
+
+    auto result = resolve_definition(root, definitions.loader());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(result.error().detail, HasSubstr("EXPECTED"));
+    EXPECT_THAT(result.error().detail, HasSubstr("OTHER"));
+    EXPECT_EQ(root, original);
+}
+
+} // namespace
+} // namespace fastecu::definition

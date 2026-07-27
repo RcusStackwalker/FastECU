@@ -32,6 +32,16 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "definition_resolver",
+    srcs = ["definition_resolver.cpp"],
+    hdrs = ["definition_resolver.h"],
+    deps = [
+        ":definition_model",
+        "//src/backend/ports",
+    ],
+)
+
 fastecu_portable_gtest(
     name = "definition_model_test",
     srcs = ["definition_model_test.cpp"],
@@ -48,4 +58,10 @@ fastecu_portable_gtest(
     name = "ecuflash_parser_test",
     srcs = ["ecuflash_parser_test.cpp"],
     deps = [":ecuflash_parser"],
+)
+
+fastecu_portable_gtest(
+    name = "definition_resolver_test",
+    srcs = ["definition_resolver_test.cpp"],
+    deps = [":definition_resolver"],
 )
