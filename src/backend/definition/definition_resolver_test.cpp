@@ -1,5 +1,8 @@
 #include "src/backend/definition/definition_resolver.h"
+#include "src/backend/definition/ecuflash_parser.h"
+#include "src/backend/definition/romraider_parser.h"
 
+#include <cstdint>
 #include <map>
 #include <string>
 #include <string_view>
@@ -16,6 +19,11 @@ namespace
 
 using ::testing::ElementsAre;
 using ::testing::HasSubstr;
+
+std::vector<std::uint8_t> xml_bytes(std::string_view text)
+{
+    return {text.begin(), text.end()};
+}
 
 UnresolvedDefinition doc(
     std::string id,
@@ -243,6 +251,7 @@ TEST(DefinitionResolverTest, MergesMapsByStableIdAndAppendsChildMaps)
     fuel.category = "Fuel";
     fuel.address = 0x100;
     fuel.storage_type = "uint16";
+    fuel.x_size = 4;
     fuel.x_axis = AxisDefinition{
         .type = "X Axis",
         .name = "Engine Speed",
@@ -296,6 +305,175 @@ TEST(DefinitionResolverTest, FallsBackToMapNameWhenStableIdIsAbsent)
     ASSERT_EQ(result->maps.size(), 1U);
     EXPECT_EQ(result->maps[0].category, "Fuel");
     EXPECT_EQ(result->maps[0].description, "Override");
+}
+
+TEST(DefinitionResolverTest, FallsBackToNameWhenOnlyBaseHasStableMapId)
+{
+    auto base = doc("BASE");
+    auto base_map = map("fuel", "Fuel");
+    base_map.category = "Fuel";
+    base.maps.push_back(base_map);
+
+    auto child = doc("CHILD", {"BASE"});
+    auto child_map = map("", "Fuel");
+    child_map.description = "Override";
+    child.maps.push_back(child_map);
+    DefinitionSet definitions{{"BASE", base}};
+
+    auto result = resolve_definition(child, definitions.loader());
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->maps.size(), 1U);
+    EXPECT_EQ(result->maps[0].id, "fuel");
+    EXPECT_EQ(result->maps[0].category, "Fuel");
+    EXPECT_EQ(result->maps[0].description, "Override");
+}
+
+TEST(DefinitionResolverTest, FallsBackToNameWhenOnlyChildHasStableMapId)
+{
+    auto base = doc("BASE");
+    auto base_map = map("", "Fuel");
+    base_map.category = "Fuel";
+    base.maps.push_back(base_map);
+
+    auto child = doc("CHILD", {"BASE"});
+    auto child_map = map("fuel", "Fuel");
+    child_map.description = "Override";
+    child.maps.push_back(child_map);
+    DefinitionSet definitions{{"BASE", base}};
+
+    auto result = resolve_definition(child, definitions.loader());
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->maps.size(), 1U);
+    EXPECT_EQ(result->maps[0].id, "fuel");
+    EXPECT_EQ(result->maps[0].category, "Fuel");
+    EXPECT_EQ(result->maps[0].description, "Override");
+}
+
+TEST(DefinitionResolverTest, RomRaiderOmittedFieldsDoNotResetInheritedValues)
+{
+    const auto xml = xml_bytes(R"xml(
+      <roms>
+        <rom>
+          <romid><xmlid>BASE</xmlid></romid>
+          <table id="fuel" name="Fuel" type="3D" sizex="4" sizey="2"
+                 swapxy="true" flipx="true" flipy="true">
+            <table type="X Axis" name="RPM" elements="4">
+              <scaling name="base-rpm" expression="x*2" to_byte="x/2"/>
+            </table>
+          </table>
+        </rom>
+        <rom base="BASE">
+          <romid><xmlid>CHILD</xmlid></romid>
+          <table id="fuel" name="Fuel" description="Child description">
+            <table type="X Axis" name="RPM">
+              <scaling name="child-rpm" units="r/min"/>
+            </table>
+          </table>
+        </rom>
+      </roms>)xml");
+    auto base = parse_romraider_definition(xml, "romraider.xml", "BASE");
+    auto child = parse_romraider_definition(xml, "romraider.xml", "CHILD");
+    ASSERT_TRUE(base);
+    ASSERT_TRUE(child);
+    const auto original = *child;
+    DefinitionSet definitions{{"BASE", *base}};
+
+    auto result = resolve_definition(*child, definitions.loader());
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->maps.size(), 1U);
+    const auto& fuel = result->maps.front();
+    EXPECT_EQ(fuel.description, "Child description");
+    EXPECT_EQ(fuel.x_size, 4U);
+    EXPECT_EQ(fuel.y_size, 2U);
+    EXPECT_TRUE(fuel.swap_xy);
+    EXPECT_TRUE(fuel.flip_x);
+    EXPECT_TRUE(fuel.flip_y);
+    EXPECT_EQ(fuel.x_axis.size, 4U);
+    EXPECT_EQ(fuel.x_axis.units, "r/min");
+    EXPECT_EQ(fuel.x_axis.from_byte, "x*2");
+    EXPECT_EQ(fuel.x_axis.to_byte, "x/2");
+    EXPECT_EQ(*child, original);
+}
+
+TEST(DefinitionResolverTest, EcuFlashExplicitDefaultsOverrideInheritedValuesAndMatchByName)
+{
+    auto base = parse_ecuflash_definition(xml_bytes(R"xml(
+      <rom>
+        <romid><xmlid>BASE</xmlid></romid>
+        <table id="fuel" name="Fuel" type="3D" sizex="4" sizey="2"
+               swapxy="true" flipx="true" flipy="true">
+          <table type="X Axis" name="RPM" elements="4"/>
+        </table>
+      </rom>)xml"),
+                                          "base.xml");
+    auto child = parse_ecuflash_definition(xml_bytes(R"xml(
+      <rom>
+        <romid><xmlid>CHILD</xmlid></romid>
+        <include>BASE</include>
+        <table name="Fuel" description="Child description" sizex="1" sizey="1"
+               swapxy="false" flipx="false" flipy="false">
+          <table type="X Axis" name="RPM" elements="1">
+            <scaling name="child-rpm" toexpr="x" frexpr="x"/>
+          </table>
+        </table>
+      </rom>)xml"),
+                                           "child.xml");
+    ASSERT_TRUE(base);
+    ASSERT_TRUE(child);
+    const auto original = *child;
+    DefinitionSet definitions{{"BASE", *base}};
+
+    auto result = resolve_definition(*child, definitions.loader());
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->maps.size(), 1U);
+    const auto& fuel = result->maps.front();
+    EXPECT_EQ(fuel.id, "fuel");
+    EXPECT_EQ(fuel.description, "Child description");
+    EXPECT_EQ(fuel.x_size, 1U);
+    EXPECT_EQ(fuel.y_size, 1U);
+    EXPECT_FALSE(fuel.swap_xy);
+    EXPECT_FALSE(fuel.flip_x);
+    EXPECT_FALSE(fuel.flip_y);
+    EXPECT_EQ(fuel.x_axis.size, 1U);
+    EXPECT_EQ(fuel.x_axis.from_byte, "x");
+    EXPECT_EQ(fuel.x_axis.to_byte, "x");
+    EXPECT_EQ(*child, original);
+}
+
+TEST(DefinitionResolverTest, OmittedAxisSizeDoesNotFollowExplicitChildMapDimension)
+{
+    const auto xml = xml_bytes(R"xml(
+      <roms>
+        <rom>
+          <romid><xmlid>BASE</xmlid></romid>
+          <table id="fuel" name="Fuel" type="2D" sizex="4">
+            <table type="X Axis" name="RPM" elements="4"/>
+          </table>
+        </rom>
+        <rom base="BASE">
+          <romid><xmlid>CHILD</xmlid></romid>
+          <table id="fuel" name="Fuel" sizex="3">
+            <table type="X Axis" name="RPM"/>
+          </table>
+        </rom>
+      </roms>)xml");
+    auto base = parse_romraider_definition(xml, "romraider.xml", "BASE");
+    auto child = parse_romraider_definition(xml, "romraider.xml", "CHILD");
+    ASSERT_TRUE(base);
+    ASSERT_TRUE(child);
+    const auto original = *child;
+    DefinitionSet definitions{{"BASE", *base}};
+
+    auto result = resolve_definition(*child, definitions.loader());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(result.error().detail, HasSubstr("inconsistent dimension"));
+    EXPECT_EQ(*child, original);
 }
 
 TEST(DefinitionResolverTest, ResolvesMapAndAxisScalingReferences)

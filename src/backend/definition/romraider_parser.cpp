@@ -303,6 +303,7 @@ Scaling parse_scaling(
     pugi::xml_node owner)
 {
     Scaling scaling;
+    scaling.supplied.tracked = true;
     scaling.name = attribute_or_empty(scaling_node, "name");
     if (scaling.name.empty())
     {
@@ -310,16 +311,19 @@ Scaling parse_scaling(
     }
     scaling.units = attribute_or_empty(scaling_node, "units");
     scaling.from_byte = attribute_or_empty(scaling_node, "expression");
+    scaling.supplied.from_byte = static_cast<bool>(scaling_node.attribute("expression"));
     if (scaling.from_byte.empty())
     {
         scaling.from_byte = "x";
     }
     scaling.to_byte = attribute_or_empty(scaling_node, "to_byte");
+    scaling.supplied.to_byte = static_cast<bool>(scaling_node.attribute("to_byte"));
     if (scaling.to_byte.empty())
     {
         scaling.to_byte = "x";
     }
     scaling.format = attribute_or_empty(scaling_node, "format");
+    scaling.supplied.format = static_cast<bool>(scaling_node.attribute("format"));
     scaling.minimum = attribute_or_empty(scaling_node, "minimum");
     if (scaling.minimum.empty())
     {
@@ -362,6 +366,7 @@ Result<AxisDefinition> parse_axis(
     std::vector<Scaling>& scalings)
 {
     AxisDefinition axis;
+    axis.supplied.tracked = true;
     axis.type = attribute_or_empty(table, "type");
     axis.name = attribute_or_empty(table, "name");
     if (axis.name.empty())
@@ -393,6 +398,7 @@ Result<AxisDefinition> parse_axis(
             return std::unexpected(size.error());
         }
         axis.size = *size;
+        axis.supplied.size = true;
     }
     else
     {
@@ -412,6 +418,8 @@ Result<AxisDefinition> parse_axis(
         axis.format = scaling.format;
         axis.from_byte = scaling.from_byte;
         axis.to_byte = scaling.to_byte;
+        axis.supplied.from_byte = static_cast<bool>(scaling_node.attribute("expression"));
+        axis.supplied.to_byte = static_cast<bool>(scaling_node.attribute("to_byte"));
         if (axis.storage_type.empty())
         {
             axis.storage_type = scaling.storage_type;
@@ -432,7 +440,9 @@ Result<CalibrationMap> parse_table(
     std::vector<Scaling>& scalings)
 {
     CalibrationMap map;
+    map.supplied.tracked = true;
     map.id = attribute_or_empty(table, "id");
+    map.supplied.stable_id = !map.id.empty();
     map.name = attribute_or_empty(table, "name");
     if (map.name.empty())
     {
@@ -473,6 +483,7 @@ Result<CalibrationMap> parse_table(
         return std::unexpected(x_size.error());
     }
     map.x_size = *x_size;
+    map.supplied.x_size = static_cast<bool>(table.attribute("sizex"));
 
     auto y_size = dimension_attribute(table, "sizey", 1, source, definition_id);
     if (!y_size)
@@ -480,6 +491,7 @@ Result<CalibrationMap> parse_table(
         return std::unexpected(y_size.error());
     }
     map.y_size = *y_size;
+    map.supplied.y_size = static_cast<bool>(table.attribute("sizey"));
 
     auto swap_xy = strict_boolean_attribute(table, "swapxy", source, definition_id);
     if (!swap_xy)
@@ -487,6 +499,7 @@ Result<CalibrationMap> parse_table(
         return std::unexpected(swap_xy.error());
     }
     map.swap_xy = *swap_xy;
+    map.supplied.swap_xy = static_cast<bool>(table.attribute("swapxy"));
 
     auto flip_x = strict_boolean_attribute(table, "flipx", source, definition_id);
     if (!flip_x)
@@ -494,6 +507,7 @@ Result<CalibrationMap> parse_table(
         return std::unexpected(flip_x.error());
     }
     map.flip_x = *flip_x;
+    map.supplied.flip_x = static_cast<bool>(table.attribute("flipx"));
 
     auto flip_y = strict_boolean_attribute(table, "flipy", source, definition_id);
     if (!flip_y)
@@ -501,6 +515,7 @@ Result<CalibrationMap> parse_table(
         return std::unexpected(flip_y.error());
     }
     map.flip_y = *flip_y;
+    map.supplied.flip_y = static_cast<bool>(table.attribute("flipy"));
 
     map.scaling_name = attribute_or_empty(table, "scaling");
     const pugi::xml_node scaling_node = table.child("scaling");
@@ -549,8 +564,11 @@ Result<CalibrationMap> parse_table(
         {
             if (type == "Static Y Axis" || type == "Y Axis")
             {
+                const bool dimension_supplied = map.supplied.y_size;
                 map.x_size = map.y_size;
                 map.y_size = 1;
+                map.supplied.x_size = dimension_supplied;
+                map.supplied.y_size = dimension_supplied;
             }
             auto axis = parse_axis(
                 axis_table, map.x_size, source, definition_id, scalings);

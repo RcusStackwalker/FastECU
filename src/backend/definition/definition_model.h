@@ -40,14 +40,31 @@ struct DefinitionIndexEntry
     bool operator==(const DefinitionIndexEntry&) const = default;
 };
 
+struct ScalingPresence
+{
+    bool tracked{false}; // True when the per-field flags came from a parser.
+    bool from_byte{false}, to_byte{false}, format{false};
+
+    bool operator==(const ScalingPresence&) const = default;
+};
+
 struct Scaling
 {
     std::string name, units, from_byte, to_byte, format;
     std::string minimum, maximum, coarse_increment, fine_increment;
     std::string storage_type, endian;
     std::vector<std::pair<std::string, std::string>> selections;
+    ScalingPresence supplied;
 
     bool operator==(const Scaling&) const = default;
+};
+
+struct AxisDefinitionPresence
+{
+    bool tracked{false}; // False keeps value-built callers source-compatible.
+    bool size{false}, from_byte{false}, to_byte{false};
+
+    bool operator==(const AxisDefinitionPresence&) const = default;
 };
 
 struct AxisDefinition
@@ -56,8 +73,18 @@ struct AxisDefinition
     std::optional<std::uint64_t> address;
     std::uint32_t size{1};
     std::string from_byte{"x"}, to_byte{"x"}, scaling_name;
+    AxisDefinitionPresence supplied;
 
     bool operator==(const AxisDefinition&) const = default;
+};
+
+struct CalibrationMapPresence
+{
+    bool tracked{false}; // False keeps value-built callers source-compatible.
+    bool stable_id{false}, x_size{false}, y_size{false};
+    bool swap_xy{false}, flip_x{false}, flip_y{false};
+
+    bool operator==(const CalibrationMapPresence&) const = default;
 };
 
 struct CalibrationMap
@@ -68,6 +95,7 @@ struct CalibrationMap
     bool swap_xy{false}, flip_x{false}, flip_y{false};
     std::string level, user_level, scaling_name, storage_type, endian;
     AxisDefinition x_axis, y_axis;
+    CalibrationMapPresence supplied;
 
     bool operator==(const CalibrationMap&) const = default;
 };

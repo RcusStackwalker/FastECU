@@ -17,9 +17,23 @@ std::string format_name(DefinitionFormat format)
     return format == DefinitionFormat::RomRaider ? "RomRaider" : "EcuFlash";
 }
 
+bool has_stable_map_id(const CalibrationMap& map)
+{
+    return map.supplied.stable_id || (!map.supplied.tracked && !map.id.empty());
+}
+
 std::string map_key(const CalibrationMap& map)
 {
-    return map.id.empty() ? map.name : map.id;
+    return has_stable_map_id(map) ? map.id : map.name;
+}
+
+bool maps_match(const CalibrationMap& left, const CalibrationMap& right)
+{
+    if (has_stable_map_id(left) && has_stable_map_id(right))
+    {
+        return left.id == right.id;
+    }
+    return left.name == right.name;
 }
 
 void overlay_string(std::string& value, const std::string& supplied)
@@ -75,26 +89,67 @@ void overlay_axis(AxisDefinition& value, const AxisDefinition& supplied)
     overlay_string(value.storage_type, supplied.storage_type);
     overlay_string(value.endian, supplied.endian);
     overlay_optional(value.address, supplied.address);
-    value.size = supplied.size;
-    value.from_byte = supplied.from_byte;
-    value.to_byte = supplied.to_byte;
+    if (supplied.supplied.size ||
+        (!supplied.supplied.tracked && supplied.size != AxisDefinition{}.size))
+    {
+        value.size = supplied.size;
+        value.supplied.size = true;
+    }
+    if (supplied.supplied.from_byte ||
+        (!supplied.supplied.tracked && supplied.from_byte != AxisDefinition{}.from_byte))
+    {
+        value.from_byte = supplied.from_byte;
+        value.supplied.from_byte = true;
+    }
+    if (supplied.supplied.to_byte ||
+        (!supplied.supplied.tracked && supplied.to_byte != AxisDefinition{}.to_byte))
+    {
+        value.to_byte = supplied.to_byte;
+        value.supplied.to_byte = true;
+    }
     overlay_string(value.scaling_name, supplied.scaling_name);
 }
 
 void overlay_map(CalibrationMap& value, const CalibrationMap& supplied)
 {
-    overlay_string(value.id, supplied.id);
+    if (has_stable_map_id(supplied))
+    {
+        value.id = supplied.id;
+        value.supplied.stable_id = true;
+    }
     overlay_string(value.name, supplied.name);
     overlay_string(value.type, supplied.type);
     overlay_string(value.category, supplied.category);
     overlay_string(value.subcategory, supplied.subcategory);
     overlay_string(value.description, supplied.description);
     overlay_optional(value.address, supplied.address);
-    value.x_size = supplied.x_size;
-    value.y_size = supplied.y_size;
-    value.swap_xy = supplied.swap_xy;
-    value.flip_x = supplied.flip_x;
-    value.flip_y = supplied.flip_y;
+    if (supplied.supplied.x_size ||
+        (!supplied.supplied.tracked && supplied.x_size != CalibrationMap{}.x_size))
+    {
+        value.x_size = supplied.x_size;
+        value.supplied.x_size = true;
+    }
+    if (supplied.supplied.y_size ||
+        (!supplied.supplied.tracked && supplied.y_size != CalibrationMap{}.y_size))
+    {
+        value.y_size = supplied.y_size;
+        value.supplied.y_size = true;
+    }
+    if (supplied.supplied.swap_xy || (!supplied.supplied.tracked && supplied.swap_xy))
+    {
+        value.swap_xy = supplied.swap_xy;
+        value.supplied.swap_xy = true;
+    }
+    if (supplied.supplied.flip_x || (!supplied.supplied.tracked && supplied.flip_x))
+    {
+        value.flip_x = supplied.flip_x;
+        value.supplied.flip_x = true;
+    }
+    if (supplied.supplied.flip_y || (!supplied.supplied.tracked && supplied.flip_y))
+    {
+        value.flip_y = supplied.flip_y;
+        value.supplied.flip_y = true;
+    }
     overlay_string(value.level, supplied.level);
     overlay_string(value.user_level, supplied.user_level);
     overlay_string(value.scaling_name, supplied.scaling_name);
@@ -132,17 +187,25 @@ Result<void> validate_local(const UnresolvedDefinition& definition)
                 "' has no source");
     }
 
-    std::unordered_set<std::string> map_keys;
+    std::vector<const CalibrationMap *> maps;
     for (const CalibrationMap& map : definition.maps)
     {
         const std::string key = map_key(map);
-        if (!key.empty() && !map_keys.insert(key).second)
+        const bool duplicate = std::any_of(
+            maps.begin(),
+            maps.end(),
+            [&map](const CalibrationMap *candidate)
+            {
+                return maps_match(*candidate, map);
+            });
+        if (!key.empty() && duplicate)
         {
             return fail(
                 ErrorKind::InvalidConfig,
                 "duplicate map key '" + key + "' in definition '" +
                     definition.identity.xml_id + "' from '" + definition.source + "'");
         }
+        maps.push_back(&map);
     }
 
     std::unordered_map<std::string, const Scaling *> scalings;
@@ -178,13 +241,12 @@ Result<void> overlay_definition(
 
     for (const CalibrationMap& map : supplied.maps)
     {
-        const std::string key = map_key(map);
         auto existing = std::find_if(
             value.maps.begin(),
             value.maps.end(),
-            [&key](const CalibrationMap& candidate)
+            [&map](const CalibrationMap& candidate)
             {
-                return map_key(candidate) == key;
+                return maps_match(candidate, map);
             });
         if (existing == value.maps.end())
         {
@@ -218,28 +280,6 @@ Result<void> overlay_definition(
         }
     }
     return {};
-}
-
-Result<void> merge_romraider_base_to_child(
-    RomDefinition& base, const UnresolvedDefinition& child)
-{
-    return overlay_definition(base, child);
-}
-
-Result<void> merge_ecuflash_include_to_child(
-    RomDefinition& base, const UnresolvedDefinition& child)
-{
-    return overlay_definition(base, child);
-}
-
-Result<void> merge_base_to_child(
-    RomDefinition& base, const UnresolvedDefinition& child)
-{
-    if (child.format == DefinitionFormat::RomRaider)
-    {
-        return merge_romraider_base_to_child(base, child);
-    }
-    return merge_ecuflash_include_to_child(base, child);
 }
 
 bool axis_is_present(const AxisDefinition& axis)
@@ -332,11 +372,30 @@ Result<void> apply_axis_scaling(
     }
 
     overlay_string(axis.units, scaling->second->units);
-    overlay_string(axis.format, scaling->second->format);
+    if (scaling->second->supplied.format ||
+        (!scaling->second->supplied.tracked && !scaling->second->format.empty()) ||
+        axis.format.empty())
+    {
+        axis.format = scaling->second->format;
+    }
     overlay_string(axis.storage_type, scaling->second->storage_type);
     overlay_string(axis.endian, scaling->second->endian);
-    overlay_string(axis.from_byte, scaling->second->from_byte);
-    overlay_string(axis.to_byte, scaling->second->to_byte);
+    const bool from_byte_supplied =
+        scaling->second->supplied.from_byte ||
+        (!scaling->second->supplied.tracked && !scaling->second->from_byte.empty());
+    if (from_byte_supplied || !axis.supplied.from_byte)
+    {
+        axis.from_byte = scaling->second->from_byte;
+        axis.supplied.from_byte = from_byte_supplied;
+    }
+    const bool to_byte_supplied =
+        scaling->second->supplied.to_byte ||
+        (!scaling->second->supplied.tracked && !scaling->second->to_byte.empty());
+    if (to_byte_supplied || !axis.supplied.to_byte)
+    {
+        axis.to_byte = scaling->second->to_byte;
+        axis.supplied.to_byte = to_byte_supplied;
+    }
     return {};
 }
 
@@ -388,7 +447,7 @@ Result<void> validate_and_resolve_scalings(RomDefinition& definition)
         scalings.emplace(scaling.name, &scaling);
     }
 
-    std::unordered_set<std::string> map_keys;
+    std::vector<const CalibrationMap *> maps;
     for (CalibrationMap& map : definition.maps)
     {
         const std::string key = map_key(map);
@@ -398,13 +457,21 @@ Result<void> validate_and_resolve_scalings(RomDefinition& definition)
                 ErrorKind::InvalidConfig,
                 "incomplete map identity in definition '" + definition.identity.xml_id + "'");
         }
-        if (!map_keys.insert(key).second)
+        const bool duplicate = std::any_of(
+            maps.begin(),
+            maps.end(),
+            [&map](const CalibrationMap *candidate)
+            {
+                return maps_match(*candidate, map);
+            });
+        if (duplicate)
         {
             return fail(
                 ErrorKind::InvalidConfig,
                 "duplicate map key '" + key + "' in resolved definition '" +
                     definition.identity.xml_id + "'");
         }
+        maps.push_back(&map);
         if (map.x_size == 0 || map.y_size == 0)
         {
             return fail(
@@ -532,13 +599,12 @@ class ResolverState
   private:
     Result<RomDefinition> resolve(UnresolvedDefinition definition)
     {
-        auto locally_valid = validate_local(definition);
-        if (!locally_valid)
+        const std::string id = definition.identity.xml_id;
+        if (id.empty())
         {
+            auto locally_valid = validate_local(definition);
             return std::unexpected(locally_valid.error());
         }
-
-        const std::string id = definition.identity.xml_id;
         if (visiting.contains(id))
         {
             return fail(
@@ -554,6 +620,14 @@ class ResolverState
 
         visiting.insert(id);
         stack.push_back(id);
+
+        auto locally_valid = validate_local(definition);
+        if (!locally_valid)
+        {
+            return fail(
+                locally_valid.error().kind,
+                locally_valid.error().detail + " in inheritance chain " + chain_text(stack));
+        }
 
         RomDefinition resolved;
         bool has_parent = false;
@@ -597,15 +671,7 @@ class ResolverState
                 auto parent_result = resolve(std::move(*loaded));
                 if (!parent_result)
                 {
-                    if (parent_result.error().detail.find("inheritance chain") != std::string::npos ||
-                        parent_result.error().detail.find("inheritance cycle") != std::string::npos)
-                    {
-                        return std::unexpected(parent_result.error());
-                    }
-                    return fail(
-                        parent_result.error().kind,
-                        parent_result.error().detail + " in inheritance chain " +
-                            chain_text(stack, parent_id));
+                    return std::unexpected(parent_result.error());
                 }
                 parent = resolved_by_id.find(parent_id);
             }
@@ -617,30 +683,23 @@ class ResolverState
             }
             else
             {
-                auto merged = merge_base_to_child(resolved, parent->second);
+                auto merged = overlay_definition(resolved, parent->second);
                 if (!merged)
                 {
-                    return std::unexpected(merged.error());
+                    return fail(
+                        merged.error().kind,
+                        merged.error().detail + " in inheritance chain " + chain_text(stack));
                 }
             }
             append_unique(resolved.resolved_sources, parent->second.resolved_sources);
         }
 
-        if (!has_parent)
+        auto merged = overlay_definition(resolved, definition);
+        if (!merged)
         {
-            auto merged = merge_base_to_child(resolved, definition);
-            if (!merged)
-            {
-                return std::unexpected(merged.error());
-            }
-        }
-        else
-        {
-            auto merged = merge_base_to_child(resolved, definition);
-            if (!merged)
-            {
-                return std::unexpected(merged.error());
-            }
+            return fail(
+                merged.error().kind,
+                merged.error().detail + " in inheritance chain " + chain_text(stack));
         }
         append_unique(resolved.resolved_sources, {resolved.source});
 

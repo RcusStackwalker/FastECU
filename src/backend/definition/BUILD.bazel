@@ -63,5 +63,9 @@ fastecu_portable_gtest(
 fastecu_portable_gtest(
     name = "definition_resolver_test",
     srcs = ["definition_resolver_test.cpp"],
-    deps = [":definition_resolver"],
+    deps = [
+        ":definition_resolver",
+        ":ecuflash_parser",
+        ":romraider_parser",
+    ],
 )
