@@ -177,5 +177,21 @@ TEST(DefinitionWriterTest, RejectsMalformedImportBeforeProducingBytes)
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
 }
 
+TEST(DefinitionWriterTest, RejectsDuplicateTopLevelRomIdContainers)
+{
+    const auto source = bytes(R"xml(
+<rom>
+  <romid><xmlid>FIRST</xmlid></romid>
+  <romid><xmlid>SECOND</xmlid><vendor-field>keep</vendor-field></romid>
+</rom>)xml");
+
+    auto result = rewrite_ecuflash_xml(source, complete_input());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_NE(result.error().detail.find("<romid>"), std::string::npos);
+    EXPECT_NE(result.error().detail.find("duplicate"), std::string::npos);
+}
+
 } // namespace
 } // namespace fastecu::definition

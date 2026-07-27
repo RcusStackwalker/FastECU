@@ -665,6 +665,23 @@ TEST_F(DefinitionServiceTest, ImportRejectsInvalidTransformedTreeBeforeAtomicRep
     EXPECT_TRUE(writer.calls.empty());
 }
 
+TEST_F(DefinitionServiceTest, ImportRejectsDuplicateRomIdBeforeAtomicReplacement)
+{
+    repository.files["source.xml"] = bytes(R"xml(
+<rom>
+  <romid><xmlid>FIRST</xmlid></romid>
+  <romid><xmlid>SECOND</xmlid></romid>
+</rom>)xml");
+
+    auto result =
+        service.import_definition("source.xml", "untouched.xml", valid_header_input());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_NE(result.error().detail.find("<romid>"), std::string::npos);
+    EXPECT_TRUE(writer.calls.empty());
+}
+
 TEST_F(DefinitionServiceTest, PropagatesAtomicReplacementFailureUnchanged)
 {
     writer.error = Error{ErrorKind::Internal, "atomic commit failed"};
