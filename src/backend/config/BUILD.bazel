@@ -45,6 +45,7 @@ fastecu_portable_gtest(
         ":provisioning",
         "//src/backend/ports/testing:in_memory_file_system",
         "//src/backend/ports/testing:in_memory_resource_bundle",
+        "//src/backend/ports/testing:recording_event_sink",
     ],
 )
 

@@ -1,16 +1,17 @@
 #include "src/backend/config/provisioning.h"
 #include "src/backend/ports/testing/in_memory_file_system.h"
 #include "src/backend/ports/testing/in_memory_resource_bundle.h"
+#include "src/backend/ports/testing/recording_event_sink.h"
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <map>
 
 using fastecu::DirEntry;
 using fastecu::ErrorKind;
-using fastecu::IEventSink;
 using fastecu::InMemoryFileSystem;
 using fastecu::InMemoryResourceBundle;
 using fastecu::LogLevel;
+using fastecu::RecordingEventSink;
 using fastecu::Result;
 using fastecu::Status;
 using fastecu::config::ConfigPaths;
@@ -18,20 +19,6 @@ using fastecu::config::provision_config_directories;
 
 namespace
 {
-class RecordingEventSink : public IEventSink
-{
-  public:
-    void log(LogLevel, std::string_view) override
-    {
-    }
-    void progress(int, int) override
-    {
-    }
-    void notice(std::string_view) override
-    {
-    }
-};
-
 ConfigPaths test_paths()
 {
     ConfigPaths p;
@@ -189,7 +176,7 @@ TEST(ProvisionConfigDirectories, FirstCreateDirectoryFailureStopsTheSequence)
       public:
         Status create_directory(std::string_view path) override
         {
-            if (std::string(path) == "/base")
+            if (path == "/base"sv)
                 return fastecu::fail(ErrorKind::Internal, "permission denied");
             return InMemoryFileSystem::create_directory(path);
         }

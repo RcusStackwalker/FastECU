@@ -80,3 +80,23 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "recording_event_sink",
+    testonly = True,
+    hdrs = ["recording_event_sink.h"],
+    visibility = [
+        "//src/backend:__subpackages__",
+        "//tests:__pkg__",
+    ],
+    deps = ["//src/backend/ports"],
+)
+
+cc_test(
+    name = "recording_event_sink_test",
+    srcs = ["recording_event_sink_test.cpp"],
+    deps = [
+        ":recording_event_sink",
+        "@googletest//:gtest_main",
+    ],
+)

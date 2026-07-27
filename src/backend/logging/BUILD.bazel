@@ -82,6 +82,7 @@ cc_test(
     srcs = ["logging_use_case_test.cpp"],
     deps = [
         ":logging_use_case",
+        "//src/backend/ports/testing:recording_event_sink",
         "@googletest//:gtest_main",
     ],
 )
