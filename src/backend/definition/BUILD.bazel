@@ -1,5 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -52,6 +53,20 @@ cc_library(
         ":definition_writer",
         ":ecuflash_parser",
         ":romraider_parser",
+        "//src/backend/ports",
+    ],
+)
+
+qt_cc_library(
+    name = "legacy_definition_adapter",
+    srcs = ["legacy_definition_adapter.cpp"],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["legacy_definition_adapter.h"],
+    deps = QT_DEPS + [
+        ":definition_service",
+        "//src/backend/definitions:config_values",
+        "//src/backend/definitions:ecu_cal_def",
         "//src/backend/ports",
     ],
 )
