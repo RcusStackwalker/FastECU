@@ -1,5 +1,4 @@
-#ifndef FASTECU_BACKEND_DEFINITIONS_ECU_CAL_DEF_H
-#define FASTECU_BACKEND_DEFINITIONS_ECU_CAL_DEF_H
+#pragma once
 
 #include <QByteArray>
 #include <QString>
@@ -199,5 +198,3 @@ struct EcuCalDefStructure
 };
 
 } // namespace fastecu::definitions
-
-#endif // FASTECU_BACKEND_DEFINITIONS_ECU_CAL_DEF_H
