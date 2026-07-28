@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <format>
+#include <ranges>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -307,14 +308,11 @@ Result<void> overlay_definition(
 
     for (const Scaling& scaling : supplied.scalings)
     {
-        auto existing = std::find_if(
-            value.scalings.begin(),
-            value.scalings.end(),
-            [&scaling](const Scaling& candidate)
-            {
-                return candidate.name == scaling.name;
-            });
-        if (existing == value.scalings.end())
+        auto existing = std::ranges::find(
+            value.scalings,
+            scaling.name,
+            &Scaling::name);
+        if (existing == std::ranges::end(value.scalings))
         {
             value.scalings.push_back(scaling);
         }
