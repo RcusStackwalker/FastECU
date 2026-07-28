@@ -77,3 +77,6 @@ compile_flags.txt
 /bazel-pkg-*.zip
 
 /.worktrees/
+
+# clang-tidy report
+/reports/
