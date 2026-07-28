@@ -551,7 +551,7 @@ Result<void> validate_and_resolve_scalings(RomDefinition& definition)
         {
             return fail(
                 ErrorKind::InvalidConfig,
-                std::format("zero required dimension for map '{}' in definition '{}'", definition.identity.xml_id));
+                std::format("zero required dimension for map '{}' in definition '{}'", key, definition.identity.xml_id));
         }
 
         bool has_selection_scaling = false;
