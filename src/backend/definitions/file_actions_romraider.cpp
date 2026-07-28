@@ -126,7 +126,7 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(
         *ecuCalDef,
         *catalog,
         fastecu::definition::DefinitionFormat::RomRaider,
-        romraiderUtf8(definitionId));
+        definitionId.toStdString());
     if (!replaced)
     {
         log_definition_error(
@@ -190,7 +190,7 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(
         *ecuCalDef,
         *catalog,
         fastecu::definition::DefinitionFormat::RomRaider,
-        romraiderUtf8(cal_id));
+        cal_id.toStdString());
     if (!replaced)
     {
         log_definition_error(

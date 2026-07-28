@@ -138,7 +138,7 @@ fastecu::Result<DefinitionCatalog> catalogFromLegacyLists(
             {
                 return fastecu::fail(
                     fastecu::ErrorKind::InvalidConfig,
-                    std::format("invalid hexadecimal internal ID address '{}'", addressText.toStdString());
+                    std::format("invalid hexadecimal internal ID address '{}'", addressText.toStdString()));
             }
             address = static_cast<std::uint64_t>(parsed);
         }
