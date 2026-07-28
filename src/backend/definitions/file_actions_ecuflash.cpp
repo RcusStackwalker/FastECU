@@ -176,6 +176,11 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(
 FileActions::EcuCalDefStructure *FileActions::parse_ecuflash_def_scalings(
     EcuCalDefStructure *ecuCalDef)
 {
+    if (ecuCalDef->use_ecuflash_definition)
+    {
+        return ecuCalDef;
+    }
+
     for (def_map_index = 0;
          def_map_index < ecuCalDef->NameList.size();
          ++def_map_index)

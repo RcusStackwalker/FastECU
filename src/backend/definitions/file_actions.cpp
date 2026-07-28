@@ -69,7 +69,7 @@ definitionHeaderInput(
     }
 
     return fastecu::definition::DefinitionHeaderInput{
-        .xml_id = utf8(fields.value("xmlid")),
+        .xml_id = utf8(fields.value("xmlid").trimmed()),
         .internal_id = utf8(fields.value("internalidstring")),
         .ecu_id = utf8(fields.value("ecuid")),
         .internal_id_address = internalIdAddress,
@@ -249,11 +249,24 @@ fastecu::Result<DefinitionCatalog> FileActions::build_definition_catalog(
         }
         return definitionService_.build_romraider_catalog(handles);
     }
-    if (format == DefinitionFormat::EcuFlash &&
-        !ConfigValuesStruct.ecuflash_definition_files_directory.isEmpty())
+    if (format == DefinitionFormat::EcuFlash)
     {
+        std::vector<std::string> explicitHandles;
+        explicitHandles.reserve(static_cast<std::size_t>(
+            ConfigValuesStruct.ecuflash_def_filename.size()));
+        for (const QString& handle :
+             ConfigValuesStruct.ecuflash_def_filename)
+        {
+            explicitHandles.push_back(utf8(handle));
+        }
+        if (ConfigValuesStruct.ecuflash_definition_files_directory.isEmpty() &&
+            explicitHandles.empty())
+        {
+            return catalogFromLegacyLists(ConfigValuesStruct, format);
+        }
         return definitionService_.build_ecuflash_catalog(
-            utf8(ConfigValuesStruct.ecuflash_definition_files_directory));
+            utf8(ConfigValuesStruct.ecuflash_definition_files_directory),
+            explicitHandles);
     }
     return catalogFromLegacyLists(ConfigValuesStruct, format);
 }
@@ -1515,7 +1528,7 @@ FileActions::EcuCalDefStructure *FileActions::create_new_definition_for_rom(File
             return nullptr;
         }
         configValues->ecuflash_def_cal_id.append(
-            lineEditValue(lineEditList, "internalidstring"));
+            QString::fromStdString(input->xml_id));
         configValues->ecuflash_def_cal_id_addr.append(
             lineEditValue(lineEditList, "internalidaddress"));
         configValues->ecuflash_def_ecu_id.append(
@@ -1686,7 +1699,7 @@ FileActions::EcuCalDefStructure *FileActions::use_existing_definition_for_rom(Fi
             return nullptr;
         }
         configValues->ecuflash_def_cal_id.append(
-            lineEditValue(lineEditList, "internalidstring"));
+            QString::fromStdString(input->xml_id));
         configValues->ecuflash_def_cal_id_addr.append(
             lineEditValue(lineEditList, "internalidaddress"));
         configValues->ecuflash_def_ecu_id.append(

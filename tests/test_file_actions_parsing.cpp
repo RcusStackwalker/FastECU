@@ -6,6 +6,7 @@
 #include <QTimer>
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <optional>
 #include <span>
@@ -16,6 +17,7 @@
 #include "src/backend/definition/ecuflash_parser.h"
 #include "src/backend/ports/atomic_file_writer.h"
 #include "src/backend/definitions/file_actions.h"
+#include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
 #include "src/platform/desktop/common/ports/qt_resource_bundle.h"
@@ -58,6 +60,28 @@ class InMemoryAtomicFileWriter : public fastecu::IAtomicFileWriter
     std::vector<Call> calls;
     std::map<std::string, std::vector<std::uint8_t>> files;
     std::optional<fastecu::Error> error;
+};
+
+class RecordingQtAtomicFileWriter : public fastecu::IAtomicFileWriter
+{
+  public:
+    fastecu::Status replace(std::string_view handle,
+                            std::span<const std::uint8_t> data) override
+    {
+        ++callCount;
+        const fastecu::Status status = writer.replace(handle, data);
+        if (status && afterSuccessfulReplace)
+        {
+            afterSuccessfulReplace();
+        }
+        return status;
+    }
+
+    int callCount{0};
+    std::function<void()> afterSuccessfulReplace;
+
+  private:
+    QtAtomicFileWriter writer;
 };
 
 fastecu::definition::DefinitionHeaderInput validHeaderInput()
@@ -708,6 +732,230 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(
             parsed->identity.internal_id_address,
             std::optional<std::uint64_t>{0x100});
+    }
+
+    void accepted_new_definition_records_xml_id_after_success_and_can_reload_external_destination()
+    {
+        QTemporaryDir configuredDirectory;
+        QTemporaryDir destinationDirectory;
+        QVERIFY(configuredDirectory.isValid());
+        QVERIFY(destinationDirectory.isValid());
+        const QString destination =
+            destinationDirectory.filePath("created-external.xml");
+        RecordingQtAtomicFileWriter writer;
+        FileActions actions(
+            fileSystem_, resourceBundle_, fileRepository_, writer);
+        auto& config = actions.ConfigValuesStruct;
+        config.ecuflash_definition_files_directory =
+            configuredDirectory.path();
+        QStringList idsDuringReplacement;
+        QStringList sourcesDuringReplacement;
+        writer.afterSuccessfulReplace = [&]()
+        {
+            idsDuringReplacement = config.ecuflash_def_cal_id;
+            sourcesDuringReplacement = config.ecuflash_def_filename;
+        };
+
+        FileActions::EcuCalDefStructure ecu;
+        bool handledHeader = false;
+        bool handledDestination = false;
+        QTimer::singleShot(0, [&]()
+                           {
+            QDialog *dialog =
+                qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            if (!dialog)
+            {
+                return;
+            }
+            for (QLineEdit *editor : dialog->findChildren<QLineEdit *>())
+            {
+                if (editor->objectName() == "xmlid")
+                {
+                    editor->setText("  CREATE_XML  ");
+                }
+                else if (editor->objectName() == "internalidaddress")
+                {
+                    editor->setText("0");
+                }
+                else if (editor->objectName() == "internalidstring")
+                {
+                    editor->setText("CREATE_INTERNAL");
+                }
+                else if (editor->objectName() == "ecuid")
+                {
+                    editor->setText("CREATE_ECU");
+                }
+            }
+            handledHeader = true;
+            QTimer::singleShot(0, [&]()
+                               {
+                QFileDialog *picker = qobject_cast<QFileDialog *>(
+                    QApplication::activeModalWidget());
+                if (!picker)
+                {
+                    return;
+                }
+                picker->selectFile(destination);
+                handledDestination = true;
+                static_cast<QDialog *>(picker)->accept();
+            });
+            dialog->accept(); });
+
+        QCOMPARE(actions.create_new_definition_for_rom(&ecu), &ecu);
+
+        QVERIFY(handledHeader);
+        QVERIFY(handledDestination);
+        QCOMPARE(writer.callCount, 1);
+        QVERIFY(idsDuringReplacement.isEmpty());
+        QVERIFY(sourcesDuringReplacement.isEmpty());
+        QCOMPARE(config.ecuflash_def_cal_id, QStringList({"CREATE_XML"}));
+        QCOMPARE(config.ecuflash_def_cal_id_addr, QStringList({"0"}));
+        QCOMPARE(config.ecuflash_def_ecu_id, QStringList({"CREATE_ECU"}));
+        QCOMPARE(config.ecuflash_def_filename, QStringList({destination}));
+        QCOMPARE(
+            actions.definition_source(
+                fastecu::definition::DefinitionFormat::EcuFlash,
+                "CREATE_XML"),
+            destination);
+
+        ecu.FullRomData = QByteArray("CREATE_INTERNAL");
+        QCOMPARE(
+            actions.parse_ecuid_ecuflash_def_files(&ecu, true),
+            &ecu);
+        QCOMPARE(ecu.RomId, QString("CREATE_XML"));
+        QCOMPARE(
+            actions.read_ecuflash_ecu_def(&ecu, ecu.RomId),
+            &ecu);
+        QVERIFY(ecu.use_ecuflash_definition);
+        QCOMPARE(
+            ecu.RomInfo.at(FileActions::XmlId),
+            QString("CREATE_XML"));
+    }
+
+    void accepted_imported_definition_records_xml_id_after_success_and_can_reload_external_destination()
+    {
+        QTemporaryDir configuredDirectory;
+        QTemporaryDir sourceDirectory;
+        QTemporaryDir destinationDirectory;
+        QVERIFY(configuredDirectory.isValid());
+        QVERIFY(sourceDirectory.isValid());
+        QVERIFY(destinationDirectory.isValid());
+        const QString source = writeTextFile(
+            sourceDirectory,
+            "source.xml",
+            R"(<rom><romid><xmlid>OLD_XML</xmlid><internalidaddress>0</internalidaddress><internalidstring>OLD_INTERNAL</internalidstring></romid><vendor-extension/></rom>)");
+        QVERIFY(!source.isEmpty());
+        const QString destination =
+            destinationDirectory.filePath("imported-external.xml");
+        RecordingQtAtomicFileWriter writer;
+        FileActions actions(
+            fileSystem_, resourceBundle_, fileRepository_, writer);
+        auto& config = actions.ConfigValuesStruct;
+        config.ecuflash_definition_files_directory =
+            configuredDirectory.path();
+        QStringList idsDuringReplacement;
+        QStringList sourcesDuringReplacement;
+        writer.afterSuccessfulReplace = [&]()
+        {
+            idsDuringReplacement = config.ecuflash_def_cal_id;
+            sourcesDuringReplacement = config.ecuflash_def_filename;
+        };
+
+        FileActions::EcuCalDefStructure ecu;
+        bool handledSource = false;
+        bool handledHeader = false;
+        bool handledDestination = false;
+        QTimer::singleShot(0, [&]()
+                           {
+            QFileDialog *sourcePicker = qobject_cast<QFileDialog *>(
+                QApplication::activeModalWidget());
+            if (!sourcePicker)
+            {
+                return;
+            }
+            sourcePicker->selectFile(source);
+            handledSource = true;
+            QTimer::singleShot(0, [&]()
+                               {
+                QDialog *dialog = qobject_cast<QDialog *>(
+                    QApplication::activeModalWidget());
+                if (!dialog)
+                {
+                    return;
+                }
+                for (QLineEdit *editor :
+                     dialog->findChildren<QLineEdit *>())
+                {
+                    if (editor->objectName() == "xmlid")
+                    {
+                        editor->setText("  IMPORT_XML  ");
+                    }
+                    else if (editor->objectName() ==
+                             "internalidaddress")
+                    {
+                        editor->setText("0");
+                    }
+                    else if (editor->objectName() ==
+                             "internalidstring")
+                    {
+                        editor->setText("IMPORT_INTERNAL");
+                    }
+                    else if (editor->objectName() == "ecuid")
+                    {
+                        editor->setText("IMPORT_ECU");
+                    }
+                    else if (editor->objectName() == "include")
+                    {
+                        editor->clear();
+                    }
+                }
+                handledHeader = true;
+                QTimer::singleShot(0, [&]()
+                                   {
+                    QFileDialog *destinationPicker =
+                        qobject_cast<QFileDialog *>(
+                            QApplication::activeModalWidget());
+                    if (!destinationPicker)
+                    {
+                        return;
+                    }
+                    destinationPicker->selectFile(destination);
+                    handledDestination = true;
+                    static_cast<QDialog *>(destinationPicker)->accept();
+                });
+                dialog->accept(); });
+            static_cast<QDialog *>(sourcePicker)->accept(); });
+
+        QCOMPARE(actions.use_existing_definition_for_rom(&ecu), &ecu);
+
+        QVERIFY(handledSource);
+        QVERIFY(handledHeader);
+        QVERIFY(handledDestination);
+        QCOMPARE(writer.callCount, 1);
+        QVERIFY(idsDuringReplacement.isEmpty());
+        QVERIFY(sourcesDuringReplacement.isEmpty());
+        QCOMPARE(config.ecuflash_def_cal_id, QStringList({"IMPORT_XML"}));
+        QCOMPARE(config.ecuflash_def_cal_id_addr, QStringList({"0"}));
+        QCOMPARE(config.ecuflash_def_ecu_id, QStringList({"IMPORT_ECU"}));
+        QCOMPARE(config.ecuflash_def_filename, QStringList({destination}));
+        QCOMPARE(
+            actions.definition_source(
+                fastecu::definition::DefinitionFormat::EcuFlash,
+                "IMPORT_XML"),
+            destination);
+
+        ecu.FullRomData = QByteArray("IMPORT_INTERNAL");
+        QCOMPARE(
+            actions.parse_ecuid_ecuflash_def_files(&ecu, true),
+            &ecu);
+        QCOMPARE(ecu.RomId, QString("IMPORT_XML"));
+        QCOMPARE(
+            actions.read_ecuflash_ecu_def(&ecu, ecu.RomId),
+            &ecu);
+        QVERIFY(ecu.use_ecuflash_definition);
+        QCOMPARE(
+            ecu.RomInfo.at(FileActions::XmlId),
+            QString("IMPORT_XML"));
     }
 
     void new_definition_submission_uses_one_atomic_replacement()

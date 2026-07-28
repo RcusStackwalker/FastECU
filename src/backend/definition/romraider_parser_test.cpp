@@ -17,8 +17,9 @@ std::vector<std::uint8_t> bytes(std::string_view text)
     return {text.begin(), text.end()};
 }
 
+template <typename T>
 void expect_invalid_with_context(
-    const Result<UnresolvedDefinition>& result,
+    const Result<T>& result,
     std::string_view source_context,
     std::string_view xml_context)
 {
@@ -269,6 +270,60 @@ TEST(RomRaiderParserTest, MissingXmlIdIsInvalidConfigWithElementContext)
     expect_invalid_with_context(result, "missing-id.xml", "<xmlid>");
 }
 
+TEST(RomRaiderParserTest, RejectsDuplicateRomIdContainerInIndexAndDefinition)
+{
+    const auto xml = bytes(R"xml(
+      <roms><rom>
+        <romid><xmlid>FIRST</xmlid></romid>
+        <romid><xmlid>SECOND</xmlid></romid>
+      </rom></roms>)xml");
+
+    const auto index =
+        parse_romraider_index(xml, "duplicate-romid.xml");
+    const auto definition = parse_romraider_definition(
+        xml, "duplicate-romid.xml", "FIRST");
+
+    expect_invalid_with_context(
+        index, "duplicate-romid.xml", "<romid>");
+    expect_invalid_with_context(
+        definition, "duplicate-romid.xml", "<romid>");
+}
+
+TEST(RomRaiderParserTest, RejectsDuplicateRequiredIdentityChildInIndexAndDefinition)
+{
+    const auto xml = bytes(R"xml(
+      <roms><rom><romid><xmlid>FIRST</xmlid><xmlid>SECOND</xmlid></romid></rom></roms>)xml");
+
+    const auto index =
+        parse_romraider_index(xml, "duplicate-xmlid.xml");
+    const auto definition = parse_romraider_definition(
+        xml, "duplicate-xmlid.xml", "FIRST");
+
+    expect_invalid_with_context(
+        index, "duplicate-xmlid.xml", "<xmlid>");
+    expect_invalid_with_context(
+        definition, "duplicate-xmlid.xml", "<xmlid>");
+}
+
+TEST(RomRaiderParserTest, RejectsDuplicateOptionalIdentityChildInIndexAndDefinition)
+{
+    const auto xml = bytes(R"xml(
+      <roms><rom><romid><xmlid>A</xmlid>
+        <internalidstring>FIRST</internalidstring>
+        <internalidstring>SECOND</internalidstring>
+      </romid></rom></roms>)xml");
+
+    const auto index =
+        parse_romraider_index(xml, "duplicate-internal-id.xml");
+    const auto definition = parse_romraider_definition(
+        xml, "duplicate-internal-id.xml", "A");
+
+    expect_invalid_with_context(
+        index, "duplicate-internal-id.xml", "<internalidstring>");
+    expect_invalid_with_context(
+        definition, "duplicate-internal-id.xml", "<internalidstring>");
+}
+
 TEST(RomRaiderParserTest, InvalidAddressIsInvalidConfigWithAttributeContext)
 {
     const auto xml = bytes(
@@ -300,6 +355,33 @@ TEST(RomRaiderParserTest, DuplicateMapIdentityIsInvalidConfigWithTableContext)
     auto result = parse_romraider_definition(xml, "duplicate.xml", "A");
 
     expect_invalid_with_context(result, "duplicate.xml", "<table>");
+}
+
+TEST(RomRaiderParserTest, RejectsSecondAxisTargetingAnOccupiedSemanticSlot)
+{
+    auto duplicate_x = parse_romraider_definition(bytes(R"xml(
+      <roms><rom><romid><xmlid>X_DUPLICATE</xmlid></romid>
+      <table name="Fuel" type="3D" sizex="2" sizey="2">
+        <table type="X Axis" name="First X"/>
+        <table type="Static X Axis" name="Second X"/>
+        <table type="Y Axis" name="Only Y"/>
+      </table></rom></roms>)xml"),
+                                                  "duplicate-x-axis.xml",
+                                                  "X_DUPLICATE");
+    expect_invalid_with_context(
+        duplicate_x, "duplicate-x-axis.xml", "X axis");
+
+    auto duplicate_y = parse_romraider_definition(bytes(R"xml(
+      <roms><rom><romid><xmlid>Y_DUPLICATE</xmlid></romid>
+      <table name="Fuel" type="3D" sizex="2" sizey="2">
+        <table type="X Axis" name="Only X"/>
+        <table type="Y Axis" name="First Y"/>
+        <table type="Y Axis" name="Second Y"/>
+      </table></rom></roms>)xml"),
+                                                  "duplicate-y-axis.xml",
+                                                  "Y_DUPLICATE");
+    expect_invalid_with_context(
+        duplicate_y, "duplicate-y-axis.xml", "Y axis");
 }
 
 TEST(RomRaiderParserTest, WrongRootIsInvalidConfigWithExpectedRootContext)

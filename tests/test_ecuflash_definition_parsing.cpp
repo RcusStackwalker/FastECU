@@ -340,6 +340,72 @@ class TestEcuflashDefinitionParsing : public QObject
             "Definition for CAL ID CHILD_TEST succesfully read"));
     }
 
+    void resolved_partial_scalings_remain_a_full_state_no_io_noop_when_invoked_twice()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString definitionPath = writeDefFile(
+            dir,
+            "PARTIAL",
+            R"xml(<rom>
+  <romid><xmlid>PARTIAL</xmlid></romid>
+  <scaling name="MapScale" units="%" toexpr="x*2" frexpr="x/2" format="%.1f"/>
+  <scaling name="XScale" units="load" toexpr="x+1" frexpr="x-1" format="%.2f"/>
+  <scaling name="YScale" units="rpm" toexpr="x*4" frexpr="x/4" format="%.0f"/>
+  <table name="Fuel" type="3D" sizex="2" sizey="2"
+         scaling="MapScale" storagetype="uint16" endian="big">
+    <table name="Load" type="X Axis" elements="2"
+           scaling="XScale" storagetype="uint8" endian="little"/>
+    <table name="RPM" type="Y Axis" elements="2"
+           scaling="YScale" storagetype="uint16" endian="big"/>
+  </table>
+</rom>)xml");
+        QVERIFY(!definitionPath.isEmpty());
+
+        FileActions fileActions(
+            fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fileActions.ConfigValuesStruct.ecuflash_def_cal_id = {"PARTIAL"};
+        fileActions.ConfigValuesStruct.ecuflash_def_filename = {
+            definitionPath,
+        };
+        FileActions::EcuCalDefStructure ecuCalDef;
+        QCOMPARE(
+            fileActions.read_ecuflash_ecu_def(&ecuCalDef, "PARTIAL"),
+            &ecuCalDef);
+        QVERIFY(ecuCalDef.use_ecuflash_definition);
+        QCOMPARE(ecuCalDef.StorageTypeList.at(0), QString("uint16"));
+        QCOMPARE(ecuCalDef.EndianList.at(0), QString("big"));
+        QCOMPARE(ecuCalDef.FromByteList.at(0), QString("x*2"));
+        QCOMPARE(ecuCalDef.ToByteList.at(0), QString("x/2"));
+        QCOMPARE(ecuCalDef.XScaleStorageTypeList.at(0), QString("uint8"));
+        QCOMPARE(ecuCalDef.XScaleEndianList.at(0), QString("little"));
+        QCOMPARE(ecuCalDef.XScaleFromByteList.at(0), QString("x+1"));
+        QCOMPARE(ecuCalDef.XScaleToByteList.at(0), QString("x-1"));
+        QCOMPARE(ecuCalDef.YScaleStorageTypeList.at(0), QString("uint16"));
+        QCOMPARE(ecuCalDef.YScaleEndianList.at(0), QString("big"));
+        QCOMPARE(ecuCalDef.YScaleFromByteList.at(0), QString("x*4"));
+        QCOMPARE(ecuCalDef.YScaleToByteList.at(0), QString("x/4"));
+        QCOMPARE(
+            ecuCalDef.ScalingStorageTypeList,
+            QStringList({" ", " ", " "}));
+        QCOMPARE(
+            ecuCalDef.ScalingEndianList,
+            QStringList({" ", " ", " "}));
+        const int readsAfterDefinition = fileRepository_.readCount;
+        const FileActions::EcuCalDefStructure resolved = ecuCalDef;
+
+        QCOMPARE(
+            fileActions.parse_ecuflash_def_scalings(&ecuCalDef),
+            &ecuCalDef);
+        QCOMPARE(fileRepository_.readCount, readsAfterDefinition);
+        QVERIFY(ecuCalDef == resolved);
+        QCOMPARE(
+            fileActions.parse_ecuflash_def_scalings(&ecuCalDef),
+            &ecuCalDef);
+        QCOMPARE(fileRepository_.readCount, readsAfterDefinition);
+        QVERIFY(ecuCalDef == resolved);
+    }
+
     void standalone_scaling_parse_uses_prepopulated_rows_without_file_io()
     {
         FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);

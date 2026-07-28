@@ -1,5 +1,6 @@
 #include "src/backend/definition/ecuflash_parser.h"
 
+#include <array>
 #include <charconv>
 #include <cctype>
 #include <cstdint>
@@ -104,14 +105,66 @@ Result<std::string> required_child_text(
     return value;
 }
 
-Result<std::string> definition_id_for_rom(pugi::xml_node rom, std::string_view source)
+Result<pugi::xml_node> identity_element(
+    pugi::xml_node rom,
+    std::string_view source)
 {
     const pugi::xml_node rom_id = rom.child("romid");
     if (!rom_id)
     {
-        return invalid(source, "element <rom> child <romid>", "missing required identity element");
+        return invalid(
+            source,
+            "element <rom> child <romid>",
+            "missing required identity element");
     }
-    return required_child_text(rom_id, "romid", "xmlid", source);
+    if (rom_id.next_sibling("romid"))
+    {
+        return invalid(
+            source,
+            "element <rom> child <romid>",
+            "duplicate singleton identity element");
+    }
+
+    static constexpr std::array singleton_children{
+        "xmlid",
+        "internalidaddress",
+        "internalidstring",
+        "ecuid",
+        "make",
+        "market",
+        "model",
+        "submodel",
+        "transmission",
+        "year",
+        "flashmethod",
+        "memmodel",
+        "checksummodule",
+        "filesize",
+        "notes",
+    };
+    for (const char *child_name : singleton_children)
+    {
+        const pugi::xml_node child = rom_id.child(child_name);
+        if (child && child.next_sibling(child_name))
+        {
+            return invalid(
+                source,
+                std::string("element <romid> child <") +
+                    child_name + ">",
+                "duplicate singleton identity element");
+        }
+    }
+    return rom_id;
+}
+
+Result<std::string> definition_id_for_rom(pugi::xml_node rom, std::string_view source)
+{
+    auto rom_id = identity_element(rom, source);
+    if (!rom_id)
+    {
+        return std::unexpected(rom_id.error());
+    }
+    return required_child_text(*rom_id, "romid", "xmlid", source);
 }
 
 std::string attribute_or_empty(pugi::xml_node node, const char *name)
@@ -593,12 +646,23 @@ Result<CalibrationMap> parse_table(
         scalings.push_back(std::move(scaling));
     }
 
+    bool x_axis_populated = false;
+    bool y_axis_populated = false;
     for (pugi::xml_node axis_table : table.children("table"))
     {
         const std::string type = attribute_or_empty(axis_table, "type");
         if (type == "X Axis" || type == "Static X Axis" || type == "Static Y Axis" ||
             (type == "Y Axis" && map.type == "2D"))
         {
+            if (x_axis_populated)
+            {
+                return invalid(
+                    source,
+                    "element <table> child <table> type '" + type + "'",
+                    "second axis targets already-populated X axis slot",
+                    definition_id);
+            }
+            x_axis_populated = true;
             if (type == "Static Y Axis" || type == "Y Axis")
             {
                 const bool dimension_supplied = map.supplied.y_size;
@@ -620,6 +684,15 @@ Result<CalibrationMap> parse_table(
         }
         else if (type == "Y Axis")
         {
+            if (y_axis_populated)
+            {
+                return invalid(
+                    source,
+                    "element <table> child <table> type '" + type + "'",
+                    "second axis targets already-populated Y axis slot",
+                    definition_id);
+            }
+            y_axis_populated = true;
             auto axis = parse_axis(axis_table, map.y_size, source, definition_id, scalings);
             if (!axis)
             {

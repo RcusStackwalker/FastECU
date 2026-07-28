@@ -1,7 +1,13 @@
+#include "src/backend/definition/definition_service.h"
+#include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
+#include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
 #include <gtest/gtest.h>
 #include <QDir>
+#include <QFile>
 #include <QTemporaryDir>
+
+#include <algorithm>
 
 using fastecu::ErrorKind;
 
@@ -83,6 +89,58 @@ TEST(QtFileSystemTest, ListDirectoryReturnsEntriesWithModifiedTime)
     }
     EXPECT_TRUE(found_dir);
     EXPECT_TRUE(found_file);
+}
+
+TEST(QtFileSystemTest, EcuFlashDiscoverySkipsDirectorySymlinkCycleAndKeepsNestedXml)
+{
+#if defined(Q_OS_WIN)
+    GTEST_SKIP()
+        << "QFile::link creates Windows shortcuts, not directory symlinks";
+#endif
+
+    QTemporaryDir tmp;
+    ASSERT_TRUE(tmp.isValid());
+    const QString nested = tmp.path() + "/nested";
+    ASSERT_TRUE(QDir().mkpath(nested));
+    QFile definition(nested + "/definition.xml");
+    ASSERT_TRUE(definition.open(QIODevice::WriteOnly | QIODevice::Text));
+    const QByteArray contents =
+        "<rom><romid><xmlid>NESTED</xmlid></romid></rom>";
+    ASSERT_EQ(definition.write(contents), contents.size());
+    definition.close();
+    const QString loop = nested + "/loop";
+    if (!QFile::link(tmp.path(), loop))
+    {
+        GTEST_SKIP() << "directory symlinks are unavailable";
+    }
+
+    QtFileSystem fs;
+    auto nestedEntries = fs.list_directory(nested.toStdString());
+    ASSERT_TRUE(nestedEntries);
+    const auto loopEntry = std::find_if(
+        nestedEntries->begin(),
+        nestedEntries->end(),
+        [](const fastecu::DirEntry& entry)
+        {
+            return entry.name == "loop";
+        });
+    ASSERT_NE(loopEntry, nestedEntries->end());
+    EXPECT_TRUE(loopEntry->is_directory);
+    EXPECT_TRUE(loopEntry->is_symlink);
+
+    QtFileRepository repository;
+    QtAtomicFileWriter writer;
+    fastecu::definition::DefinitionService service(
+        fs, repository, writer);
+    auto catalog =
+        service.build_ecuflash_catalog(tmp.path().toStdString());
+
+    ASSERT_TRUE(catalog);
+    ASSERT_EQ(catalog->entries().size(), 1U);
+    EXPECT_EQ(catalog->entries()[0].definition_id, "NESTED");
+    EXPECT_EQ(
+        catalog->entries()[0].source,
+        (nested + "/definition.xml").toStdString());
 }
 
 int main(int argc, char **argv)

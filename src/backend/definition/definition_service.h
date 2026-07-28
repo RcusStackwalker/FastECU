@@ -21,7 +21,9 @@ class DefinitionService
 
     Result<DefinitionCatalog> build_romraider_catalog(
         std::span<const std::string> ordered_handles);
-    Result<DefinitionCatalog> build_ecuflash_catalog(std::string_view directory);
+    Result<DefinitionCatalog> build_ecuflash_catalog(
+        std::string_view directory,
+        std::span<const std::string> explicit_handles = {});
     Result<DefinitionIndexEntry> match_rom(
         const DefinitionCatalog&, std::span<const std::uint8_t> rom) const;
     Result<RomDefinition> load(

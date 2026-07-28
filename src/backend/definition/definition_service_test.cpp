@@ -217,6 +217,84 @@ TEST_F(DefinitionServiceTest, DiscoversEcuFlashXmlRecursivelyInLexicalFullPathOr
     EXPECT_FALSE(repository.read_counts.contains("defs/pretend.xml"));
 }
 
+TEST_F(DefinitionServiceTest, SkipsSymlinkDirectoriesWhileDiscoveringOrdinaryNestedXml)
+{
+    file_system.directories["defs"] = {
+        DirEntry{.name = "nested", .is_directory = true},
+    };
+    file_system.directories["defs/nested"] = {
+        DirEntry{.name = "definition.xml", .is_directory = false},
+        DirEntry{
+            .name = "loop",
+            .is_directory = true,
+            .is_symlink = true,
+        },
+    };
+    repository.files["defs/nested/definition.xml"] =
+        ecuflash_xml("NESTED");
+
+    auto result = service.build_ecuflash_catalog("defs");
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->entries().size(), 1U);
+    EXPECT_EQ(result->entries()[0].definition_id, "NESTED");
+    EXPECT_EQ(
+        result->entries()[0].source,
+        "defs/nested/definition.xml");
+    EXPECT_FALSE(
+        repository.read_counts.contains("defs/nested/loop"));
+}
+
+TEST_F(DefinitionServiceTest, MergesExplicitEcuFlashHandlesDeterministicallyAndReadsEachSourceOnce)
+{
+    file_system.directories["defs"] = {
+        DirEntry{.name = "z.xml", .is_directory = false},
+    };
+    repository.files["defs/z.xml"] = ecuflash_xml("Z");
+    repository.files["external/a.xml"] = ecuflash_xml("A");
+    repository.files["external/b.xml"] = ecuflash_xml("B");
+    const std::vector<std::string> explicit_handles{
+        "external/b.xml",
+        "defs/z.xml",
+        "external/a.xml",
+        "external/b.xml",
+    };
+
+    auto result =
+        service.build_ecuflash_catalog("defs", explicit_handles);
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->entries().size(), 3U);
+    EXPECT_EQ(result->entries()[0].definition_id, "Z");
+    EXPECT_EQ(result->entries()[0].source, "defs/z.xml");
+    EXPECT_EQ(result->entries()[1].definition_id, "A");
+    EXPECT_EQ(result->entries()[1].source, "external/a.xml");
+    EXPECT_EQ(result->entries()[2].definition_id, "B");
+    EXPECT_EQ(result->entries()[2].source, "external/b.xml");
+    EXPECT_EQ(repository.read_counts["defs/z.xml"], 1);
+    EXPECT_EQ(repository.read_counts["external/a.xml"], 1);
+    EXPECT_EQ(repository.read_counts["external/b.xml"], 1);
+}
+
+TEST_F(DefinitionServiceTest, BuildsEcuFlashCatalogFromExplicitHandlesWithoutConfiguredDirectory)
+{
+    repository.files["external/definition.xml"] = bytes(R"xml(
+      <rom><romid><xmlid>XML_ID</xmlid><internalidaddress>0</internalidaddress>
+      <internalidstring>INTERNAL_ID</internalidstring></romid></rom>)xml");
+    const std::vector<std::string> explicit_handles{
+        "external/definition.xml",
+    };
+
+    auto result =
+        service.build_ecuflash_catalog({}, explicit_handles);
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->entries().size(), 1U);
+    EXPECT_EQ(result->entries()[0].definition_id, "XML_ID");
+    EXPECT_EQ(result->entries()[0].internal_id, "INTERNAL_ID");
+    EXPECT_EQ(result->entries()[0].source, "external/definition.xml");
+}
+
 TEST_F(DefinitionServiceTest, PreservesConfiguredRomRaiderHandleOrderingAndReadsEachOnce)
 {
     repository.files["second.xml"] = romraider_xml("SECOND");

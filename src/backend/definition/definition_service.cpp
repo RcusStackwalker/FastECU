@@ -150,6 +150,10 @@ Result<void> discover_xml(
         std::string handle = join_path(directory, entry.name);
         if (entry.is_directory)
         {
+            if (entry.is_symlink)
+            {
+                continue;
+            }
             auto nested = discover_xml(file_system, handle, handles);
             if (!nested)
             {
@@ -207,15 +211,30 @@ Result<DefinitionCatalog> DefinitionService::build_romraider_catalog(
     return build_catalog(repository_, ordered_handles, parse_romraider_index);
 }
 
-Result<DefinitionCatalog> DefinitionService::build_ecuflash_catalog(std::string_view directory)
+Result<DefinitionCatalog> DefinitionService::build_ecuflash_catalog(
+    std::string_view directory,
+    std::span<const std::string> explicit_handles)
 {
     std::vector<std::string> handles;
-    auto discovered = discover_xml(file_system_, directory, handles);
-    if (!discovered)
+    if (!directory.empty())
     {
-        return std::unexpected(discovered.error());
+        auto discovered = discover_xml(file_system_, directory, handles);
+        if (!discovered)
+        {
+            return std::unexpected(discovered.error());
+        }
+    }
+    for (const std::string& handle : explicit_handles)
+    {
+        if (is_xml_handle(handle))
+        {
+            handles.push_back(handle);
+        }
     }
     std::sort(handles.begin(), handles.end());
+    handles.erase(
+        std::unique(handles.begin(), handles.end()),
+        handles.end());
     return build_catalog(repository_, handles, parse_ecuflash_index);
 }
 
