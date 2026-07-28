@@ -2,8 +2,7 @@
 
 // PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
 
-#ifndef QTROHELPER_HPP
-#define QTROHELPER_HPP
+#pragma once
 
 #include <QRemoteObjectPendingCallWatcher>
 
@@ -109,5 +108,3 @@ RET_TYPE slot_sync(const QRemoteObjectPendingReply<RET_TYPE>& SLOT)
 }
 
 } // namespace qtrohelper
-
-#endif // QTROHELPER_HPP

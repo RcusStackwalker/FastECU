@@ -71,8 +71,8 @@ std::string menu_command_id(MenuCommand command)
     {
         if (command == mapping.command)
         {
-            return std::string(mapping.id);
+            return std::string{mapping.id};
         }
     }
-    return std::string();
+    return {};
 }

@@ -31,7 +31,6 @@ MUT_DMA_TEST_SUITES = [
     "test_flash_ecu_mitsu_m32r_can_operation",
     "test_flash_utils",
     "test_flash_worker",
-    "test_flash_event_adapter",
     "test_desktop_kline_flash_transport",
     "test_desktop_can_flash_transport",
     "test_eeprom_ecu_subaru_denso_sh705x_kline_dialog",
@@ -202,16 +201,12 @@ SUITE_DEPS = {
         "//src/platform/desktop/common/flash:flash_worker",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_kline",
+        "//src/backend/ports/testing:fake_clock",
         # test_flash_worker.cpp reconstructs request_kernel_id_frame()'s
         # exact bytes to script the transport's first write, requiring
         # SsmProtocol::checksum() directly.
         "//src/algorithms/protocol/ssm",
         "//tests:scripted_kline_flash_transport",
-    ],
-    # Independently testable without constructing a FlashWorker/QThread at
-    # all -- see flash_event_adapter's own doc comment for why.
-    "test_flash_event_adapter": [
-        "//src/platform/desktop/common/flash:flash_event_adapter",
     ],
     # Both suites directly include serial_port_actions.h (for the FakeBackend
     # harness's SerialPortActions construction) as well as their own
@@ -233,6 +228,7 @@ SUITE_DEPS = {
         "//src/backend/flash:flash_executor",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
         "//src/backend/ports",
+        "//src/backend/ports/testing:fake_clock",
         "//src/platform/desktop/common/flash:flash_worker",
         "//src/ui/desktop/flash/eeprom",
     ],
@@ -244,6 +240,7 @@ SUITE_DEPS = {
         "//src/backend/flash:flash_executor",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
         "//src/backend/ports",
+        "//src/backend/ports/testing:fake_clock",
         "//src/platform/desktop/common/flash:flash_worker",
         "//src/ui/desktop/flash/eeprom",
     ],

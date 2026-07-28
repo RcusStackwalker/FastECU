@@ -1,5 +1,4 @@
-#ifndef FLASH_TCU_SUBARU_HITACHI_M32R_KLINE_OPERATION_H
-#define FLASH_TCU_SUBARU_HITACHI_M32R_KLINE_OPERATION_H
+#pragma once
 
 #include <QByteArray>
 #include <QString>
@@ -80,5 +79,3 @@ class FlashTcuSubaruHitachiM32rKlineOperation : public FlashOperationWorker
     FileActions::EcuCalDefStructure *ecuCalDef;
     QString cmd_type;
 };
-
-#endif // FLASH_TCU_SUBARU_HITACHI_M32R_KLINE_OPERATION_H

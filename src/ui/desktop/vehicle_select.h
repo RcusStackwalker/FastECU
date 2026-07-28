@@ -1,5 +1,4 @@
-#ifndef CARMODELSELECT_H
-#define CARMODELSELECT_H
+#pragma once
 
 #include <memory>
 
@@ -69,5 +68,3 @@ class VehicleSelect : public QDialog
   private:
     std::unique_ptr<Ui::VehicleSelect> ui;
 };
-
-#endif // CARMODELSELECT_H

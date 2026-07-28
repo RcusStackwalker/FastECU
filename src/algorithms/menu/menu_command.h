@@ -1,5 +1,4 @@
-#ifndef MENU_COMMAND_H
-#define MENU_COMMAND_H
+#pragma once
 
 #include <string>
 #include <string_view>
@@ -48,5 +47,3 @@ enum class MenuCommand
 
 MenuCommand menu_command_from_id(std::string_view id);
 std::string menu_command_id(MenuCommand command);
-
-#endif // MENU_COMMAND_H

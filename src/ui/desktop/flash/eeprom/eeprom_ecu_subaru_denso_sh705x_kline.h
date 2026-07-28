@@ -1,5 +1,4 @@
-#ifndef EEPROM_ECU_SUBARU_DENSO_SH705X_KLINE_H
-#define EEPROM_ECU_SUBARU_DENSO_SH705X_KLINE_H
+#pragma once
 
 #include <memory>
 
@@ -99,5 +98,3 @@ class EepromEcuSubaruDensoSH705xKline : public QDialog
 
     std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
-
-#endif // EEPROM_ECU_SUBARU_DENSO_SH705X_KLINE_H

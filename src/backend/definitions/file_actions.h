@@ -1,10 +1,8 @@
-#ifndef FILE_ACTIONS_H
-#define FILE_ACTIONS_H
+#pragma once
 
 #include <QApplication>
 #include <QWidget>
 #include <QScreen>
-#include <QWidget>
 #include <QFileDialog>
 #include <QDomDocument>
 #include <QXmlStreamReader>
@@ -26,7 +24,7 @@
 #include <QTextEdit>
 
 #include <cstdint>
-#include <string.h>
+#include <cstring>
 #include <iostream>
 #include <string_view>
 #include <vector>
@@ -278,7 +276,7 @@ class FileActions : public QWidget
     /**************************************************
      * Calculate ROM map data with parsed expressions
      *************************************************/
-    double calculate_value_from_expression(QStringList expression);
+    double calculate_value_from_expression(const QStringList& expression);
 
     /**************************************************
      * Parse negative response code message
@@ -325,5 +323,3 @@ class FileActions : public QWidget
     void LOG_I(QString message, bool timestamp, bool linefeed);
     void LOG_D(QString message, bool timestamp, bool linefeed);
 };
-
-#endif // FILE_ACTIONS_H

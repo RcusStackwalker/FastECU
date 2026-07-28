@@ -1,5 +1,4 @@
-#ifndef SSM_PROTOCOL_CORE_H
-#define SSM_PROTOCOL_CORE_H
+#pragma once
 
 #include "src/algorithms/protocol/bytes.h"
 
@@ -26,5 +25,3 @@ std::string toHex(bytes::ByteView received);
 std::uint32_t crc32(bytes::ByteView bytes);
 
 } // namespace SsmProtocol
-
-#endif // SSM_PROTOCOL_CORE_H

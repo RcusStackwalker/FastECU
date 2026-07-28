@@ -1,5 +1,4 @@
-#ifndef REMOTE_SERIAL_BACKEND_H
-#define REMOTE_SERIAL_BACKEND_H
+#pragma once
 
 #include <QObject>
 #include <QtRemoteObjects/qremoteobjectnode.h>
@@ -190,5 +189,3 @@ class RemoteSerialBackend : public QObject, public SerialBackend
     void websocket_connected();
     void serialRemoteStateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState);
 };
-
-#endif // REMOTE_SERIAL_BACKEND_H

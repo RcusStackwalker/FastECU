@@ -1,7 +1,6 @@
-#ifndef KERNELMEMORYMODELS_H
-#define KERNELMEMORYMODELS_H
+#pragma once
 
-#include <stdint.h>
+#include <cstdint>
 
 enum mcu_type
 {
@@ -35,26 +34,26 @@ enum mcu_type
 
 struct flashblock
 {
-    uint32_t start;
-    uint32_t len;
+    std::uint32_t start;
+    std::uint32_t len;
 };
 
 struct ramblock
 {
-    uint32_t start;
-    uint32_t len;
+    std::uint32_t start;
+    std::uint32_t len;
 };
 
 struct kernelblock
 {
-    uint32_t start;
-    uint32_t len;
+    std::uint32_t start;
+    std::uint32_t len;
 };
 
 struct eepromblock
 {
-    uint32_t start;
-    uint32_t len;
+    std::uint32_t start;
+    std::uint32_t len;
 };
 
 struct flashdev_t
@@ -62,7 +61,7 @@ struct flashdev_t
     const char *name; // like "7058", for UI convenience only
     enum mcu_type mcutype;
 
-    const uint32_t romsize; // in bytes
+    const std::uint32_t romsize; // in bytes
     const unsigned numblocks;
     const struct flashblock *fblocks;
     const struct ramblock *rblocks;
@@ -554,5 +553,3 @@ const struct flashdev_t flashdevices[] = {
     {"M3775x", M3775x, 64 * 1024, 1, fblocks_M3775x, rblocks_M3775x, kblocks_M3775x, eblocks_M3775x},
     {0, SH_INVALID, 0, 0, 0, 0, 0, 0},
 };
-
-#endif // KERNELMEMORYMODELS_H

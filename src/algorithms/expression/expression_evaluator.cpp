@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <format>
 
 namespace
 {
@@ -64,7 +65,7 @@ std::string formatNumber(double value, int precision)
         buffer.resize(static_cast<size_t>(written) + 1);
         std::snprintf(buffer.data(), buffer.size(), "%.*g", precision, value);
     }
-    return std::string(buffer.data());
+    return std::string{buffer.data()};
 }
 
 } // namespace
@@ -95,7 +96,7 @@ std::vector<std::string> expression_parse(std::string_view expression, std::stri
         else if (isOperator && ch == '-' && i + 1 < expression.length() && expression[i + 1] == 'x')
         {
             isOperator = false;
-            numbers.push_back(std::string("-") + std::string(x));
+            numbers.push_back(std::format("-{}", x));
             i++;
         }
         else if (std::isdigit(static_cast<unsigned char>(ch)) || ch == '.' || (isOperator && ch == '-'))

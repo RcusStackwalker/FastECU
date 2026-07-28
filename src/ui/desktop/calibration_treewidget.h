@@ -1,5 +1,4 @@
-#ifndef CALIBRATION_TREEWIDGET_H
-#define CALIBRATION_TREEWIDGET_H
+#pragma once
 
 #include <QFile>
 #include <QFileInfo>
@@ -71,5 +70,3 @@ class CalibrationTreeWidget : public QWidget
   private:
   private slots:
 };
-
-#endif // CALIBRATION_TREEWIDGET_H

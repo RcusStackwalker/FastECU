@@ -1,5 +1,4 @@
-#ifndef FASTECU_QT_BYTES_H
-#define FASTECU_QT_BYTES_H
+#pragma once
 
 #include "src/algorithms/protocol/bytes.h"
 
@@ -105,5 +104,3 @@ inline void writeU32Le(QByteArray& out, std::size_t offset, std::uint32_t value)
 }
 
 } // namespace bytes
-
-#endif // FASTECU_QT_BYTES_H

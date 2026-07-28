@@ -1,0 +1,100 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+package(
+    default_testonly = True,
+    default_visibility = [
+        "//src/backend:__subpackages__",
+        "//tests:__pkg__",
+    ],
+)
+
+cc_library(
+    name = "fake_clock",
+    hdrs = ["fake_clock.h"],
+    deps = ["//src/backend/ports"],
+)
+
+cc_test(
+    name = "fake_clock_test",
+    srcs = ["fake_clock_test.cpp"],
+    deps = [
+        ":fake_clock",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "in_memory_file_repository",
+    hdrs = ["in_memory_file_repository.h"],
+    deps = ["//src/backend/ports"],
+)
+
+cc_test(
+    name = "in_memory_file_repository_test",
+    srcs = ["in_memory_file_repository_test.cpp"],
+    deps = [
+        ":in_memory_file_repository",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "in_memory_file_system",
+    hdrs = ["in_memory_file_system.h"],
+    deps = ["//src/backend/ports"],
+)
+
+cc_test(
+    name = "in_memory_file_system_test",
+    srcs = ["in_memory_file_system_test.cpp"],
+    deps = [
+        ":in_memory_file_system",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "in_memory_resource_bundle",
+    hdrs = ["in_memory_resource_bundle.h"],
+    deps = ["//src/backend/ports"],
+)
+
+cc_test(
+    name = "in_memory_resource_bundle_test",
+    srcs = ["in_memory_resource_bundle_test.cpp"],
+    deps = [
+        ":in_memory_resource_bundle",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "in_memory_settings",
+    hdrs = ["in_memory_settings.h"],
+    deps = ["//src/backend/ports"],
+)
+
+cc_test(
+    name = "in_memory_settings_test",
+    srcs = ["in_memory_settings_test.cpp"],
+    deps = [
+        ":in_memory_settings",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "recording_event_sink",
+    hdrs = ["recording_event_sink.h"],
+    deps = ["//src/backend/ports"],
+)
+
+cc_test(
+    name = "recording_event_sink_test",
+    srcs = ["recording_event_sink_test.cpp"],
+    deps = [
+        ":recording_event_sink",
+        "@googletest//:gtest_main",
+    ],
+)

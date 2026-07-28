@@ -1,5 +1,4 @@
-#ifndef FLASH_TCU_MITSU_MH8104_CAN_H
-#define FLASH_TCU_MITSU_MH8104_CAN_H
+#pragma once
 
 #include <memory>
 
@@ -52,5 +51,3 @@ class FlashTcuCvtSubaruMitsuMH8104Can : public QDialog
   private:
     std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
-
-#endif // FLASH_TCU_MITSU_MH8104_CAN_H

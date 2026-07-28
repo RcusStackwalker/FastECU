@@ -1,5 +1,4 @@
-#ifndef HEXCOMMANDER_H
-#define HEXCOMMANDER_H
+#pragma once
 
 #include <memory>
 
@@ -73,5 +72,3 @@ class HexCommander : public QDialog
   private:
     std::unique_ptr<Ui::DataTerminal> ui;
 };
-
-#endif // HEXCOMMANDER_H

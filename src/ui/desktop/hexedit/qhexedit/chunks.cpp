@@ -1,5 +1,5 @@
 #include "chunks.h"
-#include <limits.h>
+#include <limits>
 
 #define NORMAL 0
 #define HIGHLIGHTED 1
@@ -75,7 +75,7 @@ QByteArray Chunks::data(qint64 pos, qint64 maxSize, QByteArray *highlighted)
 
     while (maxSize > 0)
     {
-        chunk.absPos = LLONG_MAX;
+        chunk.absPos = std::numeric_limits<qint64>::max();
         bool chunksLoopOngoing = true;
         while ((chunkIdx < _chunks.count()) && chunksLoopOngoing)
         {

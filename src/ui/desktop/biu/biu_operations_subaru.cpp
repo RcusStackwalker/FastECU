@@ -582,7 +582,7 @@ uint8_t BiuOperationsSubaru::calculate_checksum(const QByteArray& out, bool excl
         len--;
     }
 
-    for (uint16_t i = 0; i < len; i++)
+    for (qsizetype i = 0; i < len; i++)
     {
         checksum += (uint8_t)out.at(i);
     }

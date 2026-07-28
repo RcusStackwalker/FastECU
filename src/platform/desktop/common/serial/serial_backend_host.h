@@ -1,5 +1,4 @@
-#ifndef SERIAL_BACKEND_HOST_H
-#define SERIAL_BACKEND_HOST_H
+#pragma once
 
 #include <QObject>
 #include <QThread>
@@ -35,5 +34,3 @@ class SerialBackendHost
     QObject *m_context = nullptr; // affinity: m_thread; invokeMethod target
     SerialBackend *m_backend = nullptr;
 };
-
-#endif // SERIAL_BACKEND_HOST_H

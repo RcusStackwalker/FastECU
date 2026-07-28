@@ -1,5 +1,4 @@
-#ifndef VERTICALLABEL_H
-#define VERTICALLABEL_H
+#pragma once
 
 #include <QLabel>
 
@@ -16,5 +15,3 @@ class VerticalLabel : public QLabel
     QSize sizeHint() const;
     QSize minimumSizeHint() const;
 };
-
-#endif // VERTICALLABEL_H

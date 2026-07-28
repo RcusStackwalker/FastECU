@@ -1,5 +1,4 @@
-#ifndef DATATERMINAL_H
-#define DATATERMINAL_H
+#pragma once
 
 #include <memory>
 
@@ -75,5 +74,3 @@ class DataTerminal : public QDialog
   private:
     std::unique_ptr<Ui::DataTerminalWindow> ui;
 };
-
-#endif // DATATERMINAL_H

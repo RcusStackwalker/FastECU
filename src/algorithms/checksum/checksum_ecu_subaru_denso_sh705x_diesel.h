@@ -1,5 +1,4 @@
-#ifndef CHECKSUM_ECU_SUBARU_DENSO_SH705X_DIESEL_H
-#define CHECKSUM_ECU_SUBARU_DENSO_SH705X_DIESEL_H
+#pragma once
 
 #include "checksum_result.h"
 #include "src/algorithms/protocol/bytes.h"
@@ -14,5 +13,3 @@ class ChecksumEcuSubaruDensoSH705xDiesel
 
   private:
 };
-
-#endif // CHECKSUM_ECU_SUBARU_DENSO_SH705X_DIESEL_H

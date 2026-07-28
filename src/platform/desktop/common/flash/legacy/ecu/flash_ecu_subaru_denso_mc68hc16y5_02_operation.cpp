@@ -111,10 +111,7 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::connect_bootloader()
     serial->pulse_lec_2_line(200);
     delay(200);
     output.clear();
-    for (uint8_t i = 0; i < bootloader_init_request_wrx02.length(); i++)
-    {
-        output.append(bootloader_init_request_wrx02[i]);
-    }
+    output.append(bootloader_init_request_wrx02);
     serial->write_serial_data_echo_check(output);
 
     delay(50);

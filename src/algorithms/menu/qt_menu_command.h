@@ -1,5 +1,4 @@
-#ifndef QT_MENU_COMMAND_H
-#define QT_MENU_COMMAND_H
+#pragma once
 
 #include "src/algorithms/menu/menu_command.h"
 
@@ -14,5 +13,3 @@ inline QString menu_command_id_qt(MenuCommand command)
 {
     return QString::fromStdString(menu_command_id(command));
 }
-
-#endif // QT_MENU_COMMAND_H

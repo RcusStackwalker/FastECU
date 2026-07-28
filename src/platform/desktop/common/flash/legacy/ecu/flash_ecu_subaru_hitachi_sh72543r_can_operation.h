@@ -1,5 +1,4 @@
-#ifndef FLASH_ECU_SUBARU_HITACHI_SH72543R_CAN_OPERATION_H
-#define FLASH_ECU_SUBARU_HITACHI_SH72543R_CAN_OPERATION_H
+#pragma once
 
 #include <QByteArray>
 #include <QString>
@@ -75,5 +74,3 @@ class FlashEcuSubaruHitachiSH72543rCanOperation : public FlashOperationWorker
     FileActions::EcuCalDefStructure *ecuCalDef;
     QString cmd_type;
 };
-
-#endif // FLASH_ECU_SUBARU_HITACHI_SH72543R_CAN_OPERATION_H

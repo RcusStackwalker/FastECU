@@ -193,10 +193,7 @@ int FlashEcuSubaruDensoSH7055_02Operation::connect_bootloader()
     delay(190);
 
     output.clear();
-    for (uint8_t i = 0; i < ARRAYSIZE(bootloader_init_request_fxt02); i++)
-    {
-        output.append(bootloader_init_request_fxt02[i]);
-    }
+    output.append(reinterpret_cast<const char *>(bootloader_init_request_fxt02), ARRAYSIZE(bootloader_init_request_fxt02));
 
     uint16_t loopcount = 20;
     emit LOG_I(".", true, false);

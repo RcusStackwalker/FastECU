@@ -19,7 +19,8 @@
 
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
-#include "src/backend/ports/clock_test_helpers.h"
+#include "src/backend/ports/testing/fake_clock.h"
+#include "src/backend/ports/testing/recording_event_sink.h"
 #include "tests/scripted_can_flash_transport.h"
 #include "tests/scripted_kline_flash_transport.h"
 
@@ -58,22 +59,6 @@ class CancelsAfterNChecks final : public ICancellationToken
 
   private:
     mutable int remaining_;
-};
-
-class RecordingEventSink : public IEventSink
-{
-  public:
-    void log(LogLevel, std::string_view) override
-    {
-    }
-    void progress(int done, int total) override
-    {
-        progress_calls.emplace_back(done, total);
-    }
-    void notice(std::string_view) override
-    {
-    }
-    std::vector<std::pair<int, int>> progress_calls;
 };
 
 // eeprom_ecu_subaru_denso_sh705x_can_operation.cpp's serial->set_can_source_

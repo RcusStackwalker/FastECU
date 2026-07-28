@@ -1,5 +1,4 @@
-#ifndef BIU_OPS_SUBARU_DATA_H
-#define BIU_OPS_SUBARU_DATA_H
+#pragma once
 
 #include <memory>
 
@@ -29,5 +28,3 @@ class BiuOpsSubaruData : public QWidget
   private:
     std::unique_ptr<Ui::BiuOpsSubaruDataWindow> ui;
 };
-
-#endif // BIU_OPS_SUBARU_DATA_H

@@ -34,7 +34,7 @@ class LoggingWorker final : public QThread
     fastecu::logging::LoggingProtocol *protocol_;
     QtCancellationToken cancellation_;
     fastecu::IEventSink& diagnostics_;
-    fastecu::Status result_{};
+    fastecu::Status result_;
 };
 
 Q_DECLARE_METATYPE(fastecu::logging::LoggingState)

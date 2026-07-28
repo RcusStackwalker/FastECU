@@ -1073,7 +1073,7 @@ void MainWindow::set_realtime_state(bool state)
 
 void MainWindow::toggle_realtime()
 {
-    QAction *logger;
+    QAction *logger{};
     QList<QMenu *> menus = ui->menubar->findChildren<QMenu *>();
     foreach (QMenu *menu, menus)
     {
@@ -2011,10 +2011,7 @@ int MainWindow::simulate_obd()
             // sid_4d_ff_b4
             if ((uint8_t)received.at(0) == 0x4d || (uint8_t)received.at(1) == 0xff || (uint8_t)received.at(2) == 0xb4)
             {
-                for (uint8_t i = 0; i < sizeof(sid_4d_ff_b4); i++)
-                {
-                    output.append((uint8_t)sid_4d_ff_b4[i]);
-                }
+                output.append(reinterpret_cast<const char *>(sid_4d_ff_b4), sizeof(sid_4d_ff_b4));
             }
             /*
                         if ((uint8_t)received.at(3) == 0x3e || (uint8_t)received.at(4) == 0x3e)

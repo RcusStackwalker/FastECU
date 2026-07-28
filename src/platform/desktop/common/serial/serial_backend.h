@@ -1,10 +1,9 @@
-#ifndef SERIAL_BACKEND_H
-#define SERIAL_BACKEND_H
+#pragma once
 
 #include <QByteArray>
 #include <QString>
 #include <QStringList>
-#include <stdint.h>
+#include <cstdint>
 
 class QObject;
 
@@ -58,14 +57,14 @@ class SerialBackend
     virtual int get_dataTerminalDisabled() = 0;
     virtual bool set_dataTerminalDisabled(int value) = 0;
 
-    virtual uint8_t get_kline_startbyte() = 0;
-    virtual bool set_kline_startbyte(uint8_t value) = 0;
-    virtual uint8_t get_kline_tester_id() = 0;
-    virtual bool set_kline_tester_id(uint8_t value) = 0;
-    virtual uint8_t get_kline_target_id() = 0;
-    virtual bool set_kline_target_id(uint8_t value) = 0;
-    virtual uint8_t get_serial_port_parity() = 0;
-    virtual bool set_serial_port_parity(uint8_t parity) = 0;
+    virtual std::uint8_t get_kline_startbyte() = 0;
+    virtual bool set_kline_startbyte(std::uint8_t value) = 0;
+    virtual std::uint8_t get_kline_tester_id() = 0;
+    virtual bool set_kline_tester_id(std::uint8_t value) = 0;
+    virtual std::uint8_t get_kline_target_id() = 0;
+    virtual bool set_kline_target_id(std::uint8_t value) = 0;
+    virtual std::uint8_t get_serial_port_parity() = 0;
+    virtual bool set_serial_port_parity(std::uint8_t parity) = 0;
 
     virtual QByteArray get_ssm_receive_header_start() = 0;
     virtual bool set_ssm_receive_header_start(QByteArray value) = 0;
@@ -112,28 +111,28 @@ class SerialBackend
     virtual QString get_serial_port_prefix_win() = 0;
     virtual bool set_serial_port_prefix_win(QString value) = 0;
 
-    virtual uint32_t get_can_source_address() = 0;
-    virtual bool set_can_source_address(uint32_t value) = 0;
-    virtual uint32_t get_can_destination_address() = 0;
-    virtual bool set_can_destination_address(uint32_t value) = 0;
-    virtual uint32_t get_iso15765_source_address() = 0;
-    virtual bool set_iso15765_source_address(uint32_t value) = 0;
-    virtual uint32_t get_iso15765_destination_address() = 0;
-    virtual bool set_iso15765_destination_address(uint32_t value) = 0;
+    virtual std::uint32_t get_can_source_address() = 0;
+    virtual bool set_can_source_address(std::uint32_t value) = 0;
+    virtual std::uint32_t get_can_destination_address() = 0;
+    virtual bool set_can_destination_address(std::uint32_t value) = 0;
+    virtual std::uint32_t get_iso15765_source_address() = 0;
+    virtual bool set_iso15765_source_address(std::uint32_t value) = 0;
+    virtual std::uint32_t get_iso15765_destination_address() = 0;
+    virtual bool set_iso15765_destination_address(std::uint32_t value) = 0;
 
     // -- operations ------------------------------------------------------
     virtual bool is_serial_port_open() = 0;
     virtual int change_port_speed(QString portSpeed) = 0;
-    virtual bool set_kline_timings(uint32_t parameter, int value) = 0;
-    virtual int set_j2534_ioctl(uint32_t parameter, int value) = 0;
+    virtual bool set_kline_timings(std::uint32_t parameter, int value) = 0;
+    virtual int set_j2534_ioctl(std::uint32_t parameter, int value) = 0;
     virtual QByteArray five_baud_init(QByteArray output) = 0;
     virtual int fast_init(QByteArray output) = 0;
     virtual int set_lec_lines(int lec1, int lec2) = 0;
     virtual int pulse_lec_1_line(int timeout) = 0;
     virtual int pulse_lec_2_line(int timeout) = 0;
     virtual void reset_connection() = 0;
-    virtual QByteArray read_serial_obd_data(uint16_t timeout) = 0;
-    virtual QByteArray read_serial_data(uint16_t timeout) = 0;
+    virtual QByteArray read_serial_obd_data(std::uint16_t timeout) = 0;
+    virtual QByteArray read_serial_data(std::uint16_t timeout) = 0;
     virtual QByteArray write_serial_data(QByteArray output) = 0;
     virtual QByteArray write_serial_data_echo_check(QByteArray output) = 0;
     virtual bool get_is_tx_done() = 0;
@@ -151,5 +150,3 @@ class SerialBackend
     {
     }
 };
-
-#endif // SERIAL_BACKEND_H

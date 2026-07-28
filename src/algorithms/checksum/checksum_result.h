@@ -1,5 +1,4 @@
-#ifndef CHECKSUM_RESULT_H
-#define CHECKSUM_RESULT_H
+#pragma once
 
 #include "src/algorithms/protocol/bytes.h"
 
@@ -30,5 +29,3 @@ struct ChecksumResult
         return status == Status::Unchanged || status == Status::Corrected || status == Status::Disabled;
     }
 };
-
-#endif // CHECKSUM_RESULT_H

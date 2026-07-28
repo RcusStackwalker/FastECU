@@ -1,6 +1,5 @@
-#include "src/backend/ports/clock.h"
+#include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/cancellation.h"
-#include "src/backend/ports/clock_test_helpers.h"
 #include <gtest/gtest.h>
 
 using fastecu::ErrorKind;

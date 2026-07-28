@@ -1,6 +1,7 @@
 #include "src/backend/logging/logging_event_sink.h"
 #include "src/backend/logging/logging_protocol.h"
 #include "src/backend/logging/logging_use_case.h"
+#include "src/backend/ports/testing/recording_event_sink.h"
 
 #include <deque>
 #include <string>
@@ -13,6 +14,7 @@ namespace
 {
 
 using namespace fastecu::logging;
+using fastecu::RecordingEventSink;
 
 class ScriptedProtocol final : public LoggingProtocol
 {
@@ -102,25 +104,6 @@ class RecordingLoggingSink final : public ILoggingEventSink
 
     std::vector<LoggingState> states;
     std::vector<std::vector<LogSample>> sample_batches;
-};
-
-class RecordingEventSink final : public fastecu::IEventSink
-{
-  public:
-    void log(fastecu::LogLevel level, std::string_view message) override
-    {
-        logs.emplace_back(level, std::string(message));
-    }
-
-    void progress(int, int) override
-    {
-    }
-
-    void notice(std::string_view) override
-    {
-    }
-
-    std::vector<std::pair<fastecu::LogLevel, std::string>> logs;
 };
 
 LoggingChannel channel(std::string id, std::string expression = "x")

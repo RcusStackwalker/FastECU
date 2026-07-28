@@ -178,6 +178,7 @@ class ExpressionValidator
         }
         try
         {
+            // TODO: rewrite to use std::from_chars and analyze std::from_chars_result instead of try/catch
             const double value = std::stod(std::string(expression_.substr(start, position_ - start)));
             return std::isfinite(value) ? ParsedValue{.valid = true, .value = value} : ParsedValue{};
         }
@@ -249,16 +250,13 @@ bool valid_expression(const LoggingChannel& channel)
     {
         return false;
     }
-    constexpr std::array<std::string_view, 3> probes{"1", "16", "1616"};
-    for (std::string_view probe : probes)
+    const auto is_finite = [&channel](const std::string_view& probe)
     {
-        if (std::isfinite(expression_evaluate(
-                channel.from_byte_expression, probe, static_cast<int>(channel.decimal_precision))))
-        {
-            return true;
-        }
-    }
-    return false;
+        return std::isfinite(expression_evaluate(
+            channel.from_byte_expression, probe, static_cast<int>(channel.decimal_precision)));
+    };
+    constexpr std::array<std::string_view, 3> probes{"1", "16", "1616"};
+    return std::ranges::any_of(probes, is_finite);
 }
 
 bool valid_address(LoggingProtocolId protocol, std::uint32_t address)

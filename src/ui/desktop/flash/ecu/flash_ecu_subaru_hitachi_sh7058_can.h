@@ -1,5 +1,4 @@
-#ifndef FLASH_ECU_HITACHI_SH72543R_CAN_H
-#define FLASH_ECU_HITACHI_SH72543R_CAN_H
+#pragma once
 
 #include <memory>
 
@@ -51,5 +50,3 @@ class FlashEcuSubaruHitachiSH7058Can : public QDialog
   private:
     std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
-
-#endif // FLASH_ECU_HITACHI_SH72543R_CAN_H

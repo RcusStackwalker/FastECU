@@ -1,5 +1,4 @@
-#ifndef FASTECU_BACKEND_DEFINITIONS_CONFIG_VALUES_H
-#define FASTECU_BACKEND_DEFINITIONS_CONFIG_VALUES_H
+#pragma once
 
 #include <QDir>
 #include <QString>
@@ -126,5 +125,3 @@ struct ConfigValuesStructure
 };
 
 } // namespace fastecu::definitions
-
-#endif // FASTECU_BACKEND_DEFINITIONS_CONFIG_VALUES_H

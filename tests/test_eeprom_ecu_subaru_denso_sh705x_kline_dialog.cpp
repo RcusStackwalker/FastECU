@@ -18,7 +18,7 @@
 #include <vector>
 
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
-#include "src/backend/ports/clock_test_helpers.h"
+#include "src/backend/ports/testing/fake_clock.h"
 #include "test_eeprom_ecu_subaru_denso_sh705x_kline_dialog.h"
 
 using fastecu::ErrorKind;

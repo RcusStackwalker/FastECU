@@ -1,5 +1,4 @@
-#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
+#pragma once
 
 #include <memory>
 #include <optional>
@@ -9,7 +8,6 @@
 #define RESTART_CODE 1000
 
 #include <QMainWindow>
-#include <QDebug>
 #include <QTreeWidget>
 #include <QLabel>
 #include <QGroupBox>
@@ -469,4 +467,3 @@ class MainWindow : public QMainWindow
   private:
     std::unique_ptr<Ui::MainWindow> ui;
 };
-#endif // MAINWINDOW_H

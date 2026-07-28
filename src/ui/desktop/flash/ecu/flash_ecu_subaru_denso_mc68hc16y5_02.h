@@ -1,5 +1,4 @@
-#ifndef FLASH_ECU_SUBARU_DENSO_MC68HC16Y5_02_H
-#define FLASH_ECU_SUBARU_DENSO_MC68HC16Y5_02_H
+#pragma once
 
 #include <memory>
 
@@ -54,5 +53,3 @@ class FlashEcuSubaruDensoMC68HC16Y5_02 : public QDialog
   private:
     std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
-
-#endif // FLASH_ECU_SUBARU_DENSO_MC68HC16Y5_02_H

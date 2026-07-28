@@ -287,6 +287,7 @@ std::vector<SnapshotFailureCase> snapshot_failure_cases()
                 values.lower_panel_log_value_id = {QStringLiteral("rpm")};
                 return values;
             },
+            // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
             static_cast<portable_logging::LoggingProtocolId>(99),
             QStringLiteral("SSM"),
             fastecu::ErrorKind::InvalidConfig,

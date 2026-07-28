@@ -1,5 +1,4 @@
-#ifndef SETTINGS_H
-#define SETTINGS_H
+#pragma once
 
 #include <memory>
 
@@ -81,5 +80,3 @@ class Settings : public QDialog
   private:
     std::unique_ptr<Ui::Settings> ui;
 };
-
-#endif // SETTINGS_H

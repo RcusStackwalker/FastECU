@@ -1,5 +1,4 @@
-#ifndef FLASH_ECU_SUBARU_MITSU_M32R_KLINE_OPERATION_H
-#define FLASH_ECU_SUBARU_MITSU_M32R_KLINE_OPERATION_H
+#pragma once
 
 #include <QByteArray>
 #include <QString>
@@ -83,5 +82,3 @@ class FlashEcuSubaruMitsuM32rKlineOperation : public FlashOperationWorker
     FileActions::EcuCalDefStructure *ecuCalDef;
     QString cmd_type;
 };
-
-#endif // FLASH_ECU_SUBARU_MITSU_M32R_KLINE_OPERATION_H

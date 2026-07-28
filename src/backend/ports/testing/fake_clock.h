@@ -1,8 +1,4 @@
 #pragma once
-// Shared IClock test double. Extracted from src/backend/ports/clock_test.cpp
-// so cross-package tests (e.g. the Denso SH705x K-Line executor tests) can
-// reuse the exact same deterministic clock instead of hand-rolling another
-// one. Header-only; picked up automatically by the ":ports" cc_library glob.
 #include "src/backend/ports/cancellation.h"
 #include "src/backend/ports/clock.h"
 
