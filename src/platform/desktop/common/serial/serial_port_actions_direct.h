@@ -13,7 +13,7 @@
 #include <QWidget>
 #include <QSettings>
 
-#include <stdint.h>
+#include <cstdint>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -65,18 +65,18 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     int dataTerminalEnabled = 0;
     int dataTerminalDisabled = 1;
 
-    uint16_t echo_check_timout = 5000;
-    uint16_t receive_timeout = 500;
-    uint16_t serial_read_timeout = 2000;
-    uint16_t serial_read_extra_short_timeout = 50;
-    uint16_t serial_read_short_timeout = 200;
-    uint16_t serial_read_medium_timeout = 500;
-    uint16_t serial_read_long_timeout = 800;
-    uint16_t serial_read_extra_long_timeout = 3000;
+    std::uint16_t echo_check_timout = 5000;
+    std::uint16_t receive_timeout = 500;
+    std::uint16_t serial_read_timeout = 2000;
+    std::uint16_t serial_read_extra_short_timeout = 50;
+    std::uint16_t serial_read_short_timeout = 200;
+    std::uint16_t serial_read_medium_timeout = 500;
+    std::uint16_t serial_read_long_timeout = 800;
+    std::uint16_t serial_read_extra_long_timeout = 3000;
 
-    uint8_t kline_startbyte = 0;
-    uint8_t kline_tester_id = 0;
-    uint8_t kline_target_id = 0;
+    std::uint8_t kline_startbyte = 0;
+    std::uint8_t kline_tester_id = 0;
+    std::uint8_t kline_target_id = 0;
 
     QByteArray ssm_receive_header_start = {"\x80\xf0\x10"};
 
@@ -96,7 +96,7 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
 
     QString can_speed = "500000";
 
-    uint8_t serial_port_parity = (uint8_t)QSerialPort::NoParity;
+    std::uint8_t serial_port_parity = (std::uint8_t)QSerialPort::NoParity;
     QString serial_port_baudrate = "4800";
     QString serial_port_linux = "/dev/ttyUSB0";
     QString serial_port_windows = "COM67";
@@ -105,10 +105,10 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     QString serial_port_prefix_linux = "/dev/";
     QString serial_port_prefix_win;
 
-    uint32_t can_source_address = 0;
-    uint32_t can_destination_address = 0;
-    uint32_t iso15765_source_address = 0;
-    uint32_t iso15765_destination_address = 0;
+    std::uint32_t can_source_address = 0;
+    std::uint32_t can_destination_address = 0;
+    std::uint32_t iso15765_source_address = 0;
+    std::uint32_t iso15765_destination_address = 0;
 
 #define SERIAL_P1_MIN 0x00 // J2534 says this may not be changed
 #define SERIAL_P1_MAX 0x01
@@ -119,8 +119,8 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
 #define SERIAL_P4_MIN 0x06
 #define SERIAL_P4_MAX 0x07 // J2534 says this may not be changed
 
-    uint8_t _P1_MAX = 10;
-    bool set_kline_timings(uint32_t parameter, int value) override;
+    std::uint8_t _P1_MAX = 10;
+    bool set_kline_timings(std::uint32_t parameter, int value) override;
 
     bool is_serial_port_open() override;
     int change_port_speed(QString portSpeed) override;
@@ -133,8 +133,8 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     void reset_connection() override;
 
     QByteArray set_error();
-    QByteArray read_serial_obd_data(uint16_t timeout) override;
-    QByteArray read_serial_data(uint16_t timeout) override;
+    QByteArray read_serial_obd_data(std::uint16_t timeout) override;
+    QByteArray read_serial_data(std::uint16_t timeout) override;
     QByteArray write_serial_data(QByteArray output) override;
     QByteArray write_serial_data_echo_check(QByteArray output) override;
 
@@ -157,9 +157,9 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     {
         return this;
     }
-    // The interface takes uint32_t; the long-standing member takes unsigned
+    // The interface takes std::uint32_t; the long-standing member takes unsigned
     // long. Distinct overloads on LP64 — adapt explicitly.
-    int set_j2534_ioctl(uint32_t parameter, int value) override
+    int set_j2534_ioctl(std::uint32_t parameter, int value) override
     {
         return set_j2534_ioctl((unsigned long)parameter, value);
     }
@@ -301,38 +301,38 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
         return true;
     }
 
-    uint8_t get_kline_startbyte() override
+    std::uint8_t get_kline_startbyte() override
     {
         return kline_startbyte;
     }
-    bool set_kline_startbyte(uint8_t value) override
+    bool set_kline_startbyte(std::uint8_t value) override
     {
         kline_startbyte = value;
         return true;
     }
-    uint8_t get_kline_tester_id() override
+    std::uint8_t get_kline_tester_id() override
     {
         return kline_tester_id;
     }
-    bool set_kline_tester_id(uint8_t value) override
+    bool set_kline_tester_id(std::uint8_t value) override
     {
         kline_tester_id = value;
         return true;
     }
-    uint8_t get_kline_target_id() override
+    std::uint8_t get_kline_target_id() override
     {
         return kline_target_id;
     }
-    bool set_kline_target_id(uint8_t value) override
+    bool set_kline_target_id(std::uint8_t value) override
     {
         kline_target_id = value;
         return true;
     }
-    uint8_t get_serial_port_parity() override
+    std::uint8_t get_serial_port_parity() override
     {
         return serial_port_parity;
     }
-    bool set_serial_port_parity(uint8_t parity) override
+    bool set_serial_port_parity(std::uint8_t parity) override
     {
         serial_port_parity = parity;
         return true;
@@ -530,38 +530,38 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
         return true;
     }
 
-    uint32_t get_can_source_address() override
+    std::uint32_t get_can_source_address() override
     {
         return can_source_address;
     }
-    bool set_can_source_address(uint32_t value) override
+    bool set_can_source_address(std::uint32_t value) override
     {
         can_source_address = value;
         return true;
     }
-    uint32_t get_can_destination_address() override
+    std::uint32_t get_can_destination_address() override
     {
         return can_destination_address;
     }
-    bool set_can_destination_address(uint32_t value) override
+    bool set_can_destination_address(std::uint32_t value) override
     {
         can_destination_address = value;
         return true;
     }
-    uint32_t get_iso15765_source_address() override
+    std::uint32_t get_iso15765_source_address() override
     {
         return iso15765_source_address;
     }
-    bool set_iso15765_source_address(uint32_t value) override
+    bool set_iso15765_source_address(std::uint32_t value) override
     {
         iso15765_source_address = value;
         return true;
     }
-    uint32_t get_iso15765_destination_address() override
+    std::uint32_t get_iso15765_destination_address() override
     {
         return iso15765_destination_address;
     }
-    bool set_iso15765_destination_address(uint32_t value) override
+    bool set_iso15765_destination_address(std::uint32_t value) override
     {
         iso15765_destination_address = value;
         return true;
