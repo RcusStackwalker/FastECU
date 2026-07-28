@@ -250,16 +250,13 @@ bool valid_expression(const LoggingChannel& channel)
     {
         return false;
     }
-    constexpr std::array<std::string_view, 3> probes{"1", "16", "1616"};
-    for (std::string_view probe : probes)
+    const auto is_finite = [&channel](const std::string_view& probe)
     {
-        if (std::isfinite(expression_evaluate(
-                channel.from_byte_expression, probe, static_cast<int>(channel.decimal_precision))))
-        {
-            return true;
-        }
-    }
-    return false;
+        return std::isfinite(expression_evaluate(
+            channel.from_byte_expression, probe, static_cast<int>(channel.decimal_precision)));
+    };
+    constexpr std::array<std::string_view, 3> probes{"1", "16", "1616"};
+    return std::ranges::any_of(probes, is_finite);
 }
 
 bool valid_address(LoggingProtocolId protocol, std::uint32_t address)

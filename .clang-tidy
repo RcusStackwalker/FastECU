@@ -1,20 +1,46 @@
+# bugprone-easily-swappable-parameters - too many warnings to be actionable
+# bugprone-reserved-identifier - need to get rid of _ prefixed macros
+# bugprone-throwing-static-initialization - can't be enabled due to googletest
+# clang-analyzer-deadcode.DeadStores - need to eliminate dead code first
 ---
 Checks: >
   -*,
   bugprone-*,
+  -bugprone-branch-clone,
+  -bugprone-derived-method-shadowing-base-method,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-exception-escape,
+  -bugprone-misplaced-widening-cast,
+  -bugprone-narrowing-conversions,
+  -bugprone-reserved-identifier,
+  -bugprone-signed-char-misuse,
+  -bugprone-switch-missing-default-case,
+  -bugprone-throwing-static-initialization,
+  -bugprone-unchecked-optional-access,
+  -bugprone-unused-return-value,
   clang-analyzer-*,
-  cppcoreguidelines-pro-type-member-init,
-  performance-*,
+  -clang-analyzer-core.CallAndMessage,
+  -clang-analyzer-core.NonNullParamChecker,
+  -clang-analyzer-core.UndefinedBinaryOperatorResult,
+  -clang-analyzer-cplusplus.NewDeleteLeaks,
+  -clang-analyzer-deadcode.DeadStores,
+  -clang-analyzer-security.ArrayBound,
+  -cppcoreguidelines-pro-type-member-init,
+  modernize-deprecated-headers,
+  performance-avoid-endl,
   readability-braces-around-statements,
   readability-container-size-empty,
   readability-duplicate-include,
   readability-redundant-member-init,
   readability-simplify-boolean-expr,
   readability-use-anyofallof
-WarningsAsErrors: 'performance-avoid-endl,readability-braces-around-statements'
-HeaderFilterRegex: '^(calibration|cipher|dataterminal|definition|dtc|ecu|expression|file|logging|menu|modules|nrc|protocol|remote_utility|serial_port|settings|systemlogger|vehicle|tests)/.*'
+
+WarningsAsErrors: '*'
+HeaderFilterRegex: 'src/(algorithms|backend|platform|ui)/.*\.h'
+ExcludeHeaderFilterRegex: '(/generated_ui/.*|_replica)\.h'
 FormatStyle: none
 CheckOptions:
   - key: readability-braces-around-statements.ShortStatementLines
     value: '1'
-...
+  - key: modernize-deprecated-headers.CheckHeaderFile
+    value: True

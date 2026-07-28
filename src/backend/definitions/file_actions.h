@@ -3,7 +3,6 @@
 #include <QApplication>
 #include <QWidget>
 #include <QScreen>
-#include <QWidget>
 #include <QFileDialog>
 #include <QDomDocument>
 #include <QXmlStreamReader>
@@ -26,7 +25,7 @@
 #include <QTextEdit>
 
 #include <cstdint>
-#include <string.h>
+#include <cstring>
 #include <iostream>
 
 #include "src/backend/definitions/kernelmemorymodels.h"
@@ -460,7 +459,7 @@ class FileActions : public QWidget
     /**************************************************
      * Calculate ROM map data with parsed expressions
      *************************************************/
-    double calculate_value_from_expression(QStringList expression);
+    double calculate_value_from_expression(const QStringList& expression);
 
     /**************************************************
      * Parse negative response code message

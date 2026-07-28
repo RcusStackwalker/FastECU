@@ -2186,7 +2186,7 @@ uint8_t EcuOperations::calculate_checksum(const QByteArray& output, bool dec_0x1
 {
     uint8_t checksum = 0;
 
-    for (uint16_t i = 0; i < output.length(); i++)
+    for (qsizetype i = 0; i < output.length(); i++)
     {
         checksum += (uint8_t)output.at(i);
     }

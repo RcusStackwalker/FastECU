@@ -5,7 +5,8 @@
 Cipher::Cipher()
 {
     /* Create and initialise the context */
-    if (!(ctx = EVP_CIPHER_CTX_new()))
+    ctx = EVP_CIPHER_CTX_new();
+    if (!ctx)
     {
         handleErrors();
     }

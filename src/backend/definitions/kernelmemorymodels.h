@@ -1,6 +1,6 @@
 #pragma once
 
-#include <stdint.h>
+#include <cstdint>
 
 enum mcu_type
 {
@@ -34,26 +34,26 @@ enum mcu_type
 
 struct flashblock
 {
-    uint32_t start;
-    uint32_t len;
+    std::uint32_t start;
+    std::uint32_t len;
 };
 
 struct ramblock
 {
-    uint32_t start;
-    uint32_t len;
+    std::uint32_t start;
+    std::uint32_t len;
 };
 
 struct kernelblock
 {
-    uint32_t start;
-    uint32_t len;
+    std::uint32_t start;
+    std::uint32_t len;
 };
 
 struct eepromblock
 {
-    uint32_t start;
-    uint32_t len;
+    std::uint32_t start;
+    std::uint32_t len;
 };
 
 struct flashdev_t
@@ -61,7 +61,7 @@ struct flashdev_t
     const char *name; // like "7058", for UI convenience only
     enum mcu_type mcutype;
 
-    const uint32_t romsize; // in bytes
+    const std::uint32_t romsize; // in bytes
     const unsigned numblocks;
     const struct flashblock *fblocks;
     const struct ramblock *rblocks;

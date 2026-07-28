@@ -8,7 +8,7 @@
 #include <QSerialPortInfo>
 #include <QTime>
 
-#include <stdint.h>
+#include <cstdint>
 
 #include "J2534_tactrix_unix.h"
 
@@ -65,11 +65,11 @@ class J2534 : public QObject
 
     QString open_serial_port(const QString& serial_port);
     void close_serial_port();
-    QByteArray read_serial_data(uint32_t datalen, uint16_t timeout);
+    QByteArray read_serial_data(std::uint32_t datalen, std::uint16_t timeout);
     int write_serial_data(const QByteArray& output);
     QByteArray write_serial_iso14230_data(QByteArray output);
     QString parseMessageToHex(const QByteArray& received);
-    uint32_t parse_ts(const char *data);
+    std::uint32_t parse_ts(const char *data);
     bool get_is_tx_done();
 
   private:
@@ -78,13 +78,13 @@ class J2534 : public QObject
     QString opened_serial_port;
     QString serial_port_baudrate = "4800";
 
-    uint16_t receive_timeout = 500;
-    uint16_t serial_read_timeout = 2000;
-    uint16_t serial_read_extra_short_timeout = 50;
-    uint16_t serial_read_short_timeout = 200;
-    uint16_t serial_read_medium_timeout = 500;
-    uint16_t serial_read_long_timeout = 800;
-    uint16_t serial_read_extra_long_timeout = 3000;
+    std::uint16_t receive_timeout = 500;
+    std::uint16_t serial_read_timeout = 2000;
+    std::uint16_t serial_read_extra_short_timeout = 50;
+    std::uint16_t serial_read_short_timeout = 200;
+    std::uint16_t serial_read_medium_timeout = 500;
+    std::uint16_t serial_read_long_timeout = 800;
+    std::uint16_t serial_read_extra_long_timeout = 3000;
 
   protected:
     // protected (not private) so tests can subclass J2534 and drive it into the
