@@ -66,18 +66,17 @@ Result<DefinitionCatalog> DefinitionCatalog::create(std::vector<DefinitionIndexE
 
     for (DefinitionIndexEntry& entry : entries)
     {
-        Result<void> valid = validate(entry);
-        if (!valid)
+        if (const auto result = validate(entry); !result)
         {
-            return std::unexpected(valid.error());
+            return std::unexpected(result.error());
         }
 
-        auto existing = std::find_if(canonical_entries.begin(), canonical_entries.end(),
-                                     [&entry](const DefinitionIndexEntry& candidate)
-                                     {
-                                         return has_same_lookup_key(candidate, entry);
-                                     });
-        if (existing == canonical_entries.end())
+        auto existing = std::ranges::find_if(canonical_entries,
+                                             [&entry](const DefinitionIndexEntry& candidate)
+                                             {
+                                                 return has_same_lookup_key(candidate, entry);
+                                             });
+        if (existing == std::ranges::end(canonical_entries))
         {
             canonical_entries.push_back(std::move(entry));
             continue;
@@ -96,9 +95,9 @@ Result<DefinitionCatalog> DefinitionCatalog::create(std::vector<DefinitionIndexE
 Result<std::reference_wrapper<const DefinitionIndexEntry>> DefinitionCatalog::find(DefinitionFormat format,
                                                                                    std::string_view id) const
 {
-    auto entry = std::find_if(entries_.begin(), entries_.end(), [format, id](const DefinitionIndexEntry& candidate)
-                              { return candidate.format == format && candidate.definition_id == id; });
-    if (entry == entries_.end())
+    auto entry = std::ranges::find_if(entries_, [format, id](const DefinitionIndexEntry& candidate)
+                                      { return candidate.format == format && candidate.definition_id == id; });
+    if (entry == std::ranges::end(entries_))
     {
         return fail(ErrorKind::InvalidConfig, std::format("definition ID not found: '{}'", id));
     }
