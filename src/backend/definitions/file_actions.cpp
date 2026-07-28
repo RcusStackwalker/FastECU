@@ -2110,9 +2110,9 @@ QStringList FileActions::parse_stringlist_from_expression_string(const QString& 
     return ExpressionEvaluator::parse(expression, x);
 }
 
-double FileActions::calculate_value_from_expression(QStringList expression)
+double FileActions::calculate_value_from_expression(const QStringList& expression)
 {
-    return ExpressionEvaluator::evaluate(std::move(expression), float_precision);
+    return ExpressionEvaluator::evaluate(expression, float_precision);
 }
 
 QString FileActions::parse_nrc_message(const QByteArray& nrc)

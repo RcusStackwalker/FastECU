@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include <cstdio>
 #include <stdarg.h>
 #include <string.h>
 #include "src/platform/desktop/windows/j2534/J2534_win.h"

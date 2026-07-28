@@ -460,7 +460,7 @@ class FileActions : public QWidget
     /**************************************************
      * Calculate ROM map data with parsed expressions
      *************************************************/
-    double calculate_value_from_expression(QStringList expression);
+    double calculate_value_from_expression(const QStringList& expression);
 
     /**************************************************
      * Parse negative response code message
