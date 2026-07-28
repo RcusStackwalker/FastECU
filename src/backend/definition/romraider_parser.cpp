@@ -1,5 +1,7 @@
 #include "src/backend/definition/romraider_parser.h"
+#include "src/backend/definition/parser_utils.h"
 
+#include <array>
 #include <charconv>
 #include <cctype>
 #include <cstdint>
@@ -15,96 +17,63 @@
 
 #include "src/backend/ports/error.h"
 
+using namespace std::literals::string_view_literals;
+
 namespace fastecu::definition
 {
 namespace
 {
 
-std::string trim_copy(std::string_view value)
-{
-    std::size_t first = 0;
-    while (first < value.size() && std::isspace(static_cast<unsigned char>(value[first])))
-    {
-        ++first;
-    }
-
-    std::size_t last = value.size();
-    while (last > first && std::isspace(static_cast<unsigned char>(value[last - 1])))
-    {
-        --last;
-    }
-    return std::string(value.substr(first, last - first));
-}
-
-std::string detail_prefix(std::string_view source, std::string_view definition_id = {})
-{
-    std::string detail = "RomRaider source '" + std::string(source) + "'";
-    if (!definition_id.empty())
-    {
-        detail += ", definition '" + std::string(definition_id) + "'";
-    }
-    detail += ": ";
-    return detail;
-}
-
-std::unexpected<Error> invalid(
-    std::string_view source,
-    std::string context,
-    std::string message,
-    std::string_view definition_id = {})
-{
-    return fail(
-        ErrorKind::InvalidConfig,
-        detail_prefix(source, definition_id) + std::move(context) + ": " + std::move(message));
-}
-
-Result<pugi::xml_node> parse_root(
-    pugi::xml_document& document,
-    std::span<const std::uint8_t> xml,
+Result<pugi::xml_node> identity_element(
+    pugi::xml_node rom,
     std::string_view source)
 {
-    const pugi::xml_parse_result parsed = document.load_buffer(xml.data(), xml.size());
-    if (!parsed)
+    const pugi::xml_node rom_id = rom.child("romid");
+    if (!rom_id)
     {
         return invalid(
             source,
-            "XML document",
-            std::string("malformed XML: ") + parsed.description());
+            "element <rom> child <romid>",
+            "missing required identity element");
     }
-
-    const pugi::xml_node root = document.document_element();
-    if (!root || std::string_view(root.name()) != "roms")
-    {
-        const std::string actual = root ? std::string("<") + root.name() + ">" : "no root element";
-        return invalid(
-            source,
-            "root element <roms>",
-            "wrong root; found " + actual);
-    }
-    return root;
-}
-
-std::string child_text(pugi::xml_node parent, const char *child_name)
-{
-    const pugi::xml_node child = parent.child(child_name);
-    return child ? trim_copy(child.child_value()) : std::string{};
-}
-
-Result<std::string> required_child_text(
-    pugi::xml_node parent,
-    const char *parent_name,
-    const char *child_name,
-    std::string_view source)
-{
-    const std::string value = child_text(parent, child_name);
-    if (value.empty())
+    if (rom_id.next_sibling("romid"))
     {
         return invalid(
             source,
-            std::string("element <") + parent_name + "> child <" + child_name + ">",
-            "missing or empty required text");
+            "element <rom> child <romid>",
+            "duplicate singleton identity element");
     }
-    return value;
+
+    static constexpr std::array singleton_children{
+        "xmlid",
+        "internalidaddress",
+        "internalidstring",
+        "ecuid",
+        "make",
+        "market",
+        "model",
+        "submodel",
+        "transmission",
+        "year",
+        "flashmethod",
+        "memmodel",
+        "checksummodule",
+        "filesize",
+        "notes",
+    };
+    for (const char *child_name : singleton_children)
+    {
+        const pugi::xml_node child = rom_id.child(child_name);
+        if (child && child.next_sibling(child_name))
+        {
+            return invalid(
+                source,
+                std::string("element <romid> child <") +
+                    child_name + ">",
+                "duplicate singleton identity element");
+        }
+    }
+    return rom_id;
 }
 
 Result<std::uint64_t> parse_hex_unsigned(
@@ -639,8 +608,8 @@ Result<std::vector<DefinitionIndexEntry>> parse_romraider_index(
     std::span<const std::uint8_t> xml, std::string_view source)
 {
     pugi::xml_document document;
-    auto root = parse_root(document, xml, source);
-    if (!root)
+    auto root = parse_root(document, xml, source, "roms"sv);
+    if (!root.has_value())
     {
         return std::unexpected(root.error());
     }
@@ -690,8 +659,8 @@ Result<UnresolvedDefinition> parse_romraider_definition(
     }
 
     pugi::xml_document document;
-    auto root = parse_root(document, xml, source);
-    if (!root)
+    auto root = parse_root(document, xml, source, "roms"sv);
+    if (!root.has_value())
     {
         return std::unexpected(root.error());
     }

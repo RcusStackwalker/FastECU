@@ -12,7 +12,10 @@ cc_library(
 
 cc_library(
     name = "romraider_parser",
-    srcs = ["romraider_parser.cpp"],
+    srcs = [
+        "parser_utils.h",
+        "romraider_parser.cpp",
+    ],
     hdrs = ["romraider_parser.h"],
     deps = [
         ":definition_model",
@@ -23,7 +26,10 @@ cc_library(
 
 cc_library(
     name = "ecuflash_parser",
-    srcs = ["ecuflash_parser.cpp"],
+    srcs = [
+        "ecuflash_parser.cpp",
+        "parser_utils.h",
+    ],
     hdrs = ["ecuflash_parser.h"],
     deps = [
         ":definition_model",
