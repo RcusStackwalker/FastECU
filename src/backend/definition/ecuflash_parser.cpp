@@ -1,4 +1,5 @@
 #include "src/backend/definition/ecuflash_parser.h"
+#include "src/backend/definition/parser_utils.h"
 
 #include <array>
 #include <charconv>
@@ -20,90 +21,12 @@
 
 #include "src/backend/ports/error.h"
 
+using namespace std::literals::string_view_literals;
+
 namespace fastecu::definition
 {
 namespace
 {
-
-std::string trim_copy(std::string_view value)
-{
-    std::size_t first = 0;
-    while (first < value.size() && std::isspace(static_cast<unsigned char>(value[first])))
-    {
-        ++first;
-    }
-
-    std::size_t last = value.size();
-    while (last > first && std::isspace(static_cast<unsigned char>(value[last - 1])))
-    {
-        --last;
-    }
-    return std::string(value.substr(first, last - first));
-}
-
-std::string detail_prefix(std::string_view source, std::string_view definition_id = {})
-{
-    std::string detail = "EcuFlash source '" + std::string(source) + "'";
-    if (!definition_id.empty())
-    {
-        detail += ", definition '" + std::string(definition_id) + "'";
-    }
-    return detail + ": ";
-}
-
-std::unexpected<Error> invalid(
-    std::string_view source,
-    std::string context,
-    std::string message,
-    std::string_view definition_id = {})
-{
-    return fail(
-        ErrorKind::InvalidConfig,
-        detail_prefix(source, definition_id) + std::move(context) + ": " + std::move(message));
-}
-
-Result<pugi::xml_node> parse_root(
-    pugi::xml_document& document,
-    std::span<const std::uint8_t> xml,
-    std::string_view source)
-{
-    const pugi::xml_parse_result parsed = document.load_buffer(xml.data(), xml.size());
-    if (!parsed)
-    {
-        return invalid(source, "XML document", std::string("malformed XML: ") + parsed.description());
-    }
-
-    const pugi::xml_node root = document.document_element();
-    if (!root || std::string_view(root.name()) != "rom")
-    {
-        const std::string actual = root ? std::string("<") + root.name() + ">" : "no root element";
-        return invalid(source, "root element <rom>", "wrong root; found " + actual);
-    }
-    return root;
-}
-
-std::string child_text(pugi::xml_node parent, const char *child_name)
-{
-    const pugi::xml_node child = parent.child(child_name);
-    return child ? trim_copy(child.child_value()) : std::string{};
-}
-
-Result<std::string> required_child_text(
-    pugi::xml_node parent,
-    const char *parent_name,
-    const char *child_name,
-    std::string_view source)
-{
-    const std::string value = child_text(parent, child_name);
-    if (value.empty())
-    {
-        return invalid(
-            source,
-            std::string("element <") + parent_name + "> child <" + child_name + ">",
-            "missing or empty required text");
-    }
-    return value;
-}
 
 Result<pugi::xml_node> identity_element(
     pugi::xml_node rom,
@@ -758,8 +681,8 @@ Result<std::vector<DefinitionIndexEntry>> parse_ecuflash_index(
     std::span<const std::uint8_t> xml, std::string_view source)
 {
     pugi::xml_document document;
-    auto root = parse_root(document, xml, source);
-    if (!root)
+    auto root = parse_root(document, xml, source, "rom"sv);
+    if (!root.has_value())
     {
         return std::unexpected(root.error());
     }
@@ -791,8 +714,8 @@ Result<UnresolvedDefinition> parse_ecuflash_definition(
     std::span<const std::uint8_t> xml, std::string_view source)
 {
     pugi::xml_document document;
-    auto root = parse_root(document, xml, source);
-    if (!root)
+    auto root = parse_root(document, xml, source, "rom"sv);
+    if (!root.has_value())
     {
         return std::unexpected(root.error());
     }
