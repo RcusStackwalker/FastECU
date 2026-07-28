@@ -221,8 +221,8 @@ Result<bool> strict_boolean_attribute(
     }
     return invalid(
         source,
-        std::string("element <") + node.name() + "> attribute '" + attribute_name + "'",
-        "invalid strict boolean '" + std::string(value) + "'; expected 'true' or 'false'",
+        std::format("element <{}> attribute '{}'", node.name(), attribute_name),
+        std::format("invalid strict boolean '{}'; expected 'true' or 'false'", value),
         definition_id);
 }
 
