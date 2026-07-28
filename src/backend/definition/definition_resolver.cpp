@@ -517,10 +517,9 @@ Result<void> validate_and_resolve_scalings(RomDefinition& definition)
     std::unordered_map<std::string, const Scaling *> scalings;
     for (const Scaling& scaling : definition.scalings)
     {
-        auto valid = validate_scaling(scaling, definition.identity.xml_id);
-        if (!valid)
+        if (const auto result = validate_scaling(scaling, definition.identity.xml_id); !result.has_value())
         {
-            return std::unexpected(valid.error());
+            return std::unexpected(result.error());
         }
         scalings.emplace(scaling.name, &scaling);
     }
@@ -533,11 +532,10 @@ Result<void> validate_and_resolve_scalings(RomDefinition& definition)
         {
             return fail(
                 ErrorKind::InvalidConfig,
-                "incomplete map identity in definition '" + definition.identity.xml_id + "'");
+                std::format("incomplete map identity in definition '{}'", definition.identity.xml_id));
         }
-        const bool duplicate = std::any_of(
-            maps.begin(),
-            maps.end(),
+        const bool duplicate = std::ranges::any_of(
+            maps,
             [&map](const CalibrationMap *candidate)
             {
                 return maps_match(*candidate, map);
@@ -546,16 +544,14 @@ Result<void> validate_and_resolve_scalings(RomDefinition& definition)
         {
             return fail(
                 ErrorKind::InvalidConfig,
-                "duplicate map key '" + key + "' in resolved definition '" +
-                    definition.identity.xml_id + "'");
+                std::format("duplicate map key '{}' in resolved definition '{}'", key, definition.identity.xml_id));
         }
         maps.push_back(&map);
         if (map.x_size == 0 || map.y_size == 0)
         {
             return fail(
                 ErrorKind::InvalidConfig,
-                "zero required dimension for map '" + key + "' in definition '" +
-                    definition.identity.xml_id + "'");
+                std::format("zero required dimension for map '{}' in definition '{}'", definition.identity.xml_id));
         }
 
         bool has_selection_scaling = false;
