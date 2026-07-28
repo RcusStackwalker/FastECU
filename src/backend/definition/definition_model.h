@@ -44,16 +44,26 @@ struct DefinitionIndexEntry
 struct ScalingPresence
 {
     bool tracked{false}; // True when the per-field flags came from a parser.
-    bool from_byte{false}, to_byte{false}, format{false};
+    bool from_byte{false};
+    bool to_byte{false};
+    bool format{false};
 
     bool operator==(const ScalingPresence&) const = default;
 };
 
 struct Scaling
 {
-    std::string name, units, from_byte, to_byte, format;
-    std::string minimum, maximum, coarse_increment, fine_increment;
-    std::string storage_type, endian;
+    std::string name;
+    std::string units;
+    std::string from_byte;
+    std::string to_byte;
+    std::string format;
+    std::string minimum;
+    std::string maximum;
+    std::string coarse_increment;
+    std::string fine_increment;
+    std::string storage_type;
+    std::string endian;
     std::vector<std::pair<std::string, std::string>> selections;
     ScalingPresence supplied;
 
@@ -63,19 +73,33 @@ struct Scaling
 struct AxisDefinitionPresence
 {
     bool tracked{false}; // False keeps value-built callers source-compatible.
-    bool size{false}, from_byte{false}, to_byte{false};
-    bool start_position{false}, interval{false}, log_parameter{false}, static_data{false};
+    bool size{false};
+    bool from_byte{false};
+    bool to_byte{false};
+    bool start_position{false};
+    bool interval{false};
+    bool log_parameter{false};
+    bool static_data{false};
 
     bool operator==(const AxisDefinitionPresence&) const = default;
 };
 
 struct AxisDefinition
 {
-    std::string type, name, units, format, storage_type, endian;
+    std::string type;
+    std::string name;
+    std::string units;
+    std::string format;
+    std::string storage_type;
+    std::string endian;
     std::optional<std::uint64_t> address;
     std::uint32_t size{1};
-    std::string from_byte{"x"}, to_byte{"x"}, scaling_name;
-    std::string start_position{"1"}, interval{"1"}, log_parameter;
+    std::string from_byte{"x"};
+    std::string to_byte{"x"};
+    std::string scaling_name;
+    std::string start_position{"1"};
+    std::string interval{"1"};
+    std::string log_parameter;
     std::vector<std::string> static_data;
     AxisDefinitionPresence supplied;
 
@@ -85,22 +109,43 @@ struct AxisDefinition
 struct CalibrationMapPresence
 {
     bool tracked{false}; // False keeps value-built callers source-compatible.
-    bool stable_id{false}, x_size{false}, y_size{false};
-    bool swap_xy{false}, flip_x{false}, flip_y{false};
-    bool start_position{false}, interval{false}, log_parameter{false};
+    bool stable_id{false};
+    bool x_size{false};
+    bool y_size{false};
+    bool swap_xy{false};
+    bool flip_x{false};
+    bool flip_y{false};
+    bool start_position{false};
+    bool interval{false};
+    bool log_parameter{false};
 
     bool operator==(const CalibrationMapPresence&) const = default;
 };
 
 struct CalibrationMap
 {
-    std::string id, name, type, category, subcategory, description;
+    std::string id;
+    std::string name;
+    std::string type;
+    std::string category;
+    std::string subcategory;
+    std::string description;
     std::optional<std::uint64_t> address;
-    std::uint32_t x_size{1}, y_size{1};
-    bool swap_xy{false}, flip_x{false}, flip_y{false};
-    std::string level, user_level, scaling_name, storage_type, endian;
-    std::string start_position{"1"}, interval{"1"}, log_parameter;
-    AxisDefinition x_axis, y_axis;
+    std::uint32_t x_size{1};
+    std::uint32_t y_size{1};
+    bool swap_xy{false};
+    bool flip_x{false};
+    bool flip_y{false};
+    std::string level;
+    std::string user_level;
+    std::string scaling_name;
+    std::string storage_type;
+    std::string endian;
+    std::string start_position{"1"};
+    std::string interval{"1"};
+    std::string log_parameter;
+    AxisDefinition x_axis;
+    AxisDefinition y_axis;
     CalibrationMapPresence supplied;
 
     bool operator==(const CalibrationMap&) const = default;
@@ -108,7 +153,9 @@ struct CalibrationMap
 
 struct RomIdentity
 {
-    std::string xml_id, internal_id, ecu_id;
+    std::string xml_id;
+    std::string internal_id;
+    std::string ecu_id;
     std::optional<std::uint64_t> internal_id_address;
 
     bool operator==(const RomIdentity&) const = default;
@@ -116,8 +163,17 @@ struct RomIdentity
 
 struct RomMetadata
 {
-    std::string make, market, model, submodel, transmission, year;
-    std::string flash_method, memory_model, checksum_module, file_size, notes;
+    std::string make;
+    std::string market;
+    std::string model;
+    std::string submodel;
+    std::string transmission;
+    std::string year;
+    std::string flash_method;
+    std::string memory_model;
+    std::string checksum_module;
+    std::string file_size;
+    std::string notes;
 
     bool operator==(const RomMetadata&) const = default;
 };

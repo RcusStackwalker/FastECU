@@ -38,7 +38,7 @@ bool maps_match(const CalibrationMap& left, const CalibrationMap& right)
     return left.name == right.name;
 }
 
-void overlay_string(std::string& value, const std::string& supplied)
+void overlay_string(std::string& value, std::string_view supplied)
 {
     if (!supplied.empty())
     {
@@ -234,14 +234,13 @@ Result<void> validate_local(const UnresolvedDefinition& definition)
     std::vector<const CalibrationMap *> maps;
     for (const CalibrationMap& map : definition.maps)
     {
-        const std::string key = map_key(map);
         const bool duplicate = std::ranges::any_of(
             maps,
             [&map](const CalibrationMap *candidate)
             {
                 return maps_match(*candidate, map);
             });
-        if (!key.empty() && duplicate)
+        if (const auto& key = map_key(map); !key.empty() && duplicate)
         {
             return fail(
                 ErrorKind::InvalidConfig,
@@ -259,7 +258,7 @@ Result<void> validate_local(const UnresolvedDefinition& definition)
                 ErrorKind::InvalidConfig,
                 std::format("scaling with an empty name in definition '{}' from '{}'", definition.identity.xml_id, definition.source));
         }
-        auto [existing, inserted] = scalings.emplace(scaling.name, &scaling);
+        auto [existing, inserted] = scalings.try_emplace(scaling.name, &scaling);
         if (!inserted && *existing->second != scaling)
         {
             return fail(
