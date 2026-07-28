@@ -5,17 +5,6 @@
 #include <string>
 #include <vector>
 
-namespace
-{
-
-std::string romraiderUtf8(const QString& value)
-{
-    const QByteArray bytes = value.toUtf8();
-    return std::string(bytes.constData(), static_cast<std::size_t>(bytes.size()));
-}
-
-} // namespace
-
 FileActions::ConfigValuesStructure *FileActions::create_romraider_def_id_list(
     ConfigValuesStructure *configValues)
 {
@@ -34,7 +23,7 @@ FileActions::ConfigValuesStructure *FileActions::create_romraider_def_id_list(
             "Reading RomRaider ID's from file: " + handle,
             true,
             true);
-        handles.push_back(romraiderUtf8(handle));
+        handles.push_back(handle.toStdString());
     }
 
     const fastecu::Status replaced =
@@ -47,7 +36,7 @@ FileActions::ConfigValuesStructure *FileActions::create_romraider_def_id_list(
         for (const QString& handle :
              configValues->romraider_definition_files)
         {
-            if (!definitionFileSystem_.exists(romraiderUtf8(handle)))
+            if (!definitionFileSystem_.exists(handle.toStdString()))
             {
                 QMessageBox::warning(
                     this,
@@ -115,14 +104,14 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(
         return nullptr;
     }
 
-    const std::vector<std::string> handles{romraiderUtf8(source)};
+    const std::vector<std::string> handles{source.toStdString()};
     auto catalog = definitionService_.build_romraider_catalog(handles);
     if (!catalog)
     {
         log_definition_error(
             "Unable to read RomRaider base definition",
             catalog.error());
-        if (!definitionFileSystem_.exists(romraiderUtf8(source)))
+        if (!definitionFileSystem_.exists(source.toStdString()))
         {
             QMessageBox::warning(
                 this,
@@ -185,7 +174,7 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(
             "Unable to read RomRaider definition " + cal_id,
             catalog.error());
         if (!source.isEmpty() &&
-            !definitionFileSystem_.exists(romraiderUtf8(source)))
+            !definitionFileSystem_.exists(source.toStdString()))
         {
             QMessageBox::warning(
                 this,
@@ -208,7 +197,7 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(
             "Unable to read RomRaider definition " + cal_id,
             replaced.error());
         if (!source.isEmpty() &&
-            !definitionFileSystem_.exists(romraiderUtf8(source)))
+            !definitionFileSystem_.exists(source.toStdString()))
         {
             QMessageBox::warning(
                 this,
