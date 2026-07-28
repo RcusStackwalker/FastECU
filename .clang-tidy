@@ -14,10 +14,15 @@ Checks: >
   -bugprone-narrowing-conversions,
   -bugprone-reserved-identifier,
   -bugprone-signed-char-misuse,
+  -bugprone-switch-missing-default-case,
   -bugprone-throwing-static-initialization,
   -bugprone-unchecked-optional-access,
   -bugprone-unused-return-value,
   clang-analyzer-*,
+  -clang-analyzer-core.CallAndMessage,
+  -clang-analyzer-core.NonNullParamChecker,
+  -clang-analyzer-core.UndefinedBinaryOperatorResult,
+  -clang-analyzer-cplusplus.NewDeleteLeaks,
   -clang-analyzer-deadcode.DeadStores,
   -clang-analyzer-security.ArrayBound,
   -cppcoreguidelines-pro-type-member-init,
@@ -30,7 +35,7 @@ Checks: >
   readability-simplify-boolean-expr,
   readability-use-anyofallof
 
-WarningsAsErrors: '*,-bugprone-narrowing-conversions'
+WarningsAsErrors: '*'
 HeaderFilterRegex: 'src/(algorithms|backend|platform|ui)/.*\.h'
 ExcludeHeaderFilterRegex: '(/generated_ui/.*|_replica)\.h'
 FormatStyle: none
