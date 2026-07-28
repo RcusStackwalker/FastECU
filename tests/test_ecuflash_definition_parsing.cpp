@@ -1,5 +1,6 @@
 #include <QtTest>
 #include <QApplication>
+#include <QDir>
 #include <QTemporaryDir>
 #include <QFile>
 #include <QSignalSpy>
@@ -42,6 +43,7 @@ class CountingFileRepository : public fastecu::IFileRepository
         std::string_view handle) override
     {
         ++readCount;
+        ++readCounts[std::string(handle)];
         return repository.read(handle);
     }
 
@@ -53,6 +55,7 @@ class CountingFileRepository : public fastecu::IFileRepository
     }
 
     int readCount{0};
+    std::map<std::string, int> readCounts;
 
   private:
     QtFileRepository repository;
@@ -504,6 +507,68 @@ class TestEcuflashDefinitionParsing : public QObject
         QVERIFY(spyContainsMessage(errorSpy, "malformed XML"));
     }
 
+    void catalog_refresh_preserves_submitted_file_outside_configured_directory()
+    {
+        QTemporaryDir workspace;
+        QVERIFY(workspace.isValid());
+        const QString definitionsDirectory =
+            workspace.filePath("configured");
+        QVERIFY(QDir().mkpath(definitionsDirectory));
+        const QString configuredPath = writeDefFileAt(
+            definitionsDirectory + "/ordinary.xml",
+            "<rom><romid><xmlid>DIRECTORY_XML</xmlid>"
+            "<internalidaddress>10</internalidaddress>"
+            "<internalidstring>DIRECTORY_INTERNAL</internalidstring>"
+            "<ecuid>DIRECTORY_ECU</ecuid></romid></rom>");
+        const QString submittedPath = writeDefFileAt(
+            workspace.filePath("submitted.xml"),
+            "<rom><romid><xmlid>SUBMITTED_XML</xmlid>"
+            "<internalidaddress>20</internalidaddress>"
+            "<internalidstring>SUBMITTED_INTERNAL</internalidstring>"
+            "<ecuid>SUBMITTED_ECU</ecuid></romid></rom>");
+        QVERIFY(!configuredPath.isEmpty());
+        QVERIFY(!submittedPath.isEmpty());
+
+        FileActions fileActions(
+            fileSystem_,
+            resourceBundle_,
+            fileRepository_,
+            atomicFileWriter_);
+        auto& config = fileActions.ConfigValuesStruct;
+        config.ecuflash_definition_files_directory = definitionsDirectory;
+        config.ecuflash_def_cal_id =
+            {"stale-directory-id", "SUBMITTED_XML"};
+        config.ecuflash_def_cal_id_addr =
+            {"stale-directory-address", "20"};
+        config.ecuflash_def_ecu_id =
+            {"stale-directory-ecu", "SUBMITTED_ECU"};
+        config.ecuflash_def_filename =
+            {configuredPath, submittedPath};
+        QSignalSpy errorSpy(&fileActions, &FileActions::LOG_E);
+
+        QCOMPARE(fileActions.create_ecuflash_def_id_list(&config), &config);
+
+        QVERIFY(errorSpy.isEmpty());
+        QCOMPARE(
+            config.ecuflash_def_cal_id,
+            QStringList({"DIRECTORY_XML", "SUBMITTED_XML"}));
+        QCOMPARE(
+            config.ecuflash_def_cal_id_addr,
+            QStringList({"10", "20"}));
+        QCOMPARE(
+            config.ecuflash_def_ecu_id,
+            QStringList({"DIRECTORY_ECU", "SUBMITTED_ECU"}));
+        QCOMPARE(
+            config.ecuflash_def_filename,
+            QStringList({configuredPath, submittedPath}));
+        QCOMPARE(
+            fileRepository_.readCounts.at(configuredPath.toStdString()),
+            1);
+        QCOMPARE(
+            fileRepository_.readCounts.at(submittedPath.toStdString()),
+            1);
+    }
+
     void malformed_ecuflash_definition_preserves_caller_state()
     {
         QTemporaryDir dir;
@@ -642,9 +707,8 @@ class TestEcuflashDefinitionParsing : public QObject
     }
 
   private:
-    static QString writeDefFile(const QTemporaryDir& dir, const QString& baseName, const QString& xml)
+    static QString writeDefFileAt(const QString& path, const QString& xml)
     {
-        const QString path = dir.filePath(baseName + ".xml");
         QFile file(path);
         if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
         {
@@ -657,6 +721,12 @@ class TestEcuflashDefinitionParsing : public QObject
         }
         file.close();
         return path;
+    }
+
+    static QString writeDefFile(const QTemporaryDir& dir, const QString& baseName, const QString& xml)
+    {
+        const QString path = dir.filePath(baseName + ".xml");
+        return writeDefFileAt(path, xml);
     }
 
     // FileActions's constructor now takes the config/settings ports (Task

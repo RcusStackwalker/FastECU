@@ -21,7 +21,8 @@ class LegacyDefinitionAdapter
         std::span<const std::string> ordered_handles);
     Status replace_ecuflash_catalog(
         definitions::ConfigValuesStructure&,
-        std::string_view directory);
+        std::string_view directory,
+        std::span<const std::string> explicit_handles = {});
     Status replace_definition(
         definitions::EcuCalDefStructure&,
         const DefinitionCatalog&,

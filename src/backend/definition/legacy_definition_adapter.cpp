@@ -605,9 +605,11 @@ Status LegacyDefinitionAdapter::replace_romraider_catalog(
 
 Status LegacyDefinitionAdapter::replace_ecuflash_catalog(
     definitions::ConfigValuesStructure& current,
-    std::string_view directory)
+    std::string_view directory,
+    std::span<const std::string> explicit_handles)
 {
-    auto catalog = service_.build_ecuflash_catalog(directory);
+    auto catalog =
+        service_.build_ecuflash_catalog(directory, explicit_handles);
     if (!catalog)
     {
         return std::unexpected(catalog.error());

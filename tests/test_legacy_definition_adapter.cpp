@@ -68,6 +68,7 @@ class FakeFileRepository : public IFileRepository
     Result<std::vector<std::uint8_t>> read(std::string_view handle) override
     {
         const std::string key(handle);
+        ++read_counts[key];
         if (auto error = read_errors.find(key); error != read_errors.end())
         {
             return std::unexpected(error->second);
@@ -86,6 +87,7 @@ class FakeFileRepository : public IFileRepository
 
     std::map<std::string, std::vector<std::uint8_t>> files;
     std::map<std::string, Error> read_errors;
+    std::map<std::string, int> read_counts;
 };
 
 class FakeAtomicFileWriter : public IAtomicFileWriter
@@ -286,24 +288,73 @@ TEST_F(LegacyDefinitionAdapterTest, ReplacesEcuFlashCatalogWithAlignedTypedRows)
         "<ecuid>ECU-A</ecuid></romid></rom>");
     repository.files["defs/b.xml"] = bytes(
         "<rom><romid><xmlid>B</xmlid><ecuid>ECU-B</ecuid></romid></rom>");
+    repository.files["outside.xml"] = bytes(
+        "<rom><romid><xmlid>OUTSIDE</xmlid><internalidaddress>20</internalidaddress>"
+        "<ecuid>ECU-OUTSIDE</ecuid></romid></rom>");
     definitions::ConfigValuesStructure value;
     value.ecuflash_def_cal_id = {"sentinel-id"};
     value.ecuflash_def_cal_id_addr = {"sentinel-address"};
     value.ecuflash_def_ecu_id = {"sentinel-ecu"};
-    value.ecuflash_def_filename = {"sentinel-file"};
+    value.ecuflash_def_filename = {"outside.xml", "defs/a.xml"};
+    const std::vector<std::string> explicit_handles{
+        "outside.xml",
+        "defs/a.xml",
+    };
 
-    auto result = adapter.replace_ecuflash_catalog(value, "defs");
+    auto result =
+        adapter.replace_ecuflash_catalog(value, "defs", explicit_handles);
 
     ASSERT_TRUE(result);
-    EXPECT_EQ(value.ecuflash_def_cal_id, QStringList({"A", "B"}));
-    EXPECT_EQ(value.ecuflash_def_cal_id_addr, QStringList({"0x10", ""}));
-    EXPECT_EQ(value.ecuflash_def_ecu_id, QStringList({"ECU-A", "ECU-B"}));
-    EXPECT_EQ(value.ecuflash_def_filename, QStringList({"defs/a.xml", "defs/b.xml"}));
+    EXPECT_EQ(
+        value.ecuflash_def_cal_id,
+        QStringList({"A", "B", "OUTSIDE"}));
+    EXPECT_EQ(
+        value.ecuflash_def_cal_id_addr,
+        QStringList({"0x10", "", "0x20"}));
+    EXPECT_EQ(
+        value.ecuflash_def_ecu_id,
+        QStringList({"ECU-A", "ECU-B", "ECU-OUTSIDE"}));
+    EXPECT_EQ(
+        value.ecuflash_def_filename,
+        QStringList({"defs/a.xml", "defs/b.xml", "outside.xml"}));
     expect_catalog_rows_aligned(
         value.ecuflash_def_cal_id,
         value.ecuflash_def_cal_id_addr,
         value.ecuflash_def_ecu_id,
         value.ecuflash_def_filename);
+    EXPECT_EQ(repository.read_counts["defs/a.xml"], 1);
+    EXPECT_EQ(repository.read_counts["defs/b.xml"], 1);
+    EXPECT_EQ(repository.read_counts["outside.xml"], 1);
+}
+
+TEST_F(LegacyDefinitionAdapterTest, EcuFlashCatalogFailurePreservesCompleteOriginalValue)
+{
+    file_system.directories["defs"] = {};
+    repository.read_errors["outside.xml"] =
+        Error{ErrorKind::Disconnected, "submitted definition unavailable"};
+    definitions::ConfigValuesStructure value;
+    value.software_name = "unchanged software";
+    value.primary_definition_base = "unchanged base";
+    value.romraider_def_cal_id = {"romraider-id"};
+    value.romraider_def_filename = {"romraider.xml"};
+    value.ecuflash_def_cal_id = {"outside-id"};
+    value.ecuflash_def_cal_id_addr = {"outside-address"};
+    value.ecuflash_def_ecu_id = {"outside-ecu"};
+    value.ecuflash_def_filename = {"outside.xml"};
+    const auto original = value;
+    const std::vector<std::string> explicit_handles{"outside.xml"};
+
+    auto result =
+        adapter.replace_ecuflash_catalog(value, "defs", explicit_handles);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(
+        result.error(),
+        (Error{
+            ErrorKind::Disconnected,
+            "submitted definition unavailable",
+        }));
+    EXPECT_EQ(value, original);
 }
 
 TEST_F(LegacyDefinitionAdapterTest, CatalogFailurePreservesCompleteOriginalValue)
