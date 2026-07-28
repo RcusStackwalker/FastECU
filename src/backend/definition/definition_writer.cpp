@@ -1,5 +1,6 @@
 #include "src/backend/definition/definition_writer.h"
 
+#include <algorithm>
 #include <array>
 #include <charconv>
 #include <cctype>
@@ -22,14 +23,8 @@ namespace
 
 bool is_blank(std::string_view value)
 {
-    for (const unsigned char character : value)
-    {
-        if (!std::isspace(character))
-        {
-            return false;
-        }
-    }
-    return true;
+    return !std::ranges::any_of(value, [](auto ch)
+                                { return !std::isspace(ch); });
 }
 
 Status validate_input(const DefinitionHeaderInput& input)
