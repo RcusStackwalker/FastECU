@@ -1,12 +1,25 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("@rules_python//python:defs.bzl", "py_test")
 load("//bazel:mut_dma_test_suites.bzl", "MUT_DMA_GTEST_SRCS", "mut_dma_test_suites")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "local_test_hdrs", "local_test_srcs", "qt_cc_library", "qt_cc_test", "qt_cpp_moc_headers", "test_cpp_moc_srcs")
 load("//bazel:test_sources.bzl", "MUT_DMA_INTEGRATION_TESTS_COMMON_HDRS", "MUT_DMA_INTEGRATION_TESTS_COMMON_SRCS", "MUT_DMA_TESTS_COMMON_SRCS", "SERIAL_BACKEND_TESTS_COMMON_HDRS", "SERIAL_BACKEND_TESTS_COMMON_SRCS", "SERIAL_BACKEND_TESTS_UNIX_HDRS", "SERIAL_BACKEND_TESTS_UNIX_SRCS", "SERIAL_CRASH_TESTS_COMMON_HDRS", "SERIAL_CRASH_TESTS_COMMON_SRCS")
 load("//bazel:x86_windows_transition.bzl", "x86_windows_binary")
 
 package(default_visibility = ["//visibility:public"])
+
+py_test(
+    name = "coverage_local_test",
+    size = "small",
+    srcs = ["test_coverage_local.py"],
+    data = ["//:scripts/coverage-local.sh"],
+    main = "test_coverage_local.py",
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+)
 
 cc_binary(
     name = "fake_j2534_dll_native",
