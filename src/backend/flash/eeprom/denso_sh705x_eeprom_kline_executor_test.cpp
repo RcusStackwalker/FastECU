@@ -13,7 +13,7 @@
 
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
-#include "src/backend/ports/clock_test_helpers.h"
+#include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "tests/scripted_kline_flash_transport.h"
 
