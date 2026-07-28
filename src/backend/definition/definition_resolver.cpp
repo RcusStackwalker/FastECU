@@ -207,7 +207,7 @@ void append_unique(std::vector<std::string>& destination, const std::vector<std:
 {
     for (const std::string& value : values)
     {
-        if (std::find(destination.begin(), destination.end(), value) == destination.end())
+        if (!std::ranges::contains(destination, value))
         {
             destination.push_back(value);
         }
@@ -220,15 +220,13 @@ Result<void> validate_local(const UnresolvedDefinition& definition)
     {
         return fail(
             ErrorKind::InvalidConfig,
-            format_name(definition.format) + " definition from '" + definition.source +
-                "' has an empty definition identity");
+            std::format("{} definition from '{}' has an empty definition identity", format_name(definition.format), definitions.source));
     }
     if (definition.source.empty())
     {
         return fail(
             ErrorKind::InvalidConfig,
-            format_name(definition.format) + " definition '" + definition.identity.xml_id +
-                "' has no source");
+            std::format("{} definition '{}' has no source", format_name(definition.format), definition.identity.xml_id));
     }
 
     std::vector<const CalibrationMap *> maps;
@@ -246,8 +244,7 @@ Result<void> validate_local(const UnresolvedDefinition& definition)
         {
             return fail(
                 ErrorKind::InvalidConfig,
-                "duplicate map key '" + key + "' in definition '" +
-                    definition.identity.xml_id + "' from '" + definition.source + "'");
+                std::format("duplicate map key '{}' in definition '{}' from '{}'", key, definition.identity.xml_id, definition.source));
         }
         maps.push_back(&map);
     }
@@ -259,16 +256,14 @@ Result<void> validate_local(const UnresolvedDefinition& definition)
         {
             return fail(
                 ErrorKind::InvalidConfig,
-                "scaling with an empty name in definition '" + definition.identity.xml_id +
-                    "' from '" + definition.source + "'");
+                std::format("scaling with an empty name in definition '{}' from '{}'", definition.identity.xml_id, definition.source));
         }
         auto [existing, inserted] = scalings.emplace(scaling.name, &scaling);
         if (!inserted && *existing->second != scaling)
         {
             return fail(
                 ErrorKind::InvalidConfig,
-                "conflicting duplicate scaling '" + scaling.name + "' in definition '" +
-                    definition.identity.xml_id + "' from '" + definition.source + "'");
+                std::format("conflicting duplicate scaling '{}' in definition '{}' from '{}'", scaling.name, definition.identity.xml_id, definition.source));
         }
     }
     return {};
@@ -296,9 +291,7 @@ Result<void> overlay_definition(
             {
                 return fail(
                     ErrorKind::InvalidConfig,
-                    "ambiguous map name fallback '" + map.name +
-                        "' while resolving definition '" + supplied.identity.xml_id +
-                        "' from '" + supplied.source + "'");
+                    std::format("ambiguous map name fallback '{}' while resolving definition '{}' from '{}'", map.name, supplied.identity.xml_id, supplied.source));
             }
             existing = &candidate;
         }
