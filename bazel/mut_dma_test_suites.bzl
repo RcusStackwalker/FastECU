@@ -189,6 +189,7 @@ SUITE_DEPS = {
     "test_ssm_logging_protocol": [
         "//src/backend/logging/protocols:protocols",
         "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:fake_clock",
     ],
     "test_mut_dma_logging_protocol": [
         "//src/backend/logging/protocols:protocols",
