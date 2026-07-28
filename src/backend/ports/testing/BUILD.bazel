@@ -1,14 +1,15 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
+package(default_visibility = [
+    "//src/backend:__subpackages__",
+    "//tests:__pkg__",
+])
+
 cc_library(
     name = "fake_clock",
     testonly = True,
     hdrs = ["fake_clock.h"],
-    visibility = [
-        "//src/backend:__subpackages__",
-        "//tests:__pkg__",
-    ],
     deps = ["//src/backend/ports"],
 )
 
@@ -25,10 +26,6 @@ cc_library(
     name = "in_memory_file_repository",
     testonly = True,
     hdrs = ["in_memory_file_repository.h"],
-    visibility = [
-        "//src/backend:__subpackages__",
-        "//tests:__pkg__",
-    ],
     deps = ["//src/backend/ports"],
 )
 
@@ -45,10 +42,6 @@ cc_library(
     name = "in_memory_file_system",
     testonly = True,
     hdrs = ["in_memory_file_system.h"],
-    visibility = [
-        "//src/backend:__subpackages__",
-        "//tests:__pkg__",
-    ],
     deps = ["//src/backend/ports"],
 )
 
@@ -65,10 +58,6 @@ cc_library(
     name = "in_memory_resource_bundle",
     testonly = True,
     hdrs = ["in_memory_resource_bundle.h"],
-    visibility = [
-        "//src/backend:__subpackages__",
-        "//tests:__pkg__",
-    ],
     deps = ["//src/backend/ports"],
 )
 
@@ -85,10 +74,6 @@ cc_library(
     name = "in_memory_settings",
     testonly = True,
     hdrs = ["in_memory_settings.h"],
-    visibility = [
-        "//src/backend:__subpackages__",
-        "//tests:__pkg__",
-    ],
     deps = ["//src/backend/ports"],
 )
 
@@ -105,10 +90,6 @@ cc_library(
     name = "recording_event_sink",
     testonly = True,
     hdrs = ["recording_event_sink.h"],
-    visibility = [
-        "//src/backend:__subpackages__",
-        "//tests:__pkg__",
-    ],
     deps = ["//src/backend/ports"],
 )
 
