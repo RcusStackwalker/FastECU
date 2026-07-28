@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cctype>
+#include <format>
+#include <ranges>
 
 namespace fastecu::definition
 {
@@ -10,8 +12,8 @@ namespace
 
 bool has_whitespace(std::string_view value)
 {
-    return std::any_of(value.begin(), value.end(), [](unsigned char character)
-                       { return std::isspace(character) != 0; });
+    return std::ranges::any_of(value, [](unsigned char character)
+                               { return std::isspace(character) != 0; });
 }
 
 bool has_same_lookup_key(const DefinitionIndexEntry& left, const DefinitionIndexEntry& right)
@@ -39,13 +41,13 @@ Result<void> validate(const DefinitionIndexEntry& entry)
     if (entry.source.empty())
     {
         return fail(ErrorKind::InvalidConfig,
-                    "definition source must not be empty for ID '" + entry.definition_id + "'");
+                    std::format("definition source must not be empty for ID '{}'", entry.definition_id));
     }
     for (const std::string& parent : entry.parents)
     {
         if (parent.empty() || has_whitespace(parent))
         {
-            return fail(ErrorKind::InvalidConfig, "invalid parent reference in '" + entry.source + "'");
+            return fail(ErrorKind::InvalidConfig, std::format("invalid parent reference in '{}'", entry.source));
         }
     }
     return {};
@@ -84,8 +86,7 @@ Result<DefinitionCatalog> DefinitionCatalog::create(std::vector<DefinitionIndexE
         if (!has_same_content(*existing, entry))
         {
             return fail(ErrorKind::InvalidConfig,
-                        "conflicting duplicate definition ID '" + entry.definition_id + "' from '" +
-                            existing->source + "' and '" + entry.source + "'");
+                        std::format("conflicting duplicate definition ID '{}' from '{}' and '{}'", entry.definition_id, existing->source, entry.source));
         }
     }
 
@@ -99,7 +100,7 @@ Result<std::reference_wrapper<const DefinitionIndexEntry>> DefinitionCatalog::fi
                               { return candidate.format == format && candidate.definition_id == id; });
     if (entry == entries_.end())
     {
-        return fail(ErrorKind::InvalidConfig, "definition ID not found: '" + std::string(id) + "'");
+        return fail(ErrorKind::InvalidConfig, std::format("definition ID not found: '{}'", id));
     }
     return std::cref(*entry);
 }
