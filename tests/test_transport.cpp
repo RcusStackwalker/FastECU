@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "byte_test_utils.h"
-#include "src/backend/ports/cancellation.h"
+#include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/error.h"
 #include "scripted_can_transport.h"
 #include "scripted_kline_transport.h"
@@ -9,32 +9,11 @@
 
 using namespace mutdma;
 
-namespace
-{
-class NeverCancelled final : public fastecu::ICancellationToken
-{
-  public:
-    bool cancelled() const override
-    {
-        return false;
-    }
-};
-
-class Cancelled final : public fastecu::ICancellationToken
-{
-  public:
-    bool cancelled() const override
-    {
-        return true;
-    }
-};
-} // namespace
-
 TEST(TransportContract, NoFrameIsSuccessfulEmptyOptional)
 {
     ScriptedSsmTransport t;
     t.queue_no_frame();
-    NeverCancelled token;
+    fastecu::FakeCancellationToken token;
     auto result = t.read(20, token);
     ASSERT_TRUE(result);
     EXPECT_FALSE(result->has_value());
@@ -44,7 +23,7 @@ TEST(TransportContract, CancellationIsNotSilence)
 {
     ScriptedSsmTransport t;
     t.queue_error(fastecu::ErrorKind::Cancelled);
-    Cancelled token;
+    fastecu::FakeCancellationToken token(true);
     auto result = t.read(20, token);
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Cancelled);
@@ -54,7 +33,7 @@ TEST(TransportContract, QueuedErrorsRemainDistinctFromNoFrame)
 {
     ScriptedSsmTransport t;
     t.queue_error(fastecu::ErrorKind::Disconnected);
-    NeverCancelled token;
+    fastecu::FakeCancellationToken token;
     auto result = t.read(20, token);
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
@@ -64,7 +43,7 @@ TEST(TransportContract, CanReadReturnsFrameWithIdAndPayload)
 {
     cdbg::ScriptedCanTransport t;
     t.queueRead(0x7E8, test_bytes::bytesFromHex("0102"));
-    NeverCancelled token;
+    fastecu::FakeCancellationToken token;
     auto result = t.read(20, token);
     ASSERT_TRUE(result);
     ASSERT_TRUE(result->has_value());
@@ -77,7 +56,7 @@ TEST(TestTransport, scripted_write_then_read)
     ScriptedKlineTransport t;
     t.expectWrite(test_bytes::bytesFromHex("A0"));
     t.queueRead(test_bytes::bytesFromHex("A5"));
-    NeverCancelled token;
+    fastecu::FakeCancellationToken token;
     ASSERT_TRUE(t.setBaud(125000));
     const auto written = t.write(test_bytes::bytesFromHex("A0"));
     ASSERT_TRUE(written);

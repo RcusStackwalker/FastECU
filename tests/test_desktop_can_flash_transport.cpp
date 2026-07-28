@@ -17,60 +17,14 @@
 #include <thread>
 
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
+#include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "fake_backend.h"
 #include "test_desktop_can_flash_transport.h"
 
 using fastecu::ErrorKind;
-using fastecu::ICancellationToken;
+using fastecu::FakeCancellationToken;
 using fastecu::flash::DesktopCanFlashTransport;
 using fastecu::flash::Iso15765Config;
-
-namespace
-{
-
-// These tests exercise configure()/open()/close()/request_unblock() and the
-// read() path's *unblock* branch, not read()'s cancellation.cancelled()
-// branch -- a token that never cancels keeps them focused on that.
-class NeverCancelled : public ICancellationToken
-{
-  public:
-    bool cancelled() const override
-    {
-        return false;
-    }
-};
-
-// Used by the write()/read()-cancellation tests below: cancelled() is true
-// from the very first check, so write()/read() must fail before ever
-// touching the backend.
-class AlwaysCancelled : public ICancellationToken
-{
-  public:
-    bool cancelled() const override
-    {
-        return true;
-    }
-};
-
-// Used by the read() mid-flight cancellation tests below: false on the
-// first call (the pre-read check, which must pass so the backend is
-// actually reached), true on every call after that (the post-read
-// recheck(s), including inside both catch blocks) -- proves read() still
-// re-observes cancellation after an already in-flight backend call
-// returns/throws, not just before issuing it.
-class CancelledOnSecondCheck : public ICancellationToken
-{
-  public:
-    bool cancelled() const override
-    {
-        return ++callCount >= 2;
-    }
-
-  private:
-    mutable int callCount = 0;
-};
-
-} // namespace
 
 class TestDesktopCanFlashTransport : public QObject
 {
@@ -263,7 +217,7 @@ class TestDesktopCanFlashTransport : public QObject
         fake->takeCallLog();
 
         DesktopCanFlashTransport transport(std::move(serial));
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         const bytes::Bytes data{0x01, 0x02, 0x03};
         const auto result = transport.write(bytes::ByteView(data), cancellation);
 
@@ -285,7 +239,7 @@ class TestDesktopCanFlashTransport : public QObject
         fake->takeCallLog();
 
         DesktopCanFlashTransport transport(std::move(serial));
-        AlwaysCancelled cancellation;
+        FakeCancellationToken cancellation(true);
         const bytes::Bytes data{0xAA};
         const auto result = transport.write(bytes::ByteView(data), cancellation);
 
@@ -309,7 +263,7 @@ class TestDesktopCanFlashTransport : public QObject
         fake->closePortAfterWrite = true;
 
         DesktopCanFlashTransport transport(std::move(serial));
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         const bytes::Bytes data{0xAA};
         const auto result = transport.write(bytes::ByteView(data), cancellation);
 
@@ -332,7 +286,7 @@ class TestDesktopCanFlashTransport : public QObject
         fake->takeCallLog();
 
         DesktopCanFlashTransport transport(std::move(serial));
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         const bytes::Bytes data{0xAA};
         const auto result = transport.write(bytes::ByteView(data), cancellation);
 
@@ -354,7 +308,7 @@ class TestDesktopCanFlashTransport : public QObject
         fake->scriptedResponse = QByteArray("\x01\x02", 2);
 
         DesktopCanFlashTransport transport(std::move(serial));
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         const auto result = transport.read(50, cancellation);
 
         QVERIFY(result.has_value());
@@ -375,7 +329,7 @@ class TestDesktopCanFlashTransport : public QObject
         fake->takeCallLog();
 
         DesktopCanFlashTransport transport(std::move(serial));
-        AlwaysCancelled cancellation;
+        FakeCancellationToken cancellation(true);
         const auto result = transport.read(50, cancellation);
 
         QVERIFY(!result.has_value());
@@ -397,7 +351,7 @@ class TestDesktopCanFlashTransport : public QObject
         fake->takeCallLog();
 
         DesktopCanFlashTransport transport(std::move(serial));
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         const auto result = transport.read(50, cancellation);
 
         QVERIFY(!result.has_value());
@@ -420,7 +374,7 @@ class TestDesktopCanFlashTransport : public QObject
         fake->closePortAfterRead = true;
 
         DesktopCanFlashTransport transport(std::move(serial));
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         const auto result = transport.read(50, cancellation);
 
         QVERIFY(!result.has_value());
@@ -443,7 +397,7 @@ class TestDesktopCanFlashTransport : public QObject
         auto closeResult = transport.close();
         QVERIFY(closeResult.has_value());
 
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         const auto configureResult = transport.configure(Iso15765Config{
             .bitrate = 500000, .request_id = 0x7E0, .response_id = 0x7E8, .extended_id = false});
         QVERIFY(!configureResult.has_value());
@@ -478,7 +432,7 @@ class TestDesktopCanFlashTransport : public QObject
         transport.request_unblock();
         fake->takeCallLog();
 
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         const bytes::Bytes data{0xAA};
         const auto result = transport.write(bytes::ByteView(data), cancellation);
 
@@ -501,7 +455,7 @@ class TestDesktopCanFlashTransport : public QObject
         fake->scriptedResponse = QByteArray(); // empty
 
         DesktopCanFlashTransport transport(std::move(serial));
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         const auto result = transport.read(50, cancellation);
 
         QVERIFY(result.has_value());
@@ -520,7 +474,7 @@ class TestDesktopCanFlashTransport : public QObject
         fake->throwOnWrite = true;
 
         DesktopCanFlashTransport transport(std::move(serial));
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         const bytes::Bytes data{0xAA};
         const auto result = transport.write(bytes::ByteView(data), cancellation);
 
@@ -540,7 +494,7 @@ class TestDesktopCanFlashTransport : public QObject
         fake->throwNonStandardOnWrite = true;
 
         DesktopCanFlashTransport transport(std::move(serial));
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         const bytes::Bytes data{0xAA};
         const auto result = transport.write(bytes::ByteView(data), cancellation);
 
@@ -561,7 +515,7 @@ class TestDesktopCanFlashTransport : public QObject
         fake->throwOnRead = true;
 
         DesktopCanFlashTransport transport(std::move(serial));
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         const auto result = transport.read(50, cancellation);
 
         QVERIFY(!result.has_value());
@@ -580,7 +534,7 @@ class TestDesktopCanFlashTransport : public QObject
         fake->throwNonStandardOnRead = true;
 
         DesktopCanFlashTransport transport(std::move(serial));
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         const auto result = transport.read(50, cancellation);
 
         QVERIFY(!result.has_value());
@@ -602,7 +556,8 @@ class TestDesktopCanFlashTransport : public QObject
         fake->scriptedResponse = QByteArray("\xAA", 1);
 
         DesktopCanFlashTransport transport(std::move(serial));
-        CancelledOnSecondCheck cancellation;
+        FakeCancellationToken cancellation;
+        cancellation.cancel_on_check(2);
         const auto result = transport.read(50, cancellation);
 
         QVERIFY(!result.has_value());
@@ -623,7 +578,8 @@ class TestDesktopCanFlashTransport : public QObject
         fake->throwOnRead = true;
 
         DesktopCanFlashTransport transport(std::move(serial));
-        CancelledOnSecondCheck cancellation;
+        FakeCancellationToken cancellation;
+        cancellation.cancel_on_check(2);
         const auto result = transport.read(50, cancellation);
 
         QVERIFY(!result.has_value());
@@ -642,7 +598,8 @@ class TestDesktopCanFlashTransport : public QObject
         fake->throwNonStandardOnRead = true;
 
         DesktopCanFlashTransport transport(std::move(serial));
-        CancelledOnSecondCheck cancellation;
+        FakeCancellationToken cancellation;
+        cancellation.cancel_on_check(2);
         const auto result = transport.read(50, cancellation);
 
         QVERIFY(!result.has_value());
@@ -738,7 +695,7 @@ class TestDesktopCanFlashTransport : public QObject
         fake->continueRead = &continueRead;
 
         DesktopCanFlashTransport transport(std::move(serial));
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
 
         fastecu::Result<std::optional<bytes::Bytes>> inFlightResult;
         std::atomic<bool> readerFinished{false};

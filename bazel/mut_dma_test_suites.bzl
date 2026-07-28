@@ -156,9 +156,13 @@ SUITE_DEPS = {
     "test_driver": [
         "//src/algorithms/protocol/mut_dma",
         "//src/backend/protocol",
+        "//src/backend/ports/testing:fake_cancellation_token",
     ],
     # All three scripted transport helpers use bytes::Bytes and are portable.
-    "test_transport": ["//src/backend/protocol"],
+    "test_transport": [
+        "//src/backend/protocol",
+        "//src/backend/ports/testing:fake_cancellation_token",
+    ],
     # These three include qt_colt.h (the Qt shim) alongside the portable
     # header, since the tests exercise both the bytes::-native functions and
     # the QByteArray/QVector overloads (Task 8).
@@ -166,7 +170,10 @@ SUITE_DEPS = {
     "test_mitsu_colt_can_vendor_ext_protocol": ["//src/algorithms/protocol/colt:qt_compat"],
     "test_mitsu_colt_can_cdbg_protocol": ["//src/algorithms/protocol/colt:qt_compat"],
     # The CDBG driver header and implementation now form a Qt-free backend edge.
-    "test_cdbg_driver": ["//src/backend/protocol"],
+    "test_cdbg_driver": [
+        "//src/backend/protocol",
+        "//src/backend/ports/testing:fake_cancellation_token",
+    ],
     "test_ssm_protocol": ["//src/algorithms/protocol/ssm:qt_compat"],
     "test_expression_evaluator": ["//src/algorithms/expression:qt_compat"],
     "test_menu_command": ["//src/algorithms/menu:qt_compat"],
@@ -179,9 +186,18 @@ SUITE_DEPS = {
     # These three include a src/backend/logging/protocols/*.h header directly
     # (a subpackage of backend/logging, not the same label) -- backend/logging
     # alone doesn't expose it.
-    "test_ssm_logging_protocol": ["//src/backend/logging/protocols:protocols"],
-    "test_mut_dma_logging_protocol": ["//src/backend/logging/protocols:protocols"],
-    "test_cdbg_logging_protocol": ["//src/backend/logging/protocols:protocols"],
+    "test_ssm_logging_protocol": [
+        "//src/backend/logging/protocols:protocols",
+        "//src/backend/ports/testing:fake_cancellation_token",
+    ],
+    "test_mut_dma_logging_protocol": [
+        "//src/backend/logging/protocols:protocols",
+        "//src/backend/ports/testing:fake_cancellation_token",
+    ],
+    "test_cdbg_logging_protocol": [
+        "//src/backend/logging/protocols:protocols",
+        "//src/backend/ports/testing:fake_cancellation_token",
+    ],
     "test_flash_operation_worker": ["//src/platform/desktop/common/flash/legacy:legacy_flash_operations"],
     # test_flash_ecu_mitsu_m32r_can_operation.cpp includes qt_colt.h directly
     # (Task 8) for QByteArray-typed Colt helper wrappers, so it needs the
@@ -212,10 +228,12 @@ SUITE_DEPS = {
     # harness's SerialPortActions construction) as well as their own
     # respective adapter target -- same shape as test_flash_utils above.
     "test_desktop_kline_flash_transport": [
+        "//src/backend/ports/testing:fake_cancellation_token",
         "//src/platform/desktop/common/serial:serial_qt_compat",
         "//src/platform/desktop/common/transport:flash_transports",
     ],
     "test_desktop_can_flash_transport": [
+        "//src/backend/ports/testing:fake_cancellation_token",
         "//src/platform/desktop/common/serial:serial_qt_compat",
         "//src/platform/desktop/common/transport:flash_transports",
     ],
