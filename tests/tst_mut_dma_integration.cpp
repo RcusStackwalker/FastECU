@@ -47,21 +47,10 @@
 #include "src/algorithms/protocol/mut_dma/mut_dma_freeform.h"
 #include "src/backend/protocol/mut_dma_driver.h"
 #include "src/backend/protocol/imut_dma_init.h"
+#include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/algorithms/protocol/qt_bytes.h"
 
 using namespace mutdma;
-
-namespace
-{
-class NeverCancelledToken final : public fastecu::ICancellationToken
-{
-  public:
-    bool cancelled() const override
-    {
-        return false;
-    }
-};
-} // namespace
 
 // Scripted mock Openport 2.0 on the master side of a PTY. Buffer-driven (not purely
 // line-based) so it can faithfully consume the raw data bytes that trail an "att"
@@ -367,7 +356,7 @@ void MutDmaIntegrationTest::read_throughAdapter_returnsEcuReplyBytes()
         QVERIFY2(!connectFacade(spad, QString::fromLocal8Bit(name)).isEmpty(), "connect failed");
 
         FastEcuKlineTransport tr(&spad);
-        NeverCancelledToken cancellation;
+        fastecu::FakeCancellationToken cancellation;
         tr.read(60, cancellation); // drain any residual init acks before the scripted exchange
 
         QByteArray reply;
@@ -399,7 +388,7 @@ void MutDmaIntegrationTest::driverPollOnce_throughAdapter_decodesStreamFrameFrom
         QVERIFY2(!connectFacade(spad, QString::fromLocal8Bit(name)).isEmpty(), "connect failed");
 
         FastEcuKlineTransport tr(&spad);
-        NeverCancelledToken cancellation;
+        fastecu::FakeCancellationToken cancellation;
         AlreadyInMode init(125000);
         MutDmaDriver driver(tr, init);
 

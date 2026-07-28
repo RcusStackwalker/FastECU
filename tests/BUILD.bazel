@@ -82,6 +82,7 @@ qt_cc_test(
     deps = QT_DEPS + [
         ":serial_backend_cpp_mocs",
         ":test_header_mocs",
+        "//src/backend/ports/testing:fake_cancellation_token",
         "//src/platform/desktop/common/serial:serial_qt_compat",
         "//src/platform/desktop/common/transport",
     ],
@@ -120,6 +121,7 @@ qt_cc_test(
         "//src/backend/definitions",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
         "//src/backend/ports",
+        "//src/backend/ports/testing:in_memory_file_repository",
         "//src/platform/desktop/common/flash:flash_snapshot_adapter",
         "@googletest//:gtest",
     ],
@@ -224,6 +226,7 @@ qt_cc_test(
         "//src/algorithms/protocol",
         "//src/algorithms/protocol:qt_compat",
         "//src/algorithms/protocol/mut_dma",
+        "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/protocol",
         "//src/platform/desktop/common/serial:serial_qt_compat",
         "//src/platform/desktop/common/transport",

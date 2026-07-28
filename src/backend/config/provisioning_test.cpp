@@ -16,7 +16,6 @@ using fastecu::Result;
 using fastecu::Status;
 using fastecu::config::ConfigPaths;
 using fastecu::config::provision_config_directories;
-using namespace std::literals::string_view_literals;
 
 namespace
 {
@@ -172,16 +171,8 @@ TEST(ProvisionConfigDirectories, MigratesPreviousVersionConfigFileForward)
 
 TEST(ProvisionConfigDirectories, FirstCreateDirectoryFailureStopsTheSequence)
 {
-    class FailingFileSystem : public InMemoryFileSystem
-    {
-      public:
-        Status create_directory(std::string_view path) override
-        {
-            if (path == "/base"sv)
-                return fastecu::fail(ErrorKind::Internal, "permission denied");
-            return InMemoryFileSystem::create_directory(path);
-        }
-    } fs;
+    InMemoryFileSystem fs;
+    fs.create_directory_error = fastecu::Error{ErrorKind::Internal, "permission denied"};
     InMemoryResourceBundle bundle;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();

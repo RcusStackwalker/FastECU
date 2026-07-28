@@ -15,10 +15,26 @@ cc_library(
     deps = ["//src/backend/ports"],
 )
 
+cc_library(
+    name = "fake_cancellation_token",
+    hdrs = ["fake_cancellation_token.h"],
+    deps = ["//src/backend/ports"],
+)
+
+cc_test(
+    name = "fake_cancellation_token_test",
+    srcs = ["fake_cancellation_token_test.cpp"],
+    deps = [
+        ":fake_cancellation_token",
+        "@googletest//:gtest_main",
+    ],
+)
+
 cc_test(
     name = "fake_clock_test",
     srcs = ["fake_clock_test.cpp"],
     deps = [
+        ":fake_cancellation_token",
         ":fake_clock",
         "@googletest//:gtest_main",
     ],

@@ -3,6 +3,7 @@
 #include "scripted_kline_transport.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_codec.h"
 #include "src/backend/logging/protocols/portable_mut_dma_logging_protocol.h"
+#include "src/backend/ports/testing/fake_cancellation_token.h"
 
 namespace
 {
@@ -12,24 +13,6 @@ using fastecu::logging::RawAssembly;
 using mutdma::AlreadyInMode;
 using mutdma::Channel;
 using mutdma::ScriptedKlineTransport;
-
-class NeverCancelled final : public fastecu::ICancellationToken
-{
-  public:
-    bool cancelled() const override
-    {
-        return false;
-    }
-};
-
-class Cancelled final : public fastecu::ICancellationToken
-{
-  public:
-    bool cancelled() const override
-    {
-        return true;
-    }
-};
 
 LoggingChannel channel()
 {
@@ -71,7 +54,7 @@ TEST(MutDmaLoggingProtocolTest, StartReachesStreamingOnValidHandshake)
     scriptValidHandshake(*transport);
     auto *script = transport.get();
     auto protocol = makeProtocol(std::move(transport));
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
 
     const auto result = protocol->start(cancellation);
 
@@ -85,7 +68,7 @@ TEST(MutDmaLoggingProtocolTest, StartFailsWhenAdapterIsClosed)
     auto transport = std::make_unique<ScriptedKlineTransport>();
     transport->setOpen(false);
     auto protocol = makeProtocol(std::move(transport));
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
 
     const auto result = protocol->start(cancellation);
 
@@ -100,7 +83,7 @@ TEST(MutDmaLoggingProtocolTest, StartFailurePinsBadResponseForInvalidHandshake)
     transport->queueRead(mutdma::buildCommandFrame(
         0x00, bytes::Bytes{}, mutdma::TRAILER_STD));
     auto protocol = makeProtocol(std::move(transport));
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
 
     const auto result = protocol->start(cancellation);
 
@@ -115,7 +98,7 @@ TEST(MutDmaLoggingProtocolTest,
     transport->queue_set_baud_error(fastecu::ErrorKind::Disconnected,
                                     "sentinel core set-baud disconnect");
     auto protocol = makeProtocol(std::move(transport));
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
 
     const auto result = protocol->start(cancellation);
 
@@ -131,7 +114,7 @@ TEST(MutDmaLoggingProtocolTest,
     transport->queue_set_baud_error(fastecu::ErrorKind::Internal,
                                     "sentinel core set-baud internal");
     auto protocol = makeProtocol(std::move(transport));
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
 
     const auto result = protocol->start(cancellation);
 
@@ -147,7 +130,7 @@ TEST(MutDmaLoggingProtocolTest, StartPropagatesQueuedWriteErrorKindAndDetail)
     transport->queue_write_error(fastecu::ErrorKind::Disconnected,
                                  "sentinel core setup write disconnect");
     auto protocol = makeProtocol(std::move(transport));
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
 
     const auto result = protocol->start(cancellation);
 
@@ -163,7 +146,7 @@ TEST(MutDmaLoggingProtocolTest, StartPropagatesQueuedReadErrorKindAndDetail)
     transport->queue_error(fastecu::ErrorKind::Internal,
                            "sentinel core setup read internal");
     auto protocol = makeProtocol(std::move(transport));
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
 
     const auto result = protocol->start(cancellation);
 
@@ -175,7 +158,7 @@ TEST(MutDmaLoggingProtocolTest, StartPropagatesQueuedReadErrorKindAndDetail)
 TEST(MutDmaLoggingProtocolTest, PollReturnsNoResponseBeforeStart)
 {
     auto protocol = makeProtocol(std::make_unique<ScriptedKlineTransport>());
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
 
     const auto result = protocol->poll(20, cancellation);
 
@@ -190,7 +173,7 @@ TEST(MutDmaLoggingProtocolTest, PollReturnsTransportErrorWhenAdapterClosesMidSes
     scriptValidHandshake(*transport);
     auto *script = transport.get();
     auto protocol = makeProtocol(std::move(transport));
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
     ASSERT_TRUE(protocol->start(cancellation));
     script->setOpen(false);
 
@@ -206,7 +189,7 @@ TEST(MutDmaLoggingProtocolTest, PollReturnsStableIdAndRawDecimalString)
     scriptValidHandshake(*transport);
     auto *script = transport.get();
     auto protocol = makeProtocol(std::move(transport));
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
     ASSERT_TRUE(protocol->start(cancellation));
 
     bytes::Bytes frame = {0x51, 0x12, 0x34};
@@ -227,7 +210,7 @@ TEST(MutDmaLoggingProtocolTest, StartPropagatesCancellation)
 {
     auto transport = std::make_unique<ScriptedKlineTransport>();
     auto protocol = makeProtocol(std::move(transport));
-    Cancelled cancellation;
+    fastecu::FakeCancellationToken cancellation(true);
 
     const auto result = protocol->start(cancellation);
 

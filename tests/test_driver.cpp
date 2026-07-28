@@ -3,6 +3,7 @@
 #include "byte_test_utils.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_codec.h"
 #include "src/backend/protocol/mut_dma_driver.h"
+#include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_freeform.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_memory.h"
 #include "scripted_kline_transport.h"
@@ -21,23 +22,6 @@ class FailingInit : public mutdma::IMutDmaInit
     }
 };
 
-class NeverCancelled final : public fastecu::ICancellationToken
-{
-  public:
-    bool cancelled() const override
-    {
-        return false;
-    }
-};
-
-class Cancelled final : public fastecu::ICancellationToken
-{
-  public:
-    bool cancelled() const override
-    {
-        return true;
-    }
-};
 } // namespace
 
 TEST(TestDriver, free_form_handshake_reaches_streaming)
@@ -53,7 +37,7 @@ TEST(TestDriver, free_form_handshake_reaches_streaming)
     const MutDmaFrame ack2 = buildCommandFrame(0x05, bytes::Bytes{}, TRAILER_STD);
     t.queueRead(ack2);
     MutDmaDriver d(t, init);
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
     ASSERT_TRUE(d.startFreeFormLog(ch, 0xA0, 0xA1, cancellation));
     ASSERT_TRUE(d.isStreaming());
     ASSERT_TRUE(t.scriptConsumed());
@@ -68,7 +52,7 @@ TEST(TestDriver, write_memory_sends_and_acks)
     t.expectWrite(frames.at(0));
     t.queueRead(buildCommandFrame(0x87, bytes::Bytes{0x80, 0x00}, TRAILER_STD)); // echo ack
     MutDmaDriver d(t, init);
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
     ASSERT_TRUE(d.writeMemory(0x8010, data, cancellation));
     ASSERT_TRUE(t.scriptConsumed());
 }
@@ -85,7 +69,7 @@ TEST(TestDriver, poll_decodes_stream_frame)
     t.queueRead(fr);
     MutDmaDriver d(t, init);
     d.setChannelsForTest(ch);
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
     const auto result = d.pollOnce(50, cancellation);
     ASSERT_TRUE(result);
     ASSERT_EQ(result->size(), 1u);
@@ -98,7 +82,7 @@ TEST(TestDriver, handshake_fails_on_wake_failure)
     ScriptedKlineTransport t;
     FailingInit init;
     MutDmaDriver d(t, init);
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
     const auto result = d.startFreeFormLog(ch, 0xA0, 0xA1, cancellation);
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::BadResponse);
@@ -114,7 +98,7 @@ TEST(TestDriver, start_propagates_disconnected_set_baud_error_kind_and_detail)
                                    "sentinel set-baud disconnect");
     AlreadyInMode init(125000);
     MutDmaDriver driver(transport, init);
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
 
     const auto result = driver.startFreeFormLog(
         channels, 0xA0, 0xA1, cancellation);
@@ -132,7 +116,7 @@ TEST(TestDriver, start_propagates_internal_set_baud_error_kind_and_detail)
                                    "sentinel set-baud internal");
     AlreadyInMode init(125000);
     MutDmaDriver driver(transport, init);
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
 
     const auto result = driver.startFreeFormLog(
         channels, 0xA0, 0xA1, cancellation);
@@ -151,7 +135,7 @@ TEST(TestDriver, start_propagates_queued_write_error_kind_and_detail)
                                 "sentinel setup write disconnect");
     AlreadyInMode init(125000);
     MutDmaDriver driver(transport, init);
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
 
     const auto result = driver.startFreeFormLog(
         channels, 0xA0, 0xA1, cancellation);
@@ -170,7 +154,7 @@ TEST(TestDriver, start_propagates_queued_read_error_kind_and_detail)
                           "sentinel setup read internal");
     AlreadyInMode init(125000);
     MutDmaDriver driver(transport, init);
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
 
     const auto result = driver.startFreeFormLog(
         channels, 0xA0, 0xA1, cancellation);
@@ -189,7 +173,7 @@ TEST(TestDriver, handshake_fails_on_bad_ack)
     // wrong ACK-1 opcode (0x00 instead of 0xA5/0xB5), though checksum is valid
     t.queueRead(buildCommandFrame(0x00, bytes::Bytes{}, TRAILER_STD));
     MutDmaDriver d(t, init);
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
     const auto result = d.startFreeFormLog(ch, 0xA0, 0xA1, cancellation);
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::BadResponse);
@@ -205,7 +189,7 @@ TEST(TestDriver, poll_returns_empty_on_bad_frame)
     t.queueRead(bad);
     MutDmaDriver d(t, init);
     d.setChannelsForTest(ch);
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
     const auto result = d.pollOnce(50, cancellation);
     ASSERT_TRUE(result);
     ASSERT_TRUE(result->empty());
@@ -221,7 +205,7 @@ TEST(TestDriver, write_memory_fails_on_bad_echo)
     badEcho[49] = static_cast<bytes::Byte>(badEcho[49] ^ 0xFF); // corrupt checksum
     t.queueRead(badEcho);
     MutDmaDriver d(t, init);
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
     const auto result = d.writeMemory(0x8010, data, cancellation);
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::BadResponse);
@@ -233,7 +217,7 @@ TEST(TestDriver, write_memory_rejects_overflow)
     AlreadyInMode init(125000);
     MutDmaDriver d(t, init);
     const bytes::Bytes data(32, 0x5A);
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
     const auto result = d.writeMemory(0xFFF0, data, cancellation);
     ASSERT_FALSE(result); // 0xFFF0 + 32 > 0x10000
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::InvalidConfig);
@@ -247,7 +231,7 @@ TEST(TestDriver, handshake_propagates_cancellation_from_bounded_read)
     t.expectWrite(buildSetupFrame(0xA0, 1));
     t.queueRead(buildCommandFrame(0xA5, bytes::Bytes{}, TRAILER_STD));
     MutDmaDriver d(t, init);
-    Cancelled cancellation;
+    fastecu::FakeCancellationToken cancellation(true);
 
     const auto result = d.startFreeFormLog(ch, 0xA0, 0xA1, cancellation);
 

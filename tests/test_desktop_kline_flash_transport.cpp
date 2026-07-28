@@ -17,59 +17,14 @@
 #include <thread>
 
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
+#include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "fake_backend.h"
 #include "test_desktop_kline_flash_transport.h"
 
 using fastecu::ErrorKind;
-using fastecu::ICancellationToken;
+using fastecu::FakeCancellationToken;
 using fastecu::flash::DesktopKlineFlashTransport;
 using fastecu::flash::KlineConfig;
-
-namespace
-{
-
-// These tests exercise configure()/open()/close()/request_unblock() and the
-// read() path's *unblock* branch, not read()'s cancellation.cancelled()
-// branch -- a token that never cancels keeps them focused on that.
-class NeverCancelled : public ICancellationToken
-{
-  public:
-    bool cancelled() const override
-    {
-        return false;
-    }
-};
-
-// Used by the read()-cancellation test below: cancelled() is true from the
-// very first check, so read() must fail before ever touching the backend.
-class AlwaysCancelled : public ICancellationToken
-{
-  public:
-    bool cancelled() const override
-    {
-        return true;
-    }
-};
-
-// Used by the read() mid-flight cancellation tests below: false on the
-// first call (the pre-read check, which must pass so the backend is
-// actually reached), true on every call after that (the post-read
-// recheck(s), including inside both catch blocks) -- proves read() still
-// re-observes cancellation after an already in-flight backend call
-// returns/throws, not just before issuing it.
-class CancelledOnSecondCheck : public ICancellationToken
-{
-  public:
-    bool cancelled() const override
-    {
-        return ++callCount >= 2;
-    }
-
-  private:
-    mutable int callCount = 0;
-};
-
-} // namespace
 
 class TestDesktopKlineFlashTransport : public QObject
 {
@@ -372,7 +327,7 @@ class TestDesktopKlineFlashTransport : public QObject
         fake->scriptedResponse = QByteArray("\x01\x02", 2);
 
         DesktopKlineFlashTransport transport(std::move(serial));
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         const auto result = transport.read(50, cancellation);
 
         QVERIFY(result.has_value());
@@ -393,7 +348,7 @@ class TestDesktopKlineFlashTransport : public QObject
         fake->takeCallLog();
 
         DesktopKlineFlashTransport transport(std::move(serial));
-        AlwaysCancelled cancellation;
+        FakeCancellationToken cancellation(true);
         const auto result = transport.read(50, cancellation);
 
         QVERIFY(!result.has_value());
@@ -415,7 +370,7 @@ class TestDesktopKlineFlashTransport : public QObject
         fake->takeCallLog();
 
         DesktopKlineFlashTransport transport(std::move(serial));
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         const auto result = transport.read(50, cancellation);
 
         QVERIFY(!result.has_value());
@@ -438,7 +393,7 @@ class TestDesktopKlineFlashTransport : public QObject
         fake->closePortAfterRead = true;
 
         DesktopKlineFlashTransport transport(std::move(serial));
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         const auto result = transport.read(50, cancellation);
 
         QVERIFY(!result.has_value());
@@ -461,7 +416,7 @@ class TestDesktopKlineFlashTransport : public QObject
         auto closeResult = transport.close();
         QVERIFY(closeResult.has_value());
 
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         const auto configureResult = transport.configure(
             KlineConfig{.baud = 10400, .iso14230 = true, .tester_id = 0x10, .target_id = 0xf0});
         QVERIFY(!configureResult.has_value());
@@ -577,7 +532,7 @@ class TestDesktopKlineFlashTransport : public QObject
         fake->scriptedResponse = QByteArray(); // empty
 
         DesktopKlineFlashTransport transport(std::move(serial));
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         const auto result = transport.read(50, cancellation);
 
         QVERIFY(result.has_value());
@@ -673,7 +628,7 @@ class TestDesktopKlineFlashTransport : public QObject
         fake->throwOnRead = true;
 
         DesktopKlineFlashTransport transport(std::move(serial));
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         const auto result = transport.read(50, cancellation);
 
         QVERIFY(!result.has_value());
@@ -692,7 +647,7 @@ class TestDesktopKlineFlashTransport : public QObject
         fake->throwNonStandardOnRead = true;
 
         DesktopKlineFlashTransport transport(std::move(serial));
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         const auto result = transport.read(50, cancellation);
 
         QVERIFY(!result.has_value());
@@ -763,7 +718,8 @@ class TestDesktopKlineFlashTransport : public QObject
         fake->scriptedResponse = QByteArray("\xAA", 1);
 
         DesktopKlineFlashTransport transport(std::move(serial));
-        CancelledOnSecondCheck cancellation;
+        FakeCancellationToken cancellation;
+        cancellation.cancel_on_check(2);
         const auto result = transport.read(50, cancellation);
 
         QVERIFY(!result.has_value());
@@ -784,7 +740,8 @@ class TestDesktopKlineFlashTransport : public QObject
         fake->throwOnRead = true;
 
         DesktopKlineFlashTransport transport(std::move(serial));
-        CancelledOnSecondCheck cancellation;
+        FakeCancellationToken cancellation;
+        cancellation.cancel_on_check(2);
         const auto result = transport.read(50, cancellation);
 
         QVERIFY(!result.has_value());
@@ -803,7 +760,8 @@ class TestDesktopKlineFlashTransport : public QObject
         fake->throwNonStandardOnRead = true;
 
         DesktopKlineFlashTransport transport(std::move(serial));
-        CancelledOnSecondCheck cancellation;
+        FakeCancellationToken cancellation;
+        cancellation.cancel_on_check(2);
         const auto result = transport.read(50, cancellation);
 
         QVERIFY(!result.has_value());
@@ -908,7 +866,7 @@ class TestDesktopKlineFlashTransport : public QObject
         fake->continueRead = &continueRead;
 
         DesktopKlineFlashTransport transport(std::move(serial));
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
 
         fastecu::Result<DesktopKlineFlashTransport::OptionalBytes> inFlightResult;
         std::atomic<bool> readerFinished{false};

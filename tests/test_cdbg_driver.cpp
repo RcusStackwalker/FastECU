@@ -1,29 +1,9 @@
 #include <gtest/gtest.h>
 #include "src/backend/protocol/mitsu_colt_can_cdbg_driver.h"
+#include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "byte_test_utils.h"
 #include "scripted_can_transport.h"
 using namespace MitsuColtCanCdbg;
-
-namespace
-{
-class NeverCancelled final : public fastecu::ICancellationToken
-{
-  public:
-    bool cancelled() const override
-    {
-        return false;
-    }
-};
-
-class Cancelled final : public fastecu::ICancellationToken
-{
-  public:
-    bool cancelled() const override
-    {
-        return true;
-    }
-};
-} // namespace
 
 TEST(TestCdbgDriver, handshake_and_single_frame_streaming)
 {
@@ -55,7 +35,7 @@ TEST(TestCdbgDriver, handshake_and_single_frame_streaming)
     t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
 
     CdbgLogDriver d(t);
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
     ASSERT_TRUE(d.startFreeFormLog(ch, 0, 10, cancellation));
     ASSERT_TRUE(d.isStreaming());
     ASSERT_TRUE(t.scriptConsumed());
@@ -94,7 +74,7 @@ TEST(TestCdbgDriver, accepts_live_security_reply_shape)
     t.queueRead(kReplyCanId, test_bytes::bytesFromHex("FF00000000000000"));
 
     CdbgLogDriver d(t);
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
     ASSERT_TRUE(d.startFreeFormLog(ch, 0, 10, cancellation));
     ASSERT_TRUE(d.isStreaming());
     ASSERT_TRUE(t.scriptConsumed());
@@ -105,7 +85,7 @@ TEST(TestCdbgDriver, fails_before_handshake_when_no_channels_selected)
 {
     cdbg::ScriptedCanTransport t;
     CdbgLogDriver d(t);
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
 
     const auto result = d.startFreeFormLog({}, 0, 10, cancellation);
     ASSERT_FALSE(result);
@@ -128,7 +108,7 @@ TEST(TestCdbgDriver, handshake_fails_when_security_not_granted)
     t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000")); // byte3 == 0 -> denied
 
     CdbgLogDriver d(t);
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
     const auto result = d.startFreeFormLog(ch, 0, 10, cancellation);
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::BadResponse);
@@ -142,7 +122,7 @@ TEST(TestCdbgDriver, handshake_fails_when_init_gets_no_reply)
     t.expectWrite(kRequestCanId, buildInitFrame());
     t.queue_no_frame();
     CdbgLogDriver d(t);
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
     const auto result = d.startFreeFormLog(ch, 0, 10, cancellation);
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::BadResponse);
@@ -178,7 +158,7 @@ TEST(TestCdbgDriver, poll_merges_values_across_two_frames)
     t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
 
     CdbgLogDriver d(t);
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
     ASSERT_TRUE(d.startFreeFormLog(ch, 0, 10, cancellation));
 
     // Frame 0 arrives first: channel 0 (4-byte) = 0xAABBCCDD.
@@ -204,7 +184,7 @@ TEST(TestCdbgDriver, poll_returns_empty_when_not_streaming)
 {
     cdbg::ScriptedCanTransport t;
     CdbgLogDriver d(t);
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
     const auto result = d.pollOnce(50, cancellation);
     ASSERT_TRUE(result);
     ASSERT_TRUE(result->empty());
@@ -217,7 +197,7 @@ TEST(TestCdbgDriver, handshake_propagates_cancellation_from_bounded_read)
     t.expectWrite(kRequestCanId, buildInitFrame());
     t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
     CdbgLogDriver d(t);
-    Cancelled cancellation;
+    fastecu::FakeCancellationToken cancellation(true);
 
     const auto result = d.startFreeFormLog(ch, 0, 10, cancellation);
 

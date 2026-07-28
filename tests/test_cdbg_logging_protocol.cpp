@@ -3,6 +3,7 @@
 #include "byte_test_utils.h"
 #include "scripted_can_transport.h"
 #include "src/backend/logging/protocols/portable_cdbg_logging_protocol.h"
+#include "src/backend/ports/testing/fake_cancellation_token.h"
 
 namespace
 {
@@ -10,24 +11,6 @@ using fastecu::logging::CdbgLoggingProtocol;
 using fastecu::logging::LoggingChannel;
 using fastecu::logging::RawAssembly;
 using MitsuColtCanCdbg::CdbgChannel;
-
-class NeverCancelled final : public fastecu::ICancellationToken
-{
-  public:
-    bool cancelled() const override
-    {
-        return false;
-    }
-};
-
-class Cancelled final : public fastecu::ICancellationToken
-{
-  public:
-    bool cancelled() const override
-    {
-        return true;
-    }
-};
 
 LoggingChannel channel()
 {
@@ -82,7 +65,7 @@ TEST(CdbgLoggingProtocolTest, StartReachesStreamingOnValidHandshake)
     scriptValidHandshake(*transport);
     auto *script = transport.get();
     auto protocol = makeProtocol(std::move(transport));
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
 
     const auto result = protocol->start(cancellation);
 
@@ -94,7 +77,7 @@ TEST(CdbgLoggingProtocolTest, StartReachesStreamingOnValidHandshake)
 TEST(CdbgLoggingProtocolTest, StartFailurePinsInvalidConfigForEmptyChannels)
 {
     auto protocol = makeProtocol(std::make_unique<cdbg::ScriptedCanTransport>(), {});
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
 
     const auto result = protocol->start(cancellation);
 
@@ -109,7 +92,7 @@ TEST(CdbgLoggingProtocolTest, StartFailurePinsBadResponseForMissingHandshakeRepl
                            MitsuColtCanCdbg::buildInitFrame());
     transport->queue_no_frame();
     auto protocol = makeProtocol(std::move(transport));
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
 
     const auto result = protocol->start(cancellation);
 
@@ -122,7 +105,7 @@ TEST(CdbgLoggingProtocolTest, StartFailsWhenAdapterIsClosed)
     auto transport = std::make_unique<cdbg::ScriptedCanTransport>();
     transport->setOpen(false);
     auto protocol = makeProtocol(std::move(transport));
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
 
     const auto result = protocol->start(cancellation);
 
@@ -133,7 +116,7 @@ TEST(CdbgLoggingProtocolTest, StartFailsWhenAdapterIsClosed)
 TEST(CdbgLoggingProtocolTest, PollReturnsNoResponseBeforeStart)
 {
     auto protocol = makeProtocol(std::make_unique<cdbg::ScriptedCanTransport>());
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
 
     const auto result = protocol->poll(20, cancellation);
 
@@ -147,7 +130,7 @@ TEST(CdbgLoggingProtocolTest, PollReturnsTransportErrorWhenAdapterIsClosed)
     auto transport = std::make_unique<cdbg::ScriptedCanTransport>();
     transport->setOpen(false);
     auto protocol = makeProtocol(std::move(transport));
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
 
     const auto result = protocol->poll(20, cancellation);
 
@@ -161,7 +144,7 @@ TEST(CdbgLoggingProtocolTest, PollReturnsStableIdAndRawDecimalString)
     scriptValidHandshake(*transport);
     auto *script = transport.get();
     auto protocol = makeProtocol(std::move(transport));
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
     ASSERT_TRUE(protocol->start(cancellation));
     script->queueRead(MitsuColtCanCdbg::kReplyCanId,
                       test_bytes::bytesFromHex("002A000000000000"));
@@ -181,7 +164,7 @@ TEST(CdbgLoggingProtocolTest, PollReportsSilenceAfterStartWithoutCachedSamples)
     scriptValidHandshake(*transport);
     auto *script = transport.get();
     auto protocol = makeProtocol(std::move(transport));
-    NeverCancelled cancellation;
+    fastecu::FakeCancellationToken cancellation;
     ASSERT_TRUE(protocol->start(cancellation));
     script->queue_no_frame();
 
@@ -195,7 +178,7 @@ TEST(CdbgLoggingProtocolTest, PollReportsSilenceAfterStartWithoutCachedSamples)
 TEST(CdbgLoggingProtocolTest, StartPropagatesCancellation)
 {
     auto protocol = makeProtocol(std::make_unique<cdbg::ScriptedCanTransport>());
-    Cancelled cancellation;
+    fastecu::FakeCancellationToken cancellation(true);
 
     const auto result = protocol->start(cancellation);
 

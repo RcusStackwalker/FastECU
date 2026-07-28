@@ -1,6 +1,7 @@
 #include "src/backend/logging/logging_event_sink.h"
 #include "src/backend/logging/logging_protocol.h"
 #include "src/backend/logging/logging_use_case.h"
+#include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 
 #include <deque>
@@ -14,6 +15,7 @@ namespace
 {
 
 using namespace fastecu::logging;
+using fastecu::FakeCancellationToken;
 using fastecu::RecordingEventSink;
 
 class ScriptedProtocol final : public LoggingProtocol
@@ -60,33 +62,6 @@ class ScriptedProtocol final : public LoggingProtocol
     std::deque<fastecu::Status> start_results;
     std::vector<int> poll_timeouts;
     std::vector<int> start_call_poll_numbers;
-};
-
-class CancelsAfterPoll final : public fastecu::ICancellationToken
-{
-  public:
-    explicit CancelsAfterPoll(const ScriptedProtocol& protocol, int poll_count = 1)
-        : protocol_(protocol), poll_count_(poll_count)
-    {
-    }
-
-    bool cancelled() const override
-    {
-        return protocol_.polls_completed >= poll_count_;
-    }
-
-  private:
-    const ScriptedProtocol& protocol_;
-    int poll_count_;
-};
-
-class AlwaysCancelled final : public fastecu::ICancellationToken
-{
-  public:
-    bool cancelled() const override
-    {
-        return true;
-    }
 };
 
 class RecordingLoggingSink final : public ILoggingEventSink
@@ -140,7 +115,9 @@ LoggingSession make_valid_session()
 fastecu::Status run_until_cancelled(const LoggingSession& session, ScriptedProtocol& protocol,
                                     RecordingLoggingSink& sink, int poll_count)
 {
-    CancelsAfterPoll token(protocol, poll_count);
+    FakeCancellationToken token;
+    token.set_predicate([&protocol, poll_count]
+                        { return protocol.polls_completed >= poll_count; });
     RecordingEventSink diagnostics;
     return LoggingUseCase{}.run(session, protocol, token, sink, diagnostics);
 }
@@ -151,7 +128,9 @@ TEST(LoggingUseCaseTest, ConvertsAndEmitsOrderedSamplesThenCancels)
 {
     ScriptedProtocol protocol;
     protocol.polls.push_back(PollData{.responded = true, .samples = {{"rpm", "4000"}}});
-    CancelsAfterPoll token(protocol);
+    FakeCancellationToken token;
+    token.set_predicate([&protocol]
+                        { return protocol.polls_completed >= 1; });
     RecordingLoggingSink sink;
     RecordingEventSink diagnostics;
 
@@ -171,7 +150,7 @@ TEST(LoggingUseCaseTest, ConvertsAndEmitsOrderedSamplesThenCancels)
 TEST(LoggingUseCaseTest, PreCancellationDoesNotStartProtocol)
 {
     ScriptedProtocol protocol;
-    AlwaysCancelled token;
+    FakeCancellationToken token(true);
     RecordingLoggingSink sink;
     RecordingEventSink diagnostics;
 
@@ -321,7 +300,9 @@ TEST(LoggingUseCaseTest, PrimaryErrorWinsOverStopFailure)
     protocol.stop_result = fastecu::fail(fastecu::ErrorKind::Internal, "cleanup");
     RecordingLoggingSink sink;
     RecordingEventSink diagnostics;
-    CancelsAfterPoll token(protocol, 2);
+    FakeCancellationToken token;
+    token.set_predicate([&protocol]
+                        { return protocol.polls_completed >= 2; });
 
     auto result = LoggingUseCase{}.run(make_valid_session(), protocol, token, sink, diagnostics);
 

@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 
 using fastecu::DirEntry;
+using fastecu::Error;
 using fastecu::ErrorKind;
 using fastecu::InMemoryFileSystem;
 using fastecu::Result;
@@ -13,6 +14,18 @@ TEST(FileSystem, CreateThenExists)
     EXPECT_FALSE(fs.exists("/a"));
     ASSERT_TRUE(fs.create_directory("/a").has_value());
     EXPECT_TRUE(fs.exists("/a"));
+}
+
+TEST(InMemoryFileSystem, ConfiguredCreateDirectoryFailureIsReturned)
+{
+    InMemoryFileSystem fs;
+    fs.create_directory_error = Error{ErrorKind::Internal, "mkdir failed"};
+
+    auto result = fs.create_directory("/config/");
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error(), *fs.create_directory_error);
+    EXPECT_FALSE(fs.exists("/config/"));
 }
 
 TEST(FileSystem, CopyFailsWhenSourceMissing)
