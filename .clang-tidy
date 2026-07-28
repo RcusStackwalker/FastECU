@@ -13,9 +13,8 @@ Checks: >
   readability-simplify-boolean-expr,
   readability-use-anyofallof
 WarningsAsErrors: 'performance-avoid-endl,modernize-deprecated-headers,readability-braces-around-statements'
-HeaderFilterRegex: '^(calibration|cipher|dataterminal|definition|dtc|ecu|expression|file|logging|menu|modules|nrc|protocol|remote_utility|serial_port|settings|systemlogger|vehicle|tests)/.*'
+HeaderFilterRegex: '/src/(algorithms|backend|platform|ui)/.*\.h'
 FormatStyle: none
 CheckOptions:
   - key: readability-braces-around-statements.ShortStatementLines
     value: '1'
-...
