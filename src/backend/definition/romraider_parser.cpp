@@ -149,7 +149,7 @@ Result<std::optional<std::uint64_t>> optional_hex_element(
     auto parsed = parse_hex_unsigned(
         child.child_value(),
         source,
-        std::string("element <") + parent.name() + "> child <" + child_name + ">",
+        std::format("element <{}> child <{}>", parent.name(), child_name),
         definition_id);
     if (!parsed)
     {
@@ -757,10 +757,10 @@ Result<UnresolvedDefinition> parse_romraider_definition(
 
     UnresolvedDefinition definition{
         .format = DefinitionFormat::RomRaider,
-        .source = std::string(source),
+        .source = std::string{source},
         .identity =
             RomIdentity{
-                .xml_id = std::string(definition_id),
+                .xml_id = std::string{definition_id},
                 .internal_id = child_text(rom_id, "internalidstring"),
                 .ecu_id = child_text(rom_id, "ecuid"),
                 .internal_id_address = *internal_id_address,
