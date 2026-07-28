@@ -178,7 +178,7 @@ Result<DefinitionCatalog> build_catalog(
     for (const std::string& handle : handles)
     {
         auto contents = repository.read(handle);
-        if (!contents)
+        if (!contents.has_value())
         {
             return std::unexpected(contents.error());
         }
@@ -231,10 +231,9 @@ Result<DefinitionCatalog> DefinitionService::build_ecuflash_catalog(
             handles.push_back(handle);
         }
     }
-    std::sort(handles.begin(), handles.end());
-    handles.erase(
-        std::unique(handles.begin(), handles.end()),
-        handles.end());
+    std::ranges::sort(handles);
+    const auto [first, last] = std::ranges::unique(handles);
+    handles.erase(first, last);
     return build_catalog(repository_, handles, parse_ecuflash_index);
 }
 

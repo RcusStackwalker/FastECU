@@ -521,7 +521,7 @@ Result<void> validate_and_resolve_scalings(RomDefinition& definition)
         {
             return std::unexpected(result.error());
         }
-        scalings.emplace(scaling.name, &scaling);
+        scalings.try_emplace(scaling.name, &scaling);
     }
 
     std::vector<const CalibrationMap *> maps;
@@ -795,7 +795,7 @@ class ResolverState
 
         stack.pop_back();
         visiting.erase(id);
-        auto [stored, inserted] = resolved_by_id.emplace(id, std::move(resolved));
+        auto [stored, inserted] = resolved_by_id.try_emplace(id, std::move(resolved));
         (void)inserted;
         return stored->second;
     }
