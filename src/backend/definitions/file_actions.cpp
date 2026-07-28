@@ -20,12 +20,6 @@ using fastecu::definition::DefinitionFormat;
 using fastecu::definition::DefinitionIndexEntry;
 using fastecu::definition::IdEncoding;
 
-std::string utf8(const QString& value)
-{
-    const QByteArray bytes = value.toUtf8();
-    return std::string(bytes.constData(), static_cast<std::size_t>(bytes.size()));
-}
-
 QString lineEditValue(
     const QList<QLineEdit *>& lineEdits,
     const QString& name)
@@ -70,24 +64,24 @@ definitionHeaderInput(
     }
 
     return fastecu::definition::DefinitionHeaderInput{
-        .xml_id = utf8(fields.value("xmlid").trimmed()),
-        .internal_id = utf8(fields.value("internalidstring")),
-        .ecu_id = utf8(fields.value("ecuid")),
+        .xml_id = fields.value("xmlid").trimmed().toStdString(),
+        .internal_id = fields.value("internalidstring").toStdString(),
+        .ecu_id = fields.value("ecuid").toStdString(),
         .internal_id_address = internalIdAddress,
         .metadata =
             fastecu::definition::RomMetadata{
-                .make = utf8(fields.value("make")),
-                .market = utf8(fields.value("market")),
-                .model = utf8(fields.value("model")),
-                .submodel = utf8(fields.value("submodel")),
-                .transmission = utf8(fields.value("transmission")),
-                .year = utf8(fields.value("year")),
-                .flash_method = utf8(fields.value("flashmethod")),
-                .memory_model = utf8(fields.value("memmodel")),
-                .checksum_module = utf8(fields.value("checksummodule")),
+                .make = fields.value("make").toStdString(),
+                .market = fields.value("market").toStdString(),
+                .model = fields.value("model").toStdString(),
+                .submodel = fields.value("submodel").toStdString(),
+                .transmission = fields.value("transmission").toStdString(),
+                .year = fields.value("year").toStdString(),
+                .flash_method = fields.value("flashmethod").toStdString(),
+                .memory_model = fields.value("memmodel").toStdString(),
+                .checksum_module = fields.value("checksummodule").toStdString(),
             },
-        .include = utf8(fields.value("include")),
-        .notes = utf8(fields.value("notes")),
+        .include = fields.value("include").toStdString(),
+        .notes = fields.value("notes").toStdString(),
     };
 }
 
@@ -144,21 +138,20 @@ fastecu::Result<DefinitionCatalog> catalogFromLegacyLists(
             {
                 return fastecu::fail(
                     fastecu::ErrorKind::InvalidConfig,
-                    "invalid hexadecimal internal ID address '" +
-                        utf8(addressText) + "'");
+                    std::format("invalid hexadecimal internal ID address '{}'", addressText.toStdString());
             }
             address = static_cast<std::uint64_t>(parsed);
         }
 
         entries.push_back(DefinitionIndexEntry{
             .format = format,
-            .definition_id = utf8(ids->at(index)),
-            .internal_id = utf8(ids->at(index)),
+            .definition_id = ids->at(index).toStdString(),
+            .internal_id = ids->at(index).toStdString(),
             .internal_id_address = address,
             .internal_id_encoding = IdEncoding::AsciiOrHex,
             .ecu_id =
-                readOnlyShape ? std::string{} : utf8(ecuIds->at(index)),
-            .source = utf8(sources->at(index)),
+                readOnlyShape ? std::string{} : ecuIds->at(index).toStdString(),
+            .source = sources->at(index).toStdString(),
         });
     }
     return DefinitionCatalog::create(std::move(entries));
@@ -246,7 +239,7 @@ fastecu::Result<DefinitionCatalog> FileActions::build_definition_catalog(
         for (const QString& handle :
              ConfigValuesStruct.romraider_definition_files)
         {
-            handles.push_back(utf8(handle));
+            handles.push_back(handle.toStdString());
         }
         return definitionService_.build_romraider_catalog(handles);
     }
@@ -258,7 +251,7 @@ fastecu::Result<DefinitionCatalog> FileActions::build_definition_catalog(
         for (const QString& handle :
              ConfigValuesStruct.ecuflash_def_filename)
         {
-            explicitHandles.push_back(utf8(handle));
+            explicitHandles.push_back(handle.toStdString());
         }
         if (ConfigValuesStruct.ecuflash_definition_files_directory.isEmpty() &&
             explicitHandles.empty())
@@ -266,7 +259,7 @@ fastecu::Result<DefinitionCatalog> FileActions::build_definition_catalog(
             return catalogFromLegacyLists(ConfigValuesStruct, format);
         }
         return definitionService_.build_ecuflash_catalog(
-            utf8(ConfigValuesStruct.ecuflash_definition_files_directory),
+            ConfigValuesStruct.ecuflash_definition_files_directory.toStdString(),
             explicitHandles);
     }
     return catalogFromLegacyLists(ConfigValuesStruct, format);
@@ -1550,7 +1543,7 @@ FileActions::EcuCalDefStructure *FileActions::create_new_definition_for_rom(File
             }
         }
         fastecu::Status status =
-            submit_new_definition(utf8(filename), *input);
+            submit_new_definition(filename.toStdString(), *input);
         if (!status)
         {
             QMessageBox::warning(this, tr("Definition file"), "Unable to open definition file for writing");
@@ -1606,7 +1599,7 @@ FileActions::EcuCalDefStructure *FileActions::use_existing_definition_for_rom(Fi
     }
 
     const QString source = filename;
-    auto sourceContents = definitionFileRepository_.read(utf8(source));
+    auto sourceContents = definitionFileRepository_.read(source.toStdString());
     if (!sourceContents)
     {
         log_definition_error(
@@ -1719,8 +1712,8 @@ FileActions::EcuCalDefStructure *FileActions::use_existing_definition_for_rom(Fi
             }
         }
         fastecu::Status status = submit_imported_definition(
-            utf8(source),
-            utf8(filename),
+            source.toStdString(),
+            filename.toStdString(),
             *input);
         if (!status)
         {
