@@ -1,6 +1,7 @@
 #include "src/backend/definition/definition_resolver.h"
 
 #include <algorithm>
+#include <format>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -220,7 +221,7 @@ Result<void> validate_local(const UnresolvedDefinition& definition)
     {
         return fail(
             ErrorKind::InvalidConfig,
-            std::format("{} definition from '{}' has an empty definition identity", format_name(definition.format), definitions.source));
+            std::format("{} definition from '{}' has an empty definition identity", format_name(definition.format), definition.source));
     }
     if (definition.source.empty())
     {
@@ -233,9 +234,8 @@ Result<void> validate_local(const UnresolvedDefinition& definition)
     for (const CalibrationMap& map : definition.maps)
     {
         const std::string key = map_key(map);
-        const bool duplicate = std::any_of(
-            maps.begin(),
-            maps.end(),
+        const bool duplicate = std::ranges::any_of(
+            maps,
             [&map](const CalibrationMap *candidate)
             {
                 return maps_match(*candidate, map);
@@ -495,13 +495,8 @@ Result<void> validate_axis(
     if (is_static_axis)
     {
         if (axis.static_data.size() != axis.size ||
-            std::any_of(
-                axis.static_data.begin(),
-                axis.static_data.end(),
-                [](const std::string& value)
-                {
-                    return value.empty();
-                }))
+            std::ranges::any_of(
+                axis.static_data, &std::string::empty))
         {
             return fail(
                 ErrorKind::InvalidConfig,
