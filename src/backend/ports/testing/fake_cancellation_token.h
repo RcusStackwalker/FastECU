@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <functional>
+#include <mutex>
 #include <optional>
 #include <utility>
 
@@ -19,39 +20,54 @@ class FakeCancellationToken final : public ICancellationToken
 
     void set_cancelled(bool cancelled)
     {
+        std::lock_guard lock(mutex_);
         cancelled_ = cancelled;
     }
 
     void cancel_on_check(std::size_t one_based_check)
     {
+        std::lock_guard lock(mutex_);
         cancel_on_check_ = one_based_check;
     }
 
     void set_predicate(std::function<bool()> predicate)
     {
+        std::lock_guard lock(mutex_);
         predicate_ = std::move(predicate);
     }
 
     std::size_t check_count() const
     {
+        std::lock_guard lock(mutex_);
         return check_count_;
     }
 
     bool cancelled() const override
     {
-        ++check_count_;
-        if (predicate_)
+        std::function<bool()> predicate;
+        std::optional<std::size_t> cancel_on_check;
+        bool cancelled;
+        std::size_t check_count;
         {
-            return predicate_();
+            std::lock_guard lock(mutex_);
+            check_count = ++check_count_;
+            predicate = predicate_;
+            cancel_on_check = cancel_on_check_;
+            cancelled = cancelled_;
         }
-        if (cancel_on_check_)
+        if (predicate)
         {
-            return check_count_ >= *cancel_on_check_;
+            return predicate();
         }
-        return cancelled_;
+        if (cancel_on_check)
+        {
+            return check_count >= *cancel_on_check;
+        }
+        return cancelled;
     }
 
   private:
+    mutable std::mutex mutex_;
     bool cancelled_;
     std::optional<std::size_t> cancel_on_check_;
     std::function<bool()> predicate_;

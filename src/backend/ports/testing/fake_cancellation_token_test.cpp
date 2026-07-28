@@ -2,6 +2,9 @@
 
 #include <gtest/gtest.h>
 
+#include <thread>
+#include <vector>
+
 TEST(FakeCancellationToken, SupportsFixedMutableAndCheckCountBehavior)
 {
     fastecu::FakeCancellationToken token;
@@ -47,4 +50,29 @@ TEST(FakeCancellationToken, PredicateThenCheckThresholdThenFixedStateTakePrecede
 
     fastecu::FakeCancellationToken fixed_state(true);
     EXPECT_TRUE(fixed_state.cancelled());
+}
+
+TEST(FakeCancellationToken, ConcurrentChecksAreCountedExactly)
+{
+    constexpr std::size_t kThreadCount = 8;
+    constexpr std::size_t kChecksPerThread = 100'000;
+    fastecu::FakeCancellationToken token;
+    std::vector<std::thread> threads;
+    threads.reserve(kThreadCount);
+
+    for (std::size_t i = 0; i < kThreadCount; ++i)
+    {
+        threads.emplace_back([&token]
+                             {
+                                 for (std::size_t check = 0; check < kChecksPerThread; ++check)
+                                 {
+                                     static_cast<void>(token.cancelled());
+                                 } });
+    }
+    for (auto& thread : threads)
+    {
+        thread.join();
+    }
+
+    EXPECT_EQ(token.check_count(), kThreadCount * kChecksPerThread);
 }
