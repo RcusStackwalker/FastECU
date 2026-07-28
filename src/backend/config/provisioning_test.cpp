@@ -16,6 +16,7 @@ using fastecu::Result;
 using fastecu::Status;
 using fastecu::config::ConfigPaths;
 using fastecu::config::provision_config_directories;
+using namespace std::literals::string_view_literals;
 
 namespace
 {

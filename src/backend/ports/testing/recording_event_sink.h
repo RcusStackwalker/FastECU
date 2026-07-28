@@ -1,9 +1,9 @@
 #pragma once
 #include "src/backend/ports/event_sink.h"
 
-#include <pair>
 #include <string>
 #include <vector>
+#include <utility>
 
 namespace fastecu
 {
@@ -11,17 +11,17 @@ namespace fastecu
 class RecordingEventSink : public IEventSink
 {
   public:
-    void log(LogLevel, std::string_view) override
+    void log(LogLevel level, std::string_view message) override
     {
         logs.emplace_back(level, std::string{message});
     }
-    void progress(int, int) override
+    void progress(int done, int total) override
     {
         progress_calls.emplace_back(done, total);
     }
-    void notice(std::string_view) override
+    void notice(std::string_view message) override
     {
-        notices.emplace_back(msg);
+        notices.emplace_back(message);
     }
     std::vector<std::pair<fastecu::LogLevel, std::string>> logs;
     std::vector<std::pair<int, int>> progress_calls;

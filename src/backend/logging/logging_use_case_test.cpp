@@ -14,6 +14,7 @@ namespace
 {
 
 using namespace fastecu::logging;
+using fastecu::RecordingEventSink;
 
 class ScriptedProtocol final : public LoggingProtocol
 {
