@@ -45,14 +45,18 @@ TEST(InMemoryFileRepository, ReadOverrideIsConsumedAfterOneRead)
     EXPECT_EQ(repository.read_handles, (std::vector<std::string>{"kernel", "kernel"}));
 }
 
-TEST(InMemoryFileRepository, RecordsWriteBeforeStoringData)
+TEST(InMemoryFileRepository, RecordsOrderedWritesAndStoresBothData)
 {
     fastecu::InMemoryFileRepository repository;
-    const std::vector<std::uint8_t> data = {1, 2, 3};
+    const std::vector<std::uint8_t> rom_data = {1, 2, 3};
+    const std::vector<std::uint8_t> kernel_data = {4, 5, 6};
 
-    ASSERT_TRUE(repository.write("rom", data));
+    ASSERT_TRUE(repository.write("rom", rom_data));
+    ASSERT_TRUE(repository.write("kernel", kernel_data));
 
     EXPECT_EQ(repository.write_calls,
-              (std::vector<std::pair<std::string, std::vector<std::uint8_t>>>{{"rom", {1, 2, 3}}}));
-    EXPECT_EQ(repository.files["rom"], data);
+              (std::vector<std::pair<std::string, std::vector<std::uint8_t>>>{{"rom", {1, 2, 3}},
+                                                                              {"kernel", {4, 5, 6}}}));
+    EXPECT_EQ(repository.files["rom"], rom_data);
+    EXPECT_EQ(repository.files["kernel"], kernel_data);
 }
