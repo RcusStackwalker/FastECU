@@ -1,5 +1,4 @@
-#ifndef BIUOPSSUBARUSWITCHES_H
-#define BIUOPSSUBARUSWITCHES_H
+#pragma once
 
 #include <memory>
 
@@ -52,5 +51,3 @@ class BiuOpsSubaruSwitches : public QWidget
   private:
     std::unique_ptr<Ui::BiuOpsSubaruSwitchesWindow> ui;
 };
-
-#endif // BIUOPSSUBARUSWITCHES_H

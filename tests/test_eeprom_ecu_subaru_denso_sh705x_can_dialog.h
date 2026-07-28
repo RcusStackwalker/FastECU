@@ -1,4 +1,2 @@
-#ifndef TEST_EEPROM_ECU_SUBARU_DENSO_SH705X_CAN_DIALOG_H
-#define TEST_EEPROM_ECU_SUBARU_DENSO_SH705X_CAN_DIALOG_H
+#pragma once
 int run_test_eeprom_ecu_subaru_denso_sh705x_can_dialog(int argc, char **argv);
-#endif

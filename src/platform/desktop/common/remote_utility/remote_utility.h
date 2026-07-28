@@ -1,5 +1,4 @@
-#ifndef REMOTE_UTILITY_H
-#define REMOTE_UTILITY_H
+#pragma once
 
 #include <QObject>
 #include <QtRemoteObjects/qremoteobjectnode.h>
@@ -60,5 +59,3 @@ class RemoteUtility : public QObject
   private slots:
     void utilityRemoteStateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState);
 };
-
-#endif // REMOTE_UTILITY_H

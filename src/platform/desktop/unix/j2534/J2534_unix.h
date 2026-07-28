@@ -1,5 +1,4 @@
-#ifndef J2534_UNIX_H
-#define J2534_UNIX_H
+#pragma once
 
 #include <QByteArray>
 #include <QCoreApplication>
@@ -119,5 +118,3 @@ class J2534 : public QObject
   private slots:
     void handle_error(QSerialPort::SerialPortError error);
 };
-
-#endif // J2534_UNIX_H

@@ -1,5 +1,4 @@
-#ifndef FLASH_ECU_MITSU_KLINE_H
-#define FLASH_ECU_MITSU_KLINE_H
+#pragma once
 
 #include <memory>
 
@@ -51,5 +50,3 @@ class FlashEcuSubaruMitsuM32rKline : public QDialog
   private:
     std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
-
-#endif // FLASH_ECU_MITSU_KLINE_H

@@ -1,5 +1,4 @@
-#ifndef SEARCHDIALOG_H
-#define SEARCHDIALOG_H
+#pragma once
 
 #include <memory>
 
@@ -35,5 +34,3 @@ class SearchDialog : public QDialog
   private:
     std::unique_ptr<Ui::SearchDialog> ui;
 };
-
-#endif // SEARCHDIALOG_H

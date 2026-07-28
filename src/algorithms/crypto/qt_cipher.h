@@ -1,5 +1,4 @@
-#ifndef QT_CIPHER_H
-#define QT_CIPHER_H
+#pragma once
 
 #include "src/algorithms/crypto/cipher.h"
 
@@ -17,5 +16,3 @@ class QtCipher
   private:
     Cipher cipher_;
 };
-
-#endif // QT_CIPHER_H

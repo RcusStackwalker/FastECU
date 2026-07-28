@@ -1,5 +1,4 @@
-#ifndef EEPROM_ECU_SUBARU_DENSO_SH705X_CAN_H
-#define EEPROM_ECU_SUBARU_DENSO_SH705X_CAN_H
+#pragma once
 
 #include <memory>
 
@@ -78,5 +77,3 @@ class EepromEcuSubaruDensoSH705xCan : public QDialog
 
     std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
-
-#endif // EEPROM_ECU_SUBARU_DENSO_SH705X_CAN_H

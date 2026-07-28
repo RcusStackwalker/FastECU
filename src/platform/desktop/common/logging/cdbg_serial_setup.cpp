@@ -1,6 +1,7 @@
 #include "src/platform/desktop/common/logging/cdbg_serial_setup.h"
 
 #include <array>
+#include <format>
 #include <string_view>
 
 namespace fastecu::desktop::logging
@@ -22,7 +23,7 @@ fastecu::Status configure_cdbg_serial(const CdbgSerialSetupActions& actions)
         if (!*action || !(*action)())
         {
             return fastecu::fail(fastecu::ErrorKind::InvalidConfig,
-                                 "failed to " + std::string(description));
+                                 std::format("failed to {}", description));
         }
     }
     return {};

@@ -1,5 +1,4 @@
-#ifndef TESTS_EXPECTED_MESSAGE_BOX_H
-#define TESTS_EXPECTED_MESSAGE_BOX_H
+#pragma once
 
 #include <QApplication>
 #include <QMessageBox>
@@ -69,5 +68,3 @@ class ExpectedMessageBoxCloser : public QObject
     bool sawExpected_ = false;
     QString failure_;
 };
-
-#endif

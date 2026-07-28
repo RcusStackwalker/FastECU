@@ -1,105 +1,25 @@
 #include "src/backend/config/provisioning.h"
+#include "src/backend/ports/testing/in_memory_file_system.h"
+#include "src/backend/ports/testing/in_memory_resource_bundle.h"
+#include "src/backend/ports/testing/recording_event_sink.h"
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <map>
 
 using fastecu::DirEntry;
 using fastecu::ErrorKind;
-using fastecu::IEventSink;
-using fastecu::IFileSystem;
-using fastecu::IResourceBundle;
+using fastecu::InMemoryFileSystem;
+using fastecu::InMemoryResourceBundle;
 using fastecu::LogLevel;
+using fastecu::RecordingEventSink;
 using fastecu::Result;
 using fastecu::Status;
 using fastecu::config::ConfigPaths;
 using fastecu::config::provision_config_directories;
+using namespace std::literals::string_view_literals;
 
 namespace
 {
-class FakeFileSystem : public IFileSystem
-{
-  public:
-    bool exists(std::string_view path) override
-    {
-        return directories.count(std::string(path)) || files.count(std::string(path));
-    }
-    Status create_directory(std::string_view path) override
-    {
-        directories.insert(std::string(path));
-        return {};
-    }
-    Status copy_file(std::string_view src, std::string_view dst, bool overwrite) override
-    {
-        if (!files.count(std::string(src)))
-            return fastecu::fail(ErrorKind::Internal, "source missing");
-        std::string dst_str(dst);
-        // Mirrors QFile::copy: no implicit mkpath. A destination whose parent
-        // directory doesn't exist yet fails, it isn't silently created.
-        auto slash = dst_str.find_last_of('/');
-        if (slash != std::string::npos && !directories.count(dst_str.substr(0, slash + 1)))
-            return fastecu::fail(ErrorKind::Internal, "destination directory missing");
-        if (!overwrite && files.count(dst_str))
-            return fastecu::fail(ErrorKind::Internal, "destination exists");
-        files[dst_str] = files[std::string(src)];
-        copy_calls.push_back({std::string(src), dst_str});
-        return {};
-    }
-    Status remove_file(std::string_view path) override
-    {
-        files.erase(std::string(path));
-        removed.push_back(std::string(path));
-        return {};
-    }
-    Result<std::vector<DirEntry>> list_directory(std::string_view path) override
-    {
-        std::vector<DirEntry> out;
-        for (auto& [name, mtime] : subdirectories_by_parent[std::string(path)])
-            out.push_back(DirEntry{name, true, mtime});
-        for (auto& [name, mtime] : files_by_parent[std::string(path)])
-            out.push_back(DirEntry{name, false, mtime});
-        return out;
-    }
-
-    std::set<std::string> directories;
-    std::map<std::string, std::vector<std::uint8_t>> files;
-    std::map<std::string, std::vector<std::pair<std::string, std::int64_t>>> subdirectories_by_parent;
-    std::map<std::string, std::vector<std::pair<std::string, std::int64_t>>> files_by_parent;
-    std::vector<std::pair<std::string, std::string>> copy_calls;
-    std::vector<std::string> removed;
-};
-
-class FakeResourceBundle : public IResourceBundle
-{
-  public:
-    Result<std::vector<std::string>> list(std::string_view bundle_id) override
-    {
-        std::vector<std::string> names;
-        for (auto& [name, bytes] : bundles[std::string(bundle_id)])
-            names.push_back(name);
-        return names;
-    }
-    Result<std::vector<std::uint8_t>> read(std::string_view bundle_id, std::string_view name) override
-    {
-        return bundles[std::string(bundle_id)][std::string(name)];
-    }
-
-    std::map<std::string, std::map<std::string, std::vector<std::uint8_t>>> bundles;
-};
-
-class RecordingEventSink : public IEventSink
-{
-  public:
-    void log(LogLevel, std::string_view) override
-    {
-    }
-    void progress(int, int) override
-    {
-    }
-    void notice(std::string_view) override
-    {
-    }
-};
-
 ConfigPaths test_paths()
 {
     ConfigPaths p;
@@ -117,8 +37,8 @@ ConfigPaths test_paths()
 
 TEST(ProvisionConfigDirectories, CreatesEveryDirectoryOnFirstRun)
 {
-    FakeFileSystem fs;
-    FakeResourceBundle bundle;
+    InMemoryFileSystem fs;
+    InMemoryResourceBundle bundle;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
 
@@ -135,8 +55,8 @@ TEST(ProvisionConfigDirectories, CreatesEveryDirectoryOnFirstRun)
 
 TEST(ProvisionConfigDirectories, IdempotentOnSecondRun)
 {
-    FakeFileSystem fs;
-    FakeResourceBundle bundle;
+    InMemoryFileSystem fs;
+    InMemoryResourceBundle bundle;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
 
@@ -148,8 +68,8 @@ TEST(ProvisionConfigDirectories, IdempotentOnSecondRun)
 
 TEST(ProvisionConfigDirectories, CopiesBundledResourceFilesNotAlreadyPresent)
 {
-    FakeFileSystem fs;
-    FakeResourceBundle bundle;
+    InMemoryFileSystem fs;
+    InMemoryResourceBundle bundle;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
     bundle.bundles["config"]["fastecu.cfg"] = {1};
@@ -171,8 +91,8 @@ TEST(ProvisionConfigDirectories, CopiesBundledResourceFilesNotAlreadyPresent)
 
 TEST(ProvisionConfigDirectories, DoesNotOverwriteAnExistingUserFile)
 {
-    FakeFileSystem fs;
-    FakeResourceBundle bundle;
+    InMemoryFileSystem fs;
+    InMemoryResourceBundle bundle;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
     bundle.bundles["config"]["fastecu.cfg"] = {9, 9, 9};
@@ -187,8 +107,8 @@ TEST(ProvisionConfigDirectories, DoesNotOverwriteAnExistingUserFile)
 
 TEST(ProvisionConfigDirectories, PrunesSyslogsKeepingNewest20)
 {
-    FakeFileSystem fs;
-    FakeResourceBundle bundle;
+    InMemoryFileSystem fs;
+    InMemoryResourceBundle bundle;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
     fs.create_directory(paths.syslog_files_directory);
@@ -215,8 +135,8 @@ TEST(ProvisionConfigDirectories, PrunesSyslogsKeepingNewest20)
 
 TEST(ProvisionConfigDirectories, BundleCopyFailurePropagatesRatherThanBeingSwallowed)
 {
-    FakeFileSystem fs;
-    FakeResourceBundle bundle;
+    InMemoryFileSystem fs;
+    InMemoryResourceBundle bundle;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
     // A bundled kernel file nested under a subdirectory that provisioning
@@ -235,8 +155,8 @@ TEST(ProvisionConfigDirectories, BundleCopyFailurePropagatesRatherThanBeingSwall
 
 TEST(ProvisionConfigDirectories, MigratesPreviousVersionConfigFileForward)
 {
-    FakeFileSystem fs;
-    FakeResourceBundle bundle;
+    InMemoryFileSystem fs;
+    InMemoryResourceBundle bundle;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
     // A previous-version directory "0.9" already exists under base, newer
@@ -252,17 +172,17 @@ TEST(ProvisionConfigDirectories, MigratesPreviousVersionConfigFileForward)
 
 TEST(ProvisionConfigDirectories, FirstCreateDirectoryFailureStopsTheSequence)
 {
-    class FailingFileSystem : public FakeFileSystem
+    class FailingFileSystem : public InMemoryFileSystem
     {
       public:
         Status create_directory(std::string_view path) override
         {
-            if (std::string(path) == "/base")
+            if (path == "/base"sv)
                 return fastecu::fail(ErrorKind::Internal, "permission denied");
-            return FakeFileSystem::create_directory(path);
+            return InMemoryFileSystem::create_directory(path);
         }
     } fs;
-    FakeResourceBundle bundle;
+    InMemoryResourceBundle bundle;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
 

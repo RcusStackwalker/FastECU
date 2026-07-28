@@ -1,79 +1,19 @@
 #include "src/backend/config/legacy_config_adapter.h"
 #include "src/backend/definitions/file_actions.h"
+#include "src/backend/ports/testing/in_memory_file_repository.h"
+#include "src/backend/ports/testing/in_memory_file_system.h"
+#include "src/backend/ports/testing/in_memory_resource_bundle.h"
 #include <gtest/gtest.h>
 #include <map>
 
 using fastecu::DirEntry;
 using fastecu::ErrorKind;
-using fastecu::IFileRepository;
-using fastecu::IFileSystem;
-using fastecu::IResourceBundle;
+using fastecu::InMemoryFileRepository;
+using fastecu::InMemoryFileSystem;
+using fastecu::InMemoryResourceBundle;
 using fastecu::Result;
 using fastecu::Status;
 using fastecu::config::LegacyConfigAdapter;
-
-namespace
-{
-class InMemoryFileSystem : public IFileSystem
-{
-  public:
-    bool exists(std::string_view path) override
-    {
-        return dirs.count(std::string(path)) > 0;
-    }
-    Status create_directory(std::string_view path) override
-    {
-        dirs.insert(std::string(path));
-        return {};
-    }
-    Status copy_file(std::string_view, std::string_view, bool) override
-    {
-        return {};
-    }
-    Status remove_file(std::string_view) override
-    {
-        return {};
-    }
-    Result<std::vector<DirEntry>> list_directory(std::string_view) override
-    {
-        return std::vector<DirEntry>{};
-    }
-    std::set<std::string> dirs;
-};
-
-class InMemoryResourceBundle : public IResourceBundle
-{
-  public:
-    Result<std::vector<std::string>> list(std::string_view) override
-    {
-        return std::vector<std::string>{};
-    }
-    Result<std::vector<std::uint8_t>> read(std::string_view, std::string_view) override
-    {
-        return fastecu::fail(ErrorKind::InvalidConfig, "not used by this test");
-    }
-};
-
-class InMemoryFileRepository : public IFileRepository
-{
-  public:
-    Result<std::vector<std::uint8_t>> read(std::string_view handle) override
-    {
-        auto it = files.find(std::string(handle));
-        if (it == files.end())
-        {
-            return fastecu::fail(ErrorKind::InvalidConfig, "no such handle");
-        }
-        return it->second;
-    }
-    Status write(std::string_view handle, std::span<const std::uint8_t> data) override
-    {
-        files[std::string(handle)].assign(data.begin(), data.end());
-        return {};
-    }
-    std::map<std::string, std::vector<std::uint8_t>> files;
-};
-} // namespace
 
 TEST(LegacyConfigAdapterTest, SetBaseDirsPopulatesConfigValuesStructureAndReturnsSamePointer)
 {

@@ -1,6 +1,7 @@
 #include "src/backend/config/app_config.h"
 
 #include <cstring>
+#include <format>
 #include <sstream>
 #include <string_view>
 
@@ -8,6 +9,9 @@
 
 namespace fastecu::config
 {
+
+using namespace std::literals::string_view_literals;
+
 namespace
 {
 
@@ -34,7 +38,7 @@ Result<AppConfig> load_app_config(const ConfigPaths& paths, IFileRepository& fil
         doc.load_buffer(bytes->data(), bytes->size());
     if (!parsed)
     {
-        return fail(ErrorKind::InvalidConfig, std::string("config parse error: ") + parsed.description());
+        return fail(ErrorKind::InvalidConfig, std::format("config parse error: {}", parsed.description()));
     }
 
     AppConfig config;
@@ -44,7 +48,7 @@ Result<AppConfig> load_app_config(const ConfigPaths& paths, IFileRepository& fil
     // leaves the whole block skipped and `config` at its defaults, same as
     // legacy silently doing nothing past that check.
     pugi::xml_node config_node = doc.child("config");
-    pugi::xml_node settings = (std::string(config_node.attribute("name").as_string()) == "FastECU")
+    pugi::xml_node settings = (config_node.attribute("name").as_string() == "FastECU"sv)
                                   ? config_node.child("software_settings")
                                   : pugi::xml_node();
     for (pugi::xml_node setting : settings.children("setting"))
@@ -54,11 +58,11 @@ Result<AppConfig> load_app_config(const ConfigPaths& paths, IFileRepository& fil
         {
             for (pugi::xml_node value : setting.children("value"))
             {
-                if (!std::string(value.attribute("width").value()).empty())
+                if (!std::string{value.attribute("width").value()}.empty())
                 {
                     config.window_width = value.attribute("width").value();
                 }
-                else if (!std::string(value.attribute("height").value()).empty())
+                else if (!std::string{value.attribute("height").value()}.empty())
                 {
                     config.window_height = value.attribute("height").value();
                 }

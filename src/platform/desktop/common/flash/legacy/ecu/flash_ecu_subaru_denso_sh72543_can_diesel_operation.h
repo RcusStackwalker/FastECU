@@ -1,5 +1,4 @@
-#ifndef FLASH_ECU_SUBARU_DENSO_SH72543_CAN_DIESEL_OPERATION_H
-#define FLASH_ECU_SUBARU_DENSO_SH72543_CAN_DIESEL_OPERATION_H
+#pragma once
 
 #include <QByteArray>
 #include <QString>
@@ -75,5 +74,3 @@ class FlashEcuSubaruDensoSH72543CanDieselOperation : public FlashOperationWorker
     FileActions::EcuCalDefStructure *ecuCalDef;
     QString cmd_type;
 };
-
-#endif // FLASH_ECU_SUBARU_DENSO_SH72543_CAN_DIESEL_OPERATION_H

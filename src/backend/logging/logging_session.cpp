@@ -178,6 +178,7 @@ class ExpressionValidator
         }
         try
         {
+            // TODO: rewrite to use std::from_chars and analyze std::from_chars_result instead of try/catch
             const double value = std::stod(std::string(expression_.substr(start, position_ - start)));
             return std::isfinite(value) ? ParsedValue{.valid = true, .value = value} : ParsedValue{};
         }

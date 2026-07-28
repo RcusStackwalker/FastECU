@@ -1,5 +1,4 @@
-#ifndef QHEXEDIT_H
-#define QHEXEDIT_H
+#pragma once
 
 #include <QAbstractScrollArea>
 #include <QPen>
@@ -479,5 +478,3 @@ class QHEXEDIT_API QHexEdit : public QAbstractScrollArea
     UndoStack *_undoStack;    // Stack to store edit actions for undo/redo
     /*! \endcond docNever */
 };
-
-#endif // QHEXEDIT_H

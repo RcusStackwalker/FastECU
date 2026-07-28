@@ -1,5 +1,4 @@
-#ifndef FLASH_ECU_SUBARU_DENSO_MC68HC16Y5_02_OPERATION_H
-#define FLASH_ECU_SUBARU_DENSO_MC68HC16Y5_02_OPERATION_H
+#pragma once
 
 #include <QByteArray>
 #include <QString>
@@ -92,5 +91,3 @@ class FlashEcuSubaruDensoMC68HC16Y5_02Operation : public FlashOperationWorker
     FileActions::EcuCalDefStructure *ecuCalDef;
     QString cmd_type;
 };
-
-#endif // FLASH_ECU_SUBARU_DENSO_MC68HC16Y5_02_OPERATION_H

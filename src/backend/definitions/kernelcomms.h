@@ -1,5 +1,4 @@
-#ifndef KERNELCOMMS_H
-#define KERNELCOMMS_H
+#pragma once
 
 /***********************************
  * Hitachi (M32R) commands
@@ -240,5 +239,3 @@
 // 0xB5 combined errrors
 // 0xB6 ..
 // 0xB7 ..
-
-#endif // KERNELCOMMS_H

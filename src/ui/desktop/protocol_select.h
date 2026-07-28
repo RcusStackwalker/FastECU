@@ -1,5 +1,4 @@
-#ifndef PROTOCOL_SELECT_H
-#define PROTOCOL_SELECT_H
+#pragma once
 
 #include <memory>
 
@@ -45,5 +44,3 @@ class ProtocolSelect : public QDialog
   private:
     std::unique_ptr<Ui::ProtocolSelect> ui;
 };
-
-#endif // PROTOCOL_SELECT_H

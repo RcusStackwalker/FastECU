@@ -1,5 +1,4 @@
-#ifndef FASTECU_MUT_DMA_CODEC_H
-#define FASTECU_MUT_DMA_CODEC_H
+#pragma once
 
 #include "src/algorithms/protocol/bytes.h"
 
@@ -36,5 +35,3 @@ struct StreamFrame
 // data = bytes between logId and the checksum.
 StreamFrame parseStreamFrame(bytes::ByteView frame);
 } // namespace mutdma
-
-#endif // FASTECU_MUT_DMA_CODEC_H

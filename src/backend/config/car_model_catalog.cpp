@@ -1,5 +1,6 @@
 #include "src/backend/config/car_model_catalog.h"
 
+#include <format>
 #include <string_view>
 
 #include <pugixml.hpp>
@@ -28,7 +29,7 @@ Result<CarModelCatalog> load_car_model_catalog(const ConfigPaths& paths, IFileRe
     pugi::xml_parse_result parsed = doc.load_buffer(bytes->data(), bytes->size());
     if (!parsed)
     {
-        return fail(ErrorKind::InvalidConfig, std::string("protocols parse error: ") + parsed.description());
+        return fail(ErrorKind::InvalidConfig, std::format("protocols parse error: {}", parsed.description()));
     }
 
     CarModelCatalog catalog;

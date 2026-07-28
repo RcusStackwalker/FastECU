@@ -1,5 +1,4 @@
-#ifndef FLASH_ECU_SUBARU_UNISIA_JECS_M32R_H
-#define FLASH_ECU_SUBARU_UNISIA_JECS_M32R_H
+#pragma once
 
 #include <memory>
 
@@ -52,5 +51,3 @@ class FlashEcuSubaruUnisiaJecsM32r : public QDialog
   private:
     std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
-
-#endif // FLASH_ECU_SUBARU_UNISIA_JECS_M32R_H

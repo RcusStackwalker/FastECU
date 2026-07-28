@@ -1,5 +1,4 @@
-#ifndef GETKEYOPERATIONSSUBARU_H
-#define GETKEYOPERATIONSSUBARU_H
+#pragma once
 
 #include <memory>
 
@@ -51,5 +50,3 @@ class GetKeyOperationsSubaru : public QDialog
   private:
     std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
-
-#endif // GETKEYOPERATIONSSUBARU_H

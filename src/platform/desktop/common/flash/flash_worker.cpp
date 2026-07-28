@@ -1,6 +1,6 @@
 #include "src/platform/desktop/common/flash/flash_worker.h"
 
-#include "src/platform/desktop/common/flash/flash_event_adapter.h"
+#include "src/platform/desktop/common/ports/qt_event_sink.h"
 
 namespace fastecu::flash
 {
@@ -55,11 +55,13 @@ void FlashWorker::run()
     // reproduces that prior synchronous-on-worker-thread behavior exactly,
     // so this is a pure wiring change with no timing/ordering difference --
     // not an accidental switch to queued delivery.
-    QtEventSinkAdapter events;
-    connect(&events, &QtEventSinkAdapter::logEvent, this, &FlashWorker::logEvent,
+    QtEventSink events;
+    connect(&events, &QtEventSink::logged, this, &FlashWorker::logEvent,
             Qt::DirectConnection);
-    connect(&events, &QtEventSinkAdapter::progressChanged, this, &FlashWorker::progressChanged,
+    connect(&events, &QtEventSink::progressed, this, &FlashWorker::progressChanged,
             Qt::DirectConnection);
+    connect(&events, &QtEventSink::noticed, this, [this](QString message)
+            { emit logEvent(static_cast<int>(LogLevel::Info), std::move(message)); }, Qt::DirectConnection);
 
     Result<FlashExecutionResult> result =
         executor_->execute(plan_, *transport_, *clock_, cancellation_.token(), events);

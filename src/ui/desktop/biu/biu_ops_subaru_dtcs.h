@@ -1,5 +1,4 @@
-#ifndef BIU_OPS_SUBARU_DTCS_H
-#define BIU_OPS_SUBARU_DTCS_H
+#pragma once
 
 #include <memory>
 
@@ -30,5 +29,3 @@ class BiuOpsSubaruDtcs : public QWidget
   private:
     std::unique_ptr<Ui::BiuOpsSubaruDtcsWindow> ui;
 };
-
-#endif // BIU_OPS_SUBARU_DTCS_H

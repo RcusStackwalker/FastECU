@@ -1,5 +1,4 @@
-#ifndef FLASH_ECU_SUBARU_DENSO_SH7055_02_OPERATION_H
-#define FLASH_ECU_SUBARU_DENSO_SH7055_02_OPERATION_H
+#pragma once
 
 #include <QByteArray>
 #include <QString>
@@ -97,5 +96,3 @@ class FlashEcuSubaruDensoSH7055_02Operation : public FlashOperationWorker
     FileActions::EcuCalDefStructure *ecuCalDef;
     QString cmd_type;
 };
-
-#endif // FLASH_ECU_SUBARU_DENSO_SH7055_02_OPERATION_H

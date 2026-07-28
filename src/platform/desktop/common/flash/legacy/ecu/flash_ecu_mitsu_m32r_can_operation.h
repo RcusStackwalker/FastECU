@@ -1,5 +1,4 @@
-#ifndef FLASH_ECU_MITSU_M32R_CAN_OPERATION_H
-#define FLASH_ECU_MITSU_M32R_CAN_OPERATION_H
+#pragma once
 
 #include <QByteArray>
 #include <QString>
@@ -52,5 +51,3 @@ class FlashEcuMitsuM32rCanOperation : public FlashOperationWorker
     uint16_t serial_read_timeout = 500;
     uint16_t serial_read_extra_long_timeout = 3000;
 };
-
-#endif // FLASH_ECU_MITSU_M32R_CAN_OPERATION_H

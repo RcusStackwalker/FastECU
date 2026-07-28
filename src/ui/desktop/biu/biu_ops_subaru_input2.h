@@ -1,5 +1,4 @@
-#ifndef BIUOPSSUBARUINPUT2_H
-#define BIUOPSSUBARUINPUT2_H
+#pragma once
 
 #include <memory>
 
@@ -37,5 +36,3 @@ class BiuOpsSubaruInput2 : public QWidget
   private:
     std::unique_ptr<Ui::BiuOpsSubaruInput2Window> ui;
 };
-
-#endif // BIUOPSSUBARUINPUT2_H

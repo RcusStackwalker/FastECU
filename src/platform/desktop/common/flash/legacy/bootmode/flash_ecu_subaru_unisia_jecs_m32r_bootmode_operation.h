@@ -1,5 +1,4 @@
-#ifndef FLASH_ECU_SUBARU_UNISIA_JECS_M32R_BOOTMODE_OPERATION_H
-#define FLASH_ECU_SUBARU_UNISIA_JECS_M32R_BOOTMODE_OPERATION_H
+#pragma once
 
 #include <QByteArray>
 #include <QString>
@@ -81,5 +80,3 @@ class FlashEcuSubaruUnisiaJecsM32rBootModeOperation : public FlashOperationWorke
     FileActions::EcuCalDefStructure *ecuCalDef;
     QString cmd_type;
 };
-
-#endif // FLASH_ECU_SUBARU_UNISIA_JECS_M32R_BOOTMODE_OPERATION_H

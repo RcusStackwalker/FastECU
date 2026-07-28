@@ -1,5 +1,4 @@
-#ifndef LOGVALUES_H
-#define LOGVALUES_H
+#pragma once
 
 #include <memory>
 
@@ -110,5 +109,3 @@ class LogValues : public QWidget
   private:
     std::unique_ptr<Ui::LogValues> ui;
 };
-
-#endif // LOGVALUES_H

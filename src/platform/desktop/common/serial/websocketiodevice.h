@@ -1,8 +1,7 @@
 // Copyright (C) 2019 Ford Motor Company
 // SPDX-License-Identifier: LicenseRef-Qt-Commercial OR BSD-3-Clause
 
-#ifndef WEBSOCKETIODEVICE_H
-#define WEBSOCKETIODEVICE_H
+#pragma once
 
 #include <QBuffer>
 #include <QIODevice>
@@ -32,5 +31,3 @@ class WebSocketIoDevice : public QIODevice
     QPointer<QWebSocket> m_socket;
     QByteArray m_buffer;
 };
-
-#endif // WEBSOCKETIODEVICE_H

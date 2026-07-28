@@ -1,5 +1,4 @@
-#ifndef FLASH_ECU_SUBARU_DENSO_1N83M_4M_CAN_OPERATION_H
-#define FLASH_ECU_SUBARU_DENSO_1N83M_4M_CAN_OPERATION_H
+#pragma once
 
 #include <QByteArray>
 #include <QString>
@@ -74,5 +73,3 @@ class FlashEcuSubaruDenso1N83M_4MCanOperation : public FlashOperationWorker
     FileActions::EcuCalDefStructure *ecuCalDef;
     QString cmd_type;
 };
-
-#endif // FLASH_ECU_SUBARU_DENSO_1N83M_4M_CAN_OPERATION_H

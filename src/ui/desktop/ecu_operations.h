@@ -1,5 +1,4 @@
-#ifndef ECU_OPERATIONS_H
-#define ECU_OPERATIONS_H
+#pragma once
 
 #include <QMessageBox>
 #include <QProgressBar>
@@ -100,5 +99,3 @@ class EcuOperations : public QWidget
   private slots:
     void delay(int timeout);
 };
-
-#endif // ECU_OPERATIONS_H

@@ -1,5 +1,4 @@
-#ifndef CIPHER_H
-#define CIPHER_H
+#pragma once
 
 #include "src/algorithms/protocol/bytes.h"
 
@@ -22,5 +21,3 @@ class Cipher
     EVP_CIPHER_CTX *ctx;
     void handleErrors(void);
 };
-
-#endif // CIPHER_H

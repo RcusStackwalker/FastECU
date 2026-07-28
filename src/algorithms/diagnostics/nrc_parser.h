@@ -1,5 +1,4 @@
-#ifndef NRC_PARSER_H
-#define NRC_PARSER_H
+#pragma once
 
 #include "src/algorithms/protocol/bytes.h"
 
@@ -12,5 +11,3 @@
 // negative response, and "Unknown error code" if the NRC byte has no entry
 // in `codes`.
 std::string nrc_description(bytes::ByteView nrc, const std::unordered_map<int, std::string>& codes);
-
-#endif // NRC_PARSER_H

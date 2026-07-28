@@ -1,5 +1,4 @@
-#ifndef FLASH_ECU_SUBARU_DENSO_SH7058_CAN_DIESEL_H
-#define FLASH_ECU_SUBARU_DENSO_SH7058_CAN_DIESEL_H
+#pragma once
 
 #include <memory>
 
@@ -54,5 +53,3 @@ class FlashEcuSubaruDensoSH7058CanDiesel : public QDialog
   private:
     std::unique_ptr<Ui::EcuOperationsWindow> ui;
 };
-
-#endif // FLASH_ECU_SUBARU_DENSO_SH7058_CAN_DIESEL_H

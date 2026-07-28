@@ -1,5 +1,4 @@
-#ifndef KERNELMEMORYMODELS_H
-#define KERNELMEMORYMODELS_H
+#pragma once
 
 #include <stdint.h>
 
@@ -554,5 +553,3 @@ const struct flashdev_t flashdevices[] = {
     {"M3775x", M3775x, 64 * 1024, 1, fblocks_M3775x, rblocks_M3775x, kblocks_M3775x, eblocks_M3775x},
     {0, SH_INVALID, 0, 0, 0, 0, 0, 0},
 };
-
-#endif // KERNELMEMORYMODELS_H

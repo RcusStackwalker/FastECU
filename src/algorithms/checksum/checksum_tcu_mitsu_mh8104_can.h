@@ -1,5 +1,4 @@
-#ifndef CHECKSUM_TCU_MITSU_MH8104_CAN_H
-#define CHECKSUM_TCU_MITSU_MH8104_CAN_H
+#pragma once
 
 #include "checksum_result.h"
 #include "src/algorithms/protocol/bytes.h"
@@ -14,5 +13,3 @@ class ChecksumTcuMitsuMH8104Can
 
   private:
 };
-
-#endif // CHECKSUM_TCU_MITSU_MH8104_CAN_H

@@ -1,5 +1,4 @@
-#ifndef FLASH_OPERATION_WORKER_H
-#define FLASH_OPERATION_WORKER_H
+#pragma once
 
 #include <QAtomicInteger>
 #include <QMessageBox>
@@ -59,5 +58,3 @@ class FlashOperationWorker : public QThread
     QAtomicInteger<bool> m_stopRequested{false};
     PromptFn m_promptOverride;
 };
-
-#endif // FLASH_OPERATION_WORKER_H

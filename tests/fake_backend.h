@@ -1,5 +1,4 @@
-#ifndef FAKE_BACKEND_H
-#define FAKE_BACKEND_H
+#pragma once
 
 #include <QMutex>
 #include <QMutexLocker>
@@ -312,5 +311,3 @@ class FakeBackend : public SerialPortActionsDirect
     QMutex logMutex;
     QStringList callLog;
 };
-
-#endif // FAKE_BACKEND_H

@@ -71,6 +71,7 @@ fastecu_portable_gtest(
         ":denso_sh705x_eeprom_common",
         ":denso_sh705x_eeprom_kline",
         "//src/backend/ports",
+        "//src/backend/ports/testing:recording_event_sink",
         "//tests:scripted_kline_flash_transport",
     ],
 )
@@ -102,6 +103,7 @@ fastecu_portable_gtest(
         ":denso_sh705x_eeprom_common",
         ":denso_sh705x_eeprom_can",
         "//src/backend/ports",
+        "//src/backend/ports/testing:recording_event_sink",
         "//tests:scripted_can_flash_transport",
         # For WrongConcreteTransportTypeReturnsInvalidConfigWithNoIo, which
         # deliberately passes a K-Line-shaped fake to prove the dynamic_cast

@@ -1,5 +1,4 @@
-#ifndef CALIBRATION_MAPS_H
-#define CALIBRATION_MAPS_H
+#pragma once
 
 #include <memory>
 
@@ -84,5 +83,3 @@ class CalibrationMaps : public QWidget
   private:
     std::unique_ptr<Ui::CalibrationMaps> ui;
 };
-
-#endif // CALIBRATION_MAPS_H

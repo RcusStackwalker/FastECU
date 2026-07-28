@@ -1,5 +1,4 @@
-#ifndef QT_DTC_PARSER_H
-#define QT_DTC_PARSER_H
+#pragma once
 
 #include "src/algorithms/diagnostics/dtc_parser.h"
 
@@ -22,5 +21,3 @@ class DtcParser
                          const QHash<int, QString>& bCodes,
                          const QHash<int, QString>& uCodes);
 };
-
-#endif // QT_DTC_PARSER_H

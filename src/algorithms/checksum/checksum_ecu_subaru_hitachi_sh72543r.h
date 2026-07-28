@@ -1,5 +1,4 @@
-#ifndef CHECKSUM_ECU_SUBARU_HITACHI_SH72543R_H
-#define CHECKSUM_ECU_SUBARU_HITACHI_SH72543R_H
+#pragma once
 
 #include "checksum_result.h"
 #include "src/algorithms/protocol/bytes.h"
@@ -14,5 +13,3 @@ class ChecksumEcuSubaruHitachiSh72543r
 
   private:
 };
-
-#endif // CHECKSUM_ECU_SUBARU_HITACHI_SH72543R_H

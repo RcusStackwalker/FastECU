@@ -1,5 +1,4 @@
-#ifndef CHECKSUM_TCU_SUBARU_HITACHI_M32R_CAN_H
-#define CHECKSUM_TCU_SUBARU_HITACHI_M32R_CAN_H
+#pragma once
 
 #include "checksum_result.h"
 #include "src/algorithms/protocol/bytes.h"
@@ -14,5 +13,3 @@ class ChecksumTcuSubaruHitachiM32rCan
 
   private:
 };
-
-#endif // CHECKSUM_TCU_SUBARU_HITACHI_M32R_CAN_H

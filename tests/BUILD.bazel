@@ -157,6 +157,9 @@ qt_cc_test(
         "//src/backend/config:legacy_config_adapter",
         "//src/backend/definitions",
         "//src/backend/ports",
+        "//src/backend/ports/testing:in_memory_file_repository",
+        "//src/backend/ports/testing:in_memory_file_system",
+        "//src/backend/ports/testing:in_memory_resource_bundle",
         "@googletest//:gtest",
     ],
 )
