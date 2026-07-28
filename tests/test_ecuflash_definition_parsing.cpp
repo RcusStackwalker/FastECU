@@ -64,14 +64,8 @@ class CountingFileRepository : public fastecu::IFileRepository
 
 bool spyContainsMessage(const QSignalSpy& spy, const QString& text)
 {
-    for (const QList<QVariant>& arguments : spy)
-    {
-        if (!arguments.isEmpty() && arguments.at(0).toString().contains(text))
-        {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(spy, [&text](const QList<QVariant>& arguments)
+                               { return !arguments.isEmpty() && arguments.at(0).toString().contains(text); });
 }
 } // namespace
 
