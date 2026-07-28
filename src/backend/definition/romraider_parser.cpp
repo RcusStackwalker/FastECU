@@ -136,7 +136,7 @@ Result<std::optional<std::uint64_t>> optional_hex_attribute(
 
 Result<std::optional<std::uint64_t>> optional_hex_element(
     pugi::xml_node parent,
-    const char *child_name,
+    std::string_view child_name,
     std::string_view source,
     std::string_view definition_id)
 {
@@ -200,7 +200,7 @@ Result<std::uint32_t> dimension_attribute(
 
 Result<bool> strict_boolean_attribute(
     pugi::xml_node node,
-    const char *attribute_name,
+    std::string_view attribute_name,
     std::string_view source,
     std::string_view definition_id)
 {
@@ -226,7 +226,7 @@ Result<bool> strict_boolean_attribute(
         definition_id);
 }
 
-std::string attribute_or_empty(pugi::xml_node node, const char *name)
+std::string attribute_or_empty(pugi::xml_node node, std::string_view name)
 {
     return trim_copy(node.attribute(name).value());
 }
