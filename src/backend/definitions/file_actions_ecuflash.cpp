@@ -9,12 +9,6 @@
 namespace
 {
 
-std::string ecuflashUtf8(const QString& value)
-{
-    const QByteArray bytes = value.toUtf8();
-    return std::string(bytes.constData(), static_cast<std::size_t>(bytes.size()));
-}
-
 QString legacyScalingFormat(const QString& value_format)
 {
     const bool canonicalDecimal =
@@ -63,8 +57,7 @@ FileActions::ConfigValuesStructure *FileActions::create_ecuflash_def_id_list(
     const fastecu::Status replaced =
         definitionAdapter_.replace_ecuflash_catalog(
             *configValues,
-            ecuflashUtf8(
-                configValues->ecuflash_definition_files_directory),
+            configValues->ecuflash_definition_files_directory.toStdString(),
             submittedEcuflashHandles_);
     if (!replaced)
     {
@@ -128,7 +121,7 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(
             "Unable to read EcuFlash definition " + cal_id,
             catalog.error());
         if (!source.isEmpty() &&
-            !definitionFileSystem_.exists(ecuflashUtf8(source)))
+            !definitionFileSystem_.exists(source.toStdString()))
         {
             QMessageBox::warning(
                 this,
@@ -144,14 +137,14 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(
         *ecuCalDef,
         *catalog,
         fastecu::definition::DefinitionFormat::EcuFlash,
-        ecuflashUtf8(cal_id));
+        cal_id.toStdString());
     if (!replaced)
     {
         log_definition_error(
             "Unable to read EcuFlash definition " + cal_id,
             replaced.error());
         if (!source.isEmpty() &&
-            !definitionFileSystem_.exists(ecuflashUtf8(source)))
+            !definitionFileSystem_.exists(source.toStdString()))
         {
             QMessageBox::warning(
                 this,
