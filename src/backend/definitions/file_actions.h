@@ -29,6 +29,7 @@
 #include <string.h>
 #include <iostream>
 #include <string_view>
+#include <vector>
 
 #include "src/backend/definitions/kernelmemorymodels.h"
 #include "src/backend/definitions/config_values.h"
@@ -297,6 +298,8 @@ class FileActions : public QWidget
     fastecu::Status submit_imported_definition(
         std::string_view source, std::string_view destination,
         const fastecu::definition::DefinitionHeaderInput&);
+    void remember_submitted_ecuflash_handle(
+        std::string_view destination);
     fastecu::Result<fastecu::definition::DefinitionCatalog> build_definition_catalog(
         fastecu::definition::DefinitionFormat format);
     QString definition_source(
@@ -314,6 +317,7 @@ class FileActions : public QWidget
     fastecu::IFileRepository& definitionFileRepository_;
     fastecu::definition::DefinitionService definitionService_;
     fastecu::definition::LegacyDefinitionAdapter definitionAdapter_;
+    std::vector<std::string> submittedEcuflashHandles_;
 
   signals:
     void LOG_E(QString message, bool timestamp, bool linefeed);

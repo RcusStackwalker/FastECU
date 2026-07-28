@@ -15,6 +15,7 @@
 
 #include "src/backend/ports/atomic_file_writer.h"
 #include "src/backend/definitions/file_actions.h"
+#include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
 #include "src/platform/desktop/common/ports/qt_resource_bundle.h"
@@ -520,32 +521,78 @@ class TestEcuflashDefinitionParsing : public QObject
             "<internalidaddress>10</internalidaddress>"
             "<internalidstring>DIRECTORY_INTERNAL</internalidstring>"
             "<ecuid>DIRECTORY_ECU</ecuid></romid></rom>");
-        const QString submittedPath = writeDefFileAt(
-            workspace.filePath("submitted.xml"),
-            "<rom><romid><xmlid>SUBMITTED_XML</xmlid>"
-            "<internalidaddress>20</internalidaddress>"
-            "<internalidstring>SUBMITTED_INTERNAL</internalidstring>"
-            "<ecuid>SUBMITTED_ECU</ecuid></romid></rom>");
+        const QString submittedPath =
+            workspace.filePath("submitted.xml");
         QVERIFY(!configuredPath.isEmpty());
-        QVERIFY(!submittedPath.isEmpty());
 
+        QtAtomicFileWriter writer;
         FileActions fileActions(
             fileSystem_,
             resourceBundle_,
             fileRepository_,
-            atomicFileWriter_);
+            writer);
         auto& config = fileActions.ConfigValuesStruct;
         config.ecuflash_definition_files_directory = definitionsDirectory;
-        config.ecuflash_def_cal_id =
-            {"stale-directory-id", "SUBMITTED_XML"};
-        config.ecuflash_def_cal_id_addr =
-            {"stale-directory-address", "20"};
-        config.ecuflash_def_ecu_id =
-            {"stale-directory-ecu", "SUBMITTED_ECU"};
-        config.ecuflash_def_filename =
-            {configuredPath, submittedPath};
         QSignalSpy errorSpy(&fileActions, &FileActions::LOG_E);
 
+        QCOMPARE(fileActions.create_ecuflash_def_id_list(&config), &config);
+
+        FileActions::EcuCalDefStructure ecuCalDef;
+        bool handledHeader = false;
+        bool handledDestination = false;
+        QTimer::singleShot(0, [&]()
+                           {
+            QDialog *dialog = qobject_cast<QDialog *>(
+                QApplication::activeModalWidget());
+            if (!dialog)
+            {
+                return;
+            }
+            for (QLineEdit *editor :
+                 dialog->findChildren<QLineEdit *>())
+            {
+                if (editor->objectName() == "xmlid")
+                {
+                    editor->setText("SUBMITTED_XML");
+                }
+                else if (editor->objectName() ==
+                         "internalidaddress")
+                {
+                    editor->setText("20");
+                }
+                else if (editor->objectName() ==
+                         "internalidstring")
+                {
+                    editor->setText("SUBMITTED_INTERNAL");
+                }
+                else if (editor->objectName() == "ecuid")
+                {
+                    editor->setText("SUBMITTED_ECU");
+                }
+            }
+            handledHeader = true;
+            QTimer::singleShot(0, [&]()
+                               {
+                QFileDialog *picker =
+                    qobject_cast<QFileDialog *>(
+                        QApplication::activeModalWidget());
+                if (!picker)
+                {
+                    return;
+                }
+                picker->selectFile(submittedPath);
+                handledDestination = true;
+                static_cast<QDialog *>(picker)->accept();
+            });
+            dialog->accept(); });
+
+        QCOMPARE(
+            fileActions.create_new_definition_for_rom(&ecuCalDef),
+            &ecuCalDef);
+
+        QVERIFY(handledHeader);
+        QVERIFY(handledDestination);
+        QVERIFY(QFile::exists(submittedPath));
         QCOMPARE(fileActions.create_ecuflash_def_id_list(&config), &config);
 
         QVERIFY(errorSpy.isEmpty());
@@ -563,9 +610,49 @@ class TestEcuflashDefinitionParsing : public QObject
             QStringList({configuredPath, submittedPath}));
         QCOMPARE(
             fileRepository_.readCounts.at(configuredPath.toStdString()),
-            1);
+            2);
         QCOMPARE(
             fileRepository_.readCounts.at(submittedPath.toStdString()),
+            1);
+    }
+
+    void removed_configured_definition_is_not_retried_on_refresh()
+    {
+        QTemporaryDir workspace;
+        QVERIFY(workspace.isValid());
+        const QString definitionPath = writeDefFileAt(
+            workspace.filePath("removed.xml"),
+            "<rom><romid><xmlid>REMOVED_XML</xmlid>"
+            "<internalidaddress>10</internalidaddress>"
+            "<internalidstring>REMOVED_INTERNAL</internalidstring>"
+            "</romid></rom>");
+        QVERIFY(!definitionPath.isEmpty());
+
+        FileActions fileActions(
+            fileSystem_,
+            resourceBundle_,
+            fileRepository_,
+            atomicFileWriter_);
+        auto& config = fileActions.ConfigValuesStruct;
+        config.ecuflash_definition_files_directory = workspace.path();
+        QSignalSpy errorSpy(&fileActions, &FileActions::LOG_E);
+
+        QCOMPARE(fileActions.create_ecuflash_def_id_list(&config), &config);
+        QCOMPARE(config.ecuflash_def_cal_id, QStringList({"REMOVED_XML"}));
+        QCOMPARE(
+            fileRepository_.readCounts.at(definitionPath.toStdString()),
+            1);
+        QVERIFY(QFile::remove(definitionPath));
+
+        QCOMPARE(fileActions.create_ecuflash_def_id_list(&config), &config);
+
+        QVERIFY(errorSpy.isEmpty());
+        QVERIFY(config.ecuflash_def_cal_id.isEmpty());
+        QVERIFY(config.ecuflash_def_cal_id_addr.isEmpty());
+        QVERIFY(config.ecuflash_def_ecu_id.isEmpty());
+        QVERIFY(config.ecuflash_def_filename.isEmpty());
+        QCOMPARE(
+            fileRepository_.readCounts.at(definitionPath.toStdString()),
             1);
     }
 

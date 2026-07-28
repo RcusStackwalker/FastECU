@@ -1,4 +1,5 @@
 // #include "src/backend/definitions/file_actions.h"
+#include <algorithm>
 #include <optional>
 #include <string>
 #include <utility>
@@ -311,6 +312,10 @@ fastecu::Status FileActions::submit_new_definition(
     {
         log_definition_error("Unable to create definition", status.error());
     }
+    else
+    {
+        remember_submitted_ecuflash_handle(destination);
+    }
     return status;
 }
 
@@ -325,7 +330,31 @@ fastecu::Status FileActions::submit_imported_definition(
     {
         log_definition_error("Unable to import definition", status.error());
     }
+    else
+    {
+        remember_submitted_ecuflash_handle(destination);
+    }
     return status;
+}
+
+void FileActions::remember_submitted_ecuflash_handle(
+    std::string_view destination)
+{
+    const auto position = std::lower_bound(
+        submittedEcuflashHandles_.begin(),
+        submittedEcuflashHandles_.end(),
+        destination,
+        [](const std::string& existing, std::string_view candidate)
+        {
+            return std::string_view(existing) < candidate;
+        });
+    if (position == submittedEcuflashHandles_.end() ||
+        std::string_view(*position) != destination)
+    {
+        submittedEcuflashHandles_.insert(
+            position,
+            std::string(destination));
+    }
 }
 
 void FileActions::apply_flash_method_alias(EcuCalDefStructure& ecuCalDef)

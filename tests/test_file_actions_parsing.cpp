@@ -1,5 +1,6 @@
 #include <QtTest>
 #include <QApplication>
+#include <QDir>
 #include <QFile>
 #include <QSignalSpy>
 #include <QTemporaryDir>
@@ -109,11 +110,8 @@ fastecu::definition::DefinitionHeaderInput validHeaderInput()
     };
 }
 
-QString writeTextFile(const QTemporaryDir& dir,
-                      const QString& name,
-                      const QByteArray& contents)
+QString writeTextFileAt(const QString& path, const QByteArray& contents)
 {
-    const QString path = dir.filePath(name);
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
     {
@@ -125,6 +123,13 @@ QString writeTextFile(const QTemporaryDir& dir,
     }
     file.close();
     return path;
+}
+
+QString writeTextFile(const QTemporaryDir& dir,
+                      const QString& name,
+                      const QByteArray& contents)
+{
+    return writeTextFileAt(dir.filePath(name), contents);
 }
 
 bool spyContainsMessage(const QSignalSpy& spy, const QString& text)
@@ -598,6 +603,7 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(actions.create_new_definition_for_rom(&ecu), &ecu);
 
         QVERIFY(atomicFileWriter_.calls.empty());
+        QVERIFY(actions.submittedEcuflashHandles_.empty());
     }
 
     void cancelled_new_definition_destination_never_submits()
@@ -666,6 +672,7 @@ class TestFileActionsParsing : public QObject
         QVERIFY(handledDestination);
         QVERIFY(handledRetry);
         QVERIFY(atomicFileWriter_.calls.empty());
+        QVERIFY(actions.submittedEcuflashHandles_.empty());
     }
 
     void new_definition_dialog_treats_unprefixed_address_as_hexadecimal()
@@ -958,6 +965,73 @@ class TestFileActionsParsing : public QObject
             QString("IMPORT_XML"));
     }
 
+    void directory_change_drops_discovered_sources_and_keeps_successful_submission()
+    {
+        QTemporaryDir workspace;
+        QVERIFY(workspace.isValid());
+        const QString oldDirectory = workspace.filePath("old");
+        const QString newDirectory = workspace.filePath("new");
+        QVERIFY(QDir().mkpath(oldDirectory));
+        QVERIFY(QDir().mkpath(newDirectory));
+        const QString oldPath = writeTextFileAt(
+            oldDirectory + "/old.xml",
+            "<rom><romid><xmlid>OLD_DIRECTORY_XML</xmlid>"
+            "<internalidaddress>10</internalidaddress>"
+            "<internalidstring>OLD_DIRECTORY_INTERNAL</internalidstring>"
+            "<ecuid>OLD_DIRECTORY_ECU</ecuid></romid></rom>");
+        const QString newPath = writeTextFileAt(
+            newDirectory + "/new.xml",
+            "<rom><romid><xmlid>NEW_DIRECTORY_XML</xmlid>"
+            "<internalidaddress>30</internalidaddress>"
+            "<internalidstring>NEW_DIRECTORY_INTERNAL</internalidstring>"
+            "<ecuid>NEW_DIRECTORY_ECU</ecuid></romid></rom>");
+        const QString submittedPath =
+            workspace.filePath("submitted.xml");
+        QVERIFY(!oldPath.isEmpty());
+        QVERIFY(!newPath.isEmpty());
+
+        QtAtomicFileWriter writer;
+        FileActions actions(
+            fileSystem_, resourceBundle_, fileRepository_, writer);
+        auto& config = actions.ConfigValuesStruct;
+        config.ecuflash_definition_files_directory = oldDirectory;
+        QCOMPARE(actions.create_ecuflash_def_id_list(&config), &config);
+        QCOMPARE(
+            config.ecuflash_def_cal_id,
+            QStringList({"OLD_DIRECTORY_XML"}));
+
+        auto input = validHeaderInput();
+        input.xml_id = "SUBMITTED_XML";
+        input.internal_id = "SUBMITTED_INTERNAL";
+        input.ecu_id = "SUBMITTED_ECU";
+        input.internal_id_address = 0x20;
+        const fastecu::Status submitted =
+            actions.submit_new_definition(
+                submittedPath.toStdString(),
+                input);
+        QVERIFY2(
+            submitted.has_value(),
+            submitted.error().detail.c_str());
+        QVERIFY(QFile::exists(submittedPath));
+
+        config.ecuflash_definition_files_directory = newDirectory;
+        QCOMPARE(actions.create_ecuflash_def_id_list(&config), &config);
+
+        QCOMPARE(
+            config.ecuflash_def_cal_id,
+            QStringList({"NEW_DIRECTORY_XML", "SUBMITTED_XML"}));
+        QCOMPARE(
+            config.ecuflash_def_cal_id_addr,
+            QStringList({"30", "20"}));
+        QCOMPARE(
+            config.ecuflash_def_ecu_id,
+            QStringList({"NEW_DIRECTORY_ECU", "SUBMITTED_ECU"}));
+        QCOMPARE(
+            config.ecuflash_def_filename,
+            QStringList({newPath, submittedPath}));
+        QVERIFY(!config.ecuflash_def_filename.contains(oldPath));
+    }
+
     void new_definition_submission_uses_one_atomic_replacement()
     {
         atomicFileWriter_.reset();
@@ -980,6 +1054,9 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(parsed->identity.internal_id_address, input.internal_id_address);
         QCOMPARE(parsed->metadata, input.metadata);
         QCOMPARE(parsed->parents, std::vector<std::string>{input.include});
+        QCOMPARE(
+            actions.submittedEcuflashHandles_,
+            std::vector<std::string>{"created.xml"});
     }
 
     void imported_definition_submission_uses_one_atomic_replacement()
@@ -1007,6 +1084,28 @@ class TestFileActionsParsing : public QObject
             atomicFileWriter_.calls.front().data.begin(),
             atomicFileWriter_.calls.front().data.end());
         QVERIFY(xml.find("<vendor-extension") != std::string::npos);
+        QCOMPARE(
+            actions.submittedEcuflashHandles_,
+            std::vector<std::string>{"imported.xml"});
+    }
+
+    void successful_submission_provenance_is_sorted_and_deduplicated()
+    {
+        atomicFileWriter_.reset();
+        FileActions actions(
+            fileSystem_,
+            resourceBundle_,
+            fileRepository_,
+            atomicFileWriter_);
+        const auto input = validHeaderInput();
+
+        QVERIFY(actions.submit_new_definition("z.xml", input));
+        QVERIFY(actions.submit_new_definition("a.xml", input));
+        QVERIFY(actions.submit_new_definition("z.xml", input));
+
+        QCOMPARE(
+            actions.submittedEcuflashHandles_,
+            (std::vector<std::string>{"a.xml", "z.xml"}));
     }
 
     void failed_definition_submission_logs_exact_error_and_preserves_catalog()
@@ -1042,6 +1141,7 @@ class TestFileActionsParsing : public QObject
         QVERIFY(spyContainsMessage(errorSpy, "Unable to create definition"));
         QVERIFY(spyContainsMessage(errorSpy, "Disconnected"));
         QVERIFY(spyContainsMessage(errorSpy, "atomic destination unavailable"));
+        QVERIFY(actions.submittedEcuflashHandles_.empty());
     }
 
     void checksum_correction_unknown_mcu_type_logs_and_returns_unmodified_rom()

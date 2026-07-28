@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <set>
 #include <string>
-#include <vector>
 
 namespace
 {
@@ -61,19 +60,12 @@ FileActions::ConfigValuesStructure *FileActions::create_ecuflash_def_id_list(
         return configValues;
     }
 
-    std::vector<std::string> explicitHandles;
-    explicitHandles.reserve(static_cast<std::size_t>(
-        configValues->ecuflash_def_filename.size()));
-    for (const QString& source : configValues->ecuflash_def_filename)
-    {
-        explicitHandles.push_back(ecuflashUtf8(source));
-    }
     const fastecu::Status replaced =
         definitionAdapter_.replace_ecuflash_catalog(
             *configValues,
             ecuflashUtf8(
                 configValues->ecuflash_definition_files_directory),
-            explicitHandles);
+            submittedEcuflashHandles_);
     if (!replaced)
     {
         log_definition_error(
