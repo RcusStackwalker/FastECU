@@ -60,6 +60,14 @@ PORTABLE_ROOTS = {
         "flash_device_lookup",
         "dispatch",
     },
+    ROOT / "src/backend/definition": {
+        "definition_model",
+        "romraider_parser",
+        "ecuflash_parser",
+        "definition_resolver",
+        "definition_service",
+        "definition_writer",
+    },
 }
 
 FORBIDDEN = (
@@ -69,7 +77,7 @@ FORBIDDEN = (
     re.compile(r'"@bazel_tools//tools/jdk:jni"'),
 )
 
-# Any label under this prefix reached transitively from a required flash
+# Any label under this prefix reached transitively from a required backend
 # target means a portable target depends on platform code -- directly or
 # indirectly -- which the per-BUILD-file regex scan above cannot see, since
 # that scan only inspects each target's own immediate BUILD-file text, not
@@ -170,7 +178,7 @@ def main():
     for label in closure_labels:
         if label.startswith(PLATFORM_LABEL_PREFIX):
             errors.append(
-                "  portable_backend_closure: required flash target transitively "
+                "  portable_backend_closure: required backend target transitively "
                 f"depends on platform label {label}"
             )
 

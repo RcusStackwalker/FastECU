@@ -75,22 +75,6 @@ class TestEcuflashDefinitionParsing : public QObject
 {
     Q_OBJECT
   private slots:
-    void add_list_item_defaults_new_fields_to_placeholder()
-    {
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
-        FileActions::EcuCalDefStructure ecuCalDef;
-
-        fileActions.add_ecuflash_def_list_item(&ecuCalDef);
-
-        QCOMPARE(ecuCalDef.SubCategoryList.size(), 1);
-        QCOMPARE(ecuCalDef.SubCategoryList.at(0), QString(" "));
-        QCOMPARE(ecuCalDef.LevelList.at(0), QString(" "));
-        QCOMPARE(ecuCalDef.UserLevelList.at(0), QString(" "));
-        QCOMPARE(ecuCalDef.SwapXYList.at(0), QString(" "));
-        QCOMPARE(ecuCalDef.FlipXList.at(0), QString(" "));
-        QCOMPARE(ecuCalDef.FlipYList.at(0), QString(" "));
-    }
-
     void parses_subcategory_level_userlevel_description()
     {
         QTemporaryDir dir;
@@ -360,9 +344,23 @@ class TestEcuflashDefinitionParsing : public QObject
     {
         FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         FileActions::EcuCalDefStructure ecuCalDef;
-        fileActions.add_ecuflash_def_list_item(&ecuCalDef);
-        ecuCalDef.NameList[0] = "Fuel";
-        ecuCalDef.MapScalingNameList[0] = "FuelScale";
+        ecuCalDef.NameList = {"Fuel"};
+        ecuCalDef.MapScalingNameList = {"FuelScale"};
+        ecuCalDef.TypeList = {" "};
+        ecuCalDef.StorageTypeList = {" "};
+        ecuCalDef.UnitsList = {" "};
+        ecuCalDef.FineIncList = {" "};
+        ecuCalDef.CoarseIncList = {" "};
+        ecuCalDef.MinValueList = {" "};
+        ecuCalDef.MaxValueList = {" "};
+        ecuCalDef.EndianList = {" "};
+        ecuCalDef.FromByteList = {" "};
+        ecuCalDef.ToByteList = {" "};
+        ecuCalDef.FormatList = {" "};
+        ecuCalDef.SelectionsNameList = {" "};
+        ecuCalDef.SelectionsValueList = {" "};
+        ecuCalDef.XScaleScalingNameList = {" "};
+        ecuCalDef.YScaleScalingNameList = {" "};
         ecuCalDef.ScalingNameList = {"FuelScale"};
         ecuCalDef.ScalingUnitsList = {"%"};
         ecuCalDef.ScalingFromByteList = {"x*0.5"};

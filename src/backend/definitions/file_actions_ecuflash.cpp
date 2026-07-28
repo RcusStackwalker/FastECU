@@ -1,5 +1,7 @@
 #include "src/backend/definitions/file_actions.h"
 
+// Qt compatibility wrappers over the portable definition service.
+
 #include <algorithm>
 #include <set>
 #include <string>
@@ -13,9 +15,7 @@ std::string ecuflashUtf8(const QString& value)
     return std::string(bytes.constData(), static_cast<std::size_t>(bytes.size()));
 }
 
-} // namespace
-
-QString FileActions::convert_value_format(const QString& value_format)
+QString legacyScalingFormat(const QString& value_format)
 {
     const bool canonicalDecimal =
         value_format.size() > 2 &&
@@ -48,6 +48,8 @@ QString FileActions::convert_value_format(const QString& value_format)
     }
     return decimals;
 }
+
+} // namespace
 
 FileActions::ConfigValuesStructure *FileActions::create_ecuflash_def_id_list(
     ConfigValuesStructure *configValues)
@@ -94,28 +96,6 @@ FileActions::ConfigValuesStructure *FileActions::create_ecuflash_def_id_list(
         true,
         true);
     return configValues;
-}
-
-QString FileActions::parse_strict_bool_attribute(
-    const QDomElement& element,
-    const QString& attrName,
-    const QString& tableName)
-{
-    if (!element.hasAttribute(attrName))
-    {
-        return "false";
-    }
-    const QString value = element.attribute(attrName);
-    if (value == "true" || value == "false")
-    {
-        return value;
-    }
-    emit LOG_W(
-        "table " + tableName + ": " + attrName +
-            " must be true or false, not [" + value + "]",
-        true,
-        true);
-    return "false";
 }
 
 FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(
@@ -251,7 +231,7 @@ FileActions::EcuCalDefStructure *FileActions::parse_ecuflash_def_scalings(
                     ecuCalDef->ScalingToByteList.at(scalingIndex));
                 ecuCalDef->FormatList.replace(
                     def_map_index,
-                    convert_value_format(
+                    legacyScalingFormat(
                         ecuCalDef->ScalingFormatList.at(scalingIndex)));
             }
             if (ecuCalDef->ScalingNameList.at(scalingIndex) ==
@@ -286,7 +266,7 @@ FileActions::EcuCalDefStructure *FileActions::parse_ecuflash_def_scalings(
                     ecuCalDef->ScalingToByteList.at(scalingIndex));
                 ecuCalDef->XScaleFormatList.replace(
                     def_map_index,
-                    convert_value_format(
+                    legacyScalingFormat(
                         ecuCalDef->ScalingFormatList.at(scalingIndex)));
             }
             if (ecuCalDef->ScalingNameList.at(scalingIndex) ==
@@ -321,90 +301,10 @@ FileActions::EcuCalDefStructure *FileActions::parse_ecuflash_def_scalings(
                     ecuCalDef->ScalingToByteList.at(scalingIndex));
                 ecuCalDef->YScaleFormatList.replace(
                     def_map_index,
-                    convert_value_format(
+                    legacyScalingFormat(
                         ecuCalDef->ScalingFormatList.at(scalingIndex)));
             }
         }
     }
-    return ecuCalDef;
-}
-
-FileActions::EcuCalDefStructure *FileActions::add_ecuflash_def_list_item(
-    EcuCalDefStructure *ecuCalDef)
-{
-    ecuCalDef->IdList.append(" ");
-    ecuCalDef->TypeList.append(" ");
-    ecuCalDef->NameList.append(" ");
-    ecuCalDef->AddressList.append(" ");
-    ecuCalDef->CategoryList.append(" ");
-    ecuCalDef->CategoryExpandedList.append(" ");
-    ecuCalDef->SubCategoryList.append(" ");
-    ecuCalDef->LevelList.append(" ");
-    ecuCalDef->UserLevelList.append(" ");
-    ecuCalDef->SwapXYList.append(" ");
-    ecuCalDef->FlipXList.append(" ");
-    ecuCalDef->FlipYList.append(" ");
-    ecuCalDef->XSizeList.append(" ");
-    ecuCalDef->YSizeList.append(" ");
-    ecuCalDef->StartPosList.append(" ");
-    ecuCalDef->IntervalList.append(" ");
-    ecuCalDef->MinValueList.append(" ");
-    ecuCalDef->MaxValueList.append(" ");
-    ecuCalDef->UnitsList.append(" ");
-    ecuCalDef->FormatList.append(" ");
-    ecuCalDef->FineIncList.append(" ");
-    ecuCalDef->CoarseIncList.append(" ");
-    ecuCalDef->VisibleList.append(" ");
-    ecuCalDef->SelectionsNameList.append(" ");
-    ecuCalDef->SelectionsValueList.append(" ");
-    ecuCalDef->DescriptionList.append(" ");
-    ecuCalDef->StateList.append(" ");
-    ecuCalDef->MapScalingNameList.append(" ");
-    ecuCalDef->MapData.append(" ");
-    ecuCalDef->MapCellColorMin.append(" ");
-    ecuCalDef->MapCellColorMax.append(" ");
-    ecuCalDef->XScaleTypeList.append(" ");
-    ecuCalDef->XScaleNameList.append(" ");
-    ecuCalDef->XScaleAddressList.append(" ");
-    ecuCalDef->XScaleStartPosList.append(" ");
-    ecuCalDef->XScaleIntervalList.append(" ");
-    ecuCalDef->XScaleMinValueList.append(" ");
-    ecuCalDef->XScaleMaxValueList.append(" ");
-    ecuCalDef->XScaleUnitsList.append(" ");
-    ecuCalDef->XScaleFormatList.append(" ");
-    ecuCalDef->XScaleFineIncList.append(" ");
-    ecuCalDef->XScaleCoarseIncList.append(" ");
-    ecuCalDef->XScaleStorageTypeList.append(" ");
-    ecuCalDef->XScaleEndianList.append(" ");
-    ecuCalDef->XScaleLogParamList.append(" ");
-    ecuCalDef->XScaleFromByteList.append(" ");
-    ecuCalDef->XScaleToByteList.append(" ");
-    ecuCalDef->XScaleStaticDataList.append(" ");
-    ecuCalDef->XScaleScalingNameList.append(" ");
-    ecuCalDef->XScaleData.append(" ");
-    ecuCalDef->YScaleTypeList.append(" ");
-    ecuCalDef->YScaleNameList.append(" ");
-    ecuCalDef->YScaleAddressList.append(" ");
-    ecuCalDef->YScaleStartPosList.append(" ");
-    ecuCalDef->YScaleIntervalList.append(" ");
-    ecuCalDef->YScaleMinValueList.append(" ");
-    ecuCalDef->YScaleMaxValueList.append(" ");
-    ecuCalDef->YScaleUnitsList.append(" ");
-    ecuCalDef->YScaleFormatList.append(" ");
-    ecuCalDef->YScaleFineIncList.append(" ");
-    ecuCalDef->YScaleCoarseIncList.append(" ");
-    ecuCalDef->YScaleStorageTypeList.append(" ");
-    ecuCalDef->YScaleEndianList.append(" ");
-    ecuCalDef->YScaleLogParamList.append(" ");
-    ecuCalDef->YScaleFromByteList.append(" ");
-    ecuCalDef->YScaleToByteList.append(" ");
-    ecuCalDef->YScaleScalingNameList.append(" ");
-    ecuCalDef->YScaleData.append(" ");
-    ecuCalDef->StorageTypeList.append(" ");
-    ecuCalDef->EndianList.append(" ");
-    ecuCalDef->LogParamList.append(" ");
-    ecuCalDef->FromByteList.append(" ");
-    ecuCalDef->ToByteList.append(" ");
-    ecuCalDef->MapDefined.append(" ");
     return ecuCalDef;
 }

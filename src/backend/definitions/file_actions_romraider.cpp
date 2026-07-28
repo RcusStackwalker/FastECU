@@ -1,5 +1,7 @@
 #include "src/backend/definitions/file_actions.h"
 
+// Qt compatibility wrappers over the portable definition service.
+
 #include <string>
 #include <vector>
 
@@ -221,83 +223,5 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(
     normalize_definition_addresses(*ecuCalDef);
     apply_flash_method_alias(*ecuCalDef);
     emit LOG_D("XML ID: " + cal_id + " " + cal_id, true, true);
-    return ecuCalDef;
-}
-
-FileActions::EcuCalDefStructure *FileActions::add_romraider_def_list_item(
-    EcuCalDefStructure *ecuCalDef)
-{
-    ecuCalDef->IdList.append(" ");
-    ecuCalDef->TypeList.append(" ");
-    ecuCalDef->NameList.append(" ");
-    ecuCalDef->AddressList.append(" ");
-    ecuCalDef->CategoryList.append(" ");
-    ecuCalDef->CategoryExpandedList.append(" ");
-    ecuCalDef->XSizeList.append(" ");
-    ecuCalDef->YSizeList.append(" ");
-    ecuCalDef->StartPosList.append(" ");
-    ecuCalDef->IntervalList.append(" ");
-    ecuCalDef->MinValueList.append(" ");
-    ecuCalDef->MaxValueList.append(" ");
-    ecuCalDef->UnitsList.append(" ");
-    ecuCalDef->FormatList.append(" ");
-    ecuCalDef->FineIncList.append(" ");
-    ecuCalDef->CoarseIncList.append(" ");
-    ecuCalDef->VisibleList.append(" ");
-    ecuCalDef->SelectionsNameList.append(" ");
-    ecuCalDef->SelectionsValueList.append(" ");
-    ecuCalDef->DescriptionList.append(" ");
-    ecuCalDef->StateList.append(" ");
-    ecuCalDef->MapScalingNameList.append(" ");
-    ecuCalDef->MapData.append(" ");
-    ecuCalDef->MapCellColorMin.append(" ");
-    ecuCalDef->MapCellColorMax.append(" ");
-
-    ecuCalDef->XScaleTypeList.append(" ");
-    ecuCalDef->XScaleNameList.append(" ");
-    ecuCalDef->XScaleAddressList.append(" ");
-    ecuCalDef->XScaleStartPosList.append(" ");
-    ecuCalDef->XScaleIntervalList.append(" ");
-    ecuCalDef->XScaleMinValueList.append(" ");
-    ecuCalDef->XScaleMaxValueList.append(" ");
-    ecuCalDef->XScaleUnitsList.append(" ");
-    ecuCalDef->XScaleFormatList.append(" ");
-    ecuCalDef->XScaleFineIncList.append(" ");
-    ecuCalDef->XScaleCoarseIncList.append(" ");
-    ecuCalDef->XScaleStorageTypeList.append(" ");
-    ecuCalDef->XScaleEndianList.append(" ");
-    ecuCalDef->XScaleLogParamList.append(" ");
-    ecuCalDef->XScaleFromByteList.append(" ");
-    ecuCalDef->XScaleToByteList.append(" ");
-    ecuCalDef->XScaleStaticDataList.append(" ");
-    ecuCalDef->XScaleScalingNameList.append(" ");
-    ecuCalDef->XScaleData.append(" ");
-
-    ecuCalDef->YScaleTypeList.append(" ");
-    ecuCalDef->YScaleNameList.append(" ");
-    ecuCalDef->YScaleAddressList.append(" ");
-    ecuCalDef->YScaleStartPosList.append(" ");
-    ecuCalDef->YScaleIntervalList.append(" ");
-    ecuCalDef->YScaleMinValueList.append(" ");
-    ecuCalDef->YScaleMaxValueList.append(" ");
-    ecuCalDef->YScaleUnitsList.append(" ");
-    ecuCalDef->YScaleFormatList.append(" ");
-    ecuCalDef->YScaleFineIncList.append(" ");
-    ecuCalDef->YScaleCoarseIncList.append(" ");
-    ecuCalDef->YScaleStorageTypeList.append(" ");
-    ecuCalDef->YScaleEndianList.append(" ");
-    ecuCalDef->YScaleLogParamList.append(" ");
-    ecuCalDef->YScaleFromByteList.append(" ");
-    ecuCalDef->YScaleToByteList.append(" ");
-    ecuCalDef->YScaleScalingNameList.append(" ");
-    ecuCalDef->YScaleData.append(" ");
-
-    ecuCalDef->StorageTypeList.append(" ");
-    ecuCalDef->EndianList.append(" ");
-    ecuCalDef->LogParamList.append(" ");
-    ecuCalDef->FromByteList.append(" ");
-    ecuCalDef->ToByteList.append(" ");
-    ecuCalDef->MapDefined.append(" ");
-
     return ecuCalDef;
 }

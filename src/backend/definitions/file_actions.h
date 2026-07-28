@@ -16,7 +16,6 @@
 #include <QToolBar>
 #include <QElapsedTimer>
 #include <QDateTime>
-#include <QDirIterator>
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QLabel>
@@ -227,18 +226,14 @@ class FileActions : public QWidget
     ConfigValuesStructure *create_romraider_def_id_list(ConfigValuesStructure *configValues);
     EcuCalDefStructure *read_romraider_ecu_base_def(FileActions::EcuCalDefStructure *ecuCalDef);
     EcuCalDefStructure *read_romraider_ecu_def(FileActions::EcuCalDefStructure *ecuCalDef, const QString& ecuId);
-    EcuCalDefStructure *add_romraider_def_list_item(EcuCalDefStructure *ecuCalDef);
 
     /*****************************************************
      * Search and read RomRaider ECU definition from file
      *****************************************************/
-    QString convert_value_format(const QString& value_format);
     ConfigValuesStructure *create_ecuflash_def_id_list(ConfigValuesStructure *configValues);
     // EcuCalDefStructure *read_ecuflash_ecu_base_def(FileActions::EcuCalDefStructure *ecuCalDef);
     EcuCalDefStructure *read_ecuflash_ecu_def(FileActions::EcuCalDefStructure *ecuCalDef, const QString& cal_id);
     EcuCalDefStructure *parse_ecuflash_def_scalings(EcuCalDefStructure *ecuCalDef);
-    EcuCalDefStructure *add_ecuflash_def_list_item(EcuCalDefStructure *ecuCalDef);
-    QString parse_strict_bool_attribute(const QDomElement& element, const QString& attrName, const QString& tableName);
 
     // EcuCalDefStructure *read_ecuflash_ecu_def_test(FileActions::EcuCalDefStructure *ecuCalDef, QString cal_id);
 

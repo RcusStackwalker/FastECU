@@ -32,7 +32,7 @@ py_test(
 )
 
 # Computes the resolved transitive label closure of every required portable
-# flash target, so the Python check below can catch a platform dependency
+# backend target, so the Python check below can catch a platform dependency
 # reached through several layers of `deps` -- something the per-BUILD-file
 # text scan in check-portable-closure.py cannot see, since that scan only
 # looks at each target's own immediate BUILD-file text.
@@ -51,6 +51,12 @@ genquery(
         "//src/backend/config:app_config",
         "//src/backend/config:protocol_catalog",
         "//src/backend/config:provisioning",
+        "//src/backend/definition:definition_model",
+        "//src/backend/definition:romraider_parser",
+        "//src/backend/definition:ecuflash_parser",
+        "//src/backend/definition:definition_resolver",
+        "//src/backend/definition:definition_service",
+        "//src/backend/definition:definition_writer",
     ]) + "))",
     scope = [
         "//src/backend/flash:flash_types",
@@ -65,6 +71,12 @@ genquery(
         "//src/backend/config:app_config",
         "//src/backend/config:protocol_catalog",
         "//src/backend/config:provisioning",
+        "//src/backend/definition:definition_model",
+        "//src/backend/definition:romraider_parser",
+        "//src/backend/definition:ecuflash_parser",
+        "//src/backend/definition:definition_resolver",
+        "//src/backend/definition:definition_service",
+        "//src/backend/definition:definition_writer",
     ],
 )
 
@@ -85,6 +97,7 @@ py_test(
         "//src/algorithms/protocol/ssm:BUILD.bazel",
         "//src/backend/checksum:BUILD.bazel",
         "//src/backend/config:BUILD.bazel",
+        "//src/backend/definition:BUILD.bazel",
         "//src/backend/flash:BUILD.bazel",
         "//src/backend/flash/eeprom:BUILD.bazel",
         "//src/backend/logging:BUILD.bazel",
