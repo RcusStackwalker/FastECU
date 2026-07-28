@@ -201,6 +201,7 @@ SUITE_DEPS = {
         "//src/platform/desktop/common/flash:flash_worker",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_kline",
+        "//src/backend/ports/testing:fake_clock",
         # test_flash_worker.cpp reconstructs request_kernel_id_frame()'s
         # exact bytes to script the transport's first write, requiring
         # SsmProtocol::checksum() directly.
@@ -227,6 +228,7 @@ SUITE_DEPS = {
         "//src/backend/flash:flash_executor",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
         "//src/backend/ports",
+        "//src/backend/ports/testing:fake_clock",
         "//src/platform/desktop/common/flash:flash_worker",
         "//src/ui/desktop/flash/eeprom",
     ],
@@ -238,6 +240,7 @@ SUITE_DEPS = {
         "//src/backend/flash:flash_executor",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
         "//src/backend/ports",
+        "//src/backend/ports/testing:fake_clock",
         "//src/platform/desktop/common/flash:flash_worker",
         "//src/ui/desktop/flash/eeprom",
     ],

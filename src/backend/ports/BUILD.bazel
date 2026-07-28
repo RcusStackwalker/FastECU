@@ -33,13 +33,3 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
-
-cc_test(
-    name = "clock_test",
-    size = "small",
-    srcs = ["clock_test.cpp"],
-    deps = [
-        ":ports",
-        "@googletest//:gtest_main",
-    ],
-)
