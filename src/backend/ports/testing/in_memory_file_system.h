@@ -25,15 +25,21 @@ class InMemoryFileSystem : public IFileSystem
     Status copy_file(std::string_view src, std::string_view dst, bool overwrite) override
     {
         if (!files.count(std::string(src)))
+        {
             return fastecu::fail(ErrorKind::Internal, "source missing");
+        }
         std::string dst_str(dst);
         // Mirrors QFile::copy: no implicit mkpath. A destination whose parent
         // directory doesn't exist yet fails, it isn't silently created.
         auto slash = dst_str.find_last_of('/');
         if (slash != std::string::npos && !directories.count(dst_str.substr(0, slash + 1)))
+        {
             return fastecu::fail(ErrorKind::Internal, "destination directory missing");
+        }
         if (!overwrite && files.count(dst_str))
+        {
             return fastecu::fail(ErrorKind::Internal, "destination exists");
+        }
         files[dst_str] = files[std::string(src)];
         copy_calls.push_back({std::string(src), dst_str});
         return {};
@@ -49,9 +55,13 @@ class InMemoryFileSystem : public IFileSystem
     {
         std::vector<DirEntry> out;
         for (auto& [name, mtime] : subdirectories_by_parent[std::string(path)])
+        {
             out.push_back(DirEntry{name, true, mtime});
+        }
         for (auto& [name, mtime] : files_by_parent[std::string(path)])
+        {
             out.push_back(DirEntry{name, false, mtime});
+        }
         return out;
     }
 

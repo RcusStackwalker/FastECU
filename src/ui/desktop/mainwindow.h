@@ -8,7 +8,6 @@
 #define RESTART_CODE 1000
 
 #include <QMainWindow>
-#include <QDebug>
 #include <QTreeWidget>
 #include <QLabel>
 #include <QGroupBox>

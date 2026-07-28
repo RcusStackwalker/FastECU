@@ -3,7 +3,6 @@
 #include <QApplication>
 #include <QWidget>
 #include <QScreen>
-#include <QWidget>
 #include <QFileDialog>
 #include <QDomDocument>
 #include <QXmlStreamReader>
@@ -26,7 +25,7 @@
 #include <QTextEdit>
 
 #include <cstdint>
-#include <string.h>
+#include <cstring>
 #include <iostream>
 
 #include "src/backend/definitions/kernelmemorymodels.h"
