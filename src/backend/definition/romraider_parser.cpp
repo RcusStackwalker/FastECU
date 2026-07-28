@@ -45,31 +45,30 @@ Result<pugi::xml_node> identity_element(
     }
 
     static constexpr std::array singleton_children{
-        "xmlid",
-        "internalidaddress",
-        "internalidstring",
-        "ecuid",
-        "make",
-        "market",
-        "model",
-        "submodel",
-        "transmission",
-        "year",
-        "flashmethod",
-        "memmodel",
-        "checksummodule",
-        "filesize",
-        "notes",
+        "xmlid"sv,
+        "internalidaddress"sv,
+        "internalidstring"sv,
+        "ecuid"sv,
+        "make"sv,
+        "market"sv,
+        "model"sv,
+        "submodel"sv,
+        "transmission"sv,
+        "year"sv,
+        "flashmethod"sv,
+        "memmodel"sv,
+        "checksummodule"sv,
+        "filesize"sv,
+        "notes"sv,
     };
-    for (const char *child_name : singleton_children)
+    for (const auto& child_name : singleton_children)
     {
         const pugi::xml_node child = rom_id.child(child_name);
         if (child && child.next_sibling(child_name))
         {
             return invalid(
                 source,
-                std::string("element <romid> child <") +
-                    child_name + ">",
+                std::format("element <romid> child <{}>", child_name),
                 "duplicate singleton identity element");
         }
     }
@@ -113,7 +112,7 @@ Result<std::uint64_t> parse_hex_unsigned(
 
 Result<std::optional<std::uint64_t>> optional_hex_attribute(
     pugi::xml_node node,
-    const char *attribute_name,
+    std::string_view attribute_name,
     std::string_view source,
     std::string_view definition_id)
 {
@@ -126,9 +125,9 @@ Result<std::optional<std::uint64_t>> optional_hex_attribute(
     auto parsed = parse_hex_unsigned(
         attribute.value(),
         source,
-        std::string("element <") + node.name() + "> attribute '" + attribute_name + "'",
+        std::format("element <{}> attribute '{}'", node.name(), attribute_name),
         definition_id);
-    if (!parsed)
+    if (!parsed.has_value())
     {
         return std::unexpected(parsed.error());
     }
@@ -173,7 +172,7 @@ Result<std::optional<std::uint64_t>> optional_address(
 
 Result<std::uint32_t> dimension_attribute(
     pugi::xml_node node,
-    const char *attribute_name,
+    std::string_view attribute_name,
     std::uint32_t default_value,
     std::string_view source,
     std::string_view definition_id)
@@ -192,7 +191,7 @@ Result<std::uint32_t> dimension_attribute(
     {
         return invalid(
             source,
-            std::string("element <") + node.name() + "> attribute '" + attribute_name + "'",
+            std::format("element <{}> attribute '{}'", node.name(), attribute_name),
             "invalid positive dimension '" + value + "'",
             definition_id);
     }
@@ -638,7 +637,7 @@ Result<std::vector<DefinitionIndexEntry>> parse_romraider_index(
             .internal_id_address = *internal_id_address,
             .internal_id_encoding = IdEncoding::Ascii,
             .ecu_id = child_text(rom_id, "ecuid"),
-            .source = std::string(source),
+            .source = std::string{source},
             .parents = parent_references(rom),
         });
     }
