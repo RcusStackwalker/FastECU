@@ -1,6 +1,7 @@
 #include "src/backend/definition/definition_resolver.h"
 
 #include <algorithm>
+#include <cassert>
 #include <format>
 #include <ranges>
 #include <string>
@@ -685,6 +686,7 @@ class ResolverState
         if (id.empty())
         {
             auto locally_valid = validate_local(definition);
+            assert(!locally_valid.has_value());
             return std::unexpected(locally_valid.error());
         }
         if (visiting.contains(id))
