@@ -246,9 +246,10 @@ std::string fine_increment_from(std::string_view coarse_increment)
         return {};
     }
 
-    char *end = nullptr;
-    const double parsed = std::strtod(value.c_str(), &end);
-    if (end == value.c_str() || *end != '\0')
+    double parsed;
+    const auto [end, error] =
+        std::from_chars(value.data(), value.data() + value.size(), parsed);
+    if (error != std::errc{} || end != value.data() + value.size())
     {
         return "0";
     }
