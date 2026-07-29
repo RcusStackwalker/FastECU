@@ -664,16 +664,13 @@ class ResolverState
 
     Result<RomDefinition> resolve_root(UnresolvedDefinition root)
     {
-        const std::string context =
-            format_name(root.format) + " definition '" + root.identity.xml_id + "' from '" +
-            root.source + "': ";
+        const auto context = std::format("{} definitions '{}' from '{}': ", format_name(root.format), root.identity.xml_id, root.source);
         auto resolved = resolve(std::move(root));
-        if (!resolved)
+        if (!resolved.has_value())
         {
             return fail(resolved.error().kind, context + resolved.error().detail);
-        }
-        auto valid = validate_and_resolve_scalings(*resolved);
-        if (!valid)
+        };
+        if (auto valid = validate_and_resolve_scalings(*resolved); !valid.has_value())
         {
             return fail(valid.error().kind, context + valid.error().detail);
         }
