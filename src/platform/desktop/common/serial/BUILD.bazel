@@ -1,5 +1,5 @@
 load("//bazel:qt_remote_objects.bzl", "qt_replica_library")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = [
     "//apps/desktop:__pkg__",
@@ -43,7 +43,6 @@ qt_cc_library(
     srcs = glob(["*.cpp"]),
     hdrs = MOC_HDRS,
     copts = COMMON_COPTS,
-    includes = COMMON_INCLUDES,
     # *.hpp because qtrohelper.hpp (included by remote_serial_backend.cpp
     # in this package, and by remote_utility.h in the sibling package) is
     # not matched by *.h alone.
@@ -102,7 +101,6 @@ qt_cc_library(
     srcs = [],
     hdrs = [],
     copts = COMMON_COPTS,
-    includes = COMMON_INCLUDES,
     visibility = ["//src/platform:__subpackages__"],
     deps = [":serial_qt_compat"],
 )

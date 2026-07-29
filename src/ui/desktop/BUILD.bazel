@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library", "qt_ui_basename_libraries")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library", "qt_ui_basename_libraries")
 
 package(default_visibility = [
     "//apps/desktop:__pkg__",
@@ -54,7 +54,6 @@ qt_cc_library(
     ),
     hdrs = MOC_HDRS,
     copts = COMMON_COPTS,
-    includes = COMMON_INCLUDES,
     linkopts = select({
         "@platforms//os:windows": [
             "-lopengl32",

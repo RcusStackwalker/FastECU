@@ -74,11 +74,7 @@ qt_cc_test(
         "@platforms//os:windows": [],
         "//conditions:default": local_test_srcs(SERIAL_BACKEND_TESTS_UNIX_SRCS) + local_test_hdrs(SERIAL_BACKEND_TESTS_UNIX_HDRS),
     }),
-    copts = COMMON_COPTS + [
-        "-I.",
-        "-Itests",
-        "-Isrc/platform/desktop/common/serial",
-    ],
+    copts = COMMON_COPTS,
     deps = QT_DEPS + [
         ":serial_backend_cpp_mocs",
         ":test_header_mocs",
@@ -91,7 +87,7 @@ qt_cc_test(
 qt_cc_test(
     name = "test_qt_port_adapters",
     srcs = ["test_qt_port_adapters.cpp"],
-    copts = COMMON_COPTS + ["-I."],
+    copts = COMMON_COPTS,
     deps = QT_DEPS + [
         "//src/backend/ports",
         "//src/platform/desktop/common/ports",
@@ -102,7 +98,7 @@ qt_cc_test(
 qt_cc_test(
     name = "test_logging_adapters",
     srcs = ["test_logging_adapters.cpp"],
-    copts = COMMON_COPTS + ["-I."],
+    copts = COMMON_COPTS,
     deps = QT_DEPS + [
         "//src/platform/desktop/common/logging:logging_adapters",
         "@googletest//:gtest",
@@ -116,7 +112,7 @@ qt_cc_test(
 qt_cc_test(
     name = "test_flash_snapshot_adapter",
     srcs = ["test_flash_snapshot_adapter.cpp"],
-    copts = COMMON_COPTS + ["-I."],
+    copts = COMMON_COPTS,
     deps = QT_DEPS + [
         "//src/backend/definitions",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
@@ -130,7 +126,7 @@ qt_cc_test(
 qt_cc_test(
     name = "test_qt_file_system",
     srcs = ["test_qt_file_system.cpp"],
-    copts = COMMON_COPTS + ["-I."],
+    copts = COMMON_COPTS,
     deps = QT_DEPS + [
         "//src/backend/ports",
         "//src/platform/desktop/common/ports",
@@ -141,7 +137,7 @@ qt_cc_test(
 qt_cc_test(
     name = "test_qt_resource_bundle",
     srcs = ["test_qt_resource_bundle.cpp"],
-    copts = COMMON_COPTS + ["-I."],
+    copts = COMMON_COPTS,
     deps = QT_DEPS + [
         "//resources/shared:config_resource",
         "//resources/shared:kernels_resource",
@@ -154,7 +150,7 @@ qt_cc_test(
 qt_cc_test(
     name = "test_legacy_config_adapter",
     srcs = ["test_legacy_config_adapter.cpp"],
-    copts = COMMON_COPTS + ["-I."],
+    copts = COMMON_COPTS,
     deps = QT_DEPS + [
         "//src/backend/config:legacy_config_adapter",
         "//src/backend/definitions",
@@ -169,7 +165,7 @@ qt_cc_test(
 qt_cc_test(
     name = "test_legacy_checksum_adapter",
     srcs = ["test_legacy_checksum_adapter.cpp"],
-    copts = COMMON_COPTS + ["-I."],
+    copts = COMMON_COPTS,
     deps = QT_DEPS + [
         "//src/backend/checksum:legacy_checksum_adapter",
         "@googletest//:gtest",
@@ -185,11 +181,7 @@ qt_cpp_moc_headers(
 qt_cc_test(
     name = "serial_crash_tests",
     srcs = local_test_srcs(SERIAL_CRASH_TESTS_COMMON_SRCS) + local_test_hdrs(SERIAL_CRASH_TESTS_COMMON_HDRS),
-    copts = COMMON_COPTS + [
-        "-I.",
-        "-Itests",
-        "-Isrc/platform/desktop/common/serial",
-    ],
+    copts = COMMON_COPTS,
     target_compatible_with = select({
         "@platforms//os:windows": ["@platforms//:incompatible"],
         "//conditions:default": [],
@@ -211,11 +203,7 @@ qt_cpp_moc_headers(
 qt_cc_test(
     name = "mut_dma_integration_tests",
     srcs = local_test_srcs(MUT_DMA_INTEGRATION_TESTS_COMMON_SRCS) + local_test_hdrs(MUT_DMA_INTEGRATION_TESTS_COMMON_HDRS),
-    copts = COMMON_COPTS + [
-        "-I.",
-        "-Itests",
-        "-Isrc/platform/desktop/common/serial",
-    ],
+    copts = COMMON_COPTS,
     target_compatible_with = select({
         "@platforms//os:windows": ["@platforms//:incompatible"],
         "//conditions:default": [],
