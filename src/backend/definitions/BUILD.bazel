@@ -57,7 +57,6 @@ qt_cc_library(
     srcs = [],
     hdrs = [],
     copts = COMMON_COPTS,
-    includes = COMMON_INCLUDES,
     normal_hdrs = ECU_CAL_DEF_HDRS,
     deps = QT_DEPS,
 )
