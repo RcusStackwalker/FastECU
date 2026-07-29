@@ -748,8 +748,7 @@ class ResolverState
                             chain_text(stack, parent_id));
                 }
 
-                auto parent_result = resolve(std::move(*loaded));
-                if (!parent_result)
+                if (auto parent_result = resolve(std::move(*loaded)); !parent_result.has_value())
                 {
                     return std::unexpected(parent_result.error());
                 }
@@ -761,15 +760,11 @@ class ResolverState
                 resolved = parent->second;
                 has_parent = true;
             }
-            else
+            else if (auto merged = overlay_definition(resolved, parent->second); !merged.has_value())
             {
-                auto merged = overlay_definition(resolved, parent->second);
-                if (!merged)
-                {
-                    return fail(
-                        merged.error().kind,
-                        merged.error().detail + " in inheritance chain " + chain_text(stack));
-                }
+                return fail(
+                    merged.error().kind,
+                    merged.error().detail + " in inheritance chain " + chain_text(stack));
             }
             append_unique(resolved.resolved_sources, parent->second.resolved_sources);
             append_unique(
