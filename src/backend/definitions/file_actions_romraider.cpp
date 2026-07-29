@@ -28,7 +28,7 @@ FileActions::ConfigValuesStructure *FileActions::create_romraider_def_id_list(
 
     const fastecu::Status replaced =
         definitionAdapter_.replace_romraider_catalog(*configValues, handles);
-    if (!replaced)
+    if (!replaced.has_value())
     {
         log_definition_error(
             "Unable to build RomRaider definition catalog",
@@ -127,7 +127,7 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(
         *catalog,
         fastecu::definition::DefinitionFormat::RomRaider,
         definitionId.toStdString());
-    if (!replaced)
+    if (!replaced.has_value())
     {
         log_definition_error(
             "Unable to read RomRaider base definition",
@@ -191,7 +191,7 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(
         *catalog,
         fastecu::definition::DefinitionFormat::RomRaider,
         cal_id.toStdString());
-    if (!replaced)
+    if (!replaced.has_value())
     {
         log_definition_error(
             "Unable to read RomRaider definition " + cal_id,

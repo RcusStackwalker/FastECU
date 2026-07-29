@@ -119,7 +119,7 @@ std::string convert_value_format(std::string_view format)
         {
             return "0";
         }
-        const std::uint64_t digit = static_cast<std::uint64_t>(character - '0');
+        const auto digit = static_cast<std::uint64_t>(character - '0');
         if (precision > std::numeric_limits<std::uint64_t>::max() / 10 ||
             (precision == std::numeric_limits<std::uint64_t>::max() / 10 &&
              digit > std::numeric_limits<std::uint64_t>::max() % 10))
@@ -250,7 +250,7 @@ Result<AxisDefinition> parse_axis(
     if (size_attribute)
     {
         auto size = dimension_attribute(table, size_attribute, default_size, source, definition_id);
-        if (!size)
+        if (!size.has_value())
         {
             return std::unexpected(size.error());
         }
@@ -341,7 +341,7 @@ Result<CalibrationMap> parse_table(
     if (is_top_level_x_axis || is_top_level_y_axis)
     {
         auto elements = dimension_attribute(table, "elements", 1, source, definition_id);
-        if (!elements)
+        if (!elements.has_value())
         {
             return std::unexpected(elements.error());
         }
@@ -356,14 +356,14 @@ Result<CalibrationMap> parse_table(
     else
     {
         auto x_size = dimension_attribute(table, "sizex", 1, source, definition_id);
-        if (!x_size)
+        if (!x_size.has_value())
         {
             return std::unexpected(x_size.error());
         }
         map.x_size = *x_size;
         map.supplied.x_size = static_cast<bool>(table.attribute("sizex"));
         auto y_size = dimension_attribute(table, "sizey", 1, source, definition_id);
-        if (!y_size)
+        if (!y_size.has_value())
         {
             return std::unexpected(y_size.error());
         }
@@ -372,21 +372,21 @@ Result<CalibrationMap> parse_table(
     }
 
     auto swap_xy = strict_boolean_attribute(table, "swapxy", source, definition_id);
-    if (!swap_xy)
+    if (!swap_xy.has_value())
     {
         return std::unexpected(swap_xy.error());
     }
     map.swap_xy = *swap_xy;
     map.supplied.swap_xy = static_cast<bool>(table.attribute("swapxy"));
     auto flip_x = strict_boolean_attribute(table, "flipx", source, definition_id);
-    if (!flip_x)
+    if (!flip_x.has_value())
     {
         return std::unexpected(flip_x.error());
     }
     map.flip_x = *flip_x;
     map.supplied.flip_x = static_cast<bool>(table.attribute("flipx"));
     auto flip_y = strict_boolean_attribute(table, "flipy", source, definition_id);
-    if (!flip_y)
+    if (!flip_y.has_value())
     {
         return std::unexpected(flip_y.error());
     }
@@ -595,7 +595,7 @@ Result<UnresolvedDefinition> parse_ecuflash_definition(
         Scaling scaling = parse_scaling(scaling_node, {});
         if (!scaling.name.empty())
         {
-            const auto [existing, inserted] = global_scalings.emplace(scaling.name, scaling);
+            const auto [existing, inserted] = global_scalings.try_emplace(scaling.name, scaling);
             if (!inserted && existing->second != scaling)
             {
                 return invalid(

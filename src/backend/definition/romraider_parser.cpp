@@ -237,8 +237,7 @@ Result<AxisDefinition> parse_axis(
     }
 
     axis.scaling_name = attribute_or_empty(table, "scaling");
-    const pugi::xml_node scaling_node = table.child("scaling");
-    if (scaling_node)
+    if (const pugi::xml_node scaling_node = table.child("scaling"))
     {
         Scaling scaling = parse_scaling(
             scaling_node,
@@ -324,7 +323,7 @@ Result<CalibrationMap> parse_table(
     map.address = *address;
 
     auto x_size = dimension_attribute(table, "sizex", 1, source, definition_id);
-    if (!x_size)
+    if (!x_size.has_value())
     {
         return std::unexpected(x_size.error());
     }
@@ -332,7 +331,7 @@ Result<CalibrationMap> parse_table(
     map.supplied.x_size = static_cast<bool>(table.attribute("sizex"));
 
     auto y_size = dimension_attribute(table, "sizey", 1, source, definition_id);
-    if (!y_size)
+    if (!y_size.has_value())
     {
         return std::unexpected(y_size.error());
     }
@@ -340,7 +339,7 @@ Result<CalibrationMap> parse_table(
     map.supplied.y_size = static_cast<bool>(table.attribute("sizey"));
 
     auto swap_xy = strict_boolean_attribute(table, "swapxy", source, definition_id);
-    if (!swap_xy)
+    if (!swap_xy.has_value())
     {
         return std::unexpected(swap_xy.error());
     }
@@ -348,7 +347,7 @@ Result<CalibrationMap> parse_table(
     map.supplied.swap_xy = static_cast<bool>(table.attribute("swapxy"));
 
     auto flip_x = strict_boolean_attribute(table, "flipx", source, definition_id);
-    if (!flip_x)
+    if (!flip_x.has_value())
     {
         return std::unexpected(flip_x.error());
     }
@@ -356,7 +355,7 @@ Result<CalibrationMap> parse_table(
     map.supplied.flip_x = static_cast<bool>(table.attribute("flipx"));
 
     auto flip_y = strict_boolean_attribute(table, "flipy", source, definition_id);
-    if (!flip_y)
+    if (!flip_y.has_value())
     {
         return std::unexpected(flip_y.error());
     }

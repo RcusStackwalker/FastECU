@@ -31,7 +31,7 @@ QString legacy_value(std::string_view value)
 
 QString address_text(const std::optional<std::uint64_t>& address, bool placeholder)
 {
-    if (!address)
+    if (!address.has_value())
     {
         return placeholder ? qs(kPlaceholder) : QString{};
     }
@@ -595,7 +595,7 @@ Status LegacyDefinitionAdapter::replace_romraider_catalog(
     }
     definitions::ConfigValuesStructure next = current;
     auto populated = populate_catalog(next, *catalog, DefinitionFormat::RomRaider);
-    if (!populated)
+    if (!populated.has_value())
     {
         return populated;
     }
@@ -616,7 +616,7 @@ Status LegacyDefinitionAdapter::replace_ecuflash_catalog(
     }
     definitions::ConfigValuesStructure next = current;
     auto populated = populate_catalog(next, *catalog, DefinitionFormat::EcuFlash);
-    if (!populated)
+    if (!populated.has_value())
     {
         return populated;
     }
@@ -640,7 +640,7 @@ Status LegacyDefinitionAdapter::replace_definition(
     clear_map_rows(next);
     clear_scaling_rows(next);
     auto rom_info = populate_rom_info(next, *definition);
-    if (!rom_info)
+    if (!rom_info.has_value())
     {
         return rom_info;
     }
@@ -655,7 +655,7 @@ Status LegacyDefinitionAdapter::replace_definition(
         append_map(next, *definition, map);
     }
     auto aligned = validate_definition_alignment(next);
-    if (!aligned)
+    if (!aligned.has_value())
     {
         return aligned;
     }

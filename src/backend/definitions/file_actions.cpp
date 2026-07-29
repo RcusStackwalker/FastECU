@@ -301,7 +301,7 @@ fastecu::Status FileActions::submit_new_definition(
 {
     fastecu::Status status =
         definitionAdapter_.create_definition(destination, input);
-    if (!status)
+    if (!status.has_value())
     {
         log_definition_error("Unable to create definition", status.error());
     }
@@ -319,7 +319,7 @@ fastecu::Status FileActions::submit_imported_definition(
 {
     fastecu::Status status =
         definitionAdapter_.import_definition(source, destination, input);
-    if (!status)
+    if (!status.has_value())
     {
         log_definition_error("Unable to import definition", status.error());
     }
@@ -342,9 +342,9 @@ void FileActions::remember_submitted_ecuflash_handle(
     if (position == std::ranges::end(submittedEcuflashHandles_) ||
         std::string_view(*position) != destination)
     {
-        submittedEcuflashHandles_.insert(
+        submittedEcuflashHandles_.emplace(
             position,
-            std::string{destination});
+            destination);
     }
 }
 
@@ -1542,7 +1542,7 @@ FileActions::EcuCalDefStructure *FileActions::create_new_definition_for_rom(File
         }
         fastecu::Status status =
             submit_new_definition(filename.toStdString(), *input);
-        if (!status)
+        if (!status.has_value())
         {
             QMessageBox::warning(this, tr("Definition file"), "Unable to open definition file for writing");
             return nullptr;
@@ -1713,7 +1713,7 @@ FileActions::EcuCalDefStructure *FileActions::use_existing_definition_for_rom(Fi
             source.toStdString(),
             filename.toStdString(),
             *input);
-        if (!status)
+        if (!status.has_value())
         {
             QMessageBox::warning(this, tr("Definition file"), "Unable to open definition file for writing");
             return nullptr;

@@ -76,8 +76,7 @@ inline Result<pugi::xml_node> parse_root(
     std::string_view source,
     std::string_view root_name)
 {
-    const pugi::xml_parse_result parsed = document.load_buffer(xml.data(), xml.size());
-    if (!parsed)
+    if (const pugi::xml_parse_result parsed = document.load_buffer(xml.data(), xml.size()); !parsed)
     {
         return invalid(source, "XML document", std::string("malformed XML: ") + parsed.description());
     }
@@ -153,7 +152,7 @@ inline Result<std::optional<std::uint64_t>> optional_hex_element(
         source,
         std::format("element <{}> child <{}>", parent.name(), child_name),
         definition_id);
-    if (!parsed)
+    if (!parsed.has_value())
     {
         return std::unexpected(parsed.error());
     }

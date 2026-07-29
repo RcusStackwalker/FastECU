@@ -59,7 +59,7 @@ FileActions::ConfigValuesStructure *FileActions::create_ecuflash_def_id_list(
             *configValues,
             configValues->ecuflash_definition_files_directory.toStdString(),
             submittedEcuflashHandles_);
-    if (!replaced)
+    if (!replaced.has_value())
     {
         log_definition_error(
             "Unable to build EcuFlash definition catalog",
@@ -138,7 +138,7 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(
         *catalog,
         fastecu::definition::DefinitionFormat::EcuFlash,
         cal_id.toStdString());
-    if (!replaced)
+    if (!replaced.has_value())
     {
         log_definition_error(
             "Unable to read EcuFlash definition " + cal_id,
