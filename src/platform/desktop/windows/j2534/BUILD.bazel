@@ -1,6 +1,6 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = [
     "//apps/desktop:__pkg__",
@@ -25,7 +25,6 @@ qt_cc_library(
     ),
     hdrs = [],
     copts = COMMON_COPTS,
-    includes = COMMON_INCLUDES,
     normal_hdrs = glob(["*.h"]),
     target_compatible_with = WINDOWS_ONLY,
     # J2534_win.cpp calls isDll32Bit() (pe_bitness.h:8, defined only in

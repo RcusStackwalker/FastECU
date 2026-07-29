@@ -36,64 +36,64 @@
 #include <QThread>
 #include <QMutex>
 
-#include <src/algorithms/crypto/qt_cipher.h>
-#include <src/ui/desktop/calibration_maps.h>
-#include <src/ui/desktop/calibration_treewidget.h>
-#include <src/ui/desktop/protocol_select.h>
-#include <src/ui/desktop/vehicle_select.h>
-#include <src/ui/desktop/definition_file_convert.h>
-#include <src/ui/desktop/biu/biu_operations_subaru.h>
-#include <src/ui/desktop/dataterminal.h>
-#include <src/ui/desktop/get_key_operations_subaru.h>
+#include "src/algorithms/crypto/qt_cipher.h"
+#include "src/ui/desktop/calibration_maps.h"
+#include "src/ui/desktop/calibration_treewidget.h"
+#include "src/ui/desktop/protocol_select.h"
+#include "src/ui/desktop/vehicle_select.h"
+#include "src/ui/desktop/definition_file_convert.h"
+#include "src/ui/desktop/biu/biu_operations_subaru.h"
+#include "src/ui/desktop/dataterminal.h"
+#include "src/ui/desktop/get_key_operations_subaru.h"
 #include "src/backend/definitions/file_actions.h"
-#include <src/ui/desktop/logbox.h>
-#include <src/ui/desktop/settings.h>
-#include <src/ui/desktop/dtc_operations.h>
-#include <src/ui/desktop/hexedit/hexedit.h>
+#include "src/ui/desktop/logbox.h"
+#include "src/ui/desktop/settings.h"
+#include "src/ui/desktop/dtc_operations.h"
+#include "src/ui/desktop/hexedit/hexedit.h"
 
 // Flash modules
 // BDM
-#include <src/ui/desktop/flash/bdm/flash_ecu_subaru_denso_mc68hc16y5_02_bdm.h>
+#include "src/ui/desktop/flash/bdm/flash_ecu_subaru_denso_mc68hc16y5_02_bdm.h"
 
 // Bootmode
-#include <src/ui/desktop/flash/bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode.h>
+#include "src/ui/desktop/flash/bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode.h"
 
 // OBD
-#include <src/ui/desktop/flash/eeprom/eeprom_ecu_subaru_denso_sh705x_kline.h>
-#include <src/ui/desktop/flash/eeprom/eeprom_ecu_subaru_denso_sh705x_can.h>
+#include "src/ui/desktop/flash/eeprom/eeprom_ecu_subaru_denso_sh705x_kline.h"
+#include "src/ui/desktop/flash/eeprom/eeprom_ecu_subaru_denso_sh705x_can.h"
 
-#include <src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_mc68hc16y5_02.h>
-#include <src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh7055_02.h>
-#include <src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh705x_densocan.h>
-#include <src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh705x_kline.h>
-#include <src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh7058_can.h>
-#include <src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh7058_can_diesel.h>
-#include <src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh72543_can_diesel.h>
-#include <src/ui/desktop/flash/ecu/flash_ecu_subaru_unisia_jecs.h>
-#include <src/ui/desktop/flash/ecu/flash_ecu_subaru_unisia_jecs_m32r.h>
-#include <src/ui/desktop/flash/ecu/flash_ecu_subaru_hitachi_m32r_kline.h>
-#include <src/ui/desktop/flash/ecu/flash_ecu_subaru_hitachi_m32r_can.h>
-#include <src/ui/desktop/flash/ecu/flash_ecu_subaru_mitsu_m32r_kline.h>
-#include <src/ui/desktop/flash/ecu/flash_ecu_mitsu_m32r_can.h>
-#include <src/ui/desktop/flash/ecu/flash_ecu_subaru_hitachi_sh7058_can.h>
-#include <src/ui/desktop/flash/ecu/flash_ecu_subaru_hitachi_sh72543r_can.h>
-#include <src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh72531_can.h>
-#include <src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_1n83m_4m_can.h>
-#include <src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_1n83m_1_5m_can.h>
+#include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_mc68hc16y5_02.h"
+#include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh7055_02.h"
+#include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh705x_densocan.h"
+#include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh705x_kline.h"
+#include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh7058_can.h"
+#include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh7058_can_diesel.h"
+#include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh72543_can_diesel.h"
+#include "src/ui/desktop/flash/ecu/flash_ecu_subaru_unisia_jecs.h"
+#include "src/ui/desktop/flash/ecu/flash_ecu_subaru_unisia_jecs_m32r.h"
+#include "src/ui/desktop/flash/ecu/flash_ecu_subaru_hitachi_m32r_kline.h"
+#include "src/ui/desktop/flash/ecu/flash_ecu_subaru_hitachi_m32r_can.h"
+#include "src/ui/desktop/flash/ecu/flash_ecu_subaru_mitsu_m32r_kline.h"
+#include "src/ui/desktop/flash/ecu/flash_ecu_mitsu_m32r_can.h"
+#include "src/ui/desktop/flash/ecu/flash_ecu_subaru_hitachi_sh7058_can.h"
+#include "src/ui/desktop/flash/ecu/flash_ecu_subaru_hitachi_sh72543r_can.h"
+#include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh72531_can.h"
+#include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_1n83m_4m_can.h"
+#include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_1n83m_1_5m_can.h"
 
-#include <src/ui/desktop/flash/tcu/flash_tcu_subaru_hitachi_m32r_kline.h>
-#include <src/ui/desktop/flash/tcu/flash_tcu_subaru_hitachi_m32r_can.h>
-#include <src/ui/desktop/flash/tcu/flash_tcu_cvt_subaru_hitachi_m32r_can.h>
-#include <src/ui/desktop/flash/tcu/flash_tcu_subaru_denso_sh705x_can.h>
-#include <src/ui/desktop/flash/tcu/flash_tcu_cvt_subaru_mitsu_mh8104_can.h>
-#include <src/ui/desktop/flash/tcu/flash_tcu_cvt_subaru_mitsu_mh8111_can.h>
+#include "src/ui/desktop/flash/tcu/flash_tcu_subaru_hitachi_m32r_kline.h"
+#include "src/ui/desktop/flash/tcu/flash_tcu_subaru_hitachi_m32r_can.h"
+#include "src/ui/desktop/flash/tcu/flash_tcu_cvt_subaru_hitachi_m32r_can.h"
+#include "src/ui/desktop/flash/tcu/flash_tcu_subaru_denso_sh705x_can.h"
+#include "src/ui/desktop/flash/tcu/flash_tcu_cvt_subaru_mitsu_mh8104_can.h"
+#include "src/ui/desktop/flash/tcu/flash_tcu_cvt_subaru_mitsu_mh8111_can.h"
 
 // JTAG
-#include <src/ui/desktop/flash/jtag/flash_ecu_subaru_hitachi_m32r_jtag.h>
+#include "src/ui/desktop/flash/jtag/flash_ecu_subaru_hitachi_m32r_jtag.h"
 
-#include <src/platform/desktop/common/logging/systemlogger.h>
+#include "src/platform/desktop/common/logging/systemlogger.h"
 
-#include <src/platform/desktop/common/remote_utility/remote_utility.h>
+#include "src/platform/desktop/common/remote_utility/remote_utility.h"
 
 // Mitsubishi MUT/DMA protocol core (namespace mutdma)
 #include "src/backend/protocol/mut_dma_driver.h"

@@ -1,4 +1,4 @@
-#include <src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh705x_kline.h>
+#include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh705x_kline.h"
 
 #include <utility>
 #include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh705x_kline_operation.h"

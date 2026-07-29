@@ -1,7 +1,7 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -145,7 +145,6 @@ qt_cc_library(
     srcs = ["legacy_config_adapter.cpp"],
     hdrs = [],
     copts = COMMON_COPTS,
-    includes = COMMON_INCLUDES,
     normal_hdrs = ["legacy_config_adapter.h"],
     deps = QT_DEPS + [
         ":app_config",

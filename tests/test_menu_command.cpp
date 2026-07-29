@@ -1,6 +1,6 @@
 #include <QtTest>
 
-#include <src/algorithms/menu/qt_menu_command.h>
+#include "src/algorithms/menu/qt_menu_command.h"
 
 #include "test_menu_command.h"
 

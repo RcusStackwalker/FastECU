@@ -32,11 +32,7 @@ def fastecu_gtest(
     cc_test(
         name = name,
         srcs = srcs,
-        copts = COMMON_COPTS + [
-            "-I.",
-            "-Itests",
-            "-Isrc/platform/desktop/common/serial",
-        ],
+        copts = COMMON_COPTS,
         data = select({
             "@platforms//os:macos": ["@qt_mac_aarch64//:lib"],
             "//conditions:default": [],

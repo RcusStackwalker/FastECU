@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = [
     "//apps/desktop:__pkg__",
@@ -13,7 +13,6 @@ qt_cc_library(
     srcs = glob(["*.cpp"]),
     hdrs = MOC_HDRS,
     copts = COMMON_COPTS,
-    includes = COMMON_INCLUDES,
     normal_hdrs = glob(
         ["*.h"],
         exclude = MOC_HDRS,

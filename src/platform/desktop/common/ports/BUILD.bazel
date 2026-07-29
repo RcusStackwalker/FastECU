@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = [
     "//apps:__subpackages__",
@@ -14,7 +14,6 @@ qt_cc_library(
     ),
     hdrs = ["qt_event_sink.h"],  # MOC header
     copts = COMMON_COPTS,
-    includes = COMMON_INCLUDES,
     normal_hdrs = glob(
         ["*.h"],
         exclude = ["qt_event_sink.h"],

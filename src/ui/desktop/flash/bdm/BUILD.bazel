@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = [
     "//apps/desktop:__pkg__",
@@ -11,7 +11,6 @@ qt_cc_library(
     srcs = glob(["*.cpp"]),
     hdrs = glob(["*.h"]),
     copts = COMMON_COPTS,
-    includes = COMMON_INCLUDES,
     deps = QT_DEPS + [
         # Full :definitions (not :models) because file_actions.h -- part of
         # the moc'd :definitions target, not the header-only :models split
