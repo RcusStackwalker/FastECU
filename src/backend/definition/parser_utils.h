@@ -118,4 +118,9 @@ inline Result<std::uint64_t> parse_hex_unsigned(
     return parsed;
 }
 
+inline std::string attribute_or_empty(pugi::xml_node node, std::string_view name)
+{
+    return trim_copy(node.attribute(name).value());
+}
+
 } // namespace fastecu::definition

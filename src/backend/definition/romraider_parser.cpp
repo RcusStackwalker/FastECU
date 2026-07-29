@@ -191,11 +191,6 @@ Result<bool> strict_boolean_attribute(
         definition_id);
 }
 
-std::string attribute_or_empty(pugi::xml_node node, std::string_view name)
-{
-    return trim_copy(node.attribute(name).value());
-}
-
 std::string selection_name(std::string name)
 {
     if (name == "on")

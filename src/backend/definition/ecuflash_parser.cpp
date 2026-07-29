@@ -40,11 +40,6 @@ Result<pugi::xml_node> identity_element(
     return required_child_text(rom_id, "romid", "xmlid", source);
 }
 
-std::string attribute_or_empty(pugi::xml_node node, const char *name)
-{
-    return trim_copy(node.attribute(name).value());
-}
-
 Result<std::optional<std::uint64_t>> optional_hex_attribute(
     pugi::xml_node node,
     const char *attribute_name,
