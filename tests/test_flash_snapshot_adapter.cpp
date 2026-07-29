@@ -4,36 +4,17 @@
 #include <gtest/gtest.h>
 
 #include "src/backend/definitions/file_actions.h"
+#include "src/backend/ports/testing/in_memory_file_repository.h"
 
 namespace fastecu::flash
 {
 namespace
 {
 
-class RecordingFileRepository : public IFileRepository
-{
-  public:
-    Result<std::vector<std::uint8_t>> read(std::string_view handle) override
-    {
-        last_handle_read = std::string(handle);
-        if (!next_read_result.has_value())
-        {
-            return std::unexpected(next_read_result.error());
-        }
-        return *next_read_result;
-    }
-    Status write(std::string_view, std::span<const std::uint8_t>) override
-    {
-        return fail(ErrorKind::Unsupported, "write not used by this adapter");
-    }
-
-    std::string last_handle_read;
-    Result<std::vector<std::uint8_t>> next_read_result = std::vector<std::uint8_t>{0xaa, 0xbb};
-};
-
 TEST(LegacyFlashSnapshotAdapterTest, ValidSnapshotProducesAKlinePlan)
 {
-    RecordingFileRepository repository;
+    InMemoryFileRepository repository;
+    repository.files["kernel-handle-1"] = {0xaa, 0xbb};
     LegacyFlashSnapshotAdapter adapter(repository);
 
     // KernelStartAddr is a "0x"-prefixed hex string in real config, e.g.
@@ -51,13 +32,13 @@ TEST(LegacyFlashSnapshotAdapterTest, ValidSnapshotProducesAKlinePlan)
 
     ASSERT_TRUE(plan.has_value());
     EXPECT_EQ(plan->family(), FlashFamily::DensoSh705xEepromKline);
-    EXPECT_EQ(repository.last_handle_read, "kernel-handle-1");
+    EXPECT_EQ(repository.read_handles, std::vector<std::string>{"kernel-handle-1"});
 }
 
 TEST(LegacyFlashSnapshotAdapterTest, FileRepositoryReadFailureIsPropagated)
 {
-    RecordingFileRepository repository;
-    repository.next_read_result = std::unexpected(Error{ErrorKind::Internal, "disk error"});
+    InMemoryFileRepository repository;
+    repository.next_read_result = fail(ErrorKind::Internal, "disk error");
     LegacyFlashSnapshotAdapter adapter(repository);
 
     FileActions::EcuCalDefStructure ecu_cal_def;
@@ -70,11 +51,12 @@ TEST(LegacyFlashSnapshotAdapterTest, FileRepositoryReadFailureIsPropagated)
 
     ASSERT_FALSE(plan.has_value());
     EXPECT_EQ(plan.error().kind, ErrorKind::Internal);
+    EXPECT_EQ(repository.read_handles, std::vector<std::string>{"missing-handle"});
 }
 
 TEST(LegacyFlashSnapshotAdapterTest, UnknownMcuTypeIsRejectedBeforeAnyFileRead)
 {
-    RecordingFileRepository repository;
+    InMemoryFileRepository repository;
     LegacyFlashSnapshotAdapter adapter(repository);
 
     FileActions::EcuCalDefStructure ecu_cal_def;
@@ -87,14 +69,14 @@ TEST(LegacyFlashSnapshotAdapterTest, UnknownMcuTypeIsRejectedBeforeAnyFileRead)
 
     ASSERT_FALSE(plan.has_value());
     EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_TRUE(repository.last_handle_read.empty()); // no I/O before rejection
+    EXPECT_TRUE(repository.read_handles.empty()); // no I/O before rejection
 }
 
 TEST(LegacyFlashSnapshotAdapterTest, UnparseableKernelStartAddrIsRejectedBeforeAnyFileRead)
 {
     // Real-world guard against a malformed or missing protocols.cfg entry --
     // QString::toUInt(&ok, 16) sets ok=false rather than throwing.
-    RecordingFileRepository repository;
+    InMemoryFileRepository repository;
     LegacyFlashSnapshotAdapter adapter(repository);
 
     FileActions::EcuCalDefStructure ecu_cal_def;
@@ -107,7 +89,7 @@ TEST(LegacyFlashSnapshotAdapterTest, UnparseableKernelStartAddrIsRejectedBeforeA
 
     ASSERT_FALSE(plan.has_value());
     EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_TRUE(repository.last_handle_read.empty());
+    EXPECT_TRUE(repository.read_handles.empty());
 }
 
 TEST(LegacyFlashSnapshotAdapterTest, EcuTekSecuritySuffixOnFlashMethodProducesEcuTekPlan)
@@ -121,7 +103,8 @@ TEST(LegacyFlashSnapshotAdapterTest, EcuTekSecuritySuffixOnFlashMethodProducesEc
     // "sub_ecu_denso_sh7055_02_ecutek") -- verbatim into
     // ecuCalDef[rom_number]->FlashMethod (mainwindow.cpp:1119, 1145). There is
     // no separate EcuCalDefStructure field for it.
-    RecordingFileRepository repository;
+    InMemoryFileRepository repository;
+    repository.files["kernel-handle-1"] = {0xaa, 0xbb};
     LegacyFlashSnapshotAdapter adapter(repository);
 
     FileActions::EcuCalDefStructure ecu_cal_def;
@@ -140,7 +123,8 @@ TEST(LegacyFlashSnapshotAdapterTest, EcuTekSecuritySuffixOnFlashMethodProducesEc
 
 TEST(LegacyFlashSnapshotAdapterTest, CanProtocolNameProducesACanPlan)
 {
-    RecordingFileRepository repository;
+    InMemoryFileRepository repository;
+    repository.files["kernel-handle-1"] = {0xaa, 0xbb};
     LegacyFlashSnapshotAdapter adapter(repository);
 
     FileActions::EcuCalDefStructure ecu_cal_def;

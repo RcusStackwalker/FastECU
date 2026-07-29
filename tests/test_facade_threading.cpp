@@ -13,35 +13,11 @@
 
 #include "fake_backend.h"
 #include "src/algorithms/protocol/qt_bytes.h"
+#include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 #include "src/platform/desktop/common/transport/fastecu_can_transport.h"
 #include "src/platform/desktop/common/transport/fastecu_kline_transport.h"
 #include "src/platform/desktop/common/transport/fastecu_ssm_transport.h"
-
-namespace
-{
-class MutableCancellationToken final : public fastecu::ICancellationToken
-{
-  public:
-    bool cancelled() const override
-    {
-        return cancelled_.load();
-    }
-
-    void cancel()
-    {
-        cancelled_.store(true);
-    }
-
-    void reset()
-    {
-        cancelled_.store(false);
-    }
-
-  private:
-    std::atomic<bool> cancelled_{false};
-};
-} // namespace
 
 class TestFacadeThreading : public QObject
 {
@@ -190,7 +166,7 @@ void TestFacadeThreading::transportAdapters_normalEmptyReadIsSuccess()
     FastEcuSsmTransport ssm(&serial);
     mutdma::FastEcuKlineTransport kline(&serial);
     cdbg::FastEcuCanTransport can(&serial);
-    MutableCancellationToken cancellation;
+    fastecu::FakeCancellationToken cancellation;
 
     const auto ssmResult = ssm.read(10, cancellation);
     QVERIFY(ssmResult.has_value());
@@ -216,8 +192,8 @@ void TestFacadeThreading::transportAdapters_preCancelledReadSkipsBackend()
     FastEcuSsmTransport ssm(&serial);
     mutdma::FastEcuKlineTransport kline(&serial);
     cdbg::FastEcuCanTransport can(&serial);
-    MutableCancellationToken cancellation;
-    cancellation.cancel();
+    fastecu::FakeCancellationToken cancellation;
+    cancellation.set_cancelled(true);
 
     const auto ssmResult = ssm.read(10, cancellation);
     QVERIFY(!ssmResult.has_value());
@@ -243,10 +219,10 @@ void TestFacadeThreading::transportAdapters_postCallCancellationPrecedesDisconne
     FastEcuSsmTransport ssm(&serial);
     mutdma::FastEcuKlineTransport kline(&serial);
     cdbg::FastEcuCanTransport can(&serial);
-    MutableCancellationToken cancellation;
+    fastecu::FakeCancellationToken cancellation;
     fake->afterRead = [&]
     {
-        cancellation.cancel();
+        cancellation.set_cancelled(true);
         fake->portOpen.store(false);
     };
 
@@ -254,13 +230,13 @@ void TestFacadeThreading::transportAdapters_postCallCancellationPrecedesDisconne
     QVERIFY(!ssmResult.has_value());
     QVERIFY(ssmResult.error().kind == fastecu::ErrorKind::Cancelled);
 
-    cancellation.reset();
+    cancellation.set_cancelled(false);
     fake->portOpen.store(true);
     const auto klineResult = kline.read(10, cancellation);
     QVERIFY(!klineResult.has_value());
     QVERIFY(klineResult.error().kind == fastecu::ErrorKind::Cancelled);
 
-    cancellation.reset();
+    cancellation.set_cancelled(false);
     fake->portOpen.store(true);
     const auto canResult = can.read(10, cancellation);
     QVERIFY(!canResult.has_value());
@@ -277,7 +253,7 @@ void TestFacadeThreading::transportAdapters_backendReadExceptionMapsToInternal()
     FastEcuSsmTransport ssm(&serial);
     mutdma::FastEcuKlineTransport kline(&serial);
     cdbg::FastEcuCanTransport can(&serial);
-    MutableCancellationToken cancellation;
+    fastecu::FakeCancellationToken cancellation;
     fake->throwOnRead = true;
 
     const auto ssmResult = ssm.read(10, cancellation);
@@ -302,7 +278,7 @@ void TestFacadeThreading::canTransport_truncatedFrameMapsToInternal()
     serial.set_add_ssm_header(false);
     fake->scriptedResponse = QByteArray("\x01\x02\x03", 3);
     cdbg::FastEcuCanTransport can(&serial);
-    MutableCancellationToken cancellation;
+    fastecu::FakeCancellationToken cancellation;
 
     const auto result = can.read(10, cancellation);
     QVERIFY(!result.has_value());
@@ -316,7 +292,7 @@ void TestFacadeThreading::transportAdapters_nullOrClosedAdapterReturnsDisconnect
         FastEcuSsmTransport ssm(nullptr);
         mutdma::FastEcuKlineTransport kline(nullptr);
         cdbg::FastEcuCanTransport can(nullptr);
-        MutableCancellationToken cancellation;
+        fastecu::FakeCancellationToken cancellation;
 
         QVERIFY(!ssm.isOpen());
         QVERIFY(!kline.isOpen());
@@ -363,7 +339,7 @@ void TestFacadeThreading::transportAdapters_nullOrClosedAdapterReturnsDisconnect
         FastEcuSsmTransport ssm(&serial);
         mutdma::FastEcuKlineTransport kline(&serial);
         cdbg::FastEcuCanTransport can(&serial);
-        MutableCancellationToken cancellation;
+        fastecu::FakeCancellationToken cancellation;
 
         const auto ssmWrite = ssm.write(bytes::ByteView());
         QVERIFY(!ssmWrite.has_value());
@@ -471,9 +447,9 @@ void TestFacadeThreading::transportAdapters_disconnectDuringReadMapsToDisconnect
     FastEcuSsmTransport ssm(&serial);
     mutdma::FastEcuKlineTransport kline(&serial);
     cdbg::FastEcuCanTransport can(&serial);
-    MutableCancellationToken cancellation; // never cancelled: isolates the
-                                           // disconnect check from the
-                                           // cancellation-precedence path
+    fastecu::FakeCancellationToken cancellation; // never cancelled: isolates the
+                                                 // disconnect check from the
+                                                 // cancellation-precedence path
     fake->closePortAfterRead = true;
 
     const auto ssmResult = ssm.read(10, cancellation);
@@ -526,7 +502,7 @@ void TestFacadeThreading::transportAdapters_backendNonStandardExceptionMapsToInt
     FastEcuSsmTransport ssm(&serial);
     mutdma::FastEcuKlineTransport kline(&serial);
     cdbg::FastEcuCanTransport can(&serial);
-    MutableCancellationToken cancellation;
+    fastecu::FakeCancellationToken cancellation;
 
     // A throw that is not a std::exception must still land in Internal via
     // the adapters' generic `catch (...)` branch, not escape or crash.
@@ -568,24 +544,24 @@ void TestFacadeThreading::transportAdapters_cancellationPrecedesReadException()
     FastEcuSsmTransport ssm(&serial);
     mutdma::FastEcuKlineTransport kline(&serial);
     cdbg::FastEcuCanTransport can(&serial);
-    MutableCancellationToken cancellation;
+    fastecu::FakeCancellationToken cancellation;
     fake->throwOnRead = true;
     // Cancel right as the backend is about to throw: the adapter's catch
     // block must report Cancelled, not Internal, once cancellation was
     // observed -- even though the backend failed via exception, not silence.
     fake->beforeReadThrow = [&]
-    { cancellation.cancel(); };
+    { cancellation.set_cancelled(true); };
 
     const auto ssmResult = ssm.read(10, cancellation);
     QVERIFY(!ssmResult.has_value());
     QVERIFY(ssmResult.error().kind == fastecu::ErrorKind::Cancelled);
 
-    cancellation.reset();
+    cancellation.set_cancelled(false);
     const auto klineResult = kline.read(10, cancellation);
     QVERIFY(!klineResult.has_value());
     QVERIFY(klineResult.error().kind == fastecu::ErrorKind::Cancelled);
 
-    cancellation.reset();
+    cancellation.set_cancelled(false);
     const auto canResult = can.read(10, cancellation);
     QVERIFY(!canResult.has_value());
     QVERIFY(canResult.error().kind == fastecu::ErrorKind::Cancelled);

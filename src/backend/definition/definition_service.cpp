@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <format>
 #include <iterator>
 #include <optional>
 #include <string>
@@ -152,8 +153,7 @@ Result<void> discover_xml(
             {
                 continue;
             }
-            auto nested = discover_xml(file_system, handle, handles);
-            if (!nested)
+            if (auto nested = discover_xml(file_system, handle, handles); !nested.has_value())
             {
                 return std::unexpected(nested.error());
             }

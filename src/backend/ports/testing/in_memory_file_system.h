@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <set>
 #include <string>
 #include <vector>
@@ -19,6 +20,10 @@ class InMemoryFileSystem : public IFileSystem
     }
     Status create_directory(std::string_view path) override
     {
+        if (create_directory_error)
+        {
+            return std::unexpected(*create_directory_error);
+        }
         directories.insert(std::string(path));
         return {};
     }
@@ -71,6 +76,7 @@ class InMemoryFileSystem : public IFileSystem
     std::map<std::string, std::vector<std::pair<std::string, std::int64_t>>> files_by_parent;
     std::vector<std::pair<std::string, std::string>> copy_calls;
     std::vector<std::string> removed;
+    std::optional<Error> create_directory_error;
 };
 
 } // namespace fastecu

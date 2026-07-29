@@ -14,6 +14,7 @@
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
 #include "src/backend/ports/testing/fake_clock.h"
+#include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "tests/scripted_kline_flash_transport.h"
 
@@ -21,37 +22,6 @@ namespace fastecu::flash
 {
 namespace
 {
-
-class NeverCancelled : public ICancellationToken
-{
-  public:
-    bool cancelled() const override
-    {
-        return false;
-    }
-};
-
-// Mirrors tests/test_ssm_logging_protocol.cpp's CancelsDuringSecondRead:
-// returns false for the first `remaining` checks, then true forever.
-class CancelsAfterNChecks final : public ICancellationToken
-{
-  public:
-    explicit CancelsAfterNChecks(int remaining) : remaining_(remaining)
-    {
-    }
-    bool cancelled() const override
-    {
-        if (remaining_ <= 0)
-        {
-            return true;
-        }
-        --remaining_;
-        return false;
-    }
-
-  private:
-    mutable int remaining_;
-};
 
 // Satisfies IFlashTransport (the lifetime/unblock-only base) but NOT
 // IKlineFlashTransport -- used to prove execute()'s dynamic_cast guard
@@ -380,7 +350,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, WrongFamilyPlanIsRejectedWithNoTranspor
     DensoSh705xEepromKlineExecutor executor;
     ScriptedKlineFlashTransport transport;
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -404,7 +374,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, FullBootloaderStockSecurityMode2Matches
 
     DensoSh705xEepromKlineExecutor executor;
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -430,7 +400,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, KernelAlreadyRunningSkipsBootloaderMatc
 
     DensoSh705xEepromKlineExecutor executor;
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -469,7 +439,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, NonAlignedKernelIsPaddedBeforeEncryptio
 
     DensoSh705xEepromKlineExecutor executor;
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -493,7 +463,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, NoResponseAtHandshakeReturnsTimeout)
 
     DensoSh705xEepromKlineExecutor executor;
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -513,7 +483,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, TransportReportsClosedReturnsDisconnect
 
     DensoSh705xEepromKlineExecutor executor;
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -539,7 +509,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, MalformedSid81ResponseReturnsBadRespons
 
     DensoSh705xEepromKlineExecutor executor;
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -571,7 +541,8 @@ TEST(DensoSh705xEepromKlineExecutorTest, CancellationDuringKernelUploadReturnsCa
     // task-8-report.md) against this exact trace's total
     // cancellation.cancelled() call count, including the ones
     // FakeClock::sleep() performs internally.
-    CancelsAfterNChecks cancellation(37);
+    FakeCancellationToken cancellation;
+    cancellation.cancel_on_check(38);
     RecordingEventSink events;
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -600,7 +571,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, CloseFailureAfterSuccessfulReadIsReturn
 
     DensoSh705xEepromKlineExecutor executor;
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -624,7 +595,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, OriginalErrorWinsOverCloseFailure)
 
     DensoSh705xEepromKlineExecutor executor;
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -658,7 +629,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeIsOffForBootloaderOnForReadTh
 
     DensoSh705xEepromKlineExecutor executor;
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -690,7 +661,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeSequenceHoldsWhenKernelAlread
 
     DensoSh705xEepromKlineExecutor executor;
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -717,7 +688,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeResetToOffEvenWhenReadMemFail
 
     DensoSh705xEepromKlineExecutor executor;
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -735,7 +706,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, WrongConcreteTransportTypeReturnsInvali
     DensoSh705xEepromKlineExecutor executor;
     BareFlashTransport transport;
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
