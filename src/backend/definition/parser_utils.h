@@ -123,4 +123,17 @@ inline std::string attribute_or_empty(pugi::xml_node node, std::string_view name
     return trim_copy(node.attribute(name).value());
 }
 
+inline std::string selection_name(std::string name)
+{
+    if (name == "on")
+    {
+        return "enabled";
+    }
+    if (name == "off")
+    {
+        return "disabled";
+    }
+    return name;
+}
+
 } // namespace fastecu::definition

@@ -257,19 +257,6 @@ std::string fine_increment_from(std::string_view coarse_increment)
     return result.str();
 }
 
-std::string selection_name(std::string name)
-{
-    if (name == "on")
-    {
-        return "enabled";
-    }
-    if (name == "off")
-    {
-        return "disabled";
-    }
-    return name;
-}
-
 void append_selections(pugi::xml_node parent, Scaling& scaling)
 {
     for (pugi::xml_node data : parent.children("data"))
