@@ -191,19 +191,6 @@ Result<bool> strict_boolean_attribute(
         definition_id);
 }
 
-std::string selection_name(std::string name)
-{
-    if (name == "on")
-    {
-        return "enabled";
-    }
-    if (name == "off")
-    {
-        return "disabled";
-    }
-    return name;
-}
-
 void append_selections(pugi::xml_node parent, UnresolvedScaling& scaling)
 {
     for (pugi::xml_node state : parent.children("state"))
