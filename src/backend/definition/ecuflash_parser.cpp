@@ -40,54 +40,6 @@ Result<pugi::xml_node> identity_element(
     return required_child_text(rom_id, "romid", "xmlid", source);
 }
 
-Result<std::optional<std::uint64_t>> optional_hex_attribute(
-    pugi::xml_node node,
-    const char *attribute_name,
-    std::string_view source,
-    std::string_view definition_id)
-{
-    const pugi::xml_attribute attribute = node.attribute(attribute_name);
-    if (!attribute)
-    {
-        return std::optional<std::uint64_t>{};
-    }
-
-    auto parsed = parse_hex_unsigned(
-        attribute.value(),
-        source,
-        std::string("element <") + node.name() + "> attribute '" + attribute_name + "'",
-        definition_id);
-    if (!parsed)
-    {
-        return std::unexpected(parsed.error());
-    }
-    return std::optional<std::uint64_t>{*parsed};
-}
-
-Result<std::optional<std::uint64_t>> optional_hex_element(
-    pugi::xml_node parent,
-    const char *child_name,
-    std::string_view source,
-    std::string_view definition_id)
-{
-    const pugi::xml_node child = parent.child(child_name);
-    if (!child)
-    {
-        return std::optional<std::uint64_t>{};
-    }
-
-    auto parsed = parse_hex_unsigned(
-        child.child_value(),
-        source,
-        std::string("element <") + parent.name() + "> child <" + child_name + ">",
-        definition_id);
-    if (!parsed)
-    {
-        return std::unexpected(parsed.error());
-    }
-    return std::optional<std::uint64_t>{*parsed};
-}
-
 Result<std::optional<std::uint64_t>> optional_address(
     pugi::xml_node node,
     std::string_view source,
