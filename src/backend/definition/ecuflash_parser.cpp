@@ -45,41 +45,6 @@ std::string attribute_or_empty(pugi::xml_node node, const char *name)
     return trim_copy(node.attribute(name).value());
 }
 
-Result<std::uint64_t> parse_hex_unsigned(
-    std::string_view value,
-    std::string_view source,
-    std::string context,
-    std::string_view definition_id)
-{
-    const std::string trimmed = trim_copy(value);
-    std::string_view digits = trimmed;
-    if (digits.starts_with("0x") || digits.starts_with("0X"))
-    {
-        digits.remove_prefix(2);
-    }
-    if (digits.empty() || digits.front() == '+' || digits.front() == '-')
-    {
-        return invalid(
-            source,
-            std::move(context),
-            "invalid hexadecimal unsigned value '" + trimmed + "'",
-            definition_id);
-    }
-
-    std::uint64_t parsed = 0;
-    const auto [end, error] =
-        std::from_chars(digits.data(), digits.data() + digits.size(), parsed, 16);
-    if (error != std::errc{} || end != digits.data() + digits.size())
-    {
-        return invalid(
-            source,
-            std::move(context),
-            "invalid hexadecimal unsigned value '" + trimmed + "'",
-            definition_id);
-    }
-    return parsed;
-}
-
 Result<std::optional<std::uint64_t>> optional_hex_attribute(
     pugi::xml_node node,
     const char *attribute_name,

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <charconv>
 #include <format>
 #include <string>
 #include <string_view>
@@ -88,6 +89,33 @@ inline Result<pugi::xml_node> parse_root(
         return invalid(source, std::format("root element <{}>", root_name), "wrong root; found " + actual);
     }
     return root;
+}
+
+inline Result<std::uint64_t> parse_hex_unsigned(
+    std::string_view value,
+    std::string_view source,
+    std::string context,
+    std::string_view definition_id)
+{
+    std::string trimmed = trim_copy(value);
+    std::string_view digits = trimmed;
+    if (digits.starts_with("0x") || digits.starts_with("0X"))
+    {
+        digits.remove_prefix(2);
+    }
+
+    std::uint64_t parsed = 0;
+    const auto [end, error] =
+        std::from_chars(digits.data(), digits.data() + digits.size(), parsed, 16);
+    if (error != std::errc{} || end != digits.data() + digits.size())
+    {
+        return invalid(
+            source,
+            std::move(context),
+            std::format("invalid hexadecimal unsigned value '{}'", trimmed),
+            definition_id);
+    }
+    return parsed;
 }
 
 } // namespace fastecu::definition
