@@ -87,7 +87,7 @@ Result<std::vector<std::uint8_t>> identifier_bytes(
     {
         auto high = hex_nibble(identifier[index]);
         auto low = hex_nibble(identifier[index + 1]);
-        if (!high || !low)
+        if (!high.has_value() || !low.has_value())
         {
             return fail(
                 ErrorKind::InvalidConfig,
@@ -104,8 +104,12 @@ Result<std::vector<std::vector<std::uint8_t>>> identifier_candidates(
 {
     if (encoding != IdEncoding::AsciiOrHex)
     {
-        return identifier_bytes(identifier, encoding).transform([](auto&& candidate)
-                                                                { return std::vector<std::vector<std::uint8_t>>{candidate}; });
+        auto result = identifier_bytes(identifier, encoding);
+        if (!result.has_value())
+        {
+            return std::unexpected(std::move(result).error());
+        }
+        return std::vector<std::vector<std::uint8_t>>{*std::move(result)};
     }
 
     std::vector<std::vector<std::uint8_t>> candidates{
