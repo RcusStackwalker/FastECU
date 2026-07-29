@@ -116,8 +116,7 @@ Result<std::vector<std::vector<std::uint8_t>>> identifier_candidates(
     std::vector<std::vector<std::uint8_t>> candidates{
         std::vector<std::uint8_t>(identifier.begin(), identifier.end()),
     };
-    auto hexadecimal = identifier_bytes(identifier, IdEncoding::Hex);
-    if (hexadecimal)
+    if (auto hexadecimal = identifier_bytes(identifier, IdEncoding::Hex); hexadecimal.has_value())
     {
         candidates.push_back(std::move(*hexadecimal));
     }
@@ -130,8 +129,7 @@ std::unexpected<Error> invalid_match_metadata(
 {
     return fail(
         ErrorKind::InvalidConfig,
-        "invalid ROM match metadata for definition '" + entry.definition_id +
-            "' from '" + entry.source + "': " + std::move(detail));
+        std::format("invalid ROM match metadata for definition '{}' from '{}': {}", entry.definition_id, entry.source, std::move(detail)));
 }
 
 Result<void> discover_xml(
