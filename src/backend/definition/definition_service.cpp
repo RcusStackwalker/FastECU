@@ -241,7 +241,7 @@ Result<DefinitionIndexEntry> DefinitionService::match_rom(
         auto candidates = identifier_candidates(
             entry.internal_id,
             entry.internal_id_encoding);
-        if (!candidates)
+        if (!candidates.has_value())
         {
             return invalid_match_metadata(entry, candidates.error().detail);
         }

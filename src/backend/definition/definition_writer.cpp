@@ -16,6 +16,8 @@
 
 #include "src/backend/definition/ecuflash_parser.h"
 
+using namespace std::literals::string_view_literals;
+
 namespace fastecu::definition
 {
 namespace
@@ -75,13 +77,12 @@ void set_unique_text(pugi::xml_node parent, const char *name, std::string_view v
 
 Status update_header(pugi::xml_node root, const DefinitionHeaderInput& input)
 {
-    auto valid = validate_input(input);
-    if (!valid)
+    if (auto valid = validate_input(input); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
     auto address = address_text(input.internal_id_address);
-    if (!address)
+    if (!address.has_value())
     {
         return std::unexpected(address.error());
     }
@@ -161,8 +162,7 @@ pugi::xml_node create_root(pugi::xml_document& document)
 Result<std::vector<std::uint8_t>> create_ecuflash_xml(const DefinitionHeaderInput& input)
 {
     pugi::xml_document document;
-    auto updated = update_header(create_root(document), input);
-    if (!updated)
+    if (auto updated = update_header(create_root(document), input); !updated.has_value())
     {
         return std::unexpected(updated.error());
     }
@@ -187,7 +187,7 @@ Result<std::vector<std::uint8_t>> rewrite_ecuflash_xml(
     }
 
     pugi::xml_node root = document.document_element();
-    if (!root || std::string_view(root.name()) != "rom")
+    if (!root || root.name() != "rom"sv)
     {
         return fail(ErrorKind::InvalidConfig, "EcuFlash source root must be <rom>");
     }
