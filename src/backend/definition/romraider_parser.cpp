@@ -87,34 +87,6 @@ Result<std::optional<std::uint64_t>> optional_address(
     return optional_hex_attribute(node, "storageaddress", source, definition_id);
 }
 
-Result<bool> strict_boolean_attribute(
-    pugi::xml_node node,
-    std::string_view attribute_name,
-    std::string_view source,
-    std::string_view definition_id)
-{
-    const pugi::xml_attribute attribute = node.attribute(attribute_name);
-    if (!attribute)
-    {
-        return false;
-    }
-
-    const std::string_view value = attribute.value();
-    if (value == "true")
-    {
-        return true;
-    }
-    if (value == "false")
-    {
-        return false;
-    }
-    return invalid(
-        source,
-        std::format("element <{}> attribute '{}'", node.name(), attribute_name),
-        std::format("invalid strict boolean '{}'; expected 'true' or 'false'", value),
-        definition_id);
-}
-
 void append_selections(pugi::xml_node parent, UnresolvedScaling& scaling)
 {
     for (pugi::xml_node state : parent.children("state"))
