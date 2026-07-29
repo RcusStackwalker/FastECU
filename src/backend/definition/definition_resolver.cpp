@@ -606,25 +606,26 @@ Result<void> validate_and_resolve_scalings(RomDefinition& definition)
                     "' must be selectable");
         }
 
-        auto x_axis = validate_axis(
-            map.x_axis,
-            "x axis for map '" + key + "'",
-            map.x_size,
-            true,
-            scalings,
-            definition.identity.xml_id);
-        if (!x_axis)
+        if (auto x_axis = validate_axis(
+                map.x_axis,
+                std::format("x axis for map '{}'", key),
+                map.x_size,
+                true,
+                scalings,
+                definition.identity.xml_id);
+            !x_axis.has_value())
         {
             return std::unexpected(x_axis.error());
         }
-        auto y_axis = validate_axis(
-            map.y_axis,
-            "y axis for map '" + key + "'",
-            map.y_size,
-            false,
-            scalings,
-            definition.identity.xml_id);
-        if (!y_axis)
+
+        if (auto y_axis = validate_axis(
+                map.y_axis,
+                std::format("y axis for map '{}'", key),
+                map.y_size,
+                false,
+                scalings,
+                definition.identity.xml_id);
+            !y_axis.has_value())
         {
             return std::unexpected(y_axis.error());
         }
@@ -669,7 +670,7 @@ class ResolverState
         if (!resolved.has_value())
         {
             return fail(resolved.error().kind, context + resolved.error().detail);
-        };
+        }
         if (auto valid = validate_and_resolve_scalings(*resolved); !valid.has_value())
         {
             return fail(valid.error().kind, context + valid.error().detail);
@@ -693,8 +694,7 @@ class ResolverState
                 "inheritance cycle: " + chain_text(stack, id));
         }
 
-        auto memoized = resolved_by_id.find(id);
-        if (memoized != resolved_by_id.end())
+        if (auto memoized = resolved_by_id.find(id); memoized != resolved_by_id.end())
         {
             return memoized->second;
         }
@@ -706,7 +706,7 @@ class ResolverState
         {
             return fail(
                 locally_valid.error().kind,
-                locally_valid.error().detail + " in inheritance chain " + chain_text(stack));
+                std::format("{} in inheritance chain {}", locally_valid.error().detail, chain_text(stack)));
         }
 
         RomDefinition resolved;
@@ -772,8 +772,7 @@ class ResolverState
                 parent->second.resolved_definition_ids);
         }
 
-        auto merged = overlay_definition(resolved, definition);
-        if (!merged)
+        if (auto merged = overlay_definition(resolved, definition); !merged.has_value())
         {
             return fail(
                 merged.error().kind,

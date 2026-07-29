@@ -104,14 +104,8 @@ Result<std::vector<std::vector<std::uint8_t>>> identifier_candidates(
 {
     if (encoding != IdEncoding::AsciiOrHex)
     {
-        auto candidate = identifier_bytes(identifier, encoding);
-        if (!candidate)
-        {
-            return std::unexpected(candidate.error());
-        }
-        return std::vector<std::vector<std::uint8_t>>{
-            std::move(*candidate),
-        };
+        return identifier_bytes(identifier, encoding).transform([](auto&& candidate)
+                                                                { return std::vector<std::vector<std::uint8_t>>{candidate}; });
     }
 
     std::vector<std::vector<std::uint8_t>> candidates{
@@ -317,9 +311,7 @@ Result<RomDefinition> DefinitionService::load(
         {
             return fail(
                 ErrorKind::InvalidConfig,
-                "EcuFlash catalog ID '" + std::string(requested_id) +
-                    "' from '" + entry.source + "' loaded definition '" +
-                    parsed->identity.xml_id + "'");
+                std::format("EcuFlash catalog ID '{}' from '{}' loaded definition '{}'", requested_id, entry.source, parsed->identity.xml_id));
         }
         return parsed;
     };

@@ -66,7 +66,7 @@ Result<DefinitionCatalog> DefinitionCatalog::create(std::vector<DefinitionIndexE
 
     for (DefinitionIndexEntry& entry : entries)
     {
-        if (const auto result = validate(entry); !result)
+        if (auto result = validate(entry); !result.has_value())
         {
             return std::unexpected(result.error());
         }
