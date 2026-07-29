@@ -136,4 +136,52 @@ inline std::string selection_name(std::string name)
     return name;
 }
 
+inline Result<std::optional<std::uint64_t>> optional_hex_element(
+    pugi::xml_node parent,
+    std::string_view child_name,
+    std::string_view source,
+    std::string_view definition_id)
+{
+    const pugi::xml_node child = parent.child(child_name);
+    if (!child)
+    {
+        return std::optional<std::uint64_t>{};
+    }
+
+    auto parsed = parse_hex_unsigned(
+        child.child_value(),
+        source,
+        std::format("element <{}> child <{}>", parent.name(), child_name),
+        definition_id);
+    if (!parsed)
+    {
+        return std::unexpected(parsed.error());
+    }
+    return std::optional<std::uint64_t>{*parsed};
+}
+
+inline Result<std::optional<std::uint64_t>> optional_hex_attribute(
+    pugi::xml_node node,
+    std::string_view attribute_name,
+    std::string_view source,
+    std::string_view definition_id)
+{
+    const pugi::xml_attribute attribute = node.attribute(attribute_name);
+    if (!attribute)
+    {
+        return std::optional<std::uint64_t>{};
+    }
+
+    auto parsed = parse_hex_unsigned(
+        attribute.value(),
+        source,
+        std::format("element <{}> attribute '{}'", node.name(), attribute_name),
+        definition_id);
+    if (!parsed.has_value())
+    {
+        return std::unexpected(parsed.error());
+    }
+    return std::optional<std::uint64_t>{*parsed};
+}
+
 } // namespace fastecu::definition
