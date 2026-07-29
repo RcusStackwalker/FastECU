@@ -184,4 +184,32 @@ inline Result<std::optional<std::uint64_t>> optional_hex_attribute(
     return std::optional<std::uint64_t>{*parsed};
 }
 
+inline Result<std::uint32_t> dimension_attribute(
+    pugi::xml_node node,
+    std::string_view attribute_name,
+    std::uint32_t default_value,
+    std::string_view source,
+    std::string_view definition_id)
+{
+    const pugi::xml_attribute attribute = node.attribute(attribute_name);
+    if (!attribute)
+    {
+        return default_value;
+    }
+
+    const std::string value = trim_copy(attribute.value());
+    std::uint64_t parsed = 0;
+    const auto [end, error] =
+        std::from_chars(value.data(), value.data() + value.size(), parsed, 10);
+    if (value.empty() || error != std::errc{} || end != value.data() + value.size() || parsed == 0 || parsed > std::numeric_limits<std::uint32_t>::max())
+    {
+        return invalid(
+            source,
+            std::format("element <{}> attribute '{}'", node.name(), attribute_name),
+            std::format("invalid positive dimension '{}'", value),
+            definition_id);
+    }
+    return static_cast<std::uint32_t>(parsed);
+}
+
 } // namespace fastecu::definition
