@@ -216,8 +216,7 @@ Result<DefinitionCatalog> DefinitionService::build_ecuflash_catalog(
     std::vector<std::string> handles;
     if (!directory.empty())
     {
-        auto discovered = discover_xml(file_system_, directory, handles);
-        if (!discovered)
+        if (auto discovered = discover_xml(file_system_, directory, handles); !discovered.has_value())
         {
             return std::unexpected(discovered.error());
         }
@@ -252,7 +251,7 @@ Result<DefinitionIndexEntry> DefinitionService::match_rom(
         {
             return invalid_match_metadata(entry, candidates.error().detail);
         }
-        if (!entry.internal_id_address)
+        if (!entry.internal_id_address.has_value())
         {
             return invalid_match_metadata(entry, "internal ID address is absent");
         }
