@@ -318,11 +318,7 @@ def mut_dma_test_suites(moc_deps_target, header_mocs_target):
                 base + ".cpp",
                 base + "_main.cpp",
             ] + local_test_hdrs(MUT_DMA_TESTS_COMMON_HDRS),
-            copts = COMMON_COPTS + [
-                "-I.",
-                "-Itests",
-                "-Isrc/platform/desktop/common/serial",
-            ],
+            copts = COMMON_COPTS,
             data = _EXTRA_DATA.get(base, []),
             env = env,
             deps = QT_DEPS + [

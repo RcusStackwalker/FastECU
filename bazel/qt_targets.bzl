@@ -23,8 +23,6 @@ QT_DEPS = [
 COMMON_COPTS = [
     "-DQT_FORCE_ASSERTS",
     "-DQT_DEPRECATED_WARNINGS",
-    "-I.",
-    "-Isrc/platform/desktop/common/serial",
 ] + select({
     "@platforms//os:macos": [
         "-Wno-implicit-function-declaration",

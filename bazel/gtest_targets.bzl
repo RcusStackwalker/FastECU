@@ -15,10 +15,7 @@ def fastecu_portable_gtest(
     cc_test(
         name = name,
         srcs = srcs,
-        copts = [
-            "-I.",
-            "-Itests",
-        ] + copts,
+        copts = copts,
         env = env,
         tags = tags,
         target_compatible_with = target_compatible_with,
@@ -35,11 +32,7 @@ def fastecu_gtest(
     cc_test(
         name = name,
         srcs = srcs,
-        copts = COMMON_COPTS + [
-            "-I.",
-            "-Itests",
-            "-Isrc/platform/desktop/common/serial",
-        ],
+        copts = COMMON_COPTS,
         data = select({
             "@platforms//os:macos": ["@qt_mac_aarch64//:lib"],
             "//conditions:default": [],
