@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "qt_cc_library")
 
 package(default_visibility = [
     "//apps:__subpackages__",
@@ -9,16 +9,30 @@ package(default_visibility = [
 
 qt_cc_library(
     name = "ports",
-    srcs = glob(
-        ["*.cpp"],
-    ),
+    srcs =
+        [
+            "qt_atomic_file_writer.cpp",
+            "qt_clock.cpp",
+            "qt_event_sink.cpp",
+            "qt_file_repository.cpp",
+            "qt_file_system.cpp",
+            "qt_resource_bundle.cpp",
+            "qt_settings.cpp",
+        ],
     hdrs = ["qt_event_sink.h"],  # MOC header
     copts = COMMON_COPTS,
-    normal_hdrs = glob(
-        ["*.h"],
-        exclude = ["qt_event_sink.h"],
-    ),
-    deps = QT_DEPS + [
+    normal_hdrs =
+        [
+            "qt_atomic_file_writer.h",
+            "qt_cancellation_token.h",
+            "qt_clock.h",
+            "qt_file_repository.h",
+            "qt_file_system.h",
+            "qt_resource_bundle.h",
+            "qt_settings.h",
+        ],
+    deps = [
         "//src/backend/ports",
+        "@rules_qt//:qt_core",
     ],
 )
