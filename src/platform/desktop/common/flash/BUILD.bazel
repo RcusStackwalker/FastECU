@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = [
     "//src/platform:__subpackages__",
@@ -11,7 +11,6 @@ qt_cc_library(
     srcs = ["flash_worker.cpp"],
     hdrs = ["flash_worker.h"],
     copts = COMMON_COPTS,
-    includes = COMMON_INCLUDES,
     deps = QT_DEPS + [
         "//src/backend/flash:flash_executor",
         "//src/backend/flash:flash_plan",
@@ -28,7 +27,6 @@ qt_cc_library(
     srcs = ["flash_snapshot_adapter.cpp"],
     hdrs = ["flash_snapshot_adapter.h"],
     copts = COMMON_COPTS,
-    includes = COMMON_INCLUDES,
     deps = QT_DEPS + [
         "//src/backend/definitions",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",

@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = [
     "//apps/desktop:__pkg__",
@@ -41,7 +41,6 @@ qt_cc_library(
     ),
     hdrs = [],
     copts = COMMON_COPTS,
-    includes = COMMON_INCLUDES,
     normal_hdrs = glob(
         ["*.h"],
         exclude = _FLASH_TRANSPORT_HDRS,
@@ -59,7 +58,6 @@ qt_cc_library(
     srcs = _FLASH_TRANSPORT_SRCS,
     hdrs = [],
     copts = COMMON_COPTS,
-    includes = COMMON_INCLUDES,
     # Neither adapter derives from QObject (no Q_OBJECT, no signals/slots),
     # so their headers go through normal_hdrs rather than hdrs (which would
     # run every header through moc unconditionally) -- same convention as

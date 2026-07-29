@@ -30,10 +30,6 @@ COMMON_COPTS = [
     "//conditions:default": [],
 })
 
-COMMON_INCLUDES = [
-    "src/platform/desktop/common/serial",
-]
-
 def platform_srcs(unix = [], windows = []):
     return select({
         "@platforms//os:windows": windows,

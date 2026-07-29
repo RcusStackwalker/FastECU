@@ -1,5 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "COMMON_INCLUDES", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -37,7 +37,6 @@ exports_files(
 cc_library(
     name = "models",
     hdrs = MODEL_HDRS,
-    includes = COMMON_INCLUDES,
 )
 
 # Qt-typed (QString/QStringList/QDir members) but no QObject/Q_OBJECT, so
@@ -47,7 +46,6 @@ qt_cc_library(
     srcs = [],
     hdrs = [],
     copts = COMMON_COPTS,
-    includes = COMMON_INCLUDES,
     normal_hdrs = CONFIG_VALUES_HDRS,
     deps = QT_DEPS,
 )
@@ -57,7 +55,6 @@ qt_cc_library(
     srcs = glob(["*.cpp"]),
     hdrs = MOC_HDRS,
     copts = COMMON_COPTS,
-    includes = COMMON_INCLUDES,
     normal_hdrs = glob(
         ["*.h"],
         exclude = MOC_HDRS + MODEL_HDRS + CONFIG_VALUES_HDRS,
