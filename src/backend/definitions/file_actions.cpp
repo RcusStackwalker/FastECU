@@ -336,10 +336,9 @@ void FileActions::remember_submitted_ecuflash_handle(
     const auto position = std::ranges::lower_bound(
         submittedEcuflashHandles_,
         destination,
-        [](const std::string& existing, std::string_view candidate)
-        {
-            return std::string_view(existing) < candidate;
-        });
+        {},
+        [](const auto& item)
+        { return std::string_view{item}; });
     if (position == std::ranges::end(submittedEcuflashHandles_) ||
         std::string_view(*position) != destination)
     {
