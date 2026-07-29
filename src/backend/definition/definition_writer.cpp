@@ -66,7 +66,7 @@ void set_unique_text(pugi::xml_node parent, const char *name, std::string_view v
     {
         child = parent.append_child(name);
     }
-    child.text().set(std::string(value).c_str());
+    child.text().set(value);
     for (pugi::xml_node duplicate = child.next_sibling(name); duplicate;)
     {
         pugi::xml_node next = duplicate.next_sibling(name);
