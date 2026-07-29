@@ -702,8 +702,7 @@ class ResolverState
         visiting.insert(id);
         stack.push_back(id);
 
-        auto locally_valid = validate_local(definition);
-        if (!locally_valid)
+        if (auto locally_valid = validate_local(definition); !locally_valid.has_value())
         {
             return fail(
                 locally_valid.error().kind,
@@ -793,7 +792,6 @@ class ResolverState
         stack.pop_back();
         visiting.erase(id);
         auto [stored, inserted] = resolved_by_id.try_emplace(id, std::move(resolved));
-        (void)inserted;
         return stored->second;
     }
 
