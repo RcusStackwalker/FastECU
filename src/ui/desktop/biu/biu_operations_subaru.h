@@ -13,10 +13,10 @@
 #include <QWidget>
 #include <QDialog>
 
-#include <src/ui/desktop/biu/biu_ops_subaru_switches.h>
-#include <src/ui/desktop/biu/biu_ops_subaru_data.h>
-#include <src/ui/desktop/biu/biu_ops_subaru_input1.h>
-#include <src/ui/desktop/biu/biu_ops_subaru_input2.h>
+#include "src/ui/desktop/biu/biu_ops_subaru_switches.h"
+#include "src/ui/desktop/biu/biu_ops_subaru_data.h"
+#include "src/ui/desktop/biu/biu_ops_subaru_input1.h"
+#include "src/ui/desktop/biu/biu_ops_subaru_input2.h"
 
 // Forward declaration
 class SerialPortActions;

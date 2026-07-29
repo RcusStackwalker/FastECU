@@ -1,4 +1,4 @@
-#include <src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh72531_can.h>
+#include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh72531_can.h"
 
 #include <utility>
 #include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh72531_can_operation.h"

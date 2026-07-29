@@ -11,7 +11,7 @@
 #include <QCheckBox>
 
 #include "src/backend/definitions/file_actions.h"
-#include <src/ui/desktop/verticallabel.h>
+#include "src/ui/desktop/verticallabel.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui
