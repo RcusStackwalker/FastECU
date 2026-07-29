@@ -11,7 +11,7 @@ build:linux --host_cxxopt=-std=c++23
 build:macos --cxxopt=-std=c++23
 build:macos --host_cxxopt=-std=c++23
 # needed for std::format
-build:macos --macos_minimum_os=13.3
+build:macos --macos_minimum_os=26.0
 # MSVC does not accept a plain /std:c++23 (it warns D9002 and falls back to its
 # default standard); /std:c++latest is the accepted spelling that enables the
 # C++23 library features we need (std::expected). clang/gcc use -std=c++23 above.
