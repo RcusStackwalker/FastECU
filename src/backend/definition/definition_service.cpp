@@ -259,10 +259,9 @@ Result<DefinitionIndexEntry> DefinitionService::match_rom(
         {
             return invalid_match_metadata(
                 entry,
-                "internal ID address " + std::to_string(address) +
-                    " exceeds ROM size " + std::to_string(rom.size()));
+                std::format("internal ID address {} exceeds ROM size {}", address, rom.size()));
         }
-        const std::size_t offset = static_cast<std::size_t>(address);
+        const auto offset = static_cast<std::size_t>(address);
         for (const std::vector<std::uint8_t>& candidate : *candidates)
         {
             if (candidate.size() <= rom.size() - offset &&
