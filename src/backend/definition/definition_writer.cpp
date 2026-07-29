@@ -144,8 +144,7 @@ Result<std::vector<std::uint8_t>> serialize_and_validate(pugi::xml_document& doc
     }
 
     std::vector<std::uint8_t> result(xml.begin(), xml.end());
-    auto parsed = parse_ecuflash_definition(result, "generated definition");
-    if (!parsed)
+    if (auto parsed = parse_ecuflash_definition(result, "generated definition"); !parsed.has_value())
     {
         return std::unexpected(parsed.error());
     }
