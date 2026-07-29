@@ -13,10 +13,13 @@ namespace fastecu::definition
 
 struct DefinitionHeaderInput
 {
-    std::string xml_id, internal_id, ecu_id;
+    std::string xml_id;
+    std::string internal_id;
+    std::string ecu_id;
     std::uint64_t internal_id_address;
     RomMetadata metadata;
-    std::string include, notes;
+    std::string include;
+    std::string notes;
 };
 
 Result<std::vector<std::uint8_t>> create_ecuflash_xml(const DefinitionHeaderInput&);

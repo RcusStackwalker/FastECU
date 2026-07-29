@@ -190,15 +190,13 @@ Result<std::vector<std::uint8_t>> rewrite_ecuflash_xml(
     {
         return fail(ErrorKind::InvalidConfig, "EcuFlash source root must be <rom>");
     }
-    const pugi::xml_node rom_id = root.child("romid");
-    if (rom_id && rom_id.next_sibling("romid"))
+    if (const auto rom_id = root.child("romid"); rom_id && rom_id.next_sibling("romid"))
     {
         return fail(
             ErrorKind::InvalidConfig,
             "EcuFlash source element <rom>: duplicate top-level <romid> elements");
     }
-    auto updated = update_header(root, input);
-    if (!updated)
+    if (auto updated = update_header(root, input); !updated.has_value())
     {
         return std::unexpected(updated.error());
     }
