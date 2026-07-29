@@ -1,4 +1,4 @@
-# ADR 0009: Use gmock-matchers
+# ADR 0010: Use gmock-matchers
 
 ## Status
 
