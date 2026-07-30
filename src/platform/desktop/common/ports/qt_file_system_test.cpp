@@ -1,7 +1,10 @@
 #include "src/platform/desktop/common/ports/qt_file_system.h"
-#include <gtest/gtest.h>
 #include <QDir>
+#include <QFile>
 #include <QTemporaryDir>
+
+#include <algorithm>
+#include <gtest/gtest.h>
 
 using fastecu::ErrorKind;
 
@@ -85,8 +88,34 @@ TEST(QtFileSystemTest, ListDirectoryReturnsEntriesWithModifiedTime)
     EXPECT_TRUE(found_file);
 }
 
-int main(int argc, char **argv)
+TEST(QtFileSystemTest, ListDirectoryIdentifiesDirectorySymlink)
 {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+#if defined(Q_OS_WIN)
+    GTEST_SKIP()
+        << "QFile::link creates Windows shortcuts, not directory symlinks";
+#endif
+
+    QTemporaryDir tmp;
+    ASSERT_TRUE(tmp.isValid());
+    const QString nested = tmp.path() + "/nested";
+    ASSERT_TRUE(QDir().mkpath(nested));
+    const QString loop = nested + "/loop";
+    if (!QFile::link(tmp.path(), loop))
+    {
+        GTEST_SKIP() << "directory symlinks are unavailable";
+    }
+
+    QtFileSystem fs;
+    auto nestedEntries = fs.list_directory(nested.toStdString());
+    ASSERT_TRUE(nestedEntries);
+    const auto loopEntry = std::find_if(
+        nestedEntries->begin(),
+        nestedEntries->end(),
+        [](const fastecu::DirEntry& entry)
+        {
+            return entry.name == "loop";
+        });
+    ASSERT_NE(loopEntry, nestedEntries->end());
+    EXPECT_TRUE(loopEntry->is_directory);
+    EXPECT_TRUE(loopEntry->is_symlink);
 }
