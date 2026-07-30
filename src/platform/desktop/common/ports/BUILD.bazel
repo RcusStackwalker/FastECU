@@ -1,3 +1,4 @@
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "qt_cc_library")
 
 package(default_visibility = [
@@ -11,6 +12,7 @@ qt_cc_library(
     name = "ports",
     srcs =
         [
+            "qt_atomic_file_writer.cpp",
             "qt_clock.cpp",
             "qt_event_sink.cpp",
             "qt_file_repository.cpp",
@@ -22,6 +24,7 @@ qt_cc_library(
     copts = COMMON_COPTS,
     normal_hdrs =
         [
+            "qt_atomic_file_writer.h",
             "qt_cancellation_token.h",
             "qt_clock.h",
             "qt_file_repository.h",
@@ -32,5 +35,14 @@ qt_cc_library(
     deps = [
         "//src/backend/ports",
         "@rules_qt//:qt_core",
+    ],
+)
+
+fastecu_gtest(
+    name = "qt_atomic_file_writer_test",
+    srcs = ["qt_atomic_file_writer_test.cpp"],
+    deps = [
+        ":ports",
+        "//src/backend/ports",
     ],
 )
