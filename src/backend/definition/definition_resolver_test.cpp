@@ -71,6 +71,11 @@ class DefinitionSet
     {
     }
 
+    void add(std::string id, UnresolvedDefinition definition)
+    {
+        definitions_.insert_or_assign(std::move(id), std::move(definition));
+    }
+
     DefinitionLoader loader()
     {
         return [this](DefinitionFormat, std::string_view id) -> Result<UnresolvedDefinition>
@@ -319,6 +324,26 @@ TEST(DefinitionResolverTest, ReportsCompleteCycle)
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
     EXPECT_THAT(result.error().detail, HasSubstr("A -> B -> C -> A"));
     EXPECT_EQ(root, original);
+}
+
+TEST(DefinitionResolverTest, RejectsChainDeeperThanMaximumInsteadOfOverflowingTheStack)
+{
+    constexpr int kChainLength = 5000;
+    DefinitionSet definitions{};
+    for (int i = 0; i < kChainLength; ++i)
+    {
+        const std::string id = "LEVEL" + std::to_string(i);
+        const std::string parent_id = "LEVEL" + std::to_string(i + 1);
+        definitions.add(id, doc(id, {parent_id}));
+    }
+    definitions.add("LEVEL" + std::to_string(kChainLength), doc("LEVEL" + std::to_string(kChainLength)));
+
+    const auto root = doc("ROOT", {"LEVEL0"});
+    auto result = resolve_definition(root, definitions.loader());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(result.error().detail, HasSubstr("maximum depth"));
 }
 
 TEST(DefinitionResolverTest, RejectsCrossFormatParent)

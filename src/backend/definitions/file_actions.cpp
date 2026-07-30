@@ -49,18 +49,19 @@ definitionHeaderInput(
         fields.insert(editor->objectName(), editor->toPlainText());
     }
 
-    std::uint64_t internalIdAddress = 0;
+    std::optional<std::uint64_t> internalIdAddress;
     const QString addressText = fields.value("internalidaddress").trimmed();
     if (!addressText.isEmpty())
     {
         bool validAddress = false;
-        internalIdAddress = addressText.toULongLong(&validAddress, 16);
+        const std::uint64_t parsedAddress = addressText.toULongLong(&validAddress, 16);
         if (!validAddress)
         {
             return fastecu::fail(
                 fastecu::ErrorKind::InvalidConfig,
                 "definition internal ID address is not a valid integer");
         }
+        internalIdAddress = parsedAddress;
     }
 
     return fastecu::definition::DefinitionHeaderInput{

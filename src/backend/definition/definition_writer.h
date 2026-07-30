@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -16,7 +17,7 @@ struct DefinitionHeaderInput
     std::string xml_id;
     std::string internal_id;
     std::string ecu_id;
-    std::uint64_t internal_id_address;
+    std::optional<std::uint64_t> internal_id_address;
     RomMetadata metadata;
     std::string include;
     std::string notes;
