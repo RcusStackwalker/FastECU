@@ -1804,36 +1804,9 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
     ConfigValuesStructure *configValues = &ConfigValuesStruct;
 
     QString file_name_str;
-    QString selected_id;
-    QStringList cal_id_family_list;
-    QStringList cal_id_ascii_list;
-    QStringList cal_id_addr_list;
-    QStringList cal_id_length_list;
-    QStringList ecu_id_ascii_list;
-    QStringList ecu_id_addr_list;
-    QStringList ecu_id_length_list;
-    QString selected_id_addr;
+
     bool id_is_ascii = false;
-
     bool bStatus = false;
-
-    for (int i = 0; i < configValues->flash_protocol_id.length(); i++)
-    {
-        if (!cal_id_family_list.contains(configValues->flash_protocol_protocol_name.at(i)))
-        {
-            cal_id_family_list.append(configValues->flash_protocol_protocol_name.at(i));
-            cal_id_ascii_list.append(configValues->flash_protocol_cal_id_ascii.at(i));
-            cal_id_addr_list.append(configValues->flash_protocol_cal_id_addr.at(i));
-            cal_id_length_list.append(configValues->flash_protocol_cal_id_length.at(i));
-            ecu_id_ascii_list.append(configValues->flash_protocol_ecu_id_ascii.at(i));
-            ecu_id_addr_list.append(configValues->flash_protocol_ecu_id_addr.at(i));
-            ecu_id_length_list.append(configValues->flash_protocol_ecu_id_length.at(i));
-        }
-    }
-    for (int i = 0; i < cal_id_family_list.length(); i++)
-    {
-        // emit LOG_D("ECU id family/address list: " + cal_id_family_list.at(i) + " - " + ecu_id_addr_list.at(i) + " - " + cal_id_addr_list.at(i), true, true);
-    }
 
     if (!ecuCalDef->FullRomData.length())
     {
@@ -1968,9 +1941,9 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
 
             // QMessageBox::warning(this, tr("Calibration file"), "Unable to find definition for selected ROM file!");
             ecuCalDef->RomInfo.replace(XmlId, "UnknownID");
-            ecuCalDef->RomInfo.replace(InternalIdAddress, selected_id_addr);
-            ecuCalDef->RomInfo.replace(InternalIdString, selected_id);
-            ecuCalDef->RomInfo.replace(EcuId, selected_id);
+            ecuCalDef->RomInfo.replace(InternalIdAddress, "");
+            ecuCalDef->RomInfo.replace(InternalIdString, "");
+            ecuCalDef->RomInfo.replace(EcuId, "");
             ecuCalDef->RomInfo.replace(Make, configValues->flash_protocol_selected_make);
             // ecuCalDef->RomInfo.replace(Model, configValues->flash_protocol_selected_model);
             // ecuCalDef->RomInfo.replace(SubModel, submodel);
@@ -2322,7 +2295,7 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
 
     if (ecuCalDef == nullptr)
     {
-        QMessageBox::warning(this, tr("Calibration file"), "Unable to find definition for selected calibration file with ECU ID: " + selected_id + ".");
+        QMessageBox::warning(this, tr("Calibration file"), QString("Unable to find definition for selected calibration file with ECU ID: ") + ".");
         return nullptr;
     }
 
