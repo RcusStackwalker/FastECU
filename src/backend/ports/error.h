@@ -17,7 +17,7 @@ enum class ErrorKind
 
 struct Error
 {
-    ErrorKind kind{ErrorKind::Internal};
+    ErrorKind kind;
     std::string detail; // human-readable context; never the sole control signal
 
     bool operator==(const Error&) const = default;

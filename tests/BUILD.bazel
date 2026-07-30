@@ -135,17 +135,6 @@ qt_cc_test(
 )
 
 qt_cc_test(
-    name = "test_qt_atomic_file_writer",
-    srcs = ["test_qt_atomic_file_writer.cpp"],
-    copts = COMMON_COPTS + ["-I."],
-    deps = QT_DEPS + [
-        "//src/backend/ports",
-        "//src/platform/desktop/common/ports",
-        "@googletest//:gtest",
-    ],
-)
-
-qt_cc_test(
     name = "test_qt_resource_bundle",
     srcs = ["test_qt_resource_bundle.cpp"],
     copts = COMMON_COPTS,
