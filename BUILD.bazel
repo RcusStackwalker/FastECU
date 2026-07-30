@@ -2,8 +2,6 @@ load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 
 package(default_visibility = ["//visibility:public"])
 
-exports_files(["scripts/coverage-local.sh"])
-
 alias(
     name = "fastecu",
     actual = "//apps/desktop:fastecu",
