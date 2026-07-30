@@ -435,7 +435,12 @@ def run_workflow(
         macos_sdk = _macos_sdk_path(command_runner, workspace)
 
     with tempfile.TemporaryDirectory(prefix="fastecu-clang-tidy-") as directory:
-        filtered_database = Path(directory) / "compile_commands.json"
+        temp_root = Path(directory).resolve()
+        filtered_database = (temp_root / "compile_commands.json").resolve()
+        if not filtered_database.is_relative_to(temp_root):
+            raise WorkflowError(
+                "internal error: filtered compilation database escaped its temp directory"
+            )
         filtered_database.write_text(json.dumps(entries, indent=2) + "\n")
         command = _executable_command(tools.run_clang_tidy) + [
             "-clang-tidy-binary",

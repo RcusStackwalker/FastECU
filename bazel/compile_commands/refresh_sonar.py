@@ -24,13 +24,27 @@ from python.runfiles import runfiles
 REFRESH_RUNFILE = "_main/bazel/compile_commands/refresh"
 
 
+def validated_workspace_root(value: str) -> pathlib.Path:
+    root = pathlib.Path(value)
+    if not root.is_absolute():
+        raise ValueError(f"BUILD_WORKSPACE_DIRECTORY is not absolute: {value}")
+    root = root.resolve()
+    if not (root / "MODULE.bazel").is_file():
+        raise ValueError(f"BUILD_WORKSPACE_DIRECTORY is not a Bazel workspace: {root}")
+    return root
+
+
 def main() -> None:
     if len(sys.argv) != 1:
         sys.exit("refresh_sonar does not accept arguments")
 
-    workspace = os.environ.get("BUILD_WORKSPACE_DIRECTORY")
-    if not workspace:
+    workspace_value = os.environ.get("BUILD_WORKSPACE_DIRECTORY")
+    if not workspace_value:
         sys.exit("refresh_sonar must be run via `bazel run`")
+    try:
+        workspace = validated_workspace_root(workspace_value)
+    except ValueError as error:
+        sys.exit(str(error))
 
     r = runfiles.Create()
     refresh = r.Rlocation(REFRESH_RUNFILE)
@@ -39,7 +53,7 @@ def main() -> None:
 
     subprocess.run([refresh], check=True)
 
-    db_path = pathlib.Path(workspace) / "compile_commands.json"
+    db_path = workspace / "compile_commands.json"
     db = json.loads(db_path.read_text())
     rewritten = 0
     for entry in db:
