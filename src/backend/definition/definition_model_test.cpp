@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <string>
+#include <type_traits>
 
 using fastecu::ErrorKind;
 using fastecu::definition::AxisDefinition;
@@ -13,6 +14,10 @@ using fastecu::definition::DefinitionIndexEntry;
 using fastecu::definition::IdEncoding;
 using fastecu::definition::RomDefinition;
 using fastecu::definition::Scaling;
+using fastecu::definition::UnresolvedAxisDefinition;
+using fastecu::definition::UnresolvedCalibrationMap;
+using fastecu::definition::UnresolvedDefinition;
+using fastecu::definition::UnresolvedScaling;
 
 namespace
 {
@@ -32,13 +37,38 @@ DefinitionIndexEntry entry(std::string definition_id, std::string source,
     };
 }
 
-TEST(DefinitionModelTest, DefaultsPreserveLegacyValueBuiltSemantics)
+TEST(DefinitionModelTest, UnresolvedFieldsDistinguishOmittedFromExplicitDefaults)
+{
+    const UnresolvedScaling omitted_scaling;
+    EXPECT_FALSE(omitted_scaling.from_byte);
+    EXPECT_FALSE(omitted_scaling.to_byte);
+    EXPECT_FALSE(omitted_scaling.format);
+
+    UnresolvedAxisDefinition explicit_axis;
+    explicit_axis.size = 1U;
+    explicit_axis.from_byte = "x";
+    explicit_axis.static_data = std::vector<std::string>{};
+    ASSERT_TRUE(explicit_axis.size);
+    EXPECT_EQ(*explicit_axis.size, 1U);
+    ASSERT_TRUE(explicit_axis.from_byte);
+    EXPECT_EQ(*explicit_axis.from_byte, "x");
+    EXPECT_TRUE(explicit_axis.static_data);
+    EXPECT_TRUE(explicit_axis.static_data->empty());
+
+    UnresolvedCalibrationMap explicit_map;
+    explicit_map.x_size = 1U;
+    explicit_map.swap_xy = false;
+    ASSERT_TRUE(explicit_map.x_size);
+    EXPECT_EQ(*explicit_map.x_size, 1U);
+    ASSERT_TRUE(explicit_map.swap_xy);
+    EXPECT_FALSE(*explicit_map.swap_xy);
+}
+
+TEST(DefinitionModelTest, ResolvedValuesHaveConcreteDefaults)
 {
     const Scaling scaling;
-    EXPECT_FALSE(scaling.supplied.tracked);
-    EXPECT_FALSE(scaling.supplied.from_byte);
-    EXPECT_FALSE(scaling.supplied.to_byte);
-    EXPECT_FALSE(scaling.supplied.format);
+    EXPECT_EQ(scaling.from_byte, "x");
+    EXPECT_EQ(scaling.to_byte, "x");
 
     const AxisDefinition axis;
     EXPECT_EQ(axis.size, 1U);
@@ -46,8 +76,6 @@ TEST(DefinitionModelTest, DefaultsPreserveLegacyValueBuiltSemantics)
     EXPECT_EQ(axis.to_byte, "x");
     EXPECT_EQ(axis.start_position, "1");
     EXPECT_EQ(axis.interval, "1");
-    EXPECT_FALSE(axis.supplied.tracked);
-    EXPECT_FALSE(axis.supplied.static_data);
 
     const CalibrationMap map;
     EXPECT_EQ(map.x_size, 1U);
@@ -57,23 +85,21 @@ TEST(DefinitionModelTest, DefaultsPreserveLegacyValueBuiltSemantics)
     EXPECT_FALSE(map.flip_y);
     EXPECT_EQ(map.start_position, "1");
     EXPECT_EQ(map.interval, "1");
-    EXPECT_FALSE(map.supplied.tracked);
-    EXPECT_FALSE(map.supplied.stable_id);
 
     const RomDefinition definition{};
     EXPECT_TRUE(definition.resolved_sources.empty());
     EXPECT_TRUE(definition.resolved_definition_ids.empty());
 }
 
-TEST(DefinitionModelTest, PresenceMetadataParticipatesInValueEquality)
+TEST(DefinitionModelTest, ResolvedDefinitionIsDistinctFromUnresolvedInput)
 {
-    AxisDefinition original;
-    AxisDefinition supplied = original;
-    supplied.supplied.tracked = true;
-    supplied.supplied.size = true;
-
-    EXPECT_NE(original, supplied);
-    EXPECT_EQ(original, AxisDefinition{});
+    static_assert(!std::is_base_of_v<UnresolvedDefinition, RomDefinition>);
+    static_assert(
+        std::is_same_v<decltype(UnresolvedDefinition::maps),
+                       std::vector<UnresolvedCalibrationMap>>);
+    static_assert(
+        std::is_same_v<decltype(RomDefinition::maps),
+                       std::vector<CalibrationMap>>);
 }
 
 TEST(DefinitionCatalogTest, FindsEntryByFormatAndDefinitionId)
