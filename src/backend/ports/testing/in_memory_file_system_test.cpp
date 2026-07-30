@@ -113,6 +113,17 @@ TEST(InMemoryFileSystem, LegacyDirectoryFixturesRemainSupported)
     EXPECT_EQ((*result)[1].modified_time_epoch_seconds, 20);
 }
 
+TEST(InMemoryFileSystem, EmptyLegacyDirectoryFixtureReturnsEmptySuccess)
+{
+    InMemoryFileSystem fs;
+    fs.files_by_parent["/empty"] = {};
+
+    auto result = fs.list_directory("/empty");
+
+    ASSERT_TRUE(result);
+    EXPECT_TRUE(result->empty());
+}
+
 TEST(InMemoryFileSystem, RejectsUnknownDirectory)
 {
     InMemoryFileSystem fs;
