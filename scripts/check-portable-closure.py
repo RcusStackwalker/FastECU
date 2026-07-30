@@ -66,6 +66,7 @@ PORTABLE_ROOTS = {
         "parser_utils",
         "romraider_parser",
         "definition_resolver",
+        "definition_writer",
     },
 }
 
