@@ -1,13 +1,26 @@
 #include <QtTest>
 
+#include <type_traits>
+
+#include "src/backend/definitions/ecu_cal_def.h"
 #include "src/backend/definitions/file_actions.h"
 #include "test_model_validation.h"
+
+static_assert(std::is_same_v<FileActions::EcuCalDefStructure,
+                             fastecu::definitions::EcuCalDefStructure>);
 
 class TestModelValidation : public QObject
 {
     Q_OBJECT
 
   private slots:
+    void extracted_ecu_cal_def_keeps_legacy_defaults()
+    {
+        FileActions::EcuCalDefStructure value;
+        QCOMPARE(value.RomInfoNames.at(FileActions::XmlId), QString("xmlid"));
+        QCOMPARE(value.DefHeaderNames.last(), QString("notes"));
+    }
+
     void flashProtocols_acceptMatchingRows()
     {
         FileActions::ConfigValuesStructure config;
