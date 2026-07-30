@@ -1,5 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -50,30 +51,42 @@ cc_library(
     ],
 )
 
-fastecu_portable_gtest(
-    name = "definition_model_test",
-    srcs = ["definition_model_test.cpp"],
-    deps = [":definition_model"],
-)
-
-fastecu_portable_gtest(
-    name = "romraider_parser_test",
-    srcs = ["romraider_parser_test.cpp"],
-    deps = [":romraider_parser"],
-)
-
-fastecu_portable_gtest(
-    name = "ecuflash_parser_test",
-    srcs = ["ecuflash_parser_test.cpp"],
-    deps = [":ecuflash_parser"],
-)
-
 cc_library(
     name = "definition_resolver",
     srcs = ["definition_resolver.cpp"],
     hdrs = ["definition_resolver.h"],
     deps = [
         ":definition_model",
+        "//src/backend/ports",
+    ],
+)
+
+cc_library(
+    name = "definition_service",
+    srcs = ["definition_service.cpp"],
+    hdrs = ["definition_service.h"],
+    deps = [
+        ":definition_model",
+        ":definition_resolver",
+        ":definition_writer",
+        ":ecuflash_parser",
+        ":romraider_parser",
+        "//src/backend/ports",
+    ],
+)
+
+qt_cc_library(
+    name = "legacy_definition_adapter",
+    srcs = ["legacy_definition_adapter.cpp"],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["legacy_definition_adapter.h"],
+    deps = QT_DEPS + [
+        ":definition_service",
+        ":text_format",
+        "//src/backend/definitions:config_values",
+        "//src/backend/definitions:ecu_cal_def",
+        "//src/backend/definitions:legacy_definition_columns",
         "//src/backend/ports",
     ],
 )
@@ -92,20 +105,49 @@ cc_library(
 )
 
 fastecu_portable_gtest(
+    name = "definition_writer_test",
+    srcs = ["definition_writer_test.cpp"],
+    deps = [
+        ":definition_writer",
+        ":ecuflash_parser",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "definition_service_test",
+    srcs = ["definition_service_test.cpp"],
+    deps = [
+        ":definition_service",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/ports/testing:in_memory_file_repository",
+        "//src/backend/ports/testing:in_memory_file_system",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "definition_model_test",
+    srcs = ["definition_model_test.cpp"],
+    deps = [":definition_model"],
+)
+
+fastecu_portable_gtest(
+    name = "romraider_parser_test",
+    srcs = ["romraider_parser_test.cpp"],
+    deps = [":romraider_parser"],
+)
+
+fastecu_portable_gtest(
+    name = "ecuflash_parser_test",
+    srcs = ["ecuflash_parser_test.cpp"],
+    deps = [":ecuflash_parser"],
+)
+
+fastecu_portable_gtest(
     name = "definition_resolver_test",
     srcs = ["definition_resolver_test.cpp"],
     deps = [
         ":definition_resolver",
         ":ecuflash_parser",
         ":romraider_parser",
-    ],
-)
-
-fastecu_portable_gtest(
-    name = "definition_writer_test",
-    srcs = ["definition_writer_test.cpp"],
-    deps = [
-        ":definition_writer",
-        ":ecuflash_parser",
     ],
 )

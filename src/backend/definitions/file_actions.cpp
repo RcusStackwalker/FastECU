@@ -1,5 +1,9 @@
 // #include "src/backend/definitions/file_actions.h"
+#include <algorithm>
+#include <optional>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "src/backend/definitions/error_codes.h"
 #include "src/algorithms/diagnostics/qt_dtc_parser.h"
@@ -10,6 +14,149 @@
 
 namespace
 {
+
+using fastecu::definition::DefinitionCatalog;
+using fastecu::definition::DefinitionFormat;
+using fastecu::definition::DefinitionIndexEntry;
+using fastecu::definition::IdEncoding;
+
+QString lineEditValue(
+    const QList<QLineEdit *>& lineEdits,
+    const QString& name)
+{
+    for (const QLineEdit *editor : lineEdits)
+    {
+        if (editor->objectName() == name)
+        {
+            return editor->text();
+        }
+    }
+    return {};
+}
+
+fastecu::Result<fastecu::definition::DefinitionHeaderInput>
+definitionHeaderInput(
+    const QList<QLineEdit *>& lineEdits,
+    const QList<QTextEdit *>& textEdits)
+{
+    QHash<QString, QString> fields;
+    for (const QLineEdit *editor : lineEdits)
+    {
+        fields.insert(editor->objectName(), editor->text());
+    }
+    for (const QTextEdit *editor : textEdits)
+    {
+        fields.insert(editor->objectName(), editor->toPlainText());
+    }
+
+    std::optional<std::uint64_t> internalIdAddress;
+    const QString addressText = fields.value("internalidaddress").trimmed();
+    if (!addressText.isEmpty())
+    {
+        bool validAddress = false;
+        const std::uint64_t parsedAddress = addressText.toULongLong(&validAddress, 16);
+        if (!validAddress)
+        {
+            return fastecu::fail(
+                fastecu::ErrorKind::InvalidConfig,
+                "definition internal ID address is not a valid integer");
+        }
+        internalIdAddress = parsedAddress;
+    }
+
+    return fastecu::definition::DefinitionHeaderInput{
+        .xml_id = fields.value("xmlid").trimmed().toStdString(),
+        .internal_id = fields.value("internalidstring").toStdString(),
+        .ecu_id = fields.value("ecuid").toStdString(),
+        .internal_id_address = internalIdAddress,
+        .metadata =
+            fastecu::definition::RomMetadata{
+                .make = fields.value("make").toStdString(),
+                .market = fields.value("market").toStdString(),
+                .model = fields.value("model").toStdString(),
+                .submodel = fields.value("submodel").toStdString(),
+                .transmission = fields.value("transmission").toStdString(),
+                .year = fields.value("year").toStdString(),
+                .flash_method = fields.value("flashmethod").toStdString(),
+                .memory_model = fields.value("memmodel").toStdString(),
+                .checksum_module = fields.value("checksummodule").toStdString(),
+            },
+        .include = fields.value("include").toStdString(),
+        .notes = fields.value("notes").toStdString(),
+    };
+}
+
+fastecu::Result<DefinitionCatalog> catalogFromLegacyLists(
+    const FileActions::ConfigValuesStructure& config,
+    DefinitionFormat format)
+{
+    const QStringList *ids =
+        format == DefinitionFormat::RomRaider
+            ? &config.romraider_def_cal_id
+            : &config.ecuflash_def_cal_id;
+    const QStringList *addresses =
+        format == DefinitionFormat::RomRaider
+            ? &config.romraider_def_cal_id_addr
+            : &config.ecuflash_def_cal_id_addr;
+    const QStringList *ecuIds =
+        format == DefinitionFormat::RomRaider
+            ? &config.romraider_def_ecu_id
+            : &config.ecuflash_def_ecu_id;
+    const QStringList *sources =
+        format == DefinitionFormat::RomRaider
+            ? &config.romraider_def_filename
+            : &config.ecuflash_def_filename;
+
+    const bool completeShape =
+        sources->size() == ids->size() &&
+        addresses->size() == ids->size() &&
+        ecuIds->size() == ids->size();
+    const bool readOnlyShape =
+        sources->size() == ids->size() &&
+        addresses->isEmpty() &&
+        ecuIds->isEmpty();
+    if (!completeShape && !readOnlyShape)
+    {
+        return fastecu::fail(
+            fastecu::ErrorKind::InvalidConfig,
+            "legacy definition catalog ID/source/address/ECU columns are not "
+            "aligned; expected four complete columns or the documented "
+            "ID/source-only read shape");
+    }
+
+    std::vector<DefinitionIndexEntry> entries;
+    entries.reserve(static_cast<std::size_t>(ids->size()));
+    for (qsizetype index = 0; index < ids->size(); ++index)
+    {
+        std::optional<std::uint64_t> address;
+        const QString addressText =
+            readOnlyShape ? QString{} : addresses->at(index);
+        if (!addressText.trimmed().isEmpty())
+        {
+            bool valid = false;
+            const qulonglong parsed = addressText.toULongLong(&valid, 16);
+            if (!valid)
+            {
+                return fastecu::fail(
+                    fastecu::ErrorKind::InvalidConfig,
+                    std::format("invalid hexadecimal internal ID address '{}'", addressText.toStdString()));
+            }
+            address = static_cast<std::uint64_t>(parsed);
+        }
+
+        entries.push_back(DefinitionIndexEntry{
+            .format = format,
+            .definition_id = ids->at(index).toStdString(),
+            .internal_id = ids->at(index).toStdString(),
+            .internal_id_address = address,
+            .internal_id_encoding = IdEncoding::AsciiOrHex,
+            .ecu_id =
+                readOnlyShape ? std::string{} : ecuIds->at(index).toStdString(),
+            .source = sources->at(index).toStdString(),
+        });
+    }
+    return DefinitionCatalog::create(std::move(entries));
+}
 
 void validateListLength(const QString& group,
                         const QString& name,
@@ -69,9 +216,246 @@ int lineAfterClosingTag(const QStringList& lines, const QString& tagName)
 } // namespace
 
 FileActions::FileActions(fastecu::IFileSystem& file_system, fastecu::IResourceBundle& resource_bundle,
-                         fastecu::IFileRepository& file_repository, QWidget *parent)
-    : QWidget(parent), configAdapter_(file_system, resource_bundle, file_repository)
+                         fastecu::IFileRepository& file_repository,
+                         fastecu::IAtomicFileWriter& atomic_file_writer,
+                         QWidget *parent)
+    : QWidget(parent),
+      configAdapter_(file_system, resource_bundle, file_repository),
+      definitionFileSystem_(file_system),
+      definitionFileRepository_(file_repository),
+      definitionService_(file_system, file_repository, atomic_file_writer),
+      definitionAdapter_(definitionService_)
 {
+}
+
+fastecu::Result<DefinitionCatalog> FileActions::build_definition_catalog(
+    DefinitionFormat format)
+{
+    if (format == DefinitionFormat::RomRaider &&
+        !ConfigValuesStruct.romraider_definition_files.isEmpty())
+    {
+        std::vector<std::string> handles;
+        handles.reserve(static_cast<std::size_t>(
+            ConfigValuesStruct.romraider_definition_files.size()));
+        for (const QString& handle :
+             ConfigValuesStruct.romraider_definition_files)
+        {
+            handles.push_back(handle.toStdString());
+        }
+        return definitionService_.build_romraider_catalog(handles);
+    }
+    if (format == DefinitionFormat::EcuFlash)
+    {
+        std::vector<std::string> explicitHandles;
+        explicitHandles.reserve(static_cast<std::size_t>(
+            ConfigValuesStruct.ecuflash_def_filename.size()));
+        for (const QString& handle :
+             ConfigValuesStruct.ecuflash_def_filename)
+        {
+            explicitHandles.push_back(handle.toStdString());
+        }
+        if (ConfigValuesStruct.ecuflash_definition_files_directory.isEmpty() &&
+            explicitHandles.empty())
+        {
+            return catalogFromLegacyLists(ConfigValuesStruct, format);
+        }
+        return definitionService_.build_ecuflash_catalog(
+            ConfigValuesStruct.ecuflash_definition_files_directory.toStdString(),
+            explicitHandles);
+    }
+    return catalogFromLegacyLists(ConfigValuesStruct, format);
+}
+
+QString FileActions::definition_source(
+    DefinitionFormat format,
+    const QString& id) const
+{
+    const QStringList *ids =
+        format == DefinitionFormat::RomRaider
+            ? &ConfigValuesStruct.romraider_def_cal_id
+            : &ConfigValuesStruct.ecuflash_def_cal_id;
+    const QStringList *sources =
+        format == DefinitionFormat::RomRaider
+            ? &ConfigValuesStruct.romraider_def_filename
+            : &ConfigValuesStruct.ecuflash_def_filename;
+    const qsizetype index = ids->indexOf(id);
+    return index >= 0 && index < sources->size()
+               ? sources->at(index)
+               : QString{};
+}
+
+void FileActions::log_definition_error(
+    const QString& operation,
+    const fastecu::Error& error)
+{
+    emit LOG_E(
+        operation + " [" +
+            QString::fromUtf8(fastecu::to_string(error.kind)) + "]: " +
+            QString::fromStdString(error.detail),
+        true,
+        true);
+}
+
+fastecu::Status FileActions::load_configured_definition(
+    EcuCalDefStructure& ecu_cal_def,
+    DefinitionFormat format,
+    const QString& definition_id)
+{
+    auto catalog = build_definition_catalog(format);
+    if (!catalog.has_value())
+    {
+        return std::unexpected(catalog.error());
+    }
+    fastecu::Status replaced = definitionAdapter_.replace_definition(
+        ecu_cal_def, *catalog, format, definition_id.toStdString());
+    if (!replaced.has_value())
+    {
+        return replaced;
+    }
+    normalize_definition_addresses(ecu_cal_def);
+    apply_flash_method_alias(ecu_cal_def);
+    return {};
+}
+
+bool FileActions::log_definition_load_failure(
+    const QString& operation,
+    const fastecu::Error& error,
+    const QString& source,
+    const QString& warning_title,
+    const QString& warning_text)
+{
+    log_definition_error(operation, error);
+    if (!source.isEmpty() &&
+        !definitionFileSystem_.exists(source.toStdString()))
+    {
+        QMessageBox::warning(this, warning_title, warning_text + source + " for reading");
+        return true;
+    }
+    return false;
+}
+
+void FileActions::strip_legacy_address_prefixes(QStringList& addresses)
+{
+    for (QString& address : addresses)
+    {
+        if (address.startsWith("0x"))
+        {
+            address.remove(0, 2);
+        }
+    }
+}
+
+fastecu::Status FileActions::submit_new_definition(
+    std::string_view destination,
+    const fastecu::definition::DefinitionHeaderInput& input)
+{
+    // The caller reaches this only after the native "Save As" dialog already asked to
+    // overwrite an existing file, so that confirmation is passed through here rather than
+    // rejected again by the service's own new-file-only guard.
+    fastecu::Status status =
+        definitionAdapter_.create_definition(destination, input, /*allow_overwrite=*/true);
+    if (!status.has_value())
+    {
+        log_definition_error("Unable to create definition", status.error());
+    }
+    else
+    {
+        remember_submitted_ecuflash_handle(destination);
+    }
+    return status;
+}
+
+fastecu::Status FileActions::submit_imported_definition(
+    std::string_view source,
+    std::string_view destination,
+    const fastecu::definition::DefinitionHeaderInput& input)
+{
+    fastecu::Status status =
+        definitionAdapter_.import_definition(source, destination, input);
+    if (!status.has_value())
+    {
+        log_definition_error("Unable to import definition", status.error());
+    }
+    else
+    {
+        remember_submitted_ecuflash_handle(destination);
+    }
+    return status;
+}
+
+void FileActions::remember_submitted_ecuflash_handle(
+    std::string_view destination)
+{
+    const auto position = std::ranges::lower_bound(
+        submittedEcuflashHandles_,
+        destination,
+        {},
+        [](const auto& item)
+        { return std::string_view{item}; });
+    if (position == std::ranges::end(submittedEcuflashHandles_) ||
+        std::string_view(*position) != destination)
+    {
+        submittedEcuflashHandles_.emplace(
+            position,
+            destination);
+    }
+}
+
+void FileActions::apply_flash_method_alias(EcuCalDefStructure& ecuCalDef)
+{
+    if (ecuCalDef.RomInfo.size() <= FlashMethod)
+    {
+        return;
+    }
+    const QString flashMethod = ecuCalDef.RomInfo.at(FlashMethod);
+    for (qsizetype index = 0;
+         index < ConfigValuesStruct.flash_protocol_id.size() &&
+         index < ConfigValuesStruct.flash_protocol_alias.size() &&
+         index < ConfigValuesStruct.flash_protocol_protocol_name.size();
+         ++index)
+    {
+        const QStringList aliases =
+            ConfigValuesStruct.flash_protocol_alias.at(index).split(",");
+        if (aliases.contains(flashMethod))
+        {
+            emit LOG_D("Alias: " + flashMethod, true, true);
+            emit LOG_D(
+                "Protocol: " +
+                    ConfigValuesStruct.flash_protocol_protocol_name.at(index),
+                true,
+                true);
+            ecuCalDef.RomInfo.replace(
+                FlashMethod,
+                ConfigValuesStruct.flash_protocol_protocol_name.at(index));
+            return;
+        }
+    }
+}
+
+void FileActions::normalize_definition_addresses(
+    EcuCalDefStructure& ecuCalDef)
+{
+    const auto removePrefix = [](QString& address)
+    {
+        if (address.startsWith("0x"))
+        {
+            address.remove(0, 2);
+        }
+    };
+    if (ecuCalDef.RomInfo.size() > InternalIdAddress)
+    {
+        removePrefix(ecuCalDef.RomInfo[InternalIdAddress]);
+    }
+    for (QStringList *addresses :
+         {&ecuCalDef.AddressList,
+          &ecuCalDef.XScaleAddressList,
+          &ecuCalDef.YScaleAddressList})
+    {
+        for (QString& address : *addresses)
+        {
+            removePrefix(address);
+        }
+    }
 }
 
 bool FileActions::validate_flash_protocols(const ConfigValuesStructure& configValues, QStringList *errors)
@@ -1048,123 +1432,61 @@ QString FileActions::parse_hex_ecuid(uint8_t byte)
 
 FileActions::EcuCalDefStructure *FileActions::parse_ecuid_ecuflash_def_files(FileActions::EcuCalDefStructure *ecuCalDef, bool is_ascii)
 {
-    ConfigValuesStructure *configValues = &ConfigValuesStruct;
-
-    QString cal_id_ascii;
-    QString cal_id_hex;
-
-    bool bStatus = false;
-    bool cal_id_ascii_confirmed = false;
-    bool cal_id_hex_confirmed = false;
-
-    // emit LOG_D("Parse EcuFlash def files " + ecuCalDef->RomId;
-
-    for (int i = 0; i < configValues->ecuflash_def_cal_id.length(); i++)
+    (void)is_ascii;
+    auto catalog =
+        build_definition_catalog(DefinitionFormat::EcuFlash);
+    if (!catalog.has_value())
     {
-        cal_id_ascii.clear();
-        cal_id_hex.clear();
-        int addr = configValues->ecuflash_def_cal_id_addr.at(i).toUInt(&bStatus, 16);
-        int ecuid_length = configValues->ecuflash_def_cal_id.at(i).length();
-        for (int j = addr; j < addr + ecuid_length; j++)
-        {
-            if (ecuCalDef->FullRomData.length() > addr + ecuid_length)
-            {
-                uint8_t byte = (uint8_t)ecuCalDef->FullRomData.at(j);
-                if (cal_id_hex.length() < ecuid_length)
-                {
-                    cal_id_hex.append(parse_hex_ecuid(byte));
-                }
-                cal_id_ascii.append((QChar)byte);
-            }
-        }
-
-        if (cal_id_ascii == configValues->ecuflash_def_cal_id.at(i))
-        {
-            cal_id_ascii_confirmed = true;
-        }
-        if (cal_id_hex == configValues->ecuflash_def_cal_id.at(i))
-        {
-            cal_id_hex_confirmed = true;
-        }
-
-        // emit LOG_D("EcuFlash cal id: " + i + " " + configValues->ecuflash_def_cal_id.at(i) + " -> " + cal_id_ascii + " -> " + cal_id_hex;
-
-        if (cal_id_ascii_confirmed)
-        {
-            emit LOG_D("EcuFlash cal id " + cal_id_ascii + " found", true, true);
-            ecuCalDef->RomId = cal_id_ascii;
-            break;
-        }
-        if (cal_id_hex_confirmed)
-        {
-            emit LOG_D("EcuFlash cal id " + cal_id_hex + "found", true, true);
-            ecuCalDef->RomId = cal_id_hex;
-            break;
-        }
+        log_definition_error("Unable to match EcuFlash definition", catalog.error());
+        return ecuCalDef;
     }
-    // emit LOG_D("Parse EcuFlash def files no ID found... " + ecuCalDef->RomId;
-
+    const auto *bytes = reinterpret_cast<const std::uint8_t *>(
+        ecuCalDef->FullRomData.constData());
+    auto match = definitionService_.match_rom(
+        *catalog,
+        std::span<const std::uint8_t>(
+            bytes,
+            static_cast<std::size_t>(ecuCalDef->FullRomData.size())));
+    if (!match.has_value())
+    {
+        log_definition_error("Unable to match EcuFlash definition", match.error());
+        return ecuCalDef;
+    }
+    ecuCalDef->RomId = QString::fromStdString(match->definition_id);
+    emit LOG_D(
+        "EcuFlash cal id " + ecuCalDef->RomId + " found",
+        true,
+        true);
     return ecuCalDef;
 }
 
 FileActions::EcuCalDefStructure *FileActions::parse_ecuid_romraider_def_files(FileActions::EcuCalDefStructure *ecuCalDef, bool is_ascii)
 {
-    ConfigValuesStructure *configValues = &ConfigValuesStruct;
-
-    QString cal_id_ascii;
-    QString cal_id_hex;
-
-    bool bStatus = false;
-    bool cal_id_ascii_confirmed = false;
-    bool cal_id_hex_confirmed = false;
-
-    // emit LOG_D("Parse RomRaider def files " + ecuCalDef->RomId;
-
-    for (int i = 0; i < configValues->romraider_def_cal_id.length(); i++)
+    (void)is_ascii;
+    auto catalog =
+        build_definition_catalog(DefinitionFormat::RomRaider);
+    if (!catalog.has_value())
     {
-        cal_id_ascii.clear();
-        cal_id_hex.clear();
-        int addr = configValues->romraider_def_cal_id_addr.at(i).toUInt(&bStatus, 16);
-        int ecuid_length = configValues->romraider_def_cal_id.at(i).length();
-        for (int j = addr; j < addr + ecuid_length; j++)
-        {
-            if (ecuCalDef->FullRomData.length() > addr + ecuid_length)
-            {
-                uint8_t byte = (uint8_t)ecuCalDef->FullRomData.at(j);
-                if (cal_id_hex.length() < ecuid_length)
-                {
-                    cal_id_hex.append(parse_hex_ecuid(byte));
-                }
-                cal_id_ascii.append((QChar)byte);
-            }
-        }
-
-        if (cal_id_ascii == configValues->romraider_def_cal_id.at(i))
-        {
-            cal_id_ascii_confirmed = true;
-        }
-        if (cal_id_hex == configValues->romraider_def_cal_id.at(i))
-        {
-            cal_id_hex_confirmed = true;
-        }
-
-        // emit LOG_D("RomRaider cal id: " + i + " " + configValues->romraider_def_cal_id.at(i) + " -> " + cal_id_ascii + " -> " + cal_id_hex;
-
-        if (cal_id_ascii_confirmed)
-        {
-            emit LOG_D("RomRaider cal id " + cal_id_ascii + " found", true, true);
-            ecuCalDef->RomId = cal_id_ascii;
-            break;
-        }
-        if (cal_id_hex_confirmed)
-        {
-            emit LOG_D("RomRaider cal id " + cal_id_hex + " found", true, true);
-            ecuCalDef->RomId = cal_id_hex;
-            break;
-        }
+        log_definition_error("Unable to match RomRaider definition", catalog.error());
+        return ecuCalDef;
     }
-    // emit LOG_D("Parse RomRaider def files no ID found... " + ecuCalDef->RomId;
-
+    const auto *bytes = reinterpret_cast<const std::uint8_t *>(
+        ecuCalDef->FullRomData.constData());
+    auto match = definitionService_.match_rom(
+        *catalog,
+        std::span<const std::uint8_t>(
+            bytes,
+            static_cast<std::size_t>(ecuCalDef->FullRomData.size())));
+    if (!match.has_value())
+    {
+        log_definition_error("Unable to match RomRaider definition", match.error());
+        return ecuCalDef;
+    }
+    ecuCalDef->RomId = QString::fromStdString(match->definition_id);
+    emit LOG_D(
+        "RomRaider cal id " + ecuCalDef->RomId + " found",
+        true,
+        true);
     return ecuCalDef;
 }
 
@@ -1242,6 +1564,10 @@ FileActions::EcuCalDefStructure *FileActions::create_new_definition_for_rom(File
                 }
             }
         }
+        if (filename.isEmpty())
+        {
+            return ecuCalDef;
+        }
         if (filename.endsWith(QString(".")))
         {
             filename.remove(filename.length() - 1, 1);
@@ -1251,62 +1577,44 @@ FileActions::EcuCalDefStructure *FileActions::create_new_definition_for_rom(File
             filename.append(QString(".xml"));
         }
 
-        QFile file(filename);
-        QFileInfo fileInfo(file.fileName());
-        // file_name_str = fileInfo.fileName();
-
-        if (!file.open(QIODevice::ReadWrite))
+        auto input = definitionHeaderInput(lineEditList, textEditList);
+        if (!input.has_value())
         {
-            QMessageBox::warning(this, tr("Definition file"), "Unable to open definition file for writing");
+            log_definition_error(
+                "Unable to create definition",
+                input.error());
+            QMessageBox::warning(
+                this,
+                tr("Definition file"),
+                "Unable to create definition: " +
+                    QString::fromStdString(input.error().detail));
             return nullptr;
         }
-
-        QString rombase;
-        QString checksum_module = configValues->flash_protocol_selected_protocol_name;
-        checksum_module.remove(0, 3);
-        checksum_module.insert(0, "checksum");
-
-        configValues->ecuflash_def_filename.append(filename);
-
-        QXmlStreamWriter stream(&file);
-        file.resize(0);
-        stream.setAutoFormatting(true);
-        stream.setAutoFormattingIndent(2);
-        stream.writeStartDocument();
-        stream.writeStartElement("rom");
-        stream.writeStartElement("romid");
-
-        int index = 0;
-        for (int i = 0; i < ecuCalDef->DefHeaderNames.length(); i++)
+        for (const QLineEdit *editor : lineEditList)
         {
-            if (ecuCalDef->DefHeaderNames.at(i) != "include" && ecuCalDef->DefHeaderNames.at(i) != "notes")
+            if (editor->objectName() != "include")
             {
-                if (ecuCalDef->DefHeaderNames.at(i) == "internalidstring")
-                {
-                    configValues->ecuflash_def_cal_id.append(lineEditList.at(i)->text());
-                }
-                if (ecuCalDef->DefHeaderNames.at(i) == "internalidaddress")
-                {
-                    configValues->ecuflash_def_cal_id_addr.append(lineEditList.at(i)->text());
-                }
-                if (ecuCalDef->DefHeaderNames.at(i) == "ecuid")
-                {
-                    configValues->ecuflash_def_ecu_id.append(lineEditList.at(i)->text());
-                }
-
-                emit LOG_D(lineEditList.at(i)->text(), true, true);
-                stream.writeTextElement(ecuCalDef->RomInfoNames.at(i), lineEditList.at(i)->text());
-                index++;
+                emit LOG_D(editor->text(), true, true);
             }
         }
-        stream.writeEndElement();
-        stream.writeCharacters("\n\n\t");
-        stream.writeTextElement("include", lineEditList.at(index)->text());
-        stream.writeCharacters("\n\n\t");
-        stream.writeTextElement("notes", textEditList.at(0)->toPlainText());
-        stream.writeEndElement();
-
-        file.close();
+        fastecu::Status status =
+            submit_new_definition(filename.toStdString(), *input);
+        if (!status.has_value())
+        {
+            QMessageBox::warning(
+                this,
+                tr("Definition file"),
+                "Unable to open definition file for writing: " +
+                    QString::fromStdString(status.error().detail));
+            return nullptr;
+        }
+        configValues->ecuflash_def_cal_id.append(
+            QString::fromStdString(input->xml_id));
+        configValues->ecuflash_def_cal_id_addr.append(
+            lineEditValue(lineEditList, "internalidaddress"));
+        configValues->ecuflash_def_ecu_id.append(
+            lineEditValue(lineEditList, "ecuid"));
+        configValues->ecuflash_def_filename.append(filename);
     }
 
     return ecuCalDef;
@@ -1344,25 +1652,27 @@ FileActions::EcuCalDefStructure *FileActions::use_existing_definition_for_rom(Fi
             }
         }
     }
-
-    QFile file(filename);
-    QFileInfo fileInfo(file.fileName());
-    // file_name_str = fileInfo.fileName();
-
-    if (!file.open(QIODevice::ReadOnly))
+    if (filename.isEmpty())
     {
+        return ecuCalDef;
+    }
+
+    const QString source = filename;
+    auto sourceContents = definitionFileRepository_.read(source.toStdString());
+    if (!sourceContents.has_value())
+    {
+        log_definition_error(
+            "Unable to import definition",
+            sourceContents.error());
         QMessageBox::warning(this, tr("Definition file"), "Unable to open definition file for reading");
         return nullptr;
     }
-    QStringList defData;
-    while (!file.atEnd())
-    {
-        defData.append(file.readLine());
-    }
-    file.close();
-
-    int endIndex = 0;
-    QStringList headerData = collect_ecuflash_base_header_fields(*ecuCalDef, defData, &endIndex);
+    const QByteArray sourceBytes(
+        reinterpret_cast<const char *>(sourceContents->data()),
+        static_cast<qsizetype>(sourceContents->size()));
+    const QStringList headerData = collect_ecuflash_base_header_fields(
+        *ecuCalDef,
+        {QString::fromUtf8(sourceBytes)});
 
     QDialog *definitionDialog = new QDialog(this);
     QVBoxLayout *vBoxLayout = new QVBoxLayout(definitionDialog);
@@ -1430,6 +1740,10 @@ FileActions::EcuCalDefStructure *FileActions::use_existing_definition_for_rom(Fi
                 }
             }
         }
+        if (filename.isEmpty())
+        {
+            return ecuCalDef;
+        }
         if (filename.endsWith(QString(".")))
         {
             filename.remove(filename.length() - 1, 1);
@@ -1439,71 +1753,47 @@ FileActions::EcuCalDefStructure *FileActions::use_existing_definition_for_rom(Fi
             filename.append(QString(".xml"));
         }
 
-        QFile file(filename);
-        QFileInfo fileInfo(file.fileName());
-        // file_name_str = fileInfo.fileName();
-
-        if (!file.open(QIODevice::ReadWrite))
+        auto input = definitionHeaderInput(lineEditList, textEditList);
+        if (!input.has_value())
         {
-            QMessageBox::warning(this, tr("Definition file"), "Unable to open definition file for writing");
+            log_definition_error(
+                "Unable to import definition",
+                input.error());
+            QMessageBox::warning(
+                this,
+                tr("Definition file"),
+                "Unable to import definition: " +
+                    QString::fromStdString(input.error().detail));
             return nullptr;
         }
-
-        QString rombase;
-        QString checksum_module = ecuCalDef->RomInfo.at(FlashMethod);
-        checksum_module.remove(0, 3);
-        checksum_module.insert(0, "checksum");
-
-        configValues->ecuflash_def_filename.append(filename);
-
-        QXmlStreamWriter stream(&file);
-        file.resize(0);
-
         emit LOG_D("Write to file", true, true);
-        stream.setAutoFormatting(true);
-        stream.setAutoFormattingIndent(2);
-        stream.writeStartDocument();
-        stream.writeStartElement("rom");
-        stream.writeStartElement("romid");
-        int index = 0;
-        for (int i = 0; i < headerData.length(); i += 2)
+        for (const QLineEdit *editor : lineEditList)
         {
-            if (headerData.at(i) == "internalidstring")
+            if (editor->objectName() != "include")
             {
-                configValues->ecuflash_def_cal_id.append(lineEditList.at(index)->text());
-            }
-            if (headerData.at(i) == "internalidaddress")
-            {
-                configValues->ecuflash_def_cal_id_addr.append(lineEditList.at(index)->text());
-            }
-            if (headerData.at(i) == "ecuid")
-            {
-                configValues->ecuflash_def_ecu_id.append(lineEditList.at(index)->text());
-            }
-
-            if (headerData.at(i) != "include" && headerData.at(i) != "notes")
-            {
-                emit LOG_D(lineEditList.at(index)->text(), true, true);
-                stream.writeTextElement(headerData.at(i), lineEditList.at(index)->text());
-                index++;
+                emit LOG_D(editor->text(), true, true);
             }
         }
-        stream.writeEndElement();
-        stream.writeCharacters("\n\n\t");
-        stream.writeTextElement("include", lineEditList.at(index)->text());
-        stream.writeCharacters("\n\n\t");
-        stream.writeTextElement("notes", textEditList.at(0)->toPlainText());
-        stream.writeCharacters("\n");
-
-        const QStringList bodyLines = collect_ecuflash_definition_body_lines(defData, endIndex);
-        for (const QString& line : bodyLines)
+        fastecu::Status status = submit_imported_definition(
+            source.toStdString(),
+            filename.toStdString(),
+            *input);
+        if (!status.has_value())
         {
-            file.write(line.toUtf8());
+            QMessageBox::warning(
+                this,
+                tr("Definition file"),
+                "Unable to open definition file for writing: " +
+                    QString::fromStdString(status.error().detail));
+            return nullptr;
         }
-
-        stream.writeEndElement();
-
-        file.close();
+        configValues->ecuflash_def_cal_id.append(
+            QString::fromStdString(input->xml_id));
+        configValues->ecuflash_def_cal_id_addr.append(
+            lineEditValue(lineEditList, "internalidaddress"));
+        configValues->ecuflash_def_ecu_id.append(
+            lineEditValue(lineEditList, "ecuid"));
+        configValues->ecuflash_def_filename.append(filename);
     }
 
     return ecuCalDef;

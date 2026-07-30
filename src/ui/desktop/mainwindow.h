@@ -108,6 +108,7 @@
 #include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
 #include "src/platform/desktop/common/logging/logging_value_adapter.h"
 #include "src/platform/desktop/common/ports/qt_clock.h"
+#include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
 #include "src/platform/desktop/common/ports/qt_resource_bundle.h"
@@ -204,6 +205,7 @@ class MainWindow : public QMainWindow
     QtFileSystem m_configFileSystem;
     QtResourceBundle m_configResourceBundle;
     QtFileRepository m_configFileRepository;
+    QtAtomicFileWriter m_definitionFileWriter;
     FileActions *fileActions;
     FileActions::LogValuesStructure *logValues;
     FileActions::ConfigValuesStructure *configValues;

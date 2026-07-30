@@ -14,7 +14,6 @@
 #include <QToolBar>
 #include <QElapsedTimer>
 #include <QDateTime>
-#include <QDirIterator>
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QLabel>
@@ -27,6 +26,8 @@
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <string_view>
+#include <vector>
 
 #include "src/backend/definitions/kernelmemorymodels.h"
 #include "src/backend/definitions/config_values.h"
@@ -34,6 +35,9 @@
 #include "src/backend/checksum/legacy_checksum_adapter.h"
 #include "src/backend/config/legacy_config_adapter.h"
 #include "src/backend/config/config_paths.h"
+#include "src/backend/definition/definition_service.h"
+#include "src/backend/definition/legacy_definition_adapter.h"
+#include "src/backend/ports/atomic_file_writer.h"
 #include "src/backend/ports/file_repository.h"
 #include "src/backend/ports/file_system.h"
 #include "src/backend/ports/resource_bundle.h"
@@ -50,7 +54,9 @@ class FileActions : public QWidget
 
   public:
     FileActions(fastecu::IFileSystem& file_system, fastecu::IResourceBundle& resource_bundle,
-                fastecu::IFileRepository& file_repository, QWidget *parent = nullptr);
+                fastecu::IFileRepository& file_repository,
+                fastecu::IAtomicFileWriter& atomic_file_writer,
+                QWidget *parent = nullptr);
 
     uint8_t float_precision = 15;
     int def_map_index = 0;
@@ -219,18 +225,14 @@ class FileActions : public QWidget
     ConfigValuesStructure *create_romraider_def_id_list(ConfigValuesStructure *configValues);
     EcuCalDefStructure *read_romraider_ecu_base_def(FileActions::EcuCalDefStructure *ecuCalDef);
     EcuCalDefStructure *read_romraider_ecu_def(FileActions::EcuCalDefStructure *ecuCalDef, const QString& ecuId);
-    EcuCalDefStructure *add_romraider_def_list_item(EcuCalDefStructure *ecuCalDef);
 
     /*****************************************************
      * Search and read RomRaider ECU definition from file
      *****************************************************/
-    QString convert_value_format(const QString& value_format);
     ConfigValuesStructure *create_ecuflash_def_id_list(ConfigValuesStructure *configValues);
     // EcuCalDefStructure *read_ecuflash_ecu_base_def(FileActions::EcuCalDefStructure *ecuCalDef);
     EcuCalDefStructure *read_ecuflash_ecu_def(FileActions::EcuCalDefStructure *ecuCalDef, const QString& cal_id);
     EcuCalDefStructure *parse_ecuflash_def_scalings(EcuCalDefStructure *ecuCalDef);
-    EcuCalDefStructure *add_ecuflash_def_list_item(EcuCalDefStructure *ecuCalDef);
-    QString parse_strict_bool_attribute(const QDomElement& element, const QString& attrName, const QString& tableName);
 
     // EcuCalDefStructure *read_ecuflash_ecu_def_test(FileActions::EcuCalDefStructure *ecuCalDef, QString cal_id);
 
@@ -286,8 +288,45 @@ class FileActions : public QWidget
     static QString parse_dtc_message(uint16_t dtc);
 
   private:
+    friend class TestFileActionsParsing;
+
+    fastecu::Status submit_new_definition(
+        std::string_view destination,
+        const fastecu::definition::DefinitionHeaderInput&);
+    fastecu::Status submit_imported_definition(
+        std::string_view source, std::string_view destination,
+        const fastecu::definition::DefinitionHeaderInput&);
+    void remember_submitted_ecuflash_handle(
+        std::string_view destination);
+    fastecu::Result<fastecu::definition::DefinitionCatalog> build_definition_catalog(
+        fastecu::definition::DefinitionFormat format);
+    QString definition_source(
+        fastecu::definition::DefinitionFormat format,
+        const QString& id) const;
+    void log_definition_error(
+        const QString& operation,
+        const fastecu::Error& error);
+    fastecu::Status load_configured_definition(
+        EcuCalDefStructure& ecu_cal_def,
+        fastecu::definition::DefinitionFormat format,
+        const QString& definition_id);
+    bool log_definition_load_failure(
+        const QString& operation,
+        const fastecu::Error& error,
+        const QString& source,
+        const QString& warning_title,
+        const QString& warning_text);
+    static void strip_legacy_address_prefixes(QStringList& addresses);
+    void apply_flash_method_alias(EcuCalDefStructure& ecuCalDef);
+    void normalize_definition_addresses(EcuCalDefStructure& ecuCalDef);
+
     fastecu::config::LegacyConfigAdapter configAdapter_;
     fastecu::checksum::LegacyChecksumAdapter checksumAdapter_;
+    fastecu::IFileSystem& definitionFileSystem_;
+    fastecu::IFileRepository& definitionFileRepository_;
+    fastecu::definition::DefinitionService definitionService_;
+    fastecu::definition::LegacyDefinitionAdapter definitionAdapter_;
+    std::vector<std::string> submittedEcuflashHandles_;
 
   signals:
     void LOG_E(QString message, bool timestamp, bool linefeed);

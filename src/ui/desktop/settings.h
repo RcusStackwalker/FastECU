@@ -14,6 +14,7 @@
 #include <QWidget>
 
 #include "src/backend/definitions/file_actions.h"
+#include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
 #include "src/platform/desktop/common/ports/qt_resource_bundle.h"
@@ -46,6 +47,7 @@ class Settings : public QDialog
     QtFileSystem m_configFileSystem;
     QtResourceBundle m_configResourceBundle;
     QtFileRepository m_configFileRepository;
+    QtAtomicFileWriter m_definitionFileWriter;
     FileActions *fileActions{};
 
     QLineEdit *ecuflash_def_dir_lineedit{};

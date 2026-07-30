@@ -1,10 +1,24 @@
 #include <QtTest>
 #include <QApplication>
+#include <QDir>
 #include <QFile>
+#include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTimer>
 
+#include <cstdint>
+#include <functional>
+#include <map>
+#include <optional>
+#include <span>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include "src/backend/definition/ecuflash_parser.h"
 #include "src/backend/definitions/file_actions.h"
+#include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
+#include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
 #include "src/platform/desktop/common/ports/qt_resource_bundle.h"
@@ -12,11 +26,55 @@
 
 namespace
 {
-QString writeTextFile(const QTemporaryDir& dir,
-                      const QString& name,
-                      const QByteArray& contents)
+class RecordingQtAtomicFileWriter : public fastecu::IAtomicFileWriter
 {
-    const QString path = dir.filePath(name);
+  public:
+    fastecu::Status replace(std::string_view handle,
+                            std::span<const std::uint8_t> data) override
+    {
+        ++callCount;
+        const fastecu::Status status = writer.replace(handle, data);
+        if (status && afterSuccessfulReplace)
+        {
+            afterSuccessfulReplace();
+        }
+        return status;
+    }
+
+    int callCount{0};
+    std::function<void()> afterSuccessfulReplace;
+
+  private:
+    QtAtomicFileWriter writer;
+};
+
+fastecu::definition::DefinitionHeaderInput validHeaderInput()
+{
+    return fastecu::definition::DefinitionHeaderInput{
+        .xml_id = "NEW_XML",
+        .internal_id = "A1B2C3",
+        .ecu_id = "ECU-42",
+        .internal_id_address = 0x1A0,
+        .metadata =
+            fastecu::definition::RomMetadata{
+                .make = "Subaru",
+                .market = "EU",
+                .model = "Legacy",
+                .submodel = "GT",
+                .transmission = "6MT",
+                .year = "2008",
+                .flash_method = "subaru_denso_can",
+                .memory_model = "SH7058",
+                .checksum_module = "subarudbw",
+                .file_size = "1048576",
+            },
+        .include = "BASE_XML",
+        .notes = "Document notes",
+    };
+}
+
+QString writeTextFileAt(const QString& path, const QByteArray& contents)
+{
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
     {
@@ -28,6 +86,19 @@ QString writeTextFile(const QTemporaryDir& dir,
     }
     file.close();
     return path;
+}
+
+QString writeTextFile(const QTemporaryDir& dir,
+                      const QString& name,
+                      const QByteArray& contents)
+{
+    return writeTextFileAt(dir.filePath(name), contents);
+}
+
+bool spyContainsMessage(const QSignalSpy& spy, const QString& text)
+{
+    return std::ranges::any_of(spy, [&text](const QList<QVariant>& arguments)
+                               { return !arguments.isEmpty() && arguments.at(0).toString().contains(text); });
 }
 } // namespace
 
@@ -56,7 +127,7 @@ class TestFileActionsParsing : public QObject
 </config>)");
         QVERIFY(!path.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         FileActions::ConfigValuesStructure config;
         config.config_file = path;
 
@@ -83,7 +154,7 @@ class TestFileActionsParsing : public QObject
         const QString path = writeTextFile(dir, "malformed.cfg", "<config><software_settings>");
         QVERIFY(!path.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         FileActions::ConfigValuesStructure config;
         config.config_file = path;
 
@@ -111,7 +182,7 @@ class TestFileActionsParsing : public QObject
 </switches></protocol></protocols></logger>)");
         QVERIFY(!path.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         actions.ConfigValuesStruct.romraider_logger_definition_file = path;
 
         FileActions::LogValuesStructure *values = actions.read_logger_definition_file();
@@ -148,7 +219,7 @@ class TestFileActionsParsing : public QObject
 </parameters></protocol></protocols></logger>)");
         QVERIFY(!path.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         actions.ConfigValuesStruct.romraider_logger_definition_file = path;
 
         FileActions::LogValuesStructure *values = actions.read_logger_definition_file();
@@ -174,7 +245,7 @@ class TestFileActionsParsing : public QObject
 </protocol></ecu></logger></config>)");
         QVERIFY(!path.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         actions.ConfigValuesStruct.logger_file = path;
         FileActions::LogValuesStructure values;
 
@@ -210,7 +281,8 @@ class TestFileActionsParsing : public QObject
 </roms>)");
         QVERIFY(!definitionPath.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        QSignalSpy debugSpy(&actions, &FileActions::LOG_D);
         actions.ConfigValuesStruct.romraider_definition_files = {definitionPath};
         QCOMPARE(actions.create_romraider_def_id_list(&actions.ConfigValuesStruct),
                  &actions.ConfigValuesStruct);
@@ -236,6 +308,9 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(ecu.EndianList.at(0), QString("big"));
         QCOMPARE(ecu.FromByteList.at(0), QString("x*0.5"));
         QCOMPARE(ecu.FormatList.at(0), QString("0.0"));
+        QVERIFY(spyContainsMessage(debugSpy, "1 RomRaider definition files found"));
+        QVERIFY(spyContainsMessage(debugSpy, "2 RomRaider ecu id's found"));
+        QVERIFY(spyContainsMessage(debugSpy, "XML ID: CAL_TEST CAL_TEST"));
     }
 
     void romraider_definition_uses_blank_optional_rom_id_fields()
@@ -248,7 +323,7 @@ class TestFileActionsParsing : public QObject
             "<roms><rom><romid><xmlid>MINIMAL_TEST</xmlid></romid></rom></roms>");
         QVERIFY(!definitionPath.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         actions.ConfigValuesStruct.romraider_definition_files = {definitionPath};
         QCOMPARE(actions.create_romraider_def_id_list(&actions.ConfigValuesStruct),
                  &actions.ConfigValuesStruct);
@@ -283,9 +358,669 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(ecu.RomInfo.at(FileActions::DefFile), definitionPath);
     }
 
+    void malformed_romraider_catalog_file_is_skipped_and_replaces_with_empty_catalog()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString definitionPath =
+            writeTextFile(dir, "malformed-romraider.xml", "<roms><rom>");
+        QVERIFY(!definitionPath.isEmpty());
+
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        auto& config = actions.ConfigValuesStruct;
+        config.romraider_definition_files = {definitionPath};
+        config.romraider_def_cal_id = {"sentinel-id"};
+        config.romraider_def_cal_id_addr = {"sentinel-address"};
+        config.romraider_def_ecu_id = {"sentinel-ecu"};
+        config.romraider_def_filename = {"sentinel-source"};
+        QSignalSpy errorSpy(&actions, &FileActions::LOG_E);
+
+        QCOMPARE(actions.create_romraider_def_id_list(&config), &config);
+
+        // A malformed file among a directory's worth of configured definitions is skipped
+        // rather than treated as fatal (see DefinitionService::build_catalog), so this
+        // replace succeeds with an empty catalog instead of preserving the old rows.
+        QVERIFY(config.romraider_def_cal_id.isEmpty());
+        QVERIFY(config.romraider_def_cal_id_addr.isEmpty());
+        QVERIFY(config.romraider_def_ecu_id.isEmpty());
+        QVERIFY(config.romraider_def_filename.isEmpty());
+        QCOMPARE(errorSpy.count(), 0);
+    }
+
+    void malformed_romraider_definition_reports_definition_not_found()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString definitionPath =
+            writeTextFile(dir, "malformed-romraider.xml", "<roms><rom>");
+        QVERIFY(!definitionPath.isEmpty());
+
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        auto& config = actions.ConfigValuesStruct;
+        config.romraider_definition_files = {definitionPath};
+        config.romraider_def_cal_id = {"BROKEN"};
+        config.romraider_def_cal_id_addr = {"0"};
+        config.romraider_def_ecu_id = {"sentinel-ecu"};
+        config.romraider_def_filename = {definitionPath};
+
+        FileActions::EcuCalDefStructure ecu;
+        ecu.RomInfo = QStringList(ecu.RomInfoStrings.size(), "sentinel-rom-info");
+        ecu.DefinitionFileName = "sentinel-definition-file";
+        ecu.NameList = {"sentinel-map"};
+        ecu.use_romraider_definition = false;
+        const QStringList romInfo = ecu.RomInfo;
+        const QString definitionFileName = ecu.DefinitionFileName;
+        const QStringList names = ecu.NameList;
+        QSignalSpy errorSpy(&actions, &FileActions::LOG_E);
+
+        QCOMPARE(actions.read_romraider_ecu_def(&ecu, "BROKEN"), &ecu);
+
+        QCOMPARE(ecu.RomInfo, romInfo);
+        QCOMPARE(ecu.DefinitionFileName, definitionFileName);
+        QCOMPARE(ecu.NameList, names);
+        QVERIFY(!ecu.use_romraider_definition);
+        QCOMPARE(errorSpy.count(), 1);
+        // The malformed file is skipped while building the catalog (see
+        // DefinitionService::build_catalog), so "BROKEN" is simply absent from it rather than
+        // failing with a parse error.
+        QVERIFY(spyContainsMessage(errorSpy, "definition ID not found"));
+        QVERIFY(spyContainsMessage(errorSpy, "BROKEN"));
+    }
+
+    void romraider_base_missing_source_logs_context_and_preserves_state()
+    {
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        FileActions::EcuCalDefStructure ecu;
+        ecu.RomInfo =
+            QStringList(ecu.RomInfoStrings.size(), "sentinel-rom-info");
+        ecu.RomInfo[FileActions::XmlId] = "BASE";
+        ecu.NameList = {"sentinel-map"};
+        const FileActions::EcuCalDefStructure original = ecu;
+        QSignalSpy errorSpy(&actions, &FileActions::LOG_E);
+
+        QCOMPARE(actions.read_romraider_ecu_base_def(&ecu), nullptr);
+
+        QVERIFY(ecu == original);
+        QCOMPARE(errorSpy.count(), 1);
+        QVERIFY(spyContainsMessage(errorSpy, "RomRaider base definition"));
+        QVERIFY(spyContainsMessage(errorSpy, "source"));
+    }
+
+    void romraider_base_missing_definition_id_logs_context_and_preserves_state()
+    {
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        FileActions::EcuCalDefStructure ecu;
+        ecu.DefinitionFileName = "base.xml";
+        ecu.RomInfo =
+            QStringList(ecu.RomInfoStrings.size(), " ");
+        ecu.NameList = {"sentinel-map"};
+        const FileActions::EcuCalDefStructure original = ecu;
+        QSignalSpy errorSpy(&actions, &FileActions::LOG_E);
+
+        QCOMPARE(actions.read_romraider_ecu_base_def(&ecu), nullptr);
+
+        QVERIFY(ecu == original);
+        QCOMPARE(errorSpy.count(), 1);
+        QVERIFY(spyContainsMessage(errorSpy, "RomRaider base definition"));
+        QVERIFY(spyContainsMessage(errorSpy, "definition ID"));
+    }
+
+    void missing_romraider_base_returns_null_and_preserves_caller_state()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        FileActions::EcuCalDefStructure ecu;
+        ecu.RomInfo = QStringList(ecu.RomInfoStrings.size(), "sentinel-rom-info");
+        ecu.DefinitionFileName = dir.filePath("missing-romraider.xml");
+        ecu.NameList = {"sentinel-map"};
+        const QStringList romInfo = ecu.RomInfo;
+        const QString definitionFileName = ecu.DefinitionFileName;
+        const QStringList names = ecu.NameList;
+        QSignalSpy errorSpy(&actions, &FileActions::LOG_E);
+        QTimer::singleShot(0, []()
+                           {
+            if (QWidget *modal = QApplication::activeModalWidget())
+            {
+                modal->close();
+            } });
+
+        QCOMPARE(actions.read_romraider_ecu_base_def(&ecu), nullptr);
+
+        QCOMPARE(ecu.RomInfo, romInfo);
+        QCOMPARE(ecu.DefinitionFileName, definitionFileName);
+        QCOMPARE(ecu.NameList, names);
+        QCOMPARE(errorSpy.count(), 1);
+        QVERIFY(spyContainsMessage(errorSpy, "cannot open file"));
+    }
+
+    void malformed_compatibility_catalog_columns_preserve_rom_id()
+    {
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        auto& config = actions.ConfigValuesStruct;
+        config.romraider_def_cal_id = {"AB10"};
+        config.romraider_def_cal_id_addr = {"0", "1"};
+        config.romraider_def_ecu_id = {};
+        config.romraider_def_filename = {"hex-definition.xml"};
+
+        FileActions::EcuCalDefStructure ecu;
+        ecu.RomId = "sentinel-rom-id";
+        ecu.FullRomData = QByteArray::fromHex("AB10");
+        QSignalSpy errorSpy(&actions, &FileActions::LOG_E);
+
+        QCOMPARE(
+            actions.parse_ecuid_romraider_def_files(&ecu, false),
+            &ecu);
+
+        QCOMPARE(ecu.RomId, QString("sentinel-rom-id"));
+        QCOMPARE(errorSpy.count(), 1);
+        QVERIFY(spyContainsMessage(errorSpy, "ID/source/address/ECU"));
+    }
+
+    void cancelled_new_definition_dialog_never_submits()
+    {
+        atomicFileWriter_.reset();
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        FileActions::EcuCalDefStructure ecu;
+        QTimer::singleShot(0, []()
+                           {
+            if (QDialog *dialog =
+                    qobject_cast<QDialog *>(QApplication::activeModalWidget()))
+            {
+                dialog->reject();
+            } });
+
+        QCOMPARE(actions.create_new_definition_for_rom(&ecu), &ecu);
+
+        QVERIFY(atomicFileWriter_.replace_calls.empty());
+        QVERIFY(actions.submittedEcuflashHandles_.empty());
+    }
+
+    void cancelled_new_definition_destination_never_submits()
+    {
+        atomicFileWriter_.reset();
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        FileActions::EcuCalDefStructure ecu;
+        bool handledHeader = false;
+        bool handledDestination = false;
+        bool handledRetry = false;
+        QTimer::singleShot(0, [&]()
+                           {
+            QDialog *dialog =
+                qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            if (!dialog)
+            {
+                return;
+            }
+            for (QLineEdit *editor : dialog->findChildren<QLineEdit *>())
+            {
+                if (editor->objectName() == "xmlid")
+                {
+                    editor->setText("NEW_XML");
+                }
+                else if (editor->objectName() == "internalidaddress")
+                {
+                    editor->setText("100");
+                }
+                else if (editor->objectName() == "internalidstring")
+                {
+                    editor->setText("A1B2C3");
+                }
+                else if (editor->objectName() == "ecuid")
+                {
+                    editor->setText("ECU-42");
+                }
+            }
+            handledHeader = true;
+            QTimer::singleShot(0, [&]()
+                               {
+                QFileDialog *picker = qobject_cast<QFileDialog *>(
+                    QApplication::activeModalWidget());
+                if (!picker)
+                {
+                    return;
+                }
+                handledDestination = true;
+                QTimer::singleShot(0, [&]()
+                                   {
+                    QDialog *retry = qobject_cast<QDialog *>(
+                        QApplication::activeModalWidget());
+                    if (!retry)
+                    {
+                        return;
+                    }
+                    handledRetry = true;
+                    retry->reject();
+                });
+                static_cast<QDialog *>(picker)->reject();
+            });
+            dialog->accept(); });
+
+        QCOMPARE(actions.create_new_definition_for_rom(&ecu), &ecu);
+
+        QVERIFY(handledHeader);
+        QVERIFY(handledDestination);
+        QVERIFY(handledRetry);
+        QVERIFY(atomicFileWriter_.replace_calls.empty());
+        QVERIFY(actions.submittedEcuflashHandles_.empty());
+    }
+
+    void new_definition_dialog_treats_unprefixed_address_as_hexadecimal()
+    {
+        atomicFileWriter_.reset();
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString destination = dir.filePath("created.xml");
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        FileActions::EcuCalDefStructure ecu;
+        bool handledHeader = false;
+        bool handledDestination = false;
+        QTimer::singleShot(0, [&]()
+                           {
+            QDialog *dialog =
+                qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            if (!dialog)
+            {
+                return;
+            }
+            for (QLineEdit *editor : dialog->findChildren<QLineEdit *>())
+            {
+                if (editor->objectName() == "xmlid")
+                {
+                    editor->setText("NEW_XML");
+                }
+                else if (editor->objectName() == "internalidaddress")
+                {
+                    editor->setText("100");
+                }
+                else if (editor->objectName() == "internalidstring")
+                {
+                    editor->setText("A1B2C3");
+                }
+                else if (editor->objectName() == "ecuid")
+                {
+                    editor->setText("ECU-42");
+                }
+            }
+            handledHeader = true;
+            QTimer::singleShot(0, [&]()
+                               {
+                QFileDialog *picker = qobject_cast<QFileDialog *>(
+                    QApplication::activeModalWidget());
+                if (!picker)
+                {
+                    return;
+                }
+                picker->selectFile(destination);
+                handledDestination = true;
+                static_cast<QDialog *>(picker)->accept();
+            });
+            dialog->accept(); });
+
+        QCOMPARE(actions.create_new_definition_for_rom(&ecu), &ecu);
+
+        QVERIFY(handledHeader);
+        QVERIFY(handledDestination);
+        QCOMPARE(atomicFileWriter_.replace_calls.size(), std::size_t{1});
+        auto parsed = fastecu::definition::parse_ecuflash_definition(
+            atomicFileWriter_.replace_calls.front().data,
+            atomicFileWriter_.replace_calls.front().handle);
+        QVERIFY2(parsed.has_value(), parsed.error().detail.c_str());
+        QCOMPARE(
+            parsed->identity.internal_id_address,
+            std::optional<std::uint64_t>{0x100});
+    }
+
+    void accepted_new_definition_records_xml_id_after_success_and_can_reload_external_destination()
+    {
+        QTemporaryDir configuredDirectory;
+        QTemporaryDir destinationDirectory;
+        QVERIFY(configuredDirectory.isValid());
+        QVERIFY(destinationDirectory.isValid());
+        const QString destination =
+            destinationDirectory.filePath("created-external.xml");
+        RecordingQtAtomicFileWriter writer;
+        FileActions actions(
+            fileSystem_, resourceBundle_, fileRepository_, writer);
+        auto& config = actions.ConfigValuesStruct;
+        config.ecuflash_definition_files_directory =
+            configuredDirectory.path();
+        QStringList idsDuringReplacement;
+        QStringList sourcesDuringReplacement;
+        writer.afterSuccessfulReplace = [&]()
+        {
+            idsDuringReplacement = config.ecuflash_def_cal_id;
+            sourcesDuringReplacement = config.ecuflash_def_filename;
+        };
+
+        FileActions::EcuCalDefStructure ecu;
+        bool handledHeader = false;
+        bool handledDestination = false;
+        QTimer::singleShot(0, [&]()
+                           {
+            QDialog *dialog =
+                qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            if (!dialog)
+            {
+                return;
+            }
+            for (QLineEdit *editor : dialog->findChildren<QLineEdit *>())
+            {
+                if (editor->objectName() == "xmlid")
+                {
+                    editor->setText("  CREATE_XML  ");
+                }
+                else if (editor->objectName() == "internalidaddress")
+                {
+                    editor->setText("0");
+                }
+                else if (editor->objectName() == "internalidstring")
+                {
+                    editor->setText("CREATE_INTERNAL");
+                }
+                else if (editor->objectName() == "ecuid")
+                {
+                    editor->setText("CREATE_ECU");
+                }
+            }
+            handledHeader = true;
+            QTimer::singleShot(0, [&]()
+                               {
+                QFileDialog *picker = qobject_cast<QFileDialog *>(
+                    QApplication::activeModalWidget());
+                if (!picker)
+                {
+                    return;
+                }
+                picker->selectFile(destination);
+                handledDestination = true;
+                static_cast<QDialog *>(picker)->accept();
+            });
+            dialog->accept(); });
+
+        QCOMPARE(actions.create_new_definition_for_rom(&ecu), &ecu);
+
+        QVERIFY(handledHeader);
+        QVERIFY(handledDestination);
+        QCOMPARE(writer.callCount, 1);
+        QVERIFY(idsDuringReplacement.isEmpty());
+        QVERIFY(sourcesDuringReplacement.isEmpty());
+        QCOMPARE(config.ecuflash_def_cal_id, QStringList({"CREATE_XML"}));
+        QCOMPARE(config.ecuflash_def_cal_id_addr, QStringList({"0"}));
+        QCOMPARE(config.ecuflash_def_ecu_id, QStringList({"CREATE_ECU"}));
+        QCOMPARE(config.ecuflash_def_filename, QStringList({destination}));
+        QCOMPARE(
+            actions.definition_source(
+                fastecu::definition::DefinitionFormat::EcuFlash,
+                "CREATE_XML"),
+            destination);
+
+        ecu.FullRomData = QByteArray("CREATE_INTERNAL");
+        QCOMPARE(
+            actions.parse_ecuid_ecuflash_def_files(&ecu, true),
+            &ecu);
+        QCOMPARE(ecu.RomId, QString("CREATE_XML"));
+        QCOMPARE(
+            actions.read_ecuflash_ecu_def(&ecu, ecu.RomId),
+            &ecu);
+        QVERIFY(ecu.use_ecuflash_definition);
+        QCOMPARE(
+            ecu.RomInfo.at(FileActions::XmlId),
+            QString("CREATE_XML"));
+    }
+
+    void accepted_imported_definition_records_xml_id_after_success_and_can_reload_external_destination()
+    {
+        QTemporaryDir configuredDirectory;
+        QTemporaryDir sourceDirectory;
+        QTemporaryDir destinationDirectory;
+        QVERIFY(configuredDirectory.isValid());
+        QVERIFY(sourceDirectory.isValid());
+        QVERIFY(destinationDirectory.isValid());
+        const QString source = writeTextFile(
+            sourceDirectory,
+            "source.xml",
+            R"(<rom><romid><xmlid>OLD_XML</xmlid><internalidaddress>0</internalidaddress><internalidstring>OLD_INTERNAL</internalidstring></romid><vendor-extension/></rom>)");
+        QVERIFY(!source.isEmpty());
+        const QString destination =
+            destinationDirectory.filePath("imported-external.xml");
+        RecordingQtAtomicFileWriter writer;
+        FileActions actions(
+            fileSystem_, resourceBundle_, fileRepository_, writer);
+        auto& config = actions.ConfigValuesStruct;
+        config.ecuflash_definition_files_directory =
+            configuredDirectory.path();
+        QStringList idsDuringReplacement;
+        QStringList sourcesDuringReplacement;
+        writer.afterSuccessfulReplace = [&]()
+        {
+            idsDuringReplacement = config.ecuflash_def_cal_id;
+            sourcesDuringReplacement = config.ecuflash_def_filename;
+        };
+
+        FileActions::EcuCalDefStructure ecu;
+        bool handledSource = false;
+        bool handledHeader = false;
+        bool handledDestination = false;
+        QTimer::singleShot(0, [&]()
+                           {
+            QFileDialog *sourcePicker = qobject_cast<QFileDialog *>(
+                QApplication::activeModalWidget());
+            if (!sourcePicker)
+            {
+                return;
+            }
+            sourcePicker->selectFile(source);
+            handledSource = true;
+            QTimer::singleShot(0, [&]()
+                               {
+                QDialog *dialog = qobject_cast<QDialog *>(
+                    QApplication::activeModalWidget());
+                if (!dialog)
+                {
+                    return;
+                }
+                for (QLineEdit *editor :
+                     dialog->findChildren<QLineEdit *>())
+                {
+                    if (editor->objectName() == "xmlid")
+                    {
+                        editor->setText("  IMPORT_XML  ");
+                    }
+                    else if (editor->objectName() ==
+                             "internalidaddress")
+                    {
+                        editor->setText("0");
+                    }
+                    else if (editor->objectName() ==
+                             "internalidstring")
+                    {
+                        editor->setText("IMPORT_INTERNAL");
+                    }
+                    else if (editor->objectName() == "ecuid")
+                    {
+                        editor->setText("IMPORT_ECU");
+                    }
+                    else if (editor->objectName() == "include")
+                    {
+                        editor->clear();
+                    }
+                }
+                handledHeader = true;
+                QTimer::singleShot(0, [&]()
+                                   {
+                    QFileDialog *destinationPicker =
+                        qobject_cast<QFileDialog *>(
+                            QApplication::activeModalWidget());
+                    if (!destinationPicker)
+                    {
+                        return;
+                    }
+                    destinationPicker->selectFile(destination);
+                    handledDestination = true;
+                    static_cast<QDialog *>(destinationPicker)->accept();
+                });
+                dialog->accept(); });
+            static_cast<QDialog *>(sourcePicker)->accept(); });
+
+        QCOMPARE(actions.use_existing_definition_for_rom(&ecu), &ecu);
+
+        QVERIFY(handledSource);
+        QVERIFY(handledHeader);
+        QVERIFY(handledDestination);
+        QCOMPARE(writer.callCount, 1);
+        QVERIFY(idsDuringReplacement.isEmpty());
+        QVERIFY(sourcesDuringReplacement.isEmpty());
+        QCOMPARE(config.ecuflash_def_cal_id, QStringList({"IMPORT_XML"}));
+        QCOMPARE(config.ecuflash_def_cal_id_addr, QStringList({"0"}));
+        QCOMPARE(config.ecuflash_def_ecu_id, QStringList({"IMPORT_ECU"}));
+        QCOMPARE(config.ecuflash_def_filename, QStringList({destination}));
+        QCOMPARE(
+            actions.definition_source(
+                fastecu::definition::DefinitionFormat::EcuFlash,
+                "IMPORT_XML"),
+            destination);
+
+        ecu.FullRomData = QByteArray("IMPORT_INTERNAL");
+        QCOMPARE(
+            actions.parse_ecuid_ecuflash_def_files(&ecu, true),
+            &ecu);
+        QCOMPARE(ecu.RomId, QString("IMPORT_XML"));
+        QCOMPARE(
+            actions.read_ecuflash_ecu_def(&ecu, ecu.RomId),
+            &ecu);
+        QVERIFY(ecu.use_ecuflash_definition);
+        QCOMPARE(
+            ecu.RomInfo.at(FileActions::XmlId),
+            QString("IMPORT_XML"));
+    }
+
+    void directory_change_drops_discovered_sources_and_keeps_successful_submission()
+    {
+        QTemporaryDir workspace;
+        QVERIFY(workspace.isValid());
+        const QString oldDirectory = workspace.filePath("old");
+        const QString newDirectory = workspace.filePath("new");
+        QVERIFY(QDir().mkpath(oldDirectory));
+        QVERIFY(QDir().mkpath(newDirectory));
+        const QString oldPath = writeTextFileAt(
+            oldDirectory + "/old.xml",
+            "<rom><romid><xmlid>OLD_DIRECTORY_XML</xmlid>"
+            "<internalidaddress>10</internalidaddress>"
+            "<internalidstring>OLD_DIRECTORY_INTERNAL</internalidstring>"
+            "<ecuid>OLD_DIRECTORY_ECU</ecuid></romid></rom>");
+        const QString newPath = writeTextFileAt(
+            newDirectory + "/new.xml",
+            "<rom><romid><xmlid>NEW_DIRECTORY_XML</xmlid>"
+            "<internalidaddress>30</internalidaddress>"
+            "<internalidstring>NEW_DIRECTORY_INTERNAL</internalidstring>"
+            "<ecuid>NEW_DIRECTORY_ECU</ecuid></romid></rom>");
+        const QString submittedPath =
+            workspace.filePath("submitted.xml");
+        QVERIFY(!oldPath.isEmpty());
+        QVERIFY(!newPath.isEmpty());
+
+        QtAtomicFileWriter writer;
+        FileActions actions(
+            fileSystem_, resourceBundle_, fileRepository_, writer);
+        auto& config = actions.ConfigValuesStruct;
+        config.ecuflash_definition_files_directory = oldDirectory;
+        QCOMPARE(actions.create_ecuflash_def_id_list(&config), &config);
+        QCOMPARE(
+            config.ecuflash_def_cal_id,
+            QStringList({"OLD_DIRECTORY_XML"}));
+
+        auto input = validHeaderInput();
+        input.xml_id = "SUBMITTED_XML";
+        input.internal_id = "SUBMITTED_INTERNAL";
+        input.ecu_id = "SUBMITTED_ECU";
+        input.internal_id_address = 0x20;
+        const fastecu::Status submitted =
+            actions.submit_new_definition(
+                submittedPath.toStdString(),
+                input);
+        QVERIFY2(
+            submitted.has_value(),
+            submitted.error().detail.c_str());
+        QVERIFY(QFile::exists(submittedPath));
+
+        config.ecuflash_definition_files_directory = newDirectory;
+        QCOMPARE(actions.create_ecuflash_def_id_list(&config), &config);
+
+        QCOMPARE(
+            config.ecuflash_def_cal_id,
+            QStringList({"NEW_DIRECTORY_XML", "SUBMITTED_XML"}));
+        QCOMPARE(
+            config.ecuflash_def_cal_id_addr,
+            QStringList({"30", "20"}));
+        QCOMPARE(
+            config.ecuflash_def_ecu_id,
+            QStringList({"NEW_DIRECTORY_ECU", "SUBMITTED_ECU"}));
+        QCOMPARE(
+            config.ecuflash_def_filename,
+            QStringList({newPath, submittedPath}));
+        QVERIFY(!config.ecuflash_def_filename.contains(oldPath));
+    }
+
+    void successful_submission_provenance_is_sorted_and_deduplicated()
+    {
+        atomicFileWriter_.reset();
+        FileActions actions(
+            fileSystem_,
+            resourceBundle_,
+            fileRepository_,
+            atomicFileWriter_);
+        const auto input = validHeaderInput();
+
+        QVERIFY(actions.submit_new_definition("z.xml", input));
+        QVERIFY(actions.submit_new_definition("a.xml", input));
+        QVERIFY(actions.submit_new_definition("z.xml", input));
+
+        QCOMPARE(
+            actions.submittedEcuflashHandles_,
+            (std::vector<std::string>{"a.xml", "z.xml"}));
+    }
+
+    void failed_definition_submission_logs_exact_error_and_preserves_catalog()
+    {
+        atomicFileWriter_.reset();
+        const fastecu::Error backendError{
+            fastecu::ErrorKind::Disconnected,
+            "atomic destination unavailable",
+        };
+        atomicFileWriter_.replace_error = backendError;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        auto& config = actions.ConfigValuesStruct;
+        config.ecuflash_def_cal_id = {"sentinel-id"};
+        config.ecuflash_def_cal_id_addr = {"sentinel-address"};
+        config.ecuflash_def_ecu_id = {"sentinel-ecu"};
+        config.ecuflash_def_filename = {"sentinel-source"};
+        const QStringList ids = config.ecuflash_def_cal_id;
+        const QStringList addresses = config.ecuflash_def_cal_id_addr;
+        const QStringList ecuIds = config.ecuflash_def_ecu_id;
+        const QStringList sources = config.ecuflash_def_filename;
+        QSignalSpy errorSpy(&actions, &FileActions::LOG_E);
+
+        const fastecu::Status result =
+            actions.submit_new_definition("unavailable.xml", validHeaderInput());
+
+        QVERIFY(!result.has_value());
+        QCOMPARE(result.error(), backendError);
+        QCOMPARE(config.ecuflash_def_cal_id, ids);
+        QCOMPARE(config.ecuflash_def_cal_id_addr, addresses);
+        QCOMPARE(config.ecuflash_def_ecu_id, ecuIds);
+        QCOMPARE(config.ecuflash_def_filename, sources);
+        QCOMPARE(errorSpy.count(), 1);
+        QVERIFY(spyContainsMessage(errorSpy, "Unable to create definition"));
+        QVERIFY(spyContainsMessage(errorSpy, "Disconnected"));
+        QVERIFY(spyContainsMessage(errorSpy, "atomic destination unavailable"));
+        QVERIFY(actions.submittedEcuflashHandles_.empty());
+    }
+
     void checksum_correction_unknown_mcu_type_logs_and_returns_unmodified_rom()
     {
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         actions.ConfigValuesStruct.flash_protocol_selected_make = "Subaru";
         actions.ConfigValuesStruct.flash_protocol_selected_checksum = "yes";
         actions.ConfigValuesStruct.flash_protocol_selected_protocol_name = "sub_ecu_hitachi_m32r_can";
@@ -306,7 +1041,7 @@ class TestFileActionsParsing : public QObject
 
     void checksum_correction_valid_mcu_corrects_rom_and_writes_back_bytes()
     {
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_);
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         actions.ConfigValuesStruct.flash_protocol_selected_make = "Subaru";
         actions.ConfigValuesStruct.flash_protocol_selected_checksum = "yes";
         actions.ConfigValuesStruct.flash_protocol_selected_protocol_name = "sub_ecu_denso_sh7055";
@@ -342,6 +1077,7 @@ class TestFileActionsParsing : public QObject
     QtFileSystem fileSystem_;
     QtResourceBundle resourceBundle_;
     QtFileRepository fileRepository_;
+    fastecu::InMemoryAtomicFileWriter atomicFileWriter_;
 };
 
 int run_test_file_actions_parsing(int argc, char **argv)

@@ -161,6 +161,22 @@ qt_cc_test(
     ],
 )
 
+qt_cc_test(
+    name = "test_legacy_definition_adapter",
+    srcs = ["test_legacy_definition_adapter.cpp"],
+    copts = COMMON_COPTS + ["-I."],
+    deps = QT_DEPS + [
+        "//src/backend/definition:legacy_definition_adapter",
+        "//src/backend/definitions:config_values",
+        "//src/backend/definitions:ecu_cal_def",
+        "//src/backend/ports",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/ports/testing:in_memory_file_repository",
+        "//src/backend/ports/testing:in_memory_file_system",
+        "@googletest//:gtest_main",
+    ],
+)
+
 qt_cpp_moc_headers(
     name = "serial_crash_cpp_mocs",
     srcs = test_cpp_moc_srcs(SERIAL_CRASH_TESTS_COMMON_SRCS),
