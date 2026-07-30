@@ -1,8 +1,9 @@
 #include "src/backend/definition/definition_resolver.h"
 
 #include <algorithm>
-#include <cassert>
+#include <cstddef>
 #include <format>
+#include <optional>
 #include <ranges>
 #include <string>
 #include <unordered_map>
@@ -209,6 +210,53 @@ Result<void> validate_local(const UnresolvedDefinition& definition)
     return {};
 }
 
+// Narrows `maps_match` candidates by id and name so merging does not rescan the whole
+// map list per supplied map (that nested scan is quadratic in map count, which matters
+// for definitions with thousands of maps). Matches found through the index are always
+// re-verified against `maps_match` on the live map, so a stale bucket entry (e.g. after
+// a merge changes a map's id or name) can only add a redundant candidate to check, never
+// a false match.
+class MapIndex
+{
+  public:
+    void add(const UnresolvedCalibrationMap& map, std::size_t index)
+    {
+        by_name_[map.name].push_back(index);
+        if (has_stable_map_id(map))
+        {
+            by_id_[*map.id].push_back(index);
+        }
+    }
+
+    std::vector<std::size_t> candidates(const UnresolvedCalibrationMap& map) const
+    {
+        std::vector<std::size_t> result;
+        if (has_stable_map_id(map))
+        {
+            append_bucket(by_id_, *map.id, result);
+        }
+        append_bucket(by_name_, map.name, result);
+        std::ranges::sort(result);
+        result.erase(std::ranges::unique(result).begin(), result.end());
+        return result;
+    }
+
+  private:
+    static void append_bucket(
+        const std::unordered_map<std::string, std::vector<std::size_t>>& buckets,
+        const std::string& key,
+        std::vector<std::size_t>& result)
+    {
+        if (auto bucket = buckets.find(key); bucket != buckets.end())
+        {
+            result.insert(result.end(), bucket->second.begin(), bucket->second.end());
+        }
+    }
+
+    std::unordered_map<std::string, std::vector<std::size_t>> by_id_;
+    std::unordered_map<std::string, std::vector<std::size_t>> by_name_;
+};
+
 Result<void> overlay_definition(
     UnresolvedDefinition& value, const UnresolvedDefinition& supplied)
 {
@@ -218,30 +266,38 @@ Result<void> overlay_definition(
     overlay_metadata(value.metadata, supplied.metadata);
     value.parents = supplied.parents;
 
+    MapIndex index;
+    for (std::size_t i = 0; i < value.maps.size(); ++i)
+    {
+        index.add(value.maps[i], i);
+    }
+
     for (const UnresolvedCalibrationMap& map : supplied.maps)
     {
-        UnresolvedCalibrationMap *existing = nullptr;
-        for (UnresolvedCalibrationMap& candidate : value.maps)
+        std::optional<std::size_t> existing;
+        for (std::size_t candidate : index.candidates(map))
         {
-            if (!maps_match(candidate, map))
+            if (!maps_match(value.maps[candidate], map))
             {
                 continue;
             }
-            if (existing != nullptr)
+            if (existing.has_value())
             {
                 return fail(
                     ErrorKind::InvalidConfig,
                     std::format("ambiguous map name fallback '{}' while resolving definition '{}' from '{}'", map.name, supplied.identity.xml_id, supplied.source));
             }
-            existing = &candidate;
+            existing = candidate;
         }
-        if (existing == nullptr)
+        if (!existing.has_value())
         {
             value.maps.push_back(map);
+            index.add(value.maps.back(), value.maps.size() - 1);
         }
         else
         {
-            overlay_map(*existing, map);
+            overlay_map(value.maps[*existing], map);
+            index.add(value.maps[*existing], *existing);
         }
     }
 
@@ -673,6 +729,31 @@ std::string chain_text(const std::vector<std::string>& stack, std::string_view t
     return result;
 }
 
+// Real definition families are at most a handful of levels deep; this is a generous ceiling
+// that still fails fast with a resolvable error well short of the C++ call stack limit for
+// `ResolverState::resolve`'s recursion.
+constexpr std::size_t kMaxInheritanceDepth = 256;
+
+class ChainGuard
+{
+  public:
+    ChainGuard(std::unordered_set<std::string>& visiting, std::vector<std::string>& stack, const std::string& id)
+        : visiting_(visiting), stack_(stack), id_(id)
+    {
+    }
+
+    ~ChainGuard()
+    {
+        stack_.pop_back();
+        visiting_.erase(id_);
+    }
+
+  private:
+    std::unordered_set<std::string>& visiting_;
+    std::vector<std::string>& stack_;
+    const std::string& id_;
+};
+
 class ResolverState
 {
     struct Resolved
@@ -714,9 +795,9 @@ class ResolverState
         const std::string id = definition.identity.xml_id;
         if (id.empty())
         {
-            auto locally_valid = validate_local(definition);
-            assert(!locally_valid.has_value());
-            return std::unexpected(locally_valid.error());
+            return fail(
+                ErrorKind::InvalidConfig,
+                std::format("{} definition from '{}' has an empty definition identity", format_name(definition.format), definition.source));
         }
         if (visiting.contains(id))
         {
@@ -730,8 +811,19 @@ class ResolverState
             return memoized->second;
         }
 
+        if (stack.size() >= kMaxInheritanceDepth)
+        {
+            return fail(
+                ErrorKind::InvalidConfig,
+                std::format(
+                    "inheritance chain exceeds maximum depth ({}): {}",
+                    kMaxInheritanceDepth,
+                    chain_text(stack, id)));
+        }
+
         visiting.insert(id);
         stack.push_back(id);
+        const ChainGuard guard{visiting, stack, id};
 
         if (auto locally_valid = validate_local(definition); !locally_valid.has_value())
         {
@@ -812,8 +904,6 @@ class ResolverState
         append_unique(resolved.sources, {resolved.definition.source});
         append_unique(resolved.ids, {resolved.definition.identity.xml_id});
 
-        stack.pop_back();
-        visiting.erase(id);
         auto [stored, inserted] = resolved_by_id.try_emplace(id, std::move(resolved));
         return stored->second;
     }
