@@ -86,13 +86,42 @@ TEST(InMemoryFileSystem, ConfiguredListDirectoryFailureIsReturned)
 {
     InMemoryFileSystem fs;
     fs.directory_entries["/definitions"] = {};
-    fs.list_directory_errors["/definitions"] =
-        Error{ErrorKind::Internal, "listing failed"};
+    fs.list_directory_errors.insert_or_assign(
+        "/definitions", Error{ErrorKind::Internal, "listing failed"});
 
     auto result = fs.list_directory("/definitions");
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error(), fs.list_directory_errors.at("/definitions"));
+}
+
+TEST(InMemoryFileSystem, LegacyDirectoryFixturesRemainSupported)
+{
+    InMemoryFileSystem fs;
+    fs.subdirectories_by_parent["/definitions"] = {{"nested", 10}};
+    fs.files_by_parent["/definitions"] = {{"base.xml", 20}};
+
+    auto result = fs.list_directory("/definitions");
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->size(), 2U);
+    EXPECT_EQ((*result)[0].name, "nested");
+    EXPECT_TRUE((*result)[0].is_directory);
+    EXPECT_EQ((*result)[0].modified_time_epoch_seconds, 10);
+    EXPECT_EQ((*result)[1].name, "base.xml");
+    EXPECT_FALSE((*result)[1].is_directory);
+    EXPECT_EQ((*result)[1].modified_time_epoch_seconds, 20);
+}
+
+TEST(InMemoryFileSystem, EmptyLegacyDirectoryFixtureReturnsEmptySuccess)
+{
+    InMemoryFileSystem fs;
+    fs.files_by_parent["/empty"] = {};
+
+    auto result = fs.list_directory("/empty");
+
+    ASSERT_TRUE(result);
+    EXPECT_TRUE(result->empty());
 }
 
 TEST(InMemoryFileSystem, RejectsUnknownDirectory)

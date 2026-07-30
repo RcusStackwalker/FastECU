@@ -67,6 +67,37 @@ class InMemoryFileSystem : public IFileSystem
         {
             return entries->second;
         }
+        std::vector<DirEntry> entries;
+        bool has_legacy_fixture = false;
+        if (auto subdirectories = subdirectories_by_parent.find(key);
+            subdirectories != subdirectories_by_parent.end())
+        {
+            has_legacy_fixture = true;
+            for (const auto& [name, modified_time] : subdirectories->second)
+            {
+                entries.push_back(DirEntry{
+                    .name = name,
+                    .is_directory = true,
+                    .modified_time_epoch_seconds = modified_time,
+                });
+            }
+        }
+        if (auto files = files_by_parent.find(key); files != files_by_parent.end())
+        {
+            has_legacy_fixture = true;
+            for (const auto& [name, modified_time] : files->second)
+            {
+                entries.push_back(DirEntry{
+                    .name = name,
+                    .is_directory = false,
+                    .modified_time_epoch_seconds = modified_time,
+                });
+            }
+        }
+        if (has_legacy_fixture)
+        {
+            return entries;
+        }
         return fail(ErrorKind::InvalidConfig, "unknown directory: " + key);
     }
 
@@ -74,6 +105,8 @@ class InMemoryFileSystem : public IFileSystem
     std::map<std::string, std::vector<std::uint8_t>> files;
     std::map<std::string, std::vector<DirEntry>> directory_entries;
     std::map<std::string, Error> list_directory_errors;
+    std::map<std::string, std::vector<std::pair<std::string, std::int64_t>>> subdirectories_by_parent;
+    std::map<std::string, std::vector<std::pair<std::string, std::int64_t>>> files_by_parent;
     std::vector<std::pair<std::string, std::string>> copy_calls;
     std::vector<std::string> removed;
     std::optional<Error> create_directory_error;
