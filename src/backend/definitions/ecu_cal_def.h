@@ -115,10 +115,10 @@ struct EcuCalDefStructure
     QStringList MapDefined;
 
     QByteArray FullRomData;
-    bool OemEcuFile = false;
-    bool SyncedWithEcu = false;
-    bool use_romraider_definition = false;
-    bool use_ecuflash_definition = false;
+    bool OemEcuFile;
+    bool SyncedWithEcu;
+    bool use_romraider_definition;
+    bool use_ecuflash_definition;
 
     QStringList RomInfoStrings = {
         "XML ID",
