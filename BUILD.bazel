@@ -52,6 +52,9 @@ genquery(
         "//src/backend/config:protocol_catalog",
         "//src/backend/config:provisioning",
         "//src/backend/definition:definition_model",
+        "//src/backend/definition:ecuflash_parser",
+        "//src/backend/definition:parser_utils",
+        "//src/backend/definition:romraider_parser",
     ]) + "))",
     scope = [
         "//src/backend/flash:flash_types",
@@ -67,6 +70,9 @@ genquery(
         "//src/backend/config:protocol_catalog",
         "//src/backend/config:provisioning",
         "//src/backend/definition:definition_model",
+        "//src/backend/definition:ecuflash_parser",
+        "//src/backend/definition:parser_utils",
+        "//src/backend/definition:romraider_parser",
     ],
 )
 
