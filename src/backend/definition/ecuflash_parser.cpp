@@ -37,7 +37,53 @@ Result<pugi::xml_node> identity_element(
     {
         return invalid(source, "element <rom> child <romid>", "missing required identity element");
     }
-    return required_child_text(rom_id, "romid", "xmlid", source);
+    if (rom_id.next_sibling("romid"))
+    {
+        return invalid(
+            source,
+            "element <rom> child <romid>",
+            "duplicate singleton identity element");
+    }
+
+    static constexpr std::array singleton_children{
+        "xmlid",
+        "internalidaddress",
+        "internalidstring",
+        "ecuid",
+        "make",
+        "market",
+        "model",
+        "submodel",
+        "transmission",
+        "year",
+        "flashmethod",
+        "memmodel",
+        "checksummodule",
+        "filesize",
+        "notes",
+    };
+    for (const char *child_name : singleton_children)
+    {
+        const pugi::xml_node child = rom_id.child(child_name);
+        if (child && child.next_sibling(child_name))
+        {
+            return invalid(
+                source,
+                std::format("element <romid> child <{}>", child_name),
+                "duplicate singleton identity element");
+        }
+    }
+    return rom_id;
+}
+
+Result<std::string> definition_id_for_rom(pugi::xml_node rom, std::string_view source)
+{
+    auto rom_id = identity_element(rom, source);
+    if (!rom_id)
+    {
+        return std::unexpected(rom_id.error());
+    }
+    return required_child_text(*rom_id, "romid", "xmlid", source);
 }
 
 Result<std::optional<std::uint64_t>> optional_address(

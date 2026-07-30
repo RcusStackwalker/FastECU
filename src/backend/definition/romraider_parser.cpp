@@ -409,15 +409,12 @@ Result<UnresolvedCalibrationMap> parse_table(
 
 Result<std::string> definition_id_for_rom(pugi::xml_node rom, std::string_view source)
 {
-    const pugi::xml_node rom_id = rom.child("romid");
+    auto rom_id = identity_element(rom, source);
     if (!rom_id)
     {
-        return invalid(
-            source,
-            "element <rom> child <romid>",
-            "missing required identity element");
+        return std::unexpected(rom_id.error());
     }
-    return required_child_text(rom_id, "romid", "xmlid", source);
+    return required_child_text(*rom_id, "romid", "xmlid", source);
 }
 
 std::vector<std::string> parent_references(pugi::xml_node rom)
