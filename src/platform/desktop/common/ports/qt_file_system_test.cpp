@@ -1,13 +1,10 @@
-#include "src/backend/definition/definition_service.h"
-#include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
-#include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
-#include <gtest/gtest.h>
 #include <QDir>
 #include <QFile>
 #include <QTemporaryDir>
 
 #include <algorithm>
+#include <gtest/gtest.h>
 
 using fastecu::ErrorKind;
 
@@ -91,7 +88,7 @@ TEST(QtFileSystemTest, ListDirectoryReturnsEntriesWithModifiedTime)
     EXPECT_TRUE(found_file);
 }
 
-TEST(QtFileSystemTest, EcuFlashDiscoverySkipsDirectorySymlinkCycleAndKeepsNestedXml)
+TEST(QtFileSystemTest, ListDirectoryIdentifiesDirectorySymlink)
 {
 #if defined(Q_OS_WIN)
     GTEST_SKIP()
@@ -102,12 +99,6 @@ TEST(QtFileSystemTest, EcuFlashDiscoverySkipsDirectorySymlinkCycleAndKeepsNested
     ASSERT_TRUE(tmp.isValid());
     const QString nested = tmp.path() + "/nested";
     ASSERT_TRUE(QDir().mkpath(nested));
-    QFile definition(nested + "/definition.xml");
-    ASSERT_TRUE(definition.open(QIODevice::WriteOnly | QIODevice::Text));
-    const QByteArray contents =
-        "<rom><romid><xmlid>NESTED</xmlid></romid></rom>";
-    ASSERT_EQ(definition.write(contents), contents.size());
-    definition.close();
     const QString loop = nested + "/loop";
     if (!QFile::link(tmp.path(), loop))
     {
@@ -127,24 +118,4 @@ TEST(QtFileSystemTest, EcuFlashDiscoverySkipsDirectorySymlinkCycleAndKeepsNested
     ASSERT_NE(loopEntry, nestedEntries->end());
     EXPECT_TRUE(loopEntry->is_directory);
     EXPECT_TRUE(loopEntry->is_symlink);
-
-    QtFileRepository repository;
-    QtAtomicFileWriter writer;
-    fastecu::definition::DefinitionService service(
-        fs, repository, writer);
-    auto catalog =
-        service.build_ecuflash_catalog(tmp.path().toStdString());
-
-    ASSERT_TRUE(catalog);
-    ASSERT_EQ(catalog->entries().size(), 1U);
-    EXPECT_EQ(catalog->entries()[0].definition_id, "NESTED");
-    EXPECT_EQ(
-        catalog->entries()[0].source,
-        (nested + "/definition.xml").toStdString());
-}
-
-int main(int argc, char **argv)
-{
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
 }

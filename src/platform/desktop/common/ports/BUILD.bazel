@@ -46,3 +46,12 @@ fastecu_gtest(
         "//src/backend/ports",
     ],
 )
+
+fastecu_gtest(
+    name = "qt_file_system_test",
+    srcs = ["qt_file_system_test.cpp"],
+    deps = [
+        ":ports",
+        "//src/backend/ports",
+    ],
+)
