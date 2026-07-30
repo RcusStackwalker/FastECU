@@ -40,6 +40,16 @@ class TestModelValidation : public QObject
         QVERIFY(errors.isEmpty());
     }
 
+    void configValues_compareByValue()
+    {
+        FileActions::ConfigValuesStructure value;
+        const FileActions::ConfigValuesStructure same;
+        QVERIFY(value == same);
+
+        value.software_name = "changed";
+        QVERIFY(!(value == same));
+    }
+
     void flashProtocols_reportMismatchedRows()
     {
         FileActions::ConfigValuesStructure config;
