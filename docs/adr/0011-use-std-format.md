@@ -35,3 +35,6 @@ Use std::format as the preferred way of constructing complex strings
   readability/searchability gain from a format string.
 - No dedicated CI enforcement was added; this ADR is enforced by PR review,
   same as every other already-accepted ADR in this repo.
+- `*_test.cpp` files were excluded from the mechanical sweep to keep the
+  adoption change low-risk; new and edited test code follows the ADR via
+  ordinary review, same as production code.

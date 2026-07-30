@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <format>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -190,7 +191,7 @@ Result<std::vector<std::uint8_t>> rewrite_ecuflash_xml(
     {
         return fail(
             ErrorKind::InvalidConfig,
-            std::string("EcuFlash source XML is malformed: ") + parsed.description());
+            std::format("EcuFlash source XML is malformed: {}", parsed.description()));
     }
 
     pugi::xml_node root = document.document_element();
