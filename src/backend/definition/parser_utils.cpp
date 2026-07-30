@@ -28,10 +28,10 @@ std::string trim_copy(std::string_view value)
 
 std::string detail_prefix(std::string_view source, std::string_view definition_id)
 {
-    std::string detail = "EcuFlash/RomRaider source '" + std::string(source) + "'";
+    std::string detail = std::format("EcuFlash/RomRaider source '{}'", source);
     if (!definition_id.empty())
     {
-        detail += ", definition '" + std::string(definition_id) + "'";
+        detail += std::format(", definition '{}'", definition_id);
     }
     return detail + ": ";
 }
@@ -44,7 +44,7 @@ std::unexpected<Error> invalid(
 {
     return fail(
         ErrorKind::InvalidConfig,
-        detail_prefix(source, definition_id) + std::move(context) + ": " + std::move(message));
+        std::format("{}{}: {}", detail_prefix(source, definition_id), context, message));
 }
 
 std::string child_text(pugi::xml_node parent, std::string_view child_name)
@@ -159,14 +159,14 @@ Result<pugi::xml_node> parse_root(
     const pugi::xml_parse_result parsed = document.load_buffer(xml.data(), xml.size());
     if (!parsed)
     {
-        return invalid(source, "XML document", std::string("malformed XML: ") + parsed.description());
+        return invalid(source, "XML document", std::format("malformed XML: {}", parsed.description()));
     }
 
     const pugi::xml_node root = document.document_element();
     if (!root || root.name() != root_name)
     {
         const std::string actual = root ? std::format("<{}>", root.name()) : "no root element";
-        return invalid(source, std::format("root element <{}>", root_name), "wrong root; found " + actual);
+        return invalid(source, std::format("root element <{}>", root_name), std::format("wrong root; found {}", actual));
     }
     return root;
 }

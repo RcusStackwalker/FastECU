@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <expected>
+#include <format>
 #include <optional>
 #include <span>
 #include <string>
@@ -118,7 +119,7 @@ Status populate_axes(
             {
                 return invalid(
                     source,
-                    "element <table> child <table> type '" + type + "'",
+                    std::format("element <table> child <table> type '{}'", type),
                     "second axis targets already-populated X axis slot",
                     definition_id);
             }
@@ -150,7 +151,7 @@ Status populate_axes(
             {
                 return invalid(
                     source,
-                    "element <table> child <table> type '" + type + "'",
+                    std::format("element <table> child <table> type '{}'", type),
                     "second axis targets already-populated Y axis slot",
                     definition_id);
             }
