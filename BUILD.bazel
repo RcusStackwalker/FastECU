@@ -32,7 +32,7 @@ py_test(
 )
 
 # Computes the resolved transitive label closure of every required portable
-# flash target, so the Python check below can catch a platform dependency
+# backend target, so the Python check below can catch a platform dependency
 # reached through several layers of `deps` -- something the per-BUILD-file
 # text scan in check-portable-closure.py cannot see, since that scan only
 # looks at each target's own immediate BUILD-file text.
@@ -55,6 +55,7 @@ genquery(
         "//src/backend/definition:ecuflash_parser",
         "//src/backend/definition:parser_utils",
         "//src/backend/definition:romraider_parser",
+        "//src/backend/definition:definition_resolver",
     ]) + "))",
     scope = [
         "//src/backend/flash:flash_types",
@@ -73,6 +74,7 @@ genquery(
         "//src/backend/definition:ecuflash_parser",
         "//src/backend/definition:parser_utils",
         "//src/backend/definition:romraider_parser",
+        "//src/backend/definition:definition_resolver",
     ],
 )
 
