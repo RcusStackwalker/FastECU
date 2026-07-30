@@ -42,3 +42,10 @@ TEST(ErrorKind, StableSpellings)
     EXPECT_STREQ(fastecu::to_string(ErrorKind::Unsupported), "Unsupported");
     EXPECT_STREQ(fastecu::to_string(ErrorKind::Internal), "Internal");
 }
+
+TEST(Error, DefaultsToInternalKind)
+{
+    const Error error;
+    EXPECT_EQ(error.kind, ErrorKind::Internal);
+    EXPECT_TRUE(error.detail.empty());
+}

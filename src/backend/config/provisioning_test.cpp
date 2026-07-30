@@ -115,7 +115,8 @@ TEST(ProvisionConfigDirectories, PrunesSyslogsKeepingNewest20)
     {
         std::string name = "log" + std::to_string(i) + ".txt";
         fs.files[paths.syslog_files_directory + name] = {};
-        fs.files_by_parent[paths.syslog_files_directory].push_back({name, i});
+        fs.directory_entries[paths.syslog_files_directory].push_back(
+            DirEntry{.name = name, .is_directory = false, .modified_time_epoch_seconds = i});
     }
 
     ASSERT_TRUE(provision_config_directories(paths, fs, bundle, events).has_value());
@@ -160,7 +161,8 @@ TEST(ProvisionConfigDirectories, MigratesPreviousVersionConfigFileForward)
     ConfigPaths paths = test_paths();
     // A previous-version directory "0.9" already exists under base, newer
     // than nothing else, with its own config/fastecu.cfg.
-    fs.subdirectories_by_parent[paths.base_config_directory].push_back({"0.9", 100});
+    fs.directory_entries[paths.base_config_directory].push_back(
+        DirEntry{.name = "0.9", .is_directory = true, .modified_time_epoch_seconds = 100});
     fs.files[paths.base_config_directory + "/0.9/config/fastecu.cfg"] = {7, 7, 7};
 
     ASSERT_TRUE(provision_config_directories(paths, fs, bundle, events).has_value());
