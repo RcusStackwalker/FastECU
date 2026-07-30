@@ -384,12 +384,23 @@ Result<UnresolvedCalibrationMap> parse_table(
         scalings.push_back(std::move(scaling));
     }
 
+    bool x_axis_populated = false;
+    bool y_axis_populated = false;
     for (pugi::xml_node axis_table : table.children("table"))
     {
         const std::string type = attribute_or_empty(axis_table, "type");
         if (type == "X Axis" || type == "Static X Axis" || type == "Static Y Axis" ||
             (type == "Y Axis" && map.type == "2D"))
         {
+            if (x_axis_populated)
+            {
+                return invalid(
+                    source,
+                    "element <table> child <table> type '" + type + "'",
+                    "second axis targets already-populated X axis slot",
+                    definition_id);
+            }
+            x_axis_populated = true;
             if (type == "Static Y Axis" || type == "Y Axis")
             {
                 map.x_size = map.y_size;
@@ -409,6 +420,15 @@ Result<UnresolvedCalibrationMap> parse_table(
         }
         else if (type == "Y Axis")
         {
+            if (y_axis_populated)
+            {
+                return invalid(
+                    source,
+                    "element <table> child <table> type '" + type + "'",
+                    "second axis targets already-populated Y axis slot",
+                    definition_id);
+            }
+            y_axis_populated = true;
             auto axis = parse_axis(
                 axis_table, map.y_size.value_or(1U), source, definition_id, scalings);
             if (!axis)

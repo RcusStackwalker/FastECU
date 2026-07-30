@@ -296,5 +296,30 @@ TEST(EcuFlashParserTest, RejectsStructurallyIncompleteAxis)
     expect_invalid_with_context(result, "bad-axis.xml", "X Axis");
 }
 
+TEST(EcuFlashParserTest, RejectsSecondAxisTargetingAnOccupiedSemanticSlot)
+{
+    auto duplicate_x = parse_ecuflash_definition(bytes(R"xml(
+      <rom><romid><xmlid>X_DUPLICATE</xmlid></romid>
+      <table name="Fuel" type="3D" sizex="2" sizey="2">
+        <table type="X Axis" name="First X"/>
+        <table type="Static X Axis" name="Second X"/>
+        <table type="Y Axis" name="Only Y"/>
+      </table></rom>)xml"),
+                                                 "duplicate-x-axis.xml");
+    expect_invalid_with_context(
+        duplicate_x, "duplicate-x-axis.xml", "X axis");
+
+    auto duplicate_y = parse_ecuflash_definition(bytes(R"xml(
+      <rom><romid><xmlid>Y_DUPLICATE</xmlid></romid>
+      <table name="Fuel" type="3D" sizex="2" sizey="2">
+        <table type="X Axis" name="Only X"/>
+        <table type="Y Axis" name="First Y"/>
+        <table type="Y Axis" name="Second Y"/>
+      </table></rom>)xml"),
+                                                 "duplicate-y-axis.xml");
+    expect_invalid_with_context(
+        duplicate_y, "duplicate-y-axis.xml", "Y axis");
+}
+
 } // namespace
 } // namespace fastecu::definition

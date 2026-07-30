@@ -1,11 +1,21 @@
 #pragma once
 
 #include <charconv>
+#include <cctype>
+#include <cstdint>
+#include <expected>
 #include <format>
+#include <limits>
+#include <optional>
+#include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include <pugixml.hpp>
+
+#include "src/backend/ports/error.h"
+#include "src/backend/ports/result.h"
 
 namespace fastecu::definition
 {

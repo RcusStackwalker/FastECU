@@ -302,6 +302,33 @@ TEST(RomRaiderParserTest, DuplicateMapIdentityIsInvalidConfigWithTableContext)
     expect_invalid_with_context(result, "duplicate.xml", "<table>");
 }
 
+TEST(RomRaiderParserTest, RejectsSecondAxisTargetingAnOccupiedSemanticSlot)
+{
+    auto duplicate_x = parse_romraider_definition(bytes(R"xml(
+      <roms><rom><romid><xmlid>X_DUPLICATE</xmlid></romid>
+      <table name="Fuel" type="3D" sizex="2" sizey="2">
+        <table type="X Axis" name="First X"/>
+        <table type="Static X Axis" name="Second X"/>
+        <table type="Y Axis" name="Only Y"/>
+      </table></rom></roms>)xml"),
+                                                  "duplicate-x-axis.xml",
+                                                  "X_DUPLICATE");
+    expect_invalid_with_context(
+        duplicate_x, "duplicate-x-axis.xml", "X axis");
+
+    auto duplicate_y = parse_romraider_definition(bytes(R"xml(
+      <roms><rom><romid><xmlid>Y_DUPLICATE</xmlid></romid>
+      <table name="Fuel" type="3D" sizex="2" sizey="2">
+        <table type="X Axis" name="Only X"/>
+        <table type="Y Axis" name="First Y"/>
+        <table type="Y Axis" name="Second Y"/>
+      </table></rom></roms>)xml"),
+                                                  "duplicate-y-axis.xml",
+                                                  "Y_DUPLICATE");
+    expect_invalid_with_context(
+        duplicate_y, "duplicate-y-axis.xml", "Y axis");
+}
+
 TEST(RomRaiderParserTest, WrongRootIsInvalidConfigWithExpectedRootContext)
 {
     const auto xml = bytes("<rom><romid><xmlid>A</xmlid></romid></rom>");
