@@ -56,6 +56,21 @@ cc_test(
 )
 
 cc_library(
+    name = "in_memory_atomic_file_writer",
+    hdrs = ["in_memory_atomic_file_writer.h"],
+    deps = ["//src/backend/ports"],
+)
+
+cc_test(
+    name = "in_memory_atomic_file_writer_test",
+    srcs = ["in_memory_atomic_file_writer_test.cpp"],
+    deps = [
+        ":in_memory_atomic_file_writer",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
     name = "in_memory_file_system",
     hdrs = ["in_memory_file_system.h"],
     deps = ["//src/backend/ports"],

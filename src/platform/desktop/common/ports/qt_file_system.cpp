@@ -69,6 +69,7 @@ fastecu::Result<std::vector<fastecu::DirEntry>> QtFileSystem::list_directory(std
             info.fileName().toStdString(),
             info.isDir(),
             info.lastModified().toSecsSinceEpoch(),
+            info.isSymLink(),
         });
     }
     return entries;

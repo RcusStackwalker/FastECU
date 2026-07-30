@@ -13,6 +13,7 @@ struct DirEntry
     std::string name;
     bool is_directory;
     std::int64_t modified_time_epoch_seconds;
+    bool is_symlink{false};
 };
 
 // Directory provisioning. Distinct from IFileRepository (single-blob

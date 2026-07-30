@@ -58,22 +58,22 @@ class InMemoryFileSystem : public IFileSystem
     }
     Result<std::vector<DirEntry>> list_directory(std::string_view path) override
     {
-        std::vector<DirEntry> out;
-        for (auto& [name, mtime] : subdirectories_by_parent[std::string(path)])
+        const std::string key(path);
+        if (auto error = list_directory_errors.find(key); error != list_directory_errors.end())
         {
-            out.push_back(DirEntry{name, true, mtime});
+            return std::unexpected(error->second);
         }
-        for (auto& [name, mtime] : files_by_parent[std::string(path)])
+        if (auto entries = directory_entries.find(key); entries != directory_entries.end())
         {
-            out.push_back(DirEntry{name, false, mtime});
+            return entries->second;
         }
-        return out;
+        return fail(ErrorKind::InvalidConfig, "unknown directory: " + key);
     }
 
     std::set<std::string> directories;
     std::map<std::string, std::vector<std::uint8_t>> files;
-    std::map<std::string, std::vector<std::pair<std::string, std::int64_t>>> subdirectories_by_parent;
-    std::map<std::string, std::vector<std::pair<std::string, std::int64_t>>> files_by_parent;
+    std::map<std::string, std::vector<DirEntry>> directory_entries;
+    std::map<std::string, Error> list_directory_errors;
     std::vector<std::pair<std::string, std::string>> copy_calls;
     std::vector<std::string> removed;
     std::optional<Error> create_directory_error;
