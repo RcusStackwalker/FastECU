@@ -308,7 +308,7 @@ fastecu::Status FileActions::load_configured_definition(
     }
     fastecu::Status replaced = definitionAdapter_.replace_definition(
         ecu_cal_def, *catalog, format, definition_id.toStdString());
-    if (!replaced)
+    if (!replaced.has_value())
     {
         return replaced;
     }

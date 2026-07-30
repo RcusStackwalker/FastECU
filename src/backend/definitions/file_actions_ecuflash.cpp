@@ -190,21 +190,26 @@ FileActions::EcuCalDefStructure *FileActions::parse_ecuflash_def_scalings(
         fastecu::definitions::legacy_columns::axis_scaling_destination(*ecuCalDef, true),
         fastecu::definitions::legacy_columns::axis_scaling_destination(*ecuCalDef, false),
     });
-    for (def_map_index = 0; def_map_index < ecuCalDef->NameList.size(); ++def_map_index)
+    const auto apply_matching_scaling =
+        [ecuCalDef, &apply_scaling_columns](
+            qsizetype map_index, const auto& destination)
     {
         for (qsizetype scaling_index = 0;
              scaling_index < ecuCalDef->ScalingNameList.size();
              ++scaling_index)
         {
-            for (const auto& destination : destinations)
+            if (ecuCalDef->ScalingNameList.at(scaling_index) ==
+                destination.scaling_name->at(map_index))
             {
-                if (ecuCalDef->ScalingNameList.at(scaling_index) ==
-                    destination.scaling_name->at(def_map_index))
-                {
-                    apply_scaling_columns(
-                        def_map_index, scaling_index, destination);
-                }
+                apply_scaling_columns(map_index, scaling_index, destination);
             }
+        }
+    };
+    for (def_map_index = 0; def_map_index < ecuCalDef->NameList.size(); ++def_map_index)
+    {
+        for (const auto& destination : destinations)
+        {
+            apply_matching_scaling(def_map_index, destination);
         }
     }
     return ecuCalDef;
