@@ -119,9 +119,3 @@ TEST(QtFileSystemTest, ListDirectoryIdentifiesDirectorySymlink)
     EXPECT_TRUE(loopEntry->is_directory);
     EXPECT_TRUE(loopEntry->is_symlink);
 }
-
-int main(int argc, char **argv)
-{
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}
