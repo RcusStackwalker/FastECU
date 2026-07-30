@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <charconv>
 #include <cctype>
 #include <cstdint>
@@ -16,6 +17,7 @@
 
 #include "src/backend/ports/error.h"
 #include "src/backend/ports/result.h"
+#include "src/backend/definition/definition_model.h"
 
 namespace fastecu::definition
 {
@@ -63,6 +65,57 @@ inline std::string child_text(pugi::xml_node parent, std::string_view child_name
     return child ? trim_copy(child.child_value()) : std::string{};
 }
 
+inline Result<pugi::xml_node> identity_element(
+    pugi::xml_node rom,
+    std::string_view source)
+{
+    const pugi::xml_node rom_id = rom.child("romid");
+    if (!rom_id)
+    {
+        return invalid(
+            source,
+            "element <rom> child <romid>",
+            "missing required identity element");
+    }
+    if (rom_id.next_sibling("romid"))
+    {
+        return invalid(
+            source,
+            "element <rom> child <romid>",
+            "duplicate singleton identity element");
+    }
+
+    static constexpr std::array singleton_children{
+        "xmlid",
+        "internalidaddress",
+        "internalidstring",
+        "ecuid",
+        "make",
+        "market",
+        "model",
+        "submodel",
+        "transmission",
+        "year",
+        "flashmethod",
+        "memmodel",
+        "checksummodule",
+        "filesize",
+        "notes",
+    };
+    for (const char *child_name : singleton_children)
+    {
+        const pugi::xml_node child = rom_id.child(child_name);
+        if (child && child.next_sibling(child_name))
+        {
+            return invalid(
+                source,
+                std::format("element <romid> child <{}>", child_name),
+                "duplicate singleton identity element");
+        }
+    }
+    return rom_id;
+}
+
 inline Result<std::string> required_child_text(
     pugi::xml_node parent,
     std::string_view parent_name,
@@ -78,6 +131,35 @@ inline Result<std::string> required_child_text(
             "missing or empty required text");
     }
     return value;
+}
+
+inline Result<std::string> definition_id_for_rom(
+    pugi::xml_node rom,
+    std::string_view source)
+{
+    auto rom_id = identity_element(rom, source);
+    if (!rom_id)
+    {
+        return std::unexpected(rom_id.error());
+    }
+    return required_child_text(*rom_id, "romid", "xmlid", source);
+}
+
+inline RomMetadata parse_metadata(pugi::xml_node rom_id)
+{
+    return RomMetadata{
+        .make = child_text(rom_id, "make"),
+        .market = child_text(rom_id, "market"),
+        .model = child_text(rom_id, "model"),
+        .submodel = child_text(rom_id, "submodel"),
+        .transmission = child_text(rom_id, "transmission"),
+        .year = child_text(rom_id, "year"),
+        .flash_method = child_text(rom_id, "flashmethod"),
+        .memory_model = child_text(rom_id, "memmodel"),
+        .checksum_module = child_text(rom_id, "checksummodule"),
+        .file_size = child_text(rom_id, "filesize"),
+        .notes = child_text(rom_id, "notes"),
+    };
 }
 
 inline Result<pugi::xml_node> parse_root(
@@ -194,6 +276,18 @@ inline Result<std::optional<std::uint64_t>> optional_hex_attribute(
     return std::optional<std::uint64_t>{*parsed};
 }
 
+inline Result<std::optional<std::uint64_t>> optional_address(
+    pugi::xml_node node,
+    std::string_view source,
+    std::string_view definition_id)
+{
+    if (node.attribute("address"))
+    {
+        return optional_hex_attribute(node, "address", source, definition_id);
+    }
+    return optional_hex_attribute(node, "storageaddress", source, definition_id);
+}
+
 inline Result<std::uint32_t> dimension_attribute(
     pugi::xml_node node,
     std::string_view attribute_name,
@@ -248,6 +342,169 @@ inline Result<bool> strict_boolean_attribute(
         std::format("element <{}> attribute '{}'", node.name(), attribute_name),
         std::format("invalid strict boolean '{}'; expected 'true' or 'false'", value),
         definition_id);
+}
+
+inline void populate_common_axis_attributes(
+    pugi::xml_node table,
+    UnresolvedAxisDefinition& axis)
+{
+    axis.type = value_or_empty(table.attribute("type"));
+    axis.name = value_or_empty(table.attribute("name"));
+    axis.storage_type = value_or_empty(table.attribute("storagetype"));
+    axis.endian = value_or_empty(table.attribute("endian"));
+}
+
+inline void apply_scaling_to_axis(
+    const UnresolvedScaling& scaling,
+    UnresolvedAxisDefinition& axis)
+{
+    axis.scaling_name = scaling.name;
+    axis.units = scaling.units;
+    if (scaling.format)
+    {
+        axis.format = *scaling.format;
+    }
+    axis.from_byte = scaling.from_byte;
+    axis.to_byte = scaling.to_byte;
+    if (axis.storage_type.empty())
+    {
+        axis.storage_type = scaling.storage_type;
+    }
+    if (axis.endian.empty())
+    {
+        axis.endian = scaling.endian;
+    }
+}
+
+inline void populate_common_map_attributes(
+    pugi::xml_node table,
+    UnresolvedCalibrationMap& map)
+{
+    if (const auto id = table.attribute("id"))
+    {
+        map.id = value_or_empty(id);
+    }
+    map.name = value_or_empty(table.attribute("name"));
+    map.type = value_or_empty(table.attribute("type"));
+    map.category = value_or_empty(table.attribute("category"));
+    map.subcategory = value_or_empty(table.attribute("subcategory"));
+    map.description = value_or_empty(table.attribute("description"));
+    if (map.description.empty())
+    {
+        map.description = child_text(table, "description");
+    }
+    map.level = value_or_empty(table.attribute("level"));
+    map.user_level = value_or_empty(table.attribute("userlevel"));
+    map.storage_type = value_or_empty(table.attribute("storagetype"));
+    map.endian = value_or_empty(table.attribute("endian"));
+}
+
+inline Status populate_optional_dimension(
+    pugi::xml_node table,
+    std::string_view attribute_name,
+    std::optional<std::uint32_t>& destination,
+    std::string_view source,
+    std::string_view definition_id)
+{
+    if (!table.attribute(attribute_name))
+    {
+        return {};
+    }
+    auto dimension =
+        dimension_attribute(table, attribute_name, 1, source, definition_id);
+    if (!dimension)
+    {
+        return std::unexpected(dimension.error());
+    }
+    destination = *dimension;
+    return {};
+}
+
+inline Status populate_optional_boolean(
+    pugi::xml_node table,
+    std::string_view attribute_name,
+    std::optional<bool>& destination,
+    std::string_view source,
+    std::string_view definition_id)
+{
+    if (!table.attribute(attribute_name))
+    {
+        return {};
+    }
+    auto value =
+        strict_boolean_attribute(table, attribute_name, source, definition_id);
+    if (!value)
+    {
+        return std::unexpected(value.error());
+    }
+    destination = *value;
+    return {};
+}
+
+template <typename ParseAxis>
+Status populate_axes(
+    pugi::xml_node table,
+    UnresolvedCalibrationMap& map,
+    std::string_view source,
+    std::string_view definition_id,
+    std::vector<UnresolvedScaling>& scalings,
+    ParseAxis parse_axis)
+{
+    bool x_axis_populated = false;
+    bool y_axis_populated = false;
+    for (pugi::xml_node axis_table : table.children("table"))
+    {
+        const std::string type = value_or_empty(axis_table.attribute("type"));
+        if (type == "X Axis" || type == "Static X Axis" || type == "Static Y Axis" ||
+            (type == "Y Axis" && map.type == "2D"))
+        {
+            if (x_axis_populated)
+            {
+                return invalid(
+                    source,
+                    "element <table> child <table> type '" + type + "'",
+                    "second axis targets already-populated X axis slot",
+                    definition_id);
+            }
+            x_axis_populated = true;
+            if (type == "Static Y Axis" || type == "Y Axis")
+            {
+                map.x_size = map.y_size;
+                map.y_size = 1;
+            }
+            auto axis = parse_axis(
+                axis_table, map.x_size.value_or(1U), source, definition_id, scalings);
+            if (!axis)
+            {
+                return std::unexpected(axis.error());
+            }
+            if (axis->type == "Static Y Axis")
+            {
+                axis->type = "Static X Axis";
+            }
+            map.x_axis = std::move(*axis);
+        }
+        else if (type == "Y Axis")
+        {
+            if (y_axis_populated)
+            {
+                return invalid(
+                    source,
+                    "element <table> child <table> type '" + type + "'",
+                    "second axis targets already-populated Y axis slot",
+                    definition_id);
+            }
+            y_axis_populated = true;
+            auto axis = parse_axis(
+                axis_table, map.y_size.value_or(1U), source, definition_id, scalings);
+            if (!axis)
+            {
+                return std::unexpected(axis.error());
+            }
+            map.y_axis = std::move(*axis);
+        }
+    }
+    return {};
 }
 
 } // namespace fastecu::definition
