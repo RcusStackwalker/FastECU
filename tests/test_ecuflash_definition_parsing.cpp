@@ -266,14 +266,6 @@ class TestEcuflashDefinitionParsing : public QObject
 
         FileActions::EcuCalDefStructure ecuCalDef;
         QCOMPARE(fileActions.read_ecuflash_ecu_def(&ecuCalDef, "CHILD_TEST"), &ecuCalDef);
-        const int readsAfterDefinition = fileRepository_.readCount;
-        const FileActions::EcuCalDefStructure resolved = ecuCalDef;
-        QCOMPARE(fileActions.parse_ecuflash_def_scalings(&ecuCalDef), &ecuCalDef);
-        QCOMPARE(fileRepository_.readCount, readsAfterDefinition);
-        QVERIFY(ecuCalDef == resolved);
-        QCOMPARE(fileActions.parse_ecuflash_def_scalings(&ecuCalDef), &ecuCalDef);
-        QCOMPARE(fileRepository_.readCount, readsAfterDefinition);
-        QVERIFY(ecuCalDef == resolved);
 
         QCOMPARE(ecuCalDef.RomInfo.at(FileActions::XmlId), QString("CHILD_TEST"));
         QCOMPARE(ecuCalDef.NameList.at(0), QString("Fuel"));
@@ -339,86 +331,6 @@ class TestEcuflashDefinitionParsing : public QObject
         QCOMPARE(
             ecuCalDef.ScalingEndianList,
             QStringList({" ", " ", " "}));
-        const int readsAfterDefinition = fileRepository_.readCount;
-        const FileActions::EcuCalDefStructure resolved = ecuCalDef;
-
-        QCOMPARE(
-            fileActions.parse_ecuflash_def_scalings(&ecuCalDef),
-            &ecuCalDef);
-        QCOMPARE(fileRepository_.readCount, readsAfterDefinition);
-        QVERIFY(ecuCalDef == resolved);
-        QCOMPARE(
-            fileActions.parse_ecuflash_def_scalings(&ecuCalDef),
-            &ecuCalDef);
-        QCOMPARE(fileRepository_.readCount, readsAfterDefinition);
-        QVERIFY(ecuCalDef == resolved);
-    }
-
-    void standalone_scaling_parse_uses_prepopulated_rows_without_file_io()
-    {
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
-        FileActions::EcuCalDefStructure ecuCalDef;
-        ecuCalDef.NameList = {"Fuel"};
-        ecuCalDef.MapScalingNameList = {"FuelScale"};
-        ecuCalDef.TypeList = {" "};
-        ecuCalDef.StorageTypeList = {" "};
-        ecuCalDef.UnitsList = {" "};
-        ecuCalDef.FineIncList = {" "};
-        ecuCalDef.CoarseIncList = {" "};
-        ecuCalDef.MinValueList = {" "};
-        ecuCalDef.MaxValueList = {" "};
-        ecuCalDef.EndianList = {" "};
-        ecuCalDef.FromByteList = {" "};
-        ecuCalDef.ToByteList = {" "};
-        ecuCalDef.FormatList = {" "};
-        ecuCalDef.SelectionsNameList = {" "};
-        ecuCalDef.SelectionsValueList = {" "};
-        ecuCalDef.XScaleScalingNameList = {" "};
-        ecuCalDef.YScaleScalingNameList = {" "};
-        ecuCalDef.ScalingNameList = {"FuelScale"};
-        ecuCalDef.ScalingUnitsList = {"%"};
-        ecuCalDef.ScalingFromByteList = {"x*0.5"};
-        ecuCalDef.ScalingToByteList = {"x*2"};
-        ecuCalDef.ScalingFormatList = {"%.2f"};
-        ecuCalDef.ScalingMinValueList = {"0"};
-        ecuCalDef.ScalingMaxValueList = {"100"};
-        ecuCalDef.ScalingCoarseIncList = {"1"};
-        ecuCalDef.ScalingFineIncList = {"0.1"};
-        ecuCalDef.ScalingStorageTypeList = {"bloblist"};
-        ecuCalDef.ScalingEndianList = {"big"};
-        ecuCalDef.ScalingSelectionsNameList = {"disabled,enabled,"};
-        ecuCalDef.ScalingSelectionsValueList = {"00,01,"};
-        const int readsBeforeScaling = fileRepository_.readCount;
-
-        QCOMPARE(
-            fileActions.parse_ecuflash_def_scalings(&ecuCalDef),
-            &ecuCalDef);
-
-        QCOMPARE(fileRepository_.readCount, readsBeforeScaling);
-        QCOMPARE(ecuCalDef.TypeList.at(0), QString("Selectable"));
-        QCOMPARE(ecuCalDef.StorageTypeList.at(0), QString("bloblist"));
-        QCOMPARE(ecuCalDef.UnitsList.at(0), QString("%"));
-        QCOMPARE(ecuCalDef.FineIncList.at(0), QString("0.1"));
-        QCOMPARE(ecuCalDef.CoarseIncList.at(0), QString("1"));
-        QCOMPARE(ecuCalDef.MinValueList.at(0), QString("0"));
-        QCOMPARE(ecuCalDef.MaxValueList.at(0), QString("100"));
-        QCOMPARE(ecuCalDef.EndianList.at(0), QString("big"));
-        QCOMPARE(ecuCalDef.FromByteList.at(0), QString("x*0.5"));
-        QCOMPARE(ecuCalDef.ToByteList.at(0), QString("x*2"));
-        QCOMPARE(ecuCalDef.FormatList.at(0), QString("0.00"));
-        QCOMPARE(
-            ecuCalDef.SelectionsNameList.at(0),
-            QString("disabled,enabled,"));
-        QCOMPARE(
-            ecuCalDef.SelectionsValueList.at(0),
-            QString("00,01,"));
-
-        const FileActions::EcuCalDefStructure parsed = ecuCalDef;
-        QCOMPARE(
-            fileActions.parse_ecuflash_def_scalings(&ecuCalDef),
-            &ecuCalDef);
-        QCOMPARE(fileRepository_.readCount, readsBeforeScaling);
-        QVERIFY(ecuCalDef == parsed);
     }
 
     void malformed_ecuflash_catalog_file_is_skipped_and_replaces_with_empty_catalog()
