@@ -785,7 +785,7 @@ class ResolverState
         auto resolved = resolve(std::move(root));
         if (!resolved.has_value())
         {
-            return fail(resolved.error().kind, context + resolved.error().detail);
+            return fail(resolved.error().kind, std::format("{}{}", context, resolved.error().detail));
         }
         RomDefinition result = materialize(resolved->definition);
         result.resolved_sources = std::move(resolved->sources);
@@ -794,7 +794,7 @@ class ResolverState
                 validate_and_resolve_scalings(result, resolved->definition);
             !valid.has_value())
         {
-            return fail(valid.error().kind, context + valid.error().detail);
+            return fail(valid.error().kind, std::format("{}{}", context, valid.error().detail));
         }
         return result;
     }
@@ -813,7 +813,7 @@ class ResolverState
         {
             return fail(
                 ErrorKind::InvalidConfig,
-                "inheritance cycle: " + chain_text(stack, id));
+                std::format("inheritance cycle: {}", chain_text(stack, id)));
         }
 
         if (auto memoized = resolved_by_id.find(id); memoized != resolved_by_id.end())
@@ -851,7 +851,7 @@ class ResolverState
             {
                 return fail(
                     ErrorKind::InvalidConfig,
-                    "inheritance cycle: " + chain_text(stack, parent_id));
+                    std::format("inheritance cycle: {}", chain_text(stack, parent_id)));
             }
 
             auto parent = resolved_by_id.find(parent_id);
@@ -862,23 +862,25 @@ class ResolverState
                 {
                     return fail(
                         loaded.error().kind,
-                        "failed to load parent '" + parent_id + "' in inheritance chain " +
-                            chain_text(stack, parent_id) + ": " + loaded.error().detail);
+                        std::format(
+                            "failed to load parent '{}' in inheritance chain {}: {}",
+                            parent_id, chain_text(stack, parent_id), loaded.error().detail));
                 }
                 if (loaded->format != format_)
                 {
                     return fail(
                         ErrorKind::InvalidConfig,
-                        "cross-format parent '" + parent_id + "' in inheritance chain " +
-                            chain_text(stack, parent_id));
+                        std::format(
+                            "cross-format parent '{}' in inheritance chain {}",
+                            parent_id, chain_text(stack, parent_id)));
                 }
                 if (loaded->identity.xml_id != parent_id)
                 {
                     return fail(
                         ErrorKind::InvalidConfig,
-                        "parent reference '" + parent_id + "' loaded definition '" +
-                            loaded->identity.xml_id + "' in inheritance chain " +
-                            chain_text(stack, parent_id));
+                        std::format(
+                            "parent reference '{}' loaded definition '{}' in inheritance chain {}",
+                            parent_id, loaded->identity.xml_id, chain_text(stack, parent_id)));
                 }
 
                 if (auto parent_result = resolve(std::move(*loaded)); !parent_result.has_value())
@@ -899,7 +901,7 @@ class ResolverState
             {
                 return fail(
                     merged.error().kind,
-                    merged.error().detail + " in inheritance chain " + chain_text(stack));
+                    std::format("{} in inheritance chain {}", merged.error().detail, chain_text(stack)));
             }
             append_unique(resolved.sources, parent->second.sources);
             append_unique(resolved.ids, parent->second.ids);
@@ -909,7 +911,7 @@ class ResolverState
         {
             return fail(
                 merged.error().kind,
-                merged.error().detail + " in inheritance chain " + chain_text(stack));
+                std::format("{} in inheritance chain {}", merged.error().detail, chain_text(stack)));
         }
         append_unique(resolved.sources, {resolved.definition.source});
         append_unique(resolved.ids, {resolved.definition.identity.xml_id});
