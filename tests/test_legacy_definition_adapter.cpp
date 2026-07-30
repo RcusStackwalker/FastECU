@@ -1,4 +1,7 @@
 #include "src/backend/definition/legacy_definition_adapter.h"
+#include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
+#include "src/backend/ports/testing/in_memory_file_repository.h"
+#include "src/backend/ports/testing/in_memory_file_system.h"
 
 #include <cstdint>
 #include <map>
@@ -21,98 +24,12 @@ std::vector<std::uint8_t> bytes(std::string_view text)
     return {text.begin(), text.end()};
 }
 
-class FakeFileSystem : public IFileSystem
-{
-  public:
-    bool exists(std::string_view path) override
-    {
-        return directories.contains(std::string(path));
-    }
-
-    Status create_directory(std::string_view) override
-    {
-        return {};
-    }
-
-    Status copy_file(std::string_view, std::string_view, bool) override
-    {
-        return {};
-    }
-
-    Status remove_file(std::string_view) override
-    {
-        return {};
-    }
-
-    Result<std::vector<DirEntry>> list_directory(std::string_view path) override
-    {
-        const std::string key(path);
-        if (auto error = list_errors.find(key); error != list_errors.end())
-        {
-            return std::unexpected(error->second);
-        }
-        if (auto directory = directories.find(key); directory != directories.end())
-        {
-            return directory->second;
-        }
-        return fail(ErrorKind::InvalidConfig, "unknown directory: " + key);
-    }
-
-    std::map<std::string, std::vector<DirEntry>> directories;
-    std::map<std::string, Error> list_errors;
-};
-
-class FakeFileRepository : public IFileRepository
-{
-  public:
-    Result<std::vector<std::uint8_t>> read(std::string_view handle) override
-    {
-        const std::string key(handle);
-        ++read_counts[key];
-        if (auto error = read_errors.find(key); error != read_errors.end())
-        {
-            return std::unexpected(error->second);
-        }
-        if (auto file = files.find(key); file != files.end())
-        {
-            return file->second;
-        }
-        return fail(ErrorKind::InvalidConfig, "unknown file: " + key);
-    }
-
-    Status write(std::string_view, std::span<const std::uint8_t>) override
-    {
-        return {};
-    }
-
-    std::map<std::string, std::vector<std::uint8_t>> files;
-    std::map<std::string, Error> read_errors;
-    std::map<std::string, int> read_counts;
-};
-
-class FakeAtomicFileWriter : public IAtomicFileWriter
-{
-  public:
-    Status replace(std::string_view handle, std::span<const std::uint8_t> data) override
-    {
-        calls.emplace_back(std::string(handle), std::vector<std::uint8_t>(data.begin(), data.end()));
-        if (error)
-        {
-            return std::unexpected(*error);
-        }
-        return {};
-    }
-
-    std::vector<std::pair<std::string, std::vector<std::uint8_t>>> calls;
-    std::optional<Error> error;
-};
-
 class LegacyDefinitionAdapterTest : public ::testing::Test
 {
   protected:
-    FakeFileSystem file_system;
-    FakeFileRepository repository;
-    FakeAtomicFileWriter writer;
+    InMemoryFileSystem file_system;
+    InMemoryFileRepository repository;
+    InMemoryAtomicFileWriter writer;
     DefinitionService service{file_system, repository, writer};
     LegacyDefinitionAdapter adapter{service};
 };
@@ -279,7 +196,7 @@ TEST_F(LegacyDefinitionAdapterTest, ReplacesRomRaiderCatalogWithAlignedTypedRows
 
 TEST_F(LegacyDefinitionAdapterTest, ReplacesEcuFlashCatalogWithAlignedTypedRows)
 {
-    file_system.directories["defs"] = {
+    file_system.directory_entries["defs"] = {
         DirEntry{.name = "b.xml", .is_directory = false},
         DirEntry{.name = "a.xml", .is_directory = false},
     };
@@ -322,14 +239,14 @@ TEST_F(LegacyDefinitionAdapterTest, ReplacesEcuFlashCatalogWithAlignedTypedRows)
         value.ecuflash_def_cal_id_addr,
         value.ecuflash_def_ecu_id,
         value.ecuflash_def_filename);
-    EXPECT_EQ(repository.read_counts["defs/a.xml"], 1);
-    EXPECT_EQ(repository.read_counts["defs/b.xml"], 1);
-    EXPECT_EQ(repository.read_counts["outside.xml"], 1);
+    EXPECT_EQ(repository.read_count("defs/a.xml"), 1);
+    EXPECT_EQ(repository.read_count("defs/b.xml"), 1);
+    EXPECT_EQ(repository.read_count("outside.xml"), 1);
 }
 
 TEST_F(LegacyDefinitionAdapterTest, EcuFlashCatalogFailurePreservesCompleteOriginalValue)
 {
-    file_system.directories["defs"] = {};
+    file_system.directory_entries["defs"] = {};
     repository.read_errors["outside.xml"] =
         Error{ErrorKind::Disconnected, "submitted definition unavailable"};
     definitions::ConfigValuesStructure value;
@@ -711,9 +628,9 @@ TEST_F(LegacyDefinitionAdapterTest, CreationAndImportDelegateToDefinitionService
 
     ASSERT_TRUE(created);
     ASSERT_TRUE(imported);
-    ASSERT_EQ(writer.calls.size(), 2U);
-    EXPECT_EQ(writer.calls.at(0).first, "created.xml");
-    EXPECT_EQ(writer.calls.at(1).first, "imported.xml");
+    ASSERT_EQ(writer.replace_calls.size(), 2U);
+    EXPECT_EQ(writer.replace_calls.at(0).handle, "created.xml");
+    EXPECT_EQ(writer.replace_calls.at(1).handle, "imported.xml");
 }
 
 TEST_F(LegacyDefinitionAdapterTest, CreationAndImportPropagateExactServiceFailures)
@@ -724,13 +641,13 @@ TEST_F(LegacyDefinitionAdapterTest, CreationAndImportPropagateExactServiceFailur
         .ecu_id = "ECU",
         .internal_id_address = 0x20,
     };
-    writer.error = Error{ErrorKind::Internal, "atomic replace failed"};
+    writer.replace_error = Error{ErrorKind::Internal, "atomic replace failed"};
 
     auto created = adapter.create_definition("created.xml", input);
 
     ASSERT_FALSE(created);
     EXPECT_EQ(created.error(), (Error{ErrorKind::Internal, "atomic replace failed"}));
-    ASSERT_EQ(writer.calls.size(), 1U);
+    ASSERT_EQ(writer.replace_calls.size(), 1U);
     repository.read_errors["source.xml"] =
         Error{ErrorKind::Disconnected, "source read failed"};
 
@@ -738,7 +655,7 @@ TEST_F(LegacyDefinitionAdapterTest, CreationAndImportPropagateExactServiceFailur
 
     ASSERT_FALSE(imported);
     EXPECT_EQ(imported.error(), (Error{ErrorKind::Disconnected, "source read failed"}));
-    EXPECT_EQ(writer.calls.size(), 1U);
+    EXPECT_EQ(writer.replace_calls.size(), 1U);
 }
 
 } // namespace

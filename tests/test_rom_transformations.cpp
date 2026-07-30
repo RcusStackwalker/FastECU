@@ -12,8 +12,8 @@
 #include <string_view>
 #include <vector>
 
-#include "src/backend/ports/atomic_file_writer.h"
 #include "src/backend/definitions/file_actions.h"
+#include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
 #include "src/platform/desktop/common/ports/qt_resource_bundle.h"
@@ -21,20 +21,6 @@
 
 namespace
 {
-class InMemoryAtomicFileWriter : public fastecu::IAtomicFileWriter
-{
-  public:
-    fastecu::Status replace(std::string_view handle,
-                            std::span<const std::uint8_t> data) override
-    {
-        files[std::string(handle)] =
-            std::vector<std::uint8_t>(data.begin(), data.end());
-        return {};
-    }
-
-    std::map<std::string, std::vector<std::uint8_t>> files;
-};
-
 QString writeBinaryFile(const QTemporaryDir& dir,
                         const QString& name,
                         const QByteArray& contents)
@@ -193,7 +179,7 @@ class TestRomTransformations : public QObject
     QtFileSystem fileSystem_;
     QtResourceBundle resourceBundle_;
     QtFileRepository fileRepository_;
-    InMemoryAtomicFileWriter atomicFileWriter_;
+    fastecu::InMemoryAtomicFileWriter atomicFileWriter_;
 };
 
 int run_test_rom_transformations(int argc, char **argv)

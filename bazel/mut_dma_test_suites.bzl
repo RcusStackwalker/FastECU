@@ -268,15 +268,18 @@ SUITE_DEPS = {
     # QtResourceBundle/QtFileRepository instances to satisfy it.
     "test_ecuflash_definition_parsing": [
         "//src/backend/definitions",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
         "//src/platform/desktop/common/ports",
     ],
     "test_file_actions_parsing": [
         "//src/backend/definition:ecuflash_parser",
         "//src/backend/definitions",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
         "//src/platform/desktop/common/ports",
     ],
     "test_rom_transformations": [
         "//src/backend/definitions",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
         "//src/platform/desktop/common/ports",
     ],
     "test_model_validation": ["//src/backend/definitions"],

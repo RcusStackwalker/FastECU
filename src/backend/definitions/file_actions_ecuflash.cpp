@@ -1,8 +1,10 @@
 #include "src/backend/definitions/file_actions.h"
+#include "src/backend/definitions/legacy_definition_columns.h"
 
 // Qt compatibility wrappers over the portable definition service.
 
 #include <algorithm>
+#include <array>
 #include <set>
 #include <string>
 
@@ -67,13 +69,8 @@ FileActions::ConfigValuesStructure *FileActions::create_ecuflash_def_id_list(
         return configValues;
     }
 
-    for (QString& address : configValues->ecuflash_def_cal_id_addr)
-    {
-        if (address.startsWith("0x"))
-        {
-            address.remove(0, 2);
-        }
-    }
+    strip_legacy_address_prefixes(
+        configValues->ecuflash_def_cal_id_addr);
     std::set<QString> sources;
     for (const QString& source : configValues->ecuflash_def_filename)
     {
@@ -112,52 +109,24 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(
     emit LOG_D("EcuFlash ID found: " + cal_id + " " + cal_id, true, true);
     emit LOG_D("EcuFlash def file name: " + source, true, true);
 
-    auto catalog =
-        build_definition_catalog(
-            fastecu::definition::DefinitionFormat::EcuFlash);
-    if (!catalog)
-    {
-        log_definition_error(
-            "Unable to read EcuFlash definition " + cal_id,
-            catalog.error());
-        if (!source.isEmpty() &&
-            !definitionFileSystem_.exists(source.toStdString()))
-        {
-            QMessageBox::warning(
-                this,
-                tr("Ecu definitions file"),
-                "Unable to open ECU definition file " + source +
-                    " for reading");
-            return nullptr;
-        }
-        return ecuCalDef;
-    }
-
-    const fastecu::Status replaced = definitionAdapter_.replace_definition(
+    const fastecu::Status replaced = load_configured_definition(
         *ecuCalDef,
-        *catalog,
         fastecu::definition::DefinitionFormat::EcuFlash,
-        cal_id.toStdString());
+        cal_id);
     if (!replaced.has_value())
     {
-        log_definition_error(
+        const bool missing = log_definition_load_failure(
             "Unable to read EcuFlash definition " + cal_id,
-            replaced.error());
-        if (!source.isEmpty() &&
-            !definitionFileSystem_.exists(source.toStdString()))
+            replaced.error(),
+            source,
+            tr("Ecu definitions file"),
+            "Unable to open ECU definition file ");
+        if (missing)
         {
-            QMessageBox::warning(
-                this,
-                tr("Ecu definitions file"),
-                "Unable to open ECU definition file " + source +
-                    " for reading");
             return nullptr;
         }
         return ecuCalDef;
     }
-
-    normalize_definition_addresses(*ecuCalDef);
-    apply_flash_method_alias(*ecuCalDef);
     emit LOG_D("Found ID: " + cal_id, true, true);
     emit LOG_D(
         "Definition for CAL ID " + cal_id +
@@ -175,133 +144,66 @@ FileActions::EcuCalDefStructure *FileActions::parse_ecuflash_def_scalings(
         return ecuCalDef;
     }
 
-    for (def_map_index = 0;
-         def_map_index < ecuCalDef->NameList.size();
-         ++def_map_index)
+    const auto apply_scaling_columns =
+        [ecuCalDef](
+            qsizetype map_index,
+            qsizetype scaling_index,
+            const fastecu::definitions::legacy_columns::ScalingDestination& destination)
     {
-        for (qsizetype scalingIndex = 0;
-             scalingIndex < ecuCalDef->ScalingNameList.size();
-             ++scalingIndex)
+        destination.storage->replace(
+            map_index, ecuCalDef->ScalingStorageTypeList.at(scaling_index));
+        destination.units->replace(
+            map_index, ecuCalDef->ScalingUnitsList.at(scaling_index));
+        destination.fine->replace(
+            map_index, ecuCalDef->ScalingFineIncList.at(scaling_index));
+        destination.coarse->replace(
+            map_index, ecuCalDef->ScalingCoarseIncList.at(scaling_index));
+        destination.minimum->replace(
+            map_index, ecuCalDef->ScalingMinValueList.at(scaling_index));
+        destination.maximum->replace(
+            map_index, ecuCalDef->ScalingMaxValueList.at(scaling_index));
+        destination.endian->replace(
+            map_index, ecuCalDef->ScalingEndianList.at(scaling_index));
+        destination.from_byte->replace(
+            map_index, ecuCalDef->ScalingFromByteList.at(scaling_index));
+        destination.to_byte->replace(
+            map_index, ecuCalDef->ScalingToByteList.at(scaling_index));
+        destination.format->replace(
+            map_index,
+            legacyScalingFormat(
+                ecuCalDef->ScalingFormatList.at(scaling_index)));
+        if (destination.type &&
+            ecuCalDef->ScalingStorageTypeList.at(scaling_index) == "bloblist")
         {
-            if (ecuCalDef->ScalingNameList.at(scalingIndex) ==
-                ecuCalDef->MapScalingNameList.at(def_map_index))
+            destination.type->replace(map_index, "Selectable");
+            destination.selection_names->replace(
+                map_index,
+                ecuCalDef->ScalingSelectionsNameList.at(scaling_index));
+            destination.selection_values->replace(
+                map_index,
+                ecuCalDef->ScalingSelectionsValueList.at(scaling_index));
+        }
+    };
+
+    const auto destinations = std::to_array({
+        fastecu::definitions::legacy_columns::map_scaling_destination(*ecuCalDef),
+        fastecu::definitions::legacy_columns::axis_scaling_destination(*ecuCalDef, true),
+        fastecu::definitions::legacy_columns::axis_scaling_destination(*ecuCalDef, false),
+    });
+    for (def_map_index = 0; def_map_index < ecuCalDef->NameList.size(); ++def_map_index)
+    {
+        for (qsizetype scaling_index = 0;
+             scaling_index < ecuCalDef->ScalingNameList.size();
+             ++scaling_index)
+        {
+            for (const auto& destination : destinations)
             {
-                if (ecuCalDef->ScalingStorageTypeList.at(scalingIndex) ==
-                    "bloblist")
+                if (ecuCalDef->ScalingNameList.at(scaling_index) ==
+                    destination.scaling_name->at(def_map_index))
                 {
-                    ecuCalDef->TypeList.replace(
-                        def_map_index,
-                        "Selectable");
-                    ecuCalDef->SelectionsNameList.replace(
-                        def_map_index,
-                        ecuCalDef->ScalingSelectionsNameList.at(
-                            scalingIndex));
-                    ecuCalDef->SelectionsValueList.replace(
-                        def_map_index,
-                        ecuCalDef->ScalingSelectionsValueList.at(
-                            scalingIndex));
+                    apply_scaling_columns(
+                        def_map_index, scaling_index, destination);
                 }
-                ecuCalDef->StorageTypeList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingStorageTypeList.at(scalingIndex));
-                ecuCalDef->UnitsList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingUnitsList.at(scalingIndex));
-                ecuCalDef->FineIncList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingFineIncList.at(scalingIndex));
-                ecuCalDef->CoarseIncList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingCoarseIncList.at(scalingIndex));
-                ecuCalDef->MinValueList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingMinValueList.at(scalingIndex));
-                ecuCalDef->MaxValueList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingMaxValueList.at(scalingIndex));
-                ecuCalDef->EndianList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingEndianList.at(scalingIndex));
-                ecuCalDef->FromByteList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingFromByteList.at(scalingIndex));
-                ecuCalDef->ToByteList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingToByteList.at(scalingIndex));
-                ecuCalDef->FormatList.replace(
-                    def_map_index,
-                    legacyScalingFormat(
-                        ecuCalDef->ScalingFormatList.at(scalingIndex)));
-            }
-            if (ecuCalDef->ScalingNameList.at(scalingIndex) ==
-                ecuCalDef->XScaleScalingNameList.at(def_map_index))
-            {
-                ecuCalDef->XScaleStorageTypeList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingStorageTypeList.at(scalingIndex));
-                ecuCalDef->XScaleUnitsList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingUnitsList.at(scalingIndex));
-                ecuCalDef->XScaleFineIncList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingFineIncList.at(scalingIndex));
-                ecuCalDef->XScaleCoarseIncList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingCoarseIncList.at(scalingIndex));
-                ecuCalDef->XScaleMinValueList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingMinValueList.at(scalingIndex));
-                ecuCalDef->XScaleMaxValueList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingMaxValueList.at(scalingIndex));
-                ecuCalDef->XScaleEndianList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingEndianList.at(scalingIndex));
-                ecuCalDef->XScaleFromByteList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingFromByteList.at(scalingIndex));
-                ecuCalDef->XScaleToByteList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingToByteList.at(scalingIndex));
-                ecuCalDef->XScaleFormatList.replace(
-                    def_map_index,
-                    legacyScalingFormat(
-                        ecuCalDef->ScalingFormatList.at(scalingIndex)));
-            }
-            if (ecuCalDef->ScalingNameList.at(scalingIndex) ==
-                ecuCalDef->YScaleScalingNameList.at(def_map_index))
-            {
-                ecuCalDef->YScaleStorageTypeList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingStorageTypeList.at(scalingIndex));
-                ecuCalDef->YScaleUnitsList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingUnitsList.at(scalingIndex));
-                ecuCalDef->YScaleFineIncList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingFineIncList.at(scalingIndex));
-                ecuCalDef->YScaleCoarseIncList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingCoarseIncList.at(scalingIndex));
-                ecuCalDef->YScaleMinValueList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingMinValueList.at(scalingIndex));
-                ecuCalDef->YScaleMaxValueList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingMaxValueList.at(scalingIndex));
-                ecuCalDef->YScaleEndianList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingEndianList.at(scalingIndex));
-                ecuCalDef->YScaleFromByteList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingFromByteList.at(scalingIndex));
-                ecuCalDef->YScaleToByteList.replace(
-                    def_map_index,
-                    ecuCalDef->ScalingToByteList.at(scalingIndex));
-                ecuCalDef->YScaleFormatList.replace(
-                    def_map_index,
-                    legacyScalingFormat(
-                        ecuCalDef->ScalingFormatList.at(scalingIndex)));
             }
         }
     }

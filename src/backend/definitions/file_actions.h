@@ -306,6 +306,17 @@ class FileActions : public QWidget
     void log_definition_error(
         const QString& operation,
         const fastecu::Error& error);
+    fastecu::Status load_configured_definition(
+        EcuCalDefStructure& ecu_cal_def,
+        fastecu::definition::DefinitionFormat format,
+        const QString& definition_id);
+    bool log_definition_load_failure(
+        const QString& operation,
+        const fastecu::Error& error,
+        const QString& source,
+        const QString& warning_title,
+        const QString& warning_text);
+    static void strip_legacy_address_prefixes(QStringList& addresses);
     void apply_flash_method_alias(EcuCalDefStructure& ecuCalDef);
     void normalize_definition_addresses(EcuCalDefStructure& ecuCalDef);
 

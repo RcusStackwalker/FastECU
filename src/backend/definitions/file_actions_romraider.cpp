@@ -49,13 +49,8 @@ FileActions::ConfigValuesStructure *FileActions::create_romraider_def_id_list(
         return configValues;
     }
 
-    for (QString& address : configValues->romraider_def_cal_id_addr)
-    {
-        if (address.startsWith("0x"))
-        {
-            address.remove(0, 2);
-        }
-    }
+    strip_legacy_address_prefixes(
+        configValues->romraider_def_cal_id_addr);
     emit LOG_D(
         QString::number(configValues->romraider_definition_files.size()) +
             " RomRaider definition files found",
@@ -165,52 +160,24 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(
     const QString source = definition_source(
         fastecu::definition::DefinitionFormat::RomRaider,
         cal_id);
-    auto catalog =
-        build_definition_catalog(
-            fastecu::definition::DefinitionFormat::RomRaider);
-    if (!catalog)
-    {
-        log_definition_error(
-            "Unable to read RomRaider definition " + cal_id,
-            catalog.error());
-        if (!source.isEmpty() &&
-            !definitionFileSystem_.exists(source.toStdString()))
-        {
-            QMessageBox::warning(
-                this,
-                tr("Ecu definitions file"),
-                "Unable to open ECU definition file " + source +
-                    " for reading");
-            return nullptr;
-        }
-        return ecuCalDef;
-    }
-
-    const fastecu::Status replaced = definitionAdapter_.replace_definition(
+    const fastecu::Status replaced = load_configured_definition(
         *ecuCalDef,
-        *catalog,
         fastecu::definition::DefinitionFormat::RomRaider,
-        cal_id.toStdString());
+        cal_id);
     if (!replaced.has_value())
     {
-        log_definition_error(
+        const bool missing = log_definition_load_failure(
             "Unable to read RomRaider definition " + cal_id,
-            replaced.error());
-        if (!source.isEmpty() &&
-            !definitionFileSystem_.exists(source.toStdString()))
+            replaced.error(),
+            source,
+            tr("Ecu definitions file"),
+            "Unable to open ECU definition file ");
+        if (missing)
         {
-            QMessageBox::warning(
-                this,
-                tr("Ecu definitions file"),
-                "Unable to open ECU definition file " + source +
-                    " for reading");
             return nullptr;
         }
         return ecuCalDef;
     }
-
-    normalize_definition_addresses(*ecuCalDef);
-    apply_flash_method_alias(*ecuCalDef);
     emit LOG_D("XML ID: " + cal_id + " " + cal_id, true, true);
     return ecuCalDef;
 }

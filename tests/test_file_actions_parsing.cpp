@@ -16,8 +16,8 @@
 #include <vector>
 
 #include "src/backend/definition/ecuflash_parser.h"
-#include "src/backend/ports/atomic_file_writer.h"
 #include "src/backend/definitions/file_actions.h"
+#include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
 #include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
@@ -26,43 +26,6 @@
 
 namespace
 {
-class InMemoryAtomicFileWriter : public fastecu::IAtomicFileWriter
-{
-  public:
-    struct Call
-    {
-        std::string handle;
-        std::vector<std::uint8_t> data;
-    };
-
-    fastecu::Status replace(std::string_view handle,
-                            std::span<const std::uint8_t> data) override
-    {
-        calls.push_back(Call{
-            .handle = std::string(handle),
-            .data = std::vector<std::uint8_t>(data.begin(), data.end()),
-        });
-        if (error)
-        {
-            return std::unexpected(*error);
-        }
-        files[std::string(handle)] =
-            std::vector<std::uint8_t>(data.begin(), data.end());
-        return {};
-    }
-
-    void reset()
-    {
-        calls.clear();
-        files.clear();
-        error.reset();
-    }
-
-    std::vector<Call> calls;
-    std::map<std::string, std::vector<std::uint8_t>> files;
-    std::optional<fastecu::Error> error;
-};
-
 class RecordingQtAtomicFileWriter : public fastecu::IAtomicFileWriter
 {
   public:
@@ -530,34 +493,6 @@ class TestFileActionsParsing : public QObject
         QVERIFY(spyContainsMessage(errorSpy, "cannot open file"));
     }
 
-    void romraider_rom_match_accepts_legacy_hex_identifier()
-    {
-        QTemporaryDir dir;
-        QVERIFY(dir.isValid());
-        const QString definitionPath = writeTextFile(
-            dir,
-            "hex-romraider.xml",
-            "<roms><rom><romid><xmlid>AB10</xmlid>"
-            "<internalidaddress>0</internalidaddress>"
-            "<internalidstring>AB10</internalidstring></romid></rom></roms>");
-        QVERIFY(!definitionPath.isEmpty());
-
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
-        auto& config = actions.ConfigValuesStruct;
-        config.romraider_definition_files = {definitionPath};
-
-        FileActions::EcuCalDefStructure ecu;
-        ecu.FullRomData = QByteArray::fromHex("AB10");
-        QSignalSpy errorSpy(&actions, &FileActions::LOG_E);
-
-        QCOMPARE(
-            actions.parse_ecuid_romraider_def_files(&ecu, false),
-            &ecu);
-
-        QCOMPARE(ecu.RomId, QString("AB10"));
-        QVERIFY(errorSpy.isEmpty());
-    }
-
     void malformed_compatibility_catalog_columns_preserve_rom_id()
     {
         FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
@@ -596,7 +531,7 @@ class TestFileActionsParsing : public QObject
 
         QCOMPARE(actions.create_new_definition_for_rom(&ecu), &ecu);
 
-        QVERIFY(atomicFileWriter_.calls.empty());
+        QVERIFY(atomicFileWriter_.replace_calls.empty());
         QVERIFY(actions.submittedEcuflashHandles_.empty());
     }
 
@@ -665,7 +600,7 @@ class TestFileActionsParsing : public QObject
         QVERIFY(handledHeader);
         QVERIFY(handledDestination);
         QVERIFY(handledRetry);
-        QVERIFY(atomicFileWriter_.calls.empty());
+        QVERIFY(atomicFileWriter_.replace_calls.empty());
         QVERIFY(actions.submittedEcuflashHandles_.empty());
     }
 
@@ -725,10 +660,10 @@ class TestFileActionsParsing : public QObject
 
         QVERIFY(handledHeader);
         QVERIFY(handledDestination);
-        QCOMPARE(atomicFileWriter_.calls.size(), std::size_t{1});
+        QCOMPARE(atomicFileWriter_.replace_calls.size(), std::size_t{1});
         auto parsed = fastecu::definition::parse_ecuflash_definition(
-            atomicFileWriter_.calls.front().data,
-            atomicFileWriter_.calls.front().handle);
+            atomicFileWriter_.replace_calls.front().data,
+            atomicFileWriter_.replace_calls.front().handle);
         QVERIFY2(parsed.has_value(), parsed.error().detail.c_str());
         QCOMPARE(
             parsed->identity.internal_id_address,
@@ -1026,63 +961,6 @@ class TestFileActionsParsing : public QObject
         QVERIFY(!config.ecuflash_def_filename.contains(oldPath));
     }
 
-    void new_definition_submission_uses_one_atomic_replacement()
-    {
-        atomicFileWriter_.reset();
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
-        const auto input = validHeaderInput();
-
-        const fastecu::Status result =
-            actions.submit_new_definition("created.xml", input);
-
-        QVERIFY2(result.has_value(), result.error().detail.c_str());
-        QCOMPARE(atomicFileWriter_.calls.size(), std::size_t{1});
-        QCOMPARE(atomicFileWriter_.calls.front().handle, std::string("created.xml"));
-        auto parsed = fastecu::definition::parse_ecuflash_definition(
-            atomicFileWriter_.calls.front().data,
-            atomicFileWriter_.calls.front().handle);
-        QVERIFY2(parsed.has_value(), parsed.error().detail.c_str());
-        QCOMPARE(parsed->identity.xml_id, input.xml_id);
-        QCOMPARE(parsed->identity.internal_id, input.internal_id);
-        QCOMPARE(parsed->identity.ecu_id, input.ecu_id);
-        QCOMPARE(parsed->identity.internal_id_address, input.internal_id_address);
-        QCOMPARE(parsed->metadata, input.metadata);
-        QCOMPARE(parsed->parents, std::vector<std::string>{input.include});
-        QCOMPARE(
-            actions.submittedEcuflashHandles_,
-            std::vector<std::string>{"created.xml"});
-    }
-
-    void imported_definition_submission_uses_one_atomic_replacement()
-    {
-        atomicFileWriter_.reset();
-        QTemporaryDir dir;
-        QVERIFY(dir.isValid());
-        const QString source = writeTextFile(
-            dir,
-            "source.xml",
-            R"(<rom><romid><xmlid>OLD</xmlid></romid><vendor-extension/></rom>)");
-        QVERIFY(!source.isEmpty());
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
-        const auto input = validHeaderInput();
-
-        const fastecu::Status result = actions.submit_imported_definition(
-            source.toStdString(),
-            "imported.xml",
-            input);
-
-        QVERIFY2(result.has_value(), result.error().detail.c_str());
-        QCOMPARE(atomicFileWriter_.calls.size(), std::size_t{1});
-        QCOMPARE(atomicFileWriter_.calls.front().handle, std::string("imported.xml"));
-        const std::string xml(
-            atomicFileWriter_.calls.front().data.begin(),
-            atomicFileWriter_.calls.front().data.end());
-        QVERIFY(xml.find("<vendor-extension") != std::string::npos);
-        QCOMPARE(
-            actions.submittedEcuflashHandles_,
-            std::vector<std::string>{"imported.xml"});
-    }
-
     void successful_submission_provenance_is_sorted_and_deduplicated()
     {
         atomicFileWriter_.reset();
@@ -1109,7 +987,7 @@ class TestFileActionsParsing : public QObject
             fastecu::ErrorKind::Disconnected,
             "atomic destination unavailable",
         };
-        atomicFileWriter_.error = backendError;
+        atomicFileWriter_.replace_error = backendError;
         FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
         auto& config = actions.ConfigValuesStruct;
         config.ecuflash_def_cal_id = {"sentinel-id"};
@@ -1197,7 +1075,7 @@ class TestFileActionsParsing : public QObject
     QtFileSystem fileSystem_;
     QtResourceBundle resourceBundle_;
     QtFileRepository fileRepository_;
-    InMemoryAtomicFileWriter atomicFileWriter_;
+    fastecu::InMemoryAtomicFileWriter atomicFileWriter_;
 };
 
 int run_test_file_actions_parsing(int argc, char **argv)

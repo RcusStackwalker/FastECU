@@ -1,4 +1,7 @@
 #include "src/backend/definition/definition_service.h"
+#include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
+#include "src/backend/ports/testing/in_memory_file_repository.h"
+#include "src/backend/ports/testing/in_memory_file_system.h"
 
 #include <cstdint>
 #include <map>
@@ -61,107 +64,12 @@ DefinitionIndexEntry load_entry(
     return entry;
 }
 
-class FakeFileSystem : public IFileSystem
-{
-  public:
-    bool exists(std::string_view path) override
-    {
-        return directories.contains(std::string(path));
-    }
-
-    Status create_directory(std::string_view) override
-    {
-        return {};
-    }
-
-    Status copy_file(std::string_view, std::string_view, bool) override
-    {
-        return {};
-    }
-
-    Status remove_file(std::string_view) override
-    {
-        return {};
-    }
-
-    Result<std::vector<DirEntry>> list_directory(std::string_view path) override
-    {
-        const std::string key(path);
-        if (auto error = list_errors.find(key); error != list_errors.end())
-        {
-            return std::unexpected(error->second);
-        }
-        if (auto directory = directories.find(key); directory != directories.end())
-        {
-            return directory->second;
-        }
-        return fail(ErrorKind::InvalidConfig, "unknown test directory: " + key);
-    }
-
-    std::map<std::string, std::vector<DirEntry>> directories;
-    std::map<std::string, Error> list_errors;
-};
-
-class FakeFileRepository : public IFileRepository
-{
-  public:
-    Result<std::vector<std::uint8_t>> read(std::string_view handle) override
-    {
-        const std::string key(handle);
-        ++read_counts[key];
-        if (auto error = read_errors.find(key); error != read_errors.end())
-        {
-            return std::unexpected(error->second);
-        }
-        if (auto file = files.find(key); file != files.end())
-        {
-            return file->second;
-        }
-        return fail(ErrorKind::InvalidConfig, "unknown test file: " + key);
-    }
-
-    Status write(std::string_view, std::span<const std::uint8_t>) override
-    {
-        return {};
-    }
-
-    std::map<std::string, std::vector<std::uint8_t>> files;
-    std::map<std::string, Error> read_errors;
-    std::map<std::string, int> read_counts;
-};
-
-class FakeAtomicFileWriter : public IAtomicFileWriter
-{
-  public:
-    struct Call
-    {
-        std::string handle;
-        std::vector<std::uint8_t> data;
-    };
-
-    Status replace(std::string_view handle, std::span<const std::uint8_t> data) override
-    {
-        calls.push_back(Call{
-            .handle = std::string(handle),
-            .data = std::vector<std::uint8_t>(data.begin(), data.end()),
-        });
-        if (error)
-        {
-            return std::unexpected(*error);
-        }
-        return {};
-    }
-
-    std::vector<Call> calls;
-    std::optional<Error> error;
-};
-
 class DefinitionServiceTest : public ::testing::Test
 {
   protected:
-    FakeFileSystem file_system;
-    FakeFileRepository repository;
-    FakeAtomicFileWriter writer;
+    InMemoryFileSystem file_system;
+    InMemoryFileRepository repository;
+    InMemoryAtomicFileWriter writer;
     DefinitionService service{file_system, repository, writer};
 };
 
@@ -186,17 +94,17 @@ DefinitionHeaderInput valid_header_input()
 
 TEST_F(DefinitionServiceTest, DiscoversEcuFlashXmlRecursivelyInLexicalFullPathOrder)
 {
-    file_system.directories["defs"] = {
+    file_system.directory_entries["defs"] = {
         DirEntry{.name = "z.xml", .is_directory = false},
         DirEntry{.name = "nested", .is_directory = true},
         DirEntry{.name = "notes.txt", .is_directory = false},
         DirEntry{.name = "pretend.xml", .is_directory = true},
     };
-    file_system.directories["defs/nested"] = {
+    file_system.directory_entries["defs/nested"] = {
         DirEntry{.name = "b.XML", .is_directory = false},
         DirEntry{.name = "a.Xml", .is_directory = false},
     };
-    file_system.directories["defs/pretend.xml"] = {
+    file_system.directory_entries["defs/pretend.xml"] = {
         DirEntry{.name = "ignored.bin", .is_directory = false},
     };
     repository.files["defs/z.xml"] = ecuflash_xml("Z");
@@ -210,19 +118,19 @@ TEST_F(DefinitionServiceTest, DiscoversEcuFlashXmlRecursivelyInLexicalFullPathOr
     EXPECT_EQ(result->entries()[0].definition_id, "A");
     EXPECT_EQ(result->entries()[1].definition_id, "B");
     EXPECT_EQ(result->entries()[2].definition_id, "Z");
-    EXPECT_EQ(repository.read_counts["defs/nested/a.Xml"], 1);
-    EXPECT_EQ(repository.read_counts["defs/nested/b.XML"], 1);
-    EXPECT_EQ(repository.read_counts["defs/z.xml"], 1);
-    EXPECT_FALSE(repository.read_counts.contains("defs/notes.txt"));
-    EXPECT_FALSE(repository.read_counts.contains("defs/pretend.xml"));
+    EXPECT_EQ(repository.read_count("defs/nested/a.Xml"), 1);
+    EXPECT_EQ(repository.read_count("defs/nested/b.XML"), 1);
+    EXPECT_EQ(repository.read_count("defs/z.xml"), 1);
+    EXPECT_FALSE(repository.read_count("defs/notes.txt") != 0);
+    EXPECT_FALSE(repository.read_count("defs/pretend.xml") != 0);
 }
 
 TEST_F(DefinitionServiceTest, SkipsSymlinkDirectoriesWhileDiscoveringOrdinaryNestedXml)
 {
-    file_system.directories["defs"] = {
+    file_system.directory_entries["defs"] = {
         DirEntry{.name = "nested", .is_directory = true},
     };
-    file_system.directories["defs/nested"] = {
+    file_system.directory_entries["defs/nested"] = {
         DirEntry{.name = "definition.xml", .is_directory = false},
         DirEntry{
             .name = "loop",
@@ -242,12 +150,12 @@ TEST_F(DefinitionServiceTest, SkipsSymlinkDirectoriesWhileDiscoveringOrdinaryNes
         result->entries()[0].source,
         "defs/nested/definition.xml");
     EXPECT_FALSE(
-        repository.read_counts.contains("defs/nested/loop"));
+        repository.read_count("defs/nested/loop") != 0);
 }
 
 TEST_F(DefinitionServiceTest, MergesExplicitEcuFlashHandlesDeterministicallyAndReadsEachSourceOnce)
 {
-    file_system.directories["defs"] = {
+    file_system.directory_entries["defs"] = {
         DirEntry{.name = "z.xml", .is_directory = false},
     };
     repository.files["defs/z.xml"] = ecuflash_xml("Z");
@@ -271,9 +179,9 @@ TEST_F(DefinitionServiceTest, MergesExplicitEcuFlashHandlesDeterministicallyAndR
     EXPECT_EQ(result->entries()[1].source, "external/a.xml");
     EXPECT_EQ(result->entries()[2].definition_id, "B");
     EXPECT_EQ(result->entries()[2].source, "external/b.xml");
-    EXPECT_EQ(repository.read_counts["defs/z.xml"], 1);
-    EXPECT_EQ(repository.read_counts["external/a.xml"], 1);
-    EXPECT_EQ(repository.read_counts["external/b.xml"], 1);
+    EXPECT_EQ(repository.read_count("defs/z.xml"), 1);
+    EXPECT_EQ(repository.read_count("external/a.xml"), 1);
+    EXPECT_EQ(repository.read_count("external/b.xml"), 1);
 }
 
 TEST_F(DefinitionServiceTest, BuildsEcuFlashCatalogFromExplicitHandlesWithoutConfiguredDirectory)
@@ -307,13 +215,13 @@ TEST_F(DefinitionServiceTest, PreservesConfiguredRomRaiderHandleOrderingAndReads
     ASSERT_EQ(result->entries().size(), 2U);
     EXPECT_EQ(result->entries()[0].definition_id, "SECOND");
     EXPECT_EQ(result->entries()[1].definition_id, "FIRST");
-    EXPECT_EQ(repository.read_counts["second.xml"], 1);
-    EXPECT_EQ(repository.read_counts["first.xml"], 1);
+    EXPECT_EQ(repository.read_count("second.xml"), 1);
+    EXPECT_EQ(repository.read_count("first.xml"), 1);
 }
 
 TEST_F(DefinitionServiceTest, PropagatesDiscoveryFailureWithoutReadingFiles)
 {
-    file_system.list_errors["defs"] =
+    file_system.list_directory_errors["defs"] =
         Error{ErrorKind::Disconnected, "catalog directory unavailable"};
 
     auto result = service.build_ecuflash_catalog("defs");
@@ -321,7 +229,7 @@ TEST_F(DefinitionServiceTest, PropagatesDiscoveryFailureWithoutReadingFiles)
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error(),
               (Error{ErrorKind::Disconnected, "catalog directory unavailable"}));
-    EXPECT_TRUE(repository.read_counts.empty());
+    EXPECT_TRUE(repository.read_handles.empty());
 }
 
 TEST_F(DefinitionServiceTest, PropagatesRepositoryFailure)
@@ -333,12 +241,12 @@ TEST_F(DefinitionServiceTest, PropagatesRepositoryFailure)
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error(), (Error{ErrorKind::Disconnected, "read failed"}));
-    EXPECT_EQ(repository.read_counts["bad.xml"], 1);
+    EXPECT_EQ(repository.read_count("bad.xml"), 1);
 }
 
 TEST_F(DefinitionServiceTest, PropagatesParseFailureAfterOneRead)
 {
-    file_system.directories["defs"] = {
+    file_system.directory_entries["defs"] = {
         DirEntry{.name = "bad.xml", .is_directory = false},
     };
     repository.files["defs/bad.xml"] = bytes("<not-rom/>");
@@ -347,7 +255,7 @@ TEST_F(DefinitionServiceTest, PropagatesParseFailureAfterOneRead)
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_EQ(repository.read_counts["defs/bad.xml"], 1);
+    EXPECT_EQ(repository.read_count("defs/bad.xml"), 1);
 }
 
 TEST_F(DefinitionServiceTest, MatchesAsciiIdentifierEndingExactlyAtRomEnd)
@@ -541,8 +449,8 @@ TEST_F(DefinitionServiceTest, LoadsAndResolvesRomRaiderChildAndBaseFiles)
     EXPECT_EQ(result->identity.xml_id, "CHILD");
     EXPECT_EQ(result->resolved_sources,
               (std::vector<std::string>{"base.xml", "child.xml"}));
-    EXPECT_EQ(repository.read_counts["child.xml"], 1);
-    EXPECT_EQ(repository.read_counts["base.xml"], 1);
+    EXPECT_EQ(repository.read_count("child.xml"), 1);
+    EXPECT_EQ(repository.read_count("base.xml"), 1);
 }
 
 TEST_F(DefinitionServiceTest, MemoizesRepeatedEcuFlashParentOncePerLoadCall)
@@ -570,10 +478,10 @@ TEST_F(DefinitionServiceTest, MemoizesRepeatedEcuFlashParentOncePerLoadCall)
     ASSERT_TRUE(second);
     EXPECT_EQ(first->identity.xml_id, "ROOT");
     EXPECT_EQ(second->identity.xml_id, "ROOT");
-    EXPECT_EQ(repository.read_counts["root.xml"], 2);
-    EXPECT_EQ(repository.read_counts["left.xml"], 2);
-    EXPECT_EQ(repository.read_counts["right.xml"], 2);
-    EXPECT_EQ(repository.read_counts["base.xml"], 2);
+    EXPECT_EQ(repository.read_count("root.xml"), 2);
+    EXPECT_EQ(repository.read_count("left.xml"), 2);
+    EXPECT_EQ(repository.read_count("right.xml"), 2);
+    EXPECT_EQ(repository.read_count("base.xml"), 2);
 }
 
 TEST_F(DefinitionServiceTest, LoadPropagatesRepositoryFailure)
@@ -609,8 +517,8 @@ TEST_F(DefinitionServiceTest, LoadPropagatesParentRepositoryFailureUnchanged)
     EXPECT_EQ(
         result.error(),
         (Error{ErrorKind::InvalidConfig, "parent definition read failed"}));
-    EXPECT_EQ(repository.read_counts["child.xml"], 1);
-    EXPECT_EQ(repository.read_counts["base.xml"], 1);
+    EXPECT_EQ(repository.read_count("child.xml"), 1);
+    EXPECT_EQ(repository.read_count("base.xml"), 1);
 }
 
 TEST_F(DefinitionServiceTest, LoadRejectsMissingCatalogIdWithoutReading)
@@ -623,7 +531,7 @@ TEST_F(DefinitionServiceTest, LoadRejectsMissingCatalogIdWithoutReading)
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_TRUE(repository.read_counts.empty());
+    EXPECT_TRUE(repository.read_handles.empty());
 }
 
 TEST_F(DefinitionServiceTest, LoadRejectsEcuFlashIdentityThatDoesNotMatchCatalogId)
@@ -653,7 +561,7 @@ TEST_F(DefinitionServiceTest, LoadPropagatesDefinitionParseFailure)
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_EQ(repository.read_counts["broken.xml"], 1);
+    EXPECT_EQ(repository.read_count("broken.xml"), 1);
 }
 
 TEST_F(DefinitionServiceTest, LoadPropagatesResolutionFailure)
@@ -669,7 +577,7 @@ TEST_F(DefinitionServiceTest, LoadPropagatesResolutionFailure)
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
     EXPECT_NE(result.error().detail.find("MISSING"), std::string::npos);
-    EXPECT_EQ(repository.read_counts["child.xml"], 1);
+    EXPECT_EQ(repository.read_count("child.xml"), 1);
 }
 
 TEST_F(DefinitionServiceTest, CreatesDefinitionWithOneExactAtomicReplacement)
@@ -681,9 +589,9 @@ TEST_F(DefinitionServiceTest, CreatesDefinitionWithOneExactAtomicReplacement)
     auto result = service.create_definition("created.xml", input);
 
     ASSERT_TRUE(result) << result.error().detail;
-    ASSERT_EQ(writer.calls.size(), 1U);
-    EXPECT_EQ(writer.calls.front().handle, "created.xml");
-    EXPECT_EQ(writer.calls.front().data, *expected);
+    ASSERT_EQ(writer.replace_calls.size(), 1U);
+    EXPECT_EQ(writer.replace_calls.front().handle, "created.xml");
+    EXPECT_EQ(writer.replace_calls.front().data, *expected);
 }
 
 TEST_F(DefinitionServiceTest, RejectsInvalidCreationInputBeforeAtomicReplacement)
@@ -695,7 +603,7 @@ TEST_F(DefinitionServiceTest, RejectsInvalidCreationInputBeforeAtomicReplacement
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_TRUE(writer.calls.empty());
+    EXPECT_TRUE(writer.replace_calls.empty());
 }
 
 TEST_F(DefinitionServiceTest, ImportsDefinitionWithOneExactAtomicReplacement)
@@ -714,10 +622,10 @@ TEST_F(DefinitionServiceTest, ImportsDefinitionWithOneExactAtomicReplacement)
     auto result = service.import_definition("source.xml", "imported.xml", input);
 
     ASSERT_TRUE(result) << result.error().detail;
-    EXPECT_EQ(repository.read_counts["source.xml"], 1);
-    ASSERT_EQ(writer.calls.size(), 1U);
-    EXPECT_EQ(writer.calls.front().handle, "imported.xml");
-    EXPECT_EQ(writer.calls.front().data, *expected);
+    EXPECT_EQ(repository.read_count("source.xml"), 1);
+    ASSERT_EQ(writer.replace_calls.size(), 1U);
+    EXPECT_EQ(writer.replace_calls.front().handle, "imported.xml");
+    EXPECT_EQ(writer.replace_calls.front().data, *expected);
 }
 
 TEST_F(DefinitionServiceTest, ImportPropagatesSourceReadFailureBeforeAtomicReplacement)
@@ -730,7 +638,7 @@ TEST_F(DefinitionServiceTest, ImportPropagatesSourceReadFailureBeforeAtomicRepla
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error(), (Error{ErrorKind::Disconnected, "source vanished"}));
-    EXPECT_TRUE(writer.calls.empty());
+    EXPECT_TRUE(writer.replace_calls.empty());
 }
 
 TEST_F(DefinitionServiceTest, ImportRejectsMalformedSourceBeforeAtomicReplacement)
@@ -742,7 +650,7 @@ TEST_F(DefinitionServiceTest, ImportRejectsMalformedSourceBeforeAtomicReplacemen
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_TRUE(writer.calls.empty());
+    EXPECT_TRUE(writer.replace_calls.empty());
 }
 
 TEST_F(DefinitionServiceTest, ImportRejectsInvalidTransformedTreeBeforeAtomicReplacement)
@@ -760,7 +668,7 @@ TEST_F(DefinitionServiceTest, ImportRejectsInvalidTransformedTreeBeforeAtomicRep
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_TRUE(writer.calls.empty());
+    EXPECT_TRUE(writer.replace_calls.empty());
 }
 
 TEST_F(DefinitionServiceTest, ImportRejectsDuplicateRomIdBeforeAtomicReplacement)
@@ -777,19 +685,19 @@ TEST_F(DefinitionServiceTest, ImportRejectsDuplicateRomIdBeforeAtomicReplacement
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
     EXPECT_NE(result.error().detail.find("<romid>"), std::string::npos);
-    EXPECT_TRUE(writer.calls.empty());
+    EXPECT_TRUE(writer.replace_calls.empty());
 }
 
 TEST_F(DefinitionServiceTest, PropagatesAtomicReplacementFailureUnchanged)
 {
-    writer.error = Error{ErrorKind::Internal, "atomic commit failed"};
+    writer.replace_error = Error{ErrorKind::Internal, "atomic commit failed"};
 
     auto result = service.create_definition("destination.xml", valid_header_input());
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error(), (Error{ErrorKind::Internal, "atomic commit failed"}));
-    ASSERT_EQ(writer.calls.size(), 1U);
-    EXPECT_EQ(writer.calls.front().handle, "destination.xml");
+    ASSERT_EQ(writer.replace_calls.size(), 1U);
+    EXPECT_EQ(writer.replace_calls.front().handle, "destination.xml");
 }
 
 } // namespace

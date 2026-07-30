@@ -13,8 +13,8 @@
 #include <string_view>
 #include <vector>
 
-#include "src/backend/ports/atomic_file_writer.h"
 #include "src/backend/definitions/file_actions.h"
+#include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
 #include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
@@ -23,20 +23,6 @@
 
 namespace
 {
-class InMemoryAtomicFileWriter : public fastecu::IAtomicFileWriter
-{
-  public:
-    fastecu::Status replace(std::string_view handle,
-                            std::span<const std::uint8_t> data) override
-    {
-        files[std::string(handle)] =
-            std::vector<std::uint8_t>(data.begin(), data.end());
-        return {};
-    }
-
-    std::map<std::string, std::vector<std::uint8_t>> files;
-};
-
 class CountingFileRepository : public fastecu::IFileRepository
 {
   public:
@@ -245,42 +231,6 @@ class TestEcuflashDefinitionParsing : public QObject
         QCOMPARE(ecuCalDef.SwapXYList.at(0), QString("false"));
         QCOMPARE(ecuCalDef.FlipXList.at(0), QString("false"));
         QCOMPARE(ecuCalDef.FlipYList.at(0), QString("false"));
-    }
-
-    void invalid_swapxy_value_preserves_caller_state_and_logs_error()
-    {
-        QTemporaryDir dir;
-        QVERIFY(dir.isValid());
-        const QString defPath = writeDefFile(dir, "TESTCAL",
-                                             "<rom>"
-                                             "<romid><xmlid>TESTCAL</xmlid></romid>"
-                                             "<table name=\"Test Table\" address=\"1000\" swapxy=\"yes\"/>"
-                                             "</rom>");
-        QVERIFY(!defPath.isEmpty());
-
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
-        fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
-        fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
-
-        QSignalSpy errorSpy(&fileActions, &FileActions::LOG_E);
-
-        FileActions::EcuCalDefStructure ecuCalDef;
-        ecuCalDef.RomInfo =
-            QStringList(ecuCalDef.RomInfoStrings.size(), "sentinel-rom-info");
-        ecuCalDef.NameList = {"sentinel-map"};
-        ecuCalDef.SwapXYList = {"sentinel-swap"};
-        const QStringList romInfo = ecuCalDef.RomInfo;
-        const QStringList names = ecuCalDef.NameList;
-        const QStringList swapXY = ecuCalDef.SwapXYList;
-        QCOMPARE(fileActions.read_ecuflash_ecu_def(&ecuCalDef, "TESTCAL"),
-                 &ecuCalDef);
-
-        QCOMPARE(ecuCalDef.RomInfo, romInfo);
-        QCOMPARE(ecuCalDef.NameList, names);
-        QCOMPARE(ecuCalDef.SwapXYList, swapXY);
-        QCOMPARE(errorSpy.count(), 1);
-        QVERIFY(spyContainsMessage(errorSpy, "swapxy"));
-        QVERIFY(spyContainsMessage(errorSpy, "yes"));
     }
 
     void inherits_base_table_and_scaling()
@@ -759,34 +709,6 @@ class TestEcuflashDefinitionParsing : public QObject
         QVERIFY(spyContainsMessage(errorSpy, "no matching ROM definition"));
     }
 
-    void ecuflash_rom_match_accepts_legacy_hex_identifier()
-    {
-        QTemporaryDir dir;
-        QVERIFY(dir.isValid());
-        const QString definitionPath = writeDefFile(
-            dir,
-            "AB10",
-            "<rom><romid><xmlid>AB10</xmlid>"
-            "<internalidaddress>0</internalidaddress>"
-            "<internalidstring>AB10</internalidstring></romid></rom>");
-        QVERIFY(!definitionPath.isEmpty());
-
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
-        auto& config = fileActions.ConfigValuesStruct;
-        config.ecuflash_definition_files_directory = dir.path();
-
-        FileActions::EcuCalDefStructure ecuCalDef;
-        ecuCalDef.FullRomData = QByteArray::fromHex("AB10");
-        QSignalSpy errorSpy(&fileActions, &FileActions::LOG_E);
-
-        QCOMPARE(
-            fileActions.parse_ecuid_ecuflash_def_files(&ecuCalDef, false),
-            &ecuCalDef);
-
-        QCOMPARE(ecuCalDef.RomId, QString("AB10"));
-        QVERIFY(errorSpy.isEmpty());
-    }
-
   private:
     static QString writeDefFileAt(const QString& path, const QString& xml)
     {
@@ -817,7 +739,7 @@ class TestEcuflashDefinitionParsing : public QObject
     QtFileSystem fileSystem_;
     QtResourceBundle resourceBundle_;
     CountingFileRepository fileRepository_;
-    InMemoryAtomicFileWriter atomicFileWriter_;
+    fastecu::InMemoryAtomicFileWriter atomicFileWriter_;
 };
 
 int run_test_ecuflash_definition_parsing(int argc, char **argv)

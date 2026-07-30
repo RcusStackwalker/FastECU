@@ -62,6 +62,19 @@ qt_cc_library(
 )
 
 qt_cc_library(
+    name = "legacy_definition_columns",
+    srcs = [],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["legacy_definition_columns.h"],
+    visibility = [
+        "//src/backend/definition:__pkg__",
+        "//src/backend/definitions:__pkg__",
+    ],
+    deps = QT_DEPS + [":ecu_cal_def"],
+)
+
+qt_cc_library(
     name = "definitions",
     srcs = [
         "file_actions.cpp",
@@ -77,6 +90,7 @@ qt_cc_library(
     deps = QT_DEPS + [
         ":config_values",
         ":ecu_cal_def",
+        ":legacy_definition_columns",
         ":models",
         "//resources/shared:config_resource",
         "//resources/shared:kernels_resource",

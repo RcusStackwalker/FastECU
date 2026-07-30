@@ -73,6 +73,7 @@ qt_cc_library(
         ":definition_service",
         "//src/backend/definitions:config_values",
         "//src/backend/definitions:ecu_cal_def",
+        "//src/backend/definitions:legacy_definition_columns",
         "//src/backend/ports",
     ],
 )
@@ -101,7 +102,12 @@ fastecu_portable_gtest(
 fastecu_portable_gtest(
     name = "definition_service_test",
     srcs = ["definition_service_test.cpp"],
-    deps = [":definition_service"],
+    deps = [
+        ":definition_service",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/ports/testing:in_memory_file_repository",
+        "//src/backend/ports/testing:in_memory_file_system",
+    ],
 )
 
 fastecu_portable_gtest(

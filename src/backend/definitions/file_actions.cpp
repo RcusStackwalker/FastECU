@@ -295,6 +295,55 @@ void FileActions::log_definition_error(
         true);
 }
 
+fastecu::Status FileActions::load_configured_definition(
+    EcuCalDefStructure& ecu_cal_def,
+    DefinitionFormat format,
+    const QString& definition_id)
+{
+    auto catalog = build_definition_catalog(format);
+    if (!catalog)
+    {
+        return std::unexpected(catalog.error());
+    }
+    fastecu::Status replaced = definitionAdapter_.replace_definition(
+        ecu_cal_def, *catalog, format, definition_id.toStdString());
+    if (!replaced)
+    {
+        return replaced;
+    }
+    normalize_definition_addresses(ecu_cal_def);
+    apply_flash_method_alias(ecu_cal_def);
+    return {};
+}
+
+bool FileActions::log_definition_load_failure(
+    const QString& operation,
+    const fastecu::Error& error,
+    const QString& source,
+    const QString& warning_title,
+    const QString& warning_text)
+{
+    log_definition_error(operation, error);
+    if (!source.isEmpty() &&
+        !definitionFileSystem_.exists(source.toStdString()))
+    {
+        QMessageBox::warning(this, warning_title, warning_text + source + " for reading");
+        return true;
+    }
+    return false;
+}
+
+void FileActions::strip_legacy_address_prefixes(QStringList& addresses)
+{
+    for (QString& address : addresses)
+    {
+        if (address.startsWith("0x"))
+        {
+            address.remove(0, 2);
+        }
+    }
+}
+
 fastecu::Status FileActions::submit_new_definition(
     std::string_view destination,
     const fastecu::definition::DefinitionHeaderInput& input)

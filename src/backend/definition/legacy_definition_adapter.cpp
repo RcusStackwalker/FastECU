@@ -1,4 +1,5 @@
 #include "src/backend/definition/legacy_definition_adapter.h"
+#include "src/backend/definitions/legacy_definition_columns.h"
 
 #include <array>
 #include <charconv>
@@ -166,108 +167,17 @@ Status populate_catalog(
 
 void clear_map_rows(definitions::EcuCalDefStructure& value)
 {
-    const auto lists = std::to_array<QStringList *>({
-        &value.IdList,
-        &value.TypeList,
-        &value.NameList,
-        &value.AddressList,
-        &value.CategoryList,
-        &value.CategoryExpandedList,
-        &value.SubCategoryList,
-        &value.LevelList,
-        &value.UserLevelList,
-        &value.SwapXYList,
-        &value.FlipXList,
-        &value.FlipYList,
-        &value.XSizeList,
-        &value.YSizeList,
-        &value.StartPosList,
-        &value.IntervalList,
-        &value.MinValueList,
-        &value.MaxValueList,
-        &value.UnitsList,
-        &value.FormatList,
-        &value.FineIncList,
-        &value.CoarseIncList,
-        &value.VisibleList,
-        &value.SelectionsNameList,
-        &value.SelectionsValueList,
-        &value.DescriptionList,
-        &value.StateList,
-        &value.MapScalingNameList,
-        &value.MapData,
-        &value.MapCellColorMin,
-        &value.MapCellColorMax,
-        &value.XScaleTypeList,
-        &value.XScaleNameList,
-        &value.XScaleAddressList,
-        &value.XScaleStartPosList,
-        &value.XScaleIntervalList,
-        &value.XScaleMinValueList,
-        &value.XScaleMaxValueList,
-        &value.XScaleUnitsList,
-        &value.XScaleFormatList,
-        &value.XScaleFineIncList,
-        &value.XScaleCoarseIncList,
-        &value.XScaleStorageTypeList,
-        &value.XScaleEndianList,
-        &value.XScaleLogParamList,
-        &value.XScaleFromByteList,
-        &value.XScaleToByteList,
-        &value.XScaleStaticDataList,
-        &value.XScaleScalingNameList,
-        &value.XScaleData,
-        &value.YScaleTypeList,
-        &value.YScaleNameList,
-        &value.YScaleAddressList,
-        &value.YScaleStartPosList,
-        &value.YScaleIntervalList,
-        &value.YScaleMinValueList,
-        &value.YScaleMaxValueList,
-        &value.YScaleUnitsList,
-        &value.YScaleFormatList,
-        &value.YScaleFineIncList,
-        &value.YScaleCoarseIncList,
-        &value.YScaleStorageTypeList,
-        &value.YScaleEndianList,
-        &value.YScaleLogParamList,
-        &value.YScaleFromByteList,
-        &value.YScaleToByteList,
-        &value.YScaleScalingNameList,
-        &value.YScaleData,
-        &value.StorageTypeList,
-        &value.EndianList,
-        &value.LogParamList,
-        &value.FromByteList,
-        &value.ToByteList,
-        &value.MapDefined,
-    });
-    for (QStringList *list : lists)
+    for (const auto& column : definitions::legacy_columns::map_columns())
     {
-        list->clear();
+        (value.*(column.values)).clear();
     }
 }
 
 void clear_scaling_rows(definitions::EcuCalDefStructure& value)
 {
-    const auto lists = std::to_array<QStringList *>({
-        &value.ScalingNameList,
-        &value.ScalingUnitsList,
-        &value.ScalingFromByteList,
-        &value.ScalingToByteList,
-        &value.ScalingFormatList,
-        &value.ScalingMinValueList,
-        &value.ScalingMaxValueList,
-        &value.ScalingCoarseIncList,
-        &value.ScalingFineIncList,
-        &value.ScalingStorageTypeList,
-        &value.ScalingEndianList,
-        &value.ScalingSelectionsNameList,
-        &value.ScalingSelectionsValueList,
-    });
-    for (QStringList *list : lists)
+    for (const auto& column : definitions::legacy_columns::scaling_columns())
     {
-        list->clear();
+        (value.*(column.values)).clear();
     }
 }
 
@@ -282,48 +192,30 @@ void append_axis(
     {
         return present ? legacy_value(field) : qs(kPlaceholder);
     };
-    auto *type = x_axis ? &value.XScaleTypeList : &value.YScaleTypeList;
-    auto *name = x_axis ? &value.XScaleNameList : &value.YScaleNameList;
-    auto *address = x_axis ? &value.XScaleAddressList : &value.YScaleAddressList;
-    auto *start = x_axis ? &value.XScaleStartPosList : &value.YScaleStartPosList;
-    auto *interval = x_axis ? &value.XScaleIntervalList : &value.YScaleIntervalList;
-    auto *minimum = x_axis ? &value.XScaleMinValueList : &value.YScaleMinValueList;
-    auto *maximum = x_axis ? &value.XScaleMaxValueList : &value.YScaleMaxValueList;
-    auto *units = x_axis ? &value.XScaleUnitsList : &value.YScaleUnitsList;
-    auto *value_format = x_axis ? &value.XScaleFormatList : &value.YScaleFormatList;
-    auto *fine = x_axis ? &value.XScaleFineIncList : &value.YScaleFineIncList;
-    auto *coarse = x_axis ? &value.XScaleCoarseIncList : &value.YScaleCoarseIncList;
-    auto *storage = x_axis ? &value.XScaleStorageTypeList : &value.YScaleStorageTypeList;
-    auto *endian = x_axis ? &value.XScaleEndianList : &value.YScaleEndianList;
-    auto *log_param = x_axis ? &value.XScaleLogParamList : &value.YScaleLogParamList;
-    auto *from = x_axis ? &value.XScaleFromByteList : &value.YScaleFromByteList;
-    auto *to = x_axis ? &value.XScaleToByteList : &value.YScaleToByteList;
-    auto *scaling_name =
-        x_axis ? &value.XScaleScalingNameList : &value.YScaleScalingNameList;
-    auto *data = x_axis ? &value.XScaleData : &value.YScaleData;
+    const auto columns = definitions::legacy_columns::axis_columns(value, x_axis);
 
-    type->append(text(axis.type));
-    name->append(text(axis.name));
-    address->append(present ? address_text(axis.address, true) : qs(kPlaceholder));
-    start->append(present ? legacy_value(axis.start_position) : qs(kPlaceholder));
-    interval->append(present ? legacy_value(axis.interval) : qs(kPlaceholder));
-    minimum->append(present && scaling ? legacy_value(scaling->minimum) : qs(kPlaceholder));
-    maximum->append(present && scaling ? legacy_value(scaling->maximum) : qs(kPlaceholder));
-    units->append(text(axis.units));
-    value_format->append(
+    columns.type->append(text(axis.type));
+    columns.name->append(text(axis.name));
+    columns.address->append(present ? address_text(axis.address, true) : qs(kPlaceholder));
+    columns.start->append(present ? legacy_value(axis.start_position) : qs(kPlaceholder));
+    columns.interval->append(present ? legacy_value(axis.interval) : qs(kPlaceholder));
+    columns.minimum->append(present && scaling ? legacy_value(scaling->minimum) : qs(kPlaceholder));
+    columns.maximum->append(present && scaling ? legacy_value(scaling->maximum) : qs(kPlaceholder));
+    columns.units->append(text(axis.units));
+    columns.format->append(
         present && scaling ? legacy_format(scaling->format) : qs(kPlaceholder));
-    fine->append(present && scaling ? legacy_value(scaling->fine_increment) : qs(kPlaceholder));
-    coarse->append(present && scaling ? legacy_value(scaling->coarse_increment) : qs(kPlaceholder));
-    storage->append(text(axis.storage_type));
-    endian->append(text(axis.endian));
-    log_param->append(present ? legacy_value(axis.log_parameter) : qs(kPlaceholder));
-    from->append(text(axis.from_byte));
-    to->append(text(axis.to_byte));
-    scaling_name->append(text(axis.scaling_name));
-    data->append(qs(kPlaceholder));
-    if (x_axis)
+    columns.fine->append(present && scaling ? legacy_value(scaling->fine_increment) : qs(kPlaceholder));
+    columns.coarse->append(present && scaling ? legacy_value(scaling->coarse_increment) : qs(kPlaceholder));
+    columns.storage->append(text(axis.storage_type));
+    columns.endian->append(text(axis.endian));
+    columns.log_parameter->append(present ? legacy_value(axis.log_parameter) : qs(kPlaceholder));
+    columns.from_byte->append(text(axis.from_byte));
+    columns.to_byte->append(text(axis.to_byte));
+    columns.scaling_name->append(text(axis.scaling_name));
+    columns.data->append(qs(kPlaceholder));
+    if (columns.static_data)
     {
-        value.XScaleStaticDataList.append(static_data_text(axis));
+        columns.static_data->append(static_data_text(axis));
     }
 }
 
@@ -405,84 +297,10 @@ void append_scaling(definitions::EcuCalDefStructure& value, const Scaling& scali
 Status validate_definition_alignment(const definitions::EcuCalDefStructure& value)
 {
     const qsizetype map_rows = value.NameList.size();
-    const std::vector<std::pair<std::string_view, const QStringList *>> map_lists{
-        {"id", &value.IdList},
-        {"type", &value.TypeList},
-        {"address", &value.AddressList},
-        {"category", &value.CategoryList},
-        {"category expanded", &value.CategoryExpandedList},
-        {"subcategory", &value.SubCategoryList},
-        {"level", &value.LevelList},
-        {"user level", &value.UserLevelList},
-        {"swap xy", &value.SwapXYList},
-        {"flip x", &value.FlipXList},
-        {"flip y", &value.FlipYList},
-        {"x size", &value.XSizeList},
-        {"y size", &value.YSizeList},
-        {"start position", &value.StartPosList},
-        {"interval", &value.IntervalList},
-        {"minimum", &value.MinValueList},
-        {"maximum", &value.MaxValueList},
-        {"units", &value.UnitsList},
-        {"format", &value.FormatList},
-        {"fine increment", &value.FineIncList},
-        {"coarse increment", &value.CoarseIncList},
-        {"visible", &value.VisibleList},
-        {"selection names", &value.SelectionsNameList},
-        {"selection values", &value.SelectionsValueList},
-        {"description", &value.DescriptionList},
-        {"state", &value.StateList},
-        {"map scaling", &value.MapScalingNameList},
-        {"map data", &value.MapData},
-        {"map color minimum", &value.MapCellColorMin},
-        {"map color maximum", &value.MapCellColorMax},
-        {"x axis type", &value.XScaleTypeList},
-        {"x axis name", &value.XScaleNameList},
-        {"x axis address", &value.XScaleAddressList},
-        {"x axis start position", &value.XScaleStartPosList},
-        {"x axis interval", &value.XScaleIntervalList},
-        {"x axis minimum", &value.XScaleMinValueList},
-        {"x axis maximum", &value.XScaleMaxValueList},
-        {"x axis units", &value.XScaleUnitsList},
-        {"x axis format", &value.XScaleFormatList},
-        {"x axis fine increment", &value.XScaleFineIncList},
-        {"x axis coarse increment", &value.XScaleCoarseIncList},
-        {"x axis storage", &value.XScaleStorageTypeList},
-        {"x axis endian", &value.XScaleEndianList},
-        {"x axis log param", &value.XScaleLogParamList},
-        {"x axis from byte", &value.XScaleFromByteList},
-        {"x axis to byte", &value.XScaleToByteList},
-        {"x axis static data", &value.XScaleStaticDataList},
-        {"x axis scaling", &value.XScaleScalingNameList},
-        {"x axis data", &value.XScaleData},
-        {"y axis type", &value.YScaleTypeList},
-        {"y axis name", &value.YScaleNameList},
-        {"y axis address", &value.YScaleAddressList},
-        {"y axis start position", &value.YScaleStartPosList},
-        {"y axis interval", &value.YScaleIntervalList},
-        {"y axis minimum", &value.YScaleMinValueList},
-        {"y axis maximum", &value.YScaleMaxValueList},
-        {"y axis units", &value.YScaleUnitsList},
-        {"y axis format", &value.YScaleFormatList},
-        {"y axis fine increment", &value.YScaleFineIncList},
-        {"y axis coarse increment", &value.YScaleCoarseIncList},
-        {"y axis storage", &value.YScaleStorageTypeList},
-        {"y axis endian", &value.YScaleEndianList},
-        {"y axis log param", &value.YScaleLogParamList},
-        {"y axis from byte", &value.YScaleFromByteList},
-        {"y axis to byte", &value.YScaleToByteList},
-        {"y axis scaling", &value.YScaleScalingNameList},
-        {"y axis data", &value.YScaleData},
-        {"storage", &value.StorageTypeList},
-        {"endian", &value.EndianList},
-        {"log param", &value.LogParamList},
-        {"from byte", &value.FromByteList},
-        {"to byte", &value.ToByteList},
-        {"map defined", &value.MapDefined},
-    };
+    const auto map_lists = definitions::legacy_columns::map_columns();
     for (const auto& [name, list] : map_lists)
     {
-        if (list->size() != map_rows)
+        if ((value.*list).size() != map_rows)
         {
             return fail(
                 ErrorKind::InvalidConfig,
@@ -491,23 +309,10 @@ Status validate_definition_alignment(const definitions::EcuCalDefStructure& valu
     }
 
     const qsizetype scaling_rows = value.ScalingNameList.size();
-    const std::vector<std::pair<std::string_view, const QStringList *>> scaling_lists{
-        {"units", &value.ScalingUnitsList},
-        {"from byte", &value.ScalingFromByteList},
-        {"to byte", &value.ScalingToByteList},
-        {"format", &value.ScalingFormatList},
-        {"minimum", &value.ScalingMinValueList},
-        {"maximum", &value.ScalingMaxValueList},
-        {"coarse increment", &value.ScalingCoarseIncList},
-        {"fine increment", &value.ScalingFineIncList},
-        {"storage", &value.ScalingStorageTypeList},
-        {"endian", &value.ScalingEndianList},
-        {"selection names", &value.ScalingSelectionsNameList},
-        {"selection values", &value.ScalingSelectionsValueList},
-    };
+    const auto scaling_lists = definitions::legacy_columns::scaling_columns();
     for (const auto& [name, list] : scaling_lists)
     {
-        if (list->size() != scaling_rows)
+        if ((value.*list).size() != scaling_rows)
         {
             return fail(
                 ErrorKind::InvalidConfig,

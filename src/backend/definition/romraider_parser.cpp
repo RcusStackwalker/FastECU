@@ -24,69 +24,6 @@ namespace fastecu::definition
 namespace
 {
 
-Result<pugi::xml_node> identity_element(
-    pugi::xml_node rom,
-    std::string_view source)
-{
-    const pugi::xml_node rom_id = rom.child("romid");
-    if (!rom_id)
-    {
-        return invalid(
-            source,
-            "element <rom> child <romid>",
-            "missing required identity element");
-    }
-    if (rom_id.next_sibling("romid"))
-    {
-        return invalid(
-            source,
-            "element <rom> child <romid>",
-            "duplicate singleton identity element");
-    }
-
-    static constexpr std::array singleton_children{
-        "xmlid"sv,
-        "internalidaddress"sv,
-        "internalidstring"sv,
-        "ecuid"sv,
-        "make"sv,
-        "market"sv,
-        "model"sv,
-        "submodel"sv,
-        "transmission"sv,
-        "year"sv,
-        "flashmethod"sv,
-        "memmodel"sv,
-        "checksummodule"sv,
-        "filesize"sv,
-        "notes"sv,
-    };
-    for (const auto& child_name : singleton_children)
-    {
-        const pugi::xml_node child = rom_id.child(child_name);
-        if (child && child.next_sibling(child_name))
-        {
-            return invalid(
-                source,
-                std::format("element <romid> child <{}>", child_name),
-                "duplicate singleton identity element");
-        }
-    }
-    return rom_id;
-}
-
-Result<std::optional<std::uint64_t>> optional_address(
-    pugi::xml_node node,
-    std::string_view source,
-    std::string_view definition_id)
-{
-    if (node.attribute("address"))
-    {
-        return optional_hex_attribute(node, "address", source, definition_id);
-    }
-    return optional_hex_attribute(node, "storageaddress", source, definition_id);
-}
-
 void append_selections(pugi::xml_node parent, Scaling& scaling)
 {
     for (pugi::xml_node state : parent.children("state"))
@@ -95,17 +32,7 @@ void append_selections(pugi::xml_node parent, Scaling& scaling)
             selection_name(attribute_or_empty(state, "name")),
             attribute_or_empty(state, "data"));
     }
-    for (pugi::xml_node data : parent.children("data"))
-    {
-        std::string value = attribute_or_empty(data, "value");
-        if (value.empty())
-        {
-            value = attribute_or_empty(data, "data");
-        }
-        scaling.selections.emplace_back(
-            selection_name(attribute_or_empty(data, "name")),
-            std::move(value));
-    }
+    append_data_selections(parent, scaling);
 }
 
 Scaling parse_scaling(
@@ -177,9 +104,7 @@ Result<AxisDefinition> parse_axis(
     std::vector<Scaling>& scalings)
 {
     AxisDefinition axis;
-    axis.supplied.tracked = true;
-    axis.type = attribute_or_empty(table, "type");
-    axis.name = attribute_or_empty(table, "name");
+    populate_common_axis_attributes(table, axis);
     if (axis.name.empty())
     {
         return invalid(
@@ -188,29 +113,11 @@ Result<AxisDefinition> parse_axis(
             "missing or empty axis name",
             definition_id);
     }
-    axis.storage_type = attribute_or_empty(table, "storagetype");
-    axis.endian = attribute_or_empty(table, "endian");
-    if (table.attribute("startpos"))
-    {
-        axis.start_position = attribute_or_empty(table, "startpos");
-        axis.supplied.start_position = true;
-    }
-    if (table.attribute("interval"))
-    {
-        axis.interval = attribute_or_empty(table, "interval");
-        axis.supplied.interval = true;
-    }
     if (table.attribute("logparam"))
     {
         axis.log_parameter = attribute_or_empty(table, "logparam");
         axis.supplied.log_parameter = true;
     }
-    for (pugi::xml_node data : table.children("data"))
-    {
-        axis.static_data.push_back(trim_copy(data.child_value()));
-        axis.supplied.static_data = true;
-    }
-
     auto address = optional_address(table, source, definition_id);
     if (!address)
     {
@@ -270,10 +177,7 @@ Result<CalibrationMap> parse_table(
     std::vector<Scaling>& scalings)
 {
     CalibrationMap map;
-    map.supplied.tracked = true;
-    map.id = attribute_or_empty(table, "id");
-    map.supplied.stable_id = !map.id.empty();
-    map.name = attribute_or_empty(table, "name");
+    populate_common_map_attributes(table, map);
     if (map.name.empty())
     {
         return invalid(
@@ -281,33 +185,6 @@ Result<CalibrationMap> parse_table(
             "element <table> attribute 'name'",
             "missing or empty map name",
             definition_id);
-    }
-    if (map.id.empty())
-    {
-        map.id = map.name;
-    }
-
-    map.type = attribute_or_empty(table, "type");
-    map.category = attribute_or_empty(table, "category");
-    map.subcategory = attribute_or_empty(table, "subcategory");
-    map.description = attribute_or_empty(table, "description");
-    if (map.description.empty())
-    {
-        map.description = child_text(table, "description");
-    }
-    map.level = attribute_or_empty(table, "level");
-    map.user_level = attribute_or_empty(table, "userlevel");
-    map.storage_type = attribute_or_empty(table, "storagetype");
-    map.endian = attribute_or_empty(table, "endian");
-    if (table.attribute("startpos"))
-    {
-        map.start_position = attribute_or_empty(table, "startpos");
-        map.supplied.start_position = true;
-    }
-    if (table.attribute("interval"))
-    {
-        map.interval = attribute_or_empty(table, "interval");
-        map.supplied.interval = true;
     }
     if (table.attribute("logparam"))
     {
@@ -461,38 +338,11 @@ Result<CalibrationMap> parse_table(
     return map;
 }
 
-Result<std::string> definition_id_for_rom(pugi::xml_node rom, std::string_view source)
-{
-    auto rom_id = identity_element(rom, source);
-    if (!rom_id)
-    {
-        return std::unexpected(rom_id.error());
-    }
-    return required_child_text(*rom_id, "romid", "xmlid", source);
-}
-
 std::vector<std::string> parent_references(pugi::xml_node rom)
 {
     const std::string parent = attribute_or_empty(rom, "base");
     return parent.empty() ? std::vector<std::string>{}
                           : std::vector<std::string>{parent};
-}
-
-RomMetadata parse_metadata(pugi::xml_node rom_id)
-{
-    return RomMetadata{
-        .make = child_text(rom_id, "make"),
-        .market = child_text(rom_id, "market"),
-        .model = child_text(rom_id, "model"),
-        .submodel = child_text(rom_id, "submodel"),
-        .transmission = child_text(rom_id, "transmission"),
-        .year = child_text(rom_id, "year"),
-        .flash_method = child_text(rom_id, "flashmethod"),
-        .memory_model = child_text(rom_id, "memmodel"),
-        .checksum_module = child_text(rom_id, "checksummodule"),
-        .file_size = child_text(rom_id, "filesize"),
-        .notes = child_text(rom_id, "notes"),
-    };
 }
 
 } // namespace
@@ -517,20 +367,20 @@ Result<std::vector<DefinitionIndexEntry>> parse_romraider_index(
         }
 
         const pugi::xml_node rom_id = rom.child("romid");
-        auto internal_id_address =
-            optional_hex_element(rom_id, "internalidaddress", source, *definition_id);
-        if (!internal_id_address)
+        auto identity = parse_identity(
+            rom_id, source, std::move(*definition_id));
+        if (!identity)
         {
-            return std::unexpected(internal_id_address.error());
+            return std::unexpected(identity.error());
         }
 
         entries.push_back(DefinitionIndexEntry{
             .format = DefinitionFormat::RomRaider,
-            .definition_id = std::move(*definition_id),
-            .internal_id = child_text(rom_id, "internalidstring"),
-            .internal_id_address = *internal_id_address,
+            .definition_id = std::move(identity->xml_id),
+            .internal_id = std::move(identity->internal_id),
+            .internal_id_address = identity->internal_id_address,
             .internal_id_encoding = IdEncoding::AsciiOrHex,
-            .ecu_id = child_text(rom_id, "ecuid"),
+            .ecu_id = std::move(identity->ecu_id),
             .source = std::string{source},
             .parents = parent_references(rom),
         });
@@ -590,23 +440,16 @@ Result<UnresolvedDefinition> parse_romraider_definition(
     }
 
     const pugi::xml_node rom_id = selected_rom.child("romid");
-    auto internal_id_address =
-        optional_hex_element(rom_id, "internalidaddress", source, definition_id);
-    if (!internal_id_address)
+    auto identity = parse_identity(rom_id, source, std::string{definition_id});
+    if (!identity)
     {
-        return std::unexpected(internal_id_address.error());
+        return std::unexpected(identity.error());
     }
 
     UnresolvedDefinition definition{
         .format = DefinitionFormat::RomRaider,
         .source = std::string{source},
-        .identity =
-            RomIdentity{
-                .xml_id = std::string{definition_id},
-                .internal_id = child_text(rom_id, "internalidstring"),
-                .ecu_id = child_text(rom_id, "ecuid"),
-                .internal_id_address = *internal_id_address,
-            },
+        .identity = std::move(*identity),
         .metadata = parse_metadata(rom_id),
         .parents = parent_references(selected_rom),
     };
@@ -619,15 +462,12 @@ Result<UnresolvedDefinition> parse_romraider_definition(
         {
             return std::unexpected(map.error());
         }
-        if (!map_ids.insert(map->id).second)
+        auto appended = append_unique_map(
+            definition, std::move(*map), map_ids, source);
+        if (!appended)
         {
-            return invalid(
-                source,
-                "element <table> attribute 'id' or 'name'",
-                "duplicate map identity '" + map->id + "'",
-                definition_id);
+            return std::unexpected(appended.error());
         }
-        definition.maps.push_back(std::move(*map));
     }
     return definition;
 }
