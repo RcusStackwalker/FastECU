@@ -5,6 +5,7 @@
 #include <charconv>
 #include <cctype>
 #include <cstdint>
+#include <format>
 #include <limits>
 #include <optional>
 #include <string>
@@ -398,7 +399,7 @@ Result<UnresolvedDefinition> parse_romraider_definition(
             return invalid(
                 source,
                 "element <table> attribute 'id' or 'name'",
-                "duplicate map identity '" + map_id + "'",
+                std::format("duplicate map identity '{}'", map_id),
                 definition_id);
         }
         definition.maps.push_back(std::move(*map));
