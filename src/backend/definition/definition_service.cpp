@@ -128,7 +128,7 @@ Result<void> discover_xml(
     std::vector<std::string>& handles)
 {
     auto entries = file_system.list_directory(directory);
-    if (!entries)
+    if (!entries.has_value())
     {
         return std::unexpected(entries.error());
     }
@@ -179,7 +179,7 @@ Result<DefinitionCatalog> build_catalog(
             return std::unexpected(contents.error());
         }
         auto parsed = parser(*contents, handle);
-        if (!parsed)
+        if (!parsed.has_value())
         {
             if (skip_unusable_handles)
             {
@@ -296,13 +296,13 @@ Result<RomDefinition> DefinitionService::load(
             std::string_view requested_id) -> Result<UnresolvedDefinition>
     {
         auto found = catalog.find(requested_format, requested_id);
-        if (!found)
+        if (!found.has_value())
         {
             return std::unexpected(found.error());
         }
         const DefinitionIndexEntry& entry = found->get();
         auto contents = repository_.read(entry.source);
-        if (!contents)
+        if (!contents.has_value())
         {
             repository_error = contents.error();
             return std::unexpected(contents.error());
@@ -313,7 +313,7 @@ Result<RomDefinition> DefinitionService::load(
             return parse_romraider_definition(*contents, entry.source, requested_id);
         }
         auto parsed = parse_ecuflash_definition(*contents, entry.source);
-        if (!parsed)
+        if (!parsed.has_value())
         {
             return std::unexpected(parsed.error());
         }
@@ -327,12 +327,12 @@ Result<RomDefinition> DefinitionService::load(
     };
 
     auto root = loader(format, id);
-    if (!root)
+    if (!root.has_value())
     {
         return std::unexpected(root.error());
     }
     auto resolved = resolve_definition(std::move(*root), loader);
-    if (!resolved && repository_error)
+    if (!resolved.has_value() && repository_error)
     {
         return std::unexpected(*repository_error);
     }
@@ -355,7 +355,7 @@ Status DefinitionService::create_definition(
             std::format("definition destination '{}' already exists", destination));
     }
     auto contents = create_ecuflash_xml(input);
-    if (!contents)
+    if (!contents.has_value())
     {
         return std::unexpected(contents.error());
     }
@@ -368,12 +368,12 @@ Status DefinitionService::import_definition(
     const DefinitionHeaderInput& input)
 {
     auto source_contents = repository_.read(source);
-    if (!source_contents)
+    if (!source_contents.has_value())
     {
         return std::unexpected(source_contents.error());
     }
     auto rewritten = rewrite_ecuflash_xml(*source_contents, input);
-    if (!rewritten)
+    if (!rewritten.has_value())
     {
         return std::unexpected(rewritten.error());
     }

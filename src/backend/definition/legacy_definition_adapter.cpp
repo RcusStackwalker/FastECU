@@ -394,7 +394,7 @@ Status LegacyDefinitionAdapter::replace_romraider_catalog(
     std::span<const std::string> ordered_handles)
 {
     auto catalog = service_.build_romraider_catalog(ordered_handles);
-    if (!catalog)
+    if (!catalog.has_value())
     {
         return std::unexpected(catalog.error());
     }
@@ -415,7 +415,7 @@ Status LegacyDefinitionAdapter::replace_ecuflash_catalog(
 {
     auto catalog =
         service_.build_ecuflash_catalog(directory, explicit_handles);
-    if (!catalog)
+    if (!catalog.has_value())
     {
         return std::unexpected(catalog.error());
     }
@@ -436,7 +436,7 @@ Status LegacyDefinitionAdapter::replace_definition(
     std::string_view id)
 {
     auto definition = service_.load(catalog, format, id);
-    if (!definition)
+    if (!definition.has_value())
     {
         return std::unexpected(definition.error());
     }

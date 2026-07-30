@@ -105,7 +105,7 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(
     const std::vector<std::string> handles{source.toStdString()};
     auto catalog = definitionService_.build_romraider_catalog(
         handles, /*skip_unusable_handles=*/false);
-    if (!catalog)
+    if (!catalog.has_value())
     {
         log_definition_error(
             "Unable to read RomRaider base definition",

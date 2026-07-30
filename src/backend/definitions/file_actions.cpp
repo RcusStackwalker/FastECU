@@ -302,7 +302,7 @@ fastecu::Status FileActions::load_configured_definition(
     const QString& definition_id)
 {
     auto catalog = build_definition_catalog(format);
-    if (!catalog)
+    if (!catalog.has_value())
     {
         return std::unexpected(catalog.error());
     }
@@ -1435,7 +1435,7 @@ FileActions::EcuCalDefStructure *FileActions::parse_ecuid_ecuflash_def_files(Fil
     (void)is_ascii;
     auto catalog =
         build_definition_catalog(DefinitionFormat::EcuFlash);
-    if (!catalog)
+    if (!catalog.has_value())
     {
         log_definition_error("Unable to match EcuFlash definition", catalog.error());
         return ecuCalDef;
@@ -1447,7 +1447,7 @@ FileActions::EcuCalDefStructure *FileActions::parse_ecuid_ecuflash_def_files(Fil
         std::span<const std::uint8_t>(
             bytes,
             static_cast<std::size_t>(ecuCalDef->FullRomData.size())));
-    if (!match)
+    if (!match.has_value())
     {
         log_definition_error("Unable to match EcuFlash definition", match.error());
         return ecuCalDef;
@@ -1465,7 +1465,7 @@ FileActions::EcuCalDefStructure *FileActions::parse_ecuid_romraider_def_files(Fi
     (void)is_ascii;
     auto catalog =
         build_definition_catalog(DefinitionFormat::RomRaider);
-    if (!catalog)
+    if (!catalog.has_value())
     {
         log_definition_error("Unable to match RomRaider definition", catalog.error());
         return ecuCalDef;
@@ -1477,7 +1477,7 @@ FileActions::EcuCalDefStructure *FileActions::parse_ecuid_romraider_def_files(Fi
         std::span<const std::uint8_t>(
             bytes,
             static_cast<std::size_t>(ecuCalDef->FullRomData.size())));
-    if (!match)
+    if (!match.has_value())
     {
         log_definition_error("Unable to match RomRaider definition", match.error());
         return ecuCalDef;
@@ -1578,7 +1578,7 @@ FileActions::EcuCalDefStructure *FileActions::create_new_definition_for_rom(File
         }
 
         auto input = definitionHeaderInput(lineEditList, textEditList);
-        if (!input)
+        if (!input.has_value())
         {
             log_definition_error(
                 "Unable to create definition",
@@ -1659,7 +1659,7 @@ FileActions::EcuCalDefStructure *FileActions::use_existing_definition_for_rom(Fi
 
     const QString source = filename;
     auto sourceContents = definitionFileRepository_.read(source.toStdString());
-    if (!sourceContents)
+    if (!sourceContents.has_value())
     {
         log_definition_error(
             "Unable to import definition",
@@ -1754,7 +1754,7 @@ FileActions::EcuCalDefStructure *FileActions::use_existing_definition_for_rom(Fi
         }
 
         auto input = definitionHeaderInput(lineEditList, textEditList);
-        if (!input)
+        if (!input.has_value())
         {
             log_definition_error(
                 "Unable to import definition",
