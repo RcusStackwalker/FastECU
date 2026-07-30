@@ -53,3 +53,26 @@ TEST(QtAtomicFileWriterTest, InvalidDestinationDoesNotCreateFile)
     EXPECT_EQ(status.error().kind, fastecu::ErrorKind::Internal);
     EXPECT_FALSE(QFile::exists(path));
 }
+
+#if !defined(Q_OS_WIN)
+TEST(QtAtomicFileWriterTest, FailedReplacementPreservesExistingFile)
+{
+    QTemporaryDir dir;
+    ASSERT_TRUE(dir.isValid());
+    const QString path = dir.filePath("definition.xml");
+    write_test_file(path, "old");
+    ASSERT_TRUE(QFile::setPermissions(
+        dir.path(), QFileDevice::ReadOwner | QFileDevice::ExeOwner));
+    QtAtomicFileWriter writer;
+    const std::array<std::uint8_t, 3> bytes{'n', 'e', 'w'};
+
+    const fastecu::Status status = writer.replace(path.toStdString(), bytes);
+
+    EXPECT_TRUE(QFile::setPermissions(
+        dir.path(),
+        QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner));
+    ASSERT_FALSE(status);
+    EXPECT_EQ(status.error().kind, fastecu::ErrorKind::Internal);
+    EXPECT_EQ(read_test_file(path), "old");
+}
+#endif
