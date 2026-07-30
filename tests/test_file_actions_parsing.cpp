@@ -358,7 +358,7 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(ecu.RomInfo.at(FileActions::DefFile), definitionPath);
     }
 
-    void malformed_romraider_catalog_preserves_existing_rows_and_logs_error()
+    void malformed_romraider_catalog_file_is_skipped_and_replaces_with_empty_catalog()
     {
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
@@ -373,23 +373,21 @@ class TestFileActionsParsing : public QObject
         config.romraider_def_cal_id_addr = {"sentinel-address"};
         config.romraider_def_ecu_id = {"sentinel-ecu"};
         config.romraider_def_filename = {"sentinel-source"};
-        const QStringList ids = config.romraider_def_cal_id;
-        const QStringList addresses = config.romraider_def_cal_id_addr;
-        const QStringList ecuIds = config.romraider_def_ecu_id;
-        const QStringList sources = config.romraider_def_filename;
         QSignalSpy errorSpy(&actions, &FileActions::LOG_E);
 
         QCOMPARE(actions.create_romraider_def_id_list(&config), &config);
 
-        QCOMPARE(config.romraider_def_cal_id, ids);
-        QCOMPARE(config.romraider_def_cal_id_addr, addresses);
-        QCOMPARE(config.romraider_def_ecu_id, ecuIds);
-        QCOMPARE(config.romraider_def_filename, sources);
-        QCOMPARE(errorSpy.count(), 1);
-        QVERIFY(spyContainsMessage(errorSpy, "malformed XML"));
+        // A malformed file among a directory's worth of configured definitions is skipped
+        // rather than treated as fatal (see DefinitionService::build_catalog), so this
+        // replace succeeds with an empty catalog instead of preserving the old rows.
+        QVERIFY(config.romraider_def_cal_id.isEmpty());
+        QVERIFY(config.romraider_def_cal_id_addr.isEmpty());
+        QVERIFY(config.romraider_def_ecu_id.isEmpty());
+        QVERIFY(config.romraider_def_filename.isEmpty());
+        QCOMPARE(errorSpy.count(), 0);
     }
 
-    void malformed_romraider_definition_preserves_caller_state()
+    void malformed_romraider_definition_reports_definition_not_found()
     {
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
@@ -422,7 +420,11 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(ecu.NameList, names);
         QVERIFY(!ecu.use_romraider_definition);
         QCOMPARE(errorSpy.count(), 1);
-        QVERIFY(spyContainsMessage(errorSpy, "malformed XML"));
+        // The malformed file is skipped while building the catalog (see
+        // DefinitionService::build_catalog), so "BROKEN" is simply absent from it rather than
+        // failing with a parse error.
+        QVERIFY(spyContainsMessage(errorSpy, "definition ID not found"));
+        QVERIFY(spyContainsMessage(errorSpy, "BROKEN"));
     }
 
     void romraider_base_missing_source_logs_context_and_preserves_state()

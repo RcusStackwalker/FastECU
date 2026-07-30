@@ -122,15 +122,6 @@ Result<std::vector<std::vector<std::uint8_t>>> identifier_candidates(
     return candidates;
 }
 
-std::unexpected<Error> invalid_match_metadata(
-    const DefinitionIndexEntry& entry,
-    std::string detail)
-{
-    return fail(
-        ErrorKind::InvalidConfig,
-        std::format("invalid ROM match metadata for definition '{}' from '{}': {}", entry.definition_id, entry.source, std::move(detail)));
-}
-
 Result<void> discover_xml(
     IFileSystem& file_system,
     std::string_view directory,
@@ -164,11 +155,16 @@ Result<void> discover_xml(
     return {};
 }
 
+// Individual bad handles (unreadable, malformed, or the wrong format's XML sharing a
+// directory) are skipped rather than failing the whole catalog: a definitions directory
+// mixing formats or containing one broken file is normal, and one broken entry must not
+// hide every other ROM this ECU family could otherwise identify.
 template <typename Parser>
 Result<DefinitionCatalog> build_catalog(
     IFileRepository& repository,
     std::span<const std::string> handles,
-    Parser parser)
+    Parser parser,
+    bool skip_unusable_handles)
 {
     std::vector<DefinitionIndexEntry> entries;
     for (const std::string& handle : handles)
@@ -176,11 +172,19 @@ Result<DefinitionCatalog> build_catalog(
         auto contents = repository.read(handle);
         if (!contents.has_value())
         {
+            if (skip_unusable_handles)
+            {
+                continue;
+            }
             return std::unexpected(contents.error());
         }
         auto parsed = parser(*contents, handle);
         if (!parsed)
         {
+            if (skip_unusable_handles)
+            {
+                continue;
+            }
             return std::unexpected(parsed.error());
         }
         entries.insert(
@@ -202,14 +206,16 @@ DefinitionService::DefinitionService(
 }
 
 Result<DefinitionCatalog> DefinitionService::build_romraider_catalog(
-    std::span<const std::string> ordered_handles)
+    std::span<const std::string> ordered_handles,
+    bool skip_unusable_handles)
 {
-    return build_catalog(repository_, ordered_handles, parse_romraider_index);
+    return build_catalog(repository_, ordered_handles, parse_romraider_index, skip_unusable_handles);
 }
 
 Result<DefinitionCatalog> DefinitionService::build_ecuflash_catalog(
     std::string_view directory,
-    std::span<const std::string> explicit_handles)
+    std::span<const std::string> explicit_handles,
+    bool skip_unusable_handles)
 {
     std::vector<std::string> handles;
     if (!directory.empty())
@@ -229,7 +235,7 @@ Result<DefinitionCatalog> DefinitionService::build_ecuflash_catalog(
     std::ranges::sort(handles);
     const auto [first, last] = std::ranges::unique(handles);
     handles.erase(first, last);
-    return build_catalog(repository_, handles, parse_ecuflash_index);
+    return build_catalog(repository_, handles, parse_ecuflash_index, skip_unusable_handles);
 }
 
 Result<DefinitionIndexEntry> DefinitionService::match_rom(
@@ -242,24 +248,25 @@ Result<DefinitionIndexEntry> DefinitionService::match_rom(
         {
             continue;
         }
+        // An entry with unusable match metadata (bad identifier encoding, no address, or an
+        // address outside this particular ROM) just isn't a candidate for this ROM -- it is
+        // not a reason to abandon the scan before reaching a later entry that does match.
         auto candidates = identifier_candidates(
             entry.internal_id,
             entry.internal_id_encoding);
         if (!candidates.has_value())
         {
-            return invalid_match_metadata(entry, candidates.error().detail);
+            continue;
         }
         if (!entry.internal_id_address.has_value())
         {
-            return invalid_match_metadata(entry, "internal ID address is absent");
+            continue;
         }
 
         const std::uint64_t address = *entry.internal_id_address;
         if (address > rom.size())
         {
-            return invalid_match_metadata(
-                entry,
-                std::format("internal ID address {} exceeds ROM size {}", address, rom.size()));
+            continue;
         }
         const auto offset = static_cast<std::size_t>(address);
         for (const std::vector<std::uint8_t>& candidate : *candidates)
@@ -334,8 +341,19 @@ Result<RomDefinition> DefinitionService::load(
 
 Status DefinitionService::create_definition(
     std::string_view destination,
-    const DefinitionHeaderInput& input)
+    const DefinitionHeaderInput& input,
+    bool allow_overwrite)
 {
+    // "create" means a brand new definition file; import_definition is the rewrite-an-existing-
+    // file path. Without this check a filename collision would silently replace -- and lose --
+    // whatever definition was already at that destination. Callers whose own UI already
+    // confirmed the overwrite (e.g. a native Save-As dialog) pass allow_overwrite=true.
+    if (!allow_overwrite && file_system_.exists(destination))
+    {
+        return fail(
+            ErrorKind::InvalidConfig,
+            std::format("definition destination '{}' already exists", destination));
+    }
     auto contents = create_ecuflash_xml(input);
     if (!contents)
     {

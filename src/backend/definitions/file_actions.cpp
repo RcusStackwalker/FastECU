@@ -349,8 +349,11 @@ fastecu::Status FileActions::submit_new_definition(
     std::string_view destination,
     const fastecu::definition::DefinitionHeaderInput& input)
 {
+    // The caller reaches this only after the native "Save As" dialog already asked to
+    // overwrite an existing file, so that confirmation is passed through here rather than
+    // rejected again by the service's own new-file-only guard.
     fastecu::Status status =
-        definitionAdapter_.create_definition(destination, input);
+        definitionAdapter_.create_definition(destination, input, /*allow_overwrite=*/true);
     if (!status.has_value())
     {
         log_definition_error("Unable to create definition", status.error());
@@ -1580,7 +1583,11 @@ FileActions::EcuCalDefStructure *FileActions::create_new_definition_for_rom(File
             log_definition_error(
                 "Unable to create definition",
                 input.error());
-            QMessageBox::warning(this, tr("Definition file"), "Unable to open definition file for writing");
+            QMessageBox::warning(
+                this,
+                tr("Definition file"),
+                "Unable to create definition: " +
+                    QString::fromStdString(input.error().detail));
             return nullptr;
         }
         for (const QLineEdit *editor : lineEditList)
@@ -1594,7 +1601,11 @@ FileActions::EcuCalDefStructure *FileActions::create_new_definition_for_rom(File
             submit_new_definition(filename.toStdString(), *input);
         if (!status.has_value())
         {
-            QMessageBox::warning(this, tr("Definition file"), "Unable to open definition file for writing");
+            QMessageBox::warning(
+                this,
+                tr("Definition file"),
+                "Unable to open definition file for writing: " +
+                    QString::fromStdString(status.error().detail));
             return nullptr;
         }
         configValues->ecuflash_def_cal_id.append(
@@ -1748,7 +1759,11 @@ FileActions::EcuCalDefStructure *FileActions::use_existing_definition_for_rom(Fi
             log_definition_error(
                 "Unable to import definition",
                 input.error());
-            QMessageBox::warning(this, tr("Definition file"), "Unable to open definition file for writing");
+            QMessageBox::warning(
+                this,
+                tr("Definition file"),
+                "Unable to import definition: " +
+                    QString::fromStdString(input.error().detail));
             return nullptr;
         }
         emit LOG_D("Write to file", true, true);
@@ -1765,7 +1780,11 @@ FileActions::EcuCalDefStructure *FileActions::use_existing_definition_for_rom(Fi
             *input);
         if (!status.has_value())
         {
-            QMessageBox::warning(this, tr("Definition file"), "Unable to open definition file for writing");
+            QMessageBox::warning(
+                this,
+                tr("Definition file"),
+                "Unable to open definition file for writing: " +
+                    QString::fromStdString(status.error().detail));
             return nullptr;
         }
         configValues->ecuflash_def_cal_id.append(

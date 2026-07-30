@@ -421,7 +421,7 @@ class TestEcuflashDefinitionParsing : public QObject
         QVERIFY(ecuCalDef == parsed);
     }
 
-    void malformed_ecuflash_catalog_preserves_existing_rows_and_logs_error()
+    void malformed_ecuflash_catalog_file_is_skipped_and_replaces_with_empty_catalog()
     {
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
@@ -436,20 +436,18 @@ class TestEcuflashDefinitionParsing : public QObject
         config.ecuflash_def_cal_id_addr = {"sentinel-address"};
         config.ecuflash_def_ecu_id = {"sentinel-ecu"};
         config.ecuflash_def_filename = {"sentinel-source"};
-        const QStringList ids = config.ecuflash_def_cal_id;
-        const QStringList addresses = config.ecuflash_def_cal_id_addr;
-        const QStringList ecuIds = config.ecuflash_def_ecu_id;
-        const QStringList sources = config.ecuflash_def_filename;
         QSignalSpy errorSpy(&fileActions, &FileActions::LOG_E);
 
         QCOMPARE(fileActions.create_ecuflash_def_id_list(&config), &config);
 
-        QCOMPARE(config.ecuflash_def_cal_id, ids);
-        QCOMPARE(config.ecuflash_def_cal_id_addr, addresses);
-        QCOMPARE(config.ecuflash_def_ecu_id, ecuIds);
-        QCOMPARE(config.ecuflash_def_filename, sources);
-        QCOMPARE(errorSpy.count(), 1);
-        QVERIFY(spyContainsMessage(errorSpy, "malformed XML"));
+        // A malformed file in the configured directory is skipped rather than treated as
+        // fatal (see DefinitionService::build_catalog), so this replace succeeds with an
+        // empty catalog instead of preserving the old rows.
+        QVERIFY(config.ecuflash_def_cal_id.isEmpty());
+        QVERIFY(config.ecuflash_def_cal_id_addr.isEmpty());
+        QVERIFY(config.ecuflash_def_ecu_id.isEmpty());
+        QVERIFY(config.ecuflash_def_filename.isEmpty());
+        QCOMPARE(errorSpy.count(), 0);
     }
 
     void catalog_refresh_preserves_submitted_file_outside_configured_directory()
@@ -600,7 +598,7 @@ class TestEcuflashDefinitionParsing : public QObject
             1);
     }
 
-    void malformed_ecuflash_definition_preserves_caller_state()
+    void malformed_ecuflash_definition_reports_definition_not_found()
     {
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
@@ -634,10 +632,14 @@ class TestEcuflashDefinitionParsing : public QObject
         QCOMPARE(ecuCalDef.NameList, names);
         QVERIFY(!ecuCalDef.use_ecuflash_definition);
         QCOMPARE(errorSpy.count(), 1);
-        QVERIFY(spyContainsMessage(errorSpy, "malformed XML"));
+        // The malformed file is skipped while building the catalog (see
+        // DefinitionService::build_catalog), so "BROKEN" is simply absent from it rather than
+        // failing with a parse error.
+        QVERIFY(spyContainsMessage(errorSpy, "definition ID not found"));
+        QVERIFY(spyContainsMessage(errorSpy, "BROKEN"));
     }
 
-    void missing_ecuflash_definition_returns_null_and_preserves_caller_state()
+    void missing_ecuflash_definition_reports_definition_not_found()
     {
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
@@ -665,6 +667,12 @@ class TestEcuflashDefinitionParsing : public QObject
                 modal->close();
             } });
 
+        // Unlike read_romraider_ecu_base_def's single required base file, this rebuilds the
+        // catalog from every currently known EcuFlash file (see build_definition_catalog), so
+        // the unreadable entry is skipped rather than failing the whole lookup -- "MISSING" is
+        // then simply absent from the resulting (empty) catalog. The configured source file
+        // still doesn't exist on disk though, so this still takes the "missing file" branch
+        // (a warning dialog, nullptr) rather than the "found but broken" branch.
         QCOMPARE(fileActions.read_ecuflash_ecu_def(&ecuCalDef, "MISSING"),
                  nullptr);
 
@@ -672,7 +680,8 @@ class TestEcuflashDefinitionParsing : public QObject
         QCOMPARE(ecuCalDef.DefinitionFileName, definitionFileName);
         QCOMPARE(ecuCalDef.NameList, names);
         QCOMPARE(errorSpy.count(), 1);
-        QVERIFY(spyContainsMessage(errorSpy, "cannot open file"));
+        QVERIFY(spyContainsMessage(errorSpy, "definition ID not found"));
+        QVERIFY(spyContainsMessage(errorSpy, "MISSING"));
     }
 
     void ecuflash_rom_match_failure_preserves_rom_id_and_logs_error()

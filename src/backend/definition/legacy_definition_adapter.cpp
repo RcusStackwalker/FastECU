@@ -353,10 +353,13 @@ Status populate_rom_info(
             "legacy RomInfo labels must provide matching names and text for all 16 slots");
     }
     value.RomInfo = QStringList(value.RomInfoStrings.size(), QString{});
+    // resolved_definition_ids is ordered root-ancestor-first (self last), so its front() is the
+    // wrong end for "the base this definition directly inherits from" -- that's the definition's
+    // own declared parents, which survive resolution unmodified on RomDefinition::parents.
     const QString parent =
-        definition.resolved_definition_ids.size() > 1
-            ? qs(definition.resolved_definition_ids.front())
-            : QString{};
+        definition.parents.empty()
+            ? QString{}
+            : qs(definition.parents.front());
     value.RomInfo[XmlId] = qs(definition.identity.xml_id);
     value.RomInfo[InternalIdAddress] =
         address_text(definition.identity.internal_id_address, false);
@@ -467,9 +470,10 @@ Status LegacyDefinitionAdapter::replace_definition(
 
 Status LegacyDefinitionAdapter::create_definition(
     std::string_view destination,
-    const DefinitionHeaderInput& input)
+    const DefinitionHeaderInput& input,
+    bool allow_overwrite)
 {
-    return service_.create_definition(destination, input);
+    return service_.create_definition(destination, input, allow_overwrite);
 }
 
 Status LegacyDefinitionAdapter::import_definition(

@@ -30,7 +30,8 @@ class LegacyDefinitionAdapter
         std::string_view id);
     Status create_definition(
         std::string_view destination,
-        const DefinitionHeaderInput&);
+        const DefinitionHeaderInput&,
+        bool allow_overwrite = false);
     Status import_definition(
         std::string_view source,
         std::string_view destination,

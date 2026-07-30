@@ -232,30 +232,48 @@ TEST_F(DefinitionServiceTest, PropagatesDiscoveryFailureWithoutReadingFiles)
     EXPECT_TRUE(repository.read_handles.empty());
 }
 
-TEST_F(DefinitionServiceTest, PropagatesRepositoryFailure)
+TEST_F(DefinitionServiceTest, SkipsHandleThatFailsToReadAndKeepsRemainingEntries)
+{
+    const std::vector<std::string> handles{"bad.xml", "good.xml"};
+    repository.read_errors["bad.xml"] = Error{ErrorKind::Disconnected, "read failed"};
+    repository.files["good.xml"] = romraider_xml("GOOD");
+
+    auto result = service.build_romraider_catalog(handles);
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->entries().size(), 1U);
+    EXPECT_EQ(result->entries()[0].definition_id, "GOOD");
+    EXPECT_EQ(repository.read_count("bad.xml"), 1);
+    EXPECT_EQ(repository.read_count("good.xml"), 1);
+}
+
+TEST_F(DefinitionServiceTest, SkipsUnparsableFileAfterOneReadAndKeepsRemainingEntries)
+{
+    file_system.directory_entries["defs"] = {
+        DirEntry{.name = "bad.xml", .is_directory = false},
+        DirEntry{.name = "good.xml", .is_directory = false},
+    };
+    repository.files["defs/bad.xml"] = bytes("<not-rom/>");
+    repository.files["defs/good.xml"] = ecuflash_xml("GOOD");
+
+    auto result = service.build_ecuflash_catalog("defs");
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->entries().size(), 1U);
+    EXPECT_EQ(result->entries()[0].definition_id, "GOOD");
+    EXPECT_EQ(repository.read_count("defs/bad.xml"), 1);
+    EXPECT_EQ(repository.read_count("defs/good.xml"), 1);
+}
+
+TEST_F(DefinitionServiceTest, SkipsEveryUnusableHandleAndSucceedsWithAnEmptyCatalog)
 {
     const std::vector<std::string> handles{"bad.xml"};
     repository.read_errors["bad.xml"] = Error{ErrorKind::Disconnected, "read failed"};
 
     auto result = service.build_romraider_catalog(handles);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error(), (Error{ErrorKind::Disconnected, "read failed"}));
-    EXPECT_EQ(repository.read_count("bad.xml"), 1);
-}
-
-TEST_F(DefinitionServiceTest, PropagatesParseFailureAfterOneRead)
-{
-    file_system.directory_entries["defs"] = {
-        DirEntry{.name = "bad.xml", .is_directory = false},
-    };
-    repository.files["defs/bad.xml"] = bytes("<not-rom/>");
-
-    auto result = service.build_ecuflash_catalog("defs");
-
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_EQ(repository.read_count("defs/bad.xml"), 1);
+    ASSERT_TRUE(result);
+    EXPECT_TRUE(result->entries().empty());
 }
 
 TEST_F(DefinitionServiceTest, MatchesAsciiIdentifierEndingExactlyAtRomEnd)
@@ -323,7 +341,7 @@ TEST_F(DefinitionServiceTest, MatchesEitherAsciiOrHexForLegacyCompatibleEntry)
     EXPECT_EQ(hex->definition_id, "HEX");
 }
 
-TEST_F(DefinitionServiceTest, RejectsOddLengthHexIdentifierBeforeLaterMatch)
+TEST_F(DefinitionServiceTest, SkipsOddLengthHexIdentifierAndMatchesLaterEntry)
 {
     auto catalog = DefinitionCatalog::create({
         index_entry("ODD", "ABC", 0U, IdEncoding::Hex),
@@ -334,14 +352,11 @@ TEST_F(DefinitionServiceTest, RejectsOddLengthHexIdentifierBeforeLaterMatch)
 
     auto result = service.match_rom(*catalog, rom);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_NE(result.error().detail.find("ODD"), std::string::npos);
-    EXPECT_NE(result.error().detail.find("definitions.xml"), std::string::npos);
-    EXPECT_NE(result.error().detail.find("odd"), std::string::npos);
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->definition_id, "VALID");
 }
 
-TEST_F(DefinitionServiceTest, RejectsInvalidHexDigitBeforeLaterMatch)
+TEST_F(DefinitionServiceTest, SkipsInvalidHexDigitAndMatchesLaterEntry)
 {
     auto catalog = DefinitionCatalog::create({
         index_entry("INVALID_HEX", "AG", 0U, IdEncoding::Hex),
@@ -352,13 +367,11 @@ TEST_F(DefinitionServiceTest, RejectsInvalidHexDigitBeforeLaterMatch)
 
     auto result = service.match_rom(*catalog, rom);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_NE(result.error().detail.find("INVALID_HEX"), std::string::npos);
-    EXPECT_NE(result.error().detail.find("hexadecimal"), std::string::npos);
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->definition_id, "VALID");
 }
 
-TEST_F(DefinitionServiceTest, RejectsMissingAddressBeforeLaterMatch)
+TEST_F(DefinitionServiceTest, SkipsMissingAddressAndMatchesLaterEntry)
 {
     auto catalog = DefinitionCatalog::create({
         index_entry("NO_ADDRESS", "A", std::nullopt),
@@ -369,13 +382,11 @@ TEST_F(DefinitionServiceTest, RejectsMissingAddressBeforeLaterMatch)
 
     auto result = service.match_rom(*catalog, rom);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_NE(result.error().detail.find("NO_ADDRESS"), std::string::npos);
-    EXPECT_NE(result.error().detail.find("address"), std::string::npos);
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->definition_id, "VALID");
 }
 
-TEST_F(DefinitionServiceTest, RejectsAddressBeyondRomBoundsBeforeLaterMatch)
+TEST_F(DefinitionServiceTest, SkipsAddressBeyondRomBoundsAndMatchesLaterEntry)
 {
     auto catalog = DefinitionCatalog::create({
         index_entry("OUT_OF_RANGE", "A", 2U),
@@ -386,10 +397,8 @@ TEST_F(DefinitionServiceTest, RejectsAddressBeyondRomBoundsBeforeLaterMatch)
 
     auto result = service.match_rom(*catalog, rom);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_NE(result.error().detail.find("OUT_OF_RANGE"), std::string::npos);
-    EXPECT_NE(result.error().detail.find("address"), std::string::npos);
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->definition_id, "VALID");
 }
 
 TEST_F(DefinitionServiceTest, ReturnsFirstCatalogEntryWhenMatchesAreAmbiguous)
@@ -592,6 +601,19 @@ TEST_F(DefinitionServiceTest, CreatesDefinitionWithOneExactAtomicReplacement)
     ASSERT_EQ(writer.replace_calls.size(), 1U);
     EXPECT_EQ(writer.replace_calls.front().handle, "created.xml");
     EXPECT_EQ(writer.replace_calls.front().data, *expected);
+}
+
+TEST_F(DefinitionServiceTest, RejectsCreationWhenDestinationAlreadyExists)
+{
+    const DefinitionHeaderInput input = valid_header_input();
+    file_system.files["existing.xml"] = bytes("<rom><romid><xmlid>EXISTING</xmlid></romid></rom>");
+
+    auto result = service.create_definition("existing.xml", input);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_NE(result.error().detail.find("existing.xml"), std::string::npos);
+    EXPECT_TRUE(writer.replace_calls.empty());
 }
 
 TEST_F(DefinitionServiceTest, RejectsInvalidCreationInputBeforeAtomicReplacement)

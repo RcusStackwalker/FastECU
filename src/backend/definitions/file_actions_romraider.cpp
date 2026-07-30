@@ -99,8 +99,12 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(
         return nullptr;
     }
 
+    // This is a single, specifically-named required file (the base this ROM's identity
+    // points at), not a directory scan -- if it can't be read or parsed, that failure must be
+    // reported directly rather than silently treated as an empty catalog.
     const std::vector<std::string> handles{source.toStdString()};
-    auto catalog = definitionService_.build_romraider_catalog(handles);
+    auto catalog = definitionService_.build_romraider_catalog(
+        handles, /*skip_unusable_handles=*/false);
     if (!catalog)
     {
         log_definition_error(

@@ -244,7 +244,7 @@ TEST_F(LegacyDefinitionAdapterTest, ReplacesEcuFlashCatalogWithAlignedTypedRows)
     EXPECT_EQ(repository.read_count("outside.xml"), 1);
 }
 
-TEST_F(LegacyDefinitionAdapterTest, EcuFlashCatalogFailurePreservesCompleteOriginalValue)
+TEST_F(LegacyDefinitionAdapterTest, EcuFlashCatalogSkipsUnreadableHandleAndReplacesWithEmptyCatalog)
 {
     file_system.directory_entries["defs"] = {};
     repository.read_errors["outside.xml"] =
@@ -258,23 +258,26 @@ TEST_F(LegacyDefinitionAdapterTest, EcuFlashCatalogFailurePreservesCompleteOrigi
     value.ecuflash_def_cal_id_addr = {"outside-address"};
     value.ecuflash_def_ecu_id = {"outside-ecu"};
     value.ecuflash_def_filename = {"outside.xml"};
-    const auto original = value;
     const std::vector<std::string> explicit_handles{"outside.xml"};
 
     auto result =
         adapter.replace_ecuflash_catalog(value, "defs", explicit_handles);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(
-        result.error(),
-        (Error{
-            ErrorKind::Disconnected,
-            "submitted definition unavailable",
-        }));
-    EXPECT_EQ(value, original);
+    // An unreadable handle is skipped rather than failing the whole catalog (matching
+    // DefinitionService::build_catalog), so this replace succeeds with an empty EcuFlash
+    // catalog; the unrelated RomRaider lists are untouched.
+    ASSERT_TRUE(result);
+    EXPECT_EQ(value.software_name, "unchanged software");
+    EXPECT_EQ(value.primary_definition_base, "unchanged base");
+    EXPECT_EQ(value.romraider_def_cal_id, QStringList{"romraider-id"});
+    EXPECT_EQ(value.romraider_def_filename, QStringList{"romraider.xml"});
+    EXPECT_TRUE(value.ecuflash_def_cal_id.isEmpty());
+    EXPECT_TRUE(value.ecuflash_def_cal_id_addr.isEmpty());
+    EXPECT_TRUE(value.ecuflash_def_ecu_id.isEmpty());
+    EXPECT_TRUE(value.ecuflash_def_filename.isEmpty());
 }
 
-TEST_F(LegacyDefinitionAdapterTest, CatalogFailurePreservesCompleteOriginalValue)
+TEST_F(LegacyDefinitionAdapterTest, RomRaiderCatalogSkipsUnreadableHandleAndReplacesWithEmptyCatalog)
 {
     repository.read_errors["bad.xml"] = Error{ErrorKind::Disconnected, "read failed"};
     definitions::ConfigValuesStructure value;
@@ -288,12 +291,39 @@ TEST_F(LegacyDefinitionAdapterTest, CatalogFailurePreservesCompleteOriginalValue
     value.ecuflash_def_cal_id_addr = {"other-address"};
     value.ecuflash_def_ecu_id = {"other-ecu"};
     value.ecuflash_def_filename = {"other-file"};
-    const auto original = value;
 
     auto result = adapter.replace_romraider_catalog(value, std::vector<std::string>{"bad.xml"});
 
+    ASSERT_TRUE(result);
+    EXPECT_EQ(value.software_name, "unchanged software");
+    EXPECT_EQ(value.primary_definition_base, "unchanged base");
+    EXPECT_TRUE(value.romraider_def_cal_id.isEmpty());
+    EXPECT_TRUE(value.romraider_def_cal_id_addr.isEmpty());
+    EXPECT_TRUE(value.romraider_def_ecu_id.isEmpty());
+    EXPECT_TRUE(value.romraider_def_filename.isEmpty());
+    EXPECT_EQ(value.ecuflash_def_cal_id, QStringList{"other-id"});
+    EXPECT_EQ(value.ecuflash_def_cal_id_addr, QStringList{"other-address"});
+    EXPECT_EQ(value.ecuflash_def_ecu_id, QStringList{"other-ecu"});
+    EXPECT_EQ(value.ecuflash_def_filename, QStringList{"other-file"});
+}
+
+TEST_F(LegacyDefinitionAdapterTest, EcuFlashCatalogDiscoveryFailurePreservesCompleteOriginalValue)
+{
+    file_system.list_directory_errors["defs"] =
+        Error{ErrorKind::Disconnected, "catalog directory unavailable"};
+    definitions::ConfigValuesStructure value;
+    value.software_name = "unchanged software";
+    value.ecuflash_def_cal_id = {"outside-id"};
+    const auto original = value;
+
+    // Unlike a single bad handle (skipped, see the tests above), failing to even list the
+    // configured directory is still fatal -- there is nothing to skip past.
+    auto result = adapter.replace_ecuflash_catalog(value, "defs", {});
+
     ASSERT_FALSE(result);
-    EXPECT_EQ(result.error(), (Error{ErrorKind::Disconnected, "read failed"}));
+    EXPECT_EQ(
+        result.error(),
+        (Error{ErrorKind::Disconnected, "catalog directory unavailable"}));
     EXPECT_EQ(value, original);
 }
 
@@ -382,7 +412,9 @@ TEST_F(LegacyDefinitionAdapterTest, MapsFullTypedDefinitionIntoEveryLegacySlice)
     EXPECT_FALSE(value.use_romraider_definition);
     EXPECT_TRUE(value.use_ecuflash_definition);
     EXPECT_EQ(value.DefinitionFileName, "full.xml");
-    EXPECT_EQ(value.RomBase, "BASE");
+    // FULL's direct <include> is MID, not the root ancestor BASE that MID itself includes --
+    // RomBase must reflect the direct parent so per-ROM lookups by base ID resolve correctly.
+    EXPECT_EQ(value.RomBase, "MID");
 
     ASSERT_EQ(value.RomInfo.size(), value.RomInfoStrings.size());
     EXPECT_EQ(value.RomInfo.at(0), "FULL");
@@ -398,7 +430,7 @@ TEST_F(LegacyDefinitionAdapterTest, MapsFullTypedDefinitionIntoEveryLegacySlice)
     EXPECT_EQ(value.RomInfo.at(10), "denso");
     EXPECT_EQ(value.RomInfo.at(11), "SH7058");
     EXPECT_EQ(value.RomInfo.at(12), "subaru");
-    EXPECT_EQ(value.RomInfo.at(13), "BASE");
+    EXPECT_EQ(value.RomInfo.at(13), "MID");
     EXPECT_EQ(value.RomInfo.at(14), "1048576");
     EXPECT_EQ(value.RomInfo.at(15), "full.xml");
 
