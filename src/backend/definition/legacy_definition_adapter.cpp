@@ -2,6 +2,7 @@
 #include "src/backend/definitions/legacy_definition_columns.h"
 
 #include <cstdint>
+#include <format>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -301,7 +302,7 @@ Status validate_definition_alignment(const definitions::EcuCalDefStructure& valu
         {
             return fail(
                 ErrorKind::InvalidConfig,
-                "legacy definition map list '" + std::string(name) + "' is not aligned");
+                std::format("legacy definition map list '{}' is not aligned", name));
         }
     }
 
@@ -313,7 +314,7 @@ Status validate_definition_alignment(const definitions::EcuCalDefStructure& valu
         {
             return fail(
                 ErrorKind::InvalidConfig,
-                "legacy definition scaling list '" + std::string(name) + "' is not aligned");
+                std::format("legacy definition scaling list '{}' is not aligned", name));
         }
     }
     return {};

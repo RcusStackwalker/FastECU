@@ -1,6 +1,8 @@
 // src/backend/flash/eeprom/denso_sh705x_eeprom_common.cpp
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
 
+#include <format>
+
 #include "src/backend/flash/flash_validation.h"
 
 namespace fastecu::flash
@@ -25,7 +27,7 @@ Result<MemoryRegion> resolve_sh705x_eeprom_region(const std::string& mcu_name)
         return MemoryRegion{.start = /* eblocks_SH7058[0].start */ 0x00000000,
                             .length = /* eblocks_SH7058[0].len */ 0x00000100};
     }
-    return fail(ErrorKind::InvalidConfig, "unknown SH705x mcu_name: " + mcu_name);
+    return fail(ErrorKind::InvalidConfig, std::format("unknown SH705x mcu_name: {}", mcu_name));
 }
 
 namespace
@@ -64,7 +66,7 @@ Result<McuBounds> resolve_mcu_bounds(const std::string& mcu_name)
                                        .length = /* kblocks_SH7058[0].len */ 0x00009000},
         };
     }
-    return fail(ErrorKind::InvalidConfig, "unknown SH705x mcu_name: " + mcu_name);
+    return fail(ErrorKind::InvalidConfig, std::format("unknown SH705x mcu_name: {}", mcu_name));
 }
 
 bool kline_supports(DensoSecurityVariant security)

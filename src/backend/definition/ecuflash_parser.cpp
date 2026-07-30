@@ -6,6 +6,7 @@
 #include <cctype>
 #include <cstdint>
 #include <cstdlib>
+#include <format>
 #include <iomanip>
 #include <limits>
 #include <optional>
@@ -137,7 +138,7 @@ Result<UnresolvedAxisDefinition> parse_axis(
     {
         return invalid(
             source,
-            "element <table> type '" + axis.type + "' attribute 'name'",
+            std::format("element <table> type '{}' attribute 'name'", axis.type),
             "missing or empty axis name",
             definition_id);
     }
@@ -393,7 +394,7 @@ Result<UnresolvedDefinition> parse_ecuflash_definition(
                 return invalid(
                     source,
                     "element <scaling> attribute 'name'",
-                    "conflicting duplicate global scaling '" + scaling.name + "'",
+                    std::format("conflicting duplicate global scaling '{}'", scaling.name),
                     definition.identity.xml_id);
             }
             if (!inserted)
@@ -418,7 +419,7 @@ Result<UnresolvedDefinition> parse_ecuflash_definition(
             return invalid(
                 source,
                 "element <table> attribute 'id' or 'name'",
-                "duplicate map identity '" + map_id + "'",
+                std::format("duplicate map identity '{}'", map_id),
                 definition.identity.xml_id);
         }
         definition.maps.push_back(std::move(*map));
