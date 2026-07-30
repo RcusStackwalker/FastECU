@@ -60,6 +60,9 @@ PORTABLE_ROOTS = {
         "flash_device_lookup",
         "dispatch",
     },
+    ROOT / "src/backend/definition": {
+        "definition_model",
+    },
 }
 
 FORBIDDEN = (

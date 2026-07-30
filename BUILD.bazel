@@ -51,6 +51,7 @@ genquery(
         "//src/backend/config:app_config",
         "//src/backend/config:protocol_catalog",
         "//src/backend/config:provisioning",
+        "//src/backend/definition:definition_model",
     ]) + "))",
     scope = [
         "//src/backend/flash:flash_types",
@@ -65,6 +66,7 @@ genquery(
         "//src/backend/config:app_config",
         "//src/backend/config:protocol_catalog",
         "//src/backend/config:provisioning",
+        "//src/backend/definition:definition_model",
     ],
 )
 
@@ -85,6 +87,7 @@ py_test(
         "//src/algorithms/protocol/ssm:BUILD.bazel",
         "//src/backend/checksum:BUILD.bazel",
         "//src/backend/config:BUILD.bazel",
+        "//src/backend/definition:BUILD.bazel",
         "//src/backend/flash:BUILD.bazel",
         "//src/backend/flash/eeprom:BUILD.bazel",
         "//src/backend/logging:BUILD.bazel",

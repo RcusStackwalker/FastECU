@@ -1,0 +1,17 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "definition_model",
+    srcs = ["definition_model.cpp"],
+    hdrs = ["definition_model.h"],
+    deps = ["//src/backend/ports"],
+)
+
+fastecu_portable_gtest(
+    name = "definition_model_test",
+    srcs = ["definition_model_test.cpp"],
+    deps = [":definition_model"],
+)
