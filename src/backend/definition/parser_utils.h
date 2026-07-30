@@ -128,9 +128,9 @@ inline Result<std::uint64_t> parse_hex_unsigned(
     return parsed;
 }
 
-inline std::string attribute_or_empty(pugi::xml_node node, std::string_view name)
+inline std::string value_or_empty(pugi::xml_attribute attribute)
 {
-    return trim_copy(node.attribute(name).value());
+    return trim_copy(attribute.value());
 }
 
 inline std::string selection_name(std::string name)

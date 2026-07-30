@@ -154,42 +154,42 @@ void append_selections(pugi::xml_node parent, UnresolvedScaling& scaling)
 {
     for (pugi::xml_node data : parent.children("data"))
     {
-        std::string value = attribute_or_empty(data, "value");
+        std::string value = value_or_empty(data.attribute("value"));
         if (value.empty())
         {
-            value = attribute_or_empty(data, "data");
+            value = value_or_empty(data.attribute("data"));
         }
-        scaling.selections.emplace_back(selection_name(attribute_or_empty(data, "name")), std::move(value));
+        scaling.selections.emplace_back(selection_name(value_or_empty(data.attribute("name"))), std::move(value));
     }
 }
 
 UnresolvedScaling parse_scaling(pugi::xml_node node, std::string fallback_name)
 {
     UnresolvedScaling scaling;
-    scaling.name = attribute_or_empty(node, "name");
+    scaling.name = value_or_empty(node.attribute("name"));
     if (scaling.name.empty())
     {
         scaling.name = std::move(fallback_name);
     }
-    scaling.units = attribute_or_empty(node, "units");
-    if (node.attribute("toexpr"))
+    scaling.units = value_or_empty(node.attribute("units"));
+    if (const auto toexpr = node.attribute("toexpr"))
     {
-        scaling.from_byte = attribute_or_empty(node, "toexpr");
+        scaling.from_byte = value_or_empty(toexpr);
     }
-    if (node.attribute("frexpr"))
+    if (const auto frexpr = node.attribute("frexpr"))
     {
-        scaling.to_byte = attribute_or_empty(node, "frexpr");
+        scaling.to_byte = value_or_empty(frexpr);
     }
-    if (node.attribute("format"))
+    if (const auto format = node.attribute("format"))
     {
-        scaling.format = convert_value_format(attribute_or_empty(node, "format"));
+        scaling.format = convert_value_format(value_or_empty(format));
     }
-    scaling.minimum = attribute_or_empty(node, "min");
-    scaling.maximum = attribute_or_empty(node, "max");
-    scaling.coarse_increment = attribute_or_empty(node, "inc");
+    scaling.minimum = value_or_empty(node.attribute("min"));
+    scaling.maximum = value_or_empty(node.attribute("max"));
+    scaling.coarse_increment = value_or_empty(node.attribute("inc"));
     scaling.fine_increment = fine_increment_from(scaling.coarse_increment);
-    scaling.storage_type = attribute_or_empty(node, "storagetype");
-    scaling.endian = attribute_or_empty(node, "endian");
+    scaling.storage_type = value_or_empty(node.attribute("storagetype"));
+    scaling.endian = value_or_empty(node.attribute("endian"));
     append_selections(node, scaling);
     return scaling;
 }
@@ -202,8 +202,8 @@ Result<UnresolvedAxisDefinition> parse_axis(
     std::vector<UnresolvedScaling>& scalings)
 {
     UnresolvedAxisDefinition axis;
-    axis.type = attribute_or_empty(table, "type");
-    axis.name = attribute_or_empty(table, "name");
+    axis.type = value_or_empty(table.attribute("type"));
+    axis.name = value_or_empty(table.attribute("name"));
     if (axis.name.empty())
     {
         return invalid(
@@ -212,8 +212,8 @@ Result<UnresolvedAxisDefinition> parse_axis(
             "missing or empty axis name",
             definition_id);
     }
-    axis.storage_type = attribute_or_empty(table, "storagetype");
-    axis.endian = attribute_or_empty(table, "endian");
+    axis.storage_type = value_or_empty(table.attribute("storagetype"));
+    axis.endian = value_or_empty(table.attribute("endian"));
 
     auto address = optional_address(table, source, definition_id);
     if (!address)
@@ -237,7 +237,7 @@ Result<UnresolvedAxisDefinition> parse_axis(
         axis.size = default_size;
     }
 
-    axis.scaling_name = attribute_or_empty(table, "scaling");
+    axis.scaling_name = value_or_empty(table.attribute("scaling"));
     if (const pugi::xml_node scaling_node = table.child("scaling"))
     {
         UnresolvedScaling scaling = parse_scaling(
@@ -270,29 +270,29 @@ Result<UnresolvedCalibrationMap> parse_table(
     std::vector<UnresolvedScaling>& scalings)
 {
     UnresolvedCalibrationMap map;
-    if (table.attribute("id"))
+    if (const auto id = table.attribute("id"))
     {
-        map.id = attribute_or_empty(table, "id");
+        map.id = value_or_empty(id);
     }
-    map.name = attribute_or_empty(table, "name");
+    map.name = value_or_empty(table.attribute("name"));
     if (map.name.empty())
     {
         return invalid(source, "element <table> attribute 'name'", "missing or empty map name", definition_id);
     }
-    map.type = attribute_or_empty(table, "type");
+    map.type = value_or_empty(table.attribute("type"));
     const bool is_top_level_x_axis = map.type == "X Axis";
     const bool is_top_level_y_axis = map.type == "Y Axis";
-    map.category = attribute_or_empty(table, "category");
-    map.subcategory = attribute_or_empty(table, "subcategory");
-    map.description = attribute_or_empty(table, "description");
+    map.category = value_or_empty(table.attribute("category"));
+    map.subcategory = value_or_empty(table.attribute("subcategory"));
+    map.description = value_or_empty(table.attribute("description"));
     if (map.description.empty())
     {
         map.description = child_text(table, "description");
     }
-    map.level = attribute_or_empty(table, "level");
-    map.user_level = attribute_or_empty(table, "userlevel");
-    map.storage_type = attribute_or_empty(table, "storagetype");
-    map.endian = attribute_or_empty(table, "endian");
+    map.level = value_or_empty(table.attribute("level"));
+    map.user_level = value_or_empty(table.attribute("userlevel"));
+    map.storage_type = value_or_empty(table.attribute("storagetype"));
+    map.endian = value_or_empty(table.attribute("endian"));
 
     auto address = optional_address(table, source, definition_id);
     if (!address)
@@ -362,7 +362,7 @@ Result<UnresolvedCalibrationMap> parse_table(
         map.flip_y = *flip_y;
     }
 
-    map.scaling_name = attribute_or_empty(table, "scaling");
+    map.scaling_name = value_or_empty(table.attribute("scaling"));
     if (const pugi::xml_node scaling_node = table.child("scaling"))
     {
         UnresolvedScaling scaling = parse_scaling(
@@ -388,7 +388,7 @@ Result<UnresolvedCalibrationMap> parse_table(
     bool y_axis_populated = false;
     for (pugi::xml_node axis_table : table.children("table"))
     {
-        const std::string type = attribute_or_empty(axis_table, "type");
+        const std::string type = value_or_empty(axis_table.attribute("type"));
         if (type == "X Axis" || type == "Static X Axis" || type == "Static Y Axis" ||
             (type == "Y Axis" && map.type == "2D"))
         {
