@@ -23,6 +23,11 @@ class TestModelValidation : public QObject
         QVERIFY(!value.SyncedWithEcu);
         QVERIFY(!value.use_romraider_definition);
         QVERIFY(!value.use_ecuflash_definition);
+
+        const FileActions::EcuCalDefStructure same;
+        QVERIFY(value == same);
+        value.NameList.append("changed");
+        QVERIFY(!(value == same));
     }
 
     void flashProtocols_acceptMatchingRows()
