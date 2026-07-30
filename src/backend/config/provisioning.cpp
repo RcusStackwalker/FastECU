@@ -1,6 +1,7 @@
 #include "src/backend/config/provisioning.h"
 
 #include <algorithm>
+#include <format>
 #include <iterator>
 #include <vector>
 
@@ -18,7 +19,7 @@ Status ensure_directory(IFileSystem& fs, const std::string& path, IEventSink& ev
     Status result = fs.create_directory(path);
     if (!result.has_value())
     {
-        events.log(LogLevel::Error, "Unable to create directory: " + path);
+        events.log(LogLevel::Error, std::format("Unable to create directory: {}", path));
         return result;
     }
     return {};
@@ -39,7 +40,7 @@ Status copy_bundle_if_absent(IFileSystem& fs, IResourceBundle& bundle, const std
         {
             continue;
         }
-        events.log(LogLevel::Debug, "Provisioning default file: " + target);
+        events.log(LogLevel::Debug, std::format("Provisioning default file: {}", target));
         // The bundle port has no direct filesystem-to-filesystem copy; write
         // through IFileSystem by reading bytes from the bundle and treating
         // the write as a same-content copy is out of this port's scope, so
@@ -55,7 +56,7 @@ Status copy_bundle_if_absent(IFileSystem& fs, IResourceBundle& bundle, const std
         Status result = fs.copy_file(bundle_id + "/" + name, target, false);
         if (!result.has_value())
         {
-            events.log(LogLevel::Error, "Unable to provision default file: " + target);
+            events.log(LogLevel::Error, std::format("Unable to provision default file: {}", target));
             return result;
         }
     }

@@ -1,7 +1,7 @@
 #include "src/algorithms/diagnostics/dtc_parser.h"
 
 #include <array>
-#include <cstdio>
+#include <format>
 
 namespace
 {
@@ -12,9 +12,7 @@ std::string default_dtc_message(std::uint16_t dtc)
     const std::size_t category = dtc >> 14;
     const std::uint16_t code = dtc & 0x3fff;
 
-    char hex[8];
-    std::snprintf(hex, sizeof(hex), "%04x", code);
-    return std::string(1, prefixes[category]) + hex + " - Unknown error code";
+    return std::format("{}{:04x} - Unknown error code", prefixes[category], code);
 }
 
 } // namespace

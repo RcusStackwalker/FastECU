@@ -2,6 +2,7 @@
 #include "src/backend/ports/file_system.h"
 
 #include <cstdint>
+#include <format>
 #include <map>
 #include <optional>
 #include <set>
@@ -98,7 +99,7 @@ class InMemoryFileSystem : public IFileSystem
         {
             return entries;
         }
-        return fail(ErrorKind::InvalidConfig, "unknown directory: " + key);
+        return fail(ErrorKind::InvalidConfig, std::format("unknown directory: {}", key));
     }
 
     std::set<std::string> directories;
