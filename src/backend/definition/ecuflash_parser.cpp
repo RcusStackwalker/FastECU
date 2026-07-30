@@ -158,11 +158,6 @@ Result<UnresolvedAxisDefinition> parse_axis(
         }
         axis.size = *size;
     }
-    else
-    {
-        axis.size = default_size;
-    }
-
     axis.scaling_name = value_or_empty(table.attribute("scaling"));
     if (const pugi::xml_node scaling_node = table.child("scaling"))
     {
@@ -270,6 +265,20 @@ Result<UnresolvedCalibrationMap> parse_table(
     {
         return std::unexpected(status.error());
     }
+    if (map.x_axis == UnresolvedAxisDefinition{} && table.child("data"))
+    {
+        map.x_axis.type = "Static X Axis";
+        std::vector<std::string> values;
+        for (pugi::xml_node data : table.children("data"))
+        {
+            values.push_back(trim_copy(data.child_value()));
+        }
+        map.x_axis.static_data = std::move(values);
+        map.x_axis.size =
+            static_cast<std::uint32_t>(map.x_axis.static_data->size());
+        map.x_size = map.x_axis.size;
+        map.y_size = 1;
+    }
     return map;
 }
 
@@ -342,7 +351,7 @@ Result<std::vector<DefinitionIndexEntry>> parse_ecuflash_index(
         .definition_id = std::move(header->definition_id),
         .internal_id = child_text(header->rom_id, "internalidstring"),
         .internal_id_address = header->internal_id_address,
-        .internal_id_encoding = IdEncoding::Ascii,
+        .internal_id_encoding = IdEncoding::AsciiOrHex,
         .ecu_id = child_text(header->rom_id, "ecuid"),
         .source = std::string(source),
         .parents = parent_references(header->root),

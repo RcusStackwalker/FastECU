@@ -44,7 +44,7 @@ TEST(EcuFlashParserTest, IndexesIdentityAndIncludeWithoutResolvingIt)
     EXPECT_EQ(result->front().definition_id, "CHILD");
     EXPECT_EQ(result->front().internal_id_address, 0x1A0U);
     EXPECT_EQ(result->front().internal_id, "CHILD-ID");
-    EXPECT_EQ(result->front().internal_id_encoding, IdEncoding::Ascii);
+    EXPECT_EQ(result->front().internal_id_encoding, IdEncoding::AsciiOrHex);
     EXPECT_EQ(result->front().ecu_id, "ECU-1");
     EXPECT_EQ(result->front().source, "ecuflash.xml");
     EXPECT_EQ(result->front().parents, std::vector<std::string>{"BASE"});
@@ -69,8 +69,10 @@ TEST(EcuFlashParserTest, ParsesMetadataGlobalScalingsAndNestedAxes)
         <table id="fuel-primary" name="Fuel" address="200" type="3D"
                category="Fuel" subcategory="Primary" description="Main fuel map"
                level="2" userlevel="3" sizex="4" sizey="2" swapxy="true"
-               flipx="false" flipy="true" scaling="fuel-scale" storagetype="uint16" endian="big">
-          <table type="X Axis" name="Engine Speed" address="300" elements="4" scaling="rpm-scale">
+               flipx="false" flipy="true" scaling="fuel-scale" storagetype="uint16" endian="big"
+               startpos="12" interval="3" logparam="fuel">
+          <table type="X Axis" name="Engine Speed" address="300" elements="4"
+                 scaling="rpm-scale" startpos="21" interval="5" logparam="rpm">
             <scaling name="rpm-scale" units="rpm" toexpr="x" frexpr="x" format="%f"/>
           </table>
           <table type="Y Axis" name="Load" storageaddress="400" elements="2" scaling="load-scale">
@@ -118,12 +120,18 @@ TEST(EcuFlashParserTest, ParsesMetadataGlobalScalingsAndNestedAxes)
     EXPECT_EQ(map.flip_x, false);
     EXPECT_EQ(map.flip_y, true);
     EXPECT_EQ(map.scaling_name, "fuel-scale");
+    EXPECT_EQ(map.start_position, "12");
+    EXPECT_EQ(map.interval, "3");
+    EXPECT_EQ(map.log_parameter, "fuel");
     EXPECT_EQ(map.x_axis.type, "X Axis");
     EXPECT_EQ(map.x_axis.name, "Engine Speed");
     EXPECT_EQ(map.x_axis.address, 0x300U);
     EXPECT_EQ(map.x_axis.size, 4U);
     EXPECT_EQ(map.x_axis.units, "rpm");
     EXPECT_EQ(map.x_axis.scaling_name, "rpm-scale");
+    EXPECT_EQ(map.x_axis.start_position, "21");
+    EXPECT_EQ(map.x_axis.interval, "5");
+    EXPECT_EQ(map.x_axis.log_parameter, "rpm");
     EXPECT_EQ(map.y_axis.type, "Y Axis");
     EXPECT_EQ(map.y_axis.name, "Load");
     EXPECT_EQ(map.y_axis.address, 0x400U);
@@ -147,6 +155,23 @@ TEST(EcuFlashParserTest, ParsesMetadataGlobalScalingsAndNestedAxes)
               (std::vector<std::pair<std::string, std::string>>{{"disabled", "00"}, {"enabled", "01"}}));
     EXPECT_EQ(result->scalings.at(2).format, "0");
     EXPECT_EQ(result->scalings.at(3).format, "0.00");
+}
+
+TEST(EcuFlashParserTest, PreservesStaticAxisDataWithoutAnExplicitSize)
+{
+    auto result = parse_ecuflash_definition(bytes(R"xml(
+      <rom><romid><xmlid>STATIC</xmlid></romid>
+      <table name="Static Curve"><data>10</data><data>20</data></table>
+      </rom>)xml"),
+                                            "static.xml");
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->maps.size(), 1U);
+    EXPECT_EQ(result->maps.front().x_axis.type, "Static X Axis");
+    EXPECT_EQ(result->maps.front().x_axis.static_data,
+              (std::vector<std::string>{"10", "20"}));
+    EXPECT_EQ(result->maps.front().x_size, 2U);
+    EXPECT_EQ(result->maps.front().y_size, 1U);
 }
 
 TEST(EcuFlashParserTest, AddressWinsAndStrictFlagsParse)

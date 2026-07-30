@@ -139,11 +139,6 @@ Result<UnresolvedAxisDefinition> parse_axis(
         }
         axis.size = *size;
     }
-    else
-    {
-        axis.size = default_size;
-    }
-
     axis.scaling_name = value_or_empty(table.attribute("scaling"));
     const pugi::xml_node scaling_node = table.child("scaling");
     if (scaling_node)
@@ -307,7 +302,7 @@ Result<std::vector<DefinitionIndexEntry>> parse_romraider_index(
             .definition_id = std::move(*definition_id),
             .internal_id = child_text(rom_id, "internalidstring"),
             .internal_id_address = *internal_id_address,
-            .internal_id_encoding = IdEncoding::Ascii,
+            .internal_id_encoding = IdEncoding::AsciiOrHex,
             .ecu_id = child_text(rom_id, "ecuid"),
             .source = std::string{source},
             .parents = parent_references(rom),

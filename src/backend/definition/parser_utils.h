@@ -138,6 +138,10 @@ Status populate_axes(
             {
                 axis->type = "Static X Axis";
             }
+            if ((type == "Static Y Axis" || type == "Y Axis") && !axis->size)
+            {
+                axis->size = map.x_size.value_or(1U);
+            }
             map.x_axis = std::move(*axis);
         }
         else if (type == "Y Axis")
