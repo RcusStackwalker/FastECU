@@ -24,8 +24,8 @@ namespace
 
 bool is_blank(std::string_view value)
 {
-    return !std::ranges::any_of(value, [](auto ch)
-                                { return !std::isspace(ch); });
+    return !std::ranges::any_of(value, [](char ch)
+                                { return !std::isspace(static_cast<unsigned char>(ch)); });
 }
 
 Status validate_input(const DefinitionHeaderInput& input)
@@ -52,8 +52,36 @@ void set_unique_text(pugi::xml_node parent, const char *name, std::string_view v
     {
         child = parent.append_child(name);
     }
+    // node.text() only tracks the first pcdata child; clear every existing child first so a
+    // stale nested element or extra text node from the source XML can't survive alongside the
+    // freshly written value (xml_text::set() would otherwise append a sibling instead of
+    // replacing the element's content).
+    for (pugi::xml_node grandchild = child.first_child(); grandchild;)
+    {
+        pugi::xml_node next = grandchild.next_sibling();
+        child.remove_child(grandchild);
+        grandchild = next;
+    }
     child.text().set(value);
     for (pugi::xml_node duplicate = child.next_sibling(name); duplicate;)
+    {
+        pugi::xml_node next = duplicate.next_sibling(name);
+        parent.remove_child(duplicate);
+        duplicate = next;
+    }
+}
+
+void set_optional_hex(pugi::xml_node parent, const char *name, std::optional<std::uint64_t> value)
+{
+    if (value)
+    {
+        set_unique_text(parent, name, hex_text(*value));
+        return;
+    }
+    // No known address: remove rather than write a placeholder, so an unset optional never
+    // materializes as a misleading "0x0" address (or clobbers a parent's real address once this
+    // header is merged through inheritance).
+    for (pugi::xml_node duplicate = parent.child(name); duplicate;)
     {
         pugi::xml_node next = duplicate.next_sibling(name);
         parent.remove_child(duplicate);
@@ -73,7 +101,7 @@ Status update_header(pugi::xml_node root, const DefinitionHeaderInput& input)
         rom_id = root.prepend_child("romid");
     }
     set_unique_text(rom_id, "xmlid", input.xml_id);
-    set_unique_text(rom_id, "internalidaddress", hex_text(input.internal_id_address));
+    set_optional_hex(rom_id, "internalidaddress", input.internal_id_address);
     set_unique_text(rom_id, "internalidstring", input.internal_id);
     set_unique_text(rom_id, "ecuid", input.ecu_id);
     set_unique_text(rom_id, "make", input.metadata.make);

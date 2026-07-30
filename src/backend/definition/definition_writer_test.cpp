@@ -1,6 +1,8 @@
 #include "src/backend/definition/definition_writer.h"
 
 #include <cstdint>
+#include <format>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -78,6 +80,74 @@ TEST(DefinitionWriterTest, CreatesSemanticEcuFlashDefinitionWithDeterministicUtf
     EXPECT_EQ(xml.find('\t'), std::string::npos);
     ASSERT_FALSE(xml.empty());
     EXPECT_EQ(xml.back(), '\n');
+}
+
+TEST(DefinitionWriterTest, OmitsAddressElementWhenNotProvided)
+{
+    DefinitionHeaderInput input = complete_input();
+    input.internal_id_address = std::nullopt;
+
+    auto result = create_ecuflash_xml(input);
+
+    ASSERT_TRUE(result) << result.error().detail;
+    auto parsed = parse_ecuflash_definition(*result, "created.xml");
+    ASSERT_TRUE(parsed) << parsed.error().detail;
+    EXPECT_EQ(parsed->identity.internal_id_address, std::nullopt);
+
+    const std::string xml = text(*result);
+    EXPECT_EQ(xml.find("internalidaddress"), std::string::npos);
+}
+
+TEST(DefinitionWriterTest, ClearsExistingAddressOnRewriteWhenNotProvided)
+{
+    const auto source = bytes(R"xml(<?xml version="1.0" encoding="UTF-8"?>
+<rom>
+  <romid>
+    <xmlid>OLD_XML</xmlid>
+    <internalidaddress>0x1a0</internalidaddress>
+    <internalidstring>OLD_ID</internalidstring>
+    <ecuid>OLD_ECU</ecuid>
+  </romid>
+</rom>
+)xml");
+    DefinitionHeaderInput input = complete_input();
+    input.internal_id_address = std::nullopt;
+
+    auto result = rewrite_ecuflash_xml(source, input);
+
+    ASSERT_TRUE(result) << result.error().detail;
+    auto parsed = parse_ecuflash_definition(*result, "rewritten.xml");
+    ASSERT_TRUE(parsed) << parsed.error().detail;
+    EXPECT_EQ(parsed->identity.internal_id_address, std::nullopt);
+
+    const std::string xml = text(*result);
+    EXPECT_EQ(xml.find("internalidaddress"), std::string::npos);
+}
+
+TEST(DefinitionWriterTest, ReplacesStaleNestedContentInsteadOfAppendingToIt)
+{
+    const auto source = bytes(R"xml(<?xml version="1.0" encoding="UTF-8"?>
+<rom>
+  <romid>
+    <xmlid><stale attr="1">junk</stale></xmlid>
+    <internalidstring>OLD_ID</internalidstring>
+    <ecuid>OLD_ECU</ecuid>
+  </romid>
+</rom>
+)xml");
+    const DefinitionHeaderInput input = complete_input();
+
+    auto result = rewrite_ecuflash_xml(source, input);
+
+    ASSERT_TRUE(result) << result.error().detail;
+    auto parsed = parse_ecuflash_definition(*result, "rewritten.xml");
+    ASSERT_TRUE(parsed) << parsed.error().detail;
+    EXPECT_EQ(parsed->identity.xml_id, input.xml_id);
+
+    const std::string xml = text(*result);
+    EXPECT_EQ(xml.find("stale"), std::string::npos);
+    EXPECT_EQ(xml.find("junk"), std::string::npos);
+    EXPECT_NE(xml.find(std::format("<xmlid>{}</xmlid>", input.xml_id)), std::string::npos);
 }
 
 TEST(DefinitionWriterTest, RejectsEachEmptyRequiredIdentity)
