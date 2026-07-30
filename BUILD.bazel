@@ -56,6 +56,7 @@ genquery(
         "//src/backend/definition:parser_utils",
         "//src/backend/definition:romraider_parser",
         "//src/backend/definition:definition_resolver",
+        "//src/backend/definition:definition_writer",
     ]) + "))",
     scope = [
         "//src/backend/flash:flash_types",
@@ -75,6 +76,7 @@ genquery(
         "//src/backend/definition:parser_utils",
         "//src/backend/definition:romraider_parser",
         "//src/backend/definition:definition_resolver",
+        "//src/backend/definition:definition_writer",
     ],
 )
 
