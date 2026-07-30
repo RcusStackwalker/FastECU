@@ -13,45 +13,37 @@ fi
 
 rm -rf "$coverage_root/bin" "$coverage_root/profiles"
 rm -f "$coverage_root/coverage.profdata" "$coverage_root/coverage-summary.txt" "$coverage_root/llvm-cov.report"
-mkdir -p "$coverage_root/bin" "$coverage_root/profiles"
+mkdir -p "$coverage_root/profiles"
 
 coverage_ignore_regex='(^|/)(tests|hexedit)/|(^|/)(moc_|qrc_|ui_)|\.moc$|rep_.*_replica\.h|(^|/)Qt/[0-9][^/]*/|/Applications/|/opt/homebrew/|/Library/Developer/|bazel-out/|external/'
 
 cd "$repo_root"
 
-# rules_qt's macOS test binaries locate Qt frameworks via a bazel-internal
-# relative rpath that only resolves inside `bazel test`'s sandbox. To run them
-# standalone (required to collect llvm profiles) point the dynamic loader at the
-# Qt framework directory explicitly. Harmless/empty on non-Darwin.
-qt_framework_path=""
-if [ "$(uname -s)" = "Darwin" ]; then
-  qtcore=$(find "$(bazel info output_base 2>/dev/null)/external" -maxdepth 3 -name QtCore.framework -type d 2>/dev/null | head -n1)
-  [ -n "$qtcore" ] && qt_framework_path=$(dirname "$qtcore")
-fi
-
-# Build every macOS-compatible cc_test under //tests and the co-located
-# //src/**/*_test targets with coverage instrumentation. Incompatible
-# (Windows-only) targets are skipped by Bazel.
-bazel build --config=coverage -k //tests/... //src/... || true
+# Let Bazel run every compatible test so target-specific environments, runfiles,
+# framework paths, platform constraints, and failures retain their normal test
+# semantics. LLVM's %m token gives each instrumented binary a unique profile
+# name; %p prevents collisions between concurrent processes from that binary.
+bazel test \
+  --config=coverage \
+  --nocache_test_results \
+  --sandbox_writable_path="$coverage_root/profiles" \
+  --test_env="LLVM_PROFILE_FILE=$coverage_root/profiles/%m-%p.profraw" \
+  //tests/... //src/...
 
 # Enumerate the instrumented test executables from the configured graph,
-# including co-located src tests so they contribute to the coverage report.
+# including co-located src tests, for llvm-cov's object list.
 test_files=$(bazel cquery --config=coverage --output=files \
-  'kind("cc_test", //tests/... + //src/...)' 2>/dev/null || true)
+  'kind("cc_test", //tests/... + //src/...)')
 
 primary=""
 objects=""
 for f in $test_files; do
   [ -x "$f" ] || continue
   case "$f" in *.dll|*.so|*.dylib) continue ;; esac
-  name=$(basename "$f")
-  dest="$coverage_root/bin/$name"
-  cp "$f" "$dest"
-  DYLD_FRAMEWORK_PATH="$qt_framework_path" LLVM_PROFILE_FILE="$coverage_root/profiles/$name-%p.profraw" "$dest" || true
   if [ -z "$primary" ]; then
-    primary="$dest"
+    primary="$f"
   else
-    objects="$objects -object=$dest"
+    objects="$objects -object=$f"
   fi
 done
 

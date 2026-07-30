@@ -53,19 +53,12 @@ that predated the Bazel source reorganization and didn't actually block merges.
 
 Remaining gaps:
 
-- `scripts/coverage-local.sh` suppresses failures from the Bazel build, target
-  query, and every test binary with `|| true`. Coverage can therefore be
-  generated (and the Quality Gate can pass) even when a test or part of the
-  build failed.
 - `serial_backend_tests` still has an intermittent Windows-only crash under
   investigation. That flake should be isolated explicitly rather than used as
   a reason to ignore unrelated coverage-test failures.
 
 Actions:
 
-- Make compatible target discovery, compilation, and every selected test
-  failure fatal in `scripts/coverage-local.sh`. Handle genuinely incompatible
-  targets through Bazel compatibility or an explicit allowlist.
 - Resolve or explicitly quarantine the intermittent serial backend test with a
   separate visible CI result and an owner; do not silently discard its exit
   status.
