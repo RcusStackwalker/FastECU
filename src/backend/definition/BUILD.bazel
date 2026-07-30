@@ -11,12 +11,9 @@ cc_library(
 )
 
 cc_library(
-    name = "romraider_parser",
-    srcs = [
-        "parser_utils.h",
-        "romraider_parser.cpp",
-    ],
-    hdrs = ["romraider_parser.h"],
+    name = "parser_utils",
+    srcs = ["parser_utils.cpp"],
+    hdrs = ["parser_utils.h"],
     deps = [
         ":definition_model",
         "//src/backend/ports",
@@ -25,14 +22,24 @@ cc_library(
 )
 
 cc_library(
-    name = "ecuflash_parser",
-    srcs = [
-        "ecuflash_parser.cpp",
-        "parser_utils.h",
+    name = "romraider_parser",
+    srcs = ["romraider_parser.cpp"],
+    hdrs = ["romraider_parser.h"],
+    deps = [
+        ":definition_model",
+        ":parser_utils",
+        "//src/backend/ports",
+        "@pugixml",
     ],
+)
+
+cc_library(
+    name = "ecuflash_parser",
+    srcs = ["ecuflash_parser.cpp"],
     hdrs = ["ecuflash_parser.h"],
     deps = [
         ":definition_model",
+        ":parser_utils",
         "//src/backend/ports",
         "@pugixml",
     ],

@@ -63,6 +63,7 @@ PORTABLE_ROOTS = {
     ROOT / "src/backend/definition": {
         "definition_model",
         "ecuflash_parser",
+        "parser_utils",
         "romraider_parser",
     },
 }

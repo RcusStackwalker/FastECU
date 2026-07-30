@@ -53,6 +53,7 @@ genquery(
         "//src/backend/config:provisioning",
         "//src/backend/definition:definition_model",
         "//src/backend/definition:ecuflash_parser",
+        "//src/backend/definition:parser_utils",
         "//src/backend/definition:romraider_parser",
     ]) + "))",
     scope = [
@@ -70,6 +71,7 @@ genquery(
         "//src/backend/config:provisioning",
         "//src/backend/definition:definition_model",
         "//src/backend/definition:ecuflash_parser",
+        "//src/backend/definition:parser_utils",
         "//src/backend/definition:romraider_parser",
     ],
 )
