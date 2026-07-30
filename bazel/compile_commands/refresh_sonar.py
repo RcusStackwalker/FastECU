@@ -8,9 +8,9 @@ Sonar's C/C++ analyzer can't introspect that wrapper -- it logs "Ignore unknown
 compiler" and skips every compilation unit ("0 files analyzed") -- but the
 remaining arguments are already a valid clang invocation (argv[1] is -xc++).
 
-argv[1] is the runfiles path of the :refresh binary (passed by the BUILD rule
-via $(rlocationpath)); any further args are forwarded to refresh, which passes
-them through to the bazel commands it runs for extraction.
+The :refresh runfile is resolved using its fixed main-repository path. This
+wrapper deliberately accepts no command-line arguments because :refresh passes
+arguments through to Bazel commands.
 """
 
 import json
@@ -21,18 +21,23 @@ import sys
 
 from python.runfiles import runfiles
 
+REFRESH_RUNFILE = "_main/bazel/compile_commands/refresh"
+
 
 def main() -> None:
+    if len(sys.argv) != 1:
+        sys.exit("refresh_sonar does not accept arguments")
+
     workspace = os.environ.get("BUILD_WORKSPACE_DIRECTORY")
     if not workspace:
         sys.exit("refresh_sonar must be run via `bazel run`")
 
     r = runfiles.Create()
-    refresh = r.Rlocation(sys.argv[1])
-    if not refresh or not os.path.exists(refresh):
-        sys.exit(f"could not locate :refresh binary at {sys.argv[1]!r}")
+    refresh = r.Rlocation(REFRESH_RUNFILE)
+    if not refresh or not os.path.isabs(refresh) or not os.path.isfile(refresh):
+        sys.exit("could not locate :refresh binary in this target's runfiles")
 
-    subprocess.run([refresh, *sys.argv[2:]], check=True)
+    subprocess.run([refresh], check=True)
 
     db_path = pathlib.Path(workspace) / "compile_commands.json"
     db = json.loads(db_path.read_text())

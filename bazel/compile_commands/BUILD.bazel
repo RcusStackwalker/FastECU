@@ -28,7 +28,6 @@ refresh_compile_commands(
 py_binary(
     name = "refresh_sonar",
     srcs = ["refresh_sonar.py"],
-    args = ["$(rlocationpath :refresh)"],
     data = [":refresh"],
     main = "refresh_sonar.py",
     deps = ["@rules_python//python/runfiles"],
