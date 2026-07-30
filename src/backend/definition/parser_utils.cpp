@@ -340,6 +340,27 @@ void populate_common_axis_attributes(
     axis.name = value_or_empty(table.attribute("name"));
     axis.storage_type = value_or_empty(table.attribute("storagetype"));
     axis.endian = value_or_empty(table.attribute("endian"));
+    if (const auto start_position = table.attribute("startpos"))
+    {
+        axis.start_position = value_or_empty(start_position);
+    }
+    if (const auto interval = table.attribute("interval"))
+    {
+        axis.interval = value_or_empty(interval);
+    }
+    if (const auto log_parameter = table.attribute("logparam"))
+    {
+        axis.log_parameter = value_or_empty(log_parameter);
+    }
+    if (table.child("data"))
+    {
+        std::vector<std::string> values;
+        for (pugi::xml_node data : table.children("data"))
+        {
+            values.push_back(trim_copy(data.child_value()));
+        }
+        axis.static_data = std::move(values);
+    }
 }
 
 void apply_scaling_to_axis(
@@ -385,6 +406,18 @@ void populate_common_map_attributes(
     map.user_level = value_or_empty(table.attribute("userlevel"));
     map.storage_type = value_or_empty(table.attribute("storagetype"));
     map.endian = value_or_empty(table.attribute("endian"));
+    if (const auto start_position = table.attribute("startpos"))
+    {
+        map.start_position = value_or_empty(start_position);
+    }
+    if (const auto interval = table.attribute("interval"))
+    {
+        map.interval = value_or_empty(interval);
+    }
+    if (const auto log_parameter = table.attribute("logparam"))
+    {
+        map.log_parameter = value_or_empty(log_parameter);
+    }
 }
 
 Status populate_optional_dimension(
