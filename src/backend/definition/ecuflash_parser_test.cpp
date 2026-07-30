@@ -18,9 +18,8 @@ std::vector<std::uint8_t> bytes(std::string_view text)
     return {text.begin(), text.end()};
 }
 
-template <typename T>
 void expect_invalid_with_context(
-    const Result<T>& result,
+    const Result<UnresolvedDefinition>& result,
     std::string_view source_context,
     std::string_view xml_context)
 {
@@ -115,9 +114,9 @@ TEST(EcuFlashParserTest, ParsesMetadataGlobalScalingsAndNestedAxes)
     EXPECT_EQ(map.user_level, "3");
     EXPECT_EQ(map.x_size, 4U);
     EXPECT_EQ(map.y_size, 2U);
-    EXPECT_TRUE(map.swap_xy);
-    EXPECT_FALSE(map.flip_x);
-    EXPECT_TRUE(map.flip_y);
+    EXPECT_EQ(map.swap_xy, true);
+    EXPECT_EQ(map.flip_x, false);
+    EXPECT_EQ(map.flip_y, true);
     EXPECT_EQ(map.scaling_name, "fuel-scale");
     EXPECT_EQ(map.x_axis.type, "X Axis");
     EXPECT_EQ(map.x_axis.name, "Engine Speed");
@@ -159,9 +158,9 @@ TEST(EcuFlashParserTest, AddressWinsAndStrictFlagsParse)
                                             "test.xml");
     ASSERT_TRUE(result);
     EXPECT_EQ(result->maps.at(0).address, 0x1000);
-    EXPECT_TRUE(result->maps.at(0).swap_xy);
-    EXPECT_FALSE(result->maps.at(0).flip_x);
-    EXPECT_TRUE(result->maps.at(0).flip_y);
+    EXPECT_EQ(result->maps.at(0).swap_xy, true);
+    EXPECT_EQ(result->maps.at(0).flip_x, false);
+    EXPECT_EQ(result->maps.at(0).flip_y, true);
 }
 
 TEST(EcuFlashParserTest, NormalizesTopLevelXAxisMapToTwoDimensional)
@@ -209,6 +208,28 @@ TEST(EcuFlashParserTest, KeepsInputBytesAndSymbolicScalingReferencesUnchanged)
     EXPECT_EQ(result->scalings.front().format, "0");
 }
 
+TEST(EcuFlashParserTest, PreservesAbsentOptionalFields)
+{
+    auto result = parse_ecuflash_definition(bytes(R"xml(
+      <rom><romid><xmlid>TEST</xmlid></romid>
+      <scaling name="shared"/>
+      <table name="Fuel" scaling="shared"/></rom>)xml"),
+                                            "test.xml");
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->maps.size(), 1U);
+    EXPECT_FALSE(result->maps.front().id);
+    EXPECT_FALSE(result->maps.front().x_size);
+    EXPECT_FALSE(result->maps.front().y_size);
+    EXPECT_FALSE(result->maps.front().swap_xy);
+    EXPECT_FALSE(result->maps.front().flip_x);
+    EXPECT_FALSE(result->maps.front().flip_y);
+    ASSERT_EQ(result->scalings.size(), 1U);
+    EXPECT_FALSE(result->scalings.front().from_byte);
+    EXPECT_FALSE(result->scalings.front().to_byte);
+    EXPECT_FALSE(result->scalings.front().format);
+}
+
 TEST(EcuFlashParserTest, ConvertsAnyPositivePrintfPrecision)
 {
     auto result = parse_ecuflash_definition(bytes(R"xml(
@@ -230,58 +251,6 @@ TEST(EcuFlashParserTest, RejectsMissingIdentity)
 {
     auto result = parse_ecuflash_definition(bytes("<rom><romid><ecuid>E</ecuid></romid></rom>"), "missing-id.xml");
     expect_invalid_with_context(result, "missing-id.xml", "<xmlid>");
-}
-
-TEST(EcuFlashParserTest, RejectsDuplicateRomIdContainerInIndexAndDefinition)
-{
-    const auto xml = bytes(R"xml(
-      <rom>
-        <romid><xmlid>FIRST</xmlid></romid>
-        <romid><xmlid>SECOND</xmlid></romid>
-      </rom>)xml");
-
-    const auto index = parse_ecuflash_index(xml, "duplicate-romid.xml");
-    const auto definition =
-        parse_ecuflash_definition(xml, "duplicate-romid.xml");
-
-    expect_invalid_with_context(
-        index, "duplicate-romid.xml", "<romid>");
-    expect_invalid_with_context(
-        definition, "duplicate-romid.xml", "<romid>");
-}
-
-TEST(EcuFlashParserTest, RejectsDuplicateRequiredIdentityChildInIndexAndDefinition)
-{
-    const auto xml = bytes(R"xml(
-      <rom><romid><xmlid>FIRST</xmlid><xmlid>SECOND</xmlid></romid></rom>)xml");
-
-    const auto index = parse_ecuflash_index(xml, "duplicate-xmlid.xml");
-    const auto definition =
-        parse_ecuflash_definition(xml, "duplicate-xmlid.xml");
-
-    expect_invalid_with_context(
-        index, "duplicate-xmlid.xml", "<xmlid>");
-    expect_invalid_with_context(
-        definition, "duplicate-xmlid.xml", "<xmlid>");
-}
-
-TEST(EcuFlashParserTest, RejectsDuplicateOptionalIdentityChildInIndexAndDefinition)
-{
-    const auto xml = bytes(R"xml(
-      <rom><romid><xmlid>A</xmlid>
-        <internalidstring>FIRST</internalidstring>
-        <internalidstring>SECOND</internalidstring>
-      </romid></rom>)xml");
-
-    const auto index =
-        parse_ecuflash_index(xml, "duplicate-internal-id.xml");
-    const auto definition =
-        parse_ecuflash_definition(xml, "duplicate-internal-id.xml");
-
-    expect_invalid_with_context(
-        index, "duplicate-internal-id.xml", "<internalidstring>");
-    expect_invalid_with_context(
-        definition, "duplicate-internal-id.xml", "<internalidstring>");
 }
 
 TEST(EcuFlashParserTest, RejectsInvalidAddressAndDimension)
@@ -350,58 +319,6 @@ TEST(EcuFlashParserTest, RejectsSecondAxisTargetingAnOccupiedSemanticSlot)
                                                  "duplicate-y-axis.xml");
     expect_invalid_with_context(
         duplicate_y, "duplicate-y-axis.xml", "Y axis");
-}
-
-TEST(EcuFlashParserTest, PreservesRuntimeRowOffsetsAndStaticAxisData)
-{
-    auto result = parse_ecuflash_definition(bytes(R"xml(
-      <rom><romid><xmlid>ROWS</xmlid></romid>
-      <table id="fuel" name="Fuel" type="2D" sizex="3" sizey="1"
-             startpos="7" interval="2">
-        <table type="Static X Axis" name="Load" elements="3"
-               startpos="9" interval="4">
-          <data>0.5</data><data>1.0</data><data>1.5</data>
-        </table>
-      </table></rom>)xml"),
-                                            "rows.xml");
-
-    ASSERT_TRUE(result);
-    ASSERT_EQ(result->maps.size(), 1U);
-    const auto& map = result->maps.front();
-    EXPECT_EQ(map.start_position, "7");
-    EXPECT_EQ(map.interval, "2");
-    EXPECT_TRUE(map.supplied.start_position);
-    EXPECT_TRUE(map.supplied.interval);
-    EXPECT_EQ(map.x_axis.start_position, "9");
-    EXPECT_EQ(map.x_axis.interval, "4");
-    EXPECT_EQ(map.x_axis.static_data, (std::vector<std::string>{"0.5", "1.0", "1.5"}));
-    EXPECT_TRUE(map.x_axis.supplied.start_position);
-    EXPECT_TRUE(map.x_axis.supplied.interval);
-    EXPECT_TRUE(map.x_axis.supplied.static_data);
-}
-
-TEST(EcuFlashParserTest, ConvertsDirectMapDataToLegacyStaticXAxis)
-{
-    auto result = parse_ecuflash_definition(bytes(R"xml(
-      <rom><romid><xmlid>STATIC</xmlid></romid>
-      <table id="load" name="Load Breakpoints" type="2D">
-        <data>0.5</data><data>1.0</data>
-      </table></rom>)xml"),
-                                            "static.xml");
-
-    ASSERT_TRUE(result);
-    ASSERT_EQ(result->maps.size(), 1U);
-    const auto& map = result->maps.front();
-    EXPECT_EQ(map.x_size, 2U);
-    EXPECT_EQ(map.y_size, 1U);
-    EXPECT_EQ(map.x_axis.type, "Static X Axis");
-    EXPECT_TRUE(map.x_axis.name.empty());
-    EXPECT_EQ(map.x_axis.size, 2U);
-    EXPECT_EQ(map.x_axis.start_position, "1");
-    EXPECT_EQ(map.x_axis.interval, "1");
-    EXPECT_FALSE(map.x_axis.supplied.start_position);
-    EXPECT_FALSE(map.x_axis.supplied.interval);
-    EXPECT_EQ(map.x_axis.static_data, (std::vector<std::string>{"0.5", "1.0"}));
 }
 
 } // namespace

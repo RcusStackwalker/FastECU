@@ -38,22 +38,22 @@ UnresolvedDefinition doc(
     };
 }
 
-CalibrationMap map(std::string id, std::string name = {})
+UnresolvedCalibrationMap map(std::string id, std::string name = {})
 {
     if (name.empty())
     {
         name = id;
     }
-    return CalibrationMap{
-        .id = std::move(id),
+    return UnresolvedCalibrationMap{
+        .id = id.empty() ? std::nullopt : std::optional{std::move(id)},
         .name = std::move(name),
         .type = "2D",
     };
 }
 
-Scaling scaling(std::string name, std::string storage_type = "uint16")
+UnresolvedScaling scaling(std::string name, std::string storage_type = "uint16")
 {
-    return Scaling{
+    return UnresolvedScaling{
         .name = std::move(name),
         .from_byte = "x*0.5",
         .to_byte = "x*2",
@@ -109,7 +109,7 @@ TEST(DefinitionResolverTest, ResolvesSingleLevelBaseBeforeChildOverrides)
     DefinitionSet definitions{{"BASE", base}};
     auto result = resolve_definition(child, definitions.loader());
 
-    ASSERT_TRUE(result);
+    ASSERT_TRUE(result) << result.error().detail;
     EXPECT_EQ(result->identity.xml_id, "CHILD");
     EXPECT_EQ(result->identity.internal_id, "BASE-ID");
     EXPECT_EQ(result->metadata.make, "Subaru");
@@ -151,30 +151,14 @@ TEST(DefinitionResolverTest, InheritsRuntimeRowsAndAllowsExplicitDefaultOverride
     base_map.start_position = "7";
     base_map.interval = "2";
     base_map.log_parameter = "P_BASE";
-    base_map.supplied = CalibrationMapPresence{
-        .tracked = true,
-        .stable_id = true,
-        .start_position = true,
-        .interval = true,
-        .log_parameter = true,
-    };
-    base_map.x_axis = AxisDefinition{
+    base_map.x_axis = UnresolvedAxisDefinition{
         .type = "Static X Axis",
         .name = "Load",
         .size = 1,
         .start_position = "9",
         .interval = "4",
         .log_parameter = "P_AXIS",
-        .static_data = {"1.0"},
-        .supplied =
-            AxisDefinitionPresence{
-                .tracked = true,
-                .size = true,
-                .start_position = true,
-                .interval = true,
-                .log_parameter = true,
-                .static_data = true,
-            },
+        .static_data = std::vector<std::string>{"1.0"},
     };
     base.maps.push_back(base_map);
 
@@ -182,12 +166,6 @@ TEST(DefinitionResolverTest, InheritsRuntimeRowsAndAllowsExplicitDefaultOverride
     auto child_map = map("fuel", "Fuel");
     child_map.start_position = "1";
     child_map.interval = "1";
-    child_map.supplied = CalibrationMapPresence{
-        .tracked = true,
-        .stable_id = true,
-        .start_position = true,
-        .interval = true,
-    };
     child.maps.push_back(child_map);
 
     DefinitionSet definitions{{"BASE", base}};
@@ -209,11 +187,11 @@ TEST(DefinitionResolverTest, RejectsStaticAxisDataThatDoesNotMatchAxisSize)
     auto root = doc("ROOT");
     auto fuel = map("fuel", "Fuel");
     fuel.x_size = 2;
-    fuel.x_axis = AxisDefinition{
+    fuel.x_axis = UnresolvedAxisDefinition{
         .type = "Static X Axis",
         .name = "Load",
         .size = 2,
-        .static_data = {"1.0"},
+        .static_data = std::vector<std::string>{"1.0"},
     };
     root.maps.push_back(fuel);
     const auto original = root;
@@ -233,7 +211,7 @@ TEST(DefinitionResolverTest, RejectsStaticXAxisWithoutData)
     auto root = doc("ROOT");
     auto fuel = map("fuel", "Fuel");
     fuel.x_size = 2;
-    fuel.x_axis = AxisDefinition{
+    fuel.x_axis = UnresolvedAxisDefinition{
         .type = "Static X Axis",
         .name = "Load",
         .size = 2,
@@ -256,11 +234,11 @@ TEST(DefinitionResolverTest, RejectsStaticDataOutsideXAxisPosition)
     auto root = doc("ROOT");
     auto fuel = map("fuel", "Fuel");
     fuel.y_size = 2;
-    fuel.y_axis = AxisDefinition{
+    fuel.y_axis = UnresolvedAxisDefinition{
         .type = "Static X Axis",
         .name = "Load",
         .size = 2,
-        .static_data = {"1.0", "2.0"},
+        .static_data = std::vector<std::string>{"1.0", "2.0"},
     };
     root.maps.push_back(fuel);
     const auto original = root;
@@ -386,7 +364,7 @@ TEST(DefinitionResolverTest, MergesMapsByStableIdAndAppendsChildMaps)
     fuel.address = 0x100;
     fuel.storage_type = "uint16";
     fuel.x_size = 4;
-    fuel.x_axis = AxisDefinition{
+    fuel.x_axis = UnresolvedAxisDefinition{
         .type = "X Axis",
         .name = "Engine Speed",
         .units = "rpm",
@@ -536,7 +514,7 @@ TEST(DefinitionResolverTest, RomRaiderOmittedFieldsDoNotResetInheritedValues)
 
     auto result = resolve_definition(*child, definitions.loader());
 
-    ASSERT_TRUE(result);
+    ASSERT_TRUE(result) << result.error().detail;
     ASSERT_EQ(result->maps.size(), 1U);
     const auto& fuel = result->maps.front();
     EXPECT_EQ(fuel.description, "Child description");
@@ -720,7 +698,7 @@ TEST(DefinitionResolverTest, ResolvesMapAndAxisScalingReferences)
     auto fuel = map("fuel", "Fuel");
     fuel.scaling_name = "value";
     fuel.x_size = 4;
-    fuel.x_axis = AxisDefinition{
+    fuel.x_axis = UnresolvedAxisDefinition{
         .type = "X Axis",
         .name = "Engine Speed",
         .size = 4,
@@ -741,6 +719,29 @@ TEST(DefinitionResolverTest, ResolvesMapAndAxisScalingReferences)
     EXPECT_EQ(result->maps[0].x_axis.endian, "big");
     EXPECT_EQ(result->maps[0].x_axis.from_byte, "x*0.5");
     EXPECT_EQ(result->maps[0].x_axis.to_byte, "x*2");
+}
+
+TEST(DefinitionResolverTest, ExplicitIdentityScalingOverridesAxisExpression)
+{
+    auto root = doc("ROOT");
+    auto axis_scaling = scaling("axis", "uint8");
+    axis_scaling.from_byte = "x";
+    root.scalings.push_back(axis_scaling);
+
+    auto fuel = map("fuel", "Fuel");
+    fuel.x_axis = UnresolvedAxisDefinition{
+        .type = "X Axis",
+        .name = "Engine Speed",
+        .from_byte = "x+1",
+        .scaling_name = "axis",
+    };
+    root.maps.push_back(fuel);
+
+    DefinitionSet definitions{};
+    auto result = resolve_definition(root, definitions.loader());
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->maps[0].x_axis.from_byte, "x");
 }
 
 TEST(DefinitionResolverTest, RejectsConflictingDuplicateScalingDefinitions)

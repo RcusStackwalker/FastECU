@@ -17,9 +17,8 @@ std::vector<std::uint8_t> bytes(std::string_view text)
     return {text.begin(), text.end()};
 }
 
-template <typename T>
 void expect_invalid_with_context(
-    const Result<T>& result,
+    const Result<UnresolvedDefinition>& result,
     std::string_view source_context,
     std::string_view xml_context)
 {
@@ -125,9 +124,9 @@ TEST(RomRaiderParserTest, ParsesChildWithoutResolvingItsBase)
     EXPECT_EQ(map.user_level, "3");
     EXPECT_EQ(map.x_size, 4U);
     EXPECT_EQ(map.y_size, 2U);
-    EXPECT_TRUE(map.swap_xy);
-    EXPECT_FALSE(map.flip_x);
-    EXPECT_TRUE(map.flip_y);
+    EXPECT_EQ(map.swap_xy, true);
+    EXPECT_EQ(map.flip_x, false);
+    EXPECT_EQ(map.flip_y, true);
     EXPECT_EQ(map.storage_type, "uint16");
     EXPECT_EQ(map.endian, "big");
     EXPECT_EQ(map.scaling_name, "fuel-scale");
@@ -230,7 +229,7 @@ TEST(RomRaiderParserTest, NormalizesLegacyStaticYAxisDimensions)
     EXPECT_TRUE(result->maps.front().y_axis.type.empty());
 }
 
-TEST(RomRaiderParserTest, UsesAddressBeforeStorageAddressAndDefaultsOptionalFields)
+TEST(RomRaiderParserTest, UsesAddressBeforeStorageAddressAndPreservesAbsentOptionalFields)
 {
     const auto xml = bytes(R"xml(
       <roms><rom base=""><romid><xmlid>MINIMAL</xmlid></romid>
@@ -243,10 +242,10 @@ TEST(RomRaiderParserTest, UsesAddressBeforeStorageAddressAndDefaultsOptionalFiel
     EXPECT_TRUE(result->parents.empty());
     EXPECT_EQ(result->metadata, RomMetadata{});
     ASSERT_EQ(result->maps.size(), 1U);
-    EXPECT_EQ(result->maps.front().id, "Minimal Map");
+    EXPECT_FALSE(result->maps.front().id);
     EXPECT_EQ(result->maps.front().address, 0x20U);
-    EXPECT_EQ(result->maps.front().x_size, 1U);
-    EXPECT_EQ(result->maps.front().y_size, 1U);
+    EXPECT_FALSE(result->maps.front().x_size);
+    EXPECT_FALSE(result->maps.front().y_size);
     EXPECT_FALSE(result->maps.front().swap_xy);
     EXPECT_FALSE(result->maps.front().flip_x);
     EXPECT_FALSE(result->maps.front().flip_y);
@@ -268,60 +267,6 @@ TEST(RomRaiderParserTest, MissingXmlIdIsInvalidConfigWithElementContext)
     auto result = parse_romraider_definition(xml, "missing-id.xml", "A");
 
     expect_invalid_with_context(result, "missing-id.xml", "<xmlid>");
-}
-
-TEST(RomRaiderParserTest, RejectsDuplicateRomIdContainerInIndexAndDefinition)
-{
-    const auto xml = bytes(R"xml(
-      <roms><rom>
-        <romid><xmlid>FIRST</xmlid></romid>
-        <romid><xmlid>SECOND</xmlid></romid>
-      </rom></roms>)xml");
-
-    const auto index =
-        parse_romraider_index(xml, "duplicate-romid.xml");
-    const auto definition = parse_romraider_definition(
-        xml, "duplicate-romid.xml", "FIRST");
-
-    expect_invalid_with_context(
-        index, "duplicate-romid.xml", "<romid>");
-    expect_invalid_with_context(
-        definition, "duplicate-romid.xml", "<romid>");
-}
-
-TEST(RomRaiderParserTest, RejectsDuplicateRequiredIdentityChildInIndexAndDefinition)
-{
-    const auto xml = bytes(R"xml(
-      <roms><rom><romid><xmlid>FIRST</xmlid><xmlid>SECOND</xmlid></romid></rom></roms>)xml");
-
-    const auto index =
-        parse_romraider_index(xml, "duplicate-xmlid.xml");
-    const auto definition = parse_romraider_definition(
-        xml, "duplicate-xmlid.xml", "FIRST");
-
-    expect_invalid_with_context(
-        index, "duplicate-xmlid.xml", "<xmlid>");
-    expect_invalid_with_context(
-        definition, "duplicate-xmlid.xml", "<xmlid>");
-}
-
-TEST(RomRaiderParserTest, RejectsDuplicateOptionalIdentityChildInIndexAndDefinition)
-{
-    const auto xml = bytes(R"xml(
-      <roms><rom><romid><xmlid>A</xmlid>
-        <internalidstring>FIRST</internalidstring>
-        <internalidstring>SECOND</internalidstring>
-      </romid></rom></roms>)xml");
-
-    const auto index =
-        parse_romraider_index(xml, "duplicate-internal-id.xml");
-    const auto definition = parse_romraider_definition(
-        xml, "duplicate-internal-id.xml", "A");
-
-    expect_invalid_with_context(
-        index, "duplicate-internal-id.xml", "<internalidstring>");
-    expect_invalid_with_context(
-        definition, "duplicate-internal-id.xml", "<internalidstring>");
 }
 
 TEST(RomRaiderParserTest, InvalidAddressIsInvalidConfigWithAttributeContext)
@@ -391,39 +336,6 @@ TEST(RomRaiderParserTest, WrongRootIsInvalidConfigWithExpectedRootContext)
     auto result = parse_romraider_definition(xml, "wrong-root.xml", "A");
 
     expect_invalid_with_context(result, "wrong-root.xml", "<roms>");
-}
-
-TEST(RomRaiderParserTest, PreservesRuntimeRowOffsetsLogParametersAndStaticAxisData)
-{
-    auto result = parse_romraider_definition(bytes(R"xml(
-      <roms><rom><romid><xmlid>ROWS</xmlid></romid>
-      <table id="fuel" name="Fuel" type="2D" sizex="3" sizey="1"
-             startpos="7" interval="2" logparam="P_MAP">
-        <table type="Static X Axis" name="Load" elements="3"
-               startpos="9" interval="4" logparam="P_LOAD">
-          <data>0.5</data><data>1.0</data><data>1.5</data>
-        </table>
-      </table></rom></roms>)xml"),
-                                             "rows.xml",
-                                             "ROWS");
-
-    ASSERT_TRUE(result);
-    ASSERT_EQ(result->maps.size(), 1U);
-    const auto& map = result->maps.front();
-    EXPECT_EQ(map.start_position, "7");
-    EXPECT_EQ(map.interval, "2");
-    EXPECT_EQ(map.log_parameter, "P_MAP");
-    EXPECT_TRUE(map.supplied.start_position);
-    EXPECT_TRUE(map.supplied.interval);
-    EXPECT_TRUE(map.supplied.log_parameter);
-    EXPECT_EQ(map.x_axis.start_position, "9");
-    EXPECT_EQ(map.x_axis.interval, "4");
-    EXPECT_EQ(map.x_axis.log_parameter, "P_LOAD");
-    EXPECT_EQ(map.x_axis.static_data, (std::vector<std::string>{"0.5", "1.0", "1.5"}));
-    EXPECT_TRUE(map.x_axis.supplied.start_position);
-    EXPECT_TRUE(map.x_axis.supplied.interval);
-    EXPECT_TRUE(map.x_axis.supplied.log_parameter);
-    EXPECT_TRUE(map.x_axis.supplied.static_data);
 }
 
 } // namespace

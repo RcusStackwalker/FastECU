@@ -24,86 +24,93 @@ namespace fastecu::definition
 namespace
 {
 
-void append_selections(pugi::xml_node parent, Scaling& scaling)
+void append_selections(pugi::xml_node parent, UnresolvedScaling& scaling)
 {
     for (pugi::xml_node state : parent.children("state"))
     {
         scaling.selections.emplace_back(
-            selection_name(attribute_or_empty(state, "name")),
-            attribute_or_empty(state, "data"));
+            selection_name(value_or_empty(state.attribute("name"))),
+            value_or_empty(state.attribute("data")));
     }
-    append_data_selections(parent, scaling);
+    for (pugi::xml_node data : parent.children("data"))
+    {
+        std::string value = value_or_empty(data.attribute("value"));
+        if (value.empty())
+        {
+            value = value_or_empty(data.attribute("data"));
+        }
+        scaling.selections.emplace_back(
+            selection_name(value_or_empty(data.attribute("name"))),
+            std::move(value));
+    }
 }
 
-Scaling parse_scaling(
+UnresolvedScaling parse_scaling(
     pugi::xml_node scaling_node,
     std::string fallback_name,
     pugi::xml_node owner)
 {
-    Scaling scaling;
-    scaling.supplied.tracked = true;
-    scaling.name = attribute_or_empty(scaling_node, "name");
+    UnresolvedScaling scaling;
+    scaling.name = value_or_empty(scaling_node.attribute("name"));
     if (scaling.name.empty())
     {
         scaling.name = std::move(fallback_name);
     }
-    scaling.units = attribute_or_empty(scaling_node, "units");
-    scaling.from_byte = attribute_or_empty(scaling_node, "expression");
-    scaling.supplied.from_byte = static_cast<bool>(scaling_node.attribute("expression"));
-    if (scaling.from_byte.empty())
+    scaling.units = value_or_empty(scaling_node.attribute("units"));
+    if (const auto expression = scaling_node.attribute("expression"))
     {
-        scaling.from_byte = "x";
+        scaling.from_byte = value_or_empty(expression);
     }
-    scaling.to_byte = attribute_or_empty(scaling_node, "to_byte");
-    scaling.supplied.to_byte = static_cast<bool>(scaling_node.attribute("to_byte"));
-    if (scaling.to_byte.empty())
+    if (const auto to_byte = scaling_node.attribute("to_byte"))
     {
-        scaling.to_byte = "x";
+        scaling.to_byte = value_or_empty(to_byte);
     }
-    scaling.format = attribute_or_empty(scaling_node, "format");
-    scaling.supplied.format = static_cast<bool>(scaling_node.attribute("format"));
-    scaling.minimum = attribute_or_empty(scaling_node, "minimum");
+    if (const auto format = scaling_node.attribute("format"))
+    {
+        scaling.format = value_or_empty(format);
+    }
+    scaling.minimum = value_or_empty(scaling_node.attribute("minimum"));
     if (scaling.minimum.empty())
     {
-        scaling.minimum = attribute_or_empty(scaling_node, "min");
+        scaling.minimum = value_or_empty(scaling_node.attribute("min"));
     }
     if (scaling.minimum.empty())
     {
-        scaling.minimum = attribute_or_empty(owner, "minvalue");
+        scaling.minimum = value_or_empty(owner.attribute("minvalue"));
     }
-    scaling.maximum = attribute_or_empty(scaling_node, "maximum");
+    scaling.maximum = value_or_empty(scaling_node.attribute("maximum"));
     if (scaling.maximum.empty())
     {
-        scaling.maximum = attribute_or_empty(scaling_node, "max");
+        scaling.maximum = value_or_empty(scaling_node.attribute("max"));
     }
     if (scaling.maximum.empty())
     {
-        scaling.maximum = attribute_or_empty(owner, "maxvalue");
+        scaling.maximum = value_or_empty(owner.attribute("maxvalue"));
     }
-    scaling.coarse_increment = attribute_or_empty(scaling_node, "coarseincrement");
-    scaling.fine_increment = attribute_or_empty(scaling_node, "fineincrement");
-    scaling.storage_type = attribute_or_empty(scaling_node, "storagetype");
+    scaling.coarse_increment = value_or_empty(scaling_node.attribute("coarseincrement"));
+    scaling.fine_increment = value_or_empty(scaling_node.attribute("fineincrement"));
+    scaling.storage_type = value_or_empty(scaling_node.attribute("storagetype"));
     if (scaling.storage_type.empty())
     {
-        scaling.storage_type = attribute_or_empty(owner, "storagetype");
+        scaling.storage_type = value_or_empty(owner.attribute("storagetype"));
     }
-    scaling.endian = attribute_or_empty(scaling_node, "endian");
+    scaling.endian = value_or_empty(scaling_node.attribute("endian"));
     if (scaling.endian.empty())
     {
-        scaling.endian = attribute_or_empty(owner, "endian");
+        scaling.endian = value_or_empty(owner.attribute("endian"));
     }
     append_selections(scaling_node, scaling);
     return scaling;
 }
 
-Result<AxisDefinition> parse_axis(
+Result<UnresolvedAxisDefinition> parse_axis(
     pugi::xml_node table,
     std::uint32_t default_size,
     std::string_view source,
     std::string_view definition_id,
-    std::vector<Scaling>& scalings)
+    std::vector<UnresolvedScaling>& scalings)
 {
-    AxisDefinition axis;
+    UnresolvedAxisDefinition axis;
     populate_common_axis_attributes(table, axis);
     if (axis.name.empty())
     {
@@ -112,11 +119,6 @@ Result<AxisDefinition> parse_axis(
             "element <table> attribute 'name'",
             "missing or empty axis name",
             definition_id);
-    }
-    if (table.attribute("logparam"))
-    {
-        axis.log_parameter = attribute_or_empty(table, "logparam");
-        axis.supplied.log_parameter = true;
     }
     auto address = optional_address(table, source, definition_id);
     if (!address)
@@ -136,47 +138,28 @@ Result<AxisDefinition> parse_axis(
             return std::unexpected(size.error());
         }
         axis.size = *size;
-        axis.supplied.size = true;
     }
-    else
+    axis.scaling_name = value_or_empty(table.attribute("scaling"));
+    const pugi::xml_node scaling_node = table.child("scaling");
+    if (scaling_node)
     {
-        axis.size = default_size;
-    }
-
-    axis.scaling_name = attribute_or_empty(table, "scaling");
-    if (const pugi::xml_node scaling_node = table.child("scaling"))
-    {
-        Scaling scaling = parse_scaling(
+        UnresolvedScaling scaling = parse_scaling(
             scaling_node,
             axis.scaling_name.empty() ? axis.name : axis.scaling_name,
             table);
-        axis.scaling_name = scaling.name;
-        axis.units = scaling.units;
-        axis.format = scaling.format;
-        axis.from_byte = scaling.from_byte;
-        axis.to_byte = scaling.to_byte;
-        axis.supplied.from_byte = static_cast<bool>(scaling_node.attribute("expression"));
-        axis.supplied.to_byte = static_cast<bool>(scaling_node.attribute("to_byte"));
-        if (axis.storage_type.empty())
-        {
-            axis.storage_type = scaling.storage_type;
-        }
-        if (axis.endian.empty())
-        {
-            axis.endian = scaling.endian;
-        }
+        apply_scaling_to_axis(scaling, axis);
         scalings.push_back(std::move(scaling));
     }
     return axis;
 }
 
-Result<CalibrationMap> parse_table(
+Result<UnresolvedCalibrationMap> parse_table(
     pugi::xml_node table,
     std::string_view source,
     std::string_view definition_id,
-    std::vector<Scaling>& scalings)
+    std::vector<UnresolvedScaling>& scalings)
 {
-    CalibrationMap map;
+    UnresolvedCalibrationMap map;
     populate_common_map_attributes(table, map);
     if (map.name.empty())
     {
@@ -186,12 +169,6 @@ Result<CalibrationMap> parse_table(
             "missing or empty map name",
             definition_id);
     }
-    if (table.attribute("logparam"))
-    {
-        map.log_parameter = attribute_or_empty(table, "logparam");
-        map.supplied.log_parameter = true;
-    }
-
     auto address = optional_address(table, source, definition_id);
     if (!address)
     {
@@ -199,53 +176,48 @@ Result<CalibrationMap> parse_table(
     }
     map.address = *address;
 
-    auto x_size = dimension_attribute(table, "sizex", 1, source, definition_id);
-    if (!x_size.has_value())
+    if (auto status = populate_optional_dimension(
+            table, "sizex", map.x_size, source, definition_id);
+        !status)
     {
-        return std::unexpected(x_size.error());
+        return std::unexpected(status.error());
     }
-    map.x_size = *x_size;
-    map.supplied.x_size = static_cast<bool>(table.attribute("sizex"));
 
-    auto y_size = dimension_attribute(table, "sizey", 1, source, definition_id);
-    if (!y_size.has_value())
+    if (auto status = populate_optional_dimension(
+            table, "sizey", map.y_size, source, definition_id);
+        !status)
     {
-        return std::unexpected(y_size.error());
+        return std::unexpected(status.error());
     }
-    map.y_size = *y_size;
-    map.supplied.y_size = static_cast<bool>(table.attribute("sizey"));
 
-    auto swap_xy = strict_boolean_attribute(table, "swapxy", source, definition_id);
-    if (!swap_xy.has_value())
+    if (auto status = populate_optional_boolean(
+            table, "swapxy", map.swap_xy, source, definition_id);
+        !status)
     {
-        return std::unexpected(swap_xy.error());
+        return std::unexpected(status.error());
     }
-    map.swap_xy = *swap_xy;
-    map.supplied.swap_xy = static_cast<bool>(table.attribute("swapxy"));
 
-    auto flip_x = strict_boolean_attribute(table, "flipx", source, definition_id);
-    if (!flip_x.has_value())
+    if (auto status = populate_optional_boolean(
+            table, "flipx", map.flip_x, source, definition_id);
+        !status)
     {
-        return std::unexpected(flip_x.error());
+        return std::unexpected(status.error());
     }
-    map.flip_x = *flip_x;
-    map.supplied.flip_x = static_cast<bool>(table.attribute("flipx"));
 
-    auto flip_y = strict_boolean_attribute(table, "flipy", source, definition_id);
-    if (!flip_y.has_value())
+    if (auto status = populate_optional_boolean(
+            table, "flipy", map.flip_y, source, definition_id);
+        !status)
     {
-        return std::unexpected(flip_y.error());
+        return std::unexpected(status.error());
     }
-    map.flip_y = *flip_y;
-    map.supplied.flip_y = static_cast<bool>(table.attribute("flipy"));
 
-    map.scaling_name = attribute_or_empty(table, "scaling");
+    map.scaling_name = value_or_empty(table.attribute("scaling"));
     const pugi::xml_node scaling_node = table.child("scaling");
     if (scaling_node)
     {
-        Scaling scaling = parse_scaling(
+        UnresolvedScaling scaling = parse_scaling(
             scaling_node,
-            map.scaling_name.empty() ? map.id : map.scaling_name,
+            map.scaling_name.empty() ? map.id.value_or(map.name) : map.scaling_name,
             table);
         map.scaling_name = scaling.name;
         if (map.storage_type.empty())
@@ -266,8 +238,9 @@ Result<CalibrationMap> parse_table(
         map.storage_type = "bloblist";
         if (!scaling_node)
         {
-            Scaling scaling;
-            scaling.name = map.scaling_name.empty() ? map.id : map.scaling_name;
+            UnresolvedScaling scaling;
+            scaling.name =
+                map.scaling_name.empty() ? map.id.value_or(map.name) : map.scaling_name;
             scaling.storage_type = "bloblist";
             append_selections(table, scaling);
             map.scaling_name = scaling.name;
@@ -279,68 +252,18 @@ Result<CalibrationMap> parse_table(
         }
     }
 
-    bool x_axis_populated = false;
-    bool y_axis_populated = false;
-    for (pugi::xml_node axis_table : table.children("table"))
+    if (auto status =
+            populate_axes(table, map, source, definition_id, scalings, parse_axis);
+        !status)
     {
-        const std::string type = attribute_or_empty(axis_table, "type");
-        if (type == "X Axis" || type == "Static X Axis" || type == "Static Y Axis" || (type == "Y Axis" && map.type == "2D"))
-        {
-            if (x_axis_populated)
-            {
-                return invalid(
-                    source,
-                    "element <table> child <table> type '" + type + "'",
-                    "second axis targets already-populated X axis slot",
-                    definition_id);
-            }
-            x_axis_populated = true;
-            if (type == "Static Y Axis" || type == "Y Axis")
-            {
-                const bool dimension_supplied = map.supplied.y_size;
-                map.x_size = map.y_size;
-                map.y_size = 1;
-                map.supplied.x_size = dimension_supplied;
-                map.supplied.y_size = dimension_supplied;
-            }
-            auto axis = parse_axis(
-                axis_table, map.x_size, source, definition_id, scalings);
-            if (!axis)
-            {
-                return std::unexpected(axis.error());
-            }
-            if (axis->type == "Static Y Axis")
-            {
-                axis->type = "Static X Axis";
-            }
-            map.x_axis = std::move(*axis);
-        }
-        else if (type == "Y Axis")
-        {
-            if (y_axis_populated)
-            {
-                return invalid(
-                    source,
-                    "element <table> child <table> type '" + type + "'",
-                    "second axis targets already-populated Y axis slot",
-                    definition_id);
-            }
-            y_axis_populated = true;
-            auto axis = parse_axis(
-                axis_table, map.y_size, source, definition_id, scalings);
-            if (!axis)
-            {
-                return std::unexpected(axis.error());
-            }
-            map.y_axis = std::move(*axis);
-        }
+        return std::unexpected(status.error());
     }
     return map;
 }
 
 std::vector<std::string> parent_references(pugi::xml_node rom)
 {
-    const std::string parent = attribute_or_empty(rom, "base");
+    const std::string parent = value_or_empty(rom.attribute("base"));
     return parent.empty() ? std::vector<std::string>{}
                           : std::vector<std::string>{parent};
 }
@@ -367,20 +290,20 @@ Result<std::vector<DefinitionIndexEntry>> parse_romraider_index(
         }
 
         const pugi::xml_node rom_id = rom.child("romid");
-        auto identity = parse_identity(
-            rom_id, source, std::move(*definition_id));
-        if (!identity)
+        auto internal_id_address =
+            optional_hex_element(rom_id, "internalidaddress", source, *definition_id);
+        if (!internal_id_address)
         {
-            return std::unexpected(identity.error());
+            return std::unexpected(internal_id_address.error());
         }
 
         entries.push_back(DefinitionIndexEntry{
             .format = DefinitionFormat::RomRaider,
-            .definition_id = std::move(identity->xml_id),
-            .internal_id = std::move(identity->internal_id),
-            .internal_id_address = identity->internal_id_address,
+            .definition_id = std::move(*definition_id),
+            .internal_id = child_text(rom_id, "internalidstring"),
+            .internal_id_address = *internal_id_address,
             .internal_id_encoding = IdEncoding::AsciiOrHex,
-            .ecu_id = std::move(identity->ecu_id),
+            .ecu_id = child_text(rom_id, "ecuid"),
             .source = std::string{source},
             .parents = parent_references(rom),
         });
@@ -440,16 +363,23 @@ Result<UnresolvedDefinition> parse_romraider_definition(
     }
 
     const pugi::xml_node rom_id = selected_rom.child("romid");
-    auto identity = parse_identity(rom_id, source, std::string{definition_id});
-    if (!identity)
+    auto internal_id_address =
+        optional_hex_element(rom_id, "internalidaddress", source, definition_id);
+    if (!internal_id_address)
     {
-        return std::unexpected(identity.error());
+        return std::unexpected(internal_id_address.error());
     }
 
     UnresolvedDefinition definition{
         .format = DefinitionFormat::RomRaider,
         .source = std::string{source},
-        .identity = std::move(*identity),
+        .identity =
+            RomIdentity{
+                .xml_id = std::string{definition_id},
+                .internal_id = child_text(rom_id, "internalidstring"),
+                .ecu_id = child_text(rom_id, "ecuid"),
+                .internal_id_address = *internal_id_address,
+            },
         .metadata = parse_metadata(rom_id),
         .parents = parent_references(selected_rom),
     };
@@ -462,12 +392,16 @@ Result<UnresolvedDefinition> parse_romraider_definition(
         {
             return std::unexpected(map.error());
         }
-        auto appended = append_unique_map(
-            definition, std::move(*map), map_ids, source);
-        if (!appended)
+        const std::string map_id = map->id.value_or(map->name);
+        if (!map_ids.insert(map_id).second)
         {
-            return std::unexpected(appended.error());
+            return invalid(
+                source,
+                "element <table> attribute 'id' or 'name'",
+                "duplicate map identity '" + map_id + "'",
+                definition_id);
         }
+        definition.maps.push_back(std::move(*map));
     }
     return definition;
 }
