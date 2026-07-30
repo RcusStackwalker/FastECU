@@ -1880,8 +1880,6 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
         file_name_str = fileInfo.fileName();
     }
 
-    def_map_index = 0;
-
     ecuCalDef->use_ecuflash_definition = false;
     ecuCalDef->use_romraider_definition = false;
 
@@ -1894,7 +1892,6 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
             {
                 // emit LOG_D("Parse EcuFlash def files (primary) " + ecuCalDef->RomId;
                 read_ecuflash_ecu_def(ecuCalDef, ecuCalDef->RomId);
-                parse_ecuflash_def_scalings(ecuCalDef);
             }
         }
         if (!ecuCalDef->use_ecuflash_definition && configValues->use_romraider_definitions == "enabled")
@@ -1925,7 +1922,6 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
             {
                 // emit LOG_D("Parse EcuFlash def files (secondary) " + ecuCalDef->RomId;
                 read_ecuflash_ecu_def(ecuCalDef, ecuCalDef->RomId);
-                parse_ecuflash_def_scalings(ecuCalDef);
             }
         }
     }

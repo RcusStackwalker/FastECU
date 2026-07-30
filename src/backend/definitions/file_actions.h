@@ -59,7 +59,6 @@ class FileActions : public QWidget
                 QWidget *parent = nullptr);
 
     uint8_t float_precision = 15;
-    int def_map_index = 0;
     // QString ecu_protocol;
 
     // Defined in config_values.h (see that file's comment for why it is not
@@ -232,7 +231,6 @@ class FileActions : public QWidget
     ConfigValuesStructure *create_ecuflash_def_id_list(ConfigValuesStructure *configValues);
     // EcuCalDefStructure *read_ecuflash_ecu_base_def(FileActions::EcuCalDefStructure *ecuCalDef);
     EcuCalDefStructure *read_ecuflash_ecu_def(FileActions::EcuCalDefStructure *ecuCalDef, const QString& cal_id);
-    EcuCalDefStructure *parse_ecuflash_def_scalings(EcuCalDefStructure *ecuCalDef);
 
     // EcuCalDefStructure *read_ecuflash_ecu_def_test(FileActions::EcuCalDefStructure *ecuCalDef, QString cal_id);
 

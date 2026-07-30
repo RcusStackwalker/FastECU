@@ -1,51 +1,8 @@
 #include "src/backend/definitions/file_actions.h"
-#include "src/backend/definitions/legacy_definition_columns.h"
 
 // Qt compatibility wrappers over the portable definition service.
 
-#include <algorithm>
-#include <array>
 #include <set>
-#include <string>
-
-namespace
-{
-
-QString legacyScalingFormat(const QString& value_format)
-{
-    const bool canonicalDecimal =
-        value_format.size() > 2 &&
-        value_format.startsWith("0.") &&
-        std::all_of(
-            value_format.cbegin() + 2,
-            value_format.cend(),
-            [](QChar character)
-            {
-                return character == '0';
-            });
-    if (value_format == "0" || canonicalDecimal)
-    {
-        return value_format;
-    }
-    const QStringList format_text = value_format.split(".");
-    QString decimal_count;
-    QString decimals = "0";
-    if (format_text.length() > 1 && format_text.at(1).contains("f"))
-    {
-        decimal_count = format_text.at(1).split("f").at(0);
-    }
-    if (decimal_count.toInt() > 0)
-    {
-        decimals.append(".");
-    }
-    for (int index = 0; index < decimal_count.toInt(); ++index)
-    {
-        decimals.append("0");
-    }
-    return decimals;
-}
-
-} // namespace
 
 FileActions::ConfigValuesStructure *FileActions::create_ecuflash_def_id_list(
     ConfigValuesStructure *configValues)
@@ -133,84 +90,5 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(
             " succesfully read, start parsing definition scalings...",
         true,
         true);
-    return ecuCalDef;
-}
-
-FileActions::EcuCalDefStructure *FileActions::parse_ecuflash_def_scalings(
-    EcuCalDefStructure *ecuCalDef)
-{
-    if (ecuCalDef->use_ecuflash_definition)
-    {
-        return ecuCalDef;
-    }
-
-    const auto apply_scaling_columns =
-        [ecuCalDef](
-            qsizetype map_index,
-            qsizetype scaling_index,
-            const fastecu::definitions::legacy_columns::ScalingDestination& destination)
-    {
-        destination.storage->replace(
-            map_index, ecuCalDef->ScalingStorageTypeList.at(scaling_index));
-        destination.units->replace(
-            map_index, ecuCalDef->ScalingUnitsList.at(scaling_index));
-        destination.fine->replace(
-            map_index, ecuCalDef->ScalingFineIncList.at(scaling_index));
-        destination.coarse->replace(
-            map_index, ecuCalDef->ScalingCoarseIncList.at(scaling_index));
-        destination.minimum->replace(
-            map_index, ecuCalDef->ScalingMinValueList.at(scaling_index));
-        destination.maximum->replace(
-            map_index, ecuCalDef->ScalingMaxValueList.at(scaling_index));
-        destination.endian->replace(
-            map_index, ecuCalDef->ScalingEndianList.at(scaling_index));
-        destination.from_byte->replace(
-            map_index, ecuCalDef->ScalingFromByteList.at(scaling_index));
-        destination.to_byte->replace(
-            map_index, ecuCalDef->ScalingToByteList.at(scaling_index));
-        destination.format->replace(
-            map_index,
-            legacyScalingFormat(
-                ecuCalDef->ScalingFormatList.at(scaling_index)));
-        if (destination.type &&
-            ecuCalDef->ScalingStorageTypeList.at(scaling_index) == "bloblist")
-        {
-            destination.type->replace(map_index, "Selectable");
-            destination.selection_names->replace(
-                map_index,
-                ecuCalDef->ScalingSelectionsNameList.at(scaling_index));
-            destination.selection_values->replace(
-                map_index,
-                ecuCalDef->ScalingSelectionsValueList.at(scaling_index));
-        }
-    };
-
-    const auto destinations = std::to_array({
-        fastecu::definitions::legacy_columns::map_scaling_destination(*ecuCalDef),
-        fastecu::definitions::legacy_columns::axis_scaling_destination(*ecuCalDef, true),
-        fastecu::definitions::legacy_columns::axis_scaling_destination(*ecuCalDef, false),
-    });
-    const auto apply_matching_scaling =
-        [ecuCalDef, &apply_scaling_columns](
-            qsizetype map_index, const auto& destination)
-    {
-        for (qsizetype scaling_index = 0;
-             scaling_index < ecuCalDef->ScalingNameList.size();
-             ++scaling_index)
-        {
-            if (ecuCalDef->ScalingNameList.at(scaling_index) ==
-                destination.scaling_name->at(map_index))
-            {
-                apply_scaling_columns(map_index, scaling_index, destination);
-            }
-        }
-    };
-    for (def_map_index = 0; def_map_index < ecuCalDef->NameList.size(); ++def_map_index)
-    {
-        for (const auto& destination : destinations)
-        {
-            apply_matching_scaling(def_map_index, destination);
-        }
-    }
     return ecuCalDef;
 }
