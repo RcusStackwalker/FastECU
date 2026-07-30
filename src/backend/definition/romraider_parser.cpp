@@ -276,7 +276,7 @@ std::string selection_name(std::string name)
     return name;
 }
 
-void append_selections(pugi::xml_node parent, Scaling& scaling)
+void append_selections(pugi::xml_node parent, UnresolvedScaling& scaling)
 {
     for (pugi::xml_node state : parent.children("state"))
     {
@@ -297,29 +297,30 @@ void append_selections(pugi::xml_node parent, Scaling& scaling)
     }
 }
 
-Scaling parse_scaling(
+UnresolvedScaling parse_scaling(
     pugi::xml_node scaling_node,
     std::string fallback_name,
     pugi::xml_node owner)
 {
-    Scaling scaling;
+    UnresolvedScaling scaling;
     scaling.name = attribute_or_empty(scaling_node, "name");
     if (scaling.name.empty())
     {
         scaling.name = std::move(fallback_name);
     }
     scaling.units = attribute_or_empty(scaling_node, "units");
-    scaling.from_byte = attribute_or_empty(scaling_node, "expression");
-    if (scaling.from_byte.empty())
+    if (scaling_node.attribute("expression"))
     {
-        scaling.from_byte = "x";
+        scaling.from_byte = attribute_or_empty(scaling_node, "expression");
     }
-    scaling.to_byte = attribute_or_empty(scaling_node, "to_byte");
-    if (scaling.to_byte.empty())
+    if (scaling_node.attribute("to_byte"))
     {
-        scaling.to_byte = "x";
+        scaling.to_byte = attribute_or_empty(scaling_node, "to_byte");
     }
-    scaling.format = attribute_or_empty(scaling_node, "format");
+    if (scaling_node.attribute("format"))
+    {
+        scaling.format = attribute_or_empty(scaling_node, "format");
+    }
     scaling.minimum = attribute_or_empty(scaling_node, "minimum");
     if (scaling.minimum.empty())
     {
@@ -354,14 +355,14 @@ Scaling parse_scaling(
     return scaling;
 }
 
-Result<AxisDefinition> parse_axis(
+Result<UnresolvedAxisDefinition> parse_axis(
     pugi::xml_node table,
     std::uint32_t default_size,
     std::string_view source,
     std::string_view definition_id,
-    std::vector<Scaling>& scalings)
+    std::vector<UnresolvedScaling>& scalings)
 {
-    AxisDefinition axis;
+    UnresolvedAxisDefinition axis;
     axis.type = attribute_or_empty(table, "type");
     axis.name = attribute_or_empty(table, "name");
     if (axis.name.empty())
@@ -403,13 +404,16 @@ Result<AxisDefinition> parse_axis(
     const pugi::xml_node scaling_node = table.child("scaling");
     if (scaling_node)
     {
-        Scaling scaling = parse_scaling(
+        UnresolvedScaling scaling = parse_scaling(
             scaling_node,
             axis.scaling_name.empty() ? axis.name : axis.scaling_name,
             table);
         axis.scaling_name = scaling.name;
         axis.units = scaling.units;
-        axis.format = scaling.format;
+        if (scaling.format)
+        {
+            axis.format = *scaling.format;
+        }
         axis.from_byte = scaling.from_byte;
         axis.to_byte = scaling.to_byte;
         if (axis.storage_type.empty())
@@ -425,14 +429,17 @@ Result<AxisDefinition> parse_axis(
     return axis;
 }
 
-Result<CalibrationMap> parse_table(
+Result<UnresolvedCalibrationMap> parse_table(
     pugi::xml_node table,
     std::string_view source,
     std::string_view definition_id,
-    std::vector<Scaling>& scalings)
+    std::vector<UnresolvedScaling>& scalings)
 {
-    CalibrationMap map;
-    map.id = attribute_or_empty(table, "id");
+    UnresolvedCalibrationMap map;
+    if (table.attribute("id"))
+    {
+        map.id = attribute_or_empty(table, "id");
+    }
     map.name = attribute_or_empty(table, "name");
     if (map.name.empty())
     {
@@ -442,11 +449,6 @@ Result<CalibrationMap> parse_table(
             "missing or empty map name",
             definition_id);
     }
-    if (map.id.empty())
-    {
-        map.id = map.name;
-    }
-
     map.type = attribute_or_empty(table, "type");
     map.category = attribute_or_empty(table, "category");
     map.subcategory = attribute_or_empty(table, "subcategory");
@@ -467,48 +469,63 @@ Result<CalibrationMap> parse_table(
     }
     map.address = *address;
 
-    auto x_size = dimension_attribute(table, "sizex", 1, source, definition_id);
-    if (!x_size)
+    if (table.attribute("sizex"))
     {
-        return std::unexpected(x_size.error());
+        auto x_size = dimension_attribute(table, "sizex", 1, source, definition_id);
+        if (!x_size)
+        {
+            return std::unexpected(x_size.error());
+        }
+        map.x_size = *x_size;
     }
-    map.x_size = *x_size;
 
-    auto y_size = dimension_attribute(table, "sizey", 1, source, definition_id);
-    if (!y_size)
+    if (table.attribute("sizey"))
     {
-        return std::unexpected(y_size.error());
+        auto y_size = dimension_attribute(table, "sizey", 1, source, definition_id);
+        if (!y_size)
+        {
+            return std::unexpected(y_size.error());
+        }
+        map.y_size = *y_size;
     }
-    map.y_size = *y_size;
 
-    auto swap_xy = strict_boolean_attribute(table, "swapxy", source, definition_id);
-    if (!swap_xy)
+    if (table.attribute("swapxy"))
     {
-        return std::unexpected(swap_xy.error());
+        auto swap_xy = strict_boolean_attribute(table, "swapxy", source, definition_id);
+        if (!swap_xy)
+        {
+            return std::unexpected(swap_xy.error());
+        }
+        map.swap_xy = *swap_xy;
     }
-    map.swap_xy = *swap_xy;
 
-    auto flip_x = strict_boolean_attribute(table, "flipx", source, definition_id);
-    if (!flip_x)
+    if (table.attribute("flipx"))
     {
-        return std::unexpected(flip_x.error());
+        auto flip_x = strict_boolean_attribute(table, "flipx", source, definition_id);
+        if (!flip_x)
+        {
+            return std::unexpected(flip_x.error());
+        }
+        map.flip_x = *flip_x;
     }
-    map.flip_x = *flip_x;
 
-    auto flip_y = strict_boolean_attribute(table, "flipy", source, definition_id);
-    if (!flip_y)
+    if (table.attribute("flipy"))
     {
-        return std::unexpected(flip_y.error());
+        auto flip_y = strict_boolean_attribute(table, "flipy", source, definition_id);
+        if (!flip_y)
+        {
+            return std::unexpected(flip_y.error());
+        }
+        map.flip_y = *flip_y;
     }
-    map.flip_y = *flip_y;
 
     map.scaling_name = attribute_or_empty(table, "scaling");
     const pugi::xml_node scaling_node = table.child("scaling");
     if (scaling_node)
     {
-        Scaling scaling = parse_scaling(
+        UnresolvedScaling scaling = parse_scaling(
             scaling_node,
-            map.scaling_name.empty() ? map.id : map.scaling_name,
+            map.scaling_name.empty() ? map.id.value_or(map.name) : map.scaling_name,
             table);
         map.scaling_name = scaling.name;
         if (map.storage_type.empty())
@@ -529,8 +546,9 @@ Result<CalibrationMap> parse_table(
         map.storage_type = "bloblist";
         if (!scaling_node)
         {
-            Scaling scaling;
-            scaling.name = map.scaling_name.empty() ? map.id : map.scaling_name;
+            UnresolvedScaling scaling;
+            scaling.name =
+                map.scaling_name.empty() ? map.id.value_or(map.name) : map.scaling_name;
             scaling.storage_type = "bloblist";
             append_selections(table, scaling);
             map.scaling_name = scaling.name;
@@ -553,7 +571,7 @@ Result<CalibrationMap> parse_table(
                 map.y_size = 1;
             }
             auto axis = parse_axis(
-                axis_table, map.x_size, source, definition_id, scalings);
+                axis_table, map.x_size.value_or(1U), source, definition_id, scalings);
             if (!axis)
             {
                 return std::unexpected(axis.error());
@@ -567,7 +585,7 @@ Result<CalibrationMap> parse_table(
         else if (type == "Y Axis")
         {
             auto axis = parse_axis(
-                axis_table, map.y_size, source, definition_id, scalings);
+                axis_table, map.y_size.value_or(1U), source, definition_id, scalings);
             if (!axis)
             {
                 return std::unexpected(axis.error());
@@ -739,12 +757,13 @@ Result<UnresolvedDefinition> parse_romraider_definition(
         {
             return std::unexpected(map.error());
         }
-        if (!map_ids.insert(map->id).second)
+        const std::string map_id = map->id.value_or(map->name);
+        if (!map_ids.insert(map_id).second)
         {
             return invalid(
                 source,
                 "element <table> attribute 'id' or 'name'",
-                "duplicate map identity '" + map->id + "'",
+                "duplicate map identity '" + map_id + "'",
                 definition_id);
         }
         definition.maps.push_back(std::move(*map));

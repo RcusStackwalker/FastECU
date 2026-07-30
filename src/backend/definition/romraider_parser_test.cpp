@@ -124,9 +124,9 @@ TEST(RomRaiderParserTest, ParsesChildWithoutResolvingItsBase)
     EXPECT_EQ(map.user_level, "3");
     EXPECT_EQ(map.x_size, 4U);
     EXPECT_EQ(map.y_size, 2U);
-    EXPECT_TRUE(map.swap_xy);
-    EXPECT_FALSE(map.flip_x);
-    EXPECT_TRUE(map.flip_y);
+    EXPECT_EQ(map.swap_xy, true);
+    EXPECT_EQ(map.flip_x, false);
+    EXPECT_EQ(map.flip_y, true);
     EXPECT_EQ(map.storage_type, "uint16");
     EXPECT_EQ(map.endian, "big");
     EXPECT_EQ(map.scaling_name, "fuel-scale");
@@ -229,7 +229,7 @@ TEST(RomRaiderParserTest, NormalizesLegacyStaticYAxisDimensions)
     EXPECT_TRUE(result->maps.front().y_axis.type.empty());
 }
 
-TEST(RomRaiderParserTest, UsesAddressBeforeStorageAddressAndDefaultsOptionalFields)
+TEST(RomRaiderParserTest, UsesAddressBeforeStorageAddressAndPreservesAbsentOptionalFields)
 {
     const auto xml = bytes(R"xml(
       <roms><rom base=""><romid><xmlid>MINIMAL</xmlid></romid>
@@ -242,10 +242,10 @@ TEST(RomRaiderParserTest, UsesAddressBeforeStorageAddressAndDefaultsOptionalFiel
     EXPECT_TRUE(result->parents.empty());
     EXPECT_EQ(result->metadata, RomMetadata{});
     ASSERT_EQ(result->maps.size(), 1U);
-    EXPECT_EQ(result->maps.front().id, "Minimal Map");
+    EXPECT_FALSE(result->maps.front().id);
     EXPECT_EQ(result->maps.front().address, 0x20U);
-    EXPECT_EQ(result->maps.front().x_size, 1U);
-    EXPECT_EQ(result->maps.front().y_size, 1U);
+    EXPECT_FALSE(result->maps.front().x_size);
+    EXPECT_FALSE(result->maps.front().y_size);
     EXPECT_FALSE(result->maps.front().swap_xy);
     EXPECT_FALSE(result->maps.front().flip_x);
     EXPECT_FALSE(result->maps.front().flip_y);

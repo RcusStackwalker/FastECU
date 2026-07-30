@@ -114,9 +114,9 @@ TEST(EcuFlashParserTest, ParsesMetadataGlobalScalingsAndNestedAxes)
     EXPECT_EQ(map.user_level, "3");
     EXPECT_EQ(map.x_size, 4U);
     EXPECT_EQ(map.y_size, 2U);
-    EXPECT_TRUE(map.swap_xy);
-    EXPECT_FALSE(map.flip_x);
-    EXPECT_TRUE(map.flip_y);
+    EXPECT_EQ(map.swap_xy, true);
+    EXPECT_EQ(map.flip_x, false);
+    EXPECT_EQ(map.flip_y, true);
     EXPECT_EQ(map.scaling_name, "fuel-scale");
     EXPECT_EQ(map.x_axis.type, "X Axis");
     EXPECT_EQ(map.x_axis.name, "Engine Speed");
@@ -158,9 +158,9 @@ TEST(EcuFlashParserTest, AddressWinsAndStrictFlagsParse)
                                             "test.xml");
     ASSERT_TRUE(result);
     EXPECT_EQ(result->maps.at(0).address, 0x1000);
-    EXPECT_TRUE(result->maps.at(0).swap_xy);
-    EXPECT_FALSE(result->maps.at(0).flip_x);
-    EXPECT_TRUE(result->maps.at(0).flip_y);
+    EXPECT_EQ(result->maps.at(0).swap_xy, true);
+    EXPECT_EQ(result->maps.at(0).flip_x, false);
+    EXPECT_EQ(result->maps.at(0).flip_y, true);
 }
 
 TEST(EcuFlashParserTest, NormalizesTopLevelXAxisMapToTwoDimensional)
@@ -206,6 +206,28 @@ TEST(EcuFlashParserTest, KeepsInputBytesAndSymbolicScalingReferencesUnchanged)
     EXPECT_EQ(result->maps.front().scaling_name, "shared");
     EXPECT_EQ(result->scalings.front().name, "shared");
     EXPECT_EQ(result->scalings.front().format, "0");
+}
+
+TEST(EcuFlashParserTest, PreservesAbsentOptionalFields)
+{
+    auto result = parse_ecuflash_definition(bytes(R"xml(
+      <rom><romid><xmlid>TEST</xmlid></romid>
+      <scaling name="shared"/>
+      <table name="Fuel" scaling="shared"/></rom>)xml"),
+                                            "test.xml");
+
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result->maps.size(), 1U);
+    EXPECT_FALSE(result->maps.front().id);
+    EXPECT_FALSE(result->maps.front().x_size);
+    EXPECT_FALSE(result->maps.front().y_size);
+    EXPECT_FALSE(result->maps.front().swap_xy);
+    EXPECT_FALSE(result->maps.front().flip_x);
+    EXPECT_FALSE(result->maps.front().flip_y);
+    ASSERT_EQ(result->scalings.size(), 1U);
+    EXPECT_FALSE(result->scalings.front().from_byte);
+    EXPECT_FALSE(result->scalings.front().to_byte);
+    EXPECT_FALSE(result->scalings.front().format);
 }
 
 TEST(EcuFlashParserTest, ConvertsAnyPositivePrintfPrecision)
