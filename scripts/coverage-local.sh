@@ -47,7 +47,7 @@ for f in $test_files; do
   name=$(basename "$f")
   dest="$coverage_root/bin/$name"
   cp "$f" "$dest"
-  QT_QPA_PLATFORM=offscreen DYLD_FRAMEWORK_PATH="$qt_framework_path" LLVM_PROFILE_FILE="$coverage_root/profiles/$name-%p.profraw" "$dest" || true
+  DYLD_FRAMEWORK_PATH="$qt_framework_path" LLVM_PROFILE_FILE="$coverage_root/profiles/$name-%p.profraw" "$dest" || true
   if [ -z "$primary" ]; then
     primary="$dest"
   else
