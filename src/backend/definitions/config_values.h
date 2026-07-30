@@ -22,6 +22,8 @@ namespace fastecu::definitions
 
 struct ConfigValuesStructure
 {
+    bool operator==(const ConfigValuesStructure&) const = default;
+
     QString software_name = "FastECU";
     QString software_title = "FastECU";
     QString software_version = "0.1.0-beta.5";
