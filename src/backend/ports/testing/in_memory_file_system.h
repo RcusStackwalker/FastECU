@@ -58,20 +58,53 @@ class InMemoryFileSystem : public IFileSystem
     }
     Result<std::vector<DirEntry>> list_directory(std::string_view path) override
     {
-        std::vector<DirEntry> out;
-        for (auto& [name, mtime] : subdirectories_by_parent[std::string(path)])
+        const std::string key(path);
+        if (auto error = list_directory_errors.find(key); error != list_directory_errors.end())
         {
-            out.push_back(DirEntry{name, true, mtime});
+            return std::unexpected(error->second);
         }
-        for (auto& [name, mtime] : files_by_parent[std::string(path)])
+        if (auto entries = directory_entries.find(key); entries != directory_entries.end())
         {
-            out.push_back(DirEntry{name, false, mtime});
+            return entries->second;
         }
-        return out;
+        std::vector<DirEntry> entries;
+        bool has_legacy_fixture = false;
+        if (auto subdirectories = subdirectories_by_parent.find(key);
+            subdirectories != subdirectories_by_parent.end())
+        {
+            has_legacy_fixture = true;
+            for (const auto& [name, modified_time] : subdirectories->second)
+            {
+                entries.push_back(DirEntry{
+                    .name = name,
+                    .is_directory = true,
+                    .modified_time_epoch_seconds = modified_time,
+                });
+            }
+        }
+        if (auto files = files_by_parent.find(key); files != files_by_parent.end())
+        {
+            has_legacy_fixture = true;
+            for (const auto& [name, modified_time] : files->second)
+            {
+                entries.push_back(DirEntry{
+                    .name = name,
+                    .is_directory = false,
+                    .modified_time_epoch_seconds = modified_time,
+                });
+            }
+        }
+        if (has_legacy_fixture)
+        {
+            return entries;
+        }
+        return fail(ErrorKind::InvalidConfig, "unknown directory: " + key);
     }
 
     std::set<std::string> directories;
     std::map<std::string, std::vector<std::uint8_t>> files;
+    std::map<std::string, std::vector<DirEntry>> directory_entries;
+    std::map<std::string, Error> list_directory_errors;
     std::map<std::string, std::vector<std::pair<std::string, std::int64_t>>> subdirectories_by_parent;
     std::map<std::string, std::vector<std::pair<std::string, std::int64_t>>> files_by_parent;
     std::vector<std::pair<std::string, std::string>> copy_calls;
