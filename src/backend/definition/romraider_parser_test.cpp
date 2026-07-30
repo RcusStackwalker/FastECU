@@ -74,11 +74,13 @@ TEST(RomRaiderParserTest, ParsesChildWithoutResolvingItsBase)
              category="Fuel" subcategory="Primary" description="Main fuel map"
              level="2" userlevel="3" sizex="4" sizey="2"
              swapxy="true" flipx="false" flipy="true"
-             storagetype="uint16" endian="big" minvalue="0" maxvalue="100">
+             storagetype="uint16" endian="big" minvalue="0" maxvalue="100"
+             startpos="12" interval="3" logparam="fuel">
         <scaling name="fuel-scale" units="%" expression="x*0.5" to_byte="x*2"
                  format="0.0" fineincrement="0.5" coarseincrement="1"/>
         <table type="X Axis" name="Engine Speed" address="300"
-               elements="4" storagetype="uint16" endian="big">
+               elements="4" storagetype="uint16" endian="big"
+               startpos="21" interval="5" logparam="rpm">
           <scaling name="rpm-scale" units="rpm" expression="x" to_byte="x"
                    format="0"/>
         </table>
@@ -130,6 +132,9 @@ TEST(RomRaiderParserTest, ParsesChildWithoutResolvingItsBase)
     EXPECT_EQ(map.storage_type, "uint16");
     EXPECT_EQ(map.endian, "big");
     EXPECT_EQ(map.scaling_name, "fuel-scale");
+    EXPECT_EQ(map.start_position, "12");
+    EXPECT_EQ(map.interval, "3");
+    EXPECT_EQ(map.log_parameter, "fuel");
 
     EXPECT_EQ(map.x_axis.type, "X Axis");
     EXPECT_EQ(map.x_axis.name, "Engine Speed");
@@ -139,6 +144,9 @@ TEST(RomRaiderParserTest, ParsesChildWithoutResolvingItsBase)
     EXPECT_EQ(map.x_axis.from_byte, "x");
     EXPECT_EQ(map.x_axis.to_byte, "x");
     EXPECT_EQ(map.x_axis.scaling_name, "rpm-scale");
+    EXPECT_EQ(map.x_axis.start_position, "21");
+    EXPECT_EQ(map.x_axis.interval, "5");
+    EXPECT_EQ(map.x_axis.log_parameter, "rpm");
     EXPECT_EQ(map.y_axis.type, "Y Axis");
     EXPECT_EQ(map.y_axis.name, "Load");
     EXPECT_EQ(map.y_axis.address, 0x400U);
