@@ -1,8 +1,6 @@
 #include "src/backend/definition/legacy_definition_adapter.h"
 #include "src/backend/definitions/legacy_definition_columns.h"
 
-#include <array>
-#include <charconv>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -12,6 +10,8 @@
 
 #include <QString>
 #include <QStringList>
+
+#include "src/backend/definition/text_format.h"
 
 namespace fastecu::definition
 {
@@ -36,10 +36,7 @@ QString address_text(const std::optional<std::uint64_t>& address, bool placehold
     {
         return placeholder ? qs(kPlaceholder) : QString{};
     }
-    std::array<char, 16> digits{};
-    const auto converted =
-        std::to_chars(digits.data(), digits.data() + digits.size(), *address, 16);
-    return "0x" + qs(std::string_view(digits.data(), converted.ptr));
+    return qs(hex_text(*address));
 }
 
 QString bool_text(bool value)

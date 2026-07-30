@@ -1,8 +1,6 @@
 #include "src/backend/definition/definition_writer.h"
 
 #include <algorithm>
-#include <array>
-#include <charconv>
 #include <cctype>
 #include <cstdint>
 #include <sstream>
@@ -15,6 +13,7 @@
 #include <pugixml.hpp>
 
 #include "src/backend/definition/ecuflash_parser.h"
+#include "src/backend/definition/text_format.h"
 
 using namespace std::literals::string_view_literals;
 
@@ -46,19 +45,6 @@ Status validate_input(const DefinitionHeaderInput& input)
     return {};
 }
 
-Result<std::string> address_text(std::uint64_t address)
-{
-    std::array<char, 16> digits{};
-    const auto converted = std::to_chars(digits.data(), digits.data() + digits.size(), address, 16);
-    if (converted.ec != std::errc{} || converted.ptr == digits.data())
-    {
-        return fail(
-            ErrorKind::InvalidConfig,
-            "definition internal ID address could not be converted to hexadecimal");
-    }
-    return "0x" + std::string(digits.data(), converted.ptr);
-}
-
 void set_unique_text(pugi::xml_node parent, const char *name, std::string_view value)
 {
     pugi::xml_node child = parent.child(name);
@@ -81,19 +67,13 @@ Status update_header(pugi::xml_node root, const DefinitionHeaderInput& input)
     {
         return std::unexpected(valid.error());
     }
-    auto address = address_text(input.internal_id_address);
-    if (!address.has_value())
-    {
-        return std::unexpected(address.error());
-    }
-
     pugi::xml_node rom_id = root.child("romid");
     if (!rom_id)
     {
         rom_id = root.prepend_child("romid");
     }
     set_unique_text(rom_id, "xmlid", input.xml_id);
-    set_unique_text(rom_id, "internalidaddress", *address);
+    set_unique_text(rom_id, "internalidaddress", hex_text(input.internal_id_address));
     set_unique_text(rom_id, "internalidstring", input.internal_id);
     set_unique_text(rom_id, "ecuid", input.ecu_id);
     set_unique_text(rom_id, "make", input.metadata.make);
