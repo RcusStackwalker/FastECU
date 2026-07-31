@@ -178,6 +178,9 @@ void LegacyCalibrationAdapter::compute_map_cell_values(
         rom_definition, padded, flash_method.toStdString(), float_precision);
     if (!computed.has_value())
     {
+        qWarning().noquote() << "compute_map_cell_values failed:"
+                             << to_string(computed.error().kind)
+                             << QString::fromStdString(computed.error().detail);
         return;
     }
     for (std::size_t i = 0; i < computed->size() && static_cast<int>(i) < ecu_cal_def.MapData.size(); ++i)
