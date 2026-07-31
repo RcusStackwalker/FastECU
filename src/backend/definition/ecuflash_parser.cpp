@@ -94,7 +94,11 @@ void append_selections(pugi::xml_node parent, UnresolvedScaling& scaling)
     }
 }
 
-UnresolvedScaling parse_scaling(pugi::xml_node node, std::string fallback_name)
+Result<UnresolvedScaling> parse_scaling(
+    pugi::xml_node node,
+    std::string fallback_name,
+    std::string_view source,
+    std::string_view definition_id)
 {
     UnresolvedScaling scaling;
     scaling.name = value_or_empty(node.attribute("name"));
@@ -119,7 +123,12 @@ UnresolvedScaling parse_scaling(pugi::xml_node node, std::string fallback_name)
     scaling.maximum = value_or_empty(node.attribute("max"));
     scaling.coarse_increment = value_or_empty(node.attribute("inc"));
     scaling.fine_increment = fine_increment_from(scaling.coarse_increment);
-    scaling.storage_type = value_or_empty(node.attribute("storagetype"));
+    auto storage_type = optional_storage_type_attribute(node, "storagetype", source, definition_id);
+    if (!storage_type.has_value())
+    {
+        return std::unexpected(storage_type.error());
+    }
+    scaling.storage_type = *storage_type;
     scaling.endian = value_or_empty(node.attribute("endian"));
     append_selections(node, scaling);
     return scaling;
@@ -133,7 +142,10 @@ Result<UnresolvedAxisDefinition> parse_axis(
     std::vector<UnresolvedScaling>& scalings)
 {
     UnresolvedAxisDefinition axis;
-    populate_common_axis_attributes(table, axis);
+    if (auto status = populate_common_axis_attributes(table, axis, source, definition_id); !status.has_value())
+    {
+        return std::unexpected(status.error());
+    }
     if (axis.name.empty())
     {
         return invalid(
@@ -162,10 +174,14 @@ Result<UnresolvedAxisDefinition> parse_axis(
     axis.scaling_name = value_or_empty(table.attribute("scaling"));
     if (const pugi::xml_node scaling_node = table.child("scaling"))
     {
-        UnresolvedScaling scaling = parse_scaling(
-            scaling_node, axis.scaling_name.empty() ? axis.name : axis.scaling_name);
-        apply_scaling_to_axis(scaling, axis);
-        scalings.push_back(std::move(scaling));
+        auto scaling = parse_scaling(
+            scaling_node, axis.scaling_name.empty() ? axis.name : axis.scaling_name, source, definition_id);
+        if (!scaling.has_value())
+        {
+            return std::unexpected(scaling.error());
+        }
+        apply_scaling_to_axis(*scaling, axis);
+        scalings.push_back(std::move(*scaling));
     }
     return axis;
 }
@@ -177,7 +193,10 @@ Result<UnresolvedCalibrationMap> parse_table(
     std::vector<UnresolvedScaling>& scalings)
 {
     UnresolvedCalibrationMap map;
-    populate_common_map_attributes(table, map);
+    if (auto status = populate_common_map_attributes(table, map, source, definition_id); !status.has_value())
+    {
+        return std::unexpected(status.error());
+    }
     if (map.name.empty())
     {
         return invalid(source, "element <table> attribute 'name'", "missing or empty map name", definition_id);
@@ -241,11 +260,18 @@ Result<UnresolvedCalibrationMap> parse_table(
     map.scaling_name = value_or_empty(table.attribute("scaling"));
     if (const pugi::xml_node scaling_node = table.child("scaling"))
     {
-        UnresolvedScaling scaling = parse_scaling(
+        auto parsed_scaling = parse_scaling(
             scaling_node,
-            map.scaling_name.empty() ? map.id.value_or(map.name) : map.scaling_name);
+            map.scaling_name.empty() ? map.id.value_or(map.name) : map.scaling_name,
+            source,
+            definition_id);
+        if (!parsed_scaling.has_value())
+        {
+            return std::unexpected(parsed_scaling.error());
+        }
+        UnresolvedScaling& scaling = *parsed_scaling;
         map.scaling_name = scaling.name;
-        if (map.storage_type.empty())
+        if (!map.storage_type)
         {
             map.storage_type = scaling.storage_type;
         }
@@ -253,7 +279,7 @@ Result<UnresolvedCalibrationMap> parse_table(
         {
             map.endian = scaling.endian;
         }
-        if (scaling.storage_type == "bloblist")
+        if (scaling.storage_type == StorageType::Bloblist)
         {
             map.type = "Selectable";
         }
@@ -385,7 +411,12 @@ Result<UnresolvedDefinition> parse_ecuflash_definition(
     std::unordered_map<std::string, UnresolvedScaling> global_scalings;
     for (pugi::xml_node scaling_node : header->root.children("scaling"))
     {
-        UnresolvedScaling scaling = parse_scaling(scaling_node, {});
+        auto parsed_scaling = parse_scaling(scaling_node, {}, source, definition.identity.xml_id);
+        if (!parsed_scaling.has_value())
+        {
+            return std::unexpected(parsed_scaling.error());
+        }
+        UnresolvedScaling& scaling = *parsed_scaling;
         if (!scaling.name.empty())
         {
             const auto [existing, inserted] = global_scalings.emplace(scaling.name, scaling);

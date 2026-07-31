@@ -55,6 +55,62 @@ Result<void> validate(const DefinitionIndexEntry& entry)
 
 } // namespace
 
+std::optional<StorageType> storage_type_from_text(std::string_view text)
+{
+    static constexpr std::pair<std::string_view, StorageType> kStorageTypes[] = {
+        {"uint8", StorageType::Uint8},
+        {"int8", StorageType::Int8},
+        {"uint16", StorageType::Uint16},
+        {"int16", StorageType::Int16},
+        {"uint24", StorageType::Uint24},
+        {"int24", StorageType::Int24},
+        {"uint32", StorageType::Uint32},
+        {"int32", StorageType::Int32},
+        {"float", StorageType::Float},
+        {"bloblist", StorageType::Bloblist},
+    };
+    for (const auto& [name, value] : kStorageTypes)
+    {
+        if (text == name)
+        {
+            return value;
+        }
+    }
+    return std::nullopt;
+}
+
+std::string storage_type_text(std::optional<StorageType> value)
+{
+    if (!value.has_value())
+    {
+        return {};
+    }
+    switch (*value)
+    {
+    case StorageType::Uint8:
+        return "uint8";
+    case StorageType::Int8:
+        return "int8";
+    case StorageType::Uint16:
+        return "uint16";
+    case StorageType::Int16:
+        return "int16";
+    case StorageType::Uint24:
+        return "uint24";
+    case StorageType::Int24:
+        return "int24";
+    case StorageType::Uint32:
+        return "uint32";
+    case StorageType::Int32:
+        return "int32";
+    case StorageType::Float:
+        return "float";
+    case StorageType::Bloblist:
+        return "bloblist";
+    }
+    return {};
+}
+
 DefinitionCatalog::DefinitionCatalog(std::vector<DefinitionIndexEntry> entries) : entries_(std::move(entries))
 {
 }

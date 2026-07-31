@@ -51,14 +51,14 @@ UnresolvedCalibrationMap map(std::string id, std::string name = {})
     };
 }
 
-UnresolvedScaling scaling(std::string name, std::string storage_type = "uint16")
+UnresolvedScaling scaling(std::string name, std::optional<StorageType> storage_type = StorageType::Uint16)
 {
     return UnresolvedScaling{
         .name = std::move(name),
         .from_byte = "x*0.5",
         .to_byte = "x*2",
         .format = "0.0",
-        .storage_type = std::move(storage_type),
+        .storage_type = storage_type,
         .endian = "big",
     };
 }
@@ -153,15 +153,15 @@ TEST(DefinitionResolverTest, InheritsRuntimeRowsAndAllowsExplicitDefaultOverride
 {
     auto base = doc("BASE");
     auto base_map = map("fuel", "Fuel");
-    base_map.start_position = "7";
-    base_map.interval = "2";
+    base_map.start_position = 7;
+    base_map.interval = 2;
     base_map.log_parameter = "P_BASE";
     base_map.x_axis = UnresolvedAxisDefinition{
         .type = "Static X Axis",
         .name = "Load",
         .size = 1,
-        .start_position = "9",
-        .interval = "4",
+        .start_position = 9,
+        .interval = 4,
         .log_parameter = "P_AXIS",
         .static_data = std::vector<std::string>{"1.0"},
     };
@@ -169,8 +169,8 @@ TEST(DefinitionResolverTest, InheritsRuntimeRowsAndAllowsExplicitDefaultOverride
 
     auto child = doc("CHILD", {"BASE"});
     auto child_map = map("fuel", "Fuel");
-    child_map.start_position = "1";
-    child_map.interval = "1";
+    child_map.start_position = 1;
+    child_map.interval = 1;
     child.maps.push_back(child_map);
 
     DefinitionSet definitions{{"BASE", base}};
@@ -178,11 +178,11 @@ TEST(DefinitionResolverTest, InheritsRuntimeRowsAndAllowsExplicitDefaultOverride
 
     ASSERT_TRUE(result);
     ASSERT_EQ(result->maps.size(), 1U);
-    EXPECT_EQ(result->maps.front().start_position, "1");
-    EXPECT_EQ(result->maps.front().interval, "1");
+    EXPECT_EQ(result->maps.front().start_position, 1U);
+    EXPECT_EQ(result->maps.front().interval, 1U);
     EXPECT_EQ(result->maps.front().log_parameter, "P_BASE");
-    EXPECT_EQ(result->maps.front().x_axis.start_position, "9");
-    EXPECT_EQ(result->maps.front().x_axis.interval, "4");
+    EXPECT_EQ(result->maps.front().x_axis.start_position, 9U);
+    EXPECT_EQ(result->maps.front().x_axis.interval, 4U);
     EXPECT_EQ(result->maps.front().x_axis.log_parameter, "P_AXIS");
     EXPECT_EQ(result->maps.front().x_axis.static_data, std::vector<std::string>{"1.0"});
 }
@@ -387,7 +387,7 @@ TEST(DefinitionResolverTest, MergesMapsByStableIdAndAppendsChildMaps)
     auto fuel = map("fuel", "Fuel");
     fuel.category = "Fuel";
     fuel.address = 0x100;
-    fuel.storage_type = "uint16";
+    fuel.storage_type = StorageType::Uint16;
     fuel.x_size = 4;
     fuel.x_axis = UnresolvedAxisDefinition{
         .type = "X Axis",
@@ -416,7 +416,7 @@ TEST(DefinitionResolverTest, MergesMapsByStableIdAndAppendsChildMaps)
     EXPECT_EQ(result->maps[1].category, "Fuel");
     EXPECT_EQ(result->maps[1].description, "Child fuel map");
     EXPECT_EQ(result->maps[1].address, 0x300U);
-    EXPECT_EQ(result->maps[1].storage_type, "uint16");
+    EXPECT_EQ(result->maps[1].storage_type, StorageType::Uint16);
     EXPECT_EQ(result->maps[1].x_axis.name, "Engine Speed");
     EXPECT_EQ(result->maps[1].x_axis.units, "r/min");
     EXPECT_EQ(result->maps[1].x_axis.address, 0x200U);
@@ -632,8 +632,8 @@ TEST(DefinitionResolverTest, EcuFlashDirectDataInheritsOmittedAxisOffsets)
 
     ASSERT_TRUE(result);
     ASSERT_EQ(result->maps.size(), 1U);
-    EXPECT_EQ(result->maps.front().x_axis.start_position, "9");
-    EXPECT_EQ(result->maps.front().x_axis.interval, "4");
+    EXPECT_EQ(result->maps.front().x_axis.start_position, 9U);
+    EXPECT_EQ(result->maps.front().x_axis.interval, 4U);
     EXPECT_EQ(
         result->maps.front().x_axis.static_data,
         (std::vector<std::string>{"0.6", "1.1"}));
@@ -716,7 +716,7 @@ TEST(DefinitionResolverTest, ResolvesMapAndAxisScalingReferences)
     auto root = doc("ROOT");
     auto value_scaling = scaling("value");
     value_scaling.units = "%";
-    auto axis_scaling = scaling("axis", "uint8");
+    auto axis_scaling = scaling("axis", StorageType::Uint8);
     axis_scaling.units = "rpm";
     root.scalings = {value_scaling, axis_scaling};
 
@@ -736,11 +736,11 @@ TEST(DefinitionResolverTest, ResolvesMapAndAxisScalingReferences)
 
     ASSERT_TRUE(result);
     ASSERT_EQ(result->maps.size(), 1U);
-    EXPECT_EQ(result->maps[0].storage_type, "uint16");
+    EXPECT_EQ(result->maps[0].storage_type, StorageType::Uint16);
     EXPECT_EQ(result->maps[0].endian, "big");
     EXPECT_EQ(result->maps[0].x_axis.units, "rpm");
     EXPECT_EQ(result->maps[0].x_axis.format, "0.0");
-    EXPECT_EQ(result->maps[0].x_axis.storage_type, "uint8");
+    EXPECT_EQ(result->maps[0].x_axis.storage_type, StorageType::Uint8);
     EXPECT_EQ(result->maps[0].x_axis.endian, "big");
     EXPECT_EQ(result->maps[0].x_axis.from_byte, "x*0.5");
     EXPECT_EQ(result->maps[0].x_axis.to_byte, "x*2");
@@ -749,7 +749,7 @@ TEST(DefinitionResolverTest, ResolvesMapAndAxisScalingReferences)
 TEST(DefinitionResolverTest, ExplicitIdentityScalingOverridesAxisExpression)
 {
     auto root = doc("ROOT");
-    auto axis_scaling = scaling("axis", "uint8");
+    auto axis_scaling = scaling("axis", StorageType::Uint8);
     axis_scaling.from_byte = "x";
     root.scalings.push_back(axis_scaling);
 
@@ -774,7 +774,7 @@ TEST(DefinitionResolverTest, RejectsConflictingDuplicateScalingDefinitions)
     auto base = doc("BASE");
     base.scalings.push_back(scaling("shared"));
     auto child = doc("CHILD", {"BASE"});
-    child.scalings.push_back(scaling("shared", "uint8"));
+    child.scalings.push_back(scaling("shared", StorageType::Uint8));
     const auto original = child;
     DefinitionSet definitions{{"BASE", base}};
 
@@ -820,7 +820,7 @@ TEST(DefinitionResolverTest, RejectsSelectableMapWithoutSelectionScaling)
     auto root = doc("ROOT");
     auto modes = map("modes", "Modes");
     modes.type = "Selectable";
-    modes.storage_type = "bloblist";
+    modes.storage_type = StorageType::Bloblist;
     root.maps.push_back(modes);
     const auto original = root;
     DefinitionSet definitions{};
@@ -921,7 +921,7 @@ TEST(DefinitionResolverTest, RejectsDuplicateMapKeyWithoutMutatingInput)
 TEST(DefinitionResolverTest, RejectsContradictorySelectionStorageWithoutMutatingInput)
 {
     auto root = doc("ROOT");
-    auto modes = scaling("modes", "uint8");
+    auto modes = scaling("modes", StorageType::Uint8);
     modes.selections = {{"disabled", "00"}, {"enabled", "01"}};
     root.scalings.push_back(modes);
     const auto original = root;

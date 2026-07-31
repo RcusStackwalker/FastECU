@@ -195,8 +195,8 @@ void append_axis(
     columns.type->append(text(axis.type));
     columns.name->append(text(axis.name));
     columns.address->append(present ? address_text(axis.address, true) : qs(kPlaceholder));
-    columns.start->append(present ? legacy_value(axis.start_position) : qs(kPlaceholder));
-    columns.interval->append(present ? legacy_value(axis.interval) : qs(kPlaceholder));
+    columns.start->append(present ? qs(hex_text(axis.start_position)) : qs(kPlaceholder));
+    columns.interval->append(present ? qs(hex_text(axis.interval)) : qs(kPlaceholder));
     columns.minimum->append(present && scaling ? legacy_value(scaling->minimum) : qs(kPlaceholder));
     columns.maximum->append(present && scaling ? legacy_value(scaling->maximum) : qs(kPlaceholder));
     columns.units->append(text(axis.units));
@@ -204,7 +204,7 @@ void append_axis(
         present && scaling ? legacy_format(scaling->format) : qs(kPlaceholder));
     columns.fine->append(present && scaling ? legacy_value(scaling->fine_increment) : qs(kPlaceholder));
     columns.coarse->append(present && scaling ? legacy_value(scaling->coarse_increment) : qs(kPlaceholder));
-    columns.storage->append(text(axis.storage_type));
+    columns.storage->append(present ? legacy_value(storage_type_text(axis.storage_type)) : qs(kPlaceholder));
     columns.endian->append(text(axis.endian));
     columns.log_parameter->append(present ? legacy_value(axis.log_parameter) : qs(kPlaceholder));
     columns.from_byte->append(text(axis.from_byte));
@@ -224,10 +224,10 @@ void append_map(definitions::EcuCalDefStructure& value, const RomDefinition& def
     const AxisDefinition& y = map.y_axis;
     const Scaling *x_scaling = find_scaling(definition, x.scaling_name);
     const Scaling *y_scaling = find_scaling(definition, y.scaling_name);
-    const std::string_view storage =
-        !map.storage_type.empty() ? std::string_view(map.storage_type)
-        : scaling                 ? std::string_view(scaling->storage_type)
-                                  : std::string_view{};
+    const std::optional<StorageType> storage =
+        map.storage_type ? map.storage_type
+        : scaling        ? scaling->storage_type
+                         : std::nullopt;
     const std::string_view endian =
         !map.endian.empty() ? std::string_view(map.endian)
         : scaling           ? std::string_view(scaling->endian)
@@ -247,8 +247,8 @@ void append_map(definitions::EcuCalDefStructure& value, const RomDefinition& def
     value.FlipYList.append(bool_text(map.flip_y));
     value.XSizeList.append(QString::number(map.x_size));
     value.YSizeList.append(QString::number(map.y_size));
-    value.StartPosList.append(legacy_value(map.start_position));
-    value.IntervalList.append(legacy_value(map.interval));
+    value.StartPosList.append(qs(hex_text(map.start_position)));
+    value.IntervalList.append(qs(hex_text(map.interval)));
     value.MinValueList.append(scaling ? legacy_value(scaling->minimum) : qs(kPlaceholder));
     value.MaxValueList.append(scaling ? legacy_value(scaling->maximum) : qs(kPlaceholder));
     value.UnitsList.append(scaling ? legacy_value(scaling->units) : qs(kPlaceholder));
@@ -267,7 +267,7 @@ void append_map(definitions::EcuCalDefStructure& value, const RomDefinition& def
     value.MapCellColorMax.append(qs(kPlaceholder));
     append_axis(value, x, x_scaling, true);
     append_axis(value, y, y_scaling, false);
-    value.StorageTypeList.append(legacy_value(storage));
+    value.StorageTypeList.append(legacy_value(storage_type_text(storage)));
     value.EndianList.append(legacy_value(endian));
     value.LogParamList.append(legacy_value(map.log_parameter));
     value.FromByteList.append(scaling ? legacy_value(scaling->from_byte) : qs(kPlaceholder));
@@ -286,7 +286,7 @@ void append_scaling(definitions::EcuCalDefStructure& value, const Scaling& scali
     value.ScalingMaxValueList.append(legacy_value(scaling.maximum));
     value.ScalingCoarseIncList.append(legacy_value(scaling.coarse_increment));
     value.ScalingFineIncList.append(legacy_value(scaling.fine_increment));
-    value.ScalingStorageTypeList.append(legacy_value(scaling.storage_type));
+    value.ScalingStorageTypeList.append(legacy_value(storage_type_text(scaling.storage_type)));
     value.ScalingEndianList.append(legacy_value(scaling.endian));
     value.ScalingSelectionsNameList.append(selection_names(&scaling));
     value.ScalingSelectionsValueList.append(selection_values(&scaling));

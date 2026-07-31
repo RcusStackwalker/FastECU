@@ -304,6 +304,60 @@ Result<std::uint32_t> dimension_attribute(
     return static_cast<std::uint32_t>(parsed);
 }
 
+Result<std::optional<std::uint32_t>> optional_hex_attribute32(
+    pugi::xml_node node,
+    std::string_view attribute_name,
+    std::string_view source,
+    std::string_view definition_id)
+{
+    auto parsed = optional_hex_attribute(node, attribute_name, source, definition_id);
+    if (!parsed.has_value())
+    {
+        return std::unexpected(parsed.error());
+    }
+    if (!parsed->has_value())
+    {
+        return std::optional<std::uint32_t>{};
+    }
+    if (**parsed > std::numeric_limits<std::uint32_t>::max())
+    {
+        return invalid(
+            source,
+            std::format("element <{}> attribute '{}'", node.name(), attribute_name),
+            std::format("hexadecimal value '{}' does not fit in 32 bits", **parsed),
+            definition_id);
+    }
+    return std::optional<std::uint32_t>{static_cast<std::uint32_t>(**parsed)};
+}
+
+Result<std::optional<StorageType>> optional_storage_type_attribute(
+    pugi::xml_node node,
+    std::string_view attribute_name,
+    std::string_view source,
+    std::string_view definition_id)
+{
+    const pugi::xml_attribute attribute = node.attribute(attribute_name);
+    if (!attribute)
+    {
+        return std::optional<StorageType>{};
+    }
+    const std::string text = trim_copy(attribute.value());
+    if (text.empty())
+    {
+        return std::optional<StorageType>{};
+    }
+    auto parsed = storage_type_from_text(text);
+    if (!parsed.has_value())
+    {
+        return invalid(
+            source,
+            std::format("element <{}> attribute '{}'", node.name(), attribute_name),
+            std::format("unrecognized storage type '{}'", text),
+            definition_id);
+    }
+    return parsed;
+}
+
 Result<bool> strict_boolean_attribute(
     pugi::xml_node node,
     std::string_view attribute_name,
@@ -332,21 +386,30 @@ Result<bool> strict_boolean_attribute(
         definition_id);
 }
 
-void populate_common_axis_attributes(
+Status populate_common_axis_attributes(
     pugi::xml_node table,
-    UnresolvedAxisDefinition& axis)
+    UnresolvedAxisDefinition& axis,
+    std::string_view source,
+    std::string_view definition_id)
 {
     axis.type = value_or_empty(table.attribute("type"));
     axis.name = value_or_empty(table.attribute("name"));
-    axis.storage_type = value_or_empty(table.attribute("storagetype"));
-    axis.endian = value_or_empty(table.attribute("endian"));
-    if (const auto start_position = table.attribute("startpos"))
+    auto storage_type = optional_storage_type_attribute(table, "storagetype", source, definition_id);
+    if (!storage_type.has_value())
     {
-        axis.start_position = value_or_empty(start_position);
+        return std::unexpected(storage_type.error());
     }
-    if (const auto interval = table.attribute("interval"))
+    axis.storage_type = *storage_type;
+    axis.endian = value_or_empty(table.attribute("endian"));
+    if (auto status = populate_optional_hex_dimension(table, "startpos", axis.start_position, source, definition_id);
+        !status.has_value())
     {
-        axis.interval = value_or_empty(interval);
+        return std::unexpected(status.error());
+    }
+    if (auto status = populate_optional_hex_dimension(table, "interval", axis.interval, source, definition_id);
+        !status.has_value())
+    {
+        return std::unexpected(status.error());
     }
     if (const auto log_parameter = table.attribute("logparam"))
     {
@@ -361,6 +424,7 @@ void populate_common_axis_attributes(
         }
         axis.static_data = std::move(values);
     }
+    return {};
 }
 
 void apply_scaling_to_axis(
@@ -375,7 +439,7 @@ void apply_scaling_to_axis(
     }
     axis.from_byte = scaling.from_byte;
     axis.to_byte = scaling.to_byte;
-    if (axis.storage_type.empty())
+    if (!axis.storage_type)
     {
         axis.storage_type = scaling.storage_type;
     }
@@ -385,9 +449,11 @@ void apply_scaling_to_axis(
     }
 }
 
-void populate_common_map_attributes(
+Status populate_common_map_attributes(
     pugi::xml_node table,
-    UnresolvedCalibrationMap& map)
+    UnresolvedCalibrationMap& map,
+    std::string_view source,
+    std::string_view definition_id)
 {
     if (const auto id = table.attribute("id"))
     {
@@ -404,20 +470,28 @@ void populate_common_map_attributes(
     }
     map.level = value_or_empty(table.attribute("level"));
     map.user_level = value_or_empty(table.attribute("userlevel"));
-    map.storage_type = value_or_empty(table.attribute("storagetype"));
-    map.endian = value_or_empty(table.attribute("endian"));
-    if (const auto start_position = table.attribute("startpos"))
+    auto storage_type = optional_storage_type_attribute(table, "storagetype", source, definition_id);
+    if (!storage_type.has_value())
     {
-        map.start_position = value_or_empty(start_position);
+        return std::unexpected(storage_type.error());
     }
-    if (const auto interval = table.attribute("interval"))
+    map.storage_type = *storage_type;
+    map.endian = value_or_empty(table.attribute("endian"));
+    if (auto status = populate_optional_hex_dimension(table, "startpos", map.start_position, source, definition_id);
+        !status.has_value())
     {
-        map.interval = value_or_empty(interval);
+        return std::unexpected(status.error());
+    }
+    if (auto status = populate_optional_hex_dimension(table, "interval", map.interval, source, definition_id);
+        !status.has_value())
+    {
+        return std::unexpected(status.error());
     }
     if (const auto log_parameter = table.attribute("logparam"))
     {
         map.log_parameter = value_or_empty(log_parameter);
     }
+    return {};
 }
 
 Status populate_optional_dimension(
@@ -438,6 +512,25 @@ Status populate_optional_dimension(
         return std::unexpected(dimension.error());
     }
     destination = *dimension;
+    return {};
+}
+
+Status populate_optional_hex_dimension(
+    pugi::xml_node table,
+    std::string_view attribute_name,
+    std::optional<std::uint32_t>& destination,
+    std::string_view source,
+    std::string_view definition_id)
+{
+    auto dimension = optional_hex_attribute32(table, attribute_name, source, definition_id);
+    if (!dimension.has_value())
+    {
+        return std::unexpected(dimension.error());
+    }
+    if (dimension->has_value())
+    {
+        destination = **dimension;
+    }
     return {};
 }
 

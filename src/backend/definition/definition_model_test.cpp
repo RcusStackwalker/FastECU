@@ -74,8 +74,9 @@ TEST(DefinitionModelTest, ResolvedValuesHaveConcreteDefaults)
     EXPECT_EQ(axis.size, 1U);
     EXPECT_EQ(axis.from_byte, "x");
     EXPECT_EQ(axis.to_byte, "x");
-    EXPECT_EQ(axis.start_position, "1");
-    EXPECT_EQ(axis.interval, "1");
+    EXPECT_EQ(axis.start_position, 1U);
+    EXPECT_EQ(axis.interval, 1U);
+    EXPECT_FALSE(axis.storage_type.has_value());
 
     const CalibrationMap map;
     EXPECT_EQ(map.x_size, 1U);
@@ -83,8 +84,9 @@ TEST(DefinitionModelTest, ResolvedValuesHaveConcreteDefaults)
     EXPECT_FALSE(map.swap_xy);
     EXPECT_FALSE(map.flip_x);
     EXPECT_FALSE(map.flip_y);
-    EXPECT_EQ(map.start_position, "1");
-    EXPECT_EQ(map.interval, "1");
+    EXPECT_EQ(map.start_position, 1U);
+    EXPECT_EQ(map.interval, 1U);
+    EXPECT_FALSE(map.storage_type.has_value());
 
     const RomDefinition definition{};
     EXPECT_TRUE(definition.resolved_sources.empty());

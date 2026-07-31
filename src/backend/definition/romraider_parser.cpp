@@ -46,10 +46,12 @@ void append_selections(pugi::xml_node parent, UnresolvedScaling& scaling)
     }
 }
 
-UnresolvedScaling parse_scaling(
+Result<UnresolvedScaling> parse_scaling(
     pugi::xml_node scaling_node,
     std::string fallback_name,
-    pugi::xml_node owner)
+    pugi::xml_node owner,
+    std::string_view source,
+    std::string_view definition_id)
 {
     UnresolvedScaling scaling;
     scaling.name = value_or_empty(scaling_node.attribute("name"));
@@ -90,10 +92,20 @@ UnresolvedScaling parse_scaling(
     }
     scaling.coarse_increment = value_or_empty(scaling_node.attribute("coarseincrement"));
     scaling.fine_increment = value_or_empty(scaling_node.attribute("fineincrement"));
-    scaling.storage_type = value_or_empty(scaling_node.attribute("storagetype"));
-    if (scaling.storage_type.empty())
+    auto storage_type = optional_storage_type_attribute(scaling_node, "storagetype", source, definition_id);
+    if (!storage_type.has_value())
     {
-        scaling.storage_type = value_or_empty(owner.attribute("storagetype"));
+        return std::unexpected(storage_type.error());
+    }
+    scaling.storage_type = *storage_type;
+    if (!scaling.storage_type)
+    {
+        auto owner_storage_type = optional_storage_type_attribute(owner, "storagetype", source, definition_id);
+        if (!owner_storage_type.has_value())
+        {
+            return std::unexpected(owner_storage_type.error());
+        }
+        scaling.storage_type = *owner_storage_type;
     }
     scaling.endian = value_or_empty(scaling_node.attribute("endian"));
     if (scaling.endian.empty())
@@ -112,7 +124,10 @@ Result<UnresolvedAxisDefinition> parse_axis(
     std::vector<UnresolvedScaling>& scalings)
 {
     UnresolvedAxisDefinition axis;
-    populate_common_axis_attributes(table, axis);
+    if (auto status = populate_common_axis_attributes(table, axis, source, definition_id); !status.has_value())
+    {
+        return std::unexpected(status.error());
+    }
     if (axis.name.empty())
     {
         return invalid(
@@ -144,12 +159,18 @@ Result<UnresolvedAxisDefinition> parse_axis(
     const pugi::xml_node scaling_node = table.child("scaling");
     if (scaling_node)
     {
-        UnresolvedScaling scaling = parse_scaling(
+        auto parsed_scaling = parse_scaling(
             scaling_node,
             axis.scaling_name.empty() ? axis.name : axis.scaling_name,
-            table);
-        apply_scaling_to_axis(scaling, axis);
-        scalings.push_back(std::move(scaling));
+            table,
+            source,
+            definition_id);
+        if (!parsed_scaling.has_value())
+        {
+            return std::unexpected(parsed_scaling.error());
+        }
+        apply_scaling_to_axis(*parsed_scaling, axis);
+        scalings.push_back(std::move(*parsed_scaling));
     }
     return axis;
 }
@@ -161,7 +182,10 @@ Result<UnresolvedCalibrationMap> parse_table(
     std::vector<UnresolvedScaling>& scalings)
 {
     UnresolvedCalibrationMap map;
-    populate_common_map_attributes(table, map);
+    if (auto status = populate_common_map_attributes(table, map, source, definition_id); !status.has_value())
+    {
+        return std::unexpected(status.error());
+    }
     if (map.name.empty())
     {
         return invalid(
@@ -216,12 +240,19 @@ Result<UnresolvedCalibrationMap> parse_table(
     const pugi::xml_node scaling_node = table.child("scaling");
     if (scaling_node)
     {
-        UnresolvedScaling scaling = parse_scaling(
+        auto parsed_scaling = parse_scaling(
             scaling_node,
             map.scaling_name.empty() ? map.id.value_or(map.name) : map.scaling_name,
-            table);
+            table,
+            source,
+            definition_id);
+        if (!parsed_scaling.has_value())
+        {
+            return std::unexpected(parsed_scaling.error());
+        }
+        UnresolvedScaling& scaling = *parsed_scaling;
         map.scaling_name = scaling.name;
-        if (map.storage_type.empty())
+        if (!map.storage_type)
         {
             map.storage_type = scaling.storage_type;
         }
@@ -236,20 +267,20 @@ Result<UnresolvedCalibrationMap> parse_table(
     if (map.type == "Switch")
     {
         map.type = "Selectable";
-        map.storage_type = "bloblist";
+        map.storage_type = StorageType::Bloblist;
         if (!scaling_node)
         {
             UnresolvedScaling scaling;
             scaling.name =
                 map.scaling_name.empty() ? map.id.value_or(map.name) : map.scaling_name;
-            scaling.storage_type = "bloblist";
+            scaling.storage_type = StorageType::Bloblist;
             append_selections(table, scaling);
             map.scaling_name = scaling.name;
             scalings.push_back(std::move(scaling));
         }
         else
         {
-            scalings.back().storage_type = "bloblist";
+            scalings.back().storage_type = StorageType::Bloblist;
         }
     }
 

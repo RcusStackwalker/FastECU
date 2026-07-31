@@ -76,15 +76,35 @@ Result<bool> strict_boolean_attribute(
     std::string_view attribute_name,
     std::string_view source,
     std::string_view definition_id);
-void populate_common_axis_attributes(
+Result<std::optional<std::uint32_t>> optional_hex_attribute32(
+    pugi::xml_node node,
+    std::string_view attribute_name,
+    std::string_view source,
+    std::string_view definition_id);
+Status populate_optional_hex_dimension(
     pugi::xml_node table,
-    UnresolvedAxisDefinition& axis);
+    std::string_view attribute_name,
+    std::optional<std::uint32_t>& destination,
+    std::string_view source,
+    std::string_view definition_id);
+Result<std::optional<StorageType>> optional_storage_type_attribute(
+    pugi::xml_node node,
+    std::string_view attribute_name,
+    std::string_view source,
+    std::string_view definition_id);
+Status populate_common_axis_attributes(
+    pugi::xml_node table,
+    UnresolvedAxisDefinition& axis,
+    std::string_view source,
+    std::string_view definition_id);
 void apply_scaling_to_axis(
     const UnresolvedScaling& scaling,
     UnresolvedAxisDefinition& axis);
-void populate_common_map_attributes(
+Status populate_common_map_attributes(
     pugi::xml_node table,
-    UnresolvedCalibrationMap& map);
+    UnresolvedCalibrationMap& map,
+    std::string_view source,
+    std::string_view definition_id);
 Status populate_optional_dimension(
     pugi::xml_node table,
     std::string_view attribute_name,

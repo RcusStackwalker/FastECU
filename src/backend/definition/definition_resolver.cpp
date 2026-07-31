@@ -104,7 +104,7 @@ void overlay_axis(UnresolvedAxisDefinition& value, const UnresolvedAxisDefinitio
     overlay_string(value.name, supplied.name);
     overlay_string(value.units, supplied.units);
     overlay_string(value.format, supplied.format);
-    overlay_string(value.storage_type, supplied.storage_type);
+    overlay_optional(value.storage_type, supplied.storage_type);
     overlay_string(value.endian, supplied.endian);
     overlay_optional(value.address, supplied.address);
     overlay_optional(value.size, supplied.size);
@@ -137,7 +137,7 @@ void overlay_map(UnresolvedCalibrationMap& value, const UnresolvedCalibrationMap
     overlay_string(value.level, supplied.level);
     overlay_string(value.user_level, supplied.user_level);
     overlay_string(value.scaling_name, supplied.scaling_name);
-    overlay_string(value.storage_type, supplied.storage_type);
+    overlay_optional(value.storage_type, supplied.storage_type);
     overlay_string(value.endian, supplied.endian);
     overlay_optional(value.start_position, supplied.start_position);
     overlay_optional(value.interval, supplied.interval);
@@ -365,8 +365,8 @@ AxisDefinition resolve_axis(
         .from_byte = value.from_byte.value_or("x"),
         .to_byte = value.to_byte.value_or("x"),
         .scaling_name = value.scaling_name,
-        .start_position = value.start_position.value_or("1"),
-        .interval = value.interval.value_or("1"),
+        .start_position = value.start_position.value_or(1),
+        .interval = value.interval.value_or(1),
         .log_parameter = value.log_parameter.value_or(""),
         .static_data = value.static_data.value_or(std::vector<std::string>{}),
     };
@@ -392,8 +392,8 @@ CalibrationMap resolve_map(const UnresolvedCalibrationMap& value)
         .scaling_name = value.scaling_name,
         .storage_type = value.storage_type,
         .endian = value.endian,
-        .start_position = value.start_position.value_or("1"),
-        .interval = value.interval.value_or("1"),
+        .start_position = value.start_position.value_or(1),
+        .interval = value.interval.value_or(1),
         .log_parameter = value.log_parameter.value_or(""),
         .x_axis = resolve_axis(value.x_axis, value.x_size.value_or(1)),
         .y_axis = resolve_axis(value.y_axis, value.y_size.value_or(1)),
@@ -421,7 +421,7 @@ Result<void> validate_scaling(const Scaling& scaling, std::string_view definitio
 {
     if (scaling.selections.empty())
     {
-        if (scaling.storage_type == "bloblist")
+        if (scaling.storage_type == StorageType::Bloblist)
         {
             return fail(
                 ErrorKind::InvalidConfig,
@@ -431,7 +431,7 @@ Result<void> validate_scaling(const Scaling& scaling, std::string_view definitio
         }
         return {};
     }
-    if (scaling.storage_type != "bloblist")
+    if (scaling.storage_type != StorageType::Bloblist)
     {
         return fail(
             ErrorKind::InvalidConfig,
@@ -490,7 +490,7 @@ Result<void> apply_axis_scaling(
                 "{} in definition '{}' cannot use selectable scaling '{}'",
                 axis_context, definition_id, axis.scaling_name));
     }
-    if (!axis.storage_type.empty() && !scaling->second->storage_type.empty() &&
+    if (axis.storage_type.has_value() && scaling->second->storage_type.has_value() &&
         axis.storage_type != scaling->second->storage_type)
     {
         return fail(
@@ -514,7 +514,7 @@ Result<void> apply_axis_scaling(
     {
         axis.format = scaling->second->format.value_or("");
     }
-    overlay_string(axis.storage_type, scaling->second->storage_type);
+    overlay_optional(axis.storage_type, scaling->second->storage_type);
     overlay_string(axis.endian, scaling->second->endian);
     if (scaling->second->from_byte || axis.from_byte == "x")
     {
@@ -646,7 +646,7 @@ Result<void> validate_and_resolve_scalings(
                         "unresolved scaling '{}' for map '{}' in definition '{}'",
                         map.scaling_name, key, definition.identity.xml_id));
             }
-            if (!map.storage_type.empty() && !scaling->second->storage_type.empty() &&
+            if (map.storage_type.has_value() && scaling->second->storage_type.has_value() &&
                 map.storage_type != scaling->second->storage_type)
             {
                 return fail(
@@ -664,7 +664,7 @@ Result<void> validate_and_resolve_scalings(
                         "contradictory endian for map '{}' and scaling '{}' in definition '{}'",
                         key, map.scaling_name, definition.identity.xml_id));
             }
-            overlay_string(map.storage_type, scaling->second->storage_type);
+            overlay_optional(map.storage_type, scaling->second->storage_type);
             overlay_string(map.endian, scaling->second->endian);
             if (!scaling->second->selections.empty())
             {
@@ -674,7 +674,7 @@ Result<void> validate_and_resolve_scalings(
         }
 
         if (map.type == "Selectable" &&
-            (map.storage_type != "bloblist" || !has_selection_scaling))
+            (map.storage_type != StorageType::Bloblist || !has_selection_scaling))
         {
             return fail(
                 ErrorKind::InvalidConfig,
@@ -682,7 +682,7 @@ Result<void> validate_and_resolve_scalings(
                     "selectable map '{}' in definition '{}' requires a bloblist selection scaling",
                     key, definition.identity.xml_id));
         }
-        if (map.storage_type == "bloblist" && map.type != "Selectable")
+        if (map.storage_type == StorageType::Bloblist && map.type != "Selectable")
         {
             return fail(
                 ErrorKind::InvalidConfig,
