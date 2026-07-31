@@ -35,4 +35,16 @@ Result<std::vector<std::uint8_t>> open_rom(std::string_view file_handle,
 Status validate_rom_size(const definition::RomDefinition& rom_definition,
                          std::size_t rom_byte_length);
 
+// Reproduces file_actions.cpp's sub_ecu_denso_mc68hc16y5_02 ROM-padding
+// special case: inserts 0x8000 bytes of 0xFF at offset 0x20000 when
+// flash_method starts with "sub_ecu_denso_mc68hc16y5_02" and rom_data is
+// under 190*1024 bytes; a no-op otherwise. If rom_data is shorter than
+// the 0x20000 insertion point, it is first zero-extended up to that
+// point (Qt's own auto-extend-on-insert semantics leave that gap
+// "uninitialized" per its docs, so zero-fill is a disclosed, deterministic
+// choice, not a preserved legacy value). Callers take ownership:
+// rom_data = apply_flash_method_padding(std::move(rom_data), flash_method);
+std::vector<std::uint8_t> apply_flash_method_padding(
+    std::vector<std::uint8_t> rom_data, std::string_view flash_method);
+
 } // namespace fastecu::calibration

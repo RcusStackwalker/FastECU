@@ -169,5 +169,53 @@ TEST(ValidateRomSize, EmptyMapsListPasses)
     EXPECT_TRUE(validate_rom_size(definition, 0).has_value());
 }
 
+TEST(ApplyFlashMethodPadding, InsertsPaddingForMatchingUnderSizedRom)
+{
+    std::vector<std::uint8_t> rom(160 * 1024, 0x00);
+
+    std::vector<std::uint8_t> result =
+        apply_flash_method_padding(std::move(rom), "sub_ecu_denso_mc68hc16y5_02_variant");
+
+    EXPECT_EQ(result.size(), 160 * 1024 + 0x8000);
+    // The 0x8000 inserted bytes are all 0xFF, starting at offset 0x20000.
+    EXPECT_EQ(result[0x20000], 0xFF);
+    EXPECT_EQ(result[0x20000 + 0x7FFF], 0xFF);
+}
+
+TEST(ApplyFlashMethodPadding, NoOpWhenFlashMethodDoesNotMatch)
+{
+    std::vector<std::uint8_t> rom(160 * 1024, 0xAB);
+
+    std::vector<std::uint8_t> result =
+        apply_flash_method_padding(rom, "sub_ecu_some_other_method");
+
+    EXPECT_EQ(result, rom);
+}
+
+TEST(ApplyFlashMethodPadding, NoOpWhenRomIsAtOrAboveThreshold)
+{
+    std::vector<std::uint8_t> rom(190 * 1024, 0xAB);
+
+    std::vector<std::uint8_t> result =
+        apply_flash_method_padding(rom, "sub_ecu_denso_mc68hc16y5_02");
+
+    EXPECT_EQ(result, rom);
+}
+
+TEST(ApplyFlashMethodPadding, GrowsAndZeroFillsRomShorterThanInsertionPoint)
+{
+    std::vector<std::uint8_t> rom(100, 0xAB);
+
+    std::vector<std::uint8_t> result =
+        apply_flash_method_padding(std::move(rom), "sub_ecu_denso_mc68hc16y5_02");
+
+    ASSERT_EQ(result.size(), static_cast<std::size_t>(0x20000) + 0x8000);
+    EXPECT_EQ(result[99], 0xAB);
+    EXPECT_EQ(result[100], 0x00);     // zero-filled gap
+    EXPECT_EQ(result[0x1FFFF], 0x00); // last zero-filled gap byte
+    EXPECT_EQ(result[0x20000], 0xFF); // padding starts here
+    EXPECT_EQ(result[0x20000 + 0x7FFF], 0xFF);
+}
+
 } // namespace
 } // namespace fastecu::calibration

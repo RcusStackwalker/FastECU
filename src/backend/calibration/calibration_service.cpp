@@ -45,4 +45,25 @@ Status validate_rom_size(const definition::RomDefinition& rom_definition,
     return {};
 }
 
+std::vector<std::uint8_t> apply_flash_method_padding(
+    std::vector<std::uint8_t> rom_data, std::string_view flash_method)
+{
+    constexpr std::size_t kInsertionPoint = 0x20000;
+    constexpr std::size_t kPaddingBytes = 0x8000;
+    constexpr std::size_t kSizeThreshold = 190 * 1024;
+
+    if (!flash_method.starts_with("sub_ecu_denso_mc68hc16y5_02") ||
+        rom_data.size() >= kSizeThreshold)
+    {
+        return rom_data;
+    }
+    if (rom_data.size() < kInsertionPoint)
+    {
+        rom_data.resize(kInsertionPoint, 0x00);
+    }
+    rom_data.insert(rom_data.begin() + static_cast<std::ptrdiff_t>(kInsertionPoint),
+                    kPaddingBytes, 0xFF);
+    return rom_data;
+}
+
 } // namespace fastecu::calibration
