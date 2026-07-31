@@ -92,18 +92,6 @@ QString static_data_text(const AxisDefinition& axis)
     return result;
 }
 
-const Scaling *find_scaling(const RomDefinition& definition, std::string_view name)
-{
-    for (const Scaling& scaling : definition.scalings)
-    {
-        if (scaling.name == name)
-        {
-            return &scaling;
-        }
-    }
-    return nullptr;
-}
-
 QString legacy_format(std::string_view format)
 {
     return legacy_value(format);

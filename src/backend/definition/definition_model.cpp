@@ -55,6 +55,18 @@ Result<void> validate(const DefinitionIndexEntry& entry)
 
 } // namespace
 
+const Scaling *find_scaling(const RomDefinition& rom_definition, std::string_view name)
+{
+    for (const Scaling& scaling : rom_definition.scalings)
+    {
+        if (scaling.name == name)
+        {
+            return &scaling;
+        }
+    }
+    return nullptr;
+}
+
 DefinitionCatalog::DefinitionCatalog(std::vector<DefinitionIndexEntry> entries) : entries_(std::move(entries))
 {
 }

@@ -227,4 +227,32 @@ TEST(DefinitionCatalogTest, MissingEntryIsInvalidConfig)
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
 }
 
+TEST(FindScaling, ReturnsTheMatchingScalingByName)
+{
+    RomDefinition definition;
+    Scaling first;
+    first.name = "first";
+    first.units = "first_units";
+    definition.scalings.push_back(first);
+    Scaling second;
+    second.name = "second";
+    second.units = "second_units";
+    definition.scalings.push_back(second);
+
+    const Scaling *result = find_scaling(definition, "second");
+
+    ASSERT_NE(result, nullptr);
+    EXPECT_EQ(result->units, "second_units");
+}
+
+TEST(FindScaling, ReturnsNullptrWhenNoScalingMatches)
+{
+    RomDefinition definition;
+    Scaling only;
+    only.name = "only";
+    definition.scalings.push_back(only);
+
+    EXPECT_EQ(find_scaling(definition, "missing"), nullptr);
+}
+
 } // namespace

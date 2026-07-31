@@ -230,6 +230,15 @@ struct RomDefinition
     bool operator==(const RomDefinition&) const = default;
 };
 
+// Returns the scaling in rom_definition.scalings whose name matches, or
+// nullptr if none does. Shared by LegacyDefinitionAdapter's append_map
+// (src/backend/definition/legacy_definition_adapter.cpp) and
+// fastecu::calibration::compute_map_cell_values
+// (src/backend/calibration/calibration_service.cpp) -- both need the
+// same map/axis-to-scaling lookup, so it lives here rather than being
+// duplicated in either Qt-linked or portable consumer.
+const Scaling *find_scaling(const RomDefinition& rom_definition, std::string_view name);
+
 class DefinitionCatalog
 {
   public:
