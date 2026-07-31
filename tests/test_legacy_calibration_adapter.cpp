@@ -186,8 +186,45 @@ class TestLegacyCalibrationAdapter : public QObject
         QCOMPARE(ecuCalDef.YScaleData.at(0), QString(" "));
     }
 
-    void compute_map_cell_values_applies_padding_before_decoding()
+    void apply_flash_method_padding_grows_full_rom_data_in_place()
     {
+        // Padding must persist into FullRomData, not just into a decode-only
+        // copy: FileActions::open_subaru_rom_file validates the definition's
+        // addresses against FullRomData's length, and every later consumer
+        // (map edits, checksum correction, save-to-file, the flash writer)
+        // addresses the same buffer.
+        InMemoryFileRepository repo;
+        LegacyCalibrationAdapter adapter(repo);
+        EcuCalDefStructure ecuCalDef;
+        ecuCalDef.FullRomData = QByteArray(160 * 1024, '\0');
+
+        adapter.apply_flash_method_padding(ecuCalDef, "sub_ecu_denso_mc68hc16y5_02");
+
+        QCOMPARE(ecuCalDef.FullRomData.length(), qsizetype{160} * 1024 + 0x8000);
+        // 0x8000 bytes of 0xFF inserted at 0x20000, original bytes after it.
+        QCOMPARE(static_cast<unsigned char>(ecuCalDef.FullRomData.at(0x20000)), 0xFFU);
+        QCOMPARE(static_cast<unsigned char>(ecuCalDef.FullRomData.at(0x27FFF)), 0xFFU);
+        QCOMPARE(static_cast<unsigned char>(ecuCalDef.FullRomData.at(0x28000)), 0x00U);
+    }
+
+    void apply_flash_method_padding_leaves_other_flash_methods_untouched()
+    {
+        InMemoryFileRepository repo;
+        LegacyCalibrationAdapter adapter(repo);
+        EcuCalDefStructure ecuCalDef;
+        ecuCalDef.FullRomData = QByteArray(160 * 1024, '\0');
+
+        adapter.apply_flash_method_padding(ecuCalDef, "any_flash_method");
+
+        QCOMPARE(ecuCalDef.FullRomData.length(), qsizetype{160} * 1024);
+    }
+
+    void compute_map_cell_values_decodes_from_already_padded_rom_bytes()
+    {
+        // Named ..._rom_bytes, not ..._rom_data, deliberately: QtTest reads
+        // a trailing "_data" as the data-driven data function for a
+        // same-named test, so such a slot is silently never run as a test
+        // of its own (observed, not theorized).
         fastecu::definition::RomDefinition definition;
         fastecu::definition::Scaling scaling;
         scaling.name = "s";
@@ -214,39 +251,100 @@ class TestLegacyCalibrationAdapter : public QObject
         ecuCalDef.XScaleData = {""};
         ecuCalDef.YScaleData = {""};
 
+        // Padding is a separate step now (it has to persist before
+        // validate_rom_size runs), so the caller applies it first and
+        // compute_map_cell_values decodes the padded FullRomData as-is.
+        adapter.apply_flash_method_padding(ecuCalDef, "sub_ecu_denso_mc68hc16y5_02");
         adapter.compute_map_cell_values(ecuCalDef, definition,
                                         "sub_ecu_denso_mc68hc16y5_02", 15);
 
         // Padding fills 0x20000..0x27FFF with 0xFF; the map at address 0x20000
-        // reads a padding byte (0xFF == 255), proving padding ran first.
+        // reads a padding byte (0xFF == 255), so a decode against the
+        // unpadded bytes could not have produced this.
+        QCOMPARE(ecuCalDef.FullRomData.length(), qsizetype{160} * 1024 + 0x8000);
         QCOMPARE(ecuCalDef.MapData.at(0), QString("255,"));
     }
 
-    void compute_map_cell_values_leaves_lists_unchanged_on_decode_failure()
+    void compute_map_cell_values_skips_only_the_failing_map()
     {
+        // One map's decode failure leaves that map's three entries at
+        // whatever they held (their " " placeholder in production) and
+        // logs it -- the maps around it still get their decoded values.
         fastecu::definition::RomDefinition definition;
+        fastecu::definition::Scaling scaling;
+        scaling.name = "s";
+        scaling.from_byte = "x";
+        definition.scalings.push_back(scaling);
+
+        fastecu::definition::CalibrationMap bad;
+        bad.name = "OutOfBounds";
+        bad.address = 999999; // far beyond the tiny ROM below
+        bad.x_size = 1;
+        bad.y_size = 1;
+        bad.storage_type = "uint8";
+        bad.start_position = "1";
+        bad.interval = "1";
+        bad.scaling_name = "s";
+        definition.maps.push_back(bad);
+
+        fastecu::definition::CalibrationMap good = bad;
+        good.name = "InBounds";
+        good.address = 4;
+        definition.maps.push_back(good);
+
+        InMemoryFileRepository repo;
+        LegacyCalibrationAdapter adapter(repo);
+        EcuCalDefStructure ecuCalDef;
+        ecuCalDef.FullRomData = QByteArray(10, '\0');
+        ecuCalDef.FullRomData[4] = static_cast<char>(0x07);
+        ecuCalDef.NameList = {"OutOfBounds", "InBounds"};
+        ecuCalDef.MapData = {"sentinel", "sentinel"};
+        ecuCalDef.XScaleData = {"sentinel", "sentinel"};
+        ecuCalDef.YScaleData = {"sentinel", "sentinel"};
+
+        adapter.compute_map_cell_values(ecuCalDef, definition, "any_flash_method", 15);
+
+        QCOMPARE(ecuCalDef.MapData.at(0), QString("sentinel"));
+        QCOMPARE(ecuCalDef.XScaleData.at(0), QString("sentinel"));
+        QCOMPARE(ecuCalDef.YScaleData.at(0), QString("sentinel"));
+        QCOMPARE(ecuCalDef.MapData.at(1), QString("7,"));
+    }
+
+    void compute_map_cell_values_stops_at_the_shortest_of_the_three_lists()
+    {
+        // MapData/XScaleData/YScaleData are populated in lockstep, but the
+        // write-back must not index past the end of the shorter two if they
+        // ever diverge.
+        fastecu::definition::RomDefinition definition;
+        fastecu::definition::Scaling scaling;
+        scaling.name = "s";
+        scaling.from_byte = "x";
+        definition.scalings.push_back(scaling);
         fastecu::definition::CalibrationMap map;
-        map.name = "OutOfBounds";
-        map.address = 999999; // far beyond the tiny ROM below
+        map.name = "Fuel";
+        map.address = 4;
         map.x_size = 1;
         map.y_size = 1;
         map.storage_type = "uint8";
         map.start_position = "1";
         map.interval = "1";
+        map.scaling_name = "s";
         definition.maps.push_back(map);
 
         InMemoryFileRepository repo;
         LegacyCalibrationAdapter adapter(repo);
         EcuCalDefStructure ecuCalDef;
         ecuCalDef.FullRomData = QByteArray(10, '\0');
-        ecuCalDef.NameList = {"OutOfBounds"};
-        ecuCalDef.MapData = {"sentinel"};
-        ecuCalDef.XScaleData = {"sentinel"};
-        ecuCalDef.YScaleData = {"sentinel"};
+        ecuCalDef.FullRomData[4] = static_cast<char>(0x07);
+        ecuCalDef.NameList = {"Fuel"};
+        ecuCalDef.MapData = {""};
+        ecuCalDef.XScaleData = {""};
+        ecuCalDef.YScaleData = {}; // shorter than the other two
 
         adapter.compute_map_cell_values(ecuCalDef, definition, "any_flash_method", 15);
 
-        QCOMPARE(ecuCalDef.MapData.at(0), QString("sentinel"));
+        QCOMPARE(ecuCalDef.YScaleData.size(), 0);
+        QCOMPARE(ecuCalDef.MapData.at(0), QString("")); // skipped, not written
     }
 };
 

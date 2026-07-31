@@ -1154,26 +1154,34 @@ class TestFileActionsParsing : public QObject
         delete ecuCalDef;
     }
 
-    void open_subaru_rom_file_no_longer_persists_flash_method_padding()
+    void open_subaru_rom_file_applies_padding_before_returning()
     {
-        // Historical note: this test previously pinned a final-review fix
-        // (step5d-4 plan) that reordered open_subaru_rom_file's
-        // size-validation block to run AFTER the (then still inline)
-        // sub_ecu_denso_mc68hc16y5_02 padding block, so FullRomData grew by
-        // 0x8000 bytes before the function returned. That inline padding
-        // block was itself deleted by Task 6 of the step5d4b plan: padding
-        // is now applied by LegacyCalibrationAdapter::compute_map_cell_values
-        // (apply_flash_method_padding in legacy_calibration_adapter.cpp)
-        // only to a local copy used for map-cell decoding, and is never
-        // written back into ecuCalDef->FullRomData. So FullRomData's length
-        // is now unaffected by the FlashMethod padding special case --
-        // pinned here so a future change doesn't silently reintroduce
-        // persistent padding of the caller's stored bytes.
+        // Regression test for two successive fixes to the same ordering.
+        // First (step5d-4 plan): open_subaru_rom_file's size-validation
+        // block must run AFTER the sub_ecu_denso_mc68hc16y5_02 padding, or
+        // a definition authored against the padded image gets rejected for
+        // addressing past the unpadded length. Then (step5d4b plan) the
+        // padding moved out of this function into
+        // LegacyCalibrationAdapter::apply_flash_method_padding -- and must
+        // still be applied to ecuCalDef->FullRomData itself, in the same
+        // position, not to a decode-only copy: every later consumer (map
+        // edits, checksum correction, save-to-file, the flash writer)
+        // addresses FullRomData.
+        //
+        // This does not reproduce the original ordering bug directly (that
+        // would require a real EcuFlash definition fixture with map
+        // addresses in the padded region, driving definitionService_.load
+        // to succeed) -- disproportionate setup for this fix's regression
+        // test, per the final review's own accepted tradeoff.
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
         const QString romPath = dir.filePath("rom.bin");
         QFile romFile(romPath);
         QVERIFY(romFile.open(QIODevice::WriteOnly));
+        // Must be >= 0x20000 (the padding insertion point): inserting at a
+        // position beyond the buffer's current length first grows it up to
+        // that position, so a smaller original size would make the observed
+        // growth larger than the 0x8000 bytes of padding itself.
         const QByteArray originalBytes(qsizetype{160} * 1024, '\0');
         QCOMPARE(romFile.write(originalBytes), qint64{originalBytes.size()});
         romFile.close();
@@ -1190,7 +1198,7 @@ class TestFileActionsParsing : public QObject
         ecuCalDef = fileActions.open_subaru_rom_file(ecuCalDef, romPath);
 
         QVERIFY(ecuCalDef != nullptr);
-        QCOMPARE(ecuCalDef->FullRomData.length(), originalBytes.length());
+        QCOMPARE(ecuCalDef->FullRomData.length(), originalBytes.length() + 0x8000);
         delete ecuCalDef;
     }
 

@@ -84,8 +84,14 @@ std::uint32_t parse_hex_uint32(std::string_view text)
     }
     std::uint32_t value = 0;
     const auto result = std::from_chars(text.data(), text.data() + text.size(), value, 16);
-    if (result.ec != std::errc{})
+    if (result.ec != std::errc{} || result.ptr != text.data() + text.size())
     {
+        // Whole-string check: std::from_chars stops at the first character
+        // it cannot consume and reports success for the prefix, so without
+        // this, "10junk" would parse as 0x10. Qt's toUInt(&ok, 16) -- what
+        // legacy used -- rejects any trailing garbage, so rejecting it here
+        // (via this function's existing "unparseable -> 0" fallback) is the
+        // closer match.
         return 0;
     }
     return value;
@@ -255,7 +261,117 @@ Result<std::string> decode_bloblist_hex(
     return result;
 }
 
-Result<MapCellValuesList> compute_map_cell_values(
+namespace
+{
+
+// Decodes one map's cells and axes. Every failure path returns an error for
+// this map alone; compute_map_cell_values below turns that into a
+// placeholder entry and moves on to the next map.
+Result<MapCellValues> compute_one_map_cell_values(
+    const definition::RomDefinition& rom_definition,
+    const definition::CalibrationMap& map,
+    std::span<const std::uint8_t> rom_data,
+    bool apply_wrx02,
+    int float_precision)
+{
+    MapCellValues values;
+    const definition::Scaling *scaling =
+        definition::find_scaling(rom_definition, map.scaling_name);
+
+    if (map.storage_type == "bloblist")
+    {
+        const std::uint32_t byte_count =
+            (scaling != nullptr && !scaling->selections.empty())
+                ? static_cast<std::uint32_t>(scaling->selections.front().second.size() / 2)
+                : 0;
+        if (!map.address.has_value())
+        {
+            return fail(ErrorKind::InvalidConfig, "bloblist map has no address");
+        }
+        auto decoded = decode_bloblist_hex(rom_data, *map.address, byte_count);
+        if (!decoded.has_value())
+        {
+            return std::unexpected(decoded.error());
+        }
+        values.map_data = *decoded;
+        return values;
+    }
+
+    // Resolved after the bloblist branch above returns: bloblist maps read
+    // raw bytes and never evaluate a from_byte expression.
+    const std::string from_byte = scaling != nullptr ? scaling->from_byte : std::string("x");
+
+    if (!map.address.has_value())
+    {
+        return fail(ErrorKind::InvalidConfig, "map has no address");
+    }
+    auto decoded = decode_scaled_values(
+        rom_data, *map.address, map.x_size * map.y_size, map.start_position,
+        map.interval, map.storage_type, map.endian, from_byte,
+        map.type == "Selectable", apply_wrx02, float_precision);
+    if (!decoded.has_value())
+    {
+        return std::unexpected(decoded.error());
+    }
+    values.map_data = *decoded;
+
+    if (map.x_size > 1)
+    {
+        if (map.x_axis.type == "Static Y Axis" || map.x_axis.type == "Static X Axis")
+        {
+            values.x_axis_data = join_with_trailing_comma(map.x_axis.static_data);
+        }
+        else if (map.x_axis.type == "X Axis" ||
+                 (map.x_axis.type == "Y Axis" && map.type == "2D"))
+        {
+            if (!map.x_axis.address.has_value())
+            {
+                return fail(ErrorKind::InvalidConfig, "x axis has no address");
+            }
+            const definition::Scaling *x_scaling =
+                definition::find_scaling(rom_definition, map.x_axis.scaling_name);
+            const std::string x_from_byte =
+                x_scaling != nullptr ? x_scaling->from_byte : std::string("x");
+            auto x_decoded = decode_scaled_values(
+                rom_data, *map.x_axis.address, map.x_size, map.x_axis.start_position,
+                map.x_axis.interval, map.x_axis.storage_type, map.x_axis.endian,
+                x_from_byte, map.x_axis.type == "Selectable", apply_wrx02,
+                float_precision);
+            if (!x_decoded.has_value())
+            {
+                return std::unexpected(x_decoded.error());
+            }
+            values.x_axis_data = *x_decoded;
+        }
+    }
+
+    if (map.y_size > 1)
+    {
+        if (!map.y_axis.address.has_value())
+        {
+            return fail(ErrorKind::InvalidConfig, "y axis has no address");
+        }
+        const definition::Scaling *y_scaling =
+            definition::find_scaling(rom_definition, map.y_axis.scaling_name);
+        const std::string y_from_byte =
+            y_scaling != nullptr ? y_scaling->from_byte : std::string("x");
+        auto y_decoded = decode_scaled_values(
+            rom_data, *map.y_axis.address, map.y_size, map.y_axis.start_position,
+            map.y_axis.interval, map.y_axis.storage_type, map.y_axis.endian,
+            y_from_byte, map.y_axis.type == "Selectable", apply_wrx02, float_precision);
+        if (!y_decoded.has_value())
+        {
+            return std::unexpected(y_decoded.error());
+        }
+        values.y_axis_data = *y_decoded;
+    }
+
+    return values;
+}
+
+} // namespace
+
+MapCellValuesList compute_map_cell_values(
     const definition::RomDefinition& rom_definition,
     std::span<const std::uint8_t> rom_data,
     std::string_view flash_method,
@@ -267,96 +383,16 @@ Result<MapCellValuesList> compute_map_cell_values(
 
     for (const definition::CalibrationMap& map : rom_definition.maps)
     {
-        MapCellValues values;
-        const definition::Scaling *scaling = definition::find_scaling(rom_definition, map.scaling_name);
-        const std::string from_byte = scaling != nullptr ? scaling->from_byte : std::string("x");
-
-        if (map.storage_type == "bloblist")
+        Result<MapCellValues> values = compute_one_map_cell_values(
+            rom_definition, map, rom_data, apply_wrx02, float_precision);
+        if (!values.has_value())
         {
-            const std::uint32_t byte_count =
-                (scaling != nullptr && !scaling->selections.empty())
-                    ? static_cast<std::uint32_t>(scaling->selections.front().second.size() / 2)
-                    : 0;
-            if (!map.address.has_value())
-            {
-                return fail(ErrorKind::InvalidConfig, "bloblist map has no address");
-            }
-            auto decoded = decode_bloblist_hex(rom_data, *map.address, byte_count);
-            if (!decoded.has_value())
-            {
-                return std::unexpected(decoded.error());
-            }
-            values.map_data = *decoded;
-            result.push_back(std::move(values));
+            MapCellValues placeholder;
+            placeholder.error = values.error();
+            result.push_back(std::move(placeholder));
             continue;
         }
-
-        if (!map.address.has_value())
-        {
-            return fail(ErrorKind::InvalidConfig, "map has no address");
-        }
-        auto decoded = decode_scaled_values(
-            rom_data, *map.address, map.x_size * map.y_size, map.start_position,
-            map.interval, map.storage_type, map.endian, from_byte,
-            map.type == "Selectable", apply_wrx02, float_precision);
-        if (!decoded.has_value())
-        {
-            return std::unexpected(decoded.error());
-        }
-        values.map_data = *decoded;
-
-        if (map.x_size > 1)
-        {
-            if (map.x_axis.type == "Static Y Axis" || map.x_axis.type == "Static X Axis")
-            {
-                values.x_axis_data = join_with_trailing_comma(map.x_axis.static_data);
-            }
-            else if (map.x_axis.type == "X Axis" ||
-                     (map.x_axis.type == "Y Axis" && map.type == "2D"))
-            {
-                if (!map.x_axis.address.has_value())
-                {
-                    return fail(ErrorKind::InvalidConfig, "x axis has no address");
-                }
-                const definition::Scaling *x_scaling =
-                    definition::find_scaling(rom_definition, map.x_axis.scaling_name);
-                const std::string x_from_byte =
-                    x_scaling != nullptr ? x_scaling->from_byte : std::string("x");
-                auto x_decoded = decode_scaled_values(
-                    rom_data, *map.x_axis.address, map.x_size, map.x_axis.start_position,
-                    map.x_axis.interval, map.x_axis.storage_type, map.x_axis.endian,
-                    x_from_byte, map.x_axis.type == "Selectable", apply_wrx02,
-                    float_precision);
-                if (!x_decoded.has_value())
-                {
-                    return std::unexpected(x_decoded.error());
-                }
-                values.x_axis_data = *x_decoded;
-            }
-        }
-
-        if (map.y_size > 1)
-        {
-            if (!map.y_axis.address.has_value())
-            {
-                return fail(ErrorKind::InvalidConfig, "y axis has no address");
-            }
-            const definition::Scaling *y_scaling =
-                definition::find_scaling(rom_definition, map.y_axis.scaling_name);
-            const std::string y_from_byte =
-                y_scaling != nullptr ? y_scaling->from_byte : std::string("x");
-            auto y_decoded = decode_scaled_values(
-                rom_data, *map.y_axis.address, map.y_size, map.y_axis.start_position,
-                map.y_axis.interval, map.y_axis.storage_type, map.y_axis.endian,
-                y_from_byte, map.y_axis.type == "Selectable", apply_wrx02, float_precision);
-            if (!y_decoded.has_value())
-            {
-                return std::unexpected(y_decoded.error());
-            }
-            values.y_axis_data = *y_decoded;
-        }
-
-        result.push_back(std::move(values));
+        result.push_back(std::move(*values));
     }
     return result;
 }

@@ -406,6 +406,26 @@ TEST(DecodeScaledValues, UnparseableIntervalTextParsesAsZero)
     EXPECT_EQ(*result, "5,5,");
 }
 
+TEST(DecodeScaledValues, IntervalWithTrailingGarbageParsesAsZero)
+{
+    // std::from_chars stops at the first character it cannot consume and
+    // still reports success for the prefix, so "2zz" would silently parse
+    // as interval 2 without parse_hex_uint32's whole-string check. Legacy's
+    // QString::toUInt(&status, 16) rejects trailing garbage outright, so
+    // this falls through to the same "unparseable -> 0" result as "zz"
+    // above: interval == 0 collapses every cell onto address 0.
+    std::vector<std::uint8_t> rom(200, 0x00);
+    rom[0] = 0x05;
+    rom[2] = 0x09;
+
+    Result<std::string> result = decode_scaled_values(
+        rom, 0, 2, "1", /*interval=*/"2zz", "uint8", "big", "x", false, false,
+        15);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "5,5,");
+}
+
 TEST(DecodeScaledValues, EmptyStartPositionUnderflowsToASafeError)
 {
     // Legacy: (startPos - 1) on an unsigned 32-bit value with startPos == 0
@@ -584,12 +604,11 @@ TEST(ComputeMapCellValues, DecodesMapCellsUsingResolvedScaling)
     rom[102] = 0x00;
     rom[103] = 0x14; // 20 -> x*0.5 -> 10
 
-    Result<MapCellValuesList> result =
+    const MapCellValuesList result =
         compute_map_cell_values(definition_with_scaled_map(), rom, "any_flash_method", 15);
 
-    ASSERT_TRUE(result.has_value());
-    ASSERT_EQ(result->size(), 1U);
-    EXPECT_EQ((*result)[0].map_data, "5,10,");
+    ASSERT_EQ(result.size(), 1U);
+    EXPECT_EQ(result[0].map_data, "5,10,");
 }
 
 TEST(ComputeMapCellValues, XAxisDataDefaultsToSpaceWhenXSizeIsOne)
@@ -598,11 +617,10 @@ TEST(ComputeMapCellValues, XAxisDataDefaultsToSpaceWhenXSizeIsOne)
     definition.maps[0].x_size = 1;
     std::vector<std::uint8_t> rom(200, 0x00);
 
-    Result<MapCellValuesList> result =
+    const MapCellValuesList result =
         compute_map_cell_values(definition, rom, "any_flash_method", 15);
 
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ((*result)[0].x_axis_data, " ");
+    EXPECT_EQ(result[0].x_axis_data, " ");
 }
 
 TEST(ComputeMapCellValues, YAxisDataDefaultsToSpaceWhenYSizeIsOne)
@@ -610,11 +628,10 @@ TEST(ComputeMapCellValues, YAxisDataDefaultsToSpaceWhenYSizeIsOne)
     RomDefinition definition = definition_with_scaled_map();
     std::vector<std::uint8_t> rom(200, 0x00);
 
-    Result<MapCellValuesList> result =
+    const MapCellValuesList result =
         compute_map_cell_values(definition, rom, "any_flash_method", 15);
 
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ((*result)[0].y_axis_data, " "); // y_size defaults to 1
+    EXPECT_EQ(result[0].y_axis_data, " "); // y_size defaults to 1
 }
 
 TEST(ComputeMapCellValues, YAxisIsComputedUnconditionallyWhenSizeExceedsOne)
@@ -642,11 +659,10 @@ TEST(ComputeMapCellValues, YAxisIsComputedUnconditionallyWhenSizeExceedsOne)
     rom[152] = 0x00;
     rom[153] = 0x04; // 4 -> x*0.5 -> 2
 
-    Result<MapCellValuesList> result =
+    const MapCellValuesList result =
         compute_map_cell_values(definition, rom, "any_flash_method", 15);
 
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ((*result)[0].y_axis_data, "1,2,");
+    EXPECT_EQ(result[0].y_axis_data, "1,2,");
 }
 
 TEST(ComputeMapCellValues, XAxisStaticTypeJoinsStaticData)
@@ -660,11 +676,10 @@ TEST(ComputeMapCellValues, XAxisStaticTypeJoinsStaticData)
     rom[102] = 0x00;
     rom[103] = 0x14;
 
-    Result<MapCellValuesList> result =
+    const MapCellValuesList result =
         compute_map_cell_values(definition, rom, "any_flash_method", 15);
 
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ((*result)[0].x_axis_data, "1000,2000,");
+    EXPECT_EQ(result[0].x_axis_data, "1000,2000,");
 }
 
 TEST(ComputeMapCellValues, XAxisTypeXAxisComputesFromRom)
@@ -687,11 +702,10 @@ TEST(ComputeMapCellValues, XAxisTypeXAxisComputesFromRom)
     rom[152] = 0x00;
     rom[153] = 0x08; // 8 -> x*0.5 -> 4
 
-    Result<MapCellValuesList> result =
+    const MapCellValuesList result =
         compute_map_cell_values(definition, rom, "any_flash_method", 15);
 
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ((*result)[0].x_axis_data, "3,4,");
+    EXPECT_EQ(result[0].x_axis_data, "3,4,");
 }
 
 TEST(ComputeMapCellValues, XAxisTypeYAxisComputesOnlyWhenMapIs2D)
@@ -715,11 +729,10 @@ TEST(ComputeMapCellValues, XAxisTypeYAxisComputesOnlyWhenMapIs2D)
     rom[152] = 0x00;
     rom[153] = 0x08;
 
-    Result<MapCellValuesList> result =
+    const MapCellValuesList result =
         compute_map_cell_values(definition, rom, "any_flash_method", 15);
 
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ((*result)[0].x_axis_data, "3,4,");
+    EXPECT_EQ(result[0].x_axis_data, "3,4,");
 }
 
 TEST(ComputeMapCellValues, XAxisTypeYAxisIsSkippedWhenMapIsNot2D)
@@ -735,11 +748,10 @@ TEST(ComputeMapCellValues, XAxisTypeYAxisIsSkippedWhenMapIsNot2D)
     rom[102] = 0x00;
     rom[103] = 0x14;
 
-    Result<MapCellValuesList> result =
+    const MapCellValuesList result =
         compute_map_cell_values(definition, rom, "any_flash_method", 15);
 
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ((*result)[0].x_axis_data, " "); // left at default, not computed
+    EXPECT_EQ(result[0].x_axis_data, " "); // left at default, not computed
 }
 
 TEST(ComputeMapCellValues, BloblistStorageTypeHexEncodesFromFirstSelectionLength)
@@ -761,14 +773,13 @@ TEST(ComputeMapCellValues, BloblistStorageTypeHexEncodesFromFirstSelectionLength
     rom[11] = 0x22;
     rom[12] = 0x33; // "AABBCC".length()/2 == 3 bytes
 
-    Result<MapCellValuesList> result =
+    const MapCellValuesList result =
         compute_map_cell_values(definition, rom, "any_flash_method", 15);
 
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ((*result)[0].map_data, "112233");
+    EXPECT_EQ(result[0].map_data, "112233");
 }
 
-TEST(ComputeMapCellValues, MapWithNoAddressFails)
+TEST(ComputeMapCellValues, MapWithNoAddressLeavesThatMapAtItsPlaceholder)
 {
     // Reproduces the non-bloblist "map has no address" guard -- distinct
     // from decode_scaled_values's own out-of-bounds check below, since this
@@ -777,14 +788,19 @@ TEST(ComputeMapCellValues, MapWithNoAddressFails)
     definition.maps[0].address.reset();
     std::vector<std::uint8_t> rom(200, 0x00);
 
-    Result<MapCellValuesList> result =
+    const MapCellValuesList result =
         compute_map_cell_values(definition, rom, "any_flash_method", 15);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_EQ(result.size(), 1U);
+    ASSERT_TRUE(result[0].error.has_value());
+    EXPECT_EQ(result[0].error->kind, ErrorKind::InvalidConfig);
+    // Placeholder, not a decoded value -- and the only entry affected.
+    EXPECT_EQ(result[0].map_data, "");
+    EXPECT_EQ(result[0].x_axis_data, " ");
+    EXPECT_EQ(result[0].y_axis_data, " ");
 }
 
-TEST(ComputeMapCellValues, BloblistMapWithNoAddressFails)
+TEST(ComputeMapCellValues, BloblistMapWithNoAddressLeavesThatMapAtItsPlaceholder)
 {
     RomDefinition definition;
     Scaling scaling;
@@ -800,14 +816,19 @@ TEST(ComputeMapCellValues, BloblistMapWithNoAddressFails)
 
     std::vector<std::uint8_t> rom(200, 0x00);
 
-    Result<MapCellValuesList> result =
+    const MapCellValuesList result =
         compute_map_cell_values(definition, rom, "any_flash_method", 15);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_EQ(result.size(), 1U);
+    ASSERT_TRUE(result[0].error.has_value());
+    EXPECT_EQ(result[0].error->kind, ErrorKind::InvalidConfig);
+    // Placeholder, not a decoded value -- and the only entry affected.
+    EXPECT_EQ(result[0].map_data, "");
+    EXPECT_EQ(result[0].x_axis_data, " ");
+    EXPECT_EQ(result[0].y_axis_data, " ");
 }
 
-TEST(ComputeMapCellValues, BloblistDecodeFailureIsPropagated)
+TEST(ComputeMapCellValues, BloblistDecodeFailureLeavesThatMapAtItsPlaceholder)
 {
     RomDefinition definition;
     Scaling scaling;
@@ -823,14 +844,19 @@ TEST(ComputeMapCellValues, BloblistDecodeFailureIsPropagated)
 
     std::vector<std::uint8_t> rom(200, 0x00);
 
-    Result<MapCellValuesList> result =
+    const MapCellValuesList result =
         compute_map_cell_values(definition, rom, "any_flash_method", 15);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+    ASSERT_EQ(result.size(), 1U);
+    ASSERT_TRUE(result[0].error.has_value());
+    EXPECT_EQ(result[0].error->kind, ErrorKind::Internal);
+    // Placeholder, not a decoded value -- and the only entry affected.
+    EXPECT_EQ(result[0].map_data, "");
+    EXPECT_EQ(result[0].x_axis_data, " ");
+    EXPECT_EQ(result[0].y_axis_data, " ");
 }
 
-TEST(ComputeMapCellValues, XAxisWithNoAddressFails)
+TEST(ComputeMapCellValues, XAxisWithNoAddressLeavesThatMapAtItsPlaceholder)
 {
     RomDefinition definition = definition_with_scaled_map();
     definition.maps[0].x_axis.type = "X Axis";
@@ -841,14 +867,19 @@ TEST(ComputeMapCellValues, XAxisWithNoAddressFails)
     rom[102] = 0x00;
     rom[103] = 0x14;
 
-    Result<MapCellValuesList> result =
+    const MapCellValuesList result =
         compute_map_cell_values(definition, rom, "any_flash_method", 15);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_EQ(result.size(), 1U);
+    ASSERT_TRUE(result[0].error.has_value());
+    EXPECT_EQ(result[0].error->kind, ErrorKind::InvalidConfig);
+    // Placeholder, not a decoded value -- and the only entry affected.
+    EXPECT_EQ(result[0].map_data, "");
+    EXPECT_EQ(result[0].x_axis_data, " ");
+    EXPECT_EQ(result[0].y_axis_data, " ");
 }
 
-TEST(ComputeMapCellValues, XAxisDecodeFailureIsPropagated)
+TEST(ComputeMapCellValues, XAxisDecodeFailureLeavesThatMapAtItsPlaceholder)
 {
     RomDefinition definition = definition_with_scaled_map();
     definition.maps[0].x_axis.type = "X Axis";
@@ -862,14 +893,19 @@ TEST(ComputeMapCellValues, XAxisDecodeFailureIsPropagated)
     rom[102] = 0x00;
     rom[103] = 0x14;
 
-    Result<MapCellValuesList> result =
+    const MapCellValuesList result =
         compute_map_cell_values(definition, rom, "any_flash_method", 15);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+    ASSERT_EQ(result.size(), 1U);
+    ASSERT_TRUE(result[0].error.has_value());
+    EXPECT_EQ(result[0].error->kind, ErrorKind::Internal);
+    // Placeholder, not a decoded value -- and the only entry affected.
+    EXPECT_EQ(result[0].map_data, "");
+    EXPECT_EQ(result[0].x_axis_data, " ");
+    EXPECT_EQ(result[0].y_axis_data, " ");
 }
 
-TEST(ComputeMapCellValues, YAxisWithNoAddressFails)
+TEST(ComputeMapCellValues, YAxisWithNoAddressLeavesThatMapAtItsPlaceholder)
 {
     RomDefinition definition = definition_with_scaled_map();
     definition.maps[0].y_size = 2;
@@ -880,14 +916,19 @@ TEST(ComputeMapCellValues, YAxisWithNoAddressFails)
     rom[102] = 0x00;
     rom[103] = 0x14;
 
-    Result<MapCellValuesList> result =
+    const MapCellValuesList result =
         compute_map_cell_values(definition, rom, "any_flash_method", 15);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_EQ(result.size(), 1U);
+    ASSERT_TRUE(result[0].error.has_value());
+    EXPECT_EQ(result[0].error->kind, ErrorKind::InvalidConfig);
+    // Placeholder, not a decoded value -- and the only entry affected.
+    EXPECT_EQ(result[0].map_data, "");
+    EXPECT_EQ(result[0].x_axis_data, " ");
+    EXPECT_EQ(result[0].y_axis_data, " ");
 }
 
-TEST(ComputeMapCellValues, YAxisDecodeFailureIsPropagated)
+TEST(ComputeMapCellValues, YAxisDecodeFailureLeavesThatMapAtItsPlaceholder)
 {
     RomDefinition definition = definition_with_scaled_map();
     definition.maps[0].y_size = 2;
@@ -901,11 +942,16 @@ TEST(ComputeMapCellValues, YAxisDecodeFailureIsPropagated)
     rom[102] = 0x00;
     rom[103] = 0x14;
 
-    Result<MapCellValuesList> result =
+    const MapCellValuesList result =
         compute_map_cell_values(definition, rom, "any_flash_method", 15);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+    ASSERT_EQ(result.size(), 1U);
+    ASSERT_TRUE(result[0].error.has_value());
+    EXPECT_EQ(result[0].error->kind, ErrorKind::Internal);
+    // Placeholder, not a decoded value -- and the only entry affected.
+    EXPECT_EQ(result[0].map_data, "");
+    EXPECT_EQ(result[0].x_axis_data, " ");
+    EXPECT_EQ(result[0].y_axis_data, " ");
 }
 
 TEST(ComputeMapCellValues, MultipleMapsProduceOneEntryEachInDefinitionOrder)
@@ -925,13 +971,51 @@ TEST(ComputeMapCellValues, MultipleMapsProduceOneEntryEachInDefinitionOrder)
     rom[106] = 0x00;
     rom[107] = 0x28; // 40 -> x*0.5 -> 20
 
-    Result<MapCellValuesList> result =
+    const MapCellValuesList result =
         compute_map_cell_values(definition, rom, "any_flash_method", 15);
 
-    ASSERT_TRUE(result.has_value());
-    ASSERT_EQ(result->size(), 2U);
-    EXPECT_EQ((*result)[0].map_data, "5,10,");
-    EXPECT_EQ((*result)[1].map_data, "15,20,");
+    ASSERT_EQ(result.size(), 2U);
+    EXPECT_EQ(result[0].map_data, "5,10,");
+    EXPECT_EQ(result[1].map_data, "15,20,");
+}
+
+TEST(ComputeMapCellValues, OneBadMapDoesNotBlankTheGoodMapsAroundIt)
+{
+    // The regression this pins: returning on the first map's error used to
+    // abandon the whole ROM, so a single out-of-range definition entry left
+    // every map blank. Legacy computed per map, and so does this now.
+    RomDefinition definition = definition_with_scaled_map();
+    CalibrationMap bad_map = definition.maps[0];
+    bad_map.name = "Bad";
+    bad_map.address = 199; // uint16 read at 199 exceeds rom.size() (200).
+    definition.maps.insert(definition.maps.begin(), bad_map);
+    CalibrationMap trailing_map = definition.maps[1];
+    trailing_map.name = "Trailing";
+    trailing_map.address = 104;
+    definition.maps.push_back(trailing_map);
+
+    std::vector<std::uint8_t> rom(200, 0x00);
+    rom[100] = 0x00;
+    rom[101] = 0x0A;
+    rom[102] = 0x00;
+    rom[103] = 0x14;
+    rom[104] = 0x00;
+    rom[105] = 0x1E; // 30 -> x*0.5 -> 15
+    rom[106] = 0x00;
+    rom[107] = 0x28; // 40 -> x*0.5 -> 20
+
+    const MapCellValuesList result =
+        compute_map_cell_values(definition, rom, "any_flash_method", 15);
+
+    ASSERT_EQ(result.size(), 3U);
+    ASSERT_TRUE(result[0].error.has_value());
+    EXPECT_EQ(result[0].error->kind, ErrorKind::Internal);
+    EXPECT_EQ(result[0].map_data, "");
+    // Both siblings of the bad map still decode, before and after it.
+    EXPECT_FALSE(result[1].error.has_value());
+    EXPECT_EQ(result[1].map_data, "5,10,");
+    EXPECT_FALSE(result[2].error.has_value());
+    EXPECT_EQ(result[2].map_data, "15,20,");
 }
 
 } // namespace

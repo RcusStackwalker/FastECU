@@ -1806,7 +1806,6 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
     ConfigValuesStructure *configValues = &ConfigValuesStruct;
 
     bool id_is_ascii = false;
-    bool bStatus = false;
 
     fastecu::Status opened = calibrationAdapter_.open_rom_bytes(*ecuCalDef, filename, *configValues);
     if (!opened.has_value())
@@ -1916,6 +1915,17 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
     ecuCalDef->OemEcuFile = true;
     ecuCalDef->FileSize = QString::number(ecuCalDef->FullRomData.length());
     ecuCalDef->RomInfo.replace(FileSize, QString::number(ecuCalDef->FullRomData.length() / 1024) + "kb");
+
+    // Must run here -- after FileSize/RomInfo bookkeeping reads the original
+    // length (matching the pre-extraction ordering, which never refreshed
+    // either field afterwards) and BEFORE validate_rom_size below, whose
+    // check is against FullRomData's length. WRX02 definitions address
+    // calibration data that only fits once this has grown the ROM by 0x8000
+    // bytes; validating the unpadded length rejects every such definition.
+    // It also has to persist into FullRomData rather than into a decode-only
+    // copy, so map edits, checksum correction and the flash writer see the
+    // same addresses the map display was decoded from.
+    calibrationAdapter_.apply_flash_method_padding(*ecuCalDef, ecuCalDef->RomInfo.at(FlashMethod));
 
     if (ecuCalDef->use_romraider_definition || ecuCalDef->use_ecuflash_definition)
     {

@@ -2,7 +2,9 @@
 #include <charconv>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -144,6 +146,12 @@ struct MapCellValues
     std::string map_data;
     std::string x_axis_data{" "};
     std::string y_axis_data{" "};
+    // Set when this one map's decode failed. map_data/x_axis_data/
+    // y_axis_data are then left at the defaults above and the caller is
+    // expected to skip writing this entry back (and to log the error
+    // against this map's name/index). A failed map never fails its
+    // siblings -- see compute_map_cell_values below.
+    std::optional<Error> error;
 };
 using MapCellValuesList = std::vector<MapCellValues>;
 
@@ -170,7 +178,15 @@ using MapCellValuesList = std::vector<MapCellValues>;
 //    map.y_size cells at y_axis.address (no type branching at all --
 //    this asymmetry with the x-axis handling is real legacy behavior,
 //    reproduced exactly). When map.y_size <= 1: y_axis_data = " ".
-Result<MapCellValuesList> compute_map_cell_values(
+//
+// Degrades per map, never ROM-wide: a map whose decode fails (missing
+// address, out-of-bounds read, ...) gets its entry left at the
+// MapCellValues defaults with `error` set, and the loop continues with
+// the next map. This matches legacy's per-map computation, where one bad
+// map only blanked that map; returning early instead would blank every
+// map in the ROM, which validate_rom_size cannot prevent (it checks only
+// each map's base address, not its full decode range).
+MapCellValuesList compute_map_cell_values(
     const definition::RomDefinition& rom_definition,
     std::span<const std::uint8_t> rom_data,
     std::string_view flash_method,

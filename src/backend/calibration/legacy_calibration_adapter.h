@@ -36,7 +36,22 @@ class LegacyCalibrationAdapter
     definitions::EcuCalDefStructure *save_subaru_rom_file(
         definitions::EcuCalDefStructure *ecu_cal_def, const QString& filename);
 
-    // Calls apply_flash_method_padding then compute_map_cell_values, and
+    // Applies calibration_service.h's apply_flash_method_padding to
+    // ecu_cal_def.FullRomData IN PLACE (the sub_ecu_denso_mc68hc16y5_02
+    // special case; a no-op for every other flash method and for ROMs at
+    // or above its size threshold). Must run before validate_rom_size and
+    // before compute_map_cell_values: WRX02 definitions address
+    // calibration data that only lands in bounds once the ROM has grown by
+    // 0x8000 bytes, so validating the unpadded length rejects the whole
+    // definition. Padding the caller's stored bytes -- rather than a
+    // throwaway copy -- is also what keeps map display, map edits,
+    // checksum correction, save-to-file and the flash writer all agreeing
+    // on one set of addresses.
+    void apply_flash_method_padding(definitions::EcuCalDefStructure& ecu_cal_def,
+                                    const QString& flash_method);
+
+    // Calls compute_map_cell_values on ecu_cal_def.FullRomData (already
+    // padded by apply_flash_method_padding above) and
     // writes the resulting MapCellValuesList into ecu_cal_def.MapData/
     // XScaleData/YScaleData by position -- matching ecu_cal_def.NameList's
     // existing order, which is guaranteed (not merely assumed) to equal
@@ -45,9 +60,9 @@ class LegacyCalibrationAdapter
     // already makes (once for the definition-matching dispatch that sets
     // NameList, once more for validate_rom_size that produces
     // rom_definition) -- a pure function of identical inputs, so both
-    // calls yield byte-identical RomDefinition objects. On failure, logs
-    // and leaves MapData/XScaleData/YScaleData unchanged rather than
-    // failing the whole ROM open.
+    // calls yield byte-identical RomDefinition objects. A map whose decode
+    // failed is logged (by name and index) and its three entries are left
+    // unchanged -- only that map's, not the whole ROM's.
     void compute_map_cell_values(definitions::EcuCalDefStructure& ecu_cal_def,
                                  const definition::RomDefinition& rom_definition,
                                  const QString& flash_method,

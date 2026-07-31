@@ -3,6 +3,9 @@
 #include <QFileInfo>
 #include <QDateTime>
 
+#include <algorithm>
+#include <cstddef>
+
 #include "src/algorithms/protocol/qt_bytes.h"
 #include "src/backend/calibration/calibration_service.h"
 #include "src/backend/config/car_model_catalog.h"
@@ -148,18 +151,33 @@ definitions::EcuCalDefStructure *LegacyCalibrationAdapter::save_subaru_rom_file(
     return ecu_cal_def;
 }
 
+void LegacyCalibrationAdapter::apply_flash_method_padding(
+    definitions::EcuCalDefStructure& ecu_cal_def, const QString& flash_method)
+{
+    const bytes::ByteView original = bytes::view(ecu_cal_def.FullRomData);
+    // Qualified with calibration:: for the same class-scope-hides-namespace
+    // reason spelled out in compute_map_cell_values below.
+    std::vector<std::uint8_t> padded = calibration::apply_flash_method_padding(
+        std::vector<std::uint8_t>(original.begin(), original.end()),
+        flash_method.toStdString());
+    if (padded.size() == static_cast<std::size_t>(ecu_cal_def.FullRomData.length()))
+    {
+        // The free function is a no-op for every non-matching flash method
+        // and for ROMs at or above its size threshold, and it only ever
+        // grows rom_data -- so an unchanged length means unchanged bytes,
+        // and the copy-back can be skipped.
+        return;
+    }
+    ecu_cal_def.FullRomData =
+        bytes::toQByteArray(bytes::ByteView(padded.data(), padded.size()));
+}
+
 void LegacyCalibrationAdapter::compute_map_cell_values(
     definitions::EcuCalDefStructure& ecu_cal_def,
     const definition::RomDefinition& rom_definition, const QString& flash_method,
     int float_precision)
 {
-    const bytes::ByteView original = bytes::view(ecu_cal_def.FullRomData);
-    std::vector<std::uint8_t> padded = apply_flash_method_padding(
-        std::vector<std::uint8_t>(original.begin(), original.end()),
-        flash_method.toStdString());
-
-    // Qualified with calibration:: (unlike apply_flash_method_padding above,
-    // which has no name clash and is called unqualified): this member
+    // Qualified with calibration:: -- this member
     // function shares its name with calibration_service.h's free function
     // of the same name. Unqualified lookup from inside a member function
     // body checks class scope before the enclosing namespace, so an
@@ -174,18 +192,33 @@ void LegacyCalibrationAdapter::compute_map_cell_values(
     // members remain reachable by qualifying with their own enclosing
     // namespace's name from inside that namespace, unlike the class-scope
     // hiding rule above.
-    Result<MapCellValuesList> computed = calibration::compute_map_cell_values(
-        rom_definition, padded, flash_method.toStdString(), float_precision);
-    if (!computed.has_value())
+    const MapCellValuesList computed = calibration::compute_map_cell_values(
+        rom_definition, bytes::view(ecu_cal_def.FullRomData),
+        flash_method.toStdString(), float_precision);
+
+    // Bounded by all three lists, not just MapData: they are populated in
+    // lockstep, but an unexpected length mismatch must not index past the
+    // end of the two shorter ones.
+    const std::size_t writable = std::min({computed.size(),
+                                           static_cast<std::size_t>(ecu_cal_def.MapData.size()),
+                                           static_cast<std::size_t>(ecu_cal_def.XScaleData.size()),
+                                           static_cast<std::size_t>(ecu_cal_def.YScaleData.size())});
+    for (std::size_t i = 0; i < writable; ++i)
     {
-        qWarning().noquote() << "compute_map_cell_values failed:"
-                             << to_string(computed.error().kind)
-                             << QString::fromStdString(computed.error().detail);
-        return;
-    }
-    for (std::size_t i = 0; i < computed->size() && static_cast<int>(i) < ecu_cal_def.MapData.size(); ++i)
-    {
-        const MapCellValues& values = (*computed)[i];
+        const MapCellValues& values = computed[i];
+        if (values.error.has_value())
+        {
+            // One bad map does not blank its siblings: log it against its
+            // own name/index and leave that entry's existing placeholder
+            // in place, matching legacy's per-map computation.
+            const QString map_name = i < static_cast<std::size_t>(ecu_cal_def.NameList.size())
+                                         ? ecu_cal_def.NameList.at(static_cast<int>(i))
+                                         : QString();
+            qWarning().noquote() << "compute_map_cell_values failed for map" << i
+                                 << map_name << ":" << to_string(values.error->kind)
+                                 << QString::fromStdString(values.error->detail);
+            continue;
+        }
         ecu_cal_def.MapData.replace(static_cast<int>(i), QString::fromStdString(values.map_data));
         ecu_cal_def.XScaleData.replace(static_cast<int>(i), QString::fromStdString(values.x_axis_data));
         ecu_cal_def.YScaleData.replace(static_cast<int>(i), QString::fromStdString(values.y_axis_data));
