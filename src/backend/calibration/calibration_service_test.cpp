@@ -5,16 +5,104 @@
 
 #include <gtest/gtest.h>
 
+#include "src/backend/ports/testing/in_memory_file_repository.h"
+
 namespace fastecu::calibration
 {
 namespace
 {
 
+using fastecu::InMemoryFileRepository;
 using fastecu::definition::AxisDefinition;
 using fastecu::definition::CalibrationMap;
 using fastecu::definition::RomDefinition;
 using fastecu::definition::Scaling;
 using fastecu::definition::StorageType;
+
+TEST(SaveRom, WritesBytesThroughRepository)
+{
+    InMemoryFileRepository repo;
+    const std::vector<std::uint8_t> data{0x01, 0x02, 0x03};
+
+    Status result = save_rom(data, "out.bin", repo);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(repo.files["out.bin"], data);
+}
+
+TEST(SaveRom, WriteFailureIsPropagated)
+{
+    class FailingFileRepository : public InMemoryFileRepository
+    {
+      public:
+        Status write(std::string_view, std::span<const std::uint8_t>) override
+        {
+            return fastecu::fail(ErrorKind::Internal, "disk full");
+        }
+    } repo;
+
+    const std::vector<std::uint8_t> data{0x01};
+    Status result = save_rom(data, "out.bin", repo);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+}
+
+TEST(OpenRom, ReadsFromRepositoryWhenNoPreloadedBytes)
+{
+    InMemoryFileRepository repo;
+    repo.files["in.bin"] = {0xAA, 0xBB};
+
+    Result<std::vector<std::uint8_t>> result =
+        open_rom("in.bin", {}, "backup.bin", repo);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, (std::vector<std::uint8_t>{0xAA, 0xBB}));
+    EXPECT_TRUE(repo.files.find("backup.bin") == repo.files.end());
+}
+
+TEST(OpenRom, ReadFailureIsPropagated)
+{
+    InMemoryFileRepository repo;
+
+    Result<std::vector<std::uint8_t>> result =
+        open_rom("missing.bin", {}, "backup.bin", repo);
+
+    ASSERT_FALSE(result.has_value());
+}
+
+TEST(OpenRom, PreloadedBytesAreReturnedUnchangedAndBackedUp)
+{
+    InMemoryFileRepository repo;
+    const std::vector<std::uint8_t> preloaded{0x01, 0x02, 0x03, 0x04};
+
+    Result<std::vector<std::uint8_t>> result =
+        open_rom("ignored.bin", preloaded, "backup.bin", repo);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, preloaded);
+    EXPECT_EQ(repo.files["backup.bin"], preloaded);
+    EXPECT_EQ(repo.read_count("ignored.bin"), 0);
+}
+
+TEST(OpenRom, BackupWriteFailureDoesNotFailTheOpen)
+{
+    class FailingBackupRepository : public InMemoryFileRepository
+    {
+      public:
+        Status write(std::string_view, std::span<const std::uint8_t>) override
+        {
+            return fastecu::fail(ErrorKind::Internal, "backup failed");
+        }
+    } repo;
+    const std::vector<std::uint8_t> preloaded{0x01};
+
+    Result<std::vector<std::uint8_t>> result =
+        open_rom("ignored.bin", preloaded, "backup.bin", repo);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, preloaded);
+}
 
 TEST(ElementByteSizeTest, DelegatesToStorageByteSizeWhenNotBloblist)
 {

@@ -3,12 +3,31 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <span>
+#include <string_view>
+#include <vector>
 
 #include "src/backend/definition/definition_model.h"
+#include "src/backend/ports/file_repository.h"
 #include "src/backend/ports/result.h"
 
 namespace fastecu::calibration
 {
+
+// Replaces FileActions::save_subaru_rom_file's body.
+Status save_rom(std::span<const std::uint8_t> rom_data, std::string_view file_handle,
+                IFileRepository& file_repository);
+
+// Reads via file_repository when preloaded_bytes is empty (the "read from
+// disk" case). When preloaded_bytes is non-empty (the "already have
+// FullRomData" case, e.g. after an ECU read), backs it up to backup_handle
+// via save_rom -- a backup-write failure does not fail the open, matching
+// open_subaru_rom_file's own fire-and-forget backup save -- and returns
+// preloaded_bytes unchanged. Does not perform definition matching.
+Result<std::vector<std::uint8_t>> open_rom(std::string_view file_handle,
+                                           std::span<const std::uint8_t> preloaded_bytes,
+                                           std::string_view backup_handle,
+                                           IFileRepository& file_repository);
 
 // Byte width of one element. For Bloblist, derived from the first selection's
 // hex-encoded value length (2 hex chars per byte) when `scaling` has one --

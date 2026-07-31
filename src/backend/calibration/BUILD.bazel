@@ -1,8 +1,19 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
-package(default_visibility = ["//visibility:public"])
+package(default_visibility = [
+    "//src/backend:__subpackages__",
+    "//src/platform:__subpackages__",
+    "//src/ui:__subpackages__",
+    "//tests:__pkg__",
+])
 
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//:__pkg__"],
+)
+
+# Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
     name = "calibration_service",
     srcs = ["calibration_service.cpp"],
@@ -16,5 +27,8 @@ cc_library(
 fastecu_portable_gtest(
     name = "calibration_service_test",
     srcs = ["calibration_service_test.cpp"],
-    deps = [":calibration_service"],
+    deps = [
+        ":calibration_service",
+        "//src/backend/ports/testing:in_memory_file_repository",
+    ],
 )
