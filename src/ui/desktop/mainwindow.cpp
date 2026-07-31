@@ -1454,6 +1454,11 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
                 // emit LOG_D("Checking definitions, please wait...";
                 fileActions->open_subaru_rom_file(ecuCalDef[ecuCalDefIndex], ecuCalDef[ecuCalDefIndex]->FileName);
                 update_protocol_info(ecuCalDefIndex);
+                if (!ecuCalDef[ecuCalDefIndex]->use_romraider_definition &&
+                    !ecuCalDef[ecuCalDefIndex]->use_ecuflash_definition)
+                {
+                    prompt_for_missing_definition(ecuCalDef[ecuCalDefIndex]);
+                }
 
                 // emit LOG_D("Building treewidget, please wait...";
                 calibrationTreeWidget->buildCalibrationFilesTree(ecuCalDefIndex, ui->calibrationFilesTreeWidget, ecuCalDef[ecuCalDefIndex]);
@@ -1504,6 +1509,20 @@ void MainWindow::custom_menu_requested(QPoint pos)
 
 bool MainWindow::open_calibration_file(QString filename)
 {
+    if (filename.isEmpty())
+    {
+        QFileDialog openDialog;
+        openDialog.setDefaultSuffix("bin");
+        filename = QFileDialog::getOpenFileName(this, tr("Open ROM file"),
+                                                configValues->calibration_files_directory,
+                                                tr("Calibration file (*.bin *.hex)"));
+        if (filename.isEmpty())
+        {
+            QMessageBox::information(this, tr("Calibration file"), "No file selected");
+            return 1; // matches open_subaru_rom_file's old "no file selected" return of nullptr -> caller's failure path
+        }
+    }
+
     ecuCalDef[ecuCalDefIndex] = new FileActions::EcuCalDefStructure;
 
     while (ecuCalDef[ecuCalDefIndex]->RomInfo.length() < ecuCalDef[ecuCalDefIndex]->RomInfoStrings.length())
@@ -1515,6 +1534,11 @@ bool MainWindow::open_calibration_file(QString filename)
     if (ecuCalDef[ecuCalDefIndex] != nullptr)
     {
         update_protocol_info(ecuCalDefIndex);
+        if (!ecuCalDef[ecuCalDefIndex]->use_romraider_definition &&
+            !ecuCalDef[ecuCalDefIndex]->use_ecuflash_definition)
+        {
+            prompt_for_missing_definition(ecuCalDef[ecuCalDefIndex]);
+        }
 
         calibrationTreeWidget->buildCalibrationFilesTree(ecuCalDefIndex, ui->calibrationFilesTreeWidget, ecuCalDef[ecuCalDefIndex]);
         calibrationTreeWidget->buildCalibrationDataTree(ui->calibrationDataTreeWidget, ecuCalDef[ecuCalDefIndex]);
@@ -1528,6 +1552,42 @@ bool MainWindow::open_calibration_file(QString filename)
         return 1;
     }
     return 0;
+}
+
+void MainWindow::prompt_for_missing_definition(FileActions::EcuCalDefStructure *ecuCalDef)
+{
+    QDialog *definitionDialog = new QDialog(this);
+    QVBoxLayout *vBoxLayout = new QVBoxLayout(definitionDialog);
+    QLabel *label = new QLabel("Unable to find definition for selected ROM file!\n\nSelect option:");
+    QRadioButton *createNewRadioButton = new QRadioButton("Create new definition file template");
+    QRadioButton *useExistingRadioButton = new QRadioButton("Use existing definition file as base");
+    QRadioButton *continueWithoutRadioButton = new QRadioButton("Continue without definition file");
+
+    QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    connect(buttonBox, &QDialogButtonBox::accepted, definitionDialog, &QDialog::accept);
+    connect(buttonBox, &QDialogButtonBox::rejected, definitionDialog, &QDialog::reject);
+
+    vBoxLayout->addWidget(label);
+    vBoxLayout->addWidget(createNewRadioButton);
+    vBoxLayout->addWidget(useExistingRadioButton);
+    vBoxLayout->addWidget(continueWithoutRadioButton);
+    vBoxLayout->addWidget(buttonBox);
+    continueWithoutRadioButton->setChecked(true);
+
+    int result = definitionDialog->exec();
+    if (result == QDialog::Accepted)
+    {
+        if (createNewRadioButton->isChecked())
+        {
+            emit LOG_D(createNewRadioButton->text(), true, true);
+            fileActions->create_new_definition_for_rom(ecuCalDef);
+        }
+        else if (useExistingRadioButton->isChecked())
+        {
+            emit LOG_D(useExistingRadioButton->text(), true, true);
+            fileActions->use_existing_definition_for_rom(ecuCalDef);
+        }
+    }
 }
 
 void MainWindow::save_calibration_file()

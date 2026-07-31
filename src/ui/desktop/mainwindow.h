@@ -310,6 +310,7 @@ class MainWindow : public QMainWindow
 
     // fileactions.c
     bool open_calibration_file(QString filename);
+    void prompt_for_missing_definition(FileActions::EcuCalDefStructure *ecuCalDef);
     void save_calibration_file();
     void save_calibration_file_as();
     QStringList parse_stringlist_from_expression_string(QString expression, QString x);
