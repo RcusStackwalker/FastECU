@@ -16,6 +16,7 @@ using fastecu::InMemoryFileRepository;
 using fastecu::definition::AxisDefinition;
 using fastecu::definition::CalibrationMap;
 using fastecu::definition::RomDefinition;
+using fastecu::definition::Scaling;
 
 TEST(SaveRom, WritesBytesThroughRepository)
 {
@@ -531,6 +532,246 @@ TEST(DecodeBloblistHex, FailsWhenRangeExceedsRomSize)
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+}
+
+RomDefinition definition_with_scaled_map()
+{
+    RomDefinition definition;
+    Scaling scaling;
+    scaling.name = "fuel_scaling";
+    scaling.from_byte = "x*0.5";
+    definition.scalings.push_back(scaling);
+
+    CalibrationMap map;
+    map.name = "Fuel";
+    map.address = 100;
+    map.x_size = 2;
+    map.y_size = 1;
+    map.storage_type = "uint16";
+    map.endian = "big";
+    map.start_position = "1";
+    map.interval = "1";
+    map.scaling_name = "fuel_scaling";
+    definition.maps.push_back(map);
+    return definition;
+}
+
+TEST(ComputeMapCellValues, DecodesMapCellsUsingResolvedScaling)
+{
+    std::vector<std::uint8_t> rom(200, 0x00);
+    rom[100] = 0x00;
+    rom[101] = 0x0A; // 10 -> x*0.5 -> 5
+    rom[102] = 0x00;
+    rom[103] = 0x14; // 20 -> x*0.5 -> 10
+
+    Result<MapCellValuesList> result =
+        compute_map_cell_values(definition_with_scaled_map(), rom, "any_flash_method", 15);
+
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result->size(), 1U);
+    EXPECT_EQ((*result)[0].map_data, "5,10,");
+}
+
+TEST(ComputeMapCellValues, XAxisDataDefaultsToSpaceWhenXSizeIsOne)
+{
+    RomDefinition definition = definition_with_scaled_map();
+    definition.maps[0].x_size = 1;
+    std::vector<std::uint8_t> rom(200, 0x00);
+
+    Result<MapCellValuesList> result =
+        compute_map_cell_values(definition, rom, "any_flash_method", 15);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ((*result)[0].x_axis_data, " ");
+}
+
+TEST(ComputeMapCellValues, YAxisDataDefaultsToSpaceWhenYSizeIsOne)
+{
+    RomDefinition definition = definition_with_scaled_map();
+    std::vector<std::uint8_t> rom(200, 0x00);
+
+    Result<MapCellValuesList> result =
+        compute_map_cell_values(definition, rom, "any_flash_method", 15);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ((*result)[0].y_axis_data, " "); // y_size defaults to 1
+}
+
+TEST(ComputeMapCellValues, YAxisIsComputedUnconditionallyWhenSizeExceedsOne)
+{
+    // Real legacy asymmetry, reproduced exactly: the y-axis has no type
+    // branching at all (unlike x-axis's three-way branch below) -- it is
+    // always computed via decode_scaled_values when y_size > 1.
+    RomDefinition definition = definition_with_scaled_map();
+    definition.maps[0].y_size = 2;
+    definition.maps[0].y_axis.address = 150;
+    definition.maps[0].y_axis.storage_type = "uint16";
+    definition.maps[0].y_axis.endian = "big";
+    definition.maps[0].y_axis.start_position = "1";
+    definition.maps[0].y_axis.interval = "1";
+    definition.maps[0].y_axis.scaling_name = "fuel_scaling";
+    // y_axis.type left at its default (empty string) -- unconditional
+    // computation means this must still compute, unlike the x-axis case.
+    std::vector<std::uint8_t> rom(200, 0x00);
+    rom[100] = 0x00;
+    rom[101] = 0x0A;
+    rom[102] = 0x00;
+    rom[103] = 0x14;
+    rom[150] = 0x00;
+    rom[151] = 0x02; // 2 -> x*0.5 -> 1
+    rom[152] = 0x00;
+    rom[153] = 0x04; // 4 -> x*0.5 -> 2
+
+    Result<MapCellValuesList> result =
+        compute_map_cell_values(definition, rom, "any_flash_method", 15);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ((*result)[0].y_axis_data, "1,2,");
+}
+
+TEST(ComputeMapCellValues, XAxisStaticTypeJoinsStaticData)
+{
+    RomDefinition definition = definition_with_scaled_map();
+    definition.maps[0].x_axis.type = "Static X Axis";
+    definition.maps[0].x_axis.static_data = {"1000", "2000"};
+    std::vector<std::uint8_t> rom(200, 0x00);
+    rom[100] = 0x00;
+    rom[101] = 0x0A;
+    rom[102] = 0x00;
+    rom[103] = 0x14;
+
+    Result<MapCellValuesList> result =
+        compute_map_cell_values(definition, rom, "any_flash_method", 15);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ((*result)[0].x_axis_data, "1000,2000,");
+}
+
+TEST(ComputeMapCellValues, XAxisTypeXAxisComputesFromRom)
+{
+    RomDefinition definition = definition_with_scaled_map();
+    definition.maps[0].x_axis.type = "X Axis";
+    definition.maps[0].x_axis.address = 150;
+    definition.maps[0].x_axis.storage_type = "uint16";
+    definition.maps[0].x_axis.endian = "big";
+    definition.maps[0].x_axis.start_position = "1";
+    definition.maps[0].x_axis.interval = "1";
+    definition.maps[0].x_axis.scaling_name = "fuel_scaling";
+    std::vector<std::uint8_t> rom(200, 0x00);
+    rom[100] = 0x00;
+    rom[101] = 0x0A;
+    rom[102] = 0x00;
+    rom[103] = 0x14;
+    rom[150] = 0x00;
+    rom[151] = 0x06; // 6 -> x*0.5 -> 3
+    rom[152] = 0x00;
+    rom[153] = 0x08; // 8 -> x*0.5 -> 4
+
+    Result<MapCellValuesList> result =
+        compute_map_cell_values(definition, rom, "any_flash_method", 15);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ((*result)[0].x_axis_data, "3,4,");
+}
+
+TEST(ComputeMapCellValues, XAxisTypeYAxisComputesOnlyWhenMapIs2D)
+{
+    RomDefinition definition = definition_with_scaled_map();
+    definition.maps[0].type = "2D";
+    definition.maps[0].x_axis.type = "Y Axis";
+    definition.maps[0].x_axis.address = 150;
+    definition.maps[0].x_axis.storage_type = "uint16";
+    definition.maps[0].x_axis.endian = "big";
+    definition.maps[0].x_axis.start_position = "1";
+    definition.maps[0].x_axis.interval = "1";
+    definition.maps[0].x_axis.scaling_name = "fuel_scaling";
+    std::vector<std::uint8_t> rom(200, 0x00);
+    rom[100] = 0x00;
+    rom[101] = 0x0A;
+    rom[102] = 0x00;
+    rom[103] = 0x14;
+    rom[150] = 0x00;
+    rom[151] = 0x06;
+    rom[152] = 0x00;
+    rom[153] = 0x08;
+
+    Result<MapCellValuesList> result =
+        compute_map_cell_values(definition, rom, "any_flash_method", 15);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ((*result)[0].x_axis_data, "3,4,");
+}
+
+TEST(ComputeMapCellValues, XAxisTypeYAxisIsSkippedWhenMapIsNot2D)
+{
+    RomDefinition definition = definition_with_scaled_map();
+    definition.maps[0].type = "3D"; // not "2D"
+    definition.maps[0].x_axis.type = "Y Axis";
+    definition.maps[0].x_axis.address = 150;
+    definition.maps[0].x_axis.scaling_name = "fuel_scaling";
+    std::vector<std::uint8_t> rom(200, 0x00);
+    rom[100] = 0x00;
+    rom[101] = 0x0A;
+    rom[102] = 0x00;
+    rom[103] = 0x14;
+
+    Result<MapCellValuesList> result =
+        compute_map_cell_values(definition, rom, "any_flash_method", 15);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ((*result)[0].x_axis_data, " "); // left at default, not computed
+}
+
+TEST(ComputeMapCellValues, BloblistStorageTypeHexEncodesFromFirstSelectionLength)
+{
+    RomDefinition definition;
+    Scaling scaling;
+    scaling.name = "blob_scaling";
+    scaling.selections = {{"first", "AABBCC"}, {"second", "DDEE"}};
+    definition.scalings.push_back(scaling);
+
+    CalibrationMap map;
+    map.storage_type = "bloblist";
+    map.address = 10;
+    map.scaling_name = "blob_scaling";
+    definition.maps.push_back(map);
+
+    std::vector<std::uint8_t> rom(200, 0x00);
+    rom[10] = 0x11;
+    rom[11] = 0x22;
+    rom[12] = 0x33; // "AABBCC".length()/2 == 3 bytes
+
+    Result<MapCellValuesList> result =
+        compute_map_cell_values(definition, rom, "any_flash_method", 15);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ((*result)[0].map_data, "112233");
+}
+
+TEST(ComputeMapCellValues, MultipleMapsProduceOneEntryEachInDefinitionOrder)
+{
+    RomDefinition definition = definition_with_scaled_map();
+    CalibrationMap second_map = definition.maps[0];
+    second_map.name = "Second";
+    second_map.address = 104;
+    definition.maps.push_back(second_map);
+    std::vector<std::uint8_t> rom(200, 0x00);
+    rom[100] = 0x00;
+    rom[101] = 0x0A;
+    rom[102] = 0x00;
+    rom[103] = 0x14;
+    rom[104] = 0x00;
+    rom[105] = 0x1E; // 30 -> x*0.5 -> 15
+    rom[106] = 0x00;
+    rom[107] = 0x28; // 40 -> x*0.5 -> 20
+
+    Result<MapCellValuesList> result =
+        compute_map_cell_values(definition, rom, "any_flash_method", 15);
+
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result->size(), 2U);
+    EXPECT_EQ((*result)[0].map_data, "5,10,");
+    EXPECT_EQ((*result)[1].map_data, "15,20,");
 }
 
 } // namespace

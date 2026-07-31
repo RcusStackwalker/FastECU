@@ -139,4 +139,41 @@ Result<std::string> decode_bloblist_hex(
     std::uint64_t address,
     std::uint32_t byte_count);
 
+struct MapCellValues
+{
+    std::string map_data;
+    std::string x_axis_data{" "};
+    std::string y_axis_data{" "};
+};
+using MapCellValuesList = std::vector<MapCellValues>;
+
+// One entry per rom_definition.maps, same order. Reproduces every branch
+// of file_actions.cpp's map/axis computation loop:
+//  - map cells: decode_bloblist_hex if map.storage_type == "bloblist"
+//    (byte_count = the resolved scaling's first selection value string's
+//    length / 2, 0 if the scaling has no selections), else
+//    decode_scaled_values over map.x_size * map.y_size cells at
+//    map.address, using map.storage_type/endian/start_position/interval
+//    and the resolved scaling's from_byte expression; is_selectable =
+//    (map.type == "Selectable").
+//  - x axis: only touched when map.x_size > 1. If x_axis.type is
+//    "Static X Axis" or "Static Y Axis": x_axis_data = the resolved
+//    scaling's static_data joined comma-per-entry with a trailing comma.
+//    If x_axis.type is "X Axis", or ("Y Axis" AND map.type == "2D"):
+//    decode_scaled_values over map.x_size cells at x_axis.address using
+//    the axis's own storage_type/endian/start_position/interval and its
+//    resolved scaling's from_byte; is_selectable = (x_axis.type ==
+//    "Selectable"). Any other x_axis.type: x_axis_data left at its
+//    MapCellValues default (" ") -- not computed at all. When
+//    map.x_size <= 1: x_axis_data = " ".
+//  - y axis: when map.y_size > 1, ALWAYS decode_scaled_values over
+//    map.y_size cells at y_axis.address (no type branching at all --
+//    this asymmetry with the x-axis handling is real legacy behavior,
+//    reproduced exactly). When map.y_size <= 1: y_axis_data = " ".
+Result<MapCellValuesList> compute_map_cell_values(
+    const definition::RomDefinition& rom_definition,
+    std::span<const std::uint8_t> rom_data,
+    std::string_view flash_method,
+    int float_precision);
+
 } // namespace fastecu::calibration

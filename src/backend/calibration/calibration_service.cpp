@@ -139,6 +139,17 @@ std::int32_t sign_extend(std::uint32_t value, std::uint32_t byte_count)
     return static_cast<std::int32_t>(value);
 }
 
+std::string join_with_trailing_comma(const std::vector<std::string>& values)
+{
+    std::string result;
+    for (const std::string& value : values)
+    {
+        result += value;
+        result += ",";
+    }
+    return result;
+}
+
 } // namespace
 
 Result<std::string> decode_scaled_values(
@@ -240,6 +251,112 @@ Result<std::string> decode_bloblist_hex(
         const std::uint8_t byte = rom_data[address + i];
         result += kHexDigits[(byte >> 4) & 0xF];
         result += kHexDigits[byte & 0xF];
+    }
+    return result;
+}
+
+Result<MapCellValuesList> compute_map_cell_values(
+    const definition::RomDefinition& rom_definition,
+    std::span<const std::uint8_t> rom_data,
+    std::string_view flash_method,
+    int float_precision)
+{
+    MapCellValuesList result;
+    result.reserve(rom_definition.maps.size());
+    const bool apply_wrx02 = flash_method == "wrx02";
+
+    for (const definition::CalibrationMap& map : rom_definition.maps)
+    {
+        MapCellValues values;
+        const definition::Scaling *scaling = definition::find_scaling(rom_definition, map.scaling_name);
+        const std::string from_byte = scaling != nullptr ? scaling->from_byte : std::string("x");
+
+        if (map.storage_type == "bloblist")
+        {
+            const std::uint32_t byte_count =
+                (scaling != nullptr && !scaling->selections.empty())
+                    ? static_cast<std::uint32_t>(scaling->selections.front().second.size() / 2)
+                    : 0;
+            if (!map.address.has_value())
+            {
+                return fail(ErrorKind::InvalidConfig, "bloblist map has no address");
+            }
+            auto decoded = decode_bloblist_hex(rom_data, *map.address, byte_count);
+            if (!decoded.has_value())
+            {
+                return std::unexpected(decoded.error());
+            }
+            values.map_data = *decoded;
+            result.push_back(std::move(values));
+            continue;
+        }
+
+        if (!map.address.has_value())
+        {
+            return fail(ErrorKind::InvalidConfig, "map has no address");
+        }
+        auto decoded = decode_scaled_values(
+            rom_data, *map.address, map.x_size * map.y_size, map.start_position,
+            map.interval, map.storage_type, map.endian, from_byte,
+            map.type == "Selectable", apply_wrx02, float_precision);
+        if (!decoded.has_value())
+        {
+            return std::unexpected(decoded.error());
+        }
+        values.map_data = *decoded;
+
+        if (map.x_size > 1)
+        {
+            if (map.x_axis.type == "Static Y Axis" || map.x_axis.type == "Static X Axis")
+            {
+                values.x_axis_data = join_with_trailing_comma(map.x_axis.static_data);
+            }
+            else if (map.x_axis.type == "X Axis" ||
+                     (map.x_axis.type == "Y Axis" && map.type == "2D"))
+            {
+                if (!map.x_axis.address.has_value())
+                {
+                    return fail(ErrorKind::InvalidConfig, "x axis has no address");
+                }
+                const definition::Scaling *x_scaling =
+                    definition::find_scaling(rom_definition, map.x_axis.scaling_name);
+                const std::string x_from_byte =
+                    x_scaling != nullptr ? x_scaling->from_byte : std::string("x");
+                auto x_decoded = decode_scaled_values(
+                    rom_data, *map.x_axis.address, map.x_size, map.x_axis.start_position,
+                    map.x_axis.interval, map.x_axis.storage_type, map.x_axis.endian,
+                    x_from_byte, map.x_axis.type == "Selectable", apply_wrx02,
+                    float_precision);
+                if (!x_decoded.has_value())
+                {
+                    return std::unexpected(x_decoded.error());
+                }
+                values.x_axis_data = *x_decoded;
+            }
+        }
+
+        if (map.y_size > 1)
+        {
+            if (!map.y_axis.address.has_value())
+            {
+                return fail(ErrorKind::InvalidConfig, "y axis has no address");
+            }
+            const definition::Scaling *y_scaling =
+                definition::find_scaling(rom_definition, map.y_axis.scaling_name);
+            const std::string y_from_byte =
+                y_scaling != nullptr ? y_scaling->from_byte : std::string("x");
+            auto y_decoded = decode_scaled_values(
+                rom_data, *map.y_axis.address, map.y_size, map.y_axis.start_position,
+                map.y_axis.interval, map.y_axis.storage_type, map.y_axis.endian,
+                y_from_byte, map.y_axis.type == "Selectable", apply_wrx02, float_precision);
+            if (!y_decoded.has_value())
+            {
+                return std::unexpected(y_decoded.error());
+            }
+            values.y_axis_data = *y_decoded;
+        }
+
+        result.push_back(std::move(values));
     }
     return result;
 }
