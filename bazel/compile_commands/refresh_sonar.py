@@ -53,7 +53,11 @@ def main() -> None:
 
     subprocess.run([refresh], check=True)
 
-    db_path = workspace / "compile_commands.json"
+    db_path = (workspace / "compile_commands.json").resolve()
+    if not db_path.is_relative_to(workspace):
+        sys.exit(
+            f"internal error: compile_commands.json path escaped the Bazel workspace: {db_path}"
+        )
     db = json.loads(db_path.read_text())
     rewritten = 0
     for entry in db:
