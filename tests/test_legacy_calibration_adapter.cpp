@@ -148,6 +148,106 @@ class TestLegacyCalibrationAdapter : public QObject
 
         QCOMPARE(configValues.flash_protocol_selected_mcu, QString("PRE_EXISTING"));
     }
+
+    void compute_map_cell_values_writes_decoded_values_at_matching_index()
+    {
+        fastecu::definition::RomDefinition definition;
+        fastecu::definition::Scaling scaling;
+        scaling.name = "s";
+        scaling.from_byte = "x*0.5";
+        definition.scalings.push_back(scaling);
+        fastecu::definition::CalibrationMap map;
+        map.name = "Fuel";
+        map.address = 10;
+        map.x_size = 1;
+        map.y_size = 1;
+        map.storage_type = "uint16";
+        map.endian = "big";
+        map.start_position = "1";
+        map.interval = "1";
+        map.scaling_name = "s";
+        definition.maps.push_back(map);
+
+        InMemoryFileRepository repo;
+        LegacyCalibrationAdapter adapter(repo);
+        EcuCalDefStructure ecuCalDef;
+        ecuCalDef.FullRomData = QByteArray(20, '\0');
+        ecuCalDef.FullRomData[10] = static_cast<char>(0x00);
+        ecuCalDef.FullRomData[11] = static_cast<char>(0x0A); // 10 -> x*0.5 -> 5
+        ecuCalDef.NameList = {"Fuel"};
+        ecuCalDef.MapData = {""};
+        ecuCalDef.XScaleData = {""};
+        ecuCalDef.YScaleData = {""};
+
+        adapter.compute_map_cell_values(ecuCalDef, definition, "any_flash_method", 15);
+
+        QCOMPARE(ecuCalDef.MapData.at(0), QString("5,"));
+        QCOMPARE(ecuCalDef.XScaleData.at(0), QString(" "));
+        QCOMPARE(ecuCalDef.YScaleData.at(0), QString(" "));
+    }
+
+    void compute_map_cell_values_applies_padding_before_decoding()
+    {
+        fastecu::definition::RomDefinition definition;
+        fastecu::definition::Scaling scaling;
+        scaling.name = "s";
+        scaling.from_byte = "x";
+        definition.scalings.push_back(scaling);
+        fastecu::definition::CalibrationMap map;
+        map.name = "Padded";
+        map.address = 0x20000; // only valid after padding grows the ROM
+        map.x_size = 1;
+        map.y_size = 1;
+        map.storage_type = "uint8";
+        map.endian = "big";
+        map.start_position = "1";
+        map.interval = "1";
+        map.scaling_name = "s";
+        definition.maps.push_back(map);
+
+        InMemoryFileRepository repo;
+        LegacyCalibrationAdapter adapter(repo);
+        EcuCalDefStructure ecuCalDef;
+        ecuCalDef.FullRomData = QByteArray(160 * 1024, '\0');
+        ecuCalDef.NameList = {"Padded"};
+        ecuCalDef.MapData = {""};
+        ecuCalDef.XScaleData = {""};
+        ecuCalDef.YScaleData = {""};
+
+        adapter.compute_map_cell_values(ecuCalDef, definition,
+                                        "sub_ecu_denso_mc68hc16y5_02", 15);
+
+        // Padding fills 0x20000..0x27FFF with 0xFF; the map at address 0x20000
+        // reads a padding byte (0xFF == 255), proving padding ran first.
+        QCOMPARE(ecuCalDef.MapData.at(0), QString("255,"));
+    }
+
+    void compute_map_cell_values_leaves_lists_unchanged_on_decode_failure()
+    {
+        fastecu::definition::RomDefinition definition;
+        fastecu::definition::CalibrationMap map;
+        map.name = "OutOfBounds";
+        map.address = 999999; // far beyond the tiny ROM below
+        map.x_size = 1;
+        map.y_size = 1;
+        map.storage_type = "uint8";
+        map.start_position = "1";
+        map.interval = "1";
+        definition.maps.push_back(map);
+
+        InMemoryFileRepository repo;
+        LegacyCalibrationAdapter adapter(repo);
+        EcuCalDefStructure ecuCalDef;
+        ecuCalDef.FullRomData = QByteArray(10, '\0');
+        ecuCalDef.NameList = {"OutOfBounds"};
+        ecuCalDef.MapData = {"sentinel"};
+        ecuCalDef.XScaleData = {"sentinel"};
+        ecuCalDef.YScaleData = {"sentinel"};
+
+        adapter.compute_map_cell_values(ecuCalDef, definition, "any_flash_method", 15);
+
+        QCOMPARE(ecuCalDef.MapData.at(0), QString("sentinel"));
+    }
 };
 
 QTEST_MAIN(TestLegacyCalibrationAdapter)

@@ -1,6 +1,7 @@
 #pragma once
 #include <QString>
 
+#include "src/backend/definition/definition_model.h"
 #include "src/backend/definitions/config_values.h"
 #include "src/backend/definitions/ecu_cal_def.h"
 #include "src/backend/ports/file_repository.h"
@@ -34,6 +35,23 @@ class LegacyCalibrationAdapter
 
     definitions::EcuCalDefStructure *save_subaru_rom_file(
         definitions::EcuCalDefStructure *ecu_cal_def, const QString& filename);
+
+    // Calls apply_flash_method_padding then compute_map_cell_values, and
+    // writes the resulting MapCellValuesList into ecu_cal_def.MapData/
+    // XScaleData/YScaleData by position -- matching ecu_cal_def.NameList's
+    // existing order, which is guaranteed (not merely assumed) to equal
+    // rom_definition.maps's order: both are populated from the same
+    // DefinitionService::load(catalog, format, id) call FileActions
+    // already makes (once for the definition-matching dispatch that sets
+    // NameList, once more for validate_rom_size that produces
+    // rom_definition) -- a pure function of identical inputs, so both
+    // calls yield byte-identical RomDefinition objects. On failure, logs
+    // and leaves MapData/XScaleData/YScaleData unchanged rather than
+    // failing the whole ROM open.
+    void compute_map_cell_values(definitions::EcuCalDefStructure& ecu_cal_def,
+                                 const definition::RomDefinition& rom_definition,
+                                 const QString& flash_method,
+                                 int float_precision);
 
   private:
     IFileRepository& file_repository_;

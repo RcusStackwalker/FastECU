@@ -148,4 +148,45 @@ definitions::EcuCalDefStructure *LegacyCalibrationAdapter::save_subaru_rom_file(
     return ecu_cal_def;
 }
 
+void LegacyCalibrationAdapter::compute_map_cell_values(
+    definitions::EcuCalDefStructure& ecu_cal_def,
+    const definition::RomDefinition& rom_definition, const QString& flash_method,
+    int float_precision)
+{
+    const bytes::ByteView original = bytes::view(ecu_cal_def.FullRomData);
+    std::vector<std::uint8_t> padded = apply_flash_method_padding(
+        std::vector<std::uint8_t>(original.begin(), original.end()),
+        flash_method.toStdString());
+
+    // Qualified with calibration:: (unlike apply_flash_method_padding above,
+    // which has no name clash and is called unqualified): this member
+    // function shares its name with calibration_service.h's free function
+    // of the same name. Unqualified lookup from inside a member function
+    // body checks class scope before the enclosing namespace, so an
+    // unqualified call here resolves to *this* member function (a
+    // self-recursive, type-mismatched call that fails to compile) rather
+    // than falling through to the free function -- verified directly by
+    // compiling both the unqualified form (fails: "cannot initialize a
+    // variable of type 'int' with an rvalue of type 'void'", i.e. it binds
+    // to the member function itself) and this qualified form (compiles,
+    // resolves to the free function) in isolated repros. Qualifying with
+    // calibration:: is not a "self-referencing" lookup problem -- namespace
+    // members remain reachable by qualifying with their own enclosing
+    // namespace's name from inside that namespace, unlike the class-scope
+    // hiding rule above.
+    Result<MapCellValuesList> computed = calibration::compute_map_cell_values(
+        rom_definition, padded, flash_method.toStdString(), float_precision);
+    if (!computed.has_value())
+    {
+        return;
+    }
+    for (std::size_t i = 0; i < computed->size() && static_cast<int>(i) < ecu_cal_def.MapData.size(); ++i)
+    {
+        const MapCellValues& values = (*computed)[i];
+        ecu_cal_def.MapData.replace(static_cast<int>(i), QString::fromStdString(values.map_data));
+        ecu_cal_def.XScaleData.replace(static_cast<int>(i), QString::fromStdString(values.x_axis_data));
+        ecu_cal_def.YScaleData.replace(static_cast<int>(i), QString::fromStdString(values.y_axis_data));
+    }
+}
+
 } // namespace fastecu::calibration
