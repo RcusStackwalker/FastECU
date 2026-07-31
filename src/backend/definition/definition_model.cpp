@@ -111,6 +111,32 @@ std::string storage_type_text(std::optional<StorageType> value)
     return {};
 }
 
+std::uint32_t storage_byte_size(std::optional<StorageType> storage_type)
+{
+    if (!storage_type.has_value())
+    {
+        return 1;
+    }
+    switch (*storage_type)
+    {
+    case StorageType::Uint16:
+    case StorageType::Int16:
+        return 2;
+    case StorageType::Uint24:
+    case StorageType::Int24:
+        return 3;
+    case StorageType::Uint32:
+    case StorageType::Int32:
+    case StorageType::Float:
+        return 4;
+    case StorageType::Uint8:
+    case StorageType::Int8:
+    case StorageType::Bloblist:
+        return 1;
+    }
+    return 1;
+}
+
 DefinitionCatalog::DefinitionCatalog(std::vector<DefinitionIndexEntry> entries) : entries_(std::move(entries))
 {
 }

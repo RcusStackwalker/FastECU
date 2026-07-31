@@ -43,6 +43,7 @@ enum class StorageType
 
 std::optional<StorageType> storage_type_from_text(std::string_view text);
 std::string storage_type_text(std::optional<StorageType> value);
+std::uint32_t storage_byte_size(std::optional<StorageType> storage_type);
 
 struct DefinitionIndexEntry
 {
