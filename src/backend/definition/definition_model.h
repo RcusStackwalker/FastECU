@@ -136,6 +136,9 @@ struct Scaling
     std::string maximum;
     std::string coarse_increment;
     std::string fine_increment;
+    // nullopt: this scaling takes no position on storage width -- it's purely
+    // a display/unit transform (from_byte/to_byte/format/units); the map or
+    // axis it's attached to may still have its own storage_type.
     std::optional<StorageType> storage_type;
     std::string endian;
     std::vector<std::pair<std::string, std::string>> selections;
@@ -149,6 +152,9 @@ struct AxisDefinition
     std::string name;
     std::string units;
     std::string format;
+    // nullopt: this axis doesn't decode bytes from the ROM at all, so no
+    // storage width applies -- true for static/literal axes (static_data
+    // supplied inline via <data> elements), which likewise have no address.
     std::optional<StorageType> storage_type;
     std::string endian;
     std::optional<std::uint64_t> address;
@@ -181,6 +187,13 @@ struct CalibrationMap
     std::string level;
     std::string user_level;
     std::string scaling_name;
+    // nullopt: unlike AxisDefinition, CalibrationMap has no static/literal-data
+    // case -- a map always reads real calibration bytes from `address` once
+    // resolved. Resolution only checks storage_type for *contradiction*
+    // between map and scaling; it never requires one to end up set. So an
+    // address-bearing map can resolve with storage_type still nullopt. Not a
+    // deliberately valid state, just an unenforced gap -- flagged here rather
+    // than fixed.
     std::optional<StorageType> storage_type;
     std::string endian;
     std::uint32_t start_position{1};
