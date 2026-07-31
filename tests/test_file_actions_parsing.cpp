@@ -1125,6 +1125,61 @@ class TestFileActionsParsing : public QObject
         delete ecuCalDef;
     }
 
+    void open_subaru_rom_file_reads_bytes_and_sets_file_name()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString romPath = dir.filePath("rom.bin");
+        QFile romFile(romPath);
+        QVERIFY(romFile.open(QIODevice::WriteOnly));
+        QCOMPARE(romFile.write(QByteArray("\xDE\xAD\xBE\xEF", 4)), qint64{4});
+        romFile.close();
+
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+
+        FileActions::EcuCalDefStructure *ecuCalDef = new FileActions::EcuCalDefStructure;
+        while (ecuCalDef->RomInfo.length() < ecuCalDef->RomInfoStrings.length())
+        {
+            ecuCalDef->RomInfo.append(" ");
+        }
+        ecuCalDef = fileActions.open_subaru_rom_file(ecuCalDef, romPath);
+
+        QVERIFY(ecuCalDef != nullptr);
+        QCOMPARE(ecuCalDef->FullRomData, QByteArray("\xDE\xAD\xBE\xEF", 4));
+        QCOMPARE(ecuCalDef->FileName, QString("rom.bin"));
+        QCOMPARE(ecuCalDef->FullFileName, romPath);
+        delete ecuCalDef;
+    }
+
+    void open_subaru_rom_file_returns_nullptr_on_read_failure()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        FileActions::EcuCalDefStructure *ecuCalDef = new FileActions::EcuCalDefStructure;
+        while (ecuCalDef->RomInfo.length() < ecuCalDef->RomInfoStrings.length())
+        {
+            ecuCalDef->RomInfo.append(" ");
+        }
+
+        // The read failure still reports through QMessageBox::warning (that
+        // dialog is FileActions's own, not the relocated chooser); dismiss
+        // whatever modal appears rather than hang, matching this suite's
+        // existing offscreen-QApplication convention.
+        QTimer::singleShot(0, []()
+                           {
+            if (QWidget *modal = QApplication::activeModalWidget()) {
+                modal->close();
+} });
+
+        FileActions::EcuCalDefStructure *result =
+            fileActions.open_subaru_rom_file(ecuCalDef, dir.filePath("missing.bin"));
+
+        QVERIFY(result == nullptr);
+        delete ecuCalDef;
+    }
+
   private:
     // FileActions's constructor now takes the config/settings ports (Task
     // 11 of the step5d-1 plan); these are unused by the parsing paths this

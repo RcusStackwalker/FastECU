@@ -225,7 +225,8 @@ FileActions::FileActions(fastecu::IFileSystem& file_system, fastecu::IResourceBu
       definitionFileSystem_(file_system),
       definitionFileRepository_(file_repository),
       definitionService_(file_system, file_repository, atomic_file_writer),
-      definitionAdapter_(definitionService_)
+      definitionAdapter_(definitionService_),
+      calibrationAdapter_(file_repository)
 {
 }
 
@@ -1829,55 +1830,17 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
 {
     ConfigValuesStructure *configValues = &ConfigValuesStruct;
 
-    QString file_name_str;
-
     bool id_is_ascii = false;
     bool bStatus = false;
 
-    if (!ecuCalDef->FullRomData.length())
+    fastecu::Status opened = calibrationAdapter_.open_rom_bytes(*ecuCalDef, filename, *configValues);
+    if (!opened.has_value())
     {
-
-        if (filename.isEmpty())
-        {
-            QFileDialog openDialog;
-            openDialog.setDefaultSuffix("bin");
-            filename = QFileDialog::getOpenFileName(this, tr("Open ROM file"), configValues->calibration_files_directory, tr("Calibration file (*.bin *.hex)"));
-
-            if (filename.isEmpty())
-            {
-                QMessageBox::information(this, tr("Calibration file"), "No file selected");
-                free(ecuCalDef);
-                return nullptr;
-            }
-        }
-
-        QFile file(filename);
-        QFileInfo fileInfo(file.fileName());
-        file_name_str = fileInfo.fileName();
-
-        if (!file.open(QIODevice::ReadOnly))
-        {
-            QMessageBox::warning(this, tr("Calibration file"), "Unable to open calibration file for reading");
-            return nullptr;
-        }
-        ecuCalDef->FullRomData = file.readAll();
+        log_definition_error("Unable to open calibration file", opened.error());
+        QMessageBox::warning(this, tr("Calibration file"), "Unable to open calibration file for reading");
+        return nullptr;
     }
-    else
-    {
-        emit LOG_D("Save file to: " + configValues->calibration_files_directory + "read.bin", true, true);
-        save_subaru_rom_file(ecuCalDef, configValues->calibration_files_directory + "read.bin");
-
-        if (filename == "")
-        {
-            QDateTime dateTime = dateTime.currentDateTime();
-            QString dateTimeString = dateTime.toString("yyyy-MM-dd_hh'h'mm'm'ss's'");
-            filename = "read_image_" + dateTimeString + ".bin";
-        }
-
-        QFile file(filename);
-        QFileInfo fileInfo(file.fileName());
-        file_name_str = fileInfo.fileName();
-    }
+    filename = ecuCalDef->FullFileName;
 
     ecuCalDef->use_ecuflash_definition = false;
     ecuCalDef->use_romraider_definition = false;
@@ -1925,62 +1888,22 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
         }
     }
 
+    // The "no definition found" chooser dialog (create new / use existing /
+    // continue without) now lives in MainWindow; this method unconditionally
+    // takes the "continue without" fallback it previously ran only on
+    // QDialog::Rejected or the continue-without radio button.
     if (!ecuCalDef->use_romraider_definition && !ecuCalDef->use_ecuflash_definition)
     {
-        QDialog *definitionDialog = new QDialog(this);
-        QVBoxLayout *vBoxLayout = new QVBoxLayout(definitionDialog);
-        QLabel *label = new QLabel("Unable to find definition for selected ROM file!\n\nSelect option:");
-        QRadioButton *createNewRadioButton = new QRadioButton("Create new definition file template");
-        QRadioButton *useExistingRadioButton = new QRadioButton("Use existing definition file as base");
-        QRadioButton *continueWithoutRadioButton = new QRadioButton("Continue without definition file");
-
-        QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-        connect(buttonBox, &QDialogButtonBox::accepted, definitionDialog, &QDialog::accept);
-        connect(buttonBox, &QDialogButtonBox::rejected, definitionDialog, &QDialog::reject);
-
-        vBoxLayout->addWidget(label);
-        vBoxLayout->addWidget(createNewRadioButton);
-        vBoxLayout->addWidget(useExistingRadioButton);
-        vBoxLayout->addWidget(continueWithoutRadioButton);
-        vBoxLayout->addWidget(buttonBox);
-        // createNewRadioButton->setChecked(true);
-        // useExistingRadioButton->setChecked(true);
-        continueWithoutRadioButton->setChecked(true);
-
-        int result = definitionDialog->exec();
-        if (result == QDialog::Accepted)
-        {
-            if (createNewRadioButton->isChecked())
-            {
-                emit LOG_D(createNewRadioButton->text(), true, true);
-                create_new_definition_for_rom(ecuCalDef);
-            }
-            else if (useExistingRadioButton->isChecked())
-            {
-                emit LOG_D(useExistingRadioButton->text(), true, true);
-                use_existing_definition_for_rom(ecuCalDef);
-            }
-        }
-        if (continueWithoutRadioButton->isChecked() || result == QDialog::Rejected)
-        {
-            emit LOG_D(continueWithoutRadioButton->text(), true, true);
-
-            // QMessageBox::warning(this, tr("Calibration file"), "Unable to find definition for selected ROM file!");
-            ecuCalDef->RomInfo.replace(XmlId, "UnknownID");
-            ecuCalDef->RomInfo.replace(InternalIdAddress, "");
-            ecuCalDef->RomInfo.replace(InternalIdString, "");
-            ecuCalDef->RomInfo.replace(EcuId, "");
-            ecuCalDef->RomInfo.replace(Make, configValues->flash_protocol_selected_make);
-            // ecuCalDef->RomInfo.replace(Model, configValues->flash_protocol_selected_model);
-            // ecuCalDef->RomInfo.replace(SubModel, submodel);
-            // ecuCalDef->RomInfo.replace(Transmission, transmission);
-            // ecuCalDef->RomInfo.replace(MemModel, memmodel);
-            // ecuCalDef->RomInfo.replace(ChecksumModule, checksummodule);
-            // ecuCalDef->RomInfo.replace(FlashMethod, configValues->flash_protocol_selected_protocol_name);
-            ecuCalDef->RomInfo.replace(FileSize, QString::number(ecuCalDef->FullRomData.length() / 1024) + "kb");
-            ecuCalDef->RomInfo.replace(DefFile, " ");
-        }
+        ecuCalDef->RomInfo.replace(XmlId, "UnknownID");
+        ecuCalDef->RomInfo.replace(InternalIdAddress, "");
+        ecuCalDef->RomInfo.replace(InternalIdString, "");
+        ecuCalDef->RomInfo.replace(EcuId, "");
+        ecuCalDef->RomInfo.replace(Make, configValues->flash_protocol_selected_make);
+        ecuCalDef->RomInfo.replace(FileSize, QString::number(ecuCalDef->FullRomData.length() / 1024) + "kb");
+        ecuCalDef->RomInfo.replace(DefFile, " ");
     }
+
+    calibrationAdapter_.bind_protocol(*configValues, ecuCalDef->RomInfo.at(FlashMethod));
 
     QString checksum_module = ecuCalDef->RomInfo.at(FlashMethod);
     checksum_module.remove(0, 3);
@@ -2013,23 +1936,11 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
         ecuCalDef->RomInfo.replace(ChecksumModule, "No checksums");
     }
 
-    /*
-        if (ecuCalDef == nullptr)
-        {
-            QMessageBox::warning(this, tr("Calibration file"), "Unable to find definition for selected ROM file with ECU ID: " + ecuId);
-            ecuCalDef = nullptr;
-            return nullptr;
-        }
-    */
-    if (!file_name_str.length())
-    {
-        file_name_str = "default.bin";
-    }
-
+    // FileName/FullFileName were already set by
+    // LegacyCalibrationAdapter::open_rom_bytes (including its "default.bin"
+    // fallback for an empty basename).
     ecuCalDef->McuType = configValues->flash_protocol_selected_mcu;
     ecuCalDef->OemEcuFile = true;
-    ecuCalDef->FileName = file_name_str;
-    ecuCalDef->FullFileName = filename;
     ecuCalDef->FileSize = QString::number(ecuCalDef->FullRomData.length());
     ecuCalDef->RomInfo.replace(FileSize, QString::number(ecuCalDef->FullRomData.length() / 1024) + "kb");
 
@@ -2356,24 +2267,7 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
 
 FileActions::EcuCalDefStructure *FileActions::save_subaru_rom_file(FileActions::EcuCalDefStructure *ecuCalDef, const QString& filename)
 {
-    QFile file(filename);
-    QFileInfo fileInfo(file.fileName());
-    QString file_name_str = fileInfo.fileName();
-
-    if (!file.open(QIODevice::WriteOnly))
-    {
-        // emit LOG_D("Unable to open file for writing", true, true);
-        QMessageBox::warning(this, tr("Ecu calibration file"), "Unable to open file " + filename + " for writing");
-        return nullptr;
-    }
-
-    file.write(ecuCalDef->FullRomData);
-    file.close();
-
-    ecuCalDef->FullFileName = filename;
-    ecuCalDef->FileName = file_name_str;
-
-    return 0;
+    return calibrationAdapter_.save_subaru_rom_file(ecuCalDef, filename);
 }
 
 FileActions::EcuCalDefStructure *FileActions::checksum_correction(FileActions::EcuCalDefStructure *ecuCalDef)
