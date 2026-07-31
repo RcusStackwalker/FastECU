@@ -448,8 +448,8 @@ TEST_F(LegacyDefinitionAdapterTest, MapsFullTypedDefinitionIntoEveryLegacySlice)
     EXPECT_EQ(value.FlipYList, QStringList({"false", "true", "false"}));
     EXPECT_EQ(value.XSizeList, QStringList({"1", "4", "2"}));
     EXPECT_EQ(value.YSizeList, QStringList({"1", "1", "2"}));
-    EXPECT_EQ(value.StartPosList, QStringList({"11", "12", "13"}));
-    EXPECT_EQ(value.IntervalList, QStringList({"2", "3", "4"}));
+    EXPECT_EQ(value.StartPosList, QStringList({"0x11", "0x12", "0x13"}));
+    EXPECT_EQ(value.IntervalList, QStringList({"0x2", "0x3", "0x4"}));
     EXPECT_EQ(value.LogParamList, QStringList({" ", " ", " "}));
     EXPECT_EQ(value.MapDefined, QStringList({" ", " ", " "}));
     EXPECT_EQ(value.MapScalingNameList, QStringList({"mode-scale", "fuel-scale", " "}));
@@ -476,8 +476,8 @@ TEST_F(LegacyDefinitionAdapterTest, MapsFullTypedDefinitionIntoEveryLegacySlice)
     EXPECT_EQ(value.XScaleEndianList, QStringList({" ", "big", "little"}));
     EXPECT_EQ(value.XScaleFromByteList, QStringList({" ", "x", "x/10"}));
     EXPECT_EQ(value.XScaleToByteList, QStringList({" ", "x", "x*10"}));
-    EXPECT_EQ(value.XScaleStartPosList, QStringList({" ", "21", "22"}));
-    EXPECT_EQ(value.XScaleIntervalList, QStringList({" ", "5", "6"}));
+    EXPECT_EQ(value.XScaleStartPosList, QStringList({" ", "0x21", "0x22"}));
+    EXPECT_EQ(value.XScaleIntervalList, QStringList({" ", "0x5", "0x6"}));
     EXPECT_EQ(value.XScaleLogParamList, QStringList({" ", " ", " "}));
     EXPECT_EQ(value.XScaleStaticDataList, QStringList({" ", "1000,2000,3000,4000,", " "}));
 
@@ -491,8 +491,8 @@ TEST_F(LegacyDefinitionAdapterTest, MapsFullTypedDefinitionIntoEveryLegacySlice)
     EXPECT_EQ(value.YScaleEndianList, QStringList({" ", " ", "little"}));
     EXPECT_EQ(value.YScaleFromByteList, QStringList({" ", " ", "x-40"}));
     EXPECT_EQ(value.YScaleToByteList, QStringList({" ", " ", "x+40"}));
-    EXPECT_EQ(value.YScaleStartPosList, QStringList({" ", " ", "23"}));
-    EXPECT_EQ(value.YScaleIntervalList, QStringList({" ", " ", "7"}));
+    EXPECT_EQ(value.YScaleStartPosList, QStringList({" ", " ", "0x23"}));
+    EXPECT_EQ(value.YScaleIntervalList, QStringList({" ", " ", "0x7"}));
     EXPECT_EQ(value.YScaleLogParamList, QStringList({" ", " ", " "}));
 
     ASSERT_EQ(value.ScalingNameList.size(), 5);
@@ -539,11 +539,11 @@ TEST_F(LegacyDefinitionAdapterTest, MapsRomRaiderRuntimeLogParameters)
         value, *catalog, DefinitionFormat::RomRaider, "RR");
 
     ASSERT_TRUE(result);
-    EXPECT_EQ(value.StartPosList, QStringList({"7"}));
-    EXPECT_EQ(value.IntervalList, QStringList({"2"}));
+    EXPECT_EQ(value.StartPosList, QStringList({"0x7"}));
+    EXPECT_EQ(value.IntervalList, QStringList({"0x2"}));
     EXPECT_EQ(value.LogParamList, QStringList({"P_MAP"}));
-    EXPECT_EQ(value.XScaleStartPosList, QStringList({"9"}));
-    EXPECT_EQ(value.XScaleIntervalList, QStringList({"4"}));
+    EXPECT_EQ(value.XScaleStartPosList, QStringList({"0x9"}));
+    EXPECT_EQ(value.XScaleIntervalList, QStringList({"0x4"}));
     EXPECT_EQ(value.XScaleLogParamList, QStringList({"P_AXIS"}));
     EXPECT_EQ(value.XScaleStaticDataList, QStringList({"0.5,1.0,"}));
     EXPECT_EQ(value.MapDefined, QStringList({" "}));

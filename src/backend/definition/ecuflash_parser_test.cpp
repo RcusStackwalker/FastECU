@@ -120,8 +120,8 @@ TEST(EcuFlashParserTest, ParsesMetadataGlobalScalingsAndNestedAxes)
     EXPECT_EQ(map.flip_x, false);
     EXPECT_EQ(map.flip_y, true);
     EXPECT_EQ(map.scaling_name, "fuel-scale");
-    EXPECT_EQ(map.start_position, "12");
-    EXPECT_EQ(map.interval, "3");
+    EXPECT_EQ(map.start_position, 0x12U);
+    EXPECT_EQ(map.interval, 0x3U);
     EXPECT_EQ(map.log_parameter, "fuel");
     EXPECT_EQ(map.x_axis.type, "X Axis");
     EXPECT_EQ(map.x_axis.name, "Engine Speed");
@@ -129,8 +129,8 @@ TEST(EcuFlashParserTest, ParsesMetadataGlobalScalingsAndNestedAxes)
     EXPECT_EQ(map.x_axis.size, 4U);
     EXPECT_EQ(map.x_axis.units, "rpm");
     EXPECT_EQ(map.x_axis.scaling_name, "rpm-scale");
-    EXPECT_EQ(map.x_axis.start_position, "21");
-    EXPECT_EQ(map.x_axis.interval, "5");
+    EXPECT_EQ(map.x_axis.start_position, 0x21U);
+    EXPECT_EQ(map.x_axis.interval, 0x5U);
     EXPECT_EQ(map.x_axis.log_parameter, "rpm");
     EXPECT_EQ(map.y_axis.type, "Y Axis");
     EXPECT_EQ(map.y_axis.name, "Load");
@@ -149,7 +149,7 @@ TEST(EcuFlashParserTest, ParsesMetadataGlobalScalingsAndNestedAxes)
     EXPECT_EQ(fuel_scale.maximum, "100");
     EXPECT_EQ(fuel_scale.coarse_increment, "1");
     EXPECT_EQ(fuel_scale.fine_increment, "0.1");
-    EXPECT_EQ(fuel_scale.storage_type, "uint16");
+    EXPECT_EQ(fuel_scale.storage_type, StorageType::Uint16);
     EXPECT_EQ(fuel_scale.endian, "big");
     EXPECT_EQ(result->scalings.at(1).selections,
               (std::vector<std::pair<std::string, std::string>>{{"disabled", "00"}, {"enabled", "01"}}));
@@ -289,6 +289,25 @@ TEST(EcuFlashParserTest, RejectsInvalidAddressAndDimension)
         bytes("<rom><romid><xmlid>A</xmlid></romid><table name=\"Fuel\" sizex=\"0\"/></rom>"),
         "bad-dimension.xml");
     expect_invalid_with_context(dimension, "bad-dimension.xml", "sizex");
+}
+
+TEST(EcuFlashParserTest, RejectsInvalidStartPositionAndInterval)
+{
+    for (const auto attribute : {"startpos", "interval"})
+    {
+        const std::string xml = std::string("<rom><romid><xmlid>A</xmlid></romid><table name=\"Fuel\" ") +
+                                attribute + "=\"not-hex\"/></rom>";
+        auto result = parse_ecuflash_definition(bytes(xml), "bad-hex-dimension.xml");
+        expect_invalid_with_context(result, "bad-hex-dimension.xml", attribute);
+    }
+}
+
+TEST(EcuFlashParserTest, RejectsUnrecognizedStorageType)
+{
+    auto result = parse_ecuflash_definition(
+        bytes("<rom><romid><xmlid>A</xmlid></romid><table name=\"Fuel\" storagetype=\"nibble\"/></rom>"),
+        "bad-storagetype.xml");
+    expect_invalid_with_context(result, "bad-storagetype.xml", "storagetype");
 }
 
 TEST(EcuFlashParserTest, RejectsInvalidStrictFlags)

@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -129,11 +130,11 @@ TEST(RomRaiderParserTest, ParsesChildWithoutResolvingItsBase)
     EXPECT_EQ(map.swap_xy, true);
     EXPECT_EQ(map.flip_x, false);
     EXPECT_EQ(map.flip_y, true);
-    EXPECT_EQ(map.storage_type, "uint16");
+    EXPECT_EQ(map.storage_type, StorageType::Uint16);
     EXPECT_EQ(map.endian, "big");
     EXPECT_EQ(map.scaling_name, "fuel-scale");
-    EXPECT_EQ(map.start_position, "12");
-    EXPECT_EQ(map.interval, "3");
+    EXPECT_EQ(map.start_position, 0x12U);
+    EXPECT_EQ(map.interval, 0x3U);
     EXPECT_EQ(map.log_parameter, "fuel");
 
     EXPECT_EQ(map.x_axis.type, "X Axis");
@@ -144,8 +145,8 @@ TEST(RomRaiderParserTest, ParsesChildWithoutResolvingItsBase)
     EXPECT_EQ(map.x_axis.from_byte, "x");
     EXPECT_EQ(map.x_axis.to_byte, "x");
     EXPECT_EQ(map.x_axis.scaling_name, "rpm-scale");
-    EXPECT_EQ(map.x_axis.start_position, "21");
-    EXPECT_EQ(map.x_axis.interval, "5");
+    EXPECT_EQ(map.x_axis.start_position, 0x21U);
+    EXPECT_EQ(map.x_axis.interval, 0x5U);
     EXPECT_EQ(map.x_axis.log_parameter, "rpm");
     EXPECT_EQ(map.y_axis.type, "Y Axis");
     EXPECT_EQ(map.y_axis.name, "Load");
@@ -167,7 +168,7 @@ TEST(RomRaiderParserTest, ParsesChildWithoutResolvingItsBase)
     EXPECT_EQ(scaling.maximum, "100");
     EXPECT_EQ(scaling.fine_increment, "0.5");
     EXPECT_EQ(scaling.coarse_increment, "1");
-    EXPECT_EQ(scaling.storage_type, "uint16");
+    EXPECT_EQ(scaling.storage_type, StorageType::Uint16);
     EXPECT_EQ(scaling.endian, "big");
 }
 
@@ -184,11 +185,11 @@ TEST(RomRaiderParserTest, ConvertsSwitchStatesToSelectableScaling)
     ASSERT_TRUE(result);
     ASSERT_EQ(result->maps.size(), 1U);
     EXPECT_EQ(result->maps.front().type, "Selectable");
-    EXPECT_EQ(result->maps.front().storage_type, "bloblist");
+    EXPECT_EQ(result->maps.front().storage_type, StorageType::Bloblist);
     ASSERT_EQ(result->scalings.size(), 1U);
     EXPECT_EQ(result->maps.front().scaling_name, "Feature Switch");
     EXPECT_EQ(result->scalings.front().name, "Feature Switch");
-    EXPECT_EQ(result->scalings.front().storage_type, "bloblist");
+    EXPECT_EQ(result->scalings.front().storage_type, StorageType::Bloblist);
     EXPECT_EQ(result->scalings.front().selections,
               (std::vector<std::pair<std::string, std::string>>{
                   {"disabled", "00"},
@@ -286,6 +287,31 @@ TEST(RomRaiderParserTest, InvalidAddressIsInvalidConfigWithAttributeContext)
     auto result = parse_romraider_definition(xml, "bad-address.xml", "A");
 
     expect_invalid_with_context(result, "bad-address.xml", "storageaddress");
+}
+
+TEST(RomRaiderParserTest, InvalidStartPositionOrIntervalIsInvalidConfigWithAttributeContext)
+{
+    for (const auto attribute : {"startpos", "interval"})
+    {
+        const std::string xml = std::string("<roms><rom><romid><xmlid>A</xmlid></romid>"
+                                            "<table name=\"Fuel\" ") +
+                                attribute + "=\"not-hex\"/></rom></roms>";
+
+        auto result = parse_romraider_definition(bytes(xml), "bad-hex-dimension.xml", "A");
+
+        expect_invalid_with_context(result, "bad-hex-dimension.xml", attribute);
+    }
+}
+
+TEST(RomRaiderParserTest, UnrecognizedStorageTypeIsInvalidConfigWithAttributeContext)
+{
+    const auto xml = bytes(
+        "<roms><rom><romid><xmlid>A</xmlid></romid>"
+        "<table name=\"Fuel\" storagetype=\"nibble\"/></rom></roms>");
+
+    auto result = parse_romraider_definition(xml, "bad-storagetype.xml", "A");
+
+    expect_invalid_with_context(result, "bad-storagetype.xml", "storagetype");
 }
 
 TEST(RomRaiderParserTest, InvalidBooleanIsInvalidConfigWithAttributeContext)

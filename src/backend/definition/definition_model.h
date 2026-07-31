@@ -27,6 +27,23 @@ enum class IdEncoding
     AsciiOrHex,
 };
 
+enum class StorageType
+{
+    Uint8,
+    Int8,
+    Uint16,
+    Int16,
+    Uint24,
+    Int24,
+    Uint32,
+    Int32,
+    Float,
+    Bloblist,
+};
+
+std::optional<StorageType> storage_type_from_text(std::string_view text);
+std::string storage_type_text(std::optional<StorageType> value);
+
 struct DefinitionIndexEntry
 {
     DefinitionFormat format;
@@ -52,7 +69,7 @@ struct UnresolvedScaling
     std::string maximum;
     std::string coarse_increment;
     std::string fine_increment;
-    std::string storage_type;
+    std::optional<StorageType> storage_type;
     std::string endian;
     std::vector<std::pair<std::string, std::string>> selections;
 
@@ -65,15 +82,15 @@ struct UnresolvedAxisDefinition
     std::string name;
     std::string units;
     std::string format;
-    std::string storage_type;
+    std::optional<StorageType> storage_type;
     std::string endian;
     std::optional<std::uint64_t> address;
     std::optional<std::uint32_t> size;
     std::optional<std::string> from_byte;
     std::optional<std::string> to_byte;
     std::string scaling_name;
-    std::optional<std::string> start_position;
-    std::optional<std::string> interval;
+    std::optional<std::uint32_t> start_position;
+    std::optional<std::uint32_t> interval;
     std::optional<std::string> log_parameter;
     std::optional<std::vector<std::string>> static_data;
 
@@ -97,10 +114,10 @@ struct UnresolvedCalibrationMap
     std::string level;
     std::string user_level;
     std::string scaling_name;
-    std::string storage_type;
+    std::optional<StorageType> storage_type;
     std::string endian;
-    std::optional<std::string> start_position;
-    std::optional<std::string> interval;
+    std::optional<std::uint32_t> start_position;
+    std::optional<std::uint32_t> interval;
     std::optional<std::string> log_parameter;
     UnresolvedAxisDefinition x_axis;
     UnresolvedAxisDefinition y_axis;
@@ -119,7 +136,10 @@ struct Scaling
     std::string maximum;
     std::string coarse_increment;
     std::string fine_increment;
-    std::string storage_type;
+    // nullopt: this scaling takes no position on storage width -- it's purely
+    // a display/unit transform (from_byte/to_byte/format/units); the map or
+    // axis it's attached to may still have its own storage_type.
+    std::optional<StorageType> storage_type;
     std::string endian;
     std::vector<std::pair<std::string, std::string>> selections;
 
@@ -132,15 +152,18 @@ struct AxisDefinition
     std::string name;
     std::string units;
     std::string format;
-    std::string storage_type;
+    // nullopt: this axis doesn't decode bytes from the ROM at all, so no
+    // storage width applies -- true for static/literal axes (static_data
+    // supplied inline via <data> elements), which likewise have no address.
+    std::optional<StorageType> storage_type;
     std::string endian;
     std::optional<std::uint64_t> address;
     std::uint32_t size{1};
     std::string from_byte{"x"};
     std::string to_byte{"x"};
     std::string scaling_name;
-    std::string start_position{"1"};
-    std::string interval{"1"};
+    std::uint32_t start_position{1};
+    std::uint32_t interval{1};
     std::string log_parameter;
     std::vector<std::string> static_data;
 
@@ -164,10 +187,17 @@ struct CalibrationMap
     std::string level;
     std::string user_level;
     std::string scaling_name;
-    std::string storage_type;
+    // nullopt: unlike AxisDefinition, CalibrationMap has no static/literal-data
+    // case -- a map always reads real calibration bytes from `address` once
+    // resolved. Resolution only checks storage_type for *contradiction*
+    // between map and scaling; it never requires one to end up set. So an
+    // address-bearing map can resolve with storage_type still nullopt. Not a
+    // deliberately valid state, just an unenforced gap -- flagged here rather
+    // than fixed.
+    std::optional<StorageType> storage_type;
     std::string endian;
-    std::string start_position{"1"};
-    std::string interval{"1"};
+    std::uint32_t start_position{1};
+    std::uint32_t interval{1};
     std::string log_parameter;
     AxisDefinition x_axis;
     AxisDefinition y_axis;
