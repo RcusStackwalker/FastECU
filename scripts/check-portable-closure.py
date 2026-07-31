@@ -69,6 +69,9 @@ PORTABLE_ROOTS = {
         "definition_service",
         "definition_writer",
     },
+    ROOT / "src/backend/calibration": {
+        "calibration_service",
+    },
 }
 
 FORBIDDEN = (
