@@ -1,7 +1,10 @@
 #pragma once
+#include <optional>
+#include <span>
 #include <string>
 #include <vector>
 #include "src/backend/config/config_paths.h"
+#include "src/backend/config/protocol_catalog.h"
 #include "src/backend/ports/file_repository.h"
 #include "src/backend/ports/result.h"
 
@@ -46,5 +49,25 @@ using CarModelCatalog = std::vector<CarModelEntry>;
 // <car_model> entries (the cross-reference join against ProtocolCatalog is
 // out of scope here; see CarModelEntry's comment above).
 Result<CarModelCatalog> load_car_model_catalog(const ConfigPaths& paths, IFileRepository& file_repository);
+
+struct ResolvedCarModel
+{
+    std::string make, model, version, type, kw, hp, fuel, year, protocol_name;
+    std::optional<ProtocolEntry> protocol; // nullopt: protocol_name had no match
+};
+
+// One row per CarModelEntry, in file order, each joined against its last-
+// matching ProtocolEntry by protocol_name (last-match-wins, matching
+// LegacyConfigAdapter::copy_car_models_into_legacy's own inner loop, which
+// has no `break`).
+std::vector<ResolvedCarModel> resolve_car_models(const ProtocolCatalog& protocols,
+                                                 const CarModelCatalog& car_models);
+
+// The index of the last row (in resolve_car_models order) whose
+// protocol_name equals flash_method; nullopt if none match. Mirrors
+// FileActions::open_subaru_rom_file's own no-break scan over
+// flash_protocol_protocol_name.
+std::optional<std::size_t> find_car_model_by_protocol_name(
+    std::span<const ResolvedCarModel> resolved_car_models, std::string_view flash_method);
 
 } // namespace fastecu::config
