@@ -115,8 +115,9 @@ class TestLegacyCalibrationAdapter : public QObject
     void bind_protocol_sets_the_nine_legacy_scalars_on_a_match()
     {
         InMemoryFileRepository repo;
+        const QByteArray protocolsXml = sampleXmlProtocolsFile();
         repo.files["config/protocols.cfg"] =
-            std::vector<std::uint8_t>(sampleXmlProtocolsFile().begin(), sampleXmlProtocolsFile().end());
+            std::vector<std::uint8_t>(protocolsXml.begin(), protocolsXml.end());
         LegacyCalibrationAdapter adapter(repo);
         ConfigValuesStructure configValues;
         configValues.protocols_file = "config/protocols.cfg";
@@ -135,8 +136,9 @@ class TestLegacyCalibrationAdapter : public QObject
     void bind_protocol_leaves_selected_fields_untouched_on_no_match()
     {
         InMemoryFileRepository repo;
+        const QByteArray protocolsXml = sampleXmlProtocolsFile();
         repo.files["config/protocols.cfg"] =
-            std::vector<std::uint8_t>(sampleXmlProtocolsFile().begin(), sampleXmlProtocolsFile().end());
+            std::vector<std::uint8_t>(protocolsXml.begin(), protocolsXml.end());
         LegacyCalibrationAdapter adapter(repo);
         ConfigValuesStructure configValues;
         configValues.protocols_file = "config/protocols.cfg";
