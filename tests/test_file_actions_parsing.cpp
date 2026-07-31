@@ -1124,6 +1124,51 @@ class TestFileActionsParsing : public QObject
         delete ecuCalDef;
     }
 
+    void open_subaru_rom_file_applies_padding_before_returning()
+    {
+        // Regression test for a final-review fix (step5d-4 plan) that
+        // reordered open_subaru_rom_file's size-validation block to run
+        // AFTER the sub_ecu_denso_mc68hc16y5_02 padding block, not before.
+        // Padding grows FullRomData by 0x8000 bytes; a size check against
+        // the pre-padded length could reject a definition authored against
+        // the padded image. This pins that padding is applied by the time
+        // the function returns, for a ROM under the 190KB threshold with a
+        // matching FlashMethod.
+        //
+        // This does not reproduce the original ordering bug directly (that
+        // would require a real EcuFlash definition fixture with map
+        // addresses in the padded region, driving definitionService_.load
+        // to succeed) -- disproportionate setup for this fix's regression
+        // test, per the final review's own accepted tradeoff.
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString romPath = dir.filePath("rom.bin");
+        QFile romFile(romPath);
+        QVERIFY(romFile.open(QIODevice::WriteOnly));
+        // Must be >= 0x20000 (the padding insertion point): QByteArray::insert
+        // at a position beyond the array's current length first grows it up
+        // to that position, so a smaller original size would make the
+        // observed growth larger than the padding loop's own 0x8000 bytes.
+        const QByteArray originalBytes(qsizetype{160} * 1024, '\0');
+        QCOMPARE(romFile.write(originalBytes), qint64{originalBytes.size()});
+        romFile.close();
+
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+
+        FileActions::EcuCalDefStructure *ecuCalDef = new FileActions::EcuCalDefStructure;
+        while (ecuCalDef->RomInfo.length() < ecuCalDef->RomInfoStrings.length())
+        {
+            ecuCalDef->RomInfo.append(" ");
+        }
+        ecuCalDef->RomInfo[FileActions::FlashMethod] = "sub_ecu_denso_mc68hc16y5_02";
+
+        ecuCalDef = fileActions.open_subaru_rom_file(ecuCalDef, romPath);
+
+        QVERIFY(ecuCalDef != nullptr);
+        QCOMPARE(ecuCalDef->FullRomData.length(), originalBytes.length() + 0x8000);
+        delete ecuCalDef;
+    }
+
     void save_subaru_rom_file_writes_bytes_via_calibration_adapter()
     {
         // FileActions::save_subaru_rom_file is now a one-line delegation to

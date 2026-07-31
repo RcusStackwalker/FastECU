@@ -1815,8 +1815,6 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
         QMessageBox::warning(this, tr("Calibration file"), "Unable to open calibration file for reading");
         return nullptr;
     }
-    filename = ecuCalDef->FullFileName;
-
     ecuCalDef->use_ecuflash_definition = false;
     ecuCalDef->use_romraider_definition = false;
 
@@ -1919,6 +1917,17 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
     ecuCalDef->FileSize = QString::number(ecuCalDef->FullRomData.length());
     ecuCalDef->RomInfo.replace(FileSize, QString::number(ecuCalDef->FullRomData.length() / 1024) + "kb");
 
+    QByteArray padding;
+    padding.clear();
+    if (ecuCalDef->RomInfo.at(FlashMethod).startsWith("sub_ecu_denso_mc68hc16y5_02") && ecuCalDef->FileSize.toUInt() < 190 * 1024)
+    {
+        for (int i = 0; i < 0x8000; i++)
+        {
+            ecuCalDef->FullRomData.insert(0x20000, (uint8_t)0xff);
+        }
+    }
+    // emit LOG_D("QByteArray size = " + ecuCalDef->FullRomData.length(), true, true);
+
     if (ecuCalDef->use_romraider_definition || ecuCalDef->use_ecuflash_definition)
     {
         const fastecu::definition::DefinitionFormat matchedFormat =
@@ -1943,17 +1952,6 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
             }
         }
     }
-
-    QByteArray padding;
-    padding.clear();
-    if (ecuCalDef->RomInfo.at(FlashMethod).startsWith("sub_ecu_denso_mc68hc16y5_02") && ecuCalDef->FileSize.toUInt() < 190 * 1024)
-    {
-        for (int i = 0; i < 0x8000; i++)
-        {
-            ecuCalDef->FullRomData.insert(0x20000, (uint8_t)0xff);
-        }
-    }
-    // emit LOG_D("QByteArray size = " + ecuCalDef->FullRomData.length(), true, true);
 
     int storagesize = 0;
     QString storagetype = 0;
