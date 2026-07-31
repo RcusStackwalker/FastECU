@@ -1,5 +1,6 @@
 #include "src/backend/calibration/calibration_service.h"
 
+#include <algorithm>
 #include <string>
 #include <string_view>
 
@@ -11,14 +12,8 @@ namespace
 const definition::Scaling *find_scaling(
     const definition::RomDefinition& rom_definition, std::string_view name)
 {
-    for (const definition::Scaling& scaling : rom_definition.scalings)
-    {
-        if (scaling.name == name)
-        {
-            return &scaling;
-        }
-    }
-    return nullptr;
+    const auto it = std::ranges::find(rom_definition.scalings, name, &definition::Scaling::name);
+    return it != rom_definition.scalings.end() ? &*it : nullptr;
 }
 
 Status validate_extent(
