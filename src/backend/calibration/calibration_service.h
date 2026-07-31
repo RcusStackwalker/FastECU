@@ -129,4 +129,14 @@ Result<std::string> decode_scaled_values(
     bool apply_wrx02_wraparound,
     int float_precision);
 
+// Reproduces the StorageTypeList == "bloblist" branch: reads byte_count
+// raw bytes starting at address and hex-encodes them (lowercase, no
+// separator, two digits per byte), no scaling applied. byte_count is
+// computed by the caller (compute_map_cell_values) from the resolved
+// scaling's first selection value string's length / 2.
+Result<std::string> decode_bloblist_hex(
+    std::span<const std::uint8_t> rom_data,
+    std::uint64_t address,
+    std::uint32_t byte_count);
+
 } // namespace fastecu::calibration

@@ -74,6 +74,8 @@ std::vector<std::uint8_t> apply_flash_method_padding(
 namespace
 {
 
+constexpr char kHexDigits[] = "0123456789abcdef";
+
 std::uint32_t parse_hex_uint32(std::string_view text)
 {
     if (text.empty())
@@ -218,6 +220,26 @@ Result<std::string> decode_scaled_values(
         }
         result += format_like_qt_g(value, float_precision);
         result += ",";
+    }
+    return result;
+}
+
+Result<std::string> decode_bloblist_hex(
+    std::span<const std::uint8_t> rom_data,
+    std::uint64_t address,
+    std::uint32_t byte_count)
+{
+    if (address + byte_count > rom_data.size())
+    {
+        return fail(ErrorKind::Internal, "decode_bloblist_hex: address exceeds ROM size");
+    }
+    std::string result;
+    result.reserve(byte_count * 2);
+    for (std::uint32_t i = 0; i < byte_count; ++i)
+    {
+        const std::uint8_t byte = rom_data[address + i];
+        result += kHexDigits[(byte >> 4) & 0xF];
+        result += kHexDigits[byte & 0xF];
     }
     return result;
 }

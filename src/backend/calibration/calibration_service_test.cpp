@@ -503,5 +503,35 @@ TEST(DecodeScaledValues, FormattingMatchesCapturedQtGroundTruth)
     }
 }
 
+TEST(DecodeBloblistHex, EncodesBytesAsLowercaseHexWithNoSeparator)
+{
+    std::vector<std::uint8_t> rom = {0x00, 0x00, 0xAB, 0xCD, 0x0F};
+
+    Result<std::string> result = decode_bloblist_hex(rom, /*address=*/2, /*byte_count=*/3);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "abcd0f");
+}
+
+TEST(DecodeBloblistHex, ZeroByteCountProducesEmptyString)
+{
+    std::vector<std::uint8_t> rom = {0x01, 0x02};
+
+    Result<std::string> result = decode_bloblist_hex(rom, 0, 0);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "");
+}
+
+TEST(DecodeBloblistHex, FailsWhenRangeExceedsRomSize)
+{
+    std::vector<std::uint8_t> rom = {0x01, 0x02};
+
+    Result<std::string> result = decode_bloblist_hex(rom, 1, 5);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+}
+
 } // namespace
 } // namespace fastecu::calibration
