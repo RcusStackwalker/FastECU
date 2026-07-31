@@ -104,6 +104,31 @@ TEST(DefinitionModelTest, ResolvedDefinitionIsDistinctFromUnresolvedInput)
                        std::vector<CalibrationMap>>);
 }
 
+TEST(StorageByteSizeTest, MapsEachStorageTypeToItsByteWidth)
+{
+    using fastecu::definition::storage_byte_size;
+    using fastecu::definition::StorageType;
+
+    EXPECT_EQ(storage_byte_size(StorageType::Uint8), 1U);
+    EXPECT_EQ(storage_byte_size(StorageType::Int8), 1U);
+    EXPECT_EQ(storage_byte_size(StorageType::Uint16), 2U);
+    EXPECT_EQ(storage_byte_size(StorageType::Int16), 2U);
+    EXPECT_EQ(storage_byte_size(StorageType::Uint24), 3U);
+    EXPECT_EQ(storage_byte_size(StorageType::Int24), 3U);
+    EXPECT_EQ(storage_byte_size(StorageType::Uint32), 4U);
+    EXPECT_EQ(storage_byte_size(StorageType::Int32), 4U);
+    EXPECT_EQ(storage_byte_size(StorageType::Float), 4U);
+    EXPECT_EQ(storage_byte_size(StorageType::Bloblist), 1U);
+}
+
+TEST(StorageByteSizeTest, DefaultsToOneByteWhenStorageTypeIsAbsent)
+{
+    using fastecu::definition::storage_byte_size;
+    using fastecu::definition::StorageType;
+
+    EXPECT_EQ(storage_byte_size(std::optional<StorageType>{}), 1U);
+}
+
 TEST(DefinitionCatalogTest, FindsEntryByFormatAndDefinitionId)
 {
     auto romraider = entry("ROMRAIDER", "romraider.xml");
