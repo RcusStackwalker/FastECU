@@ -32,6 +32,7 @@
 #include "src/backend/definitions/kernelmemorymodels.h"
 #include "src/backend/definitions/config_values.h"
 #include "src/backend/definitions/ecu_cal_def.h"
+#include "src/backend/calibration/legacy_calibration_adapter.h"
 #include "src/backend/checksum/legacy_checksum_adapter.h"
 #include "src/backend/config/legacy_config_adapter.h"
 #include "src/backend/config/config_paths.h"
@@ -325,6 +326,10 @@ class FileActions : public QWidget
     fastecu::definition::DefinitionService definitionService_;
     fastecu::definition::LegacyDefinitionAdapter definitionAdapter_;
     std::vector<std::string> submittedEcuflashHandles_;
+    // Declared last so that definitionFileRepository_ -- its constructor
+    // argument -- is already initialized: C++ initializes members in
+    // declaration order regardless of initializer-list order.
+    fastecu::calibration::LegacyCalibrationAdapter calibrationAdapter_;
 
   signals:
     void LOG_E(QString message, bool timestamp, bool linefeed);
