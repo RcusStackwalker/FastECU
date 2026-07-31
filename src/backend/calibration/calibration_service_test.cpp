@@ -1,5 +1,7 @@
 #include "src/backend/calibration/calibration_service.h"
 
+#include <format>
+
 #include <gtest/gtest.h>
 
 #include "src/backend/definition/definition_model.h"
@@ -215,6 +217,261 @@ TEST(ApplyFlashMethodPadding, GrowsAndZeroFillsRomShorterThanInsertionPoint)
     EXPECT_EQ(result[0x1FFFF], 0x00); // last zero-filled gap byte
     EXPECT_EQ(result[0x20000], 0xFF); // padding starts here
     EXPECT_EQ(result[0x20000 + 0x7FFF], 0xFF);
+}
+
+TEST(DecodeScaledValues, DecodesUint16BigEndianWithIdentityExpression)
+{
+    std::vector<std::uint8_t> rom(200, 0x00);
+    rom[100] = 0xAB;
+    rom[101] = 0xCD;
+
+    Result<std::string> result = decode_scaled_values(
+        rom, /*base_address=*/100, /*count=*/1, /*start_position=*/"1",
+        /*interval=*/"1", /*storage_type=*/"uint16", /*endian=*/"big",
+        /*from_byte_expression=*/"x", /*is_selectable=*/false,
+        /*apply_wrx02_wraparound=*/false, /*float_precision=*/15);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "43981,"); // 0xABCD
+}
+
+TEST(DecodeScaledValues, GenuinelyLittleEndianReadsFirstByteAsLeastSignificant)
+{
+    // Fix (disclosed, Global Constraints item 1): legacy's endian=="little"
+    // path for non-float types always read a stray 0 regardless of ROM
+    // content. This proves the fixed behavior: bytes stored LSB-first (true
+    // little-endian) decode to the same numeric value as the big-endian
+    // test above, when the byte order in the file is reversed accordingly.
+    std::vector<std::uint8_t> rom(200, 0x00);
+    rom[100] = 0xCD; // LSB first
+    rom[101] = 0xAB; // MSB second
+
+    Result<std::string> result = decode_scaled_values(
+        rom, 100, 1, "1", "1", "uint16", "little", "x", false, false, 15);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "43981,"); // same value as the big-endian test, 0xABCD
+}
+
+TEST(DecodeScaledValues, DecodesSignedInt16BigEndianNegativeValue)
+{
+    std::vector<std::uint8_t> rom(200, 0x00);
+    rom[100] = 0xFF;
+    rom[101] = 0xFE; // 0xFFFE as signed int16 == -2
+
+    Result<std::string> result = decode_scaled_values(
+        rom, 100, 1, "1", "1", "int16", "big", "x", false, false, 15);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "-2,");
+}
+
+TEST(DecodeScaledValues, SignedAccumulationIsWellDefinedRegardlessOfCharSignedness)
+{
+    // Fix (disclosed, Global Constraints item 2): a byte with its high bit
+    // set (0x80) in a non-final position must not corrupt the accumulated
+    // result via intermediate sign extension. 0x80,0x01 as signed int16
+    // (big-endian) == -32767.
+    std::vector<std::uint8_t> rom(200, 0x00);
+    rom[100] = 0x80;
+    rom[101] = 0x01;
+
+    Result<std::string> result = decode_scaled_values(
+        rom, 100, 1, "1", "1", "int16", "big", "x", false, false, 15);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "-32767,");
+}
+
+TEST(DecodeScaledValues, DecodesFloatBigEndianRegardlessOfEndianField)
+{
+    std::vector<std::uint8_t> rom(200, 0x00);
+    // IEEE-754 float32 for 1.5, big-endian byte order: 0x3F,0xC0,0x00,0x00.
+    rom[100] = 0x3F;
+    rom[101] = 0xC0;
+    rom[102] = 0x00;
+    rom[103] = 0x00;
+
+    Result<std::string> result = decode_scaled_values(
+        rom, 100, 1, "1", "1", "float", "big", "x", false, false, 15);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "1.5,");
+}
+
+TEST(DecodeScaledValues, MultipleCellsProduceTrailingCommaAfterEveryValue)
+{
+    std::vector<std::uint8_t> rom(200, 0x00);
+    rom[100] = 0x00;
+    rom[101] = 0x01; // uint16 big-endian == 1
+    rom[102] = 0x00;
+    rom[103] = 0x02; // uint16 big-endian == 2
+
+    Result<std::string> result = decode_scaled_values(
+        rom, 100, 2, "1", "1", "uint16", "big", "x", false, false, 15);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "1,2,"); // trailing comma after the LAST value too
+}
+
+TEST(DecodeScaledValues, IsSelectableEmitsZeroRegardlessOfBytes)
+{
+    std::vector<std::uint8_t> rom(200, 0xFF); // non-zero bytes, must be ignored
+
+    Result<std::string> result = decode_scaled_values(
+        rom, 100, 1, "1", "1", "uint16", "big", "x", /*is_selectable=*/true,
+        false, 15);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "0,");
+}
+
+TEST(DecodeScaledValues, StartPositionAndIntervalAreParsedAsHex)
+{
+    // start_position "10" is hex 0x10 == 16 decimal, not decimal 10.
+    // offset = (16 - 1) * storage_size(1) = 15.
+    std::vector<std::uint8_t> rom(200, 0x00);
+    rom[15] = 0x07;
+
+    Result<std::string> result = decode_scaled_values(
+        rom, /*base_address=*/0, 1, /*start_position=*/"10", "1", "uint8",
+        "big", "x", false, false, 15);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "7,");
+}
+
+TEST(DecodeScaledValues, IntervalHexDigitProvesHexParsingIsActive)
+{
+    // interval "0A" is hex 0x0A == 10 decimal; "0A" would fail to parse as
+    // decimal at all, so a passing test here proves hex parsing is used.
+    std::vector<std::uint8_t> rom(200, 0x00);
+    rom[0] = 0x01;
+    rom[10] = 0x02;
+
+    Result<std::string> result = decode_scaled_values(
+        rom, 0, 2, "1", "0A", "uint8", "big", "x", false, false, 15);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "1,2,");
+}
+
+TEST(DecodeScaledValues, EmptyStartPositionUnderflowsToASafeError)
+{
+    // Legacy: (startPos - 1) on an unsigned 32-bit value with startPos == 0
+    // (empty/unparseable start_position) underflows to 0xFFFFFFFF, sending
+    // the computed address far out of bounds. Reproduced exactly (not
+    // "fixed" to avoid the underflow) -- the bounds check below it turns
+    // the resulting huge address into a clean error rather than a crash.
+    std::vector<std::uint8_t> rom(200, 0x00);
+
+    Result<std::string> result = decode_scaled_values(
+        rom, 0, 1, /*start_position=*/"", "1", "uint8", "big", "x", false,
+        false, 15);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+}
+
+TEST(DecodeScaledValues, FailsWhenByteAddressExceedsRomSize)
+{
+    std::vector<std::uint8_t> rom(10, 0x00);
+
+    Result<std::string> result = decode_scaled_values(
+        rom, /*base_address=*/50, 1, "1", "1", "uint8", "big", "x", false,
+        false, 15);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+}
+
+TEST(DecodeScaledValues, Wrx02WraparoundBringsOutOfBoundsAddressIntoRange)
+{
+    std::vector<std::uint8_t> rom(100, 0x00);
+    rom[16] = 0x2A; // 42
+
+    Result<std::string> result = decode_scaled_values(
+        rom, /*base_address=*/0x8010, 1, "1", "1", "uint8", "big", "x",
+        false, /*apply_wrx02_wraparound=*/true, 15);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "42,"); // 0x8010 - 0x8000 == 16
+}
+
+TEST(DecodeScaledValues, WithoutWraparoundSameAddressFails)
+{
+    std::vector<std::uint8_t> rom(100, 0x00);
+
+    Result<std::string> result = decode_scaled_values(
+        rom, 0x8010, 1, "1", "1", "uint8", "big", "x", false,
+        /*apply_wrx02_wraparound=*/false, 15);
+
+    ASSERT_FALSE(result.has_value());
+}
+
+TEST(DecodeScaledValues, FormattingMatchesCapturedQtGroundTruth)
+{
+    // Ground truth captured from real QString::number(value, 'g', 15) --
+    // see the design doc's "Named Risks" section for the full table and how
+    // it was captured. from_byte_expression is set to a bare numeric
+    // literal (std::format("{:.20f}", c.value)), not an expression
+    // referencing the decoded byte -- expression_evaluate's tokenizer
+    // (verified by reading src/algorithms/expression/expression_evaluator.cpp)
+    // only special-cases the literal character 'x'; any other token falls
+    // through to std::stod, so a pure-literal expression evaluates to
+    // exactly that literal's double value with no risk of the
+    // floating-point cancellation error an arithmetic trick like "x - 1 +
+    // 1" would introduce for small magnitudes (e.g. 0.00001). This
+    // isolates the *formatting* function (decode_scaled_values's
+    // format_like_qt_g) from the byte-decode logic, already covered by
+    // the tests above -- the single decoded ROM byte is irrelevant here
+    // since the expression never references x.
+    //
+    // Fixed-point ("f") formatting, not std::to_string or "g"/"e" style,
+    // and specifically not scientific notation: std::to_string(double) is
+    // fixed 6-decimal-place notation (equivalent to printf "%f") and
+    // silently truncates/rounds values needing more precision or a smaller
+    // magnitude than that -- e.g. std::to_string(3.14159265358979) yields
+    // "3.141593" and std::to_string(0.000000001) yields "0.000000". A "g"
+    // or "e" style format (e.g. "{:.17g}") avoids that truncation but
+    // introduces a different corruption: for small magnitudes it emits
+    // scientific notation ("1.0000000000000001e-05"), and
+    // expression_parse's hand-rolled tokenizer has no exponent support --
+    // it silently drops the 'e' as an unrecognized character and then
+    // misreads the following "-05" as a subtraction operator applied to
+    // the mantissa, corrupting the value entirely (confirmed empirically:
+    // "{:.17g}" on 0.00001 broke a case that std::to_string had actually
+    // gotten right). "{:.20f}" (fixed-point, 20 digits after the decimal
+    // point, never scientific notation) round-trips every value in this
+    // table exactly through std::stod, verified with a standalone probe.
+    struct Case
+    {
+        double value;
+        const char *expected;
+    };
+    const Case cases[] = {
+        {0.0, "0"},
+        {-0.0, "0"},
+        {1.0, "1"},
+        {123.0, "123"},
+        {123.456, "123.456"},
+        {-45.6, "-45.6"},
+        {0.0001, "0.0001"},
+        {0.00001, "1e-05"},
+        {100000.0, "100000"},
+        {123456789012345.0, "123456789012345"},
+        {3.14159265358979, "3.14159265358979"},
+        {0.000000001, "1e-09"},
+    };
+    std::vector<std::uint8_t> rom(4, 0x01);
+    for (const Case& c : cases)
+    {
+        Result<std::string> result = decode_scaled_values(
+            rom, 0, 1, "1", "1", "uint8", "big", std::format("{:.20f}", c.value),
+            false, false, 15);
+        ASSERT_TRUE(result.has_value()) << c.expected;
+        EXPECT_EQ(*result, std::string(c.expected) + ",") << "value=" << c.value;
+    }
 }
 
 } // namespace
