@@ -6,6 +6,7 @@
 #include <QTemporaryDir>
 #include <QTimer>
 
+#include <clocale>
 #include <cstdint>
 #include <functional>
 #include <map>
@@ -94,6 +95,35 @@ QString writeTextFile(const QTemporaryDir& dir,
 {
     return writeTextFileAt(dir.filePath(name), contents);
 }
+
+// src/algorithms/expression/expression_evaluator.cpp parses numeric literals
+// (e.g. the "0.5" in "x*0.5") via std::stod, which is sensitive to the
+// process's current LC_NUMERIC locale: under a locale where ',' is the
+// decimal separator (observed here with LANG=nl_NL.UTF-8, which QApplication
+// picks up via its own setlocale(LC_ALL, "") call), std::stod("0.5") stops
+// at the '.' and silently returns 0 instead of 0.5. That's a pre-existing,
+// out-of-scope bug shared by both the legacy inline computation this task
+// deletes and its replacement (both ultimately call the same
+// expression_evaluate free function) -- not something Task 6 introduces or
+// is chartered to fix. This guard makes the two tests below deterministic
+// regardless of the host environment's locale.
+class ScopedCNumericLocale
+{
+  public:
+    ScopedCNumericLocale() : previous_(std::setlocale(LC_NUMERIC, nullptr) ? std::setlocale(LC_NUMERIC, nullptr) : "C")
+    {
+        std::setlocale(LC_NUMERIC, "C");
+    }
+    ~ScopedCNumericLocale()
+    {
+        std::setlocale(LC_NUMERIC, previous_.c_str());
+    }
+    ScopedCNumericLocale(const ScopedCNumericLocale&) = delete;
+    ScopedCNumericLocale& operator=(const ScopedCNumericLocale&) = delete;
+
+  private:
+    std::string previous_;
+};
 
 bool spyContainsMessage(const QSignalSpy& spy, const QString& text)
 {
@@ -1124,31 +1154,26 @@ class TestFileActionsParsing : public QObject
         delete ecuCalDef;
     }
 
-    void open_subaru_rom_file_applies_padding_before_returning()
+    void open_subaru_rom_file_no_longer_persists_flash_method_padding()
     {
-        // Regression test for a final-review fix (step5d-4 plan) that
-        // reordered open_subaru_rom_file's size-validation block to run
-        // AFTER the sub_ecu_denso_mc68hc16y5_02 padding block, not before.
-        // Padding grows FullRomData by 0x8000 bytes; a size check against
-        // the pre-padded length could reject a definition authored against
-        // the padded image. This pins that padding is applied by the time
-        // the function returns, for a ROM under the 190KB threshold with a
-        // matching FlashMethod.
-        //
-        // This does not reproduce the original ordering bug directly (that
-        // would require a real EcuFlash definition fixture with map
-        // addresses in the padded region, driving definitionService_.load
-        // to succeed) -- disproportionate setup for this fix's regression
-        // test, per the final review's own accepted tradeoff.
+        // Historical note: this test previously pinned a final-review fix
+        // (step5d-4 plan) that reordered open_subaru_rom_file's
+        // size-validation block to run AFTER the (then still inline)
+        // sub_ecu_denso_mc68hc16y5_02 padding block, so FullRomData grew by
+        // 0x8000 bytes before the function returned. That inline padding
+        // block was itself deleted by Task 6 of the step5d4b plan: padding
+        // is now applied by LegacyCalibrationAdapter::compute_map_cell_values
+        // (apply_flash_method_padding in legacy_calibration_adapter.cpp)
+        // only to a local copy used for map-cell decoding, and is never
+        // written back into ecuCalDef->FullRomData. So FullRomData's length
+        // is now unaffected by the FlashMethod padding special case --
+        // pinned here so a future change doesn't silently reintroduce
+        // persistent padding of the caller's stored bytes.
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
         const QString romPath = dir.filePath("rom.bin");
         QFile romFile(romPath);
         QVERIFY(romFile.open(QIODevice::WriteOnly));
-        // Must be >= 0x20000 (the padding insertion point): QByteArray::insert
-        // at a position beyond the array's current length first grows it up
-        // to that position, so a smaller original size would make the
-        // observed growth larger than the padding loop's own 0x8000 bytes.
         const QByteArray originalBytes(qsizetype{160} * 1024, '\0');
         QCOMPARE(romFile.write(originalBytes), qint64{originalBytes.size()});
         romFile.close();
@@ -1165,7 +1190,7 @@ class TestFileActionsParsing : public QObject
         ecuCalDef = fileActions.open_subaru_rom_file(ecuCalDef, romPath);
 
         QVERIFY(ecuCalDef != nullptr);
-        QCOMPARE(ecuCalDef->FullRomData.length(), originalBytes.length() + 0x8000);
+        QCOMPARE(ecuCalDef->FullRomData.length(), originalBytes.length());
         delete ecuCalDef;
     }
 
@@ -1194,6 +1219,157 @@ class TestFileActionsParsing : public QObject
         QFile writtenFile(romPath);
         QVERIFY(writtenFile.open(QIODevice::ReadOnly));
         QCOMPARE(writtenFile.readAll(), QByteArray("\xCA\xFE\xBA\xBE", 4));
+    }
+
+    void open_subaru_rom_file_computes_map_data_for_a_matched_definition()
+    {
+        const ScopedCNumericLocale cLocale;
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString definitionPath = writeTextFile(
+            dir,
+            "romraider.xml",
+            R"(<roms>
+  <rom>
+    <romid>
+      <xmlid>CAL_TEST</xmlid><internalidaddress>0</internalidaddress>
+      <internalidstring>CAL_TEST</internalidstring>
+    </romid>
+    <table name="Fuel" type="2D" storagetype="uint16" endian="big"
+           storageaddress="14" sizex="2" sizey="1">
+      <scaling units="%" expression="x*0.5" to_byte="x*2"
+               format="0.0" fineincrement="0.5" coarseincrement="1"/>
+    </table>
+  </rom>
+</roms>)");
+        // Deviation from the brief's literal snippet: storageaddress is
+        // parsed as hex (parser_utils.cc's optional_hex_attribute, matching
+        // RomRaider convention -- see also the legacy inline loop this task
+        // deletes, which itself reads AddressList with base 16). The brief's
+        // storageaddress="20" plus byte offset 20 would decode to hex 0x20 =
+        // decimal 32, outside this 24-byte ROM, which trips
+        // validate_rom_size's "address exceeds ROM size" QMessageBox::warning
+        // and hangs the (non-interactive) test on QDialog::exec(). Using
+        // "14" (hex 0x14 = decimal 20) keeps the intended decimal byte
+        // offset and the brief's expected "5,10," result.
+        QVERIFY(!definitionPath.isEmpty());
+
+        const QString romPath = dir.filePath("cal_test.bin");
+        QFile romFile(romPath);
+        QVERIFY(romFile.open(QIODevice::WriteOnly));
+        QByteArray romBytes(24, '\0');
+        romBytes.replace(0, 8, "CAL_TEST"); // internal ID match at address 0
+        romBytes[20] = static_cast<char>(0x00);
+        romBytes[21] = static_cast<char>(0x0A); // 10 -> x*0.5 -> 5
+        romBytes[22] = static_cast<char>(0x00);
+        romBytes[23] = static_cast<char>(0x14); // 20 -> x*0.5 -> 10
+        QCOMPARE(romFile.write(romBytes), qint64{romBytes.size()});
+        romFile.close();
+
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        auto& config = fileActions.ConfigValuesStruct;
+        config.primary_definition_base = "romraider";
+        config.use_romraider_definitions = "enabled";
+        config.romraider_definition_files = {definitionPath};
+        // read_romraider_ecu_def gates on ConfigValuesStruct.romraider_def_cal_id
+        // already containing the matched cal id -- that list is populated by
+        // create_romraider_def_id_list, which MainWindow calls once at startup
+        // (mainwindow.cpp:189) before any open_subaru_rom_file call. Not part
+        // of the brief's fixture snippet, but required for this path to reach
+        // read_romraider_ecu_def at all; matches this suite's own
+        // romraider_definition_indexes_ids_and_inherits_base convention.
+        fileActions.create_romraider_def_id_list(&config);
+
+        FileActions::EcuCalDefStructure *ecuCalDef = new FileActions::EcuCalDefStructure;
+        while (ecuCalDef->RomInfo.length() < ecuCalDef->RomInfoStrings.length())
+        {
+            ecuCalDef->RomInfo.append(" ");
+        }
+
+        ecuCalDef = fileActions.open_subaru_rom_file(ecuCalDef, romPath);
+
+        QVERIFY(ecuCalDef != nullptr);
+        QVERIFY(ecuCalDef->use_romraider_definition);
+        QCOMPARE(ecuCalDef->NameList.at(0), QString("Fuel"));
+        QCOMPARE(ecuCalDef->MapData.at(0), QString("5,10,"));
+        QCOMPARE(ecuCalDef->XScaleData.at(0), QString(" "));
+        QCOMPARE(ecuCalDef->YScaleData.at(0), QString(" "));
+        delete ecuCalDef;
+    }
+
+    void open_subaru_rom_file_writes_map_data_at_the_correct_index_for_multiple_maps()
+    {
+        const ScopedCNumericLocale cLocale;
+        // Pins the design doc's Risk 2 (map ordering): ecuCalDef->NameList's
+        // order (populated by read_romraider_ecu_def's dispatch) and
+        // rom_definition.maps's order (populated by the separate
+        // definitionService_.load call for validate_rom_size) are guaranteed
+        // to match because both come from the same DefinitionService::load
+        // call over the same catalog/format/id -- see legacy_definition_adapter.cpp:459-462.
+        // Deliberately non-alphabetical map names (Zebra before Alpha) so a
+        // positional mismatch would produce visibly wrong, not
+        // coincidentally-right, results.
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString definitionPath = writeTextFile(
+            dir,
+            "romraider-multi.xml",
+            R"(<roms>
+  <rom>
+    <romid>
+      <xmlid>MULTI_TEST</xmlid><internalidaddress>0</internalidaddress>
+      <internalidstring>MULTI_TEST</internalidstring>
+    </romid>
+    <table name="Zebra" storagetype="uint16" endian="big"
+           storageaddress="28" sizex="1" sizey="1">
+      <scaling units="%" expression="x*1" to_byte="x" format="0.0"/>
+    </table>
+    <table name="Alpha" storagetype="uint16" endian="big"
+           storageaddress="3C" sizex="1" sizey="1">
+      <scaling units="%" expression="x*1" to_byte="x" format="0.0"/>
+    </table>
+  </rom>
+</roms>)");
+        // storageaddress values are hex (see the sibling single-map test's
+        // comment above): "28"/"3C" = decimal 40/60, matching this test's
+        // byte offsets below.
+        QVERIFY(!definitionPath.isEmpty());
+
+        const QString romPath = dir.filePath("multi_test.bin");
+        QFile romFile(romPath);
+        QVERIFY(romFile.open(QIODevice::WriteOnly));
+        QByteArray romBytes(70, '\0');
+        romBytes.replace(0, 10, "MULTI_TEST");
+        romBytes[40] = static_cast<char>(0x00);
+        romBytes[41] = static_cast<char>(0x2A); // Zebra -> 42
+        romBytes[60] = static_cast<char>(0x00);
+        romBytes[61] = static_cast<char>(0x63); // Alpha -> 99
+        QCOMPARE(romFile.write(romBytes), qint64{romBytes.size()});
+        romFile.close();
+
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        auto& config = fileActions.ConfigValuesStruct;
+        config.primary_definition_base = "romraider";
+        config.use_romraider_definitions = "enabled";
+        config.romraider_definition_files = {definitionPath};
+        // See the sibling single-map test above for why this call is required.
+        fileActions.create_romraider_def_id_list(&config);
+
+        FileActions::EcuCalDefStructure *ecuCalDef = new FileActions::EcuCalDefStructure;
+        while (ecuCalDef->RomInfo.length() < ecuCalDef->RomInfoStrings.length())
+        {
+            ecuCalDef->RomInfo.append(" ");
+        }
+
+        ecuCalDef = fileActions.open_subaru_rom_file(ecuCalDef, romPath);
+
+        QVERIFY(ecuCalDef != nullptr);
+        QVERIFY(ecuCalDef->NameList.size() >= 2);
+        QCOMPARE(ecuCalDef->NameList.at(0), QString("Zebra"));
+        QCOMPARE(ecuCalDef->NameList.at(1), QString("Alpha"));
+        QCOMPARE(ecuCalDef->MapData.at(0), QString("42,"));
+        QCOMPARE(ecuCalDef->MapData.at(1), QString("99,"));
+        delete ecuCalDef;
     }
 
   private:

@@ -158,9 +158,20 @@ class TestRomTransformations : public QObject
                               "Grid"}));
         QCOMPARE(ecu.MapData.at(0), QString("4,"));
         QCOMPARE(ecu.MapData.at(1), QString("4660,"));
-        // Compatibility: open_subaru_rom_file fills mapDataValue but evaluates
-        // zero dataByte for non-float little-endian integers.
-        QCOMPARE(ecu.MapData.at(2), QString("0,"));
+        // Task 6 of the step5d4b plan wires open_subaru_rom_file to the
+        // portable compute_map_cell_values orchestrator, which carries
+        // Task 2's disclosed endian=="little" fix (calibration_service.cpp's
+        // decode_scaled_values normalizes bytes into MSB-first order for
+        // both endiannesses before assembling the integer). The legacy
+        // inline loop this task deletes had a real bug: for a non-float
+        // storage type with endian=="little", it filled the mapDataValue
+        // union's byte_alue[] array but the value-computation branch below
+        // it read the (never-updated) plain dataByte/signedDataByte
+        // variables instead, so every little-endian non-float map or axis
+        // silently decoded to 0 -- what this test previously pinned as
+        // "Compatibility". 0x12,0x34,0x56 read little-endian is 0x563412 =
+        // 5649426, the now-correct decoded value.
+        QCOMPARE(ecu.MapData.at(2), QString("5649426,"));
         QCOMPARE(ecu.MapData.at(3), QString("305419896,"));
         QCOMPARE(ecu.MapData.at(4), QString("1,"));
         QCOMPARE(ecu.MapData.at(5), QString("1,2,3,4,"));
