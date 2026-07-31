@@ -386,6 +386,26 @@ TEST(DecodeScaledValues, IntervalHexDigitProvesHexParsingIsActive)
     EXPECT_EQ(*result, "1,2,");
 }
 
+TEST(DecodeScaledValues, UnparseableIntervalTextParsesAsZero)
+{
+    // "zz" contains no valid hex digits, so std::from_chars fails
+    // immediately (ec != std::errc{}) -- a distinct code path from the
+    // empty-input branch exercised above/below. parse_hex_uint32 returns 0
+    // either way, matching legacy's QString::toUInt(&status, 16) leaving
+    // its value at 0 when status comes back false (the caller never checks
+    // status). interval == 0 collapses every cell's offset to the same
+    // byte (address 0) regardless of j.
+    std::vector<std::uint8_t> rom(200, 0x00);
+    rom[0] = 0x05;
+
+    Result<std::string> result = decode_scaled_values(
+        rom, 0, 2, "1", /*interval=*/"zz", "uint8", "big", "x", false, false,
+        15);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "5,5,");
+}
+
 TEST(DecodeScaledValues, EmptyStartPositionUnderflowsToASafeError)
 {
     // Legacy: (startPos - 1) on an unsigned 32-bit value with startPos == 0
@@ -746,6 +766,146 @@ TEST(ComputeMapCellValues, BloblistStorageTypeHexEncodesFromFirstSelectionLength
 
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ((*result)[0].map_data, "112233");
+}
+
+TEST(ComputeMapCellValues, MapWithNoAddressFails)
+{
+    // Reproduces the non-bloblist "map has no address" guard -- distinct
+    // from decode_scaled_values's own out-of-bounds check below, since this
+    // fires before any decode is even attempted.
+    RomDefinition definition = definition_with_scaled_map();
+    definition.maps[0].address.reset();
+    std::vector<std::uint8_t> rom(200, 0x00);
+
+    Result<MapCellValuesList> result =
+        compute_map_cell_values(definition, rom, "any_flash_method", 15);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+}
+
+TEST(ComputeMapCellValues, BloblistMapWithNoAddressFails)
+{
+    RomDefinition definition;
+    Scaling scaling;
+    scaling.name = "blob_scaling";
+    scaling.selections = {{"first", "AABBCC"}};
+    definition.scalings.push_back(scaling);
+
+    CalibrationMap map;
+    map.storage_type = "bloblist";
+    map.scaling_name = "blob_scaling";
+    // map.address left unset.
+    definition.maps.push_back(map);
+
+    std::vector<std::uint8_t> rom(200, 0x00);
+
+    Result<MapCellValuesList> result =
+        compute_map_cell_values(definition, rom, "any_flash_method", 15);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+}
+
+TEST(ComputeMapCellValues, BloblistDecodeFailureIsPropagated)
+{
+    RomDefinition definition;
+    Scaling scaling;
+    scaling.name = "blob_scaling";
+    scaling.selections = {{"first", "AABBCC"}}; // byte_count == 3
+    definition.scalings.push_back(scaling);
+
+    CalibrationMap map;
+    map.storage_type = "bloblist";
+    map.address = 198; // 198 + 3 > rom.size() (200): decode_bloblist_hex fails.
+    map.scaling_name = "blob_scaling";
+    definition.maps.push_back(map);
+
+    std::vector<std::uint8_t> rom(200, 0x00);
+
+    Result<MapCellValuesList> result =
+        compute_map_cell_values(definition, rom, "any_flash_method", 15);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+}
+
+TEST(ComputeMapCellValues, XAxisWithNoAddressFails)
+{
+    RomDefinition definition = definition_with_scaled_map();
+    definition.maps[0].x_axis.type = "X Axis";
+    // x_axis.address left unset, so the "X Axis" branch's own guard fires.
+    std::vector<std::uint8_t> rom(200, 0x00);
+    rom[100] = 0x00;
+    rom[101] = 0x0A;
+    rom[102] = 0x00;
+    rom[103] = 0x14;
+
+    Result<MapCellValuesList> result =
+        compute_map_cell_values(definition, rom, "any_flash_method", 15);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+}
+
+TEST(ComputeMapCellValues, XAxisDecodeFailureIsPropagated)
+{
+    RomDefinition definition = definition_with_scaled_map();
+    definition.maps[0].x_axis.type = "X Axis";
+    definition.maps[0].x_axis.address = 199; // uint16 read at 199 exceeds rom.size() (200).
+    definition.maps[0].x_axis.storage_type = "uint16";
+    definition.maps[0].x_axis.endian = "big";
+    definition.maps[0].x_axis.scaling_name = "fuel_scaling";
+    std::vector<std::uint8_t> rom(200, 0x00);
+    rom[100] = 0x00;
+    rom[101] = 0x0A;
+    rom[102] = 0x00;
+    rom[103] = 0x14;
+
+    Result<MapCellValuesList> result =
+        compute_map_cell_values(definition, rom, "any_flash_method", 15);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+}
+
+TEST(ComputeMapCellValues, YAxisWithNoAddressFails)
+{
+    RomDefinition definition = definition_with_scaled_map();
+    definition.maps[0].y_size = 2;
+    // y_axis.address left unset.
+    std::vector<std::uint8_t> rom(200, 0x00);
+    rom[100] = 0x00;
+    rom[101] = 0x0A;
+    rom[102] = 0x00;
+    rom[103] = 0x14;
+
+    Result<MapCellValuesList> result =
+        compute_map_cell_values(definition, rom, "any_flash_method", 15);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+}
+
+TEST(ComputeMapCellValues, YAxisDecodeFailureIsPropagated)
+{
+    RomDefinition definition = definition_with_scaled_map();
+    definition.maps[0].y_size = 2;
+    definition.maps[0].y_axis.address = 199; // uint16 read at 199 exceeds rom.size() (200).
+    definition.maps[0].y_axis.storage_type = "uint16";
+    definition.maps[0].y_axis.endian = "big";
+    definition.maps[0].y_axis.scaling_name = "fuel_scaling";
+    std::vector<std::uint8_t> rom(200, 0x00);
+    rom[100] = 0x00;
+    rom[101] = 0x0A;
+    rom[102] = 0x00;
+    rom[103] = 0x14;
+
+    Result<MapCellValuesList> result =
+        compute_map_cell_values(definition, rom, "any_flash_method", 15);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
 }
 
 TEST(ComputeMapCellValues, MultipleMapsProduceOneEntryEachInDefinitionOrder)
