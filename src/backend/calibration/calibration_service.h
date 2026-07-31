@@ -86,17 +86,36 @@ std::vector<std::uint8_t> apply_flash_method_padding(
 // correctly today). Any real-world endian=="little" map or axis will show
 // different (correct) values after this lands.
 //
-// DISCLOSED BEHAVIOR FIX #2: legacy's signed-integer accumulation path
-// relies on QByteArray::at()'s return type (char, implementation-defined
-// signedness) with no explicit unsigned cast, so an intermediate byte with
-// its high bit set gets platform-dependently sign-extended before the
-// shift-add on hosts where char defaults to signed (typical x86_64
-// Linux/Windows; this project's primary arm64 macOS host defaults to
-// unsigned char, where legacy's behavior already happens to be correct).
-// This implementation explicitly masks each byte to uint8_t during
-// accumulation and sign-extends only the final assembled value based on
-// its top bit -- well-defined on every platform, identical to today's
-// arm64 macOS behavior, and a disclosed correction on signed-char hosts.
+// DISCLOSED BEHAVIOR FIX #2: legacy's signed-integer accumulation
+// (file_actions.cpp: `signedDataByte = (signedDataByte << 8) +
+// ecuCalDef->FullRomData.at(byteAddress + k);`) has two problems, not one,
+// and this implementation changes the decoded *value* for any signed
+// map/axis cell with the high bit set, on every platform -- confirmed by
+// compiling that exact expression standalone with both `char` signednesses
+// (clang, `-funsigned-char` vs. default):
+//   1. QByteArray::at() returns `char` with no explicit unsigned cast, so
+//      on a signed-char host (confirmed: this includes the project's
+//      primary arm64 macOS/Apple Clang host -- `char` is signed there, not
+//      unsigned as previously assumed here) an intermediate byte with its
+//      high bit set gets sign-extended before the shift-add, corrupting
+//      every byte assembled after it.
+//   2. Independently of (1): legacy never sign-extends the *final*
+//      assembled value based on the storage type's width -- it just uses
+//      whatever bit pattern the raw accumulator ended up holding. So even
+//      on a hypothetical unsigned-char host, where problem (1) doesn't
+//      apply, an int16 cell storing 0xFFFE still renders as 65534, not
+//      -2 -- the accumulator never gets told it's supposed to be a 16-bit
+//      signed quantity.
+// Net effect, confirmed by direct compilation of the legacy expression:
+// int16 0xFFFE renders as -258 on this project's actual arm64 macOS build
+// (signed char, both problems compound) and as 65534 under
+// `-funsigned-char` (problem 2 alone). Neither matches the mathematically
+// correct -2. This implementation explicitly masks each byte to uint8_t
+// during accumulation (eliminating problem 1) and sign-extends only the
+// final assembled value based on its top bit and storage width
+// (eliminating problem 2) -- well-defined and correct on every platform,
+// and a disclosed value change from legacy on every platform, not just a
+// disclosed change on signed-char hosts.
 Result<std::string> decode_scaled_values(
     std::span<const std::uint8_t> rom_data,
     std::uint64_t base_address,

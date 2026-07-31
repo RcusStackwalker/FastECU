@@ -283,7 +283,7 @@ TEST(DecodeScaledValues, SignedAccumulationIsWellDefinedRegardlessOfCharSignedne
     EXPECT_EQ(*result, "-32767,");
 }
 
-TEST(DecodeScaledValues, DecodesFloatBigEndianRegardlessOfEndianField)
+TEST(DecodeScaledValues, DecodesFloatBigEndianWhenEndianFieldIsBig)
 {
     std::vector<std::uint8_t> rom(200, 0x00);
     // IEEE-754 float32 for 1.5, big-endian byte order: 0x3F,0xC0,0x00,0x00.
@@ -294,6 +294,35 @@ TEST(DecodeScaledValues, DecodesFloatBigEndianRegardlessOfEndianField)
 
     Result<std::string> result = decode_scaled_values(
         rom, 100, 1, "1", "1", "float", "big", "x", false, false, 15);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "1.5,");
+}
+
+TEST(DecodeScaledValues, DecodesFloatLittleEndianAsTrueLittleEndian)
+{
+    // Behavior change vs. legacy (disclosed in decode_scaled_values's doc
+    // comment, DISCLOSED BEHAVIOR FIX item 1): legacy's byte-order branch
+    // condition is `endian == "little" || storage_type == "float"`, so
+    // legacy reads EVERY float in big-endian file order regardless of the
+    // endian field -- confirmed by reading file_actions.cpp directly
+    // (the `mapDataValue.byte_alue[k] = ...FullRomData.at(byteAddress +
+    // storagesize - 1 - k)` union-fill branch). This implementation keys
+    // byte-order normalization on endian alone, symmetrically for float
+    // and non-float types, so a float declared endian="little" now
+    // genuinely decodes little-endian (first file byte is least
+    // significant) instead of always being read big-endian. IEEE-754
+    // float32 for 1.5 is 0x3F,0xC0,0x00,0x00 in big-endian byte order, so
+    // the same bytes stored LSB-first (true little-endian) are
+    // 0x00,0x00,0xC0,0x3F.
+    std::vector<std::uint8_t> rom(200, 0x00);
+    rom[100] = 0x00;
+    rom[101] = 0x00;
+    rom[102] = 0xC0;
+    rom[103] = 0x3F;
+
+    Result<std::string> result = decode_scaled_values(
+        rom, 100, 1, "1", "1", "float", "little", "x", false, false, 15);
 
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(*result, "1.5,");
