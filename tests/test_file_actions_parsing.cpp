@@ -1180,6 +1180,33 @@ class TestFileActionsParsing : public QObject
         delete ecuCalDef;
     }
 
+    void save_subaru_rom_file_writes_bytes_via_calibration_adapter()
+    {
+        // FileActions::save_subaru_rom_file is now a one-line delegation to
+        // LegacyCalibrationAdapter::save_subaru_rom_file (Task 6 of the
+        // step5d-4 plan); this test exercises that delegation end-to-end
+        // (the adapter itself already has its own dedicated coverage in
+        // tests/test_legacy_calibration_adapter.cpp).
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString romPath = dir.filePath("saved.bin");
+
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        FileActions::EcuCalDefStructure ecuCalDef;
+        ecuCalDef.FullRomData = QByteArray("\xCA\xFE\xBA\xBE", 4);
+
+        FileActions::EcuCalDefStructure *result =
+            fileActions.save_subaru_rom_file(&ecuCalDef, romPath);
+
+        QVERIFY(result == &ecuCalDef);
+        QCOMPARE(ecuCalDef.FullFileName, romPath);
+        QCOMPARE(ecuCalDef.FileName, QString("saved.bin"));
+
+        QFile writtenFile(romPath);
+        QVERIFY(writtenFile.open(QIODevice::ReadOnly));
+        QCOMPARE(writtenFile.readAll(), QByteArray("\xCA\xFE\xBA\xBE", 4));
+    }
+
   private:
     // FileActions's constructor now takes the config/settings ports (Task
     // 11 of the step5d-1 plan); these are unused by the parsing paths this
