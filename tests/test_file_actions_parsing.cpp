@@ -1207,6 +1207,82 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(writtenFile.readAll(), QByteArray("\xCA\xFE\xBA\xBE", 4));
     }
 
+    void save_subaru_rom_file_warns_and_returns_nullptr_when_write_fails()
+    {
+        // The only feedback a user gets for a failed ROM save is this warning
+        // (both MainWindow call sites historically ignored the return value),
+        // so a nullptr from the adapter must still reach the UI.
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        // Parent directory does not exist -> the write cannot open the file.
+        const QString romPath = dir.filePath("no-such-directory/saved.bin");
+
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        QSignalSpy errorSpy(&fileActions, &FileActions::LOG_E);
+        QVERIFY(errorSpy.isValid());
+
+        FileActions::EcuCalDefStructure ecuCalDef;
+        ecuCalDef.FullRomData = QByteArray("\xCA\xFE", 2);
+
+        QTimer::singleShot(0, []()
+                           {
+            if (QWidget *modal = QApplication::activeModalWidget()) {
+                modal->close();
+} });
+
+        FileActions::EcuCalDefStructure *result =
+            fileActions.save_subaru_rom_file(&ecuCalDef, romPath);
+
+        QVERIFY(result == nullptr);
+        QVERIFY(spyContainsMessage(errorSpy, "for writing"));
+        // A failed save must not rewrite the names of the file the ROM came from.
+        QVERIFY(ecuCalDef.FullFileName.isEmpty());
+    }
+
+    void open_subaru_rom_file_leaves_missing_definition_defaults_to_the_caller()
+    {
+        // The continue-without-definition placeholders belong to the chooser
+        // dialog's continue-without branch (MainWindow), not to every ROM
+        // open: a user who picks "create new"/"use existing" must not get
+        // them stamped over the definition they just provided.
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString romPath = dir.filePath("rom.bin");
+        QFile romFile(romPath);
+        QVERIFY(romFile.open(QIODevice::WriteOnly));
+        QCOMPARE(romFile.write(QByteArray("\x01\x02\x03\x04", 4)), qint64{4});
+        romFile.close();
+
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fileActions.ConfigValuesStruct.flash_protocol_selected_make = "Subaru";
+
+        FileActions::EcuCalDefStructure *ecuCalDef = new FileActions::EcuCalDefStructure;
+        while (ecuCalDef->RomInfo.length() < ecuCalDef->RomInfoStrings.length())
+        {
+            ecuCalDef->RomInfo.append(" ");
+        }
+
+        ecuCalDef = fileActions.open_subaru_rom_file(ecuCalDef, romPath);
+        QVERIFY(ecuCalDef != nullptr);
+        QVERIFY(!ecuCalDef->use_ecuflash_definition);
+        QVERIFY(!ecuCalDef->use_romraider_definition);
+        QCOMPARE(ecuCalDef->RomInfo.at(FileActions::XmlId), QString(" "));
+        QCOMPARE(ecuCalDef->RomInfo.at(FileActions::Make), QString(" "));
+
+        fileActions.apply_missing_definition_defaults(ecuCalDef);
+
+        QCOMPARE(ecuCalDef->RomInfo.at(FileActions::XmlId), QString("UnknownID"));
+        QCOMPARE(ecuCalDef->RomInfo.at(FileActions::InternalIdAddress), QString(""));
+        QCOMPARE(ecuCalDef->RomInfo.at(FileActions::InternalIdString), QString(""));
+        QCOMPARE(ecuCalDef->RomInfo.at(FileActions::EcuId), QString(""));
+        QCOMPARE(ecuCalDef->RomInfo.at(FileActions::Make), QString("Subaru"));
+        QCOMPARE(ecuCalDef->RomInfo.at(FileActions::DefFile), QString(" "));
+        // FileSize stays the value open_subaru_rom_file computed; the
+        // placeholder block must not recompute it from a padded image.
+        QCOMPARE(ecuCalDef->RomInfo.at(FileActions::FileSize), QString("0kb"));
+        delete ecuCalDef;
+    }
+
   private:
     // FileActions's constructor now takes the config/settings ports (Task
     // 11 of the step5d-1 plan); these are unused by the parsing paths this

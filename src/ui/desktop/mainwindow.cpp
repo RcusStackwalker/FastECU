@@ -1588,6 +1588,14 @@ void MainWindow::prompt_for_missing_definition(FileActions::EcuCalDefStructure *
             fileActions->use_existing_definition_for_rom(ecuCalDef);
         }
     }
+    // The "continue without definition" placeholders belong to this branch
+    // only -- a user who picked create-new or use-existing must not get them
+    // stamped over the definition they just provided.
+    if (continueWithoutRadioButton->isChecked() || result == QDialog::Rejected)
+    {
+        emit LOG_D(continueWithoutRadioButton->text(), true, true);
+        fileActions->apply_missing_definition_defaults(ecuCalDef);
+    }
 }
 
 void MainWindow::save_calibration_file()
@@ -1627,11 +1635,19 @@ void MainWindow::save_calibration_file()
 
     if (ecuCalDef[rom_number] != nullptr)
     {
-        fileActions->save_subaru_rom_file(ecuCalDef[rom_number], ecuCalDef[rom_number]->FullFileName);
+        // save_subaru_rom_file returns nullptr when the write failed (it has
+        // already told the user so); do not follow that with the log lines
+        // that read as a successful save.
+        if (fileActions->save_subaru_rom_file(ecuCalDef[rom_number], ecuCalDef[rom_number]->FullFileName) != nullptr)
+        {
+            emit LOG_D("ecuCalDef->FileName: " + ecuCalDef[rom_number]->FileName, true, true);
+            emit LOG_D("ecuCalDef->FullFileName: " + ecuCalDef[rom_number]->FullFileName, true, true);
+        }
+        else
+        {
+            emit LOG_E("Calibration file not saved: " + ecuCalDef[rom_number]->FullFileName, true, true);
+        }
     }
-
-    emit LOG_D("ecuCalDef->FileName: " + ecuCalDef[rom_number]->FileName, true, true);
-    emit LOG_D("ecuCalDef->FullFileName: " + ecuCalDef[rom_number]->FullFileName, true, true);
 
     ecuCalDef[rom_number]->FullRomData = fullRomDataTmp;
 }
@@ -1701,10 +1717,20 @@ void MainWindow::save_calibration_file_as()
             filename.append(QString(".bin"));
         }
 
-        fileActions->save_subaru_rom_file(ecuCalDef[rom_number], filename);
-        ui->calibrationFilesTreeWidget->selectedItems().at(0)->setText(0, ecuCalDef[rom_number]->FileName);
-        emit LOG_D("ecuCalDef->FileName: " + ecuCalDef[rom_number]->FileName, true, true);
-        emit LOG_D("ecuCalDef->FullFileName: " + ecuCalDef[rom_number]->FullFileName, true, true);
+        // A nullptr return means the write failed (the warning dialog for it
+        // was already raised inside save_subaru_rom_file); leave the tree item
+        // showing the name the ROM still has on disk and log the failure
+        // instead of the two "saved as" lines.
+        if (fileActions->save_subaru_rom_file(ecuCalDef[rom_number], filename) != nullptr)
+        {
+            ui->calibrationFilesTreeWidget->selectedItems().at(0)->setText(0, ecuCalDef[rom_number]->FileName);
+            emit LOG_D("ecuCalDef->FileName: " + ecuCalDef[rom_number]->FileName, true, true);
+            emit LOG_D("ecuCalDef->FullFileName: " + ecuCalDef[rom_number]->FullFileName, true, true);
+        }
+        else
+        {
+            emit LOG_E("Calibration file not saved: " + filename, true, true);
+        }
     }
     ecuCalDef[rom_number]->FullRomData = fullRomDataTmp;
 }

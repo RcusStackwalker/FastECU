@@ -243,6 +243,15 @@ class FileActions : public QWidget
     EcuCalDefStructure *create_new_definition_for_rom(FileActions::EcuCalDefStructure *ecuCalDef);
     EcuCalDefStructure *use_existing_definition_for_rom(FileActions::EcuCalDefStructure *ecuCalDef);
 
+    /*******************************************************************
+     * Placeholder RomInfo fields for a ROM the user chose to open
+     * without a definition file. Only the caller that owns the
+     * chooser dialog (MainWindow::prompt_for_missing_definition) knows
+     * whether that choice was made, so this is deliberately not
+     * applied by open_subaru_rom_file itself.
+     ******************************************************************/
+    void apply_missing_definition_defaults(FileActions::EcuCalDefStructure *ecuCalDef);
+
     /***********************************************
      * Open ECU ROM file, including possible
      * checksum calculations and value conversions

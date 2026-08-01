@@ -1826,6 +1826,24 @@ FileActions::EcuCalDefStructure *FileActions::use_existing_definition_for_rom(Fi
     return ecuCalDef;
 }
 
+void FileActions::apply_missing_definition_defaults(FileActions::EcuCalDefStructure *ecuCalDef)
+{
+    if (ecuCalDef == nullptr || ecuCalDef->RomInfo.size() <= DefFile)
+    {
+        return;
+    }
+    ecuCalDef->RomInfo.replace(XmlId, "UnknownID");
+    ecuCalDef->RomInfo.replace(InternalIdAddress, "");
+    ecuCalDef->RomInfo.replace(InternalIdString, "");
+    ecuCalDef->RomInfo.replace(EcuId, "");
+    ecuCalDef->RomInfo.replace(Make, ConfigValuesStruct.flash_protocol_selected_make);
+    // No FileSize write here: open_subaru_rom_file already set RomInfo[FileSize]
+    // unconditionally from the pre-padding length, which is exactly the value
+    // this block used to end up with. Rewriting it after the fact would pick up
+    // the post-padding length instead and change what the user sees.
+    ecuCalDef->RomInfo.replace(DefFile, " ");
+}
+
 FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::EcuCalDefStructure *ecuCalDef, QString filename)
 {
     ConfigValuesStructure *configValues = &ConfigValuesStruct;
@@ -1889,40 +1907,17 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
     }
 
     // The "no definition found" chooser dialog (create new / use existing /
-    // continue without) now lives in MainWindow; this method unconditionally
-    // takes the "continue without" fallback it previously ran only on
-    // QDialog::Rejected or the continue-without radio button.
-    if (!ecuCalDef->use_romraider_definition && !ecuCalDef->use_ecuflash_definition)
-    {
-        ecuCalDef->RomInfo.replace(XmlId, "UnknownID");
-        ecuCalDef->RomInfo.replace(InternalIdAddress, "");
-        ecuCalDef->RomInfo.replace(InternalIdString, "");
-        ecuCalDef->RomInfo.replace(EcuId, "");
-        ecuCalDef->RomInfo.replace(Make, configValues->flash_protocol_selected_make);
-        ecuCalDef->RomInfo.replace(FileSize, QString::number(ecuCalDef->FullRomData.length() / 1024) + "kb");
-        ecuCalDef->RomInfo.replace(DefFile, " ");
-    }
+    // continue without) lives in MainWindow, and so does the decision to
+    // apply the continue-without placeholders: see
+    // apply_missing_definition_defaults, which MainWindow calls only on the
+    // continue-without / rejected path. Applying them here unconditionally
+    // would stamp them over a definition the user just created or imported.
 
     calibrationAdapter_.bind_protocol(*configValues, ecuCalDef->RomInfo.at(FlashMethod));
 
     QString checksum_module = ecuCalDef->RomInfo.at(FlashMethod);
     checksum_module.remove(0, 3);
     checksum_module.insert(0, "checksum");
-    for (int i = 0; i < configValues->flash_protocol_id.length(); i++)
-    {
-        if (configValues->flash_protocol_protocol_name.at(i) == ecuCalDef->RomInfo.at(FlashMethod))
-        {
-            configValues->flash_protocol_selected_id = configValues->flash_protocol_id.at(i);
-            configValues->flash_protocol_selected_make = configValues->flash_protocol_make.at(i);
-            configValues->flash_protocol_selected_model = configValues->flash_protocol_model.at(i);
-            configValues->flash_protocol_selected_version = configValues->flash_protocol_version.at(i);
-            configValues->flash_protocol_selected_protocol_name = configValues->flash_protocol_protocol_name.at(i);
-            configValues->flash_protocol_selected_description = configValues->flash_protocol_description.at(i);
-            configValues->flash_protocol_selected_log_protocol = configValues->flash_protocol_log_protocol.at(i);
-            configValues->flash_protocol_selected_mcu = configValues->flash_protocol_mcu.at(i);
-            configValues->flash_protocol_selected_checksum = configValues->flash_protocol_checksum.at(i);
-        }
-    }
     if (configValues->flash_protocol_selected_checksum == "yes")
     {
         ecuCalDef->RomInfo.replace(ChecksumModule, checksum_module);
@@ -2267,7 +2262,18 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
 
 FileActions::EcuCalDefStructure *FileActions::save_subaru_rom_file(FileActions::EcuCalDefStructure *ecuCalDef, const QString& filename)
 {
-    return calibrationAdapter_.save_subaru_rom_file(ecuCalDef, filename);
+    EcuCalDefStructure *saved = calibrationAdapter_.save_subaru_rom_file(ecuCalDef, filename);
+    if (saved == nullptr)
+    {
+        // A failed write is the one failure in this file that must never be
+        // silent: both callers in MainWindow historically ignored the return
+        // value, so this dialog (and the log line beside it) is the user's
+        // only signal that the ROM they are about to flash was not written.
+        emit LOG_E("Unable to open file " + filename + " for writing", true, true);
+        QMessageBox::warning(this, tr("Ecu calibration file"),
+                             "Unable to open file " + filename + " for writing");
+    }
+    return saved;
 }
 
 FileActions::EcuCalDefStructure *FileActions::checksum_correction(FileActions::EcuCalDefStructure *ecuCalDef)
