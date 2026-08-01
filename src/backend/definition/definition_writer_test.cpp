@@ -8,6 +8,7 @@
 #include <string_view>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "src/backend/definition/ecuflash_parser.h"
@@ -75,8 +76,8 @@ TEST(DefinitionWriterTest, CreatesSemanticEcuFlashDefinitionWithDeterministicUtf
 
     const std::string xml = text(*result);
     EXPECT_TRUE(xml.starts_with("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"));
-    EXPECT_NE(xml.find("\n  <romid>\n    <xmlid>NEW_XML</xmlid>"), std::string::npos);
-    EXPECT_NE(xml.find("<notes>Réglage Ω</notes>"), std::string::npos);
+    EXPECT_THAT(xml, ::testing::HasSubstr("\n  <romid>\n    <xmlid>NEW_XML</xmlid>"));
+    EXPECT_THAT(xml, ::testing::HasSubstr("<notes>Réglage Ω</notes>"));
     EXPECT_EQ(xml.find('\t'), std::string::npos);
     ASSERT_FALSE(xml.empty());
     EXPECT_EQ(xml.back(), '\n');
@@ -147,7 +148,7 @@ TEST(DefinitionWriterTest, ReplacesStaleNestedContentInsteadOfAppendingToIt)
     const std::string xml = text(*result);
     EXPECT_EQ(xml.find("stale"), std::string::npos);
     EXPECT_EQ(xml.find("junk"), std::string::npos);
-    EXPECT_NE(xml.find(std::format("<xmlid>{}</xmlid>", input.xml_id)), std::string::npos);
+    EXPECT_THAT(xml, ::testing::HasSubstr(std::format("<xmlid>{}</xmlid>", input.xml_id)));
 }
 
 TEST(DefinitionWriterTest, RejectsEachEmptyRequiredIdentity)
@@ -220,15 +221,15 @@ TEST(DefinitionWriterTest, RewritesHeaderAndPreservesUnrelatedTreeContent)
     EXPECT_EQ(parsed->maps.front().name, "Fuel");
 
     const std::string xml = text(*result);
-    EXPECT_NE(xml.find("<!-- root comment -->"), std::string::npos);
-    EXPECT_NE(xml.find("<!-- identity comment -->"), std::string::npos);
-    EXPECT_NE(
-        xml.find("<vendor-field flag=\"yes\">keep me</vendor-field>"),
-        std::string::npos);
-    EXPECT_NE(
-        xml.find("<vendor-extension answer=\"42\">\n    <child />\n  </vendor-extension>"),
-        std::string::npos);
-    EXPECT_NE(xml.find("<notes>Réglage Ω</notes>"), std::string::npos);
+    EXPECT_THAT(xml, ::testing::HasSubstr("<!-- root comment -->"));
+    EXPECT_THAT(xml, ::testing::HasSubstr("<!-- identity comment -->"));
+    EXPECT_THAT(
+        xml, ::testing::HasSubstr("<vendor-field flag=\"yes\">keep me</vendor-field>"));
+    EXPECT_THAT(
+        xml,
+        ::testing::HasSubstr(
+            "<vendor-extension answer=\"42\">\n    <child />\n  </vendor-extension>"));
+    EXPECT_THAT(xml, ::testing::HasSubstr("<notes>Réglage Ω</notes>"));
     EXPECT_EQ(xml.find("OLD_XML"), std::string::npos);
     EXPECT_EQ(xml.find("OLD_BASE"), std::string::npos);
     EXPECT_EQ(xml.find("Old document notes"), std::string::npos);
@@ -259,8 +260,8 @@ TEST(DefinitionWriterTest, RejectsDuplicateTopLevelRomIdContainers)
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_NE(result.error().detail.find("<romid>"), std::string::npos);
-    EXPECT_NE(result.error().detail.find("duplicate"), std::string::npos);
+    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("<romid>"));
+    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("duplicate"));
 }
 
 } // namespace

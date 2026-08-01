@@ -7,6 +7,7 @@
 #include <map>
 #include <sstream>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 using fastecu::ErrorKind;
@@ -181,7 +182,7 @@ TEST(LoadProtocolCatalog, RejectsDuplicateProtocolNames)
 
     ASSERT_FALSE(catalog.has_value());
     EXPECT_EQ(catalog.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_NE(catalog.error().detail.find("same_name"), std::string::npos);
+    EXPECT_THAT(catalog.error().detail, ::testing::HasSubstr("same_name"));
 }
 
 TEST(LoadProtocolCatalog, DistinctProtocolNamesAreAccepted)

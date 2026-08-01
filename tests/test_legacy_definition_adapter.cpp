@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace fastecu::definition
@@ -574,7 +575,7 @@ TEST_F(LegacyDefinitionAdapterTest, ShortRomInfoShapeFailsAtomically)
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_NE(result.error().detail.find("RomInfo"), std::string::npos);
+    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("RomInfo"));
     EXPECT_EQ(value, original);
 }
 
@@ -613,7 +614,7 @@ TEST_F(LegacyDefinitionAdapterTest, InvalidStaticAxisFailsAtomically)
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_NE(result.error().detail.find("static data"), std::string::npos);
+    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("static data"));
     EXPECT_EQ(value, original);
 }
 
