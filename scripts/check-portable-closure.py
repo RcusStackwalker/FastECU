@@ -46,6 +46,7 @@ PORTABLE_ROOTS = {
     },
     ROOT / "src/backend/flash/eeprom": {
         "denso_sh705x_eeprom_common",
+        "eeprom_read_plan",
         "denso_sh705x_eeprom_kline",
         "denso_sh705x_eeprom_can",
     },
