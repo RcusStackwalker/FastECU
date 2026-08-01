@@ -1,5 +1,7 @@
 #include "src/backend/calibration/legacy_calibration_adapter.h"
 
+#include <format>
+
 #include <QFileInfo>
 #include <QDateTime>
 
@@ -8,11 +10,16 @@
 #include "src/backend/config/car_model_catalog.h"
 #include "src/backend/config/config_paths.h"
 #include "src/backend/config/protocol_catalog.h"
+#include "src/backend/definition/definition_model.h"
 
 namespace fastecu::calibration
 {
 namespace
 {
+
+// Matches FileActions::float_precision (file_actions.h:63), which is the
+// precision legacy formatted every decoded cell with.
+constexpr int kFloatPrecision = 15;
 
 // Mirrors legacy_config_adapter.cpp's own (private, anonymous-namespace)
 // paths_from_legacy -- duplicated here deliberately rather than exported
@@ -168,6 +175,58 @@ void LegacyCalibrationAdapter::bind_protocol(
     config_values.flash_protocol_selected_mcu = protocol_field(&config::ProtocolEntry::mcu);
     config_values.flash_protocol_selected_checksum =
         protocol_field(&config::ProtocolEntry::checksum);
+}
+
+void LegacyCalibrationAdapter::apply_flash_method_padding(
+    definitions::EcuCalDefStructure& ecu_cal_def, const QString& flash_method)
+{
+    std::vector<std::uint8_t> rom_data(
+        ecu_cal_def.FullRomData.cbegin(), ecu_cal_def.FullRomData.cend());
+    rom_data = fastecu::calibration::apply_flash_method_padding(
+        std::move(rom_data), flash_method.toStdString());
+    ecu_cal_def.FullRomData = bytes::toQByteArray(bytes::ByteView(rom_data));
+}
+
+Status LegacyCalibrationAdapter::compute_map_cell_values(
+    definitions::EcuCalDefStructure& ecu_cal_def,
+    const definition::RomDefinition& rom_definition)
+{
+    auto computed = fastecu::calibration::compute_map_cell_values(
+        rom_definition, bytes::view(ecu_cal_def.FullRomData), kFloatPrecision);
+    if (!computed.has_value())
+    {
+        return std::unexpected(computed.error());
+    }
+    if (static_cast<qsizetype>(computed->size()) != ecu_cal_def.MapData.size())
+    {
+        return fail(ErrorKind::Internal,
+                    std::format("definition has {} maps but legacy columns hold {}",
+                                computed->size(),
+                                static_cast<std::size_t>(ecu_cal_def.MapData.size())));
+    }
+
+    std::string first_error;
+    for (std::size_t index = 0; index < computed->size(); ++index)
+    {
+        const MapCellValues& values = computed->at(index);
+        if (values.error.has_value())
+        {
+            if (first_error.empty())
+            {
+                first_error = values.error->detail;
+            }
+            continue;
+        }
+        const auto legacy_index = static_cast<qsizetype>(index);
+        ecu_cal_def.MapData.replace(legacy_index, QString::fromStdString(values.map_data));
+        ecu_cal_def.XScaleData.replace(legacy_index, QString::fromStdString(values.x_axis_data));
+        ecu_cal_def.YScaleData.replace(legacy_index, QString::fromStdString(values.y_axis_data));
+    }
+    if (!first_error.empty())
+    {
+        return fail(ErrorKind::Internal, first_error);
+    }
+    return {};
 }
 
 definitions::EcuCalDefStructure *LegacyCalibrationAdapter::save_subaru_rom_file(

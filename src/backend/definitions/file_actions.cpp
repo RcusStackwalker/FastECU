@@ -1939,35 +1939,30 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
     ecuCalDef->FileSize = QString::number(ecuCalDef->FullRomData.length());
     ecuCalDef->RomInfo.replace(FileSize, QString::number(ecuCalDef->FullRomData.length() / 1024) + "kb");
 
-    QByteArray padding;
-    padding.clear();
-    if (ecuCalDef->RomInfo.at(FlashMethod).startsWith("sub_ecu_denso_mc68hc16y5_02") && ecuCalDef->FileSize.toUInt() < 190 * 1024)
-    {
-        for (int i = 0; i < 0x8000; i++)
-        {
-            ecuCalDef->FullRomData.insert(0x20000, (uint8_t)0xff);
-        }
-    }
-    // emit LOG_D("QByteArray size = " + ecuCalDef->FullRomData.length(), true, true);
+    // Must precede the ROM-size validation below: padding grows FullRomData by
+    // 0x8000 bytes, and a definition authored against the padded image would be
+    // rejected by a check run against the pre-padded length.
+    calibrationAdapter_.apply_flash_method_padding(
+        *ecuCalDef, ecuCalDef->RomInfo.at(FlashMethod));
 
-    // Deliberately after the padding block above, not before it: padding
-    // grows FullRomData by 0x8000 bytes, and a definition authored against
-    // the padded image would be rejected by a check run against the
-    // pre-padded length.
+    const fastecu::definition::DefinitionFormat matchedFormat =
+        ecuCalDef->use_ecuflash_definition
+            ? fastecu::definition::DefinitionFormat::EcuFlash
+            : fastecu::definition::DefinitionFormat::RomRaider;
+    const fastecu::definition::RomDefinition *romDefinition = nullptr;
     if (ecuCalDef->use_romraider_definition || ecuCalDef->use_ecuflash_definition)
     {
-        const fastecu::definition::DefinitionFormat matchedFormat =
-            ecuCalDef->use_ecuflash_definition
-                ? fastecu::definition::DefinitionFormat::EcuFlash
-                : fastecu::definition::DefinitionFormat::RomRaider;
-        const fastecu::definition::RomDefinition *romDefinition =
-            resolved_definition(matchedFormat, ecuCalDef->RomId);
+        romDefinition = resolved_definition(matchedFormat, ecuCalDef->RomId);
         if (romDefinition == nullptr)
         {
-            // A skipped size check must never be silent: the map-data loops
-            // below are exactly what it fences.
+            // Both the size check and the map-value decode below need the
+            // resolved definition, so both are skipped together here. Never
+            // silent: the maps keep their default (empty) values, and the user
+            // would otherwise see a ROM whose tables are blank for no stated
+            // reason.
             emit LOG_W(
-                "ROM size validation skipped: no resolved definition for id " +
+                "ROM size validation and map value decoding skipped: no resolved "
+                "definition for id " +
                     ecuCalDef->RomId,
                 true,
                 true);
@@ -1986,268 +1981,13 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
         }
     }
 
-    int storagesize = 0;
-    QString storagetype = 0;
-    QString mapData;
-
-    int32_t signedDataByte = 0;
-    uint32_t dataByte = 0;
-    uint32_t startPos = 0;
-    uint32_t interval = 0;
-    uint32_t byteAddress = 0;
-
-    union mapData
+    if (romDefinition != nullptr)
     {
-        int8_t sbyte_value[4];
-        int16_t sword_value[2];
-        int32_t sdword_value;
-        uint8_t byte_alue[4];
-        uint16_t word_alue[2];
-        uint32_t dword_value;
-        float float_value;
-    } mapDataValue{};
-
-    for (int i = 0; i < ecuCalDef->NameList.length(); i++)
-    {
-        storagesize = 1;
-        storagetype = ecuCalDef->StorageTypeList.at(i);
-        if (storagetype == "uint16" || storagetype == "int16")
+        const fastecu::Status computed =
+            calibrationAdapter_.compute_map_cell_values(*ecuCalDef, *romDefinition);
+        if (!computed.has_value())
         {
-            storagesize = 2;
-        }
-        else if (storagetype == "uint24" || storagetype == "int24")
-        {
-            storagesize = 3;
-        }
-        else if (storagetype == "uint32" || storagetype == "int32" || storagetype == "float")
-        {
-            storagesize = 4;
-        }
-        mapData.clear();
-        if (ecuCalDef->StorageTypeList.at(i) == "bloblist")
-        {
-            storagesize = ecuCalDef->SelectionsValueList.at(i).split(",").at(0).length() / 2;
-            uint8_t dataByte = 0;
-            uint32_t byteAddress = ecuCalDef->AddressList.at(i).toUInt(&bStatus, 16);
-            for (int k = 0; k < storagesize; k++)
-            {
-                dataByte = (uint8_t)ecuCalDef->FullRomData.at(byteAddress + k);
-                mapData.append(QString("%1").arg(dataByte, 2, 16, QLatin1Char('0')));
-            }
-            ecuCalDef->MapData.replace(i, mapData);
-        }
-        else
-        {
-            for (unsigned j = 0; j < ecuCalDef->XSizeList.at(i).toUInt() * ecuCalDef->YSizeList.at(i).toUInt(); j++)
-            {
-                signedDataByte = 0;
-                dataByte = 0;
-                startPos = ecuCalDef->StartPosList.at(i).toUInt(&bStatus, 16);
-                interval = ecuCalDef->IntervalList.at(i).toUInt(&bStatus, 16);
-                byteAddress = ecuCalDef->AddressList.at(i).toUInt(&bStatus, 16) + (j * storagesize * interval + (startPos - 1) * storagesize);
-                mapDataValue.dword_value = 0;
-
-                if (ecuCalDef->RomInfo.at(FlashMethod) == "wrx02" && (uint32_t)ecuCalDef->FullRomData.length() < byteAddress)
-                {
-                    byteAddress -= 0x8000;
-                }
-                for (int k = 0; k < storagesize; k++)
-                {
-                    if (ecuCalDef->EndianList.at(i) == "little" || ecuCalDef->StorageTypeList.at(i) == "float")
-                    {
-                        mapDataValue.byte_alue[k] = (uint8_t)ecuCalDef->FullRomData.at(byteAddress + storagesize - 1 - k);
-                    }
-                    else
-                    {
-                        if (storagetype.startsWith("uint"))
-                        {
-                            dataByte = (dataByte << 8) + (uint8_t)ecuCalDef->FullRomData.at(byteAddress + k);
-                        }
-                        else
-                        {
-                            signedDataByte = (signedDataByte << 8) + ecuCalDef->FullRomData.at(byteAddress + k);
-                        }
-                    }
-                }
-                double value = 0;
-                if (ecuCalDef->TypeList.at(i) != "Selectable")
-                {
-                    if (ecuCalDef->StorageTypeList.at(i) == "float")
-                    {
-                        value = calculate_value_from_expression(parse_stringlist_from_expression_string(ecuCalDef->FromByteList.at(i), QString::number(mapDataValue.float_value, 'g', float_precision)));
-                    }
-                    else
-                    {
-                        if (storagetype.startsWith("uint"))
-                        {
-                            value = calculate_value_from_expression(parse_stringlist_from_expression_string(ecuCalDef->FromByteList.at(i), QString::number(dataByte)));
-                        }
-                        else
-                        {
-                            value = calculate_value_from_expression(parse_stringlist_from_expression_string(ecuCalDef->FromByteList.at(i), QString::number(signedDataByte)));
-                        }
-                    }
-                }
-                mapData.append(QString::number(value, 'g', float_precision) + ",");
-            }
-            ecuCalDef->MapData.replace(i, mapData);
-
-            if (ecuCalDef->XSizeList.at(i).toUInt() > 1)
-            {
-                if (ecuCalDef->XScaleTypeList.at(i) == "Static Y Axis" || ecuCalDef->XScaleTypeList.at(i) == "Static X Axis")
-                {
-                    ecuCalDef->XScaleData.replace(i, ecuCalDef->XScaleStaticDataList.at(i));
-                }
-                else if (ecuCalDef->XScaleTypeList.at(i) == "X Axis" || (ecuCalDef->XScaleTypeList.at(i) == "Y Axis" && ecuCalDef->TypeList.at(i) == "2D"))
-                {
-                    storagesize = 1;
-                    storagetype = ecuCalDef->XScaleStorageTypeList.at(i);
-                    if (storagetype == "uint16" || storagetype == "int16")
-                    {
-                        storagesize = 2;
-                    }
-                    else if (storagetype == "uint24" || storagetype == "int24")
-                    {
-                        storagesize = 3;
-                    }
-                    else if (storagetype == "uint32" || storagetype == "int32" || storagetype == "float")
-                    {
-                        storagesize = 4;
-                    }
-                    mapData.clear();
-                    for (unsigned j = 0; j < ecuCalDef->XSizeList.at(i).toUInt(); j++)
-                    {
-                        dataByte = 0;
-                        startPos = ecuCalDef->XScaleStartPosList.at(i).toUInt(&bStatus, 16);
-                        interval = ecuCalDef->XScaleIntervalList.at(i).toUInt(&bStatus, 16);
-                        byteAddress = ecuCalDef->XScaleAddressList.at(i).toUInt(&bStatus, 16) + (j * storagesize * interval + (startPos - 1) * storagesize);
-                        mapDataValue.dword_value = 0;
-
-                        if (ecuCalDef->RomInfo.at(FlashMethod) == "wrx02" && (uint32_t)ecuCalDef->FullRomData.length() < byteAddress)
-                        {
-                            byteAddress -= 0x8000;
-                        }
-
-                        for (int k = 0; k < storagesize; k++)
-                        {
-                            if (ecuCalDef->XScaleEndianList.at(i) == "little" || ecuCalDef->XScaleStorageTypeList.at(i) == "float")
-                            {
-                                mapDataValue.byte_alue[k] = (uint8_t)ecuCalDef->FullRomData.at(byteAddress + storagesize - 1 - k);
-                            }
-                            else
-                            {
-                                if (storagetype.startsWith("uint"))
-                                {
-                                    dataByte = (dataByte << 8) + (uint8_t)ecuCalDef->FullRomData.at(byteAddress + k);
-                                }
-                                else
-                                {
-                                    signedDataByte = (signedDataByte << 8) + ecuCalDef->FullRomData.at(byteAddress + k);
-                                }
-                            }
-                        }
-                        double value = 0;
-                        if (ecuCalDef->XScaleTypeList.at(i) != "Selectable")
-                        {
-                            if (ecuCalDef->XScaleStorageTypeList.at(i) == "float")
-                            {
-                                value = calculate_value_from_expression(parse_stringlist_from_expression_string(ecuCalDef->XScaleFromByteList.at(i), QString::number(mapDataValue.float_value, 'g', float_precision)));
-                            }
-                            else
-                            {
-                                if (storagetype.startsWith("uint"))
-                                {
-                                    value = calculate_value_from_expression(parse_stringlist_from_expression_string(ecuCalDef->XScaleFromByteList.at(i), QString::number(dataByte)));
-                                }
-                                else
-                                {
-                                    value = calculate_value_from_expression(parse_stringlist_from_expression_string(ecuCalDef->XScaleFromByteList.at(i), QString::number(signedDataByte)));
-                                }
-                            }
-                        }
-                        mapData.append(QString::number(value, 'g', float_precision) + ",");
-                    }
-                    ecuCalDef->XScaleData.replace(i, mapData);
-                }
-            }
-            else
-            {
-                ecuCalDef->XScaleData.replace(i, " ");
-            }
-            if (ecuCalDef->YSizeList.at(i).toUInt() > 1)
-            {
-                storagesize = 1;
-                storagetype = ecuCalDef->YScaleStorageTypeList.at(i);
-                if (storagetype == "uint16" || storagetype == "int16")
-                {
-                    storagesize = 2;
-                }
-                else if (storagetype == "uint24" || storagetype == "int24")
-                {
-                    storagesize = 3;
-                }
-                else if (storagetype == "uint32" || storagetype == "int32" || storagetype == "float")
-                {
-                    storagesize = 4;
-                }
-                mapData.clear();
-                for (unsigned j = 0; j < ecuCalDef->YSizeList.at(i).toUInt(); j++)
-                {
-                    dataByte = 0;
-                    startPos = ecuCalDef->YScaleStartPosList.at(i).toUInt(&bStatus, 16);
-                    interval = ecuCalDef->YScaleIntervalList.at(i).toUInt(&bStatus, 16);
-                    byteAddress = ecuCalDef->YScaleAddressList.at(i).toUInt(&bStatus, 16) + (j * storagesize * interval + (startPos - 1) * storagesize);
-                    mapDataValue.dword_value = 0;
-
-                    if (ecuCalDef->RomInfo.at(FlashMethod) == "wrx02" && (uint32_t)ecuCalDef->FullRomData.length() < byteAddress)
-                    {
-                        byteAddress -= 0x8000;
-                    }
-                    for (int k = 0; k < storagesize; k++)
-                    {
-                        if (ecuCalDef->YScaleEndianList.at(i) == "little" || ecuCalDef->YScaleStorageTypeList.at(i) == "float")
-                        {
-                            mapDataValue.byte_alue[k] = (uint8_t)ecuCalDef->FullRomData.at(byteAddress + storagesize - 1 - k);
-                        }
-                        else
-                        {
-                            if (storagetype.startsWith("uint"))
-                            {
-                                dataByte = (dataByte << 8) + (uint8_t)ecuCalDef->FullRomData.at(byteAddress + k);
-                            }
-                            else
-                            {
-                                signedDataByte = (signedDataByte << 8) + ecuCalDef->FullRomData.at(byteAddress + k);
-                            }
-                        }
-                    }
-                    double value = 0;
-                    if (ecuCalDef->YScaleTypeList.at(i) != "Selectable")
-                    {
-                        if (ecuCalDef->YScaleStorageTypeList.at(i) == "float")
-                        {
-                            value = calculate_value_from_expression(parse_stringlist_from_expression_string(ecuCalDef->YScaleFromByteList.at(i), QString::number(mapDataValue.float_value, 'g', float_precision)));
-                        }
-                        else
-                        {
-                            if (storagetype.startsWith("uint"))
-                            {
-                                value = calculate_value_from_expression(parse_stringlist_from_expression_string(ecuCalDef->YScaleFromByteList.at(i), QString::number(dataByte)));
-                            }
-                            else
-                            {
-                                value = calculate_value_from_expression(parse_stringlist_from_expression_string(ecuCalDef->YScaleFromByteList.at(i), QString::number(signedDataByte)));
-                            }
-                        }
-                    }
-                    mapData.append(QString::number(value, 'g', float_precision) + ",");
-                }
-                ecuCalDef->YScaleData.replace(i, mapData);
-            }
-            else
-            {
-                ecuCalDef->YScaleData.replace(i, " ");
-            }
+            log_definition_error("Error decoding calibration map values", computed.error());
         }
     }
 

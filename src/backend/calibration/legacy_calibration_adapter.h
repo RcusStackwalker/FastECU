@@ -7,6 +7,7 @@
 
 #include "src/backend/config/car_model_catalog.h"
 #include "src/backend/config/config_paths.h"
+#include "src/backend/definition/definition_model.h"
 #include "src/backend/definitions/config_values.h"
 #include "src/backend/definitions/ecu_cal_def.h"
 #include "src/backend/ports/file_repository.h"
@@ -53,6 +54,26 @@ class LegacyCalibrationAdapter
     //     previously opened ROM left in them.
     void bind_protocol(definitions::ConfigValuesStructure& config_values,
                        const QString& flash_method);
+
+    // Pads ecu_cal_def.FullRomData in place for the WRX02 family. Must be
+    // called BEFORE validate_rom_size: padding grows the image by 0x8000
+    // bytes, and definitions for that family address the padded layout, so a
+    // size check against the unpadded length rejects a fine ROM.
+    //
+    // Writes back into FullRomData rather than returning a copy -- every later
+    // consumer, including the flash write path, reads that same buffer.
+    void apply_flash_method_padding(definitions::EcuCalDefStructure& ecu_cal_def,
+                                    const QString& flash_method);
+
+    // Decodes every map's cells and axes from FullRomData and writes them into
+    // the legacy MapData/XScaleData/YScaleData columns, one entry per map in
+    // definition order. A map whose decode fails is skipped -- its columns keep
+    // whatever they held -- and reported through the returned status's detail;
+    // sibling maps are still written. Returns a failure only if the definition
+    // and the legacy columns disagree on length, which would mean the
+    // definition adapter and this call saw different definitions.
+    Status compute_map_cell_values(definitions::EcuCalDefStructure& ecu_cal_def,
+                                   const definition::RomDefinition& rom_definition);
 
     definitions::EcuCalDefStructure *save_subaru_rom_file(
         definitions::EcuCalDefStructure *ecu_cal_def, const QString& filename);

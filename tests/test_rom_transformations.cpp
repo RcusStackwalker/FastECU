@@ -158,9 +158,13 @@ class TestRomTransformations : public QObject
                               "Grid"}));
         QCOMPARE(ecu.MapData.at(0), QString("4,"));
         QCOMPARE(ecu.MapData.at(1), QString("4660,"));
-        // Compatibility: open_subaru_rom_file fills mapDataValue but evaluates
-        // zero dataByte for non-float little-endian integers.
-        QCOMPARE(ecu.MapData.at(2), QString("0,"));
+        // Disclosed behavior fix (Task 6, calibration_service.cpp
+        // decode_scaled_values): legacy's little-endian non-float branch
+        // filled a union byte-by-byte but then evaluated from_byte from a
+        // stale zero `dataByte`, always producing 0 regardless of ROM
+        // contents. The portable decoder reads the real little-endian bytes:
+        // 0x12, 0x34, 0x56 -> 0x563412 = 5649426.
+        QCOMPARE(ecu.MapData.at(2), QString("5649426,"));
         QCOMPARE(ecu.MapData.at(3), QString("305419896,"));
         QCOMPARE(ecu.MapData.at(4), QString("1,"));
         QCOMPARE(ecu.MapData.at(5), QString("1,2,3,4,"));
