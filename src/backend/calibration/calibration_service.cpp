@@ -123,7 +123,7 @@ std::vector<std::uint8_t> apply_flash_method_padding(
 {
     constexpr std::size_t kInsertAt = 0x20000;
     constexpr std::size_t kPadBytes = 0x8000;
-    constexpr std::size_t kSizeThreshold = 190 * 1024;
+    constexpr std::size_t kSizeThreshold = static_cast<std::size_t>(190) * 1024;
 
     if (!flash_method.starts_with("sub_ecu_denso_mc68hc16y5_02") ||
         rom_data.size() >= kSizeThreshold)
