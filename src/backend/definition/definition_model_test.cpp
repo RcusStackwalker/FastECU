@@ -1,5 +1,6 @@
 #include "src/backend/definition/definition_model.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <string>
@@ -170,8 +171,8 @@ TEST(DefinitionCatalogTest, ConflictingDuplicateInternalIdIsInvalidConfig)
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_NE(result.error().detail.find("a.xml"), std::string::npos);
-    EXPECT_NE(result.error().detail.find("b.xml"), std::string::npos);
+    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("a.xml"));
+    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("b.xml"));
 }
 
 TEST(DefinitionCatalogTest, ConflictingDuplicateEcuIdentityIsInvalidConfig)
@@ -184,8 +185,8 @@ TEST(DefinitionCatalogTest, ConflictingDuplicateEcuIdentityIsInvalidConfig)
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_NE(result.error().detail.find("a.xml"), std::string::npos);
-    EXPECT_NE(result.error().detail.find("b.xml"), std::string::npos);
+    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("a.xml"));
+    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("b.xml"));
 }
 
 TEST(DefinitionCatalogTest, ConflictingDuplicateAddressIsInvalidConfig)

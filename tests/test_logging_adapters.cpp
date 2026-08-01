@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <QString>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace desktop_logging = fastecu::desktop::logging;
@@ -451,7 +452,7 @@ void expect_snapshot_rejected(const SnapshotFailureCase& test_case)
 
     ASSERT_FALSE(snapshot.has_value());
     EXPECT_EQ(snapshot.error().kind, test_case.expected_kind);
-    EXPECT_NE(snapshot.error().detail.find(test_case.expected_detail_substring), std::string::npos)
+    EXPECT_THAT(snapshot.error().detail, ::testing::HasSubstr(test_case.expected_detail_substring))
         << "detail was: " << snapshot.error().detail;
 }
 
