@@ -3,12 +3,34 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <span>
+#include <string_view>
+#include <vector>
 
 #include "src/backend/definition/definition_model.h"
+#include "src/backend/ports/file_repository.h"
 #include "src/backend/ports/result.h"
 
 namespace fastecu::calibration
 {
+
+// The "open a ROM off disk" half of open_subaru_rom_file. Does not perform
+// definition matching.
+//
+// Deliberately separate from backup_rom rather than one function dispatching
+// on whether preloaded bytes were supplied: the two modes share no arguments
+// (a disk open has no backup handle, an already-loaded open has no file to
+// read), and an emptiness test cannot distinguish "caller supplied no
+// preloaded bytes" from "caller supplied a genuinely zero-length ROM".
+Result<std::vector<std::uint8_t>> read_rom(std::string_view file_handle,
+                                           IFileRepository& file_repository);
+
+// The "already have the bytes" half: writes an in-hand ROM image (e.g. one
+// just read off the ECU) to backup_handle. Returns void by design -- a failed
+// backup must not fail the open, matching open_subaru_rom_file's own
+// fire-and-forget backup save, which never inspected the write's result.
+void backup_rom(std::span<const std::uint8_t> rom_data, std::string_view backup_handle,
+                IFileRepository& file_repository);
 
 // Byte width of one element. For Bloblist, derived from the first selection's
 // hex-encoded value length (2 hex chars per byte) when `scaling` has one --

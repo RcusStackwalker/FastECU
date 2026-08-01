@@ -33,6 +33,7 @@
 #include "src/backend/definitions/kernelmemorymodels.h"
 #include "src/backend/definitions/config_values.h"
 #include "src/backend/definitions/ecu_cal_def.h"
+#include "src/backend/calibration/legacy_calibration_adapter.h"
 #include "src/backend/checksum/legacy_checksum_adapter.h"
 #include "src/backend/config/legacy_config_adapter.h"
 #include "src/backend/config/config_paths.h"
@@ -242,6 +243,15 @@ class FileActions : public QWidget
     EcuCalDefStructure *create_new_definition_for_rom(FileActions::EcuCalDefStructure *ecuCalDef);
     EcuCalDefStructure *use_existing_definition_for_rom(FileActions::EcuCalDefStructure *ecuCalDef);
 
+    /*******************************************************************
+     * Placeholder RomInfo fields for a ROM the user chose to open
+     * without a definition file. Only the caller that owns the
+     * chooser dialog (MainWindow::prompt_for_missing_definition) knows
+     * whether that choice was made, so this is deliberately not
+     * applied by open_subaru_rom_file itself.
+     ******************************************************************/
+    void apply_missing_definition_defaults(FileActions::EcuCalDefStructure *ecuCalDef);
+
     /***********************************************
      * Open ECU ROM file, including possible
      * checksum calculations and value conversions
@@ -338,6 +348,10 @@ class FileActions : public QWidget
     };
     std::optional<ResolvedDefinition> resolvedDefinition_;
     std::vector<std::string> submittedEcuflashHandles_;
+    // Declared last so that definitionFileRepository_ -- its constructor
+    // argument -- is already initialized: C++ initializes members in
+    // declaration order regardless of initializer-list order.
+    fastecu::calibration::LegacyCalibrationAdapter calibrationAdapter_;
 
   signals:
     void LOG_E(QString message, bool timestamp, bool linefeed);

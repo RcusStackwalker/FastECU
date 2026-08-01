@@ -41,6 +41,20 @@ Status validate_extent(
 
 } // namespace
 
+Result<std::vector<std::uint8_t>> read_rom(std::string_view file_handle,
+                                           IFileRepository& file_repository)
+{
+    return file_repository.read(file_handle);
+}
+
+void backup_rom(std::span<const std::uint8_t> rom_data, std::string_view backup_handle,
+                IFileRepository& file_repository)
+{
+    // Fire-and-forget, matching open_subaru_rom_file's own behavior of never
+    // checking this write's result.
+    (void)file_repository.write(backup_handle, rom_data);
+}
+
 std::uint32_t element_byte_size(
     std::optional<definition::StorageType> storage_type,
     const definition::Scaling *scaling)

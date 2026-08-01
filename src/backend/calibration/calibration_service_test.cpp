@@ -5,16 +5,85 @@
 
 #include <gtest/gtest.h>
 
+#include "src/backend/ports/testing/in_memory_file_repository.h"
+
 namespace fastecu::calibration
 {
 namespace
 {
 
+using fastecu::InMemoryFileRepository;
 using fastecu::definition::AxisDefinition;
 using fastecu::definition::CalibrationMap;
 using fastecu::definition::RomDefinition;
 using fastecu::definition::Scaling;
 using fastecu::definition::StorageType;
+
+TEST(ReadRom, ReadsRequestedHandleThroughRepository)
+{
+    InMemoryFileRepository repo;
+    repo.files["in.bin"] = {0xAA, 0xBB};
+
+    Result<std::vector<std::uint8_t>> result = read_rom("in.bin", repo);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, (std::vector<std::uint8_t>{0xAA, 0xBB}));
+}
+
+TEST(ReadRom, ReadFailureIsPropagated)
+{
+    InMemoryFileRepository repo;
+
+    Result<std::vector<std::uint8_t>> result = read_rom("missing.bin", repo);
+
+    ASSERT_FALSE(result.has_value());
+}
+
+TEST(ReadRom, EmptyRomIsAValidResultNotAMissingOne)
+{
+    // The two-mode open_rom this replaced used span emptiness to pick its
+    // mode, which conflated "no preloaded bytes" with "a zero-length ROM".
+    // read_rom has one mode, so a zero-length file is just a zero-length
+    // successful read.
+    InMemoryFileRepository repo;
+    repo.files["empty.bin"] = {};
+
+    Result<std::vector<std::uint8_t>> result = read_rom("empty.bin", repo);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result->empty());
+}
+
+TEST(BackupRom, WritesBytesToBackupHandle)
+{
+    InMemoryFileRepository repo;
+    const std::vector<std::uint8_t> rom_data{0x01, 0x02, 0x03, 0x04};
+
+    backup_rom(rom_data, "backup.bin", repo);
+
+    EXPECT_EQ(repo.files["backup.bin"], rom_data);
+    EXPECT_EQ(repo.read_count("backup.bin"), 0);
+}
+
+TEST(BackupRom, WriteFailureIsSwallowed)
+{
+    // The whole reason backup_rom returns void: open_subaru_rom_file never
+    // inspected this write's result, so a failed backup must not be able to
+    // fail the open.
+    class FailingBackupRepository : public InMemoryFileRepository
+    {
+      public:
+        Status write(std::string_view, std::span<const std::uint8_t>) override
+        {
+            return fastecu::fail(ErrorKind::Internal, "backup failed");
+        }
+    } repo;
+    const std::vector<std::uint8_t> rom_data{0x01};
+
+    backup_rom(rom_data, "backup.bin", repo);
+
+    EXPECT_TRUE(repo.files.find("backup.bin") == repo.files.end());
+}
 
 TEST(ElementByteSizeTest, DelegatesToStorageByteSizeWhenNotBloblist)
 {
