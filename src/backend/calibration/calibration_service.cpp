@@ -9,13 +9,6 @@ namespace fastecu::calibration
 namespace
 {
 
-const definition::Scaling *find_scaling(
-    const definition::RomDefinition& rom_definition, std::string_view name)
-{
-    const auto it = std::ranges::find(rom_definition.scalings, name, &definition::Scaling::name);
-    return it != rom_definition.scalings.end() ? &*it : nullptr;
-}
-
 Status validate_extent(
     std::optional<std::uint64_t> address,
     std::uint32_t count,
@@ -96,7 +89,7 @@ Status validate_rom_size(const definition::RomDefinition& rom_definition,
     {
         if (auto status = validate_extent(
                 map.address, map.x_size * map.y_size, map.start_position, map.interval,
-                map.storage_type, find_scaling(rom_definition, map.scaling_name),
+                map.storage_type, definition::find_scaling(rom_definition, map.scaling_name),
                 rom_byte_length, "map");
             !status.has_value())
         {
@@ -105,7 +98,7 @@ Status validate_rom_size(const definition::RomDefinition& rom_definition,
         if (auto status = validate_extent(
                 map.x_axis.address, map.x_axis.size, map.x_axis.start_position,
                 map.x_axis.interval, map.x_axis.storage_type,
-                find_scaling(rom_definition, map.x_axis.scaling_name), rom_byte_length,
+                definition::find_scaling(rom_definition, map.x_axis.scaling_name), rom_byte_length,
                 "x-axis");
             !status.has_value())
         {
@@ -114,7 +107,7 @@ Status validate_rom_size(const definition::RomDefinition& rom_definition,
         if (auto status = validate_extent(
                 map.y_axis.address, map.y_axis.size, map.y_axis.start_position,
                 map.y_axis.interval, map.y_axis.storage_type,
-                find_scaling(rom_definition, map.y_axis.scaling_name), rom_byte_length,
+                definition::find_scaling(rom_definition, map.y_axis.scaling_name), rom_byte_length,
                 "y-axis");
             !status.has_value())
         {

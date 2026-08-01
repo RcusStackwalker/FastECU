@@ -11,9 +11,12 @@ using fastecu::definition::CalibrationMap;
 using fastecu::definition::DefinitionCatalog;
 using fastecu::definition::DefinitionFormat;
 using fastecu::definition::DefinitionIndexEntry;
+using fastecu::definition::find_scaling;
 using fastecu::definition::IdEncoding;
+using fastecu::definition::is_unsigned_storage;
 using fastecu::definition::RomDefinition;
 using fastecu::definition::Scaling;
+using fastecu::definition::StorageType;
 using fastecu::definition::UnresolvedAxisDefinition;
 using fastecu::definition::UnresolvedCalibrationMap;
 using fastecu::definition::UnresolvedDefinition;
@@ -252,6 +255,44 @@ TEST(DefinitionCatalogTest, MissingEntryIsInvalidConfig)
     auto result = catalog->find(DefinitionFormat::RomRaider, "UNKNOWN");
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+}
+
+TEST(DefinitionModel, FindScalingReturnsMatchingEntry)
+{
+    RomDefinition definition;
+    definition.scalings.push_back(Scaling{.name = "Fuel"});
+    definition.scalings.push_back(Scaling{.name = "Timing"});
+
+    const Scaling *found = find_scaling(definition, "Timing");
+    ASSERT_NE(found, nullptr);
+    EXPECT_EQ(found->name, "Timing");
+}
+
+TEST(DefinitionModel, FindScalingReturnsNullWhenAbsent)
+{
+    RomDefinition definition;
+    definition.scalings.push_back(Scaling{.name = "Fuel"});
+
+    EXPECT_EQ(find_scaling(definition, "Missing"), nullptr);
+    EXPECT_EQ(find_scaling(definition, ""), nullptr);
+    EXPECT_EQ(find_scaling(RomDefinition{}, "Fuel"), nullptr);
+}
+
+TEST(DefinitionModel, IsUnsignedStorageCoversEveryStorageType)
+{
+    EXPECT_TRUE(is_unsigned_storage(StorageType::Uint8));
+    EXPECT_TRUE(is_unsigned_storage(StorageType::Uint16));
+    EXPECT_TRUE(is_unsigned_storage(StorageType::Uint24));
+    EXPECT_TRUE(is_unsigned_storage(StorageType::Uint32));
+    EXPECT_FALSE(is_unsigned_storage(StorageType::Int8));
+    EXPECT_FALSE(is_unsigned_storage(StorageType::Int16));
+    EXPECT_FALSE(is_unsigned_storage(StorageType::Int24));
+    EXPECT_FALSE(is_unsigned_storage(StorageType::Int32));
+    EXPECT_FALSE(is_unsigned_storage(StorageType::Float));
+    EXPECT_FALSE(is_unsigned_storage(StorageType::Bloblist));
+    // Absent storage type: legacy tested `storagetype.startsWith("uint")` on
+    // an empty QString, which is false. Matched exactly.
+    EXPECT_FALSE(is_unsigned_storage(std::nullopt));
 }
 
 } // namespace

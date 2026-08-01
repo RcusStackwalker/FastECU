@@ -45,6 +45,20 @@ std::optional<StorageType> storage_type_from_text(std::string_view text);
 std::string storage_type_text(std::optional<StorageType> value);
 std::uint32_t storage_byte_size(std::optional<StorageType> storage_type);
 
+struct RomDefinition;
+struct Scaling;
+
+// The scaling in `definition` named `name`, or nullptr when none matches.
+// Hoisted here because the legacy definition adapter and the calibration
+// decode both need it; it was privately duplicated in each before.
+const Scaling *find_scaling(const RomDefinition& definition, std::string_view name);
+
+// True only for the Uint8/Uint16/Uint24/Uint32 storage types. Reproduces
+// legacy's `storagetype.startsWith("uint")` test, including its result for an
+// absent storage type (false, since an empty string does not start with
+// "uint").
+bool is_unsigned_storage(std::optional<StorageType> storage_type);
+
 struct DefinitionIndexEntry
 {
     DefinitionFormat format;
