@@ -26,6 +26,7 @@
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <optional>
 #include <string_view>
 #include <vector>
 
@@ -308,6 +309,11 @@ class FileActions : public QWidget
         EcuCalDefStructure& ecu_cal_def,
         fastecu::definition::DefinitionFormat format,
         const QString& definition_id);
+    // The definition load_configured_definition last resolved successfully,
+    // or nullptr when that was for a different format/id (or never happened).
+    const fastecu::definition::RomDefinition *resolved_definition(
+        fastecu::definition::DefinitionFormat format,
+        const QString& definition_id) const;
     bool log_definition_load_failure(
         const QString& operation,
         const fastecu::Error& error,
@@ -324,6 +330,13 @@ class FileActions : public QWidget
     fastecu::IFileRepository& definitionFileRepository_;
     fastecu::definition::DefinitionService definitionService_;
     fastecu::definition::LegacyDefinitionAdapter definitionAdapter_;
+    struct ResolvedDefinition
+    {
+        fastecu::definition::DefinitionFormat format;
+        QString id;
+        fastecu::definition::RomDefinition definition;
+    };
+    std::optional<ResolvedDefinition> resolvedDefinition_;
     std::vector<std::string> submittedEcuflashHandles_;
 
   signals:

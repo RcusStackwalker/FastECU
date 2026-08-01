@@ -1069,6 +1069,62 @@ class TestFileActionsParsing : public QObject
         QVERIFY(ecu.FullRomData != QByteArray(524288, '\0'));
     }
 
+    void open_subaru_rom_file_applies_padding_before_size_validation()
+    {
+        // The ROM-size check must run AFTER the sub_ecu_denso_mc68hc16y5_02
+        // padding block, not before it: padding grows FullRomData by 0x8000
+        // bytes, so a definition authored against the padded image would be
+        // rejected by a check against the pre-padded length. This pins that
+        // padding is applied by the time the function returns.
+        //
+        // It does not reproduce the ordering bug directly -- that needs a
+        // real EcuFlash definition fixture with map addresses inside the
+        // padded region so definitionService_.load succeeds and validation
+        // actually runs. Disproportionate setup for this regression test;
+        // recorded here rather than left as an unstated gap.
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString romPath = dir.filePath("rom.bin");
+        QFile romFile(romPath);
+        QVERIFY(romFile.open(QIODevice::WriteOnly));
+        // Must be >= 0x20000 (the padding insertion point): QByteArray::insert
+        // beyond the current length first grows the array up to that position,
+        // so a smaller original would make the observed growth exceed the
+        // padding loop's own 0x8000 bytes.
+        const QByteArray originalBytes(qsizetype{160} * 1024, '\0');
+        QCOMPARE(romFile.write(originalBytes), qint64{originalBytes.size()});
+        romFile.close();
+
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+
+        FileActions::EcuCalDefStructure *ecuCalDef = new FileActions::EcuCalDefStructure;
+        while (ecuCalDef->RomInfo.length() < ecuCalDef->RomInfoStrings.length())
+        {
+            ecuCalDef->RomInfo.append(" ");
+        }
+        ecuCalDef->RomInfo[FileActions::FlashMethod] = "sub_ecu_denso_mc68hc16y5_02";
+
+        // No definition resolves here, so open_subaru_rom_file shows its
+        // "no definition found" chooser, which would block forever on an
+        // offscreen QApplication. Closing it reports Rejected -- the
+        // "continue without definition" path.
+        QTimer modalCloser;
+        modalCloser.setInterval(10);
+        QObject::connect(&modalCloser, &QTimer::timeout, []()
+                         {
+            if (QWidget *modal = QApplication::activeModalWidget()) {
+                modal->close();
+} });
+        modalCloser.start();
+
+        ecuCalDef = fileActions.open_subaru_rom_file(ecuCalDef, romPath);
+        modalCloser.stop();
+
+        QVERIFY(ecuCalDef != nullptr);
+        QCOMPARE(ecuCalDef->FullRomData.length(), originalBytes.length() + 0x8000);
+        delete ecuCalDef;
+    }
+
   private:
     // FileActions's constructor now takes the config/settings ports (Task
     // 11 of the step5d-1 plan); these are unused by the parsing paths this

@@ -23,11 +23,15 @@ class LegacyDefinitionAdapter
         definitions::ConfigValuesStructure&,
         std::string_view directory,
         std::span<const std::string> explicit_handles = {});
+    // resolved, when non-null, receives the RomDefinition this call loaded --
+    // only on success. It lets a caller reuse the resolution instead of
+    // rebuilding the catalog and loading the same definition again.
     Status replace_definition(
         definitions::EcuCalDefStructure&,
         const DefinitionCatalog&,
         DefinitionFormat,
-        std::string_view id);
+        std::string_view id,
+        RomDefinition *resolved = nullptr);
     Status create_definition(
         std::string_view destination,
         const DefinitionHeaderInput&,
