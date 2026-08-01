@@ -4,6 +4,7 @@
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_settings.h"
 #include <QCoreApplication>
+#include <QFileInfo>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QString>
@@ -87,6 +88,38 @@ TEST(QtFileRepositoryTest, WriteThenReadRoundTripsBytes)
     Result<std::vector<std::uint8_t>> r = repo.read(path);
     ASSERT_TRUE(r.has_value());
     EXPECT_EQ(*r, data);
+}
+
+TEST(QtFileRepositoryTest, WriteReportsSuccessOnlyOnceBytesAreOnDisk)
+{
+    // write() now flushes and closes before returning, so a successful Status
+    // means the file is complete on disk -- not merely handed to QFile's
+    // buffer. A failure that only surfaces at flush/close (a full volume is
+    // the classic case) must not be reported as a successful write.
+    QTemporaryDir dir;
+    ASSERT_TRUE(dir.isValid());
+    QString path = dir.filePath("flushed.bin");
+
+    QtFileRepository repo;
+    std::vector<std::uint8_t> data(4096, 0xA5);
+    Status w = repo.write(path.toStdString(), std::span<const std::uint8_t>(data));
+    ASSERT_TRUE(w.has_value());
+    EXPECT_EQ(QFileInfo(path).size(), static_cast<qint64>(data.size()));
+}
+
+TEST(QtFileRepositoryTest, WriteToUnopenablePathFails)
+{
+    QTemporaryDir dir;
+    ASSERT_TRUE(dir.isValid());
+    // The parent directory does not exist, so the file cannot be opened for
+    // writing at all.
+    std::string path = dir.filePath("no-such-directory/payload.bin").toStdString();
+
+    QtFileRepository repo;
+    std::vector<std::uint8_t> data{0x01, 0x02, 0x03};
+    Status w = repo.write(path, std::span<const std::uint8_t>(data));
+    ASSERT_FALSE(w.has_value());
+    EXPECT_EQ(w.error().kind, ErrorKind::InvalidConfig);
 }
 
 TEST(QtFileRepositoryTest, ReadOfMissingPathFails)
