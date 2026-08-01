@@ -60,7 +60,18 @@ std::uint64_t element_run_end(
     std::uint32_t element_width,
     std::uint32_t count)
 {
-    return address + std::uint64_t(start_position - 1) * element_width +
+    if (count == 0)
+    {
+        // No elements laid out at all, so nothing past `address` is touched.
+        // Without this, count - 1 wraps to 0xFFFFFFFF in uint32 arithmetic.
+        return address;
+    }
+    // start_position is 1-based. 0 is out of domain and unvalidated upstream
+    // (see the header); clamp it to the smallest legal value instead of
+    // letting start_position - 1 wrap to 0xFFFFFFFF.
+    const std::uint64_t start_offset =
+        start_position == 0 ? 0 : std::uint64_t(start_position - 1);
+    return address + start_offset * element_width +
            std::uint64_t(count - 1) * interval * element_width + element_width;
 }
 

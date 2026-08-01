@@ -71,6 +71,40 @@ TEST(ElementRunEndTest, StridedRunMatchesLegacyPerCellAddressFormula)
     EXPECT_EQ(element_run_end(0x200, 3, 2, 1, 3), 0x207U);
 }
 
+TEST(ElementRunEndTest, ZeroStartPositionIsTreatedAsTheFirstPosition)
+{
+    // start_position is 1-based and unvalidated upstream, so startpos="0"
+    // reaches here. Computing 0 - 1 in uint32 would wrap to 0xFFFFFFFF and
+    // put the run ~4 GB past `address`.
+    EXPECT_EQ(element_run_end(0x1000, /*start_position=*/0, /*interval=*/1,
+                              /*element_width=*/4, /*count=*/1),
+              element_run_end(0x1000, 1, 1, 4, 1));
+    EXPECT_EQ(element_run_end(0x1000, 0, 1, 4, 1), 0x1004U);
+}
+
+TEST(ElementRunEndTest, ZeroStartPositionDoesNotWrapWithAMultiElementRun)
+{
+    EXPECT_EQ(element_run_end(0x100, /*start_position=*/0, /*interval=*/2,
+                              /*element_width=*/2, /*count=*/3),
+              0x10AU);
+}
+
+TEST(ElementRunEndTest, ZeroCountTouchesNothingPastTheAddress)
+{
+    // count - 1 would wrap the same way. An empty run ends where it starts.
+    EXPECT_EQ(element_run_end(0x1000, /*start_position=*/1, /*interval=*/1,
+                              /*element_width=*/4, /*count=*/0),
+              0x1000U);
+    EXPECT_EQ(element_run_end(0x1000, /*start_position=*/8, /*interval=*/3,
+                              /*element_width=*/4, /*count=*/0),
+              0x1000U);
+}
+
+TEST(ElementRunEndTest, ZeroCountAndZeroStartPositionTogetherDoNotWrap)
+{
+    EXPECT_EQ(element_run_end(0x1000, 0, 1, 4, 0), 0x1000U);
+}
+
 RomDefinition definition_with_one_map(CalibrationMap map, std::vector<Scaling> scalings = {})
 {
     RomDefinition definition;
@@ -203,6 +237,22 @@ TEST(ValidateRomSize, BloblistExtentUsesWidthDerivedFromSelections)
 
     EXPECT_FALSE(
         validate_rom_size(definition_with_one_map(map, {scaling}), 0x1000).has_value());
+}
+
+TEST(ValidateRomSize, ZeroStartPositionDoesNotSpuriouslyRejectTheRom)
+{
+    // A definition carrying startpos="0" used to underflow to a ~4 GB extent
+    // here, failing the whole ROM ("Error in expected ROM size!") and
+    // clearing every one of its maps.
+    CalibrationMap map;
+    map.address = 0x1000;
+    map.x_size = 4;
+    map.y_size = 1;
+    map.storage_type = StorageType::Uint16;
+    map.start_position = 0;
+    map.interval = 1;
+
+    EXPECT_TRUE(validate_rom_size(definition_with_one_map(map), 0x2000).has_value());
 }
 
 TEST(ValidateRomSize, NullStorageTypeStillGetsExtentCheckedWithOneByteDefault)
