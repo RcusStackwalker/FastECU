@@ -2,11 +2,69 @@
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
 
 #include <format>
+#include <limits>
 
 #include "src/backend/flash/flash_validation.h"
 
 namespace fastecu::flash
 {
+
+namespace
+{
+
+constexpr std::uint32_t kKlinePayloadAlignment = 4;
+constexpr std::uint32_t kKlineChecksumBypassBytes = 4;
+constexpr std::uint32_t kCanUploadBlockBytes = 128;
+
+Result<std::uint32_t> checked_align_up(std::size_t value, std::uint32_t alignment)
+{
+    constexpr std::uint32_t kMax = std::numeric_limits<std::uint32_t>::max();
+    if (value > kMax || value > static_cast<std::size_t>(kMax - (alignment - 1)))
+    {
+        return fail(ErrorKind::InvalidConfig, "kernel upload size overflows uint32_t");
+    }
+
+    const auto narrowed = static_cast<std::uint32_t>(value);
+    return (narrowed + alignment - 1) & ~(alignment - 1);
+}
+
+} // namespace
+
+Result<DensoSh705xEepromUploadSizes> denso_sh705x_eeprom_upload_sizes(
+    FlashFamily family, std::size_t raw_kernel_bytes)
+{
+    if (family == FlashFamily::DensoSh705xEepromKline)
+    {
+        Result<std::uint32_t> payload = checked_align_up(raw_kernel_bytes, kKlinePayloadAlignment);
+        if (!payload.has_value())
+        {
+            return std::unexpected(payload.error());
+        }
+        if (*payload > std::numeric_limits<std::uint32_t>::max() -
+                           kKlineChecksumBypassBytes)
+        {
+            return fail(ErrorKind::InvalidConfig, "K-Line kernel upload footprint overflows uint32_t");
+        }
+        return DensoSh705xEepromUploadSizes{
+            .payload_bytes = *payload,
+            .ram_footprint_bytes = *payload + kKlineChecksumBypassBytes,
+        };
+    }
+    if (family == FlashFamily::DensoSh705xEepromCan)
+    {
+        Result<std::uint32_t> payload = checked_align_up(raw_kernel_bytes, kCanUploadBlockBytes);
+        if (!payload.has_value())
+        {
+            return std::unexpected(payload.error());
+        }
+        return DensoSh705xEepromUploadSizes{
+            .payload_bytes = *payload,
+            .ram_footprint_bytes = *payload,
+        };
+    }
+    return fail(ErrorKind::InvalidConfig,
+                "unsupported family for Denso SH705x EEPROM kernel upload");
+}
 
 // Literal values transcribed from src/backend/definitions/kernelmemorymodels.h
 // (eblocks_SH7055[0], line 279-281; eblocks_SH7058[0], line 221-223). Do not
@@ -129,11 +187,25 @@ Result<void> validate_denso_sh705x_eeprom_preflight(const DensoSh705xEepromInput
     const std::uint64_t ram_end =
         static_cast<std::uint64_t>(bounds->kernel_ram.start) + bounds->kernel_ram.length;
     if (input.kernel.load_address < bounds->kernel_ram.start ||
-        input.kernel.load_address > ram_end ||
-        (kernel_size.has_value() &&
-         static_cast<std::uint64_t>(input.kernel.load_address) + *kernel_size > ram_end))
+        static_cast<std::uint64_t>(input.kernel.load_address) >= ram_end)
     {
         return fail(ErrorKind::InvalidConfig, "kernel load range is outside the SH705x RAM region");
+    }
+    if (kernel_size.has_value())
+    {
+        Result<DensoSh705xEepromUploadSizes> upload_sizes =
+            denso_sh705x_eeprom_upload_sizes(input.family, *kernel_size);
+        if (!upload_sizes.has_value())
+        {
+            return std::unexpected(upload_sizes.error());
+        }
+        const std::uint64_t available =
+            ram_end - static_cast<std::uint64_t>(input.kernel.load_address);
+        if (upload_sizes->ram_footprint_bytes > available)
+        {
+            return fail(ErrorKind::InvalidConfig,
+                        "kernel upload footprint is outside the SH705x RAM region");
+        }
     }
 
     if (input.family == FlashFamily::DensoSh705xEepromKline && !kline_supports(input.security))

@@ -69,14 +69,10 @@ class EepromEcuSubaruDensoSH705xKline : public QDialog
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
   protected:
-    // Test seams (step 5c, Task 17). The dialog's own public constructor
-    // signature is unchanged -- MainWindow's EEPROM dispatch (mainwindow.cpp)
-    // does not need to change -- so a test subclass overrides these
-    // virtuals instead of injecting fakes through the constructor (the same
-    // idea as FlashOperationWorker's injectable PromptFn, generalized to
-    // also cover plan building and worker construction). Every one of these
-    // has a real, hardware/dialog-driving default implementation defined in
-    // the .cpp; only tests override them.
+    // Test seams. ConfigPaths remains a real constructor dependency; a test
+    // subclass overrides these virtuals instead of adding fake-only
+    // constructor parameters. Every one has a real, hardware/dialog-driving
+    // default implementation in the .cpp; only tests override them.
     virtual fastecu::Result<fastecu::flash::FlashPlan> buildPlan(
         fastecu::flash::EepromReadMode mode);
     virtual std::unique_ptr<fastecu::flash::FlashWorker> makeWorker(

@@ -1,6 +1,7 @@
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_can_executor.h"
 
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
+#include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -719,14 +720,15 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(
 
     const std::uint32_t request_id = can_plan.request_id;
     const std::uint32_t start_address = kernel.load_address;
-    const std::uint32_t file_len = static_cast<std::uint32_t>(kernel.bytes.size());
-    const std::uint32_t pl_len = (file_len + 3) & ~std::uint32_t(3);
-    std::uint32_t max_blocks = pl_len / kUploadChunkBytes;
-    if (pl_len % kUploadChunkBytes != 0)
+    Result<DensoSh705xEepromUploadSizes> upload_sizes =
+        denso_sh705x_eeprom_upload_sizes(FlashFamily::DensoSh705xEepromCan,
+                                         kernel.bytes.size());
+    if (!upload_sizes.has_value())
     {
-        ++max_blocks;
+        return std::unexpected(upload_sizes.error());
     }
-    const std::uint32_t data_len = max_blocks * kUploadChunkBytes;
+    const std::uint32_t data_len = upload_sizes->payload_bytes;
+    const std::uint32_t max_blocks = data_len / kUploadChunkBytes;
 
     // lines 734-760: pad the ORIGINAL file bytes up to data_len (always a
     // multiple of 128, hence of 4), drop the last 4 bytes, append a 32-bit

@@ -88,7 +88,7 @@ TEST(EepromReadPlanGolden, Sh7058CanMode2)
     // denso_sh705x_eeprom_common.cpp build_denso_sh705x_eeprom_plan: CAN
     // family_plan is DensoSh705xEepromCanPlan with request_id=0x7e0,
     // response_id=0x7e8, bitrate=500000, extended_id=false. FlashMethod
-    // carries no security suffix here, so security_for_flash_method falls
+    // carries no security suffix here, so security_for_protocol falls
     // through to DensoSecurityVariant::Stock.
     const auto *can_plan = std::get_if<DensoSh705xEepromCanPlan>(&plan->family_plan());
     ASSERT_NE(can_plan, nullptr);
@@ -119,17 +119,22 @@ TEST(EepromReadPlanGolden, Sh7055KlineMode4)
                                        EepromReadMode::Mode4, repository);
 
     ASSERT_TRUE(plan.has_value());
+    EXPECT_EQ(plan->operation(), FlashOperation::Read);
     EXPECT_EQ(plan->family(), FlashFamily::DensoSh705xEepromKline);
     EXPECT_EQ(plan->transport(), TransportKind::Kline);
     EXPECT_EQ(plan->target_id(), "sub_ecu_eeprom_denso_sh7055_kline");
     EXPECT_EQ(plan->mcu_name(), "SH7055");
     EXPECT_EQ(plan->kernel().load_address, 0xFFFF6004u);
+    EXPECT_EQ(plan->kernel().bytes, (bytes::Bytes{0xaa, 0xbb}));
+    EXPECT_EQ(repository.read_handles,
+              (std::vector<std::string>{"protocols.cfg", "protocols.cfg",
+                                        "kernels/ssmk_kline_sh7055.bin"}));
 
     // denso_sh705x_eeprom_common.cpp build_denso_sh705x_eeprom_plan: K-Line
     // family_plan is DensoSh705xEepromKlinePlan with tester_id=0xf0,
     // target_id=0x10, initial_baud=4800, kernel_baud=15625 (the resolved
     // family value). FlashMethod carries no security suffix here, so
-    // security_for_flash_method falls through to DensoSecurityVariant::Stock.
+    // security_for_protocol falls through to DensoSecurityVariant::Stock.
     const auto *kline_plan = std::get_if<DensoSh705xEepromKlinePlan>(&plan->family_plan());
     ASSERT_NE(kline_plan, nullptr);
     EXPECT_EQ(kline_plan->mode, EepromReadMode::Mode4);

@@ -64,6 +64,10 @@ const char *kFixture = R"(<?xml version="1.0" encoding="UTF-8"?>
             <make>Subaru</make><model>Impreza</model><version>bad kernel address</version>
             <protocol>sub_ecu_eeprom_denso_sh7055_bad_kernel_addr</protocol>
         </car_model>
+        <car_model>
+            <make>Subaru</make><model>Missing</model><version>Protocol row</version>
+            <protocol>sub_ecu_eeprom_denso_missing_protocol</protocol>
+        </car_model>
     </car_models>
 </config>)";
 
@@ -241,6 +245,37 @@ TEST(BuildEepromReadPlanTest, KernelAddressOutsideRamIsRejectedBeforeReadingTheK
     EXPECT_EQ(repository.read_count("kernels/out_of_range.bin"), 0);
 }
 
+TEST(BuildEepromReadPlanTest, KernelAddressAtExclusiveRamEndIsRejectedBeforeReadingTheKernel)
+{
+    InMemoryFileRepository repository = make_repository_with_protocol(
+        "sub_ecu_eeprom_denso_sh7058_can", "SH7058", "ssmk_can_tp_sh7058.bin",
+        "0xFFFFC000");
+
+    auto plan = build_eeprom_read_plan(test_paths(), "sub_ecu_eeprom_denso_sh7058_can",
+                                       EepromReadMode::Mode2, repository);
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_EQ(repository.read_count("kernels/ssmk_can_tp_sh7058.bin"), 0);
+}
+
+TEST(BuildEepromReadPlanTest, CarModelReferencingAbsentProtocolIsRejectedBeforeReadingTheKernel)
+{
+    InMemoryFileRepository repository = make_repository();
+
+    auto plan = build_eeprom_read_plan(test_paths(),
+                                       "sub_ecu_eeprom_denso_missing_protocol",
+                                       EepromReadMode::Mode2, repository);
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_EQ(plan.error().detail,
+              "protocol 'sub_ecu_eeprom_denso_missing_protocol' is referenced by a car model "
+              "but absent from the <protocols> section");
+    EXPECT_EQ(repository.read_handles,
+              (std::vector<std::string>{"protocols.cfg", "protocols.cfg"}));
+}
+
 TEST(BuildEepromReadPlanTest, KernelReadFailureIsPropagated)
 {
     InMemoryFileRepository repository = make_repository();
@@ -311,6 +346,37 @@ TEST(BuildEepromReadPlanTest, EcuTekSuffixProducesAnEcuTekPlan)
     const auto *can_plan = std::get_if<DensoSh705xEepromCanPlan>(&plan->family_plan());
     ASSERT_NE(can_plan, nullptr);
     EXPECT_EQ(can_plan->security, DensoSecurityVariant::EcuTek);
+}
+
+TEST(BuildEepromReadPlanTest, EcuTekRaceRomAltSuffixIsRejectedBeforeReadingTheKernel)
+{
+    InMemoryFileRepository repository = make_repository_with_protocol(
+        "sub_ecu_eeprom_denso_sh7058_can_ecutek_racerom_alt", "SH7058",
+        "ssmk_can_tp_sh7058.bin", "0xFFFF3000");
+
+    auto plan = build_eeprom_read_plan(
+        test_paths(), "sub_ecu_eeprom_denso_sh7058_can_ecutek_racerom_alt",
+        EepromReadMode::Mode2, repository);
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_EQ(repository.read_count("kernels/ssmk_can_tp_sh7058.bin"), 0);
+}
+
+TEST(BuildEepromReadPlanTest, EcuTekRaceRomSuffixStillProducesAnEcuTekRaceRomPlan)
+{
+    InMemoryFileRepository repository = make_repository_with_protocol(
+        "sub_ecu_eeprom_denso_sh7058_can_ecutek_racerom", "SH7058",
+        "ssmk_can_tp_sh7058.bin", "0xFFFF3000");
+
+    auto plan = build_eeprom_read_plan(
+        test_paths(), "sub_ecu_eeprom_denso_sh7058_can_ecutek_racerom",
+        EepromReadMode::Mode2, repository);
+
+    ASSERT_TRUE(plan.has_value());
+    const auto *can_plan = std::get_if<DensoSh705xEepromCanPlan>(&plan->family_plan());
+    ASSERT_NE(can_plan, nullptr);
+    EXPECT_EQ(can_plan->security, DensoSecurityVariant::EcuTekRaceRom);
 }
 
 } // namespace

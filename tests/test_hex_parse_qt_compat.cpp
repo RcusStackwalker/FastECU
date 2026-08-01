@@ -16,9 +16,9 @@
 namespace
 {
 
-// Every kernel_addr value in the shipped protocols.cfg. Hard-coded rather
-// than scraped so that a value silently disappearing from the file is a test
-// failure rather than a silently shrinking table.
+// Every kernel_addr value in the shipped protocols.cfg. Hard-coded so the
+// compatibility oracle is independent of the catalog parser; keep this list
+// synchronized when shipped kernel_addr values change.
 const char *const kRealKernelAddrs[] = {
     "0x00000000",
     "0x20000",

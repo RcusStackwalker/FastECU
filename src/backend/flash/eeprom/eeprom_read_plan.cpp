@@ -44,15 +44,21 @@ FlashFamily family_for_protocol(std::string_view protocol_name)
 // own `flash_method` member. No currently registered Denso SH705x EEPROM
 // protocol carries one of these suffixes today, but the branch mirrors the
 // convention used everywhere else in the codebase in case a suffixed EEPROM
-// protocol is added later.
-DensoSecurityVariant security_for_protocol(std::string_view protocol_name)
+// protocol is added later. The `_ecutek_racerom_alt` variant is deliberately
+// rejected: its RAM preprocessing and crypto path are not representable by
+// DensoSecurityVariant or the portable CAN executor.
+Result<DensoSecurityVariant> security_for_protocol(std::string_view protocol_name)
 {
+    if (protocol_name.ends_with("_ecutek_racerom_alt"))
+    {
+        return fail(ErrorKind::InvalidConfig,
+                    "_ecutek_racerom_alt is not supported by the portable EEPROM path");
+    }
     if (protocol_name.ends_with("_cobb"))
     {
         return DensoSecurityVariant::Cobb;
     }
-    if (protocol_name.ends_with("_ecutek_racerom") ||
-        protocol_name.ends_with("_ecutek_racerom_alt"))
+    if (protocol_name.ends_with("_ecutek_racerom"))
     {
         return DensoSecurityVariant::EcuTekRaceRom;
     }
@@ -143,6 +149,11 @@ Result<FlashPlan> build_eeprom_read_plan(const config::ConfigPaths& paths,
     {
         return std::unexpected(eeprom_region.error());
     }
+    Result<DensoSecurityVariant> security = security_for_protocol(protocol_name);
+    if (!security.has_value())
+    {
+        return std::unexpected(security.error());
+    }
 
     DensoSh705xEepromInput input{
         .operation = FlashOperation::Read,
@@ -156,7 +167,7 @@ Result<FlashPlan> build_eeprom_read_plan(const config::ConfigPaths& paths,
             .bytes = {},
         },
         .mode = mode,
-        .security = security_for_protocol(protocol_name),
+        .security = *security,
         .eeprom_region = *eeprom_region,
     };
     Result<void> preflight = validate_denso_sh705x_eeprom_preflight(input, std::nullopt);

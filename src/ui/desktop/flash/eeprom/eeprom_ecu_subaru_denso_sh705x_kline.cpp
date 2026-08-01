@@ -64,7 +64,7 @@ void EepromEcuSubaruDensoSH705xKline::run()
     if (cmd_type_ != "read")
     {
         // This dialog only ever builds an EEPROM *read* plan (buildPlan()
-        // calls adapter.build_read_plan() unconditionally) -- MainWindow
+        // calls build_eeprom_read_plan() unconditionally) -- MainWindow
         // dispatches this dialog by protocol name only, and cmd_type flows
         // through unfiltered from the generic top-level menu commands
         // (menu_actions.cpp's start_ecu_operations("write"/"test_write")),
@@ -77,15 +77,7 @@ void EepromEcuSubaruDensoSH705xKline::run()
         // InvalidConfig/Unsupported -> preflight message, no worker start
         // rule.
         //
-        // Deliberately checked here rather than inside runAttempt(): the
-        // very first runAttempt(Mode2) call below runs synchronously,
-        // *before* the QEventLoop below has entered exec() -- and
-        // QEventLoop::exec() unconditionally clears any pending quit()
-        // requested before it starts (Qt resets its exit flag on entry), so
-        // a close() (which requests loop_->quit() via closeEvent()) issued
-        // from inside that first synchronous call is silently dropped and
-        // loop.exec() blocks forever. Rejecting here, before the loop is
-        // even constructed, avoids that hazard entirely -- exactly like the
+        // Reject before constructing the nested event loop, exactly like the
         // ret != Ok decline path just below.
         showFailureDialog(fastecu::ErrorKind::Unsupported,
                           QString("cmd_type '%1' is not supported by this EEPROM read dialog")
@@ -112,7 +104,13 @@ void EepromEcuSubaruDensoSH705xKline::run()
     QEventLoop loop;
     loop_ = &loop;
     runAttempt(fastecu::flash::EepromReadMode::Mode2);
-    loop.exec();
+    // A synchronous buildPlan() failure closes the dialog before exec(). Qt
+    // clears a pre-entry quit request when exec() starts, so only enter the
+    // nested loop when runAttempt() actually created and started a worker.
+    if (worker_)
+    {
+        loop.exec();
+    }
     loop_ = nullptr;
 }
 
