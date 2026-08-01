@@ -25,7 +25,7 @@ namespace
 // sufficient and matches the legacy branch structure.
 FlashFamily family_for_protocol(std::string_view protocol_name)
 {
-    if (protocol_name.find("kline") != std::string_view::npos)
+    if (protocol_name.contains("kline"))
     {
         return FlashFamily::DensoSh705xEepromKline;
     }
