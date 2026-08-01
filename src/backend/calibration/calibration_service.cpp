@@ -72,6 +72,127 @@ std::int32_t sign_extend(std::uint32_t raw, std::uint32_t width)
     return static_cast<std::int32_t>(raw | ~((sign_bit << 1) - 1));
 }
 
+std::string_view scaling_from_byte(const definition::Scaling *scaling)
+{
+    return scaling != nullptr ? std::string_view(scaling->from_byte) : std::string_view("x");
+}
+
+std::string join_with_trailing_comma(const std::vector<std::string>& values)
+{
+    std::string result;
+    for (const std::string& value : values)
+    {
+        result += value;
+        result += ",";
+    }
+    return result;
+}
+
+ElementRun map_element_run(const definition::CalibrationMap& map,
+                           const definition::Scaling *scaling)
+{
+    return ElementRun{
+        .address = map.address.value_or(0),
+        .count = map.x_size * map.y_size,
+        .start_position = map.start_position,
+        .interval = map.interval,
+        .storage_type = map.storage_type,
+        .endian = map.endian,
+        .from_byte = scaling_from_byte(scaling),
+        .is_selectable = map.type == "Selectable",
+    };
+}
+
+ElementRun axis_element_run(const definition::AxisDefinition& axis,
+                            std::uint32_t count,
+                            const definition::Scaling *scaling)
+{
+    return ElementRun{
+        .address = axis.address.value_or(0),
+        .count = count,
+        .start_position = axis.start_position,
+        .interval = axis.interval,
+        .storage_type = axis.storage_type,
+        .endian = axis.endian,
+        .from_byte = scaling_from_byte(scaling),
+        .is_selectable = axis.type == "Selectable",
+    };
+}
+
+Result<MapCellValues> compute_one_map(const definition::RomDefinition& rom_definition,
+                                      const definition::CalibrationMap& map,
+                                      bytes::ByteView rom_data,
+                                      int float_precision)
+{
+    MapCellValues values;
+    const definition::Scaling *scaling =
+        definition::find_scaling(rom_definition, map.scaling_name);
+
+    if (!map.address.has_value())
+    {
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("map '{}' has no address", map.name));
+    }
+
+    if (map.storage_type == definition::StorageType::Bloblist)
+    {
+        const std::uint32_t byte_count = element_byte_size(map.storage_type, scaling);
+        auto decoded = decode_bloblist_hex(rom_data, *map.address, byte_count);
+        if (!decoded.has_value())
+        {
+            return std::unexpected(decoded.error());
+        }
+        values.map_data = std::move(*decoded);
+        return values;
+    }
+
+    auto cells = decode_scaled_values(rom_data, map_element_run(map, scaling), float_precision);
+    if (!cells.has_value())
+    {
+        return std::unexpected(cells.error());
+    }
+    values.map_data = std::move(*cells);
+
+    if (map.x_size > 1)
+    {
+        const definition::AxisDefinition& x_axis = map.x_axis;
+        const definition::Scaling *x_scaling =
+            definition::find_scaling(rom_definition, x_axis.scaling_name);
+        if (x_axis.type == "Static X Axis" || x_axis.type == "Static Y Axis")
+        {
+            values.x_axis_data = join_with_trailing_comma(x_axis.static_data);
+        }
+        else if (x_axis.type == "X Axis" || (x_axis.type == "Y Axis" && map.type == "2D"))
+        {
+            auto decoded = decode_scaled_values(
+                rom_data, axis_element_run(x_axis, map.x_size, x_scaling), float_precision);
+            if (!decoded.has_value())
+            {
+                return std::unexpected(decoded.error());
+            }
+            values.x_axis_data = std::move(*decoded);
+        }
+        // Any other type: left at its " " default, not computed -- legacy did
+        // not touch XScaleData in that case either.
+    }
+
+    if (map.y_size > 1)
+    {
+        // No type branching, deliberately: see the header.
+        const definition::Scaling *y_scaling =
+            definition::find_scaling(rom_definition, map.y_axis.scaling_name);
+        auto decoded = decode_scaled_values(
+            rom_data, axis_element_run(map.y_axis, map.y_size, y_scaling), float_precision);
+        if (!decoded.has_value())
+        {
+            return std::unexpected(decoded.error());
+        }
+        values.y_axis_data = std::move(*decoded);
+    }
+
+    return values;
+}
+
 } // namespace
 
 Result<std::vector<std::uint8_t>> read_rom(std::string_view file_handle,
@@ -257,6 +378,33 @@ Result<std::string> decode_bloblist_hex(bytes::ByteView rom_data,
         result += kHexDigits[byte & 0x0F];
     }
     return result;
+}
+
+Result<MapCellValuesList> compute_map_cell_values(
+    const definition::RomDefinition& rom_definition,
+    bytes::ByteView rom_data,
+    int float_precision)
+{
+    MapCellValuesList results;
+    results.reserve(rom_definition.maps.size());
+    for (const definition::CalibrationMap& map : rom_definition.maps)
+    {
+        auto computed = compute_one_map(rom_definition, map, rom_data, float_precision);
+        if (computed.has_value())
+        {
+            results.push_back(std::move(*computed));
+        }
+        else
+        {
+            // One bad map degrades alone. Blanking every map in the ROM
+            // because of a single bad entry would be a worse failure than the
+            // one being reported.
+            MapCellValues failed;
+            failed.error = computed.error();
+            results.push_back(std::move(failed));
+        }
+    }
+    return results;
 }
 
 } // namespace fastecu::calibration

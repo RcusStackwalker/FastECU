@@ -657,5 +657,167 @@ TEST(DecodeBloblistHex, FailsWhenTheRunExceedsTheRom)
     EXPECT_EQ(result.error().kind, ErrorKind::Internal);
 }
 
+namespace
+{
+// A RomDefinition with one 3x1 uint8 map named "Fuel" at `address`, scaled by
+// `expression`.
+definition::RomDefinition one_map_definition(std::uint64_t address,
+                                             std::string_view expression = "x")
+{
+    definition::RomDefinition rom;
+    rom.scalings.push_back(definition::Scaling{
+        .name = "FuelScaling", .from_byte = std::string(expression)});
+    definition::CalibrationMap map;
+    map.name = "Fuel";
+    map.type = "2D";
+    map.address = address;
+    map.x_size = 3;
+    map.y_size = 1;
+    map.storage_type = definition::StorageType::Uint8;
+    map.endian = "big";
+    map.scaling_name = "FuelScaling";
+    rom.maps.push_back(map);
+    return rom;
+}
+} // namespace
+
+TEST(ComputeMapCellValues, DecodesOneMapsCells)
+{
+    const definition::RomDefinition rom = one_map_definition(0);
+    const std::vector<std::uint8_t> data{5, 6, 7};
+
+    const auto result = compute_map_cell_values(rom, data, 15);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result->size(), 1u);
+    EXPECT_FALSE(result->at(0).error.has_value());
+    EXPECT_EQ(result->at(0).map_data, "5,6,7,");
+    // x_size 3 but no usable x_axis type, y_size 1: both axes stay " ".
+    EXPECT_EQ(result->at(0).x_axis_data, " ");
+    EXPECT_EQ(result->at(0).y_axis_data, " ");
+}
+
+TEST(ComputeMapCellValues, DecodesAnXAxisOfTypeXAxis)
+{
+    definition::RomDefinition rom = one_map_definition(0);
+    rom.scalings.push_back(definition::Scaling{.name = "AxisScaling", .from_byte = "x"});
+    rom.maps.at(0).x_axis.type = "X Axis";
+    rom.maps.at(0).x_axis.address = 3;
+    rom.maps.at(0).x_axis.size = 3;
+    rom.maps.at(0).x_axis.storage_type = definition::StorageType::Uint8;
+    rom.maps.at(0).x_axis.endian = "big";
+    rom.maps.at(0).x_axis.scaling_name = "AxisScaling";
+
+    const std::vector<std::uint8_t> data{5, 6, 7, 100, 200, 250};
+    const auto result = compute_map_cell_values(rom, data, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->at(0).x_axis_data, "100,200,250,");
+}
+
+TEST(ComputeMapCellValues, UsesStaticDataForStaticAxes)
+{
+    definition::RomDefinition rom = one_map_definition(0);
+    rom.maps.at(0).x_axis.type = "Static X Axis";
+    rom.maps.at(0).x_axis.static_data = {"1000", "2000", "3000"};
+
+    const std::vector<std::uint8_t> data{5, 6, 7};
+    const auto result = compute_map_cell_values(rom, data, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->at(0).x_axis_data, "1000,2000,3000,");
+}
+
+TEST(ComputeMapCellValues, LeavesUnrecognizedXAxisTypesUncomputed)
+{
+    definition::RomDefinition rom = one_map_definition(0);
+    rom.maps.at(0).x_axis.type = "Something Else";
+    rom.maps.at(0).x_axis.address = 3;
+    rom.maps.at(0).x_axis.size = 3;
+
+    const std::vector<std::uint8_t> data{5, 6, 7, 1, 2, 3};
+    const auto result = compute_map_cell_values(rom, data, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->at(0).x_axis_data, " ");
+}
+
+TEST(ComputeMapCellValues, DecodesYAxisWithoutTypeBranching)
+{
+    // Legacy branches on x_axis.type but NOT on y_axis.type -- when y_size > 1
+    // it always decodes. That asymmetry is real legacy behavior, reproduced
+    // exactly rather than "fixed" to match the x-axis handling.
+    definition::RomDefinition rom = one_map_definition(0);
+    rom.scalings.push_back(definition::Scaling{.name = "AxisScaling", .from_byte = "x"});
+    rom.maps.at(0).x_size = 1;
+    rom.maps.at(0).y_size = 2;
+    rom.maps.at(0).y_axis.type = "Something Unrecognized";
+    rom.maps.at(0).y_axis.address = 2;
+    rom.maps.at(0).y_axis.size = 2;
+    rom.maps.at(0).y_axis.storage_type = definition::StorageType::Uint8;
+    rom.maps.at(0).y_axis.endian = "big";
+    rom.maps.at(0).y_axis.scaling_name = "AxisScaling";
+
+    const std::vector<std::uint8_t> data{9, 9, 40, 50};
+    const auto result = compute_map_cell_values(rom, data, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->at(0).y_axis_data, "40,50,");
+}
+
+TEST(ComputeMapCellValues, HexEncodesBloblistMaps)
+{
+    definition::RomDefinition rom;
+    rom.scalings.push_back(definition::Scaling{
+        .name = "Blob", .selections = {{"Off", "aabb"}, {"On", "ccdd"}}});
+    definition::CalibrationMap map;
+    map.name = "Switch";
+    map.address = 1;
+    map.x_size = 1;
+    map.y_size = 1;
+    map.storage_type = definition::StorageType::Bloblist;
+    map.scaling_name = "Blob";
+    rom.maps.push_back(map);
+
+    // element_byte_size derives width 2 from the first selection ("aabb").
+    const std::vector<std::uint8_t> data{0x00, 0xCC, 0xDD};
+    const auto result = compute_map_cell_values(rom, data, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->at(0).map_data, "ccdd");
+}
+
+TEST(ComputeMapCellValues, DegradesPerMapWithoutFailingSiblings)
+{
+    definition::RomDefinition rom = one_map_definition(0);
+    definition::CalibrationMap out_of_range = rom.maps.at(0);
+    out_of_range.name = "Broken";
+    out_of_range.address = 0xF0000000;
+    rom.maps.push_back(out_of_range);
+
+    const std::vector<std::uint8_t> data{5, 6, 7};
+    const auto result = compute_map_cell_values(rom, data, 15);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result->size(), 2u);
+    EXPECT_FALSE(result->at(0).error.has_value());
+    EXPECT_EQ(result->at(0).map_data, "5,6,7,");
+    ASSERT_TRUE(result->at(1).error.has_value());
+    EXPECT_EQ(result->at(1).error->kind, ErrorKind::Internal);
+    EXPECT_EQ(result->at(1).map_data, "");
+}
+
+TEST(ComputeMapCellValues, FlagsAMapWithNoAddress)
+{
+    definition::RomDefinition rom = one_map_definition(0);
+    rom.maps.at(0).address = std::nullopt;
+
+    const std::vector<std::uint8_t> data{5, 6, 7};
+    const auto result = compute_map_cell_values(rom, data, 15);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_TRUE(result->at(0).error.has_value());
+    EXPECT_EQ(result->at(0).error->kind, ErrorKind::InvalidConfig);
+}
+
+TEST(ComputeMapCellValues, ReturnsEmptyListForADefinitionWithNoMaps)
+{
+    const auto result = compute_map_cell_values(definition::RomDefinition{}, {}, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result->empty());
+}
+
 } // namespace
 } // namespace fastecu::calibration

@@ -139,4 +139,38 @@ Result<std::string> decode_bloblist_hex(bytes::ByteView rom_data,
                                         std::uint64_t address,
                                         std::uint32_t byte_count);
 
+struct MapCellValues
+{
+    std::string map_data;
+    // Default " ", not empty: legacy wrote a single space for an absent axis
+    // and the calibration tree distinguishes the two.
+    std::string x_axis_data{" "};
+    std::string y_axis_data{" "};
+    // Set when this one map's decode failed. The three fields above are then
+    // left at their defaults, and the caller is expected to skip writing this
+    // entry back and to log the error against this map's name and index. A
+    // failed map never fails its siblings.
+    std::optional<Error> error;
+};
+using MapCellValuesList = std::vector<MapCellValues>;
+
+// One entry per rom_definition.maps, in the same order. Never fails as a
+// whole -- per-map failures land in each entry's `error`.
+//
+// Map cells: decode_bloblist_hex when storage_type is Bloblist (width from
+// element_byte_size, i.e. derived from the resolved scaling's first
+// selection), else decode_scaled_values over x_size * y_size elements.
+//
+// X axis, only when x_size > 1: "Static X Axis"/"Static Y Axis" join the
+// resolved scaling's static_data comma-per-entry with a trailing comma;
+// "X Axis", or "Y Axis" when map.type == "2D", decode from the axis's own
+// address; any other type is left uncomputed at " ".
+//
+// Y axis, when y_size > 1: ALWAYS decoded, with no type branching at all.
+// This asymmetry with the X axis is real legacy behavior, reproduced exactly.
+Result<MapCellValuesList> compute_map_cell_values(
+    const definition::RomDefinition& rom_definition,
+    bytes::ByteView rom_data,
+    int float_precision);
+
 } // namespace fastecu::calibration
