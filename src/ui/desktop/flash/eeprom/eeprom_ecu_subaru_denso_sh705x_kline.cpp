@@ -33,8 +33,9 @@ fastecu::flash::EepromReadMode nextMode(fastecu::flash::EepromReadMode mode)
 
 EepromEcuSubaruDensoSH705xKline::EepromEcuSubaruDensoSH705xKline(
     SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
-    const QString& cmd_type, QWidget *parent)
-    : QDialog(parent), serial_(serial), ecuCalDef_(ecuCalDef), cmd_type_(cmd_type),
+    const fastecu::config::ConfigPaths& paths, const QString& cmd_type, QWidget *parent)
+    : QDialog(parent), serial_(serial), ecuCalDef_(ecuCalDef), paths_(paths),
+      cmd_type_(cmd_type),
       ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);

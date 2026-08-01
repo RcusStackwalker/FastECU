@@ -15,6 +15,7 @@ qt_cc_library(
         # Full :definitions (not :models) because file_actions.h -- part of
         # the moc'd :definitions target, not the header-only :models split
         # -- is included directly; see task-4-report.md.
+        "//src/backend/config:config_paths",
         "//src/backend/definitions",
         "//src/backend/flash:flash_executor",
         "//src/backend/flash:flash_plan",

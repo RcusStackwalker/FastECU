@@ -3,6 +3,7 @@
 #include <QSplashScreen>
 #include <cstddef>
 #include <utility>
+#include "src/backend/config/legacy_config_paths.h"
 #include "src/platform/desktop/common/logging/cdbg_serial_setup.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
@@ -1167,12 +1168,16 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
 
         emit LOG_D("Protocol to use: " + configValues->flash_protocol_selected_protocol_name, true, true);
 
+        const fastecu::config::ConfigPaths eeprom_paths =
+            fastecu::config::paths_from_config_values(*configValues);
+
         /*
          * Denso CAN
          */
         if (configValues->flash_protocol_selected_protocol_name.endsWith("_densocan") && configValues->flash_protocol_selected_protocol_name.contains("eeprom"))
         {
-            EepromEcuSubaruDensoSH705xCan flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
+            EepromEcuSubaruDensoSH705xCan flash_module(serial, ecuCalDef[rom_number],
+                                                       eeprom_paths, cmd_type, this);
             connect_signals_and_run_module(&flash_module);
         }
         else if (configValues->flash_protocol_selected_protocol_name.endsWith("_densocan"))
@@ -1273,32 +1278,38 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
          */
         else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_eeprom_denso_sh7055_kline"))
         {
-            EepromEcuSubaruDensoSH705xKline flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
+            EepromEcuSubaruDensoSH705xKline flash_module(serial, ecuCalDef[rom_number],
+                                                         eeprom_paths, cmd_type, this);
             connect_signals_and_run_module(&flash_module);
         }
         else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_eeprom_denso_sh7058_kline"))
         {
-            EepromEcuSubaruDensoSH705xKline flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
+            EepromEcuSubaruDensoSH705xKline flash_module(serial, ecuCalDef[rom_number],
+                                                         eeprom_paths, cmd_type, this);
             connect_signals_and_run_module(&flash_module);
         }
         else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_eeprom_denso_sh7055_densocan"))
         {
-            EepromEcuSubaruDensoSH705xCan flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
+            EepromEcuSubaruDensoSH705xCan flash_module(serial, ecuCalDef[rom_number],
+                                                       eeprom_paths, cmd_type, this);
             connect_signals_and_run_module(&flash_module);
         }
         else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_eeprom_denso_sh7058_densocan"))
         {
-            EepromEcuSubaruDensoSH705xCan flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
+            EepromEcuSubaruDensoSH705xCan flash_module(serial, ecuCalDef[rom_number],
+                                                       eeprom_paths, cmd_type, this);
             connect_signals_and_run_module(&flash_module);
         }
         else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_eeprom_denso_sh7058_can"))
         {
-            EepromEcuSubaruDensoSH705xCan flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
+            EepromEcuSubaruDensoSH705xCan flash_module(serial, ecuCalDef[rom_number],
+                                                       eeprom_paths, cmd_type, this);
             connect_signals_and_run_module(&flash_module);
         }
         else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_eeprom_denso_sh7058_can_diesel"))
         {
-            EepromEcuSubaruDensoSH705xCan flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
+            EepromEcuSubaruDensoSH705xCan flash_module(serial, ecuCalDef[rom_number],
+                                                       eeprom_paths, cmd_type, this);
             connect_signals_and_run_module(&flash_module);
         }
         /*

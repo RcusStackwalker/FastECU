@@ -4,9 +4,9 @@
 // same rationale and harness -- exercises the dialog's one-attempt-per-mode
 // orchestration against scripted IFlashExecutor/IFlashTransport doubles
 // injected through the dialog's protected test seams (buildPlan()/
-// makeWorker()/confirm()/showFailureDialog()) -- the dialog's own public
-// constructor signature is unchanged, so these seams are exposed via a test
-// subclass overriding virtuals rather than an extra constructor parameter.
+// makeWorker()/confirm()/showFailureDialog()), passing the dialog's required
+// ConfigPaths value while overriding virtuals rather than injecting fakes
+// through a production constructor.
 #include "src/ui/desktop/flash/eeprom/eeprom_ecu_subaru_denso_sh705x_can.h"
 
 #include <QApplication>
@@ -172,7 +172,7 @@ class TestEepromCanDialog : public QObject
     void modeOrchestrationIsExactlyTwoThreeFourNeverRepeatsOrSkips()
     {
         FileActions::EcuCalDefStructure ecuCalDef;
-        TestableCanDialog dialog(nullptr, &ecuCalDef, "read");
+        TestableCanDialog dialog(nullptr, &ecuCalDef, fastecu::config::ConfigPaths{}, "read");
         dialog.executorResult = fastecu::fail(ErrorKind::BadResponse, "scripted bad response");
         dialog.confirmAnswers = {QMessageBox::Ok}; // pre-flight only
 
@@ -190,7 +190,7 @@ class TestEepromCanDialog : public QObject
     void initialDeclineDoesNotShowAGenericErrorDialog()
     {
         FileActions::EcuCalDefStructure ecuCalDef;
-        TestableCanDialog dialog(nullptr, &ecuCalDef, "read");
+        TestableCanDialog dialog(nullptr, &ecuCalDef, fastecu::config::ConfigPaths{}, "read");
         dialog.confirmAnswers = {QMessageBox::Cancel};
 
         dialog.run();
@@ -203,7 +203,7 @@ class TestEepromCanDialog : public QObject
     void acceptedBytesAloneUpdateFullRomData()
     {
         FileActions::EcuCalDefStructure ecuCalDef;
-        TestableCanDialog dialog(nullptr, &ecuCalDef, "read");
+        TestableCanDialog dialog(nullptr, &ecuCalDef, fastecu::config::ConfigPaths{}, "read");
         const std::vector<std::uint8_t> readBytes{0xDE, 0xAD, 0xBE, 0xEF};
         dialog.executorResult =
             FlashExecutionResult{.operation = FlashOperation::Read, .read_bytes = readBytes};
@@ -236,7 +236,7 @@ class TestEepromCanDialog : public QObject
         const auto errorKind = static_cast<ErrorKind>(kind);
 
         FileActions::EcuCalDefStructure ecuCalDef;
-        TestableCanDialog dialog(nullptr, &ecuCalDef, "read");
+        TestableCanDialog dialog(nullptr, &ecuCalDef, fastecu::config::ConfigPaths{}, "read");
         dialog.executorResult = fastecu::fail(errorKind, "scripted");
         dialog.confirmAnswers = {QMessageBox::Ok};
 
@@ -271,7 +271,7 @@ class TestEepromCanDialog : public QObject
         QFETCH(QString, cmdType);
 
         FileActions::EcuCalDefStructure ecuCalDef;
-        TestableCanDialog dialog(nullptr, &ecuCalDef, cmdType);
+        TestableCanDialog dialog(nullptr, &ecuCalDef, fastecu::config::ConfigPaths{}, cmdType);
         // A successful read result, scripted so that if the guard were
         // absent (or bypassed) the attempt would succeed and the follow-up
         // Save confirm() would overwrite FullRomData -- proving the guard,

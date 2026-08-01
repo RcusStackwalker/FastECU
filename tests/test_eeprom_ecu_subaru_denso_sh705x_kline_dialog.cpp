@@ -2,10 +2,9 @@
 // Task 17). Exercises the *rewritten* dialog's one-attempt-per-mode
 // orchestration against scripted IFlashExecutor/IFlashTransport doubles
 // injected through the dialog's protected test seams (buildPlan()/
-// makeWorker()/confirm()/showFailureDialog()) -- the dialog's own public
-// constructor signature is unchanged (MainWindow's EEPROM dispatch does not
-// need to change), so these seams are exposed via a test subclass overriding
-// virtuals rather than an extra constructor parameter.
+// makeWorker()/confirm()/showFailureDialog()), passing the dialog's required
+// ConfigPaths value while overriding virtuals rather than injecting fakes
+// through a production constructor.
 #include "src/ui/desktop/flash/eeprom/eeprom_ecu_subaru_denso_sh705x_kline.h"
 
 #include <QApplication>
@@ -169,7 +168,7 @@ class TestEepromKlineDialog : public QObject
     void modeOrchestrationIsExactlyTwoThreeFourNeverRepeatsOrSkips()
     {
         FileActions::EcuCalDefStructure ecuCalDef;
-        TestableKlineDialog dialog(nullptr, &ecuCalDef, "read");
+        TestableKlineDialog dialog(nullptr, &ecuCalDef, fastecu::config::ConfigPaths{}, "read");
         dialog.executorResult = fastecu::fail(ErrorKind::BadResponse, "scripted bad response");
         dialog.confirmAnswers = {QMessageBox::Ok}; // pre-flight only
 
@@ -187,7 +186,7 @@ class TestEepromKlineDialog : public QObject
     void initialDeclineDoesNotShowAGenericErrorDialog()
     {
         FileActions::EcuCalDefStructure ecuCalDef;
-        TestableKlineDialog dialog(nullptr, &ecuCalDef, "read");
+        TestableKlineDialog dialog(nullptr, &ecuCalDef, fastecu::config::ConfigPaths{}, "read");
         dialog.confirmAnswers = {QMessageBox::Cancel};
 
         dialog.run();
@@ -200,7 +199,7 @@ class TestEepromKlineDialog : public QObject
     void acceptedBytesAloneUpdateFullRomData()
     {
         FileActions::EcuCalDefStructure ecuCalDef;
-        TestableKlineDialog dialog(nullptr, &ecuCalDef, "read");
+        TestableKlineDialog dialog(nullptr, &ecuCalDef, fastecu::config::ConfigPaths{}, "read");
         const std::vector<std::uint8_t> readBytes{0xDE, 0xAD, 0xBE, 0xEF};
         dialog.executorResult =
             FlashExecutionResult{.operation = FlashOperation::Read, .read_bytes = readBytes};
@@ -233,7 +232,7 @@ class TestEepromKlineDialog : public QObject
         const auto errorKind = static_cast<ErrorKind>(kind);
 
         FileActions::EcuCalDefStructure ecuCalDef;
-        TestableKlineDialog dialog(nullptr, &ecuCalDef, "read");
+        TestableKlineDialog dialog(nullptr, &ecuCalDef, fastecu::config::ConfigPaths{}, "read");
         dialog.executorResult = fastecu::fail(errorKind, "scripted");
         dialog.confirmAnswers = {QMessageBox::Ok};
 
@@ -267,7 +266,7 @@ class TestEepromKlineDialog : public QObject
         QFETCH(QString, cmdType);
 
         FileActions::EcuCalDefStructure ecuCalDef;
-        TestableKlineDialog dialog(nullptr, &ecuCalDef, cmdType);
+        TestableKlineDialog dialog(nullptr, &ecuCalDef, fastecu::config::ConfigPaths{}, cmdType);
         // A successful read result, scripted so that if the guard were
         // absent (or bypassed) the attempt would succeed and the follow-up
         // Save confirm() would overwrite FullRomData -- proving the guard,

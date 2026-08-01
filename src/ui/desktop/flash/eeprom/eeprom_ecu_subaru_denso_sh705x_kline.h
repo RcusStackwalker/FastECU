@@ -7,6 +7,7 @@
 #include <QString>
 #include <QWidget>
 
+#include "src/backend/config/config_paths.h"
 #include "src/backend/definitions/file_actions.h"
 #include "src/backend/flash/flash_plan.h"
 #include "src/backend/flash/flash_types.h"
@@ -53,6 +54,7 @@ class EepromEcuSubaruDensoSH705xKline : public QDialog
   public:
     EepromEcuSubaruDensoSH705xKline(SerialPortActions *serial,
                                     FileActions::EcuCalDefStructure *ecuCalDef,
+                                    const fastecu::config::ConfigPaths& paths,
                                     const QString& cmd_type, QWidget *parent = nullptr);
     ~EepromEcuSubaruDensoSH705xKline() override;
 
@@ -91,6 +93,10 @@ class EepromEcuSubaruDensoSH705xKline : public QDialog
 
     SerialPortActions *serial_;
     FileActions::EcuCalDefStructure *ecuCalDef_;
+    // Copied, not borrowed: MainWindow's ConfigValuesStructure can be
+    // repopulated (read_config_file/read_protocols_file rewrite it in place)
+    // while this modal dialog is open.
+    fastecu::config::ConfigPaths paths_;
     QString cmd_type_;
     fastecu::flash::EepromReadMode currentMode_ = fastecu::flash::EepromReadMode::Mode2;
     std::unique_ptr<fastecu::flash::FlashWorker> worker_;
