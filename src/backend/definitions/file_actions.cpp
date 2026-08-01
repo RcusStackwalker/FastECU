@@ -1849,7 +1849,6 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
     ConfigValuesStructure *configValues = &ConfigValuesStruct;
 
     bool id_is_ascii = false;
-    bool bStatus = false;
 
     fastecu::Status opened = calibrationAdapter_.open_rom_bytes(*ecuCalDef, filename, *configValues);
     if (!opened.has_value())
