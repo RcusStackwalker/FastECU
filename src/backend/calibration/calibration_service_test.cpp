@@ -19,74 +19,57 @@ using fastecu::definition::RomDefinition;
 using fastecu::definition::Scaling;
 using fastecu::definition::StorageType;
 
-TEST(SaveRom, WritesBytesThroughRepository)
-{
-    InMemoryFileRepository repo;
-    const std::vector<std::uint8_t> data{0x01, 0x02, 0x03};
-
-    Status result = save_rom(data, "out.bin", repo);
-
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(repo.files["out.bin"], data);
-}
-
-TEST(SaveRom, WriteFailureIsPropagated)
-{
-    class FailingFileRepository : public InMemoryFileRepository
-    {
-      public:
-        Status write(std::string_view, std::span<const std::uint8_t>) override
-        {
-            return fastecu::fail(ErrorKind::Internal, "disk full");
-        }
-    } repo;
-
-    const std::vector<std::uint8_t> data{0x01};
-    Status result = save_rom(data, "out.bin", repo);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
-}
-
-TEST(OpenRom, ReadsFromRepositoryWhenNoPreloadedBytes)
+TEST(ReadRom, ReadsRequestedHandleThroughRepository)
 {
     InMemoryFileRepository repo;
     repo.files["in.bin"] = {0xAA, 0xBB};
 
-    Result<std::vector<std::uint8_t>> result =
-        open_rom("in.bin", {}, "backup.bin", repo);
+    Result<std::vector<std::uint8_t>> result = read_rom("in.bin", repo);
 
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(*result, (std::vector<std::uint8_t>{0xAA, 0xBB}));
-    EXPECT_TRUE(repo.files.find("backup.bin") == repo.files.end());
 }
 
-TEST(OpenRom, ReadFailureIsPropagated)
+TEST(ReadRom, ReadFailureIsPropagated)
 {
     InMemoryFileRepository repo;
 
-    Result<std::vector<std::uint8_t>> result =
-        open_rom("missing.bin", {}, "backup.bin", repo);
+    Result<std::vector<std::uint8_t>> result = read_rom("missing.bin", repo);
 
     ASSERT_FALSE(result.has_value());
 }
 
-TEST(OpenRom, PreloadedBytesAreReturnedUnchangedAndBackedUp)
+TEST(ReadRom, EmptyRomIsAValidResultNotAMissingOne)
 {
+    // The two-mode open_rom this replaced used span emptiness to pick its
+    // mode, which conflated "no preloaded bytes" with "a zero-length ROM".
+    // read_rom has one mode, so a zero-length file is just a zero-length
+    // successful read.
     InMemoryFileRepository repo;
-    const std::vector<std::uint8_t> preloaded{0x01, 0x02, 0x03, 0x04};
+    repo.files["empty.bin"] = {};
 
-    Result<std::vector<std::uint8_t>> result =
-        open_rom("ignored.bin", preloaded, "backup.bin", repo);
+    Result<std::vector<std::uint8_t>> result = read_rom("empty.bin", repo);
 
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(*result, preloaded);
-    EXPECT_EQ(repo.files["backup.bin"], preloaded);
-    EXPECT_EQ(repo.read_count("ignored.bin"), 0);
+    EXPECT_TRUE(result->empty());
 }
 
-TEST(OpenRom, BackupWriteFailureDoesNotFailTheOpen)
+TEST(BackupRom, WritesBytesToBackupHandle)
 {
+    InMemoryFileRepository repo;
+    const std::vector<std::uint8_t> rom_data{0x01, 0x02, 0x03, 0x04};
+
+    backup_rom(rom_data, "backup.bin", repo);
+
+    EXPECT_EQ(repo.files["backup.bin"], rom_data);
+    EXPECT_EQ(repo.read_count("backup.bin"), 0);
+}
+
+TEST(BackupRom, WriteFailureIsSwallowed)
+{
+    // The whole reason backup_rom returns void: open_subaru_rom_file never
+    // inspected this write's result, so a failed backup must not be able to
+    // fail the open.
     class FailingBackupRepository : public InMemoryFileRepository
     {
       public:
@@ -95,13 +78,11 @@ TEST(OpenRom, BackupWriteFailureDoesNotFailTheOpen)
             return fastecu::fail(ErrorKind::Internal, "backup failed");
         }
     } repo;
-    const std::vector<std::uint8_t> preloaded{0x01};
+    const std::vector<std::uint8_t> rom_data{0x01};
 
-    Result<std::vector<std::uint8_t>> result =
-        open_rom("ignored.bin", preloaded, "backup.bin", repo);
+    backup_rom(rom_data, "backup.bin", repo);
 
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(*result, preloaded);
+    EXPECT_TRUE(repo.files.find("backup.bin") == repo.files.end());
 }
 
 TEST(ElementByteSizeTest, DelegatesToStorageByteSizeWhenNotBloblist)

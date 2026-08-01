@@ -26,11 +26,42 @@ QByteArray sampleXmlProtocolsFile()
     // car_model_catalog.cpp's text_or_empty(car_model, "make") reads
     // car_model.child("make").text(), matching test_legacy_config_adapter.cpp's
     // own car_model fixtures (e.g. ReadProtocolsFileJoinsCarModelWithMatchingProtocol).
+    //
+    // The second <car_model> deliberately references a protocol name that is
+    // absent from <protocols>. That is a real shape (see
+    // car_model_catalog_test.cpp) and it is the case bind_protocol has to
+    // fill with legacy's " " placeholder rather than leave stale. It is
+    // appended last so the first car_model keeps index 0.
     return QByteArray(
         "<config>"
         "<protocols>"
         "<protocol name=\"sub_ecu_denso_can\" alias=\"denso_can\">"
         "<mcu>SH7058</mcu><checksum>yes</checksum><mode>can</mode>"
+        "<log_protocol>ssm</log_protocol><description>Denso CAN</description>"
+        "</protocol>"
+        "</protocols>"
+        "<car_models>"
+        "<car_model>"
+        "<make>Mitsubishi</make><model>Colt</model><version>Z27AG</version>"
+        "<protocol>sub_ecu_denso_can</protocol>"
+        "</car_model>"
+        "<car_model>"
+        "<make>Subaru</make><model>Impreza</model><version>GD</version>"
+        "<protocol>orphan_protocol</protocol>"
+        "</car_model>"
+        "</car_models>"
+        "</config>");
+}
+
+// Same shape, one <protocol> field changed, so a rebuild of the memoized
+// join is observable.
+QByteArray alternateXmlProtocolsFile()
+{
+    return QByteArray(
+        "<config>"
+        "<protocols>"
+        "<protocol name=\"sub_ecu_denso_can\" alias=\"denso_can\">"
+        "<mcu>SH72543</mcu><checksum>yes</checksum><mode>can</mode>"
         "</protocol>"
         "</protocols>"
         "<car_models>"
@@ -40,6 +71,12 @@ QByteArray sampleXmlProtocolsFile()
         "</car_model>"
         "</car_models>"
         "</config>");
+}
+
+void installProtocolsFile(fastecu::InMemoryFileRepository& repo, const char *handle,
+                          const QByteArray& xml)
+{
+    repo.files[handle] = std::vector<std::uint8_t>(xml.begin(), xml.end());
 }
 } // namespace
 
@@ -76,6 +113,9 @@ class TestLegacyCalibrationAdapter : public QObject
 
         QVERIFY(result.has_value());
         QCOMPARE(ecuCalDef.FullRomData, QByteArray("\x0A\x0B", 2));
+        // The already-loaded path must not touch the repository's read side
+        // at all -- it only backs the in-hand bytes up.
+        QVERIFY(repo.read_handles.empty());
         QVERIFY(repo.files.count("cal/read.bin"));
         QCOMPARE(QByteArray(reinterpret_cast<const char *>(repo.files["cal/read.bin"].data()),
                             static_cast<qsizetype>(repo.files["cal/read.bin"].size())),
@@ -115,9 +155,7 @@ class TestLegacyCalibrationAdapter : public QObject
     void bind_protocol_sets_the_nine_legacy_scalars_on_a_match()
     {
         InMemoryFileRepository repo;
-        const QByteArray protocolsXml = sampleXmlProtocolsFile();
-        repo.files["config/protocols.cfg"] =
-            std::vector<std::uint8_t>(protocolsXml.begin(), protocolsXml.end());
+        installProtocolsFile(repo, "config/protocols.cfg", sampleXmlProtocolsFile());
         LegacyCalibrationAdapter adapter(repo);
         ConfigValuesStructure configValues;
         configValues.protocols_file = "config/protocols.cfg";
@@ -129,6 +167,8 @@ class TestLegacyCalibrationAdapter : public QObject
         QCOMPARE(configValues.flash_protocol_selected_model, QString("Colt"));
         QCOMPARE(configValues.flash_protocol_selected_version, QString("Z27AG"));
         QCOMPARE(configValues.flash_protocol_selected_protocol_name, QString("sub_ecu_denso_can"));
+        QCOMPARE(configValues.flash_protocol_selected_description, QString("Denso CAN"));
+        QCOMPARE(configValues.flash_protocol_selected_log_protocol, QString("ssm"));
         QCOMPARE(configValues.flash_protocol_selected_mcu, QString("SH7058"));
         QCOMPARE(configValues.flash_protocol_selected_checksum, QString("yes"));
     }
@@ -136,9 +176,7 @@ class TestLegacyCalibrationAdapter : public QObject
     void bind_protocol_leaves_selected_fields_untouched_on_no_match()
     {
         InMemoryFileRepository repo;
-        const QByteArray protocolsXml = sampleXmlProtocolsFile();
-        repo.files["config/protocols.cfg"] =
-            std::vector<std::uint8_t>(protocolsXml.begin(), protocolsXml.end());
+        installProtocolsFile(repo, "config/protocols.cfg", sampleXmlProtocolsFile());
         LegacyCalibrationAdapter adapter(repo);
         ConfigValuesStructure configValues;
         configValues.protocols_file = "config/protocols.cfg";
@@ -147,6 +185,113 @@ class TestLegacyCalibrationAdapter : public QObject
         adapter.bind_protocol(configValues, "no_such_flash_method");
 
         QCOMPARE(configValues.flash_protocol_selected_mcu, QString("PRE_EXISTING"));
+    }
+
+    // A car model matches, but its protocol_name matches no <protocol>. The
+    // legacy scan loop this replaced read the four protocol-derived scalars
+    // out of the parallel flash_protocol_* lists, which
+    // LegacyConfigAdapter::copy_car_models_into_legacy fills with a single
+    // space for exactly this row shape -- so " ", not the matched row's
+    // values and not whatever was there before.
+    void bind_protocol_writes_the_legacy_placeholder_for_an_unmatched_protocol()
+    {
+        InMemoryFileRepository repo;
+        installProtocolsFile(repo, "config/protocols.cfg", sampleXmlProtocolsFile());
+        LegacyCalibrationAdapter adapter(repo);
+        ConfigValuesStructure configValues;
+        configValues.protocols_file = "config/protocols.cfg";
+
+        adapter.bind_protocol(configValues, "orphan_protocol");
+
+        QCOMPARE(configValues.flash_protocol_selected_id, QString("1"));
+        QCOMPARE(configValues.flash_protocol_selected_make, QString("Subaru"));
+        QCOMPARE(configValues.flash_protocol_selected_model, QString("Impreza"));
+        QCOMPARE(configValues.flash_protocol_selected_version, QString("GD"));
+        QCOMPARE(configValues.flash_protocol_selected_protocol_name, QString("orphan_protocol"));
+        QCOMPARE(configValues.flash_protocol_selected_description, QString(" "));
+        QCOMPARE(configValues.flash_protocol_selected_log_protocol, QString(" "));
+        QCOMPARE(configValues.flash_protocol_selected_mcu, QString(" "));
+        QCOMPARE(configValues.flash_protocol_selected_checksum, QString(" "));
+    }
+
+    // The regression this guards: bind_protocol used to write those four only
+    // inside `if (row.protocol.has_value())`, so opening a ROM whose protocol
+    // is unmatched kept the *previously* opened ROM's mcu/checksum -- and
+    // file_actions.cpp branches on flash_protocol_selected_checksum to pick
+    // the checksum module and assigns selected_mcu straight to
+    // ecuCalDef->McuType.
+    void bind_protocol_overwrites_a_stale_value_rather_than_leaving_it()
+    {
+        InMemoryFileRepository repo;
+        installProtocolsFile(repo, "config/protocols.cfg", sampleXmlProtocolsFile());
+        LegacyCalibrationAdapter adapter(repo);
+        ConfigValuesStructure configValues;
+        configValues.protocols_file = "config/protocols.cfg";
+
+        adapter.bind_protocol(configValues, "sub_ecu_denso_can");
+        QCOMPARE(configValues.flash_protocol_selected_mcu, QString("SH7058"));
+        QCOMPARE(configValues.flash_protocol_selected_checksum, QString("yes"));
+
+        adapter.bind_protocol(configValues, "orphan_protocol");
+
+        QCOMPARE(configValues.flash_protocol_selected_mcu, QString(" "));
+        QCOMPARE(configValues.flash_protocol_selected_checksum, QString(" "));
+        QCOMPARE(configValues.flash_protocol_selected_description, QString(" "));
+        QCOMPARE(configValues.flash_protocol_selected_log_protocol, QString(" "));
+    }
+
+    void bind_protocol_does_not_reread_protocols_file_on_a_second_call()
+    {
+        InMemoryFileRepository repo;
+        installProtocolsFile(repo, "config/protocols.cfg", sampleXmlProtocolsFile());
+        LegacyCalibrationAdapter adapter(repo);
+        ConfigValuesStructure configValues;
+        configValues.protocols_file = "config/protocols.cfg";
+
+        adapter.bind_protocol(configValues, "sub_ecu_denso_can");
+        const int readsAfterFirstCall = repo.read_count("config/protocols.cfg");
+        QVERIFY(readsAfterFirstCall > 0);
+
+        adapter.bind_protocol(configValues, "sub_ecu_denso_can");
+
+        QCOMPARE(repo.read_count("config/protocols.cfg"), readsAfterFirstCall);
+        QCOMPARE(configValues.flash_protocol_selected_mcu, QString("SH7058"));
+    }
+
+    void bind_protocol_rebuilds_the_cache_when_the_protocols_handle_changes()
+    {
+        InMemoryFileRepository repo;
+        installProtocolsFile(repo, "config/protocols.cfg", sampleXmlProtocolsFile());
+        installProtocolsFile(repo, "config/other.cfg", alternateXmlProtocolsFile());
+        LegacyCalibrationAdapter adapter(repo);
+        ConfigValuesStructure configValues;
+        configValues.protocols_file = "config/protocols.cfg";
+
+        adapter.bind_protocol(configValues, "sub_ecu_denso_can");
+        QCOMPARE(configValues.flash_protocol_selected_mcu, QString("SH7058"));
+
+        configValues.protocols_file = "config/other.cfg";
+        adapter.bind_protocol(configValues, "sub_ecu_denso_can");
+
+        QCOMPARE(configValues.flash_protocol_selected_mcu, QString("SH72543"));
+        QVERIFY(repo.read_count("config/other.cfg") > 0);
+    }
+
+    // A first call that could not load the file must not poison the cache.
+    void bind_protocol_retries_after_a_failed_load()
+    {
+        InMemoryFileRepository repo;
+        LegacyCalibrationAdapter adapter(repo);
+        ConfigValuesStructure configValues;
+        configValues.protocols_file = "config/protocols.cfg";
+
+        adapter.bind_protocol(configValues, "sub_ecu_denso_can");
+        QVERIFY(configValues.flash_protocol_selected_mcu.isEmpty());
+
+        installProtocolsFile(repo, "config/protocols.cfg", sampleXmlProtocolsFile());
+        adapter.bind_protocol(configValues, "sub_ecu_denso_can");
+
+        QCOMPARE(configValues.flash_protocol_selected_mcu, QString("SH7058"));
     }
 };
 

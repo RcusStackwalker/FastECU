@@ -41,25 +41,18 @@ Status validate_extent(
 
 } // namespace
 
-Status save_rom(std::span<const std::uint8_t> rom_data, std::string_view file_handle,
-                IFileRepository& file_repository)
-{
-    return file_repository.write(file_handle, rom_data);
-}
-
-Result<std::vector<std::uint8_t>> open_rom(std::string_view file_handle,
-                                           std::span<const std::uint8_t> preloaded_bytes,
-                                           std::string_view backup_handle,
+Result<std::vector<std::uint8_t>> read_rom(std::string_view file_handle,
                                            IFileRepository& file_repository)
 {
-    if (!preloaded_bytes.empty())
-    {
-        // Fire-and-forget, matching open_subaru_rom_file's own behavior of
-        // never checking this write's result.
-        (void)save_rom(preloaded_bytes, backup_handle, file_repository);
-        return std::vector<std::uint8_t>(preloaded_bytes.begin(), preloaded_bytes.end());
-    }
     return file_repository.read(file_handle);
+}
+
+void backup_rom(std::span<const std::uint8_t> rom_data, std::string_view backup_handle,
+                IFileRepository& file_repository)
+{
+    // Fire-and-forget, matching open_subaru_rom_file's own behavior of never
+    // checking this write's result.
+    (void)file_repository.write(backup_handle, rom_data);
 }
 
 std::uint32_t element_byte_size(

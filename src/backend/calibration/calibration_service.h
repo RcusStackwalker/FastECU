@@ -14,20 +14,23 @@
 namespace fastecu::calibration
 {
 
-// Replaces FileActions::save_subaru_rom_file's body.
-Status save_rom(std::span<const std::uint8_t> rom_data, std::string_view file_handle,
-                IFileRepository& file_repository);
-
-// Reads via file_repository when preloaded_bytes is empty (the "read from
-// disk" case). When preloaded_bytes is non-empty (the "already have
-// FullRomData" case, e.g. after an ECU read), backs it up to backup_handle
-// via save_rom -- a backup-write failure does not fail the open, matching
-// open_subaru_rom_file's own fire-and-forget backup save -- and returns
-// preloaded_bytes unchanged. Does not perform definition matching.
-Result<std::vector<std::uint8_t>> open_rom(std::string_view file_handle,
-                                           std::span<const std::uint8_t> preloaded_bytes,
-                                           std::string_view backup_handle,
+// The "open a ROM off disk" half of open_subaru_rom_file. Does not perform
+// definition matching.
+//
+// Deliberately separate from backup_rom rather than one function dispatching
+// on whether preloaded bytes were supplied: the two modes share no arguments
+// (a disk open has no backup handle, an already-loaded open has no file to
+// read), and an emptiness test cannot distinguish "caller supplied no
+// preloaded bytes" from "caller supplied a genuinely zero-length ROM".
+Result<std::vector<std::uint8_t>> read_rom(std::string_view file_handle,
                                            IFileRepository& file_repository);
+
+// The "already have the bytes" half: writes an in-hand ROM image (e.g. one
+// just read off the ECU) to backup_handle. Returns void by design -- a failed
+// backup must not fail the open, matching open_subaru_rom_file's own
+// fire-and-forget backup save, which never inspected the write's result.
+void backup_rom(std::span<const std::uint8_t> rom_data, std::string_view backup_handle,
+                IFileRepository& file_repository);
 
 // Byte width of one element. For Bloblist, derived from the first selection's
 // hex-encoded value length (2 hex chars per byte) when `scaling` has one --
