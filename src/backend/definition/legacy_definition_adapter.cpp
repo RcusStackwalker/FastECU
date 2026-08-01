@@ -434,7 +434,8 @@ Status LegacyDefinitionAdapter::replace_definition(
     definitions::EcuCalDefStructure& current,
     const DefinitionCatalog& catalog,
     DefinitionFormat format,
-    std::string_view id)
+    std::string_view id,
+    RomDefinition *resolved)
 {
     auto definition = service_.load(catalog, format, id);
     if (!definition.has_value())
@@ -466,6 +467,12 @@ Status LegacyDefinitionAdapter::replace_definition(
         return aligned;
     }
     current = std::move(next);
+    // Hand the already-resolved definition back when the caller asked for it,
+    // so nothing downstream has to rebuild a catalog and load it a second time.
+    if (resolved != nullptr)
+    {
+        *resolved = std::move(*definition);
+    }
     return {};
 }
 

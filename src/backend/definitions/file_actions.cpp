@@ -9,6 +9,7 @@
 #include "src/algorithms/diagnostics/qt_dtc_parser.h"
 #include "src/algorithms/expression/qt_expression_evaluator.h"
 #include "src/algorithms/protocol/qt_bytes.h"
+#include "src/backend/calibration/calibration_service.h"
 #include "src/backend/checksum/flash_device_lookup.h"
 #include "src/algorithms/diagnostics/qt_nrc_parser.h"
 
@@ -304,17 +305,42 @@ fastecu::Status FileActions::load_configured_definition(
     auto catalog = build_definition_catalog(format);
     if (!catalog.has_value())
     {
+        resolvedDefinition_.reset();
         return std::unexpected(catalog.error());
     }
+    fastecu::definition::RomDefinition resolved;
     fastecu::Status replaced = definitionAdapter_.replace_definition(
-        ecu_cal_def, *catalog, format, definition_id.toStdString());
+        ecu_cal_def, *catalog, format, definition_id.toStdString(), &resolved);
     if (!replaced.has_value())
     {
+        resolvedDefinition_.reset();
         return replaced;
     }
+    // Keep the resolution this call already paid for: open_subaru_rom_file's
+    // ROM-size validation needs the same RomDefinition, and re-deriving it
+    // there would mean a second full definition-catalog build (which
+    // index-parses every XML in the definitions directory) per ROM open.
+    resolvedDefinition_ = ResolvedDefinition{
+        .format = format,
+        .id = definition_id,
+        .definition = std::move(resolved),
+    };
     normalize_definition_addresses(ecu_cal_def);
     apply_flash_method_alias(ecu_cal_def);
     return {};
+}
+
+const fastecu::definition::RomDefinition *FileActions::resolved_definition(
+    DefinitionFormat format,
+    const QString& definition_id) const
+{
+    if (!resolvedDefinition_.has_value() ||
+        resolvedDefinition_->format != format ||
+        resolvedDefinition_->id != definition_id)
+    {
+        return nullptr;
+    }
+    return &resolvedDefinition_->definition;
 }
 
 bool FileActions::log_definition_load_failure(
@@ -2007,16 +2033,6 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
     ecuCalDef->FileSize = QString::number(ecuCalDef->FullRomData.length());
     ecuCalDef->RomInfo.replace(FileSize, QString::number(ecuCalDef->FullRomData.length() / 1024) + "kb");
 
-    for (int i = 0; i < ecuCalDef->NameList.length(); i++)
-    {
-        if (ecuCalDef->AddressList.at(i).toUInt() > ecuCalDef->FullRomData.length() || ecuCalDef->XScaleAddressList.at(i).toUInt() > ecuCalDef->FullRomData.length() || ecuCalDef->YScaleAddressList.at(i).toUInt() > ecuCalDef->FullRomData.length())
-        {
-            QMessageBox::warning(this, tr("File size error"), "Error in expected ROM size!");
-            ecuCalDef->NameList.clear();
-            return ecuCalDef;
-        }
-    }
-
     QByteArray padding;
     padding.clear();
     if (ecuCalDef->RomInfo.at(FlashMethod).startsWith("sub_ecu_denso_mc68hc16y5_02") && ecuCalDef->FileSize.toUInt() < 190 * 1024)
@@ -2027,6 +2043,42 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
         }
     }
     // emit LOG_D("QByteArray size = " + ecuCalDef->FullRomData.length(), true, true);
+
+    // Deliberately after the padding block above, not before it: padding
+    // grows FullRomData by 0x8000 bytes, and a definition authored against
+    // the padded image would be rejected by a check run against the
+    // pre-padded length.
+    if (ecuCalDef->use_romraider_definition || ecuCalDef->use_ecuflash_definition)
+    {
+        const fastecu::definition::DefinitionFormat matchedFormat =
+            ecuCalDef->use_ecuflash_definition
+                ? fastecu::definition::DefinitionFormat::EcuFlash
+                : fastecu::definition::DefinitionFormat::RomRaider;
+        const fastecu::definition::RomDefinition *romDefinition =
+            resolved_definition(matchedFormat, ecuCalDef->RomId);
+        if (romDefinition == nullptr)
+        {
+            // A skipped size check must never be silent: the map-data loops
+            // below are exactly what it fences.
+            emit LOG_W(
+                "ROM size validation skipped: no resolved definition for id " +
+                    ecuCalDef->RomId,
+                true,
+                true);
+        }
+        else
+        {
+            fastecu::Status sizeOk = fastecu::calibration::validate_rom_size(
+                *romDefinition, static_cast<std::size_t>(ecuCalDef->FullRomData.length()));
+            if (!sizeOk.has_value())
+            {
+                log_definition_error("Error in expected ROM size", sizeOk.error());
+                QMessageBox::warning(this, tr("File size error"), "Error in expected ROM size!");
+                ecuCalDef->NameList.clear();
+                return ecuCalDef;
+            }
+        }
+    }
 
     int storagesize = 0;
     QString storagetype = 0;
