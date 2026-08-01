@@ -18,6 +18,9 @@ namespace fastecu::definition
 namespace
 {
 
+using ::testing::HasSubstr;
+using ::testing::Not;
+
 std::vector<std::uint8_t> bytes(std::string_view text)
 {
     return {text.begin(), text.end()};
@@ -76,9 +79,9 @@ TEST(DefinitionWriterTest, CreatesSemanticEcuFlashDefinitionWithDeterministicUtf
 
     const std::string xml = text(*result);
     EXPECT_TRUE(xml.starts_with("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"));
-    EXPECT_THAT(xml, ::testing::HasSubstr("\n  <romid>\n    <xmlid>NEW_XML</xmlid>"));
-    EXPECT_THAT(xml, ::testing::HasSubstr("<notes>Réglage Ω</notes>"));
-    EXPECT_EQ(xml.find('\t'), std::string::npos);
+    EXPECT_THAT(xml, HasSubstr("\n  <romid>\n    <xmlid>NEW_XML</xmlid>"));
+    EXPECT_THAT(xml, HasSubstr("<notes>Réglage Ω</notes>"));
+    EXPECT_THAT(xml, Not(HasSubstr("\t")));
     ASSERT_FALSE(xml.empty());
     EXPECT_EQ(xml.back(), '\n');
 }
@@ -96,7 +99,7 @@ TEST(DefinitionWriterTest, OmitsAddressElementWhenNotProvided)
     EXPECT_EQ(parsed->identity.internal_id_address, std::nullopt);
 
     const std::string xml = text(*result);
-    EXPECT_EQ(xml.find("internalidaddress"), std::string::npos);
+    EXPECT_THAT(xml, Not(HasSubstr("internalidaddress")));
 }
 
 TEST(DefinitionWriterTest, ClearsExistingAddressOnRewriteWhenNotProvided)
@@ -122,7 +125,7 @@ TEST(DefinitionWriterTest, ClearsExistingAddressOnRewriteWhenNotProvided)
     EXPECT_EQ(parsed->identity.internal_id_address, std::nullopt);
 
     const std::string xml = text(*result);
-    EXPECT_EQ(xml.find("internalidaddress"), std::string::npos);
+    EXPECT_THAT(xml, Not(HasSubstr("internalidaddress")));
 }
 
 TEST(DefinitionWriterTest, ReplacesStaleNestedContentInsteadOfAppendingToIt)
@@ -146,9 +149,9 @@ TEST(DefinitionWriterTest, ReplacesStaleNestedContentInsteadOfAppendingToIt)
     EXPECT_EQ(parsed->identity.xml_id, input.xml_id);
 
     const std::string xml = text(*result);
-    EXPECT_EQ(xml.find("stale"), std::string::npos);
-    EXPECT_EQ(xml.find("junk"), std::string::npos);
-    EXPECT_THAT(xml, ::testing::HasSubstr(std::format("<xmlid>{}</xmlid>", input.xml_id)));
+    EXPECT_THAT(xml, Not(HasSubstr("stale")));
+    EXPECT_THAT(xml, Not(HasSubstr("junk")));
+    EXPECT_THAT(xml, HasSubstr(std::format("<xmlid>{}</xmlid>", input.xml_id)));
 }
 
 TEST(DefinitionWriterTest, RejectsEachEmptyRequiredIdentity)
@@ -221,22 +224,21 @@ TEST(DefinitionWriterTest, RewritesHeaderAndPreservesUnrelatedTreeContent)
     EXPECT_EQ(parsed->maps.front().name, "Fuel");
 
     const std::string xml = text(*result);
-    EXPECT_THAT(xml, ::testing::HasSubstr("<!-- root comment -->"));
-    EXPECT_THAT(xml, ::testing::HasSubstr("<!-- identity comment -->"));
-    EXPECT_THAT(
-        xml, ::testing::HasSubstr("<vendor-field flag=\"yes\">keep me</vendor-field>"));
+    EXPECT_THAT(xml, HasSubstr("<!-- root comment -->"));
+    EXPECT_THAT(xml, HasSubstr("<!-- identity comment -->"));
+    EXPECT_THAT(xml, HasSubstr("<vendor-field flag=\"yes\">keep me</vendor-field>"));
     EXPECT_THAT(
         xml,
-        ::testing::HasSubstr(
+        HasSubstr(
             "<vendor-extension answer=\"42\">\n    <child />\n  </vendor-extension>"));
-    EXPECT_THAT(xml, ::testing::HasSubstr("<notes>Réglage Ω</notes>"));
-    EXPECT_EQ(xml.find("OLD_XML"), std::string::npos);
-    EXPECT_EQ(xml.find("OLD_BASE"), std::string::npos);
-    EXPECT_EQ(xml.find("Old document notes"), std::string::npos);
-    EXPECT_EQ(xml.find("STALE_XML"), std::string::npos);
-    EXPECT_EQ(xml.find("STALE_BASE"), std::string::npos);
-    EXPECT_EQ(xml.find("Stale document notes"), std::string::npos);
-    EXPECT_EQ(xml.find('\t'), std::string::npos);
+    EXPECT_THAT(xml, HasSubstr("<notes>Réglage Ω</notes>"));
+    EXPECT_THAT(xml, Not(HasSubstr("OLD_XML")));
+    EXPECT_THAT(xml, Not(HasSubstr("OLD_BASE")));
+    EXPECT_THAT(xml, Not(HasSubstr("Old document notes")));
+    EXPECT_THAT(xml, Not(HasSubstr("STALE_XML")));
+    EXPECT_THAT(xml, Not(HasSubstr("STALE_BASE")));
+    EXPECT_THAT(xml, Not(HasSubstr("Stale document notes")));
+    EXPECT_THAT(xml, Not(HasSubstr("\t")));
     EXPECT_EQ(xml.back(), '\n');
 }
 
@@ -260,8 +262,8 @@ TEST(DefinitionWriterTest, RejectsDuplicateTopLevelRomIdContainers)
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("<romid>"));
-    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("duplicate"));
+    EXPECT_THAT(result.error().detail, HasSubstr("<romid>"));
+    EXPECT_THAT(result.error().detail, HasSubstr("duplicate"));
 }
 
 } // namespace
