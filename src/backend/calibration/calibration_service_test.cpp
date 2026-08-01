@@ -1,5 +1,6 @@
 #include "src/backend/calibration/calibration_service.h"
 
+#include <format>
 #include <utility>
 #include <vector>
 
@@ -395,6 +396,265 @@ TEST(ApplyFlashMethodPadding, LeavesEmptyFlashMethodAlone)
     std::vector<std::uint8_t> rom(0x100, 0xAA);
     rom = apply_flash_method_padding(std::move(rom), "");
     EXPECT_EQ(rom.size(), 0x100u);
+}
+
+// A run over `count` uint8 big-endian cells at address 0 with the identity
+// expression, which is the shape most decode tests want.
+ElementRun simple_run(std::uint32_t count, std::string_view from_byte = "x")
+{
+    return ElementRun{
+        .address = 0,
+        .count = count,
+        .start_position = 1,
+        .interval = 1,
+        .storage_type = definition::StorageType::Uint8,
+        .endian = "big",
+        .from_byte = from_byte,
+        .is_selectable = false,
+    };
+}
+
+TEST(DecodeScaledValues, DecodesConsecutiveUint8Cells)
+{
+    const std::vector<std::uint8_t> rom{1, 2, 3};
+    const auto result = decode_scaled_values(rom, simple_run(3), 15);
+    ASSERT_TRUE(result.has_value());
+    // Trailing comma after every value, including the last: legacy's format.
+    EXPECT_EQ(*result, "1,2,3,");
+}
+
+TEST(DecodeScaledValues, AppliesFromByteExpression)
+{
+    const std::vector<std::uint8_t> rom{4};
+    const auto result = decode_scaled_values(rom, simple_run(1, "x*0.5"), 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "2,");
+}
+
+TEST(DecodeScaledValues, HonoursStartPositionAndInterval)
+{
+    // start_position 2, interval 3, width 1: addresses 1, 4, 7.
+    const std::vector<std::uint8_t> rom{0, 10, 0, 0, 20, 0, 0, 30};
+    ElementRun run = simple_run(3);
+    run.start_position = 2;
+    run.interval = 3;
+
+    const auto result = decode_scaled_values(rom, run, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "10,20,30,");
+}
+
+TEST(DecodeScaledValues, DecodesBigEndianUint16)
+{
+    const std::vector<std::uint8_t> rom{0x12, 0x34};
+    ElementRun run = simple_run(1);
+    run.storage_type = definition::StorageType::Uint16;
+
+    const auto result = decode_scaled_values(rom, run, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "4660,"); // 0x1234
+}
+
+TEST(DecodeScaledValues, DecodesLittleEndianUint16)
+{
+    // DISCLOSED BEHAVIOR FIX vs. legacy. The legacy loop filled a union member
+    // that the non-float value-selection path never read, so every
+    // endian=="little" non-float run evaluated from_byte at x=0 -- a constant,
+    // ignoring ROM bytes entirely. This decodes genuinely little-endian.
+    const std::vector<std::uint8_t> rom{0x34, 0x12};
+    ElementRun run = simple_run(1);
+    run.storage_type = definition::StorageType::Uint16;
+    run.endian = "little";
+
+    const auto result = decode_scaled_values(rom, run, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "4660,"); // 0x1234
+}
+
+TEST(DecodeScaledValues, TreatsAnyNonLittleEndianStringAsBigEndian)
+{
+    // Legacy's split was `== "little"` / else, so "", "big", and anything else
+    // all take the big-endian path. Reproduced exactly.
+    const std::vector<std::uint8_t> rom{0x12, 0x34};
+    for (std::string_view endian : {"big", "", "BIG", "nonsense"})
+    {
+        ElementRun run = simple_run(1);
+        run.storage_type = definition::StorageType::Uint16;
+        run.endian = endian;
+        const auto result = decode_scaled_values(rom, run, 15);
+        ASSERT_TRUE(result.has_value()) << endian;
+        EXPECT_EQ(*result, "4660,") << endian;
+    }
+}
+
+TEST(DecodeScaledValues, SignExtendsSignedStorageTypes)
+{
+    // DISCLOSED BEHAVIOR FIX vs. legacy, on every platform. Legacy's
+    // `signedDataByte = (signedDataByte << 8) + FullRomData.at(...)` both
+    // sign-extended intermediate bytes on a signed-char host (which includes
+    // this project's arm64 macOS build) and never sign-extended the final
+    // assembled value to its storage width. int16 0xFFFE rendered as -258 on
+    // arm64 macOS and 65534 under -funsigned-char. Correct answer: -2.
+    const std::vector<std::uint8_t> rom{0xFF, 0xFE};
+    ElementRun run = simple_run(1);
+    run.storage_type = definition::StorageType::Int16;
+
+    const auto result = decode_scaled_values(rom, run, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "-2,");
+}
+
+TEST(DecodeScaledValues, DoesNotSignExtendUnsignedStorageTypes)
+{
+    const std::vector<std::uint8_t> rom{0xFF, 0xFE};
+    ElementRun run = simple_run(1);
+    run.storage_type = definition::StorageType::Uint16;
+
+    const auto result = decode_scaled_values(rom, run, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "65534,");
+}
+
+TEST(DecodeScaledValues, DecodesInt8SignBit)
+{
+    const std::vector<std::uint8_t> rom{0x80};
+    ElementRun run = simple_run(1);
+    run.storage_type = definition::StorageType::Int8;
+
+    const auto result = decode_scaled_values(rom, run, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "-128,");
+}
+
+TEST(DecodeScaledValues, DecodesBigEndianFloat)
+{
+    // 1.5f == 0x3FC00000
+    const std::vector<std::uint8_t> rom{0x3F, 0xC0, 0x00, 0x00};
+    ElementRun run = simple_run(1);
+    run.storage_type = definition::StorageType::Float;
+
+    const auto result = decode_scaled_values(rom, run, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "1.5,");
+}
+
+TEST(DecodeScaledValues, EmitsZeroForSelectableRunsWithoutEvaluating)
+{
+    // is_selectable short-circuits before the expression runs, so even an
+    // expression that would blow up yields the formatted text of 0.0.
+    const std::vector<std::uint8_t> rom{7, 8};
+    ElementRun run = simple_run(2, "x*999999");
+    run.is_selectable = true;
+
+    const auto result = decode_scaled_values(rom, run, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "0,0,");
+}
+
+TEST(DecodeScaledValues, ReturnsEmptyStringForZeroCount)
+{
+    const std::vector<std::uint8_t> rom{1, 2, 3};
+    const auto result = decode_scaled_values(rom, simple_run(0), 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "");
+}
+
+TEST(DecodeScaledValues, FailsWhenAnElementRunsPastTheRom)
+{
+    const std::vector<std::uint8_t> rom{1, 2};
+    const auto result = decode_scaled_values(rom, simple_run(3), 15);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+}
+
+TEST(DecodeScaledValues, FailsWhenAMultiByteElementStraddlesTheEnd)
+{
+    const std::vector<std::uint8_t> rom{0x12};
+    ElementRun run = simple_run(1);
+    run.storage_type = definition::StorageType::Uint16;
+
+    const auto result = decode_scaled_values(rom, run, 15);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+}
+
+TEST(DecodeScaledValues, ClampsZeroStartPositionDefensively)
+{
+    // definition_resolver rejects start_position == 0 (Task 4), so this cannot
+    // arrive from a resolved definition. Clamped identically to
+    // element_run_end's own guard so the two can never disagree if one is
+    // reached directly.
+    const std::vector<std::uint8_t> rom{1, 2};
+    ElementRun run = simple_run(1);
+    run.start_position = 0;
+
+    const auto result = decode_scaled_values(rom, run, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "1,");
+}
+
+TEST(DecodeScaledValues, FormattingMatchesCapturedQtGroundTruth)
+{
+    // Ground truth captured from real QString::number(value, 'g', 15). This is
+    // the highest-value test in this file: legacy formatted every decoded cell
+    // with Qt's 'g', and MapData consumers compare text. Do not weaken it.
+    //
+    // from_byte is a bare numeric literal via std::format("{:.20f}", value),
+    // not an expression referencing x, so this isolates formatting from byte
+    // decoding. Fixed-point with 20 places specifically: std::to_string
+    // truncates at 6 places, and a "{:.17g}" form emits scientific notation
+    // whose 'e' the expression tokenizer silently misreads as a subtraction.
+    struct Case
+    {
+        double value;
+        const char *expected;
+    };
+    const Case cases[] = {
+        {0.0, "0"},
+        {-0.0, "0"},
+        {1.0, "1"},
+        {123.0, "123"},
+        {123.456, "123.456"},
+        {-45.6, "-45.6"},
+        {0.0001, "0.0001"},
+        {0.00001, "1e-05"},
+        {100000.0, "100000"},
+        {123456789012345.0, "123456789012345"},
+        {3.14159265358979, "3.14159265358979"},
+        {0.000000001, "1e-09"},
+    };
+    const std::vector<std::uint8_t> rom{0x01};
+    for (const Case& c : cases)
+    {
+        const std::string literal = std::format("{:.20f}", c.value);
+        const auto result = decode_scaled_values(rom, simple_run(1, literal), 15);
+        ASSERT_TRUE(result.has_value()) << c.expected;
+        EXPECT_EQ(*result, std::string(c.expected) + ",") << "value=" << c.value;
+    }
+}
+
+TEST(DecodeBloblistHex, HexEncodesRequestedBytes)
+{
+    const std::vector<std::uint8_t> rom{0x00, 0xAB, 0xCD, 0xEF};
+    const auto result = decode_bloblist_hex(rom, 1, 3);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "abcdef");
+}
+
+TEST(DecodeBloblistHex, ReturnsEmptyStringForZeroCount)
+{
+    const std::vector<std::uint8_t> rom{0xAB};
+    const auto result = decode_bloblist_hex(rom, 0, 0);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "");
+}
+
+TEST(DecodeBloblistHex, FailsWhenTheRunExceedsTheRom)
+{
+    const std::vector<std::uint8_t> rom{0xAB, 0xCD};
+    const auto result = decode_bloblist_hex(rom, 1, 3);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
 }
 
 } // namespace

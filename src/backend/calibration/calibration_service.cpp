@@ -2,8 +2,13 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdio>
+#include <cstring>
+#include <format>
 #include <string>
 #include <string_view>
+
+#include "src/algorithms/expression/expression_evaluator.h"
 
 namespace fastecu::calibration
 {
@@ -31,6 +36,40 @@ Status validate_extent(
         return fail(ErrorKind::InvalidConfig, std::string(context) + " address exceeds ROM size");
     }
     return {};
+}
+
+constexpr char kHexDigits[] = "0123456789abcdef";
+
+// Reproduces QString::number(value, 'g', precision). Qt's 'g' and C's %g agree
+// on trailing-zero stripping and exponent thresholds across the range these
+// ROMs produce -- pinned by FormattingMatchesCapturedQtGroundTruth, which
+// compares against real Qt output rather than assuming compatibility.
+std::string format_like_qt_g(double value, int precision)
+{
+    if (value == 0.0)
+    {
+        value = 0.0; // normalizes -0.0 to +0.0, as Qt does
+    }
+    char buffer[64];
+    std::snprintf(buffer, sizeof(buffer), "%.*g", precision, value);
+    return std::string(buffer);
+}
+
+// Sign-extends an assembled `width`-byte value to a full int32. Widths of 4 or
+// more are already full-width; width 0 cannot occur (storage_byte_size floors
+// at 1) but is handled rather than shifted out of range.
+std::int32_t sign_extend(std::uint32_t raw, std::uint32_t width)
+{
+    if (width == 0 || width >= 4)
+    {
+        return static_cast<std::int32_t>(raw);
+    }
+    const std::uint32_t sign_bit = 1u << (width * 8 - 1);
+    if ((raw & sign_bit) == 0)
+    {
+        return static_cast<std::int32_t>(raw);
+    }
+    return static_cast<std::int32_t>(raw | ~((sign_bit << 1) - 1));
 }
 
 } // namespace
@@ -137,6 +176,87 @@ std::vector<std::uint8_t> apply_flash_method_padding(
     rom_data.insert(rom_data.begin() + static_cast<std::ptrdiff_t>(kInsertAt),
                     kPadBytes, 0xFF);
     return rom_data;
+}
+
+Result<std::string> decode_scaled_values(bytes::ByteView rom_data,
+                                         const ElementRun& run,
+                                         int float_precision)
+{
+    const std::uint32_t width = definition::storage_byte_size(run.storage_type);
+    const bool is_float = run.storage_type == definition::StorageType::Float;
+    const bool is_unsigned = definition::is_unsigned_storage(run.storage_type);
+    const bool little_endian = run.endian == "little";
+    // start_position is 1-based. definition_resolver rejects 0, but clamp
+    // identically to element_run_end's guard so the two cannot disagree if
+    // this is reached directly.
+    const std::uint64_t start_offset =
+        run.start_position == 0 ? 0 : std::uint64_t(run.start_position - 1);
+
+    std::string result;
+    for (std::uint32_t j = 0; j < run.count; ++j)
+    {
+        const std::uint64_t byte_address = run.address + start_offset * width +
+                                           std::uint64_t(j) * width * run.interval;
+        if (byte_address + width > rom_data.size())
+        {
+            return fail(ErrorKind::Internal,
+                        std::format("element {} at 0x{:x} runs past ROM size {}",
+                                    j, byte_address, rom_data.size()));
+        }
+
+        const std::uint32_t raw =
+            little_endian
+                ? bytes::readULe(rom_data, static_cast<std::size_t>(byte_address), width)
+                : bytes::readUBe(rom_data, static_cast<std::size_t>(byte_address), width);
+
+        double value = 0.0;
+        if (!run.is_selectable)
+        {
+            if (is_float)
+            {
+                float float_value = 0.0F;
+                std::memcpy(&float_value, &raw, sizeof(float_value));
+                value = expression_evaluate(
+                    run.from_byte, format_like_qt_g(float_value, float_precision),
+                    float_precision);
+            }
+            else if (is_unsigned)
+            {
+                value = expression_evaluate(run.from_byte, std::to_string(raw),
+                                            float_precision);
+            }
+            else
+            {
+                value = expression_evaluate(
+                    run.from_byte, std::to_string(sign_extend(raw, width)),
+                    float_precision);
+            }
+        }
+        result += format_like_qt_g(value, float_precision);
+        result += ",";
+    }
+    return result;
+}
+
+Result<std::string> decode_bloblist_hex(bytes::ByteView rom_data,
+                                        std::uint64_t address,
+                                        std::uint32_t byte_count)
+{
+    if (address + byte_count > rom_data.size())
+    {
+        return fail(ErrorKind::Internal,
+                    std::format("bloblist at 0x{:x} ({} bytes) runs past ROM size {}",
+                                address, byte_count, rom_data.size()));
+    }
+    std::string result;
+    result.reserve(static_cast<std::size_t>(byte_count) * 2);
+    for (std::uint32_t i = 0; i < byte_count; ++i)
+    {
+        const std::uint8_t byte = rom_data[static_cast<std::size_t>(address) + i];
+        result += kHexDigits[(byte >> 4) & 0x0F];
+        result += kHexDigits[byte & 0x0F];
+    }
+    return result;
 }
 
 } // namespace fastecu::calibration

@@ -20,6 +20,8 @@ cc_library(
     srcs = ["calibration_service.cpp"],
     hdrs = ["calibration_service.h"],
     deps = [
+        "//src/algorithms/expression",
+        "//src/algorithms/protocol",
         "//src/backend/definition:definition_model",
         "//src/backend/ports",
     ],

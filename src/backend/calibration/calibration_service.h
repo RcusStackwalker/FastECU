@@ -7,6 +7,7 @@
 #include <string_view>
 #include <vector>
 
+#include "src/algorithms/protocol/bytes.h"
 #include "src/backend/definition/definition_model.h"
 #include "src/backend/ports/file_repository.h"
 #include "src/backend/ports/result.h"
@@ -87,5 +88,55 @@ Status validate_rom_size(const definition::RomDefinition& rom_definition,
 //   rom = apply_flash_method_padding(std::move(rom), method);
 std::vector<std::uint8_t> apply_flash_method_padding(
     std::vector<std::uint8_t> rom_data, std::string_view flash_method);
+
+// One run of consecutive elements: a map's cells, or one axis's points. Built
+// from either a CalibrationMap or an AxisDefinition -- the three call sites
+// (map cells, X axis, Y axis) differ only in which fields they read.
+//
+// A non-owning view: `endian` and `from_byte` borrow from the RomDefinition
+// (and its Scalings) the run was built from, which always outlives the
+// decode_scaled_values call it is passed to. Never store one.
+struct ElementRun
+{
+    std::uint64_t address{0};
+    std::uint32_t count{0};
+    std::uint32_t start_position{1};
+    std::uint32_t interval{1};
+    std::optional<definition::StorageType> storage_type;
+    std::string_view endian;
+    std::string_view from_byte{"x"};
+    bool is_selectable{false};
+};
+
+// Decodes run.count consecutive elements laid out as
+//   addr(j) = run.address + (run.start_position - 1) * width
+//                         + j * width * run.interval
+// and formats each through expression_evaluate(run.from_byte, x,
+// float_precision) -- unless run.is_selectable, in which case the expression is
+// not evaluated at all and every element is emitted as the formatted text of
+// 0.0 (i.e. "0" at any precision), matching legacy's `value` staying
+// default-initialized for a "Selectable" type.
+//
+// Output is "v1,v2,...,vN," -- a comma AFTER every value including the last,
+// reproducing legacy's mapData.append(... + ",") verbatim. MapData consumers
+// split on "," and rely on it; this is not a bug to fix.
+//
+// Endianness: run.endian == "little" reads least-significant byte first;
+// anything else (including "big", "", or an unrecognized value) reads
+// most-significant first, reproducing legacy's `== "little"` / else split.
+//
+// Returns ErrorKind::Internal if any element's window would run past
+// rom_data's end. Legacy indexed QByteArray::at() unchecked here, which
+// asserts or reads out of bounds; this reports instead.
+Result<std::string> decode_scaled_values(bytes::ByteView rom_data,
+                                         const ElementRun& run,
+                                         int float_precision);
+
+// The StorageType::Bloblist branch: byte_count raw bytes from `address`,
+// hex-encoded lowercase, two digits per byte, no scaling applied. byte_count
+// comes from element_byte_size(storage_type, scaling).
+Result<std::string> decode_bloblist_hex(bytes::ByteView rom_data,
+                                        std::uint64_t address,
+                                        std::uint32_t byte_count);
 
 } // namespace fastecu::calibration
