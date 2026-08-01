@@ -30,9 +30,8 @@ class LegacyCalibrationAdapter
     //     (backup_rom) and leaves FullRomData strictly alone. A generated
     //     "read_image_<timestamp>.bin" stands in for an empty `filename`.
     // Either way sets FileName/FullFileName. Does not touch definition
-    // matching, use_romraider_definition/use_ecuflash_definition, or the
-    // MapData/XScaleData/YScaleData computation (all remain
-    // FileActions::open_subaru_rom_file's own inline work).
+    // matching, use_romraider_definition/use_ecuflash_definition, or the later
+    // MapData/XScaleData/YScaleData computation.
     Status open_rom_bytes(definitions::EcuCalDefStructure& ecu_cal_def, QString filename,
                           const definitions::ConfigValuesStructure& config_values);
 
@@ -69,9 +68,9 @@ class LegacyCalibrationAdapter
     // the legacy MapData/XScaleData/YScaleData columns, one entry per map in
     // definition order. A map whose decode fails is skipped -- its columns keep
     // whatever they held -- and reported through the returned status's detail;
-    // sibling maps are still written. Returns a failure only if the definition
-    // and the legacy columns disagree on length, which would mean the
-    // definition adapter and this call saw different definitions.
+    // sibling maps are still written. Returns a failure if any map decode fails,
+    // or if the definition and legacy columns disagree on length (which means
+    // the definition adapter and this call saw different definitions).
     Status compute_map_cell_values(definitions::EcuCalDefStructure& ecu_cal_def,
                                    const definition::RomDefinition& rom_definition);
 

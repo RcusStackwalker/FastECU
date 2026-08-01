@@ -54,11 +54,9 @@ std::uint32_t element_byte_size(
 //     The resolver rejects zero x_size/y_size/size today
 //     (definition_resolver.cpp), but this is a public, separately-tested
 //     function and must not depend on that.
-//   * start_position == 0 -- out of domain for a 1-based position, and NOT
-//     validated anywhere: the resolver only applies value_or(1) to an absent
-//     startpos (definition_resolver.cpp:368/395), so an explicit
-//     startpos="0" in a definition reaches here. Treated as the smallest
-//     legal value, i.e. offset 0.
+//   * start_position == 0 -- out of domain for a 1-based position and rejected
+//     by the resolver. Direct callers are still treated defensively as the
+//     smallest legal value, i.e. offset 0.
 std::uint64_t element_run_end(
     std::uint64_t address,
     std::uint32_t start_position,
@@ -94,8 +92,8 @@ std::vector<std::uint8_t> apply_flash_method_padding(
 // (map cells, X axis, Y axis) differ only in which fields they read.
 //
 // A non-owning view: `endian` and `from_byte` borrow from the RomDefinition
-// (and its Scalings) the run was built from, which always outlives the
-// decode_scaled_values call it is passed to. Never store one.
+// (the map's scaling or the resolved axis fields) used to build the run, which
+// always outlives the decode_scaled_values call. Never store one.
 struct ElementRun
 {
     std::uint64_t address{0};
@@ -121,9 +119,10 @@ struct ElementRun
 // reproducing legacy's mapData.append(... + ",") verbatim. MapData consumers
 // split on "," and rely on it; this is not a bug to fix.
 //
-// Endianness: run.endian == "little" reads least-significant byte first;
-// anything else (including "big", "", or an unrecognized value) reads
-// most-significant first, reproducing legacy's `== "little"` / else split.
+// Endianness: non-float storage with run.endian == "little" reads
+// least-significant byte first; anything else reads most-significant first.
+// Float storage is always assembled big-endian, matching the legacy float
+// branch on the supported little-endian hosts regardless of the endian field.
 //
 // Returns ErrorKind::Internal if any element's window would run past
 // rom_data's end. Legacy indexed QByteArray::at() unchecked here, which
@@ -162,7 +161,7 @@ using MapCellValuesList = std::vector<MapCellValues>;
 // selection), else decode_scaled_values over x_size * y_size elements.
 //
 // X axis, only when x_size > 1: "Static X Axis"/"Static Y Axis" join the
-// resolved scaling's static_data comma-per-entry with a trailing comma;
+// resolved axis's static_data comma-per-entry with a trailing comma;
 // "X Axis", or "Y Axis" when map.type == "2D", decode from the axis's own
 // address; any other type is left uncomputed at " ".
 //

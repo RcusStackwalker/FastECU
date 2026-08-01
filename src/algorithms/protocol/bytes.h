@@ -58,7 +58,7 @@ inline void appendU32Le(Bytes& out, std::uint32_t value)
 
 inline std::uint16_t readU16Be(ByteView bytes, std::size_t offset = 0)
 {
-    if (offset + 2 > bytes.size())
+    if (offset > bytes.size() || 2 > bytes.size() - offset)
     {
         return 0;
     }
@@ -67,7 +67,7 @@ inline std::uint16_t readU16Be(ByteView bytes, std::size_t offset = 0)
 
 inline std::uint32_t readU24Be(ByteView bytes, std::size_t offset = 0)
 {
-    if (offset + 3 > bytes.size())
+    if (offset > bytes.size() || 3 > bytes.size() - offset)
     {
         return 0;
     }
@@ -76,7 +76,7 @@ inline std::uint32_t readU24Be(ByteView bytes, std::size_t offset = 0)
 
 inline std::uint32_t readU32Be(ByteView bytes, std::size_t offset = 0)
 {
-    if (offset + 4 > bytes.size())
+    if (offset > bytes.size() || 4 > bytes.size() - offset)
     {
         return 0;
     }
@@ -85,7 +85,7 @@ inline std::uint32_t readU32Be(ByteView bytes, std::size_t offset = 0)
 
 inline std::uint16_t readU16Le(ByteView bytes, std::size_t offset = 0)
 {
-    if (offset + 2 > bytes.size())
+    if (offset > bytes.size() || 2 > bytes.size() - offset)
     {
         return 0;
     }
@@ -94,7 +94,7 @@ inline std::uint16_t readU16Le(ByteView bytes, std::size_t offset = 0)
 
 inline std::uint32_t readU24Le(ByteView bytes, std::size_t offset = 0)
 {
-    if (offset + 3 > bytes.size())
+    if (offset > bytes.size() || 3 > bytes.size() - offset)
     {
         return 0;
     }
@@ -103,7 +103,7 @@ inline std::uint32_t readU24Le(ByteView bytes, std::size_t offset = 0)
 
 inline std::uint32_t readU32Le(ByteView bytes, std::size_t offset = 0)
 {
-    if (offset + 4 > bytes.size())
+    if (offset > bytes.size() || 4 > bytes.size() - offset)
     {
         return 0;
     }

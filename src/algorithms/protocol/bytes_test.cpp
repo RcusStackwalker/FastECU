@@ -1,5 +1,7 @@
 #include "src/algorithms/protocol/bytes.h"
 
+#include <limits>
+
 #include <gtest/gtest.h>
 
 TEST(BytesPortable, ReadsBigEndianWidths)
@@ -79,4 +81,14 @@ TEST(BytesPortable, VariableWidthReadsRejectOutOfDomainWidths)
     EXPECT_EQ(bytes::readUBe(view, 0, 5), 0u);
     EXPECT_EQ(bytes::readULe(view, 0, 0), 0u);
     EXPECT_EQ(bytes::readULe(view, 0, 5), 0u);
+}
+
+TEST(BytesPortable, VariableWidthReadsRejectMaximumOffset)
+{
+    const bytes::Bytes buf{0x12};
+    const bytes::ByteView view(buf);
+    constexpr std::size_t kMaximumOffset = std::numeric_limits<std::size_t>::max();
+
+    EXPECT_EQ(bytes::readUBe(view, kMaximumOffset, 2), 0u);
+    EXPECT_EQ(bytes::readULe(view, kMaximumOffset, 2), 0u);
 }

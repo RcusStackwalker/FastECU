@@ -1,6 +1,7 @@
 #include "src/backend/calibration/calibration_service.h"
 
 #include <format>
+#include <limits>
 #include <utility>
 #include <vector>
 
@@ -538,6 +539,21 @@ TEST(DecodeScaledValues, DecodesBigEndianFloat)
     EXPECT_EQ(*result, "1.5,");
 }
 
+TEST(DecodeScaledValues, PreservesBigEndianFloatAssemblyWhenEndianSaysLittle)
+{
+    // Legacy selected its byte-reversal branch for every float, independent of
+    // the endian field, and therefore treated float storage as big-endian on
+    // the supported little-endian hosts.
+    const std::vector<std::uint8_t> rom{0x3F, 0xC0, 0x00, 0x00};
+    ElementRun run = simple_run(1);
+    run.storage_type = definition::StorageType::Float;
+    run.endian = "little";
+
+    const auto result = decode_scaled_values(rom, run, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "1.5,");
+}
+
 TEST(DecodeScaledValues, EmitsZeroForSelectableRunsWithoutEvaluating)
 {
     // is_selectable short-circuits before the expression runs, so even an
@@ -572,6 +588,17 @@ TEST(DecodeScaledValues, FailsWhenAMultiByteElementStraddlesTheEnd)
     const std::vector<std::uint8_t> rom{0x12};
     ElementRun run = simple_run(1);
     run.storage_type = definition::StorageType::Uint16;
+
+    const auto result = decode_scaled_values(rom, run, 15);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+}
+
+TEST(DecodeScaledValues, RejectsMaximumAddressWithoutWrapping)
+{
+    const std::vector<std::uint8_t> rom{0x2A};
+    ElementRun run = simple_run(1);
+    run.address = std::numeric_limits<std::uint64_t>::max();
 
     const auto result = decode_scaled_values(rom, run, 15);
     ASSERT_FALSE(result.has_value());
@@ -657,6 +684,17 @@ TEST(DecodeBloblistHex, FailsWhenTheRunExceedsTheRom)
     EXPECT_EQ(result.error().kind, ErrorKind::Internal);
 }
 
+TEST(DecodeBloblistHex, RejectsMaximumAddressWithoutWrapping)
+{
+    const std::vector<std::uint8_t> rom{0xAB};
+
+    const auto result = decode_bloblist_hex(
+        rom, std::numeric_limits<std::uint64_t>::max(), 1);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+}
+
 namespace
 {
 // A RomDefinition with one 3x1 uint8 map named "Fuel" at `address`, scaled by
@@ -696,6 +734,21 @@ TEST(ComputeMapCellValues, DecodesOneMapsCells)
     EXPECT_EQ(result->at(0).y_axis_data, " ");
 }
 
+TEST(ComputeMapCellValues, UsesBlankExpressionWhenMapScalingIsAbsent)
+{
+    definition::RomDefinition rom = one_map_definition(0);
+    rom.scalings.clear();
+    rom.maps.at(0).scaling_name.clear();
+    const std::vector<std::uint8_t> data{5, 6, 7};
+
+    const auto result = compute_map_cell_values(rom, data, 15);
+
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result->size(), 1u);
+    ASSERT_FALSE(result->at(0).error.has_value());
+    EXPECT_EQ(result->at(0).map_data, "0,0,0,");
+}
+
 TEST(ComputeMapCellValues, DecodesAnXAxisOfTypeXAxis)
 {
     definition::RomDefinition rom = one_map_definition(0);
@@ -711,6 +764,30 @@ TEST(ComputeMapCellValues, DecodesAnXAxisOfTypeXAxis)
     const auto result = compute_map_cell_values(rom, data, 15);
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->at(0).x_axis_data, "100,200,250,");
+}
+
+TEST(ComputeMapCellValues, UsesResolvedAxisExpressionAfterScalingInheritance)
+{
+    definition::RomDefinition rom = one_map_definition(0);
+    // This is the valid resolved state pinned by DefinitionResolverTest.
+    // A child scaling that supplies only units materializes as identity while
+    // the inherited parent expression remains on AxisDefinition itself.
+    rom.scalings.push_back(definition::Scaling{
+        .name = "ChildAxisScaling", .units = "r/min", .from_byte = "x"});
+    rom.maps.at(0).x_axis.type = "X Axis";
+    rom.maps.at(0).x_axis.address = 3;
+    rom.maps.at(0).x_axis.size = 3;
+    rom.maps.at(0).x_axis.storage_type = definition::StorageType::Uint8;
+    rom.maps.at(0).x_axis.endian = "big";
+    rom.maps.at(0).x_axis.from_byte = "x*2";
+    rom.maps.at(0).x_axis.scaling_name = "ChildAxisScaling";
+
+    const std::vector<std::uint8_t> data{5, 6, 7, 10, 20, 30};
+    const auto result = compute_map_cell_values(rom, data, 15);
+
+    ASSERT_TRUE(result.has_value());
+    ASSERT_FALSE(result->at(0).error.has_value());
+    EXPECT_EQ(result->at(0).x_axis_data, "20,40,60,");
 }
 
 TEST(ComputeMapCellValues, UsesStaticDataForStaticAxes)
@@ -808,6 +885,23 @@ TEST(ComputeMapCellValues, FlagsAMapWithNoAddress)
     const std::vector<std::uint8_t> data{5, 6, 7};
     const auto result = compute_map_cell_values(rom, data, 15);
     ASSERT_TRUE(result.has_value());
+    ASSERT_TRUE(result->at(0).error.has_value());
+    EXPECT_EQ(result->at(0).error->kind, ErrorKind::InvalidConfig);
+}
+
+TEST(ComputeMapCellValues, RejectsOverflowingMapCellCount)
+{
+    definition::RomDefinition rom = one_map_definition(0);
+    rom.maps.at(0).x_size = 0x80000000U;
+    rom.maps.at(0).y_size = 2;
+    rom.maps.at(0).y_axis.address = 0;
+    rom.maps.at(0).y_axis.storage_type = definition::StorageType::Uint8;
+    const std::vector<std::uint8_t> data{1, 2};
+
+    const auto result = compute_map_cell_values(rom, data, 15);
+
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result->size(), 1u);
     ASSERT_TRUE(result->at(0).error.has_value());
     EXPECT_EQ(result->at(0).error->kind, ErrorKind::InvalidConfig);
 }
