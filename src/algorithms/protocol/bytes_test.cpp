@@ -33,3 +33,50 @@ TEST(BytesPortable, Sums8OverFullView)
     const bytes::Bytes buf{0x01, 0x02, 0x03, 0xFF};
     EXPECT_EQ(bytes::sum8(bytes::ByteView(buf)), static_cast<bytes::Byte>(0x05));
 }
+
+TEST(BytesPortable, ReadsVariableWidthBigEndian)
+{
+    const bytes::Bytes buf{0x12, 0x34, 0x56, 0x78};
+    const bytes::ByteView view(buf);
+    EXPECT_EQ(bytes::readUBe(view, 0, 1), 0x12u);
+    EXPECT_EQ(bytes::readUBe(view, 0, 2), 0x1234u);
+    EXPECT_EQ(bytes::readUBe(view, 0, 3), 0x123456u);
+    EXPECT_EQ(bytes::readUBe(view, 0, 4), 0x12345678u);
+    EXPECT_EQ(bytes::readUBe(view, 2, 2), 0x5678u);
+}
+
+TEST(BytesPortable, ReadsVariableWidthLittleEndian)
+{
+    const bytes::Bytes buf{0x12, 0x34, 0x56, 0x78};
+    const bytes::ByteView view(buf);
+    EXPECT_EQ(bytes::readULe(view, 0, 1), 0x12u);
+    EXPECT_EQ(bytes::readULe(view, 0, 2), 0x3412u);
+    EXPECT_EQ(bytes::readULe(view, 0, 3), 0x563412u);
+    EXPECT_EQ(bytes::readULe(view, 0, 4), 0x78563412u);
+    EXPECT_EQ(bytes::readULe(view, 2, 2), 0x7856u);
+}
+
+TEST(BytesPortable, VariableWidthReadsReturnZeroOutOfRange)
+{
+    const bytes::Bytes buf{0x12, 0x34};
+    const bytes::ByteView view(buf);
+    // Window runs past the end at every width.
+    EXPECT_EQ(bytes::readUBe(view, 2, 1), 0u);
+    EXPECT_EQ(bytes::readUBe(view, 1, 2), 0u);
+    EXPECT_EQ(bytes::readUBe(view, 0, 3), 0u);
+    EXPECT_EQ(bytes::readUBe(view, 0, 4), 0u);
+    EXPECT_EQ(bytes::readULe(view, 2, 1), 0u);
+    EXPECT_EQ(bytes::readULe(view, 1, 2), 0u);
+    EXPECT_EQ(bytes::readULe(view, 0, 3), 0u);
+    EXPECT_EQ(bytes::readULe(view, 0, 4), 0u);
+}
+
+TEST(BytesPortable, VariableWidthReadsRejectOutOfDomainWidths)
+{
+    const bytes::Bytes buf{0x12, 0x34, 0x56, 0x78};
+    const bytes::ByteView view(buf);
+    EXPECT_EQ(bytes::readUBe(view, 0, 0), 0u);
+    EXPECT_EQ(bytes::readUBe(view, 0, 5), 0u);
+    EXPECT_EQ(bytes::readULe(view, 0, 0), 0u);
+    EXPECT_EQ(bytes::readULe(view, 0, 5), 0u);
+}
