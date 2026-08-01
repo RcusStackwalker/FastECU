@@ -18,18 +18,3 @@ qt_cc_library(
         "//src/platform/desktop/common/ports",
     ],
 )
-
-# This target links Qt only because FileActions::EcuCalDefStructure is
-# Qt-typed (QString fields); it does not depend on serial_qt_compat,
-# SerialPortActions, or any widget.
-qt_cc_library(
-    name = "flash_snapshot_adapter",
-    srcs = ["flash_snapshot_adapter.cpp"],
-    hdrs = ["flash_snapshot_adapter.h"],
-    copts = COMMON_COPTS,
-    deps = QT_DEPS + [
-        "//src/backend/definitions",
-        "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
-        "//src/backend/ports",
-    ],
-)

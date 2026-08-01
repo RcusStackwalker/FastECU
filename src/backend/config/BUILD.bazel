@@ -151,9 +151,26 @@ qt_cc_library(
         ":app_config",
         ":car_model_catalog",
         ":config_paths",
+        ":legacy_config_paths",
         ":protocol_catalog",
         ":provisioning",
         "//src/backend/definitions:config_values",
         "//src/backend/ports",
+    ],
+)
+
+# Qt-linked (ConfigValuesStructure's fields are QString), so NOT portable and
+# never in PORTABLE_ROOTS. Depends on :config_values (the extracted leaf value
+# struct), not the full //src/backend/definitions target, for the same
+# cycle-avoidance reason legacy_config_adapter documents above.
+qt_cc_library(
+    name = "legacy_config_paths",
+    srcs = ["legacy_config_paths.cpp"],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["legacy_config_paths.h"],
+    deps = QT_DEPS + [
+        ":config_paths",
+        "//src/backend/definitions:config_values",
     ],
 )

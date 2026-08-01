@@ -46,6 +46,7 @@ PORTABLE_ROOTS = {
     },
     ROOT / "src/backend/flash/eeprom": {
         "denso_sh705x_eeprom_common",
+        "eeprom_read_plan",
         "denso_sh705x_eeprom_kline",
         "denso_sh705x_eeprom_can",
     },
@@ -69,6 +70,7 @@ PORTABLE_ROOTS = {
         "definition_resolver",
         "definition_service",
         "definition_writer",
+        "text_format",
     },
     ROOT / "src/backend/calibration": {"calibration_service"},
 }

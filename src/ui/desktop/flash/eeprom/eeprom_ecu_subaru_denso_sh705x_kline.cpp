@@ -6,7 +6,7 @@
 
 #include "src/algorithms/protocol/qt_bytes.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_kline_executor.h"
-#include "src/platform/desktop/common/flash/flash_snapshot_adapter.h"
+#include "src/backend/flash/eeprom/eeprom_read_plan.h"
 #include "src/platform/desktop/common/ports/qt_clock.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
@@ -33,8 +33,9 @@ fastecu::flash::EepromReadMode nextMode(fastecu::flash::EepromReadMode mode)
 
 EepromEcuSubaruDensoSH705xKline::EepromEcuSubaruDensoSH705xKline(
     SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
-    const QString& cmd_type, QWidget *parent)
-    : QDialog(parent), serial_(serial), ecuCalDef_(ecuCalDef), cmd_type_(cmd_type),
+    const fastecu::config::ConfigPaths& paths, const QString& cmd_type, QWidget *parent)
+    : QDialog(parent), serial_(serial), ecuCalDef_(ecuCalDef), paths_(paths),
+      cmd_type_(cmd_type),
       ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
@@ -63,7 +64,7 @@ void EepromEcuSubaruDensoSH705xKline::run()
     if (cmd_type_ != "read")
     {
         // This dialog only ever builds an EEPROM *read* plan (buildPlan()
-        // calls adapter.build_read_plan() unconditionally) -- MainWindow
+        // calls build_eeprom_read_plan() unconditionally) -- MainWindow
         // dispatches this dialog by protocol name only, and cmd_type flows
         // through unfiltered from the generic top-level menu commands
         // (menu_actions.cpp's start_ecu_operations("write"/"test_write")),
@@ -76,15 +77,7 @@ void EepromEcuSubaruDensoSH705xKline::run()
         // InvalidConfig/Unsupported -> preflight message, no worker start
         // rule.
         //
-        // Deliberately checked here rather than inside runAttempt(): the
-        // very first runAttempt(Mode2) call below runs synchronously,
-        // *before* the QEventLoop below has entered exec() -- and
-        // QEventLoop::exec() unconditionally clears any pending quit()
-        // requested before it starts (Qt resets its exit flag on entry), so
-        // a close() (which requests loop_->quit() via closeEvent()) issued
-        // from inside that first synchronous call is silently dropped and
-        // loop.exec() blocks forever. Rejecting here, before the loop is
-        // even constructed, avoids that hazard entirely -- exactly like the
+        // Reject before constructing the nested event loop, exactly like the
         // ret != Ok decline path just below.
         showFailureDialog(fastecu::ErrorKind::Unsupported,
                           QString("cmd_type '%1' is not supported by this EEPROM read dialog")
@@ -111,7 +104,13 @@ void EepromEcuSubaruDensoSH705xKline::run()
     QEventLoop loop;
     loop_ = &loop;
     runAttempt(fastecu::flash::EepromReadMode::Mode2);
-    loop.exec();
+    // A synchronous buildPlan() failure closes the dialog before exec(). Qt
+    // clears a pre-entry quit request when exec() starts, so only enter the
+    // nested loop when runAttempt() actually created and started a worker.
+    if (worker_)
+    {
+        loop.exec();
+    }
     loop_ = nullptr;
 }
 
@@ -249,14 +248,12 @@ fastecu::Result<fastecu::flash::FlashPlan> EepromEcuSubaruDensoSH705xKline::buil
     fastecu::flash::EepromReadMode mode)
 {
     QtFileRepository file_repository;
-    fastecu::flash::LegacyFlashSnapshotAdapter adapter(file_repository);
-    // ecuCalDef_->FlashMethod doubles as both the protocol name (routes
-    // K-Line vs. CAN and carries the security-variant suffix) and the flash
-    // method the adapter itself re-derives internally -- mainwindow.cpp
-    // assigns configValues->flash_protocol_selected_protocol_name into this
-    // same field verbatim (see LegacyFlashSnapshotAdapter's own doc comment).
-    return adapter.build_read_plan(*ecuCalDef_, ecuCalDef_->FlashMethod.toStdString(), mode,
-                                   ecuCalDef_->Kernel.toStdString());
+    // ecuCalDef_->FlashMethod is the selected protocol name, assigned
+    // verbatim from configValues->flash_protocol_selected_protocol_name in
+    // mainwindow.cpp. The use case derives family, security variant, MCU,
+    // kernel handle and kernel address from it and paths_.
+    return fastecu::flash::build_eeprom_read_plan(
+        paths_, ecuCalDef_->FlashMethod.toStdString(), mode, file_repository);
 }
 
 std::unique_ptr<fastecu::flash::FlashWorker> EepromEcuSubaruDensoSH705xKline::makeWorker(

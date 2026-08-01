@@ -1,6 +1,7 @@
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_kline_executor.h"
 
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
+#include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -626,9 +627,16 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(
         return fail(ErrorKind::InvalidConfig, "kernel image is empty");
     }
 
+    Result<DensoSh705xEepromUploadSizes> upload_sizes =
+        denso_sh705x_eeprom_upload_sizes(FlashFamily::DensoSh705xEepromKline,
+                                         kernel.bytes.size());
+    if (!upload_sizes.has_value())
+    {
+        return std::unexpected(upload_sizes.error());
+    }
+
     const std::uint32_t start_address = kernel.load_address;
-    const std::uint32_t pl_len =
-        (static_cast<std::uint32_t>(kernel.bytes.size()) + 3) & ~std::uint32_t(3);
+    const std::uint32_t pl_len = upload_sizes->payload_bytes;
 
     // INTENTIONAL DEVIATION from legacy (documented per Global Constraints,
     // not a silent behavior change): eeprom_ecu_subaru_denso_sh705x_kline_

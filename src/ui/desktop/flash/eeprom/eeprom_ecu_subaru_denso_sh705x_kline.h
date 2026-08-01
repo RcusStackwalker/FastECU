@@ -7,6 +7,7 @@
 #include <QString>
 #include <QWidget>
 
+#include "src/backend/config/config_paths.h"
 #include "src/backend/definitions/file_actions.h"
 #include "src/backend/flash/flash_plan.h"
 #include "src/backend/flash/flash_types.h"
@@ -33,7 +34,7 @@ QT_END_NAMESPACE
 // legacy EepromEcuSubaruDensoSH705xKlineOperation (a FlashOperationWorker
 // subclass that looped mode 2..4 internally, deleted by an earlier task in
 // this plan); the mode loop now lives here, one FlashPlan/FlashWorker per
-// attempt, built via LegacyFlashSnapshotAdapter and executed via
+// attempt, built via the portable EEPROM read-plan use case and executed via
 // DensoSh705xEepromKlineExecutor over a DesktopKlineFlashTransport.
 //
 // Ownership note: the transport is constructed from the non-owning
@@ -53,6 +54,7 @@ class EepromEcuSubaruDensoSH705xKline : public QDialog
   public:
     EepromEcuSubaruDensoSH705xKline(SerialPortActions *serial,
                                     FileActions::EcuCalDefStructure *ecuCalDef,
+                                    const fastecu::config::ConfigPaths& paths,
                                     const QString& cmd_type, QWidget *parent = nullptr);
     ~EepromEcuSubaruDensoSH705xKline() override;
 
@@ -67,14 +69,10 @@ class EepromEcuSubaruDensoSH705xKline : public QDialog
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
   protected:
-    // Test seams (step 5c, Task 17). The dialog's own public constructor
-    // signature is unchanged -- MainWindow's EEPROM dispatch (mainwindow.cpp)
-    // does not need to change -- so a test subclass overrides these
-    // virtuals instead of injecting fakes through the constructor (the same
-    // idea as FlashOperationWorker's injectable PromptFn, generalized to
-    // also cover plan building and worker construction). Every one of these
-    // has a real, hardware/dialog-driving default implementation defined in
-    // the .cpp; only tests override them.
+    // Test seams. ConfigPaths remains a real constructor dependency; a test
+    // subclass overrides these virtuals instead of adding fake-only
+    // constructor parameters. Every one has a real, hardware/dialog-driving
+    // default implementation in the .cpp; only tests override them.
     virtual fastecu::Result<fastecu::flash::FlashPlan> buildPlan(
         fastecu::flash::EepromReadMode mode);
     virtual std::unique_ptr<fastecu::flash::FlashWorker> makeWorker(
@@ -91,6 +89,10 @@ class EepromEcuSubaruDensoSH705xKline : public QDialog
 
     SerialPortActions *serial_;
     FileActions::EcuCalDefStructure *ecuCalDef_;
+    // Copied, not borrowed: MainWindow's ConfigValuesStructure can be
+    // repopulated (read_config_file/read_protocols_file rewrite it in place)
+    // while this modal dialog is open.
+    fastecu::config::ConfigPaths paths_;
     QString cmd_type_;
     fastecu::flash::EepromReadMode currentMode_ = fastecu::flash::EepromReadMode::Mode2;
     std::unique_ptr<fastecu::flash::FlashWorker> worker_;

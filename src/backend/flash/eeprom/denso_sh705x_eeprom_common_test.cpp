@@ -3,6 +3,8 @@
 
 #include <gtest/gtest.h>
 
+#include <limits>
+
 namespace fastecu::flash
 {
 namespace
@@ -17,6 +19,8 @@ constexpr std::uint32_t kSh7055EepromStart = 0x00000000;
 constexpr std::uint32_t kSh7055EepromLen = 0x00000100;
 constexpr std::uint32_t kSh7055KernelRamStart = 0xFFFF6004;
 constexpr std::uint32_t kSh7055KernelRamLen = 0x00006000;
+constexpr std::uint32_t kSh7055KernelRamEnd =
+    kSh7055KernelRamStart + kSh7055KernelRamLen;
 
 DensoSh705xEepromInput valid_kline_input(EepromReadMode mode = EepromReadMode::Mode2)
 {
@@ -143,11 +147,51 @@ TEST(DensoSh705xEepromCommonTest, KernelLoadAddressOutsideRamRangeIsRejected)
     EXPECT_EQ(build_denso_sh705x_eeprom_plan(input).error().kind, ErrorKind::InvalidConfig);
 }
 
+TEST(DensoSh705xEepromCommonTest, KlineRejectsRawKernelThatFitsButWireFootprintCrossesRamEnd)
+{
+    auto input = valid_kline_input();
+    // The raw, already-four-byte-aligned payload ends exactly at ram_end;
+    // only the required four-byte bypass trailer crosses the boundary.
+    input.kernel.load_address = kSh7055KernelRamEnd - 4;
+    input.kernel.bytes = {0xaa, 0xbb, 0xcc, 0xdd};
+
+    auto plan = build_denso_sh705x_eeprom_plan(input);
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+}
+
+TEST(DensoSh705xEepromCommonTest, CanRejectsRawKernelThatFitsButWireFootprintCrossesRamEnd)
+{
+    auto input = valid_kline_input();
+    input.family = FlashFamily::DensoSh705xEepromCan;
+    // Four raw bytes end exactly at ram_end, but the CAN wire payload is a
+    // complete 128-byte block.
+    input.kernel.load_address = kSh7055KernelRamEnd - 4;
+    input.kernel.bytes = {0xaa, 0xbb, 0xcc, 0xdd};
+
+    auto plan = build_denso_sh705x_eeprom_plan(input);
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+}
+
+TEST(DensoSh705xEepromCommonTest, PreflightRejectsKernelSizeWhoseWireFootprintOverflows)
+{
+    auto input = valid_kline_input();
+
+    auto status = validate_denso_sh705x_eeprom_preflight(
+        input, std::numeric_limits<std::size_t>::max());
+
+    ASSERT_FALSE(status.has_value());
+    EXPECT_EQ(status.error().kind, ErrorKind::InvalidConfig);
+}
+
 TEST(DensoSh705xEepromCommonTest, ResolveSh705xEepromRegionReturnsKnownMcuBounds)
 {
-    // Exercised directly because step 5c Task 14's LegacyFlashSnapshotAdapter
-    // calls this exported function to avoid keeping its own copy of these
-    // literals; a regression here would silently break that caller too.
+    // Exercised directly because build_eeprom_read_plan calls this exported
+    // function to avoid keeping its own copy of these literals; a regression
+    // here would silently break that caller too.
     auto sh7055 = resolve_sh705x_eeprom_region("SH7055");
     ASSERT_TRUE(sh7055.has_value());
     EXPECT_EQ(sh7055->start, kSh7055EepromStart);

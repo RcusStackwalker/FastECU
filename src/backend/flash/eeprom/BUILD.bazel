@@ -45,6 +45,37 @@ fastecu_portable_gtest(
 )
 
 # Portable. No Qt, no platform, no filesystem, no thread.
+#
+# Lands in this package rather than //src/backend/flash because that package's
+# `flash` target globs *.cpp/*.h minus explicit portable lists -- a new file
+# there is silently swept into a Qt target. Every target in this package has
+# explicit srcs and there is no glob at all.
+cc_library(
+    name = "eeprom_read_plan",
+    srcs = ["eeprom_read_plan.cpp"],
+    hdrs = ["eeprom_read_plan.h"],
+    deps = [
+        ":denso_sh705x_eeprom_common",
+        "//src/backend/config:car_model_catalog",
+        "//src/backend/config:config_paths",
+        "//src/backend/config:protocol_catalog",
+        "//src/backend/definition:text_format",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_types",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "eeprom_read_plan_test",
+    srcs = ["eeprom_read_plan_test.cpp"],
+    deps = [
+        ":eeprom_read_plan",
+        "//src/backend/ports/testing:in_memory_file_repository",
+    ],
+)
+
+# Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
     name = "denso_sh705x_eeprom_kline",
     srcs = ["denso_sh705x_eeprom_kline_executor.cpp"],

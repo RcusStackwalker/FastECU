@@ -238,8 +238,8 @@ SUITE_DEPS = {
         "//src/platform/desktop/common/serial:serial_qt_compat",
         "//src/platform/desktop/common/transport:flash_transports",
     ],
-    # Exercises the rewritten dialog's one-attempt-per-mode orchestration
-    # (step 5c, Task 17) via scripted IFlashExecutor/IFlashTransport doubles
+    # Exercises the dialog's one-attempt-per-mode orchestration via scripted
+    # IFlashExecutor/IFlashTransport doubles
     # injected through its protected test seams; no real SerialPortActions,
     # QtFileRepository, or hardware is touched.
     "test_eeprom_ecu_subaru_denso_sh705x_kline_dialog": [

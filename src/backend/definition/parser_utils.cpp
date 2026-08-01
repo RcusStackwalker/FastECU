@@ -1,5 +1,7 @@
 #include "src/backend/definition/parser_utils.h"
 
+#include "src/backend/definition/text_format.h"
+
 #include <array>
 #include <charconv>
 #include <cctype>
@@ -177,25 +179,15 @@ Result<std::uint64_t> parse_hex_unsigned(
     std::string context,
     std::string_view definition_id)
 {
-    std::string trimmed = trim_copy(value);
-    std::string_view digits = trimmed;
-    if (digits.starts_with("0x") || digits.starts_with("0X"))
+    if (const std::optional<std::uint64_t> parsed = parse_hex_value(value); parsed.has_value())
     {
-        digits.remove_prefix(2);
+        return *parsed;
     }
-
-    std::uint64_t parsed = 0;
-    const auto [end, error] =
-        std::from_chars(digits.data(), digits.data() + digits.size(), parsed, 16);
-    if (error != std::errc{} || end != digits.data() + digits.size())
-    {
-        return invalid(
-            source,
-            std::move(context),
-            std::format("invalid hexadecimal unsigned value '{}'", trimmed),
-            definition_id);
-    }
-    return parsed;
+    return invalid(
+        source,
+        std::move(context),
+        std::format("invalid hexadecimal unsigned value '{}'", trim_copy(value)),
+        definition_id);
 }
 
 std::string value_or_empty(pugi::xml_attribute attribute)
