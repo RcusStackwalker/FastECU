@@ -149,6 +149,16 @@ qt_cc_test(
 )
 
 qt_cc_test(
+    name = "test_hex_parse_qt_compat",
+    srcs = ["test_hex_parse_qt_compat.cpp"],
+    copts = COMMON_COPTS,
+    deps = QT_DEPS + [
+        "//src/backend/definition:text_format",
+        "@googletest//:gtest",
+    ],
+)
+
+qt_cc_test(
     name = "test_qt_resource_bundle",
     srcs = ["test_qt_resource_bundle.cpp"],
     copts = COMMON_COPTS,

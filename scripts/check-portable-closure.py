@@ -69,6 +69,7 @@ PORTABLE_ROOTS = {
         "definition_resolver",
         "definition_service",
         "definition_writer",
+        "text_format",
     },
     ROOT / "src/backend/calibration": {"calibration_service"},
 }

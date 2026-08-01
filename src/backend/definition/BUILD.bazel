@@ -16,12 +16,19 @@ cc_library(
     hdrs = ["text_format.h"],
 )
 
+fastecu_portable_gtest(
+    name = "text_format_test",
+    srcs = ["text_format_test.cpp"],
+    deps = [":text_format"],
+)
+
 cc_library(
     name = "parser_utils",
     srcs = ["parser_utils.cpp"],
     hdrs = ["parser_utils.h"],
     deps = [
         ":definition_model",
+        ":text_format",
         "//src/backend/ports",
         "@pugixml",
     ],
