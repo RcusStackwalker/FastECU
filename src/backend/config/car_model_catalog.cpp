@@ -1,5 +1,6 @@
 #include "src/backend/config/car_model_catalog.h"
 
+#include <algorithm>
 #include <format>
 #include <string_view>
 
@@ -57,6 +58,52 @@ Result<CarModelCatalog> load_car_model_catalog(const ConfigPaths& paths, IFileRe
     }
 
     return catalog;
+}
+
+std::vector<ResolvedCarModel> resolve_car_models(const ProtocolCatalog& protocols,
+                                                 const CarModelCatalog& car_models)
+{
+    std::vector<ResolvedCarModel> resolved;
+    resolved.reserve(car_models.size());
+    for (const CarModelEntry& entry : car_models)
+    {
+        ResolvedCarModel row;
+        row.make = entry.make;
+        row.model = entry.model;
+        row.version = entry.version;
+        row.type = entry.type;
+        row.kw = entry.kw;
+        row.hp = entry.hp;
+        row.fuel = entry.fuel;
+        row.year = entry.year;
+        row.protocol_name = entry.protocol_name;
+
+        // First match wins. load_protocol_catalog rejects duplicate protocol
+        // names outright, so at most one entry can match and the choice of
+        // tie-break rule is not observable through that path.
+        const auto matched = std::ranges::find(protocols, entry.protocol_name,
+                                               &ProtocolEntry::protocol_name);
+        if (matched != protocols.end())
+        {
+            row.protocol = *matched;
+        }
+        resolved.push_back(std::move(row));
+    }
+    return resolved;
+}
+
+std::optional<std::size_t> find_car_model_by_protocol_name(
+    std::span<const ResolvedCarModel> resolved_car_models, std::string_view flash_method)
+{
+    std::optional<std::size_t> matched_index;
+    for (std::size_t i = 0; i < resolved_car_models.size(); ++i)
+    {
+        if (resolved_car_models[i].protocol_name == flash_method)
+        {
+            matched_index = i;
+        }
+    }
+    return matched_index;
 }
 
 } // namespace fastecu::config

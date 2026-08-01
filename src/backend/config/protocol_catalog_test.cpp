@@ -162,6 +162,51 @@ TEST(LoadProtocolCatalog, MissingFileIsInvalidConfig)
     EXPECT_EQ(catalog.error().kind, ErrorKind::InvalidConfig);
 }
 
+TEST(LoadProtocolCatalog, RejectsDuplicateProtocolNames)
+{
+    // A protocol name is the key every consumer joins on, so uniqueness is
+    // enforced here rather than left for each consumer to invent a tie-break.
+    InMemoryFileRepository repo;
+    const char *duplicated = R"(<?xml version="1.0" encoding="UTF-8"?>
+<config name="FastECU" version="0.0-dev0">
+    <protocols>
+        <protocol name="same_name"><mcu>FIRST</mcu></protocol>
+        <protocol name="same_name"><mcu>SECOND</mcu></protocol>
+    </protocols>
+</config>)";
+    repo.files["protocols.cfg"] =
+        std::vector<std::uint8_t>(duplicated, duplicated + std::strlen(duplicated));
+
+    auto catalog = load_protocol_catalog(test_paths(), repo);
+
+    ASSERT_FALSE(catalog.has_value());
+    EXPECT_EQ(catalog.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_NE(catalog.error().detail.find("same_name"), std::string::npos);
+}
+
+TEST(LoadProtocolCatalog, DistinctProtocolNamesAreAccepted)
+{
+    // Guards the duplicate check against over-rejecting: two <protocol>
+    // elements that differ only in name must both survive.
+    InMemoryFileRepository repo;
+    const char *distinct = R"(<?xml version="1.0" encoding="UTF-8"?>
+<config name="FastECU" version="0.0-dev0">
+    <protocols>
+        <protocol name="name_a"><mcu>FIRST</mcu></protocol>
+        <protocol name="name_b"><mcu>SECOND</mcu></protocol>
+    </protocols>
+</config>)";
+    repo.files["protocols.cfg"] =
+        std::vector<std::uint8_t>(distinct, distinct + std::strlen(distinct));
+
+    auto catalog = load_protocol_catalog(test_paths(), repo);
+
+    ASSERT_TRUE(catalog.has_value());
+    ASSERT_EQ(catalog->size(), 2u);
+    EXPECT_EQ(catalog->at(0).mcu, "FIRST");
+    EXPECT_EQ(catalog->at(1).mcu, "SECOND");
+}
+
 // Reads the real, checked-in resources/shared/config/protocols.cfg via
 // $(location)/env var (see BUILD.bazel's data + env on this test target),
 // following the same convention already established by

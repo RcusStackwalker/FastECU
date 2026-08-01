@@ -14,8 +14,14 @@ using fastecu::InMemoryFileRepository;
 using fastecu::Result;
 using fastecu::Status;
 using fastecu::config::CarModelCatalog;
+using fastecu::config::CarModelEntry;
 using fastecu::config::ConfigPaths;
+using fastecu::config::find_car_model_by_protocol_name;
 using fastecu::config::load_car_model_catalog;
+using fastecu::config::ProtocolCatalog;
+using fastecu::config::ProtocolEntry;
+using fastecu::config::resolve_car_models;
+using fastecu::config::ResolvedCarModel;
 
 namespace
 {
@@ -162,4 +168,99 @@ TEST(LoadCarModelCatalog, ParsesTheRealShippedProtocolsFileWithoutError)
     EXPECT_EQ(catalog->size(), 63u);
     for (const auto& entry : *catalog)
         EXPECT_FALSE(entry.protocol_name.empty());
+}
+
+TEST(ResolveCarModels, JoinsEachCarModelWithItsMatchingProtocol)
+{
+    ProtocolCatalog protocols;
+    ProtocolEntry protocol;
+    protocol.protocol_name = "sub_ecu_denso_can";
+    protocol.mcu = "SH7058";
+    protocol.checksum = "yes";
+    protocols.push_back(protocol);
+
+    CarModelCatalog car_models;
+    CarModelEntry entry;
+    entry.make = "Mitsubishi";
+    entry.model = "Colt";
+    entry.protocol_name = "sub_ecu_denso_can";
+    car_models.push_back(entry);
+
+    std::vector<ResolvedCarModel> resolved = resolve_car_models(protocols, car_models);
+
+    ASSERT_EQ(resolved.size(), 1u);
+    EXPECT_EQ(resolved[0].make, "Mitsubishi");
+    EXPECT_EQ(resolved[0].model, "Colt");
+    EXPECT_EQ(resolved[0].protocol_name, "sub_ecu_denso_can");
+    ASSERT_TRUE(resolved[0].protocol.has_value());
+    EXPECT_EQ(resolved[0].protocol->mcu, "SH7058");
+    EXPECT_EQ(resolved[0].protocol->checksum, "yes");
+}
+
+TEST(ResolveCarModels, UnmatchedProtocolNameYieldsNullopt)
+{
+    ProtocolCatalog protocols; // empty
+    CarModelCatalog car_models;
+    CarModelEntry entry;
+    entry.protocol_name = "no_such_protocol";
+    car_models.push_back(entry);
+
+    std::vector<ResolvedCarModel> resolved = resolve_car_models(protocols, car_models);
+
+    ASSERT_EQ(resolved.size(), 1u);
+    EXPECT_FALSE(resolved[0].protocol.has_value());
+}
+
+TEST(ResolveCarModels, DuplicateProtocolNamesResolveToTheFirstMatch)
+{
+    // Unreachable through load_protocol_catalog, which rejects duplicate
+    // protocol names outright (see LoadProtocolCatalog.RejectsDuplicate-
+    // ProtocolNames). Pinned only so a hand-built catalog has defined
+    // behaviour rather than an accident of loop structure.
+    ProtocolCatalog protocols;
+    ProtocolEntry first;
+    first.protocol_name = "shared_name";
+    first.mcu = "FIRST";
+    protocols.push_back(first);
+    ProtocolEntry second;
+    second.protocol_name = "shared_name";
+    second.mcu = "SECOND";
+    protocols.push_back(second);
+
+    CarModelCatalog car_models;
+    CarModelEntry entry;
+    entry.protocol_name = "shared_name";
+    car_models.push_back(entry);
+
+    std::vector<ResolvedCarModel> resolved = resolve_car_models(protocols, car_models);
+
+    ASSERT_EQ(resolved.size(), 1u);
+    ASSERT_TRUE(resolved[0].protocol.has_value());
+    EXPECT_EQ(resolved[0].protocol->mcu, "FIRST");
+}
+
+// Last-match, deliberately asymmetric with resolve_car_models above: several
+// car models legitimately share one protocol, so duplicates here cannot be
+// rejected at intake, and which row wins is observable in the vehicle
+// open_subaru_rom_file binds.
+TEST(FindCarModelByProtocolName, ReturnsTheLastMatchingIndex)
+{
+    std::vector<ResolvedCarModel> resolved(3);
+    resolved[0].protocol_name = "a";
+    resolved[1].protocol_name = "b";
+    resolved[2].protocol_name = "a";
+
+    std::optional<std::size_t> index = find_car_model_by_protocol_name(resolved, "a");
+
+    ASSERT_TRUE(index.has_value());
+    EXPECT_EQ(*index, 2u);
+}
+
+TEST(FindCarModelByProtocolName, ReturnsNulloptWhenNoRowMatches)
+{
+    std::vector<ResolvedCarModel> resolved(2);
+    resolved[0].protocol_name = "a";
+    resolved[1].protocol_name = "b";
+
+    EXPECT_FALSE(find_car_model_by_protocol_name(resolved, "z").has_value());
 }

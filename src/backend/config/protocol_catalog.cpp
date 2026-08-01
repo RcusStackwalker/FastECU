@@ -1,6 +1,7 @@
 #include "src/backend/config/protocol_catalog.h"
 
 #include <format>
+#include <set>
 #include <string_view>
 
 #include <pugixml.hpp>
@@ -33,6 +34,13 @@ Result<ProtocolCatalog> load_protocol_catalog(const ConfigPaths& paths, IFileRep
     }
 
     ProtocolCatalog catalog;
+    // A protocol name is the key every consumer joins on, so it has to be
+    // unique for "the entry named X" to mean anything. Enforced here, at
+    // intake, rather than left for each consumer to pick a tie-break rule:
+    // the 61 <protocol> elements in the shipped protocols.cfg are already
+    // all distinct, so this rejects malformed input without rejecting
+    // anything that works today.
+    std::set<std::string> seen_protocol_names;
     pugi::xml_node protocols = doc.child("config").child("protocols");
     for (pugi::xml_node protocol : protocols.children("protocol"))
     {
@@ -44,6 +52,12 @@ Result<ProtocolCatalog> load_protocol_catalog(const ConfigPaths& paths, IFileRep
         // shipped <protocol> elements omit alias, so this default is hit in
         // the majority of real entries; match it exactly.
         entry.protocol_name = protocol.attribute("name").as_string("No name");
+        if (!seen_protocol_names.insert(entry.protocol_name).second)
+        {
+            return fail(
+                ErrorKind::InvalidConfig,
+                std::format("duplicate protocol name '{}' in protocols file", entry.protocol_name));
+        }
         entry.alias = protocol.attribute("alias").as_string("No alias");
         entry.ecu = text_or_empty(protocol, "ecu");
         entry.mcu = text_or_empty(protocol, "mcu");
