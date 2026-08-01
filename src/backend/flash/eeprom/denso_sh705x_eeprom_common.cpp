@@ -94,7 +94,8 @@ std::vector<ConfirmationSpec> confirmations_for_mode(EepromReadMode mode)
 
 } // namespace
 
-Result<FlashPlan> build_denso_sh705x_eeprom_plan(DensoSh705xEepromInput input)
+Result<void> validate_denso_sh705x_eeprom_preflight(const DensoSh705xEepromInput& input,
+                                                    std::optional<std::size_t> kernel_size)
 {
     if (input.family != FlashFamily::DensoSh705xEepromKline &&
         input.family != FlashFamily::DensoSh705xEepromCan)
@@ -126,13 +127,32 @@ Result<FlashPlan> build_denso_sh705x_eeprom_plan(DensoSh705xEepromInput input)
         return fail(ErrorKind::InvalidConfig,
                     "eeprom_region does not match the resolved MCU table entry");
     }
-    const std::uint64_t kernel_end =
-        static_cast<std::uint64_t>(input.kernel.load_address) + input.kernel.bytes.size();
     const std::uint64_t ram_end =
         static_cast<std::uint64_t>(bounds->kernel_ram.start) + bounds->kernel_ram.length;
-    if (input.kernel.load_address < bounds->kernel_ram.start || kernel_end > ram_end)
+    if (input.kernel.load_address < bounds->kernel_ram.start ||
+        input.kernel.load_address > ram_end ||
+        (kernel_size.has_value() &&
+         static_cast<std::uint64_t>(input.kernel.load_address) + *kernel_size > ram_end))
     {
         return fail(ErrorKind::InvalidConfig, "kernel load range is outside the SH705x RAM region");
+    }
+
+    if (input.family == FlashFamily::DensoSh705xEepromKline && !kline_supports(input.security))
+    {
+        return fail(ErrorKind::InvalidConfig,
+                    "security variant is not supported on the K-Line transport");
+    }
+
+    return {};
+}
+
+Result<FlashPlan> build_denso_sh705x_eeprom_plan(DensoSh705xEepromInput input)
+{
+    Result<void> preflight =
+        validate_denso_sh705x_eeprom_preflight(input, input.kernel.bytes.size());
+    if (!preflight.has_value())
+    {
+        return std::unexpected(preflight.error());
     }
 
     TransportKind transport = input.family == FlashFamily::DensoSh705xEepromKline
@@ -142,11 +162,6 @@ Result<FlashPlan> build_denso_sh705x_eeprom_plan(DensoSh705xEepromInput input)
     FamilyPlan family_plan;
     if (transport == TransportKind::Kline)
     {
-        if (!kline_supports(input.security))
-        {
-            return fail(ErrorKind::InvalidConfig,
-                        "security variant is not supported on the K-Line transport");
-        }
         family_plan = DensoSh705xEepromKlinePlan{
             .mode = input.mode,
             .security = input.security,

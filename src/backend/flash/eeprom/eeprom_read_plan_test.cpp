@@ -29,6 +29,18 @@ const char *kFixture = R"(<?xml version="1.0" encoding="UTF-8"?>
             <kernel>ssmk_can_tp_sh7058.bin</kernel>
             <kernel_addr>0xFFFF3000</kernel_addr>
         </protocol>
+        <protocol name="sub_ecu_eeprom_denso_sh7055_kline_cobb" alias="SH7055 EEPROM K-Line Cobb">
+            <ecu>Denso SH7055</ecu>
+            <mcu>SH7055</mcu>
+            <kernel>ssmk_kline_sh7055.bin</kernel>
+            <kernel_addr>0xFFFF6004</kernel_addr>
+        </protocol>
+        <protocol name="sub_ecu_eeprom_denso_sh7055_bad_kernel_addr" alias="SH7055 EEPROM bad kernel address">
+            <ecu>Denso SH7055</ecu>
+            <mcu>SH7055</mcu>
+            <kernel>out_of_range.bin</kernel>
+            <kernel_addr>0xFFFF0000</kernel_addr>
+        </protocol>
         <protocol name="sub_ecu_eeprom_unreferenced" alias="Not in any car_model">
             <mcu>SH7058</mcu>
             <kernel>whatever.bin</kernel>
@@ -43,6 +55,14 @@ const char *kFixture = R"(<?xml version="1.0" encoding="UTF-8"?>
         <car_model>
             <make>Subaru</make><model>Legacy</model><version>GT</version>
             <protocol>sub_ecu_eeprom_denso_sh7058_can</protocol>
+        </car_model>
+        <car_model>
+            <make>Subaru</make><model>Impreza</model><version>WRX Cobb</version>
+            <protocol>sub_ecu_eeprom_denso_sh7055_kline_cobb</protocol>
+        </car_model>
+        <car_model>
+            <make>Subaru</make><model>Impreza</model><version>bad kernel address</version>
+            <protocol>sub_ecu_eeprom_denso_sh7055_bad_kernel_addr</protocol>
         </car_model>
     </car_models>
 </config>)";
@@ -136,9 +156,9 @@ TEST(BuildEepromReadPlanTest, UnknownProtocolNameIsRejected)
     EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
 }
 
-// Every fallible non-I/O step runs before the kernel is read, so an invalid
-// configuration never touches the kernel file. Preserved from
-// LegacyFlashSnapshotAdapter, which documented the same guarantee.
+// Every invalid configuration derivable from metadata is rejected before the
+// kernel is read. Preserved from LegacyFlashSnapshotAdapter, which documented
+// the same guarantee.
 TEST(BuildEepromReadPlanTest, InvalidConfigIsRejectedBeforeReadingTheKernel)
 {
     InMemoryFileRepository repository = make_repository();
@@ -149,6 +169,43 @@ TEST(BuildEepromReadPlanTest, InvalidConfigIsRejectedBeforeReadingTheKernel)
     ASSERT_FALSE(plan.has_value());
     // protocols.cfg was read; the kernel was not.
     EXPECT_EQ(repository.read_count("kernels/ssmk_can_tp_sh7058.bin"), 0);
+}
+
+TEST(BuildEepromReadPlanTest, InvalidModeIsRejectedBeforeReadingTheKernel)
+{
+    InMemoryFileRepository repository = make_repository();
+
+    auto plan = build_eeprom_read_plan(test_paths(), "sub_ecu_eeprom_denso_sh7058_can",
+                                       static_cast<EepromReadMode>(0), repository);
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_EQ(repository.read_count("kernels/ssmk_can_tp_sh7058.bin"), 0);
+}
+
+TEST(BuildEepromReadPlanTest, UnsupportedKlineSecurityIsRejectedBeforeReadingTheKernel)
+{
+    InMemoryFileRepository repository = make_repository();
+
+    auto plan = build_eeprom_read_plan(test_paths(), "sub_ecu_eeprom_denso_sh7055_kline_cobb",
+                                       EepromReadMode::Mode2, repository);
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_EQ(repository.read_count("kernels/ssmk_kline_sh7055.bin"), 0);
+}
+
+TEST(BuildEepromReadPlanTest, KernelAddressOutsideRamIsRejectedBeforeReadingTheKernel)
+{
+    InMemoryFileRepository repository = make_repository();
+
+    auto plan = build_eeprom_read_plan(test_paths(),
+                                       "sub_ecu_eeprom_denso_sh7055_bad_kernel_addr",
+                                       EepromReadMode::Mode2, repository);
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_EQ(repository.read_count("kernels/out_of_range.bin"), 0);
 }
 
 TEST(BuildEepromReadPlanTest, KernelReadFailureIsPropagated)

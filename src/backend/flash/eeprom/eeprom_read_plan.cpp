@@ -2,6 +2,7 @@
 
 #include <format>
 #include <limits>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -129,7 +130,9 @@ Result<FlashPlan> build_eeprom_read_plan(const config::ConfigPaths& paths,
         return std::unexpected(entry.error());
     }
 
-    // Every fallible non-I/O step runs before the kernel read below.
+    const std::string target_id(protocol_name);
+
+    // Every fallible metadata-only validation runs before the kernel read below.
     Result<std::uint32_t> kernel_start_addr = parse_kernel_start_addr(entry->kernel_addr);
     if (!kernel_start_addr.has_value())
     {
@@ -139,6 +142,27 @@ Result<FlashPlan> build_eeprom_read_plan(const config::ConfigPaths& paths,
     if (!eeprom_region.has_value())
     {
         return std::unexpected(eeprom_region.error());
+    }
+
+    DensoSh705xEepromInput input{
+        .operation = FlashOperation::Read,
+        .family = family_for_protocol(protocol_name),
+        .target_id = target_id,
+        .mcu_name = entry->mcu,
+        .flash_method = target_id,
+        .kernel = KernelImage{
+            .id = target_id + "-kernel",
+            .load_address = *kernel_start_addr,
+            .bytes = {},
+        },
+        .mode = mode,
+        .security = security_for_protocol(protocol_name),
+        .eeprom_region = *eeprom_region,
+    };
+    Result<void> preflight = validate_denso_sh705x_eeprom_preflight(input, std::nullopt);
+    if (!preflight.has_value())
+    {
+        return std::unexpected(preflight.error());
     }
 
     // No separator inserted: kernel_files_directory already carries its
@@ -152,22 +176,8 @@ Result<FlashPlan> build_eeprom_read_plan(const config::ConfigPaths& paths,
         return std::unexpected(kernel_bytes.error());
     }
 
-    const std::string target_id(protocol_name);
-    return build_denso_sh705x_eeprom_plan(DensoSh705xEepromInput{
-        .operation = FlashOperation::Read,
-        .family = family_for_protocol(protocol_name),
-        .target_id = target_id,
-        .mcu_name = entry->mcu,
-        .flash_method = target_id,
-        .kernel = KernelImage{
-            .id = target_id + "-kernel",
-            .load_address = *kernel_start_addr,
-            .bytes = std::move(*kernel_bytes),
-        },
-        .mode = mode,
-        .security = security_for_protocol(protocol_name),
-        .eeprom_region = *eeprom_region,
-    });
+    input.kernel.bytes = std::move(*kernel_bytes);
+    return build_denso_sh705x_eeprom_plan(std::move(input));
 }
 
 } // namespace fastecu::flash

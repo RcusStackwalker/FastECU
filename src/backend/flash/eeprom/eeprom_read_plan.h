@@ -33,9 +33,11 @@ namespace fastecu::flash
 // or kernel address would build a plan that flashes garbage to an ECU. Do
 // not "make this consistent" with the calibration adapter.
 //
-// Every fallible step except the kernel read runs first, so an invalid
-// configuration is rejected without reading the kernel file. That ordering
-// is a guarantee, not an accident -- the tests assert it.
+// Every fallible validation decidable from catalog metadata runs before the
+// kernel read, so an invalid mode, security variant, MCU/region, or definitely
+// out-of-range kernel address is rejected without reading the kernel file.
+// Validation that requires the kernel byte count runs after the read. This
+// ordering is a guarantee, not an accident -- the tests assert it.
 Result<FlashPlan> build_eeprom_read_plan(const config::ConfigPaths& paths,
                                          std::string_view protocol_name,
                                          EepromReadMode mode,
