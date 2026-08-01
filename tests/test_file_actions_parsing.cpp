@@ -358,6 +358,56 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(ecu.RomInfo.at(FileActions::DefFile), definitionPath);
     }
 
+    void romraiderDefinitionResolvesFlashMethodAlias()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString definitionPath = writeTextFile(
+            dir,
+            "romraider_alias.xml",
+            R"(<roms>
+  <rom>
+    <romid>
+      <xmlid>ALIAS_TEST</xmlid><internalidaddress>0</internalidaddress>
+      <internalidstring>ALIAS_TEST</internalidstring><ecuid>ALIAS_ECU</ecuid>
+      <flashmethod>wrx02</flashmethod>
+    </romid>
+    <table name="Fuel" type="2D" storagetype="uint16" endian="big"
+           storageaddress="20" sizex="2" sizey="1">
+      <scaling units="%" expression="x*0.5" to_byte="x*2"
+               format="0.0" fineincrement="0.5" coarseincrement="1"/>
+    </table>
+  </rom>
+</roms>)");
+        QVERIFY(!definitionPath.isEmpty());
+
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        actions.ConfigValuesStruct.romraider_definition_files = {definitionPath};
+        QCOMPARE(actions.create_romraider_def_id_list(&actions.ConfigValuesStruct),
+                 &actions.ConfigValuesStruct);
+
+        // One protocol row declaring "wrx02" as an alias, mirroring
+        // resources/shared/config/protocols.cfg:133.
+        actions.ConfigValuesStruct.flash_protocol_id = {"0"};
+        actions.ConfigValuesStruct.flash_protocol_alias = {"wrx02"};
+        actions.ConfigValuesStruct.flash_protocol_protocol_name =
+            {"sub_ecu_denso_mc68hc16y5_02"};
+
+        FileActions::EcuCalDefStructure ecu;
+        while (ecu.RomInfo.size() < ecu.RomInfoStrings.size())
+        {
+            ecu.RomInfo.append(" ");
+        }
+        QCOMPARE(actions.read_romraider_ecu_def(&ecu, "ALIAS_TEST"), &ecu);
+
+        // The invariant Task 7's wraparound deletion depends on: the alias never
+        // survives into RomInfo[FlashMethod], so a downstream
+        // `RomInfo[FlashMethod] == "wrx02"` comparison can never be true.
+        QCOMPARE(ecu.RomInfo.at(FileActions::FlashMethod),
+                 QString("sub_ecu_denso_mc68hc16y5_02"));
+        QVERIFY(ecu.RomInfo.at(FileActions::FlashMethod) != QString("wrx02"));
+    }
+
     void malformed_romraider_catalog_file_is_skipped_and_replaces_with_empty_catalog()
     {
         QTemporaryDir dir;
