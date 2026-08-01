@@ -56,17 +56,30 @@ struct ResolvedCarModel
     std::optional<ProtocolEntry> protocol; // nullopt: protocol_name had no match
 };
 
-// One row per CarModelEntry, in file order, each joined against its last-
-// matching ProtocolEntry by protocol_name (last-match-wins, matching
-// LegacyConfigAdapter::copy_car_models_into_legacy's own inner loop, which
-// has no `break`).
+// One row per CarModelEntry, in file order, each joined against the first
+// ProtocolEntry with a matching protocol_name.
+//
+// First-match is unambiguous because protocol names are unique:
+// load_protocol_catalog rejects a duplicate outright, so a catalog that came
+// from there can contain at most one match. Passing a hand-built catalog with
+// duplicates is a programming error; the first entry wins by definition
+// rather than by any considered tie-break rule.
 std::vector<ResolvedCarModel> resolve_car_models(const ProtocolCatalog& protocols,
                                                  const CarModelCatalog& car_models);
 
-// The index of the last row (in resolve_car_models order) whose
-// protocol_name equals flash_method; nullopt if none match. Mirrors
+// The index of the LAST row (in resolve_car_models order) whose protocol_name
+// equals flash_method; nullopt if none match. Mirrors
 // FileActions::open_subaru_rom_file's own no-break scan over
 // flash_protocol_protocol_name.
+//
+// Last-match here, unlike resolve_car_models above, because duplicates on
+// this side are legitimate and common: several car models routinely share
+// one protocol (in the shipped protocols.cfg, 63 <car_model> elements
+// reference only 49 distinct protocols -- sub_ecu_denso_mc68hc16y5_02 alone
+// is referenced by 6). They cannot be rejected at intake, and which row wins
+// is observable: open_subaru_rom_file binds
+// flash_protocol_selected_{make,model,version} from it. Switching to
+// first-match would change the vehicle shown for every shared protocol.
 std::optional<std::size_t> find_car_model_by_protocol_name(
     std::span<const ResolvedCarModel> resolved_car_models, std::string_view flash_method);
 

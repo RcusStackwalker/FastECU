@@ -211,8 +211,12 @@ TEST(ResolveCarModels, UnmatchedProtocolNameYieldsNullopt)
     EXPECT_FALSE(resolved[0].protocol.has_value());
 }
 
-TEST(ResolveCarModels, DuplicateProtocolNamesResolveToTheLastMatch)
+TEST(ResolveCarModels, DuplicateProtocolNamesResolveToTheFirstMatch)
 {
+    // Unreachable through load_protocol_catalog, which rejects duplicate
+    // protocol names outright (see LoadProtocolCatalog.RejectsDuplicate-
+    // ProtocolNames). Pinned only so a hand-built catalog has defined
+    // behaviour rather than an accident of loop structure.
     ProtocolCatalog protocols;
     ProtocolEntry first;
     first.protocol_name = "shared_name";
@@ -232,9 +236,13 @@ TEST(ResolveCarModels, DuplicateProtocolNamesResolveToTheLastMatch)
 
     ASSERT_EQ(resolved.size(), 1u);
     ASSERT_TRUE(resolved[0].protocol.has_value());
-    EXPECT_EQ(resolved[0].protocol->mcu, "SECOND");
+    EXPECT_EQ(resolved[0].protocol->mcu, "FIRST");
 }
 
+// Last-match, deliberately asymmetric with resolve_car_models above: several
+// car models legitimately share one protocol, so duplicates here cannot be
+// rejected at intake, and which row wins is observable in the vehicle
+// open_subaru_rom_file binds.
 TEST(FindCarModelByProtocolName, ReturnsTheLastMatchingIndex)
 {
     std::vector<ResolvedCarModel> resolved(3);
