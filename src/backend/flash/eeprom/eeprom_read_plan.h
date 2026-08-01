@@ -11,10 +11,9 @@
 namespace fastecu::flash
 {
 
-// Builds a Denso SH705x EEPROM read plan for `protocol_name`, replacing
-// LegacyFlashSnapshotAdapter (step 5d-6). Owns no state: every catalog it
-// loads is a local, and the returned FlashPlan owns its kernel bytes by
-// value.
+// Builds a Denso SH705x EEPROM read plan for `protocol_name`. Owns no state:
+// every catalog it loads is a local, and the returned FlashPlan owns its
+// kernel bytes by value.
 //
 // Resolution goes through the car-model catalog -- load_protocol_catalog +
 // load_car_model_catalog + resolve_car_models +

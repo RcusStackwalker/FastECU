@@ -12,9 +12,8 @@ namespace fastecu::flash
 // (eblocks_SH7055[0], line 279-281; eblocks_SH7058[0], line 221-223). Do not
 // derive these from anywhere else; the MCU table is the single source of
 // truth both this function and resolve_mcu_bounds() below read from -- and
-// the only place these two literals are written (LegacyFlashSnapshotAdapter,
-// step 5c Task 14, calls this function directly rather than keeping its own
-// copy).
+// the only place these two literals are written (build_eeprom_read_plan calls
+// this function directly rather than keeping its own copy).
 Result<MemoryRegion> resolve_sh705x_eeprom_region(const std::string& mcu_name)
 {
     if (mcu_name == "SH7055")

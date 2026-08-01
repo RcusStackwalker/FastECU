@@ -1,9 +1,9 @@
 // tests/test_eeprom_read_plan_goldens.cpp
 //
 // Characterization goldens for the EEPROM read plan (step 5d-6). Written
-// against LegacyFlashSnapshotAdapter BEFORE the portable use case existed, so
-// that re-pointing them at build_eeprom_read_plan proves the conversion
-// preserved behavior. Expected values are hand-derived from
+// against the former desktop implementation before the portable use case
+// existed, so that re-pointing them at build_eeprom_read_plan proves the
+// conversion preserved behavior. Expected values are hand-derived from
 // resources/shared/config/protocols.cfg, not captured from either
 // implementation's output.
 #include "src/backend/flash/eeprom/eeprom_read_plan.h"

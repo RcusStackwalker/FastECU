@@ -11,8 +11,7 @@ namespace fastecu::flash
 {
 
 // Portable builder inputs. No FileActions, no paths, no platform handles --
-// LegacyFlashSnapshotAdapter (desktop) assembles this from legacy state and
-// its step-5d successor assembles it from a parsed, portable definition.
+// build_eeprom_read_plan assembles this from a parsed, portable definition.
 struct DensoSh705xEepromInput
 {
     FlashOperation operation;
@@ -28,10 +27,9 @@ struct DensoSh705xEepromInput
 
 // Resolves the fixed SH705x EEPROM address range for mcu_name ("SH7055" or
 // "SH7058") from the same MCU table build_denso_sh705x_eeprom_plan validates
-// DensoSh705xEepromInput::eeprom_region against. Exposed so callers that
-// assemble a DensoSh705xEepromInput from platform state (e.g.
-// LegacyFlashSnapshotAdapter, step 5c Task 14) can supply a matching region
-// without independently re-transcribing the kernelmemorymodels.h literals.
+// DensoSh705xEepromInput::eeprom_region against. Exposed so
+// build_eeprom_read_plan can supply a matching region without independently
+// re-transcribing the kernelmemorymodels.h literals.
 Result<MemoryRegion> resolve_sh705x_eeprom_region(const std::string& mcu_name);
 
 // Validates every Denso SH705x EEPROM plan constraint decidable from the

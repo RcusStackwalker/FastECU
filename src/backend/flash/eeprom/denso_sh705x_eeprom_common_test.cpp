@@ -145,9 +145,9 @@ TEST(DensoSh705xEepromCommonTest, KernelLoadAddressOutsideRamRangeIsRejected)
 
 TEST(DensoSh705xEepromCommonTest, ResolveSh705xEepromRegionReturnsKnownMcuBounds)
 {
-    // Exercised directly because step 5c Task 14's LegacyFlashSnapshotAdapter
-    // calls this exported function to avoid keeping its own copy of these
-    // literals; a regression here would silently break that caller too.
+    // Exercised directly because build_eeprom_read_plan calls this exported
+    // function to avoid keeping its own copy of these literals; a regression
+    // here would silently break that caller too.
     auto sh7055 = resolve_sh705x_eeprom_region("SH7055");
     ASSERT_TRUE(sh7055.has_value());
     EXPECT_EQ(sh7055->start, kSh7055EepromStart);

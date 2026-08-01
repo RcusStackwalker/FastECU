@@ -85,6 +85,40 @@ InMemoryFileRepository make_repository()
     return repository;
 }
 
+InMemoryFileRepository make_repository_with_protocol(const std::string& name,
+                                                     const std::string& mcu,
+                                                     const std::string& kernel,
+                                                     const std::string& kernel_addr)
+{
+    InMemoryFileRepository repository;
+    const std::string xml =
+        R"(<?xml version="1.0" encoding="UTF-8"?>
+<config name="FastECU" version="0.0-dev0">
+    <protocols>
+        <protocol name=")" +
+        name + R"(" alias="Synthetic EEPROM protocol">
+            <ecu>Denso EEPROM</ecu>
+            <mcu>)" +
+        mcu + R"(</mcu>
+            <kernel>)" +
+        kernel + R"(</kernel>
+            <kernel_addr>)" +
+        kernel_addr + R"(</kernel_addr>
+        </protocol>
+    </protocols>
+    <car_models>
+        <car_model>
+            <make>Subaru</make><model>Synthetic</model><version>Test</version>
+            <protocol>)" +
+        name + R"(</protocol>
+        </car_model>
+    </car_models>
+</config>)";
+    repository.files["protocols.cfg"] = std::vector<std::uint8_t>(xml.begin(), xml.end());
+    repository.files["kernels/" + kernel] = {0x01, 0x02, 0x03};
+    return repository;
+}
+
 TEST(BuildEepromReadPlanTest, KlineProtocolProducesAKlinePlan)
 {
     InMemoryFileRepository repository = make_repository();
@@ -157,8 +191,7 @@ TEST(BuildEepromReadPlanTest, UnknownProtocolNameIsRejected)
 }
 
 // Every invalid configuration derivable from metadata is rejected before the
-// kernel is read. Preserved from LegacyFlashSnapshotAdapter, which documented
-// the same guarantee.
+// kernel is read. The portable builder documents the same guarantee.
 TEST(BuildEepromReadPlanTest, InvalidConfigIsRejectedBeforeReadingTheKernel)
 {
     InMemoryFileRepository repository = make_repository();
@@ -229,6 +262,55 @@ TEST(BuildEepromReadPlanTest, MissingProtocolsFileIsPropagated)
                                        EepromReadMode::Mode2, repository);
 
     ASSERT_FALSE(plan.has_value());
+}
+
+// Successor to the deleted adapter's unknown-MCU rejection test. Removing
+// resolve_sh705x_eeprom_region() from the metadata preflight must fail this.
+TEST(BuildEepromReadPlanTest, UnknownMcuIsRejectedBeforeReadingTheKernel)
+{
+    InMemoryFileRepository repository = make_repository_with_protocol(
+        "sub_ecu_eeprom_denso_sh7058_can", "NOT_A_REAL_MCU", "ssmk_can_tp_sh7058.bin",
+        "0xFFFF3000");
+
+    auto plan = build_eeprom_read_plan(test_paths(), "sub_ecu_eeprom_denso_sh7058_can",
+                                       EepromReadMode::Mode2, repository);
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_EQ(repository.read_count("kernels/ssmk_can_tp_sh7058.bin"), 0);
+}
+
+// Successor to the deleted adapter's malformed-address rejection test.
+// Removing parse_kernel_start_addr() from metadata preflight must fail this.
+TEST(BuildEepromReadPlanTest, UnparseableKernelAddrIsRejectedBeforeReadingTheKernel)
+{
+    InMemoryFileRepository repository = make_repository_with_protocol(
+        "sub_ecu_eeprom_denso_sh7058_can", "SH7058", "ssmk_can_tp_sh7058.bin", "not_hex");
+
+    auto plan = build_eeprom_read_plan(test_paths(), "sub_ecu_eeprom_denso_sh7058_can",
+                                       EepromReadMode::Mode2, repository);
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_EQ(repository.read_count("kernels/ssmk_can_tp_sh7058.bin"), 0);
+}
+
+// Successor to the deleted adapter's EcuTek suffix test. No shipped EEPROM
+// protocol carries a security suffix today, so this uses a synthetic name.
+// Removing the _ecutek branch from security_for_protocol() must fail this.
+TEST(BuildEepromReadPlanTest, EcuTekSuffixProducesAnEcuTekPlan)
+{
+    InMemoryFileRepository repository = make_repository_with_protocol(
+        "sub_ecu_eeprom_denso_sh7058_can_ecutek", "SH7058", "ssmk_can_tp_sh7058.bin",
+        "0xFFFF3000");
+
+    auto plan = build_eeprom_read_plan(test_paths(), "sub_ecu_eeprom_denso_sh7058_can_ecutek",
+                                       EepromReadMode::Mode2, repository);
+
+    ASSERT_TRUE(plan.has_value());
+    const auto *can_plan = std::get_if<DensoSh705xEepromCanPlan>(&plan->family_plan());
+    ASSERT_NE(can_plan, nullptr);
+    EXPECT_EQ(can_plan->security, DensoSecurityVariant::EcuTek);
 }
 
 } // namespace

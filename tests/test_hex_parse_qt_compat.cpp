@@ -1,9 +1,9 @@
 // tests/test_hex_parse_qt_compat.cpp
 //
 // Pins definition::parse_hex_value against the Qt call it replaces on the
-// flash path: QString::toUInt(&ok, 16), as used by
-// LegacyFlashSnapshotAdapter::parse_kernel_start_addr. Agreement is expected
-// but not assumed -- step 5d-4b's 'g'-formatting experience is the reason
+// flash path: QString::toUInt(&ok, 16), as used by the former desktop parser.
+// Agreement is expected but not assumed -- step 5d-4b's 'g'-formatting
+// experience is the reason
 // this table exists rather than a comment claiming compatibility.
 #include "src/backend/definition/text_format.h"
 
