@@ -78,5 +78,13 @@ compile_flags.txt
 
 /.worktrees/
 
-# clang-tidy report
+# Local analysis output: clang-tidy reports and coverage runs
 /reports/
+
+# Python bytecode caches. scripts/ and bazel/compile_commands/ hold the only
+# Python in the tree (clang_tidy_runner, refresh_sonar); running either or
+# their pytest suites drops a __pycache__ next to the source, and an
+# untracked-but-not-ignored .pyc is one `git add -A` away from being
+# committed.
+__pycache__/
+*.py[cod]
