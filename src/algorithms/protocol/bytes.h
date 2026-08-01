@@ -58,7 +58,7 @@ inline void appendU32Le(Bytes& out, std::uint32_t value)
 
 inline std::uint16_t readU16Be(ByteView bytes, std::size_t offset = 0)
 {
-    if (offset + 2 > bytes.size())
+    if (offset > bytes.size() || 2 > bytes.size() - offset)
     {
         return 0;
     }
@@ -67,7 +67,7 @@ inline std::uint16_t readU16Be(ByteView bytes, std::size_t offset = 0)
 
 inline std::uint32_t readU24Be(ByteView bytes, std::size_t offset = 0)
 {
-    if (offset + 3 > bytes.size())
+    if (offset > bytes.size() || 3 > bytes.size() - offset)
     {
         return 0;
     }
@@ -76,7 +76,7 @@ inline std::uint32_t readU24Be(ByteView bytes, std::size_t offset = 0)
 
 inline std::uint32_t readU32Be(ByteView bytes, std::size_t offset = 0)
 {
-    if (offset + 4 > bytes.size())
+    if (offset > bytes.size() || 4 > bytes.size() - offset)
     {
         return 0;
     }
@@ -85,7 +85,7 @@ inline std::uint32_t readU32Be(ByteView bytes, std::size_t offset = 0)
 
 inline std::uint16_t readU16Le(ByteView bytes, std::size_t offset = 0)
 {
-    if (offset + 2 > bytes.size())
+    if (offset > bytes.size() || 2 > bytes.size() - offset)
     {
         return 0;
     }
@@ -94,7 +94,7 @@ inline std::uint16_t readU16Le(ByteView bytes, std::size_t offset = 0)
 
 inline std::uint32_t readU24Le(ByteView bytes, std::size_t offset = 0)
 {
-    if (offset + 3 > bytes.size())
+    if (offset > bytes.size() || 3 > bytes.size() - offset)
     {
         return 0;
     }
@@ -103,11 +103,53 @@ inline std::uint32_t readU24Le(ByteView bytes, std::size_t offset = 0)
 
 inline std::uint32_t readU32Le(ByteView bytes, std::size_t offset = 0)
 {
-    if (offset + 4 > bytes.size())
+    if (offset > bytes.size() || 4 > bytes.size() - offset)
     {
         return 0;
     }
     return std::uint32_t(bytes[offset]) | (std::uint32_t(bytes[offset + 1]) << 8) | (std::uint32_t(bytes[offset + 2]) << 16) | (std::uint32_t(bytes[offset + 3]) << 24);
+}
+
+// Reads `width` bytes (1-4) at `offset`, most-significant byte first.
+// Dispatches to the fixed-width readers above, and inherits their
+// return-0-when-out-of-range convention; a `width` outside 1-4 also yields 0.
+//
+// Exists because callers that pick their width at runtime from a definition's
+// storage type (src/backend/calibration/calibration_service.cpp) would
+// otherwise hand-roll endian normalization and MSB-first assembly themselves.
+inline std::uint32_t readUBe(ByteView bytes, std::size_t offset, std::uint32_t width)
+{
+    switch (width)
+    {
+    case 1:
+        return offset < bytes.size() ? std::uint32_t(bytes[offset]) : 0u;
+    case 2:
+        return readU16Be(bytes, offset);
+    case 3:
+        return readU24Be(bytes, offset);
+    case 4:
+        return readU32Be(bytes, offset);
+    default:
+        return 0u;
+    }
+}
+
+// Least-significant byte first. See readUBe.
+inline std::uint32_t readULe(ByteView bytes, std::size_t offset, std::uint32_t width)
+{
+    switch (width)
+    {
+    case 1:
+        return offset < bytes.size() ? std::uint32_t(bytes[offset]) : 0u;
+    case 2:
+        return readU16Le(bytes, offset);
+    case 3:
+        return readU24Le(bytes, offset);
+    case 4:
+        return readU32Le(bytes, offset);
+    default:
+        return 0u;
+    }
 }
 
 using MutableByteView = std::span<Byte>;

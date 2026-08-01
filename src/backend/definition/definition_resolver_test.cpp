@@ -951,5 +951,60 @@ TEST(DefinitionResolverTest, RejectsLoaderDefinitionWhoseIdentityDoesNotMatchRef
     EXPECT_EQ(root, original);
 }
 
+TEST(DefinitionResolverTest, RejectsZeroStartPositionOnMap)
+{
+    auto root = doc("ROOT");
+    auto fuel = map("fuel", "Fuel");
+    fuel.x_size = 2;
+    fuel.start_position = 0u;
+    root.maps.push_back(fuel);
+    const auto original = root;
+    DefinitionSet definitions{};
+
+    auto result = resolve_definition(root, definitions.loader());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(result.error().detail, HasSubstr("zero start position"));
+    EXPECT_THAT(result.error().detail, HasSubstr("fuel"));
+    EXPECT_EQ(root, original);
+}
+
+TEST(DefinitionResolverTest, RejectsZeroStartPositionOnAxis)
+{
+    auto root = doc("ROOT");
+    auto fuel = map("fuel", "Fuel");
+    fuel.x_size = 2;
+    fuel.x_axis = UnresolvedAxisDefinition{
+        .type = "X Axis",
+        .name = "Load",
+        .size = 2,
+        .start_position = 0u,
+    };
+    root.maps.push_back(fuel);
+    const auto original = root;
+    DefinitionSet definitions{};
+
+    auto result = resolve_definition(root, definitions.loader());
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(result.error().detail, HasSubstr("zero start position"));
+    EXPECT_THAT(result.error().detail, HasSubstr("x axis"));
+    EXPECT_EQ(root, original);
+}
+
+TEST(DefinitionResolverTest, AcceptsStartPositionOfOne)
+{
+    auto root = doc("ROOT");
+    auto fuel = map("fuel", "Fuel");
+    fuel.x_size = 2;
+    fuel.start_position = 1u;
+    root.maps.push_back(fuel);
+    DefinitionSet definitions{};
+
+    EXPECT_TRUE(resolve_definition(root, definitions.loader()).has_value());
+}
+
 } // namespace
 } // namespace fastecu::definition

@@ -137,6 +137,36 @@ std::uint32_t storage_byte_size(std::optional<StorageType> storage_type)
     return 1;
 }
 
+const Scaling *find_scaling(const RomDefinition& definition, std::string_view name)
+{
+    const auto it = std::ranges::find(definition.scalings, name, &Scaling::name);
+    return it != definition.scalings.end() ? &*it : nullptr;
+}
+
+bool is_unsigned_storage(std::optional<StorageType> storage_type)
+{
+    if (!storage_type.has_value())
+    {
+        return false;
+    }
+    switch (*storage_type)
+    {
+    case StorageType::Uint8:
+    case StorageType::Uint16:
+    case StorageType::Uint24:
+    case StorageType::Uint32:
+        return true;
+    case StorageType::Int8:
+    case StorageType::Int16:
+    case StorageType::Int24:
+    case StorageType::Int32:
+    case StorageType::Float:
+    case StorageType::Bloblist:
+        return false;
+    }
+    return false;
+}
+
 DefinitionCatalog::DefinitionCatalog(std::vector<DefinitionIndexEntry> entries) : entries_(std::move(entries))
 {
 }

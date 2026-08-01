@@ -20,6 +20,8 @@ cc_library(
     srcs = ["calibration_service.cpp"],
     hdrs = ["calibration_service.h"],
     deps = [
+        "//src/algorithms/expression",
+        "//src/algorithms/protocol",
         "//src/backend/definition:definition_model",
         "//src/backend/ports",
     ],
@@ -54,6 +56,7 @@ qt_cc_library(
         "//src/backend/config:car_model_catalog",
         "//src/backend/config:config_paths",
         "//src/backend/config:protocol_catalog",
+        "//src/backend/definition:definition_model",
         "//src/backend/definitions:config_values",
         "//src/backend/definitions:ecu_cal_def",
         "//src/backend/ports",

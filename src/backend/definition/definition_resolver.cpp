@@ -552,6 +552,12 @@ Result<void> validate_axis(
             ErrorKind::InvalidConfig,
             std::format("zero dimension for {} in definition '{}'", axis_context, definition_id));
     }
+    if (axis.start_position == 0)
+    {
+        return fail(
+            ErrorKind::InvalidConfig,
+            std::format("zero start position for {} in definition '{}'", axis_context, definition_id));
+    }
     if (axis.size != required_size)
     {
         return fail(
@@ -632,6 +638,12 @@ Result<void> validate_and_resolve_scalings(
             return fail(
                 ErrorKind::InvalidConfig,
                 std::format("zero required dimension for map '{}' in definition '{}'", key, definition.identity.xml_id));
+        }
+        if (map.start_position == 0)
+        {
+            return fail(
+                ErrorKind::InvalidConfig,
+                std::format("zero start position for map '{}' in definition '{}'", key, definition.identity.xml_id));
         }
 
         bool has_selection_scaling = false;

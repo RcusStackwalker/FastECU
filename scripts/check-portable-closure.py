@@ -53,6 +53,7 @@ PORTABLE_ROOTS = {
         "config_paths",
         "app_config",
         "protocol_catalog",
+        "car_model_catalog",
         "provisioning",
     },
     ROOT / "src/backend/checksum": {

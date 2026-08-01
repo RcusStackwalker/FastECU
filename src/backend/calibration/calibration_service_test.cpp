@@ -1,5 +1,7 @@
 #include "src/backend/calibration/calibration_service.h"
 
+#include <format>
+#include <limits>
 #include <utility>
 #include <vector>
 
@@ -334,6 +336,581 @@ TEST(ValidateRomSize, NullStorageTypeStillGetsExtentCheckedWithOneByteDefault)
     map.y_size = 1;
 
     EXPECT_FALSE(validate_rom_size(definition_with_one_map(map), 0x1000).has_value());
+}
+
+TEST(ApplyFlashMethodPadding, InsertsPaddingForMatchingShortRom)
+{
+    std::vector<std::uint8_t> rom(0x2A000, 0xAA);
+    const std::size_t original = rom.size();
+
+    rom = apply_flash_method_padding(std::move(rom), "sub_ecu_denso_mc68hc16y5_02");
+
+    EXPECT_EQ(rom.size(), original + 0x8000);
+    // Bytes before the insertion point are untouched.
+    EXPECT_EQ(rom.at(0x1FFFF), 0xAA);
+    // The inserted run is 0xFF.
+    EXPECT_EQ(rom.at(0x20000), 0xFF);
+    EXPECT_EQ(rom.at(0x27FFF), 0xFF);
+    // The original byte that was at 0x20000 has moved up by 0x8000.
+    EXPECT_EQ(rom.at(0x28000), 0xAA);
+}
+
+TEST(ApplyFlashMethodPadding, MatchesOnPrefixSoEcutekVariantAlsoPads)
+{
+    std::vector<std::uint8_t> rom(0x2A000, 0xAA);
+    rom = apply_flash_method_padding(std::move(rom), "sub_ecu_denso_mc68hc16y5_02_ecutek");
+    EXPECT_EQ(rom.size(), 0x2A000u + 0x8000u);
+}
+
+TEST(ApplyFlashMethodPadding, LeavesOtherFlashMethodsAlone)
+{
+    std::vector<std::uint8_t> rom(0x30000, 0xAA);
+    rom = apply_flash_method_padding(std::move(rom), "sub_ecu_denso_sh7058");
+    EXPECT_EQ(rom.size(), 0x30000u);
+}
+
+TEST(ApplyFlashMethodPadding, LeavesRomsAtOrAboveTheSizeThresholdAlone)
+{
+    // 190 * 1024 == 0x2F800; the guard is "< 190 * 1024", so exactly at the
+    // threshold must not pad.
+    std::vector<std::uint8_t> rom(190 * 1024, 0xAA);
+    rom = apply_flash_method_padding(std::move(rom), "sub_ecu_denso_mc68hc16y5_02");
+    EXPECT_EQ(rom.size(), static_cast<std::size_t>(190 * 1024));
+}
+
+TEST(ApplyFlashMethodPadding, ZeroExtendsRomShorterThanTheInsertionPoint)
+{
+    std::vector<std::uint8_t> rom(0x100, 0xAA);
+    rom = apply_flash_method_padding(std::move(rom), "sub_ecu_denso_mc68hc16y5_02");
+
+    EXPECT_EQ(rom.size(), 0x20000u + 0x8000u);
+    EXPECT_EQ(rom.at(0xFF), 0xAA);
+    // The synthetic gap is zero-filled: Qt's insert leaves it "uninitialized"
+    // per its docs, so this is a deliberate deterministic choice.
+    EXPECT_EQ(rom.at(0x100), 0x00);
+    EXPECT_EQ(rom.at(0x1FFFF), 0x00);
+    EXPECT_EQ(rom.at(0x20000), 0xFF);
+}
+
+TEST(ApplyFlashMethodPadding, LeavesEmptyFlashMethodAlone)
+{
+    std::vector<std::uint8_t> rom(0x100, 0xAA);
+    rom = apply_flash_method_padding(std::move(rom), "");
+    EXPECT_EQ(rom.size(), 0x100u);
+}
+
+// A run over `count` uint8 big-endian cells at address 0 with the identity
+// expression, which is the shape most decode tests want.
+ElementRun simple_run(std::uint32_t count, std::string_view from_byte = "x")
+{
+    return ElementRun{
+        .address = 0,
+        .count = count,
+        .start_position = 1,
+        .interval = 1,
+        .storage_type = definition::StorageType::Uint8,
+        .endian = "big",
+        .from_byte = from_byte,
+        .is_selectable = false,
+    };
+}
+
+TEST(DecodeScaledValues, DecodesConsecutiveUint8Cells)
+{
+    const std::vector<std::uint8_t> rom{1, 2, 3};
+    const auto result = decode_scaled_values(rom, simple_run(3), 15);
+    ASSERT_TRUE(result.has_value());
+    // Trailing comma after every value, including the last: legacy's format.
+    EXPECT_EQ(*result, "1,2,3,");
+}
+
+TEST(DecodeScaledValues, AppliesFromByteExpression)
+{
+    const std::vector<std::uint8_t> rom{4};
+    const auto result = decode_scaled_values(rom, simple_run(1, "x*0.5"), 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "2,");
+}
+
+TEST(DecodeScaledValues, HonoursStartPositionAndInterval)
+{
+    // start_position 2, interval 3, width 1: addresses 1, 4, 7.
+    const std::vector<std::uint8_t> rom{0, 10, 0, 0, 20, 0, 0, 30};
+    ElementRun run = simple_run(3);
+    run.start_position = 2;
+    run.interval = 3;
+
+    const auto result = decode_scaled_values(rom, run, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "10,20,30,");
+}
+
+TEST(DecodeScaledValues, DecodesBigEndianUint16)
+{
+    const std::vector<std::uint8_t> rom{0x12, 0x34};
+    ElementRun run = simple_run(1);
+    run.storage_type = definition::StorageType::Uint16;
+
+    const auto result = decode_scaled_values(rom, run, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "4660,"); // 0x1234
+}
+
+TEST(DecodeScaledValues, DecodesLittleEndianUint16)
+{
+    // DISCLOSED BEHAVIOR FIX vs. legacy. The legacy loop filled a union member
+    // that the non-float value-selection path never read, so every
+    // endian=="little" non-float run evaluated from_byte at x=0 -- a constant,
+    // ignoring ROM bytes entirely. This decodes genuinely little-endian.
+    const std::vector<std::uint8_t> rom{0x34, 0x12};
+    ElementRun run = simple_run(1);
+    run.storage_type = definition::StorageType::Uint16;
+    run.endian = "little";
+
+    const auto result = decode_scaled_values(rom, run, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "4660,"); // 0x1234
+}
+
+TEST(DecodeScaledValues, TreatsAnyNonLittleEndianStringAsBigEndian)
+{
+    // Legacy's split was `== "little"` / else, so "", "big", and anything else
+    // all take the big-endian path. Reproduced exactly.
+    const std::vector<std::uint8_t> rom{0x12, 0x34};
+    for (std::string_view endian : {"big", "", "BIG", "nonsense"})
+    {
+        ElementRun run = simple_run(1);
+        run.storage_type = definition::StorageType::Uint16;
+        run.endian = endian;
+        const auto result = decode_scaled_values(rom, run, 15);
+        ASSERT_TRUE(result.has_value()) << endian;
+        EXPECT_EQ(*result, "4660,") << endian;
+    }
+}
+
+TEST(DecodeScaledValues, SignExtendsSignedStorageTypes)
+{
+    // DISCLOSED BEHAVIOR FIX vs. legacy, on every platform. Legacy's
+    // `signedDataByte = (signedDataByte << 8) + FullRomData.at(...)` both
+    // sign-extended intermediate bytes on a signed-char host (which includes
+    // this project's arm64 macOS build) and never sign-extended the final
+    // assembled value to its storage width. int16 0xFFFE rendered as -258 on
+    // arm64 macOS and 65534 under -funsigned-char. Correct answer: -2.
+    const std::vector<std::uint8_t> rom{0xFF, 0xFE};
+    ElementRun run = simple_run(1);
+    run.storage_type = definition::StorageType::Int16;
+
+    const auto result = decode_scaled_values(rom, run, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "-2,");
+}
+
+TEST(DecodeScaledValues, DoesNotSignExtendUnsignedStorageTypes)
+{
+    const std::vector<std::uint8_t> rom{0xFF, 0xFE};
+    ElementRun run = simple_run(1);
+    run.storage_type = definition::StorageType::Uint16;
+
+    const auto result = decode_scaled_values(rom, run, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "65534,");
+}
+
+TEST(DecodeScaledValues, DecodesInt8SignBit)
+{
+    const std::vector<std::uint8_t> rom{0x80};
+    ElementRun run = simple_run(1);
+    run.storage_type = definition::StorageType::Int8;
+
+    const auto result = decode_scaled_values(rom, run, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "-128,");
+}
+
+TEST(DecodeScaledValues, DecodesBigEndianFloat)
+{
+    // 1.5f == 0x3FC00000
+    const std::vector<std::uint8_t> rom{0x3F, 0xC0, 0x00, 0x00};
+    ElementRun run = simple_run(1);
+    run.storage_type = definition::StorageType::Float;
+
+    const auto result = decode_scaled_values(rom, run, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "1.5,");
+}
+
+TEST(DecodeScaledValues, PreservesBigEndianFloatAssemblyWhenEndianSaysLittle)
+{
+    // Legacy selected its byte-reversal branch for every float, independent of
+    // the endian field, and therefore treated float storage as big-endian on
+    // the supported little-endian hosts.
+    const std::vector<std::uint8_t> rom{0x3F, 0xC0, 0x00, 0x00};
+    ElementRun run = simple_run(1);
+    run.storage_type = definition::StorageType::Float;
+    run.endian = "little";
+
+    const auto result = decode_scaled_values(rom, run, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "1.5,");
+}
+
+TEST(DecodeScaledValues, EmitsZeroForSelectableRunsWithoutEvaluating)
+{
+    // is_selectable short-circuits before the expression runs, so even an
+    // expression that would blow up yields the formatted text of 0.0.
+    const std::vector<std::uint8_t> rom{7, 8};
+    ElementRun run = simple_run(2, "x*999999");
+    run.is_selectable = true;
+
+    const auto result = decode_scaled_values(rom, run, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "0,0,");
+}
+
+TEST(DecodeScaledValues, ReturnsEmptyStringForZeroCount)
+{
+    const std::vector<std::uint8_t> rom{1, 2, 3};
+    const auto result = decode_scaled_values(rom, simple_run(0), 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "");
+}
+
+TEST(DecodeScaledValues, FailsWhenAnElementRunsPastTheRom)
+{
+    const std::vector<std::uint8_t> rom{1, 2};
+    const auto result = decode_scaled_values(rom, simple_run(3), 15);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+}
+
+TEST(DecodeScaledValues, FailsWhenAMultiByteElementStraddlesTheEnd)
+{
+    const std::vector<std::uint8_t> rom{0x12};
+    ElementRun run = simple_run(1);
+    run.storage_type = definition::StorageType::Uint16;
+
+    const auto result = decode_scaled_values(rom, run, 15);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+}
+
+TEST(DecodeScaledValues, RejectsMaximumAddressWithoutWrapping)
+{
+    const std::vector<std::uint8_t> rom{0x2A};
+    ElementRun run = simple_run(1);
+    run.address = std::numeric_limits<std::uint64_t>::max();
+
+    const auto result = decode_scaled_values(rom, run, 15);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+}
+
+TEST(DecodeScaledValues, ClampsZeroStartPositionDefensively)
+{
+    // definition_resolver rejects start_position == 0 (Task 4), so this cannot
+    // arrive from a resolved definition. Clamped identically to
+    // element_run_end's own guard so the two can never disagree if one is
+    // reached directly.
+    const std::vector<std::uint8_t> rom{1, 2};
+    ElementRun run = simple_run(1);
+    run.start_position = 0;
+
+    const auto result = decode_scaled_values(rom, run, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "1,");
+}
+
+TEST(DecodeScaledValues, FormattingMatchesCapturedQtGroundTruth)
+{
+    // Ground truth captured from real QString::number(value, 'g', 15). This is
+    // the highest-value test in this file: legacy formatted every decoded cell
+    // with Qt's 'g', and MapData consumers compare text. Do not weaken it.
+    //
+    // from_byte is a bare numeric literal via std::format("{:.20f}", value),
+    // not an expression referencing x, so this isolates formatting from byte
+    // decoding. Fixed-point with 20 places specifically: std::to_string
+    // truncates at 6 places, and a "{:.17g}" form emits scientific notation
+    // whose 'e' the expression tokenizer silently misreads as a subtraction.
+    struct Case
+    {
+        double value;
+        const char *expected;
+    };
+    const Case cases[] = {
+        {0.0, "0"},
+        {-0.0, "0"},
+        {1.0, "1"},
+        {123.0, "123"},
+        {123.456, "123.456"},
+        {-45.6, "-45.6"},
+        {0.0001, "0.0001"},
+        {0.00001, "1e-05"},
+        {100000.0, "100000"},
+        {123456789012345.0, "123456789012345"},
+        {3.14159265358979, "3.14159265358979"},
+        {0.000000001, "1e-09"},
+    };
+    const std::vector<std::uint8_t> rom{0x01};
+    for (const Case& c : cases)
+    {
+        const std::string literal = std::format("{:.20f}", c.value);
+        const auto result = decode_scaled_values(rom, simple_run(1, literal), 15);
+        ASSERT_TRUE(result.has_value()) << c.expected;
+        EXPECT_EQ(*result, std::string(c.expected) + ",") << "value=" << c.value;
+    }
+}
+
+TEST(DecodeBloblistHex, HexEncodesRequestedBytes)
+{
+    const std::vector<std::uint8_t> rom{0x00, 0xAB, 0xCD, 0xEF};
+    const auto result = decode_bloblist_hex(rom, 1, 3);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "abcdef");
+}
+
+TEST(DecodeBloblistHex, ReturnsEmptyStringForZeroCount)
+{
+    const std::vector<std::uint8_t> rom{0xAB};
+    const auto result = decode_bloblist_hex(rom, 0, 0);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "");
+}
+
+TEST(DecodeBloblistHex, FailsWhenTheRunExceedsTheRom)
+{
+    const std::vector<std::uint8_t> rom{0xAB, 0xCD};
+    const auto result = decode_bloblist_hex(rom, 1, 3);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+}
+
+TEST(DecodeBloblistHex, RejectsMaximumAddressWithoutWrapping)
+{
+    const std::vector<std::uint8_t> rom{0xAB};
+
+    const auto result = decode_bloblist_hex(
+        rom, std::numeric_limits<std::uint64_t>::max(), 1);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+}
+
+namespace
+{
+// A RomDefinition with one 3x1 uint8 map named "Fuel" at `address`, scaled by
+// `expression`.
+definition::RomDefinition one_map_definition(std::uint64_t address,
+                                             std::string_view expression = "x")
+{
+    definition::RomDefinition rom;
+    rom.scalings.push_back(definition::Scaling{
+        .name = "FuelScaling", .from_byte = std::string(expression)});
+    definition::CalibrationMap map;
+    map.name = "Fuel";
+    map.type = "2D";
+    map.address = address;
+    map.x_size = 3;
+    map.y_size = 1;
+    map.storage_type = definition::StorageType::Uint8;
+    map.endian = "big";
+    map.scaling_name = "FuelScaling";
+    rom.maps.push_back(map);
+    return rom;
+}
+} // namespace
+
+TEST(ComputeMapCellValues, DecodesOneMapsCells)
+{
+    const definition::RomDefinition rom = one_map_definition(0);
+    const std::vector<std::uint8_t> data{5, 6, 7};
+
+    const auto result = compute_map_cell_values(rom, data, 15);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result->size(), 1u);
+    EXPECT_FALSE(result->at(0).error.has_value());
+    EXPECT_EQ(result->at(0).map_data, "5,6,7,");
+    // x_size 3 but no usable x_axis type, y_size 1: both axes stay " ".
+    EXPECT_EQ(result->at(0).x_axis_data, " ");
+    EXPECT_EQ(result->at(0).y_axis_data, " ");
+}
+
+TEST(ComputeMapCellValues, UsesBlankExpressionWhenMapScalingIsAbsent)
+{
+    definition::RomDefinition rom = one_map_definition(0);
+    rom.scalings.clear();
+    rom.maps.at(0).scaling_name.clear();
+    const std::vector<std::uint8_t> data{5, 6, 7};
+
+    const auto result = compute_map_cell_values(rom, data, 15);
+
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result->size(), 1u);
+    ASSERT_FALSE(result->at(0).error.has_value());
+    EXPECT_EQ(result->at(0).map_data, "0,0,0,");
+}
+
+TEST(ComputeMapCellValues, DecodesAnXAxisOfTypeXAxis)
+{
+    definition::RomDefinition rom = one_map_definition(0);
+    rom.scalings.push_back(definition::Scaling{.name = "AxisScaling", .from_byte = "x"});
+    rom.maps.at(0).x_axis.type = "X Axis";
+    rom.maps.at(0).x_axis.address = 3;
+    rom.maps.at(0).x_axis.size = 3;
+    rom.maps.at(0).x_axis.storage_type = definition::StorageType::Uint8;
+    rom.maps.at(0).x_axis.endian = "big";
+    rom.maps.at(0).x_axis.scaling_name = "AxisScaling";
+
+    const std::vector<std::uint8_t> data{5, 6, 7, 100, 200, 250};
+    const auto result = compute_map_cell_values(rom, data, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->at(0).x_axis_data, "100,200,250,");
+}
+
+TEST(ComputeMapCellValues, UsesResolvedAxisExpressionAfterScalingInheritance)
+{
+    definition::RomDefinition rom = one_map_definition(0);
+    // This is the valid resolved state pinned by DefinitionResolverTest.
+    // A child scaling that supplies only units materializes as identity while
+    // the inherited parent expression remains on AxisDefinition itself.
+    rom.scalings.push_back(definition::Scaling{
+        .name = "ChildAxisScaling", .units = "r/min", .from_byte = "x"});
+    rom.maps.at(0).x_axis.type = "X Axis";
+    rom.maps.at(0).x_axis.address = 3;
+    rom.maps.at(0).x_axis.size = 3;
+    rom.maps.at(0).x_axis.storage_type = definition::StorageType::Uint8;
+    rom.maps.at(0).x_axis.endian = "big";
+    rom.maps.at(0).x_axis.from_byte = "x*2";
+    rom.maps.at(0).x_axis.scaling_name = "ChildAxisScaling";
+
+    const std::vector<std::uint8_t> data{5, 6, 7, 10, 20, 30};
+    const auto result = compute_map_cell_values(rom, data, 15);
+
+    ASSERT_TRUE(result.has_value());
+    ASSERT_FALSE(result->at(0).error.has_value());
+    EXPECT_EQ(result->at(0).x_axis_data, "20,40,60,");
+}
+
+TEST(ComputeMapCellValues, UsesStaticDataForStaticAxes)
+{
+    definition::RomDefinition rom = one_map_definition(0);
+    rom.maps.at(0).x_axis.type = "Static X Axis";
+    rom.maps.at(0).x_axis.static_data = {"1000", "2000", "3000"};
+
+    const std::vector<std::uint8_t> data{5, 6, 7};
+    const auto result = compute_map_cell_values(rom, data, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->at(0).x_axis_data, "1000,2000,3000,");
+}
+
+TEST(ComputeMapCellValues, LeavesUnrecognizedXAxisTypesUncomputed)
+{
+    definition::RomDefinition rom = one_map_definition(0);
+    rom.maps.at(0).x_axis.type = "Something Else";
+    rom.maps.at(0).x_axis.address = 3;
+    rom.maps.at(0).x_axis.size = 3;
+
+    const std::vector<std::uint8_t> data{5, 6, 7, 1, 2, 3};
+    const auto result = compute_map_cell_values(rom, data, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->at(0).x_axis_data, " ");
+}
+
+TEST(ComputeMapCellValues, DecodesYAxisWithoutTypeBranching)
+{
+    // Legacy branches on x_axis.type but NOT on y_axis.type -- when y_size > 1
+    // it always decodes. That asymmetry is real legacy behavior, reproduced
+    // exactly rather than "fixed" to match the x-axis handling.
+    definition::RomDefinition rom = one_map_definition(0);
+    rom.scalings.push_back(definition::Scaling{.name = "AxisScaling", .from_byte = "x"});
+    rom.maps.at(0).x_size = 1;
+    rom.maps.at(0).y_size = 2;
+    rom.maps.at(0).y_axis.type = "Something Unrecognized";
+    rom.maps.at(0).y_axis.address = 2;
+    rom.maps.at(0).y_axis.size = 2;
+    rom.maps.at(0).y_axis.storage_type = definition::StorageType::Uint8;
+    rom.maps.at(0).y_axis.endian = "big";
+    rom.maps.at(0).y_axis.scaling_name = "AxisScaling";
+
+    const std::vector<std::uint8_t> data{9, 9, 40, 50};
+    const auto result = compute_map_cell_values(rom, data, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->at(0).y_axis_data, "40,50,");
+}
+
+TEST(ComputeMapCellValues, HexEncodesBloblistMaps)
+{
+    definition::RomDefinition rom;
+    rom.scalings.push_back(definition::Scaling{
+        .name = "Blob", .selections = {{"Off", "aabb"}, {"On", "ccdd"}}});
+    definition::CalibrationMap map;
+    map.name = "Switch";
+    map.address = 1;
+    map.x_size = 1;
+    map.y_size = 1;
+    map.storage_type = definition::StorageType::Bloblist;
+    map.scaling_name = "Blob";
+    rom.maps.push_back(map);
+
+    // element_byte_size derives width 2 from the first selection ("aabb").
+    const std::vector<std::uint8_t> data{0x00, 0xCC, 0xDD};
+    const auto result = compute_map_cell_values(rom, data, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->at(0).map_data, "ccdd");
+}
+
+TEST(ComputeMapCellValues, DegradesPerMapWithoutFailingSiblings)
+{
+    definition::RomDefinition rom = one_map_definition(0);
+    definition::CalibrationMap out_of_range = rom.maps.at(0);
+    out_of_range.name = "Broken";
+    out_of_range.address = 0xF0000000;
+    rom.maps.push_back(out_of_range);
+
+    const std::vector<std::uint8_t> data{5, 6, 7};
+    const auto result = compute_map_cell_values(rom, data, 15);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result->size(), 2u);
+    EXPECT_FALSE(result->at(0).error.has_value());
+    EXPECT_EQ(result->at(0).map_data, "5,6,7,");
+    ASSERT_TRUE(result->at(1).error.has_value());
+    EXPECT_EQ(result->at(1).error->kind, ErrorKind::Internal);
+    EXPECT_EQ(result->at(1).map_data, "");
+}
+
+TEST(ComputeMapCellValues, FlagsAMapWithNoAddress)
+{
+    definition::RomDefinition rom = one_map_definition(0);
+    rom.maps.at(0).address = std::nullopt;
+
+    const std::vector<std::uint8_t> data{5, 6, 7};
+    const auto result = compute_map_cell_values(rom, data, 15);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_TRUE(result->at(0).error.has_value());
+    EXPECT_EQ(result->at(0).error->kind, ErrorKind::InvalidConfig);
+}
+
+TEST(ComputeMapCellValues, RejectsOverflowingMapCellCount)
+{
+    definition::RomDefinition rom = one_map_definition(0);
+    rom.maps.at(0).x_size = 0x80000000U;
+    rom.maps.at(0).y_size = 2;
+    rom.maps.at(0).y_axis.address = 0;
+    rom.maps.at(0).y_axis.storage_type = definition::StorageType::Uint8;
+    const std::vector<std::uint8_t> data{1, 2};
+
+    const auto result = compute_map_cell_values(rom, data, 15);
+
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result->size(), 1u);
+    ASSERT_TRUE(result->at(0).error.has_value());
+    EXPECT_EQ(result->at(0).error->kind, ErrorKind::InvalidConfig);
+}
+
+TEST(ComputeMapCellValues, ReturnsEmptyListForADefinitionWithNoMaps)
+{
+    const auto result = compute_map_cell_values(definition::RomDefinition{}, {}, 15);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result->empty());
 }
 
 } // namespace
