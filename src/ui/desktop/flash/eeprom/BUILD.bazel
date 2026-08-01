@@ -19,15 +19,10 @@ qt_cc_library(
         "//src/backend/definitions",
         "//src/backend/flash:flash_executor",
         "//src/backend/flash:flash_plan",
+        "//src/backend/flash/eeprom:eeprom_read_plan",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_can",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_kline",
         "//src/backend/ports",
-        # One-attempt-per-mode orchestration (step 5c, Task 17): each dialog
-        # drives a FlashWorker per EEPROM read mode, built from
-        # LegacyFlashSnapshotAdapter over a real QtFileRepository/QtClock and
-        # a DesktopKline/CanFlashTransport wrapping the (non-owned) serial
-        # connection MainWindow passes in.
-        "//src/platform/desktop/common/flash:flash_snapshot_adapter",
         "//src/platform/desktop/common/flash:flash_worker",
         "//src/platform/desktop/common/ports",
         "//src/platform/desktop/common/serial:serial_qt_compat",

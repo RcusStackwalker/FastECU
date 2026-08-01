@@ -34,7 +34,7 @@ QT_END_NAMESPACE
 // legacy EepromEcuSubaruDensoSH705xKlineOperation (a FlashOperationWorker
 // subclass that looped mode 2..4 internally, deleted by an earlier task in
 // this plan); the mode loop now lives here, one FlashPlan/FlashWorker per
-// attempt, built via LegacyFlashSnapshotAdapter and executed via
+// attempt, built via the portable EEPROM read-plan use case and executed via
 // DensoSh705xEepromKlineExecutor over a DesktopKlineFlashTransport.
 //
 // Ownership note: the transport is constructed from the non-owning

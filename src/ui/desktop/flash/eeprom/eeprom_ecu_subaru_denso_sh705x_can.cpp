@@ -6,7 +6,7 @@
 
 #include "src/algorithms/protocol/qt_bytes.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_can_executor.h"
-#include "src/platform/desktop/common/flash/flash_snapshot_adapter.h"
+#include "src/backend/flash/eeprom/eeprom_read_plan.h"
 #include "src/platform/desktop/common/ports/qt_clock.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
@@ -238,9 +238,12 @@ fastecu::Result<fastecu::flash::FlashPlan> EepromEcuSubaruDensoSH705xCan::buildP
     fastecu::flash::EepromReadMode mode)
 {
     QtFileRepository file_repository;
-    fastecu::flash::LegacyFlashSnapshotAdapter adapter(file_repository);
-    return adapter.build_read_plan(*ecuCalDef_, ecuCalDef_->FlashMethod.toStdString(), mode,
-                                   ecuCalDef_->Kernel.toStdString());
+    // ecuCalDef_->FlashMethod is the selected protocol name, assigned
+    // verbatim from configValues->flash_protocol_selected_protocol_name in
+    // mainwindow.cpp. The use case derives family, security variant, MCU,
+    // kernel handle and kernel address from it and paths_.
+    return fastecu::flash::build_eeprom_read_plan(
+        paths_, ecuCalDef_->FlashMethod.toStdString(), mode, file_repository);
 }
 
 std::unique_ptr<fastecu::flash::FlashWorker> EepromEcuSubaruDensoSH705xCan::makeWorker(

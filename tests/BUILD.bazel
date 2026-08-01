@@ -1,6 +1,7 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 load("//bazel:mut_dma_test_suites.bzl", "MUT_DMA_GTEST_SRCS", "mut_dma_test_suites")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "local_test_hdrs", "local_test_srcs", "qt_cc_library", "qt_cc_test", "qt_cpp_moc_headers", "test_cpp_moc_srcs")
 load("//bazel:test_sources.bzl", "MUT_DMA_INTEGRATION_TESTS_COMMON_HDRS", "MUT_DMA_INTEGRATION_TESTS_COMMON_SRCS", "MUT_DMA_TESTS_COMMON_SRCS", "SERIAL_BACKEND_TESTS_COMMON_HDRS", "SERIAL_BACKEND_TESTS_COMMON_SRCS", "SERIAL_BACKEND_TESTS_UNIX_HDRS", "SERIAL_BACKEND_TESTS_UNIX_SRCS", "SERIAL_CRASH_TESTS_COMMON_HDRS", "SERIAL_CRASH_TESTS_COMMON_SRCS")
@@ -123,18 +124,12 @@ qt_cc_test(
     ],
 )
 
-qt_cc_test(
+fastecu_portable_gtest(
     name = "test_eeprom_read_plan_goldens",
     srcs = ["test_eeprom_read_plan_goldens.cpp"],
-    copts = COMMON_COPTS,
-    deps = QT_DEPS + [
-        "//src/backend/definitions",
-        "//src/backend/flash:flash_plan",
-        "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
-        "//src/backend/ports",
+    deps = [
+        "//src/backend/flash/eeprom:eeprom_read_plan",
         "//src/backend/ports/testing:in_memory_file_repository",
-        "//src/platform/desktop/common/flash:flash_snapshot_adapter",
-        "@googletest//:gtest",
     ],
 )
 
