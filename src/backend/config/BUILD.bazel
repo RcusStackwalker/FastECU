@@ -104,6 +104,7 @@ cc_library(
     hdrs = ["car_model_catalog.h"],
     deps = [
         ":config_paths",
+        ":protocol_catalog",
         "//src/backend/ports",
         "@pugixml",
     ],

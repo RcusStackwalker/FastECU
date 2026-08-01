@@ -191,12 +191,11 @@ void copy_car_models_into_legacy(const ProtocolCatalog& protocols, const CarMode
     // never reached for that row's protocol-derived fields.
     const QString kPlaceholder(" ");
 
-    int id = 0;
-    for (const CarModelEntry& entry : car_models)
+    const std::vector<ResolvedCarModel> resolved = resolve_car_models(protocols, car_models);
+    for (std::size_t index = 0; index < resolved.size(); ++index)
     {
-        values->flash_protocol_id.append(QString::number(id));
-        id++;
-
+        const ResolvedCarModel& entry = resolved[index];
+        values->flash_protocol_id.append(QString::number(index));
         values->flash_protocol_make.append(qs(entry.make));
         values->flash_protocol_model.append(qs(entry.model));
         values->flash_protocol_version.append(qs(entry.version));
@@ -207,42 +206,29 @@ void copy_car_models_into_legacy(const ProtocolCatalog& protocols, const CarMode
         values->flash_protocol_year.append(qs(entry.year));
         values->flash_protocol_protocol_name.append(qs(entry.protocol_name));
 
-        // Legacy's inner loop (file_actions.cpp:1343-1368) doesn't break on
-        // the first name match -- it replaces on every match found, so with
-        // (hypothetical, none in the real shipped file today) duplicate
-        // protocol names the *last* match in document order wins. Mirror
-        // that rather than stopping at the first hit.
-        const ProtocolEntry *matched = nullptr;
-        for (const ProtocolEntry& protocol : protocols)
+        if (entry.protocol.has_value())
         {
-            if (protocol.protocol_name == entry.protocol_name)
-            {
-                matched = &protocol;
-            }
-        }
-
-        if (matched != nullptr)
-        {
-            values->flash_protocol_alias.append(qs(matched->alias));
-            values->flash_protocol_ecu.append(qs(matched->ecu));
-            values->flash_protocol_mcu.append(qs(matched->mcu));
-            values->flash_protocol_mode.append(qs(matched->mode));
-            values->flash_protocol_checksum.append(qs(matched->checksum));
-            values->flash_protocol_read.append(qs(matched->read));
-            values->flash_protocol_test_write.append(qs(matched->test_write));
-            values->flash_protocol_write.append(qs(matched->write));
-            values->flash_protocol_flash_transport.append(qs(matched->flash_transport));
-            values->flash_protocol_log_transport.append(qs(matched->log_transport));
-            values->flash_protocol_log_protocol.append(qs(matched->log_protocol));
-            values->flash_protocol_ecu_id_ascii.append(qs(matched->ecu_id_ascii));
-            values->flash_protocol_ecu_id_addr.append(qs(matched->ecu_id_addr));
-            values->flash_protocol_ecu_id_length.append(qs(matched->ecu_id_length));
-            values->flash_protocol_cal_id_ascii.append(qs(matched->cal_id_ascii));
-            values->flash_protocol_cal_id_addr.append(qs(matched->cal_id_addr));
-            values->flash_protocol_cal_id_length.append(qs(matched->cal_id_length));
-            values->flash_protocol_kernel.append(qs(matched->kernel));
-            values->flash_protocol_kernel_addr.append(qs(matched->kernel_addr));
-            values->flash_protocol_description.append(qs(matched->description));
+            const ProtocolEntry& matched = *entry.protocol;
+            values->flash_protocol_alias.append(qs(matched.alias));
+            values->flash_protocol_ecu.append(qs(matched.ecu));
+            values->flash_protocol_mcu.append(qs(matched.mcu));
+            values->flash_protocol_mode.append(qs(matched.mode));
+            values->flash_protocol_checksum.append(qs(matched.checksum));
+            values->flash_protocol_read.append(qs(matched.read));
+            values->flash_protocol_test_write.append(qs(matched.test_write));
+            values->flash_protocol_write.append(qs(matched.write));
+            values->flash_protocol_flash_transport.append(qs(matched.flash_transport));
+            values->flash_protocol_log_transport.append(qs(matched.log_transport));
+            values->flash_protocol_log_protocol.append(qs(matched.log_protocol));
+            values->flash_protocol_ecu_id_ascii.append(qs(matched.ecu_id_ascii));
+            values->flash_protocol_ecu_id_addr.append(qs(matched.ecu_id_addr));
+            values->flash_protocol_ecu_id_length.append(qs(matched.ecu_id_length));
+            values->flash_protocol_cal_id_ascii.append(qs(matched.cal_id_ascii));
+            values->flash_protocol_cal_id_addr.append(qs(matched.cal_id_addr));
+            values->flash_protocol_cal_id_length.append(qs(matched.cal_id_length));
+            values->flash_protocol_kernel.append(qs(matched.kernel));
+            values->flash_protocol_kernel_addr.append(qs(matched.kernel_addr));
+            values->flash_protocol_description.append(qs(matched.description));
         }
         else
         {
