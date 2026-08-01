@@ -1,6 +1,8 @@
 #include "src/backend/config/car_model_catalog.h"
 
+#include <algorithm>
 #include <format>
+#include <ranges>
 #include <string_view>
 
 #include <pugixml.hpp>
@@ -77,15 +79,15 @@ std::vector<ResolvedCarModel> resolve_car_models(const ProtocolCatalog& protocol
         row.year = entry.year;
         row.protocol_name = entry.protocol_name;
 
-        const ProtocolEntry *matched = nullptr;
-        for (const ProtocolEntry& protocol : protocols)
-        {
-            if (protocol.protocol_name == entry.protocol_name)
-            {
-                matched = &protocol;
-            }
-        }
-        if (matched != nullptr)
+        // Reversed because the join is last-match-wins: the legacy loop this
+        // replaces had no `break`, so with duplicate protocol names the last
+        // match in document order won. std::ranges::find returns the *first*
+        // match, so searching the reversed range is what preserves that.
+        auto by_document_order_reversed = protocols | std::views::reverse;
+        const auto matched = std::ranges::find(by_document_order_reversed,
+                                               entry.protocol_name,
+                                               &ProtocolEntry::protocol_name);
+        if (matched != by_document_order_reversed.end())
         {
             row.protocol = *matched;
         }
