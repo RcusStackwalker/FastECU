@@ -200,6 +200,34 @@ void logValidationErrors(const QString& group, const QStringList& errors)
     }
 }
 
+// QByteArray::at() is unchecked in release builds (its Q_ASSERT_X only fires
+// under debug), so every map-data read below has to be fenced explicitly:
+// an address past the end of the ROM would otherwise be a raw out-of-bounds
+// read. Returns true when [address, address + size) lies inside the ROM.
+// std::uint64_t on purpose -- address is a uint32_t sum that can wrap.
+bool romReadInRange(const QByteArray& romData, std::uint64_t address, int size)
+{
+    if (size < 0)
+    {
+        return false;
+    }
+    const auto length = static_cast<std::uint64_t>(romData.length());
+    return address <= length && static_cast<std::uint64_t>(size) <= length - address;
+}
+
+QString mapOutOfRangeMessage(
+    const QString& mapName,
+    const QString& section,
+    std::uint64_t address,
+    int size,
+    qsizetype romLength)
+{
+    return "Map \"" + mapName + "\" " + section + " read at 0x" +
+           QString::number(address, 16) + " + " + QString::number(size) +
+           " byte(s) is outside the " + QString::number(romLength) +
+           " byte ROM image, skipping";
+}
+
 int lineAfterClosingTag(const QStringList& lines, const QString& tagName)
 {
     const QString closeTag = "</" + tagName + ">";
@@ -2071,6 +2099,14 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
             storagesize = ecuCalDef->SelectionsValueList.at(i).split(",").at(0).length() / 2;
             uint8_t dataByte = 0;
             uint32_t byteAddress = ecuCalDef->AddressList.at(i).toUInt(&bStatus, 16);
+            if (!romReadInRange(ecuCalDef->FullRomData, byteAddress, storagesize))
+            {
+                emit LOG_E(
+                    mapOutOfRangeMessage(ecuCalDef->NameList.at(i), "bloblist", byteAddress,
+                                         storagesize, ecuCalDef->FullRomData.length()),
+                    true, true);
+                continue;
+            }
             for (int k = 0; k < storagesize; k++)
             {
                 dataByte = (uint8_t)ecuCalDef->FullRomData.at(byteAddress + k);
@@ -2080,6 +2116,7 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
         }
         else
         {
+            bool mapOutOfRange = false;
             for (unsigned j = 0; j < ecuCalDef->XSizeList.at(i).toUInt() * ecuCalDef->YSizeList.at(i).toUInt(); j++)
             {
                 signedDataByte = 0;
@@ -2092,6 +2129,17 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
                 if (ecuCalDef->RomInfo.at(FlashMethod) == "wrx02" && (uint32_t)ecuCalDef->FullRomData.length() < byteAddress)
                 {
                     byteAddress -= 0x8000;
+                }
+                // Guarded after the wrx02 compensation above so that branch
+                // keeps its chance to bring the address back in range.
+                if (!romReadInRange(ecuCalDef->FullRomData, byteAddress, storagesize))
+                {
+                    emit LOG_E(
+                        mapOutOfRangeMessage(ecuCalDef->NameList.at(i), "data", byteAddress,
+                                             storagesize, ecuCalDef->FullRomData.length()),
+                        true, true);
+                    mapOutOfRange = true;
+                    break;
                 }
                 for (int k = 0; k < storagesize; k++)
                 {
@@ -2132,6 +2180,10 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
                 }
                 mapData.append(QString::number(value, 'g', float_precision) + ",");
             }
+            if (mapOutOfRange)
+            {
+                continue;
+            }
             ecuCalDef->MapData.replace(i, mapData);
 
             if (ecuCalDef->XSizeList.at(i).toUInt() > 1)
@@ -2157,6 +2209,7 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
                         storagesize = 4;
                     }
                     mapData.clear();
+                    bool xScaleOutOfRange = false;
                     for (unsigned j = 0; j < ecuCalDef->XSizeList.at(i).toUInt(); j++)
                     {
                         dataByte = 0;
@@ -2168,6 +2221,16 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
                         if (ecuCalDef->RomInfo.at(FlashMethod) == "wrx02" && (uint32_t)ecuCalDef->FullRomData.length() < byteAddress)
                         {
                             byteAddress -= 0x8000;
+                        }
+
+                        if (!romReadInRange(ecuCalDef->FullRomData, byteAddress, storagesize))
+                        {
+                            emit LOG_E(
+                                mapOutOfRangeMessage(ecuCalDef->NameList.at(i), "X axis", byteAddress,
+                                                     storagesize, ecuCalDef->FullRomData.length()),
+                                true, true);
+                            xScaleOutOfRange = true;
+                            break;
                         }
 
                         for (int k = 0; k < storagesize; k++)
@@ -2209,7 +2272,10 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
                         }
                         mapData.append(QString::number(value, 'g', float_precision) + ",");
                     }
-                    ecuCalDef->XScaleData.replace(i, mapData);
+                    if (!xScaleOutOfRange)
+                    {
+                        ecuCalDef->XScaleData.replace(i, mapData);
+                    }
                 }
             }
             else
@@ -2233,6 +2299,7 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
                     storagesize = 4;
                 }
                 mapData.clear();
+                bool yScaleOutOfRange = false;
                 for (unsigned j = 0; j < ecuCalDef->YSizeList.at(i).toUInt(); j++)
                 {
                     dataByte = 0;
@@ -2244,6 +2311,15 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
                     if (ecuCalDef->RomInfo.at(FlashMethod) == "wrx02" && (uint32_t)ecuCalDef->FullRomData.length() < byteAddress)
                     {
                         byteAddress -= 0x8000;
+                    }
+                    if (!romReadInRange(ecuCalDef->FullRomData, byteAddress, storagesize))
+                    {
+                        emit LOG_E(
+                            mapOutOfRangeMessage(ecuCalDef->NameList.at(i), "Y axis", byteAddress,
+                                                 storagesize, ecuCalDef->FullRomData.length()),
+                            true, true);
+                        yScaleOutOfRange = true;
+                        break;
                     }
                     for (int k = 0; k < storagesize; k++)
                     {
@@ -2284,7 +2360,10 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
                     }
                     mapData.append(QString::number(value, 'g', float_precision) + ",");
                 }
-                ecuCalDef->YScaleData.replace(i, mapData);
+                if (!yScaleOutOfRange)
+                {
+                    ecuCalDef->YScaleData.replace(i, mapData);
+                }
             }
             else
             {

@@ -1069,6 +1069,80 @@ class TestFileActionsParsing : public QObject
         QVERIFY(ecu.FullRomData != QByteArray(524288, '\0'));
     }
 
+    void open_subaru_rom_file_skips_maps_addressed_past_the_end_of_the_rom()
+    {
+        // QByteArray::at() is unchecked in release builds, so a map address
+        // past the end of the image is a raw out-of-bounds read.
+        //
+        // The existing size guard above the read loop does not catch this: it
+        // parses AddressList entries with QString::toUInt() (base 10) while
+        // the read loop parses the same strings with toUInt(&ok, 16). So an
+        // address containing a hex letter -- "1A" here -- fails the decimal
+        // conversion, yields 0, sails through the guard, and is then read at
+        // hex 0x1A = 26, past the end of this 16 byte image.
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString romPath = dir.filePath("small.bin");
+        QFile romFile(romPath);
+        QVERIFY(romFile.open(QIODevice::WriteOnly));
+        const QByteArray romBytes(16, '\x11');
+        QCOMPARE(romFile.write(romBytes), qint64{romBytes.size()});
+        romFile.close();
+
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        QSignalSpy errorSpy(&fileActions, &FileActions::LOG_E);
+        QVERIFY(errorSpy.isValid());
+
+        FileActions::EcuCalDefStructure *ecuCalDef = new FileActions::EcuCalDefStructure;
+        while (ecuCalDef->RomInfo.length() < ecuCalDef->RomInfoStrings.length())
+        {
+            ecuCalDef->RomInfo.append(" ");
+        }
+        // One in-range map and one addressed past the end of the 16 byte image.
+        ecuCalDef->NameList << "in range" << "past the end";
+        ecuCalDef->TypeList << "2D" << "2D";
+        ecuCalDef->StorageTypeList << "uint8" << "uint8";
+        ecuCalDef->EndianList << "big" << "big";
+        ecuCalDef->AddressList << "0" << "1A";
+        ecuCalDef->XScaleAddressList << "0" << "0";
+        ecuCalDef->YScaleAddressList << "0" << "0";
+        ecuCalDef->XSizeList << "1" << "1";
+        ecuCalDef->YSizeList << "1" << "1";
+        ecuCalDef->StartPosList << "1" << "1";
+        ecuCalDef->IntervalList << "1" << "1";
+        ecuCalDef->FromByteList << "x" << "x";
+        ecuCalDef->SelectionsValueList << "" << "";
+        ecuCalDef->MapData << "unset" << "unset";
+        ecuCalDef->XScaleTypeList << "" << "";
+        ecuCalDef->XScaleData << "unset" << "unset";
+        ecuCalDef->YScaleTypeList << "" << "";
+        ecuCalDef->YScaleData << "unset" << "unset";
+
+        // open_subaru_rom_file still shows its "no definition found" chooser
+        // inline, which would block forever on an offscreen QApplication.
+        // Dismiss whatever modal appears; a closed QDialog reports Rejected,
+        // which is the "continue without definition" path.
+        QTimer modalCloser;
+        modalCloser.setInterval(10);
+        QObject::connect(&modalCloser, &QTimer::timeout, []()
+                         {
+            if (QWidget *modal = QApplication::activeModalWidget()) {
+                modal->close();
+} });
+        modalCloser.start();
+
+        ecuCalDef = fileActions.open_subaru_rom_file(ecuCalDef, romPath);
+        modalCloser.stop();
+
+        QVERIFY(ecuCalDef != nullptr);
+        // The in-range map is still converted exactly as before.
+        QCOMPARE(ecuCalDef->MapData.at(0), QString("17,"));
+        // The out-of-range one is skipped and reported, not read.
+        QCOMPARE(ecuCalDef->MapData.at(1), QString("unset"));
+        QVERIFY(spyContainsMessage(errorSpy, "outside the 16 byte ROM image"));
+        delete ecuCalDef;
+    }
+
   private:
     // FileActions's constructor now takes the config/settings ports (Task
     // 11 of the step5d-1 plan); these are unused by the parsing paths this
