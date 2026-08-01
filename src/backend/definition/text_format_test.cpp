@@ -20,6 +20,20 @@ TEST(ParseHexValueTest, TrimsSurroundingWhitespace)
     EXPECT_EQ(parse_hex_value("  0xFFFF6004  "), 0xFFFF6004u);
 }
 
+TEST(ParseHexValueTest, TrimsVerticalTabAndFormFeed)
+{
+    // std::isspace (the original trim_copy's basis) matches '\v' and '\f' in
+    // the C locale in addition to ' ', '\t', '\r', '\n'. parse_hex_value
+    // must match that exactly -- this pins the fix for a divergence found in
+    // review, where a set literal of only " \t\r\n" silently narrowed the
+    // accepted whitespace set relative to the original.
+    EXPECT_EQ(parse_hex_value("\v0x10"), 0x10u);
+    EXPECT_EQ(parse_hex_value("0x10\v"), 0x10u);
+    EXPECT_EQ(parse_hex_value("\f0x10"), 0x10u);
+    EXPECT_EQ(parse_hex_value("0x10\f"), 0x10u);
+    EXPECT_EQ(parse_hex_value("\f0x10\f"), 0x10u);
+}
+
 TEST(ParseHexValueTest, RejectsMalformedInput)
 {
     EXPECT_FALSE(parse_hex_value("").has_value());
