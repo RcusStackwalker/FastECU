@@ -22,11 +22,20 @@ std::uint32_t element_byte_size(
 // One past the last byte touched by `count` elements of `element_width` bytes,
 // laid out starting at `address` with the legacy start_position/interval
 // stride: addr(j) = address + (start_position-1)*element_width +
-// j*element_width*interval, for j in [0, count). `count` is guaranteed >= 1
-// by the resolver (x_size/y_size/size are never zero), so no count == 0
-// special case is needed. `start_position == 0` underflows (start_position-1)
-// to a huge offset -- this matches the legacy code's own behavior on an
-// unsigned start_position in file_actions.cpp, so it's preserved as-is.
+// j*element_width*interval, for j in [0, count).
+//
+// Both degenerate inputs are handled rather than allowed to wrap in unsigned
+// arithmetic, because both are reachable and both would otherwise produce a
+// ~4 GB extent that makes validate_rom_size reject an otherwise fine ROM:
+//   * count == 0 -- an empty run touches nothing, so the result is `address`.
+//     The resolver rejects zero x_size/y_size/size today
+//     (definition_resolver.cpp), but this is a public, separately-tested
+//     function and must not depend on that.
+//   * start_position == 0 -- out of domain for a 1-based position, and NOT
+//     validated anywhere: the resolver only applies value_or(1) to an absent
+//     startpos (definition_resolver.cpp:368/395), so an explicit
+//     startpos="0" in a definition reaches here. Treated as the smallest
+//     legal value, i.e. offset 0.
 std::uint64_t element_run_end(
     std::uint64_t address,
     std::uint32_t start_position,
