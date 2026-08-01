@@ -124,6 +124,16 @@ qt_cc_test(
 )
 
 qt_cc_test(
+    name = "test_legacy_config_paths",
+    srcs = ["test_legacy_config_paths.cpp"],
+    copts = COMMON_COPTS,
+    deps = QT_DEPS + [
+        "//src/backend/config:legacy_config_paths",
+        "@googletest//:gtest",
+    ],
+)
+
+qt_cc_test(
     name = "test_qt_resource_bundle",
     srcs = ["test_qt_resource_bundle.cpp"],
     copts = COMMON_COPTS,

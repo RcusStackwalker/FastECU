@@ -55,6 +55,7 @@ qt_cc_library(
         "//src/algorithms/protocol:qt_compat",
         "//src/backend/config:car_model_catalog",
         "//src/backend/config:config_paths",
+        "//src/backend/config:legacy_config_paths",
         "//src/backend/config:protocol_catalog",
         "//src/backend/definition:definition_model",
         "//src/backend/definitions:config_values",

@@ -9,6 +9,7 @@
 #include "src/backend/calibration/calibration_service.h"
 #include "src/backend/config/car_model_catalog.h"
 #include "src/backend/config/config_paths.h"
+#include "src/backend/config/legacy_config_paths.h"
 #include "src/backend/config/protocol_catalog.h"
 #include "src/backend/definition/definition_model.h"
 
@@ -20,28 +21,6 @@ namespace
 // Matches FileActions::float_precision (file_actions.h:63), which is the
 // precision legacy formatted every decoded cell with.
 constexpr int kFloatPrecision = 15;
-
-// Mirrors legacy_config_adapter.cpp's own (private, anonymous-namespace)
-// paths_from_legacy -- duplicated here deliberately rather than exported
-// from that already-merged file.
-config::ConfigPaths paths_from_config_values(
-    const definitions::ConfigValuesStructure& values)
-{
-    config::ConfigPaths paths;
-    paths.base_config_directory = values.base_config_directory.toStdString();
-    paths.version_config_directory = values.version_config_directory.toStdString();
-    paths.calibration_files_directory = values.calibration_files_directory.toStdString();
-    paths.config_files_directory = values.config_files_directory.toStdString();
-    paths.definition_files_directory = values.definition_files_directory.toStdString();
-    paths.kernel_files_directory = values.kernel_files_directory.toStdString();
-    paths.datalog_files_directory = values.datalog_files_directory.toStdString();
-    paths.syslog_files_directory = values.syslog_files_directory.toStdString();
-    paths.config_file = values.config_file.toStdString();
-    paths.menu_file = values.menu_file.toStdString();
-    paths.protocols_file = values.protocols_file.toStdString();
-    paths.logger_file = values.logger_file.toStdString();
-    return paths;
-}
 
 } // namespace
 
@@ -129,7 +108,7 @@ void LegacyCalibrationAdapter::bind_protocol(
     definitions::ConfigValuesStructure& config_values, const QString& flash_method)
 {
     const std::vector<config::ResolvedCarModel> *resolved =
-        resolved_car_models(paths_from_config_values(config_values));
+        resolved_car_models(config::paths_from_config_values(config_values));
     if (resolved == nullptr)
     {
         return;

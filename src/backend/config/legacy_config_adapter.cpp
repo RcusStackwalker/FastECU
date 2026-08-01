@@ -1,6 +1,7 @@
 #include "src/backend/config/legacy_config_adapter.h"
 
 #include "src/backend/config/car_model_catalog.h"
+#include "src/backend/config/legacy_config_paths.h"
 #include "src/backend/config/provisioning.h"
 #include "src/backend/ports/event_sink.h"
 
@@ -27,32 +28,6 @@ void copy_paths_into_legacy(const ConfigPaths& paths, fastecu::definitions::Conf
     values->menu_file = qs(paths.menu_file);
     values->protocols_file = qs(paths.protocols_file);
     values->logger_file = qs(paths.logger_file);
-}
-
-// Reverse of copy_paths_into_legacy: reconstructs a ConfigPaths from whatever
-// is currently on `values`. Each of check_config_dirs/read_config_file/
-// save_config_file/read_protocols_file calls this itself rather than relying
-// on a ConfigPaths cached from a previous set_base_dirs call -- FileActions's
-// own methods take configValues fresh on every call with no adapter-side
-// state threading them together, and callers (e.g. tests, or code invoking
-// read_config_file straight off a hand-populated struct) may reasonably not
-// have called set_base_dirs first.
-ConfigPaths paths_from_legacy(const fastecu::definitions::ConfigValuesStructure *values)
-{
-    ConfigPaths paths;
-    paths.base_config_directory = values->base_config_directory.toStdString();
-    paths.version_config_directory = values->version_config_directory.toStdString();
-    paths.calibration_files_directory = values->calibration_files_directory.toStdString();
-    paths.config_files_directory = values->config_files_directory.toStdString();
-    paths.definition_files_directory = values->definition_files_directory.toStdString();
-    paths.kernel_files_directory = values->kernel_files_directory.toStdString();
-    paths.datalog_files_directory = values->datalog_files_directory.toStdString();
-    paths.syslog_files_directory = values->syslog_files_directory.toStdString();
-    paths.config_file = values->config_file.toStdString();
-    paths.menu_file = values->menu_file.toStdString();
-    paths.protocols_file = values->protocols_file.toStdString();
-    paths.logger_file = values->logger_file.toStdString();
-    return paths;
 }
 
 // AppConfig's fields are blank ("") when load_app_config found no matching
@@ -275,7 +250,7 @@ fastecu::definitions::ConfigValuesStructure *LegacyConfigAdapter::check_config_d
     fastecu::definitions::ConfigValuesStructure *values)
 {
     fastecu::NullEventSink events;
-    ConfigPaths paths = paths_from_legacy(values);
+    ConfigPaths paths = paths_from_config_values(*values);
     provision_config_directories(paths, file_system_, resource_bundle_, events);
     return values;
 }
@@ -283,7 +258,7 @@ fastecu::definitions::ConfigValuesStructure *LegacyConfigAdapter::check_config_d
 fastecu::definitions::ConfigValuesStructure *LegacyConfigAdapter::read_config_file(
     fastecu::definitions::ConfigValuesStructure *values)
 {
-    ConfigPaths paths = paths_from_legacy(values);
+    ConfigPaths paths = paths_from_config_values(*values);
     Result<AppConfig> config = load_app_config(paths, file_repository_);
     if (config.has_value())
     {
@@ -310,7 +285,7 @@ fastecu::definitions::ConfigValuesStructure *LegacyConfigAdapter::read_config_fi
 fastecu::definitions::ConfigValuesStructure *LegacyConfigAdapter::save_config_file(
     fastecu::definitions::ConfigValuesStructure *values)
 {
-    ConfigPaths paths = paths_from_legacy(values);
+    ConfigPaths paths = paths_from_config_values(*values);
     Result<AppConfig> saved =
         save_app_config(app_config_from_legacy(values), paths, file_repository_);
     if (saved.has_value())
@@ -323,7 +298,7 @@ fastecu::definitions::ConfigValuesStructure *LegacyConfigAdapter::save_config_fi
 fastecu::definitions::ConfigValuesStructure *LegacyConfigAdapter::read_protocols_file(
     fastecu::definitions::ConfigValuesStructure *values)
 {
-    ConfigPaths paths = paths_from_legacy(values);
+    ConfigPaths paths = paths_from_config_values(*values);
     Result<ProtocolCatalog> protocols = load_protocol_catalog(paths, file_repository_);
     Result<CarModelCatalog> car_models = load_car_model_catalog(paths, file_repository_);
     if (protocols.has_value() && car_models.has_value())
