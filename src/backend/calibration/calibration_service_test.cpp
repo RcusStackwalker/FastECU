@@ -336,5 +336,66 @@ TEST(ValidateRomSize, NullStorageTypeStillGetsExtentCheckedWithOneByteDefault)
     EXPECT_FALSE(validate_rom_size(definition_with_one_map(map), 0x1000).has_value());
 }
 
+TEST(ApplyFlashMethodPadding, InsertsPaddingForMatchingShortRom)
+{
+    std::vector<std::uint8_t> rom(0x2A000, 0xAA);
+    const std::size_t original = rom.size();
+
+    rom = apply_flash_method_padding(std::move(rom), "sub_ecu_denso_mc68hc16y5_02");
+
+    EXPECT_EQ(rom.size(), original + 0x8000);
+    // Bytes before the insertion point are untouched.
+    EXPECT_EQ(rom.at(0x1FFFF), 0xAA);
+    // The inserted run is 0xFF.
+    EXPECT_EQ(rom.at(0x20000), 0xFF);
+    EXPECT_EQ(rom.at(0x27FFF), 0xFF);
+    // The original byte that was at 0x20000 has moved up by 0x8000.
+    EXPECT_EQ(rom.at(0x28000), 0xAA);
+}
+
+TEST(ApplyFlashMethodPadding, MatchesOnPrefixSoEcutekVariantAlsoPads)
+{
+    std::vector<std::uint8_t> rom(0x2A000, 0xAA);
+    rom = apply_flash_method_padding(std::move(rom), "sub_ecu_denso_mc68hc16y5_02_ecutek");
+    EXPECT_EQ(rom.size(), 0x2A000u + 0x8000u);
+}
+
+TEST(ApplyFlashMethodPadding, LeavesOtherFlashMethodsAlone)
+{
+    std::vector<std::uint8_t> rom(0x30000, 0xAA);
+    rom = apply_flash_method_padding(std::move(rom), "sub_ecu_denso_sh7058");
+    EXPECT_EQ(rom.size(), 0x30000u);
+}
+
+TEST(ApplyFlashMethodPadding, LeavesRomsAtOrAboveTheSizeThresholdAlone)
+{
+    // 190 * 1024 == 0x2F800; the guard is "< 190 * 1024", so exactly at the
+    // threshold must not pad.
+    std::vector<std::uint8_t> rom(190 * 1024, 0xAA);
+    rom = apply_flash_method_padding(std::move(rom), "sub_ecu_denso_mc68hc16y5_02");
+    EXPECT_EQ(rom.size(), static_cast<std::size_t>(190 * 1024));
+}
+
+TEST(ApplyFlashMethodPadding, ZeroExtendsRomShorterThanTheInsertionPoint)
+{
+    std::vector<std::uint8_t> rom(0x100, 0xAA);
+    rom = apply_flash_method_padding(std::move(rom), "sub_ecu_denso_mc68hc16y5_02");
+
+    EXPECT_EQ(rom.size(), 0x20000u + 0x8000u);
+    EXPECT_EQ(rom.at(0xFF), 0xAA);
+    // The synthetic gap is zero-filled: Qt's insert leaves it "uninitialized"
+    // per its docs, so this is a deliberate deterministic choice.
+    EXPECT_EQ(rom.at(0x100), 0x00);
+    EXPECT_EQ(rom.at(0x1FFFF), 0x00);
+    EXPECT_EQ(rom.at(0x20000), 0xFF);
+}
+
+TEST(ApplyFlashMethodPadding, LeavesEmptyFlashMethodAlone)
+{
+    std::vector<std::uint8_t> rom(0x100, 0xAA);
+    rom = apply_flash_method_padding(std::move(rom), "");
+    EXPECT_EQ(rom.size(), 0x100u);
+}
+
 } // namespace
 } // namespace fastecu::calibration

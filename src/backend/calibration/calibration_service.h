@@ -73,4 +73,19 @@ std::uint64_t element_run_end(
 Status validate_rom_size(const definition::RomDefinition& rom_definition,
                          std::size_t rom_byte_length);
 
+// Reproduces the sub_ecu_denso_mc68hc16y5_02 ROM-padding special case: inserts
+// 0x8000 bytes of 0xFF at offset 0x20000 when flash_method starts with that
+// protocol name and rom_data is under 190*1024 bytes. A no-op otherwise.
+//
+// Zero-extends up to 0x20000 first when rom_data is shorter. Qt's
+// QByteArray::insert leaves such a gap "uninitialized" per its docs, so
+// zero-fill is a disclosed deterministic choice, not a preserved legacy value.
+//
+// Consume-and-return of an owning buffer, deliberately: a by-reference or
+// by-copy shape lets a caller pad a throwaway image and lose the result, which
+// is exactly the regression PR #118's own final review caught. Callers write
+//   rom = apply_flash_method_padding(std::move(rom), method);
+std::vector<std::uint8_t> apply_flash_method_padding(
+    std::vector<std::uint8_t> rom_data, std::string_view flash_method);
+
 } // namespace fastecu::calibration
