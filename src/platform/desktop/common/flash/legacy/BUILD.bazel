@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = [
     "//src/platform:__subpackages__",
@@ -21,14 +21,17 @@ MOC_HDRS = ["flash_operation_worker.h"] + glob([
 
 qt_cc_library(
     name = "legacy_flash_operations",
-    srcs = glob([
-        "*.cpp",
-        "bdm/*.cpp",
-        "bootmode/*.cpp",
-        "ecu/*.cpp",
-        "jtag/*.cpp",
-        "tcu/*.cpp",
-    ]),
+    srcs = glob(
+        [
+            "*.cpp",
+            "bdm/*.cpp",
+            "bootmode/*.cpp",
+            "ecu/*.cpp",
+            "jtag/*.cpp",
+            "tcu/*.cpp",
+        ],
+        exclude = ["*_test.cpp"],
+    ),
     hdrs = MOC_HDRS,
     copts = COMMON_COPTS,
     normal_hdrs = glob(
@@ -62,5 +65,25 @@ qt_cc_library(
         # grow; Task 16 removes the stale bdm/bootmode/ecu/jtag/tcu entries
         # left over from the pre-move package layout.
         "//src/backend/flash",
+    ],
+)
+
+fastecu_qttest(
+    name = "test_flash_operation_worker",
+    src = "flash_operation_worker_test.cpp",
+    copts = ["-DQT_WIDGETS_LIB"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    deps = [":legacy_flash_operations"],
+)
+
+fastecu_qttest(
+    name = "test_flash_ecu_mitsu_m32r_can_operation",
+    src = "flash_ecu_mitsu_m32r_can_operation_test.cpp",
+    copts = ["-DQT_WIDGETS_LIB"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    deps = [
+        ":legacy_flash_operations",
+        "//src/algorithms/protocol/colt:qt_compat",
+        "//src/platform/desktop/common/serial/testing:fake_serial_backend",
     ],
 )

@@ -1,5 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS")
 
 package(default_visibility = [
@@ -56,4 +57,22 @@ cc_test(
         ":mut_dma",
         "@googletest//:gtest_main",
     ],
+)
+
+fastecu_portable_gtest(
+    name = "test_codec",
+    srcs = ["codec_test.cpp"],
+    deps = [":mut_dma"],
+)
+
+fastecu_portable_gtest(
+    name = "test_freeform",
+    srcs = ["freeform_test.cpp"],
+    deps = [":mut_dma"],
+)
+
+fastecu_portable_gtest(
+    name = "test_memory",
+    srcs = ["memory_test.cpp"],
+    deps = [":mut_dma"],
 )

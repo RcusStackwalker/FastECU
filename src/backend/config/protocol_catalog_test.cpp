@@ -211,7 +211,7 @@ TEST(LoadProtocolCatalog, DistinctProtocolNamesAreAccepted)
 // Reads the real, checked-in resources/shared/config/protocols.cfg via
 // $(location)/env var (see BUILD.bazel's data + env on this test target),
 // following the same convention already established by
-// tests/test_protocols_cfg_eeprom_capabilities.cpp -- not a hardcoded
+// resources/shared/protocols_cfg_eeprom_capabilities_test.cpp -- not a hardcoded
 // relative path, which would only happen to work if run from the runfiles
 // root and would silently pass-by-accident (or fail confusingly) otherwise.
 TEST(LoadProtocolCatalog, ParsesTheRealShippedProtocolsFileWithoutError)

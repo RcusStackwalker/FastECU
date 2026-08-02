@@ -12,7 +12,7 @@ Build the application from the repository root:
 
 Run the maintained tests:
 
-    bazel test --config=release //tests/... //:bazel_openssl_wiring
+    bazel test --config=release //tests/... //src/... //:bazel_openssl_wiring
 
 The exact Windows, macOS, and Linux dependency setup is kept in
 .github/workflows/pr.yml. Release packages for Windows and macOS are assembled

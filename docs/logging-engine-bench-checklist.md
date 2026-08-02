@@ -4,7 +4,7 @@ Verifies the LoggingEngine/LoggingWorker/LoggingProtocol refactor behaves
 correctly against real hardware. Focused Bazel targets under `//tests:` cover
 the worker, engine, and protocol logic against scripted transports; this
 checklist covers what can only be observed with a real adapter and ECU. Run all
-maintained test targets with `bazel test --config=release //tests/...` before
+maintained test targets with `bazel test --config=release //tests/... //src/...` before
 bench testing.
 
 ## Per protocol (repeat for SSM, MUT/DMA, Cdbg)
@@ -31,7 +31,7 @@ bench testing.
    socket notifiers or timers being used from the wrong thread. The serial
    backend now constructs `QSerialPort` on the dedicated `SerialIoThread`; this
    step is the real-hardware verification of that architecture. The headless
-   analog is `tests/test_pty_e2e.cpp`.
+   analog is `tests/serial_pty_e2e_test.cpp`.
 
 ## Regression checks
 

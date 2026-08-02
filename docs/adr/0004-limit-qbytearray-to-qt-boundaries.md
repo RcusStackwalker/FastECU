@@ -61,7 +61,7 @@ Already byte-native:
 - Mitsubishi CAN flashing and vendor-extension protocol helpers.
 - SSM logging helper internals.
 - Shared byte utilities in `src/algorithms/protocol/bytes.h`.
-- Byte-native test fixtures in `tests/byte_test_utils.h`.
+- Byte-native test fixtures in `src/algorithms/protocol/testing/byte_test_utils.h`.
 
 Still intentionally Qt-bound or partially migrated:
 
@@ -80,7 +80,7 @@ Migrate one bounded slice at a time:
 1. Keep completed protocol slices byte-native and avoid adding new `QByteArray`
    logic there.
 2. Continue converting protocol tests to `bytes::Bytes`, fixed arrays, and
-   `tests/byte_test_utils.h::bytesFromHex()`.
+   `src/algorithms/protocol/testing/byte_test_utils.h::bytesFromHex()`.
 3. Convert checksum families to `bytes::ByteView` inputs and structured
    byte-native outputs one family at a time.
 4. Migrate flash operation families after their reusable protocol and checksum

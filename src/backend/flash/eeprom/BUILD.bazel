@@ -28,6 +28,7 @@ cc_library(
     visibility = [
         "//src/backend/flash/eeprom:__subpackages__",
         "//src/platform:__subpackages__",
+        "//src/ui/desktop/flash/eeprom:__pkg__",
         "//tests:__pkg__",
     ],
     deps = [
@@ -42,6 +43,15 @@ fastecu_portable_gtest(
     name = "denso_sh705x_eeprom_common_test",
     srcs = ["denso_sh705x_eeprom_common_test.cpp"],
     deps = [":denso_sh705x_eeprom_common"],
+)
+
+fastecu_portable_gtest(
+    name = "test_eeprom_read_plan_goldens",
+    srcs = ["eeprom_read_plan_goldens_test.cpp"],
+    deps = [
+        ":eeprom_read_plan",
+        "//src/backend/ports/testing:in_memory_file_repository",
+    ],
 )
 
 # Portable. No Qt, no platform, no filesystem, no thread.
@@ -101,11 +111,11 @@ fastecu_portable_gtest(
     deps = [
         ":denso_sh705x_eeprom_common",
         ":denso_sh705x_eeprom_kline",
+        "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
-        "//tests:scripted_kline_flash_transport",
     ],
 )
 
@@ -139,10 +149,9 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
-        "//tests:scripted_can_flash_transport",
         # For WrongConcreteTransportTypeReturnsInvalidConfigWithNoIo, which
         # deliberately passes a K-Line-shaped fake to prove the dynamic_cast
         # guard rejects it -- same cross-family reuse the brief calls for.
-        "//tests:scripted_kline_flash_transport",
+        "//src/backend/flash/testing:scripted_flash_transports",
     ],
 )

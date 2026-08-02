@@ -1,6 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("@rules_cc//cc:cc_test.bzl", "cc_test")
-load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+load("//bazel:gtest_targets.bzl", "fastecu_gtest", "fastecu_portable_gtest")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = [
@@ -80,11 +79,7 @@ cc_library(
     ],
 )
 
-# Not fastecu_portable_gtest: that macro has no `data` parameter, and this
-# target needs one to depend on the real, checked-in protocols.cfg (see
-# tests/BUILD.bazel's test_protocols_cfg_eeprom_capabilities for the same
-# precedent -- a raw cc_test instead of the macro).
-cc_test(
+fastecu_portable_gtest(
     name = "protocol_catalog_test",
     srcs = ["protocol_catalog_test.cpp"],
     data = ["//resources/shared:config/protocols.cfg"],
@@ -94,7 +89,6 @@ cc_test(
     deps = [
         ":protocol_catalog",
         "//src/backend/ports/testing:in_memory_file_repository",
-        "@googletest//:gtest_main",
     ],
 )
 
@@ -110,10 +104,7 @@ cc_library(
     ],
 )
 
-# Not fastecu_portable_gtest: that macro has no `data` parameter, and this
-# target needs one to depend on the real, checked-in protocols.cfg -- same
-# reasoning as protocol_catalog_test above.
-cc_test(
+fastecu_portable_gtest(
     name = "car_model_catalog_test",
     srcs = ["car_model_catalog_test.cpp"],
     data = ["//resources/shared:config/protocols.cfg"],
@@ -123,7 +114,6 @@ cc_test(
     deps = [
         ":car_model_catalog",
         "//src/backend/ports/testing:in_memory_file_repository",
-        "@googletest//:gtest_main",
     ],
 )
 
@@ -157,6 +147,25 @@ qt_cc_library(
         "//src/backend/definitions:config_values",
         "//src/backend/ports",
     ],
+)
+
+fastecu_gtest(
+    name = "test_legacy_config_adapter",
+    srcs = ["legacy_config_adapter_test.cpp"],
+    deps = [
+        ":legacy_config_adapter",
+        "//src/backend/definitions",
+        "//src/backend/ports",
+        "//src/backend/ports/testing:in_memory_file_repository",
+        "//src/backend/ports/testing:in_memory_file_system",
+        "//src/backend/ports/testing:in_memory_resource_bundle",
+    ],
+)
+
+fastecu_gtest(
+    name = "test_legacy_config_paths",
+    srcs = ["legacy_config_paths_test.cpp"],
+    deps = [":legacy_config_paths"],
 )
 
 # Qt-linked (ConfigValuesStructure's fields are QString), so NOT portable and

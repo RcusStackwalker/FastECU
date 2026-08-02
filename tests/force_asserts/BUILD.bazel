@@ -2,6 +2,9 @@ load("//bazel:qt_targets.bzl", "qt_cc_test", "qt_cpp_moc_headers")
 
 package(default_visibility = ["//visibility:public"])
 
+# Retained under tests/: this is a release-mode process probe whose contract
+# is that QT_FORCE_ASSERTS aborts a child process even with QT_NO_DEBUG.
+
 qt_cpp_moc_headers(
     name = "force_asserts_cpp_mocs",
     srcs = ["tst_force_asserts.cpp"],

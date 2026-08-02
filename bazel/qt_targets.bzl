@@ -30,6 +30,35 @@ COMMON_COPTS = [
     "//conditions:default": [],
 })
 
+def fastecu_qttest(
+        name,
+        src,
+        deps = [],
+        data = [],
+        env = {},
+        tags = [],
+        target_compatible_with = [],
+        copts = [],
+        size = "small"):
+    """QtTest target with moc generation for a self-including C++ source."""
+    moc_target = name + "_moc"
+    qt_cpp_moc_headers(
+        name = moc_target,
+        srcs = [src],
+        deps = QT_DEPS,
+    )
+    _qt_cc_test(
+        name = name,
+        srcs = [src],
+        copts = COMMON_COPTS + copts,
+        data = data,
+        env = env,
+        size = size,
+        tags = tags,
+        target_compatible_with = target_compatible_with,
+        deps = QT_DEPS + [":" + moc_target] + deps,
+    )
+
 def platform_srcs(unix = [], windows = []):
     return select({
         "@platforms//os:windows": windows,
@@ -128,12 +157,3 @@ def qt_cpp_moc_headers(name, srcs, deps = []):
         includes = ["."],
         deps = deps,
     )
-
-def local_test_srcs(paths):
-    return [p.removeprefix("tests/") for p in paths if p.startswith("tests/") and p.endswith(".cpp")]
-
-def local_test_hdrs(paths):
-    return [p.removeprefix("tests/") for p in paths if p.startswith("tests/") and p.endswith((".h", ".hpp"))]
-
-def test_cpp_moc_srcs(paths):
-    return [p for p in local_test_srcs(paths) if p not in ["main.cpp", "serial_backend_main.cpp"]]

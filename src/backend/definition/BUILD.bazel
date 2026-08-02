@@ -1,5 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+load("//bazel:gtest_targets.bzl", "fastecu_gtest", "fastecu_portable_gtest")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = ["//visibility:public"])
@@ -20,6 +20,27 @@ fastecu_portable_gtest(
     name = "text_format_test",
     srcs = ["text_format_test.cpp"],
     deps = [":text_format"],
+)
+
+fastecu_gtest(
+    name = "test_hex_parse_qt_compat",
+    srcs = ["hex_parse_qt_compat_test.cpp"],
+    deps = [":text_format"],
+)
+
+fastecu_gtest(
+    name = "test_legacy_definition_adapter",
+    srcs = ["legacy_definition_adapter_test.cpp"],
+    copts = ["-I."],
+    deps = [
+        ":legacy_definition_adapter",
+        "//src/backend/definitions:config_values",
+        "//src/backend/definitions:ecu_cal_def",
+        "//src/backend/ports",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/ports/testing:in_memory_file_repository",
+        "//src/backend/ports/testing:in_memory_file_system",
+    ],
 )
 
 cc_library(

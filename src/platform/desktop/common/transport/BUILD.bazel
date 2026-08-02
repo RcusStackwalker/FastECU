@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = [
     "//apps/desktop:__pkg__",
@@ -37,7 +37,7 @@ qt_cc_library(
     name = "transport",
     srcs = glob(
         ["*.cpp"],
-        exclude = _FLASH_TRANSPORT_SRCS,
+        exclude = _FLASH_TRANSPORT_SRCS + ["*_test.cpp"],
     ),
     hdrs = [],
     copts = COMMON_COPTS,
@@ -50,6 +50,26 @@ qt_cc_library(
         "//src/algorithms/protocol:qt_compat",
         "//src/backend/protocol",
         "//src/platform/desktop/common/serial:serial_qt_compat",
+    ],
+)
+
+fastecu_qttest(
+    name = "test_desktop_kline_flash_transport",
+    src = "desktop_kline_flash_transport_test.cpp",
+    deps = [
+        ":flash_transports",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+    ],
+)
+
+fastecu_qttest(
+    name = "test_desktop_can_flash_transport",
+    src = "desktop_can_flash_transport_test.cpp",
+    deps = [
+        ":flash_transports",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/platform/desktop/common/serial/testing:fake_serial_backend",
     ],
 )
 

@@ -1,4 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -16,12 +17,58 @@ exports_files(
 # targets and platform callers adapt at their boundary.
 cc_library(
     name = "protocol",
-    srcs = glob(["*.cpp"]),
+    srcs = glob(
+        ["*.cpp"],
+        exclude = ["*_test.cpp"],
+    ),
     hdrs = glob(["*.h"]),
     deps = [
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/colt",
         "//src/algorithms/protocol/mut_dma",
         "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "test_init",
+    srcs = ["init_test.cpp"],
+    deps = [
+        ":protocol",
+        "//src/backend/protocol/testing:scripted_transports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "test_driver",
+    srcs = ["driver_test.cpp"],
+    deps = [
+        ":protocol",
+        "//src/algorithms/protocol/mut_dma",
+        "//src/algorithms/protocol/testing:byte_test_utils",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/protocol/testing:scripted_transports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "test_transport",
+    srcs = ["transport_test.cpp"],
+    deps = [
+        ":protocol",
+        "//src/algorithms/protocol/testing:byte_test_utils",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/protocol/testing:scripted_transports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "test_cdbg_driver",
+    srcs = ["cdbg_driver_test.cpp"],
+    deps = [
+        ":protocol",
+        "//src/algorithms/protocol/testing:byte_test_utils",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/protocol/testing:scripted_transports",
     ],
 )

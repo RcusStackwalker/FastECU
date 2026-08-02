@@ -61,6 +61,18 @@ genquery(
         "//src/backend/definition:definition_service",
         "//src/backend/definition:definition_writer",
         "//src/backend/calibration:calibration_service",
+        "//src/algorithms/protocol/mut_dma:test_codec",
+        "//src/algorithms/protocol/mut_dma:test_freeform",
+        "//src/algorithms/protocol/mut_dma:test_memory",
+        "//src/backend/protocol:test_cdbg_driver",
+        "//src/backend/protocol:test_init",
+        "//src/backend/protocol:test_driver",
+        "//src/backend/protocol:test_transport",
+        "//src/backend/logging/protocols:test_cdbg_logging_protocol",
+        "//src/backend/logging/protocols:test_mut_dma_logging_protocol",
+        "//src/backend/logging/protocols:test_ssm_logging_protocol",
+        "//src/backend/flash/eeprom:test_eeprom_read_plan_goldens",
+        "//resources/shared:test_protocols_cfg_eeprom_capabilities",
     ]) + "))",
     scope = [
         "//src/backend/flash:flash_types",
@@ -85,6 +97,18 @@ genquery(
         "//src/backend/definition:definition_service",
         "//src/backend/definition:definition_writer",
         "//src/backend/calibration:calibration_service",
+        "//src/algorithms/protocol/mut_dma:test_codec",
+        "//src/algorithms/protocol/mut_dma:test_freeform",
+        "//src/algorithms/protocol/mut_dma:test_memory",
+        "//src/backend/protocol:test_cdbg_driver",
+        "//src/backend/protocol:test_init",
+        "//src/backend/protocol:test_driver",
+        "//src/backend/protocol:test_transport",
+        "//src/backend/logging/protocols:test_cdbg_logging_protocol",
+        "//src/backend/logging/protocols:test_mut_dma_logging_protocol",
+        "//src/backend/logging/protocols:test_ssm_logging_protocol",
+        "//src/backend/flash/eeprom:test_eeprom_read_plan_goldens",
+        "//resources/shared:test_protocols_cfg_eeprom_capabilities",
     ],
 )
 
@@ -129,7 +153,10 @@ py_test(
     name = "openpty_includes",
     size = "small",
     srcs = ["scripts/check-openpty-includes.py"],
-    data = ["//tests:cpp_sources"],
+    data = [
+        "//src/platform/desktop/common/serial:test_cpp_sources",
+        "//tests:cpp_sources",
+    ],
     main = "scripts/check-openpty-includes.py",
 )
 
@@ -159,6 +186,7 @@ py_binary(
         "--build-arg=--config=release",
         "--build-arg=//:fastecu",
         "--build-arg=//tests/...",
+        "--build-arg=//src/...",
     ],
     data = [
         ".clang-tidy",
@@ -178,6 +206,7 @@ py_binary(
         "--build-arg=--config=release",
         "--build-arg=//:fastecu",
         "--build-arg=//tests/...",
+        "--build-arg=//src/...",
     ],
     data = [
         ".clang-tidy",

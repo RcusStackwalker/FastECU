@@ -1,5 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS")
 
 package(default_visibility = [
@@ -59,4 +60,28 @@ cc_test(
         ":colt",
         "@googletest//:gtest_main",
     ],
+)
+
+fastecu_gtest(
+    name = "test_mitsu_colt_can_protocol",
+    srcs = ["mitsu_colt_can_protocol_test.cpp"],
+    deps = [
+        ":qt_compat",
+        "//src/algorithms/protocol/testing:byte_test_utils",
+    ],
+)
+
+fastecu_gtest(
+    name = "test_mitsu_colt_can_vendor_ext_protocol",
+    srcs = ["mitsu_colt_can_vendor_ext_protocol_test.cpp"],
+    deps = [
+        ":qt_compat",
+        "//src/algorithms/protocol/testing:byte_test_utils",
+    ],
+)
+
+fastecu_gtest(
+    name = "test_mitsu_colt_can_cdbg_protocol",
+    srcs = ["mitsu_colt_can_cdbg_protocol_test.cpp"],
+    deps = [":qt_compat"],
 )

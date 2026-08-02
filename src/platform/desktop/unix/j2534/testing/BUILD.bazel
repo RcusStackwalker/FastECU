@@ -1,0 +1,19 @@
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
+
+package(default_visibility = [
+    "//src:__subpackages__",
+    "//tests:__pkg__",
+])
+
+qt_cc_library(
+    name = "mock_openport",
+    testonly = True,
+    srcs = [],
+    hdrs = ["mock_openport.h"],
+    copts = COMMON_COPTS,
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = QT_DEPS + ["//src/platform/desktop/unix/j2534"],
+)

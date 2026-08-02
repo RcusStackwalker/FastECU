@@ -153,7 +153,7 @@ jobs:
 
       - name: Build Bazel targets
         run: |
-          bazel build -k --config=release //:fastecu //tests/...
+          bazel build -k --config=release //:fastecu //tests/... //src/...
 
       - name: Build x64 pe_bitness fixture (Windows)
         if: runner.os == 'Windows'
@@ -162,7 +162,7 @@ jobs:
 
       - name: Test Bazel targets
         run: |
-          bazel test -k --config=release //tests/... //:bazel_openssl_wiring //:serial_compat_allowlist //:portable_closure
+          bazel test -k --config=release //tests/... //src/... //:clang_tidy_runner_test //:openpty_includes //:windows_preprocessor_guards //:bazel_openssl_wiring //:serial_compat_allowlist //:portable_closure
 
       - name: Package macOS from Bazel (verify only)
         if: runner.os == 'macOS'

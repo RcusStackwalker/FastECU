@@ -3,6 +3,7 @@ load("//bazel:qt_targets.bzl", "COMMON_COPTS", "qt_cc_library")
 
 package(default_visibility = [
     "//apps:__subpackages__",
+    "//src/backend/definitions:__pkg__",
     "//src/platform:__subpackages__",
     "//src/ui:__subpackages__",
     "//tests:__pkg__",
@@ -43,6 +44,27 @@ fastecu_gtest(
     srcs = ["qt_atomic_file_writer_test.cpp"],
     deps = [
         ":ports",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_gtest(
+    name = "test_qt_port_adapters",
+    size = "small",
+    srcs = ["qt_port_adapters_test.cpp"],
+    deps = [
+        ":ports",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_gtest(
+    name = "test_qt_resource_bundle",
+    srcs = ["qt_resource_bundle_test.cpp"],
+    deps = [
+        ":ports",
+        "//resources/shared:config_resource",
+        "//resources/shared:kernels_resource",
         "//src/backend/ports",
     ],
 )

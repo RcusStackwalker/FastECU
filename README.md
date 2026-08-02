@@ -51,7 +51,7 @@ bazel build --config=release //:fastecu
 Run the maintained test targets:
 
 ```sh
-bazel test --config=release //tests/... //:bazel_openssl_wiring
+bazel test --config=release //tests/... //src/... //:bazel_openssl_wiring
 ```
 
 On macOS and Windows, the release packaging entry points are
@@ -137,12 +137,12 @@ focused Bazel test targets with:
 
 ```sh
 bazel test --config=release \
-  //tests:test_codec \
-  //tests:test_freeform \
-  //tests:test_memory \
-  //tests:test_transport \
-  //tests:test_init \
-  //tests:test_driver
+  //src/algorithms/protocol/mut_dma:test_codec \
+  //src/algorithms/protocol/mut_dma:test_freeform \
+  //src/algorithms/protocol/mut_dma:test_memory \
+  //src/backend/protocol:test_transport \
+  //src/backend/protocol:test_init \
+  //src/backend/protocol:test_driver
 ```
 
 Protocol derived from reverse-engineering notes; the on-wire spec is in the
