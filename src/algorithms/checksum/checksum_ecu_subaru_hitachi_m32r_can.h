@@ -6,10 +6,5 @@
 class ChecksumEcuSubaruHitachiM32rCan
 {
   public:
-    ChecksumEcuSubaruHitachiM32rCan();
-    ~ChecksumEcuSubaruHitachiM32rCan();
-
     static ChecksumResult calculate_checksum_result(bytes::ByteView romData);
-
-  private:
 };

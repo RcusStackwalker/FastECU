@@ -46,3 +46,23 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_test(
+    name = "checksum_primitives_test",
+    size = "small",
+    srcs = ["checksum_primitives_test.cpp"],
+    deps = [
+        ":checksum",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "denso_checksum_table_test",
+    size = "small",
+    srcs = ["denso_checksum_table_test.cpp"],
+    deps = [
+        ":checksum",
+        "@googletest//:gtest_main",
+    ],
+)

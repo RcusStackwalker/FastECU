@@ -220,23 +220,16 @@ Actions:
 - Keep lifecycle coverage for teardown with in-flight calls, helper-process
   failure, timeouts, and adapter removal on each supported platform.
 
-### P1: Complete the headless checksum migration
+### P1: Finish the checksum UI boundary
 
-FastECU has nine checksum families. Only the Denso SH7xxx family currently
-returns the shared structured `ChecksumResult` and has focused outcome tests;
-the other eight families still contain direct `QMessageBox` behavior and use
-`QByteArray` throughout their algorithms.
+All nine checksum algorithms are portable and return structured
+`ChecksumResult` values, but `LegacyChecksumAdapter` still owns direct
+`QMessageBox` behavior in the backend layer.
 
 Actions:
 
-- Migrate each remaining family to a structured result covering unchanged,
-  corrected, disabled, invalid size, unsupported ROM, and parse error as
-  applicable.
-- Move all checksum dialogs to `FileActions`' eventual UI/application boundary.
-- Convert read-only checksum inputs to `bytes::ByteView` where practical, as
-  specified by ADR 0004.
-- Add golden-vector and invalid-input tests for every family before changing its
-  algorithm.
+- Move checksum result presentation to the desktop UI/application boundary.
+- Keep the portable algorithms and dispatch layer free of Qt dependencies.
 
 ### P2: Turn static analysis into a ratchet
 

@@ -6,10 +6,5 @@
 class ChecksumEcuSubaruHitachiM32rKline
 {
   public:
-    ChecksumEcuSubaruHitachiM32rKline();
-    ~ChecksumEcuSubaruHitachiM32rKline();
-
     static ChecksumResult calculate_checksum_result(bytes::ByteView romData);
-
-  private:
 };
