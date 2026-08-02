@@ -4,7 +4,7 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 package(
     default_testonly = True,
     default_visibility = [
-        "//src/backend:__subpackages__",
+        "//src:__subpackages__",
         "//tests:__pkg__",
     ],
 )
@@ -128,4 +128,11 @@ cc_test(
         ":recording_event_sink",
         "@googletest//:gtest_main",
     ],
+)
+
+filegroup(
+    name = "test_layout_cpp_sources",
+    testonly = True,
+    srcs = glob(["*test*.cpp"]),
+    visibility = ["//:__pkg__"],
 )

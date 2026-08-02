@@ -8,7 +8,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main() -> int:
     errors: list[str] = []
-    for path in sorted((ROOT / "tests").glob("*.cpp")):
+    candidates = list((ROOT / "tests").glob("*.cpp"))
+    candidates += list((ROOT / "src/platform/desktop/common/serial").glob("*_test.cpp"))
+    for path in sorted(candidates):
         text = path.read_text()
         if "openpty(" not in text:
             continue
@@ -18,7 +20,7 @@ def main() -> int:
             errors.append(
                 f"{path.relative_to(ROOT)}: openpty users must include <util.h> off Linux"
             )
-        if path.name == "test_direct_backend.cpp":
+        if path.name == "direct_backend_test.cpp":
             errors.append(
                 f"{path.relative_to(ROOT)}: openpty coverage must live in a Unix-only source file"
             )

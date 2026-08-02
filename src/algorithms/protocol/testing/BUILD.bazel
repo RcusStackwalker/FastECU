@@ -1,0 +1,10 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+package(default_visibility = ["//src:__subpackages__"])
+
+cc_library(
+    name = "byte_test_utils",
+    testonly = True,
+    hdrs = ["byte_test_utils.h"],
+    deps = ["//src/algorithms/protocol"],
+)

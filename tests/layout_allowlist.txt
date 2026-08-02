@@ -1,0 +1,11 @@
+# path|rationale
+tests/fake_j2534_dll.cpp|Windows x86 DLL fixture loaded by process integration tests.
+tests/j2534_bridge_client_test.cpp|Windows cross-process bridge client probe.
+tests/j2534_bridge_integration_test.cpp|Windows x86 host and named-pipe integration probe.
+tests/j2534_bridge_protocol_test.cpp|Windows bridge wire-format ABI probe.
+tests/j2534_win_bridge_test.cpp|Windows J2534 bridge process integration probe.
+tests/pe_bitness_test.cpp|Windows PE machine-type fixture probe.
+tests/serial_pty_e2e_test.cpp|Unix pseudo-terminal end-to-end serial probe.
+tests/tst_mut_dma_integration.cpp|Unix PTY test spanning algorithm, backend, and desktop transport packages.
+tests/tst_serial_port_crash.cpp|Unix PTY/process crash and teardown probe.
+tests/force_asserts/tst_force_asserts.cpp|Release-mode Qt assertion process probe.

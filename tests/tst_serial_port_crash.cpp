@@ -33,7 +33,7 @@
 
 #include "src/platform/desktop/unix/j2534/J2534_unix.h"
 #include "src/platform/desktop/common/serial/serial_port_actions_direct.h"
-#include "mock_openport.h"
+#include "src/platform/desktop/unix/j2534/testing/mock_openport.h"
 
 // `serial` is protected in J2534 so a test subclass can reproduce the torn-down
 // state without adding any test-only method to the production class.

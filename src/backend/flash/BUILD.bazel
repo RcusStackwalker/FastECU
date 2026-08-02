@@ -1,6 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -79,6 +79,7 @@ PORTABLE_TEST_SRCS = [
     "flash_validation_test.cpp",
     "flash_executor_test.cpp",
     "flash_cancellation_test.cpp",
+    "flash_utils_test.cpp",
 ]
 
 # Portable. No Qt, no platform, no filesystem, no thread.
@@ -138,4 +139,21 @@ qt_cc_library(
         "//src/backend/definitions:models",
         "//src/platform/desktop/common/serial:serial_qt_compat",
     ],
+)
+
+fastecu_qttest(
+    name = "test_flash_utils",
+    src = "flash_utils_test.cpp",
+    deps = [
+        ":flash",
+        "//src/platform/desktop/common/serial:serial_qt_compat",
+        "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+    ],
+)
+
+filegroup(
+    name = "test_layout_cpp_sources",
+    testonly = True,
+    srcs = glob(["*test*.cpp"]),
+    visibility = ["//:__pkg__"],
 )

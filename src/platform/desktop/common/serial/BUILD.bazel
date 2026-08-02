@@ -1,11 +1,18 @@
 load("//bazel:qt_remote_objects.bzl", "qt_replica_library")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library", "qt_cc_test", "qt_cpp_moc_headers")
 
 package(default_visibility = [
     "//apps/desktop:__pkg__",
     "//src/platform:__subpackages__",
     "//tests:__pkg__",
 ])
+
+filegroup(
+    name = "test_cpp_sources",
+    testonly = True,
+    srcs = glob(["*_test.cpp"]),
+    visibility = ["//:__pkg__"],
+)
 
 # root //:serial_compat_allowlist reads BUILD.bazel, and root
 # //:windows_preprocessor_guards reads serial_port_actions_direct.h, both as
@@ -40,7 +47,13 @@ MOC_HDRS = [
 # scripts/check-serial-compat-allowlist.py. Do not add new callers.
 qt_cc_library(
     name = "serial_qt_compat",
-    srcs = glob(["*.cpp"]),
+    srcs = glob(
+        ["*.cpp"],
+        exclude = [
+            "*_main.cpp",
+            "*_test.cpp",
+        ],
+    ),
     hdrs = MOC_HDRS,
     copts = COMMON_COPTS,
     # *.hpp because qtrohelper.hpp (included by remote_serial_backend.cpp
@@ -91,6 +104,60 @@ qt_cc_library(
     }),
 )
 
+fastecu_qttest(
+    name = "test_direct_backend",
+    src = "direct_backend_test.cpp",
+    deps = [
+        ":serial_qt_compat",
+        "//src/platform/desktop/common/transport",
+    ],
+)
+
+fastecu_qttest(
+    name = "test_remote_backend_smoke",
+    src = "remote_backend_smoke_test.cpp",
+    deps = [":serial_qt_compat"],
+)
+
+fastecu_qttest(
+    name = "test_direct_backend_pty",
+    src = "direct_backend_pty_test.cpp",
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":serial_qt_compat",
+        "//src/platform/desktop/unix/j2534/testing:mock_openport",
+    ],
+)
+
+qt_cpp_moc_headers(
+    name = "facade_threading_test_moc",
+    srcs = ["facade_threading_test.cpp"],
+    deps = QT_DEPS,
+)
+
+# Custom main is retained: it dispatches child-process mode and makes crash
+# diagnostics unbuffered before Qt starts, behavior gtest/QtTest mains cannot
+# express through fixtures or Bazel environment variables.
+qt_cc_test(
+    name = "test_facade_threading",
+    srcs = [
+        "facade_threading_main.cpp",
+        "facade_threading_test.cpp",
+        "test_facade_threading.h",
+    ],
+    copts = COMMON_COPTS,
+    deps = QT_DEPS + [
+        ":facade_threading_test_moc",
+        ":serial_qt_compat",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+        "//src/platform/desktop/common/transport",
+    ],
+)
+
 # Same-layer facade over serial_qt_compat's transitional debt target, for
 # platform packages (e.g. src/platform/desktop/common/flash/legacy) that need
 # an explicit, non-debt handle to depend on instead of reaching directly into
@@ -103,4 +170,11 @@ qt_cc_library(
     copts = COMMON_COPTS,
     visibility = ["//src/platform:__subpackages__"],
     deps = [":serial_qt_compat"],
+)
+
+filegroup(
+    name = "test_layout_cpp_sources",
+    testonly = True,
+    srcs = glob(["*test*.cpp"]),
+    visibility = ["//:__pkg__"],
 )

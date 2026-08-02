@@ -7,16 +7,20 @@ def fastecu_portable_gtest(
         name,
         srcs,
         deps = [],
+        data = [],
         env = {},
         tags = [],
         target_compatible_with = [],
-        copts = []):
+        copts = [],
+        size = None):
     """GoogleTest target whose compile/link closure is deliberately Qt-free."""
     cc_test(
         name = name,
         srcs = srcs,
         copts = copts,
+        data = data,
         env = env,
+        size = size,
         tags = tags,
         target_compatible_with = target_compatible_with,
         deps = ["@googletest//:gtest_main"] + deps,
@@ -26,18 +30,22 @@ def fastecu_gtest(
         name,
         srcs,
         deps = [],
+        data = [],
         env = {},
         tags = [],
-        target_compatible_with = []):
+        target_compatible_with = [],
+        copts = [],
+        size = None):
     cc_test(
         name = name,
         srcs = srcs,
-        copts = COMMON_COPTS,
-        data = select({
+        copts = COMMON_COPTS + copts,
+        data = data + select({
             "@platforms//os:macos": ["@qt_mac_aarch64//:lib"],
             "//conditions:default": [],
         }),
         env = env,
+        size = size,
         tags = tags,
         target_compatible_with = target_compatible_with,
         deps = QT_DEPS + [

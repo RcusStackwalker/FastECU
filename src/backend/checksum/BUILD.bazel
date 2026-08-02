@@ -1,5 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+load("//bazel:gtest_targets.bzl", "fastecu_gtest", "fastecu_portable_gtest")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = [
@@ -66,4 +66,17 @@ qt_cc_library(
         ":checksum_selection",
         ":dispatch",
     ],
+)
+
+fastecu_gtest(
+    name = "test_legacy_checksum_adapter",
+    srcs = ["legacy_checksum_adapter_test.cpp"],
+    deps = [":legacy_checksum_adapter"],
+)
+
+filegroup(
+    name = "test_layout_cpp_sources",
+    testonly = True,
+    srcs = glob(["*test*.cpp"]),
+    visibility = ["//:__pkg__"],
 )

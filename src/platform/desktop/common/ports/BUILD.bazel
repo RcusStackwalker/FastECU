@@ -3,6 +3,7 @@ load("//bazel:qt_targets.bzl", "COMMON_COPTS", "qt_cc_library")
 
 package(default_visibility = [
     "//apps:__subpackages__",
+    "//src/backend/definitions:__pkg__",
     "//src/platform:__subpackages__",
     "//src/ui:__subpackages__",
     "//tests:__pkg__",
@@ -48,10 +49,37 @@ fastecu_gtest(
 )
 
 fastecu_gtest(
+    name = "test_qt_port_adapters",
+    srcs = ["qt_port_adapters_test.cpp"],
+    deps = [
+        ":ports",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_gtest(
+    name = "test_qt_resource_bundle",
+    srcs = ["qt_resource_bundle_test.cpp"],
+    deps = [
+        ":ports",
+        "//resources/shared:config_resource",
+        "//resources/shared:kernels_resource",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_gtest(
     name = "qt_file_system_test",
     srcs = ["qt_file_system_test.cpp"],
     deps = [
         ":ports",
         "//src/backend/ports",
     ],
+)
+
+filegroup(
+    name = "test_layout_cpp_sources",
+    testonly = True,
+    srcs = glob(["*test*.cpp"]),
+    visibility = ["//:__pkg__"],
 )

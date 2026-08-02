@@ -1,0 +1,13 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+package(default_visibility = ["//src:__subpackages__"])
+
+cc_library(
+    name = "scripted_flash_transports",
+    testonly = True,
+    hdrs = [
+        "scripted_can_flash_transport.h",
+        "scripted_kline_flash_transport.h",
+    ],
+    deps = ["//src/backend/flash:flash_executor"],
+)

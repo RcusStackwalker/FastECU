@@ -1,0 +1,10 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+package(default_visibility = ["//src:__subpackages__"])
+
+cc_library(
+    name = "scripted_logging_protocol",
+    testonly = True,
+    hdrs = ["scripted_logging_protocol.h"],
+    deps = ["//src/backend/logging:logging_use_case"],
+)

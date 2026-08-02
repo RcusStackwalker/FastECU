@@ -1,5 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -50,6 +50,49 @@ qt_cc_library(
     copts = COMMON_COPTS,
     normal_hdrs = CONFIG_VALUES_HDRS,
     deps = QT_DEPS,
+)
+
+fastecu_qttest(
+    name = "test_ecuflash_definition_parsing",
+    src = "ecuflash_definition_parsing_test.cpp",
+    copts = ["-DQT_WIDGETS_LIB"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    deps = [
+        ":definitions",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/platform/desktop/common/ports",
+    ],
+)
+
+fastecu_qttest(
+    name = "test_file_actions_parsing",
+    src = "file_actions_parsing_test.cpp",
+    copts = ["-DQT_WIDGETS_LIB"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    deps = [
+        ":definitions",
+        "//src/backend/definition:ecuflash_parser",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/platform/desktop/common/ports",
+    ],
+)
+
+fastecu_qttest(
+    name = "test_model_validation",
+    src = "model_validation_test.cpp",
+    deps = [":definitions"],
+)
+
+fastecu_qttest(
+    name = "test_rom_transformations",
+    src = "rom_transformations_test.cpp",
+    copts = ["-DQT_WIDGETS_LIB"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    deps = [
+        ":definitions",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/platform/desktop/common/ports",
+    ],
 )
 
 qt_cc_library(
@@ -110,4 +153,11 @@ qt_cc_library(
         "//src/backend/definition:legacy_definition_adapter",
         "//src/backend/ports",
     ],
+)
+
+filegroup(
+    name = "test_layout_cpp_sources",
+    testonly = True,
+    srcs = glob(["*test*.cpp"]),
+    visibility = ["//:__pkg__"],
 )

@@ -16,7 +16,7 @@
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
-#include "tests/scripted_kline_flash_transport.h"
+#include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 
 namespace fastecu::flash
 {

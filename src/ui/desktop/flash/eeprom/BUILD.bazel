@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = [
     "//apps/desktop:__pkg__",
@@ -8,8 +8,14 @@ package(default_visibility = [
 
 qt_cc_library(
     name = "eeprom",
-    srcs = glob(["*.cpp"]),
-    hdrs = glob(["*.h"]),
+    srcs = glob(
+        ["*.cpp"],
+        exclude = ["*_test.cpp"],
+    ),
+    hdrs = glob(
+        ["*.h"],
+        exclude = ["test_*.h"],
+    ),
     copts = COMMON_COPTS,
     deps = QT_DEPS + [
         # Full :definitions (not :models) because file_actions.h -- part of
@@ -31,4 +37,43 @@ qt_cc_library(
         # the generated form owned by the top-level desktop package.
         "//src/ui/desktop:ui_ecu_operations",
     ],
+)
+
+fastecu_qttest(
+    name = "test_eeprom_ecu_subaru_denso_sh705x_kline_dialog",
+    src = "eeprom_ecu_subaru_denso_sh705x_kline_dialog_test.cpp",
+    copts = ["-DQT_WIDGETS_LIB"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    deps = [
+        ":eeprom",
+        "//src/backend/definitions",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
+        "//src/backend/ports",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/platform/desktop/common/flash:flash_worker",
+    ],
+)
+
+fastecu_qttest(
+    name = "test_eeprom_ecu_subaru_denso_sh705x_can_dialog",
+    src = "eeprom_ecu_subaru_denso_sh705x_can_dialog_test.cpp",
+    copts = ["-DQT_WIDGETS_LIB"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    deps = [
+        ":eeprom",
+        "//src/backend/definitions",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
+        "//src/backend/ports",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/platform/desktop/common/flash:flash_worker",
+    ],
+)
+
+filegroup(
+    name = "test_layout_cpp_sources",
+    testonly = True,
+    srcs = glob(["*test*.cpp"]),
+    visibility = ["//:__pkg__"],
 )

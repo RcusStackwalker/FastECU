@@ -1,4 +1,5 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = [
     "//apps/desktop:__pkg__",
@@ -20,6 +21,31 @@ qt_cc_library(
     # allow_empty: this package's only header is the MOC_HDRS entry above.
     normal_hdrs = [],
     deps = QT_DEPS,
+)
+
+fastecu_gtest(
+    name = "test_logging_adapters",
+    srcs = ["logging_adapters_test.cpp"],
+    deps = [":logging_adapters"],
+)
+
+fastecu_qttest(
+    name = "test_logging_engine",
+    src = "logging_engine_test.cpp",
+    deps = [
+        ":logging_adapters",
+        ":logging_runtime",
+        "//src/backend/logging/testing:scripted_logging_protocol",
+    ],
+)
+
+fastecu_qttest(
+    name = "test_logging_worker",
+    src = "logging_worker_test.cpp",
+    deps = [
+        ":logging_runtime",
+        "//src/backend/logging/testing:scripted_logging_protocol",
+    ],
 )
 
 qt_cc_library(
@@ -60,4 +86,11 @@ qt_cc_library(
         "//src/backend/logging:logging_session",
         "//src/backend/ports",
     ],
+)
+
+filegroup(
+    name = "test_layout_cpp_sources",
+    testonly = True,
+    srcs = glob(["*test*.cpp"]),
+    visibility = ["//:__pkg__"],
 )

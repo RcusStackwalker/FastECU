@@ -1,12 +1,14 @@
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 load("//bazel:qt_targets.bzl", "qt_resource_via_qrc")
 
 # //src/backend/definitions and tests consume these resources.
 package(default_visibility = [
     "//src/backend/definitions:__pkg__",
+    "//src/platform/desktop/common/ports:__pkg__",
     "//tests:__pkg__",
 ])
 
-# tests/test_protocols_cfg_eeprom_capabilities.cpp pins protocols.cfg's
+# resources/shared/protocols_cfg_eeprom_capabilities_test.cpp pins protocols.cfg's
 # write=no/test_write=no capability flags for the Denso SH705x EEPROM
 # protocols, and src/backend/config:protocol_catalog_test parses the whole
 # file through load_protocol_catalog, both by reading the real, checked-in
@@ -20,9 +22,17 @@ package(default_visibility = [
 exports_files(
     ["config/protocols.cfg"],
     visibility = [
+        "//resources/shared:__pkg__",
         "//src/backend/config:__pkg__",
-        "//tests:__pkg__",
     ],
+)
+
+fastecu_portable_gtest(
+    name = "test_protocols_cfg_eeprom_capabilities",
+    size = "small",
+    srcs = ["protocols_cfg_eeprom_capabilities_test.cpp"],
+    data = [":config/protocols.cfg"],
+    env = {"PROTOCOLS_CFG_PATH": "$(location :config/protocols.cfg)"},
 )
 
 qt_resource_via_qrc(
@@ -37,4 +47,11 @@ qt_resource_via_qrc(
     files = glob(["kernels/*"]),
     qrc_file = "kernels.qrc",
     deps = ["@rules_qt//:qt_core"],
+)
+
+filegroup(
+    name = "test_layout_cpp_sources",
+    testonly = True,
+    srcs = glob(["*test*.cpp"]),
+    visibility = ["//:__pkg__"],
 )

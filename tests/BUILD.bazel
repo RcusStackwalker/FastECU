@@ -1,14 +1,19 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
-load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
-load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
-load("//bazel:mut_dma_test_suites.bzl", "MUT_DMA_GTEST_SRCS", "mut_dma_test_suites")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "local_test_hdrs", "local_test_srcs", "qt_cc_library", "qt_cc_test", "qt_cpp_moc_headers", "test_cpp_moc_srcs")
-load("//bazel:test_sources.bzl", "MUT_DMA_INTEGRATION_TESTS_COMMON_HDRS", "MUT_DMA_INTEGRATION_TESTS_COMMON_SRCS", "MUT_DMA_TESTS_COMMON_SRCS", "SERIAL_BACKEND_TESTS_COMMON_HDRS", "SERIAL_BACKEND_TESTS_COMMON_SRCS", "SERIAL_BACKEND_TESTS_UNIX_HDRS", "SERIAL_BACKEND_TESTS_UNIX_SRCS", "SERIAL_CRASH_TESTS_COMMON_HDRS", "SERIAL_CRASH_TESTS_COMMON_SRCS")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_test")
 load("//bazel:x86_windows_transition.bzl", "x86_windows_binary")
 
 package(default_visibility = ["//visibility:public"])
 
+exports_files(["layout_allowlist.txt"])
+
+filegroup(
+    name = "cpp_sources",
+    srcs = glob(["*.cpp"]),
+)
+
+# Windows-only process/ABI fixture: it must remain outside a production
+# package because it is loaded by cross-bitness bridge integration tests.
 cc_binary(
     name = "fake_j2534_dll_native",
     srcs = ["fake_j2534_dll.cpp"],
@@ -32,256 +37,26 @@ x86_windows_binary(
     }),
 )
 
-filegroup(
-    name = "cpp_sources",
-    srcs = glob(["*.cpp"]),
-)
+WINDOWS_ONLY = select({
+    "@platforms//os:windows": [],
+    "//conditions:default": ["@platforms//:incompatible"],
+})
 
-qt_cc_library(
-    name = "test_header_mocs",
-    srcs = [],
-    hdrs = [
-        "fake_backend.h",
-        "mock_openport.h",
-    ],
-    copts = COMMON_COPTS,
-    deps = QT_DEPS + ["//src/platform/desktop/common/serial:serial_qt_compat"],
-)
-
-qt_cpp_moc_headers(
-    name = "mut_dma_cpp_mocs",
-    srcs = [
-        src
-        for src in test_cpp_moc_srcs(MUT_DMA_TESTS_COMMON_SRCS)
-        if src not in MUT_DMA_GTEST_SRCS
-    ],
-    deps = QT_DEPS,
-)
-
-mut_dma_test_suites(
-    header_mocs_target = ":test_header_mocs",
-    moc_deps_target = ":mut_dma_cpp_mocs",
-)
-
-qt_cpp_moc_headers(
-    name = "serial_backend_cpp_mocs",
-    srcs = test_cpp_moc_srcs(SERIAL_BACKEND_TESTS_COMMON_SRCS + SERIAL_BACKEND_TESTS_UNIX_SRCS),
-    deps = QT_DEPS,
-)
-
-qt_cc_test(
-    name = "serial_backend_tests",
-    srcs = local_test_srcs(SERIAL_BACKEND_TESTS_COMMON_SRCS) + local_test_hdrs(SERIAL_BACKEND_TESTS_COMMON_HDRS) + select({
-        "@platforms//os:windows": [],
-        "//conditions:default": local_test_srcs(SERIAL_BACKEND_TESTS_UNIX_SRCS) + local_test_hdrs(SERIAL_BACKEND_TESTS_UNIX_HDRS),
-    }),
-    copts = COMMON_COPTS,
-    deps = QT_DEPS + [
-        ":serial_backend_cpp_mocs",
-        ":test_header_mocs",
-        "//src/backend/ports/testing:fake_cancellation_token",
-        "//src/platform/desktop/common/serial:serial_qt_compat",
-        "//src/platform/desktop/common/transport",
-    ],
-)
-
-qt_cc_test(
-    name = "test_qt_port_adapters",
-    srcs = ["test_qt_port_adapters.cpp"],
-    copts = COMMON_COPTS,
-    deps = QT_DEPS + [
-        "//src/backend/ports",
-        "//src/platform/desktop/common/ports",
-        "@googletest//:gtest",
-    ],
-)
-
-qt_cc_test(
-    name = "test_logging_adapters",
-    srcs = ["test_logging_adapters.cpp"],
-    copts = COMMON_COPTS,
-    deps = QT_DEPS + [
-        "//src/platform/desktop/common/logging:logging_adapters",
-        "@googletest//:gtest",
-    ],
-)
-
-fastecu_portable_gtest(
-    name = "test_eeprom_read_plan_goldens",
-    srcs = ["test_eeprom_read_plan_goldens.cpp"],
-    deps = [
-        "//src/backend/flash/eeprom:eeprom_read_plan",
-        "//src/backend/ports/testing:in_memory_file_repository",
-    ],
-)
-
-qt_cc_test(
-    name = "test_legacy_config_paths",
-    srcs = ["test_legacy_config_paths.cpp"],
-    copts = COMMON_COPTS,
-    deps = QT_DEPS + [
-        "//src/backend/config:legacy_config_paths",
-        "@googletest//:gtest",
-    ],
-)
-
-qt_cc_test(
-    name = "test_hex_parse_qt_compat",
-    srcs = ["test_hex_parse_qt_compat.cpp"],
-    copts = COMMON_COPTS,
-    deps = QT_DEPS + [
-        "//src/backend/definition:text_format",
-        "@googletest//:gtest",
-    ],
-)
-
-qt_cc_test(
-    name = "test_qt_resource_bundle",
-    srcs = ["test_qt_resource_bundle.cpp"],
-    copts = COMMON_COPTS,
-    deps = QT_DEPS + [
-        "//resources/shared:config_resource",
-        "//resources/shared:kernels_resource",
-        "//src/backend/ports",
-        "//src/platform/desktop/common/ports",
-        "@googletest//:gtest",
-    ],
-)
-
-qt_cc_test(
-    name = "test_legacy_config_adapter",
-    srcs = ["test_legacy_config_adapter.cpp"],
-    copts = COMMON_COPTS,
-    deps = QT_DEPS + [
-        "//src/backend/config:legacy_config_adapter",
-        "//src/backend/definitions",
-        "//src/backend/ports",
-        "//src/backend/ports/testing:in_memory_file_repository",
-        "//src/backend/ports/testing:in_memory_file_system",
-        "//src/backend/ports/testing:in_memory_resource_bundle",
-        "@googletest//:gtest",
-    ],
-)
-
-# TestLegacyCalibrationAdapter is a QObject-derived fixture defined directly
-# in the .cpp (QTEST_MAIN style), so it self-includes its own generated
-# ".moc" -- same technique as the mut_dma/serial_backend suites' cpp_mocs
-# targets above (qt_cpp_moc_headers mocs .cpp sources too, despite the name).
-qt_cpp_moc_headers(
-    name = "test_legacy_calibration_adapter_moc",
-    srcs = ["test_legacy_calibration_adapter.cpp"],
-    deps = QT_DEPS,
-)
-
-qt_cc_test(
-    name = "test_legacy_calibration_adapter",
-    srcs = ["test_legacy_calibration_adapter.cpp"],
-    copts = COMMON_COPTS,
-    deps = QT_DEPS + [
-        ":test_legacy_calibration_adapter_moc",
-        "//src/backend/calibration:legacy_calibration_adapter",
-        "//src/backend/definition:definition_model",
-        "//src/backend/ports/testing:in_memory_file_repository",
-    ],
-)
-
-qt_cc_test(
-    name = "test_legacy_checksum_adapter",
-    srcs = ["test_legacy_checksum_adapter.cpp"],
-    copts = COMMON_COPTS,
-    deps = QT_DEPS + [
-        "//src/backend/checksum:legacy_checksum_adapter",
-        "@googletest//:gtest",
-    ],
-)
-
-qt_cc_test(
-    name = "test_legacy_definition_adapter",
-    srcs = ["test_legacy_definition_adapter.cpp"],
-    copts = COMMON_COPTS + ["-I."],
-    deps = QT_DEPS + [
-        "//src/backend/definition:legacy_definition_adapter",
-        "//src/backend/definitions:config_values",
-        "//src/backend/definitions:ecu_cal_def",
-        "//src/backend/ports",
-        "//src/backend/ports/testing:in_memory_atomic_file_writer",
-        "//src/backend/ports/testing:in_memory_file_repository",
-        "//src/backend/ports/testing:in_memory_file_system",
-        "@googletest//:gtest_main",
-    ],
-)
-
-qt_cpp_moc_headers(
-    name = "serial_crash_cpp_mocs",
-    srcs = test_cpp_moc_srcs(SERIAL_CRASH_TESTS_COMMON_SRCS),
-    deps = QT_DEPS,
-)
-
-qt_cc_test(
-    name = "serial_crash_tests",
-    srcs = local_test_srcs(SERIAL_CRASH_TESTS_COMMON_SRCS) + local_test_hdrs(SERIAL_CRASH_TESTS_COMMON_HDRS),
-    copts = COMMON_COPTS,
-    target_compatible_with = select({
-        "@platforms//os:windows": ["@platforms//:incompatible"],
-        "//conditions:default": [],
-    }),
-    deps = QT_DEPS + [
-        ":serial_crash_cpp_mocs",
-        ":test_header_mocs",
-        "//src/platform/desktop/common/serial:serial_qt_compat",
-        "//src/platform/desktop/unix/j2534",
-    ],
-)
-
-qt_cpp_moc_headers(
-    name = "mut_dma_integration_cpp_mocs",
-    srcs = test_cpp_moc_srcs(MUT_DMA_INTEGRATION_TESTS_COMMON_SRCS),
-    deps = QT_DEPS,
-)
-
-qt_cc_test(
-    name = "mut_dma_integration_tests",
-    srcs = local_test_srcs(MUT_DMA_INTEGRATION_TESTS_COMMON_SRCS) + local_test_hdrs(MUT_DMA_INTEGRATION_TESTS_COMMON_HDRS),
-    copts = COMMON_COPTS,
-    target_compatible_with = select({
-        "@platforms//os:windows": ["@platforms//:incompatible"],
-        "//conditions:default": [],
-    }),
-    deps = QT_DEPS + [
-        ":mut_dma_integration_cpp_mocs",
-        ":test_header_mocs",
-        "//src/algorithms/protocol",
-        "//src/algorithms/protocol:qt_compat",
-        "//src/algorithms/protocol/mut_dma",
-        "//src/backend/ports/testing:fake_cancellation_token",
-        "//src/backend/protocol",
-        "//src/platform/desktop/common/serial:serial_qt_compat",
-        "//src/platform/desktop/common/transport",
-    ],
-)
-
+# Windows wire-format probe; assert() is its test protocol, so release builds
+# explicitly re-enable assertions and retain the handwritten main.
 cc_test(
     name = "j2534_bridge_protocol_test",
     srcs = ["j2534_bridge_protocol_test.cpp"],
-    # --config=release implies -DNDEBUG (via --compilation_mode=opt), which
-    # would silently compile out this test's assert()-based pass/fail checks.
-    # /UNDEBUG re-enables them. MSVC-only flag; safe here since this target is
-    # Windows-only (target_compatible_with below).
     copts = ["/UNDEBUG"],
-    target_compatible_with = select({
-        "@platforms//os:windows": [],
-        "//conditions:default": ["@platforms//:incompatible"],
-    }),
+    target_compatible_with = WINDOWS_ONLY,
     deps = ["//src/platform/desktop/windows/j2534:j2534_bridge_protocol"],
 )
 
+# Cross-bitness PE probe with external x86/x64 fixtures and assert()-based
+# process exit semantics; no single production package owns both fixtures.
 cc_test(
     name = "pe_bitness_test",
     srcs = ["pe_bitness_test.cpp"],
-    # --config=release implies -DNDEBUG (via --compilation_mode=opt), which
-    # would silently compile out this test's assert()-based pass/fail checks.
-    # /UNDEBUG re-enables them. MSVC-only flag; safe here since this target is
-    # Windows-only (target_compatible_with below).
     copts = ["/UNDEBUG"],
     data = [
         "//bazel/platforms:x86_smoke_test_x86",
@@ -291,116 +66,94 @@ cc_test(
         "PE_BITNESS_X86_FIXTURE": "$(location //bazel/platforms:x86_smoke_test_x86)",
         "PE_BITNESS_X64_FIXTURE": "$(location //src/platform/desktop/windows/j2534:pe_bitness_x64_fixture)",
     },
-    target_compatible_with = select({
-        "@platforms//os:windows": [],
-        "//conditions:default": ["@platforms//:incompatible"],
-    }),
+    target_compatible_with = WINDOWS_ONLY,
     deps = ["//src/platform/desktop/windows/j2534:pe_bitness"],
 )
 
+J2534_PROCESS_DATA = [
+    ":fake_j2534_dll_x86",
+    "//src/platform/desktop/windows/j2534/j2534_bridge_host:j2534_bridge_host_x86",
+]
+
+J2534_PROCESS_ENV = {
+    "FAKE_J2534_DLL_PATH": "$(location :fake_j2534_dll_x86)",
+    "J2534_BRIDGE_HOST_EXE": "$(location //src/platform/desktop/windows/j2534/j2534_bridge_host:j2534_bridge_host_x86)",
+}
+
+# Cross-process x86 bridge integration probes retain handwritten mains and
+# assertion flags because their observable contract is process/pipe behavior.
 cc_test(
     name = "j2534_bridge_integration_test",
     srcs = ["j2534_bridge_integration_test.cpp"],
-    # --config=release implies -DNDEBUG (via --compilation_mode=opt), which
-    # would silently compile out this test's assert()-based pass/fail checks.
-    # /UNDEBUG re-enables them. MSVC-only flag; safe here since this target is
-    # Windows-only (target_compatible_with below).
     copts = ["/UNDEBUG"],
-    data = [
-        ":fake_j2534_dll_x86",
-        "//src/platform/desktop/windows/j2534/j2534_bridge_host:j2534_bridge_host_x86",
-    ],
-    env = {
-        "FAKE_J2534_DLL_PATH": "$(location :fake_j2534_dll_x86)",
-        "J2534_BRIDGE_HOST_EXE": "$(location //src/platform/desktop/windows/j2534/j2534_bridge_host:j2534_bridge_host_x86)",
-    },
-    target_compatible_with = select({
-        "@platforms//os:windows": [],
-        "//conditions:default": ["@platforms//:incompatible"],
-    }),
+    data = J2534_PROCESS_DATA,
+    env = J2534_PROCESS_ENV,
+    target_compatible_with = WINDOWS_ONLY,
     deps = ["//src/platform/desktop/windows/j2534:j2534_bridge_protocol"],
 )
 
 cc_test(
     name = "j2534_bridge_client_test",
     srcs = ["j2534_bridge_client_test.cpp"],
-    # --config=release implies -DNDEBUG (via --compilation_mode=opt), which
-    # would silently compile out this test's assert()-based pass/fail checks.
-    # /UNDEBUG re-enables them. MSVC-only flag; safe here since this target is
-    # Windows-only (target_compatible_with below).
     copts = ["/UNDEBUG"],
-    data = [
-        ":fake_j2534_dll_x86",
-        "//src/platform/desktop/windows/j2534/j2534_bridge_host:j2534_bridge_host_x86",
-    ],
-    env = {
-        "FAKE_J2534_DLL_PATH": "$(location :fake_j2534_dll_x86)",
-        "J2534_BRIDGE_HOST_EXE": "$(location //src/platform/desktop/windows/j2534/j2534_bridge_host:j2534_bridge_host_x86)",
-    },
-    target_compatible_with = select({
-        "@platforms//os:windows": [],
-        "//conditions:default": ["@platforms//:incompatible"],
-    }),
+    data = J2534_PROCESS_DATA,
+    env = J2534_PROCESS_ENV,
+    target_compatible_with = WINDOWS_ONLY,
     deps = ["//src/platform/desktop/windows/j2534:j2534_bridge_client"],
 )
 
 qt_cc_test(
     name = "j2534_win_bridge_test",
     srcs = ["j2534_win_bridge_test.cpp"],
-    # --config=release implies -DNDEBUG (via --compilation_mode=opt), which
-    # would silently compile out this test's assert()-based pass/fail checks.
-    # /UNDEBUG re-enables them. MSVC-only flag; safe here since this target is
-    # Windows-only (target_compatible_with below).
-    copts = ["/UNDEBUG"],
-    data = [
-        ":fake_j2534_dll_x86",
-        "//src/platform/desktop/windows/j2534/j2534_bridge_host:j2534_bridge_host_x86",
+    copts = COMMON_COPTS + ["/UNDEBUG"],
+    data = J2534_PROCESS_DATA,
+    env = J2534_PROCESS_ENV,
+    target_compatible_with = WINDOWS_ONLY,
+    deps = QT_DEPS + ["//src/platform/desktop/windows/j2534"],
+)
+
+UNIX_ONLY = select({
+    "@platforms//os:windows": ["@platforms//:incompatible"],
+    "//conditions:default": [],
+})
+
+# Real pseudo-terminal end-to-end probe crosses serial, J2534, and OS APIs.
+fastecu_qttest(
+    name = "serial_pty_e2e_test",
+    src = "serial_pty_e2e_test.cpp",
+    target_compatible_with = UNIX_ONLY,
+    deps = [
+        "//src/platform/desktop/common/serial:serial_qt_compat",
+        "//src/platform/desktop/unix/j2534/testing:mock_openport",
     ],
-    env = {
-        "FAKE_J2534_DLL_PATH": "$(location :fake_j2534_dll_x86)",
-        "J2534_BRIDGE_HOST_EXE": "$(location //src/platform/desktop/windows/j2534/j2534_bridge_host:j2534_bridge_host_x86)",
-    },
-    target_compatible_with = select({
-        "@platforms//os:windows": [],
-        "//conditions:default": ["@platforms//:incompatible"],
-    }),
-    deps = ["//src/platform/desktop/windows/j2534"],
 )
 
-# Portable. Header-only test double for IKlineFlashTransport, consumed by
-# //src/backend/flash/eeprom's kline executor test (a different package, so
-# it needs a real label rather than being folded into a test's own srcs the
-# way the mut_dma suites include their local scripted_*_transport.h helpers).
-cc_library(
-    name = "scripted_kline_flash_transport",
-    testonly = True,
-    hdrs = ["scripted_kline_flash_transport.h"],
-    deps = ["//src/backend/flash:flash_executor"],
+# PTY/process integration intentionally remains centralized: it exercises
+# algorithms, backend transports, serial I/O, cancellation, and J2534 together.
+fastecu_qttest(
+    name = "mut_dma_integration_tests",
+    src = "tst_mut_dma_integration.cpp",
+    target_compatible_with = UNIX_ONLY,
+    deps = [
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol:qt_compat",
+        "//src/algorithms/protocol/mut_dma",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/protocol",
+        "//src/platform/desktop/common/serial:serial_qt_compat",
+        "//src/platform/desktop/common/transport",
+        "//src/platform/desktop/unix/j2534/testing:mock_openport",
+    ],
 )
 
-# Portable. Header-only test double for ICanFlashTransport, consumed by
-# //src/backend/flash/eeprom's CAN executor test (step 5c, Task 9) -- same
-# cross-package shape as :scripted_kline_flash_transport above.
-cc_library(
-    name = "scripted_can_flash_transport",
-    testonly = True,
-    hdrs = ["scripted_can_flash_transport.h"],
-    deps = ["//src/backend/flash:flash_executor"],
-)
-
-# Portable. Relocated verbatim (step 5c, Task 8) from the now-deleted
-# tests/test_eeprom_ecu_subaru_denso_sh705x_kline_operation_characterization.cpp
-# -- this test never exercised that legacy operation class, only the real,
-# checked-in resources/shared/config/protocols.cfg, so it survives that
-# class's deletion as its own standalone target instead of going through the
-# mut_dma_test_suites() macro built for the QThread-driven legacy suites.
-cc_test(
-    name = "test_protocols_cfg_eeprom_capabilities",
-    size = "small",
-    srcs = ["test_protocols_cfg_eeprom_capabilities.cpp"],
-    data = ["//resources/shared:config/protocols.cfg"],
-    env = {
-        "PROTOCOLS_CFG_PATH": "$(location //resources/shared:config/protocols.cfg)",
-    },
-    deps = ["@googletest//:gtest_main"],
+# Crash/teardown probe requires a real PTY and Unix J2534 process boundary.
+fastecu_qttest(
+    name = "serial_crash_tests",
+    src = "tst_serial_port_crash.cpp",
+    target_compatible_with = UNIX_ONLY,
+    deps = [
+        "//src/platform/desktop/common/serial:serial_qt_compat",
+        "//src/platform/desktop/unix/j2534",
+        "//src/platform/desktop/unix/j2534/testing:mock_openport",
+    ],
 )

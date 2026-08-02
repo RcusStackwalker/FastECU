@@ -1,6 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest")
 
 package(default_visibility = [
     "//src/algorithms:__subpackages__",
@@ -68,4 +68,17 @@ cc_test(
         ":diagnostics",
         "@googletest//:gtest_main",
     ],
+)
+
+fastecu_qttest(
+    name = "test_diagnostic_parsers",
+    src = "diagnostic_parsers_qt_compat_test.cpp",
+    deps = [":qt_compat"],
+)
+
+filegroup(
+    name = "test_layout_cpp_sources",
+    testonly = True,
+    srcs = glob(["*test*.cpp"]),
+    visibility = ["//:__pkg__"],
 )
