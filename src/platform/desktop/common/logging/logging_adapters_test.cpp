@@ -3,6 +3,7 @@
 
 #include <functional>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include <QString>
@@ -11,6 +12,8 @@
 
 namespace desktop_logging = fastecu::desktop::logging;
 namespace portable_logging = fastecu::logging;
+
+static_assert(std::is_nothrow_move_constructible_v<desktop_logging::DesktopLoggingSnapshot>);
 
 namespace
 {
