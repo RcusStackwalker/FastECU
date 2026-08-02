@@ -1,4 +1,7 @@
 
+#include <cstdio>
+
+#include <QCoreApplication>
 #include <QtTest>
 
 #include "serial_backend.h"
@@ -97,6 +100,13 @@ void TestDirectBackend::j2534DriverViews_laterViewOverwritesOnCollision()
     QCOMPARE(merged.value("Shared Vendor"), QString("C:\\native\\path.dll"));
 }
 
-QTEST_APPLESS_MAIN(TestDirectBackend)
+int main(int argc, char **argv)
+{
+    setvbuf(stdout, nullptr, _IONBF, 0);
+    setvbuf(stderr, nullptr, _IONBF, 0);
+    QCoreApplication app(argc, argv);
+    TestDirectBackend test;
+    return QTest::qExec(&test, argc, argv);
+}
 
 #include "direct_backend_test.moc"

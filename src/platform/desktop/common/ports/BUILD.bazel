@@ -50,6 +50,7 @@ fastecu_gtest(
 
 fastecu_gtest(
     name = "test_qt_port_adapters",
+    size = "small",
     srcs = ["qt_port_adapters_test.cpp"],
     deps = [
         ":ports",

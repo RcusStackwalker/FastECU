@@ -106,6 +106,7 @@ qt_cc_library(
 
 fastecu_qttest(
     name = "test_direct_backend",
+    size = "small",
     src = "direct_backend_test.cpp",
     deps = [
         ":serial_qt_compat",
@@ -115,12 +116,14 @@ fastecu_qttest(
 
 fastecu_qttest(
     name = "test_remote_backend_smoke",
+    size = "small",
     src = "remote_backend_smoke_test.cpp",
     deps = [":serial_qt_compat"],
 )
 
 fastecu_qttest(
     name = "test_direct_backend_pty",
+    size = "small",
     src = "direct_backend_pty_test.cpp",
     target_compatible_with = select({
         "@platforms//os:windows": ["@platforms//:incompatible"],
@@ -143,10 +146,10 @@ qt_cpp_moc_headers(
 # express through fixtures or Bazel environment variables.
 qt_cc_test(
     name = "test_facade_threading",
+    size = "small",
     srcs = [
         "facade_threading_main.cpp",
         "facade_threading_test.cpp",
-        "test_facade_threading.h",
     ],
     copts = COMMON_COPTS,
     deps = QT_DEPS + [

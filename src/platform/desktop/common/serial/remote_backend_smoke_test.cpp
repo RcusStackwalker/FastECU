@@ -1,4 +1,7 @@
 
+#include <cstdio>
+
+#include <QCoreApplication>
 #include <QtTest>
 #include "remote_serial_backend.h"
 
@@ -24,6 +27,13 @@ void TestRemoteBackendSmoke::constructAndDestroy_localPeer_noBlockNoCrash()
     QVERIFY2(t.elapsed() < 2000, "construction/teardown must not block");
 }
 
-QTEST_APPLESS_MAIN(TestRemoteBackendSmoke)
+int main(int argc, char **argv)
+{
+    setvbuf(stdout, nullptr, _IONBF, 0);
+    setvbuf(stderr, nullptr, _IONBF, 0);
+    QCoreApplication app(argc, argv);
+    TestRemoteBackendSmoke test;
+    return QTest::qExec(&test, argc, argv);
+}
 
 #include "remote_backend_smoke_test.moc"

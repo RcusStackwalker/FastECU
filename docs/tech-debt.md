@@ -53,9 +53,11 @@ that predated the Bazel source reorganization and didn't actually block merges.
 
 Remaining gaps:
 
-- `//src/platform/desktop/common/serial:test_facade_threading` still has an intermittent Windows-only crash under
-  investigation. That flake should be isolated explicitly rather than used as
-  a reason to ignore unrelated coverage-test failures.
+- The package-owned serial tests inherit an intermittent Windows-only crash
+  from the former aggregate `serial_backend_tests` target. The split targets
+  retain unbuffered diagnostics so the failing binary and slot can be isolated;
+  until then, the crash should not be attributed to one suite or used as a
+  reason to ignore unrelated coverage-test failures.
 
 Actions:
 

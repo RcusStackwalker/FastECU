@@ -161,9 +161,9 @@ TEST(QtFileRepositoryTest, ReadOfMissingPathFails)
 }
 
 // ---- QtSettings ---------------------------------------------------------
-// Isolation: main() below redirects QSettings to a throwaway temp directory
-// before any QtSettings is constructed, so these tests never touch the real
-// user config.
+// Isolation: QtPortEnvironment redirects QSettings to a throwaway temp
+// directory before any QtSettings is constructed, so these tests never touch
+// the real user config.
 
 TEST(QtSettingsTest, GetOfMissingKeyReturnsNullopt)
 {

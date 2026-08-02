@@ -39,7 +39,7 @@ def fastecu_qttest(
         tags = [],
         target_compatible_with = [],
         copts = [],
-        size = None):
+        size = "small"):
     """QtTest target with moc generation for a self-including C++ source."""
     moc_target = name + "_moc"
     qt_cpp_moc_headers(

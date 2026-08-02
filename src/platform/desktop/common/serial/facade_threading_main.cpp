@@ -1,7 +1,9 @@
 #include <cstdio>
 
 #include <QCoreApplication>
-#include "test_facade_threading.h"
+
+int run_test_facade_threading(int argc, char **argv);
+int run_throwing_backend_child();
 
 int main(int argc, char **argv)
 {

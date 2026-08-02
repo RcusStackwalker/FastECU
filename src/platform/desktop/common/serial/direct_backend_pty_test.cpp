@@ -1,4 +1,7 @@
 
+#include <cstdio>
+
+#include <QCoreApplication>
 #include <QtTest>
 #include <thread>
 
@@ -18,6 +21,7 @@ class TestDirectBackendPty : public QObject
 {
     Q_OBJECT
   private slots:
+    void initTestCase();
     void ptyRead_reassemblesFragmentedFrame();
     void ptyRead_timesOutCleanOnSilence();
     void ptyClearRxBuffer_discardsPendingBytes();
@@ -26,6 +30,11 @@ class TestDirectBackendPty : public QObject
   private:
     int openPtyBackend(SerialPortActionsDirect& backend);
 };
+
+void TestDirectBackendPty::initTestCase()
+{
+    QVERIFY(QCoreApplication::instance());
+}
 
 int TestDirectBackendPty::openPtyBackend(SerialPortActionsDirect& backend)
 {
@@ -103,6 +112,13 @@ void TestDirectBackendPty::ptyAdapterVanish_readReturnsCleanly()
     QCOMPARE(direct.read_serial_data(100), QByteArray());
 }
 
-QTEST_APPLESS_MAIN(TestDirectBackendPty)
+int main(int argc, char **argv)
+{
+    setvbuf(stdout, nullptr, _IONBF, 0);
+    setvbuf(stderr, nullptr, _IONBF, 0);
+    QCoreApplication app(argc, argv);
+    TestDirectBackendPty test;
+    return QTest::qExec(&test, argc, argv);
+}
 
 #include "direct_backend_pty_test.moc"

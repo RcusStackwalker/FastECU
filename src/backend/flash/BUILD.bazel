@@ -56,32 +56,6 @@ fastecu_portable_gtest(
     deps = [":flash_validation"],
 )
 
-# Portable files added alongside the legacy Qt sources by step 5c.
-# Excluded from the globs below so the legacy `flash` target keeps building
-# exactly the legacy operation files it always has -- these portable
-# files get their own cc_library/cc_test targets further down instead.
-PORTABLE_SRCS = [
-    "flash_plan.cpp",
-    "flash_validation.cpp",
-    "flash_executor.cpp",
-]
-
-PORTABLE_HDRS = [
-    "flash_types.h",
-    "flash_plan.h",
-    "flash_validation.h",
-    "flash_executor.h",
-    "flash_cancellation.h",
-]
-
-PORTABLE_TEST_SRCS = [
-    "flash_types_test.cpp",
-    "flash_validation_test.cpp",
-    "flash_executor_test.cpp",
-    "flash_cancellation_test.cpp",
-    "flash_utils_test.cpp",
-]
-
 # Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
     name = "flash_executor",
@@ -123,16 +97,10 @@ fastecu_portable_gtest(
 # ui/desktop, ui/desktop/flash/ecu, tests/test_flash_utils) resolve unchanged.
 qt_cc_library(
     name = "flash",
-    srcs = glob(
-        ["*.cpp"],
-        exclude = PORTABLE_SRCS + PORTABLE_TEST_SRCS,
-    ),
+    srcs = ["flash_utils.cpp"],
     hdrs = [],
     copts = COMMON_COPTS,
-    normal_hdrs = glob(
-        ["*.h"],
-        exclude = PORTABLE_HDRS,
-    ),
+    normal_hdrs = ["flash_utils.h"],
     deps = QT_DEPS + [
         "//src/algorithms/protocol",
         "//src/algorithms/protocol:qt_compat",
@@ -143,6 +111,7 @@ qt_cc_library(
 
 fastecu_qttest(
     name = "test_flash_utils",
+    size = "small",
     src = "flash_utils_test.cpp",
     deps = [
         ":flash",

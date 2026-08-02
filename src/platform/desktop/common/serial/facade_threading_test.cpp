@@ -1,5 +1,3 @@
-#include "test_facade_threading.h"
-
 #include <QtTest>
 #include <QCoreApplication>
 #include <QSemaphore>

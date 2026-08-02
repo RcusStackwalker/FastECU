@@ -12,7 +12,7 @@ def fastecu_portable_gtest(
         tags = [],
         target_compatible_with = [],
         copts = [],
-        size = None):
+        size = "small"):
     """GoogleTest target whose compile/link closure is deliberately Qt-free."""
     cc_test(
         name = name,
@@ -35,7 +35,7 @@ def fastecu_gtest(
         tags = [],
         target_compatible_with = [],
         copts = [],
-        size = None):
+        size = "small"):
     cc_test(
         name = name,
         srcs = srcs,

@@ -1,6 +1,7 @@
 
 #include <QtTest>
 #include <atomic>
+#include <cstdio>
 #include <thread>
 
 #if defined(__linux__)
@@ -93,6 +94,13 @@ void TestPtyE2e::workerThread_writeRead_overPty_deliversFramedMessage()
     QCOMPARE(response, QByteArray("\x80\xf0\x10\x02\xaa\xbb\xcc", 7));
 }
 
-QTEST_GUILESS_MAIN(TestPtyE2e)
+int main(int argc, char **argv)
+{
+    setvbuf(stdout, nullptr, _IONBF, 0);
+    setvbuf(stderr, nullptr, _IONBF, 0);
+    QCoreApplication app(argc, argv);
+    TestPtyE2e test;
+    return QTest::qExec(&test, argc, argv);
+}
 
 #include "serial_pty_e2e_test.moc"
