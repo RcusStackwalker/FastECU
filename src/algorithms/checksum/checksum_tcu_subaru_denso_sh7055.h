@@ -6,10 +6,5 @@
 class ChecksumTcuSubaruDensoSH7055
 {
   public:
-    ChecksumTcuSubaruDensoSH7055();
-    ~ChecksumTcuSubaruDensoSH7055();
-
     static ChecksumResult calculate_checksum_result(bytes::ByteView romData);
-
-  private:
 };

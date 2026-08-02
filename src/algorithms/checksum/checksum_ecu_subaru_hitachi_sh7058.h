@@ -6,10 +6,5 @@
 class ChecksumEcuSubaruHitachiSH7058
 {
   public:
-    ChecksumEcuSubaruHitachiSH7058();
-    ~ChecksumEcuSubaruHitachiSH7058();
-
     static ChecksumResult calculate_checksum_result(bytes::ByteView romData);
-
-  private:
 };

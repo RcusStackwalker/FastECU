@@ -92,3 +92,68 @@ TEST(BytesPortable, VariableWidthReadsRejectMaximumOffset)
     EXPECT_EQ(bytes::readUBe(view, kMaximumOffset, 2), 0u);
     EXPECT_EQ(bytes::readULe(view, kMaximumOffset, 2), 0u);
 }
+
+TEST(BytesPortable, OverwriteAtPreservesTruncatingContract)
+{
+    const bytes::Bytes payload{0xAA, 0xBB, 0xCC};
+
+    bytes::Bytes exact{0, 1, 2, 3, 4};
+    bytes::overwriteAt(exact, 2, payload);
+    EXPECT_EQ(exact, (bytes::Bytes{0, 1, 0xAA, 0xBB, 0xCC}));
+
+    bytes::Bytes truncated{0, 1, 2, 3};
+    bytes::overwriteAt(truncated, 2, payload);
+    EXPECT_EQ(truncated, (bytes::Bytes{0, 1, 0xAA, 0xBB}));
+
+    bytes::Bytes empty_payload{0, 1};
+    bytes::overwriteAt(empty_payload, 1, bytes::ByteView{});
+    EXPECT_EQ(empty_payload, (bytes::Bytes{0, 1}));
+}
+
+TEST(BytesPortable, OverwriteAtDoesNothingAtOrBeyondEnd)
+{
+    constexpr std::size_t kMaximumOffset = std::numeric_limits<std::size_t>::max();
+    const bytes::Bytes payload{0xAA};
+    bytes::Bytes at_end{0, 1};
+    bytes::Bytes beyond_end = at_end;
+    bytes::Bytes maximum_offset = at_end;
+
+    bytes::overwriteAt(at_end, at_end.size(), payload);
+    bytes::overwriteAt(beyond_end, beyond_end.size() + 1, payload);
+    bytes::overwriteAt(maximum_offset, kMaximumOffset, payload);
+
+    EXPECT_EQ(at_end, (bytes::Bytes{0, 1}));
+    EXPECT_EQ(beyond_end, (bytes::Bytes{0, 1}));
+    EXPECT_EQ(maximum_offset, (bytes::Bytes{0, 1}));
+}
+
+TEST(BytesPortable, FixedWidthWritersRejectShortAndMaximumOffsets)
+{
+    constexpr std::size_t kMaximumOffset = std::numeric_limits<std::size_t>::max();
+    bytes::Bytes short_buffer{0x11, 0x22, 0x33};
+    const bytes::Bytes original = short_buffer;
+
+    bytes::writeU16Be(short_buffer, kMaximumOffset, 0xAABB);
+    bytes::writeU24Be(short_buffer, 1, 0xAABBCC);
+    bytes::writeU32Be(short_buffer, 0, 0xAABBCCDD);
+    bytes::writeU16Le(short_buffer, kMaximumOffset, 0xAABB);
+    bytes::writeU24Le(short_buffer, 1, 0xAABBCC);
+    bytes::writeU32Le(short_buffer, 0, 0xAABBCCDD);
+
+    EXPECT_EQ(short_buffer, original);
+}
+
+TEST(BytesPortable, FixedWidthWritersAcceptExactBoundary)
+{
+    bytes::Bytes out(18, 0);
+    bytes::writeU16Be(out, 0, 0x1234);
+    bytes::writeU24Be(out, 2, 0x56789A);
+    bytes::writeU32Be(out, 5, 0xBCDEF012);
+    bytes::writeU16Le(out, 9, 0x3456);
+    bytes::writeU24Le(out, 11, 0x789ABC);
+    bytes::writeU32Le(out, 14, 0xDEF01234);
+
+    EXPECT_EQ(out, (bytes::Bytes{0x12, 0x34, 0x56, 0x78, 0x9A,
+                                 0xBC, 0xDE, 0xF0, 0x12, 0x56, 0x34,
+                                 0xBC, 0x9A, 0x78, 0x34, 0x12, 0xF0, 0xDE}));
+}

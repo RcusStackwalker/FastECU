@@ -1,40 +1,18 @@
 #include "checksum_tcu_subaru_hitachi_m32r_can.h"
+#include "checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
-
-#include <algorithm>
-
-namespace
-{
-
-// Mirrors QByteArray::replace(pos, len, payload) for the same-size,
-// in-bounds overwrites this file performs (len == payload.size() at every
-// call site).
-void overwriteAt(bytes::Bytes& data, std::size_t pos, bytes::ByteView payload)
-{
-    if (pos >= data.size())
-    {
-        return;
-    }
-    const std::size_t count = std::min(payload.size(), data.size() - pos);
-    std::copy_n(payload.begin(), count, data.begin() + static_cast<std::ptrdiff_t>(pos));
-}
-
-} // namespace
-
-ChecksumTcuSubaruHitachiM32rCan::ChecksumTcuSubaruHitachiM32rCan()
-{
-}
-
-ChecksumTcuSubaruHitachiM32rCan::~ChecksumTcuSubaruHitachiM32rCan()
-{
-}
 
 ChecksumResult ChecksumTcuSubaruHitachiM32rCan::calculate_checksum_result(bytes::ByteView romView)
 {
+    if (romView.size() != 0x10000)
+    {
+        return {.status = ChecksumResult::Status::InvalidSize,
+                .romData = bytes::Bytes(romView.begin(), romView.end()),
+                .message = "ROM size does not match the checksum layout"};
+    }
     bytes::Bytes romData(romView.begin(), romView.end());
 
     uint32_t checksum_1_value_calculated = 0;
-    uint32_t checksum_1_balance_value_stored = 0;
     uint32_t checksum_1_balance_value_address = 0x8020;
     uint32_t checksum_2_value_calculated = 0;
     uint32_t checksum_2_value_stored = 0;
@@ -61,28 +39,19 @@ ChecksumResult ChecksumTcuSubaruHitachiM32rCan::calculate_checksum_result(bytes:
     checksum_2_value_calculated_bytes[0] = 0x100 - (checksum_2_value_calculated & 0xff);
     checksum_2_value_calculated = (checksum_2_value_calculated_bytes[3] << 24) + (checksum_2_value_calculated_bytes[2] << 16) + (checksum_2_value_calculated_bytes[1] << 8) + checksum_2_value_calculated_bytes[0];
 
-    checksum_1_balance_value_stored = bytes::readU32Be(romData, checksum_1_balance_value_address);
-
     checksum_2_value_stored = bytes::readU32Be(romData, checksum_2_balance_value_address);
 
     if (checksum_1_value_calculated != 0x5aa5a55a)
     {
         checksum_ok = false;
 
-        bytes::Bytes checksum_value_array;
-
-        checksum_1_balance_value_stored += 0x5aa5a55a - checksum_1_value_calculated;
-
-        bytes::appendU32Be(checksum_value_array, checksum_1_balance_value_stored);
-
-        overwriteAt(romData, checksum_1_balance_value_address, checksum_value_array);
+        fastecu::checksum::internal::rebalanceU32Be(
+            romData, checksum_1_balance_value_address, checksum_1_value_calculated, 0x5aa5a55a);
     }
 
     if (checksum_2_value_calculated != checksum_2_value_stored)
     {
         checksum_ok = false;
-
-        bytes::Bytes balance_value_array;
 
         checksum_2_value_calculated = 0;
         for (int i = 0x0; i < static_cast<int>(romData.size()); i += 4)
@@ -99,11 +68,8 @@ ChecksumResult ChecksumTcuSubaruHitachiM32rCan::calculate_checksum_result(bytes:
         checksum_2_value_calculated_bytes2[0] = 0x100 - (checksum_2_value_calculated & 0xff);
         checksum_2_value_calculated = (checksum_2_value_calculated_bytes2[3] << 24) + (checksum_2_value_calculated_bytes2[2] << 16) + (checksum_2_value_calculated_bytes2[1] << 8) + checksum_2_value_calculated_bytes2[0];
 
-        for (int i = 0; i < 2; i++)
-        {
-            bytes::appendU32Be(balance_value_array, checksum_2_value_calculated);
-        }
-        overwriteAt(romData, checksum_2_balance_value_address, balance_value_array);
+        bytes::writeU32Be(romData, checksum_2_balance_value_address, checksum_2_value_calculated);
+        bytes::writeU32Be(romData, checksum_2_balance_value_address + 4, checksum_2_value_calculated);
     }
     ChecksumResult result;
     result.romData = romData;

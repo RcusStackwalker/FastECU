@@ -44,6 +44,17 @@ TEST(ApplyChecksumCorrection, Sh705xDieselTakesPriorityOverPlainSh7058Prefix)
     EXPECT_EQ(outcome.family_result->message, "Subaru Denso SH705x Checksum");
 }
 
+TEST(ApplyChecksumCorrection, PrefixRoutesAlsoAcceptFlashMethodSuffixes)
+{
+    const bytes::Bytes rom(1024 * 1024, 0);
+    const auto outcome = apply_checksum_correction(
+        rom, subaruSelection("sub_ecu_denso_sh7058_can_diesel_variant", "SH7058"));
+
+    ASSERT_EQ(outcome.status, Status::FamilyRan);
+    ASSERT_TRUE(outcome.family_result.has_value());
+    EXPECT_EQ(outcome.family_result->message, "Subaru Denso SH705x Checksum");
+}
+
 TEST(ApplyChecksumCorrection, HitachiM32rKline_RomIdStartingWith3RoutesToKlineFamily)
 {
     const bytes::Bytes rom(524288, 0); // M32R_512KB romsize

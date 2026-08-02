@@ -1,23 +1,9 @@
 #include "checksum_tcu_subaru_denso_sh7055.h"
+#include "checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
-
-#include <algorithm>
 
 namespace
 {
-
-// Mirrors QByteArray::replace(pos, len, payload) for the same-size,
-// in-bounds overwrite this file performs (len == payload.size() at the
-// call site).
-void overwriteAt(bytes::Bytes& data, std::size_t pos, bytes::ByteView payload)
-{
-    if (pos >= data.size())
-    {
-        return;
-    }
-    const std::size_t count = std::min(payload.size(), data.size() - pos);
-    std::copy_n(payload.begin(), count, data.begin() + static_cast<std::ptrdiff_t>(pos));
-}
 
 // (area_start, word_count) pairs, transcribed 1:1 from the original
 // QStringList of hex literals ("0x1000", "0x0800", ...) parsed at runtime
@@ -46,16 +32,14 @@ constexpr ChecksumArea kChecksumAreas[] = {
 
 } // namespace
 
-ChecksumTcuSubaruDensoSH7055::ChecksumTcuSubaruDensoSH7055()
-{
-}
-
-ChecksumTcuSubaruDensoSH7055::~ChecksumTcuSubaruDensoSH7055()
-{
-}
-
 ChecksumResult ChecksumTcuSubaruDensoSH7055::calculate_checksum_result(bytes::ByteView romView)
 {
+    if (romView.size() != 0x80000)
+    {
+        return {.status = ChecksumResult::Status::InvalidSize,
+                .romData = bytes::Bytes(romView.begin(), romView.end()),
+                .message = "ROM size does not match the checksum layout"};
+    }
     /*******************
      *
      * Checksum is calulated by adding 16bit values from each area. As added bytes are 16bit,
@@ -80,14 +64,7 @@ ChecksumResult ChecksumTcuSubaruDensoSH7055::calculate_checksum_result(bytes::By
     ChecksumResult result;
     if (checksum != 0x5aa5)
     {
-        bytes::Bytes balance_value_array;
-        uint32_t balance_value_array_start = 0x7fff4;
-        uint16_t balance_value = bytes::readU16Be(romData, 0x7fff4);
-
-        balance_value += 0x5aa5 - checksum;
-
-        bytes::appendU16Be(balance_value_array, balance_value);
-        overwriteAt(romData, balance_value_array_start, balance_value_array);
+        fastecu::checksum::internal::rebalanceU16Be(romData, 0x7fff4, checksum, 0x5aa5);
 
         result.status = ChecksumResult::Status::Corrected;
         result.message = "Subaru Denso SH7055 TCU Checksum";

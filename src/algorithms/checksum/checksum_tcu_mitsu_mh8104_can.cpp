@@ -1,36 +1,15 @@
 #include "checksum_tcu_mitsu_mh8104_can.h"
+#include "checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
-
-#include <algorithm>
-
-namespace
-{
-
-// Mirrors QByteArray::replace(pos, len, payload) for the same-size,
-// in-bounds overwrite this file performs (len == payload.size() at the
-// call site).
-void overwriteAt(bytes::Bytes& data, std::size_t pos, bytes::ByteView payload)
-{
-    if (pos >= data.size())
-    {
-        return;
-    }
-    const std::size_t count = std::min(payload.size(), data.size() - pos);
-    std::copy_n(payload.begin(), count, data.begin() + static_cast<std::ptrdiff_t>(pos));
-}
-
-} // namespace
-
-ChecksumTcuMitsuMH8104Can::ChecksumTcuMitsuMH8104Can()
-{
-}
-
-ChecksumTcuMitsuMH8104Can::~ChecksumTcuMitsuMH8104Can()
-{
-}
 
 ChecksumResult ChecksumTcuMitsuMH8104Can::calculate_checksum_result(bytes::ByteView romView)
 {
+    if (romView.size() != 0x80000)
+    {
+        return {.status = ChecksumResult::Status::InvalidSize,
+                .romData = bytes::Bytes(romView.begin(), romView.end()),
+                .message = "ROM size does not match the checksum layout"};
+    }
     /****************************
      *
      *  FUN_00001578: Check that 0x8000 = 0x5aa5 & 0x7fffe = 0xa55a
@@ -41,7 +20,6 @@ ChecksumResult ChecksumTcuMitsuMH8104Can::calculate_checksum_result(bytes::ByteV
      * *************************/
     bytes::Bytes romData(romView.begin(), romView.end());
 
-    uint32_t checksum_balance_value = 0;
     uint32_t checksum_balance_value_address = 0x81fc;
     uint32_t checksum_target = 0x5aa45aab;
 
@@ -63,21 +41,8 @@ ChecksumResult ChecksumTcuMitsuMH8104Can::calculate_checksum_result(bytes::ByteV
     {
         checksum_ok = false;
 
-        bytes::Bytes balance_value_array;
-
-        checksum_balance_value = bytes::readU32Be(romData, checksum_balance_value_address);
-
-        if (checksum > checksum_target)
-        {
-            checksum_balance_value += checksum_target - checksum;
-        }
-        else
-        {
-            checksum_balance_value += checksum_target - checksum;
-        }
-
-        bytes::appendU32Be(balance_value_array, checksum_balance_value);
-        overwriteAt(romData, checksum_balance_value_address, balance_value_array);
+        fastecu::checksum::internal::rebalanceU32Be(
+            romData, checksum_balance_value_address, checksum, checksum_target);
     }
     ChecksumResult result;
     result.romData = romData;

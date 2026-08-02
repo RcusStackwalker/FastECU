@@ -154,9 +154,19 @@ inline std::uint32_t readULe(ByteView bytes, std::size_t offset, std::uint32_t w
 
 using MutableByteView = std::span<Byte>;
 
+inline void overwriteAt(MutableByteView out, std::size_t offset, ByteView payload)
+{
+    if (offset >= out.size())
+    {
+        return;
+    }
+    const auto count = std::min(payload.size(), out.size() - offset);
+    std::copy_n(payload.begin(), count, out.begin() + static_cast<std::ptrdiff_t>(offset));
+}
+
 inline void writeU16Be(MutableByteView out, std::size_t offset, std::uint16_t value)
 {
-    if (offset + 2 > out.size())
+    if (offset > out.size() || 2 > out.size() - offset)
     {
         return;
     }
@@ -166,7 +176,7 @@ inline void writeU16Be(MutableByteView out, std::size_t offset, std::uint16_t va
 
 inline void writeU24Be(MutableByteView out, std::size_t offset, std::uint32_t value)
 {
-    if (offset + 3 > out.size())
+    if (offset > out.size() || 3 > out.size() - offset)
     {
         return;
     }
@@ -177,7 +187,7 @@ inline void writeU24Be(MutableByteView out, std::size_t offset, std::uint32_t va
 
 inline void writeU32Be(MutableByteView out, std::size_t offset, std::uint32_t value)
 {
-    if (offset + 4 > out.size())
+    if (offset > out.size() || 4 > out.size() - offset)
     {
         return;
     }
@@ -189,7 +199,7 @@ inline void writeU32Be(MutableByteView out, std::size_t offset, std::uint32_t va
 
 inline void writeU16Le(MutableByteView out, std::size_t offset, std::uint16_t value)
 {
-    if (offset + 2 > out.size())
+    if (offset > out.size() || 2 > out.size() - offset)
     {
         return;
     }
@@ -199,7 +209,7 @@ inline void writeU16Le(MutableByteView out, std::size_t offset, std::uint16_t va
 
 inline void writeU24Le(MutableByteView out, std::size_t offset, std::uint32_t value)
 {
-    if (offset + 3 > out.size())
+    if (offset > out.size() || 3 > out.size() - offset)
     {
         return;
     }
@@ -210,7 +220,7 @@ inline void writeU24Le(MutableByteView out, std::size_t offset, std::uint32_t va
 
 inline void writeU32Le(MutableByteView out, std::size_t offset, std::uint32_t value)
 {
-    if (offset + 4 > out.size())
+    if (offset > out.size() || 4 > out.size() - offset)
     {
         return;
     }

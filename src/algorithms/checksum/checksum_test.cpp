@@ -289,3 +289,48 @@ TEST(ChecksumPortable, HitachiM32rCanTcuBalancesZeroRom)
     EXPECT_EQ(unchangedResult.status, ChecksumResult::Status::Unchanged);
     EXPECT_EQ(unchangedResult.romData, result.romData);
 }
+
+TEST(ChecksumPortable, FixedLayoutFamiliesRejectShortAndLongRoms)
+{
+    using Calculator = ChecksumResult (*)(bytes::ByteView);
+    struct FixedLayout
+    {
+        std::size_t size;
+        Calculator calculate;
+    };
+    const FixedLayout layouts[] = {
+        {0x80000, &ChecksumEcuSubaruHitachiM32rCan::calculate_checksum_result},
+        {0x80000, &ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result},
+        {0x100000, &ChecksumEcuSubaruHitachiSH7058::calculate_checksum_result},
+        {0x200000, &ChecksumEcuSubaruHitachiSh72543r::calculate_checksum_result},
+        {0x80000, &ChecksumTcuMitsuMH8104Can::calculate_checksum_result},
+        {0x80000, &ChecksumTcuSubaruDensoSH7055::calculate_checksum_result},
+        {0x10000, &ChecksumTcuSubaruHitachiM32rCan::calculate_checksum_result},
+    };
+
+    for (const FixedLayout& layout : layouts)
+    {
+        for (const std::size_t size : {layout.size - 1, layout.size + 1})
+        {
+            const bytes::Bytes original(size, 0x3C);
+            const ChecksumResult result = layout.calculate(original);
+            EXPECT_EQ(result.status, ChecksumResult::Status::InvalidSize);
+            EXPECT_EQ(result.romData, original);
+            EXPECT_EQ(result.message, "ROM size does not match the checksum layout");
+        }
+    }
+}
+
+TEST(ChecksumPortable, DensoDieselRejectsMalformedTableWithoutMutation)
+{
+    const bytes::Bytes original(24, 0x22);
+    const ChecksumResult malformed =
+        ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(original, 0, 10);
+    EXPECT_EQ(malformed.status, ChecksumResult::Status::ParseError);
+    EXPECT_EQ(malformed.romData, original);
+
+    const ChecksumResult out_of_range =
+        ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(original, 20, 12);
+    EXPECT_EQ(out_of_range.status, ChecksumResult::Status::InvalidSize);
+    EXPECT_EQ(out_of_range.romData, original);
+}

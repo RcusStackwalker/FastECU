@@ -1,36 +1,15 @@
 #include "checksum_ecu_subaru_hitachi_sh7058.h"
+#include "checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
-
-#include <algorithm>
-
-namespace
-{
-
-// Mirrors QByteArray::replace(pos, len, payload) for the same-size,
-// in-bounds overwrites this file performs (len == payload.size() at every
-// call site).
-void overwriteAt(bytes::Bytes& data, std::size_t pos, bytes::ByteView payload)
-{
-    if (pos >= data.size())
-    {
-        return;
-    }
-    const std::size_t count = std::min(payload.size(), data.size() - pos);
-    std::copy_n(payload.begin(), count, data.begin() + static_cast<std::ptrdiff_t>(pos));
-}
-
-} // namespace
-
-ChecksumEcuSubaruHitachiSH7058::ChecksumEcuSubaruHitachiSH7058()
-{
-}
-
-ChecksumEcuSubaruHitachiSH7058::~ChecksumEcuSubaruHitachiSH7058()
-{
-}
 
 ChecksumResult ChecksumEcuSubaruHitachiSH7058::calculate_checksum_result(bytes::ByteView romView)
 {
+    if (romView.size() != 0x100000)
+    {
+        return {.status = ChecksumResult::Status::InvalidSize,
+                .romData = bytes::Bytes(romView.begin(), romView.end()),
+                .message = "ROM size does not match the checksum layout"};
+    }
     /*******************
      *
      *  Checksum 1 calculated between 0x18000 - 0x1dfff, 32bit sum, result at 0x7ffe8
@@ -78,17 +57,13 @@ ChecksumResult ChecksumEcuSubaruHitachiSH7058::calculate_checksum_result(bytes::
     {
         checksum_ok = false;
 
-        bytes::Bytes checksum;
-        bytes::appendU32Be(checksum, checksum_1_value_calculated);
-        overwriteAt(romData, checksum_1_value_address, checksum);
+        bytes::writeU32Be(romData, checksum_1_value_address, checksum_1_value_calculated);
     }
     if (checksum_2_value_calculated != checksum_2_value_stored)
     {
         checksum_ok = false;
 
-        bytes::Bytes checksum;
-        bytes::appendU32Be(checksum, checksum_2_value_calculated);
-        overwriteAt(romData, checksum_2_value_address, checksum);
+        bytes::writeU32Be(romData, checksum_2_value_address, checksum_2_value_calculated);
     }
     /****************************************
      *
@@ -104,13 +79,8 @@ ChecksumResult ChecksumEcuSubaruHitachiSH7058::calculate_checksum_result(bytes::
     }
     if (checksum_5_value_calculated != 0x5aa5a55a)
     {
-        bytes::Bytes balance_value_array;
-        uint32_t balance_value = bytes::readU32Be(romData, checksum_5_balance_value_address);
-
-        balance_value += 0x5aa5a55a - checksum_5_value_calculated;
-
-        bytes::appendU32Be(balance_value_array, balance_value);
-        overwriteAt(romData, checksum_5_balance_value_address, balance_value_array);
+        fastecu::checksum::internal::rebalanceU32Be(
+            romData, checksum_5_balance_value_address, checksum_5_value_calculated, 0x5aa5a55a);
     }
     /****************************************
      *
@@ -132,32 +102,7 @@ ChecksumResult ChecksumEcuSubaruHitachiSH7058::calculate_checksum_result(bytes::
     {
         checksum_ok = false;
 
-        bytes::Bytes checksum;
-        bytes::appendU32Be(checksum, checksum_3_value_calculated);
-        overwriteAt(romData, checksum_3_value_address, checksum);
-
-        /*
-                QByteArray balance_value_array;
-                uint32_t balance_value = ((uint8_t)romData.at(checksum_3_balance_value_address) << 24) + ((uint8_t)romData.at(checksum_3_balance_value_address + 1) << 16) + ((uint8_t)romData.at(checksum_3_balance_value_address + 2) << 8) + ((uint8_t)romData.at(checksum_3_balance_value_address + 3));
-
-                msg.clear();
-                msg.append(QString("Balance value before: 0x%1").arg(balance_value,8,16,QLatin1Char('0')).toUtf8());
-                qDebug() << msg;
-
-                romData.replace(checksum_3_value_address, 4, "\xC1\x4F\xB6\xC1");
-                checksum_3_value_stored = 0xC14FB6C1;
-                balance_value += checksum_3_value_stored - checksum_3_value_calculated;
-
-                msg.clear();
-                msg.append(QString("Balance value after: 0x%1").arg(balance_value,8,16,QLatin1Char('0')).toUtf8());
-                qDebug() << msg;
-
-                balance_value_array.append((uint8_t)((balance_value >> 24) & 0xff));
-                balance_value_array.append((uint8_t)((balance_value >> 16) & 0xff));
-                balance_value_array.append((uint8_t)((balance_value >> 8) & 0xff));
-                balance_value_array.append((uint8_t)(balance_value & 0xff));
-                romData.replace(checksum_3_balance_value_address, balance_value_array.length(), balance_value_array);
-        */
+        bytes::writeU32Be(romData, checksum_3_value_address, checksum_3_value_calculated);
     }
     if (checksum_4_value_calculated != checksum_4_value_stored)
     {
@@ -172,9 +117,7 @@ ChecksumResult ChecksumEcuSubaruHitachiSH7058::calculate_checksum_result(bytes::
             }
         }
 
-        bytes::Bytes checksum;
-        bytes::appendU32Be(checksum, checksum_4_value_calculated);
-        overwriteAt(romData, checksum_4_value_address, checksum);
+        bytes::writeU32Be(romData, checksum_4_value_address, checksum_4_value_calculated);
     }
 
     ChecksumResult result;

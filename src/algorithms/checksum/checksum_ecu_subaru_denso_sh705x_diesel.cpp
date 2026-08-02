@@ -1,161 +1,86 @@
 #include "checksum_ecu_subaru_denso_sh705x_diesel.h"
-#include "src/algorithms/protocol/bytes.h"
 
-namespace
-{
+#include "denso_checksum_table.h"
 
-// Mirrors QByteArray::replace(pos, len, payload) for the same-size,
-// in-bounds overwrites this file performs (len == payload.size() at every
-// call site).
-void overwriteAt(bytes::Bytes& data, std::size_t pos, bytes::ByteView payload)
+#include <array>
+
+ChecksumResult ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(
+    bytes::ByteView romView, uint32_t checksum_area_start,
+    uint32_t checksum_area_length)
 {
-    if (pos >= data.size())
+    using fastecu::checksum::internal::DensoTableOutcome;
+    using fastecu::checksum::internal::DensoTableSpec;
+    using fastecu::checksum::internal::DensoWordOverride;
+
+    ChecksumResult result;
+    result.romData.assign(romView.begin(), romView.end());
+    std::array<DensoWordOverride, 1> overrides{};
+    std::span<const DensoWordOverride> active_overrides;
+    if (checksum_area_start == 0x0FFB80)
     {
-        return;
+        overrides[0] = {0x0FFAFC, 0xFFFFFFFF};
+        active_overrides = overrides;
     }
-    const std::size_t count = std::min(payload.size(), data.size() - pos);
-    std::copy_n(payload.begin(), count, data.begin() + static_cast<std::ptrdiff_t>(pos));
-}
-
-} // namespace
-
-ChecksumEcuSubaruDensoSH705xDiesel::ChecksumEcuSubaruDensoSH705xDiesel()
-{
-}
-
-ChecksumEcuSubaruDensoSH705xDiesel::~ChecksumEcuSubaruDensoSH705xDiesel()
-{
-}
-
-ChecksumResult ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(bytes::ByteView romView, uint32_t checksum_area_start, uint32_t checksum_area_length)
-{
-    bytes::Bytes romData(romView.begin(), romView.end());
-    bytes::Bytes checksum_array;
-
-    uint32_t checksum_area_end = checksum_area_start + checksum_area_length;
-    uint32_t checksum_dword_addr_lo = 0;
-    uint32_t checksum_dword_addr_hi = 0;
-    uint32_t checksum = 0;
-    uint32_t checksum_temp = 0;
-    uint32_t checksum_diff = 0;
-    uint32_t checksum_check = 0;
-    uint8_t checksum_block = 0;
-
-    bool checksum_ok = true;
-    bool sh72543_checksum_ok = true;
-
-    for (uint32_t i = checksum_area_start; i < checksum_area_end; i += 12)
+    else if (checksum_area_start == 0x17FB80)
     {
-        checksum = 0;
-        checksum_temp = 0;
-        checksum_dword_addr_lo = 0;
-        checksum_dword_addr_hi = 0;
-        checksum_diff = 0;
-
-        checksum_dword_addr_lo = bytes::readU32Be(romData, i);
-        checksum_dword_addr_hi = bytes::readU32Be(romData, i + 4);
-        checksum_diff = bytes::readU32Be(romData, i + 8);
-        if (i == checksum_area_start && checksum_dword_addr_lo == 0 && checksum_dword_addr_hi == 0 && checksum_diff == 0x5aa5a55a)
-        {
-            ChecksumResult result;
-            result.status = ChecksumResult::Status::Disabled;
-            // Preserves the legacy calculate_checksum() contract: this early-return
-            // path returned QByteArray() (via `return 0;`), so callers that assign
-            // the result straight into FullRomData see it wiped, not the original
-            // ROM bytes. Not changed here — only the dialog is being removed.
-            result.romData = bytes::Bytes();
-            result.message = "ROM has all checksums disabled";
-            return result;
-        }
-
-        if (checksum_dword_addr_lo != 0 && checksum_dword_addr_hi != 0 && checksum_diff != 0x5aa5a55a)
-        {
-            for (uint32_t j = checksum_dword_addr_lo; j < checksum_dword_addr_hi; j += 4)
-            {
-                checksum_temp = bytes::readU32Be(romData, j);
-                if (checksum_area_start == 0x0FFB80 && j == 0x0FFAFC)
-                {
-                    checksum += 0xFFFFFFFF;
-                }
-                else if (checksum_area_start == 0x17FB80 && j == 0x17FAFC)
-                {
-                    checksum += 0xFFFFFFFF;
-                }
-                else
-                {
-                    checksum += checksum_temp;
-                }
-            }
-        }
-        checksum_check = 0x5aa5a55a - checksum;
-
-        if (checksum_diff != checksum_check)
-        {
-            checksum_ok = false;
-        }
-
-        bytes::appendU32Be(checksum_array, checksum_dword_addr_lo);
-        bytes::appendU32Be(checksum_array, checksum_dword_addr_hi);
-        bytes::appendU32Be(checksum_array, checksum_check);
-
-        checksum_block++;
+        overrides[0] = {0x17FAFC, 0xFFFFFFFF};
+        active_overrides = overrides;
     }
 
-    if (!checksum_ok)
+    const DensoTableSpec primary{
+        .table_offset = checksum_area_start,
+        .table_length = checksum_area_length,
+        .overrides = active_overrides,
+    };
+    const DensoTableOutcome primary_outcome =
+        fastecu::checksum::internal::correctDensoTable(result.romData, primary);
+    if (primary_outcome == DensoTableOutcome::Disabled)
     {
-        overwriteAt(romData, checksum_area_start, checksum_array);
+        result.status = ChecksumResult::Status::Disabled;
+        result.romData.clear();
+        result.message = "ROM has all checksums disabled";
+        return result;
+    }
+    if (primary_outcome == DensoTableOutcome::InvalidRecordLength)
+    {
+        result.status = ChecksumResult::Status::ParseError;
+        result.message = "Checksum area length must be a multiple of 12 bytes";
+        return result;
+    }
+    if (primary_outcome == DensoTableOutcome::InvalidTableRange ||
+        primary_outcome == DensoTableOutcome::InvalidBlockRange)
+    {
+        result.romData.assign(romView.begin(), romView.end());
+        result.status = ChecksumResult::Status::InvalidSize;
+        result.message = primary_outcome == DensoTableOutcome::InvalidTableRange
+                             ? "ROM is too small for the configured checksum area"
+                             : "ROM is too small for a checksum block range";
+        return result;
     }
 
-    // Check SH72543 EURO6 Diesel additional checksums
+    DensoTableOutcome secondary_outcome = DensoTableOutcome::Unchanged;
     if (checksum_area_start == 0x1FF800)
     {
-        checksum_array.clear();
-        checksum_area_start = 0x001FF8E8;
-        checksum_area_length = 2 * 12;
-        checksum_area_end = checksum_area_start + checksum_area_length;
-
-        for (uint32_t i = checksum_area_start; i < checksum_area_end; i += 12)
+        const DensoTableSpec secondary{
+            .table_offset = 0x1FF8E8,
+            .table_length = 24,
+            .detect_disabled = false,
+        };
+        secondary_outcome = fastecu::checksum::internal::correctDensoTable(result.romData, secondary);
+        if (secondary_outcome == DensoTableOutcome::InvalidTableRange ||
+            secondary_outcome == DensoTableOutcome::InvalidBlockRange)
         {
-            checksum = 0;
-            checksum_temp = 0;
-            checksum_dword_addr_lo = 0;
-            checksum_dword_addr_hi = 0;
-            checksum_diff = 0;
-
-            checksum_dword_addr_lo = bytes::readU32Be(romData, i);
-            checksum_dword_addr_hi = bytes::readU32Be(romData, i + 4);
-            checksum_diff = bytes::readU32Be(romData, i + 8);
-
-            if (checksum_dword_addr_lo != 0 && checksum_dword_addr_hi != 0 && checksum_diff != 0x5aa5a55a)
-            {
-                for (uint32_t j = checksum_dword_addr_lo; j < checksum_dword_addr_hi; j += 4)
-                {
-                    checksum_temp = bytes::readU32Be(romData, j);
-                    checksum += checksum_temp;
-                }
-            }
-            checksum_check = 0x5aa5a55a - checksum;
-
-            if (checksum_diff != checksum_check)
-            {
-                sh72543_checksum_ok = false;
-            }
-
-            bytes::appendU32Be(checksum_array, checksum_dword_addr_lo);
-            bytes::appendU32Be(checksum_array, checksum_dword_addr_hi);
-            bytes::appendU32Be(checksum_array, checksum_check);
-
-            checksum_block++;
-        }
-
-        if (!sh72543_checksum_ok)
-        {
-            overwriteAt(romData, checksum_area_start, checksum_array);
+            result.romData.assign(romView.begin(), romView.end());
+            result.status = ChecksumResult::Status::InvalidSize;
+            result.message = secondary_outcome == DensoTableOutcome::InvalidTableRange
+                                 ? "ROM is too small for the configured checksum area"
+                                 : "ROM is too small for a checksum block range";
+            return result;
         }
     }
-    ChecksumResult result;
-    result.romData = romData;
-    if (!checksum_ok || !sh72543_checksum_ok)
+
+    if (primary_outcome == DensoTableOutcome::Corrected ||
+        secondary_outcome == DensoTableOutcome::Corrected)
     {
         result.status = ChecksumResult::Status::Corrected;
         result.message = "Subaru Denso SH705x Checksum";
