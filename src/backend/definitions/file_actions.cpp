@@ -21,7 +21,7 @@ using fastecu::definition::DefinitionFormat;
 using fastecu::definition::DefinitionIndexEntry;
 using fastecu::definition::IdEncoding;
 
-static constexpr auto kDebugFileActions = false;
+constexpr auto kDebugFileActions = false;
 
 void debugLogTransports(const QDomElement& protocol,
                         const QDomElement& transports,
