@@ -21,6 +21,103 @@ using fastecu::definition::DefinitionFormat;
 using fastecu::definition::DefinitionIndexEntry;
 using fastecu::definition::IdEncoding;
 
+constexpr auto kDebugFileActions = false;
+
+void debugLogTransports(const QDomElement& protocol,
+                        const QDomElement& transports,
+                        FileActions& fileActions)
+{
+    if constexpr (!kDebugFileActions)
+    {
+        return;
+    }
+
+    fileActions.LOG_D(
+        "Transports for protocol " + protocol.attribute("id", "No id"),
+        true,
+        true);
+
+    QDomElement transport = transports.firstChild().toElement();
+    while (!transport.isNull())
+    {
+        if (transport.tagName() == "transport")
+        {
+            fileActions.LOG_D(
+                "Transport = " + transport.attribute("id", "No id") + " " +
+                    transport.attribute("name", "No name") + " " +
+                    transport.attribute("desc", "No description"),
+                true,
+                true);
+        }
+        QDomElement moduleElement = transport.firstChild().toElement();
+        while (!moduleElement.isNull())
+        {
+            if (moduleElement.tagName() == "module")
+            {
+                fileActions.LOG_D(
+                    "Module = " + moduleElement.attribute("id", "No id") +
+                        " " +
+                        moduleElement.attribute("address", "No address") +
+                        " " +
+                        moduleElement.attribute("desc", "No description") +
+                        " " +
+                        moduleElement.attribute("tester", "No tester"),
+                    true,
+                    true);
+            }
+            moduleElement = moduleElement.nextSibling().toElement();
+        }
+        transport = transport.nextSibling().toElement();
+    }
+}
+
+void debugLogDtcodes(const QDomElement& dtcodes, FileActions& fileActions)
+{
+    if constexpr (!kDebugFileActions)
+    {
+        return;
+    }
+
+    QDomElement dtcode = dtcodes.firstChild().toElement();
+    while (!dtcode.isNull())
+    {
+        if (dtcode.tagName() == "dtcode")
+        {
+            fileActions.LOG_D(
+                "DT code = " + dtcode.attribute("id", "No id") + " " +
+                    dtcode.attribute("name", "No name") + " " +
+                    dtcode.attribute("desc", "No description"),
+                true,
+                true);
+        }
+        dtcode = dtcode.nextSibling().toElement();
+    }
+}
+
+void debugLogEcuparams(const QDomElement& ecuparams,
+                       FileActions& fileActions)
+{
+    if constexpr (!kDebugFileActions)
+    {
+        return;
+    }
+
+    QDomElement ecuparam = ecuparams.firstChild().toElement();
+    while (!ecuparam.isNull())
+    {
+        if (ecuparam.tagName() == "ecuparam")
+        {
+            fileActions.LOG_D(
+                "ECU param = " + ecuparam.attribute("id", "No id") + " " +
+                    ecuparam.attribute("name", "No name") + " " +
+                    ecuparam.attribute("desc", "No description"),
+                true,
+                true);
+        }
+        ecuparam = ecuparam.nextSibling().toElement();
+    }
+}
+
 QString lineEditValue(
     const QList<QLineEdit *>& lineEdits,
     const QString& name)
@@ -1073,25 +1170,7 @@ FileActions::LogValuesStructure *FileActions::read_logger_definition_file()
                         {
                             if (transports.tagName() == "transports")
                             {
-                                // emit LOG_D("Transports for protocol " + protocol.attribute("id","No id");
-                                QDomElement transport = transports.firstChild().toElement();
-                                while (!transport.isNull())
-                                {
-                                    if (transport.tagName() == "transport")
-                                    {
-                                        // emit LOG_D("Transport = " + transport.attribute("id","No id") + " " + transport.attribute("name","No name") + " " + transport.attribute("desc","No description");
-                                    }
-                                    QDomElement module = transport.firstChild().toElement();
-                                    while (!module.isNull())
-                                    {
-                                        if (module.tagName() == "module")
-                                        {
-                                            // emit LOG_D("Module = " + module.attribute("id","No id") + " " + module.attribute("address","No address") + " " + module.attribute("desc","No description") + " " + module.attribute("tester","No tester");
-                                        }
-                                        module = module.nextSibling().toElement();
-                                    }
-                                    transport = transport.nextSibling().toElement();
-                                }
+                                debugLogTransports(protocol, transports, *this);
                             }
                             if (transports.tagName() == "parameters")
                             {
@@ -1193,27 +1272,11 @@ FileActions::LogValuesStructure *FileActions::read_logger_definition_file()
                             }
                             if (transports.tagName() == "dtcodes")
                             {
-                                QDomElement dtcode = transports.firstChild().toElement();
-                                while (!dtcode.isNull())
-                                {
-                                    if (dtcode.tagName() == "dtcode")
-                                    {
-                                        // emit LOG_D("DT code = " + dtcode.attribute("id","No id") + " " + dtcode.attribute("name","No name") + " " + dtcode.attribute("desc","No description");
-                                    }
-                                    dtcode = dtcode.nextSibling().toElement();
-                                }
+                                debugLogDtcodes(transports, *this);
                             }
                             if (transports.tagName() == "ecuparams")
                             {
-                                QDomElement ecuparam = transports.firstChild().toElement();
-                                while (!ecuparam.isNull())
-                                {
-                                    if (ecuparam.tagName() == "ecuparam")
-                                    {
-                                        // emit LOG_D("ECU param = " + ecuparam.attribute("id","No id") + " " + ecuparam.attribute("name","No name") + " " + ecuparam.attribute("desc","No description");
-                                    }
-                                    ecuparam = ecuparam.nextSibling().toElement();
-                                }
+                                debugLogEcuparams(transports, *this);
                             }
                             transports = transports.nextSibling().toElement();
                         }
