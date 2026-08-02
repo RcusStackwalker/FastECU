@@ -6,6 +6,7 @@
 #include <string_view>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace fastecu::definition
@@ -25,8 +26,8 @@ void expect_invalid_with_context(
 {
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_NE(result.error().detail.find(source_context), std::string::npos);
-    EXPECT_NE(result.error().detail.find(xml_context), std::string::npos);
+    EXPECT_THAT(result.error().detail, ::testing::HasSubstr(source_context));
+    EXPECT_THAT(result.error().detail, ::testing::HasSubstr(xml_context));
 }
 
 TEST(RomRaiderParserTest, IndexesMultipleDefinitionsAndRecordsParentReferences)

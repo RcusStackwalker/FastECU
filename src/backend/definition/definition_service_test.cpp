@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace fastecu::definition
@@ -554,9 +555,9 @@ TEST_F(DefinitionServiceTest, LoadRejectsEcuFlashIdentityThatDoesNotMatchCatalog
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_NE(result.error().detail.find("EXPECTED"), std::string::npos);
-    EXPECT_NE(result.error().detail.find("OTHER"), std::string::npos);
-    EXPECT_NE(result.error().detail.find("stale.xml"), std::string::npos);
+    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("EXPECTED"));
+    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("OTHER"));
+    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("stale.xml"));
 }
 
 TEST_F(DefinitionServiceTest, LoadPropagatesDefinitionParseFailure)
@@ -585,7 +586,7 @@ TEST_F(DefinitionServiceTest, LoadPropagatesResolutionFailure)
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_NE(result.error().detail.find("MISSING"), std::string::npos);
+    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("MISSING"));
     EXPECT_EQ(repository.read_count("child.xml"), 1);
 }
 
@@ -612,7 +613,7 @@ TEST_F(DefinitionServiceTest, RejectsCreationWhenDestinationAlreadyExists)
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_NE(result.error().detail.find("existing.xml"), std::string::npos);
+    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("existing.xml"));
     EXPECT_TRUE(writer.replace_calls.empty());
 }
 
@@ -706,7 +707,7 @@ TEST_F(DefinitionServiceTest, ImportRejectsDuplicateRomIdBeforeAtomicReplacement
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_NE(result.error().detail.find("<romid>"), std::string::npos);
+    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("<romid>"));
     EXPECT_TRUE(writer.replace_calls.empty());
 }
 
