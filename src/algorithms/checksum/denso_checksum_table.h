@@ -34,6 +34,6 @@ enum class DensoTableOutcome
     InvalidRecordLength,
 };
 
-DensoTableOutcome correctDensoTable(bytes::Bytes& rom, const DensoTableSpec& spec);
+DensoTableOutcome correctDensoTable(bytes::MutableByteView rom, const DensoTableSpec& spec);
 
 } // namespace fastecu::checksum::internal

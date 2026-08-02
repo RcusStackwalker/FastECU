@@ -4,6 +4,7 @@
 
 ChecksumResult ChecksumEcuSubaruHitachiSh72543r::calculate_checksum_result(bytes::ByteView romView)
 {
+    // Fixed 2 MiB layout: the balance field is at 0x1FFFFE.
     if (romView.size() != 0x200000)
     {
         return {.status = ChecksumResult::Status::InvalidSize,

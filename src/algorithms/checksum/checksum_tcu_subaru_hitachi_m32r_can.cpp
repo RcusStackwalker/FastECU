@@ -4,6 +4,7 @@
 
 ChecksumResult ChecksumTcuSubaruHitachiM32rCan::calculate_checksum_result(bytes::ByteView romView)
 {
+    // Fixed 64 KiB M3779x/M3775x layout; checksum fields begin at 0x8000.
     if (romView.size() != 0x10000)
     {
         return {.status = ChecksumResult::Status::InvalidSize,

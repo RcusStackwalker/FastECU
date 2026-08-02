@@ -4,6 +4,7 @@
 
 ChecksumResult ChecksumTcuMitsuMH8104Can::calculate_checksum_result(bytes::ByteView romView)
 {
+    // Fixed 512 KiB MH8104 layout; see the MH8104 flash-device model.
     if (romView.size() != 0x80000)
     {
         return {.status = ChecksumResult::Status::InvalidSize,

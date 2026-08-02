@@ -220,18 +220,16 @@ Actions:
 - Keep lifecycle coverage for teardown with in-flight calls, helper-process
   failure, timeouts, and adapter removal on each supported platform.
 
-### Completed: Headless checksum migration and hardening
+### P1: Finish the checksum UI boundary
 
-All nine checksum families now use `bytes::ByteView` and return the shared
-`ChecksumResult`; UI dialogs remain at the adapter boundary. Fixed-layout
-families reject mismatched ROM sizes without mutation, while both Denso
-wrappers validate complete tables and block ranges before committing changes.
+All nine checksum algorithms are portable and return structured
+`ChecksumResult` values, but `LegacyChecksumAdapter` still owns direct
+`QMessageBox` behavior in the backend layer.
 
-Shared internals now own truncating byte replacement, modular 16/32-bit balance
-adjustment, Denso record traversal, and ordered backend routing. Hardware-family
-wrappers retain their formulas, constants, messages, disabled semantics, and
-legacy status quirks. Focused tests cover byte boundaries, Denso outcomes,
-balance arithmetic, family golden vectors, invalid input, and dispatch order.
+Actions:
+
+- Move checksum result presentation to the desktop UI/application boundary.
+- Keep the portable algorithms and dispatch layer free of Qt dependencies.
 
 ### P2: Turn static analysis into a ratchet
 

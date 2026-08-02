@@ -4,6 +4,7 @@
 
 ChecksumResult ChecksumEcuSubaruHitachiSH7058::calculate_checksum_result(bytes::ByteView romView)
 {
+    // Fixed 1 MiB layout: checksum fields occupy 0xFFFE8-0xFFFFB.
     if (romView.size() != 0x100000)
     {
         return {.status = ChecksumResult::Status::InvalidSize,

@@ -134,9 +134,13 @@ TEST(BytesPortable, FixedWidthWritersRejectShortAndMaximumOffsets)
     const bytes::Bytes original = short_buffer;
 
     bytes::writeU16Be(short_buffer, kMaximumOffset, 0xAABB);
+    bytes::writeU24Be(short_buffer, kMaximumOffset, 0xAABBCC);
+    bytes::writeU32Be(short_buffer, kMaximumOffset, 0xAABBCCDD);
     bytes::writeU24Be(short_buffer, 1, 0xAABBCC);
     bytes::writeU32Be(short_buffer, 0, 0xAABBCCDD);
     bytes::writeU16Le(short_buffer, kMaximumOffset, 0xAABB);
+    bytes::writeU24Le(short_buffer, kMaximumOffset, 0xAABBCC);
+    bytes::writeU32Le(short_buffer, kMaximumOffset, 0xAABBCCDD);
     bytes::writeU24Le(short_buffer, 1, 0xAABBCC);
     bytes::writeU32Le(short_buffer, 0, 0xAABBCCDD);
 

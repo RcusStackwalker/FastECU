@@ -37,7 +37,9 @@ ChecksumResult ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(
     if (primary_outcome == DensoTableOutcome::Disabled)
     {
         result.status = ChecksumResult::Status::Disabled;
-        result.romData.clear();
+        // Disabled is a successful status, so the adapter propagates romData
+        // back to FullRomData. Keep the original bytes here; the historical
+        // empty return value could otherwise wipe the loaded ROM.
         result.message = "ROM has all checksums disabled";
         return result;
     }
@@ -50,7 +52,6 @@ ChecksumResult ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(
     if (primary_outcome == DensoTableOutcome::InvalidTableRange ||
         primary_outcome == DensoTableOutcome::InvalidBlockRange)
     {
-        result.romData.assign(romView.begin(), romView.end());
         result.status = ChecksumResult::Status::InvalidSize;
         result.message = primary_outcome == DensoTableOutcome::InvalidTableRange
                              ? "ROM is too small for the configured checksum area"

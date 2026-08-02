@@ -21,7 +21,7 @@ std::uint32_t wordAt(bytes::ByteView rom, std::uint32_t address,
 }
 } // namespace
 
-DensoTableOutcome correctDensoTable(bytes::Bytes& rom, const DensoTableSpec& spec)
+DensoTableOutcome correctDensoTable(bytes::MutableByteView rom, const DensoTableSpec& spec)
 {
     if (spec.table_length % kRecordLength != 0)
     {
@@ -58,7 +58,7 @@ DensoTableOutcome correctDensoTable(bytes::Bytes& rom, const DensoTableSpec& spe
         std::uint32_t sum = 0;
         if (low != 0 && high != 0 && stored != kChecksumTarget)
         {
-            if (low > high || high > rom.size() || (high - low) % 4 != 0)
+            if (high > rom.size())
             {
                 return DensoTableOutcome::InvalidBlockRange;
             }

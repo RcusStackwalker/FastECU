@@ -80,9 +80,7 @@ TEST(ChecksumPortable, DensoSh705xDieselCorrectedRecordTriggersDisabledCompatibi
 
     EXPECT_EQ(result.status, ChecksumResult::Status::Disabled);
     EXPECT_EQ(result.message, "ROM has all checksums disabled");
-    // Matches the legacy calculate_checksum()'s `return 0;` on this path:
-    // romData comes back empty rather than the original ROM bytes.
-    EXPECT_TRUE(result.romData.empty());
+    EXPECT_EQ(result.romData, original);
 }
 
 TEST(ChecksumPortable, DensoSh705xDieselKeepsMatchingRecord)
@@ -333,4 +331,48 @@ TEST(ChecksumPortable, DensoDieselRejectsMalformedTableWithoutMutation)
         ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(original, 20, 12);
     EXPECT_EQ(out_of_range.status, ChecksumResult::Status::InvalidSize);
     EXPECT_EQ(out_of_range.romData, original);
+}
+
+TEST(ChecksumPortable, DensoDieselSecondaryFailureRollsBackPrimaryCorrection)
+{
+    bytes::Bytes original(0x200000, 0);
+    bytes::writeU32Be(original, 0x1FF8E8, 0x1FFFFC);
+    bytes::writeU32Be(original, 0x1FF8EC, 0x200004);
+
+    const ChecksumResult result =
+        ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(original, 0x1FF800, 12);
+
+    EXPECT_EQ(result.status, ChecksumResult::Status::InvalidSize);
+    EXPECT_EQ(result.message, "ROM is too small for a checksum block range");
+    EXPECT_EQ(result.romData, original);
+}
+
+TEST(ChecksumPortable, DensoDieselCorrectsSh72543SecondaryTableAfterPrimary)
+{
+    bytes::Bytes original(0x200000, 0);
+    bytes::writeU32Be(original, 4, 1);
+    bytes::writeU32Be(original, 0x1FF800, 4);
+    bytes::writeU32Be(original, 0x1FF804, 8);
+    bytes::writeU32Be(original, 0x1FF808, 0x5AA5A559);
+
+    const ChecksumResult result =
+        ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(original, 0x1FF800, 12);
+
+    EXPECT_EQ(result.status, ChecksumResult::Status::Corrected);
+    EXPECT_EQ(bytes::readU32Be(result.romData, 0x1FF8F0), 0x5AA5A55A);
+    EXPECT_EQ(bytes::readU32Be(result.romData, 0x1FF8FC), 0x5AA5A55A);
+}
+
+TEST(ChecksumPortable, DensoSh7xxxReportsInvalidBlockRangeMessage)
+{
+    bytes::Bytes original(24, 0);
+    bytes::writeU32Be(original, 0, 20);
+    bytes::writeU32Be(original, 4, 28);
+
+    const ChecksumResult result =
+        ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(original, 0, 12);
+
+    EXPECT_EQ(result.status, ChecksumResult::Status::InvalidSize);
+    EXPECT_EQ(result.message, "ROM is too small for a checksum block range");
+    EXPECT_EQ(result.romData, original);
 }

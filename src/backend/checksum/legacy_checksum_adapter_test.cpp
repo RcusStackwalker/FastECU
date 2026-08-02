@@ -52,6 +52,16 @@ ChecksumSelection subaruM32rKlineSelection()
     return selection;
 }
 
+ChecksumSelection subaruDensoSh7058DieselSelection()
+{
+    ChecksumSelection selection;
+    selection.make = "Subaru";
+    selection.checksum_flag = "yes";
+    selection.flash_method = "sub_ecu_denso_sh7058_can_diesel";
+    selection.mcu_type = "SH7058";
+    return selection;
+}
+
 // TestableChecksumAdapter above overrides every dialog seam, so none of
 // LegacyChecksumAdapter's own QMessageBox-showing bodies ever runs under
 // test. This adapter instead calls through to the REAL base-class
@@ -140,6 +150,20 @@ TEST(LegacyChecksumAdapterTest, GateNotConsultedWhenDefinitionAlreadyLinked)
         adapter.checksum_correction(rom, true, false, subaruM32rKlineSelection(), nullptr);
 
     ASSERT_TRUE(result.corrected_rom_data.has_value());
+}
+
+TEST(LegacyChecksumAdapterTest, DisabledDieselChecksumPreservesRomData)
+{
+    TestableChecksumAdapter adapter;
+    bytes::Bytes rom(1024 * 1024, 0);
+    bytes::writeU32Be(rom, 0x0FFB88, 0x5AA5A55A);
+
+    const LegacyChecksumAdapterResult result = adapter.checksum_correction(
+        rom, true, false, subaruDensoSh7058DieselSelection(), nullptr);
+
+    ASSERT_TRUE(result.corrected_rom_data.has_value());
+    EXPECT_EQ(*result.corrected_rom_data, rom);
+    EXPECT_EQ(adapter.lastFamilyResult.status, ChecksumResult::Status::Disabled);
 }
 
 TEST(LegacyChecksumAdapterTest, BadRomSizeShowsDialogAndMakesNoCorrection)

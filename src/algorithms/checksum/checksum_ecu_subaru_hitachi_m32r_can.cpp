@@ -4,6 +4,7 @@
 
 ChecksumResult ChecksumEcuSubaruHitachiM32rCan::calculate_checksum_result(bytes::ByteView romView)
 {
+    // Fixed 512 KiB layout: checksum fields occupy 0x7FFE8-0x7FFFB.
     if (romView.size() != 0x80000)
     {
         return {.status = ChecksumResult::Status::InvalidSize,
@@ -135,6 +136,9 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rCan::calculate_checksum_result(bytes:
     checksum_6_value_stored = bytes::readU16Be(romData, checksum_6_value_address);
     if (checksum_6_value_calculated != checksum_6_value_stored)
     {
+        // TODO: Preserve the legacy status quirk until writing the checksum-6
+        // field at 0x10000 is validated on supported hardware. A mismatch is
+        // reported as Corrected even though this checksum is not written.
         checksum_ok = false;
     }
 

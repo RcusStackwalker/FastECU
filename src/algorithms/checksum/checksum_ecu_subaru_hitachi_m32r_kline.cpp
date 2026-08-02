@@ -4,6 +4,7 @@
 
 ChecksumResult ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result(bytes::ByteView romView)
 {
+    // Fixed 512 KiB layout: the balance field is at 0x7FFFA.
     if (romView.size() != 0x80000)
     {
         return {.status = ChecksumResult::Status::InvalidSize,

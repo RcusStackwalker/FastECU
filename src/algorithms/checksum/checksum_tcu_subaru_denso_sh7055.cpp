@@ -34,6 +34,7 @@ constexpr ChecksumArea kChecksumAreas[] = {
 
 ChecksumResult ChecksumTcuSubaruDensoSH7055::calculate_checksum_result(bytes::ByteView romView)
 {
+    // Fixed 512 KiB SH7055 layout; the last checksum area ends at 0x80000.
     if (romView.size() != 0x80000)
     {
         return {.status = ChecksumResult::Status::InvalidSize,
