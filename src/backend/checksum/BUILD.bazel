@@ -73,10 +73,3 @@ fastecu_gtest(
     srcs = ["legacy_checksum_adapter_test.cpp"],
     deps = [":legacy_checksum_adapter"],
 )
-
-filegroup(
-    name = "test_layout_cpp_sources",
-    testonly = True,
-    srcs = glob(["*test*.cpp"]),
-    visibility = ["//:__pkg__"],
-)

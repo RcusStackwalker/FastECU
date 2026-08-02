@@ -75,10 +75,3 @@ fastecu_qttest(
     src = "diagnostic_parsers_qt_compat_test.cpp",
     deps = [":qt_compat"],
 )
-
-filegroup(
-    name = "test_layout_cpp_sources",
-    testonly = True,
-    srcs = glob(["*test*.cpp"]),
-    visibility = ["//:__pkg__"],
-)

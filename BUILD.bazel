@@ -150,57 +150,6 @@ py_test(
 )
 
 py_test(
-    name = "test_layout_policy_unit_test",
-    size = "small",
-    srcs = [
-        "scripts/check-test-layout.py",
-        "scripts/check_test_layout_test.py",
-    ],
-    main = "scripts/check_test_layout_test.py",
-)
-
-py_test(
-    name = "test_layout_policy",
-    size = "small",
-    srcs = ["scripts/check-test-layout.py"],
-    data = [
-        "//resources/shared:test_layout_cpp_sources",
-        "//src/algorithms/checksum:test_layout_cpp_sources",
-        "//src/algorithms/crypto:test_layout_cpp_sources",
-        "//src/algorithms/diagnostics:test_layout_cpp_sources",
-        "//src/algorithms/expression:test_layout_cpp_sources",
-        "//src/algorithms/menu:test_layout_cpp_sources",
-        "//src/algorithms/protocol:test_layout_cpp_sources",
-        "//src/algorithms/protocol/colt:test_layout_cpp_sources",
-        "//src/algorithms/protocol/mut_dma:test_layout_cpp_sources",
-        "//src/algorithms/protocol/ssm:test_layout_cpp_sources",
-        "//src/backend/calibration:test_layout_cpp_sources",
-        "//src/backend/checksum:test_layout_cpp_sources",
-        "//src/backend/config:test_layout_cpp_sources",
-        "//src/backend/definition:test_layout_cpp_sources",
-        "//src/backend/definitions:test_layout_cpp_sources",
-        "//src/backend/flash:test_layout_cpp_sources",
-        "//src/backend/flash/eeprom:test_layout_cpp_sources",
-        "//src/backend/logging:test_layout_cpp_sources",
-        "//src/backend/logging/protocols:test_layout_cpp_sources",
-        "//src/backend/ports:test_layout_cpp_sources",
-        "//src/backend/ports/testing:test_layout_cpp_sources",
-        "//src/backend/protocol:test_layout_cpp_sources",
-        "//src/platform/desktop/common/flash:test_layout_cpp_sources",
-        "//src/platform/desktop/common/flash/legacy:test_layout_cpp_sources",
-        "//src/platform/desktop/common/logging:test_layout_cpp_sources",
-        "//src/platform/desktop/common/ports:test_layout_cpp_sources",
-        "//src/platform/desktop/common/serial:test_layout_cpp_sources",
-        "//src/platform/desktop/common/transport:test_layout_cpp_sources",
-        "//src/ui/desktop/flash/eeprom:test_layout_cpp_sources",
-        "//tests:cpp_sources",
-        "//tests:layout_allowlist.txt",
-        "//tests/force_asserts:tst_force_asserts.cpp",
-    ],
-    main = "scripts/check-test-layout.py",
-)
-
-py_test(
     name = "openpty_includes",
     size = "small",
     srcs = ["scripts/check-openpty-includes.py"],

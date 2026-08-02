@@ -5,8 +5,6 @@ load("//bazel:x86_windows_transition.bzl", "x86_windows_binary")
 
 package(default_visibility = ["//visibility:public"])
 
-exports_files(["layout_allowlist.txt"])
-
 filegroup(
     name = "cpp_sources",
     srcs = glob(["*.cpp"]),

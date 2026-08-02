@@ -87,10 +87,3 @@ fastecu_qttest(
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
     ],
 )
-
-filegroup(
-    name = "test_layout_cpp_sources",
-    testonly = True,
-    srcs = glob(["*test*.cpp"]),
-    visibility = ["//:__pkg__"],
-)

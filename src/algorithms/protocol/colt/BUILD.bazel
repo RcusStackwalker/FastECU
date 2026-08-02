@@ -85,10 +85,3 @@ fastecu_gtest(
     srcs = ["mitsu_colt_can_cdbg_protocol_test.cpp"],
     deps = [":qt_compat"],
 )
-
-filegroup(
-    name = "test_layout_cpp_sources",
-    testonly = True,
-    srcs = glob(["*test*.cpp"]),
-    visibility = ["//:__pkg__"],
-)

@@ -72,10 +72,3 @@ fastecu_portable_gtest(
         "//src/backend/protocol/testing:scripted_transports",
     ],
 )
-
-filegroup(
-    name = "test_layout_cpp_sources",
-    testonly = True,
-    srcs = glob(["*test*.cpp"]),
-    visibility = ["//:__pkg__"],
-)

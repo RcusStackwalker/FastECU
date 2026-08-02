@@ -73,10 +73,3 @@ fastecu_qttest(
         "//src/backend/ports/testing:in_memory_file_repository",
     ],
 )
-
-filegroup(
-    name = "test_layout_cpp_sources",
-    testonly = True,
-    srcs = glob(["*test*.cpp"]),
-    visibility = ["//:__pkg__"],
-)

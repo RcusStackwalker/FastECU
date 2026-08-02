@@ -31,10 +31,3 @@ fastecu_qttest(
         "//src/backend/ports/testing:fake_clock",
     ],
 )
-
-filegroup(
-    name = "test_layout_cpp_sources",
-    testonly = True,
-    srcs = glob(["*test*.cpp"]),
-    visibility = ["//:__pkg__"],
-)

@@ -179,10 +179,3 @@ fastecu_portable_gtest(
         ":romraider_parser",
     ],
 )
-
-filegroup(
-    name = "test_layout_cpp_sources",
-    testonly = True,
-    srcs = glob(["*test*.cpp"]),
-    visibility = ["//:__pkg__"],
-)

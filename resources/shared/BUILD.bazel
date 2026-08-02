@@ -48,10 +48,3 @@ qt_resource_via_qrc(
     qrc_file = "kernels.qrc",
     deps = ["@rules_qt//:qt_core"],
 )
-
-filegroup(
-    name = "test_layout_cpp_sources",
-    testonly = True,
-    srcs = glob(["*test*.cpp"]),
-    visibility = ["//:__pkg__"],
-)

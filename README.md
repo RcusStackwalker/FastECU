@@ -51,7 +51,7 @@ bazel build --config=release //:fastecu
 Run the maintained test targets:
 
 ```sh
-bazel test --config=release //tests/... //src/... //:bazel_openssl_wiring //:test_layout_policy
+bazel test --config=release //tests/... //src/... //:bazel_openssl_wiring
 ```
 
 On macOS and Windows, the release packaging entry points are

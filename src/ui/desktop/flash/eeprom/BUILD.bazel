@@ -70,10 +70,3 @@ fastecu_qttest(
         "//src/platform/desktop/common/flash:flash_worker",
     ],
 )
-
-filegroup(
-    name = "test_layout_cpp_sources",
-    testonly = True,
-    srcs = glob(["*test*.cpp"]),
-    visibility = ["//:__pkg__"],
-)
