@@ -120,7 +120,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             runner.WorkflowError,
-            rf"missing workspace translation unit.*{re.escape(str(missing))}",
+            rf"missing workspace translation unit.*{re.escape(str(missing.resolve()))}",
         ):
             runner.load_project_entries(
                 self.root,
