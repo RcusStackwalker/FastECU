@@ -17,7 +17,7 @@ namespace fastecu::desktop::logging
 // passed to the worker as value data; they must not retain LogValuesStructure.
 struct DesktopLoggingSnapshot
 {
-    const fastecu::logging::LoggingSession session;
+    fastecu::logging::LoggingSession session;
     std::vector<std::size_t> response_offsets;
     std::unordered_map<std::string, int> index_by_id;
     std::unordered_set<std::string> enabled_ids;
