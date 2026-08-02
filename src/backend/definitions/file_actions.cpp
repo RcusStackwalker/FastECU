@@ -49,20 +49,23 @@ void debugLogTransports(const QDomElement& protocol,
                 true,
                 true);
         }
-        QDomElement module = transport.firstChild().toElement();
-        while (!module.isNull())
+        QDomElement moduleElement = transport.firstChild().toElement();
+        while (!moduleElement.isNull())
         {
-            if (module.tagName() == "module")
+            if (moduleElement.tagName() == "module")
             {
                 fileActions.LOG_D(
-                    "Module = " + module.attribute("id", "No id") + " " +
-                        module.attribute("address", "No address") + " " +
-                        module.attribute("desc", "No description") + " " +
-                        module.attribute("tester", "No tester"),
+                    "Module = " + moduleElement.attribute("id", "No id") +
+                        " " +
+                        moduleElement.attribute("address", "No address") +
+                        " " +
+                        moduleElement.attribute("desc", "No description") +
+                        " " +
+                        moduleElement.attribute("tester", "No tester"),
                     true,
                     true);
             }
-            module = module.nextSibling().toElement();
+            moduleElement = moduleElement.nextSibling().toElement();
         }
         transport = transport.nextSibling().toElement();
     }
