@@ -11,14 +11,11 @@ package(default_visibility = [
     "//src/ui/desktop:__pkg__",
 ])
 
-MOC_HDRS = ["systemlogger.h"]
-
 qt_cc_library(
     name = "logging",
     srcs = ["systemlogger.cpp"],
-    hdrs = MOC_HDRS,
+    hdrs = ["systemlogger.h"],
     copts = COMMON_COPTS,
-    # allow_empty: this package's only header is the MOC_HDRS entry above.
     normal_hdrs = [],
     deps = QT_DEPS,
 )
@@ -56,12 +53,13 @@ qt_cc_library(
         "logging_worker.cpp",
     ],
     hdrs = [
-        "cdbg_serial_setup.h",
         "logging_engine.h",
         "logging_worker.h",
     ],
     copts = COMMON_COPTS,
-    normal_hdrs = [],
+    normal_hdrs = [
+        "cdbg_serial_setup.h",
+    ],
     deps = QT_DEPS + [
         ":logging_adapters",
         "//src/backend/logging:logging_use_case",
@@ -76,11 +74,12 @@ qt_cc_library(
         "logging_snapshot_adapter.cpp",
         "logging_value_adapter.cpp",
     ],
-    hdrs = [
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = [
         "logging_snapshot_adapter.h",
         "logging_value_adapter.h",
     ],
-    copts = COMMON_COPTS,
     deps = QT_DEPS + [
         "//src/backend/definitions",
         "//src/backend/logging:logging_session",

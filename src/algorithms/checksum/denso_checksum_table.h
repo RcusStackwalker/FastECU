@@ -20,7 +20,7 @@ struct DensoTableSpec
     std::size_t table_offset = 0;
     std::size_t table_length = 0;
     std::int32_t address_offset = 0;
-    std::span<const DensoWordOverride> overrides{};
+    std::span<const DensoWordOverride> overrides;
     bool detect_disabled = true;
 };
 

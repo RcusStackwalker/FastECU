@@ -15,25 +15,21 @@ The target state is:
 
 ## Current snapshot
 
-Observed on 2026-07-18:
+Observed on 2026-08-05:
 
-- FastECU is a Qt 6/C++20 desktop application. Bazel is the sole target graph for
+- FastECU is a Qt 6/C++23 desktop application. Bazel is the sole target graph for
   the application, tests, release packaging, coverage, compile commands, and
   clang-tidy; the qmake project files have been removed (ADR 0001).
-- The tracked maintained C++ surface, excluding `tests/`,
-  `src/ui/desktop/hexedit/`, and generated Qt files, is approximately 275
-  `.cpp`/`.h` files and 84k lines.
-  Tests contain approximately 6k lines across 109 `.cpp`/`.h` files.
+- The tracked maintained C++ surface, excluding tests, `src/ui/desktop/hexedit/`,
+  and generated Qt files, is approximately 390 `.cpp`/`.h` files and 93k lines.
+  Tests contain approximately 24k lines across 104 `.cpp`/`.h` files.
 - Tests are strongest around protocol codecs, logging, serial threading, J2534
-  bridge behavior, and recently extracted parser helpers. Definition parsing,
-  checksum families, calibration/map editing, most flash orchestration, and UI
-  workflows remain lightly covered.
+  bridge behavior, definition parsing, and the extracted config/calibration use
+  cases. Checksum families, calibration/map editing, most flash orchestration,
+  and UI workflows remain lightly covered.
 - CI builds and tests on Windows, macOS, and Linux, verifies macOS/Windows
   packages, produces coverage for SonarCloud, and runs clang-tidy as a
   non-blocking report.
-- The application is still compiled primarily as one `fastecu_core_common`
-  library whose source manifest spans UI, parsing, logging, serial, protocol,
-  checksum, flash modules, and the bundled hex editor.
 - Focused background notes remain in `docs/logging-engine-tech-debt.md` and
   `docs/protocol-generalization-opportunities.md`; those documents contain the
   current logging-specific gaps and safe protocol-sharing boundary.
@@ -67,41 +63,13 @@ Actions:
 - Keep exclusions explicit and reviewed: tests, generated Qt files, vendored
   `src/ui/desktop/hexedit/`, Bazel/external outputs, system libraries, and platform SDKs.
 
-### P1: Decompose the Bazel application target
-
-`fastecu_core_common` currently compiles almost the entire application as one
-library. Package-owned tests now use their narrowest available targets, while
-the remaining integration suites still expose areas coupled through this broad
-library.
-
-Risks:
-
-- Unit tests inherit QtWidgets, serial, platform, resource, and generated-code
-  dependencies unrelated to the behavior under test.
-- Target dependencies do not enforce the intended UI/model/protocol/hardware
-  boundaries.
-- Broad rebuild and link surfaces make small changes slower and make accidental
-  coupling easy.
-
-Actions:
-
-- Split cohesive libraries in dependency order: byte/protocol helpers, parsing
-  and models, logging, serial backends/adapters, checksum/flash support, and UI.
-- Make focused tests depend on the smallest owning library instead of
-  `fastecu_core_common`.
-- Keep `//:fastecu` as the composition target and use Bazel visibility to stop
-  lower layers from depending on UI or platform implementations.
-- Move source ownership from the single
-  `bazel/fastecu_sources.bzl` application manifest into the owning targets as
-  boundaries become stable.
-
 ### P1: Separate UI from application logic
 
 `MainWindow` remains the central coordinator for startup, settings/config
 loading, serial/device setup, logging wiring, calibration lifecycle, ECU
 operation dispatch, log views, status updates, and dialogs. `mainwindow.h`
 still includes nearly every flash dialog module. `mainwindow.cpp` is about
-2.5k lines and `menu_actions.cpp` is about 2k lines.
+2.7k lines and `menu_actions.cpp` is about 2k lines.
 
 Risks:
 
@@ -125,23 +93,24 @@ Actions:
 
 ### P1: Split `FileActions`
 
-`FileActions` is still a 3.3k-line `QWidget` implementation with a 585-line
-header. It owns config and directory persistence, menu loading, logger
-definitions, EcuFlash/RomRaider parsing, ROM open/save, checksum dispatch, many
-nested models, and direct `QFileDialog`/`QMessageBox` behavior. Expression and
-diagnostic parsing have been extracted, but most parsing tests still need the
-widget-heavy dependency graph.
+`FileActions` is still a 2.1k-line `QWidget` implementation with a 361-line
+header. Expression and diagnostic parsing, the EcuFlash/RomRaider parsers, ROM
+open/save, config persistence, and checksum dispatch have been extracted into
+portable use cases under `src/backend/{definition,calibration,config,checksum}/`,
+each reached through a `Legacy*Adapter`. What remains inside `FileActions` is
+logger definition/conf reading, menu loading, the nested `ConfigValuesStructure`
+/ `LogValuesStructure` / `EcuCalDefStructure` models, and direct
+`QFileDialog`/`QMessageBox` behavior.
 
 Actions:
 
-- Extract `RomRaiderParser`, `EcuFlashParser`, `LoggerDefinitionParser`, and
-  `ConfigRepository` as non-widget components with explicit inputs and results.
-- Move ROM file I/O and checksum dispatch behind an application service that
-  reports errors without displaying dialogs.
+- Extract `LoggerDefinitionParser` as a non-widget component with explicit
+  inputs and results, following the definition-parser precedent.
 - Make dialogs and message boxes caller-owned UI behavior.
 - Move nested data structures to standalone model headers so parsers, logging,
   calibration editing, and tests do not depend on `FileActions`.
-- Remove compatibility wrappers after all callers use the extracted APIs.
+- Remove the `Legacy*Adapter` compatibility wrappers after all callers use the
+  extracted APIs.
 
 ### P1: Replace parallel-list data models
 
@@ -220,6 +189,37 @@ Actions:
 - Keep lifecycle coverage for teardown with in-flight calls, helper-process
   failure, timeouts, and adapter removal on each supported platform.
 
+### P1: Drain the `serial_qt_compat` allowlist
+
+The build-graph ratchet for the section above.
+`//src/platform/desktop/common/serial:serial_qt_compat` carries
+`serial_port_actions.h` to callers that should not have it, and its `visibility`
+list is frozen by `scripts/check-serial-compat-allowlist.py`: the list may
+shrink, never grow. It currently holds 14 entries — 8 under `src/ui/desktop`,
+2 in backend (`//src/backend/flash`, `//src/backend/logging/protocols`), plus
+`src/platform/desktop/common/transport`, the serial package itself, and
+`//tests`. One entry, `//src/platform/desktop/common/remote_utility`, is not
+debt: it is a same-layer sibling using `websocketiodevice.h`/`qtrohelper.hpp`
+rather than the serial facade, and is not expected to shrink.
+
+The allowlist makes this debt measurable, which the prose above cannot: each
+removed entry is a layer that no longer reaches the full facade. Every entry is
+a dependency step 5 (backend) or step 6 (ui) exists to remove.
+
+Actions:
+
+- Split `FlashUtils::configureIso15765Can(SerialPortActions*)` out of
+  `src/backend/flash/flash_utils.h` — it is the sole reason the
+  `//src/backend/flash` entry survives, and its callers are the relocated
+  `src/platform/desktop/common/flash/legacy` CAN operations.
+- Remove `FROZEN` entries in `scripts/check-serial-compat-allowlist.py` as the
+  matching `visibility` entries are deleted; the check prints the entries to
+  drop when the list shrinks.
+- Treat a needed new entry as a design failure, not a paperwork step: backend or
+  UI code reaching for `serial_port_actions.h` is the dependency being removed.
+- Delete `serial_qt_compat` once only the `remote_utility` edge and `//tests`
+  remain, and fold its sources into the owning packages.
+
 ### P1: Finish the checksum UI boundary
 
 All nine checksum algorithms are portable and return structured
@@ -248,10 +248,55 @@ Actions:
 - Promote the report to a required CI result after the ratchet is deterministic
   across Linux, macOS, and Windows compilation commands.
 
+### P2: Replace BUILD-file globs with generated source lists
+
+56 `glob()` call sites span 28 of the 58 `BUILD.bazel` files. A glob decides
+target membership by filename pattern at load time, so adding or renaming a
+source silently changes what a target contains — the opposite of the explicit
+ownership the package graph was built for. Three failure modes are live:
+
+- **Test sweep.** Twelve library packages use `srcs = glob(["*.cpp"])` with no
+  `*_test.cpp` exclusion — the nine under `src/ui/desktop`, both `j2534`
+  packages, and `remote_utility`. None contains a test source today, so nothing
+  is broken; the first co-located test added to any of them links into the
+  production library instead of a test target. Packages that already have tests
+  guard against this, but inconsistently — `*_test.cpp`, `test_*.h`, and named
+  constants such as `_FLASH_TRANSPORT_SRCS` all appear.
+- **MOC partition.** Qt targets pair an explicit `MOC_HDRS` list with
+  `normal_hdrs = glob(["*.h"], exclude = MOC_HDRS)`. A new `Q_OBJECT` header
+  lands in the globbed half by default, is never moc'd, and fails at link or
+  runtime rather than at analysis.
+- **Dead code.** `src/ui/desktop` must name `hexcommander.cpp`/`.h` in an
+  `exclude` to keep never-built code out of the build; the file's own header
+  declares `Q_OBJECT` but is absent from `MOC_HDRS`, so a bare glob would link
+  it for the first time and fail.
+
+Adopting Gazelle with a C/C++ extension (`gazelle_cc`) would generate source
+lists and `deps` from `#include` analysis, making membership explicit and
+reviewable in the diff. Gazelle is not currently a `MODULE.bazel` dependency.
+
+Actions:
+
+- Spike Gazelle on one leaf package before committing to it. The graph is built
+  on project macros — `qt_cc_library` (with its `normal_hdrs` split),
+  `fastecu_gtest`, `fastecu_portable_gtest`, `qt_ui_basename_libraries`,
+  `qt_replica_library` — so adoption needs `# gazelle:map_kind` mappings and,
+  for the moc partition, either a custom resolver or a convention that keeps
+  `Q_OBJECT` headers derivable. Treat "no workable mapping for the Qt macros"
+  as an acceptable outcome that ends this item.
+- Until then, add `exclude = ["*_test.cpp"]` to the twelve unguarded `*.cpp`
+  globs and settle on one exclusion spelling.
+- Keep hand-maintained policy out of anything a generator rewrites: visibility
+  allowlists, `target_compatible_with`, the portable/Qt-free `deps` split, and
+  the comments explaining them. These are reviewed decisions, not derivable
+  facts; mark them `# keep` if Gazelle lands.
+- Prefer explicit source lists in new packages regardless of the Gazelle
+  outcome.
+
 ### P2: Naming and source/data organization
 
 Some names and data placement still reflect earlier architecture:
-`log_operations_ssm.cpp` contains MUT/DMA bench utilities, 33 source/header
+`log_operations_ssm.cpp` contains MUT/DMA bench utilities, 31 source/header
 files define duplicate `STATUS_SUCCESS`/`STATUS_ERROR` macros, and the 3.7k-line
 `error_codes.h` table is pulled into normal C++ compilation through
 `FileActions`.
