@@ -15,25 +15,21 @@ The target state is:
 
 ## Current snapshot
 
-Observed on 2026-07-18:
+Observed on 2026-08-05:
 
-- FastECU is a Qt 6/C++20 desktop application. Bazel is the sole target graph for
+- FastECU is a Qt 6/C++23 desktop application. Bazel is the sole target graph for
   the application, tests, release packaging, coverage, compile commands, and
   clang-tidy; the qmake project files have been removed (ADR 0001).
-- The tracked maintained C++ surface, excluding `tests/`,
-  `src/ui/desktop/hexedit/`, and generated Qt files, is approximately 275
-  `.cpp`/`.h` files and 84k lines.
-  Tests contain approximately 6k lines across 109 `.cpp`/`.h` files.
+- The tracked maintained C++ surface, excluding tests, `src/ui/desktop/hexedit/`,
+  and generated Qt files, is approximately 390 `.cpp`/`.h` files and 93k lines.
+  Tests contain approximately 24k lines across 104 `.cpp`/`.h` files.
 - Tests are strongest around protocol codecs, logging, serial threading, J2534
-  bridge behavior, and recently extracted parser helpers. Definition parsing,
-  checksum families, calibration/map editing, most flash orchestration, and UI
-  workflows remain lightly covered.
+  bridge behavior, definition parsing, and the extracted config/calibration use
+  cases. Checksum families, calibration/map editing, most flash orchestration,
+  and UI workflows remain lightly covered.
 - CI builds and tests on Windows, macOS, and Linux, verifies macOS/Windows
   packages, produces coverage for SonarCloud, and runs clang-tidy as a
   non-blocking report.
-- The application is still compiled primarily as one `fastecu_core_common`
-  library whose source manifest spans UI, parsing, logging, serial, protocol,
-  checksum, flash modules, and the bundled hex editor.
 - Focused background notes remain in `docs/logging-engine-tech-debt.md` and
   `docs/protocol-generalization-opportunities.md`; those documents contain the
   current logging-specific gaps and safe protocol-sharing boundary.
@@ -67,41 +63,13 @@ Actions:
 - Keep exclusions explicit and reviewed: tests, generated Qt files, vendored
   `src/ui/desktop/hexedit/`, Bazel/external outputs, system libraries, and platform SDKs.
 
-### P1: Decompose the Bazel application target
-
-`fastecu_core_common` currently compiles almost the entire application as one
-library. Package-owned tests now use their narrowest available targets, while
-the remaining integration suites still expose areas coupled through this broad
-library.
-
-Risks:
-
-- Unit tests inherit QtWidgets, serial, platform, resource, and generated-code
-  dependencies unrelated to the behavior under test.
-- Target dependencies do not enforce the intended UI/model/protocol/hardware
-  boundaries.
-- Broad rebuild and link surfaces make small changes slower and make accidental
-  coupling easy.
-
-Actions:
-
-- Split cohesive libraries in dependency order: byte/protocol helpers, parsing
-  and models, logging, serial backends/adapters, checksum/flash support, and UI.
-- Make focused tests depend on the smallest owning library instead of
-  `fastecu_core_common`.
-- Keep `//:fastecu` as the composition target and use Bazel visibility to stop
-  lower layers from depending on UI or platform implementations.
-- Move source ownership from the single
-  `bazel/fastecu_sources.bzl` application manifest into the owning targets as
-  boundaries become stable.
-
 ### P1: Separate UI from application logic
 
 `MainWindow` remains the central coordinator for startup, settings/config
 loading, serial/device setup, logging wiring, calibration lifecycle, ECU
 operation dispatch, log views, status updates, and dialogs. `mainwindow.h`
 still includes nearly every flash dialog module. `mainwindow.cpp` is about
-2.5k lines and `menu_actions.cpp` is about 2k lines.
+2.7k lines and `menu_actions.cpp` is about 2k lines.
 
 Risks:
 
@@ -125,23 +93,24 @@ Actions:
 
 ### P1: Split `FileActions`
 
-`FileActions` is still a 3.3k-line `QWidget` implementation with a 585-line
-header. It owns config and directory persistence, menu loading, logger
-definitions, EcuFlash/RomRaider parsing, ROM open/save, checksum dispatch, many
-nested models, and direct `QFileDialog`/`QMessageBox` behavior. Expression and
-diagnostic parsing have been extracted, but most parsing tests still need the
-widget-heavy dependency graph.
+`FileActions` is still a 2.1k-line `QWidget` implementation with a 361-line
+header. Expression and diagnostic parsing, the EcuFlash/RomRaider parsers, ROM
+open/save, config persistence, and checksum dispatch have been extracted into
+portable use cases under `src/backend/{definition,calibration,config,checksum}/`,
+each reached through a `Legacy*Adapter`. What remains inside `FileActions` is
+logger definition/conf reading, menu loading, the nested `ConfigValuesStructure`
+/ `LogValuesStructure` / `EcuCalDefStructure` models, and direct
+`QFileDialog`/`QMessageBox` behavior.
 
 Actions:
 
-- Extract `RomRaiderParser`, `EcuFlashParser`, `LoggerDefinitionParser`, and
-  `ConfigRepository` as non-widget components with explicit inputs and results.
-- Move ROM file I/O and checksum dispatch behind an application service that
-  reports errors without displaying dialogs.
+- Extract `LoggerDefinitionParser` as a non-widget component with explicit
+  inputs and results, following the definition-parser precedent.
 - Make dialogs and message boxes caller-owned UI behavior.
 - Move nested data structures to standalone model headers so parsers, logging,
   calibration editing, and tests do not depend on `FileActions`.
-- Remove compatibility wrappers after all callers use the extracted APIs.
+- Remove the `Legacy*Adapter` compatibility wrappers after all callers use the
+  extracted APIs.
 
 ### P1: Replace parallel-list data models
 
@@ -251,7 +220,7 @@ Actions:
 ### P2: Naming and source/data organization
 
 Some names and data placement still reflect earlier architecture:
-`log_operations_ssm.cpp` contains MUT/DMA bench utilities, 33 source/header
+`log_operations_ssm.cpp` contains MUT/DMA bench utilities, 31 source/header
 files define duplicate `STATUS_SUCCESS`/`STATUS_ERROR` macros, and the 3.7k-line
 `error_codes.h` table is pulled into normal C++ compilation through
 `FileActions`.
