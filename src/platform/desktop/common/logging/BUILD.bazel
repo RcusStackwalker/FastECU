@@ -63,7 +63,6 @@ qt_cc_library(
     normal_hdrs = [
         "cdbg_serial_setup.h",
     ],
-    normal_hdrs = [],
     deps = QT_DEPS + [
         ":logging_adapters",
         "//src/backend/logging:logging_use_case",
