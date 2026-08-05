@@ -521,7 +521,7 @@ Status populate_optional_hex_dimension(
     }
     if (dimension->has_value())
     {
-        destination = **dimension;
+        destination = *dimension;
     }
     return {};
 }
