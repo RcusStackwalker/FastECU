@@ -152,12 +152,12 @@ parent repository at
 ### Unbrick with FastECU (bench flash)
 - **BDM**
   - Forester/Impreza/Legacy 16bit Denso 2001-2005 BDM/K-Line (HC16/160KB) **ROM implemented, TPU also coming**
- 
+
 - **Bootmode**
   - Subaru Forester, Impreza, Legacy Turbo MY99-00 (UJ WA12212920/128KB)
-  - Subaru Forester, Impreza, Legacy 2000-2002 K-Line (UJ WA12212920/128KB) 
+  - Subaru Forester, Impreza, Legacy 2000-2002 K-Line (UJ WA12212920/128KB)
   - Subaru Forester, Impreza, Legacy 2000-2002 K-Line (UJ WA12212930/256KB)
 
 - **ECU models currently under development**
-  - Subaru Forester, Impreza, Legacy 2002-2005 K-Line (UJ/Hitachi WA12212940/384KB) 
+  - Subaru Forester, Impreza, Legacy 2002-2005 K-Line (UJ/Hitachi WA12212940/384KB)
   - Subaru Forester, Impreza, Legacy 2002-2005 K-Line (UJ/Hitachi WA12212970/512KB)

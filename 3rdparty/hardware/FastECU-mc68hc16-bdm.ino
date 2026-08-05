@@ -121,7 +121,7 @@ void print_rom_data(uint8_t *rom_data)
   char msg[128];
 
   memset(msg, 0, 128);
-  
+
   if (!print_hex)
   {
     Serial.write(rom_data, 32);
@@ -137,31 +137,31 @@ void print_rom_data(uint8_t *rom_data)
   }
 }
 
-uint32_t hex2dec(String hex_val) 
-{ 
-  int len = hex_val.length(); 
-  uint32_t base = 1; 
-  uint32_t dec_val = 0; 
-  
+uint32_t hex2dec(String hex_val)
+{
+  int len = hex_val.length();
+  uint32_t base = 1;
+  uint32_t dec_val = 0;
+
   for (int i = len - 1; i >= 0; i--)
-  { 
+  {
     if (hex_val[i] >= '0' && hex_val[i] <= '9')
-    { 
-      dec_val += (int(hex_val[i]) - 48) * base; 
-      base = base * 16; 
-    } 
+    {
+      dec_val += (int(hex_val[i]) - 48) * base;
+      base = base * 16;
+    }
     else if (hex_val[i] >= 'A' && hex_val[i] <= 'F')
-    { 
-      dec_val += (int(hex_val[i]) - 55) * base; 
-      base = base * 16; 
-    } 
+    {
+      dec_val += (int(hex_val[i]) - 55) * base;
+      base = base * 16;
+    }
     else if (hex_val[i] >= 'a' && hex_val[i] <= 'f')
-    { 
-      dec_val += (int(hex_val[i]) - 87) * base; 
-      base = base * 16; 
-    } 
+    {
+      dec_val += (int(hex_val[i]) - 87) * base;
+      base = base * 16;
+    }
   }
-  return dec_val; 
+  return dec_val;
 }
 
 void setup()
@@ -183,7 +183,7 @@ void setup()
   digitalWrite(DSI_pin, LOW);
   pinMode(DSO_pin, INPUT_PULLUP);
   pinMode(MCU_RESET_pin, INPUT_PULLUP);
-  
+
   //Serial.println("*** Welcome to MC68HC16Y5 unbrick tool! ***");
 }
 
@@ -314,7 +314,7 @@ int initialize_bdm()
   //Serial.println(freeze_state, DEC);
   digitalWrite(RESET_pin, HIGH);
   delayMicroseconds(20);
-  
+
   /* digitalRead(MCU_RESET_pin) */
   asm (
     "in __tmp_reg__, __SREG__  \n"
@@ -324,7 +324,7 @@ int initialize_bdm()
     "out __SREG__, __tmp_reg__ \n"
     :: "I" (_SFR_IO_ADDR(PINB)), "I" (PINB6)
   );
-  
+
   /* digitalWrite(BKPT_pin, HIGH); */
   asm volatile(
     "SBI %0, %1 \n\t"
@@ -359,7 +359,7 @@ int exit_bdm_mode()
     if (initialize_bdm())
       return 1;
   bdm_initialized = true;
-  
+
   response = transfer_word(CMD_GO);
   //response = transfer_word(CMD_NOP);
   Serial.print("Exiting BDM mode! Response: 0x");
@@ -409,7 +409,7 @@ int read_memory(bool read_rom, uint32_t data_addr, uint32_t data_length)
     start_addr |= 0x40000000;
     end_addr |= 0x40000000;
   }
-    
+
   for (addr = start_addr; addr < end_addr; addr += 2)
   {
     response1 = transfer_word(cmd);
@@ -482,7 +482,7 @@ int write_memory(bool write_rom, uint32_t data_addr, uint32_t data_length)
       packet_length = 32;
     else
       packet_length = data_length;
-      
+
     while(rom_data_index < packet_length)
     {
       if(Serial.available())
@@ -497,7 +497,7 @@ int write_memory(bool write_rom, uint32_t data_addr, uint32_t data_length)
       response = 0;
       loopcount = 0;
       data = (rom_data[i] << 8) + rom_data[i + 1];
-      
+
       if (!initial_req)
       {
         response = transfer_word(cmd);
@@ -510,7 +510,7 @@ int write_memory(bool write_rom, uint32_t data_addr, uint32_t data_length)
       }
       else
         response = transfer_word(cmd);
-        
+
       if (loopcount < 2000)
       {
         response = transfer_word(((addr + i) >> 16) & 0xFFFF);
@@ -587,7 +587,7 @@ int write_to_pc_sp()
   uint16_t pc_reg = ((pc_sp[2] << 8) & 0xFF) + (pc_sp[3] & 0xFF);
   uint16_t sk_reg = ((pc_sp[4] << 8) & 0xFF) + (pc_sp[5] & 0xFF);
   uint16_t sp_reg = ((pc_sp[6] << 8) & 0xFF) + (pc_sp[7] & 0xFF);
-  
+
   response = transfer_word(CMD_WPCSP);
   response = transfer_word(0x0002);
   response = transfer_word(0x0006);
@@ -627,7 +627,7 @@ int erase_memory()
   uint16_t Tepk = 110;  // Erase Pulse Time(tei × k)(ms)
   uint16_t Tei = 110;   // Amount to Increment (ms)
   uint8_t Ter = 1;      // Erase Recovery Time (ms)
-  
+
   bool flash_erase_ok = false;
 
   // VFPE     0x08
@@ -646,7 +646,7 @@ int erase_memory()
   FEExADDR = FEExBASE;// | 0x40000000;
   FEExCTL = FEE1CTL;// | 0x40000000;
   print_hex = true;
-  
+
   for (int i = 0; i < 3; i++)
   {
     Serial.print("Erasing block 0x0");
@@ -698,7 +698,7 @@ int erase_memory()
     for (int loop = 1; loop <= Nep; loop++)
     {
       Tepk = Tei * loop;
-      
+
       response = transfer_word(CMD_WPMEM);
       response = transfer_word((addr >> 16) & 0xFFFF);
       response = transfer_word(addr & 0xFFFF);
@@ -791,7 +791,7 @@ int erase_memory()
 
     FEExCTL += FEExGAP;
     FEExADDR += FEExGAP;
-  }  
+  }
   return 0;
 }
 
@@ -827,7 +827,7 @@ int read_regs_with_mask(int mask)
 
   Serial.println("");
   Serial.println("Registers read complete");
-  
+
   return 0;
 }
 
@@ -860,6 +860,6 @@ int write_regs_with_mask(int mask)
   {
     response1 = transfer_word(reg_values[i] & 0xFFFF);
   }
-  
+
   return 0;
 }
