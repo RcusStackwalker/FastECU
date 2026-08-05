@@ -1110,7 +1110,7 @@ class TestFileActionsParsing : public QObject
         QTimer::singleShot(0, []()
                            {
             if (QWidget *modal = QApplication::activeModalWidget()) {
-                modal->close(); 
+                modal->close();
 } });
 
         QCOMPARE(actions.checksum_correction(&ecu), &ecu);
