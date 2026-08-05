@@ -1,11 +1,11 @@
 # Logging engine refactor -- bench verification checklist
 
 Verifies the LoggingEngine/LoggingWorker/LoggingProtocol refactor behaves
-correctly against real hardware. Focused Bazel targets under `//tests:` cover
-the worker, engine, and protocol logic against scripted transports; this
-checklist covers what can only be observed with a real adapter and ECU. Run all
-maintained test targets with `bazel test --config=release //tests/... //src/...` before
-bench testing.
+correctly against real hardware. Focused Bazel targets under
+`//src/platform/desktop/common/logging:` and `//src/backend/logging/protocols:`
+cover the worker, engine, and protocol logic against scripted transports; this
+checklist covers what can only be observed with a real adapter and ECU. Run
+`bazel test --config=release //...` before bench testing.
 
 ## Per protocol (repeat for SSM, MUT/DMA, Cdbg)
 

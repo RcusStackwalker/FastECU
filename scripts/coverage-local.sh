@@ -28,12 +28,12 @@ bazel test \
   --nocache_test_results \
   --sandbox_writable_path="$coverage_root/profiles" \
   --test_env="LLVM_PROFILE_FILE=$coverage_root/profiles/%m-%p.profraw" \
-  //tests/... //src/...
+  //...
 
-# Enumerate the instrumented test executables from the configured graph,
-# including co-located src tests, for llvm-cov's object list.
+# Enumerate the instrumented test executables from the configured graph for
+# llvm-cov's object list.
 test_files=$(bazel cquery --config=coverage --output=files \
-  'kind("cc_test", //tests/... + //src/...)')
+  'kind("cc_test", //...)')
 
 primary=""
 objects=""

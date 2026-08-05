@@ -48,10 +48,10 @@ Build the application:
 bazel build --config=release //:fastecu
 ```
 
-Run the maintained test targets:
+Run the tests:
 
 ```sh
-bazel test --config=release //tests/... //src/... //:bazel_openssl_wiring
+bazel test --config=release //...
 ```
 
 On macOS and Windows, the release packaging entry points are
