@@ -189,6 +189,37 @@ Actions:
 - Keep lifecycle coverage for teardown with in-flight calls, helper-process
   failure, timeouts, and adapter removal on each supported platform.
 
+### P1: Drain the `serial_qt_compat` allowlist
+
+The build-graph ratchet for the section above.
+`//src/platform/desktop/common/serial:serial_qt_compat` carries
+`serial_port_actions.h` to callers that should not have it, and its `visibility`
+list is frozen by `scripts/check-serial-compat-allowlist.py`: the list may
+shrink, never grow. It currently holds 14 entries — 8 under `src/ui/desktop`,
+2 in backend (`//src/backend/flash`, `//src/backend/logging/protocols`), plus
+`src/platform/desktop/common/transport`, the serial package itself, and
+`//tests`. One entry, `//src/platform/desktop/common/remote_utility`, is not
+debt: it is a same-layer sibling using `websocketiodevice.h`/`qtrohelper.hpp`
+rather than the serial facade, and is not expected to shrink.
+
+The allowlist makes this debt measurable, which the prose above cannot: each
+removed entry is a layer that no longer reaches the full facade. Every entry is
+a dependency step 5 (backend) or step 6 (ui) exists to remove.
+
+Actions:
+
+- Split `FlashUtils::configureIso15765Can(SerialPortActions*)` out of
+  `src/backend/flash/flash_utils.h` — it is the sole reason the
+  `//src/backend/flash` entry survives, and its callers are the relocated
+  `src/platform/desktop/common/flash/legacy` CAN operations.
+- Remove `FROZEN` entries in `scripts/check-serial-compat-allowlist.py` as the
+  matching `visibility` entries are deleted; the check prints the entries to
+  drop when the list shrinks.
+- Treat a needed new entry as a design failure, not a paperwork step: backend or
+  UI code reaching for `serial_port_actions.h` is the dependency being removed.
+- Delete `serial_qt_compat` once only the `remote_utility` edge and `//tests`
+  remain, and fold its sources into the owning packages.
+
 ### P1: Finish the checksum UI boundary
 
 All nine checksum algorithms are portable and return structured
