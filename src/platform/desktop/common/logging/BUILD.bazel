@@ -56,11 +56,13 @@ qt_cc_library(
         "logging_worker.cpp",
     ],
     hdrs = [
-        "cdbg_serial_setup.h",
         "logging_engine.h",
         "logging_worker.h",
     ],
     copts = COMMON_COPTS,
+    normal_hdrs = [
+        "cdbg_serial_setup.h",
+    ],
     normal_hdrs = [],
     deps = QT_DEPS + [
         ":logging_adapters",
@@ -76,11 +78,11 @@ qt_cc_library(
         "logging_snapshot_adapter.cpp",
         "logging_value_adapter.cpp",
     ],
-    hdrs = [
+    copts = COMMON_COPTS,
+    normal_hdrs = [
         "logging_snapshot_adapter.h",
         "logging_value_adapter.h",
     ],
-    copts = COMMON_COPTS,
     deps = QT_DEPS + [
         "//src/backend/definitions",
         "//src/backend/logging:logging_session",
