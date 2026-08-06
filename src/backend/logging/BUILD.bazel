@@ -45,6 +45,25 @@ fastecu_portable_gtest(
 )
 
 cc_library(
+    name = "logger_conf",
+    srcs = ["logger_conf.cpp"],
+    hdrs = ["logger_conf.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":logger_definition_model",
+        "//src/algorithms/protocol",
+        "//src/backend/ports",
+        "@pugixml",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "logger_conf_test",
+    srcs = ["logger_conf_test.cpp"],
+    deps = [":logger_conf"],
+)
+
+cc_library(
     name = "logging_session",
     srcs = ["logging_session.cpp"],
     hdrs = ["logging_session.h"],

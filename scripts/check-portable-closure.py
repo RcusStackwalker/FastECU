@@ -37,6 +37,7 @@ PORTABLE_ROOTS = {
         "logging_session",
         "logging_conversion",
         "logging_use_case",
+        "logger_conf",
     },
     ROOT / "src/backend/logging/protocols": {"protocols"},
     ROOT / "src/backend/protocol": {"protocol"},
