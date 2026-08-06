@@ -4,7 +4,7 @@
 
 **Goal:** Move the five NRC/DTC lookup tables from `QHash` statics on the `FileActions` god object to portable `std::unordered_map` constants beside the parsers, delete the transitional Qt shim, and fix the category-bit lookup bug that has made 53% of the DTC descriptions unreachable.
 
-**Architecture:** The portable `nrc_description()` / `dtc_description()` free functions in `//src/algorithms/diagnostics` already take their lookup tables as parameters — that parameterization exists only because the tables were stranded in Qt-typed statics in backend. This plan adds the tables as portable constants in the same package, adds a one-line overload on each parser that binds them, converts the twelve call sites to call the portable functions directly, and then deletes the shim, the `error_codes.h` header, and the `FileActions::parse_*` wrappers.
+**Architecture:** The portable `nrc_description()` / `dtc_description()` free functions in `//src/algorithms/diagnostics` already take their lookup tables as parameters — that parameterization exists only because the tables were stranded in Qt-typed statics in backend. This plan adds the tables as portable constants in the same package, adds a one-line overload on each parser that binds them, converts two files' worth of call sites to call the portable functions directly, and then deletes the shim and the `error_codes.h` header. The `FileActions::parse_*` wrappers survive as one-line delegations, because ~300 further call sites across 21 legacy flash files still use them.
 
 **Tech Stack:** C++23, Bazel 9.1.1, GoogleTest, Qt 6.8.3 (only at the call sites being converted).
 
@@ -57,10 +57,10 @@ The existing tests pass because they use synthetic tables keyed by the *full* va
 | `src/algorithms/diagnostics/BUILD.bazel` | Add the `dtc_tables_test` target; delete the `qt_compat` target and its test. |
 | `src/ui/desktop/dtc_operations.cpp` | 6 call sites. |
 | `src/ui/desktop/BUILD.bazel` | Add `//src/algorithms/diagnostics` to `:desktop` deps. |
-| `src/platform/desktop/common/flash/legacy/tcu/flash_tcu_subaru_hitachi_m32r_can_operation.cpp` | 6 call sites; add two includes. |
+| `src/platform/desktop/common/flash/legacy/tcu/flash_tcu_subaru_hitachi_m32r_can_operation.cpp` | 14 call sites; add two includes. |
 | `src/platform/desktop/common/flash/legacy/BUILD.bazel` | Add `//src/algorithms/diagnostics` to `:legacy_flash_operations` deps. |
-| `src/backend/definitions/file_actions.h` / `.cpp` | Delete the five `QHash` declarations and the two `parse_*` wrappers. |
-| `src/backend/definitions/BUILD.bazel` | Drop the `//src/algorithms/diagnostics:qt_compat` dep. |
+| `src/backend/definitions/file_actions.h` / `.cpp` | Delete the five `QHash` declarations; reimplement the two `parse_*` wrappers over the portable functions. |
+| `src/backend/definitions/BUILD.bazel` | Swap the `:qt_compat` dep for `//src/algorithms/diagnostics`. |
 
 **Deleted:** `src/algorithms/diagnostics/qt_dtc_parser.{h,cpp}`, `qt_nrc_parser.{h,cpp}`, `diagnostic_parsers_qt_compat_test.cpp`, `src/backend/definitions/error_codes.h`.
 
@@ -593,9 +593,11 @@ This file does **not** currently include `qt_bytes.h`. Add both includes after t
 #include "src/algorithms/protocol/qt_bytes.h"
 ```
 
-- [ ] **Step 2: Convert all six sites**
+- [ ] **Step 2: Convert every site in this file**
 
-All six are byte-identical. Before:
+This file contains **14** `parse_nrc_message` calls, not the 6 an earlier
+truncated survey reported. Convert all of them; they are byte-identical.
+Before:
 
 ```cpp
             emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
@@ -610,7 +612,12 @@ after:
                        true, true);
 ```
 
-Apply at lines 122, 163, 198, 225, 254 and 293. Indentation differs between sites — match the surrounding block rather than copying the indentation above verbatim. Each site is inside its own braced block, so the repeated `nrcFrame` name does not collide.
+Apply at every occurrence in this file (14 of them). Indentation differs between sites — match the surrounding block rather than copying the indentation above verbatim. Each site is inside its own braced block, so the repeated `nrcFrame` name does not collide.
+
+Other files in the tree also call these wrappers (~300 sites across 21 more
+files). They are **out of scope**: Task 5 keeps `FileActions::parse_nrc_message`
+and `parse_dtc_message` alive as one-line delegations precisely so those files
+keep compiling untouched.
 
 - [ ] **Step 3: Add the build dependency**
 
@@ -621,8 +628,8 @@ In `src/platform/desktop/common/flash/legacy/BUILD.bazel`, in the `:legacy_flash
 Run: `bazel build --config=release //:fastecu`
 Expected: success.
 
-Run: `grep -rn "parse_nrc_message\|parse_dtc_message" src/ | grep -v "^src/backend/definitions/"`
-Expected: only the two commented-out lines in `src/ui/desktop/dtc_operations.cpp`. Every live caller is now converted.
+Run: `grep -c "parse_nrc_message\|parse_dtc_message" src/platform/desktop/common/flash/legacy/tcu/flash_tcu_subaru_hitachi_m32r_can_operation.cpp`
+Expected: `0` — this file is fully converted. Other legacy flash files still call the wrappers by design; do not touch them.
 
 - [ ] **Step 5: Commit**
 
@@ -639,16 +646,27 @@ the last live caller of FileActions::parse_nrc_message."
 
 ### Task 5: Delete the Qt shim and the FileActions tables
 
+**Scope was corrected mid-execution.** The plan originally assumed Tasks 3 and 4
+converted every caller, so `parse_nrc_message` / `parse_dtc_message` could be
+deleted. That was wrong: a truncated survey undercounted the call sites. There
+are ~330 across 22 files, of which Tasks 3 and 4 converted two files' worth.
+
+The human ruling is that **the two `FileActions` wrappers stay**, reimplemented
+as one-line delegations to the portable functions. The 21 remaining legacy
+flash files keep compiling untouched; they are step-6 rework territory. What
+this task deletes is the shim, the data header, and the `QHash` tables — which
+is 5d-5's actual goal. Tasks 3 and 4's direct conversions still stand as
+strictly better than going through a wrapper.
+
 **Files:**
 - Delete: `src/algorithms/diagnostics/qt_dtc_parser.h`, `qt_dtc_parser.cpp`, `qt_nrc_parser.h`, `qt_nrc_parser.cpp`, `diagnostic_parsers_qt_compat_test.cpp`
 - Delete: `src/backend/definitions/error_codes.h`
 - Modify: `src/algorithms/diagnostics/BUILD.bazel`, `src/backend/definitions/BUILD.bazel`
-- Modify: `src/backend/definitions/file_actions.h` (lines 169-175, 296-297), `file_actions.cpp` (line 8, lines 2130-2140)
-- Modify: `src/ui/desktop/dtc_operations.cpp` (lines 585, 611)
+- Modify: `src/backend/definitions/file_actions.h` (the five `QHash` declarations only), `file_actions.cpp` (includes + the two wrapper bodies)
 
 **Interfaces:**
-- Consumes: nothing.
-- Produces: nothing. This task is pure deletion.
+- Consumes: `nrc_description(bytes::ByteView)` and `dtc_description(std::uint16_t)` from Task 2.
+- Produces: `FileActions::parse_nrc_message` / `parse_dtc_message` survive with unchanged signatures and unchanged observable behavior; 21 files depend on that.
 
 - [ ] **Step 1: Delete the shim files and its test**
 
@@ -662,23 +680,54 @@ git rm src/algorithms/diagnostics/qt_dtc_parser.h \
 
 - [ ] **Step 2: Remove the shim's Bazel targets**
 
-In `src/algorithms/diagnostics/BUILD.bazel`, delete the whole `cc_library(name = "qt_compat", ...)` block together with its `# TRANSITIONAL Qt shim:` comment, and the whole `fastecu_qttest(name = "test_diagnostic_parsers", ...)` block.
+In `src/algorithms/diagnostics/BUILD.bazel`, delete the whole
+`cc_library(name = "qt_compat", ...)` block together with its
+`# TRANSITIONAL Qt shim:` comment, and the whole
+`fastecu_qttest(name = "test_diagnostic_parsers", ...)` block.
 
-The `load(...)` line at the top now over-imports. Change:
+No remaining target in that file uses `COMMON_COPTS`, `QT_DEPS` or
+`fastecu_qttest`, so delete the entire `load("//bazel:qt_targets.bzl", ...)`
+line. Buildifier flags unused loads.
 
-```python
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest")
+- [ ] **Step 3: Reimplement the two wrappers over the portable functions**
+
+In `src/backend/definitions/file_actions.cpp`, swap the two shim includes
+(currently lines 9 and 14) for the portable headers:
+
+```cpp
+-#include "src/algorithms/diagnostics/qt_dtc_parser.h"
++#include "src/algorithms/diagnostics/dtc_parser.h"
 ```
 
-to remove it entirely — no target in this file uses `COMMON_COPTS`, `QT_DEPS` or `fastecu_qttest` any more. Deleting the whole `load` line is correct; buildifier flags unused loads.
+```cpp
+-#include "src/algorithms/diagnostics/qt_nrc_parser.h"
++#include "src/algorithms/diagnostics/nrc_parser.h"
+```
 
-- [ ] **Step 3: Remove the backend dependency on the shim**
+`src/algorithms/protocol/qt_bytes.h` is already included at line 11, so
+`bytes::view` is available without a new include.
 
-In `src/backend/definitions/BUILD.bazel`, delete the `"//src/algorithms/diagnostics:qt_compat",` entry at line 141 **and** the five-line comment above it that begins `# file_actions.cpp includes qt_dtc_parser.h/qt_nrc_parser.h directly`.
+Then replace the two wrapper bodies:
 
-- [ ] **Step 4: Remove the FileActions members**
+```cpp
+QString FileActions::parse_nrc_message(const QByteArray& nrc)
+{
+    return QString::fromStdString(nrc_description(bytes::view(nrc)));
+}
 
-In `src/backend/definitions/file_actions.h`, delete lines 169-175 — the comment block and all five declarations:
+QString FileActions::parse_dtc_message(uint16_t dtc)
+{
+    return QString::fromStdString(dtc_description(dtc));
+}
+```
+
+The declarations in `file_actions.h` are unchanged — same names, same
+signatures, same return types. Callers cannot tell the difference.
+
+- [ ] **Step 4: Delete the QHash table declarations**
+
+In `src/backend/definitions/file_actions.h`, delete lines 169-175 — the
+comment block and all five declarations:
 
 ```cpp
     /***********************************
@@ -691,29 +740,11 @@ In `src/backend/definitions/file_actions.h`, delete lines 169-175 — the commen
     static const QHash<int, QString> dtc_Uxxxx_codes; // Inited at error_codes.h
 ```
 
-and the two declarations near line 296:
+Leave the `parse_nrc_message` / `parse_dtc_message` declarations near line 296
+**in place**.
 
-```cpp
-    static QString parse_nrc_message(const QByteArray& nrc);
-    static QString parse_dtc_message(uint16_t dtc);
-```
-
-In `src/backend/definitions/file_actions.cpp`, delete the `#include "src/backend/definitions/error_codes.h"` at line 8, and the two definitions at lines 2130-2140:
-
-```cpp
-QString FileActions::parse_nrc_message(const QByteArray& nrc)
-{
-    return NrcParser::parse(nrc, neg_rsp_codes);
-}
-
-QString FileActions::parse_dtc_message(uint16_t dtc)
-{
-    return DtcParser::parse(dtc, dtc_Pxxxx_codes, dtc_Cxxxx_codes,
-                            dtc_Bxxxx_codes, dtc_Uxxxx_codes);
-}
-```
-
-Also delete any now-unused `#include` of `qt_dtc_parser.h` / `qt_nrc_parser.h` in `file_actions.cpp`.
+In `file_actions.cpp`, delete the
+`#include "src/backend/definitions/error_codes.h"` at line 8.
 
 - [ ] **Step 5: Delete the data header**
 
@@ -721,31 +752,45 @@ Also delete any now-unused `#include` of `qt_dtc_parser.h` / `qt_nrc_parser.h` i
 git rm src/backend/definitions/error_codes.h
 ```
 
-`scripts/gen_dtc_tables.py` will no longer run after this — that is expected and correct. It is kept in the tree as the reviewable record of how `dtc_tables.cpp` was produced, and its docstring already says it must run before this deletion.
+`scripts/gen_dtc_tables.py` cannot run after this. That is expected: it is
+kept as the reviewable record of how `dtc_tables.cpp` was produced, and its
+docstring already says it must run before this deletion.
 
-- [ ] **Step 6: Delete the two dead commented-out call sites**
+- [ ] **Step 6: Swap the backend build dependency**
 
-In `src/ui/desktop/dtc_operations.cpp`, delete line 585 and line 611, both of which read:
+In `src/backend/definitions/BUILD.bazel` at line 145, replace the shim dep
+with the portable one:
 
-```cpp
-            // emit LOG_I("DTC: " + FileActions::parse_dtc_message(dtc), true, true);
+```python
+-        "//src/algorithms/diagnostics:qt_compat",
++        "//src/algorithms/diagnostics",
 ```
 
-They reference a method that no longer exists.
+Delete the five-line comment above it that begins
+`# file_actions.cpp includes qt_dtc_parser.h/qt_nrc_parser.h directly` — its
+rationale dies with the shim. Confirm the entry is still in alphabetical order
+relative to its neighbours after the edit.
 
-- [ ] **Step 7: Verify nothing references the deleted symbols**
+- [ ] **Step 7: Verify the deleted symbols are gone and the kept ones remain**
 
 Run:
 
 ```bash
-grep -rn "parse_nrc_message\|parse_dtc_message\|neg_rsp_codes\|dtc_Pxxxx_codes\|error_codes.h\|NrcParser\|DtcParser\|qt_compat.*diagnostics" src/ apps/ tests/
+grep -rn "error_codes.h\|NrcParser\|DtcParser\|neg_rsp_codes\|dtc_Pxxxx_codes\|diagnostics:qt_compat" src/ apps/ tests/
 ```
 
-Expected: no output at all.
-
-- [ ] **Step 8: Full build and test**
+Expected: **no output**. These are exactly the things this task removes.
 
 Run:
+
+```bash
+grep -rc "parse_nrc_message\|parse_dtc_message" src/backend/definitions/file_actions.h src/backend/definitions/file_actions.cpp
+```
+
+Expected: `file_actions.h:2` and `file_actions.cpp:2` — the two declarations
+and the two reimplemented bodies. These deliberately survive.
+
+- [ ] **Step 8: Full build and test**
 
 ```bash
 bazel build -k --config=release //:fastecu //tests/...
@@ -753,10 +798,12 @@ bazel test  -k --config=release //tests/... //:bazel_openssl_wiring \
             //:serial_compat_allowlist //:portable_closure
 ```
 
-Expected: all pass.
+Expected: all pass. The 21 unconverted flash files must still compile — that
+is the point of keeping the wrappers, and it is the main thing this build
+proves.
 
-Run: `prek run --all-files`
-Expected: pass (buildifier confirms the `load` line removal in Step 2 was complete).
+Run `prek run --all-files`. Expected: pass (buildifier confirms Step 2's
+`load` removal was complete).
 
 - [ ] **Step 9: Commit**
 
@@ -765,9 +812,14 @@ git add -A
 git commit -m "refactor: delete the NRC/DTC Qt shim and error_codes.h
 
 Drains the last transitional shim in //src/algorithms/diagnostics. The
-five QHash statics, the two FileActions wrappers, the 3,744-line
-error_codes.h and the qt_compat target are all gone; every caller now
-uses the portable functions directly.
+five QHash statics, the 3,744-line error_codes.h, and the qt_compat
+target and its test are gone; the tables now live portably beside the
+parsers that consume them.
+
+FileActions::parse_nrc_message/parse_dtc_message survive as one-line
+delegations to the portable functions. Twenty-one legacy flash
+operation files still call them, and converting ~300 hardware-facing
+call sites is step-6 rework, not this slice's job.
 
 Closes the 5d-5 diagnostics sub-slice."
 ```
@@ -903,7 +955,8 @@ corrected here too."
 
 ## Definition of done
 
-- `grep -rn "parse_nrc_message\|parse_dtc_message\|neg_rsp_codes\|error_codes.h\|NrcParser\|DtcParser" src/ apps/ tests/` returns nothing.
+- `grep -rn "error_codes.h\|NrcParser\|DtcParser\|neg_rsp_codes\|dtc_Pxxxx_codes" src/ apps/ tests/` returns nothing.
+- `FileActions::parse_nrc_message` / `parse_dtc_message` still exist as one-line delegations, and the 21 unconverted legacy flash files still build.
 - `//src/algorithms/diagnostics` has no `qt_compat` target and no Qt in its closure.
 - `bazel test -k --config=release //... ` passes.
 - `prek run --all-files` passes.
