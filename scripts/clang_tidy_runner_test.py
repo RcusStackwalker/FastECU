@@ -577,6 +577,39 @@ class ClangTidyRunnerTest(unittest.TestCase):
         )
         self.assertEqual("/tools/clang_tidy_compdb", commands[1][0])
 
+    def test_compdb_args_are_forwarded_to_refresh_tool(self) -> None:
+        source = self.root / "main.cpp"
+        source.write_text("int main() { return 0; }\n")
+        self.write_database([source])
+        commands: list[list[str]] = []
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            commands.append(command)
+            if command == ["xcrun", "--show-sdk-path"]:
+                return subprocess.CompletedProcess(command, 0, stdout="/SDK/MacOSX.sdk\n")
+            return subprocess.CompletedProcess(command, 0)
+
+        tools = runner.Tools(
+            clang_tidy="/llvm/bin/clang-tidy",
+            run_clang_tidy="/llvm/bin/run-clang-tidy",
+        )
+        with mock.patch.object(runner, "discover_tools", return_value=tools):
+            runner.run_workflow(
+                mode="report",
+                workspace=self.root,
+                compdb_tool="/tools/clang_tidy_compdb",
+                platform_name="darwin",
+                environ={},
+                command_runner=fake_run,
+                build_args=["--config=release", "//:fastecu"],
+                compdb_args=["--config=release"],
+            )
+
+        self.assertEqual(
+            ["/tools/clang_tidy_compdb", "--config=release"],
+            commands[1],
+        )
+
     def test_prebuild_is_skipped_without_build_args(self) -> None:
         source = self.root / "main.cpp"
         source.write_text("int main() { return 0; }\n")

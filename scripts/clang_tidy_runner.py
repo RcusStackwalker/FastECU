@@ -404,6 +404,10 @@ def _prebuild(command_runner: CommandRunner, build_args: Sequence[str], workspac
     the emitted compile flags reference them. Building first materializes
     them; --keep_going mirrors Hedron's own guidance so an unrelated failure
     doesn't block analysis of everything else.
+
+    Whatever compilation_mode this build uses must match --compdb-arg's (both
+    resolve into the same bazel-out/<config> directory), or compile_commands.json
+    ends up pointing at generated headers this step never wrote.
     """
     if not build_args:
         return
@@ -426,6 +430,7 @@ def run_workflow(
     environ: Mapping[str, str],
     command_runner: CommandRunner = subprocess.run,
     build_args: Sequence[str] = (),
+    compdb_args: Sequence[str] = (),
 ) -> int:
     if mode not in ("report", "fix"):
         raise WorkflowError(f"unsupported mode: {mode}")
@@ -433,7 +438,7 @@ def run_workflow(
         raise WorkflowError("clang-tidy fix mode is supported only on macOS and Linux")
 
     _prebuild(command_runner, build_args, workspace)
-    refresh_code = _run(command_runner, [compdb_tool], workspace)
+    refresh_code = _run(command_runner, [compdb_tool, *compdb_args], workspace)
     if refresh_code:
         raise WorkflowError(f"compilation database refresher failed with exit code {refresh_code}")
 
@@ -495,6 +500,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("mode", choices=("report", "fix"))
     parser.add_argument("--compdb-tool", required=True)
     parser.add_argument("--build-arg", action="append", default=[], dest="build_args")
+    parser.add_argument("--compdb-arg", action="append", default=[], dest="compdb_args")
     args = parser.parse_args(argv)
     try:
         root = workspace_root(os.environ)
@@ -508,6 +514,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             platform_name=sys.platform,
             environ=os.environ,
             build_args=args.build_args,
+            compdb_args=args.compdb_args,
         )
     except WorkflowError as error:
         print(f"clang-tidy: {error}", file=sys.stderr)

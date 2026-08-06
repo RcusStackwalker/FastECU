@@ -176,6 +176,13 @@ py_test(
 # symlink farms) can be absent from disk even though the emitted compile flags
 # reference them; a real build first materializes them. The refresh targets are
 # tagged manual, so this wildcard prebuild cannot include them recursively.
+# --build-arg and --compdb-arg both pin --config=release so the prebuild and
+# Hedron's own aquery resolve the same bazel-out/<config> directory (mismatched
+# modes would point compile_commands.json at headers the prebuild never wrote)
+# and so this reuses the same build the "Build Bazel targets" CI step already
+# did, instead of a second fastbuild-mode rebuild of everything -- fastbuild's
+# Windows MSVC toolchain emits a now-deprecated /DEBUG:FASTLINK link flag that
+# release/opt mode doesn't.
 py_binary(
     name = "clang_tidy_report",
     srcs = ["scripts/clang_tidy_runner.py"],
@@ -183,7 +190,9 @@ py_binary(
         "report",
         "--compdb-tool",
         "$(location //bazel/compile_commands:refresh)",
+        "--build-arg=--config=release",
         "--build-arg=//...",
+        "--compdb-arg=--config=release",
     ],
     data = [
         ".clang-tidy",
@@ -200,7 +209,9 @@ py_binary(
         "fix",
         "--compdb-tool",
         "$(location //bazel/compile_commands:refresh)",
+        "--build-arg=--config=release",
         "--build-arg=//...",
+        "--compdb-arg=--config=release",
     ],
     data = [
         ".clang-tidy",
