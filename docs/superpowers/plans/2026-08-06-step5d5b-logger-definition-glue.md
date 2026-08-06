@@ -1469,9 +1469,9 @@ std::vector<std::uint8_t> bytes_of(std::string_view text)
 class LoggerDefinitionServiceTest : public ::testing::Test
 {
   protected:
-    fastecu::testing::InMemoryFileRepository repository_;
-    fastecu::testing::InMemoryResourceBundle bundle_;
-    fastecu::testing::InMemoryAtomicFileWriter writer_;
+    fastecu::InMemoryFileRepository repository_;
+    fastecu::InMemoryResourceBundle bundle_;
+    fastecu::InMemoryAtomicFileWriter writer_;
 
     LoggerDefinitionService service()
     {
@@ -1481,7 +1481,7 @@ class LoggerDefinitionServiceTest : public ::testing::Test
 
 TEST_F(LoggerDefinitionServiceTest, LoadsAndParsesTheConfiguredHandle)
 {
-    repository_.set("logger.xml", bytes_of(kDefinition));
+    repository_.files["logger.xml"] = bytes_of(kDefinition);
 
     const auto definition = service().load_definition("logger.xml");
     ASSERT_TRUE(definition.has_value()) << definition.error().detail;
@@ -1506,7 +1506,8 @@ TEST_F(LoggerDefinitionServiceTest, ResolvesTheConfiguredHandleUnchanged)
 
 TEST_F(LoggerDefinitionServiceTest, PrefersTheConfigDirCdbgExampleWhenPresent)
 {
-    repository_.set("/home/u/.FastECU/logger_cdbg_example.xml", bytes_of(kDefinition));
+    repository_.files["/home/u/.FastECU/logger_cdbg_example.xml"] =
+        bytes_of(kDefinition);
 
     const auto handle = service().resolve_definition_handle("", "CDBG", "/home/u/.FastECU/");
     ASSERT_TRUE(handle.has_value()) << handle.error().detail;
@@ -1530,19 +1531,19 @@ TEST_F(LoggerDefinitionServiceTest, LeavesTheHandleEmptyForNonCdbgProtocols)
 
 TEST_F(LoggerDefinitionServiceTest, LoadsAnExistingSelectionWithoutWriting)
 {
-    repository_.set("logger.cfg", bytes_of(kConfWithEcu));
+    repository_.files["logger.cfg"] = bytes_of(kConfWithEcu);
     const auto definition = fastecu::logging::LoggerDefinition{};
 
     const auto selection =
         service().load_or_initialize_selection("logger.cfg", "ECUID1", definition);
     ASSERT_TRUE(selection.has_value()) << selection.error().detail;
     EXPECT_THAT(selection->gauge_ids, ElementsAre("P2"));
-    EXPECT_TRUE(writer_.writes().empty()) << "reading must not write";
+    EXPECT_TRUE(writer_.replace_calls.empty()) << "reading must not write";
 }
 
 TEST_F(LoggerDefinitionServiceTest, InitializesAndPersistsWhenTheEcuIsAbsent)
 {
-    repository_.set("logger.cfg", bytes_of("<config><logger/></config>"));
+    repository_.files["logger.cfg"] = bytes_of("<config><logger/></config>");
     const auto parsed = fastecu::logging::parse_logger_definition(
         bytes::ByteView(reinterpret_cast<const bytes::Byte *>(kDefinition.data()),
                         kDefinition.size()),
@@ -1554,28 +1555,28 @@ TEST_F(LoggerDefinitionServiceTest, InitializesAndPersistsWhenTheEcuIsAbsent)
     ASSERT_TRUE(selection.has_value()) << selection.error().detail;
     // Enabled-only walk: P1 is enabled, P2 is not.
     EXPECT_THAT(selection->gauge_ids, ElementsAre("P1"));
-    ASSERT_THAT(writer_.writes(), SizeIs(1)) << "the default must be persisted";
-    EXPECT_EQ(writer_.writes().at(0).first, "logger.cfg");
+    ASSERT_THAT(writer_.replace_calls, SizeIs(1)) << "the default must be persisted";
+    EXPECT_EQ(writer_.replace_calls.at(0).handle, "logger.cfg");
 }
 
 TEST_F(LoggerDefinitionServiceTest, SaveSelectionReplacesTheFileAtomically)
 {
-    repository_.set("logger.cfg", bytes_of(kConfWithEcu));
+    repository_.files["logger.cfg"] = bytes_of(kConfWithEcu);
     fastecu::logging::LoggerSelection selection;
     selection.protocol = "SSM";
     selection.gauge_ids = {"P9"};
 
     const auto status = service().save_selection("logger.cfg", "ECUID1", selection);
     ASSERT_TRUE(status.has_value()) << status.error().detail;
-    ASSERT_THAT(writer_.writes(), SizeIs(1));
-    const auto& written = writer_.writes().at(0).second;
+    ASSERT_THAT(writer_.replace_calls, SizeIs(1));
+    const auto& written = writer_.replace_calls.at(0).data;
     EXPECT_THAT(std::string(written.begin(), written.end()), HasSubstr("P9"));
 }
 
 } // namespace
 ```
 
-**Before writing this test, read `src/backend/ports/testing/in_memory_file_repository.h`, `in_memory_resource_bundle.h` and `in_memory_atomic_file_writer.h` and use their real APIs.** The `set(...)` / `writes()` calls above are this plan's assumption about their shape; the fakes' actual method names govern. If a fake cannot express "this handle is absent", that is the fake's existing behaviour — adapt the test, do not extend the fake.
+The fake APIs above were checked against the tree: all three live in namespace `fastecu` (not `fastecu::testing`), `InMemoryFileRepository` exposes a public `files` map plus `read_errors` / `read_handles` / `read_count()`, and `InMemoryAtomicFileWriter` records a public `replace_calls` vector of `ReplaceCall{handle, data}`. A handle absent from `files` makes `read` return `InvalidConfig` with detail `"no such handle"`, which is exactly what the CDBG-fallback test needs. **Read the three headers before writing the test anyway, and if anything differs, the headers govern — adapt the test, never extend a fake.**
 
 - [ ] **Step 2: Run test to verify it fails**
 
