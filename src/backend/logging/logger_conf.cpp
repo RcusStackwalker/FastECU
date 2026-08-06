@@ -1,6 +1,7 @@
 #include "src/backend/logging/logger_conf.h"
 
 #include <format>
+#include <ranges>
 #include <sstream>
 #include <string>
 
@@ -8,6 +9,9 @@
 
 namespace fastecu::logging
 {
+
+using namespace std::literals::string_view_literals;
+
 namespace
 {
 
@@ -41,37 +45,30 @@ Status load(pugi::xml_document& document, bytes::ByteView conf, std::string_view
 
 pugi::xml_node find_ecu(pugi::xml_node logger, std::string_view ecu_id)
 {
-    for (pugi::xml_node ecu : logger.children("ecu"))
-    {
-        if (ecu.attribute("id").value() == ecu_id)
-        {
-            return ecu;
-        }
-    }
-    return {};
+    const auto ecus = logger.children("ecu");
+    const auto it = std::ranges::find(ecus, ecu_id, [](pugi::xml_node n)
+                                      { return n.attribute("id"sv).value(); });
+    return it != ecus.end() ? *it : pugi::xml_node{};
 }
 
 void append_ids(
     pugi::xml_node parent,
-    const char *element_name,
+    std::string_view element_name,
     const std::vector<std::string>& ids)
 {
     for (const std::string& id : ids)
     {
         pugi::xml_node node = parent.append_child(element_name);
-        node.append_attribute("id") = id.c_str();
-        node.append_attribute("name") = "";
+        node.append_attribute("id"sv) = id;
+        node.append_attribute("name"sv) = ""sv;
     }
 }
 
-std::vector<std::string> collect_ids(pugi::xml_node parent, const char *element_name)
+std::vector<std::string> collect_ids(pugi::xml_node parent, std::string_view element_name)
 {
-    std::vector<std::string> ids;
-    for (pugi::xml_node node : parent.children(element_name))
-    {
-        ids.emplace_back(node.attribute("id").as_string("No id"));
-    }
-    return ids;
+    return parent.children(element_name.data()) | std::views::transform([](pugi::xml_node node)
+                                                                        { return std::string{node.attribute("id"sv).as_string("No id")}; }) |
+           std::ranges::to<std::vector>();
 }
 
 LoggerSelection walk(const LoggerDefinition& definition, bool enabled_only)
@@ -136,9 +133,9 @@ Result<std::optional<LoggerSelection>> read_selection(
     const pugi::xml_node protocol = ecu.child("protocol");
     selection.protocol = protocol.attribute("id").as_string("No id");
     const pugi::xml_node parameters = protocol.child("parameters");
-    selection.gauge_ids = collect_ids(parameters.child("gauges"), "parameter");
-    selection.lower_panel_ids = collect_ids(parameters.child("lower_panel"), "parameter");
-    selection.switch_ids = collect_ids(protocol.child("switches"), "switch");
+    selection.gauge_ids = collect_ids(parameters.child("gauges"), "parameter"sv);
+    selection.lower_panel_ids = collect_ids(parameters.child("lower_panel"), "parameter"sv);
+    selection.switch_ids = collect_ids(protocol.child("switches"), "switch"sv);
     return std::optional<LoggerSelection>{std::move(selection)};
 }
 
