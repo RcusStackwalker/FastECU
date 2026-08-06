@@ -32,6 +32,7 @@ PORTABLE_ROOTS = {
     ROOT / "src/backend/ports": {"ports"},
     ROOT / "src/backend/logging": {
         "logger_definition_model",
+        "logger_definition_parser",
         "logging_types",
         "logging_session",
         "logging_conversion",

@@ -1,5 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -22,6 +23,25 @@ cc_library(
     name = "logger_definition_model",
     hdrs = ["logger_definition_model.h"],
     visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "logger_definition_parser",
+    srcs = ["logger_definition_parser.cpp"],
+    hdrs = ["logger_definition_parser.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":logger_definition_model",
+        "//src/algorithms/protocol",
+        "//src/backend/ports",
+        "@pugixml",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "logger_definition_parser_test",
+    srcs = ["logger_definition_parser_test.cpp"],
+    deps = [":logger_definition_parser"],
 )
 
 cc_library(
