@@ -34,7 +34,9 @@ TEST(DiagnosticsPortable, NrcUnknownCodeReturnsUnknownErrorCode)
 
 TEST(DiagnosticsPortable, DtcDecodesKnownCategoryMap)
 {
-    const std::unordered_map<int, std::string> cCodes = {{0x4001, "C0001 - Test chassis code"}};
+    // Keyed by the 14-bit code, matching the real tables in dtc_tables.h --
+    // dtc_description masks the category bits off before the lookup.
+    const std::unordered_map<int, std::string> cCodes = {{0x0001, "C0001 - Test chassis code"}};
 
     EXPECT_EQ(dtc_description(0x4001, {}, cCodes, {}, {}), "C0001 - Test chassis code");
 }

@@ -137,17 +137,13 @@ qt_cc_library(
         ":models",
         "//resources/shared:config_resource",
         "//resources/shared:kernels_resource",
-        # file_actions.cpp includes qt_dtc_parser.h/qt_nrc_parser.h directly
-        # (its neg_rsp_codes/dtc_*_codes lookup tables are still QHash
-        # statics defined in error_codes.h); not in the original plan's dep
-        # list, added after checking the real #include graph (see
-        # task-4-report.md, task-5-report.md).
-        "//src/algorithms/diagnostics:qt_compat",
+        "//src/algorithms/diagnostics",
         "//src/algorithms/expression:qt_compat",
+        "//src/algorithms/protocol:qt_compat",
         "//src/backend/calibration:calibration_service",
         "//src/backend/calibration:legacy_calibration_adapter",
-        "//src/backend/checksum:legacy_checksum_adapter",
         "//src/backend/checksum:flash_device_lookup",
+        "//src/backend/checksum:legacy_checksum_adapter",
         "//src/backend/config:legacy_config_adapter",
         "//src/backend/definition:definition_service",
         "//src/backend/definition:legacy_definition_adapter",

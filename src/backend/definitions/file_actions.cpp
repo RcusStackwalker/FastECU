@@ -1,17 +1,17 @@
-// #include "src/backend/definitions/file_actions.h"
+#include "src/backend/definitions/file_actions.h"
+
 #include <algorithm>
 #include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "src/backend/definitions/error_codes.h"
-#include "src/algorithms/diagnostics/qt_dtc_parser.h"
+#include "src/algorithms/diagnostics/dtc_parser.h"
 #include "src/algorithms/expression/qt_expression_evaluator.h"
 #include "src/algorithms/protocol/qt_bytes.h"
 #include "src/backend/calibration/calibration_service.h"
 #include "src/backend/checksum/flash_device_lookup.h"
-#include "src/algorithms/diagnostics/qt_nrc_parser.h"
+#include "src/algorithms/diagnostics/nrc_parser.h"
 
 namespace
 {
@@ -2130,11 +2130,10 @@ double FileActions::calculate_value_from_expression(const QStringList& expressio
 
 QString FileActions::parse_nrc_message(const QByteArray& nrc)
 {
-    return NrcParser::parse(nrc, neg_rsp_codes);
+    return QString::fromStdString(nrc_description(bytes::view(nrc)));
 }
 
 QString FileActions::parse_dtc_message(uint16_t dtc)
 {
-    return DtcParser::parse(dtc, dtc_Pxxxx_codes, dtc_Cxxxx_codes,
-                            dtc_Bxxxx_codes, dtc_Uxxxx_codes);
+    return QString::fromStdString(dtc_description(dtc));
 }

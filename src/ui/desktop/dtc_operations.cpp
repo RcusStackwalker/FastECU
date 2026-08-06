@@ -5,6 +5,8 @@
 #include <functional>
 
 #include "src/algorithms/protocol/qt_bytes.h"
+#include "src/algorithms/diagnostics/dtc_parser.h"
+#include "src/algorithms/diagnostics/nrc_parser.h"
 
 DtcOperations::DtcOperations(SerialPortActions *serial, QWidget *parent)
     : QDialog(parent), serial(serial), ui{std::make_unique<Ui::DtcOperationsWindow>()}
@@ -309,7 +311,10 @@ int DtcOperations::iso15765_init()
     {
         if (received.at(4) == 0x7f)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(3, received.length() - 1)), true, true);
+            const QByteArray nrcFrame = received.mid(3, received.length() - 1);
+            emit LOG_E("Wrong response from ECU: " +
+                           QString::fromStdString(nrc_description(bytes::view(nrcFrame))),
+                       true, true);
             return STATUS_ERROR;
         }
         else if (received.at(4) != 0x41)
@@ -379,7 +384,10 @@ QByteArray DtcOperations::request_data(const uint8_t cmd, const uint8_t sub_cmd)
         {
             if (received.at(cmd_index) == 0x7f)
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(cmd_index, received.length() - 1)), true, true);
+                const QByteArray nrcFrame = received.mid(cmd_index, received.length() - 1);
+                emit LOG_E("Wrong response from ECU: " +
+                               QString::fromStdString(nrc_description(bytes::view(nrcFrame))),
+                           true, true);
                 break;
             }
             else if (received.at(cmd_index) != (cmd | 0x40) || received.at(cmd_index + 1) != sub_cmd)
@@ -530,7 +538,10 @@ QByteArray DtcOperations::request_dtc_list(uint8_t cmd)
         {
             if (received.at(cmd_index) == 0x7f)
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(cmd_index, received.length() - 1)), true, true);
+                const QByteArray nrcFrame = received.mid(cmd_index, received.length() - 1);
+                emit LOG_E("Wrong response from ECU: " +
+                               QString::fromStdString(nrc_description(bytes::view(nrcFrame))),
+                           true, true);
                 break;
             }
             else if (received.at(cmd_index) != (cmd | 0x40))
@@ -588,7 +599,9 @@ int DtcOperations::read_dtc()
     std::sort(dtc_list.begin(), dtc_list.end(), std::less<QString>());
     for (int i = 0; i < dtc_list.length(); i++)
     {
-        emit LOG_I("DTC: " + FileActions::parse_dtc_message(dtc_list.at(i).toUInt(&ok, 16)), true, true);
+        emit LOG_I("DTC: " + QString::fromStdString(
+                                 dtc_description(static_cast<std::uint16_t>(dtc_list.at(i).toUInt(&ok, 16)))),
+                   true, true);
     }
 
     delay(250);
@@ -614,7 +627,9 @@ int DtcOperations::read_dtc()
     std::sort(dtc_list.begin(), dtc_list.end(), std::less<QString>());
     for (int i = 0; i < dtc_list.length(); i++)
     {
-        emit LOG_I("DTC: " + FileActions::parse_dtc_message(dtc_list.at(i).toUInt(&ok, 16)), true, true);
+        emit LOG_I("DTC: " + QString::fromStdString(
+                                 dtc_description(static_cast<std::uint16_t>(dtc_list.at(i).toUInt(&ok, 16)))),
+                   true, true);
     }
 
     delay(250);
@@ -667,7 +682,10 @@ int DtcOperations::clear_dtc()
         {
             if (received.at(cmd_index) == 0x7f)
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(cmd_index, received.length() - 1)), true, true);
+                const QByteArray nrcFrame = received.mid(cmd_index, received.length() - 1);
+                emit LOG_E("Wrong response from ECU: " +
+                               QString::fromStdString(nrc_description(bytes::view(nrcFrame))),
+                           true, true);
                 break;
             }
             else if (received.at(cmd_index) != (clear_DTCs | 0x40))

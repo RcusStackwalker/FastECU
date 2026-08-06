@@ -1,5 +1,7 @@
 #include "src/algorithms/diagnostics/dtc_parser.h"
 
+#include "src/algorithms/diagnostics/dtc_tables.h"
+
 #include <array>
 #include <format>
 
@@ -44,6 +46,13 @@ std::string dtc_description(std::uint16_t dtc,
         return fallback;
     }
 
-    const auto it = table->find(dtc);
+    // Tables are keyed by the 14-bit code, not the full value -- the top two
+    // bits already selected which table to consult above.
+    const auto it = table->find(dtc & 0x3fff);
     return it != table->end() ? it->second : fallback;
+}
+
+std::string dtc_description(std::uint16_t dtc)
+{
+    return dtc_description(dtc, dtc_p_codes(), dtc_c_codes(), dtc_b_codes(), dtc_u_codes());
 }

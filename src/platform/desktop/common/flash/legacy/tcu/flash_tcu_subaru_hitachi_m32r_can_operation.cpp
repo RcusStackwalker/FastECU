@@ -1,6 +1,8 @@
 #include "src/platform/desktop/common/flash/legacy/tcu/flash_tcu_subaru_hitachi_m32r_can_operation.h"
 #include "src/backend/flash/flash_utils.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
+#include "src/algorithms/diagnostics/nrc_parser.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <QElapsedTimer>
@@ -119,7 +121,10 @@ int FlashTcuSubaruHitachiM32rCanOperation::connect_bootloader()
         }
         else
         {
-            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+            const QByteArray nrcFrame = received.mid(4, received.length() - 1);
+            emit LOG_E("Wrong response from TCU: " +
+                           QString::fromStdString(nrc_description(bytes::view(nrcFrame))),
+                       true, true);
         }
     }
     else
@@ -160,7 +165,10 @@ int FlashTcuSubaruHitachiM32rCanOperation::connect_bootloader()
         }
         else
         {
-            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+            const QByteArray nrcFrame = received.mid(4, received.length() - 1);
+            emit LOG_E("Wrong response from TCU: " +
+                           QString::fromStdString(nrc_description(bytes::view(nrcFrame))),
+                       true, true);
         }
     }
     else
@@ -195,7 +203,10 @@ int FlashTcuSubaruHitachiM32rCanOperation::connect_bootloader()
         }
         else
         {
-            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+            const QByteArray nrcFrame = received.mid(4, received.length() - 1);
+            emit LOG_E("Wrong response from TCU: " +
+                           QString::fromStdString(nrc_description(bytes::view(nrcFrame))),
+                       true, true);
         }
     }
     else
@@ -222,7 +233,10 @@ int FlashTcuSubaruHitachiM32rCanOperation::connect_bootloader()
         }
         else
         {
-            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+            const QByteArray nrcFrame = received.mid(4, received.length() - 1);
+            emit LOG_E("Wrong response from TCU: " +
+                           QString::fromStdString(nrc_description(bytes::view(nrcFrame))),
+                       true, true);
 
             return STATUS_ERROR;
         }
@@ -251,7 +265,10 @@ int FlashTcuSubaruHitachiM32rCanOperation::connect_bootloader()
     {
         if ((uint8_t)received.at(4) != 0x67 || (uint8_t)received.at(5) != 0x01)
         {
-            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+            const QByteArray nrcFrame = received.mid(4, received.length() - 1);
+            emit LOG_E("Wrong response from TCU: " +
+                           QString::fromStdString(nrc_description(bytes::view(nrcFrame))),
+                       true, true);
 
             return STATUS_ERROR;
         }
@@ -290,7 +307,10 @@ int FlashTcuSubaruHitachiM32rCanOperation::connect_bootloader()
     {
         if ((uint8_t)received.at(4) != 0x67 || (uint8_t)received.at(5) != 0x02)
         {
-            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+            const QByteArray nrcFrame = received.mid(4, received.length() - 1);
+            emit LOG_E("Wrong response from TCU: " +
+                           QString::fromStdString(nrc_description(bytes::view(nrcFrame))),
+                       true, true);
 
             return STATUS_ERROR;
         }
@@ -347,7 +367,10 @@ int FlashTcuSubaruHitachiM32rCanOperation::connect_bootloader()
         }
         else
         {
-            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+            const QByteArray nrcFrame = received.mid(4, received.length() - 1);
+            emit LOG_E("Wrong response from TCU: " +
+                           QString::fromStdString(nrc_description(bytes::view(nrcFrame))),
+                       true, true);
 
             return STATUS_ERROR;
         }
@@ -418,7 +441,10 @@ int FlashTcuSubaruHitachiM32rCanOperation::read_mem(uint32_t start_addr, uint32_
     {
         if ((uint8_t)received.at(4) != 0x74 || (uint8_t)received.at(5) != 0x20 || (uint8_t)received.at(6) != 0x01 || (uint8_t)received.at(7) != 0x04)
         {
-            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+            const QByteArray nrcFrame = received.mid(4, received.length() - 1);
+            emit LOG_E("Wrong response from TCU: " +
+                           QString::fromStdString(nrc_description(bytes::view(nrcFrame))),
+                       true, true);
 
             return STATUS_ERROR;
         }
@@ -473,7 +499,10 @@ int FlashTcuSubaruHitachiM32rCanOperation::read_mem(uint32_t start_addr, uint32_
         {
             if ((uint8_t)received.at(4) != 0xF7)
             {
-                emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+                const QByteArray nrcFrame = received.mid(4, received.length() - 1);
+                emit LOG_E("Wrong response from TCU: " +
+                               QString::fromStdString(nrc_description(bytes::view(nrcFrame))),
+                           true, true);
 
                 return STATUS_ERROR;
             }
@@ -548,7 +577,10 @@ int FlashTcuSubaruHitachiM32rCanOperation::read_mem(uint32_t start_addr, uint32_
     {
         if ((uint8_t)received.at(4) != 0x77)
         {
-            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+            const QByteArray nrcFrame = received.mid(4, received.length() - 1);
+            emit LOG_E("Wrong response from TCU: " +
+                           QString::fromStdString(nrc_description(bytes::view(nrcFrame))),
+                       true, true);
 
             // return STATUS_ERROR;
         }
@@ -724,7 +756,10 @@ int FlashTcuSubaruHitachiM32rCanOperation::reflash_block(const uint8_t *newdata,
     {
         if ((uint8_t)received.at(4) != 0x74)
         {
-            emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+            const QByteArray nrcFrame = received.mid(4, received.length() - 1);
+            emit LOG_E("Wrong response from TCU: " +
+                           QString::fromStdString(nrc_description(bytes::view(nrcFrame))),
+                       true, true);
 
             return STATUS_ERROR;
         }
@@ -768,7 +803,10 @@ int FlashTcuSubaruHitachiM32rCanOperation::reflash_block(const uint8_t *newdata,
         {
             if ((uint8_t)received.at(4) != 0xF6)
             {
-                emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+                const QByteArray nrcFrame = received.mid(4, received.length() - 1);
+                emit LOG_E("Wrong response from TCU: " +
+                               QString::fromStdString(nrc_description(bytes::view(nrcFrame))),
+                           true, true);
 
                 return STATUS_ERROR;
             }
@@ -808,7 +846,10 @@ int FlashTcuSubaruHitachiM32rCanOperation::reflash_block(const uint8_t *newdata,
             }
             else
             {
-                emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+                const QByteArray nrcFrame = received.mid(4, received.length() - 1);
+                emit LOG_E("Wrong response from TCU: " +
+                               QString::fromStdString(nrc_description(bytes::view(nrcFrame))),
+                           true, true);
 
                 // return STATUS_ERROR;
             }
@@ -853,7 +894,10 @@ int FlashTcuSubaruHitachiM32rCanOperation::reflash_block(const uint8_t *newdata,
             }
             else
             {
-                emit LOG_E("Wrong response from TCU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+                const QByteArray nrcFrame = received.mid(4, received.length() - 1);
+                emit LOG_E("Wrong response from TCU: " +
+                               QString::fromStdString(nrc_description(bytes::view(nrcFrame))),
+                           true, true);
 
                 // return STATUS_ERROR;
             }

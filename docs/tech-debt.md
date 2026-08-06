@@ -298,18 +298,13 @@ Actions:
 ### P2: Naming and source/data organization
 
 Some names and data placement still reflect earlier architecture:
-`log_operations_ssm.cpp` contains MUT/DMA bench utilities, 31 source/header
-files define duplicate `STATUS_SUCCESS`/`STATUS_ERROR` macros, and the 3.7k-line
-`error_codes.h` table is pulled into normal C++ compilation through
-`FileActions`.
+`log_operations_ssm.cpp` contains MUT/DMA bench utilities, and 31 source/header
+files define duplicate `STATUS_SUCCESS`/`STATUS_ERROR` macros.
 
 Actions:
 
 - Move misplaced code into files and namespaces matching current ownership.
 - Replace repeated status macros with typed enums or shared result types.
-- Store diagnostic code tables as structured data or generate a focused lookup
-  source instead of keeping a hand-maintained giant header in common include
-  paths.
 - Remove stale commented-out code while touching nearby behavior.
 
 ## Coverage growth sequence toward 80%

@@ -1,6 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest")
 
 package(default_visibility = [
     "//src/algorithms:__subpackages__",
@@ -38,28 +37,6 @@ cc_library(
     deps = ["//src/algorithms/protocol"],
 )
 
-# TRANSITIONAL Qt shim: preserves the pre-conversion NrcParser::parse /
-# DtcParser::parse QByteArray/QHash<int,QString> API for backend FileActions,
-# whose NRC/DTC lookup tables are still QHash statics (error_codes.h),
-# delegating to the portable nrc_description()/dtc_description() free
-# functions.
-cc_library(
-    name = "qt_compat",
-    srcs = [
-        "qt_dtc_parser.cpp",
-        "qt_nrc_parser.cpp",
-    ],
-    hdrs = [
-        "qt_dtc_parser.h",
-        "qt_nrc_parser.h",
-    ],
-    copts = COMMON_COPTS,
-    deps = QT_DEPS + [
-        ":diagnostics",
-        "//src/algorithms/protocol:qt_compat",
-    ],
-)
-
 cc_test(
     name = "diagnostics_test",
     size = "small",
@@ -70,8 +47,12 @@ cc_test(
     ],
 )
 
-fastecu_qttest(
-    name = "test_diagnostic_parsers",
-    src = "diagnostic_parsers_qt_compat_test.cpp",
-    deps = [":qt_compat"],
+cc_test(
+    name = "dtc_tables_test",
+    size = "small",
+    srcs = ["dtc_tables_test.cpp"],
+    deps = [
+        ":diagnostics",
+        "@googletest//:gtest_main",
+    ],
 )
