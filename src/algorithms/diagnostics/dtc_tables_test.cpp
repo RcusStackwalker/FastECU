@@ -78,3 +78,32 @@ TEST(DiagnosticDefaults, DtcOverloadUsesTheRealPowertrainTable)
 {
     EXPECT_EQ(dtc_description(0x0000), "P0000 - No trouble code");
 }
+
+// Regression: the tables are keyed by the 14-bit code, but dtc_description
+// used to look up the full value including the two category bits it had
+// already consumed to pick the table. P codes worked by coincidence
+// (category 0 leaves the value unchanged); C, B and U never matched, so
+// 1,933 of the 3,666 descriptions in the tree were unreachable.
+TEST(DiagnosticDefaults, NonPowertrainCategoriesResolveRealDescriptions)
+{
+    EXPECT_EQ(dtc_description(0x4000 | 0x1091),
+              "C1091 - Speed Wheel Sensor All Coherency Failure");
+    EXPECT_EQ(dtc_description(0x8000 | 0x1200),
+              "B1200 - Climate Control Pushbutton Circuit Failure");
+    EXPECT_EQ(dtc_description(0xc000 | 0x1000),
+              "U1000 - SCP (J1850) Invalid or Missing Data for Primary Id");
+}
+
+// The category bits must still select the right table -- a mask alone would
+// let a B code resolve against the C table.
+TEST(DiagnosticDefaults, CategoryStillSelectsTheTable)
+{
+    // 0x1290 is a real B key and absent from the C table. When asked as a C
+    // code, it should fall back to unknown, not return the B description.
+    EXPECT_EQ(dtc_description(0x4000 | 0x1290), "C1290 - Unknown error code");
+}
+
+TEST(DiagnosticDefaults, UnknownCodesStillFallBack)
+{
+    EXPECT_EQ(dtc_description(0x8000 | 0x3fff), "B3fff - Unknown error code");
+}

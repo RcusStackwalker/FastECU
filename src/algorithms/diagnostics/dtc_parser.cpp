@@ -46,7 +46,9 @@ std::string dtc_description(std::uint16_t dtc,
         return fallback;
     }
 
-    const auto it = table->find(dtc);
+    // Tables are keyed by the 14-bit code, not the full value -- the top two
+    // bits already selected which table to consult above.
+    const auto it = table->find(dtc & 0x3fff);
     return it != table->end() ? it->second : fallback;
 }
 
