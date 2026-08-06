@@ -19,6 +19,12 @@ cc_library(
 )
 
 cc_library(
+    name = "logger_definition_model",
+    hdrs = ["logger_definition_model.h"],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
     name = "logging_session",
     srcs = ["logging_session.cpp"],
     hdrs = ["logging_session.h"],
