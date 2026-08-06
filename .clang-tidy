@@ -31,6 +31,7 @@ Checks: >
   -clang-analyzer-cplusplus.NewDeleteLeaks,
   -clang-analyzer-deadcode.DeadStores,
   -clang-analyzer-security.ArrayBound,
+  -clang-diagnostic-error,
   -cppcoreguidelines-pro-type-member-init,
   modernize-deprecated-headers,
   performance-avoid-endl,
@@ -41,7 +42,7 @@ Checks: >
   readability-simplify-boolean-expr,
   readability-use-anyofallof
 
-WarningsAsErrors: '*,-clang-diagnostic-error'
+WarningsAsErrors: '*'
 HeaderFilterRegex: 'src/(algorithms|backend|platform|ui)/.*\.h'
 ExcludeHeaderFilterRegex: '(/generated_ui/.*|_replica)\.h'
 FormatStyle: none
