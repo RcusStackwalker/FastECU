@@ -123,14 +123,22 @@ TEST(ProvisionConfigDirectories, PrunesSyslogsKeepingNewest20)
 
     int remaining = 0;
     for (auto& [path, bytes] : fs.files)
+    {
         if (path.starts_with(paths.syslog_files_directory))
+        {
             ++remaining;
+        }
+    }
     EXPECT_EQ(remaining, 20);
     // The 5 oldest (mtime 0..4) are the ones removed.
     for (int i = 0; i < 5; ++i)
+    {
         EXPECT_FALSE(fs.exists(paths.syslog_files_directory + "log" + std::to_string(i) + ".txt"));
+    }
     for (int i = 5; i < 25; ++i)
+    {
         EXPECT_TRUE(fs.exists(paths.syslog_files_directory + "log" + std::to_string(i) + ".txt"));
+    }
 }
 
 TEST(ProvisionConfigDirectories, BundleCopyFailurePropagatesRatherThanBeingSwallowed)

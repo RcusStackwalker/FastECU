@@ -89,7 +89,7 @@ TEST(LoggingSessionTest, RejectsInvalidChannelIdentityAndAssembly)
     EXPECT_EQ(excessive_length.error().kind, fastecu::ErrorKind::InvalidConfig);
 
     c = channel("rpm", 0x10);
-    c.raw_assembly = static_cast<RawAssembly>(99);
+    c.raw_assembly = static_cast<RawAssembly>(99); // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange) -- exercising the invalid-value rejection path
     auto invalid_assembly = make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy());
     ASSERT_FALSE(invalid_assembly);
     EXPECT_EQ(invalid_assembly.error().kind, fastecu::ErrorKind::InvalidConfig);
@@ -156,6 +156,7 @@ TEST(LoggingSessionTest, RequiresAtLeastOneCdbgChannel)
 
 TEST(LoggingSessionTest, RejectsUnknownProtocolIdentifiers)
 {
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) -- exercising the invalid-value rejection path
     auto result = make_logging_session(static_cast<LoggingProtocolId>(99), {}, valid_policy());
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::InvalidConfig);

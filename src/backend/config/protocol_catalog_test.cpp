@@ -238,5 +238,7 @@ TEST(LoadProtocolCatalog, ParsesTheRealShippedProtocolsFileWithoutError)
     // combined <protocol> + <car_model> element count in the same file).
     EXPECT_GT(catalog->size(), 50u);
     for (const auto& entry : *catalog)
+    {
         EXPECT_FALSE(entry.protocol_name.empty());
+    }
 }

@@ -155,7 +155,7 @@ TEST(LegacyChecksumAdapterTest, GateNotConsultedWhenDefinitionAlreadyLinked)
 TEST(LegacyChecksumAdapterTest, DisabledDieselChecksumPreservesRomData)
 {
     TestableChecksumAdapter adapter;
-    bytes::Bytes rom(1024 * 1024, 0);
+    bytes::Bytes rom(1024uz * 1024, 0);
     bytes::writeU32Be(rom, 0x0FFB88, 0x5AA5A55A);
 
     const LegacyChecksumAdapterResult result = adapter.checksum_correction(

@@ -481,9 +481,11 @@ void enqueueUploadKernel(ScriptedCanFlashTransport& transport, bytes::ByteView k
     for (std::uint32_t blockno = 0; blockno <= plan.maxBlocks; ++blockno)
     {
         const std::uint32_t blockAddr = kernelStartAddr + blockno * 128;
-        const bytes::ByteView chunk = blockno < plan.maxBlocks
-                                          ? bytes::ByteView(plan.encryptedPayload).subspan(blockno * 128, 128)
-                                          : bytes::ByteView{};
+        const bytes::ByteView chunk =
+            blockno < plan.maxBlocks
+                ? bytes::ByteView(plan.encryptedPayload)
+                      .subspan(static_cast<std::size_t>(blockno) * 128, 128)
+                : bytes::ByteView{};
         transport.expectWrite(sidB6TransferBlockRequest(blockAddr, chunk));
         transport.queue_no_frame(); // response content is never inspected
     }

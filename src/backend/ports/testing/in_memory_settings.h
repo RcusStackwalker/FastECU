@@ -12,7 +12,9 @@ class InMemorySettings : public ISettings
     {
         auto it = kv.find(std::string(k));
         if (it == kv.end())
+        {
             return std::nullopt;
+        }
         return it->second;
     }
     void set(std::string_view k, std::string_view v) override

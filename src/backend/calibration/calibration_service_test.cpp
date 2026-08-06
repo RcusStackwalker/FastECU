@@ -373,7 +373,7 @@ TEST(ApplyFlashMethodPadding, LeavesRomsAtOrAboveTheSizeThresholdAlone)
 {
     // 190 * 1024 == 0x2F800; the guard is "< 190 * 1024", so exactly at the
     // threshold must not pad.
-    std::vector<std::uint8_t> rom(190 * 1024, 0xAA);
+    std::vector<std::uint8_t> rom(190uz * 1024, 0xAA);
     rom = apply_flash_method_padding(std::move(rom), "sub_ecu_denso_mc68hc16y5_02");
     EXPECT_EQ(rom.size(), static_cast<std::size_t>(190 * 1024));
 }
