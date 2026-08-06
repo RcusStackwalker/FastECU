@@ -69,6 +69,7 @@ The existing tests pass because they use synthetic tables keyed by the *full* va
 ### Task 1: Portable diagnostic tables
 
 **Files:**
+- Modify: `src/backend/definitions/error_codes.h:1404` (duplicate-key fix, committed separately)
 - Create: `scripts/gen_dtc_tables.py`
 - Create: `src/algorithms/diagnostics/dtc_tables.h`
 - Create: `src/algorithms/diagnostics/dtc_tables.cpp` (generated)
@@ -105,7 +106,62 @@ const std::unordered_map<int, std::string>& dtc_c_codes();
 const std::unordered_map<int, std::string>& dtc_u_codes();
 ```
 
-- [ ] **Step 2: Write the transcription script**
+- [ ] **Step 2: Fix the duplicate key in error_codes.h**
+
+`error_codes.h` has exactly one duplicate key across all five tables:
+`dtc_Pxxxx_codes` keys `0x1496` twice, at lines 1402 and 1404. The second
+entry's description is self-labeling and the surrounding run is contiguous
+(1494, 1495, 1496, 1497, **1496**, 1499), so the key was simply not bumped
+when the line was copied.
+
+This matters because the two container types disagree on duplicates.
+`QHash`'s initializer-list constructor inserts, so **last wins** — today
+`parse_dtc_message(0x1496)` returns *P1498's* text. `std::unordered_map`'s
+constructor **first wins**. Transcribing verbatim would silently change that
+answer, and `0x1498` would stay absent, leaving real code P1498 unreachable.
+
+At `src/backend/definitions/error_codes.h:1404`:
+
+```cpp
+-    {0x1496, "P1498 - EGR Solenoid Valve Signal #4 Circuit Malfunction (Low Input)"},
++    {0x1498, "P1498 - EGR Solenoid Valve Signal #4 Circuit Malfunction (Low Input)"},
+```
+
+Verify the table now has 1733 unique keys and no duplicates remain:
+
+```bash
+python3 - <<'EOF'
+import re, collections
+txt = open('src/backend/definitions/error_codes.h').read()
+blocks = re.split(r'^const QHash<int, QString> FileActions::(\w+)\{', txt, flags=re.M)
+for i in range(1, len(blocks), 2):
+    name, body = blocks[i], blocks[i+1].split('};')[0]
+    keys = [k for k, _ in re.findall(r'\{(0x[0-9A-Fa-f]+), "([^"]*)"\}', body)]
+    dups = {k: c for k, c in collections.Counter(keys).items() if c > 1}
+    print(f"{name}: {len(keys)} lines, {len(set(keys))} unique, dups={dups}")
+EOF
+```
+
+Expected: every table reports `dups={}`, and `dtc_Pxxxx_codes` reports
+`1733 lines, 1733 unique`.
+
+Commit this on its own, before any transcription:
+
+```bash
+git add src/backend/definitions/error_codes.h
+git commit -m "fix: correct the duplicated P1496 DTC key
+
+error_codes.h keyed both P1496 and P1498 at 0x1496 -- the key was not
+bumped when the line was copied. QHash keeps the last insert, so a
+P1496 readout printed P1498's description, and P1498 itself was
+unreachable. The description strings are self-labeling and the
+surrounding run is contiguous, so the intended key is unambiguous.
+
+Found while verifying table contents for the portable transcription;
+fixed first so the move stays a faithful copy."
+```
+
+- [ ] **Step 3: Write the transcription script**
 
 The `QHash<int, QString>` and `std::unordered_map<int, std::string>` initializer-list entry syntax is identical, so entry lines are copied byte-for-byte and only the surrounding declaration changes. Create `scripts/gen_dtc_tables.py`:
 
@@ -170,7 +226,7 @@ for member, fn in ACCESSORS:
     print(f"  {fn}(): {count(body(member))} entries")
 ```
 
-- [ ] **Step 3: Run the script**
+- [ ] **Step 4: Run the script**
 
 Run: `python3 scripts/gen_dtc_tables.py`
 
@@ -187,7 +243,7 @@ wrote src/algorithms/diagnostics/dtc_tables.cpp
 
 If any count differs, stop — `error_codes.h` is not what this plan was written against.
 
-- [ ] **Step 4: Write the failing golden test**
+- [ ] **Step 5: Write the failing golden test**
 
 The point of this test is that the transcription is lossless. Counts catch a truncated table; sampled entries catch a mangled one; the first/last key of each table catches an off-by-one at a block boundary.
 
@@ -230,6 +286,17 @@ TEST(DiagnosticTables, FirstAndLastEntryOfEachDtcTableSurvived)
               "U2500 - (CAN) Lack of Acknowledgement From Engine Management");
 }
 
+// Regression for the duplicate key corrected in Step 2: error_codes.h keyed
+// both P1496 and P1498 at 0x1496, so a P1496 readout printed P1498's text and
+// P1498 was unreachable.
+TEST(DiagnosticTables, PowertrainCodesAroundTheFormerDuplicateAreDistinct)
+{
+    EXPECT_EQ(dtc_p_codes().at(0x1496),
+              "P1496 - EGR Solenoid Valve Signal #3 Circuit Malfunction (Low Input)");
+    EXPECT_EQ(dtc_p_codes().at(0x1498),
+              "P1498 - EGR Solenoid Valve Signal #4 Circuit Malfunction (Low Input)");
+}
+
 // Every key is below 0x4000, i.e. the category bits are masked off. This is
 // the invariant dtc_description's lookup depends on; if a future table edit
 // breaks it, the mask in dtc_parser.cpp silently starts mismatching.
@@ -246,7 +313,7 @@ TEST(DiagnosticTables, DtcKeysCarryNoCategoryBits)
 }
 ```
 
-- [ ] **Step 5: Register the test target**
+- [ ] **Step 6: Register the test target**
 
 In `src/algorithms/diagnostics/BUILD.bazel`, after the existing `diagnostics_test` target, add:
 
@@ -264,17 +331,17 @@ cc_test(
 
 Do **not** add `dtc_tables.cpp`/`.h` to the `:diagnostics` target — its globs pick them up automatically.
 
-- [ ] **Step 6: Run the test**
+- [ ] **Step 7: Run the test**
 
 Run: `bazel test --config=release //src/algorithms/diagnostics:dtc_tables_test`
 Expected: PASS. (The tables were generated in Step 3, so this passes on first run — the golden test is a transcription check, not a TDD driver. If it fails, the transcription is wrong; re-run Step 3 and diff.)
 
-- [ ] **Step 7: Verify the portable closure still holds**
+- [ ] **Step 8: Verify the portable closure still holds**
 
 Run: `bazel test --config=release //:portable_closure`
 Expected: PASS. `dtc_tables.cpp` pulls in only `<string>` and `<unordered_map>`.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add scripts/gen_dtc_tables.py src/algorithms/diagnostics/dtc_tables.h \
@@ -484,7 +551,7 @@ Leave the two commented-out `// emit LOG_I("DTC: " + FileActions::parse_dtc_mess
 
 - [ ] **Step 4: Add the build dependency**
 
-`dtc_operations.cpp` reached the parsers transitively through `//src/backend/definitions`. It now needs them directly. In `src/ui/desktop/BUILD.bazel`, in the `:desktop` target's `deps`, add `"//src/algorithms/diagnostics",` in alphabetical order — it sorts before the existing `"//src/algorithms/crypto:qt_compat",` at line 73.
+`dtc_operations.cpp` reached the parsers transitively through `//src/backend/definitions`. It now needs them directly. In `src/ui/desktop/BUILD.bazel`, in the `:desktop` target's `deps`, add `"//src/algorithms/diagnostics",` in alphabetical order — it sorts **after** `"//src/algorithms/crypto:qt_compat",` and **before** `"//src/algorithms/menu:qt_compat",` (`crypto` < `diagnostics` < `menu`).
 
 - [ ] **Step 5: Build and verify**
 
