@@ -47,6 +47,7 @@ qt_cc_library(
         exclude = MOC_HDRS,
     ),
     deps = QT_DEPS + [
+        "//src/algorithms/diagnostics",
         "//src/algorithms/protocol/colt:qt_compat",
         "//src/algorithms/protocol/ssm:qt_compat",
         # Full :definitions (not :models) because file_actions.h -- part of
