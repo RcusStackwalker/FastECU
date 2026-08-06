@@ -325,8 +325,24 @@ Typing the field makes that impossible to write, which is the point.
 **Fidelity risk to pin explicitly:** the conf file is written today with
 `QDomDocument::save(output, 4)`, a four-space indent. pugixml's default
 indent is a tab. `write_selection` must set `pugi::format_indent` with a
-four-space string, and the byte-identity test must cover it — otherwise every
-user's logger conf reformats wholesale on first write.
+four-space string, or every user's logger conf reformats wholesale on first
+write.
+
+That is guarded in two stages, because the two halves have different
+lifetimes:
+
+- **Transitional.** A byte-identity test comparing `write_selection`'s output
+  against a checked-in fixture captured from `QDomDocument::save(output, 4)`.
+  This exists to prove the one migration, and it is the only place the old
+  writer's output is treated as authoritative. Once 5d-5b has merged, pugixml
+  *is* the reference and this assertion pins a writer that no longer exists —
+  it would block any later deliberate formatting change for no benefit.
+  Dropped as a follow-up (below), replaced by a golden fixture regenerated
+  from pugixml's own output plus a `write_selection` → `read_selection`
+  round-trip assertion.
+- **Permanent.** The four-space `format_indent` setting itself stays. It costs
+  one line and spares every existing user a one-time whole-file reflow; the
+  follow-up removes the QDom-referenced assertion, not the indent choice.
 
 ## Enforcement
 
@@ -361,7 +377,19 @@ final gate check.
 | Risk | Mitigation |
 |---|---|
 | Re-fanning the definition into `LogValuesStructure` resets runtime capability flags | Explicit once-at-load contract plus the round-trip test above; the adapter has no method that rewrites definition fields |
-| pugixml reformats every user's logger conf on first write | Four-space `format_indent` plus a byte-identity test against the `QDomDocument::save(output, 4)` output |
+| pugixml reformats every user's logger conf on first write | Four-space `format_indent`, plus a transitional byte-identity test against a `QDomDocument::save(output, 4)` fixture that the follow-up below replaces with a pugixml-generated golden |
 | A "dead" field turns out to be live through a path grep misses | The seven-field and `log_values_by_protocol` removals are each backed by a reference check; the plan re-verifies against a built binary, not only against grep |
 | The CDBG resource fallback is exercised only on a machine with no configured logger file | Covered by a service test with a fake `IResourceBundle` and a fake `IFileRepository` that reports the config-dir file absent |
 | Consumer conversion crosses into step-6 territory further than intended | Scope is fixed at one struct member and the five listed sites; parallel-array indexing and `logValues` ownership are explicitly out of scope |
+
+## Follow-ups
+
+To be filed as issues when 5d-5b merges, not carried inside it:
+
+- **Drop the `QDomDocument`-referenced byte-identity test.** Once 5d-5b has
+  shipped, the migration it proves has happened exactly once and pugixml is
+  the reference writer. Replace the QDom-captured fixture with one
+  regenerated from pugixml's own output, and add a `write_selection` →
+  `read_selection` round-trip assertion so the guard is about the format
+  staying stable and deliberate rather than about matching a writer the tree
+  no longer contains. Keep the four-space `format_indent`.
