@@ -17,6 +17,13 @@ repos:
         files: \.(h|hh|hpp|hxx)$
         entry: bash -c 'missing=$(grep -L "^#pragma once" "$@"); if [ -n "$missing" ]; then echo "$missing"; exit 1; fi' --
 
+  - repo: https://github.com/lycheeverse/lychee.git
+    rev: lychee-v0.24.2
+    hooks:
+      - id: lychee
+        files: \.md$
+        args: [--no-progress, --include-fragments, --cache, --max-cache-age, 1d]
+
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v22.1.5
     hooks:

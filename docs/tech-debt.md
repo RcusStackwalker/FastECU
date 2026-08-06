@@ -30,9 +30,11 @@ Observed on 2026-08-05:
 - CI builds and tests on Windows, macOS, and Linux, verifies macOS/Windows
   packages, produces coverage for SonarCloud, and runs clang-tidy as a
   non-blocking report.
-- Focused background notes remain in `docs/logging-engine-tech-debt.md` and
-  `docs/protocol-generalization-opportunities.md`; those documents contain the
-  current logging-specific gaps and safe protocol-sharing boundary.
+- Focused background notes remain in the
+  [logging-engine notes](logging-engine-tech-debt.md) and the
+  [protocol generalization notes](protocol-generalization-opportunities.md);
+  those documents contain the current logging-specific gaps and safe
+  protocol-sharing boundary.
 
 ## Priorities
 
@@ -146,8 +148,8 @@ Actions:
 All 29 flash/eeprom/jtag/bdm operation pairs use `FlashOperationWorker`, and
 shared SSM framing, seed/payload transforms, CRC, byte formatting, byte
 stuffing, and ISO-15765 setup have been consolidated. The remaining safe
-generalization opportunities are maintained in
-`docs/protocol-generalization-opportunities.md`.
+generalization opportunities are maintained in the
+[protocol generalization notes](protocol-generalization-opportunities.md).
 
 The operation classes still combine request construction, response validation,
 retries, progress reporting, prompts, full-facade serial I/O, and ROM mutation.

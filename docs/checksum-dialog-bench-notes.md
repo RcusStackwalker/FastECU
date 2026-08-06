@@ -1,8 +1,8 @@
 # Checksum correction dialog -- bench notes
 
-`docs/logging-engine-bench-checklist.md` covers the LoggingEngine/Worker/Protocol
-refactor and isn't the right home for a checksum-correction UI change, so this
-note lives on its own.
+The [logging-engine bench checklist](logging-engine-bench-checklist.md) covers
+the LoggingEngine/Worker/Protocol refactor and isn't the right home for a
+checksum-correction UI change, so this note lives on its own.
 
 ## Checksum correction dialog — INTENTIONAL CHANGE (step 4, 2026-07-20)
 

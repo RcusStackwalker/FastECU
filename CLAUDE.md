@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 An independently maintained fork of [miikasyvanen/FastECU](https://github.com/miikasyvanen/FastECU) — a Qt 6 desktop application for reading, flashing, and logging Subaru and Mitsubishi ECUs/TCUs over J2534, K-Line, and CAN. GPLv3.
 
-The fork's ongoing work is a modularization program: making `src/backend` portable (Qt-free, thread-free, filesystem-free) behind injected ports so the core can be reused outside the Qt desktop app. Read `docs/superpowers/specs/2026-07-22-step5-backend-portable-design.md` for the umbrella design and `docs/tech-debt.md` for current priorities before making structural changes.
+The fork's ongoing work is a modularization program: making `src/backend` portable (Qt-free, thread-free, filesystem-free) behind injected ports so the core can be reused outside the Qt desktop app. Read the [step-5 umbrella design](docs/superpowers/specs/2026-07-22-step5-backend-portable-design.md) and the [tech-debt roadmap](docs/tech-debt.md) for current priorities before making structural changes.
 
 ## Build, test, lint
 
@@ -63,7 +63,8 @@ These exist because the compiler can't catch them; they fail CI, not your editor
 - Qt targets list moc'd headers explicitly in a `MOC_HDRS` list and everything else in `normal_hdrs` — a `Q_OBJECT` header missing from `MOC_HDRS` links but fails at runtime.
 - Prefer `std::string_view` by value over `const char*` / `const std::string&` (ADR 0009), gmock matchers for property assertions (ADR 0010), `std::format` for message construction (ADR 0011), and ranges/views over index loops (ADR 0012).
 - Every header needs `#pragma once` (enforced by prek).
+- Cross-document references in Markdown are links with human-readable text, not backticked paths — lychee (via prek) checks links and cannot see a path written as inline code.
 
 ## Hardware-facing caution
 
-Flash and logging paths talk to real ECUs; a wrong write bricks hardware. Anything not yet bench-qualified is documented as such — see `docs/flash-qualification-matrix.md` and the bench checklists in `docs/`. The `MUT_DMA` protocol (Mitsubishi M32R K-Line) is **experimental and not bench-qualified**; its wake sequence and memory writes are unverified on a live ECU. Don't relax an address-window guard or mark a path qualified without a checklist entry backing it.
+Flash and logging paths talk to real ECUs; a wrong write bricks hardware. Anything not yet bench-qualified is documented as such — see the [flash qualification matrix](docs/flash-qualification-matrix.md) and the bench checklists in `docs/`. The `MUT_DMA` protocol (Mitsubishi M32R K-Line) is **experimental and not bench-qualified**; its wake sequence and memory writes are unverified on a live ECU. Don't relax an address-window guard or mark a path qualified without a checklist entry backing it.

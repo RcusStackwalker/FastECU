@@ -68,12 +68,12 @@ compile_flags.txt
 
 *_qmlcache.qrc
 
-# superpowers brainstorming/planning artifacts (not project documentation)
-/docs/superpowers/
-
 # local packaging script output
 /dist/
 /FastECU-*.zip
+
+# lychee link-check response cache
+/.lycheecache
 /bazel-pkg-*.zip
 
 /.worktrees/
