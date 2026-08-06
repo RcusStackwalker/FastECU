@@ -1,4 +1,6 @@
 #include "src/algorithms/diagnostics/dtc_tables.h"
+#include "src/algorithms/diagnostics/dtc_parser.h"
+#include "src/algorithms/diagnostics/nrc_parser.h"
 
 #include <gtest/gtest.h>
 
@@ -58,4 +60,21 @@ TEST(DiagnosticTables, DtcKeysCarryNoCategoryBits)
                 << "key 0x" << std::hex << entry.first << " has category bits set";
         }
     }
+}
+
+TEST(DiagnosticDefaults, NrcOverloadUsesTheRealTable)
+{
+    const bytes::Bytes frame{0x7f, 0x22, 0x33};
+    EXPECT_EQ(nrc_description(frame), "Security access denied");
+}
+
+TEST(DiagnosticDefaults, NrcOverloadKeepsNonNegativeResponseHandling)
+{
+    const bytes::Bytes not_negative{0x62, 0x00, 0x01};
+    EXPECT_EQ(nrc_description(not_negative), "Not a valid answer");
+}
+
+TEST(DiagnosticDefaults, DtcOverloadUsesTheRealPowertrainTable)
+{
+    EXPECT_EQ(dtc_description(0x0000), "P0000 - No trouble code");
 }

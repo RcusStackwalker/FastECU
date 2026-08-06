@@ -13,3 +13,8 @@ std::string dtc_description(std::uint16_t dtc,
                             const std::unordered_map<int, std::string>& cCodes,
                             const std::unordered_map<int, std::string>& bCodes,
                             const std::unordered_map<int, std::string>& uCodes);
+
+// Same decode against the standard P/C/B/U tables in dtc_tables.h. Prefer
+// this over the table-taking overload; that one exists so tests can exercise
+// the category selection against synthetic tables.
+std::string dtc_description(std::uint16_t dtc);

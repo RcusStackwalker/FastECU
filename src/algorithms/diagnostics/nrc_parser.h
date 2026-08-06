@@ -11,3 +11,8 @@
 // negative response, and "Unknown error code" if the NRC byte has no entry
 // in `codes`.
 std::string nrc_description(bytes::ByteView nrc, const std::unordered_map<int, std::string>& codes);
+
+// Same decode against the standard NRC table in dtc_tables.h. Prefer this
+// over the table-taking overload; that one exists so tests can exercise the
+// frame handling against a synthetic table.
+std::string nrc_description(bytes::ByteView nrc);
