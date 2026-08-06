@@ -326,6 +326,12 @@ struct LoggerSwitch
     std::string ecu_byte_index;
     std::string ecu_bit;
     std::string target;
+    // Always false out of the parser -- the logger definition XML carries no
+    // switch `enabled` attribute, and the legacy parser hardcoded "0"
+    // (file_actions.cpp:1261). It is overwritten at runtime from the ECU's
+    // capability response, and Task 8 populates it from that live state so
+    // default_selection can filter on it the way file_actions.cpp:990 does.
+    bool enabled{false};
 
     bool operator==(const LoggerSwitch&) const = default;
 };
@@ -748,6 +754,9 @@ LoggerSwitch parse_switch(pugi::xml_node node, std::string_view protocol)
         .ecu_byte_index = attribute_or(node, "ecubyteindex", "No ecu byte index"),
         .ecu_bit = attribute_or(node, "bit", "No ecu bit"),
         .target = attribute_or(node, "target", "No target"),
+        // Legacy parity: file_actions.cpp:1261 appends "0" unconditionally.
+        // The definition file has no switch enabled attribute.
+        .enabled = false,
     };
 }
 
@@ -1250,6 +1259,12 @@ LoggerSelection walk(const LoggerDefinition& definition, bool enabled_only)
     }
     for (const LoggerSwitch& paramswitch : definition.switches)
     {
+        // file_actions.cpp:990 gates this walk on log_switch_enabled == "1";
+        // file_actions.cpp:1263-1266's first-N walk does not.
+        if (enabled_only && !paramswitch.enabled)
+        {
+            continue;
+        }
         if (selection.switch_ids.size() < kSwitchCap)
         {
             selection.switch_ids.push_back(paramswitch.id);
@@ -2047,7 +2062,7 @@ void apply_definition(
         values.log_switch_ecu_byte_index.append(qstr(paramswitch.ecu_byte_index));
         values.log_switch_ecu_bit.append(qstr(paramswitch.ecu_bit));
         values.log_switch_target.append(qstr(paramswitch.target));
-        values.log_switch_enabled.append("0");
+        values.log_switch_enabled.append(paramswitch.enabled ? "1" : "0");
         values.log_switch_state.append("0");
     }
 }
@@ -2361,6 +2376,9 @@ FileActions::LogValuesStructure *FileActions::read_logger_conf(
         fastecu::logging::LoggerSwitch paramswitch;
         paramswitch.protocol = logValues->log_switch_protocol.at(i).toStdString();
         paramswitch.id = logValues->log_switch_id.at(i).toStdString();
+        // Carries the ECU's runtime capability response, not the XML default --
+        // this is the state default_selection must filter on.
+        paramswitch.enabled = logValues->log_switch_enabled.at(i) == "1";
         definition.switches.push_back(std::move(paramswitch));
     }
 
