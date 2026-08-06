@@ -8,6 +8,7 @@
 #include <deque>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <utility>
 
 // Portable protocol test double shared by the desktop worker and engine tests.
@@ -79,6 +80,7 @@ class ScriptedLoggingProtocol final : public fastecu::logging::LoggingProtocol
 
         if (poll_results_.empty())
         {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
             return fastecu::logging::PollData{.responded = false};
         }
         auto result = std::move(poll_results_.front());
