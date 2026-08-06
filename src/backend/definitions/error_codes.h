@@ -1401,7 +1401,7 @@ const QHash<int, QString> FileActions::dtc_Pxxxx_codes{
     {0x1495, "P1495 - EGR Solenoid Valve Signal #2 Circuit Malfunction (High Input)"},
     {0x1496, "P1496 - EGR Solenoid Valve Signal #3 Circuit Malfunction (Low Input)"},
     {0x1497, "P1497 - EGR Solenoid Valve Signal #3 Circuit Malfunction (High Input)"},
-    {0x1496, "P1498 - EGR Solenoid Valve Signal #4 Circuit Malfunction (Low Input)"},
+    {0x1498, "P1498 - EGR Solenoid Valve Signal #4 Circuit Malfunction (Low Input)"},
     {0x1499, "P1499 - EGR Solenoid Valve Signal #4 Circuit Malfunction (High Input)"},
     {0x1500, "P1500 - Vehicle Speed Sensor Intermittent"},
     {0x1501, "P1501 - Vehicle Speed Sensor Out Of Self Test Range"},
