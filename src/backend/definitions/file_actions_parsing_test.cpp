@@ -230,6 +230,75 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(values->log_value_target.at(1), QString("No target"));
     }
 
+    // Characterization (5d-5b Task 1): read_logger_definition_file seeds the
+    // three selection lists with the FIRST N entries, ignoring `enabled`.
+    // This is a different default from read_logger_conf's enabled-only walk.
+    void logger_definition_seeds_selection_lists_ignoring_enabled()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QString params;
+        for (int i = 0; i < 20; i++)
+        {
+            params += QString(R"(<parameter id="P%1" name="N%1" desc="D%1" length="1" enabled="0">
+    <address>0x10</address><conversions><conversion units="u" expr="x" format="0"/></conversions>
+  </parameter>)")
+                          .arg(i);
+        }
+        const QString path = writeTextFile(
+            dir, "logger-seed.xml",
+            (R"(<logger><protocols><protocol id="SSM"><parameters>)" + params +
+             R"(</parameters></protocol></protocols></logger>)")
+                .toUtf8());
+        QVERIFY(!path.isEmpty());
+
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        actions.ConfigValuesStruct.romraider_logger_definition_file = path;
+
+        FileActions::LogValuesStructure *values = actions.read_logger_definition_file();
+        // Every parameter is enabled="0", yet the lists are seeded to their caps.
+        QCOMPARE(values->dashboard_log_value_id.size(), 15);
+        QCOMPARE(values->lower_panel_log_value_id.size(), 12);
+        QCOMPARE(values->dashboard_log_value_id.at(0), QString("P0"));
+        QCOMPARE(values->dashboard_log_value_id.at(14), QString("P14"));
+        QCOMPARE(values->lower_panel_log_value_id.at(11), QString("P11"));
+    }
+
+    // Characterization (5d-5b Task 1): a <parameter> with no <conversions>
+    // child appends nothing to log_value_units, so the list runs SHORT of
+    // log_value_id and every later row's parallel index is skewed by one.
+    // Task 3's typed model aligns these by construction; this test is
+    // rewritten in Task 9 to assert the aligned behaviour.
+    void logger_definition_misaligns_rows_missing_optional_children()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString path = writeTextFile(
+            dir, "logger-skew.xml",
+            R"(<logger><protocols><protocol id="SSM"><parameters>
+  <parameter id="P1" name="First" desc="d" length="1">
+    <address>0x10</address>
+  </parameter>
+  <parameter id="P2" name="Second" desc="d" length="2">
+    <address>0x20</address>
+    <conversions><conversion units="rpm" expr="x" format="0.00"/></conversions>
+  </parameter>
+</parameters></protocol></protocols></logger>)");
+        QVERIFY(!path.isEmpty());
+
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        actions.ConfigValuesStruct.romraider_logger_definition_file = path;
+
+        FileActions::LogValuesStructure *values = actions.read_logger_definition_file();
+        QCOMPARE(values->log_value_id.size(), 2);
+        // The skew: one units entry for two rows, and it belongs to row 1.
+        QCOMPARE(values->log_value_units.size(), 1);
+        QCOMPARE(values->log_value_units.at(0),
+                 QString("conversion 0,rpm,x,0.00,No gauge_min,No gauge_max,No gauge_step"));
+        // Reading "row 0's units" therefore yields row 1's data.
+        QVERIFY(!FileActions::validate_logger_values(*values));
+    }
+
     void logger_config_reads_selected_ids()
     {
         QTemporaryDir dir;
@@ -253,6 +322,44 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(values.dashboard_log_value_id, QStringList({"P1"}));
         QCOMPARE(values.lower_panel_log_value_id, QStringList({"P2"}));
         QCOMPARE(values.lower_panel_switch_id, QStringList({"S1"}));
+    }
+
+    // Characterization (5d-5b Task 1): captures the exact bytes QDom writes,
+    // which Task 4's write_selection must reproduce. The expected string below
+    // was captured by running this test once with the QCOMPARE commented out
+    // and qDebug()-ing `written`.
+    void logger_conf_writes_four_space_indented_xml()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString conf = writeTextFile(
+            dir, "logger.cfg", "<config><logger></logger></config>");
+        QVERIFY(!conf.isEmpty());
+
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        actions.ConfigValuesStruct.logger_file = conf;
+        FileActions::LogValuesStructure values;
+        values.log_value_protocol << "SSM" << "SSM";
+        values.log_value_id << "P1" << "P2";
+        values.log_value_enabled << "1" << "0";
+        values.log_switch_id << "S1";
+        values.log_switch_enabled << "1";
+
+        QVERIFY(actions.read_logger_conf(&values, "ECUID1", false) != nullptr);
+
+        QFile file(conf);
+        QVERIFY(file.open(QFile::ReadOnly | QFile::Text));
+        const QString written = QString::fromUtf8(file.readAll());
+        file.close();
+        QVERIFY(written.contains(QStringLiteral("<ecu id=\"ECUID1\">")));
+        QVERIFY(written.contains(QStringLiteral("<protocol id=\"SSM\">")));
+        // Four-space indent, not a tab -- this is the fidelity risk.
+        QVERIFY(written.contains(QStringLiteral("\n    <logger>")) ||
+                written.contains(QStringLiteral("\n        <ecu")));
+        QVERIFY(!written.contains(QChar('\t')));
+        // Only the enabled parameter and switch are seeded here (enabled-only walk).
+        QVERIFY(written.contains(QStringLiteral("<parameter id=\"P1\"")));
+        QVERIFY(!written.contains(QStringLiteral("<parameter id=\"P2\"")));
     }
 
     void romraider_definition_indexes_ids_and_inherits_base()
