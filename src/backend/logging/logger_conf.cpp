@@ -217,7 +217,17 @@ Result<bytes::Bytes> write_selection(
     // directly by an unescaped '\n', because pugixml *does* escape '\n'
     // inside attribute values (emitted as "&#10;"). Outside attributes, in
     // PCDATA, '>' is escaped to "&gt;", so " />" can't occur unescaped there
-    // either. So " />\n" can only ever be a tag terminator, never data.
+    // either. So " />\n" can only ever be a tag terminator, never attribute
+    // or PCDATA data.
+    //
+    // Caveat: load()'s parse_comments | parse_pi | parse_doctype flags (see
+    // above) mean comment and PI text round-trips verbatim -- pugixml does
+    // not apply the attribute/PCDATA escaping rules to it. A user's comment
+    // whose text happens to contain the literal sequence " />\n" would have
+    // that one space stripped from the comment body. That is a cosmetic
+    // edit to comment text, not data loss, and is strictly better than the
+    // alternative of dropping the comment outright, which is what the
+    // pre-fix parse flags did.
     constexpr std::string_view kSelfCloseWithSpace = " />\n";
     constexpr std::string_view kSelfCloseNoSpace = "/>\n";
     for (std::size_t pos = xml.find(kSelfCloseWithSpace); pos != std::string::npos;
