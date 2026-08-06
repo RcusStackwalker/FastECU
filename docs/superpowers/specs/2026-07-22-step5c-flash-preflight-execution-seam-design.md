@@ -2,8 +2,9 @@
 
 **Status:** Approved 2026-07-22. Third sub-project of step 5. This design
 inherits the fixed `Result`/`Error`, port, thread, and enforcement vocabulary
-from `2026-07-22-step5-backend-portable-design.md` and the merged step 5a
-foundation (`14799c3`, PR #73).
+from
+[`2026-07-22-step5-backend-portable-design.md`](2026-07-22-step5-backend-portable-design.md)
+and the merged step 5a foundation (`14799c3`, PR #73).
 
 **Repository baseline:** step 5a is on `master`. Step 5b is PR #78 and is not
 merged into the inspected `master`; its design and feature-branch commits were
@@ -45,8 +46,9 @@ this design explicitly identifies an unsupported legacy branch.
 6. Desktop snapshot/preflight adapters, worker/event adapters, prompt
    orchestration, result-to-legacy-ROM adaptation, and unchanged UI copy.
 7. Portable-closure and serial-compat enforcement for the converted roots.
-8. `docs/flash-qualification-matrix.md`, initially recording every current
-   operation family and distinguishing migration from real-hardware proof.
+8. [`docs/flash-qualification-matrix.md`](../../flash-qualification-matrix.md),
+   initially recording every current operation family and distinguishing
+   migration from real-hardware proof.
 
 ### Out of scope
 
@@ -845,7 +847,9 @@ Real-ECU tests are recorded in the qualification matrix but are not a merge gate
 
 ## Flash qualification matrix
 
-Create `docs/flash-qualification-matrix.md` with this normative schema:
+Create
+[`docs/flash-qualification-matrix.md`](../../flash-qualification-matrix.md)
+with this normative schema:
 
 | Column | Meaning |
 |---|---|
@@ -959,7 +963,9 @@ treated as passed.
 - [ ] Equivalence, plan validation, state-machine, cancellation, teardown,
       configuration, exception, and every-`ErrorKind` tests; >=80% new-code
       coverage.
-- [ ] `docs/flash-qualification-matrix.md` seeded for every family, proving pair
-      marked portable/experimental, no hardware claims.
+- [ ]
+  [`docs/flash-qualification-matrix.md`](../../flash-qualification-matrix.md)
+  seeded for every family, proving pair marked portable/experimental, no
+  hardware claims.
 - [ ] Umbrella build/test/package/SonarCloud gates pass and
       `docs/coverage-baseline.txt` remains absent.

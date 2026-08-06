@@ -44,4 +44,4 @@ Costs and remaining risks:
 - Qt deployment and platform runtime collection still happen in packaging
   scripts outside Bazel actions.
 - Much of the application remains in the broad `fastecu_core_common` target;
-  target decomposition is tracked in `docs/tech-debt.md`.
+  target decomposition is tracked in [`docs/tech-debt.md`](../tech-debt.md).

@@ -1,8 +1,9 @@
 # Step 5b — Logging Use Case & Thread Inversion — Design
 
 **Status:** Approved 2026-07-22. Second sub-project of step 5; inherits the
-fixed vocabulary from `2026-07-22-step5-backend-portable-design.md` and builds
-on the merged step 5a foundation (`14799c3`, PR #73).
+fixed vocabulary from
+[`2026-07-22-step5-backend-portable-design.md`](2026-07-22-step5-backend-portable-design.md)
+and builds on the merged step 5a foundation (`14799c3`, PR #73).
 
 **Goal:** make the complete runtime logging workflow portable. The backend
 exposes a synchronous, bounded, cancellable logging use case over typed

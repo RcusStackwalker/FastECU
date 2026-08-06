@@ -1,8 +1,8 @@
 # Step 5a — Port & Error Foundation (+ Logging Proof) — Design
 
 **Status:** Approved 2026-07-22. First sub-project of step 5; see
-`2026-07-22-step5-backend-portable-design.md` for the umbrella architecture this
-inherits.
+[`2026-07-22-step5-backend-portable-design.md`](2026-07-22-step5-backend-portable-design.md)
+for the umbrella architecture this inherits.
 
 **Predecessor:** the C++23 toolchain bump (step 5-pre) must land first —
 `std::expected` requires C++23.
