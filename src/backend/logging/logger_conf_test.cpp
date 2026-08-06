@@ -21,6 +21,7 @@ using fastecu::logging::write_selection;
 using ::testing::ElementsAre;
 using ::testing::HasSubstr;
 using ::testing::IsEmpty;
+using ::testing::Not;
 using ::testing::SizeIs;
 
 bytes::ByteView view(std::string_view text)
@@ -49,6 +50,7 @@ LoggerDefinition make_definition(int parameters, int switches, bool all_enabled)
         LoggerSwitch s;
         s.protocol = "SSM";
         s.id = std::format("S{}", i);
+        s.enabled = all_enabled || (i % 2 == 0);
         definition.switches.push_back(std::move(s));
     }
     return definition;
@@ -104,11 +106,16 @@ TEST(ReadSelection, RejectsMalformedXml)
 
 TEST(InitialSelection, TakesTheFirstEntriesIgnoringEnabled)
 {
-    // Every parameter disabled: initial_selection still fills to the caps.
+    // Every parameter and switch disabled: initial_selection still fills to
+    // the caps -- the first-N walk does not gate on `enabled` for either.
     LoggerDefinition definition = make_definition(30, 30, false);
     for (auto& p : definition.parameters)
     {
         p.enabled = false;
+    }
+    for (auto& s : definition.switches)
+    {
+        s.enabled = false;
     }
 
     const LoggerSelection selection = initial_selection(definition);
@@ -124,7 +131,8 @@ TEST(InitialSelection, TakesTheFirstEntriesIgnoringEnabled)
 
 TEST(DefaultSelection, WalksOnlyEnabledEntriesAndRespectsTheCaps)
 {
-    // make_definition enables even indices only when all_enabled is false.
+    // make_definition enables even indices only when all_enabled is false --
+    // for both parameters and switches.
     const LoggerDefinition definition = make_definition(60, 5, false);
 
     const LoggerSelection selection = default_selection(definition);
@@ -133,6 +141,8 @@ TEST(DefaultSelection, WalksOnlyEnabledEntriesAndRespectsTheCaps)
     EXPECT_EQ(selection.gauge_ids.at(0), "P0");
     EXPECT_EQ(selection.gauge_ids.at(1), "P2");
     EXPECT_EQ(selection.gauge_ids.back(), "P28");
+    // Switches S0, S2, S4 are enabled; S1, S3 are not.
+    EXPECT_THAT(selection.switch_ids, ElementsAre("S0", "S2", "S4"));
 }
 
 TEST(DefaultSelection, YieldsAnEmptyProtocolForAnEmptyDefinition)
@@ -199,20 +209,6 @@ TEST(WriteSelection, AppendsANewEcuElementAndKeepsTheExistingOne)
 // default_selection() walk that would normally produce that
 // LoggerSelection is exercised separately above.
 //
-// One byte differs from Task 1's captured QDom golden and cannot be closed
-// by any pugixml flag combination: pugixml's serializer unconditionally
-// writes a space before a self-closing tag's `/>` (pugixml.cpp,
-// node_output_start, `if ((flags & format_raw) == 0) writer.write(' ');`)
-// unless format_raw is set -- and format_raw also suppresses all
-// indentation (pugixml.cpp: indent_length is forced to 0 and newlines are
-// skipped whenever format_raw is set), so it cannot be combined with the
-// four-space indent this test exists to pin. `<parameter id="P1" name="" />`
-// (space before `/>`) is therefore what write_selection actually and
-// permanently produces, versus QDom's `<parameter id="P1" name=""/>`. This
-// is the one place the golden below diverges from Task 1's captured bytes;
-// everything else -- no XML declaration, four-space indent per level, no
-// tabs, single trailing newline -- matches exactly.
-//
 // This is the only place the old writer is treated as authoritative. The
 // follow-up issue replaces it with a pugixml-generated golden plus the
 // round-trip assertion above; the four-space indent choice itself stays.
@@ -228,25 +224,27 @@ TEST(WriteSelection, ReproducesTheFourSpaceQDomIndent)
         view("<config><logger></logger></config>"), "ECUID1", selection, "conf.xml");
     ASSERT_TRUE(written.has_value()) << written.error().detail;
 
-    // Task 1's captured QDom golden, with the one byte-per-self-closing-tag
-    // adjustment documented above (` />` instead of `/>`): no XML
-    // declaration, four-space indent per level, no tabs, single trailing
-    // newline.
-    constexpr std::string_view kPugixmlGolden =
+    // Task 1's captured QDom golden, verbatim (537 bytes): no XML
+    // declaration, four-space indent per level, no tabs, no space before a
+    // self-closing tag's `/>`, single trailing newline. write_selection's
+    // post-serialization " />\n" -> "/>\n" fixup (logger_conf.cpp) is what
+    // makes this a literal match despite pugixml's serializer always writing
+    // that space itself.
+    constexpr std::string_view kQDomGolden =
         "<config>\n"
         "    <logger>\n"
         "        <ecu id=\"ECUID1\">\n"
         "            <protocol id=\"SSM\">\n"
         "                <parameters>\n"
         "                    <gauges>\n"
-        "                        <parameter id=\"P1\" name=\"\" />\n"
+        "                        <parameter id=\"P1\" name=\"\"/>\n"
         "                    </gauges>\n"
         "                    <lower_panel>\n"
-        "                        <parameter id=\"P1\" name=\"\" />\n"
+        "                        <parameter id=\"P1\" name=\"\"/>\n"
         "                    </lower_panel>\n"
         "                </parameters>\n"
         "                <switches>\n"
-        "                    <switch id=\"S1\" name=\"\" />\n"
+        "                    <switch id=\"S1\" name=\"\"/>\n"
         "                </switches>\n"
         "            </protocol>\n"
         "        </ecu>\n"
@@ -254,7 +252,64 @@ TEST(WriteSelection, ReproducesTheFourSpaceQDomIndent)
         "</config>\n";
 
     const std::string xml = text_of(*written);
-    EXPECT_EQ(xml, kPugixmlGolden);
+    EXPECT_EQ(xml, kQDomGolden);
+}
+
+// Fix round 1, finding 1: document.save() re-serializes the whole DOM, so an
+// untouched sibling <ecu>'s self-closing elements get pugixml's space before
+// `/>` too, not just the rebuilt subtree -- proving the fixup above is not
+// scoped to the <ecu> this call touches.
+TEST(WriteSelection, StripsTheSelfClosingSpaceFromUntouchedSiblingsToo)
+{
+    constexpr std::string_view kTwoEcus = R"(<config>
+    <logger>
+        <ecu id="ECUID1">
+            <protocol id="SSM">
+                <parameters>
+                    <gauges>
+                        <parameter id="Z9" name="untouched"/>
+                    </gauges>
+                    <lower_panel/>
+                </parameters>
+                <switches/>
+            </protocol>
+        </ecu>
+    </logger>
+</config>
+)";
+
+    LoggerSelection selection;
+    selection.protocol = "SSM";
+    selection.gauge_ids = {"Y1"};
+
+    const auto written = write_selection(view(kTwoEcus), "ECUID2", selection, "conf.xml");
+    ASSERT_TRUE(written.has_value()) << written.error().detail;
+
+    const std::string xml = text_of(*written);
+    EXPECT_THAT(xml, HasSubstr("<parameter id=\"Z9\" name=\"untouched\"/>"));
+    EXPECT_THAT(xml, Not(HasSubstr("untouched\" />")));
+}
+
+// Fix round 1, finding 2: parse_default excludes comments; without
+// parse_comments a hand-annotated conf file loses the annotation silently on
+// the very first write_selection() round-trip.
+TEST(WriteSelection, PreservesAnExistingCommentThroughARoundTrip)
+{
+    constexpr std::string_view kConfWithComment =
+        "<config>\n"
+        "    <!-- user note: don't touch ECUID1 -->\n"
+        "    <logger/>\n"
+        "</config>\n";
+
+    LoggerSelection selection;
+    selection.protocol = "SSM";
+    selection.gauge_ids = {"P1"};
+
+    const auto written =
+        write_selection(view(kConfWithComment), "ECUID1", selection, "conf.xml");
+    ASSERT_TRUE(written.has_value()) << written.error().detail;
+
+    EXPECT_THAT(text_of(*written), HasSubstr("<!-- user note: don't touch ECUID1 -->"));
 }
 
 } // namespace

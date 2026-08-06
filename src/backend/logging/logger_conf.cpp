@@ -22,7 +22,14 @@ constexpr std::size_t kSwitchCap = 20;
 
 Status load(pugi::xml_document& document, bytes::ByteView conf, std::string_view source)
 {
-    const pugi::xml_parse_result parsed = document.load_buffer(conf.data(), conf.size());
+    // parse_default excludes comments, processing instructions and DOCTYPE.
+    // A user who hand-annotated their conf file with an XML comment would
+    // otherwise lose it silently on the first write_selection() round-trip
+    // (load, then re-serialize the whole DOM) -- add them back in.
+    const pugi::xml_parse_result parsed = document.load_buffer(
+        conf.data(),
+        conf.size(),
+        pugi::parse_default | pugi::parse_comments | pugi::parse_pi | pugi::parse_doctype);
     if (!parsed)
     {
         return fail(
@@ -91,6 +98,15 @@ LoggerSelection walk(const LoggerDefinition& definition, bool enabled_only)
     }
     for (const LoggerSwitch& paramswitch : definition.switches)
     {
+        // The enabled-only walk gates on LoggerSwitch::enabled, mirroring
+        // read_logger_conf's `log_switch_enabled.at(i) == "1"` check
+        // (file_actions.cpp:990). The first-N walk (initial_selection)
+        // deliberately does not filter, same as the gauge/lower-panel loop
+        // above.
+        if (enabled_only && !paramswitch.enabled)
+        {
+            continue;
+        }
         if (selection.switch_ids.size() < kSwitchCap)
         {
             selection.switch_ids.push_back(paramswitch.id);
@@ -179,7 +195,37 @@ Result<bytes::Bytes> write_selection(
         kIndent,
         pugi::format_indent | pugi::format_no_declaration,
         pugi::encoding_utf8);
-    const std::string xml = std::move(output).str();
+    std::string xml = std::move(output).str();
+
+    // pugixml's node_output_start unconditionally writes a space before a
+    // self-closing tag's `/>` unless format_raw is set, and format_raw also
+    // zeroes indent_length -- so the space can't be dropped via any save()
+    // flag combination without losing the four-space indent above. Since
+    // document.save() re-serializes the *entire* DOM (pugixml does not
+    // preserve a loaded node's original formatting), every self-closing
+    // element in the file gets this extra space, not just the <ecu> subtree
+    // this function rebuilds -- which would reflow every leaf line of an
+    // existing conf on first write, exactly what the four-space indent above
+    // exists to avoid. Strip it back out post-serialization instead.
+    //
+    // The exact 4-byte needle " />\n" is safe to replace unconditionally:
+    // under format_indent every empty-element tag is newline-terminated, so
+    // a real tag end always looks like `.../>` followed immediately by '\n'.
+    // pugixml does not escape '>' inside attribute values (its
+    // chartypex_table marks '>' unescaped there), so a literal `name="x />
+    // y"` value could contain the 3-byte " />" -- but never followed
+    // directly by an unescaped '\n', because pugixml *does* escape '\n'
+    // inside attribute values (emitted as "&#10;"). Outside attributes, in
+    // PCDATA, '>' is escaped to "&gt;", so " />" can't occur unescaped there
+    // either. So " />\n" can only ever be a tag terminator, never data.
+    constexpr std::string_view kSelfCloseWithSpace = " />\n";
+    constexpr std::string_view kSelfCloseNoSpace = "/>\n";
+    for (std::size_t pos = xml.find(kSelfCloseWithSpace); pos != std::string::npos;
+         pos = xml.find(kSelfCloseWithSpace, pos + kSelfCloseNoSpace.size()))
+    {
+        xml.replace(pos, kSelfCloseWithSpace.size(), kSelfCloseNoSpace);
+    }
+
     return bytes::Bytes(xml.begin(), xml.end());
 }
 

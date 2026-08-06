@@ -74,6 +74,9 @@ TEST(LoggerDefinitionParser, ParsesParametersSwitchesAndConversions)
     EXPECT_EQ(s.ecu_byte_index, "7");
     EXPECT_EQ(s.ecu_bit, "1");
     EXPECT_EQ(s.target, "2");
+    // The definition XML carries no switch enabled attribute; always false
+    // out of the parser (file_actions.cpp:1261).
+    EXPECT_FALSE(s.enabled);
 }
 
 TEST(LoggerDefinitionParser, SubstitutesLegacyPlaceholderDefaults)
@@ -112,6 +115,7 @@ TEST(LoggerDefinitionParser, SubstitutesLegacyPlaceholderDefaults)
     EXPECT_EQ(s.address, "No address");
     EXPECT_EQ(s.ecu_byte_index, "No ecu byte index");
     EXPECT_EQ(s.ecu_bit, "No ecu bit");
+    EXPECT_FALSE(s.enabled);
 }
 
 // The fix ruled on in "Decisions locked": rows stay aligned even when a

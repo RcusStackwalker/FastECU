@@ -51,6 +51,11 @@ struct LoggerSwitch
     std::string ecu_byte_index;
     std::string ecu_bit;
     std::string target;
+    // Always false out of the parser: the definition XML carries no switch
+    // "enabled" attribute (file_actions.cpp:1261 hardcodes "0" when building
+    // the legacy log_switch_enabled list). Populated from the ECU's runtime
+    // capability response by Task 8, not by parse_logger_definition.
+    bool enabled{false};
 
     bool operator==(const LoggerSwitch&) const = default;
 };

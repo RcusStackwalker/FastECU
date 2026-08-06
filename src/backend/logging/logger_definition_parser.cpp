@@ -67,6 +67,10 @@ LoggerSwitch parse_switch(pugi::xml_node node, std::string_view protocol)
         .ecu_byte_index = attribute_or(node, "ecubyteindex", "No ecu byte index"),
         .ecu_bit = attribute_or(node, "bit", "No ecu bit"),
         .target = attribute_or(node, "target", "No target"),
+        // The definition XML has no switch enabled attribute; the legacy
+        // parser always seeded log_switch_enabled with "0" for every switch
+        // (file_actions.cpp:1261). Runtime capability populates this later.
+        .enabled = false,
     };
 }
 
