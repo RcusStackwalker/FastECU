@@ -26,10 +26,10 @@ Use std::format as the preferred way of constructing complex strings
 - Deliberately out of scope: `QString`-based code in `src/ui`, `src/platform`,
   and the legacy `src/backend/definitions/file_actions.cpp` monolith.
   `file_actions.cpp` is already slated for extraction into portable use cases
-  by [`docs/modularization-plan.md`](../modularization-plan.md) step 5 and
-  [`docs/tech-debt.md`](../tech-debt.md)'s "Split `FileActions`" item;
-  converted pieces adopt `std::format` as new portable code lands, without a
-  separate action here.
+  by the [modularization plan](../modularization-plan.md)'s step 5 and the
+  [tech-debt roadmap](../tech-debt.md)'s "Split `FileActions`" item; converted
+  pieces adopt `std::format` as new portable code lands, without a separate
+  action here.
 - Also deliberately out of scope: pure path/filename-joining concatenation
   (e.g. `src/backend/config/config_paths.cpp`), since it isn't "constructing
   a complex string" in the sense this ADR targets — no message text, no

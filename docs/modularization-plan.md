@@ -21,10 +21,9 @@ exist, `bazel/fastecu_sources.bzl` is deleted in favour of package-owned
 portable target plus a transitional `:qt_compat` shim.
 
 **Step 5 (portable backend workflows) is the current implementation phase**,
-and is itself decomposed — see
-[`docs/superpowers/specs/2026-07-22-step5-backend-portable-design.md`](superpowers/specs/2026-07-22-step5-backend-portable-design.md) for the
-umbrella design and
-[`docs/superpowers/specs/2026-07-24-step5d-fileactions-decomposition-design.md`](superpowers/specs/2026-07-24-step5d-fileactions-decomposition-design.md)
+and is itself decomposed — see the
+[step-5 umbrella design](superpowers/specs/2026-07-22-step5-backend-portable-design.md)
+and the [5d decomposition design](superpowers/specs/2026-07-24-step5d-fileactions-decomposition-design.md)
 for the `FileActions` breakdown:
 
 - 5a port/error foundation — merged 2026-07-22 (PR #73).
@@ -78,7 +77,7 @@ Verified on 2026-08-06 against `master` at `9b94a9c`:
   MUT/DMA integration test.
 - The `docs/coverage-baseline.txt` overall-coverage ratchet has been removed;
   coverage now gates once through the SonarCloud Quality Gate on new code.
-  See [`docs/tech-debt.md`](tech-debt.md).
+  See the [tech-debt roadmap](tech-debt.md).
 - Android rules, NDK configuration, native facade targets, and Android source
   directories are still not present.
 

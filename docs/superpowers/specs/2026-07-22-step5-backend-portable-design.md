@@ -1,7 +1,7 @@
 # Step 5 — Portable Backend Workflows — Umbrella Design
 
-**Status:** Approved 2026-07-22. Supersedes the step 5 bullet list in
-[`docs/modularization-plan.md`](../../modularization-plan.md), which this spec
+**Status:** Approved 2026-07-22. Supersedes the step 5 bullet list in the
+[modularization plan](../../modularization-plan.md), which this spec
 decomposes, sequences, and amends.
 
 **Predecessor:** Step 4 (Portable Algorithms — Qt removal) — complete, PR #71.
@@ -25,8 +25,8 @@ That does not fit one plan. This document fixes the shared vocabulary once —
 the port set, error model, thread model, and `FlashPlan` shape — and sequences
 the work into four sub-projects. **Each sub-project gets its own spec → plan →
 implementation cycle.** Only 5a is designed in full elsewhere
-([`2026-07-22-step5a-port-error-foundation-design.md`](2026-07-22-step5a-port-error-foundation-design.md));
-5b–5d are scoped here and detailed when reached.
+([step 5a design](2026-07-22-step5a-port-error-foundation-design.md)); 5b–5d
+are scoped here and detailed when reached.
 
 ---
 
@@ -46,7 +46,7 @@ behavior change so its blast radius is isolated from the modularization work.
 | **5-pre** | C++23 toolchain bump | — | `-std=c++23` across the graph |
 | **5a** | Port & error foundation (+ logging proof) | 5-pre | `Result`/`Error` types, the non-transport ports, and the logging path rewired onto them to prove the seam under a real caller |
 | **5b** | Logging use-case & thread inversion | 5a | Typed `start` / bounded `poll` / `stop`; stable sample model (channel ID, numeric/raw value, unit; UI owns locale formatting); `logging_worker` thread moves to platform |
-| **5c** | Flash preflight/execution seam | 5a | `FlashPlan` build+validate; dialog-free execution; `flash_operation_worker` thread moves to platform; **proving pair** (one K-Line + one CAN family) migrated onto transport ports; [`docs/flash-qualification-matrix.md`](../../flash-qualification-matrix.md) |
+| **5c** | Flash preflight/execution seam | 5a | `FlashPlan` build+validate; dialog-free execution; `flash_operation_worker` thread moves to platform; **proving pair** (one K-Line + one CAN family) migrated onto transport ports; [flash qualification matrix](../../flash-qualification-matrix.md) |
 | **5d** | FileActions/MainWindow backend decomposition | 5a, 5c | Split `FileActions` into definition/calibration/checksum/logging/flash use cases; remove `QFileDialog`, `QMessageBox`, filesystem, and `SerialPortActions` from backend |
 | **tail** | Per-family flash drain | 5c | ~28 remaining flash families, one to a few per PR, each shipping "experimental", draining the `serial_qt_compat` allowlist |
 
@@ -156,8 +156,8 @@ Result<void> execute(const FlashPlan&,
   events answered by the UI before or during the call), and preserves each
   family's exact existing wire sequence byte-for-byte.
 - Per-family state machines stay separate. There is **no universal flashing
-  abstraction** — this follows
-  [`docs/protocol-generalization-opportunities.md`](../../protocol-generalization-opportunities.md),
+  abstraction** — this follows the
+  [protocol generalization notes](../../protocol-generalization-opportunities.md),
   which only sanctions sharing pure byte algorithms, framing, validation
   primitives, block planning, and worker plumbing.
 
@@ -166,10 +166,10 @@ Result<void> execute(const FlashPlan&,
 Real-hardware bench qualification is **not** a step-5 gate — this project has
 no bench access. Migrated flash families ship as **experimental** and are
 tracked in a new
-[`docs/flash-qualification-matrix.md`](../../flash-qualification-matrix.md)
-(`family | migrated | proven` columns). This is a **docs-only** marker: no UI
-badge, no confirmation dialog change. A family flips to `proven` only when
-someone with hardware qualifies it.
+[flash qualification matrix](../../flash-qualification-matrix.md) (`family |
+migrated | proven` columns). This is a **docs-only** marker: no UI badge, no
+confirmation dialog change. A family flips to `proven` only when someone with
+hardware qualifies it.
 
 ---
 
@@ -227,7 +227,7 @@ bazel test  -k --config=release //tests/... //:bazel_openssl_wiring \
 
 ---
 
-## Amendments to [`docs/modularization-plan.md`](../../modularization-plan.md)
+## Amendments to the [modularization plan](../../modularization-plan.md)
 
 1. Step 5 is delivered as four sub-projects (5a–5d) plus a C++23 prerequisite
    and an incremental per-family flash tail, not one monolithic change.
@@ -237,6 +237,6 @@ bazel test  -k --config=release //tests/... //:bazel_openssl_wiring \
    backend-side use cases.
 4. Flash migration in step 5 covers the `FlashPlan`/port seam plus a proving
    pair; the remaining ~28 families drain incrementally afterward.
-5. Flash families ship "experimental" tracked in
-   [`docs/flash-qualification-matrix.md`](../../flash-qualification-matrix.md);
-   bench qualification is not a step-5 gate (no bench access).
+5. Flash families ship "experimental" tracked in the
+   [flash qualification matrix](../../flash-qualification-matrix.md); bench
+   qualification is not a step-5 gate (no bench access).

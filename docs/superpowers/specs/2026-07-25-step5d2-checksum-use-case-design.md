@@ -1,7 +1,7 @@
 # Step 5d-2 — Checksum Use Case — Design
 
-**Status:** Approved 2026-07-25. Second sub-project of step 5d (see
-[`2026-07-24-step5d-fileactions-decomposition-design.md`](2026-07-24-step5d-fileactions-decomposition-design.md),
+**Status:** Approved 2026-07-25. Second sub-project of step 5d (see the
+[5d umbrella design](2026-07-24-step5d-fileactions-decomposition-design.md),
 which this design inherits its shared architecture decisions from —
 new-package-per-slice, the snapshot-adapter pattern, port extension). Depends
 on 5a (merged, PR #73) and 5d-1 (merged, PR #80).

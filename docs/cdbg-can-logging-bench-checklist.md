@@ -2,9 +2,9 @@
 
 Gate before any real-vehicle use of Cdbg live-data logging (`log_protocol`
 `CDBG`, `MitsuColtCanCdbg::CdbgLogDriver`). Same convention as this project's
-other bench-qualification gates (e.g.
-[`docs/colt_czt_47110032_can_bench_checklist.md`](colt_czt_47110032_can_bench_checklist.md)
-for the CAN reflash port).
+other bench-qualification gates (e.g. the
+[Colt CZT CAN bench checklist](colt_czt_47110032_can_bench_checklist.md) for
+the CAN reflash port).
 
 1. **Raw CAN connect.** Power a bench/spare Z37A ECU, select "Mitsubishi /
    Colt CZT / Z37A 5MT" in FastECU, enable "Logging". Confirm the raw CAN

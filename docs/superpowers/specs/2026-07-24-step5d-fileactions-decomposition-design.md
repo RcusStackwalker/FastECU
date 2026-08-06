@@ -1,9 +1,9 @@
 # Step 5d — FileActions/MainWindow Backend Decomposition — Umbrella Design
 
-**Status:** Approved 2026-07-24. Fourth sub-project of step 5 (see
-[`2026-07-22-step5-backend-portable-design.md`](2026-07-22-step5-backend-portable-design.md),
-the umbrella spec this document decomposes further). Depends on 5a (merged, PR
-#73), 5b (merged, PR #78), and 5c (merged, PR #79).
+**Status:** Approved 2026-07-24. Fourth sub-project of step 5 (see the
+[step-5 umbrella design](2026-07-22-step5-backend-portable-design.md), which
+this document decomposes further). Depends on 5a (merged, PR #73), 5b (merged,
+PR #78), and 5c (merged, PR #79).
 
 **Goal:** replace `FileActions` — a 3,397-line `file_actions.cpp` plus two
 sibling translation units (`file_defs_romraider.cpp`, 763 lines;
@@ -52,12 +52,12 @@ widget construction, not a backend use case. It stays as legacy UI-coupled code
 on the shrinking class until step 6 rather than being force-fit into one of the
 above.
 
-**Per-slice design docs:** only 5d-2's survives
-([`2026-07-25-step5d2-checksum-use-case-design.md`](2026-07-25-step5d2-checksum-use-case-design.md)).
-The 5d-1, 5d-4, 5d-4b and 5d-6 design docs were removed once their slices
-merged — the merged PRs listed in the table above are the durable record. This
-table, not a per-slice doc, is the surviving specification for **5d-5**, which
-has no design doc yet.
+**Per-slice design docs:** only 5d-2's survives (the
+[5d-2 checksum design](2026-07-25-step5d2-checksum-use-case-design.md)). The
+5d-1, 5d-4, 5d-4b and 5d-6 design docs were removed once their slices merged —
+the merged PRs listed in the table above are the durable record. This table,
+not a per-slice doc, is the surviving specification for **5d-5**, which has no
+design doc yet.
 
 ## Shared architecture across 5d sub-projects
 

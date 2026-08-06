@@ -3,13 +3,13 @@
 This document tracks unresolved findings specific to the
 `LoggingProtocol`/`LoggingWorker`/`LoggingEngine` architecture. Completed
 serial threading and qmake-era build work has been removed; project-wide
-structural debt belongs in [`docs/tech-debt.md`](tech-debt.md).
+structural debt belongs in the [tech-debt roadmap](tech-debt.md).
 
 ## Real-hardware qualification
 
-The full procedure is in
-[`docs/logging-engine-bench-checklist.md`](logging-engine-bench-checklist.md).
-The most consequential open checks are:
+The full procedure is in the
+[bench checklist](logging-engine-bench-checklist.md). The most consequential
+open checks are:
 
 1. **Plain-serial logging through `SerialIoThread`.** The backend now owns
    `QSerialPort` on its dedicated I/O thread and headless PTY coverage exists,
@@ -20,12 +20,12 @@ The most consequential open checks are:
    request/response rather than entering a continuous stream that repeated
    requests could desynchronize.
 3. **CDBG logging.** The raw-CAN setup, handshake, security access, and stream
-   behavior remain gated by
-   [`docs/cdbg-can-logging-bench-checklist.md`](cdbg-can-logging-bench-checklist.md).
+   behavior remain gated by the
+   [CDBG CAN bench checklist](cdbg-can-logging-bench-checklist.md).
 
 The worker-thread prompts and progress reporting used by Mitsubishi M32R CAN
 flashing are tracked separately in
-[`docs/colt_czt_47110032_can_bench_checklist.md`](colt_czt_47110032_can_bench_checklist.md).
+the [Colt CZT CAN bench checklist](colt_czt_47110032_can_bench_checklist.md).
 
 ## Deferred behavior
 
