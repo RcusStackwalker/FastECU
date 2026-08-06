@@ -803,7 +803,7 @@ cc_library(
     hdrs = ["logger_definition_parser.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//src/algorithms/protocol:bytes",
+        "//src/algorithms/protocol",
         "//src/backend/logging:logger_definition_model",
         "//src/backend/ports",
         "@pugixml",
@@ -824,7 +824,7 @@ Check the file's existing `load(...)` line already imports `fastecu_portable_gte
 - [ ] **Step 6: Run tests to verify they pass**
 
 Run: `bazel test --config=release //src/backend/logging:logger_definition_parser_test`
-Expected: PASS, all eight tests.
+Expected: PASS, all seven tests.
 
 Then: `bazel test --config=release //:portable_closure`
 Expected: PASS — proves pugixml and the bytes header are Qt-free.
@@ -1081,9 +1081,24 @@ TEST(WriteSelection, ReproducesTheFourSpaceQDomIndent)
 } // namespace
 ```
 
-Replace the four `HasSubstr` expectations in the last test with the exact
-substrings Task 1's report captured, if they differ. Task 1's captured bytes
-are authoritative over this plan's guess at the nesting depth.
+**Strengthen the last test before you run it.** As written above it is four
+`HasSubstr` checks plus a `Not(HasSubstr("\t"))` that can never fail against a
+space-indented document — Task 1's reviewer flagged the same weakness in the
+characterization test it descends from. Task 1's report
+(`.superpowers/sdd/2026-08-06-step5d5b-logger-definition-glue/task-1-report.md`)
+contains the **complete 537-byte golden** that `QDomDocument::save(output, 4)`
+produced, verbatim. Read it and replace the substring checks with a single
+`EXPECT_EQ(xml, kQDomGolden)` against a raw-string constant holding those exact
+bytes, so the committed test — not just a report file — is what pins the
+fidelity risk.
+
+The golden was captured from a different input than this test's, so build the
+test's fixture to match the one Task 1 used (its report documents the
+`LogValuesStructure` it seeded and the starting conf document). If reproducing
+that input exactly through `write_selection`'s signature is not possible,
+say so in your report and keep the strongest assertion you can — a full
+`EXPECT_EQ` against a golden you capture from **this** test's own pugixml
+output is not acceptable, because it would pin nothing about QDom.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -1339,7 +1354,7 @@ cc_library(
     hdrs = ["logger_conf.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//src/algorithms/protocol:bytes",
+        "//src/algorithms/protocol",
         "//src/backend/logging:logger_definition_model",
         "//src/backend/ports",
         "@pugixml",
