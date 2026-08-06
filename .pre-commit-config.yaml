@@ -17,6 +17,17 @@ repos:
         files: \.(h|hh|hpp|hxx)$
         entry: bash -c 'missing=$(grep -L "^#pragma once" "$@"); if [ -n "$missing" ]; then echo "$missing"; exit 1; fi' --
 
+      # Always scans every tracked .md rather than just the staged ones: a
+      # reference breaks when its *target* moves or is deleted, and the file
+      # holding the stale reference is not part of that commit. Whole-repo
+      # scan costs ~40ms.
+      - id: markdown-links
+        name: check markdown links resolve
+        language: system
+        always_run: true
+        pass_filenames: false
+        entry: python3 scripts/check-markdown-links.py
+
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v22.1.5
     hooks:

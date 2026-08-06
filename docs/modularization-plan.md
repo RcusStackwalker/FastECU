@@ -23,7 +23,8 @@ portable target plus a transitional `:qt_compat` shim.
 **Step 5 (portable backend workflows) is the current implementation phase**,
 and is itself decomposed — see
 `docs/superpowers/specs/2026-07-22-step5-backend-portable-design.md` for the
-umbrella design and `2026-07-24-step5d-fileactions-decomposition-design.md`
+umbrella design and
+`docs/superpowers/specs/2026-07-24-step5d-fileactions-decomposition-design.md`
 for the `FileActions` breakdown:
 
 - 5a port/error foundation — merged 2026-07-22 (PR #73).
