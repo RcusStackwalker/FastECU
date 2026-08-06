@@ -165,8 +165,17 @@ def _run(command_runner: CommandRunner, command: list[str], workspace: Path) -> 
     return result.returncode
 
 
-def _executable_command(executable: str) -> list[str]:
-    if Path(executable).suffix.lower() == ".py":
+_WINDOWS_EXECUTABLE_SUFFIXES = frozenset((".exe", ".bat", ".cmd", ".com"))
+
+
+def _executable_command(executable: str, *, platform_name: str) -> list[str]:
+    suffix = Path(executable).suffix.lower()
+    if suffix == ".py":
+        return [sys.executable, executable]
+    # LLVM ships run-clang-tidy as a shebang'd Python script with no extension.
+    # POSIX execs it fine via the shebang; Windows cannot, so route it through
+    # the interpreter whenever it lacks a recognized native executable suffix.
+    if platform_name.startswith("win") and suffix not in _WINDOWS_EXECUTABLE_SUFFIXES:
         return [sys.executable, executable]
     return [executable]
 
@@ -395,6 +404,10 @@ def _prebuild(command_runner: CommandRunner, build_args: Sequence[str], workspac
     the emitted compile flags reference them. Building first materializes
     them; --keep_going mirrors Hedron's own guidance so an unrelated failure
     doesn't block analysis of everything else.
+
+    Whatever compilation_mode this build uses must match --compdb-arg's (both
+    resolve into the same bazel-out/<config> directory), or compile_commands.json
+    ends up pointing at generated headers this step never wrote.
     """
     if not build_args:
         return
@@ -417,6 +430,7 @@ def run_workflow(
     environ: Mapping[str, str],
     command_runner: CommandRunner = subprocess.run,
     build_args: Sequence[str] = (),
+    compdb_args: Sequence[str] = (),
 ) -> int:
     if mode not in ("report", "fix"):
         raise WorkflowError(f"unsupported mode: {mode}")
@@ -424,7 +438,7 @@ def run_workflow(
         raise WorkflowError("clang-tidy fix mode is supported only on macOS and Linux")
 
     _prebuild(command_runner, build_args, workspace)
-    refresh_code = _run(command_runner, [compdb_tool], workspace)
+    refresh_code = _run(command_runner, [compdb_tool, *compdb_args], workspace)
     if refresh_code:
         raise WorkflowError(f"compilation database refresher failed with exit code {refresh_code}")
 
@@ -442,7 +456,7 @@ def run_workflow(
                 "internal error: filtered compilation database escaped its temp directory"
             )
         filtered_database.write_text(json.dumps(entries, indent=2) + "\n")
-        command = _executable_command(tools.run_clang_tidy) + [
+        command = _executable_command(tools.run_clang_tidy, platform_name=platform_name) + [
             "-clang-tidy-binary",
             tools.clang_tidy,
             "-config-file",
@@ -486,6 +500,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("mode", choices=("report", "fix"))
     parser.add_argument("--compdb-tool", required=True)
     parser.add_argument("--build-arg", action="append", default=[], dest="build_args")
+    parser.add_argument("--compdb-arg", action="append", default=[], dest="compdb_args")
     args = parser.parse_args(argv)
     try:
         root = workspace_root(os.environ)
@@ -499,6 +514,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             platform_name=sys.platform,
             environ=os.environ,
             build_args=args.build_args,
+            compdb_args=args.compdb_args,
         )
     except WorkflowError as error:
         print(f"clang-tidy: {error}", file=sys.stderr)

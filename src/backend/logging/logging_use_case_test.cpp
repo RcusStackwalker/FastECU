@@ -53,8 +53,8 @@ class ScriptedProtocol final : public LoggingProtocol
         return stop_result;
     }
 
-    fastecu::Status start_result{};
-    fastecu::Status stop_result{};
+    fastecu::Status start_result;
+    fastecu::Status stop_result;
     int starts = 0;
     int stops = 0;
     int polls_completed = 0;

@@ -14,6 +14,16 @@ from unittest import mock
 import clang_tidy_runner as runner
 import yaml
 
+_WINDOWS_COMPDB_TOOL = "C:/tools/clang_tidy_compdb.exe"
+_CONFIG_RELEASE = "--config=release"
+_FASTECU_TARGET = "//:fastecu"
+_UNIX_COMPDB_TOOL = "/tools/clang_tidy_compdb"
+_MAIN_CPP = "main.cpp"
+_UNIX_TOOLS = runner.Tools(
+    clang_tidy="/llvm/bin/clang-tidy",
+    run_clang_tidy="/llvm/bin/run-clang-tidy",
+)
+
 
 class ClangTidyRunnerTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -35,6 +45,29 @@ class ClangTidyRunnerTest(unittest.TestCase):
             for path in files
         ]
         (self.root / "compile_commands.json").write_text(json.dumps(entries))
+
+    def prebuild_fixture(
+        self, *, bazel_build_returncode: int = 0
+    ) -> tuple[list[list[str]], runner.CommandRunner]:
+        """A compilable source plus a fake runner that records every command.
+
+        `xcrun --show-sdk-path` always succeeds (needed on the macOS run_workflow
+        path); `bazel build` fails with bazel_build_returncode when non-zero.
+        """
+        source = self.root / _MAIN_CPP
+        source.write_text("int main() { return 0; }\n")
+        self.write_database([source])
+        commands: list[list[str]] = []
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            commands.append(command)
+            if bazel_build_returncode and command[:2] == ["bazel", "build"]:
+                return subprocess.CompletedProcess(command, bazel_build_returncode)
+            if command == ["xcrun", "--show-sdk-path"]:
+                return subprocess.CompletedProcess(command, 0, stdout="/SDK/MacOSX.sdk\n")
+            return subprocess.CompletedProcess(command, 0)
+
+        return commands, fake_run
 
     def write_fixes(
         self,
@@ -63,7 +96,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
             "DiagnosticName": name,
             "DiagnosticMessage": {
                 "Message": f"message for {name}",
-                "FilePath": str(self.root / "main.cpp"),
+                "FilePath": str(self.root / _MAIN_CPP),
                 "FileOffset": 0,
                 "Replacements": replacements,
             },
@@ -99,7 +132,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
             runner.workspace_root({})
 
     def test_database_keeps_only_workspace_translation_units(self) -> None:
-        source = self.root / "main.cpp"
+        source = self.root / _MAIN_CPP
         source.write_text("int main() { return 0; }\n")
         generated = Path(self.temp_dir.name) / "bazel-out" / "moc_main.cpp"
         generated.parent.mkdir()
@@ -180,17 +213,49 @@ class ClangTidyRunnerTest(unittest.TestCase):
             runner.run_workflow(
                 mode="report",
                 workspace=self.root,
-                compdb_tool="C:/tools/clang_tidy_compdb.exe",
+                compdb_tool=_WINDOWS_COMPDB_TOOL,
                 platform_name="win32",
                 environ={},
                 command_runner=fake_run,
             )
 
-        self.assertEqual("C:/tools/clang_tidy_compdb.exe", commands[0][0])
+        self.assertEqual(_WINDOWS_COMPDB_TOOL, commands[0][0])
         self.assertEqual(runner.sys.executable, commands[1][0])
         self.assertEqual("C:/LLVM/bin/run-clang-tidy.py", commands[1][1])
         self.assertIn("-clang-tidy-binary", commands[1])
         self.assertNotIn("-fix", commands[1])
+
+    def test_windows_report_wraps_extensionless_run_clang_tidy(self) -> None:
+        # LLVM 18+ ships run-clang-tidy without a .py suffix (a shebang'd
+        # Python script). Windows can't exec that directly -> WinError 193
+        # ("%1 is not a valid Win32 application") unless it's routed through
+        # the Python interpreter, same as the .py case.
+        source = self.root / "windows.cpp"
+        source.write_text("int windows_source;\n")
+        self.write_database([source])
+        commands: list[list[str]] = []
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            commands.append(command)
+            return subprocess.CompletedProcess(command, 0)
+
+        tools = runner.Tools(
+            clang_tidy="C:/LLVM/bin/clang-tidy.exe",
+            run_clang_tidy="C:/LLVM/bin/run-clang-tidy",
+        )
+        with mock.patch.object(runner, "discover_tools", return_value=tools):
+            runner.run_workflow(
+                mode="report",
+                workspace=self.root,
+                compdb_tool=_WINDOWS_COMPDB_TOOL,
+                platform_name="win32",
+                environ={},
+                command_runner=fake_run,
+            )
+
+        self.assertEqual(runner.sys.executable, commands[1][0])
+        self.assertEqual("C:/LLVM/bin/run-clang-tidy", commands[1][1])
+        self.assertIn("-clang-tidy-binary", commands[1])
 
     def test_windows_fix_is_rejected_before_refresh(self) -> None:
         command_runner = mock.Mock()
@@ -206,7 +271,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
         command_runner.assert_not_called()
 
     def test_macos_report_adds_sdk_sysroot_to_analysis(self) -> None:
-        source = self.root / "main.cpp"
+        source = self.root / _MAIN_CPP
         source.write_text("int main() { return 0; }\n")
         self.write_database([source])
         commands: list[list[str]] = []
@@ -223,7 +288,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
             runner.run_workflow(
                 mode="report",
                 workspace=self.root,
-                compdb_tool="/tools/clang_tidy_compdb",
+                compdb_tool=_UNIX_COMPDB_TOOL,
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
@@ -237,7 +302,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
         self.assertIn("-extra-arg-before=/SDK/MacOSX.sdk", analysis_command)
 
     def test_macos_sdk_lookup_failure_is_actionable(self) -> None:
-        source = self.root / "main.cpp"
+        source = self.root / _MAIN_CPP
         source.write_text("int main() { return 0; }\n")
         self.write_database([source])
 
@@ -257,14 +322,14 @@ class ClangTidyRunnerTest(unittest.TestCase):
             runner.run_workflow(
                 mode="report",
                 workspace=self.root,
-                compdb_tool="/tools/clang_tidy_compdb",
+                compdb_tool=_UNIX_COMPDB_TOOL,
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
             )
 
     def test_fix_uses_deferred_replacements(self) -> None:
-        source = self.root / "main.cpp"
+        source = self.root / _MAIN_CPP
         source.write_text("int main() { return 0; }\n")
         self.write_database([source])
         commands: list[list[str]] = []
@@ -298,7 +363,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
             runner.run_workflow(
                 mode="fix",
                 workspace=self.root,
-                compdb_tool="/tools/clang_tidy_compdb",
+                compdb_tool=_UNIX_COMPDB_TOOL,
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
@@ -498,7 +563,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
     def test_normalization_rejects_malformed_replacement(self) -> None:
         fixes_directory = Path(self.temp_dir.name) / "fixes"
         fixes_directory.mkdir()
-        malformed = self.replacement(self.root / "main.cpp", 4, 0, "value")
+        malformed = self.replacement(self.root / _MAIN_CPP, 4, 0, "value")
         del malformed["Offset"]
         self.write_fixes(
             fixes_directory,
@@ -513,98 +578,73 @@ class ClangTidyRunnerTest(unittest.TestCase):
             runner.normalize_replacements(fixes_directory)
 
     def test_prebuild_runs_before_refresh_when_requested(self) -> None:
-        source = self.root / "main.cpp"
-        source.write_text("int main() { return 0; }\n")
-        self.write_database([source])
-        commands: list[list[str]] = []
-
-        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-            commands.append(command)
-            if command == ["xcrun", "--show-sdk-path"]:
-                return subprocess.CompletedProcess(command, 0, stdout="/SDK/MacOSX.sdk\n")
-            return subprocess.CompletedProcess(command, 0)
-
-        tools = runner.Tools(
-            clang_tidy="/llvm/bin/clang-tidy",
-            run_clang_tidy="/llvm/bin/run-clang-tidy",
-        )
-        with mock.patch.object(runner, "discover_tools", return_value=tools):
+        commands, fake_run = self.prebuild_fixture()
+        with mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS):
             runner.run_workflow(
                 mode="report",
                 workspace=self.root,
-                compdb_tool="/tools/clang_tidy_compdb",
+                compdb_tool=_UNIX_COMPDB_TOOL,
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
-                build_args=["--config=release", "//:fastecu"],
+                build_args=[_CONFIG_RELEASE, _FASTECU_TARGET],
             )
 
         self.assertEqual(
-            ["bazel", "build", "--keep_going", "--config=release", "//:fastecu"],
+            ["bazel", "build", "--keep_going", _CONFIG_RELEASE, _FASTECU_TARGET],
             commands[0],
         )
-        self.assertEqual("/tools/clang_tidy_compdb", commands[1][0])
+        self.assertEqual(_UNIX_COMPDB_TOOL, commands[1][0])
 
-    def test_prebuild_is_skipped_without_build_args(self) -> None:
-        source = self.root / "main.cpp"
-        source.write_text("int main() { return 0; }\n")
-        self.write_database([source])
-        commands: list[list[str]] = []
-
-        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-            commands.append(command)
-            if command == ["xcrun", "--show-sdk-path"]:
-                return subprocess.CompletedProcess(command, 0, stdout="/SDK/MacOSX.sdk\n")
-            return subprocess.CompletedProcess(command, 0)
-
-        tools = runner.Tools(
-            clang_tidy="/llvm/bin/clang-tidy",
-            run_clang_tidy="/llvm/bin/run-clang-tidy",
-        )
-        with mock.patch.object(runner, "discover_tools", return_value=tools):
+    def test_compdb_args_are_forwarded_to_refresh_tool(self) -> None:
+        commands, fake_run = self.prebuild_fixture()
+        with mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS):
             runner.run_workflow(
                 mode="report",
                 workspace=self.root,
-                compdb_tool="/tools/clang_tidy_compdb",
+                compdb_tool=_UNIX_COMPDB_TOOL,
+                platform_name="darwin",
+                environ={},
+                command_runner=fake_run,
+                build_args=[_CONFIG_RELEASE, _FASTECU_TARGET],
+                compdb_args=[_CONFIG_RELEASE],
+            )
+
+        self.assertEqual(
+            [_UNIX_COMPDB_TOOL, _CONFIG_RELEASE],
+            commands[1],
+        )
+
+    def test_prebuild_is_skipped_without_build_args(self) -> None:
+        commands, fake_run = self.prebuild_fixture()
+        with mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS):
+            runner.run_workflow(
+                mode="report",
+                workspace=self.root,
+                compdb_tool=_UNIX_COMPDB_TOOL,
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
             )
 
-        self.assertEqual("/tools/clang_tidy_compdb", commands[0][0])
+        self.assertEqual(_UNIX_COMPDB_TOOL, commands[0][0])
         self.assertNotIn("bazel", [command[0] for command in commands])
 
     def test_prebuild_failure_does_not_block_analysis(self) -> None:
-        source = self.root / "main.cpp"
-        source.write_text("int main() { return 0; }\n")
-        self.write_database([source])
-        commands: list[list[str]] = []
-
-        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-            commands.append(command)
-            if command[:2] == ["bazel", "build"]:
-                return subprocess.CompletedProcess(command, 3)
-            if command == ["xcrun", "--show-sdk-path"]:
-                return subprocess.CompletedProcess(command, 0, stdout="/SDK/MacOSX.sdk\n")
-            return subprocess.CompletedProcess(command, 0)
-
-        tools = runner.Tools(
-            clang_tidy="/llvm/bin/clang-tidy",
-            run_clang_tidy="/llvm/bin/run-clang-tidy",
-        )
-        with mock.patch.object(runner, "discover_tools", return_value=tools):
+        commands, fake_run = self.prebuild_fixture(bazel_build_returncode=3)
+        with mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS):
             result = runner.run_workflow(
                 mode="report",
                 workspace=self.root,
-                compdb_tool="/tools/clang_tidy_compdb",
+                compdb_tool=_UNIX_COMPDB_TOOL,
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
-                build_args=["//:fastecu"],
+                build_args=[_FASTECU_TARGET],
             )
 
         self.assertEqual(0, result)
-        self.assertEqual("/tools/clang_tidy_compdb", commands[1][0])
+        self.assertEqual(_UNIX_COMPDB_TOOL, commands[1][0])
 
     def test_refresh_failure_stops_before_analysis(self) -> None:
         def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
@@ -614,14 +654,14 @@ class ClangTidyRunnerTest(unittest.TestCase):
             runner.run_workflow(
                 mode="report",
                 workspace=self.root,
-                compdb_tool="/tools/clang_tidy_compdb",
+                compdb_tool=_UNIX_COMPDB_TOOL,
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
             )
 
     def test_analysis_failure_is_propagated(self) -> None:
-        source = self.root / "main.cpp"
+        source = self.root / _MAIN_CPP
         source.write_text("int main() { return 0; }\n")
         self.write_database([source])
         return_codes = iter((0, 7))
@@ -642,14 +682,14 @@ class ClangTidyRunnerTest(unittest.TestCase):
             runner.run_workflow(
                 mode="report",
                 workspace=self.root,
-                compdb_tool="/tools/clang_tidy_compdb",
+                compdb_tool=_UNIX_COMPDB_TOOL,
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
             )
 
     def test_replacement_failure_is_propagated(self) -> None:
-        source = self.root / "main.cpp"
+        source = self.root / _MAIN_CPP
         source.write_text("int main() { return 0; }\n")
         self.write_database([source])
         return_codes = iter((0, 0, 8))
@@ -671,7 +711,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
             runner.run_workflow(
                 mode="fix",
                 workspace=self.root,
-                compdb_tool="/tools/clang_tidy_compdb",
+                compdb_tool=_UNIX_COMPDB_TOOL,
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,

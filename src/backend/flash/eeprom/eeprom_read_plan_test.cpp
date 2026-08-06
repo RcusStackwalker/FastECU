@@ -212,8 +212,10 @@ TEST(BuildEepromReadPlanTest, InvalidModeIsRejectedBeforeReadingTheKernel)
 {
     InMemoryFileRepository repository = make_repository();
 
-    auto plan = build_eeprom_read_plan(test_paths(), "sub_ecu_eeprom_denso_sh7058_can",
-                                       static_cast<EepromReadMode>(0), repository);
+    auto plan = build_eeprom_read_plan(
+        test_paths(), "sub_ecu_eeprom_denso_sh7058_can",
+        // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) -- exercising the invalid-value rejection path
+        static_cast<EepromReadMode>(0), repository);
 
     ASSERT_FALSE(plan.has_value());
     EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);

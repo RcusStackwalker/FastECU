@@ -194,6 +194,33 @@ class SerialPortActions : public QObject
     void ensureBackendStarted();
     void waitForDone(const std::shared_ptr<QSemaphore>& done);
 
+    // RAII marker for a public call that still touches `this` after its
+    // runOnBackend() call returns (e.g. read_serial_data()'s LOG_D emit and
+    // set_comm_busy(false)). ~SerialPortActions() only drains work queued on
+    // the I/O thread before joining it -- it has no visibility into a caller
+    // thread that has already woken up from waitForDone() and is unwinding
+    // through such trailing bookkeeping. Any public method with code after
+    // its runOnBackend() call that reads or writes a member of `this` must
+    // hold one of these for its whole body, or a concurrent destructor can
+    // free the object out from under that caller.
+    struct CallGuard
+    {
+        std::atomic<int>& counter;
+        explicit CallGuard(std::atomic<int>& c) : counter(c)
+        {
+            counter.fetch_add(1);
+        }
+        ~CallGuard()
+        {
+            counter.fetch_sub(1);
+        }
+
+        // Non-copyable: each guard must decrement the counter exactly once,
+        // matching the single increment its constructor performed.
+        CallGuard(const CallGuard&) = delete;
+        CallGuard& operator=(const CallGuard&) = delete;
+    };
+
     // Marshal `fn` onto the I/O thread and block until it completes. `fn`
     // runs with m_backend valid and is the ONLY code that touches it.
     template <typename Fn>
@@ -285,4 +312,5 @@ class SerialPortActions : public QObject
     QAtomicInteger<bool> is_read_vbatt = false;
     QAtomicInteger<bool> is_comm_busy = false;
     std::atomic<unsigned long> vBatt{0};
+    std::atomic<int> m_activeCalls{0};
 };

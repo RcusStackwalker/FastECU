@@ -1313,6 +1313,7 @@ class TestFileActionsParsing : public QObject
 
         ecuCalDef = fileActions.open_subaru_rom_file(ecuCalDef, romPath);
         QVERIFY(ecuCalDef != nullptr);
+        // NOLINTNEXTLINE(clang-analyzer-core.NullDereference) -- QVERIFY above already returns on null
         QVERIFY(!ecuCalDef->use_ecuflash_definition);
         QVERIFY(!ecuCalDef->use_romraider_definition);
         QCOMPARE(ecuCalDef->RomInfo.at(FileActions::XmlId), QString(" "));

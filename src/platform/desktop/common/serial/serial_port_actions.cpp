@@ -33,6 +33,15 @@ SerialPortActions::~SerialPortActions()
     delete m_host; // deletes the backend on the I/O thread, joins the thread
     m_host = nullptr;
     m_backend = nullptr;
+    // A caller whose backend call just finished (e.g. read_serial_data())
+    // may still be unwinding through CallGuard-protected bookkeeping on its
+    // own thread at this point -- draining the I/O thread above only proves
+    // the backend-side half of that call is done. Wait for it to fully
+    // return before this object's memory is freed.
+    while (m_activeCalls.load() > 0)
+    {
+        QThread::yieldCurrentThread();
+    }
 }
 
 bool SerialPortActions::isDirectConnection(void)
@@ -544,6 +553,7 @@ bool SerialPortActions::is_serial_port_open()
 
 int SerialPortActions::change_port_speed(const QString& portSpeed)
 {
+    CallGuard guard(m_activeCalls);
     set_comm_busy(true);
     int result = runOnBackend([this, portSpeed]
                               { return m_backend->change_port_speed(portSpeed); });
@@ -580,6 +590,7 @@ int SerialPortActions::fast_init(const QByteArray& output)
 
 int SerialPortActions::set_lec_lines(int lec1, int lec2)
 {
+    CallGuard guard(m_activeCalls);
     set_comm_busy(true);
     int result = runOnBackend([this, lec1, lec2]
                               { return m_backend->set_lec_lines(lec1, lec2); });
@@ -589,6 +600,7 @@ int SerialPortActions::set_lec_lines(int lec1, int lec2)
 
 int SerialPortActions::pulse_lec_1_line(int timeout)
 {
+    CallGuard guard(m_activeCalls);
     set_comm_busy(true);
     int result = runOnBackend([this, timeout]
                               { return m_backend->pulse_lec_1_line(timeout); });
@@ -598,6 +610,7 @@ int SerialPortActions::pulse_lec_1_line(int timeout)
 
 int SerialPortActions::pulse_lec_2_line(int timeout)
 {
+    CallGuard guard(m_activeCalls);
     set_comm_busy(true);
     int result = runOnBackend([this, timeout]
                               { return m_backend->pulse_lec_2_line(timeout); });
@@ -634,6 +647,7 @@ bool SerialPortActions::reset_connection()
 
 QByteArray SerialPortActions::read_serial_obd_data(uint16_t timeout)
 {
+    CallGuard guard(m_activeCalls);
     QByteArray response = runOnBackend([this, timeout]
                                        { return m_backend->read_serial_obd_data(timeout); });
     emit LOG_D("Response: " + parse_message_to_hex(response.mid(0, 20)), true, true);
@@ -643,6 +657,7 @@ QByteArray SerialPortActions::read_serial_obd_data(uint16_t timeout)
 
 QByteArray SerialPortActions::read_serial_data(uint16_t timeout)
 {
+    CallGuard guard(m_activeCalls);
     QByteArray response = runOnBackend([this, timeout]
                                        {
         QByteArray r = m_backend->read_serial_data(timeout);
@@ -681,6 +696,7 @@ bool SerialPortActions::get_is_tx_done()
 
 int SerialPortActions::clear_rx_buffer()
 {
+    CallGuard guard(m_activeCalls);
     set_comm_busy(true);
     int result = runOnBackend([this]
                               { return m_backend->clear_rx_buffer(); });
@@ -690,6 +706,7 @@ int SerialPortActions::clear_rx_buffer()
 
 int SerialPortActions::clear_tx_buffer()
 {
+    CallGuard guard(m_activeCalls);
     set_comm_busy(true);
     int result = runOnBackend([this]
                               { return m_backend->clear_tx_buffer(); });
@@ -699,6 +716,7 @@ int SerialPortActions::clear_tx_buffer()
 
 int SerialPortActions::send_periodic_j2534_data(const QByteArray& output, int timeout)
 {
+    CallGuard guard(m_activeCalls);
     set_comm_busy(true);
     int result = runOnBackend([this, output, timeout]
                               { return m_backend->send_periodic_j2534_data(output, timeout); });
@@ -708,6 +726,7 @@ int SerialPortActions::send_periodic_j2534_data(const QByteArray& output, int ti
 
 int SerialPortActions::stop_periodic_j2534_data()
 {
+    CallGuard guard(m_activeCalls);
     set_comm_busy(true);
     int result = runOnBackend([this]
                               { return m_backend->stop_periodic_j2534_data(); });
@@ -729,6 +748,7 @@ QString SerialPortActions::open_serial_port()
 
 unsigned long SerialPortActions::read_vbatt()
 {
+    CallGuard guard(m_activeCalls);
     if (!get_is_comm_busy() && !get_read_vbatt())
     {
         vBatt.store(runOnBackend([this]

@@ -167,7 +167,9 @@ TEST(LoadCarModelCatalog, ParsesTheRealShippedProtocolsFileWithoutError)
     // originating task description's "64" was an estimate, not a count).
     EXPECT_EQ(catalog->size(), 63u);
     for (const auto& entry : *catalog)
+    {
         EXPECT_FALSE(entry.protocol_name.empty());
+    }
 }
 
 TEST(ResolveCarModels, JoinsEachCarModelWithItsMatchingProtocol)

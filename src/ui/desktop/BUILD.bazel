@@ -56,8 +56,8 @@ qt_cc_library(
     copts = COMMON_COPTS,
     linkopts = select({
         "@platforms//os:windows": [
-            "-lopengl32",
-            "-lsetupapi",
+            "opengl32.lib",
+            "setupapi.lib",
         ],
         "//conditions:default": [],
     }),
