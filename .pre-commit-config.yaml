@@ -17,16 +17,27 @@ repos:
         files: \.(h|hh|hpp|hxx)$
         entry: bash -c 'missing=$(grep -L "^#pragma once" "$@"); if [ -n "$missing" ]; then echo "$missing"; exit 1; fi' --
 
-      # Always scans every tracked .md rather than just the staged ones: a
-      # reference breaks when its *target* moves or is deleted, and the file
-      # holding the stale reference is not part of that commit. Whole-repo
-      # scan costs ~40ms.
+      # Covers only what lychee below cannot see: this repo writes most of its
+      # cross-document references as inline code (`docs/tech-debt.md`), which
+      # is not link syntax, so no link checker extracts it. Scans every tracked
+      # .md rather than the staged subset -- a reference breaks when its target
+      # moves, and the file holding it is not part of that commit. ~40ms.
       - id: markdown-links
-        name: check markdown links resolve
+        name: check backticked doc references resolve
         language: system
         always_run: true
         pass_filenames: false
         entry: python3 scripts/check-markdown-links.py
+
+  # Real link syntax: [text](path), #anchors, and external URLs.
+  # Scoped to Markdown because the upstream default (types: text) also walks
+  # LICENSE and the bundled SVGs, whose dead URLs we neither own nor can fix.
+  - repo: https://github.com/lycheeverse/lychee.git
+    rev: lychee-v0.24.2
+    hooks:
+      - id: lychee
+        files: \.md$
+        args: [--no-progress, --include-fragments, --cache, --max-cache-age, 1d]
 
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v22.1.5

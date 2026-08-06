@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
-"""Verify Markdown references to repository files resolve to something real.
+"""Verify backticked ``path.md`` mentions in Markdown resolve to a real file.
 
-Two reference shapes are checked, because this repository uses both:
+This is the gap lychee cannot cover, not a second link checker. lychee checks
+real link syntax -- ``[text](path)``, anchors, external URLs -- but this
+repository writes almost all of its cross-document references as inline code:
 
-- inline links, ``[text](docs/tech-debt.md)``
-- backticked paths, ``see `docs/tech-debt.md` `` -- the dominant idiom here,
-  and the one that silently rotted when the step-5 design docs moved
+    see `docs/tech-debt.md`
 
-Only in-repository targets are checked. External URLs are skipped on purpose:
-a pre-commit hook must not need the network (ADR 0002).
+That is not a link by any specification, so no link checker extracts it
+(verified against lychee 0.24.2, including ``--include-verbatim``). It is also
+the form that actually rotted: the step-5 design docs referenced each other
+this way and went stale when their siblings moved.
+
+Every tracked ``.md`` is scanned on each run, not just the staged ones: a
+reference breaks when its *target* is deleted or renamed, and the file holding
+the now-stale reference is not part of that commit.
 """
 
 import re
@@ -18,14 +24,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-# Fenced code blocks hold C++ that looks like link syntax to a regex --
-# `](const DirEntry& e)` from a lambda capture is not a broken link.
+# Fenced code blocks hold sample paths and generated output that are not
+# claims about this repository's contents.
 FENCE = re.compile(r"^\s*(```|~~~)")
 
-INLINE_LINK = re.compile(r"(?<!!)\[[^\]\n]*\]\(([^)\s]+)\)")
 BACKTICKED_DOC = re.compile(r"`([^`\s]+\.md)`")
-
-SKIP_PREFIXES = ("http://", "https://", "mailto:", "#")
 
 # Deliberate references to files in sibling repositories of the parent
 # workspace. Each is correct where it is written and unresolvable from inside
@@ -40,7 +43,7 @@ EXTERNAL_REFS = {
 }
 
 
-def strip_code_blocks(text: str) -> list[tuple[int, str]]:
+def prose_lines(text: str) -> list[tuple[int, str]]:
     """Return (line number, text) pairs outside fenced code blocks."""
     lines: list[tuple[int, str]] = []
     in_fence = False
@@ -54,18 +57,16 @@ def strip_code_blocks(text: str) -> list[tuple[int, str]]:
 
 
 def targets(line: str) -> list[str]:
-    found = [m.group(1) for m in INLINE_LINK.finditer(line)]
-    found += [m.group(1) for m in BACKTICKED_DOC.finditer(line)]
-    return [t for t in found if not t.startswith(SKIP_PREFIXES) and t not in EXTERNAL_REFS]
+    found = (m.group(1) for m in BACKTICKED_DOC.finditer(line))
+    return [t for t in found if t not in EXTERNAL_REFS]
 
 
 def resolves(source: Path, target: str) -> bool:
     """A target may be written relative to its own file or to the repo root."""
-    path = target.split("#", 1)[0].split("?", 1)[0]
+    path = target.split("#", 1)[0]
     if not path:
         return True
-    candidates = [source.parent / path, ROOT / path.lstrip("/")]
-    return any(c.exists() for c in candidates)
+    return any(c.exists() for c in (source.parent / path, ROOT / path.lstrip("/")))
 
 
 def display(path: Path) -> str:
@@ -94,20 +95,20 @@ def main(argv: list[str]) -> int:
     for path in sorted(paths):
         if path.suffix != ".md" or not path.is_file():
             continue
-        for number, line in strip_code_blocks(path.read_text()):
+        for number, line in prose_lines(path.read_text()):
             for target in targets(line):
                 checked += 1
                 if not resolves(path, target):
-                    errors.append(f"{display(path)}:{number}: broken link -> {target}")
+                    errors.append(f"{display(path)}:{number}: broken reference -> {target}")
 
     if checked == 0 and not argv:
-        errors.append("markdown link check found no references to verify")
+        errors.append("backticked-path check scanned no references")
 
     if errors:
         print("\n".join(errors))
         print(f"\n{len(errors)} broken reference(s). Fix the path or drop the reference.")
         return 1
-    print(f"OK: {checked} in-repository markdown references resolve.")
+    print(f"OK: {checked} backticked document references resolve.")
     return 0
 
 

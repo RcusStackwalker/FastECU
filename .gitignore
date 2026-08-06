@@ -71,6 +71,9 @@ compile_flags.txt
 # local packaging script output
 /dist/
 /FastECU-*.zip
+
+# lychee link-check response cache
+/.lycheecache
 /bazel-pkg-*.zip
 
 /.worktrees/
