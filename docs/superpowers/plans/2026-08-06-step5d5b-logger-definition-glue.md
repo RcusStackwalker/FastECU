@@ -15,7 +15,7 @@
 - Backend operations return `fastecu::Result<T>` (`std::expected<T, Error>`) with one of the seven existing `ErrorKind` values. **Do not add an `ErrorKind` value** — that requires amending the step-5 design doc. Parse and config failures are `ErrorKind::InvalidConfig`.
 - **Exceptions never cross a port.**
 - Prefer `std::string_view` by value over `const char*` / `const std::string&` (ADR 0009); gmock matchers for property assertions (ADR 0010); `std::format` for message construction (ADR 0011); ranges/views over index loops (ADR 0012).
-- New portable targets must be registered in **both** places or `//:portable_closure` fails: the `genquery` in the root `BUILD.bazel` (already lists `//src/backend/logging:BUILD.bazel` at line 136 — **no root change needed**) and `PORTABLE_ROOTS` in `scripts/check-portable-closure.py` (line 33, the `src/backend/logging` entry — **this one does change**).
+- New portable targets must be registered in **both** places or `//:portable_closure` fails: the `genquery` in the root `BUILD.bazel` (already lists `//src/backend/logging:BUILD.bazel` at line 136 — **no root change needed**) and `PORTABLE_ROOTS` in `scripts/check-portable-closure.py` (line 33, the `src/backend/logging` entry — **this one does change**). A `PORTABLE_ROOTS` name is a **required** target: the guard fails with `required portable target 'X' is missing` if the name has no target. Register a name only in the task that creates its target — never ahead of time.
 - Bazel `deps` lists must be in **alphabetical order**. Buildifier enforces it; run `prek` before committing.
 - Tests are package-owned and co-located. Use `fastecu_portable_gtest` (Qt-free closure) from `bazel/gtest_targets.bzl` for the portable targets, `fastecu_gtest` where `QT_DEPS` are needed, `fastecu_qttest` from `bazel/qt_targets.bzl` for the QtTest-style `FileActions` suites.
 - Mocks/fakes are package-owned in a `testing/` subpackage. The fakes this plan needs already exist in `//src/backend/ports/testing`: `in_memory_file_repository`, `in_memory_atomic_file_writer`, `in_memory_resource_bundle`, `in_memory_file_system`. **Do not write new fakes for these ports.**
@@ -88,7 +88,7 @@ Two behaviours in the current code are not modelled by the design doc. Both were
 
 | File | Change |
 |---|---|
-| `scripts/check-portable-closure.py:33-38` | `PORTABLE_ROOTS`'s `src/backend/logging` set gains four names. The adapter is **not** among them — it is Qt-typed by design. |
+| `scripts/check-portable-closure.py:33-38` | `PORTABLE_ROOTS`'s `src/backend/logging` set gains one name per task, in the task that creates the target (2, 3, 4, 5). The adapter is **not** among them — it is Qt-typed by design. |
 | `src/backend/logging/BUILD.bazel` | Four new `cc_library` targets, one `qt_cc_library` adapter, and their tests. |
 | `src/backend/definitions/BUILD.bazel` | New `log_values` target; the `definitions` target gains the logger deps. |
 | `src/backend/definitions/file_actions.h` | `LogValuesStructure` becomes a `using` alias of the extracted type; `log_value_units` → `log_value_conversions`; delete 7 dead fields, `log_values_by_protocol`, `dt_codes_structure`, `save_logger_conf`'s declaration. |
@@ -378,7 +378,7 @@ In `scripts/check-portable-closure.py`, the `src/backend/logging` entry at line 
     },
 ```
 
-Add all four names this plan introduces now, so later tasks don't each have to touch this file:
+Add **only** `logger_definition_model` — the target that exists after this task:
 
 ```python
     ROOT / "src/backend/logging": {
@@ -387,18 +387,17 @@ Add all four names this plan introduces now, so later tasks don't each have to t
         "logging_conversion",
         "logging_use_case",
         "logger_definition_model",
-        "logger_definition_parser",
-        "logger_conf",
-        "logger_definition_service",
     },
 ```
+
+**Register exactly one name per task, in the task that creates the target.** A `PORTABLE_ROOTS` entry is a *required* target, not a permission: `scripts/check-portable-closure.py` fails with `required portable target 'X' is missing` when a listed name has no target. Pre-registering the later names breaks `//:portable_closure` — and therefore the full gate — for every task until the last one lands. Tasks 3, 4 and 5 each add their own name.
 
 The root `BUILD.bazel` genquery already lists `//src/backend/logging:BUILD.bazel` (line 136) — do **not** edit the root `BUILD.bazel`.
 
 - [ ] **Step 4: Verify the closure guard still passes**
 
 Run: `bazel test --config=release //:portable_closure`
-Expected: PASS. A header-only target with no deps cannot pull Qt in; this step proves the registration is syntactically right before three more targets depend on it.
+Expected: PASS. A header-only target with no deps cannot pull Qt in; this step proves the registration is right before three more targets depend on it.
 
 - [ ] **Step 5: Commit**
 
@@ -407,8 +406,7 @@ git add src/backend/logging/logger_definition_model.h \
         src/backend/logging/BUILD.bazel scripts/check-portable-closure.py
 git commit -m "feat: add the portable logger definition value model
 
-Types only. Registers all four 5d-5b target names in PORTABLE_ROOTS up
-front so the later targets don't each reopen that file."
+Types only, plus the PORTABLE_ROOTS registration for this one target."
 ```
 
 ---
@@ -818,6 +816,8 @@ fastecu_portable_gtest(
     deps = [":logger_definition_parser"],
 )
 ```
+
+Then add `"logger_definition_parser"` to the `src/backend/logging` set in `scripts/check-portable-closure.py` — one name per task, in the task that creates the target.
 
 Check the file's existing `load(...)` line already imports `fastecu_portable_gtest`; add it if not. Confirm the exact label for the bytes header and for pugixml against a package that already uses them — `src/backend/definition/BUILD.bazel` is the reference for `@pugixml`, and `grep -rn "protocol:bytes" src/*/BUILD.bazel` for the bytes label. **Use the labels the tree actually has, not the ones written above, if they differ.**
 
@@ -1353,6 +1353,8 @@ fastecu_portable_gtest(
 )
 ```
 
+Then add `"logger_conf"` to the `src/backend/logging` set in `scripts/check-portable-closure.py`.
+
 - [ ] **Step 6: Run tests to verify they pass**
 
 Run: `bazel test --config=release //src/backend/logging:logger_conf_test`
@@ -1755,6 +1757,8 @@ fastecu_portable_gtest(
     ],
 )
 ```
+
+Then add `"logger_definition_service"` to the `src/backend/logging` set in `scripts/check-portable-closure.py`.
 
 - [ ] **Step 6: Run tests and the closure guard**
 
