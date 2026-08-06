@@ -16,6 +16,12 @@ import yaml
 
 _WINDOWS_COMPDB_TOOL = "C:/tools/clang_tidy_compdb.exe"
 _CONFIG_RELEASE = "--config=release"
+_FASTECU_TARGET = "//:fastecu"
+_UNIX_COMPDB_TOOL = "/tools/clang_tidy_compdb"
+_UNIX_TOOLS = runner.Tools(
+    clang_tidy="/llvm/bin/clang-tidy",
+    run_clang_tidy="/llvm/bin/run-clang-tidy",
+)
 
 
 class ClangTidyRunnerTest(unittest.TestCase):
@@ -38,6 +44,29 @@ class ClangTidyRunnerTest(unittest.TestCase):
             for path in files
         ]
         (self.root / "compile_commands.json").write_text(json.dumps(entries))
+
+    def prebuild_fixture(
+        self, *, bazel_build_returncode: int = 0
+    ) -> tuple[list[list[str]], runner.CommandRunner]:
+        """A compilable source plus a fake runner that records every command.
+
+        `xcrun --show-sdk-path` always succeeds (needed on the macOS run_workflow
+        path); `bazel build` fails with bazel_build_returncode when non-zero.
+        """
+        source = self.root / "main.cpp"
+        source.write_text("int main() { return 0; }\n")
+        self.write_database([source])
+        commands: list[list[str]] = []
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            commands.append(command)
+            if bazel_build_returncode and command[:2] == ["bazel", "build"]:
+                return subprocess.CompletedProcess(command, bazel_build_returncode)
+            if command == ["xcrun", "--show-sdk-path"]:
+                return subprocess.CompletedProcess(command, 0, stdout="/SDK/MacOSX.sdk\n")
+            return subprocess.CompletedProcess(command, 0)
+
+        return commands, fake_run
 
     def write_fixes(
         self,
@@ -548,131 +577,73 @@ class ClangTidyRunnerTest(unittest.TestCase):
             runner.normalize_replacements(fixes_directory)
 
     def test_prebuild_runs_before_refresh_when_requested(self) -> None:
-        source = self.root / "main.cpp"
-        source.write_text("int main() { return 0; }\n")
-        self.write_database([source])
-        commands: list[list[str]] = []
-
-        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-            commands.append(command)
-            if command == ["xcrun", "--show-sdk-path"]:
-                return subprocess.CompletedProcess(command, 0, stdout="/SDK/MacOSX.sdk\n")
-            return subprocess.CompletedProcess(command, 0)
-
-        tools = runner.Tools(
-            clang_tidy="/llvm/bin/clang-tidy",
-            run_clang_tidy="/llvm/bin/run-clang-tidy",
-        )
-        with mock.patch.object(runner, "discover_tools", return_value=tools):
+        commands, fake_run = self.prebuild_fixture()
+        with mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS):
             runner.run_workflow(
                 mode="report",
                 workspace=self.root,
-                compdb_tool="/tools/clang_tidy_compdb",
+                compdb_tool=_UNIX_COMPDB_TOOL,
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
-                build_args=[_CONFIG_RELEASE, "//:fastecu"],
+                build_args=[_CONFIG_RELEASE, _FASTECU_TARGET],
             )
 
         self.assertEqual(
-            ["bazel", "build", "--keep_going", _CONFIG_RELEASE, "//:fastecu"],
+            ["bazel", "build", "--keep_going", _CONFIG_RELEASE, _FASTECU_TARGET],
             commands[0],
         )
-        self.assertEqual("/tools/clang_tidy_compdb", commands[1][0])
+        self.assertEqual(_UNIX_COMPDB_TOOL, commands[1][0])
 
     def test_compdb_args_are_forwarded_to_refresh_tool(self) -> None:
-        source = self.root / "main.cpp"
-        source.write_text("int main() { return 0; }\n")
-        self.write_database([source])
-        commands: list[list[str]] = []
-
-        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-            commands.append(command)
-            if command == ["xcrun", "--show-sdk-path"]:
-                return subprocess.CompletedProcess(command, 0, stdout="/SDK/MacOSX.sdk\n")
-            return subprocess.CompletedProcess(command, 0)
-
-        tools = runner.Tools(
-            clang_tidy="/llvm/bin/clang-tidy",
-            run_clang_tidy="/llvm/bin/run-clang-tidy",
-        )
-        with mock.patch.object(runner, "discover_tools", return_value=tools):
+        commands, fake_run = self.prebuild_fixture()
+        with mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS):
             runner.run_workflow(
                 mode="report",
                 workspace=self.root,
-                compdb_tool="/tools/clang_tidy_compdb",
+                compdb_tool=_UNIX_COMPDB_TOOL,
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
-                build_args=[_CONFIG_RELEASE, "//:fastecu"],
+                build_args=[_CONFIG_RELEASE, _FASTECU_TARGET],
                 compdb_args=[_CONFIG_RELEASE],
             )
 
         self.assertEqual(
-            ["/tools/clang_tidy_compdb", _CONFIG_RELEASE],
+            [_UNIX_COMPDB_TOOL, _CONFIG_RELEASE],
             commands[1],
         )
 
     def test_prebuild_is_skipped_without_build_args(self) -> None:
-        source = self.root / "main.cpp"
-        source.write_text("int main() { return 0; }\n")
-        self.write_database([source])
-        commands: list[list[str]] = []
-
-        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-            commands.append(command)
-            if command == ["xcrun", "--show-sdk-path"]:
-                return subprocess.CompletedProcess(command, 0, stdout="/SDK/MacOSX.sdk\n")
-            return subprocess.CompletedProcess(command, 0)
-
-        tools = runner.Tools(
-            clang_tidy="/llvm/bin/clang-tidy",
-            run_clang_tidy="/llvm/bin/run-clang-tidy",
-        )
-        with mock.patch.object(runner, "discover_tools", return_value=tools):
+        commands, fake_run = self.prebuild_fixture()
+        with mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS):
             runner.run_workflow(
                 mode="report",
                 workspace=self.root,
-                compdb_tool="/tools/clang_tidy_compdb",
+                compdb_tool=_UNIX_COMPDB_TOOL,
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
             )
 
-        self.assertEqual("/tools/clang_tidy_compdb", commands[0][0])
+        self.assertEqual(_UNIX_COMPDB_TOOL, commands[0][0])
         self.assertNotIn("bazel", [command[0] for command in commands])
 
     def test_prebuild_failure_does_not_block_analysis(self) -> None:
-        source = self.root / "main.cpp"
-        source.write_text("int main() { return 0; }\n")
-        self.write_database([source])
-        commands: list[list[str]] = []
-
-        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-            commands.append(command)
-            if command[:2] == ["bazel", "build"]:
-                return subprocess.CompletedProcess(command, 3)
-            if command == ["xcrun", "--show-sdk-path"]:
-                return subprocess.CompletedProcess(command, 0, stdout="/SDK/MacOSX.sdk\n")
-            return subprocess.CompletedProcess(command, 0)
-
-        tools = runner.Tools(
-            clang_tidy="/llvm/bin/clang-tidy",
-            run_clang_tidy="/llvm/bin/run-clang-tidy",
-        )
-        with mock.patch.object(runner, "discover_tools", return_value=tools):
+        commands, fake_run = self.prebuild_fixture(bazel_build_returncode=3)
+        with mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS):
             result = runner.run_workflow(
                 mode="report",
                 workspace=self.root,
-                compdb_tool="/tools/clang_tidy_compdb",
+                compdb_tool=_UNIX_COMPDB_TOOL,
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
-                build_args=["//:fastecu"],
+                build_args=[_FASTECU_TARGET],
             )
 
         self.assertEqual(0, result)
-        self.assertEqual("/tools/clang_tidy_compdb", commands[1][0])
+        self.assertEqual(_UNIX_COMPDB_TOOL, commands[1][0])
 
     def test_refresh_failure_stops_before_analysis(self) -> None:
         def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:

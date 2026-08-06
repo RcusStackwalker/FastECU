@@ -38,7 +38,7 @@ SerialPortActions::~SerialPortActions()
     // own thread at this point -- draining the I/O thread above only proves
     // the backend-side half of that call is done. Wait for it to fully
     // return before this object's memory is freed.
-    while (m_activeCalls.load(std::memory_order_acquire) > 0)
+    while (m_activeCalls.load() > 0)
     {
         QThread::yieldCurrentThread();
     }

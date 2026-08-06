@@ -208,12 +208,17 @@ class SerialPortActions : public QObject
         std::atomic<int>& counter;
         explicit CallGuard(std::atomic<int>& c) : counter(c)
         {
-            counter.fetch_add(1, std::memory_order_acq_rel);
+            counter.fetch_add(1);
         }
         ~CallGuard()
         {
-            counter.fetch_sub(1, std::memory_order_release);
+            counter.fetch_sub(1);
         }
+
+        // Non-copyable: each guard must decrement the counter exactly once,
+        // matching the single increment its constructor performed.
+        CallGuard(const CallGuard&) = delete;
+        CallGuard& operator=(const CallGuard&) = delete;
     };
 
     // Marshal `fn` onto the I/O thread and block until it completes. `fn`
