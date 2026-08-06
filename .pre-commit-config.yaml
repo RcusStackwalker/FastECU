@@ -17,9 +17,6 @@ repos:
         files: \.(h|hh|hpp|hxx)$
         entry: bash -c 'missing=$(grep -L "^#pragma once" "$@"); if [ -n "$missing" ]; then echo "$missing"; exit 1; fi' --
 
-  # Real link syntax: [text](path), #anchors, and external URLs.
-  # Scoped to Markdown because the upstream default (types: text) also walks
-  # LICENSE and the bundled SVGs, whose dead URLs we neither own nor can fix.
   - repo: https://github.com/lycheeverse/lychee.git
     rev: lychee-v0.24.2
     hooks:
