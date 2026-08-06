@@ -171,10 +171,10 @@ Result<bytes::Bytes> write_selection(
         logger.remove_child(ecu);
     }
     ecu = logger.append_child("ecu");
-    ecu.append_attribute("id") = std::string(ecu_id).c_str();
+    ecu.append_attribute("id") = ecu_id;
 
     pugi::xml_node protocol = ecu.append_child("protocol");
-    protocol.append_attribute("id") = selection.protocol.c_str();
+    protocol.append_attribute("id") = selection.protocol;
     pugi::xml_node parameters = protocol.append_child("parameters");
     append_ids(parameters.append_child("gauges"), "parameter", selection.gauge_ids);
     append_ids(parameters.append_child("lower_panel"), "parameter", selection.lower_panel_ids);
