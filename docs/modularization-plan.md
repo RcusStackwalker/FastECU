@@ -63,9 +63,9 @@ Verified on 2026-08-06 against `master` at `9b94a9c`:
   `FlashUtils::configureIso15765Can(SerialPortActions*)`, a disclosed 5c gap)
   and `//src/backend/logging/protocols`. The rest are `src/ui/desktop` entries
   that step 6 drains, plus the legitimate same-layer `remote_utility` edge.
-- Five `:qt_compat` shims survive in `src/algorithms` (`crypto`,
-  `diagnostics`, `protocol`, `menu`, `expression`). `qt_dtc_parser` /
-  `qt_nrc_parser` are drained by 5d-5.
+- Four `:qt_compat` shims survive in `src/algorithms` (`crypto`, `protocol`,
+  `menu`, `expression`). The `diagnostics` shim, including `qt_dtc_parser` /
+  `qt_nrc_parser`, was drained and deleted by 5d-5.
 - The legacy `src/backend/definitions/file_actions.cpp` god object is down to
   ~2.1k lines and is distinct from the new portable `src/backend/definition/`.
   Three named legacy adapters bridge it to portable use cases:

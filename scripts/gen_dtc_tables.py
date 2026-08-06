@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
-"""Transcribe error_codes.h's QHash tables into portable std::unordered_map
-accessors. Entry lines are copied byte-for-byte; only the surrounding
-declaration changes.
+"""One-shot transcription tool: copied error_codes.h's QHash tables into the
+portable std::unordered_map accessors now in dtc_tables.cpp. Entry lines were
+copied byte-for-byte; only the surrounding declaration changed.
 
-Run from the repository root, before error_codes.h is deleted in Task 5:
-    python3 scripts/gen_dtc_tables.py
+Its input, error_codes.h, was deleted in commit 03f202e, so this script no
+longer runs (it fails with FileNotFoundError). It is retained as the
+reviewable record of how dtc_tables.cpp was produced, not as a live
+regeneration path -- see dtc_tables.h for how to add new entries now.
+
+When this script was last run, its output still needed a pass of
+clang-format (via prek) before committing: the script emits 4-space
+indentation, while the committed file follows the project's formatting.
 """
 
 import re
