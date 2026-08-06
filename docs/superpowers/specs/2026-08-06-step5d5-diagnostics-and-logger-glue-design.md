@@ -78,7 +78,7 @@ without coupling the assertions to table contents.
 `static const QHash<int, QString>` declarations at `file_actions.h:171-175`,
 and `FileActions::parse_nrc_message` / `parse_dtc_message`.
 
-**Converted callers**, ten sites in two files:
+**Converted callers**, twelve sites in two files:
 
 - `src/ui/desktop/dtc_operations.cpp` — four `parse_nrc_message`, two
   `parse_dtc_message`.
@@ -93,6 +93,39 @@ obtained through `qt_bytes.h`.
 `src/algorithms` portable root, which is registered with `None` (whole subtree
 portable), so `dtc_tables` needs no new registration. Deleting `:qt_compat`
 only shrinks the Qt surface.
+
+### Category-bit lookup fix
+
+Verifying the tables for the transcription turned up a live bug, fixed in this
+slice as its own commit so it can be reverted independently of the migration.
+
+All four DTC tables are keyed by the 14-bit code with the category bits masked
+off — the maximum key across all four is `0x3000`, and none reaches `0x4000`.
+But `dtc_description` looks up the **full** value including the two category
+bits it has already consumed to select the table (`dtc_parser.cpp:45`):
+
+| Category | Lookup key | Table key | Entries | Reachable |
+|---|---|---|---|---|
+| P | `dtc` | `code` | 1,733 | yes, because `dtc == code` for category 0 |
+| C | `0x4000\|code` | `code` | 487 | never |
+| B | `0x8000\|code` | `code` | 1,147 | never |
+| U | `0xC000\|code` | `code` | 299 | never |
+
+So 1,933 of the 3,666 DTC descriptions in the tree have never reached a user;
+`dtc_operations.cpp` prints "B1200 - Unknown error code" where the table holds
+"B1200 - Climate Control Pushbutton Circuit Failure".
+
+The fix is `table->find(dtc & 0x3fff)`, safe for all four tables because no key
+carries category bits. The existing tests missed it because their synthetic
+tables use the full-value convention (`diagnostics_test.cpp:37` keys a chassis
+entry at `0x4001`), the opposite of every real table; they are corrected to the
+masked convention alongside the fix. This is the same class of miss as the
+5d-4b `RomInfo[FlashMethod]` case — the parameterization that made the tables
+injectable also let the test data disagree with the production data
+indefinitely.
+
+A golden test asserts that every key in every DTC table stays below `0x4000`,
+so a future table edit cannot silently reintroduce the mismatch.
 
 ## 5d-5b: logger-definition glue
 
