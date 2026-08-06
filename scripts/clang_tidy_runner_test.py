@@ -14,6 +14,9 @@ from unittest import mock
 import clang_tidy_runner as runner
 import yaml
 
+_WINDOWS_COMPDB_TOOL = "C:/tools/clang_tidy_compdb.exe"
+_CONFIG_RELEASE = "--config=release"
+
 
 class ClangTidyRunnerTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -180,13 +183,13 @@ class ClangTidyRunnerTest(unittest.TestCase):
             runner.run_workflow(
                 mode="report",
                 workspace=self.root,
-                compdb_tool="C:/tools/clang_tidy_compdb.exe",
+                compdb_tool=_WINDOWS_COMPDB_TOOL,
                 platform_name="win32",
                 environ={},
                 command_runner=fake_run,
             )
 
-        self.assertEqual("C:/tools/clang_tidy_compdb.exe", commands[0][0])
+        self.assertEqual(_WINDOWS_COMPDB_TOOL, commands[0][0])
         self.assertEqual(runner.sys.executable, commands[1][0])
         self.assertEqual("C:/LLVM/bin/run-clang-tidy.py", commands[1][1])
         self.assertIn("-clang-tidy-binary", commands[1])
@@ -214,7 +217,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
             runner.run_workflow(
                 mode="report",
                 workspace=self.root,
-                compdb_tool="C:/tools/clang_tidy_compdb.exe",
+                compdb_tool=_WINDOWS_COMPDB_TOOL,
                 platform_name="win32",
                 environ={},
                 command_runner=fake_run,
@@ -568,11 +571,11 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
-                build_args=["--config=release", "//:fastecu"],
+                build_args=[_CONFIG_RELEASE, "//:fastecu"],
             )
 
         self.assertEqual(
-            ["bazel", "build", "--keep_going", "--config=release", "//:fastecu"],
+            ["bazel", "build", "--keep_going", _CONFIG_RELEASE, "//:fastecu"],
             commands[0],
         )
         self.assertEqual("/tools/clang_tidy_compdb", commands[1][0])
@@ -601,12 +604,12 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
-                build_args=["--config=release", "//:fastecu"],
-                compdb_args=["--config=release"],
+                build_args=[_CONFIG_RELEASE, "//:fastecu"],
+                compdb_args=[_CONFIG_RELEASE],
             )
 
         self.assertEqual(
-            ["/tools/clang_tidy_compdb", "--config=release"],
+            ["/tools/clang_tidy_compdb", _CONFIG_RELEASE],
             commands[1],
         )
 
