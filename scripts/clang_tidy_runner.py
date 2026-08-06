@@ -165,8 +165,17 @@ def _run(command_runner: CommandRunner, command: list[str], workspace: Path) -> 
     return result.returncode
 
 
-def _executable_command(executable: str) -> list[str]:
-    if Path(executable).suffix.lower() == ".py":
+_WINDOWS_EXECUTABLE_SUFFIXES = frozenset((".exe", ".bat", ".cmd", ".com"))
+
+
+def _executable_command(executable: str, *, platform_name: str) -> list[str]:
+    suffix = Path(executable).suffix.lower()
+    if suffix == ".py":
+        return [sys.executable, executable]
+    # LLVM ships run-clang-tidy as a shebang'd Python script with no extension.
+    # POSIX execs it fine via the shebang; Windows cannot, so route it through
+    # the interpreter whenever it lacks a recognized native executable suffix.
+    if platform_name.startswith("win") and suffix not in _WINDOWS_EXECUTABLE_SUFFIXES:
         return [sys.executable, executable]
     return [executable]
 
@@ -442,7 +451,7 @@ def run_workflow(
                 "internal error: filtered compilation database escaped its temp directory"
             )
         filtered_database.write_text(json.dumps(entries, indent=2) + "\n")
-        command = _executable_command(tools.run_clang_tidy) + [
+        command = _executable_command(tools.run_clang_tidy, platform_name=platform_name) + [
             "-clang-tidy-binary",
             tools.clang_tidy,
             "-config-file",

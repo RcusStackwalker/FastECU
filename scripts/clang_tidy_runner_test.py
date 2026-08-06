@@ -192,6 +192,38 @@ class ClangTidyRunnerTest(unittest.TestCase):
         self.assertIn("-clang-tidy-binary", commands[1])
         self.assertNotIn("-fix", commands[1])
 
+    def test_windows_report_wraps_extensionless_run_clang_tidy(self) -> None:
+        # LLVM 18+ ships run-clang-tidy without a .py suffix (a shebang'd
+        # Python script). Windows can't exec that directly -> WinError 193
+        # ("%1 is not a valid Win32 application") unless it's routed through
+        # the Python interpreter, same as the .py case.
+        source = self.root / "windows.cpp"
+        source.write_text("int windows_source;\n")
+        self.write_database([source])
+        commands: list[list[str]] = []
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            commands.append(command)
+            return subprocess.CompletedProcess(command, 0)
+
+        tools = runner.Tools(
+            clang_tidy="C:/LLVM/bin/clang-tidy.exe",
+            run_clang_tidy="C:/LLVM/bin/run-clang-tidy",
+        )
+        with mock.patch.object(runner, "discover_tools", return_value=tools):
+            runner.run_workflow(
+                mode="report",
+                workspace=self.root,
+                compdb_tool="C:/tools/clang_tidy_compdb.exe",
+                platform_name="win32",
+                environ={},
+                command_runner=fake_run,
+            )
+
+        self.assertEqual(runner.sys.executable, commands[1][0])
+        self.assertEqual("C:/LLVM/bin/run-clang-tidy", commands[1][1])
+        self.assertIn("-clang-tidy-binary", commands[1])
+
     def test_windows_fix_is_rejected_before_refresh(self) -> None:
         command_runner = mock.Mock()
         with self.assertRaisesRegex(runner.WorkflowError, "macOS and Linux"):

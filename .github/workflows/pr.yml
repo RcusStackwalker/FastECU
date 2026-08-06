@@ -188,6 +188,5 @@ jobs:
           retention-days: 14
 
       - name: clang-tidy report
-        continue-on-error: ${{ runner.os != 'macOS' }}
         run: |
           bazel run --config=release //:clang_tidy_report
