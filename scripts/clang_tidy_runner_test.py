@@ -18,6 +18,7 @@ _WINDOWS_COMPDB_TOOL = "C:/tools/clang_tidy_compdb.exe"
 _CONFIG_RELEASE = "--config=release"
 _FASTECU_TARGET = "//:fastecu"
 _UNIX_COMPDB_TOOL = "/tools/clang_tidy_compdb"
+_MAIN_CPP = "main.cpp"
 _UNIX_TOOLS = runner.Tools(
     clang_tidy="/llvm/bin/clang-tidy",
     run_clang_tidy="/llvm/bin/run-clang-tidy",
@@ -53,7 +54,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
         `xcrun --show-sdk-path` always succeeds (needed on the macOS run_workflow
         path); `bazel build` fails with bazel_build_returncode when non-zero.
         """
-        source = self.root / "main.cpp"
+        source = self.root / _MAIN_CPP
         source.write_text("int main() { return 0; }\n")
         self.write_database([source])
         commands: list[list[str]] = []
@@ -95,7 +96,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
             "DiagnosticName": name,
             "DiagnosticMessage": {
                 "Message": f"message for {name}",
-                "FilePath": str(self.root / "main.cpp"),
+                "FilePath": str(self.root / _MAIN_CPP),
                 "FileOffset": 0,
                 "Replacements": replacements,
             },
@@ -131,7 +132,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
             runner.workspace_root({})
 
     def test_database_keeps_only_workspace_translation_units(self) -> None:
-        source = self.root / "main.cpp"
+        source = self.root / _MAIN_CPP
         source.write_text("int main() { return 0; }\n")
         generated = Path(self.temp_dir.name) / "bazel-out" / "moc_main.cpp"
         generated.parent.mkdir()
@@ -270,7 +271,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
         command_runner.assert_not_called()
 
     def test_macos_report_adds_sdk_sysroot_to_analysis(self) -> None:
-        source = self.root / "main.cpp"
+        source = self.root / _MAIN_CPP
         source.write_text("int main() { return 0; }\n")
         self.write_database([source])
         commands: list[list[str]] = []
@@ -287,7 +288,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
             runner.run_workflow(
                 mode="report",
                 workspace=self.root,
-                compdb_tool="/tools/clang_tidy_compdb",
+                compdb_tool=_UNIX_COMPDB_TOOL,
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
@@ -301,7 +302,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
         self.assertIn("-extra-arg-before=/SDK/MacOSX.sdk", analysis_command)
 
     def test_macos_sdk_lookup_failure_is_actionable(self) -> None:
-        source = self.root / "main.cpp"
+        source = self.root / _MAIN_CPP
         source.write_text("int main() { return 0; }\n")
         self.write_database([source])
 
@@ -321,14 +322,14 @@ class ClangTidyRunnerTest(unittest.TestCase):
             runner.run_workflow(
                 mode="report",
                 workspace=self.root,
-                compdb_tool="/tools/clang_tidy_compdb",
+                compdb_tool=_UNIX_COMPDB_TOOL,
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
             )
 
     def test_fix_uses_deferred_replacements(self) -> None:
-        source = self.root / "main.cpp"
+        source = self.root / _MAIN_CPP
         source.write_text("int main() { return 0; }\n")
         self.write_database([source])
         commands: list[list[str]] = []
@@ -362,7 +363,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
             runner.run_workflow(
                 mode="fix",
                 workspace=self.root,
-                compdb_tool="/tools/clang_tidy_compdb",
+                compdb_tool=_UNIX_COMPDB_TOOL,
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
@@ -562,7 +563,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
     def test_normalization_rejects_malformed_replacement(self) -> None:
         fixes_directory = Path(self.temp_dir.name) / "fixes"
         fixes_directory.mkdir()
-        malformed = self.replacement(self.root / "main.cpp", 4, 0, "value")
+        malformed = self.replacement(self.root / _MAIN_CPP, 4, 0, "value")
         del malformed["Offset"]
         self.write_fixes(
             fixes_directory,
@@ -653,14 +654,14 @@ class ClangTidyRunnerTest(unittest.TestCase):
             runner.run_workflow(
                 mode="report",
                 workspace=self.root,
-                compdb_tool="/tools/clang_tidy_compdb",
+                compdb_tool=_UNIX_COMPDB_TOOL,
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
             )
 
     def test_analysis_failure_is_propagated(self) -> None:
-        source = self.root / "main.cpp"
+        source = self.root / _MAIN_CPP
         source.write_text("int main() { return 0; }\n")
         self.write_database([source])
         return_codes = iter((0, 7))
@@ -681,14 +682,14 @@ class ClangTidyRunnerTest(unittest.TestCase):
             runner.run_workflow(
                 mode="report",
                 workspace=self.root,
-                compdb_tool="/tools/clang_tidy_compdb",
+                compdb_tool=_UNIX_COMPDB_TOOL,
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
             )
 
     def test_replacement_failure_is_propagated(self) -> None:
-        source = self.root / "main.cpp"
+        source = self.root / _MAIN_CPP
         source.write_text("int main() { return 0; }\n")
         self.write_database([source])
         return_codes = iter((0, 0, 8))
@@ -710,7 +711,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
             runner.run_workflow(
                 mode="fix",
                 workspace=self.root,
-                compdb_tool="/tools/clang_tidy_compdb",
+                compdb_tool=_UNIX_COMPDB_TOOL,
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
