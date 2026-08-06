@@ -70,6 +70,16 @@ cc_test(
     ],
 )
 
+cc_test(
+    name = "dtc_tables_test",
+    size = "small",
+    srcs = ["dtc_tables_test.cpp"],
+    deps = [
+        ":diagnostics",
+        "@googletest//:gtest_main",
+    ],
+)
+
 fastecu_qttest(
     name = "test_diagnostic_parsers",
     src = "diagnostic_parsers_qt_compat_test.cpp",
