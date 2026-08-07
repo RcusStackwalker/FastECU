@@ -64,6 +64,30 @@ fastecu_portable_gtest(
 )
 
 cc_library(
+    name = "logger_definition_service",
+    srcs = ["logger_definition_service.cpp"],
+    hdrs = ["logger_definition_service.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":logger_conf",
+        ":logger_definition_model",
+        ":logger_definition_parser",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "logger_definition_service_test",
+    srcs = ["logger_definition_service_test.cpp"],
+    deps = [
+        ":logger_definition_service",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/ports/testing:in_memory_file_repository",
+        "//src/backend/ports/testing:in_memory_resource_bundle",
+    ],
+)
+
+cc_library(
     name = "logging_session",
     srcs = ["logging_session.cpp"],
     hdrs = ["logging_session.h"],
