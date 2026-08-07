@@ -30,7 +30,6 @@ FROZEN = {
     # backend (its callers are the relocated src/platform/.../flash/legacy
     # CAN operations).
     "//src/backend/flash:__pkg__",
-    "//src/backend/logging/protocols:__pkg__",
     "//src/platform/desktop/common/serial:__pkg__",
     "//src/platform/desktop/common/transport:__pkg__",
     "//src/ui/desktop:__pkg__",
