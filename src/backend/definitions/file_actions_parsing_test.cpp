@@ -1331,6 +1331,32 @@ class TestFileActionsParsing : public QObject
         QVERIFY(ecu.FullRomData != QByteArray(524288, '\0'));
     }
 
+    void checksum_correction_emits_protocol_make_checksum_and_size_debug_lines()
+    {
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        actions.ConfigValuesStruct.flash_protocol_selected_make = "Subaru";
+        actions.ConfigValuesStruct.flash_protocol_selected_checksum = "yes";
+        actions.ConfigValuesStruct.flash_protocol_selected_protocol_name = "sub_ecu_hitachi_m32r_can";
+        actions.ConfigValuesStruct.flash_protocol_selected_mcu = "M32170";
+
+        QSignalSpy debugSpy(&actions, &FileActions::LOG_D);
+        QSignalSpy errorSpy(&actions, &FileActions::LOG_E);
+
+        FileActions::EcuCalDefStructure ecu;
+        ecu.McuType = "M32170";
+        ecu.RomId = "39670016";
+        ecu.FullRomData = QByteArray(100, '\0');
+
+        actions.checksum_correction(&ecu);
+
+        // These four lines are the observable output of the unknown-MCU path
+        // and must survive the move to ChecksumCorrectionCommand verbatim.
+        QVERIFY(spyContainsMessage(debugSpy, "Protocol: sub_ecu_hitachi_m32r_can"));
+        QVERIFY(spyContainsMessage(debugSpy, "Make: Subaru"));
+        QVERIFY(spyContainsMessage(debugSpy, "Checksum: yes"));
+        QVERIFY(spyContainsMessage(errorSpy, "Unknown MCU type: M32170"));
+    }
+
     void open_subaru_rom_file_applies_padding_before_size_validation()
     {
         // The ROM-size check must run AFTER the sub_ecu_denso_mc68hc16y5_02
