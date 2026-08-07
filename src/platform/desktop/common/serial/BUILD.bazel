@@ -77,7 +77,14 @@ qt_cc_library(
         # step 5 (backend) or step 6 (ui). Frozen by
         # scripts/check-serial-compat-allowlist.py -- this list may
         # shrink, never grow.
-        "//src/backend/flash:__pkg__",
+        # TRANSITIONAL, step 5e. Replaces the //src/backend/flash entry, which
+        # existed only because the 27 legacy operation classes reached
+        # serial_port_actions.h *through* backend/flash's flash_utils target --
+        # a backend -> platform layer inversion used as a visibility channel.
+        # This is the same debt, correctly attributed: a platform -> platform
+        # sibling edge, which the layering rules do not prohibit. Drained by
+        # the step-5 tail as each flash family migrates off the full facade.
+        "//src/platform/desktop/common/flash/legacy:__pkg__",
         "//src/platform/desktop/common/serial:__pkg__",
         "//src/platform/desktop/common/transport:__pkg__",
         "//src/ui/desktop:__pkg__",

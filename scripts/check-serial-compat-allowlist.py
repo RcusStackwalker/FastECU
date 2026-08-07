@@ -21,15 +21,9 @@ BUILD = "src/platform/desktop/common/serial/BUILD.bazel"
 # the way the serial_port_actions.h debt entries are.
 FROZEN = {
     "//src/platform/desktop/common/remote_utility:__pkg__",
-    # //src/backend/flash retains this entry (step 5c, Task 16) because
-    # flash_utils.cpp's FlashUtils::configureIso15765Can(SerialPortActions*)
-    # still lives in backend -- a real, disclosed gap versus the design
-    # spec's "seams removed in 5c" list that was never scheduled as its own
-    # task. Every other src/backend/flash* entry was removed in the same
-    # change. Remove this one only once configureIso15765Can is split out of
-    # backend (its callers are the relocated src/platform/.../flash/legacy
-    # CAN operations).
-    "//src/backend/flash:__pkg__",
+    # Replaces //src/backend/flash (step 5e, Task 4): see
+    # docs/superpowers/specs/2026-08-07-step5e-backend-portability-closure-design.md.
+    "//src/platform/desktop/common/flash/legacy:__pkg__",
     "//src/platform/desktop/common/serial:__pkg__",
     "//src/platform/desktop/common/transport:__pkg__",
     "//src/ui/desktop:__pkg__",

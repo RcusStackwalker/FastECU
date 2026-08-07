@@ -54,18 +54,8 @@ qt_cc_library(
         # the moc'd :definitions target, not the header-only :models split
         # -- is included directly; see task-4-report.md.
         "//src/backend/definitions",
-        # flash_utils.h (FlashUtils::) stays behind in backend/flash -- it's
-        # Qt-dependent but not QThread-derived, so it wasn't part of this
-        # move; see src/backend/flash/BUILD.bazel's `flash` target comment.
-        # This also supplies serial_port_actions.h transitively (:flash
-        # deps on serial_qt_compat): the operation classes include it
-        # directly, but this package deliberately does NOT depend on
-        # //src/platform/desktop/common/serial:serial_qt_compat directly --
-        # that target's visibility is a frozen allowlist
-        # (scripts/check-serial-compat-allowlist.py) that Task 15 must not
-        # grow; Task 16 removes the stale bdm/bootmode/ecu/jtag/tcu entries
-        # left over from the pre-move package layout.
-        "//src/backend/flash",
+        "//src/backend/flash:flash_device_lookup",
+        "//src/platform/desktop/common/serial:serial_qt_compat",
     ],
 )
 
@@ -85,6 +75,15 @@ fastecu_qttest(
     deps = [
         ":legacy_flash_operations",
         "//src/algorithms/protocol/colt:qt_compat",
+        "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+    ],
+)
+
+fastecu_qttest(
+    name = "test_legacy_flash_utils",
+    src = "legacy_flash_utils_test.cpp",
+    deps = [
+        ":legacy_flash_operations",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
     ],
 )

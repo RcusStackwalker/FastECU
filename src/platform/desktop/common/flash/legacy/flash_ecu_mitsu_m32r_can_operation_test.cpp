@@ -3,8 +3,9 @@
 #include <QQueue>
 #include <QSignalSpy>
 #include <QWidget>
+#include "src/algorithms/protocol/qt_bytes.h"
 #include "src/backend/definitions/kernelmemorymodels.h"
-#include "src/backend/flash/flash_utils.h"
+#include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
 #include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_mitsu_m32r_can_operation.h"
 #include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
 #include "src/algorithms/protocol/colt/mitsu_colt_can_vendor_ext_protocol.h"
@@ -41,6 +42,22 @@ class TestFlashEcuMitsuM32rCanOperation : public QObject
         QVERIFY(index >= 0);
         QCOMPARE(flashdevices[index].fblocks[0].start, uint32_t(0x00008000));
         QCOMPARE(flashdevices[index].fblocks[0].len, uint32_t(0x00058000));
+    }
+
+    void iso15765Request_prependsBigEndianSourceAddress()
+    {
+        // Formerly FlashUtils::buildIso15765Request, inlined in step 5e at
+        // its single call site. The 4-byte big-endian address prefix is the
+        // wire format, so it is pinned here rather than lost with the helper.
+        QByteArray request;
+        bytes::appendU32Be(request, 0x7E0);
+        request.append(QByteArray::fromHex("1081"));
+        QCOMPARE(request, QByteArray::fromHex("000007e01081"));
+
+        QByteArray extended;
+        bytes::appendU32Be(extended, 0x18DA10F1);
+        extended.append(QByteArray::fromHex("1081"));
+        QCOMPARE(extended, QByteArray::fromHex("18da10f11081"));
     }
 
     void connectFailure_wrongResponse_returnsFalseWithoutLooping()

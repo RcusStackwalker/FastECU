@@ -2,7 +2,6 @@
 
 #include <utility>
 #include "src/algorithms/checksum/checksum_primitives.h"
-#include "src/backend/flash/flash_utils.h"
 #include "src/algorithms/protocol/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 

@@ -1,7 +1,7 @@
 #include "src/platform/desktop/common/flash/legacy/tcu/flash_tcu_subaru_hitachi_m32r_kline_operation.h"
 
 #include <utility>
-#include "src/backend/flash/flash_utils.h"
+#include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 

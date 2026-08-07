@@ -1,5 +1,5 @@
 #include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7058_can_diesel_operation.h"
-#include "src/backend/flash/flash_utils.h"
+#include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 

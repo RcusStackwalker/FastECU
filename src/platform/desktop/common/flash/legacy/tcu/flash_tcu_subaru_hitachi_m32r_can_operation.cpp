@@ -1,5 +1,5 @@
 #include "src/platform/desktop/common/flash/legacy/tcu/flash_tcu_subaru_hitachi_m32r_can_operation.h"
-#include "src/backend/flash/flash_utils.h"
+#include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
 #include "src/algorithms/diagnostics/nrc_parser.h"
 #include "src/algorithms/protocol/qt_bytes.h"

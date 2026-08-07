@@ -79,7 +79,6 @@ qt_cc_library(
         "//src/algorithms/protocol/mut_dma:qt_compat",
         "//src/backend/config:legacy_config_paths",
         "//src/backend/definitions",
-        "//src/backend/flash",
         "//src/backend/logging/protocols",
         # mainwindow.h includes imut_dma_init.h, mitsu_colt_can_cdbg_driver.h
         # and mut_dma_driver.h directly.
