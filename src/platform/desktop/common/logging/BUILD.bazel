@@ -23,7 +23,10 @@ qt_cc_library(
 fastecu_gtest(
     name = "test_logging_adapters",
     srcs = ["logging_adapters_test.cpp"],
-    deps = [":logging_adapters"],
+    deps = [
+        ":logging_adapters",
+        "//src/backend/logging:logger_definition_model",
+    ],
 )
 
 fastecu_qttest(

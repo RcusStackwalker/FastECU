@@ -43,8 +43,9 @@ fastecu::Result<fastecu::logging::LoggingChannel> channel_from_legacy_row(
     const FileActions::LogValuesStructure& log_values, int row,
     fastecu::logging::LoggingProtocolId protocol)
 {
-    const QStringList unit_fields = log_values.log_value_units.at(row).split(',');
-    if (unit_fields.size() < 4 || unit_fields.at(1).isEmpty() || unit_fields.at(2).isEmpty())
+    const auto& conversions = log_values.log_value_conversions.at(row);
+    if (conversions.isEmpty() || conversions.at(0).units.empty() ||
+        conversions.at(0).expr.empty() || conversions.at(0).format.empty())
     {
         return fastecu::fail(fastecu::ErrorKind::InvalidConfig,
                              "malformed logging conversion");
@@ -60,7 +61,7 @@ fastecu::Result<fastecu::logging::LoggingChannel> channel_from_legacy_row(
                              "invalid logging address or length");
     }
 
-    const QStringList format_fields = unit_fields.at(3).split('.');
+    const QStringList format_fields = QString::fromStdString(conversions.at(0).format).split('.');
     const int precision = format_fields.size() > 1 ? format_fields.at(1).count('0') : 0;
     if (precision > std::numeric_limits<std::uint8_t>::max())
     {
@@ -75,8 +76,8 @@ fastecu::Result<fastecu::logging::LoggingChannel> channel_from_legacy_row(
         .raw_assembly = protocol == fastecu::logging::LoggingProtocolId::Ssm
                             ? fastecu::logging::RawAssembly::DecimalBytesConcatenated
                             : fastecu::logging::RawAssembly::UnsignedIntegerDecimal,
-        .from_byte_expression = unit_fields.at(2).toStdString(),
-        .unit = unit_fields.at(1).toStdString(),
+        .from_byte_expression = conversions.at(0).expr,
+        .unit = conversions.at(0).units,
         .decimal_precision = static_cast<std::uint8_t>(precision),
     };
 }

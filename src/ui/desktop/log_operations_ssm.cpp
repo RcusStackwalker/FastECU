@@ -328,15 +328,11 @@ void MainWindow::parse_log_value_list(QByteArray received, const QString& protoc
 
     // emit LOG_D(parse_message_to_hex(received), true, true);
 
-    logValues->log_values_by_protocol.clear();
-
     // emit LOG_D("Parsing log values list", true, true), true, true);
     for (int i = 0; i < log_value_count; i++)
     {
         if (logValues->log_value_protocol.at(i) == protocol)
         {
-            logValues->log_values_by_protocol.append(logValues->log_value_name.at(i));
-
             uint16_t ecu_byte_index = logValues->log_value_ecu_byte_index.at(i).toUInt();
             if (ecu_byte_index < received.length() && logValues->log_value_ecu_byte_index.at(i) != "No byte index")
             {

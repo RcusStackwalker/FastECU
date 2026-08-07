@@ -33,6 +33,7 @@
 #include "src/backend/definitions/kernelmemorymodels.h"
 #include "src/backend/definitions/config_values.h"
 #include "src/backend/definitions/ecu_cal_def.h"
+#include "src/backend/definitions/log_values.h"
 #include "src/backend/calibration/legacy_calibration_adapter.h"
 #include "src/backend/checksum/legacy_checksum_adapter.h"
 #include "src/backend/config/legacy_config_adapter.h"
@@ -81,64 +82,12 @@ class FileActions : public QWidget
         QStringList send_timeout;
     } protocolsStruct;
 
-    struct LogValuesStructure
-    {
-        QString ecu_id;
-        QStringList log_value_protocol;
-        QStringList log_value_id;
-        QStringList log_value_name;
-        QStringList log_value_description;
-        QStringList log_value_ecu_byte_index;
-        QStringList log_value_ecu_bit;
-        QStringList log_value_target;
-        QStringList log_value_address;
-        QStringList log_value_units;
-        QStringList log_value_from_byte;
-        QStringList log_value_format;
-        QStringList log_value_gauge_min;
-        QStringList log_value_gauge_max;
-        QStringList log_value_gauge_step;
-
-        QStringList log_value_ecu_id;
-        QStringList log_value_length;
-        QStringList log_value_type;
-        QStringList log_value;
-
-        QStringList log_value_enabled;
-
-        QStringList log_values_names_sorted;
-        QStringList log_values_by_protocol;
-
-        QStringList dashboard_log_value_id;
-        QStringList lower_panel_log_value_id;
-        QString logging_values_protocol;
-
-        // Switch values
-        QStringList log_switch_protocol;
-        QStringList log_switch_id;
-        QStringList log_switch_name;
-        QStringList log_switch_description;
-        QStringList log_switch_address;
-        QStringList log_switch_ecu_byte_index;
-        QStringList log_switch_ecu_bit;
-        QStringList log_switch_target;
-        QStringList log_switch_enabled;
-        QStringList log_switch_state;
-
-        QStringList log_switches_names_sorted;
-
-        QStringList lower_panel_switch_id;
-    } LogValuesStruct;
-
-    struct dt_codes_structure
-    {
-        QStringList dt_code_id;
-        QStringList dt_code_name;
-        QStringList dt_code_description;
-        QStringList dt_code_temp_address;
-        QStringList dt_code_mem_address;
-        QStringList dt_code_ecu_bit;
-    } dt_codes_struct;
+    // Defined in log_values.h (see that file's comment for why it is not a
+    // nested struct here anymore) and re-exposed under its historical name
+    // so every existing `FileActions::LogValuesStructure` call site keeps
+    // compiling unchanged.
+    using LogValuesStructure = fastecu::definitions::LogValuesStructure;
+    LogValuesStructure LogValuesStruct;
 
     using EcuCalDefStructure = fastecu::definitions::EcuCalDefStructure;
     EcuCalDefStructure EcuCalDefStruct;
@@ -205,11 +154,6 @@ class FileActions : public QWidget
      * Read logger conf file
      ************************/
     LogValuesStructure *read_logger_conf(FileActions::LogValuesStructure *logValues, const QString& ecu_id, bool modify);
-
-    /************************
-     * Save logger conf file
-     ************************/
-    void *save_logger_conf(FileActions::LogValuesStructure *logValues, QString ecu_id);
 
     /*****************************************************
      * Search and read RomRaider ECU definition from file
@@ -329,6 +273,8 @@ class FileActions : public QWidget
     fastecu::checksum::LegacyChecksumAdapter checksumAdapter_;
     fastecu::IFileSystem& definitionFileSystem_;
     fastecu::IFileRepository& definitionFileRepository_;
+    fastecu::IResourceBundle& loggerResourceBundle_;
+    fastecu::IAtomicFileWriter& loggerAtomicFileWriter_;
     fastecu::definition::DefinitionService definitionService_;
     fastecu::definition::LegacyDefinitionAdapter definitionAdapter_;
     struct ResolvedDefinition

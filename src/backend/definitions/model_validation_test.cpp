@@ -210,7 +210,8 @@ class TestModelValidation : public QObject
         logValues.log_value_ecu_bit << "0";
         logValues.log_value_target << "ECU";
         logValues.log_value_address << "0x1234";
-        logValues.log_value_units << "rpm,x,0";
+        logValues.log_value_conversions.append(
+            QList<fastecu::logging::Conversion>{{"rpm", "x", "0", "", "", ""}});
         logValues.log_value_length << "2";
         logValues.log_value << "0.00";
         logValues.log_value_enabled << "1";

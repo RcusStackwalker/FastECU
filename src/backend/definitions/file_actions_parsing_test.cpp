@@ -191,8 +191,19 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(values->log_value_name.at(0), QString("Engine Speed"));
         QCOMPARE(values->log_value_address.at(0), QString("0x1234"));
         QCOMPARE(values->log_value_length.at(0), QString("2"));
-        QCOMPARE(values->log_value_units.at(0),
-                 QString("conversion 0,rpm,x*0.25,0.00,0,8000,500"));
+        QCOMPARE(values->log_value_conversions.at(0).size(), 1);
+        QCOMPARE(QString::fromStdString(values->log_value_conversions.at(0).at(0).units),
+                 QString("rpm"));
+        QCOMPARE(QString::fromStdString(values->log_value_conversions.at(0).at(0).expr),
+                 QString("x*0.25"));
+        QCOMPARE(QString::fromStdString(values->log_value_conversions.at(0).at(0).format),
+                 QString("0.00"));
+        QCOMPARE(QString::fromStdString(values->log_value_conversions.at(0).at(0).gauge_min),
+                 QString("0"));
+        QCOMPARE(QString::fromStdString(values->log_value_conversions.at(0).at(0).gauge_max),
+                 QString("8000"));
+        QCOMPARE(QString::fromStdString(values->log_value_conversions.at(0).at(0).gauge_step),
+                 QString("500"));
         QCOMPARE(values->log_switch_id.at(0), QString("S1"));
         QCOMPARE(values->log_switch_address.at(0), QString("0x20"));
         QCOMPARE(values->log_switch_ecu_bit.at(0), QString("1"));
@@ -230,6 +241,70 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(values->log_value_target.at(1), QString("No target"));
     }
 
+    // Characterization (5d-5b Task 1): read_logger_definition_file seeds the
+    // three selection lists with the FIRST N entries, ignoring `enabled`.
+    // This is a different default from read_logger_conf's enabled-only walk.
+    void logger_definition_seeds_selection_lists_ignoring_enabled()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QString params;
+        for (int i = 0; i < 20; i++)
+        {
+            params += QString(R"(<parameter id="P%1" name="N%1" desc="D%1" length="1" enabled="0">
+    <address>0x10</address><conversions><conversion units="u" expr="x" format="0"/></conversions>
+  </parameter>)")
+                          .arg(i);
+        }
+        const QString path = writeTextFile(
+            dir, "logger-seed.xml",
+            (R"(<logger><protocols><protocol id="SSM"><parameters>)" + params +
+             R"(</parameters></protocol></protocols></logger>)")
+                .toUtf8());
+        QVERIFY(!path.isEmpty());
+
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        actions.ConfigValuesStruct.romraider_logger_definition_file = path;
+
+        FileActions::LogValuesStructure *values = actions.read_logger_definition_file();
+        // Every parameter is enabled="0", yet the lists are seeded to their caps.
+        QCOMPARE(values->dashboard_log_value_id.size(), 15);
+        QCOMPARE(values->lower_panel_log_value_id.size(), 12);
+        QCOMPARE(values->dashboard_log_value_id.at(0), QString("P0"));
+        QCOMPARE(values->dashboard_log_value_id.at(14), QString("P14"));
+        QCOMPARE(values->lower_panel_log_value_id.at(11), QString("P11"));
+    }
+
+    // Was a characterization of the parallel-array skew (5d-5b Task 1); the
+    // typed model aligns rows by construction, so this now pins the fix.
+    void logger_definition_aligns_rows_missing_optional_children()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString path = writeTextFile(
+            dir, "logger-skew.xml",
+            R"(<logger><protocols><protocol id="SSM"><parameters>
+  <parameter id="P1" name="First" desc="d" length="1">
+    <address>0x10</address>
+  </parameter>
+  <parameter id="P2" name="Second" desc="d" length="2">
+    <address>0x20</address>
+    <conversions><conversion units="rpm" expr="x" format="0.00"/></conversions>
+  </parameter>
+</parameters></protocol></protocols></logger>)");
+        QVERIFY(!path.isEmpty());
+
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        actions.ConfigValuesStruct.romraider_logger_definition_file = path;
+
+        FileActions::LogValuesStructure *values = actions.read_logger_definition_file();
+        QCOMPARE(values->log_value_id.size(), 2);
+        QCOMPARE(values->log_value_conversions.size(), 2);
+        QVERIFY(values->log_value_conversions.at(0).isEmpty());
+        QCOMPARE(values->log_value_address.at(1), QString("0x20"));
+        QVERIFY(FileActions::validate_logger_values(*values));
+    }
+
     void logger_config_reads_selected_ids()
     {
         QTemporaryDir dir;
@@ -253,6 +328,144 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(values.dashboard_log_value_id, QStringList({"P1"}));
         QCOMPARE(values.lower_panel_log_value_id, QStringList({"P2"}));
         QCOMPARE(values.lower_panel_switch_id, QStringList({"S1"}));
+    }
+
+    // Characterization (5d-5b Task 1): captures the exact bytes QDom writes,
+    // which Task 4's write_selection must reproduce. The expected string below
+    // was captured by running this test once with the QCOMPARE commented out
+    // and qDebug()-ing `written`.
+    void logger_conf_writes_four_space_indented_xml()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString conf = writeTextFile(
+            dir, "logger.cfg", "<config><logger></logger></config>");
+        QVERIFY(!conf.isEmpty());
+
+        // A real writer, not the fixture's in-memory one: the conf write now
+        // goes through IAtomicFileWriter::replace rather than QFile, and the
+        // assertions below read the bytes back off disk.
+        QtAtomicFileWriter writer;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, writer);
+        actions.ConfigValuesStruct.logger_file = conf;
+        FileActions::LogValuesStructure values;
+        values.log_value_protocol << "SSM" << "SSM";
+        values.log_value_id << "P1" << "P2";
+        values.log_value_enabled << "1" << "0";
+        values.log_switch_id << "S1";
+        values.log_switch_enabled << "1";
+
+        QVERIFY(actions.read_logger_conf(&values, "ECUID1", false) != nullptr);
+
+        QFile file(conf);
+        QVERIFY(file.open(QFile::ReadOnly | QFile::Text));
+        const QString written = QString::fromUtf8(file.readAll());
+        file.close();
+        QVERIFY(written.contains(QStringLiteral("<ecu id=\"ECUID1\">")));
+        QVERIFY(written.contains(QStringLiteral("<protocol id=\"SSM\">")));
+        // Four-space indent, not a tab -- this is the fidelity risk.
+        QVERIFY(written.contains(QStringLiteral("\n    <logger>")) ||
+                written.contains(QStringLiteral("\n        <ecu")));
+        QVERIFY(!written.contains(QChar('\t')));
+        // Only the enabled parameter and switch are seeded here (enabled-only walk).
+        QVERIFY(written.contains(QStringLiteral("<parameter id=\"P1\"")));
+        QVERIFY(!written.contains(QStringLiteral("<parameter id=\"P2\"")));
+    }
+
+    void logger_conf_returns_nullptr_when_the_file_is_missing()
+    {
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        actions.ConfigValuesStruct.logger_file = "/nonexistent/logger.cfg";
+        FileActions::LogValuesStructure values;
+        values.log_value_protocol << "SSM";
+        values.log_value_id << "P1";
+        values.log_value_enabled << "1";
+        values.dashboard_log_value_id << "P1";
+
+        QTimer::singleShot(0, []()
+                           {
+            if (QWidget *modal = QApplication::activeModalWidget()) {
+                modal->close();
+} });
+        QCOMPARE(actions.read_logger_conf(&values, "ECUID1", false), nullptr);
+        QVERIFY(atomicFileWriter_.replace_calls.empty());
+        // An unreadable conf file returns before the selection lists are
+        // cleared, exactly as the legacy method did.
+        QCOMPARE(values.dashboard_log_value_id, QStringList{"P1"});
+    }
+
+    // The ECU-absent probe must not write. Composing and persisting a default
+    // selection before the no-definition check would leave an empty <ecu>
+    // element behind, and every later load would then find that ECU and apply
+    // an empty selection instead of re-seeding defaults.
+    void logger_conf_without_a_definition_warns_and_writes_nothing()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString conf =
+            writeTextFile(dir, "logger.cfg", "<config><logger></logger></config>");
+        QVERIFY(!conf.isEmpty());
+
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        actions.ConfigValuesStruct.logger_file = conf;
+        FileActions::LogValuesStructure values;
+        // No definition loaded, but a stale selection from a previous ECU.
+        values.dashboard_log_value_id << "STALE";
+        values.lower_panel_log_value_id << "STALE";
+        values.lower_panel_switch_id << "STALE";
+
+        QTimer::singleShot(0, []()
+                           {
+            if (QWidget *modal = QApplication::activeModalWidget()) {
+                modal->close();
+} });
+        QCOMPARE(actions.read_logger_conf(&values, "ECUID1", false), nullptr);
+        QVERIFY(atomicFileWriter_.replace_calls.empty());
+
+        QFile file(conf);
+        QVERIFY(file.open(QFile::ReadOnly | QFile::Text));
+        QCOMPARE(QString::fromUtf8(file.readAll()),
+                 QStringLiteral("<config><logger></logger></config>"));
+        file.close();
+
+        // Legacy cleared the three lists as soon as the file opened; the stale
+        // ids must not survive a failed load.
+        QVERIFY(values.dashboard_log_value_id.isEmpty());
+        QVERIFY(values.lower_panel_log_value_id.isEmpty());
+        QVERIFY(values.lower_panel_switch_id.isEmpty());
+    }
+
+    void logger_conf_round_trips_a_modified_selection()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString conf = writeTextFile(dir, "logger.cfg", "<config><logger/></config>");
+        QVERIFY(!conf.isEmpty());
+
+        QtAtomicFileWriter writer;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, writer);
+        actions.ConfigValuesStruct.logger_file = conf;
+        FileActions::LogValuesStructure values;
+        values.log_value_protocol << "SSM" << "SSM";
+        values.log_value_id << "P1" << "P2";
+        values.log_value_enabled << "1" << "1";
+        values.logging_values_protocol = "SSM";
+        values.dashboard_log_value_id << "P2";
+        values.lower_panel_log_value_id << "P1";
+
+        QVERIFY(actions.read_logger_conf(&values, "ECUID1", true) != nullptr);
+        // A modify pass persists; it never rewrites the caller's selection.
+        QCOMPARE(values.dashboard_log_value_id, QStringList{"P2"});
+
+        FileActions::LogValuesStructure reloaded;
+        reloaded.log_value_protocol << "SSM" << "SSM";
+        reloaded.log_value_id << "P1" << "P2";
+        reloaded.log_value_enabled << "1" << "1";
+        QVERIFY(actions.read_logger_conf(&reloaded, "ECUID1", false) != nullptr);
+        QCOMPARE(reloaded.dashboard_log_value_id, QStringList{"P2"});
+        QCOMPARE(reloaded.lower_panel_log_value_id, QStringList{"P1"});
+        // The definition-side flags survived the round trip.
+        QCOMPARE(reloaded.log_value_enabled, (QStringList{"1", "1"}));
     }
 
     void romraider_definition_indexes_ids_and_inherits_base()

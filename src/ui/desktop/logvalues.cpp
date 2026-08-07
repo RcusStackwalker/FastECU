@@ -78,11 +78,9 @@ void MainWindow::change_log_values(int tab_index, const QString& protocol)
             {
                 if (logValues->dashboard_log_value_id.at(i) == logValues->log_value_id.at(j))
                 {
-                    QStringList units = logValues->log_value_units.at(j).split(",");
-                    // qDebug() << "Units:" << units;
-                    for (int k = 1; k < units.length(); k += 7)
+                    for (const auto& conversion : logValues->log_value_conversions.at(j))
                     {
-                        log_units_combobox->addItem(units.at(k));
+                        log_units_combobox->addItem(QString::fromStdString(conversion.units));
                     }
                     for (int k = 0; k < logValues->log_values_names_sorted.length(); k++)
                     {
@@ -122,11 +120,9 @@ void MainWindow::change_log_values(int tab_index, const QString& protocol)
             {
                 if (logValues->lower_panel_log_value_id.at(i) == logValues->log_value_id.at(j))
                 {
-                    QStringList units = logValues->log_value_units.at(j).split(",");
-                    // qDebug() << "Units:" << units;
-                    for (int k = 1; k < units.length(); k += 7)
+                    for (const auto& conversion : logValues->log_value_conversions.at(j))
                     {
-                        log_units_combobox->addItem(units.at(k));
+                        log_units_combobox->addItem(QString::fromStdString(conversion.units));
                     }
                     for (int k = 0; k < logValues->log_values_names_sorted.length(); k++)
                     {

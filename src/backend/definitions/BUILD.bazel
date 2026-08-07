@@ -22,6 +22,13 @@ CONFIG_VALUES_HDRS = ["config_values.h"]
 
 ECU_CAL_DEF_HDRS = ["ecu_cal_def.h"]
 
+# LogValuesStructure, extracted out of FileActions (see log_values.h's
+# comment). Kept out of `definitions`'s own normal_hdrs glob and given its
+# own qt_cc_library, mirroring the CONFIG_VALUES_HDRS/ECU_CAL_DEF_HDRS splits
+# above -- for the identical reason (avoiding a Bazel dependency cycle), this
+# time with //src/backend/logging:legacy_logger_adapter.
+LOG_VALUES_HDRS = ["log_values.h"]
+
 MOC_HDRS = ["file_actions.h"]
 
 # root //:windows_preprocessor_guards reads this header directly as `data`;
@@ -105,6 +112,15 @@ qt_cc_library(
 )
 
 qt_cc_library(
+    name = "log_values",
+    srcs = [],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = LOG_VALUES_HDRS,
+    deps = QT_DEPS + ["//src/backend/logging:logger_definition_model"],
+)
+
+qt_cc_library(
     name = "legacy_definition_columns",
     srcs = [],
     hdrs = [],
@@ -128,12 +144,13 @@ qt_cc_library(
     copts = COMMON_COPTS,
     normal_hdrs = glob(
         ["*.h"],
-        exclude = MOC_HDRS + MODEL_HDRS + CONFIG_VALUES_HDRS + ECU_CAL_DEF_HDRS,
+        exclude = MOC_HDRS + MODEL_HDRS + CONFIG_VALUES_HDRS + ECU_CAL_DEF_HDRS + LOG_VALUES_HDRS,
     ),
     deps = QT_DEPS + [
         ":config_values",
         ":ecu_cal_def",
         ":legacy_definition_columns",
+        ":log_values",
         ":models",
         "//resources/shared:config_resource",
         "//resources/shared:kernels_resource",
@@ -147,6 +164,9 @@ qt_cc_library(
         "//src/backend/config:legacy_config_adapter",
         "//src/backend/definition:definition_service",
         "//src/backend/definition:legacy_definition_adapter",
+        "//src/backend/logging:legacy_logger_adapter",
+        "//src/backend/logging:logger_conf",
+        "//src/backend/logging:logger_definition_service",
         "//src/backend/ports",
     ],
 )
