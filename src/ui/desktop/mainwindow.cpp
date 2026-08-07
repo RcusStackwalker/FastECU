@@ -3,7 +3,10 @@
 #include <QSplashScreen>
 #include <cstddef>
 #include <utility>
+#include "src/algorithms/protocol/qt_bytes.h"
+#include "src/backend/checksum/checksum_selection.h"
 #include "src/backend/config/legacy_config_paths.h"
+#include "src/backend/flash/flash_device_lookup.h"
 #include "src/platform/desktop/common/logging/cdbg_serial_setup.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
@@ -1141,13 +1144,7 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
 
             if (configValues->flash_protocol_selected_checksum != "n/a")
             {
-                ecuCalDef[rom_number] = fileActions->checksum_correction(ecuCalDef[rom_number]);
-            }
-
-            if (ecuCalDef[rom_number] == nullptr)
-            {
-                ecuCalDef[rom_number]->FullRomData = fullRomDataTmp;
-                return 0;
+                runChecksumCorrection(ecuCalDef[rom_number]);
             }
         }
         else
@@ -1609,6 +1606,56 @@ void MainWindow::prompt_for_missing_definition(FileActions::EcuCalDefStructure *
     }
 }
 
+// Replaces FileActions::checksum_correction, which was deleted in step 5e so
+// that no QMessageBox is raised from src/backend. The dialog sequence lives in
+// ChecksumCorrectionCommand; the log lines stay here, emitted through
+// MainWindow's own LOG_D/LOG_E signals (same signature FileActions used, so the
+// text carries over verbatim).
+void MainWindow::runChecksumCorrection(FileActions::EcuCalDefStructure *ecuCalDef)
+{
+    const fastecu::checksum::ChecksumSelection selection{
+        .make = configValues->flash_protocol_selected_make.toStdString(),
+        .checksum_flag = configValues->flash_protocol_selected_checksum.toStdString(),
+        .flash_method = configValues->flash_protocol_selected_protocol_name.toStdString(),
+        .mcu_type = ecuCalDef->McuType.toStdString(),
+        .rom_id = ecuCalDef->RomId.toStdString(),
+    };
+
+    emit LOG_D("Protocol: " + configValues->flash_protocol_selected_protocol_name, true, true);
+    emit LOG_D("Make: " + configValues->flash_protocol_selected_make, true, true);
+    emit LOG_D("Checksum: " + configValues->flash_protocol_selected_checksum, true, true);
+
+    // The command runs this same lookup as its own precheck; it is repeated
+    // here only because the two known-MCU-path log lines below need the
+    // flashdev_t. The unknown case is reported back via unknown_mcu_type.
+    const flashdev_t *device = fastecu::flash::find_flash_device(selection.mcu_type);
+    if (device != nullptr)
+    {
+        emit LOG_D("ecuCalDef->McuType: " + ecuCalDef->McuType + " " + configValues->flash_protocol_selected_mcu, true, true);
+        emit LOG_D("Size: 0x" + QString::number(ecuCalDef->FullRomData.length(), 16) + " -> 0x" +
+                       QString::number(device->romsize, 16),
+                   true, true);
+    }
+
+    const fastecu::ui::ChecksumCorrectionResult result =
+        m_checksumCorrectionCommand.run(bytes::view(ecuCalDef->FullRomData), ecuCalDef->use_romraider_definition,
+                                        ecuCalDef->use_ecuflash_definition, selection, this);
+
+    if (result.unknown_mcu_type)
+    {
+        emit LOG_E("Unknown MCU type: " + ecuCalDef->McuType, true, true);
+        return;
+    }
+    if (result.canceled_due_to_missing_module)
+    {
+        emit LOG_D("Checksum calculation canceled!", true, true);
+    }
+    if (result.corrected_rom_data.has_value())
+    {
+        ecuCalDef->FullRomData = bytes::toQByteArray(bytes::ByteView(*result.corrected_rom_data));
+    }
+}
+
 void MainWindow::save_calibration_file()
 {
     if (ecuCalDefIndex == 0)
@@ -1624,25 +1671,7 @@ void MainWindow::save_calibration_file()
     QByteArray fullRomDataTmp = ecuCalDef[rom_number]->FullRomData;
 
     // update_protocol_info(rom_number);
-    /*
-        if (!ecuCalDef[rom_number]->use_romraider_definition && !ecuCalDef[rom_number]->use_ecuflash_definition)
-        {
-            QMessageBox msgBox;
-            msgBox.setIcon(QMessageBox::Warning);
-            msgBox.setWindowTitle("Calibration file");
-            msgBox.setText("WARNING! No definition file linked to selected ROM, checksums are not calculated!\n\n"
-                            "If you are sure that right protocol is selected and want to correct checksums anyway, press 'DO IT!' -button");
-            QPushButton *okButton = msgBox.addButton(QMessageBox::Ok);
-            QPushButton *doItButton = msgBox.addButton(tr("DO IT!"), QMessageBox::NoRole);
-            msgBox.exec();
-
-            if (msgBox.clickedButton() == doItButton)
-                ecuCalDef[rom_number] = fileActions->checksum_correction(ecuCalDef[rom_number]);
-        }
-        else
-            ecuCalDef[rom_number] = fileActions->checksum_correction(ecuCalDef[rom_number]);
-    */
-    ecuCalDef[rom_number] = fileActions->checksum_correction(ecuCalDef[rom_number]);
+    runChecksumCorrection(ecuCalDef[rom_number]);
 
     if (ecuCalDef[rom_number] != nullptr)
     {
@@ -1679,25 +1708,7 @@ void MainWindow::save_calibration_file_as()
     QByteArray fullRomDataTmp = ecuCalDef[rom_number]->FullRomData;
 
     // update_protocol_info(rom_number);
-    /*
-        if (!ecuCalDef[rom_number]->use_romraider_definition && !ecuCalDef[rom_number]->use_ecuflash_definition)
-        {
-            QMessageBox msgBox;
-            msgBox.setIcon(QMessageBox::Warning);
-            msgBox.setWindowTitle("Calibration file");
-            msgBox.setText("WARNING! No definition file linked to selected ROM, checksums are not calculated!\n\n"
-                                "If you are sure that right protocol is selected and want to correct checksums anyway, press 'DO IT!' -button");
-            QPushButton *okButton = msgBox.addButton(QMessageBox::Ok);
-            QPushButton *doItButton = msgBox.addButton(tr("DO IT!"), QMessageBox::NoRole);
-            msgBox.exec();
-
-            if (msgBox.clickedButton() == doItButton)
-                ecuCalDef[rom_number] = fileActions->checksum_correction(ecuCalDef[rom_number]);
-        }
-        else
-            ecuCalDef[rom_number] = fileActions->checksum_correction(ecuCalDef[rom_number]);
-    */
-    ecuCalDef[rom_number] = fileActions->checksum_correction(ecuCalDef[rom_number]);
+    runChecksumCorrection(ecuCalDef[rom_number]);
 
     if (ecuCalDef[rom_number] != nullptr)
     {

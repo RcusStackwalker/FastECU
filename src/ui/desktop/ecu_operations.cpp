@@ -1,7 +1,7 @@
 #include "ecu_operations.h"
 
 #include <utility>
-#include "src/backend/flash/flash_utils.h"
+#include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/algorithms/protocol/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
@@ -1286,7 +1286,7 @@ int EcuOperations::npk_raw_flashblock_16bit_kline(const uint8_t *src, uint32_t s
         {
             chksum_data.append(src[i]);
         }
-        chksum_data.append(FlashUtils::cks_add8(
+        chksum_data.append(fastecu::checksum::cks_add8(
             std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t *>(chksum_data.constData()), 131)));
         output.append(SID_FLASH);
         output.append(SIDFL_WB);
@@ -1404,7 +1404,7 @@ int EcuOperations::npk_raw_flashblock_32bit_kline(const uint8_t *src, uint32_t s
         {
             chksum_data.append(src[i]);
         }
-        chksum_data.append(FlashUtils::cks_add8(
+        chksum_data.append(fastecu::checksum::cks_add8(
             std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t *>(chksum_data.constData()), 131)));
         output.append(SID_FLASH);
         output.append(SIDFL_WB);

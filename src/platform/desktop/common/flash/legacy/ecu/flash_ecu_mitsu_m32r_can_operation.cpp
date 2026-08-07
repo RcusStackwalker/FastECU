@@ -1,5 +1,6 @@
 #include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_mitsu_m32r_can_operation.h"
-#include "src/backend/flash/flash_utils.h"
+#include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 #include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
@@ -56,7 +57,10 @@ bool FlashEcuMitsuM32rCanOperation::execute()
 
 QByteArray FlashEcuMitsuM32rCanOperation::build_request(const QByteArray& sidPayload)
 {
-    return FlashUtils::buildIso15765Request(0x7E0, sidPayload);
+    QByteArray request;
+    bytes::appendU32Be(request, 0x7E0);
+    request.append(sidPayload);
+    return request;
 }
 
 int FlashEcuMitsuM32rCanOperation::connect_bootloader()

@@ -1,4 +1,4 @@
-#include "src/backend/checksum/legacy_checksum_adapter.h"
+#include "src/ui/desktop/checksum/checksum_correction_command.h"
 
 #include <QMessageBox>
 #include <QObject>
@@ -7,11 +7,15 @@
 #include <QWidget>
 
 #include "src/backend/checksum/dispatch.h"
+#include "src/backend/flash/flash_device_lookup.h"
 
-namespace fastecu::checksum
+namespace fastecu::ui
 {
 
-bool LegacyChecksumAdapter::confirmProceedWithoutDefinition(QWidget *parent)
+using fastecu::checksum::ChecksumCorrectionOutcome;
+// ChecksumResult needs no using-declaration: it is in the global namespace.
+
+bool ChecksumCorrectionCommand::confirmProceedWithoutDefinition(QWidget *parent)
 {
     QMessageBox msgBox(parent);
     msgBox.setIcon(QMessageBox::Warning);
@@ -24,13 +28,13 @@ bool LegacyChecksumAdapter::confirmProceedWithoutDefinition(QWidget *parent)
     return msgBox.clickedButton() != okButton;
 }
 
-void LegacyChecksumAdapter::showBadRomSizeDialog(QWidget *parent)
+void ChecksumCorrectionCommand::showBadRomSizeDialog(QWidget *parent)
 {
     QMessageBox::information(parent, QObject::tr("Checksum module"),
                              "Bad ROM size! Make sure that you have selected correct flash method!");
 }
 
-bool LegacyChecksumAdapter::confirmProceedWithoutChecksumModule()
+bool ChecksumCorrectionCommand::confirmProceedWithoutChecksumModule()
 {
     QMessageBox msgBox;
     msgBox.setIcon(QMessageBox::Warning);
@@ -43,7 +47,7 @@ bool LegacyChecksumAdapter::confirmProceedWithoutChecksumModule()
     return msgBox.clickedButton() == cancelButton;
 }
 
-void LegacyChecksumAdapter::showFamilyResultDialog(const ChecksumResult& family_result)
+void ChecksumCorrectionCommand::showFamilyResultDialog(const ChecksumResult& family_result)
 {
     const QString message = QString::fromStdString(family_result.message);
     if (family_result.changed())
@@ -68,13 +72,20 @@ void LegacyChecksumAdapter::showFamilyResultDialog(const ChecksumResult& family_
     }
 }
 
-LegacyChecksumAdapterResult LegacyChecksumAdapter::checksum_correction(bytes::ByteView rom_data,
-                                                                       bool use_romraider_definition,
-                                                                       bool use_ecuflash_definition,
-                                                                       const ChecksumSelection& selection,
-                                                                       QWidget *parent)
+ChecksumCorrectionResult ChecksumCorrectionCommand::run(
+    bytes::ByteView rom_data, bool use_romraider_definition, bool use_ecuflash_definition,
+    const fastecu::checksum::ChecksumSelection& selection, QWidget *parent)
 {
-    LegacyChecksumAdapterResult result;
+    ChecksumCorrectionResult result;
+
+    // Formerly FileActions::checksum_correction's own precheck, ahead of the
+    // adapter call: an unregistered MCU returns the ROM untouched and shows
+    // no dialog at all.
+    if (fastecu::flash::find_flash_device(selection.mcu_type) == nullptr)
+    {
+        result.unknown_mcu_type = true;
+        return result;
+    }
 
     if (!use_romraider_definition && !use_ecuflash_definition)
     {
@@ -84,14 +95,13 @@ LegacyChecksumAdapterResult LegacyChecksumAdapter::checksum_correction(bytes::By
         }
     }
 
-    const ChecksumCorrectionOutcome outcome = apply_checksum_correction(rom_data, selection);
+    const ChecksumCorrectionOutcome outcome =
+        fastecu::checksum::apply_checksum_correction(rom_data, selection);
     switch (outcome.status)
     {
     case ChecksumCorrectionOutcome::Status::UnknownMcuType:
-        // Unreachable in practice -- FileActions::checksum_correction checks
-        // find_flash_device itself before ever calling this adapter (Task 4).
-        // Handled defensively as a no-op, matching legacy's own silent
-        // return for this case.
+        // Unreachable: the find_flash_device precheck above returns first.
+        // Handled defensively as a no-op, matching legacy's silent return.
         break;
     case ChecksumCorrectionOutcome::Status::BadRomSize:
         showBadRomSizeDialog(parent);
@@ -116,4 +126,4 @@ LegacyChecksumAdapterResult LegacyChecksumAdapter::checksum_correction(bytes::By
     return result;
 }
 
-} // namespace fastecu::checksum
+} // namespace fastecu::ui

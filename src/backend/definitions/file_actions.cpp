@@ -11,7 +11,6 @@
 #include "src/algorithms/expression/qt_expression_evaluator.h"
 #include "src/algorithms/protocol/qt_bytes.h"
 #include "src/backend/calibration/calibration_service.h"
-#include "src/backend/checksum/flash_device_lookup.h"
 #include "src/algorithms/diagnostics/nrc_parser.h"
 #include "src/backend/logging/legacy_logger_adapter.h"
 #include "src/backend/logging/logger_conf.h"
@@ -1668,46 +1667,6 @@ FileActions::EcuCalDefStructure *FileActions::save_subaru_rom_file(FileActions::
                              "Unable to open file " + filename + " for writing");
     }
     return saved;
-}
-
-FileActions::EcuCalDefStructure *FileActions::checksum_correction(FileActions::EcuCalDefStructure *ecuCalDef)
-{
-    const fastecu::checksum::ChecksumSelection selection{
-        .make = ConfigValuesStruct.flash_protocol_selected_make.toStdString(),
-        .checksum_flag = ConfigValuesStruct.flash_protocol_selected_checksum.toStdString(),
-        .flash_method = ConfigValuesStruct.flash_protocol_selected_protocol_name.toStdString(),
-        .mcu_type = ecuCalDef->McuType.toStdString(),
-        .rom_id = ecuCalDef->RomId.toStdString(),
-    };
-
-    emit LOG_D("Protocol: " + ConfigValuesStruct.flash_protocol_selected_protocol_name, true, true);
-    emit LOG_D("Make: " + ConfigValuesStruct.flash_protocol_selected_make, true, true);
-    emit LOG_D("Checksum: " + ConfigValuesStruct.flash_protocol_selected_checksum, true, true);
-
-    const flashdev_t *device = fastecu::checksum::find_flash_device(selection.mcu_type);
-    if (device == nullptr)
-    {
-        emit LOG_E("Unknown MCU type: " + ecuCalDef->McuType, true, true);
-        return ecuCalDef;
-    }
-    emit LOG_D("ecuCalDef->McuType: " + ecuCalDef->McuType + " " + ConfigValuesStruct.flash_protocol_selected_mcu, true, true);
-    emit LOG_D("Size: 0x" + QString::number(ecuCalDef->FullRomData.length(), 16) + " -> 0x" +
-                   QString::number(device->romsize, 16),
-               true, true);
-
-    const fastecu::checksum::LegacyChecksumAdapterResult result = checksumAdapter_.checksum_correction(
-        bytes::view(ecuCalDef->FullRomData), ecuCalDef->use_romraider_definition, ecuCalDef->use_ecuflash_definition,
-        selection, this);
-
-    if (result.canceled_due_to_missing_module)
-    {
-        emit LOG_D("Checksum calculation canceled!", true, true);
-    }
-    if (result.corrected_rom_data.has_value())
-    {
-        ecuCalDef->FullRomData = bytes::toQByteArray(bytes::ByteView(*result.corrected_rom_data));
-    }
-    return ecuCalDef;
 }
 
 QStringList FileActions::parse_stringlist_from_expression_string(const QString& expression, const QString& x)

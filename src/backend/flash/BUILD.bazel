@@ -1,6 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -88,34 +87,19 @@ fastecu_portable_gtest(
     deps = [":flash_executor"],
 )
 
-# FlashOperationWorker and the bdm/bootmode/ecu/jtag/tcu legacy Qt operation
-# classes moved to //src/platform/desktop/common/flash/legacy (step 5c, Task
-# 15) -- backend owns no thread. What's left here is flash_utils.{h,cpp}: Qt
-# types (QString/QByteArray) and SerialPortActions plumbing, but no QThread,
-# so it isn't in scope for that move and keeps living in backend/flash under
-# the same `flash` label so its existing consumers (backend/definitions,
-# ui/desktop, ui/desktop/flash/ecu, tests/test_flash_utils) resolve unchanged.
-qt_cc_library(
-    name = "flash",
-    srcs = ["flash_utils.cpp"],
-    hdrs = [],
-    copts = COMMON_COPTS,
-    normal_hdrs = ["flash_utils.h"],
-    deps = QT_DEPS + [
-        "//src/algorithms/protocol",
-        "//src/algorithms/protocol:qt_compat",
-        "//src/backend/definitions:models",
-        "//src/platform/desktop/common/serial:serial_qt_compat",
-    ],
+# Portable. No Qt, no platform, no filesystem, no thread. Moved here from
+# //src/backend/checksum in step 5e: the flashdevices[] table is flash-device
+# geometry consumed by 30 flash operations and one checksum dispatcher, so
+# backend/checksum was the wrong owner.
+cc_library(
+    name = "flash_device_lookup",
+    srcs = ["flash_device_lookup.cpp"],
+    hdrs = ["flash_device_lookup.h"],
+    deps = ["//src/backend/definitions:models"],
 )
 
-fastecu_qttest(
-    name = "test_flash_utils",
-    size = "small",
-    src = "flash_utils_test.cpp",
-    deps = [
-        ":flash",
-        "//src/platform/desktop/common/serial:serial_qt_compat",
-        "//src/platform/desktop/common/serial/testing:fake_serial_backend",
-    ],
+fastecu_portable_gtest(
+    name = "flash_device_lookup_test",
+    srcs = ["flash_device_lookup_test.cpp"],
+    deps = [":flash_device_lookup"],
 )

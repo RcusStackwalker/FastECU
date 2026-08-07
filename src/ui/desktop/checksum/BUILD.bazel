@@ -1,0 +1,33 @@
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
+
+package(default_visibility = ["//src/ui:__subpackages__"])
+
+# Qt-linked (QMessageBox/QString) but no QObject/Q_OBJECT, so the header goes
+# through normal_hdrs rather than hdrs. Explicit srcs -- this package must not
+# adopt src/ui/desktop's glob(["*.cpp"]), which has no *_test.cpp exclusion.
+qt_cc_library(
+    name = "checksum_correction_command",
+    srcs = ["checksum_correction_command.cpp"],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["checksum_correction_command.h"],
+    deps = QT_DEPS + [
+        # checksum_result.h is included directly by
+        # checksum_correction_command.h; before step 5e it arrived via the
+        # backend adapter this command replaced, so declare it rather than
+        # inherit it through //src/backend/checksum.
+        "//src/algorithms/checksum",
+        "//src/algorithms/protocol",
+        "//src/backend/checksum:checksum_selection",
+        "//src/backend/checksum:dispatch",
+        "//src/backend/flash:flash_device_lookup",
+    ],
+)
+
+fastecu_gtest(
+    name = "checksum_correction_command_test",
+    srcs = ["checksum_correction_command_test.cpp"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    deps = [":checksum_correction_command"],
+)

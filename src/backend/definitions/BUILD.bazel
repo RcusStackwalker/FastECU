@@ -159,8 +159,6 @@ qt_cc_library(
         "//src/algorithms/protocol:qt_compat",
         "//src/backend/calibration:calibration_service",
         "//src/backend/calibration:legacy_calibration_adapter",
-        "//src/backend/checksum:flash_device_lookup",
-        "//src/backend/checksum:legacy_checksum_adapter",
         "//src/backend/config:legacy_config_adapter",
         "//src/backend/definition:definition_service",
         "//src/backend/definition:legacy_definition_adapter",

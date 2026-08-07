@@ -36,9 +36,22 @@ for the `FileActions` breakdown:
   #126/#127/#128/#129/#131/#133.
 - 5d-4b map cell/axis decode — merged 2026-08-01 (PR #134).
 - 5d-6 flash-definition glue — merged 2026-08-01 (PR #138).
-- **5d-5 logging-definition glue — the last remaining 5d slice, not started.**
+- 5d-5 NRC/DTC diagnostics tables — merged 2026-08-06 (PR #153); see the
+  [5d-5 design](superpowers/specs/2026-08-06-step5d5-diagnostics-and-logger-glue-design.md).
+- 5d-5b logger definition parser, conf operations and service glue — merged
+  2026-08-07 (PR #154). **5d is now complete.**
+- **5e backend portability closure — complete on this branch (2026-08-07),
+  pending merge to master: zero `//src/backend/...` entries remain in the
+  `serial_qt_compat` allowlist and `//src/backend/flash` and
+  `//src/backend/checksum` carry no `QT_DEPS`, verified by
+  `//:serial_compat_allowlist` and `//:portable_closure`.** See the
+  [5e design](superpowers/specs/2026-08-07-step5e-backend-portability-closure-design.md).
 
-Steps 6 (thin desktop shell) and 7 (Android seam) have not started.
+Steps 6 (thin desktop shell) and 7 (Android seam) have not started. The
+per-family flash tail — migrating the remaining flash families off
+`SerialPortActions` and draining
+`//src/platform/desktop/common/flash/legacy:__pkg__` from the
+`serial_qt_compat` allowlist — has also not started.
 
 ## Verified Current Baseline
 
@@ -157,7 +170,7 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
    - **Amendment 4:** the checksum correction dialog is now **one aggregated summary** instead of one per family — a deliberate behavior change, bench-checklist item recorded in Task 9 Step 8.
    - Note for step 5's benefit: each `:qt_compat` target is transitional debt whose only remaining callers are backend and UI. Step 5 should drain them and delete the shims.
 
-5. **Make backend workflows portable — in progress (5a–5d-4b, 5d-6 merged; 5d-5 remaining)**
+5. **Make backend workflows portable — 5a through 5d merged; 5e complete on this branch, pending merge to master; the per-family flash tail remains**
    - Sub-step status and PR numbers are tracked in the Status section above.
    - Define capability-specific ports for byte-stream/K-Line, CAN frames, SSM, file repositories, settings, monotonic clock/delay, cancellation, and event delivery.
    - Backend owns no threads. Platform code runs blocking, bounded, cancellable backend calls on Qt workers or future Kotlin coroutines.
@@ -165,7 +178,14 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
    - Convert logging to typed `start`, bounded `poll`, and `stop` sessions. Samples carry stable channel ID, numeric/raw value, and unit; UI owns locale formatting.
    - Convert flashing to preflight plus execution: build and validate a `FlashPlan`, obtain UI confirmation before irreversible I/O, and execute without backend dialogs.
    - Migrate each ECU/TCU/EEPROM/JTAG/BDM operation family independently behind scripted transports, preserving its existing wire sequence.
-   - Remove direct `QMessageBox`, `QFileDialog`, widget, filesystem, and `SerialPortActions` access from backend code.
+   - Remove direct `QMessageBox`, `QFileDialog`, widget, filesystem, and
+     `SerialPortActions` access from backend code. As of 5e (2026-08-07),
+     `SerialPortActions` access is fully removed from backend production
+     code — verified by `//:serial_compat_allowlist` and
+     `//:portable_closure`. `QMessageBox`, `QFileDialog`, widget, and
+     filesystem access remain, but only inside the transitional
+     `Legacy*Adapter` targets and `src/backend/definitions`
+     (the `FileActions` god object), which step 6 removes by construction.
 
 6. **Finish the thin desktop shell**
    - Implement Qt adapters for backend ports and marshal events to the GUI thread.

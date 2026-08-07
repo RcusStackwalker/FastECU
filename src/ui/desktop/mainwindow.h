@@ -46,6 +46,7 @@
 #include "src/ui/desktop/dataterminal.h"
 #include "src/ui/desktop/get_key_operations_subaru.h"
 #include "src/backend/definitions/file_actions.h"
+#include "src/ui/desktop/checksum/checksum_correction_command.h"
 #include "src/ui/desktop/logbox.h"
 #include "src/ui/desktop/settings.h"
 #include "src/ui/desktop/dtc_operations.h"
@@ -206,6 +207,7 @@ class MainWindow : public QMainWindow
     QtResourceBundle m_configResourceBundle;
     QtFileRepository m_configFileRepository;
     QtAtomicFileWriter m_definitionFileWriter;
+    fastecu::ui::ChecksumCorrectionCommand m_checksumCorrectionCommand;
     FileActions *fileActions;
     FileActions::LogValuesStructure *logValues;
     FileActions::ConfigValuesStructure *configValues;
@@ -313,6 +315,7 @@ class MainWindow : public QMainWindow
     void prompt_for_missing_definition(FileActions::EcuCalDefStructure *ecuCalDef);
     void save_calibration_file();
     void save_calibration_file_as();
+    void runChecksumCorrection(FileActions::EcuCalDefStructure *ecuCalDef);
     QStringList parse_stringlist_from_expression_string(QString expression, QString x);
     float calculate_value_from_expression(QStringList expression);
 

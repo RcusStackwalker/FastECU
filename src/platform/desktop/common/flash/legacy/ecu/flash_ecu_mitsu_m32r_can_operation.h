@@ -28,6 +28,12 @@ class FlashEcuMitsuM32rCanOperation : public FlashOperationWorker
   protected:
     bool execute() override;
 
+    // Protected, not private, so the unit test can assert on the real
+    // implementation: this prepends the 4-byte big-endian ISO-15765 source
+    // address that every request on this bus carries, and the path cannot be
+    // bench-tested, so the wire format needs production-code coverage.
+    QByteArray build_request(const QByteArray& sidPayload);
+
   private:
 #define STATUS_SUCCESS 0x00
 #define STATUS_ERROR 0x01
@@ -36,7 +42,6 @@ class FlashEcuMitsuM32rCanOperation : public FlashOperationWorker
     int read_mem(uint32_t start_addr, uint32_t length);
     int write_mem(bool test_write);
     bool upload_and_commit(uint32_t start, const QByteArray& data);
-    QByteArray build_request(const QByteArray& sidPayload);
     bool readFlashRange(uint32_t start_addr, uint32_t length, QByteArray *outData);
     bool ensureTopRegionWritten(const QByteArray& romdata);
 

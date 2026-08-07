@@ -3,8 +3,9 @@
 #include <QQueue>
 #include <QSignalSpy>
 #include <QWidget>
+#include "src/algorithms/protocol/qt_bytes.h"
 #include "src/backend/definitions/kernelmemorymodels.h"
-#include "src/backend/flash/flash_utils.h"
+#include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
 #include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_mitsu_m32r_can_operation.h"
 #include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
 #include "src/algorithms/protocol/colt/mitsu_colt_can_vendor_ext_protocol.h"
@@ -30,6 +31,15 @@ class QueuedFakeBackend : public FakeBackend
     }
 };
 
+// Exposes the protected build_request so the wire-format assertion below runs
+// against the production implementation rather than a copy of it.
+class BuildRequestProbe : public FlashEcuMitsuM32rCanOperation
+{
+  public:
+    using FlashEcuMitsuM32rCanOperation::build_request;
+    using FlashEcuMitsuM32rCanOperation::FlashEcuMitsuM32rCanOperation;
+};
+
 class TestFlashEcuMitsuM32rCanOperation : public QObject
 {
     Q_OBJECT
@@ -41,6 +51,28 @@ class TestFlashEcuMitsuM32rCanOperation : public QObject
         QVERIFY(index >= 0);
         QCOMPARE(flashdevices[index].fblocks[0].start, uint32_t(0x00008000));
         QCOMPARE(flashdevices[index].fblocks[0].len, uint32_t(0x00058000));
+    }
+
+    void iso15765Request_prependsBigEndianSourceAddress()
+    {
+        // Formerly FlashUtils::buildIso15765Request, inlined in step 5e into
+        // FlashEcuMitsuM32rCanOperation::build_request. The 4-byte big-endian
+        // address prefix is the wire format, so it is pinned here -- against
+        // the real method, so an edit to build_request is caught.
+        FileActions::EcuCalDefStructure ecuCalDef;
+        QWidget dialog;
+        BuildRequestProbe op(nullptr, &ecuCalDef, "read", &dialog);
+
+        QCOMPARE(op.build_request(QByteArray::fromHex("1081")),
+                 QByteArray::fromHex("000007e01081"));
+
+        // build_request hardcodes the 11-bit 0x7E0 physical request ID, so the
+        // 29-bit form cannot come from it; the encoding it would produce for a
+        // 29-bit ID is pinned separately.
+        QByteArray extended;
+        bytes::appendU32Be(extended, 0x18DA10F1);
+        extended.append(QByteArray::fromHex("1081"));
+        QCOMPARE(extended, QByteArray::fromHex("18da10f11081"));
     }
 
     void connectFailure_wrongResponse_returnsFalseWithoutLooping()

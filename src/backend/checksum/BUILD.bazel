@@ -1,6 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:gtest_targets.bzl", "fastecu_gtest", "fastecu_portable_gtest")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -23,27 +22,13 @@ cc_library(
 
 # Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
-    name = "flash_device_lookup",
-    srcs = ["flash_device_lookup.cpp"],
-    hdrs = ["flash_device_lookup.h"],
-    deps = ["//src/backend/definitions:models"],
-)
-
-fastecu_portable_gtest(
-    name = "flash_device_lookup_test",
-    srcs = ["flash_device_lookup_test.cpp"],
-    deps = [":flash_device_lookup"],
-)
-
-# Portable. No Qt, no platform, no filesystem, no thread.
-cc_library(
     name = "dispatch",
     srcs = ["dispatch.cpp"],
     hdrs = ["dispatch.h"],
     deps = [
         ":checksum_selection",
-        ":flash_device_lookup",
         "//src/algorithms/checksum",
+        "//src/backend/flash:flash_device_lookup",
     ],
 )
 
@@ -51,25 +36,4 @@ fastecu_portable_gtest(
     name = "dispatch_test",
     srcs = ["dispatch_test.cpp"],
     deps = [":dispatch"],
-)
-
-# Qt-linked (QMessageBox/QString). Explicit srcs so this neither collides
-# with nor is swept into a legacy Qt target's glob, matching
-# legacy_config_adapter's convention.
-qt_cc_library(
-    name = "legacy_checksum_adapter",
-    srcs = ["legacy_checksum_adapter.cpp"],
-    hdrs = [],
-    copts = COMMON_COPTS,
-    normal_hdrs = ["legacy_checksum_adapter.h"],
-    deps = QT_DEPS + [
-        ":checksum_selection",
-        ":dispatch",
-    ],
-)
-
-fastecu_gtest(
-    name = "test_legacy_checksum_adapter",
-    srcs = ["legacy_checksum_adapter_test.cpp"],
-    deps = [":legacy_checksum_adapter"],
 )
