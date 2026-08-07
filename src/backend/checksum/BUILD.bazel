@@ -23,27 +23,13 @@ cc_library(
 
 # Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
-    name = "flash_device_lookup",
-    srcs = ["flash_device_lookup.cpp"],
-    hdrs = ["flash_device_lookup.h"],
-    deps = ["//src/backend/definitions:models"],
-)
-
-fastecu_portable_gtest(
-    name = "flash_device_lookup_test",
-    srcs = ["flash_device_lookup_test.cpp"],
-    deps = [":flash_device_lookup"],
-)
-
-# Portable. No Qt, no platform, no filesystem, no thread.
-cc_library(
     name = "dispatch",
     srcs = ["dispatch.cpp"],
     hdrs = ["dispatch.h"],
     deps = [
         ":checksum_selection",
-        ":flash_device_lookup",
         "//src/algorithms/checksum",
+        "//src/backend/flash:flash_device_lookup",
     ],
 )
 

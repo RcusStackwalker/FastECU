@@ -88,6 +88,23 @@ fastecu_portable_gtest(
     deps = [":flash_executor"],
 )
 
+# Portable. No Qt, no platform, no filesystem, no thread. Moved here from
+# //src/backend/checksum in step 5e: the flashdevices[] table is flash-device
+# geometry consumed by 30 flash operations and one checksum dispatcher, so
+# backend/checksum was the wrong owner.
+cc_library(
+    name = "flash_device_lookup",
+    srcs = ["flash_device_lookup.cpp"],
+    hdrs = ["flash_device_lookup.h"],
+    deps = ["//src/backend/definitions:models"],
+)
+
+fastecu_portable_gtest(
+    name = "flash_device_lookup_test",
+    srcs = ["flash_device_lookup_test.cpp"],
+    deps = [":flash_device_lookup"],
+)
+
 # FlashOperationWorker and the bdm/bootmode/ecu/jtag/tcu legacy Qt operation
 # classes moved to //src/platform/desktop/common/flash/legacy (step 5c, Task
 # 15) -- backend owns no thread. What's left here is flash_utils.{h,cpp}: Qt

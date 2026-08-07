@@ -15,7 +15,7 @@
 #include "src/algorithms/checksum/checksum_tcu_mitsu_mh8104_can.h"
 #include "src/algorithms/checksum/checksum_tcu_subaru_denso_sh7055.h"
 #include "src/algorithms/checksum/checksum_tcu_subaru_hitachi_m32r_can.h"
-#include "src/backend/checksum/flash_device_lookup.h"
+#include "src/backend/flash/flash_device_lookup.h"
 
 namespace fastecu::checksum
 {
@@ -154,7 +154,7 @@ DispatchResult dispatch_family(std::string_view flash_method,
 ChecksumCorrectionOutcome apply_checksum_correction(bytes::ByteView rom_data,
                                                     const ChecksumSelection& selection)
 {
-    const flashdev_t *device = find_flash_device(selection.mcu_type);
+    const flashdev_t *device = fastecu::flash::find_flash_device(selection.mcu_type);
     if (device == nullptr)
     {
         return {.status = ChecksumCorrectionOutcome::Status::UnknownMcuType};

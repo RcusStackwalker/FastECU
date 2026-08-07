@@ -47,6 +47,7 @@ PORTABLE_ROOTS = {
         "flash_plan",
         "flash_validation",
         "flash_executor",
+        "flash_device_lookup",
     },
     ROOT / "src/backend/flash/eeprom": {
         "denso_sh705x_eeprom_common",
@@ -63,7 +64,6 @@ PORTABLE_ROOTS = {
     },
     ROOT / "src/backend/checksum": {
         "checksum_selection",
-        "flash_device_lookup",
         "dispatch",
     },
     ROOT / "src/backend/definition": {

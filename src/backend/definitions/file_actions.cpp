@@ -11,8 +11,8 @@
 #include "src/algorithms/expression/qt_expression_evaluator.h"
 #include "src/algorithms/protocol/qt_bytes.h"
 #include "src/backend/calibration/calibration_service.h"
-#include "src/backend/checksum/flash_device_lookup.h"
 #include "src/algorithms/diagnostics/nrc_parser.h"
+#include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/logging/legacy_logger_adapter.h"
 #include "src/backend/logging/logger_conf.h"
 #include "src/backend/logging/logger_definition_service.h"
@@ -1684,7 +1684,7 @@ FileActions::EcuCalDefStructure *FileActions::checksum_correction(FileActions::E
     emit LOG_D("Make: " + ConfigValuesStruct.flash_protocol_selected_make, true, true);
     emit LOG_D("Checksum: " + ConfigValuesStruct.flash_protocol_selected_checksum, true, true);
 
-    const flashdev_t *device = fastecu::checksum::find_flash_device(selection.mcu_type);
+    const flashdev_t *device = fastecu::flash::find_flash_device(selection.mcu_type);
     if (device == nullptr)
     {
         emit LOG_E("Unknown MCU type: " + ecuCalDef->McuType, true, true);
