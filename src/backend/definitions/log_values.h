@@ -31,21 +31,13 @@ struct LogValuesStructure
     QStringList log_value_target;
     QStringList log_value_address;
     QList<QList<fastecu::logging::Conversion>> log_value_conversions;
-    QStringList log_value_from_byte;
-    QStringList log_value_format;
-    QStringList log_value_gauge_min;
-    QStringList log_value_gauge_max;
-    QStringList log_value_gauge_step;
 
-    QStringList log_value_ecu_id;
     QStringList log_value_length;
-    QStringList log_value_type;
     QStringList log_value;
 
     QStringList log_value_enabled;
 
     QStringList log_values_names_sorted;
-    QStringList log_values_by_protocol;
 
     QStringList dashboard_log_value_id;
     QStringList lower_panel_log_value_id;

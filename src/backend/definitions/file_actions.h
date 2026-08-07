@@ -89,16 +89,6 @@ class FileActions : public QWidget
     using LogValuesStructure = fastecu::definitions::LogValuesStructure;
     LogValuesStructure LogValuesStruct;
 
-    struct dt_codes_structure
-    {
-        QStringList dt_code_id;
-        QStringList dt_code_name;
-        QStringList dt_code_description;
-        QStringList dt_code_temp_address;
-        QStringList dt_code_mem_address;
-        QStringList dt_code_ecu_bit;
-    } dt_codes_struct;
-
     using EcuCalDefStructure = fastecu::definitions::EcuCalDefStructure;
     EcuCalDefStructure EcuCalDefStruct;
 
