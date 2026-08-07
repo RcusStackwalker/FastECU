@@ -97,12 +97,14 @@ Actions:
 
 `FileActions` is still a 2.1k-line `QWidget` implementation with a 361-line
 header. Expression and diagnostic parsing, the EcuFlash/RomRaider parsers, ROM
-open/save, config persistence, and checksum dispatch have been extracted into
-portable use cases under `src/backend/{definition,calibration,config,checksum}/`,
-each reached through a `Legacy*Adapter`. What remains inside `FileActions` is
-logger definition/conf reading, menu loading, the nested `ConfigValuesStructure`
-/ `LogValuesStructure` / `EcuCalDefStructure` models, and direct
-`QFileDialog`/`QMessageBox` behavior.
+open/save, and config persistence have been extracted into portable use cases
+under `src/backend/{definition,calibration,config}/`, each reached through a
+`Legacy*Adapter`; checksum dispatch has also been extracted, under
+`src/backend/checksum/`, but is reached directly from the desktop UI's
+`ChecksumCorrectionCommand` rather than through a `Legacy*Adapter`. What
+remains inside `FileActions` is logger definition/conf reading, menu loading,
+the nested `ConfigValuesStructure` / `LogValuesStructure` /
+`EcuCalDefStructure` models, and direct `QFileDialog`/`QMessageBox` behavior.
 
 Actions:
 
@@ -197,12 +199,14 @@ The build-graph ratchet for the section above.
 `//src/platform/desktop/common/serial:serial_qt_compat` carries
 `serial_port_actions.h` to callers that should not have it, and its `visibility`
 list is frozen by `scripts/check-serial-compat-allowlist.py`: the list may
-shrink, never grow. It currently holds 14 entries — 8 under `src/ui/desktop`,
-2 in backend (`//src/backend/flash`, `//src/backend/logging/protocols`), plus
-`src/platform/desktop/common/transport`, the serial package itself, and
-`//tests`. One entry, `//src/platform/desktop/common/remote_utility`, is not
-debt: it is a same-layer sibling using `websocketiodevice.h`/`qtrohelper.hpp`
-rather than the serial facade, and is not expected to shrink.
+shrink, never grow. It currently holds 13 entries — 8 under `src/ui/desktop`,
+0 in backend (step 5e relocated the former `//src/backend/flash` entry to
+`//src/platform/desktop/common/flash/legacy`, which now carries the
+flash-family debt), plus `src/platform/desktop/common/transport`, the serial
+package itself, `//src/platform/desktop/common/flash/legacy`, and `//tests`.
+One entry, `//src/platform/desktop/common/remote_utility`, is not debt: it is
+a same-layer sibling using `websocketiodevice.h`/`qtrohelper.hpp` rather than
+the serial facade, and is not expected to shrink.
 
 The allowlist makes this debt measurable, which the prose above cannot: each
 removed entry is a layer that no longer reaches the full facade. Every entry is
@@ -210,10 +214,6 @@ a dependency step 5 (backend) or step 6 (ui) exists to remove.
 
 Actions:
 
-- Split `FlashUtils::configureIso15765Can(SerialPortActions*)` out of
-  `src/backend/flash/flash_utils.h` — it is the sole reason the
-  `//src/backend/flash` entry survives, and its callers are the relocated
-  `src/platform/desktop/common/flash/legacy` CAN operations.
 - Remove `FROZEN` entries in `scripts/check-serial-compat-allowlist.py` as the
   matching `visibility` entries are deleted; the check prints the entries to
   drop when the list shrinks.
@@ -221,17 +221,6 @@ Actions:
   UI code reaching for `serial_port_actions.h` is the dependency being removed.
 - Delete `serial_qt_compat` once only the `remote_utility` edge and `//tests`
   remain, and fold its sources into the owning packages.
-
-### P1: Finish the checksum UI boundary
-
-All nine checksum algorithms are portable and return structured
-`ChecksumResult` values, but `LegacyChecksumAdapter` still owns direct
-`QMessageBox` behavior in the backend layer.
-
-Actions:
-
-- Move checksum result presentation to the desktop UI/application boundary.
-- Keep the portable algorithms and dispatch layer free of Qt dependencies.
 
 ### P2: Turn static analysis into a ratchet
 

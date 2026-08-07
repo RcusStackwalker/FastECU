@@ -6,9 +6,10 @@
 
 class SerialPortActions;
 
-// TRANSITIONAL. Relocated from //src/backend/flash in step 5e so that
-// backend no longer depends on src/platform. The FlashUtils namespace name
-// is retained so the 30 legacy call sites changed only their #include.
+// TRANSITIONAL. Relocated from //src/backend/flash in step 5e so that no
+// backend production target depends on src/platform. The FlashUtils
+// namespace name is retained so the 28 legacy call sites changed only their
+// #include.
 //
 // findFlashDeviceIndex is a QString-typed shim over the portable
 // fastecu::flash::find_flash_device_index; each flash family that migrates

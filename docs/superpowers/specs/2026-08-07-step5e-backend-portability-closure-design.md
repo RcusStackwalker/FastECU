@@ -17,10 +17,13 @@ Exact and machine-checked:
   `//src/backend/...` entries.
 - `//src/backend/flash` and `//src/backend/checksum` carry no `QT_DEPS`.
 
-When both hold, backend has no dependency on `src/platform` and no Qt in any
-non-adapter target. The remaining Qt in backend is confined to the
-`Legacy*Adapter` targets and `src/backend/definitions`, all of which step 6
-deletes by construction.
+When both hold, no backend *production* target depends on `src/platform`, and
+no Qt appears in any non-adapter production target. (`src/backend/definitions`
+still lists `//src/platform/desktop/common/ports` on three `fastecu_qttest`
+targets that inject Qt port implementations into `FileActions` for testing —
+a legitimate test-wiring edge, not a production dependency.) The remaining Qt
+in backend is confined to the `Legacy*Adapter` targets and
+`src/backend/definitions`, all of which step 6 deletes by construction.
 
 ## What 5e is not
 

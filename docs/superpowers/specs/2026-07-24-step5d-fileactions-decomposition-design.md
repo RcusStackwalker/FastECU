@@ -173,6 +173,10 @@ and meets the >=80% new-code coverage / SonarCloud Quality Gate applied to 5c.
       [diagnostics/logger design](2026-08-06-step5d5-diagnostics-and-logger-glue-design.md),
       2026-08-06. Splits the slice into 5d-5 (diagnostics tables) and 5d-5b
       (logger glue).
-- [ ] 5d-5 plan and implementation — diagnostics table migration.
-- [ ] 5d-5b plan and implementation — logger-definition glue. The last
-      remaining slice of step 5d.
+- [x] 5d-5 plan and implementation — diagnostics table migration — merged as
+      PR #153 (2026-08-06).
+- [x] 5d-5b plan and implementation — logger-definition glue — merged as
+      PR #154 (2026-08-07).
+
+Step 5d is complete. Step 5e (backend portability closure) follows; see the
+[5e design](2026-08-07-step5e-backend-portability-closure-design.md).
