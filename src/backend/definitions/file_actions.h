@@ -288,6 +288,8 @@ class FileActions : public QWidget
     fastecu::checksum::LegacyChecksumAdapter checksumAdapter_;
     fastecu::IFileSystem& definitionFileSystem_;
     fastecu::IFileRepository& definitionFileRepository_;
+    fastecu::IResourceBundle& loggerResourceBundle_;
+    fastecu::IAtomicFileWriter& loggerAtomicFileWriter_;
     fastecu::definition::DefinitionService definitionService_;
     fastecu::definition::LegacyDefinitionAdapter definitionAdapter_;
     struct ResolvedDefinition

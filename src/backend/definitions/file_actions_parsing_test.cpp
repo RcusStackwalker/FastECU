@@ -264,12 +264,9 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(values->lower_panel_log_value_id.at(11), QString("P11"));
     }
 
-    // Characterization (5d-5b Task 1): a <parameter> with no <conversions>
-    // child appends nothing to log_value_units, so the list runs SHORT of
-    // log_value_id and every later row's parallel index is skewed by one.
-    // Task 3's typed model aligns these by construction; this test is
-    // rewritten in Task 9 to assert the aligned behaviour.
-    void logger_definition_misaligns_rows_missing_optional_children()
+    // Was a characterization of the parallel-array skew (5d-5b Task 1); the
+    // typed model aligns rows by construction, so this now pins the fix.
+    void logger_definition_aligns_rows_missing_optional_children()
     {
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
@@ -291,12 +288,10 @@ class TestFileActionsParsing : public QObject
 
         FileActions::LogValuesStructure *values = actions.read_logger_definition_file();
         QCOMPARE(values->log_value_id.size(), 2);
-        // The skew: one units entry for two rows, and it belongs to row 1.
-        QCOMPARE(values->log_value_units.size(), 1);
-        QCOMPARE(values->log_value_units.at(0),
-                 QString("conversion 0,rpm,x,0.00,No gauge_min,No gauge_max,No gauge_step"));
-        // Reading "row 0's units" therefore yields row 1's data.
-        QVERIFY(!FileActions::validate_logger_values(*values));
+        QCOMPARE(values->log_value_units.size(), 2);
+        QCOMPARE(values->log_value_units.at(0), QString(""));
+        QCOMPARE(values->log_value_address.at(1), QString("0x20"));
+        QVERIFY(FileActions::validate_logger_values(*values));
     }
 
     void logger_config_reads_selected_ids()

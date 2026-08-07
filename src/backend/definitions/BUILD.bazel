@@ -164,6 +164,9 @@ qt_cc_library(
         "//src/backend/config:legacy_config_adapter",
         "//src/backend/definition:definition_service",
         "//src/backend/definition:legacy_definition_adapter",
+        "//src/backend/logging:legacy_logger_adapter",
+        "//src/backend/logging:logger_conf",
+        "//src/backend/logging:logger_definition_service",
         "//src/backend/ports",
     ],
 )
