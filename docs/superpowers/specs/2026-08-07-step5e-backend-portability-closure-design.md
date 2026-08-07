@@ -148,13 +148,17 @@ fully portable package — `flash_types`, `flash_plan`, `flash_validation`,
 `//src/algorithms/protocol:qt_compat`, and `serial_qt_compat` dependencies go
 with it.
 
-Consumers of the deleted `flash` label that must be re-pointed:
-`//src/backend/definitions`, `//src/ui/desktop`, `//src/ui/desktop/flash/ecu`,
-`//src/backend/flash:test_flash_utils`, and
-`//src/platform/desktop/common/flash/legacy`. (The `flash` target's own comment
-names this last consumer as "tests/test_flash_utils"; that spelling is stale —
-the target is co-located in `src/backend/flash`, and no `tests/` target of that
-name exists.)
+Consumers of the deleted `flash` label that must be re-pointed, verified
+against the BUILD graph rather than taken from its comment:
+`//src/ui/desktop`, `//src/ui/desktop/flash/ecu`,
+`//src/platform/desktop/common/flash/legacy`, and its own
+`//src/backend/flash:test_flash_utils`.
+
+The `flash` target's own comment names its consumers as "backend/definitions,
+ui/desktop, ui/desktop/flash/ecu, tests/test_flash_utils". **Two of those four
+are stale** and the plan must not trust them: `//src/backend/definitions` has no
+dependency on `//src/backend/flash` at all (only comments mention it), and
+`test_flash_utils` is co-located in `src/backend/flash`, not under `tests/`.
 
 ## 5e-2: checksum dialogs hoisted to the UI
 
@@ -188,11 +192,24 @@ existing 204-line `legacy_checksum_adapter_test.cpp` and its
 `TestableChecksumAdapter` subclass convert near-mechanically into the new
 package as a `fastecu_gtest`.
 
-**Call sites.** Seven live occurrences of
+**Call sites — three live, not seven.** `mainwindow.cpp` contains seven textual
+occurrences of
 `ecuCalDef[rom_number] = fileActions->checksum_correction(ecuCalDef[rom_number]);`
-in `mainwindow.cpp` — lines 1144, 1640, 1643, 1645, 1695, 1698, 1700.
-`menu_actions.cpp:1545` is already commented out and is deleted rather than
-ported, per the 5d umbrella's "dead code is dropped, not ported" rule.
+at lines 1144, 1640, 1643, 1645, 1695, 1698 and 1700, but **only 1144, 1645 and
+1700 are live**. The other four sit inside `/* */` blocks closed at lines 1644
+and 1699. `menu_actions.cpp:1545` is a line-commented seventh.
+
+The commented blocks are themselves informative: they contain the same "No
+definition file linked to selected ROM" `QMessageBox` that
+`LegacyChecksumAdapter::confirmProceedWithoutDefinition` implements today, so
+that dialog previously lived in `MainWindow` and was moved into backend. 5e-2
+moves it back.
+
+Per the 5d umbrella's "dead code is dropped, not ported" rule, the four
+commented call sites and the `menu_actions.cpp` line are deleted, not ported.
+This count was wrong in the first draft of this design and was corrected during
+planning — the same class of miss as 5d-5's `save_logger_conf`, and the reason
+the plan re-verifies liveness with comment-stripped parsing rather than `grep`.
 
 ### Fidelity points
 
