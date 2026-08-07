@@ -26,9 +26,9 @@ using fastecu::definition::IdEncoding;
 
 constexpr auto kDebugFileActions = false;
 
-void debugLogTransports(const QDomElement& protocol,
-                        const QDomElement& transports,
-                        FileActions& fileActions)
+[[maybe_unused]] void debugLogTransports(const QDomElement& protocol,
+                                         const QDomElement& transports,
+                                         FileActions& fileActions)
 {
     if constexpr (!kDebugFileActions)
     {
@@ -74,7 +74,7 @@ void debugLogTransports(const QDomElement& protocol,
     }
 }
 
-void debugLogDtcodes(const QDomElement& dtcodes, FileActions& fileActions)
+[[maybe_unused]] void debugLogDtcodes(const QDomElement& dtcodes, FileActions& fileActions)
 {
     if constexpr (!kDebugFileActions)
     {
@@ -97,8 +97,8 @@ void debugLogDtcodes(const QDomElement& dtcodes, FileActions& fileActions)
     }
 }
 
-void debugLogEcuparams(const QDomElement& ecuparams,
-                       FileActions& fileActions)
+[[maybe_unused]] void debugLogEcuparams(const QDomElement& ecuparams,
+                                        FileActions& fileActions)
 {
     if constexpr (!kDebugFileActions)
     {
