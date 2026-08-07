@@ -70,6 +70,7 @@ qt_cc_library(
         "//resources/desktop:font_resource",
         "//resources/desktop:icons_resource",
         "//resources/desktop:images_resource",
+        "//src/algorithms/checksum",
         "//src/algorithms/crypto:qt_compat",
         "//src/algorithms/diagnostics",
         "//src/algorithms/menu:qt_compat",
