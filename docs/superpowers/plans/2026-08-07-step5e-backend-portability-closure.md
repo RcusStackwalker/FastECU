@@ -155,7 +155,7 @@ Allowlist: 14 entries -> 13."
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `std::uint8_t fastecu::checksum::cks_add8(std::span<const std::uint8_t> data)`, declared in `src/algorithms/checksum/checksum_primitives.h`. Task 5 relies on this symbol existing so `flash_utils.cpp` can be deleted.
+- Produces: `std::uint8_t fastecu::checksum::cks_add8(std::span<const std::uint8_t> data)`, declared in `src/algorithms/checksum/checksum_primitives.h`. Task 4 relies on this symbol existing so `flash_utils.cpp` can be deleted.
 
 Note `//src/algorithms/checksum`'s BUILD uses `glob(["*.cpp"], exclude=["*_test.cpp","qt_*.cpp"])` and a matching `hdrs` glob, so no BUILD `srcs` edit is needed — the existing files are already members.
 
@@ -280,7 +280,7 @@ In `src/ui/desktop/BUILD.bazel`, add to the `deps` of the target that compiles `
         "//src/algorithms/checksum",
 ```
 
-Leave `//src/backend/flash` in place for now — Task 5 removes it.
+Leave `//src/backend/flash` in place for now — Task 4 removes it.
 
 - [ ] **Step 7: Full gate**
 
@@ -290,7 +290,7 @@ bazel test  -k --config=release //tests/... //:bazel_openssl_wiring \
             //:serial_compat_allowlist //:portable_closure
 ```
 
-Expected: all pass. `//src/backend/flash:test_flash_utils` still passes — its `cksAdd8_*` cases remain and still call `FlashUtils::cks_add8`, which still exists. Both copies coexist until Task 5.
+Expected: all pass. `//src/backend/flash:test_flash_utils` still passes — its `cksAdd8_*` cases remain and still call `FlashUtils::cks_add8`, which still exists. Both copies coexist until Task 4.
 
 - [ ] **Step 8: Commit**
 
@@ -324,7 +324,7 @@ Collapses the `backend/checksum` / `FlashUtils` duplication into one portable ta
   - `const flashdev_t *find_flash_device(std::string_view mcu_type)`
   - `int find_flash_device_index(std::string_view mcu_type)` — returns `-1` when unknown
 
-  Task 4 forwards to `find_flash_device_index`; Task 8's `ChecksumCorrectionCommand` calls `find_flash_device`.
+  Task 4 forwards to `find_flash_device_index`; Task 6's `ChecksumCorrectionCommand` calls `find_flash_device`.
 
 - [ ] **Step 1: Verify no dependency cycle before moving**
 
@@ -601,15 +601,24 @@ const flashdev_t *find_flash_device(std::string_view mcu_type)
 Run: `bazel test --config=release //src/backend/flash:flash_device_lookup_test`
 Expected: PASS, 5 cases green.
 
-- [ ] **Step 6: Re-point `dispatch` and delete the old target**
+- [ ] **Step 6: Re-point BOTH consumers and delete the old target**
 
-In `src/backend/checksum/dispatch.{h,cpp}`, change the include from `src/backend/checksum/flash_device_lookup.h` to `src/backend/flash/flash_device_lookup.h`, and change every `fastecu::checksum::find_flash_device` / bare `find_flash_device` reference to `fastecu::flash::find_flash_device`. Locate them first:
+There are **two** consumers, not one. Find them all first — do not assume the set:
 
 ```bash
-grep -rn "find_flash_device\|flash_device_lookup" src/backend/checksum/
+grep -rn "find_flash_device\|checksum/flash_device_lookup.h" src/ | grep -v "^src/backend/flash/"
+grep -rn "checksum:flash_device_lookup" src/
 ```
 
+Expected: `src/backend/checksum/dispatch.{h,cpp}`, **plus** `src/backend/definitions/file_actions.cpp:14` (the include) and `:1687` (a `fastecu::checksum::find_flash_device` call), **plus** `src/backend/definitions/BUILD.bazel:162`.
+
+In each `.cpp`/`.h`, change the include from `src/backend/checksum/flash_device_lookup.h` to `src/backend/flash/flash_device_lookup.h`, and change every `fastecu::checksum::find_flash_device` reference to `fastecu::flash::find_flash_device`.
+
 In `src/backend/checksum/BUILD.bazel`, delete the `flash_device_lookup` `cc_library` and its `fastecu_portable_gtest`, and change `dispatch`'s deps from `":flash_device_lookup"` to `"//src/backend/flash:flash_device_lookup"`.
+
+In `src/backend/definitions/BUILD.bazel:162`, change `"//src/backend/checksum:flash_device_lookup"` to `"//src/backend/flash:flash_device_lookup"`.
+
+`file_actions.cpp`'s call is deleted outright in Task 7 when `checksum_correction` goes; it is re-pointed here only so the tree builds in between.
 
 Delete the files:
 
@@ -680,22 +689,30 @@ reaches Qt and when it is absent."
 
 ---
 
-## Task 4: Create the platform-side `legacy_flash_utils`
+## Task 4: Move `flash_utils` to platform and delete `//src/backend/flash:flash`
 
-Moves the Qt/serial half of `flash_utils` to the package that already owns its callers. The `FlashUtils::` namespace name is kept so the 30 call sites change only their `#include`.
+Moves the Qt/serial half of `flash_utils` to the package that already owns its callers, re-points the 30 call sites, deletes the backend target, and swaps the allowlist entry. The `FlashUtils::` namespace name is kept so the call sites change only their `#include`.
+
+> **This task is atomic and cannot be split** — a pre-flight scan caught the reason. `legacy_flash_utils.cpp` and `flash_utils.cpp` would both define `FlashUtils::configureIso15765Can(SerialPortActions*, QString const&, quint32, quint32, bool)` and `FlashUtils::findFlashDeviceIndex(QString const&)` in the same namespace. `legacy_flash_operations` links `//src/backend/flash`, so both object files land in the same `//:fastecu` link and produce **duplicate symbol errors**. The package's `srcs` is a `glob(["*.cpp", ...])`, so the new file joins the target the moment it is created — there is no window in which the two coexist. Create and delete must be one commit.
+>
+> Verify the build only at the end of this task; intermediate states will not link, and that is expected.
 
 **Files:**
-- Create: `src/platform/desktop/common/flash/legacy/legacy_flash_utils.{h,cpp}`
-- Create: `src/platform/desktop/common/flash/legacy/legacy_flash_utils_test.cpp`
-- Modify: `src/platform/desktop/common/flash/legacy/BUILD.bazel`
+- Create: `src/platform/desktop/common/flash/legacy/legacy_flash_utils.{h,cpp}`, `legacy_flash_utils_test.cpp`
+- Delete: `src/backend/flash/flash_utils.{h,cpp}`, `src/backend/flash/flash_utils_test.cpp`
+- Modify: 27 `.cpp` files under `src/platform/desktop/common/flash/legacy/{bdm,bootmode,ecu,jtag,tcu}/` (include line only)
+- Modify: `src/platform/desktop/common/flash/legacy/flash_ecu_mitsu_m32r_can_operation.cpp:59` and `flash_ecu_mitsu_m32r_can_operation_test.cpp`
+- Modify: `src/ui/desktop/flash/ecu/flash_ecu_subaru_unisia_jecs.cpp:39`
+- Modify: `src/backend/flash/BUILD.bazel`, `src/ui/desktop/BUILD.bazel`, `src/ui/desktop/flash/ecu/BUILD.bazel`, `src/platform/desktop/common/flash/legacy/BUILD.bazel`
+- Modify: `scripts/check-serial-compat-allowlist.py`, `src/platform/desktop/common/serial/BUILD.bazel`
 
 **Interfaces:**
-- Consumes: `fastecu::flash::find_flash_device_index(std::string_view)` from Task 3.
+- Consumes: `fastecu::flash::find_flash_device_index(std::string_view)` from Task 3; `fastecu::checksum::cks_add8` from Task 2.
 - Produces, in namespace `FlashUtils`, declared in `src/platform/desktop/common/flash/legacy/legacy_flash_utils.h`:
   - `int findFlashDeviceIndex(const QString& mcuType)`
   - `void configureIso15765Can(SerialPortActions *serial, const QString& canSpeed, quint32 sourceAddress, quint32 destinationAddress, bool use29BitId = false)`
 
-  Task 5 re-points all 30 call sites at this header.
+  Also produces `//src/backend/flash` with no `QT_DEPS` and no `serial_qt_compat` dep.
 
 The package's `srcs` and `normal_hdrs` are globs over `*.cpp` / `*.h`, so the new files join `legacy_flash_operations` automatically. No `MOC_HDRS` entry — `legacy_flash_utils.h` declares no `Q_OBJECT`.
 
@@ -856,67 +873,22 @@ In `src/platform/desktop/common/flash/legacy/BUILD.bazel`, add to `legacy_flash_
 
 ```python
         "//src/backend/flash:flash_device_lookup",
+        "//src/platform/desktop/common/serial:serial_qt_compat",
 ```
 
-Do **not** remove `"//src/backend/flash"` yet — the 30 call sites still include the old header. Task 5 removes it.
+and **delete** the `"//src/backend/flash"` entry together with the stale comment block above it explaining why the package deliberately avoided a direct `serial_qt_compat` dep. That avoidance is exactly what Step 12 stops doing.
 
-- [ ] **Step 5: Run to verify it passes**
+Do not build yet — the tree does not link until Step 10 deletes the old definitions.
 
-Run: `bazel test --config=release //src/platform/desktop/common/flash/legacy:test_legacy_flash_utils`
-Expected: PASS, 3 cases green.
-
-Note there are now two `FlashUtils::findFlashDeviceIndex` and two `FlashUtils::configureIso15765Can` declarations reachable in this package — one from each header. They have identical signatures and identical behavior, so any translation unit including only one resolves cleanly; Task 5 deletes the old pair before any TU includes both.
-
-- [ ] **Step 6: Full gate**
-
-```bash
-bazel build -k --config=release //:fastecu //tests/...
-bazel test  -k --config=release //tests/... //:bazel_openssl_wiring \
-            //:serial_compat_allowlist //:portable_closure
-```
-
-Expected: all pass.
-
-- [ ] **Step 7: Commit**
-
-```bash
-git add src/platform/desktop/common/flash/legacy/
-git commit -m "feat(flash): add platform-side legacy_flash_utils (5e-1)
-
-configureIso15765Can moved verbatim from backend, plus a QString shim over
-the portable flash-device lookup. Keeps the FlashUtils namespace so the 30
-legacy call sites change only their include. Old backend header still
-present; the next commit re-points the call sites and deletes it."
-```
-
----
-
-## Task 5: Re-point the 30 call sites and delete `//src/backend/flash:flash`
-
-The include-only diff. After this, `//src/backend/flash` is fully portable.
-
-**Files:**
-- Modify: 27 `.cpp` files under `src/platform/desktop/common/flash/legacy/{bdm,bootmode,ecu,jtag,tcu}/` (include line only)
-- Modify: `src/platform/desktop/common/flash/legacy/flash_ecu_mitsu_m32r_can_operation.cpp:59` (inline `buildIso15765Request`)
-- Modify: `src/platform/desktop/common/flash/legacy/flash_ecu_mitsu_m32r_can_operation_test.cpp` (absorb the deleted assertion)
-- Modify: `src/ui/desktop/flash/ecu/flash_ecu_subaru_unisia_jecs.cpp:39`
-- Delete: `src/backend/flash/flash_utils.{h,cpp}`, `src/backend/flash/flash_utils_test.cpp`
-- Modify: `src/backend/flash/BUILD.bazel`, `src/ui/desktop/BUILD.bazel`, `src/ui/desktop/flash/ecu/BUILD.bazel`, `src/platform/desktop/common/flash/legacy/BUILD.bazel`
-- Modify: `scripts/check-serial-compat-allowlist.py`, `src/platform/desktop/common/serial/BUILD.bazel`
-
-**Interfaces:**
-- Consumes: `FlashUtils::findFlashDeviceIndex` / `FlashUtils::configureIso15765Can` from Task 4; `fastecu::checksum::cks_add8` from Task 2.
-- Produces: `//src/backend/flash` with no `QT_DEPS` and no `serial_qt_compat` dep. No new symbols.
-
-- [ ] **Step 1: Enumerate the call sites exactly**
+- [ ] **Step 5: Enumerate the call sites exactly**
 
 ```bash
 grep -rln 'src/backend/flash/flash_utils.h' src/ | sort
 ```
 
-Expected: 27 legacy operation `.cpp` files, plus `src/ui/desktop/flash/ecu/flash_ecu_subaru_unisia_jecs.cpp`, plus `src/backend/flash/flash_utils_test.cpp`, plus `src/backend/flash/flash_utils.cpp`. Record the count — it is the completion check for Step 2.
+Expected: 27 legacy operation `.cpp` files, plus `src/ui/desktop/flash/ecu/flash_ecu_subaru_unisia_jecs.cpp`, plus `src/backend/flash/flash_utils_test.cpp`, plus `src/backend/flash/flash_utils.cpp`. Record the count — it is the completion check for Step 6.
 
-- [ ] **Step 2: Rewrite the include in every legacy caller**
+- [ ] **Step 6: Rewrite the include in every legacy caller**
 
 ```bash
 grep -rl 'src/backend/flash/flash_utils.h' \
@@ -933,7 +905,7 @@ grep -rn 'src/backend/flash/flash_utils.h' src/ | grep -v '^src/backend/flash/'
 
 Expected: no output.
 
-- [ ] **Step 3: Inline `buildIso15765Request` at its single call site**
+- [ ] **Step 7: Inline `buildIso15765Request` at its single call site**
 
 In `src/platform/desktop/common/flash/legacy/flash_ecu_mitsu_m32r_can_operation.cpp:59`, replace:
 
@@ -952,7 +924,7 @@ with:
 
 Ensure that file includes `src/algorithms/protocol/qt_bytes.h` (it needs `bytes::appendU32Be`); add it if absent.
 
-- [ ] **Step 4: Move the deleted function's assertion into the operation's own test**
+- [ ] **Step 8: Move the deleted function's assertion into the operation's own test**
 
 `buildIso15765Request_prependsBigEndianSourceAddress` is being deleted with its function, but the behavior it pinned — big-endian source-address prefixing — now lives inline in the operation. Add to `src/platform/desktop/common/flash/legacy/flash_ecu_mitsu_m32r_can_operation_test.cpp`, inside its existing test class's `private slots:` section:
 
@@ -976,15 +948,18 @@ Ensure that file includes `src/algorithms/protocol/qt_bytes.h` (it needs `bytes:
 
 Ensure that test file includes `src/algorithms/protocol/qt_bytes.h`.
 
-- [ ] **Step 5: Run the legacy package's tests**
+- [ ] **Step 9: Confirm every call site now resolves through the new header**
 
 ```bash
-bazel test --config=release //src/platform/desktop/common/flash/legacy:all
+grep -rn 'FlashUtils::' src/platform/desktop/common/flash/legacy/ src/ui/desktop/flash/ecu/ \
+  | grep -c 'findFlashDeviceIndex\|configureIso15765Can'
 ```
 
-Expected: PASS. The 30 call sites now resolve through `legacy_flash_utils.h`.
+Expected: 46 (30 `findFlashDeviceIndex` + 16 `configureIso15765Can`), all in files whose include now points at `legacy_flash_utils.h`.
 
-- [ ] **Step 6: Delete the old files and target**
+Do **not** run bazel here. `flash_utils.cpp` still defines the same two symbols and is still linked into the same binary, so any build fails with duplicate symbols until Step 10 deletes it. That failure is expected, not a signal.
+
+- [ ] **Step 10: Delete the old files and target**
 
 ```bash
 git rm src/backend/flash/flash_utils.h src/backend/flash/flash_utils.cpp \
@@ -993,13 +968,13 @@ git rm src/backend/flash/flash_utils.h src/backend/flash/flash_utils.cpp \
 
 In `src/backend/flash/BUILD.bazel`, delete the `qt_cc_library(name = "flash", ...)` block and the `fastecu_qttest(name = "test_flash_utils", ...)` block, and drop now-unused symbols from the `load` line (`COMMON_COPTS`, `QT_DEPS`, `fastecu_qttest`, `qt_cc_library` — keep whatever other targets in the file still use).
 
-- [ ] **Step 7: Re-point the three remaining `//src/backend/flash` dependents**
+- [ ] **Step 11: Re-point the three remaining `//src/backend/flash` dependents**
 
 Verified against the build graph, not the `flash` target's comment — which is stale on two of its four named consumers (`//src/backend/definitions` has no such dep at all, and `test_flash_utils` is co-located here, not under `tests/`).
 
 - `src/ui/desktop/BUILD.bazel:81` — remove `"//src/backend/flash"`. `ecu_operations.cpp` already got `//src/algorithms/checksum` in Task 2.
 - `src/ui/desktop/flash/ecu/BUILD.bazel:19` — replace `"//src/backend/flash"` with `"//src/platform/desktop/common/flash/legacy"`. (`flash_ecu_subaru_unisia_jecs.cpp` calls `FlashUtils::findFlashDeviceIndex`.)
-- `src/platform/desktop/common/flash/legacy/BUILD.bazel:68` — remove `"//src/backend/flash"`; `":flash_device_lookup"`'s label was added in Task 4.
+- `src/platform/desktop/common/flash/legacy/BUILD.bazel` — already handled in Step 4; confirm `"//src/backend/flash"` is gone and both replacement deps are present.
 
 Then confirm nothing depends on the deleted label:
 
@@ -1009,7 +984,7 @@ bazel query 'rdeps(//..., //src/backend/flash:flash)' 2>&1 | head
 
 Expected: an error that the target does not exist.
 
-- [ ] **Step 8: Swap the allowlist entry**
+- [ ] **Step 12: Swap the allowlist entry**
 
 The legacy flash package reached `serial_port_actions.h` transitively through `//src/backend/flash:flash`. With that target gone it needs its own edge.
 
@@ -1028,15 +1003,9 @@ In `src/platform/desktop/common/serial/BUILD.bazel`, in `serial_qt_compat`'s `vi
 
 In `scripts/check-serial-compat-allowlist.py`, make the same swap in `FROZEN`: delete the `"//src/backend/flash:__pkg__"` entry together with its multi-line comment block, and add `"//src/platform/desktop/common/flash/legacy:__pkg__"` with a one-line comment pointing at the design doc.
 
-Add `"//src/platform/desktop/common/flash/legacy"` to `legacy_flash_operations`'s deps in that package's BUILD? No — the package depends on `serial_qt_compat` directly now:
+The matching `legacy_flash_operations` dep on `serial_qt_compat` was already added in Step 4; this step only moves the *permission* to hold it.
 
-```python
-        "//src/platform/desktop/common/serial:serial_qt_compat",
-```
-
-Add that to `legacy_flash_operations`'s `deps`, and delete the stale comment block above the removed `"//src/backend/flash"` entry that explains why the package deliberately avoided this dep.
-
-- [ ] **Step 9: Verify the allowlist swap**
+- [ ] **Step 13: Verify the allowlist swap**
 
 Run: `bazel test --config=release //:serial_compat_allowlist`
 Expected: PASS with 13 entries.
@@ -1046,7 +1015,7 @@ Then verify non-vacuity: temporarily add `"//src/backend/checksum:__pkg__"` to t
 Run: `bazel test --config=release //:serial_compat_allowlist`
 Expected: FAIL, printing `//src/backend/checksum:__pkg__` as a new entry. Remove it and re-run; expected PASS.
 
-- [ ] **Step 10: Confirm backend no longer reaches platform**
+- [ ] **Step 14: Confirm backend no longer reaches platform**
 
 ```bash
 bazel query 'somepath(//src/backend/..., //src/platform/...)' 2>&1 | head
@@ -1054,7 +1023,7 @@ bazel query 'somepath(//src/backend/..., //src/platform/...)' 2>&1 | head
 
 Expected: no path from any `src/backend` target into `src/platform`.
 
-- [ ] **Step 11: Full gate**
+- [ ] **Step 15: Full gate**
 
 ```bash
 bazel build -k --config=release //:fastecu //tests/...
@@ -1064,15 +1033,20 @@ bazel test  -k --config=release //tests/... //:bazel_openssl_wiring \
 
 Expected: all pass.
 
-- [ ] **Step 12: Commit**
+- [ ] **Step 16: Commit**
 
 ```bash
 git add -A
-git commit -m "refactor(flash): delete backend/flash Qt target, swap allowlist entry (5e-1)
+git commit -m "refactor(flash): move flash_utils to platform, delete backend Qt target (5e-1)
 
-Re-points 30 legacy call sites at the platform-side legacy_flash_utils
-(include-only change), inlines the single-caller buildIso15765Request, and
-deletes flash_utils entirely. //src/backend/flash is now fully portable.
+Adds platform-side legacy_flash_utils (configureIso15765Can verbatim, plus
+a QString shim over the portable lookup), re-points 30 legacy call sites at
+it (include-only change), inlines the single-caller buildIso15765Request,
+and deletes flash_utils entirely. //src/backend/flash is now fully portable.
+
+Create and delete are one commit by necessity: both files define the same
+two FlashUtils symbols, and the legacy package's srcs glob picks up the new
+file immediately, so any split leaves a non-linking duplicate-symbol state.
 
 The serial_qt_compat allowlist swaps //src/backend/flash for
 //src/platform/desktop/common/flash/legacy: the same debt, correctly
@@ -1083,7 +1057,7 @@ Allowlist: 13 entries, 0 in backend."
 
 ---
 
-## Task 6: Characterize the checksum flow before moving it
+## Task 5: Characterize the checksum flow before moving it
 
 Before deleting `FileActions::checksum_correction`, capture what it does — including its log output, which the design flags as the thing most likely to be silently lost.
 
@@ -1092,7 +1066,7 @@ Before deleting `FileActions::checksum_correction`, capture what it does — inc
 
 **Interfaces:**
 - Consumes: nothing new.
-- Produces: a passing characterization of the four `LOG_D` lines and one `LOG_E` line, used as the fidelity reference by Task 8.
+- Produces: a passing characterization of the four `LOG_D` lines and one `LOG_E` line, used as the fidelity reference by Task 7.
 
 - [ ] **Step 1: Write the characterization test**
 
@@ -1133,7 +1107,7 @@ Expected: PASS. If any `QVERIFY` fails, the emitted text differs from what this 
 
 - [ ] **Step 3: Record the exact strings**
 
-Copy the four asserted substrings into a scratch note; Task 8 reproduces them in the UI command. The two remaining `LOG_D` lines (`ecuCalDef->McuType: ...` and `Size: 0x... -> 0x...`) are only reachable on the *known*-MCU path — read them directly from `src/backend/definitions/file_actions.cpp:1693-1696` and record them too.
+Copy the four asserted substrings into a scratch note; Task 7 reproduces them in the UI command. The two remaining `LOG_D` lines (`ecuCalDef->McuType: ...` and `Size: 0x... -> 0x...`) are only reachable on the *known*-MCU path — read them directly from `src/backend/definitions/file_actions.cpp:1693-1696` and record them too.
 
 - [ ] **Step 4: Commit**
 
@@ -1148,7 +1122,7 @@ lines as this slice's main fidelity risk."
 
 ---
 
-## Task 7: Create the `ChecksumCorrectionCommand` package
+## Task 6: Create the `ChecksumCorrectionCommand` package
 
 A new package with **explicit `srcs`** — `src/ui/desktop`'s own `glob(["*.cpp"])` has no `*_test.cpp` exclusion, so a test co-located there would link into the production library.
 
@@ -1171,7 +1145,7 @@ unqualified, **not** written as `fastecu::checksum::ChecksumResult`.
 `ChecksumSelection` and `ChecksumCorrectionOutcome`
 (`src/backend/checksum/checksum_selection.h`) *are* in `fastecu::checksum`.
 
-  Task 8 constructs this from `MainWindow`.
+  Task 7 constructs this from `MainWindow`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1528,7 +1502,7 @@ bazel test  -k --config=release //tests/... //:bazel_openssl_wiring \
             //:serial_compat_allowlist //:portable_closure
 ```
 
-Expected: all pass. `LegacyChecksumAdapter` still exists and is still wired into `FileActions`; both paths coexist until Task 8.
+Expected: all pass. `LegacyChecksumAdapter` still exists and is still wired into `FileActions`; both paths coexist until Task 7.
 
 - [ ] **Step 7: Commit**
 
@@ -1544,7 +1518,7 @@ exclusion. The backend adapter is deleted in the next commit."
 
 ---
 
-## Task 8: Delete the backend adapter and wire `MainWindow` to the command
+## Task 7: Delete the backend adapter and wire `MainWindow` to the command
 
 **Files:**
 - Delete: `src/backend/checksum/legacy_checksum_adapter.{h,cpp}`, `legacy_checksum_adapter_test.cpp`
@@ -1553,7 +1527,7 @@ exclusion. The backend adapter is deleted in the next commit."
 - Modify: `src/ui/desktop/mainwindow.{h,cpp}`, `menu_actions.cpp`, `BUILD.bazel`
 
 **Interfaces:**
-- Consumes: `fastecu::ui::ChecksumCorrectionCommand` from Task 7.
+- Consumes: `fastecu::ui::ChecksumCorrectionCommand` from Task 6.
 - Produces: `//src/backend/checksum` with no `QT_DEPS`. No new symbols.
 
 - [ ] **Step 1: Re-verify which call sites are live**
@@ -1589,7 +1563,7 @@ In `src/ui/desktop/BUILD.bazel`, add to the deps of the target compiling `mainwi
 
 - [ ] **Step 3: Add the private helper that replaces the deleted method**
 
-In `src/ui/desktop/mainwindow.cpp`, add a private helper reproducing what `FileActions::checksum_correction` did — selection construction, the four log lines recorded in Task 6, the command call, and the byte write-back:
+In `src/ui/desktop/mainwindow.cpp`, add a private helper reproducing what `FileActions::checksum_correction` did — selection construction, the four log lines recorded in Task 5, the command call, and the byte write-back:
 
 ```cpp
 void MainWindow::runChecksumCorrection(FileActions::EcuCalDefStructure *ecuCalDef)
@@ -1664,7 +1638,7 @@ In `src/backend/checksum/BUILD.bazel`, delete the `legacy_checksum_adapter` `qt_
 
 - [ ] **Step 7: Remove the three now-orphaned `FileActions` tests**
 
-The three `checksum_correction_*` cases in `file_actions_parsing_test.cpp` — the two originals and Task 6's characterization — test a method that no longer exists. Delete them; their coverage lives in `checksum_correction_command_test.cpp` (the two behavioural cases, ported in Task 7) and in the `MainWindow` helper's log text, which Task 6 recorded and Step 3 reproduced.
+The three `checksum_correction_*` cases in `file_actions_parsing_test.cpp` — the two originals and Task 5's characterization — test a method that no longer exists. Delete them; their coverage lives in `checksum_correction_command_test.cpp` (the two behavioural cases, ported in Task 6) and in the `MainWindow` helper's log text, which Task 5 recorded and Step 3 reproduced.
 
 - [ ] **Step 8: Verify `//src/backend/checksum` is Qt-free**
 
@@ -1723,7 +1697,7 @@ Dialogs verified by hand (no automated test covers the un-overridden seams)."
 
 ---
 
-## Task 9: Update the documentation and close out the slice
+## Task 8: Update the documentation and close out the slice
 
 **Files:**
 - Modify: `docs/tech-debt.md`
@@ -1785,4 +1759,4 @@ PRs #153 and #154."
 
 - **Retire the `findFlashDeviceIndex` Qt shim.** It exists only to keep the 30 legacy call sites on `QString`. Each tail family that migrates should convert its own sites to `fastecu::flash::find_flash_device_index`; delete the shim when the last one does.
 - **Drain `//src/platform/desktop/common/flash/legacy:__pkg__` from the allowlist.** This is the step-5 tail's completion criterion, now attributed to the package that owns it.
-- **`src/ui/desktop`'s `glob(["*.cpp"])` still has no `*_test.cpp` exclusion.** Task 7 sidestepped it with a new package rather than fixing it; tech-debt P2 tracks the general case across twelve packages.
+- **`src/ui/desktop`'s `glob(["*.cpp"])` still has no `*_test.cpp` exclusion.** Task 6 sidestepped it with a new package rather than fixing it; tech-debt P2 tracks the general case across twelve packages.
