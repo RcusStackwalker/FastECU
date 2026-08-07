@@ -23,6 +23,7 @@ using ::testing::HasSubstr;
 using ::testing::IsEmpty;
 using ::testing::Not;
 using ::testing::SizeIs;
+using ::testing::StartsWith;
 
 bytes::ByteView view(std::string_view text)
 {
@@ -172,6 +173,53 @@ TEST(WriteSelection, UpdatesAnExistingEcuElement)
     EXPECT_EQ(text_of(*written).find("ECUID1"), text_of(*written).rfind("ECUID1"));
 }
 
+TEST(WriteSelection, RejectsADocumentWhoseRootIsNotConfig)
+{
+    // Appending <config> beside an existing root element would emit two
+    // document elements. Refuse instead -- the legacy writer left such a file
+    // untouched, and non-well-formed output is worse than no write at all.
+    LoggerSelection selection;
+    selection.protocol = "SSM";
+    selection.gauge_ids = {"P1"};
+
+    const auto written = write_selection(
+        view(R"(<notconfig><data id="keep"/></notconfig>)"), "ECUID1", selection, "conf.xml");
+    ASSERT_FALSE(written.has_value());
+    EXPECT_EQ(written.error().kind, fastecu::ErrorKind::InvalidConfig);
+    EXPECT_THAT(written.error().detail, HasSubstr("conf.xml"));
+    EXPECT_THAT(written.error().detail, HasSubstr("notconfig"));
+}
+
+TEST(WriteSelection, CreatesTheLoggerElementWhenConfigHasNone)
+{
+    // A <config> without <logger> is a create, not a corruption: appending
+    // inside the existing root keeps the document well-formed.
+    LoggerSelection selection;
+    selection.protocol = "SSM";
+    selection.gauge_ids = {"P1"};
+
+    const auto written = write_selection(
+        view(R"(<config name="FastECU"/>)"), "ECUID1", selection, "conf.xml");
+    ASSERT_TRUE(written.has_value()) << written.error().detail;
+    EXPECT_THAT(text_of(*written), HasSubstr("name=\"FastECU\""));
+
+    const auto reread = read_selection(*written, "ECUID1", "conf.xml");
+    ASSERT_TRUE(reread.has_value() && reread->has_value());
+    EXPECT_THAT((*reread)->gauge_ids, ElementsAre("P1"));
+}
+
+TEST(WriteSelection, RejectsAnEmptyDocument)
+{
+    // pugixml rejects a buffer with no element node at all, so the
+    // <config>-missing branch above is the only way out for a rootless input.
+    LoggerSelection selection;
+    selection.protocol = "SSM";
+
+    const auto written = write_selection(view(""), "ECUID1", selection, "conf.xml");
+    ASSERT_FALSE(written.has_value());
+    EXPECT_EQ(written.error().kind, fastecu::ErrorKind::InvalidConfig);
+}
+
 TEST(WriteSelection, AppendsANewEcuElementAndKeepsTheExistingOne)
 {
     LoggerSelection selection;
@@ -189,6 +237,90 @@ TEST(WriteSelection, AppendsANewEcuElementAndKeepsTheExistingOne)
     ASSERT_TRUE(added.has_value() && added->has_value());
     EXPECT_EQ((*added)->protocol, "CDBG");
     EXPECT_THAT((*added)->gauge_ids, ElementsAre("Y1"));
+}
+
+// The shipped resources/shared/config/logger.cfg opens with an XML
+// declaration (QDom's own output, single-quoted) and provisioning.cpp copies
+// it into every user's config dir -- so every existing conf carries one and a
+// save that dropped it would silently edit every user's file. The contract,
+// verified against QDomDocument::setContent + save(ts, 4): preserve a
+// declaration that is present, never synthesize one that is not.
+TEST(WriteSelection, PreservesAnExistingXmlDeclaration)
+{
+    constexpr std::string_view kConfWithDeclaration =
+        "<?xml version='1.0' encoding='UTF-8'?>\n"
+        "<config name=\"FastECU\" version=\"0.0-dev0\">\n"
+        "    <logger/>\n"
+        "</config>\n";
+
+    LoggerSelection selection;
+    selection.protocol = "SSM";
+    selection.gauge_ids = {"P1"};
+
+    const auto written =
+        write_selection(view(kConfWithDeclaration), "ECUID1", selection, "conf.xml");
+    ASSERT_TRUE(written.has_value()) << written.error().detail;
+
+    // pugixml re-emits attribute values with double quotes where QDom used
+    // single quotes. That is a cosmetic requoting of an equivalent
+    // declaration, not data loss -- what matters is that the declaration is
+    // still there, with the same version and encoding, ahead of <config>.
+    const std::string xml = text_of(*written);
+    EXPECT_THAT(xml, StartsWith("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<config"));
+}
+
+TEST(WriteSelection, DoesNotSynthesizeAnXmlDeclarationWhenTheInputHasNone)
+{
+    LoggerSelection selection;
+    selection.protocol = "SSM";
+    selection.gauge_ids = {"P1"};
+
+    const auto written = write_selection(view(kConfWithEcu), "ECUID1", selection, "conf.xml");
+    ASSERT_TRUE(written.has_value()) << written.error().detail;
+    EXPECT_THAT(text_of(*written), Not(HasSubstr("<?xml")));
+}
+
+// Rebuilding the <ecu> subtree must not relocate it: document.save()
+// re-serializes the whole DOM, so an appended replacement would move the
+// updated ECU below every sibling in the file.
+TEST(WriteSelection, KeepsAnUpdatedEcuInItsOriginalPosition)
+{
+    constexpr std::string_view kThreeEcus = R"(<config>
+    <logger>
+        <ecu id="FIRST">
+            <protocol id="SSM"/>
+        </ecu>
+        <ecu id="SECOND">
+            <protocol id="SSM"/>
+        </ecu>
+        <ecu id="THIRD">
+            <protocol id="SSM"/>
+        </ecu>
+    </logger>
+</config>
+)";
+
+    LoggerSelection selection;
+    selection.protocol = "SSM";
+    selection.gauge_ids = {"P1"};
+
+    const auto first = write_selection(view(kThreeEcus), "FIRST", selection, "conf.xml");
+    ASSERT_TRUE(first.has_value()) << first.error().detail;
+    const std::string first_xml = text_of(*first);
+    EXPECT_LT(first_xml.find("FIRST"), first_xml.find("SECOND"));
+    EXPECT_LT(first_xml.find("SECOND"), first_xml.find("THIRD"));
+
+    const auto middle = write_selection(view(kThreeEcus), "SECOND", selection, "conf.xml");
+    ASSERT_TRUE(middle.has_value()) << middle.error().detail;
+    const std::string middle_xml = text_of(*middle);
+    EXPECT_LT(middle_xml.find("FIRST"), middle_xml.find("SECOND"));
+    EXPECT_LT(middle_xml.find("SECOND"), middle_xml.find("THIRD"));
+
+    // A brand-new ECU still goes to the end.
+    const auto added = write_selection(view(kThreeEcus), "FOURTH", selection, "conf.xml");
+    ASSERT_TRUE(added.has_value()) << added.error().detail;
+    const std::string added_xml = text_of(*added);
+    EXPECT_LT(added_xml.find("THIRD"), added_xml.find("FOURTH"));
 }
 
 // TRANSITIONAL (5d-5b): pins pugixml's output against the bytes

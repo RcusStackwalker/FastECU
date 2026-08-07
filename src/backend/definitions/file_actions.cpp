@@ -873,7 +873,8 @@ FileActions::LogValuesStructure *FileActions::read_logger_definition_file()
     {
         QMessageBox::warning(this, tr("Logger file"),
                              "Unable to open logger definition file '" +
-                                 QString::fromStdString(*handle) + "' for reading");
+                                 QString::fromStdString(*handle) + "' for reading: " +
+                                 QString::fromStdString(definition.error().detail));
         return logValues;
     }
 

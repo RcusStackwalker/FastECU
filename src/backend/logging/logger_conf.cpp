@@ -26,14 +26,17 @@ constexpr std::size_t kSwitchCap = 20;
 
 Status load(pugi::xml_document& document, bytes::ByteView conf, std::string_view source)
 {
-    // parse_default excludes comments, processing instructions and DOCTYPE.
-    // A user who hand-annotated their conf file with an XML comment would
-    // otherwise lose it silently on the first write_selection() round-trip
-    // (load, then re-serialize the whole DOM) -- add them back in.
+    // parse_default excludes comments, processing instructions, DOCTYPE and
+    // the XML declaration. A user who hand-annotated their conf file with an
+    // XML comment -- or, far more commonly, whose conf simply starts with the
+    // <?xml ...?> declaration that resources/shared/config/logger.cfg ships
+    // with -- would otherwise lose it silently on the first write_selection()
+    // round-trip (load, then re-serialize the whole DOM) -- add them back in.
     const pugi::xml_parse_result parsed = document.load_buffer(
         conf.data(),
         conf.size(),
-        pugi::parse_default | pugi::parse_comments | pugi::parse_pi | pugi::parse_doctype);
+        pugi::parse_default | pugi::parse_comments | pugi::parse_pi | pugi::parse_doctype |
+            pugi::parse_declaration);
     if (!parsed)
     {
         return fail(
@@ -155,7 +158,20 @@ Result<bytes::Bytes> write_selection(
     pugi::xml_node config = document.child("config");
     if (!config)
     {
-        config = document.append_child("config");
+        // Some other element is already the document element -- pugixml
+        // rejects a buffer with no element at all (status_no_document_element,
+        // parse_fragment is not set), so a successful load() always leaves
+        // one. Appending <config> here would emit two document elements:
+        // non-well-formed XML that QDom, and every conformant parser, refuses
+        // to re-read even though pugixml is lenient enough to load it back.
+        // The legacy writer left such a file untouched; refuse rather than
+        // corrupt it.
+        return fail(
+            ErrorKind::InvalidConfig,
+            std::format(
+                "{}: root element is <{}>, expected <config>",
+                source,
+                document.document_element().name()));
     }
     pugi::xml_node logger = config.child("logger");
     if (!logger)
@@ -169,9 +185,19 @@ Result<bytes::Bytes> write_selection(
     pugi::xml_node ecu = find_ecu(logger, ecu_id);
     if (ecu)
     {
+        // Reinsert the rebuilt element where the old one sat. document.save()
+        // re-serializes the whole DOM, so append_child() would visibly
+        // relocate an updated <ecu> below all of its siblings in the file --
+        // byte-neutral, but a gratuitous diff in a file this function
+        // otherwise works hard to leave alone.
+        const pugi::xml_node previous = ecu.previous_sibling();
         logger.remove_child(ecu);
+        ecu = previous ? logger.insert_child_after("ecu", previous) : logger.prepend_child("ecu");
     }
-    ecu = logger.append_child("ecu");
+    else
+    {
+        ecu = logger.append_child("ecu");
+    }
     ecu.append_attribute("id") = ecu_id;
 
     pugi::xml_node protocol = ecu.append_child("protocol");
@@ -182,12 +208,29 @@ Result<bytes::Bytes> write_selection(
     append_ids(protocol.append_child("switches"), "switch", selection.switch_ids);
 
     std::ostringstream output;
-    // format_no_declaration: the legacy QDomDocument::save(output, 4) never
-    // wrote an <?xml ...?> prologue for these documents (Task 1's captured
-    // golden has none), and pugixml's default *does* synthesize one when the
-    // document lacks a declaration node. Passing format_default here would
-    // prepend a declaration the golden -- and every existing conf file --
-    // does not have.
+    // The XML-declaration fidelity contract, established empirically against
+    // QDomDocument (setContent + save(ts, 4)): an existing <?xml ...?>
+    // declaration is PRESERVED, and one is NEVER synthesized when the input
+    // has none. Two things implement exactly that here, and both are
+    // required:
+    //   - load()'s pugi::parse_declaration keeps the declaration as a real
+    //     node_declaration in the DOM. pugixml's node_output writes such a
+    //     node like any other, independent of the save flags.
+    //   - format_no_declaration suppresses only pugixml's *synthesized*
+    //     prologue -- xml_document::save() emits that solely under
+    //     `!(flags & format_no_declaration) && !has_declaration(_root)`, so
+    //     the flag cannot swallow a parsed declaration node.
+    // Dropping either half regresses a real file: resources/shared/config/
+    // logger.cfg opens with a declaration and provisioning.cpp copies it into
+    // every user's config dir, so without parse_declaration the first save
+    // silently deletes it; without format_no_declaration a conf that never had
+    // one grows a prologue QDom would not have written.
+    // pugixml re-emits the declaration's attribute values double-quoted where
+    // QDom wrote them single-quoted; that requoting is cosmetic and the only
+    // byte that changes when the real shipped logger.cfg round-trips here.
+    // (An earlier revision of this comment inferred from Task 1's captured
+    // golden that QDom "never wrote a prologue for these documents". That was
+    // false: the golden has none because its *input* had none.)
     document.save(
         output,
         kIndent,
