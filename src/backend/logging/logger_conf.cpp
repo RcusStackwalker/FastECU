@@ -64,10 +64,11 @@ void append_ids(
     }
 }
 
-std::vector<std::string> collect_ids(pugi::xml_node parent, std::string_view element_name)
+/* element_name has to be const char* because xml_node::children doesn't accept string_view*/
+std::vector<std::string> collect_ids(pugi::xml_node parent, const char *element_name)
 {
-    return parent.children(element_name.data()) | std::views::transform([](pugi::xml_node node)
-                                                                        { return std::string{node.attribute("id"sv).as_string("No id")}; }) |
+    return parent.children(element_name) | std::views::transform([](pugi::xml_node node)
+                                                                 { return std::string{node.attribute("id"sv).as_string("No id")}; }) |
            std::ranges::to<std::vector>();
 }
 
@@ -133,9 +134,9 @@ Result<std::optional<LoggerSelection>> read_selection(
     const pugi::xml_node protocol = ecu.child("protocol");
     selection.protocol = protocol.attribute("id").as_string("No id");
     const pugi::xml_node parameters = protocol.child("parameters");
-    selection.gauge_ids = collect_ids(parameters.child("gauges"), "parameter"sv);
-    selection.lower_panel_ids = collect_ids(parameters.child("lower_panel"), "parameter"sv);
-    selection.switch_ids = collect_ids(protocol.child("switches"), "switch"sv);
+    selection.gauge_ids = collect_ids(parameters.child("gauges"), "parameter");
+    selection.lower_panel_ids = collect_ids(parameters.child("lower_panel"), "parameter");
+    selection.switch_ids = collect_ids(protocol.child("switches"), "switch");
     return std::optional<LoggerSelection>{std::move(selection)};
 }
 
