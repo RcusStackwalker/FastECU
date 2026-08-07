@@ -44,7 +44,8 @@ Checks: >
 
 WarningsAsErrors: '*'
 HeaderFilterRegex: 'src/(algorithms|backend|platform|ui)/.*\.h'
-ExcludeHeaderFilterRegex: '(/generated_ui/.*|_replica)\.h'
+# workaround for the issue with separators normalization 
+ExcludeHeaderFilterRegex: '([/\\\\]generated_ui[/\\\\].*|_replica)\.h'
 FormatStyle: none
 CheckOptions:
   - key: readability-braces-around-statements.ShortStatementLines
