@@ -17,6 +17,16 @@ Exact and machine-checked:
   `//src/backend/...` entries.
 - `//src/backend/flash` and `//src/backend/checksum` carry no `QT_DEPS`.
 
+Both are ratcheted. The first by `//:serial_compat_allowlist`; the second by
+`//:portable_closure`, whose `QT_FREE_PACKAGES` list rejects any `qt_cc_library`
+rule, `QT_DEPS` reference or `@rules_qt//` dep anywhere in those two packages'
+`BUILD.bazel`. That package-level scan is separate from, and stronger than, the
+per-target scan the same script already runs — the per-target scan deliberately
+skips `qt_cc_library` invocations, so re-adding a Qt target to either package
+would otherwise pass. It is scoped to exactly these two packages: other portable
+roots (`src/backend/logging`, `src/backend/definition`) legitimately hold Qt
+adapter targets.
+
 When both hold, no backend *production* target depends on `src/platform`, and
 no Qt appears in any non-adapter production target. (`src/backend/definitions`
 still lists `//src/platform/desktop/common/ports` on three `fastecu_qttest`

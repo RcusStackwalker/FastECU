@@ -36,7 +36,7 @@ for the `FileActions` breakdown:
   #126/#127/#128/#129/#131/#133.
 - 5d-4b map cell/axis decode — merged 2026-08-01 (PR #134).
 - 5d-6 flash-definition glue — merged 2026-08-01 (PR #138).
-- 5d-5 diagnostics and logger glue — merged 2026-08-06 (PR #153); see the
+- 5d-5 NRC/DTC diagnostics tables — merged 2026-08-06 (PR #153); see the
   [5d-5 design](superpowers/specs/2026-08-06-step5d5-diagnostics-and-logger-glue-design.md).
 - 5d-5b logger definition parser, conf operations and service glue — merged
   2026-08-07 (PR #154). **5d is now complete.**

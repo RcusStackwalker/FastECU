@@ -37,14 +37,15 @@ implementation cycle.**
 | **5d-3** | Definition use case (RomRaider + EcuFlash parsing) — **merged, PR #86** (2026-07-30) | 5a, 5d-1 | Portable parsing algorithms for both definition formats (using 5d-1's XML primitive) plus the backend definition use case; replaces `file_defs_romraider.cpp`/`file_defs_ecuflash.cpp` and the definition-file dialog flows in `file_actions.cpp`. The largest and least-precedented slice — new algorithm-layer work, likely warrants its own internal sequencing when planned |
 | **5d-4** | Calibration use case — ROM open/save — **merged, PR #117** (2026-07-31) plus follow-ups #126/#127/#128/#129/#131/#133 | 5d-1, 5d-3 | `open_subaru_rom_file`'s byte I/O, size validation and protocol/checksum binding; `save_subaru_rom_file` entirely; `resolve_car_models`/`find_car_model_by_protocol_name`; dialog relocation to `MainWindow`. Split during design — the map/axis decode it originally covered became 5d-4b |
 | **5d-4b** | Map cell/axis value computation — **merged, PR #134** (2026-08-01) | 5d-4 | The `MapData`/`XScaleData`/`YScaleData` per-map/per-axis byte-decode-and-scale loop plus the WRX02 ROM-padding case, formerly inline in `open_subaru_rom_file`. Re-landed against the post-#126 API, superseding PR #118 |
-| **5d-5** | Diagnostics tables + logging-definition glue — **designed 2026-08-06** | 5b, 5d-1 | `read_logger_definition_file`/`read_logger_conf`, DTC/NRC table ownership — drains the transitional `qt_dtc_parser`/`qt_nrc_parser` shims. **Split during design** into 5d-5 (diagnostics tables) and 5d-5b (logger glue), which share no file, caller or data; `save_logger_conf` turned out to be dead code (its body is entirely commented out) and is dropped, not ported. See the [5d-5 design](2026-08-06-step5d5-diagnostics-and-logger-glue-design.md) |
+| **5d-5** | Diagnostics tables + logging-definition glue — **merged, PR #153** (diagnostics tables, 2026-08-06) and **PR #154** (logger glue, 2026-08-07) | 5b, 5d-1 | `read_logger_definition_file`/`read_logger_conf`, DTC/NRC table ownership — drains the transitional `qt_dtc_parser`/`qt_nrc_parser` shims. **Split during design** into 5d-5 (diagnostics tables) and 5d-5b (logger glue), which share no file, caller or data; `save_logger_conf` turned out to be dead code (its body is entirely commented out) and is dropped, not ported. See the [5d-5 design](2026-08-06-step5d5-diagnostics-and-logger-glue-design.md) |
 | **5d-6** | Flash-definition glue — **merged, PR #138** (2026-08-01) | 5c, 5d-1, 5d-4 | Replaces `LegacyFlashSnapshotAdapter` with a real backend use case, removing `EcuCalDefStructure` from the flash path — closes the placeholder 5c left explicitly for 5d. **Dependency corrected during design:** the adapter consumes protocol-catalog values (`mcu`, `kernel`, `kernel_addr`), not definition-model values, so this slice depends on 5d-1/5d-4, not 5d-3 |
 
 **Dependency shape:** `5a → 5d-1 → {5d-2, 5d-3}`; `5d-3 → 5d-4 → 5d-4b`;
 `5d-3 → 5d-6`; `5b → 5d-5`; `5c → 5d-6`. 5d-2 and 5d-5 are otherwise
-independent of 5d-3/5d-4/5d-4b/5d-6. With 5d-1 through 5d-4b and 5d-6 merged,
-**5d-5 is the only remaining slice**, and 5b (its sole dependency) is merged, so
-it is unblocked.
+independent of 5d-3/5d-4/5d-4b/5d-6. Every slice above has now merged — 5d-5
+last, as PR #153 (diagnostics tables) and PR #154 (logger glue) — so
+**no slice of 5d remains**; see the completion checklist at the end of this
+document.
 
 **Out of scope:** `read_menu_file` (builds `QMenuBar`/`QToolBar`/`QSignalMapper`
 from a `QDomDocument`-parsed menu file) has no algorithmic content — it is Qt
