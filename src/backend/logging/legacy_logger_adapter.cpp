@@ -42,13 +42,8 @@ void apply_definition(
         values.log_value_enabled.append(parameter.enabled ? "1" : "0");
         values.log_value.append("0.00");
 
-        QList<Conversion> conversions;
-        conversions.reserve(static_cast<qsizetype>(parameter.conversions.size()));
-        for (const Conversion& conversion : parameter.conversions)
-        {
-            conversions.append(conversion);
-        }
-        values.log_value_conversions.append(conversions);
+        values.log_value_conversions.append(
+            QList<Conversion>{parameter.conversions.begin(), parameter.conversions.end()});
     }
 
     for (const LoggerSwitch& paramswitch : definition.switches)

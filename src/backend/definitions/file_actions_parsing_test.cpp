@@ -198,6 +198,12 @@ class TestFileActionsParsing : public QObject
                  QString("x*0.25"));
         QCOMPARE(QString::fromStdString(values->log_value_conversions.at(0).at(0).format),
                  QString("0.00"));
+        QCOMPARE(QString::fromStdString(values->log_value_conversions.at(0).at(0).gauge_min),
+                 QString("0"));
+        QCOMPARE(QString::fromStdString(values->log_value_conversions.at(0).at(0).gauge_max),
+                 QString("8000"));
+        QCOMPARE(QString::fromStdString(values->log_value_conversions.at(0).at(0).gauge_step),
+                 QString("500"));
         QCOMPARE(values->log_switch_id.at(0), QString("S1"));
         QCOMPARE(values->log_switch_address.at(0), QString("0x20"));
         QCOMPARE(values->log_switch_ecu_bit.at(0), QString("1"));

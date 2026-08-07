@@ -29,11 +29,11 @@ portable_logging::LoggingPolicy valid_policy()
 
 // Appends a row with an explicit, fully-formed conversions list so
 // malformed-conversion cases can hand in a deliberately broken one.
-void append_value_with_units(FileActions::LogValuesStructure& values, const QString& id,
-                             const QString& protocol, const QString& enabled,
-                             const QList<fastecu::logging::Conversion>& conversions,
-                             const QString& address = QStringLiteral("000010"),
-                             const QString& length = QStringLiteral("1"))
+void append_value_with_conversions(FileActions::LogValuesStructure& values, const QString& id,
+                                   const QString& protocol, const QString& enabled,
+                                   const QList<fastecu::logging::Conversion>& conversions,
+                                   const QString& address = QStringLiteral("000010"),
+                                   const QString& length = QStringLiteral("1"))
 {
     values.log_value_id.append(id);
     values.log_value_protocol.append(protocol);
@@ -53,7 +53,7 @@ void append_value(FileActions::LogValuesStructure& values, const QString& id,
                   const QString& protocol, const QString& enabled,
                   const QString& format = QStringLiteral("0.00"))
 {
-    append_value_with_units(
+    append_value_with_conversions(
         values, id, protocol, enabled,
         {{"rpm", "x", format.toStdString(), "0", "100", "1"}});
 }
@@ -301,9 +301,9 @@ std::vector<SnapshotFailureCase> snapshot_failure_cases()
             []
             {
                 FileActions::LogValuesStructure values;
-                append_value_with_units(values, QStringLiteral("rpm"), QStringLiteral("SSM"),
-                                        QStringLiteral("1"),
-                                        {{"rpm", "", "", "", "", ""}});
+                append_value_with_conversions(values, QStringLiteral("rpm"), QStringLiteral("SSM"),
+                                              QStringLiteral("1"),
+                                              {{"rpm", "x", "", "", "", ""}});
                 values.lower_panel_log_value_id = {QStringLiteral("rpm")};
                 return values;
             },
@@ -317,7 +317,7 @@ std::vector<SnapshotFailureCase> snapshot_failure_cases()
             []
             {
                 FileActions::LogValuesStructure values;
-                append_value_with_units(
+                append_value_with_conversions(
                     values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"),
                     {{"rpm", "", "0.00", "0", "100", "1"}});
                 values.lower_panel_log_value_id = {QStringLiteral("rpm")};
@@ -333,10 +333,10 @@ std::vector<SnapshotFailureCase> snapshot_failure_cases()
             []
             {
                 FileActions::LogValuesStructure values;
-                append_value_with_units(values, QStringLiteral("rpm"), QStringLiteral("SSM"),
-                                        QStringLiteral("1"),
-                                        {{"rpm", "x", "0.00", "0", "100", "1"}},
-                                        QStringLiteral("zzzzzz"));
+                append_value_with_conversions(values, QStringLiteral("rpm"), QStringLiteral("SSM"),
+                                              QStringLiteral("1"),
+                                              {{"rpm", "x", "0.00", "0", "100", "1"}},
+                                              QStringLiteral("zzzzzz"));
                 values.lower_panel_log_value_id = {QStringLiteral("rpm")};
                 return values;
             },
@@ -350,7 +350,7 @@ std::vector<SnapshotFailureCase> snapshot_failure_cases()
             []
             {
                 FileActions::LogValuesStructure values;
-                append_value_with_units(
+                append_value_with_conversions(
                     values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"),
                     {{"rpm", "x", "0.00", "0", "100", "1"}},
                     QStringLiteral("000010"), QStringLiteral("not-a-number"));
@@ -401,7 +401,7 @@ std::vector<SnapshotFailureCase> snapshot_failure_cases()
             []
             {
                 FileActions::LogValuesStructure values;
-                append_value_with_units(
+                append_value_with_conversions(
                     values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"),
                     {{"rpm", "not_an_expr", "0.00", "0", "100", "1"}});
                 values.lower_panel_log_value_id = {QStringLiteral("rpm")};
