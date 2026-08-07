@@ -1,7 +1,5 @@
 #include "src/ui/desktop/checksum/checksum_correction_command.h"
 
-#include <QApplication>
-#include <QTimer>
 #include <QWidget>
 #include <gtest/gtest.h>
 
@@ -62,54 +60,6 @@ ChecksumSelection subaruDensoSh7058DieselSelection()
     selection.mcu_type = "SH7058";
     return selection;
 }
-
-// TestableChecksumCommand above overrides every dialog seam, so none of
-// ChecksumCorrectionCommand's own QMessageBox-showing bodies ever runs under
-// test. This command instead calls through to the REAL base-class
-// implementation for exactly one seam at a time (controlled by the
-// passthrough* flags below) and keeps the other three canned/no-op, so a
-// test exercises one real dialog in isolation rather than risking a second,
-// unhandled modal cascading from the same call.
-class PassthroughChecksumCommand : public ChecksumCorrectionCommand
-{
-  public:
-    bool passthroughDefinitionGate = false;
-    bool passthroughBadRomSize = false;
-    bool passthroughNoModule = false;
-    bool passthroughFamilyResult = false;
-
-  protected:
-    bool confirmProceedWithoutDefinition(QWidget *parent) override
-    {
-        if (passthroughDefinitionGate)
-        {
-            return ChecksumCorrectionCommand::confirmProceedWithoutDefinition(parent);
-        }
-        return true;
-    }
-    void showBadRomSizeDialog(QWidget *parent) override
-    {
-        if (passthroughBadRomSize)
-        {
-            ChecksumCorrectionCommand::showBadRomSizeDialog(parent);
-        }
-    }
-    bool confirmProceedWithoutChecksumModule() override
-    {
-        if (passthroughNoModule)
-        {
-            return ChecksumCorrectionCommand::confirmProceedWithoutChecksumModule();
-        }
-        return false;
-    }
-    void showFamilyResultDialog(const ChecksumResult& family_result) override
-    {
-        if (passthroughFamilyResult)
-        {
-            ChecksumCorrectionCommand::showFamilyResultDialog(family_result);
-        }
-    }
-};
 
 } // namespace
 

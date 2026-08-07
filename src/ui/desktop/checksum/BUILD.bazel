@@ -13,6 +13,11 @@ qt_cc_library(
     copts = COMMON_COPTS,
     normal_hdrs = ["checksum_correction_command.h"],
     deps = QT_DEPS + [
+        # checksum_result.h is included directly by
+        # checksum_correction_command.h; before step 5e it arrived via the
+        # backend adapter this command replaced, so declare it rather than
+        # inherit it through //src/backend/checksum.
+        "//src/algorithms/checksum",
         "//src/algorithms/protocol",
         "//src/backend/checksum:checksum_selection",
         "//src/backend/checksum:dispatch",

@@ -1146,12 +1146,6 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
             {
                 runChecksumCorrection(ecuCalDef[rom_number]);
             }
-
-            if (ecuCalDef[rom_number] == nullptr)
-            {
-                ecuCalDef[rom_number]->FullRomData = fullRomDataTmp;
-                return 0;
-            }
         }
         else
         {

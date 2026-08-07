@@ -48,6 +48,11 @@ qt_cc_library(
     ),
     deps = QT_DEPS + [
         "//src/algorithms/diagnostics",
+        # qt_bytes.h is included directly by
+        # ecu/flash_ecu_mitsu_m32r_can_operation.cpp; before step 5e it
+        # arrived via //src/backend/flash, which 5e deleted, so declare it
+        # rather than inherit it through the colt/ssm :qt_compat targets.
+        "//src/algorithms/protocol:qt_compat",
         "//src/algorithms/protocol/colt:qt_compat",
         "//src/algorithms/protocol/ssm:qt_compat",
         # Full :definitions (not :models) because file_actions.h -- part of
@@ -74,6 +79,9 @@ fastecu_qttest(
     env = {"QT_QPA_PLATFORM": "offscreen"},
     deps = [
         ":legacy_flash_operations",
+        # qt_bytes.h is included directly by the test; see the matching note
+        # on :legacy_flash_operations.
+        "//src/algorithms/protocol:qt_compat",
         "//src/algorithms/protocol/colt:qt_compat",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
     ],

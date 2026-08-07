@@ -44,7 +44,7 @@ class TestLegacyFlashUtils : public QObject
 
     void findFlashDeviceIndex_forwardsToPortableLookup()
     {
-        // The shim exists only to keep 30 legacy call sites on QString; it
+        // The shim exists only to keep 28 legacy call sites on QString; it
         // must agree with the portable lookup exactly, including the
         // not-found sentinel.
         QCOMPARE(FlashUtils::findFlashDeviceIndex("M32R_384KB_1block"),
