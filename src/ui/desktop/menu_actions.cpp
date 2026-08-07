@@ -1541,8 +1541,6 @@ void MainWindow::set_maptablewidget_items()
                 }
             }
         }
-
-        // fileActions->checksum_correction(ecuCalDef[mapRomNumber]);
     }
 }
 

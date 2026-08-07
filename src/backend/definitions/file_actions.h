@@ -35,7 +35,6 @@
 #include "src/backend/definitions/ecu_cal_def.h"
 #include "src/backend/definitions/log_values.h"
 #include "src/backend/calibration/legacy_calibration_adapter.h"
-#include "src/backend/checksum/legacy_checksum_adapter.h"
 #include "src/backend/config/legacy_config_adapter.h"
 #include "src/backend/config/config_paths.h"
 #include "src/backend/definition/definition_service.h"
@@ -205,12 +204,6 @@ class FileActions : public QWidget
      **************************/
     QSignalMapper *read_menu_file(QMenuBar *menubar, QToolBar *toolBar);
 
-    /***************************
-     * Calculate Subaru 32-bit
-     * checksums
-     **************************/
-    EcuCalDefStructure *checksum_correction(FileActions::EcuCalDefStructure *ecuCalDef);
-
     /*************************************
      * Parse expression strings for used
      * in ROM map data conversion
@@ -270,7 +263,6 @@ class FileActions : public QWidget
     void normalize_definition_addresses(EcuCalDefStructure& ecuCalDef);
 
     fastecu::config::LegacyConfigAdapter configAdapter_;
-    fastecu::checksum::LegacyChecksumAdapter checksumAdapter_;
     fastecu::IFileSystem& definitionFileSystem_;
     fastecu::IFileRepository& definitionFileRepository_;
     fastecu::IResourceBundle& loggerResourceBundle_;
