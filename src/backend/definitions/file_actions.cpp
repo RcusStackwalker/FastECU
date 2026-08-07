@@ -651,7 +651,7 @@ bool FileActions::validate_logger_values(const LogValuesStructure& logValues, QS
     validateListLength("log_value", "ecu_bit", logValues.log_value_ecu_bit.size(), rows, out);
     validateListLength("log_value", "target", logValues.log_value_target.size(), rows, out);
     validateListLength("log_value", "address", logValues.log_value_address.size(), rows, out);
-    validateListLength("log_value", "units", logValues.log_value_units.size(), rows, out);
+    validateListLength("log_value", "conversions", logValues.log_value_conversions.size(), rows, out);
     validateListLength("log_value", "length", logValues.log_value_length.size(), rows, out);
     validateListLength("log_value", "value", logValues.log_value.size(), rows, out);
     validateListLength("log_value", "enabled", logValues.log_value_enabled.size(), rows, out);

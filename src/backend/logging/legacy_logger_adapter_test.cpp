@@ -65,15 +65,18 @@ class LegacyLoggerAdapterTest : public QObject
         QCOMPARE(values.log_switch_id.at(0), QString("S1"));
         QCOMPARE(values.log_switch_address.at(0), QString("0x20"));
         QCOMPARE(values.log_switch_state.at(0), QString("0"));
-        // The packed conversions string is the one piece of non-trivial
-        // logic in the adapter, and two consumers (logging_snapshot_adapter
-        // and logvalues.cpp) parse it positionally -- pin the exact wire
-        // format, both the single-conversion case and the multi-conversion
-        // separator.
-        QCOMPARE(values.log_value_units.at(0), QString("conversion 0,rpm,x*0.25,0.00,0,8000,500"));
-        QCOMPARE(
-            values.log_value_units.at(1),
-            QString("conversion 0,C,x-40,0.0,-40,215,5,conversion 1,F,x*1.8-40,0.0,-40,419,9"));
+        // log_value_conversions is the one piece of non-trivial logic in the
+        // adapter -- pin every field, in order, for both the single-
+        // conversion case and the multi-conversion (two-element) case that
+        // used to exercise the packed-string separator branch.
+        QCOMPARE(values.log_value_conversions.at(0).size(), 1);
+        QCOMPARE(values.log_value_conversions.at(0).at(0),
+                 (fastecu::logging::Conversion{"rpm", "x*0.25", "0.00", "0", "8000", "500"}));
+        QCOMPARE(values.log_value_conversions.at(1).size(), 2);
+        QCOMPARE(values.log_value_conversions.at(1).at(0),
+                 (fastecu::logging::Conversion{"C", "x-40", "0.0", "-40", "215", "5"}));
+        QCOMPARE(values.log_value_conversions.at(1).at(1),
+                 (fastecu::logging::Conversion{"F", "x*1.8-40", "0.0", "-40", "419", "9"}));
         // Every parallel array has the same length -- the alignment fix.
         QCOMPARE(values.log_value_protocol.size(), values.log_value_id.size());
         QCOMPARE(values.log_value_address.size(), values.log_value_id.size());

@@ -3,6 +3,8 @@
 #include <QString>
 #include <QStringList>
 
+#include "src/backend/logging/logger_definition_model.h"
+
 // Extracted from FileActions (it used to be a nested struct there) so that
 // //src/backend/logging:legacy_logger_adapter can reference this value type
 // without pulling in the whole FileActions QWidget. That split matters
@@ -28,7 +30,7 @@ struct LogValuesStructure
     QStringList log_value_ecu_bit;
     QStringList log_value_target;
     QStringList log_value_address;
-    QStringList log_value_units;
+    QList<QList<fastecu::logging::Conversion>> log_value_conversions;
     QStringList log_value_from_byte;
     QStringList log_value_format;
     QStringList log_value_gauge_min;

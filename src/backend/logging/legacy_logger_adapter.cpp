@@ -42,23 +42,13 @@ void apply_definition(
         values.log_value_enabled.append(parameter.enabled ? "1" : "0");
         values.log_value.append("0.00");
 
-        QString packed;
-        for (std::size_t i = 0; i < parameter.conversions.size(); i++)
+        QList<Conversion> conversions;
+        conversions.reserve(static_cast<qsizetype>(parameter.conversions.size()));
+        for (const Conversion& conversion : parameter.conversions)
         {
-            const Conversion& c = parameter.conversions.at(i);
-            if (i > 0)
-            {
-                packed.append(",");
-            }
-            packed.append(QString("conversion %1,").arg(i));
-            packed.append(qstr(c.units) + ",");
-            packed.append(qstr(c.expr) + ",");
-            packed.append(qstr(c.format) + ",");
-            packed.append(qstr(c.gauge_min) + ",");
-            packed.append(qstr(c.gauge_max) + ",");
-            packed.append(qstr(c.gauge_step));
+            conversions.append(conversion);
         }
-        values.log_value_units.append(packed);
+        values.log_value_conversions.append(conversions);
     }
 
     for (const LoggerSwitch& paramswitch : definition.switches)

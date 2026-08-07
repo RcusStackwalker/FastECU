@@ -2157,8 +2157,11 @@ void MainWindow::update_logboxes(const QString& protocol)
             if (logValues->lower_panel_log_value_id.at(i) == logValues->log_value_id.at(j) && logValues->log_value_protocol.at(j) == protocol)
             {
                 // emit LOG_D("Log value:" << logValues->log_value_name.at(j);
-                QStringList value_unit = logValues->log_value_units.at(j).split(",");
-                QGroupBox *logBox = logBoxes->drawLogBoxes("log", i, logBoxCount, logValues->log_value_name.at(j), value_unit.at(1), logValues->log_value.at(j));
+                const auto& conversions = logValues->log_value_conversions.at(j);
+                const QString unit = conversions.isEmpty()
+                                         ? QString()
+                                         : QString::fromStdString(conversions.at(0).units);
+                QGroupBox *logBox = logBoxes->drawLogBoxes("log", i, logBoxCount, logValues->log_value_name.at(j), unit, logValues->log_value.at(j));
                 logBox->setAttribute(Qt::WA_TransparentForMouseEvents);
                 ui->logBoxLayout->addWidget(logBox);
             }
@@ -2196,7 +2199,10 @@ void MainWindow::update_logbox_values(const QString& protocol)
                     }
                 }
 
-                unit = logValues->log_value_units.at(index).split(",").at(1);
+                const auto& conversions = logValues->log_value_conversions.at(index);
+                unit = conversions.isEmpty()
+                           ? QString()
+                           : QString::fromStdString(conversions.at(0).units);
 
                 labelText = logValues->log_value.at(index);
                 labelText.append(" <font size=1px color=grey>");

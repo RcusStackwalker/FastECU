@@ -9,6 +9,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "src/backend/logging/logger_definition_model.h"
+
 namespace desktop_logging = fastecu::desktop::logging;
 namespace portable_logging = fastecu::logging;
 
@@ -25,11 +27,11 @@ portable_logging::LoggingPolicy valid_policy()
     };
 }
 
-// Appends a row with an explicit, fully-formed "units" (conversion) field so
-// malformed-conversion cases can hand in a deliberately broken string.
+// Appends a row with an explicit, fully-formed conversions list so
+// malformed-conversion cases can hand in a deliberately broken one.
 void append_value_with_units(FileActions::LogValuesStructure& values, const QString& id,
                              const QString& protocol, const QString& enabled,
-                             const QString& units,
+                             const QList<fastecu::logging::Conversion>& conversions,
                              const QString& address = QStringLiteral("000010"),
                              const QString& length = QStringLiteral("1"))
 {
@@ -41,7 +43,7 @@ void append_value_with_units(FileActions::LogValuesStructure& values, const QStr
     values.log_value_ecu_bit.append(QStringLiteral("0"));
     values.log_value_target.append(QStringLiteral("ECU"));
     values.log_value_address.append(address);
-    values.log_value_units.append(units);
+    values.log_value_conversions.append(conversions);
     values.log_value_length.append(length);
     values.log_value.append(QStringLiteral("unchanged- ") + id);
     values.log_value_enabled.append(enabled);
@@ -51,9 +53,9 @@ void append_value(FileActions::LogValuesStructure& values, const QString& id,
                   const QString& protocol, const QString& enabled,
                   const QString& format = QStringLiteral("0.00"))
 {
-    append_value_with_units(values, id, protocol, enabled,
-                            QStringLiteral("conversion 0,rpm,x,") + format +
-                                QStringLiteral(",0,100,1"));
+    append_value_with_units(
+        values, id, protocol, enabled,
+        {{"rpm", "x", format.toStdString(), "0", "100", "1"}});
 }
 
 FileActions::LogValuesStructure reordered_log_values()
@@ -301,7 +303,7 @@ std::vector<SnapshotFailureCase> snapshot_failure_cases()
                 FileActions::LogValuesStructure values;
                 append_value_with_units(values, QStringLiteral("rpm"), QStringLiteral("SSM"),
                                         QStringLiteral("1"),
-                                        QStringLiteral("conversion 0,rpm,x"));
+                                        {{"rpm", "", "", "", "", ""}});
                 values.lower_panel_log_value_id = {QStringLiteral("rpm")};
                 return values;
             },
@@ -317,7 +319,7 @@ std::vector<SnapshotFailureCase> snapshot_failure_cases()
                 FileActions::LogValuesStructure values;
                 append_value_with_units(
                     values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"),
-                    QStringLiteral("conversion 0,rpm,,0.00,0,100,1"));
+                    {{"rpm", "", "0.00", "0", "100", "1"}});
                 values.lower_panel_log_value_id = {QStringLiteral("rpm")};
                 return values;
             },
@@ -333,7 +335,7 @@ std::vector<SnapshotFailureCase> snapshot_failure_cases()
                 FileActions::LogValuesStructure values;
                 append_value_with_units(values, QStringLiteral("rpm"), QStringLiteral("SSM"),
                                         QStringLiteral("1"),
-                                        QStringLiteral("conversion 0,rpm,x,0.00,0,100,1"),
+                                        {{"rpm", "x", "0.00", "0", "100", "1"}},
                                         QStringLiteral("zzzzzz"));
                 values.lower_panel_log_value_id = {QStringLiteral("rpm")};
                 return values;
@@ -350,7 +352,7 @@ std::vector<SnapshotFailureCase> snapshot_failure_cases()
                 FileActions::LogValuesStructure values;
                 append_value_with_units(
                     values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"),
-                    QStringLiteral("conversion 0,rpm,x,0.00,0,100,1"),
+                    {{"rpm", "x", "0.00", "0", "100", "1"}},
                     QStringLiteral("000010"), QStringLiteral("not-a-number"));
                 values.lower_panel_log_value_id = {QStringLiteral("rpm")};
                 return values;
@@ -401,7 +403,7 @@ std::vector<SnapshotFailureCase> snapshot_failure_cases()
                 FileActions::LogValuesStructure values;
                 append_value_with_units(
                     values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"),
-                    QStringLiteral("conversion 0,rpm,not_an_expr,0.00,0,100,1"));
+                    {{"rpm", "not_an_expr", "0.00", "0", "100", "1"}});
                 values.lower_panel_log_value_id = {QStringLiteral("rpm")};
                 return values;
             },

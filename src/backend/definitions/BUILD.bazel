@@ -117,7 +117,7 @@ qt_cc_library(
     hdrs = [],
     copts = COMMON_COPTS,
     normal_hdrs = LOG_VALUES_HDRS,
-    deps = QT_DEPS,
+    deps = QT_DEPS + ["//src/backend/logging:logger_definition_model"],
 )
 
 qt_cc_library(

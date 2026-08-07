@@ -191,8 +191,13 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(values->log_value_name.at(0), QString("Engine Speed"));
         QCOMPARE(values->log_value_address.at(0), QString("0x1234"));
         QCOMPARE(values->log_value_length.at(0), QString("2"));
-        QCOMPARE(values->log_value_units.at(0),
-                 QString("conversion 0,rpm,x*0.25,0.00,0,8000,500"));
+        QCOMPARE(values->log_value_conversions.at(0).size(), 1);
+        QCOMPARE(QString::fromStdString(values->log_value_conversions.at(0).at(0).units),
+                 QString("rpm"));
+        QCOMPARE(QString::fromStdString(values->log_value_conversions.at(0).at(0).expr),
+                 QString("x*0.25"));
+        QCOMPARE(QString::fromStdString(values->log_value_conversions.at(0).at(0).format),
+                 QString("0.00"));
         QCOMPARE(values->log_switch_id.at(0), QString("S1"));
         QCOMPARE(values->log_switch_address.at(0), QString("0x20"));
         QCOMPARE(values->log_switch_ecu_bit.at(0), QString("1"));
@@ -288,8 +293,8 @@ class TestFileActionsParsing : public QObject
 
         FileActions::LogValuesStructure *values = actions.read_logger_definition_file();
         QCOMPARE(values->log_value_id.size(), 2);
-        QCOMPARE(values->log_value_units.size(), 2);
-        QCOMPARE(values->log_value_units.at(0), QString(""));
+        QCOMPARE(values->log_value_conversions.size(), 2);
+        QVERIFY(values->log_value_conversions.at(0).isEmpty());
         QCOMPARE(values->log_value_address.at(1), QString("0x20"));
         QVERIFY(FileActions::validate_logger_values(*values));
     }
