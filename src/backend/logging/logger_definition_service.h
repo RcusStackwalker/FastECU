@@ -49,7 +49,10 @@ class LoggerDefinitionService
 
   private:
     IFileRepository& repository_;
-    IResourceBundle& bundle_;
+    // Held per the plan's constructor signature, but unused: the bundled
+    // ":/config/..." handle is resolved by the repository (QFile natively
+    // handles ":/"), not read through the bundle port directly.
+    [[maybe_unused]] IResourceBundle& bundle_;
     IAtomicFileWriter& writer_;
 };
 
