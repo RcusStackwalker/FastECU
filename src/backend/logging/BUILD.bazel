@@ -1,6 +1,7 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -85,6 +86,25 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:in_memory_file_repository",
         "//src/backend/ports/testing:in_memory_resource_bundle",
     ],
+)
+
+qt_cc_library(
+    name = "legacy_logger_adapter",
+    srcs = ["legacy_logger_adapter.cpp"],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["legacy_logger_adapter.h"],
+    visibility = ["//visibility:public"],
+    deps = QT_DEPS + [
+        ":logger_definition_model",
+        "//src/backend/definitions:log_values",
+    ],
+)
+
+fastecu_qttest(
+    name = "legacy_logger_adapter_test",
+    src = "legacy_logger_adapter_test.cpp",
+    deps = [":legacy_logger_adapter"],
 )
 
 cc_library(
