@@ -73,6 +73,7 @@ cc_library(
         ":logger_conf",
         ":logger_definition_model",
         ":logger_definition_parser",
+        "//src/algorithms/protocol",
         "//src/backend/ports",
     ],
 )

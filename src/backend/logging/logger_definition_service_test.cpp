@@ -98,6 +98,50 @@ TEST_F(LoggerDefinitionServiceTest, LeavesTheHandleEmptyForNonCdbgProtocols)
     EXPECT_THAT(*handle, ::testing::IsEmpty());
 }
 
+TEST_F(LoggerDefinitionServiceTest, LoadSelectionReturnsTheStoredEntry)
+{
+    repository_.files["logger.cfg"] = bytes_of(kConfWithEcu);
+
+    const auto stored = service().load_selection("logger.cfg", "ECUID1");
+    ASSERT_TRUE(stored.has_value()) << stored.error().detail;
+    ASSERT_TRUE(stored->has_value()) << "ECUID1 has an <ecu> element";
+    EXPECT_EQ((*stored)->protocol, "SSM");
+    EXPECT_THAT((*stored)->gauge_ids, ElementsAre("P2"));
+    EXPECT_THAT((*stored)->lower_panel_ids, ElementsAre("P2"));
+    EXPECT_THAT((*stored)->switch_ids, ElementsAre("S1"));
+    EXPECT_TRUE(writer_.replace_calls.empty()) << "reading must not write";
+}
+
+TEST_F(LoggerDefinitionServiceTest, LoadSelectionReturnsNulloptForAnAbsentEcuWithoutWriting)
+{
+    repository_.files["logger.cfg"] = bytes_of(kConfWithEcu);
+
+    const auto stored = service().load_selection("logger.cfg", "OTHERECU");
+    ASSERT_TRUE(stored.has_value()) << stored.error().detail;
+    EXPECT_FALSE(stored->has_value()) << "an absent ECU is not an error";
+    // The no-definition-loaded caller relies on this: asking must not seed a
+    // default the way load_or_initialize_selection does.
+    EXPECT_TRUE(writer_.replace_calls.empty()) << "an absent ECU must not be initialized";
+    EXPECT_EQ(repository_.files.at("logger.cfg"), bytes_of(kConfWithEcu));
+}
+
+TEST_F(LoggerDefinitionServiceTest, LoadSelectionPropagatesAnUnreadableHandle)
+{
+    const auto stored = service().load_selection("missing.cfg", "ECUID1");
+    ASSERT_FALSE(stored.has_value());
+    EXPECT_EQ(stored.error().kind, fastecu::ErrorKind::InvalidConfig);
+    EXPECT_TRUE(writer_.replace_calls.empty());
+}
+
+TEST_F(LoggerDefinitionServiceTest, LoadSelectionPropagatesAParseFailure)
+{
+    repository_.files["logger.cfg"] = bytes_of("<config><logger><ecu id=");
+
+    const auto stored = service().load_selection("logger.cfg", "ECUID1");
+    ASSERT_FALSE(stored.has_value());
+    EXPECT_EQ(stored.error().kind, fastecu::ErrorKind::InvalidConfig);
+}
+
 TEST_F(LoggerDefinitionServiceTest, LoadsAnExistingSelectionWithoutWriting)
 {
     repository_.files["logger.cfg"] = bytes_of(kConfWithEcu);
@@ -126,6 +170,18 @@ TEST_F(LoggerDefinitionServiceTest, InitializesAndPersistsWhenTheEcuIsAbsent)
     EXPECT_THAT(selection->gauge_ids, ElementsAre("P1"));
     ASSERT_THAT(writer_.replace_calls, SizeIs(1)) << "the default must be persisted";
     EXPECT_EQ(writer_.replace_calls.at(0).handle, "logger.cfg");
+}
+
+TEST_F(LoggerDefinitionServiceTest, InitializingReadsTheConfExactlyOnce)
+{
+    repository_.files["logger.cfg"] = bytes_of("<config><logger/></config>");
+
+    const auto selection = service().load_or_initialize_selection(
+        "logger.cfg", "NEWECU", fastecu::logging::LoggerDefinition{});
+    ASSERT_TRUE(selection.has_value()) << selection.error().detail;
+    // load_or_initialize_selection shares load_selection's single read rather
+    // than re-reading before it writes: no TOCTOU window inside the service.
+    EXPECT_EQ(repository_.read_count("logger.cfg"), 1);
 }
 
 TEST_F(LoggerDefinitionServiceTest, SaveSelectionReplacesTheFileAtomically)

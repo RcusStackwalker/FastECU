@@ -51,18 +51,32 @@ Result<LoggerDefinition> LoggerDefinitionService::load_definition(std::string_vi
     return parse_logger_definition(*contents, handle);
 }
 
-Result<LoggerSelection> LoggerDefinitionService::load_or_initialize_selection(
-    std::string_view conf_handle,
-    std::string_view ecu_id,
-    const LoggerDefinition& definition)
+Result<std::optional<LoggerSelection>> LoggerDefinitionService::load_selection(
+    std::string_view conf_handle, std::string_view ecu_id, bytes::Bytes& conf_out)
 {
     auto contents = repository_.read(conf_handle);
     if (!contents)
     {
         return std::unexpected(contents.error());
     }
+    conf_out = std::move(*contents);
+    return read_selection(conf_out, ecu_id, conf_handle);
+}
 
-    auto stored = read_selection(*contents, ecu_id, conf_handle);
+Result<std::optional<LoggerSelection>> LoggerDefinitionService::load_selection(
+    std::string_view conf_handle, std::string_view ecu_id)
+{
+    bytes::Bytes conf;
+    return load_selection(conf_handle, ecu_id, conf);
+}
+
+Result<LoggerSelection> LoggerDefinitionService::load_or_initialize_selection(
+    std::string_view conf_handle,
+    std::string_view ecu_id,
+    const LoggerDefinition& definition)
+{
+    bytes::Bytes contents;
+    auto stored = load_selection(conf_handle, ecu_id, contents);
     if (!stored)
     {
         return std::unexpected(stored.error());
@@ -73,7 +87,7 @@ Result<LoggerSelection> LoggerDefinitionService::load_or_initialize_selection(
     }
 
     LoggerSelection selection = default_selection(definition);
-    auto written = write_selection(*contents, ecu_id, selection, conf_handle);
+    auto written = write_selection(contents, ecu_id, selection, conf_handle);
     if (!written)
     {
         return std::unexpected(written.error());

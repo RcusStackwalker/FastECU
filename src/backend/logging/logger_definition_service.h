@@ -1,8 +1,10 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <string_view>
 
+#include "src/algorithms/protocol/bytes.h"
 #include "src/backend/logging/logger_conf.h"
 #include "src/backend/logging/logger_definition_model.h"
 #include "src/backend/logging/logger_definition_parser.h"
@@ -34,9 +36,15 @@ class LoggerDefinitionService
 
     Result<LoggerDefinition> load_definition(std::string_view handle);
 
-    // Reads the conf file's selection for `ecu_id`. When that ECU has no
-    // entry, composes default_selection(definition) and persists it, so the
-    // write is an explicit step rather than a side effect of a read.
+    // Reads the conf file's selection for `ecu_id`. Returns an empty optional
+    // when that ECU has no entry, and never writes -- a caller with no
+    // definition to initialize from can ask without persisting anything.
+    Result<std::optional<LoggerSelection>> load_selection(
+        std::string_view conf_handle, std::string_view ecu_id);
+
+    // load_selection, plus: when that ECU has no entry, composes
+    // default_selection(definition) and persists it, so the write is an
+    // explicit step rather than a side effect of a read.
     Result<LoggerSelection> load_or_initialize_selection(
         std::string_view conf_handle,
         std::string_view ecu_id,
@@ -48,6 +56,13 @@ class LoggerDefinitionService
         const LoggerSelection& selection);
 
   private:
+    // The one read both public loaders share. `conf_out` receives the bytes so
+    // load_or_initialize_selection can hand them to write_selection without a
+    // second trip through the repository -- write_selection appends to the
+    // document it was given, so it needs the same bytes the parse saw.
+    Result<std::optional<LoggerSelection>> load_selection(
+        std::string_view conf_handle, std::string_view ecu_id, bytes::Bytes& conf_out);
+
     IFileRepository& repository_;
     // Held per the plan's constructor signature, but unused: the bundled
     // ":/config/..." handle is resolved by the repository (QFile natively

@@ -865,8 +865,11 @@ FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogV
         return logValues;
     }
 
-    auto contents = definitionFileRepository_.read(handle);
-    if (!contents)
+    // A read must never write: load_selection reports "this ECU has no entry"
+    // as an empty optional and leaves the file alone, so the no-definition
+    // check below still runs before anything is persisted.
+    const auto stored = service.load_selection(handle, ecu_key);
+    if (!stored)
     {
         warnUnreadable();
         return nullptr;
@@ -883,15 +886,6 @@ FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogV
     logValues->lower_panel_log_value_id.clear();
     logValues->lower_panel_switch_id.clear();
 
-    // A read must never write: read_selection reports "this ECU has no entry"
-    // as an empty optional and leaves the file alone, so the no-definition
-    // check below still runs before anything is persisted.
-    const auto stored = fastecu::logging::read_selection(*contents, ecu_key, handle);
-    if (!stored)
-    {
-        warnUnreadable();
-        return nullptr;
-    }
     if (stored->has_value())
     {
         emit LOG_D("Found ECU ID " + ecu_id, true, true);
