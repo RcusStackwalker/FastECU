@@ -165,11 +165,6 @@ class FileActions : public QWidget
      ************************/
     LogValuesStructure *read_logger_conf(FileActions::LogValuesStructure *logValues, const QString& ecu_id, bool modify);
 
-    /************************
-     * Save logger conf file
-     ************************/
-    void *save_logger_conf(FileActions::LogValuesStructure *logValues, QString ecu_id);
-
     /*****************************************************
      * Search and read RomRaider ECU definition from file
      *****************************************************/
