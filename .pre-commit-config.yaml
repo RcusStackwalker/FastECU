@@ -22,7 +22,8 @@ repos:
     hooks:
       - id: lychee
         files: \.md$
-        args: [--no-progress, --include-fragments, --cache, --max-cache-age, 1d]
+        # LYCHEE_VERSION must match `rev` above -- kept explicit because git worktrees break the hook's own version auto-detection (git-describe sees GIT_DIR pointed at this repo, not its clone) and fail commits with exit 100.
+        args: [LYCHEE_VERSION=0.24.2, --no-progress, --include-fragments, --cache, --max-cache-age, 1d]
 
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v22.1.5
