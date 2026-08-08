@@ -1,8 +1,10 @@
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_executor.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <format>
+#include <ranges>
 #include <utility>
 #include <variant>
 
@@ -23,10 +25,9 @@ namespace fastecu::flash
 namespace
 {
 
-// Legacy field values, flash_ecu_mitsu_m32r_can_operation.h:56. (The sibling
-// serial_read_extra_long_timeout, .h:57, is used only by the write path and
-// arrives with it.)
+// Legacy field values, flash_ecu_mitsu_m32r_can_operation.h:56-57.
 constexpr int kReadTimeoutMs = 500;
+constexpr int kExtraLongTimeoutMs = 3000;
 
 // Offset of the service byte in every reply: the 4-byte CAN reply id
 // precedes it. The legacy code indexes received.at(4) throughout.
@@ -304,6 +305,327 @@ Result<bytes::Bytes> read_flash_range(Ctx& ctx, const MitsuColtM32rCanPlan& fami
     return data;
 }
 
+// Legacy upload_and_commit, flash_ecu_mitsu_m32r_can_operation.cpp:231-297.
+Status upload_and_commit(Ctx& ctx, const MitsuColtM32rCanPlan& family, std::uint32_t start,
+                         bytes::ByteView data)
+{
+    using namespace MitsuColtCan;
+
+    // Lines 238-246.
+    Result<bytes::Bytes> received =
+        exchange(ctx, family.request_id,
+                 buildRequestDownload(start, static_cast<std::uint32_t>(data.size())), 50,
+                 kReadTimeoutMs);
+    if (!received)
+    {
+        return std::unexpected(received.error());
+    }
+    if (!service_is(*received, positive(kServiceRequestDownload)))
+    {
+        error(ctx, std::format("RequestDownload to 0x{:x} rejected: {}", start,
+                               nrc_context(*received)));
+        return fail(ErrorKind::BadResponse, "RequestDownload rejected");
+    }
+
+    // Lines 248-260.
+    for (const bytes::Bytes& chunk : buildTransferDataFrames(data))
+    {
+        received = exchange(ctx, family.request_id, chunk, 50, kReadTimeoutMs);
+        if (!received)
+        {
+            return std::unexpected(received.error());
+        }
+        if (!service_is(*received, positive(kServiceTransferData)))
+        {
+            error(ctx, std::format("TransferData to 0x{:x} rejected: {}", start,
+                                   nrc_context(*received)));
+            return fail(ErrorKind::BadResponse, "TransferData rejected");
+        }
+    }
+
+    // Lines 262-270.
+    received = exchange(ctx, family.request_id,
+                        buildRequestDownload(kCrcTransferAddress, kCrcTransferSize), 50,
+                        kReadTimeoutMs);
+    if (!received)
+    {
+        return std::unexpected(received.error());
+    }
+    if (!service_is(*received, positive(kServiceRequestDownload)))
+    {
+        error(ctx,
+              std::format("RequestDownload for checksum rejected: {}", nrc_context(*received)));
+        return fail(ErrorKind::BadResponse, "checksum RequestDownload rejected");
+    }
+
+    // Lines 272-284: big-endian 16-bit running sum, always exactly one
+    // TransferData frame (kCrcTransferSize is 2, well under kTransferChunkSize).
+    const std::uint16_t crc = checksum(data);
+    const bytes::Bytes crc_data{static_cast<bytes::Byte>((crc >> 8) & 0xff),
+                                static_cast<bytes::Byte>(crc & 0xff)};
+    received = exchange(ctx, family.request_id, buildTransferDataFrames(crc_data).front(), 50,
+                        kReadTimeoutMs);
+    if (!received)
+    {
+        return std::unexpected(received.error());
+    }
+    if (!service_is(*received, positive(kServiceTransferData)))
+    {
+        error(ctx,
+              std::format("TransferData for checksum rejected: {}", nrc_context(*received)));
+        return fail(ErrorKind::BadResponse, "checksum TransferData rejected");
+    }
+
+    // Lines 286-294: the CRC check gets the extra-long timeout.
+    received = exchange(ctx, family.request_id, buildRoutineCheckCrc(start), 200,
+                        kExtraLongTimeoutMs);
+    if (!received)
+    {
+        return std::unexpected(received.error());
+    }
+    if (!service_is(*received, positive(kServiceRoutineControl)))
+    {
+        error(ctx, std::format("RoutineControl CRC check for 0x{:x} rejected: {}", start,
+                               nrc_context(*received)));
+        return fail(ErrorKind::BadResponse, "CRC RoutineControl rejected");
+    }
+
+    return {};
+}
+
+// Legacy: the unlock + erase-trigger pair that appears identically in
+// ensureTopRegionWritten (lines 349-368) and write_mem (lines 445-464). The
+// only difference between the two copies is the log-message prefix, so it is
+// a parameter here rather than two transcriptions.
+Status unlock_and_erase(Ctx& ctx, const MitsuColtM32rCanPlan& family,
+                        std::string_view unlock_prefix, std::string_view erase_prefix)
+{
+    using namespace MitsuColtCan;
+
+    Result<bytes::Bytes> received =
+        exchange(ctx, family.request_id, buildRequestReflashUnlock(), 200, kExtraLongTimeoutMs);
+    if (!received)
+    {
+        return std::unexpected(received.error());
+    }
+    if (!service_is(*received, positive(kServiceRequestReflash)))
+    {
+        error(ctx, std::format("{}{}", unlock_prefix, nrc_context(*received)));
+        return fail(ErrorKind::BadResponse, "reflash unlock rejected");
+    }
+
+    received = exchange(ctx, family.request_id, buildRoutineErase(), 200, kExtraLongTimeoutMs);
+    if (!received)
+    {
+        return std::unexpected(received.error());
+    }
+    if (!service_is(*received, positive(kServiceRoutineControl)))
+    {
+        error(ctx, std::format("{}{}", erase_prefix, nrc_context(*received)));
+        return fail(ErrorKind::BadResponse, "erase trigger rejected");
+    }
+
+    return {};
+}
+
+// The portable replacement for the legacy mid-operation confirm() gates
+// (lines 320-333 and 433-443). A dialog-free executor cannot block for a
+// human answer, so each gate became a ConfirmationSpec the desktop dialog
+// answers BEFORE execute() runs: presence in plan.confirmations() means
+// granted, absence means the operator declined or was never asked. Checked
+// rather than assumed -- validate_and_build does not require these specs, so
+// a hand-built plan could otherwise reach the erase trigger ungated.
+bool confirmation_granted(const FlashPlan& plan, ConfirmationSpec::Id id)
+{
+    return std::ranges::any_of(plan.confirmations(),
+                               [id](const ConfirmationSpec& spec)
+                               { return spec.id == id; });
+}
+
+// Legacy ensureTopRegionWritten, flash_ecu_mitsu_m32r_can_operation.cpp:299-390.
+Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan,
+                                 const MitsuColtM32rCanPlan& family, bytes::ByteView rom)
+{
+    using namespace MitsuColtCan;
+
+    // Line 303.
+    info(ctx, std::format("Checking top 128KB (0x{:x}-0x{:x})...", kTopRegionStart,
+                          kTopRegionEnd));
+
+    // Lines 305-309.
+    Result<bytes::Bytes> current_top =
+        read_flash_range(ctx, family, kTopRegionStart, kTopRegionLength);
+    if (!current_top)
+    {
+        return std::unexpected(current_top.error());
+    }
+
+    // Lines 311-316. The legacy `romdata.mid(kTopRegionStart, kTopRegionLength)`
+    // clamps a short slice; write_mem's length guard rules that out before it
+    // calls here, so this subspan is always the full kTopRegionLength bytes.
+    const bytes::ByteView wanted_top = rom.subspan(kTopRegionStart, kTopRegionLength);
+    if (std::ranges::equal(*current_top, wanted_top))
+    {
+        info(ctx, "Top 128KB already matches, no bootstrap needed");
+        return {};
+    }
+
+    info(ctx, "Top 128KB mismatch, bootstrapping via redirect routines...");
+
+    // Lines 320-333.
+    if (!confirmation_granted(plan, ConfirmationSpec::Id::TopRegionBootstrap))
+    {
+        info(ctx, "Top 128KB bootstrap canceled by user");
+        return fail(ErrorKind::Cancelled, "top region bootstrap was not confirmed");
+    }
+
+    // Lines 335-340.
+    info(ctx, std::format("Uploading erase redirect routine to RAM 0x{:x}...",
+                          kEraseRoutineRamAddr));
+    if (Status uploaded =
+            upload_and_commit(ctx, family, kEraseRoutineRamAddr, kEraseRedirectRoutine);
+        !uploaded)
+    {
+        error(ctx, "Erase redirect routine upload failed");
+        return uploaded;
+    }
+
+    // Lines 342-347.
+    info(ctx, std::format("Uploading write redirect routine to RAM 0x{:x}...",
+                          kWriteRoutineRamAddr));
+    if (Status uploaded =
+            upload_and_commit(ctx, family, kWriteRoutineRamAddr, kWriteRedirectRoutine);
+        !uploaded)
+    {
+        error(ctx, "Write redirect routine upload failed");
+        return uploaded;
+    }
+
+    // Lines 349-368.
+    if (Status erased = unlock_and_erase(
+            ctx, family, "Reflash unlock (top 128KB bootstrap) rejected: ",
+            "Erase trigger (top 128KB bootstrap) rejected: ");
+        !erased)
+    {
+        return erased;
+    }
+    info(ctx, "Carrier window erased");
+
+    // Lines 370-375. The carrier address is kUserspaceStart, not
+    // kTopRegionStart: the bootloader hard-validates RequestDownload targets
+    // into the userspace window, and the redirect routines add the +0x058000
+    // offset themselves. See mitsu_colt_can_protocol.h's kEraseRedirectRoutine
+    // comment.
+    if (Status written = upload_and_commit(ctx, family, kUserspaceStart, wanted_top); !written)
+    {
+        error(ctx, "Top 128KB redirect write failed");
+        return written;
+    }
+    info(ctx, "Top 128KB written via redirect");
+
+    // Lines 377-387.
+    Result<bytes::Bytes> verify_top =
+        read_flash_range(ctx, family, kTopRegionStart, kTopRegionLength);
+    if (!verify_top)
+    {
+        return std::unexpected(verify_top.error());
+    }
+    if (!std::ranges::equal(*verify_top, wanted_top))
+    {
+        error(ctx, "Top 128KB verify failed after redirect write");
+        return fail(ErrorKind::BadResponse, "top region verify mismatch");
+    }
+    info(ctx, "Top 128KB verified");
+
+    return {};
+}
+
+// Legacy write_mem, flash_ecu_mitsu_m32r_can_operation.cpp:392-476.
+Status write_mem(Ctx& ctx, const FlashPlan& plan, const MitsuColtM32rCanPlan& family,
+                 bytes::ByteView rom)
+{
+    using namespace MitsuColtCan;
+
+    // Lines 398-402. build_mitsu_colt_m32r_can_plan rejects a short image too,
+    // but validate_and_build does not, and every rom.subspan() below would be
+    // out of bounds without this -- so the legacy check is kept here as well.
+    if (rom.size() < kTopRegionEnd)
+    {
+        error(ctx,
+              std::format("ROM file too small: need at least 0x{:x} bytes", kTopRegionEnd));
+        return fail(ErrorKind::InvalidConfig, "ROM image shorter than the top region end");
+    }
+
+    // Lines 404-407.
+    if (Status bootstrapped = ensure_top_region_written(ctx, plan, family, rom); !bootstrapped)
+    {
+        return bootstrapped;
+    }
+
+    // Lines 409-415.
+    info(ctx,
+         std::format("Uploading erase-page routine to RAM 0x{:x}...", kEraseRoutineRamAddr));
+    if (Status uploaded =
+            upload_and_commit(ctx, family, kEraseRoutineRamAddr, kErasePageRoutine);
+        !uploaded)
+    {
+        error(ctx, "Erase-page routine upload failed");
+        return uploaded;
+    }
+    info(ctx, "Erase page uploaded");
+
+    // Lines 417-423.
+    info(ctx,
+         std::format("Uploading write-page routine to RAM 0x{:x}...", kWriteRoutineRamAddr));
+    if (Status uploaded =
+            upload_and_commit(ctx, family, kWriteRoutineRamAddr, kWritePageRoutine);
+        !uploaded)
+    {
+        error(ctx, "Write-page routine upload failed");
+        return uploaded;
+    }
+    info(ctx, "Write page uploaded");
+
+    // --- HIGH RISK STEP ---
+    // The 12-byte ServiceRequestReflash(0x3B) payload unlock_and_erase sends
+    // below is carried over verbatim from
+    // externals/livemonitor/obdsessionwidget.cpp:180-181, where the original
+    // author's own comment reads "caused bootloader lockup" during their
+    // testing. Only attempt this on a bench/spare ECU with a recovery path
+    // available (see this project's boot-talk utility for bricked-ECU
+    // recovery). Legacy lines 425-443 gated it behind a QMessageBox; the
+    // portable gate is the plan's EraseTrigger confirmation.
+    if (!confirmation_granted(plan, ConfirmationSpec::Id::EraseTrigger))
+    {
+        info(ctx, "Erase trigger canceled by user");
+        return fail(ErrorKind::Cancelled, "erase trigger was not confirmed");
+    }
+
+    // Lines 445-464.
+    if (Status erased = unlock_and_erase(ctx, family, "Reflash unlock rejected: ",
+                                         "Erase trigger rejected: ");
+        !erased)
+    {
+        return erased;
+    }
+    info(ctx, "Userspace flash erased");
+
+    // Lines 466-473. The addresses are the protocol constants the legacy code
+    // used, which are also what the plan builder puts in transfer_region.
+    info(ctx, std::format("Writing ROM userspace 0x{:x}-0x{:x}...", kUserspaceStart,
+                          kUserspaceEnd));
+    const bytes::ByteView userspace =
+        rom.subspan(kUserspaceStart, kUserspaceEnd - kUserspaceStart);
+    if (Status written = upload_and_commit(ctx, family, kUserspaceStart, userspace); !written)
+    {
+        error(ctx, "ROM userspace write failed");
+        return written;
+    }
+    info(ctx, "Userspace flash written");
+
+    return {};
+}
+
 } // namespace
 
 Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(
@@ -382,10 +704,30 @@ Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(
         };
     }
 
-    // write_mem() and its helpers land with the write path; a Write plan is
-    // refused rather than silently succeeding until then.
-    return fail(ErrorKind::Unsupported,
-                "the Mitsu Colt M32R CAN write path is not implemented yet");
+    // Legacy execute() (lines 40-53) dispatched on cmd_type "read"/"write" and
+    // silently reported success for anything else. TestWrite is refused by
+    // build_mitsu_colt_m32r_can_plan; the guard is repeated here so a plan
+    // built another way cannot turn a dry run into a real erase and write.
+    if (plan.operation() != FlashOperation::Write)
+    {
+        return fail(ErrorKind::Unsupported,
+                    "test_write is not supported by the Mitsu Colt M32R CAN family");
+    }
+
+    // Legacy lines 49-51.
+    events.notice("Writing ROM, please wait...");
+    info(ctx, "Writing ROM to ECU using CAN");
+
+    // validate_and_build guarantees a Write plan carries an image; write_mem
+    // re-checks its length, as the legacy write_mem did.
+    if (Status written = write_mem(ctx, plan, family, *plan.image()); !written)
+    {
+        return std::unexpected(written.error());
+    }
+    return FlashExecutionResult{
+        .operation = plan.operation(),
+        .read_bytes = std::nullopt,
+    };
 }
 
 } // namespace fastecu::flash
