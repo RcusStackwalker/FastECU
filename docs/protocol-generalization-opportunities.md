@@ -11,10 +11,7 @@ The following are shared today and are no longer open extraction work:
 
 - `src/algorithms/protocol/ssm/ssm_protocol.*` owns SSM headers/checksums, seed-key and payload
   transforms, the non-standard CRC, frame validation, and byte formatting.
-- `src/platform/desktop/common/flash/legacy/legacy_flash_utils.*` owns
-  ISO-15765 flash setup and the `QString`-typed flash-device lookup shim, both
-  transitional; `src/algorithms/checksum` owns `cks_add8`. Step 5e split the
-  former `src/backend/flash/flash_utils.*` between them and deleted it.
+- `src/backend/flash/flash_utils.*` owns common byte stuffing and ISO-15765 flash setup.
 - `src/algorithms/protocol/bytes.h` and `src/algorithms/protocol/qt_bytes.h` provide the byte boundary
   and explicit Qt conversions.
 - `FlashOperationWorker` owns logging signals, prompt injection, progress,
