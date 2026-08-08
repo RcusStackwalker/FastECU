@@ -135,8 +135,8 @@ TEST(BuildEepromReadPlanTest, KlineProtocolProducesAKlinePlan)
     EXPECT_EQ(plan->transport(), TransportKind::Kline);
     EXPECT_EQ(plan->mcu_name(), "SH7055");
     EXPECT_EQ(plan->target_id(), "sub_ecu_eeprom_denso_sh7055_kline");
-    EXPECT_EQ(plan->kernel().load_address, 0xFFFF6004u);
-    EXPECT_EQ(plan->kernel().bytes, (bytes::Bytes{0xaa, 0xbb}));
+    EXPECT_EQ(plan->kernel()->load_address, 0xFFFF6004u);
+    EXPECT_EQ(plan->kernel()->bytes, (bytes::Bytes{0xaa, 0xbb}));
 }
 
 TEST(BuildEepromReadPlanTest, CanProtocolProducesACanPlan)
@@ -150,7 +150,7 @@ TEST(BuildEepromReadPlanTest, CanProtocolProducesACanPlan)
     EXPECT_EQ(plan->family(), FlashFamily::DensoSh705xEepromCan);
     EXPECT_EQ(plan->transport(), TransportKind::CanIso15765);
     EXPECT_EQ(plan->mcu_name(), "SH7058");
-    EXPECT_EQ(plan->kernel().load_address, 0xFFFF3000u);
+    EXPECT_EQ(plan->kernel()->load_address, 0xFFFF3000u);
 }
 
 // The kernel handle is directory + filename with NO separator inserted:

@@ -27,7 +27,11 @@ struct FlashPlanFields
     MemoryRegion transfer_region;
     std::vector<MemoryRegion> erase_regions;
     std::optional<bytes::Bytes> image;
-    KernelImage kernel;
+    // Optional because not every family uploads one. The EEPROM pair loads a
+    // kernel file and uploads it; a future family may drive its own vendor
+    // bootloader and upload only compile-time constants instead. See
+    // family_requires_kernel_v (flash_types.h) for which families require one.
+    std::optional<KernelImage> kernel;
     FamilyPlan family_plan;
     std::vector<ConfirmationSpec> confirmations;
 };
@@ -67,7 +71,7 @@ class FlashPlan
     {
         return fields_.image;
     }
-    const KernelImage& kernel() const
+    const std::optional<KernelImage>& kernel() const
     {
         return fields_.kernel;
     }
