@@ -99,7 +99,10 @@ TEST(FlashValidationTest, EmptyKernelIdIsRejected)
     auto fields = valid_read_fields();
     fields.kernel->id.clear();
 
-    EXPECT_EQ(validate_and_build(std::move(fields)).error().kind, ErrorKind::InvalidConfig);
+    auto plan = validate_and_build(std::move(fields));
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
 }
 
 TEST(FlashValidationTest, EmptyKernelBytesIsRejected)
@@ -107,7 +110,25 @@ TEST(FlashValidationTest, EmptyKernelBytesIsRejected)
     auto fields = valid_read_fields();
     fields.kernel->bytes.clear();
 
-    EXPECT_EQ(validate_and_build(std::move(fields)).error().kind, ErrorKind::InvalidConfig);
+    auto plan = validate_and_build(std::move(fields));
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+}
+
+// A family that isn't the kernel-less Mitsu Colt CAN family must still carry
+// a kernel -- the optional relaxation (Step 5 tail, wave 0) is scoped to
+// MitsuColtM32rCan, not a blanket relaxation for every family.
+TEST(FlashValidationTest, MissingKernelIsRejectedForAFamilyThatRequiresOne)
+{
+    auto fields = valid_read_fields();
+    fields.kernel = std::nullopt;
+
+    auto plan = validate_and_build(std::move(fields));
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(plan.error().detail, testing::HasSubstr("kernel"));
 }
 
 TEST(FlashValidationTest, FamilyPlanTagMismatchWithTransportIsRejected)
@@ -167,7 +188,14 @@ fastecu::flash::FlashPlanFields kernellessReadFields()
     fields.mcu_name = "M32R_384KB_1block";
     fields.transfer_region = MemoryRegion{0x00008000, 0x00058000};
     fields.kernel = std::nullopt;
-    fields.family_plan = MitsuColtM32rCanPlan{0x7e0, 0x7e8, 500000, false, false, 0x81};
+    fields.family_plan = MitsuColtM32rCanPlan{
+        .request_id = 0x7e0,
+        .response_id = 0x7e8,
+        .bitrate = 500000,
+        .extended_id = false,
+        .use_vendor_challenge = false,
+        .session_id = 0x81,
+    };
     return fields;
 }
 
@@ -186,7 +214,7 @@ TEST(FlashValidation, AcceptsAPlanWithNoKernelAndNoConfirmations)
 TEST(FlashValidation, RejectsAPresentKernelWithNoBytes)
 {
     auto fields = kernellessReadFields();
-    fields.kernel = fastecu::flash::KernelImage{"colt", 0x800000, {}};
+    fields.kernel = fastecu::flash::KernelImage{.id = "colt", .load_address = 0x800000, .bytes = {}};
 
     const auto plan = fastecu::flash::validate_and_build(std::move(fields));
 
@@ -198,7 +226,8 @@ TEST(FlashValidation, RejectsAPresentKernelWithNoBytes)
 TEST(FlashValidation, RejectsAPresentKernelWithNoId)
 {
     auto fields = kernellessReadFields();
-    fields.kernel = fastecu::flash::KernelImage{"", 0x800000, {0x01, 0x02}};
+    fields.kernel =
+        fastecu::flash::KernelImage{.id = "", .load_address = 0x800000, .bytes = {0x01, 0x02}};
 
     const auto plan = fastecu::flash::validate_and_build(std::move(fields));
 

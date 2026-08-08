@@ -72,6 +72,10 @@ Result<FlashPlan> validate_and_build(FlashPlanFields fields)
             return fail(ErrorKind::InvalidConfig, "Write/TestWrite plans must carry an image");
         }
     }
+    if (fields.family != FlashFamily::MitsuColtM32rCan && !fields.kernel.has_value())
+    {
+        return fail(ErrorKind::InvalidConfig, "family requires a kernel image");
+    }
     if (fields.kernel.has_value())
     {
         if (fields.kernel->id.empty())
