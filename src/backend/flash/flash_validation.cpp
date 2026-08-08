@@ -21,7 +21,8 @@ bool family_matches_transport_variant(const FlashPlanFields& fields)
     case TransportKind::Kline:
         return std::holds_alternative<DensoSh705xEepromKlinePlan>(fields.family_plan);
     case TransportKind::CanIso15765:
-        return std::holds_alternative<DensoSh705xEepromCanPlan>(fields.family_plan);
+        return std::holds_alternative<DensoSh705xEepromCanPlan>(fields.family_plan) ||
+               std::holds_alternative<MitsuColtM32rCanPlan>(fields.family_plan);
     }
     return false;
 }
@@ -71,27 +72,31 @@ Result<FlashPlan> validate_and_build(FlashPlanFields fields)
             return fail(ErrorKind::InvalidConfig, "Write/TestWrite plans must carry an image");
         }
     }
-    if (fields.kernel.id.empty())
+    if (fields.family != FlashFamily::MitsuColtM32rCan && !fields.kernel.has_value())
     {
-        return fail(ErrorKind::InvalidConfig, "kernel id must not be empty");
+        return fail(ErrorKind::InvalidConfig, "family requires a kernel image");
     }
-    if (fields.kernel.bytes.empty())
+    if (fields.kernel.has_value())
     {
-        return fail(ErrorKind::InvalidConfig, "kernel bytes must not be empty");
-    }
-    const std::uint64_t kernel_end =
-        static_cast<std::uint64_t>(fields.kernel.load_address) + fields.kernel.bytes.size();
-    if (kernel_end > static_cast<std::uint64_t>(0xffffffffu))
-    {
-        return fail(ErrorKind::InvalidConfig, "kernel upload range overflows a 32-bit address space");
+        if (fields.kernel->id.empty())
+        {
+            return fail(ErrorKind::InvalidConfig, "kernel id must not be empty");
+        }
+        if (fields.kernel->bytes.empty())
+        {
+            return fail(ErrorKind::InvalidConfig, "kernel bytes must not be empty");
+        }
+        const std::uint64_t kernel_end =
+            static_cast<std::uint64_t>(fields.kernel->load_address) + fields.kernel->bytes.size();
+        if (kernel_end > static_cast<std::uint64_t>(0xffffffffu))
+        {
+            return fail(ErrorKind::InvalidConfig,
+                        "kernel upload range overflows a 32-bit address space");
+        }
     }
     if (!family_matches_transport_variant(fields))
     {
         return fail(ErrorKind::InvalidConfig, "family_plan variant does not match transport kind");
-    }
-    if (fields.confirmations.empty())
-    {
-        return fail(ErrorKind::InvalidConfig, "at least one confirmation must be declared");
     }
     std::unordered_set<ConfirmationSpec::Id> seen_ids;
     for (const ConfirmationSpec& confirmation : fields.confirmations)

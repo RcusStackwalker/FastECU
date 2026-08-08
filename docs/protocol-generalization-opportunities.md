@@ -11,7 +11,10 @@ The following are shared today and are no longer open extraction work:
 
 - `src/algorithms/protocol/ssm/ssm_protocol.*` owns SSM headers/checksums, seed-key and payload
   transforms, the non-standard CRC, frame validation, and byte formatting.
-- `src/backend/flash/flash_utils.*` owns common byte stuffing and ISO-15765 flash setup.
+- `src/platform/desktop/common/flash/legacy/legacy_flash_utils.*` owns
+  ISO-15765 flash setup and the `QString`-typed flash-device lookup shim, both
+  transitional; `src/algorithms/checksum` owns `cks_add8`. Step 5e split the
+  former `src/backend/flash/flash_utils.*` between them and deleted it.
 - `src/algorithms/protocol/bytes.h` and `src/algorithms/protocol/qt_bytes.h` provide the byte boundary
   and explicit Qt conversions.
 - `FlashOperationWorker` owns logging signals, prompt injection, progress,
@@ -72,3 +75,10 @@ The intended boundary is:
   and worker plumbing.
 - Keep protocol sequence and safety policy readable within each verified
   family unless repeated behavior is proven equivalent.
+
+The step 5 tail implements this condition as an ordering rule rather than a
+judgment call: within a clone cluster, each family is ported to a tested
+portable executor first, and only then is what is provably identical between
+the tested executors factored into a shared core. Extraction never happens
+against the untested Qt sources. See the
+[tail design](superpowers/specs/2026-08-08-step5-tail-flash-drain-design.md).

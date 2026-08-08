@@ -21,6 +21,10 @@ enum class FlashFamily
 {
     DensoSh705xEepromKline,
     DensoSh705xEepromCan,
+    // Step 5 tail, wave 0. Serves both mitsu_ecu_m32r_can and
+    // mitsu_ecu_m32r_can_vendor_ext; the vendor challenge is a plan flag,
+    // not a separate family, matching the legacy class it replaces.
+    MitsuColtM32rCan,
     // Added one-by-one by the per-family tail (see spec "Explicit deferrals").
 };
 
@@ -50,6 +54,14 @@ struct ConfirmationSpec
         BeginEepromRead,
         InspectEepromBytes,
         CycleIgnition,
+        // Step 5 tail, wave 0. Both are collected by the desktop dialog
+        // BEFORE the executor starts: a synchronous, dialog-free executor
+        // cannot block mid-run for a human answer. Presence in
+        // FlashPlan::confirmations() therefore means "granted" -- an
+        // operator who declines either one causes the dialog to never build
+        // a plan at all.
+        EraseTrigger,
+        TopRegionBootstrap,
     };
 
     Id id;
@@ -109,8 +121,21 @@ struct DensoSh705xEepromCanPlan
     bool extended_id;          // false
 };
 
+struct MitsuColtM32rCanPlan
+{
+    std::uint32_t request_id;  // 0x7e0
+    std::uint32_t response_id; // 0x7e8
+    int bitrate;               // 500000
+    bool extended_id;          // false -- build_request() hardcodes the
+                               // 11-bit physical request id
+    bool use_vendor_challenge; // mitsu_ecu_m32r_can_vendor_ext only
+    bytes::Byte session_id;    // kSessionBasic (0x81) for Read,
+                               // kSessionBootload (0x85) for Write
+};
+
 using FamilyPlan = std::variant<
     DensoSh705xEepromKlinePlan,
-    DensoSh705xEepromCanPlan>;
+    DensoSh705xEepromCanPlan,
+    MitsuColtM32rCanPlan>;
 
 } // namespace fastecu::flash
