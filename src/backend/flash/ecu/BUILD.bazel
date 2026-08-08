@@ -1,0 +1,35 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+
+package(default_visibility = [
+    "//src/backend:__subpackages__",
+    "//src/platform:__subpackages__",
+    "//src/ui:__subpackages__",
+    "//tests:__pkg__",
+])
+
+# Portable. No Qt, no platform, no filesystem, no thread.
+cc_library(
+    name = "mitsu_colt_m32r_can_plan",
+    srcs = ["mitsu_colt_m32r_can_plan.cpp"],
+    hdrs = ["mitsu_colt_m32r_can_plan.h"],
+    deps = [
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/colt",
+        "//src/backend/definitions:models",
+        "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_types",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "mitsu_colt_m32r_can_plan_test",
+    srcs = ["mitsu_colt_m32r_can_plan_test.cpp"],
+    deps = [
+        ":mitsu_colt_m32r_can_plan",
+        "//src/algorithms/protocol/colt",
+    ],
+)

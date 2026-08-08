@@ -59,6 +59,9 @@ PORTABLE_ROOTS = {
         "denso_sh705x_eeprom_kline",
         "denso_sh705x_eeprom_can",
     },
+    ROOT / "src/backend/flash/ecu": {
+        "mitsu_colt_m32r_can_plan",
+    },
     ROOT / "src/backend/config": {
         "config_paths",
         "app_config",
