@@ -45,6 +45,8 @@ fastecu_qttest(
     deps = [
         ":ecu",
         "//src/backend/definitions",
+        "//src/backend/flash:flash_executor",
         "//src/backend/ports",
+        "//src/backend/ports/testing:fake_clock",
     ],
 )

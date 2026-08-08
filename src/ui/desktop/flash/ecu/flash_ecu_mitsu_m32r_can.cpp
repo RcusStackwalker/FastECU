@@ -149,8 +149,7 @@ void FlashEcuMitsuM32rCan::onWorkerFinished(fastecu::flash::FlashWorkerResult re
             ecuCalDef->FullRomData =
                 bytes::toQByteArray(bytes::ByteView(*result.read_bytes));
         }
-        QMessageBox::information(this, tr("ECU Operation"),
-                                 "ECU operation was succesful, press OK to exit");
+        showSuccessDialog();
         close();
         return;
     }
@@ -225,6 +224,13 @@ int FlashEcuMitsuM32rCan::confirm(const QString& title, const QString& text, int
     return QMessageBox::warning(this, title, text,
                                 static_cast<QMessageBox::StandardButtons>(buttons),
                                 static_cast<QMessageBox::StandardButton>(defaultButton));
+}
+
+void FlashEcuMitsuM32rCan::showSuccessDialog()
+{
+    // Verbatim legacy text, including the original's spelling of "succesful".
+    QMessageBox::information(this, tr("ECU Operation"),
+                             "ECU operation was succesful, press OK to exit");
 }
 
 void FlashEcuMitsuM32rCan::showFailureDialog(fastecu::ErrorKind kind, const QString& detail)

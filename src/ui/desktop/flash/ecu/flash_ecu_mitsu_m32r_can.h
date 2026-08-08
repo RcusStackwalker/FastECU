@@ -52,16 +52,23 @@ class FlashEcuMitsuM32rCan : public QDialog
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
   protected:
-    // Virtual so the dialog test can answer prompts from a script and record
-    // failures instead of showing modals -- same shape as the EEPROM pair's
-    // dialogs.
+    // Test seams, same set and same rationale as the EEPROM pair's dialogs
+    // (eeprom_ecu_subaru_denso_sh705x_can.h): the dialog test drives the real
+    // run()/onWorkerFinished() orchestration against a scripted executor and
+    // a fake clock, answers prompts from a script, and records dialogs
+    // instead of showing modals -- no hardware, no blocking QMessageBox.
+    virtual fastecu::Result<fastecu::flash::FlashPlan> buildPlan();
+    virtual std::unique_ptr<fastecu::flash::FlashWorker> makeWorker(
+        fastecu::flash::FlashPlan plan);
     virtual int confirm(const QString& title, const QString& text, int buttons,
                         int defaultButton);
+    // Separate from confirm(): the success notification is an information
+    // box with no choice to make, and it must be overridable on its own --
+    // it is the last thing between the FullRomData copy and run() returning.
+    virtual void showSuccessDialog();
     virtual void showFailureDialog(fastecu::ErrorKind kind, const QString& detail);
 
   private:
-    fastecu::Result<fastecu::flash::FlashPlan> buildPlan();
-    std::unique_ptr<fastecu::flash::FlashWorker> makeWorker(fastecu::flash::FlashPlan plan);
     void onWorkerFinished(fastecu::flash::FlashWorkerResult result);
 
     FileActions::EcuCalDefStructure *ecuCalDef;
