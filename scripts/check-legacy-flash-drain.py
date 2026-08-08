@@ -27,14 +27,12 @@ MARKER = "serial_port_actions.h"
 EXEMPT = {
     "legacy_flash_utils.cpp",
     "legacy_flash_utils_test.cpp",
-    "flash_ecu_mitsu_m32r_can_operation_test.cpp",
 }
 
 # Regenerate ONLY by removing entries, one per migrated family.
 REMAINING = {
     "bdm/flash_ecu_subaru_denso_mc68hc16y5_02_bdm_operation.cpp",
     "bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.cpp",
-    "ecu/flash_ecu_mitsu_m32r_can_operation.cpp",
     "ecu/flash_ecu_subaru_denso_1n83m_1_5m_can_operation.cpp",
     "ecu/flash_ecu_subaru_denso_1n83m_4m_can_operation.cpp",
     "ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp",

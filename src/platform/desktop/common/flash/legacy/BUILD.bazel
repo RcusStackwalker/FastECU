@@ -48,12 +48,10 @@ qt_cc_library(
     ),
     deps = QT_DEPS + [
         "//src/algorithms/diagnostics",
-        # qt_bytes.h is included directly by
-        # ecu/flash_ecu_mitsu_m32r_can_operation.cpp; before step 5e it
-        # arrived via //src/backend/flash, which 5e deleted, so declare it
-        # rather than inherit it through the colt/ssm :qt_compat targets.
+        # qt_bytes.h is included directly by files in this glob; before step
+        # 5e it arrived via //src/backend/flash, which 5e deleted, so declare
+        # it rather than inherit it through the ssm :qt_compat target.
         "//src/algorithms/protocol:qt_compat",
-        "//src/algorithms/protocol/colt:qt_compat",
         "//src/algorithms/protocol/ssm:qt_compat",
         # Full :definitions (not :models) because file_actions.h -- part of
         # the moc'd :definitions target, not the header-only :models split
@@ -70,21 +68,6 @@ fastecu_qttest(
     copts = ["-DQT_WIDGETS_LIB"],
     env = {"QT_QPA_PLATFORM": "offscreen"},
     deps = [":legacy_flash_operations"],
-)
-
-fastecu_qttest(
-    name = "test_flash_ecu_mitsu_m32r_can_operation",
-    src = "flash_ecu_mitsu_m32r_can_operation_test.cpp",
-    copts = ["-DQT_WIDGETS_LIB"],
-    env = {"QT_QPA_PLATFORM": "offscreen"},
-    deps = [
-        ":legacy_flash_operations",
-        # qt_bytes.h is included directly by the test; see the matching note
-        # on :legacy_flash_operations.
-        "//src/algorithms/protocol:qt_compat",
-        "//src/algorithms/protocol/colt:qt_compat",
-        "//src/platform/desktop/common/serial/testing:fake_serial_backend",
-    ],
 )
 
 fastecu_qttest(
