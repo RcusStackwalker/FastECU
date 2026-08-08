@@ -33,3 +33,35 @@ fastecu_portable_gtest(
         "//src/algorithms/protocol/colt",
     ],
 )
+
+# Portable. No Qt, no platform, no filesystem, no thread.
+cc_library(
+    name = "mitsu_colt_m32r_can_executor",
+    srcs = ["mitsu_colt_m32r_can_executor.cpp"],
+    hdrs = ["mitsu_colt_m32r_can_executor.h"],
+    deps = [
+        "//src/algorithms/diagnostics",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/colt",
+        "//src/algorithms/protocol/ssm",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_types",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "mitsu_colt_m32r_can_executor_test",
+    srcs = ["mitsu_colt_m32r_can_executor_test.cpp"],
+    deps = [
+        ":mitsu_colt_m32r_can_executor",
+        ":mitsu_colt_m32r_can_plan",
+        "//src/algorithms/protocol/colt",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:recording_event_sink",
+    ],
+)
