@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <initializer_list>
+#include <iterator>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -81,14 +82,29 @@ fastecu::flash::FlashPlan readPlan(bool vendor = false)
     return std::move(*plan);
 }
 
+// The two checksum bytes the executor must commit, in order, for the
+// userspace slice of the ROM writeRom() builds. Written out rather than
+// recomputed with checksum(): the scripted CRC frame is the only place the
+// executor's own running sum and byte split are observable, so deriving the
+// expectation the way the implementation does would let an inversion pass in
+// both.
+const bytes::Bytes kUserspaceChecksumBytes{0x12, 0x34};
+
 // The ROM image every write test writes: kTopRegionEnd bytes, 0x00 below
 // kTopRegionStart and 0xEE above it. The distinctive top-region fill is what
 // makes the bootstrap comparison observable -- an ECU that reports 0xEE
 // matches, one that reports 0xFF (erased flash) does not.
+//
+// The userspace window additionally opens with 18 * 0xFF followed by 0x46,
+// which sums to exactly 0x1234 (18 * 255 + 70) over the otherwise-zero
+// slice -- a checksum whose two halves differ, so the order they go on the
+// wire in is pinned too (kUserspaceChecksumBytes).
 bytes::Bytes writeRom()
 {
     bytes::Bytes rom(MitsuColtCan::kTopRegionEnd, 0x00);
     std::fill(rom.begin() + MitsuColtCan::kTopRegionStart, rom.end(), 0xEE);
+    std::fill_n(rom.begin() + MitsuColtCan::kUserspaceStart, 18, 0xFF);
+    rom[MitsuColtCan::kUserspaceStart + 18] = 0x46;
     return rom;
 }
 
@@ -189,11 +205,11 @@ void scriptBootloadHandshake(ScriptedCanFlashTransport& transport)
     transport.queueRead(response({0x67, 0x06}));
 }
 
-// Scripts one upload_and_commit(start, data): RequestDownload, the
-// TransferData chunks, the CRC RequestDownload + TransferData, and the
-// RoutineControl CRC check (legacy lines 231-297).
-void scriptUploadAndCommit(ScriptedCanFlashTransport& transport, std::uint32_t start,
-                           bytes::ByteView data)
+// Scripts the payload half of one upload_and_commit(start, data): the
+// RequestDownload and every accepted TransferData chunk (legacy lines
+// 238-260), stopping before the checksum exchanges.
+void scriptUploadFrames(ScriptedCanFlashTransport& transport, std::uint32_t start,
+                        bytes::ByteView data)
 {
     transport.expectWrite(request(MitsuColtCan::buildRequestDownload(
         start, static_cast<std::uint32_t>(data.size()))));
@@ -204,19 +220,41 @@ void scriptUploadAndCommit(ScriptedCanFlashTransport& transport, std::uint32_t s
         transport.expectWrite(request(chunk));
         transport.queueRead(response({0x76}));
     }
+}
 
+// Scripts the checksum half of one upload_and_commit (legacy lines 262-294):
+// the CRC RequestDownload, the single CRC TransferData frame, and the
+// RoutineControl CRC check. `crcBytes`, when set, is the exact payload the
+// test demands on the wire -- both the value and the order of its two
+// halves -- instead of one recomputed the way the implementation does.
+void scriptCrcCommit(ScriptedCanFlashTransport& transport, std::uint32_t start,
+                     bytes::ByteView data,
+                     std::optional<bytes::Bytes> crcBytes = std::nullopt)
+{
     transport.expectWrite(request(MitsuColtCan::buildRequestDownload(
         MitsuColtCan::kCrcTransferAddress, MitsuColtCan::kCrcTransferSize)));
     transport.queueRead(response({0x74}));
 
     const std::uint16_t crc = MitsuColtCan::checksum(data);
-    const bytes::Bytes crcData{static_cast<bytes::Byte>((crc >> 8) & 0xff),
-                               static_cast<bytes::Byte>(crc & 0xff)};
+    const bytes::Bytes crcData =
+        crcBytes.value_or(bytes::Bytes{static_cast<bytes::Byte>((crc >> 8) & 0xff),
+                                       static_cast<bytes::Byte>(crc & 0xff)});
     transport.expectWrite(request(MitsuColtCan::buildTransferDataFrames(crcData).front()));
     transport.queueRead(response({0x76}));
 
     transport.expectWrite(request(MitsuColtCan::buildRoutineCheckCrc(start)));
     transport.queueRead(response({0x71}));
+}
+
+// Scripts one upload_and_commit(start, data): RequestDownload, the
+// TransferData chunks, the CRC RequestDownload + TransferData, and the
+// RoutineControl CRC check (legacy lines 231-297).
+void scriptUploadAndCommit(ScriptedCanFlashTransport& transport, std::uint32_t start,
+                           bytes::ByteView data,
+                           std::optional<bytes::Bytes> crcBytes = std::nullopt)
+{
+    scriptUploadFrames(transport, start, data);
+    scriptCrcCommit(transport, start, data, std::move(crcBytes));
 }
 
 // Scripts the unlock + erase-trigger pair (legacy lines 349-368 / 445-464).
@@ -695,13 +733,19 @@ TEST(MitsuColtM32rCanExecutor, WriteSkipsBootstrapWhenTheTopRegionAlreadyMatches
     scriptUploadAndCommit(transport, MitsuColtCan::kWriteRoutineRamAddr,
                           MitsuColtCan::kWritePageRoutine);
     scriptUnlockAndErase(transport);
-    scriptUploadAndCommit(transport, MitsuColtCan::kUserspaceStart, userspaceOf(rom));
+    // The checksum the commit must carry is stated outright, not recomputed:
+    // the scripted frame is [0x36, 0x12, 0x34], so both the running sum and
+    // its big-endian split are pinned independently of the implementation.
+    scriptUploadAndCommit(transport, MitsuColtCan::kUserspaceStart, userspaceOf(rom),
+                          kUserspaceChecksumBytes);
 
     const auto result =
         executor.execute(plan, transport, clock, cancellation.token(), events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
+    // Legacy-faithful port lifetime: this executor never closes the bus.
+    EXPECT_EQ(transport.close_call_count_, 0);
     EXPECT_THAT(events.logs,
                 Contains(Pair(LogLevel::Info, "Top 128KB already matches, no bootstrap needed")));
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Erase page uploaded")));
@@ -960,6 +1004,563 @@ TEST(MitsuColtM32rCanExecutor, WriteRefusesTheBootstrapWhenItsConfirmationIsAbse
     EXPECT_THAT(events.logs,
                 Not(Contains(Pair(LogLevel::Info,
                                   "Uploading erase redirect routine to RAM 0x805568..."))));
+}
+
+TEST(MitsuColtM32rCanExecutor, HandshakeRejectsAReplyTooShortToHoldAServiceByte)
+{
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+    auto plan = readPlan();
+
+    // Two bytes: shorter than the 4-byte reply id every frame on this bus
+    // starts with, so there is no service byte and no NRC context to decode.
+    // The legacy `received.mid(4, ...)` clamped; the portable nrc_context()
+    // guards instead, and this is the frame that proves the guard is there --
+    // without it the description would be taken from a subspan past the end.
+    transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
+        MitsuColtCan::kSessionBasic)));
+    transport.queueRead(bytes::Bytes{0x07, 0xe8});
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_THAT(events.logs,
+                Contains(Pair(LogLevel::Error, "Wrong response from ECU: Not a valid answer")));
+}
+
+TEST(MitsuColtM32rCanExecutor, ReadRejectsAChunkAnsweredWithTheWrongService)
+{
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+    auto plan = readPlan();
+
+    transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
+        MitsuColtCan::kSessionBasic)));
+    transport.queueRead(response({0x50, 0x81}));
+
+    // The first chunk comes back as a negative response. Accepting it would
+    // append 192 bytes of framing garbage to the ROM image at offset 0.
+    const std::uint32_t start = plan.transfer_region().start;
+    transport.expectWrite(request(MitsuColtCan::buildReadMemoryByAddress(
+        start, static_cast<bytes::Byte>(MitsuColtCan::kFlashReadBlockSize))));
+    transport.queueRead(response({0x7f, 0x23, 0x22}));
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    // Nothing is read after the rejected chunk.
+    EXPECT_TRUE(transport.scriptConsumed());
+    // Legacy text, flash_ecu_mitsu_m32r_can_operation.cpp:198 -- the failing
+    // address is part of the message, so a chunk rejected halfway through a
+    // 384KB sweep is locatable.
+    EXPECT_THAT(events.logs,
+                Contains(Pair(LogLevel::Error,
+                              "Wrong response from ECU at 0x0: Conditions not correct")));
+    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "ROM read complete"))));
+}
+
+// Trips the cancellation source when a chosen log line is emitted, so the
+// stop lands between two exchanges of the write path rather than at
+// readFlashRange()'s own top-of-chunk checkpoint.
+class CancelOnLogSink final : public RecordingEventSink
+{
+  public:
+    CancelOnLogSink(fastecu::flash::CancellationSource& source, std::string trigger)
+        : source_(source), trigger_(std::move(trigger))
+    {
+    }
+    void log(LogLevel level, std::string_view message) override
+    {
+        RecordingEventSink::log(level, message);
+        if (message == trigger_)
+        {
+            source_.trip();
+        }
+    }
+
+  private:
+    fastecu::flash::CancellationSource& source_;
+    std::string trigger_;
+};
+
+TEST(MitsuColtM32rCanExecutor, WriteStopsAtTheNextExchangeWhenCancelledMidWrite)
+{
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    fastecu::flash::CancellationSource cancellation;
+    // Cancelled the instant the erase-page upload reports success: the run
+    // must stop before the write-page upload's first request reaches the bus.
+    // The write path has no loop of its own to poll a token, so what has to
+    // hold here is exchange()'s own pre-request check.
+    CancelOnLogSink events{cancellation, "Erase page uploaded"};
+    MitsuColtM32rCanExecutor executor;
+
+    const bytes::Bytes rom = writeRom();
+    auto plan = writePlan(rom);
+
+    scriptBootloadHandshake(transport);
+    scriptFlashRead(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kTopRegionLength,
+                    0xEE);
+    scriptUploadAndCommit(transport, MitsuColtCan::kEraseRoutineRamAddr,
+                          MitsuColtCan::kErasePageRoutine);
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(result.error().detail, "cancelled before request");
+    // Nothing beyond the erase-page upload was scripted, so this is the
+    // assertion that no further request went out.
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Write page uploaded"))));
+    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Userspace flash erased"))));
+}
+
+// Fails every write outright, the way a yanked adapter does.
+class WriteFailingTransport final : public ScriptedCanFlashTransport
+{
+  public:
+    fastecu::Status write(bytes::ByteView, const fastecu::ICancellationToken&) override
+    {
+        return fastecu::fail(ErrorKind::Disconnected, "adapter write failed");
+    }
+};
+
+TEST(MitsuColtM32rCanExecutor, AFailedTransportWriteIsReportedWithoutWaitingForAReply)
+{
+    WriteFailingTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+    auto plan = readPlan();
+
+    // A perfectly good session reply is waiting. If the write failure were
+    // swallowed, the run would consume it and carry on into the read sweep;
+    // the transport's own error is what must come back instead.
+    transport.queueRead(response({0x50, 0x81}));
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
+    EXPECT_EQ(result.error().detail, "adapter write failed");
+    EXPECT_FALSE(transport.scriptConsumed()); // the queued reply was never read
+    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Diagnostic session ok"))));
+}
+
+// Trips the cancellation source from inside write(), so the request does
+// reach the bus and the cancellation is first observable at the delay that
+// follows it.
+class CancelOnWriteTransport final : public ScriptedCanFlashTransport
+{
+  public:
+    explicit CancelOnWriteTransport(fastecu::flash::CancellationSource& source) : source_(source)
+    {
+    }
+    fastecu::Status write(bytes::ByteView data,
+                          const fastecu::ICancellationToken& cancellation) override
+    {
+        fastecu::Status result = ScriptedCanFlashTransport::write(data, cancellation);
+        source_.trip();
+        return result;
+    }
+
+  private:
+    fastecu::flash::CancellationSource& source_;
+};
+
+TEST(MitsuColtM32rCanExecutor, ACancellationThatArrivesAfterTheRequestStopsBeforeTheReply)
+{
+    fastecu::flash::CancellationSource cancellation;
+    CancelOnWriteTransport transport{cancellation};
+    FakeClock clock;
+    RecordingEventSink events;
+    MitsuColtM32rCanExecutor executor;
+    auto plan = readPlan();
+
+    transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
+        MitsuColtCan::kSessionBasic)));
+    transport.queueRead(response({0x50, 0x81}));
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    // The clock's own cancellation carries no detail; the transport's read
+    // path would have reported "scripted CAN read cancelled". Distinguishing
+    // them is what proves the run stopped at the inter-exchange delay instead
+    // of going on to wait out the read timeout.
+    EXPECT_EQ(result.error().detail, "");
+    EXPECT_FALSE(transport.scriptConsumed()); // the reply was never read
+}
+
+TEST(MitsuColtM32rCanExecutor, WriteAbortsWhenTheEraseRoutineRequestDownloadIsRejected)
+{
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+
+    const bytes::Bytes rom = writeRom();
+    auto plan = writePlan(rom);
+
+    scriptBootloadHandshake(transport);
+    scriptFlashRead(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kTopRegionLength,
+                    0xEE);
+    // The bootloader refuses to open the RAM window for the erase-page
+    // routine. Continuing would erase flash with whatever happens to be at
+    // kEraseRoutineRamAddr.
+    transport.expectWrite(request(MitsuColtCan::buildRequestDownload(
+        MitsuColtCan::kEraseRoutineRamAddr,
+        static_cast<std::uint32_t>(std::size(MitsuColtCan::kErasePageRoutine)))));
+    transport.queueRead(response({0x7f, 0x34, 0x33}));
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(transport.scriptConsumed());
+    // Legacy text, flash_ecu_mitsu_m32r_can_operation.cpp:244 and 413.
+    EXPECT_THAT(events.logs,
+                Contains(Pair(LogLevel::Error,
+                              "RequestDownload to 0x805568 rejected: Security access denied")));
+    EXPECT_THAT(events.logs,
+                Contains(Pair(LogLevel::Error, "Erase-page routine upload failed")));
+    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Erase page uploaded"))));
+}
+
+TEST(MitsuColtM32rCanExecutor, WriteAbortsWhenTheWriteRoutineTransferDataIsRejected)
+{
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+
+    const bytes::Bytes rom = writeRom();
+    auto plan = writePlan(rom);
+
+    scriptBootloadHandshake(transport);
+    scriptFlashRead(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kTopRegionLength,
+                    0xEE);
+    scriptUploadAndCommit(transport, MitsuColtCan::kEraseRoutineRamAddr,
+                          MitsuColtCan::kErasePageRoutine);
+    // The window opens but the payload frame is refused: a half-uploaded
+    // write-page routine must never be handed the erase trigger.
+    transport.expectWrite(request(MitsuColtCan::buildRequestDownload(
+        MitsuColtCan::kWriteRoutineRamAddr,
+        static_cast<std::uint32_t>(std::size(MitsuColtCan::kWritePageRoutine)))));
+    transport.queueRead(response({0x74}));
+    transport.expectWrite(
+        request(MitsuColtCan::buildTransferDataFrames(MitsuColtCan::kWritePageRoutine).front()));
+    transport.queueRead(response({0x7f, 0x36, 0x31}));
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(transport.scriptConsumed());
+    // Legacy text, flash_ecu_mitsu_m32r_can_operation.cpp:256 and 421.
+    EXPECT_THAT(events.logs,
+                Contains(Pair(LogLevel::Error,
+                              "TransferData to 0x8054ac rejected: Request out of range")));
+    EXPECT_THAT(events.logs,
+                Contains(Pair(LogLevel::Error, "Write-page routine upload failed")));
+    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Userspace flash erased"))));
+}
+
+TEST(MitsuColtM32rCanExecutor, WriteFailsWhenTheUserspaceCrcCheckIsRejected)
+{
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+
+    const bytes::Bytes rom = writeRom();
+    auto plan = writePlan(rom);
+
+    scriptBootloadHandshake(transport);
+    scriptFlashRead(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kTopRegionLength,
+                    0xEE);
+    scriptUploadAndCommit(transport, MitsuColtCan::kEraseRoutineRamAddr,
+                          MitsuColtCan::kErasePageRoutine);
+    scriptUploadAndCommit(transport, MitsuColtCan::kWriteRoutineRamAddr,
+                          MitsuColtCan::kWritePageRoutine);
+    scriptUnlockAndErase(transport);
+    // Every byte goes out and is acknowledged, and only the ECU's own
+    // post-write checksum verification fails. This is the one rejection that
+    // says "the flash you just wrote does not match what you sent", so
+    // reporting success here would send a user off to flash a bricked ECU.
+    scriptUploadFrames(transport, MitsuColtCan::kUserspaceStart, userspaceOf(rom));
+    transport.expectWrite(request(MitsuColtCan::buildRequestDownload(
+        MitsuColtCan::kCrcTransferAddress, MitsuColtCan::kCrcTransferSize)));
+    transport.queueRead(response({0x74}));
+    transport.expectWrite(request(MitsuColtCan::buildTransferDataFrames(
+                                      bytes::Bytes{0x12, 0x34})
+                                      .front()));
+    transport.queueRead(response({0x76}));
+    transport.expectWrite(request(MitsuColtCan::buildRoutineCheckCrc(
+        MitsuColtCan::kUserspaceStart)));
+    transport.queueRead(response({0x7f, 0x31, 0x22}));
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(transport.scriptConsumed());
+    // Legacy text, flash_ecu_mitsu_m32r_can_operation.cpp:290 and 470.
+    EXPECT_THAT(events.logs,
+                Contains(Pair(LogLevel::Error, "RoutineControl CRC check for 0x8000 rejected: "
+                                               "Conditions not correct")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "ROM userspace write failed")));
+    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Userspace flash written"))));
+}
+
+TEST(MitsuColtM32rCanExecutor, BootstrapAbortsWhenTheChecksumRequestDownloadIsRejected)
+{
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+
+    const bytes::Bytes rom = writeRom();
+    auto plan = writePlan(rom);
+
+    scriptBootloadHandshake(transport);
+    scriptFlashRead(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kTopRegionLength,
+                    0xFF);
+    // The erase redirect routine uploads, then the ECU refuses to open the
+    // checksum window -- so the routine is in RAM but unverified, and the
+    // bootstrap must not go on to erase the carrier window with it.
+    scriptUploadFrames(transport, MitsuColtCan::kEraseRoutineRamAddr,
+                       MitsuColtCan::kEraseRedirectRoutine);
+    transport.expectWrite(request(MitsuColtCan::buildRequestDownload(
+        MitsuColtCan::kCrcTransferAddress, MitsuColtCan::kCrcTransferSize)));
+    transport.queueRead(response({0x7f, 0x34, 0x22}));
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(transport.scriptConsumed());
+    // Legacy text, flash_ecu_mitsu_m32r_can_operation.cpp:266 and 339.
+    EXPECT_THAT(events.logs,
+                Contains(Pair(LogLevel::Error, "RequestDownload for checksum rejected: "
+                                               "Conditions not correct")));
+    EXPECT_THAT(events.logs,
+                Contains(Pair(LogLevel::Error, "Erase redirect routine upload failed")));
+}
+
+TEST(MitsuColtM32rCanExecutor, BootstrapAbortsWhenTheChecksumTransferDataIsRejected)
+{
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+
+    const bytes::Bytes rom = writeRom();
+    auto plan = writePlan(rom);
+
+    scriptBootloadHandshake(transport);
+    scriptFlashRead(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kTopRegionLength,
+                    0xFF);
+    scriptUploadAndCommit(transport, MitsuColtCan::kEraseRoutineRamAddr,
+                          MitsuColtCan::kEraseRedirectRoutine);
+    scriptUploadFrames(transport, MitsuColtCan::kWriteRoutineRamAddr,
+                       MitsuColtCan::kWriteRedirectRoutine);
+    transport.expectWrite(request(MitsuColtCan::buildRequestDownload(
+        MitsuColtCan::kCrcTransferAddress, MitsuColtCan::kCrcTransferSize)));
+    transport.queueRead(response({0x74}));
+    {
+        const std::uint16_t crc = MitsuColtCan::checksum(MitsuColtCan::kWriteRedirectRoutine);
+        const bytes::Bytes crcData{static_cast<bytes::Byte>((crc >> 8) & 0xff),
+                                   static_cast<bytes::Byte>(crc & 0xff)};
+        transport.expectWrite(request(MitsuColtCan::buildTransferDataFrames(crcData).front()));
+    }
+    transport.queueRead(response({0x7f, 0x36, 0x22}));
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(transport.scriptConsumed());
+    // Legacy text, flash_ecu_mitsu_m32r_can_operation.cpp:280 and 346.
+    EXPECT_THAT(events.logs,
+                Contains(Pair(LogLevel::Error, "TransferData for checksum rejected: "
+                                               "Conditions not correct")));
+    EXPECT_THAT(events.logs,
+                Contains(Pair(LogLevel::Error, "Write redirect routine upload failed")));
+    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Carrier window erased"))));
+}
+
+TEST(MitsuColtM32rCanExecutor, BootstrapReportsItsOwnReflashUnlockRejection)
+{
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+
+    const bytes::Bytes rom = writeRom();
+    auto plan = writePlan(rom);
+
+    scriptBootloadHandshake(transport);
+    scriptFlashRead(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kTopRegionLength,
+                    0xFF);
+    scriptUploadAndCommit(transport, MitsuColtCan::kEraseRoutineRamAddr,
+                          MitsuColtCan::kEraseRedirectRoutine);
+    scriptUploadAndCommit(transport, MitsuColtCan::kWriteRoutineRamAddr,
+                          MitsuColtCan::kWriteRedirectRoutine);
+    transport.expectWrite(request(MitsuColtCan::buildRequestReflashUnlock()));
+    transport.queueRead(response({0x7f, 0x3b, 0x22}));
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(transport.scriptConsumed());
+    // The bootstrap's own message prefix, distinct from the main write's
+    // (legacy lines 355 vs 451): the two erase stages are otherwise identical
+    // on the wire, so the prefix is the only thing that says which one failed.
+    EXPECT_THAT(events.logs,
+                Contains(Pair(LogLevel::Error, "Reflash unlock (top 128KB bootstrap) rejected: "
+                                               "Conditions not correct")));
+    EXPECT_THAT(events.logs,
+                Not(Contains(Pair(LogLevel::Error, "Reflash unlock rejected: "
+                                                   "Conditions not correct"))));
+    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Carrier window erased"))));
+}
+
+TEST(MitsuColtM32rCanExecutor, VendorChallengeKeyRejectionStopsBeforeTheSession)
+{
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+    auto plan = readPlan(/*vendor=*/true);
+
+    transport.expectWrite(request(MitsuColtCanVendorExt::buildChallengeSeedRequest()));
+    transport.queueRead(response({0x63, 0x27, 0x41, 0x12, 0x34, 0x56, 0x78}));
+
+    // Right service and selector, but the seed subfunction echoed back
+    // instead of the key one (legacy line 111): the ECU did not accept the
+    // key, so no session may be started on the strength of it.
+    const std::uint32_t key = MitsuColtCanVendorExt::challengeInverseTransform(0x12345678);
+    transport.expectWrite(request(MitsuColtCanVendorExt::buildChallengeKey(key)));
+    transport.queueRead(response({0x63, 0x27, 0x41}));
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(transport.scriptConsumed());
+    // Legacy text, flash_ecu_mitsu_m32r_can_operation.cpp:113.
+    EXPECT_THAT(events.logs,
+                Contains(Pair(LogLevel::Error,
+                              "Vendor challenge key rejected: Not a valid answer")));
+    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Vendor challenge accepted"))));
+}
+
+// An IFlashTransport that is not an ICanFlashTransport -- what a K-Line
+// adapter would look like to this executor.
+class NotACanTransport final : public fastecu::flash::IFlashTransport
+{
+  public:
+    void request_unblock() noexcept override
+    {
+    }
+};
+
+TEST(MitsuColtM32rCanExecutor, RefusesATransportThatIsNotACanTransport)
+{
+    NotACanTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+    auto plan = readPlan();
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    // A checked downcast, not a static_cast: the wrong adapter is a typed
+    // refusal rather than undefined behaviour on the first configure().
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(result.error().detail, HasSubstr("does not implement ICanFlashTransport"));
+    EXPECT_THAT(events.logs, IsEmpty());
+}
+
+TEST(MitsuColtM32rCanExecutor, PropagatesAConfigureFailureBeforeAnyRequest)
+{
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+    auto plan = readPlan();
+
+    transport.configure_result_ = fastecu::fail(ErrorKind::InvalidConfig, "bad bitrate");
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_EQ(result.error().detail, "bad bitrate");
+    // A bus that could not be configured never gets a request.
+    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_THAT(events.logs, IsEmpty());
+}
+
+TEST(MitsuColtM32rCanExecutor, PropagatesAnOpenFailureBeforeAnyRequest)
+{
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+    auto plan = readPlan();
+
+    transport.open_result_ = fastecu::fail(ErrorKind::Disconnected, "no adapter");
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
+    EXPECT_EQ(result.error().detail, "no adapter");
+    // Configuration happens first and is not rolled back, but nothing is sent.
+    EXPECT_TRUE(transport.last_config_.has_value());
+    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_THAT(events.logs, IsEmpty());
 }
 
 TEST(MitsuColtM32rCanExecutor, WriteRefusesTheEraseTriggerWhenItsConfirmationIsAbsent)
