@@ -1,6 +1,7 @@
 // src/backend/flash/flash_validation_test.cpp
 #include "src/backend/flash/flash_validation.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace fastecu::flash
@@ -96,7 +97,7 @@ TEST(FlashValidationTest, ReadWithImagePresentIsRejected)
 TEST(FlashValidationTest, EmptyKernelIdIsRejected)
 {
     auto fields = valid_read_fields();
-    fields.kernel.id.clear();
+    fields.kernel->id.clear();
 
     EXPECT_EQ(validate_and_build(std::move(fields)).error().kind, ErrorKind::InvalidConfig);
 }
@@ -104,7 +105,7 @@ TEST(FlashValidationTest, EmptyKernelIdIsRejected)
 TEST(FlashValidationTest, EmptyKernelBytesIsRejected)
 {
     auto fields = valid_read_fields();
-    fields.kernel.bytes.clear();
+    fields.kernel->bytes.clear();
 
     EXPECT_EQ(validate_and_build(std::move(fields)).error().kind, ErrorKind::InvalidConfig);
 }
@@ -133,13 +134,102 @@ TEST(FlashValidationTest, DuplicateConfirmationIdsAreRejected)
     EXPECT_EQ(validate_and_build(std::move(fields)).error().kind, ErrorKind::InvalidConfig);
 }
 
-TEST(FlashValidationTest, ZeroConfirmationsIsRejected)
+// The "at least one confirmation" floor was removed (Step 5 tail, wave 0):
+// families whose read path prompts for nothing, like Mitsu Colt CAN, must be
+// able to build a plan with zero confirmations. This is no longer rejected.
+TEST(FlashValidationTest, ZeroConfirmationsIsNowAccepted)
 {
     auto fields = valid_read_fields();
     fields.confirmations.clear();
 
-    EXPECT_EQ(validate_and_build(std::move(fields)).error().kind, ErrorKind::InvalidConfig);
+    auto plan = validate_and_build(std::move(fields));
+
+    ASSERT_TRUE(plan.has_value());
+    EXPECT_TRUE(plan->confirmations().empty());
 }
 
 } // namespace
 } // namespace fastecu::flash
+
+namespace
+{
+
+// Minimal fields for a family that uploads no kernel and prompts for
+// nothing -- the shape the Mitsu Colt CAN read plan produces.
+fastecu::flash::FlashPlanFields kernellessReadFields()
+{
+    using namespace fastecu::flash;
+    FlashPlanFields fields;
+    fields.operation = FlashOperation::Read;
+    fields.family = FlashFamily::MitsuColtM32rCan;
+    fields.transport = TransportKind::CanIso15765;
+    fields.target_id = "mitsu_ecu_m32r_can";
+    fields.mcu_name = "M32R_384KB_1block";
+    fields.transfer_region = MemoryRegion{0x00008000, 0x00058000};
+    fields.kernel = std::nullopt;
+    fields.family_plan = MitsuColtM32rCanPlan{0x7e0, 0x7e8, 500000, false, false, 0x81};
+    return fields;
+}
+
+} // namespace
+
+TEST(FlashValidation, AcceptsAPlanWithNoKernelAndNoConfirmations)
+{
+    const auto plan = fastecu::flash::validate_and_build(kernellessReadFields());
+
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    EXPECT_FALSE(plan->kernel().has_value());
+    EXPECT_TRUE(plan->confirmations().empty());
+    EXPECT_EQ(plan->experimental_family_id(), "MitsuColtM32rCan");
+}
+
+TEST(FlashValidation, RejectsAPresentKernelWithNoBytes)
+{
+    auto fields = kernellessReadFields();
+    fields.kernel = fastecu::flash::KernelImage{"colt", 0x800000, {}};
+
+    const auto plan = fastecu::flash::validate_and_build(std::move(fields));
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, fastecu::ErrorKind::InvalidConfig);
+    EXPECT_THAT(plan.error().detail, testing::HasSubstr("kernel bytes"));
+}
+
+TEST(FlashValidation, RejectsAPresentKernelWithNoId)
+{
+    auto fields = kernellessReadFields();
+    fields.kernel = fastecu::flash::KernelImage{"", 0x800000, {0x01, 0x02}};
+
+    const auto plan = fastecu::flash::validate_and_build(std::move(fields));
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, fastecu::ErrorKind::InvalidConfig);
+    EXPECT_THAT(plan.error().detail, testing::HasSubstr("kernel id"));
+}
+
+TEST(FlashValidation, RejectsAColtPlanOnAKlineTransport)
+{
+    auto fields = kernellessReadFields();
+    fields.transport = fastecu::flash::TransportKind::Kline;
+
+    const auto plan = fastecu::flash::validate_and_build(std::move(fields));
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, fastecu::ErrorKind::InvalidConfig);
+    EXPECT_THAT(plan.error().detail, testing::HasSubstr("does not match transport kind"));
+}
+
+TEST(FlashValidation, StillRejectsDuplicateConfirmationIds)
+{
+    using fastecu::flash::ConfirmationSpec;
+    auto fields = kernellessReadFields();
+    fields.operation = fastecu::flash::FlashOperation::Write;
+    fields.image = bytes::Bytes(0x80000, 0x00);
+    fields.confirmations = {ConfirmationSpec{ConfirmationSpec::Id::EraseTrigger, {}},
+                            ConfirmationSpec{ConfirmationSpec::Id::EraseTrigger, {}}};
+
+    const auto plan = fastecu::flash::validate_and_build(std::move(fields));
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_THAT(plan.error().detail, testing::HasSubstr("duplicate confirmation id"));
+}

@@ -78,8 +78,9 @@ TEST(EepromReadPlanGolden, Sh7058CanMode2)
     EXPECT_EQ(plan->transport(), TransportKind::CanIso15765);
     EXPECT_EQ(plan->target_id(), "sub_ecu_eeprom_denso_sh7058_can");
     EXPECT_EQ(plan->mcu_name(), "SH7058");
-    EXPECT_EQ(plan->kernel().load_address, 0xFFFF3000u);
-    EXPECT_EQ(plan->kernel().bytes, (bytes::Bytes{0x01, 0x02, 0x03}));
+    ASSERT_TRUE(plan->kernel().has_value());
+    EXPECT_EQ(plan->kernel()->load_address, 0xFFFF3000u);
+    EXPECT_EQ(plan->kernel()->bytes, (bytes::Bytes{0x01, 0x02, 0x03}));
     // Each catalog loader reads the shared config before the kernel read.
     EXPECT_EQ(repository.read_handles,
               (std::vector<std::string>{"protocols.cfg", "protocols.cfg",
@@ -124,8 +125,9 @@ TEST(EepromReadPlanGolden, Sh7055KlineMode4)
     EXPECT_EQ(plan->transport(), TransportKind::Kline);
     EXPECT_EQ(plan->target_id(), "sub_ecu_eeprom_denso_sh7055_kline");
     EXPECT_EQ(plan->mcu_name(), "SH7055");
-    EXPECT_EQ(plan->kernel().load_address, 0xFFFF6004u);
-    EXPECT_EQ(plan->kernel().bytes, (bytes::Bytes{0xaa, 0xbb}));
+    ASSERT_TRUE(plan->kernel().has_value());
+    EXPECT_EQ(plan->kernel()->load_address, 0xFFFF6004u);
+    EXPECT_EQ(plan->kernel()->bytes, (bytes::Bytes{0xaa, 0xbb}));
     EXPECT_EQ(repository.read_handles,
               (std::vector<std::string>{"protocols.cfg", "protocols.cfg",
                                         "kernels/ssmk_kline_sh7055.bin"}));
