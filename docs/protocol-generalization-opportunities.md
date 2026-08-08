@@ -75,3 +75,10 @@ The intended boundary is:
   and worker plumbing.
 - Keep protocol sequence and safety policy readable within each verified
   family unless repeated behavior is proven equivalent.
+
+The step 5 tail implements this condition as an ordering rule rather than a
+judgment call: within a clone cluster, each family is ported to a tested
+portable executor first, and only then is what is provably identical between
+the tested executors factored into a shared core. Extraction never happens
+against the untested Qt sources. See the
+[tail design](superpowers/specs/2026-08-08-step5-tail-flash-drain-design.md).
