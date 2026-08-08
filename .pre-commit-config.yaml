@@ -16,6 +16,11 @@ repos:
         language: system
         files: \.(h|hh|hpp|hxx)$
         entry: bash -c 'missing=$(grep -L "^#pragma once" "$@"); if [ -n "$missing" ]; then echo "$missing"; exit 1; fi' --
+      - id: lychee-version-sync
+        name: keep lychee LYCHEE_VERSION arg in sync with rev
+        language: system
+        files: \.pre-commit-config\.yaml$
+        entry: bash -c 'f="$1"; rev_ver=$(grep -oE "rev:[ ]lychee-v[0-9]+\.[0-9]+\.[0-9]+" "$f" | grep -oE "[0-9]+\.[0-9]+\.[0-9]+"); args_ver=$(grep -oE "LYCHEE_VERSION=[0-9]+\.[0-9]+\.[0-9]+" "$f" | grep -oE "[0-9]+\.[0-9]+\.[0-9]+"); if [ -z "$rev_ver" ]; then echo "lychee rev not found in $f"; exit 1; fi; if [ -z "$args_ver" ] || [ "$rev_ver" != "$args_ver" ]; then echo "lychee version mismatch in $f -- rev is lychee-v$rev_ver but args LYCHEE_VERSION is ${args_ver:-MISSING}, update both the rev and LYCHEE_VERSION lines together"; exit 1; fi' --
 
   - repo: https://github.com/lycheeverse/lychee.git
     rev: lychee-v0.24.2
