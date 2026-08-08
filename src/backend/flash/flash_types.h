@@ -113,4 +113,11 @@ using FamilyPlan = std::variant<
     DensoSh705xEepromKlinePlan,
     DensoSh705xEepromCanPlan>;
 
+// Whether validate_and_build requires FlashPlanFields::kernel to be set for
+// this family's plan type. Defaults true (fail-closed): a family that skips
+// the kernel must opt out explicitly, right here, next to its own plan
+// struct -- never by editing flash_validation.cpp.
+template <typename PlanT>
+inline constexpr bool family_requires_kernel_v = true;
+
 } // namespace fastecu::flash
