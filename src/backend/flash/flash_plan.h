@@ -28,8 +28,9 @@ struct FlashPlanFields
     std::vector<MemoryRegion> erase_regions;
     std::optional<bytes::Bytes> image;
     // Optional because not every family uploads one. The EEPROM pair loads a
-    // kernel file and uploads it; a future family may drive its own vendor
-    // bootloader and upload only compile-time constants instead. See
+    // kernel file and uploads it; the Mitsu Colt CAN family drives the ECU's
+    // own vendor bootloader and uploads only compile-time RAM helper routines
+    // that are protocol constants, not a loaded image. See
     // family_requires_kernel_v (flash_types.h) for which families require one.
     std::optional<KernelImage> kernel;
     FamilyPlan family_plan;

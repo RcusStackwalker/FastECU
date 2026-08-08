@@ -403,6 +403,8 @@ Result<FlashExecutionResult> DensoSh705xEepromKlineExecutor::execute(
 
     if (!kernel_alive)
     {
+        // Safe to dereference: build_eeprom_read_plan always sets a kernel, and
+        // check_family_transport_match above rejects any plan not built by it.
         if (Status uploaded = upload_kernel(kline_transport, clock, cancellation, events, kline_plan,
                                             *plan.kernel());
             !uploaded.has_value())
