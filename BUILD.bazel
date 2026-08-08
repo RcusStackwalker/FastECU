@@ -152,6 +152,17 @@ py_test(
 )
 
 py_test(
+    name = "legacy_flash_drain",
+    size = "small",
+    srcs = ["scripts/check-legacy-flash-drain.py"],
+    data = glob(
+        ["src/platform/desktop/common/flash/legacy/**/*.cpp"],
+        allow_empty = True,
+    ),
+    main = "scripts/check-legacy-flash-drain.py",
+)
+
+py_test(
     name = "openpty_includes",
     size = "small",
     srcs = ["scripts/check-openpty-includes.py"],
