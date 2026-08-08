@@ -45,6 +45,7 @@ using testing::Contains;
 using testing::Each;
 using testing::HasSubstr;
 using testing::IsEmpty;
+using testing::Not;
 using testing::Pair;
 
 constexpr std::string_view kProtocol = "mitsu_ecu_m32r_can";
@@ -80,6 +81,27 @@ fastecu::flash::FlashPlan readPlan(bool vendor = false)
     EXPECT_TRUE(plan.has_value()) << plan.error().detail;
     return std::move(*plan);
 }
+
+// A Write plan is what selects kSessionBootload, and kSessionBootload is the
+// only thing that reaches connect_bootloader()'s factory SecurityAccess arm
+// (legacy lines 131-165). The write path itself is not implemented yet, so
+// every test below drives the arm and then asserts the executor's final
+// Unsupported -- the handshake is fully exercised before that point.
+fastecu::flash::FlashPlan writePlan()
+{
+    auto plan = build_mitsu_colt_m32r_can_plan(
+        FlashOperation::Write, kProtocol, kMcu, /*use_vendor_challenge=*/false,
+        bytes::Bytes(MitsuColtCan::kTopRegionEnd, 0x00));
+    EXPECT_TRUE(plan.has_value()) << plan.error().detail;
+    return std::move(*plan);
+}
+
+// The 4 seed bytes the ECU returns in the tests below. Deliberately all
+// distinct and distinct from the surrounding framing bytes, so that reading
+// the seed from any offset other than the legacy `received.mid(6, 4)` yields
+// a different seed -- and therefore a different key on the wire, which the
+// scripted transport rejects.
+constexpr bytes::Byte kSeed[] = {0x11, 0x22, 0x33, 0x44};
 
 // Scripts the full chunked ReadMemoryByAddress sweep the executor must
 // perform over the plan's transfer region, filling every payload with `fill`.
@@ -415,6 +437,113 @@ TEST(MitsuColtM32rCanExecutor, ReadEmitsMonotonicProgress)
         EXPECT_GE(events.progress_calls[i].first, events.progress_calls[i - 1].first);
         EXPECT_EQ(events.progress_calls[i].second, length);
     }
+}
+
+TEST(MitsuColtM32rCanExecutor, WriteDrivesTheBootloadSessionThenFactorySecurityAccess)
+{
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+    auto plan = writePlan();
+
+    // Legacy line 82: a write selects kSessionBootload (0x85), not kSessionBasic.
+    transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
+        MitsuColtCan::kSessionBootload)));
+    transport.queueRead(response({0x50, 0x85}));
+
+    // Legacy lines 136-145: SID 0x27/5, answered with (0x27+0x40, 0x05) and a
+    // 4-byte seed at received.mid(6, 4).
+    transport.expectWrite(request(MitsuColtCan::buildSecurityAccessSeedRequest()));
+    transport.queueRead(response({0x67, 0x05, 0x11, 0x22, 0x33, 0x44}));
+
+    // Legacy lines 151-156: the key is seedKey(seed), and the request carries
+    // it verbatim. Scripting the exact bytes means a wrong seed offset or a
+    // wrong key derivation is rejected by the transport, not silently accepted.
+    transport.expectWrite(
+        request(MitsuColtCan::buildSecurityAccessKey(MitsuColtCan::seedKey(kSeed))));
+    transport.queueRead(response({0x67, 0x06}));
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    // The handshake completed; only the unimplemented write path stops it.
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Unsupported);
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Diagnostic session ok")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Requesting security seed...")));
+    // Pins both the mid(6, 4) offset and SsmProtocol::toHex's exact format.
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Received seed: 11 22 33 44 ")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, HasSubstr("Calculated seed key: "))));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Sending seed key to ECU...")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Security access ok")));
+}
+
+TEST(MitsuColtM32rCanExecutor, WriteRejectsASecuritySeedWithTheWrongSubfunction)
+{
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+    auto plan = writePlan();
+
+    transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
+        MitsuColtCan::kSessionBootload)));
+    transport.queueRead(response({0x50, 0x85}));
+
+    // Long enough and the right service, but subfunction 0x04 instead of the
+    // 0x05 legacy line 141 demands -- so the seed must be refused rather than
+    // read out of a frame that never carried one.
+    transport.expectWrite(request(MitsuColtCan::buildSecurityAccessSeedRequest()));
+    transport.queueRead(response({0x67, 0x04, 0x11, 0x22, 0x33, 0x44}));
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(transport.scriptConsumed()); // the key exchange never happens
+    // Legacy text, flash_ecu_mitsu_m32r_can_operation.cpp:143.
+    EXPECT_THAT(events.logs,
+                Contains(Pair(LogLevel::Error, "Wrong response from ECU: Not a valid answer")));
+    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Security access ok"))));
+}
+
+TEST(MitsuColtM32rCanExecutor, WriteRejectsASecurityKeyAnswerWithTheWrongSubfunction)
+{
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+    auto plan = writePlan();
+
+    transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
+        MitsuColtCan::kSessionBootload)));
+    transport.queueRead(response({0x50, 0x85}));
+
+    transport.expectWrite(request(MitsuColtCan::buildSecurityAccessSeedRequest()));
+    transport.queueRead(response({0x67, 0x05, 0x11, 0x22, 0x33, 0x44}));
+
+    // Right service, but the seed-request subfunction echoed back instead of
+    // the 0x06 legacy line 160 demands.
+    transport.expectWrite(
+        request(MitsuColtCan::buildSecurityAccessKey(MitsuColtCan::seedKey(kSeed))));
+    transport.queueRead(response({0x67, 0x05}));
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(transport.scriptConsumed());
+    // Legacy text, flash_ecu_mitsu_m32r_can_operation.cpp:162.
+    EXPECT_THAT(events.logs,
+                Contains(Pair(LogLevel::Error, "Wrong response from ECU: Not a valid answer")));
+    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Security access ok"))));
 }
 
 } // namespace
