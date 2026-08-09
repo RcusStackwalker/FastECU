@@ -72,7 +72,8 @@ Result<FlashPlan> validate_and_build(FlashPlanFields fields)
         }
     }
     const bool requires_kernel = std::visit(
-        []<typename T>(const T&) { return family_requires_kernel_v<T>; }, fields.family_plan);
+        []<typename T>(const T&)
+        { return family_requires_kernel_v<T>; }, fields.family_plan);
     if (requires_kernel && !fields.kernel.has_value())
     {
         return fail(ErrorKind::InvalidConfig, "family requires a kernel image");
