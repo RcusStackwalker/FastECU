@@ -448,7 +448,7 @@ Result<FlashExecutionResult> DensoSh705xEepromCanExecutor::execute(
 
     if (!kernel_alive)
     {
-        if (Status uploaded = upload_kernel(can_transport, clock, cancellation, events, can_plan, plan.kernel());
+        if (Status uploaded = upload_kernel(can_transport, clock, cancellation, events, can_plan, *plan.kernel());
             !uploaded.has_value())
         {
             Status close_status = can_transport.close();

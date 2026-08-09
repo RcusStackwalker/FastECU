@@ -404,7 +404,7 @@ Result<FlashExecutionResult> DensoSh705xEepromKlineExecutor::execute(
     if (!kernel_alive)
     {
         if (Status uploaded = upload_kernel(kline_transport, clock, cancellation, events, kline_plan,
-                                            plan.kernel());
+                                            *plan.kernel());
             !uploaded.has_value())
         {
             Status close_status = kline_transport.close();

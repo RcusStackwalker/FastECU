@@ -55,5 +55,11 @@ TEST(FlashTypesTest, EepromReadModeValuesMatchProtocolBytes)
     EXPECT_EQ(static_cast<std::uint8_t>(EepromReadMode::Mode4), 0x04);
 }
 
+TEST(FlashTypesTest, FamilyRequiresKernelDefaultsTrueForExistingFamilies)
+{
+    EXPECT_TRUE(family_requires_kernel_v<DensoSh705xEepromKlinePlan>);
+    EXPECT_TRUE(family_requires_kernel_v<DensoSh705xEepromCanPlan>);
+}
+
 } // namespace
 } // namespace fastecu::flash

@@ -35,6 +35,23 @@ FlashPlanFields valid_read_fields()
     };
 }
 
+FlashPlanFields valid_can_read_fields()
+{
+    auto fields = valid_read_fields();
+    fields.family = FlashFamily::DensoSh705xEepromCan;
+    fields.transport = TransportKind::CanIso15765;
+    fields.kernel = KernelImage{.id = "k", .load_address = 0xffff3000, .bytes = {0x01}};
+    fields.family_plan = DensoSh705xEepromCanPlan{
+        .mode = EepromReadMode::Mode2,
+        .security = DensoSecurityVariant::Stock,
+        .request_id = 0x7e0,
+        .response_id = 0x7e8,
+        .bitrate = 500000,
+        .extended_id = false,
+    };
+    return fields;
+}
+
 TEST(FlashValidationTest, ValidReadFieldsProduceAPlan)
 {
     auto plan = validate_and_build(valid_read_fields());
@@ -96,17 +113,45 @@ TEST(FlashValidationTest, ReadWithImagePresentIsRejected)
 TEST(FlashValidationTest, EmptyKernelIdIsRejected)
 {
     auto fields = valid_read_fields();
-    fields.kernel.id.clear();
+    fields.kernel->id.clear();
 
-    EXPECT_EQ(validate_and_build(std::move(fields)).error().kind, ErrorKind::InvalidConfig);
+    auto plan = validate_and_build(std::move(fields));
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
 }
 
 TEST(FlashValidationTest, EmptyKernelBytesIsRejected)
 {
     auto fields = valid_read_fields();
-    fields.kernel.bytes.clear();
+    fields.kernel->bytes.clear();
 
-    EXPECT_EQ(validate_and_build(std::move(fields)).error().kind, ErrorKind::InvalidConfig);
+    auto plan = validate_and_build(std::move(fields));
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+}
+
+TEST(FlashValidationTest, MissingKernelIsRejectedForKlineFamilyByDefault)
+{
+    auto fields = valid_read_fields();
+    fields.kernel = std::nullopt;
+
+    auto plan = validate_and_build(std::move(fields));
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+}
+
+TEST(FlashValidationTest, MissingKernelIsRejectedForCanFamilyByDefault)
+{
+    auto fields = valid_can_read_fields();
+    fields.kernel = std::nullopt;
+
+    auto plan = validate_and_build(std::move(fields));
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
 }
 
 TEST(FlashValidationTest, FamilyPlanTagMismatchWithTransportIsRejected)
@@ -133,12 +178,15 @@ TEST(FlashValidationTest, DuplicateConfirmationIdsAreRejected)
     EXPECT_EQ(validate_and_build(std::move(fields)).error().kind, ErrorKind::InvalidConfig);
 }
 
-TEST(FlashValidationTest, ZeroConfirmationsIsRejected)
+TEST(FlashValidationTest, ZeroConfirmationsIsNowAccepted)
 {
     auto fields = valid_read_fields();
     fields.confirmations.clear();
 
-    EXPECT_EQ(validate_and_build(std::move(fields)).error().kind, ErrorKind::InvalidConfig);
+    auto plan = validate_and_build(std::move(fields));
+
+    ASSERT_TRUE(plan.has_value());
+    EXPECT_TRUE(plan->confirmations().empty());
 }
 
 } // namespace
