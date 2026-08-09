@@ -14,6 +14,9 @@ package(default_visibility = [
     # non-owning SerialPortActions* constructor) to drive their FlashWorker
     # attempts.
     "//src/ui/desktop/flash/eeprom:__pkg__",
+    # Same reason, for the rewritten Mitsu Colt M32R CAN dialog (step 5 tail,
+    # wave 0).
+    "//src/ui/desktop/flash/ecu:__pkg__",
 ])
 
 # Desktop K-Line/CAN flash transport adapters (step 5c, Task 12): a

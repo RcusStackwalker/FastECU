@@ -48,10 +48,13 @@ for the `FileActions` breakdown:
   [5e design](superpowers/specs/2026-08-07-step5e-backend-portability-closure-design.md).
 
 Steps 6 (thin desktop shell) and 7 (Android seam) have not started. The
-per-family flash tail — migrating the remaining flash families off
-`SerialPortActions` and draining
-`//src/platform/desktop/common/flash/legacy:__pkg__` from the
-`serial_qt_compat` allowlist — has also not started.
+per-family flash tail is under way — see the
+[tail design](superpowers/specs/2026-08-08-step5-tail-flash-drain-design.md)
+for the eight-wave sequencing:
+
+- Wave 0 `FlashEcuMitsuM32rCan` — merged 2026-08-08. Installs
+  `//:legacy_flash_drain`, taking it from 27 families to 26; waves 1-7
+  ratchet the rest down to zero.
 
 ## Verified Current Baseline
 

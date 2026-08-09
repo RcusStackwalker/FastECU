@@ -39,9 +39,10 @@ cc_library(
     deps = ["//src/algorithms/protocol"],
 )
 
-# TRANSITIONAL Qt shim: QByteArray/QVector overloads delegating to :colt, for
-# callers not yet converted (src/backend/protocol/mitsu_colt_can_cdbg_driver
-# and src/platform/desktop/common/flash/legacy/ecu/flash_ecu_mitsu_m32r_can_operation).
+# TRANSITIONAL Qt shim: QByteArray/QVector overloads delegating to :colt, kept
+# alive by this package's own :test_mitsu_colt_can_protocol,
+# :test_mitsu_colt_can_vendor_ext_protocol, and :test_mitsu_colt_can_cdbg_protocol,
+# which still assert against the QByteArray-based wrappers below.
 cc_library(
     name = "qt_compat",
     hdrs = ["qt_colt.h"],

@@ -448,7 +448,14 @@ Result<FlashExecutionResult> DensoSh705xEepromCanExecutor::execute(
 
     if (!kernel_alive)
     {
-        if (Status uploaded = upload_kernel(can_transport, clock, cancellation, events, can_plan, *plan.kernel());
+        // Safe to dereference: this executor only ever runs against
+        // DensoSh705xEepromCan plans, and validate_and_build rejects any plan
+        // for that family whose kernel is absent (flash_validation.cpp:
+        // "family requires a kernel image"). check_family_transport_match
+        // above confirms the family/transport tag; it does not itself
+        // guarantee a kernel -- validate_and_build is what does.
+        if (Status uploaded =
+                upload_kernel(can_transport, clock, cancellation, events, can_plan, *plan.kernel());
             !uploaded.has_value())
         {
             Status close_status = can_transport.close();

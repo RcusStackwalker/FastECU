@@ -48,6 +48,8 @@ genquery(
         "//src/backend/flash/eeprom:eeprom_read_plan",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_kline",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_can",
+        "//src/backend/flash/ecu:mitsu_colt_m32r_can_plan",
+        "//src/backend/flash/ecu:mitsu_colt_m32r_can_executor",
         "//src/backend/protocol:protocol",
         "//src/backend/config:config_paths",
         "//src/backend/config:app_config",
@@ -85,6 +87,8 @@ genquery(
         "//src/backend/flash/eeprom:eeprom_read_plan",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_kline",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_can",
+        "//src/backend/flash/ecu:mitsu_colt_m32r_can_plan",
+        "//src/backend/flash/ecu:mitsu_colt_m32r_can_executor",
         "//src/backend/protocol",
         "//src/backend/config:config_paths",
         "//src/backend/config:app_config",
@@ -134,6 +138,7 @@ py_test(
         "//src/backend/config:BUILD.bazel",
         "//src/backend/definition:BUILD.bazel",
         "//src/backend/flash:BUILD.bazel",
+        "//src/backend/flash/ecu:BUILD.bazel",
         "//src/backend/flash/eeprom:BUILD.bazel",
         "//src/backend/logging:BUILD.bazel",
         "//src/backend/logging/protocols:BUILD.bazel",
@@ -149,6 +154,14 @@ py_test(
     srcs = ["scripts/check-serial-compat-allowlist.py"],
     data = ["//src/platform/desktop/common/serial:BUILD.bazel"],
     main = "scripts/check-serial-compat-allowlist.py",
+)
+
+py_test(
+    name = "legacy_flash_drain",
+    size = "small",
+    srcs = ["scripts/check-legacy-flash-drain.py"],
+    data = ["//src/platform/desktop/common/flash/legacy:family_operation_sources"],
+    main = "scripts/check-legacy-flash-drain.py",
 )
 
 py_test(
