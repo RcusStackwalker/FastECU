@@ -8,6 +8,15 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
+# root //:portable_closure reads this file as `data` to check that portable
+# flash targets stay Qt-free; that reference is plumbing, not a layer
+# dependency, so export it to the root package specifically rather than
+# widen the package's general default_visibility.
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//:__pkg__"],
+)
+
 # Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
     name = "mitsu_colt_m32r_can_plan",

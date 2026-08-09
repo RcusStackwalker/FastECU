@@ -138,6 +138,7 @@ py_test(
         "//src/backend/config:BUILD.bazel",
         "//src/backend/definition:BUILD.bazel",
         "//src/backend/flash:BUILD.bazel",
+        "//src/backend/flash/ecu:BUILD.bazel",
         "//src/backend/flash/eeprom:BUILD.bazel",
         "//src/backend/logging:BUILD.bazel",
         "//src/backend/logging/protocols:BUILD.bazel",
@@ -159,10 +160,7 @@ py_test(
     name = "legacy_flash_drain",
     size = "small",
     srcs = ["scripts/check-legacy-flash-drain.py"],
-    data = glob(
-        ["src/platform/desktop/common/flash/legacy/**/*.cpp"],
-        allow_empty = True,
-    ),
+    data = ["//src/platform/desktop/common/flash/legacy:family_operation_sources"],
     main = "scripts/check-legacy-flash-drain.py",
 )
 

@@ -78,3 +78,19 @@ fastecu_qttest(
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
     ],
 )
+
+# root //:legacy_flash_drain reads these as `data`: a glob in the root
+# BUILD.bazel cannot cross into this package's own boundary, so the ratchet
+# needs its inputs exported from here instead.
+filegroup(
+    name = "family_operation_sources",
+    srcs = glob([
+        "*.cpp",
+        "bdm/*.cpp",
+        "bootmode/*.cpp",
+        "ecu/*.cpp",
+        "jtag/*.cpp",
+        "tcu/*.cpp",
+    ]),
+    visibility = ["//:__pkg__"],
+)
