@@ -24,7 +24,7 @@ cc_library(
     hdrs = ["mitsu_colt_m32r_can_plan.h"],
     deps = [
         "//src/algorithms/protocol",
-        "//src/algorithms/protocol/colt",
+        "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
         "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_plan",
@@ -39,7 +39,7 @@ fastecu_portable_gtest(
     srcs = ["mitsu_colt_m32r_can_plan_test.cpp"],
     deps = [
         ":mitsu_colt_m32r_can_plan",
-        "//src/algorithms/protocol/colt",
+        "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
     ],
 )
 
@@ -51,7 +51,8 @@ cc_library(
     deps = [
         "//src/algorithms/diagnostics",
         "//src/algorithms/protocol",
-        "//src/algorithms/protocol/colt",
+        "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
+        "//src/algorithms/protocol/colt:mitsu_colt_can_vendor_ext_protocol",
         "//src/algorithms/protocol/ssm",
         "//src/backend/flash:flash_executor",
         "//src/backend/flash:flash_plan",
@@ -66,7 +67,8 @@ fastecu_portable_gtest(
     deps = [
         ":mitsu_colt_m32r_can_executor",
         ":mitsu_colt_m32r_can_plan",
-        "//src/algorithms/protocol/colt",
+        "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
+        "//src/algorithms/protocol/colt:mitsu_colt_can_vendor_ext_protocol",
         "//src/backend/flash:flash_executor",
         "//src/backend/flash:flash_validation",
         "//src/backend/flash/testing:scripted_flash_transports",
