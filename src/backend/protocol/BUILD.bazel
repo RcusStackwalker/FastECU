@@ -24,7 +24,7 @@ cc_library(
     hdrs = glob(["*.h"]),
     deps = [
         "//src/algorithms/protocol",
-        "//src/algorithms/protocol/colt",
+        "//src/algorithms/protocol/colt:mitsu_colt_can_cdbg_protocol",
         "//src/algorithms/protocol/mut_dma",
         "//src/backend/ports",
     ],

@@ -19,17 +19,23 @@ exports_files(
 )
 
 cc_library(
-    name = "colt",
-    srcs = [
-        "mitsu_colt_can_cdbg_protocol.cpp",
-        "mitsu_colt_can_protocol.cpp",
-        "mitsu_colt_can_vendor_ext_protocol.cpp",
-    ],
-    hdrs = [
-        "mitsu_colt_can_cdbg_protocol.h",
-        "mitsu_colt_can_protocol.h",
-        "mitsu_colt_can_vendor_ext_protocol.h",
-    ],
+    name = "mitsu_colt_can_protocol",
+    srcs = ["mitsu_colt_can_protocol.cpp"],
+    hdrs = ["mitsu_colt_can_protocol.h"],
+    deps = ["//src/algorithms/protocol"],
+)
+
+cc_library(
+    name = "mitsu_colt_can_vendor_ext_protocol",
+    srcs = ["mitsu_colt_can_vendor_ext_protocol.cpp"],
+    hdrs = ["mitsu_colt_can_vendor_ext_protocol.h"],
+    deps = ["//src/algorithms/protocol"],
+)
+
+cc_library(
+    name = "mitsu_colt_can_cdbg_protocol",
+    srcs = ["mitsu_colt_can_cdbg_protocol.cpp"],
+    hdrs = ["mitsu_colt_can_cdbg_protocol.h"],
     deps = ["//src/algorithms/protocol"],
 )
 
@@ -37,7 +43,7 @@ fastecu_portable_gtest(
     name = "test_mitsu_colt_can_protocol",
     srcs = ["mitsu_colt_can_protocol_test.cpp"],
     deps = [
-        ":colt",
+        ":mitsu_colt_can_protocol",
         "//src/algorithms/protocol/testing:byte_test_utils",
     ],
 )
@@ -46,7 +52,7 @@ fastecu_portable_gtest(
     name = "test_mitsu_colt_can_vendor_ext_protocol",
     srcs = ["mitsu_colt_can_vendor_ext_protocol_test.cpp"],
     deps = [
-        ":colt",
+        ":mitsu_colt_can_vendor_ext_protocol",
         "//src/algorithms/protocol/testing:byte_test_utils",
     ],
 )
@@ -54,5 +60,5 @@ fastecu_portable_gtest(
 fastecu_portable_gtest(
     name = "test_mitsu_colt_can_cdbg_protocol",
     srcs = ["mitsu_colt_can_cdbg_protocol_test.cpp"],
-    deps = [":colt"],
+    deps = [":mitsu_colt_can_cdbg_protocol"],
 )
