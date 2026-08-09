@@ -1,5 +1,4 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
 package(default_visibility = [
@@ -21,31 +20,17 @@ exports_files(
 
 cc_library(
     name = "colt",
-    srcs = glob(
-        ["*.cpp"],
-        exclude = [
-            "*_test.cpp",
-            "qt_*.cpp",
-        ],
-    ),
-    hdrs = glob(
-        ["*.h"],
-        exclude = [
-            "*_test.h",
-            "qt_*.h",
-        ],
-    ),
-    deps = ["//src/algorithms/protocol"],
-)
-
-cc_test(
-    name = "colt_test",
-    size = "small",
-    srcs = ["colt_test.cpp"],
-    deps = [
-        ":colt",
-        "@googletest//:gtest_main",
+    srcs = [
+        "mitsu_colt_can_cdbg_protocol.cpp",
+        "mitsu_colt_can_protocol.cpp",
+        "mitsu_colt_can_vendor_ext_protocol.cpp",
     ],
+    hdrs = [
+        "mitsu_colt_can_cdbg_protocol.h",
+        "mitsu_colt_can_protocol.h",
+        "mitsu_colt_can_vendor_ext_protocol.h",
+    ],
+    deps = ["//src/algorithms/protocol"],
 )
 
 fastecu_portable_gtest(

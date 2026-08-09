@@ -21,13 +21,7 @@ TEST(TestMitsuColtCanProtocol, seed_key_accepts_byte_view_and_returns_bytes)
 TEST(TestMitsuColtCanProtocol, checksum_sums_every_byte_with_wraparound)
 {
     ASSERT_EQ(checksum(bytesFromHex("01020304")), std::uint16_t(0x000A));
-    ASSERT_EQ(checksum(bytes::Bytes(200, char(0xFF))), std::uint16_t(0xC738));
-}
-TEST(TestMitsuColtCanProtocol, checksum_accepts_byte_view)
-{
-    ASSERT_EQ(checksum(bytesFromHex("01020304")), std::uint16_t(0x000A));
-    const bytes::Bytes data(200, bytes::Byte{0xFF});
-    ASSERT_EQ(checksum(data), std::uint16_t(0xC738));
+    ASSERT_EQ(checksum(bytes::Bytes(200, 0xFF)), std::uint16_t(0xC738));
 }
 TEST(TestMitsuColtCanProtocol, request_download_frame_layout)
 {
