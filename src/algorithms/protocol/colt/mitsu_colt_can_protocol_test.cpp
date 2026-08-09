@@ -29,11 +29,11 @@ TEST(TestMitsuColtCanProtocol, checksum_accepts_byte_view)
     const bytes::Bytes data(200, bytes::Byte{0xFF});
     ASSERT_EQ(checksum(data), std::uint16_t(0xC738));
 }
-TEST(TestMitsuColtCanProtocol, byte_native_request_download_frame_layout)
+TEST(TestMitsuColtCanProtocol, request_download_frame_layout)
 {
     ASSERT_EQ(buildRequestDownload(0x008000, 0x000100), bytesFromHex("3400800000000100"));
 }
-TEST(TestMitsuColtCanProtocol, byte_native_transfer_data_frames_chunk_at_256_bytes)
+TEST(TestMitsuColtCanProtocol, transfer_data_frames_chunk_at_256_bytes)
 {
     bytes::Bytes payload(300, bytes::Byte{0x5A});
     const std::vector<bytes::Bytes> frames = buildTransferDataFrames(payload);
@@ -42,29 +42,29 @@ TEST(TestMitsuColtCanProtocol, byte_native_transfer_data_frames_chunk_at_256_byt
     ASSERT_EQ(frames.at(0).at(0), kServiceTransferData);
     ASSERT_EQ(frames.at(1).size(), std::size_t(45)); // SID + 44 remaining bytes
 }
-TEST(TestMitsuColtCanProtocol, byte_native_routine_check_crc_selects_flash_vs_memory)
+TEST(TestMitsuColtCanProtocol, routine_check_crc_selects_flash_vs_memory)
 {
     ASSERT_EQ(buildRoutineCheckCrc(0x008000), bytesFromHex("31E102")); // < 0x800000 -> flash (2)
     ASSERT_EQ(buildRoutineCheckCrc(0x805568), bytesFromHex("31E101")); // >= 0x800000 -> memory (1)
 }
-TEST(TestMitsuColtCanProtocol, byte_native_routine_erase_frame_is_two_bytes_no_selector)
+TEST(TestMitsuColtCanProtocol, routine_erase_frame_is_two_bytes_no_selector)
 {
     ASSERT_EQ(buildRoutineErase(), bytesFromHex("31E0"));
 }
-TEST(TestMitsuColtCanProtocol, byte_native_request_reflash_unlock_frame_matches_source_bytes)
+TEST(TestMitsuColtCanProtocol, request_reflash_unlock_frame_matches_source_bytes)
 {
     ASSERT_EQ(buildRequestReflashUnlock(), bytesFromHex("3B9A01015263757330300001"));
 }
-TEST(TestMitsuColtCanProtocol, byte_native_read_memory_by_address_frame_layout)
+TEST(TestMitsuColtCanProtocol, read_memory_by_address_frame_layout)
 {
     ASSERT_EQ(buildReadMemoryByAddress(0x008000, 192), bytesFromHex("23008000C0"));
 }
-TEST(TestMitsuColtCanProtocol, byte_native_diagnostic_session_frame_layout)
+TEST(TestMitsuColtCanProtocol, diagnostic_session_frame_layout)
 {
     ASSERT_EQ(buildDiagnosticSession(kSessionBootload), bytesFromHex("1085"));
     ASSERT_EQ(buildDiagnosticSession(kSessionBasic), bytesFromHex("1081"));
 }
-TEST(TestMitsuColtCanProtocol, byte_native_security_access_frame_layout)
+TEST(TestMitsuColtCanProtocol, security_access_frame_layout)
 {
     ASSERT_EQ(buildSecurityAccessSeedRequest(), bytesFromHex("2705"));
     const bytes::Bytes key = bytesFromHex("9F720606");
