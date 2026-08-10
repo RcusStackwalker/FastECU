@@ -1,6 +1,7 @@
 #include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_mitsu_m32r_kline_operation.h"
 #include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <QElapsedTimer>
@@ -192,12 +193,12 @@ int FlashEcuSubaruMitsuM32rKlineOperation::connect_bootloader()
     seed.append(received.at(8));
     seed.append(received.at(9));
 
-    msg = SsmProtocol::toHex(seed);
+    msg = bytes::toHex(seed);
     emit LOG_I("Received seed: " + msg, true, true);
 
     seed_key = generate_seed_key(seed);
 
-    msg = SsmProtocol::toHex(seed_key);
+    msg = bytes::toHex(seed_key);
     emit LOG_I("Calculated seed key: " + msg, true, true);
 
     emit LOG_I("Sending seed key to ECU", true, true);

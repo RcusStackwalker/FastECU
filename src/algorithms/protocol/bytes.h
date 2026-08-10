@@ -2,9 +2,11 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <cstdio>
 #include <algorithm>
 #include <numeric>
 #include <span>
+#include <string>
 #include <vector>
 
 namespace bytes
@@ -244,6 +246,21 @@ inline Byte sum8(ByteView bytes, std::size_t from, std::size_t len)
 inline Byte sum8(ByteView bytes)
 {
     return sum8(bytes, 0, bytes.size());
+}
+
+// Renders each byte as two lowercase hex digits followed by a space
+// (e.g. "80 01 02 ff "). Debug-log formatting, not a protocol detail.
+inline std::string toHex(ByteView bytes)
+{
+    std::string msg;
+    msg.reserve(bytes.size() * 3);
+    char hex[4] = {};
+    for (const Byte byte : bytes)
+    {
+        std::snprintf(hex, sizeof(hex), "%02x ", byte);
+        msg.append(hex);
+    }
+    return msg;
 }
 
 } // namespace bytes

@@ -109,7 +109,7 @@ int FlashTcuSubaruHitachiM32rCanOperation::connect_bootloader()
 
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(serial_read_timeout);
-    emit LOG_I("Response: " + SsmProtocol::toHex(received), true, true);
+    emit LOG_I("Response: " + bytes::toHex(received), true, true);
     if (received.length() > 7)
     {
         if ((uint8_t)received.at(4) == 0x71 && (uint8_t)received.at(5) == 0x02 && (uint8_t)received.at(6) == 0x02 && (uint8_t)received.at(7) == 0x03)
@@ -337,7 +337,7 @@ int FlashTcuSubaruHitachiM32rCanOperation::connect_bootloader()
     serial->write_serial_data_echo_check(output);
     delay(200);
     received = serial->read_serial_data(serial_read_timeout);
-    emit LOG_I("Response: " + SsmProtocol::toHex(received), true, true);
+    emit LOG_I("Response: " + bytes::toHex(received), true, true);
     if ((uint8_t)received.at(4) != 0x50 || (uint8_t)received.at(5) != 0x02)
     {
         emit LOG_I("Bad response to jumping to onboard kernel", true, true);
@@ -356,7 +356,7 @@ int FlashTcuSubaruHitachiM32rCanOperation::connect_bootloader()
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
-    emit LOG_I("Response: " + SsmProtocol::toHex(received), true, true);
+    emit LOG_I("Response: " + bytes::toHex(received), true, true);
     if (received.length() > 7)
     {
         if ((uint8_t)received.at(4) == 0x71 && (uint8_t)received.at(5) == 0x02 && (uint8_t)received.at(6) == 0x02 && (uint8_t)received.at(7) == 0x03)
@@ -436,7 +436,7 @@ int FlashTcuSubaruHitachiM32rCanOperation::read_mem(uint32_t start_addr, uint32_
 
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(serial_read_timeout);
-    emit LOG_I("Response: " + SsmProtocol::toHex(received), true, true);
+    emit LOG_I("Response: " + bytes::toHex(received), true, true);
     if (received.length() > 7)
     {
         if ((uint8_t)received.at(4) != 0x74 || (uint8_t)received.at(5) != 0x20 || (uint8_t)received.at(6) != 0x01 || (uint8_t)received.at(7) != 0x04)
@@ -494,7 +494,7 @@ int FlashTcuSubaruHitachiM32rCanOperation::read_mem(uint32_t start_addr, uint32_
 
         serial->write_serial_data_echo_check(output);
         received = serial->read_serial_data(serial_read_timeout);
-        emit LOG_I("Response: " + SsmProtocol::toHex(received), true, true);
+        emit LOG_I("Response: " + bytes::toHex(received), true, true);
         if (received.length() > 4)
         {
             if ((uint8_t)received.at(4) != 0xF7)
@@ -517,7 +517,7 @@ int FlashTcuSubaruHitachiM32rCanOperation::read_mem(uint32_t start_addr, uint32_
         pagedata.clear();
         pagedata = received.remove(0, 5);
 
-        emit LOG_I("Received pagedata: " + SsmProtocol::toHex(pagedata), true, true);
+        emit LOG_I("Received pagedata: " + bytes::toHex(pagedata), true, true);
         mapdata.append(pagedata);
 
         // don't count skipped first bytes //
@@ -948,7 +948,7 @@ int FlashTcuSubaruHitachiM32rCanOperation::erase_mem()
     // should there be a QTime delay to wait for erasing process?
 
     received = serial->read_serial_data(200);
-    emit LOG_I("Response: " + SsmProtocol::toHex(received), true, true);
+    emit LOG_I("Response: " + bytes::toHex(received), true, true);
     if ((uint8_t)received.at(4) != 0x31 || (uint8_t)received.at(5) != 0x02 || (uint8_t)received.at(6) != 0x01)
     {
         emit LOG_I("Erasing error! Do not panic, do not reset the TCU immediately. The kernel is most likely still running and receiving commands!", true, true);

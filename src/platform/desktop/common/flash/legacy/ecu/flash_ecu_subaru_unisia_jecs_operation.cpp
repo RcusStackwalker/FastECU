@@ -1,6 +1,6 @@
 #include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_unisia_jecs_operation.h"
 #include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
-#include "src/algorithms/protocol/ssm/ssm_protocol.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <QElapsedTimer>
@@ -125,7 +125,7 @@ int FlashEcuSubaruUnisiaJecsOperation::read_mem(uint32_t start_addr, uint32_t le
         output.append((uint8_t)(addr & 0xFF));
         output.append((uint8_t)(0x00 & 0xFF));
 
-        emit LOG_D("Write data: " + SsmProtocol::toHex(output), true, true);
+        emit LOG_D("Write data: " + bytes::toHex(output), true, true);
         serial->write_serial_data(output);
         delay(45);
 

@@ -1,6 +1,7 @@
 #include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.h"
 #include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
-#include "src/algorithms/protocol/ssm/ssm_protocol.h"
+#include "src/algorithms/checksum/qt_checksum.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <QElapsedTimer>
@@ -137,7 +138,7 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::connect_bootloader()
 
     if (received.length() < 3 || !check_received_message(bootloader_init_response_wrx02_ok, received))
     {
-        emit LOG_E("Bad response from bootloader: " + SsmProtocol::toHex(received), true, true);
+        emit LOG_E("Bad response from bootloader: " + bytes::toHex(received), true, true);
     }
     else
     {
@@ -261,7 +262,7 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::upload_kernel(const QString& kern
     output.append((uint8_t)len & 0xFF);
 
     output.append(pl_encr);
-    chk_sum = SsmProtocol::checksum(output, true);
+    chk_sum = fastecu::checksum::checksum8(output, true);
     output.append((uint8_t)chk_sum);
 
     emit LOG_I("Start sending kernel... please wait...", true, true);
@@ -390,7 +391,7 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::read_mem(uint32_t start_addr, uin
         output.append((uint8_t)addr & 0xFF);
         output.append((uint8_t)(pagesize >> 8) & 0xFF);
         output.append((uint8_t)pagesize & 0xFF);
-        chk_sum = SsmProtocol::checksum(output, false);
+        chk_sum = fastecu::checksum::checksum8(output, false);
         output.append((uint8_t)chk_sum);
         received = serial->write_serial_data_echo_check(output);
         delay(10);
@@ -650,7 +651,7 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::check_romcrc(const uint8_t *src, 
     output.append((uint8_t)(pagesize >> 16) & 0xFF);
     output.append((uint8_t)(pagesize >> 8) & 0xFF);
     output.append((uint8_t)pagesize & 0xFF);
-    chksum = SsmProtocol::checksum(output, false);
+    chksum = fastecu::checksum::checksum8(output, false);
     output.append((uint8_t)chksum & 0xFF);
     // delay(50);
     received = serial->write_serial_data_echo_check(output);
@@ -685,7 +686,7 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::check_romcrc(const uint8_t *src, 
     // received.remove(received.length() - 1, 1);
 
     ecucrc32 = 0;
-    imgcrc32 = SsmProtocol::crc32(src, pagesize);
+    imgcrc32 = fastecu::checksum::crc32(src, pagesize);
     if (received.length() > 3)
     {
         ecucrc32 = (uint8_t)received.at(5) << 24 | (uint8_t)received.at(6) << 16 | (uint8_t)received.at(7) << 8 | (uint8_t)received.at(8);
@@ -729,7 +730,7 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::init_flash_write()
     output.append((uint8_t)((datalen + 1) >> 8) & 0xFF);
     output.append((uint8_t)(datalen + 1) & 0xFF);
     output.append((uint8_t)(SUB_KERNEL_GET_MAX_MSG_SIZE & 0xFF));
-    chksum = SsmProtocol::checksum(output, false);
+    chksum = fastecu::checksum::checksum8(output, false);
     output.append((uint8_t)chksum & 0xFF);
     received = serial->write_serial_data_echo_check(output);
 
@@ -764,7 +765,7 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::init_flash_write()
     output.append((uint8_t)((datalen + 1) >> 8) & 0xFF);
     output.append((uint8_t)(datalen + 1) & 0xFF);
     output.append((uint8_t)(SUB_KERNEL_GET_MAX_BLK_SIZE & 0xFF));
-    chksum = SsmProtocol::checksum(output, false);
+    chksum = fastecu::checksum::checksum8(output, false);
     output.append((uint8_t)chksum & 0xFF);
     received = serial->write_serial_data_echo_check(output);
 
@@ -809,7 +810,7 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::init_flash_write()
     output.append((uint8_t)((datalen + 1) >> 8) & 0xFF);
     output.append((uint8_t)(datalen + 1) & 0xFF);
     output.append((uint8_t)(SUB_KERNEL_CMD & 0xFF));
-    chksum = SsmProtocol::checksum(output, false);
+    chksum = fastecu::checksum::checksum8(output, false);
     output.append((uint8_t)chksum & 0xFF);
     received = serial->write_serial_data_echo_check(output);
 
@@ -884,7 +885,7 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::reflash_block(const uint8_t *newd
     output.append((uint8_t)((datalen + 1) >> 8) & 0xFF);
     output.append((uint8_t)(datalen + 1) & 0xFF);
     output.append((uint8_t)(SUB_KERNEL_PROG_VOLT & 0xFF));
-    chksum = SsmProtocol::checksum(output, false);
+    chksum = fastecu::checksum::checksum8(output, false);
     output.append((uint8_t)chksum & 0xFF);
     received = serial->write_serial_data_echo_check(output);
 
@@ -960,7 +961,7 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::flash_block(const uint8_t *src, u
         output.append((uint8_t)(start >> 16) & 0xFF);
         output.append((uint8_t)(start >> 8) & 0xFF);
         output.append((uint8_t)start & 0xFF);
-        chksum = SsmProtocol::checksum(output, false);
+        chksum = fastecu::checksum::checksum8(output, false);
         output.append((uint8_t)chksum & 0xFF);
         received = serial->write_serial_data_echo_check(output);
 
@@ -973,7 +974,7 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::flash_block(const uint8_t *src, u
             {
                 emit LOG_I("", false, true);
                 emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
-                emit LOG_E("Response: " + SsmProtocol::toHex(received), true, true);
+                emit LOG_E("Response: " + bytes::toHex(received), true, true);
                 return STATUS_ERROR;
             }
         }
@@ -981,12 +982,12 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::flash_block(const uint8_t *src, u
         {
             emit LOG_I("", false, true);
             emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
-            emit LOG_E("Response: " + SsmProtocol::toHex(received), true, true);
+            emit LOG_E("Response: " + bytes::toHex(received), true, true);
             return STATUS_ERROR;
         }
 
         emit LOG_I(" erased", false, true);
-        // emit LOG_E("Wrong response from ECU: " + SsmProtocol::toHex(received), true, true);
+        // emit LOG_E("Wrong response from ECU: " + bytes::toHex(received), true, true);
         // return STATUS_ERROR;
     }
 
@@ -1013,7 +1014,7 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::flash_block(const uint8_t *src, u
         {
             output.append(src[i]);
         }
-        chksum = SsmProtocol::checksum(output, false);
+        chksum = fastecu::checksum::checksum8(output, false);
         output.append((uint8_t)chksum & 0xFF);
         serial->write_serial_data_echo_check(output);
 
@@ -1071,7 +1072,7 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::flash_block(const uint8_t *src, u
         if ((flashblockstart + flashblocksize) == start)
         {
             emit LOG_I("Write complete, validating... ", true, true);
-            imgcrc32 = SsmProtocol::crc32(&src[flashblockstart], flashblocksize);
+            imgcrc32 = fastecu::checksum::crc32(&src[flashblockstart], flashblocksize);
 
             uint8_t SUB_KERNEL_CMD = 0;
             if (test_write)
@@ -1100,7 +1101,7 @@ int FlashEcuSubaruDensoMC68HC16Y5_02Operation::flash_block(const uint8_t *src, u
             output.append((uint8_t)(imgcrc32 >> 16) & 0xFF);
             output.append((uint8_t)(imgcrc32 >> 8) & 0xFF);
             output.append((uint8_t)imgcrc32 & 0xFF);
-            chksum = SsmProtocol::checksum(output, false);
+            chksum = fastecu::checksum::checksum8(output, false);
             output.append((uint8_t)chksum & 0xFF);
             received = serial->write_serial_data_echo_check(output);
 
@@ -1153,7 +1154,7 @@ QByteArray FlashEcuSubaruDensoMC68HC16Y5_02Operation::request_kernel_id()
     output.append((uint8_t)((datalen + 1) >> 8) & 0xFF);
     output.append((uint8_t)(datalen + 1) & 0xFF);
     output.append((uint8_t)(SUB_KERNEL_ID & 0xFF));
-    chksum = SsmProtocol::checksum(output, false);
+    chksum = fastecu::checksum::checksum8(output, false);
     output.append((uint8_t)chksum & 0xFF);
     serial->write_serial_data_echo_check(output);
 

@@ -1,6 +1,7 @@
 #include "src/platform/desktop/common/flash/legacy/tcu/flash_tcu_cvt_subaru_mitsu_mh8111_can_operation.h"
 #include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <QElapsedTimer>
@@ -378,7 +379,7 @@ int FlashTcuCvtSubaruMitsuMH8111CanOperation::read_mem(uint32_t start_addr, uint
     output.append((uint8_t)0x00);
     output.append((uint8_t)0x00);
 
-    emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
+    emit LOG_I("Sent: " + bytes::toHex(output), true, true);
     serial->write_serial_data_echo_check(output);
     delay(50);
     received = serial->read_serial_data(serial_read_timeout);
@@ -433,7 +434,7 @@ int FlashTcuCvtSubaruMitsuMH8111CanOperation::read_mem(uint32_t start_addr, uint
         output[5] = (uint8_t)((addr >> 16) & 0xFF);
         output[6] = (uint8_t)((addr >> 8) & 0xFF);
         output[7] = (uint8_t)(addr & 0xFF);
-        emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
+        emit LOG_I("Sent: " + bytes::toHex(output), true, true);
         serial->write_serial_data_echo_check(output);
         received = serial->read_serial_data(serial_read_timeout);
         if (received.length() > 5)
@@ -455,7 +456,7 @@ int FlashTcuCvtSubaruMitsuMH8111CanOperation::read_mem(uint32_t start_addr, uint
         pagedata.clear();
         pagedata = received.remove(0, 5);
 
-        // emit LOG_I("Received pagedata: " + SsmProtocol::toHex(pagedata), true, true);
+        // emit LOG_I("Received pagedata: " + bytes::toHex(pagedata), true, true);
         mapdata.append(pagedata);
 
         // don't count skipped first bytes //
@@ -514,7 +515,7 @@ int FlashTcuCvtSubaruMitsuMH8111CanOperation::read_mem(uint32_t start_addr, uint
     while (try_count < 6 && !connected)
     {
         serial->write_serial_data_echo_check(output);
-        emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
+        emit LOG_I("Sent: " + bytes::toHex(output), true, true);
         delay(200);
         received = serial->read_serial_data(serial_read_long_timeout);
         if (received != "")
@@ -731,7 +732,7 @@ int FlashTcuCvtSubaruMitsuMH8111CanOperation::reflash_block(const uint8_t *newda
         data_len -= 256;
 
         serial->write_serial_data_echo_check(output);
-        emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
+        emit LOG_I("Sent: " + bytes::toHex(output), true, true);
         received = serial->read_serial_data(receive_timeout);
 
         float pleft = (float)blockctr / (float)maxblocks * 100;
@@ -857,7 +858,7 @@ int FlashTcuCvtSubaruMitsuMH8111CanOperation::erase_mem()
     output.append((uint8_t)0xff);
     output.append((uint8_t)0xff);
     serial->write_serial_data_echo_check(output);
-    emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
+    emit LOG_I("Sent: " + bytes::toHex(output), true, true);
     delay(100);
     received = serial->read_serial_data(serial_read_timeout);
 

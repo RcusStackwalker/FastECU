@@ -135,3 +135,9 @@ TEST(TestBytes, qByteArrayWriteU32Le_writesLittleEndianBytes)
     bytes::writeU32Le(out, 0, 0x12345678);
     ASSERT_EQ(out, QByteArray::fromHex("78563412"));
 }
+
+TEST(TestBytes, qByteArrayToHex_preservesTrailingSpaceFormat)
+{
+    ASSERT_EQ(bytes::toHex(QByteArray::fromHex("800102ff")), QString("80 01 02 ff "));
+    ASSERT_EQ(bytes::toHex(QByteArray()), QString());
+}

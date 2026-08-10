@@ -1,6 +1,7 @@
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_kline_executor.h"
 
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
+#include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
 
 #include <algorithm>
@@ -111,7 +112,7 @@ bytes::Bytes request_kernel_id_frame()
         static_cast<bytes::Byte>(1 & 0xFF),                       // (datalen(0)+1)&0xFF
         kSubKernelId,
     };
-    out.push_back(SsmProtocol::checksum(out, false));
+    out.push_back(fastecu::checksum::checksum8(out, false));
     return out;
 }
 

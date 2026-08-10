@@ -3,8 +3,6 @@
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
 #include "src/algorithms/protocol/testing/byte_test_utils.h"
 
-#include <thread>
-
 static const uint16_t kCommonSeedTable[16] = {
     0x90A1, 0x2F92, 0xDE3C, 0xCDC0,
     0x1A99, 0x437C, 0xF91B, 0xDB57,
@@ -77,20 +75,16 @@ TEST(TestSsmProtocol, payload_truncates_to_four_byte_boundary)
               QByteArray::fromHex("ed9fd931"));
 }
 
-TEST(TestSsmProtocol, checksum_and_header_match_existing_layout)
+TEST(TestSsmProtocol, header_matches_existing_layout)
 {
     const QByteArray payload = QByteArray::fromHex("A800112233");
-    ASSERT_EQ(SsmProtocol::checksum(payload, false), uint8_t(0x0E));
-    ASSERT_EQ(SsmProtocol::checksum(payload, true), uint8_t(0xF2));
     ASSERT_EQ(SsmProtocol::addHeader(payload, 0xF1, 0x10, false),
               QByteArray::fromHex("8010F105A80011223394"));
 }
 
-TEST(TestSsmProtocol, checksum_and_header_match_existing_layout_with_byte_view)
+TEST(TestSsmProtocol, header_matches_existing_layout_with_byte_view)
 {
     const bytes::Bytes payload = fromHex("A800112233");
-    ASSERT_EQ(SsmProtocol::checksum(payload, false), bytes::Byte(0x0E));
-    ASSERT_EQ(SsmProtocol::checksum(payload, true), bytes::Byte(0xF2));
     ASSERT_TRUE(SsmProtocol::addHeader(payload, 0xF1, 0x10, false) == fromHex("8010F105A80011223394"));
 }
 
@@ -126,58 +120,6 @@ TEST(TestSsmProtocol, payload_prefix_checks_validated_payload_start)
     ASSERT_TRUE(!SsmProtocol::hasPayloadPrefix(response, QByteArray::fromHex("EF53"), 0x10, 0xF0));
     ASSERT_TRUE(!SsmProtocol::hasPayloadPrefix(response, QByteArray::fromHex("EF520100"), 0x10, 0xF0));
     ASSERT_TRUE(!SsmProtocol::hasPayloadPrefix(badChecksum, QByteArray::fromHex("EF52"), 0x10, 0xF0));
-}
-
-TEST(TestSsmProtocol, to_hex_preserves_existing_trailing_space_format)
-{
-    ASSERT_EQ(SsmProtocol::toHex(QByteArray::fromHex("800102ff")), QString("80 01 02 ff "));
-    ASSERT_EQ(SsmProtocol::toHex(QByteArray()), QString());
-}
-
-TEST(TestSsmProtocol, to_hex_preserves_existing_trailing_space_format_with_byte_view)
-{
-    ASSERT_EQ(SsmProtocol::toHex(fromHex("800102ff")), std::string("80 01 02 ff "));
-    ASSERT_EQ(SsmProtocol::toHex(bytes::ByteView()), std::string());
-}
-
-TEST(TestSsmProtocol, crc32_matches_existing_polynomial_vector)
-{
-    const QByteArray payload = QByteArray::fromHex("00112233445566778899aabbccddeeff");
-    ASSERT_EQ(SsmProtocol::crc32(reinterpret_cast<const unsigned char *>(payload.constData()),
-                                 uint32_t(payload.size())),
-              uint32_t(0x8FA3DEB3));
-}
-
-TEST(TestSsmProtocol, crc32_matches_existing_polynomial_vector_with_byte_view)
-{
-    ASSERT_EQ(SsmProtocol::crc32(fromHex("00112233445566778899aabbccddeeff")),
-              uint32_t(0x8FA3DEB3));
-}
-
-TEST(TestSsmProtocol, crc32_null_pointer_returns_zero)
-{
-    ASSERT_EQ(SsmProtocol::crc32(nullptr, 8), uint32_t(0));
-}
-
-TEST(TestSsmProtocol, crc32_first_touch_is_thread_safe)
-{
-    const QByteArray payload = QByteArray::fromHex("0102030405060708");
-    auto fn = [&payload]()
-    {
-        return SsmProtocol::crc32(reinterpret_cast<const unsigned char *>(payload.constData()),
-                                  uint32_t(payload.size()));
-    };
-
-    uint32_t a = 0;
-    uint32_t b = 0;
-    std::thread ta([&]()
-                   { a = fn(); });
-    std::thread tb([&]()
-                   { b = fn(); });
-    ta.join();
-    tb.join();
-    ASSERT_EQ(a, uint32_t(0x8AD85CF9));
-    ASSERT_EQ(b, uint32_t(0x8AD85CF9));
 }
 
 TEST(TestSsmProtocol, byte_utilities_append_and_read_big_endian_values)

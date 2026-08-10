@@ -1,6 +1,8 @@
 #include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7058_can_operation.h"
 #include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
+#include "src/algorithms/checksum/checksum_primitives.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <QElapsedTimer>
@@ -1177,7 +1179,7 @@ int FlashEcuSubaruDensoSH7058CanOperation::check_romcrc(const uint8_t *src, uint
 
     ecucrc32 = ((uint8_t)received.at(9) << 24) | ((uint8_t)received.at(10) << 16) | ((uint8_t)received.at(11) << 8) | (uint8_t)received.at(12);
 
-    imgcrc32 = SsmProtocol::crc32(src, pagesize);
+    imgcrc32 = fastecu::checksum::crc32(src, pagesize);
     msg.clear();
     msg.append(QString("ROM CRC: 0x%1 IMG CRC: 0x%2").arg(ecucrc32, 8, 16, QLatin1Char('0')).arg(imgcrc32, 8, 16, QLatin1Char('0')).toUtf8());
     emit LOG_D(msg, true, true);
@@ -1580,7 +1582,7 @@ int FlashEcuSubaruDensoSH7058CanOperation::flash_block(const uint8_t *src, uint3
         if ((flashblockstart + flashblocksize) == start)
         {
             emit LOG_I("Flash buffer write complete... ", true, true);
-            imgcrc32 = SsmProtocol::crc32(&src[flashblockstart], flashblocksize);
+            imgcrc32 = fastecu::checksum::crc32(&src[flashblockstart], flashblocksize);
             emit LOG_D("Image CRC32: 0x" + QString::number(imgcrc32, 16), true, true);
 
             uint8_t SUB_KERNEL_CMD = 0;
@@ -1770,7 +1772,7 @@ QByteArray FlashEcuSubaruDensoSH7058CanOperation::generate_ecutek_seed_key(const
         seed_key.append((uint8_t)(et_rr_seed >> 16) & 0xff);
         seed_key.append((uint8_t)(et_rr_seed >> 8) & 0xff);
         seed_key.append((uint8_t)(et_rr_seed & 0xff));
-        emit LOG_D("Altered seed key: " + SsmProtocol::toHex(seed_key), true, true);
+        emit LOG_D("Altered seed key: " + bytes::toHex(seed_key), true, true);
     }
 
     return seed_key;

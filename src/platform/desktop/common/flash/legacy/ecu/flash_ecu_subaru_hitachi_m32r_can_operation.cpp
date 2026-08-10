@@ -1,6 +1,7 @@
 #include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_hitachi_m32r_can_operation.h"
 #include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <QCoreApplication>
@@ -427,12 +428,12 @@ int FlashEcuSubaruHitachiM32rCanOperation::connect_bootloader()
             seed.append(received.at(8));
             seed.append(received.at(9));
 
-            msg = SsmProtocol::toHex(seed);
+            msg = bytes::toHex(seed);
             emit LOG_I("Received seed: " + msg, true, true);
 
             seed_key = generate_seed_key(seed);
 
-            msg = SsmProtocol::toHex(seed_key);
+            msg = bytes::toHex(seed_key);
             emit LOG_I("Calculated seed key: " + msg, true, true);
 
             emit LOG_I("Sending seed key to ECU", true, true);
@@ -647,12 +648,12 @@ int FlashEcuSubaruHitachiM32rCanOperation::connect_bootloader()
             seed.append(received.at(8));
             seed.append(received.at(9));
 
-            msg = SsmProtocol::toHex(seed);
+            msg = bytes::toHex(seed);
             emit LOG_I("Received seed: " + msg, true, true);
 
             seed_key = generate_seed_key(seed);
 
-            msg = SsmProtocol::toHex(seed_key);
+            msg = bytes::toHex(seed_key);
             emit LOG_I("Calculated seed key: " + msg, true, true);
 
             emit LOG_I("Sending seed key to ECU...", true, true);
@@ -876,7 +877,7 @@ int FlashEcuSubaruHitachiM32rCanOperation::read_mem(uint32_t start_addr, uint32_
         pagedata.clear();
         received.remove(0, 5);
         received = decrypt_payload(received, received.length());
-        // emit LOG_D("Decrypted response: " + SsmProtocol::toHex(received), true, true);
+        // emit LOG_D("Decrypted response: " + bytes::toHex(received), true, true);
         mapdata.append(received);
 
         // don't count skipped first bytes //
@@ -1196,13 +1197,13 @@ int FlashEcuSubaruHitachiM32rCanOperation::reflash_block(const uint8_t *newdata,
         {
             if ((uint8_t)received.at(4) != 0x77)
             {
-                emit LOG_I("." + SsmProtocol::toHex(received), false, false);
+                emit LOG_I("." + bytes::toHex(received), false, false);
             }
             else if ((uint8_t)received.at(4) == 0x77)
             {
                 connected = true;
                 emit LOG_I("", false, true);
-                emit LOG_I("Closed succesfully: " + SsmProtocol::toHex(received), true, true);
+                emit LOG_I("Closed succesfully: " + bytes::toHex(received), true, true);
             }
         }
         try_count++;
@@ -1225,7 +1226,7 @@ int FlashEcuSubaruHitachiM32rCanOperation::reflash_block(const uint8_t *newdata,
 
     delay(1000);
     received = serial->read_serial_data(500);
-    emit LOG_I(QString::number(try_count) + ": 0x31 response: " + SsmProtocol::toHex(received), true, true);
+    emit LOG_I(QString::number(try_count) + ": 0x31 response: " + bytes::toHex(received), true, true);
     if (received.length() != 7)
     {
         emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
@@ -1246,7 +1247,7 @@ int FlashEcuSubaruHitachiM32rCanOperation::reflash_block(const uint8_t *newdata,
         {
             delay(200);
             received = serial->read_serial_data(500);
-            // emit LOG_I(QString::number(try_count) + ": 0x31 response: " + SsmProtocol::toHex(received), true, true);
+            // emit LOG_I(QString::number(try_count) + ": 0x31 response: " + bytes::toHex(received), true, true);
 
             if (received.length() > 6)
             {
@@ -1333,7 +1334,7 @@ int FlashEcuSubaruHitachiM32rCanOperation::erase_memory()
     }
     if (!connected)
     {
-        emit LOG_E("Flash area erase failed: " + SsmProtocol::toHex(received), true, true);
+        emit LOG_E("Flash area erase failed: " + bytes::toHex(received), true, true);
 
         return STATUS_ERROR;
     }

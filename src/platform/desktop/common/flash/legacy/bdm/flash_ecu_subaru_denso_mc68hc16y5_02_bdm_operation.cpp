@@ -1,6 +1,6 @@
 #include "src/platform/desktop/common/flash/legacy/bdm/flash_ecu_subaru_denso_mc68hc16y5_02_bdm_operation.h"
 #include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
-#include "src/algorithms/protocol/ssm/ssm_protocol.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <QElapsedTimer>
@@ -147,7 +147,7 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::read_mem(uint32_t start_addr,
         output.append(msg);
         received = serial->write_serial_data(output);
 
-        qDebug() << "Sent:" << output << SsmProtocol::toHex(output);
+        qDebug() << "Sent:" << output << bytes::toHex(output);
         received.clear();
         uint32_t loopcount = 0;
         while ((uint32_t)received.length() != pagesize && loopcount < 50)
@@ -161,12 +161,12 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::read_mem(uint32_t start_addr,
         if (received.length())
         {
             mapdata.append(received);
-            qDebug() << "Received:" << SsmProtocol::toHex(received);
+            qDebug() << "Received:" << bytes::toHex(received);
         }
         else
         {
             qDebug() << "ERROR IN DATA RECEIVE!";
-            qDebug() << "Received:" << received << SsmProtocol::toHex(received);
+            qDebug() << "Received:" << received << bytes::toHex(received);
             return STATUS_ERROR;
         }
 
@@ -253,17 +253,17 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::write_mem()
     output.clear();
     output.append(msg);
     received = serial->write_serial_data(output);
-    qDebug() << "Sent:" << output << SsmProtocol::toHex(output);
+    qDebug() << "Sent:" << output << bytes::toHex(output);
     received = serial->read_serial_data(serial_read_extra_long_timeout);
-    qDebug() << "Received:" << received << SsmProtocol::toHex(received);
+    qDebug() << "Received:" << received << bytes::toHex(received);
     if (received.length() < cmd_wr_response.length() || received != cmd_wr_response)
     {
         received.append(serial->read_serial_data(serial_read_long_timeout));
-        qDebug() << "ERROR! Received:" << received << SsmProtocol::toHex(received);
+        qDebug() << "ERROR! Received:" << received << bytes::toHex(received);
         return STATUS_ERROR;
     }
     received = serial->read_serial_data(serial_read_long_timeout);
-    qDebug() << "Received:" << SsmProtocol::toHex(received);
+    qDebug() << "Received:" << bytes::toHex(received);
 
     output.clear();
     output.append((uint8_t)0x00);
@@ -271,18 +271,18 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::write_mem()
     output.append((uint8_t)0x00);
     output.append((uint8_t)0x0C);
     received = serial->write_serial_data(output);
-    qDebug() << "Sent:" << output << SsmProtocol::toHex(output);
+    qDebug() << "Sent:" << output << bytes::toHex(output);
     received = serial->read_serial_data(serial_read_long_timeout);
-    qDebug() << "Received:" << received << SsmProtocol::toHex(received);
+    qDebug() << "Received:" << received << bytes::toHex(received);
     if (received.length() < wr_response.length() || received != wr_response)
     {
         received.append(serial->read_serial_data(serial_read_long_timeout));
-        qDebug() << "ERROR! Received:" << received << SsmProtocol::toHex(received);
+        qDebug() << "ERROR! Received:" << received << bytes::toHex(received);
         // delay(20);
         return STATUS_ERROR;
     }
     received = serial->read_serial_data(serial_read_short_timeout);
-    qDebug() << "Received:" << SsmProtocol::toHex(received);
+    qDebug() << "Received:" << bytes::toHex(received);
 
     qDebug() << "Set program counter and stack pointer";
     msg = QString("wpcsp").toUtf8();
@@ -290,20 +290,20 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::write_mem()
     output.append(msg);
     received = serial->write_serial_data(output);
     received = serial->read_serial_data(serial_read_long_timeout);
-    qDebug() << "Received:" << received << SsmProtocol::toHex(received);
+    qDebug() << "Received:" << received << bytes::toHex(received);
 
     received = serial->read_serial_data(serial_read_long_timeout);
-    qDebug() << "Received:" << received << SsmProtocol::toHex(received);
+    qDebug() << "Received:" << received << bytes::toHex(received);
     /*
         msg = QString("rdmem 0x20000 0x600 hex").toUtf8();
         output.clear();
         output.append(msg);
         received = serial->write_serial_data(output);
         received = serial->read_serial_data(0x600, serial_read_extra_long_timeout);
-        qDebug() << "Received:" << received << SsmProtocol::toHex(received);
+        qDebug() << "Received:" << received << bytes::toHex(received);
 
         received = serial->read_serial_data(0x600, serial_read_extra_long_timeout);
-        qDebug() << "Received:" << received << SsmProtocol::toHex(received);
+        qDebug() << "Received:" << received << bytes::toHex(received);
     */
     qDebug() << "GO!!!";
     msg = QString("go").toUtf8();
@@ -311,7 +311,7 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::write_mem()
     output.append(msg);
     received = serial->write_serial_data(output);
     received = serial->read_serial_data(serial_read_long_timeout);
-    qDebug() << "Received:" << received << SsmProtocol::toHex(received);
+    qDebug() << "Received:" << received << bytes::toHex(received);
 
     /*
         for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++)
@@ -375,14 +375,14 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::flash_block(const uint8_t *ne
     output.clear();
     output.append(msg);
     received = serial->write_serial_data(output);
-    qDebug() << "Sent:" << output << SsmProtocol::toHex(output);
+    qDebug() << "Sent:" << output << bytes::toHex(output);
     received = serial->read_serial_data(serial_read_extra_long_timeout);
-    qDebug() << "Received:" << received << SsmProtocol::toHex(received);
+    qDebug() << "Received:" << received << bytes::toHex(received);
 
     if (received.length() < cmd_wr_response.length() || received != cmd_wr_response)
     {
         received.append(serial->read_serial_data(serial_read_long_timeout));
-        qDebug() << "ERROR! Received:" << received << SsmProtocol::toHex(received);
+        qDebug() << "ERROR! Received:" << received << bytes::toHex(received);
         return STATUS_ERROR;
     }
 
@@ -403,16 +403,16 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::flash_block(const uint8_t *ne
         }
         received = serial->write_serial_data(output);
         // delay(20);
-        qDebug() << "Sent:" << SsmProtocol::toHex(output);
+        qDebug() << "Sent:" << bytes::toHex(output);
 
         received = serial->read_serial_data(serial_read_long_timeout);
-        qDebug() << "Received:" << received << SsmProtocol::toHex(received);
+        qDebug() << "Received:" << received << bytes::toHex(received);
         // delay(20);
 
         if (received.length() < wr_response.length() || received != wr_response)
         {
             received.append(serial->read_serial_data(serial_read_long_timeout));
-            qDebug() << "ERROR! Received:" << received << SsmProtocol::toHex(received);
+            qDebug() << "ERROR! Received:" << received << bytes::toHex(received);
             // delay(20);
             return STATUS_ERROR;
         }

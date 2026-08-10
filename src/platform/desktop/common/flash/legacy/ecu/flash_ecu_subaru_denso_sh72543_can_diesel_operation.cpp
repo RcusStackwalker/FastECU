@@ -1,6 +1,7 @@
 #include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh72543_can_diesel_operation.h"
 #include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <QCoreApplication>
@@ -921,7 +922,7 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::read_memory(uint32_t start_add
         pagedata.clear();
         pagedata = received.remove(0, 5);
 
-        // emit LOG_I("Received pagedata: " + SsmProtocol::toHex(pagedata), true, true);
+        // emit LOG_I("Received pagedata: " + bytes::toHex(pagedata), true, true);
         mapdata.append(pagedata);
 
         // don't count skipped first bytes //
@@ -988,7 +989,7 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::read_memory(uint32_t start_add
             if ((uint8_t)received.at(4) == 0x77)
             {
                 connected = true;
-                emit LOG_I("Stop request response: " + SsmProtocol::toHex(received), true, true);
+                emit LOG_I("Stop request response: " + bytes::toHex(received), true, true);
             }
         }
         try_count++;
@@ -1165,7 +1166,7 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::reflash_block(const uint8_t *n
         serial->write_serial_data_echo_check(output);
         // delay(20);
         received = serial->read_serial_data(receive_timeout);
-        // emit LOG_I("Received msg: " + SsmProtocol::toHex(received), true, true);
+        // emit LOG_I("Received msg: " + bytes::toHex(received), true, true);
 
         if (received.length() > 4)
         {
@@ -1242,7 +1243,7 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::reflash_block(const uint8_t *n
             if ((uint8_t)received.at(4) == 0x77)
             {
                 connected = true;
-                emit LOG_I("Closed succesfully: " + SsmProtocol::toHex(received), true, true);
+                emit LOG_I("Closed succesfully: " + bytes::toHex(received), true, true);
             }
         }
         try_count++;
@@ -1406,7 +1407,7 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::erase_memory(const struct flas
     }
     if (!connected)
     {
-        emit LOG_I("Flash area erase failed: " + SsmProtocol::toHex(received), true, true);
+        emit LOG_I("Flash area erase failed: " + bytes::toHex(received), true, true);
         return STATUS_ERROR;
     }
 

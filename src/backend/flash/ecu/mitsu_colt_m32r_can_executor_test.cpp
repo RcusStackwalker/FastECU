@@ -536,7 +536,7 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengePrecedesTheDiagnosticSession)
     EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Vendor challenge accepted")));
-    // SsmProtocol::toHex is lowercase "%02x " per byte, trailing space included.
+    // bytes::toHex is lowercase "%02x " per byte, trailing space included.
     EXPECT_THAT(events.logs,
                 Contains(Pair(LogLevel::Info, "Received vendor seed: 12 34 56 78 ")));
 }
@@ -641,7 +641,7 @@ TEST(MitsuColtM32rCanExecutor, WriteDrivesTheBootloadSessionThenFactorySecurityA
                 Contains(Pair(LogLevel::Info, "Checking top 128KB (0x60000-0x80000)...")));
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Diagnostic session ok")));
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Requesting security seed...")));
-    // Pins both the mid(6, 4) offset and SsmProtocol::toHex's exact format.
+    // Pins both the mid(6, 4) offset and bytes::toHex's exact format.
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Received seed: 11 22 33 44 ")));
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, HasSubstr("Calculated seed key: "))));
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Sending seed key to ECU...")));

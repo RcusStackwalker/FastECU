@@ -53,7 +53,6 @@ cc_library(
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
         "//src/algorithms/protocol/colt:mitsu_colt_can_vendor_ext_protocol",
-        "//src/algorithms/protocol/ssm",
         "//src/backend/flash:flash_executor",
         "//src/backend/flash:flash_plan",
         "//src/backend/flash:flash_types",

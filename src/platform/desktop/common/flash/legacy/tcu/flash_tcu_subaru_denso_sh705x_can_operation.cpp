@@ -1,6 +1,8 @@
 #include "src/platform/desktop/common/flash/legacy/tcu/flash_tcu_subaru_denso_sh705x_can_operation.h"
 #include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
+#include "src/algorithms/checksum/checksum_primitives.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <QElapsedTimer>
@@ -204,7 +206,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
     output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
-    emit LOG_D("Response:" + SsmProtocol::toHex(received), true, true);
+    emit LOG_D("Response:" + bytes::toHex(received), true, true);
     if (received.length() > 4)
     {
         if ((uint8_t)received.at(4) != 0xF8)
@@ -226,7 +228,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
     output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
-    emit LOG_D("Response:" + SsmProtocol::toHex(received), true, true);
+    emit LOG_D("Response:" + bytes::toHex(received), true, true);
     if (received.length() > 4)
     {
         if ((uint8_t)received.at(4) != 0xF8)
@@ -248,7 +250,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
     output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
-    emit LOG_D("Response:" + SsmProtocol::toHex(received), true, true);
+    emit LOG_D("Response:" + bytes::toHex(received), true, true);
     if (received.length() > 4)
     {
         if ((uint8_t)received.at(4) != 0xF8)
@@ -270,7 +272,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
     output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
-    emit LOG_D("Response:" + SsmProtocol::toHex(received), true, true);
+    emit LOG_D("Response:" + bytes::toHex(received), true, true);
     if (received.length() > 4)
     {
         if ((uint8_t)received.at(4) != 0xF8)
@@ -292,7 +294,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
     output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
-    emit LOG_D("Response:" + SsmProtocol::toHex(received), true, true);
+    emit LOG_D("Response:" + bytes::toHex(received), true, true);
     if (received.length() > 4)
     {
         if ((uint8_t)received.at(4) != 0xF8)
@@ -314,7 +316,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
     output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
-    emit LOG_D("Response:" + SsmProtocol::toHex(received), true, true);
+    emit LOG_D("Response:" + bytes::toHex(received), true, true);
     if (received.length() > 4)
     {
         if ((uint8_t)received.at(4) != 0xF8)
@@ -336,7 +338,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
     output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
-    emit LOG_D("Response:" + SsmProtocol::toHex(received), true, true);
+    emit LOG_D("Response:" + bytes::toHex(received), true, true);
     if (received.length() > 4)
     {
         if ((uint8_t)received.at(4) != 0xF8)
@@ -358,7 +360,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
     output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
-    emit LOG_D("Response:" + SsmProtocol::toHex(received), true, true);
+    emit LOG_D("Response:" + bytes::toHex(received), true, true);
     if (received.length() > 4)
     {
         if ((uint8_t)received.at(4) != 0xF8)
@@ -380,7 +382,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
     output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
-    emit LOG_D("Response:" + SsmProtocol::toHex(received), true, true);
+    emit LOG_D("Response:" + bytes::toHex(received), true, true);
     if (received.length() > 4)
     {
         if ((uint8_t)received.at(4) != 0xF8)
@@ -402,7 +404,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
     output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
-    emit LOG_D("Response:" + SsmProtocol::toHex(received), true, true);
+    emit LOG_D("Response:" + bytes::toHex(received), true, true);
     if (received.length() > 4)
     {
         if ((uint8_t)received.at(4) != 0xF8)
@@ -426,7 +428,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
     output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
-    emit LOG_D("Response:" + SsmProtocol::toHex(received), true, true);
+    emit LOG_D("Response:" + bytes::toHex(received), true, true);
     if (received.length() > 4)
     {
         if ((uint8_t)received.at(4) != 0xF8)
@@ -447,7 +449,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
     output = SsmProtocol::addHeader(output, tester_id, target_id, false);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
-    emit LOG_D("Response:" + SsmProtocol::toHex(received), true, true);
+    emit LOG_D("Response:" + bytes::toHex(received), true, true);
     if (received.length() > 4)
     {
         if ((uint8_t)received.at(4) != 0xF8)
@@ -1603,7 +1605,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::check_romcrc(const uint8_t *src, uint
 
     ecucrc32 = ((uint8_t)received.at(9) << 24) | ((uint8_t)received.at(10) << 16) | ((uint8_t)received.at(11) << 8) | (uint8_t)received.at(12);
 
-    imgcrc32 = SsmProtocol::crc32(src, pagesize);
+    imgcrc32 = fastecu::checksum::crc32(src, pagesize);
     msg.clear();
     msg.append(QString("ROM CRC: 0x%1 IMG CRC: 0x%2").arg(ecucrc32, 8, 16, QLatin1Char('0')).arg(imgcrc32, 8, 16, QLatin1Char('0')).toUtf8());
     emit LOG_D(msg, true, true);
@@ -2006,7 +2008,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::flash_block(const uint8_t *src, uint3
         if ((flashblockstart + flashblocksize) == start)
         {
             emit LOG_I("Flash buffer write complete... ", true, true);
-            imgcrc32 = SsmProtocol::crc32(&src[flashblockstart], flashblocksize);
+            imgcrc32 = fastecu::checksum::crc32(&src[flashblockstart], flashblocksize);
             emit LOG_D("Image CRC32: 0x" + QString::number(imgcrc32, 16), true, true);
 
             uint8_t SUB_KERNEL_CMD = 0;
@@ -2178,12 +2180,12 @@ QByteArray FlashTcuSubaruDensoSH705xCanOperation::request_kernel_id()
     while (loop < 5 && received == "")
     {
         received = serial->write_serial_data_echo_check(output);
-        emit LOG_I("Kernel ID request: " + SsmProtocol::toHex(output), true, true);
+        emit LOG_I("Kernel ID request: " + bytes::toHex(output), true, true);
         delay(100);
         kernelid.clear();
 
         received = serial->read_serial_data(serial_read_long_timeout);
-        emit LOG_I("Kernel ID response: " + SsmProtocol::toHex(received), true, true);
+        emit LOG_I("Kernel ID response: " + bytes::toHex(received), true, true);
         received.remove(0, 2);
         kernelid = received;
 

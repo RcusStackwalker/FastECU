@@ -1,5 +1,7 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS")
 
 package(default_visibility = [
     "//src/algorithms:__subpackages__",
@@ -37,6 +39,18 @@ cc_library(
     deps = ["//src/algorithms/protocol"],
 )
 
+# TRANSITIONAL Qt shim: QByteArray overload of checksum8 delegating to :checksum.
+cc_library(
+    name = "qt_compat",
+    srcs = ["qt_checksum.cpp"],
+    hdrs = ["qt_checksum.h"],
+    copts = COMMON_COPTS,
+    deps = QT_DEPS + [
+        ":checksum",
+        "//src/algorithms/protocol:qt_compat",
+    ],
+)
+
 cc_test(
     name = "checksum_test",
     size = "small",
@@ -64,5 +78,13 @@ cc_test(
     deps = [
         ":checksum",
         "@googletest//:gtest_main",
+    ],
+)
+
+fastecu_gtest(
+    name = "test_qt_checksum",
+    srcs = ["qt_checksum_test.cpp"],
+    deps = [
+        ":qt_compat",
     ],
 )
