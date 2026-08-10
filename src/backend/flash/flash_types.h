@@ -128,9 +128,9 @@ struct MitsuColtM32rCanPlan
     int bitrate;               // 500000
     bool extended_id;          // false -- build_request() hardcodes the
                                // 11-bit physical request id
-    bool use_vendor_challenge; // mitsu_ecu_m32r_can_vendor_ext only
-    bytes::Byte session_id;    // kSessionBasic (0x81) for Read,
-                               // kSessionBootload (0x85) for Write
+    bool use_vendor_challenge; // selected by the protocol identifier
+    std::uint32_t rom_size;    // snapshotted selected ROM capacity
+    bytes::Byte session_id;    // kSessionBootload (0x85) for Read and Write
 };
 
 using FamilyPlan = std::variant<
