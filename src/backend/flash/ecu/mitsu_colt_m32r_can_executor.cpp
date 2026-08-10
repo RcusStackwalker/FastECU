@@ -482,6 +482,8 @@ bool confirmation_granted(const FlashPlan& plan, ConfirmationSpec::Id id)
 }
 
 // Legacy ensureTopRegionWritten, flash_ecu_mitsu_m32r_can_operation.cpp:299-390.
+// This path applies only to the 512 KiB protocols; the 384 KiB protocols end
+// exactly where the protected top region begins.
 Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan,
                                  const MitsuColtM32rCanPlan& family, bytes::ByteView rom)
 {
@@ -558,7 +560,8 @@ Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan,
     // into the userspace window, and the redirect routines add the +0x058000
     // offset themselves. See mitsu_colt_can_protocol.h's kEraseRedirectRoutine
     // comment.
-    const LogicalProgress top_progress{.base = 0, .total = kWritableLength};
+    const LogicalProgress top_progress{
+        .base = 0, .total = family.rom_size - kUserspaceStart};
     if (Status written =
             upload_and_commit(ctx, family, kUserspaceStart, wanted_top, &top_progress);
         !written)
@@ -592,19 +595,31 @@ Status write_mem(Ctx& ctx, const FlashPlan& plan, const MitsuColtM32rCanPlan& fa
 {
     using namespace MitsuColtCan;
 
+    const bool includes_top_region = family.rom_size == MitsuColtCan::kFullRomSize;
+    const std::uint32_t writable_end = family.rom_size;
+    const std::uint32_t page_write_end =
+        includes_top_region ? MitsuColtCan::kTopRegionStart : writable_end;
+
     // The builder enforces this too, but validate_and_build alone does not.
     // Keep the executor guard so a hand-built plan cannot truncate slices or
     // silently ignore trailing bytes.
-    if (rom.size() != kFullRomSize)
+    if (rom.size() != family.rom_size)
     {
-        error(ctx, std::format("ROM file must be exactly 0x{:x} bytes", kFullRomSize));
-        return fail(ErrorKind::InvalidConfig, "ROM image is not exactly 512 KiB");
+        error(ctx, std::format("ROM file must be exactly 0x{:x} bytes", family.rom_size));
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("ROM image is not exactly 0x{:x} bytes", family.rom_size));
     }
 
-    // Lines 404-407.
-    if (Status bootstrapped = ensure_top_region_written(ctx, plan, family, rom); !bootstrapped)
+    // The legacy 512 KiB flow must compare and, if needed, bootstrap the top
+    // 128 KiB. A 384 KiB image has no top region, so it proceeds directly to
+    // the stock page helpers.
+    if (includes_top_region)
     {
-        return bootstrapped;
+        if (Status bootstrapped = ensure_top_region_written(ctx, plan, family, rom);
+            !bootstrapped)
+        {
+            return bootstrapped;
+        }
     }
 
     // Lines 409-415.
@@ -655,14 +670,15 @@ Status write_mem(Ctx& ctx, const FlashPlan& plan, const MitsuColtM32rCanPlan& fa
     }
     info(ctx, "Userspace flash erased");
 
-    // Lines 466-473. The addresses are the protocol constants the legacy code
-    // used, which are also what the plan builder puts in transfer_region.
+    // Lines 466-473, extended to stop at the capacity snapshotted in the
+    // selected protocol plan.
     info(ctx, std::format("Writing ROM userspace 0x{:x}-0x{:x}...", kUserspaceStart,
-                          kUserspaceEnd));
+                          page_write_end));
     const bytes::ByteView userspace =
-        rom.subspan(kUserspaceStart, kUserspaceEnd - kUserspaceStart);
-    const LogicalProgress userspace_progress{.base = kTopRegionLength,
-                                             .total = kWritableLength};
+        rom.subspan(kUserspaceStart, page_write_end - kUserspaceStart);
+    const LogicalProgress userspace_progress{
+        .base = includes_top_region ? kTopRegionLength : 0,
+        .total = writable_end - kUserspaceStart};
     if (Status written =
             upload_and_commit(ctx, family, kUserspaceStart, userspace, &userspace_progress);
         !written)
@@ -673,8 +689,7 @@ Status write_mem(Ctx& ctx, const FlashPlan& plan, const MitsuColtM32rCanPlan& fa
     info(ctx, "Userspace flash written");
 
     Result<bytes::Bytes> verify_userspace =
-        read_flash_range(ctx, family, kUserspaceStart,
-                         kUserspaceEnd - kUserspaceStart,
+        read_flash_range(ctx, family, kUserspaceStart, page_write_end - kUserspaceStart,
                          /*report_progress=*/false);
     if (!verify_userspace)
     {
@@ -707,6 +722,16 @@ Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(
         return fail(ErrorKind::Cancelled, "cancelled before setup");
     }
 
+    const auto& family = std::get<MitsuColtM32rCanPlan>(plan.family_plan());
+    if (plan.operation() == FlashOperation::Write &&
+        (!plan.image().has_value() || plan.image()->size() != family.rom_size))
+    {
+        return fail(
+            ErrorKind::InvalidConfig,
+            std::format("ROM image size 0x{:x} does not match selected capacity 0x{:x}",
+                        plan.image().has_value() ? plan.image()->size() : 0, family.rom_size));
+    }
+
     // Checked downcast, not static_cast -- same shape and same ErrorKind as
     // DensoSh705xEepromCanExecutor::execute.
     auto *can = dynamic_cast<ICanFlashTransport *>(&transport);
@@ -715,7 +740,6 @@ Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(
         return fail(ErrorKind::InvalidConfig, "transport does not implement ICanFlashTransport");
     }
 
-    const auto& family = std::get<MitsuColtM32rCanPlan>(plan.family_plan());
     Ctx ctx{*can, clock, cancellation, events};
 
     // Legacy line 32-33: configureIso15765Can(serial, "500000", 0x7E0, 0x7E8)
@@ -745,7 +769,8 @@ Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(
 
     if (plan.operation() == FlashOperation::Read)
     {
-        // Legacy lines 42-45 and 213-228.
+        // The protocol plan supplies a zero-based, capacity-sized range; the
+        // chunk loop itself remains generic.
         events.notice("Reading ROM, please wait...");
         info(ctx, "Reading ROM from ECU using CAN");
         events.progress(0, static_cast<int>(plan.transfer_region().length));
@@ -781,7 +806,7 @@ Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(
     // Legacy lines 49-51.
     events.notice("Writing ROM, please wait...");
     info(ctx, "Writing ROM to ECU using CAN");
-    events.progress(0, static_cast<int>(plan.transfer_region().length));
+    events.progress(0, static_cast<int>(family.rom_size - MitsuColtCan::kUserspaceStart));
 
     // validate_and_build guarantees a Write plan carries an image; write_mem
     // re-checks its length, as the legacy write_mem did.

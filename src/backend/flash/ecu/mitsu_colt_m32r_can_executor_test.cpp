@@ -48,11 +48,11 @@ using testing::IsEmpty;
 using testing::Not;
 using testing::Pair;
 
-constexpr std::string_view kProtocol = "mitsu_ecu_m32r_can";
-// flashdevices["M32R_128KB"].fblocks[0] is {0x00000000, 0x00010000}
-// (kernelmemorymodels.h:362-365) -- a 64KB first block, which is what the
-// read plan transfers and what keeps the scripted read to 342 chunks.
-constexpr std::string_view kMcu = "M32R_128KB";
+constexpr std::string_view kProtocol384 = "mitsu_ecu_m32r_can";
+constexpr std::string_view kVendorProtocol384 = "mitsu_ecu_m32r_can_vendor_ext";
+constexpr std::string_view kProtocol512 = "mitsu_ecu_m32r_can_512kb";
+constexpr std::string_view kVendorProtocol512 = "mitsu_ecu_m32r_can_vendor_ext_512kb";
+constexpr std::string_view kMcu = "M32R_512KB_1block";
 
 // Every request on this bus carries a 4-byte big-endian 0x7E0 prefix
 // (legacy build_request, flash_ecu_mitsu_m32r_can_operation.cpp:58-64).
@@ -74,9 +74,9 @@ bytes::Bytes response(std::initializer_list<bytes::Byte> tail)
     return out;
 }
 
-fastecu::flash::FlashPlan readPlan(bool vendor = false)
+fastecu::flash::FlashPlan readPlan(std::string_view protocol = kProtocol384)
 {
-    auto plan = build_mitsu_colt_m32r_can_plan(FlashOperation::Read, kProtocol, kMcu, vendor,
+    auto plan = build_mitsu_colt_m32r_can_plan(FlashOperation::Read, protocol, kMcu,
                                                std::nullopt);
     EXPECT_TRUE(plan.has_value()) << plan.error().detail;
     return std::move(*plan);
@@ -110,14 +110,24 @@ bytes::Bytes writeRom()
     return rom;
 }
 
+bytes::Bytes writeRom384()
+{
+    bytes::Bytes rom(0x60000, 0xA5);
+    std::fill(rom.begin() + MitsuColtCan::kUserspaceStart, rom.end(), 0x00);
+    std::fill_n(rom.begin() + MitsuColtCan::kUserspaceStart, 18, 0xFF);
+    rom[MitsuColtCan::kUserspaceStart + 18] = 0x46;
+    return rom;
+}
+
 // A Write plan is what selects kSessionBootload, and kSessionBootload is the
 // only thing that reaches connect_bootloader()'s factory SecurityAccess arm
-// (legacy lines 131-165). build_mitsu_colt_m32r_can_plan always declares both
-// ConfirmationSpecs for a Write, so a plan from here is fully gated.
-fastecu::flash::FlashPlan writePlan(bytes::Bytes rom, bool vendor = false)
+// (legacy lines 131-165). This helper defaults to the 512 KiB protocol, whose
+// builder declares both ConfirmationSpecs, so a plan from here is fully gated.
+fastecu::flash::FlashPlan writePlan(bytes::Bytes rom,
+                                    std::string_view protocol = kProtocol512)
 {
-    auto plan = build_mitsu_colt_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu,
-                                               vendor, std::move(rom));
+    auto plan = build_mitsu_colt_m32r_can_plan(FlashOperation::Write, protocol, kMcu,
+                                               std::move(rom));
     EXPECT_TRUE(plan.has_value()) << plan.error().detail;
     return std::move(*plan);
 }
@@ -128,17 +138,17 @@ fastecu::flash::FlashPlan writePlan(bytes::Bytes rom, bool vendor = false)
 // plan whose high-risk step was never granted.
 fastecu::flash::FlashPlan writePlanGranting(
     std::initializer_list<fastecu::flash::ConfirmationSpec::Id> granted,
-    bytes::Bytes rom = writeRom(), FlashOperation operation = FlashOperation::Write)
+    bytes::Bytes rom = writeRom(), FlashOperation operation = FlashOperation::Write,
+    std::uint32_t rom_size = MitsuColtCan::kFullRomSize)
 {
     fastecu::flash::FlashPlanFields fields;
     fields.operation = operation;
     fields.family = fastecu::flash::FlashFamily::MitsuColtM32rCan;
     fields.transport = fastecu::flash::TransportKind::CanIso15765;
-    fields.target_id = std::string(kProtocol);
+    fields.target_id = std::string(rom_size == 0x60000 ? kProtocol384 : kProtocol512);
     fields.mcu_name = std::string(kMcu);
-    fields.transfer_region =
-        fastecu::flash::MemoryRegion{MitsuColtCan::kUserspaceStart,
-                                     MitsuColtCan::kWritableLength};
+    fields.transfer_region = fastecu::flash::MemoryRegion{
+        MitsuColtCan::kUserspaceStart, rom_size - MitsuColtCan::kUserspaceStart};
     fields.image = std::move(rom);
     fields.family_plan = fastecu::flash::MitsuColtM32rCanPlan{
         .request_id = 0x7e0,
@@ -146,6 +156,7 @@ fastecu::flash::FlashPlan writePlanGranting(
         .bitrate = 500000,
         .extended_id = false,
         .use_vendor_challenge = false,
+        .rom_size = rom_size,
         .session_id = MitsuColtCan::kSessionBootload,
     };
     for (const fastecu::flash::ConfirmationSpec::Id id : granted)
@@ -207,6 +218,29 @@ void scriptFullRead(ScriptedCanFlashTransport& transport, const fastecu::flash::
                     bytes::Byte fill)
 {
     scriptFlashRead(transport, plan.transfer_region().start, plan.transfer_region().length, fill);
+}
+
+// Scripts a complete zero-based ROM read with address-derived data. The
+// literal endpoints in the tests below then catch either a shifted first
+// request or a truncated final request without duplicating thousands of
+// chunk expectations.
+void scriptAddressMarkedRead(ScriptedCanFlashTransport& transport, std::uint32_t length)
+{
+    for (std::uint32_t addr = 0; addr < length;
+         addr += MitsuColtCan::kFlashReadBlockSize)
+    {
+        const std::uint32_t remaining = length - addr;
+        const auto chunk = static_cast<bytes::Byte>(
+            remaining < MitsuColtCan::kFlashReadBlockSize ? remaining
+                                                          : MitsuColtCan::kFlashReadBlockSize);
+        transport.expectWrite(request(MitsuColtCan::buildReadMemoryByAddress(addr, chunk)));
+        bytes::Bytes reply = response({0x63});
+        for (std::uint32_t offset = 0; offset < chunk; ++offset)
+        {
+            reply.push_back(static_cast<bytes::Byte>((addr + offset) & 0xff));
+        }
+        transport.queueRead(reply);
+    }
 }
 
 // Scripts the bootload handshake every operation drives: session 0x85 then
@@ -391,6 +425,60 @@ TEST(MitsuColtM32rCanExecutor, ReadPerformsTheBootloadHandshakeThenChunkedReads)
     EXPECT_FALSE(transport.last_config_->extended_id);
 }
 
+TEST(MitsuColtM32rCanExecutor, ReadReturnsTheComplete384KiBRomFromAddressZero)
+{
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+    auto plan = readPlan(kProtocol384);
+    constexpr std::uint32_t expected_size = 0x60000;
+
+    scriptBootloadHandshake(transport);
+    scriptAddressMarkedRead(transport, expected_size);
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_TRUE(result->read_bytes.has_value());
+    EXPECT_EQ(result->read_bytes->size(), expected_size);
+    EXPECT_EQ(result->read_bytes->front(), 0x00);
+    EXPECT_EQ(result->read_bytes->back(), 0xff);
+    EXPECT_THAT(events.progress_calls,
+                Contains(std::pair<int, int>{static_cast<int>(expected_size),
+                                             static_cast<int>(expected_size)}));
+    EXPECT_TRUE(transport.scriptConsumed());
+}
+
+TEST(MitsuColtM32rCanExecutor, ReadReturnsTheComplete512KiBRomFromAddressZero)
+{
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+    auto plan = readPlan(kProtocol512);
+    constexpr std::uint32_t expected_size = 0x80000;
+
+    scriptBootloadHandshake(transport);
+    scriptAddressMarkedRead(transport, expected_size);
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_TRUE(result->read_bytes.has_value());
+    EXPECT_EQ(result->read_bytes->size(), expected_size);
+    EXPECT_EQ(result->read_bytes->front(), 0x00);
+    EXPECT_EQ(result->read_bytes->back(), 0xff);
+    EXPECT_THAT(events.progress_calls,
+                Contains(std::pair<int, int>{static_cast<int>(expected_size),
+                                             static_cast<int>(expected_size)}));
+    EXPECT_TRUE(transport.scriptConsumed());
+}
+
 TEST(MitsuColtM32rCanExecutor, ReadRejectsAWrongDiagnosticSessionResponse)
 {
     ScriptedCanFlashTransport transport;
@@ -540,7 +628,7 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengeRunsInBasicSessionBeforeBootloadSe
     RecordingEventSink events;
     fastecu::flash::CancellationSource cancellation;
     MitsuColtM32rCanExecutor executor;
-    auto plan = readPlan(/*vendor=*/true);
+    auto plan = readPlan(kVendorProtocol384);
 
     transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
         MitsuColtCan::kSessionBasic)));
@@ -576,7 +664,7 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengeRejectionStopsBeforeTheSession)
     RecordingEventSink events;
     fastecu::flash::CancellationSource cancellation;
     MitsuColtM32rCanExecutor executor;
-    auto plan = readPlan(/*vendor=*/true);
+    auto plan = readPlan(kVendorProtocol384);
 
     transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
         MitsuColtCan::kSessionBasic)));
@@ -743,6 +831,76 @@ TEST(MitsuColtM32rCanExecutor, WriteRejectsASecurityKeyAnswerWithTheWrongSubfunc
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Security access ok"))));
 }
 
+TEST(MitsuColtM32rCanExecutor, WriteBoundsTheDefaultProtocolTo384KiB)
+{
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+
+    const bytes::Bytes rom = writeRom384();
+    auto plan = writePlan(rom, kProtocol384);
+
+    scriptBootloadHandshake(transport);
+    scriptUploadAndCommit(transport, MitsuColtCan::kEraseRoutineRamAddr,
+                          MitsuColtCan::kErasePageRoutine);
+    scriptUploadAndCommit(transport, MitsuColtCan::kWriteRoutineRamAddr,
+                          MitsuColtCan::kWritePageRoutine);
+    scriptUnlockAndErase(transport);
+    scriptUploadAndCommit(transport, MitsuColtCan::kUserspaceStart, userspaceOf(rom),
+                          kUserspaceChecksumBytes);
+    scriptFlashReadData(transport, MitsuColtCan::kUserspaceStart, userspaceOf(rom));
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_THAT(events.logs,
+                Not(Contains(Pair(LogLevel::Info,
+                                  "Checking top 128KB (0x60000-0x80000)..."))));
+    EXPECT_THAT(events.logs,
+                Not(Contains(Pair(LogLevel::Info,
+                                  "Uploading erase redirect routine to RAM 0x805568..."))));
+    EXPECT_THAT(events.logs,
+                Not(Contains(Pair(LogLevel::Info,
+                                  "Uploading write redirect routine to RAM 0x8054ac..."))));
+    EXPECT_THAT(events.logs,
+                Contains(Pair(LogLevel::Info, "Writing ROM userspace 0x8000-0x60000...")));
+    EXPECT_THAT(events.progress_calls, Contains(std::pair<int, int>{0x58000, 0x58000}));
+    ASSERT_FALSE(events.progress_calls.empty());
+    EXPECT_EQ(events.progress_calls.back(), (std::pair<int, int>{0x58000, 0x58000}));
+    for (const auto& [done, total] : events.progress_calls)
+    {
+        EXPECT_GE(done, 0);
+        EXPECT_LE(done, 0x58000);
+        EXPECT_EQ(total, 0x58000);
+    }
+}
+
+TEST(MitsuColtM32rCanExecutor, RejectsA512KiBImageForA384KiBPlanBeforeAnyIo)
+{
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+
+    auto plan = writePlanGranting({fastecu::flash::ConfirmationSpec::Id::EraseTrigger},
+                                  writeRom(), FlashOperation::Write, 0x60000);
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(result.error().detail, HasSubstr("0x60000"));
+    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_FALSE(transport.last_config_.has_value());
+    EXPECT_THAT(events.logs, IsEmpty());
+}
+
 TEST(MitsuColtM32rCanExecutor, WriteSkipsBootstrapWhenTheTopRegionAlreadyMatches)
 {
     ScriptedCanFlashTransport transport;
@@ -866,7 +1024,7 @@ TEST(MitsuColtM32rCanExecutor, VendorWriteAuthorizesThenWritesAndVerifiesBothReg
     MitsuColtM32rCanExecutor executor;
 
     const bytes::Bytes rom = writeRom();
-    auto plan = writePlan(rom, /*vendor=*/true);
+    auto plan = writePlan(rom, kVendorProtocol512);
 
     scriptVendorAuthorization(transport);
     scriptBootloadHandshake(transport);
@@ -1063,7 +1221,7 @@ TEST(MitsuColtM32rCanExecutor, RefusesATestWritePlanRatherThanWritingForReal)
     EXPECT_THAT(events.notices, Not(Contains("Writing ROM, please wait...")));
 }
 
-TEST(MitsuColtM32rCanExecutor, WriteRefusesAnImageThatIsNotExactlyThePhysicalFlashSize)
+TEST(MitsuColtM32rCanExecutor, WriteRefusesAnImageThatDoesNotMatchThePlanBeforeAnyIo)
 {
     ScriptedCanFlashTransport transport;
     FakeClock clock;
@@ -1072,21 +1230,21 @@ TEST(MitsuColtM32rCanExecutor, WriteRefusesAnImageThatIsNotExactlyThePhysicalFla
     MitsuColtM32rCanExecutor executor;
 
     // build_mitsu_colt_m32r_can_plan rejects this image, but validate_and_build
-    // does not -- and every slice the write path takes would be out of bounds.
+    // does not. The executor must still reject it before it configures or
+    // opens the transport, let alone reaches the ECU handshake.
     auto plan = writePlanGranting({fastecu::flash::ConfirmationSpec::Id::EraseTrigger,
                                    fastecu::flash::ConfirmationSpec::Id::TopRegionBootstrap},
                                   bytes::Bytes(MitsuColtCan::kTopRegionEnd - 1, 0x00));
-
-    scriptBootloadHandshake(transport);
 
     const auto result =
         executor.execute(plan, transport, clock, cancellation.token(), events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_THAT(events.logs,
-                Contains(Pair(LogLevel::Error, "ROM file must be exactly 0x80000 bytes")));
+    EXPECT_THAT(result.error().detail, HasSubstr("0x80000"));
+    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_FALSE(transport.last_config_.has_value());
+    EXPECT_THAT(events.logs, IsEmpty());
 }
 
 TEST(MitsuColtM32rCanExecutor, WriteRefusesTheBootstrapWhenItsConfirmationIsAbsent)
@@ -1575,7 +1733,7 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengeKeyRejectionStopsBeforeTheSession)
     RecordingEventSink events;
     fastecu::flash::CancellationSource cancellation;
     MitsuColtM32rCanExecutor executor;
-    auto plan = readPlan(/*vendor=*/true);
+    auto plan = readPlan(kVendorProtocol384);
 
     transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
         MitsuColtCan::kSessionBasic)));
