@@ -52,7 +52,8 @@ jobs:
         with:
           bazelisk-cache: true
           repository-cache: true
-          disk-cache: ${{ github.workflow }}-sonar
+          disk-cache: fastecu-sonar-${{ runner.os }}
+          cache-save: false
 
       - name: Install LLVM (macOS)
         run: |
@@ -94,7 +95,8 @@ jobs:
         with:
           bazelisk-cache: true
           repository-cache: true
-          disk-cache: ${{ github.workflow }}
+          disk-cache: fastecu-build-${{ runner.os }}
+          cache-save: false
 
       - name: Install Qt for host tools (Windows)
         if: runner.os == 'Windows'
