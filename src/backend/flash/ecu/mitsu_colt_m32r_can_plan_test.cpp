@@ -38,14 +38,14 @@ TEST(MitsuColtM32rCanPlan, ReadPlanCoversTheFirstFlashBlock)
     EXPECT_TRUE(plan->confirmations().empty());
 }
 
-TEST(MitsuColtM32rCanPlan, ReadPlanSelectsTheBasicDiagnosticSession)
+TEST(MitsuColtM32rCanPlan, ReadPlanSelectsTheBootloadDiagnosticSession)
 {
     const auto plan = build_mitsu_colt_m32r_can_plan(FlashOperation::Read, kProtocol, kMcu,
                                                      false, std::nullopt);
 
     ASSERT_TRUE(plan.has_value());
     const auto& family = std::get<MitsuColtM32rCanPlan>(plan->family_plan());
-    EXPECT_EQ(family.session_id, MitsuColtCan::kSessionBasic);
+    EXPECT_EQ(family.session_id, MitsuColtCan::kSessionBootload);
     EXPECT_FALSE(family.use_vendor_challenge);
     EXPECT_EQ(family.request_id, 0x7e0u);
     EXPECT_EQ(family.response_id, 0x7e8u);
@@ -59,7 +59,9 @@ TEST(MitsuColtM32rCanPlan, VendorExtensionProtocolSetsTheChallengeFlag)
         FlashOperation::Read, "mitsu_ecu_m32r_can_vendor_ext", kMcu, true, std::nullopt);
 
     ASSERT_TRUE(plan.has_value());
-    EXPECT_TRUE(std::get<MitsuColtM32rCanPlan>(plan->family_plan()).use_vendor_challenge);
+    const auto& family = std::get<MitsuColtM32rCanPlan>(plan->family_plan());
+    EXPECT_TRUE(family.use_vendor_challenge);
+    EXPECT_EQ(family.session_id, MitsuColtCan::kSessionBootload);
 }
 
 TEST(MitsuColtM32rCanPlan, WritePlanSelectsBootloadSessionAndDeclaresBothGates)

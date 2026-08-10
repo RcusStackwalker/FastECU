@@ -10,8 +10,7 @@ parent workspace, but it is not part of this repository.
 
 1. **Connect.** Power a bench/spare Z37A ECU, select "Mitsubishi / Colt CZT
    / Z37A 5MT" in FastECU, choose Read. Confirm `connect_bootloader()`
-   completes (diagnostic session ok) without security access (read uses
-   the basic session).
+   enters bootload session `0x85` and completes factory security access.
 2. **Userspace read.** Choose Read to verify the userspace flash region
    (`0x8000`-`0x60000`, 352KB). Compare byte-for-byte against a known-good
    reference dump of the same ROM (`47110032`, per the parent research

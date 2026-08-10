@@ -448,9 +448,8 @@ const struct flashblock fblocks_M32R_512KB_4blocks[] = {
 };
 
 // Mitsubishi Colt CZT (Z37A, ROM 47110032): readable/writeable userspace
-// range. The ECU rejects ReadMemoryByAddress below 0x8000 in diagnostic
-// session 0x81, and the 0x0-0x8000 boot region is not touched by this
-// protocol.
+// range. Reads use bootload session 0x85; the 0x0-0x8000 boot region is not
+// touched by this protocol.
 const struct flashblock fblocks_M32R_384KB_1block[] = {
     {0x00008000, 0x00058000},
 };

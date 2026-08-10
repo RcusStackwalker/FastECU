@@ -189,8 +189,8 @@ void scriptFullRead(ScriptedCanFlashTransport& transport, const fastecu::flash::
     scriptFlashRead(transport, plan.transfer_region().start, plan.transfer_region().length, fill);
 }
 
-// Scripts the bootload handshake a Write plan drives: session 0x85 then the
-// factory SecurityAccess seed/key pair (legacy lines 119-165).
+// Scripts the bootload handshake every operation drives: session 0x85 then
+// the factory SecurityAccess seed/key pair.
 void scriptBootloadHandshake(ScriptedCanFlashTransport& transport)
 {
     transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
@@ -325,7 +325,7 @@ TEST(MitsuColtM32rCanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyIo)
     EXPECT_FALSE(transport.last_config_.has_value());
 }
 
-TEST(MitsuColtM32rCanExecutor, ReadPerformsTheBasicHandshakeThenChunkedReads)
+TEST(MitsuColtM32rCanExecutor, ReadPerformsTheBootloadHandshakeThenChunkedReads)
 {
     ScriptedCanFlashTransport transport;
     FakeClock clock;
@@ -334,11 +334,7 @@ TEST(MitsuColtM32rCanExecutor, ReadPerformsTheBasicHandshakeThenChunkedReads)
     MitsuColtM32rCanExecutor executor;
     auto plan = readPlan();
 
-    // Legacy: connect_bootloader() sends SID 0x10 with kSessionBasic and
-    // requires (0x10+0x40, 0x81) back (lines 119-129).
-    transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
-        MitsuColtCan::kSessionBasic)));
-    transport.queueRead(response({0x50, 0x81}));
+    scriptBootloadHandshake(transport);
 
     // 64KB at kFlashReadBlockSize (192) per chunk.
     scriptFullRead(transport, plan, 0xAB);
@@ -373,7 +369,7 @@ TEST(MitsuColtM32rCanExecutor, ReadRejectsAWrongDiagnosticSessionResponse)
     auto plan = readPlan();
 
     transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
-        MitsuColtCan::kSessionBasic)));
+        MitsuColtCan::kSessionBootload)));
     transport.queueRead(response({0x7f, 0x10, 0x12})); // negative response
 
     const auto result =
@@ -401,7 +397,7 @@ TEST(MitsuColtM32rCanExecutor, ReadReportsAnEmptyReplyAsTimeout)
     auto plan = readPlan();
 
     transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
-        MitsuColtCan::kSessionBasic)));
+        MitsuColtCan::kSessionBootload)));
     transport.queue_no_frame();
 
     const auto result =
@@ -421,7 +417,7 @@ TEST(MitsuColtM32rCanExecutor, ReadPropagatesADisconnectedTransport)
     auto plan = readPlan();
 
     transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
-        MitsuColtCan::kSessionBasic)));
+        MitsuColtCan::kSessionBootload)));
     transport.queue_error(ErrorKind::Disconnected, "adapter gone");
 
     const auto result =
@@ -441,8 +437,8 @@ TEST(MitsuColtM32rCanExecutor, ReadStopsWhenCancelled)
     auto plan = readPlan();
 
     transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
-        MitsuColtCan::kSessionBasic)));
-    transport.queueRead(response({0x50, 0x81}));
+        MitsuColtCan::kSessionBootload)));
+    transport.queueRead(response({0x50, 0x85}));
     cancellation.trip();
 
     const auto result =
@@ -486,9 +482,7 @@ TEST(MitsuColtM32rCanExecutor, ReadStopsAtTheNextChunkWhenCancelledMidRead)
     MitsuColtM32rCanExecutor executor;
     auto plan = readPlan();
 
-    transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
-        MitsuColtCan::kSessionBasic)));
-    transport.queueRead(response({0x50, 0x81}));
+    scriptBootloadHandshake(transport);
 
     // Exactly one read chunk is scripted; the executor is cancelled while it
     // is being served, so the loop must stop at the top of the next chunk.
@@ -507,7 +501,7 @@ TEST(MitsuColtM32rCanExecutor, ReadStopsAtTheNextChunkWhenCancelledMidRead)
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
-TEST(MitsuColtM32rCanExecutor, VendorChallengePrecedesTheDiagnosticSession)
+TEST(MitsuColtM32rCanExecutor, VendorChallengeRunsInBasicSessionBeforeBootloadSession)
 {
     ScriptedCanFlashTransport transport;
     FakeClock clock;
@@ -516,8 +510,10 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengePrecedesTheDiagnosticSession)
     MitsuColtM32rCanExecutor executor;
     auto plan = readPlan(/*vendor=*/true);
 
-    // Legacy ordering, flash_ecu_mitsu_m32r_can_operation.cpp:84-129:
-    // seed request, key answer, then the diagnostic session.
+    transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
+        MitsuColtCan::kSessionBasic)));
+    transport.queueRead(response({0x50, 0x81}));
+
     transport.expectWrite(request(MitsuColtCanVendorExt::buildChallengeSeedRequest()));
     transport.queueRead(response({0x63, 0x27, 0x41, 0x12, 0x34, 0x56, 0x78}));
 
@@ -526,7 +522,7 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengePrecedesTheDiagnosticSession)
     transport.queueRead(response({0x63, 0x27, 0x34}));
 
     transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
-        MitsuColtCan::kSessionBasic)));
+        MitsuColtCan::kSessionBootload)));
     transport.queue_no_frame(); // stop here: ordering is what this pins
 
     const auto result =
@@ -549,6 +545,10 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengeRejectionStopsBeforeTheSession)
     fastecu::flash::CancellationSource cancellation;
     MitsuColtM32rCanExecutor executor;
     auto plan = readPlan(/*vendor=*/true);
+
+    transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
+        MitsuColtCan::kSessionBasic)));
+    transport.queueRead(response({0x50, 0x81}));
 
     transport.expectWrite(request(MitsuColtCanVendorExt::buildChallengeSeedRequest()));
     transport.queueRead(response({0x7f, 0x23, 0x33}));
@@ -575,9 +575,7 @@ TEST(MitsuColtM32rCanExecutor, ReadEmitsMonotonicProgress)
     MitsuColtM32rCanExecutor executor;
     auto plan = readPlan();
 
-    transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
-        MitsuColtCan::kSessionBasic)));
-    transport.queueRead(response({0x50, 0x81}));
+    scriptBootloadHandshake(transport);
 
     scriptFullRead(transport, plan, 0x00);
 
@@ -1021,7 +1019,7 @@ TEST(MitsuColtM32rCanExecutor, HandshakeRejectsAReplyTooShortToHoldAServiceByte)
     // guards instead, and this is the frame that proves the guard is there --
     // without it the description would be taken from a subspan past the end.
     transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
-        MitsuColtCan::kSessionBasic)));
+        MitsuColtCan::kSessionBootload)));
     transport.queueRead(bytes::Bytes{0x07, 0xe8});
 
     const auto result =
@@ -1043,9 +1041,7 @@ TEST(MitsuColtM32rCanExecutor, ReadRejectsAChunkAnsweredWithTheWrongService)
     MitsuColtM32rCanExecutor executor;
     auto plan = readPlan();
 
-    transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
-        MitsuColtCan::kSessionBasic)));
-    transport.queueRead(response({0x50, 0x81}));
+    scriptBootloadHandshake(transport);
 
     // The first chunk comes back as a negative response. Accepting it would
     // append 192 bytes of framing garbage to the ROM image at offset 0.
@@ -1150,7 +1146,7 @@ TEST(MitsuColtM32rCanExecutor, AFailedTransportWriteIsReportedWithoutWaitingForA
     // A perfectly good session reply is waiting. If the write failure were
     // swallowed, the run would consume it and carry on into the read sweep;
     // the transport's own error is what must come back instead.
-    transport.queueRead(response({0x50, 0x81}));
+    transport.queueRead(response({0x50, 0x85}));
 
     const auto result =
         executor.execute(plan, transport, clock, cancellation.token(), events);
@@ -1193,8 +1189,8 @@ TEST(MitsuColtM32rCanExecutor, ACancellationThatArrivesAfterTheRequestStopsBefor
     auto plan = readPlan();
 
     transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
-        MitsuColtCan::kSessionBasic)));
-    transport.queueRead(response({0x50, 0x81}));
+        MitsuColtCan::kSessionBootload)));
+    transport.queueRead(response({0x50, 0x85}));
 
     const auto result =
         executor.execute(plan, transport, clock, cancellation.token(), events);
@@ -1464,6 +1460,10 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengeKeyRejectionStopsBeforeTheSession)
     fastecu::flash::CancellationSource cancellation;
     MitsuColtM32rCanExecutor executor;
     auto plan = readPlan(/*vendor=*/true);
+
+    transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
+        MitsuColtCan::kSessionBasic)));
+    transport.queueRead(response({0x50, 0x81}));
 
     transport.expectWrite(request(MitsuColtCanVendorExt::buildChallengeSeedRequest()));
     transport.queueRead(response({0x63, 0x27, 0x41, 0x12, 0x34, 0x56, 0x78}));
