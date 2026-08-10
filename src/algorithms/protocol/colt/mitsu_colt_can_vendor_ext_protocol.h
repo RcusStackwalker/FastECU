@@ -23,6 +23,8 @@ constexpr bytes::Byte kServiceReadMemoryByAddress = 0x23;
 constexpr bytes::Byte kVendorChallengeSelector = 0x27;
 constexpr bytes::Byte kVendorChallengeSeedSubfunction = 0x41; // ASCII 'A'
 constexpr bytes::Byte kVendorChallengeKeySubfunction = 0x42;  // ASCII 'B'
+// Reply byte emitted by the extension after the submitted key is verified.
+constexpr bytes::Byte kVendorChallengeAccepted = 0x34;
 
 // Forward transform, ported verbatim from ROM 47110032 offset 0x510b8. This
 // is what the ECU applies to its internal secret to produce the seed value
