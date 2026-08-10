@@ -12,6 +12,7 @@
 #include <gtest/gtest.h>
 
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
+#include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
@@ -116,7 +117,7 @@ bytes::Bytes requestKernelIdRequest()
         0x01,
         0x01,
     };
-    out.push_back(SsmProtocol::checksum(out, false));
+    out.push_back(fastecu::checksum::checksum8(out, false));
     return out;
 }
 

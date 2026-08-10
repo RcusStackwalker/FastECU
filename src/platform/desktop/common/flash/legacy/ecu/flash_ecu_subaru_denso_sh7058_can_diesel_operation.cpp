@@ -1,6 +1,7 @@
 #include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7058_can_diesel_operation.h"
 #include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
+#include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <QElapsedTimer>
@@ -1104,7 +1105,7 @@ int FlashEcuSubaruDensoSH7058CanDieselOperation::check_romcrc(const uint8_t *src
         return STATUS_ERROR;
     }
 
-    imgcrc32 = SsmProtocol::crc32(src, pagesize);
+    imgcrc32 = fastecu::checksum::crc32(src, pagesize);
     msg.clear();
     msg.append(QString("ROM CRC: 0x%1 IMG CRC: 0x%2").arg(ecucrc32, 8, 16, QLatin1Char('0')).arg(imgcrc32, 8, 16, QLatin1Char('0')).toUtf8());
     emit LOG_D(msg, true, true);
@@ -1516,7 +1517,7 @@ int FlashEcuSubaruDensoSH7058CanDieselOperation::flash_block(const uint8_t *src,
         if ((flashblockstart + flashblocksize) == start)
         {
             emit LOG_I("Flash buffer write complete... ", true, true);
-            imgcrc32 = SsmProtocol::crc32(&src[flashblockstart], flashblocksize);
+            imgcrc32 = fastecu::checksum::crc32(&src[flashblockstart], flashblocksize);
             emit LOG_D("Image CRC32: 0x" + QString::number(imgcrc32, 16), true, true);
 
             uint8_t SUB_KERNEL_CMD = 0;

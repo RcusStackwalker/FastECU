@@ -1,6 +1,8 @@
 #include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_hitachi_m32r_kline_operation.h"
 #include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
+#include "src/algorithms/checksum/qt_checksum.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <QElapsedTimer>
@@ -115,7 +117,7 @@ int FlashEcuSubaruHitachiM32rKlineOperation::connect_bootloader_subaru_ecu_hitac
         output.append((uint8_t)0x81);
         output = SsmProtocol::addHeader(output, tester_id, target_id, false);
 
-        emit LOG_I("Wait for response: " + SsmProtocol::toHex(received), true, false);
+        emit LOG_I("Wait for response: " + bytes::toHex(received), true, false);
         for (int i = 0; i < 1000; i++)
         {
             if (stopRequested())
@@ -173,12 +175,12 @@ int FlashEcuSubaruHitachiM32rKlineOperation::connect_bootloader_subaru_ecu_hitac
         seed.append(received.at(8));
         seed.append(received.at(9));
 
-        msg = SsmProtocol::toHex(seed);
+        msg = bytes::toHex(seed);
         emit LOG_I("Received seed: " + msg, true, true);
 
         seed_key = generate_seed_key(seed);
 
-        msg = SsmProtocol::toHex(seed_key);
+        msg = bytes::toHex(seed_key);
         emit LOG_I("Calculated seed key: " + msg, true, true);
 
         emit LOG_I("Sending seed key to ECU", true, true);
@@ -367,12 +369,12 @@ int FlashEcuSubaruHitachiM32rKlineOperation::connect_bootloader_subaru_ecu_hitac
     seed.append(received.at(8));
     seed.append(received.at(9));
 
-    msg = SsmProtocol::toHex(seed);
+    msg = bytes::toHex(seed);
     emit LOG_I("Received seed: " + msg, true, true);
 
     seed_key = generate_seed_key(seed);
 
-    msg = SsmProtocol::toHex(seed_key);
+    msg = bytes::toHex(seed_key);
     emit LOG_I("Calculated seed key: " + msg, true, true);
 
     emit LOG_I("Sending seed key to ECU", true, true);
@@ -526,7 +528,7 @@ int FlashEcuSubaruHitachiM32rKlineOperation::read_mem(uint32_t start_addr, uint3
 
         // Checking connection after baudrate change with SSM Init
         received = send_sid_bf_ssm_init();
-        emit LOG_D("Init response: " + SsmProtocol::toHex(received), true, true);
+        emit LOG_D("Init response: " + bytes::toHex(received), true, true);
         if (received == "" || (uint8_t)received.at(4) != 0xff)
         {
             return STATUS_ERROR;
@@ -578,9 +580,9 @@ int FlashEcuSubaruHitachiM32rKlineOperation::read_mem(uint32_t start_addr, uint3
         output[8] = (uint8_t)addr & 0xFF;
         output[9] = (uint8_t)(pagesize - 1) & 0xFF;
         output.remove(10, 1);
-        output.append(SsmProtocol::checksum(output, false));
+        output.append(fastecu::checksum::checksum8(output, false));
 
-        // chk_sum = SsmProtocol::checksum(output, false);
+        // chk_sum = fastecu::checksum::checksum8(output, false);
         // output.append((uint8_t) chk_sum);
         serial->write_serial_data_echo_check(output);
         received = serial->read_serial_data(serial_read_extra_long_timeout);
@@ -825,7 +827,7 @@ int FlashEcuSubaruHitachiM32rKlineOperation::reflash_block(const uint8_t *newdat
             {
                 emit LOG_E("", false, true);
                 emit LOG_E("Flash erase failed!", true, true);
-                emit LOG_E("Response: " + SsmProtocol::toHex(received), true, true);
+                emit LOG_E("Response: " + bytes::toHex(received), true, true);
                 return STATUS_ERROR;
             }
         }
@@ -835,7 +837,7 @@ int FlashEcuSubaruHitachiM32rKlineOperation::reflash_block(const uint8_t *newdat
     {
         emit LOG_E("", false, true);
         emit LOG_E("Flash erase failed, no answer from ECU!", true, true);
-        emit LOG_E("Response: " + SsmProtocol::toHex(received), true, true);
+        emit LOG_E("Response: " + bytes::toHex(received), true, true);
 
         return STATUS_ERROR;
     }

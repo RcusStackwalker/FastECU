@@ -1,6 +1,8 @@
 #include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_hitachi_sh7058_can_operation.h"
 #include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
+#include "src/algorithms/checksum/qt_checksum.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <QElapsedTimer>
@@ -127,7 +129,7 @@ int FlashEcuSubaruHitachiSH7058CanOperation::connect_bootloader_subaru_ecu_hitac
         if ((uint8_t)received.at(4) == 0x7F && (uint8_t)received.at(5) == 0xB7 && (uint8_t)received.at(6) == 0x13)
         {
             emit LOG_I("OBK is active", true, true);
-            emit LOG_D("Response: " + SsmProtocol::toHex(output), true, true);
+            emit LOG_D("Response: " + bytes::toHex(output), true, true);
             kernel_alive = true;
             return STATUS_SUCCESS;
         }
@@ -783,8 +785,8 @@ int FlashEcuSubaruHitachiSH7058CanOperation::read_mem_subaru_ecu_hitachi_can(uin
         }
 
         received = send_subaru_sid_b8_change_baudrate_38400();
-        // LOG_I("0xB8 response: " + SsmProtocol::toHex(received), true, true);
-        // emit LOG_I("0xB8 response: " + SsmProtocol::toHex(received), true, true);
+        // LOG_I("0xB8 response: " + bytes::toHex(received), true, true);
+        // emit LOG_I("0xB8 response: " + bytes::toHex(received), true, true);
         if (received == "" || (uint8_t)received.at(4) != 0xf8)
         {
             return STATUS_ERROR;
@@ -839,9 +841,9 @@ int FlashEcuSubaruHitachiSH7058CanOperation::read_mem_subaru_ecu_hitachi_can(uin
         output[8] = (uint8_t)(addr & 0xFF);
         output[9] = (uint8_t)(pagesize - 1) & 0xFF;
         output.remove(10, 1);
-        output[10] = (SsmProtocol::checksum(output, false));
+        output[10] = (fastecu::checksum::checksum8(output, false));
 
-        emit LOG_D("Send msg: " + SsmProtocol::toHex(output), true, true);
+        emit LOG_D("Send msg: " + bytes::toHex(output), true, true);
         serial->write_serial_data_echo_check(output);
         //        delay(50);
         //        received = serial->read_serial_data(200);
@@ -857,7 +859,7 @@ int FlashEcuSubaruHitachiSH7058CanOperation::read_mem_subaru_ecu_hitachi_can(uin
         pagedata = received.remove(0, 5);
         pagedata.remove(received.length() - 1, 1);
 
-        //        emit LOG_I("Received pagedata: " + SsmProtocol::toHex(pagedata), true, true);
+        //        emit LOG_I("Received pagedata: " + bytes::toHex(pagedata), true, true);
         mapdata.append(pagedata);
 
         // don't count skipped first bytes //
@@ -1254,7 +1256,7 @@ int FlashEcuSubaruHitachiSH7058CanOperation::erase_subaru_ecu_hitachi_can()
         }
         try_count++;
     }
-    emit LOG_E("Flash area erase failed: " + SsmProtocol::toHex(received), true, true);
+    emit LOG_E("Flash area erase failed: " + bytes::toHex(received), true, true);
     return STATUS_ERROR;
 }
 

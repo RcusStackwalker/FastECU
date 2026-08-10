@@ -36,6 +36,13 @@ TEST(BytesPortable, Sums8OverFullView)
     EXPECT_EQ(bytes::sum8(bytes::ByteView(buf)), static_cast<bytes::Byte>(0x05));
 }
 
+TEST(BytesPortable, ToHexRendersLowercasePairsWithTrailingSpace)
+{
+    const bytes::Bytes buf{0x80, 0x01, 0x02, 0xFF};
+    EXPECT_EQ(bytes::toHex(bytes::ByteView(buf)), "80 01 02 ff ");
+    EXPECT_EQ(bytes::toHex(bytes::ByteView()), "");
+}
+
 TEST(BytesPortable, ReadsVariableWidthBigEndian)
 {
     const bytes::Bytes buf{0x12, 0x34, 0x56, 0x78};

@@ -11,7 +11,7 @@
 #include "src/algorithms/diagnostics/nrc_parser.h"
 #include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
 #include "src/algorithms/protocol/colt/mitsu_colt_can_vendor_ext_protocol.h"
-#include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
+#include "src/algorithms/protocol/bytes.h"
 
 // Every exchange below cites the line of
 // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_mitsu_m32r_can_operation.cpp
@@ -158,12 +158,12 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
 
         // Lines 97-104: received.mid(7, 4).
         const bytes::ByteView seed_bytes = bytes::ByteView(*received).subspan(7, 4);
-        info(ctx, std::format("Received vendor seed: {}", SsmProtocol::toHex(seed_bytes)));
+        info(ctx, std::format("Received vendor seed: {}", bytes::toHex(seed_bytes)));
 
         const std::uint32_t vendor_key = MitsuColtCanVendorExt::challengeInverseTransform(
             MitsuColtCanVendorExt::bytesToSeed(seed_bytes));
         const bytes::Bytes key_bytes = MitsuColtCanVendorExt::keyBytes(vendor_key);
-        info(ctx, std::format("Calculated vendor key: {}", SsmProtocol::toHex(key_bytes)));
+        info(ctx, std::format("Calculated vendor key: {}", bytes::toHex(key_bytes)));
 
         // Lines 106-116.
         info(ctx, "Sending vendor key to ECU...");
@@ -227,10 +227,10 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
 
     // Lines 147-153: received.mid(6, 4).
     const bytes::ByteView seed = bytes::ByteView(*received).subspan(6, 4);
-    info(ctx, std::format("Received seed: {}", SsmProtocol::toHex(seed)));
+    info(ctx, std::format("Received seed: {}", bytes::toHex(seed)));
 
     const bytes::Bytes key = seedKey(seed);
-    info(ctx, std::format("Calculated seed key: {}", SsmProtocol::toHex(key)));
+    info(ctx, std::format("Calculated seed key: {}", bytes::toHex(key)));
 
     // Lines 155-165.
     info(ctx, "Sending seed key to ECU...");

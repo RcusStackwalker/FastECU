@@ -24,6 +24,7 @@ fastecu_qttest(
     src = "flash_worker_test.cpp",
     deps = [
         ":flash_worker",
+        "//src/algorithms/checksum",
         "//src/algorithms/protocol/ssm",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_kline",

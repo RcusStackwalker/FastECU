@@ -1,8 +1,8 @@
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 
-#include <array>
+#include "src/algorithms/checksum/checksum_primitives.h"
+
 #include <algorithm>
-#include <cstdio>
 
 namespace
 {
@@ -29,39 +29,6 @@ uint32_t transformWord(uint32_t word, const uint16_t *keytogenerateindex,
     }
 
     return (word >> 16) + (word << 16);
-}
-
-const std::array<uint32_t, 256>& crcTable()
-{
-    static const std::array<uint32_t, 256> table = []
-    {
-        std::array<uint32_t, 256> t = {};
-        constexpr uint32_t polynomial = 0x5AA5A55A;
-
-        for (uint32_t i = 0; i < t.size(); ++i)
-        {
-            uint32_t crc = 0;
-            uint32_t c = i;
-
-            for (uint32_t j = 0; j < 8; ++j)
-            {
-                if ((crc ^ c) & 0x00000001U)
-                {
-                    crc = (crc >> 1) ^ polynomial;
-                }
-                else
-                {
-                    crc = crc >> 1;
-                }
-                c = c >> 1;
-            }
-            t[i] = crc;
-        }
-
-        return t;
-    }();
-
-    return table;
 }
 
 } // namespace
@@ -109,22 +76,6 @@ bytes::Bytes calculatePayload(bytes::ByteView buf, uint32_t len,
     return encrypted;
 }
 
-bytes::Byte checksum(bytes::ByteView output, bool dec0x100)
-{
-    bytes::Byte value = 0;
-    for (const bytes::Byte byte : output)
-    {
-        value += byte;
-    }
-
-    if (dec0x100)
-    {
-        value = bytes::Byte(0x100 - value);
-    }
-
-    return value;
-}
-
 bytes::Bytes addHeader(bytes::ByteView output, bytes::Byte testerId, bytes::Byte targetId,
                        bool dec0x100)
 {
@@ -137,7 +88,7 @@ bytes::Bytes addHeader(bytes::ByteView output, bytes::Byte testerId, bytes::Byte
     framed.push_back(testerId);
     framed.push_back(length);
     framed.insert(framed.end(), output.begin(), output.end());
-    framed.push_back(checksum(framed, dec0x100));
+    framed.push_back(fastecu::checksum::checksum8(framed, dec0x100));
 
     return framed;
 }
@@ -163,7 +114,7 @@ bool hasValidFrame(bytes::ByteView frame, bytes::Byte receiverId, bytes::Byte se
         return false;
     }
 
-    return checksum(frame.first(frame.size() - checksumLength), dec0x100) == frame[frame.size() - checksumLength];
+    return fastecu::checksum::checksum8(frame.first(frame.size() - checksumLength), dec0x100) == frame[frame.size() - checksumLength];
 }
 
 bool hasPayloadPrefix(bytes::ByteView frame, bytes::ByteView prefix,
@@ -181,31 +132,6 @@ bool hasPayloadPrefix(bytes::ByteView frame, bytes::ByteView prefix,
     }
 
     return std::equal(prefix.begin(), prefix.end(), frame.begin() + 4);
-}
-
-std::string toHex(bytes::ByteView received)
-{
-    std::string msg;
-    msg.reserve(received.size() * 3);
-    char hex[4] = {};
-    for (const bytes::Byte byte : received)
-    {
-        std::snprintf(hex, sizeof(hex), "%02x ", byte);
-        msg.append(hex);
-    }
-    return msg;
-}
-
-uint32_t crc32(bytes::ByteView bytes)
-{
-    uint32_t crc = 0xFFFFFFFF;
-    const auto& table = crcTable();
-    for (const auto byte : bytes)
-    {
-        crc = table[(crc ^ byte) & 0xff] ^ (crc >> 8);
-    }
-
-    return crc ^ 0xFFFFFFFF;
 }
 
 } // namespace SsmProtocol

@@ -1,6 +1,7 @@
 #include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_1n83m_4m_can_operation.h"
 #include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <QElapsedTimer>
@@ -114,7 +115,7 @@ int FlashEcuSubaruDenso1N83M_4MCanOperation::connect_bootloader()
         if ((uint8_t)received.at(4) == 0x50 && (uint8_t)received.at(5) == 0x5f)
         {
             emit LOG_I("OBK is active", true, true);
-            emit LOG_D("Response: " + SsmProtocol::toHex(output), true, true);
+            emit LOG_D("Response: " + bytes::toHex(output), true, true);
             kernel_alive = true;
             return STATUS_SUCCESS;
         }
@@ -921,11 +922,11 @@ int FlashEcuSubaruDenso1N83M_4MCanOperation::read_memory(uint32_t start_addr, ui
         output[6] = (uint8_t)((addr >> 16) & 0xFF);
         output[7] = (uint8_t)(addr >> 8);
         output[8] = ((uint8_t)addr & 0xFF);
-        // emit LOG_I("Send msg: " + SsmProtocol::toHex(output), true, true);
+        // emit LOG_I("Send msg: " + bytes::toHex(output), true, true);
         serial->write_serial_data_echo_check(output);
 
         received = serial->read_serial_data(2000);
-        // emit LOG_I("Received msg: " + SsmProtocol::toHex(received), true, true);
+        // emit LOG_I("Received msg: " + bytes::toHex(received), true, true);
 
         if (received.length() > 4)
         {
@@ -945,7 +946,7 @@ int FlashEcuSubaruDenso1N83M_4MCanOperation::read_memory(uint32_t start_addr, ui
         pagedata.clear();
         pagedata = received.remove(0, 5);
 
-        // emit LOG_I("Received pagedata: " + SsmProtocol::toHex(pagedata), true, true);
+        // emit LOG_I("Received pagedata: " + bytes::toHex(pagedata), true, true);
         mapdata.append(pagedata);
 
         // don't count skipped first bytes //
@@ -1011,7 +1012,7 @@ int FlashEcuSubaruDenso1N83M_4MCanOperation::read_memory(uint32_t start_addr, ui
         {
             if ((uint8_t)received.at(4) != 0x77)
             {
-                emit LOG_I("." + SsmProtocol::toHex(received), false, false);
+                emit LOG_I("." + bytes::toHex(received), false, false);
             }
             else
             {
@@ -1239,13 +1240,13 @@ int FlashEcuSubaruDenso1N83M_4MCanOperation::reflash_block(const uint8_t *newdat
         {
             if ((uint8_t)received.at(4) != 0x77)
             {
-                emit LOG_I("." + SsmProtocol::toHex(received), false, false);
+                emit LOG_I("." + bytes::toHex(received), false, false);
             }
             else if ((uint8_t)received.at(4) == 0x77)
             {
                 connected = true;
                 emit LOG_I("", false, true);
-                emit LOG_I("Closed succesfully: " + SsmProtocol::toHex(received), true, true);
+                emit LOG_I("Closed succesfully: " + bytes::toHex(received), true, true);
             }
         }
         try_count++;
@@ -1269,7 +1270,7 @@ int FlashEcuSubaruDenso1N83M_4MCanOperation::reflash_block(const uint8_t *newdat
 
     delay(1000);
     received = serial->read_serial_data(500);
-    emit LOG_I(QString::number(try_count) + ": 0x31 response: " + SsmProtocol::toHex(received), true, true);
+    emit LOG_I(QString::number(try_count) + ": 0x31 response: " + bytes::toHex(received), true, true);
     if (received.length() != 7)
     {
         emit LOG_E("No valid response from ECU, checksum not verified", true, true);
@@ -1288,7 +1289,7 @@ int FlashEcuSubaruDenso1N83M_4MCanOperation::reflash_block(const uint8_t *newdat
         {
             delay(200);
             received = serial->read_serial_data(serial_read_extra_long_timeout);
-            // emit LOG_I(QString::number(try_count) + ": 0x31 response: " + SsmProtocol::toHex(received), true, true);
+            // emit LOG_I(QString::number(try_count) + ": 0x31 response: " + bytes::toHex(received), true, true);
 
             if (received.length() > 6)
             {
@@ -1417,7 +1418,7 @@ int FlashEcuSubaruDenso1N83M_4MCanOperation::erase_memory()
     }
     if (!connected)
     {
-        emit LOG_E("Flash area erase failed: " + SsmProtocol::toHex(received), true, true);
+        emit LOG_E("Flash area erase failed: " + bytes::toHex(received), true, true);
         return STATUS_ERROR;
     }
 

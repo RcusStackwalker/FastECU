@@ -1,6 +1,8 @@
 #include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_unisia_jecs_m32r_operation.h"
 #include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
+#include "src/algorithms/checksum/qt_checksum.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <QElapsedTimer>
@@ -245,7 +247,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::read_mem(uint32_t start_addr, uint32_
         output[8] = (uint8_t)addr & 0xFF;
         output[9] = (uint8_t)(pagesize - 1) & 0xFF;
         output.remove(10, 1);
-        output.append(SsmProtocol::checksum(output, false));
+        output.append(fastecu::checksum::checksum8(output, false));
         serial->write_serial_data_echo_check(output);
         received = serial->read_serial_data(serial_read_extra_long_timeout);
         if (received.length() > 4)
@@ -439,7 +441,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
             {
                 emit LOG_E("", false, true);
                 emit LOG_E("Flash erase cmd failed!", true, true);
-                emit LOG_E("Response: " + SsmProtocol::toHex(received), true, true);
+                emit LOG_E("Response: " + bytes::toHex(received), true, true);
                 return STATUS_ERROR;
             }
         }
@@ -449,7 +451,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
     {
         emit LOG_E("", false, true);
         emit LOG_E("Flash erase cmd failed, no answer from ECU!", true, true);
-        emit LOG_E("Response: " + SsmProtocol::toHex(received), true, true);
+        emit LOG_E("Response: " + bytes::toHex(received), true, true);
 
         return STATUS_ERROR;
     }
@@ -477,7 +479,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
             {
                 emit LOG_E("", false, true);
                 emit LOG_E("Flash erase failed!", true, true);
-                emit LOG_E("Received: " + SsmProtocol::toHex(received), true, true);
+                emit LOG_E("Received: " + bytes::toHex(received), true, true);
                 return STATUS_ERROR;
             }
         }
@@ -541,14 +543,14 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
                 else
                 {
                     emit LOG_E("Block flash failed!", true, true);
-                    emit LOG_E("Response: " + SsmProtocol::toHex(received), true, true);
+                    emit LOG_E("Response: " + bytes::toHex(received), true, true);
                     return STATUS_ERROR;
                 }
             }
             else
             {
                 emit LOG_E("Flash failed!", true, true);
-                emit LOG_E("Response: " + SsmProtocol::toHex(received), true, true);
+                emit LOG_E("Response: " + bytes::toHex(received), true, true);
                 return STATUS_ERROR;
             }
         }

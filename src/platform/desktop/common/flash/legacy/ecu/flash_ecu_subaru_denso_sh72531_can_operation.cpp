@@ -1,6 +1,7 @@
 #include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh72531_can_operation.h"
 #include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <QCoreApplication>
@@ -906,11 +907,11 @@ int FlashEcuSubaruDensoSH72531CanOperation::read_memory(uint32_t start_addr, uin
         output[6] = (uint8_t)((addr >> 16) & 0xFF);
         output[7] = (uint8_t)((addr >> 8) & 0xFF);
         output[8] = (uint8_t)(addr & 0xFF);
-        // emit LOG_I("Sent: " + SsmProtocol::toHex(output), true, true);
+        // emit LOG_I("Sent: " + bytes::toHex(output), true, true);
         serial->write_serial_data_echo_check(output);
 
         received = serial->read_serial_data(serial_read_timeout);
-        // emit LOG_I("Response: " + SsmProtocol::toHex(received), true, true);
+        // emit LOG_I("Response: " + bytes::toHex(received), true, true);
 
         if (received.length() > 4)
         {
@@ -930,7 +931,7 @@ int FlashEcuSubaruDensoSH72531CanOperation::read_memory(uint32_t start_addr, uin
         pagedata.clear();
         pagedata = received.remove(0, 5);
 
-        // emit LOG_I("Received pagedata: " + SsmProtocol::toHex(pagedata), true, true);
+        // emit LOG_I("Received pagedata: " + bytes::toHex(pagedata), true, true);
         mapdata.append(pagedata);
 
         // don't count skipped first bytes //
@@ -996,13 +997,13 @@ int FlashEcuSubaruDensoSH72531CanOperation::read_memory(uint32_t start_addr, uin
         {
             if ((uint8_t)received.at(4) != 0x77)
             {
-                emit LOG_I("." + SsmProtocol::toHex(received), false, false);
+                emit LOG_I("." + bytes::toHex(received), false, false);
             }
             else
             {
                 connected = true;
                 emit LOG_I("", false, true);
-                emit LOG_I("Stop request response: " + SsmProtocol::toHex(received), true, true);
+                emit LOG_I("Stop request response: " + bytes::toHex(received), true, true);
             }
         }
         try_count++;
@@ -1180,7 +1181,7 @@ int FlashEcuSubaruDensoSH72531CanOperation::reflash_block(const uint8_t *newdata
         serial->write_serial_data_echo_check(output);
         // delay(20);
         received = serial->read_serial_data(receive_timeout);
-        // emit LOG_I("Received msg: " + SsmProtocol::toHex(received), true, true);
+        // emit LOG_I("Received msg: " + bytes::toHex(received), true, true);
 
         if (received.length() > 4)
         {
@@ -1228,13 +1229,13 @@ int FlashEcuSubaruDensoSH72531CanOperation::reflash_block(const uint8_t *newdata
         {
             if ((uint8_t)received.at(4) != 0x77)
             {
-                emit LOG_I("." + SsmProtocol::toHex(received), false, false);
+                emit LOG_I("." + bytes::toHex(received), false, false);
             }
             else if ((uint8_t)received.at(4) == 0x77)
             {
                 connected = true;
                 emit LOG_I("", false, true);
-                emit LOG_I("Closed succesfully: " + SsmProtocol::toHex(received), true, true);
+                emit LOG_I("Closed succesfully: " + bytes::toHex(received), true, true);
             }
         }
         try_count++;
@@ -1395,7 +1396,7 @@ int FlashEcuSubaruDensoSH72531CanOperation::erase_memory()
     }
     if (!connected)
     {
-        emit LOG_I("Flash area erase failed: " + SsmProtocol::toHex(received), true, true);
+        emit LOG_I("Flash area erase failed: " + bytes::toHex(received), true, true);
         return STATUS_ERROR;
     }
 

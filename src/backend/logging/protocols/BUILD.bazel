@@ -39,6 +39,7 @@ fastecu_portable_gtest(
     srcs = ["ssm_logging_protocol_test.cpp"],
     deps = [
         ":protocols",
+        "//src/algorithms/checksum",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/protocol/testing:scripted_transports",

@@ -3,6 +3,7 @@
 #include "src/algorithms/protocol/bytes.h"
 
 #include <QByteArray>
+#include <QString>
 
 namespace bytes
 {
@@ -101,6 +102,11 @@ inline void writeU24Le(QByteArray& out, std::size_t offset, std::uint32_t value)
 inline void writeU32Le(QByteArray& out, std::size_t offset, std::uint32_t value)
 {
     writeU32Le(mutableView(out), offset, value);
+}
+
+inline QString toHex(const QByteArray& data)
+{
+    return QString::fromStdString(toHex(view(data)));
 }
 
 } // namespace bytes

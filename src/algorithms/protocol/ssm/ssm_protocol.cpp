@@ -20,11 +20,6 @@ QByteArray calculatePayload(const QByteArray& buf, uint32_t len,
                                                 indextransformation));
 }
 
-uint8_t checksum(const QByteArray& output, bool dec0x100)
-{
-    return checksum(bytes::view(output), dec0x100);
-}
-
 QByteArray addHeader(const QByteArray& output, uint8_t testerId, uint8_t targetId, bool dec0x100)
 {
     return bytes::toQByteArray(addHeader(bytes::view(output), testerId, targetId, dec0x100));
@@ -40,21 +35,6 @@ bool hasPayloadPrefix(const QByteArray& frame, const QByteArray& prefix,
 {
     return hasPayloadPrefix(bytes::view(frame), bytes::view(prefix), receiverId, senderId,
                             dec0x100);
-}
-
-QString toHex(const QByteArray& received)
-{
-    return QString::fromStdString(toHex(bytes::view(received)));
-}
-
-uint32_t crc32(const unsigned char *buf, uint32_t len)
-{
-    if (buf == nullptr)
-    {
-        return 0;
-    }
-
-    return crc32(bytes::ByteView(reinterpret_cast<const bytes::Byte *>(buf), len));
 }
 
 } // namespace SsmProtocol

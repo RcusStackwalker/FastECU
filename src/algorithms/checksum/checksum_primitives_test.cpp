@@ -56,3 +56,36 @@ TEST(CksAdd8, MatchesReflashBlockShape)
     data.fill(0x02);
     EXPECT_EQ(fastecu::checksum::cks_add8(std::span<const std::uint8_t>(data)), std::uint8_t(7));
 }
+
+TEST(Checksum8, SumsPayloadBytes)
+{
+    const bytes::Bytes frame{0x80, 0x10, 0xF0, 0x01, 0xBF};
+    EXPECT_EQ(fastecu::checksum::checksum8(bytes::ByteView(frame)),
+              static_cast<bytes::Byte>(0x80 + 0x10 + 0xF0 + 0x01 + 0xBF));
+}
+
+TEST(Checksum8, ComplementsAgainst0x100WhenRequested)
+{
+    const bytes::Bytes payload{0xA8, 0x00, 0x11, 0x22, 0x33};
+    EXPECT_EQ(fastecu::checksum::checksum8(bytes::ByteView(payload), false), bytes::Byte(0x0E));
+    EXPECT_EQ(fastecu::checksum::checksum8(bytes::ByteView(payload), true), bytes::Byte(0xF2));
+}
+
+TEST(Crc32, MatchesKnownPolynomialVector)
+{
+    const bytes::Bytes payload{0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+                               0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF};
+    EXPECT_EQ(fastecu::checksum::crc32(bytes::ByteView(payload)), std::uint32_t(0x8FA3DEB3));
+}
+
+TEST(Crc32, PointerOverloadMatchesByteViewOverload)
+{
+    const bytes::Bytes payload{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
+    EXPECT_EQ(fastecu::checksum::crc32(payload.data(), std::uint32_t(payload.size())),
+              std::uint32_t(0x8AD85CF9));
+}
+
+TEST(Crc32, NullPointerReturnsZero)
+{
+    EXPECT_EQ(fastecu::checksum::crc32(nullptr, 8), std::uint32_t(0));
+}

@@ -3,6 +3,7 @@
 #include <utility>
 #include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
+#include "src/algorithms/protocol/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 FlashTcuSubaruHitachiM32rKlineOperation::FlashTcuSubaruHitachiM32rKlineOperation(
@@ -222,12 +223,12 @@ int FlashTcuSubaruHitachiM32rKlineOperation::connect_bootloader()
     seed.append(received.at(8));
     seed.append(received.at(9));
 
-    msg = SsmProtocol::toHex(seed);
+    msg = bytes::toHex(seed);
     emit LOG_I("Received seed: " + msg, true, true);
 
     seed_key = generate_kline_seed_key(seed);
 
-    msg = SsmProtocol::toHex(seed_key);
+    msg = bytes::toHex(seed_key);
     emit LOG_I("Calculated seed key: " + msg, true, true);
 
     emit LOG_I("Sending seed key to ECU", true, true);
@@ -605,12 +606,12 @@ QByteArray FlashTcuSubaruHitachiM32rKlineOperation::send_sid_b0_block_write(uint
     output.append((uint8_t)((datalen + 4) & 0xFF));
 
     serial->write_serial_data_echo_check(SsmProtocol::addHeader(output, tester_id, target_id, false));
-    emit LOG_I("Sent: " + SsmProtocol::toHex(SsmProtocol::addHeader(output, tester_id, target_id, false)), true, true);
+    emit LOG_I("Sent: " + bytes::toHex(SsmProtocol::addHeader(output, tester_id, target_id, false)), true, true);
     delay(100);
     received = serial->read_serial_data(receive_timeout);
     // received = QByteArray::fromHex("80f018f8e0");
     delay(100);
-    emit LOG_I("Recd: " + SsmProtocol::toHex(received), true, true);
+    emit LOG_I("Recd: " + bytes::toHex(received), true, true);
 
     return received;
 }
@@ -631,12 +632,12 @@ QByteArray FlashTcuSubaruHitachiM32rKlineOperation::send_sid_b8_byte_read(uint32
     output.append((uint8_t)dataaddr & 0xFF);
 
     serial->write_serial_data_echo_check(SsmProtocol::addHeader(output, tester_id, target_id, false));
-    emit LOG_I("Sent: " + SsmProtocol::toHex(SsmProtocol::addHeader(output, tester_id, target_id, false)), true, true);
+    emit LOG_I("Sent: " + bytes::toHex(SsmProtocol::addHeader(output, tester_id, target_id, false)), true, true);
     delay(100);
     received = serial->read_serial_data(receive_timeout);
     // received = QByteArray::fromHex("80f018f8e0");
     delay(100);
-    emit LOG_I("Recd: " + SsmProtocol::toHex(received), true, true);
+    emit LOG_I("Recd: " + bytes::toHex(received), true, true);
 
     return received;
 }
@@ -660,12 +661,12 @@ QByteArray FlashTcuSubaruHitachiM32rKlineOperation::send_sid_a0_block_read(uint3
     output.append((uint8_t)datalen & 0xFF);
 
     serial->write_serial_data_echo_check(SsmProtocol::addHeader(output, tester_id, target_id, false));
-    emit LOG_I("Sent: " + SsmProtocol::toHex(SsmProtocol::addHeader(output, tester_id, target_id, false)), true, true);
+    emit LOG_I("Sent: " + bytes::toHex(SsmProtocol::addHeader(output, tester_id, target_id, false)), true, true);
     delay(100);
     received = serial->read_serial_data(receive_timeout);
     // received = QByteArray::fromHex("80f01861e06000f000a04115ec6000f000a04115f06000f000a04115f46000f000a04115f86000f000a04115fc1fcef0002e7ff000fe00087e6000f000fe00022684ad806060072004fe0003e07e02f0002eef1fce6200f00081c200ff600401407d0e1081ab");
     delay(100);
-    emit LOG_I("Recd: " + SsmProtocol::toHex(received), true, true);
+    emit LOG_I("Recd: " + bytes::toHex(received), true, true);
 
     return received;
 }

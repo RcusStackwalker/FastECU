@@ -24,7 +24,10 @@ cc_library(
     name = "ssm",
     srcs = ["ssm_protocol_core.cpp"],
     hdrs = ["ssm_protocol_core.h"],
-    deps = ["//src/algorithms/protocol"],
+    deps = [
+        "//src/algorithms/checksum",
+        "//src/algorithms/protocol",
+    ],
 )
 
 # TRANSITIONAL Qt shim: QByteArray/QString overloads delegating to :ssm.
