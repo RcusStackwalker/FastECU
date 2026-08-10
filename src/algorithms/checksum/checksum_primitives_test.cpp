@@ -5,7 +5,6 @@
 #include <array>
 #include <cstdint>
 #include <span>
-#include <thread>
 
 TEST(ChecksumPrimitives, RebalancesU16BigEndianFromStoredValue)
 {
@@ -89,24 +88,4 @@ TEST(Crc32, PointerOverloadMatchesByteViewOverload)
 TEST(Crc32, NullPointerReturnsZero)
 {
     EXPECT_EQ(fastecu::checksum::crc32(nullptr, 8), std::uint32_t(0));
-}
-
-TEST(Crc32, FirstTouchOfLazyTableIsThreadSafe)
-{
-    const bytes::Bytes payload{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
-    auto fn = [&payload]()
-    {
-        return fastecu::checksum::crc32(payload.data(), std::uint32_t(payload.size()));
-    };
-
-    std::uint32_t a = 0;
-    std::uint32_t b = 0;
-    std::thread ta([&]()
-                   { a = fn(); });
-    std::thread tb([&]()
-                   { b = fn(); });
-    ta.join();
-    tb.join();
-    EXPECT_EQ(a, std::uint32_t(0x8AD85CF9));
-    EXPECT_EQ(b, std::uint32_t(0x8AD85CF9));
 }

@@ -5,38 +5,35 @@
 namespace
 {
 
-const std::array<std::uint32_t, 256>& crcTable()
+constexpr std::array<std::uint32_t, 256> makeCrcTable()
 {
-    static const std::array<std::uint32_t, 256> table = []
+    std::array<std::uint32_t, 256> t = {};
+    constexpr std::uint32_t polynomial = 0x5AA5A55A;
+
+    for (std::uint32_t i = 0; i < t.size(); ++i)
     {
-        std::array<std::uint32_t, 256> t = {};
-        constexpr std::uint32_t polynomial = 0x5AA5A55A;
+        std::uint32_t crc = 0;
+        std::uint32_t c = i;
 
-        for (std::uint32_t i = 0; i < t.size(); ++i)
+        for (std::uint32_t j = 0; j < 8; ++j)
         {
-            std::uint32_t crc = 0;
-            std::uint32_t c = i;
-
-            for (std::uint32_t j = 0; j < 8; ++j)
+            if ((crc ^ c) & 0x00000001U)
             {
-                if ((crc ^ c) & 0x00000001U)
-                {
-                    crc = (crc >> 1) ^ polynomial;
-                }
-                else
-                {
-                    crc = crc >> 1;
-                }
-                c = c >> 1;
+                crc = (crc >> 1) ^ polynomial;
             }
-            t[i] = crc;
+            else
+            {
+                crc = crc >> 1;
+            }
+            c = c >> 1;
         }
+        t[i] = crc;
+    }
 
-        return t;
-    }();
-
-    return table;
+    return t;
 }
+
+constexpr std::array<std::uint32_t, 256> kCrcTable = makeCrcTable();
 
 } // namespace
 
@@ -86,10 +83,9 @@ std::uint8_t checksum8(bytes::ByteView data, bool dec0x100)
 std::uint32_t crc32(bytes::ByteView data)
 {
     std::uint32_t crc = 0xFFFFFFFF;
-    const auto& table = crcTable();
     for (const auto byte : data)
     {
-        crc = table[(crc ^ byte) & 0xff] ^ (crc >> 8);
+        crc = kCrcTable[(crc ^ byte) & 0xff] ^ (crc >> 8);
     }
 
     return crc ^ 0xFFFFFFFF;
