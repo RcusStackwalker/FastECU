@@ -4,6 +4,8 @@
 
 #include "src/platform/desktop/common/serial/serial_port_actions_direct.h"
 
+#include "src/platform/desktop/common/serial/j2534_can_timing_config.h"
+
 #include <QThread>
 
 #include "src/algorithms/protocol/qt_bytes.h"
@@ -1417,7 +1419,10 @@ int SerialPortActionsDirect::init_j2534_connection()
     if (is_iso15765_connection)
     {
         set_j2534_can();
-        set_j2534_can_timings();
+        if (set_j2534_can_timings() != STATUS_SUCCESS)
+        {
+            return STATUS_ERROR;
+        }
         set_j2534_can_filters();
         emit LOG_D("ISO15765 init ready", true, true);
     }
@@ -1512,18 +1517,16 @@ int SerialPortActionsDirect::set_j2534_can_timings()
     {
         emit LOG_D("Set iso15765 timings", true, true);
     }
-    SCONFIG_LIST scl;
-    SCONFIG scp[] = {{LOOPBACK, 0}};
-    scl.NumOfParams = ARRAYSIZE(scp);
-    scl.ConfigPtr = scp;
-    if (j2534->PassThruIoctl(chanID, SET_CONFIG, &scl, nullptr))
+    const bool configured = configureJ2534CanTimings(
+        is_iso15765_connection,
+        [this](const SCONFIG_LIST& config)
+        {
+            return j2534->PassThruIoctl(chanID, SET_CONFIG, &config, nullptr);
+        });
+    if (!configured)
     {
         reportJ2534Error();
         return STATUS_ERROR;
-    }
-    else
-    {
-        // emit LOG_D("Set timings OK";
     }
 
     return STATUS_SUCCESS;

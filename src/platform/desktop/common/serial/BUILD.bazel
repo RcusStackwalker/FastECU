@@ -1,3 +1,4 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:qt_remote_objects.bzl", "qt_replica_library")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library", "qt_cc_test", "qt_cpp_moc_headers")
 
@@ -52,6 +53,7 @@ qt_cc_library(
         exclude = [
             "*_main.cpp",
             "*_test.cpp",
+            "j2534_can_timing_config.cpp",
         ],
     ),
     hdrs = MOC_HDRS,
@@ -64,7 +66,7 @@ qt_cc_library(
             "*.h",
             "*.hpp",
         ],
-        exclude = MOC_HDRS,
+        exclude = MOC_HDRS + ["j2534_can_timing_config.h"],
     ),
     visibility = [
         # Legitimate platform-internal edge, NOT part of the debt frozen
@@ -98,6 +100,7 @@ qt_cc_library(
         "//tests:__pkg__",
     ],
     deps = QT_DEPS + [
+        ":j2534_can_timing_config",
         ":serial_replicas",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol:qt_compat",
@@ -105,6 +108,17 @@ qt_cc_library(
         # serial_port_actions_direct.h #includes J2534_unix.h or J2534_win.h
         # behind a Q_OS_UNIX/Q_OS_WIN32 guard; the header must be a declared
         # input on whichever platform is actually compiling it.
+        "@platforms//os:windows": ["//src/platform/desktop/windows/j2534"],
+        "//conditions:default": ["//src/platform/desktop/unix/j2534"],
+    }),
+)
+
+cc_library(
+    name = "j2534_can_timing_config",
+    srcs = ["j2534_can_timing_config.cpp"],
+    hdrs = ["j2534_can_timing_config.h"],
+    visibility = ["//src/platform/desktop/common/serial:__pkg__"],
+    deps = select({
         "@platforms//os:windows": ["//src/platform/desktop/windows/j2534"],
         "//conditions:default": ["//src/platform/desktop/unix/j2534"],
     }),
@@ -118,6 +132,13 @@ fastecu_qttest(
         ":serial_qt_compat",
         "//src/platform/desktop/common/transport",
     ],
+)
+
+fastecu_qttest(
+    name = "test_j2534_can_timing_config",
+    size = "small",
+    src = "j2534_can_timing_config_test.cpp",
+    deps = [":j2534_can_timing_config"],
 )
 
 fastecu_qttest(
