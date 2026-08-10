@@ -51,7 +51,7 @@ Result<FlashPlan> build_mitsu_colt_m32r_can_plan(FlashOperation operation,
             .bitrate = 500000,
             .extended_id = false,
             .use_vendor_challenge = use_vendor_challenge,
-            .session_id = MitsuColtCan::kSessionBasic,
+            .session_id = MitsuColtCan::kSessionBootload,
         };
         return validate_and_build(std::move(fields));
     }

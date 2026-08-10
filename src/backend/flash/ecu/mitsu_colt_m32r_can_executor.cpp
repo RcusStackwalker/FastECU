@@ -136,11 +136,28 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
 
     if (family.use_vendor_challenge)
     {
+        info(ctx, "Starting basic diagnostic session for vendor authorization...");
+        Result<bytes::Bytes> received =
+            exchange(ctx, family.request_id, buildDiagnosticSession(kSessionBasic), 50,
+                     kReadTimeoutMs);
+        if (!received)
+        {
+            return std::unexpected(received.error());
+        }
+        if (received->size() <= 5 ||
+            !service_is(*received, positive(kServiceDiagnosticSession)) ||
+            (*received)[5] != kSessionBasic)
+        {
+            error(ctx, std::format("Wrong response from ECU: {}", nrc_context(*received)));
+            return fail(ErrorKind::BadResponse, "basic diagnostic session rejected");
+        }
+        info(ctx, "Basic diagnostic session ok");
+
         // Lines 86-95.
         info(ctx, "Requesting vendor extension challenge seed...");
-        Result<bytes::Bytes> received =
-            exchange(ctx, family.request_id, MitsuColtCanVendorExt::buildChallengeSeedRequest(),
-                     200, kReadTimeoutMs);
+        received = exchange(ctx, family.request_id,
+                            MitsuColtCanVendorExt::buildChallengeSeedRequest(), 200,
+                            kReadTimeoutMs);
         if (!received)
         {
             return std::unexpected(received.error());
@@ -186,9 +203,9 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
         info(ctx, "Vendor challenge accepted");
     }
 
-    // Lines 119-129. The session id comes from the plan; the builder picks
-    // kSessionBasic for a Read and kSessionBootload for a Write, matching
-    // legacy line 82's `needFactorySecurity ? kSessionBootload : kSessionBasic`.
+    // Vendor-extension plans enter the basic session above only long enough
+    // to authorize the transition. All reads and writes then enter the
+    // bootload session and complete factory SecurityAccess.
     info(ctx, "Starting diagnostic session...");
     Result<bytes::Bytes> received = exchange(
         ctx, family.request_id, buildDiagnosticSession(family.session_id), 50, kReadTimeoutMs);
