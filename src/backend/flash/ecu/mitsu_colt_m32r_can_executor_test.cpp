@@ -523,7 +523,7 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengePrecedesTheDiagnosticSession)
 
     const std::uint32_t key = MitsuColtCanVendorExt::challengeInverseTransform(0x12345678);
     transport.expectWrite(request(MitsuColtCanVendorExt::buildChallengeKey(key)));
-    transport.queueRead(response({0x63, 0x27, 0x42}));
+    transport.queueRead(response({0x63, 0x27, 0x34}));
 
     transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
         MitsuColtCan::kSessionBasic)));
@@ -1468,12 +1468,12 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengeKeyRejectionStopsBeforeTheSession)
     transport.expectWrite(request(MitsuColtCanVendorExt::buildChallengeSeedRequest()));
     transport.queueRead(response({0x63, 0x27, 0x41, 0x12, 0x34, 0x56, 0x78}));
 
-    // Right service and selector, but the seed subfunction echoed back
-    // instead of the key one (legacy line 111): the ECU did not accept the
-    // key, so no session may be started on the strength of it.
+    // Echoing the key subfunction is not the vendor extension's success
+    // signal. Only response byte 0x34 grants access, so no session may be
+    // started on the strength of this reply.
     const std::uint32_t key = MitsuColtCanVendorExt::challengeInverseTransform(0x12345678);
     transport.expectWrite(request(MitsuColtCanVendorExt::buildChallengeKey(key)));
-    transport.queueRead(response({0x63, 0x27, 0x41}));
+    transport.queueRead(response({0x63, 0x27, 0x42}));
 
     const auto result =
         executor.execute(plan, transport, clock, cancellation.token(), events);

@@ -177,7 +177,7 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
         if (received->size() <= 6 ||
             !service_is(*received, positive(MitsuColtCanVendorExt::kServiceReadMemoryByAddress)) ||
             (*received)[5] != MitsuColtCanVendorExt::kVendorChallengeSelector ||
-            (*received)[6] != MitsuColtCanVendorExt::kVendorChallengeKeySubfunction)
+            (*received)[6] != MitsuColtCanVendorExt::kVendorChallengeAccepted)
         {
             error(ctx,
                   std::format("Vendor challenge key rejected: {}", nrc_context(*received)));
