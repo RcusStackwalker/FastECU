@@ -37,6 +37,18 @@ void FlashEcuMitsuM32rCan::run()
     this->show();
     set_progressbar_value(0);
 
+    // Preflight must finish before the operator sees any confirmation and
+    // before a worker or transport exists. In particular, an incorrectly
+    // sized ROM cannot get as far as a high-risk erase prompt.
+    fastecu::Result<fastecu::flash::FlashPlan> planResult = buildPlan();
+    if (!planResult.has_value())
+    {
+        showFailureDialog(planResult.error().kind,
+                          QString::fromStdString(planResult.error().detail));
+        close();
+        return;
+    }
+
     const int ret = confirm(
         tr("Connecting to ECU"),
         tr("Turn ignition ON and press OK to start initializing connection to ECU"),
@@ -50,16 +62,18 @@ void FlashEcuMitsuM32rCan::run()
 
     if (cmd_type == "write")
     {
-        // Both gates are collected here, before any plan is built, because a
-        // synchronous dialog-free executor cannot block mid-run for an
-        // answer. Text is carried over verbatim from the legacy operation
-        // class (flash_ecu_mitsu_m32r_can_operation.cpp:433-438 and 320-328).
+        // Both gates are collected after plan validation because a synchronous
+        // dialog-free executor cannot block mid-run for an answer.
         const int eraseReply =
             confirm(tr("Erase trigger"),
-                    tr("About to send the flash-erase trigger command. This exact "
+                    tr("This operation accepts an exact 512 KiB ROM. The file's first "
+                       "32 KiB (0x0000-0x8000) will be ignored; only "
+                       "0x8000-0x80000 is writable, so the ECU bootloader will remain "
+                       "unchanged.\n\nAbout to send the flash-erase trigger command. This exact "
                        "sequence is known to have locked up the bootloader during the "
                        "original implementation's testing. Only continue if this is a "
-                       "bench/spare ECU with a recovery path available.\n\nContinue?"),
+                       "bench/spare ECU with a recovery path available. Cancellation after "
+                       "erase can leave an incomplete image requiring recovery.\n\nContinue?"),
                     QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel);
         if (eraseReply != QMessageBox::Yes)
         {
@@ -85,15 +99,6 @@ void FlashEcuMitsuM32rCan::run()
             close();
             return;
         }
-    }
-
-    fastecu::Result<fastecu::flash::FlashPlan> planResult = buildPlan();
-    if (!planResult.has_value())
-    {
-        showFailureDialog(planResult.error().kind,
-                          QString::fromStdString(planResult.error().detail));
-        close();
-        return;
     }
 
     worker_ = makeWorker(std::move(*planResult));

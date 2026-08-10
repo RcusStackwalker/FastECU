@@ -48,6 +48,12 @@ struct Ctx
     IEventSink& events;
 };
 
+struct LogicalProgress
+{
+    std::uint32_t base;
+    std::uint32_t total;
+};
+
 void info(Ctx& ctx, std::string_view message)
 {
     ctx.events.log(LogLevel::Info, message);
@@ -272,7 +278,8 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
 // integer percentage; the dialog converts. This preserves the emission
 // points exactly -- one per chunk, after the chunk is appended.
 Result<bytes::Bytes> read_flash_range(Ctx& ctx, const MitsuColtM32rCanPlan& family,
-                                      std::uint32_t start_addr, std::uint32_t length)
+                                      std::uint32_t start_addr, std::uint32_t length,
+                                      bool report_progress = true)
 {
     using namespace MitsuColtCan;
 
@@ -316,7 +323,10 @@ Result<bytes::Bytes> read_flash_range(Ctx& ctx, const MitsuColtM32rCanPlan& fami
                     received->begin() + static_cast<std::ptrdiff_t>(kServiceOffset + 1 + chunk_len));
         addr += chunk_len;
 
-        ctx.events.progress(static_cast<int>(addr - start_addr), static_cast<int>(length));
+        if (report_progress)
+        {
+            ctx.events.progress(static_cast<int>(addr - start_addr), static_cast<int>(length));
+        }
     }
 
     return data;
@@ -324,7 +334,8 @@ Result<bytes::Bytes> read_flash_range(Ctx& ctx, const MitsuColtM32rCanPlan& fami
 
 // Legacy upload_and_commit, flash_ecu_mitsu_m32r_can_operation.cpp:231-297.
 Status upload_and_commit(Ctx& ctx, const MitsuColtM32rCanPlan& family, std::uint32_t start,
-                         bytes::ByteView data)
+                         bytes::ByteView data,
+                         const LogicalProgress *logical_progress = nullptr)
 {
     using namespace MitsuColtCan;
 
@@ -345,6 +356,7 @@ Status upload_and_commit(Ctx& ctx, const MitsuColtM32rCanPlan& family, std::uint
     }
 
     // Lines 248-260.
+    std::uint32_t payload_done = 0;
     for (const bytes::Bytes& chunk : buildTransferDataFrames(data))
     {
         received = exchange(ctx, family.request_id, chunk, 50, kReadTimeoutMs);
@@ -357,6 +369,12 @@ Status upload_and_commit(Ctx& ctx, const MitsuColtM32rCanPlan& family, std::uint
             error(ctx, std::format("TransferData to 0x{:x} rejected: {}", start,
                                    nrc_context(*received)));
             return fail(ErrorKind::BadResponse, "TransferData rejected");
+        }
+        payload_done += static_cast<std::uint32_t>(chunk.size() - 1);
+        if (logical_progress != nullptr)
+        {
+            ctx.events.progress(static_cast<int>(logical_progress->base + payload_done),
+                                static_cast<int>(logical_progress->total));
         }
     }
 
@@ -441,6 +459,10 @@ Status unlock_and_erase(Ctx& ctx, const MitsuColtM32rCanPlan& family,
         error(ctx, std::format("{}{}", erase_prefix, nrc_context(*received)));
         return fail(ErrorKind::BadResponse, "erase trigger rejected");
     }
+    if (ctx.cancellation.cancelled())
+    {
+        return fail(ErrorKind::Cancelled, "cancelled after erase");
+    }
 
     return {};
 }
@@ -471,7 +493,8 @@ Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan,
 
     // Lines 305-309.
     Result<bytes::Bytes> current_top =
-        read_flash_range(ctx, family, kTopRegionStart, kTopRegionLength);
+        read_flash_range(ctx, family, kTopRegionStart, kTopRegionLength,
+                         /*report_progress=*/false);
     if (!current_top)
     {
         return std::unexpected(current_top.error());
@@ -483,6 +506,8 @@ Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan,
     const bytes::ByteView wanted_top = rom.subspan(kTopRegionStart, kTopRegionLength);
     if (std::ranges::equal(*current_top, wanted_top))
     {
+        ctx.events.progress(static_cast<int>(kTopRegionLength),
+                            static_cast<int>(kWritableLength));
         info(ctx, "Top 128KB already matches, no bootstrap needed");
         return {};
     }
@@ -533,7 +558,10 @@ Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan,
     // into the userspace window, and the redirect routines add the +0x058000
     // offset themselves. See mitsu_colt_can_protocol.h's kEraseRedirectRoutine
     // comment.
-    if (Status written = upload_and_commit(ctx, family, kUserspaceStart, wanted_top); !written)
+    const LogicalProgress top_progress{.base = 0, .total = kWritableLength};
+    if (Status written =
+            upload_and_commit(ctx, family, kUserspaceStart, wanted_top, &top_progress);
+        !written)
     {
         error(ctx, "Top 128KB redirect write failed");
         return written;
@@ -542,7 +570,8 @@ Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan,
 
     // Lines 377-387.
     Result<bytes::Bytes> verify_top =
-        read_flash_range(ctx, family, kTopRegionStart, kTopRegionLength);
+        read_flash_range(ctx, family, kTopRegionStart, kTopRegionLength,
+                         /*report_progress=*/false);
     if (!verify_top)
     {
         return std::unexpected(verify_top.error());
@@ -563,14 +592,13 @@ Status write_mem(Ctx& ctx, const FlashPlan& plan, const MitsuColtM32rCanPlan& fa
 {
     using namespace MitsuColtCan;
 
-    // Lines 398-402. build_mitsu_colt_m32r_can_plan rejects a short image too,
-    // but validate_and_build does not, and every rom.subspan() below would be
-    // out of bounds without this -- so the legacy check is kept here as well.
-    if (rom.size() < kTopRegionEnd)
+    // The builder enforces this too, but validate_and_build alone does not.
+    // Keep the executor guard so a hand-built plan cannot truncate slices or
+    // silently ignore trailing bytes.
+    if (rom.size() != kFullRomSize)
     {
-        error(ctx,
-              std::format("ROM file too small: need at least 0x{:x} bytes", kTopRegionEnd));
-        return fail(ErrorKind::InvalidConfig, "ROM image shorter than the top region end");
+        error(ctx, std::format("ROM file must be exactly 0x{:x} bytes", kFullRomSize));
+        return fail(ErrorKind::InvalidConfig, "ROM image is not exactly 512 KiB");
     }
 
     // Lines 404-407.
@@ -633,12 +661,31 @@ Status write_mem(Ctx& ctx, const FlashPlan& plan, const MitsuColtM32rCanPlan& fa
                           kUserspaceEnd));
     const bytes::ByteView userspace =
         rom.subspan(kUserspaceStart, kUserspaceEnd - kUserspaceStart);
-    if (Status written = upload_and_commit(ctx, family, kUserspaceStart, userspace); !written)
+    const LogicalProgress userspace_progress{.base = kTopRegionLength,
+                                             .total = kWritableLength};
+    if (Status written =
+            upload_and_commit(ctx, family, kUserspaceStart, userspace, &userspace_progress);
+        !written)
     {
         error(ctx, "ROM userspace write failed");
         return written;
     }
     info(ctx, "Userspace flash written");
+
+    Result<bytes::Bytes> verify_userspace =
+        read_flash_range(ctx, family, kUserspaceStart,
+                         kUserspaceEnd - kUserspaceStart,
+                         /*report_progress=*/false);
+    if (!verify_userspace)
+    {
+        return std::unexpected(verify_userspace.error());
+    }
+    if (!std::ranges::equal(*verify_userspace, userspace))
+    {
+        error(ctx, "Userspace verify failed after write");
+        return fail(ErrorKind::BadResponse, "userspace verify mismatch");
+    }
+    info(ctx, "Userspace flash verified");
 
     return {};
 }
@@ -734,6 +781,7 @@ Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(
     // Legacy lines 49-51.
     events.notice("Writing ROM, please wait...");
     info(ctx, "Writing ROM to ECU using CAN");
+    events.progress(0, static_cast<int>(plan.transfer_region().length));
 
     // validate_and_build guarantees a Write plan carries an image; write_mem
     // re-checks its length, as the legacy write_mem did.

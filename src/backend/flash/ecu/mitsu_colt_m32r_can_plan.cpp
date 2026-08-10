@@ -60,21 +60,19 @@ Result<FlashPlan> build_mitsu_colt_m32r_can_plan(FlashOperation operation,
     {
         return fail(ErrorKind::InvalidConfig, "Write plans must carry a ROM image");
     }
-    // Legacy: flash_ecu_mitsu_m32r_can_operation.cpp:398-402.
-    if (image->size() < MitsuColtCan::kTopRegionEnd)
+    if (image->size() != MitsuColtCan::kFullRomSize)
     {
         return fail(ErrorKind::InvalidConfig,
-                    std::format("ROM file too small: need at least 0x{:x} bytes",
-                                MitsuColtCan::kTopRegionEnd));
+                    std::format("ROM file must be exactly 0x{:x} bytes (512 KiB); got "
+                                "0x{:x} bytes",
+                                MitsuColtCan::kFullRomSize, image->size()));
     }
 
-    // The declared transfer region is the userspace write range; the
-    // top-region bootstrap reads and writes kTopRegionStart..kTopRegionEnd
-    // conditionally and is not part of the declared transfer accounting,
-    // exactly as the legacy progress reporting treated it.
-    fields.transfer_region =
-        MemoryRegion{MitsuColtCan::kUserspaceStart,
-                     MitsuColtCan::kUserspaceEnd - MitsuColtCan::kUserspaceStart};
+    // The complete file remains aligned to absolute ROM addresses. The
+    // protected bootloader prefix is deliberately omitted from the aggregate
+    // transfer region and is never read, compared, erased, or written.
+    fields.transfer_region = MemoryRegion{MitsuColtCan::kUserspaceStart,
+                                          MitsuColtCan::kWritableLength};
     fields.image = std::move(image);
     fields.family_plan = MitsuColtM32rCanPlan{
         .request_id = 0x7e0,

@@ -22,7 +22,7 @@ namespace fastecu::flash
 //
 // Three checks the legacy class performed AFTER opening the port and
 // completing the bootloader handshake run here instead, before any I/O:
-// unknown MCU type, ROM shorter than kTopRegionEnd, and an unsupported
+// unknown MCU type, a write image not exactly kFullRomSize, and an unsupported
 // operation. That ordering change is deliberate -- it is the FlashPlan
 // contract, and it means a misconfigured write never reaches the ECU -- and
 // is recorded in the flash qualification matrix.

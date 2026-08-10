@@ -79,15 +79,26 @@ TEST(MitsuColtM32rCanPlan, WritePlanSelectsBootloadSessionAndDeclaresBothGates)
                                    ConfirmationSpec::Id::TopRegionBootstrap)));
 }
 
-TEST(MitsuColtM32rCanPlan, WritePlanTransfersTheUserspaceRange)
+TEST(MitsuColtM32rCanPlan, WritePlanTransfersEveryPostBootloaderByte)
 {
     const auto plan = build_mitsu_colt_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu,
                                                      false, fullRom());
 
     ASSERT_TRUE(plan.has_value());
     EXPECT_EQ(plan->transfer_region().start, MitsuColtCan::kUserspaceStart);
-    EXPECT_EQ(plan->transfer_region().length,
-              MitsuColtCan::kUserspaceEnd - MitsuColtCan::kUserspaceStart);
+    EXPECT_EQ(plan->transfer_region().length, 0x00078000u);
+    ASSERT_TRUE(plan->image().has_value());
+    EXPECT_EQ(plan->image()->size(), 0x00080000u);
+}
+
+TEST(MitsuColtM32rCanPlan, VendorWritePlanTransfersEveryPostBootloaderByte)
+{
+    const auto plan = build_mitsu_colt_m32r_can_plan(
+        FlashOperation::Write, "mitsu_ecu_m32r_can_vendor_ext", kMcu, true, fullRom());
+
+    ASSERT_TRUE(plan.has_value());
+    EXPECT_EQ(plan->transfer_region().start, 0x00008000u);
+    EXPECT_EQ(plan->transfer_region().length, 0x00078000u);
 }
 
 TEST(MitsuColtM32rCanPlan, RejectsAnUnknownMcuType)
@@ -110,8 +121,19 @@ TEST(MitsuColtM32rCanPlan, RejectsARomShorterThanTheTopRegionEnd)
 
     ASSERT_FALSE(plan.has_value());
     EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
-    // Legacy text, flash_ecu_mitsu_m32r_can_operation.cpp:400.
-    EXPECT_THAT(plan.error().detail, HasSubstr("ROM file too small"));
+    EXPECT_THAT(plan.error().detail, HasSubstr("exactly 0x80000 bytes"));
+}
+
+TEST(MitsuColtM32rCanPlan, RejectsARomLongerThanThePhysicalFlash)
+{
+    bytes::Bytes longRom(MitsuColtCan::kTopRegionEnd + 1, 0x00);
+
+    const auto plan = build_mitsu_colt_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu,
+                                                     false, std::move(longRom));
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(plan.error().detail, HasSubstr("exactly 0x80000 bytes"));
 }
 
 TEST(MitsuColtM32rCanPlan, RejectsTestWriteAsUnsupported)

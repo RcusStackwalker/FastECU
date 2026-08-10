@@ -201,6 +201,7 @@ class SurfaceRecordingDialog : public FlashEcuMitsuM32rCan
     using FlashEcuMitsuM32rCan::FlashEcuMitsuM32rCan;
 
     QStringList confirmTitles;
+    QStringList confirmTexts;
     QList<int> confirmAnswers;
     QList<fastecu::ErrorKind> failureKinds;
     QStringList failureDetails;
@@ -210,9 +211,9 @@ class SurfaceRecordingDialog : public FlashEcuMitsuM32rCan
     int confirm(const QString& title, const QString& text, int buttons,
                 int defaultButton) override
     {
-        Q_UNUSED(text)
         Q_UNUSED(buttons)
         confirmTitles << title;
+        confirmTexts << text;
         return confirmAnswers.isEmpty() ? defaultButton : confirmAnswers.takeFirst();
     }
 
@@ -337,7 +338,7 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
         QCOMPARE(dialog.failureKinds.at(0), fastecu::ErrorKind::Unsupported);
     }
 
-    void writeCollectsBothGatesBeforeBuildingAPlan()
+    void writeDeclinedAtEraseGateStartsNoWorker()
     {
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.McuType = "M32R_384KB_1block";
@@ -352,6 +353,7 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
         QCOMPARE(dialog.confirmTitles.size(), 2);
         QCOMPARE(dialog.confirmTitles.at(1), QString("Erase trigger"));
         QVERIFY(dialog.failureKinds.isEmpty());
+        QVERIFY(!dialog.makeWorkerCalled);
     }
 
     void writeAsksTheTopRegionGateAfterTheEraseGate()
@@ -382,6 +384,44 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
 
         QCOMPARE(dialog.failureKinds.size(), 1);
         QCOMPARE(dialog.failureKinds.at(0), fastecu::ErrorKind::InvalidConfig);
+        QVERIFY(dialog.confirmTitles.isEmpty());
+        QVERIFY(!dialog.makeWorkerCalled);
+    }
+
+    void romTooLargeIsRejectedBeforeAnyConfirmationOrWorker()
+    {
+        FileActions::EcuCalDefStructure ecuCalDef;
+        ecuCalDef.McuType = "M32R_384KB_1block";
+        ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can";
+        ecuCalDef.FullRomData = QByteArray(0x80000 + 1, '\0');
+        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "write", nullptr, false);
+
+        dialog.run();
+
+        QCOMPARE(dialog.failureKinds.size(), 1);
+        QCOMPARE(dialog.failureKinds.at(0), fastecu::ErrorKind::InvalidConfig);
+        QVERIFY(dialog.confirmTitles.isEmpty());
+        QVERIFY(!dialog.makeWorkerCalled);
+    }
+
+    void writeWarningsExplainTheProtectedPrefixWritableRangeAndCancellationRisk()
+    {
+        FileActions::EcuCalDefStructure ecuCalDef;
+        ecuCalDef.McuType = "M32R_384KB_1block";
+        ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can";
+        ecuCalDef.FullRomData = QByteArray(0x80000, '\0');
+        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "write", nullptr, false);
+        dialog.confirmAnswers << QMessageBox::Ok << QMessageBox::Cancel;
+
+        dialog.run();
+
+        const QString warnings = dialog.confirmTexts.join("\n");
+        QVERIFY(warnings.contains("first 32 KiB"));
+        QVERIFY(warnings.contains("0x0000-0x8000"));
+        QVERIFY(warnings.contains("0x8000-0x80000"));
+        QVERIFY(warnings.contains("bootloader will remain unchanged"));
+        QVERIFY(warnings.contains("Cancellation after erase"));
+        QVERIFY(warnings.contains("requiring recovery"));
     }
 
     // The positive path: every gate granted and a valid configuration must

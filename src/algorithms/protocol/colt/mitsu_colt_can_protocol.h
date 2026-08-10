@@ -29,11 +29,14 @@ constexpr bytes::Byte kRoutineErase = 224;
 
 constexpr std::uint32_t kUserspaceStart = 0x008000;
 constexpr std::uint32_t kUserspaceEnd = 0x060000;
+constexpr std::uint32_t kProtectedPrefixLength = kUserspaceStart;
+constexpr std::uint32_t kFullRomSize = 0x080000;
+constexpr std::uint32_t kWritableLength = kFullRomSize - kProtectedPrefixLength;
 constexpr std::uint32_t kFlashReadBlockSize = 192;
 constexpr std::uint32_t kTransferChunkSize = 256;
 
 constexpr std::uint32_t kTopRegionStart = 0x060000;
-constexpr std::uint32_t kTopRegionEnd = 0x080000;
+constexpr std::uint32_t kTopRegionEnd = kFullRomSize;
 constexpr std::uint32_t kTopRegionLength = kTopRegionEnd - kTopRegionStart;
 
 constexpr std::uint32_t kEraseRoutineRamAddr = 0x805568;
