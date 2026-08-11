@@ -117,6 +117,20 @@ fastecu_portable_gtest(
     ],
 )
 
+fastecu_portable_gtest(
+    name = "colt_capacity_protocols_config_test",
+    srcs = ["colt_capacity_protocols_config_test.cpp"],
+    data = ["//resources/shared:config/protocols.cfg"],
+    env = {
+        "PROTOCOLS_CFG_PATH": "$(location //resources/shared:config/protocols.cfg)",
+    },
+    deps = [
+        ":car_model_catalog",
+        ":protocol_catalog",
+        "//src/backend/ports/testing:in_memory_file_repository",
+    ],
+)
+
 # Qt-linked (FileActions::ConfigValuesStructure is Qt-typed). Explicit srcs so
 # this neither collides with nor is swept into
 # //src/backend/definitions:definitions's glob. legacy_config_adapter.h

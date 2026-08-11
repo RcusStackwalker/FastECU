@@ -37,7 +37,7 @@ Result<ProtocolCatalog> load_protocol_catalog(const ConfigPaths& paths, IFileRep
     // A protocol name is the key every consumer joins on, so it has to be
     // unique for "the entry named X" to mean anything. Enforced here, at
     // intake, rather than left for each consumer to pick a tie-break rule:
-    // the 61 <protocol> elements in the shipped protocols.cfg are already
+    // the 63 <protocol> elements in the shipped protocols.cfg are already
     // all distinct, so this rejects malformed input without rejecting
     // anything that works today.
     std::set<std::string> seen_protocol_names;
@@ -48,7 +48,7 @@ Result<ProtocolCatalog> load_protocol_catalog(const ConfigPaths& paths, IFileRep
         // Legacy read_protocols_file (file_actions.cpp:1146/1148) reads
         // these via Qt's three-arg QDomElement::attribute(name, default),
         // defaulting to the literal strings "No name"/"No alias" when the
-        // attribute is absent -- not empty string. 42 of the 61 real
+        // attribute is absent -- not empty string. 44 of the 63 real
         // shipped <protocol> elements omit alias, so this default is hit in
         // the majority of real entries; match it exactly.
         entry.protocol_name = protocol.attribute("name").as_string("No name");

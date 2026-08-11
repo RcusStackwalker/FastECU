@@ -232,7 +232,7 @@ TEST(LoadProtocolCatalog, ParsesTheRealShippedProtocolsFileWithoutError)
     auto catalog = load_protocol_catalog(paths, repo);
 
     ASSERT_TRUE(catalog.has_value());
-    // The real, checked-in file has 61 <protocol> elements as of this
+    // The real, checked-in file has 63 <protocol> elements as of this
     // writing (verified directly against resources/shared/config/protocols.cfg;
     // an earlier estimate of "~130" conflated the <protocol> count with the
     // combined <protocol> + <car_model> element count in the same file).

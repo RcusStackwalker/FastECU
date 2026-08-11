@@ -74,7 +74,7 @@ std::vector<ResolvedCarModel> resolve_car_models(const ProtocolCatalog& protocol
 //
 // Last-match here, unlike resolve_car_models above, because duplicates on
 // this side are legitimate and common: several car models routinely share
-// one protocol (in the shipped protocols.cfg, 63 <car_model> elements
+// one protocol (in the shipped protocols.cfg, 65 <car_model> elements
 // reference only 49 distinct protocols -- sub_ecu_denso_mc68hc16y5_02 alone
 // is referenced by 6). They cannot be rejected at intake, and which row wins
 // is observable: open_subaru_rom_file binds

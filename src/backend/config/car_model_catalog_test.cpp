@@ -160,12 +160,12 @@ TEST(LoadCarModelCatalog, ParsesTheRealShippedProtocolsFileWithoutError)
     auto catalog = load_car_model_catalog(paths, repo);
 
     ASSERT_TRUE(catalog.has_value());
-    // The real, checked-in file has 63 <car_model> elements as of this
+    // The real, checked-in file has 65 <car_model> elements as of this
     // writing (verified directly against
     // resources/shared/config/protocols.cfg with
     // `grep -c '<car_model>' resources/shared/config/protocols.cfg`; the
     // originating task description's "64" was an estimate, not a count).
-    EXPECT_EQ(catalog->size(), 63u);
+    EXPECT_EQ(catalog->size(), 65u);
     for (const auto& entry : *catalog)
     {
         EXPECT_FALSE(entry.protocol_name.empty());
