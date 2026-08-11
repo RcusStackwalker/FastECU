@@ -29,12 +29,10 @@ Result<MitsuColtProtocolOptions> parse_mitsu_colt_protocol(std::string_view prot
 // (for a write) the ROM image. The protocol name selects both the vendor
 // challenge and the ROM capacity.
 //
-// Three checks the legacy class performed AFTER opening the port and
-// completing the bootloader handshake run here instead, before any I/O:
-// unknown MCU type, a write image not exactly the selected capacity, and an unsupported
-// operation. That ordering change is deliberate -- it is the FlashPlan
-// contract, and it means a misconfigured write never reaches the ECU -- and
-// is recorded in the flash qualification matrix.
+// Validation runs here before any I/O: the exact supported protocol ID is
+// checked first, followed by operation support, MCU lookup, and write-image
+// capacity. That ordering is deliberate -- it is the FlashPlan contract, and
+// it means an unsupported or misconfigured request never reaches the ECU.
 //
 // TestWrite is rejected as Unsupported. protocols.cfg declares
 // test_write=no for every supported Mitsubishi Colt M32R CAN protocol,

@@ -28,15 +28,15 @@ struct ColtProtocolExpectation
 {
     std::string_view id;
     std::string_view mcu;
-    std::string_view version_text;
+    std::string_view capacity_text;
+    bool vendor_extension;
 };
 
 const std::array<ColtProtocolExpectation, 4> kColtProtocols = {{
-    {"mitsu_ecu_m32r_can", "M32R_384KB_1block", "Z37A 5MT"},
-    {"mitsu_ecu_m32r_can_vendor_ext", "M32R_384KB_1block", "vendor diagnostic extension"},
-    {"mitsu_ecu_m32r_can_512kb", "M32R_512KB_1block", "512KB"},
-    {"mitsu_ecu_m32r_can_vendor_ext_512kb", "M32R_512KB_1block",
-     "vendor diagnostic extension"},
+    {"mitsu_ecu_m32r_can", "M32R_384KB_1block", "384KB", false},
+    {"mitsu_ecu_m32r_can_vendor_ext", "M32R_384KB_1block", "384KB", true},
+    {"mitsu_ecu_m32r_can_512kb", "M32R_512KB_1block", "512KB", false},
+    {"mitsu_ecu_m32r_can_vendor_ext_512kb", "M32R_512KB_1block", "512KB", true},
 }};
 
 std::string load_shipped_config()
@@ -92,10 +92,29 @@ TEST(ColtCapacityProtocolsConfig, DefinesFourSelectableCapacityProtocols)
         ASSERT_NE(car_model, car_models->end()) << expected.id;
         EXPECT_EQ(car_model->make, "Mitsubishi") << expected.id;
         EXPECT_THAT(car_model->model, HasSubstr("Colt")) << expected.id;
-        EXPECT_THAT(car_model->version, HasSubstr(expected.version_text)) << expected.id;
-        if (expected.id.ends_with("_512kb"))
-        {
-            EXPECT_THAT(car_model->version, HasSubstr("512KB")) << expected.id;
-        }
+        EXPECT_THAT(car_model->version, HasSubstr("Z37A 5MT")) << expected.id;
+        EXPECT_THAT(car_model->version, HasSubstr(expected.capacity_text)) << expected.id;
+        EXPECT_EQ(car_model->version.contains("vendor diagnostic extension"),
+                  expected.vendor_extension)
+            << expected.id;
     }
+}
+
+TEST(ColtCapacityProtocolsConfig, AppendsNewCapacityChoicesAfterEveryLegacyCarModel)
+{
+    InMemoryFileRepository repo;
+    ConfigPaths paths = test_paths();
+    const std::string config = load_shipped_config();
+    ASSERT_FALSE(config.empty());
+    repo.files[paths.protocols_file] = std::vector<std::uint8_t>(config.begin(), config.end());
+
+    const auto car_models = load_car_model_catalog(paths, repo);
+
+    ASSERT_TRUE(car_models.has_value());
+    ASSERT_GE(car_models->size(), 3u);
+    const auto legacy_boundary = car_models->end() - 3;
+    EXPECT_EQ(legacy_boundary->protocol_name, "sub_ecu_denso_1n83m_1_5m_can");
+    EXPECT_EQ((legacy_boundary + 1)->protocol_name, "mitsu_ecu_m32r_can_512kb");
+    EXPECT_EQ((legacy_boundary + 2)->protocol_name,
+              "mitsu_ecu_m32r_can_vendor_ext_512kb");
 }

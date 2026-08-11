@@ -173,6 +173,17 @@ TEST(MitsuColtM32rCanPlan, RejectsTestWriteAsUnsupported)
     EXPECT_THAT(plan.error().detail, HasSubstr("test_write"));
 }
 
+TEST(MitsuColtM32rCanPlan, RejectsAnUnknownProtocolBeforeTestWriteCapabilityChecking)
+{
+    const auto plan = build_mitsu_colt_m32r_can_plan(
+        FlashOperation::TestWrite, "mitsu_ecu_m32r_can_512kb_typo", kMcu512, rom(0x80000));
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(plan.error().detail,
+                HasSubstr("Unsupported Mitsubishi Colt M32R CAN protocol"));
+}
+
 TEST(MitsuColtM32rCanPlan, RejectsAWriteWithNoImage)
 {
     const auto plan = build_mitsu_colt_m32r_can_plan(FlashOperation::Write, kDefaultProtocol,

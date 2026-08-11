@@ -39,18 +39,18 @@ Result<FlashPlan> build_mitsu_colt_m32r_can_plan(FlashOperation operation,
                                                  std::string_view mcu_type,
                                                  std::optional<bytes::Bytes> image)
 {
+    const auto options = parse_mitsu_colt_protocol(protocol_name);
+    if (!options.has_value())
+    {
+        return std::unexpected(options.error());
+    }
+
     if (operation == FlashOperation::TestWrite)
     {
         return fail(ErrorKind::Unsupported,
                     "test_write is not supported by this family; protocols.cfg declares "
                     "test_write=no and the legacy implementation performed only a "
                     "diagnostic-session handshake");
-    }
-
-    const auto options = parse_mitsu_colt_protocol(protocol_name);
-    if (!options.has_value())
-    {
-        return std::unexpected(options.error());
     }
 
     // Legacy: flash_ecu_mitsu_m32r_can_operation.cpp:24-29.

@@ -133,9 +133,9 @@ fastecu::flash::FlashPlan writePlan(bytes::Bytes rom,
 }
 
 // Hand-built rather than produced by build_mitsu_colt_m32r_can_plan: the
-// builder always declares both confirmations, and validate_and_build does not
-// require them, so this is the only way to reach the executor with a Write
-// plan whose high-risk step was never granted.
+// default 512 KiB plan declares both confirmations, and validate_and_build
+// does not require them, so this is the only way to reach the executor with a
+// Write plan whose high-risk step was never granted.
 fastecu::flash::FlashPlan writePlanGranting(
     std::initializer_list<fastecu::flash::ConfirmationSpec::Id> granted,
     bytes::Bytes rom = writeRom(), FlashOperation operation = FlashOperation::Write,

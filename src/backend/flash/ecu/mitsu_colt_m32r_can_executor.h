@@ -12,16 +12,16 @@ namespace fastecu::flash
 // dialog-free executor contract and both recorded in the flash qualification
 // matrix:
 //
-//  - The MCU lookup, ROM-size floor and operation-support checks moved into
+//  - The protocol, MCU, exact ROM-capacity, and operation-support checks moved into
 //    build_mitsu_colt_m32r_can_plan, so they run before any I/O.
 //  - The two mid-operation QMessageBox gates (erase trigger, top-128KB
 //    bootstrap) became declared ConfirmationSpecs that the desktop dialog
 //    answers BEFORE execute() is called. Their presence on the plan means
 //    "granted"; this executor never prompts.
 //
-// Only the connect + read half is implemented here (connect_bootloader(),
-// readFlashRange(), read_mem()); a Write plan is rejected as Unsupported
-// until the write path lands.
+// Read and Write both consume the capacity and authorization snapshotted in
+// MitsuColtM32rCanPlan. TestWrite remains unsupported and is rejected before
+// an executor is normally constructed, with a defensive executor guard too.
 class MitsuColtM32rCanExecutor final : public IFlashExecutor
 {
   public:

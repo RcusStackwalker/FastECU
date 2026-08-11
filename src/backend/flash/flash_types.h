@@ -21,9 +21,9 @@ enum class FlashFamily
 {
     DensoSh705xEepromKline,
     DensoSh705xEepromCan,
-    // Step 5 tail, wave 0. Serves both mitsu_ecu_m32r_can and
-    // mitsu_ecu_m32r_can_vendor_ext; the vendor challenge is a plan flag,
-    // not a separate family, matching the legacy class it replaces.
+    // Step 5 tail, wave 0. Serves all four mitsu_ecu_m32r_can capacity and
+    // vendor-authorization variants; both properties are plan fields, not
+    // separate families, matching the legacy class this replaces.
     MitsuColtM32rCan,
     // Added one-by-one by the per-family tail (see spec "Explicit deferrals").
 };

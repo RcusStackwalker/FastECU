@@ -250,11 +250,14 @@ class TestableFlashEcuMitsuM32rCan : public SurfaceRecordingDialog
     std::vector<std::pair<LogLevel, std::string>> logs;
     std::vector<std::pair<int, int>> progressReports;
     bool makeWorkerCalled = false;
+    std::uint32_t workerRomSize = 0;
 
   protected:
     std::unique_ptr<FlashWorker> makeWorker(FlashPlan plan) override
     {
         makeWorkerCalled = true;
+        workerRomSize =
+            std::get<fastecu::flash::MitsuColtM32rCanPlan>(plan.family_plan()).rom_size;
         auto executor = std::make_unique<ScriptedExecutor>();
         executor->nextResult = executorResult;
         executor->logs = logs;
@@ -305,7 +308,7 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
     void protocolSelectsCapacityAndAuthorization()
     {
         FileActions::EcuCalDefStructure ecuCalDef;
-        ecuCalDef.McuType = "M32R_384KB_1block";
+        ecuCalDef.McuType = "M32R_512KB_1block";
         ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can_vendor_ext_512kb";
         SurfaceRecordingDialog dialog(nullptr, &ecuCalDef, "read", nullptr);
 
@@ -474,6 +477,29 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
         // A write carries no read bytes, so the ROM the user supplied is left
         // exactly as it was.
         QCOMPARE(ecuCalDef.FullRomData, QByteArray(0x60000, '\0'));
+    }
+
+    void write512WithEveryGateGrantedReachesTheWorkerWithThe512Plan()
+    {
+        FileActions::EcuCalDefStructure ecuCalDef;
+        ecuCalDef.McuType = "M32R_512KB_1block";
+        ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can_512kb";
+        ecuCalDef.FullRomData = QByteArray(0x80000, '\0');
+        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "write", nullptr);
+        dialog.confirmAnswers << QMessageBox::Ok << QMessageBox::Yes << QMessageBox::Yes;
+        dialog.executorResult = FlashExecutionResult{.operation = FlashOperation::Write,
+                                                     .read_bytes = std::nullopt};
+
+        dialog.run();
+
+        QVERIFY(dialog.makeWorkerCalled);
+        QCOMPARE(dialog.workerRomSize, std::uint32_t{0x80000});
+        QCOMPARE(dialog.confirmTitles,
+                 QStringList({"Connecting to ECU", "Erase trigger",
+                              "Top 128KB bootstrap"}));
+        QCOMPARE(dialog.successDialogCount, 1);
+        QVERIFY(dialog.failureKinds.isEmpty());
+        QCOMPARE(ecuCalDef.FullRomData, QByteArray(0x80000, '\0'));
     }
 
     void successfulReadCopiesTheBytesIntoFullRomData()
