@@ -60,6 +60,8 @@ void FlashWorker::run()
             Qt::DirectConnection);
     connect(&events, &QtEventSink::progressed, this, &FlashWorker::progressChanged,
             Qt::DirectConnection);
+    connect(&events, &QtEventSink::phaseProgressed, this, &FlashWorker::phaseProgressChanged,
+            Qt::DirectConnection);
     connect(&events, &QtEventSink::noticed, this, [this](QString message)
             { emit logEvent(static_cast<int>(LogLevel::Info), std::move(message)); }, Qt::DirectConnection);
 

@@ -21,9 +21,9 @@ enum class FlashFamily
 {
     DensoSh705xEepromKline,
     DensoSh705xEepromCan,
-    // Step 5 tail, wave 0. Serves both mitsu_ecu_m32r_can and
-    // mitsu_ecu_m32r_can_vendor_ext; the vendor challenge is a plan flag,
-    // not a separate family, matching the legacy class it replaces.
+    // Step 5 tail, wave 0. Serves all four mitsu_ecu_m32r_can capacity and
+    // vendor-authorization variants; both properties are plan fields, not
+    // separate families, matching the legacy class this replaces.
     MitsuColtM32rCan,
     // Added one-by-one by the per-family tail (see spec "Explicit deferrals").
 };
@@ -128,9 +128,8 @@ struct MitsuColtM32rCanPlan
     int bitrate;               // 500000
     bool extended_id;          // false -- build_request() hardcodes the
                                // 11-bit physical request id
-    bool use_vendor_challenge; // mitsu_ecu_m32r_can_vendor_ext only
-    bytes::Byte session_id;    // kSessionBasic (0x81) for Read,
-                               // kSessionBootload (0x85) for Write
+    bool use_vendor_challenge; // selected by the protocol identifier
+    bytes::Byte session_id;    // kSessionBootload (0x85) for Read and Write
 };
 
 using FamilyPlan = std::variant<

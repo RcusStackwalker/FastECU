@@ -49,6 +49,7 @@ cc_library(
     srcs = ["mitsu_colt_m32r_can_executor.cpp"],
     hdrs = ["mitsu_colt_m32r_can_executor.h"],
     deps = [
+        ":mitsu_colt_m32r_can_plan",
         "//src/algorithms/diagnostics",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",

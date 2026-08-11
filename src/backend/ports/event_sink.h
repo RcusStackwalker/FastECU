@@ -12,6 +12,15 @@ enum class LogLevel
     Debug
 };
 
+struct PhaseProgressEvent
+{
+    std::string_view phase_name;
+    int phase_index;
+    int phase_count;
+    int done;
+    int total;
+};
+
 // Replaces backend Qt signals and every backend QMessageBox. Interactive
 // confirmation is modeled where a consumer first needs it (step 5c) as a typed
 // request answered by the UI, not as a blocking backend prompt.
@@ -21,6 +30,10 @@ class IEventSink
     virtual ~IEventSink() = default;
     virtual void log(LogLevel, std::string_view message) = 0;
     virtual void progress(int done, int total) = 0;
+    virtual void phase_progress(const PhaseProgressEvent& event)
+    {
+        progress(event.done, event.total);
+    }
     virtual void notice(std::string_view message) = 0;
 };
 
