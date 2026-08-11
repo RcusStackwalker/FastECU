@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: read
 
 env:
   QT_MODULES: qtcharts qtserialport qtremoteobjects qtwebsockets
@@ -29,6 +30,16 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           create-release: true
+
+  sonarcloud:
+    name: SonarCloud
+    needs: release
+    if: needs.release.outputs.tag != ''
+    uses: ./.github/workflows/sonar.yml
+    with:
+      ref: ${{ needs.release.outputs.tag }}
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   build:
     needs: release
