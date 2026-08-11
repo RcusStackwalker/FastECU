@@ -14,10 +14,12 @@ class QtEventSink : public QObject, public fastecu::IEventSink
     }
     void log(fastecu::LogLevel, std::string_view message) override;
     void progress(int done, int total) override;
+    void phase_progress(const fastecu::PhaseProgressEvent& event) override;
     void notice(std::string_view message) override;
 
   signals:
     void logged(int level, QString message);
     void progressed(int done, int total);
+    void phaseProgressed(QString phaseName, int phaseIndex, int phaseCount, int done, int total);
     void noticed(QString message);
 };

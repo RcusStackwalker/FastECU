@@ -73,10 +73,10 @@ void FlashEcuMitsuM32rCan::run()
 
     if (requiresConfirmation(fastecu::flash::ConfirmationSpec::Id::EraseTrigger))
     {
-        const auto& family =
-            std::get<fastecu::flash::MitsuColtM32rCanPlan>(plan.family_plan());
-        const QString capacityKiB = QString::number(family.rom_size / 1024);
-        const QString romEnd = QString::number(family.rom_size, 16);
+        const std::uint32_t romEndValue =
+            plan.transfer_region().start + plan.transfer_region().length;
+        const QString capacityKiB = QString::number(romEndValue / 1024);
+        const QString romEnd = QString::number(romEndValue, 16);
         const int eraseReply =
             confirm(tr("Erase trigger"),
                     tr("This operation accepts an exact %1 KiB ROM. The file's first "
@@ -139,12 +139,17 @@ void FlashEcuMitsuM32rCan::run()
                     break;
                 }
             });
-    connect(worker_.get(), &fastecu::flash::FlashWorker::progressChanged, this,
-            [this](int done, int total)
+    connect(worker_.get(), &fastecu::flash::FlashWorker::phaseProgressChanged, this,
+            [this](const QString& phaseName, int phaseIndex, int phaseCount, int done, int total)
             {
                 const int pct =
                     total > 0 ? static_cast<int>((static_cast<qint64>(done) * 100) / total)
                               : done;
+                if (ui->progressbar)
+                {
+                    ui->progressbar->setFormat(
+                        tr("Phase %1/%2 - %3: %p%").arg(phaseIndex).arg(phaseCount).arg(phaseName));
+                }
                 set_progressbar_value(pct);
             });
     connect(worker_.get(), &fastecu::flash::FlashWorker::finished, this,

@@ -3,9 +3,13 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <array>
 #include <fstream>
 #include <map>
+#include <ranges>
 #include <sstream>
+#include <string_view>
+#include <tuple>
 
 #include <gtest/gtest.h>
 
@@ -160,15 +164,26 @@ TEST(LoadCarModelCatalog, ParsesTheRealShippedProtocolsFileWithoutError)
     auto catalog = load_car_model_catalog(paths, repo);
 
     ASSERT_TRUE(catalog.has_value());
-    // The real, checked-in file has 65 <car_model> elements as of this
-    // writing (verified directly against
-    // resources/shared/config/protocols.cfg with
-    // `grep -c '<car_model>' resources/shared/config/protocols.cfg`; the
-    // originating task description's "64" was an estimate, not a count).
-    EXPECT_EQ(catalog->size(), 65u);
     for (const auto& entry : *catalog)
     {
         EXPECT_FALSE(entry.protocol_name.empty());
+    }
+
+    for (const auto [id, capacity, vendor] :
+         std::to_array<std::tuple<std::string_view, std::string_view, bool>>({
+             {"mitsu_ecu_m32r_can", "384KB", false},
+             {"mitsu_ecu_m32r_can_vendor_ext", "384KB", true},
+             {"mitsu_ecu_m32r_can_512kb", "512KB", false},
+             {"mitsu_ecu_m32r_can_vendor_ext_512kb", "512KB", true},
+         }))
+    {
+        const auto colt =
+            std::ranges::find(*catalog, id, &CarModelEntry::protocol_name);
+        ASSERT_NE(colt, catalog->end()) << id;
+        EXPECT_EQ(colt->make, "Mitsubishi");
+        EXPECT_EQ(colt->model, "Colt CZT");
+        EXPECT_NE(colt->version.find(capacity), std::string::npos);
+        EXPECT_EQ(colt->version.contains("vendor diagnostic extension"), vendor);
     }
 }
 

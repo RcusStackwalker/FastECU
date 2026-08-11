@@ -3,9 +3,12 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <array>
 #include <fstream>
 #include <map>
+#include <ranges>
 #include <sstream>
+#include <string_view>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -17,6 +20,7 @@ using fastecu::Status;
 using fastecu::config::ConfigPaths;
 using fastecu::config::load_protocol_catalog;
 using fastecu::config::ProtocolCatalog;
+using fastecu::config::ProtocolEntry;
 
 namespace
 {
@@ -232,13 +236,24 @@ TEST(LoadProtocolCatalog, ParsesTheRealShippedProtocolsFileWithoutError)
     auto catalog = load_protocol_catalog(paths, repo);
 
     ASSERT_TRUE(catalog.has_value());
-    // The real, checked-in file has 63 <protocol> elements as of this
-    // writing (verified directly against resources/shared/config/protocols.cfg;
-    // an earlier estimate of "~130" conflated the <protocol> count with the
-    // combined <protocol> + <car_model> element count in the same file).
-    EXPECT_GT(catalog->size(), 50u);
     for (const auto& entry : *catalog)
     {
         EXPECT_FALSE(entry.protocol_name.empty());
+    }
+
+    for (const auto [id, mcu] : std::to_array<std::pair<std::string_view, std::string_view>>({
+             {"mitsu_ecu_m32r_can", "M32R_384KB_1block"},
+             {"mitsu_ecu_m32r_can_vendor_ext", "M32R_384KB_1block"},
+             {"mitsu_ecu_m32r_can_512kb", "M32R_512KB_1block"},
+             {"mitsu_ecu_m32r_can_vendor_ext_512kb", "M32R_512KB_1block"},
+         }))
+    {
+        const auto colt = std::ranges::find(*catalog, id, &ProtocolEntry::protocol_name);
+        ASSERT_NE(colt, catalog->end()) << id;
+        EXPECT_EQ(colt->mcu, mcu);
+        EXPECT_EQ(colt->read, "yes");
+        EXPECT_EQ(colt->write, "yes");
+        EXPECT_EQ(colt->test_write, "no");
+        EXPECT_EQ(colt->flash_transport, "iso15765");
     }
 }

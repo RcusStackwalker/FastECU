@@ -210,6 +210,31 @@ TEST(QtEventSinkTest, ProgressEmitsProgressedWithDoneAndTotal)
     EXPECT_EQ(args.at(1).toInt(), 10);
 }
 
+TEST(QtEventSinkTest, PhaseProgressPreservesLegacyProgressAndConvertsPhaseName)
+{
+    QtEventSink sink;
+    QSignalSpy legacySpy(&sink, &QtEventSink::progressed);
+    QSignalSpy phaseSpy(&sink, &QtEventSink::phaseProgressed);
+    ASSERT_TRUE(legacySpy.isValid());
+    ASSERT_TRUE(phaseSpy.isValid());
+
+    sink.phase_progress({.phase_name = "Write userspace",
+                         .phase_index = 4,
+                         .phase_count = 6,
+                         .done = 3,
+                         .total = 10});
+
+    ASSERT_EQ(legacySpy.count(), 1);
+    EXPECT_EQ(legacySpy.at(0).at(0).toInt(), 3);
+    EXPECT_EQ(legacySpy.at(0).at(1).toInt(), 10);
+    ASSERT_EQ(phaseSpy.count(), 1);
+    EXPECT_EQ(phaseSpy.at(0).at(0).toString(), QString("Write userspace"));
+    EXPECT_EQ(phaseSpy.at(0).at(1).toInt(), 4);
+    EXPECT_EQ(phaseSpy.at(0).at(2).toInt(), 6);
+    EXPECT_EQ(phaseSpy.at(0).at(3).toInt(), 3);
+    EXPECT_EQ(phaseSpy.at(0).at(4).toInt(), 10);
+}
+
 TEST(QtEventSinkTest, NoticeEmitsNoticedWithMessage)
 {
     QtEventSink sink;

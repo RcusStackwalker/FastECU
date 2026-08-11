@@ -27,6 +27,7 @@
 #include <QAbstractButton>
 #include <QApplication>
 #include <QMessageBox>
+#include <QProgressBar>
 #include <QTimer>
 #include <QtTest>
 
@@ -77,6 +78,15 @@ class ScriptedExecutor : public fastecu::flash::IFlashExecutor
         fastecu::fail(fastecu::ErrorKind::BadResponse, "scripted");
     std::vector<std::pair<LogLevel, std::string>> logs;
     std::vector<std::pair<int, int>> progressReports;
+    struct PhaseReport
+    {
+        std::string name;
+        int index;
+        int count;
+        int done;
+        int total;
+    };
+    std::vector<PhaseReport> phaseProgressReports;
 
     fastecu::Result<FlashExecutionResult> execute(const FlashPlan&,
                                                   fastecu::flash::IFlashTransport&,
@@ -91,6 +101,11 @@ class ScriptedExecutor : public fastecu::flash::IFlashExecutor
         for (const auto& [done, total] : progressReports)
         {
             events.progress(done, total);
+        }
+        for (const PhaseReport& report : phaseProgressReports)
+        {
+            events.phase_progress({report.name, report.index, report.count, report.done,
+                                   report.total});
         }
         return nextResult;
     }
@@ -249,19 +264,20 @@ class TestableFlashEcuMitsuM32rCan : public SurfaceRecordingDialog
     // Events the scripted executor reports before returning that result.
     std::vector<std::pair<LogLevel, std::string>> logs;
     std::vector<std::pair<int, int>> progressReports;
+    std::vector<ScriptedExecutor::PhaseReport> phaseProgressReports;
     bool makeWorkerCalled = false;
-    std::uint32_t workerRomSize = 0;
+    std::uint32_t workerRomEnd = 0;
 
   protected:
     std::unique_ptr<FlashWorker> makeWorker(FlashPlan plan) override
     {
         makeWorkerCalled = true;
-        workerRomSize =
-            std::get<fastecu::flash::MitsuColtM32rCanPlan>(plan.family_plan()).rom_size;
+        workerRomEnd = plan.transfer_region().start + plan.transfer_region().length;
         auto executor = std::make_unique<ScriptedExecutor>();
         executor->nextResult = executorResult;
         executor->logs = logs;
         executor->progressReports = progressReports;
+        executor->phaseProgressReports = phaseProgressReports;
         return std::make_unique<FlashWorker>(std::move(plan), std::move(executor),
                                              std::make_unique<NullTransport>(),
                                              std::make_unique<FakeClock>());
@@ -318,7 +334,7 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
         const auto& family =
             std::get<fastecu::flash::MitsuColtM32rCanPlan>(plan->family_plan());
         QCOMPARE(family.use_vendor_challenge, true);
-        QCOMPARE(family.rom_size, std::uint32_t{0x80000});
+        QCOMPARE(plan->transfer_region().length, std::uint32_t{0x80000});
     }
 
     void readDeclinedAtIgnitionPromptStartsNoWorker()
@@ -386,7 +402,7 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
     void writeAsksTheTopRegionGateAfterTheEraseGate()
     {
         FileActions::EcuCalDefStructure ecuCalDef;
-        ecuCalDef.McuType = "M32R_384KB_1block";
+        ecuCalDef.McuType = "M32R_512KB_1block";
         ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can_512kb";
         ecuCalDef.FullRomData = QByteArray(0x80000, '\0');
         TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "write", nullptr);
@@ -493,7 +509,7 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
         dialog.run();
 
         QVERIFY(dialog.makeWorkerCalled);
-        QCOMPARE(dialog.workerRomSize, std::uint32_t{0x80000});
+        QCOMPARE(dialog.workerRomEnd, std::uint32_t{0x80000});
         QCOMPARE(dialog.confirmTitles,
                  QStringList({"Connecting to ECU", "Erase trigger",
                               "Top 128KB bootstrap"}));
@@ -610,17 +626,17 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
         QCOMPARE(debugs.at(0).at(0).toString(), QString("a debug"));
     }
 
-    // The executor reports bytes done / bytes total; the progress bar wants a
-    // percentage. Reporting bytes straight through would peg the bar at 100%
-    // from the first chunk of a 384KB read.
-    void progressIsConvertedToAPercentageOfTheTotal()
+    void phaseProgressShowsTheCurrentPhaseAndItsPercentage()
     {
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.McuType = "M32R_384KB_1block";
         ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can";
         TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "read", nullptr);
         dialog.confirmAnswers << QMessageBox::Ok;
-        dialog.progressReports = {{0, 400}, {100, 400}, {399, 400}, {400, 400}};
+        dialog.phaseProgressReports = {{"Read ROM", 2, 5, 0, 400},
+                                       {"Read ROM", 2, 5, 100, 400},
+                                       {"Read ROM", 2, 5, 399, 400},
+                                       {"Read ROM", 2, 5, 400, 400}};
         dialog.executorResult =
             FlashExecutionResult{.operation = FlashOperation::Read, .read_bytes = std::nullopt};
 
@@ -637,19 +653,19 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
             values << call.at(0).toInt();
         }
         QCOMPARE(values, QList<int>({25, 99, 100}));
+        QProgressBar *bar = dialog.findChild<QProgressBar *>("progressbar");
+        QVERIFY(bar != nullptr);
+        QCOMPARE(bar->format(), QString("Phase 2/5 - Read ROM: %p%"));
     }
 
-    // A total of zero is what an executor reports when it cannot know the
-    // size up front. The percentage math has to survive it: dividing would
-    // fault the process mid-flash.
-    void aZeroTotalProgressReportIsPassedThroughUndivided()
+    void aZeroTotalPhaseProgressReportIsPassedThroughUndivided()
     {
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.McuType = "M32R_384KB_1block";
         ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can";
         TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "read", nullptr);
         dialog.confirmAnswers << QMessageBox::Ok;
-        dialog.progressReports = {{7, 0}};
+        dialog.phaseProgressReports = {{"Connect", 1, 2, 7, 0}};
         dialog.executorResult =
             FlashExecutionResult{.operation = FlashOperation::Read, .read_bytes = std::nullopt};
 

@@ -40,6 +40,23 @@ using fastecu::flash::ScriptedKlineFlashTransport;
 namespace
 {
 
+class PhaseProgressExecutor final : public fastecu::flash::IFlashExecutor
+{
+  public:
+    fastecu::Result<fastecu::flash::FlashExecutionResult> execute(
+        const fastecu::flash::FlashPlan&, fastecu::flash::IFlashTransport&,
+        fastecu::IClock&, const fastecu::ICancellationToken&,
+        fastecu::IEventSink& events) override
+    {
+        events.phase_progress({.phase_name = "Connect to ECU",
+                               .phase_index = 1,
+                               .phase_count = 2,
+                               .done = 1,
+                               .total = 1});
+        return fastecu::flash::FlashExecutionResult{};
+    }
+};
+
 // Every field here matches an SH7055 K-Line (or CAN, for the mismatch test)
 // EEPROM read plan that build_denso_sh705x_eeprom_plan/validate_and_build
 // accept outright -- see src/backend/flash/eeprom/denso_sh705x_eeprom_
@@ -155,6 +172,33 @@ class TestFlashWorker : public QObject
         auto result = finishedSpy.at(0).at(0).value<FlashWorkerResult>();
         QVERIFY(!result.success);
         QCOMPARE(result.error_kind, ErrorKind::InvalidConfig);
+    }
+
+    void phaseProgressIsForwardedAlongsideLegacyProgress()
+    {
+        auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(
+            validInput(FlashFamily::DensoSh705xEepromKline));
+        QVERIFY(plan.has_value());
+
+        auto transport = std::make_unique<ScriptedKlineFlashTransport>();
+        FlashWorker worker(*plan, std::make_unique<PhaseProgressExecutor>(),
+                           std::move(transport), std::make_unique<FakeClock>());
+        QSignalSpy legacySpy(&worker, &FlashWorker::progressChanged);
+        QSignalSpy phaseSpy(&worker, &FlashWorker::phaseProgressChanged);
+
+        worker.start();
+        QVERIFY(worker.wait(2000));
+        QCoreApplication::processEvents();
+
+        QCOMPARE(legacySpy.count(), 1);
+        QCOMPARE(legacySpy.at(0).at(0).toInt(), 1);
+        QCOMPARE(legacySpy.at(0).at(1).toInt(), 1);
+        QCOMPARE(phaseSpy.count(), 1);
+        QCOMPARE(phaseSpy.at(0).at(0).toString(), QString("Connect to ECU"));
+        QCOMPARE(phaseSpy.at(0).at(1).toInt(), 1);
+        QCOMPARE(phaseSpy.at(0).at(2).toInt(), 2);
+        QCOMPARE(phaseSpy.at(0).at(3).toInt(), 1);
+        QCOMPARE(phaseSpy.at(0).at(4).toInt(), 1);
     }
 };
 

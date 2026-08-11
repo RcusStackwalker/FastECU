@@ -129,7 +129,6 @@ struct MitsuColtM32rCanPlan
     bool extended_id;          // false -- build_request() hardcodes the
                                // 11-bit physical request id
     bool use_vendor_challenge; // selected by the protocol identifier
-    std::uint32_t rom_size;    // snapshotted selected ROM capacity
     bytes::Byte session_id;    // kSessionBootload (0x85) for Read and Write
 };
 

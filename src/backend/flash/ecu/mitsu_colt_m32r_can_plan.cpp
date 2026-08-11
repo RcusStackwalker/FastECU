@@ -1,6 +1,8 @@
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_plan.h"
 
+#include <array>
 #include <format>
+#include <ranges>
 #include <utility>
 
 #include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
@@ -10,28 +12,87 @@
 
 namespace fastecu::flash
 {
-
-Result<MitsuColtProtocolOptions> parse_mitsu_colt_protocol(std::string_view protocol_name)
+namespace
 {
-    if (protocol_name == "mitsu_ecu_m32r_can")
+
+struct ColtVariant
+{
+    std::string_view protocol_id;
+    std::string_view mcu;
+    bool vendor;
+    std::uint32_t capacity;
+};
+
+constexpr std::array<ColtVariant, 4> kColtVariants{{
+    {"mitsu_ecu_m32r_can", "M32R_384KB_1block", false, 0x60000},
+    {"mitsu_ecu_m32r_can_vendor_ext", "M32R_384KB_1block", true, 0x60000},
+    {"mitsu_ecu_m32r_can_512kb", "M32R_512KB_1block", false, 0x80000},
+    {"mitsu_ecu_m32r_can_vendor_ext_512kb", "M32R_512KB_1block", true, 0x80000},
+}};
+
+const ColtVariant *find_variant(std::string_view protocol_id)
+{
+    const auto it = std::ranges::find(kColtVariants, protocol_id, &ColtVariant::protocol_id);
+    return it == kColtVariants.end() ? nullptr : &*it;
+}
+
+Result<const ColtVariant *> require_variant(std::string_view protocol_id)
+{
+    if (const ColtVariant *variant = find_variant(protocol_id); variant != nullptr)
     {
-        return MitsuColtProtocolOptions{.use_vendor_challenge = false, .rom_size = 0x60000};
-    }
-    if (protocol_name == "mitsu_ecu_m32r_can_vendor_ext")
-    {
-        return MitsuColtProtocolOptions{.use_vendor_challenge = true, .rom_size = 0x60000};
-    }
-    if (protocol_name == "mitsu_ecu_m32r_can_512kb")
-    {
-        return MitsuColtProtocolOptions{.use_vendor_challenge = false, .rom_size = 0x80000};
-    }
-    if (protocol_name == "mitsu_ecu_m32r_can_vendor_ext_512kb")
-    {
-        return MitsuColtProtocolOptions{.use_vendor_challenge = true, .rom_size = 0x80000};
+        return variant;
     }
 
     return fail(ErrorKind::InvalidConfig,
-                std::format("Unsupported Mitsubishi Colt M32R CAN protocol: {}", protocol_name));
+                std::format("Unsupported Mitsubishi Colt M32R CAN protocol: {}", protocol_id));
+}
+
+} // namespace
+
+Status validate_mitsu_colt_m32r_can_plan(const FlashPlan& plan)
+{
+    const auto variant = require_variant(plan.target_id());
+    if (!variant)
+    {
+        return std::unexpected(variant.error());
+    }
+    if (plan.family() != FlashFamily::MitsuColtM32rCan)
+    {
+        return fail(ErrorKind::InvalidConfig, "plan is not for Mitsubishi Colt M32R CAN");
+    }
+    if (plan.mcu_name() != (*variant)->mcu)
+    {
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("Protocol {} expects MCU {}; got {}", plan.target_id(),
+                                (*variant)->mcu, plan.mcu_name()));
+    }
+    const auto *family = std::get_if<MitsuColtM32rCanPlan>(&plan.family_plan());
+    if (family == nullptr || family->use_vendor_challenge != (*variant)->vendor)
+    {
+        return fail(ErrorKind::InvalidConfig,
+                    "Mitsubishi Colt authorization variant does not match protocol");
+    }
+
+    const bool read = plan.operation() == FlashOperation::Read;
+    const MemoryRegion expected{read ? 0u : MitsuColtCan::kUserspaceStart,
+                                (*variant)->capacity -
+                                    (read ? 0u : MitsuColtCan::kUserspaceStart)};
+    if (plan.transfer_region().start != expected.start ||
+        plan.transfer_region().length != expected.length)
+    {
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("Transfer region does not match protocol capacity 0x{:x}",
+                                (*variant)->capacity));
+    }
+    const std::uint32_t rom_end =
+        plan.transfer_region().start + plan.transfer_region().length;
+    if (read ? plan.image().has_value()
+             : (!plan.image().has_value() || plan.image()->size() != rom_end))
+    {
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("ROM image size does not match ROM extent 0x{:x}", rom_end));
+    }
+    return {};
 }
 
 Result<FlashPlan> build_mitsu_colt_m32r_can_plan(FlashOperation operation,
@@ -39,10 +100,10 @@ Result<FlashPlan> build_mitsu_colt_m32r_can_plan(FlashOperation operation,
                                                  std::string_view mcu_type,
                                                  std::optional<bytes::Bytes> image)
 {
-    const auto options = parse_mitsu_colt_protocol(protocol_name);
-    if (!options.has_value())
+    const auto variant = require_variant(protocol_name);
+    if (!variant)
     {
-        return std::unexpected(options.error());
+        return std::unexpected(variant.error());
     }
 
     if (operation == FlashOperation::TestWrite)
@@ -58,6 +119,12 @@ Result<FlashPlan> build_mitsu_colt_m32r_can_plan(FlashOperation operation,
     {
         return fail(ErrorKind::InvalidConfig, std::format("Unknown MCU type: {}", mcu_type));
     }
+    if (mcu_type != (*variant)->mcu)
+    {
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("Protocol {} expects MCU {}; got {}", protocol_name,
+                                (*variant)->mcu, mcu_type));
+    }
 
     FlashPlanFields fields;
     fields.operation = operation;
@@ -67,55 +134,53 @@ Result<FlashPlan> build_mitsu_colt_m32r_can_plan(FlashOperation operation,
     fields.mcu_name = std::string(mcu_type);
     fields.kernel = std::nullopt;
 
-    if (operation == FlashOperation::Read)
-    {
-        fields.transfer_region = MemoryRegion{0, options->rom_size};
-        fields.family_plan = MitsuColtM32rCanPlan{
-            .request_id = 0x7e0,
-            .response_id = 0x7e8,
-            .bitrate = 500000,
-            .extended_id = false,
-            .use_vendor_challenge = options->use_vendor_challenge,
-            .rom_size = options->rom_size,
-            .session_id = MitsuColtCan::kSessionBootload,
-        };
-        return validate_and_build(std::move(fields));
-    }
-
-    if (!image.has_value())
-    {
-        return fail(ErrorKind::InvalidConfig, "Write plans must carry a ROM image");
-    }
-    if (image->size() != options->rom_size)
-    {
-        return fail(ErrorKind::InvalidConfig,
-                    std::format("ROM file must be exactly 0x{:x} bytes; got 0x{:x} bytes",
-                                options->rom_size, image->size()));
-    }
-
-    // The complete file remains aligned to absolute ROM addresses. The
-    // protected bootloader prefix is deliberately omitted from the aggregate
-    // transfer region and is never read, compared, erased, or written.
-    fields.transfer_region = MemoryRegion{MitsuColtCan::kUserspaceStart,
-                                          options->rom_size - MitsuColtCan::kUserspaceStart};
-    fields.image = std::move(image);
     fields.family_plan = MitsuColtM32rCanPlan{
         .request_id = 0x7e0,
         .response_id = 0x7e8,
         .bitrate = 500000,
         .extended_id = false,
-        .use_vendor_challenge = options->use_vendor_challenge,
-        .rom_size = options->rom_size,
+        .use_vendor_challenge = (*variant)->vendor,
         .session_id = MitsuColtCan::kSessionBootload,
     };
-    fields.confirmations = {ConfirmationSpec{ConfirmationSpec::Id::EraseTrigger, {}}};
-    if (options->rom_size == MitsuColtCan::kFullRomSize)
+
+    if (operation == FlashOperation::Read)
     {
-        fields.confirmations.push_back(
-            ConfirmationSpec{ConfirmationSpec::Id::TopRegionBootstrap, {}});
+        fields.transfer_region = MemoryRegion{0, (*variant)->capacity};
+    }
+    else if (!image.has_value())
+    {
+        return fail(ErrorKind::InvalidConfig, "Write plans must carry a ROM image");
+    }
+    else if (image->size() != (*variant)->capacity)
+    {
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("ROM file must be exactly 0x{:x} bytes; got 0x{:x} bytes",
+                                (*variant)->capacity, image->size()));
+    }
+    else
+    {
+        fields.transfer_region = MemoryRegion{MitsuColtCan::kUserspaceStart,
+                                              (*variant)->capacity -
+                                                  MitsuColtCan::kUserspaceStart};
+        fields.image = std::move(image);
+        fields.confirmations = {ConfirmationSpec{ConfirmationSpec::Id::EraseTrigger, {}}};
+        if ((*variant)->capacity == MitsuColtCan::kFullRomSize)
+        {
+            fields.confirmations.push_back(
+                ConfirmationSpec{ConfirmationSpec::Id::TopRegionBootstrap, {}});
+        }
     }
 
-    return validate_and_build(std::move(fields));
+    auto plan = validate_and_build(std::move(fields));
+    if (!plan)
+    {
+        return std::unexpected(plan.error());
+    }
+    if (Status valid = validate_mitsu_colt_m32r_can_plan(*plan); !valid)
+    {
+        return std::unexpected(valid.error());
+    }
+    return plan;
 }
 
 } // namespace fastecu::flash
