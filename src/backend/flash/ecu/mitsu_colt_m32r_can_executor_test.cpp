@@ -901,6 +901,30 @@ TEST(MitsuColtM32rCanExecutor, RejectsA512KiBImageForA384KiBPlanBeforeAnyIo)
     EXPECT_THAT(events.logs, IsEmpty());
 }
 
+TEST(MitsuColtM32rCanExecutor, RejectsAnUnsupportedRomCapacityBeforeAnyIo)
+{
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+
+    constexpr std::uint32_t unsupported_capacity = 0x70000;
+    auto plan = writePlanGranting({fastecu::flash::ConfirmationSpec::Id::EraseTrigger},
+                                  bytes::Bytes(unsupported_capacity, 0x00),
+                                  FlashOperation::Write, unsupported_capacity);
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(result.error().detail, HasSubstr("0x70000"));
+    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_FALSE(transport.last_config_.has_value());
+    EXPECT_THAT(events.logs, IsEmpty());
+}
+
 TEST(MitsuColtM32rCanExecutor, WriteSkipsBootstrapWhenTheTopRegionAlreadyMatches)
 {
     ScriptedCanFlashTransport transport;

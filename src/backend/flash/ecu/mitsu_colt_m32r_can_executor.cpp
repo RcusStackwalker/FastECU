@@ -723,6 +723,15 @@ Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(
     }
 
     const auto& family = std::get<MitsuColtM32rCanPlan>(plan.family_plan());
+    if (family.rom_size != MitsuColtCan::kUserspaceEnd &&
+        family.rom_size != MitsuColtCan::kFullRomSize)
+    {
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("Unsupported Mitsubishi Colt ROM capacity 0x{:x}; expected "
+                                "0x{:x} or 0x{:x}",
+                                family.rom_size, MitsuColtCan::kUserspaceEnd,
+                                MitsuColtCan::kFullRomSize));
+    }
     if (plan.operation() == FlashOperation::Write &&
         (!plan.image().has_value() || plan.image()->size() != family.rom_size))
     {
