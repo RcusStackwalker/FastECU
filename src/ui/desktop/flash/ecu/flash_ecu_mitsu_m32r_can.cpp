@@ -3,7 +3,9 @@
 #include <QCloseEvent>
 #include <QMessageBox>
 
+#include <algorithm>
 #include <optional>
+#include <ranges>
 #include <utility>
 
 #include "src/algorithms/protocol/qt_bytes.h"
@@ -13,8 +15,8 @@
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 #include "src/platform/desktop/common/transport/desktop_can_flash_transport.h"
 
-FlashEcuMitsuM32rCan::FlashEcuMitsuM32rCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent, bool useVendorChallenge)
-    : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), useVendorChallenge(useVendorChallenge), serial(serial), ui{std::make_unique<Ui::EcuOperationsWindow>()}
+FlashEcuMitsuM32rCan::FlashEcuMitsuM32rCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
+    : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), serial(serial), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
 
@@ -49,6 +51,15 @@ void FlashEcuMitsuM32rCan::run()
         return;
     }
 
+    fastecu::flash::FlashPlan& plan = *planResult;
+    const auto requiresConfirmation = [&plan](fastecu::flash::ConfirmationSpec::Id id)
+    {
+        return std::ranges::any_of(
+            plan.confirmations(),
+            [id](const fastecu::flash::ConfirmationSpec& spec)
+            { return spec.id == id; });
+    };
+
     const int ret = confirm(
         tr("Connecting to ECU"),
         tr("Turn ignition ON and press OK to start initializing connection to ECU"),
@@ -60,20 +71,23 @@ void FlashEcuMitsuM32rCan::run()
         return;
     }
 
-    if (cmd_type == "write")
+    if (requiresConfirmation(fastecu::flash::ConfirmationSpec::Id::EraseTrigger))
     {
-        // Both gates are collected after plan validation because a synchronous
-        // dialog-free executor cannot block mid-run for an answer.
+        const auto& family =
+            std::get<fastecu::flash::MitsuColtM32rCanPlan>(plan.family_plan());
+        const QString capacityKiB = QString::number(family.rom_size / 1024);
+        const QString romEnd = QString::number(family.rom_size, 16);
         const int eraseReply =
             confirm(tr("Erase trigger"),
-                    tr("This operation accepts an exact 512 KiB ROM. The file's first "
+                    tr("This operation accepts an exact %1 KiB ROM. The file's first "
                        "32 KiB (0x0000-0x8000) will be ignored; only "
-                       "0x8000-0x80000 is writable, so the ECU bootloader will remain "
+                       "0x8000-0x%2 is writable, so the ECU bootloader will remain "
                        "unchanged.\n\nAbout to send the flash-erase trigger command. This exact "
                        "sequence is known to have locked up the bootloader during the "
                        "original implementation's testing. Only continue if this is a "
                        "bench/spare ECU with a recovery path available. Cancellation after "
-                       "erase can leave an incomplete image requiring recovery.\n\nContinue?"),
+                       "erase can leave an incomplete image requiring recovery.\n\nContinue?")
+                        .arg(capacityKiB, romEnd),
                     QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel);
         if (eraseReply != QMessageBox::Yes)
         {
@@ -81,7 +95,10 @@ void FlashEcuMitsuM32rCan::run()
             close();
             return;
         }
+    }
 
+    if (requiresConfirmation(fastecu::flash::ConfirmationSpec::Id::TopRegionBootstrap))
+    {
         const int bootstrapReply =
             confirm(tr("Top 128KB bootstrap"),
                     tr("The top 128KB (0x60000-0x80000) may not match the ROM being "
@@ -101,7 +118,7 @@ void FlashEcuMitsuM32rCan::run()
         }
     }
 
-    worker_ = makeWorker(std::move(*planResult));
+    worker_ = makeWorker(std::move(plan));
 
     connect(worker_.get(), &fastecu::flash::FlashWorker::logEvent, this,
             [this](int level, const QString& message)
@@ -190,7 +207,7 @@ fastecu::Result<fastecu::flash::FlashPlan> FlashEcuMitsuM32rCan::buildPlan()
 
     return fastecu::flash::build_mitsu_colt_m32r_can_plan(
         operation, ecuCalDef->FlashMethod.toStdString(), ecuCalDef->McuType.toStdString(),
-        useVendorChallenge, std::move(image));
+        std::move(image));
 }
 
 std::unique_ptr<fastecu::flash::FlashWorker> FlashEcuMitsuM32rCan::makeWorker(

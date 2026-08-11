@@ -30,15 +30,15 @@ QT_END_NAMESPACE
 // MitsuColtM32rCanExecutor attempt on a FlashWorker. Same shape as the
 // EEPROM dialogs in src/ui/desktop/flash/eeprom.
 //
-// Both write gates (erase trigger, top-128KB bootstrap) are answered BEFORE
-// the plan exists, because a synchronous dialog-free executor cannot block
-// mid-run for a human answer; their presence on the plan means "granted".
+// Every write gate declared by the plan is answered before the worker starts,
+// because a synchronous dialog-free executor cannot block mid-run for a human
+// answer; a confirmation's presence on the plan means "granted".
 class FlashEcuMitsuM32rCan : public QDialog
 {
     Q_OBJECT
 
   public:
-    explicit FlashEcuMitsuM32rCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent = nullptr, bool useVendorChallenge = false);
+    explicit FlashEcuMitsuM32rCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent = nullptr);
     ~FlashEcuMitsuM32rCan();
 
     void run();
@@ -73,7 +73,6 @@ class FlashEcuMitsuM32rCan : public QDialog
 
     FileActions::EcuCalDefStructure *ecuCalDef;
     QString cmd_type;
-    bool useVendorChallenge = false;
     // Borrowed, never owned: MainWindow's single session-lifetime
     // SerialPortActions. See makeWorker() for the port-lifetime contract.
     SerialPortActions *serial;

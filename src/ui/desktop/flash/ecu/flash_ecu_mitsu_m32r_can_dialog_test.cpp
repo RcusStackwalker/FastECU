@@ -37,10 +37,12 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "src/backend/definitions/file_actions.h"
+#include "src/backend/flash/ecu/mitsu_colt_m32r_can_plan.h"
 #include "src/backend/flash/flash_executor.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/ui/desktop/flash/ecu/flash_ecu_mitsu_m32r_can.h"
@@ -198,6 +200,7 @@ ModalCapture answerModal(const std::function<void()>& action,
 class SurfaceRecordingDialog : public FlashEcuMitsuM32rCan
 {
   public:
+    using FlashEcuMitsuM32rCan::buildPlan;
     using FlashEcuMitsuM32rCan::FlashEcuMitsuM32rCan;
 
     QStringList confirmTitles;
@@ -228,6 +231,10 @@ class SurfaceRecordingDialog : public FlashEcuMitsuM32rCan
         failureDetails << detail;
     }
 };
+
+static_assert(!std::is_constructible_v<FlashEcuMitsuM32rCan, SerialPortActions *,
+                                       FileActions::EcuCalDefStructure *, const QString&,
+                                       QWidget *, bool>);
 
 // Adds the scripted worker: the dialog's real FlashWorker orchestration runs
 // against a scripted executor and a deterministic clock.
@@ -295,12 +302,28 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
 {
     Q_OBJECT
   private slots:
+    void protocolSelectsCapacityAndAuthorization()
+    {
+        FileActions::EcuCalDefStructure ecuCalDef;
+        ecuCalDef.McuType = "M32R_384KB_1block";
+        ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can_vendor_ext_512kb";
+        SurfaceRecordingDialog dialog(nullptr, &ecuCalDef, "read", nullptr);
+
+        auto plan = dialog.buildPlan();
+
+        QVERIFY(plan.has_value());
+        const auto& family =
+            std::get<fastecu::flash::MitsuColtM32rCanPlan>(plan->family_plan());
+        QCOMPARE(family.use_vendor_challenge, true);
+        QCOMPARE(family.rom_size, std::uint32_t{0x80000});
+    }
+
     void readDeclinedAtIgnitionPromptStartsNoWorker()
     {
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.McuType = "M32R_384KB_1block";
         ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can";
-        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "read", nullptr, false);
+        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "read", nullptr);
         dialog.confirmAnswers << QMessageBox::Cancel;
 
         dialog.run();
@@ -315,7 +338,7 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.McuType = "NOT_A_REAL_MCU";
         ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can";
-        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "read", nullptr, false);
+        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "read", nullptr);
         dialog.confirmAnswers << QMessageBox::Ok;
 
         dialog.run();
@@ -329,7 +352,7 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.McuType = "M32R_384KB_1block";
         ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can";
-        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "test_write", nullptr, false);
+        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "test_write", nullptr);
         dialog.confirmAnswers << QMessageBox::Ok;
 
         dialog.run();
@@ -343,15 +366,16 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.McuType = "M32R_384KB_1block";
         ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can";
-        ecuCalDef.FullRomData = QByteArray(0x80000, '\0');
-        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "write", nullptr, false);
-        // Ignition OK, erase trigger declined: stop before any plan is built.
+        ecuCalDef.FullRomData = QByteArray(0x60000, '\0');
+        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "write", nullptr);
+        // Ignition OK, erase trigger declined: stop before any worker is built.
         dialog.confirmAnswers << QMessageBox::Ok << QMessageBox::Cancel;
 
         dialog.run();
 
-        QCOMPARE(dialog.confirmTitles.size(), 2);
-        QCOMPARE(dialog.confirmTitles.at(1), QString("Erase trigger"));
+        QCOMPARE(dialog.confirmTitles,
+                 QStringList({"Connecting to ECU", "Erase trigger"}));
+        QVERIFY(dialog.confirmTexts.at(1).contains("384 KiB"));
         QVERIFY(dialog.failureKinds.isEmpty());
         QVERIFY(!dialog.makeWorkerCalled);
     }
@@ -360,15 +384,17 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
     {
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.McuType = "M32R_384KB_1block";
-        ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can";
+        ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can_512kb";
         ecuCalDef.FullRomData = QByteArray(0x80000, '\0');
-        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "write", nullptr, false);
+        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "write", nullptr);
         dialog.confirmAnswers << QMessageBox::Ok << QMessageBox::Yes << QMessageBox::Cancel;
 
         dialog.run();
 
-        QCOMPARE(dialog.confirmTitles.size(), 3);
-        QCOMPARE(dialog.confirmTitles.at(2), QString("Top 128KB bootstrap"));
+        QCOMPARE(dialog.confirmTitles,
+                 QStringList({"Connecting to ECU", "Erase trigger",
+                              "Top 128KB bootstrap"}));
+        QVERIFY(dialog.confirmTexts.at(1).contains("512 KiB"));
     }
 
     void romTooSmallIsRejectedAsInvalidConfig()
@@ -376,8 +402,8 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.McuType = "M32R_384KB_1block";
         ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can";
-        ecuCalDef.FullRomData = QByteArray(0x80000 - 1, '\0');
-        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "write", nullptr, false);
+        ecuCalDef.FullRomData = QByteArray(0x60000 - 1, '\0');
+        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "write", nullptr);
         dialog.confirmAnswers << QMessageBox::Ok << QMessageBox::Yes << QMessageBox::Yes;
 
         dialog.run();
@@ -393,8 +419,8 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.McuType = "M32R_384KB_1block";
         ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can";
-        ecuCalDef.FullRomData = QByteArray(0x80000 + 1, '\0');
-        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "write", nullptr, false);
+        ecuCalDef.FullRomData = QByteArray(0x60000 + 1, '\0');
+        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "write", nullptr);
 
         dialog.run();
 
@@ -409,8 +435,8 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.McuType = "M32R_384KB_1block";
         ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can";
-        ecuCalDef.FullRomData = QByteArray(0x80000, '\0');
-        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "write", nullptr, false);
+        ecuCalDef.FullRomData = QByteArray(0x60000, '\0');
+        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "write", nullptr);
         dialog.confirmAnswers << QMessageBox::Ok << QMessageBox::Cancel;
 
         dialog.run();
@@ -418,7 +444,7 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
         const QString warnings = dialog.confirmTexts.join("\n");
         QVERIFY(warnings.contains("first 32 KiB"));
         QVERIFY(warnings.contains("0x0000-0x8000"));
-        QVERIFY(warnings.contains("0x8000-0x80000"));
+        QVERIFY(warnings.contains("0x8000-0x60000"));
         QVERIFY(warnings.contains("bootloader will remain unchanged"));
         QVERIFY(warnings.contains("Cancellation after erase"));
         QVERIFY(warnings.contains("requiring recovery"));
@@ -432,21 +458,22 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.McuType = "M32R_384KB_1block";
         ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can";
-        ecuCalDef.FullRomData = QByteArray(0x80000, '\0');
-        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "write", nullptr, false);
-        dialog.confirmAnswers << QMessageBox::Ok << QMessageBox::Yes << QMessageBox::Yes;
+        ecuCalDef.FullRomData = QByteArray(0x60000, '\0');
+        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "write", nullptr);
+        dialog.confirmAnswers << QMessageBox::Ok << QMessageBox::Yes;
         dialog.executorResult = FlashExecutionResult{.operation = FlashOperation::Write,
                                                      .read_bytes = std::nullopt};
 
         dialog.run();
 
         QVERIFY(dialog.makeWorkerCalled);
-        QCOMPARE(dialog.confirmTitles.size(), 3);
+        QCOMPARE(dialog.confirmTitles,
+                 QStringList({"Connecting to ECU", "Erase trigger"}));
         QCOMPARE(dialog.successDialogCount, 1);
         QVERIFY(dialog.failureKinds.isEmpty());
         // A write carries no read bytes, so the ROM the user supplied is left
         // exactly as it was.
-        QCOMPARE(ecuCalDef.FullRomData, QByteArray(0x80000, '\0'));
+        QCOMPARE(ecuCalDef.FullRomData, QByteArray(0x60000, '\0'));
     }
 
     void successfulReadCopiesTheBytesIntoFullRomData()
@@ -454,7 +481,7 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.McuType = "M32R_384KB_1block";
         ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can";
-        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "read", nullptr, false);
+        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "read", nullptr);
         dialog.confirmAnswers << QMessageBox::Ok;
         const std::vector<std::uint8_t> readBytes{0xDE, 0xAD, 0xBE, 0xEF};
         dialog.executorResult =
@@ -487,7 +514,7 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.McuType = "M32R_384KB_1block";
         ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can";
-        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "read", nullptr, false);
+        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "read", nullptr);
         dialog.confirmAnswers << QMessageBox::Ok;
         dialog.executorResult = fastecu::fail(errorKind, "scripted");
 
@@ -507,7 +534,7 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.McuType = "M32R_384KB_1block";
         ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can";
-        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "read", nullptr, false);
+        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "read", nullptr);
         dialog.confirmAnswers << QMessageBox::Ok;
         dialog.executorResult = fastecu::fail(fastecu::ErrorKind::Cancelled, "scripted stop");
 
@@ -528,7 +555,7 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.McuType = "M32R_384KB_1block";
         ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can";
-        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "read", nullptr, false);
+        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "read", nullptr);
         dialog.confirmAnswers << QMessageBox::Ok;
         dialog.logs = {{LogLevel::Error, "an error"},
                        {LogLevel::Warning, "a warning"},
@@ -565,7 +592,7 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.McuType = "M32R_384KB_1block";
         ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can";
-        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "read", nullptr, false);
+        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "read", nullptr);
         dialog.confirmAnswers << QMessageBox::Ok;
         dialog.progressReports = {{0, 400}, {100, 400}, {399, 400}, {400, 400}};
         dialog.executorResult =
@@ -594,7 +621,7 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.McuType = "M32R_384KB_1block";
         ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can";
-        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "read", nullptr, false);
+        TestableFlashEcuMitsuM32rCan dialog(nullptr, &ecuCalDef, "read", nullptr);
         dialog.confirmAnswers << QMessageBox::Ok;
         dialog.progressReports = {{7, 0}};
         dialog.executorResult =
@@ -617,7 +644,7 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.McuType = "M32R_384KB_1block";
         ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can";
-        BlockingWorkerDialog dialog(nullptr, &ecuCalDef, "read", nullptr, false);
+        BlockingWorkerDialog dialog(nullptr, &ecuCalDef, "read", nullptr);
         dialog.confirmAnswers << QMessageBox::Ok;
         auto sawCancellation = dialog.sawCancellation;
 
@@ -642,7 +669,7 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.McuType = "M32R_384KB_1block";
         ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can";
-        RealWorkerDialog dialog(nullptr, &ecuCalDef, "read", nullptr, false);
+        RealWorkerDialog dialog(nullptr, &ecuCalDef, "read", nullptr);
         dialog.confirmAnswers << QMessageBox::Ok;
 
         dialog.run();
@@ -693,7 +720,7 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.McuType = "M32R_384KB_1block";
         ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can";
-        RealSurfaceDialog dialog(nullptr, &ecuCalDef, "read", nullptr, false);
+        RealSurfaceDialog dialog(nullptr, &ecuCalDef, "read", nullptr);
         QSignalSpy errors(&dialog, &FlashEcuMitsuM32rCan::LOG_E);
 
         const ModalCapture capture = answerModal(
@@ -718,7 +745,7 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.McuType = "M32R_384KB_1block";
         ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can";
-        RealSurfaceDialog dialog(nullptr, &ecuCalDef, "read", nullptr, false);
+        RealSurfaceDialog dialog(nullptr, &ecuCalDef, "read", nullptr);
         QSignalSpy errors(&dialog, &FlashEcuMitsuM32rCan::LOG_E);
 
         const ModalCapture capture = answerModal(
@@ -735,7 +762,7 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.McuType = "M32R_384KB_1block";
         ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can";
-        RealSurfaceDialog dialog(nullptr, &ecuCalDef, "read", nullptr, false);
+        RealSurfaceDialog dialog(nullptr, &ecuCalDef, "read", nullptr);
 
         const ModalCapture capture =
             answerModal([&]
@@ -755,7 +782,7 @@ class TestFlashEcuMitsuM32rCanDialog : public QObject
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.McuType = "M32R_384KB_1block";
         ecuCalDef.FlashMethod = "mitsu_ecu_m32r_can";
-        RealSurfaceDialog dialog(nullptr, &ecuCalDef, "read", nullptr, false);
+        RealSurfaceDialog dialog(nullptr, &ecuCalDef, "read", nullptr);
 
         int answer = QMessageBox::NoButton;
         const ModalCapture capture = answerModal(
