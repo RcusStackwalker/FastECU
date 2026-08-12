@@ -18,32 +18,34 @@ constexpr MemoryRegion kUserspace{0x8000, 0x78000};
 
 Status validate_identity(std::string_view protocol, std::string_view mcu)
 {
+    using enum ErrorKind;
+
     if (protocol != kProtocol)
     {
-        return fail(ErrorKind::InvalidConfig,
+        return fail(InvalidConfig,
                     std::format("Unsupported Subaru Mitsubishi M32R K-Line protocol: {}", protocol));
     }
     const int index = find_flash_device_index(mcu);
     if (index < 0)
     {
-        return fail(ErrorKind::InvalidConfig, std::format("Unknown MCU type: {}", mcu));
+        return fail(InvalidConfig, std::format("Unknown MCU type: {}", mcu));
     }
     if (mcu != kMcu)
     {
-        return fail(ErrorKind::InvalidConfig,
+        return fail(InvalidConfig,
                     std::format("Protocol {} expects MCU {}; got {}", protocol, kMcu, mcu));
     }
     const flashdev_t& device = flashdevices[index];
     constexpr std::array<flashblock, 4> expected{{{0, 0x4000}, {0x4000, 0x2000}, {0x6000, 0x2000}, {0x8000, 0x78000}}};
     if (device.romsize != 0x80000 || device.numblocks != expected.size())
     {
-        return fail(ErrorKind::InvalidConfig, "M32R four-block flash geometry is invalid");
+        return fail(InvalidConfig, "M32R four-block flash geometry is invalid");
     }
     for (std::size_t i = 0; i < expected.size(); ++i)
     {
         if (device.fblocks[i].start != expected[i].start || device.fblocks[i].len != expected[i].len)
         {
-            return fail(ErrorKind::InvalidConfig, "M32R four-block flash geometry is invalid");
+            return fail(InvalidConfig, "M32R four-block flash geometry is invalid");
         }
     }
     return {};
@@ -52,49 +54,51 @@ Status validate_identity(std::string_view protocol, std::string_view mcu)
 
 Status validate_subaru_mitsu_m32r_kline_plan(const FlashPlan& plan)
 {
-    if (auto valid = validate_identity(plan.target_id(), plan.mcu_name()); !valid)
+    using enum ErrorKind;
+
+    if (auto valid = validate_identity(plan.target_id(), plan.mcu_name()); !valid.has_value())
     {
         return valid;
     }
     if (plan.family() != FlashFamily::SubaruMitsuM32rKline ||
         plan.transport() != TransportKind::Kline)
     {
-        return fail(ErrorKind::InvalidConfig, "plan is not for Subaru Mitsubishi M32R K-Line");
+        return fail(InvalidConfig, "plan is not for Subaru Mitsubishi M32R K-Line");
     }
-    const auto *family = std::get_if<SubaruMitsuM32rKlinePlan>(&plan.family_plan());
-    if (!family || family->tester_id != 0xf0 || family->target_id != 0x10 ||
+    if (const auto *family = std::get_if<SubaruMitsuM32rKlinePlan>(&plan.family_plan());
+        family == nullptr || family->tester_id != 0xf0 || family->target_id != 0x10 ||
         family->initial_baud != 4800 || family->flash_baud != 15625 ||
         family->chunk_size != 128 || family->unread_prefix_fill != 0xff)
     {
-        return fail(ErrorKind::InvalidConfig, "M32R K-Line wire parameters are invalid");
+        return fail(InvalidConfig, "M32R K-Line wire parameters are invalid");
     }
     if (plan.transfer_region().start != kUserspace.start ||
         plan.transfer_region().length != kUserspace.length)
     {
-        return fail(ErrorKind::InvalidConfig, "M32R K-Line transfer region is invalid");
+        return fail(InvalidConfig, "M32R K-Line transfer region is invalid");
     }
     if (plan.kernel())
     {
-        return fail(ErrorKind::InvalidConfig, "M32R K-Line plans are kernel-free");
+        return fail(InvalidConfig, "M32R K-Line plans are kernel-free");
     }
     if (plan.operation() == FlashOperation::TestWrite)
     {
-        return fail(ErrorKind::Unsupported, "test_write is not supported by this family");
+        return fail(Unsupported, "test_write is not supported by this family");
     }
     if (plan.operation() == FlashOperation::Read && !plan.erase_regions().empty())
     {
-        return fail(ErrorKind::InvalidConfig, "read plans must not erase memory");
+        return fail(InvalidConfig, "read plans must not erase memory");
     }
     if (plan.operation() == FlashOperation::Write &&
         (plan.erase_regions().size() != 1 || plan.erase_regions()[0].start != kUserspace.start ||
          plan.erase_regions()[0].length != kUserspace.length))
     {
-        return fail(ErrorKind::InvalidConfig, "M32R K-Line erase region is invalid");
+        return fail(InvalidConfig, "M32R K-Line erase region is invalid");
     }
     if (plan.operation() == FlashOperation::Write &&
-        (!plan.image() || plan.image()->size() != 0x80000))
+        (!plan.image().has_value() || plan.image()->size() != 0x80000))
     {
-        return fail(ErrorKind::InvalidConfig, "ROM file must be exactly 0x80000 bytes");
+        return fail(InvalidConfig, "ROM file must be exactly 0x80000 bytes");
     }
     return {};
 }
@@ -104,7 +108,7 @@ Result<FlashPlan> build_subaru_mitsu_m32r_kline_plan(FlashOperation operation,
                                                      std::string_view mcu_type,
                                                      std::optional<bytes::Bytes> image)
 {
-    if (auto valid = validate_identity(protocol_name, mcu_type); !valid)
+    if (auto valid = validate_identity(protocol_name, mcu_type); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
@@ -113,7 +117,7 @@ Result<FlashPlan> build_subaru_mitsu_m32r_kline_plan(FlashOperation operation,
         return fail(ErrorKind::Unsupported,
                     "test_write is not supported by this family; protocols.cfg declares test_write=no");
     }
-    if (operation == FlashOperation::Write && !image)
+    if (operation == FlashOperation::Write && !image.has_value())
     {
         return fail(ErrorKind::InvalidConfig, "Write plans must carry a ROM image");
     }
@@ -136,11 +140,11 @@ Result<FlashPlan> build_subaru_mitsu_m32r_kline_plan(FlashOperation operation,
         .family_plan = SubaruMitsuM32rKlinePlan{0xf0, 0x10, 4800, 15625, 128, 0xff},
     };
     auto plan = validate_and_build(std::move(fields));
-    if (!plan)
+    if (!plan.has_value())
     {
         return std::unexpected(plan.error());
     }
-    if (auto valid = validate_subaru_mitsu_m32r_kline_plan(*plan); !valid)
+    if (auto valid = validate_subaru_mitsu_m32r_kline_plan(*plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
