@@ -43,6 +43,14 @@ fastecu_portable_gtest(
     env = {"PROTOCOLS_CFG_PATH": "$(location :config/protocols.cfg)"},
 )
 
+fastecu_portable_gtest(
+    name = "test_protocols_cfg_subaru_hitachi_m32r_kline",
+    size = "small",
+    srcs = ["protocols_cfg_subaru_hitachi_m32r_kline_test.cpp"],
+    data = [":config/protocols.cfg"],
+    env = {"PROTOCOLS_CFG_PATH": "$(location :config/protocols.cfg)"},
+)
+
 qt_resource_via_qrc(
     name = "config_resource",
     files = glob(["config/*"]),

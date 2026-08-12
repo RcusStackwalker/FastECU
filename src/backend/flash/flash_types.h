@@ -26,6 +26,7 @@ enum class FlashFamily
     // separate families, matching the legacy class this replaces.
     MitsuColtM32rCan,
     SubaruMitsuM32rKline,
+    SubaruHitachiM32rKline,
     // Added one-by-one by the per-family tail (see spec "Explicit deferrals").
 };
 
@@ -143,11 +144,30 @@ struct SubaruMitsuM32rKlinePlan
     bytes::Byte unread_prefix_fill;
 };
 
+enum class HitachiM32rKlineSessionMode
+{
+    Normal,
+    Recovery,
+};
+
+struct SubaruHitachiM32rKlinePlan
+{
+    HitachiM32rKlineSessionMode session_mode;
+    std::uint8_t tester_id;
+    std::uint8_t target_id;
+    int initial_baud;
+    int write_baud;
+    int read_baud;
+    std::uint32_t chunk_size;
+    std::uint32_t read_address_bias;
+};
+
 using FamilyPlan = std::variant<
     DensoSh705xEepromKlinePlan,
     DensoSh705xEepromCanPlan,
     MitsuColtM32rCanPlan,
-    SubaruMitsuM32rKlinePlan>;
+    SubaruMitsuM32rKlinePlan,
+    SubaruHitachiM32rKlinePlan>;
 
 // Whether validate_and_build requires FlashPlanFields::kernel to be set for
 // this family's plan type. Defaults true (fail-closed): a family that skips
@@ -163,5 +183,8 @@ inline constexpr bool family_requires_kernel_v<MitsuColtM32rCanPlan> = false;
 
 template <>
 inline constexpr bool family_requires_kernel_v<SubaruMitsuM32rKlinePlan> = false;
+
+template <>
+inline constexpr bool family_requires_kernel_v<SubaruHitachiM32rKlinePlan> = false;
 
 } // namespace fastecu::flash
