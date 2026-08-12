@@ -1,7 +1,15 @@
 #include "src/backend/flash/flash_validation.h"
 
+#include "src/backend/flash/flash_types.h"
+#include "src/backend/ports/error.h"
+
 #include <cstdint>
+#include <optional>
+#include <string>
 #include <unordered_set>
+#include <utility>
+#include <variant>
+#include <vector>
 
 namespace fastecu::flash
 {

@@ -1,5 +1,7 @@
 #include "src/algorithms/protocol/mut_dma/mut_dma_freeform.h"
 
+#include <cstddef>
+
 namespace mutdma
 {
 MutDmaFrame buildSetupFrame(bytes::Byte setupCmd, bytes::Byte channelCount)

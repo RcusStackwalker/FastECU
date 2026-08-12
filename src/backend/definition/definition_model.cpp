@@ -1,7 +1,10 @@
 #include "src/backend/definition/definition_model.h"
 
+#include "src/backend/ports/error.h"
+
 #include <algorithm>
 #include <cctype>
+#include <expected>
 #include <format>
 #include <ranges>
 

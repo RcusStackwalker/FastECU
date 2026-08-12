@@ -1,4 +1,11 @@
 #include "src/backend/logging/logging_conversion.h"
+#include "src/backend/logging/logging_session.h"
+#include "src/backend/ports/error.h"
+
+#include <cstdint>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include <gtest/gtest.h>
 

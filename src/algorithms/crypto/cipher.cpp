@@ -2,6 +2,8 @@
 
 #include <iostream>
 
+#include <openssl/evp.h>
+
 Cipher::Cipher()
 {
     /* Create and initialise the context */
