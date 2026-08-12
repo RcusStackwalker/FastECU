@@ -80,9 +80,10 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     {
         return open_;
     }
-    Status setBaud(int) override
+    Status setBaud(int baud) override
     {
-        return {};
+        baud_calls_.push_back(baud);
+        return set_baud_result_;
     }
     Result<std::size_t> write(bytes::ByteView data) override
     {
@@ -130,6 +131,8 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     // executor.cpp's execute() for the call sites this proves.
     std::vector<bool> header_mode_calls_;
     Status set_add_iso14230_header_result_;
+    std::vector<int> baud_calls_;
+    Status set_baud_result_;
 
   private:
     std::vector<bytes::Bytes> expected_;

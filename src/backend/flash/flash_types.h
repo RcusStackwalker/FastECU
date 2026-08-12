@@ -25,6 +25,7 @@ enum class FlashFamily
     // vendor-authorization variants; both properties are plan fields, not
     // separate families, matching the legacy class this replaces.
     MitsuColtM32rCan,
+    SubaruMitsuM32rKline,
     // Added one-by-one by the per-family tail (see spec "Explicit deferrals").
 };
 
@@ -132,10 +133,21 @@ struct MitsuColtM32rCanPlan
     bytes::Byte session_id;    // kSessionBootload (0x85) for Read and Write
 };
 
+struct SubaruMitsuM32rKlinePlan
+{
+    std::uint8_t tester_id;
+    std::uint8_t target_id;
+    int initial_baud;
+    int flash_baud;
+    std::uint32_t chunk_size;
+    bytes::Byte unread_prefix_fill;
+};
+
 using FamilyPlan = std::variant<
     DensoSh705xEepromKlinePlan,
     DensoSh705xEepromCanPlan,
-    MitsuColtM32rCanPlan>;
+    MitsuColtM32rCanPlan,
+    SubaruMitsuM32rKlinePlan>;
 
 // Whether validate_and_build requires FlashPlanFields::kernel to be set for
 // this family's plan type. Defaults true (fail-closed): a family that skips
@@ -148,5 +160,8 @@ inline constexpr bool family_requires_kernel_v = true;
 // compile-time RAM helper routines, not a loaded kernel image.
 template <>
 inline constexpr bool family_requires_kernel_v<MitsuColtM32rCanPlan> = false;
+
+template <>
+inline constexpr bool family_requires_kernel_v<SubaruMitsuM32rKlinePlan> = false;
 
 } // namespace fastecu::flash

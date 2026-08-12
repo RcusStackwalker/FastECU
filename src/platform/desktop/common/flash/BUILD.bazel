@@ -22,6 +22,8 @@ qt_cc_library(
         "//src/backend/flash:flash_plan",
         "//src/backend/flash/ecu:mitsu_colt_m32r_can_executor",
         "//src/backend/flash/ecu:mitsu_colt_m32r_can_plan",
+        "//src/backend/flash/ecu:subaru_mitsu_m32r_kline_executor",
+        "//src/backend/flash/ecu:subaru_mitsu_m32r_kline_plan",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_can",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_kline",
         "//src/backend/flash/eeprom:eeprom_read_plan",

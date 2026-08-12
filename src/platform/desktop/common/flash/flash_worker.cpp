@@ -73,6 +73,7 @@ void FlashWorker::run()
     {
         worker_result.success = true;
         worker_result.read_bytes = std::move(result->read_bytes);
+        worker_result.rom_id = std::move(result->rom_id);
     }
     else
     {

@@ -73,12 +73,14 @@ struct FlashAttemptResult
     ErrorKind error_kind = ErrorKind::Internal;
     std::string error_detail;
     std::optional<bytes::Bytes> read_bytes;
+    std::optional<std::string> rom_id;
 };
 
 struct FlashCompletedStep
 {
     FlashWorkflowOutcome outcome;
     std::optional<bytes::Bytes> accepted_read_bytes;
+    std::optional<std::string> rom_id;
 };
 
 struct FlashFailureStep

@@ -26,6 +26,7 @@ class FlashWorkflowTest : public QObject
     void invalidColtSuffixIsRecognizedButFailsPreflight();
     void preflightPrecedesPromptsAndDeclineCancels();
     void successfulReadBytesAreAcceptedAutomatically();
+    void subaruMitsuPropagatesRomId();
     void coltWriteUsesColtSpecificSafetyPrompts();
 };
 
@@ -34,6 +35,7 @@ void FlashWorkflowTest::recognizesEveryPortableFamilyPrefixAndLeavesLegacyAlone(
     const char *portable[] = {
         "mitsu_ecu_m32r_can", "mitsu_ecu_m32r_can_vendor_ext",
         "mitsu_ecu_m32r_can_512kb", "mitsu_ecu_m32r_can_vendor_ext_512kb",
+        "sub_ecu_mitsu_m32r_kline",
         "sub_ecu_eeprom_denso_sh7055_kline", "sub_ecu_eeprom_denso_sh7058_kline",
         "sub_ecu_eeprom_denso_sh7055_densocan", "sub_ecu_eeprom_denso_sh7058_densocan",
         "sub_ecu_eeprom_denso_sh7058_can", "sub_ecu_eeprom_denso_sh7058_can_diesel"};
@@ -77,6 +79,22 @@ void FlashWorkflowTest::successfulReadBytesAreAcceptedAutomatically()
     auto done = workflow->next();
     QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
     QCOMPARE(std::get<FlashCompletedStep>(done).accepted_read_bytes, bytes::Bytes({1, 2, 3}));
+}
+
+void FlashWorkflowTest::subaruMitsuPropagatesRomId()
+{
+    auto input = request("sub_ecu_mitsu_m32r_kline");
+    input.mcu = "M32R_512KB_4blocks";
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
+    workflow->submit(FlashPromptResponse::Accept);
+    QVERIFY(std::holds_alternative<FlashAttempt>(workflow->next()));
+    workflow->submit(FlashAttemptResult{.success = true,
+                                        .read_bytes = bytes::Bytes{0xff, 0x12},
+                                        .rom_id = "123456789A_"});
+    auto done = workflow->next();
+    QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
+    QCOMPARE(std::get<FlashCompletedStep>(done).rom_id, std::string("123456789A_"));
 }
 
 void FlashWorkflowTest::coltWriteUsesColtSpecificSafetyPrompts()

@@ -58,7 +58,7 @@ void FlashDialog::advance()
         }
         if (auto *done = std::get_if<FlashCompletedStep>(&step))
         {
-            result_ = {done->outcome, std::move(done->accepted_read_bytes)};
+            result_ = {done->outcome, std::move(done->accepted_read_bytes), std::move(done->rom_id)};
             if (done->outcome == FlashWorkflowOutcome::Succeeded)
             {
                 showSuccess();
@@ -125,7 +125,7 @@ void FlashDialog::workerFinished(FlashWorkerResult result)
     emit external_logger("Finished");
     workflow_->submit(FlashAttemptResult{result.success, result.error_kind,
                                          result.error_detail.toStdString(),
-                                         std::move(result.read_bytes)});
+                                         std::move(result.read_bytes), std::move(result.rom_id)});
     advance();
 }
 

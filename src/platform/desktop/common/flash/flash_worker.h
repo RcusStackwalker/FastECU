@@ -27,6 +27,7 @@ struct FlashWorkerResult
     ErrorKind error_kind = ErrorKind::Internal;
     QString error_detail;
     std::optional<bytes::Bytes> read_bytes;
+    std::optional<std::string> rom_id;
 };
 
 // Qt lifecycle adapter, not a base class for a portable executor. run()
