@@ -1,6 +1,7 @@
 #include "src/algorithms/protocol/mut_dma/mut_dma_memory.h"
 
 #include <algorithm>
+#include <cstddef>
 
 namespace mutdma
 {

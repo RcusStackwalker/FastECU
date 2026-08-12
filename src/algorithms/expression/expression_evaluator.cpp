@@ -1,7 +1,9 @@
 #include "src/algorithms/expression/expression_evaluator.h"
 
+#include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <exception>
 #include <format>
 
 namespace

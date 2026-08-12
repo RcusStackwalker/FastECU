@@ -2,9 +2,7 @@
 
 #include "src/algorithms/protocol/bytes.h"
 
-#include <openssl/conf.h>
-#include <openssl/evp.h>
-#include <openssl/err.h>
+#include <openssl/types.h>
 
 class Cipher
 {

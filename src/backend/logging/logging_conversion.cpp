@@ -1,8 +1,11 @@
 #include "src/backend/logging/logging_conversion.h"
 
-#include <cmath>
-
 #include "src/algorithms/expression/expression_evaluator.h"
+#include "src/backend/logging/logging_session.h"
+#include "src/backend/ports/error.h"
+
+#include <cmath>
+#include <string>
 
 namespace fastecu::logging
 {

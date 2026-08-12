@@ -5,9 +5,13 @@
 #include <array>
 #include <charconv>
 #include <cctype>
+#include <cstddef>
 #include <format>
 #include <limits>
+#include <system_error>
 #include <utility>
+
+#include <pugixml.hpp>
 
 namespace fastecu::definition
 {
