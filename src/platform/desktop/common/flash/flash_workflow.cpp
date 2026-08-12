@@ -51,8 +51,8 @@ class ColtWorkflow final : public FlashWorkflow
             const auto& spec = confirmations[stage_ - 1];
             return FlashPromptStep{
                 spec.id == ConfirmationSpec::Id::EraseTrigger
-                    ? FlashPromptKind::EraseTrigger
-                    : FlashPromptKind::TopRegionBootstrap,
+                    ? FlashPromptKind::ColtEraseTrigger
+                    : FlashPromptKind::ColtTopRegionBootstrap,
                 spec.arguments};
         }
         if (!attempted_)

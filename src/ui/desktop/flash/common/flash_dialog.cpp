@@ -119,7 +119,7 @@ FlashPromptResponse FlashDialog::presentPrompt(const FlashPromptStep& prompt)
                 return QString::fromStdString(value);
         return QString{};
     };
-    if (prompt.kind == FlashPromptKind::EraseTrigger)
+    if (prompt.kind == FlashPromptKind::ColtEraseTrigger)
     {
         const QString text = tr("This operation accepts an exact %1 KiB ROM. The file's first 32 KiB (0x0000-%2) will be ignored; only %2-%3 is writable, so the ECU bootloader will remain unchanged.\n\nAbout to send the flash-erase trigger command. This exact sequence is known to have locked up the bootloader during the original implementation's testing. Only continue if this is a bench/spare ECU with a recovery path available. Cancellation after erase can leave an incomplete image requiring recovery.\n\nContinue?")
                                  .arg(arg("capacity_kib"), arg("writable_start_hex"), arg("rom_end_hex"));
@@ -129,7 +129,7 @@ FlashPromptResponse FlashDialog::presentPrompt(const FlashPromptStep& prompt)
                    ? FlashPromptResponse::Accept
                    : FlashPromptResponse::Decline;
     }
-    if (prompt.kind == FlashPromptKind::TopRegionBootstrap)
+    if (prompt.kind == FlashPromptKind::ColtTopRegionBootstrap)
     {
         const QString text = tr("The top 128KB (%1-%2) may not match the ROM being written. If it does not, it needs a one-time bootstrap pass through custom erase/write redirect helpers, outside the range the vendor bootloader normally allows. This sends the same high-risk erase trigger sequence used for the main write, once then and once more for the main write that follows. Only continue on a bench/spare ECU with a recovery path available.\n\nContinue?")
                                  .arg(arg("top_region_start_hex"), arg("rom_end_hex"));

@@ -26,6 +26,7 @@ class FlashWorkflowTest : public QObject
     void invalidColtSuffixIsRecognizedButFailsPreflight();
     void preflightPrecedesPromptsAndDeclineCancels();
     void successfulReadBytesAreAcceptedAutomatically();
+    void coltWriteUsesColtSpecificSafetyPrompts();
 };
 
 void FlashWorkflowTest::recognizesEveryPortableFamilyPrefixAndLeavesLegacyAlone()
@@ -74,6 +75,18 @@ void FlashWorkflowTest::successfulReadBytesAreAcceptedAutomatically()
     auto done = workflow->next();
     QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
     QCOMPARE(std::get<FlashCompletedStep>(done).accepted_read_bytes, bytes::Bytes({1, 2, 3}));
+}
+
+void FlashWorkflowTest::coltWriteUsesColtSpecificSafetyPrompts()
+{
+    auto write = request("mitsu_ecu_m32r_can", FlashOperation::Write);
+    write.image = bytes::Bytes(0x60000);
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(write));
+
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
+    workflow->submit(FlashPromptResponse::Accept);
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind,
+             FlashPromptKind::ColtEraseTrigger);
 }
 
 } // namespace

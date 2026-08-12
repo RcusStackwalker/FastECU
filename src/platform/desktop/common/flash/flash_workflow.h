@@ -31,8 +31,8 @@ struct FlashWorkflowRequest
 enum class FlashPromptKind
 {
     Begin,
-    EraseTrigger,
-    TopRegionBootstrap,
+    ColtEraseTrigger,
+    ColtTopRegionBootstrap,
     InspectRead,
     CycleIgnition,
 };
