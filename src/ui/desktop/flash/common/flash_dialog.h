@@ -17,6 +17,7 @@ struct FlashDialogResult
 {
     FlashWorkflowOutcome outcome = FlashWorkflowOutcome::Failed;
     std::optional<bytes::Bytes> accepted_read_bytes;
+    std::optional<std::string> rom_id;
 };
 
 class FlashDialog : public QDialog

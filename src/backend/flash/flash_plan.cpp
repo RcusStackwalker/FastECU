@@ -13,6 +13,8 @@ std::string_view FlashPlan::experimental_family_id() const
         return "DensoSh705xEepromCan";
     case FlashFamily::MitsuColtM32rCan:
         return "MitsuColtM32rCan";
+    case FlashFamily::SubaruMitsuM32rKline:
+        return "SubaruMitsuM32rKline";
     }
     return "Unknown";
 }

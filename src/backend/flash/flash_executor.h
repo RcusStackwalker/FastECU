@@ -17,6 +17,7 @@ struct FlashExecutionResult
 {
     FlashOperation operation;
     std::optional<bytes::Bytes> read_bytes; // present for successful Read
+    std::optional<std::string> rom_id;
 };
 
 // Lifetime/unblock capability only; it deliberately has no universal I/O API.

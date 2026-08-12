@@ -16,7 +16,8 @@ class ScriptedWorkflow final : public FlashWorkflow
         {
             return FlashPromptStep{FlashPromptKind::Begin, {}};
         }
-        return FlashCompletedStep{FlashWorkflowOutcome::Succeeded, bytes::Bytes{0x12, 0x34}};
+        return FlashCompletedStep{FlashWorkflowOutcome::Succeeded, bytes::Bytes{0x12, 0x34},
+                                  std::string("123456789A_")};
     }
     void submit(FlashPromptResponse response) override
     {
@@ -71,6 +72,7 @@ class FlashDialogTest : public QObject
         QVERIFY(dialog.success_shown);
         QCOMPARE(result.outcome, FlashWorkflowOutcome::Succeeded);
         QCOMPARE(result.accepted_read_bytes, bytes::Bytes({0x12, 0x34}));
+        QCOMPARE(result.rom_id, std::string("123456789A_"));
     }
 };
 

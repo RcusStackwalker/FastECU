@@ -62,6 +62,8 @@ PORTABLE_ROOTS = {
     ROOT / "src/backend/flash/ecu": {
         "mitsu_colt_m32r_can_plan",
         "mitsu_colt_m32r_can_executor",
+        "subaru_mitsu_m32r_kline_plan",
+        "subaru_mitsu_m32r_kline_executor",
     },
     ROOT / "src/backend/config": {
         "config_paths",

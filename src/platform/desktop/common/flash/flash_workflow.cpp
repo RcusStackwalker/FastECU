@@ -6,6 +6,8 @@
 
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_executor.h"
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_plan.h"
+#include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_executor.h"
+#include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_plan.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_can_executor.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_kline_executor.h"
 #include "src/backend/flash/eeprom/eeprom_read_plan.h"
@@ -20,10 +22,87 @@ namespace
 {
 
 FlashCompletedStep completed(FlashWorkflowOutcome outcome,
-                             std::optional<bytes::Bytes> bytes = std::nullopt)
+                             std::optional<bytes::Bytes> bytes = std::nullopt,
+                             std::optional<std::string> rom_id = std::nullopt)
 {
-    return {outcome, std::move(bytes)};
+    return {outcome, std::move(bytes), std::move(rom_id)};
 }
+
+class SubaruMitsuM32rKlineWorkflow final : public FlashWorkflow
+{
+  public:
+    explicit SubaruMitsuM32rKlineWorkflow(FlashWorkflowRequest request)
+        : request_(std::move(request)), plan_(build_subaru_mitsu_m32r_kline_plan(
+                                            request_.operation, request_.protocol, request_.mcu, std::move(request_.image)))
+    {
+    }
+    FlashWorkflowStep next() override
+    {
+        if (!plan_)
+        {
+            return FlashFailureStep{plan_.error()};
+        }
+        if (failure_)
+        {
+            return FlashFailureStep{std::move(*failure_)};
+        }
+        if (terminal_)
+        {
+            return completed(outcome_, std::move(bytes_), std::move(rom_id_));
+        }
+        if (!begun_)
+        {
+            return FlashPromptStep{FlashPromptKind::Begin, {}};
+        }
+        if (!attempted_)
+        {
+            attempted_ = true;
+            return FlashAttempt{std::move(*plan_), std::make_unique<SubaruMitsuM32rKlineExecutor>(),
+                                std::make_unique<DesktopKlineFlashTransport>(request_.serial),
+                                std::make_unique<QtClock>()};
+        }
+        return completed(outcome_, std::move(bytes_), std::move(rom_id_));
+    }
+    void submit(FlashPromptResponse response) override
+    {
+        begun_ = true;
+        if (response != FlashPromptResponse::Accept)
+        {
+            terminal_ = true;
+            outcome_ = FlashWorkflowOutcome::Cancelled;
+        }
+    }
+    void submit(FlashAttemptResult result) override
+    {
+        terminal_ = true;
+        if (result.success)
+        {
+            outcome_ = FlashWorkflowOutcome::Succeeded;
+            bytes_ = std::move(result.read_bytes);
+            rom_id_ = std::move(result.rom_id);
+        }
+        else if (result.error_kind == ErrorKind::Cancelled)
+        {
+            outcome_ = FlashWorkflowOutcome::Cancelled;
+        }
+        else
+        {
+            outcome_ = FlashWorkflowOutcome::Failed;
+            failure_ = Error{result.error_kind, std::move(result.error_detail)};
+        }
+    }
+
+  private:
+    FlashWorkflowRequest request_;
+    Result<FlashPlan> plan_;
+    bool begun_ = false;
+    bool attempted_ = false;
+    bool terminal_ = false;
+    FlashWorkflowOutcome outcome_ = FlashWorkflowOutcome::Failed;
+    std::optional<bytes::Bytes> bytes_;
+    std::optional<std::string> rom_id_;
+    std::optional<Error> failure_;
+};
 
 class ColtWorkflow final : public FlashWorkflow
 {
@@ -269,14 +348,16 @@ struct Route
     enum class Kind
     {
         Colt,
-        Eeprom
+        Eeprom,
+        SubaruMitsuM32rKline
     };
 
     std::string_view prefix;
     Kind kind;
 };
 
-constexpr std::array<Route, 7> kRoutes{{
+constexpr std::array<Route, 8> kRoutes{{
+    {"sub_ecu_mitsu_m32r_kline", Route::Kind::SubaruMitsuM32rKline},
     {"mitsu_ecu_m32r_can", Route::Kind::Colt},
     {"sub_ecu_eeprom_denso_sh7055_kline", Route::Kind::Eeprom},
     {"sub_ecu_eeprom_denso_sh7058_kline", Route::Kind::Eeprom},
@@ -297,6 +378,10 @@ std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::tryCreate(FlashWorkflowRequ
             if (route.kind == Route::Kind::Colt)
             {
                 return std::make_unique<ColtWorkflow>(std::move(request));
+            }
+            if (route.kind == Route::Kind::SubaruMitsuM32rKline)
+            {
+                return std::make_unique<SubaruMitsuM32rKlineWorkflow>(std::move(request));
             }
             return std::make_unique<EepromWorkflow>(std::move(request));
         }

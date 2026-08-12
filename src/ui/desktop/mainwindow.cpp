@@ -1223,6 +1223,10 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
                 ecuCalDef[rom_number]->FullRomData = bytes::toQByteArray(
                     bytes::ByteView(*dialog_result.accepted_read_bytes));
             }
+            if (dialog_result.rom_id)
+            {
+                ecuCalDef[rom_number]->RomId = QString::fromStdString(*dialog_result.rom_id);
+            }
         }
         else if (configValues->flash_protocol_selected_protocol_name.endsWith("_densocan"))
         {
@@ -1387,11 +1391,6 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
         else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_hitachi_m32r_can"))
         {
             FlashEcuSubaruHitachiM32rCan flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
-            connect_signals_and_run_module(&flash_module);
-        }
-        else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_mitsu_m32r_kline"))
-        {
-            FlashEcuSubaruMitsuM32rKline flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
             connect_signals_and_run_module(&flash_module);
         }
         else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_hitachi_sh7058_can"))

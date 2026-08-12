@@ -147,7 +147,7 @@ Actions:
 
 ### P1: Isolate flash-operation orchestration
 
-Portable Colt CAN and Denso SH705x EEPROM operations now register with
+Portable Colt CAN, Subaru Mitsubishi M32R K-Line, and Denso SH705x EEPROM operations now register with
 `FlashWorkflowFactory` and run through the common `FlashDialog`. Remaining
 flash/eeprom/jtag/bdm operation pairs use `FlashOperationWorker`, and
 shared SSM framing, seed/payload transforms, CRC, byte formatting, byte
@@ -157,7 +157,10 @@ generalization opportunities are maintained in the
 
 The operation classes still combine request construction, response validation,
 retries, progress reporting, prompts, full-facade serial I/O, and ROM mutation.
-Only a small number of families have scripted operation-level coverage.
+Wave 1 is in progress: the Mitsubishi M32R K-Line sibling is portable while
+Hitachi M32R K-Line and any shared cluster factoring remain follow-ups. The
+legacy drain contains 25 operation sources. Only a small number of families
+have scripted operation-level coverage.
 
 Actions:
 

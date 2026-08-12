@@ -19,7 +19,8 @@ bool family_matches_transport_variant(const FlashPlanFields& fields)
     switch (fields.transport)
     {
     case TransportKind::Kline:
-        return std::holds_alternative<DensoSh705xEepromKlinePlan>(fields.family_plan);
+        return std::holds_alternative<DensoSh705xEepromKlinePlan>(fields.family_plan) ||
+               std::holds_alternative<SubaruMitsuM32rKlinePlan>(fields.family_plan);
     case TransportKind::CanIso15765:
         return std::holds_alternative<DensoSh705xEepromCanPlan>(fields.family_plan) ||
                std::holds_alternative<MitsuColtM32rCanPlan>(fields.family_plan);
