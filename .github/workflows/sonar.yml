@@ -7,6 +7,10 @@ on:
         description: Git ref to analyze
         required: true
         type: string
+      cache-save:
+        description: Save Bazel cache
+        required: true
+        type: boolean
     secrets:
       SONAR_TOKEN:
         required: true
@@ -44,7 +48,7 @@ jobs:
           bazelisk-cache: true
           repository-cache: true
           disk-cache: fastecu-sonar-${{ runner.os }}
-          cache-save: false
+          cache-save: ${{ inputs.cache-save }}
 
       - name: Install LLVM (macOS)
         run: |

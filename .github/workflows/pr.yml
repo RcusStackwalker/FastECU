@@ -36,6 +36,7 @@ jobs:
     uses: ./.github/workflows/sonar.yml
     with:
       ref: ${{ github.sha }}
+      cache-save: false
     secrets:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
