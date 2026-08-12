@@ -1,5 +1,6 @@
 #include "src/platform/desktop/common/flash/flash_workflow.h"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <string_view>
@@ -370,7 +371,7 @@ struct Route
 
 using enum Route::Kind;
 
-constexpr std::array<Route, 9> kRoutes{{
+constexpr auto kRoutes = std::to_array<Route>({
     {"sub_ecu_hitachi_m32r_kline", SubaruHitachiM32rKline},
     {"sub_ecu_mitsu_m32r_kline", SubaruMitsuM32rKline},
     {"mitsu_ecu_m32r_can", Colt},
@@ -380,32 +381,31 @@ constexpr std::array<Route, 9> kRoutes{{
     {"sub_ecu_eeprom_denso_sh7058_densocan", Eeprom},
     {"sub_ecu_eeprom_denso_sh7058_can_diesel", Eeprom},
     {"sub_ecu_eeprom_denso_sh7058_can", Eeprom},
-}};
+});
 
 } // namespace
 
 std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::tryCreate(FlashWorkflowRequest request)
 {
-    for (const Route& route : kRoutes)
+    const auto route = std::ranges::find_if(
+        kRoutes, [&request](const Route& candidate)
+        { return request.protocol.starts_with(candidate.prefix); });
+    if (route == kRoutes.end())
     {
-        if (request.protocol.starts_with(route.prefix))
-        {
-            if (route.kind == Colt)
-            {
-                return std::make_unique<ColtWorkflow>(std::move(request));
-            }
-            if (route.kind == SubaruMitsuM32rKline)
-            {
-                return std::make_unique<SubaruM32rKlineWorkflow>(std::move(request), false);
-            }
-            if (route.kind == SubaruHitachiM32rKline)
-            {
-                return std::make_unique<SubaruM32rKlineWorkflow>(std::move(request), true);
-            }
-            return std::make_unique<EepromWorkflow>(std::move(request));
-        }
+        return nullptr;
     }
-    return nullptr;
+
+    switch (route->kind)
+    {
+    case Colt:
+        return std::make_unique<ColtWorkflow>(std::move(request));
+    case Eeprom:
+        return std::make_unique<EepromWorkflow>(std::move(request));
+    case SubaruMitsuM32rKline:
+        return std::make_unique<SubaruM32rKlineWorkflow>(std::move(request), false);
+    case SubaruHitachiM32rKline:
+        return std::make_unique<SubaruM32rKlineWorkflow>(std::move(request), true);
+    }
 }
 
 } // namespace fastecu::flash
