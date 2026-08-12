@@ -477,8 +477,6 @@ def run_workflow(
             command.extend(["-export-fixes", str(fixes_directory) + os.sep])
         print(f"Running clang-tidy in {mode} mode over {len(entries)} translation units.")
         tidy_code = _run(command_runner, command, workspace)
-        if tidy_code:
-            raise WorkflowError(f"run-clang-tidy failed with exit code {tidy_code}")
         if mode == "fix":
             assert tools.clang_apply_replacements is not None
             normalize_replacements(fixes_directory, workspace)
@@ -492,6 +490,11 @@ def run_workflow(
             )
             if apply_code:
                 raise WorkflowError(f"replacement application failed with exit code {apply_code}")
+        if tidy_code:
+            detail = f"run-clang-tidy failed with exit code {tidy_code}"
+            if mode == "fix":
+                detail += "; exported fixes were applied before reporting the failure"
+            raise WorkflowError(detail)
     return 0
 
 
