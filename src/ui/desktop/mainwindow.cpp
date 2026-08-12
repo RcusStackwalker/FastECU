@@ -1168,11 +1168,14 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
         const fastecu::config::ConfigPaths eeprom_paths =
             fastecu::config::paths_from_config_values(*configValues);
 
-        fastecu::flash::FlashOperation operation = fastecu::flash::FlashOperation::Read;
-        if (cmd_type == "write")
-            operation = fastecu::flash::FlashOperation::Write;
-        else if (cmd_type == "test_write")
-            operation = fastecu::flash::FlashOperation::TestWrite;
+        const fastecu::flash::FlashOperation operation = [&cmd_type]
+        {
+            if (cmd_type == "write")
+                return fastecu::flash::FlashOperation::Write;
+            if (cmd_type == "test_write")
+                return fastecu::flash::FlashOperation::TestWrite;
+            return fastecu::flash::FlashOperation::Read;
+        }();
         std::optional<bytes::Bytes> portable_image;
         if (operation == fastecu::flash::FlashOperation::Write)
             portable_image = bytes::fromQByteArray(ecuCalDef[rom_number]->FullRomData);
