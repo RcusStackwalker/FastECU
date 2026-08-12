@@ -1168,14 +1168,60 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
         const fastecu::config::ConfigPaths eeprom_paths =
             fastecu::config::paths_from_config_values(*configValues);
 
+        const fastecu::flash::FlashOperation operation = [&cmd_type]
+        {
+            if (cmd_type == "write")
+            {
+                return fastecu::flash::FlashOperation::Write;
+            }
+            if (cmd_type == "test_write")
+            {
+                return fastecu::flash::FlashOperation::TestWrite;
+            }
+            return fastecu::flash::FlashOperation::Read;
+        }();
+        std::optional<bytes::Bytes> portable_image;
+        if (operation == fastecu::flash::FlashOperation::Write)
+        {
+            portable_image = bytes::fromQByteArray(ecuCalDef[rom_number]->FullRomData);
+        }
+        auto workflow = fastecu::flash::FlashWorkflowFactory::tryCreate({
+            .operation = operation,
+            .protocol = configValues->flash_protocol_selected_protocol_name.toStdString(),
+            .mcu = ecuCalDef[rom_number]->McuType.toStdString(),
+            .image = std::move(portable_image),
+            .paths = eeprom_paths,
+            .display_filename = ecuCalDef[rom_number]->FileName.toStdString(),
+            .serial = serial,
+        });
+
         /*
          * Denso CAN
          */
-        if (configValues->flash_protocol_selected_protocol_name.endsWith("_densocan") && configValues->flash_protocol_selected_protocol_name.contains("eeprom"))
+        if (workflow)
         {
-            EepromEcuSubaruDensoSH705xCan flash_module(serial, ecuCalDef[rom_number],
-                                                       eeprom_paths, cmd_type, this);
-            connect_signals_and_run_module(&flash_module);
+            fastecu::flash::FlashDialog flash_module(
+                std::move(workflow), operation, ecuCalDef[rom_number]->FileName, this);
+            QObject::connect<void (fastecu::flash::FlashDialog::*)(QString)>(
+                &flash_module, &fastecu::flash::FlashDialog::external_logger,
+                this, &MainWindow::external_logger);
+            QObject::connect<void (fastecu::flash::FlashDialog::*)(int)>(
+                &flash_module, &fastecu::flash::FlashDialog::external_logger,
+                this, &MainWindow::external_logger_set_progressbar_value);
+            QObject::connect(&flash_module, &fastecu::flash::FlashDialog::LOG_E,
+                             syslogger, &SystemLogger::log_messages);
+            QObject::connect(&flash_module, &fastecu::flash::FlashDialog::LOG_W,
+                             syslogger, &SystemLogger::log_messages);
+            QObject::connect(&flash_module, &fastecu::flash::FlashDialog::LOG_I,
+                             syslogger, &SystemLogger::log_messages);
+            QObject::connect(&flash_module, &fastecu::flash::FlashDialog::LOG_D,
+                             syslogger, &SystemLogger::log_messages);
+            fastecu::flash::FlashDialogResult dialog_result = flash_module.run();
+            if (dialog_result.accepted_read_bytes)
+            {
+                ecuCalDef[rom_number]->FullRomData = bytes::toQByteArray(
+                    bytes::ByteView(*dialog_result.accepted_read_bytes));
+            }
         }
         else if (configValues->flash_protocol_selected_protocol_name.endsWith("_densocan"))
         {
@@ -1271,45 +1317,6 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
             connect_signals_and_run_module(&flash_module);
         }
         /*
-         * Denso EEPROM
-         */
-        else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_eeprom_denso_sh7055_kline"))
-        {
-            EepromEcuSubaruDensoSH705xKline flash_module(serial, ecuCalDef[rom_number],
-                                                         eeprom_paths, cmd_type, this);
-            connect_signals_and_run_module(&flash_module);
-        }
-        else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_eeprom_denso_sh7058_kline"))
-        {
-            EepromEcuSubaruDensoSH705xKline flash_module(serial, ecuCalDef[rom_number],
-                                                         eeprom_paths, cmd_type, this);
-            connect_signals_and_run_module(&flash_module);
-        }
-        else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_eeprom_denso_sh7055_densocan"))
-        {
-            EepromEcuSubaruDensoSH705xCan flash_module(serial, ecuCalDef[rom_number],
-                                                       eeprom_paths, cmd_type, this);
-            connect_signals_and_run_module(&flash_module);
-        }
-        else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_eeprom_denso_sh7058_densocan"))
-        {
-            EepromEcuSubaruDensoSH705xCan flash_module(serial, ecuCalDef[rom_number],
-                                                       eeprom_paths, cmd_type, this);
-            connect_signals_and_run_module(&flash_module);
-        }
-        else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_eeprom_denso_sh7058_can"))
-        {
-            EepromEcuSubaruDensoSH705xCan flash_module(serial, ecuCalDef[rom_number],
-                                                       eeprom_paths, cmd_type, this);
-            connect_signals_and_run_module(&flash_module);
-        }
-        else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_eeprom_denso_sh7058_can_diesel"))
-        {
-            EepromEcuSubaruDensoSH705xCan flash_module(serial, ecuCalDef[rom_number],
-                                                       eeprom_paths, cmd_type, this);
-            connect_signals_and_run_module(&flash_module);
-        }
-        /*
          * Unisia Jecs ECU Bootmode
          */
         else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_unisia_jecs_20_bootmode"))
@@ -1384,11 +1391,6 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
         else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_mitsu_m32r_kline"))
         {
             FlashEcuSubaruMitsuM32rKline flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
-            connect_signals_and_run_module(&flash_module);
-        }
-        else if (configValues->flash_protocol_selected_protocol_name.startsWith("mitsu_ecu_m32r_can"))
-        {
-            FlashEcuMitsuM32rCan flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
             connect_signals_and_run_module(&flash_module);
         }
         else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_hitachi_sh7058_can"))

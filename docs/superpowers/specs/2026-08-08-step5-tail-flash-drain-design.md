@@ -1,5 +1,12 @@
 # Step 5 Tail — Per-Family Flash Drain — Design
 
+## Portable desktop registration pattern
+
+Migrated families are selected by the ordered `FlashWorkflowFactory` registry
+and executed through the common `FlashDialog`. Future migrations compose a
+workflow registration rather than adding a family dialog or `MainWindow`
+branch. Unregistered protocols continue through legacy dispatch.
+
 **Status:** Approved 2026-08-08. The `tail` row of the
 [step-5 umbrella design](2026-07-22-step5-backend-portable-design.md), and the
 last work in step 5. Depends on 5c (merged, PR #79) and 5e (merged, PR #161),

@@ -1,6 +1,11 @@
 # Colt CZT (Z37A, 47110032) CAN reflash — bench qualification checklist
 
-Gate before any real-vehicle use of `FlashEcuMitsuM32rCan`. Qualify all four
+Desktop composition now uses the ordered `FlashWorkflowFactory` registry and
+common `FlashDialog`; future portable migrations add a registration rather
+than a family dialog or `MainWindow` branch. Hardware qualification status is
+unchanged.
+
+Gate before any real-vehicle use of the Colt CAN workflow. Qualify all four
 selectable protocols independently:
 
 - 384 KiB factory security: `mitsu_ecu_m32r_can`

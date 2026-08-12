@@ -4,7 +4,6 @@ load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 package(default_visibility = [
     "//src/backend:__subpackages__",
     "//src/platform:__subpackages__",
-    "//src/ui:__subpackages__",
     "//tests:__pkg__",
 ])
 
@@ -28,7 +27,6 @@ cc_library(
     visibility = [
         "//src/backend/flash/eeprom:__subpackages__",
         "//src/platform:__subpackages__",
-        "//src/ui/desktop/flash/eeprom:__pkg__",
         "//tests:__pkg__",
     ],
     deps = [
@@ -92,9 +90,6 @@ cc_library(
     hdrs = ["denso_sh705x_eeprom_kline_executor.h"],
     visibility = [
         "//src/platform:__subpackages__",
-        # The rewritten K-Line EEPROM dialog (step 5c, Task 17) constructs
-        # DensoSh705xEepromKlineExecutor directly for its FlashWorker.
-        "//src/ui/desktop/flash/eeprom:__pkg__",
         "//tests:__pkg__",
     ],
     deps = [
@@ -127,9 +122,6 @@ cc_library(
     hdrs = ["denso_sh705x_eeprom_can_executor.h"],
     visibility = [
         "//src/platform:__subpackages__",
-        # The rewritten CAN EEPROM dialog (step 5c, Task 17) constructs
-        # DensoSh705xEepromCanExecutor directly for its FlashWorker.
-        "//src/ui/desktop/flash/eeprom:__pkg__",
         "//tests:__pkg__",
     ],
     deps = [

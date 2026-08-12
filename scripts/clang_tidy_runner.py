@@ -421,6 +421,20 @@ def _prebuild(command_runner: CommandRunner, build_args: Sequence[str], workspac
         )
 
 
+def _post_fix_build(
+    command_runner: CommandRunner,
+    build_args: Sequence[str],
+    workspace: Path,
+) -> None:
+    """Require the analyzed Bazel targets to compile after applying fixes."""
+    if not build_args:
+        return
+    print("Building analyzed targets after applying clang-tidy fixes.")
+    code = _run(command_runner, ["bazel", "build", *build_args], workspace)
+    if code:
+        raise WorkflowError(f"post-fix Bazel build failed with exit code {code}")
+
+
 def run_workflow(
     *,
     mode: str,
@@ -477,8 +491,6 @@ def run_workflow(
             command.extend(["-export-fixes", str(fixes_directory) + os.sep])
         print(f"Running clang-tidy in {mode} mode over {len(entries)} translation units.")
         tidy_code = _run(command_runner, command, workspace)
-        if tidy_code:
-            raise WorkflowError(f"run-clang-tidy failed with exit code {tidy_code}")
         if mode == "fix":
             assert tools.clang_apply_replacements is not None
             normalize_replacements(fixes_directory, workspace)
@@ -492,6 +504,12 @@ def run_workflow(
             )
             if apply_code:
                 raise WorkflowError(f"replacement application failed with exit code {apply_code}")
+            _post_fix_build(command_runner, build_args, workspace)
+        if tidy_code:
+            detail = f"run-clang-tidy failed with exit code {tidy_code}"
+            if mode == "fix":
+                detail += "; exported fixes were applied before reporting the failure"
+            raise WorkflowError(detail)
     return 0
 
 

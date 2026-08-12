@@ -31,7 +31,6 @@ FROZEN = {
     "//src/ui/desktop/flash/bdm:__pkg__",
     "//src/ui/desktop/flash/bootmode:__pkg__",
     "//src/ui/desktop/flash/ecu:__pkg__",
-    "//src/ui/desktop/flash/eeprom:__pkg__",
     "//src/ui/desktop/flash/jtag:__pkg__",
     "//src/ui/desktop/flash/tcu:__pkg__",
     "//tests:__pkg__",
