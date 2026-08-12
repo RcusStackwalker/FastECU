@@ -406,6 +406,8 @@ std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::tryCreate(FlashWorkflowRequ
     case SubaruHitachiM32rKline:
         return std::make_unique<SubaruM32rKlineWorkflow>(std::move(request), true);
     }
+    assert(false);
+    return nullptr;
 }
 
 } // namespace fastecu::flash
