@@ -390,15 +390,15 @@ std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::tryCreate(FlashWorkflowRequ
     {
         if (request.protocol.starts_with(route.prefix))
         {
-            if (route.kind == Route::Kind::Colt)
+            if (route.kind == Colt)
             {
                 return std::make_unique<ColtWorkflow>(std::move(request));
             }
-            if (route.kind == Route::Kind::SubaruMitsuM32rKline)
+            if (route.kind == SubaruMitsuM32rKline)
             {
                 return std::make_unique<SubaruM32rKlineWorkflow>(std::move(request), false);
             }
-            if (route.kind == Route::Kind::SubaruHitachiM32rKline)
+            if (route.kind == SubaruHitachiM32rKline)
             {
                 return std::make_unique<SubaruM32rKlineWorkflow>(std::move(request), true);
             }
