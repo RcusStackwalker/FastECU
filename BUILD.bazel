@@ -52,6 +52,8 @@ genquery(
         "//src/backend/flash/ecu:mitsu_colt_m32r_can_executor",
         "//src/backend/flash/ecu:subaru_mitsu_m32r_kline_plan",
         "//src/backend/flash/ecu:subaru_mitsu_m32r_kline_executor",
+        "//src/backend/flash/ecu:subaru_hitachi_m32r_kline_plan",
+        "//src/backend/flash/ecu:subaru_hitachi_m32r_kline_executor",
         "//src/backend/protocol:protocol",
         "//src/backend/config:config_paths",
         "//src/backend/config:app_config",
@@ -79,6 +81,7 @@ genquery(
         "//src/backend/flash/eeprom:test_eeprom_read_plan_goldens",
         "//resources/shared:test_protocols_cfg_eeprom_capabilities",
         "//resources/shared:test_protocols_cfg_subaru_mitsu_m32r_kline",
+        "//resources/shared:test_protocols_cfg_subaru_hitachi_m32r_kline",
     ]) + "))",
     scope = [
         "//src/backend/flash:flash_types",
@@ -94,6 +97,8 @@ genquery(
         "//src/backend/flash/ecu:mitsu_colt_m32r_can_executor",
         "//src/backend/flash/ecu:subaru_mitsu_m32r_kline_plan",
         "//src/backend/flash/ecu:subaru_mitsu_m32r_kline_executor",
+        "//src/backend/flash/ecu:subaru_hitachi_m32r_kline_plan",
+        "//src/backend/flash/ecu:subaru_hitachi_m32r_kline_executor",
         "//src/backend/protocol",
         "//src/backend/config:config_paths",
         "//src/backend/config:app_config",
@@ -121,6 +126,7 @@ genquery(
         "//src/backend/flash/eeprom:test_eeprom_read_plan_goldens",
         "//resources/shared:test_protocols_cfg_eeprom_capabilities",
         "//resources/shared:test_protocols_cfg_subaru_mitsu_m32r_kline",
+        "//resources/shared:test_protocols_cfg_subaru_hitachi_m32r_kline",
     ],
 )
 
