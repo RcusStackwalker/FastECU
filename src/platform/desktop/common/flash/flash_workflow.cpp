@@ -368,16 +368,18 @@ struct Route
     Kind kind;
 };
 
+using enum Route::Kind;
+
 constexpr std::array<Route, 9> kRoutes{{
-    {"sub_ecu_hitachi_m32r_kline", Route::Kind::SubaruHitachiM32rKline},
-    {"sub_ecu_mitsu_m32r_kline", Route::Kind::SubaruMitsuM32rKline},
-    {"mitsu_ecu_m32r_can", Route::Kind::Colt},
-    {"sub_ecu_eeprom_denso_sh7055_kline", Route::Kind::Eeprom},
-    {"sub_ecu_eeprom_denso_sh7058_kline", Route::Kind::Eeprom},
-    {"sub_ecu_eeprom_denso_sh7055_densocan", Route::Kind::Eeprom},
-    {"sub_ecu_eeprom_denso_sh7058_densocan", Route::Kind::Eeprom},
-    {"sub_ecu_eeprom_denso_sh7058_can_diesel", Route::Kind::Eeprom},
-    {"sub_ecu_eeprom_denso_sh7058_can", Route::Kind::Eeprom},
+    {"sub_ecu_hitachi_m32r_kline", SubaruHitachiM32rKline},
+    {"sub_ecu_mitsu_m32r_kline", SubaruMitsuM32rKline},
+    {"mitsu_ecu_m32r_can", Colt},
+    {"sub_ecu_eeprom_denso_sh7055_kline", Eeprom},
+    {"sub_ecu_eeprom_denso_sh7058_kline", Eeprom},
+    {"sub_ecu_eeprom_denso_sh7055_densocan", Eeprom},
+    {"sub_ecu_eeprom_denso_sh7058_densocan", Eeprom},
+    {"sub_ecu_eeprom_denso_sh7058_can_diesel", Eeprom},
+    {"sub_ecu_eeprom_denso_sh7058_can", Eeprom},
 }};
 
 } // namespace
