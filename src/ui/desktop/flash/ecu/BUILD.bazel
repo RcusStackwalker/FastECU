@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = [
     "//apps/desktop:__pkg__",
@@ -22,31 +22,12 @@ qt_cc_library(
         # the moc'd :definitions target, not the header-only :models split
         # -- is included directly; see task-4-report.md.
         "//src/backend/definitions",
-        "//src/backend/flash:flash_plan",
-        "//src/backend/flash/ecu:mitsu_colt_m32r_can_executor",
-        "//src/backend/flash/ecu:mitsu_colt_m32r_can_plan",
         "//src/backend/ports",
-        "//src/platform/desktop/common/flash:flash_worker",
         "//src/platform/desktop/common/flash/legacy:legacy_flash_operations",
         "//src/platform/desktop/common/ports",
         "//src/platform/desktop/common/serial:serial_qt_compat",
-        "//src/platform/desktop/common/transport:flash_transports",
         # Every dialog header in this package includes ui_ecu_operations.h,
         # the generated form owned by the top-level desktop package.
         "//src/ui/desktop:ui_ecu_operations",
-    ],
-)
-
-fastecu_qttest(
-    name = "test_flash_ecu_mitsu_m32r_can_dialog",
-    src = "flash_ecu_mitsu_m32r_can_dialog_test.cpp",
-    copts = ["-DQT_WIDGETS_LIB"],
-    env = {"QT_QPA_PLATFORM": "offscreen"},
-    deps = [
-        ":ecu",
-        "//src/backend/definitions",
-        "//src/backend/flash:flash_executor",
-        "//src/backend/ports",
-        "//src/backend/ports/testing:fake_clock",
     ],
 )

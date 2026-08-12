@@ -186,4 +186,21 @@ TEST(MitsuColtM32rCanPlan, RejectsAWriteWithNoImage)
     EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
 }
 
+TEST(MitsuColtM32rCanPlan, WriteConfirmationsCarryStableGeometryArguments)
+{
+    auto plan = build_mitsu_colt_m32r_can_plan(
+        FlashOperation::Write, "mitsu_ecu_m32r_can_512kb", "M32R_512KB_1block",
+        bytes::Bytes(0x80000));
+
+    ASSERT_TRUE(plan.has_value());
+    ASSERT_EQ(plan->confirmations().size(), 2u);
+    EXPECT_EQ(plan->confirmations()[0].arguments,
+              (std::vector<std::pair<std::string, std::string>>{
+                  {"capacity_kib", "512"}, {"writable_start_hex", "0x8000"}, {"rom_end_hex", "0x80000"}}));
+    EXPECT_EQ(plan->confirmations()[1].arguments,
+              (std::vector<std::pair<std::string, std::string>>{
+                  {"top_region_start_hex", "0x60000"},
+                  {"rom_end_hex", "0x80000"}}));
+}
+
 } // namespace

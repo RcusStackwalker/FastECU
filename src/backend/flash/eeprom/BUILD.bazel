@@ -28,7 +28,6 @@ cc_library(
     visibility = [
         "//src/backend/flash/eeprom:__subpackages__",
         "//src/platform:__subpackages__",
-        "//src/ui/desktop/flash/eeprom:__pkg__",
         "//tests:__pkg__",
     ],
     deps = [
@@ -94,7 +93,6 @@ cc_library(
         "//src/platform:__subpackages__",
         # The rewritten K-Line EEPROM dialog (step 5c, Task 17) constructs
         # DensoSh705xEepromKlineExecutor directly for its FlashWorker.
-        "//src/ui/desktop/flash/eeprom:__pkg__",
         "//tests:__pkg__",
     ],
     deps = [
@@ -129,7 +127,6 @@ cc_library(
         "//src/platform:__subpackages__",
         # The rewritten CAN EEPROM dialog (step 5c, Task 17) constructs
         # DensoSh705xEepromCanExecutor directly for its FlashWorker.
-        "//src/ui/desktop/flash/eeprom:__pkg__",
         "//tests:__pkg__",
     ],
     deps = [

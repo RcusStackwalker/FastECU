@@ -60,8 +60,7 @@
 #include "src/ui/desktop/flash/bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode.h"
 
 // OBD
-#include "src/ui/desktop/flash/eeprom/eeprom_ecu_subaru_denso_sh705x_kline.h"
-#include "src/ui/desktop/flash/eeprom/eeprom_ecu_subaru_denso_sh705x_can.h"
+#include "src/ui/desktop/flash/common/flash_dialog.h"
 
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_mc68hc16y5_02.h"
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh7055_02.h"
@@ -75,7 +74,6 @@
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_hitachi_m32r_kline.h"
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_hitachi_m32r_can.h"
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_mitsu_m32r_kline.h"
-#include "src/ui/desktop/flash/ecu/flash_ecu_mitsu_m32r_can.h"
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_hitachi_sh7058_can.h"
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_hitachi_sh72543r_can.h"
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh72531_can.h"

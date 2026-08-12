@@ -163,11 +163,18 @@ Result<FlashPlan> build_mitsu_colt_m32r_can_plan(FlashOperation operation,
                                               (*variant)->capacity -
                                                   MitsuColtCan::kUserspaceStart};
         fields.image = std::move(image);
-        fields.confirmations = {ConfirmationSpec{ConfirmationSpec::Id::EraseTrigger, {}}};
+        const std::string capacity_kib = std::to_string((*variant)->capacity / 1024);
+        const std::string rom_end = std::format("0x{:x}", (*variant)->capacity);
+        fields.confirmations = {ConfirmationSpec{
+            ConfirmationSpec::Id::EraseTrigger,
+            {{"capacity_kib", capacity_kib},
+             {"writable_start_hex", std::format("0x{:x}", MitsuColtCan::kUserspaceStart)},
+             {"rom_end_hex", rom_end}}}};
         if ((*variant)->capacity == MitsuColtCan::kFullRomSize)
         {
-            fields.confirmations.push_back(
-                ConfirmationSpec{ConfirmationSpec::Id::TopRegionBootstrap, {}});
+            fields.confirmations.push_back(ConfirmationSpec{
+                ConfirmationSpec::Id::TopRegionBootstrap,
+                {{"top_region_start_hex", "0x60000"}, {"rom_end_hex", rom_end}}});
         }
     }
 

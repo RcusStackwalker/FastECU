@@ -8,14 +8,26 @@ package(default_visibility = [
 
 qt_cc_library(
     name = "flash_worker",
-    srcs = ["flash_worker.cpp"],
-    hdrs = ["flash_worker.h"],
+    srcs = [
+        "flash_worker.cpp",
+        "flash_workflow.cpp",
+    ],
+    hdrs = [
+        "flash_worker.h",
+        "flash_workflow.h",
+    ],
     copts = COMMON_COPTS,
     deps = QT_DEPS + [
         "//src/backend/flash:flash_executor",
         "//src/backend/flash:flash_plan",
+        "//src/backend/flash/ecu:mitsu_colt_m32r_can_executor",
+        "//src/backend/flash/ecu:mitsu_colt_m32r_can_plan",
+        "//src/backend/flash/eeprom:denso_sh705x_eeprom_can",
+        "//src/backend/flash/eeprom:denso_sh705x_eeprom_kline",
+        "//src/backend/flash/eeprom:eeprom_read_plan",
         "//src/backend/ports",
         "//src/platform/desktop/common/ports",
+        "//src/platform/desktop/common/transport:flash_transports",
     ],
 )
 
@@ -31,4 +43,10 @@ fastecu_qttest(
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_clock",
     ],
+)
+
+fastecu_qttest(
+    name = "test_flash_workflow",
+    src = "flash_workflow_test.cpp",
+    deps = [":flash_worker"],
 )
