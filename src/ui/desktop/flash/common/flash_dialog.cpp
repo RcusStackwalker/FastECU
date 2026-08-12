@@ -79,11 +79,12 @@ void FlashDialog::startAttempt(FlashAttempt attempt)
                                             std::move(attempt.clock));
     connect(worker_.get(), &FlashWorker::logEvent, this, [this](int level, const QString& message)
             {
+        using enum LogLevel;
         switch (static_cast<LogLevel>(level)) {
-        case LogLevel::Error: emit LOG_E(message, true, true); break;
-        case LogLevel::Warning: emit LOG_W(message, true, true); break;
-        case LogLevel::Info: emit LOG_I(message, true, true); break;
-        case LogLevel::Debug: emit LOG_D(message, true, true); break;
+        case Error: emit LOG_E(message, true, true); break;
+        case Warning: emit LOG_W(message, true, true); break;
+        case Info: emit LOG_I(message, true, true); break;
+        case Debug: emit LOG_D(message, true, true); break;
         } });
     connect(worker_.get(), &FlashWorker::progressChanged, this, &FlashDialog::setProgress);
     connect(worker_.get(), &FlashWorker::phaseProgressChanged, this,
@@ -163,26 +164,27 @@ void FlashDialog::showSuccess()
 
 void FlashDialog::showFailure(const Error& error)
 {
+    using enum ErrorKind;
     QString text;
     switch (error.kind)
     {
-    case ErrorKind::InvalidConfig:
-    case ErrorKind::Unsupported:
+    case InvalidConfig:
+    case Unsupported:
         text = tr("ECU flash configuration is invalid or unsupported. Check the selected protocol, ROM definition, and kernel file.");
         break;
-    case ErrorKind::Disconnected:
+    case Disconnected:
         text = tr("Lost connection to the adapter or ECU. Check the connection and try again.");
         break;
-    case ErrorKind::Timeout:
+    case Timeout:
         text = tr("ECU did not respond in time. Check the connection and try again.");
         break;
-    case ErrorKind::BadResponse:
+    case BadResponse:
         text = tr("ECU returned an unexpected or rejected response. Check the setup and try again.");
         break;
-    case ErrorKind::Internal:
+    case Internal:
         text = tr("ECU operation failed. Press OK to exit and try again.");
         break;
-    case ErrorKind::Cancelled:
+    case Cancelled:
         return;
     }
     QMessageBox::warning(this, tr("ECU Operation"), text);

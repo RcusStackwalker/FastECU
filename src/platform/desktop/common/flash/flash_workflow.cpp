@@ -45,8 +45,7 @@ class ColtWorkflow final : public FlashWorkflow
             return completed(outcome_, std::move(accepted_));
         if (stage_ == 0)
             return FlashPromptStep{FlashPromptKind::Begin, {}};
-        const auto confirmations = plan_->confirmations();
-        if (stage_ <= confirmations.size())
+        if (const auto confirmations = plan_->confirmations(); stage_ <= confirmations.size())
         {
             const auto& spec = confirmations[stage_ - 1];
             return FlashPromptStep{
@@ -223,8 +222,8 @@ class EepromWorkflow final : public FlashWorkflow
   private:
     void advance()
     {
-        mode_ = mode_ == EepromReadMode::Mode2 ? EepromReadMode::Mode3
-                                               : EepromReadMode::Mode4;
+        using enum EepromReadMode;
+        mode_ = mode_ == Mode2 ? Mode3 : Mode4;
     }
 
     FlashWorkflowRequest request_;
@@ -241,12 +240,14 @@ class EepromWorkflow final : public FlashWorkflow
 
 struct Route
 {
-    std::string_view prefix;
     enum class Kind
     {
         Colt,
         Eeprom
-    } kind;
+    };
+
+    std::string_view prefix;
+    Kind kind;
 };
 
 constexpr std::array<Route, 7> kRoutes{{
