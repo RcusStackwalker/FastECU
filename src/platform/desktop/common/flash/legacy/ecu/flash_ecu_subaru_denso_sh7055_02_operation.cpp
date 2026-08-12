@@ -8,6 +8,7 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QScopedPointer>
+#include <iterator>
 #include <utility>
 
 FlashEcuSubaruDensoSH7055_02Operation::FlashEcuSubaruDensoSH7055_02Operation(
@@ -195,7 +196,7 @@ int FlashEcuSubaruDensoSH7055_02Operation::connect_bootloader()
     delay(190);
 
     output.clear();
-    output.append(reinterpret_cast<const char *>(bootloader_init_request_fxt02), ARRAYSIZE(bootloader_init_request_fxt02));
+    output.append(reinterpret_cast<const char *>(bootloader_init_request_fxt02), std::size(bootloader_init_request_fxt02));
 
     uint16_t loopcount = 20;
     emit LOG_I(".", true, false);
