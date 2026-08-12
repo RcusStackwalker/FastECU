@@ -6,6 +6,8 @@
 
 #include <QThread>
 
+#include <iterator>
+
 #include "src/algorithms/protocol/qt_bytes.h"
 #include "src/platform/desktop/common/serial/j2534_driver_selection.h"
 
@@ -1514,7 +1516,7 @@ int SerialPortActionsDirect::set_j2534_can_timings()
     }
     SCONFIG_LIST scl;
     SCONFIG scp[] = {{LOOPBACK, 0}};
-    scl.NumOfParams = ARRAYSIZE(scp);
+    scl.NumOfParams = std::size(scp);
     scl.ConfigPtr = scp;
     if (j2534->PassThruIoctl(chanID, SET_CONFIG, &scl, nullptr))
     {
@@ -1669,11 +1671,11 @@ int SerialPortActionsDirect::set_j2534_iso9141_timings()
         {
         case ISO14230:
             scl.ConfigPtr = scp_dsti_ISO14230;
-            scl.NumOfParams = ARRAYSIZE(scp_dsti_ISO14230);
+            scl.NumOfParams = std::size(scp_dsti_ISO14230);
             break;
         case DSTI_ISO9141:
             scl.ConfigPtr = scp_dsti_DSTI_ISO9141;
-            scl.NumOfParams = ARRAYSIZE(scp_dsti_DSTI_ISO9141);
+            scl.NumOfParams = std::size(scp_dsti_DSTI_ISO9141);
             break;
         }
 

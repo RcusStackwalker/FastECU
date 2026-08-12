@@ -2,6 +2,7 @@
 #include "ui_mainwindow.h"
 #include <QSplashScreen>
 #include <cstddef>
+#include <iterator>
 #include <utility>
 #include "src/algorithms/protocol/qt_bytes.h"
 #include "src/backend/checksum/checksum_selection.h"
@@ -606,11 +607,11 @@ void MainWindow::aes_ecb_example()
     QtCipher cipher;
     // A 128 bit key
     unsigned char key[] = {0x46, 0x9a, 0x20, 0xab, 0x30, 0x8d, 0x5c, 0xa6, 0x4b, 0xcd, 0x5b, 0xbe, 0x53, 0x5b, 0xd8, 0x5f};
-    QByteArray engine_key_1((const char *)key, ARRAYSIZE(key));
+    QByteArray engine_key_1((const char *)key, std::size(key));
 
     // Message to be encrypted
     unsigned char data[] = {0x5f, 0x75, 0x8c, 0x11, 0x92, 0xdc, 0x56, 0xfb, 0x69, 0xe3, 0x40, 0x2d, 0x83, 0xfb, 0x75, 0xe4};
-    QByteArray ch_data((const char *)data, ARRAYSIZE(data));
+    QByteArray ch_data((const char *)data, std::size(data));
 
     emit LOG_D("Received challenge:", true, true);
     emit LOG_D(parse_message_to_hex(ch_data), true, true);

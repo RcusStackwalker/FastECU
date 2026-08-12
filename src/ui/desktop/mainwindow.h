@@ -147,10 +147,6 @@ class MainWindow : public QMainWindow
         _LOG_D,     // debug
     };
 
-#ifndef ARRAYSIZE
-#define ARRAYSIZE(A) (sizeof(A) / sizeof((A)[0]))
-#endif
-
     QString software_name;
     QString software_title;
     QString software_version;
