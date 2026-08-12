@@ -38,13 +38,21 @@ class ColtWorkflow final : public FlashWorkflow
     FlashWorkflowStep next() override
     {
         if (!plan_)
+        {
             return FlashFailureStep{plan_.error()};
+        }
         if (failure_)
+        {
             return FlashFailureStep{std::move(*failure_)};
+        }
         if (terminal_)
+        {
             return completed(outcome_, std::move(accepted_));
+        }
         if (stage_ == 0)
+        {
             return FlashPromptStep{FlashPromptKind::Begin, {}};
+        }
         if (const auto confirmations = plan_->confirmations(); stage_ <= confirmations.size())
         {
             const auto& spec = confirmations[stage_ - 1];
@@ -86,7 +94,9 @@ class ColtWorkflow final : public FlashWorkflow
             accepted_ = std::move(result.read_bytes);
         }
         else if (result.error_kind == ErrorKind::Cancelled)
+        {
             outcome_ = FlashWorkflowOutcome::Cancelled;
+        }
         else
         {
             outcome_ = FlashWorkflowOutcome::Failed;
@@ -115,25 +125,37 @@ class EepromWorkflow final : public FlashWorkflow
     FlashWorkflowStep next() override
     {
         if (request_.operation != FlashOperation::Read)
+        {
             return FlashFailureStep{Error{ErrorKind::Unsupported,
                                           "EEPROM workflows support read operations only"}};
+        }
         if (terminal_)
         {
             if (failure_)
+            {
                 return FlashFailureStep{std::move(*failure_)};
+            }
             return completed(outcome_, std::move(accepted_));
         }
         if (!begun_)
+        {
             return FlashPromptStep{FlashPromptKind::Begin, {}};
+        }
         if (need_cycle_)
+        {
             return FlashPromptStep{FlashPromptKind::CycleIgnition, {}};
+        }
         if (inspect_)
+        {
             return FlashPromptStep{FlashPromptKind::InspectRead, {}};
+        }
 
         QtFileRepository repository;
         auto plan = build_eeprom_read_plan(request_.paths, request_.protocol, mode_, repository);
         if (!plan)
+        {
             return FlashFailureStep{plan.error()};
+        }
         const TransportKind transport = plan->transport();
         std::unique_ptr<IFlashExecutor> executor;
         std::unique_ptr<IFlashTransport> adapter;
@@ -156,7 +178,9 @@ class EepromWorkflow final : public FlashWorkflow
         if (!begun_)
         {
             if (response == FlashPromptResponse::Accept)
+            {
                 begun_ = true;
+            }
             else
             {
                 terminal_ = true;
@@ -210,7 +234,9 @@ class EepromWorkflow final : public FlashWorkflow
             outcome_ = FlashWorkflowOutcome::Cancelled;
         }
         else if (mode_ != EepromReadMode::Mode4)
+        {
             advance();
+        }
         else
         {
             terminal_ = true;
@@ -269,7 +295,9 @@ std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::tryCreate(FlashWorkflowRequ
         if (request.protocol.starts_with(route.prefix))
         {
             if (route.kind == Route::Kind::Colt)
+            {
                 return std::make_unique<ColtWorkflow>(std::move(request));
+            }
             return std::make_unique<EepromWorkflow>(std::move(request));
         }
     }

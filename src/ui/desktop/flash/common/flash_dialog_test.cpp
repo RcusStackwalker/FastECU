@@ -13,7 +13,9 @@ class ScriptedWorkflow final : public FlashWorkflow
     FlashWorkflowStep next() override
     {
         if (!answered_)
+        {
             return FlashPromptStep{FlashPromptKind::Begin, {}};
+        }
         return FlashCompletedStep{FlashWorkflowOutcome::Succeeded, bytes::Bytes{0x12, 0x34}};
     }
     void submit(FlashPromptResponse response) override
