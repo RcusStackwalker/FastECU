@@ -8,6 +8,8 @@
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_plan.h"
 #include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_executor.h"
 #include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_plan.h"
+#include "src/backend/flash/ecu/subaru_hitachi_m32r_kline_executor.h"
+#include "src/backend/flash/ecu/subaru_hitachi_m32r_kline_plan.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_can_executor.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_kline_executor.h"
 #include "src/backend/flash/eeprom/eeprom_read_plan.h"
@@ -28,12 +30,17 @@ FlashCompletedStep completed(FlashWorkflowOutcome outcome,
     return {outcome, std::move(bytes), std::move(rom_id)};
 }
 
-class SubaruMitsuM32rKlineWorkflow final : public FlashWorkflow
+class SubaruM32rKlineWorkflow final : public FlashWorkflow
 {
   public:
-    explicit SubaruMitsuM32rKlineWorkflow(FlashWorkflowRequest request)
-        : request_(std::move(request)), plan_(build_subaru_mitsu_m32r_kline_plan(
-                                            request_.operation, request_.protocol, request_.mcu, std::move(request_.image)))
+    explicit SubaruM32rKlineWorkflow(FlashWorkflowRequest request, bool hitachi)
+        : request_(std::move(request)), hitachi_(hitachi),
+          plan_(hitachi_ ? build_subaru_hitachi_m32r_kline_plan(
+                               request_.operation, request_.protocol, request_.mcu,
+                               std::move(request_.image))
+                         : build_subaru_mitsu_m32r_kline_plan(
+                               request_.operation, request_.protocol, request_.mcu,
+                               std::move(request_.image)))
     {
     }
     FlashWorkflowStep next() override
@@ -57,7 +64,10 @@ class SubaruMitsuM32rKlineWorkflow final : public FlashWorkflow
         if (!attempted_)
         {
             attempted_ = true;
-            return FlashAttempt{std::move(*plan_), std::make_unique<SubaruMitsuM32rKlineExecutor>(),
+            std::unique_ptr<IFlashExecutor> executor = hitachi_
+                                                           ? std::unique_ptr<IFlashExecutor>(std::make_unique<SubaruHitachiM32rKlineExecutor>())
+                                                           : std::unique_ptr<IFlashExecutor>(std::make_unique<SubaruMitsuM32rKlineExecutor>());
+            return FlashAttempt{std::move(*plan_), std::move(executor),
                                 std::make_unique<DesktopKlineFlashTransport>(request_.serial),
                                 std::make_unique<QtClock>()};
         }
@@ -94,6 +104,7 @@ class SubaruMitsuM32rKlineWorkflow final : public FlashWorkflow
 
   private:
     FlashWorkflowRequest request_;
+    bool hitachi_;
     Result<FlashPlan> plan_;
     bool begun_ = false;
     bool attempted_ = false;
@@ -349,14 +360,16 @@ struct Route
     {
         Colt,
         Eeprom,
-        SubaruMitsuM32rKline
+        SubaruMitsuM32rKline,
+        SubaruHitachiM32rKline
     };
 
     std::string_view prefix;
     Kind kind;
 };
 
-constexpr std::array<Route, 8> kRoutes{{
+constexpr std::array<Route, 9> kRoutes{{
+    {"sub_ecu_hitachi_m32r_kline", Route::Kind::SubaruHitachiM32rKline},
     {"sub_ecu_mitsu_m32r_kline", Route::Kind::SubaruMitsuM32rKline},
     {"mitsu_ecu_m32r_can", Route::Kind::Colt},
     {"sub_ecu_eeprom_denso_sh7055_kline", Route::Kind::Eeprom},
@@ -381,7 +394,11 @@ std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::tryCreate(FlashWorkflowRequ
             }
             if (route.kind == Route::Kind::SubaruMitsuM32rKline)
             {
-                return std::make_unique<SubaruMitsuM32rKlineWorkflow>(std::move(request));
+                return std::make_unique<SubaruM32rKlineWorkflow>(std::move(request), false);
+            }
+            if (route.kind == Route::Kind::SubaruHitachiM32rKline)
+            {
+                return std::make_unique<SubaruM32rKlineWorkflow>(std::move(request), true);
             }
             return std::make_unique<EepromWorkflow>(std::move(request));
         }

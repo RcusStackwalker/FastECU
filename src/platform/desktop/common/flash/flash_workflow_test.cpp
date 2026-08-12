@@ -27,6 +27,7 @@ class FlashWorkflowTest : public QObject
     void preflightPrecedesPromptsAndDeclineCancels();
     void successfulReadBytesAreAcceptedAutomatically();
     void subaruMitsuPropagatesRomId();
+    void subaruHitachiRoutesBothModesAndPropagatesReadResult();
     void coltWriteUsesColtSpecificSafetyPrompts();
 };
 
@@ -36,6 +37,7 @@ void FlashWorkflowTest::recognizesEveryPortableFamilyPrefixAndLeavesLegacyAlone(
         "mitsu_ecu_m32r_can", "mitsu_ecu_m32r_can_vendor_ext",
         "mitsu_ecu_m32r_can_512kb", "mitsu_ecu_m32r_can_vendor_ext_512kb",
         "sub_ecu_mitsu_m32r_kline",
+        "sub_ecu_hitachi_m32r_kline", "sub_ecu_hitachi_m32r_kline_recovery",
         "sub_ecu_eeprom_denso_sh7055_kline", "sub_ecu_eeprom_denso_sh7058_kline",
         "sub_ecu_eeprom_denso_sh7055_densocan", "sub_ecu_eeprom_denso_sh7058_densocan",
         "sub_ecu_eeprom_denso_sh7058_can", "sub_ecu_eeprom_denso_sh7058_can_diesel"};
@@ -95,6 +97,28 @@ void FlashWorkflowTest::subaruMitsuPropagatesRomId()
     auto done = workflow->next();
     QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
     QCOMPARE(std::get<FlashCompletedStep>(done).rom_id, std::string("123456789A_"));
+}
+
+void FlashWorkflowTest::subaruHitachiRoutesBothModesAndPropagatesReadResult()
+{
+    for (const char *protocol : {"sub_ecu_hitachi_m32r_kline",
+                                 "sub_ecu_hitachi_m32r_kline_recovery"})
+    {
+        auto input = request(protocol);
+        input.mcu = "M32R_512KB_1block";
+        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        QVERIFY(workflow != nullptr);
+        QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
+        workflow->submit(FlashPromptResponse::Accept);
+        QVERIFY(std::holds_alternative<FlashAttempt>(workflow->next()));
+        workflow->submit(FlashAttemptResult{.success = true,
+                                            .read_bytes = bytes::Bytes{0x5a},
+                                            .rom_id = "123456789A_"});
+        auto done = workflow->next();
+        QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
+        QCOMPARE(std::get<FlashCompletedStep>(done).accepted_read_bytes, bytes::Bytes({0x5a}));
+        QCOMPARE(std::get<FlashCompletedStep>(done).rom_id, std::string("123456789A_"));
+    }
 }
 
 void FlashWorkflowTest::coltWriteUsesColtSpecificSafetyPrompts()
