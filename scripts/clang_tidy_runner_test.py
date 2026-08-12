@@ -754,12 +754,56 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 platform_name="darwin",
                 environ={},
                 command_runner=fake_run,
+                build_args=[_CONFIG_RELEASE, "//..."],
             )
 
         self.assertIn(
             [tools.clang_apply_replacements, mock.ANY],
             commands,
         )
+        apply_index = next(
+            index
+            for index, command in enumerate(commands)
+            if command[0] == tools.clang_apply_replacements
+        )
+        self.assertEqual(
+            ["bazel", "build", _CONFIG_RELEASE, "//..."],
+            commands[apply_index + 1],
+        )
+
+    def test_fix_propagates_post_replacement_build_failure(self) -> None:
+        source = self.root / _MAIN_CPP
+        source.write_text("int main() { return 0; }\n")
+        self.write_database([source])
+        build_count = 0
+        tools = runner.Tools(
+            clang_tidy="/llvm/bin/clang-tidy",
+            run_clang_tidy="/llvm/bin/run-clang-tidy",
+            clang_apply_replacements="/llvm/bin/clang-apply-replacements",
+        )
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            nonlocal build_count
+            if command == ["xcrun", "--show-sdk-path"]:
+                return subprocess.CompletedProcess(command, 0, stdout="/SDK/MacOSX.sdk\n")
+            if command[:2] == ["bazel", "build"]:
+                build_count += 1
+                return subprocess.CompletedProcess(command, 9 if build_count == 2 else 0)
+            return subprocess.CompletedProcess(command, 0)
+
+        with (
+            mock.patch.object(runner, "discover_tools", return_value=tools),
+            self.assertRaisesRegex(runner.WorkflowError, "post-fix Bazel build failed.*9"),
+        ):
+            runner.run_workflow(
+                mode="fix",
+                workspace=self.root,
+                compdb_tool=_UNIX_COMPDB_TOOL,
+                platform_name="darwin",
+                environ={},
+                command_runner=fake_run,
+                build_args=[_CONFIG_RELEASE, "//..."],
+            )
 
 
 if __name__ == "__main__":

@@ -139,110 +139,110 @@ FlashPromptResponse FlashDialog::presentPrompt(const FlashPromptStep& prompt)
             {
                 return QString::fromStdString(value);
             }
-            return QString{};
-        };
-        if (prompt.kind == FlashPromptKind::ColtEraseTrigger)
-        {
-            const QString text = tr("This operation accepts an exact %1 KiB ROM. The file's first 32 KiB (0x0000-%2) will be ignored; only %2-%3 is writable, so the ECU bootloader will remain unchanged.\n\nAbout to send the flash-erase trigger command. This exact sequence is known to have locked up the bootloader during the original implementation's testing. Only continue if this is a bench/spare ECU with a recovery path available. Cancellation after erase can leave an incomplete image requiring recovery.\n\nContinue?")
-                                     .arg(arg("capacity_kib"), arg("writable_start_hex"), arg("rom_end_hex"));
-            return QMessageBox::warning(this, tr("Erase trigger"), text,
-                                        QMessageBox::Yes | QMessageBox::Cancel,
-                                        QMessageBox::Cancel) == QMessageBox::Yes
-                       ? FlashPromptResponse::Accept
-                       : FlashPromptResponse::Decline;
         }
-        if (prompt.kind == FlashPromptKind::ColtTopRegionBootstrap)
-        {
-            const QString text = tr("The top 128KB (%1-%2) may not match the ROM being written. If it does not, it needs a one-time bootstrap pass through custom erase/write redirect helpers, outside the range the vendor bootloader normally allows. This sends the same high-risk erase trigger sequence used for the main write, once then and once more for the main write that follows. Only continue on a bench/spare ECU with a recovery path available.\n\nContinue?")
-                                     .arg(arg("top_region_start_hex"), arg("rom_end_hex"));
-            return QMessageBox::warning(this, tr("Top 128KB bootstrap"), text,
-                                        QMessageBox::Yes | QMessageBox::Cancel,
-                                        QMessageBox::Cancel) == QMessageBox::Yes
-                       ? FlashPromptResponse::Accept
-                       : FlashPromptResponse::Decline;
-        }
-        if (prompt.kind == FlashPromptKind::InspectRead)
-        {
-            return QMessageBox::information(this, tr("Downloaded EEPROM content"),
-                                            tr("If downloaded content looks correct, click Save to accept it and exit; otherwise click Discard to continue with the next method."),
-                                            QMessageBox::Save | QMessageBox::Discard, QMessageBox::Save) == QMessageBox::Save
-                       ? FlashPromptResponse::Save
-                       : FlashPromptResponse::Discard;
-        }
-        const bool cycle = prompt.kind == FlashPromptKind::CycleIgnition;
-        const QString text = cycle ? tr("Turn ignition OFF and back ON, then press OK to continue.")
-                                   : tr("Turn ignition ON and press OK to start initializing the ECU connection.");
-        return QMessageBox::information(this, tr("Connecting to ECU"), text,
-                                        QMessageBox::Ok | QMessageBox::Cancel,
-                                        QMessageBox::Cancel) == QMessageBox::Ok
+        return QString{};
+    };
+    if (prompt.kind == FlashPromptKind::ColtEraseTrigger)
+    {
+        const QString text = tr("This operation accepts an exact %1 KiB ROM. The file's first 32 KiB (0x0000-%2) will be ignored; only %2-%3 is writable, so the ECU bootloader will remain unchanged.\n\nAbout to send the flash-erase trigger command. This exact sequence is known to have locked up the bootloader during the original implementation's testing. Only continue if this is a bench/spare ECU with a recovery path available. Cancellation after erase can leave an incomplete image requiring recovery.\n\nContinue?")
+                                 .arg(arg("capacity_kib"), arg("writable_start_hex"), arg("rom_end_hex"));
+        return QMessageBox::warning(this, tr("Erase trigger"), text,
+                                    QMessageBox::Yes | QMessageBox::Cancel,
+                                    QMessageBox::Cancel) == QMessageBox::Yes
                    ? FlashPromptResponse::Accept
                    : FlashPromptResponse::Decline;
     }
-
-    void
-    FlashDialog::showSuccess()
+    if (prompt.kind == FlashPromptKind::ColtTopRegionBootstrap)
     {
-        QMessageBox::information(this, tr("ECU Operation"),
-                                 tr("ECU operation completed successfully. Press OK to exit."));
+        const QString text = tr("The top 128KB (%1-%2) may not match the ROM being written. If it does not, it needs a one-time bootstrap pass through custom erase/write redirect helpers, outside the range the vendor bootloader normally allows. This sends the same high-risk erase trigger sequence used for the main write, once then and once more for the main write that follows. Only continue on a bench/spare ECU with a recovery path available.\n\nContinue?")
+                                 .arg(arg("top_region_start_hex"), arg("rom_end_hex"));
+        return QMessageBox::warning(this, tr("Top 128KB bootstrap"), text,
+                                    QMessageBox::Yes | QMessageBox::Cancel,
+                                    QMessageBox::Cancel) == QMessageBox::Yes
+                   ? FlashPromptResponse::Accept
+                   : FlashPromptResponse::Decline;
     }
-
-    void FlashDialog::showFailure(const Error& error)
+    if (prompt.kind == FlashPromptKind::InspectRead)
     {
-        using enum ErrorKind;
-        QString text;
-        switch (error.kind)
-        {
-        case InvalidConfig:
-        case Unsupported:
-            text = tr("ECU flash configuration is invalid or unsupported. Check the selected protocol, ROM definition, and kernel file.");
-            break;
-        case Disconnected:
-            text = tr("Lost connection to the adapter or ECU. Check the connection and try again.");
-            break;
-        case Timeout:
-            text = tr("ECU did not respond in time. Check the connection and try again.");
-            break;
-        case BadResponse:
-            text = tr("ECU returned an unexpected or rejected response. Check the setup and try again.");
-            break;
-        case Internal:
-            text = tr("ECU operation failed. Press OK to exit and try again.");
-            break;
-        case Cancelled:
-            return;
-        }
-        QMessageBox::warning(this, tr("ECU Operation"), text);
-        emit LOG_E(QString("ECU operation failed (%1): %2")
-                       .arg(QString::fromUtf8(to_string(error.kind)), QString::fromStdString(error.detail)),
-                   true, true);
+        return QMessageBox::information(this, tr("Downloaded EEPROM content"),
+                                        tr("If downloaded content looks correct, click Save to accept it and exit; otherwise click Discard to continue with the next method."),
+                                        QMessageBox::Save | QMessageBox::Discard, QMessageBox::Save) == QMessageBox::Save
+                   ? FlashPromptResponse::Save
+                   : FlashPromptResponse::Discard;
     }
+    const bool cycle = prompt.kind == FlashPromptKind::CycleIgnition;
+    const QString text = cycle ? tr("Turn ignition OFF and back ON, then press OK to continue.")
+                               : tr("Turn ignition ON and press OK to start initializing the ECU connection.");
+    return QMessageBox::information(this, tr("Connecting to ECU"), text,
+                                    QMessageBox::Ok | QMessageBox::Cancel,
+                                    QMessageBox::Cancel) == QMessageBox::Ok
+               ? FlashPromptResponse::Accept
+               : FlashPromptResponse::Decline;
+}
 
-    void FlashDialog::closeEvent(QCloseEvent * event)
-    {
-        if (worker_)
-        {
-            worker_->requestStop();
-            worker_.reset();
-            result_.outcome = FlashWorkflowOutcome::Cancelled;
-        }
-        if (loop_)
-        {
-            loop_->quit();
-        }
-        QDialog::closeEvent(event);
-    }
+void FlashDialog::showSuccess()
+{
+    QMessageBox::information(this, tr("ECU Operation"),
+                             tr("ECU operation completed successfully. Press OK to exit."));
+}
 
-    void FlashDialog::setProgress(int done, int total)
+void FlashDialog::showFailure(const Error& error)
+{
+    using enum ErrorKind;
+    QString text;
+    switch (error.kind)
     {
-        const int value = total > 0 ? int((qint64(done) * 100) / total) : done;
-        if (!ui_->progressbar || ui_->progressbar->value() != value)
-        {
-            if (ui_->progressbar)
-            {
-                ui_->progressbar->setValue(value);
-            }
-            emit external_logger(value);
-        }
+    case InvalidConfig:
+    case Unsupported:
+        text = tr("ECU flash configuration is invalid or unsupported. Check the selected protocol, ROM definition, and kernel file.");
+        break;
+    case Disconnected:
+        text = tr("Lost connection to the adapter or ECU. Check the connection and try again.");
+        break;
+    case Timeout:
+        text = tr("ECU did not respond in time. Check the connection and try again.");
+        break;
+    case BadResponse:
+        text = tr("ECU returned an unexpected or rejected response. Check the setup and try again.");
+        break;
+    case Internal:
+        text = tr("ECU operation failed. Press OK to exit and try again.");
+        break;
+    case Cancelled:
+        return;
     }
+    QMessageBox::warning(this, tr("ECU Operation"), text);
+    emit LOG_E(QString("ECU operation failed (%1): %2")
+                   .arg(QString::fromUtf8(to_string(error.kind)), QString::fromStdString(error.detail)),
+               true, true);
+}
+
+void FlashDialog::closeEvent(QCloseEvent *event)
+{
+    if (worker_)
+    {
+        worker_->requestStop();
+        worker_.reset();
+        result_.outcome = FlashWorkflowOutcome::Cancelled;
+    }
+    if (loop_)
+    {
+        loop_->quit();
+    }
+    QDialog::closeEvent(event);
+}
+
+void FlashDialog::setProgress(int done, int total)
+{
+    const int value = total > 0 ? int((qint64(done) * 100) / total) : done;
+    if (!ui_->progressbar || ui_->progressbar->value() != value)
+    {
+        if (ui_->progressbar)
+        {
+            ui_->progressbar->setValue(value);
+        }
+        emit external_logger(value);
+    }
+}
 
 } // namespace fastecu::flash
