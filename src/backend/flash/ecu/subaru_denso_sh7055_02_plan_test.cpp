@@ -2,6 +2,7 @@
 
 #include "src/backend/definitions/kernelmemorymodels.h"
 #include "src/backend/flash/flash_device_lookup.h"
+#include "src/backend/flash/flash_validation.h"
 
 #include <gtest/gtest.h>
 
@@ -13,6 +14,29 @@ namespace
 KernelImage test_kernel()
 {
     return {.id = "k", .load_address = 0xffff6004, .bytes = {0xaa}};
+}
+
+FlashPlanFields valid_sh7055_02_fields(FlashOperation operation = FlashOperation::Read)
+{
+    const int index = find_flash_device_index("SH7055");
+    return {
+        .operation = operation,
+        .family = FlashFamily::SubaruDensoSh7055_02,
+        .transport = TransportKind::Kline,
+        .target_id = "sub_ecu_denso_sh7055_02",
+        .mcu_name = "SH7055",
+        .transfer_region = {flashdevices[index].fblocks[0].start, flashdevices[index].romsize},
+        .erase_regions = {},
+        .image = operation == FlashOperation::Read
+                     ? std::nullopt
+                     : std::optional<bytes::Bytes>{bytes::Bytes(flashdevices[index].romsize, bytes::Byte{0})},
+        .kernel = test_kernel(),
+        .family_plan = SubaruDensoSh7055_02Plan{
+            .tester_id = 0xf0,
+            .target_id = 0x10,
+            .read_ecu_id = operation == FlashOperation::Read,
+        },
+    };
 }
 
 TEST(SubaruDensoSh7055_02Plan, BuildsBareReadAndWritePlansWithOperationSpecificEcuIdRead)
@@ -86,6 +110,81 @@ TEST(SubaruDensoSh7055_02Plan, WriteAndTestWriteRequireExactRomSize)
         ASSERT_TRUE(exact.has_value()) << exact.error().detail;
         ASSERT_TRUE(exact->image().has_value());
         EXPECT_EQ(exact->image()->size(), flashdevices[index].romsize);
+    }
+}
+
+TEST(SubaruDensoSh7055_02Plan, ValidatorRejectsWrongTesterId)
+{
+    auto fields = valid_sh7055_02_fields();
+    std::get<SubaruDensoSh7055_02Plan>(fields.family_plan).tester_id = 0xf1;
+    auto plan = validate_and_build(std::move(fields));
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+
+    auto valid = validate_subaru_denso_sh7055_02_plan(*plan);
+
+    ASSERT_FALSE(valid.has_value());
+    EXPECT_EQ(valid.error().kind, ErrorKind::InvalidConfig);
+}
+
+TEST(SubaruDensoSh7055_02Plan, ValidatorRejectsWrongTargetId)
+{
+    auto fields = valid_sh7055_02_fields();
+    std::get<SubaruDensoSh7055_02Plan>(fields.family_plan).target_id = 0x11;
+    auto plan = validate_and_build(std::move(fields));
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+
+    auto valid = validate_subaru_denso_sh7055_02_plan(*plan);
+
+    ASSERT_FALSE(valid.has_value());
+    EXPECT_EQ(valid.error().kind, ErrorKind::InvalidConfig);
+}
+
+TEST(SubaruDensoSh7055_02Plan, ValidatorRequiresOperationSpecificEcuIdRead)
+{
+    for (const auto operation : {FlashOperation::Read, FlashOperation::TestWrite})
+    {
+        auto fields = valid_sh7055_02_fields(operation);
+        auto& family = std::get<SubaruDensoSh7055_02Plan>(fields.family_plan);
+        family.read_ecu_id = !family.read_ecu_id;
+        auto plan = validate_and_build(std::move(fields));
+        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+
+        auto valid = validate_subaru_denso_sh7055_02_plan(*plan);
+
+        ASSERT_FALSE(valid.has_value());
+        EXPECT_EQ(valid.error().kind, ErrorKind::InvalidConfig);
+    }
+}
+
+TEST(SubaruDensoSh7055_02Plan, ValidatorRejectsEraseRegions)
+{
+    auto fields = valid_sh7055_02_fields(FlashOperation::TestWrite);
+    fields.erase_regions.push_back({.start = 0, .length = 0x1000});
+    auto plan = validate_and_build(std::move(fields));
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+
+    auto valid = validate_subaru_denso_sh7055_02_plan(*plan);
+
+    ASSERT_FALSE(valid.has_value());
+    EXPECT_EQ(valid.error().kind, ErrorKind::InvalidConfig);
+}
+
+TEST(SubaruDensoSh7055_02Plan, ValidatorRejectsWrongTransferRegion)
+{
+    const int index = find_flash_device_index("SH7055");
+    ASSERT_GE(index, 0);
+    for (const auto region : {MemoryRegion{flashdevices[index].fblocks[0].start + 1, flashdevices[index].romsize},
+                              MemoryRegion{flashdevices[index].fblocks[0].start, flashdevices[index].romsize - 1}})
+    {
+        auto fields = valid_sh7055_02_fields();
+        fields.transfer_region = region;
+        auto plan = validate_and_build(std::move(fields));
+        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+
+        auto valid = validate_subaru_denso_sh7055_02_plan(*plan);
+
+        ASSERT_FALSE(valid.has_value());
+        EXPECT_EQ(valid.error().kind, ErrorKind::InvalidConfig);
     }
 }
 

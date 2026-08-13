@@ -209,6 +209,7 @@ fastecu_portable_gtest(
         ":subaru_denso_sh7055_02_plan",
         "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:flash_validation",
     ],
 )
 

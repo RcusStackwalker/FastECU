@@ -56,9 +56,22 @@ Status validate_subaru_denso_sh7055_02_plan(const FlashPlan& plan)
     {
         return fail(InvalidConfig, "plan is not for SH7055_02");
     }
-    if (!std::holds_alternative<SubaruDensoSh7055_02Plan>(plan.family_plan()))
+    const auto *family = std::get_if<SubaruDensoSh7055_02Plan>(&plan.family_plan());
+    if (family == nullptr)
     {
         return fail(InvalidConfig, "SH7055_02 wire parameters are missing");
+    }
+    if (family->tester_id != 0xf0 || family->target_id != 0x10)
+    {
+        return fail(InvalidConfig, "SH7055_02 wire parameters are invalid");
+    }
+    if (family->read_ecu_id != (plan.operation() == FlashOperation::Read))
+    {
+        return fail(InvalidConfig, "SH7055_02 ECU-ID read does not match the operation");
+    }
+    if (!plan.erase_regions().empty())
+    {
+        return fail(InvalidConfig, "SH7055_02 plans must not declare erase regions");
     }
     if (!plan.kernel().has_value())
     {
@@ -69,7 +82,13 @@ Status validate_subaru_denso_sh7055_02_plan(const FlashPlan& plan)
     {
         return fail(InvalidConfig, "Unknown MCU type");
     }
-    return validate_image(plan, flashdevices[index].romsize);
+    const std::uint32_t romsize = flashdevices[index].romsize;
+    if (plan.transfer_region().start != flashdevices[index].fblocks[0].start ||
+        plan.transfer_region().length != romsize)
+    {
+        return fail(InvalidConfig, "SH7055_02 transfer region does not match the MCU");
+    }
+    return validate_image(plan, romsize);
 }
 
 Result<FlashPlan> build_subaru_denso_sh7055_02_plan(FlashOperation operation,
