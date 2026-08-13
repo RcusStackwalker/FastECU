@@ -1039,6 +1039,50 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt
     EXPECT_EQ(clock.now_, 2250u);
 }
 
+TEST(SubaruDensoMc68hc16y5_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead)
+{
+    const flashdev_t *device = find_flash_device("MC68HC16Y5");
+    ASSERT_NE(device, nullptr);
+    bytes::Bytes image(device->romsize, 0x00);
+    auto plan = stock_write_plan(FlashOperation::Write, image);
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+
+    ScriptedKlineFlashTransport transport;
+    script_stock_connect_and_upload(transport);
+    std::size_t image_offset = 0;
+    for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
+    {
+        const auto& block = device->fblocks[block_no];
+        bytes::Bytes request_payload = u32_be(block.start);
+        request_payload.insert(request_payload.end(), {0x00, 0x00, 0x40, 0x00});
+        transport.expectWrite(framed(0x02, request_payload));
+        const std::uint32_t crc =
+            fastecu::checksum::crc32(image.data() + image_offset, block.len);
+        if (block_no == 0)
+        {
+            transport.queue_no_frame();
+            transport.queueRead(framed(0x42, u32_be(crc)));
+        }
+        else
+        {
+            transport.queueRead(framed(0x42, u32_be(crc)));
+        }
+        transport.queue_no_frame();
+        image_offset += block.len;
+    }
+
+    FakeClock clock;
+    NeverCancelled cancellation;
+    RecordingEventSink events;
+    SubaruDensoMc68hc16y5_02Executor executor;
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50), 1);
+    EXPECT_EQ(clock.now_, 2250u);
+}
+
 TEST(SubaruDensoMc68hc16y5_02Executor, WriteRejectsTruncatedBlockCrcAfterBoundedReads)
 {
     const flashdev_t *device = find_flash_device("MC68HC16Y5");

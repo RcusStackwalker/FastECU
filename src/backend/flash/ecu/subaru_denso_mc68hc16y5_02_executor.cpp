@@ -512,14 +512,44 @@ Result<std::uint32_t> SubaruDensoMc68hc16y5_02Executor::read_block_crc(
         static_cast<bytes::Byte>((block.length >> 8) & 0xFF),
         static_cast<bytes::Byte>(block.length & 0xFF),
     };
-    Result<bytes::Bytes> response =
-        exchange(transport, cancellation, frame(kOpCrc, payload), 3000);
-    if (!response.has_value())
+    const bytes::Bytes request = frame(kOpCrc, payload);
+    if (Status cancelled = check_cancelled(cancellation, "cancelled before CRC write");
+        !cancelled.has_value())
     {
-        return std::unexpected(response.error());
+        return std::unexpected(cancelled.error());
     }
+    Result<std::size_t> written = transport.write(request);
+    if (!written.has_value())
+    {
+        return std::unexpected(written.error());
+    }
+    if (*written != request.size())
+    {
+        return fail(ErrorKind::Disconnected, "short K-Line write");
+    }
+    if (Status cancelled = check_cancelled(cancellation, "cancelled after CRC write");
+        !cancelled.has_value())
+    {
+        return std::unexpected(cancelled.error());
+    }
+    if (Status cancelled = check_cancelled(cancellation, "cancelled before initial CRC read");
+        !cancelled.has_value())
+    {
+        return std::unexpected(cancelled.error());
+    }
+    Result<IKlineFlashTransport::OptionalBytes> initial = transport.read(3000, cancellation);
+    if (!initial.has_value())
+    {
+        return std::unexpected(initial.error());
+    }
+    if (Status cancelled = check_cancelled(cancellation, "cancelled after initial CRC read");
+        !cancelled.has_value())
+    {
+        return std::unexpected(cancelled.error());
+    }
+    bytes::Bytes response = initial->has_value() ? std::move(**initial) : bytes::Bytes{};
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:660-667.
-    for (int try_count = 0; response->size() < 10 && try_count < 20; ++try_count)
+    for (int try_count = 0; response.size() < 10 && try_count < 20; ++try_count)
     {
         if (Status cancelled = check_cancelled(cancellation, "cancelled before CRC continuation read");
             !cancelled.has_value())
@@ -533,24 +563,23 @@ Result<std::uint32_t> SubaruDensoMc68hc16y5_02Executor::read_block_crc(
         }
         if (more->has_value())
         {
-            const std::size_t needed = 10 - response->size();
+            const std::size_t needed = 10 - response.size();
             const std::size_t append_count = std::min(needed, (**more).size());
-            response->insert(response->end(), (**more).begin(),
-                             (**more).begin() + append_count);
+            response.insert(response.end(), (**more).begin(), (**more).begin() + append_count);
         }
         if (Status slept = clock.sleep(100, cancellation); !slept.has_value())
         {
             return std::unexpected(slept.error());
         }
     }
-    if (response->size() <= 9 || !response_ok(*response, kOpCrc | 0x40))
+    if (response.size() <= 9 || !response_ok(response, kOpCrc | 0x40))
     {
         return fail(ErrorKind::BadResponse, "Wrong response from ECU during CRC check");
     }
-    const std::uint32_t crc = (static_cast<std::uint32_t>((*response)[5]) << 24) |
-                              (static_cast<std::uint32_t>((*response)[6]) << 16) |
-                              (static_cast<std::uint32_t>((*response)[7]) << 8) |
-                              static_cast<std::uint32_t>((*response)[8]);
+    const std::uint32_t crc = (static_cast<std::uint32_t>(response[5]) << 24) |
+                              (static_cast<std::uint32_t>(response[6]) << 16) |
+                              (static_cast<std::uint32_t>(response[7]) << 8) |
+                              static_cast<std::uint32_t>(response[8]);
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:702-714.
     if (Status drained = drain_response(transport, cancellation, 200, "CRC response drain");
         !drained.has_value())
