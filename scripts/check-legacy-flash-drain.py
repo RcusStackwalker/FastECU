@@ -35,8 +35,6 @@ REMAINING = {
     "bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.cpp",
     "ecu/flash_ecu_subaru_denso_1n83m_1_5m_can_operation.cpp",
     "ecu/flash_ecu_subaru_denso_1n83m_4m_can_operation.cpp",
-    "ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp",
-    "ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp",
     "ecu/flash_ecu_subaru_denso_sh7058_can_diesel_operation.cpp",
     "ecu/flash_ecu_subaru_denso_sh7058_can_operation.cpp",
     "ecu/flash_ecu_subaru_denso_sh705x_densocan_operation.cpp",
