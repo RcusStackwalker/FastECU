@@ -247,3 +247,43 @@ py_binary(
     main = "scripts/clang_tidy_runner.py",
     deps = ["@python_deps//pyyaml"],
 )
+
+py_binary(
+    name = "clang_tidy_fix_changed",
+    srcs = ["scripts/clang_tidy_runner.py"],
+    args = [
+        "fix",
+        "--changed",
+        "--compdb-tool",
+        "$(location //bazel/compile_commands:refresh)",
+        "--build-arg=--config=release",
+        "--build-arg=//...",
+        "--compdb-arg=--config=release",
+    ],
+    data = [
+        ".clang-tidy",
+        "//bazel/compile_commands:refresh",
+    ],
+    main = "scripts/clang_tidy_runner.py",
+    deps = ["@python_deps//pyyaml"],
+)
+
+py_binary(
+    name = "clang_tidy_report_changed",
+    srcs = ["scripts/clang_tidy_runner.py"],
+    args = [
+        "report",
+        "--changed",
+        "--compdb-tool",
+        "$(location //bazel/compile_commands:refresh)",
+        "--build-arg=--config=release",
+        "--build-arg=//...",
+        "--compdb-arg=--config=release",
+    ],
+    data = [
+        ".clang-tidy",
+        "//bazel/compile_commands:refresh",
+    ],
+    main = "scripts/clang_tidy_runner.py",
+    deps = ["@python_deps//pyyaml"],
+)
