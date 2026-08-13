@@ -64,6 +64,13 @@ class IKlineFlashTransport : public IFlashTransport, public mutdma::IKlineTransp
     virtual Status open() = 0;
     virtual Status close() = 0;
 
+    // Hardware control-line operations used by bootloaders that require an
+    // explicit LEC reset/pulse sequence before accepting K-Line traffic.
+    // They are deliberately semantic rather than exposing the desktop
+    // adapter's RTS/DTR integer states to portable executors.
+    virtual Status disable_lec_lines() = 0;
+    virtual Status pulse_lec_2_line(int timeout_ms) = 0;
+
     // Controls the real serial driver's ISO14230 header auto-add behavior
     // (SerialPortActions::set_add_iso14230_header()), independently of
     // configure()'s connection-type flags and mid-session, not just at

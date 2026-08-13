@@ -170,11 +170,23 @@ Status SubaruDensoMc68hc16y5_02Executor::connect_bootloader(
         return cancelled;
     }
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:111-119.
-    // The legacy mid-session LEC pulse has no IKlineFlashTransport method, so
-    // this portable executor cannot issue that control-line operation.
     if (Status slept = clock.sleep(200, cancellation); !slept.has_value())
     {
         return slept;
+    }
+    if (Status cancelled = check_cancelled(cancellation, "cancelled before LEC pulse");
+        !cancelled.has_value())
+    {
+        return cancelled;
+    }
+    if (Status pulsed = transport.pulse_lec_2_line(200); !pulsed.has_value())
+    {
+        return pulsed;
+    }
+    if (Status cancelled = check_cancelled(cancellation, "cancelled after LEC pulse");
+        !cancelled.has_value())
+    {
+        return cancelled;
     }
     if (Status slept = clock.sleep(200, cancellation); !slept.has_value())
     {
@@ -199,6 +211,25 @@ Status SubaruDensoMc68hc16y5_02Executor::connect_bootloader(
     }
 
     events.log(LogLevel::Warning, "Bad response from bootloader, checking for a running kernel...");
+    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:149-151.
+    if (Status slept = clock.sleep(100, cancellation); !slept.has_value())
+    {
+        return slept;
+    }
+    if (Status cancelled = check_cancelled(cancellation, "cancelled before disabling LEC lines");
+        !cancelled.has_value())
+    {
+        return cancelled;
+    }
+    if (Status disabled = transport.disable_lec_lines(); !disabled.has_value())
+    {
+        return disabled;
+    }
+    if (Status cancelled = check_cancelled(cancellation, "cancelled after disabling LEC lines");
+        !cancelled.has_value())
+    {
+        return cancelled;
+    }
     if (Status cancelled = check_cancelled(cancellation, "cancelled before changing baud");
         !cancelled.has_value())
     {
@@ -375,42 +406,66 @@ Result<FlashExecutionResult> SubaruDensoMc68hc16y5_02Executor::execute(
     {
         return std::unexpected(opened.error());
     }
-    struct ScopedClose
+    Result<FlashExecutionResult> phase_result = [&]() -> Result<FlashExecutionResult>
     {
-        IKlineFlashTransport& transport;
-        ~ScopedClose()
+        if (Status cancelled = check_cancelled(cancellation, "cancelled after opening transport");
+            !cancelled.has_value())
         {
-            (void)transport.close();
+            return std::unexpected(cancelled.error());
         }
-    } scoped_close{kline};
-    if (Status cancelled = check_cancelled(cancellation, "cancelled after opening transport");
-        !cancelled.has_value())
-    {
-        return std::unexpected(cancelled.error());
-    }
+        // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:67-70.
+        if (Status cancelled = check_cancelled(cancellation, "cancelled before disabling LEC lines");
+            !cancelled.has_value())
+        {
+            return std::unexpected(cancelled.error());
+        }
+        if (Status disabled = kline.disable_lec_lines(); !disabled.has_value())
+        {
+            return std::unexpected(disabled.error());
+        }
+        if (Status cancelled = check_cancelled(cancellation, "cancelled after disabling LEC lines");
+            !cancelled.has_value())
+        {
+            return std::unexpected(cancelled.error());
+        }
 
-    bool kernel_alive = false;
-    if (Status connected = connect_bootloader(kline, clock, cancellation, events, family_plan,
-                                              kernel_alive);
-        !connected.has_value())
-    {
-        return std::unexpected(connected.error());
-    }
-    if (!kernel_alive)
-    {
-        if (!plan.kernel().has_value())
+        bool kernel_alive = false;
+        if (Status connected = connect_bootloader(kline, clock, cancellation, events, family_plan,
+                                                  kernel_alive);
+            !connected.has_value())
         {
-            return fail(ErrorKind::InvalidConfig, "MC68HC16Y5_02 requires a kernel image");
+            return std::unexpected(connected.error());
         }
-        if (Status uploaded = upload_kernel(kline, clock, cancellation, events, family_plan,
-                                            *plan.kernel());
-            !uploaded.has_value())
+        if (!kernel_alive)
         {
-            return std::unexpected(uploaded.error());
+            if (!plan.kernel().has_value())
+            {
+                return fail(ErrorKind::InvalidConfig, "MC68HC16Y5_02 requires a kernel image");
+            }
+            if (Status uploaded = upload_kernel(kline, clock, cancellation, events, family_plan,
+                                                *plan.kernel());
+                !uploaded.has_value())
+            {
+                return std::unexpected(uploaded.error());
+            }
         }
-    }
+        return fail(ErrorKind::Unsupported, "read/write phase not yet implemented");
+    }();
 
-    return fail(ErrorKind::Unsupported, "read/write phase not yet implemented");
+    Status close_status = kline.close();
+    if (!phase_result.has_value() && phase_result.error().kind != ErrorKind::Unsupported)
+    {
+        if (!close_status.has_value())
+        {
+            events.log(LogLevel::Warning, "close failed after MC68HC16Y5_02 phase error");
+        }
+        return std::unexpected(phase_result.error());
+    }
+    if (!close_status.has_value())
+    {
+        return std::unexpected(close_status.error());
+    }
+    return std::unexpected(phase_result.error());
 }
 
 } // namespace fastecu::flash

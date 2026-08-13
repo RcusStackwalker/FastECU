@@ -19,6 +19,12 @@ namespace fastecu::flash
 class ScriptedKlineFlashTransport : public IKlineFlashTransport
 {
   public:
+    enum class ControlLineAction
+    {
+        DisableLecLines,
+        PulseLec2,
+    };
+
     void expectWrite(bytes::ByteView b)
     {
         expected_.emplace_back(b.begin(), b.end());
@@ -64,6 +70,17 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
         ++close_call_count_;
         open_ = false;
         return close_result_;
+    }
+    Status disable_lec_lines() override
+    {
+        control_line_trace_.push_back(ControlLineAction::DisableLecLines);
+        return disable_lec_lines_result_;
+    }
+    Status pulse_lec_2_line(int timeout_ms) override
+    {
+        control_line_trace_.push_back(ControlLineAction::PulseLec2);
+        lec_2_pulse_timeouts_.push_back(timeout_ms);
+        return pulse_lec_2_line_result_;
     }
     Status set_add_iso14230_header(bool add_header) override
     {
@@ -123,7 +140,11 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     Status configure_result_;
     Status open_result_;
     Status close_result_;
+    Status disable_lec_lines_result_;
+    Status pulse_lec_2_line_result_;
     std::optional<KlineConfig> last_config_;
+    std::vector<ControlLineAction> control_line_trace_;
+    std::vector<int> lec_2_pulse_timeouts_;
 
     // Records every set_add_iso14230_header() call in order (true == "add
     // header", false == "don't") so tests can assert the exact transitions

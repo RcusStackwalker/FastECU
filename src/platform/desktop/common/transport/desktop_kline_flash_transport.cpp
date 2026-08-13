@@ -111,6 +111,55 @@ Status DesktopKlineFlashTransport::close()
     return {};
 }
 
+Status DesktopKlineFlashTransport::disable_lec_lines()
+{
+    if (!serial_)
+    {
+        return fail(ErrorKind::Disconnected, "disable_lec_lines() called after close()");
+    }
+    try
+    {
+        if (serial_->set_lec_lines(serial_->get_requestToSendDisabled(),
+                                   serial_->get_dataTerminalDisabled()) != 0)
+        {
+            return fail(ErrorKind::Internal, "set_lec_lines disabled failed");
+        }
+        return {};
+    }
+    catch (const std::exception& error)
+    {
+        return fail(ErrorKind::Internal, error.what());
+    }
+    catch (...)
+    {
+        return fail(ErrorKind::Internal, "disable_lec_lines exception");
+    }
+}
+
+Status DesktopKlineFlashTransport::pulse_lec_2_line(int timeout_ms)
+{
+    if (!serial_)
+    {
+        return fail(ErrorKind::Disconnected, "pulse_lec_2_line() called after close()");
+    }
+    try
+    {
+        if (serial_->pulse_lec_2_line(timeout_ms) != 0)
+        {
+            return fail(ErrorKind::Internal, "pulse_lec_2_line failed");
+        }
+        return {};
+    }
+    catch (const std::exception& error)
+    {
+        return fail(ErrorKind::Internal, error.what());
+    }
+    catch (...)
+    {
+        return fail(ErrorKind::Internal, "pulse_lec_2_line exception");
+    }
+}
+
 Status DesktopKlineFlashTransport::set_add_iso14230_header(bool add_header)
 {
     if (!serial_)

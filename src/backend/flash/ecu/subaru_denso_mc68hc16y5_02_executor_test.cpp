@@ -154,6 +154,13 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectsViaWrx02InitAndUploadsPaddedKerne
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Unsupported);
     EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.control_line_trace_,
+              (std::vector<ScriptedKlineFlashTransport::ControlLineAction>{
+                  ScriptedKlineFlashTransport::ControlLineAction::DisableLecLines,
+                  ScriptedKlineFlashTransport::ControlLineAction::PulseLec2,
+              }));
+    EXPECT_EQ(transport.lec_2_pulse_timeouts_, (std::vector<int>{200}));
+    EXPECT_EQ(transport.close_call_count_, 1);
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:111-119,
     // 289-293, and 1139-1162: 200 + 200 + 50 + 1500 + 200 ms.
     EXPECT_EQ(clock.now_, 2150u);
@@ -180,6 +187,16 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectFallsBackToKernelAlivePoll)
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Unsupported);
     EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.control_line_trace_,
+              (std::vector<ScriptedKlineFlashTransport::ControlLineAction>{
+                  ScriptedKlineFlashTransport::ControlLineAction::DisableLecLines,
+                  ScriptedKlineFlashTransport::ControlLineAction::PulseLec2,
+                  ScriptedKlineFlashTransport::ControlLineAction::DisableLecLines,
+              }));
+    EXPECT_EQ(transport.close_call_count_, 1);
+    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:111-119,
+    // 149-155, and 1139-1162: 200 + 200 + 50 + 100 + 200 ms.
+    EXPECT_EQ(clock.now_, 750u);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, EcutekUsesItsDistinctBootloaderAndKernelWireValues)
@@ -253,6 +270,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectFailsWithNoValidResponseAtAll)
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, CancellationBeforeConnectStopsImmediately)
@@ -292,6 +310,58 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ShortKlineWriteFailsBeforeRead)
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
+}
+
+TEST(SubaruDensoMc68hc16y5_02Executor, CloseOnlyFailureIsReturnedAfterSuccessfulPhases)
+{
+    auto plan = stock_plan();
+    ASSERT_TRUE(plan.has_value());
+    ScriptedKlineFlashTransport transport;
+    transport.close_result_ = fail(ErrorKind::Internal, "close failed");
+    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:111-179.
+    transport.expectWrite(bytes::Bytes{0x4D, 0xFF, 0xB4});
+    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x00});
+    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:1139-1168.
+    transport.expectWrite(framed(0x01));
+    transport.queueRead(framed(0x41, bytes::Bytes{'K'}));
+
+    FakeClock clock;
+    NeverCancelled cancellation;
+    RecordingEventSink events;
+    SubaruDensoMc68hc16y5_02Executor executor;
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+    EXPECT_EQ(transport.close_call_count_, 1);
+}
+
+TEST(SubaruDensoMc68hc16y5_02Executor, PhaseFailureWinsOverCloseFailureAndLogsCleanupFailure)
+{
+    auto plan = stock_plan();
+    ASSERT_TRUE(plan.has_value());
+    ScriptedKlineFlashTransport transport;
+    transport.close_result_ = fail(ErrorKind::Internal, "close failed");
+    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:111-179.
+    transport.expectWrite(bytes::Bytes{0x4D, 0xFF, 0xB4});
+    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x00});
+    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:1139-1168.
+    transport.expectWrite(framed(0x01));
+    transport.queue_no_frame();
+
+    FakeClock clock;
+    NeverCancelled cancellation;
+    RecordingEventSink events;
+    SubaruDensoMc68hc16y5_02Executor executor;
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_EQ(transport.close_call_count_, 1);
+    ASSERT_FALSE(events.logs.empty());
+    EXPECT_EQ(events.logs.back(),
+              (std::pair<LogLevel, std::string>{
+                  LogLevel::Warning, "close failed after MC68HC16Y5_02 phase error"}));
 }
 
 } // namespace
