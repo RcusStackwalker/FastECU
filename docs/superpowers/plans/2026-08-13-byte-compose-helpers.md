@@ -499,22 +499,18 @@ inline Byte sum8(ByteView bytes)
 
 - [ ] **Step 4: Update the one caller**
 
-In `src/algorithms/protocol/mut_dma/mut_dma_codec.h:19`, rename the declaration:
+`mut_dma_codec.cpp:10` is the only caller of the three-argument `bytes::sum8` in the tree. Change its body only:
 
 ```cpp
-bytes::Byte sum8Range(bytes::ByteView bytes, std::size_t from, std::size_t len);
-```
-
-In `src/algorithms/protocol/mut_dma/mut_dma_codec.cpp:8-11`, rename the definition and its delegation:
-
-```cpp
-bytes::Byte sum8Range(bytes::ByteView bytes, std::size_t from, std::size_t len)
+bytes::Byte sum8(bytes::ByteView bytes, std::size_t from, std::size_t len)
 {
     return bytes::sum8Range(bytes, from, len);
 }
 ```
 
-Then update its two call sites in the same file, `mut_dma_codec.cpp:35` and `:55`, from `sum8(frame, 0, CHECKSUM_OFFSET)` and `sum8(frame, 0, csumIdx)` to `sum8Range(frame, 0, CHECKSUM_OFFSET)` and `sum8Range(frame, 0, csumIdx)`.
+**Do not rename the mut_dma-namespace `sum8` wrapper.** Its declaration in `mut_dma_codec.h:19` keeps its current name and signature, and its callers — `mut_dma_codec.cpp:35` and `:55`, `mut_dma_freeform.cpp:50`, `mut_dma_test.cpp:36`, `codec_test.cpp:24`, `freeform_test.cpp:46` — are all untouched.
+
+The rename exists solely so that `bytes::sum8` stops being an overload set and can be passed as a callable to `composeBeWithChecksum`. The mut_dma wrapper is never passed as a callable, so renaming it would churn six sites across four files and change a header API for no benefit.
 
 - [ ] **Step 5: Run the tests to verify they pass**
 
@@ -625,7 +621,19 @@ Each of these becomes `bytes::sum8(<view>)`. Where the argument is already a `by
 - `ssm_logging_protocol_test.cpp:45`, `subaru_denso_sh7055_02_executor_test.cpp:195`, `subaru_denso_mc68hc16y5_02_executor_test.cpp:158`, `denso_sh705x_eeprom_kline_executor_test.cpp:120`, `flash_worker_test.cpp:98` → `out.push_back(bytes::sum8(out));` (matching each file's local variable name)
 - `checksum_primitives_test.cpp:63` is replaced by the tests in Step 1.
 
-Leave `ssm_protocol_core.cpp:91` and `:117` alone for now — Task 4 rewrites both.
+`ssm_protocol_core.cpp:91` and `:117` still thread the `dec0x100` variable, which Task 4 removes. They cannot be left calling the deleted `checksum8`, or the tree will not build at the end of this task. Bridge them with a ternary that preserves current behaviour exactly:
+
+```cpp
+    // :91, inside addHeader
+    framed.push_back(dec0x100 ? fastecu::checksum::negatedSum8(framed) : bytes::sum8(framed));
+
+    // :117, inside hasValidFrame
+    const bytes::ByteView body = frame.first(frame.size() - checksumLength);
+    return (dec0x100 ? fastecu::checksum::negatedSum8(body) : bytes::sum8(body)) ==
+           frame[frame.size() - checksumLength];
+```
+
+Task 4 collapses both to plain `bytes::sum8` when it removes the parameter.
 
 Add `#include "src/algorithms/protocol/bytes.h"` to any of these files that does not already include it, and drop the now-unused `checksum_primitives.h` include where nothing else in the file uses it.
 
@@ -1139,6 +1147,12 @@ bytes::Bytes frame(std::uint8_t opcode, bytes::ByteView payload = {})
 }
 ```
 
+Also update the wire-shape comment three lines above (`subaru_denso_sh7055_02_executor.cpp:50`), which currently ends `[payload][checksum8]`. `checksum8` no longer exists, and Task 12 greps for that identifier expecting no hits:
+
+```cpp
+// [0xBE][0xEF][length high][length low][opcode][payload][sum8].
+```
+
 - [ ] **Step 2: Leave the kernel-upload envelope (lines 382-393) hand-rolled**
 
 This site patches a checksum into the middle of the frame (`request[7] = negatedSum8(request)`) and then appends a second one over the extended buffer. `composeBeWithChecksum` cannot express it. Convert only the leading `bytes::Bytes request{...}` brace-initialiser at lines 383-386 — where `address` emits **3** bytes — and add a comment above the two `negatedSum8` calls:
@@ -1214,6 +1228,12 @@ bytes::Bytes frame(std::uint8_t opcode, bytes::ByteView payload = {})
     return composeBeWithChecksum(bytes::sum8, kStartComm, len_plus_one, bytes::Byte(opcode),
                                  payload);
 }
+```
+
+Also update the wire-shape comment three lines above (`subaru_denso_mc68hc16y5_02_executor.cpp:50`), which currently ends `[payload][checksum8]`. `checksum8` no longer exists, and Task 12 greps for that identifier expecting no hits:
+
+```cpp
+// [0xBE][0xEF][len+1 hi][len+1 lo][opcode][payload][sum8].
 ```
 
 - [ ] **Step 2: Migrate the Shape C comparison (lines 65-69)**
