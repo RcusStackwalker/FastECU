@@ -1,7 +1,9 @@
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_executor.h"
 
 #include <algorithm>
+#include <format>
 #include <limits>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -159,20 +161,20 @@ Result<IKlineFlashTransport::OptionalBytes> exchange_optional(
 
 Status drain_response(IKlineFlashTransport& transport,
                       const ICancellationToken& cancellation, int timeout_ms,
-                      std::string detail)
+                      std::string_view detail)
 {
-    if (Status cancelled = check_cancelled(cancellation, "cancelled before " + detail);
+    if (Status cancelled = check_cancelled(cancellation, std::format("cancelled before {}", detail));
         !cancelled.has_value())
     {
         return cancelled;
     }
-    Result<IKlineFlashTransport::OptionalBytes> drained =
-        transport.read(timeout_ms, cancellation);
-    if (!drained.has_value())
+    if (const auto drained =
+            transport.read(timeout_ms, cancellation);
+        !drained.has_value())
     {
         return std::unexpected(drained.error());
     }
-    return check_cancelled(cancellation, "cancelled after " + detail);
+    return check_cancelled(cancellation, std::format("cancelled after {}", detail));
 }
 
 // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:1139-1168:
