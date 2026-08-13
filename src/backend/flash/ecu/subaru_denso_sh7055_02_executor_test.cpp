@@ -208,6 +208,14 @@ bytes::Bytes u32_be(std::uint32_t value)
     };
 }
 
+bytes::Bytes crc_response(std::uint32_t crc)
+{
+    bytes::Bytes payload{0x05};
+    bytes::Bytes crc_bytes = u32_be(crc);
+    payload.insert(payload.end(), crc_bytes.begin(), crc_bytes.end());
+    return framed(0x42, payload);
+}
+
 void script_read_page(ScriptedKlineFlashTransport& transport, std::uint32_t address,
                       bytes::Byte fill, std::uint8_t response_opcode = 0x43)
 {
@@ -297,7 +305,7 @@ void script_crc_compare(ScriptedKlineFlashTransport& transport, const flashdev_t
         {
             ecu_crc ^= 0x00000001u;
         }
-        transport.queueRead(framed(0x42, u32_be(ecu_crc)));
+        transport.queueRead(crc_response(ecu_crc));
         transport.queue_no_frame();
     }
 }
@@ -855,7 +863,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsCrcResponseMarkedFailed)
     script_write_connect_and_upload(transport);
     transport.expectWrite(framed(0x02, bytes::Bytes{0x00, 0x00, 0x00, 0x00,
                                                     0x00, 0x00, 0x10, 0x00}));
-    transport.queueRead(bytes::Bytes{0x7F});
+    transport.queueRead(framed(0x42, bytes::Bytes{0x7F}));
 
     FakeClock clock;
     NeverCancelled cancellation;
@@ -892,11 +900,11 @@ TEST(SubaruDensoSh7055_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt)
         transport.expectWrite(framed(0x02, payload));
         const std::uint32_t crc = fastecu::checksum::crc32(
             bytes::ByteView(image).subspan(block.start, block.len));
-        const bytes::Bytes response = framed(0x42, u32_be(crc));
+        const bytes::Bytes response = crc_response(crc);
         if (block_no == 0)
         {
-            transport.queueRead(bytes::ByteView(response).first(6));
-            transport.queueRead(bytes::ByteView(response).subspan(6));
+            transport.queueRead(bytes::ByteView(response).first(10));
+            transport.queueRead(bytes::ByteView(response).subspan(10));
         }
         else
         {
@@ -942,7 +950,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead)
         {
             transport.queue_no_frame();
         }
-        transport.queueRead(framed(0x42, u32_be(crc)));
+        transport.queueRead(crc_response(crc));
         transport.queue_no_frame();
     }
 
@@ -968,7 +976,8 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsTruncatedBlockCrcAfterBoundedRead
     script_write_connect_and_upload(transport);
     transport.expectWrite(framed(0x02, bytes::Bytes{0x00, 0x00, 0x00, 0x00,
                                                     0x00, 0x00, 0x10, 0x00}));
-    transport.queueRead(bytes::Bytes{0xBE, 0xEF, 0x00, 0x05, 0x42});
+    transport.queueRead(bytes::Bytes{0xBE, 0xEF, 0x00, 0x06, 0x42,
+                                     0x05, 0x00, 0x00, 0x00, 0x00});
     for (int attempt = 0; attempt < 20; ++attempt)
     {
         transport.queue_no_frame();
@@ -1023,7 +1032,7 @@ TEST(SubaruDensoSh7055_02Executor, WritePropagatesBlockCrcDrainError)
                                                     0x00, 0x00, 0x10, 0x00}));
     const std::uint32_t crc = fastecu::checksum::crc32(
         bytes::ByteView(image).first(device->fblocks[0].len));
-    transport.queueRead(framed(0x42, u32_be(crc)));
+    transport.queueRead(crc_response(crc));
     transport.queue_error(ErrorKind::Disconnected, "CRC drain failed");
 
     FakeClock clock;

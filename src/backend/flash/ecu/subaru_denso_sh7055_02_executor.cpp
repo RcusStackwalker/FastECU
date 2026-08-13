@@ -550,14 +550,33 @@ Result<std::uint32_t> SubaruDensoSh7055_02Executor::read_block_crc(
     }
     bytes::Bytes response = initial->has_value() ? std::move(**initial) : bytes::Bytes{};
 
-    // Legacy lines 680-686 accumulate fragmented replies using twenty
-    // 50ms reads paced by 100ms. Lines 704-709 also recognize a raw 0x7f
-    // failure marker before attempting to unwrap a successful reply.
-    for (int try_count = 0; response.size() < 10 && try_count < 20; ++try_count)
+    // Legacy lines 680-686 accumulate fragmented replies using twenty 50ms
+    // reads paced by 100ms. Use the BEEF frame's declared length once its
+    // four-byte header is present: SH success carries opcode + one prefix +
+    // four CRC bytes, so its complete frame is 11 bytes, not MC68's 10.
+    const auto declared_frame_size = [&response]() -> std::optional<std::size_t>
     {
-        if (!response.empty() && response.front() == 0x7F)
+        if (response.size() < 4)
         {
-            return fail(ErrorKind::BadResponse, "ECU marked CRC response failed");
+            return std::nullopt;
+        }
+        const std::size_t declared =
+            (static_cast<std::size_t>(response[2]) << 8) | response[3];
+        // This phase accepts only opcode plus the one-byte marker/prefix and
+        // four CRC bytes. Bound the declared size before accumulating.
+        return declared <= 6 ? std::optional<std::size_t>{declared + 5} : std::optional<std::size_t>{0};
+    };
+    int try_count = 0;
+    while (try_count < 20)
+    {
+        const std::optional<std::size_t> expected_size = declared_frame_size();
+        if (expected_size.has_value() && *expected_size == 0)
+        {
+            return fail(ErrorKind::BadResponse, "Oversized CRC response from ECU");
+        }
+        if (expected_size.has_value() && response.size() >= *expected_size)
+        {
+            break;
         }
         if (Status cancelled = check_cancelled(cancellation,
                                                "cancelled before CRC continuation read");
@@ -584,32 +603,32 @@ Result<std::uint32_t> SubaruDensoSh7055_02Executor::read_block_crc(
         {
             return std::unexpected(slept.error());
         }
+        ++try_count;
     }
-    if (!response.empty() && response.front() == 0x7F)
+    const std::optional<std::size_t> expected_size = declared_frame_size();
+    if (!expected_size.has_value() || *expected_size == 0 || response.size() != *expected_size ||
+        response.size() < 7 || !response_ok(response, kOpCrc | 0x40) ||
+        response.back() != fastecu::checksum::checksum8(bytes::ByteView(response).first(response.size() - 1), false))
     {
-        return fail(ErrorKind::BadResponse, "ECU marked CRC response failed");
-    }
-    if (response.size() <= 9 || !response_ok(response, kOpCrc | 0x40))
-    {
-        return fail(ErrorKind::BadResponse, "Wrong response from ECU during CRC check");
+        return fail(ErrorKind::BadResponse, "Wrong or incomplete response from ECU during CRC check");
     }
 
-    // SH7055-specific legacy unwrap, lines 704-717. The first byte is
-    // inspected as the legacy length/failure marker, then the five-byte
-    // BEEF envelope and trailing checksum are removed before the CRC bytes
-    // are interpreted. MC68 reads offsets 5..8 directly and has no marker.
+    // SH7055-specific legacy unwrap, lines 704-717: remove the five-byte
+    // BEEF/opcode envelope and checksum, then inspect and strip the payload's
+    // length/failure prefix. MC68 has neither this payload prefix nor marker.
+    response.erase(response.begin(), response.begin() + 5);
+    response.pop_back();
+    if (response.empty())
+    {
+        return fail(ErrorKind::BadResponse, "Missing CRC response prefix");
+    }
     const bytes::Byte length_or_failure = response.front();
     if (length_or_failure == 0x7F)
     {
         return fail(ErrorKind::BadResponse, "ECU marked CRC response failed");
     }
-    if (length_or_failure <= 5 || response.size() < 10)
-    {
-        return fail(ErrorKind::BadResponse, "Wrong response from ECU during CRC unwrap");
-    }
-    response.erase(response.begin(), response.begin() + 5);
-    response.pop_back();
-    if (response.size() < 4)
+    response.erase(response.begin());
+    if (response.size() != 4)
     {
         return fail(ErrorKind::BadResponse, "Truncated CRC response from ECU");
     }
