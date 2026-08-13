@@ -298,10 +298,13 @@ Status SubaruDensoSh7055_02Executor::connect_bootloader(
         {
             return std::unexpected(received.error());
         }
-        const bool matches_expected = received->has_value() && (**received).size() >= 3 &&
+        const bool matches_expected = received->has_value() && (**received).size() == 3 &&
                                       (**received)[0] == 0x4D && (**received)[1] == 0x00 &&
                                       (**received)[2] == 0xB3;
-        if (!matches_expected)
+        // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:201-224
+        // and 1276-1292: STATUS_SUCCESS is zero only for an exact match, so
+        // !check_received_message(...) enters the connected branch.
+        if (matches_expected)
         {
             events.log(LogLevel::Info, "Connected to bootloader");
             if (Status slept = clock.sleep(100, cancellation); !slept.has_value())
@@ -418,6 +421,10 @@ Result<FlashExecutionResult> SubaruDensoSh7055_02Executor::execute(
         !match.has_value())
     {
         return std::unexpected(match.error());
+    }
+    if (Status valid = validate_subaru_denso_sh7055_02_plan(plan); !valid.has_value())
+    {
+        return std::unexpected(valid.error());
     }
     if (Status cancelled = check_cancelled(cancellation, "cancelled before transport configuration");
         !cancelled.has_value())

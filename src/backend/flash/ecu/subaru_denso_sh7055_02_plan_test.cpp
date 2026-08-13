@@ -4,6 +4,9 @@
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
 
+#include <string>
+#include <vector>
+
 #include <gtest/gtest.h>
 
 namespace fastecu::flash
@@ -36,6 +39,7 @@ FlashPlanFields valid_sh7055_02_fields(FlashOperation operation = FlashOperation
             .target_id = 0x10,
             .read_ecu_id = operation == FlashOperation::Read,
         },
+        .confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::CycleIgnition}},
     };
 }
 
@@ -209,6 +213,79 @@ TEST(SubaruDensoSh7055_02Plan, ValidatorRejectsWrongTransferRegion)
         ASSERT_FALSE(valid.has_value());
         EXPECT_EQ(valid.error().kind, ErrorKind::InvalidConfig);
     }
+}
+
+TEST(SubaruDensoSh7055_02Plan, ValidatorRequiresOnlyCycleIgnitionConfirmation)
+{
+    for (const auto& confirmations : {
+             std::vector<ConfirmationSpec>{},
+             std::vector<ConfirmationSpec>{
+                 ConfirmationSpec{.id = ConfirmationSpec::Id::BeginEepromRead}},
+             std::vector<ConfirmationSpec>{ConfirmationSpec{
+                 .id = ConfirmationSpec::Id::CycleIgnition,
+                 .arguments = {{"unexpected", "argument"}},
+             }},
+         })
+    {
+        auto fields = valid_sh7055_02_fields();
+        fields.confirmations = confirmations;
+        auto plan = validate_and_build(std::move(fields));
+        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+
+        auto valid = validate_subaru_denso_sh7055_02_plan(*plan);
+
+        ASSERT_FALSE(valid.has_value());
+        EXPECT_EQ(valid.error().kind, ErrorKind::InvalidConfig);
+    }
+}
+
+TEST(SubaruDensoSh7055_02Plan, KernelUploadAcceptsExactLowerAndUpperBoundaries)
+{
+    constexpr std::uint32_t kKernelStart = 0xFFFF6004;
+    constexpr std::uint32_t kKernelEnd = kKernelStart + 0x6000;
+    for (KernelImage kernel : {
+             KernelImage{.id = "lower", .load_address = kKernelStart, .bytes = {0x01}},
+             KernelImage{.id = "upper",
+                         .load_address = kKernelEnd - 4,
+                         .bytes = {0x01, 0x02, 0x03, 0x04}},
+         })
+    {
+        auto plan = build_subaru_denso_sh7055_02_plan(
+            FlashOperation::Read, "sub_ecu_denso_sh7055_02", "SH7055", std::nullopt,
+            std::move(kernel));
+        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    }
+}
+
+TEST(SubaruDensoSh7055_02Plan, KernelUploadRejectsAddressAndPaddedFootprintOutsideModelRegion)
+{
+    constexpr std::uint32_t kKernelStart = 0xFFFF6004;
+    constexpr std::uint32_t kKernelEnd = kKernelStart + 0x6000;
+    for (KernelImage kernel : {
+             KernelImage{.id = "below", .load_address = kKernelStart - 1, .bytes = {0x01}},
+             KernelImage{.id = "padded-past-end",
+                         .load_address = kKernelEnd - 4,
+                         .bytes = {0x01, 0x02, 0x03, 0x04, 0x05}},
+         })
+    {
+        auto plan = build_subaru_denso_sh7055_02_plan(
+            FlashOperation::Read, "sub_ecu_denso_sh7055_02", "SH7055", std::nullopt,
+            std::move(kernel));
+        ASSERT_FALSE(plan.has_value());
+        EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+    }
+}
+
+TEST(SubaruDensoSh7055_02Plan, KernelUploadRejectsLengthOutsideThreeByteWireField)
+{
+    bytes::Bytes too_large(0x00FFFFF9, bytes::Byte{0});
+    auto plan = build_subaru_denso_sh7055_02_plan(
+        FlashOperation::Read, "sub_ecu_denso_sh7055_02", "SH7055", std::nullopt,
+        KernelImage{.id = "wire-overflow", .load_address = 0xFFFF6004, .bytes = std::move(too_large)});
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_NE(plan.error().detail.find("24-bit"), std::string::npos);
 }
 
 } // namespace

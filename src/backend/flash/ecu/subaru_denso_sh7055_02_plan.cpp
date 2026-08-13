@@ -43,6 +43,35 @@ Status validate_image(const FlashPlan& plan, std::uint32_t romsize)
     return {};
 }
 
+Status validate_kernel_upload(const KernelImage& kernel)
+{
+    constexpr std::uint64_t kMaxWireLength = 0x00FFFFFF;
+    if (kernel.bytes.size() > kMaxWireLength)
+    {
+        return fail(ErrorKind::InvalidConfig,
+                    "SH7055_02 padded kernel plus envelope exceeds the 24-bit wire length");
+    }
+    const std::uint64_t padded_size = (static_cast<std::uint64_t>(kernel.bytes.size()) + 3) & ~3ULL;
+    const std::uint64_t wire_length = padded_size + 4;
+    if (wire_length > kMaxWireLength)
+    {
+        return fail(ErrorKind::InvalidConfig,
+                    "SH7055_02 padded kernel plus envelope exceeds the 24-bit wire length");
+    }
+    // Model source: src/backend/definitions/kernelmemorymodels.h:270-276.
+    constexpr std::uint64_t kKernelStart = 0xFFFF6004;
+    constexpr std::uint64_t kKernelLength = 0x00006000;
+    constexpr std::uint64_t kKernelEnd = kKernelStart + kKernelLength;
+    const std::uint64_t upload_start = kernel.load_address;
+    if (upload_start < kKernelStart || upload_start >= kKernelEnd ||
+        padded_size > kKernelEnd - upload_start)
+    {
+        return fail(ErrorKind::InvalidConfig,
+                    "SH7055_02 padded kernel upload is outside the model kernel region");
+    }
+    return {};
+}
+
 } // namespace
 
 Status validate_subaru_denso_sh7055_02_plan(const FlashPlan& plan)
@@ -77,6 +106,16 @@ Status validate_subaru_denso_sh7055_02_plan(const FlashPlan& plan)
     {
         return fail(InvalidConfig, "SH7055_02 requires a kernel image");
     }
+    if (auto valid = validate_kernel_upload(*plan.kernel()); !valid.has_value())
+    {
+        return valid;
+    }
+    if (plan.confirmations().size() != 1 ||
+        plan.confirmations().front().id != ConfirmationSpec::Id::CycleIgnition ||
+        !plan.confirmations().front().arguments.empty())
+    {
+        return fail(InvalidConfig, "SH7055_02 requires exactly the CycleIgnition confirmation");
+    }
     const int index = find_flash_device_index(plan.mcu_name());
     if (index < 0)
     {
@@ -107,6 +146,10 @@ Result<FlashPlan> build_subaru_denso_sh7055_02_plan(FlashOperation operation,
         (!image.has_value() || image->size() != romsize))
     {
         return fail(ErrorKind::InvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", romsize));
+    }
+    if (auto valid = validate_kernel_upload(kernel); !valid.has_value())
+    {
+        return std::unexpected(valid.error());
     }
 
     FlashPlanFields fields{
