@@ -120,6 +120,7 @@ Result<FlashPlan> build_subaru_denso_sh7055_02_plan(FlashOperation operation,
         .image = operation == FlashOperation::Read ? std::nullopt : std::move(image),
         .kernel = std::move(kernel),
         .family_plan = wire_params(operation),
+        .confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::CycleIgnition}},
     };
     auto plan = validate_and_build(std::move(fields));
     if (!plan.has_value())

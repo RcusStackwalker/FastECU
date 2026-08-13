@@ -76,6 +76,29 @@ TEST(SubaruDensoSh7055_02Plan, AcceptsEcutekWithByteIdenticalWireParameters)
               std::get<SubaruDensoSh7055_02Plan>(ecutek->family_plan()).read_ecu_id);
 }
 
+TEST(SubaruDensoSh7055_02Plan, EveryAcceptedPlanRequiresCycleIgnitionConfirmation)
+{
+    const int index = find_flash_device_index("SH7055");
+    ASSERT_GE(index, 0);
+    for (const std::string_view protocol : {"sub_ecu_denso_sh7055_02",
+                                            "sub_ecu_denso_sh7055_02_ecutek"})
+    {
+        for (const auto operation : {FlashOperation::Read, FlashOperation::Write})
+        {
+            auto plan = build_subaru_denso_sh7055_02_plan(
+                operation, protocol, "SH7055",
+                operation == FlashOperation::Read
+                    ? std::nullopt
+                    : std::optional<bytes::Bytes>{
+                          bytes::Bytes(flashdevices[index].romsize, bytes::Byte{0})},
+                test_kernel());
+            ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+            ASSERT_EQ(plan->confirmations().size(), 1);
+            EXPECT_EQ(plan->confirmations().front().id, ConfirmationSpec::Id::CycleIgnition);
+        }
+    }
+}
+
 TEST(SubaruDensoSh7055_02Plan, RejectsUnknownProtocol)
 {
     auto plan = build_subaru_denso_sh7055_02_plan(
