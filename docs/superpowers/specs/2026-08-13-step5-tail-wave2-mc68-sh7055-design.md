@@ -27,11 +27,22 @@ new `FlashFamily` values, matching wave 0's precedent for
   actually flashable through this path in `protocols.cfg`, even though the
   same class is wired up for it; preserved as-is, not fixed).
 - `sub_ecu_denso_mc68hc16y5_02_tpu` is also prefix-caught here despite that
-  protocol's own `<mode>` being `BDM`; it is unreachable from the UI (no
-  `protocols.cfg` entry routes to it through this class in practice) and is
-  ported as-is without wiring a new dispatch path, matching the existing
-  matrix note and the precedent set for `FlashEcuSubaruHitachiM32rJtag` in
-  wave 1's sequencing table.
+  protocol's own `<mode>` being `BDM`; **correction to an earlier draft of
+  this spec: it is reachable**, not unreachable — `protocols.cfg` line 1144
+  lists it in a car model's `<protocol>` set, so a real user selection can
+  hit this exact quirk (a BDM-mode part flashed as a `wrx02`-shaped K-Line
+  session). Preserved as-is, matching the existing matrix note; distinct
+  from `FlashEcuSubaruHitachiM32rJtag`'s wave-1 unreachable case, which does
+  not apply here.
+- `sub_ecu_denso_mc68hc16y5_02_bdm` is a **different, already-dispatched
+  legacy family** (`FlashEcuSubaruDensoMC68HC16Y5_02_BDM`, checked before the
+  bare `_02` prefix in `mainwindow.cpp`'s current dispatch chain) and stays
+  fully out of scope. Because `sub_ecu_denso_mc68hc16y5_02_bdm` textually
+  starts with the bare `sub_ecu_denso_mc68hc16y5_02` string, the portable
+  routing table must not register a plain `sub_ecu_denso_mc68hc16y5_02`
+  prefix without also explicitly reserving `_02_bdm` ahead of it — a plain
+  prefix registration would silently swallow BDM traffic into this family.
+  The implementation plan spells out the exact routing-table fix.
 
 **`FlashEcuSubaruDensoSH7055_02`** serves `sub_ecu_denso_sh7055_02` and
 `_02_ecutek` (alias `fxt02`; read/test_write/write = yes/yes/yes for both).
