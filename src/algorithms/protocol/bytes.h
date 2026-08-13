@@ -232,7 +232,11 @@ inline void writeU32Le(MutableByteView out, std::size_t offset, std::uint32_t va
     out[offset + 3] = static_cast<Byte>((value >> 24) & 0xFF);
 }
 
-inline Byte sum8(ByteView bytes, std::size_t from, std::size_t len)
+// Sums `len` bytes starting at `from`, clamping `len` to what is available.
+// Named distinctly from sum8(ByteView) so that sum8 remains a single
+// function and can therefore be passed as a callable (see
+// composeBeWithChecksum in bytes_compose.h).
+inline Byte sum8Range(ByteView bytes, std::size_t from, std::size_t len)
 {
     if (from >= bytes.size())
     {
@@ -245,7 +249,7 @@ inline Byte sum8(ByteView bytes, std::size_t from, std::size_t len)
 
 inline Byte sum8(ByteView bytes)
 {
-    return sum8(bytes, 0, bytes.size());
+    return sum8Range(bytes, 0, bytes.size());
 }
 
 // Renders each byte as two lowercase hex digits followed by a space

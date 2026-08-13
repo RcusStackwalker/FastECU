@@ -7,7 +7,7 @@ namespace mutdma
 
 bytes::Byte sum8(bytes::ByteView bytes, std::size_t from, std::size_t len)
 {
-    return bytes::sum8(bytes, from, len);
+    return bytes::sum8Range(bytes, from, len);
 }
 
 bytes::Byte sum8(bytes::ByteView bytes)
