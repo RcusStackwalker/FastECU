@@ -31,6 +31,45 @@ class TestDesktopKlineFlashTransport : public QObject
 
   private slots:
 
+    void postKernelUploadDelayCapabilityMirrorsOpenPort2OnUnix()
+    {
+        FakeBackend *fake = nullptr;
+        auto serial = std::make_unique<SerialPortActions>(
+            "", "", nullptr, nullptr,
+            [&fake]() -> SerialBackend *
+            { fake = new FakeBackend(); return fake; });
+        serial->set_add_ssm_header(false);
+        SerialPortActions *serial_ptr = serial.get();
+        DesktopKlineFlashTransport transport(std::move(serial));
+
+        QVERIFY(!transport.requires_post_kernel_upload_delay());
+        QVERIFY(serial_ptr->set_use_openport2_adapter(true));
+#if defined(Q_OS_UNIX)
+        QVERIFY(transport.requires_post_kernel_upload_delay());
+#else
+        QVERIFY(!transport.requires_post_kernel_upload_delay());
+#endif
+    }
+
+    void lecControlOperationsForwardToSerialBackend()
+    {
+        FakeBackend *fake = nullptr;
+        auto serial = std::make_unique<SerialPortActions>(
+            "", "", nullptr, nullptr,
+            [&fake]() -> SerialBackend *
+            { fake = new FakeBackend(); return fake; });
+        serial->set_add_ssm_header(false);
+        fake->takeCallLog();
+
+        DesktopKlineFlashTransport transport(std::move(serial));
+
+        QVERIFY(transport.disable_lec_lines().has_value());
+        QVERIFY(transport.pulse_lec_2_line(200).has_value());
+        QVERIFY(transport.enable_programming_voltage_line().has_value());
+        QCOMPARE(fake->takeCallLog(),
+                 QStringList({"lec:set:1:1", "lec:pulse2:200", "lec:set:0:1"}));
+    }
+
     void configureChecksEveryBooleanSetterInOrderAndStopsAtFirstFailure()
     {
         FakeBackend *fake = nullptr;
@@ -441,6 +480,18 @@ class TestDesktopKlineFlashTransport : public QObject
         const auto headerResult = transport.set_add_iso14230_header(true);
         QVERIFY(!headerResult.has_value());
         QCOMPARE(headerResult.error().kind, ErrorKind::Disconnected);
+
+        const auto disableLecResult = transport.disable_lec_lines();
+        QVERIFY(!disableLecResult.has_value());
+        QCOMPARE(disableLecResult.error().kind, ErrorKind::Disconnected);
+
+        const auto pulseLecResult = transport.pulse_lec_2_line(200);
+        QVERIFY(!pulseLecResult.has_value());
+        QCOMPARE(pulseLecResult.error().kind, ErrorKind::Disconnected);
+
+        const auto programmingLineResult = transport.enable_programming_voltage_line();
+        QVERIFY(!programmingLineResult.has_value());
+        QCOMPARE(programmingLineResult.error().kind, ErrorKind::Disconnected);
     }
 
     // set_add_iso14230_header() forwards straight to

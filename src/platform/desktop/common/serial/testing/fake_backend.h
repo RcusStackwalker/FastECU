@@ -84,6 +84,8 @@ class FakeBackend : public SerialPortActionsDirect
     bool canDestinationAddressResult = true;
     bool iso15765SourceAddressResult = true;
     bool iso15765DestinationAddressResult = true;
+    int lecLinesResult = STATUS_SUCCESS;
+    int lec2PulseResult = STATUS_SUCCESS;
 
     bool set_is_iso14230_connection(bool value) override
     {
@@ -144,6 +146,16 @@ class FakeBackend : public SerialPortActionsDirect
         log(QString("cfg:set_iso15765_destination_address:%1").arg(value));
         SerialPortActionsDirect::set_iso15765_destination_address(value);
         return iso15765DestinationAddressResult;
+    }
+    int set_lec_lines(int lec1, int lec2) override
+    {
+        log(QString("lec:set:%1:%2").arg(lec1).arg(lec2));
+        return lecLinesResult;
+    }
+    int pulse_lec_2_line(int timeout) override
+    {
+        log(QString("lec:pulse2:%1").arg(timeout));
+        return lec2PulseResult;
     }
 
     // open_serial_port() success/failure control (step 5c, Task 12): the

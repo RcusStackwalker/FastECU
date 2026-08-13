@@ -83,5 +83,25 @@ TEST(FlashTypesTest, FamilyRequiresKernelDefaultsTrueForExistingFamilies)
     EXPECT_TRUE(family_requires_kernel_v<DensoSh705xEepromCanPlan>);
 }
 
+TEST(FlashTypes, Wave2FamilyPlansConstructAndHoldValues)
+{
+    SubaruDensoMc68hc16y5_02Plan mc68{
+        .connect_baud = 9600,
+        .kernel_baud = 11700,
+        .encryption_xor = 0x51,
+        .kernel_magic = 0x3940,
+        .bootloader_ok = {0x4C, 0x00, 0xB4},
+    };
+    FamilyPlan mc68_variant = mc68;
+    EXPECT_EQ(std::get<SubaruDensoMc68hc16y5_02Plan>(mc68_variant).kernel_baud, 11700);
+
+    SubaruDensoSh7055_02Plan sh7055{.tester_id = 0xf0, .target_id = 0x10, .read_ecu_id = true};
+    FamilyPlan sh7055_variant = sh7055;
+    EXPECT_TRUE(std::get<SubaruDensoSh7055_02Plan>(sh7055_variant).read_ecu_id);
+
+    EXPECT_TRUE(family_requires_kernel_v<SubaruDensoMc68hc16y5_02Plan>);
+    EXPECT_TRUE(family_requires_kernel_v<SubaruDensoSh7055_02Plan>);
+}
+
 } // namespace
 } // namespace fastecu::flash
