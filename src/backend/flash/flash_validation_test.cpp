@@ -177,6 +177,23 @@ TEST(FlashValidationTest, FamilyPlanTagMismatchWithTransportIsRejected)
     EXPECT_EQ(validate_and_build(std::move(fields)).error().kind, ErrorKind::InvalidConfig);
 }
 
+TEST(FlashValidationTest, Sh7055_02KlinePlanIsAccepted)
+{
+    auto fields = valid_read_fields();
+    fields.family = FlashFamily::SubaruDensoSh7055_02;
+    fields.target_id = "sub_ecu_denso_sh7055_02";
+    fields.family_plan = SubaruDensoSh7055_02Plan{
+        .tester_id = 0xf0,
+        .target_id = 0x10,
+        .read_ecu_id = true,
+    };
+
+    auto plan = validate_and_build(std::move(fields));
+
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    EXPECT_EQ(plan->family(), FlashFamily::SubaruDensoSh7055_02);
+}
+
 TEST(FlashValidationTest, DuplicateConfirmationIdsAreRejected)
 {
     auto fields = valid_read_fields();
