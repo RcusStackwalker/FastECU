@@ -21,6 +21,9 @@ class SubaruDensoSh7055_02Executor final : public IFlashExecutor
     Status upload_kernel(IKlineFlashTransport& transport, IClock& clock,
                          const ICancellationToken& cancellation, IEventSink& events,
                          const KernelImage& kernel);
+    Result<bytes::Bytes> read_mem(IKlineFlashTransport& transport, IClock& clock,
+                                  const ICancellationToken& cancellation, IEventSink& events,
+                                  const MemoryRegion& region);
 };
 
 } // namespace fastecu::flash

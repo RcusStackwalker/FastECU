@@ -13,7 +13,10 @@ namespace
 
 constexpr std::uint16_t kStartComm = 0xBEEF;
 constexpr std::uint8_t kOpId = 0x01;
+constexpr std::uint8_t kOpReadArea = 0x03;
 constexpr std::uint8_t kOpUploadKernel = 0x53;
+// Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:372-377.
+constexpr std::uint32_t kReadPageSize = 0x400;
 
 Status check_cancelled(const ICancellationToken& cancellation, std::string detail)
 {
@@ -41,7 +44,7 @@ bytes::Bytes frame(std::uint8_t opcode, bytes::ByteView payload = {})
 
 bool response_ok(bytes::ByteView received, std::uint8_t expected_opcode)
 {
-    return received.size() > 4 && received[0] == 0xBE && received[1] == 0xEF &&
+    return received.size() > 5 && received[0] == 0xBE && received[1] == 0xEF &&
            received[4] == expected_opcode;
 }
 
@@ -412,6 +415,70 @@ Status SubaruDensoSh7055_02Executor::upload_kernel(
     return {};
 }
 
+Result<bytes::Bytes> SubaruDensoSh7055_02Executor::read_mem(
+    IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+    IEventSink& events, const MemoryRegion& region)
+{
+    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:360-455:
+    // request consecutive 0x400-byte pages with SUB_KERNEL_READ_AREA, remove
+    // the five-byte response envelope and its trailing checksum, then retain
+    // the received bytes. SH7055_02 has no rblocks skip branch in this path.
+    bytes::Bytes mapdata;
+    std::uint32_t address = region.start;
+    std::uint32_t remaining_pages = (region.length + kReadPageSize - 1) / kReadPageSize;
+    events.progress(0, static_cast<int>(region.length));
+
+    while (remaining_pages > 0)
+    {
+        if (Status cancelled = check_cancelled(cancellation, "cancelled during read");
+            !cancelled.has_value())
+        {
+            return std::unexpected(cancelled.error());
+        }
+        const bytes::Bytes payload{
+            0x00,
+            static_cast<bytes::Byte>((address >> 16) & 0xFF),
+            static_cast<bytes::Byte>((address >> 8) & 0xFF),
+            static_cast<bytes::Byte>(address & 0xFF),
+            static_cast<bytes::Byte>((kReadPageSize >> 8) & 0xFF),
+            static_cast<bytes::Byte>(kReadPageSize & 0xFF),
+        };
+        // Legacy lines 415-421 settle for 10ms and use serial_read_extra_long_timeout (3000ms).
+        Result<IKlineFlashTransport::OptionalBytes> response =
+            exchange(transport, &clock, cancellation, frame(kOpReadArea, payload), 10, 3000);
+        if (!response.has_value())
+        {
+            return std::unexpected(response.error());
+        }
+        // Legacy lines 423-437 only accept the BEEF / 0x43 response envelope
+        // before removing its fixed header and final checksum. Its fixed page
+        // request (lines 415-416) requires a full 0x400-byte payload; reject
+        // short replies rather than returning a silently truncated ROM.
+        if (!response->has_value() ||
+            !response_ok(**response, static_cast<bytes::Byte>(kOpReadArea | 0x40)) ||
+            (**response).size() != kReadPageSize + 6)
+        {
+            return fail(ErrorKind::BadResponse, "Wrong response from ECU during read");
+        }
+        const bytes::Bytes& received = **response;
+        mapdata.insert(mapdata.end(), received.begin() + 5, received.end() - 1);
+        address += kReadPageSize;
+        --remaining_pages;
+        events.progress(static_cast<int>(mapdata.size()), static_cast<int>(region.length));
+        // Legacy line 466 paces successive requests by 1ms.
+        if (Status slept = clock.sleep(1, cancellation); !slept.has_value())
+        {
+            return std::unexpected(slept.error());
+        }
+    }
+    if (mapdata.size() > region.length)
+    {
+        mapdata.resize(region.length);
+    }
+    events.progress(static_cast<int>(region.length), static_cast<int>(region.length));
+    return mapdata;
+}
+
 Result<FlashExecutionResult> SubaruDensoSh7055_02Executor::execute(
     const FlashPlan& plan, IFlashTransport& transport, IClock& clock,
     const ICancellationToken& cancellation, IEventSink& events)
@@ -515,12 +582,20 @@ Result<FlashExecutionResult> SubaruDensoSh7055_02Executor::execute(
             }
         }
 
-        // Task 8 adds read_mem and returns ecu_id as FlashExecutionResult::rom_id;
+        if (plan.operation() == FlashOperation::Read)
+        {
+            Result<bytes::Bytes> read =
+                read_mem(kline, clock, cancellation, events, plan.transfer_region());
+            if (!read.has_value())
+            {
+                return std::unexpected(read.error());
+            }
+            return FlashExecutionResult{
+                .operation = plan.operation(), .read_bytes = std::move(*read), .rom_id = ecu_id};
+        }
+
         // Task 9 adds write_mem. Connect/upload have completed at this boundary.
-        return fail(ErrorKind::Unsupported,
-                    plan.operation() == FlashOperation::Read
-                        ? "SH7055_02 read phase not yet implemented"
-                        : "SH7055_02 write phase not yet implemented");
+        return fail(ErrorKind::Unsupported, "SH7055_02 write phase not yet implemented");
     }();
 
     // Close is unconditional and intentionally ignores cancellation so a

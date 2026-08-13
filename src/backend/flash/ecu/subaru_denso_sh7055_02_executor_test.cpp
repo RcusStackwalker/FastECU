@@ -29,6 +29,23 @@ class NeverCancelled final : public ICancellationToken
     }
 };
 
+class ToggleCancellation final : public ICancellationToken
+{
+  public:
+    bool cancelled() const override
+    {
+        return cancelled_;
+    }
+
+    void cancel()
+    {
+        cancelled_ = true;
+    }
+
+  private:
+    bool cancelled_ = false;
+};
+
 class FlipAfter final : public ICancellationToken
 {
   public:
@@ -137,6 +154,23 @@ bytes::Bytes exact_upload_request()
             0x64, 0x67, 0x66, 0x61, 0x60, 0x65, 0x65, 0x65, 0xDF};
 }
 
+void script_read_page(ScriptedKlineFlashTransport& transport, std::uint32_t address,
+                      bytes::Byte fill, std::uint8_t response_opcode = 0x43)
+{
+    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:360-430:
+    // SUB_KERNEL_READ_AREA uses a zero byte plus the 24-bit address and a
+    // fixed 0x400-byte page request. The reply carries the 0x43 acknowledgment.
+    transport.expectWrite(framed(0x03, bytes::Bytes{
+                                           0x00,
+                                           static_cast<bytes::Byte>((address >> 16) & 0xFF),
+                                           static_cast<bytes::Byte>((address >> 8) & 0xFF),
+                                           static_cast<bytes::Byte>(address & 0xFF),
+                                           0x04,
+                                           0x00,
+                                       }));
+    transport.queueRead(framed(response_opcode, bytes::Bytes(0x400, fill)));
+}
+
 void script_failed_probe(ScriptedKlineFlashTransport& transport)
 {
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:108-131 and 1169-1198.
@@ -180,6 +214,29 @@ void script_upload(ScriptedKlineFlashTransport& transport)
     transport.queueRead(framed(0x41, bytes::Bytes{'K', 'I', 'D'}));
 }
 
+class CancelAfterFirstPageClock final : public FakeClock
+{
+  public:
+    explicit CancelAfterFirstPageClock(ToggleCancellation& cancellation) : cancellation_(cancellation)
+    {
+    }
+
+    Status sleep(int ms, const ICancellationToken& cancellation) override
+    {
+        Status result = FakeClock::sleep(ms, cancellation);
+        if (result.has_value() && ms == 1 && !cancelled_after_page_)
+        {
+            cancelled_after_page_ = true;
+            cancellation_.cancel();
+        }
+        return result;
+    }
+
+  private:
+    ToggleCancellation& cancellation_;
+    bool cancelled_after_page_ = false;
+};
+
 bool has_log(const RecordingEventSink& events, std::string_view message)
 {
     return std::ranges::any_of(events.logs, [message](const auto& entry)
@@ -188,7 +245,7 @@ bool has_log(const RecordingEventSink& events, std::string_view message)
 
 TEST(SubaruDensoSh7055_02Executor, KernelAlreadyAliveSkipsWrxInitEcuIdAndUpload)
 {
-    auto plan = read_plan();
+    auto plan = write_plan();
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     ScriptedKlineFlashTransport transport;
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:69-70.
@@ -239,7 +296,7 @@ TEST(SubaruDensoSh7055_02Executor, RejectsMissingConfirmationAndMalformedFamilyB
     }
 }
 
-TEST(SubaruDensoSh7055_02Executor, ReadPathExtractsEcuIdAndUploadsExactKernelEnvelope)
+TEST(SubaruDensoSh7055_02Executor, ReadSurfacesEcuIdInResult)
 {
     auto plan = read_plan();
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
@@ -247,6 +304,13 @@ TEST(SubaruDensoSh7055_02Executor, ReadPathExtractsEcuIdAndUploadsExactKernelEnv
     script_wrx_preamble(transport, true);
     script_first_wrx_attempt_connects(transport);
     script_upload(transport);
+    const int device_index = find_flash_device_index("SH7055");
+    ASSERT_GE(device_index, 0);
+    const auto& device = flashdevices[device_index];
+    for (std::uint32_t offset = 0; offset < device.romsize; offset += 0x400)
+    {
+        script_read_page(transport, device.fblocks[0].start + offset, 0x5A);
+    }
 
     RecordingClock clock;
     NeverCancelled cancellation;
@@ -254,8 +318,8 @@ TEST(SubaruDensoSh7055_02Executor, ReadPathExtractsEcuIdAndUploadsExactKernelEnv
     SubaruDensoSh7055_02Executor executor;
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Unsupported);
+    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    EXPECT_EQ(result->rom_id, std::optional<std::string>{"4142434445"});
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_TRUE(has_log(events, "ECU ID: 4142434445"));
     EXPECT_EQ(transport.baud_calls_, (std::vector<int>{4800, 9600, 62500}));
@@ -266,10 +330,122 @@ TEST(SubaruDensoSh7055_02Executor, ReadPathExtractsEcuIdAndUploadsExactKernelEnv
                   ScriptedKlineFlashTransport::ControlLineAction::PulseLec2,
               }));
     EXPECT_EQ(transport.lec_2_pulse_timeouts_, (std::vector<int>{200}));
-    EXPECT_EQ(clock.sleep_calls,
-              (std::vector<int>{200, 1000, 1000, 1000, 250, 190, 100, 100, 200}));
-    EXPECT_EQ(transport.read_timeouts_,
-              (std::vector<int>{10, 2000, 2000, 10, 10, 10, 10, 200, 2000}));
+    std::vector<int> expected_sleeps{200, 1000, 1000, 1000, 250, 190, 100, 100, 200};
+    std::vector<int> expected_timeouts{10, 2000, 2000, 10, 10, 10, 10, 200, 2000};
+    for (std::uint32_t offset = 0; offset < device.romsize; offset += 0x400)
+    {
+        expected_sleeps.insert(expected_sleeps.end(), {10, 1});
+        expected_timeouts.push_back(3000);
+    }
+    EXPECT_EQ(clock.sleep_calls, expected_sleeps);
+    EXPECT_EQ(transport.read_timeouts_, expected_timeouts);
+    EXPECT_EQ(transport.close_call_count_, 1);
+}
+
+TEST(SubaruDensoSh7055_02Executor, ReadReturnsAssembledPageBytes)
+{
+    auto plan = read_plan();
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ScriptedKlineFlashTransport transport;
+    script_wrx_preamble(transport, true);
+    script_first_wrx_attempt_connects(transport);
+    script_upload(transport);
+    const int device_index = find_flash_device_index("SH7055");
+    ASSERT_GE(device_index, 0);
+    const auto& device = flashdevices[device_index];
+
+    bytes::Bytes expected;
+    for (std::uint32_t offset = 0; offset < device.romsize; offset += 0x400)
+    {
+        const bytes::Byte fill = static_cast<bytes::Byte>(offset / 0x400);
+        script_read_page(transport, device.fblocks[0].start + offset, fill);
+        expected.insert(expected.end(), 0x400, fill);
+    }
+
+    FakeClock clock;
+    NeverCancelled cancellation;
+    RecordingEventSink events;
+    SubaruDensoSh7055_02Executor executor;
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_TRUE(result->read_bytes.has_value());
+    EXPECT_EQ(*result->read_bytes, expected);
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.close_call_count_, 1);
+}
+
+TEST(SubaruDensoSh7055_02Executor, ReadRejectsMalformedPageResponse)
+{
+    auto plan = read_plan();
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ScriptedKlineFlashTransport transport;
+    script_wrx_preamble(transport, true);
+    script_first_wrx_attempt_connects(transport);
+    script_upload(transport);
+    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:423-437:
+    // the 0x43 acknowledgment is required before stripping the frame envelope.
+    transport.expectWrite(framed(0x03, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x04, 0x00}));
+    transport.queueRead(framed(0x44, bytes::Bytes(0x400, 0xA5)));
+
+    FakeClock clock;
+    NeverCancelled cancellation;
+    RecordingEventSink events;
+    SubaruDensoSh7055_02Executor executor;
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.close_call_count_, 1);
+}
+
+TEST(SubaruDensoSh7055_02Executor, ReadRejectsTruncatedPageResponse)
+{
+    auto plan = read_plan();
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ScriptedKlineFlashTransport transport;
+    script_wrx_preamble(transport, true);
+    script_first_wrx_attempt_connects(transport);
+    script_upload(transport);
+    // The reply has the valid 0x43 envelope, but its payload is shorter than
+    // the requested 0x400-byte legacy page (lines 415-416), so it must not
+    // yield a silently undersized ROM.
+    transport.expectWrite(framed(0x03, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x04, 0x00}));
+    transport.queueRead(framed(0x43, bytes::Bytes{0xA5}));
+
+    FakeClock clock;
+    NeverCancelled cancellation;
+    RecordingEventSink events;
+    SubaruDensoSh7055_02Executor executor;
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.close_call_count_, 1);
+}
+
+TEST(SubaruDensoSh7055_02Executor, ReadCancelsBetweenPages)
+{
+    auto plan = read_plan();
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ScriptedKlineFlashTransport transport;
+    script_wrx_preamble(transport, true);
+    script_first_wrx_attempt_connects(transport);
+    script_upload(transport);
+    script_read_page(transport, 0x00000000, 0xA5);
+
+    ToggleCancellation cancellation;
+    CancelAfterFirstPageClock clock(cancellation);
+    RecordingEventSink events;
+    SubaruDensoSh7055_02Executor executor;
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.writesConsumed(), 6u); // probe + SID BF + WRX + upload + kernel ID + first read
     EXPECT_EQ(transport.close_call_count_, 1);
 }
 
@@ -285,6 +461,13 @@ TEST(SubaruDensoSh7055_02Executor, NoFrameWrxReplyRetriesUntilExactResponse)
     transport.queue_no_frame();
     script_first_wrx_attempt_connects(transport);
     script_upload(transport);
+    const int device_index = find_flash_device_index("SH7055");
+    ASSERT_GE(device_index, 0);
+    const auto& device = flashdevices[device_index];
+    for (std::uint32_t offset = 0; offset < device.romsize; offset += 0x400)
+    {
+        script_read_page(transport, device.fblocks[0].start + offset, 0x5A);
+    }
 
     FakeClock clock;
     NeverCancelled cancellation;
@@ -292,10 +475,9 @@ TEST(SubaruDensoSh7055_02Executor, NoFrameWrxReplyRetriesUntilExactResponse)
     SubaruDensoSh7055_02Executor executor;
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Unsupported);
+    ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.writesConsumed(), 6u); // probe + SID BF + two WRX + upload + kernel ID
+    EXPECT_EQ(transport.writesConsumed(), 518u); // probe + SID BF + two WRX + upload + kernel ID + 512 reads
 }
 
 TEST(SubaruDensoSh7055_02Executor, WritePathSkipsEcuIdRead)
