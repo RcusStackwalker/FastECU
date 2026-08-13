@@ -124,7 +124,7 @@ Result<IKlineFlashTransport::OptionalBytes> exchange(
 Status drain(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
              int timeout_ms, std::string detail)
 {
-    if (Status cancelled = check_cancelled(cancellation, "cancelled before " + detail);
+    if (Status cancelled = check_cancelled(cancellation, std::format("cancelled before {}", detail));
         !cancelled.has_value())
     {
         return cancelled;
@@ -134,7 +134,7 @@ Status drain(IKlineFlashTransport& transport, const ICancellationToken& cancella
     {
         return std::unexpected(drained.error());
     }
-    return check_cancelled(cancellation, "cancelled after " + detail);
+    return check_cancelled(cancellation, std::format("cancelled after {}", detail))
 }
 
 // Kernel-ID exchange. Legacy
@@ -269,7 +269,7 @@ Status SubaruDensoSh7055_02Executor::connect_bootloader(
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:188-196 and 1300-1314.
     for (int seconds_left = 3; seconds_left > 0; --seconds_left)
     {
-        events.log(LogLevel::Info, "Starting in " + std::to_string(seconds_left));
+        events.log(LogLevel::Info, std::format("Starting in {}", seconds_left));
         if (Status slept = clock.sleep(1000, cancellation); !slept.has_value())
         {
             return slept;
@@ -1069,10 +1069,10 @@ Result<FlashExecutionResult> SubaruDensoSh7055_02Executor::execute(
         {
             return fail(ErrorKind::InvalidConfig, "SH7055_02 write requires a ROM image");
         }
-        Status written = write_mem(kline, clock, cancellation, events, *plan.image(),
-                                   plan.mcu_name(),
-                                   plan.operation() == FlashOperation::TestWrite);
-        if (!written.has_value())
+        if (Status written = write_mem(kline, clock, cancellation, events, *plan.image(),
+                                       plan.mcu_name(),
+                                       plan.operation() == FlashOperation::TestWrite);
+            !written.has_value())
         {
             return std::unexpected(written.error());
         }
