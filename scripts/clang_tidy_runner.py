@@ -165,6 +165,25 @@ def _run(command_runner: CommandRunner, command: list[str], workspace: Path) -> 
     return result.returncode
 
 
+def _run_quiet(
+    command_runner: CommandRunner,
+    command: list[str],
+    workspace: Path,
+) -> subprocess.CompletedProcess[str]:
+    """Run a command, capturing combined output instead of streaming it live."""
+    try:
+        return command_runner(
+            command,
+            cwd=workspace,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+    except OSError as error:
+        raise WorkflowError(f"could not execute {command[0]}: {error}") from error
+
+
 _WINDOWS_EXECUTABLE_SUFFIXES = frozenset((".exe", ".bat", ".cmd", ".com"))
 
 
@@ -412,10 +431,12 @@ def _prebuild(command_runner: CommandRunner, build_args: Sequence[str], workspac
     if not build_args:
         return
     print("Building analyzed targets so generated headers exist before analysis.")
-    code = _run(command_runner, ["bazel", "build", "--keep_going", *build_args], workspace)
-    if code:
+    result = _run_quiet(command_runner, ["bazel", "build", "--keep_going", *build_args], workspace)
+    if result.returncode:
+        if result.stdout:
+            print(result.stdout, end="")
         print(
-            f"clang-tidy: warning: prebuild exited with code {code}; "
+            f"clang-tidy: warning: prebuild exited with code {result.returncode}; "
             "some generated headers may be stale or missing.",
             file=sys.stderr,
         )
@@ -430,9 +451,11 @@ def _post_fix_build(
     if not build_args:
         return
     print("Building analyzed targets after applying clang-tidy fixes.")
-    code = _run(command_runner, ["bazel", "build", *build_args], workspace)
-    if code:
-        raise WorkflowError(f"post-fix Bazel build failed with exit code {code}")
+    result = _run_quiet(command_runner, ["bazel", "build", *build_args], workspace)
+    if result.returncode:
+        if result.stdout:
+            print(result.stdout, end="")
+        raise WorkflowError(f"post-fix Bazel build failed with exit code {result.returncode}")
 
 
 def run_workflow(

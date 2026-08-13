@@ -805,6 +805,98 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 build_args=[_CONFIG_RELEASE, "//..."],
             )
 
+    def test_prebuild_success_output_is_suppressed(self) -> None:
+        commands, fake_run = self.prebuild_fixture()
+
+        def noisy_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            result = fake_run(command, **kwargs)
+            if command[:2] == ["bazel", "build"]:
+                return subprocess.CompletedProcess(
+                    command, result.returncode, stdout="noisy build log\n"
+                )
+            return result
+
+        with mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS):
+            output = StringIO()
+            with redirect_stdout(output):
+                runner.run_workflow(
+                    mode="report",
+                    workspace=self.root,
+                    compdb_tool=_UNIX_COMPDB_TOOL,
+                    platform_name="darwin",
+                    environ={},
+                    command_runner=noisy_run,
+                    build_args=[_CONFIG_RELEASE, _FASTECU_TARGET],
+                )
+
+        self.assertNotIn("noisy build log", output.getvalue())
+
+    def test_prebuild_failure_output_is_surfaced(self) -> None:
+        commands, fake_run = self.prebuild_fixture(bazel_build_returncode=3)
+
+        def noisy_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            result = fake_run(command, **kwargs)
+            if command[:2] == ["bazel", "build"]:
+                return subprocess.CompletedProcess(
+                    command, result.returncode, stdout="prebuild trouble\n"
+                )
+            return result
+
+        with mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS):
+            output = StringIO()
+            with redirect_stdout(output):
+                runner.run_workflow(
+                    mode="report",
+                    workspace=self.root,
+                    compdb_tool=_UNIX_COMPDB_TOOL,
+                    platform_name="darwin",
+                    environ={},
+                    command_runner=noisy_run,
+                    build_args=[_FASTECU_TARGET],
+                )
+
+        self.assertIn("prebuild trouble", output.getvalue())
+
+    def test_post_fix_build_failure_output_is_surfaced(self) -> None:
+        source = self.root / _MAIN_CPP
+        source.write_text("int main() { return 0; }\n")
+        self.write_database([source])
+        build_count = 0
+        tools = runner.Tools(
+            clang_tidy="/llvm/bin/clang-tidy",
+            run_clang_tidy="/llvm/bin/run-clang-tidy",
+            clang_apply_replacements="/llvm/bin/clang-apply-replacements",
+        )
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            nonlocal build_count
+            if command == ["xcrun", "--show-sdk-path"]:
+                return subprocess.CompletedProcess(command, 0, stdout="/SDK/MacOSX.sdk\n")
+            if command[:2] == ["bazel", "build"]:
+                build_count += 1
+                if build_count == 2:
+                    return subprocess.CompletedProcess(command, 9, stdout="post-fix build broke\n")
+                return subprocess.CompletedProcess(command, 0)
+            return subprocess.CompletedProcess(command, 0)
+
+        with mock.patch.object(runner, "discover_tools", return_value=tools):
+            output = StringIO()
+            with (
+                redirect_stdout(output),
+                self.assertRaisesRegex(runner.WorkflowError, "post-fix Bazel build failed.*9"),
+            ):
+                runner.run_workflow(
+                    mode="fix",
+                    workspace=self.root,
+                    compdb_tool=_UNIX_COMPDB_TOOL,
+                    platform_name="darwin",
+                    environ={},
+                    command_runner=fake_run,
+                    build_args=[_CONFIG_RELEASE, "//..."],
+                )
+
+        self.assertIn("post-fix build broke", output.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()
