@@ -55,6 +55,10 @@ for the eight-wave sequencing:
 - Wave 0 `FlashEcuMitsuM32rCan` — merged 2026-08-08. Installs
   `//:legacy_flash_drain`, taking it from 27 families to 26; waves 1-7
   ratchet the rest down to zero.
+- Wave 1 `FlashEcuSubaruMitsuM32rKline`, `FlashEcuSubaruHitachiM32rKline` —
+  merged.
+- Wave 2 `FlashEcuSubaruDensoMC68HC16Y5_02`, `FlashEcuSubaruDensoSH7055_02` —
+  merged. Takes the drain from 24 remaining families to 22.
 
 ## Verified Current Baseline
 
@@ -173,7 +177,7 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
    - **Amendment 4:** the checksum correction dialog is now **one aggregated summary** instead of one per family — a deliberate behavior change, bench-checklist item recorded in Task 9 Step 8.
    - Note for step 5's benefit: each `:qt_compat` target is transitional debt whose only remaining callers are backend and UI. Step 5 should drain them and delete the shims.
 
-5. **Make backend workflows portable — 5a through 5e complete; flash-tail Wave 1 now includes both portable Subaru M32R K-Line families, with 24 legacy families remaining**
+5. **Make backend workflows portable — 5a through 5e complete; flash-tail Wave 2 includes both portable Subaru M32R K-Line families and the MC68HC16Y5_02/SH7055_02 pair, with 22 legacy families remaining**
    - Sub-step status and PR numbers are tracked in the Status section above.
    - Define capability-specific ports for byte-stream/K-Line, CAN frames, SSM, file repositories, settings, monotonic clock/delay, cancellation, and event delivery.
    - Backend owns no threads. Platform code runs blocking, bounded, cancellable backend calls on Qt workers or future Kotlin coroutines.
