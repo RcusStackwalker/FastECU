@@ -66,6 +66,14 @@ class DrainCancellingTransport final : public ScriptedKlineFlashTransport
         return ScriptedKlineFlashTransport::read(timeout_ms, cancellation);
     }
 
+    Result<std::size_t> write(bytes::ByteView data) override
+    {
+        write_attempts_.emplace_back(data.begin(), data.end());
+        return ScriptedKlineFlashTransport::write(data);
+    }
+
+    std::vector<bytes::Bytes> write_attempts_;
+
   private:
     ToggleCancellation& cancellation_;
 };
@@ -395,7 +403,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, CancellationAtInitialDrainStopsBeforeBoot
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_TRUE(transport.write_attempts_.empty());
     EXPECT_EQ(transport.read_timeouts_, (std::vector<int>{10}));
     EXPECT_EQ(transport.close_call_count_, 1);
 }
