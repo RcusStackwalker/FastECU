@@ -24,6 +24,15 @@ class SubaruDensoMc68hc16y5_02Executor final : public IFlashExecutor
     Result<bytes::Bytes> read_mem(IKlineFlashTransport& transport, IClock& clock,
                                   const ICancellationToken& cancellation, IEventSink& events,
                                   const MemoryRegion& region);
+    Result<std::uint32_t> read_block_crc(IKlineFlashTransport& transport,
+                                         const ICancellationToken& cancellation,
+                                         const MemoryRegion& block);
+    Status flash_block(IKlineFlashTransport& transport, IClock& clock,
+                       const ICancellationToken& cancellation, IEventSink& events,
+                       bytes::ByteView image, const MemoryRegion& block, bool test_write);
+    Status write_mem(IKlineFlashTransport& transport, IClock& clock,
+                     const ICancellationToken& cancellation, IEventSink& events,
+                     bytes::ByteView image, const std::string& mcu_name, bool test_write);
 };
 
 } // namespace fastecu::flash

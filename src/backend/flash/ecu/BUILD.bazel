@@ -76,6 +76,8 @@ cc_library(
     deps = [
         ":subaru_denso_mc68hc16y5_02_plan",
         "//src/algorithms/checksum",
+        "//src/backend/definitions:models",
+        "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_executor",
         "//src/backend/ports",
     ],
@@ -88,6 +90,8 @@ fastecu_portable_gtest(
         ":subaru_denso_mc68hc16y5_02_executor",
         ":subaru_denso_mc68hc16y5_02_plan",
         "//src/algorithms/checksum",
+        "//src/backend/definitions:models",
+        "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash/eeprom:eeprom_read_plan",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_clock",
