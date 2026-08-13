@@ -64,6 +64,7 @@ PORTABLE_ROOTS = {
         "mitsu_colt_m32r_can_executor",
         "subaru_mitsu_m32r_kline_plan",
         "subaru_mitsu_m32r_kline_executor",
+        "subaru_denso_mc68hc16y5_02_plan",
     },
     ROOT / "src/backend/config": {
         "config_paths",

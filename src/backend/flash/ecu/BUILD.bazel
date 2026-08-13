@@ -56,6 +56,19 @@ cc_library(
 )
 
 cc_library(
+    name = "subaru_denso_mc68hc16y5_02_plan",
+    srcs = ["subaru_denso_mc68hc16y5_02_plan.cpp"],
+    hdrs = ["subaru_denso_mc68hc16y5_02_plan.h"],
+    deps = [
+        "//src/backend/definitions:models",
+        "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/ports",
+    ],
+)
+
+cc_library(
     name = "subaru_mitsu_m32r_kline_executor",
     srcs = ["subaru_mitsu_m32r_kline_executor.cpp"],
     hdrs = ["subaru_mitsu_m32r_kline_executor.h"],
@@ -132,6 +145,16 @@ fastecu_portable_gtest(
     name = "subaru_mitsu_m32r_kline_plan_test",
     srcs = ["subaru_mitsu_m32r_kline_plan_test.cpp"],
     deps = [":subaru_mitsu_m32r_kline_plan"],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_denso_mc68hc16y5_02_plan_test",
+    srcs = ["subaru_denso_mc68hc16y5_02_plan_test.cpp"],
+    deps = [
+        ":subaru_denso_mc68hc16y5_02_plan",
+        "//src/backend/definitions:models",
+        "//src/backend/flash:flash_device_lookup",
+    ],
 )
 
 fastecu_portable_gtest(
