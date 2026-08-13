@@ -106,6 +106,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectsViaWrx02InitAndUploadsPaddedKerne
     auto plan = stock_plan();
     ASSERT_TRUE(plan.has_value());
     ScriptedKlineFlashTransport transport;
+    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:69-70.
+    transport.queue_no_frame();
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:111-146.
     transport.expectWrite(bytes::Bytes{0x4D, 0xFF, 0xB4});
     transport.queueRead(bytes::Bytes{0x4D, 0x00, 0xB3});
@@ -159,7 +161,12 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectsViaWrx02InitAndUploadsPaddedKerne
                   ScriptedKlineFlashTransport::ControlLineAction::DisableLecLines,
                   ScriptedKlineFlashTransport::ControlLineAction::PulseLec2,
               }));
+    EXPECT_EQ(transport.operation_trace_.front(),
+              ScriptedKlineFlashTransport::Operation::DisableLecLines);
+    EXPECT_EQ(transport.operation_trace_.at(1),
+              ScriptedKlineFlashTransport::Operation::Read10);
     EXPECT_EQ(transport.lec_2_pulse_timeouts_, (std::vector<int>{200}));
+    EXPECT_EQ(transport.read_timeouts_, (std::vector<int>{10, 200, 200, 2000}));
     EXPECT_EQ(transport.close_call_count_, 1);
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:111-119,
     // 289-293, and 1139-1162: 200 + 200 + 50 + 1500 + 200 ms.
@@ -171,6 +178,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectFallsBackToKernelAlivePoll)
     auto plan = stock_plan();
     ASSERT_TRUE(plan.has_value());
     ScriptedKlineFlashTransport transport;
+    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:69-70.
+    transport.queueRead(bytes::Bytes{0xDE, 0xAD}); // stale bytes are discarded
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:111-179.
     transport.expectWrite(bytes::Bytes{0x4D, 0xFF, 0xB4});
     transport.queueRead(bytes::Bytes{0x00, 0x00, 0x00});
@@ -194,6 +203,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectFallsBackToKernelAlivePoll)
                   ScriptedKlineFlashTransport::ControlLineAction::DisableLecLines,
               }));
     EXPECT_EQ(transport.close_call_count_, 1);
+    EXPECT_EQ(transport.read_timeouts_, (std::vector<int>{10, 200, 2000}));
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:111-119,
     // 149-155, and 1139-1162: 200 + 200 + 50 + 100 + 200 ms.
     EXPECT_EQ(clock.now_, 750u);
@@ -204,6 +214,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, EcutekUsesItsDistinctBootloaderAndKernelW
     auto plan = ecutek_plan();
     ASSERT_TRUE(plan.has_value());
     ScriptedKlineFlashTransport transport;
+    transport.queue_no_frame(); // legacy operation.cpp:69-70 initial drain
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:115-146.
     transport.expectWrite(bytes::Bytes{0x4D, 0xFF, 0xB4});
     transport.queueRead(bytes::Bytes{0x4C, 0x00, 0xB4});
@@ -255,6 +266,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectFailsWithNoValidResponseAtAll)
     auto plan = stock_plan();
     ASSERT_TRUE(plan.has_value());
     ScriptedKlineFlashTransport transport;
+    transport.queue_no_frame(); // legacy operation.cpp:69-70 initial drain
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:111-179.
     transport.expectWrite(bytes::Bytes{0x4D, 0xFF, 0xB4});
     transport.queueRead(bytes::Bytes{0x00, 0x00, 0x00});
@@ -301,6 +313,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ShortKlineWriteFailsBeforeRead)
     auto plan = stock_plan();
     ASSERT_TRUE(plan.has_value());
     ShortWriteTransport transport;
+    transport.queue_no_frame(); // legacy operation.cpp:69-70 initial drain
     FakeClock clock;
     NeverCancelled cancellation;
     RecordingEventSink events;
@@ -312,11 +325,31 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ShortKlineWriteFailsBeforeRead)
     EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
 }
 
+TEST(SubaruDensoMc68hc16y5_02Executor, InitialDrainTransportErrorStopsBeforeBootloaderTraffic)
+{
+    auto plan = stock_plan();
+    ASSERT_TRUE(plan.has_value());
+    ScriptedKlineFlashTransport transport;
+    transport.queue_error(ErrorKind::Disconnected, "drain failed");
+    FakeClock clock;
+    NeverCancelled cancellation;
+    RecordingEventSink events;
+    SubaruDensoMc68hc16y5_02Executor executor;
+
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
+    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.close_call_count_, 1);
+}
+
 TEST(SubaruDensoMc68hc16y5_02Executor, CloseOnlyFailureIsReturnedAfterSuccessfulPhases)
 {
     auto plan = stock_plan();
     ASSERT_TRUE(plan.has_value());
     ScriptedKlineFlashTransport transport;
+    transport.queue_no_frame(); // legacy operation.cpp:69-70 initial drain
     transport.close_result_ = fail(ErrorKind::Internal, "close failed");
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:111-179.
     transport.expectWrite(bytes::Bytes{0x4D, 0xFF, 0xB4});
@@ -341,6 +374,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, PhaseFailureWinsOverCloseFailureAndLogsCl
     auto plan = stock_plan();
     ASSERT_TRUE(plan.has_value());
     ScriptedKlineFlashTransport transport;
+    transport.queue_no_frame(); // legacy operation.cpp:69-70 initial drain
     transport.close_result_ = fail(ErrorKind::Internal, "close failed");
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:111-179.
     transport.expectWrite(bytes::Bytes{0x4D, 0xFF, 0xB4});

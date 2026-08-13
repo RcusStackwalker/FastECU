@@ -158,6 +158,29 @@ bool looks_kernel_alive(bytes::ByteView received)
     return response_ok(received, static_cast<bytes::Byte>(kOpId | 0x40));
 }
 
+// Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:69-70:
+// discard any stale serial bytes after disabling LEC lines and before the
+// boot-entry sequence. Empty and non-empty reads are both successful drains.
+Status drain_initial_response(IKlineFlashTransport& transport, const ICancellationToken& cancellation)
+{
+    if (Status cancelled = check_cancelled(cancellation, "cancelled before initial drain");
+        !cancelled.has_value())
+    {
+        return cancelled;
+    }
+    auto drained = transport.read(10, cancellation);
+    if (!drained.has_value())
+    {
+        return std::unexpected(drained.error());
+    }
+    if (Status cancelled = check_cancelled(cancellation, "cancelled after initial drain");
+        !cancelled.has_value())
+    {
+        return cancelled;
+    }
+    return {};
+}
+
 } // namespace
 
 Status SubaruDensoMc68hc16y5_02Executor::connect_bootloader(
@@ -428,6 +451,10 @@ Result<FlashExecutionResult> SubaruDensoMc68hc16y5_02Executor::execute(
         {
             return std::unexpected(cancelled.error());
         }
+        if (Status drained = drain_initial_response(kline, cancellation); !drained.has_value())
+        {
+            return std::unexpected(drained.error());
+        }
 
         bool kernel_alive = false;
         if (Status connected = connect_bootloader(kline, clock, cancellation, events, family_plan,
@@ -453,17 +480,21 @@ Result<FlashExecutionResult> SubaruDensoMc68hc16y5_02Executor::execute(
     }();
 
     Status close_status = kline.close();
-    if (!phase_result.has_value() && phase_result.error().kind != ErrorKind::Unsupported)
+    if (phase_result.has_value())
     {
         if (!close_status.has_value())
         {
-            events.log(LogLevel::Warning, "close failed after MC68HC16Y5_02 phase error");
+            return std::unexpected(close_status.error());
         }
-        return std::unexpected(phase_result.error());
+        return std::move(*phase_result);
+    }
+    if (phase_result.error().kind == ErrorKind::Unsupported && !close_status.has_value())
+    {
+        return std::unexpected(close_status.error());
     }
     if (!close_status.has_value())
     {
-        return std::unexpected(close_status.error());
+        events.log(LogLevel::Warning, "close failed after MC68HC16Y5_02 phase error");
     }
     return std::unexpected(phase_result.error());
 }

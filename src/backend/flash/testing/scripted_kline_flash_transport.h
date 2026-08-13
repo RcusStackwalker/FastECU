@@ -24,6 +24,12 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
         DisableLecLines,
         PulseLec2,
     };
+    enum class Operation
+    {
+        DisableLecLines,
+        PulseLec2,
+        Read10,
+    };
 
     void expectWrite(bytes::ByteView b)
     {
@@ -74,11 +80,13 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     Status disable_lec_lines() override
     {
         control_line_trace_.push_back(ControlLineAction::DisableLecLines);
+        operation_trace_.push_back(Operation::DisableLecLines);
         return disable_lec_lines_result_;
     }
     Status pulse_lec_2_line(int timeout_ms) override
     {
         control_line_trace_.push_back(ControlLineAction::PulseLec2);
+        operation_trace_.push_back(Operation::PulseLec2);
         lec_2_pulse_timeouts_.push_back(timeout_ms);
         return pulse_lec_2_line_result_;
     }
@@ -111,8 +119,13 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
         ++wIdx_;
         return data.size();
     }
-    Result<OptionalBytes> read(int, const ICancellationToken& cancellation) override
+    Result<OptionalBytes> read(int timeout_ms, const ICancellationToken& cancellation) override
     {
+        read_timeouts_.push_back(timeout_ms);
+        if (timeout_ms == 10)
+        {
+            operation_trace_.push_back(Operation::Read10);
+        }
         {
             std::unique_lock lock(mutex_);
             if (blocking_read_pending_)
@@ -145,6 +158,8 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     std::optional<KlineConfig> last_config_;
     std::vector<ControlLineAction> control_line_trace_;
     std::vector<int> lec_2_pulse_timeouts_;
+    std::vector<int> read_timeouts_;
+    std::vector<Operation> operation_trace_;
 
     // Records every set_add_iso14230_header() call in order (true == "add
     // header", false == "don't") so tests can assert the exact transitions
