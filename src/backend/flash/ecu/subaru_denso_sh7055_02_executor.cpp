@@ -129,12 +129,11 @@ Status drain(IKlineFlashTransport& transport, const ICancellationToken& cancella
     {
         return cancelled;
     }
-    Result<IKlineFlashTransport::OptionalBytes> drained = transport.read(timeout_ms, cancellation);
-    if (!drained.has_value())
+    if (const auto drained = transport.read(timeout_ms, cancellation); !drained.has_value())
     {
         return std::unexpected(drained.error());
     }
-    return check_cancelled(cancellation, std::format("cancelled after {}", detail))
+    return check_cancelled(cancellation, std::format("cancelled after {}", detail));
 }
 
 // Kernel-ID exchange. Legacy
