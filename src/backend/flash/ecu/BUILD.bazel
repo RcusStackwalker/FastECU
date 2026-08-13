@@ -68,6 +68,34 @@ cc_library(
     ],
 )
 
+# Portable. No Qt, no platform, no filesystem, no thread.
+cc_library(
+    name = "subaru_denso_mc68hc16y5_02_executor",
+    srcs = ["subaru_denso_mc68hc16y5_02_executor.cpp"],
+    hdrs = ["subaru_denso_mc68hc16y5_02_executor.h"],
+    deps = [
+        ":subaru_denso_mc68hc16y5_02_plan",
+        "//src/algorithms/checksum",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_denso_mc68hc16y5_02_executor_test",
+    srcs = ["subaru_denso_mc68hc16y5_02_executor_test.cpp"],
+    deps = [
+        ":subaru_denso_mc68hc16y5_02_executor",
+        ":subaru_denso_mc68hc16y5_02_plan",
+        "//src/algorithms/checksum",
+        "//src/backend/flash/eeprom:eeprom_read_plan",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:in_memory_file_repository",
+        "//src/backend/ports/testing:recording_event_sink",
+    ],
+)
+
 cc_library(
     name = "subaru_mitsu_m32r_kline_executor",
     srcs = ["subaru_mitsu_m32r_kline_executor.cpp"],
