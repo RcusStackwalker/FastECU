@@ -1181,11 +1181,9 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
             }
             return fastecu::flash::FlashOperation::Read;
         }();
-        std::optional<bytes::Bytes> portable_image;
-        if (operation == fastecu::flash::FlashOperation::Write)
-        {
-            portable_image = bytes::fromQByteArray(ecuCalDef[rom_number]->FullRomData);
-        }
+        std::optional<bytes::Bytes> portable_image =
+            fastecu::flash::portableImageForOperation(
+                operation, bytes::view(ecuCalDef[rom_number]->FullRomData));
         auto workflow = fastecu::flash::FlashWorkflowFactory::tryCreate({
             .operation = operation,
             .protocol = configValues->flash_protocol_selected_protocol_name.toStdString(),

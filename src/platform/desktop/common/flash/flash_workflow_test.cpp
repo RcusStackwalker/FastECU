@@ -37,6 +37,10 @@ std::optional<config::ConfigPaths> catalogPaths(const QTemporaryDir& directory,
       <ecu>Denso MC68HC16Y5</ecu><mcu>MC68HC16Y5</mcu>
       <kernel>catalog_mc68.bin</kernel><kernel_addr>0x20000</kernel_addr>
     </protocol>
+    <protocol name="sub_ecu_denso_mc68hc16y5_02_tpu" alias="wrx02-tpu">
+      <ecu>Denso MC68HC16Y5</ecu><mcu>MC68HC16Y5_TPU</mcu>
+      <kernel>catalog_tpu.bin</kernel><kernel_addr>0x20020</kernel_addr>
+    </protocol>
     <protocol name="sub_ecu_denso_sh7055_02" alias="fxt02">
       <ecu>Denso SH7055</ecu><mcu>SH7055</mcu>
       <kernel>catalog_sh7055.bin</kernel><kernel_addr>0xFFFF6010</kernel_addr>
@@ -45,6 +49,8 @@ std::optional<config::ConfigPaths> catalogPaths(const QTemporaryDir& directory,
   <car_models>
     <car_model><make>Subaru</make><model>Impreza</model><version>WRX</version>
       <protocol>sub_ecu_denso_mc68hc16y5_02</protocol></car_model>
+    <car_model><make>Subaru</make><model>Impreza</model><version>WRX TPU</version>
+      <protocol>sub_ecu_denso_mc68hc16y5_02_tpu</protocol></car_model>
     <car_model><make>Subaru</make><model>Forester</model><version>XT</version>
       <protocol>sub_ecu_denso_sh7055_02</protocol></car_model>
   </car_models>
@@ -59,6 +65,7 @@ std::optional<config::ConfigPaths> catalogPaths(const QTemporaryDir& directory,
     if (include_kernel_files)
     {
         if (!writeFile(kernel_directory + "/catalog_mc68.bin", QByteArray::fromHex("112233")) ||
+            !writeFile(kernel_directory + "/catalog_tpu.bin", QByteArray::fromHex("445566")) ||
             !writeFile(kernel_directory + "/catalog_sh7055.bin", QByteArray::fromHex("aabbccdd")))
         {
             return std::nullopt;
@@ -88,6 +95,10 @@ class FlashWorkflowTest : public QObject
     void mc68ResolvesKernelThroughCatalogBeforePromptAndAttempt();
     void missingCatalogKernelFailsBeforePrompt();
     void sh7055IteratesConfirmationsAndPropagatesAttemptResult();
+    void portableImageCopiesRomForEveryNonReadOperation();
+    void mc68TestWriteWithPortableImageReachesAttempt();
+    void sh7055TestWriteWithPortableImageReachesPromptsAndAttempt();
+    void mc68TpuReadResolvesCatalogAndReachesAttempt();
 };
 
 void FlashWorkflowTest::recognizesEveryPortableFamilyPrefixAndLeavesLegacyAlone()
@@ -307,6 +318,75 @@ void FlashWorkflowTest::sh7055IteratesConfirmationsAndPropagatesAttemptResult()
     QCOMPARE(done.outcome, FlashWorkflowOutcome::Succeeded);
     QCOMPARE(done.accepted_read_bytes, bytes::Bytes({0x5a}));
     QCOMPARE(done.rom_id, std::string("123456789A_"));
+}
+
+void FlashWorkflowTest::portableImageCopiesRomForEveryNonReadOperation()
+{
+    const bytes::Bytes rom{0x11, 0x22};
+    QVERIFY(!portableImageForOperation(FlashOperation::Read, rom).has_value());
+    QCOMPARE(portableImageForOperation(FlashOperation::Write, rom), rom);
+    QCOMPARE(portableImageForOperation(FlashOperation::TestWrite, rom), rom);
+}
+
+void FlashWorkflowTest::mc68TestWriteWithPortableImageReachesAttempt()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    auto input = request("sub_ecu_denso_mc68hc16y5_02", FlashOperation::TestWrite);
+    input.mcu = "MC68HC16Y5";
+    const auto paths = catalogPaths(directory);
+    QVERIFY(paths.has_value());
+    input.paths = *paths;
+    input.image = portableImageForOperation(input.operation, bytes::Bytes(0x28000, 0x5a));
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    QVERIFY(workflow != nullptr);
+
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
+    workflow->submit(FlashPromptResponse::Accept);
+    QVERIFY(std::holds_alternative<FlashAttempt>(workflow->next()));
+}
+
+void FlashWorkflowTest::sh7055TestWriteWithPortableImageReachesPromptsAndAttempt()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    auto input = request("sub_ecu_denso_sh7055_02", FlashOperation::TestWrite);
+    input.mcu = "SH7055";
+    const auto paths = catalogPaths(directory);
+    QVERIFY(paths.has_value());
+    input.paths = *paths;
+    input.image = portableImageForOperation(input.operation, bytes::Bytes(0x80000, 0xa5));
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    QVERIFY(workflow != nullptr);
+
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
+    workflow->submit(FlashPromptResponse::Accept);
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind,
+             FlashPromptKind::CycleIgnition);
+    workflow->submit(FlashPromptResponse::Accept);
+    QVERIFY(std::holds_alternative<FlashAttempt>(workflow->next()));
+}
+
+void FlashWorkflowTest::mc68TpuReadResolvesCatalogAndReachesAttempt()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    auto input = request("sub_ecu_denso_mc68hc16y5_02_tpu");
+    input.mcu = "MC68HC16Y5_TPU";
+    const auto paths = catalogPaths(directory);
+    QVERIFY(paths.has_value());
+    input.paths = *paths;
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    QVERIFY(workflow != nullptr);
+
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
+    workflow->submit(FlashPromptResponse::Accept);
+    auto step = workflow->next();
+    QVERIFY(std::holds_alternative<FlashAttempt>(step));
+    const auto& kernel = std::get<FlashAttempt>(step).plan.kernel();
+    QVERIFY(kernel.has_value());
+    QCOMPARE(kernel->load_address, 0x20020u);
+    QCOMPARE(kernel->bytes, bytes::Bytes({0x44, 0x55, 0x66}));
 }
 
 } // namespace

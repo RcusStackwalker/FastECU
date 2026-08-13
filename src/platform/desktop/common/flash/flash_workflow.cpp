@@ -684,6 +684,16 @@ constexpr auto kRoutes = std::to_array<Route>({
 
 } // namespace
 
+std::optional<bytes::Bytes> portableImageForOperation(FlashOperation operation,
+                                                      bytes::ByteView rom)
+{
+    if (operation == FlashOperation::Read)
+    {
+        return std::nullopt;
+    }
+    return bytes::Bytes(rom.begin(), rom.end());
+}
+
 std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::tryCreate(FlashWorkflowRequest request)
 {
     const auto route = std::ranges::find_if(
