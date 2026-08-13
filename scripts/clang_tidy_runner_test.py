@@ -897,6 +897,92 @@ class ClangTidyRunnerTest(unittest.TestCase):
 
         self.assertIn("post-fix build broke", output.getvalue())
 
+    def test_count_diagnostics_sums_across_yaml_files(self) -> None:
+        fixes_directory = Path(self.temp_dir.name) / "fixes"
+        fixes_directory.mkdir()
+        self.write_fixes(
+            fixes_directory,
+            "a.yaml",
+            [self.diagnostic("first", []), self.diagnostic("second", [])],
+        )
+        self.write_fixes(fixes_directory, "b.yaml", [self.diagnostic("third", [])])
+
+        self.assertEqual(3, runner._count_diagnostics(fixes_directory))
+
+    def test_count_diagnostics_is_zero_for_empty_directory(self) -> None:
+        fixes_directory = Path(self.temp_dir.name) / "fixes"
+        fixes_directory.mkdir()
+
+        self.assertEqual(0, runner._count_diagnostics(fixes_directory))
+
+    def test_analysis_success_prints_terse_summary(self) -> None:
+        source = self.root / _MAIN_CPP
+        source.write_text("int main() { return 0; }\n")
+        self.write_database([source])
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            if command == ["xcrun", "--show-sdk-path"]:
+                return subprocess.CompletedProcess(command, 0, stdout="/SDK/MacOSX.sdk\n")
+            if command[0] == "/llvm/bin/run-clang-tidy":
+                return subprocess.CompletedProcess(command, 0, stdout="1 warning generated.\n")
+            return subprocess.CompletedProcess(command, 0)
+
+        with mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS):
+            output = StringIO()
+            with redirect_stdout(output):
+                runner.run_workflow(
+                    mode="report",
+                    workspace=self.root,
+                    compdb_tool=_UNIX_COMPDB_TOOL,
+                    platform_name="darwin",
+                    environ={},
+                    command_runner=fake_run,
+                )
+
+        printed = output.getvalue()
+        self.assertNotIn("1 warning generated", printed)
+        self.assertIn("clang-tidy: 1 files clean, 0 findings", printed)
+
+    def test_analysis_failure_prints_diagnostics_and_finding_count(self) -> None:
+        source = self.root / _MAIN_CPP
+        source.write_text("int main() { return 0; }\n")
+        self.write_database([source])
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            if command == ["xcrun", "--show-sdk-path"]:
+                return subprocess.CompletedProcess(command, 0, stdout="/SDK/MacOSX.sdk\n")
+            if "-export-fixes" in command:
+                fixes_directory = Path(command[command.index("-export-fixes") + 1])
+                replacement = self.replacement(source, 0, 0, "// fixed\n")
+                self.write_fixes(
+                    fixes_directory,
+                    "fix.yaml",
+                    [self.diagnostic("readability-fix", [replacement])],
+                )
+                return subprocess.CompletedProcess(
+                    command, 1, stdout="main.cpp:1:1: warning: fix me [readability-fix]\n"
+                )
+            return subprocess.CompletedProcess(command, 0)
+
+        with mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS):
+            output = StringIO()
+            with (
+                redirect_stdout(output),
+                self.assertRaisesRegex(
+                    runner.WorkflowError, r"1 findings.*failed with exit code 1"
+                ),
+            ):
+                runner.run_workflow(
+                    mode="report",
+                    workspace=self.root,
+                    compdb_tool=_UNIX_COMPDB_TOOL,
+                    platform_name="darwin",
+                    environ={},
+                    command_runner=fake_run,
+                )
+
+        self.assertIn("fix me [readability-fix]", output.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

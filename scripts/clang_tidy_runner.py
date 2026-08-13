@@ -266,6 +266,25 @@ def _replacement_file_identity(
     return ("file", status.st_dev, status.st_ino)
 
 
+def _count_diagnostics(fixes_directory: Path) -> int:
+    """Count exported diagnostics across a fixes directory.
+
+    Lenient by design: report mode discards these files after counting them,
+    so a malformed document is skipped rather than raising. Strict validation
+    happens in normalize_replacements, which fix mode always runs before
+    applying anything.
+    """
+    total = 0
+    for path in sorted(fixes_directory.glob("*.yaml")):
+        document = yaml.safe_load(path.read_text())
+        if not isinstance(document, dict):
+            continue
+        diagnostics = document.get("Diagnostics")
+        if isinstance(diagnostics, list):
+            total += len(diagnostics)
+    return total
+
+
 def normalize_replacements(
     fixes_directory: Path,
     base_directory: Path | None = None,
@@ -509,11 +528,12 @@ def run_workflow(
                 ]
             )
         fixes_directory = Path(directory) / "fixes"
-        if mode == "fix":
-            fixes_directory.mkdir()
-            command.extend(["-export-fixes", str(fixes_directory) + os.sep])
-        print(f"Running clang-tidy in {mode} mode over {len(entries)} translation units.")
-        tidy_code = _run(command_runner, command, workspace)
+        fixes_directory.mkdir()
+        command.extend(["-export-fixes", str(fixes_directory) + os.sep])
+        print(f"Analyzing {len(entries)} translation units in {mode} mode.")
+        tidy_result = _run_quiet(command_runner, command, workspace)
+        tidy_code = tidy_result.returncode
+        finding_count = _count_diagnostics(fixes_directory)
         if mode == "fix":
             assert tools.clang_apply_replacements is not None
             normalize_replacements(fixes_directory, workspace)
@@ -526,13 +546,18 @@ def run_workflow(
                 workspace,
             )
             if apply_code:
+                if tidy_result.stdout:
+                    print(tidy_result.stdout, end="")
                 raise WorkflowError(f"replacement application failed with exit code {apply_code}")
             _post_fix_build(command_runner, build_args, workspace)
         if tidy_code:
-            detail = f"run-clang-tidy failed with exit code {tidy_code}"
+            if tidy_result.stdout:
+                print(tidy_result.stdout, end="")
+            detail = f"{finding_count} findings; run-clang-tidy failed with exit code {tidy_code}"
             if mode == "fix":
                 detail += "; exported fixes were applied before reporting the failure"
             raise WorkflowError(detail)
+        print(f"clang-tidy: {len(entries)} files clean, 0 findings")
     return 0
 
 
