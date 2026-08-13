@@ -189,6 +189,10 @@ Result<FlashPlan> build_subaru_denso_mc68hc16y5_02_plan(FlashOperation operation
         return std::unexpected(valid.error());
     }
     const int index = find_flash_device_index(mcu_type);
+    if (index < 0)
+    {
+        return fail(ErrorKind::InvalidConfig, "Unknown MCU type");
+    }
     const std::uint32_t romsize = flashdevices[index].romsize;
     if ((operation == FlashOperation::Write || operation == FlashOperation::TestWrite) &&
         (!image.has_value() || image->size() != romsize))

@@ -182,49 +182,13 @@ Result<bytes::Bytes> request_kernel_id(IKlineFlashTransport& transport, IClock& 
                                        const ICancellationToken& cancellation)
 {
     const bytes::Bytes request = frame(kOpId);
-    if (Status cancelled = check_cancelled(cancellation, "cancelled before write");
-        !cancelled.has_value())
-    {
-        return std::unexpected(cancelled.error());
-    }
-    Result<std::size_t> written = transport.write(request);
-    if (!written.has_value())
-    {
-        return std::unexpected(written.error());
-    }
-    if (*written != request.size())
-    {
-        return fail(ErrorKind::Disconnected, "short K-Line write");
-    }
-    if (Status cancelled = check_cancelled(cancellation, "cancelled after write");
-        !cancelled.has_value())
-    {
-        return std::unexpected(cancelled.error());
-    }
-    if (Status slept = clock.sleep(200, cancellation); !slept.has_value())
-    {
-        return std::unexpected(slept.error());
-    }
-    if (Status cancelled = check_cancelled(cancellation, "cancelled before read");
-        !cancelled.has_value())
-    {
-        return std::unexpected(cancelled.error());
-    }
-    auto received = transport.read(2000, cancellation);
+    Result<IKlineFlashTransport::OptionalBytes> received =
+        exchange_optional(transport, clock, cancellation, request, 200, 2000);
     if (!received.has_value())
     {
         return std::unexpected(received.error());
     }
-    if (Status cancelled = check_cancelled(cancellation, "cancelled after read");
-        !cancelled.has_value())
-    {
-        return std::unexpected(cancelled.error());
-    }
-    if (!received->has_value())
-    {
-        return bytes::Bytes{};
-    }
-    return std::move(**received);
+    return received->has_value() ? std::move(**received) : bytes::Bytes{};
 }
 
 bool looks_kernel_alive(bytes::ByteView received)
