@@ -21,6 +21,9 @@ class SubaruDensoMc68hc16y5_02Executor final : public IFlashExecutor
                          const ICancellationToken& cancellation, IEventSink& events,
                          const SubaruDensoMc68hc16y5_02Plan& family_plan,
                          const KernelImage& kernel);
+    Result<bytes::Bytes> read_mem(IKlineFlashTransport& transport, IClock& clock,
+                                  const ICancellationToken& cancellation, IEventSink& events,
+                                  const MemoryRegion& region);
 };
 
 } // namespace fastecu::flash

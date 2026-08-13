@@ -12,7 +12,10 @@ namespace
 
 constexpr std::uint16_t kStartComm = 0xBEEF;
 constexpr std::uint8_t kOpId = 0x01;
+constexpr std::uint8_t kOpReadArea = 0x03;
 constexpr std::uint8_t kOpUploadKernel = 0x53;
+// Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:339.
+constexpr std::uint32_t kReadPageSize = 0x400;
 
 Status check_cancelled(const ICancellationToken& cancellation, std::string detail)
 {
@@ -389,6 +392,61 @@ Status SubaruDensoMc68hc16y5_02Executor::upload_kernel(
     return {};
 }
 
+Result<bytes::Bytes> SubaruDensoMc68hc16y5_02Executor::read_mem(
+    IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+    IEventSink& events, const MemoryRegion& region)
+{
+    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:323-455.
+    // Its RAM-mapped unreadable-region fill (370-380) applies only to the
+    // legacy zero-address/zero-length shorthand. Plans always provide the
+    // explicit flash-only transfer region, so no portable equivalent is needed.
+    bytes::Bytes mapdata;
+    std::uint32_t address = region.start;
+    std::uint32_t remaining_pages = (region.length + kReadPageSize - 1) / kReadPageSize;
+    events.progress(0, static_cast<int>(region.length));
+
+    while (remaining_pages > 0)
+    {
+        if (Status cancelled = check_cancelled(cancellation, "cancelled during read");
+            !cancelled.has_value())
+        {
+            return std::unexpected(cancelled.error());
+        }
+        const bytes::Bytes payload{
+            0x00,
+            static_cast<bytes::Byte>((address >> 16) & 0xFF),
+            static_cast<bytes::Byte>((address >> 8) & 0xFF),
+            static_cast<bytes::Byte>(address & 0xFF),
+            static_cast<bytes::Byte>((kReadPageSize >> 8) & 0xFF),
+            static_cast<bytes::Byte>(kReadPageSize & 0xFF),
+        };
+        Result<bytes::Bytes> response =
+            exchange(transport, clock, cancellation, frame(kOpReadArea, payload), 10, 3000);
+        if (!response.has_value())
+        {
+            return std::unexpected(response.error());
+        }
+        if (!response_ok(*response, static_cast<bytes::Byte>(kOpReadArea | 0x40)))
+        {
+            return fail(ErrorKind::BadResponse, "Wrong response from ECU during read");
+        }
+        mapdata.insert(mapdata.end(), response->begin() + 5, response->end() - 1);
+        address += kReadPageSize;
+        --remaining_pages;
+        events.progress(static_cast<int>(mapdata.size()), static_cast<int>(region.length));
+        if (Status slept = clock.sleep(1, cancellation); !slept.has_value())
+        {
+            return std::unexpected(slept.error());
+        }
+    }
+    if (mapdata.size() > region.length)
+    {
+        mapdata.resize(region.length);
+    }
+    events.progress(static_cast<int>(region.length), static_cast<int>(region.length));
+    return mapdata;
+}
+
 Result<FlashExecutionResult> SubaruDensoMc68hc16y5_02Executor::execute(
     const FlashPlan& plan, IFlashTransport& transport, IClock& clock,
     const ICancellationToken& cancellation, IEventSink& events)
@@ -476,7 +534,19 @@ Result<FlashExecutionResult> SubaruDensoMc68hc16y5_02Executor::execute(
                 return std::unexpected(uploaded.error());
             }
         }
-        return fail(ErrorKind::Unsupported, "read/write phase not yet implemented");
+        if (plan.operation() == FlashOperation::Read)
+        {
+            Result<bytes::Bytes> read =
+                read_mem(kline, clock, cancellation, events, plan.transfer_region());
+            if (!read.has_value())
+            {
+                return std::unexpected(read.error());
+            }
+            return FlashExecutionResult{.operation = plan.operation(), .read_bytes = std::move(*read)};
+        }
+
+        // Task 6 replaces this with the write phase.
+        return fail(ErrorKind::Unsupported, "write phase not yet implemented");
     }();
 
     Status close_status = kline.close();

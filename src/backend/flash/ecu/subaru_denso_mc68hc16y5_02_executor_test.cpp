@@ -81,14 +81,18 @@ class DrainCancellingTransport final : public ScriptedKlineFlashTransport
 Result<FlashPlan> stock_plan(FlashOperation operation = FlashOperation::Read)
 {
     return build_subaru_denso_mc68hc16y5_02_plan(
-        operation, "sub_ecu_denso_mc68hc16y5_02", "MC68HC16Y5", std::nullopt,
+        operation, "sub_ecu_denso_mc68hc16y5_02", "MC68HC16Y5",
+        operation == FlashOperation::Read ? std::nullopt
+                                          : std::optional<bytes::Bytes>(bytes::Bytes(0x28000, 0)),
         KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0x01, 0x02, 0x03, 0x04}});
 }
 
-Result<FlashPlan> ecutek_plan()
+Result<FlashPlan> ecutek_plan(FlashOperation operation = FlashOperation::Read)
 {
     return build_subaru_denso_mc68hc16y5_02_plan(
-        FlashOperation::Read, "sub_ecu_denso_mc68hc16y5_02_ecutek", "MC68HC16Y5", std::nullopt,
+        operation, "sub_ecu_denso_mc68hc16y5_02_ecutek", "MC68HC16Y5",
+        operation == FlashOperation::Read ? std::nullopt
+                                          : std::optional<bytes::Bytes>(bytes::Bytes(0x28000, 0)),
         KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0x01, 0x02, 0x03, 0x04}});
 }
 
@@ -103,6 +107,81 @@ bytes::Bytes framed(std::uint8_t opcode, bytes::ByteView extra = {})
     out.push_back(fastecu::checksum::checksum8(out, false));
     return out;
 }
+
+void script_stock_connect_and_upload(ScriptedKlineFlashTransport& transport)
+{
+    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:69-70,
+    // 111-146, 220-281, and 1139-1168.
+    transport.queue_no_frame();
+    transport.expectWrite(bytes::Bytes{0x4D, 0xFF, 0xB4});
+    transport.queueRead(bytes::Bytes{0x4D, 0x00, 0xB3});
+    transport.expectWrite(bytes::Bytes{
+        0x53,
+        0x02,
+        0x00,
+        0x00,
+        0x00,
+        0x10,
+        0x64,
+        0x67,
+        0x39,
+        0x41,
+        0x65,
+        0x65,
+        0x65,
+        0x65,
+        0x65,
+        0x65,
+        0x65,
+        0x65,
+        0x65,
+        0x65,
+        0x65,
+        0x65,
+        0x9A,
+    });
+    transport.queueRead(bytes::Bytes{});
+    transport.expectWrite(framed(0x01));
+    transport.queueRead(framed(0x41, bytes::Bytes{'K', 'I', 'D'}));
+}
+
+void script_read_page(ScriptedKlineFlashTransport& transport, std::uint32_t address,
+                      bytes::Byte fill, std::uint8_t response_opcode = 0x43)
+{
+    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:323-455.
+    transport.expectWrite(framed(0x03, bytes::Bytes{
+                                           0x00,
+                                           static_cast<bytes::Byte>((address >> 16) & 0xFF),
+                                           static_cast<bytes::Byte>((address >> 8) & 0xFF),
+                                           static_cast<bytes::Byte>(address & 0xFF),
+                                           0x04,
+                                           0x00,
+                                       }));
+    transport.queueRead(framed(response_opcode, bytes::Bytes(0x400, fill)));
+}
+
+class CancelAfterFirstPageClock final : public FakeClock
+{
+  public:
+    explicit CancelAfterFirstPageClock(ToggleCancellation& cancellation) : cancellation_(cancellation)
+    {
+    }
+
+    Status sleep(int ms, const ICancellationToken& cancellation) override
+    {
+        Status result = FakeClock::sleep(ms, cancellation);
+        if (result.has_value() && ms == 1 && !cancelled_after_page_)
+        {
+            cancelled_after_page_ = true;
+            cancellation_.cancel();
+        }
+        return result;
+    }
+
+  private:
+    ToggleCancellation& cancellation_;
+    bool cancelled_after_page_ = false;
+};
 
 config::ConfigPaths eeprom_paths()
 {
@@ -148,7 +227,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WrongFamilyPlanFails)
 
 TEST(SubaruDensoMc68hc16y5_02Executor, ConnectsViaWrx02InitAndUploadsPaddedKernel)
 {
-    auto plan = stock_plan();
+    auto plan = stock_plan(FlashOperation::Write);
     ASSERT_TRUE(plan.has_value());
     ScriptedKlineFlashTransport transport;
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:69-70.
@@ -220,7 +299,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectsViaWrx02InitAndUploadsPaddedKerne
 
 TEST(SubaruDensoMc68hc16y5_02Executor, ConnectFallsBackToKernelAlivePoll)
 {
-    auto plan = stock_plan();
+    auto plan = stock_plan(FlashOperation::Write);
     ASSERT_TRUE(plan.has_value());
     ScriptedKlineFlashTransport transport;
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:69-70.
@@ -256,7 +335,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectFallsBackToKernelAlivePoll)
 
 TEST(SubaruDensoMc68hc16y5_02Executor, EcutekUsesItsDistinctBootloaderAndKernelWireValues)
 {
-    auto plan = ecutek_plan();
+    auto plan = ecutek_plan(FlashOperation::Write);
     ASSERT_TRUE(plan.has_value());
     ScriptedKlineFlashTransport transport;
     transport.queue_no_frame(); // legacy operation.cpp:69-70 initial drain
@@ -460,6 +539,76 @@ TEST(SubaruDensoMc68hc16y5_02Executor, PhaseFailureWinsOverCloseFailureAndLogsCl
     EXPECT_EQ(events.logs.back(),
               (std::pair<LogLevel, std::string>{
                   LogLevel::Warning, "close failed after MC68HC16Y5_02 phase error"}));
+}
+
+TEST(SubaruDensoMc68hc16y5_02Executor, ReadReturnsAssembledPageBytes)
+{
+    auto plan = stock_plan();
+    ASSERT_TRUE(plan.has_value());
+    ScriptedKlineFlashTransport transport;
+    script_stock_connect_and_upload(transport);
+
+    bytes::Bytes expected;
+    for (std::uint32_t address = 0; address < 0x28000; address += 0x400)
+    {
+        const auto fill = static_cast<bytes::Byte>(address / 0x400);
+        script_read_page(transport, address, fill);
+        expected.insert(expected.end(), 0x400, fill);
+    }
+
+    FakeClock clock;
+    NeverCancelled cancellation;
+    RecordingEventSink events;
+    SubaruDensoMc68hc16y5_02Executor executor;
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->operation, FlashOperation::Read);
+    ASSERT_TRUE(result->read_bytes.has_value());
+    EXPECT_EQ(*result->read_bytes, expected);
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.close_call_count_, 1);
+}
+
+TEST(SubaruDensoMc68hc16y5_02Executor, ReadRejectsMalformedPageResponse)
+{
+    auto plan = stock_plan();
+    ASSERT_TRUE(plan.has_value());
+    ScriptedKlineFlashTransport transport;
+    script_stock_connect_and_upload(transport);
+    script_read_page(transport, 0x00000000, 0xA5, 0x44);
+
+    FakeClock clock;
+    NeverCancelled cancellation;
+    RecordingEventSink events;
+    SubaruDensoMc68hc16y5_02Executor executor;
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.close_call_count_, 1);
+}
+
+TEST(SubaruDensoMc68hc16y5_02Executor, ReadCancelsBetweenPages)
+{
+    auto plan = stock_plan();
+    ASSERT_TRUE(plan.has_value());
+    ScriptedKlineFlashTransport transport;
+    script_stock_connect_and_upload(transport);
+    script_read_page(transport, 0x00000000, 0xA5);
+
+    ToggleCancellation cancellation;
+    CancelAfterFirstPageClock clock(cancellation);
+    RecordingEventSink events;
+    SubaruDensoMc68hc16y5_02Executor executor;
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.writesConsumed(), 4u);
+    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 } // namespace
