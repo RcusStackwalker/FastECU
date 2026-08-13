@@ -67,6 +67,7 @@ PORTABLE_ROOTS = {
         "subaru_denso_mc68hc16y5_02_plan",
         "subaru_denso_mc68hc16y5_02_executor",
         "subaru_denso_sh7055_02_plan",
+        "subaru_denso_sh7055_02_executor",
     },
     ROOT / "src/backend/config": {
         "config_paths",
