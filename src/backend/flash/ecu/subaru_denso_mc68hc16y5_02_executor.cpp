@@ -44,7 +44,7 @@ bytes::Bytes frame(std::uint8_t opcode, bytes::ByteView payload = {})
 
 bool response_ok(bytes::ByteView received, std::uint8_t expected_opcode_with_ack)
 {
-    return received.size() > 4 &&
+    return received.size() > 5 &&
            received[0] == static_cast<bytes::Byte>((kStartComm >> 8) & 0xFF) &&
            received[1] == static_cast<bytes::Byte>(kStartComm & 0xFF) &&
            received[4] == expected_opcode_with_ack;

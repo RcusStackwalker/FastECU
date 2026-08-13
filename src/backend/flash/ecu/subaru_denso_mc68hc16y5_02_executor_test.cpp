@@ -489,7 +489,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, CancellationAtInitialDrainStopsBeforeBoot
 
 TEST(SubaruDensoMc68hc16y5_02Executor, CloseOnlyFailureIsReturnedAfterSuccessfulPhases)
 {
-    auto plan = stock_plan();
+    auto plan = stock_plan(FlashOperation::Write);
     ASSERT_TRUE(plan.has_value());
     ScriptedKlineFlashTransport transport;
     transport.queue_no_frame(); // legacy operation.cpp:69-70 initial drain
@@ -577,6 +577,28 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadRejectsMalformedPageResponse)
     ScriptedKlineFlashTransport transport;
     script_stock_connect_and_upload(transport);
     script_read_page(transport, 0x00000000, 0xA5, 0x44);
+
+    FakeClock clock;
+    NeverCancelled cancellation;
+    RecordingEventSink events;
+    SubaruDensoMc68hc16y5_02Executor executor;
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.close_call_count_, 1);
+}
+
+TEST(SubaruDensoMc68hc16y5_02Executor, ReadRejectsTruncatedValidMarkerResponse)
+{
+    auto plan = stock_plan();
+    ASSERT_TRUE(plan.has_value());
+    ScriptedKlineFlashTransport transport;
+    script_stock_connect_and_upload(transport);
+    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:408-413.
+    transport.expectWrite(framed(0x03, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x04, 0x00}));
+    transport.queueRead(bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x43});
 
     FakeClock clock;
     NeverCancelled cancellation;
