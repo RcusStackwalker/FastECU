@@ -276,7 +276,10 @@ def _count_diagnostics(fixes_directory: Path) -> int:
     """
     total = 0
     for path in sorted(fixes_directory.glob("*.yaml")):
-        document = yaml.safe_load(path.read_text())
+        try:
+            document = yaml.safe_load(path.read_text())
+        except OSError, UnicodeError, yaml.YAMLError:
+            continue
         if not isinstance(document, dict):
             continue
         diagnostics = document.get("Diagnostics")

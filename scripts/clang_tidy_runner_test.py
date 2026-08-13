@@ -915,6 +915,22 @@ class ClangTidyRunnerTest(unittest.TestCase):
 
         self.assertEqual(0, runner._count_diagnostics(fixes_directory))
 
+    def test_count_diagnostics_tolerates_malformed_yaml(self) -> None:
+        fixes_directory = Path(self.temp_dir.name) / "fixes"
+        fixes_directory.mkdir()
+        # Write a malformed YAML file alongside a well-formed one
+        malformed = fixes_directory / "broken.yaml"
+        malformed.write_text("Diagnostics: [")
+        # Write a well-formed file with 2 diagnostics
+        self.write_fixes(
+            fixes_directory,
+            "good.yaml",
+            [self.diagnostic("first", []), self.diagnostic("second", [])],
+        )
+
+        # Should return count only from the well-formed file, silently skipping the broken one
+        self.assertEqual(2, runner._count_diagnostics(fixes_directory))
+
     def test_analysis_success_prints_terse_summary(self) -> None:
         source = self.root / _MAIN_CPP
         source.write_text("int main() { return 0; }\n")
