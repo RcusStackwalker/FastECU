@@ -64,21 +64,26 @@ The Bazel clang-tidy targets require a system LLVM installation containing
 `clang-tidy` and `run-clang-tidy`. Autofix also requires
 `clang-apply-replacements`.
 
-Report mode supports Windows, macOS, and Linux and runs advisory analysis on
-every translation unit buildable for the current platform:
+For everyday local use before opening a PR, scope analysis to files changed
+relative to `origin/master` (fast, and matches what CI's PR gate checks):
+
+```sh
+bazel run //:clang_tidy_report_changed   # report only
+bazel run //:clang_tidy_fix_changed      # apply available fixes (macOS/Linux only)
+```
+
+For an occasional full-repo sweep, the unscoped targets analyze every
+translation unit buildable for the current platform:
 
 ```sh
 bazel run //:clang_tidy_report
+bazel run //:clang_tidy_fix              # macOS/Linux only
 ```
 
-Apply available fixes on macOS or Linux:
-
-```sh
-bazel run //:clang_tidy_fix
-```
-
-Findings remain advisory. Missing tools, invalid compilation commands, and
-execution failures return a nonzero status.
+CI's PR checks run `clang_tidy_report_changed` and block the PR on any
+finding in the changed files. The full-repo targets are manual/local only —
+findings there remain advisory. Missing tools, invalid compilation commands,
+and execution failures return a nonzero status in every mode.
 
 ### Flashing with OBD
 - **Supported ECU models**

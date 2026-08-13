@@ -28,8 +28,8 @@ Observed on 2026-08-05:
   cases. Checksum families, calibration/map editing, most flash orchestration,
   and UI workflows remain lightly covered.
 - CI builds and tests on Windows, macOS, and Linux, verifies macOS/Windows
-  packages, produces coverage for SonarCloud, and runs clang-tidy as a
-  non-blocking report.
+  packages, produces coverage for SonarCloud, and runs a blocking clang-tidy
+  report over the PR's changed files.
 - Focused background notes remain in the
   [logging-engine notes](logging-engine-tech-debt.md) and the
   [protocol generalization notes](protocol-generalization-opportunities.md);

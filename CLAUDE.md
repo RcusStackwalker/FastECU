@@ -18,8 +18,10 @@ bazel test  --config=release //...                           # everything: C++ s
 bazel test  --config=release //src/backend/config:app_config_test   # a single test target
 bazel test  --config=release //src/backend/protocol:all      # one package's tests
 prek run --all-files                                         # clang-format, buildifier, ruff, pragma-once (ADR 0002)
-bazel run //:clang_tidy_report                               # advisory; needs system LLVM on PATH
-bazel run //:clang_tidy_fix                                  # macOS/Linux only; needs clang-apply-replacements
+bazel run //:clang_tidy_report_changed                       # PR gate scope (changed files vs origin/master); needs system LLVM on PATH
+bazel run //:clang_tidy_fix_changed                          # same scope, applies fixes; macOS/Linux only
+bazel run //:clang_tidy_report                               # full-repo sweep, advisory/manual only; needs system LLVM on PATH
+bazel run //:clang_tidy_fix                                  # full-repo sweep, macOS/Linux only; needs clang-apply-replacements
 scripts/coverage-local.sh                                    # llvm-cov report -> coverage/ (feeds SonarCloud)
 ```
 
