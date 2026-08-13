@@ -73,5 +73,37 @@ TEST(SubaruDensoMc68hc16y5_02Plan, WriteRequiresImageOfExactRomSize)
     EXPECT_TRUE(ok.has_value()) << ok.error().detail;
 }
 
+TEST(SubaruDensoMc68hc16y5_02Plan, StockAndEcutekTestWritesCarryExactImage)
+{
+    const int index = find_flash_device_index("MC68HC16Y5");
+    ASSERT_GE(index, 0);
+    for (const auto *protocol : {"sub_ecu_denso_mc68hc16y5_02",
+                                 "sub_ecu_denso_mc68hc16y5_02_ecutek"})
+    {
+        bytes::Bytes rom(flashdevices[index].romsize, bytes::Byte{0});
+        auto plan = build_subaru_denso_mc68hc16y5_02_plan(
+            FlashOperation::TestWrite, protocol, "MC68HC16Y5", std::move(rom),
+            KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}});
+        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_TRUE(plan->image().has_value());
+        EXPECT_EQ(plan->image()->size(), flashdevices[index].romsize);
+    }
+}
+
+TEST(SubaruDensoMc68hc16y5_02Plan, TpuRejectsWriteAndTestWrite)
+{
+    const int index = find_flash_device_index("MC68HC16Y5");
+    ASSERT_GE(index, 0);
+    for (const auto operation : {FlashOperation::Write, FlashOperation::TestWrite})
+    {
+        bytes::Bytes rom(flashdevices[index].romsize, bytes::Byte{0});
+        auto plan = build_subaru_denso_mc68hc16y5_02_plan(
+            operation, "sub_ecu_denso_mc68hc16y5_02_tpu", "MC68HC16Y5", std::move(rom),
+            KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}});
+        ASSERT_FALSE(plan.has_value());
+        EXPECT_EQ(plan.error().kind, ErrorKind::Unsupported);
+    }
+}
+
 } // namespace
 } // namespace fastecu::flash

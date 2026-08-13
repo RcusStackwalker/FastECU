@@ -40,6 +40,16 @@ Status validate_identity(std::string_view protocol, std::string_view mcu)
     return {};
 }
 
+Status validate_operation(std::string_view protocol, FlashOperation operation)
+{
+    if (protocol == "sub_ecu_denso_mc68hc16y5_02_tpu" && operation != FlashOperation::Read)
+    {
+        return fail(ErrorKind::Unsupported,
+                    "protocols.cfg declares no supported write or test_write operation for the MC68HC16Y5 TPU variant");
+    }
+    return {};
+}
+
 SubaruDensoMc68hc16y5_02Plan wire_params(std::string_view protocol)
 {
     // flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:126-137 (response
@@ -88,7 +98,11 @@ Status validate_subaru_denso_mc68hc16y5_02_plan(const FlashPlan& plan)
         return fail(InvalidConfig, "Unknown MCU type");
     }
     const std::uint32_t romsize = flashdevices[index].romsize;
-    if (plan.operation() == FlashOperation::Write &&
+    if (auto valid = validate_operation(plan.target_id(), plan.operation()); !valid.has_value())
+    {
+        return valid;
+    }
+    if ((plan.operation() == FlashOperation::Write || plan.operation() == FlashOperation::TestWrite) &&
         (!plan.image().has_value() || plan.image()->size() != romsize))
     {
         return fail(InvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", romsize));
@@ -106,9 +120,14 @@ Result<FlashPlan> build_subaru_denso_mc68hc16y5_02_plan(FlashOperation operation
     {
         return std::unexpected(valid.error());
     }
+    if (auto valid = validate_operation(protocol_name, operation); !valid.has_value())
+    {
+        return std::unexpected(valid.error());
+    }
     const int index = find_flash_device_index(mcu_type);
     const std::uint32_t romsize = flashdevices[index].romsize;
-    if (operation == FlashOperation::Write && (!image.has_value() || image->size() != romsize))
+    if ((operation == FlashOperation::Write || operation == FlashOperation::TestWrite) &&
+        (!image.has_value() || image->size() != romsize))
     {
         return fail(ErrorKind::InvalidConfig,
                     std::format("ROM file must be exactly 0x{:x} bytes", romsize));
@@ -124,7 +143,7 @@ Result<FlashPlan> build_subaru_denso_mc68hc16y5_02_plan(FlashOperation operation
         .erase_regions = {}, // per-block erase happens inside the write executor
                              // (blank-page-per-modified-block, legacy
                              // flash_block():950-992), not a fixed up-front set
-        .image = operation == FlashOperation::Write ? std::move(image) : std::nullopt,
+        .image = operation == FlashOperation::Read ? std::nullopt : std::move(image),
         .kernel = std::move(kernel),
         .family_plan = wire_params(protocol_name),
     };
