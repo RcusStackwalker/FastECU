@@ -999,6 +999,45 @@ class ClangTidyRunnerTest(unittest.TestCase):
 
         self.assertIn("fix me [readability-fix]", output.getvalue())
 
+    def test_changed_files_unions_git_sources(self) -> None:
+        committed = self.root / "committed.cpp"
+        committed.write_text("// committed\n")
+        staged = self.root / "staged.h"
+        staged.write_text("// staged\n")
+        untracked = self.root / "untracked.cpp"
+        untracked.write_text("// untracked\n")
+        # deleted.cpp is intentionally never created: a deleted file can still
+        # show up in `git diff --name-only` and must be filtered out.
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            if command == ["git", "merge-base", "HEAD", "origin/master"]:
+                return subprocess.CompletedProcess(command, 0, stdout="abc123\n")
+            if command == ["git", "diff", "--name-only", "abc123..HEAD"]:
+                return subprocess.CompletedProcess(
+                    command, 0, stdout="committed.cpp\ndeleted.cpp\n"
+                )
+            if command == ["git", "diff", "--name-only"]:
+                return subprocess.CompletedProcess(command, 0, stdout="")
+            if command == ["git", "diff", "--name-only", "--cached"]:
+                return subprocess.CompletedProcess(command, 0, stdout="staged.h\n")
+            if command == ["git", "ls-files", "--others", "--exclude-standard"]:
+                return subprocess.CompletedProcess(command, 0, stdout="untracked.cpp\n")
+            raise AssertionError(f"unexpected command: {command}")
+
+        result = runner.changed_files(self.root, fake_run)
+
+        self.assertEqual(
+            [committed.resolve(), staged.resolve(), untracked.resolve()],
+            result,
+        )
+
+    def test_changed_files_reports_merge_base_failure(self) -> None:
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            return subprocess.CompletedProcess(command, 128, stderr="fatal: no such ref\n")
+
+        with self.assertRaisesRegex(runner.WorkflowError, r"git merge-base.*128.*no such ref"):
+            runner.changed_files(self.root, fake_run)
+
 
 if __name__ == "__main__":
     unittest.main()

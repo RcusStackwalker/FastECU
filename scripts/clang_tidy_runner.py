@@ -157,6 +157,54 @@ def discover_tools(
     return Tools(clang_tidy, run_clang_tidy, apply_replacements)
 
 
+def _git_lines(command_runner: CommandRunner, args: Sequence[str], workspace: Path) -> list[str]:
+    command = ["git", *args]
+    try:
+        result = command_runner(
+            command,
+            cwd=workspace,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+    except OSError as error:
+        raise WorkflowError(f"could not execute {command[0]}: {error}") from error
+    if result.returncode:
+        raise WorkflowError(
+            f"git {' '.join(args)} failed with exit code {result.returncode}: "
+            f"{(result.stderr or '').strip()}"
+        )
+    return [line for line in (result.stdout or "").splitlines() if line]
+
+
+def changed_files(workspace: Path, command_runner: CommandRunner) -> list[Path]:
+    """Files changed relative to origin/master: committed, staged, unstaged, and new.
+
+    Deleted files (present in a diff but no longer on disk) are dropped --
+    there's nothing left for clang-tidy to analyze.
+    """
+    merge_base = _git_lines(command_runner, ["merge-base", "HEAD", "origin/master"], workspace)
+    if not merge_base:
+        raise WorkflowError("git merge-base HEAD origin/master produced no output")
+    base = merge_base[0]
+
+    relative_paths: set[str] = set()
+    relative_paths.update(
+        _git_lines(command_runner, ["diff", "--name-only", f"{base}..HEAD"], workspace)
+    )
+    relative_paths.update(_git_lines(command_runner, ["diff", "--name-only"], workspace))
+    relative_paths.update(
+        _git_lines(command_runner, ["diff", "--name-only", "--cached"], workspace)
+    )
+    relative_paths.update(
+        _git_lines(command_runner, ["ls-files", "--others", "--exclude-standard"], workspace)
+    )
+
+    candidates = (workspace / path for path in relative_paths)
+    return sorted({path.resolve() for path in candidates if path.is_file()})
+
+
 def _run(command_runner: CommandRunner, command: list[str], workspace: Path) -> int:
     try:
         result = command_runner(command, cwd=workspace, check=False)
