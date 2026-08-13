@@ -24,7 +24,7 @@ class SubaruDensoMc68hc16y5_02Executor final : public IFlashExecutor
     Result<bytes::Bytes> read_mem(IKlineFlashTransport& transport, IClock& clock,
                                   const ICancellationToken& cancellation, IEventSink& events,
                                   const MemoryRegion& region);
-    Result<std::uint32_t> read_block_crc(IKlineFlashTransport& transport,
+    Result<std::uint32_t> read_block_crc(IKlineFlashTransport& transport, IClock& clock,
                                          const ICancellationToken& cancellation,
                                          const MemoryRegion& block);
     Status flash_block(IKlineFlashTransport& transport, IClock& clock,

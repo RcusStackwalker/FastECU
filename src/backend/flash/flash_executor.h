@@ -70,6 +70,7 @@ class IKlineFlashTransport : public IFlashTransport, public mutdma::IKlineTransp
     // adapter's RTS/DTR integer states to portable executors.
     virtual Status disable_lec_lines() = 0;
     virtual Status pulse_lec_2_line(int timeout_ms) = 0;
+    virtual Status enable_programming_voltage_line() = 0;
 
     // Controls the real serial driver's ISO14230 header auto-add behavior
     // (SerialPortActions::set_add_iso14230_header()), independently of

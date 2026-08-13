@@ -45,7 +45,9 @@ class TestDesktopKlineFlashTransport : public QObject
 
         QVERIFY(transport.disable_lec_lines().has_value());
         QVERIFY(transport.pulse_lec_2_line(200).has_value());
-        QCOMPARE(fake->takeCallLog(), QStringList({"lec:set:1:1", "lec:pulse2:200"}));
+        QVERIFY(transport.enable_programming_voltage_line().has_value());
+        QCOMPARE(fake->takeCallLog(),
+                 QStringList({"lec:set:1:1", "lec:pulse2:200", "lec:set:0:1"}));
     }
 
     void configureChecksEveryBooleanSetterInOrderAndStopsAtFirstFailure()
@@ -466,6 +468,10 @@ class TestDesktopKlineFlashTransport : public QObject
         const auto pulseLecResult = transport.pulse_lec_2_line(200);
         QVERIFY(!pulseLecResult.has_value());
         QCOMPARE(pulseLecResult.error().kind, ErrorKind::Disconnected);
+
+        const auto programmingLineResult = transport.enable_programming_voltage_line();
+        QVERIFY(!programmingLineResult.has_value());
+        QCOMPARE(programmingLineResult.error().kind, ErrorKind::Disconnected);
     }
 
     // set_add_iso14230_header() forwards straight to

@@ -23,11 +23,13 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     {
         DisableLecLines,
         PulseLec2,
+        EnableProgrammingVoltageLine,
     };
     enum class Operation
     {
         DisableLecLines,
         PulseLec2,
+        EnableProgrammingVoltageLine,
         Read10,
     };
 
@@ -89,6 +91,13 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
         operation_trace_.push_back(Operation::PulseLec2);
         lec_2_pulse_timeouts_.push_back(timeout_ms);
         return pulse_lec_2_line_result_;
+    }
+    Status enable_programming_voltage_line() override
+    {
+        programming_voltage_line_write_index_ = wIdx_;
+        control_line_trace_.push_back(ControlLineAction::EnableProgrammingVoltageLine);
+        operation_trace_.push_back(Operation::EnableProgrammingVoltageLine);
+        return enable_programming_voltage_line_result_;
     }
     Status set_add_iso14230_header(bool add_header) override
     {
@@ -155,11 +164,13 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     Status close_result_;
     Status disable_lec_lines_result_;
     Status pulse_lec_2_line_result_;
+    Status enable_programming_voltage_line_result_;
     std::optional<KlineConfig> last_config_;
     std::vector<ControlLineAction> control_line_trace_;
     std::vector<int> lec_2_pulse_timeouts_;
     std::vector<int> read_timeouts_;
     std::vector<Operation> operation_trace_;
+    std::optional<std::size_t> programming_voltage_line_write_index_;
 
     // Records every set_add_iso14230_header() call in order (true == "add
     // header", false == "don't") so tests can assert the exact transitions
