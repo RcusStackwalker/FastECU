@@ -1038,6 +1038,68 @@ class ClangTidyRunnerTest(unittest.TestCase):
         with self.assertRaisesRegex(runner.WorkflowError, r"git merge-base.*128.*no such ref"):
             runner.changed_files(self.root, fake_run)
 
+    def test_filter_changed_entries_matches_source_directly(self) -> None:
+        pkg = self.root / "pkg"
+        pkg.mkdir()
+        source = pkg / "foo.cpp"
+        source.write_text("// foo\n")
+        self.write_database([source])
+        entries = runner.load_project_entries(self.root, self.root / "compile_commands.json")
+
+        matched, notes = runner.filter_changed_entries(entries, [source], self.root)
+
+        self.assertEqual([str(source)], [entry["file"] for entry in matched])
+        self.assertEqual([], notes)
+
+    def test_filter_changed_entries_falls_back_to_colocated_source(self) -> None:
+        pkg = self.root / "pkg"
+        pkg.mkdir()
+        source = pkg / "foo.cpp"
+        source.write_text("// foo\n")
+        test_source = pkg / "foo_test.cpp"
+        test_source.write_text("// foo test\n")
+        header = pkg / "foo.h"
+        header.write_text("#pragma once\n")
+        self.write_database([source, test_source])
+        entries = runner.load_project_entries(self.root, self.root / "compile_commands.json")
+
+        matched, notes = runner.filter_changed_entries(entries, [header], self.root)
+
+        self.assertEqual(
+            {str(source), str(test_source)},
+            {entry["file"] for entry in matched},
+        )
+        self.assertEqual([], notes)
+
+    def test_filter_changed_entries_notes_uncolocated_header(self) -> None:
+        pkg = self.root / "pkg"
+        pkg.mkdir()
+        source = pkg / "other.cpp"
+        source.write_text("// other\n")
+        header = pkg / "standalone.h"
+        header.write_text("#pragma once\n")
+        self.write_database([source])
+        entries = runner.load_project_entries(self.root, self.root / "compile_commands.json")
+
+        matched, notes = runner.filter_changed_entries(entries, [header], self.root)
+
+        self.assertEqual([], matched)
+        self.assertEqual(1, len(notes))
+        self.assertIn(str(header), notes[0])
+
+    def test_filter_changed_entries_ignores_non_cpp_changes(self) -> None:
+        source = self.root / "foo.cpp"
+        source.write_text("// foo\n")
+        self.write_database([source])
+        entries = runner.load_project_entries(self.root, self.root / "compile_commands.json")
+        doc = self.root / "README.md"
+        doc.write_text("# readme\n")
+
+        matched, notes = runner.filter_changed_entries(entries, [doc], self.root)
+
+        self.assertEqual([], matched)
+        self.assertEqual([], notes)
+
 
 if __name__ == "__main__":
     unittest.main()

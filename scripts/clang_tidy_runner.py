@@ -17,6 +17,7 @@ from pathlib import Path
 import yaml
 
 SOURCE_SUFFIXES = frozenset((".c", ".cc", ".cpp", ".cxx"))
+HEADER_SUFFIXES = frozenset((".h", ".hpp"))
 
 
 class WorkflowError(RuntimeError):
@@ -51,6 +52,22 @@ def workspace_root(environ: Mapping[str, str]) -> Path:
     return root
 
 
+def _entry_source_path(entry: dict[str, object], root: Path) -> Path:
+    """Resolve a compile-database entry's absolute source path.
+
+    Callers must already have validated that `directory` and `file` are
+    present strings (load_project_entries does this before an entry survives
+    into its returned list).
+    """
+    directory = Path(str(entry["directory"]))
+    if not directory.is_absolute():
+        directory = root / directory
+    source = Path(str(entry["file"]))
+    if not source.is_absolute():
+        source = directory / source
+    return source.resolve()
+
+
 def load_project_entries(workspace: Path, database: Path) -> list[dict[str, object]]:
     if not database.is_file():
         raise WorkflowError(f"compilation database was not generated: {database}")
@@ -71,13 +88,7 @@ def load_project_entries(workspace: Path, database: Path) -> list[dict[str, obje
         if not isinstance(directory_value, str) or not isinstance(file_value, str):
             raise WorkflowError("compilation database is malformed: entry lacks directory or file")
 
-        directory = Path(directory_value)
-        if not directory.is_absolute():
-            directory = root / directory
-        source = Path(file_value)
-        if not source.is_absolute():
-            source = directory / source
-        source = source.resolve()
+        source = _entry_source_path(entry, root)
         try:
             source.relative_to(root)
         except ValueError:
@@ -91,6 +102,55 @@ def load_project_entries(workspace: Path, database: Path) -> list[dict[str, obje
     if not entries:
         raise WorkflowError("compilation database contains no workspace translation units")
     return entries
+
+
+def filter_changed_entries(
+    entries: list[dict[str, object]],
+    changed: Sequence[Path],
+    root: Path,
+) -> tuple[list[dict[str, object]], list[str]]:
+    """Narrow `entries` to translation units affected by `changed`.
+
+    Source files match by path directly. A changed header with no changed
+    source file falls back to co-located sources in the same directory
+    (foo.h -> foo.cpp, foo_test.cpp), matching this repo's package-owned test
+    convention. A header with no co-located source in `entries` produces a
+    note instead of a match; this design does not trace transitive includers.
+    """
+    by_path: dict[Path, dict[str, object]] = {}
+    by_directory: dict[Path, list[tuple[str, dict[str, object]]]] = {}
+    for entry in entries:
+        source = _entry_source_path(entry, root)
+        by_path[source] = entry
+        by_directory.setdefault(source.parent, []).append((source.stem, entry))
+
+    matched: dict[Path, dict[str, object]] = {}
+    notes: list[str] = []
+    for path in changed:
+        resolved = path.resolve()
+        suffix = resolved.suffix.lower()
+        if suffix in SOURCE_SUFFIXES:
+            entry = by_path.get(resolved)
+            if entry is not None:
+                matched[resolved] = entry
+        elif suffix in HEADER_SUFFIXES:
+            stem = resolved.stem
+            candidates = by_directory.get(resolved.parent, [])
+            found = [
+                entry
+                for candidate_stem, entry in candidates
+                if candidate_stem in (stem, f"{stem}_test")
+            ]
+            if found:
+                for entry in found:
+                    matched[_entry_source_path(entry, root)] = entry
+            else:
+                notes.append(
+                    f"clang-tidy: {resolved} changed with no co-located source in the "
+                    "compile database; its includers were not checked."
+                )
+
+    return [matched[key] for key in sorted(matched)], notes
 
 
 def _search_directories(platform_name: str, environ: Mapping[str, str]) -> list[Path]:
