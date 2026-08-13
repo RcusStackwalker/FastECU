@@ -1,10 +1,15 @@
 #include "src/backend/flash/ecu/subaru_denso_sh7055_02_executor.h"
 
+#include <algorithm>
 #include <format>
+#include <limits>
 #include <utility>
+#include <vector>
 
 #include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
+#include "src/backend/definitions/kernelmemorymodels.h"
+#include "src/backend/flash/flash_device_lookup.h"
 
 namespace fastecu::flash
 {
@@ -13,10 +18,23 @@ namespace
 
 constexpr std::uint16_t kStartComm = 0xBEEF;
 constexpr std::uint8_t kOpId = 0x01;
+constexpr std::uint8_t kOpCrc = 0x02;
 constexpr std::uint8_t kOpReadArea = 0x03;
+constexpr std::uint8_t kOpProgVolt = 0x04;
+constexpr std::uint8_t kOpGetMaxMsgSize = 0x05;
+constexpr std::uint8_t kOpGetMaxBlockSize = 0x06;
+constexpr std::uint8_t kOpFlashEnable = 0x20;
+constexpr std::uint8_t kOpFlashDisable = 0x21;
+constexpr std::uint8_t kOpWriteFlashBuffer = 0x22;
+constexpr std::uint8_t kOpValidateFlashBuffer = 0x23;
+constexpr std::uint8_t kOpCommitFlashBuffer = 0x24;
+constexpr std::uint8_t kOpBlankPage = 0x25;
 constexpr std::uint8_t kOpUploadKernel = 0x53;
 // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:372-377.
 constexpr std::uint32_t kReadPageSize = 0x400;
+// Legacy flash_block(), lines 969 and 980.
+constexpr std::uint32_t kWriteChunkSize = 0x200;
+constexpr std::uint32_t kCommitBlockSize = 0x1000;
 
 Status check_cancelled(const ICancellationToken& cancellation, std::string detail)
 {
@@ -479,6 +497,435 @@ Result<bytes::Bytes> SubaruDensoSh7055_02Executor::read_mem(
     return mapdata;
 }
 
+Result<std::uint32_t> SubaruDensoSh7055_02Executor::read_block_crc(
+    IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+    const MemoryRegion& block)
+{
+    // Legacy check_romcrc(), lines 645-749: request the ECU CRC for the
+    // physical [start, start + length) block.
+    const bytes::Bytes payload{
+        static_cast<bytes::Byte>((block.start >> 24) & 0xFF),
+        static_cast<bytes::Byte>((block.start >> 16) & 0xFF),
+        static_cast<bytes::Byte>((block.start >> 8) & 0xFF),
+        static_cast<bytes::Byte>(block.start & 0xFF),
+        0x00,
+        static_cast<bytes::Byte>((block.length >> 16) & 0xFF),
+        static_cast<bytes::Byte>((block.length >> 8) & 0xFF),
+        static_cast<bytes::Byte>(block.length & 0xFF),
+    };
+    const bytes::Bytes request = frame(kOpCrc, payload);
+    if (Status cancelled = check_cancelled(cancellation, "cancelled before CRC write");
+        !cancelled.has_value())
+    {
+        return std::unexpected(cancelled.error());
+    }
+    Result<std::size_t> written = transport.write(request);
+    if (!written.has_value())
+    {
+        return std::unexpected(written.error());
+    }
+    if (*written != request.size())
+    {
+        return fail(ErrorKind::Disconnected, "short K-Line write");
+    }
+    if (Status cancelled = check_cancelled(cancellation, "cancelled after CRC write");
+        !cancelled.has_value())
+    {
+        return std::unexpected(cancelled.error());
+    }
+    if (Status cancelled = check_cancelled(cancellation, "cancelled before initial CRC read");
+        !cancelled.has_value())
+    {
+        return std::unexpected(cancelled.error());
+    }
+    Result<IKlineFlashTransport::OptionalBytes> initial = transport.read(3000, cancellation);
+    if (!initial.has_value())
+    {
+        return std::unexpected(initial.error());
+    }
+    if (Status cancelled = check_cancelled(cancellation, "cancelled after initial CRC read");
+        !cancelled.has_value())
+    {
+        return std::unexpected(cancelled.error());
+    }
+    bytes::Bytes response = initial->has_value() ? std::move(**initial) : bytes::Bytes{};
+
+    // Legacy lines 680-686 accumulate fragmented replies using twenty
+    // 50ms reads paced by 100ms. Lines 704-709 also recognize a raw 0x7f
+    // failure marker before attempting to unwrap a successful reply.
+    for (int try_count = 0; response.size() < 10 && try_count < 20; ++try_count)
+    {
+        if (!response.empty() && response.front() == 0x7F)
+        {
+            return fail(ErrorKind::BadResponse, "ECU marked CRC response failed");
+        }
+        if (Status cancelled = check_cancelled(cancellation,
+                                               "cancelled before CRC continuation read");
+            !cancelled.has_value())
+        {
+            return std::unexpected(cancelled.error());
+        }
+        Result<IKlineFlashTransport::OptionalBytes> more = transport.read(50, cancellation);
+        if (!more.has_value())
+        {
+            return std::unexpected(more.error());
+        }
+        if (more->has_value())
+        {
+            response.insert(response.end(), (**more).begin(), (**more).end());
+        }
+        if (Status cancelled = check_cancelled(cancellation,
+                                               "cancelled after CRC continuation read");
+            !cancelled.has_value())
+        {
+            return std::unexpected(cancelled.error());
+        }
+        if (Status slept = clock.sleep(100, cancellation); !slept.has_value())
+        {
+            return std::unexpected(slept.error());
+        }
+    }
+    if (!response.empty() && response.front() == 0x7F)
+    {
+        return fail(ErrorKind::BadResponse, "ECU marked CRC response failed");
+    }
+    if (response.size() <= 9 || !response_ok(response, kOpCrc | 0x40))
+    {
+        return fail(ErrorKind::BadResponse, "Wrong response from ECU during CRC check");
+    }
+
+    // SH7055-specific legacy unwrap, lines 704-717. The first byte is
+    // inspected as the legacy length/failure marker, then the five-byte
+    // BEEF envelope and trailing checksum are removed before the CRC bytes
+    // are interpreted. MC68 reads offsets 5..8 directly and has no marker.
+    const bytes::Byte length_or_failure = response.front();
+    if (length_or_failure == 0x7F)
+    {
+        return fail(ErrorKind::BadResponse, "ECU marked CRC response failed");
+    }
+    if (length_or_failure <= 5 || response.size() < 10)
+    {
+        return fail(ErrorKind::BadResponse, "Wrong response from ECU during CRC unwrap");
+    }
+    response.erase(response.begin(), response.begin() + 5);
+    response.pop_back();
+    if (response.size() < 4)
+    {
+        return fail(ErrorKind::BadResponse, "Truncated CRC response from ECU");
+    }
+    const std::uint32_t crc = (static_cast<std::uint32_t>(response[0]) << 24) |
+                              (static_cast<std::uint32_t>(response[1]) << 16) |
+                              (static_cast<std::uint32_t>(response[2]) << 8) |
+                              static_cast<std::uint32_t>(response[3]);
+    // Legacy lines 742 and 748 perform a short read after either compare
+    // outcome, so drain every successful CRC decode before returning it.
+    if (Status drained = drain(transport, cancellation, 200, "CRC response drain");
+        !drained.has_value())
+    {
+        return std::unexpected(drained.error());
+    }
+    return crc;
+}
+
+Status SubaruDensoSh7055_02Executor::flash_block(
+    IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+    IEventSink& events, bytes::ByteView image, const MemoryRegion& block, bool test_write)
+{
+    if (block.start > image.size() || block.length > image.size() - block.start ||
+        block.length % kWriteChunkSize != 0 || block.length % kCommitBlockSize != 0)
+    {
+        return fail(ErrorKind::InvalidConfig, "flash block is not represented by the image");
+    }
+
+    if (!test_write)
+    {
+        // Legacy flash_block(), lines 982-1019: erase, settle 500ms, then
+        // wait up to 3000ms for the 0x65 acknowledgment.
+        events.log(LogLevel::Info, "Erasing flash page...");
+        const bytes::Bytes erase_payload{
+            static_cast<bytes::Byte>((block.start >> 24) & 0xFF),
+            static_cast<bytes::Byte>((block.start >> 16) & 0xFF),
+            static_cast<bytes::Byte>((block.start >> 8) & 0xFF),
+            static_cast<bytes::Byte>(block.start & 0xFF),
+        };
+        Result<IKlineFlashTransport::OptionalBytes> erase_exchange = exchange(
+            transport, &clock, cancellation, frame(kOpBlankPage, erase_payload), 500, 3000);
+        if (!erase_exchange.has_value())
+        {
+            return std::unexpected(erase_exchange.error());
+        }
+        if (!erase_exchange->has_value())
+        {
+            return fail(ErrorKind::Timeout, "no response from ECU during erase");
+        }
+        if (!response_ok(**erase_exchange, kOpBlankPage | 0x40))
+        {
+            return fail(ErrorKind::BadResponse, "Wrong response from ECU during erase");
+        }
+        events.log(LogLevel::Info, "Erased");
+    }
+
+    std::uint32_t offset = 0;
+    std::uint32_t commit_block_start = block.start;
+    while (offset < block.length)
+    {
+        if (Status cancelled = check_cancelled(cancellation, "cancelled during block write");
+            !cancelled.has_value())
+        {
+            return cancelled;
+        }
+        const std::uint32_t chunk_address = block.start + offset;
+        bytes::Bytes payload{
+            static_cast<bytes::Byte>((chunk_address >> 24) & 0xFF),
+            static_cast<bytes::Byte>((chunk_address >> 16) & 0xFF),
+            static_cast<bytes::Byte>((chunk_address >> 8) & 0xFF),
+            static_cast<bytes::Byte>(chunk_address & 0xFF),
+        };
+        payload.insert(payload.end(), image.begin() + chunk_address,
+                       image.begin() + chunk_address + kWriteChunkSize);
+
+        // SH7055 legacy lines 1048-1050 actively settle 50ms and use the
+        // normal 2000ms timeout; MC68's corresponding delay is commented.
+        Result<IKlineFlashTransport::OptionalBytes> write_response = exchange(
+            transport, &clock, cancellation, frame(kOpWriteFlashBuffer, payload), 50, 2000);
+        if (!write_response.has_value())
+        {
+            return std::unexpected(write_response.error());
+        }
+        if (!write_response->has_value())
+        {
+            return fail(ErrorKind::Timeout, "no response from ECU during write");
+        }
+        if (!response_ok(**write_response, kOpWriteFlashBuffer | 0x40))
+        {
+            return fail(ErrorKind::BadResponse, "Wrong response from ECU during write");
+        }
+        offset += kWriteChunkSize;
+
+        if (commit_block_start + kCommitBlockSize == block.start + offset)
+        {
+            const std::uint32_t commit_crc = fastecu::checksum::crc32(
+                image.subspan(commit_block_start, kCommitBlockSize));
+            const std::uint8_t commit_opcode =
+                test_write ? kOpValidateFlashBuffer : kOpCommitFlashBuffer;
+            bytes::Bytes commit_payload{
+                static_cast<bytes::Byte>((commit_block_start >> 24) & 0xFF),
+                static_cast<bytes::Byte>((commit_block_start >> 16) & 0xFF),
+                static_cast<bytes::Byte>((commit_block_start >> 8) & 0xFF),
+                static_cast<bytes::Byte>(commit_block_start & 0xFF),
+                static_cast<bytes::Byte>((kCommitBlockSize >> 8) & 0xFF),
+                static_cast<bytes::Byte>(kCommitBlockSize & 0xFF),
+                static_cast<bytes::Byte>((commit_crc >> 24) & 0xFF),
+                static_cast<bytes::Byte>((commit_crc >> 16) & 0xFF),
+                static_cast<bytes::Byte>((commit_crc >> 8) & 0xFF),
+                static_cast<bytes::Byte>(commit_crc & 0xFF),
+            };
+            Result<IKlineFlashTransport::OptionalBytes> commit_response = exchange(
+                transport, &clock, cancellation, frame(commit_opcode, commit_payload), 200, 3000);
+            if (!commit_response.has_value())
+            {
+                return std::unexpected(commit_response.error());
+            }
+            if (!commit_response->has_value())
+            {
+                return fail(ErrorKind::Timeout, "no response from ECU during commit");
+            }
+            if (!response_ok(**commit_response, commit_opcode | 0x40))
+            {
+                return fail(ErrorKind::BadResponse, "Wrong response from ECU during commit");
+            }
+            commit_block_start += kCommitBlockSize;
+        }
+        events.progress(static_cast<int>(offset), static_cast<int>(block.length));
+    }
+    // Legacy line 1159 discards one final short-timeout response.
+    return drain(transport, cancellation, 200, "flash block drain");
+}
+
+Status SubaruDensoSh7055_02Executor::write_mem(
+    IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+    IEventSink& events, bytes::ByteView image, const std::string& mcu_name, bool test_write)
+{
+    const flashdev_t *device = find_flash_device(mcu_name);
+    if (device == nullptr)
+    {
+        return fail(ErrorKind::InvalidConfig, "Unknown MCU type");
+    }
+    std::uint64_t physical_size = 0;
+    for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
+    {
+        physical_size = std::max(
+            physical_size, static_cast<std::uint64_t>(device->fblocks[block_no].start) +
+                               device->fblocks[block_no].len);
+    }
+    if (image.size() != device->romsize || physical_size > image.size() ||
+        physical_size > std::numeric_limits<std::size_t>::max())
+    {
+        return fail(ErrorKind::InvalidConfig, "ROM image does not match the flash device");
+    }
+
+    // Legacy write_mem()/get_changed_blocks(), lines 484-637.
+    events.log(LogLevel::Info, "Comparing ECU flash memory pages to image file");
+    const auto compare_blocks = [&](std::vector<bool>& modified) -> Result<unsigned>
+    {
+        unsigned modified_count = 0;
+        for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
+        {
+            if (Status cancelled = check_cancelled(cancellation, "cancelled during ROM compare");
+                !cancelled.has_value())
+            {
+                return std::unexpected(cancelled.error());
+            }
+            const MemoryRegion block{device->fblocks[block_no].start,
+                                     device->fblocks[block_no].len};
+            Result<std::uint32_t> ecu_crc =
+                read_block_crc(transport, clock, cancellation, block);
+            if (!ecu_crc.has_value())
+            {
+                return std::unexpected(ecu_crc.error());
+            }
+            const std::uint32_t image_crc = fastecu::checksum::crc32(
+                image.subspan(block.start, block.length));
+            modified[block_no] = *ecu_crc != image_crc;
+            modified_count += modified[block_no] ? 1u : 0u;
+        }
+        return modified_count;
+    };
+
+    std::vector<bool> modified(device->numblocks, false);
+    Result<unsigned> modified_count = compare_blocks(modified);
+    if (!modified_count.has_value())
+    {
+        return std::unexpected(modified_count.error());
+    }
+
+    // Legacy line 528 transitions the serial control lines after compare,
+    // including the no-difference path.
+    if (Status cancelled = check_cancelled(cancellation, "cancelled before programming line state");
+        !cancelled.has_value())
+    {
+        return cancelled;
+    }
+    if (Status line = transport.enable_programming_voltage_line(); !line.has_value())
+    {
+        return line;
+    }
+    if (Status cancelled = check_cancelled(cancellation, "cancelled after programming line state");
+        !cancelled.has_value())
+    {
+        return cancelled;
+    }
+
+    if (*modified_count == 0)
+    {
+        events.log(LogLevel::Info,
+                   "No difference between ROM and ECU data, no flashing needed");
+        return {};
+    }
+
+    // Legacy init_flash_write(), lines 752-873. SH7055's returned 32-bit
+    // lengths begin at offsets 6..9, one byte later than MC68.
+    for (const std::uint8_t opcode : {kOpGetMaxMsgSize, kOpGetMaxBlockSize})
+    {
+        Result<IKlineFlashTransport::OptionalBytes> response =
+            exchange(transport, &clock, cancellation, frame(opcode), 200, 200);
+        if (!response.has_value())
+        {
+            return std::unexpected(response.error());
+        }
+        if (!response->has_value())
+        {
+            return fail(ErrorKind::Timeout, "no response from ECU during flash init");
+        }
+        if ((**response).size() <= 9 || !response_ok(**response, opcode | 0x40))
+        {
+            return fail(ErrorKind::BadResponse, "Wrong response from ECU during flash init");
+        }
+        const bytes::Bytes& received = **response;
+        const std::uint32_t length = (static_cast<std::uint32_t>(received[6]) << 24) |
+                                     (static_cast<std::uint32_t>(received[7]) << 16) |
+                                     (static_cast<std::uint32_t>(received[8]) << 8) |
+                                     static_cast<std::uint32_t>(received[9]);
+        if (opcode == kOpGetMaxMsgSize)
+        {
+            events.log(LogLevel::Info, std::format("Max message length: 0x{:08X}", length));
+        }
+        else
+        {
+            events.log(LogLevel::Info, std::format("Flash block size: 0x{:08X}", length));
+        }
+    }
+    const std::uint8_t enable_opcode = test_write ? kOpFlashDisable : kOpFlashEnable;
+    Result<IKlineFlashTransport::OptionalBytes> enable_response =
+        exchange(transport, &clock, cancellation, frame(enable_opcode), 200, 200);
+    if (!enable_response.has_value())
+    {
+        return std::unexpected(enable_response.error());
+    }
+    if (!enable_response->has_value())
+    {
+        return fail(ErrorKind::Timeout, "no response from ECU during flash init");
+    }
+    if (!response_ok(**enable_response, enable_opcode | 0x40))
+    {
+        return fail(ErrorKind::BadResponse, "Wrong response from ECU during flash init");
+    }
+
+    for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
+    {
+        if (!modified[block_no])
+        {
+            continue;
+        }
+        const MemoryRegion block{device->fblocks[block_no].start,
+                                 device->fblocks[block_no].len};
+        // Legacy reflash_block(), lines 914-944: no settle before the 200ms
+        // programming-voltage reply, whose two-byte voltage requires >7 bytes.
+        Result<IKlineFlashTransport::OptionalBytes> voltage_response =
+            exchange(transport, nullptr, cancellation, frame(kOpProgVolt), 0, 200);
+        if (!voltage_response.has_value())
+        {
+            return std::unexpected(voltage_response.error());
+        }
+        if (!voltage_response->has_value())
+        {
+            return fail(ErrorKind::Timeout, "no response from ECU during prog-volt query");
+        }
+        if ((**voltage_response).size() <= 7 ||
+            !response_ok(**voltage_response, kOpProgVolt | 0x40))
+        {
+            return fail(ErrorKind::BadResponse, "Wrong response from ECU during prog-volt query");
+        }
+        if (Status flashed = flash_block(transport, clock, cancellation, events, image,
+                                         block, test_write);
+            !flashed.has_value())
+        {
+            return flashed;
+        }
+        events.log(LogLevel::Info, "Block reflash complete");
+    }
+
+    // Legacy lines 562-593 repeat the per-block CRC comparison after all
+    // selected blocks have been transferred.
+    events.log(LogLevel::Info, "Comparing ECU flash memory pages to image file after reflash");
+    Result<unsigned> remaining_modified = compare_blocks(modified);
+    if (!remaining_modified.has_value())
+    {
+        return std::unexpected(remaining_modified.error());
+    }
+    if (test_write)
+    {
+        events.log(LogLevel::Info,
+                   "Test write PASS, it is safe to perform the actual write");
+    }
+    else if (*remaining_modified != 0)
+    {
+        events.log(LogLevel::Error,
+                   "Flash verification differs; do not power off, the kernel is still running");
+    }
+    return {};
+}
+
 Result<FlashExecutionResult> SubaruDensoSh7055_02Executor::execute(
     const FlashPlan& plan, IFlashTransport& transport, IClock& clock,
     const ICancellationToken& cancellation, IEventSink& events)
@@ -594,8 +1041,18 @@ Result<FlashExecutionResult> SubaruDensoSh7055_02Executor::execute(
                 .operation = plan.operation(), .read_bytes = std::move(*read), .rom_id = ecu_id};
         }
 
-        // Task 9 adds write_mem. Connect/upload have completed at this boundary.
-        return fail(ErrorKind::Unsupported, "SH7055_02 write phase not yet implemented");
+        if (!plan.image().has_value())
+        {
+            return fail(ErrorKind::InvalidConfig, "SH7055_02 write requires a ROM image");
+        }
+        Status written = write_mem(kline, clock, cancellation, events, *plan.image(),
+                                   plan.mcu_name(),
+                                   plan.operation() == FlashOperation::TestWrite);
+        if (!written.has_value())
+        {
+            return std::unexpected(written.error());
+        }
+        return FlashExecutionResult{.operation = plan.operation(), .read_bytes = std::nullopt};
     }();
 
     // Close is unconditional and intentionally ignores cancellation so a
