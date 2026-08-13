@@ -69,9 +69,10 @@ bool response_ok(bytes::ByteView received, std::uint8_t expected_opcode_with_ack
 
 // Shared cancellation-aware write/read exchange, porting legacy
 // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:116-119 and 269-270.
-Result<bytes::Bytes> exchange_impl(IKlineFlashTransport& transport, IClock *clock,
-                                   const ICancellationToken& cancellation,
-                                   bytes::ByteView request, int settle_ms, int timeout_ms)
+Result<IKlineFlashTransport::OptionalBytes> exchange_optional_impl(
+    IKlineFlashTransport& transport, IClock *clock,
+    const ICancellationToken& cancellation, bytes::ByteView request,
+    int settle_ms, int timeout_ms)
 {
     if (Status cancelled = check_cancelled(cancellation, "cancelled before write");
         !cancelled.has_value())
@@ -114,6 +115,19 @@ Result<bytes::Bytes> exchange_impl(IKlineFlashTransport& transport, IClock *cloc
     {
         return std::unexpected(cancelled.error());
     }
+    return std::move(*received);
+}
+
+Result<bytes::Bytes> exchange_impl(IKlineFlashTransport& transport, IClock *clock,
+                                   const ICancellationToken& cancellation,
+                                   bytes::ByteView request, int settle_ms, int timeout_ms)
+{
+    Result<IKlineFlashTransport::OptionalBytes> received =
+        exchange_optional_impl(transport, clock, cancellation, request, settle_ms, timeout_ms);
+    if (!received.has_value())
+    {
+        return std::unexpected(received.error());
+    }
     if (!received->has_value())
     {
         return fail(ErrorKind::Timeout, "no response from ECU");
@@ -133,6 +147,14 @@ Result<bytes::Bytes> exchange(IKlineFlashTransport& transport,
                               int timeout_ms)
 {
     return exchange_impl(transport, nullptr, cancellation, request, 0, timeout_ms);
+}
+
+Result<IKlineFlashTransport::OptionalBytes> exchange_optional(
+    IKlineFlashTransport& transport, IClock& clock,
+    const ICancellationToken& cancellation, bytes::ByteView request,
+    int settle_ms, int timeout_ms)
+{
+    return exchange_optional_impl(transport, &clock, cancellation, request, settle_ms, timeout_ms);
 }
 
 Status drain_response(IKlineFlashTransport& transport,
@@ -270,15 +292,16 @@ Status SubaruDensoMc68hc16y5_02Executor::connect_bootloader(
     events.log(LogLevel::Info, "Connecting to Subaru 01-05 16-bit K-Line bootloader...");
     const bytes::Bytes init_request{0x4D, 0xFF, 0xB4};
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:115-146.
-    Result<bytes::Bytes> init_response =
-        exchange(transport, clock, cancellation, init_request, 50, 200);
+    Result<IKlineFlashTransport::OptionalBytes> init_response =
+        exchange_optional(transport, clock, cancellation, init_request, 50, 200);
     if (!init_response.has_value())
     {
         return std::unexpected(init_response.error());
     }
-    if (init_response->size() >= family_plan.bootloader_ok.size() &&
+    if (init_response->has_value() &&
+        (**init_response).size() >= family_plan.bootloader_ok.size() &&
         std::equal(family_plan.bootloader_ok.begin(), family_plan.bootloader_ok.end(),
-                   init_response->begin()))
+                   (**init_response).begin()))
     {
         events.log(LogLevel::Info, "Connected to bootloader");
         kernel_alive = false;
@@ -394,12 +417,16 @@ Status SubaruDensoMc68hc16y5_02Executor::upload_kernel(
     request.push_back(fastecu::checksum::checksum8(request, true));
 
     events.log(LogLevel::Info, "Sending kernel...");
-    Result<bytes::Bytes> upload_response = exchange(transport, clock, cancellation, request, 0, 200);
+    Result<IKlineFlashTransport::OptionalBytes> upload_response =
+        exchange_optional(transport, clock, cancellation, request, 0, 200);
     if (!upload_response.has_value())
     {
         return std::unexpected(upload_response.error());
     }
-    if (!upload_response->empty())
+    // Legacy read_serial_data() returns an empty QByteArray when no frame
+    // arrives. That no-frame outcome is the upload success signal; a real
+    // frame, including a present-but-empty frame, is an ECU error response.
+    if (upload_response->has_value())
     {
         return fail(ErrorKind::BadResponse, "Error on kernel upload");
     }
@@ -443,56 +470,73 @@ Status SubaruDensoMc68hc16y5_02Executor::upload_kernel(
 
 Result<bytes::Bytes> SubaruDensoMc68hc16y5_02Executor::read_mem(
     IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-    IEventSink& events, const MemoryRegion& region)
+    IEventSink& events, const std::string& mcu_name)
 {
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:323-455.
-    // Its RAM-mapped unreadable-region fill (370-380) applies only to the
-    // legacy zero-address/zero-length shorthand. Plans always provide the
-    // explicit flash-only transfer region, so no portable equivalent is needed.
+    // Legacy lines 370-380 jump the wire address across the RAM/kernel hole
+    // but pad desktop FullRomData with 0xff there. The portable boundary uses
+    // a packed ROM instead, so concatenate real flash blocks and omit the hole.
+    const flashdev_t *device = find_flash_device(mcu_name);
+    if (device == nullptr)
+    {
+        return fail(ErrorKind::InvalidConfig, "Unknown MCU type");
+    }
     bytes::Bytes mapdata;
-    std::uint32_t address = region.start;
-    std::uint32_t remaining_pages = (region.length + kReadPageSize - 1) / kReadPageSize;
-    events.progress(0, static_cast<int>(region.length));
+    mapdata.reserve(device->romsize);
+    events.progress(0, static_cast<int>(device->romsize));
+    std::uint32_t packed_remaining = device->romsize;
 
-    while (remaining_pages > 0)
+    for (unsigned block_no = 0;
+         block_no < device->numblocks && packed_remaining > 0; ++block_no)
     {
-        if (Status cancelled = check_cancelled(cancellation, "cancelled during read");
-            !cancelled.has_value())
+        const auto& block = device->fblocks[block_no];
+        const std::uint32_t block_bytes = std::min(block.len, packed_remaining);
+        if (block_bytes % kReadPageSize != 0)
         {
-            return std::unexpected(cancelled.error());
+            return fail(ErrorKind::InvalidConfig, "flash block is not page aligned");
         }
-        const bytes::Bytes payload{
-            0x00,
-            static_cast<bytes::Byte>((address >> 16) & 0xFF),
-            static_cast<bytes::Byte>((address >> 8) & 0xFF),
-            static_cast<bytes::Byte>(address & 0xFF),
-            static_cast<bytes::Byte>((kReadPageSize >> 8) & 0xFF),
-            static_cast<bytes::Byte>(kReadPageSize & 0xFF),
-        };
-        Result<bytes::Bytes> response =
-            exchange(transport, clock, cancellation, frame(kOpReadArea, payload), 10, 3000);
-        if (!response.has_value())
+        const std::uint32_t block_end = block.start + block_bytes;
+        for (std::uint32_t address = block.start; address < block_end;
+             address += kReadPageSize)
         {
-            return std::unexpected(response.error());
-        }
-        if (!response_ok(*response, static_cast<bytes::Byte>(kOpReadArea | 0x40)))
-        {
-            return fail(ErrorKind::BadResponse, "Wrong response from ECU during read");
-        }
-        mapdata.insert(mapdata.end(), response->begin() + 5, response->end() - 1);
-        address += kReadPageSize;
-        --remaining_pages;
-        events.progress(static_cast<int>(mapdata.size()), static_cast<int>(region.length));
-        if (Status slept = clock.sleep(1, cancellation); !slept.has_value())
-        {
-            return std::unexpected(slept.error());
+            if (Status cancelled = check_cancelled(cancellation, "cancelled during read");
+                !cancelled.has_value())
+            {
+                return std::unexpected(cancelled.error());
+            }
+            const bytes::Bytes payload{
+                0x00,
+                static_cast<bytes::Byte>((address >> 16) & 0xFF),
+                static_cast<bytes::Byte>((address >> 8) & 0xFF),
+                static_cast<bytes::Byte>(address & 0xFF),
+                static_cast<bytes::Byte>((kReadPageSize >> 8) & 0xFF),
+                static_cast<bytes::Byte>(kReadPageSize & 0xFF),
+            };
+            Result<bytes::Bytes> response =
+                exchange(transport, clock, cancellation, frame(kOpReadArea, payload), 10, 3000);
+            if (!response.has_value())
+            {
+                return std::unexpected(response.error());
+            }
+            if (response->size() != kReadPageSize + 6 ||
+                !response_ok(*response, static_cast<bytes::Byte>(kOpReadArea | 0x40)))
+            {
+                return fail(ErrorKind::BadResponse, "Wrong response from ECU during read");
+            }
+            mapdata.insert(mapdata.end(), response->begin() + 5, response->end() - 1);
+            packed_remaining -= kReadPageSize;
+            events.progress(static_cast<int>(mapdata.size()), static_cast<int>(device->romsize));
+            if (Status slept = clock.sleep(1, cancellation); !slept.has_value())
+            {
+                return std::unexpected(slept.error());
+            }
         }
     }
-    if (mapdata.size() > region.length)
+    if (mapdata.size() != device->romsize)
     {
-        mapdata.resize(region.length);
+        return fail(ErrorKind::InvalidConfig, "flash blocks do not match ROM size");
     }
-    events.progress(static_cast<int>(region.length), static_cast<int>(region.length));
+    events.progress(static_cast<int>(device->romsize), static_cast<int>(device->romsize));
     return mapdata;
 }
 
@@ -885,6 +929,11 @@ Result<FlashExecutionResult> SubaruDensoMc68hc16y5_02Executor::execute(
     {
         return std::unexpected(match.error());
     }
+    if (Status valid = validate_subaru_denso_mc68hc16y5_02_plan(plan);
+        !valid.has_value())
+    {
+        return std::unexpected(valid.error());
+    }
     if (Status cancelled = check_cancelled(cancellation, "cancelled before transport configuration");
         !cancelled.has_value())
     {
@@ -895,7 +944,13 @@ Result<FlashExecutionResult> SubaruDensoMc68hc16y5_02Executor::execute(
     {
         return fail(ErrorKind::InvalidConfig, "transport does not implement IKlineFlashTransport");
     }
-    const auto& family_plan = std::get<SubaruDensoMc68hc16y5_02Plan>(plan.family_plan());
+    const auto *family_plan_ptr =
+        std::get_if<SubaruDensoMc68hc16y5_02Plan>(&plan.family_plan());
+    if (family_plan_ptr == nullptr)
+    {
+        return fail(ErrorKind::InvalidConfig, "MC68HC16Y5_02 wire parameters are missing");
+    }
+    const SubaruDensoMc68hc16y5_02Plan& family_plan = *family_plan_ptr;
     IKlineFlashTransport& kline = *kline_ptr;
 
     if (Status configured = kline.configure(KlineConfig{.baud = family_plan.connect_baud,
@@ -965,7 +1020,7 @@ Result<FlashExecutionResult> SubaruDensoMc68hc16y5_02Executor::execute(
         if (plan.operation() == FlashOperation::Read)
         {
             Result<bytes::Bytes> read =
-                read_mem(kline, clock, cancellation, events, plan.transfer_region());
+                read_mem(kline, clock, cancellation, events, plan.mcu_name());
             if (!read.has_value())
             {
                 return std::unexpected(read.error());

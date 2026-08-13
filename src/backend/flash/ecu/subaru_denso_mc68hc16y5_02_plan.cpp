@@ -33,9 +33,14 @@ Status validate_identity(std::string_view protocol, std::string_view mcu)
         return fail(Unsupported,
                     "protocols.cfg declares no supported operation for MC68HC16Y5 revision 04");
     }
-    if (find_flash_device_index(mcu) < 0)
+    const std::string_view expected_mcu =
+        protocol == "sub_ecu_denso_mc68hc16y5_02_tpu" ? "MC68HC16Y5_TPU"
+                                                      : "MC68HC16Y5";
+    if (mcu != expected_mcu)
     {
-        return fail(InvalidConfig, std::format("Unknown MCU type: {}", mcu));
+        return fail(InvalidConfig,
+                    std::format("protocol {} requires MCU {}, not {}",
+                                protocol, expected_mcu, mcu));
     }
     return {};
 }
@@ -71,26 +76,76 @@ SubaruDensoMc68hc16y5_02Plan wire_params(std::string_view protocol)
             .bootloader_ok = {0x4D, 0x00, 0xB3}};
 }
 
+Status validate_kernel_upload(const KernelImage& kernel)
+{
+    // Legacy upload_kernel() serializes only address bits 23..8, so the low
+    // byte is implicit zero. The catalog and shared device table both place
+    // this kernel at the one canonical 0x20000 model region.
+    constexpr std::uint32_t kKernelStart = 0x00020000;
+    constexpr std::uint64_t kKernelLength = 0x00008000;
+    constexpr std::uint64_t kMaxWireLength = 0x00ffffff;
+    if (kernel.load_address != kKernelStart)
+    {
+        return fail(ErrorKind::InvalidConfig,
+                    "MC68HC16Y5_02 kernel address is not the canonical wire address");
+    }
+    const std::uint64_t padded_size =
+        (static_cast<std::uint64_t>(kernel.bytes.size()) + 0x0f) & ~0x0fULL;
+    if (padded_size > kMaxWireLength)
+    {
+        return fail(ErrorKind::InvalidConfig,
+                    "MC68HC16Y5_02 padded kernel exceeds the 24-bit wire length");
+    }
+    if (padded_size > kKernelLength)
+    {
+        return fail(ErrorKind::InvalidConfig,
+                    "MC68HC16Y5_02 padded kernel is outside the model kernel region");
+    }
+    return {};
+}
+
 } // namespace
 
 Status validate_subaru_denso_mc68hc16y5_02_plan(const FlashPlan& plan)
 {
     using enum ErrorKind;
-    if (auto valid = validate_identity(plan.target_id(), plan.mcu_name()); !valid.has_value())
-    {
-        return valid;
-    }
     if (plan.family() != FlashFamily::SubaruDensoMc68hc16y5_02 || plan.transport() != TransportKind::Kline)
     {
         return fail(InvalidConfig, "plan is not for MC68HC16Y5_02");
     }
-    if (!std::holds_alternative<SubaruDensoMc68hc16y5_02Plan>(plan.family_plan()))
+    const auto *family = std::get_if<SubaruDensoMc68hc16y5_02Plan>(&plan.family_plan());
+    if (family == nullptr)
     {
         return fail(InvalidConfig, "MC68HC16Y5_02 wire parameters are missing");
+    }
+    if (auto valid = validate_identity(plan.target_id(), plan.mcu_name()); !valid.has_value())
+    {
+        return valid;
+    }
+    const SubaruDensoMc68hc16y5_02Plan expected = wire_params(plan.target_id());
+    if (family->connect_baud != expected.connect_baud ||
+        family->kernel_baud != expected.kernel_baud ||
+        family->encryption_xor != expected.encryption_xor ||
+        family->kernel_magic != expected.kernel_magic ||
+        family->bootloader_ok != expected.bootloader_ok)
+    {
+        return fail(InvalidConfig, "MC68HC16Y5_02 wire parameters are invalid");
     }
     if (!plan.kernel().has_value())
     {
         return fail(InvalidConfig, "MC68HC16Y5_02 requires a kernel image");
+    }
+    if (auto valid = validate_kernel_upload(*plan.kernel()); !valid.has_value())
+    {
+        return valid;
+    }
+    if (!plan.erase_regions().empty())
+    {
+        return fail(InvalidConfig, "MC68HC16Y5_02 plans must not declare erase regions");
+    }
+    if (!plan.confirmations().empty())
+    {
+        return fail(InvalidConfig, "MC68HC16Y5_02 plans must not declare confirmations");
     }
     const int index = find_flash_device_index(plan.mcu_name());
     if (index < 0)
@@ -98,6 +153,11 @@ Status validate_subaru_denso_mc68hc16y5_02_plan(const FlashPlan& plan)
         return fail(InvalidConfig, "Unknown MCU type");
     }
     const std::uint32_t romsize = flashdevices[index].romsize;
+    if (plan.transfer_region().start != flashdevices[index].fblocks[0].start ||
+        plan.transfer_region().length != romsize)
+    {
+        return fail(InvalidConfig, "MC68HC16Y5_02 transfer region does not match the MCU");
+    }
     if (auto valid = validate_operation(plan.target_id(), plan.operation()); !valid.has_value())
     {
         return valid;
@@ -121,6 +181,10 @@ Result<FlashPlan> build_subaru_denso_mc68hc16y5_02_plan(FlashOperation operation
         return std::unexpected(valid.error());
     }
     if (auto valid = validate_operation(protocol_name, operation); !valid.has_value())
+    {
+        return std::unexpected(valid.error());
+    }
+    if (auto valid = validate_kernel_upload(kernel); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }

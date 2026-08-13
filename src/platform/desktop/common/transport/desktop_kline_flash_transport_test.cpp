@@ -31,6 +31,26 @@ class TestDesktopKlineFlashTransport : public QObject
 
   private slots:
 
+    void postKernelUploadDelayCapabilityMirrorsOpenPort2OnUnix()
+    {
+        FakeBackend *fake = nullptr;
+        auto serial = std::make_unique<SerialPortActions>(
+            "", "", nullptr, nullptr,
+            [&fake]() -> SerialBackend *
+            { fake = new FakeBackend(); return fake; });
+        serial->set_add_ssm_header(false);
+        SerialPortActions *serial_ptr = serial.get();
+        DesktopKlineFlashTransport transport(std::move(serial));
+
+        QVERIFY(!transport.requires_post_kernel_upload_delay());
+        QVERIFY(serial_ptr->set_use_openport2_adapter(true));
+#if defined(Q_OS_UNIX)
+        QVERIFY(transport.requires_post_kernel_upload_delay());
+#else
+        QVERIFY(!transport.requires_post_kernel_upload_delay());
+#endif
+    }
+
     void lecControlOperationsForwardToSerialBackend()
     {
         FakeBackend *fake = nullptr;

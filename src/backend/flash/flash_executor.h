@@ -72,6 +72,11 @@ class IKlineFlashTransport : public IFlashTransport, public mutdma::IKlineTransp
     virtual Status pulse_lec_2_line(int timeout_ms) = 0;
     virtual Status enable_programming_voltage_line() = 0;
 
+    // Some Unix J2534/OpenPort2 drivers need a quiet period after the raw
+    // kernel upload write before the first response read. Portable
+    // executors consume only this semantic capability, never adapter types.
+    virtual bool requires_post_kernel_upload_delay() const = 0;
+
     // Controls the real serial driver's ISO14230 header auto-add behavior
     // (SerialPortActions::set_add_iso14230_header()), independently of
     // configure()'s connection-type flags and mid-session, not just at

@@ -99,6 +99,10 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
         operation_trace_.push_back(Operation::EnableProgrammingVoltageLine);
         return enable_programming_voltage_line_result_;
     }
+    bool requires_post_kernel_upload_delay() const override
+    {
+        return post_kernel_upload_delay_required_;
+    }
     Status set_add_iso14230_header(bool add_header) override
     {
         header_mode_calls_.push_back(add_header);
@@ -165,6 +169,7 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     Status disable_lec_lines_result_;
     Status pulse_lec_2_line_result_;
     Status enable_programming_voltage_line_result_;
+    bool post_kernel_upload_delay_required_ = false;
     std::optional<KlineConfig> last_config_;
     std::vector<ControlLineAction> control_line_trace_;
     std::vector<int> lec_2_pulse_timeouts_;

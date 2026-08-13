@@ -395,8 +395,13 @@ Status SubaruDensoSh7055_02Executor::upload_kernel(
 
     events.log(LogLevel::Info, "Sending kernel...");
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:297-321.
+    // On Unix the OpenPort2/J2534 adapter requires the legacy 5000 ms quiet
+    // period after the raw write and before reading its upload response.
+    // IClock keeps that wait deterministic and cancellation-aware.
+    const int post_upload_delay_ms =
+        transport.requires_post_kernel_upload_delay() ? 5000 : 0;
     Result<IKlineFlashTransport::OptionalBytes> upload_response =
-        exchange(transport, nullptr, cancellation, request, 0, 200);
+        exchange(transport, &clock, cancellation, request, post_upload_delay_ms, 200);
     if (!upload_response.has_value())
     {
         return std::unexpected(upload_response.error());

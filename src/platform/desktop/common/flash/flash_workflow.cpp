@@ -7,9 +7,9 @@
 #include <limits>
 #include <string_view>
 
-#include "src/backend/config/car_model_catalog.h"
 #include "src/backend/config/protocol_catalog.h"
 #include "src/backend/definition/text_format.h"
+#include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_executor.h"
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_plan.h"
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_executor.h"
@@ -61,31 +61,15 @@ Result<config::ProtocolEntry> resolveProtocol(const config::ConfigPaths& paths,
     {
         return std::unexpected(protocols.error());
     }
-    Result<config::CarModelCatalog> car_models =
-        config::load_car_model_catalog(paths, repository);
-    if (!car_models.has_value())
-    {
-        return std::unexpected(car_models.error());
-    }
-
-    const std::vector<config::ResolvedCarModel> resolved =
-        config::resolve_car_models(*protocols, *car_models);
-    const std::optional<std::size_t> index =
-        config::find_car_model_by_protocol_name(resolved, protocol_name);
-    if (!index.has_value())
+    const auto entry = std::ranges::find(*protocols, protocol_name,
+                                         &config::ProtocolEntry::protocol_name);
+    if (entry == protocols->end())
     {
         return fail(ErrorKind::InvalidConfig,
-                    std::format("no car model references protocol '{}'", protocol_name));
-    }
-    const config::ResolvedCarModel& row = resolved[*index];
-    if (!row.protocol.has_value())
-    {
-        return fail(ErrorKind::InvalidConfig,
-                    std::format("protocol '{}' is referenced by a car model but absent "
-                                "from the <protocols> section",
+                    std::format("protocol '{}' is absent from the <protocols> section",
                                 protocol_name));
     }
-    return *row.protocol;
+    return *entry;
 }
 
 Result<KernelImage> resolveKernel(const FlashWorkflowRequest& request,
@@ -111,6 +95,46 @@ Result<KernelImage> resolveKernel(const FlashWorkflowRequest& request,
     return KernelImage{.id = request.protocol + "-kernel",
                        .load_address = *load_address,
                        .bytes = std::move(*kernel_bytes)};
+}
+
+std::optional<bytes::Bytes> normalizeMc68Image(std::optional<bytes::Bytes> image,
+                                               std::string_view mcu_name)
+{
+    if (!image.has_value())
+    {
+        return std::nullopt;
+    }
+    const flashdev_t *device = find_flash_device(mcu_name);
+    if (device == nullptr || image->size() == device->romsize)
+    {
+        return image;
+    }
+
+    std::size_t physical_size = 0;
+    for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
+    {
+        const auto& block = device->fblocks[block_no];
+        physical_size = std::max(physical_size,
+                                 static_cast<std::size_t>(block.start) + block.len);
+    }
+    if (image->size() != physical_size)
+    {
+        return image;
+    }
+
+    bytes::Bytes packed;
+    packed.reserve(device->romsize);
+    std::size_t packed_remaining = device->romsize;
+    for (unsigned block_no = 0;
+         block_no < device->numblocks && packed_remaining > 0; ++block_no)
+    {
+        const auto& block = device->fblocks[block_no];
+        const std::size_t block_bytes = std::min<std::size_t>(block.len, packed_remaining);
+        packed.insert(packed.end(), image->begin() + block.start,
+                      image->begin() + block.start + block_bytes);
+        packed_remaining -= block_bytes;
+    }
+    return packed;
 }
 
 class SubaruM32rKlineWorkflow final : public FlashWorkflow
@@ -210,11 +234,17 @@ class SubaruDensoMc68hc16y5_02Workflow final : public FlashWorkflow
     {
         if (!plan_.has_value())
         {
+            // Desktop FullRomData is physically addressed after the legacy
+            // calibration adapter inserts the 0x20000-0x27fff RAM/kernel hole.
+            // Portable MC plans and executors use the packed flash-block image.
+            request_.image = normalizeMc68Image(std::move(request_.image), request_.mcu);
             // Run the family builder first so recognized-but-unsupported
             // revision 04 is rejected by the plan even without a catalog.
             Result<FlashPlan> preflight = build_subaru_denso_mc68hc16y5_02_plan(
                 request_.operation, request_.protocol, request_.mcu, request_.image,
-                KernelImage{.id = request_.protocol + "-kernel", .bytes = {0}});
+                KernelImage{.id = request_.protocol + "-kernel",
+                            .load_address = 0x20000,
+                            .bytes = {0}});
             if (!preflight.has_value())
             {
                 plan_ = std::unexpected(preflight.error());

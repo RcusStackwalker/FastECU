@@ -24,17 +24,29 @@ bool region_overflows(const MemoryRegion& region)
 
 bool family_matches_transport_variant(const FlashPlanFields& fields)
 {
-    switch (fields.transport)
+    switch (fields.family)
     {
-    case TransportKind::Kline:
-        return std::holds_alternative<DensoSh705xEepromKlinePlan>(fields.family_plan) ||
-               std::holds_alternative<SubaruMitsuM32rKlinePlan>(fields.family_plan) ||
-               std::holds_alternative<SubaruHitachiM32rKlinePlan>(fields.family_plan) ||
-               std::holds_alternative<SubaruDensoMc68hc16y5_02Plan>(fields.family_plan) ||
-               std::holds_alternative<SubaruDensoSh7055_02Plan>(fields.family_plan);
-    case TransportKind::CanIso15765:
-        return std::holds_alternative<DensoSh705xEepromCanPlan>(fields.family_plan) ||
+    case FlashFamily::DensoSh705xEepromKline:
+        return fields.transport == TransportKind::Kline &&
+               std::holds_alternative<DensoSh705xEepromKlinePlan>(fields.family_plan);
+    case FlashFamily::DensoSh705xEepromCan:
+        return fields.transport == TransportKind::CanIso15765 &&
+               std::holds_alternative<DensoSh705xEepromCanPlan>(fields.family_plan);
+    case FlashFamily::MitsuColtM32rCan:
+        return fields.transport == TransportKind::CanIso15765 &&
                std::holds_alternative<MitsuColtM32rCanPlan>(fields.family_plan);
+    case FlashFamily::SubaruMitsuM32rKline:
+        return fields.transport == TransportKind::Kline &&
+               std::holds_alternative<SubaruMitsuM32rKlinePlan>(fields.family_plan);
+    case FlashFamily::SubaruHitachiM32rKline:
+        return fields.transport == TransportKind::Kline &&
+               std::holds_alternative<SubaruHitachiM32rKlinePlan>(fields.family_plan);
+    case FlashFamily::SubaruDensoMc68hc16y5_02:
+        return fields.transport == TransportKind::Kline &&
+               std::holds_alternative<SubaruDensoMc68hc16y5_02Plan>(fields.family_plan);
+    case FlashFamily::SubaruDensoSh7055_02:
+        return fields.transport == TransportKind::Kline &&
+               std::holds_alternative<SubaruDensoSh7055_02Plan>(fields.family_plan);
     }
     return false;
 }
@@ -111,7 +123,8 @@ Result<FlashPlan> validate_and_build(FlashPlanFields fields)
     }
     if (!family_matches_transport_variant(fields))
     {
-        return fail(ErrorKind::InvalidConfig, "family_plan variant does not match transport kind");
+        return fail(ErrorKind::InvalidConfig,
+                    "family_plan variant does not match transport kind or declared family");
     }
     std::unordered_set<ConfirmationSpec::Id> seen_ids;
     for (const ConfirmationSpec& confirmation : fields.confirmations)

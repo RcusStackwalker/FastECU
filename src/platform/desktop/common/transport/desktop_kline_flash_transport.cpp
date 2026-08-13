@@ -187,6 +187,15 @@ Status DesktopKlineFlashTransport::enable_programming_voltage_line()
     }
 }
 
+bool DesktopKlineFlashTransport::requires_post_kernel_upload_delay() const
+{
+#if defined(Q_OS_UNIX)
+    return serial_ != nullptr && serial_->get_use_openport2_adapter();
+#else
+    return false;
+#endif
+}
+
 Status DesktopKlineFlashTransport::set_add_iso14230_header(bool add_header)
 {
     if (!serial_)

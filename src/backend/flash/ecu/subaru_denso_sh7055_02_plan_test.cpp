@@ -119,6 +119,18 @@ TEST(SubaruDensoSh7055_02Plan, RejectsUnknownMcu)
     EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
 }
 
+TEST(SubaruDensoSh7055_02Plan, RejectsKnownButWrongMcu)
+{
+    for (const std::string_view mcu : {"SH7058", "MC68HC16Y5"})
+    {
+        auto plan = build_subaru_denso_sh7055_02_plan(
+            FlashOperation::Read, "sub_ecu_denso_sh7055_02", mcu,
+            std::nullopt, test_kernel());
+        ASSERT_FALSE(plan.has_value()) << mcu;
+        EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+    }
+}
+
 TEST(SubaruDensoSh7055_02Plan, WriteAndTestWriteRequireExactRomSize)
 {
     const int index = find_flash_device_index("SH7055");
@@ -130,6 +142,12 @@ TEST(SubaruDensoSh7055_02Plan, WriteAndTestWriteRequireExactRomSize)
             bytes::Bytes(flashdevices[index].romsize - 1, bytes::Byte{0}), test_kernel());
         ASSERT_FALSE(too_small.has_value());
         EXPECT_EQ(too_small.error().kind, ErrorKind::InvalidConfig);
+
+        auto too_large = build_subaru_denso_sh7055_02_plan(
+            operation, "sub_ecu_denso_sh7055_02", "SH7055",
+            bytes::Bytes(flashdevices[index].romsize + 1, bytes::Byte{0}), test_kernel());
+        ASSERT_FALSE(too_large.has_value());
+        EXPECT_EQ(too_large.error().kind, ErrorKind::InvalidConfig);
 
         auto exact = build_subaru_denso_sh7055_02_plan(
             operation, "sub_ecu_denso_sh7055_02", "SH7055",
@@ -239,15 +257,12 @@ TEST(SubaruDensoSh7055_02Plan, ValidatorRequiresOnlyCycleIgnitionConfirmation)
     }
 }
 
-TEST(SubaruDensoSh7055_02Plan, KernelUploadAcceptsExactLowerAndUpperBoundaries)
+TEST(SubaruDensoSh7055_02Plan, KernelUploadAcceptsCanonicalAddressAndExactEnvelopeBoundary)
 {
     constexpr std::uint32_t kKernelStart = 0xFFFF6004;
-    constexpr std::uint32_t kKernelEnd = kKernelStart + 0x6000;
     for (KernelImage kernel : {
              KernelImage{.id = "lower", .load_address = kKernelStart, .bytes = {0x01}},
-             KernelImage{.id = "upper",
-                         .load_address = kKernelEnd - 4,
-                         .bytes = {0x01, 0x02, 0x03, 0x04}},
+             KernelImage{.id = "full-envelope-fit", .load_address = kKernelStart, .bytes = bytes::Bytes(0x5ffc, 0)},
          })
     {
         auto plan = build_subaru_denso_sh7055_02_plan(
@@ -260,12 +275,12 @@ TEST(SubaruDensoSh7055_02Plan, KernelUploadAcceptsExactLowerAndUpperBoundaries)
 TEST(SubaruDensoSh7055_02Plan, KernelUploadRejectsAddressAndPaddedFootprintOutsideModelRegion)
 {
     constexpr std::uint32_t kKernelStart = 0xFFFF6004;
-    constexpr std::uint32_t kKernelEnd = kKernelStart + 0x6000;
     for (KernelImage kernel : {
              KernelImage{.id = "below", .load_address = kKernelStart - 1, .bytes = {0x01}},
+             KernelImage{.id = "shifted", .load_address = kKernelStart + 4, .bytes = {0x01}},
              KernelImage{.id = "padded-past-end",
-                         .load_address = kKernelEnd - 4,
-                         .bytes = {0x01, 0x02, 0x03, 0x04, 0x05}},
+                         .load_address = kKernelStart,
+                         .bytes = bytes::Bytes(0x5ffd, 0)},
          })
     {
         auto plan = build_subaru_denso_sh7055_02_plan(

@@ -19,9 +19,10 @@ Status validate_identity(std::string_view protocol, std::string_view mcu)
     {
         return fail(InvalidConfig, std::format("Unsupported SH7055_02 protocol: {}", protocol));
     }
-    if (find_flash_device_index(mcu) < 0)
+    if (mcu != "SH7055")
     {
-        return fail(InvalidConfig, std::format("Unknown MCU type: {}", mcu));
+        return fail(InvalidConfig,
+                    std::format("SH7055_02 protocol requires MCU SH7055, not {}", mcu));
     }
     return {};
 }
@@ -58,16 +59,17 @@ Status validate_kernel_upload(const KernelImage& kernel)
         return fail(ErrorKind::InvalidConfig,
                     "SH7055_02 padded kernel plus envelope exceeds the 24-bit wire length");
     }
-    // Model source: src/backend/definitions/kernelmemorymodels.h:270-276.
-    constexpr std::uint64_t kKernelStart = 0xFFFF6004;
-    constexpr std::uint64_t kKernelLength = 0x00006000;
-    constexpr std::uint64_t kKernelEnd = kKernelStart + kKernelLength;
-    const std::uint64_t upload_start = kernel.load_address;
-    if (upload_start < kKernelStart || upload_start >= kKernelEnd ||
-        padded_size > kKernelEnd - upload_start)
+    // The two-byte wire address selects 0xffff6000. The fixed four-byte
+    // envelope occupies 0xffff6000..03, then the catalog's logical kernel
+    // entry begins at 0xffff6004. The shared model region is 0x6000 bytes
+    // total, so envelope plus padded payload must fit that full region.
+    constexpr std::uint32_t kCanonicalKernelAddress = 0xFFFF6004;
+    constexpr std::uint64_t kModelWireRegionLength = 0x00006000;
+    if (kernel.load_address != kCanonicalKernelAddress ||
+        wire_length > kModelWireRegionLength)
     {
         return fail(ErrorKind::InvalidConfig,
-                    "SH7055_02 padded kernel upload is outside the model kernel region");
+                    "SH7055_02 kernel address or padded envelope is outside the model kernel region");
     }
     return {};
 }

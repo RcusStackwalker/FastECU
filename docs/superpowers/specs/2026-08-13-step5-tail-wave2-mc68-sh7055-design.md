@@ -211,6 +211,6 @@ Unchanged from the tail design and wave 1: every exchange in a portable
 executor carries a comment citing the legacy file and line it was
 transcribed from. The legacy `.cpp` pair is the only source of truth for
 correct bytes and is deleted in the same PR as its port. Documented quirks
-(the `_04` no-op write path, the unreachable `_02_tpu` BDM-mode alias, the
+(the `_04` no-op write path, the reachable read-only `_02_tpu` BDM-mode alias, the
 dead `CRC32` members and dead SID-27 seed/key methods) are preserved or
 dropped exactly as named above, not silently "corrected."

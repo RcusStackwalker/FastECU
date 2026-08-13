@@ -7,6 +7,7 @@
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_plan.h"
 #include "src/backend/flash/eeprom/eeprom_read_plan.h"
 #include "src/backend/flash/flash_device_lookup.h"
+#include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
@@ -138,6 +139,14 @@ Result<FlashPlan> ecutek_plan(FlashOperation operation = FlashOperation::Read)
         KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0x01, 0x02, 0x03, 0x04}});
 }
 
+Result<FlashPlan> tpu_read_plan()
+{
+    return build_subaru_denso_mc68hc16y5_02_plan(
+        FlashOperation::Read, "sub_ecu_denso_mc68hc16y5_02_tpu", "MC68HC16Y5_TPU",
+        std::nullopt,
+        KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0x01, 0x02, 0x03, 0x04}});
+}
+
 bytes::Bytes framed(std::uint8_t opcode, bytes::ByteView extra = {})
 {
     bytes::Bytes out{0xBE, 0xEF};
@@ -150,14 +159,9 @@ bytes::Bytes framed(std::uint8_t opcode, bytes::ByteView extra = {})
     return out;
 }
 
-void script_stock_connect_and_upload(ScriptedKlineFlashTransport& transport)
+bytes::Bytes stock_upload_request()
 {
-    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:69-70,
-    // 111-146, 220-281, and 1139-1168.
-    transport.queue_no_frame();
-    transport.expectWrite(bytes::Bytes{0x4D, 0xFF, 0xB4});
-    transport.queueRead(bytes::Bytes{0x4D, 0x00, 0xB3});
-    transport.expectWrite(bytes::Bytes{
+    return {
         0x53,
         0x02,
         0x00,
@@ -181,8 +185,21 @@ void script_stock_connect_and_upload(ScriptedKlineFlashTransport& transport)
         0x65,
         0x65,
         0x9A,
-    });
-    transport.queueRead(bytes::Bytes{});
+    };
+}
+
+void script_stock_connect_and_upload(ScriptedKlineFlashTransport& transport)
+{
+    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:69-70,
+    // 111-146, 220-281, and 1139-1168.
+    transport.queue_no_frame();
+    transport.expectWrite(bytes::Bytes{0x4D, 0xFF, 0xB4});
+    transport.queueRead(bytes::Bytes{0x4D, 0x00, 0xB3});
+    transport.expectWrite(stock_upload_request());
+    // Legacy upload_kernel():270-284 treats a real read timeout/no frame as
+    // the success sentinel. Preserve OptionalBytes' distinction from a
+    // present, zero-length frame in this end-to-end fixture.
+    transport.queue_no_frame();
     transport.expectWrite(framed(0x01));
     transport.queueRead(framed(0x41, bytes::Bytes{'K', 'I', 'D'}));
 }
@@ -410,6 +427,45 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WrongFamilyPlanFails)
     EXPECT_EQ(transport.writesConsumed(), 0u);
 }
 
+TEST(SubaruDensoMc68hc16y5_02Executor, MalformedFamilyPlanFailsBeforeAnyIo)
+{
+    const flashdev_t *device = find_flash_device("MC68HC16Y5");
+    ASSERT_NE(device, nullptr);
+    auto plan = validate_and_build(FlashPlanFields{
+        .operation = FlashOperation::Read,
+        .family = FlashFamily::SubaruDensoMc68hc16y5_02,
+        .transport = TransportKind::Kline,
+        .target_id = "sub_ecu_denso_mc68hc16y5_02",
+        .mcu_name = "MC68HC16Y5",
+        .transfer_region = {device->fblocks[0].start, device->romsize},
+        .erase_regions = {},
+        .image = std::nullopt,
+        .kernel = KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0x01}},
+        .family_plan = SubaruDensoMc68hc16y5_02Plan{
+            .connect_baud = 12345,
+            .kernel_baud = 9600,
+            .encryption_xor = 0x55,
+            .kernel_magic = 0x3941,
+            .bootloader_ok = {0x4d, 0x00, 0xb3},
+        },
+    });
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ScriptedKlineFlashTransport transport;
+    FakeClock clock;
+    NeverCancelled cancellation;
+    RecordingEventSink events;
+    SubaruDensoMc68hc16y5_02Executor executor;
+
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_FALSE(transport.last_config_.has_value());
+    EXPECT_TRUE(transport.read_timeouts_.empty());
+    EXPECT_TRUE(transport.control_line_trace_.empty());
+    EXPECT_EQ(transport.close_call_count_, 0);
+}
+
 TEST(SubaruDensoMc68hc16y5_02Executor, ConnectsViaWrx02InitAndUploadsPaddedKernel)
 {
     auto plan = stock_plan(FlashOperation::Write);
@@ -450,7 +506,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectsViaWrx02InitAndUploadsPaddedKerne
         0x9A,
     };
     transport.expectWrite(upload);
-    transport.queueRead(bytes::Bytes{});
+    transport.queue_no_frame();
 
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:1139-1168.
     transport.expectWrite(framed(0x01));
@@ -483,6 +539,29 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectsViaWrx02InitAndUploadsPaddedKerne
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:111-119,
     // 289-293, and 1139-1162: 200 + 200 + 50 + 1500 + 200 ms.
     EXPECT_EQ(clock.now_, 2150u);
+}
+
+TEST(SubaruDensoMc68hc16y5_02Executor, PresentEmptyUploadFrameIsNotNoFrameSuccess)
+{
+    auto plan = stock_plan();
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ScriptedKlineFlashTransport transport;
+    transport.queue_no_frame();
+    transport.expectWrite(bytes::Bytes{0x4D, 0xFF, 0xB4});
+    transport.queueRead(bytes::Bytes{0x4D, 0x00, 0xB3});
+    transport.expectWrite(stock_upload_request());
+    transport.queueRead(bytes::Bytes{});
+
+    FakeClock clock;
+    NeverCancelled cancellation;
+    RecordingEventSink events;
+    SubaruDensoMc68hc16y5_02Executor executor;
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, ConnectFallsBackToKernelAlivePoll)
@@ -524,6 +603,34 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectFallsBackToKernelAlivePoll)
     EXPECT_EQ(clock.now_, 750u);
 }
 
+TEST(SubaruDensoMc68hc16y5_02Executor, NoFrameBootInitFallsBackToKernelAlivePoll)
+{
+    auto plan = stock_plan(FlashOperation::Write);
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ScriptedKlineFlashTransport transport;
+    transport.queue_no_frame(); // legacy operation.cpp:69-70 initial drain
+    transport.expectWrite(bytes::Bytes{0x4D, 0xFF, 0xB4});
+    // Legacy connect_bootloader():119-155: an empty read is a bad/missing init
+    // response and falls through to the 62500-baud kernel-ID probe.
+    transport.queue_no_frame();
+    transport.expectWrite(framed(0x01));
+    transport.queueRead(framed(0x41, bytes::Bytes{'K'}));
+    const flashdev_t *device = find_flash_device("MC68HC16Y5");
+    ASSERT_NE(device, nullptr);
+    script_crc_compare(transport, *device, *plan->image(), std::nullopt);
+
+    FakeClock clock;
+    NeverCancelled cancellation;
+    RecordingEventSink events;
+    SubaruDensoMc68hc16y5_02Executor executor;
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.baud_calls_, (std::vector<int>{62500}));
+    EXPECT_EQ(transport.close_call_count_, 1);
+}
+
 TEST(SubaruDensoMc68hc16y5_02Executor, EcutekUsesItsDistinctBootloaderAndKernelWireValues)
 {
     auto plan = ecutek_plan(FlashOperation::Write);
@@ -559,7 +666,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, EcutekUsesItsDistinctBootloaderAndKernelW
         0x61,
         0xD3,
     });
-    transport.queueRead(bytes::Bytes{});
+    transport.queue_no_frame();
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:1139-1168.
     transport.expectWrite(framed(0x01));
     transport.queueRead(framed(0x41, bytes::Bytes{'K'}));
@@ -745,12 +852,19 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadReturnsAssembledPageBytes)
     ScriptedKlineFlashTransport transport;
     script_stock_connect_and_upload(transport);
 
+    const flashdev_t *device = find_flash_device("MC68HC16Y5");
+    ASSERT_NE(device, nullptr);
     bytes::Bytes expected;
-    for (std::uint32_t address = 0; address < 0x28000; address += 0x400)
+    std::size_t logical_page = 0;
+    for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
     {
-        const auto fill = static_cast<bytes::Byte>(address / 0x400);
-        script_read_page(transport, address, fill);
-        expected.insert(expected.end(), 0x400, fill);
+        const auto& block = device->fblocks[block_no];
+        for (std::uint32_t offset = 0; offset < block.len; offset += 0x400)
+        {
+            const auto fill = static_cast<bytes::Byte>(logical_page++);
+            script_read_page(transport, block.start + offset, fill);
+            expected.insert(expected.end(), 0x400, fill);
+        }
     }
 
     FakeClock clock;
@@ -763,8 +877,41 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadReturnsAssembledPageBytes)
     EXPECT_EQ(result->operation, FlashOperation::Read);
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(*result->read_bytes, expected);
+    ASSERT_EQ(result->read_bytes->size(), 0x28000u);
+    // Packed output joins the final byte before the physical RAM hole to the
+    // first byte read at wire address 0x28000; the 0x8000-byte hole is absent.
+    EXPECT_EQ(result->read_bytes->at(0x1FFFF), 0x7Fu);
+    EXPECT_EQ(result->read_bytes->at(0x20000), 0x80u);
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.close_call_count_, 1);
+}
+
+TEST(SubaruDensoMc68hc16y5_02Executor, TpuReadHonorsDeclaredPackedRomSize)
+{
+    auto plan = tpu_read_plan();
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    const flashdev_t *device = find_flash_device("MC68HC16Y5_TPU");
+    ASSERT_NE(device, nullptr);
+    ScriptedKlineFlashTransport transport;
+    script_stock_connect_and_upload(transport);
+    for (std::uint32_t offset = 0; offset < device->romsize; offset += 0x400)
+    {
+        script_read_page(transport, device->fblocks[0].start + offset, 0x6a);
+    }
+    FakeClock clock;
+    NeverCancelled cancellation;
+    RecordingEventSink events;
+    SubaruDensoMc68hc16y5_02Executor executor;
+
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_TRUE(result->read_bytes.has_value());
+    EXPECT_EQ(result->read_bytes->size(), device->romsize);
+    EXPECT_TRUE(std::all_of(result->read_bytes->begin(), result->read_bytes->end(),
+                            [](bytes::Byte value)
+                            { return value == 0x6a; }));
+    EXPECT_TRUE(transport.scriptConsumed());
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, ReadRejectsMalformedPageResponse)
@@ -796,6 +943,29 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadRejectsTruncatedValidMarkerResponse)
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:408-413.
     transport.expectWrite(framed(0x03, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x04, 0x00}));
     transport.queueRead(bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x43});
+
+    FakeClock clock;
+    NeverCancelled cancellation;
+    RecordingEventSink events;
+    SubaruDensoMc68hc16y5_02Executor executor;
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.close_call_count_, 1);
+}
+
+TEST(SubaruDensoMc68hc16y5_02Executor, ReadRejectsShortPageResponse)
+{
+    auto plan = stock_plan();
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ScriptedKlineFlashTransport transport;
+    script_stock_connect_and_upload(transport);
+    transport.expectWrite(
+        framed(0x03, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x04, 0x00}));
+    // Valid BEEF/0x43 envelope but one byte less than the requested page.
+    transport.queueRead(framed(0x43, bytes::Bytes(0x3FF, 0xA5)));
 
     FakeClock clock;
     NeverCancelled cancellation;

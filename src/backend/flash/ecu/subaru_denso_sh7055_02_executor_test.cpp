@@ -115,6 +115,22 @@ class RecordingClock final : public FakeClock
     std::vector<int> sleep_calls;
 };
 
+class CancelAtPostUploadDelayClock final : public FakeClock
+{
+  public:
+    Status sleep(int ms, const ICancellationToken& cancellation) override
+    {
+        sleep_calls.push_back(ms);
+        if (ms == 5000)
+        {
+            return fail(ErrorKind::Cancelled, "cancelled during OpenPort2 upload delay");
+        }
+        return FakeClock::sleep(ms, cancellation);
+    }
+
+    std::vector<int> sleep_calls;
+};
+
 Result<FlashPlan> read_plan(bytes::Bytes kernel_bytes = {0x01, 0x02, 0x03, 0x04, 0x05})
 {
     return build_subaru_denso_sh7055_02_plan(
@@ -457,6 +473,35 @@ TEST(SubaruDensoSh7055_02Executor, KernelAlreadyAliveSkipsWrxInitEcuIdAndUpload)
     EXPECT_EQ(transport.last_config_->target_id, 0x10);
 }
 
+TEST(SubaruDensoSh7055_02Executor, KernelAliveReadReturnsNoRomId)
+{
+    auto plan = read_plan();
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    const flashdev_t *device = find_flash_device("SH7055");
+    ASSERT_NE(device, nullptr);
+    ScriptedKlineFlashTransport transport;
+    transport.queue_no_frame();
+    transport.expectWrite(framed(0x01));
+    transport.queueRead(framed(0x41, bytes::Bytes{'K'}));
+    for (std::uint32_t offset = 0; offset < device->romsize; offset += 0x400)
+    {
+        script_read_page(transport, device->fblocks[0].start + offset, 0x5a);
+    }
+
+    FakeClock clock;
+    NeverCancelled cancellation;
+    RecordingEventSink events;
+    SubaruDensoSh7055_02Executor executor;
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_TRUE(result->read_bytes.has_value());
+    EXPECT_EQ(result->read_bytes->size(), device->romsize);
+    EXPECT_FALSE(result->rom_id.has_value());
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_TRUE(transport.baud_calls_.empty());
+}
+
 TEST(SubaruDensoSh7055_02Executor, RejectsMissingConfirmationAndMalformedFamilyBeforeTransportIo)
 {
     for (auto plan : {
@@ -488,6 +533,7 @@ TEST(SubaruDensoSh7055_02Executor, ReadSurfacesEcuIdInResult)
     auto plan = read_plan();
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     ScriptedKlineFlashTransport transport;
+    transport.post_kernel_upload_delay_required_ = true;
     script_wrx_preamble(transport, true);
     script_first_wrx_attempt_connects(transport);
     script_upload(transport);
@@ -517,7 +563,7 @@ TEST(SubaruDensoSh7055_02Executor, ReadSurfacesEcuIdInResult)
                   ScriptedKlineFlashTransport::ControlLineAction::PulseLec2,
               }));
     EXPECT_EQ(transport.lec_2_pulse_timeouts_, (std::vector<int>{200}));
-    std::vector<int> expected_sleeps{200, 1000, 1000, 1000, 250, 190, 100, 100, 200};
+    std::vector<int> expected_sleeps{200, 1000, 1000, 1000, 250, 190, 100, 5000, 100, 200};
     std::vector<int> expected_timeouts{10, 2000, 2000, 10, 10, 10, 10, 200, 2000};
     for (std::uint32_t offset = 0; offset < device.romsize; offset += 0x400)
     {
@@ -526,6 +572,30 @@ TEST(SubaruDensoSh7055_02Executor, ReadSurfacesEcuIdInResult)
     }
     EXPECT_EQ(clock.sleep_calls, expected_sleeps);
     EXPECT_EQ(transport.read_timeouts_, expected_timeouts);
+    EXPECT_EQ(transport.close_call_count_, 1);
+}
+
+TEST(SubaruDensoSh7055_02Executor, OpenPort2UploadDelayCancellationStopsBeforeResponseRead)
+{
+    auto plan = read_plan();
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ScriptedKlineFlashTransport transport;
+    transport.post_kernel_upload_delay_required_ = true;
+    script_wrx_preamble(transport, true);
+    script_first_wrx_attempt_connects(transport);
+    transport.expectWrite(exact_upload_request());
+
+    CancelAtPostUploadDelayClock clock;
+    NeverCancelled cancellation;
+    RecordingEventSink events;
+    SubaruDensoSh7055_02Executor executor;
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 5000), 1);
+    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 200), 0);
+    EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.close_call_count_, 1);
 }
 

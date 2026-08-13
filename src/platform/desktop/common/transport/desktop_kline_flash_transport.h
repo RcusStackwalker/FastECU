@@ -44,6 +44,7 @@ class DesktopKlineFlashTransport final : public IKlineFlashTransport
     Status disable_lec_lines() override;
     Status pulse_lec_2_line(int timeout_ms) override;
     Status enable_programming_voltage_line() override;
+    bool requires_post_kernel_upload_delay() const override;
     Status set_add_iso14230_header(bool add_header) override;
     void request_unblock() noexcept override;
 
