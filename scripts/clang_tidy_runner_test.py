@@ -1100,6 +1100,79 @@ class ClangTidyRunnerTest(unittest.TestCase):
         self.assertEqual([], matched)
         self.assertEqual([], notes)
 
+    def test_changed_mode_filters_entries_before_analysis(self) -> None:
+        changed_source = self.root / "changed.cpp"
+        changed_source.write_text("int changed;\n")
+        unrelated_source = self.root / "unrelated.cpp"
+        unrelated_source.write_text("int unrelated;\n")
+        self.write_database([changed_source, unrelated_source])
+        analyzed_files: list[str] = []
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            if command == ["git", "merge-base", "HEAD", "origin/master"]:
+                return subprocess.CompletedProcess(command, 0, stdout="abc123\n")
+            if command == ["git", "diff", "--name-only", "abc123..HEAD"]:
+                return subprocess.CompletedProcess(command, 0, stdout="changed.cpp\n")
+            if command[:2] == ["git", "diff"]:
+                return subprocess.CompletedProcess(command, 0, stdout="")
+            if command == ["git", "ls-files", "--others", "--exclude-standard"]:
+                return subprocess.CompletedProcess(command, 0, stdout="")
+            if command == ["xcrun", "--show-sdk-path"]:
+                return subprocess.CompletedProcess(command, 0, stdout="/SDK/MacOSX.sdk\n")
+            if command[0] == _UNIX_TOOLS.run_clang_tidy:
+                compdb_dir = Path(command[command.index("-p") + 1])
+                database = json.loads((compdb_dir / "compile_commands.json").read_text())
+                analyzed_files.extend(entry["file"] for entry in database)
+                return subprocess.CompletedProcess(command, 0)
+            return subprocess.CompletedProcess(command, 0)
+
+        with mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS):
+            result = runner.run_workflow(
+                mode="report",
+                workspace=self.root,
+                compdb_tool=_UNIX_COMPDB_TOOL,
+                platform_name="darwin",
+                environ={},
+                command_runner=fake_run,
+                changed=True,
+            )
+
+        self.assertEqual(0, result)
+        self.assertEqual([str(changed_source)], analyzed_files)
+
+    def test_changed_mode_skips_analysis_when_nothing_matches(self) -> None:
+        source = self.root / "unrelated.cpp"
+        source.write_text("int unrelated;\n")
+        self.write_database([source])
+        tidy_invoked = False
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            nonlocal tidy_invoked
+            if command == ["git", "merge-base", "HEAD", "origin/master"]:
+                return subprocess.CompletedProcess(command, 0, stdout="abc123\n")
+            if command[:2] == ["git", "diff"] or command[:2] == ["git", "ls-files"]:
+                return subprocess.CompletedProcess(command, 0, stdout="")
+            if command[0] == _UNIX_TOOLS.run_clang_tidy:
+                tidy_invoked = True
+            return subprocess.CompletedProcess(command, 0)
+
+        with mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS):
+            output = StringIO()
+            with redirect_stdout(output):
+                result = runner.run_workflow(
+                    mode="report",
+                    workspace=self.root,
+                    compdb_tool=_UNIX_COMPDB_TOOL,
+                    platform_name="darwin",
+                    environ={},
+                    command_runner=fake_run,
+                    changed=True,
+                )
+
+        self.assertEqual(0, result)
+        self.assertFalse(tidy_invoked)
+        self.assertIn("no changed C/C++ translation units", output.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

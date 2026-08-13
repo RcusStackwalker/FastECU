@@ -598,6 +598,7 @@ def run_workflow(
     command_runner: CommandRunner = subprocess.run,
     build_args: Sequence[str] = (),
     compdb_args: Sequence[str] = (),
+    changed: bool = False,
 ) -> int:
     if mode not in ("report", "fix"):
         raise WorkflowError(f"unsupported mode: {mode}")
@@ -610,6 +611,14 @@ def run_workflow(
         raise WorkflowError(f"compilation database refresher failed with exit code {refresh_code}")
 
     entries = load_project_entries(workspace, workspace / "compile_commands.json")
+    if changed:
+        changed_paths = changed_files(workspace, command_runner)
+        entries, notes = filter_changed_entries(entries, changed_paths, workspace.resolve())
+        for note in notes:
+            print(note)
+        if not entries:
+            print("clang-tidy: no changed C/C++ translation units to analyze, skipping.")
+            return 0
     tools = discover_tools(mode, platform_name=platform_name, environ=environ)
     macos_sdk = None
     if platform_name == "darwin":
@@ -675,6 +684,7 @@ def run_workflow(
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("mode", choices=("report", "fix"))
+    parser.add_argument("--changed", action="store_true")
     parser.add_argument("--compdb-tool", required=True)
     parser.add_argument("--build-arg", action="append", default=[], dest="build_args")
     parser.add_argument("--compdb-arg", action="append", default=[], dest="compdb_args")
@@ -692,6 +702,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             environ=os.environ,
             build_args=args.build_args,
             compdb_args=args.compdb_args,
+            changed=args.changed,
         )
     except WorkflowError as error:
         print(f"clang-tidy: {error}", file=sys.stderr)
