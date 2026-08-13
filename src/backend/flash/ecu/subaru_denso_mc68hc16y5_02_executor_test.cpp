@@ -24,6 +24,23 @@ class NeverCancelled : public ICancellationToken
     }
 };
 
+class ToggleCancellation final : public ICancellationToken
+{
+  public:
+    bool cancelled() const override
+    {
+        return cancelled_;
+    }
+
+    void cancel()
+    {
+        cancelled_ = true;
+    }
+
+  private:
+    bool cancelled_ = false;
+};
+
 class ShortWriteTransport final : public ScriptedKlineFlashTransport
 {
   public:
@@ -31,6 +48,26 @@ class ShortWriteTransport final : public ScriptedKlineFlashTransport
     {
         return data.empty() ? 0u : data.size() - 1;
     }
+};
+
+class DrainCancellingTransport final : public ScriptedKlineFlashTransport
+{
+  public:
+    explicit DrainCancellingTransport(ToggleCancellation& cancellation) : cancellation_(cancellation)
+    {
+    }
+
+    Result<OptionalBytes> read(int timeout_ms, const ICancellationToken& cancellation) override
+    {
+        if (timeout_ms == 10)
+        {
+            cancellation_.cancel();
+        }
+        return ScriptedKlineFlashTransport::read(timeout_ms, cancellation);
+    }
+
+  private:
+    ToggleCancellation& cancellation_;
 };
 
 Result<FlashPlan> stock_plan(FlashOperation operation = FlashOperation::Read)
@@ -341,6 +378,25 @@ TEST(SubaruDensoMc68hc16y5_02Executor, InitialDrainTransportErrorStopsBeforeBoot
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
     EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.close_call_count_, 1);
+}
+
+TEST(SubaruDensoMc68hc16y5_02Executor, CancellationAtInitialDrainStopsBeforeBootloaderWrite)
+{
+    auto plan = stock_plan();
+    ASSERT_TRUE(plan.has_value());
+    ToggleCancellation cancellation;
+    DrainCancellingTransport transport(cancellation);
+    FakeClock clock;
+    RecordingEventSink events;
+    SubaruDensoMc68hc16y5_02Executor executor;
+
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.read_timeouts_, (std::vector<int>{10}));
     EXPECT_EQ(transport.close_call_count_, 1);
 }
 
