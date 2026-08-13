@@ -17,6 +17,7 @@ from pathlib import Path
 import yaml
 
 SOURCE_SUFFIXES = frozenset((".c", ".cc", ".cpp", ".cxx"))
+HEADER_SUFFIXES = frozenset((".h", ".hpp"))
 
 
 class WorkflowError(RuntimeError):
@@ -51,6 +52,22 @@ def workspace_root(environ: Mapping[str, str]) -> Path:
     return root
 
 
+def _entry_source_path(entry: dict[str, object], root: Path) -> Path:
+    """Resolve a compile-database entry's absolute source path.
+
+    Callers must already have validated that `directory` and `file` are
+    present strings (load_project_entries does this before an entry survives
+    into its returned list).
+    """
+    directory = Path(str(entry["directory"]))
+    if not directory.is_absolute():
+        directory = root / directory
+    source = Path(str(entry["file"]))
+    if not source.is_absolute():
+        source = directory / source
+    return source.resolve()
+
+
 def load_project_entries(workspace: Path, database: Path) -> list[dict[str, object]]:
     if not database.is_file():
         raise WorkflowError(f"compilation database was not generated: {database}")
@@ -71,13 +88,7 @@ def load_project_entries(workspace: Path, database: Path) -> list[dict[str, obje
         if not isinstance(directory_value, str) or not isinstance(file_value, str):
             raise WorkflowError("compilation database is malformed: entry lacks directory or file")
 
-        directory = Path(directory_value)
-        if not directory.is_absolute():
-            directory = root / directory
-        source = Path(file_value)
-        if not source.is_absolute():
-            source = directory / source
-        source = source.resolve()
+        source = _entry_source_path(entry, root)
         try:
             source.relative_to(root)
         except ValueError:
@@ -91,6 +102,55 @@ def load_project_entries(workspace: Path, database: Path) -> list[dict[str, obje
     if not entries:
         raise WorkflowError("compilation database contains no workspace translation units")
     return entries
+
+
+def filter_changed_entries(
+    entries: list[dict[str, object]],
+    changed: Sequence[Path],
+    root: Path,
+) -> tuple[list[dict[str, object]], list[str]]:
+    """Narrow `entries` to translation units affected by `changed`.
+
+    Source files match by path directly. A changed header with no changed
+    source file falls back to co-located sources in the same directory
+    (foo.h -> foo.cpp, foo_test.cpp), matching this repo's package-owned test
+    convention. A header with no co-located source in `entries` produces a
+    note instead of a match; this design does not trace transitive includers.
+    """
+    by_path: dict[Path, dict[str, object]] = {}
+    by_directory: dict[Path, list[tuple[str, dict[str, object]]]] = {}
+    for entry in entries:
+        source = _entry_source_path(entry, root)
+        by_path[source] = entry
+        by_directory.setdefault(source.parent, []).append((source.stem, entry))
+
+    matched: dict[Path, dict[str, object]] = {}
+    notes: list[str] = []
+    for path in changed:
+        resolved = path.resolve()
+        suffix = resolved.suffix.lower()
+        if suffix in SOURCE_SUFFIXES:
+            entry = by_path.get(resolved)
+            if entry is not None:
+                matched[resolved] = entry
+        elif suffix in HEADER_SUFFIXES:
+            stem = resolved.stem
+            candidates = by_directory.get(resolved.parent, [])
+            found = [
+                entry
+                for candidate_stem, entry in candidates
+                if candidate_stem in (stem, f"{stem}_test")
+            ]
+            if found:
+                for entry in found:
+                    matched[_entry_source_path(entry, root)] = entry
+            else:
+                notes.append(
+                    f"clang-tidy: {resolved} changed with no co-located source in the "
+                    "compile database; its includers were not checked."
+                )
+
+    return [matched[key] for key in sorted(matched)], notes
 
 
 def _search_directories(platform_name: str, environ: Mapping[str, str]) -> list[Path]:
@@ -157,12 +217,79 @@ def discover_tools(
     return Tools(clang_tidy, run_clang_tidy, apply_replacements)
 
 
+def _git_lines(command_runner: CommandRunner, args: Sequence[str], workspace: Path) -> list[str]:
+    command = ["git", *args]
+    try:
+        result = command_runner(
+            command,
+            cwd=workspace,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+    except OSError as error:
+        raise WorkflowError(f"could not execute {command[0]}: {error}") from error
+    if result.returncode:
+        raise WorkflowError(
+            f"git {' '.join(args)} failed with exit code {result.returncode}: "
+            f"{(result.stderr or '').strip()}"
+        )
+    return [line for line in (result.stdout or "").splitlines() if line]
+
+
+def changed_files(workspace: Path, command_runner: CommandRunner) -> list[Path]:
+    """Files changed relative to origin/master: committed, staged, unstaged, and new.
+
+    Deleted files (present in a diff but no longer on disk) are dropped --
+    there's nothing left for clang-tidy to analyze.
+    """
+    merge_base = _git_lines(command_runner, ["merge-base", "HEAD", "origin/master"], workspace)
+    if not merge_base:
+        raise WorkflowError("git merge-base HEAD origin/master produced no output")
+    base = merge_base[0]
+
+    relative_paths: set[str] = set()
+    relative_paths.update(
+        _git_lines(command_runner, ["diff", "--name-only", f"{base}..HEAD"], workspace)
+    )
+    relative_paths.update(_git_lines(command_runner, ["diff", "--name-only"], workspace))
+    relative_paths.update(
+        _git_lines(command_runner, ["diff", "--name-only", "--cached"], workspace)
+    )
+    relative_paths.update(
+        _git_lines(command_runner, ["ls-files", "--others", "--exclude-standard"], workspace)
+    )
+
+    candidates = (workspace / path for path in relative_paths)
+    return sorted({path.resolve() for path in candidates if path.is_file()})
+
+
 def _run(command_runner: CommandRunner, command: list[str], workspace: Path) -> int:
     try:
         result = command_runner(command, cwd=workspace, check=False)
     except OSError as error:
         raise WorkflowError(f"could not execute {command[0]}: {error}") from error
     return result.returncode
+
+
+def _run_quiet(
+    command_runner: CommandRunner,
+    command: list[str],
+    workspace: Path,
+) -> subprocess.CompletedProcess[str]:
+    """Run a command, capturing combined output instead of streaming it live."""
+    try:
+        return command_runner(
+            command,
+            cwd=workspace,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+    except OSError as error:
+        raise WorkflowError(f"could not execute {command[0]}: {error}") from error
 
 
 _WINDOWS_EXECUTABLE_SUFFIXES = frozenset((".exe", ".bat", ".cmd", ".com"))
@@ -245,6 +372,28 @@ def _replacement_file_identity(
         fallback = os.path.abspath(os.path.normpath(target))
         return ("path", os.path.normcase(fallback))
     return ("file", status.st_dev, status.st_ino)
+
+
+def _count_diagnostics(fixes_directory: Path) -> int:
+    """Count exported diagnostics across a fixes directory.
+
+    Lenient by design: report mode discards these files after counting them,
+    so a malformed document is skipped rather than raising. Strict validation
+    happens in normalize_replacements, which fix mode always runs before
+    applying anything.
+    """
+    total = 0
+    for path in sorted(fixes_directory.glob("*.yaml")):
+        try:
+            document = yaml.safe_load(path.read_text())
+        except OSError, UnicodeError, yaml.YAMLError:
+            continue
+        if not isinstance(document, dict):
+            continue
+        diagnostics = document.get("Diagnostics")
+        if isinstance(diagnostics, list):
+            total += len(diagnostics)
+    return total
 
 
 def normalize_replacements(
@@ -412,10 +561,12 @@ def _prebuild(command_runner: CommandRunner, build_args: Sequence[str], workspac
     if not build_args:
         return
     print("Building analyzed targets so generated headers exist before analysis.")
-    code = _run(command_runner, ["bazel", "build", "--keep_going", *build_args], workspace)
-    if code:
+    result = _run_quiet(command_runner, ["bazel", "build", "--keep_going", *build_args], workspace)
+    if result.returncode:
+        if result.stdout:
+            print(result.stdout, end="")
         print(
-            f"clang-tidy: warning: prebuild exited with code {code}; "
+            f"clang-tidy: warning: prebuild exited with code {result.returncode}; "
             "some generated headers may be stale or missing.",
             file=sys.stderr,
         )
@@ -430,9 +581,11 @@ def _post_fix_build(
     if not build_args:
         return
     print("Building analyzed targets after applying clang-tidy fixes.")
-    code = _run(command_runner, ["bazel", "build", *build_args], workspace)
-    if code:
-        raise WorkflowError(f"post-fix Bazel build failed with exit code {code}")
+    result = _run_quiet(command_runner, ["bazel", "build", *build_args], workspace)
+    if result.returncode:
+        if result.stdout:
+            print(result.stdout, end="")
+        raise WorkflowError(f"post-fix Bazel build failed with exit code {result.returncode}")
 
 
 def run_workflow(
@@ -445,6 +598,7 @@ def run_workflow(
     command_runner: CommandRunner = subprocess.run,
     build_args: Sequence[str] = (),
     compdb_args: Sequence[str] = (),
+    changed: bool = False,
 ) -> int:
     if mode not in ("report", "fix"):
         raise WorkflowError(f"unsupported mode: {mode}")
@@ -457,6 +611,14 @@ def run_workflow(
         raise WorkflowError(f"compilation database refresher failed with exit code {refresh_code}")
 
     entries = load_project_entries(workspace, workspace / "compile_commands.json")
+    if changed:
+        changed_paths = changed_files(workspace, command_runner)
+        entries, notes = filter_changed_entries(entries, changed_paths, workspace.resolve())
+        for note in notes:
+            print(note)
+        if not entries:
+            print("clang-tidy: no changed C/C++ translation units to analyze, skipping.")
+            return 0
     tools = discover_tools(mode, platform_name=platform_name, environ=environ)
     macos_sdk = None
     if platform_name == "darwin":
@@ -486,11 +648,12 @@ def run_workflow(
                 ]
             )
         fixes_directory = Path(directory) / "fixes"
-        if mode == "fix":
-            fixes_directory.mkdir()
-            command.extend(["-export-fixes", str(fixes_directory) + os.sep])
-        print(f"Running clang-tidy in {mode} mode over {len(entries)} translation units.")
-        tidy_code = _run(command_runner, command, workspace)
+        fixes_directory.mkdir()
+        command.extend(["-export-fixes", str(fixes_directory) + os.sep])
+        print(f"Analyzing {len(entries)} translation units in {mode} mode.")
+        tidy_result = _run_quiet(command_runner, command, workspace)
+        tidy_code = tidy_result.returncode
+        finding_count = _count_diagnostics(fixes_directory)
         if mode == "fix":
             assert tools.clang_apply_replacements is not None
             normalize_replacements(fixes_directory, workspace)
@@ -503,19 +666,25 @@ def run_workflow(
                 workspace,
             )
             if apply_code:
+                if tidy_result.stdout:
+                    print(tidy_result.stdout, end="")
                 raise WorkflowError(f"replacement application failed with exit code {apply_code}")
             _post_fix_build(command_runner, build_args, workspace)
         if tidy_code:
-            detail = f"run-clang-tidy failed with exit code {tidy_code}"
+            if tidy_result.stdout:
+                print(tidy_result.stdout, end="")
+            detail = f"{finding_count} findings; run-clang-tidy failed with exit code {tidy_code}"
             if mode == "fix":
                 detail += "; exported fixes were applied before reporting the failure"
             raise WorkflowError(detail)
+        print(f"clang-tidy: {len(entries)} files clean, 0 findings")
     return 0
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("mode", choices=("report", "fix"))
+    parser.add_argument("--changed", action="store_true")
     parser.add_argument("--compdb-tool", required=True)
     parser.add_argument("--build-arg", action="append", default=[], dest="build_args")
     parser.add_argument("--compdb-arg", action="append", default=[], dest="compdb_args")
@@ -533,6 +702,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             environ=os.environ,
             build_args=args.build_args,
             compdb_args=args.compdb_args,
+            changed=args.changed,
         )
     except WorkflowError as error:
         print(f"clang-tidy: {error}", file=sys.stderr)

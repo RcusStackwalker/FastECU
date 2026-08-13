@@ -805,6 +805,374 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 build_args=[_CONFIG_RELEASE, "//..."],
             )
 
+    def test_prebuild_success_output_is_suppressed(self) -> None:
+        commands, fake_run = self.prebuild_fixture()
+
+        def noisy_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            result = fake_run(command, **kwargs)
+            if command[:2] == ["bazel", "build"]:
+                return subprocess.CompletedProcess(
+                    command, result.returncode, stdout="noisy build log\n"
+                )
+            return result
+
+        with mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS):
+            output = StringIO()
+            with redirect_stdout(output):
+                runner.run_workflow(
+                    mode="report",
+                    workspace=self.root,
+                    compdb_tool=_UNIX_COMPDB_TOOL,
+                    platform_name="darwin",
+                    environ={},
+                    command_runner=noisy_run,
+                    build_args=[_CONFIG_RELEASE, _FASTECU_TARGET],
+                )
+
+        self.assertNotIn("noisy build log", output.getvalue())
+
+    def test_prebuild_failure_output_is_surfaced(self) -> None:
+        commands, fake_run = self.prebuild_fixture(bazel_build_returncode=3)
+
+        def noisy_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            result = fake_run(command, **kwargs)
+            if command[:2] == ["bazel", "build"]:
+                return subprocess.CompletedProcess(
+                    command, result.returncode, stdout="prebuild trouble\n"
+                )
+            return result
+
+        with mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS):
+            output = StringIO()
+            with redirect_stdout(output):
+                runner.run_workflow(
+                    mode="report",
+                    workspace=self.root,
+                    compdb_tool=_UNIX_COMPDB_TOOL,
+                    platform_name="darwin",
+                    environ={},
+                    command_runner=noisy_run,
+                    build_args=[_FASTECU_TARGET],
+                )
+
+        self.assertIn("prebuild trouble", output.getvalue())
+
+    def test_post_fix_build_failure_output_is_surfaced(self) -> None:
+        source = self.root / _MAIN_CPP
+        source.write_text("int main() { return 0; }\n")
+        self.write_database([source])
+        build_count = 0
+        tools = runner.Tools(
+            clang_tidy="/llvm/bin/clang-tidy",
+            run_clang_tidy="/llvm/bin/run-clang-tidy",
+            clang_apply_replacements="/llvm/bin/clang-apply-replacements",
+        )
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            nonlocal build_count
+            if command == ["xcrun", "--show-sdk-path"]:
+                return subprocess.CompletedProcess(command, 0, stdout="/SDK/MacOSX.sdk\n")
+            if command[:2] == ["bazel", "build"]:
+                build_count += 1
+                if build_count == 2:
+                    return subprocess.CompletedProcess(command, 9, stdout="post-fix build broke\n")
+                return subprocess.CompletedProcess(command, 0)
+            return subprocess.CompletedProcess(command, 0)
+
+        with mock.patch.object(runner, "discover_tools", return_value=tools):
+            output = StringIO()
+            with (
+                redirect_stdout(output),
+                self.assertRaisesRegex(runner.WorkflowError, "post-fix Bazel build failed.*9"),
+            ):
+                runner.run_workflow(
+                    mode="fix",
+                    workspace=self.root,
+                    compdb_tool=_UNIX_COMPDB_TOOL,
+                    platform_name="darwin",
+                    environ={},
+                    command_runner=fake_run,
+                    build_args=[_CONFIG_RELEASE, "//..."],
+                )
+
+        self.assertIn("post-fix build broke", output.getvalue())
+
+    def test_count_diagnostics_sums_across_yaml_files(self) -> None:
+        fixes_directory = Path(self.temp_dir.name) / "fixes"
+        fixes_directory.mkdir()
+        self.write_fixes(
+            fixes_directory,
+            "a.yaml",
+            [self.diagnostic("first", []), self.diagnostic("second", [])],
+        )
+        self.write_fixes(fixes_directory, "b.yaml", [self.diagnostic("third", [])])
+
+        self.assertEqual(3, runner._count_diagnostics(fixes_directory))
+
+    def test_count_diagnostics_is_zero_for_empty_directory(self) -> None:
+        fixes_directory = Path(self.temp_dir.name) / "fixes"
+        fixes_directory.mkdir()
+
+        self.assertEqual(0, runner._count_diagnostics(fixes_directory))
+
+    def test_count_diagnostics_tolerates_malformed_yaml(self) -> None:
+        fixes_directory = Path(self.temp_dir.name) / "fixes"
+        fixes_directory.mkdir()
+        # Write a malformed YAML file alongside a well-formed one
+        malformed = fixes_directory / "broken.yaml"
+        malformed.write_text("Diagnostics: [")
+        # Write a well-formed file with 2 diagnostics
+        self.write_fixes(
+            fixes_directory,
+            "good.yaml",
+            [self.diagnostic("first", []), self.diagnostic("second", [])],
+        )
+
+        # Should return count only from the well-formed file, silently skipping the broken one
+        self.assertEqual(2, runner._count_diagnostics(fixes_directory))
+
+    def test_analysis_success_prints_terse_summary(self) -> None:
+        source = self.root / _MAIN_CPP
+        source.write_text("int main() { return 0; }\n")
+        self.write_database([source])
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            if command == ["xcrun", "--show-sdk-path"]:
+                return subprocess.CompletedProcess(command, 0, stdout="/SDK/MacOSX.sdk\n")
+            if command[0] == "/llvm/bin/run-clang-tidy":
+                return subprocess.CompletedProcess(command, 0, stdout="1 warning generated.\n")
+            return subprocess.CompletedProcess(command, 0)
+
+        with mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS):
+            output = StringIO()
+            with redirect_stdout(output):
+                runner.run_workflow(
+                    mode="report",
+                    workspace=self.root,
+                    compdb_tool=_UNIX_COMPDB_TOOL,
+                    platform_name="darwin",
+                    environ={},
+                    command_runner=fake_run,
+                )
+
+        printed = output.getvalue()
+        self.assertNotIn("1 warning generated", printed)
+        self.assertIn("clang-tidy: 1 files clean, 0 findings", printed)
+
+    def test_analysis_failure_prints_diagnostics_and_finding_count(self) -> None:
+        source = self.root / _MAIN_CPP
+        source.write_text("int main() { return 0; }\n")
+        self.write_database([source])
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            if command == ["xcrun", "--show-sdk-path"]:
+                return subprocess.CompletedProcess(command, 0, stdout="/SDK/MacOSX.sdk\n")
+            if "-export-fixes" in command:
+                fixes_directory = Path(command[command.index("-export-fixes") + 1])
+                replacement = self.replacement(source, 0, 0, "// fixed\n")
+                self.write_fixes(
+                    fixes_directory,
+                    "fix.yaml",
+                    [self.diagnostic("readability-fix", [replacement])],
+                )
+                return subprocess.CompletedProcess(
+                    command, 1, stdout="main.cpp:1:1: warning: fix me [readability-fix]\n"
+                )
+            return subprocess.CompletedProcess(command, 0)
+
+        with mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS):
+            output = StringIO()
+            with (
+                redirect_stdout(output),
+                self.assertRaisesRegex(
+                    runner.WorkflowError, r"1 findings.*failed with exit code 1"
+                ),
+            ):
+                runner.run_workflow(
+                    mode="report",
+                    workspace=self.root,
+                    compdb_tool=_UNIX_COMPDB_TOOL,
+                    platform_name="darwin",
+                    environ={},
+                    command_runner=fake_run,
+                )
+
+        self.assertIn("fix me [readability-fix]", output.getvalue())
+
+    def test_changed_files_unions_git_sources(self) -> None:
+        committed = self.root / "committed.cpp"
+        committed.write_text("// committed\n")
+        staged = self.root / "staged.h"
+        staged.write_text("// staged\n")
+        untracked = self.root / "untracked.cpp"
+        untracked.write_text("// untracked\n")
+        # deleted.cpp is intentionally never created: a deleted file can still
+        # show up in `git diff --name-only` and must be filtered out.
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            if command == ["git", "merge-base", "HEAD", "origin/master"]:
+                return subprocess.CompletedProcess(command, 0, stdout="abc123\n")
+            if command == ["git", "diff", "--name-only", "abc123..HEAD"]:
+                return subprocess.CompletedProcess(
+                    command, 0, stdout="committed.cpp\ndeleted.cpp\n"
+                )
+            if command == ["git", "diff", "--name-only"]:
+                return subprocess.CompletedProcess(command, 0, stdout="")
+            if command == ["git", "diff", "--name-only", "--cached"]:
+                return subprocess.CompletedProcess(command, 0, stdout="staged.h\n")
+            if command == ["git", "ls-files", "--others", "--exclude-standard"]:
+                return subprocess.CompletedProcess(command, 0, stdout="untracked.cpp\n")
+            raise AssertionError(f"unexpected command: {command}")
+
+        result = runner.changed_files(self.root, fake_run)
+
+        self.assertEqual(
+            [committed.resolve(), staged.resolve(), untracked.resolve()],
+            result,
+        )
+
+    def test_changed_files_reports_merge_base_failure(self) -> None:
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            return subprocess.CompletedProcess(command, 128, stderr="fatal: no such ref\n")
+
+        with self.assertRaisesRegex(runner.WorkflowError, r"git merge-base.*128.*no such ref"):
+            runner.changed_files(self.root, fake_run)
+
+    def test_filter_changed_entries_matches_source_directly(self) -> None:
+        pkg = self.root / "pkg"
+        pkg.mkdir()
+        source = pkg / "foo.cpp"
+        source.write_text("// foo\n")
+        self.write_database([source])
+        entries = runner.load_project_entries(self.root, self.root / "compile_commands.json")
+
+        matched, notes = runner.filter_changed_entries(entries, [source], self.root)
+
+        self.assertEqual([str(source)], [entry["file"] for entry in matched])
+        self.assertEqual([], notes)
+
+    def test_filter_changed_entries_falls_back_to_colocated_source(self) -> None:
+        pkg = self.root / "pkg"
+        pkg.mkdir()
+        source = pkg / "foo.cpp"
+        source.write_text("// foo\n")
+        test_source = pkg / "foo_test.cpp"
+        test_source.write_text("// foo test\n")
+        header = pkg / "foo.h"
+        header.write_text("#pragma once\n")
+        self.write_database([source, test_source])
+        entries = runner.load_project_entries(self.root, self.root / "compile_commands.json")
+
+        matched, notes = runner.filter_changed_entries(entries, [header], self.root)
+
+        self.assertEqual(
+            {str(source), str(test_source)},
+            {entry["file"] for entry in matched},
+        )
+        self.assertEqual([], notes)
+
+    def test_filter_changed_entries_notes_uncolocated_header(self) -> None:
+        pkg = self.root / "pkg"
+        pkg.mkdir()
+        source = pkg / "other.cpp"
+        source.write_text("// other\n")
+        header = pkg / "standalone.h"
+        header.write_text("#pragma once\n")
+        self.write_database([source])
+        entries = runner.load_project_entries(self.root, self.root / "compile_commands.json")
+
+        matched, notes = runner.filter_changed_entries(entries, [header], self.root)
+
+        self.assertEqual([], matched)
+        self.assertEqual(1, len(notes))
+        self.assertIn(str(header), notes[0])
+
+    def test_filter_changed_entries_ignores_non_cpp_changes(self) -> None:
+        source = self.root / "foo.cpp"
+        source.write_text("// foo\n")
+        self.write_database([source])
+        entries = runner.load_project_entries(self.root, self.root / "compile_commands.json")
+        doc = self.root / "README.md"
+        doc.write_text("# readme\n")
+
+        matched, notes = runner.filter_changed_entries(entries, [doc], self.root)
+
+        self.assertEqual([], matched)
+        self.assertEqual([], notes)
+
+    def test_changed_mode_filters_entries_before_analysis(self) -> None:
+        changed_source = self.root / "changed.cpp"
+        changed_source.write_text("int changed;\n")
+        unrelated_source = self.root / "unrelated.cpp"
+        unrelated_source.write_text("int unrelated;\n")
+        self.write_database([changed_source, unrelated_source])
+        analyzed_files: list[str] = []
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            if command == ["git", "merge-base", "HEAD", "origin/master"]:
+                return subprocess.CompletedProcess(command, 0, stdout="abc123\n")
+            if command == ["git", "diff", "--name-only", "abc123..HEAD"]:
+                return subprocess.CompletedProcess(command, 0, stdout="changed.cpp\n")
+            if command[:2] == ["git", "diff"]:
+                return subprocess.CompletedProcess(command, 0, stdout="")
+            if command == ["git", "ls-files", "--others", "--exclude-standard"]:
+                return subprocess.CompletedProcess(command, 0, stdout="")
+            if command == ["xcrun", "--show-sdk-path"]:
+                return subprocess.CompletedProcess(command, 0, stdout="/SDK/MacOSX.sdk\n")
+            if command[0] == _UNIX_TOOLS.run_clang_tidy:
+                compdb_dir = Path(command[command.index("-p") + 1])
+                database = json.loads((compdb_dir / "compile_commands.json").read_text())
+                analyzed_files.extend(entry["file"] for entry in database)
+                return subprocess.CompletedProcess(command, 0)
+            return subprocess.CompletedProcess(command, 0)
+
+        with mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS):
+            result = runner.run_workflow(
+                mode="report",
+                workspace=self.root,
+                compdb_tool=_UNIX_COMPDB_TOOL,
+                platform_name="darwin",
+                environ={},
+                command_runner=fake_run,
+                changed=True,
+            )
+
+        self.assertEqual(0, result)
+        self.assertEqual([str(changed_source)], analyzed_files)
+
+    def test_changed_mode_skips_analysis_when_nothing_matches(self) -> None:
+        source = self.root / "unrelated.cpp"
+        source.write_text("int unrelated;\n")
+        self.write_database([source])
+        tidy_invoked = False
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            nonlocal tidy_invoked
+            if command == ["git", "merge-base", "HEAD", "origin/master"]:
+                return subprocess.CompletedProcess(command, 0, stdout="abc123\n")
+            if command[:2] == ["git", "diff"] or command[:2] == ["git", "ls-files"]:
+                return subprocess.CompletedProcess(command, 0, stdout="")
+            if command[0] == _UNIX_TOOLS.run_clang_tidy:
+                tidy_invoked = True
+            return subprocess.CompletedProcess(command, 0)
+
+        with mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS):
+            output = StringIO()
+            with redirect_stdout(output):
+                result = runner.run_workflow(
+                    mode="report",
+                    workspace=self.root,
+                    compdb_tool=_UNIX_COMPDB_TOOL,
+                    platform_name="darwin",
+                    environ={},
+                    command_runner=fake_run,
+                    changed=True,
+                )
+
+        self.assertEqual(0, result)
+        self.assertFalse(tidy_invoked)
+        self.assertIn("no changed C/C++ translation units", output.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

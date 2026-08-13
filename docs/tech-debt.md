@@ -28,8 +28,8 @@ Observed on 2026-08-05:
   cases. Checksum families, calibration/map editing, most flash orchestration,
   and UI workflows remain lightly covered.
 - CI builds and tests on Windows, macOS, and Linux, verifies macOS/Windows
-  packages, produces coverage for SonarCloud, and runs clang-tidy as a
-  non-blocking report.
+  packages, produces coverage for SonarCloud, and runs a blocking clang-tidy
+  report over the PR's changed files.
 - Focused background notes remain in the
   [logging-engine notes](logging-engine-tech-debt.md) and the
   [protocol generalization notes](protocol-generalization-opportunities.md);
@@ -229,20 +229,23 @@ Actions:
 
 ### P2: Turn static analysis into a ratchet
 
-The Bazel-driven clang-tidy report and autofix commands are useful and covered
-by runner tests, but the PR workflow marks the report step
-`continue-on-error: true`. New diagnostics can therefore accumulate without a
-failing signal.
+`pr.yml` gates every PR on `//:clang_tidy_report_changed` (changed files
+only, `WarningsAsErrors: '*'`, blocking, per OS). Full-repo
+`clang_tidy_report`/`clang_tidy_fix` remain available as manual targets but
+no longer run anywhere in CI, so a pre-existing violation in code a PR
+doesn't touch has no CI signal at all.
 
 Actions:
 
-- Record a machine-readable baseline or allowlist by check and source path.
-- Fail CI on new diagnostics in changed maintained code, then reduce the
-  baseline by ownership area.
-- Keep generated Qt code, vendored code, Bazel outputs, and external headers out
-  of the baseline.
-- Promote the report to a required CI result after the ratchet is deterministic
-  across Linux, macOS, and Windows compilation commands.
+- Record a machine-readable baseline or allowlist by check and source path
+  for the full-repo report.
+- Add a scheduled or release-triggered job that runs the full-repo report
+  against that baseline and fails only on new diagnostics outside it, then
+  reduce the baseline by ownership area over time.
+- Keep generated Qt code, vendored code, Bazel outputs, and external headers
+  out of the baseline.
+- Promote that job to a required, blocking result once the ratchet is
+  deterministic across Linux, macOS, and Windows compilation commands.
 
 ### P2: Replace BUILD-file globs with generated source lists
 
