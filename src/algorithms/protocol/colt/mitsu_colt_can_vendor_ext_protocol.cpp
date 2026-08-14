@@ -2,8 +2,11 @@
 
 #include <cassert>
 
+#include "src/algorithms/protocol/bytes_compose.h"
+
 namespace MitsuColtCanVendorExt
 {
+using bytes::composeBe;
 
 namespace
 {
@@ -63,31 +66,19 @@ std::uint32_t bytesToSeed(bytes::ByteView seedBytes)
 
 bytes::Bytes keyBytes(std::uint32_t key)
 {
-    bytes::Bytes bytes;
-    bytes.reserve(4);
-    bytes::appendU32Be(bytes, key);
-    return bytes;
+    return composeBe(key);
 }
 
 bytes::Bytes buildChallengeSeedRequest()
 {
-    bytes::Bytes f;
-    f.reserve(3);
-    f.push_back(kServiceReadMemoryByAddress);
-    f.push_back(kVendorChallengeSelector);
-    f.push_back(kVendorChallengeSeedSubfunction);
-    return f;
+    return composeBe(kServiceReadMemoryByAddress, kVendorChallengeSelector,
+                     kVendorChallengeSeedSubfunction);
 }
 
 bytes::Bytes buildChallengeKey(std::uint32_t key)
 {
-    bytes::Bytes f;
-    f.reserve(7);
-    f.push_back(kServiceReadMemoryByAddress);
-    f.push_back(kVendorChallengeSelector);
-    f.push_back(kVendorChallengeKeySubfunction);
-    bytes::appendU32Be(f, key);
-    return f;
+    return composeBe(kServiceReadMemoryByAddress, kVendorChallengeSelector,
+                     kVendorChallengeKeySubfunction, key);
 }
 
 } // namespace MitsuColtCanVendorExt

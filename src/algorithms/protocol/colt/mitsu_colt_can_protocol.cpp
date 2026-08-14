@@ -2,8 +2,13 @@
 
 #include <cassert>
 
+#include "src/algorithms/protocol/bytes_compose.h"
+
 namespace MitsuColtCan
 {
+using bytes::composeBe;
+using bytes::u24;
+using namespace bytes::literals;
 
 const bytes::Byte kErasePageRoutine[160] = {
     0x94,
@@ -745,11 +750,7 @@ bytes::Bytes seedKey(bytes::ByteView seed)
     const std::uint16_t pk2 = bytes::readU16Be(seed, 2);
     const std::uint16_t sk1 = seedKeyWord(pk1);
     const std::uint16_t sk2 = seedKeyWord(pk2);
-    bytes::Bytes key;
-    key.reserve(4);
-    bytes::appendU16Be(key, sk1);
-    bytes::appendU16Be(key, sk2);
-    return key;
+    return composeBe(sk1, sk2);
 }
 
 std::uint16_t checksum(bytes::ByteView data)
@@ -764,13 +765,7 @@ std::uint16_t checksum(bytes::ByteView data)
 
 bytes::Bytes buildRequestDownload(std::uint32_t start, std::uint32_t size)
 {
-    bytes::Bytes f;
-    f.reserve(8);
-    f.push_back(kServiceRequestDownload);
-    bytes::appendU24Be(f, start);
-    f.push_back(0x00);
-    bytes::appendU24Be(f, size);
-    return f;
+    return composeBe(kServiceRequestDownload, u24(start), 0x00_b, u24(size));
 }
 
 std::vector<bytes::Bytes> buildTransferDataFrames(bytes::ByteView payload)
@@ -779,32 +774,20 @@ std::vector<bytes::Bytes> buildTransferDataFrames(bytes::ByteView payload)
     for (std::size_t offset = 0; offset < payload.size(); offset += kTransferChunkSize)
     {
         const std::size_t chunkSize = std::min<std::size_t>(kTransferChunkSize, payload.size() - offset);
-        bytes::Bytes f;
-        f.reserve(1 + chunkSize);
-        f.push_back(kServiceTransferData);
-        f.insert(f.end(), payload.begin() + offset, payload.begin() + offset + chunkSize);
-        frames.push_back(std::move(f));
+        frames.push_back(composeBe(kServiceTransferData, payload.subspan(offset, chunkSize)));
     }
     return frames;
 }
 
 bytes::Bytes buildRoutineCheckCrc(std::uint32_t targetStart)
 {
-    bytes::Bytes f;
-    f.reserve(3);
-    f.push_back(kServiceRoutineControl);
-    f.push_back(kRoutineCheckCrc);
-    f.push_back(targetStart < 0x800000 ? 2 : 1);
-    return f;
+    return composeBe(kServiceRoutineControl, kRoutineCheckCrc,
+                     targetStart < 0x800000 ? 2_b : 1_b);
 }
 
 bytes::Bytes buildRoutineErase()
 {
-    bytes::Bytes f;
-    f.reserve(2);
-    f.push_back(kServiceRoutineControl);
-    f.push_back(kRoutineErase);
-    return f;
+    return composeBe(kServiceRoutineControl, kRoutineErase);
 }
 
 bytes::Bytes buildRequestReflashUnlock()
@@ -818,41 +801,23 @@ bytes::Bytes buildRequestReflashUnlock()
 
 bytes::Bytes buildReadMemoryByAddress(std::uint32_t addr, bytes::Byte len)
 {
-    bytes::Bytes f;
-    f.reserve(5);
-    f.push_back(kServiceReadMemoryByAddress);
-    bytes::appendU24Be(f, addr);
-    f.push_back(len);
-    return f;
+    return composeBe(kServiceReadMemoryByAddress, u24(addr), len);
 }
 
 bytes::Bytes buildDiagnosticSession(bytes::Byte sessionId)
 {
-    bytes::Bytes f;
-    f.reserve(2);
-    f.push_back(kServiceDiagnosticSession);
-    f.push_back(sessionId);
-    return f;
+    return composeBe(kServiceDiagnosticSession, sessionId);
 }
 
 bytes::Bytes buildSecurityAccessSeedRequest()
 {
-    bytes::Bytes f;
-    f.reserve(2);
-    f.push_back(kServiceSecurityAccess);
-    f.push_back(0x05);
-    return f;
+    return composeBe(kServiceSecurityAccess, 0x05_b);
 }
 
 bytes::Bytes buildSecurityAccessKey(bytes::ByteView key)
 {
     assert(key.size() == 4);
-    bytes::Bytes f;
-    f.reserve(6);
-    f.push_back(kServiceSecurityAccess);
-    f.push_back(0x06);
-    f.insert(f.end(), key.begin(), key.end());
-    return f;
+    return composeBe(kServiceSecurityAccess, 0x06_b, key);
 }
 
 } // namespace MitsuColtCan
