@@ -107,6 +107,7 @@ TEST(ScriptedUdsChannelTest, ScriptConsumedReflectsRemainingWork)
 
     EXPECT_FALSE(channel.scriptConsumed());
     (void)channel.send(bytes::Bytes{0x3E}, cancellation);
+    EXPECT_FALSE(channel.scriptConsumed());
     (void)channel.receive(100, cancellation);
     EXPECT_TRUE(channel.scriptConsumed());
 }
