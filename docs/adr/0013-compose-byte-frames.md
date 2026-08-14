@@ -33,8 +33,16 @@ the frame needs; do not infer them from the variable's declared type.
 
 ## Consequences
 
-Frame construction reads as a declaration of the wire format. Endianness bugs
-become compile errors rather than silent truncations.
+Frame construction reads as a declaration of the wire format. A type outside
+the supported set (`Byte`, `std::uint16_t`, `u24(x)`, `std::uint32_t`,
+`std::string_view`, or a range of `Byte`) is a compile error. Width mismatches
+within the supported set are not: passing a `std::uint32_t` where the wire
+field is three bytes compiles cleanly and silently changes the frame's
+length — exactly the mistake the width audit in the implementation plan
+caught three times. The type system only forecloses argument types it has
+never heard of; it does not know how many bytes a given wire field is
+supposed to be. Counting the bytes the frame needs, per the Decision section
+above, remains the caller's job.
 
 Two shapes stay hand-rolled, deliberately:
 
@@ -46,6 +54,16 @@ Two shapes stay hand-rolled, deliberately:
 Verification code does not use the helpers. `hasValidFrame` compares an
 explicit `bytes::sum8` against the received checksum, so that a bug in the
 compose helper cannot cancel itself out on both sides of the comparison.
+
+Test expectations are the same exception for the same reason: five sites keep
+building their expected wire bytes by hand rather than with `composeBe` --
+`subaru_hitachi_m32r_kline_executor_test.cpp`'s `scriptReadChunks` (address
+splice) and its two block-write loops, and
+`subaru_mitsu_m32r_kline_executor_test.cpp`'s two block-write loops -- so that
+the test keeps deriving the wire format independently of the production code
+it is checking, rather than through the same helper that could be wrong on
+both sides at once. This is a deliberate exception, not an inconsistency to
+tidy away.
 
 There are no little-endian variants. Every wire format in this repository is
 big-endian, and the little-endian append helpers added earlier on symmetry
