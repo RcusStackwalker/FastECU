@@ -11,6 +11,9 @@
 
 #include <gtest/gtest.h>
 
+#include <string_view>
+
+#include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
 #include "src/backend/ports/testing/fake_clock.h"
@@ -22,6 +25,8 @@ namespace fastecu::flash
 {
 namespace
 {
+using namespace bytes;
+using namespace bytes::literals;
 
 // Satisfies IFlashTransport (the lifetime/unblock-only base) but NOT
 // IKlineFlashTransport -- used to prove execute()'s dynamic_cast guard
@@ -68,9 +73,7 @@ bytes::Bytes sid27RequestSeedRequest()
 }
 bytes::Bytes sid27SendKeyRequest(bytes::ByteView key)
 {
-    bytes::Bytes out{0x27, 0x02};
-    out.insert(out.end(), key.begin(), key.end());
-    return SsmProtocol::addHeader(out, kTesterId, kTargetId);
+    return SsmProtocol::addHeader(composeBe(0x27_b, 0x02_b, key), kTesterId, kTargetId);
 }
 bytes::Bytes sid10StartDiagRequest()
 {
@@ -78,28 +81,12 @@ bytes::Bytes sid10StartDiagRequest()
 }
 bytes::Bytes sid34RequestUploadRequest(std::uint32_t dataaddr, std::uint32_t datalen)
 {
-    bytes::Bytes out{
-        0x34,
-        static_cast<bytes::Byte>((dataaddr >> 16) & 0xFF),
-        static_cast<bytes::Byte>((dataaddr >> 8) & 0xFF),
-        static_cast<bytes::Byte>(dataaddr & 0xFF),
-        0x04,
-        static_cast<bytes::Byte>((datalen >> 16) & 0xFF),
-        static_cast<bytes::Byte>((datalen >> 8) & 0xFF),
-        static_cast<bytes::Byte>(datalen & 0xFF),
-    };
-    return SsmProtocol::addHeader(out, kTesterId, kTargetId);
+    return SsmProtocol::addHeader(composeBe(0x34_b, u24(dataaddr), 0x04_b, u24(datalen)), kTesterId,
+                                  kTargetId);
 }
 bytes::Bytes sid36TransferDataRequest(std::uint32_t blockaddr, bytes::ByteView blockBytes)
 {
-    bytes::Bytes out{
-        0x36,
-        static_cast<bytes::Byte>((blockaddr >> 16) & 0xFF),
-        static_cast<bytes::Byte>((blockaddr >> 8) & 0xFF),
-        static_cast<bytes::Byte>(blockaddr & 0xFF),
-    };
-    out.insert(out.end(), blockBytes.begin(), blockBytes.end());
-    return SsmProtocol::addHeader(out, kTesterId, kTargetId);
+    return SsmProtocol::addHeader(composeBe(0x36_b, u24(blockaddr), blockBytes), kTesterId, kTargetId);
 }
 bytes::Bytes sid31StartRoutineRequest()
 {
@@ -109,15 +96,7 @@ bytes::Bytes sid31StartRoutineRequest()
 // request_kernel_id(), lines 964-994: NOT addHeader-framed.
 bytes::Bytes requestKernelIdRequest()
 {
-    bytes::Bytes out{
-        static_cast<bytes::Byte>((0xBEEF >> 8) & 0xFF),
-        static_cast<bytes::Byte>(0xBEEF & 0xFF),
-        0x00,
-        0x01,
-        0x01,
-    };
-    out.push_back(bytes::sum8(out));
-    return out;
+    return composeBeWithChecksum(bytes::sum8, std::uint16_t{0xBEEF}, std::uint16_t{1}, 0x01_b);
 }
 
 // generate_seed_key(), lines 854-879 (stock / non-"_ecutek" table pair).
@@ -223,19 +202,8 @@ bytes::Bytes sid27SeedResponse(bytes::ByteView seed)
 // 0xBEEF, received[4] == 0x01 | 0x40 == 0x41.
 bytes::Bytes kernelAliveResponse()
 {
-    bytes::Bytes out{
-        static_cast<bytes::Byte>((0xBEEF >> 8) & 0xFF),
-        static_cast<bytes::Byte>(0xBEEF & 0xFF),
-        0x00,
-        0x06,
-        0x41,
-        'K',
-        'E',
-        'R',
-        'N',
-        '2',
-    };
-    return out; // 10 bytes
+    return composeBe(std::uint16_t{0xBEEF}, 0x00_b, 0x06_b, 0x41_b,
+                     std::string_view("KERN2")); // 10 bytes
 }
 
 // A 16-byte (already 4-byte-aligned) kernel fixture -- matches
