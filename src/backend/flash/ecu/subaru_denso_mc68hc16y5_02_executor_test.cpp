@@ -4,6 +4,7 @@
 
 #include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
+#include "src/algorithms/protocol/bytes_compose.h"
 #include "src/backend/definitions/kernelmemorymodels.h"
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_plan.h"
 #include "src/backend/flash/eeprom/eeprom_read_plan.h"
@@ -18,6 +19,8 @@ namespace fastecu::flash
 {
 namespace
 {
+using namespace bytes;
+using namespace bytes::literals;
 
 class NeverCancelled : public ICancellationToken
 {
@@ -150,14 +153,9 @@ Result<FlashPlan> tpu_read_plan()
 
 bytes::Bytes framed(std::uint8_t opcode, bytes::ByteView extra = {})
 {
-    bytes::Bytes out{0xBE, 0xEF};
     const std::uint16_t datalen_plus_one = static_cast<std::uint16_t>(extra.size() + 1);
-    out.push_back(static_cast<bytes::Byte>((datalen_plus_one >> 8) & 0xFF));
-    out.push_back(static_cast<bytes::Byte>(datalen_plus_one & 0xFF));
-    out.push_back(opcode);
-    out.insert(out.end(), extra.begin(), extra.end());
-    out.push_back(bytes::sum8(out));
-    return out;
+    return composeBeWithChecksum(bytes::sum8, std::uint16_t{0xBEEF}, datalen_plus_one,
+                                 bytes::Byte(opcode), extra);
 }
 
 bytes::Bytes stock_upload_request()
@@ -209,25 +207,14 @@ void script_read_page(ScriptedKlineFlashTransport& transport, std::uint32_t addr
                       bytes::Byte fill, std::uint8_t response_opcode = 0x43)
 {
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:323-455.
-    transport.expectWrite(framed(0x03, bytes::Bytes{
-                                           0x00,
-                                           static_cast<bytes::Byte>((address >> 16) & 0xFF),
-                                           static_cast<bytes::Byte>((address >> 8) & 0xFF),
-                                           static_cast<bytes::Byte>(address & 0xFF),
-                                           0x04,
-                                           0x00,
-                                       }));
+    transport.expectWrite(
+        framed(0x03, composeBe(0x00_b, u24(address), std::uint16_t{0x400})));
     transport.queueRead(framed(response_opcode, bytes::Bytes(0x400, fill)));
 }
 
 bytes::Bytes u32_be(std::uint32_t value)
 {
-    return {
-        static_cast<bytes::Byte>((value >> 24) & 0xFF),
-        static_cast<bytes::Byte>((value >> 16) & 0xFF),
-        static_cast<bytes::Byte>((value >> 8) & 0xFF),
-        static_cast<bytes::Byte>(value & 0xFF),
-    };
+    return composeBe(value);
 }
 
 std::size_t packed_block_offset(const flashdev_t& device, unsigned block_no)
@@ -248,11 +235,7 @@ void script_crc_compare(ScriptedKlineFlashTransport& transport, const flashdev_t
     for (unsigned block_no = 0; block_no < device.numblocks; ++block_no)
     {
         const auto& block = device.fblocks[block_no];
-        bytes::Bytes request_payload = u32_be(block.start);
-        request_payload.push_back(0x00);
-        request_payload.push_back(static_cast<bytes::Byte>((block.len >> 16) & 0xFF));
-        request_payload.push_back(static_cast<bytes::Byte>((block.len >> 8) & 0xFF));
-        request_payload.push_back(static_cast<bytes::Byte>(block.len & 0xFF));
+        const bytes::Bytes request_payload = composeBe(block.start, 0x00_b, u24(block.len));
         transport.expectWrite(framed(0x02, request_payload));
 
         std::uint32_t ecu_crc =
