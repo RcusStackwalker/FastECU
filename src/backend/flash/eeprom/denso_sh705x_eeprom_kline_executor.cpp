@@ -13,7 +13,9 @@ namespace fastecu::flash
 {
 namespace
 {
-using namespace bytes;
+using bytes::composeBe;
+using bytes::composeBeWithChecksum;
+using bytes::u24;
 using namespace bytes::literals;
 
 // ---------------------------------------------------------------------

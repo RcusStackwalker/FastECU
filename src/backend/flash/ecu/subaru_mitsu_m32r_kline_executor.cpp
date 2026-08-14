@@ -11,7 +11,8 @@ namespace fastecu::flash
 {
 namespace
 {
-using namespace bytes;
+using bytes::composeBe;
+using bytes::u24;
 using namespace bytes::literals;
 
 constexpr int kTimeoutMs = 2000;

@@ -32,7 +32,8 @@ namespace fastecu::flash
 {
 namespace
 {
-using namespace bytes;
+using bytes::composeBe;
+using bytes::u24;
 using namespace bytes::literals;
 
 // eeprom_ecu_subaru_denso_sh705x_can_operation.cpp's serial->set_can_source_
