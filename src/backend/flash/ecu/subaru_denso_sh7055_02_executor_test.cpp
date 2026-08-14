@@ -8,6 +8,7 @@
 
 #include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
+#include "src/algorithms/protocol/bytes_compose.h"
 #include "src/backend/definitions/kernelmemorymodels.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7055_02_plan.h"
 #include "src/backend/flash/flash_device_lookup.h"
@@ -20,6 +21,8 @@ namespace fastecu::flash
 {
 namespace
 {
+using namespace bytes;
+using namespace bytes::literals;
 
 class NeverCancelled final : public ICancellationToken
 {
@@ -187,14 +190,9 @@ Result<FlashPlan> malformed_plan(std::vector<ConfirmationSpec> confirmations,
 
 bytes::Bytes framed(std::uint8_t opcode, bytes::ByteView payload = {})
 {
-    bytes::Bytes out{0xBE, 0xEF};
     const std::uint16_t length = static_cast<std::uint16_t>(payload.size() + 1);
-    out.push_back(static_cast<bytes::Byte>((length >> 8) & 0xFF));
-    out.push_back(static_cast<bytes::Byte>(length & 0xFF));
-    out.push_back(opcode);
-    out.insert(out.end(), payload.begin(), payload.end());
-    out.push_back(bytes::sum8(out));
-    return out;
+    return composeBeWithChecksum(bytes::sum8, std::uint16_t{0xBEEF}, length, bytes::Byte(opcode),
+                                 payload);
 }
 
 bytes::Bytes ecu_id_response()
@@ -217,12 +215,7 @@ bytes::Bytes exact_upload_request()
 
 bytes::Bytes u32_be(std::uint32_t value)
 {
-    return {
-        static_cast<bytes::Byte>((value >> 24) & 0xFF),
-        static_cast<bytes::Byte>((value >> 16) & 0xFF),
-        static_cast<bytes::Byte>((value >> 8) & 0xFF),
-        static_cast<bytes::Byte>(value & 0xFF),
-    };
+    return composeBe(value);
 }
 
 bytes::Bytes crc_response(std::uint32_t crc)
@@ -239,14 +232,8 @@ void script_read_page(ScriptedKlineFlashTransport& transport, std::uint32_t addr
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:360-430:
     // SUB_KERNEL_READ_AREA uses a zero byte plus the 24-bit address and a
     // fixed 0x400-byte page request. The reply carries the 0x43 acknowledgment.
-    transport.expectWrite(framed(0x03, bytes::Bytes{
-                                           0x00,
-                                           static_cast<bytes::Byte>((address >> 16) & 0xFF),
-                                           static_cast<bytes::Byte>((address >> 8) & 0xFF),
-                                           static_cast<bytes::Byte>(address & 0xFF),
-                                           0x04,
-                                           0x00,
-                                       }));
+    transport.expectWrite(
+        framed(0x03, composeBe(0x00_b, u24(address), std::uint16_t{0x400})));
     transport.queueRead(framed(response_opcode, bytes::Bytes(0x400, fill)));
 }
 
@@ -309,11 +296,7 @@ void script_crc_compare(ScriptedKlineFlashTransport& transport, const flashdev_t
     for (unsigned block_no = 0; block_no < device.numblocks; ++block_no)
     {
         const auto& block = device.fblocks[block_no];
-        bytes::Bytes request_payload = u32_be(block.start);
-        request_payload.push_back(0x00);
-        request_payload.push_back(static_cast<bytes::Byte>((block.len >> 16) & 0xFF));
-        request_payload.push_back(static_cast<bytes::Byte>((block.len >> 8) & 0xFF));
-        request_payload.push_back(static_cast<bytes::Byte>(block.len & 0xFF));
+        const bytes::Bytes request_payload = composeBe(block.start, 0x00_b, u24(block.len));
         transport.expectWrite(framed(0x02, request_payload));
 
         std::uint32_t ecu_crc = fastecu::checksum::crc32(
@@ -963,11 +946,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt)
     for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
     {
         const auto& block = device->fblocks[block_no];
-        bytes::Bytes payload = u32_be(block.start);
-        payload.push_back(0x00);
-        payload.push_back(static_cast<bytes::Byte>((block.len >> 16) & 0xFF));
-        payload.push_back(static_cast<bytes::Byte>((block.len >> 8) & 0xFF));
-        payload.push_back(static_cast<bytes::Byte>(block.len & 0xFF));
+        const bytes::Bytes payload = composeBe(block.start, 0x00_b, u24(block.len));
         transport.expectWrite(framed(0x02, payload));
         const std::uint32_t crc = fastecu::checksum::crc32(
             bytes::ByteView(image).subspan(block.start, block.len));
@@ -1009,11 +988,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead)
     for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
     {
         const auto& block = device->fblocks[block_no];
-        bytes::Bytes payload = u32_be(block.start);
-        payload.push_back(0x00);
-        payload.push_back(static_cast<bytes::Byte>((block.len >> 16) & 0xFF));
-        payload.push_back(static_cast<bytes::Byte>((block.len >> 8) & 0xFF));
-        payload.push_back(static_cast<bytes::Byte>(block.len & 0xFF));
+        const bytes::Bytes payload = composeBe(block.start, 0x00_b, u24(block.len));
         transport.expectWrite(framed(0x02, payload));
         const std::uint32_t crc = fastecu::checksum::crc32(
             bytes::ByteView(image).subspan(block.start, block.len));
