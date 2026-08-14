@@ -445,9 +445,7 @@ Status upload_and_commit(Ctx& ctx, const MitsuColtM32rCanPlan& family, std::uint
     // Lines 272-284: big-endian 16-bit running sum, always exactly one
     // TransferData frame (kCrcTransferSize is 2, well under kTransferChunkSize).
     const std::uint16_t crc = checksum(data);
-    const bytes::Bytes crc_data{static_cast<bytes::Byte>((crc >> 8) & 0xff),
-                                static_cast<bytes::Byte>(crc & 0xff)};
-    received = exchange(ctx, family.request_id, buildTransferDataFrames(crc_data).front(), 50,
+    received = exchange(ctx, family.request_id, buildTransferDataFrames(bytes::composeBe(crc)).front(), 50,
                         kReadTimeoutMs);
     if (!received)
     {
