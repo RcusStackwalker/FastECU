@@ -36,6 +36,7 @@ cc_library(
     hdrs = ["subaru_hitachi_m32r_kline_executor.h"],
     deps = [
         ":subaru_hitachi_m32r_kline_plan",
+        "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/backend/flash:flash_executor",
         "//src/backend/ports",
@@ -89,6 +90,7 @@ cc_library(
     deps = [
         ":subaru_denso_mc68hc16y5_02_plan",
         "//src/algorithms/checksum",
+        "//src/algorithms/protocol",
         "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_executor",
@@ -104,6 +106,7 @@ cc_library(
     deps = [
         ":subaru_denso_sh7055_02_plan",
         "//src/algorithms/checksum",
+        "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/backend/flash:flash_executor",
         "//src/backend/ports",
