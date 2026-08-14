@@ -169,19 +169,19 @@ TEST(BytesPortable, FixedWidthWritersAcceptExactBoundary)
                                  0xBC, 0x9A, 0x78, 0x34, 0x12, 0xF0, 0xDE}));
 }
 
-TEST(TestBytes, sum8Range_sumsOnlyTheRequestedWindow)
+TEST(BytesPortable, sum8Range_sumsOnlyTheRequestedWindow)
 {
     const bytes::Bytes buf{0x01, 0x02, 0x03, 0x04};
     EXPECT_EQ(bytes::sum8Range(bytes::ByteView(buf), 1, 2), static_cast<bytes::Byte>(0x05));
 }
 
-TEST(TestBytes, sum8Range_clampsLengthToWhatIsAvailable)
+TEST(BytesPortable, sum8Range_clampsLengthToWhatIsAvailable)
 {
     const bytes::Bytes buf{0x01, 0x02, 0x03, 0x04};
     EXPECT_EQ(bytes::sum8Range(bytes::ByteView(buf), 2, 99), static_cast<bytes::Byte>(0x07));
 }
 
-TEST(TestBytes, sum8_isPassableAsACallable)
+TEST(BytesPortable, sum8_isPassableAsACallable)
 {
     bytes::Byte (*fn)(bytes::ByteView) = bytes::sum8;
     const bytes::Bytes buf{0x01, 0x02};

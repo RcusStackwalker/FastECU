@@ -4,9 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <format>
-#include <ranges>
 #include <utility>
-#include <variant>
 
 #include "src/algorithms/diagnostics/nrc_parser.h"
 #include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"

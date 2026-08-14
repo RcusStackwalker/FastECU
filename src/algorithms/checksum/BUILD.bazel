@@ -22,17 +22,11 @@ cc_library(
     name = "checksum",
     srcs = glob(
         ["*.cpp"],
-        exclude = [
-            "*_test.cpp",
-            "qt_*.cpp",
-        ],
+        exclude = ["*_test.cpp"],
     ),
     hdrs = glob(
         ["*.h"],
-        exclude = [
-            "*_test.h",
-            "qt_*.h",
-        ],
+        exclude = ["*_test.h"],
     ),
     deps = ["//src/algorithms/protocol"],
 )

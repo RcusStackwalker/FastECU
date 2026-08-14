@@ -88,6 +88,10 @@ constexpr std::size_t widthBe(const T& arg)
     }
     else
     {
+        static_assert(dependentFalse<U>,
+                      "composeBe: argument must be Byte, std::uint16_t, u24(), "
+                      "std::uint32_t, std::string_view, or a range of Byte. A bare "
+                      "integer literal is an int -- write 0x34_b instead.");
         return 0;
     }
 }
@@ -158,8 +162,9 @@ template <typename ChecksumFn, typename... Args>
 Bytes composeBeWithChecksum(ChecksumFn checksum, const Args&...args)
 {
     using Sum = std::invoke_result_t<ChecksumFn, ByteView>;
-    static_assert(std::unsigned_integral<Sum>,
-                  "composeBeWithChecksum: checksum function must return an unsigned integer");
+    static_assert(std::unsigned_integral<Sum> && sizeof(Sum) <= 4,
+                  "composeBeWithChecksum: checksum function must return Byte, "
+                  "std::uint16_t, or std::uint32_t -- appendBe has no wider width to give it");
     Bytes out = composeBeWithExtraCapacity(sizeof(Sum), args...);
     detail::appendBe(out, static_cast<Sum>(checksum(ByteView(out))));
     return out;
