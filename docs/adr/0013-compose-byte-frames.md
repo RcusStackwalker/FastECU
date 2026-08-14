@@ -1,6 +1,4 @@
-# 13. Compose byte frames with composeBe
-
-Date: 2026-08-13
+# ADR 0013: Compose byte frames with composeBe
 
 ## Status
 
