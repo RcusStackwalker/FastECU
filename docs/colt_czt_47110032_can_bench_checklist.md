@@ -111,11 +111,12 @@ the parent workspace, but it is not part of this repository.
    defaults (`pending_timeout_ms = 3000`, `max_pending_repeats = 10`), an
    exchange that exhausts all absorbed responsePending retries can take up
    to `read_timeout_ms + max_pending_repeats × pending_timeout_ms` before it
-   fails — about 33 seconds at the erase and CRC-check sites
-   (`3000 ms + 10 × 3000 ms`). Expect the UI to appear stalled for up to
-   that long during erase or CRC check, and wait rather than pulling power:
-   a stall this long mid-erase is exactly the situation that bricks a unit
-   if interrupted.
+   fails — about 33 seconds at each of the three exchanges that use the
+   extra-long 3000 ms read timeout: the reflash-unlock request, the erase
+   trigger, and the CRC check (`3000 ms + 10 × 3000 ms`). Expect the UI to
+   appear stalled for up to that long during unlock, erase, or CRC check,
+   and wait rather than pulling power: a stall this long mid-unlock or
+   mid-erase is exactly the situation that bricks a unit if interrupted.
 
 10. **Post-write validation.** After each capacity/security combination,
     power-cycle the ECU, repeat the matching full zero-based read, and
