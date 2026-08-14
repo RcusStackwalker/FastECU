@@ -550,7 +550,7 @@ uint32_t FlashEcuSubaruDensoSH7058CanOperation::read_ram_location(uint32_t loc)
     }
     if (!serial->get_is_iso15765_connection())
     {
-        output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+        output = SsmProtocol::addHeader(output, tester_id, target_id);
     }
 
     serial->write_serial_data_echo_check(output);

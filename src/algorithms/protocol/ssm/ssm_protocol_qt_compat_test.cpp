@@ -78,14 +78,14 @@ TEST(TestSsmProtocol, payload_truncates_to_four_byte_boundary)
 TEST(TestSsmProtocol, header_matches_existing_layout)
 {
     const QByteArray payload = QByteArray::fromHex("A800112233");
-    ASSERT_EQ(SsmProtocol::addHeader(payload, 0xF1, 0x10, false),
+    ASSERT_EQ(SsmProtocol::addHeader(payload, 0xF1, 0x10),
               QByteArray::fromHex("8010F105A80011223394"));
 }
 
 TEST(TestSsmProtocol, header_matches_existing_layout_with_byte_view)
 {
     const bytes::Bytes payload = fromHex("A800112233");
-    ASSERT_TRUE(SsmProtocol::addHeader(payload, 0xF1, 0x10, false) == fromHex("8010F105A80011223394"));
+    ASSERT_TRUE(SsmProtocol::addHeader(payload, 0xF1, 0x10) == fromHex("8010F105A80011223394"));
 }
 
 TEST(TestSsmProtocol, frame_validation_accepts_matching_header_length_and_checksum)

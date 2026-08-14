@@ -14,7 +14,7 @@ constexpr int kTimeoutMs = 2000;
 
 bytes::Bytes framed(bytes::ByteView payload, const SubaruHitachiM32rKlinePlan& p)
 {
-    return SsmProtocol::addHeader(payload, p.tester_id, p.target_id, false);
+    return SsmProtocol::addHeader(payload, p.tester_id, p.target_id);
 }
 
 Result<std::optional<bytes::Bytes>> exchange_optional(

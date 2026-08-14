@@ -203,7 +203,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
     output.append((uint8_t)0x01);
     output.append((uint8_t)0x6c); // 0x16c - IC Correction, 3->4
     output.append((uint8_t)(correction_3to4 & 0xff));
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
     emit LOG_D("Response:" + bytes::toHex(received), true, true);
@@ -225,7 +225,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
 
     output[3] = ((uint8_t)0x6d); // 0x16d - HLRC Correction, 2->3
     output[4] = ((uint8_t)(correction_2to3 & 0xff));
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
     emit LOG_D("Response:" + bytes::toHex(received), true, true);
@@ -247,7 +247,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
 
     output[3] = ((uint8_t)0x6e); // 0x16e - DC Correction, 1->2
     output[4] = ((uint8_t)(correction_1to2 & 0xff));
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
     emit LOG_D("Response:" + bytes::toHex(received), true, true);
@@ -269,7 +269,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
 
     output[3] = ((uint8_t)0x6f); // 0x16f - FB correction
     output[4] = ((uint8_t)(correction_4to5 & 0xff));
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
     emit LOG_D("Response:" + bytes::toHex(received), true, true);
@@ -291,7 +291,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
 
     output[3] = ((uint8_t)0x70); // 0x170 - AWD Clutch Torque High
     output[4] = ((uint8_t)((torque_correction_awd >> 8) & 0xff));
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
     emit LOG_D("Response:" + bytes::toHex(received), true, true);
@@ -313,7 +313,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
 
     output[3] = ((uint8_t)0x71); // 0x171 - AWD Clutch Torque Low
     output[4] = ((uint8_t)(torque_correction_awd & 0xff));
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
     emit LOG_D("Response:" + bytes::toHex(received), true, true);
@@ -335,7 +335,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
 
     output[3] = ((uint8_t)0xbc); // 0x1bc - FwdB correction
     output[4] = ((uint8_t)(correction_fwdb & 0xff));
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
     emit LOG_D("Response:" + bytes::toHex(received), true, true);
@@ -357,7 +357,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
 
     output[3] = ((uint8_t)0xbd); // 0x1bd - 4WD correction
     output[4] = ((uint8_t)(correction_4wd & 0xff));
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
     emit LOG_D("Response:" + bytes::toHex(received), true, true);
@@ -379,7 +379,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
 
     output[3] = ((uint8_t)0xbe); // 0x1be - PL correction
     output[4] = ((uint8_t)(correction_pl & 0xff));
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
     emit LOG_D("Response:" + bytes::toHex(received), true, true);
@@ -401,7 +401,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
 
     output[3] = ((uint8_t)0xbf); // 0x1bf - Temp basis
     output[4] = ((uint8_t)(temp_basis & 0xff));
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
     emit LOG_D("Response:" + bytes::toHex(received), true, true);
@@ -425,7 +425,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
     output[2] = ((uint8_t)0x00);
     output[3] = ((uint8_t)0xec); // 0xec
     output[4] = ((uint8_t)0x55);
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
     emit LOG_D("Response:" + bytes::toHex(received), true, true);
@@ -446,7 +446,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::tcu_setparam_subaru_ssm()
     }
 
     output[4] = ((uint8_t)0xaa);
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
     emit LOG_D("Response:" + bytes::toHex(received), true, true);

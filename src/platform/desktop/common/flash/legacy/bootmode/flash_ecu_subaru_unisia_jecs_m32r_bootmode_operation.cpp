@@ -577,7 +577,7 @@ QByteArray FlashEcuSubaruUnisiaJecsM32rBootModeOperation::send_sid_bf_ssm_init()
 
     emit LOG_I("SSM init", true, true);
     output.append((uint8_t)0xBF);
-    serial->write_serial_data_echo_check(SsmProtocol::addHeader(output, tester_id, target_id, false));
+    serial->write_serial_data_echo_check(SsmProtocol::addHeader(output, tester_id, target_id));
     delay(250);
     received = serial->read_serial_data(receive_timeout);
 
@@ -588,7 +588,7 @@ QByteArray FlashEcuSubaruUnisiaJecsM32rBootModeOperation::send_sid_bf_ssm_init()
             break;
         }
 
-        serial->write_serial_data_echo_check(SsmProtocol::addHeader(output, tester_id, target_id, false));
+        serial->write_serial_data_echo_check(SsmProtocol::addHeader(output, tester_id, target_id));
         emit LOG_I("SSM init", true, true);
         delay(comm_try_timeout);
         received = serial->read_serial_data(receive_timeout);
@@ -612,7 +612,7 @@ QByteArray FlashEcuSubaruUnisiaJecsM32rBootModeOperation::send_subaru_sid_b8_cha
     output.append((uint8_t)0x00);
     output.append((uint8_t)0x00);
     output.append((uint8_t)0x15);
-    serial->write_serial_data_echo_check(SsmProtocol::addHeader(output, tester_id, target_id, false));
+    serial->write_serial_data_echo_check(SsmProtocol::addHeader(output, tester_id, target_id));
     delay(200);
     received = serial->read_serial_data(receive_timeout);
 
@@ -632,7 +632,7 @@ QByteArray FlashEcuSubaruUnisiaJecsM32rBootModeOperation::send_subaru_sid_b8_cha
     output.append((uint8_t)0x00);
     output.append((uint8_t)0x00);
     output.append((uint8_t)0x75);
-    serial->write_serial_data_echo_check(SsmProtocol::addHeader(output, tester_id, target_id, false));
+    serial->write_serial_data_echo_check(SsmProtocol::addHeader(output, tester_id, target_id));
     delay(200);
     received = serial->read_serial_data(receive_timeout);
 

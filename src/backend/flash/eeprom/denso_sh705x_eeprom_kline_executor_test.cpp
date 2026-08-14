@@ -52,29 +52,29 @@ constexpr std::uint32_t kKernelStartAddr = 0xFFFF6004;
 
 bytes::Bytes sidBfSsmInitRequest()
 {
-    return SsmProtocol::addHeader(bytes::Bytes{0xbf}, kTesterId, kTargetId, false);
+    return SsmProtocol::addHeader(bytes::Bytes{0xbf}, kTesterId, kTargetId);
 }
 bytes::Bytes sid81StartCommRequest()
 {
-    return SsmProtocol::addHeader(bytes::Bytes{0x81}, kTesterId, kTargetId, false);
+    return SsmProtocol::addHeader(bytes::Bytes{0x81}, kTesterId, kTargetId);
 }
 bytes::Bytes sid83TimingsRequest()
 {
-    return SsmProtocol::addHeader(bytes::Bytes{0x83, 0x00}, kTesterId, kTargetId, false);
+    return SsmProtocol::addHeader(bytes::Bytes{0x83, 0x00}, kTesterId, kTargetId);
 }
 bytes::Bytes sid27RequestSeedRequest()
 {
-    return SsmProtocol::addHeader(bytes::Bytes{0x27, 0x01}, kTesterId, kTargetId, false);
+    return SsmProtocol::addHeader(bytes::Bytes{0x27, 0x01}, kTesterId, kTargetId);
 }
 bytes::Bytes sid27SendKeyRequest(bytes::ByteView key)
 {
     bytes::Bytes out{0x27, 0x02};
     out.insert(out.end(), key.begin(), key.end());
-    return SsmProtocol::addHeader(out, kTesterId, kTargetId, false);
+    return SsmProtocol::addHeader(out, kTesterId, kTargetId);
 }
 bytes::Bytes sid10StartDiagRequest()
 {
-    return SsmProtocol::addHeader(bytes::Bytes{0x10, 0x85, 0x02}, kTesterId, kTargetId, false);
+    return SsmProtocol::addHeader(bytes::Bytes{0x10, 0x85, 0x02}, kTesterId, kTargetId);
 }
 bytes::Bytes sid34RequestUploadRequest(std::uint32_t dataaddr, std::uint32_t datalen)
 {
@@ -88,7 +88,7 @@ bytes::Bytes sid34RequestUploadRequest(std::uint32_t dataaddr, std::uint32_t dat
         static_cast<bytes::Byte>((datalen >> 8) & 0xFF),
         static_cast<bytes::Byte>(datalen & 0xFF),
     };
-    return SsmProtocol::addHeader(out, kTesterId, kTargetId, false);
+    return SsmProtocol::addHeader(out, kTesterId, kTargetId);
 }
 bytes::Bytes sid36TransferDataRequest(std::uint32_t blockaddr, bytes::ByteView blockBytes)
 {
@@ -99,11 +99,11 @@ bytes::Bytes sid36TransferDataRequest(std::uint32_t blockaddr, bytes::ByteView b
         static_cast<bytes::Byte>(blockaddr & 0xFF),
     };
     out.insert(out.end(), blockBytes.begin(), blockBytes.end());
-    return SsmProtocol::addHeader(out, kTesterId, kTargetId, false);
+    return SsmProtocol::addHeader(out, kTesterId, kTargetId);
 }
 bytes::Bytes sid31StartRoutineRequest()
 {
-    return SsmProtocol::addHeader(bytes::Bytes{0x31, 0x01, 0x01}, kTesterId, kTargetId, false);
+    return SsmProtocol::addHeader(bytes::Bytes{0x31, 0x01, 0x01}, kTesterId, kTargetId);
 }
 
 // request_kernel_id(), lines 964-994: NOT addHeader-framed.

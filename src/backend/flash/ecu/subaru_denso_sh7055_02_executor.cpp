@@ -212,7 +212,7 @@ Status SubaruDensoSh7055_02Executor::connect_bootloader(
         }
         events.log(LogLevel::Info, "Requesting ECU ID");
         const bytes::Bytes request = SsmProtocol::addHeader(
-            bytes::Bytes{0xBF}, family_plan.tester_id, family_plan.target_id, false);
+            bytes::Bytes{0xBF}, family_plan.tester_id, family_plan.target_id);
         // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:133-168 and 1206-1218.
         Result<IKlineFlashTransport::OptionalBytes> received =
             exchange(transport, nullptr, cancellation, request, 0, 2000);

@@ -328,7 +328,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
     emit LOG_I("Checking if OBK is running", true, true);
     output.clear();
     output.append((uint8_t)0xAF);
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
@@ -526,7 +526,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
         {
             output.append(flashdata.at(i * blocksize + j) ^ encrypt);
         }
-        output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+        output = SsmProtocol::addHeader(output, tester_id, target_id);
         serial->write_serial_data_echo_check(output);
         //
 
@@ -604,7 +604,7 @@ QByteArray FlashEcuSubaruUnisiaJecsM32rOperation::send_sid_bf_ssm_init()
 
     output.clear();
     output.append((uint8_t)0xBF);
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
@@ -623,7 +623,7 @@ QByteArray FlashEcuSubaruUnisiaJecsM32rOperation::send_sid_b8_change_baudrate_48
     output.append((uint8_t)0x00);
     output.append((uint8_t)0x00);
     output.append((uint8_t)0x15);
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
@@ -642,7 +642,7 @@ QByteArray FlashEcuSubaruUnisiaJecsM32rOperation::send_sid_b8_change_baudrate_38
     output.append((uint8_t)0x00);
     output.append((uint8_t)0x00);
     output.append((uint8_t)0x75);
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
@@ -668,7 +668,7 @@ QByteArray FlashEcuSubaruUnisiaJecsM32rOperation::send_sid_af_enter_flash_mode(c
     output.append((uint8_t)(rom_size >> 16) & 0xFF); // ROM size >> 24
     output.append((uint8_t)(rom_size >> 8) & 0xFF);  // ROM size >> 16
     output.append((uint8_t)rom_size & 0xFF);         // ROM size
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
@@ -684,7 +684,7 @@ QByteArray FlashEcuSubaruUnisiaJecsM32rOperation::send_sid_af_erase_memory_block
 
     output.append((uint8_t)0xAF);
     output.append((uint8_t)0x31);
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
 
     // received = serial->read_serial_data(serial_read_timeout);

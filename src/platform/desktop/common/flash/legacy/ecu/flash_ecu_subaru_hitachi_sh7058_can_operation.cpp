@@ -1280,7 +1280,7 @@ QByteArray FlashEcuSubaruHitachiSH7058CanOperation::send_sid_bf_ssm_init()
         }
 
         emit LOG_I("SSM init", true, true);
-        output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+        output = SsmProtocol::addHeader(output, tester_id, target_id);
         serial->write_serial_data_echo_check(output);
 
         delay(200);
@@ -1305,7 +1305,7 @@ QByteArray FlashEcuSubaruHitachiSH7058CanOperation::send_subaru_sid_81_start_com
 
     output.clear();
     output.append((uint8_t)0x81);
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(200);
 
@@ -1326,7 +1326,7 @@ QByteArray FlashEcuSubaruHitachiSH7058CanOperation::send_subaru_sid_83_request_t
     output.clear();
     output.append((uint8_t)0x83);
     output.append((uint8_t)0x00);
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(200);
 
@@ -1348,7 +1348,7 @@ QByteArray FlashEcuSubaruHitachiSH7058CanOperation::send_subaru_sid_10_start_dia
     output.append((uint8_t)0x10);
     output.append((uint8_t)0x85);
     output.append((uint8_t)0x02);
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
 
@@ -1368,7 +1368,7 @@ QByteArray FlashEcuSubaruHitachiSH7058CanOperation::send_subaru_sid_b8_change_ba
     output.append((uint8_t)0x00);
     output.append((uint8_t)0x00);
     output.append((uint8_t)0x75);
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
     delay(50);
     received = serial->read_serial_data(receive_timeout);
