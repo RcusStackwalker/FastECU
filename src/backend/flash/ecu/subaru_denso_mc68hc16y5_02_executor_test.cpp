@@ -1,5 +1,6 @@
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_executor.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "src/algorithms/checksum/checksum_primitives.h"
@@ -14,6 +15,8 @@
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
+
+using ::testing::ElementsAre;
 
 namespace fastecu::flash
 {
@@ -169,7 +172,7 @@ bytes::Bytes framed(std::uint8_t opcode, bytes::ByteView extra = {})
 //   0xBE + 0xEF + 0x00 + 0x01 + 0x01 = 0x1AF -> & 0xFF = 0xAF.
 TEST(SubaruDensoMc68hc16y5_02Executor, FramedHelperMatchesHardcodedWireBytesNoPayload)
 {
-    EXPECT_EQ(framed(0x01), (bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x01, 0xAF}));
+    EXPECT_THAT(framed(0x01), ElementsAre(0xBE, 0xEF, 0x00, 0x01, 0x01, 0xAF));
 }
 
 // framed(0x02, {0xAB, 0xCD}): datalen_plus_one = 2+1 = 3.
@@ -177,8 +180,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, FramedHelperMatchesHardcodedWireBytesNoPa
 //   0xBE + 0xEF + 0x00 + 0x03 + 0x02 + 0xAB + 0xCD = 0x32A -> & 0xFF = 0x2A.
 TEST(SubaruDensoMc68hc16y5_02Executor, FramedHelperMatchesHardcodedWireBytesWithPayload)
 {
-    EXPECT_EQ(framed(0x02, bytes::Bytes{0xAB, 0xCD}),
-              (bytes::Bytes{0xBE, 0xEF, 0x00, 0x03, 0x02, 0xAB, 0xCD, 0x2A}));
+    EXPECT_THAT(framed(0x02, bytes::Bytes{0xAB, 0xCD}),
+                ElementsAre(0xBE, 0xEF, 0x00, 0x03, 0x02, 0xAB, 0xCD, 0x2A));
 }
 
 bytes::Bytes stock_upload_request()

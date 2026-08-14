@@ -4,6 +4,7 @@
 #include <string_view>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "src/algorithms/checksum/checksum_primitives.h"
@@ -16,6 +17,8 @@
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
+
+using ::testing::ElementsAre;
 
 namespace fastecu::flash
 {
@@ -206,7 +209,7 @@ bytes::Bytes framed(std::uint8_t opcode, bytes::ByteView payload = {})
 //   0xBE + 0xEF + 0x00 + 0x01 + 0x01 = 0x1AF -> & 0xFF = 0xAF.
 TEST(SubaruDensoSh7055_02Executor, FramedHelperMatchesHardcodedWireBytesNoPayload)
 {
-    EXPECT_EQ(framed(0x01), (bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x01, 0xAF}));
+    EXPECT_THAT(framed(0x01), ElementsAre(0xBE, 0xEF, 0x00, 0x01, 0x01, 0xAF));
 }
 
 // framed(0x02, {0xAB, 0xCD}): length = 2+1 = 3.
@@ -214,8 +217,8 @@ TEST(SubaruDensoSh7055_02Executor, FramedHelperMatchesHardcodedWireBytesNoPayloa
 //   0xBE + 0xEF + 0x00 + 0x03 + 0x02 + 0xAB + 0xCD = 0x32A -> & 0xFF = 0x2A.
 TEST(SubaruDensoSh7055_02Executor, FramedHelperMatchesHardcodedWireBytesWithPayload)
 {
-    EXPECT_EQ(framed(0x02, bytes::Bytes{0xAB, 0xCD}),
-              (bytes::Bytes{0xBE, 0xEF, 0x00, 0x03, 0x02, 0xAB, 0xCD, 0x2A}));
+    EXPECT_THAT(framed(0x02, bytes::Bytes{0xAB, 0xCD}),
+                ElementsAre(0xBE, 0xEF, 0x00, 0x03, 0x02, 0xAB, 0xCD, 0x2A));
 }
 
 bytes::Bytes ecu_id_response()

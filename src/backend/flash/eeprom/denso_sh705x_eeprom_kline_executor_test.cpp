@@ -9,6 +9,7 @@
 // characterization.cpp, commit 4a91c02) -- nothing here is invented.
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_kline_executor.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <string_view>
@@ -20,6 +21,8 @@
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
+
+using ::testing::ElementsAre;
 
 namespace fastecu::flash
 {
@@ -110,7 +113,7 @@ bytes::Bytes requestKernelIdRequest()
 //   0xBE + 0xEF + 0x00 + 0x01 + 0x01 = 0x1AF -> & 0xFF = 0xAF.
 TEST(DensoSh705xEepromKlineExecutorTest, RequestKernelIdRequestMatchesHardcodedWireBytes)
 {
-    EXPECT_EQ(requestKernelIdRequest(), (bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x01, 0xAF}));
+    EXPECT_THAT(requestKernelIdRequest(), ElementsAre(0xBE, 0xEF, 0x00, 0x01, 0x01, 0xAF));
 }
 
 // sid34RequestUploadRequest(0x001000, 0x000010): SsmProtocol::addHeader wraps
@@ -123,9 +126,9 @@ TEST(DensoSh705xEepromKlineExecutorTest, RequestKernelIdRequestMatchesHardcodedW
 //   = 0x1E0 -> & 0xFF = 0xE0.
 TEST(DensoSh705xEepromKlineExecutorTest, Sid34RequestUploadRequestMatchesHardcodedWireBytes)
 {
-    EXPECT_EQ(sid34RequestUploadRequest(0x001000, 0x000010),
-              (bytes::Bytes{0x80, 0x10, 0xF0, 0x08, 0x34, 0x00, 0x10, 0x00, 0x04, 0x00, 0x00, 0x10,
-                            0xE0}));
+    EXPECT_THAT(sid34RequestUploadRequest(0x001000, 0x000010),
+                ElementsAre(0x80, 0x10, 0xF0, 0x08, 0x34, 0x00, 0x10, 0x00, 0x04, 0x00, 0x00, 0x10,
+                            0xE0));
 }
 
 // sid27SendKeyRequest({0x11, 0x22}): payload = [0x27, 0x02, 0x11, 0x22] (4 bytes).
@@ -133,8 +136,8 @@ TEST(DensoSh705xEepromKlineExecutorTest, Sid34RequestUploadRequestMatchesHardcod
 // Checksum (sum8): 0x80+0x10+0xF0+0x04+0x27+0x02+0x11+0x22 = 0x1E0 -> & 0xFF = 0xE0.
 TEST(DensoSh705xEepromKlineExecutorTest, Sid27SendKeyRequestMatchesHardcodedWireBytes)
 {
-    EXPECT_EQ(sid27SendKeyRequest(bytes::Bytes{0x11, 0x22}),
-              (bytes::Bytes{0x80, 0x10, 0xF0, 0x04, 0x27, 0x02, 0x11, 0x22, 0xE0}));
+    EXPECT_THAT(sid27SendKeyRequest(bytes::Bytes{0x11, 0x22}),
+                ElementsAre(0x80, 0x10, 0xF0, 0x04, 0x27, 0x02, 0x11, 0x22, 0xE0));
 }
 
 // generate_seed_key(), lines 854-879 (stock / non-"_ecutek" table pair).

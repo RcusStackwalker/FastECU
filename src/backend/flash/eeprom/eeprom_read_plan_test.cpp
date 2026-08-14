@@ -1,8 +1,11 @@
 #include "src/backend/flash/eeprom/eeprom_read_plan.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "src/backend/ports/testing/in_memory_file_repository.h"
+
+using ::testing::ElementsAre;
 
 namespace fastecu::flash
 {
@@ -137,7 +140,7 @@ TEST(BuildEepromReadPlanTest, KlineProtocolProducesAKlinePlan)
     EXPECT_EQ(plan->target_id(), "sub_ecu_eeprom_denso_sh7055_kline");
     ASSERT_TRUE(plan->kernel().has_value());
     EXPECT_EQ(plan->kernel()->load_address, 0xFFFF6004u);
-    EXPECT_EQ(plan->kernel()->bytes, (bytes::Bytes{0xaa, 0xbb}));
+    EXPECT_THAT(plan->kernel()->bytes, ElementsAre(0xaa, 0xbb));
 }
 
 TEST(BuildEepromReadPlanTest, CanProtocolProducesACanPlan)

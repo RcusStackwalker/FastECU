@@ -8,9 +8,12 @@
 // implementation's output.
 #include "src/backend/flash/eeprom/eeprom_read_plan.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "src/backend/ports/testing/in_memory_file_repository.h"
+
+using ::testing::ElementsAre;
 
 namespace fastecu::flash
 {
@@ -80,7 +83,7 @@ TEST(EepromReadPlanGolden, Sh7058CanMode2)
     EXPECT_EQ(plan->mcu_name(), "SH7058");
     ASSERT_TRUE(plan->kernel().has_value());
     EXPECT_EQ(plan->kernel()->load_address, 0xFFFF3000u);
-    EXPECT_EQ(plan->kernel()->bytes, (bytes::Bytes{0x01, 0x02, 0x03}));
+    EXPECT_THAT(plan->kernel()->bytes, ElementsAre(0x01, 0x02, 0x03));
     // Each catalog loader reads the shared config before the kernel read.
     EXPECT_EQ(repository.read_handles,
               (std::vector<std::string>{"protocols.cfg", "protocols.cfg",
@@ -127,7 +130,7 @@ TEST(EepromReadPlanGolden, Sh7055KlineMode4)
     EXPECT_EQ(plan->mcu_name(), "SH7055");
     ASSERT_TRUE(plan->kernel().has_value());
     EXPECT_EQ(plan->kernel()->load_address, 0xFFFF6004u);
-    EXPECT_EQ(plan->kernel()->bytes, (bytes::Bytes{0xaa, 0xbb}));
+    EXPECT_THAT(plan->kernel()->bytes, ElementsAre(0xaa, 0xbb));
     EXPECT_EQ(repository.read_handles,
               (std::vector<std::string>{"protocols.cfg", "protocols.cfg",
                                         "kernels/ssmk_kline_sh7055.bin"}));
