@@ -3,6 +3,7 @@
 #include <array>
 #include <format>
 
+#include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_kline_plan.h"
 
@@ -10,6 +11,9 @@ namespace fastecu::flash
 {
 namespace
 {
+using namespace bytes;
+using namespace bytes::literals;
+
 constexpr int kTimeoutMs = 2000;
 
 bytes::Bytes framed(bytes::ByteView payload, const SubaruHitachiM32rKlinePlan& p)
@@ -303,11 +307,8 @@ Result<bytes::Bytes> read_rom(IKlineFlashTransport& transport,
         }
         const std::uint32_t address = logical + p.read_address_bias;
         auto response = exchange(transport, cancellation,
-                                 bytes::Bytes{0xa0, 0, 0,
-                                              static_cast<bytes::Byte>(address >> 16),
-                                              static_cast<bytes::Byte>(address >> 8),
-                                              static_cast<bytes::Byte>(address),
-                                              static_cast<bytes::Byte>(p.chunk_size - 1)},
+                                 composeBe(0xa0_b, 0x00_b, 0x00_b, u24(address),
+                                           bytes::Byte(p.chunk_size - 1)),
                                  p);
         if (!response.has_value())
         {
@@ -398,10 +399,9 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock,
         {
             return fail(ErrorKind::Cancelled, "cancelled during ROM write");
         }
-        bytes::Bytes request{0x36, static_cast<bytes::Byte>(address >> 16),
-                             static_cast<bytes::Byte>(address >> 8), static_cast<bytes::Byte>(address)};
-        request.insert(request.end(), encrypted.begin() + address,
-                       encrypted.begin() + address + p.chunk_size);
+        const bytes::Bytes request = composeBe(
+            0x36_b, u24(address),
+            bytes::ByteView(encrypted).subspan(address, p.chunk_size));
         auto ack = exchange_optional(transport, cancellation, request, p);
         if (!ack.has_value())
         {
