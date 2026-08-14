@@ -74,10 +74,9 @@ std::uint8_t cks_add8(std::span<const std::uint8_t> data)
     return static_cast<std::uint8_t>(sum);
 }
 
-std::uint8_t checksum8(bytes::ByteView data, bool dec0x100)
+std::uint8_t negatedSum8(bytes::ByteView data)
 {
-    const bytes::Byte sum = bytes::sum8(data);
-    return dec0x100 ? static_cast<std::uint8_t>(0x100 - sum) : sum;
+    return static_cast<std::uint8_t>(0x100 - bytes::sum8(data));
 }
 
 std::uint32_t crc32(bytes::ByteView data)

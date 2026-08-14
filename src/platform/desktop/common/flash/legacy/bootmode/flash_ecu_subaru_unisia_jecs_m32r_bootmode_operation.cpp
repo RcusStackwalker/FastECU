@@ -1,7 +1,6 @@
 #include "src/platform/desktop/common/flash/legacy/bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.h"
 #include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
-#include "src/algorithms/checksum/qt_checksum.h"
 #include "src/algorithms/protocol/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
@@ -223,9 +222,9 @@ int FlashEcuSubaruUnisiaJecsM32rBootModeOperation::read_mem(uint32_t start_addr,
         output[8] = (uint8_t)addr & 0xFF;
         output[9] = (uint8_t)(pagesize - 1) & 0xFF;
         output.remove(10, 1);
-        output.append(fastecu::checksum::checksum8(output, false));
+        output.append(bytes::sum8(bytes::view(output)));
 
-        // chk_sum = fastecu::checksum::checksum8(output, false);
+        // chk_sum = bytes::sum8(bytes::view(output));
         // output.append((uint8_t) chk_sum);
         received = serial->write_serial_data_echo_check(output);
         received = serial->read_serial_data(serial_read_extra_long_timeout);
@@ -376,7 +375,7 @@ int FlashEcuSubaruUnisiaJecsM32rBootModeOperation::write_mem()
         output.append((uint8_t)0x02);
         output.append((uint8_t)0xAF);
         output.append((uint8_t)0x31);
-        output.append(fastecu::checksum::checksum8(output, false));
+        output.append(bytes::sum8(bytes::view(output)));
         serial->write_serial_data_echo_check(output);
         delay(500);
 
@@ -498,7 +497,7 @@ int FlashEcuSubaruUnisiaJecsM32rBootModeOperation::write_mem()
         {
             output.append((filedata.at(i * blocksize + j))); // ^ encrypt));
         }
-        output.append(fastecu::checksum::checksum8(output, false));
+        output.append(bytes::sum8(bytes::view(output)));
 
         serial->write_serial_data_echo_check(output);
         received.clear();

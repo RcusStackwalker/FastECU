@@ -1,7 +1,6 @@
 #include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_unisia_jecs_m32r_operation.h"
 #include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
-#include "src/algorithms/checksum/qt_checksum.h"
 #include "src/algorithms/protocol/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
@@ -247,7 +246,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::read_mem(uint32_t start_addr, uint32_
         output[8] = (uint8_t)addr & 0xFF;
         output[9] = (uint8_t)(pagesize - 1) & 0xFF;
         output.remove(10, 1);
-        output.append(fastecu::checksum::checksum8(output, false));
+        output.append(bytes::sum8(bytes::view(output)));
         serial->write_serial_data_echo_check(output);
         received = serial->read_serial_data(serial_read_extra_long_timeout);
         if (received.length() > 4)

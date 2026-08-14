@@ -88,7 +88,7 @@ bytes::Bytes addHeader(bytes::ByteView output, bytes::Byte testerId, bytes::Byte
     framed.push_back(testerId);
     framed.push_back(length);
     framed.insert(framed.end(), output.begin(), output.end());
-    framed.push_back(fastecu::checksum::checksum8(framed, dec0x100));
+    framed.push_back(dec0x100 ? fastecu::checksum::negatedSum8(framed) : bytes::sum8(framed));
 
     return framed;
 }
@@ -114,7 +114,9 @@ bool hasValidFrame(bytes::ByteView frame, bytes::Byte receiverId, bytes::Byte se
         return false;
     }
 
-    return fastecu::checksum::checksum8(frame.first(frame.size() - checksumLength), dec0x100) == frame[frame.size() - checksumLength];
+    const bytes::ByteView body = frame.first(frame.size() - checksumLength);
+    return (dec0x100 ? fastecu::checksum::negatedSum8(body) : bytes::sum8(body)) ==
+           frame[frame.size() - checksumLength];
 }
 
 bool hasPayloadPrefix(bytes::ByteView frame, bytes::ByteView prefix,

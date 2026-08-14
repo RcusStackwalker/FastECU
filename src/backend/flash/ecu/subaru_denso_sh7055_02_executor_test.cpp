@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 
 #include "src/algorithms/checksum/checksum_primitives.h"
+#include "src/algorithms/protocol/bytes.h"
 #include "src/backend/definitions/kernelmemorymodels.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7055_02_plan.h"
 #include "src/backend/flash/flash_device_lookup.h"
@@ -192,7 +193,7 @@ bytes::Bytes framed(std::uint8_t opcode, bytes::ByteView payload = {})
     out.push_back(static_cast<bytes::Byte>(length & 0xFF));
     out.push_back(opcode);
     out.insert(out.end(), payload.begin(), payload.end());
-    out.push_back(fastecu::checksum::checksum8(out, false));
+    out.push_back(bytes::sum8(out));
     return out;
 }
 

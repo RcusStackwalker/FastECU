@@ -7,7 +7,6 @@
 
 #include "src/backend/protocol/testing/scripted_ssm_transport.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
-#include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/backend/logging/protocols/portable_ssm_logging_protocol.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
@@ -42,7 +41,7 @@ bytes::Bytes buildResponse(bytes::ByteView payload)
     bytes::Bytes message = {
         0x80, 0xf0, 0x10, static_cast<bytes::Byte>(payload.size() + 1), 0xe8};
     message.insert(message.end(), payload.begin(), payload.end());
-    message.push_back(fastecu::checksum::checksum8(message));
+    message.push_back(bytes::sum8(message));
     return message;
 }
 

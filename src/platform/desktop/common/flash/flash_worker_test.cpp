@@ -17,7 +17,6 @@
 #include <memory>
 
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
-#include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_kline_executor.h"
 #include "src/backend/ports/testing/fake_clock.h"
@@ -95,7 +94,7 @@ bytes::Bytes requestKernelIdRequest()
         0x01,
         0x01,
     };
-    out.push_back(fastecu::checksum::checksum8(out, false));
+    out.push_back(bytes::sum8(out));
     return out;
 }
 

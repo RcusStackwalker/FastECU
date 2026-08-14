@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "src/algorithms/checksum/checksum_primitives.h"
+#include "src/algorithms/protocol/bytes.h"
 #include "src/backend/definitions/kernelmemorymodels.h"
 #include "src/backend/flash/flash_device_lookup.h"
 
@@ -57,7 +58,7 @@ bytes::Bytes frame(std::uint8_t opcode, bytes::ByteView payload = {})
     out.push_back(static_cast<bytes::Byte>(len_plus_one & 0xFF));
     out.push_back(opcode);
     out.insert(out.end(), payload.begin(), payload.end());
-    out.push_back(fastecu::checksum::checksum8(out, false));
+    out.push_back(bytes::sum8(out));
     return out;
 }
 
@@ -380,7 +381,7 @@ Status SubaruDensoMc68hc16y5_02Executor::upload_kernel(
                          static_cast<bytes::Byte>((length >> 8) & 0xFF),
                          static_cast<bytes::Byte>(length & 0xFF)};
     request.insert(request.end(), payload.begin(), payload.end());
-    request.push_back(fastecu::checksum::checksum8(request, true));
+    request.push_back(fastecu::checksum::negatedSum8(request));
 
     events.log(LogLevel::Info, "Sending kernel...");
     Result<IKlineFlashTransport::OptionalBytes> upload_response =

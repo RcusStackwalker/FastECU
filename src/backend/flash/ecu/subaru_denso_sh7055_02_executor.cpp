@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "src/algorithms/checksum/checksum_primitives.h"
+#include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/definitions/kernelmemorymodels.h"
 #include "src/backend/flash/flash_device_lookup.h"
@@ -56,7 +57,7 @@ bytes::Bytes frame(std::uint8_t opcode, bytes::ByteView payload = {})
     bytes::appendU16Be(out, length);
     out.push_back(opcode);
     out.insert(out.end(), payload.begin(), payload.end());
-    out.push_back(fastecu::checksum::checksum8(out, false));
+    out.push_back(bytes::sum8(out));
     return out;
 }
 
@@ -388,9 +389,9 @@ Status SubaruDensoSh7055_02Executor::upload_kernel(
     request.push_back(0x00);
     request.push_back(0x31);
     request.push_back(0x61);
-    request[7] = fastecu::checksum::checksum8(request, true);
+    request[7] = fastecu::checksum::negatedSum8(request);
     request.insert(request.end(), encrypted.begin(), encrypted.end());
-    request.push_back(fastecu::checksum::checksum8(request, true));
+    request.push_back(fastecu::checksum::negatedSum8(request));
 
     events.log(LogLevel::Info, "Sending kernel...");
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:297-321.
@@ -612,7 +613,7 @@ Result<std::uint32_t> SubaruDensoSh7055_02Executor::read_block_crc(
     const std::optional<std::size_t> expected_size = declared_frame_size();
     if (!expected_size.has_value() || *expected_size == 0 || response.size() != *expected_size ||
         response.size() < 7 || !response_ok(response, kOpCrc | 0x40) ||
-        response.back() != fastecu::checksum::checksum8(bytes::ByteView(response).first(response.size() - 1), false))
+        response.back() != bytes::sum8(bytes::ByteView(response).first(response.size() - 1)))
     {
         return fail(ErrorKind::BadResponse, "Wrong or incomplete response from ECU during CRC check");
     }

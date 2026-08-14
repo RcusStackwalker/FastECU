@@ -57,18 +57,24 @@ TEST(CksAdd8, MatchesReflashBlockShape)
     EXPECT_EQ(fastecu::checksum::cks_add8(std::span<const std::uint8_t>(data)), std::uint8_t(7));
 }
 
-TEST(Checksum8, SumsPayloadBytes)
-{
-    const bytes::Bytes frame{0x80, 0x10, 0xF0, 0x01, 0xBF};
-    EXPECT_EQ(fastecu::checksum::checksum8(bytes::ByteView(frame)),
-              static_cast<bytes::Byte>(0x80 + 0x10 + 0xF0 + 0x01 + 0xBF));
-}
-
-TEST(Checksum8, ComplementsAgainst0x100WhenRequested)
+TEST(NegatedSum8, ComplementsTheSumAgainst0x100)
 {
     const bytes::Bytes payload{0xA8, 0x00, 0x11, 0x22, 0x33};
-    EXPECT_EQ(fastecu::checksum::checksum8(bytes::ByteView(payload), false), bytes::Byte(0x0E));
-    EXPECT_EQ(fastecu::checksum::checksum8(bytes::ByteView(payload), true), bytes::Byte(0xF2));
+    EXPECT_EQ(fastecu::checksum::negatedSum8(bytes::ByteView(payload)), bytes::Byte(0xF2));
+}
+
+TEST(NegatedSum8, YieldsZeroForAZeroSum)
+{
+    const bytes::Bytes payload{0x00, 0x00};
+    EXPECT_EQ(fastecu::checksum::negatedSum8(bytes::ByteView(payload)), bytes::Byte(0x00));
+}
+
+TEST(NegatedSum8, IsThePlainSumSubtractedFrom0x100)
+{
+    const bytes::Bytes frame{0x80, 0x10, 0xF0, 0x01, 0xBF};
+    const bytes::Byte plain = bytes::sum8(bytes::ByteView(frame));
+    EXPECT_EQ(fastecu::checksum::negatedSum8(bytes::ByteView(frame)),
+              static_cast<bytes::Byte>(0x100 - plain));
 }
 
 TEST(Crc32, MatchesKnownPolynomialVector)
