@@ -1,0 +1,49 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+
+package(default_visibility = [
+    "//src/algorithms:__subpackages__",
+    "//src/backend:__subpackages__",
+    "//src/platform:__subpackages__",
+    "//src/ui:__subpackages__",
+    "//tests:__pkg__",
+])
+
+# root //:portable_closure reads this file as `data` to check that portable
+# algorithms targets stay Qt-free; that reference is plumbing, not a layer
+# dependency, so export it to the root package specifically rather than
+# widen the package's general default_visibility.
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//:__pkg__"],
+)
+
+# Portable. Declares no QT_DEPS -- Bazel's sandbox therefore keeps Qt headers
+# off the include path, so any residual Qt include fails to compile.
+cc_library(
+    name = "uds",
+    srcs = [
+        "uds_pdu.cpp",
+        "uds_response.cpp",
+    ],
+    hdrs = [
+        "uds_pdu.h",
+        "uds_response.h",
+    ],
+    deps = [
+        "//src/algorithms/diagnostics",
+        "//src/algorithms/protocol",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "uds_pdu_test",
+    srcs = ["uds_pdu_test.cpp"],
+    deps = [":uds"],
+)
+
+fastecu_portable_gtest(
+    name = "uds_response_test",
+    srcs = ["uds_response_test.cpp"],
+    deps = [":uds"],
+)

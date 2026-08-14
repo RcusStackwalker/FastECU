@@ -153,6 +153,7 @@ py_test(
         "//src/algorithms/protocol/colt:BUILD.bazel",
         "//src/algorithms/protocol/mut_dma:BUILD.bazel",
         "//src/algorithms/protocol/ssm:BUILD.bazel",
+        "//src/algorithms/protocol/uds:BUILD.bazel",
         "//src/backend/calibration:BUILD.bazel",
         "//src/backend/checksum:BUILD.bazel",
         "//src/backend/config:BUILD.bazel",
