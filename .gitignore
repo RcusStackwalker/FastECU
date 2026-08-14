@@ -89,3 +89,6 @@ compile_flags.txt
 # committed.
 __pycache__/
 *.py[cod]
+
+# Editor swap files
+*.sw[a-p]

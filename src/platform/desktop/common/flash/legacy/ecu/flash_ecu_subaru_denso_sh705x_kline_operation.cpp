@@ -1,7 +1,7 @@
 #include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh705x_kline_operation.h"
 #include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
-#include "src/algorithms/checksum/qt_checksum.h"
+#include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/algorithms/protocol/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
@@ -409,7 +409,7 @@ int FlashEcuSubaruDensoSH705xKlineOperation::upload_kernel(const QString& kernel
     output.append((uint8_t)0x31);
     output.append((uint8_t)0x01);
     output.append((uint8_t)0x01);
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_extra_long_timeout);
@@ -520,7 +520,7 @@ int FlashEcuSubaruDensoSH705xKlineOperation::read_mem(uint32_t start_addr, uint3
         output.append((uint8_t)addr & 0xFF);
         output.append((uint8_t)(pagesize >> 8) & 0xFF);
         output.append((uint8_t)pagesize & 0xFF);
-        chksum = fastecu::checksum::checksum8(output, false);
+        chksum = bytes::sum8(bytes::view(output));
         output.append((uint8_t)chksum & 0xFF);
         serial->write_serial_data_echo_check(output);
         received = serial->read_serial_data(serial_read_extra_long_timeout);
@@ -780,7 +780,7 @@ int FlashEcuSubaruDensoSH705xKlineOperation::check_romcrc(const uint8_t *src, ui
     output.append((uint8_t)(pagesize >> 16) & 0xFF);
     output.append((uint8_t)(pagesize >> 8) & 0xFF);
     output.append((uint8_t)pagesize & 0xFF);
-    chksum = fastecu::checksum::checksum8(output, false);
+    chksum = bytes::sum8(bytes::view(output));
     output.append((uint8_t)chksum & 0xFF);
     serial->write_serial_data_echo_check(output);
 
@@ -849,7 +849,7 @@ int FlashEcuSubaruDensoSH705xKlineOperation::init_flash_write()
     output.append((uint8_t)((datalen + 1) >> 8) & 0xFF);
     output.append((uint8_t)(datalen + 1) & 0xFF);
     output.append((uint8_t)(SUB_KERNEL_GET_MAX_MSG_SIZE & 0xFF));
-    chksum = fastecu::checksum::checksum8(output, false);
+    chksum = bytes::sum8(bytes::view(output));
     output.append((uint8_t)chksum & 0xFF);
     received = serial->write_serial_data_echo_check(output);
 
@@ -888,7 +888,7 @@ int FlashEcuSubaruDensoSH705xKlineOperation::init_flash_write()
     output.append((uint8_t)((datalen + 1) >> 8) & 0xFF);
     output.append((uint8_t)(datalen + 1) & 0xFF);
     output.append((uint8_t)(SUB_KERNEL_GET_MAX_BLK_SIZE & 0xFF));
-    chksum = fastecu::checksum::checksum8(output, false);
+    chksum = bytes::sum8(bytes::view(output));
     output.append((uint8_t)chksum & 0xFF);
     received = serial->write_serial_data_echo_check(output);
 
@@ -938,7 +938,7 @@ int FlashEcuSubaruDensoSH705xKlineOperation::init_flash_write()
     output.append((uint8_t)((datalen + 1) >> 8) & 0xFF);
     output.append((uint8_t)(datalen + 1) & 0xFF);
     output.append((uint8_t)(SUB_KERNEL_CMD & 0xFF));
-    chksum = fastecu::checksum::checksum8(output, false);
+    chksum = bytes::sum8(bytes::view(output));
     output.append((uint8_t)chksum & 0xFF);
     received = serial->write_serial_data_echo_check(output);
 
@@ -1015,7 +1015,7 @@ int FlashEcuSubaruDensoSH705xKlineOperation::reflash_block(const uint8_t *newdat
     output.append((uint8_t)((datalen + 1) >> 8) & 0xFF);
     output.append((uint8_t)(datalen + 1) & 0xFF);
     output.append((uint8_t)(SUB_KERNEL_PROG_VOLT & 0xFF));
-    chksum = fastecu::checksum::checksum8(output, false);
+    chksum = bytes::sum8(bytes::view(output));
     output.append((uint8_t)chksum & 0xFF);
     received = serial->write_serial_data_echo_check(output);
 
@@ -1098,7 +1098,7 @@ int FlashEcuSubaruDensoSH705xKlineOperation::flash_block(const uint8_t *src, uin
     output.append((uint8_t)(start >> 16) & 0xFF);
     output.append((uint8_t)(start >> 8) & 0xFF);
     output.append((uint8_t)start & 0xFF);
-    chksum = fastecu::checksum::checksum8(output, false);
+    chksum = bytes::sum8(bytes::view(output));
     output.append((uint8_t)chksum & 0xFF);
     received = serial->write_serial_data_echo_check(output);
 
@@ -1151,7 +1151,7 @@ int FlashEcuSubaruDensoSH705xKlineOperation::flash_block(const uint8_t *src, uin
         {
             output.append(src[i]);
         }
-        chksum = fastecu::checksum::checksum8(output, false);
+        chksum = bytes::sum8(bytes::view(output));
         output.append((uint8_t)chksum & 0xFF);
         serial->write_serial_data_echo_check(output);
         //
@@ -1248,7 +1248,7 @@ int FlashEcuSubaruDensoSH705xKlineOperation::flash_block(const uint8_t *src, uin
             output.append((uint8_t)(imgcrc32 >> 16) & 0xFF);
             output.append((uint8_t)(imgcrc32 >> 8) & 0xFF);
             output.append((uint8_t)imgcrc32 & 0xFF);
-            chksum = fastecu::checksum::checksum8(output, false);
+            chksum = bytes::sum8(bytes::view(output));
             output.append((uint8_t)chksum & 0xFF);
             received = serial->write_serial_data_echo_check(output);
 
@@ -1291,7 +1291,7 @@ QByteArray FlashEcuSubaruDensoSH705xKlineOperation::send_sid_bf_ssm_init()
 
     output.clear();
     output.append((uint8_t)0xBF);
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
@@ -1311,7 +1311,7 @@ QByteArray FlashEcuSubaruDensoSH705xKlineOperation::send_sid_81_start_communicat
 
     output.clear();
     output.append((uint8_t)0x81);
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
@@ -1332,7 +1332,7 @@ QByteArray FlashEcuSubaruDensoSH705xKlineOperation::send_sid_83_request_timings(
     output.clear();
     output.append((uint8_t)0x83);
     output.append((uint8_t)0x00);
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
@@ -1353,7 +1353,7 @@ QByteArray FlashEcuSubaruDensoSH705xKlineOperation::send_sid_27_request_seed()
     output.clear();
     output.append((uint8_t)0x27);
     output.append((uint8_t)0x01);
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
@@ -1375,7 +1375,7 @@ QByteArray FlashEcuSubaruDensoSH705xKlineOperation::send_sid_27_send_seed_key(co
     output.append((uint8_t)0x27);
     output.append((uint8_t)0x02);
     output.append(seed_key);
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
@@ -1397,7 +1397,7 @@ QByteArray FlashEcuSubaruDensoSH705xKlineOperation::send_sid_10_start_diagnostic
     output.append((uint8_t)0x10);
     output.append((uint8_t)0x85);
     output.append((uint8_t)0x02);
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_timeout);
@@ -1419,7 +1419,7 @@ QByteArray FlashEcuSubaruDensoSH705xKlineOperation::send_sid_34_request_upload(u
     output.append((uint8_t)(len >> 16) & 0xFF);
     output.append((uint8_t)(len >> 8) & 0xFF);
     output.append((uint8_t)len & 0xFF);
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
 
     received = serial->read_serial_data(serial_read_extra_long_timeout);
@@ -1482,7 +1482,7 @@ QByteArray FlashEcuSubaruDensoSH705xKlineOperation::send_sid_36_transferdata(uin
             len -= blocksize;
         }
 
-        output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+        output = SsmProtocol::addHeader(output, tester_id, target_id);
         serial->write_serial_data_echo_check(output);
         received = serial->read_serial_data(serial_read_timeout);
 
@@ -1640,7 +1640,7 @@ QByteArray FlashEcuSubaruDensoSH705xKlineOperation::request_kernel_id()
     output.append((uint8_t)((datalen + 1) >> 8) & 0xFF);
     output.append((uint8_t)(datalen + 1) & 0xFF);
     output.append((uint8_t)(SUB_KERNEL_ID & 0xFF));
-    chksum = fastecu::checksum::checksum8(output, false);
+    chksum = bytes::sum8(bytes::view(output));
     output.append((uint8_t)chksum & 0xFF);
 
     serial->write_serial_data_echo_check(output);

@@ -2,7 +2,6 @@
 
 #include <utility>
 #include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
-#include "src/algorithms/checksum/qt_checksum.h"
 #include "src/algorithms/protocol/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
@@ -648,7 +647,7 @@ QByteArray FlashEcuSubaruHitachiM32rJtagOperation::add_header(QByteArray output)
     output.insert(2, length << 8);
     output.insert(3, length);
 
-    output.append(fastecu::checksum::checksum8(output));
+    output.append(bytes::sum8(bytes::view(output)));
 
     //
     return output;

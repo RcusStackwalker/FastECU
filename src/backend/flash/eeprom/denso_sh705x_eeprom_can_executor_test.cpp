@@ -15,8 +15,12 @@
 // Task 4's OPEN QUESTION, not an oversight.
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_can_executor.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <string_view>
+
+#include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
 #include "src/backend/ports/testing/fake_clock.h"
@@ -25,10 +29,15 @@
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 
+using ::testing::ElementsAre;
+
 namespace fastecu::flash
 {
 namespace
 {
+using bytes::composeBe;
+using bytes::u24;
+using namespace bytes::literals;
 
 // eeprom_ecu_subaru_denso_sh705x_can_operation.cpp's serial->set_can_source_
 // address(0x7e0)/set_iso15765_destination_address(0x7e8) (lines 61-64),
@@ -83,9 +92,7 @@ bytes::Bytes seedRequestFrame()
 }
 bytes::Bytes seedKeySendRequest(bytes::ByteView key)
 {
-    bytes::Bytes out{0x00, 0x00, 0x07, 0xE0, 0x27, 0x02};
-    out.insert(out.end(), key.begin(), key.end());
-    return out;
+    return composeBe(bytes::Bytes{0x00, 0x00, 0x07, 0xE0}, 0x27_b, 0x02_b, key);
 }
 // Every fixture below gives positive responses to both prior session-mode
 // requests, so both flags are true and both bytes are appended.
@@ -101,36 +108,12 @@ bytes::Bytes requestKernelIdRequest()
 }
 bytes::Bytes sid34RequestDownloadRequest(std::uint32_t startAddress, std::uint32_t dataLen)
 {
-    return {
-        0x00,
-        0x00,
-        0x07,
-        0xE0,
-        0x34,
-        0x04,
-        0x33,
-        static_cast<bytes::Byte>((startAddress >> 16) & 0xFF),
-        static_cast<bytes::Byte>((startAddress >> 8) & 0xFF),
-        static_cast<bytes::Byte>(startAddress & 0xFF),
-        static_cast<bytes::Byte>((dataLen >> 16) & 0xFF),
-        static_cast<bytes::Byte>((dataLen >> 8) & 0xFF),
-        static_cast<bytes::Byte>(dataLen & 0xFF),
-    };
+    return composeBe(bytes::Bytes{0x00, 0x00, 0x07, 0xE0}, 0x34_b, 0x04_b, 0x33_b, u24(startAddress),
+                     u24(dataLen));
 }
 bytes::Bytes sidB6TransferBlockRequest(std::uint32_t blockAddr, bytes::ByteView payload)
 {
-    bytes::Bytes out{
-        0x00,
-        0x00,
-        0x07,
-        0xE0,
-        0xB6,
-        static_cast<bytes::Byte>((blockAddr >> 16) & 0xFF),
-        static_cast<bytes::Byte>((blockAddr >> 8) & 0xFF),
-        static_cast<bytes::Byte>(blockAddr & 0xFF),
-    };
-    out.insert(out.end(), payload.begin(), payload.end());
-    return out;
+    return composeBe(bytes::Bytes{0x00, 0x00, 0x07, 0xE0}, 0xB6_b, u24(blockAddr), payload);
 }
 bytes::Bytes sid37StartKernelRequest()
 {
@@ -139,6 +122,41 @@ bytes::Bytes sid37StartKernelRequest()
 bytes::Bytes sid31StartRoutineRequest()
 {
     return {0x00, 0x00, 0x07, 0xE0, 0x31, 0x01, 0x02, 0x02, 0x02};
+}
+
+// Anchors three helpers against hardcoded wire bytes -- each became the same
+// composeBe expression as its production counterpart in
+// denso_sh705x_eeprom_can_executor.cpp, so a width bug in u24() or composeBe
+// would move both sides together and hide behind a passing suite. CAN frames
+// here carry no checksum, so this is a pure width/order check.
+//
+// The CAN ID prefix is kRequestId (0x7E0) encoded as a 4-byte big-endian
+// std::uint32_t: [0x00, 0x00, 0x07, 0xE0].
+
+// seedKeySendRequest({0x33, 0x44}): payload = [0x27, 0x02, 0x33, 0x44].
+TEST(DensoSh705xEepromCanExecutorTest, SeedKeySendRequestMatchesHardcodedWireBytes)
+{
+    EXPECT_THAT(seedKeySendRequest(bytes::Bytes{0x33, 0x44}),
+                ElementsAre(0x00, 0x00, 0x07, 0xE0, 0x27, 0x02, 0x33, 0x44));
+}
+
+// sid34RequestDownloadRequest(0x002000, 0x000040):
+// payload = [0x34, 0x04, 0x33, u24(0x002000), u24(0x000040)]
+//         = [0x34, 0x04, 0x33, 0x00, 0x20, 0x00, 0x00, 0x00, 0x40].
+TEST(DensoSh705xEepromCanExecutorTest, Sid34RequestDownloadRequestMatchesHardcodedWireBytes)
+{
+    EXPECT_THAT(sid34RequestDownloadRequest(0x002000, 0x000040),
+                ElementsAre(0x00, 0x00, 0x07, 0xE0, 0x34, 0x04, 0x33, 0x00, 0x20, 0x00, 0x00, 0x00,
+                            0x40));
+}
+
+// sidB6TransferBlockRequest(0x003000, {0x55, 0x66, 0x77}):
+// payload = [0xB6, u24(0x003000), 0x55, 0x66, 0x77]
+//         = [0xB6, 0x00, 0x30, 0x00, 0x55, 0x66, 0x77].
+TEST(DensoSh705xEepromCanExecutorTest, SidB6TransferBlockRequestMatchesHardcodedWireBytes)
+{
+    EXPECT_THAT(sidB6TransferBlockRequest(0x003000, bytes::Bytes{0x55, 0x66, 0x77}),
+                ElementsAre(0x00, 0x00, 0x07, 0xE0, 0xB6, 0x00, 0x30, 0x00, 0x55, 0x66, 0x77));
 }
 // read_mem(), for McuType "SH7055" (eblocks_SH7055[0] == {start=0,
 // len=0x100}): reduces to a single request with addr=0, pagesize=0x100.
@@ -215,12 +233,7 @@ bytes::Bytes generateEcutekRacecomCanSeedKey(bytes::ByteView seed)
     constexpr std::uint64_t d = 0x0A863281ULL;
     constexpr std::uint64_t n = 0x0fda9293ULL;
     const std::uint32_t decrypted = static_cast<std::uint32_t>(decryptRaceromSeed(seedWord, d, n));
-    return {
-        static_cast<bytes::Byte>((decrypted >> 24) & 0xFF),
-        static_cast<bytes::Byte>((decrypted >> 16) & 0xFF),
-        static_cast<bytes::Byte>((decrypted >> 8) & 0xFF),
-        static_cast<bytes::Byte>(decrypted & 0xFF),
-    };
+    return composeBe(decrypted);
 }
 // encrypt_payload(), this class's OWN key table, distinct from the K-Line
 // sibling's.
@@ -268,10 +281,7 @@ KernelUploadPlan computeKernelUploadPlan(bytes::ByteView kernelBytes)
     }
     chkSum = 0x5aa5a55au - chkSum;
 
-    plEncr.push_back(static_cast<bytes::Byte>((chkSum >> 24) & 0xFF));
-    plEncr.push_back(static_cast<bytes::Byte>((chkSum >> 16) & 0xFF));
-    plEncr.push_back(static_cast<bytes::Byte>((chkSum >> 8) & 0xFF));
-    plEncr.push_back(static_cast<bytes::Byte>(chkSum & 0xFF));
+    bytes::appendU32Be(plEncr, chkSum);
 
     plan.encryptedPayload = encryptPayloadCan(plEncr, static_cast<std::uint32_t>(plEncr.size()));
     return plan;
@@ -285,11 +295,7 @@ bytes::Bytes kernelAliveResponse()
     out[4] = 0xBE;
     out[5] = 0xEF;
     out[8] = 0x41; // SUB_KERNEL_ID | 0x40
-    out.push_back('K');
-    out.push_back('E');
-    out.push_back('R');
-    out.push_back('N');
-    out.push_back('2');
+    out = composeBe(out, std::string_view{"KERN2"});
     return out; // 14 bytes
 }
 bytes::Bytes initConnResponse()

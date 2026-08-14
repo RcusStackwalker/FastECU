@@ -1,7 +1,8 @@
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_kline_executor.h"
 
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
-#include "src/algorithms/checksum/checksum_primitives.h"
+#include "src/algorithms/protocol/bytes.h"
+#include "src/algorithms/protocol/bytes_compose.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
 
 #include <algorithm>
@@ -12,6 +13,10 @@ namespace fastecu::flash
 {
 namespace
 {
+using bytes::composeBe;
+using bytes::composeBeWithChecksum;
+using bytes::u24;
+using namespace bytes::literals;
 
 // ---------------------------------------------------------------------
 // Literal protocol constants transcribed from
@@ -55,7 +60,7 @@ constexpr int kMaxReadMemInnerRetries = 5;   // read_mem():526 (`timeout < 5`)
 
 bytes::Bytes frame(bytes::ByteView payload, std::uint8_t tester_id, std::uint8_t target_id)
 {
-    return SsmProtocol::addHeader(payload, tester_id, target_id, false);
+    return SsmProtocol::addHeader(payload, tester_id, target_id);
 }
 
 bytes::Bytes sid_bf_request()
@@ -76,9 +81,7 @@ bytes::Bytes sid_27_request_seed_request()
 }
 bytes::Bytes sid_27_send_key_request(bytes::ByteView key)
 {
-    bytes::Bytes out{0x27, 0x02};
-    out.insert(out.end(), key.begin(), key.end());
-    return out;
+    return composeBe(0x27_b, 0x02_b, key);
 }
 bytes::Bytes sid_10_request()
 {
@@ -86,16 +89,7 @@ bytes::Bytes sid_10_request()
 }
 bytes::Bytes sid_34_request(std::uint32_t addr, std::uint32_t len)
 {
-    return {
-        0x34,
-        static_cast<bytes::Byte>((addr >> 16) & 0xFF),
-        static_cast<bytes::Byte>((addr >> 8) & 0xFF),
-        static_cast<bytes::Byte>(addr & 0xFF),
-        0x04,
-        static_cast<bytes::Byte>((len >> 16) & 0xFF),
-        static_cast<bytes::Byte>((len >> 8) & 0xFF),
-        static_cast<bytes::Byte>(len & 0xFF),
-    };
+    return composeBe(0x34_b, u24(addr), 0x04_b, u24(len));
 }
 bytes::Bytes sid_31_request()
 {
@@ -105,21 +99,13 @@ bytes::Bytes sid_31_request()
 // request_kernel_id(), lines 964-994: NOT SsmProtocol::addHeader-framed.
 bytes::Bytes request_kernel_id_frame()
 {
-    bytes::Bytes out{
-        static_cast<bytes::Byte>((kSubKernelStartComm >> 8) & 0xFF),
-        static_cast<bytes::Byte>(kSubKernelStartComm & 0xFF),
-        static_cast<bytes::Byte>((std::uint16_t(1) >> 8) & 0xFF), // (datalen(0)+1)>>8
-        static_cast<bytes::Byte>(1 & 0xFF),                       // (datalen(0)+1)&0xFF
-        kSubKernelId,
-    };
-    out.push_back(fastecu::checksum::checksum8(out, false));
-    return out;
+    return composeBeWithChecksum(bytes::sum8, kSubKernelStartComm, std::uint16_t{1},
+                                 kSubKernelId);
 }
 
 bool looks_kernel_alive(bytes::ByteView received)
 {
-    return received.size() > 4 && received[0] == static_cast<bytes::Byte>((kSubKernelStartComm >> 8) & 0xFF) &&
-           received[1] == static_cast<bytes::Byte>(kSubKernelStartComm & 0xFF) &&
+    return received.size() > 4 && bytes::readU16Be(received, 0) == kSubKernelStartComm &&
            received[4] == static_cast<bytes::Byte>(kSubKernelId | 0x40);
 }
 
@@ -271,12 +257,7 @@ Status transfer_data_blocks(IKlineFlashTransport& transport, IClock& clock,
         }
 
         const std::uint32_t block_addr = addr + blockno * kUploadChunkBytes;
-        bytes::Bytes payload{
-            0x36,
-            static_cast<bytes::Byte>((block_addr >> 16) & 0xFF),
-            static_cast<bytes::Byte>((block_addr >> 8) & 0xFF),
-            static_cast<bytes::Byte>(block_addr & 0xFF),
-        };
+        bytes::Bytes payload = composeBe(0x36_b, u24(block_addr));
         if (blockno == maxblocks)
         {
             for (std::uint32_t i = 0; i < len; ++i)
@@ -809,14 +790,9 @@ Result<bytes::Bytes> DensoSh705xEepromKlineExecutor::read_mem(
         const std::uint32_t curblock = addr / kEepromBlockBytes;
         const std::uint32_t pagesize = numblocks * kEepromBlockBytes + numblocks * 3;
 
-        const bytes::Bytes request{
-            kSidDump,
-            static_cast<bytes::Byte>(mode),
-            static_cast<bytes::Byte>((numblocks >> 8) & 0xFF),
-            static_cast<bytes::Byte>(numblocks & 0xFF),
-            static_cast<bytes::Byte>((curblock >> 8) & 0xFF),
-            static_cast<bytes::Byte>(curblock & 0xFF),
-        };
+        const bytes::Bytes request = composeBe(kSidDump, bytes::Byte(mode),
+                                               std::uint16_t(numblocks),
+                                               std::uint16_t(curblock));
 
         Result<std::size_t> written = transport.write(request);
         if (!written.has_value())

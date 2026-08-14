@@ -47,7 +47,7 @@ qt_cc_library(
         exclude = MOC_HDRS,
     ),
     deps = QT_DEPS + [
-        "//src/algorithms/checksum:qt_compat",
+        "//src/algorithms/checksum",
         "//src/algorithms/diagnostics",
         # qt_bytes.h is included directly by files in this glob; before step
         # 5e it arrived via //src/backend/flash, which 5e deleted, so declare

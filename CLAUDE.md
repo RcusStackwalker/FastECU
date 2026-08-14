@@ -63,7 +63,7 @@ These exist because the compiler can't catch them; they fail CI, not your editor
 - Use `fastecu_portable_gtest` (Qt-free closure) or `fastecu_gtest` (links `QT_DEPS`) from `bazel/gtest_targets.bzl`; `fastecu_qttest` in `bazel/qt_targets.bzl` for QtTest-style suites needing moc.
 - Mocks/fakes are package-owned: a package defining an interface adds a `testing/` subpackage with one `cc_library(testonly = True)` target per mock, each with its own test (ADR 0008; `src/backend/ports/testing/` is the reference).
 - Qt targets list moc'd headers explicitly in a `MOC_HDRS` list and everything else in `normal_hdrs` — a `Q_OBJECT` header missing from `MOC_HDRS` links but fails at runtime.
-- Prefer `std::string_view` by value over `const char*` / `const std::string&` (ADR 0009), gmock matchers for property assertions (ADR 0010), `std::format` for message construction (ADR 0011), and ranges/views over index loops (ADR 0012).
+- Prefer `std::string_view` by value over `const char*` / `const std::string&` (ADR 0009), gmock matchers for property assertions (ADR 0010), `std::format` for message construction (ADR 0011), ranges/views over index loops (ADR 0012), and `bytes::composeBe` over hand-rolled shift-and-mask frame building (ADR 0013).
 - Every header needs `#pragma once` (enforced by prek).
 - Cross-document references in Markdown are links with human-readable text, not backticked paths — lychee (via prek) checks links and cannot see a path written as inline code.
 

@@ -1,6 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
-load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:gtest_targets.bzl", "fastecu_gtest", "fastecu_portable_gtest")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS")
 
 package(default_visibility = [
@@ -32,7 +32,10 @@ cc_library(
             "qt_*.cpp",
         ],
     ),
-    hdrs = ["bytes.h"],
+    hdrs = [
+        "bytes.h",
+        "bytes_compose.h",
+    ],
 )
 
 # TRANSITIONAL Qt shim. Converts between Qt containers and bytes:: types.
@@ -52,6 +55,12 @@ cc_test(
         ":protocol",
         "@googletest//:gtest_main",
     ],
+)
+
+fastecu_portable_gtest(
+    name = "bytes_compose_test",
+    srcs = ["bytes_compose_test.cpp"],
+    deps = [":protocol"],
 )
 
 fastecu_gtest(

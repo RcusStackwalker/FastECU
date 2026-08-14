@@ -1,7 +1,6 @@
 #include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_hitachi_sh7058_can_operation.h"
 #include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
-#include "src/algorithms/checksum/qt_checksum.h"
 #include "src/algorithms/protocol/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
@@ -841,7 +840,7 @@ int FlashEcuSubaruHitachiSH7058CanOperation::read_mem_subaru_ecu_hitachi_can(uin
         output[8] = (uint8_t)(addr & 0xFF);
         output[9] = (uint8_t)(pagesize - 1) & 0xFF;
         output.remove(10, 1);
-        output[10] = (fastecu::checksum::checksum8(output, false));
+        output[10] = bytes::sum8(bytes::view(output));
 
         emit LOG_D("Send msg: " + bytes::toHex(output), true, true);
         serial->write_serial_data_echo_check(output);
@@ -1281,7 +1280,7 @@ QByteArray FlashEcuSubaruHitachiSH7058CanOperation::send_sid_bf_ssm_init()
         }
 
         emit LOG_I("SSM init", true, true);
-        output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+        output = SsmProtocol::addHeader(output, tester_id, target_id);
         serial->write_serial_data_echo_check(output);
 
         delay(200);
@@ -1306,7 +1305,7 @@ QByteArray FlashEcuSubaruHitachiSH7058CanOperation::send_subaru_sid_81_start_com
 
     output.clear();
     output.append((uint8_t)0x81);
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(200);
 
@@ -1327,7 +1326,7 @@ QByteArray FlashEcuSubaruHitachiSH7058CanOperation::send_subaru_sid_83_request_t
     output.clear();
     output.append((uint8_t)0x83);
     output.append((uint8_t)0x00);
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(200);
 
@@ -1349,7 +1348,7 @@ QByteArray FlashEcuSubaruHitachiSH7058CanOperation::send_subaru_sid_10_start_dia
     output.append((uint8_t)0x10);
     output.append((uint8_t)0x85);
     output.append((uint8_t)0x02);
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
     received = serial->read_serial_data(receive_timeout);
 
@@ -1369,7 +1368,7 @@ QByteArray FlashEcuSubaruHitachiSH7058CanOperation::send_subaru_sid_b8_change_ba
     output.append((uint8_t)0x00);
     output.append((uint8_t)0x00);
     output.append((uint8_t)0x75);
-    output = SsmProtocol::addHeader(output, tester_id, target_id, false);
+    output = SsmProtocol::addHeader(output, tester_id, target_id);
     serial->write_serial_data_echo_check(output);
     delay(50);
     received = serial->read_serial_data(receive_timeout);

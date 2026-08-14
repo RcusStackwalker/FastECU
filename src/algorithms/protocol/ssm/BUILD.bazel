@@ -25,7 +25,6 @@ cc_library(
     srcs = ["ssm_protocol_core.cpp"],
     hdrs = ["ssm_protocol_core.h"],
     deps = [
-        "//src/algorithms/checksum",
         "//src/algorithms/protocol",
     ],
 )

@@ -2,7 +2,10 @@
 
 #include <limits>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+using ::testing::ElementsAre;
 
 TEST(BytesPortable, ReadsBigEndianWidths)
 {
@@ -27,7 +30,7 @@ TEST(BytesPortable, AppendsBigEndianWidths)
     bytes::Bytes out;
     bytes::appendU16Be(out, 0x1234);
     bytes::appendU24Be(out, 0x563412);
-    EXPECT_EQ(out, (bytes::Bytes{0x12, 0x34, 0x56, 0x34, 0x12}));
+    EXPECT_THAT(out, ElementsAre(0x12, 0x34, 0x56, 0x34, 0x12));
 }
 
 TEST(BytesPortable, Sums8OverFullView)
@@ -106,15 +109,15 @@ TEST(BytesPortable, OverwriteAtPreservesTruncatingContract)
 
     bytes::Bytes exact{0, 1, 2, 3, 4};
     bytes::overwriteAt(exact, 2, payload);
-    EXPECT_EQ(exact, (bytes::Bytes{0, 1, 0xAA, 0xBB, 0xCC}));
+    EXPECT_THAT(exact, ElementsAre(0, 1, 0xAA, 0xBB, 0xCC));
 
     bytes::Bytes truncated{0, 1, 2, 3};
     bytes::overwriteAt(truncated, 2, payload);
-    EXPECT_EQ(truncated, (bytes::Bytes{0, 1, 0xAA, 0xBB}));
+    EXPECT_THAT(truncated, ElementsAre(0, 1, 0xAA, 0xBB));
 
     bytes::Bytes empty_payload{0, 1};
     bytes::overwriteAt(empty_payload, 1, bytes::ByteView{});
-    EXPECT_EQ(empty_payload, (bytes::Bytes{0, 1}));
+    EXPECT_THAT(empty_payload, ElementsAre(0, 1));
 }
 
 TEST(BytesPortable, OverwriteAtDoesNothingAtOrBeyondEnd)
@@ -129,9 +132,9 @@ TEST(BytesPortable, OverwriteAtDoesNothingAtOrBeyondEnd)
     bytes::overwriteAt(beyond_end, beyond_end.size() + 1, payload);
     bytes::overwriteAt(maximum_offset, kMaximumOffset, payload);
 
-    EXPECT_EQ(at_end, (bytes::Bytes{0, 1}));
-    EXPECT_EQ(beyond_end, (bytes::Bytes{0, 1}));
-    EXPECT_EQ(maximum_offset, (bytes::Bytes{0, 1}));
+    EXPECT_THAT(at_end, ElementsAre(0, 1));
+    EXPECT_THAT(beyond_end, ElementsAre(0, 1));
+    EXPECT_THAT(maximum_offset, ElementsAre(0, 1));
 }
 
 TEST(BytesPortable, FixedWidthWritersRejectShortAndMaximumOffsets)
@@ -164,7 +167,26 @@ TEST(BytesPortable, FixedWidthWritersAcceptExactBoundary)
     bytes::writeU24Le(out, 11, 0x789ABC);
     bytes::writeU32Le(out, 14, 0xDEF01234);
 
-    EXPECT_EQ(out, (bytes::Bytes{0x12, 0x34, 0x56, 0x78, 0x9A,
+    EXPECT_THAT(out, ElementsAre(0x12, 0x34, 0x56, 0x78, 0x9A,
                                  0xBC, 0xDE, 0xF0, 0x12, 0x56, 0x34,
-                                 0xBC, 0x9A, 0x78, 0x34, 0x12, 0xF0, 0xDE}));
+                                 0xBC, 0x9A, 0x78, 0x34, 0x12, 0xF0, 0xDE));
+}
+
+TEST(BytesPortable, sum8Range_sumsOnlyTheRequestedWindow)
+{
+    const bytes::Bytes buf{0x01, 0x02, 0x03, 0x04};
+    EXPECT_EQ(bytes::sum8Range(bytes::ByteView(buf), 1, 2), static_cast<bytes::Byte>(0x05));
+}
+
+TEST(BytesPortable, sum8Range_clampsLengthToWhatIsAvailable)
+{
+    const bytes::Bytes buf{0x01, 0x02, 0x03, 0x04};
+    EXPECT_EQ(bytes::sum8Range(bytes::ByteView(buf), 2, 99), static_cast<bytes::Byte>(0x07));
+}
+
+TEST(BytesPortable, sum8_isPassableAsACallable)
+{
+    bytes::Byte (*fn)(bytes::ByteView) = bytes::sum8;
+    const bytes::Bytes buf{0x01, 0x02};
+    EXPECT_EQ(fn(bytes::ByteView(buf)), static_cast<bytes::Byte>(0x03));
 }

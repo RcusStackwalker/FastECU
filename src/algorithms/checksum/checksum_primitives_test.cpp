@@ -1,30 +1,33 @@
 #include "src/algorithms/checksum/checksum_primitives.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <array>
 #include <cstdint>
 #include <span>
 
+using ::testing::ElementsAre;
+
 TEST(ChecksumPrimitives, RebalancesU16BigEndianFromStoredValue)
 {
     bytes::Bytes rom{0x12, 0x34};
     fastecu::checksum::internal::rebalanceU16Be(rom, 0, 0xFF00, 0x0010);
-    EXPECT_EQ(rom, (bytes::Bytes{0x13, 0x44}));
+    EXPECT_THAT(rom, ElementsAre(0x13, 0x44));
 }
 
 TEST(ChecksumPrimitives, RebalancesU16WithModularWraparound)
 {
     bytes::Bytes rom{0xFF, 0xF0};
     fastecu::checksum::internal::rebalanceU16Be(rom, 0, 0x0000, 0x0020);
-    EXPECT_EQ(rom, (bytes::Bytes{0x00, 0x10}));
+    EXPECT_THAT(rom, ElementsAre(0x00, 0x10));
 }
 
 TEST(ChecksumPrimitives, RebalancesU32BigEndianWithModularWraparound)
 {
     bytes::Bytes rom{0xFF, 0xFF, 0xFF, 0xF0};
     fastecu::checksum::internal::rebalanceU32Be(rom, 0, 0x00000000, 0x00000020);
-    EXPECT_EQ(rom, (bytes::Bytes{0x00, 0x00, 0x00, 0x10}));
+    EXPECT_THAT(rom, ElementsAre(0x00, 0x00, 0x00, 0x10));
 }
 
 TEST(CksAdd8, ReturnsZeroForEmptyData)
@@ -57,18 +60,24 @@ TEST(CksAdd8, MatchesReflashBlockShape)
     EXPECT_EQ(fastecu::checksum::cks_add8(std::span<const std::uint8_t>(data)), std::uint8_t(7));
 }
 
-TEST(Checksum8, SumsPayloadBytes)
-{
-    const bytes::Bytes frame{0x80, 0x10, 0xF0, 0x01, 0xBF};
-    EXPECT_EQ(fastecu::checksum::checksum8(bytes::ByteView(frame)),
-              static_cast<bytes::Byte>(0x80 + 0x10 + 0xF0 + 0x01 + 0xBF));
-}
-
-TEST(Checksum8, ComplementsAgainst0x100WhenRequested)
+TEST(NegatedSum8, ComplementsTheSumAgainst0x100)
 {
     const bytes::Bytes payload{0xA8, 0x00, 0x11, 0x22, 0x33};
-    EXPECT_EQ(fastecu::checksum::checksum8(bytes::ByteView(payload), false), bytes::Byte(0x0E));
-    EXPECT_EQ(fastecu::checksum::checksum8(bytes::ByteView(payload), true), bytes::Byte(0xF2));
+    EXPECT_EQ(fastecu::checksum::negatedSum8(bytes::ByteView(payload)), bytes::Byte(0xF2));
+}
+
+TEST(NegatedSum8, YieldsZeroForAZeroSum)
+{
+    const bytes::Bytes payload{0x00, 0x00};
+    EXPECT_EQ(fastecu::checksum::negatedSum8(bytes::ByteView(payload)), bytes::Byte(0x00));
+}
+
+TEST(NegatedSum8, IsThePlainSumSubtractedFrom0x100)
+{
+    const bytes::Bytes frame{0x80, 0x10, 0xF0, 0x01, 0xBF};
+    const bytes::Byte plain = bytes::sum8(bytes::ByteView(frame));
+    EXPECT_EQ(fastecu::checksum::negatedSum8(bytes::ByteView(frame)),
+              static_cast<bytes::Byte>(0x100 - plain));
 }
 
 TEST(Crc32, MatchesKnownPolynomialVector)

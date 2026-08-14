@@ -1,3 +1,4 @@
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <array>
@@ -5,6 +6,8 @@
 
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/qt_bytes.h"
+
+using ::testing::ElementsAre;
 
 TEST(TestBytes, readU16Le_readsLowByteFirst)
 {
@@ -42,21 +45,21 @@ TEST(TestBytes, appendU16Le_appendsLowByteFirst)
 {
     bytes::Bytes out;
     bytes::appendU16Le(out, 0x1234);
-    ASSERT_EQ(out, (bytes::Bytes{0x34, 0x12}));
+    ASSERT_THAT(out, ElementsAre(0x34, 0x12));
 }
 
 TEST(TestBytes, appendU24Le_appendsLowByteFirst)
 {
     bytes::Bytes out;
     bytes::appendU24Le(out, 0x123456);
-    ASSERT_EQ(out, (bytes::Bytes{0x56, 0x34, 0x12}));
+    ASSERT_THAT(out, ElementsAre(0x56, 0x34, 0x12));
 }
 
 TEST(TestBytes, appendU32Le_appendsLowByteFirst)
 {
     bytes::Bytes out;
     bytes::appendU32Le(out, 0x12345678);
-    ASSERT_EQ(out, (bytes::Bytes{0x78, 0x56, 0x34, 0x12}));
+    ASSERT_THAT(out, ElementsAre(0x78, 0x56, 0x34, 0x12));
 }
 
 TEST(TestBytes, writeU16Be_writesAtOffsetWithoutDisturbingRest)

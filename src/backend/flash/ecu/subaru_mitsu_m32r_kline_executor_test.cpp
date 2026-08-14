@@ -17,7 +17,7 @@ using namespace fastecu::flash;
 
 bytes::Bytes frame(bytes::Bytes payload)
 {
-    return SsmProtocol::addHeader(payload, 0xf0, 0x10, false);
+    return SsmProtocol::addHeader(payload, 0xf0, 0x10);
 }
 
 void scriptHandshake(ScriptedKlineFlashTransport& transport)

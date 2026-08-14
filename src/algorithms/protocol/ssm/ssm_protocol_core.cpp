@@ -1,6 +1,6 @@
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 
-#include "src/algorithms/checksum/checksum_primitives.h"
+#include "src/algorithms/protocol/bytes_compose.h"
 
 #include <algorithm>
 
@@ -76,25 +76,14 @@ bytes::Bytes calculatePayload(bytes::ByteView buf, uint32_t len,
     return encrypted;
 }
 
-bytes::Bytes addHeader(bytes::ByteView output, bytes::Byte testerId, bytes::Byte targetId,
-                       bool dec0x100)
+bytes::Bytes addHeader(bytes::ByteView output, bytes::Byte testerId, bytes::Byte targetId)
 {
-    bytes::Bytes framed;
-    const auto length = bytes::Byte(output.size());
-
-    framed.reserve(output.size() + 5);
-    framed.push_back(0x80);
-    framed.push_back(targetId);
-    framed.push_back(testerId);
-    framed.push_back(length);
-    framed.insert(framed.end(), output.begin(), output.end());
-    framed.push_back(fastecu::checksum::checksum8(framed, dec0x100));
-
-    return framed;
+    using namespace bytes::literals;
+    return bytes::composeBeWithChecksum(bytes::sum8, 0x80_b, targetId, testerId,
+                                        bytes::Byte(output.size()), output);
 }
 
-bool hasValidFrame(bytes::ByteView frame, bytes::Byte receiverId, bytes::Byte senderId,
-                   bool dec0x100)
+bool hasValidFrame(bytes::ByteView frame, bytes::Byte receiverId, bytes::Byte senderId)
 {
     constexpr std::size_t headerLength = 4;
     constexpr std::size_t checksumLength = 1;
@@ -114,13 +103,14 @@ bool hasValidFrame(bytes::ByteView frame, bytes::Byte receiverId, bytes::Byte se
         return false;
     }
 
-    return fastecu::checksum::checksum8(frame.first(frame.size() - checksumLength), dec0x100) == frame[frame.size() - checksumLength];
+    return bytes::sum8(frame.first(frame.size() - checksumLength)) ==
+           frame[frame.size() - checksumLength];
 }
 
 bool hasPayloadPrefix(bytes::ByteView frame, bytes::ByteView prefix,
-                      bytes::Byte receiverId, bytes::Byte senderId, bool dec0x100)
+                      bytes::Byte receiverId, bytes::Byte senderId)
 {
-    if (!hasValidFrame(frame, receiverId, senderId, dec0x100))
+    if (!hasValidFrame(frame, receiverId, senderId))
     {
         return false;
     }

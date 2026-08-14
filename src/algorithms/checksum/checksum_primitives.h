@@ -24,11 +24,10 @@ namespace fastecu::checksum
 // than a plain mod-256 sum). Used to checksum ECU reflash blocks.
 std::uint8_t cks_add8(std::span<const std::uint8_t> data);
 
-// Plain 8-bit additive checksum (sum of bytes, mod 256), optionally
-// complemented as 0x100 - sum. Used to checksum request/response frames
-// across several ECU communication protocols; not specific to any one of
-// them.
-std::uint8_t checksum8(bytes::ByteView data, bool dec0x100 = false);
+// Additive 8-bit checksum complemented as 0x100 - sum, the framing
+// convention used by the Subaru/Denso kernel-upload envelopes. The plain
+// (uncomplemented) sum is bytes::sum8.
+std::uint8_t negatedSum8(bytes::ByteView data);
 
 // CRC-32 with the ECU-reflash-specific polynomial 0x5AA5A55A (not the
 // standard IEEE 802.3 polynomial). Used to verify a written flash page

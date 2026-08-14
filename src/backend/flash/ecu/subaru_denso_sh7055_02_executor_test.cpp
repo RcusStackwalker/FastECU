@@ -4,9 +4,12 @@
 #include <string_view>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "src/algorithms/checksum/checksum_primitives.h"
+#include "src/algorithms/protocol/bytes.h"
+#include "src/algorithms/protocol/bytes_compose.h"
 #include "src/backend/definitions/kernelmemorymodels.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7055_02_plan.h"
 #include "src/backend/flash/flash_device_lookup.h"
@@ -15,10 +18,16 @@
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 
+using ::testing::ElementsAre;
+
 namespace fastecu::flash
 {
 namespace
 {
+using bytes::composeBe;
+using bytes::composeBeWithChecksum;
+using bytes::u24;
+using namespace bytes::literals;
 
 class NeverCancelled final : public ICancellationToken
 {
@@ -186,14 +195,30 @@ Result<FlashPlan> malformed_plan(std::vector<ConfirmationSpec> confirmations,
 
 bytes::Bytes framed(std::uint8_t opcode, bytes::ByteView payload = {})
 {
-    bytes::Bytes out{0xBE, 0xEF};
     const std::uint16_t length = static_cast<std::uint16_t>(payload.size() + 1);
-    out.push_back(static_cast<bytes::Byte>((length >> 8) & 0xFF));
-    out.push_back(static_cast<bytes::Byte>(length & 0xFF));
-    out.push_back(opcode);
-    out.insert(out.end(), payload.begin(), payload.end());
-    out.push_back(fastecu::checksum::checksum8(out, false));
-    return out;
+    return composeBeWithChecksum(bytes::sum8, std::uint16_t{0xBEEF}, length, bytes::Byte(opcode),
+                                 payload);
+}
+
+// Anchors framed() against hardcoded wire bytes so a bug in composeBeWithChecksum
+// (e.g. the wrong checksum span) cannot move both this helper and the
+// production frame() it stands in for together and hide behind a passing suite.
+//
+// framed(0x01): [0xBE, 0xEF, length_hi, length_lo, 0x01], length = 0+1 = 1.
+// Checksum (sum8) over [0xBE, 0xEF, 0x00, 0x01, 0x01]:
+//   0xBE + 0xEF + 0x00 + 0x01 + 0x01 = 0x1AF -> & 0xFF = 0xAF.
+TEST(SubaruDensoSh7055_02Executor, FramedHelperMatchesHardcodedWireBytesNoPayload)
+{
+    EXPECT_THAT(framed(0x01), ElementsAre(0xBE, 0xEF, 0x00, 0x01, 0x01, 0xAF));
+}
+
+// framed(0x02, {0xAB, 0xCD}): length = 2+1 = 3.
+// Checksum (sum8) over [0xBE, 0xEF, 0x00, 0x03, 0x02, 0xAB, 0xCD]:
+//   0xBE + 0xEF + 0x00 + 0x03 + 0x02 + 0xAB + 0xCD = 0x32A -> & 0xFF = 0x2A.
+TEST(SubaruDensoSh7055_02Executor, FramedHelperMatchesHardcodedWireBytesWithPayload)
+{
+    EXPECT_THAT(framed(0x02, bytes::Bytes{0xAB, 0xCD}),
+                ElementsAre(0xBE, 0xEF, 0x00, 0x03, 0x02, 0xAB, 0xCD, 0x2A));
 }
 
 bytes::Bytes ecu_id_response()
@@ -214,22 +239,9 @@ bytes::Bytes exact_upload_request()
             0x64, 0x67, 0x66, 0x61, 0x60, 0x65, 0x65, 0x65, 0xDF};
 }
 
-bytes::Bytes u32_be(std::uint32_t value)
-{
-    return {
-        static_cast<bytes::Byte>((value >> 24) & 0xFF),
-        static_cast<bytes::Byte>((value >> 16) & 0xFF),
-        static_cast<bytes::Byte>((value >> 8) & 0xFF),
-        static_cast<bytes::Byte>(value & 0xFF),
-    };
-}
-
 bytes::Bytes crc_response(std::uint32_t crc)
 {
-    bytes::Bytes payload{0x05};
-    bytes::Bytes crc_bytes = u32_be(crc);
-    payload.insert(payload.end(), crc_bytes.begin(), crc_bytes.end());
-    return framed(0x42, payload);
+    return framed(0x42, composeBe(0x05_b, crc));
 }
 
 void script_read_page(ScriptedKlineFlashTransport& transport, std::uint32_t address,
@@ -238,14 +250,8 @@ void script_read_page(ScriptedKlineFlashTransport& transport, std::uint32_t addr
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:360-430:
     // SUB_KERNEL_READ_AREA uses a zero byte plus the 24-bit address and a
     // fixed 0x400-byte page request. The reply carries the 0x43 acknowledgment.
-    transport.expectWrite(framed(0x03, bytes::Bytes{
-                                           0x00,
-                                           static_cast<bytes::Byte>((address >> 16) & 0xFF),
-                                           static_cast<bytes::Byte>((address >> 8) & 0xFF),
-                                           static_cast<bytes::Byte>(address & 0xFF),
-                                           0x04,
-                                           0x00,
-                                       }));
+    transport.expectWrite(
+        framed(0x03, composeBe(0x00_b, u24(address), std::uint16_t{0x400})));
     transport.queueRead(framed(response_opcode, bytes::Bytes(0x400, fill)));
 }
 
@@ -308,11 +314,7 @@ void script_crc_compare(ScriptedKlineFlashTransport& transport, const flashdev_t
     for (unsigned block_no = 0; block_no < device.numblocks; ++block_no)
     {
         const auto& block = device.fblocks[block_no];
-        bytes::Bytes request_payload = u32_be(block.start);
-        request_payload.push_back(0x00);
-        request_payload.push_back(static_cast<bytes::Byte>((block.len >> 16) & 0xFF));
-        request_payload.push_back(static_cast<bytes::Byte>((block.len >> 8) & 0xFF));
-        request_payload.push_back(static_cast<bytes::Byte>(block.len & 0xFF));
+        const bytes::Bytes request_payload = composeBe(block.start, 0x00_b, u24(block.len));
         transport.expectWrite(framed(0x02, request_payload));
 
         std::uint32_t ecu_crc = fastecu::checksum::crc32(
@@ -352,7 +354,11 @@ bytes::Bytes write_chunk_request(const flashdev_t& device, bytes::ByteView image
 {
     constexpr std::uint32_t kChunkSize = 0x200;
     const auto& block = device.fblocks[block_no];
-    bytes::Bytes payload = u32_be(block.start + offset);
+    // The image bytes are spliced with a raw insert rather than folded into
+    // composeBe: production builds this frame as composeBe(address, subspan),
+    // so folding would make both sides the same expression and a bug in the
+    // splice would cancel out instead of failing the test.
+    bytes::Bytes payload = composeBe(block.start + offset);
     payload.insert(payload.end(), image.begin() + block.start + offset,
                    image.begin() + block.start + offset + kChunkSize);
     return framed(0x22, payload);
@@ -366,11 +372,11 @@ bytes::Bytes commit_request(const flashdev_t& device, bytes::ByteView image,
     const std::uint32_t address = block.start + offset;
     const std::uint32_t crc = fastecu::checksum::crc32(
         bytes::ByteView(image).subspan(address, kCommitSize));
-    bytes::Bytes payload = u32_be(address);
-    payload.insert(payload.end(), {0x10, 0x00});
-    bytes::Bytes crc_bytes = u32_be(crc);
-    payload.insert(payload.end(), crc_bytes.begin(), crc_bytes.end());
-    return framed(test_write ? 0x23 : 0x24, payload);
+    // 0x10, 0x00 stay two byte literals: production spells this field
+    // std::uint16_t(kCommitBlockSize), so the width derivation is not shared
+    // and a byte-order bug in appendU16Be would fail this test rather than
+    // move both sides together.
+    return framed(test_write ? 0x23 : 0x24, composeBe(address, 0x10_b, 0x00_b, crc));
 }
 
 void script_block_transfer(ScriptedKlineFlashTransport& transport, const flashdev_t& device,
@@ -381,7 +387,7 @@ void script_block_transfer(ScriptedKlineFlashTransport& transport, const flashde
     const auto& block = device.fblocks[block_no];
     if (!test_write)
     {
-        transport.expectWrite(framed(0x25, u32_be(block.start)));
+        transport.expectWrite(framed(0x25, composeBe(block.start)));
         transport.queueRead(framed(0x65));
     }
     for (std::uint32_t offset = 0; offset < block.len; offset += kChunkSize)
@@ -409,7 +415,7 @@ void script_write_prefix(ScriptedKlineFlashTransport& transport, const flashdev_
     script_prog_volt(transport);
     if (!test_write)
     {
-        transport.expectWrite(framed(0x25, u32_be(device.fblocks[block_no].start)));
+        transport.expectWrite(framed(0x25, composeBe(device.fblocks[block_no].start)));
         transport.queueRead(framed(0x65));
     }
 }
@@ -875,7 +881,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedEraseResponse)
     script_crc_compare(transport, *device, image, kDifferingBlock);
     script_flash_init(transport, false);
     script_prog_volt(transport);
-    transport.expectWrite(framed(0x25, u32_be(device->fblocks[kDifferingBlock].start)));
+    transport.expectWrite(framed(0x25, composeBe(device->fblocks[kDifferingBlock].start)));
     transport.queueRead(framed(0x64));
 
     RecordingClock clock;
@@ -906,7 +912,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteCancelsMidBlockTransfer)
     script_crc_compare(transport, *device, image, kDifferingBlock);
     script_flash_init(transport, false);
     script_prog_volt(transport);
-    transport.expectWrite(framed(0x25, u32_be(device->fblocks[kDifferingBlock].start)));
+    transport.expectWrite(framed(0x25, composeBe(device->fblocks[kDifferingBlock].start)));
     transport.queueRead(framed(0x65));
 
     FakeClock clock;
@@ -962,11 +968,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt)
     for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
     {
         const auto& block = device->fblocks[block_no];
-        bytes::Bytes payload = u32_be(block.start);
-        payload.push_back(0x00);
-        payload.push_back(static_cast<bytes::Byte>((block.len >> 16) & 0xFF));
-        payload.push_back(static_cast<bytes::Byte>((block.len >> 8) & 0xFF));
-        payload.push_back(static_cast<bytes::Byte>(block.len & 0xFF));
+        const bytes::Bytes payload = composeBe(block.start, 0x00_b, u24(block.len));
         transport.expectWrite(framed(0x02, payload));
         const std::uint32_t crc = fastecu::checksum::crc32(
             bytes::ByteView(image).subspan(block.start, block.len));
@@ -1008,11 +1010,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead)
     for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
     {
         const auto& block = device->fblocks[block_no];
-        bytes::Bytes payload = u32_be(block.start);
-        payload.push_back(0x00);
-        payload.push_back(static_cast<bytes::Byte>((block.len >> 16) & 0xFF));
-        payload.push_back(static_cast<bytes::Byte>((block.len >> 8) & 0xFF));
-        payload.push_back(static_cast<bytes::Byte>(block.len & 0xFF));
+        const bytes::Bytes payload = composeBe(block.start, 0x00_b, u24(block.len));
         transport.expectWrite(framed(0x02, payload));
         const std::uint32_t crc = fastecu::checksum::crc32(
             bytes::ByteView(image).subspan(block.start, block.len));

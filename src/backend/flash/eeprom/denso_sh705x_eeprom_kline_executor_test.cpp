@@ -9,20 +9,29 @@
 // characterization.cpp, commit 4a91c02) -- nothing here is invented.
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_kline_executor.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <string_view>
+
+#include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
-#include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 
+using ::testing::ElementsAre;
+
 namespace fastecu::flash
 {
 namespace
 {
+using bytes::composeBe;
+using bytes::composeBeWithChecksum;
+using bytes::u24;
+using namespace bytes::literals;
 
 // Satisfies IFlashTransport (the lifetime/unblock-only base) but NOT
 // IKlineFlashTransport -- used to prove execute()'s dynamic_cast guard
@@ -53,72 +62,82 @@ constexpr std::uint32_t kKernelStartAddr = 0xFFFF6004;
 
 bytes::Bytes sidBfSsmInitRequest()
 {
-    return SsmProtocol::addHeader(bytes::Bytes{0xbf}, kTesterId, kTargetId, false);
+    return SsmProtocol::addHeader(bytes::Bytes{0xbf}, kTesterId, kTargetId);
 }
 bytes::Bytes sid81StartCommRequest()
 {
-    return SsmProtocol::addHeader(bytes::Bytes{0x81}, kTesterId, kTargetId, false);
+    return SsmProtocol::addHeader(bytes::Bytes{0x81}, kTesterId, kTargetId);
 }
 bytes::Bytes sid83TimingsRequest()
 {
-    return SsmProtocol::addHeader(bytes::Bytes{0x83, 0x00}, kTesterId, kTargetId, false);
+    return SsmProtocol::addHeader(bytes::Bytes{0x83, 0x00}, kTesterId, kTargetId);
 }
 bytes::Bytes sid27RequestSeedRequest()
 {
-    return SsmProtocol::addHeader(bytes::Bytes{0x27, 0x01}, kTesterId, kTargetId, false);
+    return SsmProtocol::addHeader(bytes::Bytes{0x27, 0x01}, kTesterId, kTargetId);
 }
 bytes::Bytes sid27SendKeyRequest(bytes::ByteView key)
 {
-    bytes::Bytes out{0x27, 0x02};
-    out.insert(out.end(), key.begin(), key.end());
-    return SsmProtocol::addHeader(out, kTesterId, kTargetId, false);
+    return SsmProtocol::addHeader(composeBe(0x27_b, 0x02_b, key), kTesterId, kTargetId);
 }
 bytes::Bytes sid10StartDiagRequest()
 {
-    return SsmProtocol::addHeader(bytes::Bytes{0x10, 0x85, 0x02}, kTesterId, kTargetId, false);
+    return SsmProtocol::addHeader(bytes::Bytes{0x10, 0x85, 0x02}, kTesterId, kTargetId);
 }
 bytes::Bytes sid34RequestUploadRequest(std::uint32_t dataaddr, std::uint32_t datalen)
 {
-    bytes::Bytes out{
-        0x34,
-        static_cast<bytes::Byte>((dataaddr >> 16) & 0xFF),
-        static_cast<bytes::Byte>((dataaddr >> 8) & 0xFF),
-        static_cast<bytes::Byte>(dataaddr & 0xFF),
-        0x04,
-        static_cast<bytes::Byte>((datalen >> 16) & 0xFF),
-        static_cast<bytes::Byte>((datalen >> 8) & 0xFF),
-        static_cast<bytes::Byte>(datalen & 0xFF),
-    };
-    return SsmProtocol::addHeader(out, kTesterId, kTargetId, false);
+    return SsmProtocol::addHeader(composeBe(0x34_b, u24(dataaddr), 0x04_b, u24(datalen)), kTesterId,
+                                  kTargetId);
 }
 bytes::Bytes sid36TransferDataRequest(std::uint32_t blockaddr, bytes::ByteView blockBytes)
 {
-    bytes::Bytes out{
-        0x36,
-        static_cast<bytes::Byte>((blockaddr >> 16) & 0xFF),
-        static_cast<bytes::Byte>((blockaddr >> 8) & 0xFF),
-        static_cast<bytes::Byte>(blockaddr & 0xFF),
-    };
-    out.insert(out.end(), blockBytes.begin(), blockBytes.end());
-    return SsmProtocol::addHeader(out, kTesterId, kTargetId, false);
+    return SsmProtocol::addHeader(composeBe(0x36_b, u24(blockaddr), blockBytes), kTesterId, kTargetId);
 }
 bytes::Bytes sid31StartRoutineRequest()
 {
-    return SsmProtocol::addHeader(bytes::Bytes{0x31, 0x01, 0x01}, kTesterId, kTargetId, false);
+    return SsmProtocol::addHeader(bytes::Bytes{0x31, 0x01, 0x01}, kTesterId, kTargetId);
 }
 
 // request_kernel_id(), lines 964-994: NOT addHeader-framed.
 bytes::Bytes requestKernelIdRequest()
 {
-    bytes::Bytes out{
-        static_cast<bytes::Byte>((0xBEEF >> 8) & 0xFF),
-        static_cast<bytes::Byte>(0xBEEF & 0xFF),
-        0x00,
-        0x01,
-        0x01,
-    };
-    out.push_back(fastecu::checksum::checksum8(out, false));
-    return out;
+    return composeBeWithChecksum(bytes::sum8, std::uint16_t{0xBEEF}, std::uint16_t{1}, 0x01_b);
+}
+
+// Anchors three helpers against hardcoded wire bytes -- each became the same
+// composeBe/composeBeWithChecksum expression as its production counterpart in
+// denso_sh705x_eeprom_kline_executor.cpp, so a width or checksum-span bug
+// there would move both sides together and hide behind a passing suite.
+//
+// requestKernelIdRequest(): [0xBE, 0xEF, 0x00, 0x01, 0x01] then sum8 checksum.
+//   0xBE + 0xEF + 0x00 + 0x01 + 0x01 = 0x1AF -> & 0xFF = 0xAF.
+TEST(DensoSh705xEepromKlineExecutorTest, RequestKernelIdRequestMatchesHardcodedWireBytes)
+{
+    EXPECT_THAT(requestKernelIdRequest(), ElementsAre(0xBE, 0xEF, 0x00, 0x01, 0x01, 0xAF));
+}
+
+// sid34RequestUploadRequest(0x001000, 0x000010): SsmProtocol::addHeader wraps
+// the payload as [0x80][targetId][testerId][len][payload][checksum].
+// Payload = [0x34, u24(0x001000), 0x04, u24(0x000010)]
+//         = [0x34, 0x00, 0x10, 0x00, 0x04, 0x00, 0x00, 0x10] (8 bytes).
+// Frame before checksum: [0x80, 0x10, 0xF0, 0x08, 0x34, 0x00, 0x10, 0x00,
+//                          0x04, 0x00, 0x00, 0x10].
+// Checksum (sum8): 0x80+0x10+0xF0+0x08+0x34+0x00+0x10+0x00+0x04+0x00+0x00+0x10
+//   = 0x1E0 -> & 0xFF = 0xE0.
+TEST(DensoSh705xEepromKlineExecutorTest, Sid34RequestUploadRequestMatchesHardcodedWireBytes)
+{
+    EXPECT_THAT(sid34RequestUploadRequest(0x001000, 0x000010),
+                ElementsAre(0x80, 0x10, 0xF0, 0x08, 0x34, 0x00, 0x10, 0x00, 0x04, 0x00, 0x00, 0x10,
+                            0xE0));
+}
+
+// sid27SendKeyRequest({0x11, 0x22}): payload = [0x27, 0x02, 0x11, 0x22] (4 bytes).
+// Frame before checksum: [0x80, 0x10, 0xF0, 0x04, 0x27, 0x02, 0x11, 0x22].
+// Checksum (sum8): 0x80+0x10+0xF0+0x04+0x27+0x02+0x11+0x22 = 0x1E0 -> & 0xFF = 0xE0.
+TEST(DensoSh705xEepromKlineExecutorTest, Sid27SendKeyRequestMatchesHardcodedWireBytes)
+{
+    EXPECT_THAT(sid27SendKeyRequest(bytes::Bytes{0x11, 0x22}),
+                ElementsAre(0x80, 0x10, 0xF0, 0x04, 0x27, 0x02, 0x11, 0x22, 0xE0));
 }
 
 // generate_seed_key(), lines 854-879 (stock / non-"_ecutek" table pair).
@@ -224,19 +243,8 @@ bytes::Bytes sid27SeedResponse(bytes::ByteView seed)
 // 0xBEEF, received[4] == 0x01 | 0x40 == 0x41.
 bytes::Bytes kernelAliveResponse()
 {
-    bytes::Bytes out{
-        static_cast<bytes::Byte>((0xBEEF >> 8) & 0xFF),
-        static_cast<bytes::Byte>(0xBEEF & 0xFF),
-        0x00,
-        0x06,
-        0x41,
-        'K',
-        'E',
-        'R',
-        'N',
-        '2',
-    };
-    return out; // 10 bytes
+    return composeBe(std::uint16_t{0xBEEF}, 0x00_b, 0x06_b, 0x41_b,
+                     std::string_view("KERN2")); // 10 bytes
 }
 
 // A 16-byte (already 4-byte-aligned) kernel fixture -- matches
