@@ -379,8 +379,10 @@ Status SubaruDensoSh7055_02Executor::upload_kernel(
     const std::uint32_t address = kernel.load_address;
     const std::uint32_t length = static_cast<std::uint32_t>(encrypted.size() + 4);
     // Not a full u24(address): the frame carries only the address's high two
-    // bytes here (bits 23-8) -- its low byte is folded into the encrypted
-    // placeholder byte below, not emitted separately.
+    // bytes here (bits 23-8). The low byte is never emitted in this header --
+    // bytes 6-9 below are a fixed transform of the literal 0x00, the checksum
+    // placeholder overwritten at request[7], and the fixed 0x31/0x61 envelope
+    // markers, none of which reference address.
     bytes::Bytes request = composeBe(kOpUploadKernel, std::uint16_t(address >> 8));
     bytes::appendU24Be(request, length);
     request.push_back(static_cast<bytes::Byte>((0x00 ^ 0x55) + 0x10));
