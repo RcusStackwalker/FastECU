@@ -1166,10 +1166,10 @@ TEST(MitsuColtM32rCanExecutor, HandshakeRejectsAReplyTooShortToHoldAServiceByte)
     auto plan = readPlan();
 
     // Two bytes: shorter than the 4-byte reply id every frame on this bus
-    // starts with, so there is no service byte and no NRC context to decode.
-    // The legacy `received.mid(4, ...)` clamped; the portable nrc_context()
-    // guards instead, and this is the frame that proves the guard is there --
-    // without it the description would be taken from a subspan past the end.
+    // starts with, so there is no service byte to read. The legacy
+    // `received.mid(4, ...)` clamped and the frame decoded as the useless
+    // "Not a valid answer"; CanFlashUdsChannel now rejects the frame before
+    // any PDU is parsed, and says what was wrong with it.
     transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
         MitsuColtCan::kSessionBootload)));
     transport.queueRead(bytes::Bytes{0x07, 0xe8});
@@ -1181,7 +1181,9 @@ TEST(MitsuColtM32rCanExecutor, HandshakeRejectsAReplyTooShortToHoldAServiceByte)
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs,
-                Contains(Pair(LogLevel::Error, "Wrong response from ECU: Not a valid answer")));
+                Contains(Pair(LogLevel::Error,
+                              "Wrong response from ECU: CAN frame of 2 bytes is shorter than "
+                              "its 4-byte id envelope")));
 }
 
 TEST(MitsuColtM32rCanExecutor, ReadRejectsAChunkAnsweredWithTheWrongService)
@@ -1646,10 +1648,13 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengeKeyRejectionStopsBeforeTheSession)
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
-    // Legacy text, flash_ecu_mitsu_m32r_can_operation.cpp:113.
+    // Legacy text, flash_ecu_mitsu_m32r_can_operation.cpp:113. The reply is a
+    // well-formed positive response to the service that was sent, so the
+    // legacy suffix was the NRC decoder's fallback "Not a valid answer" for
+    // every rejection here; what actually went wrong is the response byte.
     EXPECT_THAT(events.logs,
                 Contains(Pair(LogLevel::Error,
-                              "Vendor challenge key rejected: Not a valid answer")));
+                              "Vendor challenge key rejected: challenge not accepted")));
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Vendor challenge accepted"))));
 }
 
@@ -1757,6 +1762,120 @@ TEST(MitsuColtM32rCanExecutor, WriteRefusesTheEraseTriggerWhenItsConfirmationIsA
     // Legacy text, flash_ecu_mitsu_m32r_can_operation.cpp:441.
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Erase trigger canceled by user")));
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Userspace flash erased"))));
+}
+
+// The four below cover what UdsClient and CanFlashUdsChannel now contribute to
+// every exchange this executor makes. They use the vendor read plan because its
+// first exchange is the basic diagnostic session -- the shortest script that
+// reaches a real exchange.
+
+TEST(MitsuColtM32rCanExecutor, AbsorbsResponsePendingWithoutResending)
+{
+    // The safety property, end to end: 0x78 is absorbed by re-READING. If the
+    // client re-sent instead, the scripted transport would see a third write
+    // it has no expectation for and fail it.
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+    auto plan = readPlan(kVendorProtocol384);
+
+    transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
+        MitsuColtCan::kSessionBasic)));
+    transport.queueRead(response({0x7f, 0x10, 0x78}));
+    transport.queueRead(response({0x50, 0x81}));
+
+    transport.expectWrite(request(MitsuColtCanVendorExt::buildChallengeSeedRequest()));
+    transport.queue_no_frame(); // stop here: pending absorption is what this pins
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
+    EXPECT_EQ(transport.writesConsumed(), 2u);
+    EXPECT_TRUE(transport.scriptConsumed());
+    // The session was accepted on the second read, not abandoned on the first.
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Basic diagnostic session ok")));
+}
+
+TEST(MitsuColtM32rCanExecutor, FailsWhenTheEcuPendsPastTheRepeatLimit)
+{
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+    auto plan = readPlan(kVendorProtocol384);
+
+    transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
+        MitsuColtCan::kSessionBasic)));
+    // One normal read plus the default max_pending_repeats of 10.
+    for (int i = 0; i < 11; ++i)
+    {
+        transport.queueRead(response({0x7f, 0x10, 0x78}));
+    }
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
+    EXPECT_THAT(result.error().detail, HasSubstr("responsePending"));
+    // An ECU that pends forever is waited out, never re-sent to.
+    EXPECT_EQ(transport.writesConsumed(), 1u);
+    EXPECT_TRUE(transport.scriptConsumed());
+}
+
+TEST(MitsuColtM32rCanExecutor, RejectsAResponseToADifferentService)
+{
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+    auto plan = readPlan(kVendorProtocol384);
+
+    transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
+        MitsuColtCan::kSessionBasic)));
+    // A SecurityAccess reply (0x67) to a DiagnosticSession request (0x10).
+    transport.queueRead(response({0x67, 0x05}));
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_THAT(result.error().detail, HasSubstr("0x10"));
+    EXPECT_THAT(result.error().detail, HasSubstr("0x27"));
+    EXPECT_TRUE(transport.scriptConsumed());
+}
+
+TEST(MitsuColtM32rCanExecutor, RejectsAFrameFromTheWrongReplyId)
+{
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+    auto plan = readPlan(kVendorProtocol384);
+
+    transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(
+        MitsuColtCan::kSessionBasic)));
+    // Built inline: the response() helper hardcodes the plan's 0x7e8.
+    bytes::Bytes wrong_id;
+    bytes::appendU32Be(wrong_id, 0x7e9);
+    wrong_id.insert(wrong_id.end(), {0x50, 0x81});
+    transport.queueRead(wrong_id);
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_THAT(result.error().detail, HasSubstr("7e9"));
+    EXPECT_TRUE(transport.scriptConsumed());
 }
 
 } // namespace
