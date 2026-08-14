@@ -12,6 +12,7 @@
 #include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
 #include "src/algorithms/protocol/colt/mitsu_colt_can_vendor_ext_protocol.h"
 #include "src/algorithms/protocol/bytes.h"
+#include "src/algorithms/protocol/bytes_compose.h"
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_plan.h"
 
 // Every exchange below cites the line of
@@ -125,10 +126,7 @@ void error(Ctx& ctx, std::string_view message)
 // target with a different request id cannot silently keep using this one.
 bytes::Bytes build_request(std::uint32_t request_id, bytes::ByteView payload)
 {
-    bytes::Bytes out;
-    bytes::appendU32Be(out, request_id);
-    out.insert(out.end(), payload.begin(), payload.end());
-    return out;
+    return bytes::composeBe(request_id, payload);
 }
 
 // The legacy NRC context is always `received.mid(4, received.length() - 1)`
