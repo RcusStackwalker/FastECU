@@ -1,6 +1,8 @@
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_can_executor.h"
 
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
+#include "src/algorithms/protocol/bytes.h"
+#include "src/algorithms/protocol/bytes_compose.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
 
 #include <cstddef>
@@ -11,6 +13,8 @@ namespace fastecu::flash
 {
 namespace
 {
+using namespace bytes;
+using namespace bytes::literals;
 
 // ---------------------------------------------------------------------
 // Literal protocol constants transcribed from
@@ -55,14 +59,7 @@ constexpr int kInterPageDelayMs = 1;          // read_mem():1117 delay(1)
 
 bytes::Bytes can_frame(std::uint32_t request_id, bytes::ByteView payload)
 {
-    bytes::Bytes out{
-        static_cast<bytes::Byte>((request_id >> 24) & 0xFF),
-        static_cast<bytes::Byte>((request_id >> 16) & 0xFF),
-        static_cast<bytes::Byte>((request_id >> 8) & 0xFF),
-        static_cast<bytes::Byte>(request_id & 0xFF),
-    };
-    out.insert(out.end(), payload.begin(), payload.end());
-    return out;
+    return composeBe(request_id, payload);
 }
 
 bytes::Bytes init_connection_request(std::uint32_t request_id)
@@ -95,9 +92,7 @@ bytes::Bytes seed_request(std::uint32_t request_id)
 }
 bytes::Bytes seed_key_send_request(std::uint32_t request_id, bytes::ByteView key)
 {
-    bytes::Bytes payload{0x27, 0x02};
-    payload.insert(payload.end(), key.begin(), key.end());
-    return can_frame(request_id, payload);
+    return can_frame(request_id, composeBe(0x27_b, 0x02_b, key));
 }
 // lines 586-602: [0x10] with 0x02 appended iff req_10_03_connected, then 0x42
 // appended iff req_10_43_connected. Computed dynamically, not hardcoded to
@@ -120,41 +115,21 @@ bytes::Bytes session_set_request(std::uint32_t request_id, bool req_10_03_connec
 // request_kernel_id(), this one has NO trailing checksum byte.
 bytes::Bytes request_kernel_id_frame(std::uint32_t request_id)
 {
-    return can_frame(request_id, bytes::Bytes{
-                                     static_cast<bytes::Byte>((kSubKernelStartComm >> 8) & 0xFF),
-                                     static_cast<bytes::Byte>(kSubKernelStartComm & 0xFF),
-                                     0x00,
-                                     0x01,
-                                     kSubKernelId,
-                                     0x00,
-                                     0x00,
-                                     0x00,
-                                 });
+    // Trailing 3 zero bytes (0x00,0x00,0x00) are NOT checksum -- see the
+    // comment above this function -- they're literal payload padding present
+    // in the legacy frame; composeBe can't infer them from kSubKernelId's
+    // type, so they're spelled out explicitly to keep the 8-byte payload
+    // length exact.
+    return can_frame(request_id, composeBe(kSubKernelStartComm, std::uint16_t{1}, kSubKernelId, 0x00_b, 0x00_b,
+                                           0x00_b));
 }
 bytes::Bytes sid34_request(std::uint32_t request_id, std::uint32_t addr, std::uint32_t data_len)
 {
-    return can_frame(request_id, bytes::Bytes{
-                                     0x34,
-                                     0x04,
-                                     0x33,
-                                     static_cast<bytes::Byte>((addr >> 16) & 0xFF),
-                                     static_cast<bytes::Byte>((addr >> 8) & 0xFF),
-                                     static_cast<bytes::Byte>(addr & 0xFF),
-                                     static_cast<bytes::Byte>((data_len >> 16) & 0xFF),
-                                     static_cast<bytes::Byte>((data_len >> 8) & 0xFF),
-                                     static_cast<bytes::Byte>(data_len & 0xFF),
-                                 });
+    return can_frame(request_id, composeBe(0x34_b, 0x04_b, 0x33_b, u24(addr), u24(data_len)));
 }
 bytes::Bytes sid_b6_request(std::uint32_t request_id, std::uint32_t block_addr, bytes::ByteView chunk)
 {
-    bytes::Bytes payload{
-        0xB6,
-        static_cast<bytes::Byte>((block_addr >> 16) & 0xFF),
-        static_cast<bytes::Byte>((block_addr >> 8) & 0xFF),
-        static_cast<bytes::Byte>(block_addr & 0xFF),
-    };
-    payload.insert(payload.end(), chunk.begin(), chunk.end());
-    return can_frame(request_id, payload);
+    return can_frame(request_id, composeBe(0xB6_b, u24(block_addr), chunk));
 }
 bytes::Bytes sid37_request(std::uint32_t request_id)
 {
@@ -170,19 +145,8 @@ bytes::Bytes read_eeprom_request(std::uint32_t request_id, std::uint8_t mode, st
                                  std::uint32_t pagesize)
 {
     constexpr std::uint32_t kDatalen = 6;
-    return can_frame(request_id, bytes::Bytes{
-                                     static_cast<bytes::Byte>((kSubKernelStartComm >> 8) & 0xFF),
-                                     static_cast<bytes::Byte>(kSubKernelStartComm & 0xFF),
-                                     static_cast<bytes::Byte>(((kDatalen + 1) >> 8) & 0xFF),
-                                     static_cast<bytes::Byte>((kDatalen + 1) & 0xFF),
-                                     kSubKernelReadEeprom,
-                                     static_cast<bytes::Byte>(mode),
-                                     static_cast<bytes::Byte>((addr >> 16) & 0xFF),
-                                     static_cast<bytes::Byte>((addr >> 8) & 0xFF),
-                                     static_cast<bytes::Byte>(addr & 0xFF),
-                                     static_cast<bytes::Byte>((pagesize >> 8) & 0xFF),
-                                     static_cast<bytes::Byte>(pagesize & 0xFF),
-                                 });
+    return can_frame(request_id, composeBe(kSubKernelStartComm, std::uint16_t(kDatalen + 1), kSubKernelReadEeprom,
+                                           mode, u24(addr), std::uint16_t(pagesize)));
 }
 
 // request_kernel_id()'s / upload_kernel()'s post-upload poll's "kernel alive"
@@ -190,8 +154,7 @@ bytes::Bytes read_eeprom_request(std::uint32_t request_id, std::uint8_t mode, st
 // big-endian, received[8] == SUB_KERNEL_ID | 0x40.
 bool looks_kernel_alive(bytes::ByteView received)
 {
-    return received.size() > 8 && received[4] == static_cast<bytes::Byte>((kSubKernelStartComm >> 8) & 0xFF) &&
-           received[5] == static_cast<bytes::Byte>(kSubKernelStartComm & 0xFF) &&
+    return received.size() > 8 && bytes::readU16Be(received, 4) == kSubKernelStartComm &&
            received[8] == static_cast<bytes::Byte>(kSubKernelId | 0x40);
 }
 
@@ -271,12 +234,7 @@ bytes::Bytes generate_ecutek_racerom_can_seed_key(bytes::ByteView seed)
     constexpr std::uint64_t d = 0x0A863281ULL;
     constexpr std::uint64_t n = 0x0fda9293ULL;
     const std::uint32_t decrypted = static_cast<std::uint32_t>(decrypt_racerom_seed(seed_word, d, n));
-    return {
-        static_cast<bytes::Byte>((decrypted >> 24) & 0xFF),
-        static_cast<bytes::Byte>((decrypted >> 16) & 0xFF),
-        static_cast<bytes::Byte>((decrypted >> 8) & 0xFF),
-        static_cast<bytes::Byte>(decrypted & 0xFF),
-    };
+    return composeBe(decrypted);
 }
 
 // encrypt_payload(), lines 1314-1330: this class's OWN key table --
@@ -754,10 +712,7 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(
                    (static_cast<std::uint32_t>(buf[i + 2]) << 8) | static_cast<std::uint32_t>(buf[i + 3]);
     }
     chk_sum = 0x5aa5a55au - chk_sum;
-    buf.push_back(static_cast<bytes::Byte>((chk_sum >> 24) & 0xFF));
-    buf.push_back(static_cast<bytes::Byte>((chk_sum >> 16) & 0xFF));
-    buf.push_back(static_cast<bytes::Byte>((chk_sum >> 8) & 0xFF));
-    buf.push_back(static_cast<bytes::Byte>(chk_sum & 0xFF));
+    bytes::appendU32Be(buf, chk_sum);
     const bytes::Bytes encrypted = encrypt_can_kernel_payload(buf, static_cast<std::uint32_t>(buf.size()));
 
     events.log(LogLevel::Info, "Initialize kernel upload");
