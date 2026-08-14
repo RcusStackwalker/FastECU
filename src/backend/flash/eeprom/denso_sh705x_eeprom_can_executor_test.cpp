@@ -119,6 +119,41 @@ bytes::Bytes sid31StartRoutineRequest()
 {
     return {0x00, 0x00, 0x07, 0xE0, 0x31, 0x01, 0x02, 0x02, 0x02};
 }
+
+// Anchors three helpers against hardcoded wire bytes -- each became the same
+// composeBe expression as its production counterpart in
+// denso_sh705x_eeprom_can_executor.cpp, so a width bug in u24() or composeBe
+// would move both sides together and hide behind a passing suite. CAN frames
+// here carry no checksum, so this is a pure width/order check.
+//
+// The CAN ID prefix is kRequestId (0x7E0) encoded as a 4-byte big-endian
+// std::uint32_t: [0x00, 0x00, 0x07, 0xE0].
+
+// seedKeySendRequest({0x33, 0x44}): payload = [0x27, 0x02, 0x33, 0x44].
+TEST(DensoSh705xEepromCanExecutorTest, SeedKeySendRequestMatchesHardcodedWireBytes)
+{
+    EXPECT_EQ(seedKeySendRequest(bytes::Bytes{0x33, 0x44}),
+              (bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x27, 0x02, 0x33, 0x44}));
+}
+
+// sid34RequestDownloadRequest(0x002000, 0x000040):
+// payload = [0x34, 0x04, 0x33, u24(0x002000), u24(0x000040)]
+//         = [0x34, 0x04, 0x33, 0x00, 0x20, 0x00, 0x00, 0x00, 0x40].
+TEST(DensoSh705xEepromCanExecutorTest, Sid34RequestDownloadRequestMatchesHardcodedWireBytes)
+{
+    EXPECT_EQ(sid34RequestDownloadRequest(0x002000, 0x000040),
+              (bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x34, 0x04, 0x33, 0x00, 0x20, 0x00, 0x00, 0x00,
+                            0x40}));
+}
+
+// sidB6TransferBlockRequest(0x003000, {0x55, 0x66, 0x77}):
+// payload = [0xB6, u24(0x003000), 0x55, 0x66, 0x77]
+//         = [0xB6, 0x00, 0x30, 0x00, 0x55, 0x66, 0x77].
+TEST(DensoSh705xEepromCanExecutorTest, SidB6TransferBlockRequestMatchesHardcodedWireBytes)
+{
+    EXPECT_EQ(sidB6TransferBlockRequest(0x003000, bytes::Bytes{0x55, 0x66, 0x77}),
+              (bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0xB6, 0x00, 0x30, 0x00, 0x55, 0x66, 0x77}));
+}
 // read_mem(), for McuType "SH7055" (eblocks_SH7055[0] == {start=0,
 // len=0x100}): reduces to a single request with addr=0, pagesize=0x100.
 bytes::Bytes sidReadEepromRequestForSh7055(std::uint8_t eepromMode)

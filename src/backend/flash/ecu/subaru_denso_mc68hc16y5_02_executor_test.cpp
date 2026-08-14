@@ -158,6 +158,27 @@ bytes::Bytes framed(std::uint8_t opcode, bytes::ByteView extra = {})
                                  bytes::Byte(opcode), extra);
 }
 
+// Anchors framed() against hardcoded wire bytes so a bug in composeBeWithChecksum
+// (e.g. the wrong checksum span) cannot move both this helper and the
+// production frame() it stands in for together and hide behind a passing suite.
+//
+// framed(0x01): [0xBE, 0xEF, len_hi, len_lo, 0x01], datalen_plus_one = 0+1 = 1.
+// Checksum (sum8) over [0xBE, 0xEF, 0x00, 0x01, 0x01]:
+//   0xBE + 0xEF + 0x00 + 0x01 + 0x01 = 0x1AF -> & 0xFF = 0xAF.
+TEST(SubaruDensoMc68hc16y5_02Executor, FramedHelperMatchesHardcodedWireBytesNoPayload)
+{
+    EXPECT_EQ(framed(0x01), (bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x01, 0xAF}));
+}
+
+// framed(0x02, {0xAB, 0xCD}): datalen_plus_one = 2+1 = 3.
+// Checksum (sum8) over [0xBE, 0xEF, 0x00, 0x03, 0x02, 0xAB, 0xCD]:
+//   0xBE + 0xEF + 0x00 + 0x03 + 0x02 + 0xAB + 0xCD = 0x32A -> & 0xFF = 0x2A.
+TEST(SubaruDensoMc68hc16y5_02Executor, FramedHelperMatchesHardcodedWireBytesWithPayload)
+{
+    EXPECT_EQ(framed(0x02, bytes::Bytes{0xAB, 0xCD}),
+              (bytes::Bytes{0xBE, 0xEF, 0x00, 0x03, 0x02, 0xAB, 0xCD, 0x2A}));
+}
+
 bytes::Bytes stock_upload_request()
 {
     return {
