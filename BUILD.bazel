@@ -59,6 +59,7 @@ genquery(
         "//src/backend/flash/ecu:subaru_denso_sh7055_02_plan",
         "//src/backend/flash/ecu:subaru_denso_sh7055_02_executor",
         "//src/backend/protocol:protocol",
+        "//src/backend/protocol/uds:uds_client",
         "//src/backend/config:config_paths",
         "//src/backend/config:app_config",
         "//src/backend/config:protocol_catalog",
@@ -108,6 +109,7 @@ genquery(
         "//src/backend/flash/ecu:subaru_denso_sh7055_02_plan",
         "//src/backend/flash/ecu:subaru_denso_sh7055_02_executor",
         "//src/backend/protocol",
+        "//src/backend/protocol/uds:uds_client",
         "//src/backend/config:config_paths",
         "//src/backend/config:app_config",
         "//src/backend/config:protocol_catalog",
@@ -165,6 +167,7 @@ py_test(
         "//src/backend/logging/protocols:BUILD.bazel",
         "//src/backend/ports:BUILD.bazel",
         "//src/backend/protocol:BUILD.bazel",
+        "//src/backend/protocol/uds:BUILD.bazel",
     ],
     main = "scripts/check-portable-closure.py",
 )

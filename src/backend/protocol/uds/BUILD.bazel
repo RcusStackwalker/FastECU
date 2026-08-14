@@ -1,0 +1,42 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+
+package(default_visibility = [
+    "//src/backend:__subpackages__",
+    "//src/platform:__subpackages__",
+    "//src/ui:__subpackages__",
+    "//tests:__pkg__",
+])
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//:__pkg__"],
+)
+
+# Portable. No Qt, no platform, no filesystem, no thread.
+cc_library(
+    name = "uds_client",
+    srcs = ["uds_client.cpp"],
+    hdrs = [
+        "iuds_channel.h",
+        "uds_client.h",
+    ],
+    deps = [
+        "//src/algorithms/diagnostics",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/uds",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "uds_client_test",
+    srcs = ["uds_client_test.cpp"],
+    deps = [
+        ":uds_client",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/protocol/uds/testing:scripted_uds_channel",
+    ],
+)

@@ -1,0 +1,25 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+
+package(
+    default_testonly = True,
+    default_visibility = [
+        "//src:__subpackages__",
+        "//tests:__pkg__",
+    ],
+)
+
+cc_library(
+    name = "scripted_uds_channel",
+    hdrs = ["scripted_uds_channel.h"],
+    deps = ["//src/backend/protocol/uds:uds_client"],
+)
+
+fastecu_portable_gtest(
+    name = "scripted_uds_channel_test",
+    srcs = ["scripted_uds_channel_test.cpp"],
+    deps = [
+        ":scripted_uds_channel",
+        "//src/backend/ports/testing:fake_cancellation_token",
+    ],
+)
