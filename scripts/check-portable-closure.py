@@ -53,6 +53,7 @@ PORTABLE_ROOTS = {
         "flash_validation",
         "flash_executor",
         "flash_device_lookup",
+        "can_flash_uds_channel",
     },
     ROOT / "src/backend/flash/eeprom": {
         "denso_sh705x_eeprom_common",
