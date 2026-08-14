@@ -235,11 +235,6 @@ void script_read_page(ScriptedKlineFlashTransport& transport, std::uint32_t addr
     transport.queueRead(framed(response_opcode, bytes::Bytes(0x400, fill)));
 }
 
-bytes::Bytes u32_be(std::uint32_t value)
-{
-    return composeBe(value);
-}
-
 std::size_t packed_block_offset(const flashdev_t& device, unsigned block_no)
 {
     std::size_t offset = 0;
@@ -267,7 +262,7 @@ void script_crc_compare(ScriptedKlineFlashTransport& transport, const flashdev_t
         {
             ecu_crc ^= 0x00000001u;
         }
-        transport.queueRead(framed(0x42, u32_be(ecu_crc)));
+        transport.queueRead(framed(0x42, composeBe(ecu_crc)));
         transport.queue_no_frame();
         image_offset += block.len;
     }
@@ -303,7 +298,7 @@ void script_block_transfer(ScriptedKlineFlashTransport& transport, const flashde
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:950-992.
     if (!test_write)
     {
-        transport.expectWrite(framed(0x25, u32_be(block.start)));
+        transport.expectWrite(framed(0x25, composeBe(block.start)));
         transport.queueRead(framed(0x65));
     }
 
@@ -311,7 +306,11 @@ void script_block_transfer(ScriptedKlineFlashTransport& transport, const flashde
     for (std::uint32_t offset = 0; offset < block.len; offset += kChunkSize)
     {
         const std::uint32_t address = block.start + offset;
-        bytes::Bytes write_payload = u32_be(address);
+        // The image bytes are spliced with a raw insert rather than folded into
+        // composeBe: production builds this frame as composeBe(address, subspan),
+        // so folding would make both sides the same expression and a bug in the
+        // splice would cancel out instead of failing the test.
+        bytes::Bytes write_payload = composeBe(address);
         write_payload.insert(write_payload.end(), image.begin() + block_image_offset + offset,
                              image.begin() + block_image_offset + offset + kChunkSize);
         transport.expectWrite(framed(0x22, write_payload));
@@ -323,11 +322,12 @@ void script_block_transfer(ScriptedKlineFlashTransport& transport, const flashde
             const std::uint32_t commit_address = block.start + commit_offset;
             const std::uint32_t commit_crc = fastecu::checksum::crc32(
                 image.data() + block_image_offset + commit_offset, kCommitSize);
-            bytes::Bytes commit_payload = u32_be(commit_address);
-            commit_payload.push_back(0x10);
-            commit_payload.push_back(0x00);
-            bytes::Bytes crc = u32_be(commit_crc);
-            commit_payload.insert(commit_payload.end(), crc.begin(), crc.end());
+            // 0x10, 0x00 stay two byte literals: production spells this field
+            // std::uint16_t(kCommitBlockSize), so the width derivation is not
+            // shared and a byte-order bug in appendU16Be would fail this test
+            // rather than move both sides together.
+            const bytes::Bytes commit_payload =
+                composeBe(commit_address, 0x10_b, 0x00_b, commit_crc);
             const std::uint8_t commit_opcode = test_write ? 0x23 : 0x24;
             transport.expectWrite(framed(commit_opcode, commit_payload));
             transport.queueRead(framed(static_cast<std::uint8_t>(commit_opcode | 0x40)));
@@ -348,7 +348,9 @@ bytes::Bytes write_chunk_request(const flashdev_t& device, bytes::ByteView image
 {
     constexpr std::uint32_t kChunkSize = 0x200;
     const auto& block = device.fblocks[block_no];
-    bytes::Bytes payload = u32_be(block.start + offset);
+    // Raw insert, not a composeBe splice — see script_write_prefix for why the
+    // image bytes must not share production's compose expression.
+    bytes::Bytes payload = composeBe(block.start + offset);
     const std::size_t image_offset = packed_block_offset(device, block_no) + offset;
     payload.insert(payload.end(), image.begin() + image_offset,
                    image.begin() + image_offset + kChunkSize);
@@ -364,7 +366,7 @@ void script_write_prefix(ScriptedKlineFlashTransport& transport, const flashdev_
     script_prog_volt(transport);
     if (!test_write)
     {
-        transport.expectWrite(framed(0x25, u32_be(device.fblocks[block_no].start)));
+        transport.expectWrite(framed(0x25, composeBe(device.fblocks[block_no].start)));
         transport.queueRead(framed(0x65));
     }
 }
@@ -1121,7 +1123,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteFailsOnRejectedEraseResponse)
     script_flash_init(transport, false);
     script_prog_volt(transport);
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:950-987.
-    transport.expectWrite(framed(0x25, u32_be(device->fblocks[kDifferingBlock].start)));
+    transport.expectWrite(framed(0x25, composeBe(device->fblocks[kDifferingBlock].start)));
     transport.queueRead(framed(0x64));
 
     FakeClock clock;
@@ -1153,7 +1155,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteCancelsMidBlockTransfer)
     script_flash_init(transport, false);
     script_prog_volt(transport);
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:950-1000.
-    transport.expectWrite(framed(0x25, u32_be(device->fblocks[kDifferingBlock].start)));
+    transport.expectWrite(framed(0x25, composeBe(device->fblocks[kDifferingBlock].start)));
     transport.queueRead(framed(0x65));
 
     FakeClock clock;
@@ -1182,15 +1184,14 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt
     for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
     {
         const auto& block = device->fblocks[block_no];
-        bytes::Bytes request_payload = u32_be(block.start);
-        request_payload.push_back(0x00);
-        request_payload.push_back(0x00);
-        request_payload.push_back(0x40);
-        request_payload.push_back(0x00);
-        transport.expectWrite(framed(0x02, request_payload));
+        // The trailing four bytes stay byte literals: production spells the
+        // same field 0x00_b followed by u24(block.length), so this expectation
+        // keeps its own derivation of the length encoding.
+        transport.expectWrite(
+            framed(0x02, composeBe(block.start, 0x00_b, 0x00_b, 0x40_b, 0x00_b)));
         const std::uint32_t crc =
             fastecu::checksum::crc32(image.data() + image_offset, block.len);
-        bytes::Bytes response = framed(0x42, u32_be(crc));
+        bytes::Bytes response = framed(0x42, composeBe(crc));
         if (block_no == 0)
         {
             transport.queueRead(bytes::ByteView(response).first(6));
@@ -1230,19 +1231,18 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead
     for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
     {
         const auto& block = device->fblocks[block_no];
-        bytes::Bytes request_payload = u32_be(block.start);
-        request_payload.insert(request_payload.end(), {0x00, 0x00, 0x40, 0x00});
-        transport.expectWrite(framed(0x02, request_payload));
+        transport.expectWrite(
+            framed(0x02, composeBe(block.start, 0x00_b, 0x00_b, 0x40_b, 0x00_b)));
         const std::uint32_t crc =
             fastecu::checksum::crc32(image.data() + image_offset, block.len);
         if (block_no == 0)
         {
             transport.queue_no_frame();
-            transport.queueRead(framed(0x42, u32_be(crc)));
+            transport.queueRead(framed(0x42, composeBe(crc)));
         }
         else
         {
-            transport.queueRead(framed(0x42, u32_be(crc)));
+            transport.queueRead(framed(0x42, composeBe(crc)));
         }
         transport.queue_no_frame();
         image_offset += block.len;
@@ -1325,7 +1325,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WritePropagatesBlockCrcDrainError)
     transport.expectWrite(framed(0x02, bytes::Bytes{0x00, 0x00, 0x00, 0x00,
                                                     0x00, 0x00, 0x40, 0x00}));
     const std::uint32_t crc = fastecu::checksum::crc32(image.data(), 0x4000);
-    transport.queueRead(framed(0x42, u32_be(crc)));
+    transport.queueRead(framed(0x42, composeBe(crc)));
     transport.queue_error(ErrorKind::Disconnected, "CRC drain failed");
 
     FakeClock clock;
@@ -1382,11 +1382,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteFailsOnRejectedCommitResponse)
     const std::uint32_t start = device->fblocks[kBlock].start;
     const std::uint32_t crc = fastecu::checksum::crc32(
         image.data() + packed_block_offset(*device, kBlock), 0x1000);
-    bytes::Bytes commit_payload = u32_be(start);
-    commit_payload.insert(commit_payload.end(), {0x10, 0x00});
-    bytes::Bytes crc_bytes = u32_be(crc);
-    commit_payload.insert(commit_payload.end(), crc_bytes.begin(), crc_bytes.end());
-    transport.expectWrite(framed(0x24, commit_payload));
+    transport.expectWrite(framed(0x24, composeBe(start, 0x10_b, 0x00_b, crc)));
     transport.queueRead(bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x64});
 
     FakeClock clock;
@@ -1418,11 +1414,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, TestWriteFailsOnRejectedValidateResponse)
     const std::uint32_t start = device->fblocks[kBlock].start;
     const std::uint32_t crc = fastecu::checksum::crc32(
         image.data() + packed_block_offset(*device, kBlock), 0x1000);
-    bytes::Bytes validate_payload = u32_be(start);
-    validate_payload.insert(validate_payload.end(), {0x10, 0x00});
-    bytes::Bytes crc_bytes = u32_be(crc);
-    validate_payload.insert(validate_payload.end(), crc_bytes.begin(), crc_bytes.end());
-    transport.expectWrite(framed(0x23, validate_payload));
+    transport.expectWrite(framed(0x23, composeBe(start, 0x10_b, 0x00_b, crc)));
     transport.queueRead(bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x63});
 
     FakeClock clock;

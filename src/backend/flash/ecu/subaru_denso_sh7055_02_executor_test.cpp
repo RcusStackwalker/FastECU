@@ -236,17 +236,9 @@ bytes::Bytes exact_upload_request()
             0x64, 0x67, 0x66, 0x61, 0x60, 0x65, 0x65, 0x65, 0xDF};
 }
 
-bytes::Bytes u32_be(std::uint32_t value)
-{
-    return composeBe(value);
-}
-
 bytes::Bytes crc_response(std::uint32_t crc)
 {
-    bytes::Bytes payload{0x05};
-    bytes::Bytes crc_bytes = u32_be(crc);
-    payload.insert(payload.end(), crc_bytes.begin(), crc_bytes.end());
-    return framed(0x42, payload);
+    return framed(0x42, composeBe(0x05_b, crc));
 }
 
 void script_read_page(ScriptedKlineFlashTransport& transport, std::uint32_t address,
@@ -359,7 +351,11 @@ bytes::Bytes write_chunk_request(const flashdev_t& device, bytes::ByteView image
 {
     constexpr std::uint32_t kChunkSize = 0x200;
     const auto& block = device.fblocks[block_no];
-    bytes::Bytes payload = u32_be(block.start + offset);
+    // The image bytes are spliced with a raw insert rather than folded into
+    // composeBe: production builds this frame as composeBe(address, subspan),
+    // so folding would make both sides the same expression and a bug in the
+    // splice would cancel out instead of failing the test.
+    bytes::Bytes payload = composeBe(block.start + offset);
     payload.insert(payload.end(), image.begin() + block.start + offset,
                    image.begin() + block.start + offset + kChunkSize);
     return framed(0x22, payload);
@@ -373,11 +369,11 @@ bytes::Bytes commit_request(const flashdev_t& device, bytes::ByteView image,
     const std::uint32_t address = block.start + offset;
     const std::uint32_t crc = fastecu::checksum::crc32(
         bytes::ByteView(image).subspan(address, kCommitSize));
-    bytes::Bytes payload = u32_be(address);
-    payload.insert(payload.end(), {0x10, 0x00});
-    bytes::Bytes crc_bytes = u32_be(crc);
-    payload.insert(payload.end(), crc_bytes.begin(), crc_bytes.end());
-    return framed(test_write ? 0x23 : 0x24, payload);
+    // 0x10, 0x00 stay two byte literals: production spells this field
+    // std::uint16_t(kCommitBlockSize), so the width derivation is not shared
+    // and a byte-order bug in appendU16Be would fail this test rather than
+    // move both sides together.
+    return framed(test_write ? 0x23 : 0x24, composeBe(address, 0x10_b, 0x00_b, crc));
 }
 
 void script_block_transfer(ScriptedKlineFlashTransport& transport, const flashdev_t& device,
@@ -388,7 +384,7 @@ void script_block_transfer(ScriptedKlineFlashTransport& transport, const flashde
     const auto& block = device.fblocks[block_no];
     if (!test_write)
     {
-        transport.expectWrite(framed(0x25, u32_be(block.start)));
+        transport.expectWrite(framed(0x25, composeBe(block.start)));
         transport.queueRead(framed(0x65));
     }
     for (std::uint32_t offset = 0; offset < block.len; offset += kChunkSize)
@@ -416,7 +412,7 @@ void script_write_prefix(ScriptedKlineFlashTransport& transport, const flashdev_
     script_prog_volt(transport);
     if (!test_write)
     {
-        transport.expectWrite(framed(0x25, u32_be(device.fblocks[block_no].start)));
+        transport.expectWrite(framed(0x25, composeBe(device.fblocks[block_no].start)));
         transport.queueRead(framed(0x65));
     }
 }
@@ -882,7 +878,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedEraseResponse)
     script_crc_compare(transport, *device, image, kDifferingBlock);
     script_flash_init(transport, false);
     script_prog_volt(transport);
-    transport.expectWrite(framed(0x25, u32_be(device->fblocks[kDifferingBlock].start)));
+    transport.expectWrite(framed(0x25, composeBe(device->fblocks[kDifferingBlock].start)));
     transport.queueRead(framed(0x64));
 
     RecordingClock clock;
@@ -913,7 +909,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteCancelsMidBlockTransfer)
     script_crc_compare(transport, *device, image, kDifferingBlock);
     script_flash_init(transport, false);
     script_prog_volt(transport);
-    transport.expectWrite(framed(0x25, u32_be(device->fblocks[kDifferingBlock].start)));
+    transport.expectWrite(framed(0x25, composeBe(device->fblocks[kDifferingBlock].start)));
     transport.queueRead(framed(0x65));
 
     FakeClock clock;
