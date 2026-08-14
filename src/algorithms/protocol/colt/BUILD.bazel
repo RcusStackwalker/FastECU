@@ -22,14 +22,20 @@ cc_library(
     name = "mitsu_colt_can_protocol",
     srcs = ["mitsu_colt_can_protocol.cpp"],
     hdrs = ["mitsu_colt_can_protocol.h"],
-    deps = ["//src/algorithms/protocol"],
+    deps = [
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/uds",
+    ],
 )
 
 cc_library(
     name = "mitsu_colt_can_vendor_ext_protocol",
     srcs = ["mitsu_colt_can_vendor_ext_protocol.cpp"],
     hdrs = ["mitsu_colt_can_vendor_ext_protocol.h"],
-    deps = ["//src/algorithms/protocol"],
+    deps = [
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/uds",
+    ],
 )
 
 cc_library(
