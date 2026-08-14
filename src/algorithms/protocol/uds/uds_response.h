@@ -33,7 +33,7 @@ struct Response
     // only caller is UdsClient, which parses a buffer it owns for the whole
     // call; executors receive an owning Bytes from UdsClient::request and read
     // it with payload()/subfunction() below.
-    bytes::ByteView data{};
+    bytes::ByteView data;
 
     bool isPending() const
     {
