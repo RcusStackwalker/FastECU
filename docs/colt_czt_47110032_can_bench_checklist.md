@@ -94,12 +94,35 @@ the parent workspace, but it is not part of this repository.
    either applicable erase is reported without another write attempt, and
    recover the ECU using the verified procedure before continuing.
 
-7. **Post-write validation.** After each capacity/security combination,
-   power-cycle the ECU, repeat the matching full zero-based read, and compare
-   its SHA-256 hash and the capacity-boundary sample bytes with the intended
-   image. Record date, ECU identity, adapter identity, selected protocol,
-   operator, image hash, read-back hash, and pass/fail result.
+7. **responsePending (NRC 0x78) handling.** The erase and CRC-check routines
+   are the exchanges most likely to make the ECU report responsePending.
+   Confirm the operation completes rather than aborting, and that the debug
+   log shows one "responsePending" line per absorbed reply. This path has no
+   hardware evidence behind it; it was added with the UDS layer and is
+   verified only by scripted tests.
 
-8. **Only after Steps 1-7 pass repeatably for both capacities and both
-   authorization variants on a bench/spare ECU**, consider use on a real
-   vehicle.
+8. **CAN reply-id validation.** `CanFlashUdsChannel` now rejects any reply
+   frame whose arbitration id does not match the expected response id;
+   before this branch such a frame was accepted silently. Confirm normal
+   operation across all four protocols produces no spurious reply-id
+   rejections in the debug log.
+
+9. **Absorbed-pending exchange duration.** With the current `ExchangePolicy`
+   defaults (`pending_timeout_ms = 3000`, `max_pending_repeats = 10`), an
+   exchange that exhausts all absorbed responsePending retries can take up
+   to `read_timeout_ms + max_pending_repeats × pending_timeout_ms` before it
+   fails — about 33 seconds at the erase and CRC-check sites
+   (`3000 ms + 10 × 3000 ms`). Expect the UI to appear stalled for up to
+   that long during erase or CRC check, and wait rather than pulling power:
+   a stall this long mid-erase is exactly the situation that bricks a unit
+   if interrupted.
+
+10. **Post-write validation.** After each capacity/security combination,
+    power-cycle the ECU, repeat the matching full zero-based read, and
+    compare its SHA-256 hash and the capacity-boundary sample bytes with the
+    intended image. Record date, ECU identity, adapter identity, selected
+    protocol, operator, image hash, read-back hash, and pass/fail result.
+
+11. **Only after Steps 1-10 pass repeatably for both capacities and both
+    authorization variants on a bench/spare ECU**, consider use on a real
+    vehicle.
