@@ -25,6 +25,8 @@ std::string_view FlashPlan::experimental_family_id() const
         return "SubaruHitachiM32rCan";
     case FlashFamily::SubaruTcuCvtHitachiM32rCan:
         return "SubaruTcuCvtHitachiM32rCan";
+    case FlashFamily::SubaruTcuCvtMitsuMh8111Can:
+        return "SubaruTcuCvtMitsuMh8111Can";
     }
     return "Unknown";
 }

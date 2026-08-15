@@ -69,6 +69,13 @@ cc_library(
     hdrs = ["subaru_tcu_cvt_hitachi_m32r_can_types.h"],
 )
 
+# Portable. No Qt, no platform, no filesystem, no thread. See
+# mitsu_colt_m32r_can_types for the no-flash_types.h-dependency rule.
+cc_library(
+    name = "subaru_tcu_cvt_mitsu_mh8111_can_types",
+    hdrs = ["subaru_tcu_cvt_mitsu_mh8111_can_types.h"],
+)
+
 cc_library(
     name = "subaru_hitachi_m32r_kline_plan",
     srcs = ["subaru_hitachi_m32r_kline_plan.cpp"],
@@ -342,6 +349,25 @@ fastecu_portable_gtest(
     name = "subaru_tcu_cvt_hitachi_m32r_can_plan_test",
     srcs = ["subaru_tcu_cvt_hitachi_m32r_can_plan_test.cpp"],
     deps = [":subaru_tcu_cvt_hitachi_m32r_can_plan"],
+)
+
+cc_library(
+    name = "subaru_tcu_cvt_mitsu_mh8111_can_plan",
+    srcs = ["subaru_tcu_cvt_mitsu_mh8111_can_plan.cpp"],
+    hdrs = ["subaru_tcu_cvt_mitsu_mh8111_can_plan.h"],
+    deps = [
+        "//src/backend/definitions:models",
+        "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_tcu_cvt_mitsu_mh8111_can_plan_test",
+    srcs = ["subaru_tcu_cvt_mitsu_mh8111_can_plan_test.cpp"],
+    deps = [":subaru_tcu_cvt_mitsu_mh8111_can_plan"],
 )
 
 # Portable. No Qt, no platform, no filesystem, no thread.
