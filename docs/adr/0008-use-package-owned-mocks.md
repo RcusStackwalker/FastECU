@@ -2,10 +2,7 @@
 
 ## Status
 
-Accepted.
-
-Recorded as Proposed, but stated as binding in CLAUDE.md and followed by the
-packages that have been converted; the status is now aligned with practice.
+Accepted
 
 ## Context
 
