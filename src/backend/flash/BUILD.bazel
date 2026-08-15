@@ -87,9 +87,6 @@ fastecu_portable_gtest(
     deps = [":flash_executor"],
 )
 
-# Portable. Adapts the ISO-15765 flash transport to the PDU-level UDS channel:
-# adds and strips the 4-byte CAN arbitration-id envelope so nothing above it
-# indexes past a header.
 cc_library(
     name = "can_flash_uds_channel",
     srcs = ["can_flash_uds_channel.cpp"],

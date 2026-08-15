@@ -9,17 +9,11 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
-# root //:portable_closure reads this file as `data` to check that portable
-# algorithms targets stay Qt-free; that reference is plumbing, not a layer
-# dependency, so export it to the root package specifically rather than
-# widen the package's general default_visibility.
 exports_files(
     ["BUILD.bazel"],
     visibility = ["//:__pkg__"],
 )
 
-# Portable. Declares no QT_DEPS -- Bazel's sandbox therefore keeps Qt headers
-# off the include path, so any residual Qt include fails to compile.
 cc_library(
     name = "uds",
     srcs = [
