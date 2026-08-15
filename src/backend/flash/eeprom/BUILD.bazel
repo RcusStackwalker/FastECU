@@ -19,6 +19,14 @@ exports_files(
 # now glob zero sources -- has been removed entirely. This package is fully
 # portable: no Qt, no platform, no filesystem, no thread in any target below.
 
+# Portable. No Qt, no platform, no filesystem, no thread. Leaf types header
+# with no dependency on flash_types.h/flash_plan.h -- flash_types.h includes
+# this to assemble FamilyPlan, so the dependency only ever runs this way.
+cc_library(
+    name = "denso_sh705x_eeprom_types",
+    hdrs = ["denso_sh705x_eeprom_types.h"],
+)
+
 # Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
     name = "denso_sh705x_eeprom_common",
