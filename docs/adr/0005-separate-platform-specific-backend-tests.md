@@ -42,12 +42,8 @@ Costs and risks:
 - New platform files must be added to the correct `*_UNIX_*` or `*_WIN32_*`
   manifest and exercised on that CI platform.
 
-## Guardrails
+## Notes
 
-- Do not add `openpty` or other Unix-only APIs to common backend test sources.
-- Add Unix-only backend tests to the relevant `*_UNIX_SRCS` and
-  `*_UNIX_HDRS` Bazel lists.
-- Keep common test runners limited to one small platform branch when they must
-  call a platform-specific entry point.
-- Run `//:openpty_includes` and the Windows/macOS/Linux Bazel test matrix when
-  moving platform-specific tests.
+The concrete rules this implies for test authors — which Bazel source list a
+file belongs in, and which guard verifies it — are in
+[the coding style guide](../coding-style.md).

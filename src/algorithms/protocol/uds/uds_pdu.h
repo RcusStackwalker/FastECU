@@ -50,7 +50,7 @@ constexpr bytes::Byte requestFromPositive(bytes::Byte positive_sid)
 // own named parameter position. `buildRequest(kServiceSecurityAccess, 0x05_b)`
 // is then unambiguous on sight.
 //
-// A family builder may compose its own frames with bytes::composeBe (ADR 0013)
+// A family builder may compose its own frames with bytes::composeBe
 // or delegate to these -- MitsuColtCan's builders delegate, which is what puts
 // the [SID][...] shape in one place instead of one per service.
 bytes::Bytes buildRequest(bytes::Byte sid);
