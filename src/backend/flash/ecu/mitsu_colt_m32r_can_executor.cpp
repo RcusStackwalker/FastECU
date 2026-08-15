@@ -119,6 +119,43 @@ void error(Ctx& ctx, std::string_view message)
     ctx.events.log(LogLevel::Error, message);
 }
 
+// The single reporting point for every failed exchange below, because two
+// kinds of failure mean opposite things to whoever reads the log.
+//
+// A rejection is the ECU's own answer: the request went out and came back
+// refused (or the bus failed under it), and `failure.detail` says why. That
+// keeps the legacy message, `rejection_prefix` first.
+//
+// A cancellation is the operator's stop and says NOTHING about what the ECU
+// did. UdsClient checks the token before transmitting and again while waiting
+// for the reply, so a cancelled exchange may or may not have been sent -- and
+// a cancel between the erase trigger's transmission and its reply leaves the
+// erase RUNNING in the ECU. Calling that "rejected" would tell the operator
+// the unit is idle at precisely the moment bench checklist step 6 asks them
+// to decide whether to power-cycle it. So cancellation gets its own line,
+// which names the operator as the cause, does not blame the ECU, and does not
+// claim the ECU never acted. It also avoids the dangling "...rejected: " that
+// a cancellation's empty detail used to produce.
+//
+// `operation` names what was being asked of the ECU, phrased to read after
+// "during": "the erase trigger", "TransferData to 0x8000".
+Error report_exchange_failure(Ctx& ctx, const Error& failure,
+                              std::string_view rejection_prefix, std::string_view operation)
+{
+    if (failure.kind == ErrorKind::Cancelled)
+    {
+        ctx.events.log(LogLevel::Warning,
+                       std::format("Cancelled by operator during {} -- this is not an ECU "
+                                   "rejection. The request may already have reached the ECU "
+                                   "and still be running there; check the unit before "
+                                   "power-cycling it.",
+                                   operation));
+        return failure;
+    }
+    error(ctx, std::format("{}{}", rejection_prefix, failure.detail));
+    return failure;
+}
+
 // Legacy connect_bootloader, flash_ecu_mitsu_m32r_can_operation.cpp:66-168.
 // The legacy `is_serial_port_open()` guard (lines 74-78) has no equivalent:
 // execute() below opens the transport through the port and propagates that
@@ -137,8 +174,9 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
                             ctx.cancellation);
         if (!received.has_value())
         {
-            error(ctx, std::format("Wrong response from ECU: {}", received.error().detail));
-            return std::unexpected(received.error());
+            return std::unexpected(report_exchange_failure(ctx, received.error(),
+                                                           "Wrong response from ECU: ",
+                                                           "the basic diagnostic session"));
         }
         if (uds::subfunction(*received) != kSessionBasic)
         {
@@ -154,9 +192,10 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
                                    ctx.cancellation);
         if (!received.has_value())
         {
-            error(ctx, std::format("Wrong vendor challenge response from ECU: {}",
-                                   received.error().detail));
-            return std::unexpected(received.error());
+            return std::unexpected(
+                report_exchange_failure(ctx, received.error(),
+                                        "Wrong vendor challenge response from ECU: ",
+                                        "the vendor challenge seed request"));
         }
         // Line 91: the reply must carry the two selector bytes plus a 4-byte
         // seed after them (legacy "length > 10" on the enveloped frame).
@@ -185,9 +224,9 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
                                    ctx.cancellation);
         if (!received.has_value())
         {
-            error(ctx,
-                  std::format("Vendor challenge key rejected: {}", received.error().detail));
-            return std::unexpected(received.error());
+            return std::unexpected(report_exchange_failure(ctx, received.error(),
+                                                           "Vendor challenge key rejected: ",
+                                                           "the vendor challenge key"));
         }
         // Echoing the selector is not acceptance: only kVendorChallengeAccepted
         // grants the transition, so this stays a content check of its own.
@@ -212,8 +251,8 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
                         ctx.cancellation);
     if (!received.has_value())
     {
-        error(ctx, std::format("Wrong response from ECU: {}", received.error().detail));
-        return std::unexpected(received.error());
+        return std::unexpected(report_exchange_failure(
+            ctx, received.error(), "Wrong response from ECU: ", "the diagnostic session"));
     }
     if (uds::subfunction(*received) != family.session_id)
     {
@@ -235,8 +274,9 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
                                ctx.cancellation);
     if (!received.has_value())
     {
-        error(ctx, std::format("Wrong response from ECU: {}", received.error().detail));
-        return std::unexpected(received.error());
+        return std::unexpected(report_exchange_failure(ctx, received.error(),
+                                                       "Wrong response from ECU: ",
+                                                       "the security access seed request"));
     }
     // The seed level byte plus the 4 seed bytes behind it (legacy "length > 9"
     // on the enveloped frame).
@@ -261,8 +301,8 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
                                ctx.cancellation);
     if (!received.has_value())
     {
-        error(ctx, std::format("Wrong response from ECU: {}", received.error().detail));
-        return std::unexpected(received.error());
+        return std::unexpected(report_exchange_failure(
+            ctx, received.error(), "Wrong response from ECU: ", "the security access key"));
     }
     if (uds::subfunction(*received) != kSecurityAccessKeyLevel)
     {
@@ -307,9 +347,9 @@ Result<bytes::Bytes> read_flash_range(Ctx& ctx, std::uint32_t start_addr, std::u
                             ctx.cancellation);
         if (!received.has_value())
         {
-            error(ctx, std::format("Wrong response from ECU at 0x{:x}: {}", addr,
-                                   received.error().detail));
-            return std::unexpected(received.error());
+            return std::unexpected(report_exchange_failure(
+                ctx, received.error(), std::format("Wrong response from ECU at 0x{:x}: ", addr),
+                std::format("the flash read at 0x{:x}", addr)));
         }
         // Line 196: the reply must carry the whole chunk it was asked for. A
         // short one is refused rather than padded -- silently accepting it
@@ -351,9 +391,9 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data,
                         ctx.cancellation);
     if (!received.has_value())
     {
-        error(ctx, std::format("RequestDownload to 0x{:x} rejected: {}", start,
-                               received.error().detail));
-        return std::unexpected(received.error());
+        return std::unexpected(report_exchange_failure(
+            ctx, received.error(), std::format("RequestDownload to 0x{:x} rejected: ", start),
+            std::format("RequestDownload to 0x{:x}", start)));
     }
 
     // Lines 248-260.
@@ -365,9 +405,9 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data,
             ctx.cancellation);
         if (!received.has_value())
         {
-            error(ctx, std::format("TransferData to 0x{:x} rejected: {}", start,
-                                   received.error().detail));
-            return std::unexpected(received.error());
+            return std::unexpected(report_exchange_failure(
+                ctx, received.error(), std::format("TransferData to 0x{:x} rejected: ", start),
+                std::format("TransferData to 0x{:x}", start)));
         }
         payload_done += static_cast<std::uint32_t>(chunk.size() - 1);
         if (progress != nullptr)
@@ -382,9 +422,9 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data,
                                ctx.cancellation);
     if (!received.has_value())
     {
-        error(ctx, std::format("RequestDownload for checksum rejected: {}",
-                               received.error().detail));
-        return std::unexpected(received.error());
+        return std::unexpected(report_exchange_failure(
+            ctx, received.error(), "RequestDownload for checksum rejected: ",
+            "RequestDownload for the checksum"));
     }
 
     // Lines 272-284: big-endian 16-bit running sum, always exactly one
@@ -395,9 +435,9 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data,
                                ctx.cancellation);
     if (!received.has_value())
     {
-        error(ctx,
-              std::format("TransferData for checksum rejected: {}", received.error().detail));
-        return std::unexpected(received.error());
+        return std::unexpected(report_exchange_failure(
+            ctx, received.error(), "TransferData for checksum rejected: ",
+            "TransferData for the checksum"));
     }
 
     // Lines 286-294: the CRC check gets the extra-long timeout.
@@ -406,9 +446,10 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data,
                                ctx.cancellation);
     if (!received.has_value())
     {
-        error(ctx, std::format("RoutineControl CRC check for 0x{:x} rejected: {}", start,
-                               received.error().detail));
-        return std::unexpected(received.error());
+        return std::unexpected(report_exchange_failure(
+            ctx, received.error(),
+            std::format("RoutineControl CRC check for 0x{:x} rejected: ", start),
+            std::format("the RoutineControl CRC check for 0x{:x}", start)));
     }
 
     if (progress != nullptr)
@@ -421,9 +462,12 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data,
 
 // Legacy: the unlock + erase-trigger pair that appears identically in
 // ensureTopRegionWritten (lines 349-368) and write_mem (lines 445-464). The
-// only difference between the two copies is the log-message prefix, so it is
-// a parameter here rather than two transcriptions.
-Status unlock_and_erase(Ctx& ctx, std::string_view unlock_prefix, std::string_view erase_prefix)
+// only difference between the two copies is which stage of the write they
+// belong to, which the legacy code carried in the log-message text, so that
+// is a parameter here rather than two transcriptions. `stage` is empty for
+// the main write and " (top 128KB bootstrap)" for the bootstrap copy, giving
+// back the two legacy prefixes exactly.
+Status unlock_and_erase(Ctx& ctx, std::string_view stage)
 {
     using namespace MitsuColtCan;
 
@@ -433,8 +477,9 @@ Status unlock_and_erase(Ctx& ctx, std::string_view unlock_prefix, std::string_vi
                         ctx.cancellation);
     if (!received.has_value())
     {
-        error(ctx, std::format("{}{}", unlock_prefix, received.error().detail));
-        return std::unexpected(received.error());
+        return std::unexpected(report_exchange_failure(
+            ctx, received.error(), std::format("Reflash unlock{} rejected: ", stage),
+            std::format("the reflash unlock request{}", stage)));
     }
 
     received = ctx.uds.request(buildRoutineErase(),
@@ -442,8 +487,9 @@ Status unlock_and_erase(Ctx& ctx, std::string_view unlock_prefix, std::string_vi
                                ctx.cancellation);
     if (!received.has_value())
     {
-        error(ctx, std::format("{}{}", erase_prefix, received.error().detail));
-        return std::unexpected(received.error());
+        return std::unexpected(report_exchange_failure(
+            ctx, received.error(), std::format("Erase trigger{} rejected: ", stage),
+            std::format("the erase trigger{}", stage)));
     }
     if (ctx.cancellation.cancelled())
     {
@@ -532,9 +578,7 @@ Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan, bytes::ByteVie
     }
 
     // Lines 349-368.
-    if (const Status erased =
-            unlock_and_erase(ctx, "Reflash unlock (top 128KB bootstrap) rejected: ",
-                             "Erase trigger (top 128KB bootstrap) rejected: ");
+    if (const Status erased = unlock_and_erase(ctx, " (top 128KB bootstrap)");
         !erased.has_value())
     {
         return erased;
@@ -639,9 +683,7 @@ Status write_mem(Ctx& ctx, const FlashPlan& plan, bytes::ByteView rom, PhaseSequ
     }
 
     // Lines 445-464.
-    if (const Status erased = unlock_and_erase(ctx, "Reflash unlock rejected: ",
-                                               "Erase trigger rejected: ");
-        !erased.has_value())
+    if (const Status erased = unlock_and_erase(ctx, ""); !erased.has_value())
     {
         return erased;
     }

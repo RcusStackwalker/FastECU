@@ -3,9 +3,14 @@
 // read_mem(), upload_and_commit(), ensureTopRegionWritten() and write_mem().
 // Every expected request below is built with the same
 // MitsuColtCan/MitsuColtCanVendorExt builders the legacy class calls (through
-// its qt_colt.h *Frame shims), and every expected log string is copied
+// its qt_colt.h *Frame shims). Expected log strings are copied
 // character-for-character from
-// src/platform/desktop/common/flash/legacy/ecu/flash_ecu_mitsu_m32r_can_operation.cpp.
+// src/platform/desktop/common/flash/legacy/ecu/flash_ecu_mitsu_m32r_can_operation.cpp
+// wherever the legacy class had a counterpart; the exceptions are called out
+// at the assertion that makes them, and are the lines the UDS layer replaced
+// (a decoded NRC or envelope complaint where the legacy decoder could only
+// say "Not a valid answer") plus the operator-cancellation line, which has no
+// legacy counterpart because the legacy code logged nothing there.
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_executor.h"
 
 #include <gmock/gmock.h>
@@ -1275,6 +1280,81 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsAtTheNextExchangeWhenCancelledMidWrite)
     // assertion that no further request went out.
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Write page uploaded"))));
+    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Userspace flash erased"))));
+    // The stop is the operator's, not the ECU's. No exchange may report a
+    // cancellation as a rejection -- here the request was never transmitted
+    // at all, so there is nothing for the ECU to have refused.
+    EXPECT_THAT(events.logs,
+                Not(Contains(Pair(LogLevel::Error, HasSubstr("rejected: cancelled")))));
+}
+
+// Trips the cancellation source from inside write() when one chosen request
+// goes out, so the stop lands after the ECU has been asked to act and before
+// its reply is read.
+class CancelOnRequestTransport final : public ScriptedCanFlashTransport
+{
+  public:
+    CancelOnRequestTransport(fastecu::flash::CancellationSource& source, bytes::Bytes trigger)
+        : source_(source), trigger_(std::move(trigger))
+    {
+    }
+    fastecu::Status write(bytes::ByteView data,
+                          const fastecu::ICancellationToken& cancellation) override
+    {
+        fastecu::Status result = ScriptedCanFlashTransport::write(data, cancellation);
+        if (std::ranges::equal(data, trigger_))
+        {
+            source_.trip();
+        }
+        return result;
+    }
+
+  private:
+    fastecu::flash::CancellationSource& source_;
+    bytes::Bytes trigger_;
+};
+
+TEST(MitsuColtM32rCanExecutor, ACancelledEraseTriggerIsNotReportedAsAnEcuRejection)
+{
+    // The most dangerous log line on this path. If the cancel lands after the
+    // erase trigger is sent and before its reply, the erase is RUNNING in the
+    // ECU. Bench checklist step 6 asks the operator to judge exactly that and
+    // decide whether to recover the unit, so the log must not tell them the
+    // ECU refused the request -- nor leave a dangling "rejected: " carrying no
+    // reason at all, which is what an empty cancellation detail produced.
+    fastecu::flash::CancellationSource cancellation;
+    CancelOnRequestTransport transport{cancellation, request(MitsuColtCan::buildRoutineErase())};
+    FakeClock clock;
+    RecordingEventSink events;
+    MitsuColtM32rCanExecutor executor;
+
+    const bytes::Bytes rom = writeRom384();
+    auto plan = writePlan(rom, kProtocol384);
+
+    scriptBootloadHandshake(transport);
+    scriptUploadAndCommit(transport, MitsuColtCan::kEraseRoutineRamAddr,
+                          MitsuColtCan::kErasePageRoutine);
+    scriptUploadAndCommit(transport, MitsuColtCan::kWriteRoutineRamAddr,
+                          MitsuColtCan::kWritePageRoutine);
+    transport.expectWrite(request(MitsuColtCan::buildRequestReflashUnlock()));
+    transport.queueRead(response({0x7b}));
+    // The erase trigger reaches the bus and the operator cancels. No reply is
+    // scripted because none is ever read.
+    transport.expectWrite(request(MitsuColtCan::buildRoutineErase()));
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_THAT(events.logs,
+                Not(Contains(Pair(LogLevel::Error, HasSubstr("Erase trigger rejected")))));
+    // The replacement line names the operator as the cause and does not claim
+    // the ECU is idle.
+    EXPECT_THAT(events.logs,
+                Contains(Pair(LogLevel::Warning,
+                              HasSubstr("Cancelled by operator during the erase trigger"))));
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Userspace flash erased"))));
 }
 
