@@ -47,6 +47,9 @@ bool family_matches_transport_variant(const FlashPlanFields& fields)
     case FlashFamily::SubaruDensoSh7055_02:
         return fields.transport == TransportKind::Kline &&
                std::holds_alternative<SubaruDensoSh7055_02Plan>(fields.family_plan);
+    case FlashFamily::SubaruHitachiM32rCan:
+        return fields.transport == TransportKind::CanIso15765 &&
+               std::holds_alternative<SubaruHitachiM32rCanPlan>(fields.family_plan);
     }
     return false;
 }

@@ -9,6 +9,7 @@
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_types.h"
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_types.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7055_02_types.h"
+#include "src/backend/flash/ecu/subaru_hitachi_m32r_can_types.h"
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_kline_types.h"
 #include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_types.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
@@ -36,6 +37,8 @@ enum class FlashFamily
     // Step 5 tail, wave 2.
     SubaruDensoMc68hc16y5_02,
     SubaruDensoSh7055_02,
+    // Step 5 tail, wave 3.
+    SubaruHitachiM32rCan,
 };
 
 enum class TransportKind
@@ -105,7 +108,8 @@ using FamilyPlan = std::variant<
     SubaruMitsuM32rKlinePlan,
     SubaruHitachiM32rKlinePlan,
     SubaruDensoMc68hc16y5_02Plan,
-    SubaruDensoSh7055_02Plan>;
+    SubaruDensoSh7055_02Plan,
+    SubaruHitachiM32rCanPlan>;
 
 // Whether validate_and_build requires FlashPlanFields::kernel to be set for
 // this family's plan type. Defaults true (fail-closed): a family that skips
@@ -124,5 +128,10 @@ inline constexpr bool family_requires_kernel_v<SubaruMitsuM32rKlinePlan> = false
 
 template <>
 inline constexpr bool family_requires_kernel_v<SubaruHitachiM32rKlinePlan> = false;
+
+// Step 5 tail, wave 3. Jumps to the ECU's resident on-board kernel via
+// SecurityAccess + 0x10/0x42, uploading no image.
+template <>
+inline constexpr bool family_requires_kernel_v<SubaruHitachiM32rCanPlan> = false;
 
 } // namespace fastecu::flash
