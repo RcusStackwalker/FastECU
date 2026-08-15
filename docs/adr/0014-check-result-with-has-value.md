@@ -27,9 +27,10 @@ disagree exactly when the contained value is falsy.
 
 Check `Result` and `Status` with `.has_value()`.
 
-Do not use the implicit `operator bool`. Where an init-statement condition
-would need it -- `if (Status s = f(); !s)` -- split it into a declaration and
-a separate `if (!s.has_value())`.
+Do not use the implicit `operator bool`. Init-statement conditions keep their
+form and spell the check out: `if (Status s = f(); !s.has_value())`, not
+`if (Status s = f(); !s)`. There is no reason to split the declaration out of
+the `if` -- doing so would widen the variable's scope to no benefit.
 
 ## Consequences
 
