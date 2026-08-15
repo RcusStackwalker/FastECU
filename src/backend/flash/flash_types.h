@@ -13,6 +13,7 @@
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_kline_types.h"
 #include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_types.h"
 #include "src/backend/flash/ecu/subaru_tcu_cvt_hitachi_m32r_can_types.h"
+#include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8104_can_types.h"
 #include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_types.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
 
@@ -43,6 +44,7 @@ enum class FlashFamily
     SubaruHitachiM32rCan,
     SubaruTcuCvtHitachiM32rCan,
     SubaruTcuCvtMitsuMh8111Can,
+    SubaruTcuCvtMitsuMh8104Can,
 };
 
 enum class TransportKind
@@ -115,7 +117,8 @@ using FamilyPlan = std::variant<
     SubaruDensoSh7055_02Plan,
     SubaruHitachiM32rCanPlan,
     SubaruTcuCvtHitachiM32rCanPlan,
-    SubaruTcuCvtMitsuMh8111CanPlan>;
+    SubaruTcuCvtMitsuMh8111CanPlan,
+    SubaruTcuCvtMitsuMh8104CanPlan>;
 
 // Whether validate_and_build requires FlashPlanFields::kernel to be set for
 // this family's plan type. Defaults true (fail-closed): a family that skips
@@ -151,5 +154,14 @@ inline constexpr bool family_requires_kernel_v<SubaruTcuCvtHitachiM32rCanPlan> =
 // always runs its full sequence for this family).
 template <>
 inline constexpr bool family_requires_kernel_v<SubaruTcuCvtMitsuMh8111CanPlan> = false;
+
+// Step 5 tail, wave 3. Jumps to the TCU's resident on-board kernel via
+// SecurityAccess + 0x10/0x42, uploading no image -- the same shape as
+// SubaruTcuCvtMitsuMh8111CanPlan. Unlike MH8111, every response-content
+// check in legacy after the kernel-alive probe is commented out
+// (`// return STATUS_ERROR;`); this family tolerates any ECU response
+// content and only a transport-level failure stops it.
+template <>
+inline constexpr bool family_requires_kernel_v<SubaruTcuCvtMitsuMh8104CanPlan> = false;
 
 } // namespace fastecu::flash
