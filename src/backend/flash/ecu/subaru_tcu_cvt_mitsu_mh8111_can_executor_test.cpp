@@ -256,7 +256,7 @@ void scriptStopCommand(ScriptedCanFlashTransport& transport)
 // ports instead of the literal always-failing loop).
 void scriptEraseMemory(ScriptedCanFlashTransport& transport)
 {
-    transport.expectWrite(request({0x31, 0x02, 0x01, 0x0f, 0xff, 0xff, 0xff}));
+    transport.expectWrite(request({0x31, 0x01, 0x02, 0x01, 0x0f, 0xff, 0xff, 0xff}));
     transport.queueRead(response({0x71, 0x01, 0x02}));
 }
 

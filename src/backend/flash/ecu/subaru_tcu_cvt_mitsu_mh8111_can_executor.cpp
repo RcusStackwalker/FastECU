@@ -434,7 +434,7 @@ Status erase_memory(Ctx& ctx)
     for (int attempt = 0; attempt < 20; ++attempt)
     {
         Result<bytes::Bytes> reply = ctx.uds.request(
-            bytes::Bytes{0x31, 0x02, 0x01, 0x0f, 0xff, 0xff, 0xff}, kExchangePolicy,
+            bytes::Bytes{0x31, 0x01, 0x02, 0x01, 0x0f, 0xff, 0xff, 0xff}, kExchangePolicy,
             ctx.cancellation);
         if (reply.has_value())
         {
