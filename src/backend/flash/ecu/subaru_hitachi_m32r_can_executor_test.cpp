@@ -511,8 +511,8 @@ TEST(SubaruHitachiM32rCanExecutor, WriteErasesAndWritesTheFullRomInOneReflashBlo
     // Legacy write_mem (lines 1005-1012) calls erase_memory() before the
     // single reflash_block() call -- the plan and design doc's task-1 brief
     // omits this step, but both the actual legacy source and the design
-    // spec's "Portable contract" section ($0x31$ RoutineControl erase
-    // $0x02\,0x01$) confirm it happens; ported faithfully here.
+    // spec's "Portable contract" section (`0x31` RoutineControl erase
+    // `0x02 0x01`) confirm it happens; ported faithfully here.
     scriptEraseMemory(transport);
     scriptReflashSetup(transport);
     scriptReflashChunks(transport, rom, 256);
