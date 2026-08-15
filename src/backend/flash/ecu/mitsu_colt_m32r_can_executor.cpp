@@ -27,9 +27,7 @@ namespace
 {
 
 // Legacy field values, flash_ecu_mitsu_m32r_can_operation.h:56-57.
-constexpr int kReadTimeoutMs = 500;
-constexpr int kExtraLongTimeoutMs = 3000;
-
+//
 // CanFlashUdsChannel::receive() reads through a blocking, timeout-bounded
 // transport read (DesktopCanFlashTransport::read(), ultimately a J2534
 // PassThruReadMsgs or a serial waitForReadyRead loop); ISO-TP flow control
@@ -37,8 +35,8 @@ constexpr int kExtraLongTimeoutMs = 3000;
 // polling code these exchanges were transcribed from, no exchange here
 // needs a pre-read settle delay -- the blocking read already waits out
 // whatever the ECU takes, up to read_timeout_ms.
-constexpr uds::ExchangePolicy kRoutineExchangePolicy{.read_timeout_ms = kReadTimeoutMs};
-constexpr uds::ExchangePolicy kSlowExchangePolicy{.read_timeout_ms = kExtraLongTimeoutMs};
+constexpr uds::ExchangePolicy kRoutineExchangePolicy{.read_timeout_ms = 500};
+constexpr uds::ExchangePolicy kSlowExchangePolicy{.read_timeout_ms = 3000};
 
 // The two SecurityAccess levels this family uses, echoed back in the
 // subfunction byte of each reply. Spelled as the bare 5 and 6 at the legacy
