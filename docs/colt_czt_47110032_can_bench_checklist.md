@@ -107,16 +107,28 @@ the parent workspace, but it is not part of this repository.
    operation across all four protocols produces no spurious reply-id
    rejections in the debug log.
 
-9. **Absorbed-pending exchange duration.** With the current `ExchangePolicy`
-   defaults (`pending_timeout_ms = 3000`, `max_pending_repeats = 10`), an
-   exchange that exhausts all absorbed responsePending retries can take up
-   to `read_timeout_ms + max_pending_repeats × pending_timeout_ms` before it
-   fails — about 33 seconds at each of the three exchanges that use the
-   extra-long 3000 ms read timeout: the reflash-unlock request, the erase
-   trigger, and the CRC check (`3000 ms + 10 × 3000 ms`). Expect the UI to
-   appear stalled for up to that long during unlock, erase, or CRC check,
-   and wait rather than pulling power: a stall this long mid-unlock or
-   mid-erase is exactly the situation that bricks a unit if interrupted.
+9. **Absorbed-pending exchange duration.** `pending_timeout_ms = 3000` and
+   `max_pending_repeats = 10` are `ExchangePolicy` defaults that **no call
+   site on this path overrides** — the executor only ever sets
+   `pre_read_delay_ms` and `read_timeout_ms`. Every exchange can therefore
+   absorb ten responsePending replies before giving up, and any one of them
+   can take `read_timeout_ms + 10 × 3000 ms` to fail:
+
+   - about **30 seconds** (`500 ms + 10 × 3000 ms`) at every exchange that
+     uses the default 500 ms read timeout, which is all of them bar the three
+     below; and
+   - about **33 seconds** (`3000 ms + 10 × 3000 ms`) at the three that use the
+     extra-long 3000 ms read timeout: the reflash-unlock request, the erase
+     trigger, and the CRC check.
+
+   Do not read those three as the only places a long stall can happen. The
+   exchange an operator is most likely to meet one at is TransferData: a
+   384 KiB userspace write sends about 1,400 of them (`0x58000` bytes at 256
+   bytes per frame) and the read-back verify makes about 1,900 more chunk
+   exchanges (192 bytes each), and any single one can sit for ~30 s. Expect
+   the UI to appear stalled for that long anywhere in the run, and wait rather
+   than pulling power — an interruption mid-TransferData is as capable of
+   bricking the unit as one mid-unlock or mid-erase.
 
 10. **Post-write validation.** After each capacity/security combination,
     power-cycle the ECU, repeat the matching full zero-based read, and
