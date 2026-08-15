@@ -11,6 +11,7 @@
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
+#include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_can_common.h"
 #include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_plan.h"
 #include "src/backend/protocol/uds/uds_client.h"
 
@@ -30,14 +31,12 @@ using bytes::u24;
 
 constexpr uds::ExchangePolicy kExchangePolicy{.read_timeout_ms = 2000};
 
-// Seed key (legacy generate_seed_key, lines 908-914).
-constexpr std::array<std::uint16_t, 16> kSeedKeyTable{
-    0x9E99, 0x685C, 0x874D, 0xF11E, 0x27D4, 0xA967, 0xB63B, 0x7A37,
-    0xE23B, 0xA8D0, 0x9B82, 0xAC43, 0xE874, 0x7FC5, 0x7141, 0x8B44};
-// Encrypt (write payload, legacy encrypt_payload lines 947-948).
-constexpr std::array<std::uint16_t, 4> kEncryptTable{0x7bf2, 0xa8b4, 0x4492, 0x6587};
-// Decrypt (read payload, legacy decrypt_payload lines 965-966).
-constexpr std::array<std::uint16_t, 4> kDecryptTable{0x6587, 0x4492, 0xa8b4, 0x7bf2};
+// Seed key (legacy generate_seed_key, lines 908-914). Byte-identical to the
+// sibling MH8104 family's table (Task 6 comparison); factored into the
+// shared subaru_tcu_cvt_mitsu_can_common.h/.cpp.
+// Encrypt (write payload, legacy encrypt_payload lines 947-948) and decrypt
+// (read payload, legacy decrypt_payload lines 965-966) tables: same Task 6
+// finding, same shared header.
 // Shared by every family in this wave and wave-1 Hitachi K-Line.
 constexpr std::array<std::uint8_t, 32> kIndexTransformation{
     0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
@@ -53,19 +52,22 @@ constexpr MemoryRegion kWriteRegion{0x80000, 0x100000};
 
 bytes::Bytes seed_key(bytes::ByteView seed)
 {
-    return SsmProtocol::calculateSeedKey(seed, kSeedKeyTable.data(), kIndexTransformation.data());
+    return SsmProtocol::calculateSeedKey(seed, tcuCvtMitsuSeedKeyTable().data(),
+                                         kIndexTransformation.data());
 }
 
 bytes::Bytes encrypt_rom(bytes::ByteView image)
 {
     return SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()),
-                                         kEncryptTable.data(), kIndexTransformation.data());
+                                         tcuCvtMitsuEncryptTable().data(),
+                                         kIndexTransformation.data());
 }
 
 bytes::Bytes decrypt_page(bytes::ByteView page)
 {
     return SsmProtocol::calculatePayload(page, static_cast<std::uint32_t>(page.size()),
-                                         kDecryptTable.data(), kIndexTransformation.data());
+                                         tcuCvtMitsuDecryptTable().data(),
+                                         kIndexTransformation.data());
 }
 
 struct Ctx
