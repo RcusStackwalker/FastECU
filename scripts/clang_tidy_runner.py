@@ -599,7 +599,7 @@ def run_workflow(
     build_args: Sequence[str] = (),
     compdb_args: Sequence[str] = (),
     changed: bool = False,
-) -> int:
+) -> None:
     if mode not in ("report", "fix"):
         raise WorkflowError(f"unsupported mode: {mode}")
     if mode == "fix" and platform_name not in ("darwin", "linux"):
@@ -618,7 +618,7 @@ def run_workflow(
             print(note)
         if not entries:
             print("clang-tidy: no changed C/C++ translation units to analyze, skipping.")
-            return 0
+            return
     tools = discover_tools(mode, platform_name=platform_name, environ=environ)
     macos_sdk = None
     if platform_name == "darwin":
@@ -678,7 +678,6 @@ def run_workflow(
                 detail += "; exported fixes were applied before reporting the failure"
             raise WorkflowError(detail)
         print(f"clang-tidy: {len(entries)} files clean, 0 findings")
-    return 0
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -694,7 +693,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         tool = Path(args.compdb_tool)
         if not tool.is_absolute():
             tool = (Path.cwd() / tool).resolve()
-        return run_workflow(
+        run_workflow(
             mode=args.mode,
             workspace=root,
             compdb_tool=str(tool),
@@ -704,6 +703,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             compdb_args=args.compdb_args,
             changed=args.changed,
         )
+        return 0
     except WorkflowError as error:
         print(f"clang-tidy: {error}", file=sys.stderr)
         return 2
