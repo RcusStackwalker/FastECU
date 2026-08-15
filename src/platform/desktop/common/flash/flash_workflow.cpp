@@ -24,6 +24,8 @@
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_kline_plan.h"
 #include "src/backend/flash/ecu/subaru_tcu_cvt_hitachi_m32r_can_executor.h"
 #include "src/backend/flash/ecu/subaru_tcu_cvt_hitachi_m32r_can_plan.h"
+#include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_executor.h"
+#include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_plan.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_can_executor.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_kline_executor.h"
 #include "src/backend/flash/eeprom/eeprom_read_plan.h"
@@ -694,6 +696,91 @@ class SubaruTcuCvtHitachiM32rCanWorkflow final : public FlashWorkflow
     std::optional<Error> failure_;
 };
 
+// Same ~50-line shape as SubaruHitachiM32rCanWorkflow/SubaruTcuCvtHitachiM32rCanWorkflow
+// above (kernel-free, no confirmations, single-attempt CAN executor) --
+// duplicated rather than parametrized, matching the brief's explicit
+// allowance not to introduce a runtime branch inside one class for what are
+// compile-time-distinct executor types.
+class SubaruTcuCvtMitsuMh8111CanWorkflow final : public FlashWorkflow
+{
+  public:
+    explicit SubaruTcuCvtMitsuMh8111CanWorkflow(FlashWorkflowRequest request)
+        : request_(std::move(request)),
+          plan_(build_subaru_tcu_cvt_mitsu_mh8111_can_plan(request_.operation, request_.protocol,
+                                                           request_.mcu, std::move(request_.image)))
+    {
+    }
+
+    FlashWorkflowStep next() override
+    {
+        if (!plan_)
+        {
+            return FlashFailureStep{plan_.error()};
+        }
+        if (failure_)
+        {
+            return FlashFailureStep{std::move(*failure_)};
+        }
+        if (terminal_)
+        {
+            return completed(outcome_, std::move(accepted_));
+        }
+        if (!began_)
+        {
+            began_ = true;
+            return FlashPromptStep{FlashPromptKind::Begin, {}};
+        }
+        if (!attempted_)
+        {
+            attempted_ = true;
+            FlashPlan plan = std::move(*plan_);
+            return FlashAttempt{std::move(plan),
+                                std::make_unique<SubaruTcuCvtMitsuMh8111CanExecutor>(),
+                                std::make_unique<DesktopCanFlashTransport>(request_.serial),
+                                std::make_unique<QtClock>()};
+        }
+        return completed(outcome_, std::move(accepted_));
+    }
+
+    void submit(FlashPromptResponse response) override
+    {
+        if (response != FlashPromptResponse::Accept)
+        {
+            terminal_ = true;
+            outcome_ = FlashWorkflowOutcome::Cancelled;
+        }
+    }
+
+    void submit(FlashAttemptResult result) override
+    {
+        terminal_ = true;
+        if (result.success)
+        {
+            outcome_ = FlashWorkflowOutcome::Succeeded;
+            accepted_ = std::move(result.read_bytes);
+        }
+        else if (result.error_kind == ErrorKind::Cancelled)
+        {
+            outcome_ = FlashWorkflowOutcome::Cancelled;
+        }
+        else
+        {
+            outcome_ = FlashWorkflowOutcome::Failed;
+            failure_ = Error{result.error_kind, std::move(result.error_detail)};
+        }
+    }
+
+  private:
+    FlashWorkflowRequest request_;
+    Result<FlashPlan> plan_;
+    bool began_ = false;
+    bool attempted_ = false;
+    bool terminal_ = false;
+    FlashWorkflowOutcome outcome_ = FlashWorkflowOutcome::Failed;
+    std::optional<bytes::Bytes> accepted_;
+    std::optional<Error> failure_;
+};
+
 class EepromWorkflow final : public FlashWorkflow
 {
   public:
@@ -855,6 +942,7 @@ struct Route
         SubaruDensoSh7055_02,
         SubaruHitachiM32rCan,
         SubaruTcuCvtHitachiM32rCan,
+        SubaruTcuCvtMitsuMh8111Can,
         Unrouted,
     };
 
@@ -882,6 +970,7 @@ constexpr auto kRoutes = std::to_array<Route>({
     {"sub_ecu_denso_sh7055_02", SubaruDensoSh7055_02},
     {"sub_ecu_hitachi_m32r_can", SubaruHitachiM32rCan},
     {"sub_tcu_cvt_hitachi_m32r_can", SubaruTcuCvtHitachiM32rCan},
+    {"sub_tcu_cvt_mitsu_mh8111_can", SubaruTcuCvtMitsuMh8111Can},
 });
 
 } // namespace
@@ -924,6 +1013,8 @@ std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::tryCreate(FlashWorkflowRequ
         return std::make_unique<SubaruHitachiM32rCanWorkflow>(std::move(request));
     case SubaruTcuCvtHitachiM32rCan:
         return std::make_unique<SubaruTcuCvtHitachiM32rCanWorkflow>(std::move(request));
+    case SubaruTcuCvtMitsuMh8111Can:
+        return std::make_unique<SubaruTcuCvtMitsuMh8111CanWorkflow>(std::move(request));
     case Unrouted:
         return nullptr;
     }
