@@ -50,6 +50,9 @@ bool family_matches_transport_variant(const FlashPlanFields& fields)
     case FlashFamily::SubaruHitachiM32rCan:
         return fields.transport == TransportKind::CanIso15765 &&
                std::holds_alternative<SubaruHitachiM32rCanPlan>(fields.family_plan);
+    case FlashFamily::SubaruTcuCvtHitachiM32rCan:
+        return fields.transport == TransportKind::CanIso15765 &&
+               std::holds_alternative<SubaruTcuCvtHitachiM32rCanPlan>(fields.family_plan);
     }
     return false;
 }
