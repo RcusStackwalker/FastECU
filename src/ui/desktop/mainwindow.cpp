@@ -1390,15 +1390,6 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
             connect_signals_and_run_module(&flash_module);
         }
         /*
-         * Mitsu TCU
-         */
-        else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_tcu_cvt_mitsu_mh8104_can"))
-        {
-            FlashTcuCvtSubaruMitsuMH8104Can flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
-            connect_signals_and_run_module(&flash_module);
-        }
-
-        /*
          * Unknown flashmethod
          */
         else
