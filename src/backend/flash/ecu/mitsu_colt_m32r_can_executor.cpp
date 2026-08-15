@@ -26,8 +26,6 @@ namespace fastecu::flash
 namespace
 {
 
-// Legacy field values, flash_ecu_mitsu_m32r_can_operation.h:56-57.
-//
 // CanFlashUdsChannel::receive() reads through a blocking, timeout-bounded
 // transport read (DesktopCanFlashTransport::read(), ultimately a J2534
 // PassThruReadMsgs or a serial waitForReadyRead loop); ISO-TP flow control
