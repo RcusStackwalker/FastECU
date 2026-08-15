@@ -110,9 +110,9 @@ the parent workspace, but it is not part of this repository.
 9. **Absorbed-pending exchange duration.** `pending_timeout_ms = 3000` and
    `max_pending_repeats = 10` are `ExchangePolicy` defaults that **no call
    site on this path overrides** — the executor only ever sets
-   `pre_read_delay_ms` and `read_timeout_ms`. Every exchange can therefore
-   absorb ten responsePending replies before giving up, and any one of them
-   can take `read_timeout_ms + 10 × 3000 ms` to fail:
+   `read_timeout_ms`. Every exchange can therefore absorb ten
+   responsePending replies before giving up, and any one of them can take
+   `read_timeout_ms + 10 × 3000 ms` to fail:
 
    - about **30 seconds** (`500 ms + 10 × 3000 ms`) at every exchange that
      uses the default 500 ms read timeout, which is all of them bar the three

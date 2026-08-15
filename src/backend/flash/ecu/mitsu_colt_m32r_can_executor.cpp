@@ -30,6 +30,16 @@ namespace
 constexpr int kReadTimeoutMs = 500;
 constexpr int kExtraLongTimeoutMs = 3000;
 
+// CanFlashUdsChannel::receive() reads through a blocking, timeout-bounded
+// transport read (DesktopCanFlashTransport::read(), ultimately a J2534
+// PassThruReadMsgs or a serial waitForReadyRead loop); ISO-TP flow control
+// is handled by the driver, not the caller. So unlike the legacy serial
+// polling code these exchanges were transcribed from, no exchange here
+// needs a pre-read settle delay -- the blocking read already waits out
+// whatever the ECU takes, up to read_timeout_ms.
+constexpr uds::ExchangePolicy kRoutineExchangePolicy{.read_timeout_ms = kReadTimeoutMs};
+constexpr uds::ExchangePolicy kSlowExchangePolicy{.read_timeout_ms = kExtraLongTimeoutMs};
+
 // The two SecurityAccess levels this family uses, echoed back in the
 // subfunction byte of each reply. Spelled as the bare 5 and 6 at the legacy
 // comparison sites (flash_ecu_mitsu_m32r_can_operation.cpp:145 and 163) and
@@ -169,8 +179,7 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
     {
         info(ctx, "Starting basic diagnostic session for vendor authorization...");
         Result<bytes::Bytes> received =
-            ctx.uds.request(buildDiagnosticSession(kSessionBasic),
-                            {.pre_read_delay_ms = 50, .read_timeout_ms = kReadTimeoutMs},
+            ctx.uds.request(buildDiagnosticSession(kSessionBasic), kRoutineExchangePolicy,
                             ctx.cancellation);
         if (!received.has_value())
         {
@@ -188,8 +197,7 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
         // Lines 86-95.
         info(ctx, "Requesting vendor extension challenge seed...");
         received = ctx.uds.request(MitsuColtCanVendorExt::buildChallengeSeedRequest(),
-                                   {.pre_read_delay_ms = 200, .read_timeout_ms = kReadTimeoutMs},
-                                   ctx.cancellation);
+                                   kRoutineExchangePolicy, ctx.cancellation);
         if (!received.has_value())
         {
             return std::unexpected(
@@ -220,8 +228,7 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
         // Lines 106-116.
         info(ctx, "Sending vendor key to ECU...");
         received = ctx.uds.request(MitsuColtCanVendorExt::buildChallengeKey(vendor_key),
-                                   {.pre_read_delay_ms = 200, .read_timeout_ms = kReadTimeoutMs},
-                                   ctx.cancellation);
+                                   kRoutineExchangePolicy, ctx.cancellation);
         if (!received.has_value())
         {
             return std::unexpected(report_exchange_failure(ctx, received.error(),
@@ -246,8 +253,7 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
     // bootload session and complete factory SecurityAccess.
     info(ctx, "Starting diagnostic session...");
     Result<bytes::Bytes> received =
-        ctx.uds.request(buildDiagnosticSession(family.session_id),
-                        {.pre_read_delay_ms = 50, .read_timeout_ms = kReadTimeoutMs},
+        ctx.uds.request(buildDiagnosticSession(family.session_id), kRoutineExchangePolicy,
                         ctx.cancellation);
     if (!received.has_value())
     {
@@ -269,8 +275,7 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
 
     // Lines 136-145.
     info(ctx, "Requesting security seed...");
-    received = ctx.uds.request(buildSecurityAccessSeedRequest(),
-                               {.pre_read_delay_ms = 200, .read_timeout_ms = kReadTimeoutMs},
+    received = ctx.uds.request(buildSecurityAccessSeedRequest(), kRoutineExchangePolicy,
                                ctx.cancellation);
     if (!received.has_value())
     {
@@ -296,8 +301,7 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
 
     // Lines 155-165.
     info(ctx, "Sending seed key to ECU...");
-    received = ctx.uds.request(buildSecurityAccessKey(key),
-                               {.pre_read_delay_ms = 200, .read_timeout_ms = kReadTimeoutMs},
+    received = ctx.uds.request(buildSecurityAccessKey(key), kRoutineExchangePolicy,
                                ctx.cancellation);
     if (!received.has_value())
     {
@@ -342,8 +346,7 @@ Result<bytes::Bytes> read_flash_range(Ctx& ctx, std::uint32_t start_addr, std::u
 
         // Lines 191-194.
         Result<bytes::Bytes> received =
-            ctx.uds.request(buildReadMemoryByAddress(addr, chunk_len),
-                            {.pre_read_delay_ms = 50, .read_timeout_ms = kReadTimeoutMs},
+            ctx.uds.request(buildReadMemoryByAddress(addr, chunk_len), kRoutineExchangePolicy,
                             ctx.cancellation);
         if (!received.has_value())
         {
@@ -387,8 +390,7 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data,
     // Lines 238-246.
     Result<bytes::Bytes> received =
         ctx.uds.request(buildRequestDownload(start, static_cast<std::uint32_t>(data.size())),
-                        {.pre_read_delay_ms = 50, .read_timeout_ms = kReadTimeoutMs},
-                        ctx.cancellation);
+                        kRoutineExchangePolicy, ctx.cancellation);
     if (!received.has_value())
     {
         return std::unexpected(report_exchange_failure(
@@ -400,9 +402,7 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data,
     std::uint32_t payload_done = 0;
     for (const bytes::Bytes& chunk : buildTransferDataFrames(data))
     {
-        received = ctx.uds.request(
-            chunk, {.pre_read_delay_ms = 50, .read_timeout_ms = kReadTimeoutMs},
-            ctx.cancellation);
+        received = ctx.uds.request(chunk, kRoutineExchangePolicy, ctx.cancellation);
         if (!received.has_value())
         {
             return std::unexpected(report_exchange_failure(
@@ -418,8 +418,7 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data,
 
     // Lines 262-270.
     received = ctx.uds.request(buildRequestDownload(kCrcTransferAddress, kCrcTransferSize),
-                               {.pre_read_delay_ms = 50, .read_timeout_ms = kReadTimeoutMs},
-                               ctx.cancellation);
+                               kRoutineExchangePolicy, ctx.cancellation);
     if (!received.has_value())
     {
         return std::unexpected(report_exchange_failure(
@@ -431,8 +430,7 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data,
     // TransferData frame (kCrcTransferSize is 2, well under kTransferChunkSize).
     const std::uint16_t crc = checksum(data);
     received = ctx.uds.request(buildTransferDataFrames(bytes::composeBe(crc)).front(),
-                               {.pre_read_delay_ms = 50, .read_timeout_ms = kReadTimeoutMs},
-                               ctx.cancellation);
+                               kRoutineExchangePolicy, ctx.cancellation);
     if (!received.has_value())
     {
         return std::unexpected(report_exchange_failure(
@@ -441,8 +439,7 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data,
     }
 
     // Lines 286-294: the CRC check gets the extra-long timeout.
-    received = ctx.uds.request(buildRoutineCheckCrc(start),
-                               {.pre_read_delay_ms = 200, .read_timeout_ms = kExtraLongTimeoutMs},
+    received = ctx.uds.request(buildRoutineCheckCrc(start), kSlowExchangePolicy,
                                ctx.cancellation);
     if (!received.has_value())
     {
@@ -472,9 +469,7 @@ Status unlock_and_erase(Ctx& ctx, std::string_view stage)
     using namespace MitsuColtCan;
 
     Result<bytes::Bytes> received =
-        ctx.uds.request(buildRequestReflashUnlock(),
-                        {.pre_read_delay_ms = 200, .read_timeout_ms = kExtraLongTimeoutMs},
-                        ctx.cancellation);
+        ctx.uds.request(buildRequestReflashUnlock(), kSlowExchangePolicy, ctx.cancellation);
     if (!received.has_value())
     {
         return std::unexpected(report_exchange_failure(
@@ -482,9 +477,7 @@ Status unlock_and_erase(Ctx& ctx, std::string_view stage)
             std::format("the reflash unlock request{}", stage)));
     }
 
-    received = ctx.uds.request(buildRoutineErase(),
-                               {.pre_read_delay_ms = 200, .read_timeout_ms = kExtraLongTimeoutMs},
-                               ctx.cancellation);
+    received = ctx.uds.request(buildRoutineErase(), kSlowExchangePolicy, ctx.cancellation);
     if (!received.has_value())
     {
         return std::unexpected(report_exchange_failure(

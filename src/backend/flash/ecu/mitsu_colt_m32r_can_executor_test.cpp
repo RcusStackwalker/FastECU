@@ -1432,11 +1432,11 @@ TEST(MitsuColtM32rCanExecutor, ACancellationThatArrivesAfterTheRequestStopsBefor
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-    // The clock's own cancellation carries no detail; the transport's read
-    // path would have reported "scripted CAN read cancelled". Distinguishing
-    // them is what proves the run stopped at the inter-exchange delay instead
-    // of going on to wait out the read timeout.
-    EXPECT_EQ(result.error().detail, "");
+    // No pre-read delay separates the write from the read on this path (see
+    // kRoutineExchangePolicy/kSlowExchangePolicy), so a cancellation tripped
+    // right after the write is caught by the read call itself rather than by
+    // an inter-exchange sleep -- hence the transport's own detail string.
+    EXPECT_EQ(result.error().detail, "scripted CAN read cancelled");
     EXPECT_FALSE(transport.scriptConsumed()); // the reply was never read
 }
 
