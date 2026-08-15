@@ -8,9 +8,11 @@ An independently maintained fork of [miikasyvanen/FastECU](https://github.com/mi
 
 The fork's ongoing work is a modularization program: making `src/backend` portable (Qt-free, thread-free, filesystem-free) behind injected ports so the core can be reused outside the Qt desktop app. Read the [step-5 umbrella design](docs/superpowers/specs/2026-07-22-step5-backend-portable-design.md) and the [tech-debt roadmap](docs/tech-debt.md) for current priorities before making structural changes.
 
+Two documents carry the conventions this file only summarizes: the [coding style guide](docs/coding-style.md) for how C++ is written here, and the [ADRs](docs/adr/README.md) for structural decisions. Style questions are settled by the guide, not by an ADR.
+
 ## Build, test, lint
 
-Bazel 9.1.1 (pinned in `.bazelversion`) is the **only** target graph — application, tests, packaging, coverage, compile commands, and clang-tidy inputs (ADR 0001, ADR 0007). Requires Qt 6.8.3 host tools (Charts, SerialPort, RemoteObjects, WebSockets) and OpenSSL. `.github/workflows/pr.yml` is the authoritative environment setup.
+Bazel 9.1.1 (pinned in `.bazelversion`) is the **only** target graph — application, tests, packaging, coverage, compile commands, and clang-tidy inputs ([ADR 0001](docs/adr/0001-adopt-bazel-as-target-graph.md), [ADR 0007](docs/adr/0007-use-bazel-as-ci-source-of-truth.md)). Requires Qt 6.8.3 host tools (Charts, SerialPort, RemoteObjects, WebSockets) and OpenSSL. `.github/workflows/pr.yml` is the authoritative environment setup.
 
 ```sh
 bazel build --config=release //:fastecu                      # app (alias -> //apps/desktop:fastecu)
@@ -44,8 +46,8 @@ Dependencies flow one way: `apps/desktop` → `src/ui` → `src/platform` → `s
 
 ### Error and byte conventions
 
-- Backend operations return `fastecu::Result<T>` (`std::expected<T, Error>`) with one of seven `ErrorKind` values. **Exceptions never cross a port.** Don't add `ErrorKind` values without amending the step-5 design doc.
-- Pure protocol/checksum/logging/flash logic uses `bytes::Byte` / `bytes::Bytes` / `bytes::ByteView` from `src/algorithms/protocol/bytes.h`; `QByteArray` is a boundary type only, converted explicitly via `qt_bytes.h` (ADR 0004).
+- Backend operations return `fastecu::Result<T>` (`std::expected<T, Error>`) with one of seven `ErrorKind` values, checked with `.has_value()` and never the implicit `operator bool`. **Exceptions never cross a port.** Don't add `ErrorKind` values without amending the step-5 design doc.
+- Pure protocol/checksum/logging/flash logic uses `bytes::Byte` / `bytes::Bytes` / `bytes::ByteView` from `src/algorithms/protocol/bytes.h`; `QByteArray` is a boundary type only, converted explicitly via `qt_bytes.h` ([ADR 0004](docs/adr/0004-limit-qbytearray-to-qt-boundaries.md)).
 
 ## Build-graph guardrails
 
@@ -53,7 +55,7 @@ These exist because the compiler can't catch them; they fail CI, not your editor
 
 - **`//:portable_closure`** — resolves the transitive closure of every portable target and rejects Qt or JNI deps. Adding a Qt dep to a portable backend target fails here even if it compiles. New portable targets must be registered in both the `genquery` in `BUILD.bazel` and `PORTABLE_ROOTS` in `scripts/check-portable-closure.py`.
 - **`//:serial_compat_allowlist`** — freezes the visibility list of `//src/platform/desktop/common/serial:serial_qt_compat`. That list is transitional debt: **it may shrink, never grow.**
-- **`//:openpty_includes`** — platform-specific backend tests live in separate source files listed in `*_UNIX_SRCS` / `*_WIN32_SRCS`, not behind `#ifdef` in common sources (ADR 0005).
+- **`//:openpty_includes`** — platform-specific backend tests live in separate source files listed in `*_UNIX_SRCS` / `*_WIN32_SRCS`, not behind `#ifdef` in common sources ([ADR 0005](docs/adr/0005-separate-platform-specific-backend-tests.md)).
 - **`//:bazel_openssl_wiring`** — keeps `MODULE.bazel`, `pr.yml`, and the crypto BUILD file consistent.
 - Windows 32-bit J2534 vendor DLLs are reached through an out-of-process bridge (`src/platform/desktop/windows/j2534/j2534_bridge_*`); the x86 host binary is built in-graph via the platform transition in `bazel/x86_windows_transition.bzl`.
 
@@ -61,9 +63,9 @@ These exist because the compiler can't catch them; they fail CI, not your editor
 
 - Tests are **package-owned and co-located** with the code (`foo.cpp` + `foo_test.cpp` in the same package). `tests/` holds only cross-package integration and platform harness tests.
 - Use `fastecu_portable_gtest` (Qt-free closure) or `fastecu_gtest` (links `QT_DEPS`) from `bazel/gtest_targets.bzl`; `fastecu_qttest` in `bazel/qt_targets.bzl` for QtTest-style suites needing moc.
-- Mocks/fakes are package-owned: a package defining an interface adds a `testing/` subpackage with one `cc_library(testonly = True)` target per mock, each with its own test (ADR 0008; `src/backend/ports/testing/` is the reference).
+- Mocks/fakes are package-owned: a package defining an interface adds a `testing/` subpackage with one `cc_library(testonly = True)` target per mock, each with its own test ([ADR 0008](docs/adr/0008-use-package-owned-mocks.md); `src/backend/ports/testing/` is the reference).
 - Qt targets list moc'd headers explicitly in a `MOC_HDRS` list and everything else in `normal_hdrs` — a `Q_OBJECT` header missing from `MOC_HDRS` links but fails at runtime.
-- Prefer `std::string_view` by value over `const char*` / `const std::string&` (ADR 0009), gmock matchers for property assertions (ADR 0010), `std::format` for message construction (ADR 0011), ranges/views over index loops (ADR 0012), and `bytes::composeBe` over hand-rolled shift-and-mask frame building (ADR 0013).
+- Prefer `std::string_view` by value over `const char*` / `const std::string&`, gmock matchers for property assertions, `std::format` for message construction, ranges/views over index loops, and `bytes::composeBe` over hand-rolled shift-and-mask frame building — all detailed, with their exceptions, in the [coding style guide](docs/coding-style.md).
 - Every header needs `#pragma once` (enforced by prek).
 - Cross-document references in Markdown are links with human-readable text, not backticked paths — lychee (via prek) checks links and cannot see a path written as inline code.
 

@@ -11,8 +11,8 @@ logic do not need to depend on Qt byte containers. Broad `QByteArray` use in
 core helpers makes pure logic harder to test, harder to reuse, and easier to
 couple to UI, file, serial, and Qt Remote Objects boundaries.
 
-The project already builds as C++20, so `std::span` is available. Several
-protocol areas have already moved to the shared byte aliases in
+The project builds as C++23, so `std::span` is available. Several protocol
+areas have already moved to the shared byte aliases in
 `src/algorithms/protocol/bytes.h`.
 
 ## Decision
@@ -50,55 +50,14 @@ Negative consequences and risks:
   growing inside them.
 - Conversions at boundaries must stay explicit to avoid hidden copies and drift.
 
-## Current Baseline
+## Notes
 
-Already byte-native:
+Migrate one bounded slice at a time, starting from the reusable protocol and
+checksum helpers and working outward to their consumers. Do not attempt a
+sweeping conversion across all operation classes; leave `QByteArray` in place
+where data is directly owned by Qt file APIs, widgets, Qt Remote Objects, or
+serial adapters until a local byte-native boundary is practical.
 
-- Transport interfaces: `IKlineTransport`, `ICanTransport`, and
-  `ISsmTransport`.
-- MUT/DMA protocol helpers and logging support.
-- CDBG raw-CAN logging helpers.
-- Mitsubishi CAN flashing and vendor-extension protocol helpers.
-- SSM logging helper internals.
-- Shared byte utilities in `src/algorithms/protocol/bytes.h`.
-- Byte-native test fixtures in `src/algorithms/protocol/testing/byte_test_utils.h`.
-
-Still intentionally Qt-bound or partially migrated:
-
-- `src/algorithms/protocol/ssm/ssm_protocol.cpp` keeps `QByteArray` wrappers over byte-native core
-  helpers.
-- Checksum modules still use `QByteArray` broadly.
-- Flash operation modules still use `QByteArray` for command construction, file
-  contents, payloads, and received messages.
-- Serial backends, Qt Remote Objects, UI/file classes, and integration tests for
-  boundary behavior may keep Qt types.
-
-## Migration Notes
-
-Migrate one bounded slice at a time:
-
-1. Keep completed protocol slices byte-native and avoid adding new `QByteArray`
-   logic there.
-2. Continue converting protocol tests to `bytes::Bytes`, fixed arrays, and
-   `src/algorithms/protocol/testing/byte_test_utils.h::bytesFromHex()`.
-3. Convert checksum families to `bytes::ByteView` inputs and structured
-   byte-native outputs one family at a time.
-4. Migrate flash operation families after their reusable protocol and checksum
-   helpers are byte-native.
-5. Defer broad serial backend conversion until protocol, logging, checksum, and
-   flash consumers are mostly byte-native.
-
-Do not start with a sweeping conversion across all operation classes. Keep
-`QByteArray` where data is directly owned by Qt file APIs, widgets, Qt Remote
-Objects, or serial adapters until a local byte-native boundary is practical.
-
-## Guardrails
-
-- Use `bytes::ByteView` for read-only inputs and `bytes::Bytes` for owned
-  variable output.
-- Use fixed arrays for protocol-defined fixed-size frames.
-- Keep `QByteArray` wrappers only for compatibility and call them out as
-  temporary where practical.
-- Avoid touching UI, QtRO, and platform serial implementation classes unless
-  the current migration slice requires it.
-- Run focused tests for each migrated area.
+The byte-type conventions this decision implies — `ByteView` for read-only
+input, `Bytes` for owned output, fixed arrays for fixed-size frames — are
+stated in [the coding style guide](../coding-style.md).
