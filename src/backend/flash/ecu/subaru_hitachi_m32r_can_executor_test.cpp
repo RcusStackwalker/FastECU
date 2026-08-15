@@ -423,6 +423,32 @@ TEST(SubaruHitachiM32rCanExecutor, ReadPropagatesADisconnectedTransport)
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
+TEST(SubaruHitachiM32rCanExecutor, ConnectRejectsOnCarProgrammingAsUnsupported)
+{
+    // Session-scope probe response with neither at[1]==0xA0 nor at[2]==0x20
+    // selects the on-car branch (legacy lines 281-579), which this port
+    // deliberately does not implement -- see the design's on-car scope
+    // decision and docs/flash-qualification-matrix.md's
+    // FlashEcuSubaruHitachiM32rCan row.
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    SubaruHitachiM32rCanExecutor executor;
+    auto plan = readPlan();
+
+    scriptPreliminaryProbes(transport);
+    transport.expectWrite(request({0xA8, 0x00, 0x00, 0x00, 0xD7}));
+    transport.queueRead(response({0x00, 0x00, 0x00}));
+
+    const auto result =
+        executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Unsupported);
+    EXPECT_TRUE(transport.scriptConsumed());
+}
+
 TEST(SubaruHitachiM32rCanExecutor, ReadStopsWhenCancelledBeforeAnyExchange)
 {
     ScriptedCanFlashTransport transport;
