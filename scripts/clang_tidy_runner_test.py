@@ -1084,7 +1084,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
 
         self.assertEqual([], matched)
         self.assertEqual(1, len(notes))
-        self.assertIn(str(header), notes[0])
+        self.assertIn(str(header.resolve()), notes[0])
 
     def test_filter_changed_entries_ignores_non_cpp_changes(self) -> None:
         source = self.root / "foo.cpp"
