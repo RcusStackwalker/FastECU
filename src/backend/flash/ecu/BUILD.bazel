@@ -17,6 +17,44 @@ exports_files(
     visibility = ["//:__pkg__"],
 )
 
+# Portable. No Qt, no platform, no filesystem, no thread. Leaf types header
+# with no dependency on flash_types.h/flash_plan.h -- flash_types.h includes
+# these to assemble FamilyPlan, so the dependency only ever runs this way.
+cc_library(
+    name = "mitsu_colt_m32r_can_types",
+    hdrs = ["mitsu_colt_m32r_can_types.h"],
+    deps = ["//src/algorithms/protocol"],
+)
+
+# Portable. No Qt, no platform, no filesystem, no thread. See
+# mitsu_colt_m32r_can_types for the no-flash_types.h-dependency rule.
+cc_library(
+    name = "subaru_mitsu_m32r_kline_types",
+    hdrs = ["subaru_mitsu_m32r_kline_types.h"],
+    deps = ["//src/algorithms/protocol"],
+)
+
+# Portable. No Qt, no platform, no filesystem, no thread. See
+# mitsu_colt_m32r_can_types for the no-flash_types.h-dependency rule.
+cc_library(
+    name = "subaru_hitachi_m32r_kline_types",
+    hdrs = ["subaru_hitachi_m32r_kline_types.h"],
+)
+
+# Portable. No Qt, no platform, no filesystem, no thread. See
+# mitsu_colt_m32r_can_types for the no-flash_types.h-dependency rule.
+cc_library(
+    name = "subaru_denso_mc68hc16y5_02_types",
+    hdrs = ["subaru_denso_mc68hc16y5_02_types.h"],
+)
+
+# Portable. No Qt, no platform, no filesystem, no thread. See
+# mitsu_colt_m32r_can_types for the no-flash_types.h-dependency rule.
+cc_library(
+    name = "subaru_denso_sh7055_02_types",
+    hdrs = ["subaru_denso_sh7055_02_types.h"],
+)
+
 cc_library(
     name = "subaru_hitachi_m32r_kline_plan",
     srcs = ["subaru_hitachi_m32r_kline_plan.cpp"],
