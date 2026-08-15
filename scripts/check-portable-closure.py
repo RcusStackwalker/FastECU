@@ -76,6 +76,9 @@ PORTABLE_ROOTS = {
         "subaru_denso_sh7055_02_types",
         "subaru_denso_sh7055_02_plan",
         "subaru_denso_sh7055_02_executor",
+        "subaru_hitachi_m32r_can_types",
+        "subaru_hitachi_m32r_can_plan",
+        "subaru_hitachi_m32r_can_executor",
     },
     ROOT / "src/backend/config": {
         "config_paths",

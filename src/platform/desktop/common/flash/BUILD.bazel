@@ -29,6 +29,8 @@ qt_cc_library(
         "//src/backend/flash/ecu:subaru_denso_mc68hc16y5_02_plan",
         "//src/backend/flash/ecu:subaru_denso_sh7055_02_executor",
         "//src/backend/flash/ecu:subaru_denso_sh7055_02_plan",
+        "//src/backend/flash/ecu:subaru_hitachi_m32r_can_executor",
+        "//src/backend/flash/ecu:subaru_hitachi_m32r_can_plan",
         "//src/backend/flash/ecu:subaru_hitachi_m32r_kline_executor",
         "//src/backend/flash/ecu:subaru_hitachi_m32r_kline_plan",
         "//src/backend/flash/ecu:subaru_mitsu_m32r_kline_executor",

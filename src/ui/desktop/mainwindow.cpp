@@ -1366,11 +1366,6 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
         /*
          * Hitachi ECU
          */
-        else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_hitachi_m32r_can"))
-        {
-            FlashEcuSubaruHitachiM32rCan flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
-            connect_signals_and_run_module(&flash_module);
-        }
         else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_hitachi_sh7058_can"))
         {
             FlashEcuSubaruHitachiSH7058Can flash_module(serial, ecuCalDef[rom_number], cmd_type, this);

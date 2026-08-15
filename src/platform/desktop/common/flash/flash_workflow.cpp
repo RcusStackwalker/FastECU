@@ -18,6 +18,8 @@
 #include "src/backend/flash/ecu/subaru_denso_sh7055_02_plan.h"
 #include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_executor.h"
 #include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_plan.h"
+#include "src/backend/flash/ecu/subaru_hitachi_m32r_can_executor.h"
+#include "src/backend/flash/ecu/subaru_hitachi_m32r_can_plan.h"
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_kline_executor.h"
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_kline_plan.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_can_executor.h"
@@ -526,6 +528,85 @@ class ColtWorkflow final : public FlashWorkflow
     std::optional<Error> failure_;
 };
 
+class SubaruHitachiM32rCanWorkflow final : public FlashWorkflow
+{
+  public:
+    explicit SubaruHitachiM32rCanWorkflow(FlashWorkflowRequest request)
+        : request_(std::move(request)),
+          plan_(build_subaru_hitachi_m32r_can_plan(request_.operation, request_.protocol,
+                                                   request_.mcu, std::move(request_.image)))
+    {
+    }
+
+    FlashWorkflowStep next() override
+    {
+        if (!plan_)
+        {
+            return FlashFailureStep{plan_.error()};
+        }
+        if (failure_)
+        {
+            return FlashFailureStep{std::move(*failure_)};
+        }
+        if (terminal_)
+        {
+            return completed(outcome_, std::move(accepted_));
+        }
+        if (!began_)
+        {
+            began_ = true;
+            return FlashPromptStep{FlashPromptKind::Begin, {}};
+        }
+        if (!attempted_)
+        {
+            attempted_ = true;
+            FlashPlan plan = std::move(*plan_);
+            return FlashAttempt{std::move(plan), std::make_unique<SubaruHitachiM32rCanExecutor>(),
+                                std::make_unique<DesktopCanFlashTransport>(request_.serial),
+                                std::make_unique<QtClock>()};
+        }
+        return completed(outcome_, std::move(accepted_));
+    }
+
+    void submit(FlashPromptResponse response) override
+    {
+        if (response != FlashPromptResponse::Accept)
+        {
+            terminal_ = true;
+            outcome_ = FlashWorkflowOutcome::Cancelled;
+        }
+    }
+
+    void submit(FlashAttemptResult result) override
+    {
+        terminal_ = true;
+        if (result.success)
+        {
+            outcome_ = FlashWorkflowOutcome::Succeeded;
+            accepted_ = std::move(result.read_bytes);
+        }
+        else if (result.error_kind == ErrorKind::Cancelled)
+        {
+            outcome_ = FlashWorkflowOutcome::Cancelled;
+        }
+        else
+        {
+            outcome_ = FlashWorkflowOutcome::Failed;
+            failure_ = Error{result.error_kind, std::move(result.error_detail)};
+        }
+    }
+
+  private:
+    FlashWorkflowRequest request_;
+    Result<FlashPlan> plan_;
+    bool began_ = false;
+    bool attempted_ = false;
+    bool terminal_ = false;
+    FlashWorkflowOutcome outcome_ = FlashWorkflowOutcome::Failed;
+    std::optional<bytes::Bytes> accepted_;
+    std::optional<Error> failure_;
+};
+
 class EepromWorkflow final : public FlashWorkflow
 {
   public:
@@ -685,6 +766,7 @@ struct Route
         SubaruHitachiM32rKline,
         SubaruDensoMc68hc16y5_02,
         SubaruDensoSh7055_02,
+        SubaruHitachiM32rCan,
         Unrouted,
     };
 
@@ -710,6 +792,7 @@ constexpr auto kRoutes = std::to_array<Route>({
     {"sub_ecu_denso_mc68hc16y5_02", SubaruDensoMc68hc16y5_02},
     {"sub_ecu_denso_mc68hc16y5_04", SubaruDensoMc68hc16y5_02},
     {"sub_ecu_denso_sh7055_02", SubaruDensoSh7055_02},
+    {"sub_ecu_hitachi_m32r_can", SubaruHitachiM32rCan},
 });
 
 } // namespace
@@ -748,6 +831,8 @@ std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::tryCreate(FlashWorkflowRequ
         return std::make_unique<SubaruDensoMc68hc16y5_02Workflow>(std::move(request));
     case SubaruDensoSh7055_02:
         return std::make_unique<SubaruDensoSh7055_02Workflow>(std::move(request));
+    case SubaruHitachiM32rCan:
+        return std::make_unique<SubaruHitachiM32rCanWorkflow>(std::move(request));
     case Unrouted:
         return nullptr;
     }

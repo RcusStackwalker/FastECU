@@ -119,12 +119,12 @@ void FlashWorkflowTest::recognizesEveryPortableFamilyPrefixAndLeavesLegacyAlone(
         "sub_ecu_hitachi_m32r_kline", "sub_ecu_hitachi_m32r_kline_recovery",
         "sub_ecu_eeprom_denso_sh7055_kline", "sub_ecu_eeprom_denso_sh7058_kline",
         "sub_ecu_eeprom_denso_sh7055_densocan", "sub_ecu_eeprom_denso_sh7058_densocan",
-        "sub_ecu_eeprom_denso_sh7058_can", "sub_ecu_eeprom_denso_sh7058_can_diesel"};
+        "sub_ecu_eeprom_denso_sh7058_can", "sub_ecu_eeprom_denso_sh7058_can_diesel",
+        "sub_ecu_hitachi_m32r_can"};
     for (const char *protocol : portable)
     {
         QVERIFY2(FlashWorkflowFactory::tryCreate(request(protocol)) != nullptr, protocol);
     }
-    QVERIFY(FlashWorkflowFactory::tryCreate(request("sub_ecu_hitachi_m32r_can")) == nullptr);
 }
 
 void FlashWorkflowTest::invalidColtSuffixIsRecognizedButFailsPreflight()

@@ -69,7 +69,6 @@
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh72543_can_diesel.h"
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_unisia_jecs.h"
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_unisia_jecs_m32r.h"
-#include "src/ui/desktop/flash/ecu/flash_ecu_subaru_hitachi_m32r_can.h"
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_hitachi_sh7058_can.h"
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_hitachi_sh72543r_can.h"
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh72531_can.h"
