@@ -77,7 +77,6 @@
 
 #include "src/ui/desktop/flash/tcu/flash_tcu_subaru_hitachi_m32r_kline.h"
 #include "src/ui/desktop/flash/tcu/flash_tcu_subaru_hitachi_m32r_can.h"
-#include "src/ui/desktop/flash/tcu/flash_tcu_cvt_subaru_hitachi_m32r_can.h"
 #include "src/ui/desktop/flash/tcu/flash_tcu_subaru_denso_sh705x_can.h"
 #include "src/ui/desktop/flash/tcu/flash_tcu_cvt_subaru_mitsu_mh8104_can.h"
 #include "src/ui/desktop/flash/tcu/flash_tcu_cvt_subaru_mitsu_mh8111_can.h"

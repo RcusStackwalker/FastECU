@@ -79,6 +79,9 @@ PORTABLE_ROOTS = {
         "subaru_hitachi_m32r_can_types",
         "subaru_hitachi_m32r_can_plan",
         "subaru_hitachi_m32r_can_executor",
+        "subaru_tcu_cvt_hitachi_m32r_can_types",
+        "subaru_tcu_cvt_hitachi_m32r_can_plan",
+        "subaru_tcu_cvt_hitachi_m32r_can_executor",
     },
     ROOT / "src/backend/config": {
         "config_paths",
