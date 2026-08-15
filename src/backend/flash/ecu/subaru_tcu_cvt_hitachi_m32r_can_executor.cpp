@@ -32,13 +32,12 @@ using bytes::u24;
 
 // Most exchanges in legacy read serial_read_timeout (2000ms); a handful
 // (the two alive probes, the kernel jump, and the dump-setup call) use an
-// explicit 200ms window instead. Both this executor's fatal_request() calls
-// and its raw (non-UdsClient) exchanges use one flat 2000ms policy --
-// matching subaru_hitachi_m32r_can_executor.cpp's own precedent of a single
-// uniform ExchangePolicy rather than reproducing legacy's per-step timing
-// variance, which has no bearing on wire-byte correctness.
+// explicit 200ms window instead. Every exchange in this executor -- both
+// UdsClient pairs alike -- uses one flat 2000ms policy, matching
+// subaru_hitachi_m32r_can_executor.cpp's own precedent of a single uniform
+// ExchangePolicy rather than reproducing legacy's per-step timing variance,
+// which has no bearing on wire-byte correctness.
 constexpr uds::ExchangePolicy kExchangePolicy{.read_timeout_ms = 2000};
-constexpr int kRawTimeoutMs = 2000;
 
 // Seed key.
 constexpr std::array<std::uint16_t, 16> kSeedKeyTable{
@@ -58,6 +57,15 @@ constexpr std::array<std::uint8_t, 32> kIndexTransformation{
 // only start_addr ever passed (0) and bypasses its own floor clamp; this
 // targets the clamp's evident intent instead.
 constexpr MemoryRegion kWindow{0x8000, 0x78000};
+
+// The "other" envelope six of connect_bootloader's exchanges are sent on
+// (see the comment above connect_bootloader's session/seed block). The
+// response side of that envelope isn't independently specified by legacy
+// (which never validates an incoming envelope id at all): the physical CAN
+// addressing is fixed once per session by can->configure() below to
+// (family.request_id, family.response_id) and never varies per exchange, so
+// every reply -- on either envelope -- arrives framed with family.response_id.
+constexpr std::uint32_t kOtherRequestId = 0x7e0;
 
 // M32R_512KB's 11 flash blocks (src/backend/definitions/kernelmemorymodels.h,
 // fblocks_M32R_512KB): block 3 is 0x8000 bytes, NOT the uniform 0x10000 the
@@ -97,18 +105,23 @@ bytes::Bytes decrypt_page(bytes::ByteView page)
                                          kDecryptTable.data(), kIndexTransformation.data());
 }
 
-// `channel`/`uds` are bound to this family's own 0x7e1/0x7e9 pair. `can` is
-// the raw transport underneath both -- needed because six of
-// connect_bootloader's exchanges are sent on a *different* arb id (0x7e0);
-// see raw_exchange() below.
+// `channel`/`uds` are bound to this family's own 0x7e1/0x7e9 pair.
+// `other_uds` wraps a second CanFlashUdsChannel over the SAME underlying
+// ICanFlashTransport, bound to (0x7e0, family.response_id) -- six of
+// connect_bootloader's exchanges are sent on that "other" envelope; see the
+// comment above connect_bootloader's session/seed block. Both UdsClients are
+// used strictly sequentially (never concurrently -- this executor issues one
+// exchange at a time), and neither CanFlashUdsChannel nor UdsClient holds any
+// state beyond their constructor arguments, so two live instances over one
+// transport are safe.
 struct Ctx
 {
     const ICancellationToken& cancellation;
     IEventSink& events;
     IClock& clock;
     uds::UdsClient& uds;
+    uds::UdsClient& other_uds;
     uds::IUdsChannel& channel;
-    ICanFlashTransport& can;
 };
 
 class PhaseReporter
@@ -202,13 +215,16 @@ Error report_exchange_failure(Ctx& ctx, const Error& failure, std::string_view r
     return failure;
 }
 
-// Sends `pdu` through UdsClient (this family's own 0x7e1/0x7e9 channel) and,
-// on failure, logs and returns the error via report_exchange_failure. Used
-// for every exchange whose response follows the standard SID+0x40
-// positive-response convention and is sent on 0x7e1.
-Result<bytes::Bytes> fatal_request(Ctx& ctx, bytes::ByteView pdu, std::string_view operation)
+// Sends `pdu` through `client` and, on failure, logs and returns the error
+// via report_exchange_failure. Used for every exchange whose response
+// follows the standard SID+0x40 positive-response convention. The
+// no-explicit-client overload uses this family's own 0x7e1/0x7e9 `ctx.uds`;
+// six connect-sequence exchanges instead pass `ctx.other_uds` explicitly
+// (see the comment above connect_bootloader's session/seed block).
+Result<bytes::Bytes> fatal_request(Ctx& ctx, uds::UdsClient& client, bytes::ByteView pdu,
+                                   std::string_view operation)
 {
-    Result<bytes::Bytes> reply = ctx.uds.request(pdu, kExchangePolicy, ctx.cancellation);
+    Result<bytes::Bytes> reply = client.request(pdu, kExchangePolicy, ctx.cancellation);
     if (!reply.has_value())
     {
         return std::unexpected(
@@ -217,61 +233,9 @@ Result<bytes::Bytes> fatal_request(Ctx& ctx, bytes::ByteView pdu, std::string_vi
     return reply;
 }
 
-// Six of connect_bootloader's exchanges (TCU ID query, CAL ID query, both
-// session requests, both seed exchanges) are sent on 0x7E0 -- the OBD
-// generic-ECU arb id, NOT this family's own 0x7E1/0x7E9 pair the channel is
-// bound to. Confirmed directly against lines 138-333: only the initial
-// alive probe, the jump, and the final alive re-check use 0x7E1 (the brief
-// calls out the two identity queries explicitly; the session/seed exchanges
-// carry the same 0xE0 envelope byte on inspection of the same line range).
-// CanFlashUdsChannel binds exactly one request/reply pair per instance and
-// cannot vary the outgoing envelope id per call, so these six bypass both
-// UdsClient and CanFlashUdsChannel and go straight to the raw transport.
-// Legacy never validates the incoming envelope's id either (it only
-// inspects payload bytes at a fixed offset), so the read side does the
-// same: strip exactly 4 bytes without checking their value.
-Result<std::optional<bytes::Bytes>> raw_exchange(Ctx& ctx, std::uint32_t request_arb_id,
-                                                 bytes::ByteView pdu, int timeout_ms)
+Result<bytes::Bytes> fatal_request(Ctx& ctx, bytes::ByteView pdu, std::string_view operation)
 {
-    if (const Status sent =
-            ctx.can.write(bytes::composeBe(request_arb_id, pdu), ctx.cancellation);
-        !sent.has_value())
-    {
-        return std::unexpected(sent.error());
-    }
-    Result<std::optional<bytes::Bytes>> frame = ctx.can.read(timeout_ms, ctx.cancellation);
-    if (!frame.has_value())
-    {
-        return std::unexpected(frame.error());
-    }
-    if (!frame->has_value() || frame->value().size() < CanFlashUdsChannel::kEnvelopeSize)
-    {
-        return std::optional<bytes::Bytes>{};
-    }
-    return std::optional<bytes::Bytes>(bytes::Bytes(
-        frame->value().begin() + static_cast<std::ptrdiff_t>(CanFlashUdsChannel::kEnvelopeSize),
-        frame->value().end()));
-}
-
-// Fatal counterpart of raw_exchange: propagates a transport failure, and
-// treats "no frame" the same way fatal_request's underlying UdsClient
-// treats a read timeout.
-Result<bytes::Bytes> raw_fatal_exchange(Ctx& ctx, std::uint32_t request_arb_id,
-                                        bytes::ByteView pdu, int timeout_ms,
-                                        std::string_view operation)
-{
-    Result<std::optional<bytes::Bytes>> reply = raw_exchange(ctx, request_arb_id, pdu, timeout_ms);
-    if (!reply.has_value())
-    {
-        return std::unexpected(
-            report_exchange_failure(ctx, reply.error(), "Wrong response from TCU: ", operation));
-    }
-    if (!reply->has_value())
-    {
-        error(ctx, "No valid response from ECU");
-        return fail(ErrorKind::Timeout, std::format("no response from TCU during {}", operation));
-    }
-    return std::move(**reply);
+    return fatal_request(ctx, ctx.uds, pdu, operation);
 }
 
 // Legacy's TCU ID / CAL ID queries and the second session request (lines
@@ -279,21 +243,26 @@ Result<bytes::Bytes> raw_fatal_exchange(Ctx& ctx, std::uint32_t request_arb_id,
 // connect_bootloader -- even a genuine exchange failure is logged and
 // swallowed, mirroring subaru_hitachi_m32r_can_executor.cpp's
 // non_fatal_query and legacy's own total absence of an early return here.
-void raw_non_fatal_exchange(Ctx& ctx, std::uint32_t request_arb_id, bytes::ByteView pdu,
-                            int timeout_ms, std::string_view label)
+// All three follow the standard SID+0x40 convention (0xAA->0xEA, 0x09->0x49,
+// 0x10->0x50), so they go through `client` (always ctx.other_uds here) like
+// every other exchange, instead of a hand-rolled raw path.
+void non_fatal_query(Ctx& ctx, uds::UdsClient& client, bytes::ByteView pdu,
+                     std::optional<bytes::Byte> expected_subfunction, std::string_view label)
 {
-    Result<std::optional<bytes::Bytes>> reply = raw_exchange(ctx, request_arb_id, pdu, timeout_ms);
+    Result<bytes::Bytes> reply = client.request(pdu, kExchangePolicy, ctx.cancellation);
     if (!reply.has_value())
     {
         error(ctx, std::format("Wrong response from TCU: {}", reply.error().detail));
         return;
     }
-    if (!reply->has_value())
+    const bytes::ByteView payload = uds::payload(*reply);
+    if (expected_subfunction.has_value() &&
+        (payload.empty() || payload[0] != *expected_subfunction))
     {
-        error(ctx, "No valid response from ECU");
+        error(ctx, "Wrong response from TCU: unexpected subfunction");
         return;
     }
-    info(ctx, std::format("{}: {}", label, bytes::toHex(**reply)));
+    info(ctx, std::format("{}: {}", label, bytes::toHex(payload)));
 }
 
 // Legacy connect_bootloader, lines 87-408.
@@ -336,18 +305,30 @@ Status connect_bootloader(Ctx& ctx)
     info(ctx, "TCU Init...");
 
     // TCU ID / CAL ID queries (lines 137-211): sent on 0x7E0, non-fatal.
+    // Six of connect_bootloader's exchanges (these two, both session
+    // requests, and both seed exchanges below) are sent on 0x7E0 -- the OBD
+    // generic-ECU envelope, NOT this family's own 0x7E1/0x7E9 pair `ctx.uds`
+    // is bound to. Confirmed directly against lines 138-333: only the
+    // initial alive probe, the jump, and the final alive re-check use 0x7E1
+    // (the brief calls out the two identity queries explicitly; the
+    // session/seed exchanges carry the same 0xE0 envelope byte on inspection
+    // of the same line range). All six follow the standard SID+0x40
+    // convention, so `ctx.other_uds` -- a second CanFlashUdsChannel/UdsClient
+    // pair bound to (0x7e0, family.response_id) over the same underlying
+    // transport (see execute() and Ctx's comment) -- carries them through
+    // the same fatal_request()/non_fatal_query() machinery every other
+    // exchange in this file uses, rather than a hand-rolled raw path.
     info(ctx, "Requesting TCU ID");
-    raw_non_fatal_exchange(ctx, 0x7e0, bytes::Bytes{0xAA}, kRawTimeoutMs, "TCU ID");
+    non_fatal_query(ctx, ctx.other_uds, bytes::Bytes{0xAA}, std::nullopt, "TCU ID");
     info(ctx, "Requesting CAL ID");
-    raw_non_fatal_exchange(ctx, 0x7e0, bytes::Bytes{0x09, 0x04}, kRawTimeoutMs, "CAL ID");
+    non_fatal_query(ctx, ctx.other_uds, bytes::Bytes{0x09, 0x04}, bytes::Byte(0x04), "CAL ID");
 
     info(ctx, "Initializing bootloader...");
 
     // Session 0x10/0x03 (lines 216-242): sent on 0x7E0, fatal.
     info(ctx, "Requesting session mode");
     Result<bytes::Bytes> session =
-        raw_fatal_exchange(ctx, 0x7e0, bytes::Bytes{0x10, 0x03}, kRawTimeoutMs,
-                           "the session mode request");
+        fatal_request(ctx, ctx.other_uds, bytes::Bytes{0x10, 0x03}, "the session mode request");
     if (!session.has_value())
     {
         return std::unexpected(session.error());
@@ -359,13 +340,13 @@ Status connect_bootloader(Ctx& ctx)
     }
 
     // Session 0x10/0x43 (lines 244-265): sent on 0x7E0, non-fatal.
-    raw_non_fatal_exchange(ctx, 0x7e0, bytes::Bytes{0x10, 0x43}, kRawTimeoutMs,
-                           "session mode (bootloader)");
+    non_fatal_query(ctx, ctx.other_uds, bytes::Bytes{0x10, 0x43}, bytes::Byte(0x43),
+                    "session mode (bootloader)");
 
     // Seed request 0x27/0x01 (lines 267-293): sent on 0x7E0, fatal.
     info(ctx, "Starting seed request...");
-    Result<bytes::Bytes> seed_reply = raw_fatal_exchange(ctx, 0x7e0, bytes::Bytes{0x27, 0x01},
-                                                         kRawTimeoutMs, "the seed request");
+    Result<bytes::Bytes> seed_reply =
+        fatal_request(ctx, ctx.other_uds, bytes::Bytes{0x27, 0x01}, "the seed request");
     if (!seed_reply.has_value())
     {
         return std::unexpected(seed_reply.error());
@@ -384,7 +365,7 @@ Status connect_bootloader(Ctx& ctx)
     bytes::Bytes key_request{0x27, 0x02};
     key_request.insert(key_request.end(), key.begin(), key.end());
     Result<bytes::Bytes> key_reply =
-        raw_fatal_exchange(ctx, 0x7e0, key_request, kRawTimeoutMs, "the seed key");
+        fatal_request(ctx, ctx.other_uds, key_request, "the seed key");
     if (!key_reply.has_value())
     {
         return std::unexpected(key_reply.error());
@@ -709,7 +690,16 @@ Result<FlashExecutionResult> SubaruTcuCvtHitachiM32rCanExecutor::execute(
 
     CanFlashUdsChannel channel(*can, family.request_id, family.response_id);
     uds::UdsClient uds_client(channel, clock, events);
-    Ctx ctx{cancellation, events, clock, uds_client, channel, *can};
+
+    // Second channel/client pair for the six connect-sequence exchanges sent
+    // on kOtherRequestId (0x7e0) instead of this family's own request_id
+    // (0x7e1) -- see Ctx's comment and connect_bootloader's session/seed
+    // block. Shares the same underlying *can transport as `channel`/
+    // `uds_client`; both pairs are used strictly sequentially.
+    CanFlashUdsChannel other_channel(*can, kOtherRequestId, family.response_id);
+    uds::UdsClient other_uds_client(other_channel, clock, events);
+
+    Ctx ctx{cancellation, events, clock, uds_client, other_uds_client, channel};
 
     info(ctx, "Connecting to Subaru TCU Hitachi CAN bootloader, please wait...");
     if (const Status connected = connect_bootloader(ctx); !connected.has_value())

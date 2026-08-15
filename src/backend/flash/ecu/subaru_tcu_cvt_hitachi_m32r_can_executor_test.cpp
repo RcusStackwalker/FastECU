@@ -470,6 +470,92 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ReadStopsWhenCancelled)
     EXPECT_EQ(transport.writesConsumed(), 0u);
 }
 
+// Trips a cancellation source as soon as the first dump chunk's progress is
+// reported, mirroring subaru_hitachi_m32r_can_executor_test.cpp's own
+// CancelAfterFirstChunkSink pattern.
+class CancelAfterFirstChunkSink final : public RecordingEventSink
+{
+  public:
+    explicit CancelAfterFirstChunkSink(fastecu::flash::CancellationSource& source)
+        : source_(source)
+    {
+    }
+    void phase_progress(const fastecu::PhaseProgressEvent& event) override
+    {
+        RecordingEventSink::phase_progress(event);
+        if (event.phase_name == "Read ROM" && event.done > 0)
+        {
+            source_.trip();
+        }
+    }
+
+  private:
+    fastecu::flash::CancellationSource& source_;
+};
+
+TEST(SubaruTcuCvtHitachiM32rCanExecutor, ReadStopsAtTheNextChunkWhenCancelledMidRead)
+{
+    // Exercises the cancellation check at the top of dump_flash_range's page
+    // loop (legacy stopRequested(), line 584): connect and the first 0x100
+    // dump chunk are scripted, cancellation trips on that chunk's progress
+    // event, and the loop must stop before requesting a second chunk --
+    // there is no second chunk scripted, so any further write would fail
+    // against the exhausted script instead.
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    fastecu::flash::CancellationSource cancellation;
+    CancelAfterFirstChunkSink events{cancellation};
+    SubaruTcuCvtHitachiM32rCanExecutor executor;
+    auto plan = readPlan();
+
+    scriptFullConnect(transport);
+    scriptDumpSetup(transport);
+    // Exactly one dump chunk is scripted; the executor is cancelled while it
+    // is being served, so the loop must stop at the top of the next chunk
+    // rather than requesting the remaining 0x77F00 bytes of the window.
+    scriptFlashDump(transport, 0x8000, 0x100, 0x100, 0x5A);
+
+    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_TRUE(transport.scriptConsumed());
+    const fastecu::RecordedPhaseProgress *last = nullptr;
+    for (const auto& event : events.phase_progress_calls)
+    {
+        if (event.phase_name == "Read ROM")
+        {
+            last = &event;
+        }
+    }
+    ASSERT_NE(last, nullptr);
+    EXPECT_LT(last->done, last->total);
+}
+
+TEST(SubaruTcuCvtHitachiM32rCanExecutor, ReadPropagatesADisconnectedTransport)
+{
+    // A transport-level Disconnected failure mid-read must surface as
+    // ErrorKind::Disconnected, not be swallowed or misclassified as a
+    // malformed/timeout response.
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    SubaruTcuCvtHitachiM32rCanExecutor executor;
+    auto plan = readPlan();
+
+    scriptFullConnect(transport);
+    scriptDumpSetup(transport);
+    transport.expectWrite(request(bytes::composeBe(bytes::Byte(0xB7), bytes::u24(0x8000))));
+    transport.queue_error(ErrorKind::Disconnected, "adapter gone");
+
+    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
+    EXPECT_TRUE(transport.scriptConsumed());
+}
+
 TEST(SubaruTcuCvtHitachiM32rCanExecutor, WriteErasesThenFlashesEightBlocksOfSixtyFourKib)
 {
     // The 8 flashed blocks (M32R_512KB indices 3-10) are NOT uniformly 64
