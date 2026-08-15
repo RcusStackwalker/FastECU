@@ -534,13 +534,22 @@ class ColtWorkflow final : public FlashWorkflow
     std::optional<Error> failure_;
 };
 
-class SubaruHitachiM32rCanWorkflow final : public FlashWorkflow
+// Shared shape for every kernel-free, no-confirmation, single-attempt CAN
+// family in this file (step 5 tail wave 3): build the plan in the
+// constructor, prompt once, run the single executor attempt, report the
+// outcome. The four families below are compile-time-distinct only in which
+// plan builder and executor type they use, so they instantiate this
+// template rather than duplicating the ~50-line class body per family.
+template <typename ExecutorT,
+          Result<FlashPlan> (*BuildPlan)(FlashOperation, std::string_view, std::string_view,
+                                         std::optional<bytes::Bytes>)>
+class SimpleCanFlashWorkflow final : public FlashWorkflow
 {
   public:
-    explicit SubaruHitachiM32rCanWorkflow(FlashWorkflowRequest request)
+    explicit SimpleCanFlashWorkflow(FlashWorkflowRequest request)
         : request_(std::move(request)),
-          plan_(build_subaru_hitachi_m32r_can_plan(request_.operation, request_.protocol,
-                                                   request_.mcu, std::move(request_.image)))
+          plan_(BuildPlan(request_.operation, request_.protocol, request_.mcu,
+                          std::move(request_.image)))
     {
     }
 
@@ -567,7 +576,7 @@ class SubaruHitachiM32rCanWorkflow final : public FlashWorkflow
         {
             attempted_ = true;
             FlashPlan plan = std::move(*plan_);
-            return FlashAttempt{std::move(plan), std::make_unique<SubaruHitachiM32rCanExecutor>(),
+            return FlashAttempt{std::move(plan), std::make_unique<ExecutorT>(),
                                 std::make_unique<DesktopCanFlashTransport>(request_.serial),
                                 std::make_unique<QtClock>()};
         }
@@ -613,260 +622,17 @@ class SubaruHitachiM32rCanWorkflow final : public FlashWorkflow
     std::optional<Error> failure_;
 };
 
-// Same ~50-line shape as SubaruHitachiM32rCanWorkflow above (kernel-free,
-// no confirmations, single-attempt CAN executor) -- duplicated rather than
-// parametrized, matching the brief's explicit allowance not to introduce a
-// runtime branch inside one class for what are compile-time-distinct
-// executor types.
-class SubaruTcuCvtHitachiM32rCanWorkflow final : public FlashWorkflow
-{
-  public:
-    explicit SubaruTcuCvtHitachiM32rCanWorkflow(FlashWorkflowRequest request)
-        : request_(std::move(request)),
-          plan_(build_subaru_tcu_cvt_hitachi_m32r_can_plan(request_.operation, request_.protocol,
-                                                           request_.mcu, std::move(request_.image)))
-    {
-    }
-
-    FlashWorkflowStep next() override
-    {
-        if (!plan_)
-        {
-            return FlashFailureStep{plan_.error()};
-        }
-        if (failure_)
-        {
-            return FlashFailureStep{std::move(*failure_)};
-        }
-        if (terminal_)
-        {
-            return completed(outcome_, std::move(accepted_));
-        }
-        if (!began_)
-        {
-            began_ = true;
-            return FlashPromptStep{FlashPromptKind::Begin, {}};
-        }
-        if (!attempted_)
-        {
-            attempted_ = true;
-            FlashPlan plan = std::move(*plan_);
-            return FlashAttempt{std::move(plan),
-                                std::make_unique<SubaruTcuCvtHitachiM32rCanExecutor>(),
-                                std::make_unique<DesktopCanFlashTransport>(request_.serial),
-                                std::make_unique<QtClock>()};
-        }
-        return completed(outcome_, std::move(accepted_));
-    }
-
-    void submit(FlashPromptResponse response) override
-    {
-        if (response != FlashPromptResponse::Accept)
-        {
-            terminal_ = true;
-            outcome_ = FlashWorkflowOutcome::Cancelled;
-        }
-    }
-
-    void submit(FlashAttemptResult result) override
-    {
-        terminal_ = true;
-        if (result.success)
-        {
-            outcome_ = FlashWorkflowOutcome::Succeeded;
-            accepted_ = std::move(result.read_bytes);
-        }
-        else if (result.error_kind == ErrorKind::Cancelled)
-        {
-            outcome_ = FlashWorkflowOutcome::Cancelled;
-        }
-        else
-        {
-            outcome_ = FlashWorkflowOutcome::Failed;
-            failure_ = Error{result.error_kind, std::move(result.error_detail)};
-        }
-    }
-
-  private:
-    FlashWorkflowRequest request_;
-    Result<FlashPlan> plan_;
-    bool began_ = false;
-    bool attempted_ = false;
-    bool terminal_ = false;
-    FlashWorkflowOutcome outcome_ = FlashWorkflowOutcome::Failed;
-    std::optional<bytes::Bytes> accepted_;
-    std::optional<Error> failure_;
-};
-
-// Same ~50-line shape as SubaruHitachiM32rCanWorkflow/SubaruTcuCvtHitachiM32rCanWorkflow
-// above (kernel-free, no confirmations, single-attempt CAN executor) --
-// duplicated rather than parametrized, matching the brief's explicit
-// allowance not to introduce a runtime branch inside one class for what are
-// compile-time-distinct executor types.
-class SubaruTcuCvtMitsuMh8111CanWorkflow final : public FlashWorkflow
-{
-  public:
-    explicit SubaruTcuCvtMitsuMh8111CanWorkflow(FlashWorkflowRequest request)
-        : request_(std::move(request)),
-          plan_(build_subaru_tcu_cvt_mitsu_mh8111_can_plan(request_.operation, request_.protocol,
-                                                           request_.mcu, std::move(request_.image)))
-    {
-    }
-
-    FlashWorkflowStep next() override
-    {
-        if (!plan_)
-        {
-            return FlashFailureStep{plan_.error()};
-        }
-        if (failure_)
-        {
-            return FlashFailureStep{std::move(*failure_)};
-        }
-        if (terminal_)
-        {
-            return completed(outcome_, std::move(accepted_));
-        }
-        if (!began_)
-        {
-            began_ = true;
-            return FlashPromptStep{FlashPromptKind::Begin, {}};
-        }
-        if (!attempted_)
-        {
-            attempted_ = true;
-            FlashPlan plan = std::move(*plan_);
-            return FlashAttempt{std::move(plan),
-                                std::make_unique<SubaruTcuCvtMitsuMh8111CanExecutor>(),
-                                std::make_unique<DesktopCanFlashTransport>(request_.serial),
-                                std::make_unique<QtClock>()};
-        }
-        return completed(outcome_, std::move(accepted_));
-    }
-
-    void submit(FlashPromptResponse response) override
-    {
-        if (response != FlashPromptResponse::Accept)
-        {
-            terminal_ = true;
-            outcome_ = FlashWorkflowOutcome::Cancelled;
-        }
-    }
-
-    void submit(FlashAttemptResult result) override
-    {
-        terminal_ = true;
-        if (result.success)
-        {
-            outcome_ = FlashWorkflowOutcome::Succeeded;
-            accepted_ = std::move(result.read_bytes);
-        }
-        else if (result.error_kind == ErrorKind::Cancelled)
-        {
-            outcome_ = FlashWorkflowOutcome::Cancelled;
-        }
-        else
-        {
-            outcome_ = FlashWorkflowOutcome::Failed;
-            failure_ = Error{result.error_kind, std::move(result.error_detail)};
-        }
-    }
-
-  private:
-    FlashWorkflowRequest request_;
-    Result<FlashPlan> plan_;
-    bool began_ = false;
-    bool attempted_ = false;
-    bool terminal_ = false;
-    FlashWorkflowOutcome outcome_ = FlashWorkflowOutcome::Failed;
-    std::optional<bytes::Bytes> accepted_;
-    std::optional<Error> failure_;
-};
-
-// Same ~50-line shape as SubaruTcuCvtMitsuMh8111CanWorkflow above
-// (kernel-free, no confirmations, single-attempt CAN executor) --
-// duplicated rather than parametrized, matching the brief's explicit
-// allowance not to introduce a runtime branch inside one class for what are
-// compile-time-distinct executor types.
-class SubaruTcuCvtMitsuMh8104CanWorkflow final : public FlashWorkflow
-{
-  public:
-    explicit SubaruTcuCvtMitsuMh8104CanWorkflow(FlashWorkflowRequest request)
-        : request_(std::move(request)),
-          plan_(build_subaru_tcu_cvt_mitsu_mh8104_can_plan(request_.operation, request_.protocol,
-                                                           request_.mcu, std::move(request_.image)))
-    {
-    }
-
-    FlashWorkflowStep next() override
-    {
-        if (!plan_)
-        {
-            return FlashFailureStep{plan_.error()};
-        }
-        if (failure_)
-        {
-            return FlashFailureStep{std::move(*failure_)};
-        }
-        if (terminal_)
-        {
-            return completed(outcome_, std::move(accepted_));
-        }
-        if (!began_)
-        {
-            began_ = true;
-            return FlashPromptStep{FlashPromptKind::Begin, {}};
-        }
-        if (!attempted_)
-        {
-            attempted_ = true;
-            FlashPlan plan = std::move(*plan_);
-            return FlashAttempt{std::move(plan),
-                                std::make_unique<SubaruTcuCvtMitsuMh8104CanExecutor>(),
-                                std::make_unique<DesktopCanFlashTransport>(request_.serial),
-                                std::make_unique<QtClock>()};
-        }
-        return completed(outcome_, std::move(accepted_));
-    }
-
-    void submit(FlashPromptResponse response) override
-    {
-        if (response != FlashPromptResponse::Accept)
-        {
-            terminal_ = true;
-            outcome_ = FlashWorkflowOutcome::Cancelled;
-        }
-    }
-
-    void submit(FlashAttemptResult result) override
-    {
-        terminal_ = true;
-        if (result.success)
-        {
-            outcome_ = FlashWorkflowOutcome::Succeeded;
-            accepted_ = std::move(result.read_bytes);
-        }
-        else if (result.error_kind == ErrorKind::Cancelled)
-        {
-            outcome_ = FlashWorkflowOutcome::Cancelled;
-        }
-        else
-        {
-            outcome_ = FlashWorkflowOutcome::Failed;
-            failure_ = Error{result.error_kind, std::move(result.error_detail)};
-        }
-    }
-
-  private:
-    FlashWorkflowRequest request_;
-    Result<FlashPlan> plan_;
-    bool began_ = false;
-    bool attempted_ = false;
-    bool terminal_ = false;
-    FlashWorkflowOutcome outcome_ = FlashWorkflowOutcome::Failed;
-    std::optional<bytes::Bytes> accepted_;
-    std::optional<Error> failure_;
-};
+using SubaruHitachiM32rCanWorkflow =
+    SimpleCanFlashWorkflow<SubaruHitachiM32rCanExecutor, build_subaru_hitachi_m32r_can_plan>;
+using SubaruTcuCvtHitachiM32rCanWorkflow =
+    SimpleCanFlashWorkflow<SubaruTcuCvtHitachiM32rCanExecutor,
+                           build_subaru_tcu_cvt_hitachi_m32r_can_plan>;
+using SubaruTcuCvtMitsuMh8111CanWorkflow =
+    SimpleCanFlashWorkflow<SubaruTcuCvtMitsuMh8111CanExecutor,
+                           build_subaru_tcu_cvt_mitsu_mh8111_can_plan>;
+using SubaruTcuCvtMitsuMh8104CanWorkflow =
+    SimpleCanFlashWorkflow<SubaruTcuCvtMitsuMh8104CanExecutor,
+                           build_subaru_tcu_cvt_mitsu_mh8104_can_plan>;
 
 class EepromWorkflow final : public FlashWorkflow
 {
