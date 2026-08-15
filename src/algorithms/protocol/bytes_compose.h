@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <ranges>
+#include <stdexcept>
 #include <string_view>
 #include <type_traits>
 
@@ -32,8 +33,9 @@ namespace literals
 // expression, so the call cannot be evaluated.
 consteval Byte operator""_b(unsigned long long value)
 {
-    return value <= 0xFF ? static_cast<Byte>(value)
-                         : throw "byte literal does not fit in one byte";
+    return value <= 0xFF
+               ? static_cast<Byte>(value)
+               : throw std::out_of_range("byte literal does not fit in one byte");
 }
 
 } // namespace literals

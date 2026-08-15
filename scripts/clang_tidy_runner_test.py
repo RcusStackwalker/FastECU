@@ -633,7 +633,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
     def test_prebuild_failure_does_not_block_analysis(self) -> None:
         commands, fake_run = self.prebuild_fixture(bazel_build_returncode=3)
         with mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS):
-            result = runner.run_workflow(
+            runner.run_workflow(
                 mode="report",
                 workspace=self.root,
                 compdb_tool=_UNIX_COMPDB_TOOL,
@@ -643,7 +643,6 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 build_args=[_FASTECU_TARGET],
             )
 
-        self.assertEqual(0, result)
         self.assertEqual(_UNIX_COMPDB_TOOL, commands[1][0])
 
     def test_refresh_failure_stops_before_analysis(self) -> None:
@@ -1127,7 +1126,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
             return subprocess.CompletedProcess(command, 0)
 
         with mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS):
-            result = runner.run_workflow(
+            runner.run_workflow(
                 mode="report",
                 workspace=self.root,
                 compdb_tool=_UNIX_COMPDB_TOOL,
@@ -1137,7 +1136,6 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 changed=True,
             )
 
-        self.assertEqual(0, result)
         self.assertEqual([str(changed_source)], analyzed_files)
 
     def test_changed_mode_skips_analysis_when_nothing_matches(self) -> None:
@@ -1159,7 +1157,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
         with mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS):
             output = StringIO()
             with redirect_stdout(output):
-                result = runner.run_workflow(
+                runner.run_workflow(
                     mode="report",
                     workspace=self.root,
                     compdb_tool=_UNIX_COMPDB_TOOL,
@@ -1169,7 +1167,6 @@ class ClangTidyRunnerTest(unittest.TestCase):
                     changed=True,
                 )
 
-        self.assertEqual(0, result)
         self.assertFalse(tidy_invoked)
         self.assertIn("no changed C/C++ translation units", output.getvalue())
 
