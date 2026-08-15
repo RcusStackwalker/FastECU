@@ -46,12 +46,14 @@ PORTABLE_ROOTS = {
     },
     ROOT / "src/backend/logging/protocols": {"protocols"},
     ROOT / "src/backend/protocol": {"protocol"},
+    ROOT / "src/backend/protocol/uds": {"uds_client"},
     ROOT / "src/backend/flash": {
         "flash_types",
         "flash_plan",
         "flash_validation",
         "flash_executor",
         "flash_device_lookup",
+        "can_flash_uds_channel",
     },
     ROOT / "src/backend/flash/eeprom": {
         "denso_sh705x_eeprom_common",

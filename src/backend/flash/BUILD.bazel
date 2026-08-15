@@ -87,6 +87,28 @@ fastecu_portable_gtest(
     deps = [":flash_executor"],
 )
 
+cc_library(
+    name = "can_flash_uds_channel",
+    srcs = ["can_flash_uds_channel.cpp"],
+    hdrs = ["can_flash_uds_channel.h"],
+    deps = [
+        ":flash_executor",
+        "//src/algorithms/protocol",
+        "//src/backend/ports",
+        "//src/backend/protocol/uds:uds_client",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "can_flash_uds_channel_test",
+    srcs = ["can_flash_uds_channel_test.cpp"],
+    deps = [
+        ":can_flash_uds_channel",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports/testing:fake_cancellation_token",
+    ],
+)
+
 # Portable. No Qt, no platform, no filesystem, no thread. Moved here from
 # //src/backend/checksum in step 5e: the flashdevices[] table is flash-device
 # geometry consumed by 30 flash operations and one checksum dispatcher, so

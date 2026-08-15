@@ -3,6 +3,7 @@
 #include <cassert>
 
 #include "src/algorithms/protocol/bytes_compose.h"
+#include "src/algorithms/protocol/uds/uds_pdu.h"
 
 namespace MitsuColtCan
 {
@@ -765,7 +766,8 @@ std::uint16_t checksum(bytes::ByteView data)
 
 bytes::Bytes buildRequestDownload(std::uint32_t start, std::uint32_t size)
 {
-    return composeBe(kServiceRequestDownload, u24(start), 0x00_b, u24(size));
+    return uds::buildRequest(kServiceRequestDownload,
+                             composeBe(u24(start), 0x00_b, u24(size)));
 }
 
 std::vector<bytes::Bytes> buildTransferDataFrames(bytes::ByteView payload)
@@ -774,50 +776,53 @@ std::vector<bytes::Bytes> buildTransferDataFrames(bytes::ByteView payload)
     for (std::size_t offset = 0; offset < payload.size(); offset += kTransferChunkSize)
     {
         const std::size_t chunkSize = std::min<std::size_t>(kTransferChunkSize, payload.size() - offset);
-        frames.push_back(composeBe(kServiceTransferData, payload.subspan(offset, chunkSize)));
+        frames.push_back(
+            uds::buildRequest(kServiceTransferData, payload.subspan(offset, chunkSize)));
     }
     return frames;
 }
 
 bytes::Bytes buildRoutineCheckCrc(std::uint32_t targetStart)
 {
-    return composeBe(kServiceRoutineControl, kRoutineCheckCrc,
-                     targetStart < 0x800000 ? 2_b : 1_b);
+    return uds::buildRequest(kServiceRoutineControl, kRoutineCheckCrc,
+                             composeBe(targetStart < 0x800000 ? 2_b : 1_b));
 }
 
 bytes::Bytes buildRoutineErase()
 {
-    return composeBe(kServiceRoutineControl, kRoutineErase);
+    return uds::buildRequest(kServiceRoutineControl, kRoutineErase);
 }
 
 bytes::Bytes buildRequestReflashUnlock()
 {
-    // Verbatim from externals/livemonitor/obdsessionwidget.cpp:180-181.
-    // Original author's comment: "caused bootloader lockup". See header doc.
-    static const bytes::Byte kData[12] = {
-        kServiceRequestReflash, 154, 1, 1, 'R', 'c', 'u', 's', '0', '0', 0, 1};
-    return bytes::Bytes(std::begin(kData), std::end(kData));
+    // The SID moved into uds::buildRequest below; the remaining 11 bytes are
+    // the tail of the 12-byte literal in
+    // externals/livemonitor/obdsessionwidget.cpp:180-181, verbatim, and the
+    // frame this builds is still that literal byte for byte. Original author's
+    // comment: "caused bootloader lockup". See header doc.
+    static const bytes::Byte kData[11] = {154, 1, 1, 'R', 'c', 'u', 's', '0', '0', 0, 1};
+    return uds::buildRequest(kServiceRequestReflash, bytes::ByteView(kData));
 }
 
 bytes::Bytes buildReadMemoryByAddress(std::uint32_t addr, bytes::Byte len)
 {
-    return composeBe(kServiceReadMemoryByAddress, u24(addr), len);
+    return uds::buildRequest(kServiceReadMemoryByAddress, composeBe(u24(addr), len));
 }
 
 bytes::Bytes buildDiagnosticSession(bytes::Byte sessionId)
 {
-    return composeBe(kServiceDiagnosticSession, sessionId);
+    return uds::buildRequest(kServiceDiagnosticSession, sessionId);
 }
 
 bytes::Bytes buildSecurityAccessSeedRequest()
 {
-    return composeBe(kServiceSecurityAccess, 0x05_b);
+    return uds::buildRequest(kServiceSecurityAccess, 0x05_b);
 }
 
 bytes::Bytes buildSecurityAccessKey(bytes::ByteView key)
 {
     assert(key.size() == 4);
-    return composeBe(kServiceSecurityAccess, 0x06_b, key);
+    return uds::buildRequest(kServiceSecurityAccess, 0x06_b, key);
 }
 
 } // namespace MitsuColtCan

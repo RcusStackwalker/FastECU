@@ -3,6 +3,7 @@
 #include <cassert>
 
 #include "src/algorithms/protocol/bytes_compose.h"
+#include "src/algorithms/protocol/uds/uds_pdu.h"
 
 namespace MitsuColtCanVendorExt
 {
@@ -71,14 +72,15 @@ bytes::Bytes keyBytes(std::uint32_t key)
 
 bytes::Bytes buildChallengeSeedRequest()
 {
-    return composeBe(kServiceReadMemoryByAddress, kVendorChallengeSelector,
-                     kVendorChallengeSeedSubfunction);
+    return uds::buildRequest(kServiceReadMemoryByAddress,
+                             composeBe(kVendorChallengeSelector, kVendorChallengeSeedSubfunction));
 }
 
 bytes::Bytes buildChallengeKey(std::uint32_t key)
 {
-    return composeBe(kServiceReadMemoryByAddress, kVendorChallengeSelector,
-                     kVendorChallengeKeySubfunction, key);
+    return uds::buildRequest(
+        kServiceReadMemoryByAddress,
+        composeBe(kVendorChallengeSelector, kVendorChallengeKeySubfunction, key));
 }
 
 } // namespace MitsuColtCanVendorExt

@@ -192,14 +192,16 @@ cc_library(
     hdrs = ["mitsu_colt_m32r_can_executor.h"],
     deps = [
         ":mitsu_colt_m32r_can_plan",
-        "//src/algorithms/diagnostics",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
         "//src/algorithms/protocol/colt:mitsu_colt_can_vendor_ext_protocol",
+        "//src/algorithms/protocol/uds",
+        "//src/backend/flash:can_flash_uds_channel",
         "//src/backend/flash:flash_executor",
         "//src/backend/flash:flash_plan",
         "//src/backend/flash:flash_types",
         "//src/backend/ports",
+        "//src/backend/protocol/uds:uds_client",
     ],
 )
 

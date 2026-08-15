@@ -94,12 +94,48 @@ the parent workspace, but it is not part of this repository.
    either applicable erase is reported without another write attempt, and
    recover the ECU using the verified procedure before continuing.
 
-7. **Post-write validation.** After each capacity/security combination,
-   power-cycle the ECU, repeat the matching full zero-based read, and compare
-   its SHA-256 hash and the capacity-boundary sample bytes with the intended
-   image. Record date, ECU identity, adapter identity, selected protocol,
-   operator, image hash, read-back hash, and pass/fail result.
+7. **responsePending (NRC 0x78) handling.** The erase and CRC-check routines
+   are the exchanges most likely to make the ECU report responsePending.
+   Confirm the operation completes rather than aborting, and that the debug
+   log shows one "responsePending" line per absorbed reply. This path has no
+   hardware evidence behind it; it was added with the UDS layer and is
+   verified only by scripted tests.
 
-8. **Only after Steps 1-7 pass repeatably for both capacities and both
-   authorization variants on a bench/spare ECU**, consider use on a real
-   vehicle.
+8. **CAN reply-id validation.** `CanFlashUdsChannel` now rejects any reply
+   frame whose arbitration id does not match the expected response id;
+   before this branch such a frame was accepted silently. Confirm normal
+   operation across all four protocols produces no spurious reply-id
+   rejections in the debug log.
+
+9. **Absorbed-pending exchange duration.** `pending_timeout_ms = 3000` and
+   `max_pending_repeats = 10` are `ExchangePolicy` defaults that **no call
+   site on this path overrides** — the executor only ever sets
+   `pre_read_delay_ms` and `read_timeout_ms`. Every exchange can therefore
+   absorb ten responsePending replies before giving up, and any one of them
+   can take `read_timeout_ms + 10 × 3000 ms` to fail:
+
+   - about **30 seconds** (`500 ms + 10 × 3000 ms`) at every exchange that
+     uses the default 500 ms read timeout, which is all of them bar the three
+     below; and
+   - about **33 seconds** (`3000 ms + 10 × 3000 ms`) at the three that use the
+     extra-long 3000 ms read timeout: the reflash-unlock request, the erase
+     trigger, and the CRC check.
+
+   Do not read those three as the only places a long stall can happen. The
+   exchange an operator is most likely to meet one at is TransferData: a
+   384 KiB userspace write sends about 1,400 of them (`0x58000` bytes at 256
+   bytes per frame) and the read-back verify makes about 1,900 more chunk
+   exchanges (192 bytes each), and any single one can sit for ~30 s. Expect
+   the UI to appear stalled for that long anywhere in the run, and wait rather
+   than pulling power — an interruption mid-TransferData is as capable of
+   bricking the unit as one mid-unlock or mid-erase.
+
+10. **Post-write validation.** After each capacity/security combination,
+    power-cycle the ECU, repeat the matching full zero-based read, and
+    compare its SHA-256 hash and the capacity-boundary sample bytes with the
+    intended image. Record date, ECU identity, adapter identity, selected
+    protocol, operator, image hash, read-back hash, and pass/fail result.
+
+11. **Only after Steps 1-10 pass repeatably for both capacities and both
+    authorization variants on a bench/spare ECU**, consider use on a real
+    vehicle.
