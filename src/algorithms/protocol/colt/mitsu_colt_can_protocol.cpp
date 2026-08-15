@@ -795,8 +795,11 @@ bytes::Bytes buildRoutineErase()
 
 bytes::Bytes buildRequestReflashUnlock()
 {
-    // Verbatim from externals/livemonitor/obdsessionwidget.cpp:180-181.
-    // Original author's comment: "caused bootloader lockup". See header doc.
+    // The SID moved into uds::buildRequest below; the remaining 11 bytes are
+    // the tail of the 12-byte literal in
+    // externals/livemonitor/obdsessionwidget.cpp:180-181, verbatim, and the
+    // frame this builds is still that literal byte for byte. Original author's
+    // comment: "caused bootloader lockup". See header doc.
     static const bytes::Byte kData[11] = {154, 1, 1, 'R', 'c', 'u', 's', '0', '0', 0, 1};
     return uds::buildRequest(kServiceRequestReflash, bytes::ByteView(kData));
 }

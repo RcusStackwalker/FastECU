@@ -1257,7 +1257,8 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsAtTheNextExchangeWhenCancelledMidWrite)
     // Cancelled the instant the erase-page upload reports success: the run
     // must stop before the write-page upload's first request reaches the bus.
     // The write path has no loop of its own to poll a token, so what has to
-    // hold here is exchange()'s own pre-request check.
+    // hold here is UdsClient::request()'s own pre-request check -- the
+    // executor-local exchange() this used to name is gone.
     CancelOnLogSink events{cancellation, "Erase page uploaded"};
     MitsuColtM32rCanExecutor executor;
 

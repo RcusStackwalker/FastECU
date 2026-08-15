@@ -6,8 +6,9 @@
 //
 // Pure and transport-independent. Nothing here knows about CAN arbitration
 // ids, K-Line headers, timeouts, or retries -- the transport envelope belongs
-// to IUdsChannel implementations in //src/backend/protocol/uds, and the
-// exchange belongs to UdsClient there.
+// to IUdsChannel implementations (the interface and UdsClient are in
+// //src/backend/protocol/uds; the CAN flash one is CanFlashUdsChannel in
+// //src/backend/flash), and the exchange belongs to UdsClient.
 //
 // The model is dialect-neutral: UDS and KWP2000 share this PDU shape, this
 // positive-response convention, and this negative-response frame. Only the
@@ -49,8 +50,9 @@ constexpr bytes::Byte requestFromPositive(bytes::Byte positive_sid)
 // own named parameter position. `buildRequest(kServiceSecurityAccess, 0x05_b)`
 // is then unambiguous on sight.
 //
-// A family that already composes its own frames with bytes::composeBe (ADR
-// 0013) may keep doing so; these exist for callers that have no family builder.
+// A family builder may compose its own frames with bytes::composeBe (ADR 0013)
+// or delegate to these -- MitsuColtCan's builders delegate, which is what puts
+// the [SID][...] shape in one place instead of one per service.
 bytes::Bytes buildRequest(bytes::Byte sid);
 bytes::Bytes buildRequest(bytes::Byte sid, bytes::Byte subfunction);
 bytes::Bytes buildRequest(bytes::Byte sid, bytes::ByteView data);

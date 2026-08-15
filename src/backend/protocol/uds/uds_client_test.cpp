@@ -85,6 +85,11 @@ TEST(UdsClientTest, AbsorbsOneResponsePendingAndReadsAgain)
     EXPECT_THAT(f.channel.timeouts_, ElementsAre(500, 3000));
 }
 
+// The next two tests are a pair, and only the pair pins the retry boundary.
+// kPolicy allows 3 repeats: the first fixes the largest run of pendings that
+// is still absorbed, the second the smallest run that is not. Either one on
+// its own is satisfied by an off-by-one limit, and neither name says so.
+// Change them together; deleting one silently stops testing the boundary.
 TEST(UdsClientTest, AbsorbsRepeatedResponsePending)
 {
     Fixture f;

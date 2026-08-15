@@ -28,11 +28,18 @@ struct Response
     // Meaningful only when kind == Negative.
     bytes::Byte nrc{};
 
-    // Bytes after the response service id. A VIEW INTO THE INPUT, not a copy:
-    // it stays valid only as long as the buffer passed to parseResponse. The
-    // only caller is UdsClient, which parses a buffer it owns for the whole
-    // call; executors receive an owning Bytes from UdsClient::request and read
-    // it with payload()/subfunction() below.
+    // What the response carries past its own header: the bytes after the
+    // service id for a Positive response, the bytes after the NRC for a
+    // Negative one (7F <sid> <nrc>, so subspan(3) -- past the NRC, not past
+    // the SID), and empty for a Malformed one. A VIEW INTO THE INPUT, not a
+    // copy: it stays valid only as long as the buffer passed to parseResponse.
+    //
+    // Nothing in production reads this field. UdsClient classifies with kind,
+    // isPending() and matches(), and hands executors an owning Bytes they read
+    // with payload()/subfunction() below. It is part of the parse result the
+    // layer's design specifies and is pinned by uds_response_test, which is
+    // its only reader; a first production reader has to honour the lifetime
+    // rule above.
     bytes::ByteView data;
 
     bool isPending() const
