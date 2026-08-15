@@ -26,13 +26,6 @@ namespace fastecu::flash
 namespace
 {
 
-// CanFlashUdsChannel::receive() reads through a blocking, timeout-bounded
-// transport read (DesktopCanFlashTransport::read(), ultimately a J2534
-// PassThruReadMsgs or a serial waitForReadyRead loop); ISO-TP flow control
-// is handled by the driver, not the caller. So unlike the legacy serial
-// polling code these exchanges were transcribed from, no exchange here
-// needs a pre-read settle delay -- the blocking read already waits out
-// whatever the ECU takes, up to read_timeout_ms.
 constexpr uds::ExchangePolicy kRoutineExchangePolicy{.read_timeout_ms = 500};
 constexpr uds::ExchangePolicy kSlowExchangePolicy{.read_timeout_ms = 3000};
 
