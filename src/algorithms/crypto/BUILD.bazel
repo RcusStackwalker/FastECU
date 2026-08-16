@@ -1,6 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS")
 
 package(default_visibility = [
     "//src/algorithms:__subpackages__",
@@ -23,36 +22,11 @@ exports_files(
 # JNI only; step 7 decides OpenSSL's fate once NDK cross-compilation is real.
 cc_library(
     name = "crypto",
-    srcs = glob(
-        ["*.cpp"],
-        exclude = [
-            "*_test.cpp",
-            "qt_*.cpp",
-        ],
-    ),
-    hdrs = glob(
-        ["*.h"],
-        exclude = [
-            "*_test.h",
-            "qt_*.h",
-        ],
-    ),
+    srcs = ["cipher.cpp"],
+    hdrs = ["cipher.h"],
     deps = [
         "//src/algorithms/protocol",
         "@openssl",
-    ],
-)
-
-# TRANSITIONAL Qt shim. Wraps the portable Cipher in QByteArray-taking
-# methods for callers that haven't migrated off Qt containers yet.
-cc_library(
-    name = "qt_compat",
-    srcs = ["qt_cipher.cpp"],
-    hdrs = ["qt_cipher.h"],
-    copts = COMMON_COPTS,
-    deps = QT_DEPS + [
-        ":crypto",
-        "//src/algorithms/protocol:qt_compat",
     ],
 )
 
