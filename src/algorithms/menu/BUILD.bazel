@@ -1,5 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest")
 
 package(default_visibility = [
@@ -33,14 +33,10 @@ cc_library(
     deps = QT_DEPS + [":menu"],
 )
 
-cc_test(
+fastecu_portable_gtest(
     name = "menu_command_test",
-    size = "small",
     srcs = ["menu_command_test.cpp"],
-    deps = [
-        ":menu",
-        "@googletest//:gtest_main",
-    ],
+    deps = [":menu"],
 )
 
 fastecu_qttest(

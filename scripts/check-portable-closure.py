@@ -55,13 +55,7 @@ PORTABLE_ROOTS = {
         "flash_device_lookup",
         "can_flash_uds_channel",
     },
-    ROOT / "src/backend/flash/eeprom": {
-        "denso_sh705x_eeprom_types",
-        "denso_sh705x_eeprom_common",
-        "eeprom_read_plan",
-        "denso_sh705x_eeprom_kline",
-        "denso_sh705x_eeprom_can",
-    },
+    ROOT / "src/backend/flash/eeprom": None,
     ROOT / "src/backend/flash/ecu": {
         "mitsu_colt_m32r_can_types",
         "mitsu_colt_m32r_can_plan",
