@@ -21,7 +21,7 @@ MutDmaFrame buildCommandFrame(bytes::Byte cmd, bytes::ByteView payload, bytes::B
     f[0] = cmd;
     const std::size_t n = std::min(payload.size(), static_cast<std::size_t>(CHECKSUM_OFFSET - 1)); // bytes 1..48 = 48 max
     std::copy_n(payload.begin(), n, f.begin() + 1);
-    f[CHECKSUM_OFFSET] = sum8(bytes::ByteView(f.data(), CHECKSUM_OFFSET));
+    f[CHECKSUM_OFFSET] = sum8(bytes::ByteView{f}.first(CHECKSUM_OFFSET));
     f[TRAILER_OFFSET] = trailer;
     return f;
 }

@@ -276,19 +276,13 @@ Status connect_bootloader(Ctx& ctx)
 
     // Session 0x10/0x03 (lines 216-242): sent on 0x7E0, fatal.
     info(ctx, "Requesting session mode");
-    Result<bytes::Bytes> session = fatal_request(
+    Result<bytes::Bytes> session = fatal_query(
         ctx, ctx.other_uds,
         bytes::Bytes{uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic},
-        "the session mode request");
+        bytes::Bytes{uds::kSessionExtendedDiagnostic}, "session mode request");
     if (!session.has_value())
     {
         return std::unexpected(session.error());
-    }
-    if (session->size() < 2 || (*session)[0] != 0x50 ||
-        (*session)[1] != uds::kSessionExtendedDiagnostic)
-    {
-        error(ctx, std::format("Wrong response from TCU: {}", bytes::toHex(*session)));
-        return fail(ErrorKind::BadResponse, "session mode request rejected");
     }
 
     // Session 0x10/0x43 (lines 244-265): sent on 0x7E0, non-fatal.
@@ -298,21 +292,15 @@ Status connect_bootloader(Ctx& ctx)
 
     // Seed request 0x27/0x01 (lines 267-293): sent on 0x7E0, fatal.
     info(ctx, "Starting seed request...");
-    Result<bytes::Bytes> seed_reply = fatal_request(
+    Result<bytes::Bytes> seed_reply = fatal_query(
         ctx, ctx.other_uds, bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed},
-        "the seed request");
+        bytes::Bytes{uds::kSecurityAccessRequestSeed}, "seed request", 5);
     if (!seed_reply.has_value())
     {
         return std::unexpected(seed_reply.error());
     }
-    if (seed_reply->size() < 6 || (*seed_reply)[0] != 0x67 ||
-        (*seed_reply)[1] != uds::kSecurityAccessRequestSeed)
-    {
-        error(ctx, std::format("Wrong response from TCU: {}", bytes::toHex(*seed_reply)));
-        return fail(ErrorKind::BadResponse, "seed request rejected");
-    }
     info(ctx, "Seed request ok");
-    const bytes::ByteView seed = bytes::ByteView(*seed_reply).subspan(2, 4);
+    const bytes::ByteView seed = uds::payload(*seed_reply).subspan(1, 4);
     const bytes::Bytes key = seed_key(seed);
 
     // Seed key 0x27/0x02 (lines 305-333): sent on 0x7E0, fatal.
@@ -320,16 +308,10 @@ Status connect_bootloader(Ctx& ctx)
     bytes::Bytes key_request{uds::kSidSecurityAccess, uds::kSecurityAccessSendKey};
     key_request.insert(key_request.end(), key.begin(), key.end());
     Result<bytes::Bytes> key_reply =
-        fatal_request(ctx, ctx.other_uds, key_request, "the seed key");
+        fatal_query(ctx, ctx.other_uds, key_request, bytes::Bytes{uds::kSecurityAccessSendKey}, "seed key");
     if (!key_reply.has_value())
     {
         return std::unexpected(key_reply.error());
-    }
-    if (key_reply->size() < 2 || (*key_reply)[0] != 0x67 ||
-        (*key_reply)[1] != uds::kSecurityAccessSendKey)
-    {
-        error(ctx, std::format("Wrong response from TCU: {}", bytes::toHex(*key_reply)));
-        return fail(ErrorKind::BadResponse, "seed key rejected");
     }
     info(ctx, "Seed key ok");
 

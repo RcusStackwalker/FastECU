@@ -123,14 +123,15 @@ Result<bytes::Bytes> fatal_request(Ctx& ctx, bytes::ByteView pdu, std::string_vi
     return ::fastecu::flash::fatal_request(exchange_context(ctx), pdu, kRejectionPrefix, operation);
 }
 
-// The fatal_request + expected-response-prefix check the kernel jump below
-// uses -- see uds_client_exchange_common.h's fatal_query for what
-// expected_prefix and subject mean.
+// The fatal_request + expected-response-prefix check every exchange in
+// connect_bootloader below repeats -- see uds_client_exchange_common.h's
+// fatal_query for what expected_prefix, subject, and min_payload_size mean.
 Result<bytes::Bytes> fatal_query(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
-                                 std::string_view subject)
+                                 std::string_view subject,
+                                 std::optional<std::size_t> min_payload_size = std::nullopt)
 {
     return ::fastecu::flash::fatal_query(exchange_context(ctx), pdu, expected_prefix, kRejectionPrefix,
-                                         subject);
+                                         subject, min_payload_size);
 }
 
 // Legacy's two non-fatal identity queries (TCU ID/CAL ID, lines 94-168) and
@@ -168,37 +169,26 @@ Status connect_bootloader(Ctx& ctx)
 
     // Seed 0x27/0x01 (lines 199-225), fatal.
     info(ctx, "Requesting seed");
-    Result<bytes::Bytes> seed_reply = fatal_request(
+    Result<bytes::Bytes> seed_reply = fatal_query(
         ctx, bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed},
-        "the seed request");
+        bytes::Bytes{uds::kSecurityAccessRequestSeed}, "seed request", 5);
     if (!seed_reply.has_value())
     {
         return std::unexpected(seed_reply.error());
     }
-    if (seed_reply->size() < 6 || (*seed_reply)[0] != 0x67 ||
-        (*seed_reply)[1] != uds::kSecurityAccessRequestSeed)
-    {
-        error(ctx, std::format("Wrong response from TCU: {}", bytes::toHex(*seed_reply)));
-        return fail(ErrorKind::BadResponse, "seed request rejected");
-    }
     info(ctx, "Seed request ok");
-    const bytes::ByteView seed = bytes::ByteView(*seed_reply).subspan(2, 4);
+    const bytes::ByteView seed = uds::payload(*seed_reply).subspan(1, 4);
     const bytes::Bytes key = seed_key(seed);
 
     // Seed key 0x27/0x02 (lines 236-263), fatal.
     info(ctx, "Sending seed key");
     bytes::Bytes key_request{uds::kSidSecurityAccess, uds::kSecurityAccessSendKey};
     key_request.insert(key_request.end(), key.begin(), key.end());
-    Result<bytes::Bytes> key_reply = fatal_request(ctx, key_request, "the seed key");
+    Result<bytes::Bytes> key_reply =
+        fatal_query(ctx, key_request, bytes::Bytes{uds::kSecurityAccessSendKey}, "seed key");
     if (!key_reply.has_value())
     {
         return std::unexpected(key_reply.error());
-    }
-    if (key_reply->size() < 2 || (*key_reply)[0] != 0x67 ||
-        (*key_reply)[1] != uds::kSecurityAccessSendKey)
-    {
-        error(ctx, std::format("Wrong response from TCU: {}", bytes::toHex(*key_reply)));
-        return fail(ErrorKind::BadResponse, "seed key rejected");
     }
     info(ctx, "Seed key ok");
 
