@@ -493,27 +493,6 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
 
     startUpSplash->close();
     netSplash->deleteLater();
-    /*
-        // AES-128 ECB examples start
-        emit LOG_D("Solving challenge...";
-        //QByteArray key = { "\x46\x9a\x20\xab\x30\x8d\x5c\xa6\x4b\xcd\x5b\xbe\x53\x5b\xd8\x5f" };
-        QByteArray key = { "\x7D\x89\xDD\xE1\xC9\x5A\x22\x4E\xD7\x23\xE0\x44\x96\xF4\xC0\xAE" };
-        //QByteArray challenge = { "\x5f\x75\x8c\x11\x92\xdc\x56\xfb\x69\xe3\x40\x2d\x83\xfb\x75\xe4" };
-        QByteArray challenge = { "\x3D\xA9\x19\x57\x6E\x88\xD3\xBF\x25\x2C\x02\xC4\x4F\x70\x0B\x63" };
-        QByteArray response;
-        emit LOG_D("*********";
-        response.append(aes_ecb_test(challenge, key));
-        key = "\x5C\x9F\x97\xAD\xE5\x1D\xA6\xD0\x60\x9D\x49\xBB\x05\xA4\x17\xE9";
-        response.append(aes_ecb_test(challenge, key));
-        key = "\xC9\x22\x70\xE6\x64\x63\x39\x54\x07\xF6\xC3\x01\x4D\xC8\x90\xB0";
-        response.append(aes_ecb_test(challenge, key));
-        key = "\x66\xD5\x36\x4A\x0D\x2D\x45\xC6\x7E\x8D\xB1\x20\xED\x47\x14\x38";
-        response.append(aes_ecb_test(challenge, key));
-        key = "\x37\x49\x0E\x2C\x46\xC5\x7F\x8C\xB2\x2F\xEC\x48\x13\x39\x65\xD6";    emit LOG_D("*********";
-        response.append(aes_ecb_test(challenge, key));
-        //aes_ecb_example();
-        // AES-128 ECB examples end
-    */
     emit LOG_I("FastECU initialized", true, true);
 }
 
@@ -525,35 +504,6 @@ MainWindow::~MainWindow()
         log_params_request_started = false;
         loggingEngine->stop();
     }
-}
-
-QByteArray MainWindow::aes_ecb_test(QByteArray challenge, QByteArray key)
-{
-    // Clean: "5f758c1192dc56fb69e3402d83fb75e4"
-    // Key  : "469a20ab308d5ca64bcd5bbe535bd85f"
-    // Enc  : "b8f73be3b1dcc30e93d88f0af5a860ca"
-
-    Cipher cipher;
-    unsigned char encrypted[64];
-    unsigned char decrypted[64];
-
-    char *data = challenge.data();
-    char *cKey = key.data();
-
-    int decrypted_len, encrypted_len;
-
-    // Encrypt the original data
-    encrypted_len = cipher.encrypt_aes128_ecb((unsigned char *)data, strlen(data), (unsigned char *)cKey, encrypted);
-    // Decrypt the encrypted data
-    decrypted_len = cipher.decrypt_aes128_ecb(encrypted, encrypted_len, (unsigned char *)cKey, decrypted);
-    QByteArray challengeReply(QByteArray::fromRawData((const char *)encrypted, 16));
-    emit LOG_D("Key: " + parse_message_to_hex(key), true, true);
-    emit LOG_D("Challenge: " + parse_message_to_hex(challenge), true, true);
-    emit LOG_D("Decrypted: " + parse_message_to_hex(challengeReply), true, true);
-    emit LOG_D("Length: 0x" + QString::number(encrypted_len, 16), true, true);
-
-    QByteArray challengeDecrypt(QByteArray::fromRawData((const char *)decrypted, 16));
-    return challengeReply;
 }
 
 void MainWindow::network_state_changed(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState)
@@ -594,36 +544,6 @@ void MainWindow::network_state_changed(QRemoteObjectReplica::State state, QRemot
 
         restartQuestionActive.unlock();
     }
-}
-
-void MainWindow::aes_ecb_example()
-{
-    // Clean: "5f758c1192dc56fb69e3402d83fb75e4"
-    // Key  : "469a20ab308d5ca64bcd5bbe535bd85f"
-    // Enc  : "b8f73be3b1dcc30e93d88f0af5a860ca"
-
-    emit LOG_D("aes_ecb_example:", true, true);
-
-    QtCipher cipher;
-    // A 128 bit key
-    unsigned char key[] = {0x46, 0x9a, 0x20, 0xab, 0x30, 0x8d, 0x5c, 0xa6, 0x4b, 0xcd, 0x5b, 0xbe, 0x53, 0x5b, 0xd8, 0x5f};
-    QByteArray engine_key_1((const char *)key, std::size(key));
-
-    // Message to be encrypted
-    unsigned char data[] = {0x5f, 0x75, 0x8c, 0x11, 0x92, 0xdc, 0x56, 0xfb, 0x69, 0xe3, 0x40, 0x2d, 0x83, 0xfb, 0x75, 0xe4};
-    QByteArray ch_data((const char *)data, std::size(data));
-
-    emit LOG_D("Received challenge:", true, true);
-    emit LOG_D(parse_message_to_hex(ch_data), true, true);
-
-    QByteArray output;
-    emit LOG_D("Reply to challenge:", true, true);
-    output = cipher.encrypt_aes128_ecb(ch_data, engine_key_1);
-    emit LOG_D(parse_message_to_hex(output), true, true);
-
-    emit LOG_D("Decrypted data is:", true, true);
-    output = cipher.decrypt_aes128_ecb(output, engine_key_1);
-    emit LOG_D(parse_message_to_hex(output), true, true);
 }
 
 void MainWindow::SetComboBoxItemEnabled(QComboBox *comboBox, int index, bool enabled)
