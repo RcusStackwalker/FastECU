@@ -65,7 +65,7 @@ Status LegacyCalibrationAdapter::open_rom_bytes(
             return std::unexpected(rom_data.error());
         }
         ecu_cal_def.FullRomData =
-            bytes::toQByteArray(bytes::ByteView(rom_data->data(), rom_data->size()));
+            bytes::toQByteArray(bytes::ByteView{*rom_data});
     }
 
     QFileInfo file_info(filename);
