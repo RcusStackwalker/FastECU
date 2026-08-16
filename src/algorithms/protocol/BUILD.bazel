@@ -38,11 +38,8 @@ cc_library(
 
 fastecu_portable_gtest(
     name = "bytes_test",
-    size = "small",
     srcs = ["bytes_test.cpp"],
-    deps = [
-        ":protocol",
-    ],
+    deps = [":protocol"],
 )
 
 fastecu_portable_gtest(
