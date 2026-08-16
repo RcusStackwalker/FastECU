@@ -19,11 +19,8 @@ class FlashTcuSubaruHitachiM32rKlineOperation : public FlashOperationWorker
     Q_OBJECT
 
   public:
-    FlashTcuSubaruHitachiM32rKlineOperation(SerialPortActions *serial,
-                                            FileActions::EcuCalDefStructure *ecuCalDef,
-                                            QString cmd_type,
-                                            QWidget *dialog,
-                                            QObject *parent = nullptr,
+    FlashTcuSubaruHitachiM32rKlineOperation(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
+                                            QString cmd_type, QWidget *dialog, QObject *parent = nullptr,
                                             PromptFn promptOverride = {});
 
   protected:

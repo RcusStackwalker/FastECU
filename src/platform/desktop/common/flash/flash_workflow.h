@@ -19,8 +19,7 @@ namespace fastecu::flash
 
 // Read workflows do not consume a ROM image. Both write modes do, and must
 // receive the same current calibration bytes from desktop request construction.
-std::optional<bytes::Bytes> portableImageForOperation(FlashOperation operation,
-                                                      bytes::ByteView rom);
+std::optional<bytes::Bytes> portableImageForOperation(FlashOperation operation, bytes::ByteView rom);
 
 struct FlashWorkflowRequest
 {
@@ -93,8 +92,7 @@ struct FlashFailureStep
     Error error;
 };
 
-using FlashWorkflowStep =
-    std::variant<FlashPromptStep, FlashAttempt, FlashCompletedStep, FlashFailureStep>;
+using FlashWorkflowStep = std::variant<FlashPromptStep, FlashAttempt, FlashCompletedStep, FlashFailureStep>;
 
 class FlashWorkflow
 {

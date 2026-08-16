@@ -8,7 +8,6 @@ namespace fastecu::logging
 
 class LoggingSession;
 
-fastecu::Result<LogSample> convert_sample(const LoggingSession& session,
-                                          const ProtocolSample& raw);
+fastecu::Result<LogSample> convert_sample(const LoggingSession& session, const ProtocolSample& raw);
 
 } // namespace fastecu::logging

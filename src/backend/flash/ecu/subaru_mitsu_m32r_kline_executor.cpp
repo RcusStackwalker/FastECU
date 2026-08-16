@@ -24,8 +24,7 @@ bytes::Bytes framed(bytes::ByteView payload, const SubaruMitsuM32rKlinePlan& p)
 }
 
 Result<std::optional<bytes::Bytes>> exchange_optional(IKlineFlashTransport& transport,
-                                                      const ICancellationToken& cancellation,
-                                                      bytes::ByteView payload,
+                                                      const ICancellationToken& cancellation, bytes::ByteView payload,
                                                       const SubaruMitsuM32rKlinePlan& p)
 {
     if (cancellation.cancelled())
@@ -57,8 +56,7 @@ Result<std::optional<bytes::Bytes>> exchange_optional(IKlineFlashTransport& tran
     return std::move(*response);
 }
 
-Result<bytes::Bytes> exchange(IKlineFlashTransport& transport,
-                              const ICancellationToken& cancellation,
+Result<bytes::Bytes> exchange(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
                               bytes::ByteView payload, const SubaruMitsuM32rKlinePlan& p)
 {
     auto response = exchange_optional(transport, cancellation, payload, p);
@@ -92,28 +90,26 @@ Status expect_service(bytes::ByteView response, std::initializer_list<bytes::Byt
 
 bytes::Bytes seed_key(bytes::ByteView seed)
 {
-    static constexpr std::array<std::uint16_t, 16> kIndex = {0x8519, 0x5c53, 0xc0e9, 0x2452,
-                                                             0x1e68, 0x6feb, 0x2648, 0x81e2, 0x8ce4, 0x953b, 0x1ca9, 0x6180,
+    static constexpr std::array<std::uint16_t, 16> kIndex = {0x8519, 0x5c53, 0xc0e9, 0x2452, 0x1e68, 0x6feb,
+                                                             0x2648, 0x81e2, 0x8ce4, 0x953b, 0x1ca9, 0x6180,
                                                              0xb85e, 0x5109, 0xdb3c, 0x3cf2};
-    static constexpr std::array<std::uint8_t, 32> kTransform = {0x5, 0x6, 0x7, 0x1, 0x9, 0xc, 0xd, 0x8,
-                                                                0xa, 0xd, 0x2, 0xb, 0xf, 0x4, 0x0, 0x3, 0xb, 0x4, 0x6, 0x0, 0xf, 0x2, 0xd, 0x9,
-                                                                0x5, 0xc, 0x1, 0xa, 0x3, 0xd, 0xe, 0x8};
+    static constexpr std::array<std::uint8_t, 32> kTransform = {0x5, 0x6, 0x7, 0x1, 0x9, 0xc, 0xd, 0x8, 0xa, 0xd, 0x2,
+                                                                0xb, 0xf, 0x4, 0x0, 0x3, 0xb, 0x4, 0x6, 0x0, 0xf, 0x2,
+                                                                0xd, 0x9, 0x5, 0xc, 0x1, 0xa, 0x3, 0xd, 0xe, 0x8};
     return SsmProtocol::calculateSeedKey(seed, kIndex, kTransform);
 }
 
 bytes::Bytes encrypt(bytes::ByteView image)
 {
     static constexpr std::array<std::uint16_t, 4> kIndex = {0x25b5, 0x3875, 0xca11, 0x2680};
-    static constexpr std::array<std::uint8_t, 32> kTransform = {0x5, 0x6, 0x7, 0x1, 0x9, 0xc, 0xd, 0x8,
-                                                                0xa, 0xd, 0x2, 0xb, 0xf, 0x4, 0x0, 0x3, 0xb, 0x4, 0x6, 0x0, 0xf, 0x2, 0xd, 0x9,
-                                                                0x5, 0xc, 0x1, 0xa, 0x3, 0xd, 0xe, 0x8};
-    return SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()),
-                                         kIndex, kTransform);
+    static constexpr std::array<std::uint8_t, 32> kTransform = {0x5, 0x6, 0x7, 0x1, 0x9, 0xc, 0xd, 0x8, 0xa, 0xd, 0x2,
+                                                                0xb, 0xf, 0x4, 0x0, 0x3, 0xb, 0x4, 0x6, 0x0, 0xf, 0x2,
+                                                                0xd, 0x9, 0x5, 0xc, 0x1, 0xa, 0x3, 0xd, 0xe, 0x8};
+    return SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), kIndex, kTransform);
 }
 
-Result<std::string> handshake(IKlineFlashTransport& transport, IClock& clock,
-                              const ICancellationToken& cancellation, IEventSink& events,
-                              const SubaruMitsuM32rKlinePlan& p)
+Result<std::string> handshake(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                              IEventSink& events, const SubaruMitsuM32rKlinePlan& p)
 {
     // Legacy wire sequence and delays: flash_ecu_subaru_mitsu_m32r_kline_operation.cpp
     // connect_bootloader() lines 85-248 and send_sid_bf/81/83/27/10 lines 691-815.
@@ -165,15 +161,13 @@ Result<std::string> handshake(IKlineFlashTransport& transport, IClock& clock,
     }
     events.log(LogLevel::Info, "Timing parameters ok");
     events.log(LogLevel::Info, "Requesting seed");
-    auto seed_response = exchange(
-        transport, cancellation, bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed},
-        p);
+    auto seed_response =
+        exchange(transport, cancellation, bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed}, p);
     if (!seed_response.has_value())
     {
         return std::unexpected(seed_response.error());
     }
-    if (auto s = expect_service(*seed_response, {0x67, uds::kSecurityAccessRequestSeed});
-        !s.has_value())
+    if (auto s = expect_service(*seed_response, {0x67, uds::kSecurityAccessRequestSeed}); !s.has_value())
     {
         return std::unexpected(s.error());
     }
@@ -200,9 +194,8 @@ Result<std::string> handshake(IKlineFlashTransport& transport, IClock& clock,
     return rom_id;
 }
 
-Result<bytes::Bytes> read_rom(IKlineFlashTransport& transport,
-                              const ICancellationToken& cancellation, IEventSink& events,
-                              const SubaruMitsuM32rKlinePlan& p, MemoryRegion region)
+Result<bytes::Bytes> read_rom(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
+                              IEventSink& events, const SubaruMitsuM32rKlinePlan& p, MemoryRegion region)
 {
     // Legacy SID A0 request and 128-byte loop: operation.cpp lines 250-344 and 665-689.
     bytes::Bytes rom(region.start, p.unread_prefix_fill);
@@ -214,8 +207,7 @@ Result<bytes::Bytes> read_rom(IKlineFlashTransport& transport,
             return fail(ErrorKind::Cancelled, "cancelled during ROM read");
         }
         const std::uint32_t address = region.start + offset;
-        const bytes::Bytes request = composeBe(0xa0_b, 0x00_b, 0x20_b, u24(address),
-                                               bytes::Byte(p.chunk_size - 1));
+        const bytes::Bytes request = composeBe(0xa0_b, 0x00_b, 0x20_b, u24(address), bytes::Byte(p.chunk_size - 1));
         auto response = exchange(transport, cancellation, request, p);
         if (!response.has_value())
         {
@@ -228,14 +220,12 @@ Result<bytes::Bytes> read_rom(IKlineFlashTransport& transport,
         rom.insert(rom.end(), response->begin() + 5, response->end() - 1);
         events.progress(static_cast<int>(offset + p.chunk_size), static_cast<int>(region.length));
     }
-    events.log(LogLevel::Warning,
-               "The first 0x8000 ROM bytes are synthetic 0xFF; this protocol reads userspace only");
+    events.log(LogLevel::Warning, "The first 0x8000 ROM bytes are synthetic 0xFF; this protocol reads userspace only");
     return rom;
 }
 
-Status write_rom(IKlineFlashTransport& transport, IClock& clock,
-                 const ICancellationToken& cancellation, IEventSink& events,
-                 const SubaruMitsuM32rKlinePlan& p, const FlashPlan& plan)
+Status write_rom(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                 IEventSink& events, const SubaruMitsuM32rKlinePlan& p, const FlashPlan& plan)
 {
     // Legacy baud switch, SID 34/31/36 traffic, acknowledgement tolerance, and checksum:
     // operation.cpp lines 425-641. Appending below deliberately replaces the legacy
@@ -244,9 +234,8 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock,
     {
         return baud;
     }
-    auto setup = exchange(
-        transport, cancellation,
-        bytes::Bytes{uds::kSidRequestDownload, 0, 0, 0, 0x04, 0x07, 0x80, 0}, p);
+    auto setup =
+        exchange(transport, cancellation, bytes::Bytes{uds::kSidRequestDownload, 0, 0, 0, 0x04, 0x07, 0x80, 0}, p);
     if (!setup.has_value())
     {
         return std::unexpected(setup.error());
@@ -256,9 +245,8 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock,
         return s;
     }
     events.log(LogLevel::Info, "Erasing...");
-    auto erased = exchange(
-        transport, cancellation,
-        bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStop, 0x0f, 0xff, 0xff, 0xff}, p);
+    auto erased = exchange(transport, cancellation,
+                           bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStop, 0x0f, 0xff, 0xff, 0xff}, p);
     if (!erased.has_value())
     {
         return std::unexpected(erased.error());
@@ -282,9 +270,8 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock,
             return fail(ErrorKind::Cancelled, "cancelled during ROM write");
         }
         const std::uint32_t address = region.start + offset;
-        const bytes::Bytes request = composeBe(
-            uds::kSidTransferData, u24(address),
-            bytes::ByteView(encrypted).subspan(address, p.chunk_size));
+        const bytes::Bytes request =
+            composeBe(uds::kSidTransferData, u24(address), bytes::ByteView(encrypted).subspan(address, p.chunk_size));
         if (auto ack = exchange_optional(transport, cancellation, request, p); !ack.has_value())
         {
             return std::unexpected(ack.error());
@@ -296,9 +283,8 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock,
     {
         return slept;
     }
-    auto checksum = exchange(
-        transport, cancellation,
-        bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, 0x02}, p);
+    auto checksum =
+        exchange(transport, cancellation, bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, 0x02}, p);
     if (!checksum.has_value())
     {
         return std::unexpected(checksum.error());
@@ -311,10 +297,9 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock,
     return {};
 }
 
-Result<FlashExecutionResult> execute_open_transport(
-    const FlashPlan& plan, IKlineFlashTransport& transport, IClock& clock,
-    const ICancellationToken& cancellation, IEventSink& events,
-    const SubaruMitsuM32rKlinePlan& parameters)
+Result<FlashExecutionResult> execute_open_transport(const FlashPlan& plan, IKlineFlashTransport& transport,
+                                                    IClock& clock, const ICancellationToken& cancellation,
+                                                    IEventSink& events, const SubaruMitsuM32rKlinePlan& parameters)
 {
     if (auto header = transport.set_add_iso14230_header(false); !header.has_value())
     {
@@ -337,8 +322,7 @@ Result<FlashExecutionResult> execute_open_transport(
         return FlashExecutionResult{plan.operation(), std::move(*bytes), std::move(*rom_id)};
     }
     events.log(LogLevel::Info, "Writing ROM to ECU using K-Line");
-    if (auto status = write_rom(transport, clock, cancellation, events, parameters, plan);
-        !status.has_value())
+    if (auto status = write_rom(transport, clock, cancellation, events, parameters, plan); !status.has_value())
     {
         return std::unexpected(status.error());
     }
@@ -346,12 +330,12 @@ Result<FlashExecutionResult> execute_open_transport(
 }
 } // namespace
 
-Result<FlashExecutionResult> SubaruMitsuM32rKlineExecutor::execute(
-    const FlashPlan& plan, IFlashTransport& transport, IClock& clock,
-    const ICancellationToken& cancellation, IEventSink& events)
+Result<FlashExecutionResult> SubaruMitsuM32rKlineExecutor::execute(const FlashPlan& plan, IFlashTransport& transport,
+                                                                   IClock& clock,
+                                                                   const ICancellationToken& cancellation,
+                                                                   IEventSink& events)
 {
-    if (auto match = check_family_transport_match(plan, FlashFamily::SubaruMitsuM32rKline,
-                                                  TransportKind::Kline);
+    if (auto match = check_family_transport_match(plan, FlashFamily::SubaruMitsuM32rKline, TransportKind::Kline);
         !match.has_value())
     {
         return std::unexpected(match.error());
@@ -370,8 +354,7 @@ Result<FlashExecutionResult> SubaruMitsuM32rKlineExecutor::execute(
         return fail(ErrorKind::InvalidConfig, "transport does not implement IKlineFlashTransport");
     }
     const auto& p = std::get<SubaruMitsuM32rKlinePlan>(plan.family_plan());
-    if (auto configured = kline->configure({p.initial_baud, false, p.tester_id, p.target_id});
-        !configured.has_value())
+    if (auto configured = kline->configure({p.initial_baud, false, p.tester_id, p.target_id}); !configured.has_value())
     {
         return std::unexpected(configured.error());
     }
@@ -379,8 +362,7 @@ Result<FlashExecutionResult> SubaruMitsuM32rKlineExecutor::execute(
     {
         return std::unexpected(opened.error());
     }
-    Result<FlashExecutionResult> outcome = execute_open_transport(
-        plan, *kline, clock, cancellation, events, p);
+    Result<FlashExecutionResult> outcome = execute_open_transport(plan, *kline, clock, cancellation, events, p);
     Status closed = kline->close();
     if (!outcome.has_value())
     {

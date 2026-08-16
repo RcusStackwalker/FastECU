@@ -48,9 +48,8 @@ TEST(LoggingSessionTest, RejectsDuplicateStableIds)
 
 TEST(LoggingSessionTest, StableIdsSurviveSourceRowReordering)
 {
-    auto result = make_logging_session(
-        LoggingProtocolId::Ssm,
-        {channel("rpm", 0x10), channel("coolant", 0x20)}, valid_policy());
+    auto result =
+        make_logging_session(LoggingProtocolId::Ssm, {channel("rpm", 0x10), channel("coolant", 0x20)}, valid_policy());
     ASSERT_TRUE(result);
     EXPECT_EQ(result->channels()[0].id, "rpm");
     EXPECT_EQ(result->channels()[1].id, "coolant");
@@ -89,7 +88,8 @@ TEST(LoggingSessionTest, RejectsInvalidChannelIdentityAndAssembly)
     EXPECT_EQ(excessive_length.error().kind, fastecu::ErrorKind::InvalidConfig);
 
     c = channel("rpm", 0x10);
-    c.raw_assembly = static_cast<RawAssembly>(99); // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange) -- exercising the invalid-value rejection path
+    c.raw_assembly = static_cast<RawAssembly>(
+        99); // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange) -- exercising the invalid-value rejection path
     auto invalid_assembly = make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy());
     ASSERT_FALSE(invalid_assembly);
     EXPECT_EQ(invalid_assembly.error().kind, fastecu::ErrorKind::InvalidConfig);
@@ -182,8 +182,7 @@ TEST(LoggingSessionTest, RejectsProtocolSpecificWireShapesBeforeIo)
         too_many_cdbg_channels.push_back(channel("cdbg-" + std::to_string(i), 0x804000 + i));
         too_many_cdbg_channels.back().length = 1;
     }
-    EXPECT_FALSE(make_logging_session(LoggingProtocolId::Cdbg,
-                                      std::move(too_many_cdbg_channels), valid_policy()));
+    EXPECT_FALSE(make_logging_session(LoggingProtocolId::Cdbg, std::move(too_many_cdbg_channels), valid_policy()));
 
     std::vector<LoggingChannel> too_many_ssm_channels;
     for (int i = 0; i < 85; ++i)
@@ -191,8 +190,7 @@ TEST(LoggingSessionTest, RejectsProtocolSpecificWireShapesBeforeIo)
         too_many_ssm_channels.push_back(channel("ssm-" + std::to_string(i), i));
         too_many_ssm_channels.back().length = 1;
     }
-    EXPECT_FALSE(make_logging_session(LoggingProtocolId::Ssm,
-                                      std::move(too_many_ssm_channels), valid_policy()));
+    EXPECT_FALSE(make_logging_session(LoggingProtocolId::Ssm, std::move(too_many_ssm_channels), valid_policy()));
 
     std::vector<LoggingChannel> too_many_mut_channels;
     for (int i = 0; i < 256; ++i)
@@ -200,6 +198,5 @@ TEST(LoggingSessionTest, RejectsProtocolSpecificWireShapesBeforeIo)
         too_many_mut_channels.push_back(channel("mut-" + std::to_string(i), i));
         too_many_mut_channels.back().length = 1;
     }
-    EXPECT_FALSE(make_logging_session(LoggingProtocolId::MutDma,
-                                      std::move(too_many_mut_channels), valid_policy()));
+    EXPECT_FALSE(make_logging_session(LoggingProtocolId::MutDma, std::move(too_many_mut_channels), valid_policy()));
 }

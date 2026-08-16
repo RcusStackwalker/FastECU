@@ -19,8 +19,7 @@ constexpr std::uint32_t kSh7055EepromStart = 0x00000000;
 constexpr std::uint32_t kSh7055EepromLen = 0x00000100;
 constexpr std::uint32_t kSh7055KernelRamStart = 0xFFFF6004;
 constexpr std::uint32_t kSh7055KernelRamLen = 0x00006000;
-constexpr std::uint32_t kSh7055KernelRamEnd =
-    kSh7055KernelRamStart + kSh7055KernelRamLen;
+constexpr std::uint32_t kSh7055KernelRamEnd = kSh7055KernelRamStart + kSh7055KernelRamLen;
 
 DensoSh705xEepromInput valid_kline_input(EepromReadMode mode = EepromReadMode::Mode2)
 {
@@ -30,11 +29,12 @@ DensoSh705xEepromInput valid_kline_input(EepromReadMode mode = EepromReadMode::M
         .target_id = "sub_ecu_eeprom_denso_sh7055_kline",
         .mcu_name = "SH7055",
         .flash_method = "sub_ecu_eeprom_denso_sh7055_kline",
-        .kernel = KernelImage{
-            .id = "sh705x-kernel",
-            .load_address = kSh7055KernelRamStart,
-            .bytes = bytes::Bytes(64, 0xaa),
-        },
+        .kernel =
+            KernelImage{
+                .id = "sh705x-kernel",
+                .load_address = kSh7055KernelRamStart,
+                .bytes = bytes::Bytes(64, 0xaa),
+            },
         .mode = mode,
         .security = DensoSecurityVariant::Stock,
         .eeprom_region = MemoryRegion{.start = kSh7055EepromStart, .length = kSh7055EepromLen},
@@ -118,9 +118,8 @@ TEST(DensoSh705xEepromCommonTest, KlineAcceptsEcuTekSecurity)
 
 TEST(DensoSh705xEepromCommonTest, CanAcceptsAllFourSecurityVariants)
 {
-    for (DensoSecurityVariant security :
-         {DensoSecurityVariant::Stock, DensoSecurityVariant::EcuTek,
-          DensoSecurityVariant::Cobb, DensoSecurityVariant::EcuTekRaceRom})
+    for (DensoSecurityVariant security : {DensoSecurityVariant::Stock, DensoSecurityVariant::EcuTek,
+                                          DensoSecurityVariant::Cobb, DensoSecurityVariant::EcuTekRaceRom})
     {
         auto input = valid_kline_input();
         input.family = FlashFamily::DensoSh705xEepromCan;
@@ -180,8 +179,7 @@ TEST(DensoSh705xEepromCommonTest, PreflightRejectsKernelSizeWhoseWireFootprintOv
 {
     auto input = valid_kline_input();
 
-    auto status = validate_denso_sh705x_eeprom_preflight(
-        input, std::numeric_limits<std::size_t>::max());
+    auto status = validate_denso_sh705x_eeprom_preflight(input, std::numeric_limits<std::size_t>::max());
 
     ASSERT_FALSE(status.has_value());
     EXPECT_EQ(status.error().kind, ErrorKind::InvalidConfig);
@@ -220,9 +218,7 @@ TEST(DensoSh705xEepromCommonTest, NoTransportOrConfigurationCallOccursOnRejectio
     auto input = valid_kline_input();
     input.operation = FlashOperation::Write;
 
-    static_assert(std::is_same_v<
-                  decltype(build_denso_sh705x_eeprom_plan(input)),
-                  Result<FlashPlan>>);
+    static_assert(std::is_same_v<decltype(build_denso_sh705x_eeprom_plan(input)), Result<FlashPlan>>);
     EXPECT_FALSE(build_denso_sh705x_eeprom_plan(input).has_value());
 }
 

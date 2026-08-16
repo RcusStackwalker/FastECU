@@ -93,8 +93,8 @@ void test_open_connect_and_read(BridgeProcess& bridge)
     assert(readResp.result == STATUS_NOERROR);
     assert(readResp.numMsgs == 1);
     assert(readResp.msg.DataSize == 4);
-    assert(readResp.msg.Data[0] == 0xDE && readResp.msg.Data[1] == 0xAD &&
-           readResp.msg.Data[2] == 0xBE && readResp.msg.Data[3] == 0xEF);
+    assert(readResp.msg.Data[0] == 0xDE && readResp.msg.Data[1] == 0xAD && readResp.msg.Data[2] == 0xBE &&
+           readResp.msg.Data[3] == 0xEF);
 
     std::printf("test_open_connect_and_read: PASS\n");
 }

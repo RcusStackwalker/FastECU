@@ -37,9 +37,7 @@ namespace fastecu::flash
 // out-of-range kernel address is rejected without reading the kernel file.
 // Validation that requires the kernel byte count runs after the read. This
 // ordering is a guarantee, not an accident -- the tests assert it.
-Result<FlashPlan> build_eeprom_read_plan(const config::ConfigPaths& paths,
-                                         std::string_view protocol_name,
-                                         EepromReadMode mode,
-                                         IFileRepository& file_repository);
+Result<FlashPlan> build_eeprom_read_plan(const config::ConfigPaths& paths, std::string_view protocol_name,
+                                         EepromReadMode mode, IFileRepository& file_repository);
 
 } // namespace fastecu::flash

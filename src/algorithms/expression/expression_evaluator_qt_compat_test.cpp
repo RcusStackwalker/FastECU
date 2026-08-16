@@ -4,8 +4,7 @@
 
 TEST(TestExpressionEvaluator, parse_returnsReversePolishTokens)
 {
-    ASSERT_EQ(ExpressionEvaluator::parse("(x*2)+10", "4"),
-              QStringList({"4", "2", "*", "10", "+"}));
+    ASSERT_EQ(ExpressionEvaluator::parse("(x*2)+10", "4"), QStringList({"4", "2", "*", "10", "+"}));
 }
 
 TEST(TestExpressionEvaluator, evaluate_appliesOperatorPrecedenceAndParentheses)

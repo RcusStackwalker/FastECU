@@ -164,8 +164,7 @@ void SerialPortCrashTest::reentrantReadDuringTeardown_viaEventLoop_doesNotCrash(
     spad.use_openport2_adapter = true; // read_vbatt takes the j2534 branch
 
     QObject consumer; // mirrors the still-running flash module
-    QMetaObject::invokeMethod(&consumer, [&spad]()
-                              { spad.read_vbatt(); }, Qt::QueuedConnection);
+    QMetaObject::invokeMethod(&consumer, [&spad]() { spad.read_vbatt(); }, Qt::QueuedConnection);
 
     // Teardown frees and nulls j2534 (as reset_connection now does) before the
     // queued read runs.
@@ -254,8 +253,14 @@ void SerialPortCrashTest::loggingFlow_connectReadTeardownReentrancy_overMockPty_
         // A still-alive consumer (a running flash module) has a read queued.
         QObject consumer;
         bool consumerRan = false;
-        QMetaObject::invokeMethod(&consumer, [&]()
-                                  { spad.read_vbatt(); consumerRan = true; }, Qt::QueuedConnection);
+        QMetaObject::invokeMethod(
+            &consumer,
+            [&]()
+            {
+                spad.read_vbatt();
+                consumerRan = true;
+            },
+            Qt::QueuedConnection);
 
         // The reentrant operation tears the connection down (frees + nulls j2534).
         spad.deleteAndNullJ2534();
@@ -293,8 +298,14 @@ void SerialPortCrashTest::resetQueuedDuringRead_runsAfterReadCompletes()
 
         bool resetRan = false;
         QObject consumer;
-        QMetaObject::invokeMethod(&consumer, [&]
-                                  { spad.reset_connection(); resetRan = true; }, Qt::QueuedConnection);
+        QMetaObject::invokeMethod(
+            &consumer,
+            [&]
+            {
+                spad.reset_connection();
+                resetRan = true;
+            },
+            Qt::QueuedConnection);
 
         spad.read_vbatt();         // waits out its timeout; must NOT dispatch the reset
         QCOMPARE(resetRan, false); // the queue no longer interleaves into reads
@@ -322,8 +333,7 @@ void SerialPortCrashTest::blockingRead_doesNotDispatchQueuedEvents()
     QCOMPARE(spad.open_serial_port(), QString::fromLocal8Bit(name));
 
     bool dispatched = false;
-    QMetaObject::invokeMethod(this, [&dispatched]
-                              { dispatched = true; }, Qt::QueuedConnection);
+    QMetaObject::invokeMethod(this, [&dispatched] { dispatched = true; }, Qt::QueuedConnection);
 
     spad.read_serial_data(200);
 

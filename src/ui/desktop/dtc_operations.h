@@ -93,13 +93,15 @@ class DtcOperations : public QDialog
     //-------------------------------------------------------------------------------------//
     // Service mode IDs (https://en.wikipedia.org/wiki/OBD-II_PIDs)
     //-------------------------------------------------------------------------------------//
-    const uint8_t live_data = 0x01;           // Show current data
-    const uint8_t freeze_frame = 0x02;        // Show freeze frame data
-    const uint8_t read_stored_DTCs = 0x03;    // Show stored Diagnostic Trouble Codes
-    const uint8_t clear_DTCs = 0x04;          // Clear Diagnostic Trouble Codes and stored values
-    const uint8_t test_result_kline = 0x05;   // Test results, oxygen sensor monitoring (non CAN only)
-    const uint8_t test_result_can = 0x06;     // Test results, other component/system monitoring (Test results, oxygen sensor monitoring for CAN only)
-    const uint8_t read_pending_DTCs = 0x07;   // Show pending Diagnostic Trouble Codes (detected during current or last driving cycle)
+    const uint8_t live_data = 0x01;         // Show current data
+    const uint8_t freeze_frame = 0x02;      // Show freeze frame data
+    const uint8_t read_stored_DTCs = 0x03;  // Show stored Diagnostic Trouble Codes
+    const uint8_t clear_DTCs = 0x04;        // Clear Diagnostic Trouble Codes and stored values
+    const uint8_t test_result_kline = 0x05; // Test results, oxygen sensor monitoring (non CAN only)
+    const uint8_t test_result_can =
+        0x06; // Test results, other component/system monitoring (Test results, oxygen sensor monitoring for CAN only)
+    const uint8_t read_pending_DTCs =
+        0x07; // Show pending Diagnostic Trouble Codes (detected during current or last driving cycle)
     const uint8_t control_operation = 0x08;   // Control operation of on-board component/system
     const uint8_t vehicle_info = 0x09;        // Request vehicle information
     const uint8_t read_permanent_DTCs = 0x0A; // Permanent Diagnostic Trouble Codes (DTCs) (Cleared DTCs)
@@ -111,10 +113,10 @@ class DtcOperations : public QDialog
     const uint8_t request_support_info[7] = {0x00, 0x20, 0x40, 0x60, 0x80, 0xA0, 0xC0}; // Read support info
     const uint8_t request_VIN_length = 0x01;                                            // Request VIN msg length
     const uint8_t request_VIN = 0x02;                                                   // Read VIN
-    const uint8_t request_CAL_ID_length = 0x03;                                         // Read Calibration ID msg length
-    const uint8_t request_CAL_ID = 0x04;                                                // Read Calibration ID
-    const uint8_t request_CVN_length = 0x05;                                            // Read Calibration ID number msg length
-    const uint8_t request_CVN = 0x06;                                                   // Read Calibration ID number
+    const uint8_t request_CAL_ID_length = 0x03; // Read Calibration ID msg length
+    const uint8_t request_CAL_ID = 0x04;        // Read Calibration ID
+    const uint8_t request_CVN_length = 0x05;    // Read Calibration ID number msg length
+    const uint8_t request_CVN = 0x06;           // Read Calibration ID number
 
     // SID 0x01 - Live data
     const uint8_t SUPPORTED_PIDS_1_20 = 0x00;              // bit encoded

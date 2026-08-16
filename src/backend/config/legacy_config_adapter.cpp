@@ -238,16 +238,16 @@ LegacyConfigAdapter::LegacyConfigAdapter(IFileSystem& file_system, IResourceBund
 {
 }
 
-fastecu::definitions::ConfigValuesStructure *LegacyConfigAdapter::set_base_dirs(
-    fastecu::definitions::ConfigValuesStructure *values, const AppRootInfo& root_info)
+fastecu::definitions::ConfigValuesStructure *
+LegacyConfigAdapter::set_base_dirs(fastecu::definitions::ConfigValuesStructure *values, const AppRootInfo& root_info)
 {
     ConfigPaths paths = resolve_config_paths(root_info, values->software_version.toStdString());
     copy_paths_into_legacy(paths, values);
     return values;
 }
 
-fastecu::definitions::ConfigValuesStructure *LegacyConfigAdapter::check_config_dirs(
-    fastecu::definitions::ConfigValuesStructure *values)
+fastecu::definitions::ConfigValuesStructure *
+LegacyConfigAdapter::check_config_dirs(fastecu::definitions::ConfigValuesStructure *values)
 {
     fastecu::NullEventSink events;
     ConfigPaths paths = paths_from_config_values(*values);
@@ -255,8 +255,8 @@ fastecu::definitions::ConfigValuesStructure *LegacyConfigAdapter::check_config_d
     return values;
 }
 
-fastecu::definitions::ConfigValuesStructure *LegacyConfigAdapter::read_config_file(
-    fastecu::definitions::ConfigValuesStructure *values)
+fastecu::definitions::ConfigValuesStructure *
+LegacyConfigAdapter::read_config_file(fastecu::definitions::ConfigValuesStructure *values)
 {
     ConfigPaths paths = paths_from_config_values(*values);
     Result<AppConfig> config = load_app_config(paths, file_repository_);
@@ -282,12 +282,11 @@ fastecu::definitions::ConfigValuesStructure *LegacyConfigAdapter::read_config_fi
     return values;
 }
 
-fastecu::definitions::ConfigValuesStructure *LegacyConfigAdapter::save_config_file(
-    fastecu::definitions::ConfigValuesStructure *values)
+fastecu::definitions::ConfigValuesStructure *
+LegacyConfigAdapter::save_config_file(fastecu::definitions::ConfigValuesStructure *values)
 {
     ConfigPaths paths = paths_from_config_values(*values);
-    Result<AppConfig> saved =
-        save_app_config(app_config_from_legacy(values), paths, file_repository_);
+    Result<AppConfig> saved = save_app_config(app_config_from_legacy(values), paths, file_repository_);
     if (saved.has_value())
     {
         copy_app_config_into_legacy(*saved, values);
@@ -295,8 +294,8 @@ fastecu::definitions::ConfigValuesStructure *LegacyConfigAdapter::save_config_fi
     return values;
 }
 
-fastecu::definitions::ConfigValuesStructure *LegacyConfigAdapter::read_protocols_file(
-    fastecu::definitions::ConfigValuesStructure *values)
+fastecu::definitions::ConfigValuesStructure *
+LegacyConfigAdapter::read_protocols_file(fastecu::definitions::ConfigValuesStructure *values)
 {
     ConfigPaths paths = paths_from_config_values(*values);
     Result<ProtocolCatalog> protocols = load_protocol_catalog(paths, file_repository_);

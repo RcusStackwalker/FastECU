@@ -29,9 +29,8 @@ void append_selections(pugi::xml_node parent, UnresolvedScaling& scaling)
 {
     for (pugi::xml_node state : parent.children("state"))
     {
-        scaling.selections.emplace_back(
-            selection_name(value_or_empty(state.attribute("name"))),
-            value_or_empty(state.attribute("data")));
+        scaling.selections.emplace_back(selection_name(value_or_empty(state.attribute("name"))),
+                                        value_or_empty(state.attribute("data")));
     }
     for (pugi::xml_node data : parent.children("data"))
     {
@@ -40,18 +39,12 @@ void append_selections(pugi::xml_node parent, UnresolvedScaling& scaling)
         {
             value = value_or_empty(data.attribute("data"));
         }
-        scaling.selections.emplace_back(
-            selection_name(value_or_empty(data.attribute("name"))),
-            std::move(value));
+        scaling.selections.emplace_back(selection_name(value_or_empty(data.attribute("name"))), std::move(value));
     }
 }
 
-Result<UnresolvedScaling> parse_scaling(
-    pugi::xml_node scaling_node,
-    std::string fallback_name,
-    pugi::xml_node owner,
-    std::string_view source,
-    std::string_view definition_id)
+Result<UnresolvedScaling> parse_scaling(pugi::xml_node scaling_node, std::string fallback_name, pugi::xml_node owner,
+                                        std::string_view source, std::string_view definition_id)
 {
     UnresolvedScaling scaling;
     scaling.name = value_or_empty(scaling_node.attribute("name"));
@@ -116,12 +109,8 @@ Result<UnresolvedScaling> parse_scaling(
     return scaling;
 }
 
-Result<UnresolvedAxisDefinition> parse_axis(
-    pugi::xml_node table,
-    std::uint32_t default_size,
-    std::string_view source,
-    std::string_view definition_id,
-    std::vector<UnresolvedScaling>& scalings)
+Result<UnresolvedAxisDefinition> parse_axis(pugi::xml_node table, std::uint32_t default_size, std::string_view source,
+                                            std::string_view definition_id, std::vector<UnresolvedScaling>& scalings)
 {
     UnresolvedAxisDefinition axis;
     if (auto status = populate_common_axis_attributes(table, axis, source, definition_id); !status.has_value())
@@ -130,11 +119,7 @@ Result<UnresolvedAxisDefinition> parse_axis(
     }
     if (axis.name.empty())
     {
-        return invalid(
-            source,
-            "element <table> attribute 'name'",
-            "missing or empty axis name",
-            definition_id);
+        return invalid(source, "element <table> attribute 'name'", "missing or empty axis name", definition_id);
     }
     auto address = optional_address(table, source, definition_id);
     if (!address)
@@ -143,9 +128,8 @@ Result<UnresolvedAxisDefinition> parse_axis(
     }
     axis.address = *address;
 
-    const char *size_attribute = table.attribute("elements")
-                                     ? "elements"
-                                     : (table.attribute("size") ? "size" : nullptr);
+    const char *size_attribute =
+        table.attribute("elements") ? "elements" : (table.attribute("size") ? "size" : nullptr);
     if (size_attribute)
     {
         auto size = dimension_attribute(table, size_attribute, default_size, source, definition_id);
@@ -159,12 +143,8 @@ Result<UnresolvedAxisDefinition> parse_axis(
     const pugi::xml_node scaling_node = table.child("scaling");
     if (scaling_node)
     {
-        auto parsed_scaling = parse_scaling(
-            scaling_node,
-            axis.scaling_name.empty() ? axis.name : axis.scaling_name,
-            table,
-            source,
-            definition_id);
+        auto parsed_scaling = parse_scaling(scaling_node, axis.scaling_name.empty() ? axis.name : axis.scaling_name,
+                                            table, source, definition_id);
         if (!parsed_scaling.has_value())
         {
             return std::unexpected(parsed_scaling.error());
@@ -175,11 +155,8 @@ Result<UnresolvedAxisDefinition> parse_axis(
     return axis;
 }
 
-Result<UnresolvedCalibrationMap> parse_table(
-    pugi::xml_node table,
-    std::string_view source,
-    std::string_view definition_id,
-    std::vector<UnresolvedScaling>& scalings)
+Result<UnresolvedCalibrationMap> parse_table(pugi::xml_node table, std::string_view source,
+                                             std::string_view definition_id, std::vector<UnresolvedScaling>& scalings)
 {
     UnresolvedCalibrationMap map;
     if (auto status = populate_common_map_attributes(table, map, source, definition_id); !status.has_value())
@@ -188,11 +165,7 @@ Result<UnresolvedCalibrationMap> parse_table(
     }
     if (map.name.empty())
     {
-        return invalid(
-            source,
-            "element <table> attribute 'name'",
-            "missing or empty map name",
-            definition_id);
+        return invalid(source, "element <table> attribute 'name'", "missing or empty map name", definition_id);
     }
     auto address = optional_address(table, source, definition_id);
     if (!address)
@@ -201,37 +174,27 @@ Result<UnresolvedCalibrationMap> parse_table(
     }
     map.address = *address;
 
-    if (auto status = populate_optional_dimension(
-            table, "sizex", map.x_size, source, definition_id);
-        !status)
+    if (auto status = populate_optional_dimension(table, "sizex", map.x_size, source, definition_id); !status)
     {
         return std::unexpected(status.error());
     }
 
-    if (auto status = populate_optional_dimension(
-            table, "sizey", map.y_size, source, definition_id);
-        !status)
+    if (auto status = populate_optional_dimension(table, "sizey", map.y_size, source, definition_id); !status)
     {
         return std::unexpected(status.error());
     }
 
-    if (auto status = populate_optional_boolean(
-            table, "swapxy", map.swap_xy, source, definition_id);
-        !status)
+    if (auto status = populate_optional_boolean(table, "swapxy", map.swap_xy, source, definition_id); !status)
     {
         return std::unexpected(status.error());
     }
 
-    if (auto status = populate_optional_boolean(
-            table, "flipx", map.flip_x, source, definition_id);
-        !status)
+    if (auto status = populate_optional_boolean(table, "flipx", map.flip_x, source, definition_id); !status)
     {
         return std::unexpected(status.error());
     }
 
-    if (auto status = populate_optional_boolean(
-            table, "flipy", map.flip_y, source, definition_id);
-        !status)
+    if (auto status = populate_optional_boolean(table, "flipy", map.flip_y, source, definition_id); !status)
     {
         return std::unexpected(status.error());
     }
@@ -240,12 +203,9 @@ Result<UnresolvedCalibrationMap> parse_table(
     const pugi::xml_node scaling_node = table.child("scaling");
     if (scaling_node)
     {
-        auto parsed_scaling = parse_scaling(
-            scaling_node,
-            map.scaling_name.empty() ? map.id.value_or(map.name) : map.scaling_name,
-            table,
-            source,
-            definition_id);
+        auto parsed_scaling =
+            parse_scaling(scaling_node, map.scaling_name.empty() ? map.id.value_or(map.name) : map.scaling_name, table,
+                          source, definition_id);
         if (!parsed_scaling.has_value())
         {
             return std::unexpected(parsed_scaling.error());
@@ -271,8 +231,7 @@ Result<UnresolvedCalibrationMap> parse_table(
         if (!scaling_node)
         {
             UnresolvedScaling scaling;
-            scaling.name =
-                map.scaling_name.empty() ? map.id.value_or(map.name) : map.scaling_name;
+            scaling.name = map.scaling_name.empty() ? map.id.value_or(map.name) : map.scaling_name;
             scaling.storage_type = StorageType::Bloblist;
             append_selections(table, scaling);
             map.scaling_name = scaling.name;
@@ -284,9 +243,7 @@ Result<UnresolvedCalibrationMap> parse_table(
         }
     }
 
-    if (auto status =
-            populate_axes(table, map, source, definition_id, scalings, parse_axis);
-        !status)
+    if (auto status = populate_axes(table, map, source, definition_id, scalings, parse_axis); !status)
     {
         return std::unexpected(status.error());
     }
@@ -296,14 +253,13 @@ Result<UnresolvedCalibrationMap> parse_table(
 std::vector<std::string> parent_references(pugi::xml_node rom)
 {
     const std::string parent = value_or_empty(rom.attribute("base"));
-    return parent.empty() ? std::vector<std::string>{}
-                          : std::vector<std::string>{parent};
+    return parent.empty() ? std::vector<std::string>{} : std::vector<std::string>{parent};
 }
 
 } // namespace
 
-Result<std::vector<DefinitionIndexEntry>> parse_romraider_index(
-    std::span<const std::uint8_t> xml, std::string_view source)
+Result<std::vector<DefinitionIndexEntry>> parse_romraider_index(std::span<const std::uint8_t> xml,
+                                                                std::string_view source)
 {
     pugi::xml_document document;
     auto root = parse_root(document, xml, source, "roms"sv);
@@ -322,8 +278,7 @@ Result<std::vector<DefinitionIndexEntry>> parse_romraider_index(
         }
 
         const pugi::xml_node rom_id = rom.child("romid");
-        auto internal_id_address =
-            optional_hex_element(rom_id, "internalidaddress", source, *definition_id);
+        auto internal_id_address = optional_hex_element(rom_id, "internalidaddress", source, *definition_id);
         if (!internal_id_address)
         {
             return std::unexpected(internal_id_address.error());
@@ -343,17 +298,12 @@ Result<std::vector<DefinitionIndexEntry>> parse_romraider_index(
     return entries;
 }
 
-Result<UnresolvedDefinition> parse_romraider_definition(
-    std::span<const std::uint8_t> xml,
-    std::string_view source,
-    std::string_view definition_id)
+Result<UnresolvedDefinition> parse_romraider_definition(std::span<const std::uint8_t> xml, std::string_view source,
+                                                        std::string_view definition_id)
 {
     if (definition_id.empty())
     {
-        return invalid(
-            source,
-            "definition ID",
-            "missing or empty required definition identity");
+        return invalid(source, "definition ID", "missing or empty required definition identity");
     }
 
     pugi::xml_document document;
@@ -375,11 +325,7 @@ Result<UnresolvedDefinition> parse_romraider_definition(
         {
             if (selected_rom)
             {
-                return invalid(
-                    source,
-                    "element <romid> child <xmlid>",
-                    "duplicate definition identity",
-                    definition_id);
+                return invalid(source, "element <romid> child <xmlid>", "duplicate definition identity", definition_id);
             }
             selected_rom = rom;
         }
@@ -387,16 +333,11 @@ Result<UnresolvedDefinition> parse_romraider_definition(
 
     if (!selected_rom)
     {
-        return invalid(
-            source,
-            "element <romid> child <xmlid>",
-            "definition ID not found",
-            definition_id);
+        return invalid(source, "element <romid> child <xmlid>", "definition ID not found", definition_id);
     }
 
     const pugi::xml_node rom_id = selected_rom.child("romid");
-    auto internal_id_address =
-        optional_hex_element(rom_id, "internalidaddress", source, definition_id);
+    auto internal_id_address = optional_hex_element(rom_id, "internalidaddress", source, definition_id);
     if (!internal_id_address)
     {
         return std::unexpected(internal_id_address.error());
@@ -427,11 +368,8 @@ Result<UnresolvedDefinition> parse_romraider_definition(
         const std::string map_id = map->id.value_or(map->name);
         if (!map_ids.insert(map_id).second)
         {
-            return invalid(
-                source,
-                "element <table> attribute 'id' or 'name'",
-                std::format("duplicate map identity '{}'", map_id),
-                definition_id);
+            return invalid(source, "element <table> attribute 'id' or 'name'",
+                           std::format("duplicate map identity '{}'", map_id), definition_id);
         }
         definition.maps.push_back(std::move(*map));
     }

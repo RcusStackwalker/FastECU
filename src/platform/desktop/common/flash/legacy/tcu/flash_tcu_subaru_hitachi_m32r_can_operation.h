@@ -19,11 +19,8 @@ class FlashTcuSubaruHitachiM32rCanOperation : public FlashOperationWorker
     Q_OBJECT
 
   public:
-    FlashTcuSubaruHitachiM32rCanOperation(SerialPortActions *serial,
-                                          FileActions::EcuCalDefStructure *ecuCalDef,
-                                          QString cmd_type,
-                                          QWidget *dialog,
-                                          QObject *parent = nullptr,
+    FlashTcuSubaruHitachiM32rCanOperation(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
+                                          QString cmd_type, QWidget *dialog, QObject *parent = nullptr,
                                           PromptFn promptOverride = {});
 
   protected:

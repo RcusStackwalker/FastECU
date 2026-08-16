@@ -25,8 +25,8 @@ TEST(SubaruTcuCvtMitsuMh8111CanPlan, RejectsUnknownProtocol)
 
 TEST(SubaruTcuCvtMitsuMh8111CanPlan, RejectsMismatchedMcu)
 {
-    const auto plan = build_subaru_tcu_cvt_mitsu_mh8111_can_plan(FlashOperation::Read, kProtocol,
-                                                                 "MH8104", std::nullopt);
+    const auto plan =
+        build_subaru_tcu_cvt_mitsu_mh8111_can_plan(FlashOperation::Read, kProtocol, "MH8104", std::nullopt);
     ASSERT_FALSE(plan.has_value());
     EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
 }
@@ -46,8 +46,7 @@ TEST(SubaruTcuCvtMitsuMh8111CanPlan, ReadCoversTheLowerWindowWriteCoversTheUpper
     EXPECT_EQ(readPlan->transfer_region().length, 0x78000u);
 
     const auto writePlan = build_subaru_tcu_cvt_mitsu_mh8111_can_plan(
-        FlashOperation::Write, "sub_tcu_cvt_mitsu_mh8111_can", "MH8111",
-        bytes::Bytes(0x180000, 0x00));
+        FlashOperation::Write, "sub_tcu_cvt_mitsu_mh8111_can", "MH8111", bytes::Bytes(0x180000, 0x00));
     ASSERT_TRUE(writePlan.has_value()) << writePlan.error().detail;
     EXPECT_EQ(writePlan->transfer_region().start, 0x80000u);
     EXPECT_EQ(writePlan->transfer_region().length, 0x100000u);
@@ -70,8 +69,8 @@ TEST(SubaruTcuCvtMitsuMh8111CanPlan, ReadCoversTheLowerWindowWriteCoversTheUpper
 
 TEST(SubaruTcuCvtMitsuMh8111CanPlan, WritePlanErasesOnlyTheUpperBlock)
 {
-    const auto plan = build_subaru_tcu_cvt_mitsu_mh8111_can_plan(FlashOperation::Write, kProtocol,
-                                                                 kMcu, bytes::Bytes(0x180000, 0x00));
+    const auto plan = build_subaru_tcu_cvt_mitsu_mh8111_can_plan(FlashOperation::Write, kProtocol, kMcu,
+                                                                 bytes::Bytes(0x180000, 0x00));
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     ASSERT_EQ(plan->erase_regions().size(), 1u);
     EXPECT_EQ(plan->erase_regions()[0].start, 0x80000u);
@@ -83,8 +82,8 @@ TEST(SubaruTcuCvtMitsuMh8111CanPlan, RejectsAWriteWhoseImageSizeIsWrong)
     // The family's true declared capacity is 0x180000 (3*512*1024), not the
     // write window's own length (0x100000) -- reflash_block indexes the
     // encrypted buffer at absolute offsets up to 0x180000.
-    const auto plan = build_subaru_tcu_cvt_mitsu_mh8111_can_plan(FlashOperation::Write, kProtocol,
-                                                                 kMcu, bytes::Bytes(0x100000, 0x00));
+    const auto plan = build_subaru_tcu_cvt_mitsu_mh8111_can_plan(FlashOperation::Write, kProtocol, kMcu,
+                                                                 bytes::Bytes(0x100000, 0x00));
     ASSERT_FALSE(plan.has_value());
     EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
     EXPECT_THAT(plan.error().detail, HasSubstr("0x180000"));
@@ -92,8 +91,7 @@ TEST(SubaruTcuCvtMitsuMh8111CanPlan, RejectsAWriteWhoseImageSizeIsWrong)
 
 TEST(SubaruTcuCvtMitsuMh8111CanPlan, RejectsTestWriteAsUnsupported)
 {
-    const auto plan = build_subaru_tcu_cvt_mitsu_mh8111_can_plan(FlashOperation::TestWrite,
-                                                                 kProtocol, kMcu,
+    const auto plan = build_subaru_tcu_cvt_mitsu_mh8111_can_plan(FlashOperation::TestWrite, kProtocol, kMcu,
                                                                  bytes::Bytes(0x180000, 0x00));
     ASSERT_FALSE(plan.has_value());
     EXPECT_EQ(plan.error().kind, ErrorKind::Unsupported);
@@ -101,8 +99,7 @@ TEST(SubaruTcuCvtMitsuMh8111CanPlan, RejectsTestWriteAsUnsupported)
 
 TEST(SubaruTcuCvtMitsuMh8111CanPlan, RejectsAWriteWithNoImage)
 {
-    const auto plan = build_subaru_tcu_cvt_mitsu_mh8111_can_plan(FlashOperation::Write, kProtocol,
-                                                                 kMcu, std::nullopt);
+    const auto plan = build_subaru_tcu_cvt_mitsu_mh8111_can_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt);
     ASSERT_FALSE(plan.has_value());
     EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
 }

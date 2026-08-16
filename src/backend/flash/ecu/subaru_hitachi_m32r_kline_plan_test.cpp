@@ -22,8 +22,7 @@ TEST(SubaruHitachiM32rKlinePlan, MapsExactProtocolsToCompletePortableContract)
         {
             auto plan = build_subaru_hitachi_m32r_kline_plan(
                 operation, protocol, kMcu,
-                operation == FlashOperation::Write ? std::optional(bytes::Bytes(0x80000, 0x5a))
-                                                   : std::nullopt);
+                operation == FlashOperation::Write ? std::optional(bytes::Bytes(0x80000, 0x5a)) : std::nullopt);
             ASSERT_TRUE(plan.has_value()) << plan.error().detail;
             EXPECT_EQ(plan->family(), FlashFamily::SubaruHitachiM32rKline);
             EXPECT_EQ(plan->transport(), TransportKind::Kline);
@@ -55,24 +54,18 @@ TEST(SubaruHitachiM32rKlinePlan, MapsExactProtocolsToCompletePortableContract)
 
 TEST(SubaruHitachiM32rKlinePlan, RejectsInvalidInputsBeforeIo)
 {
-    const auto expect = [](FlashOperation operation, std::string_view protocol,
-                           std::string_view mcu, std::optional<bytes::Bytes> image,
-                           ErrorKind expected)
+    const auto expect = [](FlashOperation operation, std::string_view protocol, std::string_view mcu,
+                           std::optional<bytes::Bytes> image, ErrorKind expected)
     {
-        auto plan = build_subaru_hitachi_m32r_kline_plan(
-            operation, protocol, mcu, std::move(image));
+        auto plan = build_subaru_hitachi_m32r_kline_plan(operation, protocol, mcu, std::move(image));
         ASSERT_FALSE(plan.has_value());
         EXPECT_EQ(plan.error().kind, expected);
     };
-    expect(FlashOperation::Read, "sub_ecu_hitachi_m32r_kline_typo", kMcu, std::nullopt,
-           ErrorKind::InvalidConfig);
-    expect(FlashOperation::Read, kNormal, "M32R_512KB_4blocks", std::nullopt,
-           ErrorKind::InvalidConfig);
+    expect(FlashOperation::Read, "sub_ecu_hitachi_m32r_kline_typo", kMcu, std::nullopt, ErrorKind::InvalidConfig);
+    expect(FlashOperation::Read, kNormal, "M32R_512KB_4blocks", std::nullopt, ErrorKind::InvalidConfig);
     expect(FlashOperation::Write, kNormal, kMcu, std::nullopt, ErrorKind::InvalidConfig);
-    expect(FlashOperation::Write, kRecovery, kMcu, bytes::Bytes(0x7ffff),
-           ErrorKind::InvalidConfig);
-    expect(FlashOperation::TestWrite, kNormal, kMcu, bytes::Bytes(0x80000),
-           ErrorKind::Unsupported);
+    expect(FlashOperation::Write, kRecovery, kMcu, bytes::Bytes(0x7ffff), ErrorKind::InvalidConfig);
+    expect(FlashOperation::TestWrite, kNormal, kMcu, bytes::Bytes(0x80000), ErrorKind::Unsupported);
 }
 
 } // namespace

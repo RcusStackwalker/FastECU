@@ -34,19 +34,20 @@ FlashPlanFields valid_sh7055_02_fields(FlashOperation operation = FlashOperation
                      ? std::nullopt
                      : std::optional<bytes::Bytes>{bytes::Bytes(flashdevices[index].romsize, bytes::Byte{0})},
         .kernel = test_kernel(),
-        .family_plan = SubaruDensoSh7055_02Plan{
-            .tester_id = 0xf0,
-            .target_id = 0x10,
-            .read_ecu_id = operation == FlashOperation::Read,
-        },
+        .family_plan =
+            SubaruDensoSh7055_02Plan{
+                .tester_id = 0xf0,
+                .target_id = 0x10,
+                .read_ecu_id = operation == FlashOperation::Read,
+            },
         .confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::CycleIgnition}},
     };
 }
 
 TEST(SubaruDensoSh7055_02Plan, BuildsBareReadAndWritePlansWithOperationSpecificEcuIdRead)
 {
-    auto read = build_subaru_denso_sh7055_02_plan(
-        FlashOperation::Read, "sub_ecu_denso_sh7055_02", "SH7055", std::nullopt, test_kernel());
+    auto read = build_subaru_denso_sh7055_02_plan(FlashOperation::Read, "sub_ecu_denso_sh7055_02", "SH7055",
+                                                  std::nullopt, test_kernel());
     ASSERT_TRUE(read.has_value()) << read.error().detail;
     EXPECT_EQ(read->family(), FlashFamily::SubaruDensoSh7055_02);
     EXPECT_EQ(read->transport(), TransportKind::Kline);
@@ -57,19 +58,19 @@ TEST(SubaruDensoSh7055_02Plan, BuildsBareReadAndWritePlansWithOperationSpecificE
 
     const int index = find_flash_device_index("SH7055");
     ASSERT_GE(index, 0);
-    auto write = build_subaru_denso_sh7055_02_plan(
-        FlashOperation::Write, "sub_ecu_denso_sh7055_02", "SH7055",
-        bytes::Bytes(flashdevices[index].romsize, bytes::Byte{0}), test_kernel());
+    auto write =
+        build_subaru_denso_sh7055_02_plan(FlashOperation::Write, "sub_ecu_denso_sh7055_02", "SH7055",
+                                          bytes::Bytes(flashdevices[index].romsize, bytes::Byte{0}), test_kernel());
     ASSERT_TRUE(write.has_value()) << write.error().detail;
     EXPECT_FALSE(std::get<SubaruDensoSh7055_02Plan>(write->family_plan()).read_ecu_id);
 }
 
 TEST(SubaruDensoSh7055_02Plan, AcceptsEcutekWithByteIdenticalWireParameters)
 {
-    auto bare = build_subaru_denso_sh7055_02_plan(
-        FlashOperation::Read, "sub_ecu_denso_sh7055_02", "SH7055", std::nullopt, test_kernel());
-    auto ecutek = build_subaru_denso_sh7055_02_plan(
-        FlashOperation::Read, "sub_ecu_denso_sh7055_02_ecutek", "SH7055", std::nullopt, test_kernel());
+    auto bare = build_subaru_denso_sh7055_02_plan(FlashOperation::Read, "sub_ecu_denso_sh7055_02", "SH7055",
+                                                  std::nullopt, test_kernel());
+    auto ecutek = build_subaru_denso_sh7055_02_plan(FlashOperation::Read, "sub_ecu_denso_sh7055_02_ecutek", "SH7055",
+                                                    std::nullopt, test_kernel());
     ASSERT_TRUE(bare.has_value()) << bare.error().detail;
     ASSERT_TRUE(ecutek.has_value()) << ecutek.error().detail;
     EXPECT_EQ(std::get<SubaruDensoSh7055_02Plan>(bare->family_plan()).tester_id,
@@ -84,8 +85,7 @@ TEST(SubaruDensoSh7055_02Plan, EveryAcceptedPlanRequiresCycleIgnitionConfirmatio
 {
     const int index = find_flash_device_index("SH7055");
     ASSERT_GE(index, 0);
-    for (const std::string_view protocol : {"sub_ecu_denso_sh7055_02",
-                                            "sub_ecu_denso_sh7055_02_ecutek"})
+    for (const std::string_view protocol : {"sub_ecu_denso_sh7055_02", "sub_ecu_denso_sh7055_02_ecutek"})
     {
         for (const auto operation : {FlashOperation::Read, FlashOperation::Write})
         {
@@ -93,8 +93,7 @@ TEST(SubaruDensoSh7055_02Plan, EveryAcceptedPlanRequiresCycleIgnitionConfirmatio
                 operation, protocol, "SH7055",
                 operation == FlashOperation::Read
                     ? std::nullopt
-                    : std::optional<bytes::Bytes>{
-                          bytes::Bytes(flashdevices[index].romsize, bytes::Byte{0})},
+                    : std::optional<bytes::Bytes>{bytes::Bytes(flashdevices[index].romsize, bytes::Byte{0})},
                 test_kernel());
             ASSERT_TRUE(plan.has_value()) << plan.error().detail;
             ASSERT_EQ(plan->confirmations().size(), 1);
@@ -105,16 +104,16 @@ TEST(SubaruDensoSh7055_02Plan, EveryAcceptedPlanRequiresCycleIgnitionConfirmatio
 
 TEST(SubaruDensoSh7055_02Plan, RejectsUnknownProtocol)
 {
-    auto plan = build_subaru_denso_sh7055_02_plan(
-        FlashOperation::Read, "sub_ecu_denso_sh7055_04", "SH7055", std::nullopt, test_kernel());
+    auto plan = build_subaru_denso_sh7055_02_plan(FlashOperation::Read, "sub_ecu_denso_sh7055_04", "SH7055",
+                                                  std::nullopt, test_kernel());
     ASSERT_FALSE(plan.has_value());
     EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
 }
 
 TEST(SubaruDensoSh7055_02Plan, RejectsUnknownMcu)
 {
-    auto plan = build_subaru_denso_sh7055_02_plan(
-        FlashOperation::Read, "sub_ecu_denso_sh7055_02", "NOT_A_REAL_MCU", std::nullopt, test_kernel());
+    auto plan = build_subaru_denso_sh7055_02_plan(FlashOperation::Read, "sub_ecu_denso_sh7055_02", "NOT_A_REAL_MCU",
+                                                  std::nullopt, test_kernel());
     ASSERT_FALSE(plan.has_value());
     EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
 }
@@ -123,9 +122,8 @@ TEST(SubaruDensoSh7055_02Plan, RejectsKnownButWrongMcu)
 {
     for (const std::string_view mcu : {"SH7058", "MC68HC16Y5"})
     {
-        auto plan = build_subaru_denso_sh7055_02_plan(
-            FlashOperation::Read, "sub_ecu_denso_sh7055_02", mcu,
-            std::nullopt, test_kernel());
+        auto plan = build_subaru_denso_sh7055_02_plan(FlashOperation::Read, "sub_ecu_denso_sh7055_02", mcu,
+                                                      std::nullopt, test_kernel());
         ASSERT_FALSE(plan.has_value()) << mcu;
         EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
     }
@@ -149,9 +147,9 @@ TEST(SubaruDensoSh7055_02Plan, WriteAndTestWriteRequireExactRomSize)
         ASSERT_FALSE(too_large.has_value());
         EXPECT_EQ(too_large.error().kind, ErrorKind::InvalidConfig);
 
-        auto exact = build_subaru_denso_sh7055_02_plan(
-            operation, "sub_ecu_denso_sh7055_02", "SH7055",
-            bytes::Bytes(flashdevices[index].romsize, bytes::Byte{0}), test_kernel());
+        auto exact =
+            build_subaru_denso_sh7055_02_plan(operation, "sub_ecu_denso_sh7055_02", "SH7055",
+                                              bytes::Bytes(flashdevices[index].romsize, bytes::Byte{0}), test_kernel());
         ASSERT_TRUE(exact.has_value()) << exact.error().detail;
         ASSERT_TRUE(exact->image().has_value());
         EXPECT_EQ(exact->image()->size(), flashdevices[index].romsize);
@@ -237,8 +235,7 @@ TEST(SubaruDensoSh7055_02Plan, ValidatorRequiresOnlyCycleIgnitionConfirmation)
 {
     for (const auto& confirmations : {
              std::vector<ConfirmationSpec>{},
-             std::vector<ConfirmationSpec>{
-                 ConfirmationSpec{.id = ConfirmationSpec::Id::BeginEepromRead}},
+             std::vector<ConfirmationSpec>{ConfirmationSpec{.id = ConfirmationSpec::Id::BeginEepromRead}},
              std::vector<ConfirmationSpec>{ConfirmationSpec{
                  .id = ConfirmationSpec::Id::CycleIgnition,
                  .arguments = {{"unexpected", "argument"}},
@@ -265,9 +262,8 @@ TEST(SubaruDensoSh7055_02Plan, KernelUploadAcceptsCanonicalAddressAndExactEnvelo
              KernelImage{.id = "full-envelope-fit", .load_address = kKernelStart, .bytes = bytes::Bytes(0x5ffc, 0)},
          })
     {
-        auto plan = build_subaru_denso_sh7055_02_plan(
-            FlashOperation::Read, "sub_ecu_denso_sh7055_02", "SH7055", std::nullopt,
-            std::move(kernel));
+        auto plan = build_subaru_denso_sh7055_02_plan(FlashOperation::Read, "sub_ecu_denso_sh7055_02", "SH7055",
+                                                      std::nullopt, std::move(kernel));
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     }
 }
@@ -278,14 +274,11 @@ TEST(SubaruDensoSh7055_02Plan, KernelUploadRejectsAddressAndPaddedFootprintOutsi
     for (KernelImage kernel : {
              KernelImage{.id = "below", .load_address = kKernelStart - 1, .bytes = {0x01}},
              KernelImage{.id = "shifted", .load_address = kKernelStart + 4, .bytes = {0x01}},
-             KernelImage{.id = "padded-past-end",
-                         .load_address = kKernelStart,
-                         .bytes = bytes::Bytes(0x5ffd, 0)},
+             KernelImage{.id = "padded-past-end", .load_address = kKernelStart, .bytes = bytes::Bytes(0x5ffd, 0)},
          })
     {
-        auto plan = build_subaru_denso_sh7055_02_plan(
-            FlashOperation::Read, "sub_ecu_denso_sh7055_02", "SH7055", std::nullopt,
-            std::move(kernel));
+        auto plan = build_subaru_denso_sh7055_02_plan(FlashOperation::Read, "sub_ecu_denso_sh7055_02", "SH7055",
+                                                      std::nullopt, std::move(kernel));
         ASSERT_FALSE(plan.has_value());
         EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
     }

@@ -13,23 +13,21 @@ int main(int argc, char *argv[])
     cmdParser.setApplicationDescription("FastECU - software to work on and modify ECUs");
     cmdParser.addHelpOption();
     QCommandLineOption cmdHost(QStringList() << "s" << "host",
-                               "Remote host address and port, for example 127.0.0.1:33314, local:33315",
-                               "host:port");
+                               "Remote host address and port, for example 127.0.0.1:33314, local:33315", "host:port");
     cmdParser.addOption(cmdHost);
-    QCommandLineOption cmdPassword(QStringList() << "p" << "password",
-                                   "Remote host password",
-                                   "password");
+    QCommandLineOption cmdPassword(QStringList() << "p" << "password", "Remote host password", "password");
     cmdParser.addOption(cmdPassword);
-    QCommandLineOption cmdDebug(QStringList() << "d" << "debug",
-                                "Enable console debug output");
+    QCommandLineOption cmdDebug(QStringList() << "d" << "debug", "Enable console debug output");
     cmdParser.addOption(cmdDebug);
 
     // Locate debug option before QCommandLineParser to open console properly
 #ifdef _WIN32
-    const auto debug_console = std::ranges::any_of(std::span(argv + 1, argc - 1), [](std::string_view arg)
+    const auto debug_console = std::ranges::any_of(std::span(argv + 1, argc - 1),
+                                                   [](std::string_view arg)
                                                    {
-        using namespace std::string_view_literals;
-        return arg == "-d"sv || arg == "--debug"sv || arg == "-debug"sv; });
+                                                       using namespace std::string_view_literals;
+                                                       return arg == "-d"sv || arg == "--debug"sv || arg == "-debug"sv;
+                                                   });
 
     if (!debug_console)
     {

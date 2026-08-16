@@ -24,9 +24,7 @@ using fastecu::definition::DefinitionFormat;
 using fastecu::definition::DefinitionIndexEntry;
 using fastecu::definition::IdEncoding;
 
-QString lineEditValue(
-    const QList<QLineEdit *>& lineEdits,
-    const QString& name)
+QString lineEditValue(const QList<QLineEdit *>& lineEdits, const QString& name)
 {
     for (const QLineEdit *editor : lineEdits)
     {
@@ -38,10 +36,8 @@ QString lineEditValue(
     return {};
 }
 
-fastecu::Result<fastecu::definition::DefinitionHeaderInput>
-definitionHeaderInput(
-    const QList<QLineEdit *>& lineEdits,
-    const QList<QTextEdit *>& textEdits)
+fastecu::Result<fastecu::definition::DefinitionHeaderInput> definitionHeaderInput(const QList<QLineEdit *>& lineEdits,
+                                                                                  const QList<QTextEdit *>& textEdits)
 {
     QHash<QString, QString> fields;
     for (const QLineEdit *editor : lineEdits)
@@ -61,9 +57,8 @@ definitionHeaderInput(
         const std::uint64_t parsedAddress = addressText.toULongLong(&validAddress, 16);
         if (!validAddress)
         {
-            return fastecu::fail(
-                fastecu::ErrorKind::InvalidConfig,
-                "definition internal ID address is not a valid integer");
+            return fastecu::fail(fastecu::ErrorKind::InvalidConfig,
+                                 "definition internal ID address is not a valid integer");
         }
         internalIdAddress = parsedAddress;
     }
@@ -90,42 +85,27 @@ definitionHeaderInput(
     };
 }
 
-fastecu::Result<DefinitionCatalog> catalogFromLegacyLists(
-    const FileActions::ConfigValuesStructure& config,
-    DefinitionFormat format)
+fastecu::Result<DefinitionCatalog> catalogFromLegacyLists(const FileActions::ConfigValuesStructure& config,
+                                                          DefinitionFormat format)
 {
     const QStringList *ids =
-        format == DefinitionFormat::RomRaider
-            ? &config.romraider_def_cal_id
-            : &config.ecuflash_def_cal_id;
+        format == DefinitionFormat::RomRaider ? &config.romraider_def_cal_id : &config.ecuflash_def_cal_id;
     const QStringList *addresses =
-        format == DefinitionFormat::RomRaider
-            ? &config.romraider_def_cal_id_addr
-            : &config.ecuflash_def_cal_id_addr;
+        format == DefinitionFormat::RomRaider ? &config.romraider_def_cal_id_addr : &config.ecuflash_def_cal_id_addr;
     const QStringList *ecuIds =
-        format == DefinitionFormat::RomRaider
-            ? &config.romraider_def_ecu_id
-            : &config.ecuflash_def_ecu_id;
+        format == DefinitionFormat::RomRaider ? &config.romraider_def_ecu_id : &config.ecuflash_def_ecu_id;
     const QStringList *sources =
-        format == DefinitionFormat::RomRaider
-            ? &config.romraider_def_filename
-            : &config.ecuflash_def_filename;
+        format == DefinitionFormat::RomRaider ? &config.romraider_def_filename : &config.ecuflash_def_filename;
 
     const bool completeShape =
-        sources->size() == ids->size() &&
-        addresses->size() == ids->size() &&
-        ecuIds->size() == ids->size();
-    const bool readOnlyShape =
-        sources->size() == ids->size() &&
-        addresses->isEmpty() &&
-        ecuIds->isEmpty();
+        sources->size() == ids->size() && addresses->size() == ids->size() && ecuIds->size() == ids->size();
+    const bool readOnlyShape = sources->size() == ids->size() && addresses->isEmpty() && ecuIds->isEmpty();
     if (!completeShape && !readOnlyShape)
     {
-        return fastecu::fail(
-            fastecu::ErrorKind::InvalidConfig,
-            "legacy definition catalog ID/source/address/ECU columns are not "
-            "aligned; expected four complete columns or the documented "
-            "ID/source-only read shape");
+        return fastecu::fail(fastecu::ErrorKind::InvalidConfig,
+                             "legacy definition catalog ID/source/address/ECU columns are not "
+                             "aligned; expected four complete columns or the documented "
+                             "ID/source-only read shape");
     }
 
     std::vector<DefinitionIndexEntry> entries;
@@ -133,8 +113,7 @@ fastecu::Result<DefinitionCatalog> catalogFromLegacyLists(
     for (qsizetype index = 0; index < ids->size(); ++index)
     {
         std::optional<std::uint64_t> address;
-        const QString addressText =
-            readOnlyShape ? QString{} : addresses->at(index);
+        const QString addressText = readOnlyShape ? QString{} : addresses->at(index);
         if (!addressText.trimmed().isEmpty())
         {
             bool valid = false;
@@ -154,34 +133,23 @@ fastecu::Result<DefinitionCatalog> catalogFromLegacyLists(
             .internal_id = ids->at(index).toStdString(),
             .internal_id_address = address,
             .internal_id_encoding = IdEncoding::AsciiOrHex,
-            .ecu_id =
-                readOnlyShape ? std::string{} : ecuIds->at(index).toStdString(),
+            .ecu_id = readOnlyShape ? std::string{} : ecuIds->at(index).toStdString(),
             .source = sources->at(index).toStdString(),
         });
     }
     return DefinitionCatalog::create(std::move(entries));
 }
 
-void validateListLength(const QString& group,
-                        const QString& name,
-                        int actual,
-                        int expected,
-                        QStringList *errors)
+void validateListLength(const QString& group, const QString& name, int actual, int expected, QStringList *errors)
 {
     if (actual == expected)
     {
         return;
     }
-    errors->append(QString("%1.%2 has %3 entries, expected %4")
-                       .arg(group, name)
-                       .arg(actual)
-                       .arg(expected));
+    errors->append(QString("%1.%2 has %3 entries, expected %4").arg(group, name).arg(actual).arg(expected));
 }
 
-bool validateRequiredField(const QString& group,
-                           const QString& name,
-                           const QStringList& values,
-                           QStringList *errors)
+bool validateRequiredField(const QString& group, const QString& name, const QStringList& values, QStringList *errors)
 {
     bool valid = true;
     for (int i = 0; i < values.size(); ++i)
@@ -206,9 +174,7 @@ void logValidationErrors(const QString& group, const QStringList& errors)
 
 std::vector<std::string> toStdStrings(const QStringList& values)
 {
-    return values |
-           std::views::transform([](const QString& value)
-                                 { return value.toStdString(); }) |
+    return values | std::views::transform([](const QString& value) { return value.toStdString(); }) |
            std::ranges::to<std::vector>();
 }
 
@@ -228,32 +194,23 @@ int lineAfterClosingTag(const QStringList& lines, const QString& tagName)
 } // namespace
 
 FileActions::FileActions(fastecu::IFileSystem& file_system, fastecu::IResourceBundle& resource_bundle,
-                         fastecu::IFileRepository& file_repository,
-                         fastecu::IAtomicFileWriter& atomic_file_writer,
+                         fastecu::IFileRepository& file_repository, fastecu::IAtomicFileWriter& atomic_file_writer,
                          QWidget *parent)
-    : QWidget(parent),
-      configAdapter_(file_system, resource_bundle, file_repository),
-      definitionFileSystem_(file_system),
-      definitionFileRepository_(file_repository),
-      loggerResourceBundle_(resource_bundle),
-      loggerAtomicFileWriter_(atomic_file_writer),
-      definitionService_(file_system, file_repository, atomic_file_writer),
-      definitionAdapter_(definitionService_),
+    : QWidget(parent), configAdapter_(file_system, resource_bundle, file_repository),
+      definitionFileSystem_(file_system), definitionFileRepository_(file_repository),
+      loggerResourceBundle_(resource_bundle), loggerAtomicFileWriter_(atomic_file_writer),
+      definitionService_(file_system, file_repository, atomic_file_writer), definitionAdapter_(definitionService_),
       calibrationAdapter_(file_repository)
 {
 }
 
-fastecu::Result<DefinitionCatalog> FileActions::build_definition_catalog(
-    DefinitionFormat format)
+fastecu::Result<DefinitionCatalog> FileActions::build_definition_catalog(DefinitionFormat format)
 {
-    if (format == DefinitionFormat::RomRaider &&
-        !ConfigValuesStruct.romraider_definition_files.isEmpty())
+    if (format == DefinitionFormat::RomRaider && !ConfigValuesStruct.romraider_definition_files.isEmpty())
     {
         std::vector<std::string> handles;
-        handles.reserve(static_cast<std::size_t>(
-            ConfigValuesStruct.romraider_definition_files.size()));
-        for (const QString& handle :
-             ConfigValuesStruct.romraider_definition_files)
+        handles.reserve(static_cast<std::size_t>(ConfigValuesStruct.romraider_definition_files.size()));
+        for (const QString& handle : ConfigValuesStruct.romraider_definition_files)
         {
             handles.push_back(handle.toStdString());
         }
@@ -262,59 +219,40 @@ fastecu::Result<DefinitionCatalog> FileActions::build_definition_catalog(
     if (format == DefinitionFormat::EcuFlash)
     {
         std::vector<std::string> explicitHandles;
-        explicitHandles.reserve(static_cast<std::size_t>(
-            ConfigValuesStruct.ecuflash_def_filename.size()));
-        for (const QString& handle :
-             ConfigValuesStruct.ecuflash_def_filename)
+        explicitHandles.reserve(static_cast<std::size_t>(ConfigValuesStruct.ecuflash_def_filename.size()));
+        for (const QString& handle : ConfigValuesStruct.ecuflash_def_filename)
         {
             explicitHandles.push_back(handle.toStdString());
         }
-        if (ConfigValuesStruct.ecuflash_definition_files_directory.isEmpty() &&
-            explicitHandles.empty())
+        if (ConfigValuesStruct.ecuflash_definition_files_directory.isEmpty() && explicitHandles.empty())
         {
             return catalogFromLegacyLists(ConfigValuesStruct, format);
         }
         return definitionService_.build_ecuflash_catalog(
-            ConfigValuesStruct.ecuflash_definition_files_directory.toStdString(),
-            explicitHandles);
+            ConfigValuesStruct.ecuflash_definition_files_directory.toStdString(), explicitHandles);
     }
     return catalogFromLegacyLists(ConfigValuesStruct, format);
 }
 
-QString FileActions::definition_source(
-    DefinitionFormat format,
-    const QString& id) const
+QString FileActions::definition_source(DefinitionFormat format, const QString& id) const
 {
-    const QStringList *ids =
-        format == DefinitionFormat::RomRaider
-            ? &ConfigValuesStruct.romraider_def_cal_id
-            : &ConfigValuesStruct.ecuflash_def_cal_id;
-    const QStringList *sources =
-        format == DefinitionFormat::RomRaider
-            ? &ConfigValuesStruct.romraider_def_filename
-            : &ConfigValuesStruct.ecuflash_def_filename;
+    const QStringList *ids = format == DefinitionFormat::RomRaider ? &ConfigValuesStruct.romraider_def_cal_id
+                                                                   : &ConfigValuesStruct.ecuflash_def_cal_id;
+    const QStringList *sources = format == DefinitionFormat::RomRaider ? &ConfigValuesStruct.romraider_def_filename
+                                                                       : &ConfigValuesStruct.ecuflash_def_filename;
     const qsizetype index = ids->indexOf(id);
-    return index >= 0 && index < sources->size()
-               ? sources->at(index)
-               : QString{};
+    return index >= 0 && index < sources->size() ? sources->at(index) : QString{};
 }
 
-void FileActions::log_definition_error(
-    const QString& operation,
-    const fastecu::Error& error)
+void FileActions::log_definition_error(const QString& operation, const fastecu::Error& error)
 {
-    emit LOG_E(
-        operation + " [" +
-            QString::fromUtf8(fastecu::to_string(error.kind)) + "]: " +
-            QString::fromStdString(error.detail),
-        true,
-        true);
+    emit LOG_E(operation + " [" + QString::fromUtf8(fastecu::to_string(error.kind)) +
+                   "]: " + QString::fromStdString(error.detail),
+               true, true);
 }
 
-fastecu::Status FileActions::load_configured_definition(
-    EcuCalDefStructure& ecu_cal_def,
-    DefinitionFormat format,
-    const QString& definition_id)
+fastecu::Status FileActions::load_configured_definition(EcuCalDefStructure& ecu_cal_def, DefinitionFormat format,
+                                                        const QString& definition_id)
 {
     auto catalog = build_definition_catalog(format);
     if (!catalog.has_value())
@@ -323,8 +261,8 @@ fastecu::Status FileActions::load_configured_definition(
         return std::unexpected(catalog.error());
     }
     fastecu::definition::RomDefinition resolved;
-    fastecu::Status replaced = definitionAdapter_.replace_definition(
-        ecu_cal_def, *catalog, format, definition_id.toStdString(), &resolved);
+    fastecu::Status replaced =
+        definitionAdapter_.replace_definition(ecu_cal_def, *catalog, format, definition_id.toStdString(), &resolved);
     if (!replaced.has_value())
     {
         resolvedDefinition_.reset();
@@ -344,12 +282,10 @@ fastecu::Status FileActions::load_configured_definition(
     return {};
 }
 
-const fastecu::definition::RomDefinition *FileActions::resolved_definition(
-    DefinitionFormat format,
-    const QString& definition_id) const
+const fastecu::definition::RomDefinition *FileActions::resolved_definition(DefinitionFormat format,
+                                                                           const QString& definition_id) const
 {
-    if (!resolvedDefinition_.has_value() ||
-        resolvedDefinition_->format != format ||
+    if (!resolvedDefinition_.has_value() || resolvedDefinition_->format != format ||
         resolvedDefinition_->id != definition_id)
     {
         return nullptr;
@@ -357,16 +293,12 @@ const fastecu::definition::RomDefinition *FileActions::resolved_definition(
     return &resolvedDefinition_->definition;
 }
 
-bool FileActions::log_definition_load_failure(
-    const QString& operation,
-    const fastecu::Error& error,
-    const QString& source,
-    const QString& warning_title,
-    const QString& warning_text)
+bool FileActions::log_definition_load_failure(const QString& operation, const fastecu::Error& error,
+                                              const QString& source, const QString& warning_title,
+                                              const QString& warning_text)
 {
     log_definition_error(operation, error);
-    if (!source.isEmpty() &&
-        !definitionFileSystem_.exists(source.toStdString()))
+    if (!source.isEmpty() && !definitionFileSystem_.exists(source.toStdString()))
     {
         QMessageBox::warning(this, warning_title, warning_text + source + " for reading");
         return true;
@@ -385,15 +317,13 @@ void FileActions::strip_legacy_address_prefixes(QStringList& addresses)
     }
 }
 
-fastecu::Status FileActions::submit_new_definition(
-    std::string_view destination,
-    const fastecu::definition::DefinitionHeaderInput& input)
+fastecu::Status FileActions::submit_new_definition(std::string_view destination,
+                                                   const fastecu::definition::DefinitionHeaderInput& input)
 {
     // The caller reaches this only after the native "Save As" dialog already asked to
     // overwrite an existing file, so that confirmation is passed through here rather than
     // rejected again by the service's own new-file-only guard.
-    fastecu::Status status =
-        definitionAdapter_.create_definition(destination, input, /*allow_overwrite=*/true);
+    fastecu::Status status = definitionAdapter_.create_definition(destination, input, /*allow_overwrite=*/true);
     if (!status.has_value())
     {
         log_definition_error("Unable to create definition", status.error());
@@ -405,13 +335,10 @@ fastecu::Status FileActions::submit_new_definition(
     return status;
 }
 
-fastecu::Status FileActions::submit_imported_definition(
-    std::string_view source,
-    std::string_view destination,
-    const fastecu::definition::DefinitionHeaderInput& input)
+fastecu::Status FileActions::submit_imported_definition(std::string_view source, std::string_view destination,
+                                                        const fastecu::definition::DefinitionHeaderInput& input)
 {
-    fastecu::Status status =
-        definitionAdapter_.import_definition(source, destination, input);
+    fastecu::Status status = definitionAdapter_.import_definition(source, destination, input);
     if (!status.has_value())
     {
         log_definition_error("Unable to import definition", status.error());
@@ -423,21 +350,13 @@ fastecu::Status FileActions::submit_imported_definition(
     return status;
 }
 
-void FileActions::remember_submitted_ecuflash_handle(
-    std::string_view destination)
+void FileActions::remember_submitted_ecuflash_handle(std::string_view destination)
 {
-    const auto position = std::ranges::lower_bound(
-        submittedEcuflashHandles_,
-        destination,
-        {},
-        [](const auto& item)
-        { return std::string_view{item}; });
-    if (position == std::ranges::end(submittedEcuflashHandles_) ||
-        std::string_view(*position) != destination)
+    const auto position = std::ranges::lower_bound(submittedEcuflashHandles_, destination, {},
+                                                   [](const auto& item) { return std::string_view{item}; });
+    if (position == std::ranges::end(submittedEcuflashHandles_) || std::string_view(*position) != destination)
     {
-        submittedEcuflashHandles_.emplace(
-            position,
-            destination);
+        submittedEcuflashHandles_.emplace(position, destination);
     }
 }
 
@@ -448,32 +367,23 @@ void FileActions::apply_flash_method_alias(EcuCalDefStructure& ecuCalDef)
         return;
     }
     const QString flashMethod = ecuCalDef.RomInfo.at(FlashMethod);
-    for (qsizetype index = 0;
-         index < ConfigValuesStruct.flash_protocol_id.size() &&
-         index < ConfigValuesStruct.flash_protocol_alias.size() &&
-         index < ConfigValuesStruct.flash_protocol_protocol_name.size();
+    for (qsizetype index = 0; index < ConfigValuesStruct.flash_protocol_id.size() &&
+                              index < ConfigValuesStruct.flash_protocol_alias.size() &&
+                              index < ConfigValuesStruct.flash_protocol_protocol_name.size();
          ++index)
     {
-        const QStringList aliases =
-            ConfigValuesStruct.flash_protocol_alias.at(index).split(",");
+        const QStringList aliases = ConfigValuesStruct.flash_protocol_alias.at(index).split(",");
         if (aliases.contains(flashMethod))
         {
             emit LOG_D("Alias: " + flashMethod, true, true);
-            emit LOG_D(
-                "Protocol: " +
-                    ConfigValuesStruct.flash_protocol_protocol_name.at(index),
-                true,
-                true);
-            ecuCalDef.RomInfo.replace(
-                FlashMethod,
-                ConfigValuesStruct.flash_protocol_protocol_name.at(index));
+            emit LOG_D("Protocol: " + ConfigValuesStruct.flash_protocol_protocol_name.at(index), true, true);
+            ecuCalDef.RomInfo.replace(FlashMethod, ConfigValuesStruct.flash_protocol_protocol_name.at(index));
             return;
         }
     }
 }
 
-void FileActions::normalize_definition_addresses(
-    EcuCalDefStructure& ecuCalDef)
+void FileActions::normalize_definition_addresses(EcuCalDefStructure& ecuCalDef)
 {
     const auto removePrefix = [](QString& address)
     {
@@ -486,10 +396,7 @@ void FileActions::normalize_definition_addresses(
     {
         removePrefix(ecuCalDef.RomInfo[InternalIdAddress]);
     }
-    for (QStringList *addresses :
-         {&ecuCalDef.AddressList,
-          &ecuCalDef.XScaleAddressList,
-          &ecuCalDef.YScaleAddressList})
+    for (QStringList *addresses : {&ecuCalDef.AddressList, &ecuCalDef.XScaleAddressList, &ecuCalDef.YScaleAddressList})
     {
         for (QString& address : *addresses)
         {
@@ -520,7 +427,8 @@ bool FileActions::validate_flash_protocols(const ConfigValuesStructure& configVa
     validateListLength("flash_protocol", "read", configValues.flash_protocol_read.size(), rows, out);
     validateListLength("flash_protocol", "test_write", configValues.flash_protocol_test_write.size(), rows, out);
     validateListLength("flash_protocol", "write", configValues.flash_protocol_write.size(), rows, out);
-    validateListLength("flash_protocol", "flash_transport", configValues.flash_protocol_flash_transport.size(), rows, out);
+    validateListLength("flash_protocol", "flash_transport", configValues.flash_protocol_flash_transport.size(), rows,
+                       out);
     validateListLength("flash_protocol", "log_transport", configValues.flash_protocol_log_transport.size(), rows, out);
     validateListLength("flash_protocol", "log_protocol", configValues.flash_protocol_log_protocol.size(), rows, out);
     validateListLength("flash_protocol", "ecu_id_ascii", configValues.flash_protocol_ecu_id_ascii.size(), rows, out);
@@ -619,8 +527,7 @@ bool FileActions::validate_calibration_maps(const EcuCalDefStructure& ecuCalDef,
 }
 
 QStringList FileActions::collect_ecuflash_base_header_fields(const EcuCalDefStructure& ecuCalDef,
-                                                             const QStringList& defData,
-                                                             int *endIndex)
+                                                             const QStringList& defData, int *endIndex)
 {
     QStringList headerData;
     QHash<QString, QString> values;
@@ -639,9 +546,8 @@ QStringList FileActions::collect_ecuflash_base_header_fields(const EcuCalDefStru
         const QDomElement romid = root.firstChildElement("romid");
         for (const QString& name : ecuCalDef.DefHeaderNames)
         {
-            const QDomElement element = (name == "include" || name == "notes")
-                                            ? root.firstChildElement(name)
-                                            : romid.firstChildElement(name);
+            const QDomElement element =
+                (name == "include" || name == "notes") ? root.firstChildElement(name) : romid.firstChildElement(name);
             if (!element.isNull())
             {
                 values.insert(name, element.text());
@@ -685,8 +591,8 @@ QStringList FileActions::collect_ecuflash_definition_body_lines(const QStringLis
     return bodyLines;
 }
 
-FileActions::ConfigValuesStructure *FileActions::set_base_dirs(
-    ConfigValuesStructure *configValues, const fastecu::config::AppRootInfo& root_info)
+FileActions::ConfigValuesStructure *FileActions::set_base_dirs(ConfigValuesStructure *configValues,
+                                                               const fastecu::config::AppRootInfo& root_info)
 {
     return configAdapter_.set_base_dirs(configValues, root_info);
 }
@@ -733,7 +639,8 @@ FileActions::ConfigValuesStructure *FileActions::read_protocols_file(FileActions
     return configValues;
 }
 
-FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogValuesStructure *logValues, const QString& ecu_id, bool modify)
+FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogValuesStructure *logValues,
+                                                               const QString& ecu_id, bool modify)
 {
     ConfigValuesStructure *configValues = &ConfigValuesStruct;
 
@@ -745,20 +652,19 @@ FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogV
     const auto warnUnreadable = [&]
     {
         QMessageBox::warning(this, tr("Logger file"),
-                             "Unable to open logger config file '" + configValues->logger_file +
-                                 "' for reading");
+                             "Unable to open logger config file '" + configValues->logger_file + "' for reading");
     };
 
-    fastecu::logging::LoggerDefinitionService service(
-        definitionFileRepository_, loggerResourceBundle_, loggerAtomicFileWriter_);
+    fastecu::logging::LoggerDefinitionService service(definitionFileRepository_, loggerResourceBundle_,
+                                                      loggerAtomicFileWriter_);
 
     if (modify)
     {
-        fastecu::logging::LoggerSelection selection{
-            .protocol = logValues->logging_values_protocol.toStdString(),
-            .gauge_ids = toStdStrings(logValues->dashboard_log_value_id),
-            .lower_panel_ids = toStdStrings(logValues->lower_panel_log_value_id),
-            .switch_ids = toStdStrings(logValues->lower_panel_switch_id)};
+        fastecu::logging::LoggerSelection selection{.protocol = logValues->logging_values_protocol.toStdString(),
+                                                    .gauge_ids = toStdStrings(logValues->dashboard_log_value_id),
+                                                    .lower_panel_ids =
+                                                        toStdStrings(logValues->lower_panel_log_value_id),
+                                                    .switch_ids = toStdStrings(logValues->lower_panel_switch_id)};
         if (auto saved = service.save_selection(handle, ecu_key, selection); !saved)
         {
             warnUnreadable();
@@ -799,7 +705,8 @@ FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogV
     // ever surfaced this warning from.
     if (logValues->log_value_protocol.empty())
     {
-        QMessageBox::warning(this, tr("Logger definition file"), "No logger definition file selected, returning without initializing log parameters!");
+        QMessageBox::warning(this, tr("Logger definition file"),
+                             "No logger definition file selected, returning without initializing log parameters!");
         emit LOG_D("No logger definition file selected, returning without initializing log parameters!", true, true);
         return nullptr;
     }
@@ -811,18 +718,15 @@ FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogV
     // skewed yields fewer rows instead of indexing past the end of one.
     fastecu::logging::LoggerDefinition definition;
     for (const auto& [protocol, id, enabled] :
-         std::views::zip(logValues->log_value_protocol, logValues->log_value_id,
-                         logValues->log_value_enabled))
+         std::views::zip(logValues->log_value_protocol, logValues->log_value_id, logValues->log_value_enabled))
     {
-        definition.parameters.push_back({.protocol = protocol.toStdString(),
-                                         .id = id.toStdString(),
-                                         .enabled = enabled == "1"});
+        definition.parameters.push_back(
+            {.protocol = protocol.toStdString(), .id = id.toStdString(), .enabled = enabled == "1"});
     }
     // No protocol here: default_selection reads LoggerSwitch::protocol
     // nowhere, and zipping log_switch_protocol in would truncate the walk
     // against a list legacy never consulted on this path.
-    for (const auto& [id, enabled] :
-         std::views::zip(logValues->log_switch_id, logValues->log_switch_enabled))
+    for (const auto& [id, enabled] : std::views::zip(logValues->log_switch_id, logValues->log_switch_enabled))
     {
         // `enabled` carries the ECU's runtime capability response, not the XML
         // default -- this is the state default_selection must filter on.
@@ -845,13 +749,13 @@ FileActions::LogValuesStructure *FileActions::read_logger_definition_file()
     LogValuesStructure *logValues = &LogValuesStruct;
     ConfigValuesStructure *configValues = &ConfigValuesStruct;
 
-    fastecu::logging::LoggerDefinitionService service(
-        definitionFileRepository_, loggerResourceBundle_, loggerAtomicFileWriter_);
+    fastecu::logging::LoggerDefinitionService service(definitionFileRepository_, loggerResourceBundle_,
+                                                      loggerAtomicFileWriter_);
 
-    const auto handle = service.resolve_definition_handle(
-        configValues->romraider_logger_definition_file.toStdString(),
-        configValues->flash_protocol_selected_log_protocol.toStdString(),
-        configValues->config_files_directory.toStdString());
+    const auto handle =
+        service.resolve_definition_handle(configValues->romraider_logger_definition_file.toStdString(),
+                                          configValues->flash_protocol_selected_log_protocol.toStdString(),
+                                          configValues->config_files_directory.toStdString());
     if (!handle)
     {
         QMessageBox::warning(this, tr("Logger file"),
@@ -862,24 +766,21 @@ FileActions::LogValuesStructure *FileActions::read_logger_definition_file()
     if (configValues->romraider_logger_definition_file.isEmpty() && !handle->empty())
     {
         configValues->romraider_logger_definition_file = QString::fromStdString(*handle);
-        emit LOG_D("Using bundled CDBG logger definition: " +
-                       configValues->romraider_logger_definition_file,
-                   true, true);
+        emit LOG_D("Using bundled CDBG logger definition: " + configValues->romraider_logger_definition_file, true,
+                   true);
     }
 
     const auto definition = service.load_definition(*handle);
     if (!definition)
     {
         QMessageBox::warning(this, tr("Logger file"),
-                             "Unable to open logger definition file '" +
-                                 QString::fromStdString(*handle) + "' for reading: " +
-                                 QString::fromStdString(definition.error().detail));
+                             "Unable to open logger definition file '" + QString::fromStdString(*handle) +
+                                 "' for reading: " + QString::fromStdString(definition.error().detail));
         return logValues;
     }
 
     fastecu::logging::apply_definition(*definition, *logValues);
-    fastecu::logging::apply_selection(
-        fastecu::logging::initial_selection(*definition), *logValues);
+    fastecu::logging::apply_selection(fastecu::logging::initial_selection(*definition), *logValues);
 
     QStringList validationErrors;
     validate_logger_values(*logValues, &validationErrors);
@@ -909,7 +810,8 @@ QSignalMapper *FileActions::read_menu_file(QMenuBar *menubar, QToolBar *toolBar)
     if (!file.open(QIODevice::ReadOnly))
     {
         // Error while loading file
-        QMessageBox::warning(this, tr("Ecu menu file"), "Unable to open menu config file '" + file.fileName() + "' for reading");
+        QMessageBox::warning(this, tr("Ecu menu file"),
+                             "Unable to open menu config file '" + file.fileName() + "' for reading");
         return mapper;
     }
     // Set data into the QDomDocument before processing
@@ -962,7 +864,8 @@ QSignalMapper *FileActions::read_menu_file(QMenuBar *menubar, QToolBar *toolBar)
                                         QAction *action = new QAction(menuItemName, this);
                                         QString menuItemActionName = sub_menu_item.attribute("id", "No id");
                                         ;
-                                        QString menuItemCheckable = sub_menu_item.attribute("checkable", "No checkable");
+                                        QString menuItemCheckable =
+                                            sub_menu_item.attribute("checkable", "No checkable");
                                         ;
                                         QString menuItemShortcut = sub_menu_item.attribute("shortcut", "No shortcut");
                                         ;
@@ -1111,63 +1014,49 @@ QString FileActions::parse_hex_ecuid(uint8_t byte)
     return ecuid_byte;
 }
 
-FileActions::EcuCalDefStructure *FileActions::parse_ecuid_ecuflash_def_files(FileActions::EcuCalDefStructure *ecuCalDef, bool is_ascii)
+FileActions::EcuCalDefStructure *FileActions::parse_ecuid_ecuflash_def_files(FileActions::EcuCalDefStructure *ecuCalDef,
+                                                                             bool is_ascii)
 {
     (void)is_ascii;
-    auto catalog =
-        build_definition_catalog(DefinitionFormat::EcuFlash);
+    auto catalog = build_definition_catalog(DefinitionFormat::EcuFlash);
     if (!catalog.has_value())
     {
         log_definition_error("Unable to match EcuFlash definition", catalog.error());
         return ecuCalDef;
     }
-    const auto *bytes = reinterpret_cast<const std::uint8_t *>(
-        ecuCalDef->FullRomData.constData());
+    const auto *bytes = reinterpret_cast<const std::uint8_t *>(ecuCalDef->FullRomData.constData());
     auto match = definitionService_.match_rom(
-        *catalog,
-        std::span<const std::uint8_t>(
-            bytes,
-            static_cast<std::size_t>(ecuCalDef->FullRomData.size())));
+        *catalog, std::span<const std::uint8_t>(bytes, static_cast<std::size_t>(ecuCalDef->FullRomData.size())));
     if (!match.has_value())
     {
         log_definition_error("Unable to match EcuFlash definition", match.error());
         return ecuCalDef;
     }
     ecuCalDef->RomId = QString::fromStdString(match->definition_id);
-    emit LOG_D(
-        "EcuFlash cal id " + ecuCalDef->RomId + " found",
-        true,
-        true);
+    emit LOG_D("EcuFlash cal id " + ecuCalDef->RomId + " found", true, true);
     return ecuCalDef;
 }
 
-FileActions::EcuCalDefStructure *FileActions::parse_ecuid_romraider_def_files(FileActions::EcuCalDefStructure *ecuCalDef, bool is_ascii)
+FileActions::EcuCalDefStructure *
+FileActions::parse_ecuid_romraider_def_files(FileActions::EcuCalDefStructure *ecuCalDef, bool is_ascii)
 {
     (void)is_ascii;
-    auto catalog =
-        build_definition_catalog(DefinitionFormat::RomRaider);
+    auto catalog = build_definition_catalog(DefinitionFormat::RomRaider);
     if (!catalog.has_value())
     {
         log_definition_error("Unable to match RomRaider definition", catalog.error());
         return ecuCalDef;
     }
-    const auto *bytes = reinterpret_cast<const std::uint8_t *>(
-        ecuCalDef->FullRomData.constData());
+    const auto *bytes = reinterpret_cast<const std::uint8_t *>(ecuCalDef->FullRomData.constData());
     auto match = definitionService_.match_rom(
-        *catalog,
-        std::span<const std::uint8_t>(
-            bytes,
-            static_cast<std::size_t>(ecuCalDef->FullRomData.size())));
+        *catalog, std::span<const std::uint8_t>(bytes, static_cast<std::size_t>(ecuCalDef->FullRomData.size())));
     if (!match.has_value())
     {
         log_definition_error("Unable to match RomRaider definition", match.error());
         return ecuCalDef;
     }
     ecuCalDef->RomId = QString::fromStdString(match->definition_id);
-    emit LOG_D(
-        "RomRaider cal id " + ecuCalDef->RomId + " found",
-        true,
-        true);
+    emit LOG_D("RomRaider cal id " + ecuCalDef->RomId + " found", true, true);
     return ecuCalDef;
 }
 
@@ -1225,12 +1114,15 @@ FileActions::EcuCalDefStructure *FileActions::create_new_definition_for_rom(File
         while (filename.isEmpty() && !isFileSelected)
         {
             saveDialog.setDefaultSuffix("xml");
-            filename = QFileDialog::getSaveFileName(this, tr("Select definition file"), configValues->ecuflash_definition_files_directory, tr("Definition file (*.xml)"));
+            filename = QFileDialog::getSaveFileName(this, tr("Select definition file"),
+                                                    configValues->ecuflash_definition_files_directory,
+                                                    tr("Definition file (*.xml)"));
             if (filename.isEmpty())
             {
                 QDialog *definitionDialog = new QDialog(this);
                 QVBoxLayout *vBoxLayout = new QVBoxLayout(definitionDialog);
-                QLabel *label = new QLabel("No file selected!\n\nIf you still want to create file click 'Ok'\nIf you want to continue to use ROM without definition, click 'Cancel'");
+                QLabel *label = new QLabel("No file selected!\n\nIf you still want to create file click 'Ok'\nIf you "
+                                           "want to continue to use ROM without definition, click 'Cancel'");
                 QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
                 connect(buttonBox, &QDialogButtonBox::accepted, definitionDialog, &QDialog::accept);
                 connect(buttonBox, &QDialogButtonBox::rejected, definitionDialog, &QDialog::reject);
@@ -1261,14 +1153,9 @@ FileActions::EcuCalDefStructure *FileActions::create_new_definition_for_rom(File
         auto input = definitionHeaderInput(lineEditList, textEditList);
         if (!input.has_value())
         {
-            log_definition_error(
-                "Unable to create definition",
-                input.error());
-            QMessageBox::warning(
-                this,
-                tr("Definition file"),
-                "Unable to create definition: " +
-                    QString::fromStdString(input.error().detail));
+            log_definition_error("Unable to create definition", input.error());
+            QMessageBox::warning(this, tr("Definition file"),
+                                 "Unable to create definition: " + QString::fromStdString(input.error().detail));
             return nullptr;
         }
         for (const QLineEdit *editor : lineEditList)
@@ -1278,30 +1165,25 @@ FileActions::EcuCalDefStructure *FileActions::create_new_definition_for_rom(File
                 emit LOG_D(editor->text(), true, true);
             }
         }
-        fastecu::Status status =
-            submit_new_definition(filename.toStdString(), *input);
+        fastecu::Status status = submit_new_definition(filename.toStdString(), *input);
         if (!status.has_value())
         {
-            QMessageBox::warning(
-                this,
-                tr("Definition file"),
-                "Unable to open definition file for writing: " +
-                    QString::fromStdString(status.error().detail));
+            QMessageBox::warning(this, tr("Definition file"),
+                                 "Unable to open definition file for writing: " +
+                                     QString::fromStdString(status.error().detail));
             return nullptr;
         }
-        configValues->ecuflash_def_cal_id.append(
-            QString::fromStdString(input->xml_id));
-        configValues->ecuflash_def_cal_id_addr.append(
-            lineEditValue(lineEditList, "internalidaddress"));
-        configValues->ecuflash_def_ecu_id.append(
-            lineEditValue(lineEditList, "ecuid"));
+        configValues->ecuflash_def_cal_id.append(QString::fromStdString(input->xml_id));
+        configValues->ecuflash_def_cal_id_addr.append(lineEditValue(lineEditList, "internalidaddress"));
+        configValues->ecuflash_def_ecu_id.append(lineEditValue(lineEditList, "ecuid"));
         configValues->ecuflash_def_filename.append(filename);
     }
 
     return ecuCalDef;
 }
 
-FileActions::EcuCalDefStructure *FileActions::use_existing_definition_for_rom(FileActions::EcuCalDefStructure *ecuCalDef)
+FileActions::EcuCalDefStructure *
+FileActions::use_existing_definition_for_rom(FileActions::EcuCalDefStructure *ecuCalDef)
 {
     ConfigValuesStructure *configValues = &ConfigValuesStruct;
 
@@ -1313,12 +1195,15 @@ FileActions::EcuCalDefStructure *FileActions::use_existing_definition_for_rom(Fi
     while (filename.isEmpty() && !isFileSelected)
     {
         openDialog.setDefaultSuffix("xml");
-        filename = QFileDialog::getOpenFileName(this, tr("Select definition file"), configValues->ecuflash_definition_files_directory, tr("Definition file (*.xml)"));
+        filename = QFileDialog::getOpenFileName(this, tr("Select definition file"),
+                                                configValues->ecuflash_definition_files_directory,
+                                                tr("Definition file (*.xml)"));
         if (filename.isEmpty())
         {
             QDialog *definitionDialog = new QDialog(this);
             QVBoxLayout *vBoxLayout = new QVBoxLayout(definitionDialog);
-            QLabel *label = new QLabel("No file selected!\n\nIf you still want to select file click 'Ok'\nIf you want to continue to use ROM without definition, click 'Cancel'");
+            QLabel *label = new QLabel("No file selected!\n\nIf you still want to select file click 'Ok'\nIf you want "
+                                       "to continue to use ROM without definition, click 'Cancel'");
             QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
             connect(buttonBox, &QDialogButtonBox::accepted, definitionDialog, &QDialog::accept);
             connect(buttonBox, &QDialogButtonBox::rejected, definitionDialog, &QDialog::reject);
@@ -1342,18 +1227,13 @@ FileActions::EcuCalDefStructure *FileActions::use_existing_definition_for_rom(Fi
     auto sourceContents = definitionFileRepository_.read(source.toStdString());
     if (!sourceContents.has_value())
     {
-        log_definition_error(
-            "Unable to import definition",
-            sourceContents.error());
+        log_definition_error("Unable to import definition", sourceContents.error());
         QMessageBox::warning(this, tr("Definition file"), "Unable to open definition file for reading");
         return nullptr;
     }
-    const QByteArray sourceBytes(
-        reinterpret_cast<const char *>(sourceContents->data()),
-        static_cast<qsizetype>(sourceContents->size()));
-    const QStringList headerData = collect_ecuflash_base_header_fields(
-        *ecuCalDef,
-        {QString::fromUtf8(sourceBytes)});
+    const QByteArray sourceBytes(reinterpret_cast<const char *>(sourceContents->data()),
+                                 static_cast<qsizetype>(sourceContents->size()));
+    const QStringList headerData = collect_ecuflash_base_header_fields(*ecuCalDef, {QString::fromUtf8(sourceBytes)});
 
     QDialog *definitionDialog = new QDialog(this);
     QVBoxLayout *vBoxLayout = new QVBoxLayout(definitionDialog);
@@ -1401,12 +1281,15 @@ FileActions::EcuCalDefStructure *FileActions::use_existing_definition_for_rom(Fi
         while (filename.isEmpty() && !isFileSelected)
         {
             saveDialog.setDefaultSuffix("xml");
-            filename = QFileDialog::getSaveFileName(this, tr("Select definition file"), configValues->ecuflash_definition_files_directory, tr("Definition file (*.xml)"));
+            filename = QFileDialog::getSaveFileName(this, tr("Select definition file"),
+                                                    configValues->ecuflash_definition_files_directory,
+                                                    tr("Definition file (*.xml)"));
             if (filename.isEmpty())
             {
                 QDialog *definitionDialog = new QDialog(this);
                 QVBoxLayout *vBoxLayout = new QVBoxLayout(definitionDialog);
-                QLabel *label = new QLabel("No file selected!\n\nIf you still want to create file click 'Ok'\nIf you want to continue to use ROM without definition, click 'Cancel'");
+                QLabel *label = new QLabel("No file selected!\n\nIf you still want to create file click 'Ok'\nIf you "
+                                           "want to continue to use ROM without definition, click 'Cancel'");
                 QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
                 connect(buttonBox, &QDialogButtonBox::accepted, definitionDialog, &QDialog::accept);
                 connect(buttonBox, &QDialogButtonBox::rejected, definitionDialog, &QDialog::reject);
@@ -1437,14 +1320,9 @@ FileActions::EcuCalDefStructure *FileActions::use_existing_definition_for_rom(Fi
         auto input = definitionHeaderInput(lineEditList, textEditList);
         if (!input.has_value())
         {
-            log_definition_error(
-                "Unable to import definition",
-                input.error());
-            QMessageBox::warning(
-                this,
-                tr("Definition file"),
-                "Unable to import definition: " +
-                    QString::fromStdString(input.error().detail));
+            log_definition_error("Unable to import definition", input.error());
+            QMessageBox::warning(this, tr("Definition file"),
+                                 "Unable to import definition: " + QString::fromStdString(input.error().detail));
             return nullptr;
         }
         emit LOG_D("Write to file", true, true);
@@ -1455,25 +1333,17 @@ FileActions::EcuCalDefStructure *FileActions::use_existing_definition_for_rom(Fi
                 emit LOG_D(editor->text(), true, true);
             }
         }
-        fastecu::Status status = submit_imported_definition(
-            source.toStdString(),
-            filename.toStdString(),
-            *input);
+        fastecu::Status status = submit_imported_definition(source.toStdString(), filename.toStdString(), *input);
         if (!status.has_value())
         {
-            QMessageBox::warning(
-                this,
-                tr("Definition file"),
-                "Unable to open definition file for writing: " +
-                    QString::fromStdString(status.error().detail));
+            QMessageBox::warning(this, tr("Definition file"),
+                                 "Unable to open definition file for writing: " +
+                                     QString::fromStdString(status.error().detail));
             return nullptr;
         }
-        configValues->ecuflash_def_cal_id.append(
-            QString::fromStdString(input->xml_id));
-        configValues->ecuflash_def_cal_id_addr.append(
-            lineEditValue(lineEditList, "internalidaddress"));
-        configValues->ecuflash_def_ecu_id.append(
-            lineEditValue(lineEditList, "ecuid"));
+        configValues->ecuflash_def_cal_id.append(QString::fromStdString(input->xml_id));
+        configValues->ecuflash_def_cal_id_addr.append(lineEditValue(lineEditList, "internalidaddress"));
+        configValues->ecuflash_def_ecu_id.append(lineEditValue(lineEditList, "ecuid"));
         configValues->ecuflash_def_filename.append(filename);
     }
 
@@ -1498,7 +1368,8 @@ void FileActions::apply_missing_definition_defaults(FileActions::EcuCalDefStruct
     ecuCalDef->RomInfo.replace(DefFile, " ");
 }
 
-FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::EcuCalDefStructure *ecuCalDef, QString filename)
+FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::EcuCalDefStructure *ecuCalDef,
+                                                                   QString filename)
 {
     ConfigValuesStructure *configValues = &ConfigValuesStruct;
 
@@ -1516,7 +1387,8 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
     ecuCalDef->use_ecuflash_definition = false;
     ecuCalDef->use_romraider_definition = false;
 
-    if ((configValues->primary_definition_base == "ecuflash" || configValues->use_romraider_definitions != "enabled") && configValues->ecuflash_definition_files_directory.length())
+    if ((configValues->primary_definition_base == "ecuflash" || configValues->use_romraider_definitions != "enabled") &&
+        configValues->ecuflash_definition_files_directory.length())
     {
         if (configValues->use_ecuflash_definitions == "enabled")
         {
@@ -1595,13 +1467,11 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
     // Must precede the ROM-size validation below: padding grows FullRomData by
     // 0x8000 bytes, and a definition authored against the padded image would be
     // rejected by a check run against the pre-padded length.
-    calibrationAdapter_.apply_flash_method_padding(
-        *ecuCalDef, ecuCalDef->RomInfo.at(FlashMethod));
+    calibrationAdapter_.apply_flash_method_padding(*ecuCalDef, ecuCalDef->RomInfo.at(FlashMethod));
 
-    const fastecu::definition::DefinitionFormat matchedFormat =
-        ecuCalDef->use_ecuflash_definition
-            ? fastecu::definition::DefinitionFormat::EcuFlash
-            : fastecu::definition::DefinitionFormat::RomRaider;
+    const fastecu::definition::DefinitionFormat matchedFormat = ecuCalDef->use_ecuflash_definition
+                                                                    ? fastecu::definition::DefinitionFormat::EcuFlash
+                                                                    : fastecu::definition::DefinitionFormat::RomRaider;
     const fastecu::definition::RomDefinition *romDefinition = nullptr;
     if (ecuCalDef->use_romraider_definition || ecuCalDef->use_ecuflash_definition)
     {
@@ -1613,12 +1483,10 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
             // silent: the maps keep their default (empty) values, and the user
             // would otherwise see a ROM whose tables are blank for no stated
             // reason.
-            emit LOG_W(
-                "ROM size validation and map value decoding skipped: no resolved "
-                "definition for id " +
-                    ecuCalDef->RomId,
-                true,
-                true);
+            emit LOG_W("ROM size validation and map value decoding skipped: no resolved "
+                       "definition for id " +
+                           ecuCalDef->RomId,
+                       true, true);
         }
         else
         {
@@ -1636,8 +1504,7 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
 
     if (romDefinition != nullptr)
     {
-        const fastecu::Status computed =
-            calibrationAdapter_.compute_map_cell_values(*ecuCalDef, *romDefinition);
+        const fastecu::Status computed = calibrationAdapter_.compute_map_cell_values(*ecuCalDef, *romDefinition);
         if (!computed.has_value())
         {
             log_definition_error("Error decoding calibration map values", computed.error());
@@ -1646,14 +1513,16 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
 
     if (ecuCalDef == nullptr)
     {
-        QMessageBox::warning(this, tr("Calibration file"), QString("Unable to find definition for selected calibration file with ECU ID: ") + ".");
+        QMessageBox::warning(this, tr("Calibration file"),
+                             QString("Unable to find definition for selected calibration file with ECU ID: ") + ".");
         return nullptr;
     }
 
     return ecuCalDef;
 }
 
-FileActions::EcuCalDefStructure *FileActions::save_subaru_rom_file(FileActions::EcuCalDefStructure *ecuCalDef, const QString& filename)
+FileActions::EcuCalDefStructure *FileActions::save_subaru_rom_file(FileActions::EcuCalDefStructure *ecuCalDef,
+                                                                   const QString& filename)
 {
     EcuCalDefStructure *saved = calibrationAdapter_.save_subaru_rom_file(ecuCalDef, filename);
     if (saved == nullptr)
@@ -1663,8 +1532,7 @@ FileActions::EcuCalDefStructure *FileActions::save_subaru_rom_file(FileActions::
         // value, so this dialog (and the log line beside it) is the user's
         // only signal that the ROM they are about to flash was not written.
         emit LOG_E("Unable to open file " + filename + " for writing", true, true);
-        QMessageBox::warning(this, tr("Ecu calibration file"),
-                             "Unable to open file " + filename + " for writing");
+        QMessageBox::warning(this, tr("Ecu calibration file"), "Unable to open file " + filename + " for writing");
     }
     return saved;
 }

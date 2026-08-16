@@ -18,11 +18,8 @@ class FlashEcuSubaruDenso1N83M_1_5MCanOperation : public FlashOperationWorker
     Q_OBJECT
 
   public:
-    FlashEcuSubaruDenso1N83M_1_5MCanOperation(SerialPortActions *serial,
-                                              FileActions::EcuCalDefStructure *ecuCalDef,
-                                              QString cmd_type,
-                                              QWidget *dialog,
-                                              QObject *parent = nullptr,
+    FlashEcuSubaruDenso1N83M_1_5MCanOperation(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
+                                              QString cmd_type, QWidget *dialog, QObject *parent = nullptr,
                                               PromptFn promptOverride = {});
 
   protected:

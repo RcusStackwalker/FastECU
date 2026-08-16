@@ -143,24 +143,12 @@ inline AxisColumns axis_columns(EcuCalDefStructure& value, bool x_axis)
     if (x_axis)
     {
         return {
-            &value.XScaleTypeList,
-            &value.XScaleNameList,
-            &value.XScaleAddressList,
-            &value.XScaleStartPosList,
-            &value.XScaleIntervalList,
-            &value.XScaleMinValueList,
-            &value.XScaleMaxValueList,
-            &value.XScaleUnitsList,
-            &value.XScaleFormatList,
-            &value.XScaleFineIncList,
-            &value.XScaleCoarseIncList,
-            &value.XScaleStorageTypeList,
-            &value.XScaleEndianList,
-            &value.XScaleLogParamList,
-            &value.XScaleFromByteList,
-            &value.XScaleToByteList,
-            &value.XScaleScalingNameList,
-            &value.XScaleData,
+            &value.XScaleTypeList,       &value.XScaleNameList,        &value.XScaleAddressList,
+            &value.XScaleStartPosList,   &value.XScaleIntervalList,    &value.XScaleMinValueList,
+            &value.XScaleMaxValueList,   &value.XScaleUnitsList,       &value.XScaleFormatList,
+            &value.XScaleFineIncList,    &value.XScaleCoarseIncList,   &value.XScaleStorageTypeList,
+            &value.XScaleEndianList,     &value.XScaleLogParamList,    &value.XScaleFromByteList,
+            &value.XScaleToByteList,     &value.XScaleScalingNameList, &value.XScaleData,
             &value.XScaleStaticDataList,
         };
     }

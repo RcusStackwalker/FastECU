@@ -10,8 +10,7 @@
 // 14 bits (dtc & 0x3fff), so caller-supplied tables must be keyed by the
 // 14-bit code, not the full dtc value. Falls back to "<prefix><4-digit hex
 // code> - Unknown error code" if the table has no entry for it.
-std::string dtc_description(std::uint16_t dtc,
-                            const std::unordered_map<int, std::string>& pCodes,
+std::string dtc_description(std::uint16_t dtc, const std::unordered_map<int, std::string>& pCodes,
                             const std::unordered_map<int, std::string>& cCodes,
                             const std::unordered_map<int, std::string>& bCodes,
                             const std::unordered_map<int, std::string>& uCodes);

@@ -42,7 +42,8 @@ bool MainWindow::ecu_init()
         {
             if (configValues->flash_protocol_selected_make == "Subaru")
             {
-                if (configValues->flash_protocol_selected_log_transport == "CAN" || configValues->flash_protocol_selected_log_transport == "iso15765")
+                if (configValues->flash_protocol_selected_log_transport == "CAN" ||
+                    configValues->flash_protocol_selected_log_transport == "iso15765")
                 {
                     ssm_can_init();
                 }
@@ -208,7 +209,9 @@ void MainWindow::ssm_kline_init()
             return;
         }
 
-        emit LOG_D("ECU INIT length: " + QString::number((uint8_t)received.at(3)) + " " + QString::number(received.length()), true, true);
+        emit LOG_D("ECU INIT length: " + QString::number((uint8_t)received.at(3)) + " " +
+                       QString::number(received.length()),
+                   true, true);
         if (received.length() >= (uint8_t)received.at(3) + 5)
         {
             ecu_init_complete = true;
@@ -299,9 +302,7 @@ void MainWindow::ssm_can_init()
         output.append((uint8_t)0x82);
         serial->write_serial_data_echo_check(output);
         received = serial->read_serial_data(100);
-        if (received.length() > 7 &&
-            (uint8_t)received.at(4) == 0x62 &&
-            (uint8_t)received.at(5) == 0xF1 &&
+        if (received.length() > 7 && (uint8_t)received.at(4) == 0x62 && (uint8_t)received.at(5) == 0xF1 &&
             (uint8_t)received.at(6) == 0x82)
         {
             ecu_init_complete = true;
@@ -336,19 +337,25 @@ void MainWindow::parse_log_value_list(QByteArray received, const QString& protoc
             uint16_t ecu_byte_index = logValues->log_value_ecu_byte_index.at(i).toUInt();
             if (ecu_byte_index < received.length() && logValues->log_value_ecu_byte_index.at(i) != "No byte index")
             {
-                // emit LOG_D("Value: " + logValues->log_value_id.at(i) + " " + logValues->log_value_name.at(i), true, true);
+                // emit LOG_D("Value: " + logValues->log_value_id.at(i) + " " + logValues->log_value_name.at(i), true,
+                // true);
                 uint8_t ecu_bit = logValues->log_value_ecu_bit.at(i).toUInt();
                 uint16_t value = (uint8_t)received.at(ecu_byte_index);
                 if (((value) & (1 << (ecu_bit))))
                 {
                     logValues->log_value_enabled.replace(i, "1");
-                    emit LOG_D("Byte: 0x" + QString::number(value, 16) + " - ECU byte index " + QString::number(ecu_byte_index) + " and bit " + QString::number(ecu_bit) + " is enabled: " + logValues->log_value_id.at(i) + " " + logValues->log_value_name.at(i) + " " + logValues->log_value_enabled.at(i), true, true);
+                    emit LOG_D("Byte: 0x" + QString::number(value, 16) + " - ECU byte index " +
+                                   QString::number(ecu_byte_index) + " and bit " + QString::number(ecu_bit) +
+                                   " is enabled: " + logValues->log_value_id.at(i) + " " +
+                                   logValues->log_value_name.at(i) + " " + logValues->log_value_enabled.at(i),
+                               true, true);
                     enabled_log_value_count++;
                 }
                 else
                 {
                     logValues->log_value_enabled.replace(i, "0");
-                    // emit LOG_D("Disabled: " + logValues->log_value_id.at(i) + " " + logValues->log_value_name.at(i) + " " + logValues->log_value_enabled.at(i), true, true);
+                    // emit LOG_D("Disabled: " + logValues->log_value_id.at(i) + " " + logValues->log_value_name.at(i) +
+                    // " " + logValues->log_value_enabled.at(i), true, true);
                 }
             }
             else
@@ -375,7 +382,8 @@ void MainWindow::parse_log_value_list(QByteArray received, const QString& protoc
                 if (((value) & (1 << (switch_bit))))
                 {
                     logValues->log_switch_enabled.replace(i, "1");
-                    // emit LOG_D("Switch: " + logValues->log_switch_id.at(i) + " " + logValues->log_switch_name.at(i) + " " + logValues->log_switch_enabled.at(i), true, true);
+                    // emit LOG_D("Switch: " + logValues->log_switch_id.at(i) + " " + logValues->log_switch_name.at(i) +
+                    // " " + logValues->log_switch_enabled.at(i), true, true);
                     enabled_log_switch_count++;
                 }
                 else
@@ -450,8 +458,7 @@ void MainWindow::log_to_file()
             datalog_file.setFileName(log_file_name);
             if (!datalog_file.open(QIODevice::WriteOnly))
             {
-                QMessageBox::information(this, tr("Unable to open file"),
-                                         datalog_file.errorString());
+                QMessageBox::information(this, tr("Unable to open file"), datalog_file.errorString());
                 return;
             }
             else
@@ -464,15 +471,21 @@ void MainWindow::log_to_file()
             datalog_file_outstream << "Time,";
             for (int j = 0; j < logValues->dashboard_log_value_id.count(); j++)
             {
-                datalog_file_outstream << logValues->log_value_name.at(logValues->log_value_id.indexOf(logValues->dashboard_log_value_id.at(j), 0)) << ",";
+                datalog_file_outstream << logValues->log_value_name.at(logValues->log_value_id.indexOf(
+                                              logValues->dashboard_log_value_id.at(j), 0))
+                                       << ",";
             }
             for (int j = 0; j < logValues->lower_panel_log_value_id.count(); j++)
             {
-                datalog_file_outstream << logValues->log_value_name.at(logValues->log_value_id.indexOf(logValues->lower_panel_log_value_id.at(j), 0)) << ",";
+                datalog_file_outstream << logValues->log_value_name.at(logValues->log_value_id.indexOf(
+                                              logValues->lower_panel_log_value_id.at(j), 0))
+                                       << ",";
             }
             for (int j = 0; j < logValues->lower_panel_switch_id.count(); j++)
             {
-                datalog_file_outstream << logValues->log_switch_name.at(logValues->log_switch_id.indexOf(logValues->lower_panel_switch_id.at(j), 0)) << ",";
+                datalog_file_outstream << logValues->log_switch_name.at(logValues->log_switch_id.indexOf(
+                                              logValues->lower_panel_switch_id.at(j), 0))
+                                       << ",";
             }
             datalog_file_outstream << "\n";
         }
@@ -482,15 +495,21 @@ void MainWindow::log_to_file()
             datalog_file_outstream << QString::number(log_file_timer->elapsed() / 1000.0f) << ",";
             for (int j = 0; j < logValues->dashboard_log_value_id.count(); j++)
             {
-                datalog_file_outstream << logValues->log_value.at(logValues->log_value_id.indexOf(logValues->dashboard_log_value_id.at(j), 0)) << ",";
+                datalog_file_outstream << logValues->log_value.at(logValues->log_value_id.indexOf(
+                                              logValues->dashboard_log_value_id.at(j), 0))
+                                       << ",";
             }
             for (int j = 0; j < logValues->lower_panel_log_value_id.count(); j++)
             {
-                datalog_file_outstream << logValues->log_value.at(logValues->log_value_id.indexOf(logValues->lower_panel_log_value_id.at(j), 0)) << ",";
+                datalog_file_outstream << logValues->log_value.at(logValues->log_value_id.indexOf(
+                                              logValues->lower_panel_log_value_id.at(j), 0))
+                                       << ",";
             }
             for (int j = 0; j < logValues->lower_panel_switch_id.count(); j++)
             {
-                datalog_file_outstream << logValues->log_switch_state.at(logValues->log_switch_id.indexOf(logValues->lower_panel_switch_id.at(j), 0)) << ",";
+                datalog_file_outstream << logValues->log_switch_state.at(logValues->log_switch_id.indexOf(
+                                              logValues->lower_panel_switch_id.at(j), 0))
+                                       << ",";
             }
             datalog_file_outstream << "\n";
         }
@@ -513,9 +532,7 @@ bool MainWindow::mut_write_memory(quint16 addr, const QByteArray& bytes)
     FastEcuKlineTransport tr(serial);
     AlreadyInMode init(125000);
     MutDmaDriver d(tr, init);
-    return d.writeMemory(
-                addr, bytes::view(bytes),
-                fastecu::transport_legacy_compat::detail::never_cancelled())
+    return d.writeMemory(addr, bytes::view(bytes), fastecu::transport_legacy_compat::detail::never_cancelled())
         .has_value();
 }
 
@@ -531,8 +548,7 @@ QByteArray MainWindow::mut_read_memory(quint16 addr, int len)
     {
         int chunk = qMin(40, len - off);
         const std::vector<Channel> ch = planReadChannels(quint16(addr + off), chunk);
-        const auto& cancellation =
-            fastecu::transport_legacy_compat::detail::never_cancelled();
+        const auto& cancellation = fastecu::transport_legacy_compat::detail::never_cancelled();
         if (!d.startFreeFormLog(ch, 0xA0, 0xA1, cancellation))
         {
             break;

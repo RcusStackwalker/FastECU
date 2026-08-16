@@ -54,9 +54,8 @@ Result<ProtocolCatalog> load_protocol_catalog(const ConfigPaths& paths, IFileRep
         entry.protocol_name = protocol.attribute("name").as_string("No name");
         if (!seen_protocol_names.insert(entry.protocol_name).second)
         {
-            return fail(
-                ErrorKind::InvalidConfig,
-                std::format("duplicate protocol name '{}' in protocols file", entry.protocol_name));
+            return fail(ErrorKind::InvalidConfig,
+                        std::format("duplicate protocol name '{}' in protocols file", entry.protocol_name));
         }
         entry.alias = protocol.attribute("alias").as_string("No alias");
         entry.ecu = text_or_empty(protocol, "ecu");

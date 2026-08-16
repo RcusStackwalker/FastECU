@@ -34,10 +34,12 @@ class TestDesktopCanFlashTransport : public QObject
     void configureChecksEveryBooleanSetterInOrderAndStopsAtFirstFailure()
     {
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>(
-            "", "", nullptr, nullptr,
-            [&fake]() -> SerialBackend *
-            { fake = new FakeBackend(); return fake; });
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              return fake;
+                                                          });
         serial->set_add_ssm_header(false); // forces backend creation
         fake->takeCallLog();
         // Fail the *fifth* setter in configure()'s specified order
@@ -51,17 +53,14 @@ class TestDesktopCanFlashTransport : public QObject
         fake->canSpeedResult = false;
 
         DesktopCanFlashTransport transport(std::move(serial));
-        const auto result = transport.configure(Iso15765Config{
-            .bitrate = 500000, .request_id = 0x7E0, .response_id = 0x7E8, .extended_id = false});
+        const auto result = transport.configure(
+            Iso15765Config{.bitrate = 500000, .request_id = 0x7E0, .response_id = 0x7E8, .extended_id = false});
 
         QVERIFY(!result.has_value());
         QCOMPARE(result.error().kind, ErrorKind::InvalidConfig);
-        QCOMPARE(fake->takeCallLog(),
-                 QStringList({"cfg:set_is_iso15765_connection:1",
-                              "cfg:set_is_can_connection:0",
-                              "cfg:set_is_iso14230_connection:0",
-                              "cfg:set_is_29_bit_id:0",
-                              "cfg:set_can_speed:500000"}));
+        QCOMPARE(fake->takeCallLog(), QStringList({"cfg:set_is_iso15765_connection:1", "cfg:set_is_can_connection:0",
+                                                   "cfg:set_is_iso14230_connection:0", "cfg:set_is_29_bit_id:0",
+                                                   "cfg:set_can_speed:500000"}));
     }
 
     // Data-driven sibling of configureChecksEveryBooleanSetterInOrderAndStops-
@@ -88,10 +87,12 @@ class TestDesktopCanFlashTransport : public QObject
         QFETCH(int, expectedLogCount);
 
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>(
-            "", "", nullptr, nullptr,
-            [&fake]() -> SerialBackend *
-            { fake = new FakeBackend(); return fake; });
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              return fake;
+                                                          });
         serial->set_add_ssm_header(false); // forces backend creation
         fake->takeCallLog();
 
@@ -124,8 +125,8 @@ class TestDesktopCanFlashTransport : public QObject
         }
 
         DesktopCanFlashTransport transport(std::move(serial));
-        const auto result = transport.configure(Iso15765Config{
-            .bitrate = 500000, .request_id = 0x7E0, .response_id = 0x7E8, .extended_id = false});
+        const auto result = transport.configure(
+            Iso15765Config{.bitrate = 500000, .request_id = 0x7E0, .response_id = 0x7E8, .extended_id = false});
 
         QVERIFY(!result.has_value());
         QCOMPARE(result.error().kind, ErrorKind::InvalidConfig);
@@ -135,10 +136,12 @@ class TestDesktopCanFlashTransport : public QObject
     void openFailureReturnsDisconnectedWithoutAnyWrite()
     {
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>(
-            "", "", nullptr, nullptr,
-            [&fake]() -> SerialBackend *
-            { fake = new FakeBackend(); return fake; });
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              return fake;
+                                                          });
         serial->set_add_ssm_header(false);
         fake->takeCallLog();
         // FakeBackend::open_serial_port() defaults to the real backend's
@@ -161,28 +164,25 @@ class TestDesktopCanFlashTransport : public QObject
     void configureSucceedsWhenEverySetterSucceeds()
     {
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>(
-            "", "", nullptr, nullptr,
-            [&fake]() -> SerialBackend *
-            { fake = new FakeBackend(); return fake; });
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              return fake;
+                                                          });
         serial->set_add_ssm_header(false); // forces backend creation
         fake->takeCallLog();
 
         DesktopCanFlashTransport transport(std::move(serial));
-        const auto result = transport.configure(Iso15765Config{
-            .bitrate = 500000, .request_id = 0x7E0, .response_id = 0x7E8, .extended_id = false});
+        const auto result = transport.configure(
+            Iso15765Config{.bitrate = 500000, .request_id = 0x7E0, .response_id = 0x7E8, .extended_id = false});
 
         QVERIFY(result.has_value());
         QCOMPARE(fake->takeCallLog(),
-                 QStringList({"cfg:set_is_iso15765_connection:1",
-                              "cfg:set_is_can_connection:0",
-                              "cfg:set_is_iso14230_connection:0",
-                              "cfg:set_is_29_bit_id:0",
-                              "cfg:set_can_speed:500000",
-                              "cfg:set_can_source_address:2016",
-                              "cfg:set_can_destination_address:2024",
-                              "cfg:set_iso15765_source_address:2016",
-                              "cfg:set_iso15765_destination_address:2024"}));
+                 QStringList({"cfg:set_is_iso15765_connection:1", "cfg:set_is_can_connection:0",
+                              "cfg:set_is_iso14230_connection:0", "cfg:set_is_29_bit_id:0", "cfg:set_can_speed:500000",
+                              "cfg:set_can_source_address:2016", "cfg:set_can_destination_address:2024",
+                              "cfg:set_iso15765_source_address:2016", "cfg:set_iso15765_destination_address:2024"}));
     }
 
     // Success mirror of openFailureReturnsDisconnectedWithoutAnyWrite():
@@ -191,10 +191,12 @@ class TestDesktopCanFlashTransport : public QObject
     void openSucceedsWhenBackendReturnsANonEmptyPortName()
     {
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>(
-            "", "", nullptr, nullptr,
-            [&fake]() -> SerialBackend *
-            { fake = new FakeBackend(); return fake; });
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              return fake;
+                                                          });
         serial->set_add_ssm_header(false);
         fake->openSerialPortResult = "COM3";
 
@@ -208,10 +210,12 @@ class TestDesktopCanFlashTransport : public QObject
     void writeSucceedsWhenPortStaysOpenThroughout()
     {
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>(
-            "", "", nullptr, nullptr,
-            [&fake]() -> SerialBackend *
-            { fake = new FakeBackend(); return fake; });
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              return fake;
+                                                          });
         serial->set_add_ssm_header(false);
         fake->takeCallLog();
 
@@ -230,10 +234,12 @@ class TestDesktopCanFlashTransport : public QObject
     void writeReturnsCancelledWhenCancellationIsAlreadyObservedBeforeIssuingWrite()
     {
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>(
-            "", "", nullptr, nullptr,
-            [&fake]() -> SerialBackend *
-            { fake = new FakeBackend(); return fake; });
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              return fake;
+                                                          });
         serial->set_add_ssm_header(false);
         fake->takeCallLog();
 
@@ -254,10 +260,12 @@ class TestDesktopCanFlashTransport : public QObject
     void writeFailsWithDisconnectedWhenPortClosesDuringWrite()
     {
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>(
-            "", "", nullptr, nullptr,
-            [&fake]() -> SerialBackend *
-            { fake = new FakeBackend(); return fake; });
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              return fake;
+                                                          });
         serial->set_add_ssm_header(false);
         fake->closePortAfterWrite = true;
 
@@ -276,10 +284,12 @@ class TestDesktopCanFlashTransport : public QObject
     void writeFailsWithDisconnectedWhenPortAlreadyClosedBeforeWrite()
     {
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>(
-            "", "", nullptr, nullptr,
-            [&fake]() -> SerialBackend *
-            { fake = new FakeBackend(); return fake; });
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              return fake;
+                                                          });
         serial->set_add_ssm_header(false);
         fake->portOpen.store(false);
         fake->takeCallLog();
@@ -299,10 +309,12 @@ class TestDesktopCanFlashTransport : public QObject
     void readReturnsScriptedBytesOnSuccess()
     {
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>(
-            "", "", nullptr, nullptr,
-            [&fake]() -> SerialBackend *
-            { fake = new FakeBackend(); return fake; });
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              return fake;
+                                                          });
         serial->set_add_ssm_header(false);
         fake->scriptedResponse = QByteArray("\x01\x02", 2);
 
@@ -320,10 +332,12 @@ class TestDesktopCanFlashTransport : public QObject
     void readReturnsCancelledWhenCancellationIsAlreadyObservedBeforeIssuingRead()
     {
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>(
-            "", "", nullptr, nullptr,
-            [&fake]() -> SerialBackend *
-            { fake = new FakeBackend(); return fake; });
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              return fake;
+                                                          });
         serial->set_add_ssm_header(false);
         fake->takeCallLog();
 
@@ -341,10 +355,12 @@ class TestDesktopCanFlashTransport : public QObject
     void readReturnsDisconnectedWhenPortAlreadyClosedBeforeRead()
     {
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>(
-            "", "", nullptr, nullptr,
-            [&fake]() -> SerialBackend *
-            { fake = new FakeBackend(); return fake; });
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              return fake;
+                                                          });
         serial->set_add_ssm_header(false);
         fake->portOpen.store(false);
         fake->takeCallLog();
@@ -364,10 +380,12 @@ class TestDesktopCanFlashTransport : public QObject
     void readReturnsDisconnectedWhenPortClosesDuringRead()
     {
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>(
-            "", "", nullptr, nullptr,
-            [&fake]() -> SerialBackend *
-            { fake = new FakeBackend(); return fake; });
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              return fake;
+                                                          });
         serial->set_add_ssm_header(false);
         fake->scriptedResponse = QByteArray("\xAA", 1);
         fake->closePortAfterRead = true;
@@ -386,10 +404,12 @@ class TestDesktopCanFlashTransport : public QObject
     void everyMethodFailsWithDisconnectedAfterClose()
     {
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>(
-            "", "", nullptr, nullptr,
-            [&fake]() -> SerialBackend *
-            { fake = new FakeBackend(); return fake; });
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              return fake;
+                                                          });
         serial->set_add_ssm_header(false);
 
         DesktopCanFlashTransport transport(serial.get()); // non-owning: keep `serial` alive
@@ -397,8 +417,8 @@ class TestDesktopCanFlashTransport : public QObject
         QVERIFY(closeResult.has_value());
 
         FakeCancellationToken cancellation;
-        const auto configureResult = transport.configure(Iso15765Config{
-            .bitrate = 500000, .request_id = 0x7E0, .response_id = 0x7E8, .extended_id = false});
+        const auto configureResult = transport.configure(
+            Iso15765Config{.bitrate = 500000, .request_id = 0x7E0, .response_id = 0x7E8, .extended_id = false});
         QVERIFY(!configureResult.has_value());
         QCOMPARE(configureResult.error().kind, ErrorKind::Disconnected);
 
@@ -421,10 +441,12 @@ class TestDesktopCanFlashTransport : public QObject
     void writeIsSkippedWithCancelledAfterRequestUnblock()
     {
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>(
-            "", "", nullptr, nullptr,
-            [&fake]() -> SerialBackend *
-            { fake = new FakeBackend(); return fake; });
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              return fake;
+                                                          });
         serial->set_add_ssm_header(false);
 
         DesktopCanFlashTransport transport(std::move(serial));
@@ -446,10 +468,12 @@ class TestDesktopCanFlashTransport : public QObject
     void readReturnsEmptyOptionalWhenBackendReturnsNoBytes()
     {
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>(
-            "", "", nullptr, nullptr,
-            [&fake]() -> SerialBackend *
-            { fake = new FakeBackend(); return fake; });
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              return fake;
+                                                          });
         serial->set_add_ssm_header(false);
         fake->scriptedResponse = QByteArray(); // empty
 
@@ -465,10 +489,12 @@ class TestDesktopCanFlashTransport : public QObject
     void writeFailsWithInternalWhenDriverThrowsStandardException()
     {
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>(
-            "", "", nullptr, nullptr,
-            [&fake]() -> SerialBackend *
-            { fake = new FakeBackend(); return fake; });
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              return fake;
+                                                          });
         serial->set_add_ssm_header(false);
         fake->throwOnWrite = true;
 
@@ -485,10 +511,12 @@ class TestDesktopCanFlashTransport : public QObject
     void writeFailsWithInternalWhenDriverThrowsNonStandardException()
     {
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>(
-            "", "", nullptr, nullptr,
-            [&fake]() -> SerialBackend *
-            { fake = new FakeBackend(); return fake; });
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              return fake;
+                                                          });
         serial->set_add_ssm_header(false);
         fake->throwNonStandardOnWrite = true;
 
@@ -506,10 +534,12 @@ class TestDesktopCanFlashTransport : public QObject
     void readFailsWithInternalWhenDriverThrowsStandardExceptionAndNotCancelled()
     {
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>(
-            "", "", nullptr, nullptr,
-            [&fake]() -> SerialBackend *
-            { fake = new FakeBackend(); return fake; });
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              return fake;
+                                                          });
         serial->set_add_ssm_header(false);
         fake->throwOnRead = true;
 
@@ -525,10 +555,12 @@ class TestDesktopCanFlashTransport : public QObject
     void readFailsWithInternalWhenDriverThrowsNonStandardExceptionAndNotCancelled()
     {
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>(
-            "", "", nullptr, nullptr,
-            [&fake]() -> SerialBackend *
-            { fake = new FakeBackend(); return fake; });
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              return fake;
+                                                          });
         serial->set_add_ssm_header(false);
         fake->throwNonStandardOnRead = true;
 
@@ -547,10 +579,12 @@ class TestDesktopCanFlashTransport : public QObject
     void readReturnsCancelledWhenCancellationBecomesObservedAfterASuccessfulRead()
     {
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>(
-            "", "", nullptr, nullptr,
-            [&fake]() -> SerialBackend *
-            { fake = new FakeBackend(); return fake; });
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              return fake;
+                                                          });
         serial->set_add_ssm_header(false);
         fake->scriptedResponse = QByteArray("\xAA", 1);
 
@@ -569,10 +603,12 @@ class TestDesktopCanFlashTransport : public QObject
     void readReturnsCancelledWhenCancellationBecomesObservedDuringAStandardExceptionThrow()
     {
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>(
-            "", "", nullptr, nullptr,
-            [&fake]() -> SerialBackend *
-            { fake = new FakeBackend(); return fake; });
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              return fake;
+                                                          });
         serial->set_add_ssm_header(false);
         fake->throwOnRead = true;
 
@@ -589,10 +625,12 @@ class TestDesktopCanFlashTransport : public QObject
     void readReturnsCancelledWhenCancellationBecomesObservedDuringANonStandardExceptionThrow()
     {
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>(
-            "", "", nullptr, nullptr,
-            [&fake]() -> SerialBackend *
-            { fake = new FakeBackend(); return fake; });
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              return fake;
+                                                          });
         serial->set_add_ssm_header(false);
         fake->throwNonStandardOnRead = true;
 
@@ -609,10 +647,13 @@ class TestDesktopCanFlashTransport : public QObject
     {
         bool destroyed = false;
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>(
-            "", "", nullptr, nullptr,
-            [&fake, &destroyed]() -> SerialBackend *
-            { fake = new FakeBackend(); fake->destroyed = &destroyed; return fake; });
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake, &destroyed]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              fake->destroyed = &destroyed;
+                                                              return fake;
+                                                          });
         serial->set_add_ssm_header(false); // forces backend creation
 
         DesktopCanFlashTransport transport(std::move(serial));
@@ -639,10 +680,13 @@ class TestDesktopCanFlashTransport : public QObject
     {
         bool destroyed = false;
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>(
-            "", "", nullptr, nullptr,
-            [&fake, &destroyed]() -> SerialBackend *
-            { fake = new FakeBackend(); fake->destroyed = &destroyed; return fake; });
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake, &destroyed]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              fake->destroyed = &destroyed;
+                                                              return fake;
+                                                          });
         serial->set_add_ssm_header(false); // forces backend creation
 
         {
@@ -681,10 +725,12 @@ class TestDesktopCanFlashTransport : public QObject
     void requestUnblockCausesAPendingReadToReturnPromptly()
     {
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>(
-            "", "", nullptr, nullptr,
-            [&fake]() -> SerialBackend *
-            { fake = new FakeBackend(); return fake; });
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              return fake;
+                                                          });
         serial->set_add_ssm_header(false); // create backend before wiring gates
         fake->scriptedResponse = QByteArray("\xAA", 1);
 
@@ -708,8 +754,7 @@ class TestDesktopCanFlashTransport : public QObject
 
         transport.request_unblock();
         QTest::qWait(50);
-        QVERIFY2(!readerFinished.load(),
-                 "request_unblock() must not interrupt an already in-flight read");
+        QVERIFY2(!readerFinished.load(), "request_unblock() must not interrupt an already in-flight read");
 
         continueRead.release(); // simulates the backend's own bounded timeout firing
         reader.join();

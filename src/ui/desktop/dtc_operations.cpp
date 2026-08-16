@@ -258,7 +258,8 @@ int DtcOperations::fast_init()
     }
     // emit LOG_I("Response: " + parse_message_to_hex(response), true, true);
 
-    if ((uint8_t)received.at(0) == 0x83 && (uint8_t)received.at(1) == 0xf1 && (uint8_t)received.at(2) == 0x10 && (uint8_t)received.at(3) == 0xc1 && (uint8_t)received.at(4) == 0xe9 && (uint8_t)received.at(5) == 0x8f)
+    if ((uint8_t)received.at(0) == 0x83 && (uint8_t)received.at(1) == 0xf1 && (uint8_t)received.at(2) == 0x10 &&
+        (uint8_t)received.at(3) == 0xc1 && (uint8_t)received.at(4) == 0xe9 && (uint8_t)received.at(5) == 0x8f)
     {
         fast_init_ok = true;
     }
@@ -312,8 +313,7 @@ int DtcOperations::iso15765_init()
         if (received.at(4) == 0x7f)
         {
             const QByteArray nrcFrame = received.mid(3, received.length() - 1);
-            emit LOG_E("Wrong response from ECU: " +
-                           QString::fromStdString(nrc_description(bytes::view(nrcFrame))),
+            emit LOG_E("Wrong response from ECU: " + QString::fromStdString(nrc_description(bytes::view(nrcFrame))),
                        true, true);
             return STATUS_ERROR;
         }
@@ -385,8 +385,7 @@ QByteArray DtcOperations::request_data(const uint8_t cmd, const uint8_t sub_cmd)
             if (received.at(cmd_index) == 0x7f)
             {
                 const QByteArray nrcFrame = received.mid(cmd_index, received.length() - 1);
-                emit LOG_E("Wrong response from ECU: " +
-                               QString::fromStdString(nrc_description(bytes::view(nrcFrame))),
+                emit LOG_E("Wrong response from ECU: " + QString::fromStdString(nrc_description(bytes::view(nrcFrame))),
                            true, true);
                 break;
             }
@@ -440,7 +439,9 @@ void DtcOperations::request_vehicle_info()
             QString PIDs;
             int PIDstart = info * 0x20 + 1;
             int PIDend = PIDstart + 0x1f;
-            emit LOG_I("Supported PIDs 0x" + QString::number(PIDstart, 16) + "-0x" + QString::number(PIDend, 16) + ": " + parse_message_to_hex(response), true, true);
+            emit LOG_I("Supported PIDs 0x" + QString::number(PIDstart, 16) + "-0x" + QString::number(PIDend, 16) +
+                           ": " + parse_message_to_hex(response),
+                       true, true);
             // emit LOG_I("Supported PIDs: " + QString(response), true, true);
             emit LOG_I("Supported PIDs: ", true, false);
             for (int i = 0; i < response.length(); i++)
@@ -539,8 +540,7 @@ QByteArray DtcOperations::request_dtc_list(uint8_t cmd)
             if (received.at(cmd_index) == 0x7f)
             {
                 const QByteArray nrcFrame = received.mid(cmd_index, received.length() - 1);
-                emit LOG_E("Wrong response from ECU: " +
-                               QString::fromStdString(nrc_description(bytes::view(nrcFrame))),
+                emit LOG_E("Wrong response from ECU: " + QString::fromStdString(nrc_description(bytes::view(nrcFrame))),
                            true, true);
                 break;
             }
@@ -683,8 +683,7 @@ int DtcOperations::clear_dtc()
             if (received.at(cmd_index) == 0x7f)
             {
                 const QByteArray nrcFrame = received.mid(cmd_index, received.length() - 1);
-                emit LOG_E("Wrong response from ECU: " +
-                               QString::fromStdString(nrc_description(bytes::view(nrcFrame))),
+                emit LOG_E("Wrong response from ECU: " + QString::fromStdString(nrc_description(bytes::view(nrcFrame))),
                            true, true);
                 break;
             }

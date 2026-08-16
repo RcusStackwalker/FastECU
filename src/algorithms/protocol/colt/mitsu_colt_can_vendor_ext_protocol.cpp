@@ -78,9 +78,8 @@ bytes::Bytes buildChallengeSeedRequest()
 
 bytes::Bytes buildChallengeKey(std::uint32_t key)
 {
-    return uds::buildRequest(
-        kServiceReadMemoryByAddress,
-        composeBe(kVendorChallengeSelector, kVendorChallengeKeySubfunction, key));
+    return uds::buildRequest(kServiceReadMemoryByAddress,
+                             composeBe(kVendorChallengeSelector, kVendorChallengeKeySubfunction, key));
 }
 
 } // namespace MitsuColtCanVendorExt

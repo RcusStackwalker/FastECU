@@ -3,8 +3,8 @@
 
 #include <QMessageBox>
 
-SearchDialog::SearchDialog(QHexEdit *hexEdit, QWidget *parent) : QDialog(parent),
-                                                                 ui{std::make_unique<Ui::SearchDialog>()}
+SearchDialog::SearchDialog(QHexEdit *hexEdit, QWidget *parent)
+    : QDialog(parent), ui{std::make_unique<Ui::SearchDialog>()}
 {
     ui->setupUi(this);
     _hexEdit = hexEdit;
@@ -103,8 +103,7 @@ qint64 SearchDialog::replaceOccurrence(qint64 idx, const QByteArray& replaceBa)
     {
         if (ui->cbPrompt->isChecked())
         {
-            result = QMessageBox::question(this, tr("QHexEdit"),
-                                           tr("Replace occurrence?"),
+            result = QMessageBox::question(this, tr("QHexEdit"), tr("Replace occurrence?"),
                                            QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
 
             if (result == QMessageBox::Yes)

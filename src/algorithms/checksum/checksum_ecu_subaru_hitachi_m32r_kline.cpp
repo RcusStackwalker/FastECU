@@ -15,7 +15,8 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result(byte
      *
      *  Checksum 1 calculated between 0x0000 - 0x7ffff excluding 0x8100 - 0x8101, 8bit SUM, result at 0x8100
      *  Checksum 2 calculated between 0x0000 - 0x7ffff excluding 0x8100 - 0x8101, 8bit XOR, result at 0x8101
-     *  Checksum 3 calculated between 0x4000 - 0x7ffff excluding 0x8100 - 0x8103, 32bit sum, 16bit result must mach 0x5aa5, balancing address 0x7fffa
+     *  Checksum 3 calculated between 0x4000 - 0x7ffff excluding 0x8100 - 0x8103, 32bit sum, 16bit result must mach
+     * 0x5aa5, balancing address 0x7fffa
      *
      * ****************/
     bytes::Bytes romData(romView.begin(), romView.end());
@@ -76,8 +77,8 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result(byte
     {
         checksum_ok = false;
 
-        fastecu::checksum::internal::rebalanceU16Be(
-            romData, checksum_3_balance_value_address, checksum_3_value_calculated, 0x5aa5);
+        fastecu::checksum::internal::rebalanceU16Be(romData, checksum_3_balance_value_address,
+                                                    checksum_3_value_calculated, 0x5aa5);
     }
 
     ChecksumResult result;

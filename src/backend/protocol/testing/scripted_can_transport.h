@@ -48,7 +48,8 @@ class ScriptedCanTransport : public ICanTransport
     }
     fastecu::Result<std::size_t> write(std::uint32_t id, bytes::ByteView payload) override
     {
-        if (wIdx_ >= expectedIds_.size() || expectedIds_.at(wIdx_) != id || expectedPayloads_.at(wIdx_) != bytes::Bytes(payload.begin(), payload.end()))
+        if (wIdx_ >= expectedIds_.size() || expectedIds_.at(wIdx_) != id ||
+            expectedPayloads_.at(wIdx_) != bytes::Bytes(payload.begin(), payload.end()))
         {
             ok_ = false;
             return fastecu::fail(fastecu::ErrorKind::Internal, "unexpected scripted CAN write");
@@ -59,8 +60,7 @@ class ScriptedCanTransport : public ICanTransport
         }
         return payload.size();
     }
-    fastecu::Result<std::optional<CanFrame>> read(
-        int, const fastecu::ICancellationToken& cancellation) override
+    fastecu::Result<std::optional<CanFrame>> read(int, const fastecu::ICancellationToken& cancellation) override
     {
         if (cancellation.cancelled())
         {

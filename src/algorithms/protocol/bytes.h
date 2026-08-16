@@ -73,7 +73,8 @@ inline std::uint32_t readU24Be(ByteView bytes, std::size_t offset = 0)
     {
         return 0;
     }
-    return (std::uint32_t(bytes[offset]) << 16) | (std::uint32_t(bytes[offset + 1]) << 8) | std::uint32_t(bytes[offset + 2]);
+    return (std::uint32_t(bytes[offset]) << 16) | (std::uint32_t(bytes[offset + 1]) << 8) |
+           std::uint32_t(bytes[offset + 2]);
 }
 
 inline std::uint32_t readU32Be(ByteView bytes, std::size_t offset = 0)
@@ -82,7 +83,8 @@ inline std::uint32_t readU32Be(ByteView bytes, std::size_t offset = 0)
     {
         return 0;
     }
-    return (std::uint32_t(bytes[offset]) << 24) | (std::uint32_t(bytes[offset + 1]) << 16) | (std::uint32_t(bytes[offset + 2]) << 8) | std::uint32_t(bytes[offset + 3]);
+    return (std::uint32_t(bytes[offset]) << 24) | (std::uint32_t(bytes[offset + 1]) << 16) |
+           (std::uint32_t(bytes[offset + 2]) << 8) | std::uint32_t(bytes[offset + 3]);
 }
 
 inline std::uint16_t readU16Le(ByteView bytes, std::size_t offset = 0)
@@ -100,7 +102,8 @@ inline std::uint32_t readU24Le(ByteView bytes, std::size_t offset = 0)
     {
         return 0;
     }
-    return std::uint32_t(bytes[offset]) | (std::uint32_t(bytes[offset + 1]) << 8) | (std::uint32_t(bytes[offset + 2]) << 16);
+    return std::uint32_t(bytes[offset]) | (std::uint32_t(bytes[offset + 1]) << 8) |
+           (std::uint32_t(bytes[offset + 2]) << 16);
 }
 
 inline std::uint32_t readU32Le(ByteView bytes, std::size_t offset = 0)
@@ -109,7 +112,8 @@ inline std::uint32_t readU32Le(ByteView bytes, std::size_t offset = 0)
     {
         return 0;
     }
-    return std::uint32_t(bytes[offset]) | (std::uint32_t(bytes[offset + 1]) << 8) | (std::uint32_t(bytes[offset + 2]) << 16) | (std::uint32_t(bytes[offset + 3]) << 24);
+    return std::uint32_t(bytes[offset]) | (std::uint32_t(bytes[offset + 1]) << 8) |
+           (std::uint32_t(bytes[offset + 2]) << 16) | (std::uint32_t(bytes[offset + 3]) << 24);
 }
 
 // Reads `width` bytes (1-4) at `offset`, most-significant byte first.

@@ -41,8 +41,7 @@ namespace fastecu::flash
 namespace
 {
 
-FlashCompletedStep completed(FlashWorkflowOutcome outcome,
-                             std::optional<bytes::Bytes> bytes = std::nullopt,
+FlashCompletedStep completed(FlashWorkflowOutcome outcome, std::optional<bytes::Bytes> bytes = std::nullopt,
                              std::optional<std::string> rom_id = std::nullopt)
 {
     return {outcome, std::move(bytes), std::move(rom_id)};
@@ -54,14 +53,12 @@ Result<std::uint32_t> parseKernelStartAddress(std::string_view kernel_addr)
     if (!parsed.has_value() || *parsed > std::numeric_limits<std::uint32_t>::max())
     {
         return fail(ErrorKind::InvalidConfig,
-                    std::format("kernel_addr did not parse as a 32-bit address: '{}'",
-                                kernel_addr));
+                    std::format("kernel_addr did not parse as a 32-bit address: '{}'", kernel_addr));
     }
     return static_cast<std::uint32_t>(*parsed);
 }
 
-Result<config::ProtocolEntry> resolveProtocol(const config::ConfigPaths& paths,
-                                              std::string_view protocol_name,
+Result<config::ProtocolEntry> resolveProtocol(const config::ConfigPaths& paths, std::string_view protocol_name,
                                               IFileRepository& repository)
 {
     Result<config::ProtocolCatalog> protocols = config::load_protocol_catalog(paths, repository);
@@ -69,22 +66,18 @@ Result<config::ProtocolEntry> resolveProtocol(const config::ConfigPaths& paths,
     {
         return std::unexpected(protocols.error());
     }
-    const auto entry = std::ranges::find(*protocols, protocol_name,
-                                         &config::ProtocolEntry::protocol_name);
+    const auto entry = std::ranges::find(*protocols, protocol_name, &config::ProtocolEntry::protocol_name);
     if (entry == protocols->end())
     {
         return fail(ErrorKind::InvalidConfig,
-                    std::format("protocol '{}' is absent from the <protocols> section",
-                                protocol_name));
+                    std::format("protocol '{}' is absent from the <protocols> section", protocol_name));
     }
     return *entry;
 }
 
-Result<KernelImage> resolveKernel(const FlashWorkflowRequest& request,
-                                  IFileRepository& repository)
+Result<KernelImage> resolveKernel(const FlashWorkflowRequest& request, IFileRepository& repository)
 {
-    Result<config::ProtocolEntry> entry =
-        resolveProtocol(request.paths, request.protocol, repository);
+    Result<config::ProtocolEntry> entry = resolveProtocol(request.paths, request.protocol, repository);
     if (!entry.has_value())
     {
         return std::unexpected(entry.error());
@@ -100,13 +93,11 @@ Result<KernelImage> resolveKernel(const FlashWorkflowRequest& request,
     {
         return std::unexpected(kernel_bytes.error());
     }
-    return KernelImage{.id = request.protocol + "-kernel",
-                       .load_address = *load_address,
-                       .bytes = std::move(*kernel_bytes)};
+    return KernelImage{
+        .id = request.protocol + "-kernel", .load_address = *load_address, .bytes = std::move(*kernel_bytes)};
 }
 
-std::optional<bytes::Bytes> normalizeMc68Image(std::optional<bytes::Bytes> image,
-                                               std::string_view mcu_name)
+std::optional<bytes::Bytes> normalizeMc68Image(std::optional<bytes::Bytes> image, std::string_view mcu_name)
 {
     if (!image.has_value())
     {
@@ -122,8 +113,7 @@ std::optional<bytes::Bytes> normalizeMc68Image(std::optional<bytes::Bytes> image
     for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
     {
         const auto& block = device->fblocks[block_no];
-        physical_size = std::max(physical_size,
-                                 static_cast<std::size_t>(block.start) + block.len);
+        physical_size = std::max(physical_size, static_cast<std::size_t>(block.start) + block.len);
     }
     if (image->size() != physical_size)
     {
@@ -133,13 +123,11 @@ std::optional<bytes::Bytes> normalizeMc68Image(std::optional<bytes::Bytes> image
     bytes::Bytes packed;
     packed.reserve(device->romsize);
     std::size_t packed_remaining = device->romsize;
-    for (unsigned block_no = 0;
-         block_no < device->numblocks && packed_remaining > 0; ++block_no)
+    for (unsigned block_no = 0; block_no < device->numblocks && packed_remaining > 0; ++block_no)
     {
         const auto& block = device->fblocks[block_no];
         const std::size_t block_bytes = std::min<std::size_t>(block.len, packed_remaining);
-        packed.insert(packed.end(), image->begin() + block.start,
-                      image->begin() + block.start + block_bytes);
+        packed.insert(packed.end(), image->begin() + block.start, image->begin() + block.start + block_bytes);
         packed_remaining -= block_bytes;
     }
     return packed;
@@ -150,12 +138,10 @@ class SubaruM32rKlineWorkflow final : public FlashWorkflow
   public:
     explicit SubaruM32rKlineWorkflow(FlashWorkflowRequest request, bool hitachi)
         : request_(std::move(request)), hitachi_(hitachi),
-          plan_(hitachi_ ? build_subaru_hitachi_m32r_kline_plan(
-                               request_.operation, request_.protocol, request_.mcu,
-                               std::move(request_.image))
-                         : build_subaru_mitsu_m32r_kline_plan(
-                               request_.operation, request_.protocol, request_.mcu,
-                               std::move(request_.image)))
+          plan_(hitachi_ ? build_subaru_hitachi_m32r_kline_plan(request_.operation, request_.protocol, request_.mcu,
+                                                                std::move(request_.image))
+                         : build_subaru_mitsu_m32r_kline_plan(request_.operation, request_.protocol, request_.mcu,
+                                                              std::move(request_.image)))
     {
     }
     FlashWorkflowStep next() override
@@ -179,9 +165,9 @@ class SubaruM32rKlineWorkflow final : public FlashWorkflow
         if (!attempted_)
         {
             attempted_ = true;
-            std::unique_ptr<IFlashExecutor> executor = hitachi_
-                                                           ? std::unique_ptr<IFlashExecutor>(std::make_unique<SubaruHitachiM32rKlineExecutor>())
-                                                           : std::unique_ptr<IFlashExecutor>(std::make_unique<SubaruMitsuM32rKlineExecutor>());
+            std::unique_ptr<IFlashExecutor> executor =
+                hitachi_ ? std::unique_ptr<IFlashExecutor>(std::make_unique<SubaruHitachiM32rKlineExecutor>())
+                         : std::unique_ptr<IFlashExecutor>(std::make_unique<SubaruMitsuM32rKlineExecutor>());
             return FlashAttempt{std::move(*plan_), std::move(executor),
                                 std::make_unique<DesktopKlineFlashTransport>(request_.serial),
                                 std::make_unique<QtClock>()};
@@ -233,8 +219,7 @@ class SubaruM32rKlineWorkflow final : public FlashWorkflow
 class SubaruDensoMc68hc16y5_02Workflow final : public FlashWorkflow
 {
   public:
-    explicit SubaruDensoMc68hc16y5_02Workflow(FlashWorkflowRequest request)
-        : request_(std::move(request))
+    explicit SubaruDensoMc68hc16y5_02Workflow(FlashWorkflowRequest request) : request_(std::move(request))
     {
     }
 
@@ -250,9 +235,7 @@ class SubaruDensoMc68hc16y5_02Workflow final : public FlashWorkflow
             // revision 04 is rejected by the plan even without a catalog.
             Result<FlashPlan> preflight = build_subaru_denso_mc68hc16y5_02_plan(
                 request_.operation, request_.protocol, request_.mcu, request_.image,
-                KernelImage{.id = request_.protocol + "-kernel",
-                            .load_address = 0x20000,
-                            .bytes = {0}});
+                KernelImage{.id = request_.protocol + "-kernel", .load_address = 0x20000, .bytes = {0}});
             if (!preflight.has_value())
             {
                 plan_ = std::unexpected(preflight.error());
@@ -267,9 +250,8 @@ class SubaruDensoMc68hc16y5_02Workflow final : public FlashWorkflow
                 }
                 else
                 {
-                    plan_ = build_subaru_denso_mc68hc16y5_02_plan(
-                        request_.operation, request_.protocol, request_.mcu,
-                        std::move(request_.image), std::move(*kernel));
+                    plan_ = build_subaru_denso_mc68hc16y5_02_plan(request_.operation, request_.protocol, request_.mcu,
+                                                                  std::move(request_.image), std::move(*kernel));
                 }
             }
         }
@@ -292,8 +274,7 @@ class SubaruDensoMc68hc16y5_02Workflow final : public FlashWorkflow
         if (!attempted_)
         {
             attempted_ = true;
-            return FlashAttempt{std::move(**plan_),
-                                std::make_unique<SubaruDensoMc68hc16y5_02Executor>(),
+            return FlashAttempt{std::move(**plan_), std::make_unique<SubaruDensoMc68hc16y5_02Executor>(),
                                 std::make_unique<DesktopKlineFlashTransport>(request_.serial),
                                 std::make_unique<QtClock>()};
         }
@@ -345,8 +326,7 @@ class SubaruDensoMc68hc16y5_02Workflow final : public FlashWorkflow
 class SubaruDensoSh7055_02Workflow final : public FlashWorkflow
 {
   public:
-    explicit SubaruDensoSh7055_02Workflow(FlashWorkflowRequest request)
-        : request_(std::move(request))
+    explicit SubaruDensoSh7055_02Workflow(FlashWorkflowRequest request) : request_(std::move(request))
     {
     }
 
@@ -362,9 +342,8 @@ class SubaruDensoSh7055_02Workflow final : public FlashWorkflow
             }
             else
             {
-                plan_ = build_subaru_denso_sh7055_02_plan(
-                    request_.operation, request_.protocol, request_.mcu,
-                    std::move(request_.image), std::move(*kernel));
+                plan_ = build_subaru_denso_sh7055_02_plan(request_.operation, request_.protocol, request_.mcu,
+                                                          std::move(request_.image), std::move(*kernel));
             }
         }
         if (!plan_->has_value())
@@ -387,14 +366,12 @@ class SubaruDensoSh7055_02Workflow final : public FlashWorkflow
         if (stage_ <= confirmations.size())
         {
             const ConfirmationSpec& confirmation = confirmations[stage_ - 1];
-            return FlashPromptStep{FlashPromptKind::CycleIgnition,
-                                   confirmation.arguments};
+            return FlashPromptStep{FlashPromptKind::CycleIgnition, confirmation.arguments};
         }
         if (!attempted_)
         {
             attempted_ = true;
-            return FlashAttempt{std::move(**plan_),
-                                std::make_unique<SubaruDensoSh7055_02Executor>(),
+            return FlashAttempt{std::move(**plan_), std::make_unique<SubaruDensoSh7055_02Executor>(),
                                 std::make_unique<DesktopKlineFlashTransport>(request_.serial),
                                 std::make_unique<QtClock>()};
         }
@@ -448,9 +425,8 @@ class ColtWorkflow final : public FlashWorkflow
 {
   public:
     explicit ColtWorkflow(FlashWorkflowRequest request)
-        : request_(std::move(request)),
-          plan_(build_mitsu_colt_m32r_can_plan(request_.operation, request_.protocol,
-                                               request_.mcu, std::move(request_.image)))
+        : request_(std::move(request)), plan_(build_mitsu_colt_m32r_can_plan(request_.operation, request_.protocol,
+                                                                             request_.mcu, std::move(request_.image)))
     {
     }
 
@@ -475,18 +451,16 @@ class ColtWorkflow final : public FlashWorkflow
         if (const auto confirmations = plan_->confirmations(); stage_ <= confirmations.size())
         {
             const auto& spec = confirmations[stage_ - 1];
-            return FlashPromptStep{
-                spec.id == ConfirmationSpec::Id::EraseTrigger
-                    ? FlashPromptKind::ColtEraseTrigger
-                    : FlashPromptKind::ColtTopRegionBootstrap,
-                spec.arguments};
+            return FlashPromptStep{spec.id == ConfirmationSpec::Id::EraseTrigger
+                                       ? FlashPromptKind::ColtEraseTrigger
+                                       : FlashPromptKind::ColtTopRegionBootstrap,
+                                   spec.arguments};
         }
         if (!attempted_)
         {
             attempted_ = true;
             FlashPlan plan = std::move(*plan_);
-            return FlashAttempt{std::move(plan),
-                                std::make_unique<MitsuColtM32rCanExecutor>(),
+            return FlashAttempt{std::move(plan), std::make_unique<MitsuColtM32rCanExecutor>(),
                                 std::make_unique<DesktopCanFlashTransport>(request_.serial),
                                 std::make_unique<QtClock>()};
         }
@@ -540,16 +514,14 @@ class ColtWorkflow final : public FlashWorkflow
 // outcome. The four families below are compile-time-distinct only in which
 // plan builder and executor type they use, so they instantiate this
 // template rather than duplicating the ~50-line class body per family.
-template <typename ExecutorT,
-          Result<FlashPlan> (*BuildPlan)(FlashOperation, std::string_view, std::string_view,
-                                         std::optional<bytes::Bytes>)>
+template <typename ExecutorT, Result<FlashPlan> (*BuildPlan)(FlashOperation, std::string_view, std::string_view,
+                                                             std::optional<bytes::Bytes>)>
 class SimpleCanFlashWorkflow final : public FlashWorkflow
 {
   public:
     explicit SimpleCanFlashWorkflow(FlashWorkflowRequest request)
         : request_(std::move(request)),
-          plan_(BuildPlan(request_.operation, request_.protocol, request_.mcu,
-                          std::move(request_.image)))
+          plan_(BuildPlan(request_.operation, request_.protocol, request_.mcu, std::move(request_.image)))
     {
     }
 
@@ -625,14 +597,11 @@ class SimpleCanFlashWorkflow final : public FlashWorkflow
 using SubaruHitachiM32rCanWorkflow =
     SimpleCanFlashWorkflow<SubaruHitachiM32rCanExecutor, &build_subaru_hitachi_m32r_can_plan>;
 using SubaruTcuCvtHitachiM32rCanWorkflow =
-    SimpleCanFlashWorkflow<SubaruTcuCvtHitachiM32rCanExecutor,
-                           &build_subaru_tcu_cvt_hitachi_m32r_can_plan>;
+    SimpleCanFlashWorkflow<SubaruTcuCvtHitachiM32rCanExecutor, &build_subaru_tcu_cvt_hitachi_m32r_can_plan>;
 using SubaruTcuCvtMitsuMh8111CanWorkflow =
-    SimpleCanFlashWorkflow<SubaruTcuCvtMitsuMh8111CanExecutor,
-                           &build_subaru_tcu_cvt_mitsu_mh8111_can_plan>;
+    SimpleCanFlashWorkflow<SubaruTcuCvtMitsuMh8111CanExecutor, &build_subaru_tcu_cvt_mitsu_mh8111_can_plan>;
 using SubaruTcuCvtMitsuMh8104CanWorkflow =
-    SimpleCanFlashWorkflow<SubaruTcuCvtMitsuMh8104CanExecutor,
-                           &build_subaru_tcu_cvt_mitsu_mh8104_can_plan>;
+    SimpleCanFlashWorkflow<SubaruTcuCvtMitsuMh8104CanExecutor, &build_subaru_tcu_cvt_mitsu_mh8104_can_plan>;
 
 class EepromWorkflow final : public FlashWorkflow
 {
@@ -645,8 +614,7 @@ class EepromWorkflow final : public FlashWorkflow
     {
         if (request_.operation != FlashOperation::Read)
         {
-            return FlashFailureStep{Error{ErrorKind::Unsupported,
-                                          "EEPROM workflows support read operations only"}};
+            return FlashFailureStep{Error{ErrorKind::Unsupported, "EEPROM workflows support read operations only"}};
         }
         if (terminal_)
         {
@@ -688,8 +656,7 @@ class EepromWorkflow final : public FlashWorkflow
             executor = std::make_unique<DensoSh705xEepromCanExecutor>();
             adapter = std::make_unique<DesktopCanFlashTransport>(request_.serial);
         }
-        return FlashAttempt{std::move(*plan), std::move(executor), std::move(adapter),
-                            std::make_unique<QtClock>()};
+        return FlashAttempt{std::move(*plan), std::move(executor), std::move(adapter), std::make_unique<QtClock>()};
     }
 
     void submit(FlashPromptResponse response) override
@@ -830,8 +797,7 @@ constexpr auto kRoutes = std::to_array<Route>({
 
 } // namespace
 
-std::optional<bytes::Bytes> portableImageForOperation(FlashOperation operation,
-                                                      bytes::ByteView rom)
+std::optional<bytes::Bytes> portableImageForOperation(FlashOperation operation, bytes::ByteView rom)
 {
     if (operation == FlashOperation::Read)
     {
@@ -842,9 +808,8 @@ std::optional<bytes::Bytes> portableImageForOperation(FlashOperation operation,
 
 std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::tryCreate(FlashWorkflowRequest request)
 {
-    const auto route = std::ranges::find_if(
-        kRoutes, [&request](const Route& candidate)
-        { return request.protocol.starts_with(candidate.prefix); });
+    const auto route = std::ranges::find_if(kRoutes, [&request](const Route& candidate)
+                                            { return request.protocol.starts_with(candidate.prefix); });
     if (route == kRoutes.end())
     {
         return nullptr;

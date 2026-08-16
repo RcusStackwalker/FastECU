@@ -35,11 +35,8 @@ class LegacyDefinitionAdapterTest : public ::testing::Test
     LegacyDefinitionAdapter adapter{service};
 };
 
-void expect_catalog_rows_aligned(
-    const QStringList& ids,
-    const QStringList& addresses,
-    const QStringList& ecu_ids,
-    const QStringList& filenames)
+void expect_catalog_rows_aligned(const QStringList& ids, const QStringList& addresses, const QStringList& ecu_ids,
+                                 const QStringList& filenames)
 {
     EXPECT_EQ(addresses.size(), ids.size());
     EXPECT_EQ(ecu_ids.size(), ids.size());
@@ -134,18 +131,10 @@ void expect_scaling_rows_aligned(const definitions::EcuCalDefStructure& value)
 {
     const qsizetype rows = value.ScalingNameList.size();
     const std::vector<const QStringList *> lists{
-        &value.ScalingUnitsList,
-        &value.ScalingFromByteList,
-        &value.ScalingToByteList,
-        &value.ScalingFormatList,
-        &value.ScalingMinValueList,
-        &value.ScalingMaxValueList,
-        &value.ScalingCoarseIncList,
-        &value.ScalingFineIncList,
-        &value.ScalingStorageTypeList,
-        &value.ScalingEndianList,
-        &value.ScalingSelectionsNameList,
-        &value.ScalingSelectionsValueList,
+        &value.ScalingUnitsList,     &value.ScalingFromByteList,       &value.ScalingToByteList,
+        &value.ScalingFormatList,    &value.ScalingMinValueList,       &value.ScalingMaxValueList,
+        &value.ScalingCoarseIncList, &value.ScalingFineIncList,        &value.ScalingStorageTypeList,
+        &value.ScalingEndianList,    &value.ScalingSelectionsNameList, &value.ScalingSelectionsValueList,
     };
     for (const QStringList *list : lists)
     {
@@ -153,10 +142,7 @@ void expect_scaling_rows_aligned(const definitions::EcuCalDefStructure& value)
     }
 }
 
-DefinitionIndexEntry entry(
-    DefinitionFormat format,
-    std::string id,
-    std::string source)
+DefinitionIndexEntry entry(DefinitionFormat format, std::string id, std::string source)
 {
     return DefinitionIndexEntry{
         .format = format,
@@ -168,12 +154,12 @@ DefinitionIndexEntry entry(
 
 TEST_F(LegacyDefinitionAdapterTest, ReplacesRomRaiderCatalogWithAlignedTypedRows)
 {
-    repository.files["second.xml"] = bytes(
-        "<roms><rom><romid><xmlid>SECOND</xmlid><internalidaddress>2A0</internalidaddress>"
-        "<ecuid>ECU-2</ecuid></romid></rom></roms>");
-    repository.files["first.xml"] = bytes(
-        "<roms><rom><romid><xmlid>FIRST</xmlid><internalidaddress>1A0</internalidaddress>"
-        "<ecuid>ECU-1</ecuid></romid></rom></roms>");
+    repository.files["second.xml"] =
+        bytes("<roms><rom><romid><xmlid>SECOND</xmlid><internalidaddress>2A0</internalidaddress>"
+              "<ecuid>ECU-2</ecuid></romid></rom></roms>");
+    repository.files["first.xml"] =
+        bytes("<roms><rom><romid><xmlid>FIRST</xmlid><internalidaddress>1A0</internalidaddress>"
+              "<ecuid>ECU-1</ecuid></romid></rom></roms>");
     const std::vector<std::string> handles{"second.xml", "first.xml"};
     definitions::ConfigValuesStructure value;
     value.romraider_def_cal_id = {"sentinel-id"};
@@ -188,11 +174,8 @@ TEST_F(LegacyDefinitionAdapterTest, ReplacesRomRaiderCatalogWithAlignedTypedRows
     EXPECT_EQ(value.romraider_def_cal_id_addr, QStringList({"0x2a0", "0x1a0"}));
     EXPECT_EQ(value.romraider_def_ecu_id, QStringList({"ECU-2", "ECU-1"}));
     EXPECT_EQ(value.romraider_def_filename, QStringList({"second.xml", "first.xml"}));
-    expect_catalog_rows_aligned(
-        value.romraider_def_cal_id,
-        value.romraider_def_cal_id_addr,
-        value.romraider_def_ecu_id,
-        value.romraider_def_filename);
+    expect_catalog_rows_aligned(value.romraider_def_cal_id, value.romraider_def_cal_id_addr, value.romraider_def_ecu_id,
+                                value.romraider_def_filename);
 }
 
 TEST_F(LegacyDefinitionAdapterTest, ReplacesEcuFlashCatalogWithAlignedTypedRows)
@@ -201,14 +184,12 @@ TEST_F(LegacyDefinitionAdapterTest, ReplacesEcuFlashCatalogWithAlignedTypedRows)
         DirEntry{.name = "b.xml", .is_directory = false},
         DirEntry{.name = "a.xml", .is_directory = false},
     };
-    repository.files["defs/a.xml"] = bytes(
-        "<rom><romid><xmlid>A</xmlid><internalidaddress>10</internalidaddress>"
-        "<ecuid>ECU-A</ecuid></romid></rom>");
-    repository.files["defs/b.xml"] = bytes(
-        "<rom><romid><xmlid>B</xmlid><ecuid>ECU-B</ecuid></romid></rom>");
-    repository.files["outside.xml"] = bytes(
-        "<rom><romid><xmlid>OUTSIDE</xmlid><internalidaddress>20</internalidaddress>"
-        "<ecuid>ECU-OUTSIDE</ecuid></romid></rom>");
+    repository.files["defs/a.xml"] = bytes("<rom><romid><xmlid>A</xmlid><internalidaddress>10</internalidaddress>"
+                                           "<ecuid>ECU-A</ecuid></romid></rom>");
+    repository.files["defs/b.xml"] = bytes("<rom><romid><xmlid>B</xmlid><ecuid>ECU-B</ecuid></romid></rom>");
+    repository.files["outside.xml"] =
+        bytes("<rom><romid><xmlid>OUTSIDE</xmlid><internalidaddress>20</internalidaddress>"
+              "<ecuid>ECU-OUTSIDE</ecuid></romid></rom>");
     definitions::ConfigValuesStructure value;
     value.ecuflash_def_cal_id = {"sentinel-id"};
     value.ecuflash_def_cal_id_addr = {"sentinel-address"};
@@ -219,27 +200,15 @@ TEST_F(LegacyDefinitionAdapterTest, ReplacesEcuFlashCatalogWithAlignedTypedRows)
         "defs/a.xml",
     };
 
-    auto result =
-        adapter.replace_ecuflash_catalog(value, "defs", explicit_handles);
+    auto result = adapter.replace_ecuflash_catalog(value, "defs", explicit_handles);
 
     ASSERT_TRUE(result);
-    EXPECT_EQ(
-        value.ecuflash_def_cal_id,
-        QStringList({"A", "B", "OUTSIDE"}));
-    EXPECT_EQ(
-        value.ecuflash_def_cal_id_addr,
-        QStringList({"0x10", "", "0x20"}));
-    EXPECT_EQ(
-        value.ecuflash_def_ecu_id,
-        QStringList({"ECU-A", "ECU-B", "ECU-OUTSIDE"}));
-    EXPECT_EQ(
-        value.ecuflash_def_filename,
-        QStringList({"defs/a.xml", "defs/b.xml", "outside.xml"}));
-    expect_catalog_rows_aligned(
-        value.ecuflash_def_cal_id,
-        value.ecuflash_def_cal_id_addr,
-        value.ecuflash_def_ecu_id,
-        value.ecuflash_def_filename);
+    EXPECT_EQ(value.ecuflash_def_cal_id, QStringList({"A", "B", "OUTSIDE"}));
+    EXPECT_EQ(value.ecuflash_def_cal_id_addr, QStringList({"0x10", "", "0x20"}));
+    EXPECT_EQ(value.ecuflash_def_ecu_id, QStringList({"ECU-A", "ECU-B", "ECU-OUTSIDE"}));
+    EXPECT_EQ(value.ecuflash_def_filename, QStringList({"defs/a.xml", "defs/b.xml", "outside.xml"}));
+    expect_catalog_rows_aligned(value.ecuflash_def_cal_id, value.ecuflash_def_cal_id_addr, value.ecuflash_def_ecu_id,
+                                value.ecuflash_def_filename);
     EXPECT_EQ(repository.read_count("defs/a.xml"), 1);
     EXPECT_EQ(repository.read_count("defs/b.xml"), 1);
     EXPECT_EQ(repository.read_count("outside.xml"), 1);
@@ -248,8 +217,7 @@ TEST_F(LegacyDefinitionAdapterTest, ReplacesEcuFlashCatalogWithAlignedTypedRows)
 TEST_F(LegacyDefinitionAdapterTest, EcuFlashCatalogSkipsUnreadableHandleAndReplacesWithEmptyCatalog)
 {
     file_system.directory_entries["defs"] = {};
-    repository.read_errors["outside.xml"] =
-        Error{ErrorKind::Disconnected, "submitted definition unavailable"};
+    repository.read_errors["outside.xml"] = Error{ErrorKind::Disconnected, "submitted definition unavailable"};
     definitions::ConfigValuesStructure value;
     value.software_name = "unchanged software";
     value.primary_definition_base = "unchanged base";
@@ -261,8 +229,7 @@ TEST_F(LegacyDefinitionAdapterTest, EcuFlashCatalogSkipsUnreadableHandleAndRepla
     value.ecuflash_def_filename = {"outside.xml"};
     const std::vector<std::string> explicit_handles{"outside.xml"};
 
-    auto result =
-        adapter.replace_ecuflash_catalog(value, "defs", explicit_handles);
+    auto result = adapter.replace_ecuflash_catalog(value, "defs", explicit_handles);
 
     // An unreadable handle is skipped rather than failing the whole catalog (matching
     // DefinitionService::build_catalog), so this replace succeeds with an empty EcuFlash
@@ -310,8 +277,7 @@ TEST_F(LegacyDefinitionAdapterTest, RomRaiderCatalogSkipsUnreadableHandleAndRepl
 
 TEST_F(LegacyDefinitionAdapterTest, EcuFlashCatalogDiscoveryFailurePreservesCompleteOriginalValue)
 {
-    file_system.list_directory_errors["defs"] =
-        Error{ErrorKind::Disconnected, "catalog directory unavailable"};
+    file_system.list_directory_errors["defs"] = Error{ErrorKind::Disconnected, "catalog directory unavailable"};
     definitions::ConfigValuesStructure value;
     value.software_name = "unchanged software";
     value.ecuflash_def_cal_id = {"outside-id"};
@@ -322,9 +288,7 @@ TEST_F(LegacyDefinitionAdapterTest, EcuFlashCatalogDiscoveryFailurePreservesComp
     auto result = adapter.replace_ecuflash_catalog(value, "defs", {});
 
     ASSERT_FALSE(result);
-    EXPECT_EQ(
-        result.error(),
-        (Error{ErrorKind::Disconnected, "catalog directory unavailable"}));
+    EXPECT_EQ(result.error(), (Error{ErrorKind::Disconnected, "catalog directory unavailable"}));
     EXPECT_EQ(value, original);
 }
 
@@ -377,10 +341,8 @@ TEST_F(LegacyDefinitionAdapterTest, MapsFullTypedDefinitionIntoEveryLegacySlice)
           </table>
         </table>
       </rom>)xml");
-    repository.files["mid.xml"] =
-        bytes("<rom><romid><xmlid>MID</xmlid></romid><include>BASE</include></rom>");
-    repository.files["base.xml"] =
-        bytes("<rom><romid><xmlid>BASE</xmlid></romid></rom>");
+    repository.files["mid.xml"] = bytes("<rom><romid><xmlid>MID</xmlid></romid><include>BASE</include></rom>");
+    repository.files["base.xml"] = bytes("<rom><romid><xmlid>BASE</xmlid></romid></rom>");
     auto catalog = DefinitionCatalog::create({
         entry(DefinitionFormat::EcuFlash, "FULL", "full.xml"),
         entry(DefinitionFormat::EcuFlash, "MID", "mid.xml"),
@@ -400,8 +362,7 @@ TEST_F(LegacyDefinitionAdapterTest, MapsFullTypedDefinitionIntoEveryLegacySlice)
     value.use_romraider_definition = true;
     value.use_ecuflash_definition = false;
 
-    auto result = adapter.replace_definition(
-        value, *catalog, DefinitionFormat::EcuFlash, "FULL");
+    auto result = adapter.replace_definition(value, *catalog, DefinitionFormat::EcuFlash, "FULL");
 
     ASSERT_TRUE(result);
     EXPECT_EQ(value.FileName, "rom.bin");
@@ -536,8 +497,7 @@ TEST_F(LegacyDefinitionAdapterTest, MapsRomRaiderRuntimeLogParameters)
     value.use_romraider_definition = false;
     value.use_ecuflash_definition = false;
 
-    auto result = adapter.replace_definition(
-        value, *catalog, DefinitionFormat::RomRaider, "RR");
+    auto result = adapter.replace_definition(value, *catalog, DefinitionFormat::RomRaider, "RR");
 
     ASSERT_TRUE(result);
     EXPECT_EQ(value.StartPosList, QStringList({"0x7"}));
@@ -552,8 +512,7 @@ TEST_F(LegacyDefinitionAdapterTest, MapsRomRaiderRuntimeLogParameters)
 
 TEST_F(LegacyDefinitionAdapterTest, ShortRomInfoShapeFailsAtomically)
 {
-    repository.files["shape.xml"] =
-        bytes("<rom><romid><xmlid>SHAPE</xmlid></romid></rom>");
+    repository.files["shape.xml"] = bytes("<rom><romid><xmlid>SHAPE</xmlid></romid></rom>");
     auto catalog = DefinitionCatalog::create({
         entry(DefinitionFormat::EcuFlash, "SHAPE", "shape.xml"),
     });
@@ -570,8 +529,7 @@ TEST_F(LegacyDefinitionAdapterTest, ShortRomInfoShapeFailsAtomically)
     value.use_ecuflash_definition = false;
     const auto original = value;
 
-    auto result = adapter.replace_definition(
-        value, *catalog, DefinitionFormat::EcuFlash, "SHAPE");
+    auto result = adapter.replace_definition(value, *catalog, DefinitionFormat::EcuFlash, "SHAPE");
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
@@ -589,10 +547,7 @@ TEST_F(LegacyDefinitionAdapterTest, InvalidStaticAxisFailsAtomically)
         </table>
       </rom>)xml");
     auto catalog = DefinitionCatalog::create({
-        entry(
-            DefinitionFormat::EcuFlash,
-            "INVALID_STATIC",
-            "invalid-static.xml"),
+        entry(DefinitionFormat::EcuFlash, "INVALID_STATIC", "invalid-static.xml"),
     });
     ASSERT_TRUE(catalog);
     definitions::EcuCalDefStructure value;
@@ -606,11 +561,7 @@ TEST_F(LegacyDefinitionAdapterTest, InvalidStaticAxisFailsAtomically)
     value.use_ecuflash_definition = false;
     const auto original = value;
 
-    auto result = adapter.replace_definition(
-        value,
-        *catalog,
-        DefinitionFormat::EcuFlash,
-        "INVALID_STATIC");
+    auto result = adapter.replace_definition(value, *catalog, DefinitionFormat::EcuFlash, "INVALID_STATIC");
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
@@ -624,8 +575,7 @@ TEST_F(LegacyDefinitionAdapterTest, DefinitionLoadFailureDoesNotMutateCaller)
         entry(DefinitionFormat::EcuFlash, "MISSING", "missing.xml"),
     });
     ASSERT_TRUE(catalog);
-    repository.read_errors["missing.xml"] =
-        Error{ErrorKind::Disconnected, "definition read failed"};
+    repository.read_errors["missing.xml"] = Error{ErrorKind::Disconnected, "definition read failed"};
     definitions::EcuCalDefStructure value;
     value.FileName = "rom.bin";
     value.NameList = {"sentinel-map"};
@@ -637,8 +587,7 @@ TEST_F(LegacyDefinitionAdapterTest, DefinitionLoadFailureDoesNotMutateCaller)
     value.use_ecuflash_definition = false;
     const auto original = value;
 
-    auto result = adapter.replace_definition(
-        value, *catalog, DefinitionFormat::EcuFlash, "MISSING");
+    auto result = adapter.replace_definition(value, *catalog, DefinitionFormat::EcuFlash, "MISSING");
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error(), (Error{ErrorKind::Disconnected, "definition read failed"}));
@@ -653,8 +602,7 @@ TEST_F(LegacyDefinitionAdapterTest, CreationAndImportDelegateToDefinitionService
         .ecu_id = "ECU",
         .internal_id_address = 0x20,
     };
-    repository.files["source.xml"] =
-        bytes("<rom><romid><xmlid>OLD</xmlid></romid><table name=\"Fuel\"/></rom>");
+    repository.files["source.xml"] = bytes("<rom><romid><xmlid>OLD</xmlid></romid><table name=\"Fuel\"/></rom>");
 
     auto created = adapter.create_definition("created.xml", input);
     auto imported = adapter.import_definition("source.xml", "imported.xml", input);
@@ -681,8 +629,7 @@ TEST_F(LegacyDefinitionAdapterTest, CreationAndImportPropagateExactServiceFailur
     ASSERT_FALSE(created);
     EXPECT_EQ(created.error(), (Error{ErrorKind::Internal, "atomic replace failed"}));
     ASSERT_EQ(writer.replace_calls.size(), 1U);
-    repository.read_errors["source.xml"] =
-        Error{ErrorKind::Disconnected, "source read failed"};
+    repository.read_errors["source.xml"] = Error{ErrorKind::Disconnected, "source read failed"};
 
     auto imported = adapter.import_definition("source.xml", "imported.xml", input);
 

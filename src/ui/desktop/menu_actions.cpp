@@ -106,32 +106,33 @@ void MainWindow::menu_action_triggered(const QString& action)
         show_terminal_window();
         break;
     case MenuCommand::About:
-        QMessageBox::information(this, tr("FastECU"), "FastECU is open source tuning software for Subaru ECUs,\n"
-                                                      "TCUs and also modifying BIU and ECUs of other car makes.\n"
-                                                      "\n"
-                                                      "This is beta test version for read and write ROMs via\n"
-                                                      "K-Line and CAN connection with Open Port 2.0 or generic\n"
-                                                      "OBD2 cable. Software is tested in Win7/Win10 32/64bit\n"
-                                                      "and Linux amd64 and aarch64 platforms.\n"
-                                                      "\n"
-                                                      "There WILL be bugs and things that don't work. Be patient\n"
-                                                      "with new versions relesed.\n"
-                                                      "\n"
-                                                      "All liability lies with the user. We are not responsible any\n"
-                                                      "harm, laws broken or bricked ECUs that can follow for using\n"
-                                                      "this software.\n"
-                                                      "\n"
-                                                      "\n"
-                                                      "Huge thanks to following:\n"
-                                                      "\n"
-                                                      "fenugrec - author of nisprog software\n"
-                                                      "rimwall - modifier of nisprog kernels for Subaru use\n"
-                                                      "SergArb - testing and software development\n"
-                                                      "alesv - testing and software development\n"
-                                                      "jimihimisimi - testing and software development\n"
-                                                      "\n"
-                                                      "...and to all of you who had support software development by\n"
-                                                      "donating! All, even the smallest amount of donates are welcome!\n");
+        QMessageBox::information(this, tr("FastECU"),
+                                 "FastECU is open source tuning software for Subaru ECUs,\n"
+                                 "TCUs and also modifying BIU and ECUs of other car makes.\n"
+                                 "\n"
+                                 "This is beta test version for read and write ROMs via\n"
+                                 "K-Line and CAN connection with Open Port 2.0 or generic\n"
+                                 "OBD2 cable. Software is tested in Win7/Win10 32/64bit\n"
+                                 "and Linux amd64 and aarch64 platforms.\n"
+                                 "\n"
+                                 "There WILL be bugs and things that don't work. Be patient\n"
+                                 "with new versions relesed.\n"
+                                 "\n"
+                                 "All liability lies with the user. We are not responsible any\n"
+                                 "harm, laws broken or bricked ECUs that can follow for using\n"
+                                 "this software.\n"
+                                 "\n"
+                                 "\n"
+                                 "Huge thanks to following:\n"
+                                 "\n"
+                                 "fenugrec - author of nisprog software\n"
+                                 "rimwall - modifier of nisprog kernels for Subaru use\n"
+                                 "SergArb - testing and software development\n"
+                                 "alesv - testing and software development\n"
+                                 "jimihimisimi - testing and software development\n"
+                                 "\n"
+                                 "...and to all of you who had support software development by\n"
+                                 "donating! All, even the smallest amount of donates are welcome!\n");
         break;
     case MenuCommand::Unknown:
         qWarning() << "Unhandled menu action:" << action;
@@ -171,7 +172,11 @@ void MainWindow::inc_dec_value(const QString& action)
         QTableWidget *mapTableWidget = w->findChild<QTableWidget *>(w->objectName());
         if (mapTableWidget)
         {
-            emit LOG_D("Map " + ecuCalDef[rom_number]->NameList.at(map_number) + " scaling " + ecuCalDef[rom_number]->MapScalingNameList.at(map_number) + " min / max: " + ecuCalDef[rom_number]->MinValueList.at(map_number) + " / " + ecuCalDef[rom_number]->MaxValueList.at(map_number), true, true);
+            emit LOG_D("Map " + ecuCalDef[rom_number]->NameList.at(map_number) + " scaling " +
+                           ecuCalDef[rom_number]->MapScalingNameList.at(map_number) +
+                           " min / max: " + ecuCalDef[rom_number]->MinValueList.at(map_number) + " / " +
+                           ecuCalDef[rom_number]->MaxValueList.at(map_number),
+                       true, true);
             float map_coarse_inc_value = ecuCalDef[rom_number]->CoarseIncList[map_number].toFloat();
             float map_fine_inc_value = ecuCalDef[rom_number]->FineIncList[map_number].toFloat();
             QStringList map_data_cell_text = ecuCalDef[rom_number]->MapData.at(map_number).split(",");
@@ -196,7 +201,8 @@ void MainWindow::inc_dec_value(const QString& action)
 
                 if (selected_range.begin()->leftColumn() == 0 && mapYSize > 1)
                 {
-                    if (ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static Y Axis" || ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static X Axis")
+                    if (ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static Y Axis" ||
+                        ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static X Axis")
                     {
                         return;
                     }
@@ -217,7 +223,8 @@ void MainWindow::inc_dec_value(const QString& action)
                 }
                 else if (selected_range.begin()->topRow() == 0 && mapXSize > 1)
                 {
-                    if (ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static Y Axis" || ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static X Axis")
+                    if (ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static Y Axis" ||
+                        ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static X Axis")
                     {
                         return;
                     }
@@ -237,7 +244,8 @@ void MainWindow::inc_dec_value(const QString& action)
                 }
                 else
                 {
-                    if (mapXSize == 1 && ecuCalDef[rom_number]->XScaleTypeList.at(map_number) != "Static Y Axis" && ecuCalDef[rom_number]->XScaleTypeList.at(map_number) != "Static X Axis")
+                    if (mapXSize == 1 && ecuCalDef[rom_number]->XScaleTypeList.at(map_number) != "Static Y Axis" &&
+                        ecuCalDef[rom_number]->XScaleTypeList.at(map_number) != "Static X Axis")
                     {
                         first_row++;
                         last_row++;
@@ -256,7 +264,8 @@ void MainWindow::inc_dec_value(const QString& action)
                         float map_item_value = map_data_cell_text.at(j * mapXSize + i).toFloat();
 
                         uint16_t map_value_index = j * mapXSize + i;
-                        QString rom_data_value = get_rom_data_value(rom_number, map_data_address, map_value_index, map_value_storagetype, map_value_endian);
+                        QString rom_data_value = get_rom_data_value(rom_number, map_data_address, map_value_index,
+                                                                    map_value_storagetype, map_value_endian);
                         QString new_rom_data_value;
 
                         map_data_value.float_value = 0;
@@ -265,7 +274,9 @@ void MainWindow::inc_dec_value(const QString& action)
                         {
                             if (map_coarse_inc_value == 0 || map_fine_inc_value == 0)
                             {
-                                QMessageBox::warning(this, tr("Set value"), "Fine / Coarse inc value not set or set to zero in definition file!");
+                                QMessageBox::warning(
+                                    this, tr("Set value"),
+                                    "Fine / Coarse inc value not set or set to zero in definition file!");
                             }
 
                             if (action == "coarse_inc")
@@ -288,7 +299,9 @@ void MainWindow::inc_dec_value(const QString& action)
                             if (map_min_value != " " && map_item_value < map_min_value.toFloat())
                             {
                                 map_item_value = map_min_value.toFloat();
-                                new_rom_data_value = QString::number(fileActions->calculate_value_from_expression(fileActions->parse_stringlist_from_expression_string(map_value_to_byte, QString::number(map_item_value))));
+                                new_rom_data_value = QString::number(fileActions->calculate_value_from_expression(
+                                    fileActions->parse_stringlist_from_expression_string(
+                                        map_value_to_byte, QString::number(map_item_value))));
                                 map_data_value.dword_value = new_rom_data_value.toUInt();
                                 if (map_value_storagetype == "float")
                                 {
@@ -303,7 +316,9 @@ void MainWindow::inc_dec_value(const QString& action)
                             if (map_max_value != " " && map_item_value > map_max_value.toFloat())
                             {
                                 map_item_value = map_max_value.toFloat();
-                                new_rom_data_value = QString::number(fileActions->calculate_value_from_expression(fileActions->parse_stringlist_from_expression_string(map_value_to_byte, QString::number(map_item_value))));
+                                new_rom_data_value = QString::number(fileActions->calculate_value_from_expression(
+                                    fileActions->parse_stringlist_from_expression_string(
+                                        map_value_to_byte, QString::number(map_item_value))));
                                 map_data_value.dword_value = new_rom_data_value.toUInt();
                                 if (map_value_storagetype == "float")
                                 {
@@ -316,7 +331,9 @@ void MainWindow::inc_dec_value(const QString& action)
                                 break;
                             }
 
-                            new_rom_data_value = QString::number(fileActions->calculate_value_from_expression(fileActions->parse_stringlist_from_expression_string(map_value_to_byte, QString::number(map_item_value))));
+                            new_rom_data_value = QString::number(fileActions->calculate_value_from_expression(
+                                fileActions->parse_stringlist_from_expression_string(map_value_to_byte,
+                                                                                     QString::number(map_item_value))));
                             map_data_value.dword_value = new_rom_data_value.toUInt();
                             if (map_value_storagetype == "float")
                             {
@@ -351,17 +368,30 @@ void MainWindow::inc_dec_value(const QString& action)
                             }
                             if (map_value_storagetype.startsWith("int"))
                             {
-                                if (map_value_storagetype == "int8" && ((rom_data_value.toUInt() <= 0x7f && new_rom_data_value.toUInt() > 0x7f) || ((uint8_t)rom_data_value.toInt() >= 0x80 && (uint8_t)new_rom_data_value.toInt() < 0x80 && new_rom_data_value.toInt() != 0x00)))
+                                if (map_value_storagetype == "int8" &&
+                                    ((rom_data_value.toUInt() <= 0x7f && new_rom_data_value.toUInt() > 0x7f) ||
+                                     ((uint8_t)rom_data_value.toInt() >= 0x80 &&
+                                      (uint8_t)new_rom_data_value.toInt() < 0x80 &&
+                                      new_rom_data_value.toInt() != 0x00)))
                                 {
                                     new_rom_data_value = rom_data_value;
                                     break;
                                 }
-                                else if (map_value_storagetype == "int16" && ((rom_data_value.toUInt() <= 0x7fff && new_rom_data_value.toUInt() > 0x7fff) || ((uint16_t)rom_data_value.toInt() >= 0x8000 && (uint16_t)new_rom_data_value.toInt() < 0x8000 && new_rom_data_value.toInt() != 0x00)))
+                                else if (map_value_storagetype == "int16" &&
+                                         ((rom_data_value.toUInt() <= 0x7fff && new_rom_data_value.toUInt() > 0x7fff) ||
+                                          ((uint16_t)rom_data_value.toInt() >= 0x8000 &&
+                                           (uint16_t)new_rom_data_value.toInt() < 0x8000 &&
+                                           new_rom_data_value.toInt() != 0x00)))
                                 {
                                     new_rom_data_value = rom_data_value;
                                     break;
                                 }
-                                else if ((map_value_storagetype == "int32" || map_value_storagetype == "float") && ((rom_data_value.toUInt() <= 0x7fffffff && new_rom_data_value.toUInt() > 0x7fffffff) || ((uint32_t)rom_data_value.toInt() >= 0x80000000 && (uint32_t)new_rom_data_value.toInt() < 0x80000000 && new_rom_data_value.toInt() != 0x00)))
+                                else if ((map_value_storagetype == "int32" || map_value_storagetype == "float") &&
+                                         ((rom_data_value.toUInt() <= 0x7fffffff &&
+                                           new_rom_data_value.toUInt() > 0x7fffffff) ||
+                                          ((uint32_t)rom_data_value.toInt() >= 0x80000000 &&
+                                           (uint32_t)new_rom_data_value.toInt() < 0x80000000 &&
+                                           new_rom_data_value.toInt() != 0x00)))
                                 {
                                     new_rom_data_value = rom_data_value;
                                     break;
@@ -369,7 +399,9 @@ void MainWindow::inc_dec_value(const QString& action)
                             }
                         } while (rom_data_value == new_rom_data_value);
 
-                        map_item_value = fileActions->calculate_value_from_expression(fileActions->parse_stringlist_from_expression_string(map_value_from_byte, new_rom_data_value));
+                        map_item_value = fileActions->calculate_value_from_expression(
+                            fileActions->parse_stringlist_from_expression_string(map_value_from_byte,
+                                                                                 new_rom_data_value));
 
                         map_data_cell_text.replace(j * mapXSize + i, QString::number(map_item_value));
 
@@ -379,7 +411,8 @@ void MainWindow::inc_dec_value(const QString& action)
                         }
 
                         map_data_value.dword_value = new_rom_data_value.toInt();
-                        set_rom_data_value(rom_number, map_data_address, map_value_index, map_value_storagetype, map_value_endian, map_data_value.float_value);
+                        set_rom_data_value(rom_number, map_data_address, map_value_index, map_value_storagetype,
+                                           map_value_endian, map_data_value.float_value);
                     }
                 }
                 if (selected_range.begin()->leftColumn() == 0 && mapYSize > 1)
@@ -432,8 +465,8 @@ void MainWindow::set_value()
         if (mapTableWidget)
         {
             QString text = QInputDialog::getText(this, tr("QInputDialog::getText()"),
-                                                 tr("Set value: (ie: x20 | +20 | -20 | /20 | 20)"),
-                                                 QLineEdit::Normal, "", &bStatus);
+                                                 tr("Set value: (ie: x20 | +20 | -20 | /20 | 20)"), QLineEdit::Normal,
+                                                 "", &bStatus);
 
             text.replace(",", ".");
 
@@ -461,7 +494,8 @@ void MainWindow::set_value()
 
                     if (selected_range.begin()->leftColumn() == 0 && map_y_size > 1)
                     {
-                        if (ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static Y Axis" || ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static X Axis")
+                        if (ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static Y Axis" ||
+                            ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static X Axis")
                         {
                             return;
                         }
@@ -480,7 +514,8 @@ void MainWindow::set_value()
                     }
                     else if (selected_range.begin()->topRow() == 0 && map_x_size > 1)
                     {
-                        if (ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static Y Axis" || ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static X Axis")
+                        if (ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static Y Axis" ||
+                            ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static X Axis")
                         {
                             return;
                         }
@@ -499,7 +534,9 @@ void MainWindow::set_value()
                     else
                     {
                         qDebug() << "x:" << map_x_size << "y:" << map_y_size;
-                        if (map_x_size == 1 && ecuCalDef[rom_number]->XScaleTypeList.at(map_number) != "Static Y Axis" && ecuCalDef[rom_number]->XScaleTypeList.at(map_number) != "Static X Axis")
+                        if (map_x_size == 1 &&
+                            ecuCalDef[rom_number]->XScaleTypeList.at(map_number) != "Static Y Axis" &&
+                            ecuCalDef[rom_number]->XScaleTypeList.at(map_number) != "Static X Axis")
                         {
                             firstRow++;
                             lastRow++;
@@ -518,7 +555,8 @@ void MainWindow::set_value()
                             float map_item_value = map_data_cell_text.at(j * map_x_size + i).toFloat();
 
                             uint16_t map_value_index = j * map_x_size + i;
-                            QString rom_data_value = get_rom_data_value(rom_number, map_data_address, map_value_index, map_value_storagetype, map_value_endian);
+                            QString rom_data_value = get_rom_data_value(rom_number, map_data_address, map_value_index,
+                                                                        map_value_storagetype, map_value_endian);
 
                             if (text.at(0) == '+')
                             {
@@ -561,7 +599,9 @@ void MainWindow::set_value()
                                 map_item_value = map_max_value.toFloat();
                             }
 
-                            rom_data_value = QString::number(fileActions->calculate_value_from_expression(fileActions->parse_stringlist_from_expression_string(map_value_to_byte, QString::number(map_item_value))));
+                            rom_data_value = QString::number(fileActions->calculate_value_from_expression(
+                                fileActions->parse_stringlist_from_expression_string(map_value_to_byte,
+                                                                                     QString::number(map_item_value))));
                             map_data_value.dword_value = rom_data_value.toUInt();
                             if (map_value_storagetype == "float")
                             {
@@ -571,13 +611,16 @@ void MainWindow::set_value()
                             {
                                 rom_data_value = QString::number(qRound(rom_data_value.toFloat()));
                             }
-                            map_item_value = fileActions->calculate_value_from_expression(fileActions->parse_stringlist_from_expression_string(map_value_from_byte, rom_data_value));
+                            map_item_value = fileActions->calculate_value_from_expression(
+                                fileActions->parse_stringlist_from_expression_string(map_value_from_byte,
+                                                                                     rom_data_value));
                             qDebug() << "map_item_value" << map_item_value;
                             map_data_cell_text.replace(j * map_x_size + i, QString::number(map_item_value));
                             qDebug() << j * map_x_size + i << QString::number(map_item_value);
 
                             map_data_value.dword_value = rom_data_value.toInt();
-                            set_rom_data_value(rom_number, map_data_address, map_value_index, map_value_storagetype, map_value_endian, map_data_value.float_value);
+                            set_rom_data_value(rom_number, map_data_address, map_value_index, map_value_storagetype,
+                                               map_value_endian, map_data_value.float_value);
                         }
                     }
                     if (selected_range.begin()->leftColumn() == 0 && map_y_size > 1)
@@ -652,7 +695,8 @@ void MainWindow::interpolate_value(const QString& action)
 
                 if (selected_range.begin()->leftColumn() == 0 && map_y_size > 1)
                 {
-                    if (ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static Y Axis" || ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static X Axis")
+                    if (ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static Y Axis" ||
+                        ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static X Axis")
                     {
                         return;
                     }
@@ -671,7 +715,8 @@ void MainWindow::interpolate_value(const QString& action)
                 }
                 else if (selected_range.begin()->topRow() == 0 && map_x_size > 1)
                 {
-                    if (ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static Y Axis" || ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static X Axis")
+                    if (ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static Y Axis" ||
+                        ecuCalDef[rom_number]->XScaleTypeList.at(map_number) == "Static X Axis")
                     {
                         return;
                     }
@@ -689,7 +734,8 @@ void MainWindow::interpolate_value(const QString& action)
                 }
                 else
                 {
-                    if (map_x_size == 1 && ecuCalDef[rom_number]->XScaleTypeList.at(map_number) != "Static Y Axis" && ecuCalDef[rom_number]->XScaleTypeList.at(map_number) != "Static X Axis")
+                    if (map_x_size == 1 && ecuCalDef[rom_number]->XScaleTypeList.at(map_number) != "Static Y Axis" &&
+                        ecuCalDef[rom_number]->XScaleTypeList.at(map_number) != "Static X Axis")
                     {
                         firstRow++;
                         lastRow++;
@@ -733,7 +779,8 @@ void MainWindow::interpolate_value(const QString& action)
                     {
                         if (interpolateColCount > 1)
                         {
-                            colAdder = (cellValue[interpolateColCount - 1][j] - cellValue[0][j]) / (float)(interpolateColCount - 1);
+                            colAdder = (cellValue[interpolateColCount - 1][j] - cellValue[0][j]) /
+                                       (float)(interpolateColCount - 1);
                         }
                         for (int i = 0; i < interpolateColCount; i++)
                         {
@@ -750,7 +797,8 @@ void MainWindow::interpolate_value(const QString& action)
                     {
                         if (interpolateRowCount > 1)
                         {
-                            rowAdder = (cellValue[i][interpolateRowCount - 1] - cellValue[i][0]) / (float)(interpolateRowCount - 1);
+                            rowAdder = (cellValue[i][interpolateRowCount - 1] - cellValue[i][0]) /
+                                       (float)(interpolateRowCount - 1);
                         }
                         for (int j = 0; j < interpolateRowCount; j++)
                         {
@@ -768,14 +816,16 @@ void MainWindow::interpolate_value(const QString& action)
                         cellValue[0][j] = cellValue[0][0] + j * leftRowAdder;
                         if (interpolateColCount > 1)
                         {
-                            cellValue[interpolateColCount - 1][j] = cellValue[interpolateColCount - 1][0] + j * rightRowAdder;
+                            cellValue[interpolateColCount - 1][j] =
+                                cellValue[interpolateColCount - 1][0] + j * rightRowAdder;
                         }
                     }
                     for (int j = 0; j < interpolateRowCount; j++)
                     {
                         if (interpolateColCount > 1)
                         {
-                            colAdder = (cellValue[interpolateColCount - 1][j] - cellValue[0][j]) / (float)(interpolateColCount - 1);
+                            colAdder = (cellValue[interpolateColCount - 1][j] - cellValue[0][j]) /
+                                       (float)(interpolateColCount - 1);
                         }
                         for (int i = 0; i < interpolateColCount; i++)
                         {
@@ -792,7 +842,9 @@ void MainWindow::interpolate_value(const QString& action)
                     for (int i = 0; i < interpolateColCount; i++)
                     {
                         uint16_t map_value_index = (j + firstRow) * map_x_size + firstCol + i;
-                        QString rom_data_value = QString::number(fileActions->calculate_value_from_expression(fileActions->parse_stringlist_from_expression_string(map_value_to_byte, QString::number(cellValue[i][j]))));
+                        QString rom_data_value = QString::number(fileActions->calculate_value_from_expression(
+                            fileActions->parse_stringlist_from_expression_string(map_value_to_byte,
+                                                                                 QString::number(cellValue[i][j]))));
                         map_data_value.dword_value = rom_data_value.toUInt();
                         if (map_value_storagetype == "float")
                         {
@@ -802,12 +854,15 @@ void MainWindow::interpolate_value(const QString& action)
                         {
                             rom_data_value = QString::number(qRound(rom_data_value.toFloat()));
                         }
-                        float map_item_value = fileActions->calculate_value_from_expression(fileActions->parse_stringlist_from_expression_string(map_value_from_byte, rom_data_value));
+                        float map_item_value = fileActions->calculate_value_from_expression(
+                            fileActions->parse_stringlist_from_expression_string(map_value_from_byte, rom_data_value));
 
-                        map_data_cell_text.replace((firstRow + j) * map_x_size + firstCol + i, QString::number(map_item_value));
+                        map_data_cell_text.replace((firstRow + j) * map_x_size + firstCol + i,
+                                                   QString::number(map_item_value));
 
                         map_data_value.dword_value = rom_data_value.toInt();
-                        set_rom_data_value(rom_number, map_data_address, map_value_index, map_value_storagetype, map_value_endian, map_data_value.float_value);
+                        set_rom_data_value(rom_number, map_data_address, map_value_index, map_value_storagetype,
+                                           map_value_endian, map_data_value.float_value);
                     }
                 }
                 if (selected_range.begin()->leftColumn() == 0 && map_y_size > 1)
@@ -925,7 +980,10 @@ void MainWindow::paste_value()
                             {
                                 uint16_t map_value_index = (j + firstRow) * map_x_size + firstCol + i;
                                 mapDataCellText.replace((j + firstRow) * map_x_size + (i + firstCol), columns[i]);
-                                QString rom_data_value = QString::number(fileActions->calculate_value_from_expression(fileActions->parse_stringlist_from_expression_string(map_value_to_byte, mapDataCellText.at((j + firstRow) * map_x_size + (i + firstCol)))));
+                                QString rom_data_value = QString::number(fileActions->calculate_value_from_expression(
+                                    fileActions->parse_stringlist_from_expression_string(
+                                        map_value_to_byte,
+                                        mapDataCellText.at((j + firstRow) * map_x_size + (i + firstCol)))));
                                 map_data_value.dword_value = rom_data_value.toUInt();
                                 if (map_value_storagetype == "float")
                                 {
@@ -937,7 +995,8 @@ void MainWindow::paste_value()
                                 }
 
                                 map_data_value.dword_value = rom_data_value.toInt();
-                                set_rom_data_value(rom_number, map_data_address, map_value_index, map_value_storagetype, map_value_endian, map_data_value.float_value);
+                                set_rom_data_value(rom_number, map_data_address, map_value_index, map_value_storagetype,
+                                                   map_value_endian, map_data_value.float_value);
                             }
                         }
                     }
@@ -1148,9 +1207,8 @@ void MainWindow::toggle_realtime()
             *logValues, protocol_id, activeLogValueProtocolFilter, logging_policy);
         if (!snapshot)
         {
-            emit LOG_E("Logging session failed to start: " +
-                           QString::fromStdString(snapshot.error().detail),
-                       true, true);
+            emit LOG_E("Logging session failed to start: " + QString::fromStdString(snapshot.error().detail), true,
+                       true);
             QMessageBox::information(this, tr("Logging"), "Unable to start logging");
             logging_state = false;
             logger->setChecked(false);
@@ -1158,8 +1216,7 @@ void MainWindow::toggle_realtime()
         }
 
         activeLoggingSnapshot.emplace(*snapshot);
-        const LoggingStartResult start_result =
-            loggingEngine->start(config, std::move(*snapshot));
+        const LoggingStartResult start_result = loggingEngine->start(config, std::move(*snapshot));
         if (!start_result && !start_result.failure_reported)
         {
             QMessageBox::information(this, tr("Logging"), "Unable to start logging");
@@ -1432,7 +1489,9 @@ void MainWindow::set_maptablewidget_items()
             {
                 xSizeOffset = 1;
             }
-            if (ecuCalDef[mapRomNumber]->XSizeList.at(mapNumber).toInt() > 1 || ecuCalDef[mapRomNumber]->XScaleTypeList.at(mapNumber) == "Static Y Axis" || ecuCalDef[mapRomNumber]->XScaleTypeList.at(mapNumber) == "Static X Axis")
+            if (ecuCalDef[mapRomNumber]->XSizeList.at(mapNumber).toInt() > 1 ||
+                ecuCalDef[mapRomNumber]->XScaleTypeList.at(mapNumber) == "Static Y Axis" ||
+                ecuCalDef[mapRomNumber]->XScaleTypeList.at(mapNumber) == "Static X Axis")
             {
                 ySizeOffset = 1;
             }
@@ -1466,13 +1525,16 @@ void MainWindow::set_maptablewidget_items()
                         xScaleCellText.insert(i, QString::number(i));
                         xScaleCellDataText = xScaleCellText.at(i);
                     }
-                    else if (ecuCalDef[mapRomNumber]->XScaleTypeList.at(mapNumber) == "Static Y Axis" || ecuCalDef[mapRomNumber]->XScaleTypeList.at(mapNumber) == "Static X Axis")
+                    else if (ecuCalDef[mapRomNumber]->XScaleTypeList.at(mapNumber) == "Static Y Axis" ||
+                             ecuCalDef[mapRomNumber]->XScaleTypeList.at(mapNumber) == "Static X Axis")
                     {
                         xScaleCellDataText = xScaleCellText.at(i);
                     }
                     else
                     {
-                        xScaleCellDataText = QString::number(xScaleCellText.at(i).toFloat(), 'f', get_mapvalue_decimal_count(ecuCalDef[mapRomNumber]->XScaleFormatList.at(mapNumber)));
+                        xScaleCellDataText = QString::number(
+                            xScaleCellText.at(i).toFloat(), 'f',
+                            get_mapvalue_decimal_count(ecuCalDef[mapRomNumber]->XScaleFormatList.at(mapNumber)));
                     }
 
                     if (i < xScaleCellText.count())
@@ -1493,7 +1555,9 @@ void MainWindow::set_maptablewidget_items()
                     cellItem->setFont(cellFont);
                     if (i < yScaleCellText.count())
                     {
-                        cellItem->setText(QString::number(yScaleCellText.at(i).toFloat(), 'f', get_mapvalue_decimal_count(ecuCalDef[mapRomNumber]->YScaleFormatList.at(mapNumber))));
+                        cellItem->setText(QString::number(
+                            yScaleCellText.at(i).toFloat(), 'f',
+                            get_mapvalue_decimal_count(ecuCalDef[mapRomNumber]->YScaleFormatList.at(mapNumber))));
                     }
                 }
             }
@@ -1525,7 +1589,8 @@ void MainWindow::set_maptablewidget_items()
 
                 cellItem->setTextAlignment(Qt::AlignCenter);
                 cellItem->setFont(cellFont);
-                int mapItemColor = get_map_cell_colors(ecuCalDef[mapRomNumber], mapDataCellText.at(i).toFloat(), mapNumber);
+                int mapItemColor =
+                    get_map_cell_colors(ecuCalDef[mapRomNumber], mapDataCellText.at(i).toFloat(), mapNumber);
                 int mapItemColorRed = (mapItemColor >> 16) & 0xff;
                 int mapItemColorGreen = (mapItemColor >> 8) & 0xff;
                 int mapItemColorBlue = mapItemColor & 0xff;
@@ -1537,14 +1602,17 @@ void MainWindow::set_maptablewidget_items()
 
                 if (i < mapDataCellText.count())
                 {
-                    cellItem->setText(QString::number(mapDataCellText.at(i).toFloat(), 'f', get_mapvalue_decimal_count(ecuCalDef[mapRomNumber]->FormatList.at(mapNumber))));
+                    cellItem->setText(
+                        QString::number(mapDataCellText.at(i).toFloat(), 'f',
+                                        get_mapvalue_decimal_count(ecuCalDef[mapRomNumber]->FormatList.at(mapNumber))));
                 }
             }
         }
     }
 }
 
-QString MainWindow::get_rom_data_value(uint8_t rom_number, uint32_t data_address, uint16_t value_index, const QString& storagetype, const QString& endian)
+QString MainWindow::get_rom_data_value(uint8_t rom_number, uint32_t data_address, uint16_t value_index,
+                                       const QString& storagetype, const QString& endian)
 {
     union map_data
     {
@@ -1579,7 +1647,8 @@ QString MainWindow::get_rom_data_value(uint8_t rom_number, uint32_t data_address
     uint32_t data_byte = 0x00;
 
     uint32_t byte_address = data_address + (value_index * storagesize);
-    if (ecuCalDef[rom_number]->RomInfo.at(FlashMethod) == "wrx02" && ecuCalDef[rom_number]->FileSize.toUInt() < byte_address)
+    if (ecuCalDef[rom_number]->RomInfo.at(FlashMethod) == "wrx02" &&
+        ecuCalDef[rom_number]->FileSize.toUInt() < byte_address)
     {
         byte_address -= 0x8000;
     }
@@ -1588,8 +1657,10 @@ QString MainWindow::get_rom_data_value(uint8_t rom_number, uint32_t data_address
     {
         if (endian == "little" || storagetype == "float")
         {
-            data_byte = (data_byte << 8) + (uint8_t)ecuCalDef[rom_number]->FullRomData.at(byte_address + storagesize - 1 - k);
-            map_data_value.byte_value[k] = (uint8_t)ecuCalDef[rom_number]->FullRomData.at(byte_address + storagesize - 1 - k);
+            data_byte =
+                (data_byte << 8) + (uint8_t)ecuCalDef[rom_number]->FullRomData.at(byte_address + storagesize - 1 - k);
+            map_data_value.byte_value[k] =
+                (uint8_t)ecuCalDef[rom_number]->FullRomData.at(byte_address + storagesize - 1 - k);
         }
         else
         {
@@ -1629,7 +1700,8 @@ QString MainWindow::get_rom_data_value(uint8_t rom_number, uint32_t data_address
     return value;
 }
 
-void MainWindow::set_rom_data_value(uint8_t rom_number, uint32_t data_address, uint16_t value_index, const QString& storagetype, const QString& endian, float map_value)
+void MainWindow::set_rom_data_value(uint8_t rom_number, uint32_t data_address, uint16_t value_index,
+                                    const QString& storagetype, const QString& endian, float map_value)
 {
     union map_data
     {
@@ -1643,7 +1715,9 @@ void MainWindow::set_rom_data_value(uint8_t rom_number, uint32_t data_address, u
     } map_data_value{};
 
     map_data_value.float_value = map_value;
-    emit LOG_D("set_rom_data_value: 0x" + QString::number(map_data_value.dword_value, 16) + " | 0x" + QString::number(value_index, 16), true, true);
+    emit LOG_D("set_rom_data_value: 0x" + QString::number(map_data_value.dword_value, 16) + " | 0x" +
+                   QString::number(value_index, 16),
+               true, true);
 
     uint8_t storagesize = 0;
 
@@ -1662,7 +1736,8 @@ void MainWindow::set_rom_data_value(uint8_t rom_number, uint32_t data_address, u
     }
 
     uint32_t byte_address = data_address + (value_index * storagesize);
-    if (ecuCalDef[rom_number]->RomInfo.at(FlashMethod) == "wrx02" && ecuCalDef[rom_number]->FileSize.toUInt() < (190 * 1024) && byte_address > 0x27FFF)
+    if (ecuCalDef[rom_number]->RomInfo.at(FlashMethod) == "wrx02" &&
+        ecuCalDef[rom_number]->FileSize.toUInt() < (190 * 1024) && byte_address > 0x27FFF)
     {
         byte_address -= 0x8000;
     }
@@ -1671,7 +1746,8 @@ void MainWindow::set_rom_data_value(uint8_t rom_number, uint32_t data_address, u
     {
         if (endian == "little" || storagetype == "float")
         {
-            ecuCalDef[rom_number]->FullRomData[byte_address + k] = (uint8_t)(map_data_value.byte_value[storagesize - 1 - k]);
+            ecuCalDef[rom_number]->FullRomData[byte_address + k] =
+                (uint8_t)(map_data_value.byte_value[storagesize - 1 - k]);
         }
         else
         {
@@ -1724,12 +1800,14 @@ int MainWindow::get_map_cell_colors(FileActions::EcuCalDefStructure *ecuCalDef, 
     color.getRgbF(&r, &g, &b);
     mapCellColors = ((int)(r * 255) << 16) + ((int)(g * 255) << 8) + b * 255;
 
-    // qDebug() << "Map min:" << mapMinValue << "Map max:" << mapMaxValue << "color scale:" << color_scale << "scale start:" << scale_start;
+    // qDebug() << "Map min:" << mapMinValue << "Map max:" << mapMaxValue << "color scale:" << color_scale << "scale
+    // start:" << scale_start;
 
     return mapCellColors;
 }
 
-bool MainWindow::check_rom_data_value(const QString& storagetype, const QString& rom_data_value, const QString& new_rom_data_value)
+bool MainWindow::check_rom_data_value(const QString& storagetype, const QString& rom_data_value,
+                                      const QString& new_rom_data_value)
 {
     uint8_t storagesize = 1;
     bool result = false;
@@ -1974,14 +2052,15 @@ int MainWindow::simulate_obd()
     uint8_t sid_27_10[] = {0x80, 0xf1, 0x12, 0x06, 0x67, 0x10, 0x10, 0x10, 0x10, 0x10};
     uint8_t sid_27_11[] = {0x82, 0xf1, 0x12, 0x03, 0x67, 0x11, 0x34};
 
-    uint8_t sid_1a_90[] = {0x13, 0x5a, 0x90, 0x57, 0x44, 0x42, 0x32, 0x31, 0x31, 0x32, 0x32, 0x36, 0x31, 0x41, 0x32, 0x39, 0x32, 0x38, 0x36, 0x39};
-    uint8_t sid_21_09[] = {0x80, 0xf1, 0x12, 0x66, 0x61, 0x09, 0x43, 0x52, 0x33, 0x30, 0x2d, 0x36, 0x34, 0x38, 0x2d, 0x44,
-                           0x32, 0x4d, 0x31, 0x2d, 0x53, 0x32, 0x31, 0x31, 0x2d, 0x4d, 0x45, 0x30, 0x34, 0x30, 0x33, 0x2d,
-                           0x30, 0x30, 0x31, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-                           0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-                           0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-                           0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-                           0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x00};
+    uint8_t sid_1a_90[] = {0x13, 0x5a, 0x90, 0x57, 0x44, 0x42, 0x32, 0x31, 0x31, 0x32,
+                           0x32, 0x36, 0x31, 0x41, 0x32, 0x39, 0x32, 0x38, 0x36, 0x39};
+    uint8_t sid_21_09[] = {
+        0x80, 0xf1, 0x12, 0x66, 0x61, 0x09, 0x43, 0x52, 0x33, 0x30, 0x2d, 0x36, 0x34, 0x38, 0x2d, 0x44, 0x32, 0x4d,
+        0x31, 0x2d, 0x53, 0x32, 0x31, 0x31, 0x2d, 0x4d, 0x45, 0x30, 0x34, 0x30, 0x33, 0x2d, 0x30, 0x30, 0x31, 0x20,
+        0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+        0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+        0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+        0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x00};
 
     qDebug() << "Simulating OBD communications";
 
@@ -2019,20 +2098,24 @@ int MainWindow::simulate_obd()
                             for (uint8_t i = 0; i < sizeof(sid_81); i++) output.append((uint8_t)sid_81[i]);
                         if ((uint8_t)received.at(3) == 0x82 || (uint8_t)received.at(4) == 0x82)
                             for (uint8_t i = 0; i < sizeof(sid_82); i++) output.append((uint8_t)sid_82[i]);
-                        if (((uint8_t)received.at(3) == 0x83 && (uint8_t)received.at(4) == 0x00) || ((uint8_t)received.at(4) == 0x83 && (uint8_t)received.at(5) == 0x00))
-                            for (uint8_t i = 0; i < sizeof(sid_83_00); i++) output.append((uint8_t)sid_83_00[i]);
-                        if (((uint8_t)received.at(3) == 0x83 && (uint8_t)received.at(4) == 0x02) || ((uint8_t)received.at(4) == 0x83 && (uint8_t)received.at(5) == 0x02))
+                        if (((uint8_t)received.at(3) == 0x83 && (uint8_t)received.at(4) == 0x00) ||
+               ((uint8_t)received.at(4) == 0x83 && (uint8_t)received.at(5) == 0x00)) for (uint8_t i = 0; i <
+               sizeof(sid_83_00); i++) output.append((uint8_t)sid_83_00[i]); if (((uint8_t)received.at(3) == 0x83 &&
+               (uint8_t)received.at(4) == 0x02) || ((uint8_t)received.at(4) == 0x83 && (uint8_t)received.at(5) == 0x02))
                             for (uint8_t i = 0; i < sizeof(sid_83_02); i++) output.append((uint8_t)sid_83_02[i]);
-                        if (((uint8_t)received.at(3) == 0x83 && (uint8_t)received.at(4) == 0x03) || ((uint8_t)received.at(4) == 0x83 && (uint8_t)received.at(5) == 0x03))
-                            for (uint8_t i = 0; i < sizeof(sid_83_03); i++) output.append((uint8_t)sid_83_03[i]);
+                        if (((uint8_t)received.at(3) == 0x83 && (uint8_t)received.at(4) == 0x03) ||
+               ((uint8_t)received.at(4) == 0x83 && (uint8_t)received.at(5) == 0x03)) for (uint8_t i = 0; i <
+               sizeof(sid_83_03); i++) output.append((uint8_t)sid_83_03[i]);
 
-                        if (((uint8_t)received.at(3) == 0x27 && (uint8_t)received.at(4) == 0x01) || ((uint8_t)received.at(4) == 0x27 && (uint8_t)received.at(5) == 0x01))
-                            for (uint8_t i = 0; i < sizeof(sid_27_01); i++) output.append((uint8_t)sid_27_01[i]);
-                        if (((uint8_t)received.at(3) == 0x27 && (uint8_t)received.at(4) == 0x02) || ((uint8_t)received.at(4) == 0x27 && (uint8_t)received.at(5) == 0x02))
+                        if (((uint8_t)received.at(3) == 0x27 && (uint8_t)received.at(4) == 0x01) ||
+               ((uint8_t)received.at(4) == 0x27 && (uint8_t)received.at(5) == 0x01)) for (uint8_t i = 0; i <
+               sizeof(sid_27_01); i++) output.append((uint8_t)sid_27_01[i]); if (((uint8_t)received.at(3) == 0x27 &&
+               (uint8_t)received.at(4) == 0x02) || ((uint8_t)received.at(4) == 0x27 && (uint8_t)received.at(5) == 0x02))
                             for (uint8_t i = 0; i < sizeof(sid_27_02); i++) output.append((uint8_t)sid_27_02[i]);
-                        if (((uint8_t)received.at(3) == 0x27 && (uint8_t)received.at(4) == 0x10) || ((uint8_t)received.at(4) == 0x27 && (uint8_t)received.at(5) == 0x10))
-                            for (uint8_t i = 0; i < sizeof(sid_27_10); i++) output.append((uint8_t)sid_27_10[i]);
-                        if (((uint8_t)received.at(3) == 0x27 && (uint8_t)received.at(4) == 0x11) || ((uint8_t)received.at(4) == 0x27 && (uint8_t)received.at(5) == 0x11))
+                        if (((uint8_t)received.at(3) == 0x27 && (uint8_t)received.at(4) == 0x10) ||
+               ((uint8_t)received.at(4) == 0x27 && (uint8_t)received.at(5) == 0x10)) for (uint8_t i = 0; i <
+               sizeof(sid_27_10); i++) output.append((uint8_t)sid_27_10[i]); if (((uint8_t)received.at(3) == 0x27 &&
+               (uint8_t)received.at(4) == 0x11) || ((uint8_t)received.at(4) == 0x27 && (uint8_t)received.at(5) == 0x11))
                             for (uint8_t i = 0; i < sizeof(sid_27_11); i++) output.append((uint8_t)sid_27_11[i]);
 
                         if ((uint8_t)received.at(1) == 0x1a && (uint8_t)received.at(2) == 0x90)

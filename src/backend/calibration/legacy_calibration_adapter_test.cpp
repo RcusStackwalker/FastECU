@@ -33,49 +33,46 @@ QByteArray sampleXmlProtocolsFile()
     // car_model_catalog_test.cpp) and it is the case bind_protocol has to
     // fill with legacy's " " placeholder rather than leave stale. It is
     // appended last so the first car_model keeps index 0.
-    return QByteArray(
-        "<config>"
-        "<protocols>"
-        "<protocol name=\"sub_ecu_denso_can\" alias=\"denso_can\">"
-        "<mcu>SH7058</mcu><checksum>yes</checksum><mode>can</mode>"
-        "<log_protocol>ssm</log_protocol><description>Denso CAN</description>"
-        "</protocol>"
-        "</protocols>"
-        "<car_models>"
-        "<car_model>"
-        "<make>Mitsubishi</make><model>Colt</model><version>Z27AG</version>"
-        "<protocol>sub_ecu_denso_can</protocol>"
-        "</car_model>"
-        "<car_model>"
-        "<make>Subaru</make><model>Impreza</model><version>GD</version>"
-        "<protocol>orphan_protocol</protocol>"
-        "</car_model>"
-        "</car_models>"
-        "</config>");
+    return QByteArray("<config>"
+                      "<protocols>"
+                      "<protocol name=\"sub_ecu_denso_can\" alias=\"denso_can\">"
+                      "<mcu>SH7058</mcu><checksum>yes</checksum><mode>can</mode>"
+                      "<log_protocol>ssm</log_protocol><description>Denso CAN</description>"
+                      "</protocol>"
+                      "</protocols>"
+                      "<car_models>"
+                      "<car_model>"
+                      "<make>Mitsubishi</make><model>Colt</model><version>Z27AG</version>"
+                      "<protocol>sub_ecu_denso_can</protocol>"
+                      "</car_model>"
+                      "<car_model>"
+                      "<make>Subaru</make><model>Impreza</model><version>GD</version>"
+                      "<protocol>orphan_protocol</protocol>"
+                      "</car_model>"
+                      "</car_models>"
+                      "</config>");
 }
 
 // Same shape, one <protocol> field changed, so a rebuild of the memoized
 // join is observable.
 QByteArray alternateXmlProtocolsFile()
 {
-    return QByteArray(
-        "<config>"
-        "<protocols>"
-        "<protocol name=\"sub_ecu_denso_can\" alias=\"denso_can\">"
-        "<mcu>SH72543</mcu><checksum>yes</checksum><mode>can</mode>"
-        "</protocol>"
-        "</protocols>"
-        "<car_models>"
-        "<car_model>"
-        "<make>Mitsubishi</make><model>Colt</model><version>Z27AG</version>"
-        "<protocol>sub_ecu_denso_can</protocol>"
-        "</car_model>"
-        "</car_models>"
-        "</config>");
+    return QByteArray("<config>"
+                      "<protocols>"
+                      "<protocol name=\"sub_ecu_denso_can\" alias=\"denso_can\">"
+                      "<mcu>SH72543</mcu><checksum>yes</checksum><mode>can</mode>"
+                      "</protocol>"
+                      "</protocols>"
+                      "<car_models>"
+                      "<car_model>"
+                      "<make>Mitsubishi</make><model>Colt</model><version>Z27AG</version>"
+                      "<protocol>sub_ecu_denso_can</protocol>"
+                      "</car_model>"
+                      "</car_models>"
+                      "</config>");
 }
 
-void installProtocolsFile(fastecu::InMemoryFileRepository& repo, const char *handle,
-                          const QByteArray& xml)
+void installProtocolsFile(fastecu::InMemoryFileRepository& repo, const char *handle, const QByteArray& xml)
 {
     repo.files[handle] = std::vector<std::uint8_t>(xml.begin(), xml.end());
 }
@@ -144,8 +141,7 @@ class TestLegacyCalibrationAdapter : public QObject
         EcuCalDefStructure ecuCalDef;
         ecuCalDef.FullRomData = QByteArray("\x01\x02", 2);
 
-        EcuCalDefStructure *result =
-            adapter.save_subaru_rom_file(&ecuCalDef, "saved/rom.bin");
+        EcuCalDefStructure *result = adapter.save_subaru_rom_file(&ecuCalDef, "saved/rom.bin");
 
         QVERIFY(result != nullptr);
         QCOMPARE(ecuCalDef.FullFileName, QString("saved/rom.bin"));
@@ -335,8 +331,7 @@ class TestLegacyCalibrationAdapter : public QObject
         LegacyCalibrationAdapter adapter(repo);
 
         fastecu::definition::RomDefinition rom;
-        rom.scalings.push_back(fastecu::definition::Scaling{
-            .name = "FuelScaling", .from_byte = "x"});
+        rom.scalings.push_back(fastecu::definition::Scaling{.name = "FuelScaling", .from_byte = "x"});
         fastecu::definition::CalibrationMap map;
         map.name = "Fuel";
         map.type = "2D";

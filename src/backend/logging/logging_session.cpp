@@ -232,8 +232,7 @@ class ExpressionValidator
 
     void skip_spaces()
     {
-        while (position_ < expression_.size() &&
-               std::isspace(static_cast<unsigned char>(expression_[position_])))
+        while (position_ < expression_.size() && std::isspace(static_cast<unsigned char>(expression_[position_])))
         {
             ++position_;
         }
@@ -245,15 +244,14 @@ class ExpressionValidator
 
 bool valid_expression(const LoggingChannel& channel)
 {
-    if (channel.from_byte_expression.empty() ||
-        !ExpressionValidator(channel.from_byte_expression).valid())
+    if (channel.from_byte_expression.empty() || !ExpressionValidator(channel.from_byte_expression).valid())
     {
         return false;
     }
     const auto is_finite = [&channel](const std::string_view& probe)
     {
-        return std::isfinite(expression_evaluate(
-            channel.from_byte_expression, probe, static_cast<int>(channel.decimal_precision)));
+        return std::isfinite(
+            expression_evaluate(channel.from_byte_expression, probe, static_cast<int>(channel.decimal_precision)));
     };
     constexpr std::array<std::string_view, 3> probes{"1", "16", "1616"};
     return std::ranges::any_of(probes, is_finite);
@@ -281,12 +279,10 @@ bool valid_protocol(LoggingProtocolId protocol)
 
 bool valid_raw_assembly(RawAssembly raw_assembly)
 {
-    return raw_assembly == RawAssembly::DecimalBytesConcatenated ||
-           raw_assembly == RawAssembly::UnsignedIntegerDecimal;
+    return raw_assembly == RawAssembly::DecimalBytesConcatenated || raw_assembly == RawAssembly::UnsignedIntegerDecimal;
 }
 
-bool valid_wire_shape(LoggingProtocolId protocol,
-                      const std::vector<LoggingChannel>& channels)
+bool valid_wire_shape(LoggingProtocolId protocol, const std::vector<LoggingChannel>& channels)
 {
     switch (protocol)
     {
@@ -322,8 +318,7 @@ bool valid_wire_shape(LoggingProtocolId protocol,
 
 } // namespace
 
-LoggingSession::LoggingSession(LoggingProtocolId protocol, std::vector<LoggingChannel> channels,
-                               LoggingPolicy policy)
+LoggingSession::LoggingSession(LoggingProtocolId protocol, std::vector<LoggingChannel> channels, LoggingPolicy policy)
     : protocol_(protocol), channels_(std::move(channels)), policy_(policy)
 {
 }
@@ -355,11 +350,10 @@ const LoggingChannel *LoggingSession::find_channel(std::string_view id) const
     return nullptr;
 }
 
-fastecu::Result<LoggingSession> make_logging_session(
-    LoggingProtocolId protocol, std::vector<LoggingChannel> channels, LoggingPolicy policy)
+fastecu::Result<LoggingSession> make_logging_session(LoggingProtocolId protocol, std::vector<LoggingChannel> channels,
+                                                     LoggingPolicy policy)
 {
-    if (!valid_protocol(protocol) || policy.poll_timeout_ms <= 0 ||
-        policy.car_silence_miss_threshold <= 0 ||
+    if (!valid_protocol(protocol) || policy.poll_timeout_ms <= 0 || policy.car_silence_miss_threshold <= 0 ||
         policy.reconnect_attempt_threshold <= 0 || policy.reconnect_retry_period < 0)
     {
         return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "invalid logging policy");
@@ -372,10 +366,9 @@ fastecu::Result<LoggingSession> make_logging_session(
     std::unordered_set<std::string> ids;
     for (const LoggingChannel& channel : channels)
     {
-        if (channel.id.empty() || !ids.insert(channel.id).second || channel.length == 0 ||
-            channel.length > 255 || !valid_address(protocol, channel.address) ||
-            !valid_raw_assembly(channel.raw_assembly) || channel.decimal_precision > 15 ||
-            !valid_expression(channel))
+        if (channel.id.empty() || !ids.insert(channel.id).second || channel.length == 0 || channel.length > 255 ||
+            !valid_address(protocol, channel.address) || !valid_raw_assembly(channel.raw_assembly) ||
+            channel.decimal_precision > 15 || !valid_expression(channel))
         {
             return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "invalid logging channel");
         }
@@ -383,8 +376,7 @@ fastecu::Result<LoggingSession> make_logging_session(
 
     if (!valid_wire_shape(protocol, channels))
     {
-        return fastecu::fail(fastecu::ErrorKind::InvalidConfig,
-                             "logging channels do not fit the selected protocol");
+        return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "logging channels do not fit the selected protocol");
     }
 
     return LoggingSession(protocol, std::move(channels), policy);

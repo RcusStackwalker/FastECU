@@ -10,11 +10,8 @@ int findFlashDeviceIndex(const QString& mcuType)
     return fastecu::flash::find_flash_device_index(mcuType.toStdString());
 }
 
-void configureIso15765Can(SerialPortActions *serial,
-                          const QString& canSpeed,
-                          quint32 sourceAddress,
-                          quint32 destinationAddress,
-                          bool use29BitId)
+void configureIso15765Can(SerialPortActions *serial, const QString& canSpeed, quint32 sourceAddress,
+                          quint32 destinationAddress, bool use29BitId)
 {
     serial->set_is_iso14230_connection(false);
     serial->set_add_iso14230_header(false);

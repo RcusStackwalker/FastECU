@@ -23,18 +23,20 @@ FlashPlanFields valid_read_fields()
         .erase_regions = {},
         .image = std::nullopt,
         .kernel = KernelImage{.id = "k", .load_address = 0xffff2000, .bytes = {0x01}},
-        .family_plan = DensoSh705xEepromKlinePlan{
-            .mode = EepromReadMode::Mode2,
-            .security = DensoSecurityVariant::Stock,
-            .tester_id = 0xf0,
-            .target_id = 0x10,
-            .initial_baud = 4800,
-            .kernel_baud = 15625,
-        },
-        .confirmations = {
-            ConfirmationSpec{.id = ConfirmationSpec::Id::BeginEepromRead},
-            ConfirmationSpec{.id = ConfirmationSpec::Id::InspectEepromBytes},
-        },
+        .family_plan =
+            DensoSh705xEepromKlinePlan{
+                .mode = EepromReadMode::Mode2,
+                .security = DensoSecurityVariant::Stock,
+                .tester_id = 0xf0,
+                .target_id = 0x10,
+                .initial_baud = 4800,
+                .kernel_baud = 15625,
+            },
+        .confirmations =
+            {
+                ConfirmationSpec{.id = ConfirmationSpec::Id::BeginEepromRead},
+                ConfirmationSpec{.id = ConfirmationSpec::Id::InspectEepromBytes},
+            },
     };
 }
 
@@ -116,10 +118,7 @@ const std::array<FamilyCase, 7>& family_cases()
                                       .bootloader_ok = {0x4d, 0x00, 0xb3}},
          "SubaruDensoMc68hc16y5_02"},
         {FlashFamily::SubaruDensoSh7055_02, TransportKind::Kline,
-         SubaruDensoSh7055_02Plan{.tester_id = 0xf0,
-                                  .target_id = 0x10,
-                                  .read_ecu_id = true},
-         "SubaruDensoSh7055_02"},
+         SubaruDensoSh7055_02Plan{.tester_id = 0xf0, .target_id = 0x10, .read_ecu_id = true}, "SubaruDensoSh7055_02"},
     }};
     return cases;
 }
@@ -250,11 +249,9 @@ TEST(FlashValidationTest, FamilyPlanTagMismatchWithTransportIsRejected)
 
 TEST(FlashValidationTest, FamilyAndVariantMustMatchExhaustively)
 {
-    for (std::size_t declared_index = 0; declared_index < family_cases().size();
-         ++declared_index)
+    for (std::size_t declared_index = 0; declared_index < family_cases().size(); ++declared_index)
     {
-        for (std::size_t variant_index = 0; variant_index < family_cases().size();
-             ++variant_index)
+        for (std::size_t variant_index = 0; variant_index < family_cases().size(); ++variant_index)
         {
             auto fields = valid_read_fields();
             const auto& declared = family_cases()[declared_index];
@@ -380,8 +377,7 @@ TEST(FlashValidation, RejectsAPresentKernelWithNoBytes)
 TEST(FlashValidation, RejectsAPresentKernelWithNoId)
 {
     auto fields = kernellessReadFields();
-    fields.kernel =
-        fastecu::flash::KernelImage{.id = "", .load_address = 0x800000, .bytes = {0x01, 0x02}};
+    fields.kernel = fastecu::flash::KernelImage{.id = "", .load_address = 0x800000, .bytes = {0x01, 0x02}};
 
     const auto plan = fastecu::flash::validate_and_build(std::move(fields));
 

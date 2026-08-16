@@ -89,16 +89,14 @@ bytes::Bytes requestOnId(std::uint32_t arb_id, std::initializer_list<bytes::Byte
 
 fastecu::flash::FlashPlan readPlan()
 {
-    auto plan = build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::Read, kProtocol, kMcu,
-                                                           std::nullopt);
+    auto plan = build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
     EXPECT_TRUE(plan.has_value()) << plan.error().detail;
     return std::move(*plan);
 }
 
 fastecu::flash::FlashPlan writePlan(bytes::Bytes rom)
 {
-    auto plan = build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu,
-                                                           std::move(rom));
+    auto plan = build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu, std::move(rom));
     EXPECT_TRUE(plan.has_value()) << plan.error().detail;
     return std::move(*plan);
 }
@@ -130,13 +128,12 @@ fastecu::flash::FlashPlan handBuiltPlan(FlashOperation operation, std::size_t im
 // decrypt_payload, lines 1051-1122) -- not read back from the executor's own
 // translation unit. Mirrors subaru_hitachi_m32r_can_executor_test.cpp's own
 // precedent.
-constexpr std::array<std::uint16_t, 16> kSeedKeyTable{
-    0x9E99, 0x685C, 0x874D, 0xF11E, 0x27D4, 0xA967, 0xB63B, 0x7A37,
-    0xE23B, 0xA8D0, 0x9B82, 0xAC43, 0xE874, 0x7FC5, 0x7141, 0x8B44};
+constexpr std::array<std::uint16_t, 16> kSeedKeyTable{0x9E99, 0x685C, 0x874D, 0xF11E, 0x27D4, 0xA967, 0xB63B, 0x7A37,
+                                                      0xE23B, 0xA8D0, 0x9B82, 0xAC43, 0xE874, 0x7FC5, 0x7141, 0x8B44};
 constexpr std::array<std::uint16_t, 4> kEncryptTable{0x3B61, 0x8BEF, 0x9E51, 0x1075};
-constexpr std::array<std::uint8_t, 32> kIndexTransformation{
-    0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
-    0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
+constexpr std::array<std::uint8_t, 32> kIndexTransformation{0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
+                                                            0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
+                                                            0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
 bytes::Bytes seedKey(bytes::ByteView seed)
 {
@@ -151,8 +148,8 @@ bytes::Bytes seedKey(bytes::ByteView seed)
 // image -- even for a sub-window that does not start at image offset 0.
 bytes::Bytes toWire(bytes::ByteView plain)
 {
-    return SsmProtocol::calculatePayload(plain, static_cast<std::uint32_t>(plain.size()),
-                                         kEncryptTable, kIndexTransformation);
+    return SsmProtocol::calculatePayload(plain, static_cast<std::uint32_t>(plain.size()), kEncryptTable,
+                                         kIndexTransformation);
 }
 
 const bytes::Bytes kSeed{0x11, 0x22, 0x33, 0x44};
@@ -185,8 +182,7 @@ void scriptIdentityQueries(ScriptedCanFlashTransport& transport)
 
 // Session (0x10/0x03 fatal, 0x10/0x43 non-fatal) and seed/seed-key
 // exchanges (legacy lines 216-333): all sent on 0x7E0.
-void scriptSessionAndSeed(ScriptedCanFlashTransport& transport, bytes::ByteView seed,
-                          bytes::ByteView key)
+void scriptSessionAndSeed(ScriptedCanFlashTransport& transport, bytes::ByteView seed, bytes::ByteView key)
 {
     transport.expectWrite(requestOnId(0x7e0, {0x10, 0x03}));
     transport.queueRead(response({0x50, 0x03}));
@@ -231,9 +227,8 @@ void scriptFullConnect(ScriptedCanFlashTransport& transport)
 // lines 529-562) over the resolved {0x8000, 0x78000} window.
 void scriptDumpSetup(ScriptedCanFlashTransport& transport)
 {
-    transport.expectWrite(request(bytes::composeBe(bytes::Byte(0x34), bytes::Byte(0x04),
-                                                   bytes::Byte(0x33), bytes::u24(0x8000),
-                                                   bytes::u24(0x78000))));
+    transport.expectWrite(request(bytes::composeBe(bytes::Byte(0x34), bytes::Byte(0x04), bytes::Byte(0x33),
+                                                   bytes::u24(0x8000), bytes::u24(0x78000))));
     transport.queueRead(response({0x74, 0x20, 0x01, 0x04}));
 }
 
@@ -241,8 +236,8 @@ void scriptDumpSetup(ScriptedCanFlashTransport& transport)
 // `pagesize`-byte pages, each page filled with `fill` (plaintext -- the
 // scripted wire bytes are toWire(fill-page), decrypted back by the
 // executor).
-void scriptFlashDump(ScriptedCanFlashTransport& transport, std::uint32_t start,
-                     std::uint32_t length, std::uint32_t pagesize, bytes::Byte fill)
+void scriptFlashDump(ScriptedCanFlashTransport& transport, std::uint32_t start, std::uint32_t length,
+                     std::uint32_t pagesize, bytes::Byte fill)
 {
     const bytes::Bytes plainPage(pagesize, fill);
     const bytes::Bytes wirePage = toWire(plainPage);
@@ -277,14 +272,13 @@ void scriptEraseMemory(ScriptedCanFlashTransport& transport)
 // Scripts one reflash_block block: setup, 128-byte chunk sweep
 // (content-blind -- any well-formed reply is accepted), close, checksum
 // (legacy lines 811-984).
-void scriptWriteBlock(ScriptedCanFlashTransport& transport, bytes::ByteView blockPlain,
-                      std::uint32_t start, std::uint32_t length)
+void scriptWriteBlock(ScriptedCanFlashTransport& transport, bytes::ByteView blockPlain, std::uint32_t start,
+                      std::uint32_t length)
 {
     constexpr std::uint32_t kChunkSize = 128;
 
-    transport.expectWrite(request(bytes::composeBe(bytes::Byte(0x34), bytes::Byte(0x04),
-                                                   bytes::Byte(0x33), bytes::u24(start),
-                                                   bytes::u24(length))));
+    transport.expectWrite(request(bytes::composeBe(bytes::Byte(0x34), bytes::Byte(0x04), bytes::Byte(0x33),
+                                                   bytes::u24(start), bytes::u24(length))));
     transport.queueRead(response({0x74}));
 
     const bytes::Bytes encrypted = toWire(blockPlain);
@@ -329,8 +323,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyI
     fields.target_id = "sub_ecu_denso_sh705x_eeprom_can";
     fields.mcu_name = "SH7058";
     fields.transfer_region = fastecu::flash::MemoryRegion{.start = 0x0, .length = 0x100};
-    fields.kernel = fastecu::flash::KernelImage{
-        .id = "k", .load_address = 0xffff6004, .bytes = {0x01, 0x02}};
+    fields.kernel = fastecu::flash::KernelImage{.id = "k", .load_address = 0xffff6004, .bytes = {0x01, 0x02}};
     fields.family_plan = fastecu::flash::DensoSh705xEepromCanPlan{
         .mode = fastecu::flash::EepromReadMode::Mode2,
         .security = fastecu::flash::DensoSecurityVariant::Stock,
@@ -342,8 +335,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyI
     auto foreign = fastecu::flash::validate_and_build(std::move(fields));
     ASSERT_TRUE(foreign.has_value()) << foreign.error().detail;
 
-    const auto result =
-        executor.execute(*foreign, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(*foreign, transport, clock, cancellation.token(), events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
@@ -420,11 +412,9 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ReadReturnsTheFloorClampedWindowPaddedW
     ASSERT_TRUE(result->read_bytes.has_value());
     ASSERT_EQ(result->read_bytes->size(), 0x80000u);
     EXPECT_TRUE(std::all_of(result->read_bytes->begin(), result->read_bytes->begin() + 0x8000,
-                            [](bytes::Byte b)
-                            { return b == 0x00; }));
+                            [](bytes::Byte b) { return b == 0x00; }));
     EXPECT_TRUE(std::all_of(result->read_bytes->begin() + 0x8000, result->read_bytes->end(),
-                            [](bytes::Byte b)
-                            { return b == 0x5A; }));
+                            [](bytes::Byte b) { return b == 0x5A; }));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -476,8 +466,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ReadStopsWhenCancelled)
 class CancelAfterFirstChunkSink final : public RecordingEventSink
 {
   public:
-    explicit CancelAfterFirstChunkSink(fastecu::flash::CancellationSource& source)
-        : source_(source)
+    explicit CancelAfterFirstChunkSink(fastecu::flash::CancellationSource& source) : source_(source)
     {
     }
     void phase_progress(const fastecu::PhaseProgressEvent& event) override

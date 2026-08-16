@@ -142,10 +142,9 @@ TEST(LoadProtocolCatalog, ChecksumPreservesRawTextIncludingNonBooleanValues)
     // pins that the raw text -- not a lossy bool -- is what's stored.
     InMemoryFileRepository repo;
     ConfigPaths paths = test_paths();
-    std::string xml =
-        R"(<?xml version="1.0"?><config name="FastECU" version="x"><protocols>)"
-        R"(<protocol name="p_na"><checksum>n/a</checksum><read>n/a</read></protocol>)"
-        R"(</protocols></config>)";
+    std::string xml = R"(<?xml version="1.0"?><config name="FastECU" version="x"><protocols>)"
+                      R"(<protocol name="p_na"><checksum>n/a</checksum><read>n/a</read></protocol>)"
+                      R"(</protocols></config>)";
     repo.files[paths.protocols_file] = std::vector<std::uint8_t>(xml.begin(), xml.end());
 
     auto catalog = load_protocol_catalog(paths, repo);
@@ -179,8 +178,7 @@ TEST(LoadProtocolCatalog, RejectsDuplicateProtocolNames)
         <protocol name="same_name"><mcu>SECOND</mcu></protocol>
     </protocols>
 </config>)";
-    repo.files["protocols.cfg"] =
-        std::vector<std::uint8_t>(duplicated, duplicated + std::strlen(duplicated));
+    repo.files["protocols.cfg"] = std::vector<std::uint8_t>(duplicated, duplicated + std::strlen(duplicated));
 
     auto catalog = load_protocol_catalog(test_paths(), repo);
 
@@ -201,8 +199,7 @@ TEST(LoadProtocolCatalog, DistinctProtocolNamesAreAccepted)
         <protocol name="name_b"><mcu>SECOND</mcu></protocol>
     </protocols>
 </config>)";
-    repo.files["protocols.cfg"] =
-        std::vector<std::uint8_t>(distinct, distinct + std::strlen(distinct));
+    repo.files["protocols.cfg"] = std::vector<std::uint8_t>(distinct, distinct + std::strlen(distinct));
 
     auto catalog = load_protocol_catalog(test_paths(), repo);
 

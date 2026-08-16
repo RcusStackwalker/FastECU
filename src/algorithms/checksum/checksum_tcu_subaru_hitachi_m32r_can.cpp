@@ -38,7 +38,9 @@ ChecksumResult ChecksumTcuSubaruHitachiM32rCan::calculate_checksum_result(bytes:
     checksum_2_value_calculated_bytes[2] = 0xff - ((checksum_2_value_calculated >> 16) & 0xff);
     checksum_2_value_calculated_bytes[1] = 0xff - ((checksum_2_value_calculated >> 8) & 0xff);
     checksum_2_value_calculated_bytes[0] = 0x100 - (checksum_2_value_calculated & 0xff);
-    checksum_2_value_calculated = (checksum_2_value_calculated_bytes[3] << 24) + (checksum_2_value_calculated_bytes[2] << 16) + (checksum_2_value_calculated_bytes[1] << 8) + checksum_2_value_calculated_bytes[0];
+    checksum_2_value_calculated = (checksum_2_value_calculated_bytes[3] << 24) +
+                                  (checksum_2_value_calculated_bytes[2] << 16) +
+                                  (checksum_2_value_calculated_bytes[1] << 8) + checksum_2_value_calculated_bytes[0];
 
     checksum_2_value_stored = bytes::readU32Be(romData, checksum_2_balance_value_address);
 
@@ -46,8 +48,8 @@ ChecksumResult ChecksumTcuSubaruHitachiM32rCan::calculate_checksum_result(bytes:
     {
         checksum_ok = false;
 
-        fastecu::checksum::internal::rebalanceU32Be(
-            romData, checksum_1_balance_value_address, checksum_1_value_calculated, 0x5aa5a55a);
+        fastecu::checksum::internal::rebalanceU32Be(romData, checksum_1_balance_value_address,
+                                                    checksum_1_value_calculated, 0x5aa5a55a);
     }
 
     if (checksum_2_value_calculated != checksum_2_value_stored)
@@ -67,7 +69,9 @@ ChecksumResult ChecksumTcuSubaruHitachiM32rCan::calculate_checksum_result(bytes:
         checksum_2_value_calculated_bytes2[2] = 0xff - ((checksum_2_value_calculated >> 16) & 0xff);
         checksum_2_value_calculated_bytes2[1] = 0xff - ((checksum_2_value_calculated >> 8) & 0xff);
         checksum_2_value_calculated_bytes2[0] = 0x100 - (checksum_2_value_calculated & 0xff);
-        checksum_2_value_calculated = (checksum_2_value_calculated_bytes2[3] << 24) + (checksum_2_value_calculated_bytes2[2] << 16) + (checksum_2_value_calculated_bytes2[1] << 8) + checksum_2_value_calculated_bytes2[0];
+        checksum_2_value_calculated =
+            (checksum_2_value_calculated_bytes2[3] << 24) + (checksum_2_value_calculated_bytes2[2] << 16) +
+            (checksum_2_value_calculated_bytes2[1] << 8) + checksum_2_value_calculated_bytes2[0];
 
         bytes::writeU32Be(romData, checksum_2_balance_value_address, checksum_2_value_calculated);
         bytes::writeU32Be(romData, checksum_2_balance_value_address + 4, checksum_2_value_calculated);

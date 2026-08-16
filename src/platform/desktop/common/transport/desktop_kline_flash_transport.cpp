@@ -11,8 +11,7 @@ DesktopKlineFlashTransport::DesktopKlineFlashTransport(std::unique_ptr<SerialPor
 {
 }
 
-DesktopKlineFlashTransport::DesktopKlineFlashTransport(SerialPortActions *serial)
-    : serial_(serial)
+DesktopKlineFlashTransport::DesktopKlineFlashTransport(SerialPortActions *serial) : serial_(serial)
 {
 }
 
@@ -119,8 +118,7 @@ Status DesktopKlineFlashTransport::disable_lec_lines()
     }
     try
     {
-        if (serial_->set_lec_lines(serial_->get_requestToSendDisabled(),
-                                   serial_->get_dataTerminalDisabled()) != 0)
+        if (serial_->set_lec_lines(serial_->get_requestToSendDisabled(), serial_->get_dataTerminalDisabled()) != 0)
         {
             return fail(ErrorKind::Internal, "set_lec_lines disabled failed");
         }
@@ -164,14 +162,12 @@ Status DesktopKlineFlashTransport::enable_programming_voltage_line()
 {
     if (!serial_)
     {
-        return fail(ErrorKind::Disconnected,
-                    "enable_programming_voltage_line() called after close()");
+        return fail(ErrorKind::Disconnected, "enable_programming_voltage_line() called after close()");
     }
     try
     {
         // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:513.
-        if (serial_->set_lec_lines(serial_->get_requestToSendEnabled(),
-                                   serial_->get_dataTerminalDisabled()) != 0)
+        if (serial_->set_lec_lines(serial_->get_requestToSendEnabled(), serial_->get_dataTerminalDisabled()) != 0)
         {
             return fail(ErrorKind::Internal, "set_lec_lines programming state failed");
         }
@@ -327,8 +323,8 @@ Result<std::size_t> DesktopKlineFlashTransport::write(bytes::ByteView data)
     }
 }
 
-Result<DesktopKlineFlashTransport::OptionalBytes> DesktopKlineFlashTransport::read(
-    int timeout_ms, const ICancellationToken& cancellation)
+Result<DesktopKlineFlashTransport::OptionalBytes>
+DesktopKlineFlashTransport::read(int timeout_ms, const ICancellationToken& cancellation)
 {
     if (cancellation.cancelled() || unblock_requested_.load(std::memory_order_acquire))
     {

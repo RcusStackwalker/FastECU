@@ -93,8 +93,7 @@ class DrainCancellingTransport final : public ScriptedKlineFlashTransport
 class CancelAfterEraseTransport final : public ScriptedKlineFlashTransport
 {
   public:
-    explicit CancelAfterEraseTransport(ToggleCancellation& cancellation)
-        : cancellation_(cancellation)
+    explicit CancelAfterEraseTransport(ToggleCancellation& cancellation) : cancellation_(cancellation)
     {
     }
 
@@ -113,8 +112,7 @@ class CancelAfterEraseTransport final : public ScriptedKlineFlashTransport
 
     Result<OptionalBytes> read(int timeout_ms, const ICancellationToken& cancellation) override
     {
-        Result<OptionalBytes> result =
-            ScriptedKlineFlashTransport::read(timeout_ms, cancellation);
+        Result<OptionalBytes> result = ScriptedKlineFlashTransport::read(timeout_ms, cancellation);
         if (erase_response_pending_)
         {
             erase_response_pending_ = false;
@@ -134,8 +132,7 @@ Result<FlashPlan> stock_plan(FlashOperation operation = FlashOperation::Read)
 {
     return build_subaru_denso_mc68hc16y5_02_plan(
         operation, "sub_ecu_denso_mc68hc16y5_02", "MC68HC16Y5",
-        operation == FlashOperation::Read ? std::nullopt
-                                          : std::optional<bytes::Bytes>(bytes::Bytes(0x28000, 0)),
+        operation == FlashOperation::Read ? std::nullopt : std::optional<bytes::Bytes>(bytes::Bytes(0x28000, 0)),
         KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0x01, 0x02, 0x03, 0x04}});
 }
 
@@ -143,24 +140,21 @@ Result<FlashPlan> ecutek_plan(FlashOperation operation = FlashOperation::Read)
 {
     return build_subaru_denso_mc68hc16y5_02_plan(
         operation, "sub_ecu_denso_mc68hc16y5_02_ecutek", "MC68HC16Y5",
-        operation == FlashOperation::Read ? std::nullopt
-                                          : std::optional<bytes::Bytes>(bytes::Bytes(0x28000, 0)),
+        operation == FlashOperation::Read ? std::nullopt : std::optional<bytes::Bytes>(bytes::Bytes(0x28000, 0)),
         KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0x01, 0x02, 0x03, 0x04}});
 }
 
 Result<FlashPlan> tpu_read_plan()
 {
     return build_subaru_denso_mc68hc16y5_02_plan(
-        FlashOperation::Read, "sub_ecu_denso_mc68hc16y5_02_tpu", "MC68HC16Y5_TPU",
-        std::nullopt,
+        FlashOperation::Read, "sub_ecu_denso_mc68hc16y5_02_tpu", "MC68HC16Y5_TPU", std::nullopt,
         KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0x01, 0x02, 0x03, 0x04}});
 }
 
 bytes::Bytes framed(std::uint8_t opcode, bytes::ByteView extra = {})
 {
     const std::uint16_t datalen_plus_one = static_cast<std::uint16_t>(extra.size() + 1);
-    return composeBeWithChecksum(bytes::sum8, std::uint16_t{0xBEEF}, datalen_plus_one,
-                                 bytes::Byte(opcode), extra);
+    return composeBeWithChecksum(bytes::sum8, std::uint16_t{0xBEEF}, datalen_plus_one, bytes::Byte(opcode), extra);
 }
 
 // Anchors framed() against hardcoded wire bytes so a bug in composeBeWithChecksum
@@ -180,36 +174,14 @@ TEST(SubaruDensoMc68hc16y5_02Executor, FramedHelperMatchesHardcodedWireBytesNoPa
 //   0xBE + 0xEF + 0x00 + 0x03 + 0x02 + 0xAB + 0xCD = 0x32A -> & 0xFF = 0x2A.
 TEST(SubaruDensoMc68hc16y5_02Executor, FramedHelperMatchesHardcodedWireBytesWithPayload)
 {
-    EXPECT_THAT(framed(0x02, bytes::Bytes{0xAB, 0xCD}),
-                ElementsAre(0xBE, 0xEF, 0x00, 0x03, 0x02, 0xAB, 0xCD, 0x2A));
+    EXPECT_THAT(framed(0x02, bytes::Bytes{0xAB, 0xCD}), ElementsAre(0xBE, 0xEF, 0x00, 0x03, 0x02, 0xAB, 0xCD, 0x2A));
 }
 
 bytes::Bytes stock_upload_request()
 {
     return {
-        0x53,
-        0x02,
-        0x00,
-        0x00,
-        0x00,
-        0x10,
-        0x64,
-        0x67,
-        0x39,
-        0x41,
-        0x65,
-        0x65,
-        0x65,
-        0x65,
-        0x65,
-        0x65,
-        0x65,
-        0x65,
-        0x65,
-        0x65,
-        0x65,
-        0x65,
-        0x9A,
+        0x53, 0x02, 0x00, 0x00, 0x00, 0x10, 0x64, 0x67, 0x39, 0x41, 0x65, 0x65,
+        0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x9A,
     };
 }
 
@@ -229,12 +201,11 @@ void script_stock_connect_and_upload(ScriptedKlineFlashTransport& transport)
     transport.queueRead(framed(0x41, bytes::Bytes{'K', 'I', 'D'}));
 }
 
-void script_read_page(ScriptedKlineFlashTransport& transport, std::uint32_t address,
-                      bytes::Byte fill, std::uint8_t response_opcode = 0x43)
+void script_read_page(ScriptedKlineFlashTransport& transport, std::uint32_t address, bytes::Byte fill,
+                      std::uint8_t response_opcode = 0x43)
 {
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:323-455.
-    transport.expectWrite(
-        framed(0x03, composeBe(0x00_b, u24(address), std::uint16_t{0x400})));
+    transport.expectWrite(framed(0x03, composeBe(0x00_b, u24(address), std::uint16_t{0x400})));
     transport.queueRead(framed(response_opcode, bytes::Bytes(0x400, fill)));
 }
 
@@ -248,8 +219,8 @@ std::size_t packed_block_offset(const flashdev_t& device, unsigned block_no)
     return offset;
 }
 
-void script_crc_compare(ScriptedKlineFlashTransport& transport, const flashdev_t& device,
-                        bytes::ByteView image, std::optional<unsigned> differing_block)
+void script_crc_compare(ScriptedKlineFlashTransport& transport, const flashdev_t& device, bytes::ByteView image,
+                        std::optional<unsigned> differing_block)
 {
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:591-715.
     std::size_t image_offset = 0;
@@ -259,8 +230,7 @@ void script_crc_compare(ScriptedKlineFlashTransport& transport, const flashdev_t
         const bytes::Bytes request_payload = composeBe(block.start, 0x00_b, u24(block.len));
         transport.expectWrite(framed(0x02, request_payload));
 
-        std::uint32_t ecu_crc =
-            fastecu::checksum::crc32(image.data() + image_offset, block.len);
+        std::uint32_t ecu_crc = fastecu::checksum::crc32(image.data() + image_offset, block.len);
         if (differing_block == block_no)
         {
             ecu_crc ^= 0x00000001u;
@@ -290,8 +260,8 @@ void script_prog_volt(ScriptedKlineFlashTransport& transport)
     transport.queueRead(framed(0x44, bytes::Bytes{0x04, 0xB0}));
 }
 
-void script_block_transfer(ScriptedKlineFlashTransport& transport, const flashdev_t& device,
-                           bytes::ByteView image, unsigned block_no, bool test_write)
+void script_block_transfer(ScriptedKlineFlashTransport& transport, const flashdev_t& device, bytes::ByteView image,
+                           unsigned block_no, bool test_write)
 {
     constexpr std::uint32_t kChunkSize = 0x200;
     constexpr std::uint32_t kCommitSize = 0x1000;
@@ -323,14 +293,13 @@ void script_block_transfer(ScriptedKlineFlashTransport& transport, const flashde
         {
             const std::uint32_t commit_offset = offset + kChunkSize - kCommitSize;
             const std::uint32_t commit_address = block.start + commit_offset;
-            const std::uint32_t commit_crc = fastecu::checksum::crc32(
-                image.data() + block_image_offset + commit_offset, kCommitSize);
+            const std::uint32_t commit_crc =
+                fastecu::checksum::crc32(image.data() + block_image_offset + commit_offset, kCommitSize);
             // 0x10, 0x00 stay two byte literals: production spells this field
             // std::uint16_t(kCommitBlockSize), so the width derivation is not
             // shared and a byte-order bug in appendU16Be would fail this test
             // rather than move both sides together.
-            const bytes::Bytes commit_payload =
-                composeBe(commit_address, 0x10_b, 0x00_b, commit_crc);
+            const bytes::Bytes commit_payload = composeBe(commit_address, 0x10_b, 0x00_b, commit_crc);
             const std::uint8_t commit_opcode = test_write ? 0x23 : 0x24;
             transport.expectWrite(framed(commit_opcode, commit_payload));
             transport.queueRead(framed(static_cast<std::uint8_t>(commit_opcode | 0x40)));
@@ -346,8 +315,8 @@ Result<FlashPlan> stock_write_plan(FlashOperation operation, bytes::Bytes image)
         KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0x01, 0x02, 0x03, 0x04}});
 }
 
-bytes::Bytes write_chunk_request(const flashdev_t& device, bytes::ByteView image,
-                                 unsigned block_no, std::uint32_t offset)
+bytes::Bytes write_chunk_request(const flashdev_t& device, bytes::ByteView image, unsigned block_no,
+                                 std::uint32_t offset)
 {
     constexpr std::uint32_t kChunkSize = 0x200;
     const auto& block = device.fblocks[block_no];
@@ -355,13 +324,12 @@ bytes::Bytes write_chunk_request(const flashdev_t& device, bytes::ByteView image
     // image bytes must not share production's compose expression.
     bytes::Bytes payload = composeBe(block.start + offset);
     const std::size_t image_offset = packed_block_offset(device, block_no) + offset;
-    payload.insert(payload.end(), image.begin() + image_offset,
-                   image.begin() + image_offset + kChunkSize);
+    payload.insert(payload.end(), image.begin() + image_offset, image.begin() + image_offset + kChunkSize);
     return framed(0x22, payload);
 }
 
-void script_write_prefix(ScriptedKlineFlashTransport& transport, const flashdev_t& device,
-                         bytes::ByteView image, unsigned block_no, bool test_write)
+void script_write_prefix(ScriptedKlineFlashTransport& transport, const flashdev_t& device, bytes::ByteView image,
+                         unsigned block_no, bool test_write)
 {
     script_stock_connect_and_upload(transport);
     script_crc_compare(transport, device, image, block_no);
@@ -418,8 +386,7 @@ Result<FlashPlan> different_family_plan()
     InMemoryFileRepository files;
     files.files["protocols.cfg"] = std::vector<std::uint8_t>(kConfig, kConfig + sizeof(kConfig) - 1);
     files.files["kernels/kernel.bin"] = {0x01, 0x02, 0x03, 0x04};
-    return build_eeprom_read_plan(eeprom_paths(), "sub_ecu_eeprom_denso_sh7055_kline",
-                                  EepromReadMode::Mode2, files);
+    return build_eeprom_read_plan(eeprom_paths(), "sub_ecu_eeprom_denso_sh7055_kline", EepromReadMode::Mode2, files);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, WrongFamilyPlanFails)
@@ -453,13 +420,14 @@ TEST(SubaruDensoMc68hc16y5_02Executor, MalformedFamilyPlanFailsBeforeAnyIo)
         .erase_regions = {},
         .image = std::nullopt,
         .kernel = KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0x01}},
-        .family_plan = SubaruDensoMc68hc16y5_02Plan{
-            .connect_baud = 12345,
-            .kernel_baud = 9600,
-            .encryption_xor = 0x55,
-            .kernel_magic = 0x3941,
-            .bootloader_ok = {0x4d, 0x00, 0xb3},
-        },
+        .family_plan =
+            SubaruDensoMc68hc16y5_02Plan{
+                .connect_baud = 12345,
+                .kernel_baud = 9600,
+                .encryption_xor = 0x55,
+                .kernel_magic = 0x3941,
+                .bootloader_ok = {0x4d, 0x00, 0xb3},
+            },
     });
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     ScriptedKlineFlashTransport transport;
@@ -493,29 +461,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectsViaWrx02InitAndUploadsPaddedKerne
     // The four input bytes are padded to 16 before encryption; magic patches
     // encrypted offsets 2..3, and each trailing zero encrypts to 0x65.
     const bytes::Bytes upload{
-        0x53,
-        0x02,
-        0x00,
-        0x00,
-        0x00,
-        0x10,
-        0x64,
-        0x67,
-        0x39,
-        0x41,
-        0x65,
-        0x65,
-        0x65,
-        0x65,
-        0x65,
-        0x65,
-        0x65,
-        0x65,
-        0x65,
-        0x65,
-        0x65,
-        0x65,
-        0x9A,
+        0x53, 0x02, 0x00, 0x00, 0x00, 0x10, 0x64, 0x67, 0x39, 0x41, 0x65, 0x65,
+        0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x65, 0x9A,
     };
     transport.expectWrite(upload);
     transport.queue_no_frame();
@@ -541,10 +488,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectsViaWrx02InitAndUploadsPaddedKerne
                   ScriptedKlineFlashTransport::ControlLineAction::PulseLec2,
                   ScriptedKlineFlashTransport::ControlLineAction::EnableProgrammingVoltageLine,
               }));
-    EXPECT_EQ(transport.operation_trace_.front(),
-              ScriptedKlineFlashTransport::Operation::DisableLecLines);
-    EXPECT_EQ(transport.operation_trace_.at(1),
-              ScriptedKlineFlashTransport::Operation::Read10);
+    EXPECT_EQ(transport.operation_trace_.front(), ScriptedKlineFlashTransport::Operation::DisableLecLines);
+    EXPECT_EQ(transport.operation_trace_.at(1), ScriptedKlineFlashTransport::Operation::Read10);
     EXPECT_EQ(transport.lec_2_pulse_timeouts_, (std::vector<int>{200}));
     EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 200), 12);
     EXPECT_EQ(transport.close_call_count_, 1);
@@ -654,29 +599,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, EcutekUsesItsDistinctBootloaderAndKernelW
     transport.queueRead(bytes::Bytes{0x4C, 0x00, 0xB4});
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:204-281.
     transport.expectWrite(bytes::Bytes{
-        0x53,
-        0x02,
-        0x00,
-        0x00,
-        0x00,
-        0x10,
-        0x60,
-        0x63,
-        0x39,
-        0x40,
-        0x61,
-        0x61,
-        0x61,
-        0x61,
-        0x61,
-        0x61,
-        0x61,
-        0x61,
-        0x61,
-        0x61,
-        0x61,
-        0x61,
-        0xD3,
+        0x53, 0x02, 0x00, 0x00, 0x00, 0x10, 0x60, 0x63, 0x39, 0x40, 0x61, 0x61,
+        0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0x61, 0xD3,
     });
     transport.queue_no_frame();
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:1139-1168.
@@ -853,8 +777,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, PhaseFailureWinsOverCloseFailureAndLogsCl
     EXPECT_EQ(transport.close_call_count_, 1);
     ASSERT_FALSE(events.logs.empty());
     EXPECT_EQ(events.logs.back(),
-              (std::pair<LogLevel, std::string>{
-                  LogLevel::Warning, "close failed after MC68HC16Y5_02 phase error"}));
+              (std::pair<LogLevel, std::string>{LogLevel::Warning, "close failed after MC68HC16Y5_02 phase error"}));
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, ReadReturnsAssembledPageBytes)
@@ -921,8 +844,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, TpuReadHonorsDeclaredPackedRomSize)
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(result->read_bytes->size(), device->romsize);
     EXPECT_TRUE(std::all_of(result->read_bytes->begin(), result->read_bytes->end(),
-                            [](bytes::Byte value)
-                            { return value == 0x6a; }));
+                            [](bytes::Byte value) { return value == 0x6a; }));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -974,8 +896,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadRejectsShortPageResponse)
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     ScriptedKlineFlashTransport transport;
     script_stock_connect_and_upload(transport);
-    transport.expectWrite(
-        framed(0x03, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x04, 0x00}));
+    transport.expectWrite(framed(0x03, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x04, 0x00}));
     // Valid BEEF/0x43 envelope but one byte less than the requested page.
     transport.queueRead(framed(0x43, bytes::Bytes(0x3FF, 0xA5)));
 
@@ -1085,8 +1006,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, TestWriteSendsValidateNotCommit)
     ASSERT_LT(kDifferingBlock, device->numblocks);
     bytes::Bytes image(device->romsize, 0x00);
     const std::size_t image_offset = packed_block_offset(*device, kDifferingBlock);
-    std::fill(image.begin() + image_offset,
-              image.begin() + image_offset + device->fblocks[kDifferingBlock].len, 0xA5);
+    std::fill(image.begin() + image_offset, image.begin() + image_offset + device->fblocks[kDifferingBlock].len, 0xA5);
     auto plan = stock_write_plan(FlashOperation::TestWrite, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
 
@@ -1190,10 +1110,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt
         // The trailing four bytes stay byte literals: production spells the
         // same field 0x00_b followed by u24(block.length), so this expectation
         // keeps its own derivation of the length encoding.
-        transport.expectWrite(
-            framed(0x02, composeBe(block.start, 0x00_b, 0x00_b, 0x40_b, 0x00_b)));
-        const std::uint32_t crc =
-            fastecu::checksum::crc32(image.data() + image_offset, block.len);
+        transport.expectWrite(framed(0x02, composeBe(block.start, 0x00_b, 0x00_b, 0x40_b, 0x00_b)));
+        const std::uint32_t crc = fastecu::checksum::crc32(image.data() + image_offset, block.len);
         bytes::Bytes response = framed(0x42, composeBe(crc));
         if (block_no == 0)
         {
@@ -1234,10 +1152,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead
     for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
     {
         const auto& block = device->fblocks[block_no];
-        transport.expectWrite(
-            framed(0x02, composeBe(block.start, 0x00_b, 0x00_b, 0x40_b, 0x00_b)));
-        const std::uint32_t crc =
-            fastecu::checksum::crc32(image.data() + image_offset, block.len);
+        transport.expectWrite(framed(0x02, composeBe(block.start, 0x00_b, 0x00_b, 0x40_b, 0x00_b)));
+        const std::uint32_t crc = fastecu::checksum::crc32(image.data() + image_offset, block.len);
         if (block_no == 0)
         {
             transport.queue_no_frame();
@@ -1272,8 +1188,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteRejectsTruncatedBlockCrcAfterBounded
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     ScriptedKlineFlashTransport transport;
     script_stock_connect_and_upload(transport);
-    transport.expectWrite(framed(0x02, bytes::Bytes{0x00, 0x00, 0x00, 0x00,
-                                                    0x00, 0x00, 0x40, 0x00}));
+    transport.expectWrite(framed(0x02, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00}));
     transport.queueRead(bytes::Bytes{0xBE, 0xEF, 0x00, 0x05, 0x42});
     for (int attempt = 0; attempt < 20; ++attempt)
     {
@@ -1301,8 +1216,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteRejectsNegativeBlockCrcResponse)
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     ScriptedKlineFlashTransport transport;
     script_stock_connect_and_upload(transport);
-    transport.expectWrite(framed(0x02, bytes::Bytes{0x00, 0x00, 0x00, 0x00,
-                                                    0x00, 0x00, 0x40, 0x00}));
+    transport.expectWrite(framed(0x02, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00}));
     transport.queueRead(framed(0x7F, bytes::Bytes{0x00, 0x00, 0x00, 0x00}));
 
     FakeClock clock;
@@ -1325,8 +1239,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WritePropagatesBlockCrcDrainError)
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     ScriptedKlineFlashTransport transport;
     script_stock_connect_and_upload(transport);
-    transport.expectWrite(framed(0x02, bytes::Bytes{0x00, 0x00, 0x00, 0x00,
-                                                    0x00, 0x00, 0x40, 0x00}));
+    transport.expectWrite(framed(0x02, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00}));
     const std::uint32_t crc = fastecu::checksum::crc32(image.data(), 0x4000);
     transport.queueRead(framed(0x42, composeBe(crc)));
     transport.queue_error(ErrorKind::Disconnected, "CRC drain failed");
@@ -1383,8 +1296,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteFailsOnRejectedCommitResponse)
         transport.queueRead(framed(0x62));
     }
     const std::uint32_t start = device->fblocks[kBlock].start;
-    const std::uint32_t crc = fastecu::checksum::crc32(
-        image.data() + packed_block_offset(*device, kBlock), 0x1000);
+    const std::uint32_t crc = fastecu::checksum::crc32(image.data() + packed_block_offset(*device, kBlock), 0x1000);
     transport.expectWrite(framed(0x24, composeBe(start, 0x10_b, 0x00_b, crc)));
     transport.queueRead(bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x64});
 
@@ -1415,8 +1327,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, TestWriteFailsOnRejectedValidateResponse)
         transport.queueRead(framed(0x62));
     }
     const std::uint32_t start = device->fblocks[kBlock].start;
-    const std::uint32_t crc = fastecu::checksum::crc32(
-        image.data() + packed_block_offset(*device, kBlock), 0x1000);
+    const std::uint32_t crc = fastecu::checksum::crc32(image.data() + packed_block_offset(*device, kBlock), 0x1000);
     transport.expectWrite(framed(0x23, composeBe(start, 0x10_b, 0x00_b, crc)));
     transport.queueRead(bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x63});
 
@@ -1455,10 +1366,12 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteLogsRemainingMismatchAfterVerificati
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_TRUE(std::find(events.logs.begin(), events.logs.end(),
-                          std::pair{LogLevel::Error,
-                                    std::string{"Flash verification differs; do not power off, the kernel is still running"}}) !=
-                events.logs.end());
+    EXPECT_TRUE(
+        std::find(
+            events.logs.begin(), events.logs.end(),
+            std::pair{LogLevel::Error,
+                      std::string{"Flash verification differs; do not power off, the kernel is still running"}}) !=
+        events.logs.end());
 }
 
 } // namespace

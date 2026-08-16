@@ -4,9 +4,9 @@
 
 #include <array>
 
-ChecksumResult ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(
-    bytes::ByteView romView, uint32_t checksum_area_start,
-    uint32_t checksum_area_length)
+ChecksumResult ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(bytes::ByteView romView,
+                                                                             uint32_t checksum_area_start,
+                                                                             uint32_t checksum_area_length)
 {
     using fastecu::checksum::internal::DensoTableOutcome;
     using fastecu::checksum::internal::DensoTableSpec;
@@ -32,8 +32,7 @@ ChecksumResult ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(
         .table_length = checksum_area_length,
         .overrides = active_overrides,
     };
-    const DensoTableOutcome primary_outcome =
-        fastecu::checksum::internal::correctDensoTable(result.romData, primary);
+    const DensoTableOutcome primary_outcome = fastecu::checksum::internal::correctDensoTable(result.romData, primary);
     if (primary_outcome == DensoTableOutcome::Disabled)
     {
         result.status = ChecksumResult::Status::Disabled;
@@ -80,8 +79,7 @@ ChecksumResult ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(
         }
     }
 
-    if (primary_outcome == DensoTableOutcome::Corrected ||
-        secondary_outcome == DensoTableOutcome::Corrected)
+    if (primary_outcome == DensoTableOutcome::Corrected || secondary_outcome == DensoTableOutcome::Corrected)
     {
         result.status = ChecksumResult::Status::Corrected;
         result.message = "Subaru Denso SH705x Checksum";

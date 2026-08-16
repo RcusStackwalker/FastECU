@@ -29,16 +29,15 @@ LoggingSession session(LoggingPolicy policy = {.poll_timeout_ms = 5,
                                                .reconnect_attempt_threshold = 1000,
                                                .reconnect_retry_period = 0})
 {
-    auto result = make_logging_session(
-        LoggingProtocolId::Ssm,
-        {LoggingChannel{.id = "rpm",
-                        .address = 0x10,
-                        .length = 1,
-                        .raw_assembly = RawAssembly::UnsignedIntegerDecimal,
-                        .from_byte_expression = "x",
-                        .unit = "rpm",
-                        .decimal_precision = 0}},
-        policy);
+    auto result = make_logging_session(LoggingProtocolId::Ssm,
+                                       {LoggingChannel{.id = "rpm",
+                                                       .address = 0x10,
+                                                       .length = 1,
+                                                       .raw_assembly = RawAssembly::UnsignedIntegerDecimal,
+                                                       .from_byte_expression = "x",
+                                                       .unit = "rpm",
+                                                       .decimal_precision = 0}},
+                                       policy);
     Q_ASSERT(result.has_value());
     return std::move(*result);
 }
@@ -55,9 +54,8 @@ class TestLoggingWorker : public QObject
         protocol.queueStartResult({});
         protocol.queuePollResult(PollData{.responded = false});
         protocol.queuePollResult(PollData{.responded = false});
-        protocol.queuePollResult(PollData{
-            .responded = true,
-            .samples = {ProtocolSample{.channel_id = "rpm", .raw_value = "1234"}}});
+        protocol.queuePollResult(
+            PollData{.responded = true, .samples = {ProtocolSample{.channel_id = "rpm", .raw_value = "1234"}}});
         NullDiagnostics diagnostics;
         LoggingWorker worker(session(), &protocol, diagnostics);
         QSignalSpy state_spy(&worker, &LoggingWorker::stateChanged);
@@ -73,8 +71,7 @@ class TestLoggingWorker : public QObject
         QCOMPARE(state_spy.at(0).at(0).value<LoggingState>(), LoggingState::Running);
         QCOMPARE(state_spy.at(1).at(0).value<LoggingState>(), LoggingState::CarNotResponding);
         QCOMPARE(state_spy.at(2).at(0).value<LoggingState>(), LoggingState::Running);
-        const auto samples =
-            samples_spy.at(0).at(0).value<QVector<fastecu::logging::LogSample>>();
+        const auto samples = samples_spy.at(0).at(0).value<QVector<fastecu::logging::LogSample>>();
         QCOMPARE(samples.size(), 1);
         QCOMPARE(samples.at(0).channel_id, std::string("rpm"));
         QCOMPARE(samples.at(0).numeric_value, 1234.0);
@@ -88,8 +85,7 @@ class TestLoggingWorker : public QObject
     void forwards_final_start_error_without_policy_mapping()
     {
         ScriptedLoggingProtocol protocol;
-        protocol.queueStartResult(
-            fastecu::fail(fastecu::ErrorKind::BadResponse, "handshake rejected"));
+        protocol.queueStartResult(fastecu::fail(fastecu::ErrorKind::BadResponse, "handshake rejected"));
         NullDiagnostics diagnostics;
         LoggingWorker worker(session(), &protocol, diagnostics);
         QSignalSpy finished_spy(&worker, &LoggingWorker::sessionFinished);

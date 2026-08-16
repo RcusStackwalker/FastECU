@@ -22,8 +22,7 @@ namespace
 // pass that guard and silently leave the tail of resp at its zero-init
 // value. Catching a wrong tag turns that class of protocol/version-skew
 // bug into a clean ERR_FAILED instead of quietly-wrong data.
-template <typename Resp>
-bool readAndValidateResponse(HANDLE pipe, Function expectedFunction, Resp& resp)
+template <typename Resp> bool readAndValidateResponse(HANDLE pipe, Function expectedFunction, Resp& resp)
 {
     FrameHeader header{};
     if (!readFrame(pipe, header, &resp, sizeof(resp)))
@@ -320,8 +319,7 @@ long J2534BridgeClient::PassThruStopMsgFilter(unsigned long ChannelID, unsigned 
     return resp.result;
 }
 
-long J2534BridgeClient::PassThruSetProgrammingVoltage(unsigned long DeviceID, unsigned long Pin,
-                                                      unsigned long Voltage)
+long J2534BridgeClient::PassThruSetProgrammingVoltage(unsigned long DeviceID, unsigned long Pin, unsigned long Voltage)
 {
     PassThruSetProgrammingVoltageRequest req{DeviceID, Pin, Voltage};
     if (!writeFrame(toChildWrite_, Function::PassThruSetProgrammingVoltage, &req, sizeof(req)))
@@ -384,8 +382,7 @@ long J2534BridgeClient::PassThruGetLastError(char *pErrorDescription)
     return resp.result;
 }
 
-long J2534BridgeClient::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const void *pInput,
-                                      void *pOutput)
+long J2534BridgeClient::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const void *pInput, void *pOutput)
 {
     PassThruIoctlRequest req{};
     req.channelId = ChannelID;

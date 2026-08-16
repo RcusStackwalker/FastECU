@@ -7,10 +7,12 @@
 #include <QElapsedTimer>
 #include <utility>
 
-FlashEcuSubaruUnisiaJecsM32rOperation::FlashEcuSubaruUnisiaJecsM32rOperation(
-    SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
-    QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(std::move(cmd_type))
+FlashEcuSubaruUnisiaJecsM32rOperation::FlashEcuSubaruUnisiaJecsM32rOperation(SerialPortActions *serial,
+                                                                             FileActions::EcuCalDefStructure *ecuCalDef,
+                                                                             QString cmd_type, QWidget *dialog,
+                                                                             QObject *parent, PromptFn promptOverride)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef),
+      cmd_type(std::move(cmd_type))
 {
 }
 
@@ -26,7 +28,8 @@ bool FlashEcuSubaruUnisiaJecsM32rOperation::execute()
         return false;
     }
     QString mcu_name = flashdevices[mcu_type_index].name;
-    emit LOG_D("MCU type: " + mcu_name + " " + mcu_type_string + " and index: " + QString::number(mcu_type_index), true, true);
+    emit LOG_D("MCU type: " + mcu_name + " " + mcu_type_string + " and index: " + QString::number(mcu_type_index), true,
+               true);
 
     flash_method = ecuCalDef->FlashMethod;
 
@@ -34,11 +37,13 @@ bool FlashEcuSubaruUnisiaJecsM32rOperation::execute()
 
     if (cmd_type == "read")
     {
-        emit LOG_I("Read memory with flashmethod '" + flash_method + "' and kernel '" + ecuCalDef->Kernel + "'", true, true);
+        emit LOG_I("Read memory with flashmethod '" + flash_method + "' and kernel '" + ecuCalDef->Kernel + "'", true,
+                   true);
     }
     else if (cmd_type == "write")
     {
-        emit LOG_I("Write memory with flashmethod '" + flash_method + "' and kernel '" + ecuCalDef->Kernel + "'", true, true);
+        emit LOG_I("Write memory with flashmethod '" + flash_method + "' and kernel '" + ecuCalDef->Kernel + "'", true,
+                   true);
     }
 
     // Set serial port
@@ -101,7 +106,9 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::read_mem(uint32_t start_addr, uint32_
     {
         if ((uint8_t)received.at(4) != 0xFF)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+            emit LOG_E("Wrong response from ECU: " +
+                           FileActions::parse_nrc_message(received.mid(4, received.length() - 1)),
+                       true, true);
         }
         else
         {
@@ -138,7 +145,9 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::read_mem(uint32_t start_addr, uint32_
         {
             if ((uint8_t)received.at(4) != 0xFF)
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+                emit LOG_E("Wrong response from ECU: " +
+                               FileActions::parse_nrc_message(received.mid(4, received.length() - 1)),
+                           true, true);
 
                 return STATUS_ERROR;
             }
@@ -169,7 +178,9 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::read_mem(uint32_t start_addr, uint32_
         {
             if ((uint8_t)received.at(4) != 0xF8)
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+                emit LOG_E("Wrong response from ECU: " +
+                               FileActions::parse_nrc_message(received.mid(4, received.length() - 1)),
+                           true, true);
 
                 return STATUS_ERROR;
             }
@@ -190,7 +201,9 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::read_mem(uint32_t start_addr, uint32_
         {
             if ((uint8_t)received.at(4) != 0xFF)
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+                emit LOG_E("Wrong response from ECU: " +
+                               FileActions::parse_nrc_message(received.mid(4, received.length() - 1)),
+                           true, true);
 
                 return STATUS_ERROR;
             }
@@ -253,7 +266,9 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::read_mem(uint32_t start_addr, uint32_
         {
             if ((uint8_t)received.at(4) != 0xE0)
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+                emit LOG_E("Wrong response from ECU: " +
+                               FileActions::parse_nrc_message(received.mid(4, received.length() - 1)),
+                           true, true);
 
                 return STATUS_ERROR;
             }
@@ -289,7 +304,12 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::read_mem(uint32_t start_addr, uint32_
 
         QString start_address = QString("%1").arg(addr, 8, 16, QLatin1Char('0')).toUpper();
         QString block_len = QString("%1").arg(pagesize, 8, 16, QLatin1Char('0')).toUpper();
-        msg = QString("Kernel read addr: 0x%1 length: 0x%2, %3 B/s %4 s").arg(start_address).arg(block_len).arg(curspeed, 6, 10, QLatin1Char(' ')).arg(tleft, 6, 10, QLatin1Char(' ')).toUtf8();
+        msg = QString("Kernel read addr: 0x%1 length: 0x%2, %3 B/s %4 s")
+                  .arg(start_address)
+                  .arg(block_len)
+                  .arg(curspeed, 6, 10, QLatin1Char(' '))
+                  .arg(tleft, 6, 10, QLatin1Char(' '))
+                  .toUtf8();
         emit LOG_I(msg, true, true);
         delay(1);
 
@@ -336,7 +356,9 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
     {
         if ((uint8_t)received.at(4) != 0xEF)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+            emit LOG_E("Wrong response from ECU: " +
+                           FileActions::parse_nrc_message(received.mid(4, received.length() - 1)),
+                       true, true);
         }
         else
         {
@@ -357,7 +379,9 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
         {
             if ((uint8_t)received.at(4) != 0xFF)
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+                emit LOG_E("Wrong response from ECU: " +
+                               FileActions::parse_nrc_message(received.mid(4, received.length() - 1)),
+                           true, true);
 
                 return STATUS_ERROR;
             }
@@ -389,7 +413,9 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
         {
             if ((uint8_t)received.at(4) != 0xEF)
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+                emit LOG_E("Wrong response from ECU: " +
+                               FileActions::parse_nrc_message(received.mid(4, received.length() - 1)),
+                           true, true);
             }
             else
             {
@@ -407,8 +433,8 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
 
     if (!serial->get_use_openport2_adapter())
     {
-        confirm(tr("Programming voltage"), tr("Apply VPP voltage to ECU and continue by pressing OK"),
-                QMessageBox::Ok, QMessageBox::Ok);
+        confirm(tr("Programming voltage"), tr("Apply VPP voltage to ECU and continue by pressing OK"), QMessageBox::Ok,
+                QMessageBox::Ok);
     }
 
     emit LOG_D("Set programming voltage +12v to Line End Check 1", true, true);
@@ -430,7 +456,9 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
         emit LOG_I(".", false, false);
         if (received.length() > 6)
         {
-            if ((uint8_t)received.at(0) == 0x80 && (uint8_t)received.at(1) == 0xf0 && (uint8_t)received.at(2) == 0x10 && (uint8_t)received.at(3) == 0x02 && (uint8_t)received.at(4) == 0xef && (uint8_t)received.at(5) == 0x42) // 0x48 some error?
+            if ((uint8_t)received.at(0) == 0x80 && (uint8_t)received.at(1) == 0xf0 && (uint8_t)received.at(2) == 0x10 &&
+                (uint8_t)received.at(3) == 0x02 && (uint8_t)received.at(4) == 0xef &&
+                (uint8_t)received.at(5) == 0x42) // 0x48 some error?
             {
                 emit LOG_I("", false, true);
                 emit LOG_I("Flash erase in progress, please wait...", true, true);
@@ -468,7 +496,9 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
         emit LOG_I(".", false, false);
         if (received.length() > 6)
         {
-            if ((uint8_t)received.at(0) == 0x80 && (uint8_t)received.at(1) == 0xf0 && (uint8_t)received.at(2) == 0x10 && (uint8_t)received.at(3) == 0x02 && (uint8_t)received.at(4) == 0xef && (uint8_t)received.at(5) == 0x52) // 0x5a some error?
+            if ((uint8_t)received.at(0) == 0x80 && (uint8_t)received.at(1) == 0xf0 && (uint8_t)received.at(2) == 0x10 &&
+                (uint8_t)received.at(3) == 0x02 && (uint8_t)received.at(4) == 0xef &&
+                (uint8_t)received.at(5) == 0x52) // 0x5a some error?
             {
                 emit LOG_I("", false, true);
                 emit LOG_I("Flash erased!", true, true);
@@ -536,7 +566,9 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
             received = serial->read_serial_data(serial_read_extra_long_timeout);
             if (received.length() > 6)
             {
-                if ((uint8_t)received.at(0) == 0x80 && (uint8_t)received.at(1) == 0xf0 && (uint8_t)received.at(2) == 0x10 && (uint8_t)received.at(3) == 0x02 && (uint8_t)received.at(4) == 0xef && (uint8_t)received.at(5) == 0x52)
+                if ((uint8_t)received.at(0) == 0x80 && (uint8_t)received.at(1) == 0xf0 &&
+                    (uint8_t)received.at(2) == 0x10 && (uint8_t)received.at(3) == 0x02 &&
+                    (uint8_t)received.at(4) == 0xef && (uint8_t)received.at(5) == 0x52)
                 {
                 }
                 else
@@ -556,7 +588,12 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
 
         QString start_address = QString("%1").arg(start, 8, 16, QLatin1Char('0')).toUpper();
         QString block_len = QString("%1").arg(blocksize, 8, 16, QLatin1Char('0')).toUpper();
-        msg = QString("Kernel write addr: 0x%1 length: 0x%2, %3 B/s %4 s remain").arg(start_address).arg(block_len).arg(curspeed, 6, 10, QLatin1Char(' ')).arg(tleft, 6, 10, QLatin1Char(' ')).toUtf8();
+        msg = QString("Kernel write addr: 0x%1 length: 0x%2, %3 B/s %4 s remain")
+                  .arg(start_address)
+                  .arg(block_len)
+                  .arg(curspeed, 6, 10, QLatin1Char(' '))
+                  .arg(tleft, 6, 10, QLatin1Char(' '))
+                  .toUtf8();
         emit LOG_I(msg, true, true);
 
         start += blocksize;

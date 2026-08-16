@@ -51,14 +51,12 @@ TEST(ComposeBe, SplicesByteRangesInline)
 {
     const bytes::Bytes payload{0xAA, 0xBB};
     const std::array<bytes::Byte, 2> tail{0xCC, 0xDD};
-    EXPECT_THAT(composeBe(0x01_b, bytes::ByteView(payload), tail),
-                ElementsAre(0x01, 0xAA, 0xBB, 0xCC, 0xDD));
+    EXPECT_THAT(composeBe(0x01_b, bytes::ByteView(payload), tail), ElementsAre(0x01, 0xAA, 0xBB, 0xCC, 0xDD));
 }
 
 TEST(ComposeBe, AppendsStringViewCharsAsBytes)
 {
-    EXPECT_THAT(composeBe(std::string_view{"KERN2"}),
-                ElementsAre(0x4B, 0x45, 0x52, 0x4E, 0x32));
+    EXPECT_THAT(composeBe(std::string_view{"KERN2"}), ElementsAre(0x4B, 0x45, 0x52, 0x4E, 0x32));
 }
 
 TEST(ComposeBe, EmitsNothingForNoArguments)
@@ -91,22 +89,18 @@ TEST(ComposeBeWithChecksum, AppendsOneByteForByteReturningFunction)
         return total;
     };
     // 0x80 + 0x10 = 0x90; + 0xF0 = 0x180 -> 0x80; + 0x01 = 0x81.
-    EXPECT_THAT(composeBeWithChecksum(sum, 0x80_b, 0x10_b, 0xF0_b, 0x01_b),
-                ElementsAre(0x80, 0x10, 0xF0, 0x01, 0x81));
+    EXPECT_THAT(composeBeWithChecksum(sum, 0x80_b, 0x10_b, 0xF0_b, 0x01_b), ElementsAre(0x80, 0x10, 0xF0, 0x01, 0x81));
 }
 
 TEST(ComposeBeWithChecksum, AppendsFourBytesForUint32ReturningFunction)
 {
-    const auto fixed = [](bytes::ByteView)
-    { return std::uint32_t{0x5AA5A55A}; };
-    EXPECT_THAT(composeBeWithChecksum(fixed, 0x01_b),
-                ElementsAre(0x01, 0x5A, 0xA5, 0xA5, 0x5A));
+    const auto fixed = [](bytes::ByteView) { return std::uint32_t{0x5AA5A55A}; };
+    EXPECT_THAT(composeBeWithChecksum(fixed, 0x01_b), ElementsAre(0x01, 0x5A, 0xA5, 0xA5, 0x5A));
 }
 
 TEST(ComposeBeWithChecksum, ComputesChecksumOverEverythingComposed)
 {
-    const auto count = [](bytes::ByteView data)
-    { return bytes::Byte(data.size()); };
+    const auto count = [](bytes::ByteView data) { return bytes::Byte(data.size()); };
     const bytes::Bytes payload{0xAA, 0xBB, 0xCC};
     EXPECT_THAT(composeBeWithChecksum(count, std::uint16_t{0xBEEF}, bytes::ByteView(payload)),
                 ElementsAre(0xBE, 0xEF, 0xAA, 0xBB, 0xCC, 0x05));
@@ -125,7 +119,7 @@ TEST(ComposeBeWithChecksum, BuildsTheSsmHeaderFrame)
         return total;
     };
     const bytes::Bytes payload{0xEF, 0x52};
-    const bytes::Bytes framed = composeBeWithChecksum(
-        sum, 0x80_b, 0x10_b, 0xF0_b, bytes::Byte(payload.size()), bytes::ByteView(payload));
+    const bytes::Bytes framed =
+        composeBeWithChecksum(sum, 0x80_b, 0x10_b, 0xF0_b, bytes::Byte(payload.size()), bytes::ByteView(payload));
     EXPECT_THAT(framed, ElementsAre(0x80, 0x10, 0xF0, 0x02, 0xEF, 0x52, 0xC3));
 }

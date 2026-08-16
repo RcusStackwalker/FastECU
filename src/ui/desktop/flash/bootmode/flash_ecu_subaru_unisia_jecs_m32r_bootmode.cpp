@@ -4,7 +4,9 @@
 #include "src/platform/desktop/common/flash/legacy/bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
-FlashEcuSubaruUnisiaJecsM32rBootMode::FlashEcuSubaruUnisiaJecsM32rBootMode(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
+FlashEcuSubaruUnisiaJecsM32rBootMode::FlashEcuSubaruUnisiaJecsM32rBootMode(SerialPortActions *serial,
+                                                                           FileActions::EcuCalDefStructure *ecuCalDef,
+                                                                           const QString& cmd_type, QWidget *parent)
     : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
@@ -34,16 +36,15 @@ void FlashEcuSubaruUnisiaJecsM32rBootMode::run()
     if (cmd_type == "write")
     {
         ret = QMessageBox::warning(this, tr("Connecting to ECU"),
-                                   tr("Make sure VPP and MOD1 is connected and turn ignition ON and press OK to start initialising connection to ECU"),
-                                   QMessageBox::Ok | QMessageBox::Cancel,
-                                   QMessageBox::Ok);
+                                   tr("Make sure VPP and MOD1 is connected and turn ignition ON and press OK to start "
+                                      "initialising connection to ECU"),
+                                   QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Ok);
     }
     else
     {
         ret = QMessageBox::warning(this, tr("Connecting to ECU"),
                                    tr("Turn ignition ON and press OK to start initializing connection to ECU"),
-                                   QMessageBox::Ok | QMessageBox::Cancel,
-                                   QMessageBox::Ok);
+                                   QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Ok);
     }
     switch (ret)
     {
@@ -54,17 +55,19 @@ void FlashEcuSubaruUnisiaJecsM32rBootMode::run()
         connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashEcuSubaruUnisiaJecsM32rBootMode::LOG_W);
         connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashEcuSubaruUnisiaJecsM32rBootMode::LOG_I);
         connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashEcuSubaruUnisiaJecsM32rBootMode::LOG_D);
-        connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
-                this, [this](QString msg)
-                { emit external_logger(std::move(msg)); });
-        connect(m_operation, &FlashOperationWorker::progressChanged,
-                this, &FlashEcuSubaruUnisiaJecsM32rBootMode::set_progressbar_value);
+        connect(m_operation, &FlashOperationWorker::externalLoggerMessage, this,
+                [this](QString msg) { emit external_logger(std::move(msg)); });
+        connect(m_operation, &FlashOperationWorker::progressChanged, this,
+                &FlashEcuSubaruUnisiaJecsM32rBootMode::set_progressbar_value);
 
         QEventLoop loop;
         bool success = false;
         connect(m_operation, &FlashOperationWorker::operationFinished, &loop,
                 [&success, &loop](bool ok)
-                { success = ok; loop.quit(); });
+                {
+                    success = ok;
+                    loop.quit();
+                });
 
         m_operation->start();
         loop.exec();

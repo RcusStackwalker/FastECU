@@ -74,8 +74,7 @@ void HexEdit::dropEvent(QDropEvent *event)
 /*****************************************************************************/
 void HexEdit::about()
 {
-    QMessageBox::about(this, tr("About QHexEdit"),
-                       tr("The QHexEdit example is a short Demo of the QHexEdit Widget."));
+    QMessageBox::about(this, tr("About QHexEdit"), tr("The QHexEdit example is a short Demo of the QHexEdit Widget."));
 }
 
 void HexEdit::dataChanged()
@@ -118,8 +117,7 @@ bool HexEdit::save()
 
 bool HexEdit::saveAs()
 {
-    QString fileName = QFileDialog::getSaveFileName(this, tr("Save As"),
-                                                    curFile);
+    QString fileName = QFileDialog::getSaveFileName(this, tr("Save As"), curFile);
     if (fileName.isEmpty())
     {
         return false;
@@ -137,9 +135,7 @@ void HexEdit::saveSelectionToReadableFile()
         if (!file.open(QFile::WriteOnly | QFile::Text))
         {
             QMessageBox::warning(this, tr("QHexEdit"),
-                                 tr("Cannot write file %1:\n%2.")
-                                     .arg(fileName)
-                                     .arg(file.errorString()));
+                                 tr("Cannot write file %1:\n%2.").arg(fileName).arg(file.errorString()));
             return;
         }
 
@@ -160,9 +156,7 @@ void HexEdit::saveToReadableFile()
         if (!file.open(QFile::WriteOnly | QFile::Text))
         {
             QMessageBox::warning(this, tr("QHexEdit"),
-                                 tr("Cannot write file %1:\n%2.")
-                                     .arg(fileName)
-                                     .arg(file.errorString()));
+                                 tr("Cannot write file %1:\n%2.").arg(fileName).arg(file.errorString()));
             return;
         }
 
@@ -378,9 +372,7 @@ void HexEdit::loadFile(const QString& fileName)
     if (!hexEdit->setData(file))
     {
         QMessageBox::warning(this, tr("QHexEdit"),
-                             tr("Cannot read file %1:\n%2.")
-                                 .arg(fileName)
-                                 .arg(file.errorString()));
+                             tr("Cannot read file %1:\n%2.").arg(fileName).arg(file.errorString()));
         return;
     }
     setCurrentFile(fileName);
@@ -444,9 +436,7 @@ bool HexEdit::saveFile(const QString& fileName)
 
     if (!ok)
     {
-        QMessageBox::warning(this, tr("QHexEdit"),
-                             tr("Cannot write file %1.")
-                                 .arg(fileName));
+        QMessageBox::warning(this, tr("QHexEdit"), tr("Cannot write file %1.").arg(fileName));
         return false;
     }
 

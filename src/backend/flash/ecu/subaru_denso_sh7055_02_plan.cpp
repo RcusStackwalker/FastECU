@@ -21,8 +21,7 @@ Status validate_identity(std::string_view protocol, std::string_view mcu)
     }
     if (mcu != "SH7055")
     {
-        return fail(InvalidConfig,
-                    std::format("SH7055_02 protocol requires MCU SH7055, not {}", mcu));
+        return fail(InvalidConfig, std::format("SH7055_02 protocol requires MCU SH7055, not {}", mcu));
     }
     return {};
 }
@@ -49,15 +48,13 @@ Status validate_kernel_upload(const KernelImage& kernel)
     constexpr std::uint64_t kMaxWireLength = 0x00FFFFFF;
     if (kernel.bytes.size() > kMaxWireLength)
     {
-        return fail(ErrorKind::InvalidConfig,
-                    "SH7055_02 padded kernel plus envelope exceeds the 24-bit wire length");
+        return fail(ErrorKind::InvalidConfig, "SH7055_02 padded kernel plus envelope exceeds the 24-bit wire length");
     }
     const std::uint64_t padded_size = (static_cast<std::uint64_t>(kernel.bytes.size()) + 3) & ~3ULL;
     const std::uint64_t wire_length = padded_size + 4;
     if (wire_length > kMaxWireLength)
     {
-        return fail(ErrorKind::InvalidConfig,
-                    "SH7055_02 padded kernel plus envelope exceeds the 24-bit wire length");
+        return fail(ErrorKind::InvalidConfig, "SH7055_02 padded kernel plus envelope exceeds the 24-bit wire length");
     }
     // The two-byte wire address selects 0xffff6000. The fixed four-byte
     // envelope occupies 0xffff6000..03, then the catalog's logical kernel
@@ -65,8 +62,7 @@ Status validate_kernel_upload(const KernelImage& kernel)
     // total, so envelope plus padded payload must fit that full region.
     constexpr std::uint32_t kCanonicalKernelAddress = 0xFFFF6004;
     constexpr std::uint64_t kModelWireRegionLength = 0x00006000;
-    if (kernel.load_address != kCanonicalKernelAddress ||
-        wire_length > kModelWireRegionLength)
+    if (kernel.load_address != kCanonicalKernelAddress || wire_length > kModelWireRegionLength)
     {
         return fail(ErrorKind::InvalidConfig,
                     "SH7055_02 kernel address or padded envelope is outside the model kernel region");
@@ -112,8 +108,7 @@ Status validate_subaru_denso_sh7055_02_plan(const FlashPlan& plan)
     {
         return valid;
     }
-    if (plan.confirmations().size() != 1 ||
-        plan.confirmations().front().id != ConfirmationSpec::Id::CycleIgnition ||
+    if (plan.confirmations().size() != 1 || plan.confirmations().front().id != ConfirmationSpec::Id::CycleIgnition ||
         !plan.confirmations().front().arguments.empty())
     {
         return fail(InvalidConfig, "SH7055_02 requires exactly the CycleIgnition confirmation");
@@ -132,10 +127,8 @@ Status validate_subaru_denso_sh7055_02_plan(const FlashPlan& plan)
     return validate_image(plan, romsize);
 }
 
-Result<FlashPlan> build_subaru_denso_sh7055_02_plan(FlashOperation operation,
-                                                    std::string_view protocol_name,
-                                                    std::string_view mcu_type,
-                                                    std::optional<bytes::Bytes> image,
+Result<FlashPlan> build_subaru_denso_sh7055_02_plan(FlashOperation operation, std::string_view protocol_name,
+                                                    std::string_view mcu_type, std::optional<bytes::Bytes> image,
                                                     KernelImage kernel)
 {
     if (auto valid = validate_identity(protocol_name, mcu_type); !valid.has_value())

@@ -24,8 +24,8 @@ bool isDll32Bit(const char *dllPath, bool& out32Bit)
     std::int32_t peOffset = 0;
     if (ok)
     {
-        peOffset = static_cast<std::int32_t>(
-            dosHeader[0x3C] | (dosHeader[0x3D] << 8) | (dosHeader[0x3E] << 16) | (dosHeader[0x3F] << 24));
+        peOffset = static_cast<std::int32_t>(dosHeader[0x3C] | (dosHeader[0x3D] << 8) | (dosHeader[0x3E] << 16) |
+                                             (dosHeader[0x3F] << 24));
         ok = peOffset >= 0;
     }
 

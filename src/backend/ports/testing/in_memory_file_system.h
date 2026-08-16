@@ -70,8 +70,7 @@ class InMemoryFileSystem : public IFileSystem
         }
         std::vector<DirEntry> entries;
         bool has_legacy_fixture = false;
-        if (auto subdirectories = subdirectories_by_parent.find(key);
-            subdirectories != subdirectories_by_parent.end())
+        if (auto subdirectories = subdirectories_by_parent.find(key); subdirectories != subdirectories_by_parent.end())
         {
             has_legacy_fixture = true;
             for (const auto& [name, modified_time] : subdirectories->second)

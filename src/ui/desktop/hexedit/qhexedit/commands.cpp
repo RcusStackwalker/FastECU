@@ -12,8 +12,7 @@ class CharCommand : public QUndoCommand
         overwrite
     };
 
-    CharCommand(Chunks *chunks, CCmd cmd, qint64 charPos, char newChar,
-                QUndoCommand *parent = 0);
+    CharCommand(Chunks *chunks, CCmd cmd, qint64 charPos, char newChar, QUndoCommand *parent = 0);
 
     void undo();
     void redo();
@@ -33,7 +32,8 @@ class CharCommand : public QUndoCommand
 };
 
 CharCommand::CharCommand(Chunks *chunks, CCmd cmd, qint64 charPos, char newChar, QUndoCommand *parent)
-    : QUndoCommand(parent), _chunks(chunks), _charPos(charPos), _wasChanged(false), _newChar(newChar), _oldChar('\0'), _cmd(cmd)
+    : QUndoCommand(parent), _chunks(chunks), _charPos(charPos), _wasChanged(false), _newChar(newChar), _oldChar('\0'),
+      _cmd(cmd)
 {
 }
 
@@ -94,8 +94,7 @@ void CharCommand::redo()
     }
 }
 
-UndoStack::UndoStack(Chunks *chunks, QObject *parent)
-    : QUndoStack(parent)
+UndoStack::UndoStack(Chunks *chunks, QObject *parent) : QUndoStack(parent)
 {
     _chunks = chunks;
     _parent = parent;

@@ -15,25 +15,19 @@ namespace fastecu::logging
 class SsmLoggingProtocol final : public LoggingProtocol
 {
   public:
-    SsmLoggingProtocol(fastecu::IClock& clock,
-                       std::unique_ptr<ISsmTransport> transport,
-                       std::vector<LoggingChannel> channels,
-                       bool target_is_ecu, bool use_openport2_adapter);
-    SsmLoggingProtocol(fastecu::IClock& clock,
-                       std::unique_ptr<ISsmTransport> transport,
-                       std::vector<LoggingChannel> channels,
-                       std::vector<std::size_t> response_offsets,
+    SsmLoggingProtocol(fastecu::IClock& clock, std::unique_ptr<ISsmTransport> transport,
+                       std::vector<LoggingChannel> channels, bool target_is_ecu, bool use_openport2_adapter);
+    SsmLoggingProtocol(fastecu::IClock& clock, std::unique_ptr<ISsmTransport> transport,
+                       std::vector<LoggingChannel> channels, std::vector<std::size_t> response_offsets,
                        bool target_is_ecu, bool use_openport2_adapter);
 
     fastecu::Status start(const fastecu::ICancellationToken& cancellation) override;
-    fastecu::Result<PollData> poll(
-        int timeout_ms, const fastecu::ICancellationToken& cancellation) override;
+    fastecu::Result<PollData> poll(int timeout_ms, const fastecu::ICancellationToken& cancellation) override;
     fastecu::Status stop() override;
 
   private:
     bytes::Bytes buildSsmHeader(bytes::ByteView output) const;
-    fastecu::Result<bytes::Bytes> readFramedResponse(
-        int timeout_ms, const fastecu::ICancellationToken& cancellation);
+    fastecu::Result<bytes::Bytes> readFramedResponse(int timeout_ms, const fastecu::ICancellationToken& cancellation);
 
     fastecu::IClock& clock_;
     std::unique_ptr<ISsmTransport> transport_;

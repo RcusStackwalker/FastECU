@@ -70,16 +70,14 @@ bytes::Bytes response(std::initializer_list<bytes::Byte> tail)
 
 fastecu::flash::FlashPlan readPlan()
 {
-    auto plan =
-        build_subaru_hitachi_m32r_can_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
+    auto plan = build_subaru_hitachi_m32r_can_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
     EXPECT_TRUE(plan.has_value()) << plan.error().detail;
     return std::move(*plan);
 }
 
 fastecu::flash::FlashPlan writePlan(bytes::Bytes rom)
 {
-    auto plan = build_subaru_hitachi_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu,
-                                                   std::move(rom));
+    auto plan = build_subaru_hitachi_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu, std::move(rom));
     EXPECT_TRUE(plan.has_value()) << plan.error().detail;
     return std::move(*plan);
 }
@@ -113,13 +111,12 @@ fastecu::flash::FlashPlan handBuiltPlan(FlashOperation operation, std::size_t im
 // executor's own translation unit, so a wrong table entry in the executor
 // fails these assertions instead of passing silently. Mirrors
 // mitsu_colt_m32r_can_executor_test.cpp's own `MitsuColtCan::seedKey(kSeed)`.
-constexpr std::array<std::uint16_t, 16> kSeedKeyTable{
-    0x90A1, 0x2F92, 0xDE3C, 0xCDC0, 0x1A99, 0x437C, 0xF91B, 0xDB57,
-    0x96BA, 0xDE10, 0xFCAF, 0x3F31, 0xF47F, 0x0BB6, 0x16E9, 0x4645};
+constexpr std::array<std::uint16_t, 16> kSeedKeyTable{0x90A1, 0x2F92, 0xDE3C, 0xCDC0, 0x1A99, 0x437C, 0xF91B, 0xDB57,
+                                                      0x96BA, 0xDE10, 0xFCAF, 0x3F31, 0xF47F, 0x0BB6, 0x16E9, 0x4645};
 constexpr std::array<std::uint16_t, 4> kEncryptTable{0x14CA, 0x77F4, 0x973C, 0xF50E};
-constexpr std::array<std::uint8_t, 32> kIndexTransformation{
-    0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
-    0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
+constexpr std::array<std::uint8_t, 32> kIndexTransformation{0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
+                                                            0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
+                                                            0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
 bytes::Bytes seedKey(bytes::ByteView seed)
 {
@@ -135,8 +132,8 @@ bytes::Bytes seedKey(bytes::ByteView seed)
 // computes the wire bytes a write must carry for a known plaintext image.
 bytes::Bytes toWire(bytes::ByteView plain)
 {
-    return SsmProtocol::calculatePayload(plain, static_cast<std::uint32_t>(plain.size()),
-                                         kEncryptTable, kIndexTransformation);
+    return SsmProtocol::calculatePayload(plain, static_cast<std::uint32_t>(plain.size()), kEncryptTable,
+                                         kIndexTransformation);
 }
 
 const bytes::Bytes kSeed{0x11, 0x22, 0x33, 0x44};
@@ -150,8 +147,7 @@ void scriptPreliminaryProbes(ScriptedCanFlashTransport& transport)
     transport.queueRead(response({0x7F, 0xB7, 0x11}));
 
     transport.expectWrite(request({0xAA}));
-    transport.queueRead(
-        response({0xEA, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05}));
+    transport.queueRead(response({0xEA, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05}));
 
     transport.expectWrite(request({0x09, 0x02}));
     transport.queueRead(response({0x49, 0x02, 'V', 'I', 'N'}));
@@ -197,8 +193,7 @@ void scriptBenchConnect(ScriptedCanFlashTransport& transport)
 
     // Kernel-alive check: 0x34 0x04 0x33 0x00 0x00 0x00 0x08 0x00 0x00 /
     // 0x74 0x20 0x01 0x04.
-    transport.expectWrite(
-        request({0x34, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00}));
+    transport.expectWrite(request({0x34, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00}));
     transport.queueRead(response({0x74, 0x20, 0x01, 0x04}));
 }
 
@@ -213,8 +208,8 @@ void scriptDumpSetup(ScriptedCanFlashTransport& transport)
 // Scripts the chunked 0xB7 dump sweep over [start, start+length) at
 // `pagesize`-byte pages, each page filled with `fill` (plaintext -- the
 // scripted wire bytes are toWire(fill-page), decrypted back by the executor).
-void scriptFlashDump(ScriptedCanFlashTransport& transport, std::uint32_t start,
-                     std::uint32_t length, std::uint32_t pagesize, bytes::Byte fill)
+void scriptFlashDump(ScriptedCanFlashTransport& transport, std::uint32_t start, std::uint32_t length,
+                     std::uint32_t pagesize, bytes::Byte fill)
 {
     const bytes::Bytes plainPage(pagesize, fill);
     const bytes::Bytes wirePage = toWire(plainPage);
@@ -239,8 +234,7 @@ void scriptStopCommand(ScriptedCanFlashTransport& transport)
 // 1279-1345).
 void scriptEraseMemory(ScriptedCanFlashTransport& transport)
 {
-    transport.expectWrite(
-        request({0x31, 0x01, 0x02, 0x01, 0x0f, 0xff, 0xff, 0xff}));
+    transport.expectWrite(request({0x31, 0x01, 0x02, 0x01, 0x0f, 0xff, 0xff, 0xff}));
     transport.queueRead(response({0x71, 0x01, 0x02}));
 }
 
@@ -254,14 +248,13 @@ void scriptReflashSetup(ScriptedCanFlashTransport& transport)
 
 // Scripts the 0xB6 write-chunk sweep for the whole ROM (legacy reflash_block,
 // lines 1130-1176). `rom` is encrypted once, matching production.
-void scriptReflashChunks(ScriptedCanFlashTransport& transport, bytes::ByteView rom,
-                         std::uint32_t chunkSize)
+void scriptReflashChunks(ScriptedCanFlashTransport& transport, bytes::ByteView rom, std::uint32_t chunkSize)
 {
     const bytes::Bytes encrypted = toWire(rom);
     for (std::uint32_t addr = 0; addr < rom.size(); addr += chunkSize)
     {
-        bytes::Bytes req = bytes::composeBe(bytes::Byte(0xB6), bytes::u24(addr),
-                                            bytes::ByteView(encrypted).subspan(addr, chunkSize));
+        bytes::Bytes req =
+            bytes::composeBe(bytes::Byte(0xB6), bytes::u24(addr), bytes::ByteView(encrypted).subspan(addr, chunkSize));
         transport.expectWrite(request(req));
         transport.queueRead(response({0xF6}));
     }
@@ -269,8 +262,7 @@ void scriptReflashChunks(ScriptedCanFlashTransport& transport, bytes::ByteView r
 
 // Scripts one close-block attempt (0x37) with the given tail. A tail of
 // {0x77} succeeds; anything else is the tolerant-retry loop's "not yet".
-void scriptCloseAttempt(ScriptedCanFlashTransport& transport,
-                        std::initializer_list<bytes::Byte> tail)
+void scriptCloseAttempt(ScriptedCanFlashTransport& transport, std::initializer_list<bytes::Byte> tail)
 {
     transport.expectWrite(request({0x37}));
     transport.queueRead(response(tail));
@@ -314,8 +306,7 @@ TEST(SubaruHitachiM32rCanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyIo)
     fields.target_id = "sub_ecu_denso_sh705x_eeprom_can";
     fields.mcu_name = "SH7058";
     fields.transfer_region = fastecu::flash::MemoryRegion{.start = 0x0, .length = 0x100};
-    fields.kernel = fastecu::flash::KernelImage{
-        .id = "k", .load_address = 0xffff6004, .bytes = {0x01, 0x02}};
+    fields.kernel = fastecu::flash::KernelImage{.id = "k", .load_address = 0xffff6004, .bytes = {0x01, 0x02}};
     fields.family_plan = fastecu::flash::DensoSh705xEepromCanPlan{
         .mode = fastecu::flash::EepromReadMode::Mode2,
         .security = fastecu::flash::DensoSecurityVariant::Stock,
@@ -327,8 +318,7 @@ TEST(SubaruHitachiM32rCanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyIo)
     auto foreign = fastecu::flash::validate_and_build(std::move(fields));
     ASSERT_TRUE(foreign.has_value()) << foreign.error().detail;
 
-    const auto result =
-        executor.execute(*foreign, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(*foreign, transport, clock, cancellation.token(), events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
@@ -352,15 +342,12 @@ TEST(SubaruHitachiM32rCanExecutor, ConnectAndReadReturnsTheFullRomFromAddressZer
     scriptFlashDump(transport, 0, 0x80000, 0x100, 0x5A);
     scriptStopCommand(transport);
 
-    const auto result =
-        executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(result->read_bytes->size(), 0x80000u);
-    EXPECT_TRUE(std::ranges::all_of(*result->read_bytes,
-                                    [](bytes::Byte b)
-                                    { return b == 0x5A; }));
+    EXPECT_TRUE(std::ranges::all_of(*result->read_bytes, [](bytes::Byte b) { return b == 0x5A; }));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -384,8 +371,7 @@ TEST(SubaruHitachiM32rCanExecutor, ReadReportsAnEmptyReplyAsTimeout)
     transport.expectWrite(request({0xA8, 0x00, 0x00, 0x00, 0xD7}));
     transport.queue_no_frame();
 
-    const auto result =
-        executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
@@ -415,8 +401,7 @@ TEST(SubaruHitachiM32rCanExecutor, ReadPropagatesADisconnectedTransport)
     transport.expectWrite(request(keyRequest));
     transport.queue_error(ErrorKind::Disconnected, "adapter gone");
 
-    const auto result =
-        executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
@@ -441,8 +426,7 @@ TEST(SubaruHitachiM32rCanExecutor, ConnectRejectsOnCarProgrammingAsUnsupported)
     transport.expectWrite(request({0xA8, 0x00, 0x00, 0x00, 0xD7}));
     transport.queueRead(response({0x00, 0x00, 0x00}));
 
-    const auto result =
-        executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Unsupported);
@@ -459,8 +443,7 @@ TEST(SubaruHitachiM32rCanExecutor, ReadStopsWhenCancelledBeforeAnyExchange)
     auto plan = readPlan();
     cancellation.trip();
 
-    const auto result =
-        executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
@@ -473,8 +456,7 @@ TEST(SubaruHitachiM32rCanExecutor, ReadStopsWhenCancelledBeforeAnyExchange)
 class CancelAfterFirstChunkSink final : public RecordingEventSink
 {
   public:
-    explicit CancelAfterFirstChunkSink(fastecu::flash::CancellationSource& source)
-        : source_(source)
+    explicit CancelAfterFirstChunkSink(fastecu::flash::CancellationSource& source) : source_(source)
     {
     }
     void phase_progress(const fastecu::PhaseProgressEvent& event) override
@@ -505,8 +487,7 @@ TEST(SubaruHitachiM32rCanExecutor, ReadStopsAtTheNextChunkWhenCancelledMidRead)
     // is being served, so the loop must stop at the top of the next chunk.
     scriptFlashDump(transport, 0, 0x100, 0x100, 0x00);
 
-    const auto result =
-        executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
@@ -545,8 +526,7 @@ TEST(SubaruHitachiM32rCanExecutor, WriteErasesAndWritesTheFullRomInOneReflashBlo
     scriptCloseAttempt(transport, {0x77});
     scriptChecksumVerify(transport);
 
-    const auto result =
-        executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
@@ -569,8 +549,7 @@ TEST(SubaruHitachiM32rCanExecutor, WriteRefusesAnImageThatDoesNotMatchThePlanBef
     // handshake.
     auto plan = handBuiltPlan(FlashOperation::Write, 0x7ffff);
 
-    const auto result =
-        executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
@@ -607,8 +586,7 @@ TEST(SubaruHitachiM32rCanExecutor, WriteToleratesUpToFiveFailedCloseAttemptsBefo
     scriptCloseAttempt(transport, {0x77});
     scriptChecksumVerify(transport);
 
-    const auto result =
-        executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
@@ -638,8 +616,7 @@ TEST(SubaruHitachiM32rCanExecutor, WriteStopsWhenTheEraseIsRejected)
     transport.expectWrite(request(firstChunkRequest));
     transport.queueRead(response({0x7F, 0xB6, 0x22}));
 
-    const auto result =
-        executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
@@ -659,8 +636,7 @@ TEST(SubaruHitachiM32rCanExecutor, RefusesATestWritePlanRatherThanWritingForReal
     SubaruHitachiM32rCanExecutor executor;
     auto plan = handBuiltPlan(FlashOperation::TestWrite, 0x80000);
 
-    const auto result =
-        executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Unsupported);

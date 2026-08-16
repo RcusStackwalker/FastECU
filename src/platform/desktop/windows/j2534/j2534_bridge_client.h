@@ -19,8 +19,8 @@ class J2534BridgeClient
 
     long PassThruOpen(const void *pName, unsigned long *pDeviceID);
     long PassThruClose(unsigned long DeviceID);
-    long PassThruConnect(unsigned long DeviceID, unsigned long ProtocolID, unsigned long Flags,
-                         unsigned long Baudrate, unsigned long *pChannelID);
+    long PassThruConnect(unsigned long DeviceID, unsigned long ProtocolID, unsigned long Flags, unsigned long Baudrate,
+                         unsigned long *pChannelID);
     long PassThruDisconnect(unsigned long ChannelID);
     long PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs, unsigned long Timeout);
     long PassThruWriteMsgs(unsigned long ChannelID, const PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs,

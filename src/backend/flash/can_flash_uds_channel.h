@@ -28,12 +28,10 @@ class CanFlashUdsChannel final : public uds::IUdsChannel
     // Number of envelope bytes in front of every PDU.
     static constexpr std::size_t kEnvelopeSize = 4;
 
-    CanFlashUdsChannel(ICanFlashTransport& transport, std::uint32_t request_id,
-                       std::uint32_t response_id);
+    CanFlashUdsChannel(ICanFlashTransport& transport, std::uint32_t request_id, std::uint32_t response_id);
 
     Status send(bytes::ByteView pdu, const ICancellationToken& cancellation) override;
-    Result<std::optional<bytes::Bytes>> receive(int timeout_ms,
-                                                const ICancellationToken& cancellation) override;
+    Result<std::optional<bytes::Bytes>> receive(int timeout_ms, const ICancellationToken& cancellation) override;
 
   private:
     ICanFlashTransport& transport_;

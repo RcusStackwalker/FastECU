@@ -33,15 +33,12 @@ Status load(pugi::xml_document& document, bytes::ByteView conf, std::string_view
     // with -- would otherwise lose it silently on the first write_selection()
     // round-trip (load, then re-serialize the whole DOM) -- add them back in.
     const pugi::xml_parse_result parsed = document.load_buffer(
-        conf.data(),
-        conf.size(),
-        pugi::parse_default | pugi::parse_comments | pugi::parse_pi | pugi::parse_doctype |
-            pugi::parse_declaration);
+        conf.data(), conf.size(),
+        pugi::parse_default | pugi::parse_comments | pugi::parse_pi | pugi::parse_doctype | pugi::parse_declaration);
     if (!parsed)
     {
-        return fail(
-            ErrorKind::InvalidConfig,
-            std::format("{}: {} at offset {}", source, parsed.description(), parsed.offset));
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("{}: {} at offset {}", source, parsed.description(), parsed.offset));
     }
     return {};
 }
@@ -49,15 +46,11 @@ Status load(pugi::xml_document& document, bytes::ByteView conf, std::string_view
 pugi::xml_node find_ecu(pugi::xml_node logger, std::string_view ecu_id)
 {
     const auto ecus = logger.children("ecu");
-    const auto it = std::ranges::find(ecus, ecu_id, [](pugi::xml_node n)
-                                      { return n.attribute("id"sv).value(); });
+    const auto it = std::ranges::find(ecus, ecu_id, [](pugi::xml_node n) { return n.attribute("id"sv).value(); });
     return it != ecus.end() ? *it : pugi::xml_node{};
 }
 
-void append_ids(
-    pugi::xml_node parent,
-    std::string_view element_name,
-    const std::vector<std::string>& ids)
+void append_ids(pugi::xml_node parent, std::string_view element_name, const std::vector<std::string>& ids)
 {
     for (const std::string& id : ids)
     {
@@ -70,8 +63,9 @@ void append_ids(
 /* element_name has to be const char* because xml_node::children doesn't accept string_view*/
 std::vector<std::string> collect_ids(pugi::xml_node parent, const char *element_name)
 {
-    return parent.children(element_name) | std::views::transform([](pugi::xml_node node)
-                                                                 { return std::string{node.attribute("id"sv).as_string("No id")}; }) |
+    return parent.children(element_name) |
+           std::views::transform([](pugi::xml_node node)
+                                 { return std::string{node.attribute("id"sv).as_string("No id")}; }) |
            std::ranges::to<std::vector>();
 }
 
@@ -118,8 +112,8 @@ LoggerSelection walk(const LoggerDefinition& definition, bool enabled_only)
 
 } // namespace
 
-Result<std::optional<LoggerSelection>> read_selection(
-    bytes::ByteView conf, std::string_view ecu_id, std::string_view source)
+Result<std::optional<LoggerSelection>> read_selection(bytes::ByteView conf, std::string_view ecu_id,
+                                                      std::string_view source)
 {
     pugi::xml_document document;
     if (auto loaded = load(document, conf, source); !loaded)
@@ -143,11 +137,8 @@ Result<std::optional<LoggerSelection>> read_selection(
     return std::optional<LoggerSelection>{std::move(selection)};
 }
 
-Result<bytes::Bytes> write_selection(
-    bytes::ByteView conf,
-    std::string_view ecu_id,
-    const LoggerSelection& selection,
-    std::string_view source)
+Result<bytes::Bytes> write_selection(bytes::ByteView conf, std::string_view ecu_id, const LoggerSelection& selection,
+                                     std::string_view source)
 {
     pugi::xml_document document;
     if (auto loaded = load(document, conf, source); !loaded)
@@ -166,12 +157,8 @@ Result<bytes::Bytes> write_selection(
         // to re-read even though pugixml is lenient enough to load it back.
         // The legacy writer left such a file untouched; refuse rather than
         // corrupt it.
-        return fail(
-            ErrorKind::InvalidConfig,
-            std::format(
-                "{}: root element is <{}>, expected <config>",
-                source,
-                document.document_element().name()));
+        return fail(ErrorKind::InvalidConfig, std::format("{}: root element is <{}>, expected <config>", source,
+                                                          document.document_element().name()));
     }
     pugi::xml_node logger = config.child("logger");
     if (!logger)
@@ -231,11 +218,7 @@ Result<bytes::Bytes> write_selection(
     // (An earlier revision of this comment inferred from Task 1's captured
     // golden that QDom "never wrote a prologue for these documents". That was
     // false: the golden has none because its *input* had none.)
-    document.save(
-        output,
-        kIndent,
-        pugi::format_indent | pugi::format_no_declaration,
-        pugi::encoding_utf8);
+    document.save(output, kIndent, pugi::format_indent | pugi::format_no_declaration, pugi::encoding_utf8);
     std::string xml = std::move(output).str();
 
     // pugixml's node_output_start unconditionally writes a space before a

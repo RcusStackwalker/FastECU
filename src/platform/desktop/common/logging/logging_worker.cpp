@@ -35,11 +35,9 @@ class QtLoggingEventSink final : public fastecu::logging::ILoggingEventSink
 
 } // namespace
 
-LoggingWorker::LoggingWorker(fastecu::logging::LoggingSession session,
-                             fastecu::logging::LoggingProtocol *protocol,
+LoggingWorker::LoggingWorker(fastecu::logging::LoggingSession session, fastecu::logging::LoggingProtocol *protocol,
                              fastecu::IEventSink& diagnostics, QObject *parent)
-    : QThread(parent), session_(std::move(session)), protocol_(protocol),
-      diagnostics_(diagnostics)
+    : QThread(parent), session_(std::move(session)), protocol_(protocol), diagnostics_(diagnostics)
 {
 }
 

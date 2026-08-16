@@ -218,7 +218,8 @@ class MainWindow : public QMainWindow
     QStringList flash_transports;
     QStringList log_transports;
 
-    //        "Mercedes",     "CR3 EDC16C31",     "K-Line",           "K-Line",           "iso14230", "Mercedes Benz 320CDI",
+    //        "Mercedes",     "CR3 EDC16C31",     "K-Line",           "K-Line",           "iso14230", "Mercedes Benz
+    //        320CDI",
 
     enum RomInfoEnum
     {
@@ -252,8 +253,7 @@ class MainWindow : public QMainWindow
     uint16_t ssm_init_poll_timer_timeout = 250;
 
     LoggingEngine *loggingEngine = nullptr;
-    std::optional<fastecu::desktop::logging::DesktopLoggingSnapshot>
-        activeLoggingSnapshot;
+    std::optional<fastecu::desktop::logging::DesktopLoggingSnapshot> activeLoggingSnapshot;
     QtClock m_loggingClock;
     QString activeLogValueProtocolFilter;
 
@@ -326,8 +326,7 @@ class MainWindow : public QMainWindow
 
     // mainwindow.c
     // Connect signals for any flash class and execute ::run() method
-    template <typename FLASH_CLASS>
-    FLASH_CLASS *connect_signals_and_run_module(FLASH_CLASS *object);
+    template <typename FLASH_CLASS> FLASH_CLASS *connect_signals_and_run_module(FLASH_CLASS *object);
     void SetComboBoxItemEnabled(QComboBox *comboBox, int index, bool enabled);
     void set_flash_arrow_state();
     void update_protocol_info(int rom_number);
@@ -353,11 +352,14 @@ class MainWindow : public QMainWindow
     void toggle_realtime();
     void toggle_log_to_file();
     void set_maptablewidget_items();
-    QString get_rom_data_value(uint8_t map_rom_number, uint32_t map_data_address, uint16_t map_value_index, const QString& map_value_storagetype, const QString& map_value_endian);
-    void set_rom_data_value(uint8_t map_rom_number, uint32_t map_data_address, uint16_t map_value_index, const QString& map_value_storagetype, const QString& map_value_endian, float map_value);
+    QString get_rom_data_value(uint8_t map_rom_number, uint32_t map_data_address, uint16_t map_value_index,
+                               const QString& map_value_storagetype, const QString& map_value_endian);
+    void set_rom_data_value(uint8_t map_rom_number, uint32_t map_data_address, uint16_t map_value_index,
+                            const QString& map_value_storagetype, const QString& map_value_endian, float map_value);
     int get_mapvalue_decimal_count(const QString& valueFormat);
     int get_map_cell_colors(FileActions::EcuCalDefStructure *ecuCalDef, float mapDataValue, int mapIndex);
-    bool check_rom_data_value(const QString& storagetype, const QString& rom_data_value, const QString& new_rom_data_value);
+    bool check_rom_data_value(const QString& storagetype, const QString& rom_data_value,
+                              const QString& new_rom_data_value);
     void show_preferences_window();
 
     void toggle_haltech_ic7_display();
@@ -390,8 +392,7 @@ class MainWindow : public QMainWindow
 
     // log_operations.c
     bool ecu_init();
-    void handleLoggingValuesUpdated(
-        const QVector<fastecu::logging::LogSample>& samples);
+    void handleLoggingValuesUpdated(const QVector<fastecu::logging::LogSample>& samples);
     void handleLoggingSessionEnded(SessionEndReason reason, const QString& message);
 
     // menu_actions.c

@@ -19,11 +19,8 @@ class FlashEcuSubaruDensoSH72543CanDieselOperation : public FlashOperationWorker
     Q_OBJECT
 
   public:
-    FlashEcuSubaruDensoSH72543CanDieselOperation(SerialPortActions *serial,
-                                                 FileActions::EcuCalDefStructure *ecuCalDef,
-                                                 QString cmd_type,
-                                                 QWidget *dialog,
-                                                 QObject *parent = nullptr,
+    FlashEcuSubaruDensoSH72543CanDieselOperation(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
+                                                 QString cmd_type, QWidget *dialog, QObject *parent = nullptr,
                                                  PromptFn promptOverride = {});
 
   protected:

@@ -4,7 +4,8 @@ CalibrationTreeWidget::CalibrationTreeWidget()
 {
 }
 
-QTreeWidget *CalibrationTreeWidget::buildCalibrationFilesTree(int ecuCalDefIndex, QTreeWidget *filesTreeWidget, FileActions::EcuCalDefStructure *ecuCalDef)
+QTreeWidget *CalibrationTreeWidget::buildCalibrationFilesTree(int ecuCalDefIndex, QTreeWidget *filesTreeWidget,
+                                                              FileActions::EcuCalDefStructure *ecuCalDef)
 {
     QString filename(ecuCalDef->FileName);
 
@@ -43,7 +44,8 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationFilesTree(int ecuCalDefIndex
     return calFilesTree;
 }
 
-QTreeWidget *CalibrationTreeWidget::buildCalibrationDataTree(QTreeWidget *dataTreeWidget, FileActions::EcuCalDefStructure *ecuCalDef)
+QTreeWidget *CalibrationTreeWidget::buildCalibrationDataTree(QTreeWidget *dataTreeWidget,
+                                                             FileActions::EcuCalDefStructure *ecuCalDef)
 {
     bool treeCategoryCreated = false;
 
@@ -83,7 +85,8 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationDataTree(QTreeWidget *dataTr
 
     for (int j = 0; j < ecuCalDef->NameList.count(); j++)
     {
-        // emit LOG_D("Check map: " + ecuCalDef->NameList[j] + " in category: " + ecuCalDef->CategoryList[j], true, true);
+        // emit LOG_D("Check map: " + ecuCalDef->NameList[j] + " in category: " + ecuCalDef->CategoryList[j], true,
+        // true);
         if (ecuCalDef->CategoryList[j] != "" && ecuCalDef->CategoryList[j] != " ")
         {
             // emit LOG_D("Map category: " + ecuCalDef->CategoryList[j], true, true);
@@ -114,9 +117,11 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationDataTree(QTreeWidget *dataTr
                 {
                     if (calDataTree->topLevelItem(i)->text(0) == ecuCalDef->CategoryList[j])
                     {
-                        // emit LOG_D("Add map: " + ecuCalDef->NameList[j] + " to category: " + ecuCalDef->CategoryList[j], true, true);
+                        // emit LOG_D("Add map: " + ecuCalDef->NameList[j] + " to category: " +
+                        // ecuCalDef->CategoryList[j], true, true);
                         QTreeWidgetItem *item = new QTreeWidgetItem();
-                        if (ecuCalDef->TypeList[j] == "1D" || ecuCalDef->TypeList[j] == "Selectable" || (ecuCalDef->YSizeList.at(j).toInt() == 1 && ecuCalDef->XSizeList.at(j).toInt() == 1))
+                        if (ecuCalDef->TypeList[j] == "1D" || ecuCalDef->TypeList[j] == "Selectable" ||
+                            (ecuCalDef->YSizeList.at(j).toInt() == 1 && ecuCalDef->XSizeList.at(j).toInt() == 1))
                         {
                             item->setIcon(0, QIcon(":/icons/1D-64.png"));
                         }
@@ -149,7 +154,8 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationDataTree(QTreeWidget *dataTr
     return calDataTree;
 }
 
-void *CalibrationTreeWidget::calibrationDataTreeWidgetItemExpanded(FileActions::EcuCalDefStructure *ecuCalDef, const QString& categoryName)
+void *CalibrationTreeWidget::calibrationDataTreeWidgetItemExpanded(FileActions::EcuCalDefStructure *ecuCalDef,
+                                                                   const QString& categoryName)
 {
     for (int i = 0; i < ecuCalDef->CategoryList.count(); i++)
     {
@@ -166,7 +172,8 @@ void *CalibrationTreeWidget::calibrationDataTreeWidgetItemExpanded(FileActions::
     return nullptr;
 }
 
-void *CalibrationTreeWidget::calibrationDataTreeWidgetItemCollapsed(FileActions::EcuCalDefStructure *ecuCalDef, const QString& categoryName)
+void *CalibrationTreeWidget::calibrationDataTreeWidgetItemCollapsed(FileActions::EcuCalDefStructure *ecuCalDef,
+                                                                    const QString& categoryName)
 {
     for (int i = 0; i < ecuCalDef->CategoryList.count(); i++)
     {

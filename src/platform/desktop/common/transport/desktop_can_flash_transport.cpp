@@ -11,8 +11,7 @@ DesktopCanFlashTransport::DesktopCanFlashTransport(std::unique_ptr<SerialPortAct
 {
 }
 
-DesktopCanFlashTransport::DesktopCanFlashTransport(SerialPortActions *serial)
-    : serial_(serial)
+DesktopCanFlashTransport::DesktopCanFlashTransport(SerialPortActions *serial) : serial_(serial)
 {
 }
 
@@ -178,8 +177,8 @@ Status DesktopCanFlashTransport::write(bytes::ByteView data, const ICancellation
     }
 }
 
-Result<std::optional<bytes::Bytes>> DesktopCanFlashTransport::read(
-    int timeout_ms, const ICancellationToken& cancellation)
+Result<std::optional<bytes::Bytes>> DesktopCanFlashTransport::read(int timeout_ms,
+                                                                   const ICancellationToken& cancellation)
 {
     if (cancellation.cancelled() || unblock_requested_.load(std::memory_order_acquire))
     {

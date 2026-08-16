@@ -37,8 +37,7 @@ class ScriptedKlineTransport : public IKlineTransport
     }
     bool scriptConsumed() const
     {
-        return wIdx_ == expected_.size() && reads_.empty() &&
-               set_baud_results_.empty() && write_results_.empty();
+        return wIdx_ == expected_.size() && reads_.empty() && set_baud_results_.empty() && write_results_.empty();
     }
     bool ok() const
     {
@@ -81,8 +80,7 @@ class ScriptedKlineTransport : public IKlineTransport
         }
         return data.size();
     }
-    fastecu::Result<OptionalBytes> read(
-        int, const fastecu::ICancellationToken& cancellation) override
+    fastecu::Result<OptionalBytes> read(int, const fastecu::ICancellationToken& cancellation) override
     {
         if (cancellation.cancelled())
         {

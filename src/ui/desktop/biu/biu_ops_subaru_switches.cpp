@@ -5,8 +5,7 @@
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 BiuOpsSubaruSwitches::BiuOpsSubaruSwitches(QStringList *switch_result, QWidget *parent)
-    : QWidget(parent),
-      ui{std::make_unique<Ui::BiuOpsSubaruSwitchesWindow>()}
+    : QWidget(parent), ui{std::make_unique<Ui::BiuOpsSubaruSwitchesWindow>()}
 {
     ui->setupUi(this);
     // this->setParent(parent);

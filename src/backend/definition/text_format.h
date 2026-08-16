@@ -53,8 +53,7 @@ inline std::optional<std::uint64_t> parse_hex_value(std::string_view text)
     }
 
     std::uint64_t parsed = 0;
-    const auto [end, error] =
-        std::from_chars(digits.data(), digits.data() + digits.size(), parsed, 16);
+    const auto [end, error] = std::from_chars(digits.data(), digits.data() + digits.size(), parsed, 16);
     if (error != std::errc{} || end != digits.data() + digits.size())
     {
         return std::nullopt;

@@ -51,8 +51,7 @@ class LegacyCalibrationAdapter
     //     LegacyConfigAdapter::copy_car_models_into_legacy put in the
     //     parallel lists for such a row. They must NOT keep whatever the
     //     previously opened ROM left in them.
-    void bind_protocol(definitions::ConfigValuesStructure& config_values,
-                       const QString& flash_method);
+    void bind_protocol(definitions::ConfigValuesStructure& config_values, const QString& flash_method);
 
     // Pads ecu_cal_def.FullRomData in place for the WRX02 family. Must be
     // called BEFORE validate_rom_size: padding grows the image by 0x8000
@@ -61,8 +60,7 @@ class LegacyCalibrationAdapter
     //
     // Writes back into FullRomData rather than returning a copy -- every later
     // consumer, including the flash write path, reads that same buffer.
-    void apply_flash_method_padding(definitions::EcuCalDefStructure& ecu_cal_def,
-                                    const QString& flash_method);
+    void apply_flash_method_padding(definitions::EcuCalDefStructure& ecu_cal_def, const QString& flash_method);
 
     // Decodes every map's cells and axes from FullRomData and writes them into
     // the legacy MapData/XScaleData/YScaleData columns, one entry per map in
@@ -74,8 +72,8 @@ class LegacyCalibrationAdapter
     Status compute_map_cell_values(definitions::EcuCalDefStructure& ecu_cal_def,
                                    const definition::RomDefinition& rom_definition);
 
-    definitions::EcuCalDefStructure *save_subaru_rom_file(
-        definitions::EcuCalDefStructure *ecu_cal_def, const QString& filename);
+    definitions::EcuCalDefStructure *save_subaru_rom_file(definitions::EcuCalDefStructure *ecu_cal_def,
+                                                          const QString& filename);
 
   private:
     // Resolved join for `paths`, or nullptr if either catalog failed to
@@ -85,8 +83,7 @@ class LegacyCalibrationAdapter
     // plus two XML parses of a file that essentially never changes. Legacy
     // parsed those lists once at startup (read_protocols_file), so caching
     // is also the closer match to pre-refactor behavior.
-    const std::vector<config::ResolvedCarModel> *resolved_car_models(
-        const config::ConfigPaths& paths);
+    const std::vector<config::ResolvedCarModel> *resolved_car_models(const config::ConfigPaths& paths);
 
     IFileRepository& file_repository_;
     // Cache plus the protocols_file handle it was built from; a different

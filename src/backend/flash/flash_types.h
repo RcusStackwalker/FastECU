@@ -90,8 +90,7 @@ struct ConfirmationSpec
 
 } // namespace fastecu::flash
 
-template <>
-struct std::hash<fastecu::flash::ConfirmationSpec::Id>
+template <> struct std::hash<fastecu::flash::ConfirmationSpec::Id>
 {
     std::size_t operator()(fastecu::flash::ConfirmationSpec::Id id) const noexcept
     {
@@ -107,53 +106,38 @@ namespace fastecu::flash
 // ecu/mitsu_colt_m32r_can_types.h and eeprom/denso_sh705x_eeprom_types.h.
 // This file stays the single place that assembles the variant and classifies
 // its alternatives; it does not own any individual family's fields.
-using FamilyPlan = std::variant<
-    DensoSh705xEepromKlinePlan,
-    DensoSh705xEepromCanPlan,
-    MitsuColtM32rCanPlan,
-    SubaruMitsuM32rKlinePlan,
-    SubaruHitachiM32rKlinePlan,
-    SubaruDensoMc68hc16y5_02Plan,
-    SubaruDensoSh7055_02Plan,
-    SubaruHitachiM32rCanPlan,
-    SubaruTcuCvtHitachiM32rCanPlan,
-    SubaruTcuCvtMitsuMh8111CanPlan,
-    SubaruTcuCvtMitsuMh8104CanPlan>;
+using FamilyPlan = std::variant<DensoSh705xEepromKlinePlan, DensoSh705xEepromCanPlan, MitsuColtM32rCanPlan,
+                                SubaruMitsuM32rKlinePlan, SubaruHitachiM32rKlinePlan, SubaruDensoMc68hc16y5_02Plan,
+                                SubaruDensoSh7055_02Plan, SubaruHitachiM32rCanPlan, SubaruTcuCvtHitachiM32rCanPlan,
+                                SubaruTcuCvtMitsuMh8111CanPlan, SubaruTcuCvtMitsuMh8104CanPlan>;
 
 // Whether validate_and_build requires FlashPlanFields::kernel to be set for
 // this family's plan type. Defaults true (fail-closed): a family that skips
 // the kernel must opt out explicitly, right here, next to the variant it
 // classifies -- never by editing flash_validation.cpp.
-template <typename PlanT>
-inline constexpr bool family_requires_kernel_v = true;
+template <typename PlanT> inline constexpr bool family_requires_kernel_v = true;
 
 // Mitsu Colt CAN drives the ECU's own vendor bootloader and uploads only
 // compile-time RAM helper routines, not a loaded kernel image.
-template <>
-inline constexpr bool family_requires_kernel_v<MitsuColtM32rCanPlan> = false;
+template <> inline constexpr bool family_requires_kernel_v<MitsuColtM32rCanPlan> = false;
 
-template <>
-inline constexpr bool family_requires_kernel_v<SubaruMitsuM32rKlinePlan> = false;
+template <> inline constexpr bool family_requires_kernel_v<SubaruMitsuM32rKlinePlan> = false;
 
-template <>
-inline constexpr bool family_requires_kernel_v<SubaruHitachiM32rKlinePlan> = false;
+template <> inline constexpr bool family_requires_kernel_v<SubaruHitachiM32rKlinePlan> = false;
 
 // Step 5 tail, wave 3. Jumps to the ECU's resident on-board kernel via
 // SecurityAccess + 0x10/0x42, uploading no image.
-template <>
-inline constexpr bool family_requires_kernel_v<SubaruHitachiM32rCanPlan> = false;
+template <> inline constexpr bool family_requires_kernel_v<SubaruHitachiM32rCanPlan> = false;
 
 // Step 5 tail, wave 3. Jumps to the TCU's resident on-board kernel via
 // SecurityAccess + 0x10/0x02, uploading no image.
-template <>
-inline constexpr bool family_requires_kernel_v<SubaruTcuCvtHitachiM32rCanPlan> = false;
+template <> inline constexpr bool family_requires_kernel_v<SubaruTcuCvtHitachiM32rCanPlan> = false;
 
 // Step 5 tail, wave 3. Jumps to the TCU's resident on-board kernel via
 // SecurityAccess + 0x10/0x42, uploading no image (no kernel-alive pre-check
 // shortcut, unlike SubaruTcuCvtHitachiM32rCanPlan -- connect_bootloader
 // always runs its full sequence for this family).
-template <>
-inline constexpr bool family_requires_kernel_v<SubaruTcuCvtMitsuMh8111CanPlan> = false;
+template <> inline constexpr bool family_requires_kernel_v<SubaruTcuCvtMitsuMh8111CanPlan> = false;
 
 // Step 5 tail, wave 3. Jumps to the TCU's resident on-board kernel via
 // SecurityAccess + 0x10/0x42, uploading no image -- the same shape as
@@ -161,7 +145,6 @@ inline constexpr bool family_requires_kernel_v<SubaruTcuCvtMitsuMh8111CanPlan> =
 // check in legacy after the kernel-alive probe is commented out
 // (`// return STATUS_ERROR;`); this family tolerates any ECU response
 // content and only a transport-level failure stops it.
-template <>
-inline constexpr bool family_requires_kernel_v<SubaruTcuCvtMitsuMh8104CanPlan> = false;
+template <> inline constexpr bool family_requires_kernel_v<SubaruTcuCvtMitsuMh8104CanPlan> = false;
 
 } // namespace fastecu::flash

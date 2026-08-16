@@ -76,8 +76,7 @@ TEST(NegatedSum8, IsThePlainSumSubtractedFrom0x100)
 {
     const bytes::Bytes frame{0x80, 0x10, 0xF0, 0x01, 0xBF};
     const bytes::Byte plain = bytes::sum8(bytes::ByteView(frame));
-    EXPECT_EQ(fastecu::checksum::negatedSum8(bytes::ByteView(frame)),
-              static_cast<bytes::Byte>(0x100 - plain));
+    EXPECT_EQ(fastecu::checksum::negatedSum8(bytes::ByteView(frame)), static_cast<bytes::Byte>(0x100 - plain));
 }
 
 TEST(Crc32, MatchesKnownPolynomialVector)
@@ -90,8 +89,7 @@ TEST(Crc32, MatchesKnownPolynomialVector)
 TEST(Crc32, PointerOverloadMatchesByteViewOverload)
 {
     const bytes::Bytes payload{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
-    EXPECT_EQ(fastecu::checksum::crc32(payload.data(), std::uint32_t(payload.size())),
-              std::uint32_t(0x8AD85CF9));
+    EXPECT_EQ(fastecu::checksum::crc32(payload.data(), std::uint32_t(payload.size())), std::uint32_t(0x8AD85CF9));
 }
 
 TEST(Crc32, NullPointerReturnsZero)

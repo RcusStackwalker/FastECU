@@ -306,8 +306,7 @@ TEST(ValidateRomSize, BloblistExtentUsesWidthDerivedFromSelections)
     scaling.name = "mode";
     scaling.selections = {{"disabled", "0000"}, {"enabled", "0001"}};
 
-    EXPECT_FALSE(
-        validate_rom_size(definition_with_one_map(map, {scaling}), 0x1000).has_value());
+    EXPECT_FALSE(validate_rom_size(definition_with_one_map(map, {scaling}), 0x1000).has_value());
 }
 
 TEST(ValidateRomSize, ZeroStartPositionDoesNotSpuriouslyRejectTheRom)
@@ -688,8 +687,7 @@ TEST(DecodeBloblistHex, RejectsMaximumAddressWithoutWrapping)
 {
     const std::vector<std::uint8_t> rom{0xAB};
 
-    const auto result = decode_bloblist_hex(
-        rom, std::numeric_limits<std::uint64_t>::max(), 1);
+    const auto result = decode_bloblist_hex(rom, std::numeric_limits<std::uint64_t>::max(), 1);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Internal);
@@ -699,12 +697,10 @@ namespace
 {
 // A RomDefinition with one 3x1 uint8 map named "Fuel" at `address`, scaled by
 // `expression`.
-definition::RomDefinition one_map_definition(std::uint64_t address,
-                                             std::string_view expression = "x")
+definition::RomDefinition one_map_definition(std::uint64_t address, std::string_view expression = "x")
 {
     definition::RomDefinition rom;
-    rom.scalings.push_back(definition::Scaling{
-        .name = "FuelScaling", .from_byte = std::string(expression)});
+    rom.scalings.push_back(definition::Scaling{.name = "FuelScaling", .from_byte = std::string(expression)});
     definition::CalibrationMap map;
     map.name = "Fuel";
     map.type = "2D";
@@ -772,8 +768,7 @@ TEST(ComputeMapCellValues, UsesResolvedAxisExpressionAfterScalingInheritance)
     // This is the valid resolved state pinned by DefinitionResolverTest.
     // A child scaling that supplies only units materializes as identity while
     // the inherited parent expression remains on AxisDefinition itself.
-    rom.scalings.push_back(definition::Scaling{
-        .name = "ChildAxisScaling", .units = "r/min", .from_byte = "x"});
+    rom.scalings.push_back(definition::Scaling{.name = "ChildAxisScaling", .units = "r/min", .from_byte = "x"});
     rom.maps.at(0).x_axis.type = "X Axis";
     rom.maps.at(0).x_axis.address = 3;
     rom.maps.at(0).x_axis.size = 3;
@@ -840,8 +835,7 @@ TEST(ComputeMapCellValues, DecodesYAxisWithoutTypeBranching)
 TEST(ComputeMapCellValues, HexEncodesBloblistMaps)
 {
     definition::RomDefinition rom;
-    rom.scalings.push_back(definition::Scaling{
-        .name = "Blob", .selections = {{"Off", "aabb"}, {"On", "ccdd"}}});
+    rom.scalings.push_back(definition::Scaling{.name = "Blob", .selections = {{"Off", "aabb"}, {"On", "ccdd"}}});
     definition::CalibrationMap map;
     map.name = "Switch";
     map.address = 1;

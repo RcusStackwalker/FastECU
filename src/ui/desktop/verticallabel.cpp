@@ -2,13 +2,11 @@
 
 #include <QPainter>
 
-VerticalLabel::VerticalLabel(QWidget *parent)
-    : QLabel(parent)
+VerticalLabel::VerticalLabel(QWidget *parent) : QLabel(parent)
 {
 }
 
-VerticalLabel::VerticalLabel(const QString& text, QWidget *parent)
-    : QLabel(text, parent)
+VerticalLabel::VerticalLabel(const QString& text, QWidget *parent) : QLabel(text, parent)
 {
 }
 

@@ -19,11 +19,8 @@ class FlashEcuSubaruHitachiSH72543rCanOperation : public FlashOperationWorker
     Q_OBJECT
 
   public:
-    FlashEcuSubaruHitachiSH72543rCanOperation(SerialPortActions *serial,
-                                              FileActions::EcuCalDefStructure *ecuCalDef,
-                                              QString cmd_type,
-                                              QWidget *dialog,
-                                              QObject *parent = nullptr,
+    FlashEcuSubaruHitachiSH72543rCanOperation(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
+                                              QString cmd_type, QWidget *dialog, QObject *parent = nullptr,
                                               PromptFn promptOverride = {});
 
   protected:

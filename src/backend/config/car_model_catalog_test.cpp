@@ -169,16 +169,14 @@ TEST(LoadCarModelCatalog, ParsesTheRealShippedProtocolsFileWithoutError)
         EXPECT_FALSE(entry.protocol_name.empty());
     }
 
-    for (const auto [id, capacity, vendor] :
-         std::to_array<std::tuple<std::string_view, std::string_view, bool>>({
+    for (const auto [id, capacity, vendor] : std::to_array<std::tuple<std::string_view, std::string_view, bool>>({
              {"mitsu_ecu_m32r_can", "384KB", false},
              {"mitsu_ecu_m32r_can_vendor_ext", "384KB", true},
              {"mitsu_ecu_m32r_can_512kb", "512KB", false},
              {"mitsu_ecu_m32r_can_vendor_ext_512kb", "512KB", true},
          }))
     {
-        const auto colt =
-            std::ranges::find(*catalog, id, &CarModelEntry::protocol_name);
+        const auto colt = std::ranges::find(*catalog, id, &CarModelEntry::protocol_name);
         ASSERT_NE(colt, catalog->end()) << id;
         EXPECT_EQ(colt->make, "Mitsubishi");
         EXPECT_EQ(colt->model, "Colt CZT");

@@ -33,16 +33,13 @@ namespace literals
 // expression, so the call cannot be evaluated.
 consteval Byte operator""_b(unsigned long long value)
 {
-    return value <= 0xFF
-               ? static_cast<Byte>(value)
-               : throw std::out_of_range("byte literal does not fit in one byte");
+    return value <= 0xFF ? static_cast<Byte>(value) : throw std::out_of_range("byte literal does not fit in one byte");
 }
 
 } // namespace literals
 
 template <typename T>
-concept ByteRange =
-    std::ranges::input_range<T> && std::same_as<std::ranges::range_value_t<T>, Byte>;
+concept ByteRange = std::ranges::input_range<T> && std::same_as<std::ranges::range_value_t<T>, Byte>;
 
 namespace detail
 {
@@ -50,11 +47,9 @@ namespace detail
 // Deliberately not `static_assert(false, ...)`: P2593R1 support in MSVC is
 // newer than the rest of what this repo relies on, and MSVC builds with
 // /std:c++latest.
-template <typename>
-inline constexpr bool dependentFalse = false;
+template <typename> inline constexpr bool dependentFalse = false;
 
-template <typename T>
-constexpr std::size_t widthBe(const T& arg)
+template <typename T> constexpr std::size_t widthBe(const T& arg)
 {
     using U = std::remove_cvref_t<T>;
     if constexpr (std::same_as<U, Byte>)
@@ -90,16 +85,14 @@ constexpr std::size_t widthBe(const T& arg)
     }
     else
     {
-        static_assert(dependentFalse<U>,
-                      "composeBe: argument must be Byte, std::uint16_t, u24(), "
-                      "std::uint32_t, std::string_view, or a range of Byte. A bare "
-                      "integer literal is an int -- write 0x34_b instead.");
+        static_assert(dependentFalse<U>, "composeBe: argument must be Byte, std::uint16_t, u24(), "
+                                         "std::uint32_t, std::string_view, or a range of Byte. A bare "
+                                         "integer literal is an int -- write 0x34_b instead.");
         return 0;
     }
 }
 
-template <typename T>
-void appendBe(Bytes& out, const T& arg)
+template <typename T> void appendBe(Bytes& out, const T& arg)
 {
     using U = std::remove_cvref_t<T>;
     if constexpr (std::same_as<U, Byte>)
@@ -131,10 +124,9 @@ void appendBe(Bytes& out, const T& arg)
     }
     else
     {
-        static_assert(dependentFalse<U>,
-                      "composeBe: argument must be Byte, std::uint16_t, u24(), "
-                      "std::uint32_t, std::string_view, or a range of Byte. A bare "
-                      "integer literal is an int -- write 0x34_b instead.");
+        static_assert(dependentFalse<U>, "composeBe: argument must be Byte, std::uint16_t, u24(), "
+                                         "std::uint32_t, std::string_view, or a range of Byte. A bare "
+                                         "integer literal is an int -- write 0x34_b instead.");
     }
 }
 
@@ -142,8 +134,7 @@ void appendBe(Bytes& out, const T& arg)
 
 // Composes `args` big-endian, reserving `extra_capacity` bytes beyond the
 // composed length so a caller that appends afterwards does not reallocate.
-template <typename... Args>
-Bytes composeBeWithExtraCapacity(std::size_t extra_capacity, const Args&...args)
+template <typename... Args> Bytes composeBeWithExtraCapacity(std::size_t extra_capacity, const Args&...args)
 {
     Bytes out;
     out.reserve(extra_capacity + (std::size_t{0} + ... + detail::widthBe(args)));
@@ -151,8 +142,7 @@ Bytes composeBeWithExtraCapacity(std::size_t extra_capacity, const Args&...args)
     return out;
 }
 
-template <typename... Args>
-Bytes composeBe(const Args&...args)
+template <typename... Args> Bytes composeBe(const Args&...args)
 {
     return composeBeWithExtraCapacity(0, args...);
 }
@@ -160,8 +150,7 @@ Bytes composeBe(const Args&...args)
 // Composes `args` big-endian, then appends `checksum(composed)` using the
 // same width law -- a Byte-returning function appends one byte, a
 // uint32_t-returning one appends four, most-significant first.
-template <typename ChecksumFn, typename... Args>
-Bytes composeBeWithChecksum(ChecksumFn checksum, const Args&...args)
+template <typename ChecksumFn, typename... Args> Bytes composeBeWithChecksum(ChecksumFn checksum, const Args&...args)
 {
     using Sum = std::invoke_result_t<ChecksumFn, ByteView>;
     static_assert(std::unsigned_integral<Sum> && sizeof(Sum) <= 4,

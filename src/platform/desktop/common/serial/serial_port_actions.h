@@ -37,11 +37,8 @@ class SerialPortActions : public QObject
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
   public:
-    explicit SerialPortActions(QString peerAddress = "",
-                               QString password = "",
-                               QWebSocket *web_socket = nullptr,
-                               QObject *parent = nullptr,
-                               std::function<SerialBackend *()> backendFactoryForTests = {});
+    explicit SerialPortActions(QString peerAddress = "", QString password = "", QWebSocket *web_socket = nullptr,
+                               QObject *parent = nullptr, std::function<SerialBackend *()> backendFactoryForTests = {});
 
     // Teardown-ordering precondition: callers must not start new calls while
     // the destructor is running. Calls already executing on the backend thread
@@ -223,8 +220,7 @@ class SerialPortActions : public QObject
 
     // Marshal `fn` onto the I/O thread and block until it completes. `fn`
     // runs with m_backend valid and is the ONLY code that touches it.
-    template <typename Fn>
-    auto runOnBackend(const Fn& fn)
+    template <typename Fn> auto runOnBackend(const Fn& fn)
     {
         using Ret = std::invoke_result_t<const Fn&>;
         ensureBackendStarted();

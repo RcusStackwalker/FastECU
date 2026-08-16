@@ -29,10 +29,8 @@ class ChecksumCorrectionCommand
   public:
     virtual ~ChecksumCorrectionCommand() = default;
 
-    ChecksumCorrectionResult run(bytes::ByteView rom_data, bool use_romraider_definition,
-                                 bool use_ecuflash_definition,
-                                 const fastecu::checksum::ChecksumSelection& selection,
-                                 QWidget *parent);
+    ChecksumCorrectionResult run(bytes::ByteView rom_data, bool use_romraider_definition, bool use_ecuflash_definition,
+                                 const fastecu::checksum::ChecksumSelection& selection, QWidget *parent);
 
   protected:
     // Returns true if the user chose to proceed anyway ("DO IT!"), false for

@@ -19,10 +19,8 @@ std::vector<std::uint8_t> bytes(std::string_view text)
     return {text.begin(), text.end()};
 }
 
-void expect_invalid_with_context(
-    const Result<UnresolvedDefinition>& result,
-    std::string_view source_context,
-    std::string_view xml_context)
+void expect_invalid_with_context(const Result<UnresolvedDefinition>& result, std::string_view source_context,
+                                 std::string_view xml_context)
 {
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
@@ -169,8 +167,7 @@ TEST(EcuFlashParserTest, PreservesStaticAxisDataWithoutAnExplicitSize)
     ASSERT_TRUE(result);
     ASSERT_EQ(result->maps.size(), 1U);
     EXPECT_EQ(result->maps.front().x_axis.type, "Static X Axis");
-    EXPECT_EQ(result->maps.front().x_axis.static_data,
-              (std::vector<std::string>{"10", "20"}));
+    EXPECT_EQ(result->maps.front().x_axis.static_data, (std::vector<std::string>{"10", "20"}));
     EXPECT_EQ(result->maps.front().x_size, 2U);
     EXPECT_EQ(result->maps.front().y_size, 1U);
 }
@@ -287,8 +284,7 @@ TEST(EcuFlashParserTest, RejectsInvalidAddressAndDimension)
     expect_invalid_with_context(address, "bad-address.xml", "address");
 
     auto dimension = parse_ecuflash_definition(
-        bytes("<rom><romid><xmlid>A</xmlid></romid><table name=\"Fuel\" sizex=\"0\"/></rom>"),
-        "bad-dimension.xml");
+        bytes("<rom><romid><xmlid>A</xmlid></romid><table name=\"Fuel\" sizex=\"0\"/></rom>"), "bad-dimension.xml");
     expect_invalid_with_context(dimension, "bad-dimension.xml", "sizex");
 }
 
@@ -296,8 +292,8 @@ TEST(EcuFlashParserTest, RejectsInvalidStartPositionAndInterval)
 {
     for (const auto attribute : {"startpos", "interval"})
     {
-        const std::string xml = std::string("<rom><romid><xmlid>A</xmlid></romid><table name=\"Fuel\" ") +
-                                attribute + "=\"not-hex\"/></rom>";
+        const std::string xml = std::string("<rom><romid><xmlid>A</xmlid></romid><table name=\"Fuel\" ") + attribute +
+                                "=\"not-hex\"/></rom>";
         auto result = parse_ecuflash_definition(bytes(xml), "bad-hex-dimension.xml");
         expect_invalid_with_context(result, "bad-hex-dimension.xml", attribute);
     }
@@ -315,8 +311,8 @@ TEST(EcuFlashParserTest, RejectsInvalidStrictFlags)
 {
     for (const auto attribute : {"swapxy", "flipx", "flipy"})
     {
-        const std::string xml = std::string("<rom><romid><xmlid>A</xmlid></romid><table name=\"Fuel\" ") +
-                                attribute + "=\"yes\"/></rom>";
+        const std::string xml =
+            std::string("<rom><romid><xmlid>A</xmlid></romid><table name=\"Fuel\" ") + attribute + "=\"yes\"/></rom>";
         auto result = parse_ecuflash_definition(bytes(xml), "bad-bool.xml");
         expect_invalid_with_context(result, "bad-bool.xml", attribute);
     }
@@ -351,8 +347,7 @@ TEST(EcuFlashParserTest, RejectsSecondAxisTargetingAnOccupiedSemanticSlot)
         <table type="Y Axis" name="Only Y"/>
       </table></rom>)xml"),
                                                  "duplicate-x-axis.xml");
-    expect_invalid_with_context(
-        duplicate_x, "duplicate-x-axis.xml", "X axis");
+    expect_invalid_with_context(duplicate_x, "duplicate-x-axis.xml", "X axis");
 
     auto duplicate_y = parse_ecuflash_definition(bytes(R"xml(
       <rom><romid><xmlid>Y_DUPLICATE</xmlid></romid>
@@ -362,8 +357,7 @@ TEST(EcuFlashParserTest, RejectsSecondAxisTargetingAnOccupiedSemanticSlot)
         <table type="Y Axis" name="Second Y"/>
       </table></rom>)xml"),
                                                  "duplicate-y-axis.xml");
-    expect_invalid_with_context(
-        duplicate_y, "duplicate-y-axis.xml", "Y axis");
+    expect_invalid_with_context(duplicate_y, "duplicate-y-axis.xml", "Y axis");
 }
 
 } // namespace

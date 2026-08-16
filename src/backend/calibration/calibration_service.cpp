@@ -16,15 +16,9 @@ namespace fastecu::calibration
 namespace
 {
 
-Status validate_extent(
-    std::optional<std::uint64_t> address,
-    std::uint32_t count,
-    std::uint32_t start_position,
-    std::uint32_t interval,
-    std::optional<definition::StorageType> storage_type,
-    const definition::Scaling *scaling,
-    std::size_t rom_byte_length,
-    std::string_view context)
+Status validate_extent(std::optional<std::uint64_t> address, std::uint32_t count, std::uint32_t start_position,
+                       std::uint32_t interval, std::optional<definition::StorageType> storage_type,
+                       const definition::Scaling *scaling, std::size_t rom_byte_length, std::string_view context)
 {
     if (!address.has_value())
     {
@@ -118,8 +112,7 @@ std::string join_with_trailing_comma(const std::vector<std::string>& values)
     return result;
 }
 
-ElementRun map_element_run(const definition::CalibrationMap& map,
-                           const definition::Scaling *scaling,
+ElementRun map_element_run(const definition::CalibrationMap& map, const definition::Scaling *scaling,
                            std::uint32_t count)
 {
     return ElementRun{
@@ -134,8 +127,7 @@ ElementRun map_element_run(const definition::CalibrationMap& map,
     };
 }
 
-ElementRun axis_element_run(const definition::AxisDefinition& axis,
-                            std::uint32_t count)
+ElementRun axis_element_run(const definition::AxisDefinition& axis, std::uint32_t count)
 {
     return ElementRun{
         .address = axis.address.value_or(0),
@@ -150,18 +142,15 @@ ElementRun axis_element_run(const definition::AxisDefinition& axis,
 }
 
 Result<MapCellValues> compute_one_map(const definition::RomDefinition& rom_definition,
-                                      const definition::CalibrationMap& map,
-                                      bytes::ByteView rom_data,
+                                      const definition::CalibrationMap& map, bytes::ByteView rom_data,
                                       int float_precision)
 {
     MapCellValues values;
-    const definition::Scaling *scaling =
-        definition::find_scaling(rom_definition, map.scaling_name);
+    const definition::Scaling *scaling = definition::find_scaling(rom_definition, map.scaling_name);
 
     if (!map.address.has_value())
     {
-        return fail(ErrorKind::InvalidConfig,
-                    std::format("map '{}' has no address", map.name));
+        return fail(ErrorKind::InvalidConfig, std::format("map '{}' has no address", map.name));
     }
 
     if (map.storage_type == definition::StorageType::Bloblist)
@@ -179,14 +168,11 @@ Result<MapCellValues> compute_one_map(const definition::RomDefinition& rom_defin
     const std::uint64_t cell_count = std::uint64_t(map.x_size) * map.y_size;
     if (cell_count > std::numeric_limits<std::uint32_t>::max())
     {
-        return fail(ErrorKind::InvalidConfig,
-                    std::format("map '{}' cell count exceeds supported range", map.name));
+        return fail(ErrorKind::InvalidConfig, std::format("map '{}' cell count exceeds supported range", map.name));
     }
 
-    auto cells = decode_scaled_values(
-        rom_data,
-        map_element_run(map, scaling, static_cast<std::uint32_t>(cell_count)),
-        float_precision);
+    auto cells = decode_scaled_values(rom_data, map_element_run(map, scaling, static_cast<std::uint32_t>(cell_count)),
+                                      float_precision);
     if (!cells.has_value())
     {
         return std::unexpected(cells.error());
@@ -202,8 +188,7 @@ Result<MapCellValues> compute_one_map(const definition::RomDefinition& rom_defin
         }
         else if (x_axis.type == "X Axis" || (x_axis.type == "Y Axis" && map.type == "2D"))
         {
-            auto decoded = decode_scaled_values(
-                rom_data, axis_element_run(x_axis, map.x_size), float_precision);
+            auto decoded = decode_scaled_values(rom_data, axis_element_run(x_axis, map.x_size), float_precision);
             if (!decoded.has_value())
             {
                 return std::unexpected(decoded.error());
@@ -217,8 +202,7 @@ Result<MapCellValues> compute_one_map(const definition::RomDefinition& rom_defin
     if (map.y_size > 1)
     {
         // No type branching, deliberately: see the header.
-        auto decoded = decode_scaled_values(
-            rom_data, axis_element_run(map.y_axis, map.y_size), float_precision);
+        auto decoded = decode_scaled_values(rom_data, axis_element_run(map.y_axis, map.y_size), float_precision);
         if (!decoded.has_value())
         {
             return std::unexpected(decoded.error());
@@ -231,8 +215,7 @@ Result<MapCellValues> compute_one_map(const definition::RomDefinition& rom_defin
 
 } // namespace
 
-Result<std::vector<std::uint8_t>> read_rom(std::string_view file_handle,
-                                           IFileRepository& file_repository)
+Result<std::vector<std::uint8_t>> read_rom(std::string_view file_handle, IFileRepository& file_repository)
 {
     return file_repository.read(file_handle);
 }
@@ -245,24 +228,17 @@ void backup_rom(std::span<const std::uint8_t> rom_data, std::string_view backup_
     (void)file_repository.write(backup_handle, rom_data);
 }
 
-std::uint32_t element_byte_size(
-    std::optional<definition::StorageType> storage_type,
-    const definition::Scaling *scaling)
+std::uint32_t element_byte_size(std::optional<definition::StorageType> storage_type, const definition::Scaling *scaling)
 {
-    if (storage_type == definition::StorageType::Bloblist && scaling != nullptr &&
-        !scaling->selections.empty())
+    if (storage_type == definition::StorageType::Bloblist && scaling != nullptr && !scaling->selections.empty())
     {
         return static_cast<std::uint32_t>(scaling->selections.front().second.size() / 2);
     }
     return definition::storage_byte_size(storage_type);
 }
 
-std::uint64_t element_run_end(
-    std::uint64_t address,
-    std::uint32_t start_position,
-    std::uint32_t interval,
-    std::uint32_t element_width,
-    std::uint32_t count)
+std::uint64_t element_run_end(std::uint64_t address, std::uint32_t start_position, std::uint32_t interval,
+                              std::uint32_t element_width, std::uint32_t count)
 {
     if (count == 0)
     {
@@ -273,39 +249,33 @@ std::uint64_t element_run_end(
     // start_position is 1-based. 0 is out of domain and unvalidated upstream
     // (see the header); clamp it to the smallest legal value instead of
     // letting start_position - 1 wrap to 0xFFFFFFFF.
-    const std::uint64_t start_offset =
-        start_position == 0 ? 0 : std::uint64_t(start_position - 1);
-    return address + start_offset * element_width +
-           std::uint64_t(count - 1) * interval * element_width + element_width;
+    const std::uint64_t start_offset = start_position == 0 ? 0 : std::uint64_t(start_position - 1);
+    return address + start_offset * element_width + std::uint64_t(count - 1) * interval * element_width + element_width;
 }
 
-Status validate_rom_size(const definition::RomDefinition& rom_definition,
-                         std::size_t rom_byte_length)
+Status validate_rom_size(const definition::RomDefinition& rom_definition, std::size_t rom_byte_length)
 {
     for (const definition::CalibrationMap& map : rom_definition.maps)
     {
-        if (auto status = validate_extent(
-                map.address, map.x_size * map.y_size, map.start_position, map.interval,
-                map.storage_type, definition::find_scaling(rom_definition, map.scaling_name),
-                rom_byte_length, "map");
+        if (auto status = validate_extent(map.address, map.x_size * map.y_size, map.start_position, map.interval,
+                                          map.storage_type, definition::find_scaling(rom_definition, map.scaling_name),
+                                          rom_byte_length, "map");
             !status.has_value())
         {
             return status;
         }
-        if (auto status = validate_extent(
-                map.x_axis.address, map.x_axis.size, map.x_axis.start_position,
-                map.x_axis.interval, map.x_axis.storage_type,
-                definition::find_scaling(rom_definition, map.x_axis.scaling_name), rom_byte_length,
-                "x-axis");
+        if (auto status = validate_extent(map.x_axis.address, map.x_axis.size, map.x_axis.start_position,
+                                          map.x_axis.interval, map.x_axis.storage_type,
+                                          definition::find_scaling(rom_definition, map.x_axis.scaling_name),
+                                          rom_byte_length, "x-axis");
             !status.has_value())
         {
             return status;
         }
-        if (auto status = validate_extent(
-                map.y_axis.address, map.y_axis.size, map.y_axis.start_position,
-                map.y_axis.interval, map.y_axis.storage_type,
-                definition::find_scaling(rom_definition, map.y_axis.scaling_name), rom_byte_length,
-                "y-axis");
+        if (auto status = validate_extent(map.y_axis.address, map.y_axis.size, map.y_axis.start_position,
+                                          map.y_axis.interval, map.y_axis.storage_type,
+                                          definition::find_scaling(rom_definition, map.y_axis.scaling_name),
+                                          rom_byte_length, "y-axis");
             !status.has_value())
         {
             return status;
@@ -314,15 +284,13 @@ Status validate_rom_size(const definition::RomDefinition& rom_definition,
     return {};
 }
 
-std::vector<std::uint8_t> apply_flash_method_padding(
-    std::vector<std::uint8_t> rom_data, std::string_view flash_method)
+std::vector<std::uint8_t> apply_flash_method_padding(std::vector<std::uint8_t> rom_data, std::string_view flash_method)
 {
     constexpr std::size_t kInsertAt = 0x20000;
     constexpr std::size_t kPadBytes = 0x8000;
     constexpr std::size_t kSizeThreshold = static_cast<std::size_t>(190) * 1024;
 
-    if (!flash_method.starts_with("sub_ecu_denso_mc68hc16y5_02") ||
-        rom_data.size() >= kSizeThreshold)
+    if (!flash_method.starts_with("sub_ecu_denso_mc68hc16y5_02") || rom_data.size() >= kSizeThreshold)
     {
         return rom_data;
     }
@@ -330,14 +298,11 @@ std::vector<std::uint8_t> apply_flash_method_padding(
     {
         rom_data.resize(kInsertAt, 0x00);
     }
-    rom_data.insert(rom_data.begin() + static_cast<std::ptrdiff_t>(kInsertAt),
-                    kPadBytes, 0xFF);
+    rom_data.insert(rom_data.begin() + static_cast<std::ptrdiff_t>(kInsertAt), kPadBytes, 0xFF);
     return rom_data;
 }
 
-Result<std::string> decode_scaled_values(bytes::ByteView rom_data,
-                                         const ElementRun& run,
-                                         int float_precision)
+Result<std::string> decode_scaled_values(bytes::ByteView rom_data, const ElementRun& run, int float_precision)
 {
     const std::uint32_t width = definition::storage_byte_size(run.storage_type);
     const bool is_float = run.storage_type == definition::StorageType::Float;
@@ -349,12 +314,10 @@ Result<std::string> decode_scaled_values(bytes::ByteView rom_data,
     // start_position is 1-based. definition_resolver rejects 0, but clamp
     // identically to element_run_end's guard so the two cannot disagree if
     // this is reached directly.
-    const std::uint64_t start_offset =
-        run.start_position == 0 ? 0 : std::uint64_t(run.start_position - 1);
+    const std::uint64_t start_offset = run.start_position == 0 ? 0 : std::uint64_t(run.start_position - 1);
     std::uint64_t start_byte_offset = 0;
     std::uint64_t stride = 0;
-    if (!checked_multiply(start_offset, width, start_byte_offset) ||
-        !checked_multiply(width, run.interval, stride))
+    if (!checked_multiply(start_offset, width, start_byte_offset) || !checked_multiply(width, run.interval, stride))
     {
         return fail(ErrorKind::Internal, "element run layout exceeds supported range");
     }
@@ -370,14 +333,12 @@ Result<std::string> decode_scaled_values(bytes::ByteView rom_data,
             !byte_window_fits(rom_data, byte_address, width))
         {
             return fail(ErrorKind::Internal,
-                        std::format("element {} at 0x{:x} runs past ROM size {}",
-                                    j, byte_address, rom_data.size()));
+                        std::format("element {} at 0x{:x} runs past ROM size {}", j, byte_address, rom_data.size()));
         }
 
-        const std::uint32_t raw =
-            little_endian
-                ? bytes::readULe(rom_data, static_cast<std::size_t>(byte_address), width)
-                : bytes::readUBe(rom_data, static_cast<std::size_t>(byte_address), width);
+        const std::uint32_t raw = little_endian
+                                      ? bytes::readULe(rom_data, static_cast<std::size_t>(byte_address), width)
+                                      : bytes::readUBe(rom_data, static_cast<std::size_t>(byte_address), width);
 
         double value = 0.0;
         if (!run.is_selectable)
@@ -386,20 +347,16 @@ Result<std::string> decode_scaled_values(bytes::ByteView rom_data,
             {
                 float float_value = 0.0F;
                 std::memcpy(&float_value, &raw, sizeof(float_value));
-                value = expression_evaluate(
-                    run.from_byte, format_like_qt_g(float_value, float_precision),
-                    float_precision);
+                value =
+                    expression_evaluate(run.from_byte, format_like_qt_g(float_value, float_precision), float_precision);
             }
             else if (is_unsigned)
             {
-                value = expression_evaluate(run.from_byte, std::to_string(raw),
-                                            float_precision);
+                value = expression_evaluate(run.from_byte, std::to_string(raw), float_precision);
             }
             else
             {
-                value = expression_evaluate(
-                    run.from_byte, std::to_string(sign_extend(raw, width)),
-                    float_precision);
+                value = expression_evaluate(run.from_byte, std::to_string(sign_extend(raw, width)), float_precision);
             }
         }
         result += format_like_qt_g(value, float_precision);
@@ -408,20 +365,16 @@ Result<std::string> decode_scaled_values(bytes::ByteView rom_data,
     return result;
 }
 
-Result<std::string> decode_bloblist_hex(bytes::ByteView rom_data,
-                                        std::uint64_t address,
-                                        std::uint32_t byte_count)
+Result<std::string> decode_bloblist_hex(bytes::ByteView rom_data, std::uint64_t address, std::uint32_t byte_count)
 {
     if (!byte_window_fits(rom_data, address, byte_count))
     {
-        return fail(ErrorKind::Internal,
-                    std::format("bloblist at 0x{:x} ({} bytes) runs past ROM size {}",
-                                address, byte_count, rom_data.size()));
+        return fail(ErrorKind::Internal, std::format("bloblist at 0x{:x} ({} bytes) runs past ROM size {}", address,
+                                                     byte_count, rom_data.size()));
     }
     std::string result;
     std::uint64_t result_size = 0;
-    if (!checked_multiply(byte_count, 2, result_size) ||
-        result_size > std::numeric_limits<std::size_t>::max())
+    if (!checked_multiply(byte_count, 2, result_size) || result_size > std::numeric_limits<std::size_t>::max())
     {
         return fail(ErrorKind::Internal, "bloblist hex output size exceeds supported range");
     }
@@ -436,10 +389,8 @@ Result<std::string> decode_bloblist_hex(bytes::ByteView rom_data,
     return result;
 }
 
-Result<MapCellValuesList> compute_map_cell_values(
-    const definition::RomDefinition& rom_definition,
-    bytes::ByteView rom_data,
-    int float_precision)
+Result<MapCellValuesList> compute_map_cell_values(const definition::RomDefinition& rom_definition,
+                                                  bytes::ByteView rom_data, int float_precision)
 {
     MapCellValuesList results;
     results.reserve(rom_definition.maps.size());

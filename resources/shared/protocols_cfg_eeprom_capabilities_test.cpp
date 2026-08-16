@@ -43,10 +43,9 @@ TEST(ProtocolsCfgEepromCapabilitiesTest, DeclaresEepromWriteAndTestWriteUnsuppor
     const std::string contents = readProtocolsCfg();
     ASSERT_FALSE(contents.empty());
 
-    for (const std::string& name : {
-             "sub_ecu_eeprom_denso_sh7055_kline", "sub_ecu_eeprom_denso_sh7058_kline",
-             "sub_ecu_eeprom_denso_sh7055_densocan", "sub_ecu_eeprom_denso_sh7058_densocan",
-             "sub_ecu_eeprom_denso_sh7058_can", "sub_ecu_eeprom_denso_sh7058_can_diesel"})
+    for (const std::string& name : {"sub_ecu_eeprom_denso_sh7055_kline", "sub_ecu_eeprom_denso_sh7058_kline",
+                                    "sub_ecu_eeprom_denso_sh7055_densocan", "sub_ecu_eeprom_denso_sh7058_densocan",
+                                    "sub_ecu_eeprom_denso_sh7058_can", "sub_ecu_eeprom_denso_sh7058_can_diesel"})
     {
         SCOPED_TRACE(name);
         const std::string needle = "name=\"" + name + "\"";

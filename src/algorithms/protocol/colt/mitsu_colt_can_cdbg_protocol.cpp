@@ -78,7 +78,8 @@ std::uint32_t seedToKey(std::uint32_t seed)
     std::uint16_t word0 = static_cast<std::uint16_t>(((n[0] << 8) + n[1]) * 3 + n[3] * 8);
     std::uint16_t word1 = static_cast<std::uint16_t>(((n[2] << 8) + n[3]) * 5 + n[1] * 8);
 
-    return (std::uint32_t(word0 >> 8) << 24) | (std::uint32_t(word0 & 0xFF) << 16) | (std::uint32_t(word1 >> 8) << 8) | std::uint32_t(word1 & 0xFF);
+    return (std::uint32_t(word0 >> 8) << 24) | (std::uint32_t(word0 & 0xFF) << 16) | (std::uint32_t(word1 >> 8) << 8) |
+           std::uint32_t(word1 & 0xFF);
 }
 
 std::uint32_t extractSeed(bytes::ByteView reply)
@@ -131,8 +132,7 @@ CdbgFrame buildLogStartFrame(bytes::Byte instance, bytes::Byte frameCount, std::
     return frame;
 }
 
-bool batchChannelsIntoFrames(const std::vector<CdbgChannel>& channels,
-                             std::vector<std::vector<CdbgChannel>>& outFrames)
+bool batchChannelsIntoFrames(const std::vector<CdbgChannel>& channels, std::vector<std::vector<CdbgChannel>>& outFrames)
 {
     if (channels.empty())
     {
@@ -175,15 +175,7 @@ std::vector<CdbgFrame> buildFrameInitFrames(bytes::Byte instance, bytes::Byte fr
     out.reserve(frameItems.size() * 2);
     for (std::size_t i = 0; i < frameItems.size(); ++i)
     {
-        out.push_back(CdbgFrame{
-            kCmdLogSelectItem,
-            0,
-            instance,
-            frameIndex,
-            static_cast<bytes::Byte>(i),
-            0,
-            0,
-            0});
+        out.push_back(CdbgFrame{kCmdLogSelectItem, 0, instance, frameIndex, static_cast<bytes::Byte>(i), 0, 0, 0});
 
         const CdbgChannel& ch = frameItems.at(i);
         CdbgFrame pointerFrame{kCmdLogSetPointer, 0, ch.size, 0, 0, 0, 0, 0};
@@ -193,8 +185,7 @@ std::vector<CdbgFrame> buildFrameInitFrames(bytes::Byte instance, bytes::Byte fr
     return out;
 }
 
-std::vector<std::uint32_t> decodeFrame(bytes::Byte expectedFrameIndex,
-                                       const std::vector<CdbgChannel>& frameItems,
+std::vector<std::uint32_t> decodeFrame(bytes::Byte expectedFrameIndex, const std::vector<CdbgChannel>& frameItems,
                                        bytes::ByteView frame)
 {
     if (frame.empty() || frame[0] != expectedFrameIndex)

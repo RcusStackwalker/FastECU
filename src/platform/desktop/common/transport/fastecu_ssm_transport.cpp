@@ -29,8 +29,8 @@ fastecu::Result<std::size_t> FastEcuSsmTransport::write(bytes::ByteView data)
     }
 }
 
-fastecu::Result<ISsmTransport::OptionalBytes> FastEcuSsmTransport::read(
-    int timeoutMs, const fastecu::ICancellationToken& cancellation)
+fastecu::Result<ISsmTransport::OptionalBytes> FastEcuSsmTransport::read(int timeoutMs,
+                                                                        const fastecu::ICancellationToken& cancellation)
 {
     if (cancellation.cancelled())
     {

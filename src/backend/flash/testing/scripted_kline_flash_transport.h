@@ -143,8 +143,7 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
             std::unique_lock lock(mutex_);
             if (blocking_read_pending_)
             {
-                cv_.wait(lock, [this]
-                         { return unblock_requested_; });
+                cv_.wait(lock, [this] { return unblock_requested_; });
                 blocking_read_pending_ = false;
                 return fail(ErrorKind::Cancelled, "scripted K-Line read unblocked");
             }

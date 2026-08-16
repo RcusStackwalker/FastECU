@@ -19,11 +19,8 @@ class FlashEcuSubaruDensoSH705xKlineOperation : public FlashOperationWorker
     Q_OBJECT
 
   public:
-    FlashEcuSubaruDensoSH705xKlineOperation(SerialPortActions *serial,
-                                            FileActions::EcuCalDefStructure *ecuCalDef,
-                                            QString cmd_type,
-                                            QWidget *dialog,
-                                            QObject *parent = nullptr,
+    FlashEcuSubaruDensoSH705xKlineOperation(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
+                                            QString cmd_type, QWidget *dialog, QObject *parent = nullptr,
                                             PromptFn promptOverride = {});
 
   protected:

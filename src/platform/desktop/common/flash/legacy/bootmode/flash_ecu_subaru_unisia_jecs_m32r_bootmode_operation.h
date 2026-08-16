@@ -18,11 +18,8 @@ class FlashEcuSubaruUnisiaJecsM32rBootModeOperation : public FlashOperationWorke
     Q_OBJECT
 
   public:
-    FlashEcuSubaruUnisiaJecsM32rBootModeOperation(SerialPortActions *serial,
-                                                  FileActions::EcuCalDefStructure *ecuCalDef,
-                                                  QString cmd_type,
-                                                  QWidget *dialog,
-                                                  QObject *parent = nullptr,
+    FlashEcuSubaruUnisiaJecsM32rBootModeOperation(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
+                                                  QString cmd_type, QWidget *dialog, QObject *parent = nullptr,
                                                   PromptFn promptOverride = {});
 
   protected:

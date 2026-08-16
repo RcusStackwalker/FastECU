@@ -61,11 +61,13 @@ void TestDirectBackendPty::ptyRead_reassemblesFragmentedFrame()
 
     // The "ECU" delivers one framed message in two fragments with a gap:
     // header first, payload+checksum 30ms later. The reader must reassemble.
-    std::thread responder([master]
-                          {
-        ::write(master, "\x80\xf0\x10\x02", 4);
-        QThread::msleep(30);
-        ::write(master, "\xaa\xbb\xcc", 3); });
+    std::thread responder(
+        [master]
+        {
+            ::write(master, "\x80\xf0\x10\x02", 4);
+            QThread::msleep(30);
+            ::write(master, "\xaa\xbb\xcc", 3);
+        });
     const QByteArray got = direct.read_serial_data(500);
     responder.join();
     QCOMPARE(got, QByteArray("\x80\xf0\x10\x02\xaa\xbb\xcc", 7));
@@ -82,8 +84,7 @@ void TestDirectBackendPty::ptyRead_timesOutCleanOnSilence()
     t.start();
     QCOMPARE(direct.read_serial_data(150), QByteArray());
     const qint64 elapsed = t.elapsed();
-    QVERIFY2(elapsed >= 140 && elapsed < 1000,
-             qPrintable(QString("timeout took %1 ms").arg(elapsed)));
+    QVERIFY2(elapsed >= 140 && elapsed < 1000, qPrintable(QString("timeout took %1 ms").arg(elapsed)));
     ::close(master);
 }
 

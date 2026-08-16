@@ -23,9 +23,9 @@ struct DesktopLoggingSnapshot
     std::unordered_set<std::string> enabled_ids;
 };
 
-fastecu::Result<DesktopLoggingSnapshot> make_desktop_logging_snapshot(
-    const FileActions::LogValuesStructure& log_values,
-    fastecu::logging::LoggingProtocolId protocol, const QString& protocol_filter,
-    fastecu::logging::LoggingPolicy policy);
+fastecu::Result<DesktopLoggingSnapshot> make_desktop_logging_snapshot(const FileActions::LogValuesStructure& log_values,
+                                                                      fastecu::logging::LoggingProtocolId protocol,
+                                                                      const QString& protocol_filter,
+                                                                      fastecu::logging::LoggingPolicy policy);
 
 } // namespace fastecu::desktop::logging

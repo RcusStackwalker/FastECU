@@ -59,11 +59,8 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
     QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
 
     setSplashScreenProgress("Reading config files...", 10);
-    fileActions = new FileActions(
-        m_configFileSystem,
-        m_configResourceBundle,
-        m_configFileRepository,
-        m_definitionFileWriter);
+    fileActions =
+        new FileActions(m_configFileSystem, m_configResourceBundle, m_configFileRepository, m_definitionFileWriter);
     configValues = &fileActions->ConfigValuesStruct;
 
     QDir currentPath(QDir::currentPath());
@@ -98,7 +95,8 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
     QObject::connect(this, &MainWindow::LOG_I, syslogger, &SystemLogger::log_messages);
     QObject::connect(this, &MainWindow::LOG_D, syslogger, &SystemLogger::log_messages);
     QObject::connect(this, &MainWindow::enable_log_write_to_file, syslogger, &SystemLogger::enable_log_write_to_file);
-    QObject::connect(syslogger, &SystemLogger::send_message_to_log_window, this, &MainWindow::send_message_to_log_window);
+    QObject::connect(syslogger, &SystemLogger::send_message_to_log_window, this,
+                     &MainWindow::send_message_to_log_window);
     QObject::connect(syslogger, &SystemLogger::finished, syslog_thread, &QThread::quit);
     QObject::connect(syslogger, &SystemLogger::finished, syslogger, &SystemLogger::deleteLater);
     QObject::connect(syslog_thread, &QThread::finished, syslog_thread, &QThread::deleteLater);
@@ -141,22 +139,34 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
 
     fileActions->read_protocols_file(configValues);
     emit LOG_D("ECU protocols read", true, true);
-    emit LOG_D("Protocols ID: " + configValues->flash_protocol_selected_id + "/" + QString::number(configValues->flash_protocol_id.length()), true, true);
+    emit LOG_D("Protocols ID: " + configValues->flash_protocol_selected_id + "/" +
+                   QString::number(configValues->flash_protocol_id.length()),
+               true, true);
 
     if (configValues->flash_protocol_selected_id.toInt() > configValues->flash_protocol_id.length())
     {
         configValues->flash_protocol_selected_id = "0";
     }
-    configValues->flash_protocol_selected_make = configValues->flash_protocol_make.at(configValues->flash_protocol_selected_id.toInt());
-    configValues->flash_protocol_selected_mcu = configValues->flash_protocol_mcu.at(configValues->flash_protocol_selected_id.toInt());
-    configValues->flash_protocol_selected_checksum = configValues->flash_protocol_checksum.at(configValues->flash_protocol_selected_id.toInt());
-    configValues->flash_protocol_selected_model = configValues->flash_protocol_model.at(configValues->flash_protocol_selected_id.toInt());
-    configValues->flash_protocol_selected_version = configValues->flash_protocol_version.at(configValues->flash_protocol_selected_id.toInt());
-    configValues->flash_protocol_selected_protocol_name = configValues->flash_protocol_protocol_name.at(configValues->flash_protocol_selected_id.toInt());
-    configValues->flash_protocol_selected_description = configValues->flash_protocol_description.at(configValues->flash_protocol_selected_id.toInt());
-    // configValues->flash_protocol_selected_flash_transport = configValues->flash_protocol_flash_transport.at(configValues->flash_protocol_selected_id.toInt());
-    // configValues->flash_protocol_selected_log_transport = configValues->flash_protocol_log_transport.at(configValues->flash_protocol_selected_id.toInt());
-    // configValues->flash_protocol_selected_log_protocol = configValues->flash_protocol_log_protocol.at(configValues->flash_protocol_selected_id.toInt());
+    configValues->flash_protocol_selected_make =
+        configValues->flash_protocol_make.at(configValues->flash_protocol_selected_id.toInt());
+    configValues->flash_protocol_selected_mcu =
+        configValues->flash_protocol_mcu.at(configValues->flash_protocol_selected_id.toInt());
+    configValues->flash_protocol_selected_checksum =
+        configValues->flash_protocol_checksum.at(configValues->flash_protocol_selected_id.toInt());
+    configValues->flash_protocol_selected_model =
+        configValues->flash_protocol_model.at(configValues->flash_protocol_selected_id.toInt());
+    configValues->flash_protocol_selected_version =
+        configValues->flash_protocol_version.at(configValues->flash_protocol_selected_id.toInt());
+    configValues->flash_protocol_selected_protocol_name =
+        configValues->flash_protocol_protocol_name.at(configValues->flash_protocol_selected_id.toInt());
+    configValues->flash_protocol_selected_description =
+        configValues->flash_protocol_description.at(configValues->flash_protocol_selected_id.toInt());
+    // configValues->flash_protocol_selected_flash_transport =
+    // configValues->flash_protocol_flash_transport.at(configValues->flash_protocol_selected_id.toInt());
+    // configValues->flash_protocol_selected_log_transport =
+    // configValues->flash_protocol_log_transport.at(configValues->flash_protocol_selected_id.toInt());
+    // configValues->flash_protocol_selected_log_protocol =
+    // configValues->flash_protocol_log_protocol.at(configValues->flash_protocol_selected_id.toInt());
 
     emit LOG_D(configValues->flash_protocol_selected_make, true, true);
     emit LOG_D(configValues->flash_protocol_selected_mcu, true, true);
@@ -174,7 +184,8 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
 
     if (configValues->window_width != "maximized" && configValues->window_height != "maximized")
     {
-        this->setGeometry(qrect.x(), qrect.y(), configValues->window_width.toInt(), configValues->window_height.toInt());
+        this->setGeometry(qrect.x(), qrect.y(), configValues->window_width.toInt(),
+                          configValues->window_height.toInt());
     }
     else
     {
@@ -184,7 +195,8 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
     setSplashScreenProgress("Preparing ROM definitions...", 10);
     if (configValues->romraider_definition_files.empty() && !configValues->ecuflash_definition_files_directory.length())
     {
-        QMessageBox::warning(this, tr("Ecu definition file"), "No definition file(s), use 'Settings' in 'Edit' menu to choose file(s)");
+        QMessageBox::warning(this, tr("Ecu definition file"),
+                             "No definition file(s), use 'Settings' in 'Edit' menu to choose file(s)");
     }
 
     setSplashScreenProgress("Preparing EcuFlash ROM definitions...", 10);
@@ -234,10 +246,14 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
     connect(ui->logBoxWidget, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(change_digital_values()));
     connect(ui->mdiArea, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(change_gauge_values()));
     // connect(ui->action_Preferences, SIGNAL(triggered()), this, SLOT(openPreferences()));
-    connect(ui->calibrationFilesTreeWidget, SIGNAL(itemClicked(QTreeWidgetItem *, int)), this, SLOT(calibration_files_treewidget_item_selected(QTreeWidgetItem *)));
-    connect(ui->calibrationDataTreeWidget, SIGNAL(itemClicked(QTreeWidgetItem *, int)), this, SLOT(calibration_data_treewidget_item_selected(QTreeWidgetItem *)));
-    connect(ui->calibrationDataTreeWidget, SIGNAL(itemExpanded(QTreeWidgetItem *)), this, SLOT(calibration_data_treewidget_item_expanded(QTreeWidgetItem *)));
-    connect(ui->calibrationDataTreeWidget, SIGNAL(itemCollapsed(QTreeWidgetItem *)), this, SLOT(calibration_data_treewidget_item_collapsed(QTreeWidgetItem *)));
+    connect(ui->calibrationFilesTreeWidget, SIGNAL(itemClicked(QTreeWidgetItem *, int)), this,
+            SLOT(calibration_files_treewidget_item_selected(QTreeWidgetItem *)));
+    connect(ui->calibrationDataTreeWidget, SIGNAL(itemClicked(QTreeWidgetItem *, int)), this,
+            SLOT(calibration_data_treewidget_item_selected(QTreeWidgetItem *)));
+    connect(ui->calibrationDataTreeWidget, SIGNAL(itemExpanded(QTreeWidgetItem *)), this,
+            SLOT(calibration_data_treewidget_item_expanded(QTreeWidgetItem *)));
+    connect(ui->calibrationDataTreeWidget, SIGNAL(itemCollapsed(QTreeWidgetItem *)), this,
+            SLOT(calibration_data_treewidget_item_collapsed(QTreeWidgetItem *)));
     connect(calibrationTreeWidget, SIGNAL(closeRom()), this, SLOT(close_calibration()));
 
     setSplashScreenProgress("Setting up statusbar...", 10);
@@ -266,7 +282,8 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
     ui->calibrationFilesTreeWidget->setMinimumHeight(125);
     ui->calibrationFilesTreeWidget->minimumHeight();
     ui->calibrationFilesTreeWidget->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(ui->calibrationFilesTreeWidget, SIGNAL(customContextMenuRequested(QPoint)), SLOT(custom_menu_requested(QPoint)));
+    connect(ui->calibrationFilesTreeWidget, SIGNAL(customContextMenuRequested(QPoint)),
+            SLOT(custom_menu_requested(QPoint)));
 
     // ui->splitter->setStretchFactor(2, 1);
     ui->splitter->setSizes(QList<int>({125, INT_MAX}));
@@ -309,18 +326,19 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
         this->setWindowTitle(wt);
     }
     // Add option to close app while waiting for network connection
-    QObject::connect(btnCloseApp, &QPushButton::released, this, [&]()
+    QObject::connect(btnCloseApp, &QPushButton::released, this,
+                     [&]()
                      {
                          netSplashLabel->setText("Closing app, please wait...");
-                         exit(1); });
+                         exit(1);
+                     });
 
     // Init may take a long time due to network
     // Do it in a non-blocking way
     // This timer will timeout as fast as possible
     // processing events
     QTimer *timer = new QTimer(this);
-    connect(timer, &QTimer::timeout, this, [&]()
-            { QApplication::processEvents(); });
+    connect(timer, &QTimer::timeout, this, [&]() { QApplication::processEvents(); });
     timer->start();
 
     serial = new SerialPortActions(peerAddress, peerPassword, nullptr, this);
@@ -345,10 +363,9 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
     timer->stop();
     netSplash->close();
     timer->deleteLater();
-    connect(serial, &SerialPortActions::stateChanged,
-            this, &MainWindow::network_state_changed, Qt::DirectConnection);
-    connect(remote_utility, &RemoteUtility::stateChanged,
-            this, &MainWindow::network_state_changed, Qt::DirectConnection);
+    connect(serial, &SerialPortActions::stateChanged, this, &MainWindow::network_state_changed, Qt::DirectConnection);
+    connect(remote_utility, &RemoteUtility::stateChanged, this, &MainWindow::network_state_changed,
+            Qt::DirectConnection);
 
     // Set timer to read vbatt value
     vbatt_timer = new QTimer(this);
@@ -568,7 +585,8 @@ QStringList MainWindow::create_flash_transports_list()
 {
     QStringList flash_protocols;
 
-    flash_protocols.append(configValues->flash_protocol_flash_transport.at(configValues->flash_protocol_selected_id.toInt()).split(","));
+    flash_protocols.append(
+        configValues->flash_protocol_flash_transport.at(configValues->flash_protocol_selected_id.toInt()).split(","));
 
     flash_transport_list->clear();
     for (int i = 0; i < flash_protocols.length(); i++)
@@ -586,7 +604,8 @@ QStringList MainWindow::create_log_transports_list()
 {
     QStringList log_transports;
 
-    log_transports.append(configValues->flash_protocol_log_transport.at(configValues->flash_protocol_selected_id.toInt()).split(","));
+    log_transports.append(
+        configValues->flash_protocol_log_transport.at(configValues->flash_protocol_selected_id.toInt()).split(","));
 
     log_transport_list->clear();
     for (int i = 0; i < log_transports.length(); i++)
@@ -675,13 +694,19 @@ void MainWindow::update_protocol_info(int rom_number)
 {
     bool info_updated = false;
 
-    emit LOG_D("Update protocol info by selected ROM with FlashMethod: " + ecuCalDef[rom_number]->RomInfo.at(fileActions->FlashMethod), true, true);
+    emit LOG_D("Update protocol info by selected ROM with FlashMethod: " +
+                   ecuCalDef[rom_number]->RomInfo.at(fileActions->FlashMethod),
+               true, true);
     for (int i = 0; i < configValues->flash_protocol_id.length(); i++)
     {
-        if (configValues->flash_protocol_protocol_name.at(i) == ecuCalDef[rom_number]->RomInfo.at(fileActions->FlashMethod))
+        if (configValues->flash_protocol_protocol_name.at(i) ==
+            ecuCalDef[rom_number]->RomInfo.at(fileActions->FlashMethod))
         {
             info_updated = true;
-            emit LOG_D("Protocol name for selected ROM found: " + ecuCalDef[rom_number]->RomInfo.at(fileActions->FlashMethod) + " == " + configValues->flash_protocol_protocol_name.at(i), true, true);
+            emit LOG_D(
+                "Protocol name for selected ROM found: " + ecuCalDef[rom_number]->RomInfo.at(fileActions->FlashMethod) +
+                    " == " + configValues->flash_protocol_protocol_name.at(i),
+                true, true);
             configValues->flash_protocol_selected_id = configValues->flash_protocol_id.at(i);
             configValues->flash_protocol_selected_make = configValues->flash_protocol_make.at(i);
             configValues->flash_protocol_selected_model = configValues->flash_protocol_model.at(i);
@@ -732,7 +757,8 @@ void MainWindow::set_flash_arrow_state()
                 }
                 if (action->text() == "Test write to ecu")
                 {
-                    if (configValues->flash_protocol_test_write.at(configValues->flash_protocol_selected_id.toInt()) == "yes")
+                    if (configValues->flash_protocol_test_write.at(configValues->flash_protocol_selected_id.toInt()) ==
+                        "yes")
                     {
                         action->setEnabled(true);
                     }
@@ -743,7 +769,8 @@ void MainWindow::set_flash_arrow_state()
                 }
                 if (action->text() == "Write to ecu")
                 {
-                    if (configValues->flash_protocol_write.at(configValues->flash_protocol_selected_id.toInt()) == "yes")
+                    if (configValues->flash_protocol_write.at(configValues->flash_protocol_selected_id.toInt()) ==
+                        "yes")
                     {
                         action->setEnabled(true);
                     }
@@ -1002,7 +1029,8 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
         configValues->kernel_files_directory.append("/");
     }
 
-    if (configValues->flash_protocol_selected_make == "Subaru" || configValues->flash_protocol_selected_make == "Mitsubishi")
+    if (configValues->flash_protocol_selected_make == "Subaru" ||
+        configValues->flash_protocol_selected_make == "Mitsubishi")
     {
         serial->reset_connection();
         ecuid.clear();
@@ -1041,9 +1069,11 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
             fullRomDataTmp = ecuCalDef[rom_number]->FullRomData;
             if (configValues->flash_protocol_selected_checksum == "n/a")
             {
-                QMessageBox msgBox(QMessageBox::Warning, "Checksum warning", "WARNING! There is no checksum module for this ROM!\n"
-                                                                             "Be aware that if this ROM need checksum correction it must be done with another software!",
-                                   QMessageBox::Ok | QMessageBox::Cancel);
+                QMessageBox msgBox(
+                    QMessageBox::Warning, "Checksum warning",
+                    "WARNING! There is no checksum module for this ROM!\n"
+                    "Be aware that if this ROM need checksum correction it must be done with another software!",
+                    QMessageBox::Ok | QMessageBox::Cancel);
                 const auto ret = msgBox.exec();
 
                 if (ret == QMessageBox::Cancel)
@@ -1055,12 +1085,18 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
             }
             if (ecuCalDef[rom_number]->RomInfo.at(fileActions->FlashMethod) == "")
             {
-                ecuCalDef[rom_number]->RomInfo.replace(fileActions->FlashMethod, configValues->flash_protocol_selected_protocol_name);
+                ecuCalDef[rom_number]->RomInfo.replace(fileActions->FlashMethod,
+                                                       configValues->flash_protocol_selected_protocol_name);
                 update_protocol_info(rom_number);
             }
             ecuCalDef[rom_number]->FlashMethod = configValues->flash_protocol_selected_protocol_name;
-            ecuCalDef[rom_number]->Kernel = configValues->kernel_files_directory + configValues->flash_protocol_kernel.at(configValues->flash_protocol_selected_id.toInt()); // check_kernel(ecuCalDef[rom_number]->RomInfo.at(fileActions->FlashMethod));
-            ecuCalDef[rom_number]->KernelStartAddr = configValues->flash_protocol_kernel_addr.at(configValues->flash_protocol_selected_id.toInt());
+            ecuCalDef[rom_number]->Kernel =
+                configValues->kernel_files_directory +
+                configValues->flash_protocol_kernel.at(
+                    configValues->flash_protocol_selected_id
+                        .toInt()); // check_kernel(ecuCalDef[rom_number]->RomInfo.at(fileActions->FlashMethod));
+            ecuCalDef[rom_number]->KernelStartAddr =
+                configValues->flash_protocol_kernel_addr.at(configValues->flash_protocol_selected_id.toInt());
             ecuCalDef[rom_number]->McuType = configValues->flash_protocol_selected_mcu;
 
             if (configValues->flash_protocol_selected_checksum != "n/a")
@@ -1076,18 +1112,23 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
             {
                 ecuCalDef[rom_number]->RomInfo.append(" ");
             }
-            ecuCalDef[rom_number]->RomInfo.replace(fileActions->FlashMethod, configValues->flash_protocol_selected_protocol_name);
+            ecuCalDef[rom_number]->RomInfo.replace(fileActions->FlashMethod,
+                                                   configValues->flash_protocol_selected_protocol_name);
             update_protocol_info(rom_number);
             ecuCalDef[rom_number]->FlashMethod = configValues->flash_protocol_selected_protocol_name;
-            ecuCalDef[rom_number]->Kernel = configValues->kernel_files_directory + configValues->flash_protocol_kernel.at(configValues->flash_protocol_selected_id.toInt()); // check_kernel(ecuCalDef[rom_number]->RomInfo.at(fileActions->FlashMethod));
-            ecuCalDef[rom_number]->KernelStartAddr = configValues->flash_protocol_kernel_addr.at(configValues->flash_protocol_selected_id.toInt());
+            ecuCalDef[rom_number]->Kernel =
+                configValues->kernel_files_directory +
+                configValues->flash_protocol_kernel.at(
+                    configValues->flash_protocol_selected_id
+                        .toInt()); // check_kernel(ecuCalDef[rom_number]->RomInfo.at(fileActions->FlashMethod));
+            ecuCalDef[rom_number]->KernelStartAddr =
+                configValues->flash_protocol_kernel_addr.at(configValues->flash_protocol_selected_id.toInt());
             ecuCalDef[rom_number]->McuType = configValues->flash_protocol_selected_mcu;
         }
 
         emit LOG_D("Protocol to use: " + configValues->flash_protocol_selected_protocol_name, true, true);
 
-        const fastecu::config::ConfigPaths eeprom_paths =
-            fastecu::config::paths_from_config_values(*configValues);
+        const fastecu::config::ConfigPaths eeprom_paths = fastecu::config::paths_from_config_values(*configValues);
 
         const fastecu::flash::FlashOperation operation = [&cmd_type]
         {
@@ -1102,8 +1143,7 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
             return fastecu::flash::FlashOperation::Read;
         }();
         std::optional<bytes::Bytes> portable_image =
-            fastecu::flash::portableImageForOperation(
-                operation, bytes::view(ecuCalDef[rom_number]->FullRomData));
+            fastecu::flash::portableImageForOperation(operation, bytes::view(ecuCalDef[rom_number]->FullRomData));
         auto workflow = fastecu::flash::FlashWorkflowFactory::tryCreate({
             .operation = operation,
             .protocol = configValues->flash_protocol_selected_protocol_name.toStdString(),
@@ -1119,27 +1159,26 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
          */
         if (workflow)
         {
-            fastecu::flash::FlashDialog flash_module(
-                std::move(workflow), operation, ecuCalDef[rom_number]->FileName, this);
+            fastecu::flash::FlashDialog flash_module(std::move(workflow), operation, ecuCalDef[rom_number]->FileName,
+                                                     this);
             QObject::connect<void (fastecu::flash::FlashDialog::*)(QString)>(
-                &flash_module, &fastecu::flash::FlashDialog::external_logger,
-                this, &MainWindow::external_logger);
+                &flash_module, &fastecu::flash::FlashDialog::external_logger, this, &MainWindow::external_logger);
             QObject::connect<void (fastecu::flash::FlashDialog::*)(int)>(
-                &flash_module, &fastecu::flash::FlashDialog::external_logger,
-                this, &MainWindow::external_logger_set_progressbar_value);
-            QObject::connect(&flash_module, &fastecu::flash::FlashDialog::LOG_E,
-                             syslogger, &SystemLogger::log_messages);
-            QObject::connect(&flash_module, &fastecu::flash::FlashDialog::LOG_W,
-                             syslogger, &SystemLogger::log_messages);
-            QObject::connect(&flash_module, &fastecu::flash::FlashDialog::LOG_I,
-                             syslogger, &SystemLogger::log_messages);
-            QObject::connect(&flash_module, &fastecu::flash::FlashDialog::LOG_D,
-                             syslogger, &SystemLogger::log_messages);
+                &flash_module, &fastecu::flash::FlashDialog::external_logger, this,
+                &MainWindow::external_logger_set_progressbar_value);
+            QObject::connect(&flash_module, &fastecu::flash::FlashDialog::LOG_E, syslogger,
+                             &SystemLogger::log_messages);
+            QObject::connect(&flash_module, &fastecu::flash::FlashDialog::LOG_W, syslogger,
+                             &SystemLogger::log_messages);
+            QObject::connect(&flash_module, &fastecu::flash::FlashDialog::LOG_I, syslogger,
+                             &SystemLogger::log_messages);
+            QObject::connect(&flash_module, &fastecu::flash::FlashDialog::LOG_D, syslogger,
+                             &SystemLogger::log_messages);
             fastecu::flash::FlashDialogResult dialog_result = flash_module.run();
             if (dialog_result.accepted_read_bytes)
             {
-                ecuCalDef[rom_number]->FullRomData = bytes::toQByteArray(
-                    bytes::ByteView(*dialog_result.accepted_read_bytes));
+                ecuCalDef[rom_number]->FullRomData =
+                    bytes::toQByteArray(bytes::ByteView(*dialog_result.accepted_read_bytes));
             }
             if (dialog_result.rom_id)
             {
@@ -1314,7 +1353,9 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
          */
         else
         {
-            QMessageBox::warning(this, tr("Unknown flashmethod"), "Unknown flashmethod! Flashmethod \"" + configValues->flash_protocol_selected_protocol_name + "\" not yet implemented!");
+            QMessageBox::warning(this, tr("Unknown flashmethod"),
+                                 "Unknown flashmethod! Flashmethod \"" +
+                                     configValues->flash_protocol_selected_protocol_name + "\" not yet implemented!");
         }
         // ecuOperationsSubaru = new EcuOperationsSubaru(serial, ecuCalDef[rom_number], cmd_type, this);
 
@@ -1344,8 +1385,10 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
                 }
 
                 // emit LOG_D("Building treewidget, please wait...";
-                calibrationTreeWidget->buildCalibrationFilesTree(ecuCalDefIndex, ui->calibrationFilesTreeWidget, ecuCalDef[ecuCalDefIndex]);
-                calibrationTreeWidget->buildCalibrationDataTree(ui->calibrationDataTreeWidget, ecuCalDef[ecuCalDefIndex]);
+                calibrationTreeWidget->buildCalibrationFilesTree(ecuCalDefIndex, ui->calibrationFilesTreeWidget,
+                                                                 ecuCalDef[ecuCalDefIndex]);
+                calibrationTreeWidget->buildCalibrationDataTree(ui->calibrationDataTreeWidget,
+                                                                ecuCalDef[ecuCalDefIndex]);
 
                 ecuCalDefIndex++;
                 save_calibration_file_as();
@@ -1396,13 +1439,13 @@ bool MainWindow::open_calibration_file(QString filename)
     {
         QFileDialog openDialog;
         openDialog.setDefaultSuffix("bin");
-        filename = QFileDialog::getOpenFileName(this, tr("Open ROM file"),
-                                                configValues->calibration_files_directory,
+        filename = QFileDialog::getOpenFileName(this, tr("Open ROM file"), configValues->calibration_files_directory,
                                                 tr("Calibration file (*.bin *.hex)"));
         if (filename.isEmpty())
         {
             QMessageBox::information(this, tr("Calibration file"), "No file selected");
-            return 1; // matches open_subaru_rom_file's old "no file selected" return of nullptr -> caller's failure path
+            return 1; // matches open_subaru_rom_file's old "no file selected" return of nullptr -> caller's failure
+                      // path
         }
     }
 
@@ -1417,13 +1460,13 @@ bool MainWindow::open_calibration_file(QString filename)
     if (ecuCalDef[ecuCalDefIndex] != nullptr)
     {
         update_protocol_info(ecuCalDefIndex);
-        if (!ecuCalDef[ecuCalDefIndex]->use_romraider_definition &&
-            !ecuCalDef[ecuCalDefIndex]->use_ecuflash_definition)
+        if (!ecuCalDef[ecuCalDefIndex]->use_romraider_definition && !ecuCalDef[ecuCalDefIndex]->use_ecuflash_definition)
         {
             prompt_for_missing_definition(ecuCalDef[ecuCalDefIndex]);
         }
 
-        calibrationTreeWidget->buildCalibrationFilesTree(ecuCalDefIndex, ui->calibrationFilesTreeWidget, ecuCalDef[ecuCalDefIndex]);
+        calibrationTreeWidget->buildCalibrationFilesTree(ecuCalDefIndex, ui->calibrationFilesTreeWidget,
+                                                         ecuCalDef[ecuCalDefIndex]);
         calibrationTreeWidget->buildCalibrationDataTree(ui->calibrationDataTreeWidget, ecuCalDef[ecuCalDefIndex]);
 
         ecuCalDefIndex++;
@@ -1506,7 +1549,8 @@ void MainWindow::runChecksumCorrection(FileActions::EcuCalDefStructure *ecuCalDe
     const flashdev_t *device = fastecu::flash::find_flash_device(selection.mcu_type);
     if (device != nullptr)
     {
-        emit LOG_D("ecuCalDef->McuType: " + ecuCalDef->McuType + " " + configValues->flash_protocol_selected_mcu, true, true);
+        emit LOG_D("ecuCalDef->McuType: " + ecuCalDef->McuType + " " + configValues->flash_protocol_selected_mcu, true,
+                   true);
         emit LOG_D("Size: 0x" + QString::number(ecuCalDef->FullRomData.length(), 16) + " -> 0x" +
                        QString::number(device->romsize, 16),
                    true, true);
@@ -1594,7 +1638,9 @@ void MainWindow::save_calibration_file_as()
         saveDialog.setDefaultSuffix("bin");
         emit LOG_D("Save as: Check if OEM ECU file", true, true);
 
-        filename = QFileDialog::getSaveFileName(this, tr("Save calibration file"), configValues->calibration_files_directory + filename, tr("Calibration file (*.bin)"));
+        filename = QFileDialog::getSaveFileName(this, tr("Save calibration file"),
+                                                configValues->calibration_files_directory + filename,
+                                                tr("Calibration file (*.bin)"));
 
         if (filename.isEmpty())
         {
@@ -1657,19 +1703,25 @@ void MainWindow::selectable_combobox_item_changed(const QString& item)
             {
                 if (selectionsNameList.at(j) == item)
                 {
-                    // emit LOG_D("Old selectable value was: " + ecuCalDef[mapRomNumber]->MapData.at(mapNumber), true, true);
+                    // emit LOG_D("Old selectable value was: " + ecuCalDef[mapRomNumber]->MapData.at(mapNumber), true,
+                    // true);
                     ecuCalDef[mapRomNumber]->MapData.replace(mapNumber, selectionsValueList.at(j));
-                    // emit LOG_D("New selectable value is: " + ecuCalDef[mapRomNumber]->MapData.at(mapNumber), true, true);
+                    // emit LOG_D("New selectable value is: " + ecuCalDef[mapRomNumber]->MapData.at(mapNumber), true,
+                    // true);
 
                     if (ecuCalDef[mapRomNumber]->StorageTypeList.at(mapNumber) == "bloblist")
                     {
                         uint8_t storagesize = 0;
                         uint8_t dataByte = 0;
                         uint32_t byteAddress = ecuCalDef[mapRomNumber]->AddressList.at(mapNumber).toUInt(&bStatus, 16);
-                        storagesize = ecuCalDef[mapRomNumber]->SelectionsValueList.at(mapNumber).split(",").at(0).length() / 2;
+                        storagesize =
+                            ecuCalDef[mapRomNumber]->SelectionsValueList.at(mapNumber).split(",").at(0).length() / 2;
                         for (int k = 0; k < storagesize; k++)
                         {
-                            dataByte = ecuCalDef[mapRomNumber]->MapData.at(mapNumber).mid(static_cast<qsizetype>(k * 2), 2).toUInt(&bStatus, 16);
+                            dataByte = ecuCalDef[mapRomNumber]
+                                           ->MapData.at(mapNumber)
+                                           .mid(static_cast<qsizetype>(k * 2), 2)
+                                           .toUInt(&bStatus, 16);
                             ecuCalDef[mapRomNumber]->FullRomData[byteAddress + k] = dataByte;
                         }
                     }
@@ -1703,7 +1755,8 @@ void MainWindow::checkbox_state_changed(int state)
             {
                 QStringList switch_data = switch_states.at(i + 1).split(" ");
                 uint32_t byte_address = ecuCalDef[map_rom_number]->AddressList.at(map_number).toUInt(&bStatus, 16);
-                if (ecuCalDef[map_rom_number]->RomInfo.at(fileActions->FlashMethod) == "wrx02" && ecuCalDef[map_rom_number]->FileSize.toUInt() < (170 * 1024) && byte_address > 0x27FFF)
+                if (ecuCalDef[map_rom_number]->RomInfo.at(fileActions->FlashMethod) == "wrx02" &&
+                    ecuCalDef[map_rom_number]->FileSize.toUInt() < (170 * 1024) && byte_address > 0x27FFF)
                 {
                     byte_address -= 0x8000;
                 }
@@ -1711,18 +1764,26 @@ void MainWindow::checkbox_state_changed(int state)
                 {
                     for (int j = 0; j < switch_data.length(); j++)
                     {
-                        emit LOG_D("Old switch value " + QString::number(j) + " is: " + ecuCalDef[map_rom_number]->FullRomData[byte_address + j], true, true);
+                        emit LOG_D("Old switch value " + QString::number(j) +
+                                       " is: " + ecuCalDef[map_rom_number]->FullRomData[byte_address + j],
+                                   true, true);
                         ecuCalDef[map_rom_number]->FullRomData[byte_address + j] = (uint8_t)switch_data.at(j).toUInt();
-                        emit LOG_D("New switch value " + QString::number(j) + " is: " + ecuCalDef[map_rom_number]->FullRomData[byte_address + j], true, true);
+                        emit LOG_D("New switch value " + QString::number(j) +
+                                       " is: " + ecuCalDef[map_rom_number]->FullRomData[byte_address + j],
+                                   true, true);
                     }
                 }
                 if ((switch_states.at(i) == "on" || switch_states.at(i) == "enabled") && state == 2)
                 {
                     for (int j = 0; j < switch_data.length(); j++)
                     {
-                        emit LOG_D("Old switch value" + QString::number(j) + " is: " + ecuCalDef[map_rom_number]->FullRomData[byte_address + j], true, true);
+                        emit LOG_D("Old switch value" + QString::number(j) +
+                                       " is: " + ecuCalDef[map_rom_number]->FullRomData[byte_address + j],
+                                   true, true);
                         ecuCalDef[map_rom_number]->FullRomData[byte_address + j] = (uint8_t)switch_data.at(j).toUInt();
-                        emit LOG_D("New switch value" + QString::number(j) + " is: " + ecuCalDef[map_rom_number]->FullRomData[byte_address + j], true, true);
+                        emit LOG_D("New switch value" + QString::number(j) +
+                                       " is: " + ecuCalDef[map_rom_number]->FullRomData[byte_address + j],
+                                   true, true);
                     }
                 }
             }
@@ -1801,7 +1862,8 @@ void MainWindow::calibration_data_treewidget_item_selected(QTreeWidgetItem *item
                     foreach (QMdiSubWindow *w, list)
                     {
                         map_index++;
-                        if (w->objectName().startsWith(QString::number(romIndex) + "," + QString::number(i) + "," + ecuCalDef[romNumber]->NameList.at(i)))
+                        if (w->objectName().startsWith(QString::number(romIndex) + "," + QString::number(i) + "," +
+                                                       ecuCalDef[romNumber]->NameList.at(i)))
                         {
                             if (w->objectName() == ui->mdiArea->activeSubWindow()->objectName())
                             {
@@ -1822,7 +1884,8 @@ void MainWindow::calibration_data_treewidget_item_selected(QTreeWidgetItem *item
                     ecuCalDef[romNumber]->VisibleList.replace(i, "1");
                     item->setCheckState(0, Qt::Checked);
 
-                    CalibrationMaps *calibrationMaps = new CalibrationMaps(ecuCalDef[romNumber], romIndex, i, ui->mdiArea->contentsRect());
+                    CalibrationMaps *calibrationMaps =
+                        new CalibrationMaps(ecuCalDef[romNumber], romIndex, i, ui->mdiArea->contentsRect());
                     QMdiSubWindow *subWindow = ui->mdiArea->addSubWindow(calibrationMaps);
                     if (subWindow)
                     {
@@ -1834,8 +1897,10 @@ void MainWindow::calibration_data_treewidget_item_selected(QTreeWidgetItem *item
                         // subWindow->setFixedWidth(subWindow->width());
                         // subWindow->setFixedHeight(subWindow->height());
 
-                        connect(calibrationMaps, SIGNAL(selectable_combobox_item_changed(QString)), this, SLOT(selectable_combobox_item_changed(QString)));
-                        connect(calibrationMaps, SIGNAL(checkbox_state_changed(int)), this, SLOT(checkbox_state_changed(int)));
+                        connect(calibrationMaps, SIGNAL(selectable_combobox_item_changed(QString)), this,
+                                SLOT(selectable_combobox_item_changed(QString)));
+                        connect(calibrationMaps, SIGNAL(checkbox_state_changed(int)), this,
+                                SLOT(checkbox_state_changed(int)));
                         connect(subWindow, SIGNAL(destroyed(QObject *)), this, SLOT(close_calibration_map(QObject *)));
                     }
                 }
@@ -2027,10 +2092,13 @@ void MainWindow::update_logboxes(const QString& protocol)
     {
         for (int j = 0; j < logValues->log_switch_id.length(); j++)
         {
-            if (logValues->lower_panel_switch_id.at(i) == logValues->log_switch_id.at(j) && logValues->log_switch_protocol.at(j) == protocol)
+            if (logValues->lower_panel_switch_id.at(i) == logValues->log_switch_id.at(j) &&
+                logValues->log_switch_protocol.at(j) == protocol)
             {
                 // emit LOG_D("Switch:" << logValues->log_switch_name.at(j);
-                QGroupBox *switchBox = logBoxes->drawLogBoxes("switch", i, switchBoxCount, logValues->log_switch_name.at(j), logValues->log_switch_name.at(j), logValues->log_switch_state.at(j));
+                QGroupBox *switchBox =
+                    logBoxes->drawLogBoxes("switch", i, switchBoxCount, logValues->log_switch_name.at(j),
+                                           logValues->log_switch_name.at(j), logValues->log_switch_state.at(j));
                 switchBox->setAttribute(Qt::WA_TransparentForMouseEvents);
                 ui->switchBoxLayout->addWidget(switchBox);
             }
@@ -2040,14 +2108,15 @@ void MainWindow::update_logboxes(const QString& protocol)
     {
         for (int j = 0; j < logValues->log_value_id.length(); j++)
         {
-            if (logValues->lower_panel_log_value_id.at(i) == logValues->log_value_id.at(j) && logValues->log_value_protocol.at(j) == protocol)
+            if (logValues->lower_panel_log_value_id.at(i) == logValues->log_value_id.at(j) &&
+                logValues->log_value_protocol.at(j) == protocol)
             {
                 // emit LOG_D("Log value:" << logValues->log_value_name.at(j);
                 const auto& conversions = logValues->log_value_conversions.at(j);
-                const QString unit = conversions.isEmpty()
-                                         ? QString()
-                                         : QString::fromStdString(conversions.at(0).units);
-                QGroupBox *logBox = logBoxes->drawLogBoxes("log", i, logBoxCount, logValues->log_value_name.at(j), unit, logValues->log_value.at(j));
+                const QString unit =
+                    conversions.isEmpty() ? QString() : QString::fromStdString(conversions.at(0).units);
+                QGroupBox *logBox = logBoxes->drawLogBoxes("log", i, logBoxCount, logValues->log_value_name.at(j), unit,
+                                                           logValues->log_value.at(j));
                 logBox->setAttribute(Qt::WA_TransparentForMouseEvents);
                 ui->logBoxLayout->addWidget(logBox);
             }
@@ -2079,16 +2148,15 @@ void MainWindow::update_logbox_values(const QString& protocol)
 
                 for (int j = 0; j < logValues->log_value_id.count(); j++)
                 {
-                    if (logValues->log_value_id.at(j) == logValues->lower_panel_log_value_id.at(i) && logValues->log_value_protocol.at(j) == protocol)
+                    if (logValues->log_value_id.at(j) == logValues->lower_panel_log_value_id.at(i) &&
+                        logValues->log_value_protocol.at(j) == protocol)
                     {
                         index = j;
                     }
                 }
 
                 const auto& conversions = logValues->log_value_conversions.at(index);
-                unit = conversions.isEmpty()
-                           ? QString()
-                           : QString::fromStdString(conversions.at(0).units);
+                unit = conversions.isEmpty() ? QString() : QString::fromStdString(conversions.at(0).units);
 
                 labelText = logValues->log_value.at(index);
                 labelText.append(" <font size=1px color=grey>");
@@ -2219,7 +2287,9 @@ void MainWindow::add_new_ecu_definition_file()
 
     QFileDialog openDialog;
     openDialog.setDefaultSuffix("xml");
-    filename = QFileDialog::getOpenFileName(this, tr("Select definition file"), configValues->definition_files_directory, tr("ECU definition file (*.xml)"));
+    filename =
+        QFileDialog::getOpenFileName(this, tr("Select definition file"), configValues->definition_files_directory,
+                                     tr("ECU definition file (*.xml)"));
 
     if (filename.isEmpty())
     {
@@ -2294,10 +2364,8 @@ bool MainWindow::eventFilter(QObject *target, QEvent *event)
     // Filter all mouse and keyboard events for splashscreen
     if (target == netSplash)
     {
-        if ((event->type() == QEvent::MouseButtonPress) ||
-            (event->type() == QEvent::MouseButtonDblClick) ||
-            (event->type() == QEvent::MouseButtonRelease) ||
-            (event->type() == QEvent::KeyPress) ||
+        if ((event->type() == QEvent::MouseButtonPress) || (event->type() == QEvent::MouseButtonDblClick) ||
+            (event->type() == QEvent::MouseButtonRelease) || (event->type() == QEvent::KeyPress) ||
             (event->type() == QEvent::KeyRelease))
         {
             return true;
@@ -2307,15 +2375,14 @@ bool MainWindow::eventFilter(QObject *target, QEvent *event)
     return false;
 }
 
-template <typename FLASH_CLASS>
-FLASH_CLASS *MainWindow::connect_signals_and_run_module(FLASH_CLASS *object)
+template <typename FLASH_CLASS> FLASH_CLASS *MainWindow::connect_signals_and_run_module(FLASH_CLASS *object)
 {
     // To successfully connect an overloaded signal,
     // one should provide a suitable template parameter to connect()
-    QObject::connect<void (FLASH_CLASS::*)(QString)>(object, &FLASH_CLASS::external_logger,
-                                                     this, &MainWindow::external_logger);
-    QObject::connect<void (FLASH_CLASS::*)(int)>(object, &FLASH_CLASS::external_logger,
-                                                 this, &MainWindow::external_logger_set_progressbar_value);
+    QObject::connect<void (FLASH_CLASS::*)(QString)>(object, &FLASH_CLASS::external_logger, this,
+                                                     &MainWindow::external_logger);
+    QObject::connect<void (FLASH_CLASS::*)(int)>(object, &FLASH_CLASS::external_logger, this,
+                                                 &MainWindow::external_logger_set_progressbar_value);
 
     // If signal is not overloaded, QObject::connect<> template will deduce type automatically
     QObject::connect(object, &FLASH_CLASS::LOG_E, syslogger, &SystemLogger::log_messages);
@@ -2478,15 +2545,14 @@ void MainWindow::setupLoggingEngine()
     connect(loggingEngine, &LoggingEngine::LOG_I, syslogger, &SystemLogger::log_messages);
     connect(loggingEngine, &LoggingEngine::LOG_D, syslogger, &SystemLogger::log_messages);
 
-    loggingEngine->registerProtocol(
-        "MUT_DMA",
-        [this](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
-        {
-            auto transport = std::make_unique<mutdma::FastEcuKlineTransport>(serial);
-            auto init = std::make_unique<mutdma::AlreadyInMode>(125000);
-            return std::make_unique<fastecu::logging::MutDmaLoggingProtocol>(
-                std::move(transport), std::move(init), snapshot.session.channels());
-        });
+    loggingEngine->registerProtocol("MUT_DMA",
+                                    [this](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
+                                    {
+                                        auto transport = std::make_unique<mutdma::FastEcuKlineTransport>(serial);
+                                        auto init = std::make_unique<mutdma::AlreadyInMode>(125000);
+                                        return std::make_unique<fastecu::logging::MutDmaLoggingProtocol>(
+                                            std::move(transport), std::move(init), snapshot.session.channels());
+                                    });
 
     loggingEngine->registerProtocol(
         "CDBG",
@@ -2494,18 +2560,12 @@ void MainWindow::setupLoggingEngine()
             -> fastecu::Result<std::unique_ptr<fastecu::logging::LoggingProtocol>>
         {
             const auto configured = fastecu::desktop::logging::configure_cdbg_serial({
-                .disable_iso14230 = [this]()
-                { return serial->set_is_iso14230_connection(false); },
-                .disable_iso14230_header = [this]()
-                { return serial->set_add_iso14230_header(false); },
-                .enable_raw_can = [this]()
-                { return serial->set_is_can_connection(true); },
-                .disable_iso15765 = [this]()
-                { return serial->set_is_iso15765_connection(false); },
-                .select_11_bit_ids = [this]()
-                { return serial->set_is_29_bit_id(false); },
-                .select_500k_baud = [this]()
-                { return serial->set_can_speed("500000"); },
+                .disable_iso14230 = [this]() { return serial->set_is_iso14230_connection(false); },
+                .disable_iso14230_header = [this]() { return serial->set_add_iso14230_header(false); },
+                .enable_raw_can = [this]() { return serial->set_is_can_connection(true); },
+                .disable_iso15765 = [this]() { return serial->set_is_iso15765_connection(false); },
+                .select_11_bit_ids = [this]() { return serial->set_is_29_bit_id(false); },
+                .select_500k_baud = [this]() { return serial->set_can_speed("500000"); },
                 .select_reply_id = [this]()
                 { return serial->set_can_destination_address(MitsuColtCanCdbg::kReplyCanId); },
             });
@@ -2516,30 +2576,27 @@ void MainWindow::setupLoggingEngine()
             const QString opened_port = serial->open_serial_port();
             if (opened_port.isEmpty() || !serial->is_serial_port_open())
             {
-                return fastecu::fail(fastecu::ErrorKind::Disconnected,
-                                     "unable to open CAN adapter for CDBG logging");
+                return fastecu::fail(fastecu::ErrorKind::Disconnected, "unable to open CAN adapter for CDBG logging");
             }
             auto transport = std::make_unique<cdbg::FastEcuCanTransport>(serial);
             return std::unique_ptr<fastecu::logging::LoggingProtocol>(
-                std::make_unique<fastecu::logging::CdbgLoggingProtocol>(
-                    std::move(transport), snapshot.session.channels()));
+                std::make_unique<fastecu::logging::CdbgLoggingProtocol>(std::move(transport),
+                                                                        snapshot.session.channels()));
         });
 
-    loggingEngine->registerProtocol(
-        "SSM",
-        [this](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
-        {
-            auto transport = std::make_unique<FastEcuSsmTransport>(serial);
-            bool targetIsEcu = ecu_radio_button->isChecked();
-            bool useOpenport2Adapter = serial->get_use_openport2_adapter();
-            return std::make_unique<fastecu::logging::SsmLoggingProtocol>(
-                m_loggingClock, std::move(transport), snapshot.session.channels(),
-                snapshot.response_offsets, targetIsEcu, useOpenport2Adapter);
-        });
+    loggingEngine->registerProtocol("SSM",
+                                    [this](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
+                                    {
+                                        auto transport = std::make_unique<FastEcuSsmTransport>(serial);
+                                        bool targetIsEcu = ecu_radio_button->isChecked();
+                                        bool useOpenport2Adapter = serial->get_use_openport2_adapter();
+                                        return std::make_unique<fastecu::logging::SsmLoggingProtocol>(
+                                            m_loggingClock, std::move(transport), snapshot.session.channels(),
+                                            snapshot.response_offsets, targetIsEcu, useOpenport2Adapter);
+                                    });
 }
 
-void MainWindow::handleLoggingValuesUpdated(
-    const QVector<fastecu::logging::LogSample>& samples)
+void MainWindow::handleLoggingValuesUpdated(const QVector<fastecu::logging::LogSample>& samples)
 {
     if (!activeLoggingSnapshot)
     {
@@ -2547,8 +2604,7 @@ void MainWindow::handleLoggingValuesUpdated(
     }
     for (const auto& sample : samples)
     {
-        const auto applied = fastecu::desktop::logging::apply_log_sample(
-            *activeLoggingSnapshot, sample, *logValues);
+        const auto applied = fastecu::desktop::logging::apply_log_sample(*activeLoggingSnapshot, sample, *logValues);
         if (!applied)
         {
             emit LOG_E(QString::fromStdString(applied.error().detail), true, true);

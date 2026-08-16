@@ -4,7 +4,9 @@
 #include "src/platform/desktop/common/flash/legacy/tcu/flash_tcu_subaru_denso_sh705x_can_operation.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
-FlashTcuSubaruDensoSH705xCan::FlashTcuSubaruDensoSH705xCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
+FlashTcuSubaruDensoSH705xCan::FlashTcuSubaruDensoSH705xCan(SerialPortActions *serial,
+                                                           FileActions::EcuCalDefStructure *ecuCalDef,
+                                                           const QString& cmd_type, QWidget *parent)
     : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     // TCU 0xFFFF3000 0x2000
@@ -53,7 +55,9 @@ void FlashTcuSubaruDensoSH705xCan::run()
 
         if (msgBox.clickedButton() == (QAbstractButton *)pButtonDump)
         {
-            emit LOG_I("Read memory with flashmethod '" + ecuCalDef->FlashMethod + "' and kernel '" + ecuCalDef->Kernel + "'", true, true);
+            emit LOG_I("Read memory with flashmethod '" + ecuCalDef->FlashMethod + "' and kernel '" +
+                           ecuCalDef->Kernel + "'",
+                       true, true);
             tcuAction = 1;
         }
         else if (msgBox.clickedButton() == (QAbstractButton *)pButtonRelearn)
@@ -79,8 +83,7 @@ void FlashTcuSubaruDensoSH705xCan::run()
 
     int ret = QMessageBox::warning(this, tr("Connecting to TCU"),
                                    tr("Turn ignition ON and press OK to start initializing connection to TCU"),
-                                   QMessageBox::Ok | QMessageBox::Cancel,
-                                   QMessageBox::Ok);
+                                   QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Ok);
 
     switch (ret)
     {
@@ -91,17 +94,19 @@ void FlashTcuSubaruDensoSH705xCan::run()
         connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashTcuSubaruDensoSH705xCan::LOG_W);
         connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashTcuSubaruDensoSH705xCan::LOG_I);
         connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashTcuSubaruDensoSH705xCan::LOG_D);
-        connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
-                this, [this](QString msg)
-                { emit external_logger(std::move(msg)); });
-        connect(m_operation, &FlashOperationWorker::progressChanged,
-                this, &FlashTcuSubaruDensoSH705xCan::set_progressbar_value);
+        connect(m_operation, &FlashOperationWorker::externalLoggerMessage, this,
+                [this](QString msg) { emit external_logger(std::move(msg)); });
+        connect(m_operation, &FlashOperationWorker::progressChanged, this,
+                &FlashTcuSubaruDensoSH705xCan::set_progressbar_value);
 
         QEventLoop loop;
         bool success = false;
         connect(m_operation, &FlashOperationWorker::operationFinished, &loop,
                 [&success, &loop](bool ok)
-                { success = ok; loop.quit(); });
+                {
+                    success = ok;
+                    loop.quit();
+                });
 
         m_operation->start();
         loop.exec();

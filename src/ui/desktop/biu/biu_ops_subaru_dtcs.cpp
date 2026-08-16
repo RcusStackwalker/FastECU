@@ -2,8 +2,7 @@
 #include <ui_biu_ops_subaru_dtcs.h>
 
 BiuOpsSubaruDtcs::BiuOpsSubaruDtcs(QStringList *dtc_result, QWidget *parent)
-    : QWidget(parent),
-      ui{std::make_unique<Ui::BiuOpsSubaruDtcsWindow>()}
+    : QWidget(parent), ui{std::make_unique<Ui::BiuOpsSubaruDtcsWindow>()}
 {
     ui->setupUi(this);
 

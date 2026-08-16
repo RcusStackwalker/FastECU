@@ -62,8 +62,7 @@ void overlay_string(std::string& value, std::string_view supplied)
     }
 }
 
-template <typename Value>
-void overlay_optional(Value& value, const Value& supplied)
+template <typename Value> void overlay_optional(Value& value, const Value& supplied)
 {
     if (supplied)
     {
@@ -161,31 +160,24 @@ Result<void> validate_local(const UnresolvedDefinition& definition)
 {
     if (definition.identity.xml_id.empty())
     {
-        return fail(
-            ErrorKind::InvalidConfig,
-            std::format("{} definition from '{}' has an empty definition identity", format_name(definition.format), definition.source));
+        return fail(ErrorKind::InvalidConfig, std::format("{} definition from '{}' has an empty definition identity",
+                                                          format_name(definition.format), definition.source));
     }
     if (definition.source.empty())
     {
-        return fail(
-            ErrorKind::InvalidConfig,
-            std::format("{} definition '{}' has no source", format_name(definition.format), definition.identity.xml_id));
+        return fail(ErrorKind::InvalidConfig, std::format("{} definition '{}' has no source",
+                                                          format_name(definition.format), definition.identity.xml_id));
     }
 
     std::vector<const UnresolvedCalibrationMap *> maps;
     for (const UnresolvedCalibrationMap& map : definition.maps)
     {
-        const bool duplicate = std::ranges::any_of(
-            maps,
-            [&map](const UnresolvedCalibrationMap *candidate)
-            {
-                return maps_match(*candidate, map);
-            });
+        const bool duplicate = std::ranges::any_of(maps, [&map](const UnresolvedCalibrationMap *candidate)
+                                                   { return maps_match(*candidate, map); });
         if (const auto& key = map_key(map); !key.empty() && duplicate)
         {
-            return fail(
-                ErrorKind::InvalidConfig,
-                std::format("duplicate map key '{}' in definition '{}' from '{}'", key, definition.identity.xml_id, definition.source));
+            return fail(ErrorKind::InvalidConfig, std::format("duplicate map key '{}' in definition '{}' from '{}'",
+                                                              key, definition.identity.xml_id, definition.source));
         }
         maps.push_back(&map);
     }
@@ -195,16 +187,15 @@ Result<void> validate_local(const UnresolvedDefinition& definition)
     {
         if (scaling.name.empty())
         {
-            return fail(
-                ErrorKind::InvalidConfig,
-                std::format("scaling with an empty name in definition '{}' from '{}'", definition.identity.xml_id, definition.source));
+            return fail(ErrorKind::InvalidConfig, std::format("scaling with an empty name in definition '{}' from '{}'",
+                                                              definition.identity.xml_id, definition.source));
         }
         auto [existing, inserted] = scalings.try_emplace(scaling.name, &scaling);
         if (!inserted && *existing->second != scaling)
         {
-            return fail(
-                ErrorKind::InvalidConfig,
-                std::format("conflicting duplicate scaling '{}' in definition '{}' from '{}'", scaling.name, definition.identity.xml_id, definition.source));
+            return fail(ErrorKind::InvalidConfig,
+                        std::format("conflicting duplicate scaling '{}' in definition '{}' from '{}'", scaling.name,
+                                    definition.identity.xml_id, definition.source));
         }
     }
     return {};
@@ -242,10 +233,8 @@ class MapIndex
     }
 
   private:
-    static void append_bucket(
-        const std::unordered_map<std::string, std::vector<std::size_t>>& buckets,
-        const std::string& key,
-        std::vector<std::size_t>& result)
+    static void append_bucket(const std::unordered_map<std::string, std::vector<std::size_t>>& buckets,
+                              const std::string& key, std::vector<std::size_t>& result)
     {
         if (auto bucket = buckets.find(key); bucket != buckets.end())
         {
@@ -257,8 +246,7 @@ class MapIndex
     std::unordered_map<std::string, std::vector<std::size_t>> by_name_;
 };
 
-Result<void> overlay_definition(
-    UnresolvedDefinition& value, const UnresolvedDefinition& supplied)
+Result<void> overlay_definition(UnresolvedDefinition& value, const UnresolvedDefinition& supplied)
 {
     value.format = supplied.format;
     value.source = supplied.source;
@@ -283,9 +271,9 @@ Result<void> overlay_definition(
             }
             if (existing.has_value())
             {
-                return fail(
-                    ErrorKind::InvalidConfig,
-                    std::format("ambiguous map name fallback '{}' while resolving definition '{}' from '{}'", map.name, supplied.identity.xml_id, supplied.source));
+                return fail(ErrorKind::InvalidConfig,
+                            std::format("ambiguous map name fallback '{}' while resolving definition '{}' from '{}'",
+                                        map.name, supplied.identity.xml_id, supplied.source));
             }
             existing = candidate;
         }
@@ -303,21 +291,16 @@ Result<void> overlay_definition(
 
     for (const UnresolvedScaling& scaling : supplied.scalings)
     {
-        auto existing = std::ranges::find(
-            value.scalings,
-            scaling.name,
-            &UnresolvedScaling::name);
+        auto existing = std::ranges::find(value.scalings, scaling.name, &UnresolvedScaling::name);
         if (existing == std::ranges::end(value.scalings))
         {
             value.scalings.push_back(scaling);
         }
         else if (*existing != scaling)
         {
-            return fail(
-                ErrorKind::InvalidConfig,
-                std::format(
-                    "conflicting duplicate scaling '{}' while resolving definition '{}' from '{}'",
-                    scaling.name, supplied.identity.xml_id, supplied.source));
+            return fail(ErrorKind::InvalidConfig,
+                        std::format("conflicting duplicate scaling '{}' while resolving definition '{}' from '{}'",
+                                    scaling.name, supplied.identity.xml_id, supplied.source));
         }
     }
     return {};
@@ -346,8 +329,7 @@ Scaling resolve_scaling(const UnresolvedScaling& value)
     };
 }
 
-AxisDefinition resolve_axis(
-    const UnresolvedAxisDefinition& value, std::uint32_t default_size)
+AxisDefinition resolve_axis(const UnresolvedAxisDefinition& value, std::uint32_t default_size)
 {
     if (value == UnresolvedAxisDefinition{})
     {
@@ -412,8 +394,7 @@ RomDefinition materialize(const UnresolvedDefinition& value)
     result.maps.reserve(value.maps.size());
     std::ranges::transform(value.maps, std::back_inserter(result.maps), resolve_map);
     result.scalings.reserve(value.scalings.size());
-    std::ranges::transform(
-        value.scalings, std::back_inserter(result.scalings), resolve_scaling);
+    std::ranges::transform(value.scalings, std::back_inserter(result.scalings), resolve_scaling);
     return result;
 }
 
@@ -423,21 +404,17 @@ Result<void> validate_scaling(const Scaling& scaling, std::string_view definitio
     {
         if (scaling.storage_type == StorageType::Bloblist)
         {
-            return fail(
-                ErrorKind::InvalidConfig,
-                std::format(
-                    "scaling '{}' in definition '{}' uses bloblist storage without selections",
-                    scaling.name, definition_id));
+            return fail(ErrorKind::InvalidConfig,
+                        std::format("scaling '{}' in definition '{}' uses bloblist storage without selections",
+                                    scaling.name, definition_id));
         }
         return {};
     }
     if (scaling.storage_type != StorageType::Bloblist)
     {
-        return fail(
-            ErrorKind::InvalidConfig,
-            std::format(
-                "scaling '{}' in definition '{}' has selections but storage type is not bloblist",
-                scaling.name, definition_id));
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("scaling '{}' in definition '{}' has selections but storage type is not bloblist",
+                                scaling.name, definition_id));
     }
 
     std::unordered_set<std::string> names;
@@ -445,29 +422,23 @@ Result<void> validate_scaling(const Scaling& scaling, std::string_view definitio
     {
         if (name.empty() || value.empty())
         {
-            return fail(
-                ErrorKind::InvalidConfig,
-                std::format(
-                    "scaling '{}' in definition '{}' has an incomplete selection",
-                    scaling.name, definition_id));
+            return fail(ErrorKind::InvalidConfig,
+                        std::format("scaling '{}' in definition '{}' has an incomplete selection", scaling.name,
+                                    definition_id));
         }
         if (!names.insert(name).second)
         {
-            return fail(
-                ErrorKind::InvalidConfig,
-                std::format(
-                    "scaling '{}' in definition '{}' has duplicate selection '{}'",
-                    scaling.name, definition_id, name));
+            return fail(ErrorKind::InvalidConfig,
+                        std::format("scaling '{}' in definition '{}' has duplicate selection '{}'", scaling.name,
+                                    definition_id, name));
         }
     }
     return {};
 }
 
-Result<void> apply_axis_scaling(
-    AxisDefinition& axis,
-    std::string_view axis_context,
-    const std::unordered_map<std::string, const UnresolvedScaling *>& scalings,
-    std::string_view definition_id)
+Result<void> apply_axis_scaling(AxisDefinition& axis, std::string_view axis_context,
+                                const std::unordered_map<std::string, const UnresolvedScaling *>& scalings,
+                                std::string_view definition_id)
 {
     if (axis.scaling_name.empty())
     {
@@ -476,37 +447,25 @@ Result<void> apply_axis_scaling(
     auto scaling = scalings.find(axis.scaling_name);
     if (scaling == scalings.end())
     {
-        return fail(
-            ErrorKind::InvalidConfig,
-            std::format(
-                "unresolved scaling '{}' for {} in definition '{}'",
-                axis.scaling_name, axis_context, definition_id));
+        return fail(ErrorKind::InvalidConfig, std::format("unresolved scaling '{}' for {} in definition '{}'",
+                                                          axis.scaling_name, axis_context, definition_id));
     }
     if (!scaling->second->selections.empty())
     {
-        return fail(
-            ErrorKind::InvalidConfig,
-            std::format(
-                "{} in definition '{}' cannot use selectable scaling '{}'",
-                axis_context, definition_id, axis.scaling_name));
+        return fail(ErrorKind::InvalidConfig, std::format("{} in definition '{}' cannot use selectable scaling '{}'",
+                                                          axis_context, definition_id, axis.scaling_name));
     }
     if (axis.storage_type.has_value() && scaling->second->storage_type.has_value() &&
         axis.storage_type != scaling->second->storage_type)
     {
-        return fail(
-            ErrorKind::InvalidConfig,
-            std::format(
-                "contradictory storage type for {} scaling '{}' in definition '{}'",
-                axis_context, axis.scaling_name, definition_id));
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("contradictory storage type for {} scaling '{}' in definition '{}'", axis_context,
+                                axis.scaling_name, definition_id));
     }
-    if (!axis.endian.empty() && !scaling->second->endian.empty() &&
-        axis.endian != scaling->second->endian)
+    if (!axis.endian.empty() && !scaling->second->endian.empty() && axis.endian != scaling->second->endian)
     {
-        return fail(
-            ErrorKind::InvalidConfig,
-            std::format(
-                "contradictory endian for {} scaling '{}' in definition '{}'",
-                axis_context, axis.scaling_name, definition_id));
+        return fail(ErrorKind::InvalidConfig, std::format("contradictory endian for {} scaling '{}' in definition '{}'",
+                                                          axis_context, axis.scaling_name, definition_id));
     }
 
     overlay_string(axis.units, scaling->second->units);
@@ -527,82 +486,64 @@ Result<void> apply_axis_scaling(
     return {};
 }
 
-Result<void> validate_axis(
-    AxisDefinition& axis,
-    std::string_view axis_context,
-    std::uint32_t required_size,
-    bool supports_static_data,
-    const std::unordered_map<std::string, const UnresolvedScaling *>& scalings,
-    std::string_view definition_id)
+Result<void> validate_axis(AxisDefinition& axis, std::string_view axis_context, std::uint32_t required_size,
+                           bool supports_static_data,
+                           const std::unordered_map<std::string, const UnresolvedScaling *>& scalings,
+                           std::string_view definition_id)
 {
     if (!axis_is_present(axis))
     {
         return {};
     }
-    if (axis.type.empty() ||
-        (axis.name.empty() && axis.static_data.empty()))
+    if (axis.type.empty() || (axis.name.empty() && axis.static_data.empty()))
     {
-        return fail(
-            ErrorKind::InvalidConfig,
-            std::format("incomplete {} in definition '{}'", axis_context, definition_id));
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("incomplete {} in definition '{}'", axis_context, definition_id));
     }
     if (axis.size == 0)
     {
-        return fail(
-            ErrorKind::InvalidConfig,
-            std::format("zero dimension for {} in definition '{}'", axis_context, definition_id));
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("zero dimension for {} in definition '{}'", axis_context, definition_id));
     }
     if (axis.start_position == 0)
     {
-        return fail(
-            ErrorKind::InvalidConfig,
-            std::format("zero start position for {} in definition '{}'", axis_context, definition_id));
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("zero start position for {} in definition '{}'", axis_context, definition_id));
     }
     if (axis.size != required_size)
     {
-        return fail(
-            ErrorKind::InvalidConfig,
-            std::format("inconsistent dimension for {} in definition '{}'", axis_context, definition_id));
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("inconsistent dimension for {} in definition '{}'", axis_context, definition_id));
     }
     const bool is_static_axis = axis.type == "Static X Axis";
     if (is_static_axis && !supports_static_data)
     {
-        return fail(
-            ErrorKind::InvalidConfig,
-            std::format(
-                "static data is not supported for {} in definition '{}'", axis_context, definition_id));
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("static data is not supported for {} in definition '{}'", axis_context, definition_id));
     }
     if (is_static_axis)
     {
-        if (axis.static_data.size() != axis.size ||
-            std::ranges::any_of(
-                axis.static_data, &std::string::empty))
+        if (axis.static_data.size() != axis.size || std::ranges::any_of(axis.static_data, &std::string::empty))
         {
-            return fail(
-                ErrorKind::InvalidConfig,
-                std::format(
-                    "static data count for {} does not match its size in definition '{}'",
-                    axis_context, definition_id));
+            return fail(ErrorKind::InvalidConfig,
+                        std::format("static data count for {} does not match its size in definition '{}'", axis_context,
+                                    definition_id));
         }
     }
     else if (!axis.static_data.empty())
     {
-        return fail(
-            ErrorKind::InvalidConfig,
-            std::format(
-                "static data on non-static {} in definition '{}'", axis_context, definition_id));
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("static data on non-static {} in definition '{}'", axis_context, definition_id));
     }
     return apply_axis_scaling(axis, axis_context, scalings, definition_id);
 }
 
-Result<void> validate_and_resolve_scalings(
-    RomDefinition& definition, const UnresolvedDefinition& unresolved)
+Result<void> validate_and_resolve_scalings(RomDefinition& definition, const UnresolvedDefinition& unresolved)
 {
     std::unordered_map<std::string, const UnresolvedScaling *> scalings;
     for (const UnresolvedScaling& scaling : unresolved.scalings)
     {
-        if (const auto result =
-                validate_scaling(resolve_scaling(scaling), definition.identity.xml_id);
+        if (const auto result = validate_scaling(resolve_scaling(scaling), definition.identity.xml_id);
             !result.has_value())
         {
             return std::unexpected(result.error());
@@ -616,34 +557,26 @@ Result<void> validate_and_resolve_scalings(
         const std::string key = map_key(map);
         if (key.empty() || map.name.empty())
         {
-            return fail(
-                ErrorKind::InvalidConfig,
-                std::format("incomplete map identity in definition '{}'", definition.identity.xml_id));
+            return fail(ErrorKind::InvalidConfig,
+                        std::format("incomplete map identity in definition '{}'", definition.identity.xml_id));
         }
-        const bool duplicate = std::ranges::any_of(
-            maps,
-            [&map](const CalibrationMap *candidate)
-            {
-                return maps_match(*candidate, map);
-            });
+        const bool duplicate =
+            std::ranges::any_of(maps, [&map](const CalibrationMap *candidate) { return maps_match(*candidate, map); });
         if (duplicate)
         {
-            return fail(
-                ErrorKind::InvalidConfig,
-                std::format("duplicate map key '{}' in resolved definition '{}'", key, definition.identity.xml_id));
+            return fail(ErrorKind::InvalidConfig, std::format("duplicate map key '{}' in resolved definition '{}'", key,
+                                                              definition.identity.xml_id));
         }
         maps.push_back(&map);
         if (map.x_size == 0 || map.y_size == 0)
         {
-            return fail(
-                ErrorKind::InvalidConfig,
-                std::format("zero required dimension for map '{}' in definition '{}'", key, definition.identity.xml_id));
+            return fail(ErrorKind::InvalidConfig, std::format("zero required dimension for map '{}' in definition '{}'",
+                                                              key, definition.identity.xml_id));
         }
         if (map.start_position == 0)
         {
-            return fail(
-                ErrorKind::InvalidConfig,
-                std::format("zero start position for map '{}' in definition '{}'", key, definition.identity.xml_id));
+            return fail(ErrorKind::InvalidConfig, std::format("zero start position for map '{}' in definition '{}'",
+                                                              key, definition.identity.xml_id));
         }
 
         bool has_selection_scaling = false;
@@ -652,29 +585,22 @@ Result<void> validate_and_resolve_scalings(
             auto scaling = scalings.find(map.scaling_name);
             if (scaling == scalings.end())
             {
-                return fail(
-                    ErrorKind::InvalidConfig,
-                    std::format(
-                        "unresolved scaling '{}' for map '{}' in definition '{}'",
-                        map.scaling_name, key, definition.identity.xml_id));
+                return fail(ErrorKind::InvalidConfig,
+                            std::format("unresolved scaling '{}' for map '{}' in definition '{}'", map.scaling_name,
+                                        key, definition.identity.xml_id));
             }
             if (map.storage_type.has_value() && scaling->second->storage_type.has_value() &&
                 map.storage_type != scaling->second->storage_type)
             {
-                return fail(
-                    ErrorKind::InvalidConfig,
-                    std::format(
-                        "contradictory storage type for map '{}' and scaling '{}' in definition '{}'",
-                        key, map.scaling_name, definition.identity.xml_id));
+                return fail(ErrorKind::InvalidConfig,
+                            std::format("contradictory storage type for map '{}' and scaling '{}' in definition '{}'",
+                                        key, map.scaling_name, definition.identity.xml_id));
             }
-            if (!map.endian.empty() && !scaling->second->endian.empty() &&
-                map.endian != scaling->second->endian)
+            if (!map.endian.empty() && !scaling->second->endian.empty() && map.endian != scaling->second->endian)
             {
-                return fail(
-                    ErrorKind::InvalidConfig,
-                    std::format(
-                        "contradictory endian for map '{}' and scaling '{}' in definition '{}'",
-                        key, map.scaling_name, definition.identity.xml_id));
+                return fail(ErrorKind::InvalidConfig,
+                            std::format("contradictory endian for map '{}' and scaling '{}' in definition '{}'", key,
+                                        map.scaling_name, definition.identity.xml_id));
             }
             overlay_optional(map.storage_type, scaling->second->storage_type);
             overlay_string(map.endian, scaling->second->endian);
@@ -685,42 +611,27 @@ Result<void> validate_and_resolve_scalings(
             }
         }
 
-        if (map.type == "Selectable" &&
-            (map.storage_type != StorageType::Bloblist || !has_selection_scaling))
+        if (map.type == "Selectable" && (map.storage_type != StorageType::Bloblist || !has_selection_scaling))
         {
-            return fail(
-                ErrorKind::InvalidConfig,
-                std::format(
-                    "selectable map '{}' in definition '{}' requires a bloblist selection scaling",
-                    key, definition.identity.xml_id));
+            return fail(ErrorKind::InvalidConfig,
+                        std::format("selectable map '{}' in definition '{}' requires a bloblist selection scaling", key,
+                                    definition.identity.xml_id));
         }
         if (map.storage_type == StorageType::Bloblist && map.type != "Selectable")
         {
-            return fail(
-                ErrorKind::InvalidConfig,
-                std::format(
-                    "bloblist map '{}' in definition '{}' must be selectable", key, definition.identity.xml_id));
+            return fail(ErrorKind::InvalidConfig, std::format("bloblist map '{}' in definition '{}' must be selectable",
+                                                              key, definition.identity.xml_id));
         }
 
-        if (auto x_axis = validate_axis(
-                map.x_axis,
-                std::format("x axis for map '{}'", key),
-                map.x_size,
-                true,
-                scalings,
-                definition.identity.xml_id);
+        if (auto x_axis = validate_axis(map.x_axis, std::format("x axis for map '{}'", key), map.x_size, true, scalings,
+                                        definition.identity.xml_id);
             !x_axis.has_value())
         {
             return std::unexpected(x_axis.error());
         }
 
-        if (auto y_axis = validate_axis(
-                map.y_axis,
-                std::format("y axis for map '{}'", key),
-                map.y_size,
-                false,
-                scalings,
-                definition.identity.xml_id);
+        if (auto y_axis = validate_axis(map.y_axis, std::format("y axis for map '{}'", key), map.y_size, false,
+                                        scalings, definition.identity.xml_id);
             !y_axis.has_value())
         {
             return std::unexpected(y_axis.error());
@@ -786,14 +697,14 @@ class ResolverState
     };
 
   public:
-    ResolverState(DefinitionFormat format, const DefinitionLoader& loader)
-        : format_(format), loader_(loader)
+    ResolverState(DefinitionFormat format, const DefinitionLoader& loader) : format_(format), loader_(loader)
     {
     }
 
     Result<RomDefinition> resolve_root(UnresolvedDefinition root)
     {
-        const auto context = std::format("{} definitions '{}' from '{}': ", format_name(root.format), root.identity.xml_id, root.source);
+        const auto context =
+            std::format("{} definitions '{}' from '{}': ", format_name(root.format), root.identity.xml_id, root.source);
         auto resolved = resolve(std::move(root));
         if (!resolved.has_value())
         {
@@ -802,9 +713,7 @@ class ResolverState
         RomDefinition result = materialize(resolved->definition);
         result.resolved_sources = std::move(resolved->sources);
         result.resolved_definition_ids = std::move(resolved->ids);
-        if (auto valid =
-                validate_and_resolve_scalings(result, resolved->definition);
-            !valid.has_value())
+        if (auto valid = validate_and_resolve_scalings(result, resolved->definition); !valid.has_value())
         {
             return fail(valid.error().kind, std::format("{}{}", context, valid.error().detail));
         }
@@ -817,15 +726,13 @@ class ResolverState
         const std::string id = definition.identity.xml_id;
         if (id.empty())
         {
-            return fail(
-                ErrorKind::InvalidConfig,
-                std::format("{} definition from '{}' has an empty definition identity", format_name(definition.format), definition.source));
+            return fail(ErrorKind::InvalidConfig,
+                        std::format("{} definition from '{}' has an empty definition identity",
+                                    format_name(definition.format), definition.source));
         }
         if (visiting.contains(id))
         {
-            return fail(
-                ErrorKind::InvalidConfig,
-                std::format("inheritance cycle: {}", chain_text(stack, id)));
+            return fail(ErrorKind::InvalidConfig, std::format("inheritance cycle: {}", chain_text(stack, id)));
         }
 
         if (auto memoized = resolved_by_id.find(id); memoized != resolved_by_id.end())
@@ -835,12 +742,8 @@ class ResolverState
 
         if (stack.size() >= kMaxInheritanceDepth)
         {
-            return fail(
-                ErrorKind::InvalidConfig,
-                std::format(
-                    "inheritance chain exceeds maximum depth ({}): {}",
-                    kMaxInheritanceDepth,
-                    chain_text(stack, id)));
+            return fail(ErrorKind::InvalidConfig, std::format("inheritance chain exceeds maximum depth ({}): {}",
+                                                              kMaxInheritanceDepth, chain_text(stack, id)));
         }
 
         visiting.insert(id);
@@ -849,9 +752,8 @@ class ResolverState
 
         if (auto locally_valid = validate_local(definition); !locally_valid.has_value())
         {
-            return fail(
-                locally_valid.error().kind,
-                std::format("{} in inheritance chain {}", locally_valid.error().detail, chain_text(stack)));
+            return fail(locally_valid.error().kind,
+                        std::format("{} in inheritance chain {}", locally_valid.error().detail, chain_text(stack)));
         }
 
         Resolved resolved;
@@ -861,9 +763,8 @@ class ResolverState
         {
             if (visiting.contains(parent_id))
             {
-                return fail(
-                    ErrorKind::InvalidConfig,
-                    std::format("inheritance cycle: {}", chain_text(stack, parent_id)));
+                return fail(ErrorKind::InvalidConfig,
+                            std::format("inheritance cycle: {}", chain_text(stack, parent_id)));
             }
 
             auto parent = resolved_by_id.find(parent_id);
@@ -872,27 +773,21 @@ class ResolverState
                 auto loaded = loader_(format_, parent_id);
                 if (!loaded)
                 {
-                    return fail(
-                        loaded.error().kind,
-                        std::format(
-                            "failed to load parent '{}' in inheritance chain {}: {}",
-                            parent_id, chain_text(stack, parent_id), loaded.error().detail));
+                    return fail(loaded.error().kind,
+                                std::format("failed to load parent '{}' in inheritance chain {}: {}", parent_id,
+                                            chain_text(stack, parent_id), loaded.error().detail));
                 }
                 if (loaded->format != format_)
                 {
-                    return fail(
-                        ErrorKind::InvalidConfig,
-                        std::format(
-                            "cross-format parent '{}' in inheritance chain {}",
-                            parent_id, chain_text(stack, parent_id)));
+                    return fail(ErrorKind::InvalidConfig,
+                                std::format("cross-format parent '{}' in inheritance chain {}", parent_id,
+                                            chain_text(stack, parent_id)));
                 }
                 if (loaded->identity.xml_id != parent_id)
                 {
-                    return fail(
-                        ErrorKind::InvalidConfig,
-                        std::format(
-                            "parent reference '{}' loaded definition '{}' in inheritance chain {}",
-                            parent_id, loaded->identity.xml_id, chain_text(stack, parent_id)));
+                    return fail(ErrorKind::InvalidConfig,
+                                std::format("parent reference '{}' loaded definition '{}' in inheritance chain {}",
+                                            parent_id, loaded->identity.xml_id, chain_text(stack, parent_id)));
                 }
 
                 if (auto parent_result = resolve(std::move(*loaded)); !parent_result.has_value())
@@ -907,13 +802,11 @@ class ResolverState
                 resolved = parent->second;
                 has_parent = true;
             }
-            else if (auto merged = overlay_definition(
-                         resolved.definition, parent->second.definition);
+            else if (auto merged = overlay_definition(resolved.definition, parent->second.definition);
                      !merged.has_value())
             {
-                return fail(
-                    merged.error().kind,
-                    std::format("{} in inheritance chain {}", merged.error().detail, chain_text(stack)));
+                return fail(merged.error().kind,
+                            std::format("{} in inheritance chain {}", merged.error().detail, chain_text(stack)));
             }
             append_unique(resolved.sources, parent->second.sources);
             append_unique(resolved.ids, parent->second.ids);
@@ -921,9 +814,8 @@ class ResolverState
 
         if (auto merged = overlay_definition(resolved.definition, definition); !merged.has_value())
         {
-            return fail(
-                merged.error().kind,
-                std::format("{} in inheritance chain {}", merged.error().detail, chain_text(stack)));
+            return fail(merged.error().kind,
+                        std::format("{} in inheritance chain {}", merged.error().detail, chain_text(stack)));
         }
         append_unique(resolved.sources, {resolved.definition.source});
         append_unique(resolved.ids, {resolved.definition.identity.xml_id});
@@ -941,8 +833,7 @@ class ResolverState
 
 } // namespace
 
-Result<RomDefinition> resolve_definition(
-    UnresolvedDefinition root, const DefinitionLoader& loader)
+Result<RomDefinition> resolve_definition(UnresolvedDefinition root, const DefinitionLoader& loader)
 {
     ResolverState state(root.format, loader);
     return state.resolve_root(std::move(root));

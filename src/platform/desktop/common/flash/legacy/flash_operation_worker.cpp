@@ -5,11 +5,10 @@ FlashOperationWorker::FlashOperationWorker(QWidget *dialog, QObject *parent, Pro
 {
     if (!m_promptOverride)
     {
-        m_promptOverride = [](QWidget *dialog, const QString& title, const QString& text,
-                              int buttons, int defaultButton)
+        m_promptOverride =
+            [](QWidget *dialog, const QString& title, const QString& text, int buttons, int defaultButton)
         {
-            return static_cast<int>(QMessageBox::warning(dialog, title, text,
-                                                         QMessageBox::StandardButtons(buttons),
+            return static_cast<int>(QMessageBox::warning(dialog, title, text, QMessageBox::StandardButtons(buttons),
                                                          QMessageBox::StandardButton(defaultButton)));
         };
     }
@@ -31,15 +30,16 @@ void FlashOperationWorker::run()
     emit operationFinished(success);
 }
 
-int FlashOperationWorker::confirm(const QString& title, const QString& text,
-                                  QMessageBox::StandardButtons buttons,
+int FlashOperationWorker::confirm(const QString& title, const QString& text, QMessageBox::StandardButtons buttons,
                                   QMessageBox::StandardButton defaultButton)
 {
     int result = static_cast<int>(defaultButton);
     PromptFn prompt = m_promptOverride;
     QWidget *dialog = m_dialog;
-    QMetaObject::invokeMethod(dialog, [prompt, dialog, title, text, buttons, defaultButton]()
-                              { return prompt(dialog, title, text, int(buttons), int(defaultButton)); }, Qt::BlockingQueuedConnection, &result);
+    QMetaObject::invokeMethod(
+        dialog, [prompt, dialog, title, text, buttons, defaultButton]()
+        { return prompt(dialog, title, text, int(buttons), int(defaultButton)); }, Qt::BlockingQueuedConnection,
+        &result);
     return result;
 }
 

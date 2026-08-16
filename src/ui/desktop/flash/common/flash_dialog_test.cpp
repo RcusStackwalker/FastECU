@@ -34,8 +34,7 @@ class ScriptedWorkflow final : public FlashWorkflow
 class RecordingDialog final : public FlashDialog
 {
   public:
-    RecordingDialog(std::unique_ptr<FlashWorkflow> workflow, FlashOperation operation,
-                    const QString& filename)
+    RecordingDialog(std::unique_ptr<FlashWorkflow> workflow, FlashOperation operation, const QString& filename)
         : FlashDialog(std::move(workflow), operation, filename)
     {
     }
@@ -64,8 +63,7 @@ class FlashDialogTest : public QObject
   private slots:
     void returnsAcceptedBytesAndUsesNormalizedReadTitle()
     {
-        RecordingDialog dialog(std::make_unique<ScriptedWorkflow>(), FlashOperation::Read,
-                               "ignored.bin");
+        RecordingDialog dialog(std::make_unique<ScriptedWorkflow>(), FlashOperation::Read, "ignored.bin");
         const FlashDialogResult result = dialog.run();
         QCOMPARE(dialog.windowTitle(), QString("Read ROM from ECU"));
         QCOMPARE(dialog.prompts, QList{FlashPromptKind::Begin});

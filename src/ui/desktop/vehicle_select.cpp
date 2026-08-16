@@ -13,7 +13,8 @@ VehicleSelect::VehicleSelect(FileActions::ConfigValuesStructure *configValues, Q
 
     ui->car_make_tree_widget->setHeaderLabel("Manufacturer");
     ui->car_model_tree_widget->setHeaderLabel("Model");
-    QStringList car_version_tree_widget_headers = {"Version", "Type", "kW", "HP", "Fuel", "Year", "ECU", "Mode", "CHK", "RD", "WR", "Protocol"};
+    QStringList car_version_tree_widget_headers = {"Version", "Type", "kW",  "HP", "Fuel", "Year",
+                                                   "ECU",     "Mode", "CHK", "RD", "WR",   "Protocol"};
     ui->car_version_tree_widget->setHeaderLabels(car_version_tree_widget_headers);
     ui->car_version_tree_widget->setColumnWidth(0, 150);
     ui->car_version_tree_widget->setColumnWidth(1, 75);
@@ -85,9 +86,12 @@ VehicleSelect::VehicleSelect(FileActions::ConfigValuesStructure *configValues, Q
         ui->car_model_tree_widget->setCurrentItem(item);
     }
 
-    connect(ui->car_make_tree_widget, &QTreeWidget::itemSelectionChanged, this, &VehicleSelect::car_make_treewidget_item_selected);
-    connect(ui->car_model_tree_widget, &QTreeWidget::itemSelectionChanged, this, &VehicleSelect::car_model_treewidget_item_selected);
-    connect(ui->car_version_tree_widget, &QTreeWidget::itemSelectionChanged, this, &VehicleSelect::car_version_treewidget_item_selected);
+    connect(ui->car_make_tree_widget, &QTreeWidget::itemSelectionChanged, this,
+            &VehicleSelect::car_make_treewidget_item_selected);
+    connect(ui->car_model_tree_widget, &QTreeWidget::itemSelectionChanged, this,
+            &VehicleSelect::car_model_treewidget_item_selected);
+    connect(ui->car_version_tree_widget, &QTreeWidget::itemSelectionChanged, this,
+            &VehicleSelect::car_version_treewidget_item_selected);
     connect(ui->car_version_tree_widget, &QTreeWidget::itemDoubleClicked, this, &VehicleSelect::car_model_selected);
     connect(ui->cancel_button, &QPushButton::clicked, this, &QDialog::close);
     connect(ui->select_button, &QPushButton::clicked, this, &VehicleSelect::car_model_selected);
@@ -120,9 +124,12 @@ void VehicleSelect::car_model_selected()
     configValues->flash_protocol_selected_version = flash_protocol_version;
     configValues->flash_protocol_selected_protocol_name = flash_protocol_family;
     configValues->flash_protocol_selected_description = flash_protocol_description;
-    configValues->flash_protocol_selected_log_protocol = configValues->flash_protocol_log_protocol.at(configValues->flash_protocol_selected_id.toInt());
-    configValues->flash_protocol_selected_mcu = configValues->flash_protocol_mcu.at(configValues->flash_protocol_selected_id.toInt());
-    configValues->flash_protocol_selected_checksum = configValues->flash_protocol_checksum.at(configValues->flash_protocol_selected_id.toInt());
+    configValues->flash_protocol_selected_log_protocol =
+        configValues->flash_protocol_log_protocol.at(configValues->flash_protocol_selected_id.toInt());
+    configValues->flash_protocol_selected_mcu =
+        configValues->flash_protocol_mcu.at(configValues->flash_protocol_selected_id.toInt());
+    configValues->flash_protocol_selected_checksum =
+        configValues->flash_protocol_checksum.at(configValues->flash_protocol_selected_id.toInt());
 
     qDebug() << "Selected MCU:" << configValues->flash_protocol_selected_mcu;
     accept();
@@ -161,7 +168,8 @@ void VehicleSelect::car_make_treewidget_item_selected()
             delete item;
         }
         // Connect itemSelectionChanged() signal again
-        connect(ui->car_model_tree_widget, &QTreeWidget::itemSelectionChanged, this, &VehicleSelect::car_model_treewidget_item_selected);
+        connect(ui->car_model_tree_widget, &QTreeWidget::itemSelectionChanged, this,
+                &VehicleSelect::car_model_treewidget_item_selected);
 
         qDebug() << "Add models data based on selected make";
         for (int i = 0; i < configValues->flash_protocol_id.length(); i++)
@@ -248,12 +256,14 @@ void VehicleSelect::car_model_treewidget_item_selected()
             delete item;
         }
         // Connect itemSelectionChanged() signal again
-        connect(ui->car_version_tree_widget, &QTreeWidget::itemSelectionChanged, this, &VehicleSelect::car_version_treewidget_item_selected);
+        connect(ui->car_version_tree_widget, &QTreeWidget::itemSelectionChanged, this,
+                &VehicleSelect::car_version_treewidget_item_selected);
 
         qDebug() << "Add versions data based on selected model";
         for (int i = 0; i < configValues->flash_protocol_id.length(); i++)
         {
-            if (configValues->flash_protocol_model.at(i) == car_model && configValues->flash_protocol_make.at(i) == flash_protocol_make)
+            if (configValues->flash_protocol_model.at(i) == car_model &&
+                configValues->flash_protocol_make.at(i) == flash_protocol_make)
             {
                 // qDebug() << "Model found:" << configValues->flash_protocol_model.at(i);
                 id.append(configValues->flash_protocol_id.at(i));

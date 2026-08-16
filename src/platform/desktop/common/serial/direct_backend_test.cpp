@@ -66,8 +66,7 @@ void TestDirectBackend::j2534Selection_usesInstalledDllPathAfterVendorProbe()
     const QString vendor = "Tactrix Inc. - OpenPort 2.0 J2534 DLL";
     const QString dllPath = "C:\\Program Files (x86)\\OpenECU\\OpenPort 2.0\\op20pt32.dll";
 
-    QCOMPARE(resolveJ2534DllForConnection(vendor, dllPath, QStringList() << vendor),
-             dllPath);
+    QCOMPARE(resolveJ2534DllForConnection(vendor, dllPath, QStringList() << vendor), dllPath);
 }
 
 void TestDirectBackend::j2534DriverViews_wow6432NodeVendorIsDiscoverable()

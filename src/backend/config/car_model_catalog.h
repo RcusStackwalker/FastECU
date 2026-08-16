@@ -64,8 +64,7 @@ struct ResolvedCarModel
 // from there can contain at most one match. Passing a hand-built catalog with
 // duplicates is a programming error; the first entry wins by definition
 // rather than by any considered tie-break rule.
-std::vector<ResolvedCarModel> resolve_car_models(const ProtocolCatalog& protocols,
-                                                 const CarModelCatalog& car_models);
+std::vector<ResolvedCarModel> resolve_car_models(const ProtocolCatalog& protocols, const CarModelCatalog& car_models);
 
 // The index of the LAST row (in resolve_car_models order) whose protocol_name
 // equals flash_method; nullopt if none match. Mirrors
@@ -80,7 +79,7 @@ std::vector<ResolvedCarModel> resolve_car_models(const ProtocolCatalog& protocol
 // is observable: open_subaru_rom_file binds
 // flash_protocol_selected_{make,model,version} from it. Switching to
 // first-match would change the vehicle shown for every shared protocol.
-std::optional<std::size_t> find_car_model_by_protocol_name(
-    std::span<const ResolvedCarModel> resolved_car_models, std::string_view flash_method);
+std::optional<std::size_t> find_car_model_by_protocol_name(std::span<const ResolvedCarModel> resolved_car_models,
+                                                           std::string_view flash_method);
 
 } // namespace fastecu::config

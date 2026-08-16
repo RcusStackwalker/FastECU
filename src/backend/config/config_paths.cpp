@@ -8,12 +8,10 @@ ConfigPaths resolve_config_paths(const AppRootInfo& root, std::string_view versi
     ConfigPaths paths;
     paths.base_config_directory = root.app_root_path;
 
-    const std::string base = root.is_dev_environment
-                                 ? root.app_root_path
-                                 : root.app_root_path + "/" + std::string(version);
+    const std::string base =
+        root.is_dev_environment ? root.app_root_path : root.app_root_path + "/" + std::string(version);
 
-    paths.version_config_directory =
-        root.is_dev_environment ? root.app_root_path : base + "/";
+    paths.version_config_directory = root.is_dev_environment ? root.app_root_path : base + "/";
     paths.calibration_files_directory = base + "/calibrations/";
     paths.config_files_directory = base + "/config/";
     paths.definition_files_directory = base + "/definitions/";

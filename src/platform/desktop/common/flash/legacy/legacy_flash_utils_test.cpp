@@ -13,7 +13,10 @@ class TestLegacyFlashUtils : public QObject
         FakeBackend *fake = nullptr;
         SerialPortActions serial("", "", nullptr, nullptr,
                                  [&fake]() -> SerialBackend *
-                                 { fake = new FakeBackend(); return fake; });
+                                 {
+                                     fake = new FakeBackend();
+                                     return fake;
+                                 });
 
         FlashUtils::configureIso15765Can(&serial, "250000", 0x7E1, 0x7E9, true);
 
@@ -32,7 +35,10 @@ class TestLegacyFlashUtils : public QObject
         FakeBackend *fake = nullptr;
         SerialPortActions serial("", "", nullptr, nullptr,
                                  [&fake]() -> SerialBackend *
-                                 { fake = new FakeBackend(); return fake; });
+                                 {
+                                     fake = new FakeBackend();
+                                     return fake;
+                                 });
 
         FlashUtils::configureIso15765Can(&serial, "500000", 0x7E0, 0x7E8);
 

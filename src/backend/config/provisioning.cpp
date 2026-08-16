@@ -65,8 +65,8 @@ Status copy_bundle_if_absent(IFileSystem& fs, IResourceBundle& bundle, const std
 
 } // namespace
 
-Status provision_config_directories(const ConfigPaths& paths, IFileSystem& fs,
-                                    IResourceBundle& resource_bundle, IEventSink& events)
+Status provision_config_directories(const ConfigPaths& paths, IFileSystem& fs, IResourceBundle& resource_bundle,
+                                    IEventSink& events)
 {
     if (Status r = ensure_directory(fs, paths.base_config_directory, events); !r.has_value())
     {
@@ -87,8 +87,7 @@ Status provision_config_directories(const ConfigPaths& paths, IFileSystem& fs,
         {
             std::vector<DirEntry> dirs;
             std::copy_if(siblings->begin(), siblings->end(), std::back_inserter(dirs),
-                         [](const DirEntry& e)
-                         { return e.is_directory; });
+                         [](const DirEntry& e) { return e.is_directory; });
             std::sort(dirs.begin(), dirs.end(), [](const DirEntry& a, const DirEntry& b)
                       { return a.modified_time_epoch_seconds > b.modified_time_epoch_seconds; });
             if (!dirs.empty())
@@ -122,9 +121,9 @@ Status provision_config_directories(const ConfigPaths& paths, IFileSystem& fs,
         }
     }
 
-    for (const std::string& dir : {paths.calibration_files_directory, paths.config_files_directory,
-                                   paths.definition_files_directory, paths.kernel_files_directory,
-                                   paths.datalog_files_directory, paths.syslog_files_directory})
+    for (const std::string& dir :
+         {paths.calibration_files_directory, paths.config_files_directory, paths.definition_files_directory,
+          paths.kernel_files_directory, paths.datalog_files_directory, paths.syslog_files_directory})
     {
         if (Status r = ensure_directory(fs, dir, events); !r.has_value())
         {
@@ -148,8 +147,7 @@ Status provision_config_directories(const ConfigPaths& paths, IFileSystem& fs,
     {
         std::vector<DirEntry> files;
         std::copy_if(syslogs->begin(), syslogs->end(), std::back_inserter(files),
-                     [](const DirEntry& e)
-                     { return !e.is_directory; });
+                     [](const DirEntry& e) { return !e.is_directory; });
         std::sort(files.begin(), files.end(), [](const DirEntry& a, const DirEntry& b)
                   { return a.modified_time_epoch_seconds > b.modified_time_epoch_seconds; });
         for (std::size_t i = 20; i < files.size(); ++i)

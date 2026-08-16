@@ -26,14 +26,10 @@ TEST(DiagnosticTables, SampledNrcEntriesSurvivedTranscription)
 TEST(DiagnosticTables, FirstAndLastEntryOfEachDtcTableSurvived)
 {
     EXPECT_EQ(dtc_p_codes().at(0x0000), "P0000 - No trouble code");
-    EXPECT_EQ(dtc_b_codes().at(0x1200),
-              "B1200 - Climate Control Pushbutton Circuit Failure");
-    EXPECT_EQ(dtc_c_codes().at(0x1091),
-              "C1091 - Speed Wheel Sensor All Coherency Failure");
-    EXPECT_EQ(dtc_u_codes().at(0x1000),
-              "U1000 - SCP (J1850) Invalid or Missing Data for Primary Id");
-    EXPECT_EQ(dtc_u_codes().at(0x2500),
-              "U2500 - (CAN) Lack of Acknowledgement From Engine Management");
+    EXPECT_EQ(dtc_b_codes().at(0x1200), "B1200 - Climate Control Pushbutton Circuit Failure");
+    EXPECT_EQ(dtc_c_codes().at(0x1091), "C1091 - Speed Wheel Sensor All Coherency Failure");
+    EXPECT_EQ(dtc_u_codes().at(0x1000), "U1000 - SCP (J1850) Invalid or Missing Data for Primary Id");
+    EXPECT_EQ(dtc_u_codes().at(0x2500), "U2500 - (CAN) Lack of Acknowledgement From Engine Management");
 }
 
 // Regression for the duplicate key corrected in Step 2: error_codes.h keyed
@@ -41,10 +37,8 @@ TEST(DiagnosticTables, FirstAndLastEntryOfEachDtcTableSurvived)
 // P1498 was unreachable.
 TEST(DiagnosticTables, PowertrainCodesAroundTheFormerDuplicateAreDistinct)
 {
-    EXPECT_EQ(dtc_p_codes().at(0x1496),
-              "P1496 - EGR Solenoid Valve Signal #3 Circuit Malfunction (Low Input)");
-    EXPECT_EQ(dtc_p_codes().at(0x1498),
-              "P1498 - EGR Solenoid Valve Signal #4 Circuit Malfunction (Low Input)");
+    EXPECT_EQ(dtc_p_codes().at(0x1496), "P1496 - EGR Solenoid Valve Signal #3 Circuit Malfunction (Low Input)");
+    EXPECT_EQ(dtc_p_codes().at(0x1498), "P1498 - EGR Solenoid Valve Signal #4 Circuit Malfunction (Low Input)");
 }
 
 // Every key is below 0x4000, i.e. the category bits are masked off. This is
@@ -56,8 +50,7 @@ TEST(DiagnosticTables, DtcKeysCarryNoCategoryBits)
     {
         for (const auto& entry : *table)
         {
-            EXPECT_LT(entry.first, 0x4000)
-                << "key 0x" << std::hex << entry.first << " has category bits set";
+            EXPECT_LT(entry.first, 0x4000) << "key 0x" << std::hex << entry.first << " has category bits set";
         }
     }
 }
@@ -86,12 +79,9 @@ TEST(DiagnosticDefaults, DtcOverloadUsesTheRealPowertrainTable)
 // 1,933 of the 3,666 descriptions in the tree were unreachable.
 TEST(DiagnosticDefaults, NonPowertrainCategoriesResolveRealDescriptions)
 {
-    EXPECT_EQ(dtc_description(0x4000 | 0x1091),
-              "C1091 - Speed Wheel Sensor All Coherency Failure");
-    EXPECT_EQ(dtc_description(0x8000 | 0x1200),
-              "B1200 - Climate Control Pushbutton Circuit Failure");
-    EXPECT_EQ(dtc_description(0xc000 | 0x1000),
-              "U1000 - SCP (J1850) Invalid or Missing Data for Primary Id");
+    EXPECT_EQ(dtc_description(0x4000 | 0x1091), "C1091 - Speed Wheel Sensor All Coherency Failure");
+    EXPECT_EQ(dtc_description(0x8000 | 0x1200), "B1200 - Climate Control Pushbutton Circuit Failure");
+    EXPECT_EQ(dtc_description(0xc000 | 0x1000), "U1000 - SCP (J1850) Invalid or Missing Data for Primary Id");
 }
 
 // The category bits must still select the right table -- a mask alone would

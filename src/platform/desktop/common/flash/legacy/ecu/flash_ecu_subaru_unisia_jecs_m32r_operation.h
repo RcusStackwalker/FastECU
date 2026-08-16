@@ -18,11 +18,8 @@ class FlashEcuSubaruUnisiaJecsM32rOperation : public FlashOperationWorker
     Q_OBJECT
 
   public:
-    FlashEcuSubaruUnisiaJecsM32rOperation(SerialPortActions *serial,
-                                          FileActions::EcuCalDefStructure *ecuCalDef,
-                                          QString cmd_type,
-                                          QWidget *dialog,
-                                          QObject *parent = nullptr,
+    FlashEcuSubaruUnisiaJecsM32rOperation(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
+                                          QString cmd_type, QWidget *dialog, QObject *parent = nullptr,
                                           PromptFn promptOverride = {});
 
   protected:

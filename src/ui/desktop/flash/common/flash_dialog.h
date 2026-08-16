@@ -24,8 +24,7 @@ class FlashDialog : public QDialog
 {
     Q_OBJECT
   public:
-    explicit FlashDialog(std::unique_ptr<FlashWorkflow> workflow,
-                         FlashOperation operation, const QString& filename,
+    explicit FlashDialog(std::unique_ptr<FlashWorkflow> workflow, FlashOperation operation, const QString& filename,
                          QWidget *parent = nullptr);
     ~FlashDialog() override = default;
     FlashDialogResult run();

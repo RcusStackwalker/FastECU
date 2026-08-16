@@ -3,9 +3,7 @@
 #include <utility>
 
 SystemLogger::SystemLogger(QString file_path, QString software_name, QString software_version, QObject *parent)
-    : QObject(parent),
-      file_path(std::move(file_path)),
-      software_name(std::move(software_name)),
+    : QObject(parent), file_path(std::move(file_path)), software_name(std::move(software_name)),
       software_version(std::move(software_version))
 {
     QObject::connect(this, &SystemLogger::LOG_E, this, &SystemLogger::log_messages);
@@ -125,7 +123,8 @@ bool SystemLogger::write_syslog(const QString& msg)
         syslog_file_open = true;
         syslog_file_init_ready = true;
         syslog_file_outstream.setDevice(&syslog_file);
-        syslog_file_outstream << software_name + " v" + software_version + ", system log file, start time: " + dateTimeString;
+        syslog_file_outstream << software_name + " v" + software_version +
+                                     ", system log file, start time: " + dateTimeString;
         syslog_file_outstream << "\n";
     }
 

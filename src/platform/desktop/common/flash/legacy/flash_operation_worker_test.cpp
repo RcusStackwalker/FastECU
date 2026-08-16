@@ -27,9 +27,7 @@ class ScriptedOperation : public FlashOperationWorker
         }
         emit LOG_I("scripted operation running", true, true);
         emit progressChanged(50);
-        confirmResultSeen = confirm("title", "text",
-                                    QMessageBox::Yes | QMessageBox::Cancel,
-                                    QMessageBox::Cancel);
+        confirmResultSeen = confirm("title", "text", QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel);
         return succeedResult;
     }
 };
@@ -40,10 +38,7 @@ class TestFlashOperationWorker : public QObject
   private:
     static FlashOperationWorker::PromptFn yesPrompt()
     {
-        return [](QWidget *, const QString&, const QString&, int, int) -> int
-        {
-            return QMessageBox::Yes;
-        };
+        return [](QWidget *, const QString&, const QString&, int, int) -> int { return QMessageBox::Yes; };
     }
 
   private slots:

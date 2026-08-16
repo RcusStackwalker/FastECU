@@ -105,10 +105,8 @@ struct CatalogLists
     QStringList *sources;
 };
 
-Status populate_catalog(
-    definitions::ConfigValuesStructure& next,
-    const DefinitionCatalog& catalog,
-    DefinitionFormat format)
+Status populate_catalog(definitions::ConfigValuesStructure& next, const DefinitionCatalog& catalog,
+                        DefinitionFormat format)
 {
     CatalogLists lists =
         format == DefinitionFormat::RomRaider
@@ -142,9 +140,7 @@ Status populate_catalog(
     }
 
     const qsizetype rows = lists.ids->size();
-    if (lists.addresses->size() != rows ||
-        lists.ecu_ids->size() != rows ||
-        lists.sources->size() != rows)
+    if (lists.addresses->size() != rows || lists.ecu_ids->size() != rows || lists.sources->size() != rows)
     {
         return fail(ErrorKind::InvalidConfig, "legacy definition catalog lists are not aligned");
     }
@@ -167,17 +163,11 @@ void clear_scaling_rows(definitions::EcuCalDefStructure& value)
     }
 }
 
-void append_axis(
-    definitions::EcuCalDefStructure& value,
-    const AxisDefinition& axis,
-    const Scaling *scaling,
-    bool x_axis)
+void append_axis(definitions::EcuCalDefStructure& value, const AxisDefinition& axis, const Scaling *scaling,
+                 bool x_axis)
 {
     const bool present = !axis.type.empty();
-    auto text = [present](std::string_view field)
-    {
-        return present ? legacy_value(field) : qs(kPlaceholder);
-    };
+    auto text = [present](std::string_view field) { return present ? legacy_value(field) : qs(kPlaceholder); };
     const auto columns = definitions::legacy_columns::axis_columns(value, x_axis);
 
     columns.type->append(text(axis.type));
@@ -188,8 +178,7 @@ void append_axis(
     columns.minimum->append(present && scaling ? legacy_value(scaling->minimum) : qs(kPlaceholder));
     columns.maximum->append(present && scaling ? legacy_value(scaling->maximum) : qs(kPlaceholder));
     columns.units->append(text(axis.units));
-    columns.format->append(
-        present && scaling ? legacy_format(scaling->format) : qs(kPlaceholder));
+    columns.format->append(present && scaling ? legacy_format(scaling->format) : qs(kPlaceholder));
     columns.fine->append(present && scaling ? legacy_value(scaling->fine_increment) : qs(kPlaceholder));
     columns.coarse->append(present && scaling ? legacy_value(scaling->coarse_increment) : qs(kPlaceholder));
     columns.storage->append(present ? legacy_value(storage_type_text(axis.storage_type)) : qs(kPlaceholder));
@@ -212,14 +201,12 @@ void append_map(definitions::EcuCalDefStructure& value, const RomDefinition& def
     const AxisDefinition& y = map.y_axis;
     const Scaling *x_scaling = find_scaling(definition, x.scaling_name);
     const Scaling *y_scaling = find_scaling(definition, y.scaling_name);
-    const std::optional<StorageType> storage =
-        map.storage_type ? map.storage_type
-        : scaling        ? scaling->storage_type
-                         : std::nullopt;
-    const std::string_view endian =
-        !map.endian.empty() ? std::string_view(map.endian)
-        : scaling           ? std::string_view(scaling->endian)
-                            : std::string_view{};
+    const std::optional<StorageType> storage = map.storage_type ? map.storage_type
+                                               : scaling        ? scaling->storage_type
+                                                                : std::nullopt;
+    const std::string_view endian = !map.endian.empty() ? std::string_view(map.endian)
+                                    : scaling           ? std::string_view(scaling->endian)
+                                                        : std::string_view{};
 
     value.IdList.append(legacy_value(map.id));
     value.TypeList.append(legacy_value(map.type));
@@ -240,8 +227,7 @@ void append_map(definitions::EcuCalDefStructure& value, const RomDefinition& def
     value.MinValueList.append(scaling ? legacy_value(scaling->minimum) : qs(kPlaceholder));
     value.MaxValueList.append(scaling ? legacy_value(scaling->maximum) : qs(kPlaceholder));
     value.UnitsList.append(scaling ? legacy_value(scaling->units) : qs(kPlaceholder));
-    value.FormatList.append(
-        scaling ? legacy_format(scaling->format) : qs(kPlaceholder));
+    value.FormatList.append(scaling ? legacy_format(scaling->format) : qs(kPlaceholder));
     value.FineIncList.append(scaling ? legacy_value(scaling->fine_increment) : qs(kPlaceholder));
     value.CoarseIncList.append(scaling ? legacy_value(scaling->coarse_increment) : qs(kPlaceholder));
     value.VisibleList.append(qs(kPlaceholder));
@@ -288,9 +274,7 @@ Status validate_definition_alignment(const definitions::EcuCalDefStructure& valu
     {
         if ((value.*list).size() != map_rows)
         {
-            return fail(
-                ErrorKind::InvalidConfig,
-                std::format("legacy definition map list '{}' is not aligned", name));
+            return fail(ErrorKind::InvalidConfig, std::format("legacy definition map list '{}' is not aligned", name));
         }
     }
 
@@ -300,17 +284,14 @@ Status validate_definition_alignment(const definitions::EcuCalDefStructure& valu
     {
         if ((value.*list).size() != scaling_rows)
         {
-            return fail(
-                ErrorKind::InvalidConfig,
-                std::format("legacy definition scaling list '{}' is not aligned", name));
+            return fail(ErrorKind::InvalidConfig,
+                        std::format("legacy definition scaling list '{}' is not aligned", name));
         }
     }
     return {};
 }
 
-Status populate_rom_info(
-    definitions::EcuCalDefStructure& value,
-    const RomDefinition& definition)
+Status populate_rom_info(definitions::EcuCalDefStructure& value, const RomDefinition& definition)
 {
     enum RomInfoIndex
     {
@@ -333,25 +314,19 @@ Status populate_rom_info(
     };
 
     constexpr qsizetype kRequiredSlots = DefFile + 1;
-    if (value.RomInfoStrings.size() < kRequiredSlots ||
-        value.RomInfoNames.size() < kRequiredSlots ||
+    if (value.RomInfoStrings.size() < kRequiredSlots || value.RomInfoNames.size() < kRequiredSlots ||
         value.RomInfoStrings.size() != value.RomInfoNames.size())
     {
-        return fail(
-            ErrorKind::InvalidConfig,
-            "legacy RomInfo labels must provide matching names and text for all 16 slots");
+        return fail(ErrorKind::InvalidConfig,
+                    "legacy RomInfo labels must provide matching names and text for all 16 slots");
     }
     value.RomInfo = QStringList(value.RomInfoStrings.size(), QString{});
     // resolved_definition_ids is ordered root-ancestor-first (self last), so its front() is the
     // wrong end for "the base this definition directly inherits from" -- that's the definition's
     // own declared parents, which survive resolution unmodified on RomDefinition::parents.
-    const QString parent =
-        definition.parents.empty()
-            ? QString{}
-            : qs(definition.parents.front());
+    const QString parent = definition.parents.empty() ? QString{} : qs(definition.parents.front());
     value.RomInfo[XmlId] = qs(definition.identity.xml_id);
-    value.RomInfo[InternalIdAddress] =
-        address_text(definition.identity.internal_id_address, false);
+    value.RomInfo[InternalIdAddress] = address_text(definition.identity.internal_id_address, false);
     value.RomInfo[InternalIdString] = qs(definition.identity.internal_id);
     value.RomInfo[EcuId] = qs(definition.identity.ecu_id);
     value.RomInfo[Make] = qs(definition.metadata.make);
@@ -373,14 +348,12 @@ Status populate_rom_info(
 
 } // namespace
 
-LegacyDefinitionAdapter::LegacyDefinitionAdapter(DefinitionService& service)
-    : service_(service)
+LegacyDefinitionAdapter::LegacyDefinitionAdapter(DefinitionService& service) : service_(service)
 {
 }
 
-Status LegacyDefinitionAdapter::replace_romraider_catalog(
-    definitions::ConfigValuesStructure& current,
-    std::span<const std::string> ordered_handles)
+Status LegacyDefinitionAdapter::replace_romraider_catalog(definitions::ConfigValuesStructure& current,
+                                                          std::span<const std::string> ordered_handles)
 {
     auto catalog = service_.build_romraider_catalog(ordered_handles);
     if (!catalog.has_value())
@@ -397,13 +370,11 @@ Status LegacyDefinitionAdapter::replace_romraider_catalog(
     return {};
 }
 
-Status LegacyDefinitionAdapter::replace_ecuflash_catalog(
-    definitions::ConfigValuesStructure& current,
-    std::string_view directory,
-    std::span<const std::string> explicit_handles)
+Status LegacyDefinitionAdapter::replace_ecuflash_catalog(definitions::ConfigValuesStructure& current,
+                                                         std::string_view directory,
+                                                         std::span<const std::string> explicit_handles)
 {
-    auto catalog =
-        service_.build_ecuflash_catalog(directory, explicit_handles);
+    auto catalog = service_.build_ecuflash_catalog(directory, explicit_handles);
     if (!catalog.has_value())
     {
         return std::unexpected(catalog.error());
@@ -418,12 +389,9 @@ Status LegacyDefinitionAdapter::replace_ecuflash_catalog(
     return {};
 }
 
-Status LegacyDefinitionAdapter::replace_definition(
-    definitions::EcuCalDefStructure& current,
-    const DefinitionCatalog& catalog,
-    DefinitionFormat format,
-    std::string_view id,
-    RomDefinition *resolved)
+Status LegacyDefinitionAdapter::replace_definition(definitions::EcuCalDefStructure& current,
+                                                   const DefinitionCatalog& catalog, DefinitionFormat format,
+                                                   std::string_view id, RomDefinition *resolved)
 {
     auto definition = service_.load(catalog, format, id);
     if (!definition.has_value())
@@ -464,18 +432,14 @@ Status LegacyDefinitionAdapter::replace_definition(
     return {};
 }
 
-Status LegacyDefinitionAdapter::create_definition(
-    std::string_view destination,
-    const DefinitionHeaderInput& input,
-    bool allow_overwrite)
+Status LegacyDefinitionAdapter::create_definition(std::string_view destination, const DefinitionHeaderInput& input,
+                                                  bool allow_overwrite)
 {
     return service_.create_definition(destination, input, allow_overwrite);
 }
 
-Status LegacyDefinitionAdapter::import_definition(
-    std::string_view source,
-    std::string_view destination,
-    const DefinitionHeaderInput& input)
+Status LegacyDefinitionAdapter::import_definition(std::string_view source, std::string_view destination,
+                                                  const DefinitionHeaderInput& input)
 {
     return service_.import_definition(source, destination, input);
 }

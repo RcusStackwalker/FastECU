@@ -26,9 +26,8 @@ fastecu::Status writeFrame(IKlineTransport& transport, bytes::ByteView frame)
 }
 } // namespace
 
-fastecu::Status MutDmaDriver::startFreeFormLog(
-    const std::vector<Channel>& channels, bytes::Byte setupCmd, bytes::Byte listCmd,
-    const fastecu::ICancellationToken& cancellation)
+fastecu::Status MutDmaDriver::startFreeFormLog(const std::vector<Channel>& channels, bytes::Byte setupCmd,
+                                               bytes::Byte listCmd, const fastecu::ICancellationToken& cancellation)
 {
     channels_ = channels;
     streaming_ = false;
@@ -48,8 +47,7 @@ fastecu::Status MutDmaDriver::startFreeFormLog(
     }
     if (!resp1->has_value() || !ackOk(resp1->value(), 0xA5, 0xB5))
     {
-        return fastecu::fail(fastecu::ErrorKind::BadResponse,
-                             "MUT/DMA setup acknowledgement invalid");
+        return fastecu::fail(fastecu::ErrorKind::BadResponse, "MUT/DMA setup acknowledgement invalid");
     }
     const auto idList = buildIdListFrame(listCmd, channels);
     if (auto written = writeFrame(t_, idList); !written)
@@ -63,16 +61,14 @@ fastecu::Status MutDmaDriver::startFreeFormLog(
     }
     if (!resp2->has_value() || !ackOk(resp2->value(), 0x05, 0x15))
     {
-        return fastecu::fail(fastecu::ErrorKind::BadResponse,
-                             "MUT/DMA channel-list acknowledgement invalid");
+        return fastecu::fail(fastecu::ErrorKind::BadResponse, "MUT/DMA channel-list acknowledgement invalid");
     }
     streaming_ = true;
     return {};
 }
 
-fastecu::Status MutDmaDriver::writeMemory(
-    std::uint16_t addr, bytes::ByteView data,
-    const fastecu::ICancellationToken& cancellation)
+fastecu::Status MutDmaDriver::writeMemory(std::uint16_t addr, bytes::ByteView data,
+                                          const fastecu::ICancellationToken& cancellation)
 {
     if (auto wake = init_.wake(t_); !wake)
     {
@@ -81,8 +77,7 @@ fastecu::Status MutDmaDriver::writeMemory(
     const std::vector<MutDmaFrame> frames = buildWriteFrames(addr, data);
     if (frames.empty() && !data.empty())
     {
-        return fastecu::fail(fastecu::ErrorKind::InvalidConfig,
-                             "MUT/DMA memory write range is invalid");
+        return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "MUT/DMA memory write range is invalid");
     }
     for (const MutDmaFrame& f : frames)
     {
@@ -97,15 +92,14 @@ fastecu::Status MutDmaDriver::writeMemory(
         }
         if (!echo->has_value() || !verifyFrame(echo->value()))
         {
-            return fastecu::fail(fastecu::ErrorKind::BadResponse,
-                                 "MUT/DMA memory-write echo invalid");
+            return fastecu::fail(fastecu::ErrorKind::BadResponse, "MUT/DMA memory-write echo invalid");
         }
     }
     return {};
 }
 
-fastecu::Result<std::vector<std::uint32_t>> MutDmaDriver::pollOnce(
-    int timeoutMs, const fastecu::ICancellationToken& cancellation)
+fastecu::Result<std::vector<std::uint32_t>> MutDmaDriver::pollOnce(int timeoutMs,
+                                                                   const fastecu::ICancellationToken& cancellation)
 {
     if (!streaming_)
     {

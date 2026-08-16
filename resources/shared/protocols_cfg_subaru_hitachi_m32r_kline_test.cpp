@@ -14,8 +14,7 @@ TEST(ProtocolsCfgSubaruHitachiM32rKline, DeclaresBothPortableTargets)
     std::ostringstream buffer;
     buffer << file.rdbuf();
     const std::string text = buffer.str();
-    for (const std::string protocol : {"sub_ecu_hitachi_m32r_kline",
-                                       "sub_ecu_hitachi_m32r_kline_recovery"})
+    for (const std::string protocol : {"sub_ecu_hitachi_m32r_kline", "sub_ecu_hitachi_m32r_kline_recovery"})
     {
         const auto start = text.find("<protocol name=\"" + protocol + "\">");
         ASSERT_NE(start, std::string::npos);

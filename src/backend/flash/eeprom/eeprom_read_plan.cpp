@@ -51,8 +51,7 @@ Result<DensoSecurityVariant> security_for_protocol(std::string_view protocol_nam
 {
     if (protocol_name.ends_with("_ecutek_racerom_alt"))
     {
-        return fail(ErrorKind::InvalidConfig,
-                    "_ecutek_racerom_alt is not supported by the portable EEPROM path");
+        return fail(ErrorKind::InvalidConfig, "_ecutek_racerom_alt is not supported by the portable EEPROM path");
     }
     if (protocol_name.ends_with("_cobb"))
     {
@@ -81,14 +80,12 @@ Result<std::uint32_t> parse_kernel_start_addr(std::string_view kernel_addr)
     if (!parsed.has_value() || *parsed > std::numeric_limits<std::uint32_t>::max())
     {
         return fail(ErrorKind::InvalidConfig,
-                    std::format("kernel_addr did not parse as a 32-bit address: '{}'",
-                                kernel_addr));
+                    std::format("kernel_addr did not parse as a 32-bit address: '{}'", kernel_addr));
     }
     return static_cast<std::uint32_t>(*parsed);
 }
 
-Result<config::ProtocolEntry> resolve_protocol(const config::ConfigPaths& paths,
-                                               std::string_view protocol_name,
+Result<config::ProtocolEntry> resolve_protocol(const config::ConfigPaths& paths, std::string_view protocol_name,
                                                IFileRepository& file_repository)
 {
     Result<config::ProtocolCatalog> protocols = config::load_protocol_catalog(paths, file_repository);
@@ -96,39 +93,32 @@ Result<config::ProtocolEntry> resolve_protocol(const config::ConfigPaths& paths,
     {
         return std::unexpected(protocols.error());
     }
-    Result<config::CarModelCatalog> car_models =
-        config::load_car_model_catalog(paths, file_repository);
+    Result<config::CarModelCatalog> car_models = config::load_car_model_catalog(paths, file_repository);
     if (!car_models.has_value())
     {
         return std::unexpected(car_models.error());
     }
 
-    const std::vector<config::ResolvedCarModel> resolved =
-        config::resolve_car_models(*protocols, *car_models);
-    const std::optional<std::size_t> index =
-        config::find_car_model_by_protocol_name(resolved, protocol_name);
+    const std::vector<config::ResolvedCarModel> resolved = config::resolve_car_models(*protocols, *car_models);
+    const std::optional<std::size_t> index = config::find_car_model_by_protocol_name(resolved, protocol_name);
     if (!index.has_value())
     {
-        return fail(ErrorKind::InvalidConfig,
-                    std::format("no car model references protocol '{}'", protocol_name));
+        return fail(ErrorKind::InvalidConfig, std::format("no car model references protocol '{}'", protocol_name));
     }
     const config::ResolvedCarModel& row = resolved[*index];
     if (!row.protocol.has_value())
     {
-        return fail(ErrorKind::InvalidConfig,
-                    std::format("protocol '{}' is referenced by a car model but absent "
-                                "from the <protocols> section",
-                                protocol_name));
+        return fail(ErrorKind::InvalidConfig, std::format("protocol '{}' is referenced by a car model but absent "
+                                                          "from the <protocols> section",
+                                                          protocol_name));
     }
     return *row.protocol;
 }
 
 } // namespace
 
-Result<FlashPlan> build_eeprom_read_plan(const config::ConfigPaths& paths,
-                                         std::string_view protocol_name,
-                                         EepromReadMode mode,
-                                         IFileRepository& file_repository)
+Result<FlashPlan> build_eeprom_read_plan(const config::ConfigPaths& paths, std::string_view protocol_name,
+                                         EepromReadMode mode, IFileRepository& file_repository)
 {
     Result<config::ProtocolEntry> entry = resolve_protocol(paths, protocol_name, file_repository);
     if (!entry.has_value())
@@ -161,11 +151,12 @@ Result<FlashPlan> build_eeprom_read_plan(const config::ConfigPaths& paths,
         .target_id = target_id,
         .mcu_name = entry->mcu,
         .flash_method = target_id,
-        .kernel = KernelImage{
-            .id = target_id + "-kernel",
-            .load_address = *kernel_start_addr,
-            .bytes = {},
-        },
+        .kernel =
+            KernelImage{
+                .id = target_id + "-kernel",
+                .load_address = *kernel_start_addr,
+                .bytes = {},
+            },
         .mode = mode,
         .security = *security,
         .eeprom_region = *eeprom_region,

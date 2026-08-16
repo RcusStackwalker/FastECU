@@ -154,9 +154,8 @@ TEST(LoggerDefinitionParser, CollectsParametersAcrossMultipleProtocols)
 
     const auto result = parse_logger_definition(view(kTwo), "test.xml");
     ASSERT_TRUE(result.has_value()) << result.error().detail;
-    EXPECT_THAT(result->parameters,
-                ElementsAre(Field(&fastecu::logging::LoggerParameter::protocol, "SSM"),
-                            Field(&fastecu::logging::LoggerParameter::protocol, "CDBG")));
+    EXPECT_THAT(result->parameters, ElementsAre(Field(&fastecu::logging::LoggerParameter::protocol, "SSM"),
+                                                Field(&fastecu::logging::LoggerParameter::protocol, "CDBG")));
 }
 
 TEST(LoggerDefinitionParser, RejectsMalformedXml)

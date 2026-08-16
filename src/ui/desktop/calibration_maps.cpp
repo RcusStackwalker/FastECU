@@ -1,16 +1,17 @@
 #include "calibration_maps.h"
 #include <ui_calibration_map_table.h>
 
-CalibrationMaps::CalibrationMaps(FileActions::EcuCalDefStructure *ecuCalDef, int romIndex, int mapIndex, QRect mdiAreaSize, QWidget *parent)
-    : QWidget(parent),
-      ui{std::make_unique<Ui::CalibrationMaps>()}
+CalibrationMaps::CalibrationMaps(FileActions::EcuCalDefStructure *ecuCalDef, int romIndex, int mapIndex,
+                                 QRect mdiAreaSize, QWidget *parent)
+    : QWidget(parent), ui{std::make_unique<Ui::CalibrationMaps>()}
 {
     ui->setupUi(this);
 
     this->setParent(parent);
     this->setAttribute(Qt::WA_DeleteOnClose);
 
-    QString mapWindowObjectName = QString::number(romIndex) + "," + QString::number(mapIndex) + "," + ecuCalDef->NameList.at(mapIndex);
+    QString mapWindowObjectName =
+        QString::number(romIndex) + "," + QString::number(mapIndex) + "," + ecuCalDef->NameList.at(mapIndex);
 
     this->setObjectName(mapWindowObjectName);
     this->setWindowTitle(ecuCalDef->NameList.at(mapIndex) + " - " + ecuCalDef->FileName);
@@ -20,7 +21,8 @@ CalibrationMaps::CalibrationMaps(FileActions::EcuCalDefStructure *ecuCalDef, int
     {
         if (ecuCalDef->XScaleUnitsList.at(mapIndex) != " ")
         {
-            xScaleUnitsTitle = ecuCalDef->XScaleNameList.at(mapIndex) + " (" + ecuCalDef->XScaleUnitsList.at(mapIndex) + ")";
+            xScaleUnitsTitle =
+                ecuCalDef->XScaleNameList.at(mapIndex) + " (" + ecuCalDef->XScaleUnitsList.at(mapIndex) + ")";
         }
         else
         {
@@ -72,7 +74,8 @@ CalibrationMaps::CalibrationMaps(FileActions::EcuCalDefStructure *ecuCalDef, int
     }
     if (ecuCalDef->TypeList.at(mapIndex) == "2D")
     {
-        // qDebug() << "2D map" << ecuCalDef->NameList.at(mapIndex) << ecuCalDef->XSizeList.at(mapIndex).toInt() << ecuCalDef->YSizeList.at(mapIndex).toInt();
+        // qDebug() << "2D map" << ecuCalDef->NameList.at(mapIndex) << ecuCalDef->XSizeList.at(mapIndex).toInt() <<
+        // ecuCalDef->YSizeList.at(mapIndex).toInt();
         if (ecuCalDef->YSizeList.at(mapIndex).toInt() > 1 || ecuCalDef->XSizeList.at(mapIndex).toInt() > 1)
         {
             this->setWindowIcon(QIcon(":/icons/2D-64-W.png"));
@@ -107,7 +110,9 @@ CalibrationMaps::CalibrationMaps(FileActions::EcuCalDefStructure *ecuCalDef, int
         {
             xSizeOffset = 1;
         }
-        if (ecuCalDef->XSizeList.at(mapIndex).toInt() > 1 || ecuCalDef->XScaleTypeList.at(mapIndex) == "Static Y Axis" || ecuCalDef->XScaleTypeList.at(mapIndex) == "Static X Axis")
+        if (ecuCalDef->XSizeList.at(mapIndex).toInt() > 1 ||
+            ecuCalDef->XScaleTypeList.at(mapIndex) == "Static Y Axis" ||
+            ecuCalDef->XScaleTypeList.at(mapIndex) == "Static X Axis")
         {
             ySizeOffset = 1;
         }
@@ -116,7 +121,8 @@ CalibrationMaps::CalibrationMaps(FileActions::EcuCalDefStructure *ecuCalDef, int
     }
     if (ecuCalDef->TypeList.at(mapIndex) == "3D")
     {
-        // qDebug() << "3D map" << ecuCalDef->NameList.at(mapIndex) << ecuCalDef->XSizeList.at(mapIndex).toInt() << ecuCalDef->YSizeList.at(mapIndex).toInt();
+        // qDebug() << "3D map" << ecuCalDef->NameList.at(mapIndex) << ecuCalDef->XSizeList.at(mapIndex).toInt() <<
+        // ecuCalDef->YSizeList.at(mapIndex).toInt();
         this->setWindowIcon(QIcon(":/icons/3D-64-W.png"));
         mapWindowObjectName = mapWindowObjectName + "," + "3D";
         xSizeOffset = 0;
@@ -136,7 +142,8 @@ CalibrationMaps::CalibrationMaps(FileActions::EcuCalDefStructure *ecuCalDef, int
         yScaleUnitsLabel->setAlignment(Qt::AlignCenter);
         yScaleUnitsLabel->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
         ui->horizontalLayout_2->insertWidget(0, yScaleUnitsLabel);
-        QString yScaleUnitsTitle = ecuCalDef->YScaleNameList.at(mapIndex) + " (" + ecuCalDef->YScaleUnitsList.at(mapIndex) + ")";
+        QString yScaleUnitsTitle =
+            ecuCalDef->YScaleNameList.at(mapIndex) + " (" + ecuCalDef->YScaleUnitsList.at(mapIndex) + ")";
         yScaleUnitsLabel->setText(yScaleUnitsTitle);
     }
 
@@ -179,7 +186,8 @@ CalibrationMaps::CalibrationMaps(FileActions::EcuCalDefStructure *ecuCalDef, int
         connect(ui->mapDataTableWidget, SIGNAL(cellClicked(int, int)), this, SLOT(cellClicked(int, int)));
         connect(ui->mapDataTableWidget, SIGNAL(cellPressed(int, int)), this, SLOT(cellPressed(int, int)));
         /// connect(ui->mapDataTableWidget, SIGNAL(cellEntered(int, int)), this, SLOT (cellActivated(int, int)));
-        connect(ui->mapDataTableWidget, SIGNAL(currentCellChanged(int, int, int, int)), this, SLOT(cellChanged(int, int, int, int)));
+        connect(ui->mapDataTableWidget, SIGNAL(currentCellChanged(int, int, int, int)), this,
+                SLOT(cellChanged(int, int, int, int)));
     }
 }
 
@@ -264,13 +272,15 @@ void CalibrationMaps::setMapTableWidgetItems(FileActions::EcuCalDefStructure *ec
             const QString& switch_data = switch_states.at(i + 1);
             QString map_data;
             uint32_t byte_address = ecuCalDef->AddressList.at(mapIndex).toUInt(&bStatus, 16);
-            if (ecuCalDef->RomInfo.at(FlashMethod) == "wrx02" && ecuCalDef->FileSize.toUInt() < (190 * 1024) && byte_address > 0x27FFF)
+            if (ecuCalDef->RomInfo.at(FlashMethod) == "wrx02" && ecuCalDef->FileSize.toUInt() < (190 * 1024) &&
+                byte_address > 0x27FFF)
             {
                 byte_address -= 0x8000;
             }
             for (int j = 0; j < switch_data_length.length(); j++)
             {
-                map_data.append(QString("%1 ").arg(ecuCalDef->FullRomData.at(byte_address + j) & 0xFF, 2, 16, QLatin1Char('0')));
+                map_data.append(
+                    QString("%1 ").arg(ecuCalDef->FullRomData.at(byte_address + j) & 0xFF, 2, 16, QLatin1Char('0')));
             }
             map_data.remove(map_data.length() - 1, 1);
             // qDebug() << map_data;
@@ -312,7 +322,8 @@ void CalibrationMaps::setMapTableWidgetItems(FileActions::EcuCalDefStructure *ec
             selectableComboBox->setObjectName("selectableComboBox");
             selectableComboBox->setCurrentIndex(mapDataCellText.at(0).toInt());
             ui->mapDataTableWidget->setCellWidget(i, 1, selectableComboBox);
-            connect(selectableComboBox, SIGNAL(currentTextChanged(QString)), this, SIGNAL(selectable_combobox_item_changed(QString)));
+            connect(selectableComboBox, SIGNAL(currentTextChanged(QString)), this,
+                    SIGNAL(selectable_combobox_item_changed(QString)));
         }
     }
     else if (ecuCalDef->TypeList.at(mapIndex) == "Selectable")
@@ -345,14 +356,17 @@ void CalibrationMaps::setMapTableWidgetItems(FileActions::EcuCalDefStructure *ec
         }
         selectableComboBox->setCurrentIndex(currentIndex);
         ui->mapDataTableWidget->setCellWidget(0, 0, selectableComboBox);
-        connect(selectableComboBox, SIGNAL(currentTextChanged(QString)), this, SIGNAL(selectable_combobox_item_changed(QString)));
+        connect(selectableComboBox, SIGNAL(currentTextChanged(QString)), this,
+                SIGNAL(selectable_combobox_item_changed(QString)));
     }
-    else if (xSize > 1 && (ecuCalDef->XScaleTypeList.at(mapIndex) == "Static Y Axis" || ecuCalDef->XScaleTypeList.at(mapIndex) == "Static X Axis"))
+    else if (xSize > 1 && (ecuCalDef->XScaleTypeList.at(mapIndex) == "Static Y Axis" ||
+                           ecuCalDef->XScaleTypeList.at(mapIndex) == "Static X Axis"))
     {
         // qDebug() << "Map:" << ecuCalDef->NameList.at(mapIndex) << "type: 'Static'";
 
         QStringList xScaleCellText;
-        if (ecuCalDef->XScaleTypeList.at(mapIndex) == "Static Y Axis" || ecuCalDef->XScaleTypeList.at(mapIndex) == "Static X Axis")
+        if (ecuCalDef->XScaleTypeList.at(mapIndex) == "Static Y Axis" ||
+            ecuCalDef->XScaleTypeList.at(mapIndex) == "Static X Axis")
         {
             xScaleCellText = ecuCalDef->XScaleStaticDataList.at(mapIndex).split(",");
         }
@@ -365,13 +379,15 @@ void CalibrationMaps::setMapTableWidgetItems(FileActions::EcuCalDefStructure *ec
         {
             QTableWidgetItem *cellItem = new QTableWidgetItem;
             QString xScaleCellDataText = xScaleCellText.at(i);
-            if (ecuCalDef->XScaleTypeList.at(mapIndex) == "Static Y Axis" || ecuCalDef->XScaleTypeList.at(mapIndex) == "Static X Axis")
+            if (ecuCalDef->XScaleTypeList.at(mapIndex) == "Static Y Axis" ||
+                ecuCalDef->XScaleTypeList.at(mapIndex) == "Static X Axis")
             {
                 xScaleCellDataText = xScaleCellText.at(i);
             }
             else
             {
-                xScaleCellDataText = QString::number(xScaleCellText.at(i).toFloat(), 'f', getMapValueDecimalCount(ecuCalDef->XScaleFormatList.at(mapIndex)));
+                xScaleCellDataText = QString::number(xScaleCellText.at(i).toFloat(), 'f',
+                                                     getMapValueDecimalCount(ecuCalDef->XScaleFormatList.at(mapIndex)));
             }
             // qDebug() << "xScaleCellDataText:" << xScaleCellDataText;
             // qDebug() << "Y: xSize" << i << "/" << xSize;
@@ -408,7 +424,8 @@ void CalibrationMaps::setMapTableWidgetItems(FileActions::EcuCalDefStructure *ec
         {
             QTableWidgetItem *cellItem = new QTableWidgetItem;
             QString yScaleCellDataText = yScaleCellText.at(i);
-            yScaleCellDataText = QString::number(yScaleCellText.at(i).toFloat(), 'f', getMapValueDecimalCount(ecuCalDef->YScaleFormatList.at(mapIndex)));
+            yScaleCellDataText = QString::number(yScaleCellText.at(i).toFloat(), 'f',
+                                                 getMapValueDecimalCount(ecuCalDef->YScaleFormatList.at(mapIndex)));
 
             cellItem->setTextAlignment(Qt::AlignCenter);
             cellItem->setFont(cellFont);
@@ -438,7 +455,8 @@ void CalibrationMaps::setMapTableWidgetItems(FileActions::EcuCalDefStructure *ec
         cellItem->setForeground(Qt::black);
         cellItem->setBackground(Qt::white);
 
-        cellItem->setText(QString::number(mapDataCellText.at(0).toFloat(), 'f', getMapValueDecimalCount(ecuCalDef->FormatList.at(mapIndex))));
+        cellItem->setText(QString::number(mapDataCellText.at(0).toFloat(), 'f',
+                                          getMapValueDecimalCount(ecuCalDef->FormatList.at(mapIndex))));
         ui->mapDataTableWidget->setItem(0, 0, cellItem);
     }
 
@@ -461,8 +479,10 @@ void CalibrationMaps::setMapTableWidgetItems(FileActions::EcuCalDefStructure *ec
             {
                 ecuCalDef->MapCellColorMax[mapIndex] = QString::number(mapDataCellText.at(i).toFloat());
             }
-            // if (ecuCalDef->MapCellColorMin[mapIndex].toFloat() == 0 || ecuCalDef->MapCellColorMin[mapIndex].toFloat() == 0)
-            //     qDebug() << "i:" << i << mapDataCellText.at(i) << ecuCalDef->MapCellColorMin[mapIndex] << ecuCalDef->MapCellColorMax[mapIndex];
+            // if (ecuCalDef->MapCellColorMin[mapIndex].toFloat() == 0 || ecuCalDef->MapCellColorMin[mapIndex].toFloat()
+            // == 0)
+            //     qDebug() << "i:" << i << mapDataCellText.at(i) << ecuCalDef->MapCellColorMin[mapIndex] <<
+            //     ecuCalDef->MapCellColorMax[mapIndex];
         }
 
         for (int i = 0; i < xSize; i++)
@@ -475,13 +495,15 @@ void CalibrationMaps::setMapTableWidgetItems(FileActions::EcuCalDefStructure *ec
                 xScaleCellText.insert(i, QString::number(i));
                 xScaleCellDataText = xScaleCellText.at(i);
             }
-            else if (ecuCalDef->XScaleTypeList.at(mapIndex) == "Static Y Axis" || ecuCalDef->XScaleTypeList.at(mapIndex) == "Static X Axis")
+            else if (ecuCalDef->XScaleTypeList.at(mapIndex) == "Static Y Axis" ||
+                     ecuCalDef->XScaleTypeList.at(mapIndex) == "Static X Axis")
             {
                 xScaleCellDataText = xScaleCellText.at(i);
             }
             else
             {
-                xScaleCellDataText = QString::number(xScaleCellText.at(i).toFloat(), 'f', getMapValueDecimalCount(ecuCalDef->XScaleFormatList.at(mapIndex)));
+                xScaleCellDataText = QString::number(xScaleCellText.at(i).toFloat(), 'f',
+                                                     getMapValueDecimalCount(ecuCalDef->XScaleFormatList.at(mapIndex)));
             }
 
             // qDebug() << "xScaleCellDataText:" << xScaleCellDataText;
@@ -536,12 +558,15 @@ void CalibrationMaps::setMapTableWidgetItems(FileActions::EcuCalDefStructure *ec
 
             if (i < mapDataCellText.count())
             {
-                cellItem->setText(QString::number(mapDataCellText.at(i).toFloat(), 'f', getMapValueDecimalCount(ecuCalDef->FormatList.at(mapIndex))));
+                cellItem->setText(QString::number(mapDataCellText.at(i).toFloat(), 'f',
+                                                  getMapValueDecimalCount(ecuCalDef->FormatList.at(mapIndex))));
             }
             // qDebug() << mapDataCellText.at(i);
             int yPos = 0;
             int xPos = 0;
-            if (ecuCalDef->XSizeList.at(mapIndex).toUInt() > 1 || ecuCalDef->XScaleTypeList.at(mapIndex) == "Static Y Axis" || ecuCalDef->XScaleTypeList.at(mapIndex) == "Static X Axis")
+            if (ecuCalDef->XSizeList.at(mapIndex).toUInt() > 1 ||
+                ecuCalDef->XScaleTypeList.at(mapIndex) == "Static Y Axis" ||
+                ecuCalDef->XScaleTypeList.at(mapIndex) == "Static X Axis")
             {
                 yPos = i / xSize + ySizeOffset;
             }
@@ -615,7 +640,8 @@ int CalibrationMaps::getMapCellColors(FileActions::EcuCalDefStructure *ecuCalDef
     color.getRgbF(&r, &g, &b);
     mapCellColors = ((int)(r * 255) << 16) + ((int)(g * 255) << 8) + b * 255;
 
-    // qDebug() << "Map min:" << mapMinValue << "Map max:" << mapMaxValue << "color scale:" << color_scale << "scale start:" << scale_start;
+    // qDebug() << "Map min:" << mapMinValue << "Map max:" << mapMaxValue << "color scale:" << color_scale << "scale
+    // start:" << scale_start;
 
     return mapCellColors;
 }
@@ -706,7 +732,8 @@ void CalibrationMaps::cellChanged(int curRow, int curCol, int prevRow, int prevC
             }
         }
     }
-    else if (startRow == 0 && (objectName.at(3) == "3D" || objectName.at(3) == "X Axis" || objectName.at(3) == "Y Axis"))
+    else if (startRow == 0 &&
+             (objectName.at(3) == "3D" || objectName.at(3) == "X Axis" || objectName.at(3) == "Y Axis"))
     {
         for (int i = 0; i < cols; i++)
         {

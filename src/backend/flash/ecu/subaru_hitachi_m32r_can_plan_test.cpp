@@ -17,25 +17,22 @@ constexpr std::string_view kMcu = "M32R_512KB_1block";
 
 TEST(SubaruHitachiM32rCanPlan, RejectsUnknownProtocol)
 {
-    const auto plan = build_subaru_hitachi_m32r_can_plan(FlashOperation::Read,
-                                                         "sub_ecu_hitachi_m32r_can_typo", kMcu,
-                                                         std::nullopt);
+    const auto plan =
+        build_subaru_hitachi_m32r_can_plan(FlashOperation::Read, "sub_ecu_hitachi_m32r_can_typo", kMcu, std::nullopt);
     ASSERT_FALSE(plan.has_value());
     EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
 }
 
 TEST(SubaruHitachiM32rCanPlan, RejectsMismatchedMcu)
 {
-    const auto plan =
-        build_subaru_hitachi_m32r_can_plan(FlashOperation::Read, kProtocol, "MH8104", std::nullopt);
+    const auto plan = build_subaru_hitachi_m32r_can_plan(FlashOperation::Read, kProtocol, "MH8104", std::nullopt);
     ASSERT_FALSE(plan.has_value());
     EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
 }
 
 TEST(SubaruHitachiM32rCanPlan, ReadPlanCoversTheFullRomFromZero)
 {
-    const auto plan =
-        build_subaru_hitachi_m32r_can_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
+    const auto plan = build_subaru_hitachi_m32r_can_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     EXPECT_EQ(plan->transfer_region().start, 0u);
     EXPECT_EQ(plan->transfer_region().length, 0x80000u);
@@ -50,8 +47,8 @@ TEST(SubaruHitachiM32rCanPlan, ReadPlanCoversTheFullRomFromZero)
 
 TEST(SubaruHitachiM32rCanPlan, WritePlanCoversTheFullRomAndErasesItAll)
 {
-    const auto plan = build_subaru_hitachi_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu,
-                                                         bytes::Bytes(0x80000, 0x00));
+    const auto plan =
+        build_subaru_hitachi_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu, bytes::Bytes(0x80000, 0x00));
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     EXPECT_EQ(plan->transfer_region().start, 0u);
     EXPECT_EQ(plan->transfer_region().length, 0x80000u);
@@ -62,8 +59,8 @@ TEST(SubaruHitachiM32rCanPlan, WritePlanCoversTheFullRomAndErasesItAll)
 
 TEST(SubaruHitachiM32rCanPlan, RejectsAWriteWhoseImageSizeIsWrong)
 {
-    const auto plan = build_subaru_hitachi_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu,
-                                                         bytes::Bytes(0x60000, 0x00));
+    const auto plan =
+        build_subaru_hitachi_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu, bytes::Bytes(0x60000, 0x00));
     ASSERT_FALSE(plan.has_value());
     EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
     EXPECT_THAT(plan.error().detail, HasSubstr("0x80000"));
@@ -71,16 +68,15 @@ TEST(SubaruHitachiM32rCanPlan, RejectsAWriteWhoseImageSizeIsWrong)
 
 TEST(SubaruHitachiM32rCanPlan, RejectsTestWriteAsUnsupported)
 {
-    const auto plan = build_subaru_hitachi_m32r_can_plan(FlashOperation::TestWrite, kProtocol,
-                                                         kMcu, bytes::Bytes(0x80000, 0x00));
+    const auto plan =
+        build_subaru_hitachi_m32r_can_plan(FlashOperation::TestWrite, kProtocol, kMcu, bytes::Bytes(0x80000, 0x00));
     ASSERT_FALSE(plan.has_value());
     EXPECT_EQ(plan.error().kind, ErrorKind::Unsupported);
 }
 
 TEST(SubaruHitachiM32rCanPlan, RejectsAWriteWithNoImage)
 {
-    const auto plan =
-        build_subaru_hitachi_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt);
+    const auto plan = build_subaru_hitachi_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt);
     ASSERT_FALSE(plan.has_value());
     EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
 }

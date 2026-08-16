@@ -12,13 +12,9 @@ namespace fastecu::logging
 // log_switch_enabled hold the XML defaults only until log_operations_ssm
 // overwrites them from the ECU's capability response; re-applying a
 // definition afterwards would silently reset every reported capability.
-void apply_definition(
-    const LoggerDefinition& definition,
-    definitions::LogValuesStructure& values);
+void apply_definition(const LoggerDefinition& definition, definitions::LogValuesStructure& values);
 
 // Writes only the four selection fields. Never touches definition state.
-void apply_selection(
-    const LoggerSelection& selection,
-    definitions::LogValuesStructure& values);
+void apply_selection(const LoggerSelection& selection, definitions::LogValuesStructure& values);
 
 } // namespace fastecu::logging

@@ -21,7 +21,8 @@ class LogValues : public QWidget
     Q_OBJECT
 
   public:
-    explicit LogValues(FileActions::LogValuesStructure *logValues, int tabIndex, QString protocol, QWidget *parent = nullptr);
+    explicit LogValues(FileActions::LogValuesStructure *logValues, int tabIndex, QString protocol,
+                       QWidget *parent = nullptr);
     ~LogValues();
 
   private:

@@ -51,39 +51,49 @@ void TestPtyE2e::workerThread_writeRead_overPty_deliversFramedMessage()
     // already completed and been joined by the time the hang occurred.
     std::atomic<bool> stop{false};
     QByteArray received;
-    std::thread responder([&]
-                          {
-        const char reply[] = "\x80\xf0\x10\x02\xaa\xbb\xcc";
-        char buf[64];
-        bool replied = false;
-        while (!stop.load())
+    std::thread responder(
+        [&]
         {
-            struct pollfd pfd { master, POLLIN, 0 };
-            int pr = ::poll(&pfd, 1, 100);   // 100ms: re-check stop periodically
-            if (pr <= 0) {
-                continue;
-}
-            ssize_t n = ::read(master, buf, sizeof(buf));
-            if (n > 0)
+            const char reply[] = "\x80\xf0\x10\x02\xaa\xbb\xcc";
+            char buf[64];
+            bool replied = false;
+            while (!stop.load())
             {
-                received.append(buf, int(n));
-                if (!replied) { ::write(master, reply, 7); replied = true; }
+                struct pollfd pfd{master, POLLIN, 0};
+                int pr = ::poll(&pfd, 1, 100); // 100ms: re-check stop periodically
+                if (pr <= 0)
+                {
+                    continue;
+                }
+                ssize_t n = ::read(master, buf, sizeof(buf));
+                if (n > 0)
+                {
+                    received.append(buf, int(n));
+                    if (!replied)
+                    {
+                        ::write(master, reply, 7);
+                        replied = true;
+                    }
+                }
+                else if (n < 0)
+                {
+                    break;
+                }
             }
-            else if (n < 0) {
-                break;
-}
-        } });
+        });
 
     SerialPortActions serial; // default factory: real direct backend
     QByteArray response;
     QString opened;
-    std::thread worker([&]
-                       {
-        serial.set_serial_port_prefix_linux("");
-        serial.set_serial_port_list(QStringList() << QString::fromLocal8Bit(name));
-        opened = serial.open_serial_port();
-        serial.write_serial_data(QByteArray("\x01\x02\x03", 3));
-        response = serial.read_serial_data(2000); });
+    std::thread worker(
+        [&]
+        {
+            serial.set_serial_port_prefix_linux("");
+            serial.set_serial_port_list(QStringList() << QString::fromLocal8Bit(name));
+            opened = serial.open_serial_port();
+            serial.write_serial_data(QByteArray("\x01\x02\x03", 3));
+            response = serial.read_serial_data(2000);
+        });
     worker.join();
     stop.store(true);
     responder.join(); // joins on its own via the poll timeout + stop check

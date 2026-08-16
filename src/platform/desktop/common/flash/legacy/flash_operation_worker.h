@@ -21,11 +21,9 @@ class FlashOperationWorker : public QThread
     // (dialog, title, text, buttons, defaultButton) -> chosen button.
     // Tests substitute this to auto-answer without a real modal; production
     // code uses the default, which shows a real QMessageBox on dialog's thread.
-    using PromptFn = std::function<int(QWidget *dialog, QString title, QString text,
-                                       int buttons, int defaultButton)>;
+    using PromptFn = std::function<int(QWidget *dialog, QString title, QString text, int buttons, int defaultButton)>;
 
-    explicit FlashOperationWorker(QWidget *dialog, QObject *parent = nullptr,
-                                  PromptFn promptOverride = {});
+    explicit FlashOperationWorker(QWidget *dialog, QObject *parent = nullptr, PromptFn promptOverride = {});
 
     void requestStop();
     bool stopRequested() const;
@@ -46,8 +44,7 @@ class FlashOperationWorker : public QThread
     // Shows a QMessageBox on the GUI thread and blocks this (worker) thread
     // until the user answers. Must only be called from this worker's own
     // thread -- calling it from m_dialog's thread deadlocks.
-    int confirm(const QString& title, const QString& text,
-                QMessageBox::StandardButtons buttons,
+    int confirm(const QString& title, const QString& text, QMessageBox::StandardButtons buttons,
                 QMessageBox::StandardButton defaultButton);
 
     void delay(int timeout);

@@ -10,8 +10,7 @@ namespace bytes
 
 inline ByteView view(const QByteArray& bytes)
 {
-    return ByteView(reinterpret_cast<const Byte *>(bytes.constData()),
-                    static_cast<std::size_t>(bytes.size()));
+    return ByteView(reinterpret_cast<const Byte *>(bytes.constData()), static_cast<std::size_t>(bytes.size()));
 }
 
 inline Bytes fromQByteArray(const QByteArray& bytes)
@@ -22,14 +21,12 @@ inline Bytes fromQByteArray(const QByteArray& bytes)
 
 inline QByteArray toQByteArray(ByteView bytes)
 {
-    return QByteArray(reinterpret_cast<const char *>(bytes.data()),
-                      static_cast<qsizetype>(bytes.size()));
+    return QByteArray(reinterpret_cast<const char *>(bytes.data()), static_cast<qsizetype>(bytes.size()));
 }
 
 inline MutableByteView mutableView(QByteArray& bytes)
 {
-    return MutableByteView(reinterpret_cast<Byte *>(bytes.data()),
-                           static_cast<std::size_t>(bytes.size()));
+    return MutableByteView(reinterpret_cast<Byte *>(bytes.data()), static_cast<std::size_t>(bytes.size()));
 }
 
 inline void appendU16Be(QByteArray& out, std::uint16_t value)
