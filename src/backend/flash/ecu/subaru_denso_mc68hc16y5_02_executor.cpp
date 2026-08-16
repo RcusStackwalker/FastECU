@@ -352,11 +352,8 @@ Status SubaruDensoMc68hc16y5_02Executor::upload_kernel(IKlineFlashTransport& tra
     // Not a full u24(address): the frame carries only the address's high two
     // bytes here (bits 23-8). The low byte (bits 7-0) is never emitted in
     // this header.
-    bytes::Bytes request = composeBe(kOpUploadKernel, std::uint16_t(address >> 8), u24(length));
-    request.insert(request.end(), payload.begin(), payload.end());
-    // Not composeBeWithChecksum: negatedSum8 covers the composed header plus
-    // the payload appended above, which is only available after that insert.
-    request.push_back(fastecu::checksum::negatedSum8(request));
+    const bytes::Bytes request = composeBeWithChecksum(&fastecu::checksum::negatedSum8, kOpUploadKernel,
+                                                       std::uint16_t(address >> 8), u24(length), payload);
 
     events.log(LogLevel::Info, "Sending kernel...");
     Result<IKlineFlashTransport::OptionalBytes> upload_response =
