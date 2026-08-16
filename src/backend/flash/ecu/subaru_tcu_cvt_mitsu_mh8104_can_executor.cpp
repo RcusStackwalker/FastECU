@@ -75,22 +75,22 @@ constexpr bytes::Byte kSessionKernelJump = 0x42;
 
 bytes::Bytes seed_key(bytes::ByteView seed)
 {
-    return SsmProtocol::calculateSeedKey(seed, tcuCvtMitsuSeedKeyTable().data(),
-                                         kIndexTransformation.data());
+    return SsmProtocol::calculateSeedKey(seed, tcuCvtMitsuSeedKeyTable(),
+                                         kIndexTransformation);
 }
 
 bytes::Bytes encrypt_rom(bytes::ByteView image)
 {
     return SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()),
-                                         tcuCvtMitsuEncryptTable().data(),
-                                         kIndexTransformation.data());
+                                         tcuCvtMitsuEncryptTable(),
+                                         kIndexTransformation);
 }
 
 bytes::Bytes decrypt_page(bytes::ByteView page)
 {
     return SsmProtocol::calculatePayload(page, static_cast<std::uint32_t>(page.size()),
-                                         tcuCvtMitsuDecryptTable().data(),
-                                         kIndexTransformation.data());
+                                         tcuCvtMitsuDecryptTable(),
+                                         kIndexTransformation);
 }
 
 // Bounds-safe prefix match: true only if `reply` is at least as long as

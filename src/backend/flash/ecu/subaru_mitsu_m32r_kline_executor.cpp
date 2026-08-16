@@ -98,7 +98,7 @@ bytes::Bytes seed_key(bytes::ByteView seed)
     static constexpr std::array<std::uint8_t, 32> kTransform = {0x5, 0x6, 0x7, 0x1, 0x9, 0xc, 0xd, 0x8,
                                                                 0xa, 0xd, 0x2, 0xb, 0xf, 0x4, 0x0, 0x3, 0xb, 0x4, 0x6, 0x0, 0xf, 0x2, 0xd, 0x9,
                                                                 0x5, 0xc, 0x1, 0xa, 0x3, 0xd, 0xe, 0x8};
-    return SsmProtocol::calculateSeedKey(seed, kIndex.data(), kTransform.data());
+    return SsmProtocol::calculateSeedKey(seed, kIndex, kTransform);
 }
 
 bytes::Bytes encrypt(bytes::ByteView image)
@@ -108,7 +108,7 @@ bytes::Bytes encrypt(bytes::ByteView image)
                                                                 0xa, 0xd, 0x2, 0xb, 0xf, 0x4, 0x0, 0x3, 0xb, 0x4, 0x6, 0x0, 0xf, 0x2, 0xd, 0x9,
                                                                 0x5, 0xc, 0x1, 0xa, 0x3, 0xd, 0xe, 0x8};
     return SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()),
-                                         kIndex.data(), kTransform.data());
+                                         kIndex, kTransform);
 }
 
 Result<std::string> handshake(IKlineFlashTransport& transport, IClock& clock,

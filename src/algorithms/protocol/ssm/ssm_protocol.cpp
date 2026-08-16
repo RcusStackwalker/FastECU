@@ -5,16 +5,16 @@
 namespace SsmProtocol
 {
 
-QByteArray calculateSeedKey(const QByteArray& seed, const uint16_t *keytogenerateindex,
-                            const uint8_t *indextransformation)
+QByteArray calculateSeedKey(const QByteArray& seed, SeedKeyToGenerateIndex keytogenerateindex,
+                            IndexTransformation indextransformation)
 {
     return bytes::toQByteArray(calculateSeedKey(bytes::view(seed), keytogenerateindex,
                                                 indextransformation));
 }
 
 QByteArray calculatePayload(const QByteArray& buf, uint32_t len,
-                            const uint16_t *keytogenerateindex,
-                            const uint8_t *indextransformation)
+                            KeyToGenerateIndex keytogenerateindex,
+                            IndexTransformation indextransformation)
 {
     return bytes::toQByteArray(calculatePayload(bytes::view(buf), len, keytogenerateindex,
                                                 indextransformation));

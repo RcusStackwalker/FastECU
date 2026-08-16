@@ -4,15 +4,19 @@
 
 #include <algorithm>
 
+namespace SsmProtocol
+{
+
 namespace
 {
 
-uint32_t transformWord(uint32_t word, const uint16_t *keytogenerateindex,
-                       const uint8_t *indextransformation, int rounds, bool reverse)
+template <std::size_t Rounds>
+uint32_t transformWord(uint32_t word, std::span<const std::uint16_t, Rounds> keytogenerateindex,
+                       IndexTransformation indextransformation, bool reverse)
 {
-    for (int r = 0; r < rounds; ++r)
+    for (int r = 0; r < Rounds; ++r)
     {
-        const int ki = reverse ? (rounds - 1 - r) : r;
+        const int ki = reverse ? (Rounds - 1 - r) : r;
         const uint16_t wordtogenerateindex = word;
         const uint16_t wordtobeencrypted = word >> 16;
         uint32_t index = wordtogenerateindex ^ keytogenerateindex[ki];
@@ -33,29 +37,26 @@ uint32_t transformWord(uint32_t word, const uint16_t *keytogenerateindex,
 
 } // namespace
 
-namespace SsmProtocol
-{
-
-bytes::Bytes calculateSeedKey(bytes::ByteView seed, const uint16_t *keytogenerateindex,
-                              const uint8_t *indextransformation)
+bytes::Bytes calculateSeedKey(bytes::ByteView seed, SeedKeyToGenerateIndex keytogenerateindex,
+                              IndexTransformation indextransformation)
 {
     bytes::Bytes key;
-    if (seed.size() < 4 || keytogenerateindex == nullptr || indextransformation == nullptr)
+    if (seed.size() < 4)
     {
         return key;
     }
 
     bytes::appendU32Be(key, transformWord(bytes::readU32Be(seed, 0), keytogenerateindex,
-                                          indextransformation, 16, true));
+                                          indextransformation, true));
     return key;
 }
 
 bytes::Bytes calculatePayload(bytes::ByteView buf, uint32_t len,
-                              const uint16_t *keytogenerateindex,
-                              const uint8_t *indextransformation)
+                              KeyToGenerateIndex keytogenerateindex,
+                              IndexTransformation indextransformation)
 {
     bytes::Bytes encrypted;
-    if (buf.empty() || len == 0 || keytogenerateindex == nullptr || indextransformation == nullptr)
+    if (buf.empty() || len == 0)
     {
         return encrypted;
     }
@@ -70,7 +71,7 @@ bytes::Bytes calculatePayload(bytes::ByteView buf, uint32_t len,
     {
         bytes::appendU32Be(encrypted,
                            transformWord(bytes::readU32Be(buf, i), keytogenerateindex,
-                                         indextransformation, 4, false));
+                                         indextransformation, false));
     }
 
     return encrypted;
