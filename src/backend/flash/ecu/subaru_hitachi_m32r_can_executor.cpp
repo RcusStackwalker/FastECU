@@ -36,30 +36,28 @@ constexpr uds::ExchangePolicy kExchangePolicy{.read_timeout_ms = 500};
 constexpr bytes::Byte kSessionBench = 0x43;
 constexpr bytes::Byte kSessionKernelJump = 0x42;
 
-constexpr std::array<std::uint16_t, 16> kSeedKeyTable{
-    0x90A1, 0x2F92, 0xDE3C, 0xCDC0, 0x1A99, 0x437C, 0xF91B, 0xDB57,
-    0x96BA, 0xDE10, 0xFCAF, 0x3F31, 0xF47F, 0x0BB6, 0x16E9, 0x4645};
-constexpr std::array<std::uint16_t, 4> kEncryptTable{0x14CA, 0x77F4, 0x973C, 0xF50E};
-constexpr std::array<std::uint16_t, 4> kDecryptTable{0xF50E, 0x973C, 0x77F4, 0x14CA};
-constexpr std::array<std::uint8_t, 32> kIndexTransformation{
-    0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
-    0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
+constexpr auto kSeedKeyTable = std::to_array<std::uint16_t>({0x90A1, 0x2F92, 0xDE3C, 0xCDC0, 0x1A99, 0x437C, 0xF91B, 0xDB57,
+                                                             0x96BA, 0xDE10, 0xFCAF, 0x3F31, 0xF47F, 0x0BB6, 0x16E9, 0x4645});
+constexpr auto kEncryptTable = std::to_array<std::uint16_t>({0x14CA, 0x77F4, 0x973C, 0xF50E});
+constexpr auto kDecryptTable = std::to_array<std::uint16_t>({0xF50E, 0x973C, 0x77F4, 0x14CA});
+constexpr auto kIndexTransformation = std::to_array<std::uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
+                                                                   0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
 
 bytes::Bytes seed_key(bytes::ByteView seed)
 {
-    return SsmProtocol::calculateSeedKey(seed, kSeedKeyTable.data(), kIndexTransformation.data());
+    return SsmProtocol::calculateSeedKey(seed, kSeedKeyTable, kIndexTransformation);
 }
 
 bytes::Bytes encrypt_rom(bytes::ByteView image)
 {
     return SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()),
-                                         kEncryptTable.data(), kIndexTransformation.data());
+                                         kEncryptTable, kIndexTransformation);
 }
 
 bytes::Bytes decrypt_page(bytes::ByteView page)
 {
     return SsmProtocol::calculatePayload(page, static_cast<std::uint32_t>(page.size()),
-                                         kDecryptTable.data(), kIndexTransformation.data());
+                                         kDecryptTable, kIndexTransformation);
 }
 
 // Every exchange goes through UdsClient over CanFlashUdsChannel except two

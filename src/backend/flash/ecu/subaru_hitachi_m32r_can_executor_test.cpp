@@ -123,7 +123,7 @@ constexpr std::array<std::uint8_t, 32> kIndexTransformation{
 
 bytes::Bytes seedKey(bytes::ByteView seed)
 {
-    return SsmProtocol::calculateSeedKey(seed, kSeedKeyTable.data(), kIndexTransformation.data());
+    return SsmProtocol::calculateSeedKey(seed, kSeedKeyTable, kIndexTransformation);
 }
 
 // The encrypt table is a genuine round-trip inverse of the decrypt table the
@@ -136,7 +136,7 @@ bytes::Bytes seedKey(bytes::ByteView seed)
 bytes::Bytes toWire(bytes::ByteView plain)
 {
     return SsmProtocol::calculatePayload(plain, static_cast<std::uint32_t>(plain.size()),
-                                         kEncryptTable.data(), kIndexTransformation.data());
+                                         kEncryptTable, kIndexTransformation);
 }
 
 const bytes::Bytes kSeed{0x11, 0x22, 0x33, 0x44};
