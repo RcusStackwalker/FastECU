@@ -353,30 +353,19 @@ Result<FlashExecutionResult> DensoSh705xEepromCanExecutor::execute(
         return fail(ErrorKind::Cancelled, "cancelled before setup");
     }
 
-    // Checked downcast, not static_cast -- see the identical comment in
-    // DensoSh705xEepromKlineExecutor::execute.
-    auto *can_transport_ptr = dynamic_cast<ICanFlashTransport *>(&transport);
-    if (can_transport_ptr == nullptr)
-    {
-        return fail(ErrorKind::InvalidConfig, "transport does not implement ICanFlashTransport");
-    }
-    ICanFlashTransport& can_transport = *can_transport_ptr;
     const auto& can_plan = std::get<DensoSh705xEepromCanPlan>(plan.family_plan());
-
-    if (Status configured = can_transport.configure(Iso15765Config{
-            .bitrate = can_plan.bitrate,
-            .request_id = can_plan.request_id,
-            .response_id = can_plan.response_id,
-            .extended_id = can_plan.extended_id,
-        });
-        !configured.has_value())
+    Result<ICanFlashTransport *> can_transport_ptr = open_can_iso15765_transport(
+        transport, Iso15765Config{
+                       .bitrate = can_plan.bitrate,
+                       .request_id = can_plan.request_id,
+                       .response_id = can_plan.response_id,
+                       .extended_id = can_plan.extended_id,
+                   });
+    if (!can_transport_ptr.has_value())
     {
-        return std::unexpected(configured.error());
+        return std::unexpected(can_transport_ptr.error());
     }
-    if (Status opened = can_transport.open(); !opened.has_value())
-    {
-        return std::unexpected(opened.error());
-    }
+    ICanFlashTransport& can_transport = **can_transport_ptr;
 
     // Ensures exactly-once close on every exit path below.
     struct ScopedClose

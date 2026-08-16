@@ -503,30 +503,22 @@ Result<FlashExecutionResult> SubaruHitachiM32rCanExecutor::execute(
     }
 
     const auto& family = std::get<SubaruHitachiM32rCanPlan>(plan.family_plan());
-    auto *can = dynamic_cast<ICanFlashTransport *>(&transport);
-    if (can == nullptr)
+    Result<ICanFlashTransport *> can_transport = open_can_iso15765_transport(
+        transport, Iso15765Config{
+                       .bitrate = family.bitrate,
+                       .request_id = family.request_id,
+                       .response_id = family.response_id,
+                       .extended_id = family.extended_id,
+                   });
+    if (!can_transport.has_value())
     {
-        return fail(ErrorKind::InvalidConfig, "transport does not implement ICanFlashTransport");
+        return std::unexpected(can_transport.error());
     }
+    ICanFlashTransport *can = *can_transport;
 
     const bool read = plan.operation() == FlashOperation::Read;
     PhaseSequence phases(events, read ? 2 : 3);
     PhaseReporter connect = phases.start(read ? "Connect to ECU" : "Connect", 1);
-
-    if (const Status configured = can->configure(Iso15765Config{
-            .bitrate = family.bitrate,
-            .request_id = family.request_id,
-            .response_id = family.response_id,
-            .extended_id = family.extended_id,
-        });
-        !configured.has_value())
-    {
-        return std::unexpected(configured.error());
-    }
-    if (const Status opened = can->open(); !opened.has_value())
-    {
-        return std::unexpected(opened.error());
-    }
 
     CanFlashUdsChannel channel(*can, family.request_id, family.response_id);
     uds::UdsClient uds_client(channel, clock, events);

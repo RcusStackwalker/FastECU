@@ -115,4 +115,15 @@ class ICanFlashTransport : public IFlashTransport
                                                      const ICancellationToken&) = 0;
 };
 
+// Checked downcast of `transport` to ICanFlashTransport, then configure()
+// and open() with `config`. Every CAN family executor needs exactly this
+// prologue before its first exchange; factored because six independent
+// files (five M32R UDS executors plus DensoSh705xEepromCanExecutor) carried
+// a byte-for-byte identical copy. Callers keep owning close()/lifecycle --
+// some never close (the UDS executors, matching their legacy source), one
+// closes on every exit path (the eeprom executor's ScopedClose) -- so this
+// deliberately stops at open() rather than returning an RAII guard.
+Result<ICanFlashTransport *> open_can_iso15765_transport(IFlashTransport& transport,
+                                                         const Iso15765Config& config);
+
 } // namespace fastecu::flash

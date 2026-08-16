@@ -3,6 +3,8 @@
 #include <gtest/gtest.h>
 
 #include "src/backend/flash/flash_validation.h"
+#include "src/backend/flash/testing/scripted_can_flash_transport.h"
+#include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 
 namespace fastecu::flash
 {
@@ -69,6 +71,62 @@ TEST(CheckFamilyTransportMatchTest, WrongTransportFailsWithInvalidConfig)
 
     ASSERT_FALSE(status.has_value());
     EXPECT_EQ(status.error().kind, ErrorKind::InvalidConfig);
+}
+
+constexpr Iso15765Config kConfig{
+    .bitrate = 500000,
+    .request_id = 0x7e1,
+    .response_id = 0x7e9,
+    .extended_id = false,
+};
+
+TEST(OpenCanIso15765TransportTest, ReturnsTheCanTransportConfiguredAndOpen)
+{
+    ScriptedCanFlashTransport can;
+    IFlashTransport& transport = can;
+
+    Result<ICanFlashTransport *> opened = open_can_iso15765_transport(transport, kConfig);
+
+    ASSERT_TRUE(opened.has_value());
+    EXPECT_EQ(*opened, &can);
+    ASSERT_TRUE(can.last_config_.has_value());
+    EXPECT_EQ(can.last_config_->request_id, kConfig.request_id);
+    EXPECT_EQ(can.last_config_->response_id, kConfig.response_id);
+}
+
+TEST(OpenCanIso15765TransportTest, FailsWithInvalidConfigWhenTransportIsNotCan)
+{
+    ScriptedKlineFlashTransport kline;
+    IFlashTransport& transport = kline;
+
+    Result<ICanFlashTransport *> opened = open_can_iso15765_transport(transport, kConfig);
+
+    ASSERT_FALSE(opened.has_value());
+    EXPECT_EQ(opened.error().kind, ErrorKind::InvalidConfig);
+}
+
+TEST(OpenCanIso15765TransportTest, PropagatesAConfigureFailure)
+{
+    ScriptedCanFlashTransport can;
+    can.configure_result_ = fail(ErrorKind::Disconnected, "configure failed");
+    IFlashTransport& transport = can;
+
+    Result<ICanFlashTransport *> opened = open_can_iso15765_transport(transport, kConfig);
+
+    ASSERT_FALSE(opened.has_value());
+    EXPECT_EQ(opened.error().kind, ErrorKind::Disconnected);
+}
+
+TEST(OpenCanIso15765TransportTest, PropagatesAnOpenFailure)
+{
+    ScriptedCanFlashTransport can;
+    can.open_result_ = fail(ErrorKind::Disconnected, "open failed");
+    IFlashTransport& transport = can;
+
+    Result<ICanFlashTransport *> opened = open_can_iso15765_transport(transport, kConfig);
+
+    ASSERT_FALSE(opened.has_value());
+    EXPECT_EQ(opened.error().kind, ErrorKind::Disconnected);
 }
 
 } // namespace

@@ -628,37 +628,27 @@ Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(
     }
 
     const auto& family = std::get<MitsuColtM32rCanPlan>(plan.family_plan());
-    // Checked downcast, not static_cast -- same shape and same ErrorKind as
-    // DensoSh705xEepromCanExecutor::execute.
-    auto *can = dynamic_cast<ICanFlashTransport *>(&transport);
-    if (can == nullptr)
+    // Legacy line 32-33: configureIso15765Can(serial, "500000", 0x7E0, 0x7E8)
+    // then open_serial_port(). Legacy never closes the port, and neither does
+    // this executor -- the desktop adapter owns the port lifetime.
+    Result<ICanFlashTransport *> can_transport = open_can_iso15765_transport(
+        transport, Iso15765Config{
+                       .bitrate = family.bitrate,
+                       .request_id = family.request_id,
+                       .response_id = family.response_id,
+                       .extended_id = family.extended_id,
+                   });
+    if (!can_transport.has_value())
     {
-        return fail(ErrorKind::InvalidConfig, "transport does not implement ICanFlashTransport");
+        return std::unexpected(can_transport.error());
     }
+    ICanFlashTransport *can = *can_transport;
 
     const std::uint32_t rom_end =
         plan.transfer_region().start + plan.transfer_region().length;
     const bool read = plan.operation() == FlashOperation::Read;
     PhaseSequence phases(events, read ? 2 : (rom_end == MitsuColtCan::kFullRomSize ? 6 : 5));
     PhaseReporter connect = phases.start(read ? "Connect to ECU" : "Connect", 1);
-
-    // Legacy line 32-33: configureIso15765Can(serial, "500000", 0x7E0, 0x7E8)
-    // then open_serial_port(). Legacy never closes the port, and neither does
-    // this executor -- the desktop adapter owns the port lifetime.
-    if (const Status configured = can->configure(Iso15765Config{
-            .bitrate = family.bitrate,
-            .request_id = family.request_id,
-            .response_id = family.response_id,
-            .extended_id = family.extended_id,
-        });
-        !configured.has_value())
-    {
-        return std::unexpected(configured.error());
-    }
-    if (const Status opened = can->open(); !opened.has_value())
-    {
-        return std::unexpected(opened.error());
-    }
 
     // The channel owns the 4-byte CAN id envelope and the client owns the
     // exchange; both are stack-scoped here so they outlive every phase below.
