@@ -17,6 +17,7 @@ cc_library(
     name = "protocol",
     srcs = [
         "imut_dma_init.cpp",
+        "mitsu_colt_can_cdbg_driver.cpp",
         "mut_dma_driver.cpp",
     ],
     hdrs = [
@@ -26,6 +27,7 @@ cc_library(
         "issm_transport.h",
         "mitsu_colt_can_cdbg_driver.h",
         "mut_dma_driver.h",
+        "transport_legacy_compat.h",
     ],
     deps = [
         "//src/algorithms/protocol",
