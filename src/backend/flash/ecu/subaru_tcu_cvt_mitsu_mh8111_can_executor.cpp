@@ -13,6 +13,7 @@
 #include "src/backend/flash/can_flash_uds_channel.h"
 #include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_can_common.h"
 #include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_plan.h"
+#include "src/backend/flash/ecu/uds_client_exchange_common.h"
 #include "src/backend/protocol/uds/uds_client.h"
 
 // Every exchange below cites the line of
@@ -149,22 +150,22 @@ void error(Ctx& ctx, std::string_view message)
     ctx.events.log(LogLevel::Error, message);
 }
 
-// Mirrors every other wave-3 executor's report_exchange_failure.
+constexpr std::string_view kRejectionPrefix = "Wrong response from TCU: ";
+
+UdsExchangeContext exchange_context(Ctx& ctx)
+{
+    return UdsExchangeContext{ctx.uds, kExchangePolicy, ctx.cancellation, ctx.events};
+}
+
+// Thin wrapper over the shared report_exchange_failure (uds_client_exchange_
+// common.h) for erase_memory's own hand-rolled retry loop below, which
+// cannot go through fatal_request -- it only propagates on Cancelled, not
+// on every failure.
 Error report_exchange_failure(Ctx& ctx, const Error& failure, std::string_view rejection_prefix,
                               std::string_view operation)
 {
-    if (failure.kind == ErrorKind::Cancelled)
-    {
-        ctx.events.log(LogLevel::Warning,
-                       std::format("Cancelled by operator during {} -- this is not an ECU "
-                                   "rejection. The request may already have reached the ECU "
-                                   "and still be running there; check the unit before "
-                                   "power-cycling it.",
-                                   operation));
-        return failure;
-    }
-    error(ctx, std::format("{}{}", rejection_prefix, failure.detail));
-    return failure;
+    return ::fastecu::flash::report_exchange_failure(ctx.events, failure, rejection_prefix,
+                                                     operation);
 }
 
 // Sends `pdu` through ctx.uds and, on failure, logs and returns the error.
@@ -172,13 +173,7 @@ Error report_exchange_failure(Ctx& ctx, const Error& failure, std::string_view r
 // SID+0x40 positive-response convention that UdsClient itself enforces.
 Result<bytes::Bytes> fatal_request(Ctx& ctx, bytes::ByteView pdu, std::string_view operation)
 {
-    Result<bytes::Bytes> reply = ctx.uds.request(pdu, kExchangePolicy, ctx.cancellation);
-    if (!reply.has_value())
-    {
-        return std::unexpected(
-            report_exchange_failure(ctx, reply.error(), "Wrong response from TCU: ", operation));
-    }
-    return reply;
+    return ::fastecu::flash::fatal_request(exchange_context(ctx), pdu, kRejectionPrefix, operation);
 }
 
 // Legacy's two non-fatal identity queries (TCU ID/CAL ID, lines 94-168) and
@@ -189,20 +184,8 @@ Result<bytes::Bytes> fatal_request(Ctx& ctx, bytes::ByteView pdu, std::string_vi
 void non_fatal_query(Ctx& ctx, bytes::ByteView pdu, std::optional<bytes::Byte> expected_subfunction,
                      std::string_view label)
 {
-    Result<bytes::Bytes> reply = ctx.uds.request(pdu, kExchangePolicy, ctx.cancellation);
-    if (!reply.has_value())
-    {
-        error(ctx, std::format("Wrong response from TCU: {}", reply.error().detail));
-        return;
-    }
-    const bytes::ByteView payload = uds::payload(*reply);
-    if (expected_subfunction.has_value() &&
-        (payload.empty() || payload[0] != *expected_subfunction))
-    {
-        error(ctx, "Wrong response from TCU: unexpected subfunction");
-        return;
-    }
-    info(ctx, std::format("{}: {}", label, bytes::toHex(payload)));
+    ::fastecu::flash::non_fatal_query(exchange_context(ctx), pdu, expected_subfunction,
+                                      kRejectionPrefix, label);
 }
 
 // Legacy connect_bootloader, lines 81-337. Unlike SubaruTcuCvtHitachiM32rCan

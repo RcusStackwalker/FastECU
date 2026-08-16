@@ -251,6 +251,33 @@ fastecu_portable_gtest(
     ],
 )
 
+# Portable. No Qt, no platform, no filesystem, no thread. Shared UdsClient
+# exchange/logging plumbing for this package's CAN executors -- see the
+# header for which families use it and which (mh8104) deliberately don't.
+cc_library(
+    name = "uds_client_exchange_common",
+    srcs = ["uds_client_exchange_common.cpp"],
+    hdrs = ["uds_client_exchange_common.h"],
+    deps = [
+        "//src/algorithms/protocol/uds",
+        "//src/backend/ports",
+        "//src/backend/protocol/uds:uds_client",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "uds_client_exchange_common_test",
+    srcs = ["uds_client_exchange_common_test.cpp"],
+    deps = [
+        ":uds_client_exchange_common",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/protocol/uds:uds_client",
+        "//src/backend/protocol/uds/testing:scripted_uds_channel",
+    ],
+)
+
 # Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
     name = "mitsu_colt_m32r_can_executor",
@@ -258,6 +285,7 @@ cc_library(
     hdrs = ["mitsu_colt_m32r_can_executor.h"],
     deps = [
         ":mitsu_colt_m32r_can_plan",
+        ":uds_client_exchange_common",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
         "//src/algorithms/protocol/colt:mitsu_colt_can_vendor_ext_protocol",
@@ -400,6 +428,7 @@ cc_library(
     deps = [
         ":subaru_tcu_cvt_mitsu_can_common",
         ":subaru_tcu_cvt_mitsu_mh8111_can_plan",
+        ":uds_client_exchange_common",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/algorithms/protocol/uds",
@@ -488,6 +517,7 @@ cc_library(
     hdrs = ["subaru_tcu_cvt_hitachi_m32r_can_executor.h"],
     deps = [
         ":subaru_tcu_cvt_hitachi_m32r_can_plan",
+        ":uds_client_exchange_common",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/algorithms/protocol/uds",
@@ -522,6 +552,7 @@ cc_library(
     hdrs = ["subaru_hitachi_m32r_can_executor.h"],
     deps = [
         ":subaru_hitachi_m32r_can_plan",
+        ":uds_client_exchange_common",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/algorithms/protocol/uds",

@@ -12,6 +12,7 @@
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
 #include "src/backend/flash/ecu/subaru_tcu_cvt_hitachi_m32r_can_plan.h"
+#include "src/backend/flash/ecu/uds_client_exchange_common.h"
 #include "src/backend/protocol/uds/uds_client.h"
 
 // Every exchange below cites the line of
@@ -194,43 +195,32 @@ void error(Ctx& ctx, std::string_view message)
     ctx.events.log(LogLevel::Error, message);
 }
 
-// Mirrors mitsu_colt_m32r_can_executor.cpp / subaru_hitachi_m32r_can_executor.cpp's
-// report_exchange_failure: a cancellation gets its own operator-facing line
-// and is never blamed on the ECU, everything else is logged with the
-// family's "Wrong response from TCU: " prefix and returned unchanged.
+constexpr std::string_view kRejectionPrefix = "Wrong response from TCU: ";
+
+// Thin wrapper over the shared report_exchange_failure
+// (uds_client_exchange_common.h) for the two exchanges below that read a
+// raw uds::IUdsChannel reply directly instead of going through
+// fatal_request -- their expected reply does not follow the standard
+// SID+0x40 convention UdsClient itself enforces.
 Error report_exchange_failure(Ctx& ctx, const Error& failure, std::string_view rejection_prefix,
                               std::string_view operation)
 {
-    if (failure.kind == ErrorKind::Cancelled)
-    {
-        ctx.events.log(LogLevel::Warning,
-                       std::format("Cancelled by operator during {} -- this is not an ECU "
-                                   "rejection. The request may already have reached the ECU "
-                                   "and still be running there; check the unit before "
-                                   "power-cycling it.",
-                                   operation));
-        return failure;
-    }
-    error(ctx, std::format("{}{}", rejection_prefix, failure.detail));
-    return failure;
+    return ::fastecu::flash::report_exchange_failure(ctx.events, failure, rejection_prefix,
+                                                     operation);
 }
 
-// Sends `pdu` through `client` and, on failure, logs and returns the error
-// via report_exchange_failure. Used for every exchange whose response
-// follows the standard SID+0x40 positive-response convention. The
-// no-explicit-client overload uses this family's own 0x7e1/0x7e9 `ctx.uds`;
-// six connect-sequence exchanges instead pass `ctx.other_uds` explicitly
-// (see the comment above connect_bootloader's session/seed block).
+// Sends `pdu` through `client` and, on failure, logs and returns the error.
+// Used for every exchange whose response follows the standard SID+0x40
+// positive-response convention. The no-explicit-client overload uses this
+// family's own 0x7e1/0x7e9 `ctx.uds`; six connect-sequence exchanges instead
+// pass `ctx.other_uds` explicitly (see the comment above connect_bootloader's
+// session/seed block).
 Result<bytes::Bytes> fatal_request(Ctx& ctx, uds::UdsClient& client, bytes::ByteView pdu,
                                    std::string_view operation)
 {
-    Result<bytes::Bytes> reply = client.request(pdu, kExchangePolicy, ctx.cancellation);
-    if (!reply.has_value())
-    {
-        return std::unexpected(
-            report_exchange_failure(ctx, reply.error(), "Wrong response from TCU: ", operation));
-    }
-    return reply;
+    return ::fastecu::flash::fatal_request(
+        UdsExchangeContext{client, kExchangePolicy, ctx.cancellation, ctx.events}, pdu,
+        kRejectionPrefix, operation);
 }
 
 Result<bytes::Bytes> fatal_request(Ctx& ctx, bytes::ByteView pdu, std::string_view operation)
@@ -249,20 +239,9 @@ Result<bytes::Bytes> fatal_request(Ctx& ctx, bytes::ByteView pdu, std::string_vi
 void non_fatal_query(Ctx& ctx, uds::UdsClient& client, bytes::ByteView pdu,
                      std::optional<bytes::Byte> expected_subfunction, std::string_view label)
 {
-    Result<bytes::Bytes> reply = client.request(pdu, kExchangePolicy, ctx.cancellation);
-    if (!reply.has_value())
-    {
-        error(ctx, std::format("Wrong response from TCU: {}", reply.error().detail));
-        return;
-    }
-    const bytes::ByteView payload = uds::payload(*reply);
-    if (expected_subfunction.has_value() &&
-        (payload.empty() || payload[0] != *expected_subfunction))
-    {
-        error(ctx, "Wrong response from TCU: unexpected subfunction");
-        return;
-    }
-    info(ctx, std::format("{}: {}", label, bytes::toHex(payload)));
+    ::fastecu::flash::non_fatal_query(
+        UdsExchangeContext{client, kExchangePolicy, ctx.cancellation, ctx.events}, pdu,
+        expected_subfunction, kRejectionPrefix, label);
 }
 
 // Legacy connect_bootloader, lines 87-408.
