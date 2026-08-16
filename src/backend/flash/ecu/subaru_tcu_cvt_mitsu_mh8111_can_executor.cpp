@@ -10,6 +10,7 @@
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/algorithms/protocol/uds/uds_response.h"
+#include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
 #include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_can_common.h"
 #include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_plan.h"
@@ -31,6 +32,12 @@ using bytes::composeBe;
 using bytes::u24;
 
 constexpr uds::ExchangePolicy kExchangePolicy{.read_timeout_ms = 2000};
+
+// Session ids in ISO 14229-1's 0x40-0x5F vehicle-manufacturer-specific
+// band -- no standard meaning, unlike uds::kSessionProgramming/
+// kSessionExtendedDiagnostic.
+constexpr bytes::Byte kSessionBootload = 0x43;
+constexpr bytes::Byte kSessionKernelJump = 0x42;
 
 // Seed key (legacy generate_seed_key, lines 908-914). Byte-identical to the
 // sibling MH8104 family's table (Task 6 comparison); factored into the
@@ -196,25 +203,30 @@ Status connect_bootloader(Ctx& ctx)
 {
     // TCU ID 0xAA (lines 94-133), non-fatal.
     info(ctx, "Requesting TCU ID");
-    non_fatal_query(ctx, bytes::Bytes{0xAA}, std::nullopt, "TCU ID");
+    non_fatal_query(ctx, bytes::Bytes{uds::kSidEcuIdQuery}, std::nullopt, "TCU ID");
 
     // CAL ID 0x09/0x04 (lines 135-168), non-fatal.
     info(ctx, "Requesting CAL ID...");
-    non_fatal_query(ctx, bytes::Bytes{0x09, 0x04}, bytes::Byte(0x04), "CAL ID");
+    non_fatal_query(ctx, bytes::Bytes{uds::kSidVehicleInfoRequest, uds::kVehicleInfoPidCalId},
+                    uds::kVehicleInfoPidCalId, "CAL ID");
 
     // Session 0x10/0x43 (lines 170-197), non-fatal -- the match branch (line
     // 186-188) is empty in legacy; only the mismatch branch logs.
     info(ctx, "Initializing bootloader...");
-    non_fatal_query(ctx, bytes::Bytes{0x10, 0x43}, bytes::Byte(0x43), "session mode (bootloader)");
+    non_fatal_query(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionBootload},
+                    kSessionBootload, "session mode (bootloader)");
 
     // Seed 0x27/0x01 (lines 199-225), fatal.
     info(ctx, "Requesting seed");
-    Result<bytes::Bytes> seed_reply = fatal_request(ctx, bytes::Bytes{0x27, 0x01}, "the seed request");
+    Result<bytes::Bytes> seed_reply = fatal_request(
+        ctx, bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed},
+        "the seed request");
     if (!seed_reply.has_value())
     {
         return std::unexpected(seed_reply.error());
     }
-    if (seed_reply->size() < 6 || (*seed_reply)[0] != 0x67 || (*seed_reply)[1] != 0x01)
+    if (seed_reply->size() < 6 || (*seed_reply)[0] != 0x67 ||
+        (*seed_reply)[1] != uds::kSecurityAccessRequestSeed)
     {
         error(ctx, std::format("Wrong response from TCU: {}", bytes::toHex(*seed_reply)));
         return fail(ErrorKind::BadResponse, "seed request rejected");
@@ -225,14 +237,15 @@ Status connect_bootloader(Ctx& ctx)
 
     // Seed key 0x27/0x02 (lines 236-263), fatal.
     info(ctx, "Sending seed key");
-    bytes::Bytes key_request{0x27, 0x02};
+    bytes::Bytes key_request{uds::kSidSecurityAccess, uds::kSecurityAccessSendKey};
     key_request.insert(key_request.end(), key.begin(), key.end());
     Result<bytes::Bytes> key_reply = fatal_request(ctx, key_request, "the seed key");
     if (!key_reply.has_value())
     {
         return std::unexpected(key_reply.error());
     }
-    if (key_reply->size() < 2 || (*key_reply)[0] != 0x67 || (*key_reply)[1] != 0x02)
+    if (key_reply->size() < 2 || (*key_reply)[0] != 0x67 ||
+        (*key_reply)[1] != uds::kSecurityAccessSendKey)
     {
         error(ctx, std::format("Wrong response from TCU: {}", bytes::toHex(*key_reply)));
         return fail(ErrorKind::BadResponse, "seed key rejected");
@@ -241,12 +254,13 @@ Status connect_bootloader(Ctx& ctx)
 
     // Jump 0x10/0x42 (lines 267-295), fatal.
     info(ctx, "Jumping to onboad kernel...");
-    Result<bytes::Bytes> jump_reply = fatal_request(ctx, bytes::Bytes{0x10, 0x42}, "the kernel jump");
+    Result<bytes::Bytes> jump_reply = fatal_request(
+        ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionKernelJump}, "the kernel jump");
     if (!jump_reply.has_value())
     {
         return std::unexpected(jump_reply.error());
     }
-    if (uds::subfunction(*jump_reply) != 0x42)
+    if (uds::subfunction(*jump_reply) != kSessionKernelJump)
     {
         error(ctx, "Wrong response from TCU: unexpected jump response");
         return fail(ErrorKind::BadResponse, "kernel jump rejected");
@@ -271,7 +285,8 @@ Status connect_bootloader(Ctx& ctx)
     // the channel directly instead.
     info(ctx, "Checking if jump successful and kernel alive...");
     if (const Status sent = ctx.channel.send(
-            bytes::Bytes{0x34, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00}, ctx.cancellation);
+            bytes::Bytes{uds::kSidRequestDownload, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00},
+            ctx.cancellation);
         !sent.has_value())
     {
         return sent;
@@ -281,8 +296,11 @@ Status connect_bootloader(Ctx& ctx)
     {
         return std::unexpected(alive.error());
     }
+    // 0x71 is kSidRoutineControl's positive-response echo (a different
+    // service than the 0x34 sent -- see the comment above); byte[1] echoes
+    // kRoutineControlStop.
     if (!alive->has_value() || alive->value().size() < 4 || (**alive)[0] != 0x71 ||
-        (**alive)[1] != 0x02 || (**alive)[2] != 0x02 || (**alive)[3] != 0x03)
+        (**alive)[1] != uds::kRoutineControlStop || (**alive)[2] != 0x02 || (**alive)[3] != 0x03)
     {
         if (alive->has_value())
         {
@@ -316,7 +334,8 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
     // alive-check exchange's own necessity in connect_bootloader.
     info(ctx, "Settting dump start & length...");
     if (const Status sent = ctx.channel.send(
-            bytes::Bytes{0x35, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00}, ctx.cancellation);
+            bytes::Bytes{uds::kSidRequestUpload, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00},
+            ctx.cancellation);
         !sent.has_value())
     {
         return std::unexpected(sent.error());
@@ -354,8 +373,9 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
 
         // Lines 406-454: SID 0xB7 + 3-byte big-endian address, standard
         // SID+0x40 convention (0xB7 -> 0xF7).
-        Result<bytes::Bytes> chunk = fatal_request(ctx, composeBe(0xB7_b, u24(addr)),
-                                                   std::format("the flash read at 0x{:x}", addr));
+        Result<bytes::Bytes> chunk =
+            fatal_request(ctx, composeBe(uds::kSidReadMemoryChunk, u24(addr)),
+                          std::format("the flash read at 0x{:x}", addr));
         if (!chunk.has_value())
         {
             return std::unexpected(chunk.error());
@@ -379,7 +399,8 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
     info(ctx, "Sending stop command...");
     for (int attempt = 0; attempt < 6; ++attempt)
     {
-        if (const Status sent = ctx.channel.send(bytes::Bytes{0x37}, ctx.cancellation);
+        if (const Status sent =
+                ctx.channel.send(bytes::Bytes{uds::kSidRequestTransferExit}, ctx.cancellation);
             !sent.has_value())
         {
             return std::unexpected(sent.error());
@@ -419,12 +440,13 @@ Status erase_memory(Ctx& ctx)
     for (int attempt = 0; attempt < 20; ++attempt)
     {
         Result<bytes::Bytes> reply = ctx.uds.request(
-            bytes::Bytes{0x31, 0x01, 0x02, 0x01, 0x0f, 0xff, 0xff, 0xff}, kExchangePolicy,
-            ctx.cancellation);
+            bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, 0x02, 0x01, 0x0f, 0xff,
+                         0xff, 0xff},
+            kExchangePolicy, ctx.cancellation);
         if (reply.has_value())
         {
             if (const bytes::ByteView payload = uds::payload(*reply);
-                payload.size() >= 2 && payload[0] == 0x01 && payload[1] == 0x02)
+                payload.size() >= 2 && payload[0] == uds::kRoutineControlStart && payload[1] == 0x02)
             {
                 info(ctx, "Erased! Starting Writing! Do Not Power Off!");
                 return {};
@@ -478,8 +500,8 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
     for (int attempt = 0; attempt < 6; ++attempt)
     {
         Result<bytes::Bytes> setup = ctx.uds.request(
-            composeBe(0x34_b, 0x04_b, 0x33_b, u24(0), u24(kSetupDataLen)), kExchangePolicy,
-            ctx.cancellation);
+            composeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, u24(0), u24(kSetupDataLen)),
+            kExchangePolicy, ctx.cancellation);
         setup_ok = setup.has_value();
         if (setup_ok)
         {
@@ -511,8 +533,8 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
         // fails this exchange. Routed through the channel directly, not
         // fatal_request()/ctx.uds, which would enforce a SID+0x40 content
         // match this family's legacy code never checks here.
-        if (const Status sent =
-                ctx.channel.send(composeBe(0xB6_b, u24(addr), chunk_data), ctx.cancellation);
+        if (const Status sent = ctx.channel.send(
+                composeBe(uds::kSidWriteMemoryChunk, u24(addr), chunk_data), ctx.cancellation);
             !sent.has_value())
         {
             return sent;
@@ -534,8 +556,8 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
     bool closed_ok = false;
     for (int attempt = 0; attempt < 20; ++attempt)
     {
-        Result<bytes::Bytes> closed =
-            ctx.uds.request(bytes::Bytes{0x37}, kExchangePolicy, ctx.cancellation);
+        Result<bytes::Bytes> closed = ctx.uds.request(
+            bytes::Bytes{uds::kSidRequestTransferExit}, kExchangePolicy, ctx.cancellation);
         if (closed.has_value())
         {
             info(ctx, "Flashing of block closed");
@@ -555,11 +577,12 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
     for (int attempt = 0; attempt < 20; ++attempt)
     {
         Result<bytes::Bytes> checksum = ctx.uds.request(
-            bytes::Bytes{0x31, 0x01, 0x02, 0x02, 0x01}, kExchangePolicy, ctx.cancellation);
+            bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, 0x02, 0x02, 0x01},
+            kExchangePolicy, ctx.cancellation);
         if (checksum.has_value())
         {
             if (const bytes::ByteView payload = uds::payload(*checksum);
-                payload.size() >= 2 && payload[0] == 0x01 && payload[1] == 0x02)
+                payload.size() >= 2 && payload[0] == uds::kRoutineControlStart && payload[1] == 0x02)
             {
                 info(ctx, "Checksum verified...");
                 return {};
