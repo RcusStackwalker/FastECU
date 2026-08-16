@@ -21,6 +21,14 @@ std::string_view FlashPlan::experimental_family_id() const
         return "SubaruDensoMc68hc16y5_02";
     case FlashFamily::SubaruDensoSh7055_02:
         return "SubaruDensoSh7055_02";
+    case FlashFamily::SubaruHitachiM32rCan:
+        return "SubaruHitachiM32rCan";
+    case FlashFamily::SubaruTcuCvtHitachiM32rCan:
+        return "SubaruTcuCvtHitachiM32rCan";
+    case FlashFamily::SubaruTcuCvtMitsuMh8111Can:
+        return "SubaruTcuCvtMitsuMh8111Can";
+    case FlashFamily::SubaruTcuCvtMitsuMh8104Can:
+        return "SubaruTcuCvtMitsuMh8104Can";
     }
     return "Unknown";
 }

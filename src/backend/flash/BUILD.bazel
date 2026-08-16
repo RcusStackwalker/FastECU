@@ -22,8 +22,12 @@ cc_library(
         "//src/backend/flash/ecu:mitsu_colt_m32r_can_types",
         "//src/backend/flash/ecu:subaru_denso_mc68hc16y5_02_types",
         "//src/backend/flash/ecu:subaru_denso_sh7055_02_types",
+        "//src/backend/flash/ecu:subaru_hitachi_m32r_can_types",
         "//src/backend/flash/ecu:subaru_hitachi_m32r_kline_types",
         "//src/backend/flash/ecu:subaru_mitsu_m32r_kline_types",
+        "//src/backend/flash/ecu:subaru_tcu_cvt_hitachi_m32r_can_types",
+        "//src/backend/flash/ecu:subaru_tcu_cvt_mitsu_mh8104_can_types",
+        "//src/backend/flash/ecu:subaru_tcu_cvt_mitsu_mh8111_can_types",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_types",
     ],
 )

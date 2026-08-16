@@ -55,6 +55,34 @@ cc_library(
     hdrs = ["subaru_denso_sh7055_02_types.h"],
 )
 
+# Portable. No Qt, no platform, no filesystem, no thread. See
+# mitsu_colt_m32r_can_types for the no-flash_types.h-dependency rule.
+cc_library(
+    name = "subaru_hitachi_m32r_can_types",
+    hdrs = ["subaru_hitachi_m32r_can_types.h"],
+)
+
+# Portable. No Qt, no platform, no filesystem, no thread. See
+# mitsu_colt_m32r_can_types for the no-flash_types.h-dependency rule.
+cc_library(
+    name = "subaru_tcu_cvt_hitachi_m32r_can_types",
+    hdrs = ["subaru_tcu_cvt_hitachi_m32r_can_types.h"],
+)
+
+# Portable. No Qt, no platform, no filesystem, no thread. See
+# mitsu_colt_m32r_can_types for the no-flash_types.h-dependency rule.
+cc_library(
+    name = "subaru_tcu_cvt_mitsu_mh8111_can_types",
+    hdrs = ["subaru_tcu_cvt_mitsu_mh8111_can_types.h"],
+)
+
+# Portable. No Qt, no platform, no filesystem, no thread. See
+# mitsu_colt_m32r_can_types for the no-flash_types.h-dependency rule.
+cc_library(
+    name = "subaru_tcu_cvt_mitsu_mh8104_can_types",
+    hdrs = ["subaru_tcu_cvt_mitsu_mh8104_can_types.h"],
+)
+
 cc_library(
     name = "subaru_hitachi_m32r_kline_plan",
     srcs = ["subaru_hitachi_m32r_kline_plan.cpp"],
@@ -290,6 +318,235 @@ fastecu_portable_gtest(
     name = "subaru_hitachi_m32r_kline_plan_test",
     srcs = ["subaru_hitachi_m32r_kline_plan_test.cpp"],
     deps = [":subaru_hitachi_m32r_kline_plan"],
+)
+
+cc_library(
+    name = "subaru_hitachi_m32r_can_plan",
+    srcs = ["subaru_hitachi_m32r_can_plan.cpp"],
+    hdrs = ["subaru_hitachi_m32r_can_plan.h"],
+    deps = [
+        "//src/backend/definitions:models",
+        "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_hitachi_m32r_can_plan_test",
+    srcs = ["subaru_hitachi_m32r_can_plan_test.cpp"],
+    deps = [":subaru_hitachi_m32r_can_plan"],
+)
+
+cc_library(
+    name = "subaru_tcu_cvt_hitachi_m32r_can_plan",
+    srcs = ["subaru_tcu_cvt_hitachi_m32r_can_plan.cpp"],
+    hdrs = ["subaru_tcu_cvt_hitachi_m32r_can_plan.h"],
+    deps = [
+        "//src/backend/definitions:models",
+        "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_tcu_cvt_hitachi_m32r_can_plan_test",
+    srcs = ["subaru_tcu_cvt_hitachi_m32r_can_plan_test.cpp"],
+    deps = [":subaru_tcu_cvt_hitachi_m32r_can_plan"],
+)
+
+cc_library(
+    name = "subaru_tcu_cvt_mitsu_mh8111_can_plan",
+    srcs = ["subaru_tcu_cvt_mitsu_mh8111_can_plan.cpp"],
+    hdrs = ["subaru_tcu_cvt_mitsu_mh8111_can_plan.h"],
+    deps = [
+        "//src/backend/definitions:models",
+        "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_tcu_cvt_mitsu_mh8111_can_plan_test",
+    srcs = ["subaru_tcu_cvt_mitsu_mh8111_can_plan_test.cpp"],
+    deps = [":subaru_tcu_cvt_mitsu_mh8111_can_plan"],
+)
+
+# Portable. No Qt, no platform, no filesystem, no thread. Shared MH8111/
+# MH8104 seed-key/encrypt/decrypt tables -- see the header for the Task 6
+# comparison this factoring is based on.
+cc_library(
+    name = "subaru_tcu_cvt_mitsu_can_common",
+    srcs = ["subaru_tcu_cvt_mitsu_can_common.cpp"],
+    hdrs = ["subaru_tcu_cvt_mitsu_can_common.h"],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_tcu_cvt_mitsu_can_common_test",
+    srcs = ["subaru_tcu_cvt_mitsu_can_common_test.cpp"],
+    deps = [":subaru_tcu_cvt_mitsu_can_common"],
+)
+
+# Portable. No Qt, no platform, no filesystem, no thread.
+cc_library(
+    name = "subaru_tcu_cvt_mitsu_mh8111_can_executor",
+    srcs = ["subaru_tcu_cvt_mitsu_mh8111_can_executor.cpp"],
+    hdrs = ["subaru_tcu_cvt_mitsu_mh8111_can_executor.h"],
+    deps = [
+        ":subaru_tcu_cvt_mitsu_can_common",
+        ":subaru_tcu_cvt_mitsu_mh8111_can_plan",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+        "//src/algorithms/protocol/uds",
+        "//src/backend/flash:can_flash_uds_channel",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_types",
+        "//src/backend/ports",
+        "//src/backend/protocol/uds:uds_client",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_tcu_cvt_mitsu_mh8111_can_executor_test",
+    srcs = ["subaru_tcu_cvt_mitsu_mh8111_can_executor_test.cpp"],
+    deps = [
+        ":subaru_tcu_cvt_mitsu_mh8111_can_executor",
+        ":subaru_tcu_cvt_mitsu_mh8111_can_plan",
+        "//src/algorithms/protocol/ssm",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:recording_event_sink",
+    ],
+)
+
+cc_library(
+    name = "subaru_tcu_cvt_mitsu_mh8104_can_plan",
+    srcs = ["subaru_tcu_cvt_mitsu_mh8104_can_plan.cpp"],
+    hdrs = ["subaru_tcu_cvt_mitsu_mh8104_can_plan.h"],
+    deps = [
+        "//src/backend/definitions:models",
+        "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_tcu_cvt_mitsu_mh8104_can_plan_test",
+    srcs = ["subaru_tcu_cvt_mitsu_mh8104_can_plan_test.cpp"],
+    deps = [":subaru_tcu_cvt_mitsu_mh8104_can_plan"],
+)
+
+# Portable. No Qt, no platform, no filesystem, no thread.
+cc_library(
+    name = "subaru_tcu_cvt_mitsu_mh8104_can_executor",
+    srcs = ["subaru_tcu_cvt_mitsu_mh8104_can_executor.cpp"],
+    hdrs = ["subaru_tcu_cvt_mitsu_mh8104_can_executor.h"],
+    deps = [
+        ":subaru_tcu_cvt_mitsu_can_common",
+        ":subaru_tcu_cvt_mitsu_mh8104_can_plan",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+        "//src/algorithms/protocol/uds",
+        "//src/backend/flash:can_flash_uds_channel",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_types",
+        "//src/backend/ports",
+        "//src/backend/protocol/uds:uds_client",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_tcu_cvt_mitsu_mh8104_can_executor_test",
+    srcs = ["subaru_tcu_cvt_mitsu_mh8104_can_executor_test.cpp"],
+    deps = [
+        ":subaru_tcu_cvt_mitsu_mh8104_can_executor",
+        ":subaru_tcu_cvt_mitsu_mh8104_can_plan",
+        "//src/algorithms/protocol/ssm",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:recording_event_sink",
+    ],
+)
+
+# Portable. No Qt, no platform, no filesystem, no thread.
+cc_library(
+    name = "subaru_tcu_cvt_hitachi_m32r_can_executor",
+    srcs = ["subaru_tcu_cvt_hitachi_m32r_can_executor.cpp"],
+    hdrs = ["subaru_tcu_cvt_hitachi_m32r_can_executor.h"],
+    deps = [
+        ":subaru_tcu_cvt_hitachi_m32r_can_plan",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+        "//src/algorithms/protocol/uds",
+        "//src/backend/flash:can_flash_uds_channel",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_types",
+        "//src/backend/ports",
+        "//src/backend/protocol/uds:uds_client",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_tcu_cvt_hitachi_m32r_can_executor_test",
+    srcs = ["subaru_tcu_cvt_hitachi_m32r_can_executor_test.cpp"],
+    deps = [
+        ":subaru_tcu_cvt_hitachi_m32r_can_executor",
+        ":subaru_tcu_cvt_hitachi_m32r_can_plan",
+        "//src/algorithms/protocol/ssm",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:recording_event_sink",
+    ],
+)
+
+# Portable. No Qt, no platform, no filesystem, no thread.
+cc_library(
+    name = "subaru_hitachi_m32r_can_executor",
+    srcs = ["subaru_hitachi_m32r_can_executor.cpp"],
+    hdrs = ["subaru_hitachi_m32r_can_executor.h"],
+    deps = [
+        ":subaru_hitachi_m32r_can_plan",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+        "//src/algorithms/protocol/uds",
+        "//src/backend/flash:can_flash_uds_channel",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_types",
+        "//src/backend/ports",
+        "//src/backend/protocol/uds:uds_client",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_hitachi_m32r_can_executor_test",
+    srcs = ["subaru_hitachi_m32r_can_executor_test.cpp"],
+    deps = [
+        ":subaru_hitachi_m32r_can_executor",
+        ":subaru_hitachi_m32r_can_plan",
+        "//src/algorithms/protocol/ssm",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:recording_event_sink",
+    ],
 )
 
 fastecu_portable_gtest(
