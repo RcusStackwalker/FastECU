@@ -12,6 +12,7 @@
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
+#include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_can_common.h"
 #include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8104_can_plan.h"
 
@@ -108,66 +109,6 @@ struct Ctx
     IEventSink& events;
     IClock& clock;
     uds::IUdsChannel& channel;
-};
-
-class PhaseReporter
-{
-  public:
-    PhaseReporter(IEventSink& events, std::string_view name, int index, int count, int total)
-        : events_(events), name_(name), index_(index), count_(count), total_(total)
-    {
-        emit(0);
-    }
-
-    void update(int done)
-    {
-        const int maximum_incomplete = std::max(0, total_ - 1);
-        const int next = std::clamp(done, last_, maximum_incomplete);
-        if (next != last_)
-        {
-            emit(next);
-        }
-    }
-
-    void complete()
-    {
-        if (last_ != total_)
-        {
-            emit(total_);
-        }
-    }
-
-  private:
-    void emit(int done)
-    {
-        last_ = done;
-        events_.phase_progress({name_, index_, count_, done, total_});
-    }
-
-    IEventSink& events_;
-    std::string_view name_;
-    int index_;
-    int count_;
-    int total_;
-    int last_ = 0;
-};
-
-class PhaseSequence
-{
-  public:
-    PhaseSequence(IEventSink& events, int count) : events_(events), count_(count)
-    {
-    }
-
-    PhaseReporter start(std::string_view name, int total)
-    {
-        return PhaseReporter(events_, name, ++index_, count_, total);
-    }
-
-  private:
-    IEventSink& events_;
-    int count_;
-    int index_ = 0;
 };
 
 void info(Ctx& ctx, std::string_view message)
