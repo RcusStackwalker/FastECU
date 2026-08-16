@@ -82,15 +82,15 @@ Status validate_subaru_tcu_cvt_mitsu_mh8111_can_plan(const FlashPlan& plan)
     {
         return fail(InvalidConfig, "plan is not for Subaru TCU CVT Mitsu MH8111 CAN");
     }
-    const auto *p = std::get_if<SubaruTcuCvtMitsuMh8111CanPlan>(&plan.family_plan());
-    if (p == nullptr || p->request_id != 0x7e1 || p->response_id != 0x7e9 ||
+    if (const auto *p = std::get_if<SubaruTcuCvtMitsuMh8111CanPlan>(&plan.family_plan());
+        p == nullptr || p->request_id != 0x7e1 || p->response_id != 0x7e9 ||
         p->bitrate != 500000 || p->extended_id)
     {
         return fail(InvalidConfig, "Mitsu MH8111 CAN wire parameters are invalid");
     }
-    const MemoryRegion& expected_region =
-        plan.operation() == FlashOperation::Read ? kReadRegion : kWriteRegion;
-    if (plan.transfer_region().start != expected_region.start ||
+    if (const MemoryRegion& expected_region =
+            plan.operation() == FlashOperation::Read ? kReadRegion : kWriteRegion;
+        plan.transfer_region().start != expected_region.start ||
         plan.transfer_region().length != expected_region.length)
     {
         return fail(InvalidConfig, "Mitsu MH8111 CAN transfer region is invalid");

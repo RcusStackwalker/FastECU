@@ -440,8 +440,8 @@ Status erase_memory(Ctx& ctx)
             ctx.cancellation);
         if (reply.has_value())
         {
-            const bytes::ByteView payload = uds::payload(*reply);
-            if (payload.size() >= 2 && payload[0] == 0x01 && payload[1] == 0x02)
+            if (const bytes::ByteView payload = uds::payload(*reply);
+                payload.size() >= 2 && payload[0] == 0x01 && payload[1] == 0x02)
             {
                 info(ctx, "Erased! Starting Writing! Do Not Power Off!");
                 return {};
@@ -492,12 +492,16 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
     // is added here beyond the retry-count wrapper.
     info(ctx, "Settting flash start & length...");
     bool setup_ok = false;
-    for (int attempt = 0; attempt < 6 && !setup_ok; ++attempt)
+    for (int attempt = 0; attempt < 6; ++attempt)
     {
         Result<bytes::Bytes> setup = ctx.uds.request(
             composeBe(0x34_b, 0x04_b, 0x33_b, u24(0), u24(kSetupDataLen)), kExchangePolicy,
             ctx.cancellation);
         setup_ok = setup.has_value();
+        if (setup_ok)
+        {
+            break;
+        }
     }
     if (!setup_ok)
     {
@@ -530,8 +534,8 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
         {
             return sent;
         }
-        Result<std::optional<bytes::Bytes>> reply = ctx.channel.receive(2000, ctx.cancellation);
-        if (!reply.has_value())
+        if (Result<std::optional<bytes::Bytes>> reply = ctx.channel.receive(2000, ctx.cancellation);
+            !reply.has_value())
         {
             return std::unexpected(reply.error());
         }
@@ -545,7 +549,7 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
     // never checked, matching ctx.uds.request()'s own enforcement exactly.
     info(ctx, "Closing out Flashing of this block...");
     bool closed_ok = false;
-    for (int attempt = 0; attempt < 20 && !closed_ok; ++attempt)
+    for (int attempt = 0; attempt < 20; ++attempt)
     {
         Result<bytes::Bytes> closed =
             ctx.uds.request(bytes::Bytes{0x37}, kExchangePolicy, ctx.cancellation);
@@ -553,6 +557,7 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
         {
             info(ctx, "Flashing of block closed");
             closed_ok = true;
+            break;
         }
     }
     if (!closed_ok)
@@ -570,8 +575,8 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
             bytes::Bytes{0x31, 0x01, 0x02, 0x02, 0x01}, kExchangePolicy, ctx.cancellation);
         if (checksum.has_value())
         {
-            const bytes::ByteView payload = uds::payload(*checksum);
-            if (payload.size() >= 2 && payload[0] == 0x01 && payload[1] == 0x02)
+            if (const bytes::ByteView payload = uds::payload(*checksum);
+                payload.size() >= 2 && payload[0] == 0x01 && payload[1] == 0x02)
             {
                 info(ctx, "Checksum verified...");
                 return {};

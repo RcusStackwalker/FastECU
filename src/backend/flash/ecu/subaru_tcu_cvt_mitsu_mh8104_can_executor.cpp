@@ -261,24 +261,22 @@ Result<std::optional<bytes::Bytes>> retry_until_any_reply(Ctx& ctx, bytes::ByteV
     return std::optional<bytes::Bytes>{};
 }
 
-// Legacy connect_bootloader, lines 89-344.
-Status connect_bootloader(Ctx& ctx)
+// Kernel-alive probe (legacy lines 106-127): 0x31/0x02/0x02/0x01, single
+// send+read, no retry. Legacy indexes `received.at(4)` through `.at(7)`
+// with NO length guard before this comparison -- unlike every sibling
+// family's own alive-probe check. This is also the one exchange in the
+// whole function where an ABSENT reply is the routine case (the TCU's
+// stock firmware, not yet in the diagnostic kernel, is not expected to
+// answer this PDU at all) rather than a sign of a broken connection -- so
+// both an empty reply and a present-but-wrong one report "not running";
+// only an exact match reports true, and only a genuine transport-level
+// failure (Disconnected/Cancelled/malformed envelope) is fatal here.
+// uds::payload() bounds-checks the reply bytes past the service id instead
+// of raw-indexing off the end of a short buffer, so the port is
+// structurally incapable of the legacy UB here, not merely avoiding it by
+// convention (see the implementation brief's Step 7).
+Result<bool> kernel_already_running(Ctx& ctx)
 {
-    // Kernel-alive probe (lines 106-127): 0x31/0x02/0x02/0x01, single
-    // send+read, no retry. Legacy indexes `received.at(4)` through `.at(7)`
-    // with NO length guard before this comparison -- unlike every sibling
-    // family's own alive-probe check. This is also the one exchange in the
-    // whole function where an ABSENT reply is the routine case (the TCU's
-    // stock firmware, not yet in the diagnostic kernel, is not expected to
-    // answer this PDU at all) rather than a sign of a broken connection --
-    // so both an empty reply and a present-but-wrong one fall through to
-    // the full init sequence below; only an exact match short-circuits, and
-    // only a genuine transport-level failure (Disconnected/Cancelled/
-    // malformed envelope) is fatal here. uds::payload() bounds-checks the
-    // reply bytes past the service id instead of raw-indexing off the end
-    // of a short buffer, so the port is structurally incapable of the
-    // legacy UB here, not merely avoiding it by convention (see the
-    // implementation brief's Step 7).
     info(ctx, "Checking if kernel is already running...");
     Result<std::optional<bytes::Bytes>> alive_probe =
         exchange(ctx, bytes::Bytes{0x31, 0x02, 0x02, 0x01}, 200);
@@ -286,81 +284,124 @@ Status connect_bootloader(Ctx& ctx)
     {
         return std::unexpected(alive_probe.error());
     }
-    if (alive_probe->has_value())
+    if (!alive_probe->has_value())
     {
-        const bytes::ByteView reply = **alive_probe;
-        if (!reply.empty() && reply[0] == 0x71)
-        {
-            const bytes::ByteView rest = uds::payload(reply);
-            if (rest.size() >= 3 && rest[0] == 0x02 && rest[1] == 0x02 && rest[2] == 0x03)
-            {
-                info(ctx, "Kernel already running");
-                return {};
-            }
-        }
+        return false;
+    }
+    const bytes::ByteView reply = **alive_probe;
+    if (reply.empty() || reply[0] != 0x71)
+    {
+        return false;
+    }
+    const bytes::ByteView rest = uds::payload(reply);
+    return rest.size() >= 3 && rest[0] == 0x02 && rest[1] == 0x02 && rest[2] == 0x03;
+}
+
+// Shared shape of the TCU ID / CAL ID init retries (legacy lines 129-157 and
+// 171-197): retried up to `attempts` times, content-blind, proceeds
+// regardless even if every attempt times out. `success_prefix` and
+// `no_response_label` carry each site's own legacy log wording verbatim
+// (the two success messages are not the same string in legacy either).
+Result<std::optional<bytes::Bytes>> retry_init_step(Ctx& ctx, bytes::ByteView pdu, int attempts,
+                                                    int timeout_ms, std::string_view success_prefix,
+                                                    std::string_view no_response_label)
+{
+    Result<std::optional<bytes::Bytes>> reply = retry_until_any_reply(ctx, pdu, attempts, timeout_ms);
+    if (!reply.has_value())
+    {
+        return std::unexpected(reply.error());
+    }
+    if (reply->has_value())
+    {
+        info(ctx, std::format("{}{}", success_prefix, bytes::toHex(**reply)));
+    }
+    else
+    {
+        info(ctx, std::format("No response to {} after {} attempts -- proceeding regardless",
+                              no_response_label, attempts));
+    }
+    return reply;
+}
+
+// Shared shape of every content-blind single-shot exchange below (session
+// init, seed, seed key, jump): a mismatch only logs `mismatch_message` --
+// legacy's own `// return STATUS_ERROR;` on these checks is commented out --
+// and the reply is returned either way for the caller to use.
+Result<bytes::Bytes> single_shot_logged(Ctx& ctx, bytes::ByteView pdu, int timeout_ms,
+                                        std::string_view label,
+                                        std::initializer_list<bytes::Byte> expect,
+                                        std::string_view mismatch_message)
+{
+    Result<bytes::Bytes> reply = single_shot(ctx, pdu, timeout_ms, label);
+    if (!reply.has_value())
+    {
+        return reply;
+    }
+    if (!matches(*reply, expect))
+    {
+        error(ctx, mismatch_message);
+    }
+    return reply;
+}
+
+// Alive re-check content test (legacy line 334). Legacy's own condition
+// uses `&&` where every sibling exchange in this file uses `||` --
+// transcribed literally: true (kernel verified running) only when the
+// reply's SID, format id, address-format id, AND length-format id ALL
+// simultaneously differ from 0x74/0x20/0x01/0x04, which in practice almost
+// never happens for a well-formed reply.
+bool kernel_verified_running(const bytes::Bytes& alive_recheck)
+{
+    return alive_recheck.size() >= 4 && alive_recheck[0] != 0x74 && alive_recheck[1] != 0x20 &&
+           alive_recheck[2] != 0x01 && alive_recheck[3] != 0x04;
+}
+
+// Legacy connect_bootloader, lines 89-344.
+Status connect_bootloader(Ctx& ctx)
+{
+    Result<bool> running = kernel_already_running(ctx);
+    if (!running.has_value())
+    {
+        return std::unexpected(running.error());
+    }
+    if (*running)
+    {
+        info(ctx, "Kernel already running");
+        return {};
     }
 
-    // TCU ID 0xAA (lines 129-157): retried up to 6 times, content-blind,
-    // proceeds regardless even if every attempt times out.
     info(ctx, "Trying TCU Init...");
     Result<std::optional<bytes::Bytes>> tcu_id =
-        retry_until_any_reply(ctx, bytes::Bytes{0xAA}, 6, 200);
+        retry_init_step(ctx, bytes::Bytes{0xAA}, 6, 200, "Init Success: ", "TCU Init");
     if (!tcu_id.has_value())
     {
         return std::unexpected(tcu_id.error());
     }
-    if (tcu_id->has_value())
-    {
-        info(ctx, std::format("Init Success: {}", bytes::toHex(**tcu_id)));
-    }
-    else
-    {
-        info(ctx, "No response to TCU Init after 6 attempts -- proceeding regardless");
-    }
 
-    // CAL ID 0x09/0x04 (lines 171-197): same retry shape.
     info(ctx, "Trying 0x09 0x04...");
-    Result<std::optional<bytes::Bytes>> cal_id =
-        retry_until_any_reply(ctx, bytes::Bytes{0x09, 0x04}, 6, 200);
+    Result<std::optional<bytes::Bytes>> cal_id = retry_init_step(
+        ctx, bytes::Bytes{0x09, 0x04}, 6, 200, "Init Success: TCU ID = ", "0x09 0x04");
     if (!cal_id.has_value())
     {
         return std::unexpected(cal_id.error());
     }
-    if (cal_id->has_value())
-    {
-        info(ctx, std::format("Init Success: TCU ID = {}", bytes::toHex(**cal_id)));
-    }
-    else
-    {
-        info(ctx, "No response to 0x09 0x04 after 6 attempts -- proceeding regardless");
-    }
 
-    // Session 0x10/0x43 (lines 205-226): single-shot, content-blind -- the
-    // mismatch branch only logs "Failed to initialise bootloader" (line
-    // 223); its `// return STATUS_ERROR;` is commented out, and there is no
-    // match branch at all.
     info(ctx, "Initializing bootloader...");
-    Result<bytes::Bytes> session = single_shot(ctx, bytes::Bytes{0x10, 0x43}, 200, "session init");
+    Result<bytes::Bytes> session = single_shot_logged(ctx, bytes::Bytes{0x10, 0x43}, 200,
+                                                      "session init", {0x50, 0x43},
+                                                      "Failed to initialise bootloader");
     if (!session.has_value())
     {
         return std::unexpected(session.error());
     }
-    if (!matches(*session, {0x50, 0x43}))
-    {
-        error(ctx, "Failed to initialise bootloader");
-    }
 
-    // Seed 0x27/0x01 (lines 228-248): single-shot, content-blind.
     info(ctx, "Starting seed request...");
     Result<bytes::Bytes> seed_reply =
-        single_shot(ctx, bytes::Bytes{0x27, 0x01}, 200, "the seed request");
+        single_shot_logged(ctx, bytes::Bytes{0x27, 0x01}, 200, "the seed request", {0x67, 0x01},
+                           "Bad response to seed request");
     if (!seed_reply.has_value())
     {
         return std::unexpected(seed_reply.error());
-    }
-    if (!matches(*seed_reply, {0x67, 0x01}))
-    {
-        error(ctx, "Bad response to seed request");
     }
     info(ctx, "Seed request ok");
     // Legacy indexes received.at(6..9) -- the 4 bytes after the
@@ -384,42 +425,29 @@ Status connect_bootloader(Ctx& ctx)
     info(ctx, "Sending seed key...");
     bytes::Bytes key_request{0x27, 0x02};
     key_request.insert(key_request.end(), key.begin(), key.end());
-    Result<bytes::Bytes> key_reply = single_shot(ctx, key_request, 200, "the seed key");
+    Result<bytes::Bytes> key_reply = single_shot_logged(ctx, key_request, 200, "the seed key",
+                                                        {0x67, 0x02}, "Bad response to seed request");
     if (!key_reply.has_value())
     {
         return std::unexpected(key_reply.error());
     }
-    if (!matches(*key_reply, {0x67, 0x02}))
-    {
-        error(ctx, "Bad response to seed request");
-    }
     info(ctx, "Seed key ok");
 
-    // Jump 0x10/0x42 (lines 287-307): single-shot, content-blind.
     info(ctx, "Jumping to onboad kernel...");
     Result<bytes::Bytes> jump_reply =
-        single_shot(ctx, bytes::Bytes{0x10, 0x42}, 200, "the kernel jump");
+        single_shot_logged(ctx, bytes::Bytes{0x10, 0x42}, 200, "the kernel jump", {0x50, 0x42},
+                           "Bad response to jumping to onboard kernel");
     if (!jump_reply.has_value())
     {
         return std::unexpected(jump_reply.error());
     }
-    if (!matches(*jump_reply, {0x50, 0x42}))
-    {
-        error(ctx, "Bad response to jumping to onboard kernel");
-    }
     info(ctx, "Jump to kernel ok");
 
     // Alive re-check (lines 312-343): sent
-    // 0x34/0x04/0x33/0x00/0x00/0x00/0x08/0x00/0x00, single-shot. Legacy's
-    // own condition uses `&&` where every sibling exchange in this file
-    // uses `||` (line 334) -- transcribed literally: `kernel_alive` is set
-    // true (and logged as "Kernel verified to be running") only when the
-    // reply's SID, format id, address-format id, AND length-format id ALL
-    // simultaneously differ from 0x74/0x20/0x01/0x04, which in practice
-    // almost never happens for a well-formed reply. There is no `else`
-    // branch either way -- connect_bootloader falls through to
+    // 0x34/0x04/0x33/0x00/0x00/0x00/0x08/0x00/0x00, single-shot. There is no
+    // `else` branch either way -- connect_bootloader falls through to
     // "Test script complete" and returns success (line 343) regardless of
-    // this check's outcome.
+    // kernel_verified_running()'s outcome.
     info(ctx, "Checking if jump successful and kernel alive...");
     Result<bytes::Bytes> alive_recheck = single_shot(
         ctx, bytes::Bytes{0x34, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00}, 200,
@@ -428,8 +456,7 @@ Status connect_bootloader(Ctx& ctx)
     {
         return std::unexpected(alive_recheck.error());
     }
-    if (alive_recheck->size() >= 4 && (*alive_recheck)[0] != 0x74 && (*alive_recheck)[1] != 0x20 &&
-        (*alive_recheck)[2] != 0x01 && (*alive_recheck)[3] != 0x04)
+    if (kernel_verified_running(*alive_recheck))
     {
         info(ctx, "Kernel verified to be running");
     }
@@ -501,9 +528,9 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
     // decrypt and return success regardless of whether the TCU ever
     // acknowledged stop.
     info(ctx, "Sending stop command...");
-    Result<std::optional<bytes::Bytes>> stop =
-        retry_until_any_reply(ctx, bytes::Bytes{0x37}, 6, 200);
-    if (!stop.has_value())
+    if (Result<std::optional<bytes::Bytes>> stop =
+            retry_until_any_reply(ctx, bytes::Bytes{0x37}, 6, 200);
+        !stop.has_value())
     {
         return std::unexpected(stop.error());
     }
@@ -613,8 +640,8 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
         {
             return sent;
         }
-        Result<std::optional<bytes::Bytes>> reply = ctx.channel.receive(500, ctx.cancellation);
-        if (!reply.has_value())
+        if (Result<std::optional<bytes::Bytes>> reply = ctx.channel.receive(500, ctx.cancellation);
+            !reply.has_value())
         {
             return std::unexpected(reply.error());
         }

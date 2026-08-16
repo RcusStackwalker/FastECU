@@ -56,8 +56,8 @@ Status validate_subaru_hitachi_m32r_can_plan(const FlashPlan& plan)
     {
         return fail(InvalidConfig, "plan is not for Subaru Hitachi M32R CAN");
     }
-    const auto *p = std::get_if<SubaruHitachiM32rCanPlan>(&plan.family_plan());
-    if (p == nullptr || p->request_id != 0x7e0 || p->response_id != 0x7e8 ||
+    if (const auto *p = std::get_if<SubaruHitachiM32rCanPlan>(&plan.family_plan());
+        p == nullptr || p->request_id != 0x7e0 || p->response_id != 0x7e8 ||
         p->bitrate != 500000 || p->extended_id)
     {
         return fail(InvalidConfig, "Hitachi M32R CAN wire parameters are invalid");

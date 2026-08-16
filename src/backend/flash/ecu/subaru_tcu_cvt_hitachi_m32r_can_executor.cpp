@@ -400,8 +400,8 @@ Status connect_bootloader(Ctx& ctx)
     {
         return std::unexpected(recheck.error());
     }
-    const bytes::ByteView recheck_payload = uds::payload(*recheck);
-    if (recheck_payload.size() < 3 || recheck_payload[0] != 0x02 || recheck_payload[1] != 0x02 ||
+    if (const bytes::ByteView recheck_payload = uds::payload(*recheck);
+        recheck_payload.size() < 3 || recheck_payload[0] != 0x02 || recheck_payload[1] != 0x02 ||
         recheck_payload[2] != 0x03)
     {
         error(ctx, "Wrong response from TCU: unexpected alive-check response");
@@ -430,8 +430,8 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
     {
         return std::unexpected(setup.error());
     }
-    const bytes::ByteView setup_payload = uds::payload(*setup);
-    if (setup_payload.size() < 3 || setup_payload[0] != 0x20 || setup_payload[1] != 0x01 ||
+    if (const bytes::ByteView setup_payload = uds::payload(*setup);
+        setup_payload.size() < 3 || setup_payload[0] != 0x20 || setup_payload[1] != 0x01 ||
         setup_payload[2] != 0x04)
     {
         error(ctx, "Wrong response from TCU: unexpected dump setup response");
@@ -574,8 +574,8 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, std::uint
         {
             return sent;
         }
-        Result<std::optional<bytes::Bytes>> reply = ctx.channel.receive(2000, ctx.cancellation);
-        if (!reply.has_value())
+        if (Result<std::optional<bytes::Bytes>> reply = ctx.channel.receive(2000, ctx.cancellation);
+            !reply.has_value())
         {
             return std::unexpected(reply.error());
         }
@@ -602,8 +602,8 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, std::uint
     {
         return std::unexpected(checksum.error());
     }
-    const bytes::ByteView checksum_payload = uds::payload(*checksum);
-    if (checksum_payload.size() < 2 || checksum_payload[0] != 0x02 || checksum_payload[1] != 0x02)
+    if (const bytes::ByteView checksum_payload = uds::payload(*checksum);
+        checksum_payload.size() < 2 || checksum_payload[0] != 0x02 || checksum_payload[1] != 0x02)
     {
         error(ctx, "Wrong response from TCU: ROM checksum error");
         return fail(ErrorKind::BadResponse, "ROM checksum verify failed");
