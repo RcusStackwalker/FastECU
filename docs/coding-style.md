@@ -143,10 +143,21 @@ contained value rather than about success, and the two readings disagree
 exactly when the contained value is falsy. Spelling the check out means no
 reader has to know a type's value category to know what is being tested.
 
-Keep the declaration inside the `if` — splitting it out only widens the
-variable's scope for no benefit. This isn't specific to `Result`/`Status`:
-any variable whose only use is one `if` condition (and, for an `if`/`else if`
-chain, the branches of that same chain) goes in the init-statement, not a
+Keeping the declaration inside the `if` above is the `Result`/`Status`
+instance of the general minimum-scope rule below.
+
+Exceptions never cross a port. See CLAUDE.md for the `ErrorKind` set and the
+rule against extending it.
+
+## Scope
+
+Give every variable the smallest scope that satisfies all of its uses — don't
+declare it a line (or a function) above where it's needed "in case" something
+later wants it. The concrete form this takes depends on what's consuming the
+variable:
+
+**A value used only inside one `if`** (and, for an `if`/`else if` chain, only
+within that chain) goes in the statement's C++17 init-statement, not a
 separate line above it:
 
 ```cpp
@@ -164,18 +175,31 @@ if (plan == nullptr) {
 
 A variable used again later in the enclosing block — past the end of the
 `if`/`else` chain — does not qualify; forcing it into an init-statement would
-just take it out of scope early. (SonarCloud cpp:S6004 — 20 of PR #199's 29
-findings were this exact pattern, none caught by review because it compiles
-fine either way.)
+just take it out of scope early. Leave it declared where its full lifetime is
+actually needed. (SonarCloud cpp:S6004 — 20 of PR #199's 29 findings were
+this exact pattern, none caught by review because it compiles fine either
+way.)
 
-Exceptions never cross a port. See CLAUDE.md for the `ErrorKind` set and the
-rule against extending it.
+**A value used only inside a loop** is declared in the loop header or the
+loop body, never hoisted above the loop — see the loop-header corollary
+under Collections below, which is the same rule applied to `for`.
 
-## Control flow
+Both forms compile fine either way, so nothing short of review or the
+scanner in [Static analysis](#static-analysis) catches a variable sitting one
+scope too wide.
 
-A `for` loop's three clauses (init, condition, increment) stay about loop
-control only — the iteration counter, not a status flag that duplicates a
-`break` already in the body:
+## Collections
+
+Prefer range-based `for` and `std::ranges` algorithms/views over iterator
+pairs or raw index loops. Ranges carry their own bounds and make it
+impossible to mismatch iterators from two different containers.
+
+When a range-for genuinely isn't feasible — a bounded retry count, a byte
+offset used to compute a wire address, or similar state that isn't "iterate
+this container" — it gets the same minimum-scope treatment `for` always
+does, extended to the loop's exit condition: the three clauses (init,
+condition, increment) stay about loop control alone, the counter, not a
+status flag that duplicates a `break` already in the body:
 
 ```cpp
 // Yes
@@ -200,8 +224,10 @@ for (int attempt = 0; attempt < 20 && !connected; ++attempt) {
 If there's no `break` yet because the loop keeps retrying after success (a
 flag that must stop the loop rather than merely exit early), add the `break`
 when the flag is set rather than folding the flag into the loop condition.
-Same outcome, one thing controlling the loop instead of two. (SonarCloud
-cpp:S886 — three sites in PR #199.)
+Same outcome, one simple exit condition controlling the loop instead of two
+overlapping ones. (SonarCloud cpp:S886 — three sites in PR #199.)
+
+## Function complexity
 
 When an ECU family's `connect_bootloader`/`read_mem`/`reflash_block`-style
 function accumulates a long run of "send, check `has_value()`, log on
@@ -213,6 +239,8 @@ the helper call site, not lost in the extraction — the point is fewer
 nesting levels per function, not fewer facts on the record. (SonarCloud
 cpp:S3776, cognitive complexity — one site in PR #199, at 28 against a limit
 of 25.)
+
+## Templates
 
 A free function's name used as a non-type template argument (a plan-builder
 passed to a template that stores it as a function pointer, for example) needs
@@ -233,12 +261,6 @@ function pointer" from "function name where a call was probably meant" from
 syntax alone, so write the `&` at every such use to make the address-of
 explicit. (Four sites in PR #199, all template arguments, not the bug the
 rule exists to catch — but the fix is the same either way.)
-
-## Collections
-
-Use `std::ranges` algorithms and views instead of iterator pairs or raw index
-loops. Ranges carry their own bounds and make it impossible to mismatch
-iterators from two different containers.
 
 ## Tests
 
@@ -281,3 +303,24 @@ Test placement, target macros, and `MOC_HDRS` wiring are in CLAUDE.md.
 
 `clang-format` and the `#pragma once` check run under `prek`; run
 `prek run --all-files` before pushing. Every header needs `#pragma once`.
+
+## Static analysis
+
+`clang-tidy` and SonarCloud both gate the PR, and both are worth running
+locally before that gate ever sees the change:
+
+- `bazel run //:clang_tidy_report_changed` — the same changed-files scope as
+  the PR gate; `bazel run //:clang_tidy_fix_changed` applies its fixes
+  directly (macOS/Linux only; needs system LLVM on `PATH`).
+- The Sonar CLI, against the same `sonar-project.properties` CI uses:
+  regenerate `compile_commands.json` for it with
+  `bazel run //bazel/compile_commands:refresh_sonar`, then run
+  `sonar-scanner -Dsonar.token=$SONAR_TOKEN` (`brew install sonar-scanner` if
+  the CLI isn't installed; the token is a personal one from SonarCloud → My
+  Account → Security, not the CI secret).
+
+Every rule in this guide with a `cpp:S*` citation — the Scope, Collections,
+Function complexity, and Templates sections above — exists because
+SonarCloud caught that pattern in PR #199 only after it had already merged,
+at which point fixing it needs its own PR instead of a pre-push scanner run
+catching it first.
