@@ -13,7 +13,6 @@ exports_files(
     visibility = ["//:__pkg__"],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
     name = "flash_types",
     hdrs = ["flash_types.h"],
@@ -38,7 +37,6 @@ fastecu_portable_gtest(
     deps = [":flash_types"],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
     name = "flash_plan",
     srcs = ["flash_plan.cpp"],
@@ -49,7 +47,6 @@ cc_library(
     ],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
     name = "flash_validation",
     srcs = ["flash_validation.cpp"],
@@ -67,7 +64,6 @@ fastecu_portable_gtest(
     deps = [":flash_validation"],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
     name = "flash_executor",
     srcs = ["flash_executor.cpp"],
@@ -122,10 +118,6 @@ fastecu_portable_gtest(
     ],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread. Moved here from
-# //src/backend/checksum in step 5e: the flashdevices[] table is flash-device
-# geometry consumed by 30 flash operations and one checksum dispatcher, so
-# backend/checksum was the wrong owner.
 cc_library(
     name = "flash_device_lookup",
     srcs = ["flash_device_lookup.cpp"],
