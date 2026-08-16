@@ -90,6 +90,7 @@ fastecu_portable_gtest(
     deps = [
         ":flash_executor",
         ":flash_validation",
+        "//src/backend/flash/testing:scripted_flash_transports",
     ],
 )
 
