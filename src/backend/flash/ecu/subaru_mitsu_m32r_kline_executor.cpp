@@ -175,10 +175,8 @@ Result<std::string> handshake(IKlineFlashTransport& transport, IClock& clock, co
     {
         return fail(ErrorKind::BadResponse, "seed response is too short");
     }
-    const bytes::Bytes seed(seed_response->begin() + 6, seed_response->begin() + 10);
-    const bytes::Bytes key = seed_key(seed);
-    bytes::Bytes key_request{uds::kSidSecurityAccess, uds::kSecurityAccessSendKey};
-    key_request.insert(key_request.end(), key.begin(), key.end());
+    const bytes::Bytes key_request = composeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey,
+                                               seed_key(bytes::ByteView{*seed_response}.subspan(6, 4)));
     events.log(LogLevel::Info, "Sending seed key to ECU");
     if (auto s = request(std::move(key_request), {0x67, uds::kSecurityAccessSendKey}); !s.has_value())
     {
