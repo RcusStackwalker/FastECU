@@ -60,11 +60,10 @@ void non_fatal_query(const UdsExchangeContext& ctx, bytes::ByteView pdu,
 
 Result<bytes::Bytes> fatal_query(const UdsExchangeContext& ctx, bytes::ByteView pdu,
                                  bytes::ByteView expected_prefix, std::string_view rejection_prefix,
-                                 std::string_view operation, std::string_view mismatch_summary,
-                                 std::string_view mismatch_detail,
+                                 std::string_view subject,
                                  std::optional<std::size_t> min_payload_size)
 {
-    Result<bytes::Bytes> reply = fatal_request(ctx, pdu, rejection_prefix, operation);
+    Result<bytes::Bytes> reply = fatal_request(ctx, pdu, rejection_prefix, std::format("the {}", subject));
     if (!reply.has_value())
     {
         return reply;
@@ -74,8 +73,9 @@ Result<bytes::Bytes> fatal_query(const UdsExchangeContext& ctx, bytes::ByteView 
     if (payload.size() < required_size ||
         !std::equal(expected_prefix.begin(), expected_prefix.end(), payload.begin()))
     {
-        ctx.events.log(LogLevel::Error, std::format("{}{}", rejection_prefix, mismatch_summary));
-        return fail(ErrorKind::BadResponse, std::string(mismatch_detail));
+        ctx.events.log(LogLevel::Error,
+                       std::format("{}unexpected {} response", rejection_prefix, subject));
+        return fail(ErrorKind::BadResponse, std::format("{} rejected", subject));
     }
     return reply;
 }

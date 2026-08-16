@@ -136,8 +136,7 @@ TEST(FatalQueryTest, ReturnsTheReplyOnAMatchingSingleBytePrefix)
 
     const Result<bytes::Bytes> reply =
         fatal_query(f.ctx(), bytes::Bytes{0x10, 0x43}, bytes::Bytes{0x43}, "Wrong response from ECU: ",
-                    "the bench diagnostic session", "unexpected session id",
-                    "bench diagnostic session rejected");
+                    "bench diagnostic session");
 
     ASSERT_TRUE(reply.has_value());
     EXPECT_THAT(*reply, ElementsAre(0x50, 0x43));
@@ -152,8 +151,7 @@ TEST(FatalQueryTest, ReturnsTheReplyOnAMatchingMultiBytePrefix)
 
     const Result<bytes::Bytes> reply =
         fatal_query(f.ctx(), bytes::Bytes{0x31, 0x02, 0x02, 0x01}, bytes::Bytes{0x02, 0x02, 0x03},
-                    "Wrong response from TCU: ", "the kernel alive re-check",
-                    "unexpected alive-check response", "kernel alive re-check failed");
+                    "Wrong response from TCU: ", "kernel alive re-check");
 
     ASSERT_TRUE(reply.has_value());
     EXPECT_THAT(*reply, ElementsAre(0x71, 0x02, 0x02, 0x03));
@@ -168,8 +166,7 @@ TEST(FatalQueryTest, LogsAndReturnsTheSendErrorOnExchangeFailure)
 
     const Result<bytes::Bytes> reply =
         fatal_query(f.ctx(), bytes::Bytes{0x10, 0x43}, bytes::Bytes{0x43}, "Wrong response from ECU: ",
-                    "the bench diagnostic session", "unexpected session id",
-                    "bench diagnostic session rejected");
+                    "bench diagnostic session");
 
     ASSERT_FALSE(reply.has_value());
     EXPECT_EQ(reply.error().kind, ErrorKind::BadResponse);
@@ -185,14 +182,14 @@ TEST(FatalQueryTest, LogsMismatchSummaryAndReturnsMismatchDetailOnAWrongPrefix)
 
     const Result<bytes::Bytes> reply =
         fatal_query(f.ctx(), bytes::Bytes{0x10, 0x43}, bytes::Bytes{0x43}, "Wrong response from ECU: ",
-                    "the bench diagnostic session", "unexpected session id",
-                    "bench diagnostic session rejected");
+                    "bench diagnostic session");
 
     ASSERT_FALSE(reply.has_value());
     EXPECT_EQ(reply.error().kind, ErrorKind::BadResponse);
     EXPECT_EQ(reply.error().detail, "bench diagnostic session rejected");
-    ASSERT_THAT(f.events.logs,
-                ElementsAre(Pair(LogLevel::Error, "Wrong response from ECU: unexpected session id")));
+    ASSERT_THAT(f.events.logs, ElementsAre(Pair(LogLevel::Error,
+                                                "Wrong response from ECU: unexpected bench diagnostic "
+                                                "session response")));
 }
 
 TEST(FatalQueryTest, TreatsAPayloadShorterThanMinPayloadSizeAsAMismatchEvenWithAMatchingPrefix)
@@ -203,13 +200,13 @@ TEST(FatalQueryTest, TreatsAPayloadShorterThanMinPayloadSizeAsAMismatchEvenWithA
 
     const Result<bytes::Bytes> reply =
         fatal_query(f.ctx(), bytes::Bytes{0x27, 0x01}, bytes::Bytes{0x05}, "Wrong response from ECU: ",
-                    "the security access seed request", "unexpected security access seed",
-                    "security seed rejected", 5);
+                    "security access seed request", 5);
 
     ASSERT_FALSE(reply.has_value());
     EXPECT_EQ(reply.error().kind, ErrorKind::BadResponse);
-    ASSERT_THAT(f.events.logs, ElementsAre(Pair(LogLevel::Error,
-                                                "Wrong response from ECU: unexpected security access seed")));
+    ASSERT_THAT(f.events.logs,
+                ElementsAre(Pair(LogLevel::Error, "Wrong response from ECU: unexpected security "
+                                                  "access seed request response")));
 }
 
 TEST(FatalQueryTest, AcceptsAPayloadAtLeastMinPayloadSizeWithAMatchingPrefix)
@@ -220,8 +217,7 @@ TEST(FatalQueryTest, AcceptsAPayloadAtLeastMinPayloadSizeWithAMatchingPrefix)
 
     const Result<bytes::Bytes> reply =
         fatal_query(f.ctx(), bytes::Bytes{0x27, 0x01}, bytes::Bytes{0x05}, "Wrong response from ECU: ",
-                    "the security access seed request", "unexpected security access seed",
-                    "security seed rejected", 5);
+                    "security access seed request", 5);
 
     ASSERT_TRUE(reply.has_value());
     EXPECT_THAT(*reply, ElementsAre(0x67, 0x05, 0xAB, 0xCD, 0xEF, 0x01));

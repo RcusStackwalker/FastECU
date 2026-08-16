@@ -237,24 +237,21 @@ Result<bytes::Bytes> fatal_request(Ctx& ctx, bytes::ByteView pdu, std::string_vi
 
 // The fatal_request + expected-response-prefix check every ctx.uds exchange
 // below repeats -- see uds_client_exchange_common.h's fatal_query for what
-// expected_prefix and min_payload_size mean.
+// expected_prefix, subject, and min_payload_size mean.
 Result<bytes::Bytes> fatal_query(Ctx& ctx, uds::UdsClient& client, bytes::ByteView pdu,
-                                 bytes::ByteView expected_prefix, std::string_view operation,
-                                 std::string_view mismatch_summary, std::string_view mismatch_detail,
+                                 bytes::ByteView expected_prefix, std::string_view subject,
                                  std::optional<std::size_t> min_payload_size = std::nullopt)
 {
     return ::fastecu::flash::fatal_query(
         UdsExchangeContext{client, kExchangePolicy, ctx.cancellation, ctx.events}, pdu, expected_prefix,
-        kRejectionPrefix, operation, mismatch_summary, mismatch_detail, min_payload_size);
+        kRejectionPrefix, subject, min_payload_size);
 }
 
 Result<bytes::Bytes> fatal_query(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
-                                 std::string_view operation, std::string_view mismatch_summary,
-                                 std::string_view mismatch_detail,
+                                 std::string_view subject,
                                  std::optional<std::size_t> min_payload_size = std::nullopt)
 {
-    return fatal_query(ctx, ctx.uds, pdu, expected_prefix, operation, mismatch_summary, mismatch_detail,
-                       min_payload_size);
+    return fatal_query(ctx, ctx.uds, pdu, expected_prefix, subject, min_payload_size);
 }
 
 // Legacy's TCU ID / CAL ID queries and the second session request (lines
@@ -401,8 +398,7 @@ Status connect_bootloader(Ctx& ctx)
     info(ctx, "Jumping to onboard kernel...");
     Result<bytes::Bytes> jump_reply = fatal_query(
         ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, uds::kSessionProgramming},
-        bytes::Bytes{uds::kSessionProgramming}, "the kernel jump", "unexpected jump response",
-        "kernel jump rejected");
+        bytes::Bytes{uds::kSessionProgramming}, "kernel jump");
     if (!jump_reply.has_value())
     {
         return std::unexpected(jump_reply.error());
@@ -413,8 +409,7 @@ Status connect_bootloader(Ctx& ctx)
     info(ctx, "Checking if jump successful and kernel alive...");
     Result<bytes::Bytes> recheck = fatal_query(
         ctx, bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStop, 0x02, 0x01},
-        bytes::Bytes{uds::kRoutineControlStop, 0x02, 0x03}, "the kernel alive re-check",
-        "unexpected alive-check response", "kernel alive re-check failed");
+        bytes::Bytes{uds::kRoutineControlStop, 0x02, 0x03}, "kernel alive re-check");
     if (!recheck.has_value())
     {
         return std::unexpected(recheck.error());
@@ -438,8 +433,7 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
     Result<bytes::Bytes> setup = fatal_query(
         ctx,
         composeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, u24(kWindow.start), u24(kWindow.length)),
-        bytes::Bytes{0x20, 0x01, 0x04}, "the dump start & length setup",
-        "unexpected dump setup response", "dump start & length setup rejected");
+        bytes::Bytes{0x20, 0x01, 0x04}, "dump start & length setup");
     if (!setup.has_value())
     {
         return std::unexpected(setup.error());
@@ -611,8 +605,7 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, std::uint
     info(ctx, "Verifying checksum...");
     Result<bytes::Bytes> checksum = fatal_query(
         ctx, bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStop, 0x02, 0x01},
-        bytes::Bytes{uds::kRoutineControlStop, 0x02}, "the checksum verify", "ROM checksum error",
-        "ROM checksum verify failed");
+        bytes::Bytes{uds::kRoutineControlStop, 0x02}, "checksum verify");
     if (!checksum.has_value())
     {
         return std::unexpected(checksum.error());

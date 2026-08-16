@@ -71,14 +71,18 @@ void non_fatal_query(const UdsExchangeContext& ctx, bytes::ByteView pdu,
 // multi-byte header check; `min_payload_size` only needs setting when the
 // caller reads bytes past the prefix out of the returned payload (a seed
 // reply's trailing seed bytes, for example) and wants that guaranteed too.
-// On mismatch, logs `rejection_prefix + mismatch_summary` and returns
-// fail(ErrorKind::BadResponse, mismatch_detail); the send failure path logs
-// via `operation` exactly as fatal_request does. Returns the raw reply on
-// success, same as fatal_request.
+//
+// `subject` names what was being asked ("bench diagnostic session", "seed
+// key") and is folded into all three log/error strings a call site would
+// otherwise have to spell out itself: "the {subject}" as fatal_request's
+// operation, "unexpected {subject} response" as the mismatch log line (after
+// rejection_prefix), and "{subject} rejected" as the returned
+// BadResponse's detail. Callers that need the legacy-exact wording on any of
+// those three still have fatal_request plus their own hand-written check
+// available.
 Result<bytes::Bytes> fatal_query(const UdsExchangeContext& ctx, bytes::ByteView pdu,
                                  bytes::ByteView expected_prefix, std::string_view rejection_prefix,
-                                 std::string_view operation, std::string_view mismatch_summary,
-                                 std::string_view mismatch_detail,
+                                 std::string_view subject,
                                  std::optional<std::size_t> min_payload_size = std::nullopt);
 
 } // namespace fastecu::flash

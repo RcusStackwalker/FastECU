@@ -185,13 +185,12 @@ Result<bytes::Bytes> fatal_request(Ctx& ctx, bytes::ByteView pdu, std::string_vi
 
 // The fatal_request + expected-response-prefix check the kernel jump below
 // uses -- see uds_client_exchange_common.h's fatal_query for what
-// expected_prefix means.
+// expected_prefix and subject mean.
 Result<bytes::Bytes> fatal_query(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
-                                 std::string_view operation, std::string_view mismatch_summary,
-                                 std::string_view mismatch_detail)
+                                 std::string_view subject)
 {
     return ::fastecu::flash::fatal_query(exchange_context(ctx), pdu, expected_prefix, kRejectionPrefix,
-                                         operation, mismatch_summary, mismatch_detail);
+                                         subject);
 }
 
 // Legacy's two non-fatal identity queries (TCU ID/CAL ID, lines 94-168) and
@@ -267,8 +266,7 @@ Status connect_bootloader(Ctx& ctx)
     info(ctx, "Jumping to onboad kernel...");
     Result<bytes::Bytes> jump_reply = fatal_query(
         ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionKernelJump},
-        bytes::Bytes{kSessionKernelJump}, "the kernel jump", "unexpected jump response",
-        "kernel jump rejected");
+        bytes::Bytes{kSessionKernelJump}, "kernel jump");
     if (!jump_reply.has_value())
     {
         return std::unexpected(jump_reply.error());
