@@ -180,7 +180,7 @@ Status authenticated_session(IKlineFlashTransport& transport,
     {
         return fail(ErrorKind::BadResponse, "seed response is too short");
     }
-    bytes::Bytes key_request = composeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey, seed_key(std::span{*seed}.subspan(6, 4)));
+    bytes::Bytes key_request = composeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey, seed_key(bytes::ByteView{*seed}.subspan(6, 4)));
     if (Status key_status =
             p.session_mode == HitachiM32rKlineSessionMode::Recovery
                 ? request_prefix(transport, cancellation, std::move(key_request), {0x67}, p)
