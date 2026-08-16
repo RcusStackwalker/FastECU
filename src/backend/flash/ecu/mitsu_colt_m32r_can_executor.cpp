@@ -133,6 +133,25 @@ Error report_exchange_failure(Ctx& ctx, const Error& failure,
                                                      operation);
 }
 
+// The fatal_request + expected-response-prefix check every exchange in
+// connect_bootloader below repeats. Unlike the other three
+// UdsExchangeContext-based CAN families, this one has no single fixed
+// exchange policy or rejection prefix -- the vendor challenge block above
+// uses its own prefixes per exchange, and erase/write (not shown here) use
+// kSlowExchangePolicy -- so `policy` is built into a fresh UdsExchangeContext
+// per call instead of a shared one, and rejection_prefix stays an explicit
+// parameter. See uds_client_exchange_common.h's fatal_query for what
+// expected_prefix, subject, and min_payload_size mean.
+Result<bytes::Bytes> fatal_query(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
+                                 const uds::ExchangePolicy& policy, std::string_view rejection_prefix,
+                                 std::string_view subject,
+                                 std::optional<std::size_t> min_payload_size = std::nullopt)
+{
+    return ::fastecu::flash::fatal_query(
+        UdsExchangeContext{ctx.uds, policy, ctx.cancellation, ctx.events}, pdu, expected_prefix,
+        rejection_prefix, subject, min_payload_size);
+}
+
 // Legacy connect_bootloader, flash_ecu_mitsu_m32r_can_operation.cpp:66-168.
 // The legacy `is_serial_port_open()` guard (lines 74-78) has no equivalent:
 // execute() below opens the transport through the port and propagates that
@@ -145,46 +164,32 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
     if (family.use_vendor_challenge)
     {
         info(ctx, "Starting basic diagnostic session for vendor authorization...");
-        Result<bytes::Bytes> received =
-            ctx.uds.request(buildDiagnosticSession(kSessionBasic), kRoutineExchangePolicy,
-                            ctx.cancellation);
+        Result<bytes::Bytes> received = fatal_query(
+            ctx, buildDiagnosticSession(kSessionBasic), bytes::Bytes{kSessionBasic},
+            kRoutineExchangePolicy, "Wrong response from ECU: ", "basic diagnostic session");
         if (!received.has_value())
         {
-            return std::unexpected(report_exchange_failure(ctx, received.error(),
-                                                           "Wrong response from ECU: ",
-                                                           "the basic diagnostic session"));
-        }
-        if (uds::subfunction(*received) != kSessionBasic)
-        {
-            error(ctx, "Wrong response from ECU: unexpected session id");
-            return fail(ErrorKind::BadResponse, "basic diagnostic session rejected");
+            return std::unexpected(received.error());
         }
         info(ctx, "Basic diagnostic session ok");
 
-        // Lines 86-95.
+        // Lines 86-95. The reply must carry the two selector bytes plus a
+        // 4-byte seed after them (legacy "length > 10" on the enveloped
+        // frame).
         info(ctx, "Requesting vendor extension challenge seed...");
-        received = ctx.uds.request(MitsuColtCanVendorExt::buildChallengeSeedRequest(),
-                                   kRoutineExchangePolicy, ctx.cancellation);
+        received = fatal_query(
+            ctx, MitsuColtCanVendorExt::buildChallengeSeedRequest(),
+            bytes::Bytes{MitsuColtCanVendorExt::kVendorChallengeSelector,
+                         MitsuColtCanVendorExt::kVendorChallengeSeedSubfunction},
+            kRoutineExchangePolicy, "Wrong vendor challenge response from ECU: ",
+            "vendor challenge seed request", 6);
         if (!received.has_value())
         {
-            return std::unexpected(
-                report_exchange_failure(ctx, received.error(),
-                                        "Wrong vendor challenge response from ECU: ",
-                                        "the vendor challenge seed request"));
-        }
-        // Line 91: the reply must carry the two selector bytes plus a 4-byte
-        // seed after them (legacy "length > 10" on the enveloped frame).
-        const bytes::ByteView challenge = uds::payload(*received);
-        if (challenge.size() < 6 ||
-            challenge[0] != MitsuColtCanVendorExt::kVendorChallengeSelector ||
-            challenge[1] != MitsuColtCanVendorExt::kVendorChallengeSeedSubfunction)
-        {
-            error(ctx, "Wrong vendor challenge response from ECU: unexpected challenge header");
-            return fail(ErrorKind::BadResponse, "vendor challenge seed rejected");
+            return std::unexpected(received.error());
         }
 
         // Lines 97-104: received.mid(7, 4) on the enveloped frame.
-        const bytes::ByteView seed_bytes = challenge.subspan(2, 4);
+        const bytes::ByteView seed_bytes = uds::payload(*received).subspan(2, 4);
         info(ctx, std::format("Received vendor seed: {}", bytes::toHex(seed_bytes)));
 
         const std::uint32_t vendor_key = MitsuColtCanVendorExt::challengeInverseTransform(
@@ -192,25 +197,18 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
         const bytes::Bytes key_bytes = MitsuColtCanVendorExt::keyBytes(vendor_key);
         info(ctx, std::format("Calculated vendor key: {}", bytes::toHex(key_bytes)));
 
-        // Lines 106-116.
+        // Lines 106-116. Echoing the selector is not acceptance: only
+        // kVendorChallengeAccepted grants the transition, so this stays a
+        // content check of its own.
         info(ctx, "Sending vendor key to ECU...");
-        received = ctx.uds.request(MitsuColtCanVendorExt::buildChallengeKey(vendor_key),
-                                   kRoutineExchangePolicy, ctx.cancellation);
+        received = fatal_query(
+            ctx, MitsuColtCanVendorExt::buildChallengeKey(vendor_key),
+            bytes::Bytes{MitsuColtCanVendorExt::kVendorChallengeSelector,
+                         MitsuColtCanVendorExt::kVendorChallengeAccepted},
+            kRoutineExchangePolicy, "Vendor challenge key rejected: ", "vendor challenge key");
         if (!received.has_value())
         {
-            return std::unexpected(report_exchange_failure(ctx, received.error(),
-                                                           "Vendor challenge key rejected: ",
-                                                           "the vendor challenge key"));
-        }
-        // Echoing the selector is not acceptance: only kVendorChallengeAccepted
-        // grants the transition, so this stays a content check of its own.
-        const bytes::ByteView accepted = uds::payload(*received);
-        if (accepted.size() < 2 ||
-            accepted[0] != MitsuColtCanVendorExt::kVendorChallengeSelector ||
-            accepted[1] != MitsuColtCanVendorExt::kVendorChallengeAccepted)
-        {
-            error(ctx, "Vendor challenge key rejected: challenge not accepted");
-            return fail(ErrorKind::BadResponse, "vendor challenge key rejected");
+            return std::unexpected(received.error());
         }
         info(ctx, "Vendor challenge accepted");
     }
@@ -219,18 +217,12 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
     // to authorize the transition. All reads and writes then enter the
     // bootload session and complete factory SecurityAccess.
     info(ctx, "Starting diagnostic session...");
-    Result<bytes::Bytes> received =
-        ctx.uds.request(buildDiagnosticSession(family.session_id), kRoutineExchangePolicy,
-                        ctx.cancellation);
+    Result<bytes::Bytes> received = fatal_query(
+        ctx, buildDiagnosticSession(family.session_id), bytes::Bytes{family.session_id},
+        kRoutineExchangePolicy, "Wrong response from ECU: ", "diagnostic session");
     if (!received.has_value())
     {
-        return std::unexpected(report_exchange_failure(
-            ctx, received.error(), "Wrong response from ECU: ", "the diagnostic session"));
-    }
-    if (uds::subfunction(*received) != family.session_id)
-    {
-        error(ctx, "Wrong response from ECU: unexpected session id");
-        return fail(ErrorKind::BadResponse, "diagnostic session rejected");
+        return std::unexpected(received.error());
     }
     info(ctx, "Diagnostic session ok");
 
@@ -241,26 +233,19 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
     }
 
     // Lines 136-145.
-    info(ctx, "Requesting security seed...");
-    received = ctx.uds.request(buildSecurityAccessSeedRequest(), kRoutineExchangePolicy,
-                               ctx.cancellation);
-    if (!received.has_value())
-    {
-        return std::unexpected(report_exchange_failure(ctx, received.error(),
-                                                       "Wrong response from ECU: ",
-                                                       "the security access seed request"));
-    }
     // The seed level byte plus the 4 seed bytes behind it (legacy "length > 9"
     // on the enveloped frame).
-    const bytes::ByteView seed_reply = uds::payload(*received);
-    if (seed_reply.size() < 5 || uds::subfunction(*received) != kSecurityAccessSeedLevel)
+    info(ctx, "Requesting security seed...");
+    received = fatal_query(ctx, buildSecurityAccessSeedRequest(), bytes::Bytes{kSecurityAccessSeedLevel},
+                           kRoutineExchangePolicy, "Wrong response from ECU: ",
+                           "security access seed request", 5);
+    if (!received.has_value())
     {
-        error(ctx, "Wrong response from ECU: unexpected security access seed");
-        return fail(ErrorKind::BadResponse, "security seed rejected");
+        return std::unexpected(received.error());
     }
 
     // Lines 147-153: received.mid(6, 4) on the enveloped frame.
-    const bytes::ByteView seed = seed_reply.subspan(1, 4);
+    const bytes::ByteView seed = uds::payload(*received).subspan(1, 4);
     info(ctx, std::format("Received seed: {}", bytes::toHex(seed)));
 
     const bytes::Bytes key = seedKey(seed);
@@ -268,17 +253,12 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
 
     // Lines 155-165.
     info(ctx, "Sending seed key to ECU...");
-    received = ctx.uds.request(buildSecurityAccessKey(key), kRoutineExchangePolicy,
-                               ctx.cancellation);
+    received = fatal_query(ctx, buildSecurityAccessKey(key), bytes::Bytes{kSecurityAccessKeyLevel},
+                           kRoutineExchangePolicy, "Wrong response from ECU: ",
+                           "security access key");
     if (!received.has_value())
     {
-        return std::unexpected(report_exchange_failure(
-            ctx, received.error(), "Wrong response from ECU: ", "the security access key"));
-    }
-    if (uds::subfunction(*received) != kSecurityAccessKeyLevel)
-    {
-        error(ctx, "Wrong response from ECU: unexpected security access level");
-        return fail(ErrorKind::BadResponse, "security key rejected");
+        return std::unexpected(received.error());
     }
     info(ctx, "Security access ok");
 

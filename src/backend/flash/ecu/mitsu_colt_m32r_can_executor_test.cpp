@@ -1729,13 +1729,14 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengeKeyRejectionStopsBeforeTheSession)
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
-    // Legacy text, flash_ecu_mitsu_m32r_can_operation.cpp:113. The reply is a
-    // well-formed positive response to the service that was sent, so the
-    // legacy suffix was the NRC decoder's fallback "Not a valid answer" for
-    // every rejection here; what actually went wrong is the response byte.
+    // fatal_query's generic mismatch wording (uds_client_exchange_common.h),
+    // not the legacy text: the reply is a well-formed positive response to
+    // the service that was sent, so what actually went wrong is the response
+    // byte, not something an NRC decoder would explain.
     EXPECT_THAT(events.logs,
                 Contains(Pair(LogLevel::Error,
-                              "Vendor challenge key rejected: challenge not accepted")));
+                              "Vendor challenge key rejected: unexpected vendor challenge "
+                              "key response")));
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Vendor challenge accepted"))));
 }
 

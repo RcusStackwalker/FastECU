@@ -1,5 +1,6 @@
 #include "src/backend/flash/ecu/uds_client_exchange_common.h"
 
+#include <algorithm>
 #include <format>
 
 #include "src/algorithms/protocol/uds/uds_response.h"
@@ -55,6 +56,28 @@ void non_fatal_query(const UdsExchangeContext& ctx, bytes::ByteView pdu,
         return;
     }
     ctx.events.log(LogLevel::Info, std::format("{}: {}", label, bytes::toHex(payload)));
+}
+
+Result<bytes::Bytes> fatal_query(const UdsExchangeContext& ctx, bytes::ByteView pdu,
+                                 bytes::ByteView expected_prefix, std::string_view rejection_prefix,
+                                 std::string_view subject,
+                                 std::optional<std::size_t> min_payload_size)
+{
+    Result<bytes::Bytes> reply = fatal_request(ctx, pdu, rejection_prefix, std::format("the {}", subject));
+    if (!reply.has_value())
+    {
+        return reply;
+    }
+    const bytes::ByteView payload = uds::payload(*reply);
+    const std::size_t required_size = min_payload_size.value_or(expected_prefix.size());
+    if (payload.size() < required_size ||
+        !std::equal(expected_prefix.begin(), expected_prefix.end(), payload.begin()))
+    {
+        ctx.events.log(LogLevel::Error,
+                       std::format("{}unexpected {} response", rejection_prefix, subject));
+        return fail(ErrorKind::BadResponse, std::format("{} rejected", subject));
+    }
+    return reply;
 }
 
 } // namespace fastecu::flash

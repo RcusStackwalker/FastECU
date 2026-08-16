@@ -128,5 +128,101 @@ TEST(NonFatalQueryTest, LogsUnexpectedSubfunctionWithThePrefixAndDoesNotThrow)
                 ElementsAre(Pair(LogLevel::Error, "Wrong response from ECU: unexpected subfunction")));
 }
 
+TEST(FatalQueryTest, ReturnsTheReplyOnAMatchingSingleBytePrefix)
+{
+    Fixture f;
+    f.channel.expectSend(bytes::Bytes{0x10, 0x43});
+    f.channel.queueReceive(bytes::Bytes{0x50, 0x43});
+
+    const Result<bytes::Bytes> reply =
+        fatal_query(f.ctx(), bytes::Bytes{0x10, 0x43}, bytes::Bytes{0x43}, "Wrong response from ECU: ",
+                    "bench diagnostic session");
+
+    ASSERT_TRUE(reply.has_value());
+    EXPECT_THAT(*reply, ElementsAre(0x50, 0x43));
+    EXPECT_THAT(f.events.logs, IsEmpty());
+}
+
+TEST(FatalQueryTest, ReturnsTheReplyOnAMatchingMultiBytePrefix)
+{
+    Fixture f;
+    f.channel.expectSend(bytes::Bytes{0x31, 0x02, 0x02, 0x01});
+    f.channel.queueReceive(bytes::Bytes{0x71, 0x02, 0x02, 0x03});
+
+    const Result<bytes::Bytes> reply =
+        fatal_query(f.ctx(), bytes::Bytes{0x31, 0x02, 0x02, 0x01}, bytes::Bytes{0x02, 0x02, 0x03},
+                    "Wrong response from TCU: ", "kernel alive re-check");
+
+    ASSERT_TRUE(reply.has_value());
+    EXPECT_THAT(*reply, ElementsAre(0x71, 0x02, 0x02, 0x03));
+    EXPECT_THAT(f.events.logs, IsEmpty());
+}
+
+TEST(FatalQueryTest, LogsAndReturnsTheSendErrorOnExchangeFailure)
+{
+    Fixture f;
+    f.channel.expectSend(bytes::Bytes{0x10, 0x43});
+    f.channel.queueReceive(bytes::Bytes{0x7F, 0x10, 0x31});
+
+    const Result<bytes::Bytes> reply =
+        fatal_query(f.ctx(), bytes::Bytes{0x10, 0x43}, bytes::Bytes{0x43}, "Wrong response from ECU: ",
+                    "bench diagnostic session");
+
+    ASSERT_FALSE(reply.has_value());
+    EXPECT_EQ(reply.error().kind, ErrorKind::BadResponse);
+    ASSERT_EQ(f.events.logs.size(), 1u);
+    EXPECT_THAT(f.events.logs[0].second, HasSubstr("Wrong response from ECU: "));
+}
+
+TEST(FatalQueryTest, LogsMismatchSummaryAndReturnsMismatchDetailOnAWrongPrefix)
+{
+    Fixture f;
+    f.channel.expectSend(bytes::Bytes{0x10, 0x43});
+    f.channel.queueReceive(bytes::Bytes{0x50, 0x42});
+
+    const Result<bytes::Bytes> reply =
+        fatal_query(f.ctx(), bytes::Bytes{0x10, 0x43}, bytes::Bytes{0x43}, "Wrong response from ECU: ",
+                    "bench diagnostic session");
+
+    ASSERT_FALSE(reply.has_value());
+    EXPECT_EQ(reply.error().kind, ErrorKind::BadResponse);
+    EXPECT_EQ(reply.error().detail, "bench diagnostic session rejected");
+    ASSERT_THAT(f.events.logs, ElementsAre(Pair(LogLevel::Error,
+                                                "Wrong response from ECU: unexpected bench diagnostic "
+                                                "session response")));
+}
+
+TEST(FatalQueryTest, TreatsAPayloadShorterThanMinPayloadSizeAsAMismatchEvenWithAMatchingPrefix)
+{
+    Fixture f;
+    f.channel.expectSend(bytes::Bytes{0x27, 0x01});
+    f.channel.queueReceive(bytes::Bytes{0x67, 0x05, 0xAB});
+
+    const Result<bytes::Bytes> reply =
+        fatal_query(f.ctx(), bytes::Bytes{0x27, 0x01}, bytes::Bytes{0x05}, "Wrong response from ECU: ",
+                    "security access seed request", 5);
+
+    ASSERT_FALSE(reply.has_value());
+    EXPECT_EQ(reply.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(f.events.logs,
+                ElementsAre(Pair(LogLevel::Error, "Wrong response from ECU: unexpected security "
+                                                  "access seed request response")));
+}
+
+TEST(FatalQueryTest, AcceptsAPayloadAtLeastMinPayloadSizeWithAMatchingPrefix)
+{
+    Fixture f;
+    f.channel.expectSend(bytes::Bytes{0x27, 0x01});
+    f.channel.queueReceive(bytes::Bytes{0x67, 0x05, 0xAB, 0xCD, 0xEF, 0x01});
+
+    const Result<bytes::Bytes> reply =
+        fatal_query(f.ctx(), bytes::Bytes{0x27, 0x01}, bytes::Bytes{0x05}, "Wrong response from ECU: ",
+                    "security access seed request", 5);
+
+    ASSERT_TRUE(reply.has_value());
+    EXPECT_THAT(*reply, ElementsAre(0x67, 0x05, 0xAB, 0xCD, 0xEF, 0x01));
+    EXPECT_THAT(f.events.logs, IsEmpty());
+}
+
 } // namespace
 } // namespace fastecu::flash
