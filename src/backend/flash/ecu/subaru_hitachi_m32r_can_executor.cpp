@@ -233,10 +233,8 @@ Status connect_bootloader(Ctx& ctx)
     info(ctx, std::format("Calculated seed key: {}", bytes::toHex(key)));
 
     info(ctx, "Sending seed key to ECU...");
-    bytes::Bytes key_request{uds::kSidSecurityAccess, uds::kSecurityAccessSendKey};
-    key_request.insert(key_request.end(), key.begin(), key.end());
     Result<bytes::Bytes> key_reply =
-        fatal_query(ctx, key_request, bytes::Bytes{uds::kSecurityAccessSendKey}, "seed key");
+        fatal_query(ctx, composeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey, key), bytes::Bytes{uds::kSecurityAccessSendKey}, "seed key");
     if (!key_reply.has_value())
     {
         return std::unexpected(key_reply.error());
