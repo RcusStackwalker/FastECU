@@ -12,6 +12,7 @@
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_plan.h"
+#include "src/backend/flash/ecu/uds_client_exchange_common.h"
 #include "src/backend/protocol/uds/uds_client.h"
 
 // Every exchange below cites the line of
@@ -119,40 +120,17 @@ void error(Ctx& ctx, std::string_view message)
 }
 
 // The single reporting point for every failed exchange below, because two
-// kinds of failure mean opposite things to whoever reads the log.
-//
-// A rejection is the ECU's own answer: the request went out and came back
-// refused (or the bus failed under it), and `failure.detail` says why. That
-// keeps the legacy message, `rejection_prefix` first.
-//
-// A cancellation is the operator's stop and says NOTHING about what the ECU
-// did. UdsClient checks the token before transmitting and again while waiting
-// for the reply, so a cancelled exchange may or may not have been sent -- and
-// a cancel between the erase trigger's transmission and its reply leaves the
-// erase RUNNING in the ECU. Calling that "rejected" would tell the operator
-// the unit is idle at precisely the moment bench checklist step 6 asks them
-// to decide whether to power-cycle it. So cancellation gets its own line,
-// which names the operator as the cause, does not blame the ECU, and does not
-// claim the ECU never acted. It also avoids the dangling "...rejected: " that
-// a cancellation's empty detail used to produce.
-//
-// `operation` names what was being asked of the ECU, phrased to read after
-// "during": "the erase trigger", "TransferData to 0x8000".
+// kinds of failure mean opposite things to whoever reads the log -- see
+// uds_client_exchange_common.h's own report_exchange_failure for the
+// rejection-vs-cancellation rationale (identical here; the erase-trigger
+// power-cycling scenario that motivated it is this family's own). This
+// thin wrapper exists only so call sites below can keep passing `ctx`
+// instead of `ctx.events`.
 Error report_exchange_failure(Ctx& ctx, const Error& failure,
                               std::string_view rejection_prefix, std::string_view operation)
 {
-    if (failure.kind == ErrorKind::Cancelled)
-    {
-        ctx.events.log(LogLevel::Warning,
-                       std::format("Cancelled by operator during {} -- this is not an ECU "
-                                   "rejection. The request may already have reached the ECU "
-                                   "and still be running there; check the unit before "
-                                   "power-cycling it.",
-                                   operation));
-        return failure;
-    }
-    error(ctx, std::format("{}{}", rejection_prefix, failure.detail));
-    return failure;
+    return ::fastecu::flash::report_exchange_failure(ctx.events, failure, rejection_prefix,
+                                                     operation);
 }
 
 // Legacy connect_bootloader, flash_ecu_mitsu_m32r_can_operation.cpp:66-168.

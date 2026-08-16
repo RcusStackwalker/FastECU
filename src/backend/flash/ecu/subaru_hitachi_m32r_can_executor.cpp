@@ -12,6 +12,7 @@
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_can_plan.h"
+#include "src/backend/flash/ecu/uds_client_exchange_common.h"
 #include "src/backend/protocol/uds/uds_client.h"
 
 // Every exchange below cites the line of
@@ -138,40 +139,21 @@ void error(Ctx& ctx, std::string_view message)
     ctx.events.log(LogLevel::Error, message);
 }
 
-// Mirrors mitsu_colt_m32r_can_executor.cpp's report_exchange_failure: a
-// cancellation gets its own operator-facing line and is never blamed on the
-// ECU, everything else is logged with the family's "Wrong response from
-// ECU: " prefix and returned unchanged.
-Error report_exchange_failure(Ctx& ctx, const Error& failure, std::string_view rejection_prefix,
-                              std::string_view operation)
+constexpr std::string_view kRejectionPrefix = "Wrong response from ECU: ";
+
+UdsExchangeContext exchange_context(Ctx& ctx)
 {
-    if (failure.kind == ErrorKind::Cancelled)
-    {
-        ctx.events.log(LogLevel::Warning,
-                       std::format("Cancelled by operator during {} -- this is not an ECU "
-                                   "rejection. The request may already have reached the ECU "
-                                   "and still be running there; check the unit before "
-                                   "power-cycling it.",
-                                   operation));
-        return failure;
-    }
-    error(ctx, std::format("{}{}", rejection_prefix, failure.detail));
-    return failure;
+    return UdsExchangeContext{ctx.uds, kExchangePolicy, ctx.cancellation, ctx.events};
 }
 
-// Sends `pdu` through UdsClient and, on failure, logs and returns the error
-// via report_exchange_failure -- the "fatal" shape every exchange below uses
-// except the four identity queries (non_fatal_query) and the close-block
-// retry loop (each intentionally tolerant of failure, see below).
+// The "fatal" shape every exchange below uses except the four identity
+// queries (non_fatal_query) and the close-block retry loop (each
+// intentionally tolerant of failure, see below). See
+// uds_client_exchange_common.h for the shared rejection/cancellation
+// logging this delegates to.
 Result<bytes::Bytes> fatal_request(Ctx& ctx, bytes::ByteView pdu, std::string_view operation)
 {
-    Result<bytes::Bytes> reply = ctx.uds.request(pdu, kExchangePolicy, ctx.cancellation);
-    if (!reply.has_value())
-    {
-        return std::unexpected(
-            report_exchange_failure(ctx, reply.error(), "Wrong response from ECU: ", operation));
-    }
-    return reply;
+    return ::fastecu::flash::fatal_request(exchange_context(ctx), pdu, kRejectionPrefix, operation);
 }
 
 // Legacy's four non-fatal identity queries (ECU ID/VIN/CAL ID/CVN, lines
@@ -182,20 +164,8 @@ Result<bytes::Bytes> fatal_request(Ctx& ctx, bytes::ByteView pdu, std::string_vi
 void non_fatal_query(Ctx& ctx, bytes::ByteView request_pdu,
                      std::optional<bytes::Byte> expected_subfunction, std::string_view label)
 {
-    Result<bytes::Bytes> reply = ctx.uds.request(request_pdu, kExchangePolicy, ctx.cancellation);
-    if (!reply.has_value())
-    {
-        error(ctx, std::format("Wrong response from ECU: {}", reply.error().detail));
-        return;
-    }
-    const bytes::ByteView payload = uds::payload(*reply);
-    if (expected_subfunction.has_value() &&
-        (payload.empty() || payload[0] != *expected_subfunction))
-    {
-        error(ctx, "Wrong response from ECU: unexpected subfunction");
-        return;
-    }
-    info(ctx, std::format("{}: {}", label, bytes::toHex(payload)));
+    ::fastecu::flash::non_fatal_query(exchange_context(ctx), request_pdu, expected_subfunction,
+                                      kRejectionPrefix, label);
 }
 
 // Legacy connect_bootloader, flash_ecu_subaru_hitachi_m32r_can_operation.cpp:76-760.
@@ -532,12 +502,10 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView image, PhaseReporter& 
     // that NRC by re-reading internally, so this is a single request() call.
     info(ctx, "Verifying checksum...");
     Result<bytes::Bytes> checksum =
-        ctx.uds.request(bytes::Bytes{0x31, 0x01, 0x02, 0x02, 0x01}, kExchangePolicy, ctx.cancellation);
+        fatal_request(ctx, bytes::Bytes{0x31, 0x01, 0x02, 0x02, 0x01}, "the checksum verify");
     if (!checksum.has_value())
     {
-        return std::unexpected(report_exchange_failure(ctx, checksum.error(),
-                                                       "Wrong response from ECU: ",
-                                                       "the checksum verify"));
+        return std::unexpected(checksum.error());
     }
     if (const bytes::ByteView checksum_payload = uds::payload(*checksum);
         checksum_payload.size() < 2 || checksum_payload[0] != 0x01 || checksum_payload[1] != 0x02)
