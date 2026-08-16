@@ -183,6 +183,17 @@ Result<bytes::Bytes> fatal_request(Ctx& ctx, bytes::ByteView pdu, std::string_vi
     return ::fastecu::flash::fatal_request(exchange_context(ctx), pdu, kRejectionPrefix, operation);
 }
 
+// The fatal_request + expected-response-prefix check the kernel jump below
+// uses -- see uds_client_exchange_common.h's fatal_query for what
+// expected_prefix means.
+Result<bytes::Bytes> fatal_query(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
+                                 std::string_view operation, std::string_view mismatch_summary,
+                                 std::string_view mismatch_detail)
+{
+    return ::fastecu::flash::fatal_query(exchange_context(ctx), pdu, expected_prefix, kRejectionPrefix,
+                                         operation, mismatch_summary, mismatch_detail);
+}
+
 // Legacy's two non-fatal identity queries (TCU ID/CAL ID, lines 94-168) and
 // the non-fatal session request (lines 173-197): logged on mismatch or
 // absence but never halt connect_bootloader -- even a genuine exchange
@@ -254,16 +265,13 @@ Status connect_bootloader(Ctx& ctx)
 
     // Jump 0x10/0x42 (lines 267-295), fatal.
     info(ctx, "Jumping to onboad kernel...");
-    Result<bytes::Bytes> jump_reply = fatal_request(
-        ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionKernelJump}, "the kernel jump");
+    Result<bytes::Bytes> jump_reply = fatal_query(
+        ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionKernelJump},
+        bytes::Bytes{kSessionKernelJump}, "the kernel jump", "unexpected jump response",
+        "kernel jump rejected");
     if (!jump_reply.has_value())
     {
         return std::unexpected(jump_reply.error());
-    }
-    if (uds::subfunction(*jump_reply) != kSessionKernelJump)
-    {
-        error(ctx, "Wrong response from TCU: unexpected jump response");
-        return fail(ErrorKind::BadResponse, "kernel jump rejected");
     }
     info(ctx, "Jump to kernel ok");
 

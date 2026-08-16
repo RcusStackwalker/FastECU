@@ -235,6 +235,28 @@ Result<bytes::Bytes> fatal_request(Ctx& ctx, bytes::ByteView pdu, std::string_vi
     return fatal_request(ctx, ctx.uds, pdu, operation);
 }
 
+// The fatal_request + expected-response-prefix check every ctx.uds exchange
+// below repeats -- see uds_client_exchange_common.h's fatal_query for what
+// expected_prefix and min_payload_size mean.
+Result<bytes::Bytes> fatal_query(Ctx& ctx, uds::UdsClient& client, bytes::ByteView pdu,
+                                 bytes::ByteView expected_prefix, std::string_view operation,
+                                 std::string_view mismatch_summary, std::string_view mismatch_detail,
+                                 std::optional<std::size_t> min_payload_size = std::nullopt)
+{
+    return ::fastecu::flash::fatal_query(
+        UdsExchangeContext{client, kExchangePolicy, ctx.cancellation, ctx.events}, pdu, expected_prefix,
+        kRejectionPrefix, operation, mismatch_summary, mismatch_detail, min_payload_size);
+}
+
+Result<bytes::Bytes> fatal_query(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
+                                 std::string_view operation, std::string_view mismatch_summary,
+                                 std::string_view mismatch_detail,
+                                 std::optional<std::size_t> min_payload_size = std::nullopt)
+{
+    return fatal_query(ctx, ctx.uds, pdu, expected_prefix, operation, mismatch_summary, mismatch_detail,
+                       min_payload_size);
+}
+
 // Legacy's TCU ID / CAL ID queries and the second session request (lines
 // 137-211, 244-265): logged on mismatch or absence but never halt
 // connect_bootloader -- even a genuine exchange failure is logged and
@@ -377,35 +399,25 @@ Status connect_bootloader(Ctx& ctx)
     // Jump 0x10/0x02 (lines 339-365): back to this family's own 0x7e1,
     // fatal, standard SID+0x40 -- routed through fatal_request/ctx.uds.
     info(ctx, "Jumping to onboard kernel...");
-    Result<bytes::Bytes> jump_reply = fatal_request(
+    Result<bytes::Bytes> jump_reply = fatal_query(
         ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, uds::kSessionProgramming},
-        "the kernel jump");
+        bytes::Bytes{uds::kSessionProgramming}, "the kernel jump", "unexpected jump response",
+        "kernel jump rejected");
     if (!jump_reply.has_value())
     {
         return std::unexpected(jump_reply.error());
-    }
-    if (uds::subfunction(*jump_reply) != uds::kSessionProgramming)
-    {
-        error(ctx, "Wrong response from TCU: unexpected jump response");
-        return fail(ErrorKind::BadResponse, "kernel jump rejected");
     }
     info(ctx, "Jump to kernel ok");
 
     // Alive re-check 0x31/0x02/0x02/0x01 (lines 373-401): 0x7e1, fatal.
     info(ctx, "Checking if jump successful and kernel alive...");
-    Result<bytes::Bytes> recheck = fatal_request(
+    Result<bytes::Bytes> recheck = fatal_query(
         ctx, bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStop, 0x02, 0x01},
-        "the kernel alive re-check");
+        bytes::Bytes{uds::kRoutineControlStop, 0x02, 0x03}, "the kernel alive re-check",
+        "unexpected alive-check response", "kernel alive re-check failed");
     if (!recheck.has_value())
     {
         return std::unexpected(recheck.error());
-    }
-    if (const bytes::ByteView recheck_payload = uds::payload(*recheck);
-        recheck_payload.size() < 3 || recheck_payload[0] != uds::kRoutineControlStop ||
-        recheck_payload[1] != 0x02 || recheck_payload[2] != 0x03)
-    {
-        error(ctx, "Wrong response from TCU: unexpected alive-check response");
-        return fail(ErrorKind::BadResponse, "kernel alive re-check failed");
     }
 
     info(ctx, "Kernel verified to be running");
@@ -423,20 +435,14 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
     // analogous step, this one IS fatal in this family's legacy source
     // (both branches of the length check return STATUS_ERROR).
     info(ctx, "Settting dump start & length...");
-    Result<bytes::Bytes> setup = fatal_request(
+    Result<bytes::Bytes> setup = fatal_query(
         ctx,
         composeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, u24(kWindow.start), u24(kWindow.length)),
-        "the dump start & length setup");
+        bytes::Bytes{0x20, 0x01, 0x04}, "the dump start & length setup",
+        "unexpected dump setup response", "dump start & length setup rejected");
     if (!setup.has_value())
     {
         return std::unexpected(setup.error());
-    }
-    if (const bytes::ByteView setup_payload = uds::payload(*setup);
-        setup_payload.size() < 3 || setup_payload[0] != 0x20 || setup_payload[1] != 0x01 ||
-        setup_payload[2] != 0x04)
-    {
-        error(ctx, "Wrong response from TCU: unexpected dump setup response");
-        return fail(ErrorKind::BadResponse, "dump start & length setup rejected");
     }
 
     info(ctx, "Start reading ROM, please wait...");
@@ -603,19 +609,13 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, std::uint
 
     // "Verifying checksum..." (lines 945-978).
     info(ctx, "Verifying checksum...");
-    Result<bytes::Bytes> checksum = fatal_request(
+    Result<bytes::Bytes> checksum = fatal_query(
         ctx, bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStop, 0x02, 0x01},
-        "the checksum verify");
+        bytes::Bytes{uds::kRoutineControlStop, 0x02}, "the checksum verify", "ROM checksum error",
+        "ROM checksum verify failed");
     if (!checksum.has_value())
     {
         return std::unexpected(checksum.error());
-    }
-    if (const bytes::ByteView checksum_payload = uds::payload(*checksum);
-        checksum_payload.size() < 2 || checksum_payload[0] != uds::kRoutineControlStop ||
-        checksum_payload[1] != 0x02)
-    {
-        error(ctx, "Wrong response from TCU: ROM checksum error");
-        return fail(ErrorKind::BadResponse, "ROM checksum verify failed");
     }
     info(ctx, "Checksum verified");
     return {};

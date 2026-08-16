@@ -164,6 +164,19 @@ Result<bytes::Bytes> fatal_request(Ctx& ctx, bytes::ByteView pdu, std::string_vi
     return ::fastecu::flash::fatal_request(exchange_context(ctx), pdu, kRejectionPrefix, operation);
 }
 
+// The fatal_request + expected-response-prefix check every exchange below
+// repeats except the four identity queries and the close-block retry loop --
+// see uds_client_exchange_common.h's fatal_query for what expected_prefix
+// and min_payload_size mean.
+Result<bytes::Bytes> fatal_query(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
+                                 std::string_view operation, std::string_view mismatch_summary,
+                                 std::string_view mismatch_detail,
+                                 std::optional<std::size_t> min_payload_size = std::nullopt)
+{
+    return ::fastecu::flash::fatal_query(exchange_context(ctx), pdu, expected_prefix, kRejectionPrefix,
+                                         operation, mismatch_summary, mismatch_detail, min_payload_size);
+}
+
 // Legacy's four non-fatal identity queries (ECU ID/VIN/CAL ID/CVN, lines
 // 115-257): each is info-logged on a matching reply and error-logged
 // otherwise, but the connect sequence never halts here -- even a genuine
@@ -260,33 +273,25 @@ Status connect_bootloader(Ctx& ctx)
     // Bench branch (lines 581-753): every exchange from here on is fatal on
     // mismatch or empty reply, unlike the identity queries above.
     Result<bytes::Bytes> session =
-        fatal_request(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionBench},
-                      "the bench diagnostic session");
+        fatal_query(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionBench},
+                    bytes::Bytes{kSessionBench}, "the bench diagnostic session", "unexpected session id",
+                    "bench diagnostic session rejected");
     if (!session.has_value())
     {
         return std::unexpected(session.error());
     }
-    if (uds::subfunction(*session) != kSessionBench)
-    {
-        error(ctx, "Wrong response from ECU: unexpected session id");
-        return fail(ErrorKind::BadResponse, "bench diagnostic session rejected");
-    }
 
     info(ctx, "Starting seed request...");
-    Result<bytes::Bytes> seed_reply = fatal_request(
+    Result<bytes::Bytes> seed_reply = fatal_query(
         ctx, bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed},
-        "the seed request");
+        bytes::Bytes{uds::kSecurityAccessRequestSeed}, "the seed request", "unexpected seed response",
+        "seed request rejected", 5);
     if (!seed_reply.has_value())
     {
         return std::unexpected(seed_reply.error());
     }
-    const bytes::ByteView seed_payload = uds::payload(*seed_reply);
-    if (seed_payload.size() < 5 || seed_payload[0] != uds::kSecurityAccessRequestSeed)
-    {
-        error(ctx, "Wrong response from ECU: unexpected seed response");
-        return fail(ErrorKind::BadResponse, "seed request rejected");
-    }
     info(ctx, "Seed request ok");
+    const bytes::ByteView seed_payload = uds::payload(*seed_reply);
     const bytes::ByteView seed = seed_payload.subspan(1, 4);
     info(ctx, std::format("Received seed: {}", bytes::toHex(seed)));
     const bytes::Bytes key = seed_key(seed);
@@ -295,46 +300,34 @@ Status connect_bootloader(Ctx& ctx)
     info(ctx, "Sending seed key to ECU...");
     bytes::Bytes key_request{uds::kSidSecurityAccess, uds::kSecurityAccessSendKey};
     key_request.insert(key_request.end(), key.begin(), key.end());
-    Result<bytes::Bytes> key_reply = fatal_request(ctx, key_request, "the seed key");
+    Result<bytes::Bytes> key_reply =
+        fatal_query(ctx, key_request, bytes::Bytes{uds::kSecurityAccessSendKey}, "the seed key",
+                    "unexpected seed key response", "seed key rejected");
     if (!key_reply.has_value())
     {
         return std::unexpected(key_reply.error());
     }
-    if (uds::subfunction(*key_reply) != uds::kSecurityAccessSendKey)
-    {
-        error(ctx, "Wrong response from ECU: unexpected seed key response");
-        return fail(ErrorKind::BadResponse, "seed key rejected");
-    }
     info(ctx, "Seed key ok");
 
     info(ctx, "Jumping to onboard kernel...");
-    Result<bytes::Bytes> jump_reply = fatal_request(
-        ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionKernelJump}, "the kernel jump");
+    Result<bytes::Bytes> jump_reply = fatal_query(
+        ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionKernelJump},
+        bytes::Bytes{kSessionKernelJump}, "the kernel jump", "unexpected jump response",
+        "kernel jump rejected");
     if (!jump_reply.has_value())
     {
         return std::unexpected(jump_reply.error());
     }
-    if (uds::subfunction(*jump_reply) != kSessionKernelJump)
-    {
-        error(ctx, "Wrong response from ECU: unexpected jump response");
-        return fail(ErrorKind::BadResponse, "kernel jump rejected");
-    }
     info(ctx, "Jump to kernel ok");
 
     info(ctx, "Checking if jump successful and kernel alive...");
-    Result<bytes::Bytes> alive_reply = fatal_request(
+    Result<bytes::Bytes> alive_reply = fatal_query(
         ctx, bytes::Bytes{uds::kSidRequestDownload, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00},
-        "the kernel alive check");
+        bytes::Bytes{0x20, 0x01, 0x04}, "the kernel alive check", "unexpected alive-check response",
+        "kernel alive check failed");
     if (!alive_reply.has_value())
     {
         return std::unexpected(alive_reply.error());
-    }
-    if (const bytes::ByteView alive_payload = uds::payload(*alive_reply);
-        alive_payload.size() < 3 || alive_payload[0] != 0x20 || alive_payload[1] != 0x01 ||
-        alive_payload[2] != 0x04)
-    {
-        error(ctx, "Wrong response from ECU: unexpected alive-check response");
-        return fail(ErrorKind::BadResponse, "kernel alive check failed");
     }
 
     info(ctx, "ECU initialised, continue...");
@@ -522,18 +515,13 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView image, PhaseReporter& 
     // pending (0x7F 0x31 0x78) before the real result; UdsClient absorbs
     // that NRC by re-reading internally, so this is a single request() call.
     info(ctx, "Verifying checksum...");
-    Result<bytes::Bytes> checksum = fatal_request(
+    Result<bytes::Bytes> checksum = fatal_query(
         ctx, bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, 0x02, 0x02, 0x01},
-        "the checksum verify");
+        bytes::Bytes{0x01, 0x02}, "the checksum verify", "ROM checksum error",
+        "ROM checksum verify failed");
     if (!checksum.has_value())
     {
         return std::unexpected(checksum.error());
-    }
-    if (const bytes::ByteView checksum_payload = uds::payload(*checksum);
-        checksum_payload.size() < 2 || checksum_payload[0] != 0x01 || checksum_payload[1] != 0x02)
-    {
-        error(ctx, "ROM checksum error");
-        return fail(ErrorKind::BadResponse, "ROM checksum verify failed");
     }
     info(ctx, "Checksum verified");
     return {};

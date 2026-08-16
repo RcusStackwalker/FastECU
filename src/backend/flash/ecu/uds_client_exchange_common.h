@@ -62,4 +62,23 @@ void non_fatal_query(const UdsExchangeContext& ctx, bytes::ByteView pdu,
                      std::optional<bytes::Byte> expected_subfunction,
                      std::string_view rejection_prefix, std::string_view label);
 
+// The fatal counterpart to non_fatal_query: sends `pdu` via fatal_request,
+// then requires the response payload (uds::payload of the reply, i.e.
+// everything past the service id) to be at least
+// min_payload_size.value_or(expected_prefix.size()) bytes long and to start
+// with `expected_prefix`. `expected_prefix` is one byte for a bare
+// subfunction-echo check ("was this a 0x43 session reply") or several for a
+// multi-byte header check; `min_payload_size` only needs setting when the
+// caller reads bytes past the prefix out of the returned payload (a seed
+// reply's trailing seed bytes, for example) and wants that guaranteed too.
+// On mismatch, logs `rejection_prefix + mismatch_summary` and returns
+// fail(ErrorKind::BadResponse, mismatch_detail); the send failure path logs
+// via `operation` exactly as fatal_request does. Returns the raw reply on
+// success, same as fatal_request.
+Result<bytes::Bytes> fatal_query(const UdsExchangeContext& ctx, bytes::ByteView pdu,
+                                 bytes::ByteView expected_prefix, std::string_view rejection_prefix,
+                                 std::string_view operation, std::string_view mismatch_summary,
+                                 std::string_view mismatch_detail,
+                                 std::optional<std::size_t> min_payload_size = std::nullopt);
+
 } // namespace fastecu::flash
