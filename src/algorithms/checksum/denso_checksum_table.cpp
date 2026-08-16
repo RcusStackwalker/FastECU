@@ -9,14 +9,10 @@ namespace
 constexpr std::size_t kRecordLength = 12;
 constexpr std::uint32_t kChecksumTarget = 0x5AA5A55A;
 
-std::uint32_t wordAt(bytes::ByteView rom, std::uint32_t address,
-                     std::span<const DensoWordOverride> overrides)
+std::uint32_t wordAt(bytes::ByteView rom, std::uint32_t address, std::span<const DensoWordOverride> overrides)
 {
     const auto match = std::find_if(overrides.begin(), overrides.end(),
-                                    [address](const DensoWordOverride& item)
-                                    {
-                                        return item.address == address;
-                                    });
+                                    [address](const DensoWordOverride& item) { return item.address == address; });
     return match == overrides.end() ? bytes::readU32Be(rom, address) : match->value;
 }
 } // namespace

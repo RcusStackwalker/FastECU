@@ -24,8 +24,7 @@ struct DefinitionHeaderInput
 };
 
 Result<std::vector<std::uint8_t>> create_ecuflash_xml(const DefinitionHeaderInput&);
-Result<std::vector<std::uint8_t>> rewrite_ecuflash_xml(
-    std::span<const std::uint8_t> source,
-    const DefinitionHeaderInput&);
+Result<std::vector<std::uint8_t>> rewrite_ecuflash_xml(std::span<const std::uint8_t> source,
+                                                       const DefinitionHeaderInput&);
 
 } // namespace fastecu::definition

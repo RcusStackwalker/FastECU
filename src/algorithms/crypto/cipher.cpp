@@ -31,10 +31,10 @@ void Cipher::handleErrors(void)
 bytes::Bytes Cipher::encrypt_aes128_ecb(bytes::ByteView plaintext, bytes::ByteView key)
 {
     bytes::Bytes result(plaintext.size() + 16);
-    int ciphertext_len = encrypt_aes128_ecb(reinterpret_cast<unsigned char *>(const_cast<bytes::Byte *>(plaintext.data())),
-                                            static_cast<int>(plaintext.size()),
-                                            reinterpret_cast<unsigned char *>(const_cast<bytes::Byte *>(key.data())),
-                                            reinterpret_cast<unsigned char *>(result.data()));
+    int ciphertext_len = encrypt_aes128_ecb(
+        reinterpret_cast<unsigned char *>(const_cast<bytes::Byte *>(plaintext.data())),
+        static_cast<int>(plaintext.size()), reinterpret_cast<unsigned char *>(const_cast<bytes::Byte *>(key.data())),
+        reinterpret_cast<unsigned char *>(result.data()));
     result.resize(ciphertext_len);
     return result;
 }
@@ -42,15 +42,16 @@ bytes::Bytes Cipher::encrypt_aes128_ecb(bytes::ByteView plaintext, bytes::ByteVi
 bytes::Bytes Cipher::decrypt_aes128_ecb(bytes::ByteView ciphertext, bytes::ByteView key)
 {
     bytes::Bytes result(ciphertext.size());
-    int plaintext_len = decrypt_aes128_ecb(reinterpret_cast<unsigned char *>(const_cast<bytes::Byte *>(ciphertext.data())),
-                                           static_cast<int>(ciphertext.size()),
-                                           reinterpret_cast<unsigned char *>(const_cast<bytes::Byte *>(key.data())),
-                                           reinterpret_cast<unsigned char *>(result.data()));
+    int plaintext_len = decrypt_aes128_ecb(
+        reinterpret_cast<unsigned char *>(const_cast<bytes::Byte *>(ciphertext.data())),
+        static_cast<int>(ciphertext.size()), reinterpret_cast<unsigned char *>(const_cast<bytes::Byte *>(key.data())),
+        reinterpret_cast<unsigned char *>(result.data()));
     result.resize(plaintext_len);
     return result;
 }
 
-int Cipher::encrypt_aes128_ecb(unsigned char *plaintext, int plaintext_len, unsigned char *key, unsigned char *ciphertext)
+int Cipher::encrypt_aes128_ecb(unsigned char *plaintext, int plaintext_len, unsigned char *key,
+                               unsigned char *ciphertext)
 {
     int len;
 
@@ -87,7 +88,8 @@ int Cipher::encrypt_aes128_ecb(unsigned char *plaintext, int plaintext_len, unsi
     return ciphertext_len;
 }
 
-int Cipher::decrypt_aes128_ecb(unsigned char *ciphertext, int ciphertext_len, unsigned char *key, unsigned char *plaintext)
+int Cipher::decrypt_aes128_ecb(unsigned char *ciphertext, int ciphertext_len, unsigned char *key,
+                               unsigned char *plaintext)
 {
     int len;
 

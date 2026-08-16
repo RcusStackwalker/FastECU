@@ -28,8 +28,8 @@ TEST(TestMitsuColtCanVendorExtProtocol, challenge_inverse_round_trips_with_forwa
 {
     // Lightweight regression check standing in for the one-time
     // exhaustive 2^32 proof recorded in the design doc.
-    const std::uint32_t values[] = {0x00000000u, 0xFFFFFFFFu, 0x12345678u,
-                                    0x00000001u, 0xDEADBEEFu, 0x80000000u, 0x7FFFFFFFu};
+    const std::uint32_t values[] = {0x00000000u, 0xFFFFFFFFu, 0x12345678u, 0x00000001u,
+                                    0xDEADBEEFu, 0x80000000u, 0x7FFFFFFFu};
     for (std::uint32_t x : values)
     {
         ASSERT_EQ(challengeInverseTransform(challengeTransform(x)), x);

@@ -28,11 +28,10 @@ bool starts_with(std::string_view value, std::string_view prefix)
     return value.substr(0, prefix.size()) == prefix;
 }
 
-ChecksumResult denso_sh7xxx(bytes::ByteView rom, std::uint32_t area_start,
-                            std::int32_t offset = 0)
+ChecksumResult denso_sh7xxx(bytes::ByteView rom, std::uint32_t area_start, std::int32_t offset = 0)
 {
-    ChecksumResult result = ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(
-        rom, area_start, kDensoTableLength, offset);
+    ChecksumResult result =
+        ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(rom, area_start, kDensoTableLength, offset);
     if (result.changed())
     {
         // This wrapper supplies the family title only for the Corrected path.
@@ -45,8 +44,7 @@ ChecksumResult denso_sh7xxx(bytes::ByteView rom, std::uint32_t area_start,
 
 ChecksumResult denso_sh705x_diesel(bytes::ByteView rom, std::uint32_t area_start)
 {
-    return ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(
-        rom, area_start, kDensoTableLength);
+    return ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(rom, area_start, kDensoTableLength);
 }
 
 struct DispatchResult
@@ -100,8 +98,7 @@ constexpr std::array kRoutes{
     RouteSpec{"sub_tcu_cvt_mitsu_mh8104_can", Route::MitsuMh8104Tcu},
 };
 
-DispatchResult execute(const RouteSpec& spec, std::string_view rom_id,
-                       bytes::ByteView rom)
+DispatchResult execute(const RouteSpec& spec, std::string_view rom_id, bytes::ByteView rom)
 {
     switch (spec.route)
     {
@@ -137,8 +134,7 @@ DispatchResult execute(const RouteSpec& spec, std::string_view rom_id,
     std::unreachable();
 }
 
-DispatchResult dispatch_family(std::string_view flash_method,
-                               std::string_view rom_id, bytes::ByteView rom)
+DispatchResult dispatch_family(std::string_view flash_method, std::string_view rom_id, bytes::ByteView rom)
 {
     for (const RouteSpec& spec : kRoutes)
     {
@@ -151,8 +147,7 @@ DispatchResult dispatch_family(std::string_view flash_method,
 }
 } // namespace
 
-ChecksumCorrectionOutcome apply_checksum_correction(bytes::ByteView rom_data,
-                                                    const ChecksumSelection& selection)
+ChecksumCorrectionOutcome apply_checksum_correction(bytes::ByteView rom_data, const ChecksumSelection& selection)
 {
     const flashdev_t *device = fastecu::flash::find_flash_device(selection.mcu_type);
     if (device == nullptr)
@@ -173,8 +168,7 @@ ChecksumCorrectionOutcome apply_checksum_correction(bytes::ByteView rom_data,
     {
         return {.status = ChecksumCorrectionOutcome::Status::NoModuleForProtocol};
     }
-    return {.status = ChecksumCorrectionOutcome::Status::FamilyRan,
-            .family_result = dispatch.result};
+    return {.status = ChecksumCorrectionOutcome::Status::FamilyRan, .family_result = dispatch.result};
 }
 
 } // namespace fastecu::checksum

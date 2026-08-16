@@ -22,8 +22,7 @@ fastecu::Status configure_cdbg_serial(const CdbgSerialSetupActions& actions)
     {
         if (!*action || !(*action)())
         {
-            return fastecu::fail(fastecu::ErrorKind::InvalidConfig,
-                                 std::format("failed to {}", description));
+            return fastecu::fail(fastecu::ErrorKind::InvalidConfig, std::format("failed to {}", description));
         }
     }
     return {};

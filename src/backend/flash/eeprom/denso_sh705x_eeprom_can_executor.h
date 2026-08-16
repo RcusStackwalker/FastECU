@@ -21,20 +21,16 @@ namespace fastecu::flash
 class DensoSh705xEepromCanExecutor final : public IFlashExecutor
 {
   public:
-    Result<FlashExecutionResult> execute(const FlashPlan& plan, IFlashTransport& transport,
-                                         IClock& clock, const ICancellationToken& cancellation,
-                                         IEventSink& events) override;
+    Result<FlashExecutionResult> execute(const FlashPlan& plan, IFlashTransport& transport, IClock& clock,
+                                         const ICancellationToken& cancellation, IEventSink& events) override;
 
   private:
-    Status connect_bootloader(ICanFlashTransport& transport, IClock& clock,
-                              const ICancellationToken& cancellation, IEventSink& events,
-                              const DensoSh705xEepromCanPlan& can_plan, bool& kernel_alive);
-    Status upload_kernel(ICanFlashTransport& transport, IClock& clock,
-                         const ICancellationToken& cancellation, IEventSink& events,
-                         const DensoSh705xEepromCanPlan& can_plan, const KernelImage& kernel);
-    Result<bytes::Bytes> read_mem(ICanFlashTransport& transport, IClock& clock,
-                                  const ICancellationToken& cancellation, IEventSink& events,
-                                  const MemoryRegion& region, EepromReadMode mode,
+    Status connect_bootloader(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                              IEventSink& events, const DensoSh705xEepromCanPlan& can_plan, bool& kernel_alive);
+    Status upload_kernel(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                         IEventSink& events, const DensoSh705xEepromCanPlan& can_plan, const KernelImage& kernel);
+    Result<bytes::Bytes> read_mem(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                                  IEventSink& events, const MemoryRegion& region, EepromReadMode mode,
                                   std::uint32_t request_id);
 };
 

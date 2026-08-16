@@ -109,8 +109,9 @@
 #define SID_RMBA 0x23 /* ReadMemByAddress. format : <SID_RMBA> <AH> <AM> <AL> <SIZ>  , siz <= 251. */
                       /* response : <SID + 0x40> <D0>....<Dn> <AH> <AM> <AL> */
 
-#define SID_WMBA 0x3D /* WriteMemByAddress (RAM only !) . format : <SID_WMBA> <AH> <AM> <AL> <SIZ> <DATA> , siz <= 250. */
-                      /* response : <SID + 0x40> <AH> <AM> <AL> */
+#define SID_WMBA                                                                                                       \
+    0x3D /* WriteMemByAddress (RAM only !) . format : <SID_WMBA> <AH> <AM> <AL> <SIZ> <DATA> , siz <= 250. */
+         /* response : <SID + 0x40> <AH> <AM> <AL> */
 
 #define SID_TP 0x3E /* TesterPresent; not required but available. */
 
@@ -125,19 +126,22 @@
 #define SID_FLASH 0xBC       /* low-level reflash commands; only available after successful RequestDownload */
 #define SIDFL_UNPROTECT 0x55 // enable erase / write. format : <SID_FLASH> <SIDFL_UNPROTECT> <~SIDFL_UNPROTECT>
 #define SIDFL_EB 0x01        // erase block. format : <SID_FLASH> <SIDFL_EB> <BLOCK #>
-#define SIDFL_WB 0x02        // write n-byte block. format : <SID_FLASH> <SIDFL_WB> <A2> <A1> <A0> <D0>...<D(SIDFL_WB_DLEN -1)> <CRC>
-                             //  Address is <A2 A1 A0>;   CRC is calculated on address + data.
-#define SIDFL_WB_DLEN 128    // bytes sent per niprog block
+#define SIDFL_WB                                                                                                       \
+    0x02 // write n-byte block. format : <SID_FLASH> <SIDFL_WB> <A2> <A1> <A0> <D0>...<D(SIDFL_WB_DLEN -1)> <CRC>
+         //  Address is <A2 A1 A0>;   CRC is calculated on address + data.
+#define SIDFL_WB_DLEN 128 // bytes sent per niprog block
 
 /* SID_CONF and subcommands */
 #define SID_CONF 0xBE          /* set & configure kernel */
 #define SID_CONF_SETSPEED 0x01 /* set comm speed (BRR divisor reg) : <SID_CONF> <SID_CONF_SETSPEED> <new divisor> */
                                // this requires a new StartComm request at the new speed
 #define SID_CONF_SETEEPR 0x02  /* set eeprom_read() function address <SID_CONF> <SID_CONF_SETEEPR> <AH> <AM> <AL> */
-#define SID_CONF_CKS1 0x03     // verify if 4*<CRCH:CRCL> hash is valid for 4*256B chunks of the ROM (starting at <CNH:CNL> * 1024)
-                               //<SID_CONF> <SID_CONF_CKS1> <CNH> <CNL> <CRC0H> <CRC0L> ...<CRC3H> <CRC3L>
-#define SID_CONF_R16 0x04      /* for debugging : do a 16bit access read at given adress in RAM (top byte 0xFF) \
-                                * <SID_CONF> <SID_CONF_R16> <A2> <A1> <A0> */
+#define SID_CONF_CKS1                                                                                                  \
+    0x03 // verify if 4*<CRCH:CRCL> hash is valid for 4*256B chunks of the ROM (starting at <CNH:CNL> * 1024)
+         //<SID_CONF> <SID_CONF_CKS1> <CNH> <CNL> <CRC0H> <CRC0L> ...<CRC3H> <CRC3L>
+#define SID_CONF_R16                                                                                                   \
+    0x04 /* for debugging : do a 16bit access read at given adress in RAM (top byte 0xFF)                              \
+          * <SID_CONF> <SID_CONF_R16> <A2> <A1> <A0> */
 
 #define ROMCRC_NUMCHUNKS_16BIT 1
 #define ROMCRC_CHUNKSIZE_16BIT 16384

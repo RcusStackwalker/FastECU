@@ -280,8 +280,7 @@ class DefinitionCatalog
   public:
     static Result<DefinitionCatalog> create(std::vector<DefinitionIndexEntry> entries);
 
-    Result<std::reference_wrapper<const DefinitionIndexEntry>> find(DefinitionFormat format,
-                                                                    std::string_view id) const;
+    Result<std::reference_wrapper<const DefinitionIndexEntry>> find(DefinitionFormat format, std::string_view id) const;
 
     std::span<const DefinitionIndexEntry> entries() const;
 

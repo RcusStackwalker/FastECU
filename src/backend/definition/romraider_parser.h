@@ -10,12 +10,10 @@
 namespace fastecu::definition
 {
 
-Result<std::vector<DefinitionIndexEntry>> parse_romraider_index(
-    std::span<const std::uint8_t> xml, std::string_view source);
+Result<std::vector<DefinitionIndexEntry>> parse_romraider_index(std::span<const std::uint8_t> xml,
+                                                                std::string_view source);
 
-Result<UnresolvedDefinition> parse_romraider_definition(
-    std::span<const std::uint8_t> xml,
-    std::string_view source,
-    std::string_view definition_id);
+Result<UnresolvedDefinition> parse_romraider_definition(std::span<const std::uint8_t> xml, std::string_view source,
+                                                        std::string_view definition_id);
 
 } // namespace fastecu::definition

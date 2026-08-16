@@ -7,8 +7,7 @@
 namespace fastecu
 {
 
-template <class T>
-using Result = std::expected<T, Error>;
+template <class T> using Result = std::expected<T, Error>;
 
 using Status = std::expected<void, Error>;
 

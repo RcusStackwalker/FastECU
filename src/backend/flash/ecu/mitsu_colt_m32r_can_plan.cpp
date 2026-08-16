@@ -63,43 +63,33 @@ Status validate_mitsu_colt_m32r_can_plan(const FlashPlan& plan)
     }
     if (plan.mcu_name() != (*variant)->mcu)
     {
-        return fail(ErrorKind::InvalidConfig,
-                    std::format("Protocol {} expects MCU {}; got {}", plan.target_id(),
-                                (*variant)->mcu, plan.mcu_name()));
+        return fail(ErrorKind::InvalidConfig, std::format("Protocol {} expects MCU {}; got {}", plan.target_id(),
+                                                          (*variant)->mcu, plan.mcu_name()));
     }
     if (const auto *family = std::get_if<MitsuColtM32rCanPlan>(&plan.family_plan());
         family == nullptr || family->use_vendor_challenge != (*variant)->vendor)
     {
-        return fail(ErrorKind::InvalidConfig,
-                    "Mitsubishi Colt authorization variant does not match protocol");
+        return fail(ErrorKind::InvalidConfig, "Mitsubishi Colt authorization variant does not match protocol");
     }
 
     const bool read = plan.operation() == FlashOperation::Read;
     if (const MemoryRegion expected{read ? 0u : MitsuColtCan::kUserspaceStart,
-                                    (*variant)->capacity -
-                                        (read ? 0u : MitsuColtCan::kUserspaceStart)};
-        plan.transfer_region().start != expected.start ||
-        plan.transfer_region().length != expected.length)
+                                    (*variant)->capacity - (read ? 0u : MitsuColtCan::kUserspaceStart)};
+        plan.transfer_region().start != expected.start || plan.transfer_region().length != expected.length)
     {
         return fail(ErrorKind::InvalidConfig,
-                    std::format("Transfer region does not match protocol capacity 0x{:x}",
-                                (*variant)->capacity));
+                    std::format("Transfer region does not match protocol capacity 0x{:x}", (*variant)->capacity));
     }
-    if (const std::uint32_t rom_end =
-            plan.transfer_region().start + plan.transfer_region().length;
-        read ? plan.image().has_value()
-             : (!plan.image().has_value() || plan.image()->size() != rom_end))
+    if (const std::uint32_t rom_end = plan.transfer_region().start + plan.transfer_region().length;
+        read ? plan.image().has_value() : (!plan.image().has_value() || plan.image()->size() != rom_end))
     {
-        return fail(ErrorKind::InvalidConfig,
-                    std::format("ROM image size does not match ROM extent 0x{:x}", rom_end));
+        return fail(ErrorKind::InvalidConfig, std::format("ROM image size does not match ROM extent 0x{:x}", rom_end));
     }
     return {};
 }
 
-Result<FlashPlan> build_mitsu_colt_m32r_can_plan(FlashOperation operation,
-                                                 std::string_view protocol_name,
-                                                 std::string_view mcu_type,
-                                                 std::optional<bytes::Bytes> image)
+Result<FlashPlan> build_mitsu_colt_m32r_can_plan(FlashOperation operation, std::string_view protocol_name,
+                                                 std::string_view mcu_type, std::optional<bytes::Bytes> image)
 {
     const auto variant = require_variant(protocol_name);
     if (!variant.has_value())
@@ -109,10 +99,9 @@ Result<FlashPlan> build_mitsu_colt_m32r_can_plan(FlashOperation operation,
 
     if (operation == FlashOperation::TestWrite)
     {
-        return fail(ErrorKind::Unsupported,
-                    "test_write is not supported by this family; protocols.cfg declares "
-                    "test_write=no and the legacy implementation performed only a "
-                    "diagnostic-session handshake");
+        return fail(ErrorKind::Unsupported, "test_write is not supported by this family; protocols.cfg declares "
+                                            "test_write=no and the legacy implementation performed only a "
+                                            "diagnostic-session handshake");
     }
 
     // Legacy: flash_ecu_mitsu_m32r_can_operation.cpp:24-29.
@@ -123,8 +112,7 @@ Result<FlashPlan> build_mitsu_colt_m32r_can_plan(FlashOperation operation,
     if (mcu_type != (*variant)->mcu)
     {
         return fail(ErrorKind::InvalidConfig,
-                    std::format("Protocol {} expects MCU {}; got {}", protocol_name,
-                                (*variant)->mcu, mcu_type));
+                    std::format("Protocol {} expects MCU {}; got {}", protocol_name, (*variant)->mcu, mcu_type));
     }
 
     FlashPlanFields fields;
@@ -154,28 +142,26 @@ Result<FlashPlan> build_mitsu_colt_m32r_can_plan(FlashOperation operation,
     }
     else if (image->size() != (*variant)->capacity)
     {
-        return fail(ErrorKind::InvalidConfig,
-                    std::format("ROM file must be exactly 0x{:x} bytes; got 0x{:x} bytes",
-                                (*variant)->capacity, image->size()));
+        return fail(ErrorKind::InvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes; got 0x{:x} bytes",
+                                                          (*variant)->capacity, image->size()));
     }
     else
     {
-        fields.transfer_region = MemoryRegion{MitsuColtCan::kUserspaceStart,
-                                              (*variant)->capacity -
-                                                  MitsuColtCan::kUserspaceStart};
+        fields.transfer_region =
+            MemoryRegion{MitsuColtCan::kUserspaceStart, (*variant)->capacity - MitsuColtCan::kUserspaceStart};
         fields.image = std::move(image);
         const std::string capacity_kib = std::to_string((*variant)->capacity / 1024);
         const std::string rom_end = std::format("0x{:x}", (*variant)->capacity);
-        fields.confirmations = {ConfirmationSpec{
-            ConfirmationSpec::Id::EraseTrigger,
-            {{"capacity_kib", capacity_kib},
-             {"writable_start_hex", std::format("0x{:x}", MitsuColtCan::kUserspaceStart)},
-             {"rom_end_hex", rom_end}}}};
+        fields.confirmations = {
+            ConfirmationSpec{ConfirmationSpec::Id::EraseTrigger,
+                             {{"capacity_kib", capacity_kib},
+                              {"writable_start_hex", std::format("0x{:x}", MitsuColtCan::kUserspaceStart)},
+                              {"rom_end_hex", rom_end}}}};
         if ((*variant)->capacity == MitsuColtCan::kFullRomSize)
         {
-            fields.confirmations.push_back(ConfirmationSpec{
-                ConfirmationSpec::Id::TopRegionBootstrap,
-                {{"top_region_start_hex", "0x60000"}, {"rom_end_hex", rom_end}}});
+            fields.confirmations.push_back(
+                ConfirmationSpec{ConfirmationSpec::Id::TopRegionBootstrap,
+                                 {{"top_region_start_hex", "0x60000"}, {"rom_end_hex", rom_end}}});
         }
     }
 

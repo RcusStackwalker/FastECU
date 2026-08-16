@@ -31,12 +31,8 @@ class FlashTcuSubaruDensoSH705xCanOperation : public FlashOperationWorker
     Q_OBJECT
 
   public:
-    FlashTcuSubaruDensoSH705xCanOperation(SerialPortActions *serial,
-                                          FileActions::EcuCalDefStructure *ecuCalDef,
-                                          QString cmd_type,
-                                          int tcuAction,
-                                          QWidget *dialog,
-                                          QObject *parent = nullptr,
+    FlashTcuSubaruDensoSH705xCanOperation(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
+                                          QString cmd_type, int tcuAction, QWidget *dialog, QObject *parent = nullptr,
                                           PromptFn promptOverride = {});
 
   protected:
@@ -102,8 +98,8 @@ class FlashTcuSubaruDensoSH705xCanOperation : public FlashOperationWorker
 
     // Runs QInputDialog::getInt on the GUI thread and blocks this thread
     // for the answer; see class comment above.
-    int promptInt(const QString& title, const QString& label, int value,
-                  int minValue, int maxValue, int step, bool *ok);
+    int promptInt(const QString& title, const QString& label, int value, int minValue, int maxValue, int step,
+                  bool *ok);
 
     SerialPortActions *serial;
     FileActions::EcuCalDefStructure *ecuCalDef;

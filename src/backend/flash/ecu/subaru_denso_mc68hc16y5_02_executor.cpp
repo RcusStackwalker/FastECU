@@ -57,8 +57,7 @@ Status check_cancelled(const ICancellationToken& cancellation, std::string detai
 bytes::Bytes frame(std::uint8_t opcode, bytes::ByteView payload = {})
 {
     const std::uint16_t len_plus_one = static_cast<std::uint16_t>(payload.size() + 1);
-    return composeBeWithChecksum(bytes::sum8, kStartComm, len_plus_one, bytes::Byte(opcode),
-                                 payload);
+    return composeBeWithChecksum(bytes::sum8, kStartComm, len_plus_one, bytes::Byte(opcode), payload);
 }
 
 bool response_ok(bytes::ByteView received, std::uint8_t expected_opcode_with_ack)
@@ -69,13 +68,12 @@ bool response_ok(bytes::ByteView received, std::uint8_t expected_opcode_with_ack
 
 // Shared cancellation-aware write/read exchange, porting legacy
 // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:116-119 and 269-270.
-Result<IKlineFlashTransport::OptionalBytes> exchange_optional_impl(
-    IKlineFlashTransport& transport, IClock *clock,
-    const ICancellationToken& cancellation, bytes::ByteView request,
-    int settle_ms, int timeout_ms)
+Result<IKlineFlashTransport::OptionalBytes> exchange_optional_impl(IKlineFlashTransport& transport, IClock *clock,
+                                                                   const ICancellationToken& cancellation,
+                                                                   bytes::ByteView request, int settle_ms,
+                                                                   int timeout_ms)
 {
-    if (Status cancelled = check_cancelled(cancellation, "cancelled before write");
-        !cancelled.has_value())
+    if (Status cancelled = check_cancelled(cancellation, "cancelled before write"); !cancelled.has_value())
     {
         return std::unexpected(cancelled.error());
     }
@@ -88,8 +86,7 @@ Result<IKlineFlashTransport::OptionalBytes> exchange_optional_impl(
     {
         return fail(ErrorKind::Disconnected, "short K-Line write");
     }
-    if (Status cancelled = check_cancelled(cancellation, "cancelled after write");
-        !cancelled.has_value())
+    if (Status cancelled = check_cancelled(cancellation, "cancelled after write"); !cancelled.has_value())
     {
         return std::unexpected(cancelled.error());
     }
@@ -100,8 +97,7 @@ Result<IKlineFlashTransport::OptionalBytes> exchange_optional_impl(
             return std::unexpected(slept.error());
         }
     }
-    if (Status cancelled = check_cancelled(cancellation, "cancelled before read");
-        !cancelled.has_value())
+    if (Status cancelled = check_cancelled(cancellation, "cancelled before read"); !cancelled.has_value())
     {
         return std::unexpected(cancelled.error());
     }
@@ -110,8 +106,7 @@ Result<IKlineFlashTransport::OptionalBytes> exchange_optional_impl(
     {
         return std::unexpected(received.error());
     }
-    if (Status cancelled = check_cancelled(cancellation, "cancelled after read");
-        !cancelled.has_value())
+    if (Status cancelled = check_cancelled(cancellation, "cancelled after read"); !cancelled.has_value())
     {
         return std::unexpected(cancelled.error());
     }
@@ -119,8 +114,8 @@ Result<IKlineFlashTransport::OptionalBytes> exchange_optional_impl(
 }
 
 Result<bytes::Bytes> exchange_impl(IKlineFlashTransport& transport, IClock *clock,
-                                   const ICancellationToken& cancellation,
-                                   bytes::ByteView request, int settle_ms, int timeout_ms)
+                                   const ICancellationToken& cancellation, bytes::ByteView request, int settle_ms,
+                                   int timeout_ms)
 {
     Result<IKlineFlashTransport::OptionalBytes> received =
         exchange_optional_impl(transport, clock, cancellation, request, settle_ms, timeout_ms);
@@ -135,30 +130,26 @@ Result<bytes::Bytes> exchange_impl(IKlineFlashTransport& transport, IClock *cloc
     return std::move(**received);
 }
 
-Result<bytes::Bytes> exchange(IKlineFlashTransport& transport, IClock& clock,
-                              const ICancellationToken& cancellation, bytes::ByteView request,
-                              int settle_ms, int timeout_ms)
+Result<bytes::Bytes> exchange(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                              bytes::ByteView request, int settle_ms, int timeout_ms)
 {
     return exchange_impl(transport, &clock, cancellation, request, settle_ms, timeout_ms);
 }
 
-Result<bytes::Bytes> exchange(IKlineFlashTransport& transport,
-                              const ICancellationToken& cancellation, bytes::ByteView request,
-                              int timeout_ms)
+Result<bytes::Bytes> exchange(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
+                              bytes::ByteView request, int timeout_ms)
 {
     return exchange_impl(transport, nullptr, cancellation, request, 0, timeout_ms);
 }
 
-Result<IKlineFlashTransport::OptionalBytes> exchange_optional(
-    IKlineFlashTransport& transport, IClock& clock,
-    const ICancellationToken& cancellation, bytes::ByteView request,
-    int settle_ms, int timeout_ms)
+Result<IKlineFlashTransport::OptionalBytes> exchange_optional(IKlineFlashTransport& transport, IClock& clock,
+                                                              const ICancellationToken& cancellation,
+                                                              bytes::ByteView request, int settle_ms, int timeout_ms)
 {
     return exchange_optional_impl(transport, &clock, cancellation, request, settle_ms, timeout_ms);
 }
 
-Status drain_response(IKlineFlashTransport& transport,
-                      const ICancellationToken& cancellation, int timeout_ms,
+Status drain_response(IKlineFlashTransport& transport, const ICancellationToken& cancellation, int timeout_ms,
                       std::string_view detail)
 {
     if (Status cancelled = check_cancelled(cancellation, std::format("cancelled before {}", detail));
@@ -166,9 +157,7 @@ Status drain_response(IKlineFlashTransport& transport,
     {
         return cancelled;
     }
-    if (const auto drained =
-            transport.read(timeout_ms, cancellation);
-        !drained.has_value())
+    if (const auto drained = transport.read(timeout_ms, cancellation); !drained.has_value())
     {
         return std::unexpected(drained.error());
     }
@@ -201,8 +190,7 @@ bool looks_kernel_alive(bytes::ByteView received)
 // boot-entry sequence. Empty and non-empty reads are both successful drains.
 Status drain_initial_response(IKlineFlashTransport& transport, const ICancellationToken& cancellation)
 {
-    if (Status cancelled = check_cancelled(cancellation, "cancelled before initial drain");
-        !cancelled.has_value())
+    if (Status cancelled = check_cancelled(cancellation, "cancelled before initial drain"); !cancelled.has_value())
     {
         return cancelled;
     }
@@ -211,8 +199,7 @@ Status drain_initial_response(IKlineFlashTransport& transport, const ICancellati
     {
         return std::unexpected(drained.error());
     }
-    if (Status cancelled = check_cancelled(cancellation, "cancelled after initial drain");
-        !cancelled.has_value())
+    if (Status cancelled = check_cancelled(cancellation, "cancelled after initial drain"); !cancelled.has_value())
     {
         return cancelled;
     }
@@ -221,12 +208,12 @@ Status drain_initial_response(IKlineFlashTransport& transport, const ICancellati
 
 } // namespace
 
-Status SubaruDensoMc68hc16y5_02Executor::connect_bootloader(
-    IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-    IEventSink& events, const SubaruDensoMc68hc16y5_02Plan& family_plan, bool& kernel_alive)
+Status SubaruDensoMc68hc16y5_02Executor::connect_bootloader(IKlineFlashTransport& transport, IClock& clock,
+                                                            const ICancellationToken& cancellation, IEventSink& events,
+                                                            const SubaruDensoMc68hc16y5_02Plan& family_plan,
+                                                            bool& kernel_alive)
 {
-    if (Status cancelled = check_cancelled(cancellation, "cancelled before connect");
-        !cancelled.has_value())
+    if (Status cancelled = check_cancelled(cancellation, "cancelled before connect"); !cancelled.has_value())
     {
         return cancelled;
     }
@@ -235,8 +222,7 @@ Status SubaruDensoMc68hc16y5_02Executor::connect_bootloader(
     {
         return slept;
     }
-    if (Status cancelled = check_cancelled(cancellation, "cancelled before LEC pulse");
-        !cancelled.has_value())
+    if (Status cancelled = check_cancelled(cancellation, "cancelled before LEC pulse"); !cancelled.has_value())
     {
         return cancelled;
     }
@@ -244,8 +230,7 @@ Status SubaruDensoMc68hc16y5_02Executor::connect_bootloader(
     {
         return pulsed;
     }
-    if (Status cancelled = check_cancelled(cancellation, "cancelled after LEC pulse");
-        !cancelled.has_value())
+    if (Status cancelled = check_cancelled(cancellation, "cancelled after LEC pulse"); !cancelled.has_value())
     {
         return cancelled;
     }
@@ -262,10 +247,8 @@ Status SubaruDensoMc68hc16y5_02Executor::connect_bootloader(
     {
         return std::unexpected(init_response.error());
     }
-    if (init_response->has_value() &&
-        (**init_response).size() >= family_plan.bootloader_ok.size() &&
-        std::equal(family_plan.bootloader_ok.begin(), family_plan.bootloader_ok.end(),
-                   (**init_response).begin()))
+    if (init_response->has_value() && (**init_response).size() >= family_plan.bootloader_ok.size() &&
+        std::equal(family_plan.bootloader_ok.begin(), family_plan.bootloader_ok.end(), (**init_response).begin()))
     {
         events.log(LogLevel::Info, "Connected to bootloader");
         kernel_alive = false;
@@ -287,13 +270,11 @@ Status SubaruDensoMc68hc16y5_02Executor::connect_bootloader(
     {
         return disabled;
     }
-    if (Status cancelled = check_cancelled(cancellation, "cancelled after disabling LEC lines");
-        !cancelled.has_value())
+    if (Status cancelled = check_cancelled(cancellation, "cancelled after disabling LEC lines"); !cancelled.has_value())
     {
         return cancelled;
     }
-    if (Status cancelled = check_cancelled(cancellation, "cancelled before changing baud");
-        !cancelled.has_value())
+    if (Status cancelled = check_cancelled(cancellation, "cancelled before changing baud"); !cancelled.has_value())
     {
         return cancelled;
     }
@@ -301,12 +282,12 @@ Status SubaruDensoMc68hc16y5_02Executor::connect_bootloader(
     {
         return baud;
     }
-    if (Status cancelled = check_cancelled(cancellation, "cancelled after changing baud");
-        !cancelled.has_value())
+    if (Status cancelled = check_cancelled(cancellation, "cancelled after changing baud"); !cancelled.has_value())
     {
         return cancelled;
     }
-    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:149-179 and 1139-1168.
+    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:149-179
+    // and 1139-1168.
     Result<bytes::Bytes> probe = request_kernel_id(transport, clock, cancellation);
     if (!probe.has_value())
     {
@@ -325,12 +306,12 @@ Status SubaruDensoMc68hc16y5_02Executor::connect_bootloader(
     return {};
 }
 
-Status SubaruDensoMc68hc16y5_02Executor::upload_kernel(
-    IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-    IEventSink& events, const SubaruDensoMc68hc16y5_02Plan& family_plan, const KernelImage& kernel)
+Status SubaruDensoMc68hc16y5_02Executor::upload_kernel(IKlineFlashTransport& transport, IClock& clock,
+                                                       const ICancellationToken& cancellation, IEventSink& events,
+                                                       const SubaruDensoMc68hc16y5_02Plan& family_plan,
+                                                       const KernelImage& kernel)
 {
-    if (Status cancelled = check_cancelled(cancellation, "cancelled before kernel upload");
-        !cancelled.has_value())
+    if (Status cancelled = check_cancelled(cancellation, "cancelled before kernel upload"); !cancelled.has_value())
     {
         return cancelled;
     }
@@ -338,8 +319,7 @@ Status SubaruDensoMc68hc16y5_02Executor::upload_kernel(
     {
         return fail(ErrorKind::InvalidConfig, "kernel image is empty");
     }
-    if (Status cancelled = check_cancelled(cancellation, "cancelled before changing baud");
-        !cancelled.has_value())
+    if (Status cancelled = check_cancelled(cancellation, "cancelled before changing baud"); !cancelled.has_value())
     {
         return cancelled;
     }
@@ -347,8 +327,7 @@ Status SubaruDensoMc68hc16y5_02Executor::upload_kernel(
     {
         return baud;
     }
-    if (Status cancelled = check_cancelled(cancellation, "cancelled after changing baud");
-        !cancelled.has_value())
+    if (Status cancelled = check_cancelled(cancellation, "cancelled after changing baud"); !cancelled.has_value())
     {
         return cancelled;
     }
@@ -395,13 +374,13 @@ Status SubaruDensoMc68hc16y5_02Executor::upload_kernel(
     }
     events.log(LogLevel::Info, "Kernel uploaded successfully");
 
-    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:287-317 and 1139-1168.
+    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:287-317
+    // and 1139-1168.
     if (Status slept = clock.sleep(1500, cancellation); !slept.has_value())
     {
         return slept;
     }
-    if (Status cancelled = check_cancelled(cancellation, "cancelled before changing baud");
-        !cancelled.has_value())
+    if (Status cancelled = check_cancelled(cancellation, "cancelled before changing baud"); !cancelled.has_value())
     {
         return cancelled;
     }
@@ -409,8 +388,7 @@ Status SubaruDensoMc68hc16y5_02Executor::upload_kernel(
     {
         return baud;
     }
-    if (Status cancelled = check_cancelled(cancellation, "cancelled after changing baud");
-        !cancelled.has_value())
+    if (Status cancelled = check_cancelled(cancellation, "cancelled after changing baud"); !cancelled.has_value())
     {
         return cancelled;
     }
@@ -431,9 +409,9 @@ Status SubaruDensoMc68hc16y5_02Executor::upload_kernel(
     return {};
 }
 
-Result<bytes::Bytes> SubaruDensoMc68hc16y5_02Executor::read_mem(
-    IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-    IEventSink& events, const std::string& mcu_name)
+Result<bytes::Bytes> SubaruDensoMc68hc16y5_02Executor::read_mem(IKlineFlashTransport& transport, IClock& clock,
+                                                                const ICancellationToken& cancellation,
+                                                                IEventSink& events, const std::string& mcu_name)
 {
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:323-455.
     // Legacy lines 370-380 jump the wire address across the RAM/kernel hole
@@ -449,8 +427,7 @@ Result<bytes::Bytes> SubaruDensoMc68hc16y5_02Executor::read_mem(
     events.progress(0, static_cast<int>(device->romsize));
     std::uint32_t packed_remaining = device->romsize;
 
-    for (unsigned block_no = 0;
-         block_no < device->numblocks && packed_remaining > 0; ++block_no)
+    for (unsigned block_no = 0; block_no < device->numblocks && packed_remaining > 0; ++block_no)
     {
         const auto& block = device->fblocks[block_no];
         const std::uint32_t block_bytes = std::min(block.len, packed_remaining);
@@ -459,16 +436,13 @@ Result<bytes::Bytes> SubaruDensoMc68hc16y5_02Executor::read_mem(
             return fail(ErrorKind::InvalidConfig, "flash block is not page aligned");
         }
         const std::uint32_t block_end = block.start + block_bytes;
-        for (std::uint32_t address = block.start; address < block_end;
-             address += kReadPageSize)
+        for (std::uint32_t address = block.start; address < block_end; address += kReadPageSize)
         {
-            if (Status cancelled = check_cancelled(cancellation, "cancelled during read");
-                !cancelled.has_value())
+            if (Status cancelled = check_cancelled(cancellation, "cancelled during read"); !cancelled.has_value())
             {
                 return std::unexpected(cancelled.error());
             }
-            const bytes::Bytes payload =
-                composeBe(0x00_b, u24(address), std::uint16_t(kReadPageSize));
+            const bytes::Bytes payload = composeBe(0x00_b, u24(address), std::uint16_t(kReadPageSize));
             Result<bytes::Bytes> response =
                 exchange(transport, clock, cancellation, frame(kOpReadArea, payload), 10, 3000);
             if (!response.has_value())
@@ -497,16 +471,15 @@ Result<bytes::Bytes> SubaruDensoMc68hc16y5_02Executor::read_mem(
     return mapdata;
 }
 
-Result<std::uint32_t> SubaruDensoMc68hc16y5_02Executor::read_block_crc(
-    IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-    const MemoryRegion& block)
+Result<std::uint32_t> SubaruDensoMc68hc16y5_02Executor::read_block_crc(IKlineFlashTransport& transport, IClock& clock,
+                                                                       const ICancellationToken& cancellation,
+                                                                       const MemoryRegion& block)
 {
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:626-715:
     // request the ECU's CRC over [start, start + length).
     const bytes::Bytes payload = composeBe(block.start, 0x00_b, u24(block.length));
     const bytes::Bytes request = frame(kOpCrc, payload);
-    if (Status cancelled = check_cancelled(cancellation, "cancelled before CRC write");
-        !cancelled.has_value())
+    if (Status cancelled = check_cancelled(cancellation, "cancelled before CRC write"); !cancelled.has_value())
     {
         return std::unexpected(cancelled.error());
     }
@@ -519,13 +492,11 @@ Result<std::uint32_t> SubaruDensoMc68hc16y5_02Executor::read_block_crc(
     {
         return fail(ErrorKind::Disconnected, "short K-Line write");
     }
-    if (Status cancelled = check_cancelled(cancellation, "cancelled after CRC write");
-        !cancelled.has_value())
+    if (Status cancelled = check_cancelled(cancellation, "cancelled after CRC write"); !cancelled.has_value())
     {
         return std::unexpected(cancelled.error());
     }
-    if (Status cancelled = check_cancelled(cancellation, "cancelled before initial CRC read");
-        !cancelled.has_value())
+    if (Status cancelled = check_cancelled(cancellation, "cancelled before initial CRC read"); !cancelled.has_value())
     {
         return std::unexpected(cancelled.error());
     }
@@ -534,8 +505,7 @@ Result<std::uint32_t> SubaruDensoMc68hc16y5_02Executor::read_block_crc(
     {
         return std::unexpected(initial.error());
     }
-    if (Status cancelled = check_cancelled(cancellation, "cancelled after initial CRC read");
-        !cancelled.has_value())
+    if (Status cancelled = check_cancelled(cancellation, "cancelled after initial CRC read"); !cancelled.has_value())
     {
         return std::unexpected(cancelled.error());
     }
@@ -570,20 +540,18 @@ Result<std::uint32_t> SubaruDensoMc68hc16y5_02Executor::read_block_crc(
     }
     const std::uint32_t crc = (static_cast<std::uint32_t>(response[5]) << 24) |
                               (static_cast<std::uint32_t>(response[6]) << 16) |
-                              (static_cast<std::uint32_t>(response[7]) << 8) |
-                              static_cast<std::uint32_t>(response[8]);
+                              (static_cast<std::uint32_t>(response[7]) << 8) | static_cast<std::uint32_t>(response[8]);
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:702-714.
-    if (Status drained = drain_response(transport, cancellation, 200, "CRC response drain");
-        !drained.has_value())
+    if (Status drained = drain_response(transport, cancellation, 200, "CRC response drain"); !drained.has_value())
     {
         return std::unexpected(drained.error());
     }
     return crc;
 }
 
-Status SubaruDensoMc68hc16y5_02Executor::flash_block(
-    IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-    IEventSink& events, bytes::ByteView image, const MemoryRegion& block, bool test_write)
+Status SubaruDensoMc68hc16y5_02Executor::flash_block(IKlineFlashTransport& transport, IClock& clock,
+                                                     const ICancellationToken& cancellation, IEventSink& events,
+                                                     bytes::ByteView image, const MemoryRegion& block, bool test_write)
 {
     if (block.start > image.size() || block.length > image.size() - block.start ||
         block.length % kWriteChunkSize != 0 || block.length % kCommitBlockSize != 0)
@@ -593,12 +561,14 @@ Status SubaruDensoMc68hc16y5_02Executor::flash_block(
 
     if (!test_write)
     {
-        // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:950-992.
+        // Legacy
+        // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:950-992.
         events.log(LogLevel::Info, "Erasing flash page...");
         const bytes::Bytes erase_payload = composeBe(block.start);
-        // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:950-969.
-        Result<bytes::Bytes> erase_response = exchange(
-            transport, clock, cancellation, frame(kOpBlankPage, erase_payload), 500, 3000);
+        // Legacy
+        // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:950-969.
+        Result<bytes::Bytes> erase_response =
+            exchange(transport, clock, cancellation, frame(kOpBlankPage, erase_payload), 500, 3000);
         if (!erase_response.has_value())
         {
             return std::unexpected(erase_response.error());
@@ -614,18 +584,16 @@ Status SubaruDensoMc68hc16y5_02Executor::flash_block(
     std::uint32_t commit_block_start = block.start;
     while (offset < block.length)
     {
-        if (Status cancelled = check_cancelled(cancellation, "cancelled during block write");
-            !cancelled.has_value())
+        if (Status cancelled = check_cancelled(cancellation, "cancelled during block write"); !cancelled.has_value())
         {
             return cancelled;
         }
 
-        // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:994-1039.
+        // Legacy
+        // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:994-1039.
         const std::uint32_t chunk_address = block.start + offset;
-        const bytes::Bytes payload =
-            composeBe(chunk_address, image.subspan(chunk_address, kWriteChunkSize));
-        Result<bytes::Bytes> response =
-            exchange(transport, cancellation, frame(kOpWriteFlashBuffer, payload), 3000);
+        const bytes::Bytes payload = composeBe(chunk_address, image.subspan(chunk_address, kWriteChunkSize));
+        Result<bytes::Bytes> response = exchange(transport, cancellation, frame(kOpWriteFlashBuffer, payload), 3000);
         if (!response.has_value())
         {
             return std::unexpected(response.error());
@@ -638,15 +606,15 @@ Status SubaruDensoMc68hc16y5_02Executor::flash_block(
 
         if (commit_block_start + kCommitBlockSize == block.start + offset)
         {
-            // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:1072-1128.
-            const std::uint32_t commit_crc = fastecu::checksum::crc32(
-                image.subspan(commit_block_start, kCommitBlockSize));
-            const std::uint8_t commit_opcode =
-                test_write ? kOpValidateFlashBuffer : kOpCommitFlashBuffer;
+            // Legacy
+            // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:1072-1128.
+            const std::uint32_t commit_crc =
+                fastecu::checksum::crc32(image.subspan(commit_block_start, kCommitBlockSize));
+            const std::uint8_t commit_opcode = test_write ? kOpValidateFlashBuffer : kOpCommitFlashBuffer;
             const bytes::Bytes commit_payload =
                 composeBe(commit_block_start, std::uint16_t(kCommitBlockSize), commit_crc);
-            Result<bytes::Bytes> commit_response = exchange(
-                transport, clock, cancellation, frame(commit_opcode, commit_payload), 200, 3000);
+            Result<bytes::Bytes> commit_response =
+                exchange(transport, clock, cancellation, frame(commit_opcode, commit_payload), 200, 3000);
             if (!commit_response.has_value())
             {
                 return std::unexpected(commit_response.error());
@@ -660,17 +628,16 @@ Status SubaruDensoMc68hc16y5_02Executor::flash_block(
         events.progress(static_cast<int>(offset), static_cast<int>(block.length));
     }
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:1129-1133.
-    if (Status drained = drain_response(transport, cancellation, 200, "flash block drain");
-        !drained.has_value())
+    if (Status drained = drain_response(transport, cancellation, 200, "flash block drain"); !drained.has_value())
     {
         return drained;
     }
     return {};
 }
 
-Status SubaruDensoMc68hc16y5_02Executor::write_mem(
-    IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-    IEventSink& events, bytes::ByteView image, const std::string& mcu_name, bool test_write)
+Status SubaruDensoMc68hc16y5_02Executor::write_mem(IKlineFlashTransport& transport, IClock& clock,
+                                                   const ICancellationToken& cancellation, IEventSink& events,
+                                                   bytes::ByteView image, const std::string& mcu_name, bool test_write)
 {
     const flashdev_t *device = find_flash_device(mcu_name);
     if (device == nullptr)
@@ -681,9 +648,8 @@ Status SubaruDensoMc68hc16y5_02Executor::write_mem(
     std::uint64_t physical_size = 0;
     for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
     {
-        physical_size = std::max(
-            physical_size, static_cast<std::uint64_t>(device->fblocks[block_no].start) +
-                               device->fblocks[block_no].len);
+        physical_size = std::max(physical_size, static_cast<std::uint64_t>(device->fblocks[block_no].start) +
+                                                    device->fblocks[block_no].len);
     }
     if (image.size() != device->romsize || physical_size > std::numeric_limits<std::size_t>::max())
     {
@@ -702,8 +668,7 @@ Status SubaruDensoMc68hc16y5_02Executor::write_mem(
         {
             return fail(ErrorKind::InvalidConfig, "ROM image is shorter than its flash blocks");
         }
-        std::copy_n(image.begin() + image_offset, flash_block.len,
-                    addressed_image.begin() + flash_block.start);
+        std::copy_n(image.begin() + image_offset, flash_block.len, addressed_image.begin() + flash_block.start);
         image_offset += flash_block.len;
     }
     if (image_offset != image.size())
@@ -723,16 +688,14 @@ Status SubaruDensoMc68hc16y5_02Executor::write_mem(
             {
                 return std::unexpected(cancelled.error());
             }
-            const MemoryRegion block{device->fblocks[block_no].start,
-                                     device->fblocks[block_no].len};
-            Result<std::uint32_t> ecu_crc =
-                read_block_crc(transport, clock, cancellation, block);
+            const MemoryRegion block{device->fblocks[block_no].start, device->fblocks[block_no].len};
+            Result<std::uint32_t> ecu_crc = read_block_crc(transport, clock, cancellation, block);
             if (!ecu_crc.has_value())
             {
                 return std::unexpected(ecu_crc.error());
             }
-            const std::uint32_t image_crc = fastecu::checksum::crc32(
-                bytes::ByteView(addressed_image).subspan(block.start, block.length));
+            const std::uint32_t image_crc =
+                fastecu::checksum::crc32(bytes::ByteView(addressed_image).subspan(block.start, block.length));
             modified[block_no] = *ecu_crc != image_crc;
             modified_count += modified[block_no] ? 1u : 0u;
         }
@@ -764,8 +727,7 @@ Status SubaruDensoMc68hc16y5_02Executor::write_mem(
 
     if (*modified_count == 0)
     {
-        events.log(LogLevel::Info,
-                   "No difference between ROM and ECU data, no flashing needed");
+        events.log(LogLevel::Info, "No difference between ROM and ECU data, no flashing needed");
         return {};
     }
 
@@ -773,8 +735,7 @@ Status SubaruDensoMc68hc16y5_02Executor::write_mem(
     // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:717-838.
     for (const std::uint8_t opcode : {kOpGetMaxMsgSize, kOpGetMaxBlockSize})
     {
-        Result<bytes::Bytes> response =
-            exchange(transport, clock, cancellation, frame(opcode), 200, 200);
+        Result<bytes::Bytes> response = exchange(transport, clock, cancellation, frame(opcode), 200, 200);
         if (!response.has_value())
         {
             return std::unexpected(response.error());
@@ -785,8 +746,7 @@ Status SubaruDensoMc68hc16y5_02Executor::write_mem(
         }
     }
     const std::uint8_t enable_opcode = test_write ? kOpFlashDisable : kOpFlashEnable;
-    Result<bytes::Bytes> enable_response =
-        exchange(transport, clock, cancellation, frame(enable_opcode), 200, 200);
+    Result<bytes::Bytes> enable_response = exchange(transport, clock, cancellation, frame(enable_opcode), 200, 200);
     if (!enable_response.has_value())
     {
         return std::unexpected(enable_response.error());
@@ -802,23 +762,19 @@ Status SubaruDensoMc68hc16y5_02Executor::write_mem(
         {
             continue;
         }
-        const MemoryRegion block{device->fblocks[block_no].start,
-                                 device->fblocks[block_no].len};
+        const MemoryRegion block{device->fblocks[block_no].start, device->fblocks[block_no].len};
         // Legacy reflash_block(), full PROG_VOLT exchange at
         // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:845-921.
-        Result<bytes::Bytes> voltage_response =
-            exchange(transport, cancellation, frame(kOpProgVolt), 200);
+        Result<bytes::Bytes> voltage_response = exchange(transport, cancellation, frame(kOpProgVolt), 200);
         if (!voltage_response.has_value())
         {
             return std::unexpected(voltage_response.error());
         }
-        if (voltage_response->size() <= 7 ||
-            !response_ok(*voltage_response, kOpProgVolt | 0x40))
+        if (voltage_response->size() <= 7 || !response_ok(*voltage_response, kOpProgVolt | 0x40))
         {
             return fail(ErrorKind::BadResponse, "Wrong response from ECU during prog-volt query");
         }
-        if (Status flashed = flash_block(transport, clock, cancellation, events,
-                                         addressed_image, block, test_write);
+        if (Status flashed = flash_block(transport, clock, cancellation, events, addressed_image, block, test_write);
             !flashed.has_value())
         {
             return flashed;
@@ -835,29 +791,26 @@ Status SubaruDensoMc68hc16y5_02Executor::write_mem(
     }
     if (test_write)
     {
-        events.log(LogLevel::Info,
-                   "Test write PASS, it is safe to perform the actual write");
+        events.log(LogLevel::Info, "Test write PASS, it is safe to perform the actual write");
     }
     else if (*remaining_modified != 0)
     {
-        events.log(LogLevel::Error,
-                   "Flash verification differs; do not power off, the kernel is still running");
+        events.log(LogLevel::Error, "Flash verification differs; do not power off, the kernel is still running");
     }
     return {};
 }
 
-Result<FlashExecutionResult> SubaruDensoMc68hc16y5_02Executor::execute(
-    const FlashPlan& plan, IFlashTransport& transport, IClock& clock,
-    const ICancellationToken& cancellation, IEventSink& events)
+Result<FlashExecutionResult> SubaruDensoMc68hc16y5_02Executor::execute(const FlashPlan& plan,
+                                                                       IFlashTransport& transport, IClock& clock,
+                                                                       const ICancellationToken& cancellation,
+                                                                       IEventSink& events)
 {
-    if (Status match = check_family_transport_match(plan, FlashFamily::SubaruDensoMc68hc16y5_02,
-                                                    TransportKind::Kline);
+    if (Status match = check_family_transport_match(plan, FlashFamily::SubaruDensoMc68hc16y5_02, TransportKind::Kline);
         !match.has_value())
     {
         return std::unexpected(match.error());
     }
-    if (Status valid = validate_subaru_denso_mc68hc16y5_02_plan(plan);
-        !valid.has_value())
+    if (Status valid = validate_subaru_denso_mc68hc16y5_02_plan(plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
@@ -871,8 +824,7 @@ Result<FlashExecutionResult> SubaruDensoMc68hc16y5_02Executor::execute(
     {
         return fail(ErrorKind::InvalidConfig, "transport does not implement IKlineFlashTransport");
     }
-    const auto *family_plan_ptr =
-        std::get_if<SubaruDensoMc68hc16y5_02Plan>(&plan.family_plan());
+    const auto *family_plan_ptr = std::get_if<SubaruDensoMc68hc16y5_02Plan>(&plan.family_plan());
     if (family_plan_ptr == nullptr)
     {
         return fail(ErrorKind::InvalidConfig, "MC68HC16Y5_02 wire parameters are missing");
@@ -880,10 +832,8 @@ Result<FlashExecutionResult> SubaruDensoMc68hc16y5_02Executor::execute(
     const SubaruDensoMc68hc16y5_02Plan& family_plan = *family_plan_ptr;
     IKlineFlashTransport& kline = *kline_ptr;
 
-    if (Status configured = kline.configure(KlineConfig{.baud = family_plan.connect_baud,
-                                                        .iso14230 = false,
-                                                        .tester_id = 0,
-                                                        .target_id = 0});
+    if (Status configured = kline.configure(
+            KlineConfig{.baud = family_plan.connect_baud, .iso14230 = false, .tester_id = 0, .target_id = 0});
         !configured.has_value())
     {
         return std::unexpected(configured.error());
@@ -925,8 +875,7 @@ Result<FlashExecutionResult> SubaruDensoMc68hc16y5_02Executor::execute(
         }
 
         bool kernel_alive = false;
-        if (Status connected = connect_bootloader(kline, clock, cancellation, events, family_plan,
-                                                  kernel_alive);
+        if (Status connected = connect_bootloader(kline, clock, cancellation, events, family_plan, kernel_alive);
             !connected.has_value())
         {
             return std::unexpected(connected.error());
@@ -937,8 +886,7 @@ Result<FlashExecutionResult> SubaruDensoMc68hc16y5_02Executor::execute(
             {
                 return fail(ErrorKind::InvalidConfig, "MC68HC16Y5_02 requires a kernel image");
             }
-            if (Status uploaded = upload_kernel(kline, clock, cancellation, events, family_plan,
-                                                *plan.kernel());
+            if (Status uploaded = upload_kernel(kline, clock, cancellation, events, family_plan, *plan.kernel());
                 !uploaded.has_value())
             {
                 return std::unexpected(uploaded.error());
@@ -946,8 +894,7 @@ Result<FlashExecutionResult> SubaruDensoMc68hc16y5_02Executor::execute(
         }
         if (plan.operation() == FlashOperation::Read)
         {
-            Result<bytes::Bytes> read =
-                read_mem(kline, clock, cancellation, events, plan.mcu_name());
+            Result<bytes::Bytes> read = read_mem(kline, clock, cancellation, events, plan.mcu_name());
             if (!read.has_value())
             {
                 return std::unexpected(read.error());
@@ -959,8 +906,7 @@ Result<FlashExecutionResult> SubaruDensoMc68hc16y5_02Executor::execute(
         {
             return fail(ErrorKind::InvalidConfig, "MC68HC16Y5_02 write requires a ROM image");
         }
-        Status written = write_mem(kline, clock, cancellation, events, *plan.image(),
-                                   plan.mcu_name(),
+        Status written = write_mem(kline, clock, cancellation, events, *plan.image(), plan.mcu_name(),
                                    plan.operation() == FlashOperation::TestWrite);
         if (!written.has_value())
         {

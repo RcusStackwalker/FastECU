@@ -24,8 +24,7 @@ TEST(FakeCancellationToken, PredicateCanObserveAnotherDouble)
 {
     int polls = 0;
     fastecu::FakeCancellationToken token;
-    token.set_predicate([&polls]
-                        { return polls >= 2; });
+    token.set_predicate([&polls] { return polls >= 2; });
     EXPECT_FALSE(token.cancelled());
     polls = 2;
     EXPECT_TRUE(token.cancelled());
@@ -35,8 +34,7 @@ TEST(FakeCancellationToken, PredicateThenCheckThresholdThenFixedStateTakePrecede
 {
     fastecu::FakeCancellationToken all_modes(true);
     all_modes.cancel_on_check(1);
-    all_modes.set_predicate([]
-                            { return false; });
+    all_modes.set_predicate([] { return false; });
 
     EXPECT_FALSE(all_modes.cancelled());
 
@@ -62,12 +60,14 @@ TEST(FakeCancellationToken, ConcurrentChecksAreCountedExactly)
 
     for (std::size_t i = 0; i < kThreadCount; ++i)
     {
-        threads.emplace_back([&token]
-                             {
-                                 for (std::size_t check = 0; check < kChecksPerThread; ++check)
-                                 {
-                                     static_cast<void>(token.cancelled());
-                                 } });
+        threads.emplace_back(
+            [&token]
+            {
+                for (std::size_t check = 0; check < kChecksPerThread; ++check)
+                {
+                    static_cast<void>(token.cancelled());
+                }
+            });
     }
     for (auto& thread : threads)
     {

@@ -6,8 +6,7 @@ namespace fastecu::flash
 class SubaruTcuCvtMitsuMh8111CanExecutor final : public IFlashExecutor
 {
   public:
-    Result<FlashExecutionResult> execute(const FlashPlan& plan, IFlashTransport& transport,
-                                         IClock& clock, const ICancellationToken& cancellation,
-                                         IEventSink& events) override;
+    Result<FlashExecutionResult> execute(const FlashPlan& plan, IFlashTransport& transport, IClock& clock,
+                                         const ICancellationToken& cancellation, IEventSink& events) override;
 };
 } // namespace fastecu::flash

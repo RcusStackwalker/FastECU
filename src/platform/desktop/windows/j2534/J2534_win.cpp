@@ -80,16 +80,16 @@ J2534::~J2534()
 #if defined(OP20PT32_USE_LIB)
 #define getPTfn(name) pf##name = ::name;
 #else
-#define getPTfn(name)                                              \
-    if (!(pf##name = (PF_##name *)GetProcAddress(hDLL, "" #name))) \
+#define getPTfn(name)                                                                                                  \
+    if (!(pf##name = (PF_##name *)GetProcAddress(hDLL, "" #name)))                                                     \
     return false
 #endif
 #else
 #if defined(OP20PT32_USE_LIB)
 #define getPTfn(name) pf##name = ::name;
 #else
-#define getPTfn(name)                                     \
-    if (!(pf##name = (PF_##name *)dlsym(hDLL, "" #name))) \
+#define getPTfn(name)                                                                                                  \
+    if (!(pf##name = (PF_##name *)dlsym(hDLL, "" #name)))                                                              \
     return false
 #endif
 #endif
@@ -181,7 +181,8 @@ void J2534::dbgprintptmsg(const PASSTHRU_MSG *pMsg, int kind)
         dbgprint("(null message)\n");
         return;
     }
-    dbgprint("ProtocolID=%lu,RxStatus=%lu,TxFlags=%lu,Timestamp=%lu,DataSize=%lu,ExtraDataIndex=%lu\n", pMsg->ProtocolID, pMsg->RxStatus, pMsg->TxFlags, pMsg->Timestamp, pMsg->DataSize, pMsg->ExtraDataIndex);
+    dbgprint("ProtocolID=%lu,RxStatus=%lu,TxFlags=%lu,Timestamp=%lu,DataSize=%lu,ExtraDataIndex=%lu\n",
+             pMsg->ProtocolID, pMsg->RxStatus, pMsg->TxFlags, pMsg->Timestamp, pMsg->DataSize, pMsg->ExtraDataIndex);
     dbgdump(pMsg->Data, pMsg->DataSize, kind);
 }
 
@@ -224,10 +225,8 @@ long J2534::LoadJ2534DLL(const char *szDLL)
     }
 #else
     CFURLRef appUrlRef = CFBundleCopyBundleURL(CFBundleGetMainBundle());
-    CFStringRef macPath = CFURLCopyFileSystemPath(appUrlRef,
-                                                  kCFURLPOSIXPathStyle);
-    const char *pathPtr = CFStringGetCStringPtr(macPath,
-                                                CFStringGetSystemEncoding());
+    CFStringRef macPath = CFURLCopyFileSystemPath(appUrlRef, kCFURLPOSIXPathStyle);
+    const char *pathPtr = CFStringGetCStringPtr(macPath, CFStringGetSystemEncoding());
 
     char libPath[1024];
     char oldPath[1024];
@@ -325,14 +324,16 @@ long J2534::PassThruClose(unsigned long DeviceID)
     return result;
 }
 
-long J2534::PassThruConnect(unsigned long DeviceID, unsigned long ProtocolID, unsigned long Flags, unsigned long Baudrate, unsigned long *pChannelID)
+long J2534::PassThruConnect(unsigned long DeviceID, unsigned long ProtocolID, unsigned long Flags,
+                            unsigned long Baudrate, unsigned long *pChannelID)
 {
     long result = STATUS_NOERROR;
     if (!checkDLL())
         return ERR_DEVICE_NOT_CONNECTED;
     if (useBridge)
         return bridgeClient->PassThruConnect(DeviceID, ProtocolID, Flags, Baudrate, pChannelID);
-    DBGPRINT(("PassThruConnect(DeviceID=%u,ProtocolID=%u,Flags=%08X,Baudrate=%u,pChannelID=@%08X)\n", DeviceID, ProtocolID, Flags, Baudrate, pChannelID));
+    DBGPRINT(("PassThruConnect(DeviceID=%u,ProtocolID=%u,Flags=%08X,Baudrate=%u,pChannelID=@%08X)\n", DeviceID,
+              ProtocolID, Flags, Baudrate, pChannelID));
     result = (*pfPassThruConnect)(DeviceID, ProtocolID, Flags, Baudrate, pChannelID);
     DBGPRINT(("PassThruConnect returned result %d and ChannelID %u\n", result, *pChannelID));
     return result;
@@ -351,20 +352,23 @@ long J2534::PassThruDisconnect(unsigned long ChannelID)
     return result;
 }
 
-long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs, unsigned long Timeout)
+long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs,
+                             unsigned long Timeout)
 {
     long result = STATUS_NOERROR;
     if (!checkDLL())
         return ERR_DEVICE_NOT_CONNECTED;
     if (useBridge)
         return bridgeClient->PassThruReadMsgs(ChannelID, pMsg, pNumMsgs, Timeout);
-    DBGPRINT(("PassThruReadMsgs(ChannelID=%u,pMsg=@%08X,pNumMsgs=%u,Timeout=%u)\n", ChannelID, pMsg, *pNumMsgs, Timeout));
+    DBGPRINT(
+        ("PassThruReadMsgs(ChannelID=%u,pMsg=@%08X,pNumMsgs=%u,Timeout=%u)\n", ChannelID, pMsg, *pNumMsgs, Timeout));
     result = (*pfPassThruReadMsgs)(ChannelID, pMsg, pNumMsgs, Timeout);
     DBGPRINT(("PassThruReadMsgs returned result %d\n", result));
     return result;
 }
 
-long J2534::PassThruWriteMsgs(unsigned long ChannelID, const PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs, unsigned long Timeout)
+long J2534::PassThruWriteMsgs(unsigned long ChannelID, const PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs,
+                              unsigned long Timeout)
 {
     unsigned int i;
     long result = STATUS_NOERROR;
@@ -372,7 +376,8 @@ long J2534::PassThruWriteMsgs(unsigned long ChannelID, const PASSTHRU_MSG *pMsg,
         return ERR_DEVICE_NOT_CONNECTED;
     if (useBridge)
         return bridgeClient->PassThruWriteMsgs(ChannelID, pMsg, pNumMsgs, Timeout);
-    DBGPRINT(("PassThruWriteMsgs(ChannelID=%u,pMsg=@%08X,NumMsgs=%u,Timeout=%u)\n", ChannelID, pMsg, *pNumMsgs, Timeout));
+    DBGPRINT(
+        ("PassThruWriteMsgs(ChannelID=%u,pMsg=@%08X,NumMsgs=%u,Timeout=%u)\n", ChannelID, pMsg, *pNumMsgs, Timeout));
     result = (*pfPassThruWriteMsgs)(ChannelID, pMsg, pNumMsgs, Timeout);
     for (i = 0; i < *pNumMsgs; i++)
         DBGPRINTPT((&(pMsg[i]), MSG_WRITE));
@@ -380,14 +385,16 @@ long J2534::PassThruWriteMsgs(unsigned long ChannelID, const PASSTHRU_MSG *pMsg,
     return result;
 }
 
-long J2534::PassThruStartPeriodicMsg(unsigned long ChannelID, const PASSTHRU_MSG *pMsg, unsigned long *pMsgID, unsigned long TimeInterval)
+long J2534::PassThruStartPeriodicMsg(unsigned long ChannelID, const PASSTHRU_MSG *pMsg, unsigned long *pMsgID,
+                                     unsigned long TimeInterval)
 {
     long result = STATUS_NOERROR;
     if (!checkDLL())
         return ERR_DEVICE_NOT_CONNECTED;
     if (useBridge)
         return bridgeClient->PassThruStartPeriodicMsg(ChannelID, pMsg, pMsgID, TimeInterval);
-    DBGPRINT(("PassThruStartPeriodicMsg(ChannelID=%u,pMsg=@%08X,pMsgID=@%08X,TimeInterval=%u)\n", ChannelID, pMsg, pMsgID, TimeInterval));
+    DBGPRINT(("PassThruStartPeriodicMsg(ChannelID=%u,pMsg=@%08X,pMsgID=@%08X,TimeInterval=%u)\n", ChannelID, pMsg,
+              pMsgID, TimeInterval));
     result = (*pfPassThruStartPeriodicMsg)(ChannelID, pMsg, pMsgID, TimeInterval);
     DBGPRINTPT((pMsg, 0));
     DBGPRINT(("PassThruStartPeriodicMsg returned result %d and MsgID %u\n", result, *pMsgID));
@@ -407,16 +414,18 @@ long J2534::PassThruStopPeriodicMsg(unsigned long ChannelID, unsigned long MsgID
     return result;
 }
 
-long J2534::PassThruStartMsgFilter(unsigned long ChannelID,
-                                   unsigned long FilterType, const PASSTHRU_MSG *pMaskMsg, const PASSTHRU_MSG *pPatternMsg,
-                                   const PASSTHRU_MSG *pFlowControlMsg, unsigned long *pMsgID)
+long J2534::PassThruStartMsgFilter(unsigned long ChannelID, unsigned long FilterType, const PASSTHRU_MSG *pMaskMsg,
+                                   const PASSTHRU_MSG *pPatternMsg, const PASSTHRU_MSG *pFlowControlMsg,
+                                   unsigned long *pMsgID)
 {
     long result = STATUS_NOERROR;
     if (!checkDLL())
         return ERR_DEVICE_NOT_CONNECTED;
     if (useBridge)
-        return bridgeClient->PassThruStartMsgFilter(ChannelID, FilterType, pMaskMsg, pPatternMsg, pFlowControlMsg, pMsgID);
-    DBGPRINT(("PassThruStartMsgFilter(ChannelID=%u,FilterType=%u,pMaskMsg=@%08X,pPatternMsg=@%08X,pFlowControlMsg=@%08X,pMsgID=@%08X)\n",
+        return bridgeClient->PassThruStartMsgFilter(ChannelID, FilterType, pMaskMsg, pPatternMsg, pFlowControlMsg,
+                                                    pMsgID);
+    DBGPRINT(("PassThruStartMsgFilter(ChannelID=%u,FilterType=%u,pMaskMsg=@%08X,pPatternMsg=@%08X,pFlowControlMsg=@%"
+              "08X,pMsgID=@%08X)\n",
               ChannelID, FilterType, pMaskMsg, pPatternMsg, pFlowControlMsg, pMsgID));
     DBGPRINT(("MaskMsg\n", result));
     DBGPRINTPT((pMaskMsg, 0));
@@ -462,9 +471,11 @@ long J2534::PassThruReadVersion(char *pApiVersion, char *pDllVersion, char *pFir
         return ERR_DEVICE_NOT_CONNECTED;
     if (useBridge)
         return bridgeClient->PassThruReadVersion(pApiVersion, pDllVersion, pFirmwareVersion, DeviceID);
-    DBGPRINT(("PassThruReadVersion(DeviceID=%u,pFirmwareVersion=@%08X,pDllVersion=@%08X,pApiVersion=@%08X)\n", DeviceID, pFirmwareVersion, pDllVersion, pApiVersion));
+    DBGPRINT(("PassThruReadVersion(DeviceID=%u,pFirmwareVersion=@%08X,pDllVersion=@%08X,pApiVersion=@%08X)\n", DeviceID,
+              pFirmwareVersion, pDllVersion, pApiVersion));
     result = (*pfPassThruReadVersion)(DeviceID, pFirmwareVersion, pDllVersion, pApiVersion);
-    DBGPRINT(("PassThruReadVersion returned result %d and FirmwareVersion [%s], DllVersion [%s], ApiVersion [%s]\n", result, pFirmwareVersion, pDllVersion, pApiVersion));
+    DBGPRINT(("PassThruReadVersion returned result %d and FirmwareVersion [%s], DllVersion [%s], ApiVersion [%s]\n",
+              result, pFirmwareVersion, pDllVersion, pApiVersion));
     return result;
 }
 
@@ -728,7 +739,8 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
         break;
     }
 
-    DBGPRINT(("PassThruIoctl(ChannelID=%u,Ioctl=%s,pInput=@%08X,pOutputMsgID=@%08X)\n", ChannelID, IoctlName, pInput, pOutput));
+    DBGPRINT(("PassThruIoctl(ChannelID=%u,Ioctl=%s,pInput=@%08X,pOutputMsgID=@%08X)\n", ChannelID, IoctlName, pInput,
+              pOutput));
 
     if (IoctlID == SET_CONFIG)
     {

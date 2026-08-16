@@ -31,8 +31,8 @@ namespace fastecu::flash
 // power-cycle the unit. Cancellation therefore gets its own operator-facing
 // line instead. `operation` names what was being asked, phrased to read
 // after "during": "the erase trigger", "TransferData to 0x8000".
-Error report_exchange_failure(IEventSink& events, const Error& failure,
-                              std::string_view rejection_prefix, std::string_view operation);
+Error report_exchange_failure(IEventSink& events, const Error& failure, std::string_view rejection_prefix,
+                              std::string_view operation);
 
 // The pieces every UdsClient-backed exchange below needs, bundled so call
 // sites needing a non-default client (a second UdsClient bound to a
@@ -59,8 +59,8 @@ Result<bytes::Bytes> fatal_request(const UdsExchangeContext& ctx, bytes::ByteVie
 // blocks (ECU/TCU ID, VIN, CAL ID, CVN, ...) never return early on these.
 // `label` names the field for the success log line ("ECU ID", "VIN", ...).
 void non_fatal_query(const UdsExchangeContext& ctx, bytes::ByteView pdu,
-                     std::optional<bytes::Byte> expected_subfunction,
-                     std::string_view rejection_prefix, std::string_view label);
+                     std::optional<bytes::Byte> expected_subfunction, std::string_view rejection_prefix,
+                     std::string_view label);
 
 // The fatal counterpart to non_fatal_query: sends `pdu` via fatal_request,
 // then requires the response payload (uds::payload of the reply, i.e.
@@ -80,9 +80,8 @@ void non_fatal_query(const UdsExchangeContext& ctx, bytes::ByteView pdu,
 // BadResponse's detail. Callers that need the legacy-exact wording on any of
 // those three still have fatal_request plus their own hand-written check
 // available.
-Result<bytes::Bytes> fatal_query(const UdsExchangeContext& ctx, bytes::ByteView pdu,
-                                 bytes::ByteView expected_prefix, std::string_view rejection_prefix,
-                                 std::string_view subject,
+Result<bytes::Bytes> fatal_query(const UdsExchangeContext& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
+                                 std::string_view rejection_prefix, std::string_view subject,
                                  std::optional<std::size_t> min_payload_size = std::nullopt);
 
 } // namespace fastecu::flash

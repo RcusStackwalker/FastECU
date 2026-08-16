@@ -18,8 +18,7 @@ namespace
 
 bool region_overflows(const MemoryRegion& region)
 {
-    return static_cast<std::uint64_t>(region.start) + region.length >
-           static_cast<std::uint64_t>(0xffffffffu);
+    return static_cast<std::uint64_t>(region.start) + region.length > static_cast<std::uint64_t>(0xffffffffu);
 }
 
 bool family_matches_transport_variant(const FlashPlanFields& fields)
@@ -108,9 +107,8 @@ Result<FlashPlan> validate_and_build(FlashPlanFields fields)
             return fail(ErrorKind::InvalidConfig, "Write/TestWrite plans must carry an image");
         }
     }
-    const bool requires_kernel = std::visit(
-        []<typename T>(const T&)
-        { return family_requires_kernel_v<T>; }, fields.family_plan);
+    const bool requires_kernel =
+        std::visit([]<typename T>(const T&) { return family_requires_kernel_v<T>; }, fields.family_plan);
     if (requires_kernel && !fields.kernel.has_value())
     {
         return fail(ErrorKind::InvalidConfig, "family requires a kernel image");
@@ -129,14 +127,12 @@ Result<FlashPlan> validate_and_build(FlashPlanFields fields)
             static_cast<std::uint64_t>(fields.kernel->load_address) + fields.kernel->bytes.size();
         if (kernel_end > static_cast<std::uint64_t>(0xffffffffu))
         {
-            return fail(ErrorKind::InvalidConfig,
-                        "kernel upload range overflows a 32-bit address space");
+            return fail(ErrorKind::InvalidConfig, "kernel upload range overflows a 32-bit address space");
         }
     }
     if (!family_matches_transport_variant(fields))
     {
-        return fail(ErrorKind::InvalidConfig,
-                    "family_plan variant does not match transport kind or declared family");
+        return fail(ErrorKind::InvalidConfig, "family_plan variant does not match transport kind or declared family");
     }
     std::unordered_set<ConfirmationSpec::Id> seen_ids;
     for (const ConfirmationSpec& confirmation : fields.confirmations)

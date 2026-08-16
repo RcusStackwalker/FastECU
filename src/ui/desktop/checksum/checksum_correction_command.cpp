@@ -20,8 +20,9 @@ bool ChecksumCorrectionCommand::confirmProceedWithoutDefinition(QWidget *parent)
     QMessageBox msgBox(parent);
     msgBox.setIcon(QMessageBox::Warning);
     msgBox.setWindowTitle("Calibration file");
-    msgBox.setText("WARNING! No definition file linked to selected ROM, checksums are not calculated!\n\n"
-                   "If you are sure that right protocol is selected and want to correct checksums anyway, press 'DO IT!' -button");
+    msgBox.setText(
+        "WARNING! No definition file linked to selected ROM, checksums are not calculated!\n\n"
+        "If you are sure that right protocol is selected and want to correct checksums anyway, press 'DO IT!' -button");
     QPushButton *okButton = msgBox.addButton(QMessageBox::Ok);
     msgBox.addButton(QObject::tr("DO IT!"), QMessageBox::NoRole);
     msgBox.exec();
@@ -40,7 +41,8 @@ bool ChecksumCorrectionCommand::confirmProceedWithoutChecksumModule()
     msgBox.setIcon(QMessageBox::Warning);
     msgBox.setWindowTitle("File - Checksum Warning");
     msgBox.setText("WARNING! There is no checksum module for this ROM!"
-                   "                            Be aware that if this ROM need checksum correction it must be done with another software!");
+                   "                            Be aware that if this ROM need checksum correction it must be done "
+                   "with another software!");
     QPushButton *cancelButton = msgBox.addButton(QMessageBox::Cancel);
     msgBox.addButton(QMessageBox::Ok);
     msgBox.exec();
@@ -72,9 +74,10 @@ void ChecksumCorrectionCommand::showFamilyResultDialog(const ChecksumResult& fam
     }
 }
 
-ChecksumCorrectionResult ChecksumCorrectionCommand::run(
-    bytes::ByteView rom_data, bool use_romraider_definition, bool use_ecuflash_definition,
-    const fastecu::checksum::ChecksumSelection& selection, QWidget *parent)
+ChecksumCorrectionResult ChecksumCorrectionCommand::run(bytes::ByteView rom_data, bool use_romraider_definition,
+                                                        bool use_ecuflash_definition,
+                                                        const fastecu::checksum::ChecksumSelection& selection,
+                                                        QWidget *parent)
 {
     ChecksumCorrectionResult result;
 
@@ -95,8 +98,7 @@ ChecksumCorrectionResult ChecksumCorrectionCommand::run(
         }
     }
 
-    const ChecksumCorrectionOutcome outcome =
-        fastecu::checksum::apply_checksum_correction(rom_data, selection);
+    const ChecksumCorrectionOutcome outcome = fastecu::checksum::apply_checksum_correction(rom_data, selection);
     switch (outcome.status)
     {
     case ChecksumCorrectionOutcome::Status::UnknownMcuType:

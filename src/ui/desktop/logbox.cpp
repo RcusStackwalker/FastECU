@@ -6,7 +6,8 @@ LogBox::LogBox(QWidget *parent) : QWidget(parent)
 {
 }
 
-QGroupBox *LogBox::drawLogBoxes(const QString& type, uint8_t index, uint8_t logBoxCount, const QString& title, const QString& unit, const QString& value)
+QGroupBox *LogBox::drawLogBoxes(const QString& type, uint8_t index, uint8_t logBoxCount, const QString& title,
+                                const QString& unit, const QString& value)
 {
     QGroupBox *gb = nullptr;
 
@@ -22,7 +23,8 @@ QGroupBox *LogBox::drawLogBoxes(const QString& type, uint8_t index, uint8_t logB
     return gb;
 }
 
-QGroupBox *LogBox::drawLogSwitchBox(uint8_t index, uint8_t switchBoxCount, const QString& title, const QString& unit, const QString& value)
+QGroupBox *LogBox::drawLogSwitchBox(uint8_t index, uint8_t switchBoxCount, const QString& title, const QString& unit,
+                                    const QString& value)
 {
     QScreen *screen = QGuiApplication::primaryScreen();
     QRect size = screen->geometry();
@@ -37,7 +39,9 @@ QGroupBox *LogBox::drawLogSwitchBox(uint8_t index, uint8_t switchBoxCount, const
     switchGroupBox->setMaximumWidth(maxWidth);
     switchGroupBox->setMinimumHeight(25);
     switchGroupBox->setMaximumHeight(25);
-    switchGroupBox->setStyleSheet("QGroupBox{font: bold;border:1px solid gray;border-radius:5px;margin-top: 0px;padding:0px 0px 0px 0px;} QGroupBox::title{subcontrol-origin: margin;left: 7px;padding:0px 3px 0px 3px;}");
+    switchGroupBox->setStyleSheet(
+        "QGroupBox{font: bold;border:1px solid gray;border-radius:5px;margin-top: 0px;padding:0px 0px 0px 0px;} "
+        "QGroupBox::title{subcontrol-origin: margin;left: 7px;padding:0px 3px 0px 3px;}");
 
     const QString& labelText = title;
 
@@ -61,7 +65,8 @@ QGroupBox *LogBox::drawLogSwitchBox(uint8_t index, uint8_t switchBoxCount, const
     return switchGroupBox;
 }
 
-QGroupBox *LogBox::drawLogValueBox(uint8_t index, uint8_t logBoxCount, const QString& title, const QString& unit, const QString& value)
+QGroupBox *LogBox::drawLogValueBox(uint8_t index, uint8_t logBoxCount, const QString& title, const QString& unit,
+                                   const QString& value)
 {
     QScreen *screen = QGuiApplication::primaryScreen();
     QRect size = screen->geometry();
@@ -73,7 +78,10 @@ QGroupBox *LogBox::drawLogValueBox(uint8_t index, uint8_t logBoxCount, const QSt
     int maxWidth = size.width() / (logBoxCount);
     int groupBoxFontSize = size.width() / 170;
     QFont t("Arial", groupBoxFontSize);
-    logGroupBox->setStyleSheet("QGroupBox{font: bold;border:1px solid black;border-radius:5px;margin-left: 1px; margin-right: 1px; margin-top: " + QString::number(groupBoxFontSize) + "px;} QGroupBox::title{subcontrol-origin: margin;left: 7px;padding:0px 3px 0px 3px;}");
+    logGroupBox->setStyleSheet("QGroupBox{font: bold;border:1px solid black;border-radius:5px;margin-left: 1px; "
+                               "margin-right: 1px; margin-top: " +
+                               QString::number(groupBoxFontSize) +
+                               "px;} QGroupBox::title{subcontrol-origin: margin;left: 7px;padding:0px 3px 0px 3px;}");
     logGroupBox->setMinimumWidth(minWidth);
     logGroupBox->setMaximumWidth(maxWidth);
     logGroupBox->setFont(t);

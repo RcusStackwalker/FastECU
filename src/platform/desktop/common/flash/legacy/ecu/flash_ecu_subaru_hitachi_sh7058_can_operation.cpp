@@ -10,9 +10,10 @@
 #include <utility>
 
 FlashEcuSubaruHitachiSH7058CanOperation::FlashEcuSubaruHitachiSH7058CanOperation(
-    SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
-    QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(std::move(cmd_type))
+    SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *dialog,
+    QObject *parent, PromptFn promptOverride)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef),
+      cmd_type(std::move(cmd_type))
 {
 }
 
@@ -29,24 +30,28 @@ bool FlashEcuSubaruHitachiSH7058CanOperation::execute()
         return false;
     }
     QString mcu_name = flashdevices[mcu_type_index].name;
-    emit LOG_D("MCU type: " + mcu_name + " " + mcu_type_string + " and index: " + QString::number(mcu_type_index), true, true);
+    emit LOG_D("MCU type: " + mcu_name + " " + mcu_type_string + " and index: " + QString::number(mcu_type_index), true,
+               true);
 
     kernel = ecuCalDef->Kernel;
     flash_method = ecuCalDef->FlashMethod;
 
     if (cmd_type == "read")
     {
-        emit LOG_I("Read memory with flashmethod '" + flash_method + "' and kernel '" + ecuCalDef->Kernel + "'", true, true);
+        emit LOG_I("Read memory with flashmethod '" + flash_method + "' and kernel '" + ecuCalDef->Kernel + "'", true,
+                   true);
     }
     else if (cmd_type == "test_write")
     {
         test_write = true;
-        emit LOG_I("Test write memory with flashmethod '" + flash_method + "' and kernel '" + ecuCalDef->Kernel + "'", true, true);
+        emit LOG_I("Test write memory with flashmethod '" + flash_method + "' and kernel '" + ecuCalDef->Kernel + "'",
+                   true, true);
     }
     else if (cmd_type == "write")
     {
         test_write = false;
-        emit LOG_I("Write memory with flashmethod '" + flash_method + "' and kernel '" + ecuCalDef->Kernel + "'", true, true);
+        emit LOG_I("Write memory with flashmethod '" + flash_method + "' and kernel '" + ecuCalDef->Kernel + "'", true,
+                   true);
     }
 
     /*    serial->set_is_iso14230_connection(false);
@@ -69,7 +74,8 @@ bool FlashEcuSubaruHitachiSH7058CanOperation::execute()
     {
         emit externalLoggerMessage("Reading ROM, please wait...");
         emit LOG_I("Reading ROM from ECU, Hitachi SH7058 using K-Line", true, true);
-        result = read_mem_subaru_ecu_hitachi_can(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
+        result = read_mem_subaru_ecu_hitachi_can(flashdevices[mcu_type_index].fblocks[0].start,
+                                                 flashdevices[mcu_type_index].romsize);
     }
     else
     {
@@ -169,7 +175,9 @@ int FlashEcuSubaruHitachiSH7058CanOperation::connect_bootloader_subaru_ecu_hitac
         }
         else
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+            emit LOG_E("Wrong response from ECU: " +
+                           FileActions::parse_nrc_message(received.mid(4, received.length() - 1)),
+                       true, true);
         }
     }
     else
@@ -200,7 +208,9 @@ int FlashEcuSubaruHitachiSH7058CanOperation::connect_bootloader_subaru_ecu_hitac
         }
         else
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+            emit LOG_E("Wrong response from ECU: " +
+                           FileActions::parse_nrc_message(received.mid(4, received.length() - 1)),
+                       true, true);
         }
     }
     else
@@ -235,7 +245,9 @@ int FlashEcuSubaruHitachiSH7058CanOperation::connect_bootloader_subaru_ecu_hitac
         }
         else
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+            emit LOG_E("Wrong response from ECU: " +
+                           FileActions::parse_nrc_message(received.mid(4, received.length() - 1)),
+                       true, true);
         }
     }
     else
@@ -272,7 +284,9 @@ int FlashEcuSubaruHitachiSH7058CanOperation::connect_bootloader_subaru_ecu_hitac
         }
         else
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+            emit LOG_E("Wrong response from ECU: " +
+                           FileActions::parse_nrc_message(received.mid(4, received.length() - 1)),
+                       true, true);
         }
     }
     else
@@ -560,7 +574,8 @@ int FlashEcuSubaruHitachiSH7058CanOperation::connect_bootloader_subaru_ecu_hitac
         delay(200);
         received = serial->read_serial_data(200);
 
-        if ((uint8_t)received.at(4) != 0x74 && (uint8_t)received.at(5) != 0x20 && (uint8_t)received.at(6) != 0x01 && (uint8_t)received.at(7) != 0x04)
+        if ((uint8_t)received.at(4) != 0x74 && (uint8_t)received.at(5) != 0x20 && (uint8_t)received.at(6) != 0x01 &&
+            (uint8_t)received.at(7) != 0x04)
         {
             emit LOG_I("Kernel not verified to be running!", true, true);
 
@@ -680,7 +695,8 @@ int FlashEcuSubaruHitachiSH7058CanOperation::connect_bootloader_subaru_ecu_hitac
         delay(200);
         received = serial->read_serial_data(200);
 
-        if ((uint8_t)received.at(4) != 0x74 && (uint8_t)received.at(5) != 0x20 && (uint8_t)received.at(6) != 0x01 && (uint8_t)received.at(7) != 0x04)
+        if ((uint8_t)received.at(4) != 0x74 && (uint8_t)received.at(5) != 0x20 && (uint8_t)received.at(6) != 0x01 &&
+            (uint8_t)received.at(7) != 0x04)
         {
             emit LOG_I("Kernel verified to be running", true, true);
 
@@ -770,10 +786,8 @@ int FlashEcuSubaruHitachiSH7058CanOperation::read_mem_subaru_ecu_hitachi_can(uin
         // LOG_I("ECU ID = " + ecuid, true, true);
         emit LOG_I("ECU ID = " + ecuid, true, true);
 
-        int reply = confirm(tr("Are we ready to go?"),
-                            tr("Init was OK?, Press OK to continue"),
-                            QMessageBox::Ok | QMessageBox::Cancel,
-                            QMessageBox::Ok);
+        int reply = confirm(tr("Are we ready to go?"), tr("Init was OK?, Press OK to continue"),
+                            QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Ok);
         if (reply != QMessageBox::Ok)
         {
             return STATUS_ERROR;
@@ -891,7 +905,12 @@ int FlashEcuSubaruHitachiSH7058CanOperation::read_mem_subaru_ecu_hitachi_can(uin
 
         QString start_address = QString("%1").arg(addr, 8, 16, QLatin1Char('0')).toUpper();
         QString block_len = QString("%1").arg(pagesize, 8, 16, QLatin1Char('0')).toUpper();
-        msg = QString("Kernel read addr: 0x%1 length: 0x%2, %3 B/s %4 s").arg(start_address).arg(block_len).arg(curspeed, 6, 10, QLatin1Char(' ')).arg(tleft, 6, 10, QLatin1Char(' ')).toUtf8();
+        msg = QString("Kernel read addr: 0x%1 length: 0x%2, %3 B/s %4 s")
+                  .arg(start_address)
+                  .arg(block_len)
+                  .arg(curspeed, 6, 10, QLatin1Char(' '))
+                  .arg(tleft, 6, 10, QLatin1Char(' '))
+                  .toUtf8();
         emit LOG_I(msg, true, true);
 
         // increment addr, len, etc //
@@ -922,15 +941,18 @@ int FlashEcuSubaruHitachiSH7058CanOperation::write_mem_subaru_ecu_hitachi_can(bo
 
     filedata = ecuCalDef->FullRomData;
 
-    int block_modified[16] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}; // assume blocks after 0x8000 are modified
+    int block_modified[16] = {1, 1, 1, 1, 1, 1, 1, 1,
+                              1, 1, 1, 1, 1, 1, 1, 1}; // assume blocks after 0x8000 are modified
 
-    unsigned bcnt; // 13 blocks in M32R_512kB, but kernelmemorymodels.h has 11. Of these 11, the first 3 are not flashed by OBK
+    unsigned bcnt; // 13 blocks in M32R_512kB, but kernelmemorymodels.h has 11. Of these 11, the first 3 are not flashed
+                   // by OBK
     unsigned blockno;
 
     // encrypt the data
     filedata = subaru_ecu_hitachi_encrypt_32bit_payload(filedata, filedata.length());
 
-    std::span<const std::uint8_t> data_array(reinterpret_cast<const std::uint8_t *>(filedata.constData()), static_cast<std::size_t>(filedata.size()));
+    std::span<const std::uint8_t> data_array(reinterpret_cast<const std::uint8_t *>(filedata.constData()),
+                                             static_cast<std::size_t>(filedata.size()));
 
     bcnt = 0;
     emit LOG_I("Blocks to flash : ", true, false);
@@ -965,11 +987,13 @@ int FlashEcuSubaruHitachiSH7058CanOperation::write_mem_subaru_ecu_hitachi_can(bo
         }
 
         emit LOG_I("--- start writing ROM file to ECU flash memory ---", true, true);
-        for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks; blockno++) // hack so that only 1 flash loop done for the entire ROM above 0x8000
+        for (blockno = 0; blockno < flashdevices[mcu_type_index].numblocks;
+             blockno++) // hack so that only 1 flash loop done for the entire ROM above 0x8000
         {
             if (block_modified[blockno])
             {
-                if (reflash_block_subaru_ecu_hitachi_can(&data_array[flashdevices[mcu_type_index].fblocks->start], &flashdevices[mcu_type_index], blockno, test_write))
+                if (reflash_block_subaru_ecu_hitachi_can(&data_array[flashdevices[mcu_type_index].fblocks->start],
+                                                         &flashdevices[mcu_type_index], blockno, test_write))
                 {
                     emit LOG_I("Block " + QString::number(blockno) + " reflash failed.", true, true);
                     return STATUS_ERROR;
@@ -995,7 +1019,9 @@ int FlashEcuSubaruHitachiSH7058CanOperation::write_mem_subaru_ecu_hitachi_can(bo
  *
  * @return success
  */
-int FlashEcuSubaruHitachiSH7058CanOperation::reflash_block_subaru_ecu_hitachi_can(const uint8_t *newdata, const struct flashdev_t *fdt, unsigned blockno, bool test_write)
+int FlashEcuSubaruHitachiSH7058CanOperation::reflash_block_subaru_ecu_hitachi_can(const uint8_t *newdata,
+                                                                                  const struct flashdev_t *fdt,
+                                                                                  unsigned blockno, bool test_write)
 {
 
     int errval;
@@ -1130,7 +1156,9 @@ int FlashEcuSubaruHitachiSH7058CanOperation::reflash_block_subaru_ecu_hitachi_ca
             }
             else
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+                emit LOG_E("Wrong response from ECU: " +
+                               FileActions::parse_nrc_message(received.mid(4, received.length() - 1)),
+                           true, true);
 
                 // return STATUS_ERROR;
             }
@@ -1176,7 +1204,9 @@ int FlashEcuSubaruHitachiSH7058CanOperation::reflash_block_subaru_ecu_hitachi_ca
             }
             else
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+                emit LOG_E("Wrong response from ECU: " +
+                               FileActions::parse_nrc_message(received.mid(4, received.length() - 1)),
+                           true, true);
 
                 // return STATUS_ERROR;
             }
@@ -1240,7 +1270,8 @@ int FlashEcuSubaruHitachiSH7058CanOperation::erase_subaru_ecu_hitachi_can()
             if ((uint8_t)received.at(4) != 0x71 || (uint8_t)received.at(5) != 0x01 || (uint8_t)received.at(6) != 0x02)
             {
             }
-            else if ((uint8_t)received.at(4) == 0x71 && (uint8_t)received.at(5) == 0x01 && (uint8_t)received.at(6) == 0x02)
+            else if ((uint8_t)received.at(4) == 0x71 && (uint8_t)received.at(5) == 0x01 &&
+                     (uint8_t)received.at(6) == 0x02)
             {
                 emit LOG_I("", false, true);
                 emit LOG_I("Flash erased! Starting flash write, do not power off!", true, true);
@@ -1391,24 +1422,21 @@ QByteArray FlashEcuSubaruHitachiSH7058CanOperation::send_subaru_sid_b8_change_ba
  *
  * @return seed key (4 bytes)
  */
-QByteArray FlashEcuSubaruHitachiSH7058CanOperation::subaru_ecu_hitachi_generate_can_seed_key(const QByteArray& requested_seed)
+QByteArray
+FlashEcuSubaruHitachiSH7058CanOperation::subaru_ecu_hitachi_generate_can_seed_key(const QByteArray& requested_seed)
 {
     QByteArray key;
 
-    const uint16_t keytogenerateindex[] = {
-        // Ori
-        0x90A1, 0x2F92, 0xDE3C, 0xCDC0,
-        // Locked
-        //        0xDEAD, 0xBEEF, 0xDEAD, 0xBABE,
-        0x1A99, 0x437C, 0xF91B, 0xDB57,
-        0x96BA, 0xDE10, 0xFCAF, 0x3F31,
-        0xF47F, 0x0BB6, 0x16E9, 0x4645};
+    const uint16_t keytogenerateindex[] = {// Ori
+                                           0x90A1, 0x2F92, 0xDE3C, 0xCDC0,
+                                           // Locked
+                                           //        0xDEAD, 0xBEEF, 0xDEAD, 0xBABE,
+                                           0x1A99, 0x437C, 0xF91B, 0xDB57, 0x96BA, 0xDE10, 0xFCAF, 0x3F31, 0xF47F,
+                                           0x0BB6, 0x16E9, 0x4645};
 
-    const uint8_t indextransformation[] = {
-        0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8,
-        0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
-        0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
-        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
+    const uint8_t indextransformation[] = {0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
+                                           0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
+                                           0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
     key = SsmProtocol::calculateSeedKey(requested_seed, keytogenerateindex, indextransformation);
 
@@ -1426,38 +1454,34 @@ QByteArray FlashEcuSubaruHitachiSH7058CanOperation::subaru_ecu_hitachi_generate_
  * @return encrypted data
  */
 
-QByteArray FlashEcuSubaruHitachiSH7058CanOperation::subaru_ecu_hitachi_encrypt_32bit_payload(const QByteArray& buf, uint32_t len)
+QByteArray FlashEcuSubaruHitachiSH7058CanOperation::subaru_ecu_hitachi_encrypt_32bit_payload(const QByteArray& buf,
+                                                                                             uint32_t len)
 {
     QByteArray encrypted;
 
-    const uint16_t keytogenerateindex[] = {
-        0x14CA, 0x77F4, 0x973C, 0xF50E};
+    const uint16_t keytogenerateindex[] = {0x14CA, 0x77F4, 0x973C, 0xF50E};
 
-    const uint8_t indextransformation[] = {
-        0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8,
-        0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
-        0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
-        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
+    const uint8_t indextransformation[] = {0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
+                                           0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
+                                           0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
     encrypted = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
     return encrypted;
 }
 
-QByteArray FlashEcuSubaruHitachiSH7058CanOperation::subaru_ecu_hitachi_decrypt_32bit_payload(const QByteArray& buf, uint32_t len)
+QByteArray FlashEcuSubaruHitachiSH7058CanOperation::subaru_ecu_hitachi_decrypt_32bit_payload(const QByteArray& buf,
+                                                                                             uint32_t len)
 {
     QByteArray decrypt;
 
-    const uint16_t keytogenerateindex[] = {
-        0xF50E, 0x973C, 0x77F4, 0x14CA
+    const uint16_t keytogenerateindex[] = {0xF50E, 0x973C, 0x77F4, 0x14CA
 
     };
 
-    const uint8_t indextransformation[] = {
-        0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8,
-        0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
-        0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
-        0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
+    const uint8_t indextransformation[] = {0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
+                                           0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
+                                           0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
     decrypt = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 

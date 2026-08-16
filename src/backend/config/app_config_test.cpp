@@ -110,10 +110,9 @@ TEST(LoadAppConfig, InvalidPrimaryDefinitionBaseValueIsDiscarded)
 {
     InMemoryFileRepository repo;
     ConfigPaths paths = test_paths();
-    std::string xml =
-        R"(<?xml version="1.0"?><config name="FastECU" version="x"><software_settings>)"
-        R"(<setting name="primary_definition_base"><value data="not-a-real-base"/></setting>)"
-        R"(</software_settings></config>)";
+    std::string xml = R"(<?xml version="1.0"?><config name="FastECU" version="x"><software_settings>)"
+                      R"(<setting name="primary_definition_base"><value data="not-a-real-base"/></setting>)"
+                      R"(</software_settings></config>)";
     repo.files[paths.config_file] = std::vector<std::uint8_t>(xml.begin(), xml.end());
 
     auto config = load_app_config(paths, repo);
@@ -130,10 +129,9 @@ TEST(LoadAppConfig, ConfigElementWithWrongNameAttributeIsNotParsed)
 {
     InMemoryFileRepository repo;
     ConfigPaths paths = test_paths();
-    std::string xml =
-        R"(<?xml version="1.0"?><config name="SomeOtherApp" version="x"><software_settings>)"
-        R"(<setting name="serial_port"><value data="COM7"/></setting>)"
-        R"(</software_settings></config>)";
+    std::string xml = R"(<?xml version="1.0"?><config name="SomeOtherApp" version="x"><software_settings>)"
+                      R"(<setting name="serial_port"><value data="COM7"/></setting>)"
+                      R"(</software_settings></config>)";
     repo.files[paths.config_file] = std::vector<std::uint8_t>(xml.begin(), xml.end());
 
     auto config = load_app_config(paths, repo);

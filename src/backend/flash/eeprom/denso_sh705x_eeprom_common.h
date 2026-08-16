@@ -48,8 +48,7 @@ struct DensoSh705xEepromUploadSizes
 // The single source of truth for the family-specific upload expansion used
 // by both validation and the executors. Rejects any size whose alignment or
 // trailer addition cannot be represented safely as uint32_t.
-Result<DensoSh705xEepromUploadSizes> denso_sh705x_eeprom_upload_sizes(
-    FlashFamily family, std::size_t raw_kernel_bytes);
+Result<DensoSh705xEepromUploadSizes> denso_sh705x_eeprom_upload_sizes(FlashFamily family, std::size_t raw_kernel_bytes);
 
 // Validates every Denso SH705x EEPROM plan constraint decidable from the
 // supplied metadata. Pass std::nullopt before the kernel file is read: mode,

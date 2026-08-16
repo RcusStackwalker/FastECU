@@ -23,18 +23,20 @@ FlashPlanFields kline_read_fields()
         .erase_regions = {},
         .image = std::nullopt,
         .kernel = KernelImage{.id = "k", .load_address = 0xffff2000, .bytes = {0x01}},
-        .family_plan = DensoSh705xEepromKlinePlan{
-            .mode = EepromReadMode::Mode2,
-            .security = DensoSecurityVariant::Stock,
-            .tester_id = 0xf0,
-            .target_id = 0x10,
-            .initial_baud = 4800,
-            .kernel_baud = 15625,
-        },
-        .confirmations = {
-            ConfirmationSpec{.id = ConfirmationSpec::Id::BeginEepromRead},
-            ConfirmationSpec{.id = ConfirmationSpec::Id::InspectEepromBytes},
-        },
+        .family_plan =
+            DensoSh705xEepromKlinePlan{
+                .mode = EepromReadMode::Mode2,
+                .security = DensoSecurityVariant::Stock,
+                .tester_id = 0xf0,
+                .target_id = 0x10,
+                .initial_baud = 4800,
+                .kernel_baud = 15625,
+            },
+        .confirmations =
+            {
+                ConfirmationSpec{.id = ConfirmationSpec::Id::BeginEepromRead},
+                ConfirmationSpec{.id = ConfirmationSpec::Id::InspectEepromBytes},
+            },
     };
 }
 
@@ -43,8 +45,7 @@ TEST(CheckFamilyTransportMatchTest, MatchingFamilyAndTransportPasses)
     auto plan = validate_and_build(kline_read_fields());
     ASSERT_TRUE(plan.has_value());
 
-    auto status = check_family_transport_match(*plan, FlashFamily::DensoSh705xEepromKline,
-                                               TransportKind::Kline);
+    auto status = check_family_transport_match(*plan, FlashFamily::DensoSh705xEepromKline, TransportKind::Kline);
 
     EXPECT_TRUE(status.has_value());
 }
@@ -54,8 +55,7 @@ TEST(CheckFamilyTransportMatchTest, WrongFamilyFailsWithInvalidConfig)
     auto plan = validate_and_build(kline_read_fields());
     ASSERT_TRUE(plan.has_value());
 
-    auto status = check_family_transport_match(*plan, FlashFamily::DensoSh705xEepromCan,
-                                               TransportKind::CanIso15765);
+    auto status = check_family_transport_match(*plan, FlashFamily::DensoSh705xEepromCan, TransportKind::CanIso15765);
 
     ASSERT_FALSE(status.has_value());
     EXPECT_EQ(status.error().kind, ErrorKind::InvalidConfig);
@@ -66,8 +66,7 @@ TEST(CheckFamilyTransportMatchTest, WrongTransportFailsWithInvalidConfig)
     auto plan = validate_and_build(kline_read_fields());
     ASSERT_TRUE(plan.has_value());
 
-    auto status = check_family_transport_match(*plan, FlashFamily::DensoSh705xEepromKline,
-                                               TransportKind::CanIso15765);
+    auto status = check_family_transport_match(*plan, FlashFamily::DensoSh705xEepromKline, TransportKind::CanIso15765);
 
     ASSERT_FALSE(status.has_value());
     EXPECT_EQ(status.error().kind, ErrorKind::InvalidConfig);

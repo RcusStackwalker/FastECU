@@ -6,9 +6,10 @@
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 FlashEcuSubaruHitachiM32rJtagOperation::FlashEcuSubaruHitachiM32rJtagOperation(
-    SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
-    QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(std::move(cmd_type))
+    SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *dialog,
+    QObject *parent, PromptFn promptOverride)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef),
+      cmd_type(std::move(cmd_type))
 {
 }
 
@@ -24,7 +25,8 @@ bool FlashEcuSubaruHitachiM32rJtagOperation::execute()
         return false;
     }
     QString mcu_name = flashdevices[mcu_type_index].name;
-    emit LOG_D("MCU type: " + mcu_name + " " + mcu_type_string + " and index: " + QString::number(mcu_type_index), true, true);
+    emit LOG_D("MCU type: " + mcu_name + " " + mcu_type_string + " and index: " + QString::number(mcu_type_index), true,
+               true);
 
     kernel = ecuCalDef->Kernel;
     flash_method = ecuCalDef->FlashMethod;
@@ -33,17 +35,20 @@ bool FlashEcuSubaruHitachiM32rJtagOperation::execute()
 
     if (cmd_type == "read")
     {
-        emit LOG_I("Read memory with flashmethod '" + flash_method + "' and kernel '" + ecuCalDef->Kernel + "'", true, true);
+        emit LOG_I("Read memory with flashmethod '" + flash_method + "' and kernel '" + ecuCalDef->Kernel + "'", true,
+                   true);
     }
     else if (cmd_type == "test_write")
     {
         test_write = true;
-        emit LOG_I("Test write memory with flashmethod '" + flash_method + "' and kernel '" + ecuCalDef->Kernel + "'", true, true);
+        emit LOG_I("Test write memory with flashmethod '" + flash_method + "' and kernel '" + ecuCalDef->Kernel + "'",
+                   true, true);
     }
     else if (cmd_type == "write")
     {
         test_write = false;
-        emit LOG_I("Write memory with flashmethod '" + flash_method + "' and kernel '" + ecuCalDef->Kernel + "'", true, true);
+        emit LOG_I("Write memory with flashmethod '" + flash_method + "' and kernel '" + ecuCalDef->Kernel + "'", true,
+                   true);
     }
 
     serial->set_add_iso14230_header(false);
@@ -132,9 +137,13 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_idcode()
     received = serial->read_serial_data(serial_read_short_timeout);
     if (received.length() > 4)
     {
-        if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_ID + 0x40) || (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
+        if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) ||
+            (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) ||
+            (uint8_t)received.at(4) != (SUB_KERNEL_ID + 0x40) || (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+            emit LOG_E("Wrong response from ECU: " +
+                           FileActions::parse_nrc_message(received.mid(4, received.length() - 1)),
+                       true, true);
 
             return STATUS_ERROR;
         }
@@ -183,9 +192,14 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_usercode()
     received = serial->read_serial_data(serial_read_short_timeout);
     if (received.length() > 4)
     {
-        if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_READ_USERCODE + 0x40) || (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
+        if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) ||
+            (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) ||
+            (uint8_t)received.at(4) != (SUB_KERNEL_READ_USERCODE + 0x40) ||
+            (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+            emit LOG_E("Wrong response from ECU: " +
+                           FileActions::parse_nrc_message(received.mid(4, received.length() - 1)),
+                       true, true);
 
             return STATUS_ERROR;
         }
@@ -237,9 +251,12 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_tool_rom_code()
         received = serial->read_serial_data(serial_read_short_timeout);
         if (received.length() > 4)
         {
-            if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) || (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
+            if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) !=
+       (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) ||
+       (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4,
+       received.length()-1)), true, true);
 
                 return STATUS_ERROR;
             }
@@ -265,9 +282,12 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_tool_rom_code()
         received = serial->read_serial_data(serial_read_short_timeout);
         if (received.length() > 4)
         {
-            if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) || (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
+            if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) !=
+       (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) ||
+       (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length()-1)), true, true);
+                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4,
+       received.length()-1)), true, true);
 
                 return STATUS_ERROR;
             }
@@ -299,9 +319,14 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_tool_rom_code()
     {
         if (received.length() > 4)
         {
-            if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) || (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
+            if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) ||
+                (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) ||
+                (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) ||
+                (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+                emit LOG_E("Wrong response from ECU: " +
+                               FileActions::parse_nrc_message(received.mid(4, received.length() - 1)),
+                           true, true);
 
                 return STATUS_ERROR;
             }
@@ -336,9 +361,14 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_tool_rom_code()
             received = serial->read_serial_data(serial_read_short_timeout);
             if (received.length() > 4)
             {
-                if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) || (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
+                if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) ||
+                    (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) ||
+                    (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) ||
+                    (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
                 {
-                    emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+                    emit LOG_E("Wrong response from ECU: " +
+                                   FileActions::parse_nrc_message(received.mid(4, received.length() - 1)),
+                               true, true);
 
                     return STATUS_ERROR;
                 }
@@ -368,9 +398,14 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_tool_rom_code()
     received = serial->read_serial_data(serial_read_short_timeout);
     if (received.length() > 4)
     {
-        if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) || (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
+        if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) ||
+            (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) ||
+            (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) ||
+            (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+            emit LOG_E("Wrong response from ECU: " +
+                           FileActions::parse_nrc_message(received.mid(4, received.length() - 1)),
+                       true, true);
 
             return STATUS_ERROR;
         }
@@ -399,9 +434,14 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_tool_rom_code()
     received = serial->read_serial_data(serial_read_short_timeout);
     if (received.length() > 4)
     {
-        if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) || (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
+        if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) ||
+            (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) ||
+            (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) ||
+            (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+            emit LOG_E("Wrong response from ECU: " +
+                           FileActions::parse_nrc_message(received.mid(4, received.length() - 1)),
+                       true, true);
 
             return STATUS_ERROR;
         }
@@ -430,9 +470,14 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_tool_rom_code()
     received = serial->read_serial_data(serial_read_short_timeout);
     if (received.length() > 4)
     {
-        if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) || (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
+        if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) ||
+            (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) ||
+            (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) ||
+            (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
         {
-            emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+            emit LOG_E("Wrong response from ECU: " +
+                           FileActions::parse_nrc_message(received.mid(4, received.length() - 1)),
+                       true, true);
 
             return STATUS_ERROR;
         }
@@ -459,9 +504,14 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_tool_rom_code()
         received = serial->read_serial_data(serial_read_short_timeout);
         if (received.length() > 4)
         {
-            if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) || (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) || (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) || (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
+            if ((uint8_t)received.at(0) != ((SUB_KERNEL_START_COMM >> 8) & 0xFF) ||
+                (uint8_t)received.at(1) != (SUB_KERNEL_START_COMM & 0xFF) ||
+                (uint8_t)received.at(4) != (SUB_KERNEL_JTAG_COMMAND + 0x40) ||
+                (uint8_t)received.at(8) != SUB_KERNEL_JTAG_IR_ACK)
             {
-                emit LOG_E("Wrong response from ECU: " + FileActions::parse_nrc_message(received.mid(4, received.length() - 1)), true, true);
+                emit LOG_E("Wrong response from ECU: " +
+                               FileActions::parse_nrc_message(received.mid(4, received.length() - 1)),
+                           true, true);
 
                 return STATUS_ERROR;
             }

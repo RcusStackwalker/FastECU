@@ -4,8 +4,7 @@
 #include <cstddef>
 
 BiuOpsSubaruInput2::BiuOpsSubaruInput2(QStringList *biu_option_names, QByteArray *biu_option_result, QWidget *parent)
-    : QWidget(parent),
-      ui{std::make_unique<Ui::BiuOpsSubaruInput2Window>()}
+    : QWidget(parent), ui{std::make_unique<Ui::BiuOpsSubaruInput2Window>()}
 {
     ui->setupUi(this);
 
@@ -64,7 +63,8 @@ BiuOpsSubaruInput2::BiuOpsSubaruInput2(QStringList *biu_option_names, QByteArray
     send_setting->setText("Send to BIU");
     ui->gridLayout->addWidget(send_setting, biu_option_result->length() * 8 + 1, 2);
 
-    connect(ui->gridLayoutWidget->findChild<QPushButton *>("Name Send"), SIGNAL(clicked(bool)), this, SLOT(prepare_biu_setting2()));
+    connect(ui->gridLayoutWidget->findChild<QPushButton *>("Name Send"), SIGNAL(clicked(bool)), this,
+            SLOT(prepare_biu_setting2()));
 }
 
 BiuOpsSubaruInput2::~BiuOpsSubaruInput2()

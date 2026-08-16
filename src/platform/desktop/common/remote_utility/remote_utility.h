@@ -12,9 +12,7 @@ class RemoteUtility : public QObject
 {
     Q_OBJECT
   public:
-    explicit RemoteUtility(const QString& peerAddress,
-                           QString password,
-                           QWebSocket *web_socket = nullptr,
+    explicit RemoteUtility(const QString& peerAddress, QString password, QWebSocket *web_socket = nullptr,
                            QObject *parent = nullptr);
     ~RemoteUtility();
 

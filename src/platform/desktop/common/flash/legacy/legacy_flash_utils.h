@@ -19,9 +19,6 @@ namespace FlashUtils
 {
 int findFlashDeviceIndex(const QString& mcuType);
 
-void configureIso15765Can(SerialPortActions *serial,
-                          const QString& canSpeed,
-                          quint32 sourceAddress,
-                          quint32 destinationAddress,
-                          bool use29BitId = false);
+void configureIso15765Can(SerialPortActions *serial, const QString& canSpeed, quint32 sourceAddress,
+                          quint32 destinationAddress, bool use29BitId = false);
 } // namespace FlashUtils

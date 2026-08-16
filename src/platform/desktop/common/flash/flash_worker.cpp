@@ -19,10 +19,9 @@ constexpr unsigned long kTeardownWaitMs = 5000;
 } // namespace
 
 FlashWorker::FlashWorker(FlashPlan plan, std::unique_ptr<IFlashExecutor> executor,
-                         std::unique_ptr<IFlashTransport> transport, std::unique_ptr<IClock> clock,
-                         QObject *parent)
-    : QThread(parent), plan_(std::move(plan)), executor_(std::move(executor)),
-      transport_(std::move(transport)), clock_(std::move(clock))
+                         std::unique_ptr<IFlashTransport> transport, std::unique_ptr<IClock> clock, QObject *parent)
+    : QThread(parent), plan_(std::move(plan)), executor_(std::move(executor)), transport_(std::move(transport)),
+      clock_(std::move(clock))
 {
     qRegisterMetaType<FlashWorkerResult>();
 }
@@ -56,14 +55,12 @@ void FlashWorker::run()
     // so this is a pure wiring change with no timing/ordering difference --
     // not an accidental switch to queued delivery.
     QtEventSink events;
-    connect(&events, &QtEventSink::logged, this, &FlashWorker::logEvent,
-            Qt::DirectConnection);
-    connect(&events, &QtEventSink::progressed, this, &FlashWorker::progressChanged,
-            Qt::DirectConnection);
-    connect(&events, &QtEventSink::phaseProgressed, this, &FlashWorker::phaseProgressChanged,
-            Qt::DirectConnection);
-    connect(&events, &QtEventSink::noticed, this, [this](QString message)
-            { emit logEvent(static_cast<int>(LogLevel::Info), std::move(message)); }, Qt::DirectConnection);
+    connect(&events, &QtEventSink::logged, this, &FlashWorker::logEvent, Qt::DirectConnection);
+    connect(&events, &QtEventSink::progressed, this, &FlashWorker::progressChanged, Qt::DirectConnection);
+    connect(&events, &QtEventSink::phaseProgressed, this, &FlashWorker::phaseProgressChanged, Qt::DirectConnection);
+    connect(
+        &events, &QtEventSink::noticed, this, [this](QString message)
+        { emit logEvent(static_cast<int>(LogLevel::Info), std::move(message)); }, Qt::DirectConnection);
 
     Result<FlashExecutionResult> result =
         executor_->execute(plan_, *transport_, *clock_, cancellation_.token(), events);

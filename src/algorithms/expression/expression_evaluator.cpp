@@ -106,7 +106,8 @@ std::vector<std::string> expression_parse(std::string_view expression, std::stri
             isOperator = false;
             number.push_back(ch);
             i++;
-            while (i < expression.length() && (std::isdigit(static_cast<unsigned char>(expression[i])) || expression[i] == '.'))
+            while (i < expression.length() &&
+                   (std::isdigit(static_cast<unsigned char>(expression[i])) || expression[i] == '.'))
             {
                 number.push_back(expression[i]);
                 i++;

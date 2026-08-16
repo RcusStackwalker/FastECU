@@ -67,11 +67,10 @@ void error(Ctx& ctx, std::string_view message)
 // power-cycling scenario that motivated it is this family's own). This
 // thin wrapper exists only so call sites below can keep passing `ctx`
 // instead of `ctx.events`.
-Error report_exchange_failure(Ctx& ctx, const Error& failure,
-                              std::string_view rejection_prefix, std::string_view operation)
+Error report_exchange_failure(Ctx& ctx, const Error& failure, std::string_view rejection_prefix,
+                              std::string_view operation)
 {
-    return ::fastecu::flash::report_exchange_failure(ctx.events, failure, rejection_prefix,
-                                                     operation);
+    return ::fastecu::flash::report_exchange_failure(ctx.events, failure, rejection_prefix, operation);
 }
 
 // The fatal_request + expected-response-prefix check every exchange in
@@ -85,12 +84,10 @@ Error report_exchange_failure(Ctx& ctx, const Error& failure,
 // expected_prefix, subject, and min_payload_size mean.
 Result<bytes::Bytes> fatal_query(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
                                  const uds::ExchangePolicy& policy, std::string_view rejection_prefix,
-                                 std::string_view subject,
-                                 std::optional<std::size_t> min_payload_size = std::nullopt)
+                                 std::string_view subject, std::optional<std::size_t> min_payload_size = std::nullopt)
 {
-    return ::fastecu::flash::fatal_query(
-        UdsExchangeContext{ctx.uds, policy, ctx.cancellation, ctx.events}, pdu, expected_prefix,
-        rejection_prefix, subject, min_payload_size);
+    return ::fastecu::flash::fatal_query(UdsExchangeContext{ctx.uds, policy, ctx.cancellation, ctx.events}, pdu,
+                                         expected_prefix, rejection_prefix, subject, min_payload_size);
 }
 
 // Legacy connect_bootloader, flash_ecu_mitsu_m32r_can_operation.cpp:66-168.
@@ -105,9 +102,9 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
     if (family.use_vendor_challenge)
     {
         info(ctx, "Starting basic diagnostic session for vendor authorization...");
-        Result<bytes::Bytes> received = fatal_query(
-            ctx, buildDiagnosticSession(kSessionBasic), bytes::Bytes{kSessionBasic},
-            kRoutineExchangePolicy, "Wrong response from ECU: ", "basic diagnostic session");
+        Result<bytes::Bytes> received =
+            fatal_query(ctx, buildDiagnosticSession(kSessionBasic), bytes::Bytes{kSessionBasic}, kRoutineExchangePolicy,
+                        "Wrong response from ECU: ", "basic diagnostic session");
         if (!received.has_value())
         {
             return std::unexpected(received.error());
@@ -118,12 +115,11 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
         // 4-byte seed after them (legacy "length > 10" on the enveloped
         // frame).
         info(ctx, "Requesting vendor extension challenge seed...");
-        received = fatal_query(
-            ctx, MitsuColtCanVendorExt::buildChallengeSeedRequest(),
-            bytes::Bytes{MitsuColtCanVendorExt::kVendorChallengeSelector,
-                         MitsuColtCanVendorExt::kVendorChallengeSeedSubfunction},
-            kRoutineExchangePolicy, "Wrong vendor challenge response from ECU: ",
-            "vendor challenge seed request", 6);
+        received = fatal_query(ctx, MitsuColtCanVendorExt::buildChallengeSeedRequest(),
+                               bytes::Bytes{MitsuColtCanVendorExt::kVendorChallengeSelector,
+                                            MitsuColtCanVendorExt::kVendorChallengeSeedSubfunction},
+                               kRoutineExchangePolicy,
+                               "Wrong vendor challenge response from ECU: ", "vendor challenge seed request", 6);
         if (!received.has_value())
         {
             return std::unexpected(received.error());
@@ -133,8 +129,8 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
         const bytes::ByteView seed_bytes = uds::payload(*received).subspan(2, 4);
         info(ctx, std::format("Received vendor seed: {}", bytes::toHex(seed_bytes)));
 
-        const std::uint32_t vendor_key = MitsuColtCanVendorExt::challengeInverseTransform(
-            MitsuColtCanVendorExt::bytesToSeed(seed_bytes));
+        const std::uint32_t vendor_key =
+            MitsuColtCanVendorExt::challengeInverseTransform(MitsuColtCanVendorExt::bytesToSeed(seed_bytes));
         const bytes::Bytes key_bytes = MitsuColtCanVendorExt::keyBytes(vendor_key);
         info(ctx, std::format("Calculated vendor key: {}", bytes::toHex(key_bytes)));
 
@@ -142,11 +138,10 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
         // kVendorChallengeAccepted grants the transition, so this stays a
         // content check of its own.
         info(ctx, "Sending vendor key to ECU...");
-        received = fatal_query(
-            ctx, MitsuColtCanVendorExt::buildChallengeKey(vendor_key),
-            bytes::Bytes{MitsuColtCanVendorExt::kVendorChallengeSelector,
-                         MitsuColtCanVendorExt::kVendorChallengeAccepted},
-            kRoutineExchangePolicy, "Vendor challenge key rejected: ", "vendor challenge key");
+        received = fatal_query(ctx, MitsuColtCanVendorExt::buildChallengeKey(vendor_key),
+                               bytes::Bytes{MitsuColtCanVendorExt::kVendorChallengeSelector,
+                                            MitsuColtCanVendorExt::kVendorChallengeAccepted},
+                               kRoutineExchangePolicy, "Vendor challenge key rejected: ", "vendor challenge key");
         if (!received.has_value())
         {
             return std::unexpected(received.error());
@@ -158,9 +153,9 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
     // to authorize the transition. All reads and writes then enter the
     // bootload session and complete factory SecurityAccess.
     info(ctx, "Starting diagnostic session...");
-    Result<bytes::Bytes> received = fatal_query(
-        ctx, buildDiagnosticSession(family.session_id), bytes::Bytes{family.session_id},
-        kRoutineExchangePolicy, "Wrong response from ECU: ", "diagnostic session");
+    Result<bytes::Bytes> received =
+        fatal_query(ctx, buildDiagnosticSession(family.session_id), bytes::Bytes{family.session_id},
+                    kRoutineExchangePolicy, "Wrong response from ECU: ", "diagnostic session");
     if (!received.has_value())
     {
         return std::unexpected(received.error());
@@ -178,8 +173,7 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
     // on the enveloped frame).
     info(ctx, "Requesting security seed...");
     received = fatal_query(ctx, buildSecurityAccessSeedRequest(), bytes::Bytes{kSecurityAccessSeedLevel},
-                           kRoutineExchangePolicy, "Wrong response from ECU: ",
-                           "security access seed request", 5);
+                           kRoutineExchangePolicy, "Wrong response from ECU: ", "security access seed request", 5);
     if (!received.has_value())
     {
         return std::unexpected(received.error());
@@ -195,8 +189,7 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
     // Lines 155-165.
     info(ctx, "Sending seed key to ECU...");
     received = fatal_query(ctx, buildSecurityAccessKey(key), bytes::Bytes{kSecurityAccessKeyLevel},
-                           kRoutineExchangePolicy, "Wrong response from ECU: ",
-                           "security access key");
+                           kRoutineExchangePolicy, "Wrong response from ECU: ", "security access key");
     if (!received.has_value())
     {
         return std::unexpected(received.error());
@@ -229,18 +222,17 @@ Result<bytes::Bytes> read_flash_range(Ctx& ctx, std::uint32_t start_addr, std::u
 
         // Lines 188-189.
         const std::uint32_t remaining = end_addr - addr;
-        const auto chunk_len = static_cast<bytes::Byte>(
-            remaining < kFlashReadBlockSize ? remaining : kFlashReadBlockSize);
+        const auto chunk_len =
+            static_cast<bytes::Byte>(remaining < kFlashReadBlockSize ? remaining : kFlashReadBlockSize);
 
         // Lines 191-194.
         Result<bytes::Bytes> received =
-            ctx.uds.request(buildReadMemoryByAddress(addr, chunk_len), kRoutineExchangePolicy,
-                            ctx.cancellation);
+            ctx.uds.request(buildReadMemoryByAddress(addr, chunk_len), kRoutineExchangePolicy, ctx.cancellation);
         if (!received.has_value())
         {
-            return std::unexpected(report_exchange_failure(
-                ctx, received.error(), std::format("Wrong response from ECU at 0x{:x}: ", addr),
-                std::format("the flash read at 0x{:x}", addr)));
+            return std::unexpected(report_exchange_failure(ctx, received.error(),
+                                                           std::format("Wrong response from ECU at 0x{:x}: ", addr),
+                                                           std::format("the flash read at 0x{:x}", addr)));
         }
         // Line 196: the reply must carry the whole chunk it was asked for. A
         // short one is refused rather than padded -- silently accepting it
@@ -270,20 +262,18 @@ Result<bytes::Bytes> read_flash_range(Ctx& ctx, std::uint32_t start_addr, std::u
 }
 
 // Legacy upload_and_commit, flash_ecu_mitsu_m32r_can_operation.cpp:231-297.
-Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data,
-                         PhaseReporter *progress = nullptr)
+Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data, PhaseReporter *progress = nullptr)
 {
     using namespace MitsuColtCan;
 
     // Lines 238-246.
-    Result<bytes::Bytes> received =
-        ctx.uds.request(buildRequestDownload(start, static_cast<std::uint32_t>(data.size())),
-                        kRoutineExchangePolicy, ctx.cancellation);
+    Result<bytes::Bytes> received = ctx.uds.request(
+        buildRequestDownload(start, static_cast<std::uint32_t>(data.size())), kRoutineExchangePolicy, ctx.cancellation);
     if (!received.has_value())
     {
-        return std::unexpected(report_exchange_failure(
-            ctx, received.error(), std::format("RequestDownload to 0x{:x} rejected: ", start),
-            std::format("RequestDownload to 0x{:x}", start)));
+        return std::unexpected(report_exchange_failure(ctx, received.error(),
+                                                       std::format("RequestDownload to 0x{:x} rejected: ", start),
+                                                       std::format("RequestDownload to 0x{:x}", start)));
     }
 
     // Lines 248-260.
@@ -293,9 +283,9 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data,
         received = ctx.uds.request(chunk, kRoutineExchangePolicy, ctx.cancellation);
         if (!received.has_value())
         {
-            return std::unexpected(report_exchange_failure(
-                ctx, received.error(), std::format("TransferData to 0x{:x} rejected: ", start),
-                std::format("TransferData to 0x{:x}", start)));
+            return std::unexpected(report_exchange_failure(ctx, received.error(),
+                                                           std::format("TransferData to 0x{:x} rejected: ", start),
+                                                           std::format("TransferData to 0x{:x}", start)));
         }
         payload_done += static_cast<std::uint32_t>(chunk.size() - 1);
         if (progress != nullptr)
@@ -305,35 +295,31 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data,
     }
 
     // Lines 262-270.
-    received = ctx.uds.request(buildRequestDownload(kCrcTransferAddress, kCrcTransferSize),
-                               kRoutineExchangePolicy, ctx.cancellation);
+    received = ctx.uds.request(buildRequestDownload(kCrcTransferAddress, kCrcTransferSize), kRoutineExchangePolicy,
+                               ctx.cancellation);
     if (!received.has_value())
     {
         return std::unexpected(report_exchange_failure(
-            ctx, received.error(), "RequestDownload for checksum rejected: ",
-            "RequestDownload for the checksum"));
+            ctx, received.error(), "RequestDownload for checksum rejected: ", "RequestDownload for the checksum"));
     }
 
     // Lines 272-284: big-endian 16-bit running sum, always exactly one
     // TransferData frame (kCrcTransferSize is 2, well under kTransferChunkSize).
     const std::uint16_t crc = checksum(data);
-    received = ctx.uds.request(buildTransferDataFrames(bytes::composeBe(crc)).front(),
-                               kRoutineExchangePolicy, ctx.cancellation);
-    if (!received.has_value())
-    {
-        return std::unexpected(report_exchange_failure(
-            ctx, received.error(), "TransferData for checksum rejected: ",
-            "TransferData for the checksum"));
-    }
-
-    // Lines 286-294: the CRC check gets the extra-long timeout.
-    received = ctx.uds.request(buildRoutineCheckCrc(start), kSlowExchangePolicy,
+    received = ctx.uds.request(buildTransferDataFrames(bytes::composeBe(crc)).front(), kRoutineExchangePolicy,
                                ctx.cancellation);
     if (!received.has_value())
     {
         return std::unexpected(report_exchange_failure(
-            ctx, received.error(),
-            std::format("RoutineControl CRC check for 0x{:x} rejected: ", start),
+            ctx, received.error(), "TransferData for checksum rejected: ", "TransferData for the checksum"));
+    }
+
+    // Lines 286-294: the CRC check gets the extra-long timeout.
+    received = ctx.uds.request(buildRoutineCheckCrc(start), kSlowExchangePolicy, ctx.cancellation);
+    if (!received.has_value())
+    {
+        return std::unexpected(report_exchange_failure(
+            ctx, received.error(), std::format("RoutineControl CRC check for 0x{:x} rejected: ", start),
             std::format("the RoutineControl CRC check for 0x{:x}", start)));
     }
 
@@ -356,21 +342,20 @@ Status unlock_and_erase(Ctx& ctx, std::string_view stage)
 {
     using namespace MitsuColtCan;
 
-    Result<bytes::Bytes> received =
-        ctx.uds.request(buildRequestReflashUnlock(), kSlowExchangePolicy, ctx.cancellation);
+    Result<bytes::Bytes> received = ctx.uds.request(buildRequestReflashUnlock(), kSlowExchangePolicy, ctx.cancellation);
     if (!received.has_value())
     {
-        return std::unexpected(report_exchange_failure(
-            ctx, received.error(), std::format("Reflash unlock{} rejected: ", stage),
-            std::format("the reflash unlock request{}", stage)));
+        return std::unexpected(report_exchange_failure(ctx, received.error(),
+                                                       std::format("Reflash unlock{} rejected: ", stage),
+                                                       std::format("the reflash unlock request{}", stage)));
     }
 
     received = ctx.uds.request(buildRoutineErase(), kSlowExchangePolicy, ctx.cancellation);
     if (!received.has_value())
     {
-        return std::unexpected(report_exchange_failure(
-            ctx, received.error(), std::format("Erase trigger{} rejected: ", stage),
-            std::format("the erase trigger{}", stage)));
+        return std::unexpected(report_exchange_failure(ctx, received.error(),
+                                                       std::format("Erase trigger{} rejected: ", stage),
+                                                       std::format("the erase trigger{}", stage)));
     }
     if (ctx.cancellation.cancelled())
     {
@@ -389,24 +374,20 @@ Status unlock_and_erase(Ctx& ctx, std::string_view stage)
 // a hand-built plan could otherwise reach the erase trigger ungated.
 bool confirmation_granted(const FlashPlan& plan, ConfirmationSpec::Id id)
 {
-    return std::ranges::any_of(plan.confirmations(),
-                               [id](const ConfirmationSpec& spec)
-                               { return spec.id == id; });
+    return std::ranges::any_of(plan.confirmations(), [id](const ConfirmationSpec& spec) { return spec.id == id; });
 }
 
 // Legacy ensureTopRegionWritten, flash_ecu_mitsu_m32r_can_operation.cpp:299-390.
 // This path applies only to the 512 KiB protocols; the 384 KiB protocols end
 // exactly where the protected top region begins.
-Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan, bytes::ByteView rom,
-                                 PhaseSequence& phases)
+Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan, bytes::ByteView rom, PhaseSequence& phases)
 {
     using namespace MitsuColtCan;
 
     PhaseReporter phase = phases.start("Ensure top region", 3);
 
     // Line 303.
-    info(ctx, std::format("Checking top 128KB (0x{:x}-0x{:x})...", kTopRegionStart,
-                          kTopRegionEnd));
+    info(ctx, std::format("Checking top 128KB (0x{:x}-0x{:x})...", kTopRegionStart, kTopRegionEnd));
 
     // Lines 305-309.
     Result<bytes::Bytes> current_top = read_flash_range(ctx, kTopRegionStart, kTopRegionLength);
@@ -437,10 +418,8 @@ Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan, bytes::ByteVie
     }
 
     // Lines 335-340.
-    info(ctx, std::format("Uploading erase redirect routine to RAM 0x{:x}...",
-                          kEraseRoutineRamAddr));
-    if (const Status uploaded =
-            upload_and_commit(ctx, kEraseRoutineRamAddr, kEraseRedirectRoutine);
+    info(ctx, std::format("Uploading erase redirect routine to RAM 0x{:x}...", kEraseRoutineRamAddr));
+    if (const Status uploaded = upload_and_commit(ctx, kEraseRoutineRamAddr, kEraseRedirectRoutine);
         !uploaded.has_value())
     {
         error(ctx, "Erase redirect routine upload failed");
@@ -448,10 +427,8 @@ Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan, bytes::ByteVie
     }
 
     // Lines 342-347.
-    info(ctx, std::format("Uploading write redirect routine to RAM 0x{:x}...",
-                          kWriteRoutineRamAddr));
-    if (const Status uploaded =
-            upload_and_commit(ctx, kWriteRoutineRamAddr, kWriteRedirectRoutine);
+    info(ctx, std::format("Uploading write redirect routine to RAM 0x{:x}...", kWriteRoutineRamAddr));
+    if (const Status uploaded = upload_and_commit(ctx, kWriteRoutineRamAddr, kWriteRedirectRoutine);
         !uploaded.has_value())
     {
         error(ctx, "Write redirect routine upload failed");
@@ -459,8 +436,7 @@ Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan, bytes::ByteVie
     }
 
     // Lines 349-368.
-    if (const Status erased = unlock_and_erase(ctx, " (top 128KB bootstrap)");
-        !erased.has_value())
+    if (const Status erased = unlock_and_erase(ctx, " (top 128KB bootstrap)"); !erased.has_value())
     {
         return erased;
     }
@@ -471,8 +447,7 @@ Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan, bytes::ByteVie
     // into the userspace window, and the redirect routines add the +0x058000
     // offset themselves. See mitsu_colt_can_protocol.h's kEraseRedirectRoutine
     // comment.
-    if (const Status written = upload_and_commit(ctx, kUserspaceStart, wanted_top);
-        !written.has_value())
+    if (const Status written = upload_and_commit(ctx, kUserspaceStart, wanted_top); !written.has_value())
     {
         error(ctx, "Top 128KB redirect write failed");
         return written;
@@ -502,19 +477,16 @@ Status write_mem(Ctx& ctx, const FlashPlan& plan, bytes::ByteView rom, PhaseSequ
 {
     using namespace MitsuColtCan;
 
-    const std::uint32_t writable_end =
-        plan.transfer_region().start + plan.transfer_region().length;
+    const std::uint32_t writable_end = plan.transfer_region().start + plan.transfer_region().length;
     const bool includes_top_region = writable_end == MitsuColtCan::kFullRomSize;
-    const std::uint32_t page_write_end =
-        includes_top_region ? MitsuColtCan::kTopRegionStart : writable_end;
+    const std::uint32_t page_write_end = includes_top_region ? MitsuColtCan::kTopRegionStart : writable_end;
 
     // The legacy 512 KiB flow must compare and, if needed, bootstrap the top
     // 128 KiB. A 384 KiB image has no top region, so it proceeds directly to
     // the stock page helpers.
     if (includes_top_region)
     {
-        if (const Status bootstrapped = ensure_top_region_written(ctx, plan, rom, phases);
-            !bootstrapped.has_value())
+        if (const Status bootstrapped = ensure_top_region_written(ctx, plan, rom, phases); !bootstrapped.has_value())
         {
             return bootstrapped;
         }
@@ -523,10 +495,8 @@ Status write_mem(Ctx& ctx, const FlashPlan& plan, bytes::ByteView rom, PhaseSequ
     PhaseReporter prepare = phases.start("Prepare userspace", 2);
 
     // Lines 409-415.
-    info(ctx,
-         std::format("Uploading erase-page routine to RAM 0x{:x}...", kEraseRoutineRamAddr));
-    if (const Status uploaded = upload_and_commit(ctx, kEraseRoutineRamAddr, kErasePageRoutine);
-        !uploaded.has_value())
+    info(ctx, std::format("Uploading erase-page routine to RAM 0x{:x}...", kEraseRoutineRamAddr));
+    if (const Status uploaded = upload_and_commit(ctx, kEraseRoutineRamAddr, kErasePageRoutine); !uploaded.has_value())
     {
         error(ctx, "Erase-page routine upload failed");
         return uploaded;
@@ -535,10 +505,8 @@ Status write_mem(Ctx& ctx, const FlashPlan& plan, bytes::ByteView rom, PhaseSequ
     prepare.update(1);
 
     // Lines 417-423.
-    info(ctx,
-         std::format("Uploading write-page routine to RAM 0x{:x}...", kWriteRoutineRamAddr));
-    if (const Status uploaded = upload_and_commit(ctx, kWriteRoutineRamAddr, kWritePageRoutine);
-        !uploaded.has_value())
+    info(ctx, std::format("Uploading write-page routine to RAM 0x{:x}...", kWriteRoutineRamAddr));
+    if (const Status uploaded = upload_and_commit(ctx, kWriteRoutineRamAddr, kWritePageRoutine); !uploaded.has_value())
     {
         error(ctx, "Write-page routine upload failed");
         return uploaded;
@@ -573,22 +541,17 @@ Status write_mem(Ctx& ctx, const FlashPlan& plan, bytes::ByteView rom, PhaseSequ
 
     // Lines 466-473, extended to stop at the capacity snapshotted in the
     // selected protocol plan.
-    info(ctx, std::format("Writing ROM userspace 0x{:x}-0x{:x}...", kUserspaceStart,
-                          page_write_end));
-    const bytes::ByteView userspace =
-        rom.subspan(kUserspaceStart, page_write_end - kUserspaceStart);
-    PhaseReporter write =
-        phases.start("Write userspace", static_cast<int>(userspace.size()) + 1);
-    if (const Status written = upload_and_commit(ctx, kUserspaceStart, userspace, &write);
-        !written.has_value())
+    info(ctx, std::format("Writing ROM userspace 0x{:x}-0x{:x}...", kUserspaceStart, page_write_end));
+    const bytes::ByteView userspace = rom.subspan(kUserspaceStart, page_write_end - kUserspaceStart);
+    PhaseReporter write = phases.start("Write userspace", static_cast<int>(userspace.size()) + 1);
+    if (const Status written = upload_and_commit(ctx, kUserspaceStart, userspace, &write); !written.has_value())
     {
         error(ctx, "ROM userspace write failed");
         return written;
     }
     info(ctx, "Userspace flash written");
 
-    PhaseReporter verify =
-        phases.start("Verify userspace", static_cast<int>(userspace.size()) + 1);
+    PhaseReporter verify = phases.start("Verify userspace", static_cast<int>(userspace.size()) + 1);
     Result<bytes::Bytes> verify_userspace =
         read_flash_range(ctx, kUserspaceStart, page_write_end - kUserspaceStart, &verify);
     if (!verify_userspace.has_value())
@@ -608,12 +571,12 @@ Status write_mem(Ctx& ctx, const FlashPlan& plan, bytes::ByteView rom, PhaseSequ
 
 } // namespace
 
-Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(
-    const FlashPlan& plan, IFlashTransport& transport, IClock& clock,
-    const ICancellationToken& cancellation, IEventSink& events)
+Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(const FlashPlan& plan, IFlashTransport& transport,
+                                                               IClock& clock, const ICancellationToken& cancellation,
+                                                               IEventSink& events)
 {
-    if (const Status matched = check_family_transport_match(plan, FlashFamily::MitsuColtM32rCan,
-                                                            TransportKind::CanIso15765);
+    if (const Status matched =
+            check_family_transport_match(plan, FlashFamily::MitsuColtM32rCan, TransportKind::CanIso15765);
         !matched.has_value())
     {
         return std::unexpected(matched.error());
@@ -631,21 +594,20 @@ Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(
     // Legacy line 32-33: configureIso15765Can(serial, "500000", 0x7E0, 0x7E8)
     // then open_serial_port(). Legacy never closes the port, and neither does
     // this executor -- the desktop adapter owns the port lifetime.
-    Result<ICanFlashTransport *> can_transport = open_can_iso15765_transport(
-        transport, Iso15765Config{
-                       .bitrate = family.bitrate,
-                       .request_id = family.request_id,
-                       .response_id = family.response_id,
-                       .extended_id = family.extended_id,
-                   });
+    Result<ICanFlashTransport *> can_transport =
+        open_can_iso15765_transport(transport, Iso15765Config{
+                                                   .bitrate = family.bitrate,
+                                                   .request_id = family.request_id,
+                                                   .response_id = family.response_id,
+                                                   .extended_id = family.extended_id,
+                                               });
     if (!can_transport.has_value())
     {
         return std::unexpected(can_transport.error());
     }
     ICanFlashTransport *can = *can_transport;
 
-    const std::uint32_t rom_end =
-        plan.transfer_region().start + plan.transfer_region().length;
+    const std::uint32_t rom_end = plan.transfer_region().start + plan.transfer_region().length;
     const bool read = plan.operation() == FlashOperation::Read;
     PhaseSequence phases(events, read ? 2 : (rom_end == MitsuColtCan::kFullRomSize ? 6 : 5));
     PhaseReporter connect = phases.start(read ? "Connect to ECU" : "Connect", 1);
@@ -672,10 +634,9 @@ Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(
         info(ctx, "Reading ROM from ECU using CAN");
         info(ctx, "Start reading ROM, please wait...");
 
-        PhaseReporter read_phase =
-            phases.start("Read ROM", static_cast<int>(plan.transfer_region().length));
-        Result<bytes::Bytes> rom = read_flash_range(ctx, plan.transfer_region().start,
-                                                    plan.transfer_region().length, &read_phase);
+        PhaseReporter read_phase = phases.start("Read ROM", static_cast<int>(plan.transfer_region().length));
+        Result<bytes::Bytes> rom =
+            read_flash_range(ctx, plan.transfer_region().start, plan.transfer_region().length, &read_phase);
         if (!rom.has_value())
         {
             return std::unexpected(rom.error());
@@ -698,8 +659,7 @@ Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(
     // built another way cannot turn a dry run into a real erase and write.
     if (plan.operation() != FlashOperation::Write)
     {
-        return fail(ErrorKind::Unsupported,
-                    "test_write is not supported by the Mitsu Colt M32R CAN family");
+        return fail(ErrorKind::Unsupported, "test_write is not supported by the Mitsu Colt M32R CAN family");
     }
 
     // Legacy lines 49-51.
@@ -707,8 +667,7 @@ Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(
     info(ctx, "Writing ROM to ECU using CAN");
     // validate_and_build guarantees a Write plan carries an image; write_mem
     // re-checks its length, as the legacy write_mem did.
-    if (const Status written = write_mem(ctx, plan, *plan.image(), phases);
-        !written.has_value())
+    if (const Status written = write_mem(ctx, plan, *plan.image(), phases); !written.has_value())
     {
         return std::unexpected(written.error());
     }

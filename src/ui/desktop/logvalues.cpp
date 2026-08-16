@@ -53,7 +53,8 @@ void MainWindow::change_log_values(int tab_index, const QString& protocol)
             logValues->log_values_names_sorted.append(logValues->log_value_name.at(i));
         }
     }
-    std::sort(logValues->log_values_names_sorted.begin(), logValues->log_values_names_sorted.end(), std::less<QString>());
+    std::sort(logValues->log_values_names_sorted.begin(), logValues->log_values_names_sorted.end(),
+              std::less<QString>());
 
     for (int i = 0; i < logValues->dashboard_log_value_id.length(); i++)
     {
@@ -147,7 +148,8 @@ void MainWindow::change_log_values(int tab_index, const QString& protocol)
             logValues->log_switches_names_sorted.append(logValues->log_switch_name.at(i));
         }
     }
-    std::sort(logValues->log_switches_names_sorted.begin(), logValues->log_switches_names_sorted.end(), std::less<QString>());
+    std::sort(logValues->log_switches_names_sorted.begin(), logValues->log_switches_names_sorted.end(),
+              std::less<QString>());
 
     for (int i = 0; i < logValues->lower_panel_switch_id.length(); i++)
     {
@@ -225,7 +227,8 @@ void MainWindow::change_log_digital_value(int index)
                 if (logValues->log_value_name.at(i) == log_digital_box->currentText())
                 {
                     // qDebug() << "Change value at" << comboIndex.at(2) << "to" << logValues->log_value_id.at(i);
-                    logValues->lower_panel_log_value_id.replace(comboIndex.at(2).toUInt(), logValues->log_value_id.at(i));
+                    logValues->lower_panel_log_value_id.replace(comboIndex.at(2).toUInt(),
+                                                                logValues->log_value_id.at(i));
                 }
             }
         }

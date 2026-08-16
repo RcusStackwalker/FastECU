@@ -158,13 +158,11 @@ TEST(FlashDeviceTable, MatchesExpectedSummariesAndNamedAnomalies)
     // not declare the anomalous ranges correct.
 
     // SH72531 block 2 starts 0x8000 bytes before block 1 ends.
-    EXPECT_EQ(sh72531->fblocks[1].start + sh72531->fblocks[1].len - sh72531->fblocks[2].start,
-              std::uint32_t(0x8000));
+    EXPECT_EQ(sh72531->fblocks[1].start + sh72531->fblocks[1].len - sh72531->fblocks[2].start, std::uint32_t(0x8000));
 
     // MC68HC16Y5 leaves 0x8000 between block 7 and block 8 and its final two
     // blocks extend past the declared 0x28000 ROM size.
-    EXPECT_EQ(mc68->fblocks[8].start - (mc68->fblocks[7].start + mc68->fblocks[7].len),
-              std::uint32_t(0x8000));
+    EXPECT_EQ(mc68->fblocks[8].start - (mc68->fblocks[7].start + mc68->fblocks[7].len), std::uint32_t(0x8000));
     EXPECT_EQ(mc68->fblocks[9].start + mc68->fblocks[9].len, std::uint32_t(0x30000));
 
     // N83M_1_5MB block coverage extends 0x10000 past base + declared ROM size.

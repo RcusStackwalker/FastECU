@@ -46,13 +46,11 @@ bytes::Bytes calculateSeedKey(bytes::ByteView seed, SeedKeyToGenerateIndex keyto
         return key;
     }
 
-    bytes::appendU32Be(key, transformWord(bytes::readU32Be(seed, 0), keytogenerateindex,
-                                          indextransformation, true));
+    bytes::appendU32Be(key, transformWord(bytes::readU32Be(seed, 0), keytogenerateindex, indextransformation, true));
     return key;
 }
 
-bytes::Bytes calculatePayload(bytes::ByteView buf, uint32_t len,
-                              KeyToGenerateIndex keytogenerateindex,
+bytes::Bytes calculatePayload(bytes::ByteView buf, uint32_t len, KeyToGenerateIndex keytogenerateindex,
                               IndexTransformation indextransformation)
 {
     bytes::Bytes encrypted;
@@ -70,8 +68,7 @@ bytes::Bytes calculatePayload(bytes::ByteView buf, uint32_t len,
     for (uint32_t i = 0; i < len; i += 4)
     {
         bytes::appendU32Be(encrypted,
-                           transformWord(bytes::readU32Be(buf, i), keytogenerateindex,
-                                         indextransformation, false));
+                           transformWord(bytes::readU32Be(buf, i), keytogenerateindex, indextransformation, false));
     }
 
     return encrypted;
@@ -80,8 +77,7 @@ bytes::Bytes calculatePayload(bytes::ByteView buf, uint32_t len,
 bytes::Bytes addHeader(bytes::ByteView output, bytes::Byte testerId, bytes::Byte targetId)
 {
     using namespace bytes::literals;
-    return bytes::composeBeWithChecksum(bytes::sum8, 0x80_b, targetId, testerId,
-                                        bytes::Byte(output.size()), output);
+    return bytes::composeBeWithChecksum(bytes::sum8, 0x80_b, targetId, testerId, bytes::Byte(output.size()), output);
 }
 
 bool hasValidFrame(bytes::ByteView frame, bytes::Byte receiverId, bytes::Byte senderId)
@@ -104,12 +100,10 @@ bool hasValidFrame(bytes::ByteView frame, bytes::Byte receiverId, bytes::Byte se
         return false;
     }
 
-    return bytes::sum8(frame.first(frame.size() - checksumLength)) ==
-           frame[frame.size() - checksumLength];
+    return bytes::sum8(frame.first(frame.size() - checksumLength)) == frame[frame.size() - checksumLength];
 }
 
-bool hasPayloadPrefix(bytes::ByteView frame, bytes::ByteView prefix,
-                      bytes::Byte receiverId, bytes::Byte senderId)
+bool hasPayloadPrefix(bytes::ByteView frame, bytes::ByteView prefix, bytes::Byte receiverId, bytes::Byte senderId)
 {
     if (!hasValidFrame(frame, receiverId, senderId))
     {

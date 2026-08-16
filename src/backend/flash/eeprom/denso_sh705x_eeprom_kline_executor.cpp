@@ -99,8 +99,7 @@ bytes::Bytes sid_31_request()
 // request_kernel_id(), lines 964-994: NOT SsmProtocol::addHeader-framed.
 bytes::Bytes request_kernel_id_frame()
 {
-    return composeBeWithChecksum(bytes::sum8, kSubKernelStartComm, std::uint16_t{1},
-                                 kSubKernelId);
+    return composeBeWithChecksum(bytes::sum8, kSubKernelStartComm, std::uint16_t{1}, kSubKernelId);
 }
 
 bool looks_kernel_alive(bytes::ByteView received)
@@ -112,12 +111,11 @@ bool looks_kernel_alive(bytes::ByteView received)
 // generate_seed_key(), lines 854-879 (the non-"_ecutek" / stock branch).
 bytes::Bytes generate_stock_seed_key(bytes::ByteView seed)
 {
-    static constexpr std::uint16_t kIndex[] = {
-        0x53DA, 0x33BC, 0x72EB, 0x437D, 0x7CA3, 0x3382, 0x834F, 0x3608,
-        0xAFB8, 0x503D, 0xDBA3, 0x9D34, 0x3563, 0x6B70, 0x6E74, 0x88F0};
-    static constexpr std::uint8_t kTransform[] = {
-        0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
-        0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
+    static constexpr std::uint16_t kIndex[] = {0x53DA, 0x33BC, 0x72EB, 0x437D, 0x7CA3, 0x3382, 0x834F, 0x3608,
+                                               0xAFB8, 0x503D, 0xDBA3, 0x9D34, 0x3563, 0x6B70, 0x6E74, 0x88F0};
+    static constexpr std::uint8_t kTransform[] = {0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
+                                                  0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
+                                                  0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
     return SsmProtocol::calculateSeedKey(seed, kIndex, kTransform);
 }
 
@@ -125,12 +123,11 @@ bytes::Bytes generate_stock_seed_key(bytes::ByteView seed)
 // different indextransformation table (first byte 0x4 vs 0x5, etc).
 bytes::Bytes generate_ecutek_seed_key(bytes::ByteView seed)
 {
-    static constexpr std::uint16_t kIndex[] = {
-        0x53DA, 0x33BC, 0x72EB, 0x437D, 0x7CA3, 0x3382, 0x834F, 0x3608,
-        0xAFB8, 0x503D, 0xDBA3, 0x9D34, 0x3563, 0x6B70, 0x6E74, 0x88F0};
-    static constexpr std::uint8_t kTransform[] = {
-        0x4, 0x2, 0x5, 0x1, 0x8, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
-        0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
+    static constexpr std::uint16_t kIndex[] = {0x53DA, 0x33BC, 0x72EB, 0x437D, 0x7CA3, 0x3382, 0x834F, 0x3608,
+                                               0xAFB8, 0x503D, 0xDBA3, 0x9D34, 0x3563, 0x6B70, 0x6E74, 0x88F0};
+    static constexpr std::uint8_t kTransform[] = {0x4, 0x2, 0x5, 0x1, 0x8, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
+                                                  0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
+                                                  0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
     return SsmProtocol::calculateSeedKey(seed, kIndex, kTransform);
 }
 
@@ -138,9 +135,9 @@ bytes::Bytes generate_ecutek_seed_key(bytes::ByteView seed)
 bytes::Bytes encrypt_kernel_payload(bytes::ByteView buf, std::uint32_t len)
 {
     static constexpr std::uint16_t kIndex[] = {0x7856, 0xCE22, 0xF513, 0x6E86};
-    static constexpr std::uint8_t kTransform[] = {
-        0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
-        0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
+    static constexpr std::uint8_t kTransform[] = {0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
+                                                  0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
+                                                  0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
     return SsmProtocol::calculatePayload(buf, len, kIndex, kTransform);
 }
 
@@ -155,9 +152,9 @@ bytes::Bytes encrypt_kernel_payload(bytes::ByteView buf, std::uint32_t len)
 // hard transport failure (Disconnected et al.) propagates as-is, and
 // cancellation is checked before the write and after the read, per the
 // portable seam's cancellation contract.
-Result<bytes::Bytes> ssm_exchange(IKlineFlashTransport& transport, IClock&,
-                                  const ICancellationToken& cancellation, bytes::ByteView payload,
-                                  std::uint8_t tester_id, std::uint8_t target_id, int timeout_ms)
+Result<bytes::Bytes> ssm_exchange(IKlineFlashTransport& transport, IClock&, const ICancellationToken& cancellation,
+                                  bytes::ByteView payload, std::uint8_t tester_id, std::uint8_t target_id,
+                                  int timeout_ms)
 {
     if (cancellation.cancelled())
     {
@@ -237,10 +234,9 @@ Result<bytes::Bytes> request_kernel_id(IKlineFlashTransport& transport, IClock& 
 // block's byte count is whatever remains) -- this looks unusual but is a
 // faithful transcription, not a bug: maxblocks is computed once up front
 // from the original len, so the loop bound itself never changes.
-Status transfer_data_blocks(IKlineFlashTransport& transport, IClock& clock,
-                            const ICancellationToken& cancellation, std::uint8_t tester_id,
-                            std::uint8_t target_id, std::uint32_t addr, bytes::ByteView encrypted,
-                            std::uint32_t len)
+Status transfer_data_blocks(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                            std::uint8_t tester_id, std::uint8_t target_id, std::uint32_t addr,
+                            bytes::ByteView encrypted, std::uint32_t len)
 {
     len &= ~std::uint32_t(3);
     if (encrypted.empty() || len == 0)
@@ -274,8 +270,8 @@ Status transfer_data_blocks(IKlineFlashTransport& transport, IClock& clock,
             len -= kUploadChunkBytes;
         }
 
-        Result<bytes::Bytes> resp = ssm_exchange(transport, clock, cancellation, payload, tester_id,
-                                                 target_id, kShortTimeoutMs);
+        Result<bytes::Bytes> resp =
+            ssm_exchange(transport, clock, cancellation, payload, tester_id, target_id, kShortTimeoutMs);
         if (!resp.has_value())
         {
             return std::unexpected(resp.error());
@@ -290,12 +286,12 @@ Status transfer_data_blocks(IKlineFlashTransport& transport, IClock& clock,
 
 } // namespace
 
-Result<FlashExecutionResult> DensoSh705xEepromKlineExecutor::execute(
-    const FlashPlan& plan, IFlashTransport& transport, IClock& clock,
-    const ICancellationToken& cancellation, IEventSink& events)
+Result<FlashExecutionResult> DensoSh705xEepromKlineExecutor::execute(const FlashPlan& plan, IFlashTransport& transport,
+                                                                     IClock& clock,
+                                                                     const ICancellationToken& cancellation,
+                                                                     IEventSink& events)
 {
-    if (Status match = check_family_transport_match(plan, FlashFamily::DensoSh705xEepromKline,
-                                                    TransportKind::Kline);
+    if (Status match = check_family_transport_match(plan, FlashFamily::DensoSh705xEepromKline, TransportKind::Kline);
         !match.has_value())
     {
         return std::unexpected(match.error());
@@ -370,8 +366,7 @@ Result<FlashExecutionResult> DensoSh705xEepromKlineExecutor::execute(
     }
 
     bool kernel_alive = false;
-    if (Status connected = connect_bootloader(kline_transport, clock, cancellation, events,
-                                              kline_plan, kernel_alive);
+    if (Status connected = connect_bootloader(kline_transport, clock, cancellation, events, kline_plan, kernel_alive);
         !connected.has_value())
     {
         Status close_status = kline_transport.close();
@@ -391,8 +386,7 @@ Result<FlashExecutionResult> DensoSh705xEepromKlineExecutor::execute(
         // "family requires a kernel image"). check_family_transport_match
         // above confirms the family/transport tag; it does not itself
         // guarantee a kernel -- validate_and_build is what does.
-        if (Status uploaded = upload_kernel(kline_transport, clock, cancellation, events, kline_plan,
-                                            *plan.kernel());
+        if (Status uploaded = upload_kernel(kline_transport, clock, cancellation, events, kline_plan, *plan.kernel());
             !uploaded.has_value())
         {
             Status close_status = kline_transport.close();
@@ -432,8 +426,7 @@ Result<FlashExecutionResult> DensoSh705xEepromKlineExecutor::execute(
     // logged, not propagated), and it keeps the shared, session-lifetime
     // serial instance (non-owning transport case) from being left dirtied
     // for whatever unrelated K-Line operation the user runs next.
-    if (Status header_off_after = kline_transport.set_add_iso14230_header(false);
-        !header_off_after.has_value())
+    if (Status header_off_after = kline_transport.set_add_iso14230_header(false); !header_off_after.has_value())
     {
         events.log(LogLevel::Warning, "failed to reset ISO14230 header mode after EEPROM read");
     }
@@ -458,9 +451,10 @@ Result<FlashExecutionResult> DensoSh705xEepromKlineExecutor::execute(
 }
 
 // connect_bootloader(), lines 152-296.
-Status DensoSh705xEepromKlineExecutor::connect_bootloader(
-    IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-    IEventSink& events, const DensoSh705xEepromKlinePlan& kline_plan, bool& kernel_alive)
+Status DensoSh705xEepromKlineExecutor::connect_bootloader(IKlineFlashTransport& transport, IClock& clock,
+                                                          const ICancellationToken& cancellation, IEventSink& events,
+                                                          const DensoSh705xEepromKlinePlan& kline_plan,
+                                                          bool& kernel_alive)
 {
     if (cancellation.cancelled())
     {
@@ -518,8 +512,8 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(
     const std::uint8_t target_id = kline_plan.target_id;
 
     events.log(LogLevel::Info, "Initializing K-Line communications");
-    Result<bytes::Bytes> bf = ssm_exchange(transport, clock, cancellation, sid_bf_request(), tester_id,
-                                           target_id, kExtraLongTimeoutMs);
+    Result<bytes::Bytes> bf =
+        ssm_exchange(transport, clock, cancellation, sid_bf_request(), tester_id, target_id, kExtraLongTimeoutMs);
     if (!bf.has_value())
     {
         return std::unexpected(bf.error());
@@ -530,8 +524,8 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(
     }
 
     events.log(LogLevel::Info, "Requesting to start communication");
-    Result<bytes::Bytes> start_comm = ssm_exchange(transport, clock, cancellation, sid_81_request(),
-                                                   tester_id, target_id, kExtraLongTimeoutMs);
+    Result<bytes::Bytes> start_comm =
+        ssm_exchange(transport, clock, cancellation, sid_81_request(), tester_id, target_id, kExtraLongTimeoutMs);
     if (!start_comm.has_value())
     {
         return std::unexpected(start_comm.error());
@@ -542,8 +536,8 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(
     }
 
     events.log(LogLevel::Info, "Requesting timings params");
-    Result<bytes::Bytes> timings = ssm_exchange(transport, clock, cancellation, sid_83_request(),
-                                                tester_id, target_id, kExtraLongTimeoutMs);
+    Result<bytes::Bytes> timings =
+        ssm_exchange(transport, clock, cancellation, sid_83_request(), tester_id, target_id, kExtraLongTimeoutMs);
     if (!timings.has_value())
     {
         return std::unexpected(timings.error());
@@ -554,9 +548,8 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(
     }
 
     events.log(LogLevel::Info, "Requesting seed");
-    Result<bytes::Bytes> seed_resp = ssm_exchange(transport, clock, cancellation,
-                                                  sid_27_request_seed_request(), tester_id, target_id,
-                                                  kExtraLongTimeoutMs);
+    Result<bytes::Bytes> seed_resp = ssm_exchange(transport, clock, cancellation, sid_27_request_seed_request(),
+                                                  tester_id, target_id, kExtraLongTimeoutMs);
     if (!seed_resp.has_value())
     {
         return std::unexpected(seed_resp.error());
@@ -567,14 +560,12 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(
     }
     const bytes::Bytes seed(seed_resp->begin() + 6, seed_resp->begin() + 10);
 
-    const bytes::Bytes seed_key = kline_plan.security == DensoSecurityVariant::EcuTek
-                                      ? generate_ecutek_seed_key(seed)
-                                      : generate_stock_seed_key(seed);
+    const bytes::Bytes seed_key = kline_plan.security == DensoSecurityVariant::EcuTek ? generate_ecutek_seed_key(seed)
+                                                                                      : generate_stock_seed_key(seed);
 
     events.log(LogLevel::Info, "Sending seed key to ECU");
-    Result<bytes::Bytes> key_resp = ssm_exchange(transport, clock, cancellation,
-                                                 sid_27_send_key_request(seed_key), tester_id, target_id,
-                                                 kExtraLongTimeoutMs);
+    Result<bytes::Bytes> key_resp = ssm_exchange(transport, clock, cancellation, sid_27_send_key_request(seed_key),
+                                                 tester_id, target_id, kExtraLongTimeoutMs);
     if (!key_resp.has_value())
     {
         return std::unexpected(key_resp.error());
@@ -586,8 +577,8 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(
     }
 
     events.log(LogLevel::Info, "Set session mode");
-    Result<bytes::Bytes> diag = ssm_exchange(transport, clock, cancellation, sid_10_request(), tester_id,
-                                             target_id, kExtraLongTimeoutMs);
+    Result<bytes::Bytes> diag =
+        ssm_exchange(transport, clock, cancellation, sid_10_request(), tester_id, target_id, kExtraLongTimeoutMs);
     if (!diag.has_value())
     {
         return std::unexpected(diag.error());
@@ -602,9 +593,10 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(
 }
 
 // upload_kernel(), lines 303-446.
-Status DensoSh705xEepromKlineExecutor::upload_kernel(
-    IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-    IEventSink& events, const DensoSh705xEepromKlinePlan& kline_plan, const KernelImage& kernel)
+Status DensoSh705xEepromKlineExecutor::upload_kernel(IKlineFlashTransport& transport, IClock& clock,
+                                                     const ICancellationToken& cancellation, IEventSink& events,
+                                                     const DensoSh705xEepromKlinePlan& kline_plan,
+                                                     const KernelImage& kernel)
 {
     if (cancellation.cancelled())
     {
@@ -616,8 +608,7 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(
     }
 
     Result<DensoSh705xEepromUploadSizes> upload_sizes =
-        denso_sh705x_eeprom_upload_sizes(FlashFamily::DensoSh705xEepromKline,
-                                         kernel.bytes.size());
+        denso_sh705x_eeprom_upload_sizes(FlashFamily::DensoSh705xEepromKline, kernel.bytes.size());
     if (!upload_sizes.has_value())
     {
         return std::unexpected(upload_sizes.error());
@@ -654,9 +645,9 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(
     }
 
     events.log(LogLevel::Info, "Requesting kernel upload");
-    Result<bytes::Bytes> upload_req = ssm_exchange(transport, clock, cancellation,
-                                                   sid_34_request(start_address, pl_len), tester_id,
-                                                   target_id, kExtraLongTimeoutMs);
+    Result<bytes::Bytes> upload_req =
+        ssm_exchange(transport, clock, cancellation, sid_34_request(start_address, pl_len), tester_id, target_id,
+                     kExtraLongTimeoutMs);
     if (!upload_req.has_value())
     {
         return std::unexpected(upload_req.error());
@@ -668,8 +659,8 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(
 
     const bytes::Bytes encrypted_kernel = encrypt_kernel_payload(padded_kernel, pl_len);
     events.log(LogLevel::Info, "Transfer kernel data");
-    if (Status transferred = transfer_data_blocks(transport, clock, cancellation, tester_id, target_id,
-                                                  start_address, encrypted_kernel, pl_len);
+    if (Status transferred = transfer_data_blocks(transport, clock, cancellation, tester_id, target_id, start_address,
+                                                  encrypted_kernel, pl_len);
         !transferred.has_value())
     {
         return std::unexpected(transferred.error());
@@ -680,9 +671,9 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(
     {
         return fail(ErrorKind::Cancelled, "cancelled before checksum bypass");
     }
-    Result<bytes::Bytes> bypass_req = ssm_exchange(transport, clock, cancellation,
-                                                   sid_34_request(start_address + pl_len, 4), tester_id,
-                                                   target_id, kExtraLongTimeoutMs);
+    Result<bytes::Bytes> bypass_req =
+        ssm_exchange(transport, clock, cancellation, sid_34_request(start_address + pl_len, 4), tester_id, target_id,
+                     kExtraLongTimeoutMs);
     if (!bypass_req.has_value())
     {
         return std::unexpected(bypass_req.error());
@@ -711,8 +702,8 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(
         return fail(ErrorKind::Cancelled, "cancelled before kernel jump");
     }
     events.log(LogLevel::Info, "Jump to kernel");
-    Result<bytes::Bytes> jump = ssm_exchange(transport, clock, cancellation, sid_31_request(), tester_id,
-                                             target_id, kExtraLongTimeoutMs);
+    Result<bytes::Bytes> jump =
+        ssm_exchange(transport, clock, cancellation, sid_31_request(), tester_id, target_id, kExtraLongTimeoutMs);
     if (!jump.has_value())
     {
         return std::unexpected(jump.error());
@@ -760,9 +751,10 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(
 }
 
 // read_mem(), lines 453-602 ("nisprog kernel" SID_DUMP protocol).
-Result<bytes::Bytes> DensoSh705xEepromKlineExecutor::read_mem(
-    IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-    IEventSink& events, const MemoryRegion& region, EepromReadMode mode)
+Result<bytes::Bytes> DensoSh705xEepromKlineExecutor::read_mem(IKlineFlashTransport& transport, IClock& clock,
+                                                              const ICancellationToken& cancellation,
+                                                              IEventSink& events, const MemoryRegion& region,
+                                                              EepromReadMode mode)
 {
     const std::uint32_t start_addr = region.start;
     const std::uint32_t length = region.length;
@@ -790,9 +782,8 @@ Result<bytes::Bytes> DensoSh705xEepromKlineExecutor::read_mem(
         const std::uint32_t curblock = addr / kEepromBlockBytes;
         const std::uint32_t pagesize = numblocks * kEepromBlockBytes + numblocks * 3;
 
-        const bytes::Bytes request = composeBe(kSidDump, bytes::Byte(mode),
-                                               std::uint16_t(numblocks),
-                                               std::uint16_t(curblock));
+        const bytes::Bytes request =
+            composeBe(kSidDump, bytes::Byte(mode), std::uint16_t(numblocks), std::uint16_t(curblock));
 
         Result<std::size_t> written = transport.write(request);
         if (!written.has_value())

@@ -7,8 +7,7 @@
 namespace cdbg
 {
 
-fastecu::Result<std::size_t> FastEcuCanTransport::write(
-    std::uint32_t canId, bytes::ByteView payload)
+fastecu::Result<std::size_t> FastEcuCanTransport::write(std::uint32_t canId, bytes::ByteView payload)
 {
     try
     {
@@ -37,8 +36,8 @@ fastecu::Result<std::size_t> FastEcuCanTransport::write(
     }
 }
 
-fastecu::Result<std::optional<CanFrame>> FastEcuCanTransport::read(
-    int timeoutMs, const fastecu::ICancellationToken& cancellation)
+fastecu::Result<std::optional<CanFrame>> FastEcuCanTransport::read(int timeoutMs,
+                                                                   const fastecu::ICancellationToken& cancellation)
 {
     if (cancellation.cancelled())
     {
@@ -68,8 +67,7 @@ fastecu::Result<std::optional<CanFrame>> FastEcuCanTransport::read(
         {
             return fastecu::fail(fastecu::ErrorKind::Internal, "CAN driver returned a truncated frame");
         }
-        return std::optional<CanFrame>{CanFrame{
-            bytes::readU32Be(raw, 0), bytes::Bytes(raw.begin() + 4, raw.end())}};
+        return std::optional<CanFrame>{CanFrame{bytes::readU32Be(raw, 0), bytes::Bytes(raw.begin() + 4, raw.end())}};
     }
     catch (const std::exception& error)
     {

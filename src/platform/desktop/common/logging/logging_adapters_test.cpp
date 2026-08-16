@@ -29,9 +29,8 @@ portable_logging::LoggingPolicy valid_policy()
 
 // Appends a row with an explicit, fully-formed conversions list so
 // malformed-conversion cases can hand in a deliberately broken one.
-void append_value_with_conversions(FileActions::LogValuesStructure& values, const QString& id,
-                                   const QString& protocol, const QString& enabled,
-                                   const QList<fastecu::logging::Conversion>& conversions,
+void append_value_with_conversions(FileActions::LogValuesStructure& values, const QString& id, const QString& protocol,
+                                   const QString& enabled, const QList<fastecu::logging::Conversion>& conversions,
                                    const QString& address = QStringLiteral("000010"),
                                    const QString& length = QStringLiteral("1"))
 {
@@ -49,13 +48,10 @@ void append_value_with_conversions(FileActions::LogValuesStructure& values, cons
     values.log_value_enabled.append(enabled);
 }
 
-void append_value(FileActions::LogValuesStructure& values, const QString& id,
-                  const QString& protocol, const QString& enabled,
-                  const QString& format = QStringLiteral("0.00"))
+void append_value(FileActions::LogValuesStructure& values, const QString& id, const QString& protocol,
+                  const QString& enabled, const QString& format = QStringLiteral("0.00"))
 {
-    append_value_with_conversions(
-        values, id, protocol, enabled,
-        {{"rpm", "x", format.toStdString(), "0", "100", "1"}});
+    append_value_with_conversions(values, id, protocol, enabled, {{"rpm", "x", format.toStdString(), "0", "100", "1"}});
 }
 
 FileActions::LogValuesStructure reordered_log_values()
@@ -72,8 +68,8 @@ FileActions::LogValuesStructure reordered_log_values()
 TEST(DesktopLoggingSnapshotAdapterTest, StableIdUpdatesOriginalRowAfterReorder)
 {
     FileActions::LogValuesStructure values = reordered_log_values();
-    auto snapshot = desktop_logging::make_desktop_logging_snapshot(
-        values, portable_logging::LoggingProtocolId::Ssm, QStringLiteral("SSM"), valid_policy());
+    auto snapshot = desktop_logging::make_desktop_logging_snapshot(values, portable_logging::LoggingProtocolId::Ssm,
+                                                                   QStringLiteral("SSM"), valid_policy());
 
     ASSERT_TRUE(snapshot.has_value());
     ASSERT_EQ(snapshot->index_by_id.at("rpm"), 1);
@@ -99,8 +95,8 @@ TEST(DesktopLoggingValueAdapterTest, FormatsFixedDecimalEquivalently)
 TEST(DesktopLoggingValueAdapterTest, MissingStableIdDoesNotUpdateAnotherRow)
 {
     FileActions::LogValuesStructure values = reordered_log_values();
-    auto snapshot = desktop_logging::make_desktop_logging_snapshot(
-        values, portable_logging::LoggingProtocolId::Ssm, QStringLiteral("SSM"), valid_policy());
+    auto snapshot = desktop_logging::make_desktop_logging_snapshot(values, portable_logging::LoggingProtocolId::Ssm,
+                                                                   QStringLiteral("SSM"), valid_policy());
     ASSERT_TRUE(snapshot.has_value());
 
     const portable_logging::LogSample sample{
@@ -131,12 +127,12 @@ TEST(DesktopLoggingSnapshotAdapterTest, PreservesLegacyProtocolSelectionRules)
         QStringLiteral("cdbg-disabled"),
     };
 
-    auto ssm = desktop_logging::make_desktop_logging_snapshot(
-        values, portable_logging::LoggingProtocolId::Ssm, QStringLiteral("CAR_SSM"), valid_policy());
-    auto mut = desktop_logging::make_desktop_logging_snapshot(
-        values, portable_logging::LoggingProtocolId::MutDma, QStringLiteral("ignored"), valid_policy());
-    auto cdbg = desktop_logging::make_desktop_logging_snapshot(
-        values, portable_logging::LoggingProtocolId::Cdbg, QStringLiteral("ignored"), valid_policy());
+    auto ssm = desktop_logging::make_desktop_logging_snapshot(values, portable_logging::LoggingProtocolId::Ssm,
+                                                              QStringLiteral("CAR_SSM"), valid_policy());
+    auto mut = desktop_logging::make_desktop_logging_snapshot(values, portable_logging::LoggingProtocolId::MutDma,
+                                                              QStringLiteral("ignored"), valid_policy());
+    auto cdbg = desktop_logging::make_desktop_logging_snapshot(values, portable_logging::LoggingProtocolId::Cdbg,
+                                                               QStringLiteral("ignored"), valid_policy());
 
     ASSERT_TRUE(ssm.has_value());
     ASSERT_TRUE(mut.has_value());
@@ -270,8 +266,7 @@ std::vector<SnapshotFailureCase> snapshot_failure_cases()
             []
             {
                 FileActions::LogValuesStructure values;
-                append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"),
-                             QStringLiteral("1"));
+                append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"));
                 values.lower_panel_log_value_id = {QStringLiteral("rpm")};
                 return values;
             },
@@ -285,8 +280,7 @@ std::vector<SnapshotFailureCase> snapshot_failure_cases()
             []
             {
                 FileActions::LogValuesStructure values;
-                append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"),
-                             QStringLiteral("1"));
+                append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"));
                 values.lower_panel_log_value_id = {QStringLiteral("rpm")};
                 return values;
             },
@@ -301,8 +295,7 @@ std::vector<SnapshotFailureCase> snapshot_failure_cases()
             []
             {
                 FileActions::LogValuesStructure values;
-                append_value_with_conversions(values, QStringLiteral("rpm"), QStringLiteral("SSM"),
-                                              QStringLiteral("1"),
+                append_value_with_conversions(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"),
                                               {{"rpm", "x", "", "", "", ""}});
                 values.lower_panel_log_value_id = {QStringLiteral("rpm")};
                 return values;
@@ -317,9 +310,8 @@ std::vector<SnapshotFailureCase> snapshot_failure_cases()
             []
             {
                 FileActions::LogValuesStructure values;
-                append_value_with_conversions(
-                    values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"),
-                    {{"rpm", "", "0.00", "0", "100", "1"}});
+                append_value_with_conversions(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"),
+                                              {{"rpm", "", "0.00", "0", "100", "1"}});
                 values.lower_panel_log_value_id = {QStringLiteral("rpm")};
                 return values;
             },
@@ -333,10 +325,8 @@ std::vector<SnapshotFailureCase> snapshot_failure_cases()
             []
             {
                 FileActions::LogValuesStructure values;
-                append_value_with_conversions(values, QStringLiteral("rpm"), QStringLiteral("SSM"),
-                                              QStringLiteral("1"),
-                                              {{"rpm", "x", "0.00", "0", "100", "1"}},
-                                              QStringLiteral("zzzzzz"));
+                append_value_with_conversions(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"),
+                                              {{"rpm", "x", "0.00", "0", "100", "1"}}, QStringLiteral("zzzzzz"));
                 values.lower_panel_log_value_id = {QStringLiteral("rpm")};
                 return values;
             },
@@ -350,10 +340,9 @@ std::vector<SnapshotFailureCase> snapshot_failure_cases()
             []
             {
                 FileActions::LogValuesStructure values;
-                append_value_with_conversions(
-                    values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"),
-                    {{"rpm", "x", "0.00", "0", "100", "1"}},
-                    QStringLiteral("000010"), QStringLiteral("not-a-number"));
+                append_value_with_conversions(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"),
+                                              {{"rpm", "x", "0.00", "0", "100", "1"}}, QStringLiteral("000010"),
+                                              QStringLiteral("not-a-number"));
                 values.lower_panel_log_value_id = {QStringLiteral("rpm")};
                 return values;
             },
@@ -368,8 +357,7 @@ std::vector<SnapshotFailureCase> snapshot_failure_cases()
             {
                 FileActions::LogValuesStructure values;
                 const QString format = QStringLiteral("0.") + QString(300, QChar('0'));
-                append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"),
-                             QStringLiteral("1"), format);
+                append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"), format);
                 values.lower_panel_log_value_id = {QStringLiteral("rpm")};
                 return values;
             },
@@ -383,8 +371,7 @@ std::vector<SnapshotFailureCase> snapshot_failure_cases()
             []
             {
                 FileActions::LogValuesStructure values;
-                append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"),
-                             QStringLiteral("1"));
+                append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"));
                 // Appends an id with no matching entry in the other parallel
                 // lists, breaking the list-length invariant.
                 values.log_value_id.append(QStringLiteral("stray"));
@@ -401,9 +388,8 @@ std::vector<SnapshotFailureCase> snapshot_failure_cases()
             []
             {
                 FileActions::LogValuesStructure values;
-                append_value_with_conversions(
-                    values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"),
-                    {{"rpm", "not_an_expr", "0.00", "0", "100", "1"}});
+                append_value_with_conversions(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"),
+                                              {{"rpm", "not_an_expr", "0.00", "0", "100", "1"}});
                 values.lower_panel_log_value_id = {QStringLiteral("rpm")};
                 return values;
             },
@@ -417,8 +403,7 @@ std::vector<SnapshotFailureCase> snapshot_failure_cases()
             []
             {
                 FileActions::LogValuesStructure values;
-                append_value(values, QStringLiteral("ssm-only"), QStringLiteral("SSM"),
-                             QStringLiteral("1"));
+                append_value(values, QStringLiteral("ssm-only"), QStringLiteral("SSM"), QStringLiteral("1"));
                 values.lower_panel_log_value_id = {QStringLiteral("ssm-only")};
                 return values;
             },
@@ -432,8 +417,7 @@ std::vector<SnapshotFailureCase> snapshot_failure_cases()
             []
             {
                 FileActions::LogValuesStructure values;
-                append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"),
-                             QStringLiteral("1"));
+                append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"));
                 values.lower_panel_log_value_id = {QStringLiteral("rpm"), QStringLiteral("rpm")};
                 return values;
             },
@@ -449,8 +433,8 @@ void expect_snapshot_rejected(const SnapshotFailureCase& test_case)
 {
     SCOPED_TRACE(test_case.name);
     const FileActions::LogValuesStructure values = test_case.build_values();
-    const auto snapshot = desktop_logging::make_desktop_logging_snapshot(
-        values, test_case.protocol, test_case.protocol_filter, valid_policy());
+    const auto snapshot = desktop_logging::make_desktop_logging_snapshot(values, test_case.protocol,
+                                                                         test_case.protocol_filter, valid_policy());
 
     ASSERT_FALSE(snapshot.has_value());
     EXPECT_EQ(snapshot.error().kind, test_case.expected_kind);

@@ -4,7 +4,9 @@
 #include "src/platform/desktop/common/flash/legacy/jtag/flash_ecu_subaru_hitachi_m32r_jtag_operation.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
-FlashEcuSubaruHitachiM32rJtag::FlashEcuSubaruHitachiM32rJtag(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
+FlashEcuSubaruHitachiM32rJtag::FlashEcuSubaruHitachiM32rJtag(SerialPortActions *serial,
+                                                             FileActions::EcuCalDefStructure *ecuCalDef,
+                                                             const QString& cmd_type, QWidget *parent)
     : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
@@ -32,8 +34,7 @@ void FlashEcuSubaruHitachiM32rJtag::run()
 
     int ret = QMessageBox::warning(this, tr("Connecting to ECU"),
                                    tr("Turn ignition ON and press OK to start initializing connection to ECU"),
-                                   QMessageBox::Ok | QMessageBox::Cancel,
-                                   QMessageBox::Ok);
+                                   QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Ok);
 
     switch (ret)
     {
@@ -44,17 +45,19 @@ void FlashEcuSubaruHitachiM32rJtag::run()
         connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashEcuSubaruHitachiM32rJtag::LOG_W);
         connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashEcuSubaruHitachiM32rJtag::LOG_I);
         connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashEcuSubaruHitachiM32rJtag::LOG_D);
-        connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
-                this, [this](QString msg)
-                { emit external_logger(std::move(msg)); });
-        connect(m_operation, &FlashOperationWorker::progressChanged,
-                this, &FlashEcuSubaruHitachiM32rJtag::set_progressbar_value);
+        connect(m_operation, &FlashOperationWorker::externalLoggerMessage, this,
+                [this](QString msg) { emit external_logger(std::move(msg)); });
+        connect(m_operation, &FlashOperationWorker::progressChanged, this,
+                &FlashEcuSubaruHitachiM32rJtag::set_progressbar_value);
 
         QEventLoop loop;
         bool success = false;
         connect(m_operation, &FlashOperationWorker::operationFinished, &loop,
                 [&success, &loop](bool ok)
-                { success = ok; loop.quit(); });
+                {
+                    success = ok;
+                    loop.quit();
+                });
 
         m_operation->start();
         loop.exec();

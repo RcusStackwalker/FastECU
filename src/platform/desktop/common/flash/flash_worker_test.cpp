@@ -42,16 +42,13 @@ namespace
 class PhaseProgressExecutor final : public fastecu::flash::IFlashExecutor
 {
   public:
-    fastecu::Result<fastecu::flash::FlashExecutionResult> execute(
-        const fastecu::flash::FlashPlan&, fastecu::flash::IFlashTransport&,
-        fastecu::IClock&, const fastecu::ICancellationToken&,
-        fastecu::IEventSink& events) override
+    fastecu::Result<fastecu::flash::FlashExecutionResult> execute(const fastecu::flash::FlashPlan&,
+                                                                  fastecu::flash::IFlashTransport&, fastecu::IClock&,
+                                                                  const fastecu::ICancellationToken&,
+                                                                  fastecu::IEventSink& events) override
     {
-        events.phase_progress({.phase_name = "Connect to ECU",
-                               .phase_index = 1,
-                               .phase_count = 2,
-                               .done = 1,
-                               .total = 1});
+        events.phase_progress(
+            {.phase_name = "Connect to ECU", .phase_index = 1, .phase_count = 2, .done = 1, .total = 1});
         return fastecu::flash::FlashExecutionResult{};
     }
 };
@@ -88,11 +85,7 @@ DensoSh705xEepromInput validInput(FlashFamily family)
 bytes::Bytes requestKernelIdRequest()
 {
     bytes::Bytes out{
-        static_cast<bytes::Byte>((0xbeef >> 8) & 0xFF),
-        static_cast<bytes::Byte>(0xbeef & 0xFF),
-        0x00,
-        0x01,
-        0x01,
+        static_cast<bytes::Byte>((0xbeef >> 8) & 0xFF), static_cast<bytes::Byte>(0xbeef & 0xFF), 0x00, 0x01, 0x01,
     };
     out.push_back(bytes::sum8(out));
     return out;
@@ -108,8 +101,7 @@ class TestFlashWorker : public QObject
 
     void closingWhileReadIsBlocked_cancelsUnblocksAndJoinsWithoutWallClockSleep()
     {
-        auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(
-            validInput(FlashFamily::DensoSh705xEepromKline));
+        auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(validInput(FlashFamily::DensoSh705xEepromKline));
         QVERIFY(plan.has_value());
 
         auto transport = std::make_unique<ScriptedKlineFlashTransport>();
@@ -120,8 +112,8 @@ class TestFlashWorker : public QObject
         rawTransport->expectWrite(requestKernelIdRequest());
         rawTransport->queueBlockingRead();
 
-        FlashWorker worker(*plan, std::make_unique<DensoSh705xEepromKlineExecutor>(),
-                           std::move(transport), std::make_unique<FakeClock>());
+        FlashWorker worker(*plan, std::make_unique<DensoSh705xEepromKlineExecutor>(), std::move(transport),
+                           std::make_unique<FakeClock>());
         QSignalSpy finishedSpy(&worker, &FlashWorker::finished);
 
         worker.start();
@@ -150,13 +142,12 @@ class TestFlashWorker : public QObject
         // transport_match() rejects it before any I/O (zero writes/reads
         // scripted below, on purpose -- reaching the transport at all here
         // would itself be a bug).
-        auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(
-            validInput(FlashFamily::DensoSh705xEepromCan));
+        auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(validInput(FlashFamily::DensoSh705xEepromCan));
         QVERIFY(plan.has_value());
 
         auto transport = std::make_unique<ScriptedKlineFlashTransport>();
-        FlashWorker worker(*plan, std::make_unique<DensoSh705xEepromKlineExecutor>(),
-                           std::move(transport), std::make_unique<FakeClock>());
+        FlashWorker worker(*plan, std::make_unique<DensoSh705xEepromKlineExecutor>(), std::move(transport),
+                           std::make_unique<FakeClock>());
         QSignalSpy finishedSpy(&worker, &FlashWorker::finished);
 
         worker.start();
@@ -175,13 +166,12 @@ class TestFlashWorker : public QObject
 
     void phaseProgressIsForwardedAlongsideLegacyProgress()
     {
-        auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(
-            validInput(FlashFamily::DensoSh705xEepromKline));
+        auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(validInput(FlashFamily::DensoSh705xEepromKline));
         QVERIFY(plan.has_value());
 
         auto transport = std::make_unique<ScriptedKlineFlashTransport>();
-        FlashWorker worker(*plan, std::make_unique<PhaseProgressExecutor>(),
-                           std::move(transport), std::make_unique<FakeClock>());
+        FlashWorker worker(*plan, std::make_unique<PhaseProgressExecutor>(), std::move(transport),
+                           std::make_unique<FakeClock>());
         QSignalSpy legacySpy(&worker, &FlashWorker::progressChanged);
         QSignalSpy phaseSpy(&worker, &FlashWorker::phaseProgressChanged);
 

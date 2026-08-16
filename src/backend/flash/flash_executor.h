@@ -32,12 +32,8 @@ class IFlashExecutor
 {
   public:
     virtual ~IFlashExecutor() = default;
-    virtual Result<FlashExecutionResult> execute(
-        const FlashPlan& plan,
-        IFlashTransport& transport,
-        IClock& clock,
-        const ICancellationToken& cancellation,
-        IEventSink& events) = 0;
+    virtual Result<FlashExecutionResult> execute(const FlashPlan& plan, IFlashTransport& transport, IClock& clock,
+                                                 const ICancellationToken& cancellation, IEventSink& events) = 0;
 };
 
 // Every concrete executor calls this first and returns its result verbatim
@@ -111,8 +107,7 @@ class ICanFlashTransport : public IFlashTransport
     virtual Status open() = 0;
     virtual Status close() = 0;
     virtual Status write(bytes::ByteView, const ICancellationToken&) = 0;
-    virtual Result<std::optional<bytes::Bytes>> read(int timeout_ms,
-                                                     const ICancellationToken&) = 0;
+    virtual Result<std::optional<bytes::Bytes>> read(int timeout_ms, const ICancellationToken&) = 0;
 };
 
 // Checked downcast of `transport` to ICanFlashTransport, then configure()
@@ -123,7 +118,6 @@ class ICanFlashTransport : public IFlashTransport
 // some never close (the UDS executors, matching their legacy source), one
 // closes on every exit path (the eeprom executor's ScopedClose) -- so this
 // deliberately stops at open() rather than returning an RAII guard.
-Result<ICanFlashTransport *> open_can_iso15765_transport(IFlashTransport& transport,
-                                                         const Iso15765Config& config);
+Result<ICanFlashTransport *> open_can_iso15765_transport(IFlashTransport& transport, const Iso15765Config& config);
 
 } // namespace fastecu::flash

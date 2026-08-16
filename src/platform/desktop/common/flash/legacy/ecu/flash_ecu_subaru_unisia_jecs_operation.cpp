@@ -8,10 +8,12 @@
 #include <QTime>
 #include <utility>
 
-FlashEcuSubaruUnisiaJecsOperation::FlashEcuSubaruUnisiaJecsOperation(
-    SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
-    QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(std::move(cmd_type))
+FlashEcuSubaruUnisiaJecsOperation::FlashEcuSubaruUnisiaJecsOperation(SerialPortActions *serial,
+                                                                     FileActions::EcuCalDefStructure *ecuCalDef,
+                                                                     QString cmd_type, QWidget *dialog, QObject *parent,
+                                                                     PromptFn promptOverride)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef),
+      cmd_type(std::move(cmd_type))
 {
 }
 
@@ -152,7 +154,9 @@ int FlashEcuSubaruUnisiaJecsOperation::read_mem(uint32_t start_addr, uint32_t le
             received.append(serial->read_serial_data(5));
             while (received.length() >= 3)
             {
-                if (received.at(0) == output.at(1) && received.at(1) == output.at(2)) // && received.at(3) == output.at(1) && received.at(4) == output.at(2))
+                if (received.at(0) == output.at(1) &&
+                    received.at(1) ==
+                        output.at(2)) // && received.at(3) == output.at(1) && received.at(4) == output.at(2))
                 {
                     byte_received = true;
                     bytes_synced = true;
@@ -201,7 +205,12 @@ int FlashEcuSubaruUnisiaJecsOperation::read_mem(uint32_t start_addr, uint32_t le
 
         QString start_address = QString("%1").arg(addr, 8, 16, QLatin1Char('0')).toUpper();
         QString block_len = QString("%1").arg(pagesize, 8, 16, QLatin1Char('0')).toUpper();
-        msg = QString("Kernel read addr:  0x%1  length:  0x%2,  %3  B/s  %4 s").arg(start_address).arg(block_len).arg(curspeed, 6, 10, QLatin1Char(' ')).arg(tleft, 6, 10, QLatin1Char(' ')).toUtf8();
+        msg = QString("Kernel read addr:  0x%1  length:  0x%2,  %3  B/s  %4 s")
+                  .arg(start_address)
+                  .arg(block_len)
+                  .arg(curspeed, 6, 10, QLatin1Char(' '))
+                  .arg(tleft, 6, 10, QLatin1Char(' '))
+                  .toUtf8();
         emit LOG_I(msg, true, true);
         delay(1);
 

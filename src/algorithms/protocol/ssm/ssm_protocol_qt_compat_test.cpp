@@ -3,32 +3,21 @@
 #include "src/algorithms/protocol/ssm/ssm_protocol.h"
 #include "src/algorithms/protocol/testing/byte_test_utils.h"
 
-static const uint16_t kCommonSeedTable[16] = {
-    0x90A1, 0x2F92, 0xDE3C, 0xCDC0,
-    0x1A99, 0x437C, 0xF91B, 0xDB57,
-    0x96BA, 0xDE10, 0xFCAF, 0x3F31,
-    0xF47F, 0x0BB6, 0x16E9, 0x4645};
+static const uint16_t kCommonSeedTable[16] = {0x90A1, 0x2F92, 0xDE3C, 0xCDC0, 0x1A99, 0x437C, 0xF91B, 0xDB57,
+                                              0x96BA, 0xDE10, 0xFCAF, 0x3F31, 0xF47F, 0x0BB6, 0x16E9, 0x4645};
 
-static const uint16_t kAlternateSeedTable[16] = {
-    0x8765, 0x2345, 0xA5A5, 0x1357,
-    0x2468, 0xACE0, 0x0ACE, 0x55AA,
-    0xAA55, 0x1020, 0x3040, 0x5060,
-    0x7080, 0x90A0, 0xB0C0, 0xD0E0};
+static const uint16_t kAlternateSeedTable[16] = {0x8765, 0x2345, 0xA5A5, 0x1357, 0x2468, 0xACE0, 0x0ACE, 0x55AA,
+                                                 0xAA55, 0x1020, 0x3040, 0x5060, 0x7080, 0x90A0, 0xB0C0, 0xD0E0};
 
-static const uint8_t kCommonTransformTable[32] = {
-    0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8,
-    0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
-    0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9,
-    0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
+static const uint8_t kCommonTransformTable[32] = {0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
+                                                  0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
+                                                  0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
-static const uint8_t kAlternateTransformTable[32] = {
-    0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7,
-    0x8, 0x9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF,
-    0xF, 0xE, 0xD, 0xC, 0xB, 0xA, 0x9, 0x8,
-    0x7, 0x6, 0x5, 0x4, 0x3, 0x2, 0x1, 0x0};
+static const uint8_t kAlternateTransformTable[32] = {0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xA,
+                                                     0xB, 0xC, 0xD, 0xE, 0xF, 0xF, 0xE, 0xD, 0xC, 0xB, 0xA,
+                                                     0x9, 0x8, 0x7, 0x6, 0x5, 0x4, 0x3, 0x2, 0x1, 0x0};
 
-static const uint16_t kPayloadTable[4] = {
-    0xC85B, 0x32C0, 0xE282, 0x92A0};
+static const uint16_t kPayloadTable[4] = {0xC85B, 0x32C0, 0xE282, 0x92A0};
 
 static bytes::Bytes fromHex(const char *hex)
 {
@@ -37,49 +26,46 @@ static bytes::Bytes fromHex(const char *hex)
 
 TEST(TestSsmProtocol, seed_key_matches_common_denso_vector)
 {
-    ASSERT_EQ(SsmProtocol::calculateSeedKey(QByteArray::fromHex("12345678"),
-                                            kCommonSeedTable, kCommonTransformTable),
+    ASSERT_EQ(SsmProtocol::calculateSeedKey(QByteArray::fromHex("12345678"), kCommonSeedTable, kCommonTransformTable),
               QByteArray::fromHex("2daa46dc"));
 }
 
 TEST(TestSsmProtocol, seed_key_matches_common_denso_vector_with_byte_view)
 {
-    ASSERT_TRUE(SsmProtocol::calculateSeedKey(fromHex("12345678"),
-                                              kCommonSeedTable, kCommonTransformTable) == fromHex("2daa46dc"));
+    ASSERT_TRUE(SsmProtocol::calculateSeedKey(fromHex("12345678"), kCommonSeedTable, kCommonTransformTable) ==
+                fromHex("2daa46dc"));
 }
 
 TEST(TestSsmProtocol, seed_key_matches_alternate_table_vector)
 {
-    ASSERT_EQ(SsmProtocol::calculateSeedKey(QByteArray::fromHex("89abcdef"),
-                                            kAlternateSeedTable, kAlternateTransformTable),
-              QByteArray::fromHex("408d111d"));
+    ASSERT_EQ(
+        SsmProtocol::calculateSeedKey(QByteArray::fromHex("89abcdef"), kAlternateSeedTable, kAlternateTransformTable),
+        QByteArray::fromHex("408d111d"));
 }
 
 TEST(TestSsmProtocol, payload_matches_common_denso_vector)
 {
-    ASSERT_EQ(SsmProtocol::calculatePayload(QByteArray::fromHex("0011223344556677"),
-                                            8, kPayloadTable, kCommonTransformTable),
-              QByteArray::fromHex("ed9fd931afacd594"));
+    ASSERT_EQ(
+        SsmProtocol::calculatePayload(QByteArray::fromHex("0011223344556677"), 8, kPayloadTable, kCommonTransformTable),
+        QByteArray::fromHex("ed9fd931afacd594"));
 }
 
 TEST(TestSsmProtocol, payload_matches_common_denso_vector_with_byte_view)
 {
-    ASSERT_TRUE(SsmProtocol::calculatePayload(fromHex("0011223344556677"),
-                                              8, kPayloadTable, kCommonTransformTable) == fromHex("ed9fd931afacd594"));
+    ASSERT_TRUE(SsmProtocol::calculatePayload(fromHex("0011223344556677"), 8, kPayloadTable, kCommonTransformTable) ==
+                fromHex("ed9fd931afacd594"));
 }
 
 TEST(TestSsmProtocol, payload_truncates_to_four_byte_boundary)
 {
-    ASSERT_EQ(SsmProtocol::calculatePayload(QByteArray::fromHex("0011223344"),
-                                            5, kPayloadTable, kCommonTransformTable),
+    ASSERT_EQ(SsmProtocol::calculatePayload(QByteArray::fromHex("0011223344"), 5, kPayloadTable, kCommonTransformTable),
               QByteArray::fromHex("ed9fd931"));
 }
 
 TEST(TestSsmProtocol, header_matches_existing_layout)
 {
     const QByteArray payload = QByteArray::fromHex("A800112233");
-    ASSERT_EQ(SsmProtocol::addHeader(payload, 0xF1, 0x10),
-              QByteArray::fromHex("8010F105A80011223394"));
+    ASSERT_EQ(SsmProtocol::addHeader(payload, 0xF1, 0x10), QByteArray::fromHex("8010F105A80011223394"));
 }
 
 TEST(TestSsmProtocol, header_matches_existing_layout_with_byte_view)

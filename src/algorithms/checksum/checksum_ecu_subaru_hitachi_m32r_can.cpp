@@ -17,8 +17,9 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rCan::calculate_checksum_result(bytes:
      *  Checksum 2 calculated between 0x6000 - 0x8000 excluding 0x10000 - 0x10003, 32 bit XOR, result at 0x7ffec
      *  Checksum 3 calculated between 0x0000 - 0x7ffef excluding 0x10000 - 0x10003, 32bit sum, result at 0x7fff0
      *  Checksum 4 calculated between 0x0000 - 0x7ffef excluding 0x10000 - 0x10003, 32 bit XOR, result at 0x7fff4
-     *  Checksum 5 calculated between 0x4000 - 0x7ffff excluding 0x10000 - 0x10003, 16bit sum, must mach 0x5aa5, balancing address 0x7fffa
-     *  Checksum 6 calculated between 0x0000 - 0x7ffff excluding 0x10000 - 0x10003, 8bit sum & XOR, result 16bit, sum hi byte, XOR low byte
+     *  Checksum 5 calculated between 0x4000 - 0x7ffff excluding 0x10000 - 0x10003, 16bit sum, must mach 0x5aa5,
+     * balancing address 0x7fffa Checksum 6 calculated between 0x0000 - 0x7ffff excluding 0x10000 - 0x10003, 8bit sum &
+     * XOR, result 16bit, sum hi byte, XOR low byte
      *
      * ****************/
     bytes::Bytes romData(romView.begin(), romView.end());
@@ -116,8 +117,8 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rCan::calculate_checksum_result(bytes:
     {
         checksum_ok = false;
 
-        fastecu::checksum::internal::rebalanceU16Be(
-            romData, checksum_5_balance_value_address, checksum_5_value_calculated, 0x5aa5);
+        fastecu::checksum::internal::rebalanceU16Be(romData, checksum_5_balance_value_address,
+                                                    checksum_5_value_calculated, 0x5aa5);
     }
     /****************************************
      *

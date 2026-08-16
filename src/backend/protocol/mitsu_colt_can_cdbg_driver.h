@@ -20,9 +20,8 @@ class CdbgLogDriver
     // Runs the session-init + seed/key security handshake + frame
     // configuration + start command for `channels` (RAM pointer + size
     // each). Succeeds once the ECU has been told to start streaming.
-    fastecu::Status startFreeFormLog(const std::vector<CdbgChannel>& channels,
-                                     bytes::Byte instance, std::uint32_t intervalMs,
-                                     const fastecu::ICancellationToken& cancellation);
+    fastecu::Status startFreeFormLog(const std::vector<CdbgChannel>& channels, bytes::Byte instance,
+                                     std::uint32_t intervalMs, const fastecu::ICancellationToken& cancellation);
     bool isStreaming() const
     {
         return streaming_;
@@ -48,8 +47,7 @@ class CdbgLogDriver
 
     // Reads at most one streamed frame and reports whether a usable frame was
     // actually received. Cached values are returned only with responded=true.
-    fastecu::Result<PollResult> pollOnce(
-        int timeoutMs, const fastecu::ICancellationToken& cancellation);
+    fastecu::Result<PollResult> pollOnce(int timeoutMs, const fastecu::ICancellationToken& cancellation);
 
   private:
     cdbg::ICanTransport& t_;

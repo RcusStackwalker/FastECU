@@ -91,8 +91,7 @@ TEST(QtFileSystemTest, ListDirectoryReturnsEntriesWithModifiedTime)
 TEST(QtFileSystemTest, ListDirectoryIdentifiesDirectorySymlink)
 {
 #if defined(Q_OS_WIN)
-    GTEST_SKIP()
-        << "QFile::link creates Windows shortcuts, not directory symlinks";
+    GTEST_SKIP() << "QFile::link creates Windows shortcuts, not directory symlinks";
 #endif
 
     QTemporaryDir tmp;
@@ -108,13 +107,8 @@ TEST(QtFileSystemTest, ListDirectoryIdentifiesDirectorySymlink)
     QtFileSystem fs;
     auto nestedEntries = fs.list_directory(nested.toStdString());
     ASSERT_TRUE(nestedEntries);
-    const auto loopEntry = std::find_if(
-        nestedEntries->begin(),
-        nestedEntries->end(),
-        [](const fastecu::DirEntry& entry)
-        {
-            return entry.name == "loop";
-        });
+    const auto loopEntry = std::find_if(nestedEntries->begin(), nestedEntries->end(),
+                                        [](const fastecu::DirEntry& entry) { return entry.name == "loop"; });
     ASSERT_NE(loopEntry, nestedEntries->end());
     EXPECT_TRUE(loopEntry->is_directory);
     EXPECT_TRUE(loopEntry->is_symlink);

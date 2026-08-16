@@ -37,7 +37,6 @@ Result<AppConfig> load_app_config(const ConfigPaths& paths, IFileRepository& fil
 // ecuflash_definition_files_directory/datalog_files_directory when non-empty
 // and not already present) so the caller can keep its in-memory copy in
 // sync with what was actually written.
-Result<AppConfig> save_app_config(AppConfig config, const ConfigPaths& paths,
-                                  IFileRepository& file_repository);
+Result<AppConfig> save_app_config(AppConfig config, const ConfigPaths& paths, IFileRepository& file_repository);
 
 } // namespace fastecu::config

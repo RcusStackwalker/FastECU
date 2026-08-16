@@ -13,8 +13,7 @@ class LoggingWorker final : public QThread
 {
     Q_OBJECT
   public:
-    LoggingWorker(fastecu::logging::LoggingSession session,
-                  fastecu::logging::LoggingProtocol *protocol,
+    LoggingWorker(fastecu::logging::LoggingSession session, fastecu::logging::LoggingProtocol *protocol,
                   fastecu::IEventSink& diagnostics, QObject *parent = nullptr);
     ~LoggingWorker() override;
 

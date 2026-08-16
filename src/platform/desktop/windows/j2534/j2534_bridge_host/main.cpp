@@ -16,7 +16,8 @@ using PF_PassThruConnect = long(PT_CALL *)(unsigned long, unsigned long, unsigne
 using PF_PassThruDisconnect = long(PT_CALL *)(unsigned long);
 using PF_PassThruReadMsgs = long(PT_CALL *)(unsigned long, PASSTHRU_MSG *, unsigned long *, unsigned long);
 using PF_PassThruWriteMsgs = long(PT_CALL *)(unsigned long, const PASSTHRU_MSG *, unsigned long *, unsigned long);
-using PF_PassThruStartPeriodicMsg = long(PT_CALL *)(unsigned long, const PASSTHRU_MSG *, unsigned long *, unsigned long);
+using PF_PassThruStartPeriodicMsg = long(PT_CALL *)(unsigned long, const PASSTHRU_MSG *, unsigned long *,
+                                                    unsigned long);
 using PF_PassThruStopPeriodicMsg = long(PT_CALL *)(unsigned long, unsigned long);
 using PF_PassThruStartMsgFilter = long(PT_CALL *)(unsigned long, unsigned long, const PASSTHRU_MSG *,
                                                   const PASSTHRU_MSG *, const PASSTHRU_MSG *, unsigned long *);
@@ -65,8 +66,8 @@ bool loadVendorApi(const char *dllPath, VendorApi& api)
     api.startMsgFilter =
         reinterpret_cast<PF_PassThruStartMsgFilter>(GetProcAddress(api.module, "PassThruStartMsgFilter"));
     api.stopMsgFilter = reinterpret_cast<PF_PassThruStopMsgFilter>(GetProcAddress(api.module, "PassThruStopMsgFilter"));
-    api.setProgrammingVoltage = reinterpret_cast<PF_PassThruSetProgrammingVoltage>(
-        GetProcAddress(api.module, "PassThruSetProgrammingVoltage"));
+    api.setProgrammingVoltage =
+        reinterpret_cast<PF_PassThruSetProgrammingVoltage>(GetProcAddress(api.module, "PassThruSetProgrammingVoltage"));
     api.readVersion = reinterpret_cast<PF_PassThruReadVersion>(GetProcAddress(api.module, "PassThruReadVersion"));
     api.getLastError = reinterpret_cast<PF_PassThruGetLastError>(GetProcAddress(api.module, "PassThruGetLastError"));
     api.ioctl = reinterpret_cast<PF_PassThruIoctl>(GetProcAddress(api.module, "PassThruIoctl"));
@@ -144,7 +145,8 @@ void handlePassThruClose(const VendorApi& api, HANDLE in, HANDLE out, const Fram
 void handlePassThruConnect(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
 {
     PassThruConnectRequest req{};
-    if (!readTypedRequest<PassThruConnectRequest, PassThruConnectResponse>(in, out, header, Function::PassThruConnect, req))
+    if (!readTypedRequest<PassThruConnectRequest, PassThruConnectResponse>(in, out, header, Function::PassThruConnect,
+                                                                           req))
         return;
     PassThruConnectResponse resp{};
     unsigned long channelId = 0;
@@ -156,7 +158,8 @@ void handlePassThruConnect(const VendorApi& api, HANDLE in, HANDLE out, const Fr
 void handlePassThruDisconnect(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
 {
     PassThruDisconnectRequest req{};
-    if (!readTypedRequest<PassThruDisconnectRequest, PassThruDisconnectResponse>(in, out, header, Function::PassThruDisconnect, req))
+    if (!readTypedRequest<PassThruDisconnectRequest, PassThruDisconnectResponse>(in, out, header,
+                                                                                 Function::PassThruDisconnect, req))
         return;
     PassThruDisconnectResponse resp{};
     resp.result = api.disconnect(req.channelId);
@@ -166,7 +169,8 @@ void handlePassThruDisconnect(const VendorApi& api, HANDLE in, HANDLE out, const
 void handlePassThruReadMsgs(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
 {
     PassThruReadMsgsRequest req{};
-    if (!readTypedRequest<PassThruReadMsgsRequest, PassThruReadMsgsResponse>(in, out, header, Function::PassThruReadMsgs, req))
+    if (!readTypedRequest<PassThruReadMsgsRequest, PassThruReadMsgsResponse>(in, out, header,
+                                                                             Function::PassThruReadMsgs, req))
         return;
     PassThruReadMsgsResponse resp{};
     unsigned long numMsgs = 1;
@@ -178,7 +182,8 @@ void handlePassThruReadMsgs(const VendorApi& api, HANDLE in, HANDLE out, const F
 void handlePassThruWriteMsgs(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
 {
     PassThruWriteMsgsRequest req{};
-    if (!readTypedRequest<PassThruWriteMsgsRequest, PassThruWriteMsgsResponse>(in, out, header, Function::PassThruWriteMsgs, req))
+    if (!readTypedRequest<PassThruWriteMsgsRequest, PassThruWriteMsgsResponse>(in, out, header,
+                                                                               Function::PassThruWriteMsgs, req))
         return;
     PassThruWriteMsgsResponse resp{};
     unsigned long numMsgs = 1;
@@ -190,7 +195,8 @@ void handlePassThruWriteMsgs(const VendorApi& api, HANDLE in, HANDLE out, const 
 void handlePassThruStartPeriodicMsg(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
 {
     PassThruStartPeriodicMsgRequest req{};
-    if (!readTypedRequest<PassThruStartPeriodicMsgRequest, PassThruStartPeriodicMsgResponse>(in, out, header, Function::PassThruStartPeriodicMsg, req))
+    if (!readTypedRequest<PassThruStartPeriodicMsgRequest, PassThruStartPeriodicMsgResponse>(
+            in, out, header, Function::PassThruStartPeriodicMsg, req))
         return;
     PassThruStartPeriodicMsgResponse resp{};
     unsigned long msgId = 0;
@@ -202,7 +208,8 @@ void handlePassThruStartPeriodicMsg(const VendorApi& api, HANDLE in, HANDLE out,
 void handlePassThruStopPeriodicMsg(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
 {
     PassThruStopPeriodicMsgRequest req{};
-    if (!readTypedRequest<PassThruStopPeriodicMsgRequest, PassThruStopPeriodicMsgResponse>(in, out, header, Function::PassThruStopPeriodicMsg, req))
+    if (!readTypedRequest<PassThruStopPeriodicMsgRequest, PassThruStopPeriodicMsgResponse>(
+            in, out, header, Function::PassThruStopPeriodicMsg, req))
         return;
     PassThruStopPeriodicMsgResponse resp{};
     resp.result = api.stopPeriodicMsg(req.channelId, req.msgId);
@@ -212,7 +219,8 @@ void handlePassThruStopPeriodicMsg(const VendorApi& api, HANDLE in, HANDLE out, 
 void handlePassThruStartMsgFilter(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
 {
     PassThruStartMsgFilterRequest req{};
-    if (!readTypedRequest<PassThruStartMsgFilterRequest, PassThruStartMsgFilterResponse>(in, out, header, Function::PassThruStartMsgFilter, req))
+    if (!readTypedRequest<PassThruStartMsgFilterRequest, PassThruStartMsgFilterResponse>(
+            in, out, header, Function::PassThruStartMsgFilter, req))
         return;
     PassThruStartMsgFilterResponse resp{};
     unsigned long msgId = 0;
@@ -225,7 +233,8 @@ void handlePassThruStartMsgFilter(const VendorApi& api, HANDLE in, HANDLE out, c
 void handlePassThruStopMsgFilter(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
 {
     PassThruStopMsgFilterRequest req{};
-    if (!readTypedRequest<PassThruStopMsgFilterRequest, PassThruStopMsgFilterResponse>(in, out, header, Function::PassThruStopMsgFilter, req))
+    if (!readTypedRequest<PassThruStopMsgFilterRequest, PassThruStopMsgFilterResponse>(
+            in, out, header, Function::PassThruStopMsgFilter, req))
         return;
     PassThruStopMsgFilterResponse resp{};
     resp.result = api.stopMsgFilter(req.channelId, req.msgId);
@@ -235,7 +244,8 @@ void handlePassThruStopMsgFilter(const VendorApi& api, HANDLE in, HANDLE out, co
 void handlePassThruSetProgrammingVoltage(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
 {
     PassThruSetProgrammingVoltageRequest req{};
-    if (!readTypedRequest<PassThruSetProgrammingVoltageRequest, PassThruSetProgrammingVoltageResponse>(in, out, header, Function::PassThruSetProgrammingVoltage, req))
+    if (!readTypedRequest<PassThruSetProgrammingVoltageRequest, PassThruSetProgrammingVoltageResponse>(
+            in, out, header, Function::PassThruSetProgrammingVoltage, req))
         return;
     PassThruSetProgrammingVoltageResponse resp{};
     resp.result = api.setProgrammingVoltage(req.deviceId, req.pin, req.voltage);
@@ -245,7 +255,8 @@ void handlePassThruSetProgrammingVoltage(const VendorApi& api, HANDLE in, HANDLE
 void handlePassThruReadVersion(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
 {
     PassThruReadVersionRequest req{};
-    if (!readTypedRequest<PassThruReadVersionRequest, PassThruReadVersionResponse>(in, out, header, Function::PassThruReadVersion, req))
+    if (!readTypedRequest<PassThruReadVersionRequest, PassThruReadVersionResponse>(in, out, header,
+                                                                                   Function::PassThruReadVersion, req))
         return;
     PassThruReadVersionResponse resp{};
     resp.result = api.readVersion(req.deviceId, resp.apiVersion, resp.dllVersion, resp.firmwareVersion);
@@ -255,7 +266,8 @@ void handlePassThruReadVersion(const VendorApi& api, HANDLE in, HANDLE out, cons
 void handlePassThruGetLastError(const VendorApi& api, HANDLE in, HANDLE out, const FrameHeader& header)
 {
     PassThruGetLastErrorRequest req{};
-    if (!readTypedRequest<PassThruGetLastErrorRequest, PassThruGetLastErrorResponse>(in, out, header, Function::PassThruGetLastError, req))
+    if (!readTypedRequest<PassThruGetLastErrorRequest, PassThruGetLastErrorResponse>(
+            in, out, header, Function::PassThruGetLastError, req))
         return;
     PassThruGetLastErrorResponse resp{};
     resp.result = api.getLastError(resp.errorDescription);

@@ -29,39 +29,31 @@ class LoggerDefinitionService
     // <config_files_directory>logger_cdbg_example.xml and falls back to the
     // bundled resource. Otherwise returns an empty handle -- the caller
     // reports "no logger definition file selected".
-    Result<std::string> resolve_definition_handle(
-        std::string_view configured_handle,
-        std::string_view log_protocol,
-        std::string_view config_files_directory);
+    Result<std::string> resolve_definition_handle(std::string_view configured_handle, std::string_view log_protocol,
+                                                  std::string_view config_files_directory);
 
     Result<LoggerDefinition> load_definition(std::string_view handle);
 
     // Reads the conf file's selection for `ecu_id`. Returns an empty optional
     // when that ECU has no entry, and never writes -- a caller with no
     // definition to initialize from can ask without persisting anything.
-    Result<std::optional<LoggerSelection>> load_selection(
-        std::string_view conf_handle, std::string_view ecu_id);
+    Result<std::optional<LoggerSelection>> load_selection(std::string_view conf_handle, std::string_view ecu_id);
 
     // load_selection, plus: when that ECU has no entry, composes
     // default_selection(definition) and persists it, so the write is an
     // explicit step rather than a side effect of a read.
-    Result<LoggerSelection> load_or_initialize_selection(
-        std::string_view conf_handle,
-        std::string_view ecu_id,
-        const LoggerDefinition& definition);
+    Result<LoggerSelection> load_or_initialize_selection(std::string_view conf_handle, std::string_view ecu_id,
+                                                         const LoggerDefinition& definition);
 
-    Status save_selection(
-        std::string_view conf_handle,
-        std::string_view ecu_id,
-        const LoggerSelection& selection);
+    Status save_selection(std::string_view conf_handle, std::string_view ecu_id, const LoggerSelection& selection);
 
   private:
     // The one read both public loaders share. `conf_out` receives the bytes so
     // load_or_initialize_selection can hand them to write_selection without a
     // second trip through the repository -- write_selection appends to the
     // document it was given, so it needs the same bytes the parse saw.
-    Result<std::optional<LoggerSelection>> load_selection(
-        std::string_view conf_handle, std::string_view ecu_id, bytes::Bytes& conf_out);
+    Result<std::optional<LoggerSelection>> load_selection(std::string_view conf_handle, std::string_view ecu_id,
+                                                          bytes::Bytes& conf_out);
 
     IFileRepository& repository_;
     // Held per the plan's constructor signature, but unused: the bundled

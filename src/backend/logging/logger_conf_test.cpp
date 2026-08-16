@@ -182,8 +182,8 @@ TEST(WriteSelection, RejectsADocumentWhoseRootIsNotConfig)
     selection.protocol = "SSM";
     selection.gauge_ids = {"P1"};
 
-    const auto written = write_selection(
-        view(R"(<notconfig><data id="keep"/></notconfig>)"), "ECUID1", selection, "conf.xml");
+    const auto written =
+        write_selection(view(R"(<notconfig><data id="keep"/></notconfig>)"), "ECUID1", selection, "conf.xml");
     ASSERT_FALSE(written.has_value());
     EXPECT_EQ(written.error().kind, fastecu::ErrorKind::InvalidConfig);
     EXPECT_THAT(written.error().detail, HasSubstr("conf.xml"));
@@ -198,8 +198,7 @@ TEST(WriteSelection, CreatesTheLoggerElementWhenConfigHasNone)
     selection.protocol = "SSM";
     selection.gauge_ids = {"P1"};
 
-    const auto written = write_selection(
-        view(R"(<config name="FastECU"/>)"), "ECUID1", selection, "conf.xml");
+    const auto written = write_selection(view(R"(<config name="FastECU"/>)"), "ECUID1", selection, "conf.xml");
     ASSERT_TRUE(written.has_value()) << written.error().detail;
     EXPECT_THAT(text_of(*written), HasSubstr("name=\"FastECU\""));
 
@@ -247,18 +246,16 @@ TEST(WriteSelection, AppendsANewEcuElementAndKeepsTheExistingOne)
 // declaration that is present, never synthesize one that is not.
 TEST(WriteSelection, PreservesAnExistingXmlDeclaration)
 {
-    constexpr std::string_view kConfWithDeclaration =
-        "<?xml version='1.0' encoding='UTF-8'?>\n"
-        "<config name=\"FastECU\" version=\"0.0-dev0\">\n"
-        "    <logger/>\n"
-        "</config>\n";
+    constexpr std::string_view kConfWithDeclaration = "<?xml version='1.0' encoding='UTF-8'?>\n"
+                                                      "<config name=\"FastECU\" version=\"0.0-dev0\">\n"
+                                                      "    <logger/>\n"
+                                                      "</config>\n";
 
     LoggerSelection selection;
     selection.protocol = "SSM";
     selection.gauge_ids = {"P1"};
 
-    const auto written =
-        write_selection(view(kConfWithDeclaration), "ECUID1", selection, "conf.xml");
+    const auto written = write_selection(view(kConfWithDeclaration), "ECUID1", selection, "conf.xml");
     ASSERT_TRUE(written.has_value()) << written.error().detail;
 
     // pugixml re-emits attribute values with double quotes where QDom used
@@ -352,8 +349,7 @@ TEST(WriteSelection, ReproducesTheFourSpaceQDomIndent)
     selection.lower_panel_ids = {"P1"};
     selection.switch_ids = {"S1"};
 
-    const auto written = write_selection(
-        view("<config><logger></logger></config>"), "ECUID1", selection, "conf.xml");
+    const auto written = write_selection(view("<config><logger></logger></config>"), "ECUID1", selection, "conf.xml");
     ASSERT_TRUE(written.has_value()) << written.error().detail;
 
     // Task 1's captured QDom golden, verbatim (537 bytes): no XML
@@ -362,26 +358,25 @@ TEST(WriteSelection, ReproducesTheFourSpaceQDomIndent)
     // post-serialization " />\n" -> "/>\n" fixup (logger_conf.cpp) is what
     // makes this a literal match despite pugixml's serializer always writing
     // that space itself.
-    constexpr std::string_view kQDomGolden =
-        "<config>\n"
-        "    <logger>\n"
-        "        <ecu id=\"ECUID1\">\n"
-        "            <protocol id=\"SSM\">\n"
-        "                <parameters>\n"
-        "                    <gauges>\n"
-        "                        <parameter id=\"P1\" name=\"\"/>\n"
-        "                    </gauges>\n"
-        "                    <lower_panel>\n"
-        "                        <parameter id=\"P1\" name=\"\"/>\n"
-        "                    </lower_panel>\n"
-        "                </parameters>\n"
-        "                <switches>\n"
-        "                    <switch id=\"S1\" name=\"\"/>\n"
-        "                </switches>\n"
-        "            </protocol>\n"
-        "        </ecu>\n"
-        "    </logger>\n"
-        "</config>\n";
+    constexpr std::string_view kQDomGolden = "<config>\n"
+                                             "    <logger>\n"
+                                             "        <ecu id=\"ECUID1\">\n"
+                                             "            <protocol id=\"SSM\">\n"
+                                             "                <parameters>\n"
+                                             "                    <gauges>\n"
+                                             "                        <parameter id=\"P1\" name=\"\"/>\n"
+                                             "                    </gauges>\n"
+                                             "                    <lower_panel>\n"
+                                             "                        <parameter id=\"P1\" name=\"\"/>\n"
+                                             "                    </lower_panel>\n"
+                                             "                </parameters>\n"
+                                             "                <switches>\n"
+                                             "                    <switch id=\"S1\" name=\"\"/>\n"
+                                             "                </switches>\n"
+                                             "            </protocol>\n"
+                                             "        </ecu>\n"
+                                             "    </logger>\n"
+                                             "</config>\n";
 
     const std::string xml = text_of(*written);
     EXPECT_EQ(xml, kQDomGolden);
@@ -427,18 +422,16 @@ TEST(WriteSelection, StripsTheSelfClosingSpaceFromUntouchedSiblingsToo)
 // the very first write_selection() round-trip.
 TEST(WriteSelection, PreservesAnExistingCommentThroughARoundTrip)
 {
-    constexpr std::string_view kConfWithComment =
-        "<config>\n"
-        "    <!-- user note: don't touch ECUID1 -->\n"
-        "    <logger/>\n"
-        "</config>\n";
+    constexpr std::string_view kConfWithComment = "<config>\n"
+                                                  "    <!-- user note: don't touch ECUID1 -->\n"
+                                                  "    <logger/>\n"
+                                                  "</config>\n";
 
     LoggerSelection selection;
     selection.protocol = "SSM";
     selection.gauge_ids = {"P1"};
 
-    const auto written =
-        write_selection(view(kConfWithComment), "ECUID1", selection, "conf.xml");
+    const auto written = write_selection(view(kConfWithComment), "ECUID1", selection, "conf.xml");
     ASSERT_TRUE(written.has_value()) << written.error().detail;
 
     EXPECT_THAT(text_of(*written), HasSubstr("<!-- user note: don't touch ECUID1 -->"));

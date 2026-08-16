@@ -48,9 +48,8 @@ class FlashWorker final : public QThread
     Q_OBJECT
 
   public:
-    FlashWorker(FlashPlan plan, std::unique_ptr<IFlashExecutor> executor,
-                std::unique_ptr<IFlashTransport> transport, std::unique_ptr<IClock> clock,
-                QObject *parent = nullptr);
+    FlashWorker(FlashPlan plan, std::unique_ptr<IFlashExecutor> executor, std::unique_ptr<IFlashTransport> transport,
+                std::unique_ptr<IClock> clock, QObject *parent = nullptr);
     ~FlashWorker() override;
 
     FlashWorker(const FlashWorker&) = delete;
@@ -67,8 +66,7 @@ class FlashWorker final : public QThread
   signals:
     void logEvent(int level, QString message);
     void progressChanged(int done, int total);
-    void phaseProgressChanged(QString phaseName, int phaseIndex, int phaseCount, int done,
-                              int total);
+    void phaseProgressChanged(QString phaseName, int phaseIndex, int phaseCount, int done, int total);
     // Emitted exactly once per run(), always from this worker's own thread.
     void finished(fastecu::flash::FlashWorkerResult result);
 

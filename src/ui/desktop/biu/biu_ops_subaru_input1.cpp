@@ -2,8 +2,7 @@
 #include <ui_biu_ops_subaru_input1.h>
 
 BiuOpsSubaruInput1::BiuOpsSubaruInput1(QByteArray *biu_tt_result, QWidget *parent)
-    : QWidget(parent),
-      ui{std::make_unique<Ui::BiuOpsSubaruInput1Window>()}
+    : QWidget(parent), ui{std::make_unique<Ui::BiuOpsSubaruInput1Window>()}
 {
     ui->setupUi(this);
 

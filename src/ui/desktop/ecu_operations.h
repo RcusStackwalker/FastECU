@@ -82,8 +82,10 @@ class EcuOperations : public QWidget
     int npk_raw_flashblock_16bit_kline(const uint8_t *src, uint32_t start, uint32_t len);
     int npk_raw_flashblock_32bit_kline(const uint8_t *src, uint32_t start, uint32_t len);
     int npk_raw_flashblock_32bit_can(const uint8_t *src, uint32_t start, uint32_t len);
-    int reflash_block_16bit_kline(const uint8_t *newdata, const struct flashdev_t *fdt, unsigned blockno, bool practice);
-    int reflash_block_32bit_kline(const uint8_t *newdata, const struct flashdev_t *fdt, unsigned blockno, bool practice);
+    int reflash_block_16bit_kline(const uint8_t *newdata, const struct flashdev_t *fdt, unsigned blockno,
+                                  bool practice);
+    int reflash_block_32bit_kline(const uint8_t *newdata, const struct flashdev_t *fdt, unsigned blockno,
+                                  bool practice);
     int reflash_block_32bit_can(const uint8_t *newdata, const struct flashdev_t *fdt, unsigned blockno, bool practice);
 
     QString parse_message_to_hex(const QByteArray& received);

@@ -8,22 +8,19 @@ QString format_logging_value(double value, int precision)
     return QString::number(value, 'f', precision);
 }
 
-fastecu::Status apply_log_sample(const DesktopLoggingSnapshot& snapshot,
-                                 const fastecu::logging::LogSample& sample,
+fastecu::Status apply_log_sample(const DesktopLoggingSnapshot& snapshot, const fastecu::logging::LogSample& sample,
                                  FileActions::LogValuesStructure& log_values)
 {
     const auto legacy_index = snapshot.index_by_id.find(sample.channel_id);
     if (legacy_index == snapshot.index_by_id.end())
     {
-        return fastecu::fail(fastecu::ErrorKind::Internal,
-                             "logging sample id is not in the desktop snapshot");
+        return fastecu::fail(fastecu::ErrorKind::Internal, "logging sample id is not in the desktop snapshot");
     }
 
     const auto *channel = snapshot.session.find_channel(sample.channel_id);
     if (channel == nullptr)
     {
-        return fastecu::fail(fastecu::ErrorKind::Internal,
-                             "logging snapshot map and session disagree");
+        return fastecu::fail(fastecu::ErrorKind::Internal, "logging snapshot map and session disagree");
     }
 
     const int row = legacy_index->second;
@@ -39,9 +36,7 @@ fastecu::Status apply_log_sample(const DesktopLoggingSnapshot& snapshot,
         return {};
     }
 
-    log_values.log_value.replace(row,
-                                 format_logging_value(sample.numeric_value,
-                                                      channel->decimal_precision));
+    log_values.log_value.replace(row, format_logging_value(sample.numeric_value, channel->decimal_precision));
     return {};
 }
 

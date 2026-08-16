@@ -43,8 +43,7 @@ TEST(UdsPduTest, BuildsASubfunctionRequest)
 TEST(UdsPduTest, BuildsADataCarryingRequest)
 {
     const bytes::Bytes data{0x12, 0x34, 0x56};
-    EXPECT_THAT(uds::buildRequest(0x23, bytes::ByteView(data)),
-                ElementsAre(0x23, 0x12, 0x34, 0x56));
+    EXPECT_THAT(uds::buildRequest(0x23, bytes::ByteView(data)), ElementsAre(0x23, 0x12, 0x34, 0x56));
 }
 
 TEST(UdsPduTest, BuildsASubfunctionAndDataRequest)

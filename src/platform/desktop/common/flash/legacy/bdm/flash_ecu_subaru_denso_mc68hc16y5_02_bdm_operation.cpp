@@ -8,9 +8,10 @@
 #include <utility>
 
 FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation(
-    SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
-    QString cmd_type, QWidget *dialog, QObject *parent, PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef), cmd_type(std::move(cmd_type))
+    SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, QString cmd_type, QWidget *dialog,
+    QObject *parent, PromptFn promptOverride)
+    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef),
+      cmd_type(std::move(cmd_type))
 {
 }
 
@@ -28,7 +29,8 @@ bool FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::execute()
         return false;
     }
     QString mcu_name = flashdevices[mcu_type_index].name;
-    emit LOG_D("MCU type: " + mcu_name + " " + mcu_type_string + " and index: " + QString::number(mcu_type_index), true, true);
+    emit LOG_D("MCU type: " + mcu_name + " " + mcu_type_string + " and index: " + QString::number(mcu_type_index), true,
+               true);
 
     kernel = ecuCalDef->Kernel;
     flash_method = ecuCalDef->FlashMethod;
@@ -127,10 +129,12 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::read_mem(uint32_t start_addr,
         pleft = (float)(addr - start_addr) / (float)(length + 0x8000) * 100.0f;
         emit progressChanged(pleft);
 
-        if (addr >= flashdevices[mcu_type_index].rblocks->start && addr < (flashdevices[mcu_type_index].rblocks->start + flashdevices[mcu_type_index].rblocks->len))
+        if (addr >= flashdevices[mcu_type_index].rblocks->start &&
+            addr < (flashdevices[mcu_type_index].rblocks->start + flashdevices[mcu_type_index].rblocks->len))
         {
             received.clear();
-            for (unsigned int j = flashdevices[mcu_type_index].rblocks->start; j < (flashdevices[mcu_type_index].rblocks->start + flashdevices[mcu_type_index].rblocks->len); j++)
+            for (unsigned int j = flashdevices[mcu_type_index].rblocks->start;
+                 j < (flashdevices[mcu_type_index].rblocks->start + flashdevices[mcu_type_index].rblocks->len); j++)
             {
                 received.append((uint8_t)0xff);
             }
@@ -190,7 +194,12 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::read_mem(uint32_t start_addr,
 
         start_address = QString("%1").arg(addr, 8, 16, QLatin1Char('0')).toUpper();
         block_len = QString("%1").arg(pagesize, 8, 16, QLatin1Char('0')).toUpper();
-        msg = QString("BDM read addr:  0x%1  length:  0x%2,  %3  B/s  %4 s").arg(start_address).arg(block_len).arg(curspeed, 6, 10, QLatin1Char(' ')).arg(tleft, 6, 10, QLatin1Char(' ')).toUtf8();
+        msg = QString("BDM read addr:  0x%1  length:  0x%2,  %3  B/s  %4 s")
+                  .arg(start_address)
+                  .arg(block_len)
+                  .arg(curspeed, 6, 10, QLatin1Char(' '))
+                  .arg(tleft, 6, 10, QLatin1Char(' '))
+                  .toUtf8();
         emit LOG_I(msg, true, true);
         delay(1);
 
@@ -324,7 +333,8 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::write_mem()
             if (stopRequested())
                 return STATUS_ERROR;
 
-            if (flash_block(&data_array[flashdevices[mcu_type_index].fblocks->start], &flashdevices[mcu_type_index], blockno))
+            if (flash_block(&data_array[flashdevices[mcu_type_index].fblocks->start], &flashdevices[mcu_type_index],
+       blockno))
             {
                 qDebug() << "ERROR in block write!";
                 return STATUS_ERROR;
@@ -339,7 +349,8 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::write_mem()
     return STATUS_SUCCESS;
 }
 
-int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::flash_block(const uint8_t *newdata, const struct flashdev_t *fdt, unsigned blockno)
+int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::flash_block(const uint8_t *newdata, const struct flashdev_t *fdt,
+                                                               unsigned blockno)
 {
     QByteArray output;
     QByteArray received;
@@ -360,7 +371,8 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::flash_block(const uint8_t *ne
     QString wr_response = "ACK_WR";
     // emit progressChanged(0);
 
-    //    if (start >= flashdevices[mcu_type_index].rblocks->start && start < (flashdevices[mcu_type_index].rblocks->start + flashdevices[mcu_type_index].rblocks->len))
+    //    if (start >= flashdevices[mcu_type_index].rblocks->start && start <
+    //    (flashdevices[mcu_type_index].rblocks->start + flashdevices[mcu_type_index].rblocks->len))
     //        start = flashdevices[mcu_type_index].rblocks->start + flashdevices[mcu_type_index].rblocks->len;
 
     QString start_addr = QString("%1").arg((uint32_t)start, 8, 16, QLatin1Char('0')).toUpper();
@@ -418,7 +430,12 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::flash_block(const uint8_t *ne
         }
 
         QString start_address = QString("%1").arg(start, 8, 16, QLatin1Char('0')).toUpper();
-        msg = QString("Writing chunk @ 0x%1 (%2\% - %3 B/s, ~ %4 s)").arg(start_address).arg((unsigned)100 * (len - remain) / len, 1, 10, QLatin1Char('0')).arg((uint32_t)curspeed, 1, 10, QLatin1Char('0')).arg(tleft, 1, 10, QLatin1Char('0')).toUtf8();
+        msg = QString("Writing chunk @ 0x%1 (%2\% - %3 B/s, ~ %4 s)")
+                  .arg(start_address)
+                  .arg((unsigned)100 * (len - remain) / len, 1, 10, QLatin1Char('0'))
+                  .arg((uint32_t)curspeed, 1, 10, QLatin1Char('0'))
+                  .arg(tleft, 1, 10, QLatin1Char('0'))
+                  .toUtf8();
         emit LOG_I(msg, true, true);
 
         remain -= blocksize;

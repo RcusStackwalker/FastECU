@@ -36,17 +36,13 @@ class StopGuard
 
 bool reconnect_due(const LoggingPolicy& policy, int consecutive_misses)
 {
-    return policy.reconnect_retry_period > 0 &&
-           consecutive_misses >= policy.reconnect_attempt_threshold &&
-           (consecutive_misses - policy.reconnect_attempt_threshold) %
-                   policy.reconnect_retry_period ==
-               0;
+    return policy.reconnect_retry_period > 0 && consecutive_misses >= policy.reconnect_attempt_threshold &&
+           (consecutive_misses - policy.reconnect_attempt_threshold) % policy.reconnect_retry_period == 0;
 }
 
 } // namespace
 
-fastecu::Status LoggingUseCase::run(const LoggingSession& session,
-                                    LoggingProtocol& protocol,
+fastecu::Status LoggingUseCase::run(const LoggingSession& session, LoggingProtocol& protocol,
                                     const fastecu::ICancellationToken& cancellation, ILoggingEventSink& events,
                                     fastecu::IEventSink& diagnostics) const
 {

@@ -142,22 +142,9 @@ struct EcuCalDefStructure
     };
 
     QStringList RomInfoNames = {
-        "xmlid",
-        "internalidaddress",
-        "internalidstring",
-        "ecuid",
-        "make",
-        "market",
-        "model",
-        "submodel",
-        "transmission",
-        "year",
-        "flashmethod",
-        "memmodel",
-        "checksummodule",
-        "rombase",
-        "filesize",
-        "deffile",
+        "xmlid",          "internalidaddress", "internalidstring", "ecuid",   "make",        "market",
+        "model",          "submodel",          "transmission",     "year",    "flashmethod", "memmodel",
+        "checksummodule", "rombase",           "filesize",         "deffile",
     };
 
     QStringList DefHeaderStrings = {

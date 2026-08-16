@@ -23,25 +23,15 @@ class DefinitionService
     // (appropriate when scanning many files for a browsable catalog -- one bad file shouldn't
     // hide every other one) or fails the whole call (appropriate when every handle passed in is
     // a specific, required file, such as loading the one base definition a ROM's identity names).
-    Result<DefinitionCatalog> build_romraider_catalog(
-        std::span<const std::string> ordered_handles,
-        bool skip_unusable_handles = true);
-    Result<DefinitionCatalog> build_ecuflash_catalog(
-        std::string_view directory,
-        std::span<const std::string> explicit_handles = {},
-        bool skip_unusable_handles = true);
-    Result<DefinitionIndexEntry> match_rom(
-        const DefinitionCatalog&, std::span<const std::uint8_t> rom) const;
-    Result<RomDefinition> load(
-        const DefinitionCatalog&, DefinitionFormat, std::string_view id);
-    Status create_definition(
-        std::string_view destination,
-        const DefinitionHeaderInput&,
-        bool allow_overwrite = false);
-    Status import_definition(
-        std::string_view source,
-        std::string_view destination,
-        const DefinitionHeaderInput&);
+    Result<DefinitionCatalog> build_romraider_catalog(std::span<const std::string> ordered_handles,
+                                                      bool skip_unusable_handles = true);
+    Result<DefinitionCatalog> build_ecuflash_catalog(std::string_view directory,
+                                                     std::span<const std::string> explicit_handles = {},
+                                                     bool skip_unusable_handles = true);
+    Result<DefinitionIndexEntry> match_rom(const DefinitionCatalog&, std::span<const std::uint8_t> rom) const;
+    Result<RomDefinition> load(const DefinitionCatalog&, DefinitionFormat, std::string_view id);
+    Status create_definition(std::string_view destination, const DefinitionHeaderInput&, bool allow_overwrite = false);
+    Status import_definition(std::string_view source, std::string_view destination, const DefinitionHeaderInput&);
 
   private:
     IFileSystem& file_system_;

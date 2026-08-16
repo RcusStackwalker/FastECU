@@ -33,9 +33,7 @@ class RemoteSerialBackend : public QObject, public SerialBackend
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
   public:
-    explicit RemoteSerialBackend(QString peerAddress,
-                                 QString password,
-                                 QWebSocket *externalSocket = nullptr,
+    explicit RemoteSerialBackend(QString peerAddress, QString password, QWebSocket *externalSocket = nullptr,
                                  QObject *parent = nullptr);
     ~RemoteSerialBackend() override;
 

@@ -20,8 +20,7 @@ class LoggingProtocol
   public:
     virtual ~LoggingProtocol() = default;
     virtual fastecu::Status start(const fastecu::ICancellationToken&) = 0;
-    virtual fastecu::Result<PollData> poll(
-        int timeout_ms, const fastecu::ICancellationToken&) = 0;
+    virtual fastecu::Result<PollData> poll(int timeout_ms, const fastecu::ICancellationToken&) = 0;
     virtual fastecu::Status stop() = 0;
 };
 

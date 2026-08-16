@@ -34,8 +34,7 @@ class ScriptedLoggingProtocol final : public fastecu::logging::LoggingProtocol
     bool waitUntilPollEntered(std::chrono::milliseconds timeout)
     {
         std::unique_lock lock(mutex_);
-        return poll_entered_cv_.wait_for(lock, timeout, [this]
-                                         { return poll_entered_; });
+        return poll_entered_cv_.wait_for(lock, timeout, [this] { return poll_entered_; });
     }
 
     int startCallCount() const
@@ -60,8 +59,7 @@ class ScriptedLoggingProtocol final : public fastecu::logging::LoggingProtocol
         return result;
     }
 
-    fastecu::Result<fastecu::logging::PollData> poll(
-        int, const fastecu::ICancellationToken& cancellation) override
+    fastecu::Result<fastecu::logging::PollData> poll(int, const fastecu::ICancellationToken& cancellation) override
     {
         if (block_poll_.load(std::memory_order_relaxed))
         {

@@ -49,15 +49,13 @@ class ScriptedUdsChannel final : public IUdsChannel
         return send_index_ == expected_.size() && receives_.empty();
     }
 
-    fastecu::Status send(bytes::ByteView pdu,
-                         const fastecu::ICancellationToken& cancellation) override
+    fastecu::Status send(bytes::ByteView pdu, const fastecu::ICancellationToken& cancellation) override
     {
         if (cancellation.cancelled())
         {
             return fastecu::fail(fastecu::ErrorKind::Cancelled, "scripted UDS send cancelled");
         }
-        if (send_index_ >= expected_.size() ||
-            expected_.at(send_index_) != bytes::Bytes(pdu.begin(), pdu.end()))
+        if (send_index_ >= expected_.size() || expected_.at(send_index_) != bytes::Bytes(pdu.begin(), pdu.end()))
         {
             return fastecu::fail(fastecu::ErrorKind::Internal, "unexpected scripted UDS send");
         }
@@ -65,8 +63,8 @@ class ScriptedUdsChannel final : public IUdsChannel
         return {};
     }
 
-    fastecu::Result<std::optional<bytes::Bytes>> receive(
-        int timeout_ms, const fastecu::ICancellationToken& cancellation) override
+    fastecu::Result<std::optional<bytes::Bytes>> receive(int timeout_ms,
+                                                         const fastecu::ICancellationToken& cancellation) override
     {
         last_timeout_ms_ = timeout_ms;
         timeouts_.push_back(timeout_ms);

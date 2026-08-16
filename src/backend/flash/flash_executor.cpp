@@ -17,8 +17,7 @@ Status check_family_transport_match(const FlashPlan& plan, FlashFamily expected_
     return {};
 }
 
-Result<ICanFlashTransport *> open_can_iso15765_transport(IFlashTransport& transport,
-                                                         const Iso15765Config& config)
+Result<ICanFlashTransport *> open_can_iso15765_transport(IFlashTransport& transport, const Iso15765Config& config)
 {
     auto *can = dynamic_cast<ICanFlashTransport *>(&transport);
     if (can == nullptr)

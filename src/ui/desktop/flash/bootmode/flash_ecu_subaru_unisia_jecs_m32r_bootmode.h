@@ -24,7 +24,8 @@ class FlashEcuSubaruUnisiaJecsM32rBootMode : public QDialog
     Q_OBJECT
 
   public:
-    explicit FlashEcuSubaruUnisiaJecsM32rBootMode(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent);
+    explicit FlashEcuSubaruUnisiaJecsM32rBootMode(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
+                                                  const QString& cmd_type, QWidget *parent);
     ~FlashEcuSubaruUnisiaJecsM32rBootMode();
 
     void run();

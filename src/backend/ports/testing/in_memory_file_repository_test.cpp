@@ -54,9 +54,8 @@ TEST(InMemoryFileRepository, RecordsOrderedWritesAndStoresBothData)
     ASSERT_TRUE(repository.write("rom", rom_data));
     ASSERT_TRUE(repository.write("kernel", kernel_data));
 
-    EXPECT_EQ(repository.write_calls,
-              (std::vector<std::pair<std::string, std::vector<std::uint8_t>>>{{"rom", {1, 2, 3}},
-                                                                              {"kernel", {4, 5, 6}}}));
+    EXPECT_EQ(repository.write_calls, (std::vector<std::pair<std::string, std::vector<std::uint8_t>>>{
+                                          {"rom", {1, 2, 3}}, {"kernel", {4, 5, 6}}}));
     EXPECT_EQ(repository.files["rom"], rom_data);
     EXPECT_EQ(repository.files["kernel"], kernel_data);
 }
@@ -65,8 +64,7 @@ TEST(InMemoryFileRepository, PersistentReadErrorAppliesAfterOneShotOverride)
 {
     fastecu::InMemoryFileRepository repository;
     repository.files["kernel"] = {0xaa};
-    repository.read_errors.insert_or_assign(
-        "kernel", fastecu::Error{fastecu::ErrorKind::Internal, "persistent error"});
+    repository.read_errors.insert_or_assign("kernel", fastecu::Error{fastecu::ErrorKind::Internal, "persistent error"});
     repository.next_read_result = std::vector<std::uint8_t>{0xbb};
 
     auto first = repository.read("kernel");
@@ -82,8 +80,7 @@ TEST(InMemoryFileRepository, PersistentReadErrorAppliesAfterOneShotOverride)
 TEST(InMemoryFileRepository, ReadCountIsPerHandleAndIncludesFailures)
 {
     fastecu::InMemoryFileRepository repository;
-    repository.read_errors.insert_or_assign(
-        "broken", fastecu::Error{fastecu::ErrorKind::Internal, "broken"});
+    repository.read_errors.insert_or_assign("broken", fastecu::Error{fastecu::ErrorKind::Internal, "broken"});
 
     EXPECT_FALSE(repository.read("broken"));
     EXPECT_FALSE(repository.read("missing"));

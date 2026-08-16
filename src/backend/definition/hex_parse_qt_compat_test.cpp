@@ -20,14 +20,7 @@ namespace
 // compatibility oracle is independent of the catalog parser; keep this list
 // synchronized when shipped kernel_addr values change.
 const char *const kRealKernelAddrs[] = {
-    "0x00000000",
-    "0x20000",
-    "0xFFF80000",
-    "0xFFFEE000",
-    "0xFFFF3000",
-    "0xFFFF4000",
-    "0xFFFF6004",
-    "0xFFFF9000",
+    "0x00000000", "0x20000", "0xFFF80000", "0xFFFEE000", "0xFFFF3000", "0xFFFF4000", "0xFFFF6004", "0xFFFF9000",
 };
 
 TEST(HexParseQtCompat, AgreesWithQtOnEveryRealKernelAddr)

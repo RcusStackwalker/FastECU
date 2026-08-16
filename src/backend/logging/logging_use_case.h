@@ -14,8 +14,8 @@ class LoggingUseCase
 {
   public:
     fastecu::Status run(const LoggingSession& session, LoggingProtocol& protocol,
-                        const fastecu::ICancellationToken& cancellation,
-                        ILoggingEventSink& events, fastecu::IEventSink& diagnostics) const;
+                        const fastecu::ICancellationToken& cancellation, ILoggingEventSink& events,
+                        fastecu::IEventSink& diagnostics) const;
 };
 
 } // namespace fastecu::logging

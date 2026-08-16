@@ -23,8 +23,7 @@ namespace fastecu::calibration
 // (a disk open has no backup handle, an already-loaded open has no file to
 // read), and an emptiness test cannot distinguish "caller supplied no
 // preloaded bytes" from "caller supplied a genuinely zero-length ROM".
-Result<std::vector<std::uint8_t>> read_rom(std::string_view file_handle,
-                                           IFileRepository& file_repository);
+Result<std::vector<std::uint8_t>> read_rom(std::string_view file_handle, IFileRepository& file_repository);
 
 // The "already have the bytes" half: writes an in-hand ROM image (e.g. one
 // just read off the ECU) to backup_handle. Returns void by design -- a failed
@@ -38,9 +37,8 @@ void backup_rom(std::span<const std::uint8_t> rom_data, std::string_view backup_
 // this is what the legacy Qt loop does, not a guess. Falls back to
 // definition::storage_byte_size(storage_type) (1 byte) when no scaling/
 // selections are available to derive it from.
-std::uint32_t element_byte_size(
-    std::optional<definition::StorageType> storage_type,
-    const definition::Scaling *scaling);
+std::uint32_t element_byte_size(std::optional<definition::StorageType> storage_type,
+                                const definition::Scaling *scaling);
 
 // One past the last byte touched by `count` elements of `element_width` bytes,
 // laid out starting at `address` with the legacy start_position/interval
@@ -57,20 +55,15 @@ std::uint32_t element_byte_size(
 //   * start_position == 0 -- out of domain for a 1-based position and rejected
 //     by the resolver. Direct callers are still treated defensively as the
 //     smallest legal value, i.e. offset 0.
-std::uint64_t element_run_end(
-    std::uint64_t address,
-    std::uint32_t start_position,
-    std::uint32_t interval,
-    std::uint32_t element_width,
-    std::uint32_t count);
+std::uint64_t element_run_end(std::uint64_t address, std::uint32_t start_position, std::uint32_t interval,
+                              std::uint32_t element_width, std::uint32_t count);
 
 // Every matched map's address, x-axis address, and y-axis address (each
 // optional; absent addresses do not fail) must have its entire strided
 // element run -- not just its base address -- fit within rom_byte_length.
 // An address equal to rom_byte_length fails, since element_run_end always
 // adds at least one element's width.
-Status validate_rom_size(const definition::RomDefinition& rom_definition,
-                         std::size_t rom_byte_length);
+Status validate_rom_size(const definition::RomDefinition& rom_definition, std::size_t rom_byte_length);
 
 // Reproduces the sub_ecu_denso_mc68hc16y5_02 ROM-padding special case: inserts
 // 0x8000 bytes of 0xFF at offset 0x20000 when flash_method starts with that
@@ -84,8 +77,7 @@ Status validate_rom_size(const definition::RomDefinition& rom_definition,
 // by-copy shape lets a caller pad a throwaway image and lose the result, which
 // is exactly the regression PR #118's own final review caught. Callers write
 //   rom = apply_flash_method_padding(std::move(rom), method);
-std::vector<std::uint8_t> apply_flash_method_padding(
-    std::vector<std::uint8_t> rom_data, std::string_view flash_method);
+std::vector<std::uint8_t> apply_flash_method_padding(std::vector<std::uint8_t> rom_data, std::string_view flash_method);
 
 // One run of consecutive elements: a map's cells, or one axis's points. Built
 // from either a CalibrationMap or an AxisDefinition -- the three call sites
@@ -127,16 +119,12 @@ struct ElementRun
 // Returns ErrorKind::Internal if any element's window would run past
 // rom_data's end. Legacy indexed QByteArray::at() unchecked here, which
 // asserts or reads out of bounds; this reports instead.
-Result<std::string> decode_scaled_values(bytes::ByteView rom_data,
-                                         const ElementRun& run,
-                                         int float_precision);
+Result<std::string> decode_scaled_values(bytes::ByteView rom_data, const ElementRun& run, int float_precision);
 
 // The StorageType::Bloblist branch: byte_count raw bytes from `address`,
 // hex-encoded lowercase, two digits per byte, no scaling applied. byte_count
 // comes from element_byte_size(storage_type, scaling).
-Result<std::string> decode_bloblist_hex(bytes::ByteView rom_data,
-                                        std::uint64_t address,
-                                        std::uint32_t byte_count);
+Result<std::string> decode_bloblist_hex(bytes::ByteView rom_data, std::uint64_t address, std::uint32_t byte_count);
 
 struct MapCellValues
 {
@@ -167,9 +155,7 @@ using MapCellValuesList = std::vector<MapCellValues>;
 //
 // Y axis, when y_size > 1: ALWAYS decoded, with no type branching at all.
 // This asymmetry with the X axis is real legacy behavior, reproduced exactly.
-Result<MapCellValuesList> compute_map_cell_values(
-    const definition::RomDefinition& rom_definition,
-    bytes::ByteView rom_data,
-    int float_precision);
+Result<MapCellValuesList> compute_map_cell_values(const definition::RomDefinition& rom_definition,
+                                                  bytes::ByteView rom_data, int float_precision);
 
 } // namespace fastecu::calibration

@@ -46,9 +46,9 @@ constexpr bytes::Byte kSessionKernelJump = 0x42;
 // (read payload, legacy decrypt_payload lines 965-966) tables: same Task 6
 // finding, same shared header.
 // Shared by every family in this wave and wave-1 Hitachi K-Line.
-constexpr std::array<std::uint8_t, 32> kIndexTransformation{
-    0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
-    0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
+constexpr std::array<std::uint8_t, 32> kIndexTransformation{0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
+                                                            0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
+                                                            0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
 // Hardcoded in legacy read_mem regardless of caller arguments (lines
 // 356-358, "hack for testing").
@@ -60,21 +60,18 @@ constexpr MemoryRegion kWriteRegion{0x80000, 0x100000};
 
 bytes::Bytes seed_key(bytes::ByteView seed)
 {
-    return SsmProtocol::calculateSeedKey(seed, tcuCvtMitsuSeedKeyTable(),
-                                         kIndexTransformation);
+    return SsmProtocol::calculateSeedKey(seed, tcuCvtMitsuSeedKeyTable(), kIndexTransformation);
 }
 
 bytes::Bytes encrypt_rom(bytes::ByteView image)
 {
-    return SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()),
-                                         tcuCvtMitsuEncryptTable(),
+    return SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), tcuCvtMitsuEncryptTable(),
                                          kIndexTransformation);
 }
 
 bytes::Bytes decrypt_page(bytes::ByteView page)
 {
-    return SsmProtocol::calculatePayload(page, static_cast<std::uint32_t>(page.size()),
-                                         tcuCvtMitsuDecryptTable(),
+    return SsmProtocol::calculatePayload(page, static_cast<std::uint32_t>(page.size()), tcuCvtMitsuDecryptTable(),
                                          kIndexTransformation);
 }
 
@@ -111,8 +108,7 @@ UdsExchangeContext exchange_context(Ctx& ctx)
 Error report_exchange_failure(Ctx& ctx, const Error& failure, std::string_view rejection_prefix,
                               std::string_view operation)
 {
-    return ::fastecu::flash::report_exchange_failure(ctx.events, failure, rejection_prefix,
-                                                     operation);
+    return ::fastecu::flash::report_exchange_failure(ctx.events, failure, rejection_prefix, operation);
 }
 
 // Sends `pdu` through ctx.uds and, on failure, logs and returns the error.
@@ -127,11 +123,10 @@ Result<bytes::Bytes> fatal_request(Ctx& ctx, bytes::ByteView pdu, std::string_vi
 // connect_bootloader below repeats -- see uds_client_exchange_common.h's
 // fatal_query for what expected_prefix, subject, and min_payload_size mean.
 Result<bytes::Bytes> fatal_query(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
-                                 std::string_view subject,
-                                 std::optional<std::size_t> min_payload_size = std::nullopt)
+                                 std::string_view subject, std::optional<std::size_t> min_payload_size = std::nullopt)
 {
-    return ::fastecu::flash::fatal_query(exchange_context(ctx), pdu, expected_prefix, kRejectionPrefix,
-                                         subject, min_payload_size);
+    return ::fastecu::flash::fatal_query(exchange_context(ctx), pdu, expected_prefix, kRejectionPrefix, subject,
+                                         min_payload_size);
 }
 
 // Legacy's two non-fatal identity queries (TCU ID/CAL ID, lines 94-168) and
@@ -142,8 +137,7 @@ Result<bytes::Bytes> fatal_query(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView 
 void non_fatal_query(Ctx& ctx, bytes::ByteView pdu, std::optional<bytes::Byte> expected_subfunction,
                      std::string_view label)
 {
-    ::fastecu::flash::non_fatal_query(exchange_context(ctx), pdu, expected_subfunction,
-                                      kRejectionPrefix, label);
+    ::fastecu::flash::non_fatal_query(exchange_context(ctx), pdu, expected_subfunction, kRejectionPrefix, label);
 }
 
 // Legacy connect_bootloader, lines 81-337. Unlike SubaruTcuCvtHitachiM32rCan
@@ -164,14 +158,14 @@ Status connect_bootloader(Ctx& ctx)
     // Session 0x10/0x43 (lines 170-197), non-fatal -- the match branch (line
     // 186-188) is empty in legacy; only the mismatch branch logs.
     info(ctx, "Initializing bootloader...");
-    non_fatal_query(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionBootload},
-                    kSessionBootload, "session mode (bootloader)");
+    non_fatal_query(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionBootload}, kSessionBootload,
+                    "session mode (bootloader)");
 
     // Seed 0x27/0x01 (lines 199-225), fatal.
     info(ctx, "Requesting seed");
-    Result<bytes::Bytes> seed_reply = fatal_query(
-        ctx, bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed},
-        bytes::Bytes{uds::kSecurityAccessRequestSeed}, "seed request", 5);
+    Result<bytes::Bytes> seed_reply =
+        fatal_query(ctx, bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed},
+                    bytes::Bytes{uds::kSecurityAccessRequestSeed}, "seed request", 5);
     if (!seed_reply.has_value())
     {
         return std::unexpected(seed_reply.error());
@@ -194,9 +188,9 @@ Status connect_bootloader(Ctx& ctx)
 
     // Jump 0x10/0x42 (lines 267-295), fatal.
     info(ctx, "Jumping to onboad kernel...");
-    Result<bytes::Bytes> jump_reply = fatal_query(
-        ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionKernelJump},
-        bytes::Bytes{kSessionKernelJump}, "kernel jump");
+    Result<bytes::Bytes> jump_reply =
+        fatal_query(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionKernelJump},
+                    bytes::Bytes{kSessionKernelJump}, "kernel jump");
     if (!jump_reply.has_value())
     {
         return std::unexpected(jump_reply.error());
@@ -221,8 +215,7 @@ Status connect_bootloader(Ctx& ctx)
     // the channel directly instead.
     info(ctx, "Checking if jump successful and kernel alive...");
     if (const Status sent = ctx.channel.send(
-            bytes::Bytes{uds::kSidRequestDownload, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00},
-            ctx.cancellation);
+            bytes::Bytes{uds::kSidRequestDownload, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00}, ctx.cancellation);
         !sent.has_value())
     {
         return sent;
@@ -270,8 +263,7 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
     // alive-check exchange's own necessity in connect_bootloader.
     info(ctx, "Settting dump start & length...");
     if (const Status sent = ctx.channel.send(
-            bytes::Bytes{uds::kSidRequestUpload, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00},
-            ctx.cancellation);
+            bytes::Bytes{uds::kSidRequestUpload, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00}, ctx.cancellation);
         !sent.has_value())
     {
         return std::unexpected(sent.error());
@@ -281,8 +273,8 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
     {
         return std::unexpected(setup.error());
     }
-    if (!setup->has_value() || setup->value().size() < 4 || (**setup)[0] != 0x74 ||
-        (**setup)[1] != 0x20 || (**setup)[2] != 0x01 || (**setup)[3] != 0x04)
+    if (!setup->has_value() || setup->value().size() < 4 || (**setup)[0] != 0x74 || (**setup)[1] != 0x20 ||
+        (**setup)[2] != 0x01 || (**setup)[3] != 0x04)
     {
         if (setup->has_value())
         {
@@ -298,8 +290,7 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
     info(ctx, "Start reading ROM, please wait...");
     bytes::Bytes rom;
     rom.reserve(kReadRegion.length);
-    for (std::uint32_t addr = kReadRegion.start; addr < kReadRegion.start + kReadRegion.length;
-         addr += kPageSize)
+    for (std::uint32_t addr = kReadRegion.start; addr < kReadRegion.start + kReadRegion.length; addr += kPageSize)
     {
         // Legacy stopRequested() at line 421, top of loop.
         if (ctx.cancellation.cancelled())
@@ -309,9 +300,8 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
 
         // Lines 406-454: SID 0xB7 + 3-byte big-endian address, standard
         // SID+0x40 convention (0xB7 -> 0xF7).
-        Result<bytes::Bytes> chunk =
-            fatal_request(ctx, composeBe(uds::kSidReadMemoryChunk, u24(addr)),
-                          std::format("the flash read at 0x{:x}", addr));
+        Result<bytes::Bytes> chunk = fatal_request(ctx, composeBe(uds::kSidReadMemoryChunk, u24(addr)),
+                                                   std::format("the flash read at 0x{:x}", addr));
         if (!chunk.has_value())
         {
             return std::unexpected(chunk.error());
@@ -335,8 +325,7 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
     info(ctx, "Sending stop command...");
     for (int attempt = 0; attempt < 6; ++attempt)
     {
-        if (const Status sent =
-                ctx.channel.send(bytes::Bytes{uds::kSidRequestTransferExit}, ctx.cancellation);
+        if (const Status sent = ctx.channel.send(bytes::Bytes{uds::kSidRequestTransferExit}, ctx.cancellation);
             !sent.has_value())
         {
             return std::unexpected(sent.error());
@@ -376,8 +365,7 @@ Status erase_memory(Ctx& ctx)
     for (int attempt = 0; attempt < 20; ++attempt)
     {
         Result<bytes::Bytes> reply = ctx.uds.request(
-            bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, 0x02, 0x01, 0x0f, 0xff,
-                         0xff, 0xff},
+            bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, 0x02, 0x01, 0x0f, 0xff, 0xff, 0xff},
             kExchangePolicy, ctx.cancellation);
         if (reply.has_value())
         {
@@ -391,8 +379,8 @@ Status erase_memory(Ctx& ctx)
         }
         else if (reply.error().kind == ErrorKind::Cancelled)
         {
-            return std::unexpected(report_exchange_failure(
-                ctx, reply.error(), "Wrong response from TCU: ", "the erase command"));
+            return std::unexpected(
+                report_exchange_failure(ctx, reply.error(), "Wrong response from TCU: ", "the erase command"));
         }
         else
         {
@@ -435,9 +423,9 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
     bool setup_ok = false;
     for (int attempt = 0; attempt < 6; ++attempt)
     {
-        Result<bytes::Bytes> setup = ctx.uds.request(
-            composeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, u24(0), u24(kSetupDataLen)),
-            kExchangePolicy, ctx.cancellation);
+        Result<bytes::Bytes> setup =
+            ctx.uds.request(composeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, u24(0), u24(kSetupDataLen)),
+                            kExchangePolicy, ctx.cancellation);
         setup_ok = setup.has_value();
         if (setup_ok)
         {
@@ -469,14 +457,13 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
         // fails this exchange. Routed through the channel directly, not
         // fatal_request()/ctx.uds, which would enforce a SID+0x40 content
         // match this family's legacy code never checks here.
-        if (const Status sent = ctx.channel.send(
-                composeBe(uds::kSidWriteMemoryChunk, u24(addr), chunk_data), ctx.cancellation);
+        if (const Status sent =
+                ctx.channel.send(composeBe(uds::kSidWriteMemoryChunk, u24(addr), chunk_data), ctx.cancellation);
             !sent.has_value())
         {
             return sent;
         }
-        if (Result<std::optional<bytes::Bytes>> reply = ctx.channel.receive(2000, ctx.cancellation);
-            !reply.has_value())
+        if (Result<std::optional<bytes::Bytes>> reply = ctx.channel.receive(2000, ctx.cancellation); !reply.has_value())
         {
             return std::unexpected(reply.error());
         }
@@ -492,8 +479,8 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
     bool closed_ok = false;
     for (int attempt = 0; attempt < 20; ++attempt)
     {
-        Result<bytes::Bytes> closed = ctx.uds.request(
-            bytes::Bytes{uds::kSidRequestTransferExit}, kExchangePolicy, ctx.cancellation);
+        Result<bytes::Bytes> closed =
+            ctx.uds.request(bytes::Bytes{uds::kSidRequestTransferExit}, kExchangePolicy, ctx.cancellation);
         if (closed.has_value())
         {
             info(ctx, "Flashing of block closed");
@@ -512,9 +499,9 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
     info(ctx, "Verifying checksum...");
     for (int attempt = 0; attempt < 20; ++attempt)
     {
-        Result<bytes::Bytes> checksum = ctx.uds.request(
-            bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, 0x02, 0x02, 0x01},
-            kExchangePolicy, ctx.cancellation);
+        Result<bytes::Bytes> checksum =
+            ctx.uds.request(bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, 0x02, 0x02, 0x01},
+                            kExchangePolicy, ctx.cancellation);
         if (checksum.has_value())
         {
             if (const bytes::ByteView payload = uds::payload(*checksum);
@@ -546,8 +533,7 @@ Status write_mem(Ctx& ctx, bytes::ByteView image, PhaseSequence& phases)
 
     PhaseReporter write = phases.start("Write ROM", static_cast<int>(kWriteRegion.length));
     const bytes::ByteView block_plain = image.subspan(kWriteRegion.start, kWriteRegion.length);
-    if (const Status written = unlock_and_reflash_block(ctx, block_plain, write);
-        !written.has_value())
+    if (const Status written = unlock_and_reflash_block(ctx, block_plain, write); !written.has_value())
     {
         return written;
     }
@@ -557,18 +543,18 @@ Status write_mem(Ctx& ctx, bytes::ByteView image, PhaseSequence& phases)
 
 } // namespace
 
-Result<FlashExecutionResult> SubaruTcuCvtMitsuMh8111CanExecutor::execute(
-    const FlashPlan& plan, IFlashTransport& transport, IClock& clock,
-    const ICancellationToken& cancellation, IEventSink& events)
+Result<FlashExecutionResult> SubaruTcuCvtMitsuMh8111CanExecutor::execute(const FlashPlan& plan,
+                                                                         IFlashTransport& transport, IClock& clock,
+                                                                         const ICancellationToken& cancellation,
+                                                                         IEventSink& events)
 {
-    if (const Status matched = check_family_transport_match(
-            plan, FlashFamily::SubaruTcuCvtMitsuMh8111Can, TransportKind::CanIso15765);
+    if (const Status matched =
+            check_family_transport_match(plan, FlashFamily::SubaruTcuCvtMitsuMh8111Can, TransportKind::CanIso15765);
         !matched.has_value())
     {
         return std::unexpected(matched.error());
     }
-    if (const Status valid = validate_subaru_tcu_cvt_mitsu_mh8111_can_plan(plan);
-        !valid.has_value())
+    if (const Status valid = validate_subaru_tcu_cvt_mitsu_mh8111_can_plan(plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
@@ -578,13 +564,13 @@ Result<FlashExecutionResult> SubaruTcuCvtMitsuMh8111CanExecutor::execute(
     }
 
     const auto& family = std::get<SubaruTcuCvtMitsuMh8111CanPlan>(plan.family_plan());
-    Result<ICanFlashTransport *> can_transport = open_can_iso15765_transport(
-        transport, Iso15765Config{
-                       .bitrate = family.bitrate,
-                       .request_id = family.request_id,
-                       .response_id = family.response_id,
-                       .extended_id = family.extended_id,
-                   });
+    Result<ICanFlashTransport *> can_transport =
+        open_can_iso15765_transport(transport, Iso15765Config{
+                                                   .bitrate = family.bitrate,
+                                                   .request_id = family.request_id,
+                                                   .response_id = family.response_id,
+                                                   .extended_id = family.extended_id,
+                                               });
     if (!can_transport.has_value())
     {
         return std::unexpected(can_transport.error());
@@ -611,8 +597,7 @@ Result<FlashExecutionResult> SubaruTcuCvtMitsuMh8111CanExecutor::execute(
         events.notice("Reading ROM, please wait...");
         info(ctx, "Reading ROM from TCU Subaru Mitsubishi using CAN");
 
-        PhaseReporter read_phase =
-            phases.start("Read ROM", static_cast<int>(plan.transfer_region().length));
+        PhaseReporter read_phase = phases.start("Read ROM", static_cast<int>(plan.transfer_region().length));
         Result<bytes::Bytes> window = dump_flash_range(ctx, read_phase);
         if (!window.has_value())
         {

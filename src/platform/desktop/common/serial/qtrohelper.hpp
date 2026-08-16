@@ -9,59 +9,49 @@
 namespace qtrohelper
 {
 // Convert QVariant to scalar templates
-template <typename T>
-T qvariant_to_scalar(QVariant v);
+template <typename T> T qvariant_to_scalar(QVariant v);
 
-template <>
-inline long qvariant_to_scalar<long>(QVariant v)
+template <> inline long qvariant_to_scalar<long>(QVariant v)
 {
     return v.toLongLong();
 }
 
-template <>
-inline unsigned long qvariant_to_scalar<unsigned long>(QVariant v)
+template <> inline unsigned long qvariant_to_scalar<unsigned long>(QVariant v)
 {
     return v.toULongLong();
 }
 
-template <>
-inline int qvariant_to_scalar<int>(QVariant v)
+template <> inline int qvariant_to_scalar<int>(QVariant v)
 {
     return v.toInt();
 }
 
-template <>
-inline unsigned int qvariant_to_scalar<unsigned int>(QVariant v)
+template <> inline unsigned int qvariant_to_scalar<unsigned int>(QVariant v)
 {
     return v.toUInt();
 }
 
-template <>
-inline unsigned char qvariant_to_scalar<unsigned char>(QVariant v)
+template <> inline unsigned char qvariant_to_scalar<unsigned char>(QVariant v)
 {
     return v.toInt();
 }
 
-template <>
-inline bool qvariant_to_scalar<bool>(QVariant v)
+template <> inline bool qvariant_to_scalar<bool>(QVariant v)
 {
     return v.toBool();
 }
 
-template <>
-inline QString qvariant_to_scalar<QString>(QVariant v)
+template <> inline QString qvariant_to_scalar<QString>(QVariant v)
 {
     return v.toString();
 }
 
-template <>
-inline QByteArray qvariant_to_scalar<QByteArray>(QVariant v)
+template <> inline QByteArray qvariant_to_scalar<QByteArray>(QVariant v)
 {
     return v.toByteArray();
 }
 
-template <>
-inline QStringList qvariant_to_scalar<QStringList>(QVariant v)
+template <> inline QStringList qvariant_to_scalar<QStringList>(QVariant v)
 {
     return v.toStringList();
 }
@@ -99,10 +89,10 @@ template <template <typename> typename QRemoteObjectPendingReply, typename RET_T
 RET_TYPE slot_sync(const QRemoteObjectPendingReply<RET_TYPE>& SLOT)
 {
     QVariant r;
-    QScopedPointer<QRemoteObjectPendingCallWatcher>
-        watcher{new QRemoteObjectPendingCallWatcher(SLOT)};
-    QObject::connect(watcher.data(), &QRemoteObjectPendingCallWatcher::finished, watcher.data(), [&](QRemoteObjectPendingCallWatcher *watch)
-                     { r = watch->returnValue(); }, Qt::DirectConnection);
+    QScopedPointer<QRemoteObjectPendingCallWatcher> watcher{new QRemoteObjectPendingCallWatcher(SLOT)};
+    QObject::connect(
+        watcher.data(), &QRemoteObjectPendingCallWatcher::finished, watcher.data(),
+        [&](QRemoteObjectPendingCallWatcher *watch) { r = watch->returnValue(); }, Qt::DirectConnection);
     watcher->waitForFinished();
     return qvariant_to_scalar<RET_TYPE>(r);
 }

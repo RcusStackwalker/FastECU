@@ -37,8 +37,7 @@ fastecu::Result<std::vector<std::string>> QtResourceBundle::list(std::string_vie
     return names;
 }
 
-fastecu::Result<std::vector<std::uint8_t>> QtResourceBundle::read(std::string_view bundle_id,
-                                                                  std::string_view name)
+fastecu::Result<std::vector<std::uint8_t>> QtResourceBundle::read(std::string_view bundle_id, std::string_view name)
 {
     fastecu::Result<QString> prefix = prefix_for(bundle_id);
     if (!prefix.has_value())

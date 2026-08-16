@@ -18,8 +18,7 @@ TEST(SubaruMitsuM32rKlinePlan, SnapshotsExactWireAndMemoryContract)
     {
         auto plan = build_subaru_mitsu_m32r_kline_plan(
             operation, kProtocol, kMcu,
-            operation == FlashOperation::Write ? std::optional(bytes::Bytes(0x80000, 0x5a))
-                                               : std::nullopt);
+            operation == FlashOperation::Write ? std::optional(bytes::Bytes(0x80000, 0x5a)) : std::nullopt);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         EXPECT_EQ(plan->family(), FlashFamily::SubaruMitsuM32rKline);
         EXPECT_EQ(plan->transport(), TransportKind::Kline);
@@ -45,15 +44,11 @@ TEST(SubaruMitsuM32rKlinePlan, RejectsInvalidInputsBeforeIo)
         ASSERT_FALSE(plan.has_value());
         EXPECT_EQ(plan.error().kind, kind);
     };
-    expect(FlashOperation::Read, "sub_ecu_mitsu_m32r_kline_typo", kMcu, std::nullopt,
-           ErrorKind::InvalidConfig);
-    expect(FlashOperation::Read, kProtocol, "NOT_A_REAL_MCU", std::nullopt,
-           ErrorKind::InvalidConfig);
+    expect(FlashOperation::Read, "sub_ecu_mitsu_m32r_kline_typo", kMcu, std::nullopt, ErrorKind::InvalidConfig);
+    expect(FlashOperation::Read, kProtocol, "NOT_A_REAL_MCU", std::nullopt, ErrorKind::InvalidConfig);
     expect(FlashOperation::Write, kProtocol, kMcu, std::nullopt, ErrorKind::InvalidConfig);
-    expect(FlashOperation::Write, kProtocol, kMcu, bytes::Bytes(0x7ffff),
-           ErrorKind::InvalidConfig);
-    expect(FlashOperation::TestWrite, kProtocol, kMcu, bytes::Bytes(0x80000),
-           ErrorKind::Unsupported);
+    expect(FlashOperation::Write, kProtocol, kMcu, bytes::Bytes(0x7ffff), ErrorKind::InvalidConfig);
+    expect(FlashOperation::TestWrite, kProtocol, kMcu, bytes::Bytes(0x80000), ErrorKind::Unsupported);
 }
 
 } // namespace

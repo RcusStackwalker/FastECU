@@ -31,8 +31,8 @@ class RecordingEventSink : public IEventSink
     void phase_progress(const PhaseProgressEvent& event) override
     {
         IEventSink::phase_progress(event);
-        phase_progress_calls.push_back({std::string(event.phase_name), event.phase_index,
-                                        event.phase_count, event.done, event.total});
+        phase_progress_calls.push_back(
+            {std::string(event.phase_name), event.phase_index, event.phase_count, event.done, event.total});
     }
     void notice(std::string_view message) override
     {

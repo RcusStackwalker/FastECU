@@ -19,11 +19,8 @@ class FlashEcuSubaruHitachiM32rJtagOperation : public FlashOperationWorker
     Q_OBJECT
 
   public:
-    FlashEcuSubaruHitachiM32rJtagOperation(SerialPortActions *serial,
-                                           FileActions::EcuCalDefStructure *ecuCalDef,
-                                           QString cmd_type,
-                                           QWidget *dialog,
-                                           QObject *parent = nullptr,
+    FlashEcuSubaruHitachiM32rJtagOperation(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
+                                           QString cmd_type, QWidget *dialog, QObject *parent = nullptr,
                                            PromptFn promptOverride = {});
 
   protected:
@@ -33,10 +30,8 @@ class FlashEcuSubaruHitachiM32rJtagOperation : public FlashOperationWorker
 #define STATUS_SUCCESS 0x00
 #define STATUS_ERROR 0x01
 
-    uint8_t inst_tool_rom_code[16] = {0xd1, 0xc0, 0xff, 0x00,
-                                      0xa0, 0xc1, 0x3f, 0xfc,
-                                      0x20, 0x44, 0xf0, 0x00,
-                                      0x7f, 0xf4, 0xf0, 0x00};
+    uint8_t inst_tool_rom_code[16] = {0xd1, 0xc0, 0xff, 0x00, 0xa0, 0xc1, 0x3f, 0xfc,
+                                      0x20, 0x44, 0xf0, 0x00, 0x7f, 0xf4, 0xf0, 0x00};
 
     uint8_t id_code = 0x02;
 

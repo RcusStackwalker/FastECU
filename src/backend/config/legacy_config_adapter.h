@@ -26,19 +26,15 @@ namespace fastecu::config
 class LegacyConfigAdapter
 {
   public:
-    LegacyConfigAdapter(IFileSystem& file_system, IResourceBundle& resource_bundle,
-                        IFileRepository& file_repository);
+    LegacyConfigAdapter(IFileSystem& file_system, IResourceBundle& resource_bundle, IFileRepository& file_repository);
 
-    fastecu::definitions::ConfigValuesStructure *set_base_dirs(
-        fastecu::definitions::ConfigValuesStructure *values, const AppRootInfo& root_info);
-    fastecu::definitions::ConfigValuesStructure *check_config_dirs(
-        fastecu::definitions::ConfigValuesStructure *values);
-    fastecu::definitions::ConfigValuesStructure *read_config_file(
-        fastecu::definitions::ConfigValuesStructure *values);
-    fastecu::definitions::ConfigValuesStructure *save_config_file(
-        fastecu::definitions::ConfigValuesStructure *values);
-    fastecu::definitions::ConfigValuesStructure *read_protocols_file(
-        fastecu::definitions::ConfigValuesStructure *values);
+    fastecu::definitions::ConfigValuesStructure *set_base_dirs(fastecu::definitions::ConfigValuesStructure *values,
+                                                               const AppRootInfo& root_info);
+    fastecu::definitions::ConfigValuesStructure *check_config_dirs(fastecu::definitions::ConfigValuesStructure *values);
+    fastecu::definitions::ConfigValuesStructure *read_config_file(fastecu::definitions::ConfigValuesStructure *values);
+    fastecu::definitions::ConfigValuesStructure *save_config_file(fastecu::definitions::ConfigValuesStructure *values);
+    fastecu::definitions::ConfigValuesStructure *
+    read_protocols_file(fastecu::definitions::ConfigValuesStructure *values);
 
   private:
     IFileSystem& file_system_;

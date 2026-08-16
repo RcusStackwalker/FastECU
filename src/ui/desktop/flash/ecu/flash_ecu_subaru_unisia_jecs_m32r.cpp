@@ -4,7 +4,9 @@
 #include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_unisia_jecs_m32r_operation.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
-FlashEcuSubaruUnisiaJecsM32r::FlashEcuSubaruUnisiaJecsM32r(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
+FlashEcuSubaruUnisiaJecsM32r::FlashEcuSubaruUnisiaJecsM32r(SerialPortActions *serial,
+                                                           FileActions::EcuCalDefStructure *ecuCalDef,
+                                                           const QString& cmd_type, QWidget *parent)
     : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
@@ -31,8 +33,7 @@ void FlashEcuSubaruUnisiaJecsM32r::run()
 
     int ret = QMessageBox::warning(this, tr("Connecting to ECU"),
                                    tr("Turn ignition ON and press OK to start initializing connection to ECU"),
-                                   QMessageBox::Ok | QMessageBox::Cancel,
-                                   QMessageBox::Ok);
+                                   QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Ok);
 
     switch (ret)
     {
@@ -45,17 +46,19 @@ void FlashEcuSubaruUnisiaJecsM32r::run()
         connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashEcuSubaruUnisiaJecsM32r::LOG_W);
         connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashEcuSubaruUnisiaJecsM32r::LOG_I);
         connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashEcuSubaruUnisiaJecsM32r::LOG_D);
-        connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
-                this, [this](QString msg)
-                { emit external_logger(std::move(msg)); });
-        connect(m_operation, &FlashOperationWorker::progressChanged,
-                this, &FlashEcuSubaruUnisiaJecsM32r::set_progressbar_value);
+        connect(m_operation, &FlashOperationWorker::externalLoggerMessage, this,
+                [this](QString msg) { emit external_logger(std::move(msg)); });
+        connect(m_operation, &FlashOperationWorker::progressChanged, this,
+                &FlashEcuSubaruUnisiaJecsM32r::set_progressbar_value);
 
         QEventLoop loop;
         bool success = false;
         connect(m_operation, &FlashOperationWorker::operationFinished, &loop,
                 [&success, &loop](bool ok)
-                { success = ok; loop.quit(); });
+                {
+                    success = ok;
+                    loop.quit();
+                });
 
         m_operation->start();
         loop.exec();
@@ -69,7 +72,8 @@ void FlashEcuSubaruUnisiaJecsM32r::run()
         {
             if (!serial->get_use_openport2_adapter())
             {
-                QMessageBox::information(this, tr("Programming voltage"), "Remove VPP voltage from ECU and press OK to exit");
+                QMessageBox::information(this, tr("Programming voltage"),
+                                         "Remove VPP voltage from ECU and press OK to exit");
             }
             else
             {
@@ -81,9 +85,12 @@ void FlashEcuSubaruUnisiaJecsM32r::run()
         {
             if (cmd_type == "write")
             {
-                QMessageBox::warning(this, tr("ECU Operation"), "ECU operation failed! Don't power off your ECU, kernel is still running and you can try flashing again!");
+                QMessageBox::warning(this, tr("ECU Operation"),
+                                     "ECU operation failed! Don't power off your ECU, kernel is still running and you "
+                                     "can try flashing again!");
                 emit LOG_E("*** ERROR IN FLASH PROCESS ***", true, true);
-                emit LOG_E("Don't power off your ECU, kernel is still running and you can try flashing again!", true, true);
+                emit LOG_E("Don't power off your ECU, kernel is still running and you can try flashing again!", true,
+                           true);
             }
             else
             {

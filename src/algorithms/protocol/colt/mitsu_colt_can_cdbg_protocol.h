@@ -95,8 +95,7 @@ std::vector<CdbgFrame> buildFrameInitFrames(bytes::Byte instance, bytes::Byte fr
 // raw unsigned value per channel. Returns an empty vector if frame is
 // shorter than 1 byte, frame[0] doesn't match expectedFrameIndex, or frame
 // is too short to hold every channel in frameItems.
-std::vector<std::uint32_t> decodeFrame(bytes::Byte expectedFrameIndex,
-                                       const std::vector<CdbgChannel>& frameItems,
+std::vector<std::uint32_t> decodeFrame(bytes::Byte expectedFrameIndex, const std::vector<CdbgChannel>& frameItems,
                                        bytes::ByteView frame);
 
 } // namespace MitsuColtCanCdbg

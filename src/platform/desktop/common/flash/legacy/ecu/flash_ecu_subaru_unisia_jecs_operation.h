@@ -19,11 +19,8 @@ class FlashEcuSubaruUnisiaJecsOperation : public FlashOperationWorker
     Q_OBJECT
 
   public:
-    FlashEcuSubaruUnisiaJecsOperation(SerialPortActions *serial,
-                                      FileActions::EcuCalDefStructure *ecuCalDef,
-                                      QString cmd_type,
-                                      QWidget *dialog,
-                                      QObject *parent = nullptr,
+    FlashEcuSubaruUnisiaJecsOperation(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
+                                      QString cmd_type, QWidget *dialog, QObject *parent = nullptr,
                                       PromptFn promptOverride = {});
 
   protected:

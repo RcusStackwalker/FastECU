@@ -56,8 +56,7 @@ class FileActions : public QWidget
 
   public:
     FileActions(fastecu::IFileSystem& file_system, fastecu::IResourceBundle& resource_bundle,
-                fastecu::IFileRepository& file_repository,
-                fastecu::IAtomicFileWriter& atomic_file_writer,
+                fastecu::IFileRepository& file_repository, fastecu::IAtomicFileWriter& atomic_file_writer,
                 QWidget *parent = nullptr);
 
     uint8_t float_precision = 15;
@@ -140,8 +139,7 @@ class FileActions : public QWidget
     static bool validate_logger_switches(const LogValuesStructure& logValues, QStringList *errors = nullptr);
     static bool validate_calibration_maps(const EcuCalDefStructure& ecuCalDef, QStringList *errors = nullptr);
     static QStringList collect_ecuflash_base_header_fields(const EcuCalDefStructure& ecuCalDef,
-                                                           const QStringList& defData,
-                                                           int *endIndex = nullptr);
+                                                           const QStringList& defData, int *endIndex = nullptr);
     static QStringList collect_ecuflash_definition_body_lines(const QStringList& defData, int startIndex);
 
     /************************
@@ -152,7 +150,8 @@ class FileActions : public QWidget
     /*************************
      * Read logger conf file
      ************************/
-    LogValuesStructure *read_logger_conf(FileActions::LogValuesStructure *logValues, const QString& ecu_id, bool modify);
+    LogValuesStructure *read_logger_conf(FileActions::LogValuesStructure *logValues, const QString& ecu_id,
+                                         bool modify);
 
     /*****************************************************
      * Search and read RomRaider ECU definition from file
@@ -227,37 +226,24 @@ class FileActions : public QWidget
   private:
     friend class TestFileActionsParsing;
 
-    fastecu::Status submit_new_definition(
-        std::string_view destination,
-        const fastecu::definition::DefinitionHeaderInput&);
-    fastecu::Status submit_imported_definition(
-        std::string_view source, std::string_view destination,
-        const fastecu::definition::DefinitionHeaderInput&);
-    void remember_submitted_ecuflash_handle(
-        std::string_view destination);
-    fastecu::Result<fastecu::definition::DefinitionCatalog> build_definition_catalog(
-        fastecu::definition::DefinitionFormat format);
-    QString definition_source(
-        fastecu::definition::DefinitionFormat format,
-        const QString& id) const;
-    void log_definition_error(
-        const QString& operation,
-        const fastecu::Error& error);
-    fastecu::Status load_configured_definition(
-        EcuCalDefStructure& ecu_cal_def,
-        fastecu::definition::DefinitionFormat format,
-        const QString& definition_id);
+    fastecu::Status submit_new_definition(std::string_view destination,
+                                          const fastecu::definition::DefinitionHeaderInput&);
+    fastecu::Status submit_imported_definition(std::string_view source, std::string_view destination,
+                                               const fastecu::definition::DefinitionHeaderInput&);
+    void remember_submitted_ecuflash_handle(std::string_view destination);
+    fastecu::Result<fastecu::definition::DefinitionCatalog>
+    build_definition_catalog(fastecu::definition::DefinitionFormat format);
+    QString definition_source(fastecu::definition::DefinitionFormat format, const QString& id) const;
+    void log_definition_error(const QString& operation, const fastecu::Error& error);
+    fastecu::Status load_configured_definition(EcuCalDefStructure& ecu_cal_def,
+                                               fastecu::definition::DefinitionFormat format,
+                                               const QString& definition_id);
     // The definition load_configured_definition last resolved successfully,
     // or nullptr when that was for a different format/id (or never happened).
-    const fastecu::definition::RomDefinition *resolved_definition(
-        fastecu::definition::DefinitionFormat format,
-        const QString& definition_id) const;
-    bool log_definition_load_failure(
-        const QString& operation,
-        const fastecu::Error& error,
-        const QString& source,
-        const QString& warning_title,
-        const QString& warning_text);
+    const fastecu::definition::RomDefinition *resolved_definition(fastecu::definition::DefinitionFormat format,
+                                                                  const QString& definition_id) const;
+    bool log_definition_load_failure(const QString& operation, const fastecu::Error& error, const QString& source,
+                                     const QString& warning_title, const QString& warning_text);
     static void strip_legacy_address_prefixes(QStringList& addresses);
     void apply_flash_method_alias(EcuCalDefStructure& ecuCalDef);
     void normalize_definition_addresses(EcuCalDefStructure& ecuCalDef);

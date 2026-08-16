@@ -42,9 +42,7 @@ Status validate_identity(std::string_view protocol, std::string_view mcu)
 {
     if (protocol != kProtocol)
     {
-        return fail(InvalidConfig,
-                    std::format("Unsupported Subaru TCU CVT Mitsu MH8111 CAN protocol: {}",
-                                protocol));
+        return fail(InvalidConfig, std::format("Unsupported Subaru TCU CVT Mitsu MH8111 CAN protocol: {}", protocol));
     }
     const int index = find_flash_device_index(mcu);
     if (index < 0)
@@ -53,8 +51,7 @@ Status validate_identity(std::string_view protocol, std::string_view mcu)
     }
     if (mcu != kMcu)
     {
-        return fail(InvalidConfig,
-                    std::format("Protocol {} expects MCU {}; got {}", protocol, kMcu, mcu));
+        return fail(InvalidConfig, std::format("Protocol {} expects MCU {}; got {}", protocol, kMcu, mcu));
     }
     // Check block 0 (full-table sanity) and block 3 specifically -- block 3,
     // not block 0, is the block this family actually writes (see
@@ -77,19 +74,16 @@ Status validate_subaru_tcu_cvt_mitsu_mh8111_can_plan(const FlashPlan& plan)
     {
         return valid;
     }
-    if (plan.family() != FlashFamily::SubaruTcuCvtMitsuMh8111Can ||
-        plan.transport() != TransportKind::CanIso15765)
+    if (plan.family() != FlashFamily::SubaruTcuCvtMitsuMh8111Can || plan.transport() != TransportKind::CanIso15765)
     {
         return fail(InvalidConfig, "plan is not for Subaru TCU CVT Mitsu MH8111 CAN");
     }
     if (const auto *p = std::get_if<SubaruTcuCvtMitsuMh8111CanPlan>(&plan.family_plan());
-        p == nullptr || p->request_id != 0x7e1 || p->response_id != 0x7e9 ||
-        p->bitrate != 500000 || p->extended_id)
+        p == nullptr || p->request_id != 0x7e1 || p->response_id != 0x7e9 || p->bitrate != 500000 || p->extended_id)
     {
         return fail(InvalidConfig, "Mitsu MH8111 CAN wire parameters are invalid");
     }
-    if (const MemoryRegion& expected_region =
-            plan.operation() == FlashOperation::Read ? kReadRegion : kWriteRegion;
+    if (const MemoryRegion& expected_region = plan.operation() == FlashOperation::Read ? kReadRegion : kWriteRegion;
         plan.transfer_region().start != expected_region.start ||
         plan.transfer_region().length != expected_region.length)
     {
@@ -113,16 +107,14 @@ Status validate_subaru_tcu_cvt_mitsu_mh8111_can_plan(const FlashPlan& plan)
     {
         return fail(InvalidConfig, "Mitsu MH8111 CAN erase region is invalid");
     }
-    if (plan.operation() == FlashOperation::Write &&
-        (!plan.image().has_value() || plan.image()->size() != kImageSize))
+    if (plan.operation() == FlashOperation::Write && (!plan.image().has_value() || plan.image()->size() != kImageSize))
     {
         return fail(InvalidConfig, "ROM file must be exactly 0x180000 bytes");
     }
     return {};
 }
 
-Result<FlashPlan> build_subaru_tcu_cvt_mitsu_mh8111_can_plan(FlashOperation operation,
-                                                             std::string_view protocol_name,
+Result<FlashPlan> build_subaru_tcu_cvt_mitsu_mh8111_can_plan(FlashOperation operation, std::string_view protocol_name,
                                                              std::string_view mcu_type,
                                                              std::optional<bytes::Bytes> image)
 {
@@ -142,8 +134,7 @@ Result<FlashPlan> build_subaru_tcu_cvt_mitsu_mh8111_can_plan(FlashOperation oper
     if (operation == FlashOperation::Write && image->size() != kImageSize)
     {
         return fail(InvalidConfig,
-                    std::format("ROM file must be exactly 0x180000 bytes; got 0x{:x} bytes",
-                                image->size()));
+                    std::format("ROM file must be exactly 0x180000 bytes; got 0x{:x} bytes", image->size()));
     }
     const MemoryRegion& region = operation == FlashOperation::Read ? kReadRegion : kWriteRegion;
     FlashPlanFields fields{
@@ -153,8 +144,7 @@ Result<FlashPlan> build_subaru_tcu_cvt_mitsu_mh8111_can_plan(FlashOperation oper
         .target_id = std::string(protocol_name),
         .mcu_name = std::string(mcu_type),
         .transfer_region = region,
-        .erase_regions = operation == FlashOperation::Write ? std::vector{kWriteRegion}
-                                                            : std::vector<MemoryRegion>{},
+        .erase_regions = operation == FlashOperation::Write ? std::vector{kWriteRegion} : std::vector<MemoryRegion>{},
         .image = operation == FlashOperation::Write ? std::move(image) : std::nullopt,
         .kernel = std::nullopt,
         .family_plan = SubaruTcuCvtMitsuMh8111CanPlan{0x7e1, 0x7e9, 500000, false},

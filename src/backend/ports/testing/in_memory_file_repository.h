@@ -37,8 +37,7 @@ class InMemoryFileRepository : public IFileRepository
     }
     int read_count(std::string_view handle) const
     {
-        return static_cast<int>(std::count(
-            read_handles.begin(), read_handles.end(), std::string(handle)));
+        return static_cast<int>(std::count(read_handles.begin(), read_handles.end(), std::string(handle)));
     }
     Status write(std::string_view h, std::span<const std::uint8_t> d) override
     {

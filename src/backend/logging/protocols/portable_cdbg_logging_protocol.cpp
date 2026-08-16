@@ -8,8 +8,7 @@ namespace fastecu::logging
 {
 namespace
 {
-std::vector<MitsuColtCanCdbg::CdbgChannel> makeWireChannels(
-    const std::vector<LoggingChannel>& channels)
+std::vector<MitsuColtCanCdbg::CdbgChannel> makeWireChannels(const std::vector<LoggingChannel>& channels)
 {
     std::vector<MitsuColtCanCdbg::CdbgChannel> wire_channels;
     wire_channels.reserve(channels.size());
@@ -27,25 +26,20 @@ fastecu::Status checkCancellation(const fastecu::ICancellationToken& cancellatio
 {
     if (cancellation.cancelled())
     {
-        return fastecu::fail(fastecu::ErrorKind::Cancelled,
-                             "CDBG logging cancelled");
+        return fastecu::fail(fastecu::ErrorKind::Cancelled, "CDBG logging cancelled");
     }
     return {};
 }
 } // namespace
 
-CdbgLoggingProtocol::CdbgLoggingProtocol(
-    std::unique_ptr<cdbg::ICanTransport> transport,
-    std::vector<LoggingChannel> channels)
-    : transport_(std::move(transport)),
-      channels_(std::move(channels)),
-      wire_channels_(makeWireChannels(channels_)),
+CdbgLoggingProtocol::CdbgLoggingProtocol(std::unique_ptr<cdbg::ICanTransport> transport,
+                                         std::vector<LoggingChannel> channels)
+    : transport_(std::move(transport)), channels_(std::move(channels)), wire_channels_(makeWireChannels(channels_)),
       driver_(*transport_)
 {
 }
 
-fastecu::Status CdbgLoggingProtocol::start(
-    const fastecu::ICancellationToken& cancellation)
+fastecu::Status CdbgLoggingProtocol::start(const fastecu::ICancellationToken& cancellation)
 {
     if (auto status = checkCancellation(cancellation); !status)
     {
@@ -53,14 +47,12 @@ fastecu::Status CdbgLoggingProtocol::start(
     }
     if (!transport_->isOpen())
     {
-        return fastecu::fail(fastecu::ErrorKind::Disconnected,
-                             "adapter disconnected");
+        return fastecu::fail(fastecu::ErrorKind::Disconnected, "adapter disconnected");
     }
     return driver_.startFreeFormLog(wire_channels_, 0, 10, cancellation);
 }
 
-fastecu::Result<PollData> CdbgLoggingProtocol::poll(
-    int timeout_ms, const fastecu::ICancellationToken& cancellation)
+fastecu::Result<PollData> CdbgLoggingProtocol::poll(int timeout_ms, const fastecu::ICancellationToken& cancellation)
 {
     if (auto status = checkCancellation(cancellation); !status)
     {
@@ -68,8 +60,7 @@ fastecu::Result<PollData> CdbgLoggingProtocol::poll(
     }
     if (!transport_->isOpen())
     {
-        return fastecu::fail(fastecu::ErrorKind::Disconnected,
-                             "adapter disconnected");
+        return fastecu::fail(fastecu::ErrorKind::Disconnected, "adapter disconnected");
     }
     if (!driver_.isStreaming())
     {

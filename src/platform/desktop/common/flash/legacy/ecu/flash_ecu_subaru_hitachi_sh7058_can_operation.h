@@ -19,11 +19,8 @@ class FlashEcuSubaruHitachiSH7058CanOperation : public FlashOperationWorker
     Q_OBJECT
 
   public:
-    FlashEcuSubaruHitachiSH7058CanOperation(SerialPortActions *serial,
-                                            FileActions::EcuCalDefStructure *ecuCalDef,
-                                            QString cmd_type,
-                                            QWidget *dialog,
-                                            QObject *parent = nullptr,
+    FlashEcuSubaruHitachiSH7058CanOperation(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
+                                            QString cmd_type, QWidget *dialog, QObject *parent = nullptr,
                                             PromptFn promptOverride = {});
 
   protected:
@@ -67,7 +64,8 @@ class FlashEcuSubaruHitachiSH7058CanOperation : public FlashOperationWorker
     // int get_changed_blocks_denso_can_02_32bit(const uint8_t *src, int *modified);
     // int check_romcrc_denso_can_02_32bit(const uint8_t *src, uint32_t start_addr, uint32_t len, int *modified);
     // int flash_block_denso_can_02_32bit(const uint8_t *src, uint32_t start, uint32_t len);
-    int reflash_block_subaru_ecu_hitachi_can(const uint8_t *newdata, const struct flashdev_t *fdt, unsigned blockno, bool test_write);
+    int reflash_block_subaru_ecu_hitachi_can(const uint8_t *newdata, const struct flashdev_t *fdt, unsigned blockno,
+                                             bool test_write);
     int erase_subaru_ecu_hitachi_can();
 
     QByteArray send_subaru_sid_10_start_diagnostic();

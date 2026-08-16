@@ -100,8 +100,7 @@ TEST(ProvisionConfigDirectories, DoesNotOverwriteAnExistingUserFile)
 
     ASSERT_TRUE(provision_config_directories(paths, fs, bundle, events).has_value());
 
-    EXPECT_EQ(fs.files[paths.config_files_directory + "fastecu.cfg"],
-              (std::vector<std::uint8_t>{1, 2, 3}));
+    EXPECT_EQ(fs.files[paths.config_files_directory + "fastecu.cfg"], (std::vector<std::uint8_t>{1, 2, 3}));
 }
 
 TEST(ProvisionConfigDirectories, PrunesSyslogsKeepingNewest20)

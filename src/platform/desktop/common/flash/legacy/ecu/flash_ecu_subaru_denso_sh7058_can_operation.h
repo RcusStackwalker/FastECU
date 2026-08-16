@@ -19,11 +19,8 @@ class FlashEcuSubaruDensoSH7058CanOperation : public FlashOperationWorker
     Q_OBJECT
 
   public:
-    FlashEcuSubaruDensoSH7058CanOperation(SerialPortActions *serial,
-                                          FileActions::EcuCalDefStructure *ecuCalDef,
-                                          QString cmd_type,
-                                          QWidget *dialog,
-                                          QObject *parent = nullptr,
+    FlashEcuSubaruDensoSH7058CanOperation(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
+                                          QString cmd_type, QWidget *dialog, QObject *parent = nullptr,
                                           PromptFn promptOverride = {});
 
   protected:
@@ -102,7 +99,8 @@ class FlashEcuSubaruDensoSH7058CanOperation : public FlashOperationWorker
 
     QByteArray calculate_ecutek_racerom_seed_key(uint32_t req_seed); // QByteArray requested_seed);
     QByteArray generate_ecutek_racerom_can_seed_key(const QByteArray& requested_seed);
-    unsigned long long decrypt_racerom_seed(const unsigned long long base, const unsigned long long exponent, const unsigned long long modulus);
+    unsigned long long decrypt_racerom_seed(const unsigned long long base, const unsigned long long exponent,
+                                            const unsigned long long modulus);
     uint32_t read_ram_location(uint32_t loc);
 
     SerialPortActions *serial;

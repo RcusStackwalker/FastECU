@@ -6,7 +6,9 @@
 
 // QT_CHARTS_USE_NAMESPACE
 
-FlashEcuSubaruHitachiSH7058Can::FlashEcuSubaruHitachiSH7058Can(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
+FlashEcuSubaruHitachiSH7058Can::FlashEcuSubaruHitachiSH7058Can(SerialPortActions *serial,
+                                                               FileActions::EcuCalDefStructure *ecuCalDef,
+                                                               const QString& cmd_type, QWidget *parent)
     : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
@@ -34,8 +36,7 @@ void FlashEcuSubaruHitachiSH7058Can::run()
 
     int ret = QMessageBox::warning(this, tr("Connecting to ECU"),
                                    tr("Turn ignition ON and press OK to start initializing connection to ECU"),
-                                   QMessageBox::Ok | QMessageBox::Cancel,
-                                   QMessageBox::Ok);
+                                   QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Ok);
 
     switch (ret)
     {
@@ -46,17 +47,19 @@ void FlashEcuSubaruHitachiSH7058Can::run()
         connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashEcuSubaruHitachiSH7058Can::LOG_W);
         connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashEcuSubaruHitachiSH7058Can::LOG_I);
         connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashEcuSubaruHitachiSH7058Can::LOG_D);
-        connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
-                this, [this](QString msg)
-                { emit external_logger(std::move(msg)); });
-        connect(m_operation, &FlashOperationWorker::progressChanged,
-                this, &FlashEcuSubaruHitachiSH7058Can::set_progressbar_value);
+        connect(m_operation, &FlashOperationWorker::externalLoggerMessage, this,
+                [this](QString msg) { emit external_logger(std::move(msg)); });
+        connect(m_operation, &FlashOperationWorker::progressChanged, this,
+                &FlashEcuSubaruHitachiSH7058Can::set_progressbar_value);
 
         QEventLoop loop;
         bool success = false;
         connect(m_operation, &FlashOperationWorker::operationFinished, &loop,
                 [&success, &loop](bool ok)
-                { success = ok; loop.quit(); });
+                {
+                    success = ok;
+                    loop.quit();
+                });
 
         m_operation->start();
         loop.exec();

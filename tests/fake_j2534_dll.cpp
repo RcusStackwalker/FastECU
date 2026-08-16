@@ -48,8 +48,9 @@ extern "C"
         return (pMsg[0].DataSize > 0 && pMsg[0].Data[0] == 0x11) ? STATUS_NOERROR : ERR_FAILED;
     }
 
-    __declspec(dllexport) long PT_CALL PassThruStartPeriodicMsg(unsigned long /*ChannelID*/, const PASSTHRU_MSG * /*pMsg*/,
-                                                                unsigned long *pMsgID, unsigned long /*TimeInterval*/)
+    __declspec(dllexport) long PT_CALL PassThruStartPeriodicMsg(unsigned long /*ChannelID*/,
+                                                                const PASSTHRU_MSG * /*pMsg*/, unsigned long *pMsgID,
+                                                                unsigned long /*TimeInterval*/)
     {
         *pMsgID = 55;
         return STATUS_NOERROR;

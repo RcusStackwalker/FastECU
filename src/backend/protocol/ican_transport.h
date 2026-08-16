@@ -25,12 +25,11 @@ class ICanTransport
     // Sends `payload` (up to 8 bytes) on CAN id `canId`. The desktop serial
     // facade exposes success, not a measured driver count; its successful
     // result is therefore the requested payload size.
-    virtual fastecu::Result<std::size_t> write(
-        std::uint32_t canId, bytes::ByteView payload) = 0;
+    virtual fastecu::Result<std::size_t> write(std::uint32_t canId, bytes::ByteView payload) = 0;
     // A normal logging deadline is a successful empty optional. Cancellation,
     // disconnection, and driver failures are errors.
-    virtual fastecu::Result<std::optional<CanFrame>> read(
-        int timeoutMs, const fastecu::ICancellationToken& cancellation) = 0;
+    virtual fastecu::Result<std::optional<CanFrame>> read(int timeoutMs,
+                                                          const fastecu::ICancellationToken& cancellation) = 0;
     // True if the underlying adapter connection is open.
     virtual bool isOpen() const = 0;
 };

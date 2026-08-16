@@ -8,10 +8,8 @@
 namespace fastecu::definition
 {
 
-using DefinitionLoader =
-    std::function<Result<UnresolvedDefinition>(DefinitionFormat, std::string_view id)>;
+using DefinitionLoader = std::function<Result<UnresolvedDefinition>(DefinitionFormat, std::string_view id)>;
 
-Result<RomDefinition> resolve_definition(
-    UnresolvedDefinition root, const DefinitionLoader& loader);
+Result<RomDefinition> resolve_definition(UnresolvedDefinition root, const DefinitionLoader& loader);
 
 } // namespace fastecu::definition

@@ -27,22 +27,16 @@ std::vector<std::uint8_t> bytes(std::string_view text)
 
 std::vector<std::uint8_t> romraider_xml(std::string_view id)
 {
-    return bytes(
-        "<roms><rom><romid><xmlid>" + std::string(id) +
-        "</xmlid></romid></rom></roms>");
+    return bytes("<roms><rom><romid><xmlid>" + std::string(id) + "</xmlid></romid></rom></roms>");
 }
 
 std::vector<std::uint8_t> ecuflash_xml(std::string_view id)
 {
-    return bytes(
-        "<rom><romid><xmlid>" + std::string(id) + "</xmlid></romid></rom>");
+    return bytes("<rom><romid><xmlid>" + std::string(id) + "</xmlid></romid></rom>");
 }
 
-DefinitionIndexEntry index_entry(
-    std::string id,
-    std::string internal_id,
-    std::optional<std::uint64_t> address,
-    IdEncoding encoding = IdEncoding::Ascii)
+DefinitionIndexEntry index_entry(std::string id, std::string internal_id, std::optional<std::uint64_t> address,
+                                 IdEncoding encoding = IdEncoding::Ascii)
 {
     return DefinitionIndexEntry{
         .format = DefinitionFormat::RomRaider,
@@ -54,10 +48,7 @@ DefinitionIndexEntry index_entry(
     };
 }
 
-DefinitionIndexEntry load_entry(
-    DefinitionFormat format,
-    std::string id,
-    std::string source)
+DefinitionIndexEntry load_entry(DefinitionFormat format, std::string id, std::string source)
 {
     DefinitionIndexEntry entry = index_entry(std::move(id), "", std::nullopt);
     entry.format = format;
@@ -139,19 +130,15 @@ TEST_F(DefinitionServiceTest, SkipsSymlinkDirectoriesWhileDiscoveringOrdinaryNes
             .is_symlink = true,
         },
     };
-    repository.files["defs/nested/definition.xml"] =
-        ecuflash_xml("NESTED");
+    repository.files["defs/nested/definition.xml"] = ecuflash_xml("NESTED");
 
     auto result = service.build_ecuflash_catalog("defs");
 
     ASSERT_TRUE(result);
     ASSERT_EQ(result->entries().size(), 1U);
     EXPECT_EQ(result->entries()[0].definition_id, "NESTED");
-    EXPECT_EQ(
-        result->entries()[0].source,
-        "defs/nested/definition.xml");
-    EXPECT_FALSE(
-        repository.read_count("defs/nested/loop") != 0);
+    EXPECT_EQ(result->entries()[0].source, "defs/nested/definition.xml");
+    EXPECT_FALSE(repository.read_count("defs/nested/loop") != 0);
 }
 
 TEST_F(DefinitionServiceTest, MergesExplicitEcuFlashHandlesDeterministicallyAndReadsEachSourceOnce)
@@ -169,8 +156,7 @@ TEST_F(DefinitionServiceTest, MergesExplicitEcuFlashHandlesDeterministicallyAndR
         "external/b.xml",
     };
 
-    auto result =
-        service.build_ecuflash_catalog("defs", explicit_handles);
+    auto result = service.build_ecuflash_catalog("defs", explicit_handles);
 
     ASSERT_TRUE(result);
     ASSERT_EQ(result->entries().size(), 3U);
@@ -194,8 +180,7 @@ TEST_F(DefinitionServiceTest, BuildsEcuFlashCatalogFromExplicitHandlesWithoutCon
         "external/definition.xml",
     };
 
-    auto result =
-        service.build_ecuflash_catalog({}, explicit_handles);
+    auto result = service.build_ecuflash_catalog({}, explicit_handles);
 
     ASSERT_TRUE(result);
     ASSERT_EQ(result->entries().size(), 1U);
@@ -222,14 +207,12 @@ TEST_F(DefinitionServiceTest, PreservesConfiguredRomRaiderHandleOrderingAndReads
 
 TEST_F(DefinitionServiceTest, PropagatesDiscoveryFailureWithoutReadingFiles)
 {
-    file_system.list_directory_errors["defs"] =
-        Error{ErrorKind::Disconnected, "catalog directory unavailable"};
+    file_system.list_directory_errors["defs"] = Error{ErrorKind::Disconnected, "catalog directory unavailable"};
 
     auto result = service.build_ecuflash_catalog("defs");
 
     ASSERT_FALSE(result);
-    EXPECT_EQ(result.error(),
-              (Error{ErrorKind::Disconnected, "catalog directory unavailable"}));
+    EXPECT_EQ(result.error(), (Error{ErrorKind::Disconnected, "catalog directory unavailable"}));
     EXPECT_TRUE(repository.read_handles.empty());
 }
 
@@ -279,8 +262,7 @@ TEST_F(DefinitionServiceTest, SkipsEveryUnusableHandleAndSucceedsWithAnEmptyCata
 
 TEST_F(DefinitionServiceTest, MatchesAsciiIdentifierEndingExactlyAtRomEnd)
 {
-    auto catalog = DefinitionCatalog::create(
-        {index_entry("EXACT", "AB", 1U)});
+    auto catalog = DefinitionCatalog::create({index_entry("EXACT", "AB", 1U)});
     ASSERT_TRUE(catalog);
     const std::vector<std::uint8_t> rom{'x', 'A', 'B'};
 
@@ -292,8 +274,7 @@ TEST_F(DefinitionServiceTest, MatchesAsciiIdentifierEndingExactlyAtRomEnd)
 
 TEST_F(DefinitionServiceTest, RejectsIdentifierWhenRomIsOneByteShort)
 {
-    auto catalog = DefinitionCatalog::create(
-        {index_entry("SHORT", "AB", 1U)});
+    auto catalog = DefinitionCatalog::create({index_entry("SHORT", "AB", 1U)});
     ASSERT_TRUE(catalog);
     const std::vector<std::uint8_t> rom{'x', 'A'};
 
@@ -305,10 +286,8 @@ TEST_F(DefinitionServiceTest, RejectsIdentifierWhenRomIsOneByteShort)
 
 TEST_F(DefinitionServiceTest, MatchesUpperAndLowerCaseHexText)
 {
-    auto lower_catalog = DefinitionCatalog::create(
-        {index_entry("LOWER", "ab10", 0U, IdEncoding::Hex)});
-    auto upper_catalog = DefinitionCatalog::create(
-        {index_entry("UPPER", "AB10", 0U, IdEncoding::Hex)});
+    auto lower_catalog = DefinitionCatalog::create({index_entry("LOWER", "ab10", 0U, IdEncoding::Hex)});
+    auto upper_catalog = DefinitionCatalog::create({index_entry("UPPER", "AB10", 0U, IdEncoding::Hex)});
     ASSERT_TRUE(lower_catalog);
     ASSERT_TRUE(upper_catalog);
     const std::vector<std::uint8_t> rom{0xAB, 0x10};
@@ -324,10 +303,8 @@ TEST_F(DefinitionServiceTest, MatchesUpperAndLowerCaseHexText)
 
 TEST_F(DefinitionServiceTest, MatchesEitherAsciiOrHexForLegacyCompatibleEntry)
 {
-    auto ascii_catalog = DefinitionCatalog::create(
-        {index_entry("ASCII", "AB10", 0U, IdEncoding::AsciiOrHex)});
-    auto hex_catalog = DefinitionCatalog::create(
-        {index_entry("HEX", "AB10", 0U, IdEncoding::AsciiOrHex)});
+    auto ascii_catalog = DefinitionCatalog::create({index_entry("ASCII", "AB10", 0U, IdEncoding::AsciiOrHex)});
+    auto hex_catalog = DefinitionCatalog::create({index_entry("HEX", "AB10", 0U, IdEncoding::AsciiOrHex)});
     ASSERT_TRUE(ascii_catalog);
     ASSERT_TRUE(hex_catalog);
     const std::vector<std::uint8_t> ascii_rom{'A', 'B', '1', '0'};
@@ -419,8 +396,7 @@ TEST_F(DefinitionServiceTest, ReturnsFirstCatalogEntryWhenMatchesAreAmbiguous)
 
 TEST_F(DefinitionServiceTest, EmptyIdentifierDoesNotMatch)
 {
-    auto catalog = DefinitionCatalog::create(
-        {index_entry("EMPTY", "", 0U)});
+    auto catalog = DefinitionCatalog::create({index_entry("EMPTY", "", 0U)});
     ASSERT_TRUE(catalog);
 
     auto result = service.match_rom(*catalog, {});
@@ -431,8 +407,7 @@ TEST_F(DefinitionServiceTest, EmptyIdentifierDoesNotMatch)
 
 TEST_F(DefinitionServiceTest, ReturnsInvalidConfigWhenNoIdentifierMatches)
 {
-    auto catalog = DefinitionCatalog::create(
-        {index_entry("OTHER", "B", 0U)});
+    auto catalog = DefinitionCatalog::create({index_entry("OTHER", "B", 0U)});
     ASSERT_TRUE(catalog);
     const std::vector<std::uint8_t> rom{'A'};
 
@@ -457,8 +432,7 @@ TEST_F(DefinitionServiceTest, LoadsAndResolvesRomRaiderChildAndBaseFiles)
 
     ASSERT_TRUE(result);
     EXPECT_EQ(result->identity.xml_id, "CHILD");
-    EXPECT_EQ(result->resolved_sources,
-              (std::vector<std::string>{"base.xml", "child.xml"}));
+    EXPECT_EQ(result->resolved_sources, (std::vector<std::string>{"base.xml", "child.xml"}));
     EXPECT_EQ(repository.read_count("child.xml"), 1);
     EXPECT_EQ(repository.read_count("base.xml"), 1);
 }
@@ -496,25 +470,21 @@ TEST_F(DefinitionServiceTest, MemoizesRepeatedEcuFlashParentOncePerLoadCall)
 
 TEST_F(DefinitionServiceTest, LoadPropagatesRepositoryFailure)
 {
-    auto catalog = DefinitionCatalog::create(
-        {load_entry(DefinitionFormat::EcuFlash, "BROKEN", "broken.xml")});
+    auto catalog = DefinitionCatalog::create({load_entry(DefinitionFormat::EcuFlash, "BROKEN", "broken.xml")});
     ASSERT_TRUE(catalog);
-    repository.read_errors["broken.xml"] =
-        Error{ErrorKind::Disconnected, "definition read failed"};
+    repository.read_errors["broken.xml"] = Error{ErrorKind::Disconnected, "definition read failed"};
 
     auto result = service.load(*catalog, DefinitionFormat::EcuFlash, "BROKEN");
 
     ASSERT_FALSE(result);
-    EXPECT_EQ(result.error(),
-              (Error{ErrorKind::Disconnected, "definition read failed"}));
+    EXPECT_EQ(result.error(), (Error{ErrorKind::Disconnected, "definition read failed"}));
 }
 
 TEST_F(DefinitionServiceTest, LoadPropagatesParentRepositoryFailureUnchanged)
 {
     repository.files["child.xml"] = bytes(R"xml(
       <rom><romid><xmlid>CHILD</xmlid></romid><include>BASE</include></rom>)xml");
-    repository.read_errors["base.xml"] =
-        Error{ErrorKind::InvalidConfig, "parent definition read failed"};
+    repository.read_errors["base.xml"] = Error{ErrorKind::InvalidConfig, "parent definition read failed"};
     auto catalog = DefinitionCatalog::create({
         load_entry(DefinitionFormat::EcuFlash, "CHILD", "child.xml"),
         load_entry(DefinitionFormat::EcuFlash, "BASE", "base.xml"),
@@ -524,17 +494,14 @@ TEST_F(DefinitionServiceTest, LoadPropagatesParentRepositoryFailureUnchanged)
     auto result = service.load(*catalog, DefinitionFormat::EcuFlash, "CHILD");
 
     ASSERT_FALSE(result);
-    EXPECT_EQ(
-        result.error(),
-        (Error{ErrorKind::InvalidConfig, "parent definition read failed"}));
+    EXPECT_EQ(result.error(), (Error{ErrorKind::InvalidConfig, "parent definition read failed"}));
     EXPECT_EQ(repository.read_count("child.xml"), 1);
     EXPECT_EQ(repository.read_count("base.xml"), 1);
 }
 
 TEST_F(DefinitionServiceTest, LoadRejectsMissingCatalogIdWithoutReading)
 {
-    auto catalog = DefinitionCatalog::create(
-        {load_entry(DefinitionFormat::EcuFlash, "KNOWN", "known.xml")});
+    auto catalog = DefinitionCatalog::create({load_entry(DefinitionFormat::EcuFlash, "KNOWN", "known.xml")});
     ASSERT_TRUE(catalog);
 
     auto result = service.load(*catalog, DefinitionFormat::EcuFlash, "UNKNOWN");
@@ -546,8 +513,7 @@ TEST_F(DefinitionServiceTest, LoadRejectsMissingCatalogIdWithoutReading)
 
 TEST_F(DefinitionServiceTest, LoadRejectsEcuFlashIdentityThatDoesNotMatchCatalogId)
 {
-    auto catalog = DefinitionCatalog::create(
-        {load_entry(DefinitionFormat::EcuFlash, "EXPECTED", "stale.xml")});
+    auto catalog = DefinitionCatalog::create({load_entry(DefinitionFormat::EcuFlash, "EXPECTED", "stale.xml")});
     ASSERT_TRUE(catalog);
     repository.files["stale.xml"] = ecuflash_xml("OTHER");
 
@@ -562,8 +528,7 @@ TEST_F(DefinitionServiceTest, LoadRejectsEcuFlashIdentityThatDoesNotMatchCatalog
 
 TEST_F(DefinitionServiceTest, LoadPropagatesDefinitionParseFailure)
 {
-    auto catalog = DefinitionCatalog::create(
-        {load_entry(DefinitionFormat::RomRaider, "BROKEN", "broken.xml")});
+    auto catalog = DefinitionCatalog::create({load_entry(DefinitionFormat::RomRaider, "BROKEN", "broken.xml")});
     ASSERT_TRUE(catalog);
     repository.files["broken.xml"] = bytes("<not-roms/>");
 
@@ -576,8 +541,7 @@ TEST_F(DefinitionServiceTest, LoadPropagatesDefinitionParseFailure)
 
 TEST_F(DefinitionServiceTest, LoadPropagatesResolutionFailure)
 {
-    auto catalog = DefinitionCatalog::create(
-        {load_entry(DefinitionFormat::EcuFlash, "CHILD", "child.xml")});
+    auto catalog = DefinitionCatalog::create({load_entry(DefinitionFormat::EcuFlash, "CHILD", "child.xml")});
     ASSERT_TRUE(catalog);
     repository.files["child.xml"] = bytes(R"xml(
       <rom><romid><xmlid>CHILD</xmlid></romid><include>MISSING</include></rom>)xml");
@@ -653,11 +617,9 @@ TEST_F(DefinitionServiceTest, ImportsDefinitionWithOneExactAtomicReplacement)
 
 TEST_F(DefinitionServiceTest, ImportPropagatesSourceReadFailureBeforeAtomicReplacement)
 {
-    repository.read_errors["source.xml"] =
-        Error{ErrorKind::Disconnected, "source vanished"};
+    repository.read_errors["source.xml"] = Error{ErrorKind::Disconnected, "source vanished"};
 
-    auto result =
-        service.import_definition("source.xml", "untouched.xml", valid_header_input());
+    auto result = service.import_definition("source.xml", "untouched.xml", valid_header_input());
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error(), (Error{ErrorKind::Disconnected, "source vanished"}));
@@ -668,8 +630,7 @@ TEST_F(DefinitionServiceTest, ImportRejectsMalformedSourceBeforeAtomicReplacemen
 {
     repository.files["source.xml"] = bytes("<rom><romid>");
 
-    auto result =
-        service.import_definition("source.xml", "untouched.xml", valid_header_input());
+    auto result = service.import_definition("source.xml", "untouched.xml", valid_header_input());
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
@@ -686,8 +647,7 @@ TEST_F(DefinitionServiceTest, ImportRejectsInvalidTransformedTreeBeforeAtomicRep
   </table>
 </rom>)xml");
 
-    auto result =
-        service.import_definition("source.xml", "untouched.xml", valid_header_input());
+    auto result = service.import_definition("source.xml", "untouched.xml", valid_header_input());
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
@@ -702,8 +662,7 @@ TEST_F(DefinitionServiceTest, ImportRejectsDuplicateRomIdBeforeAtomicReplacement
   <romid><xmlid>SECOND</xmlid></romid>
 </rom>)xml");
 
-    auto result =
-        service.import_definition("source.xml", "untouched.xml", valid_header_input());
+    auto result = service.import_definition("source.xml", "untouched.xml", valid_header_input());
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);

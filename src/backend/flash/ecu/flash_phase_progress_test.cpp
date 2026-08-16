@@ -19,8 +19,7 @@ TEST(PhaseReporterTest, ConstructorEmitsDoneZeroImmediately)
 
     PhaseReporter reporter(events, "Erase", 1, 2, 10);
 
-    ASSERT_THAT(events.phase_progress_calls,
-                ElementsAre(Field(&RecordedPhaseProgress::done, 0)));
+    ASSERT_THAT(events.phase_progress_calls, ElementsAre(Field(&RecordedPhaseProgress::done, 0)));
     EXPECT_EQ(events.phase_progress_calls[0].phase_name, "Erase");
     EXPECT_EQ(events.phase_progress_calls[0].phase_index, 1);
     EXPECT_EQ(events.phase_progress_calls[0].phase_count, 2);
@@ -37,8 +36,7 @@ TEST(PhaseReporterTest, UpdateEmitsOnlyWhenTheClampedValueChanges)
     reporter.update(5);
 
     ASSERT_THAT(events.phase_progress_calls,
-                ElementsAre(Field(&RecordedPhaseProgress::done, 0),
-                            Field(&RecordedPhaseProgress::done, 3),
+                ElementsAre(Field(&RecordedPhaseProgress::done, 0), Field(&RecordedPhaseProgress::done, 3),
                             Field(&RecordedPhaseProgress::done, 5)));
 }
 
@@ -50,8 +48,7 @@ TEST(PhaseReporterTest, UpdateClampsToTotalMinusOneSoOnlyCompleteReachesTotal)
     reporter.update(10);
 
     ASSERT_THAT(events.phase_progress_calls,
-                ElementsAre(Field(&RecordedPhaseProgress::done, 0),
-                            Field(&RecordedPhaseProgress::done, 9)));
+                ElementsAre(Field(&RecordedPhaseProgress::done, 0), Field(&RecordedPhaseProgress::done, 9)));
 }
 
 TEST(PhaseReporterTest, UpdateNeverMovesDoneBackward)
@@ -63,8 +60,7 @@ TEST(PhaseReporterTest, UpdateNeverMovesDoneBackward)
     reporter.update(2);
 
     ASSERT_THAT(events.phase_progress_calls,
-                ElementsAre(Field(&RecordedPhaseProgress::done, 0),
-                            Field(&RecordedPhaseProgress::done, 6)));
+                ElementsAre(Field(&RecordedPhaseProgress::done, 0), Field(&RecordedPhaseProgress::done, 6)));
 }
 
 TEST(PhaseReporterTest, CompleteEmitsTotalOnce)
@@ -76,8 +72,7 @@ TEST(PhaseReporterTest, CompleteEmitsTotalOnce)
     reporter.complete();
 
     ASSERT_THAT(events.phase_progress_calls,
-                ElementsAre(Field(&RecordedPhaseProgress::done, 0),
-                            Field(&RecordedPhaseProgress::done, 10)));
+                ElementsAre(Field(&RecordedPhaseProgress::done, 0), Field(&RecordedPhaseProgress::done, 10)));
 }
 
 TEST(PhaseReporterTest, CompleteAfterUpdateReachingTotalMinusOneStillEmitsTotal)
@@ -89,8 +84,7 @@ TEST(PhaseReporterTest, CompleteAfterUpdateReachingTotalMinusOneStillEmitsTotal)
     reporter.complete();
 
     ASSERT_THAT(events.phase_progress_calls,
-                ElementsAre(Field(&RecordedPhaseProgress::done, 0),
-                            Field(&RecordedPhaseProgress::done, 9),
+                ElementsAre(Field(&RecordedPhaseProgress::done, 0), Field(&RecordedPhaseProgress::done, 9),
                             Field(&RecordedPhaseProgress::done, 10)));
 }
 

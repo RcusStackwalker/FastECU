@@ -25,8 +25,7 @@ QStringList to_qstringlist(const std::vector<std::string>& values)
 
 } // namespace
 
-void apply_definition(
-    const LoggerDefinition& definition, definitions::LogValuesStructure& values)
+void apply_definition(const LoggerDefinition& definition, definitions::LogValuesStructure& values)
 {
     for (const LoggerParameter& parameter : definition.parameters)
     {
@@ -61,8 +60,7 @@ void apply_definition(
     }
 }
 
-void apply_selection(
-    const LoggerSelection& selection, definitions::LogValuesStructure& values)
+void apply_selection(const LoggerSelection& selection, definitions::LogValuesStructure& values)
 {
     values.logging_values_protocol = qstr(selection.protocol);
     values.dashboard_log_value_id = to_qstringlist(selection.gauge_ids);

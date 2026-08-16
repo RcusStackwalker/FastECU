@@ -144,7 +144,8 @@ void DataTerminal::sendToInterface()
         if (!file.open(QIODevice::ReadOnly))
         {
             emit LOG_E("Unable to open datastream file '" + file.fileName() + "' for reading", true, true);
-            QMessageBox::warning(this, tr("Data terminal"), "Unable to open datastream file '" + file.fileName() + "' for reading");
+            QMessageBox::warning(this, tr("Data terminal"),
+                                 "Unable to open datastream file '" + file.fileName() + "' for reading");
             return;
         }
         QTextStream in(&file);
@@ -219,7 +220,8 @@ void DataTerminal::sendToInterface()
                 }
                 if (ui->klineProtocol->currentText() == "SSM")
                 {
-                    output = add_ssm_header(output, ui->klineTesterId->text().toUInt(&ok, 16), ui->klineTargetId->text().toUInt(&ok, 16), false);
+                    output = add_ssm_header(output, ui->klineTesterId->text().toUInt(&ok, 16),
+                                            ui->klineTargetId->text().toUInt(&ok, 16), false);
                 }
 
                 emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
@@ -302,7 +304,8 @@ void DataTerminal::sendToInterface()
                     if (msg.length() > 8)
                     {
                         emit LOG_E("CAN message too long (8 message bytes)", true, true);
-                        QMessageBox::warning(this, tr("CAN message"), "CAN message too long (use 4 ID bytes + 8 message bytes)");
+                        QMessageBox::warning(this, tr("CAN message"),
+                                             "CAN message too long (use 4 ID bytes + 8 message bytes)");
                     }
                 }
                 for (int i = 3; i >= 0; i--)
@@ -343,7 +346,8 @@ QByteArray DataTerminal::add_ssm_header(QByteArray output, uint8_t tester_id, ui
 {
     uint8_t length = output.length();
 
-    emit LOG_D("Append SSM header for message: " + parse_message_to_hex(output) + " length: " + QString::number(length), true, true);
+    emit LOG_D("Append SSM header for message: " + parse_message_to_hex(output) + " length: " + QString::number(length),
+               true, true);
     output.insert(0, (uint8_t)0x80);
     output.insert(1, target_id & 0xFF);
     output.insert(2, tester_id & 0xFF);

@@ -2,8 +2,7 @@
 #include <ui_definition_file_convert.h>
 
 DefinitionFileConvert::DefinitionFileConvert(QWidget *parent)
-    : QDialog(parent),
-      ui{std::make_unique<Ui::DefinitionFileConvertWindow>()}
+    : QDialog(parent), ui{std::make_unique<Ui::DefinitionFileConvertWindow>()}
 {
     ui->setupUi(this);
     this->setParent(parent);
@@ -50,7 +49,8 @@ int DefinitionFileConvert::convert_mappack_csv_file()
     }
 
     openDialog.setDefaultSuffix("*.xml");
-    filename = QFileDialog::getSaveFileName(this, tr("Select RomRaider definition file"), nullptr, tr("XML file (*.xml)"));
+    filename =
+        QFileDialog::getSaveFileName(this, tr("Select RomRaider definition file"), nullptr, tr("XML file (*.xml)"));
 
     if (filename.isEmpty())
     {

@@ -3,12 +3,9 @@
 #include <utility>
 #include "rep_remote_utility_replica.h"
 
-RemoteUtility::RemoteUtility(const QString& peerAddress,
-                             QString password,
-                             QWebSocket *web_socket,
-                             QObject *parent)
-    : QObject{parent}, peerAddress(peerAddress), password(std::move(password)), webSocket(web_socket == nullptr ? new QWebSocket("", QWebSocketProtocol::VersionLatest, this)
-                                                                                                                : web_socket),
+RemoteUtility::RemoteUtility(const QString& peerAddress, QString password, QWebSocket *web_socket, QObject *parent)
+    : QObject{parent}, peerAddress(peerAddress), password(std::move(password)),
+      webSocket(web_socket == nullptr ? new QWebSocket("", QWebSocketProtocol::VersionLatest, this) : web_socket),
       socket(new WebSocketIoDevice(webSocket, webSocket)), keepalive_timer(new QTimer(this))
 {
     if (peerAddress.startsWith("local:"))
@@ -19,8 +16,8 @@ RemoteUtility::RemoteUtility(const QString& peerAddress,
     {
         startOverNetwok();
     }
-    QObject::connect(remote_utility, &RemoteUtilityReplica::stateChanged,
-                     this, &RemoteUtility::utilityRemoteStateChanged);
+    QObject::connect(remote_utility, &RemoteUtilityReplica::stateChanged, this,
+                     &RemoteUtility::utilityRemoteStateChanged);
 }
 
 RemoteUtility::~RemoteUtility()
@@ -42,8 +39,7 @@ void RemoteUtility::startOverNetwok()
     // Start node when Web Socket will be up
     QObject::connect(webSocket, &QWebSocket::connected, this, &RemoteUtility::websocket_connected);
     node.setHeartbeatInterval(heartbeatInterval);
-    QObject::connect(webSocket, &QWebSocket::errorOccurred,
-                     this, [this](QAbstractSocket::SocketError error)
+    QObject::connect(webSocket, &QWebSocket::errorOccurred, this, [this](QAbstractSocket::SocketError error)
                      { qDebug() << this->metaObject()->className() << "startOverNetwok QWebSocket error:" << error; });
     // WebSocket over SSL
     QUrl url("wss://" + peerAddress);
@@ -102,12 +98,16 @@ void RemoteUtility::ping(QString message)
     // Using pointer because of async response
     QRemoteObjectPendingCallWatcher *watcher =
         new QRemoteObjectPendingCallWatcher(remote_utility->ping(std::move(message)));
-    QObject::connect(watcher, &QRemoteObjectPendingCallWatcher::finished, this, [this](QRemoteObjectPendingCallWatcher *watch)
-                     {
-            //qDebug() << Q_FUNC_INFO << watch->returnValue().toString();
-            //Clean to avoid memory leak
+    QObject::connect(
+        watcher, &QRemoteObjectPendingCallWatcher::finished, this,
+        [this](QRemoteObjectPendingCallWatcher *watch)
+        {
+            // qDebug() << Q_FUNC_INFO << watch->returnValue().toString();
+            // Clean to avoid memory leak
             delete watch;
-            this->pings_sequently_missed = 0; }, Qt::QueuedConnection);
+            this->pings_sequently_missed = 0;
+        },
+        Qt::QueuedConnection);
 }
 
 void RemoteUtility::start_keepalive(void)

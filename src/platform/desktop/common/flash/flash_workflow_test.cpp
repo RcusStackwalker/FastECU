@@ -29,8 +29,7 @@ bool writeFile(const QString& path, const QByteArray& contents)
     return file.open(QIODevice::WriteOnly) && file.write(contents) == contents.size();
 }
 
-std::optional<config::ConfigPaths> catalogPaths(const QTemporaryDir& directory,
-                                                bool include_kernel_files = true)
+std::optional<config::ConfigPaths> catalogPaths(const QTemporaryDir& directory, bool include_kernel_files = true)
 {
     constexpr auto catalog = R"(<?xml version="1.0" encoding="UTF-8"?>
 <config name="FastECU" version="0.0-dev0">
@@ -63,8 +62,7 @@ std::optional<config::ConfigPaths> catalogPaths(const QTemporaryDir& directory,
 </config>)";
 
     const QString kernel_directory = directory.filePath("kernels");
-    if (!QDir().mkpath(kernel_directory) ||
-        !writeFile(directory.filePath("protocols.cfg"), catalog))
+    if (!QDir().mkpath(kernel_directory) || !writeFile(directory.filePath("protocols.cfg"), catalog))
     {
         return std::nullopt;
     }
@@ -112,16 +110,23 @@ class FlashWorkflowTest : public QObject
 
 void FlashWorkflowTest::recognizesEveryPortableFamilyPrefixAndLeavesLegacyAlone()
 {
-    const char *portable[] = {
-        "mitsu_ecu_m32r_can", "mitsu_ecu_m32r_can_vendor_ext",
-        "mitsu_ecu_m32r_can_512kb", "mitsu_ecu_m32r_can_vendor_ext_512kb",
-        "sub_ecu_mitsu_m32r_kline",
-        "sub_ecu_hitachi_m32r_kline", "sub_ecu_hitachi_m32r_kline_recovery",
-        "sub_ecu_eeprom_denso_sh7055_kline", "sub_ecu_eeprom_denso_sh7058_kline",
-        "sub_ecu_eeprom_denso_sh7055_densocan", "sub_ecu_eeprom_denso_sh7058_densocan",
-        "sub_ecu_eeprom_denso_sh7058_can", "sub_ecu_eeprom_denso_sh7058_can_diesel",
-        "sub_ecu_hitachi_m32r_can", "sub_tcu_cvt_hitachi_m32r_can",
-        "sub_tcu_cvt_mitsu_mh8111_can", "sub_tcu_cvt_mitsu_mh8104_can"};
+    const char *portable[] = {"mitsu_ecu_m32r_can",
+                              "mitsu_ecu_m32r_can_vendor_ext",
+                              "mitsu_ecu_m32r_can_512kb",
+                              "mitsu_ecu_m32r_can_vendor_ext_512kb",
+                              "sub_ecu_mitsu_m32r_kline",
+                              "sub_ecu_hitachi_m32r_kline",
+                              "sub_ecu_hitachi_m32r_kline_recovery",
+                              "sub_ecu_eeprom_denso_sh7055_kline",
+                              "sub_ecu_eeprom_denso_sh7058_kline",
+                              "sub_ecu_eeprom_denso_sh7055_densocan",
+                              "sub_ecu_eeprom_denso_sh7058_densocan",
+                              "sub_ecu_eeprom_denso_sh7058_can",
+                              "sub_ecu_eeprom_denso_sh7058_can_diesel",
+                              "sub_ecu_hitachi_m32r_can",
+                              "sub_tcu_cvt_hitachi_m32r_can",
+                              "sub_tcu_cvt_mitsu_mh8111_can",
+                              "sub_tcu_cvt_mitsu_mh8104_can"};
     for (const char *protocol : portable)
     {
         QVERIFY2(FlashWorkflowFactory::tryCreate(request(protocol)) != nullptr, protocol);
@@ -171,9 +176,8 @@ void FlashWorkflowTest::subaruMitsuPropagatesRomId()
     QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
     workflow->submit(FlashPromptResponse::Accept);
     QVERIFY(std::holds_alternative<FlashAttempt>(workflow->next()));
-    workflow->submit(FlashAttemptResult{.success = true,
-                                        .read_bytes = bytes::Bytes{0xff, 0x12},
-                                        .rom_id = "123456789A_"});
+    workflow->submit(
+        FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{0xff, 0x12}, .rom_id = "123456789A_"});
     auto done = workflow->next();
     QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
     QCOMPARE(std::get<FlashCompletedStep>(done).rom_id, std::string("123456789A_"));
@@ -181,8 +185,7 @@ void FlashWorkflowTest::subaruMitsuPropagatesRomId()
 
 void FlashWorkflowTest::subaruHitachiRoutesBothModesAndPropagatesReadResult()
 {
-    for (const char *protocol : {"sub_ecu_hitachi_m32r_kline",
-                                 "sub_ecu_hitachi_m32r_kline_recovery"})
+    for (const char *protocol : {"sub_ecu_hitachi_m32r_kline", "sub_ecu_hitachi_m32r_kline_recovery"})
     {
         auto input = request(protocol);
         input.mcu = "M32R_512KB_1block";
@@ -191,9 +194,8 @@ void FlashWorkflowTest::subaruHitachiRoutesBothModesAndPropagatesReadResult()
         QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
         workflow->submit(FlashPromptResponse::Accept);
         QVERIFY(std::holds_alternative<FlashAttempt>(workflow->next()));
-        workflow->submit(FlashAttemptResult{.success = true,
-                                            .read_bytes = bytes::Bytes{0x5a},
-                                            .rom_id = "123456789A_"});
+        workflow->submit(
+            FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{0x5a}, .rom_id = "123456789A_"});
         auto done = workflow->next();
         QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
         QCOMPARE(std::get<FlashCompletedStep>(done).accepted_read_bytes, bytes::Bytes({0x5a}));
@@ -209,8 +211,7 @@ void FlashWorkflowTest::coltWriteUsesColtSpecificSafetyPrompts()
 
     QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
     workflow->submit(FlashPromptResponse::Accept);
-    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind,
-             FlashPromptKind::ColtEraseTrigger);
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::ColtEraseTrigger);
 }
 
 void FlashWorkflowTest::mc68BdmProtocolIsNotClaimedByPortableRoute()
@@ -319,9 +320,7 @@ void FlashWorkflowTest::sh7055IteratesConfirmationsAndPropagatesAttemptResult()
     QCOMPARE(plan.kernel()->load_address, 0xFFFF6004u);
     QCOMPARE(plan.kernel()->bytes, bytes::Bytes({0xaa, 0xbb, 0xcc, 0xdd}));
 
-    workflow->submit(FlashAttemptResult{.success = true,
-                                        .read_bytes = bytes::Bytes{0x5a},
-                                        .rom_id = "123456789A_"});
+    workflow->submit(FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{0x5a}, .rom_id = "123456789A_"});
     step = workflow->next();
     QVERIFY(std::holds_alternative<FlashCompletedStep>(step));
     const auto& done = std::get<FlashCompletedStep>(step);
@@ -415,12 +414,8 @@ void FlashWorkflowTest::mc68PhysicalImageIsPackedAtWorkflowBoundary()
     const auto& packed = std::get<FlashAttempt>(step).plan.image();
     QVERIFY(packed.has_value());
     QCOMPARE(packed->size(), std::size_t{0x28000});
-    QVERIFY(std::all_of(packed->begin(), packed->begin() + 0x20000,
-                        [](bytes::Byte value)
-                        { return value == 0x11; }));
-    QVERIFY(std::all_of(packed->begin() + 0x20000, packed->end(),
-                        [](bytes::Byte value)
-                        { return value == 0x22; }));
+    QVERIFY(std::all_of(packed->begin(), packed->begin() + 0x20000, [](bytes::Byte value) { return value == 0x11; }));
+    QVERIFY(std::all_of(packed->begin() + 0x20000, packed->end(), [](bytes::Byte value) { return value == 0x22; }));
 }
 
 void FlashWorkflowTest::mc68CalibrationPaddingRoundTripsToPackedWriteImage()
@@ -438,8 +433,7 @@ void FlashWorkflowTest::mc68CalibrationPaddingRoundTripsToPackedWriteImage()
     {
         packed_image[index] = static_cast<bytes::Byte>((index / 0x4000) + 1);
     }
-    input.image = calibration::apply_flash_method_padding(
-        packed_image, "sub_ecu_denso_mc68hc16y5_02");
+    input.image = calibration::apply_flash_method_padding(packed_image, "sub_ecu_denso_mc68hc16y5_02");
     QCOMPARE(input.image->size(), std::size_t{0x30000});
 
     auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
@@ -466,8 +460,7 @@ void FlashWorkflowTest::sh7055TestWriteWithPortableImageReachesPromptsAndAttempt
 
     QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
     workflow->submit(FlashPromptResponse::Accept);
-    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind,
-             FlashPromptKind::CycleIgnition);
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::CycleIgnition);
     workflow->submit(FlashPromptResponse::Accept);
     QVERIFY(std::holds_alternative<FlashAttempt>(workflow->next()));
 }

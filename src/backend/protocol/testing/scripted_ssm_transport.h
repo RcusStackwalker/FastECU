@@ -68,8 +68,7 @@ class ScriptedSsmTransport : public ISsmTransport
         return data.size();
     }
 
-    fastecu::Result<OptionalBytes> read(
-        int, const fastecu::ICancellationToken& cancellation) override
+    fastecu::Result<OptionalBytes> read(int, const fastecu::ICancellationToken& cancellation) override
     {
         if (cancellation.cancelled())
         {

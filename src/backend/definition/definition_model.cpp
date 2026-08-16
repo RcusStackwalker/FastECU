@@ -15,8 +15,7 @@ namespace
 
 bool has_whitespace(std::string_view value)
 {
-    return std::ranges::any_of(value, [](unsigned char character)
-                               { return std::isspace(character) != 0; });
+    return std::ranges::any_of(value, [](unsigned char character) { return std::isspace(character) != 0; });
 }
 
 bool has_same_lookup_key(const DefinitionIndexEntry& left, const DefinitionIndexEntry& right)
@@ -61,15 +60,9 @@ Result<void> validate(const DefinitionIndexEntry& entry)
 std::optional<StorageType> storage_type_from_text(std::string_view text)
 {
     static constexpr std::pair<std::string_view, StorageType> kStorageTypes[] = {
-        {"uint8", StorageType::Uint8},
-        {"int8", StorageType::Int8},
-        {"uint16", StorageType::Uint16},
-        {"int16", StorageType::Int16},
-        {"uint24", StorageType::Uint24},
-        {"int24", StorageType::Int24},
-        {"uint32", StorageType::Uint32},
-        {"int32", StorageType::Int32},
-        {"float", StorageType::Float},
+        {"uint8", StorageType::Uint8},       {"int8", StorageType::Int8},     {"uint16", StorageType::Uint16},
+        {"int16", StorageType::Int16},       {"uint24", StorageType::Uint24}, {"int24", StorageType::Int24},
+        {"uint32", StorageType::Uint32},     {"int32", StorageType::Int32},   {"float", StorageType::Float},
         {"bloblist", StorageType::Bloblist},
     };
     for (const auto& [name, value] : kStorageTypes)
@@ -186,11 +179,8 @@ Result<DefinitionCatalog> DefinitionCatalog::create(std::vector<DefinitionIndexE
             return std::unexpected(result.error());
         }
 
-        auto existing = std::ranges::find_if(canonical_entries,
-                                             [&entry](const DefinitionIndexEntry& candidate)
-                                             {
-                                                 return has_same_lookup_key(candidate, entry);
-                                             });
+        auto existing = std::ranges::find_if(canonical_entries, [&entry](const DefinitionIndexEntry& candidate)
+                                             { return has_same_lookup_key(candidate, entry); });
         if (existing == std::ranges::end(canonical_entries))
         {
             canonical_entries.push_back(std::move(entry));
@@ -200,7 +190,8 @@ Result<DefinitionCatalog> DefinitionCatalog::create(std::vector<DefinitionIndexE
         if (!has_same_content(*existing, entry))
         {
             return fail(ErrorKind::InvalidConfig,
-                        std::format("conflicting duplicate definition ID '{}' from '{}' and '{}'", entry.definition_id, existing->source, entry.source));
+                        std::format("conflicting duplicate definition ID '{}' from '{}' and '{}'", entry.definition_id,
+                                    existing->source, entry.source));
         }
     }
 

@@ -60,8 +60,7 @@ Result<CarModelCatalog> load_car_model_catalog(const ConfigPaths& paths, IFileRe
     return catalog;
 }
 
-std::vector<ResolvedCarModel> resolve_car_models(const ProtocolCatalog& protocols,
-                                                 const CarModelCatalog& car_models)
+std::vector<ResolvedCarModel> resolve_car_models(const ProtocolCatalog& protocols, const CarModelCatalog& car_models)
 {
     std::vector<ResolvedCarModel> resolved;
     resolved.reserve(car_models.size());
@@ -81,8 +80,7 @@ std::vector<ResolvedCarModel> resolve_car_models(const ProtocolCatalog& protocol
         // First match wins. load_protocol_catalog rejects duplicate protocol
         // names outright, so at most one entry can match and the choice of
         // tie-break rule is not observable through that path.
-        const auto matched = std::ranges::find(protocols, entry.protocol_name,
-                                               &ProtocolEntry::protocol_name);
+        const auto matched = std::ranges::find(protocols, entry.protocol_name, &ProtocolEntry::protocol_name);
         if (matched != protocols.end())
         {
             row.protocol = *matched;
@@ -92,8 +90,8 @@ std::vector<ResolvedCarModel> resolve_car_models(const ProtocolCatalog& protocol
     return resolved;
 }
 
-std::optional<std::size_t> find_car_model_by_protocol_name(
-    std::span<const ResolvedCarModel> resolved_car_models, std::string_view flash_method)
+std::optional<std::size_t> find_car_model_by_protocol_name(std::span<const ResolvedCarModel> resolved_car_models,
+                                                           std::string_view flash_method)
 {
     std::optional<std::size_t> matched_index;
     for (std::size_t i = 0; i < resolved_car_models.size(); ++i)

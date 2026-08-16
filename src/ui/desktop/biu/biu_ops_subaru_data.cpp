@@ -2,8 +2,7 @@
 #include <ui_biu_ops_subaru_data.h>
 
 BiuOpsSubaruData::BiuOpsSubaruData(QStringList *data_result, QWidget *parent)
-    : QWidget(parent),
-      ui{std::make_unique<Ui::BiuOpsSubaruDataWindow>()}
+    : QWidget(parent), ui{std::make_unique<Ui::BiuOpsSubaruDataWindow>()}
 {
     ui->setupUi(this);
 

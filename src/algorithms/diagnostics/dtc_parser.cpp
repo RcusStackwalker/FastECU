@@ -19,8 +19,7 @@ std::string default_dtc_message(std::uint16_t dtc)
 
 } // namespace
 
-std::string dtc_description(std::uint16_t dtc,
-                            const std::unordered_map<int, std::string>& pCodes,
+std::string dtc_description(std::uint16_t dtc, const std::unordered_map<int, std::string>& pCodes,
                             const std::unordered_map<int, std::string>& cCodes,
                             const std::unordered_map<int, std::string>& bCodes,
                             const std::unordered_map<int, std::string>& uCodes)

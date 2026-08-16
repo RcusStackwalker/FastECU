@@ -76,24 +76,20 @@ LoggerSwitch parse_switch(pugi::xml_node node, std::string_view protocol)
 
 } // namespace
 
-Result<LoggerDefinition> parse_logger_definition(
-    bytes::ByteView xml, std::string_view source)
+Result<LoggerDefinition> parse_logger_definition(bytes::ByteView xml, std::string_view source)
 {
     pugi::xml_document document;
     const pugi::xml_parse_result parsed = document.load_buffer(xml.data(), xml.size());
     if (!parsed)
     {
-        return fail(
-            ErrorKind::InvalidConfig,
-            std::format("{}: {} at offset {}", source, parsed.description(), parsed.offset));
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("{}: {} at offset {}", source, parsed.description(), parsed.offset));
     }
 
     const pugi::xml_node root = document.child("logger");
     if (!root)
     {
-        return fail(
-            ErrorKind::InvalidConfig,
-            std::format("{}: expected root element <logger>", source));
+        return fail(ErrorKind::InvalidConfig, std::format("{}: expected root element <logger>", source));
     }
 
     LoggerDefinition definition;

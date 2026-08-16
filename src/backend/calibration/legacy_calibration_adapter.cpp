@@ -24,14 +24,12 @@ constexpr int kFloatPrecision = 15;
 
 } // namespace
 
-LegacyCalibrationAdapter::LegacyCalibrationAdapter(IFileRepository& file_repository)
-    : file_repository_(file_repository)
+LegacyCalibrationAdapter::LegacyCalibrationAdapter(IFileRepository& file_repository) : file_repository_(file_repository)
 {
 }
 
-Status LegacyCalibrationAdapter::open_rom_bytes(
-    definitions::EcuCalDefStructure& ecu_cal_def, QString filename,
-    const definitions::ConfigValuesStructure& config_values)
+Status LegacyCalibrationAdapter::open_rom_bytes(definitions::EcuCalDefStructure& ecu_cal_def, QString filename,
+                                                const definitions::ConfigValuesStructure& config_values)
 {
     const bool already_loaded = ecu_cal_def.FullRomData.length() > 0;
 
@@ -43,12 +41,9 @@ Status LegacyCalibrationAdapter::open_rom_bytes(
         // waste.
         if (filename.isEmpty())
         {
-            filename = "read_image_" +
-                       QDateTime::currentDateTime().toString("yyyy-MM-dd_hh'h'mm'm'ss's'") +
-                       ".bin";
+            filename = "read_image_" + QDateTime::currentDateTime().toString("yyyy-MM-dd_hh'h'mm'm'ss's'") + ".bin";
         }
-        const std::string backup_handle =
-            (config_values.calibration_files_directory + "read.bin").toStdString();
+        const std::string backup_handle = (config_values.calibration_files_directory + "read.bin").toStdString();
         backup_rom(bytes::view(ecu_cal_def.FullRomData), backup_handle, file_repository_);
     }
     else
@@ -58,14 +53,12 @@ Status LegacyCalibrationAdapter::open_rom_bytes(
             return fastecu::fail(fastecu::ErrorKind::InvalidConfig,
                                  "open_rom_bytes called with no filename and no preloaded bytes");
         }
-        Result<std::vector<std::uint8_t>> rom_data =
-            read_rom(filename.toStdString(), file_repository_);
+        Result<std::vector<std::uint8_t>> rom_data = read_rom(filename.toStdString(), file_repository_);
         if (!rom_data.has_value())
         {
             return std::unexpected(rom_data.error());
         }
-        ecu_cal_def.FullRomData =
-            bytes::toQByteArray(bytes::ByteView{*rom_data});
+        ecu_cal_def.FullRomData = bytes::toQByteArray(bytes::ByteView{*rom_data});
     }
 
     QFileInfo file_info(filename);
@@ -79,19 +72,16 @@ Status LegacyCalibrationAdapter::open_rom_bytes(
     return {};
 }
 
-const std::vector<config::ResolvedCarModel> *LegacyCalibrationAdapter::resolved_car_models(
-    const config::ConfigPaths& paths)
+const std::vector<config::ResolvedCarModel> *
+LegacyCalibrationAdapter::resolved_car_models(const config::ConfigPaths& paths)
 {
-    if (resolved_car_models_cache_.has_value() &&
-        resolved_car_models_handle_ == paths.protocols_file)
+    if (resolved_car_models_cache_.has_value() && resolved_car_models_handle_ == paths.protocols_file)
     {
         return &*resolved_car_models_cache_;
     }
 
-    Result<config::ProtocolCatalog> protocols =
-        config::load_protocol_catalog(paths, file_repository_);
-    Result<config::CarModelCatalog> car_models =
-        config::load_car_model_catalog(paths, file_repository_);
+    Result<config::ProtocolCatalog> protocols = config::load_protocol_catalog(paths, file_repository_);
+    Result<config::CarModelCatalog> car_models = config::load_car_model_catalog(paths, file_repository_);
     if (!protocols.has_value() || !car_models.has_value())
     {
         // Not cached: a transient failure (file not yet provisioned) must not
@@ -104,8 +94,8 @@ const std::vector<config::ResolvedCarModel> *LegacyCalibrationAdapter::resolved_
     return &*resolved_car_models_cache_;
 }
 
-void LegacyCalibrationAdapter::bind_protocol(
-    definitions::ConfigValuesStructure& config_values, const QString& flash_method)
+void LegacyCalibrationAdapter::bind_protocol(definitions::ConfigValuesStructure& config_values,
+                                             const QString& flash_method)
 {
     const std::vector<config::ResolvedCarModel> *resolved =
         resolved_car_models(config::paths_from_config_values(config_values));
@@ -136,42 +126,32 @@ void LegacyCalibrationAdapter::bind_protocol(
     // being skipped, so a previously bound ROM's values can never leak
     // through -- see bind_protocol's contract in the header.
     const auto protocol_field = [&row, &kPlaceholder](std::string config::ProtocolEntry::*field)
-    {
-        return row.protocol.has_value() ? QString::fromStdString((*row.protocol).*field)
-                                        : kPlaceholder;
-    };
+    { return row.protocol.has_value() ? QString::fromStdString((*row.protocol).*field) : kPlaceholder; };
 
     config_values.flash_protocol_selected_id = QString::number(*index);
     config_values.flash_protocol_selected_make = QString::fromStdString(row.make);
     config_values.flash_protocol_selected_model = QString::fromStdString(row.model);
     config_values.flash_protocol_selected_version = QString::fromStdString(row.version);
-    config_values.flash_protocol_selected_protocol_name =
-        QString::fromStdString(row.protocol_name);
-    config_values.flash_protocol_selected_description =
-        protocol_field(&config::ProtocolEntry::description);
-    config_values.flash_protocol_selected_log_protocol =
-        protocol_field(&config::ProtocolEntry::log_protocol);
+    config_values.flash_protocol_selected_protocol_name = QString::fromStdString(row.protocol_name);
+    config_values.flash_protocol_selected_description = protocol_field(&config::ProtocolEntry::description);
+    config_values.flash_protocol_selected_log_protocol = protocol_field(&config::ProtocolEntry::log_protocol);
     config_values.flash_protocol_selected_mcu = protocol_field(&config::ProtocolEntry::mcu);
-    config_values.flash_protocol_selected_checksum =
-        protocol_field(&config::ProtocolEntry::checksum);
+    config_values.flash_protocol_selected_checksum = protocol_field(&config::ProtocolEntry::checksum);
 }
 
-void LegacyCalibrationAdapter::apply_flash_method_padding(
-    definitions::EcuCalDefStructure& ecu_cal_def, const QString& flash_method)
+void LegacyCalibrationAdapter::apply_flash_method_padding(definitions::EcuCalDefStructure& ecu_cal_def,
+                                                          const QString& flash_method)
 {
-    std::vector<std::uint8_t> rom_data(
-        ecu_cal_def.FullRomData.cbegin(), ecu_cal_def.FullRomData.cend());
-    rom_data = fastecu::calibration::apply_flash_method_padding(
-        std::move(rom_data), flash_method.toStdString());
+    std::vector<std::uint8_t> rom_data(ecu_cal_def.FullRomData.cbegin(), ecu_cal_def.FullRomData.cend());
+    rom_data = fastecu::calibration::apply_flash_method_padding(std::move(rom_data), flash_method.toStdString());
     ecu_cal_def.FullRomData = bytes::toQByteArray(bytes::ByteView(rom_data));
 }
 
-Status LegacyCalibrationAdapter::compute_map_cell_values(
-    definitions::EcuCalDefStructure& ecu_cal_def,
-    const definition::RomDefinition& rom_definition)
+Status LegacyCalibrationAdapter::compute_map_cell_values(definitions::EcuCalDefStructure& ecu_cal_def,
+                                                         const definition::RomDefinition& rom_definition)
 {
-    auto computed = fastecu::calibration::compute_map_cell_values(
-        rom_definition, bytes::view(ecu_cal_def.FullRomData), kFloatPrecision);
+    auto computed = fastecu::calibration::compute_map_cell_values(rom_definition, bytes::view(ecu_cal_def.FullRomData),
+                                                                  kFloatPrecision);
     if (!computed.has_value())
     {
         return std::unexpected(computed.error());
@@ -179,8 +159,7 @@ Status LegacyCalibrationAdapter::compute_map_cell_values(
     if (static_cast<qsizetype>(computed->size()) != ecu_cal_def.MapData.size())
     {
         return fail(ErrorKind::Internal,
-                    std::format("definition has {} maps but legacy columns hold {}",
-                                computed->size(),
+                    std::format("definition has {} maps but legacy columns hold {}", computed->size(),
                                 static_cast<std::size_t>(ecu_cal_def.MapData.size())));
     }
 
@@ -208,14 +187,13 @@ Status LegacyCalibrationAdapter::compute_map_cell_values(
     return {};
 }
 
-definitions::EcuCalDefStructure *LegacyCalibrationAdapter::save_subaru_rom_file(
-    definitions::EcuCalDefStructure *ecu_cal_def, const QString& filename)
+definitions::EcuCalDefStructure *
+LegacyCalibrationAdapter::save_subaru_rom_file(definitions::EcuCalDefStructure *ecu_cal_def, const QString& filename)
 {
     // Straight to the repository: there is no save-side policy for a
     // calibration_service function to carry, unlike the open path's
     // fire-and-forget backup_rom.
-    const Status result =
-        file_repository_.write(filename.toStdString(), bytes::view(ecu_cal_def->FullRomData));
+    const Status result = file_repository_.write(filename.toStdString(), bytes::view(ecu_cal_def->FullRomData));
     if (!result.has_value())
     {
         return nullptr;

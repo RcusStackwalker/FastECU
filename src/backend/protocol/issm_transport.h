@@ -20,8 +20,7 @@ class ISsmTransport
     virtual fastecu::Result<std::size_t> write(bytes::ByteView data) = 0;
     // A normal logging deadline is a successful empty optional. Cancellation,
     // disconnection, and driver failures are errors.
-    virtual fastecu::Result<OptionalBytes> read(
-        int timeoutMs, const fastecu::ICancellationToken& cancellation) = 0;
+    virtual fastecu::Result<OptionalBytes> read(int timeoutMs, const fastecu::ICancellationToken& cancellation) = 0;
     // True if the underlying adapter connection is open.
     virtual bool isOpen() const = 0;
 };

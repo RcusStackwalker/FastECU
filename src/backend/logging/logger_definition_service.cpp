@@ -13,16 +13,15 @@ constexpr std::string_view kBundledCdbgExample = ":/config/logger_cdbg_example.x
 
 } // namespace
 
-LoggerDefinitionService::LoggerDefinitionService(
-    IFileRepository& repository, IResourceBundle& bundle, IAtomicFileWriter& writer)
+LoggerDefinitionService::LoggerDefinitionService(IFileRepository& repository, IResourceBundle& bundle,
+                                                 IAtomicFileWriter& writer)
     : repository_(repository), bundle_(bundle), writer_(writer)
 {
 }
 
-Result<std::string> LoggerDefinitionService::resolve_definition_handle(
-    std::string_view configured_handle,
-    std::string_view log_protocol,
-    std::string_view config_files_directory)
+Result<std::string> LoggerDefinitionService::resolve_definition_handle(std::string_view configured_handle,
+                                                                       std::string_view log_protocol,
+                                                                       std::string_view config_files_directory)
 {
     if (!configured_handle.empty())
     {
@@ -51,8 +50,8 @@ Result<LoggerDefinition> LoggerDefinitionService::load_definition(std::string_vi
     return parse_logger_definition(*contents, handle);
 }
 
-Result<std::optional<LoggerSelection>> LoggerDefinitionService::load_selection(
-    std::string_view conf_handle, std::string_view ecu_id, bytes::Bytes& conf_out)
+Result<std::optional<LoggerSelection>>
+LoggerDefinitionService::load_selection(std::string_view conf_handle, std::string_view ecu_id, bytes::Bytes& conf_out)
 {
     auto contents = repository_.read(conf_handle);
     if (!contents)
@@ -63,17 +62,16 @@ Result<std::optional<LoggerSelection>> LoggerDefinitionService::load_selection(
     return read_selection(conf_out, ecu_id, conf_handle);
 }
 
-Result<std::optional<LoggerSelection>> LoggerDefinitionService::load_selection(
-    std::string_view conf_handle, std::string_view ecu_id)
+Result<std::optional<LoggerSelection>> LoggerDefinitionService::load_selection(std::string_view conf_handle,
+                                                                               std::string_view ecu_id)
 {
     bytes::Bytes conf;
     return load_selection(conf_handle, ecu_id, conf);
 }
 
-Result<LoggerSelection> LoggerDefinitionService::load_or_initialize_selection(
-    std::string_view conf_handle,
-    std::string_view ecu_id,
-    const LoggerDefinition& definition)
+Result<LoggerSelection> LoggerDefinitionService::load_or_initialize_selection(std::string_view conf_handle,
+                                                                              std::string_view ecu_id,
+                                                                              const LoggerDefinition& definition)
 {
     bytes::Bytes contents;
     auto stored = load_selection(conf_handle, ecu_id, contents);
@@ -99,10 +97,8 @@ Result<LoggerSelection> LoggerDefinitionService::load_or_initialize_selection(
     return selection;
 }
 
-Status LoggerDefinitionService::save_selection(
-    std::string_view conf_handle,
-    std::string_view ecu_id,
-    const LoggerSelection& selection)
+Status LoggerDefinitionService::save_selection(std::string_view conf_handle, std::string_view ecu_id,
+                                               const LoggerSelection& selection)
 {
     auto contents = repository_.read(conf_handle);
     if (!contents)

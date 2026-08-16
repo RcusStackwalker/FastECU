@@ -6,8 +6,8 @@
 #include "qtrohelper.hpp"
 #include "rep_serial_port_actions_replica.h"
 
-RemoteSerialBackend::RemoteSerialBackend(QString peerAddress, QString password,
-                                         QWebSocket *externalSocket, QObject *parent)
+RemoteSerialBackend::RemoteSerialBackend(QString peerAddress, QString password, QWebSocket *externalSocket,
+                                         QObject *parent)
     : QObject{parent}, peerAddress(std::move(peerAddress)), password(std::move(password))
 {
     if (externalSocket && externalSocket->thread() != thread())
@@ -17,8 +17,7 @@ RemoteSerialBackend::RemoteSerialBackend(QString peerAddress, QString password,
                    true, true);
         externalSocket = nullptr;
     }
-    webSocket = externalSocket ? externalSocket
-                               : new QWebSocket("", QWebSocketProtocol::VersionLatest, this);
+    webSocket = externalSocket ? externalSocket : new QWebSocket("", QWebSocketProtocol::VersionLatest, this);
     socket = new WebSocketIoDevice(webSocket, webSocket);
     startRemote();
 }
@@ -47,8 +46,8 @@ void RemoteSerialBackend::startRemote()
     {
         startOverNetwork();
     }
-    QObject::connect(serial_remote, &SerialPortActionsRemoteReplica::stateChanged,
-                     this, &RemoteSerialBackend::serialRemoteStateChanged);
+    QObject::connect(serial_remote, &SerialPortActionsRemoteReplica::stateChanged, this,
+                     &RemoteSerialBackend::serialRemoteStateChanged);
 }
 
 void RemoteSerialBackend::startOverNetwork()
@@ -59,9 +58,13 @@ void RemoteSerialBackend::startOverNetwork()
     // Start node when Web Socket will be up
     QObject::connect(webSocket, &QWebSocket::connected, this, &RemoteSerialBackend::websocket_connected);
     node.setHeartbeatInterval(heartbeatInterval);
-    QObject::connect(webSocket, &QWebSocket::errorOccurred,
-                     this, [this](QAbstractSocket::SocketError error)
-                     { emit LOG_D(QString(this->metaObject()->className()) + " startOverNetwork QWebSocket error: " + QMetaEnum::fromType<QAbstractSocket::SocketError>().valueToKey(error), true, true); });
+    QObject::connect(webSocket, &QWebSocket::errorOccurred, this,
+                     [this](QAbstractSocket::SocketError error)
+                     {
+                         emit LOG_D(QString(this->metaObject()->className()) + " startOverNetwork QWebSocket error: " +
+                                        QMetaEnum::fromType<QAbstractSocket::SocketError>().valueToKey(error),
+                                    true, true);
+                     });
     // WebSocket over SSL
     QUrl url("wss://" + peerAddress);
     url.setPath(wssPath);
@@ -97,7 +100,8 @@ void RemoteSerialBackend::websocket_connected()
     sendAutoDiscoveryMessage();
 }
 
-void RemoteSerialBackend::serialRemoteStateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState)
+void RemoteSerialBackend::serialRemoteStateChanged(QRemoteObjectReplica::State state,
+                                                   QRemoteObjectReplica::State oldState)
 {
     emit stateChanged(state, oldState);
     if (state == QRemoteObjectReplica::Valid)

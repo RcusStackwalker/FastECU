@@ -72,8 +72,8 @@ TEST(EepromReadPlanGolden, Sh7058CanMode2)
     add_protocols_fixture(repository);
     repository.files["kernels/ssmk_can_tp_sh7058.bin"] = {0x01, 0x02, 0x03};
 
-    auto plan = build_eeprom_read_plan(test_paths(), "sub_ecu_eeprom_denso_sh7058_can",
-                                       EepromReadMode::Mode2, repository);
+    auto plan =
+        build_eeprom_read_plan(test_paths(), "sub_ecu_eeprom_denso_sh7058_can", EepromReadMode::Mode2, repository);
 
     ASSERT_TRUE(plan.has_value());
     EXPECT_EQ(plan->operation(), FlashOperation::Read);
@@ -86,8 +86,7 @@ TEST(EepromReadPlanGolden, Sh7058CanMode2)
     EXPECT_THAT(plan->kernel()->bytes, ElementsAre(0x01, 0x02, 0x03));
     // Each catalog loader reads the shared config before the kernel read.
     EXPECT_EQ(repository.read_handles,
-              (std::vector<std::string>{"protocols.cfg", "protocols.cfg",
-                                        "kernels/ssmk_can_tp_sh7058.bin"}));
+              (std::vector<std::string>{"protocols.cfg", "protocols.cfg", "kernels/ssmk_can_tp_sh7058.bin"}));
 
     // denso_sh705x_eeprom_common.cpp build_denso_sh705x_eeprom_plan: CAN
     // family_plan is DensoSh705xEepromCanPlan with request_id=0x7e0,
@@ -119,8 +118,8 @@ TEST(EepromReadPlanGolden, Sh7055KlineMode4)
     add_protocols_fixture(repository);
     repository.files["kernels/ssmk_kline_sh7055.bin"] = {0xaa, 0xbb};
 
-    auto plan = build_eeprom_read_plan(test_paths(), "sub_ecu_eeprom_denso_sh7055_kline",
-                                       EepromReadMode::Mode4, repository);
+    auto plan =
+        build_eeprom_read_plan(test_paths(), "sub_ecu_eeprom_denso_sh7055_kline", EepromReadMode::Mode4, repository);
 
     ASSERT_TRUE(plan.has_value());
     EXPECT_EQ(plan->operation(), FlashOperation::Read);
@@ -132,8 +131,7 @@ TEST(EepromReadPlanGolden, Sh7055KlineMode4)
     EXPECT_EQ(plan->kernel()->load_address, 0xFFFF6004u);
     EXPECT_THAT(plan->kernel()->bytes, ElementsAre(0xaa, 0xbb));
     EXPECT_EQ(repository.read_handles,
-              (std::vector<std::string>{"protocols.cfg", "protocols.cfg",
-                                        "kernels/ssmk_kline_sh7055.bin"}));
+              (std::vector<std::string>{"protocols.cfg", "protocols.cfg", "kernels/ssmk_kline_sh7055.bin"}));
 
     // denso_sh705x_eeprom_common.cpp build_denso_sh705x_eeprom_plan: K-Line
     // family_plan is DensoSh705xEepromKlinePlan with tester_id=0xf0,

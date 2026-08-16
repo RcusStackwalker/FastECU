@@ -66,14 +66,12 @@ TEST(DefinitionWriterTest, CreatesSemanticEcuFlashDefinitionWithDeterministicUtf
     ASSERT_TRUE(result) << result.error().detail;
     auto parsed = parse_ecuflash_definition(*result, "created.xml");
     ASSERT_TRUE(parsed) << parsed.error().detail;
-    EXPECT_EQ(
-        parsed->identity,
-        (RomIdentity{
-            .xml_id = input.xml_id,
-            .internal_id = input.internal_id,
-            .ecu_id = input.ecu_id,
-            .internal_id_address = input.internal_id_address,
-        }));
+    EXPECT_EQ(parsed->identity, (RomIdentity{
+                                    .xml_id = input.xml_id,
+                                    .internal_id = input.internal_id,
+                                    .ecu_id = input.ecu_id,
+                                    .internal_id_address = input.internal_id_address,
+                                }));
     EXPECT_EQ(parsed->metadata, input.metadata);
     EXPECT_EQ(parsed->parents, std::vector<std::string>{input.include});
 
@@ -227,10 +225,7 @@ TEST(DefinitionWriterTest, RewritesHeaderAndPreservesUnrelatedTreeContent)
     EXPECT_THAT(xml, HasSubstr("<!-- root comment -->"));
     EXPECT_THAT(xml, HasSubstr("<!-- identity comment -->"));
     EXPECT_THAT(xml, HasSubstr("<vendor-field flag=\"yes\">keep me</vendor-field>"));
-    EXPECT_THAT(
-        xml,
-        HasSubstr(
-            "<vendor-extension answer=\"42\">\n    <child />\n  </vendor-extension>"));
+    EXPECT_THAT(xml, HasSubstr("<vendor-extension answer=\"42\">\n    <child />\n  </vendor-extension>"));
     EXPECT_THAT(xml, HasSubstr("<notes>Réglage Ω</notes>"));
     EXPECT_THAT(xml, Not(HasSubstr("OLD_XML")));
     EXPECT_THAT(xml, Not(HasSubstr("OLD_BASE")));

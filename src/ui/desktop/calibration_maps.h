@@ -25,7 +25,8 @@ class CalibrationMaps : public QWidget
     Q_OBJECT
 
   public:
-    explicit CalibrationMaps(FileActions::EcuCalDefStructure *ecuCalDef, int romIndex, int mapIndex, QRect mdiAreaSize, QWidget *parent = nullptr);
+    explicit CalibrationMaps(FileActions::EcuCalDefStructure *ecuCalDef, int romIndex, int mapIndex, QRect mdiAreaSize,
+                             QWidget *parent = nullptr);
     ~CalibrationMaps();
 
     int mapCellWidthSelectable = 240;

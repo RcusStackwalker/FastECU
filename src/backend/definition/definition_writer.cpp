@@ -25,8 +25,7 @@ namespace
 
 bool is_blank(std::string_view value)
 {
-    return !std::ranges::any_of(value, [](char ch)
-                                { return !std::isspace(static_cast<unsigned char>(ch)); });
+    return !std::ranges::any_of(value, [](char ch) { return !std::isspace(static_cast<unsigned char>(ch)); });
 }
 
 Status validate_input(const DefinitionHeaderInput& input)
@@ -141,11 +140,7 @@ Result<std::vector<std::uint8_t>> serialize_and_validate(pugi::xml_document& doc
 {
     normalize_declaration(document);
     std::ostringstream output;
-    document.save(
-        output,
-        "  ",
-        pugi::format_default,
-        pugi::encoding_utf8);
+    document.save(output, "  ", pugi::format_default, pugi::encoding_utf8);
     std::string xml = std::move(output).str();
     if (xml.empty() || xml.back() != '\n')
     {
@@ -177,21 +172,18 @@ Result<std::vector<std::uint8_t>> create_ecuflash_xml(const DefinitionHeaderInpu
     return serialize_and_validate(document);
 }
 
-Result<std::vector<std::uint8_t>> rewrite_ecuflash_xml(
-    std::span<const std::uint8_t> source,
-    const DefinitionHeaderInput& input)
+Result<std::vector<std::uint8_t>> rewrite_ecuflash_xml(std::span<const std::uint8_t> source,
+                                                       const DefinitionHeaderInput& input)
 {
     pugi::xml_document document;
     constexpr unsigned int parse_flags =
-        pugi::parse_default | pugi::parse_comments | pugi::parse_declaration |
-        pugi::parse_pi | pugi::parse_doctype;
+        pugi::parse_default | pugi::parse_comments | pugi::parse_declaration | pugi::parse_pi | pugi::parse_doctype;
     const pugi::xml_parse_result parsed =
         document.load_buffer(source.data(), source.size(), parse_flags, pugi::encoding_auto);
     if (!parsed)
     {
-        return fail(
-            ErrorKind::InvalidConfig,
-            std::format("EcuFlash source XML is malformed: {}", parsed.description()));
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("EcuFlash source XML is malformed: {}", parsed.description()));
     }
 
     pugi::xml_node root = document.document_element();
@@ -201,9 +193,7 @@ Result<std::vector<std::uint8_t>> rewrite_ecuflash_xml(
     }
     if (const auto rom_id = root.child("romid"); rom_id && rom_id.next_sibling("romid"))
     {
-        return fail(
-            ErrorKind::InvalidConfig,
-            "EcuFlash source element <rom>: duplicate top-level <romid> elements");
+        return fail(ErrorKind::InvalidConfig, "EcuFlash source element <rom>: duplicate top-level <romid> elements");
     }
     if (auto updated = update_header(root, input); !updated.has_value())
     {

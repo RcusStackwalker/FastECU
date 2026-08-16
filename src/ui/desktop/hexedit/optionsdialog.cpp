@@ -5,8 +5,7 @@
 #include "optionsdialog.h"
 #include "ui_optionsdialog.h"
 
-OptionsDialog::OptionsDialog(QWidget *parent) : QDialog(parent),
-                                                ui{std::make_unique<Ui::OptionsDialog>()}
+OptionsDialog::OptionsDialog(QWidget *parent) : QDialog(parent), ui{std::make_unique<Ui::OptionsDialog>()}
 {
     ui->setupUi(this);
     readSettings();
@@ -41,11 +40,15 @@ void OptionsDialog::readSettings()
     ui->cbOverwriteMode->setChecked(settings.value("OverwriteMode", true).toBool());
     ui->cbReadOnly->setChecked(settings.value("ReadOnly").toBool());
 
-    setColor(ui->lbHighlightingColor, settings.value("HighlightingColor", QColor(0xff, 0xff, 0x99, 0xff)).value<QColor>());
-    setColor(ui->lbAddressAreaColor, settings.value("AddressAreaColor", this->palette().alternateBase().color()).value<QColor>());
-    setColor(ui->lbSelectionColor, settings.value("SelectionColor", this->palette().highlight().color()).value<QColor>());
+    setColor(ui->lbHighlightingColor,
+             settings.value("HighlightingColor", QColor(0xff, 0xff, 0x99, 0xff)).value<QColor>());
+    setColor(ui->lbAddressAreaColor,
+             settings.value("AddressAreaColor", this->palette().alternateBase().color()).value<QColor>());
+    setColor(ui->lbSelectionColor,
+             settings.value("SelectionColor", this->palette().highlight().color()).value<QColor>());
     setColor(ui->lbAddressFontColor, settings.value("AddressFontColor", QPalette::WindowText).value<QColor>());
-    setColor(ui->lbAsciiAreaColor, settings.value("AsciiAreaColor", this->palette().alternateBase().color()).value<QColor>());
+    setColor(ui->lbAsciiAreaColor,
+             settings.value("AsciiAreaColor", this->palette().alternateBase().color()).value<QColor>());
     setColor(ui->lbAsciiFontColor, settings.value("AsciiFontColor", QPalette::WindowText).value<QColor>());
     setColor(ui->lbHexFontColor, settings.value("HexFontColor", QPalette::WindowText).value<QColor>());
 #ifdef Q_OS_WIN32

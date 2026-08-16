@@ -42,8 +42,7 @@ ChecksumResult ChecksumTcuMitsuMH8104Can::calculate_checksum_result(bytes::ByteV
     {
         checksum_ok = false;
 
-        fastecu::checksum::internal::rebalanceU32Be(
-            romData, checksum_balance_value_address, checksum, checksum_target);
+        fastecu::checksum::internal::rebalanceU32Be(romData, checksum_balance_value_address, checksum, checksum_target);
     }
     ChecksumResult result;
     result.romData = romData;

@@ -38,7 +38,8 @@ typedef long(PT_CALL PF_PassThruReadMsgs)(unsigned long, void *, unsigned long *
 typedef long(PT_CALL PF_PassThruWriteMsgs)(unsigned long, const void *, unsigned long *, unsigned long);
 typedef long(PT_CALL PF_PassThruStartPeriodicMsg)(unsigned long, const void *, unsigned long *, unsigned long);
 typedef long(PT_CALL PF_PassThruStopPeriodicMsg)(unsigned long, unsigned long);
-typedef long(PT_CALL PF_PassThruStartMsgFilter)(unsigned long, unsigned long, const void *, const void *, const void *, unsigned long *);
+typedef long(PT_CALL PF_PassThruStartMsgFilter)(unsigned long, unsigned long, const void *, const void *, const void *,
+                                                unsigned long *);
 typedef long(PT_CALL PF_PassThruStopMsgFilter)(unsigned long, unsigned long);
 typedef long(PT_CALL PF_PassThruSetProgrammingVoltage)(unsigned long, unsigned long, unsigned long);
 typedef long(PT_CALL PF_PassThruReadVersion)(unsigned long, char *, char *, char *);
@@ -260,8 +261,9 @@ typedef void (*PF_StatusCallback)(const char *, int, int);
 #define ERR_INVALID_DEVICE_ID 0x1A
 
 // OP2.0 Tactrix specific
-// #define ERR_OEM_VOLTAGE_TOO_LOW				0x78 // OP2.0: the requested output voltage is lower than the OP2.0 capabilities
-// #define ERR_OEM_VOLTAGE_TOO_HIGH			0x77 // OP2.0: the requested output voltage is higher than the OP2.0 capabilities
+// #define ERR_OEM_VOLTAGE_TOO_LOW				0x78 // OP2.0: the requested output voltage is lower than the OP2.0
+// capabilities #define ERR_OEM_VOLTAGE_TOO_HIGH			0x77 // OP2.0: the requested output voltage is higher than
+// the OP2.0 capabilities
 
 /////////////////////////
 // PassThruConnect flags

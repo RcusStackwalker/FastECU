@@ -69,8 +69,7 @@ class MockOpenPort : public QObject
     Q_OBJECT
   public:
     explicit MockOpenPort(int masterFd, QObject *parent = nullptr)
-        : QObject(parent), fd(masterFd),
-          notifier(new QSocketNotifier(masterFd, QSocketNotifier::Read, this))
+        : QObject(parent), fd(masterFd), notifier(new QSocketNotifier(masterFd, QSocketNotifier::Read, this))
     {
         connect(notifier, &QSocketNotifier::activated, this, &MockOpenPort::onReadable);
     }

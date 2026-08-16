@@ -2,9 +2,9 @@
 
 #include "denso_checksum_table.h"
 
-ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(
-    bytes::ByteView romData, uint32_t checksum_area_start,
-    uint32_t checksum_area_length, int32_t offset)
+ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(bytes::ByteView romData,
+                                                                       uint32_t checksum_area_start,
+                                                                       uint32_t checksum_area_length, int32_t offset)
 {
     ChecksumResult result;
     result.romData.assign(romData.begin(), romData.end());

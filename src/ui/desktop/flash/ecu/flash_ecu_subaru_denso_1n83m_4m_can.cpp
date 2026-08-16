@@ -4,7 +4,9 @@
 #include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_1n83m_4m_can_operation.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
-FlashEcuSubaruDenso1N83M_4MCan::FlashEcuSubaruDenso1N83M_4MCan(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef, const QString& cmd_type, QWidget *parent)
+FlashEcuSubaruDenso1N83M_4MCan::FlashEcuSubaruDenso1N83M_4MCan(SerialPortActions *serial,
+                                                               FileActions::EcuCalDefStructure *ecuCalDef,
+                                                               const QString& cmd_type, QWidget *parent)
     : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     ui->setupUi(this);
@@ -44,8 +46,7 @@ void FlashEcuSubaruDenso1N83M_4MCan::run()
 
     int ret = QMessageBox::warning(this, tr("Connecting to ECU"),
                                    tr("Turn ignition ON and press OK to start initializing connection to ECU"),
-                                   QMessageBox::Ok | QMessageBox::Cancel,
-                                   QMessageBox::Ok);
+                                   QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Ok);
 
     switch (ret)
     {
@@ -56,17 +57,19 @@ void FlashEcuSubaruDenso1N83M_4MCan::run()
         connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashEcuSubaruDenso1N83M_4MCan::LOG_W);
         connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashEcuSubaruDenso1N83M_4MCan::LOG_I);
         connect(m_operation, &FlashOperationWorker::LOG_D, this, &FlashEcuSubaruDenso1N83M_4MCan::LOG_D);
-        connect(m_operation, &FlashOperationWorker::externalLoggerMessage,
-                this, [this](QString msg)
-                { emit external_logger(std::move(msg)); });
-        connect(m_operation, &FlashOperationWorker::progressChanged,
-                this, &FlashEcuSubaruDenso1N83M_4MCan::set_progressbar_value);
+        connect(m_operation, &FlashOperationWorker::externalLoggerMessage, this,
+                [this](QString msg) { emit external_logger(std::move(msg)); });
+        connect(m_operation, &FlashOperationWorker::progressChanged, this,
+                &FlashEcuSubaruDenso1N83M_4MCan::set_progressbar_value);
 
         QEventLoop loop;
         bool success = false;
         connect(m_operation, &FlashOperationWorker::operationFinished, &loop,
                 [&success, &loop](bool ok)
-                { success = ok; loop.quit(); });
+                {
+                    success = ok;
+                    loop.quit();
+                });
 
         m_operation->start();
         loop.exec();

@@ -20,9 +20,7 @@
 
 namespace
 {
-QString writeBinaryFile(const QTemporaryDir& dir,
-                        const QString& name,
-                        const QByteArray& contents)
+QString writeBinaryFile(const QTemporaryDir& dir, const QString& name, const QByteArray& contents)
 {
     const QString path = dir.filePath(name);
     QFile file(path);
@@ -49,10 +47,8 @@ class TestRomTransformations : public QObject
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
 
-        const QString definitionPath = writeBinaryFile(
-            dir,
-            "romraider.xml",
-            R"(<roms>
+        const QString definitionPath = writeBinaryFile(dir, "romraider.xml",
+                                                       R"(<roms>
   <rom>
     <romid><xmlid>BASE_TRANSFORM</xmlid></romid>
     <table name="U8Scaled" type="1D" storagetype="uint8" endian="big">
@@ -128,33 +124,22 @@ class TestRomTransformations : public QObject
 
         FileActions::EcuCalDefStructure parsed;
         QCOMPARE(actions.read_romraider_ecu_def(&parsed, "CAL1"), &parsed);
-        QVERIFY2(
-            errorSpy.isEmpty(),
-            errorSpy.isEmpty()
-                ? ""
-                : qPrintable(errorSpy.at(0).at(0).toString()));
-        QTimer::singleShot(0, []()
+        QVERIFY2(errorSpy.isEmpty(), errorSpy.isEmpty() ? "" : qPrintable(errorSpy.at(0).at(0).toString()));
+        QTimer::singleShot(0,
+                           []()
                            {
-            if (QWidget *modal = QApplication::activeModalWidget())
-            {
-                modal->close();
-            } });
+                               if (QWidget *modal = QApplication::activeModalWidget())
+                               {
+                                   modal->close();
+                               }
+                           });
 
         FileActions::EcuCalDefStructure ecu;
         QCOMPARE(actions.open_subaru_rom_file(&ecu, romPath), &ecu);
-        QVERIFY2(
-            errorSpy.isEmpty(),
-            errorSpy.isEmpty()
-                ? ""
-                : qPrintable(errorSpy.at(0).at(0).toString()));
+        QVERIFY2(errorSpy.isEmpty(), errorSpy.isEmpty() ? "" : qPrintable(errorSpy.at(0).at(0).toString()));
 
         QCOMPARE(ecu.NameList,
-                 QStringList({"U8Scaled",
-                              "U16Big",
-                              "U24LittleCompatibility",
-                              "U32Big",
-                              "FloatCompatibility",
-                              "Grid"}));
+                 QStringList({"U8Scaled", "U16Big", "U24LittleCompatibility", "U32Big", "FloatCompatibility", "Grid"}));
         QCOMPARE(ecu.MapData.at(0), QString("4,"));
         QCOMPARE(ecu.MapData.at(1), QString("4660,"));
         // Disclosed behavior fix (Task 6, calibration_service.cpp

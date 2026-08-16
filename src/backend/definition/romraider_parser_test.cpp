@@ -19,10 +19,8 @@ std::vector<std::uint8_t> bytes(std::string_view text)
     return {text.begin(), text.end()};
 }
 
-void expect_invalid_with_context(
-    const Result<UnresolvedDefinition>& result,
-    std::string_view source_context,
-    std::string_view xml_context)
+void expect_invalid_with_context(const Result<UnresolvedDefinition>& result, std::string_view source_context,
+                                 std::string_view xml_context)
 {
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
@@ -191,11 +189,10 @@ TEST(RomRaiderParserTest, ConvertsSwitchStatesToSelectableScaling)
     EXPECT_EQ(result->maps.front().scaling_name, "Feature Switch");
     EXPECT_EQ(result->scalings.front().name, "Feature Switch");
     EXPECT_EQ(result->scalings.front().storage_type, StorageType::Bloblist);
-    EXPECT_EQ(result->scalings.front().selections,
-              (std::vector<std::pair<std::string, std::string>>{
-                  {"disabled", "00"},
-                  {"enabled", "01"},
-              }));
+    EXPECT_EQ(result->scalings.front().selections, (std::vector<std::pair<std::string, std::string>>{
+                                                       {"disabled", "00"},
+                                                       {"enabled", "01"},
+                                                   }));
 }
 
 TEST(RomRaiderParserTest, NormalizesLegacyTwoDimensionalYAxisDimensions)
@@ -281,9 +278,8 @@ TEST(RomRaiderParserTest, MissingXmlIdIsInvalidConfigWithElementContext)
 
 TEST(RomRaiderParserTest, InvalidAddressIsInvalidConfigWithAttributeContext)
 {
-    const auto xml = bytes(
-        "<roms><rom><romid><xmlid>A</xmlid></romid>"
-        "<table name=\"Fuel\" storageaddress=\"not-hex\"/></rom></roms>");
+    const auto xml = bytes("<roms><rom><romid><xmlid>A</xmlid></romid>"
+                           "<table name=\"Fuel\" storageaddress=\"not-hex\"/></rom></roms>");
 
     auto result = parse_romraider_definition(xml, "bad-address.xml", "A");
 
@@ -306,9 +302,8 @@ TEST(RomRaiderParserTest, InvalidStartPositionOrIntervalIsInvalidConfigWithAttri
 
 TEST(RomRaiderParserTest, UnrecognizedStorageTypeIsInvalidConfigWithAttributeContext)
 {
-    const auto xml = bytes(
-        "<roms><rom><romid><xmlid>A</xmlid></romid>"
-        "<table name=\"Fuel\" storagetype=\"nibble\"/></rom></roms>");
+    const auto xml = bytes("<roms><rom><romid><xmlid>A</xmlid></romid>"
+                           "<table name=\"Fuel\" storagetype=\"nibble\"/></rom></roms>");
 
     auto result = parse_romraider_definition(xml, "bad-storagetype.xml", "A");
 
@@ -317,9 +312,8 @@ TEST(RomRaiderParserTest, UnrecognizedStorageTypeIsInvalidConfigWithAttributeCon
 
 TEST(RomRaiderParserTest, InvalidBooleanIsInvalidConfigWithAttributeContext)
 {
-    const auto xml = bytes(
-        "<roms><rom><romid><xmlid>A</xmlid></romid>"
-        "<table name=\"Fuel\" flipx=\"yes\"/></rom></roms>");
+    const auto xml = bytes("<roms><rom><romid><xmlid>A</xmlid></romid>"
+                           "<table name=\"Fuel\" flipx=\"yes\"/></rom></roms>");
 
     auto result = parse_romraider_definition(xml, "bad-bool.xml", "A");
 
@@ -328,9 +322,8 @@ TEST(RomRaiderParserTest, InvalidBooleanIsInvalidConfigWithAttributeContext)
 
 TEST(RomRaiderParserTest, DuplicateMapIdentityIsInvalidConfigWithTableContext)
 {
-    const auto xml = bytes(
-        "<roms><rom><romid><xmlid>A</xmlid></romid>"
-        "<table name=\"Fuel\"/><table name=\"Fuel\"/></rom></roms>");
+    const auto xml = bytes("<roms><rom><romid><xmlid>A</xmlid></romid>"
+                           "<table name=\"Fuel\"/><table name=\"Fuel\"/></rom></roms>");
 
     auto result = parse_romraider_definition(xml, "duplicate.xml", "A");
 
@@ -346,10 +339,8 @@ TEST(RomRaiderParserTest, RejectsSecondAxisTargetingAnOccupiedSemanticSlot)
         <table type="Static X Axis" name="Second X"/>
         <table type="Y Axis" name="Only Y"/>
       </table></rom></roms>)xml"),
-                                                  "duplicate-x-axis.xml",
-                                                  "X_DUPLICATE");
-    expect_invalid_with_context(
-        duplicate_x, "duplicate-x-axis.xml", "X axis");
+                                                  "duplicate-x-axis.xml", "X_DUPLICATE");
+    expect_invalid_with_context(duplicate_x, "duplicate-x-axis.xml", "X axis");
 
     auto duplicate_y = parse_romraider_definition(bytes(R"xml(
       <roms><rom><romid><xmlid>Y_DUPLICATE</xmlid></romid>
@@ -358,10 +349,8 @@ TEST(RomRaiderParserTest, RejectsSecondAxisTargetingAnOccupiedSemanticSlot)
         <table type="Y Axis" name="First Y"/>
         <table type="Y Axis" name="Second Y"/>
       </table></rom></roms>)xml"),
-                                                  "duplicate-y-axis.xml",
-                                                  "Y_DUPLICATE");
-    expect_invalid_with_context(
-        duplicate_y, "duplicate-y-axis.xml", "Y axis");
+                                                  "duplicate-y-axis.xml", "Y_DUPLICATE");
+    expect_invalid_with_context(duplicate_y, "duplicate-y-axis.xml", "Y axis");
 }
 
 TEST(RomRaiderParserTest, WrongRootIsInvalidConfigWithExpectedRootContext)

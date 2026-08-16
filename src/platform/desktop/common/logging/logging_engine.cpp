@@ -18,8 +18,7 @@ LoggingEngine::~LoggingEngine()
     stop();
 }
 
-void LoggingEngine::registerProtocol(const QString& protocol_id,
-                                     const LoggingProtocolFactory& factory)
+void LoggingEngine::registerProtocol(const QString& protocol_id, const LoggingProtocolFactory& factory)
 {
     registrations_.insert(protocol_id, factory);
 }
@@ -29,9 +28,8 @@ bool LoggingEngine::isRunning() const
     return active_worker_ != nullptr;
 }
 
-LoggingStartResult LoggingEngine::start(
-    const LogSessionConfig& config,
-    fastecu::desktop::logging::DesktopLoggingSnapshot snapshot)
+LoggingStartResult LoggingEngine::start(const LogSessionConfig& config,
+                                        fastecu::desktop::logging::DesktopLoggingSnapshot snapshot)
 {
     if (isRunning())
     {
@@ -57,8 +55,7 @@ LoggingStartResult LoggingEngine::start(
     }
     catch (...)
     {
-        protocol_result = fastecu::fail(fastecu::ErrorKind::Internal,
-                                        "protocol factory threw an unknown exception");
+        protocol_result = fastecu::fail(fastecu::ErrorKind::Internal, "protocol factory threw an unknown exception");
     }
     if (!protocol_result)
     {
@@ -77,13 +74,10 @@ LoggingStartResult LoggingEngine::start(
 
     last_status_.reset();
     worker_reached_running_ = false;
-    active_worker_ = new LoggingWorker(active_snapshot_->session, active_protocol_.get(),
-                                       diagnostics_, this);
+    active_worker_ = new LoggingWorker(active_snapshot_->session, active_protocol_.get(), diagnostics_, this);
     connect(active_worker_, &LoggingWorker::samplesReady, this, &LoggingEngine::valuesUpdated);
-    connect(active_worker_, &LoggingWorker::stateChanged, this,
-            &LoggingEngine::handleWorkerStateChanged);
-    connect(active_worker_, &LoggingWorker::sessionFinished, this,
-            &LoggingEngine::handleWorkerSessionFinished);
+    connect(active_worker_, &LoggingWorker::stateChanged, this, &LoggingEngine::handleWorkerStateChanged);
+    connect(active_worker_, &LoggingWorker::sessionFinished, this, &LoggingEngine::handleWorkerSessionFinished);
     active_worker_->start();
     return {.started = true};
 }
@@ -108,9 +102,8 @@ void LoggingEngine::stop()
 
 void LoggingEngine::handleWorkerStateChanged(fastecu::logging::LoggingState state)
 {
-    const LoggingStatus status = state == fastecu::logging::LoggingState::Running
-                                     ? LoggingStatus::Running
-                                     : LoggingStatus::CarNotResponding;
+    const LoggingStatus status =
+        state == fastecu::logging::LoggingState::Running ? LoggingStatus::Running : LoggingStatus::CarNotResponding;
     if (status == LoggingStatus::CarNotResponding)
     {
         emit LOG_W("Car not responding", true, true);

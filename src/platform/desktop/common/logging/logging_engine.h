@@ -45,9 +45,8 @@ struct LoggingStartResult
     }
 };
 
-using LoggingProtocolFactory = std::function<
-    fastecu::Result<std::unique_ptr<fastecu::logging::LoggingProtocol>>(
-        const fastecu::desktop::logging::DesktopLoggingSnapshot&)>;
+using LoggingProtocolFactory = std::function<fastecu::Result<std::unique_ptr<fastecu::logging::LoggingProtocol>>(
+    const fastecu::desktop::logging::DesktopLoggingSnapshot&)>;
 
 class LoggingEngine final : public QObject
 {

@@ -86,8 +86,7 @@ TEST(InMemoryFileSystem, ConfiguredListDirectoryFailureIsReturned)
 {
     InMemoryFileSystem fs;
     fs.directory_entries["/definitions"] = {};
-    fs.list_directory_errors.insert_or_assign(
-        "/definitions", Error{ErrorKind::Internal, "listing failed"});
+    fs.list_directory_errors.insert_or_assign("/definitions", Error{ErrorKind::Internal, "listing failed"});
 
     auto result = fs.list_directory("/definitions");
 

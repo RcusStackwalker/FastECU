@@ -26,8 +26,7 @@ using fastecu::definition::UnresolvedScaling;
 namespace
 {
 
-DefinitionIndexEntry entry(std::string definition_id, std::string source,
-                           std::vector<std::string> parents = {})
+DefinitionIndexEntry entry(std::string definition_id, std::string source, std::vector<std::string> parents = {})
 {
     return {
         .format = DefinitionFormat::RomRaider,
@@ -100,12 +99,8 @@ TEST(DefinitionModelTest, ResolvedValuesHaveConcreteDefaults)
 TEST(DefinitionModelTest, ResolvedDefinitionIsDistinctFromUnresolvedInput)
 {
     static_assert(!std::is_base_of_v<UnresolvedDefinition, RomDefinition>);
-    static_assert(
-        std::is_same_v<decltype(UnresolvedDefinition::maps),
-                       std::vector<UnresolvedCalibrationMap>>);
-    static_assert(
-        std::is_same_v<decltype(RomDefinition::maps),
-                       std::vector<CalibrationMap>>);
+    static_assert(std::is_same_v<decltype(UnresolvedDefinition::maps), std::vector<UnresolvedCalibrationMap>>);
+    static_assert(std::is_same_v<decltype(RomDefinition::maps), std::vector<CalibrationMap>>);
 }
 
 TEST(StorageByteSizeTest, MapsEachStorageTypeToItsByteWidth)

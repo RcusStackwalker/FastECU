@@ -35,9 +35,11 @@ QString J2534::open_serial_port(const QString& serial_port)
                 opened_serial_port = serial_port;
                 // connect(serial, SIGNAL(readyRead()), this, SLOT(ReadSerialDataSlot()), Qt::DirectConnection);
                 qRegisterMetaType<QSerialPort::SerialPortError>();
-                connect(serial, SIGNAL(errorOccurred(QSerialPort::SerialPortError)), this, SLOT(handle_error(QSerialPort::SerialPortError)));
+                connect(serial, SIGNAL(errorOccurred(QSerialPort::SerialPortError)), this,
+                        SLOT(handle_error(QSerialPort::SerialPortError)));
 
-                emit LOG_D("Linux j2534 serial port '" + serial_port + "' is open at baudrate " + serial_port_baudrate, true, true);
+                emit LOG_D("Linux j2534 serial port '" + serial_port + "' is open at baudrate " + serial_port_baudrate,
+                           true, true);
                 return opened_serial_port;
             }
             else
@@ -214,7 +216,8 @@ long J2534::PassThruClose(unsigned long DeviceID)
     return result;
 }
 
-long J2534::PassThruConnect(unsigned long DeviceID, unsigned long ProtocolID, unsigned long Flags, unsigned long Baudrate, unsigned long *pChannelID)
+long J2534::PassThruConnect(unsigned long DeviceID, unsigned long ProtocolID, unsigned long Flags,
+                            unsigned long Baudrate, unsigned long *pChannelID)
 {
     QByteArray output;
     QByteArray received;
@@ -243,12 +246,14 @@ long J2534::PassThruConnect(unsigned long DeviceID, unsigned long ProtocolID, un
     }
 
     output.clear();
-    QString str = "ato" + QString::number(ProtocolID) + " " + QString::number(Flags) + " " + QString::number(Baudrate) + " " + QString::number(ProtocolID) + "\r\n";
+    QString str = "ato" + QString::number(ProtocolID) + " " + QString::number(Flags) + " " + QString::number(Baudrate) +
+                  " " + QString::number(ProtocolID) + "\r\n";
     output.append(str.toUtf8());
     // emit LOG_D("Send data:" << output;
     write_serial_data(output);
     received = read_serial_data(100, 50);
-    emit LOG_D("Connect received: " + parseMessageToHex(received) + " " + received + " " + QString::number(chanID), true, true);
+    emit LOG_D("Connect received: " + parseMessageToHex(received) + " " + received + " " + QString::number(chanID),
+               true, true);
 
     return result;
 }
@@ -272,7 +277,8 @@ long J2534::PassThruDisconnect(unsigned long ChannelID)
     return result;
 }
 
-long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs, unsigned long Timeout)
+long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs,
+                             unsigned long Timeout)
 {
     QByteArray received;
     QByteArray msg;
@@ -428,7 +434,9 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
                     // emit LOG_D("HEADER" << parseMessageToHex(received);
                     break;
                 }
-                // emit LOG_D("Message received at channel: " + QString::number(ChannelID) + ", size is: " + QString::number(msg_byte_cnt) + " and message type: " + msg_type_string + " (0x" + QString::number(msg_type, 16) + ")", true, true);
+                // emit LOG_D("Message received at channel: " + QString::number(ChannelID) + ", size is: " +
+                // QString::number(msg_byte_cnt) + " and message type: " + msg_type_string + " (0x" +
+                // QString::number(msg_type, 16) + ")", true, true);
 
                 if (msg_type == START_OF_MESSAGE)
                 {
@@ -596,7 +604,8 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
     return result;
 }
 
-long J2534::PassThruWriteMsgs(unsigned long ChannelID, const PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs, unsigned long Timeout)
+long J2534::PassThruWriteMsgs(unsigned long ChannelID, const PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs,
+                              unsigned long Timeout)
 {
     QByteArray output;
     QByteArray received;
@@ -605,7 +614,8 @@ long J2534::PassThruWriteMsgs(unsigned long ChannelID, const PASSTHRU_MSG *pMsg,
     for (unsigned long msg_index = 0; msg_index < *pNumMsgs; msg_index++)
     {
         output.clear();
-        QString str = "att" + QString::number(ChannelID) + " " + QString::number(pMsg->DataSize) + " " + QString::number(pMsg->TxFlags) + "\r\n";
+        QString str = "att" + QString::number(ChannelID) + " " + QString::number(pMsg->DataSize) + " " +
+                      QString::number(pMsg->TxFlags) + "\r\n";
         output.append(str.toUtf8());
         for (unsigned long i = 0; i < pMsg->DataSize; i++)
         {
@@ -619,7 +629,8 @@ long J2534::PassThruWriteMsgs(unsigned long ChannelID, const PASSTHRU_MSG *pMsg,
     return result;
 }
 
-long J2534::PassThruStartPeriodicMsg(unsigned long ChannelID, const PASSTHRU_MSG *pMsg, unsigned long *pMsgID, unsigned long TimeInterval)
+long J2534::PassThruStartPeriodicMsg(unsigned long ChannelID, const PASSTHRU_MSG *pMsg, unsigned long *pMsgID,
+                                     unsigned long TimeInterval)
 {
     PASSTHRU_MSG rxmsg;
     unsigned long numRxMsg;
@@ -629,7 +640,8 @@ long J2534::PassThruStartPeriodicMsg(unsigned long ChannelID, const PASSTHRU_MSG
     long result = STATUS_NOERROR;
 
     output.clear();
-    QString str = "atm" + QString::number(ChannelID) + " " + QString::number(TimeInterval * 1000) + " 0 " + QString::number(pMsg->TxFlags) + " " + QString::number(pMsg->DataSize) + "\r\n";
+    QString str = "atm" + QString::number(ChannelID) + " " + QString::number(TimeInterval * 1000) + " 0 " +
+                  QString::number(pMsg->TxFlags) + " " + QString::number(pMsg->DataSize) + "\r\n";
     output.append(str.toUtf8());
     for (unsigned long i = 0; i < pMsg->DataSize; i++)
     {
@@ -657,14 +669,17 @@ long J2534::PassThruStopPeriodicMsg(unsigned long ChannelID, unsigned long MsgID
     return result;
 }
 
-long J2534::PassThruStartMsgFilter(unsigned long ChannelID, unsigned long FilterType, const PASSTHRU_MSG *pMaskMsg, const PASSTHRU_MSG *pPatternMsg, const PASSTHRU_MSG *pFlowControlMsg, unsigned long *pMsgID)
+long J2534::PassThruStartMsgFilter(unsigned long ChannelID, unsigned long FilterType, const PASSTHRU_MSG *pMaskMsg,
+                                   const PASSTHRU_MSG *pPatternMsg, const PASSTHRU_MSG *pFlowControlMsg,
+                                   unsigned long *pMsgID)
 {
     QByteArray output;
     QByteArray received;
     long result = STATUS_NOERROR;
 
     output.clear();
-    QString str = "atf" + QString::number(ChannelID) + " " + QString::number(FilterType) + " " + QString::number(pMaskMsg->TxFlags) + " " + QString::number(pMaskMsg->DataSize);
+    QString str = "atf" + QString::number(ChannelID) + " " + QString::number(FilterType) + " " +
+                  QString::number(pMaskMsg->TxFlags) + " " + QString::number(pMaskMsg->DataSize);
     output.append(str.toUtf8());
     output.append("\r\n");
 
@@ -1029,7 +1044,8 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
         {
             cfgitem = &scl->ConfigPtr[i];
             output.clear();
-            QString str = "ats" + QString::number(ChannelID) + " " + QString::number(cfgitem->Parameter) + " " + QString::number(cfgitem->Value) + "\r\n";
+            QString str = "ats" + QString::number(ChannelID) + " " + QString::number(cfgitem->Parameter) + " " +
+                          QString::number(cfgitem->Value) + "\r\n";
             output.append(str.toUtf8());
             write_serial_data(output);
             emit LOG_D("Sent: " + parseMessageToHex(output), true, true);

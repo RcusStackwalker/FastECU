@@ -80,8 +80,8 @@ ChecksumResult ChecksumEcuSubaruHitachiSH7058::calculate_checksum_result(bytes::
     }
     if (checksum_5_value_calculated != 0x5aa5a55a)
     {
-        fastecu::checksum::internal::rebalanceU32Be(
-            romData, checksum_5_balance_value_address, checksum_5_value_calculated, 0x5aa5a55a);
+        fastecu::checksum::internal::rebalanceU32Be(romData, checksum_5_balance_value_address,
+                                                    checksum_5_value_calculated, 0x5aa5a55a);
     }
     /****************************************
      *

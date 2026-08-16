@@ -98,7 +98,8 @@ ProtocolSelect::ProtocolSelect(FileActions::ConfigValuesStructure *configValues,
         ui->treeWidget->setCurrentItem(item);
     }
 
-    connect(ui->treeWidget, &QTreeWidget::itemSelectionChanged, this, &ProtocolSelect::protocol_treewidget_item_selected);
+    connect(ui->treeWidget, &QTreeWidget::itemSelectionChanged, this,
+            &ProtocolSelect::protocol_treewidget_item_selected);
     connect(ui->treeWidget, &QTreeWidget::doubleClicked, this, &ProtocolSelect::car_model_selected);
     connect(ui->cancel_button, &QPushButton::clicked, this, &QDialog::close);
     connect(ui->select_button, &QPushButton::clicked, this, &ProtocolSelect::car_model_selected);

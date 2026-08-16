@@ -51,8 +51,7 @@ void scriptReadChunks(ScriptedKlineFlashTransport& transport)
     {
         const std::uint32_t address = logical + 0x100000;
         transport.expectWrite(frame({0xa0, 0, 0, static_cast<bytes::Byte>(address >> 16),
-                                     static_cast<bytes::Byte>(address >> 8),
-                                     static_cast<bytes::Byte>(address), 0x7f}));
+                                     static_cast<bytes::Byte>(address >> 8), static_cast<bytes::Byte>(address), 0x7f}));
         bytes::Bytes response(134, 0x5a);
         response[4] = 0xe0;
         transport.queueRead(response);
@@ -90,11 +89,10 @@ void scriptNormalAuthenticatedFallback(ScriptedKlineFlashTransport& transport)
 bytes::Bytes encryptedImage(bytes::ByteView image)
 {
     static constexpr std::uint16_t index[] = {0x78f1, 0x2962, 0x9312, 0x7c03};
-    static constexpr std::uint8_t transform[] = {
-        0x5, 0x6, 0x7, 0x1, 0x9, 0xc, 0xd, 0x8, 0xa, 0xd, 0x2, 0xb, 0xf, 0x4, 0x0, 0x3,
-        0xb, 0x4, 0x6, 0x0, 0xf, 0x2, 0xd, 0x9, 0x5, 0xc, 0x1, 0xa, 0x3, 0xd, 0xe, 0x8};
-    return SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()),
-                                         index, transform);
+    static constexpr std::uint8_t transform[] = {0x5, 0x6, 0x7, 0x1, 0x9, 0xc, 0xd, 0x8, 0xa, 0xd, 0x2,
+                                                 0xb, 0xf, 0x4, 0x0, 0x3, 0xb, 0x4, 0x6, 0x0, 0xf, 0x2,
+                                                 0xd, 0x9, 0x5, 0xc, 0x1, 0xa, 0x3, 0xd, 0xe, 0x8};
+    return SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), index, transform);
 }
 
 void scriptWriteBody(ScriptedKlineFlashTransport& transport, bytes::ByteView image)
@@ -106,8 +104,7 @@ void scriptWriteBody(ScriptedKlineFlashTransport& transport, bytes::ByteView ima
     const bytes::Bytes encrypted = encryptedImage(image);
     for (std::uint32_t address = 0; address < 0x80000; address += 0x80)
     {
-        bytes::Bytes request{0x36, static_cast<bytes::Byte>(address >> 16),
-                             static_cast<bytes::Byte>(address >> 8),
+        bytes::Bytes request{0x36, static_cast<bytes::Byte>(address >> 16), static_cast<bytes::Byte>(address >> 8),
                              static_cast<bytes::Byte>(address)};
         request.insert(request.end(), encrypted.begin() + address, encrypted.begin() + address + 0x80);
         transport.expectWrite(frame(request));
@@ -126,9 +123,8 @@ void scriptWriteBody(ScriptedKlineFlashTransport& transport, bytes::ByteView ima
 
 TEST(SubaruHitachiM32rKlineExecutor, ReadsAt38400ProbeAndReturnsLogicalFullRom)
 {
-    auto plan = build_subaru_hitachi_m32r_kline_plan(
-        FlashOperation::Read, "sub_ecu_hitachi_m32r_kline_recovery",
-        "M32R_512KB_1block", std::nullopt);
+    auto plan = build_subaru_hitachi_m32r_kline_plan(FlashOperation::Read, "sub_ecu_hitachi_m32r_kline_recovery",
+                                                     "M32R_512KB_1block", std::nullopt);
     ASSERT_TRUE(plan.has_value());
     ScriptedKlineFlashTransport transport;
     transport.expectWrite(frame({0xbf}));
@@ -151,9 +147,8 @@ TEST(SubaruHitachiM32rKlineExecutor, ReadsAt38400ProbeAndReturnsLogicalFullRom)
 
 TEST(SubaruHitachiM32rKlineExecutor, RecoveryWakeIsBoundedToOneThousandAttempts)
 {
-    auto plan = build_subaru_hitachi_m32r_kline_plan(
-        FlashOperation::Write, "sub_ecu_hitachi_m32r_kline_recovery",
-        "M32R_512KB_1block", bytes::Bytes(0x80000));
+    auto plan = build_subaru_hitachi_m32r_kline_plan(FlashOperation::Write, "sub_ecu_hitachi_m32r_kline_recovery",
+                                                     "M32R_512KB_1block", bytes::Bytes(0x80000));
     ASSERT_TRUE(plan.has_value());
     ScriptedKlineFlashTransport transport;
     for (int i = 0; i < 1000; ++i)
@@ -175,8 +170,8 @@ TEST(SubaruHitachiM32rKlineExecutor, RecoveryWakeIsBoundedToOneThousandAttempts)
 
 TEST(SubaruHitachiM32rKlineExecutor, ReadFallsBackThrough4800Initialization)
 {
-    auto plan = build_subaru_hitachi_m32r_kline_plan(
-        FlashOperation::Read, "sub_ecu_hitachi_m32r_kline", "M32R_512KB_1block", std::nullopt);
+    auto plan = build_subaru_hitachi_m32r_kline_plan(FlashOperation::Read, "sub_ecu_hitachi_m32r_kline",
+                                                     "M32R_512KB_1block", std::nullopt);
     ASSERT_TRUE(plan.has_value());
     ScriptedKlineFlashTransport transport;
     transport.expectWrite(frame({0xbf}));
@@ -205,8 +200,8 @@ TEST(SubaruHitachiM32rKlineExecutor, NormalWriteUsesActiveObkAndToleratesLegacyA
     {
         image[i] = static_cast<bytes::Byte>(i);
     }
-    auto plan = build_subaru_hitachi_m32r_kline_plan(
-        FlashOperation::Write, "sub_ecu_hitachi_m32r_kline", "M32R_512KB_1block", image);
+    auto plan = build_subaru_hitachi_m32r_kline_plan(FlashOperation::Write, "sub_ecu_hitachi_m32r_kline",
+                                                     "M32R_512KB_1block", image);
     ASSERT_TRUE(plan.has_value());
     ScriptedKlineFlashTransport transport;
     transport.expectWrite(frame({0x34, 0, 0, 0, 0x04, 0x08, 0, 0}));
@@ -225,8 +220,8 @@ TEST(SubaruHitachiM32rKlineExecutor, NormalWriteUsesActiveObkAndToleratesLegacyA
 TEST(SubaruHitachiM32rKlineExecutor, NormalFallbackRequiresSecuritySubfunctionTwo)
 {
     const bytes::Bytes image(0x80000);
-    auto plan = build_subaru_hitachi_m32r_kline_plan(
-        FlashOperation::Write, "sub_ecu_hitachi_m32r_kline", "M32R_512KB_1block", image);
+    auto plan = build_subaru_hitachi_m32r_kline_plan(FlashOperation::Write, "sub_ecu_hitachi_m32r_kline",
+                                                     "M32R_512KB_1block", image);
     ASSERT_TRUE(plan.has_value());
     ScriptedKlineFlashTransport transport;
     scriptNormalAuthenticatedFallback(transport);
@@ -243,8 +238,8 @@ TEST(SubaruHitachiM32rKlineExecutor, NormalFallbackRequiresSecuritySubfunctionTw
 TEST(SubaruHitachiM32rKlineExecutor, EraseAcknowledgementAccumulatesBoundedFragments)
 {
     const bytes::Bytes image(0x80000, 0xa5);
-    auto plan = build_subaru_hitachi_m32r_kline_plan(
-        FlashOperation::Write, "sub_ecu_hitachi_m32r_kline", "M32R_512KB_1block", image);
+    auto plan = build_subaru_hitachi_m32r_kline_plan(FlashOperation::Write, "sub_ecu_hitachi_m32r_kline",
+                                                     "M32R_512KB_1block", image);
     ASSERT_TRUE(plan.has_value());
     ScriptedKlineFlashTransport transport;
     transport.expectWrite(frame({0x34, 0, 0, 0, 0x04, 0x08, 0, 0}));
@@ -257,8 +252,7 @@ TEST(SubaruHitachiM32rKlineExecutor, EraseAcknowledgementAccumulatesBoundedFragm
     const bytes::Bytes encrypted = encryptedImage(image);
     for (std::uint32_t address = 0; address < 0x80000; address += 0x80)
     {
-        bytes::Bytes request{0x36, static_cast<bytes::Byte>(address >> 16),
-                             static_cast<bytes::Byte>(address >> 8),
+        bytes::Bytes request{0x36, static_cast<bytes::Byte>(address >> 16), static_cast<bytes::Byte>(address >> 8),
                              static_cast<bytes::Byte>(address)};
         request.insert(request.end(), encrypted.begin() + address, encrypted.begin() + address + 0x80);
         transport.expectWrite(frame(request));
@@ -278,9 +272,8 @@ TEST(SubaruHitachiM32rKlineExecutor, EraseAcknowledgementAccumulatesBoundedFragm
 TEST(SubaruHitachiM32rKlineExecutor, RecoveryWriteWakesAndUsesAuthenticatedSession)
 {
     const bytes::Bytes image(0x80000, 0xa5);
-    auto plan = build_subaru_hitachi_m32r_kline_plan(
-        FlashOperation::Write, "sub_ecu_hitachi_m32r_kline_recovery",
-        "M32R_512KB_1block", image);
+    auto plan = build_subaru_hitachi_m32r_kline_plan(FlashOperation::Write, "sub_ecu_hitachi_m32r_kline_recovery",
+                                                     "M32R_512KB_1block", image);
     ASSERT_TRUE(plan.has_value());
     ScriptedKlineFlashTransport transport;
     transport.expectWrite(frame({0x81}));
@@ -301,8 +294,8 @@ TEST(SubaruHitachiM32rKlineExecutor, RecoveryWriteWakesAndUsesAuthenticatedSessi
 
 TEST(SubaruHitachiM32rKlineExecutor, CancellationBeforeSetupPerformsNoIo)
 {
-    auto plan = build_subaru_hitachi_m32r_kline_plan(
-        FlashOperation::Read, "sub_ecu_hitachi_m32r_kline", "M32R_512KB_1block", std::nullopt);
+    auto plan = build_subaru_hitachi_m32r_kline_plan(FlashOperation::Read, "sub_ecu_hitachi_m32r_kline",
+                                                     "M32R_512KB_1block", std::nullopt);
     ASSERT_TRUE(plan.has_value());
     ScriptedKlineFlashTransport transport;
     SubaruHitachiM32rKlineExecutor executor;
@@ -319,8 +312,8 @@ TEST(SubaruHitachiM32rKlineExecutor, CancellationBeforeSetupPerformsNoIo)
 TEST(SubaruHitachiM32rKlineExecutor, CancellationAfterEraseIsNotReportedAsSuccess)
 {
     const bytes::Bytes image(0x80000);
-    auto plan = build_subaru_hitachi_m32r_kline_plan(
-        FlashOperation::Write, "sub_ecu_hitachi_m32r_kline", "M32R_512KB_1block", image);
+    auto plan = build_subaru_hitachi_m32r_kline_plan(FlashOperation::Write, "sub_ecu_hitachi_m32r_kline",
+                                                     "M32R_512KB_1block", image);
     ASSERT_TRUE(plan.has_value());
     CancellationSource cancellation;
     TripOnReadTransport transport(cancellation);

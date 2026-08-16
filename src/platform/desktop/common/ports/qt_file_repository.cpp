@@ -32,14 +32,12 @@ fastecu::Status QtFileRepository::write(std::string_view handle, std::span<const
     // successful one.
     if (!f.flush())
     {
-        return fastecu::fail(fastecu::ErrorKind::Internal,
-                             "flush failed: " + f.errorString().toStdString());
+        return fastecu::fail(fastecu::ErrorKind::Internal, "flush failed: " + f.errorString().toStdString());
     }
     f.close();
     if (f.error() != QFileDevice::NoError)
     {
-        return fastecu::fail(fastecu::ErrorKind::Internal,
-                             "close failed: " + f.errorString().toStdString());
+        return fastecu::fail(fastecu::ErrorKind::Internal, "close failed: " + f.errorString().toStdString());
     }
     return {};
 }

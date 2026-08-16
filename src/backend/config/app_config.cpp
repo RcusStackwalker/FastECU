@@ -34,8 +34,7 @@ Result<AppConfig> load_app_config(const ConfigPaths& paths, IFileRepository& fil
     }
 
     pugi::xml_document doc;
-    pugi::xml_parse_result parsed =
-        doc.load_buffer(bytes->data(), bytes->size());
+    pugi::xml_parse_result parsed = doc.load_buffer(bytes->data(), bytes->size());
     if (!parsed)
     {
         return fail(ErrorKind::InvalidConfig, std::format("config parse error: {}", parsed.description()));
@@ -155,8 +154,7 @@ Result<AppConfig> load_app_config(const ConfigPaths& paths, IFileRepository& fil
     return config;
 }
 
-Result<AppConfig> save_app_config(AppConfig config, const ConfigPaths& paths,
-                                  IFileRepository& file_repository)
+Result<AppConfig> save_app_config(AppConfig config, const ConfigPaths& paths, IFileRepository& file_repository)
 {
     append_trailing_slash_if_missing(config.calibration_files_directory);
     append_trailing_slash_if_missing(config.ecuflash_definition_files_directory);
@@ -216,8 +214,7 @@ Result<AppConfig> save_app_config(AppConfig config, const ConfigPaths& paths,
     const std::string serialized = stream.str();
     Status write_result = file_repository.write(
         paths.config_file,
-        std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t *>(serialized.data()),
-                                      serialized.size()));
+        std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t *>(serialized.data()), serialized.size()));
     if (!write_result.has_value())
     {
         return std::unexpected(write_result.error());

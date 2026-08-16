@@ -39,10 +39,9 @@ TEST(LegacyConfigAdapterTest, ReadConfigFilePopulatesConfigValuesStructureFields
     LegacyConfigAdapter adapter(fs, bundle, repo);
     FileActions::ConfigValuesStructure values;
     values.config_file = "fastecu.cfg";
-    std::string xml =
-        R"(<?xml version="1.0"?><config name="FastECU" version="x"><software_settings>)"
-        R"(<setting name="serial_port"><value data="COM7"/></setting>)"
-        R"(</software_settings></config>)";
+    std::string xml = R"(<?xml version="1.0"?><config name="FastECU" version="x"><software_settings>)"
+                      R"(<setting name="serial_port"><value data="COM7"/></setting>)"
+                      R"(</software_settings></config>)";
     repo.files["fastecu.cfg"] = std::vector<std::uint8_t>(xml.begin(), xml.end());
 
     auto *returned = adapter.read_config_file(&values);
@@ -66,10 +65,9 @@ TEST(LegacyConfigAdapterTest, ReadConfigFileNormalizesTrailingSlashInMemory)
     LegacyConfigAdapter adapter(fs, bundle, repo);
     FileActions::ConfigValuesStructure values;
     values.config_file = "fastecu.cfg";
-    std::string xml =
-        R"(<?xml version="1.0"?><config name="FastECU" version="x"><software_settings>)"
-        R"(<setting name="calibration_files_directory"><value data="/cal/no/trailing/slash"/></setting>)"
-        R"(</software_settings></config>)";
+    std::string xml = R"(<?xml version="1.0"?><config name="FastECU" version="x"><software_settings>)"
+                      R"(<setting name="calibration_files_directory"><value data="/cal/no/trailing/slash"/></setting>)"
+                      R"(</software_settings></config>)";
     repo.files["fastecu.cfg"] = std::vector<std::uint8_t>(xml.begin(), xml.end());
 
     auto *returned = adapter.read_config_file(&values);
@@ -99,10 +97,9 @@ TEST(LegacyConfigAdapterTest, ReadProtocolsFileWithNoCarModelsLeavesListsEmpty)
     LegacyConfigAdapter adapter(fs, bundle, repo);
     FileActions::ConfigValuesStructure values;
     values.protocols_file = "protocols.cfg";
-    std::string xml =
-        R"(<?xml version="1.0"?><config name="FastECU" version="x"><protocols>)"
-        R"(<protocol name="p1"><ecu>E1</ecu><mcu>M1</mcu></protocol>)"
-        R"(</protocols></config>)";
+    std::string xml = R"(<?xml version="1.0"?><config name="FastECU" version="x"><protocols>)"
+                      R"(<protocol name="p1"><ecu>E1</ecu><mcu>M1</mcu></protocol>)"
+                      R"(</protocols></config>)";
     repo.files["protocols.cfg"] = std::vector<std::uint8_t>(xml.begin(), xml.end());
 
     auto *returned = adapter.read_protocols_file(&values);
@@ -124,20 +121,19 @@ TEST(LegacyConfigAdapterTest, ReadProtocolsFileJoinsCarModelWithMatchingProtocol
     LegacyConfigAdapter adapter(fs, bundle, repo);
     FileActions::ConfigValuesStructure values;
     values.protocols_file = "protocols.cfg";
-    std::string xml =
-        R"(<?xml version="1.0"?><config name="FastECU" version="x">)"
-        R"(<protocols>)"
-        R"(<protocol name="p1" alias="P One"><ecu>E1</ecu><mcu>M1</mcu><mode>OBD2</mode>)"
-        R"(<checksum>yes</checksum><read>yes</read><test_write>no</test_write><write>yes</write>)"
-        R"(<flash_transport>CAN</flash_transport><log_transport>K-Line</log_transport>)"
-        R"(<log_protocol>SSM</log_protocol><description>Protocol One</description></protocol>)"
-        R"(</protocols>)"
-        R"(<car_models>)"
-        R"(<car_model><make>Mitsubishi</make><model>Colt</model><version>Ralliart</version>)"
-        R"(<type>4G93T</type><kw>110</kw><hp>150</hp><fuel>Petrol</fuel><year>2005</year>)"
-        R"(<protocol>p1</protocol></car_model>)"
-        R"(</car_models>)"
-        R"(</config>)";
+    std::string xml = R"(<?xml version="1.0"?><config name="FastECU" version="x">)"
+                      R"(<protocols>)"
+                      R"(<protocol name="p1" alias="P One"><ecu>E1</ecu><mcu>M1</mcu><mode>OBD2</mode>)"
+                      R"(<checksum>yes</checksum><read>yes</read><test_write>no</test_write><write>yes</write>)"
+                      R"(<flash_transport>CAN</flash_transport><log_transport>K-Line</log_transport>)"
+                      R"(<log_protocol>SSM</log_protocol><description>Protocol One</description></protocol>)"
+                      R"(</protocols>)"
+                      R"(<car_models>)"
+                      R"(<car_model><make>Mitsubishi</make><model>Colt</model><version>Ralliart</version>)"
+                      R"(<type>4G93T</type><kw>110</kw><hp>150</hp><fuel>Petrol</fuel><year>2005</year>)"
+                      R"(<protocol>p1</protocol></car_model>)"
+                      R"(</car_models>)"
+                      R"(</config>)";
     repo.files["protocols.cfg"] = std::vector<std::uint8_t>(xml.begin(), xml.end());
 
     auto *returned = adapter.read_protocols_file(&values);
@@ -175,7 +171,8 @@ TEST(LegacyConfigAdapterTest, ReadProtocolsFileJoinsCarModelWithMatchingProtocol
     // populated) -- if the join were wrong (e.g. length mismatch) this
     // would fail, same as it would inside real read_protocols_file.
     QStringList validationErrors;
-    EXPECT_TRUE(FileActions::validate_flash_protocols(*returned, &validationErrors)) << validationErrors.join(", ").toStdString();
+    EXPECT_TRUE(FileActions::validate_flash_protocols(*returned, &validationErrors))
+        << validationErrors.join(", ").toStdString();
 }
 
 // A car_model whose <protocol> text doesn't match any real protocol name
@@ -191,16 +188,15 @@ TEST(LegacyConfigAdapterTest, ReadProtocolsFileUnmatchedCarModelGetsPlaceholders
     LegacyConfigAdapter adapter(fs, bundle, repo);
     FileActions::ConfigValuesStructure values;
     values.protocols_file = "protocols.cfg";
-    std::string xml =
-        R"(<?xml version="1.0"?><config name="FastECU" version="x">)"
-        R"(<protocols>)"
-        R"(<protocol name="p1"><ecu>E1</ecu></protocol>)"
-        R"(</protocols>)"
-        R"(<car_models>)"
-        R"(<car_model><make>Subaru</make><model>Legacy</model>)"
-        R"(<protocol>does_not_exist</protocol></car_model>)"
-        R"(</car_models>)"
-        R"(</config>)";
+    std::string xml = R"(<?xml version="1.0"?><config name="FastECU" version="x">)"
+                      R"(<protocols>)"
+                      R"(<protocol name="p1"><ecu>E1</ecu></protocol>)"
+                      R"(</protocols>)"
+                      R"(<car_models>)"
+                      R"(<car_model><make>Subaru</make><model>Legacy</model>)"
+                      R"(<protocol>does_not_exist</protocol></car_model>)"
+                      R"(</car_models>)"
+                      R"(</config>)";
     repo.files["protocols.cfg"] = std::vector<std::uint8_t>(xml.begin(), xml.end());
 
     auto *returned = adapter.read_protocols_file(&values);

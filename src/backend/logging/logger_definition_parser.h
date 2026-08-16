@@ -17,7 +17,6 @@ namespace fastecu::logging
 // ("No id", "No desc", "#", ...) that downstream comparisons still rely on.
 // Rows are always aligned: a <parameter> without <address> or <conversions>
 // yields empty fields, never a short vector.
-Result<LoggerDefinition> parse_logger_definition(
-    bytes::ByteView xml, std::string_view source);
+Result<LoggerDefinition> parse_logger_definition(bytes::ByteView xml, std::string_view source);
 
 } // namespace fastecu::logging

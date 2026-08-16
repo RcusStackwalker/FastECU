@@ -59,8 +59,8 @@ fastecu::Result<std::size_t> FastEcuKlineTransport::write(bytes::ByteView data)
     }
 }
 
-fastecu::Result<IKlineTransport::OptionalBytes> FastEcuKlineTransport::read(
-    int timeoutMs, const fastecu::ICancellationToken& cancellation)
+fastecu::Result<IKlineTransport::OptionalBytes>
+FastEcuKlineTransport::read(int timeoutMs, const fastecu::ICancellationToken& cancellation)
 {
     if (cancellation.cancelled())
     {

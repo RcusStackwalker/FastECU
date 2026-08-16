@@ -25,10 +25,8 @@ std::vector<std::uint8_t> xml_bytes(std::string_view text)
     return {text.begin(), text.end()};
 }
 
-UnresolvedDefinition doc(
-    std::string id,
-    std::vector<std::string> parents = {},
-    DefinitionFormat format = DefinitionFormat::RomRaider)
+UnresolvedDefinition doc(std::string id, std::vector<std::string> parents = {},
+                         DefinitionFormat format = DefinitionFormat::RomRaider)
 {
     return UnresolvedDefinition{
         .format = format,
@@ -141,12 +139,8 @@ TEST(DefinitionResolverTest, ResolvesMultiLevelInheritance)
     EXPECT_EQ(result->metadata.make, "Subaru");
     EXPECT_EQ(result->metadata.model, "Legacy");
     EXPECT_EQ(result->metadata.year, "2008");
-    EXPECT_THAT(
-        result->resolved_sources,
-        ElementsAre("GRANDPARENT.xml", "PARENT.xml", "CHILD.xml"));
-    EXPECT_THAT(
-        result->resolved_definition_ids,
-        ElementsAre("GRANDPARENT", "PARENT", "CHILD"));
+    EXPECT_THAT(result->resolved_sources, ElementsAre("GRANDPARENT.xml", "PARENT.xml", "CHILD.xml"));
+    EXPECT_THAT(result->resolved_definition_ids, ElementsAre("GRANDPARENT", "PARENT", "CHILD"));
 }
 
 TEST(DefinitionResolverTest, InheritsRuntimeRowsAndAllowsExplicitDefaultOverrides)
@@ -375,9 +369,7 @@ TEST(DefinitionResolverTest, MemoizesSharedBaseInDiamondGraph)
 
     ASSERT_TRUE(result);
     EXPECT_EQ(definitions.loads("SHARED"), 1);
-    EXPECT_THAT(
-        result->resolved_sources,
-        ElementsAre("SHARED.xml", "LEFT.xml", "RIGHT.xml", "ROOT.xml"));
+    EXPECT_THAT(result->resolved_sources, ElementsAre("SHARED.xml", "LEFT.xml", "RIGHT.xml", "ROOT.xml"));
 }
 
 TEST(DefinitionResolverTest, MergesMapsByStableIdAndAppendsChildMaps)
@@ -634,9 +626,7 @@ TEST(DefinitionResolverTest, EcuFlashDirectDataInheritsOmittedAxisOffsets)
     ASSERT_EQ(result->maps.size(), 1U);
     EXPECT_EQ(result->maps.front().x_axis.start_position, 9U);
     EXPECT_EQ(result->maps.front().x_axis.interval, 4U);
-    EXPECT_EQ(
-        result->maps.front().x_axis.static_data,
-        (std::vector<std::string>{"0.6", "1.1"}));
+    EXPECT_EQ(result->maps.front().x_axis.static_data, (std::vector<std::string>{"0.6", "1.1"}));
     EXPECT_EQ(*child, original);
 }
 
