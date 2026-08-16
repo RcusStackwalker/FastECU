@@ -17,67 +17,48 @@ exports_files(
     visibility = ["//:__pkg__"],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread. Leaf types header
-# with no dependency on flash_types.h/flash_plan.h -- flash_types.h includes
-# these to assemble FamilyPlan, so the dependency only ever runs this way.
 cc_library(
     name = "mitsu_colt_m32r_can_types",
     hdrs = ["mitsu_colt_m32r_can_types.h"],
     deps = ["//src/algorithms/protocol"],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread. See
-# mitsu_colt_m32r_can_types for the no-flash_types.h-dependency rule.
 cc_library(
     name = "subaru_mitsu_m32r_kline_types",
     hdrs = ["subaru_mitsu_m32r_kline_types.h"],
     deps = ["//src/algorithms/protocol"],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread. See
-# mitsu_colt_m32r_can_types for the no-flash_types.h-dependency rule.
 cc_library(
     name = "subaru_hitachi_m32r_kline_types",
     hdrs = ["subaru_hitachi_m32r_kline_types.h"],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread. See
-# mitsu_colt_m32r_can_types for the no-flash_types.h-dependency rule.
 cc_library(
     name = "subaru_denso_mc68hc16y5_02_types",
     hdrs = ["subaru_denso_mc68hc16y5_02_types.h"],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread. See
-# mitsu_colt_m32r_can_types for the no-flash_types.h-dependency rule.
 cc_library(
     name = "subaru_denso_sh7055_02_types",
     hdrs = ["subaru_denso_sh7055_02_types.h"],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread. See
-# mitsu_colt_m32r_can_types for the no-flash_types.h-dependency rule.
 cc_library(
     name = "subaru_hitachi_m32r_can_types",
     hdrs = ["subaru_hitachi_m32r_can_types.h"],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread. See
-# mitsu_colt_m32r_can_types for the no-flash_types.h-dependency rule.
 cc_library(
     name = "subaru_tcu_cvt_hitachi_m32r_can_types",
     hdrs = ["subaru_tcu_cvt_hitachi_m32r_can_types.h"],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread. See
-# mitsu_colt_m32r_can_types for the no-flash_types.h-dependency rule.
 cc_library(
     name = "subaru_tcu_cvt_mitsu_mh8111_can_types",
     hdrs = ["subaru_tcu_cvt_mitsu_mh8111_can_types.h"],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread. See
-# mitsu_colt_m32r_can_types for the no-flash_types.h-dependency rule.
 cc_library(
     name = "subaru_tcu_cvt_mitsu_mh8104_can_types",
     hdrs = ["subaru_tcu_cvt_mitsu_mh8104_can_types.h"],
@@ -149,7 +130,6 @@ cc_library(
     ],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
     name = "subaru_denso_mc68hc16y5_02_executor",
     srcs = ["subaru_denso_mc68hc16y5_02_executor.cpp"],
@@ -165,7 +145,6 @@ cc_library(
     ],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
     name = "subaru_denso_sh7055_02_executor",
     srcs = ["subaru_denso_sh7055_02_executor.cpp"],
@@ -227,7 +206,6 @@ cc_library(
     ],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
     name = "mitsu_colt_m32r_can_plan",
     srcs = ["mitsu_colt_m32r_can_plan.cpp"],
@@ -253,9 +231,6 @@ fastecu_portable_gtest(
     ],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread. Shared multi-phase
-# progress reporting for this package's CAN executors -- see the header for
-# which families use it.
 cc_library(
     name = "flash_phase_progress",
     hdrs = ["flash_phase_progress.h"],
@@ -271,9 +246,6 @@ fastecu_portable_gtest(
     ],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread. Shared UdsClient
-# exchange/logging plumbing for this package's CAN executors -- see the
-# header for which families use it and which (mh8104) deliberately don't.
 cc_library(
     name = "uds_client_exchange_common",
     srcs = ["uds_client_exchange_common.cpp"],
@@ -298,7 +270,6 @@ fastecu_portable_gtest(
     ],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
     name = "mitsu_colt_m32r_can_executor",
     srcs = ["mitsu_colt_m32r_can_executor.cpp"],
@@ -426,8 +397,6 @@ fastecu_portable_gtest(
     deps = [":subaru_tcu_cvt_mitsu_mh8111_can_plan"],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread. Shared MH8111/
-# MH8104 seed-key/encrypt/decrypt tables -- see the header for the Task 6
 # comparison this factoring is based on.
 cc_library(
     name = "subaru_tcu_cvt_mitsu_can_common",
@@ -441,7 +410,6 @@ fastecu_portable_gtest(
     deps = [":subaru_tcu_cvt_mitsu_can_common"],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
     name = "subaru_tcu_cvt_mitsu_mh8111_can_executor",
     srcs = ["subaru_tcu_cvt_mitsu_mh8111_can_executor.cpp"],
@@ -498,7 +466,6 @@ fastecu_portable_gtest(
     deps = [":subaru_tcu_cvt_mitsu_mh8104_can_plan"],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
     name = "subaru_tcu_cvt_mitsu_mh8104_can_executor",
     srcs = ["subaru_tcu_cvt_mitsu_mh8104_can_executor.cpp"],
@@ -535,7 +502,6 @@ fastecu_portable_gtest(
     ],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
     name = "subaru_tcu_cvt_hitachi_m32r_can_executor",
     srcs = ["subaru_tcu_cvt_hitachi_m32r_can_executor.cpp"],
@@ -572,7 +538,6 @@ fastecu_portable_gtest(
     ],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
     name = "subaru_hitachi_m32r_can_executor",
     srcs = ["subaru_hitachi_m32r_can_executor.cpp"],

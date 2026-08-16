@@ -1,5 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
 package(default_visibility = [
     "//src/algorithms:__subpackages__",
@@ -20,39 +20,27 @@ exports_files(
 
 cc_library(
     name = "diagnostics",
-    srcs = glob(
-        ["*.cpp"],
-        exclude = [
-            "*_test.cpp",
-            "qt_*.cpp",
-        ],
-    ),
-    hdrs = glob(
-        ["*.h"],
-        exclude = [
-            "*_test.h",
-            "qt_*.h",
-        ],
-    ),
+    srcs = [
+        "dtc_parser.cpp",
+        "dtc_tables.cpp",
+        "nrc_parser.cpp",
+    ],
+    hdrs = [
+        "dtc_parser.h",
+        "dtc_tables.h",
+        "nrc_parser.h",
+    ],
     deps = ["//src/algorithms/protocol"],
 )
 
-cc_test(
+fastecu_portable_gtest(
     name = "diagnostics_test",
-    size = "small",
     srcs = ["diagnostics_test.cpp"],
-    deps = [
-        ":diagnostics",
-        "@googletest//:gtest_main",
-    ],
+    deps = [":diagnostics"],
 )
 
-cc_test(
+fastecu_portable_gtest(
     name = "dtc_tables_test",
-    size = "small",
     srcs = ["dtc_tables_test.cpp"],
-    deps = [
-        ":diagnostics",
-        "@googletest//:gtest_main",
-    ],
+    deps = [":diagnostics"],
 )

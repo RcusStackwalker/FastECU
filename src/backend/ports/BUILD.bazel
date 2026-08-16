@@ -1,5 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -8,13 +8,20 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
-# Portable. Declares no QT_DEPS -- enforced by //:portable_closure.
 cc_library(
     name = "ports",
-    hdrs = glob(
-        ["*.h"],
-        exclude = ["*_test.cpp"],
-    ),
+    hdrs = [
+        "atomic_file_writer.h",
+        "cancellation.h",
+        "clock.h",
+        "error.h",
+        "event_sink.h",
+        "file_repository.h",
+        "file_system.h",
+        "resource_bundle.h",
+        "result.h",
+        "settings.h",
+    ],
 )
 
 # //:portable_closure reads this BUILD file as `data`; the export makes the
@@ -24,12 +31,8 @@ exports_files(
     visibility = ["//:__pkg__"],
 )
 
-cc_test(
+fastecu_portable_gtest(
     name = "result_test",
-    size = "small",
     srcs = ["result_test.cpp"],
-    deps = [
-        ":ports",
-        "@googletest//:gtest_main",
-    ],
+    deps = [":ports"],
 )

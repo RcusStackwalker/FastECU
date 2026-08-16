@@ -12,22 +12,11 @@ exports_files(
     visibility = ["//:__pkg__"],
 )
 
-# This package used to also host a legacy `eeprom` qt_cc_library target
-# (built EepromEcuSubaruDensoSH705x{Kline,Can}Operation). Step 5c/Task 8
-# deleted the K-Line operation file; this task (Task 9) deletes the last
-# remaining source (the CAN operation), so the legacy target -- which would
-# now glob zero sources -- has been removed entirely. This package is fully
-# portable: no Qt, no platform, no filesystem, no thread in any target below.
-
-# Portable. No Qt, no platform, no filesystem, no thread. Leaf types header
-# with no dependency on flash_types.h/flash_plan.h -- flash_types.h includes
-# this to assemble FamilyPlan, so the dependency only ever runs this way.
 cc_library(
     name = "denso_sh705x_eeprom_types",
     hdrs = ["denso_sh705x_eeprom_types.h"],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
     name = "denso_sh705x_eeprom_common",
     srcs = ["denso_sh705x_eeprom_common.cpp"],
@@ -60,12 +49,6 @@ fastecu_portable_gtest(
     ],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread.
-#
-# Lands in this package rather than //src/backend/flash because that package's
-# `flash` target globs *.cpp/*.h minus explicit portable lists -- a new file
-# there is silently swept into a Qt target. Every target in this package has
-# explicit srcs and there is no glob at all.
 cc_library(
     name = "eeprom_read_plan",
     srcs = ["eeprom_read_plan.cpp"],
@@ -91,7 +74,6 @@ fastecu_portable_gtest(
     ],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
     name = "denso_sh705x_eeprom_kline",
     srcs = ["denso_sh705x_eeprom_kline_executor.cpp"],
@@ -123,7 +105,6 @@ fastecu_portable_gtest(
     ],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
     name = "denso_sh705x_eeprom_can",
     srcs = ["denso_sh705x_eeprom_can_executor.cpp"],

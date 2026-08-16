@@ -14,7 +14,6 @@ exports_files(
     visibility = ["//:__pkg__"],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
     name = "config_paths",
     srcs = ["config_paths.cpp"],

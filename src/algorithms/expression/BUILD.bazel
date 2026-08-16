@@ -1,6 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("@rules_cc//cc:cc_test.bzl", "cc_test")
-load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:gtest_targets.bzl", "fastecu_gtest", "fastecu_portable_gtest")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS")
 
 package(default_visibility = [
@@ -37,14 +36,10 @@ cc_library(
     deps = QT_DEPS + [":expression"],
 )
 
-cc_test(
+fastecu_portable_gtest(
     name = "expression_evaluator_test",
-    size = "small",
     srcs = ["expression_evaluator_test.cpp"],
-    deps = [
-        ":expression",
-        "@googletest//:gtest_main",
-    ],
+    deps = [":expression"],
 )
 
 fastecu_gtest(

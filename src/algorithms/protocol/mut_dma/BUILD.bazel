@@ -1,5 +1,4 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
 package(default_visibility = [
@@ -21,31 +20,25 @@ exports_files(
 
 cc_library(
     name = "mut_dma",
-    srcs = glob(
-        ["*.cpp"],
-        exclude = [
-            "*_test.cpp",
-            "qt_*.cpp",
+    srcs =
+        [
+            "mut_dma_codec.cpp",
+            "mut_dma_freeform.cpp",
+            "mut_dma_memory.cpp",
         ],
-    ),
-    hdrs = glob(
-        ["*.h"],
-        exclude = [
-            "*_test.h",
-            "qt_*.h",
+    hdrs =
+        [
+            "mut_dma_codec.h",
+            "mut_dma_freeform.h",
+            "mut_dma_memory.h",
         ],
-    ),
     deps = ["//src/algorithms/protocol"],
 )
 
-cc_test(
+fastecu_portable_gtest(
     name = "mut_dma_test",
-    size = "small",
     srcs = ["mut_dma_test.cpp"],
-    deps = [
-        ":mut_dma",
-        "@googletest//:gtest_main",
-    ],
+    deps = [":mut_dma"],
 )
 
 fastecu_portable_gtest(

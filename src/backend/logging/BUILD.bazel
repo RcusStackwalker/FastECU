@@ -1,5 +1,4 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
 
@@ -120,14 +119,10 @@ cc_library(
     ],
 )
 
-cc_test(
+fastecu_portable_gtest(
     name = "logging_session_test",
-    size = "small",
     srcs = ["logging_session_test.cpp"],
-    deps = [
-        ":logging_session",
-        "@googletest//:gtest_main",
-    ],
+    deps = [":logging_session"],
 )
 
 cc_library(
@@ -141,14 +136,10 @@ cc_library(
     ],
 )
 
-cc_test(
+fastecu_portable_gtest(
     name = "logging_conversion_test",
-    size = "small",
     srcs = ["logging_conversion_test.cpp"],
-    deps = [
-        ":logging_conversion",
-        "@googletest//:gtest_main",
-    ],
+    deps = [":logging_conversion"],
 )
 
 cc_library(
@@ -166,14 +157,12 @@ cc_library(
     ],
 )
 
-cc_test(
+fastecu_portable_gtest(
     name = "logging_use_case_test",
-    size = "small",
     srcs = ["logging_use_case_test.cpp"],
     deps = [
         ":logging_use_case",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:recording_event_sink",
-        "@googletest//:gtest_main",
     ],
 )

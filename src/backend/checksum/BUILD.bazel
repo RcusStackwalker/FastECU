@@ -13,14 +13,12 @@ exports_files(
     visibility = ["//:__pkg__"],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
     name = "checksum_selection",
     hdrs = ["checksum_selection.h"],
     deps = ["//src/algorithms/checksum"],
 )
 
-# Portable. No Qt, no platform, no filesystem, no thread.
 cc_library(
     name = "dispatch",
     srcs = ["dispatch.cpp"],

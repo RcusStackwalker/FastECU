@@ -1,5 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
 package(default_visibility = [
     "//src/algorithms:__subpackages__",
@@ -31,32 +31,20 @@ cc_library(
     deps = ["//src/algorithms/protocol"],
 )
 
-cc_test(
+fastecu_portable_gtest(
     name = "checksum_test",
-    size = "small",
     srcs = ["checksum_test.cpp"],
-    deps = [
-        ":checksum",
-        "@googletest//:gtest_main",
-    ],
+    deps = [":checksum"],
 )
 
-cc_test(
+fastecu_portable_gtest(
     name = "checksum_primitives_test",
-    size = "small",
     srcs = ["checksum_primitives_test.cpp"],
-    deps = [
-        ":checksum",
-        "@googletest//:gtest_main",
-    ],
+    deps = [":checksum"],
 )
 
-cc_test(
+fastecu_portable_gtest(
     name = "denso_checksum_table_test",
-    size = "small",
     srcs = ["denso_checksum_table_test.cpp"],
-    deps = [
-        ":checksum",
-        "@googletest//:gtest_main",
-    ],
+    deps = [":checksum"],
 )
