@@ -1,5 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
 package(default_visibility = [
     "//src/algorithms:__subpackages__",
@@ -30,12 +30,8 @@ cc_library(
     ],
 )
 
-cc_test(
+fastecu_portable_gtest(
     name = "cipher_test",
-    size = "small",
     srcs = ["cipher_test.cpp"],
-    deps = [
-        ":crypto",
-        "@googletest//:gtest_main",
-    ],
+    deps = [":crypto"],
 )
