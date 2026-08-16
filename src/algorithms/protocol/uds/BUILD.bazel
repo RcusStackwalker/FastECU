@@ -41,3 +41,14 @@ fastecu_portable_gtest(
     srcs = ["uds_response_test.cpp"],
     deps = [":uds"],
 )
+
+# Header-only. Named bytes shared by the Subaru CAN and K-Line bootloader/
+# kernel executors -- see the header for the ISO 14229/SAE J1979/vendor-
+# specific split. No deps on uds_pdu/uds_response so K-Line executors (which
+# don't parse UDS PDUs at all) don't pull that logic in just for these
+# constants.
+cc_library(
+    name = "uds_service_ids",
+    hdrs = ["uds_service_ids.h"],
+    deps = ["//src/algorithms/protocol"],
+)

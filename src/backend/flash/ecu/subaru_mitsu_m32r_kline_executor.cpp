@@ -5,6 +5,7 @@
 
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
+#include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_plan.h"
 
 namespace fastecu::flash
@@ -164,12 +165,15 @@ Result<std::string> handshake(IKlineFlashTransport& transport, IClock& clock,
     }
     events.log(LogLevel::Info, "Timing parameters ok");
     events.log(LogLevel::Info, "Requesting seed");
-    auto seed_response = exchange(transport, cancellation, bytes::Bytes{0x27, 0x01}, p);
+    auto seed_response = exchange(
+        transport, cancellation, bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed},
+        p);
     if (!seed_response.has_value())
     {
         return std::unexpected(seed_response.error());
     }
-    if (auto s = expect_service(*seed_response, {0x67, 0x01}); !s.has_value())
+    if (auto s = expect_service(*seed_response, {0x67, uds::kSecurityAccessRequestSeed});
+        !s.has_value())
     {
         return std::unexpected(s.error());
     }
@@ -179,16 +183,16 @@ Result<std::string> handshake(IKlineFlashTransport& transport, IClock& clock,
     }
     const bytes::Bytes seed(seed_response->begin() + 6, seed_response->begin() + 10);
     const bytes::Bytes key = seed_key(seed);
-    bytes::Bytes key_request{0x27, 0x02};
+    bytes::Bytes key_request{uds::kSidSecurityAccess, uds::kSecurityAccessSendKey};
     key_request.insert(key_request.end(), key.begin(), key.end());
     events.log(LogLevel::Info, "Sending seed key to ECU");
-    if (auto s = request(std::move(key_request), {0x67, 0x02}); !s.has_value())
+    if (auto s = request(std::move(key_request), {0x67, uds::kSecurityAccessSendKey}); !s.has_value())
     {
         return std::unexpected(s.error());
     }
     events.log(LogLevel::Info, "Seed key ok");
     events.log(LogLevel::Info, "Set session mode");
-    if (auto s = request({0x10, 0x85, 0x02}, {0x50}); !s.has_value())
+    if (auto s = request({uds::kSidDiagnosticSessionControl, 0x85, 0x02}, {0x50}); !s.has_value())
     {
         return std::unexpected(s.error());
     }
@@ -240,7 +244,9 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock,
     {
         return baud;
     }
-    auto setup = exchange(transport, cancellation, bytes::Bytes{0x34, 0, 0, 0, 0x04, 0x07, 0x80, 0}, p);
+    auto setup = exchange(
+        transport, cancellation,
+        bytes::Bytes{uds::kSidRequestDownload, 0, 0, 0, 0x04, 0x07, 0x80, 0}, p);
     if (!setup.has_value())
     {
         return std::unexpected(setup.error());
@@ -250,7 +256,9 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock,
         return s;
     }
     events.log(LogLevel::Info, "Erasing...");
-    auto erased = exchange(transport, cancellation, bytes::Bytes{0x31, 0x02, 0x0f, 0xff, 0xff, 0xff}, p);
+    auto erased = exchange(
+        transport, cancellation,
+        bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStop, 0x0f, 0xff, 0xff, 0xff}, p);
     if (!erased.has_value())
     {
         return std::unexpected(erased.error());
@@ -275,7 +283,7 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock,
         }
         const std::uint32_t address = region.start + offset;
         const bytes::Bytes request = composeBe(
-            0x36_b, u24(address),
+            uds::kSidTransferData, u24(address),
             bytes::ByteView(encrypted).subspan(address, p.chunk_size));
         if (auto ack = exchange_optional(transport, cancellation, request, p); !ack.has_value())
         {
@@ -288,12 +296,14 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock,
     {
         return slept;
     }
-    auto checksum = exchange(transport, cancellation, bytes::Bytes{0x31, 0x01, 0x02}, p);
+    auto checksum = exchange(
+        transport, cancellation,
+        bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, 0x02}, p);
     if (!checksum.has_value())
     {
         return std::unexpected(checksum.error());
     }
-    if (auto s = expect_service(*checksum, {0x71, 0x01, 0x02}); !s.has_value())
+    if (auto s = expect_service(*checksum, {0x71, uds::kRoutineControlStart, 0x02}); !s.has_value())
     {
         return s;
     }

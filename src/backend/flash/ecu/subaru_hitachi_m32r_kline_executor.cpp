@@ -5,6 +5,7 @@
 
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
+#include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_kline_plan.h"
 
 namespace fastecu::flash
@@ -164,12 +165,14 @@ Status authenticated_session(IKlineFlashTransport& transport,
     {
         return s;
     }
-    auto seed = exchange(transport, cancellation, bytes::Bytes{0x27, 0x01}, p);
+    auto seed = exchange(
+        transport, cancellation,
+        bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed}, p);
     if (!seed.has_value())
     {
         return std::unexpected(seed.error());
     }
-    if (auto s = expect_prefix(*seed, {0x67, 0x01}); !s.has_value())
+    if (auto s = expect_prefix(*seed, {0x67, uds::kSecurityAccessRequestSeed}); !s.has_value())
     {
         return s;
     }
@@ -178,16 +181,19 @@ Status authenticated_session(IKlineFlashTransport& transport,
         return fail(ErrorKind::BadResponse, "seed response is too short");
     }
     const bytes::Bytes key = seed_key(bytes::ByteView(seed->data() + 6, 4));
-    bytes::Bytes key_request{0x27, 0x02};
+    bytes::Bytes key_request{uds::kSidSecurityAccess, uds::kSecurityAccessSendKey};
     key_request.insert(key_request.end(), key.begin(), key.end());
-    if (Status key_status = p.session_mode == HitachiM32rKlineSessionMode::Recovery
-                                ? request_prefix(transport, cancellation, std::move(key_request), {0x67}, p)
-                                : request_prefix(transport, cancellation, std::move(key_request), {0x67, 0x02}, p);
+    if (Status key_status =
+            p.session_mode == HitachiM32rKlineSessionMode::Recovery
+                ? request_prefix(transport, cancellation, std::move(key_request), {0x67}, p)
+                : request_prefix(transport, cancellation, std::move(key_request),
+                                 {0x67, uds::kSecurityAccessSendKey}, p);
         !key_status.has_value())
     {
         return key_status;
     }
-    return request_prefix(transport, cancellation, {0x10, 0x85, 0x02}, {0x50}, p);
+    return request_prefix(transport, cancellation, {uds::kSidDiagnosticSessionControl, 0x85, 0x02},
+                          {0x50}, p);
 }
 
 Result<std::string> prepare_read(IKlineFlashTransport& transport,
@@ -277,8 +283,9 @@ Status prepare_write(IKlineFlashTransport& transport, const ICancellationToken& 
     {
         return baud;
     }
-    auto probe = exchange_optional(transport, cancellation,
-                                   bytes::Bytes{0x34, 0, 0, 0, 0x04, 0x08, 0, 0}, p);
+    auto probe = exchange_optional(
+        transport, cancellation,
+        bytes::Bytes{uds::kSidRequestDownload, 0, 0, 0, 0x04, 0x08, 0, 0}, p);
     if (!probe.has_value())
     {
         return std::unexpected(probe.error());
@@ -329,7 +336,8 @@ Status erase_rom(IKlineFlashTransport& transport, IClock& clock,
                  const ICancellationToken& cancellation,
                  const SubaruHitachiM32rKlinePlan& p)
 {
-    const bytes::Bytes request = framed(bytes::Bytes{0x31, 0x02, 0x0f, 0xff, 0xff, 0xff}, p);
+    const bytes::Bytes request = framed(
+        bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStop, 0x0f, 0xff, 0xff, 0xff}, p);
     if (cancellation.cancelled())
     {
         return fail(ErrorKind::Cancelled, "cancelled before erase");
@@ -366,7 +374,7 @@ Status erase_rom(IKlineFlashTransport& transport, IClock& clock,
             }
         }
     }
-    return expect_prefix(response, {0x71, 0x02});
+    return expect_prefix(response, {0x71, uds::kRoutineControlStop});
 }
 
 Status write_rom(IKlineFlashTransport& transport, IClock& clock,
@@ -377,7 +385,9 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock,
     {
         return baud;
     }
-    if (auto s = request_prefix(transport, cancellation, {0x34, 0, 0, 0, 0x04, 0x08, 0, 0}, {0x74}, p); !s.has_value())
+    if (auto s = request_prefix(transport, cancellation,
+                                {uds::kSidRequestDownload, 0, 0, 0, 0x04, 0x08, 0, 0}, {0x74}, p);
+        !s.has_value())
     {
         return s;
     }
@@ -401,7 +411,7 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock,
             return fail(ErrorKind::Cancelled, "cancelled during ROM write");
         }
         const bytes::Bytes request = composeBe(
-            0x36_b, u24(address),
+            uds::kSidTransferData, u24(address),
             bytes::ByteView(encrypted).subspan(address, p.chunk_size));
         auto ack = exchange_optional(transport, cancellation, request, p);
         if (!ack.has_value())
@@ -418,7 +428,9 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock,
     {
         return slept;
     }
-    auto checksum = exchange_optional(transport, cancellation, bytes::Bytes{0x31, 0x01, 0x02}, p);
+    auto checksum = exchange_optional(
+        transport, cancellation,
+        bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, 0x02}, p);
     if (!checksum.has_value())
     {
         return std::unexpected(checksum.error());
