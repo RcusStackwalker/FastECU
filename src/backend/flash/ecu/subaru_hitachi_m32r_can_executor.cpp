@@ -267,8 +267,7 @@ Status connect_bootloader(Ctx& ctx)
     const bytes::Bytes& session_probe = **probe;
     // `at(5) != 0xA0 && at(6) != 0x20` selects on-car; De Morgan's gives
     // bench whenever either byte matches.
-    const bool bench = session_probe[1] == 0xA0 || session_probe[2] == 0x20;
-    if (!bench)
+    if (const bool bench = session_probe[1] == 0xA0 || session_probe[2] == 0x20; !bench)
     {
         // On-car programming branch (lines 281-579): out of scope per the
         // design's on-car scope decision (only the bench path is ported).
@@ -345,8 +344,8 @@ Status connect_bootloader(Ctx& ctx)
     {
         return std::unexpected(alive_reply.error());
     }
-    const bytes::ByteView alive_payload = uds::payload(*alive_reply);
-    if (alive_payload.size() < 3 || alive_payload[0] != 0x20 || alive_payload[1] != 0x01 ||
+    if (const bytes::ByteView alive_payload = uds::payload(*alive_reply);
+        alive_payload.size() < 3 || alive_payload[0] != 0x20 || alive_payload[1] != 0x01 ||
         alive_payload[2] != 0x04)
     {
         error(ctx, "Wrong response from ECU: unexpected alive-check response");
@@ -369,10 +368,10 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
     // "Settting dump start & length..." (lines 788-819): non-fatal on
     // mismatch or empty reply -- legacy only logs here, never returns early.
     info(ctx, "Settting dump start & length...");
-    Result<bytes::Bytes> setup = ctx.uds.request(
-        bytes::Bytes{0x35, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00}, kExchangePolicy,
-        ctx.cancellation);
-    if (!setup.has_value())
+    if (Result<bytes::Bytes> setup = ctx.uds.request(
+            bytes::Bytes{0x35, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00}, kExchangePolicy,
+            ctx.cancellation);
+        !setup.has_value())
     {
         error(ctx, std::format("Wrong response from ECU: {}", setup.error().detail));
     }
@@ -438,7 +437,7 @@ Status erase_memory(Ctx& ctx)
     // unconditionally overwritten by the loop's first iteration -- so it is
     // not reproduced as a separate step here.
     bool connected = false;
-    for (int attempt = 0; attempt < 20 && !connected; ++attempt)
+    for (int attempt = 0; attempt < 20; ++attempt)
     {
         Result<std::optional<bytes::Bytes>> received = ctx.channel.receive(500, ctx.cancellation);
         if (!received.has_value())
@@ -501,10 +500,10 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView image, PhaseReporter& 
         }
 
         const bytes::ByteView chunk_data = bytes::ByteView(encrypted).subspan(addr, kChunkSize);
-        Result<bytes::Bytes> chunk = fatal_request(
-            ctx, composeBe(0xB6_b, u24(addr), chunk_data),
-            std::format("the flash write at 0x{:x}", addr));
-        if (!chunk.has_value())
+        if (Result<bytes::Bytes> chunk = fatal_request(
+                ctx, composeBe(0xB6_b, u24(addr), chunk_data),
+                std::format("the flash write at 0x{:x}", addr));
+            !chunk.has_value())
         {
             return std::unexpected(chunk.error());
         }
@@ -540,8 +539,8 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView image, PhaseReporter& 
                                                        "Wrong response from ECU: ",
                                                        "the checksum verify"));
     }
-    const bytes::ByteView checksum_payload = uds::payload(*checksum);
-    if (checksum_payload.size() < 2 || checksum_payload[0] != 0x01 || checksum_payload[1] != 0x02)
+    if (const bytes::ByteView checksum_payload = uds::payload(*checksum);
+        checksum_payload.size() < 2 || checksum_payload[0] != 0x01 || checksum_payload[1] != 0x02)
     {
         error(ctx, "ROM checksum error");
         return fail(ErrorKind::BadResponse, "ROM checksum verify failed");

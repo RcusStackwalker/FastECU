@@ -144,10 +144,95 @@ exactly when the contained value is falsy. Spelling the check out means no
 reader has to know a type's value category to know what is being tested.
 
 Keep the declaration inside the `if` — splitting it out only widens the
-variable's scope for no benefit.
+variable's scope for no benefit. This isn't specific to `Result`/`Status`:
+any variable whose only use is one `if` condition (and, for an `if`/`else if`
+chain, the branches of that same chain) goes in the init-statement, not a
+separate line above it:
+
+```cpp
+// Yes
+if (const auto *plan = std::get_if<FooPlan>(&plan_variant); plan == nullptr) {
+    return fail(InvalidConfig, "wrong plan kind");
+}
+
+// No
+const auto *plan = std::get_if<FooPlan>(&plan_variant);
+if (plan == nullptr) {
+    return fail(InvalidConfig, "wrong plan kind");
+}
+```
+
+A variable used again later in the enclosing block — past the end of the
+`if`/`else` chain — does not qualify; forcing it into an init-statement would
+just take it out of scope early. (SonarCloud cpp:S6004 — 20 of PR #199's 29
+findings were this exact pattern, none caught by review because it compiles
+fine either way.)
 
 Exceptions never cross a port. See CLAUDE.md for the `ErrorKind` set and the
 rule against extending it.
+
+## Control flow
+
+A `for` loop's three clauses (init, condition, increment) stay about loop
+control only — the iteration counter, not a status flag that duplicates a
+`break` already in the body:
+
+```cpp
+// Yes
+bool connected = false;
+for (int attempt = 0; attempt < 20; ++attempt) {
+    if (probe(attempt)) {
+        connected = true;
+        break;
+    }
+}
+
+// No
+bool connected = false;
+for (int attempt = 0; attempt < 20 && !connected; ++attempt) {
+    if (probe(attempt)) {
+        connected = true;
+        break;
+    }
+}
+```
+
+If there's no `break` yet because the loop keeps retrying after success (a
+flag that must stop the loop rather than merely exit early), add the `break`
+when the flag is set rather than folding the flag into the loop condition.
+Same outcome, one thing controlling the loop instead of two. (SonarCloud
+cpp:S886 — three sites in PR #199.)
+
+When an ECU family's `connect_bootloader`/`read_mem`/`reflash_block`-style
+function accumulates a long run of "send, check `has_value()`, log on
+content mismatch" exchanges, factor the repeated shape into a small
+same-file helper (`single_shot_logged`, a retry-step helper, a one-line
+boolean predicate for a gnarly condition) rather than leaving it inline.
+Keep each family's own log wording and legacy-citation comments attached to
+the helper call site, not lost in the extraction — the point is fewer
+nesting levels per function, not fewer facts on the record. (SonarCloud
+cpp:S3776, cognitive complexity — one site in PR #199, at 28 against a limit
+of 25.)
+
+A free function's name used as a non-type template argument (a plan-builder
+passed to a template that stores it as a function pointer, for example) needs
+an explicit `&`, even though the language allows the bare name to decay:
+
+```cpp
+// Yes
+using FooWorkflow = SimpleCanFlashWorkflow<FooExecutor, &build_foo_plan>;
+
+// No
+using FooWorkflow = SimpleCanFlashWorkflow<FooExecutor, build_foo_plan>;
+```
+
+Both compile identically. The bare name is also valid in a genuinely boolean
+context (`if (some_function)`, always true), which is what SonarCloud's
+check (cpp:S936) is really guarding against — it can't tell "deliberate
+function pointer" from "function name where a call was probably meant" from
+syntax alone, so write the `&` at every such use to make the address-of
+explicit. (Four sites in PR #199, all template arguments, not the bug the
+rule exists to catch — but the fix is the same either way.)
 
 ## Collections
 

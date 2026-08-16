@@ -623,16 +623,16 @@ class SimpleCanFlashWorkflow final : public FlashWorkflow
 };
 
 using SubaruHitachiM32rCanWorkflow =
-    SimpleCanFlashWorkflow<SubaruHitachiM32rCanExecutor, build_subaru_hitachi_m32r_can_plan>;
+    SimpleCanFlashWorkflow<SubaruHitachiM32rCanExecutor, &build_subaru_hitachi_m32r_can_plan>;
 using SubaruTcuCvtHitachiM32rCanWorkflow =
     SimpleCanFlashWorkflow<SubaruTcuCvtHitachiM32rCanExecutor,
-                           build_subaru_tcu_cvt_hitachi_m32r_can_plan>;
+                           &build_subaru_tcu_cvt_hitachi_m32r_can_plan>;
 using SubaruTcuCvtMitsuMh8111CanWorkflow =
     SimpleCanFlashWorkflow<SubaruTcuCvtMitsuMh8111CanExecutor,
-                           build_subaru_tcu_cvt_mitsu_mh8111_can_plan>;
+                           &build_subaru_tcu_cvt_mitsu_mh8111_can_plan>;
 using SubaruTcuCvtMitsuMh8104CanWorkflow =
     SimpleCanFlashWorkflow<SubaruTcuCvtMitsuMh8104CanExecutor,
-                           build_subaru_tcu_cvt_mitsu_mh8104_can_plan>;
+                           &build_subaru_tcu_cvt_mitsu_mh8104_can_plan>;
 
 class EepromWorkflow final : public FlashWorkflow
 {
