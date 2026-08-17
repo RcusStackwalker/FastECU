@@ -6,12 +6,16 @@
 // so it survives independent of which operation/executor implementation
 // backs each protocol name. Portable: plain file/string parsing, no Qt.
 #include <cstdlib>
+#include <format>
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <string_view>
 
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
+
+using namespace std::literals::string_view_literals;
 
 namespace
 {
@@ -43,12 +47,12 @@ TEST(ProtocolsCfgEepromCapabilitiesTest, DeclaresEepromWriteAndTestWriteUnsuppor
     const std::string contents = readProtocolsCfg();
     ASSERT_FALSE(contents.empty());
 
-    for (const std::string& name : {"sub_ecu_eeprom_denso_sh7055_kline", "sub_ecu_eeprom_denso_sh7058_kline",
-                                    "sub_ecu_eeprom_denso_sh7055_densocan", "sub_ecu_eeprom_denso_sh7058_densocan",
-                                    "sub_ecu_eeprom_denso_sh7058_can", "sub_ecu_eeprom_denso_sh7058_can_diesel"})
+    for (const auto& name : {"sub_ecu_eeprom_denso_sh7055_kline"sv, "sub_ecu_eeprom_denso_sh7058_kline"sv,
+                             "sub_ecu_eeprom_denso_sh7055_densocan"sv, "sub_ecu_eeprom_denso_sh7058_densocan"sv,
+                             "sub_ecu_eeprom_denso_sh7058_can"sv, "sub_ecu_eeprom_denso_sh7058_can_diesel"sv})
     {
         SCOPED_TRACE(name);
-        const std::string needle = "name=\"" + name + "\"";
+        const std::string needle = std::format("name=\"{}\"", name);
         const std::size_t nameIndex = contents.find(needle);
         ASSERT_NE(nameIndex, std::string::npos);
         const std::size_t entryEnd = contents.find("</protocol>", nameIndex);

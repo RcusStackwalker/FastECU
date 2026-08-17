@@ -193,7 +193,7 @@ std::vector<std::uint32_t> decodeFrame(bytes::Byte expectedFrameIndex, const std
         return {};
     }
 
-    int need = 1;
+    std::size_t need = 1;
     for (const CdbgChannel& ch : frameItems)
     {
         need += ch.size;
