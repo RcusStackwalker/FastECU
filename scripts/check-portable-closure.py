@@ -10,7 +10,7 @@ It also enforces the stronger, package-level promise that step 5e made for
 //src/backend/flash and //src/backend/checksum: those two packages must hold
 no Qt rule whatsoever (see QT_FREE_PACKAGES below).
 
-Rejects Qt and JNI. @openssl is deliberately ALLOWED; step 7 decides its fate.
+Rejects Qt and JNI.
 """
 
 import re

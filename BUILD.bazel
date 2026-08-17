@@ -19,18 +19,6 @@ py_test(
     deps = ["@python_deps//pyyaml"],
 )
 
-py_test(
-    name = "bazel_openssl_wiring",
-    size = "small",
-    srcs = ["scripts/check-bazel-openssl.py"],
-    data = [
-        ".github/workflows/pr.yml",
-        "MODULE.bazel",
-        "//src/algorithms/crypto:BUILD.bazel",
-    ],
-    main = "scripts/check-bazel-openssl.py",
-)
-
 # Computes the resolved transitive label closure of every required portable
 # backend target, so the Python check below can catch a platform dependency
 # reached through several layers of `deps` -- something the per-BUILD-file
@@ -165,7 +153,6 @@ py_test(
     data = [
         ":portable_backend_closure",
         "//src/algorithms/checksum:BUILD.bazel",
-        "//src/algorithms/crypto:BUILD.bazel",
         "//src/algorithms/diagnostics:BUILD.bazel",
         "//src/algorithms/expression:BUILD.bazel",
         "//src/algorithms/menu:BUILD.bazel",

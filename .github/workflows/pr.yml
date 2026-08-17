@@ -87,31 +87,20 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $installOutput = choco install llvm openssl -y --no-progress
+          choco install llvm -y --no-progress
           "C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          $deployMatches = $installOutput | Select-String -Pattern "Deployed to '([^']+)'" | Where-Object { $_.Line -match 'openssl' }
-          if ($deployMatches.Count -ne 1) {
-            throw "Expected one OpenSSL 'Deployed to' line in choco output, found $($deployMatches.Count): $($deployMatches.Line -join ' | ')"
-          }
-          $opensslDir = $deployMatches[0].Matches[0].Groups[1].Value.TrimEnd('\') -replace '\\', '/'
-          Write-Host "Resolved OPENSSL_ROOT=$opensslDir"
-          "OPENSSL_ROOT=$opensslDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          $cryptoDlls = Get-ChildItem -Path "$opensslDir/bin" -Filter 'libcrypto-*.dll' -ErrorAction SilentlyContinue
-          if ($cryptoDlls.Count -eq 0) { throw "No libcrypto-*.dll in $opensslDir/bin" }
-          $cryptoDll = ($cryptoDlls | Sort-Object { [int]([regex]::Match($_.Name, 'libcrypto-(\d+)-').Groups[1].Value) } -Descending | Select-Object -First 1).Name
-          "OPENSSL_CRYPTO_DLL=$cryptoDll" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Install Bazel prerequisites (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install llvm openssl@3
+          brew install llvm
           echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
 
       - name: Install Bazel prerequisites (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang-tidy libssl-dev
+          sudo apt-get install -y clang-tidy
 
       - name: Build Bazel targets
         run: |

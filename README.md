@@ -39,7 +39,7 @@ Commercial uses is possible, but **all code linked with GPL 3.0 source code must
 
 FastECU uses Bazel 9.1.1 and Qt 6.8.3. Install Bazelisk (or the pinned Bazel
 version), Qt host tools with Qt Charts, Serial Port, Remote Objects, and
-WebSockets, plus the platform compiler and OpenSSL development/runtime files.
+WebSockets, plus the platform compiler.
 The exact CI setup is documented in `.github/workflows/pr.yml`.
 
 Build the application:
@@ -56,7 +56,7 @@ bazel test --config=release //...
 
 On macOS and Windows, the release packaging entry points are
 `scripts/package-macos.sh` and `scripts/package-windows.ps1`. They build the
-application through Bazel before collecting the Qt and OpenSSL runtime files.
+application through Bazel before collecting the Qt runtime files.
 
 ### clang-tidy
 

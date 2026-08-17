@@ -4,7 +4,7 @@ Build requirements
 
 FastECU uses Bazel 9.1.1, C++20, and Qt 6.8.3. Install Bazelisk (or the
 version pinned in .bazelversion), Qt host tools with Qt Charts, Serial Port,
-Remote Objects, and WebSockets, a platform C++ compiler, and OpenSSL.
+Remote Objects, and WebSockets, and a platform C++ compiler.
 
 Build the application from the repository root:
 
@@ -12,7 +12,7 @@ Build the application from the repository root:
 
 Run the maintained tests:
 
-    bazel test --config=release //tests/... //src/... //:bazel_openssl_wiring
+    bazel test --config=release //tests/... //src/...
 
 The exact Windows, macOS, and Linux dependency setup is kept in
 .github/workflows/pr.yml. Release packages for Windows and macOS are assembled
