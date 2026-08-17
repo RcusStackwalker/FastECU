@@ -72,8 +72,7 @@ Verified on 2026-08-06 against `master` at `9b94a9c`:
   `apps/` is visibility-restricted to the permitted layering directions.
 - Three CI guards enforce what the compiler cannot: `//:portable_closure`
   (Qt/JNI rejection across the portable closure), `//:serial_compat_allowlist`
-  (frozen, shrink-only), and `//:openpty_includes` (ADR 0005). `//:bazel_openssl_wiring`
-  keeps `MODULE.bazel`, `pr.yml`, and the crypto BUILD file consistent.
+  (frozen, shrink-only), and `//:openpty_includes` (ADR 0005).
 - The portable closure now spans `src/algorithms` plus eleven `src/backend`
   package groups: `ports`, `logging` (+ `logging/protocols`), `protocol`,
   `flash` (+ `flash/eeprom`), `config`, `checksum`, `definition`, and
@@ -84,9 +83,9 @@ Verified on 2026-08-06 against `master` at `9b94a9c`:
   `FlashUtils::configureIso15765Can(SerialPortActions*)`, a disclosed 5c gap)
   and `//src/backend/logging/protocols`. The rest are `src/ui/desktop` entries
   that step 6 drains, plus the legitimate same-layer `remote_utility` edge.
-- Four `:qt_compat` shims survive in `src/algorithms` (`crypto`, `protocol`,
+- Three `:qt_compat` shims survive in `src/algorithms` (`protocol`,
   `menu`, `expression`). The `diagnostics` shim, including `qt_dtc_parser` /
-  `qt_nrc_parser`, was drained and deleted by 5d-5.
+  `qt_nrc_parser`, was drained and deleted by 5d-5; `crypto` was removed.
 - The legacy `src/backend/definitions/file_actions.cpp` god object is down to
   ~2.1k lines and is distinct from the new portable `src/backend/definition/`.
   Three named legacy adapters bridge it to portable use cases:

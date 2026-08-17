@@ -195,19 +195,6 @@
   },
   "selectedYankedVersions": {},
   "moduleExtensions": {
-    "//bazel:openssl_ext.bzl%openssl": {
-      "general": {
-        "bzlTransitiveDigest": "+1okqfN8LikvGmxH0UnkRzP/9ICxEiYi5dkVeDFTn5k=",
-        "usagesDigest": "/ZDUPrsRF7GYKHmnR2Ib+AZacdx4kczB+mi2pcYV9GY=",
-        "recordedInputs": [],
-        "generatedRepoSpecs": {
-          "openssl": {
-            "repoRuleId": "@@//bazel:openssl_ext.bzl%_openssl_repo",
-            "attributes": {}
-          }
-        }
-      }
-    },
     "//bazel/toolchains:msvc_sysroot_ext.bzl%msvc_sysroot": {
       "general": {
         "bzlTransitiveDigest": "Acc7zB6uv0DbY+ley5dNf0+ldHWzgVeNQMEv8xZ1w2w=",

@@ -12,7 +12,7 @@ Two documents carry the conventions this file only summarizes: the [coding style
 
 ## Build, test, lint
 
-Bazel 9.1.1 (pinned in `.bazelversion`) is the **only** target graph — application, tests, packaging, coverage, compile commands, and clang-tidy inputs ([ADR 0001](docs/adr/0001-adopt-bazel-as-target-graph.md), [ADR 0007](docs/adr/0007-use-bazel-as-ci-source-of-truth.md)). Requires Qt 6.8.3 host tools (Charts, SerialPort, RemoteObjects, WebSockets) and OpenSSL. `.github/workflows/pr.yml` is the authoritative environment setup.
+Bazel 9.1.1 (pinned in `.bazelversion`) is the **only** target graph — application, tests, packaging, coverage, compile commands, and clang-tidy inputs ([ADR 0001](docs/adr/0001-adopt-bazel-as-target-graph.md), [ADR 0007](docs/adr/0007-use-bazel-as-ci-source-of-truth.md)). Requires Qt 6.8.3 host tools (Charts, SerialPort, RemoteObjects, WebSockets). `.github/workflows/pr.yml` is the authoritative environment setup.
 
 ```sh
 bazel build --config=release //:fastecu                      # app (alias -> //apps/desktop:fastecu)
@@ -29,7 +29,7 @@ scripts/coverage-local.sh                                    # llvm-cov report -
 
 Test targets live under `//src`, `//tests`, `//resources`, and the root package (build-graph guards); use `//...` to run them all. Platform-specific targets carry `target_compatible_with` and are skipped on the wrong OS.
 
-Packaging: `scripts/package-macos.sh`, `scripts/package-windows.ps1` — both build via Bazel first, then collect Qt/OpenSSL runtime files.
+Packaging: `scripts/package-macos.sh`, `scripts/package-windows.ps1` — both build via Bazel first, then collect Qt runtime files.
 
 C++23 (`std::expected`, `std::format`, ranges). MSVC uses `/std:c++latest`; macOS pins `--macos_minimum_os=26.0` for `std::format`.
 
@@ -37,7 +37,7 @@ C++23 (`std::expected`, `std::format`, ranges). MSVC uses `/std:c++latest`; macO
 
 Dependencies flow one way: `apps/desktop` → `src/ui` → `src/platform` → `src/backend` → `src/algorithms`. `platform → backend` is permitted (platform implements backend-owned interfaces); the reverse never is.
 
-- **`src/algorithms/`** — pure, Qt-free logic: protocol codecs (`ssm/`, `mut_dma/`, `colt/`), checksum, crypto, expression evaluation, diagnostics. Each has a sibling `:qt_compat` shim target for legacy callers; don't add new ones.
+- **`src/algorithms/`** — pure, Qt-free logic: protocol codecs (`ssm/`, `mut_dma/`, `colt/`), checksum, expression evaluation, diagnostics. Each has a sibling `:qt_compat` shim target for legacy callers; don't add new ones.
 - **`src/backend/`** — use cases and domain model: `protocol/` (transport interfaces + drivers), `flash/` (plan/validate/execute + `eeprom/`), `logging/`, `definition/` (RomRaider + EcuFlash parsers), `calibration/`, `config/`, `checksum/`, and `ports/`. Most targets here are **portable** — no Qt, no threads, no filesystem.
 - **`src/backend/ports/`** — the injected-port interfaces: `IClock`, `ICancellationToken`, `IEventSink`, `IFileRepository`, `IFileSystem`, `ISettings`, `IResourceBundle`, plus `Result<T>`/`Error` in `result.h`/`error.h`. Transport ports (`IKlineTransport`, `ICanTransport`, `ISsmTransport`) deliberately stay in `src/backend/protocol/`.
 - **`src/platform/desktop/`** — Qt/OS adapters: `common/ports/` (Qt implementations of every port), `common/serial/` (J2534 + serial, threading facade), `common/transport/`, `common/logging/` + `common/flash/` (worker threads), `unix/j2534/`, `windows/j2534/`.
@@ -56,7 +56,6 @@ These exist because the compiler can't catch them; they fail CI, not your editor
 - **`//:portable_closure`** — resolves the transitive closure of every portable target and rejects Qt or JNI deps. Adding a Qt dep to a portable backend target fails here even if it compiles. New portable targets must be registered in both the `genquery` in `BUILD.bazel` and `PORTABLE_ROOTS` in `scripts/check-portable-closure.py`.
 - **`//:serial_compat_allowlist`** — freezes the visibility list of `//src/platform/desktop/common/serial:serial_qt_compat`. That list is transitional debt: **it may shrink, never grow.**
 - **`//:openpty_includes`** — platform-specific backend tests live in separate source files listed in `*_UNIX_SRCS` / `*_WIN32_SRCS`, not behind `#ifdef` in common sources ([ADR 0005](docs/adr/0005-separate-platform-specific-backend-tests.md)).
-- **`//:bazel_openssl_wiring`** — keeps `MODULE.bazel`, `pr.yml`, and the crypto BUILD file consistent.
 - Windows 32-bit J2534 vendor DLLs are reached through an out-of-process bridge (`src/platform/desktop/windows/j2534/j2534_bridge_*`); the x86 host binary is built in-graph via the platform transition in `bazel/x86_windows_transition.bzl`.
 
 ## Writing targets and tests

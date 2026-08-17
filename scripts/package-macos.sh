@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Assemble FastECU.app from the Bazel-built //:fastecu binary, bundle Qt
-# frameworks + the linked OpenSSL dylib via macdeployqt, and zip it.
+# frameworks via macdeployqt, and zip it.
 # Usage: scripts/package-macos.sh <output-zip> [version]
 # Requires: bazel, macdeployqt (Qt bin dir) on PATH.
 set -euo pipefail
@@ -50,7 +50,6 @@ PLIST
 macdeployqt "$app"
 
 [ -d "$app/Contents/Frameworks/QtCore.framework" ] || { echo "macdeployqt did not bundle QtCore.framework" >&2; exit 1; }
-ls "$app"/Contents/Frameworks/libcrypto*.dylib >/dev/null 2>&1 || { echo "OpenSSL libcrypto not bundled in the .app" >&2; exit 1; }
 
 rm -f "$out_zip"
 ( cd "$work" && zip -r -y "$out_zip" FastECU.app )
