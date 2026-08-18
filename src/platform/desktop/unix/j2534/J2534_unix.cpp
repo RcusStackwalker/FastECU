@@ -3,6 +3,7 @@
 #include <QThread>
 
 #include <cstdio>
+#include <format>
 
 J2534::J2534()
 {
@@ -946,7 +947,7 @@ void J2534::dump_sconfig_param(SCONFIG s)
     }
 
     // DBGPRINT(("    %s : %u",paramName,s.Value));
-    // emit LOG_D("    " << paramName << s.Value;
+    emit LOG_D(QString::fromUtf8(std::format("    {} {}", paramName, s.Value)), true, true);
 }
 
 long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const void *pInput, void *pOutput)

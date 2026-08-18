@@ -6,6 +6,7 @@
 
 #include <QThread>
 
+#include <array>
 #include <iterator>
 
 #include "src/algorithms/protocol/qt_bytes.h"
@@ -1518,9 +1519,10 @@ int SerialPortActionsDirect::set_j2534_can_timings()
         emit LOG_D("Set iso15765 timings", true, true);
     }
     SCONFIG_LIST scl;
-    SCONFIG scp[] = {{LOOPBACK, 0}};
-    scl.NumOfParams = std::size(scp);
-    scl.ConfigPtr = scp;
+    auto scp = std::to_array<SCONFIG>(
+        {{LOOPBACK, 0}, {ISO15765_STMIN, 0}, {ISO15765_BS, 0}, {P3_MIN, 0}, {P2_MIN, 0}, {P1_MAX, 0}});
+    scl.NumOfParams = scp.size();
+    scl.ConfigPtr = scp.data();
     if (j2534->PassThruIoctl(chanID, SET_CONFIG, &scl, nullptr))
     {
         reportJ2534Error();

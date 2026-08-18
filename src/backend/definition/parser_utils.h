@@ -98,7 +98,7 @@ Status populate_axes(pugi::xml_node table, UnresolvedCalibrationMap& map, std::s
             {
                 axis->type = "Static X Axis";
             }
-            if ((type == "Static Y Axis" || type == "Y Axis") && !axis->size)
+            if ((type == "Static Y Axis" || type == "Y Axis") && !axis->size.has_value())
             {
                 axis->size = map.x_size.value_or(1U);
             }

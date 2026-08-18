@@ -1,6 +1,7 @@
 #pragma once
 #include "src/algorithms/protocol/bytes.h"
 
+#include <array>
 #include <cstdint>
 #include <vector>
 
@@ -45,8 +46,8 @@ constexpr std::uint32_t kWriteRoutineRamAddr = 0x8054AC;
 // RAM-resident erase/write helper routines, carried over verbatim (not
 // recompiled) from externals/livemonitor/colt_flasher.xml. Valid only for
 // ROM 47110032 (Colt CZT, Z37A).
-extern const bytes::Byte kErasePageRoutine[160];
-extern const bytes::Byte kWritePageRoutine[176];
+extern const std::array<bytes::Byte, 160> kErasePageRoutine;
+extern const std::array<bytes::Byte, 176> kWritePageRoutine;
 
 // RAM-resident redirect erase/write helpers. Structural siblings of
 // kErasePageRoutine/kWritePageRoutine above (same RAM slots, same command

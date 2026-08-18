@@ -147,26 +147,29 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
     {
         configValues->flash_protocol_selected_id = "0";
     }
-    configValues->flash_protocol_selected_make =
-        configValues->flash_protocol_make.at(configValues->flash_protocol_selected_id.toInt());
-    configValues->flash_protocol_selected_mcu =
-        configValues->flash_protocol_mcu.at(configValues->flash_protocol_selected_id.toInt());
-    configValues->flash_protocol_selected_checksum =
-        configValues->flash_protocol_checksum.at(configValues->flash_protocol_selected_id.toInt());
-    configValues->flash_protocol_selected_model =
-        configValues->flash_protocol_model.at(configValues->flash_protocol_selected_id.toInt());
-    configValues->flash_protocol_selected_version =
-        configValues->flash_protocol_version.at(configValues->flash_protocol_selected_id.toInt());
-    configValues->flash_protocol_selected_protocol_name =
-        configValues->flash_protocol_protocol_name.at(configValues->flash_protocol_selected_id.toInt());
-    configValues->flash_protocol_selected_description =
-        configValues->flash_protocol_description.at(configValues->flash_protocol_selected_id.toInt());
-    // configValues->flash_protocol_selected_flash_transport =
-    // configValues->flash_protocol_flash_transport.at(configValues->flash_protocol_selected_id.toInt());
-    // configValues->flash_protocol_selected_log_transport =
-    // configValues->flash_protocol_log_transport.at(configValues->flash_protocol_selected_id.toInt());
-    // configValues->flash_protocol_selected_log_protocol =
-    // configValues->flash_protocol_log_protocol.at(configValues->flash_protocol_selected_id.toInt());
+    if (configValues->flash_protocol_id.length() > 0)
+    {
+        configValues->flash_protocol_selected_make =
+            configValues->flash_protocol_make.at(configValues->flash_protocol_selected_id.toInt());
+        configValues->flash_protocol_selected_mcu =
+            configValues->flash_protocol_mcu.at(configValues->flash_protocol_selected_id.toInt());
+        configValues->flash_protocol_selected_checksum =
+            configValues->flash_protocol_checksum.at(configValues->flash_protocol_selected_id.toInt());
+        configValues->flash_protocol_selected_model =
+            configValues->flash_protocol_model.at(configValues->flash_protocol_selected_id.toInt());
+        configValues->flash_protocol_selected_version =
+            configValues->flash_protocol_version.at(configValues->flash_protocol_selected_id.toInt());
+        configValues->flash_protocol_selected_protocol_name =
+            configValues->flash_protocol_protocol_name.at(configValues->flash_protocol_selected_id.toInt());
+        configValues->flash_protocol_selected_description =
+            configValues->flash_protocol_description.at(configValues->flash_protocol_selected_id.toInt());
+        // configValues->flash_protocol_selected_flash_transport =
+        // configValues->flash_protocol_flash_transport.at(configValues->flash_protocol_selected_id.toInt());
+        // configValues->flash_protocol_selected_log_transport =
+        // configValues->flash_protocol_log_transport.at(configValues->flash_protocol_selected_id.toInt());
+        // configValues->flash_protocol_selected_log_protocol =
+        // configValues->flash_protocol_log_protocol.at(configValues->flash_protocol_selected_id.toInt());
+    }
 
     emit LOG_D(configValues->flash_protocol_selected_make, true, true);
     emit LOG_D(configValues->flash_protocol_selected_mcu, true, true);

@@ -91,7 +91,7 @@ Result<UnresolvedScaling> parse_scaling(pugi::xml_node scaling_node, std::string
         return std::unexpected(storage_type.error());
     }
     scaling.storage_type = *storage_type;
-    if (!scaling.storage_type)
+    if (!scaling.storage_type.has_value())
     {
         auto owner_storage_type = optional_storage_type_attribute(owner, "storagetype", source, definition_id);
         if (!owner_storage_type.has_value())
@@ -212,7 +212,7 @@ Result<UnresolvedCalibrationMap> parse_table(pugi::xml_node table, std::string_v
         }
         UnresolvedScaling& scaling = *parsed_scaling;
         map.scaling_name = scaling.name;
-        if (!map.storage_type)
+        if (!map.storage_type.has_value())
         {
             map.storage_type = scaling.storage_type;
         }
