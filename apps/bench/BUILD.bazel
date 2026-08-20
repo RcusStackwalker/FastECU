@@ -1,0 +1,29 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+
+package(default_visibility = ["//:__pkg__"])
+
+# Qt-free by construction: the CLI's vocabulary, parsing, command
+# construction and rendering are all testable without a device. Only
+# bench_session and main.cpp (Task 7) touch Qt.
+cc_library(
+    name = "bench_core",
+    srcs = [
+        "bench_format.cpp",
+        "bench_types.cpp",
+    ],
+    hdrs = [
+        "bench_format.h",
+        "bench_types.h",
+    ],
+    deps = [
+        "//src/algorithms/protocol",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "bench_format_test",
+    srcs = ["bench_format_test.cpp"],
+    deps = [":bench_core"],
+)
