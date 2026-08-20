@@ -54,9 +54,13 @@ Result<std::unique_ptr<ICanFlashTransport>> open_desktop_can_flash_transport(con
         return fail(ErrorKind::InvalidConfig,
                     std::format("no such device: {} (detected {})", wanted.toStdString(), detected.size()));
     }
-    if (!serial->set_serial_port(wanted))
+    // open_serial_port() consumes the selected UI-style entry from
+    // serial_port_list.at(0), including the adapter description used to select
+    // the J2534 path. set_serial_port() only updates a separate scalar and
+    // leaves that list empty, which makes the direct backend assert on open.
+    if (!serial->set_serial_port_list(QStringList{wanted}))
     {
-        return fail(ErrorKind::InvalidConfig, std::format("set_serial_port({}) failed", wanted.toStdString()));
+        return fail(ErrorKind::InvalidConfig, std::format("set_serial_port_list({}) failed", wanted.toStdString()));
     }
 
     auto transport = std::make_unique<DesktopCanFlashTransport>(std::move(serial));

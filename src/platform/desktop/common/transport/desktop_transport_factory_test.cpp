@@ -77,7 +77,7 @@ class TestDesktopTransportFactory : public QObject
             open_desktop_can_flash_transport(configWith(&fake, {"op2-0", "op2-1"}, "op2-0"), kColtCan);
 
         QVERIFY(transport.has_value());
-        QVERIFY(fake->takeCallLog().contains("cfg:set_serial_port:op2-0"));
+        QCOMPARE(fake->get_serial_port_list(), QStringList({"op2-0"}));
     }
 
     void reportsDisconnectedWhenTheOpenFails()
