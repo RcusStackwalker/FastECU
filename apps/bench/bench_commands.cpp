@@ -379,12 +379,31 @@ Result<CommandOutcome> run_step(BenchContext& context, const StepSpec& step)
         {
             return std::unexpected(slot.error());
         }
-        const Status uploaded = upload(context, slot->ram_address, slot->bytes);
+        // Default to the baked array; --from <file> substitutes the file's
+        // bytes for provenance-testing a rebuilt routine, while the RAM slot
+        // (address) always follows the routine name, not the source of bytes.
+        bytes::ByteView payload = slot->bytes;
+        bytes::Bytes fileBytes;
+        if (step.args.size() > 1 && step.args[1] == "--from")
+        {
+            if (step.args.size() < 3)
+            {
+                return fail(ErrorKind::InvalidConfig, "--from needs a file path");
+            }
+            const Result<bytes::Bytes> loaded = context.files.load(step.args[2]);
+            if (!loaded.has_value())
+            {
+                return std::unexpected(loaded.error());
+            }
+            fileBytes = *loaded;
+            payload = fileBytes;
+        }
+        const Status uploaded = upload(context, slot->ram_address, payload);
         if (!uploaded.has_value())
         {
             return std::unexpected(uploaded.error());
         }
-        outcome.note = std::format("uploaded {} routine bytes to 0x{:06x}", slot->bytes.size(), slot->ram_address);
+        outcome.note = std::format("uploaded {} routine bytes to 0x{:06x}", payload.size(), slot->ram_address);
         break;
     }
     }

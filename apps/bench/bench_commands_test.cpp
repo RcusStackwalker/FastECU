@@ -289,6 +289,38 @@ TEST(BenchCommands, UploadRoutineSendsWriteRoutinesToTheWriteRamSlot)
               MitsuColtCan::buildRequestDownload(MitsuColtCan::kWriteRoutineRamAddr, MitsuColtCan::kWriteRoutineSize));
 }
 
+TEST(BenchCommands, UploadRoutineFromFileSendsTheFilesBytesInsteadOfTheBakedArray)
+{
+    // Provenance: --from substitutes the payload bytes but not the RAM
+    // address, which still comes from the routine name's slot.
+    Harness harness;
+    harness.files.contents["custom_erase.bin"] = bytes::Bytes{0x11, 0x22, 0x33, 0x44};
+    harness.session.replies = {bytes::Bytes{0x74}, bytes::Bytes{0x76}, bytes::Bytes{0x74}, bytes::Bytes{0x76},
+                               bytes::Bytes{0x71, 0xE1, 0x00}};
+
+    const auto outcome =
+        harness.run(destructiveStep(CommandId::UploadRoutine, {"erase-redirect", "--from", "custom_erase.bin"}));
+
+    ASSERT_TRUE(outcome.has_value());
+    EXPECT_EQ(harness.session.requests.at(0),
+              MitsuColtCan::buildRequestDownload(MitsuColtCan::kEraseRoutineRamAddr, 4));
+    EXPECT_EQ(harness.session.requests.at(1), (bytes::Bytes{0x36, 0x11, 0x22, 0x33, 0x44}));
+    // 0x11+0x22+0x33+0x44 = 0x00AA, big-endian.
+    EXPECT_EQ(harness.session.requests.at(3), (bytes::Bytes{0x36, 0x00, 0xAA}));
+}
+
+TEST(BenchCommands, UploadRoutineFromFilePropagatesAMissingFileError)
+{
+    Harness harness;
+
+    const auto outcome =
+        harness.run(destructiveStep(CommandId::UploadRoutine, {"erase-redirect", "--from", "absent.bin"}));
+
+    ASSERT_FALSE(outcome.has_value());
+    EXPECT_EQ(outcome.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_TRUE(harness.session.requests.empty());
+}
+
 TEST(BenchCommands, UploadRoutineRejectsAnUnknownRoutineName)
 {
     Harness harness;

@@ -73,6 +73,17 @@ TEST(BenchArgs, RejectsDestructiveFlagOnANonDestructiveStep)
     EXPECT_EQ(parsed.error().kind, ErrorKind::InvalidConfig);
 }
 
+TEST(BenchArgs, PassesUploadRoutineFromThroughAsOrdinaryArguments)
+{
+    const auto parsed = parse({"upload-routine", "erase-redirect", "--from", "custom.bin", "--destructive"});
+
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_EQ(parsed->steps.size(), 1u);
+    EXPECT_EQ(parsed->steps[0].id, CommandId::UploadRoutine);
+    EXPECT_TRUE(parsed->steps[0].destructive_ack);
+    EXPECT_EQ(parsed->steps[0].args, (std::vector<std::string>{"erase-redirect", "--from", "custom.bin"}));
+}
+
 TEST(BenchArgs, RejectsUnknownCommands)
 {
     const auto parsed = parse({"frobnicate"});

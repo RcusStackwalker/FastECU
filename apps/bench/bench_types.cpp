@@ -19,7 +19,7 @@ constexpr std::array kCommands = {
     CommandSpec{CommandId::Unlock, "unlock", true, 0, 0},
     CommandSpec{CommandId::Erase, "erase", true, 0, 0},
     CommandSpec{CommandId::Download, "download", true, 2, 2},
-    CommandSpec{CommandId::UploadRoutine, "upload-routine", true, 1, 1},
+    CommandSpec{CommandId::UploadRoutine, "upload-routine", true, 1, 3}, // routine name, plus optional --from <path>
 };
 
 } // namespace

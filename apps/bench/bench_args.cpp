@@ -24,6 +24,9 @@ Result<StepSpec> makeStep(const std::vector<std::string>& tokens)
             destructive_ack = true;
             continue;
         }
+        // Every other token, including upload-routine's own "--from <path>",
+        // passes through verbatim as an ordinary step argument -- only
+        // --destructive is a flag at this layer.
         args.push_back(tokens[index]);
     }
 
