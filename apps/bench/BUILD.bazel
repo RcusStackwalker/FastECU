@@ -9,10 +9,12 @@ package(default_visibility = ["//:__pkg__"])
 cc_library(
     name = "bench_core",
     srcs = [
+        "bench_args.cpp",
         "bench_format.cpp",
         "bench_types.cpp",
     ],
     hdrs = [
+        "bench_args.h",
         "bench_format.h",
         "bench_types.h",
     ],
@@ -25,5 +27,11 @@ cc_library(
 fastecu_portable_gtest(
     name = "bench_format_test",
     srcs = ["bench_format_test.cpp"],
+    deps = [":bench_core"],
+)
+
+fastecu_portable_gtest(
+    name = "bench_args_test",
+    srcs = ["bench_args_test.cpp"],
     deps = [":bench_core"],
 )
