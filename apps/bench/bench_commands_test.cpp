@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include "apps/bench/bench_args.h"
+#include "apps/bench/testing/fake_bench_files.h"
 #include "apps/bench/testing/fake_bench_session.h"
 
 namespace fastecu::bench

@@ -28,16 +28,5 @@ TEST(FakeBenchSession, FailsLoudlyWhenTheScriptRunsOut)
     EXPECT_EQ(result.error().kind, ErrorKind::Internal);
 }
 
-TEST(FakeBenchFiles, RoundTripsLoadAndSave)
-{
-    FakeBenchFiles files;
-    files.contents["in.bin"] = bytes::Bytes{1, 2, 3};
-
-    EXPECT_EQ(files.load("in.bin").value(), (bytes::Bytes{1, 2, 3}));
-    EXPECT_FALSE(files.load("missing.bin").has_value());
-    ASSERT_TRUE(files.save("out.bin", bytes::Bytes{4, 5}).has_value());
-    EXPECT_EQ(files.saved["out.bin"], (bytes::Bytes{4, 5}));
-}
-
 } // namespace
 } // namespace fastecu::bench::testing

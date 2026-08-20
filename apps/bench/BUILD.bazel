@@ -50,6 +50,7 @@ fastecu_portable_gtest(
     srcs = ["bench_commands_test.cpp"],
     deps = [
         ":bench_core",
+        "//apps/bench/testing:fake_bench_files",
         "//apps/bench/testing:fake_bench_session",
     ],
 )

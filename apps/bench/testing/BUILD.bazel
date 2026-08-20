@@ -15,3 +15,16 @@ fastecu_portable_gtest(
     srcs = ["fake_bench_session_test.cpp"],
     deps = [":fake_bench_session"],
 )
+
+cc_library(
+    name = "fake_bench_files",
+    testonly = True,
+    hdrs = ["fake_bench_files.h"],
+    deps = ["//apps/bench:bench_core"],
+)
+
+fastecu_portable_gtest(
+    name = "fake_bench_files_test",
+    srcs = ["fake_bench_files_test.cpp"],
+    deps = [":fake_bench_files"],
+)

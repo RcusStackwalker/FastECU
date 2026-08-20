@@ -1,7 +1,5 @@
 #pragma once
 #include <cstddef>
-#include <map>
-#include <string>
 #include <vector>
 
 #include "apps/bench/bench_session_interface.h"
@@ -51,29 +49,6 @@ class FakeBenchSession : public IBenchSession
             return fail(ErrorKind::Internal, "FakeBenchSession ran out of scripted replies");
         }
         return replies[next_reply++];
-    }
-};
-
-class FakeBenchFiles : public IBenchFiles
-{
-  public:
-    std::map<std::string, bytes::Bytes> contents;
-    std::map<std::string, bytes::Bytes> saved;
-
-    Result<bytes::Bytes> load(std::string_view path) override
-    {
-        const auto found = contents.find(std::string(path));
-        if (found == contents.end())
-        {
-            return fail(ErrorKind::InvalidConfig, "no such file");
-        }
-        return found->second;
-    }
-
-    Status save(std::string_view path, bytes::ByteView data) override
-    {
-        saved[std::string(path)] = bytes::Bytes(data.begin(), data.end());
-        return {};
     }
 };
 
