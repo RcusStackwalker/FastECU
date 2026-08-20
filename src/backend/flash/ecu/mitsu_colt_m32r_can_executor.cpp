@@ -389,23 +389,26 @@ Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan, bytes::ByteVie
     // Line 303.
     info(ctx, std::format("Checking top 128KB (0x{:x}-0x{:x})...", kTopRegionStart, kTopRegionEnd));
 
-    // Lines 305-309.
-    Result<bytes::Bytes> current_top = read_flash_range(ctx, kTopRegionStart, kTopRegionLength);
-    if (!current_top.has_value())
-    {
-        return std::unexpected(current_top.error());
-    }
+    /*
+        // Lines 305-309.
+        Result<bytes::Bytes> current_top = read_flash_range(ctx, kTopRegionStart, kTopRegionLength);
+        if (!current_top.has_value())
+        {
+            return std::unexpected(current_top.error());
+        }
 
-    // Lines 311-316. The legacy `romdata.mid(kTopRegionStart, kTopRegionLength)`
-    // clamps a short slice; write_mem's length guard rules that out before it
-    // calls here, so this subspan is always the full kTopRegionLength bytes.
+        // Lines 311-316. The legacy `romdata.mid(kTopRegionStart, kTopRegionLength)`
+        // clamps a short slice; write_mem's length guard rules that out before it
+        // calls here, so this subspan is always the full kTopRegionLength bytes.
+        const bytes::ByteView wanted_top = rom.subspan(kTopRegionStart, kTopRegionLength);
+        if (std::ranges::equal(*current_top, wanted_top))
+        {
+            info(ctx, "Top 128KB already matches, no bootstrap needed");
+            phase.complete();
+            return {};
+        }
+    */
     const bytes::ByteView wanted_top = rom.subspan(kTopRegionStart, kTopRegionLength);
-    if (std::ranges::equal(*current_top, wanted_top))
-    {
-        info(ctx, "Top 128KB already matches, no bootstrap needed");
-        phase.complete();
-        return {};
-    }
     phase.update(1);
 
     info(ctx, "Top 128KB mismatch, bootstrapping via redirect routines...");
