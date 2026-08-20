@@ -1,5 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_binary")
 
 package(default_visibility = [
     "//:__pkg__",
@@ -52,5 +53,29 @@ fastecu_portable_gtest(
         ":bench_core",
         "//apps/bench/testing:fake_bench_files",
         "//apps/bench/testing:fake_bench_session",
+    ],
+)
+
+# The only Qt-touching code in this package (and the only code CI cannot
+# exercise against real hardware): bench_session wires IBenchSession to the
+# desktop CAN transport, main.cpp is argv/stdin plumbing. Every decision
+# worth testing lives in bench_core above.
+qt_cc_binary(
+    name = "fastecu-bench",
+    srcs = [
+        "bench_files.cpp",
+        "bench_files.h",
+        "bench_session.cpp",
+        "bench_session.h",
+        "main.cpp",
+    ],
+    copts = COMMON_COPTS,
+    deps = QT_DEPS + [
+        ":bench_core",
+        "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
+        "//src/backend/flash:can_flash_uds_channel",
+        "//src/backend/protocol/uds:uds_client",
+        "//src/platform/desktop/common/ports",
+        "//src/platform/desktop/common/transport:flash_transports",
     ],
 )
