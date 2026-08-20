@@ -5,6 +5,7 @@
 #include "apps/bench/bench_args.h"
 #include "apps/bench/testing/fake_bench_files.h"
 #include "apps/bench/testing/fake_bench_session.h"
+#include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
 
 namespace fastecu::bench
 {
@@ -155,6 +156,161 @@ TEST(BenchDecode, EraseStatusOneNamesBothReachablePathsAsAmbiguous)
 TEST(BenchDecode, EraseReplyWithoutAStatusByteSaysSo)
 {
     EXPECT_NE(decode_erase_reply(bytes::Bytes{0xE0}).find("no status byte"), std::string::npos);
+}
+
+StepSpec destructiveStep(CommandId id, std::vector<std::string> args = {})
+{
+    return StepSpec{.id = id, .args = std::move(args), .destructive_ack = true};
+}
+
+TEST(BenchCommands, UnlockSendsTheTwelveByteReflashPayload)
+{
+    Harness harness;
+    harness.session.replies = {bytes::Bytes{0x7B, 0x00}};
+
+    const auto outcome = harness.run(destructiveStep(CommandId::Unlock));
+
+    ASSERT_TRUE(outcome.has_value());
+    EXPECT_EQ(harness.session.requests.at(0), MitsuColtCan::buildRequestReflashUnlock());
+}
+
+TEST(BenchCommands, EraseSendsRoutineControl224AndAcceptsAZeroStatus)
+{
+    Harness harness;
+    harness.session.replies = {bytes::Bytes{0x71, 0xE0, 0x00}};
+
+    const auto outcome = harness.run(destructiveStep(CommandId::Erase));
+
+    ASSERT_TRUE(outcome.has_value());
+    EXPECT_TRUE(outcome->ok);
+    EXPECT_EQ(harness.session.requests.at(0), (bytes::Bytes{0x31, 0xE0}));
+}
+
+TEST(BenchCommands, EraseTreatsANonZeroStatusAsAFailureCarryingTheAmbiguityNote)
+{
+    Harness harness;
+    harness.session.replies = {bytes::Bytes{0x71, 0xE0, 0x01}};
+
+    const auto outcome = harness.run(destructiveStep(CommandId::Erase));
+
+    ASSERT_FALSE(outcome.has_value());
+    EXPECT_EQ(outcome.error().kind, ErrorKind::BadResponse);
+    EXPECT_NE(outcome.error().detail.find("0x5a28"), std::string::npos);
+}
+
+TEST(BenchCommands, EraseRejectsAReplyWithNoStatusByte)
+{
+    Harness harness;
+    harness.session.replies = {bytes::Bytes{0x71, 0xE0}};
+
+    const auto outcome = harness.run(destructiveStep(CommandId::Erase));
+
+    ASSERT_FALSE(outcome.has_value());
+    EXPECT_EQ(outcome.error().kind, ErrorKind::BadResponse);
+}
+
+TEST(BenchCommands, DownloadSendsRequestDownloadThenTransferDataThenTheChecksum)
+{
+    Harness harness;
+    harness.files.contents["blob.bin"] = bytes::Bytes{0xAA, 0xBB};
+    harness.session.replies = {
+        bytes::Bytes{0x74},             // RequestDownload for the payload
+        bytes::Bytes{0x76},             // TransferData
+        bytes::Bytes{0x74},             // RequestDownload for the checksum
+        bytes::Bytes{0x76},             // TransferData for the checksum
+        bytes::Bytes{0x71, 0xE1, 0x00}, // CRC check
+    };
+
+    const auto outcome = harness.run(destructiveStep(CommandId::Download, {"0x8000", "blob.bin"}));
+
+    ASSERT_TRUE(outcome.has_value());
+    ASSERT_EQ(harness.session.requests.size(), 5u);
+    EXPECT_EQ(harness.session.requests[0], MitsuColtCan::buildRequestDownload(0x8000, 2));
+    EXPECT_EQ(harness.session.requests[1], (bytes::Bytes{0x36, 0xAA, 0xBB}));
+    EXPECT_EQ(harness.session.requests[2],
+              MitsuColtCan::buildRequestDownload(MitsuColtCan::kCrcTransferAddress, MitsuColtCan::kCrcTransferSize));
+    // 0xAA + 0xBB = 0x0165, big-endian.
+    EXPECT_EQ(harness.session.requests[3], (bytes::Bytes{0x36, 0x01, 0x65}));
+}
+
+TEST(BenchCommands, DownloadFailsWhenTheCrcCheckReportsAMismatch)
+{
+    Harness harness;
+    harness.files.contents["blob.bin"] = bytes::Bytes{0xAA};
+    harness.session.replies = {bytes::Bytes{0x74}, bytes::Bytes{0x76}, bytes::Bytes{0x74}, bytes::Bytes{0x76},
+                               bytes::Bytes{0x71, 0xE1, 0x01}};
+
+    const auto outcome = harness.run(destructiveStep(CommandId::Download, {"0x8000", "blob.bin"}));
+
+    ASSERT_FALSE(outcome.has_value());
+    EXPECT_EQ(outcome.error().kind, ErrorKind::BadResponse);
+}
+
+TEST(BenchCommands, DownloadFailsWhenTheFileIsMissing)
+{
+    Harness harness;
+
+    const auto outcome = harness.run(destructiveStep(CommandId::Download, {"0x8000", "absent.bin"}));
+
+    ASSERT_FALSE(outcome.has_value());
+    EXPECT_EQ(outcome.error().kind, ErrorKind::InvalidConfig);
+}
+
+TEST(BenchCommands, UploadRoutineSendsTheBakedArrayToItsRamSlot)
+{
+    Harness harness;
+    // upload() makes exactly 5 exchanges for a routine this size (one
+    // TransferData frame each way, same as Download): RequestDownload,
+    // TransferData, RequestDownload (checksum), TransferData (checksum),
+    // then the CRC check. The 6th scripted reply is intentionally never
+    // consumed -- see the over-scripted-test note in the task brief.
+    harness.session.replies = {
+        bytes::Bytes{0x74}, bytes::Bytes{0x76}, bytes::Bytes{0x74}, bytes::Bytes{0x76}, bytes::Bytes{0x71, 0xE1, 0x00},
+        bytes::Bytes{0x76}};
+
+    const auto outcome = harness.run(destructiveStep(CommandId::UploadRoutine, {"erase-redirect"}));
+
+    ASSERT_TRUE(outcome.has_value());
+    EXPECT_EQ(harness.session.requests.at(0),
+              MitsuColtCan::buildRequestDownload(MitsuColtCan::kEraseRoutineRamAddr, MitsuColtCan::kEraseRoutineSize));
+}
+
+TEST(BenchCommands, UploadRoutineSendsWriteRoutinesToTheWriteRamSlot)
+{
+    Harness harness;
+    harness.session.replies = {
+        bytes::Bytes{0x74}, bytes::Bytes{0x76}, bytes::Bytes{0x74}, bytes::Bytes{0x76}, bytes::Bytes{0x71, 0xE1, 0x00},
+        bytes::Bytes{0x76}};
+
+    const auto outcome = harness.run(destructiveStep(CommandId::UploadRoutine, {"write-redirect"}));
+
+    ASSERT_TRUE(outcome.has_value());
+    EXPECT_EQ(harness.session.requests.at(0),
+              MitsuColtCan::buildRequestDownload(MitsuColtCan::kWriteRoutineRamAddr, MitsuColtCan::kWriteRoutineSize));
+}
+
+TEST(BenchCommands, UploadRoutineRejectsAnUnknownRoutineName)
+{
+    Harness harness;
+
+    const auto outcome = harness.run(destructiveStep(CommandId::UploadRoutine, {"not-a-routine"}));
+
+    ASSERT_FALSE(outcome.has_value());
+    EXPECT_EQ(outcome.error().kind, ErrorKind::InvalidConfig);
+}
+
+TEST(BenchCommands, RunStepRefusesADestructiveStepThatLostItsAcknowledgement)
+{
+    // Defence in depth: bench_args gates at parse time, but a StepSpec built
+    // another way must not reach the wire ungated.
+    Harness harness;
+    harness.session.replies = {bytes::Bytes{0x71, 0xE0, 0x00}};
+
+    const auto outcome = harness.run(step(CommandId::Erase));
+
+    ASSERT_FALSE(outcome.has_value());
+    EXPECT_EQ(outcome.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_TRUE(harness.session.requests.empty());
 }
 
 } // namespace

@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <format>
 
+#include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
 #include "src/algorithms/protocol/uds/uds_response.h"
 
@@ -87,6 +88,87 @@ Status readIntoOutcome(BenchContext& context, const StepSpec& step, CommandOutco
     return {};
 }
 
+// The RAM-resident helper array plus its slot address for one named routine.
+struct RoutineSlot
+{
+    std::string_view name;
+    bytes::ByteView bytes;
+    std::uint32_t ram_address;
+};
+
+Result<RoutineSlot> routine_slot(std::string_view name)
+{
+    using namespace MitsuColtCan;
+    if (name == "erase-page")
+    {
+        return RoutineSlot{name, kErasePageRoutine, kEraseRoutineRamAddr};
+    }
+    if (name == "erase-redirect")
+    {
+        return RoutineSlot{name, kEraseRedirectRoutine, kEraseRoutineRamAddr};
+    }
+    if (name == "write-page")
+    {
+        return RoutineSlot{name, kWritePageRoutine, kWriteRoutineRamAddr};
+    }
+    if (name == "write-redirect")
+    {
+        return RoutineSlot{name, kWriteRedirectRoutine, kWriteRoutineRamAddr};
+    }
+    return fail(ErrorKind::InvalidConfig, std::format("unknown routine: {}", name));
+}
+
+// Shared by Download and UploadRoutine: RequestDownload, every TransferData
+// frame, a second RequestDownload/TransferData pair carrying the running
+// checksum at kCrcTransferAddress, then a RoutineControl 225 CRC check on
+// `addr`. All destructive callers use kSlowPolicy -- flash writes and the
+// erase they depend on are not 500ms operations.
+Status upload(BenchContext& context, std::uint32_t addr, bytes::ByteView payload)
+{
+    const bytes::Bytes requestDownload =
+        MitsuColtCan::buildRequestDownload(addr, static_cast<std::uint32_t>(payload.size()));
+    if (const Result<bytes::Bytes> reply = context.session.exchange(requestDownload, kSlowPolicy); !reply.has_value())
+    {
+        return std::unexpected(reply.error());
+    }
+    for (const bytes::Bytes& frame : MitsuColtCan::buildTransferDataFrames(payload))
+    {
+        if (const Result<bytes::Bytes> reply = context.session.exchange(frame, kSlowPolicy); !reply.has_value())
+        {
+            return std::unexpected(reply.error());
+        }
+    }
+
+    const bytes::Bytes crcRequestDownload =
+        MitsuColtCan::buildRequestDownload(MitsuColtCan::kCrcTransferAddress, MitsuColtCan::kCrcTransferSize);
+    if (const Result<bytes::Bytes> reply = context.session.exchange(crcRequestDownload, kSlowPolicy);
+        !reply.has_value())
+    {
+        return std::unexpected(reply.error());
+    }
+    const bytes::Bytes checksumBytes = bytes::composeBe(MitsuColtCan::checksum(payload));
+    for (const bytes::Bytes& frame : MitsuColtCan::buildTransferDataFrames(checksumBytes))
+    {
+        if (const Result<bytes::Bytes> reply = context.session.exchange(frame, kSlowPolicy); !reply.has_value())
+        {
+            return std::unexpected(reply.error());
+        }
+    }
+
+    const bytes::Bytes crcCheck = MitsuColtCan::buildRoutineCheckCrc(addr);
+    const Result<bytes::Bytes> crcReply = context.session.exchange(crcCheck, kSlowPolicy);
+    if (!crcReply.has_value())
+    {
+        return std::unexpected(crcReply.error());
+    }
+    const bytes::ByteView crcPayload = uds::payload(*crcReply);
+    if (crcPayload.size() < 2 || crcPayload[1] != 0)
+    {
+        return fail(ErrorKind::BadResponse, decode_crc_reply(crcPayload));
+    }
+    return {};
+}
+
 } // namespace
 
 std::string decode_erase_reply(bytes::ByteView payload)
@@ -120,6 +202,26 @@ std::string decode_crc_reply(bytes::ByteView payload)
 
 Result<CommandOutcome> run_step(BenchContext& context, const StepSpec& step)
 {
+    const CommandSpec *spec = nullptr;
+    for (const CommandSpec& candidate : command_table())
+    {
+        if (candidate.id == step.id)
+        {
+            spec = &candidate;
+            break;
+        }
+    }
+    if (spec == nullptr)
+    {
+        return fail(ErrorKind::Internal, "step has no command spec");
+    }
+    // bench_args gates this at parse time; repeated here so a StepSpec built
+    // another way cannot reach the wire ungated.
+    if (spec->destructive && !step.destructive_ack)
+    {
+        return fail(ErrorKind::InvalidConfig, std::format("{} needs --destructive", spec->name));
+    }
+
     CommandOutcome outcome;
     outcome.step = renderStep(step);
 
@@ -221,10 +323,70 @@ Result<CommandOutcome> run_step(BenchContext& context, const StepSpec& step)
         // main.cpp (Task 7) handles `ports` before any session exists.
         return fail(ErrorKind::Unsupported, "ports does not use a session");
     case CommandId::Unlock:
+    {
+        const bytes::Bytes pdu = MitsuColtCan::buildRequestReflashUnlock();
+        outcome.tx = pdu;
+        const Result<bytes::Bytes> reply = context.session.exchange(pdu, kSlowPolicy);
+        if (!reply.has_value())
+        {
+            return std::unexpected(reply.error());
+        }
+        outcome.rx = *reply;
+        break;
+    }
     case CommandId::Erase:
+    {
+        const bytes::Bytes pdu = MitsuColtCan::buildRoutineErase();
+        outcome.tx = pdu;
+        const Result<bytes::Bytes> reply = context.session.exchange(pdu, kSlowPolicy);
+        if (!reply.has_value())
+        {
+            return std::unexpected(reply.error());
+        }
+        const bytes::ByteView payload = uds::payload(*reply);
+        outcome.rx.assign(payload.begin(), payload.end());
+        outcome.note = decode_erase_reply(payload);
+        if (payload.size() < 2 || payload[1] != 0)
+        {
+            return fail(ErrorKind::BadResponse, outcome.note);
+        }
+        break;
+    }
     case CommandId::Download:
+    {
+        const Result<std::uint32_t> addr = parse_u32(step.args[0]);
+        if (!addr.has_value())
+        {
+            return std::unexpected(addr.error());
+        }
+        const Result<bytes::Bytes> data = context.files.load(step.args[1]);
+        if (!data.has_value())
+        {
+            return std::unexpected(data.error());
+        }
+        const Status uploaded = upload(context, *addr, *data);
+        if (!uploaded.has_value())
+        {
+            return std::unexpected(uploaded.error());
+        }
+        outcome.note = std::format("uploaded {} bytes to 0x{:06x}", data->size(), *addr);
+        break;
+    }
     case CommandId::UploadRoutine:
-        return fail(ErrorKind::Unsupported, "not implemented yet");
+    {
+        const Result<RoutineSlot> slot = routine_slot(step.args[0]);
+        if (!slot.has_value())
+        {
+            return std::unexpected(slot.error());
+        }
+        const Status uploaded = upload(context, slot->ram_address, slot->bytes);
+        if (!uploaded.has_value())
+        {
+            return std::unexpected(uploaded.error());
+        }
+        outcome.note = std::format("uploaded {} routine bytes to 0x{:06x}", slot->bytes.size(), slot->ram_address);
+        break;
+    }
     }
 
     const Result<double> battery = context.session.vbatt();
