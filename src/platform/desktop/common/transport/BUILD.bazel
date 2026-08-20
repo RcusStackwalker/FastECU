@@ -1,6 +1,7 @@
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = [
+    "//apps/bench:__pkg__",
     "//apps/desktop:__pkg__",
     "//src/platform:__subpackages__",
     "//tests:__pkg__",
@@ -21,11 +22,13 @@ package(default_visibility = [
 _FLASH_TRANSPORT_SRCS = [
     "desktop_can_flash_transport.cpp",
     "desktop_kline_flash_transport.cpp",
+    "desktop_transport_factory.cpp",
 ]
 
 _FLASH_TRANSPORT_HDRS = [
     "desktop_can_flash_transport.h",
     "desktop_kline_flash_transport.h",
+    "desktop_transport_factory.h",
 ]
 
 qt_cc_library(
@@ -64,6 +67,15 @@ fastecu_qttest(
     deps = [
         ":flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+    ],
+)
+
+fastecu_qttest(
+    name = "test_desktop_transport_factory",
+    src = "desktop_transport_factory_test.cpp",
+    deps = [
+        ":flash_transports",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
     ],
 )
