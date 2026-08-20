@@ -1,7 +1,10 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
-package(default_visibility = ["//:__pkg__"])
+package(default_visibility = [
+    "//:__pkg__",
+    "//apps/bench/testing:__pkg__",
+])
 
 # Qt-free by construction: the CLI's vocabulary, parsing, command
 # construction and rendering are all testable without a device. Only
@@ -10,17 +13,23 @@ cc_library(
     name = "bench_core",
     srcs = [
         "bench_args.cpp",
+        "bench_commands.cpp",
         "bench_format.cpp",
         "bench_types.cpp",
     ],
     hdrs = [
         "bench_args.h",
+        "bench_commands.h",
         "bench_format.h",
+        "bench_session_interface.h",
         "bench_types.h",
     ],
     deps = [
         "//src/algorithms/protocol",
+        "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
+        "//src/algorithms/protocol/uds",
         "//src/backend/ports",
+        "//src/backend/protocol/uds:uds_client",
     ],
 )
 
@@ -34,4 +43,13 @@ fastecu_portable_gtest(
     name = "bench_args_test",
     srcs = ["bench_args_test.cpp"],
     deps = [":bench_core"],
+)
+
+fastecu_portable_gtest(
+    name = "bench_commands_test",
+    srcs = ["bench_commands_test.cpp"],
+    deps = [
+        ":bench_core",
+        "//apps/bench/testing:fake_bench_session",
+    ],
 )

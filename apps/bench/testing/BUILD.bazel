@@ -1,0 +1,17 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+
+package(default_visibility = ["//apps/bench:__pkg__"])
+
+cc_library(
+    name = "fake_bench_session",
+    testonly = True,
+    hdrs = ["fake_bench_session.h"],
+    deps = ["//apps/bench:bench_core"],
+)
+
+fastecu_portable_gtest(
+    name = "fake_bench_session_test",
+    srcs = ["fake_bench_session_test.cpp"],
+    deps = [":fake_bench_session"],
+)
