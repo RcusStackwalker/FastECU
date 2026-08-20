@@ -84,6 +84,30 @@ TEST(BenchArgs, RejectsDestructiveFlagOnANonDestructiveStep)
     EXPECT_EQ(parsed.error().kind, ErrorKind::InvalidConfig);
 }
 
+TEST(BenchArgs, RejectsKnownDestructivePdusThroughDiagnosticCommands)
+{
+    const std::vector<std::vector<std::string_view>> command_lines = {
+        {"send", "3b", "9a", "01"},
+        {"send-raw", "31", "e0"},
+        {"send", "34", "00", "80", "00", "00", "00", "00", "01"},
+        {"send-raw", "36", "aa"},
+    };
+
+    for (const auto& command_line : command_lines)
+    {
+        const auto parsed = parse(command_line);
+        ASSERT_FALSE(parsed.has_value());
+        EXPECT_EQ(parsed.error().kind, ErrorKind::InvalidConfig);
+        EXPECT_NE(parsed.error().detail.find("named destructive command"), std::string::npos);
+    }
+}
+
+TEST(BenchArgs, KeepsSafeDiagnosticExperimentationAvailable)
+{
+    EXPECT_TRUE(parse({"send", "22", "f1", "90"}).has_value());
+    EXPECT_TRUE(parse({"send-raw", "31", "e1", "02"}).has_value());
+}
+
 TEST(BenchArgs, PassesUploadRoutineFromThroughAsOrdinaryArguments)
 {
     const auto parsed = parse({"upload-routine", "erase-redirect", "--from", "custom.bin", "--destructive"});
@@ -107,7 +131,7 @@ TEST(BenchArgs, RejectsWrongArgumentCounts)
 {
     EXPECT_FALSE(parse({"read", "0x200"}).has_value());
     EXPECT_FALSE(parse({"read", "0x200", "1", "extra"}).has_value());
-    EXPECT_TRUE(parse({"send", "31", "e0"}).has_value());
+    EXPECT_TRUE(parse({"send", "31", "e1"}).has_value());
 }
 
 TEST(BenchArgs, ParsesGlobalOptionsAnywhereInTheCommandLine)

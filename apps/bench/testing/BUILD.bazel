@@ -23,6 +23,16 @@ cc_library(
     deps = ["//apps/bench:bench_core"],
 )
 
+cc_library(
+    name = "fake_bench_environment",
+    testonly = True,
+    hdrs = ["fake_bench_environment.h"],
+    deps = [
+        ":fake_bench_session",
+        "//apps/bench:bench_core",
+    ],
+)
+
 fastecu_portable_gtest(
     name = "fake_bench_files_test",
     srcs = ["fake_bench_files_test.cpp"],

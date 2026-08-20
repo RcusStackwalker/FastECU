@@ -72,13 +72,18 @@ std::string jsonEscaped(std::string_view text)
 std::string format_text(const CommandOutcome& outcome)
 {
     std::string out = std::format("{}\n", outcome.step);
-    if (!outcome.tx.empty())
+    out += std::format("  {} {} ({} ms)\n", outcome.exchange_count,
+                       outcome.exchange_count == 1 ? "exchange" : "exchanges", outcome.elapsed_ms);
+    if (outcome.exchange_count > 0)
     {
-        out += std::format("  TX {}\n", bytes::toHex(outcome.tx));
+        out += std::format("  TX first {}\n", bytes::toHex(outcome.tx));
+        out += std::format("  RX first {}\n", bytes::toHex(outcome.rx));
+        out += std::format("  TX last {}\n", bytes::toHex(outcome.last_tx));
+        out += std::format("  RX last {}\n", bytes::toHex(outcome.last_rx));
     }
-    if (!outcome.rx.empty())
+    if (!outcome.data.empty())
     {
-        out += std::format("  RX {}\n", bytes::toHex(outcome.rx));
+        out += std::format("  DATA {}\n", bytes::toHex(outcome.data));
     }
     if (!outcome.note.empty())
     {
@@ -97,9 +102,11 @@ std::string format_text(const CommandOutcome& outcome)
 
 std::string format_json(const CommandOutcome& outcome)
 {
-    std::string out =
-        std::format(R"({{"step":"{}","tx":"{}","rx":"{}","ms":{},"ok":{})", jsonEscaped(outcome.step),
-                    packedHex(outcome.tx), packedHex(outcome.rx), outcome.elapsed_ms, outcome.ok ? "true" : "false");
+    std::string out = std::format(
+        R"({{"step":"{}","exchanges":{},"tx":"{}","rx":"{}","last_tx":"{}","last_rx":"{}","data":"{}","ms":{},"ok":{})",
+        jsonEscaped(outcome.step), outcome.exchange_count, packedHex(outcome.tx), packedHex(outcome.rx),
+        packedHex(outcome.last_tx), packedHex(outcome.last_rx), packedHex(outcome.data), outcome.elapsed_ms,
+        outcome.ok ? "true" : "false");
     if (outcome.vbatt.has_value() && std::isfinite(*outcome.vbatt))
     {
         out += std::format(R"(,"vbatt":{:.3f})", *outcome.vbatt);

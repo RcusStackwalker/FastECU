@@ -1,6 +1,7 @@
 #pragma once
 #include <string_view>
 
+#include "apps/bench/bench_types.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/backend/ports/result.h"
 #include "src/backend/protocol/uds/uds_client.h"
@@ -25,6 +26,10 @@ class IBenchSession
 
     // Bypasses UdsClient's echo and NRC handling; returns whatever arrives.
     virtual Result<bytes::Bytes> exchange_raw(bytes::ByteView pdu, int timeout_ms) = 0;
+
+    // Evidence from the most recent public operation. `connect()` represents
+    // all three handshake exchanges; exchange/exchange_raw represent one.
+    virtual const TrafficEvidence& last_traffic() const = 0;
 
     virtual Result<double> vbatt() = 0;
 };

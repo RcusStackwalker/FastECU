@@ -53,14 +53,33 @@ struct StepSpec
     bool destructive_ack = false;
 };
 
-// What one executed step produced. `tx`/`rx` hold the first request and the
-// accumulated reply payload; for a chunked read `note` carries the chunk count
-// rather than every individual request being recorded.
+// Diagnostic evidence for one session operation. `tx`/`rx` are the first
+// request and response PDUs; `last_tx`/`last_rx` are the final pair. The two
+// pairs are identical for a single exchange. Responses include their positive
+// or negative UDS service byte. An empty RX means no complete PDU arrived.
+struct TrafficEvidence
+{
+    std::size_t exchange_count = 0;
+    bytes::Bytes tx;
+    bytes::Bytes rx;
+    bytes::Bytes last_tx;
+    bytes::Bytes last_rx;
+    std::uint64_t elapsed_ms = 0;
+};
+
+// What one executed step produced. `data` is command data (for example the
+// complete memory range returned by a chunked read); traffic fields are kept
+// separately so multi-exchange diagnostic evidence is never confused with
+// accumulated payload data.
 struct CommandOutcome
 {
     std::string step;
+    std::size_t exchange_count = 0;
     bytes::Bytes tx;
     bytes::Bytes rx;
+    bytes::Bytes last_tx;
+    bytes::Bytes last_rx;
+    bytes::Bytes data;
     std::uint64_t elapsed_ms = 0;
     std::optional<double> vbatt;
     bool ok = true;

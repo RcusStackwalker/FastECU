@@ -15,12 +15,14 @@ cc_library(
     srcs = [
         "bench_args.cpp",
         "bench_commands.cpp",
+        "bench_driver.cpp",
         "bench_format.cpp",
         "bench_types.cpp",
     ],
     hdrs = [
         "bench_args.h",
         "bench_commands.h",
+        "bench_driver.h",
         "bench_format.h",
         "bench_session_interface.h",
         "bench_types.h",
@@ -56,6 +58,41 @@ fastecu_portable_gtest(
     ],
 )
 
+cc_library(
+    name = "bench_session_runtime",
+    srcs = ["bench_session.cpp"],
+    hdrs = ["bench_session.h"],
+    deps = [
+        ":bench_core",
+        "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
+        "//src/backend/flash:can_flash_uds_channel",
+        "//src/backend/protocol/uds:uds_client",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "bench_session_test",
+    srcs = ["bench_session_test.cpp"],
+    deps = [
+        ":bench_session_runtime",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:recording_event_sink",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "bench_driver_test",
+    srcs = ["bench_driver_test.cpp"],
+    deps = [
+        ":bench_core",
+        "//apps/bench/testing:fake_bench_environment",
+        "//apps/bench/testing:fake_bench_files",
+        "//apps/bench/testing:fake_bench_session",
+    ],
+)
+
 # The only Qt-touching code in this package (and the only code CI cannot
 # exercise against real hardware): bench_session wires IBenchSession to the
 # desktop CAN transport, main.cpp is argv/stdin plumbing. Every decision
@@ -65,16 +102,12 @@ qt_cc_binary(
     srcs = [
         "bench_files.cpp",
         "bench_files.h",
-        "bench_session.cpp",
-        "bench_session.h",
         "main.cpp",
     ],
     copts = COMMON_COPTS,
     deps = QT_DEPS + [
         ":bench_core",
-        "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
-        "//src/backend/flash:can_flash_uds_channel",
-        "//src/backend/protocol/uds:uds_client",
+        ":bench_session_runtime",
         "//src/platform/desktop/common/ports",
         "//src/platform/desktop/common/transport:flash_transports",
     ],

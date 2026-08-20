@@ -4,10 +4,26 @@
 #include <charconv>
 #include <format>
 
+#include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
+
 namespace fastecu::bench
 {
 namespace
 {
+
+bool isKnownDestructivePdu(bytes::ByteView pdu)
+{
+    if (pdu.empty())
+    {
+        return false;
+    }
+    if (pdu[0] == MitsuColtCan::kServiceRequestReflash || pdu[0] == MitsuColtCan::kServiceRequestDownload ||
+        pdu[0] == MitsuColtCan::kServiceTransferData)
+    {
+        return true;
+    }
+    return pdu.size() >= 2 && pdu[0] == MitsuColtCan::kServiceRoutineControl && pdu[1] == MitsuColtCan::kRoutineErase;
+}
 
 Result<StepSpec> makeStep(const std::vector<std::string>& tokens)
 {
@@ -53,6 +69,20 @@ Result<StepSpec> makeStep(const std::vector<std::string>& tokens)
     if (!spec->destructive && destructive_ack)
     {
         return fail(ErrorKind::InvalidConfig, std::format("{} is not destructive", spec->name));
+    }
+    if (spec->id == CommandId::Send || spec->id == CommandId::SendRaw)
+    {
+        const Result<bytes::Bytes> pdu = parse_hex_bytes(args);
+        if (!pdu.has_value())
+        {
+            return std::unexpected(pdu.error());
+        }
+        if (isKnownDestructivePdu(*pdu))
+        {
+            return fail(
+                ErrorKind::InvalidConfig,
+                std::format("{} cannot send a known destructive PDU; use the named destructive command", spec->name));
+        }
     }
 
     return StepSpec{.id = spec->id, .args = std::move(args), .destructive_ack = destructive_ack};

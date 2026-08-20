@@ -15,10 +15,10 @@ struct BenchContext
     const GlobalOptions& options;
 };
 
-// Executes one step. A failure returns the error rather than an unsuccessful
-// outcome, so the caller can stop the chain; the outcome's own `ok` field is
-// for reporting, not control flow.
-Result<CommandOutcome> run_step(BenchContext& context, const StepSpec& step);
+// Executes one step and always returns its outcome. Failures are represented
+// by ok=false plus error_kind/error_detail so traffic already observed is not
+// discarded when the caller decides whether to stop the chain.
+CommandOutcome run_step(BenchContext& context, const StepSpec& step);
 
 // RoutineControl 224's reply payload ([routine-id][status]). Names both code
 // paths that can produce status 1 because the reply cannot distinguish them.

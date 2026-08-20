@@ -158,7 +158,7 @@ under investigation. Running `unlock` and `erase` as two invocations would
 therefore not reproduce what the desktop app does.
 
 ```
-fastecu-bench unlock --destructive : erase --destructive
+fastecu-bench upload-routine erase-page --destructive : unlock --destructive : erase --destructive
 fastecu-bench --script -            # steps on stdin, one per line
 ```
 
@@ -176,6 +176,13 @@ fastecu-bench --script -            # steps on stdin, one per line
 | `download <addr> <file>` | `0x34`, `0x36`..., CRC transfer, `0x31/225` | yes |
 | `upload-routine <name>` | `download` to that routine's RAM slot | yes |
 
+`send` and `send-raw` remain available for diagnostic experimentation, but
+they cannot be used as ungated aliases for the named destructive commands.
+Both reject SID `0x3B` (reflash unlock), SID `0x34` (RequestDownload), SID
+`0x36` (TransferData), and RoutineControl `0x31/0xE0` (erase) during parsing,
+before a transport is created. Operators must use `unlock`, `erase`,
+`download`, or `upload-routine` with the per-step `--destructive` gate.
+
 `<name>` is one of `erase-redirect`, `write-redirect`, `erase-page`,
 `write-page`, resolving to the baked arrays. `--from <file>` substitutes a
 freshly assembled `.bin`, which is how the provenance discrepancy above gets
@@ -183,6 +190,11 @@ tested on hardware without editing C++.
 
 Global flags: `--port <name>`, `--json`, `--verbose`, `--timeout <ms>`,
 `--keep-going`, `--no-connect`.
+
+For `--script -`, global options belong on the outer invocation. A global
+option on an individual script line is rejected explicitly; it is never
+silently discarded. Step-local `--destructive` and `upload-routine --from`
+remain valid on script lines.
 
 Replies carry decoded notes rather than bare hex. `71 e0 01` renders as
 `status=0x01 -> colt_commented.S 0x5a28, reachable from the pre-erase gate
@@ -197,6 +209,11 @@ amending the [step-5 design](2026-07-22-step5-backend-portable-design.md).
 - Exit code is 0 on success, or a distinct nonzero per `ErrorKind`, so an agent
   can branch without parsing prose.
 - `--json` writes one object per step to stdout and all logging to stderr.
+- Each outcome carries the first and last complete UDS TX/RX PDU, exchange
+  count, and measured wire elapsed time. Single-exchange first/last pairs are
+  identical. Chunked read data is reported separately from traffic. A failure
+  after I/O retains the evidence already observed rather than rebuilding a
+  blank outcome in the dispatch layer.
 - A failed step **aborts the remaining chain** by default. With ECU state in
   play, continuing past a failure produces misleading evidence. `--keep-going`
   overrides.
@@ -240,7 +257,7 @@ invocation.
 2. `read 0x8056a8 256` — dump `memory_block_edges` and check whether
    `end + 0x58000` values land on real block boundaries in `0x60000`-`0x80000`.
    Tests the leading hypothesis with no destructive step.
-3. `upload-routine erase-page : unlock --destructive : erase --destructive` —
+3. `upload-routine erase-page --destructive : unlock --destructive : erase --destructive` —
    the ordinary non-redirect path as a control. If plain erase returns status 0
    while the redirect returns 1, the routine is implicated and the gate is
    exonerated.

@@ -7,11 +7,12 @@
 namespace fastecu::bench
 {
 
-// Human-readable rendering: one step per block, tx/rx as spaced hex.
+// Human-readable rendering: one step per block, first/last tx/rx as spaced hex.
 std::string format_text(const CommandOutcome& outcome);
 
-// One flat JSON object per step, hex without separators so an agent can slice
-// it directly. Emitted on stdout; all logging goes to stderr.
+// One flat JSON object per step, including first/last traffic, count and
+// elapsed time. Hex has no separators so an agent can slice it directly.
+// Emitted on stdout; all logging goes to stderr.
 std::string format_json(const CommandOutcome& outcome);
 
 // Distinct non-zero code per ErrorKind so an agent branches on the exit status

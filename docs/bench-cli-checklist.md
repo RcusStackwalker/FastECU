@@ -14,7 +14,17 @@ assumes that path. Steps chained in one invocation with a bare `:` token run
 inside a single bootloader session (one `0x10`/`0x27` handshake); steps run
 as separate invocations each reconnect from scratch, which is a materially
 different sequence on the wire. Do not treat "ran individually" as
-equivalent to "ran chained" — section 3 requires both, in that order.
+equivalent to "ran chained." In particular, a fresh process must never infer
+that ECU RAM still contains the erase routine uploaded by an earlier process.
+
+Each text or JSON command outcome reports an exchange count and elapsed time,
+plus the first and last complete UDS request/response PDUs. For a single
+exchange the first and last pairs are identical. An empty RX means no complete
+response PDU arrived. `read`/`dump` additionally report the complete assembled
+memory bytes as `DATA` / `data`, separate from traffic evidence. JSON mode is
+newline-delimited: exactly one JSON object is written to stdout per outcome,
+including `ports`, setup failures, and explicit `connect` failures; diagnostics
+are written to stderr.
 
 ## 1. Preconditions
 
@@ -56,12 +66,12 @@ each — not a paraphrase of whether it "looked right."
   `mitsu_colt_can_protocol.h:46-47,74-75` currently declares both redirect
   arrays at `kEraseRoutineSize = 160` / `kWriteRoutineSize = 176`. Either the
   baked-in arrays are truncated or the test's expectation is stale — nobody
-  has established which. Running `upload-routine erase-redirect` or
-  `upload-routine write-redirect` today pushes a 160/176-byte payload into
-  ECU RAM and executes it as if it were the real 192/188-byte routine. Do not
-  run either command until that test passes and the size/checksum
-  discrepancy is resolved. `erase-page` and `write-page` are unaffected —
-  both are sized 160/176 consistently with their own passing assertions.
+  has established which. `upload-routine` only loads and CRC-checks RAM; it
+  does not execute the uploaded routine. A later erase trigger or write flow
+  can execute those bytes, so do not use either redirect routine in such a
+  flow until that test passes and the size/checksum discrepancy is resolved.
+  `erase-page` and `write-page` are unaffected — both are sized 160/176
+  consistently with their own passing assertions.
 
 **Before the first `unlock`, and not merely nominally:** `unlock` sends the
 exact `0x3B` payload that `mitsu_colt_can_protocol.h` annotates as "KNOWN
@@ -79,18 +89,22 @@ time:
       since last time." The bench-vs-car precondition above only holds up if
       this recovery path genuinely works.
 
-**Qualification sequence.** Run `unlock`, then `erase`, then
-`upload-routine erase-page`, each on its own invocation first — so a failure
-in one is isolated — and only then chained in a single invocation, since
-that is what the desktop app's reflash workflow actually does on the wire
-(one bootloader session, not three). Record the reply bytes verbatim for
-every run, not a summary of pass/fail.
+**Qualification sequence.** The desktop executor uploads the intended erase
+routine before it unlocks and triggers erase. Preserve that order. First test
+the upload by itself; this loads and CRC-checks RAM but does not execute the
+routine. Then start a new process and run the complete upload → unlock → erase
+chain in one session. Record the CLI's first/last traffic and elapsed time for
+each outcome, not only a pass/fail summary.
 
-- [ ] `./bazel-bin/apps/bench/fastecu-bench unlock --destructive`
-- [ ] `./bazel-bin/apps/bench/fastecu-bench erase --destructive`
-- [ ] `./bazel-bin/apps/bench/fastecu-bench upload-routine erase-page --destructive`
-- [ ] Chained in one session:
-      `./bazel-bin/apps/bench/fastecu-bench unlock --destructive : erase --destructive : upload-routine erase-page --destructive`
+- [ ] Upload only (does not execute the routine):
+      `./bazel-bin/apps/bench/fastecu-bench upload-routine erase-page --destructive`
+- [ ] Desktop-order chain in one session:
+      `./bazel-bin/apps/bench/fastecu-bench upload-routine erase-page --destructive : unlock --destructive : erase --destructive`
+
+**Never run `erase` as a standalone invocation.** Its prerequisite is not
+"an upload succeeded sometime earlier"; the intended erase routine must have
+been uploaded earlier in the same process/session. After a restart or separate
+invocation, treat RAM contents as unknown.
 
 ## 4. Known limitations
 
@@ -104,19 +118,19 @@ session — they are documented behavior, not bugs to route around mid-run.
 - [ ] `send-raw` bypasses NRC handling entirely. A negative response (e.g. a
       UDS NRC byte) is reported as an ordinary reply, not flagged as an
       error — read the raw bytes yourself rather than trusting `ok`/exit
-      code for this one command.
-- [ ] **A step that fails after doing I/O does not print its `tx`/`rx`
-      bytes.** `run_step` returns `Result<CommandOutcome>`; on failure the
-      populated outcome (which may already carry real transmitted/received
-      bytes and `vbatt`) is discarded, and `main.cpp` reconstructs a minimal
-      outcome carrying only the step name, error kind, and error detail. In
-      practice: if a destructive step in section 3 fails, the tool's own
-      output will **not** show the reply bytes this checklist asks you to
-      record verbatim. Capture the adapter-level trace by some other means
-      (CAN sniffer log, adapter debug output) for any step that fails — do
-      not rely on this tool's stdout for that step's bytes. This is a known
-      open design gap, flagged for a later review; it is not being worked
-      around here.
+      code for this one command. Both `send` and `send-raw` reject known
+      destructive PDUs at parse time: SID `0x3B`, SID `0x34`, SID `0x36`, and
+      RoutineControl `0x31/0xE0` are reserved for the named, gated commands.
+- [ ] A failure after I/O retains the traffic observed before the failure.
+      Multi-exchange operations report first and last PDU pairs plus an
+      exchange count and elapsed time; they do not print every intermediate
+      transfer frame. Use an adapter-level trace if every intermediate frame
+      is required.
+- [ ] With `--script -`, global options (`--port`, `--json`, `--verbose`,
+      `--timeout`, `--keep-going`, `--no-connect`, `--script`) belong on the
+      outer invocation. They are rejected on individual script lines rather
+      than silently discarded. Step-local `--destructive` and
+      `upload-routine --from <file>` remain valid on script lines.
 
 ## 5. Sign-off
 

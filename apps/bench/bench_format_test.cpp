@@ -18,8 +18,11 @@ CommandOutcome eraseFailure()
 {
     return CommandOutcome{
         .step = "erase",
+        .exchange_count = 1,
         .tx = {0x31, 0xE0},
         .rx = {0x71, 0xE0, 0x01},
+        .last_tx = {0x31, 0xE0},
+        .last_rx = {0x71, 0xE0, 0x01},
         .elapsed_ms = 39,
         .vbatt = 11.676,
         .ok = false,
@@ -37,6 +40,7 @@ TEST(BenchFormat, TextCarriesStepTxRxAndNote)
     EXPECT_NE(text.find("31 e0"), std::string::npos);
     EXPECT_NE(text.find("71 e0 01"), std::string::npos);
     EXPECT_NE(text.find("status=0x01"), std::string::npos);
+    EXPECT_NE(text.find("1 exchange"), std::string::npos);
     EXPECT_NE(text.find("11.676"), std::string::npos);
     EXPECT_NE(text.find("FAIL"), std::string::npos);
 }
@@ -63,9 +67,33 @@ TEST(BenchFormat, JsonIsOneFlatObjectWithHexStrings)
     EXPECT_NE(json.find("\"step\":\"erase\""), std::string::npos);
     EXPECT_NE(json.find("\"tx\":\"31e0\""), std::string::npos);
     EXPECT_NE(json.find("\"rx\":\"71e001\""), std::string::npos);
+    EXPECT_NE(json.find("\"exchanges\":1"), std::string::npos);
+    EXPECT_NE(json.find("\"last_tx\":\"31e0\""), std::string::npos);
+    EXPECT_NE(json.find("\"last_rx\":\"71e001\""), std::string::npos);
     EXPECT_NE(json.find("\"ok\":false"), std::string::npos);
     EXPECT_NE(json.find("\"error_kind\":\"BadResponse\""), std::string::npos);
     EXPECT_NE(json.find("\"vbatt\":11.676"), std::string::npos);
+}
+
+TEST(BenchFormat, MultiExchangeTextAndJsonCarryFirstAndLastPdus)
+{
+    CommandOutcome outcome = eraseFailure();
+    outcome.exchange_count = 5;
+    outcome.last_tx = {0x31, 0xE1, 0x01};
+    outcome.last_rx = {0x71, 0xE1, 0x00};
+    outcome.data = {0xAA, 0xBB};
+
+    const std::string text = format_text(outcome);
+    const std::string json = format_json(outcome);
+
+    EXPECT_NE(text.find("5 exchanges"), std::string::npos);
+    EXPECT_NE(text.find("TX first 31 e0"), std::string::npos);
+    EXPECT_NE(text.find("RX last 71 e1 00"), std::string::npos);
+    EXPECT_NE(text.find("DATA aa bb"), std::string::npos);
+    EXPECT_NE(json.find("\"exchanges\":5"), std::string::npos);
+    EXPECT_NE(json.find("\"last_tx\":\"31e101\""), std::string::npos);
+    EXPECT_NE(json.find("\"last_rx\":\"71e100\""), std::string::npos);
+    EXPECT_NE(json.find("\"data\":\"aabb\""), std::string::npos);
 }
 
 TEST(BenchFormat, JsonEscapesQuotesAndBackslashesInDetail)
