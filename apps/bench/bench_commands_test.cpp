@@ -256,6 +256,32 @@ TEST(BenchCommands, DownloadFailsWhenTheFileIsMissing)
     EXPECT_EQ(outcome.error().kind, ErrorKind::InvalidConfig);
 }
 
+TEST(BenchCommands, DownloadChunksAPayloadLargerThanTheTransferChunkSize)
+{
+    Harness harness;
+    const bytes::Bytes bigFile(257, 0xAB);
+    harness.files.contents["big.bin"] = bigFile;
+    harness.session.replies = {
+        bytes::Bytes{0x74},             // RequestDownload for the payload
+        bytes::Bytes{0x76},             // TransferData, 256-byte frame
+        bytes::Bytes{0x76},             // TransferData, 1-byte remainder frame
+        bytes::Bytes{0x74},             // RequestDownload for the checksum
+        bytes::Bytes{0x76},             // TransferData for the checksum
+        bytes::Bytes{0x71, 0xE1, 0x00}, // CRC check
+    };
+
+    const auto outcome = harness.run(destructiveStep(CommandId::Download, {"0x8000", "big.bin"}));
+
+    ASSERT_TRUE(outcome.has_value());
+    ASSERT_EQ(harness.session.requests.size(), 6u);
+    const std::vector<bytes::Bytes> frames = MitsuColtCan::buildTransferDataFrames(bytes::ByteView(bigFile));
+    ASSERT_EQ(frames.size(), 2u);
+    EXPECT_EQ(harness.session.requests[1], frames[0]);
+    EXPECT_EQ(harness.session.requests[1].size(), 257u); // SID + 256 payload bytes
+    EXPECT_EQ(harness.session.requests[2], frames[1]);
+    EXPECT_EQ(harness.session.requests[2].size(), 2u); // SID + 1 payload byte
+}
+
 TEST(BenchCommands, UploadRoutineSendsTheBakedArrayToItsRamSlot)
 {
     Harness harness;
@@ -315,6 +341,31 @@ TEST(BenchCommands, UploadRoutineFromFilePropagatesAMissingFileError)
 
     const auto outcome =
         harness.run(destructiveStep(CommandId::UploadRoutine, {"erase-redirect", "--from", "absent.bin"}));
+
+    ASSERT_FALSE(outcome.has_value());
+    EXPECT_EQ(outcome.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_TRUE(harness.session.requests.empty());
+}
+
+TEST(BenchCommands, UploadRoutineRejectsATypoedFromFlag)
+{
+    Harness harness;
+    harness.files.contents["custom.bin"] = bytes::Bytes{0x99};
+
+    const auto outcome =
+        harness.run(destructiveStep(CommandId::UploadRoutine, {"erase-redirect", "--form", "custom.bin"}));
+
+    ASSERT_FALSE(outcome.has_value());
+    EXPECT_EQ(outcome.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_TRUE(harness.session.requests.empty());
+}
+
+TEST(BenchCommands, UploadRoutineRejectsAFromValueWithoutTheFlag)
+{
+    Harness harness;
+    harness.files.contents["custom.bin"] = bytes::Bytes{0x99};
+
+    const auto outcome = harness.run(destructiveStep(CommandId::UploadRoutine, {"erase-redirect", "custom.bin"}));
 
     ASSERT_FALSE(outcome.has_value());
     EXPECT_EQ(outcome.error().kind, ErrorKind::InvalidConfig);

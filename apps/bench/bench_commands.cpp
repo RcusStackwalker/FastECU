@@ -382,13 +382,17 @@ Result<CommandOutcome> run_step(BenchContext& context, const StepSpec& step)
         // Default to the baked array; --from <file> substitutes the file's
         // bytes for provenance-testing a rebuilt routine, while the RAM slot
         // (address) always follows the routine name, not the source of bytes.
+        // A malformed shape (flag typo, or the path given without the flag)
+        // is rejected rather than silently falling back to the baked array --
+        // this path exists specifically to prove which bytes went out.
         bytes::ByteView payload = slot->bytes;
         bytes::Bytes fileBytes;
-        if (step.args.size() > 1 && step.args[1] == "--from")
+        if (step.args.size() > 1)
         {
-            if (step.args.size() < 3)
+            if (step.args.size() != 3 || step.args[1] != "--from")
             {
-                return fail(ErrorKind::InvalidConfig, "--from needs a file path");
+                return fail(ErrorKind::InvalidConfig,
+                            std::format("{}'s extra arguments must be --from <path>", spec->name));
             }
             const Result<bytes::Bytes> loaded = context.files.load(step.args[2]);
             if (!loaded.has_value())
