@@ -109,6 +109,37 @@ TEST(BenchArgs, RejectsAnEmptyStepBetweenSeparators)
     EXPECT_FALSE(parse({"erase", "--destructive", ":", ":", "connect"}).has_value());
 }
 
+TEST(BenchArgs, RejectsGlobalOptionsMissingTheirValue)
+{
+    const auto missingPort = parse({"--port"});
+    ASSERT_FALSE(missingPort.has_value());
+    EXPECT_EQ(missingPort.error().kind, ErrorKind::InvalidConfig);
+
+    const auto missingTimeout = parse({"--timeout"});
+    ASSERT_FALSE(missingTimeout.has_value());
+    EXPECT_EQ(missingTimeout.error().kind, ErrorKind::InvalidConfig);
+
+    const auto missingScript = parse({"--script"});
+    ASSERT_FALSE(missingScript.has_value());
+    EXPECT_EQ(missingScript.error().kind, ErrorKind::InvalidConfig);
+}
+
+TEST(BenchArgs, RejectsANonNumericTimeoutValue)
+{
+    const auto parsed = parse({"--timeout", "abc"});
+
+    ASSERT_FALSE(parsed.has_value());
+    EXPECT_EQ(parsed.error().kind, ErrorKind::InvalidConfig);
+}
+
+TEST(BenchArgs, RejectsAScriptValueOtherThanStdin)
+{
+    const auto parsed = parse({"--script", "notstdin"});
+
+    ASSERT_FALSE(parsed.has_value());
+    EXPECT_EQ(parsed.error().kind, ErrorKind::InvalidConfig);
+}
+
 TEST(BenchArgs, ParsesU32InHexAndDecimal)
 {
     EXPECT_EQ(parse_u32("0x8056a8").value(), 0x8056a8u);

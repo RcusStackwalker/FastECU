@@ -71,6 +71,7 @@ Result<std::uint32_t> parse_u32(std::string_view text)
 
     std::uint64_t value = 0;
     const auto *const end = text.data() + text.size();
+    // NOLINTNEXTLINE(bugprone-suspicious-stringview-data-usage) -- from_chars takes [first,last); end has the length.
     const auto [stopped, error] = std::from_chars(text.data(), end, value, base);
     if (error != std::errc{} || stopped != end)
     {
