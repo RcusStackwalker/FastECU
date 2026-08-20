@@ -1,5 +1,6 @@
 #include "apps/bench/bench_format.h"
 
+#include <cmath>
 #include <format>
 
 namespace fastecu::bench
@@ -41,8 +42,25 @@ std::string jsonEscaped(std::string_view text)
         case '\t':
             out += "\\t";
             break;
+        case '\b':
+            out += "\\b";
+            break;
+        case '\f':
+            out += "\\f";
+            break;
         default:
-            out += character;
+            // Every other C0 control character is not valid raw JSON text;
+            // escape it as \u00XX. Cast through unsigned char first: char may
+            // be signed, and a negative value would break the `< 0x20` test
+            // and the hex formatting below.
+            if (const auto byte = static_cast<unsigned char>(character); byte < 0x20)
+            {
+                out += std::format("\\u{:04x}", byte);
+            }
+            else
+            {
+                out += character;
+            }
             break;
         }
     }
@@ -82,7 +100,7 @@ std::string format_json(const CommandOutcome& outcome)
     std::string out =
         std::format(R"({{"step":"{}","tx":"{}","rx":"{}","ms":{},"ok":{})", jsonEscaped(outcome.step),
                     packedHex(outcome.tx), packedHex(outcome.rx), outcome.elapsed_ms, outcome.ok ? "true" : "false");
-    if (outcome.vbatt.has_value())
+    if (outcome.vbatt.has_value() && std::isfinite(*outcome.vbatt))
     {
         out += std::format(R"(,"vbatt":{:.3f})", *outcome.vbatt);
     }

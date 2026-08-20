@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -83,6 +84,29 @@ TEST(BenchFormat, JsonOmitsBatteryWhenUnavailable)
     outcome.vbatt.reset();
 
     EXPECT_EQ(format_json(outcome).find("\"vbatt\""), std::string::npos);
+}
+
+TEST(BenchFormat, JsonOmitsBatteryWhenNotFinite)
+{
+    CommandOutcome outcome = eraseFailure();
+    outcome.vbatt = std::numeric_limits<double>::quiet_NaN();
+
+    EXPECT_EQ(format_json(outcome).find("\"vbatt\""), std::string::npos);
+}
+
+TEST(BenchFormat, JsonEscapesControlCharactersInDetail)
+{
+    CommandOutcome outcome = eraseFailure();
+    outcome.error_detail = "one\x01two\bthree\ffour";
+
+    const std::string json = format_json(outcome);
+
+    EXPECT_NE(json.find("\\u0001"), std::string::npos);
+    EXPECT_NE(json.find("\\b"), std::string::npos);
+    EXPECT_NE(json.find("\\f"), std::string::npos);
+    EXPECT_EQ(json.find('\x01'), std::string::npos);
+    EXPECT_EQ(json.find('\b'), std::string::npos);
+    EXPECT_EQ(json.find('\f'), std::string::npos);
 }
 
 TEST(BenchFormat, EveryErrorKindGetsADistinctNonZeroExitCode)
