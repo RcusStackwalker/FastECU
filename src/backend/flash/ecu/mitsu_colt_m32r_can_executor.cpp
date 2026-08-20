@@ -323,6 +323,25 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data, Ph
             std::format("the RoutineControl CRC check for 0x{:x}", start)));
     }
 
+    // A matching SID echo only means the ECU answered -- it does not mean the
+    // CRC matched. RoutineControl 225's reply carries a status byte after the
+    // routine-id echo (colt_commented.S ~0x5aa0-0x5ad4): cobd_data[2] is 0
+    // only when can_flasher_current_block_calculated_crc equals the
+    // reference CRC, and nonzero otherwise. UdsClient never looks past the
+    // SID, so without this check a reported mismatch would be logged and
+    // treated as a successful commit.
+    const bytes::ByteView crc_reply = uds::payload(*received);
+    if (crc_reply.size() < 2)
+    {
+        error(ctx, std::format("CRC check for 0x{:x} reply carried no status byte", start));
+        return fail(ErrorKind::BadResponse, std::format("CRC check for 0x{:x} reply too short", start));
+    }
+    if (crc_reply[1] != 0)
+    {
+        error(ctx, std::format("CRC check for 0x{:x} reported a mismatch (status 0x{:02x})", start, crc_reply[1]));
+        return fail(ErrorKind::BadResponse, std::format("CRC check for 0x{:x} reported a non-zero status", start));
+    }
+
     if (progress != nullptr)
     {
         progress->complete();
@@ -357,6 +376,25 @@ Status unlock_and_erase(Ctx& ctx, std::string_view stage)
                                                        std::format("Erase trigger{} rejected: ", stage),
                                                        std::format("the erase trigger{}", stage)));
     }
+
+    // A matching SID echo only means the ECU answered -- it does not mean the
+    // erase happened. RoutineControl 224's reply carries a status byte after
+    // the routine-id echo (colt_commented.S ~0x59c8-0x5a38): the bootloader
+    // reports flasher_try_erase_range_call() failing via a positive reply
+    // with a nonzero status instead of an NRC, so a naive SID-only check (as
+    // UdsClient itself does) would log and treat that as a successful erase.
+    const bytes::ByteView erase_reply = uds::payload(*received);
+    if (erase_reply.size() < 2)
+    {
+        error(ctx, std::format("Erase trigger{} reply carried no status byte", stage));
+        return fail(ErrorKind::BadResponse, std::format("erase trigger{} reply too short", stage));
+    }
+    if (erase_reply[1] != 0)
+    {
+        error(ctx, std::format("Erase trigger{} reported failure (status 0x{:02x})", stage, erase_reply[1]));
+        return fail(ErrorKind::BadResponse, std::format("erase trigger{} reported a non-zero status", stage));
+    }
+
     if (ctx.cancellation.cancelled())
     {
         return fail(ErrorKind::Cancelled, "cancelled after erase");
@@ -389,26 +427,23 @@ Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan, bytes::ByteVie
     // Line 303.
     info(ctx, std::format("Checking top 128KB (0x{:x}-0x{:x})...", kTopRegionStart, kTopRegionEnd));
 
-    /*
-        // Lines 305-309.
-        Result<bytes::Bytes> current_top = read_flash_range(ctx, kTopRegionStart, kTopRegionLength);
-        if (!current_top.has_value())
-        {
-            return std::unexpected(current_top.error());
-        }
+    // Lines 305-309.
+    Result<bytes::Bytes> current_top = read_flash_range(ctx, kTopRegionStart, kTopRegionLength);
+    if (!current_top.has_value())
+    {
+        return std::unexpected(current_top.error());
+    }
 
-        // Lines 311-316. The legacy `romdata.mid(kTopRegionStart, kTopRegionLength)`
-        // clamps a short slice; write_mem's length guard rules that out before it
-        // calls here, so this subspan is always the full kTopRegionLength bytes.
-        const bytes::ByteView wanted_top = rom.subspan(kTopRegionStart, kTopRegionLength);
-        if (std::ranges::equal(*current_top, wanted_top))
-        {
-            info(ctx, "Top 128KB already matches, no bootstrap needed");
-            phase.complete();
-            return {};
-        }
-    */
+    // Lines 311-316. The legacy `romdata.mid(kTopRegionStart, kTopRegionLength)`
+    // clamps a short slice; write_mem's length guard rules that out before it
+    // calls here, so this subspan is always the full kTopRegionLength bytes.
     const bytes::ByteView wanted_top = rom.subspan(kTopRegionStart, kTopRegionLength);
+    if (std::ranges::equal(*current_top, wanted_top))
+    {
+        info(ctx, "Top 128KB already matches, no bootstrap needed");
+        phase.complete();
+        return {};
+    }
     phase.update(1);
 
     info(ctx, "Top 128KB mismatch, bootstrapping via redirect routines...");
