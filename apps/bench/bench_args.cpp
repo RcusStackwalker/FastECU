@@ -1,5 +1,6 @@
 #include "apps/bench/bench_args.h"
 
+#include <algorithm>
 #include <charconv>
 #include <format>
 
@@ -221,6 +222,15 @@ Result<ParsedCommandLine> parse_command_line(std::span<const std::string_view> a
     if (parsed.steps.empty())
     {
         return fail(ErrorKind::InvalidConfig, "no steps given");
+    }
+    // main.cpp handles `ports` before any transport exists, which only works
+    // if it is the sole step: chaining it with a step that needs a session
+    // would otherwise open the device just to run a command that promises
+    // never to.
+    if (parsed.steps.size() > 1 &&
+        std::ranges::any_of(parsed.steps, [](const StepSpec& step) { return step.id == CommandId::Ports; }))
+    {
+        return fail(ErrorKind::InvalidConfig, "ports cannot be chained with other commands");
     }
     return parsed;
 }

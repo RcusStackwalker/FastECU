@@ -65,6 +65,17 @@ TEST(BenchArgs, RejectsTheWholeChainWhenALaterStepIsUngated)
     EXPECT_EQ(parsed.error().kind, ErrorKind::InvalidConfig);
 }
 
+TEST(BenchArgs, RejectsPortsChainedWithAnotherStep)
+{
+    // `ports` never opens a device: main.cpp relies on it being the only
+    // step so it can be handled before any transport is constructed.
+    const auto parsed = parse({"ports", ":", "erase", "--destructive"});
+
+    ASSERT_FALSE(parsed.has_value());
+    EXPECT_EQ(parsed.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_NE(parsed.error().detail.find("ports"), std::string::npos);
+}
+
 TEST(BenchArgs, RejectsDestructiveFlagOnANonDestructiveStep)
 {
     const auto parsed = parse({"read", "0x200", "1", "--destructive"});
