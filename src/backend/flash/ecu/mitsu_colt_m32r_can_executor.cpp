@@ -64,14 +64,9 @@ void error(Ctx& ctx, std::string_view message)
 // echo is all it needs (RequestDownload, TransferData, the reflash unlock
 // request, each ReadMemoryByAddress chunk): unlike fatal_query below there is
 // no expected_prefix to check, just report_exchange_failure's
-// rejection-vs-cancellation wrapping on failure. `operation` alone drives
-// both halves of that wrapping -- "{operation} rejected: " on an ECU
-// rejection, "during {operation}" on a cancellation -- rather than a
-// separately-authored rejection_prefix repeating what operation already
-// says; at these six call sites the two strings differed only in legacy
-// wording (e.g. "Wrong response from ECU at 0x...: " vs "the flash read at
-// 0x..."), not in the underlying request being described, so the generic
-// form replaces that legacy-exact prefix. Built the same way as fatal_query
+// rejection-vs-cancellation wrapping on failure. `operation` drives both
+// halves of that wrapping -- "{operation} rejected: " on an ECU rejection,
+// "during {operation}" on a cancellation. Built the same way as fatal_query
 // -- a fresh UdsExchangeContext per call, since this family has no single
 // fixed policy either.
 Result<bytes::Bytes> fatal_request(Ctx& ctx, bytes::ByteView pdu, const uds::ExchangePolicy& policy,
@@ -216,8 +211,7 @@ Result<bytes::Bytes> read_one_chunk(Ctx& ctx, std::uint32_t addr, bytes::Byte ch
 {
     using namespace MitsuColtCan;
 
-    // Lines 191-194. Legacy logged "Wrong response from ECU at 0x...: "; see
-    // fatal_request's own comment for why that prefix is gone.
+    // Lines 191-194.
     Result<bytes::Bytes> received =
         fatal_request(ctx, buildReadMemoryByAddress(addr, chunk_len), kRoutineExchangePolicy,
                       std::format("the flash read at 0x{:x}", addr));
@@ -357,8 +351,7 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data, Ph
         }
     }
 
-    // Lines 262-270. Legacy logged "RequestDownload for checksum rejected: ";
-    // see fatal_request's own comment for why that prefix is gone.
+    // Lines 262-270.
     received = fatal_request(ctx, buildRequestDownload(kCrcTransferAddress, kCrcTransferSize), kRoutineExchangePolicy,
                              "RequestDownload for the checksum");
     if (!received.has_value())
@@ -405,9 +398,7 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data, Ph
 // only difference between the two copies is which stage of the write they
 // belong to, which the legacy code carried in the log-message text, so that
 // is a parameter here rather than two transcriptions. `stage` is empty for
-// the main write and " (top 128KB bootstrap)" for the bootstrap copy; the
-// legacy prefixes were "Reflash unlock{stage} rejected: " -- see
-// fatal_request's own comment for why that exact prefix is gone.
+// the main write and " (top 128KB bootstrap)" for the bootstrap copy.
 Status unlock_and_erase(Ctx& ctx, std::string_view stage)
 {
     using namespace MitsuColtCan;

@@ -6,15 +6,12 @@
 // its qt_colt.h *Frame shims). Expected log strings are copied
 // character-for-character from
 // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_mitsu_m32r_can_operation.cpp
-// wherever the legacy class had a counterpart; the exceptions are called out
-// at the assertion that makes them, and are the lines the UDS layer replaced
-// (a decoded NRC or envelope complaint where the legacy decoder could only
-// say "Not a valid answer"), the operator-cancellation line, which has no
-// legacy counterpart because the legacy code logged nothing there, and the
-// six fatal_request rejection messages (flash read, RequestDownload,
-// TransferData, the checksum pair, reflash unlock) whose legacy-exact prefix
-// was traded for one generic to fatal_request -- see that function's own
-// comment in mitsu_colt_m32r_can_executor.cpp.
+// wherever the legacy class had a counterpart, with two kinds of exception:
+// the lines the UDS layer replaced (a decoded NRC or envelope complaint where
+// the legacy decoder could only say "Not a valid answer"), and fatal_request's
+// rejection messages, which use a generic "{operation} rejected: " prefix
+// instead. The operator-cancellation line has no legacy counterpart at all --
+// the legacy code logged nothing there.
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_executor.h"
 
 #include <gmock/gmock.h>
@@ -963,10 +960,6 @@ TEST(MitsuColtM32rCanExecutor, WritePropagatesACarrierReadFailureBeforeRedirectH
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), (fastecu::Error{ErrorKind::Disconnected, "carrier read disconnected"}));
     EXPECT_TRUE(transport.scriptConsumed());
-    // Not legacy text: fatal_request now derives the rejection prefix from
-    // operation ("the flash read at 0x...") instead of the legacy "Wrong
-    // response from ECU at 0x...: " string -- see the executor's own
-    // fatal_request comment.
     EXPECT_THAT(events.logs,
                 Contains(Pair(LogLevel::Error, "the flash read at 0x8000 rejected: carrier read disconnected")));
     EXPECT_THAT(events.logs,
@@ -1106,9 +1099,6 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheReflashUnlockIsRejected)
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     // The erase trigger never goes out.
     EXPECT_TRUE(transport.scriptConsumed());
-    // Not legacy text (was flash_ecu_mitsu_m32r_can_operation.cpp:451's
-    // "Reflash unlock rejected: "): see the executor's own fatal_request
-    // comment for why the rejection prefix is now derived from operation.
     EXPECT_THAT(events.logs,
                 Contains(Pair(LogLevel::Error, "the reflash unlock request rejected: Security access denied")));
 }
@@ -1377,10 +1367,8 @@ TEST(MitsuColtM32rCanExecutor, ReadRejectsAChunkAnsweredWithTheWrongService)
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     // Nothing is read after the rejected chunk.
     EXPECT_TRUE(transport.scriptConsumed());
-    // Not legacy text (was flash_ecu_mitsu_m32r_can_operation.cpp:198's
-    // "Wrong response from ECU at 0x...: "): see the executor's own
-    // fatal_request comment. The failing address is still part of the
-    // message, so a chunk rejected halfway through a 384KB sweep is locatable.
+    // The failing address is part of the message, so a chunk rejected halfway
+    // through a 384KB sweep is locatable.
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "the flash read at 0x0 rejected: Conditions not correct")));
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "ROM read complete"))));
 }
@@ -1735,9 +1723,6 @@ TEST(MitsuColtM32rCanExecutor, BootstrapAbortsWhenTheChecksumRequestDownloadIsRe
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
-    // Not legacy text (was flash_ecu_mitsu_m32r_can_operation.cpp:266/339's
-    // "RequestDownload for checksum rejected: "): see the executor's own
-    // fatal_request comment.
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "RequestDownload for the checksum rejected: "
                                                             "Conditions not correct")));
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "Erase redirect routine upload failed")));
@@ -1776,9 +1761,6 @@ TEST(MitsuColtM32rCanExecutor, BootstrapAbortsWhenTheChecksumTransferDataIsRejec
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
-    // Not legacy text (was flash_ecu_mitsu_m32r_can_operation.cpp:280/346's
-    // "TransferData for checksum rejected: "): see the executor's own
-    // fatal_request comment.
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "TransferData for the checksum rejected: "
                                                             "Conditions not correct")));
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "Write redirect routine upload failed")));
@@ -1811,11 +1793,9 @@ TEST(MitsuColtM32rCanExecutor, BootstrapReportsItsOwnReflashUnlockRejection)
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
-    // The bootstrap's own message, distinct from the main write's (legacy
-    // lines 355 vs 451, though the prefix itself is no longer legacy text --
-    // see the executor's own fatal_request comment): the two erase stages are
-    // otherwise identical on the wire, so `stage` is the only thing that says
-    // which one failed.
+    // The bootstrap's own message, distinct from the main write's: the two
+    // erase stages are otherwise identical on the wire, so `stage` is the
+    // only thing that says which one failed.
     EXPECT_THAT(events.logs,
                 Contains(Pair(LogLevel::Error, "the reflash unlock request (top 128KB bootstrap) rejected: "
                                                "Conditions not correct")));
