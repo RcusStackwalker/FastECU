@@ -1,6 +1,7 @@
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = [
+    "//apps/bench:__pkg__",
     "//apps/desktop:__pkg__",
     "//src/platform:__subpackages__",
     "//tests:__pkg__",

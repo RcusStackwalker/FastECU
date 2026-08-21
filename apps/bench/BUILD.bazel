@@ -1,11 +1,15 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_binary")
 
 package(default_visibility = [
     "//:__pkg__",
     "//apps/bench/testing:__pkg__",
 ])
 
+# Qt-free by construction: the CLI's vocabulary, parsing, command
+# construction and rendering are all testable without a device. Only
+# bench_session and main.cpp (Task 7) touch Qt.
 cc_library(
     name = "bench_core",
     srcs = [
@@ -54,6 +58,43 @@ fastecu_portable_gtest(
     ],
 )
 
+cc_library(
+    name = "bench_session_runtime",
+    srcs = ["bench_session.cpp"],
+    hdrs = ["bench_session.h"],
+    deps = [
+        ":bench_core",
+        "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
+        "//src/backend/flash:can_flash_uds_channel",
+        "//src/backend/protocol/uds:uds_client",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "bench_session_test",
+    srcs = ["bench_session_test.cpp"],
+    deps = [
+        ":bench_session_runtime",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:recording_event_sink",
+    ],
+)
+
+cc_library(
+    name = "sigint_cancellation_token",
+    srcs = ["sigint_cancellation_token.cpp"],
+    hdrs = ["sigint_cancellation_token.h"],
+    deps = ["//src/backend/ports"],
+)
+
+fastecu_portable_gtest(
+    name = "sigint_cancellation_token_test",
+    srcs = ["sigint_cancellation_token_test.cpp"],
+    deps = [":sigint_cancellation_token"],
+)
+
 fastecu_portable_gtest(
     name = "bench_driver_test",
     srcs = ["bench_driver_test.cpp"],
@@ -62,5 +103,26 @@ fastecu_portable_gtest(
         "//apps/bench/testing:fake_bench_environment",
         "//apps/bench/testing:fake_bench_files",
         "//apps/bench/testing:fake_bench_session",
+    ],
+)
+
+# The only Qt-touching code in this package (and the only code CI cannot
+# exercise against real hardware): bench_session wires IBenchSession to the
+# desktop CAN transport, main.cpp is argv/stdin plumbing. Every decision
+# worth testing lives in bench_core above.
+qt_cc_binary(
+    name = "fastecu-bench",
+    srcs = [
+        "bench_files.cpp",
+        "bench_files.h",
+        "main.cpp",
+    ],
+    copts = COMMON_COPTS,
+    deps = QT_DEPS + [
+        ":bench_core",
+        ":bench_session_runtime",
+        ":sigint_cancellation_token",
+        "//src/platform/desktop/common/ports",
+        "//src/platform/desktop/common/transport:flash_transports",
     ],
 )
