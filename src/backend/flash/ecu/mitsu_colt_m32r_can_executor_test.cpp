@@ -6,11 +6,12 @@
 // its qt_colt.h *Frame shims). Expected log strings are copied
 // character-for-character from
 // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_mitsu_m32r_can_operation.cpp
-// wherever the legacy class had a counterpart; the exceptions are called out
-// at the assertion that makes them, and are the lines the UDS layer replaced
-// (a decoded NRC or envelope complaint where the legacy decoder could only
-// say "Not a valid answer") plus the operator-cancellation line, which has no
-// legacy counterpart because the legacy code logged nothing there.
+// wherever the legacy class had a counterpart, with two kinds of exception:
+// the lines the UDS layer replaced (a decoded NRC or envelope complaint where
+// the legacy decoder could only say "Not a valid answer"), and fatal_request's
+// rejection messages, which use a generic "{operation} rejected: " prefix
+// instead. The operator-cancellation line has no legacy counterpart at all --
+// the legacy code logged nothing there.
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_executor.h"
 
 #include <gmock/gmock.h>
@@ -960,7 +961,7 @@ TEST(MitsuColtM32rCanExecutor, WritePropagatesACarrierReadFailureBeforeRedirectH
     EXPECT_EQ(result.error(), (fastecu::Error{ErrorKind::Disconnected, "carrier read disconnected"}));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs,
-                Contains(Pair(LogLevel::Error, "Wrong response from ECU at 0x8000: carrier read disconnected")));
+                Contains(Pair(LogLevel::Error, "the flash read at 0x8000 rejected: carrier read disconnected")));
     EXPECT_THAT(events.logs,
                 Not(Contains(Pair(LogLevel::Info, "Uploading erase redirect routine to RAM 0x805568..."))));
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Carrier window erased"))));
@@ -1098,8 +1099,8 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheReflashUnlockIsRejected)
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     // The erase trigger never goes out.
     EXPECT_TRUE(transport.scriptConsumed());
-    // Legacy text, flash_ecu_mitsu_m32r_can_operation.cpp:451.
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "Reflash unlock rejected: Security access denied")));
+    EXPECT_THAT(events.logs,
+                Contains(Pair(LogLevel::Error, "the reflash unlock request rejected: Security access denied")));
 }
 
 TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheEraseTriggerIsRejected)
@@ -1366,10 +1367,9 @@ TEST(MitsuColtM32rCanExecutor, ReadRejectsAChunkAnsweredWithTheWrongService)
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     // Nothing is read after the rejected chunk.
     EXPECT_TRUE(transport.scriptConsumed());
-    // Legacy text, flash_ecu_mitsu_m32r_can_operation.cpp:198 -- the failing
-    // address is part of the message, so a chunk rejected halfway through a
-    // 384KB sweep is locatable.
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "Wrong response from ECU at 0x0: Conditions not correct")));
+    // The failing address is part of the message, so a chunk rejected halfway
+    // through a 384KB sweep is locatable.
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "the flash read at 0x0 rejected: Conditions not correct")));
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "ROM read complete"))));
 }
 
@@ -1723,8 +1723,7 @@ TEST(MitsuColtM32rCanExecutor, BootstrapAbortsWhenTheChecksumRequestDownloadIsRe
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
-    // Legacy text, flash_ecu_mitsu_m32r_can_operation.cpp:266 and 339.
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "RequestDownload for checksum rejected: "
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "RequestDownload for the checksum rejected: "
                                                             "Conditions not correct")));
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "Erase redirect routine upload failed")));
 }
@@ -1762,8 +1761,7 @@ TEST(MitsuColtM32rCanExecutor, BootstrapAbortsWhenTheChecksumTransferDataIsRejec
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
-    // Legacy text, flash_ecu_mitsu_m32r_can_operation.cpp:280 and 346.
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "TransferData for checksum rejected: "
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "TransferData for the checksum rejected: "
                                                             "Conditions not correct")));
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "Write redirect routine upload failed")));
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Carrier window erased"))));
@@ -1795,12 +1793,13 @@ TEST(MitsuColtM32rCanExecutor, BootstrapReportsItsOwnReflashUnlockRejection)
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
-    // The bootstrap's own message prefix, distinct from the main write's
-    // (legacy lines 355 vs 451): the two erase stages are otherwise identical
-    // on the wire, so the prefix is the only thing that says which one failed.
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "Reflash unlock (top 128KB bootstrap) rejected: "
-                                                            "Conditions not correct")));
-    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Error, "Reflash unlock rejected: "
+    // The bootstrap's own message, distinct from the main write's: the two
+    // erase stages are otherwise identical on the wire, so `stage` is the
+    // only thing that says which one failed.
+    EXPECT_THAT(events.logs,
+                Contains(Pair(LogLevel::Error, "the reflash unlock request (top 128KB bootstrap) rejected: "
+                                               "Conditions not correct")));
+    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Error, "the reflash unlock request rejected: "
                                                                 "Conditions not correct"))));
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Carrier window erased"))));
 }

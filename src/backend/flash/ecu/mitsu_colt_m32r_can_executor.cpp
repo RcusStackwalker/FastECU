@@ -60,17 +60,20 @@ void error(Ctx& ctx, std::string_view message)
     ctx.events.log(LogLevel::Error, message);
 }
 
-// The single reporting point for every failed exchange below, because two
-// kinds of failure mean opposite things to whoever reads the log -- see
-// uds_client_exchange_common.h's own report_exchange_failure for the
-// rejection-vs-cancellation rationale (identical here; the erase-trigger
-// power-cycling scenario that motivated it is this family's own). This
-// thin wrapper exists only so call sites below can keep passing `ctx`
-// instead of `ctx.events`.
-Error report_exchange_failure(Ctx& ctx, const Error& failure, std::string_view rejection_prefix,
-                              std::string_view operation)
+// The plain fatal_request every exchange below repeats when a matching SID
+// echo is all it needs (RequestDownload, TransferData, the reflash unlock
+// request, each ReadMemoryByAddress chunk): unlike fatal_query below there is
+// no expected_prefix to check, just report_exchange_failure's
+// rejection-vs-cancellation wrapping on failure. `operation` drives both
+// halves of that wrapping -- "{operation} rejected: " on an ECU rejection,
+// "during {operation}" on a cancellation. Built the same way as fatal_query
+// -- a fresh UdsExchangeContext per call, since this family has no single
+// fixed policy either.
+Result<bytes::Bytes> fatal_request(Ctx& ctx, bytes::ByteView pdu, const uds::ExchangePolicy& policy,
+                                   std::string_view operation)
 {
-    return ::fastecu::flash::report_exchange_failure(ctx.events, failure, rejection_prefix, operation);
+    return ::fastecu::flash::fatal_request(UdsExchangeContext{ctx.uds, policy, ctx.cancellation, ctx.events}, pdu,
+                                           std::format("{} rejected: ", operation), operation);
 }
 
 // The fatal_request + expected-response-prefix check every exchange in
@@ -210,12 +213,11 @@ Result<bytes::Bytes> read_one_chunk(Ctx& ctx, std::uint32_t addr, bytes::Byte ch
 
     // Lines 191-194.
     Result<bytes::Bytes> received =
-        ctx.uds.request(buildReadMemoryByAddress(addr, chunk_len), kRoutineExchangePolicy, ctx.cancellation);
+        fatal_request(ctx, buildReadMemoryByAddress(addr, chunk_len), kRoutineExchangePolicy,
+                      std::format("the flash read at 0x{:x}", addr));
     if (!received.has_value())
     {
-        return std::unexpected(report_exchange_failure(ctx, received.error(),
-                                                       std::format("Wrong response from ECU at 0x{:x}: ", addr),
-                                                       std::format("the flash read at 0x{:x}", addr)));
+        return std::unexpected(received.error());
     }
     // Line 196: the reply must carry the whole chunk it was asked for. A
     // short one is refused rather than padded -- silently accepting it
@@ -325,25 +327,22 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data, Ph
     using namespace MitsuColtCan;
 
     // Lines 238-246.
-    Result<bytes::Bytes> received = ctx.uds.request(
-        buildRequestDownload(start, static_cast<std::uint32_t>(data.size())), kRoutineExchangePolicy, ctx.cancellation);
+    Result<bytes::Bytes> received =
+        fatal_request(ctx, buildRequestDownload(start, static_cast<std::uint32_t>(data.size())), kRoutineExchangePolicy,
+                      std::format("RequestDownload to 0x{:x}", start));
     if (!received.has_value())
     {
-        return std::unexpected(report_exchange_failure(ctx, received.error(),
-                                                       std::format("RequestDownload to 0x{:x} rejected: ", start),
-                                                       std::format("RequestDownload to 0x{:x}", start)));
+        return std::unexpected(received.error());
     }
 
     // Lines 248-260.
     std::uint32_t payload_done = 0;
     for (const bytes::Bytes& chunk : buildTransferDataFrames(data))
     {
-        received = ctx.uds.request(chunk, kRoutineExchangePolicy, ctx.cancellation);
+        received = fatal_request(ctx, chunk, kRoutineExchangePolicy, std::format("TransferData to 0x{:x}", start));
         if (!received.has_value())
         {
-            return std::unexpected(report_exchange_failure(ctx, received.error(),
-                                                           std::format("TransferData to 0x{:x} rejected: ", start),
-                                                           std::format("TransferData to 0x{:x}", start)));
+            return std::unexpected(received.error());
         }
         payload_done += static_cast<std::uint32_t>(chunk.size() - 1);
         if (progress != nullptr)
@@ -353,23 +352,21 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data, Ph
     }
 
     // Lines 262-270.
-    received = ctx.uds.request(buildRequestDownload(kCrcTransferAddress, kCrcTransferSize), kRoutineExchangePolicy,
-                               ctx.cancellation);
+    received = fatal_request(ctx, buildRequestDownload(kCrcTransferAddress, kCrcTransferSize), kRoutineExchangePolicy,
+                             "RequestDownload for the checksum");
     if (!received.has_value())
     {
-        return std::unexpected(report_exchange_failure(
-            ctx, received.error(), "RequestDownload for checksum rejected: ", "RequestDownload for the checksum"));
+        return std::unexpected(received.error());
     }
 
     // Lines 272-284: big-endian 16-bit running sum, always exactly one
     // TransferData frame (kCrcTransferSize is 2, well under kTransferChunkSize).
     const std::uint16_t crc = checksum(data);
-    received = ctx.uds.request(buildTransferDataFrames(bytes::composeBe(crc)).front(), kRoutineExchangePolicy,
-                               ctx.cancellation);
+    received = fatal_request(ctx, buildTransferDataFrames(bytes::composeBe(crc)).front(), kRoutineExchangePolicy,
+                             "TransferData for the checksum");
     if (!received.has_value())
     {
-        return std::unexpected(report_exchange_failure(
-            ctx, received.error(), "TransferData for checksum rejected: ", "TransferData for the checksum"));
+        return std::unexpected(received.error());
     }
 
     // Lines 286-294: the CRC check gets the extra-long timeout. A matching
@@ -401,18 +398,16 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data, Ph
 // only difference between the two copies is which stage of the write they
 // belong to, which the legacy code carried in the log-message text, so that
 // is a parameter here rather than two transcriptions. `stage` is empty for
-// the main write and " (top 128KB bootstrap)" for the bootstrap copy, giving
-// back the two legacy prefixes exactly.
+// the main write and " (top 128KB bootstrap)" for the bootstrap copy.
 Status unlock_and_erase(Ctx& ctx, std::string_view stage)
 {
     using namespace MitsuColtCan;
 
-    Result<bytes::Bytes> received = ctx.uds.request(buildRequestReflashUnlock(), kSlowExchangePolicy, ctx.cancellation);
+    Result<bytes::Bytes> received = fatal_request(ctx, buildRequestReflashUnlock(), kSlowExchangePolicy,
+                                                  std::format("the reflash unlock request{}", stage));
     if (!received.has_value())
     {
-        return std::unexpected(report_exchange_failure(ctx, received.error(),
-                                                       std::format("Reflash unlock{} rejected: ", stage),
-                                                       std::format("the reflash unlock request{}", stage)));
+        return std::unexpected(received.error());
     }
 
     // A matching SID echo alone would not mean the erase happened:
