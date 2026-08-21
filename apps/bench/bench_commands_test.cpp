@@ -33,6 +33,11 @@ StepSpec step(CommandId id, std::vector<std::string> args = {})
     return StepSpec{.id = id, .args = std::move(args), .destructive_ack = false};
 }
 
+StepSpec destructiveStep(CommandId id, std::vector<std::string> args = {})
+{
+    return StepSpec{.id = id, .args = std::move(args), .destructive_ack = true};
+}
+
 TEST(BenchCommands, ReadBuildsReadMemoryByAddressAndReturnsThePayload)
 {
     Harness harness;
@@ -127,12 +132,12 @@ TEST(BenchCommands, DumpWritesTheReadBytesToTheNamedFile)
     EXPECT_EQ(harness.files.saved.at("out.bin"), (bytes::Bytes{0x01, 0x02}));
 }
 
-TEST(BenchCommands, SendForwardsRawHexAsAPdu)
+TEST(BenchCommands, AcknowledgedSendForwardsASafeRawHexPdu)
 {
     Harness harness;
     harness.session.replies = {bytes::Bytes{0x62, 0xF1, 0x90}};
 
-    const auto outcome = harness.run(step(CommandId::Send, {"22", "f1", "90"}));
+    const auto outcome = harness.run(destructiveStep(CommandId::Send, {"22", "f1", "90"}));
 
     ASSERT_TRUE(outcome.ok) << outcome.error_detail;
     EXPECT_EQ(harness.session.requests.at(0), (bytes::Bytes{0x22, 0xF1, 0x90}));
@@ -204,7 +209,7 @@ TEST(BenchCommands, SessionFailureAfterIoRetainsTheObservedResponse)
     harness.session.replies = {fail(ErrorKind::BadResponse, "negative response")};
     harness.session.received_on_error = {bytes::Bytes{0x7F, 0x22, 0x31}};
 
-    const CommandOutcome outcome = harness.run(step(CommandId::Send, {"22", "f1", "90"}));
+    const CommandOutcome outcome = harness.run(destructiveStep(CommandId::Send, {"22", "f1", "90"}));
 
     EXPECT_FALSE(outcome.ok);
     EXPECT_EQ(outcome.tx, (bytes::Bytes{0x22, 0xF1, 0x90}));
@@ -250,11 +255,6 @@ TEST(BenchDecode, EraseStatusOneNamesBothReachablePathsAsAmbiguous)
 TEST(BenchDecode, EraseReplyWithoutAStatusByteSaysSo)
 {
     EXPECT_NE(decode_erase_reply(bytes::Bytes{0xE0}).find("no status byte"), std::string::npos);
-}
-
-StepSpec destructiveStep(CommandId id, std::vector<std::string> args = {})
-{
-    return StepSpec{.id = id, .args = std::move(args), .destructive_ack = true};
 }
 
 TEST(BenchCommands, UnlockSendsTheTwelveByteReflashPayload)
@@ -588,28 +588,32 @@ TEST(BenchCommands, RunStepRejectsAMalformedProgrammaticStepBeforeIndexingArgume
     EXPECT_TRUE(harness.session.requests.empty());
 }
 
-TEST(BenchCommands, SendRawForwardsTheExactSafePduAndHonoursItsTimeout)
+TEST(BenchCommands, AcknowledgedSendRawForwardsTheExactSafePduAndHonoursItsTimeout)
 {
     Harness harness;
     harness.options.timeout_ms = 1234;
     harness.session.replies = {bytes::Bytes{0x7F, 0x22, 0x31}};
 
-    const auto outcome = harness.run(step(CommandId::SendRaw, {"22", "f1", "90"}));
+    const auto outcome = harness.run(destructiveStep(CommandId::SendRaw, {"22", "f1", "90"}));
 
     ASSERT_TRUE(outcome.ok) << outcome.error_detail;
     EXPECT_EQ(harness.session.requests, (std::vector<bytes::Bytes>{{0x22, 0xF1, 0x90}}));
     EXPECT_EQ(harness.session.raw_timeouts, (std::vector<int>{1234}));
 }
 
-TEST(BenchCommands, SendRawDefenseInDepthRejectsAConstructedDestructiveStep)
+TEST(BenchCommands, AcknowledgementDoesNotLetSendCommandsBypassNamedDestructivePdus)
 {
-    Harness harness;
+    for (const CommandId id : {CommandId::Send, CommandId::SendRaw})
+    {
+        SCOPED_TRACE(static_cast<int>(id));
+        Harness harness;
 
-    const auto outcome = harness.run(step(CommandId::SendRaw, {"31", "e0"}));
+        const auto outcome = harness.run(destructiveStep(id, {"31", "e0"}));
 
-    ASSERT_FALSE(outcome.ok);
-    EXPECT_EQ(outcome.error_kind.value(), ErrorKind::InvalidConfig);
-    EXPECT_TRUE(harness.session.requests.empty());
+        ASSERT_FALSE(outcome.ok);
+        EXPECT_EQ(outcome.error_kind.value(), ErrorKind::InvalidConfig);
+        EXPECT_TRUE(harness.session.requests.empty());
+    }
 }
 
 } // namespace

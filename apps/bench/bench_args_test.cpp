@@ -84,13 +84,45 @@ TEST(BenchArgs, RejectsDestructiveFlagOnANonDestructiveStep)
     EXPECT_EQ(parsed.error().kind, ErrorKind::InvalidConfig);
 }
 
+TEST(BenchArgs, RejectsArbitraryDiagnosticPdusWithoutDestructiveAcknowledgement)
+{
+    const std::vector<std::vector<std::string_view>> command_lines = {
+        {"send", "22", "f1", "90"},
+        {"send-raw", "31", "e1", "02"},
+    };
+
+    for (const auto& command_line : command_lines)
+    {
+        const auto parsed = parse(command_line);
+        ASSERT_FALSE(parsed.has_value());
+        EXPECT_EQ(parsed.error().kind, ErrorKind::InvalidConfig);
+        EXPECT_NE(parsed.error().detail.find("--destructive"), std::string::npos);
+    }
+}
+
+TEST(BenchArgs, AcceptsArbitraryDiagnosticPdusWithDestructiveAcknowledgement)
+{
+    const std::vector<std::vector<std::string_view>> command_lines = {
+        {"send", "22", "f1", "90", "--destructive"},
+        {"send-raw", "31", "e1", "02", "--destructive"},
+    };
+
+    for (const auto& command_line : command_lines)
+    {
+        const auto parsed = parse(command_line);
+        ASSERT_TRUE(parsed.has_value());
+        ASSERT_EQ(parsed->steps.size(), 1u);
+        EXPECT_TRUE(parsed->steps[0].destructive_ack);
+    }
+}
+
 TEST(BenchArgs, RejectsKnownDestructivePdusThroughDiagnosticCommands)
 {
     const std::vector<std::vector<std::string_view>> command_lines = {
-        {"send", "3b", "9a", "01"},
-        {"send-raw", "31", "e0"},
-        {"send", "34", "00", "80", "00", "00", "00", "00", "01"},
-        {"send-raw", "36", "aa"},
+        {"send", "3b", "9a", "01", "--destructive"},
+        {"send-raw", "31", "e0", "--destructive"},
+        {"send", "34", "00", "80", "00", "00", "00", "00", "01", "--destructive"},
+        {"send-raw", "36", "aa", "--destructive"},
     };
 
     for (const auto& command_line : command_lines)
@@ -100,12 +132,6 @@ TEST(BenchArgs, RejectsKnownDestructivePdusThroughDiagnosticCommands)
         EXPECT_EQ(parsed.error().kind, ErrorKind::InvalidConfig);
         EXPECT_NE(parsed.error().detail.find("named destructive command"), std::string::npos);
     }
-}
-
-TEST(BenchArgs, KeepsSafeDiagnosticExperimentationAvailable)
-{
-    EXPECT_TRUE(parse({"send", "22", "f1", "90"}).has_value());
-    EXPECT_TRUE(parse({"send-raw", "31", "e1", "02"}).has_value());
 }
 
 TEST(BenchArgs, PassesUploadRoutineFromThroughAsOrdinaryArguments)
@@ -131,7 +157,7 @@ TEST(BenchArgs, RejectsWrongArgumentCounts)
 {
     EXPECT_FALSE(parse({"read", "0x200"}).has_value());
     EXPECT_FALSE(parse({"read", "0x200", "1", "extra"}).has_value());
-    EXPECT_TRUE(parse({"send", "31", "e1"}).has_value());
+    EXPECT_TRUE(parse({"send", "31", "e1", "--destructive"}).has_value());
 }
 
 TEST(BenchArgs, ParsesGlobalOptionsAnywhereInTheCommandLine)
@@ -188,7 +214,7 @@ TEST(BenchArgs, RejectsTimeoutThatCannotFitDownstreamStorage)
 
 TEST(BenchArgs, AcceptsLargestTimeoutThatFitsDownstreamStorage)
 {
-    const auto parsed = parse({"--timeout", "65535", "send-raw", "22"});
+    const auto parsed = parse({"--timeout", "65535", "send-raw", "22", "--destructive"});
 
     ASSERT_TRUE(parsed.has_value());
     EXPECT_EQ(parsed->options.timeout_ms, 65535);

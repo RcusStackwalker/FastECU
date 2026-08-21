@@ -153,11 +153,12 @@ TEST(BenchFormat, EveryErrorKindGetsADistinctNonZeroExitCode)
     EXPECT_EQ(std::ranges::unique(codes).begin(), codes.end());
 }
 
-TEST(BenchTypes, CommandTableMarksExactlyTheDestructiveCommands)
+TEST(BenchTypes, CommandTableMarksExactlyTheCommandsRequiringDestructiveAcknowledgement)
 {
     for (const CommandSpec& spec : command_table())
     {
-        const bool expected = spec.id == CommandId::Unlock || spec.id == CommandId::Erase ||
+        const bool expected = spec.id == CommandId::Send || spec.id == CommandId::SendRaw ||
+                              spec.id == CommandId::Unlock || spec.id == CommandId::Erase ||
                               spec.id == CommandId::Download || spec.id == CommandId::UploadRoutine;
         EXPECT_EQ(spec.destructive, expected) << spec.name;
     }
