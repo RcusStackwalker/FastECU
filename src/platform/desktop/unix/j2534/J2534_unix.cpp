@@ -2,7 +2,9 @@
 
 #include <QThread>
 
-#include <cstdio>
+#include <algorithm>
+#include <format>
+#include <string>
 
 J2534::J2534()
 {
@@ -735,8 +737,12 @@ long J2534::PassThruReadVersion(char *pApiVersion, char *pDllVersion, char *pFir
     const char *fw_version = "Main code version: 1.17.4877";
     long result = STATUS_NOERROR;
 
-    strncpy(pApiVersion, API_VERSION, strlen(API_VERSION));
-    strncpy(pDllVersion, DLL_VERSION, strlen(DLL_VERSION));
+    const std::size_t apiLen = std::min(strlen(API_VERSION), kVersionBufferSize - 1);
+    strncpy(pApiVersion, API_VERSION, apiLen);
+    pApiVersion[apiLen] = '\0';
+    const std::size_t dllLen = std::min(strlen(DLL_VERSION), kVersionBufferSize - 1);
+    strncpy(pDllVersion, DLL_VERSION, dllLen);
+    pDllVersion[dllLen] = '\0';
     // strncpy(pFirmwareVersion, fw_version, strlen(fw_version));
 
     output = "\r\n\r\nati\r\n";
@@ -752,8 +758,9 @@ long J2534::PassThruReadVersion(char *pApiVersion, char *pDllVersion, char *pFir
     // dangle (the temporary QByteArray is destroyed at the semicolon), leaving
     // pFirmwareVersion empty/garbage and making the caller's strlen()-1 unsafe.
     const QByteArray fw_ver_bytes = fw_ver.at(0).toUtf8();
-    strncpy(pFirmwareVersion, fw_ver_bytes.constData(), fw_ver_bytes.size());
-    pFirmwareVersion[fw_ver_bytes.size()] = '\0';
+    const std::size_t fwLen = std::min<std::size_t>(fw_ver_bytes.size(), kVersionBufferSize - 1);
+    strncpy(pFirmwareVersion, fw_ver_bytes.constData(), fwLen);
+    pFirmwareVersion[fwLen] = '\0';
 
     return result;
 }
@@ -789,159 +796,159 @@ void J2534::dump_sbyte_array(const SBYTE_ARRAY *s)
 
 void J2534::dump_sconfig_param(SCONFIG s)
 {
-    char paramName[128];
+    std::string paramName;
 
     switch (s.Parameter)
     {
     case DATA_RATE:
-        strcpy(paramName, "DATA_RATE");
+        paramName = "DATA_RATE";
         break;
     case LOOPBACK:
-        strcpy(paramName, "LOOPBACK");
+        paramName = "LOOPBACK";
         break;
     case NODE_ADDRESS:
-        strcpy(paramName, "NODE_ADDRESS");
+        paramName = "NODE_ADDRESS";
         break;
     case NETWORK_LINE:
-        strcpy(paramName, "NETWORK_LINE");
+        paramName = "NETWORK_LINE";
         break;
     case P1_MIN:
-        strcpy(paramName, "P1_MIN");
+        paramName = "P1_MIN";
         break;
     case P1_MAX:
-        strcpy(paramName, "P1_MAX");
+        paramName = "P1_MAX";
         break;
     case P2_MIN:
-        strcpy(paramName, "P2_MIN");
+        paramName = "P2_MIN";
         break;
     case P2_MAX:
-        strcpy(paramName, "P2_MAX");
+        paramName = "P2_MAX";
         break;
     case P3_MIN:
-        strcpy(paramName, "P3_MIN");
+        paramName = "P3_MIN";
         break;
     case P3_MAX:
-        strcpy(paramName, "P3_MAX");
+        paramName = "P3_MAX";
         break;
     case P4_MIN:
-        strcpy(paramName, "P4_MIN");
+        paramName = "P4_MIN";
         break;
     case P4_MAX:
-        strcpy(paramName, "P4_MAX");
+        paramName = "P4_MAX";
         break;
     case W1:
-        strcpy(paramName, "W1");
+        paramName = "W1";
         break;
     case W2:
-        strcpy(paramName, "W2");
+        paramName = "W2";
         break;
     case W3:
-        strcpy(paramName, "W3");
+        paramName = "W3";
         break;
     case W4:
-        strcpy(paramName, "W4");
+        paramName = "W4";
         break;
     case W5:
-        strcpy(paramName, "W5");
+        paramName = "W5";
         break;
     case TIDLE:
-        strcpy(paramName, "TIDLE");
+        paramName = "TIDLE";
         break;
     case TINIL:
-        strcpy(paramName, "TINIL");
+        paramName = "TINIL";
         break;
     case TWUP:
-        strcpy(paramName, "TWUP");
+        paramName = "TWUP";
         break;
     case PARITY:
-        strcpy(paramName, "PARITY");
+        paramName = "PARITY";
         break;
     case BIT_SAMPLE_POINT:
-        strcpy(paramName, "BIT_SAMPLE_POINT");
+        paramName = "BIT_SAMPLE_POINT";
         break;
     case SYNC_JUMP_WIDTH:
-        strcpy(paramName, "SYNC_JUMP_WIDTH");
+        paramName = "SYNC_JUMP_WIDTH";
         break;
     case W0:
-        strcpy(paramName, "W0");
+        paramName = "W0";
         break;
     case T1_MAX:
-        strcpy(paramName, "T1_MAX");
+        paramName = "T1_MAX";
         break;
     case T2_MAX:
-        strcpy(paramName, "T2_MAX");
+        paramName = "T2_MAX";
         break;
     case T4_MAX:
-        strcpy(paramName, "T4_MAX");
+        paramName = "T4_MAX";
         break;
     case T5_MAX:
-        strcpy(paramName, "T5_MAX");
+        paramName = "T5_MAX";
         break;
     case ISO15765_BS:
-        strcpy(paramName, "ISO15765_BS");
+        paramName = "ISO15765_BS";
         break;
     case ISO15765_STMIN:
-        strcpy(paramName, "ISO15765_STMIN");
+        paramName = "ISO15765_STMIN";
         break;
     case DATA_BITS:
-        strcpy(paramName, "DATA_BITS");
+        paramName = "DATA_BITS";
         break;
     case FIVE_BAUD_MOD:
-        strcpy(paramName, "FIVE_BAUD_MOD");
+        paramName = "FIVE_BAUD_MOD";
         break;
     case BS_TX:
-        strcpy(paramName, "BS_TX");
+        paramName = "BS_TX";
         break;
     case STMIN_TX:
-        strcpy(paramName, "STMIN_TX");
+        paramName = "STMIN_TX";
         break;
     case T3_MAX:
-        strcpy(paramName, "T3_MAX");
+        paramName = "T3_MAX";
         break;
     case ISO15765_WFT_MAX:
-        strcpy(paramName, "ISO15765_WFT_MAX");
+        paramName = "ISO15765_WFT_MAX";
         break;
     case CAN_MIXED_FORMAT:
-        strcpy(paramName, "CAN_MIXED_FORMAT");
+        paramName = "CAN_MIXED_FORMAT";
         break;
     case J1962_PINS:
-        strcpy(paramName, "J1962_PINS");
+        paramName = "J1962_PINS";
         break;
     case SW_CAN_HS_DATA_RATE:
-        strcpy(paramName, "W_CAN_HS_DATA_RATE");
+        paramName = "W_CAN_HS_DATA_RATE";
         break;
     case SW_CAN_SPEEDCHANGE_ENABLE:
-        strcpy(paramName, "SW_CAN_SPEEDCHANGE_ENABLE");
+        paramName = "SW_CAN_SPEEDCHANGE_ENABLE";
         break;
     case SW_CAN_RES_SWITCH:
-        strcpy(paramName, "SW_CAN_RES_SWITCH");
+        paramName = "SW_CAN_RES_SWITCH";
         break;
     case ACTIVE_CHANNELS:
-        strcpy(paramName, "ACTIVE_CHANNELS");
+        paramName = "ACTIVE_CHANNELS";
         break;
     case SAMPLE_RATE:
-        strcpy(paramName, "SAMPLE_RATE");
+        paramName = "SAMPLE_RATE";
         break;
     case SAMPLES_PER_READING:
-        strcpy(paramName, "SAMPLES_PER_READING");
+        paramName = "SAMPLES_PER_READING";
         break;
     case READINGS_PER_MSG:
-        strcpy(paramName, "READINGS_PER_MSG");
+        paramName = "READINGS_PER_MSG";
         break;
     case AVERAGING_METHOD:
-        strcpy(paramName, "AVERAGING_METHOD");
+        paramName = "AVERAGING_METHOD";
         break;
     case SAMPLE_RESOLUTION:
-        strcpy(paramName, "SAMPLE_RESOLUTION");
+        paramName = "SAMPLE_RESOLUTION";
         break;
     case INPUT_RANGE_LOW:
-        strcpy(paramName, "INPUT_RANGE_LOW");
+        paramName = "INPUT_RANGE_LOW";
         break;
     case INPUT_RANGE_HIGH:
-        strcpy(paramName, "INPUT_RANGE_HIGH");
+        paramName = "INPUT_RANGE_HIGH";
         break;
     default:
-        std::snprintf(paramName, sizeof(paramName), "%lu(unknown)", s.Parameter);
+        paramName = std::format("{}(unknown)", s.Parameter);
         break;
     }
 
@@ -960,7 +967,7 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
     unsigned int i;
     SCONFIG_LIST *scl;
     long result = STATUS_NOERROR;
-    char IoctlName[128];
+    std::string IoctlName;
 
     SCONFIG *cfgitem;
     // const SCONFIG_LIST *inputlist = pInput;
@@ -968,51 +975,51 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
     switch (IoctlID)
     {
     case GET_CONFIG:
-        strcpy(IoctlName, "GET_CONFIG");
+        IoctlName = "GET_CONFIG";
         break;
     case SET_CONFIG:
-        strcpy(IoctlName, "SET_CONFIG");
+        IoctlName = "SET_CONFIG";
         break;
     case READ_VBATT:
-        strcpy(IoctlName, "READ_VBATT");
+        IoctlName = "READ_VBATT";
         break;
     case FIVE_BAUD_INIT:
-        strcpy(IoctlName, "FIVE_BAUD_INIT");
+        IoctlName = "FIVE_BAUD_INIT";
         input_as_sa = 1;
         output_as_sa = 1;
         break;
     case FAST_INIT:
-        strcpy(IoctlName, "FAST_INIT");
+        IoctlName = "FAST_INIT";
         break;
     case CLEAR_TX_BUFFER:
-        strcpy(IoctlName, "CLEAR_TX_BUFFER");
+        IoctlName = "CLEAR_TX_BUFFER";
         break;
     case CLEAR_RX_BUFFER:
-        strcpy(IoctlName, "CLEAR_RX_BUFFER");
+        IoctlName = "CLEAR_RX_BUFFER";
         break;
     case CLEAR_PERIODIC_MSGS:
-        strcpy(IoctlName, "CLEAR_PERIODIC_MSGS");
+        IoctlName = "CLEAR_PERIODIC_MSGS";
         break;
     case CLEAR_MSG_FILTERS:
-        strcpy(IoctlName, "CLEAR_MSG_FILTERS");
+        IoctlName = "CLEAR_MSG_FILTERS";
         break;
     case CLEAR_FUNCT_MSG_LOOKUP_TABLE:
-        strcpy(IoctlName, "CLEAR_FUNCT_MSG_LOOKUP_TABLE");
+        IoctlName = "CLEAR_FUNCT_MSG_LOOKUP_TABLE";
         break;
     case ADD_TO_FUNCT_MSG_LOOKUP_TABLE:
-        strcpy(IoctlName, "ADD_TO_FUNCT_MSG_LOOKUP_TABLE");
+        IoctlName = "ADD_TO_FUNCT_MSG_LOOKUP_TABLE";
         break;
     case DELETE_FROM_FUNCT_MSG_LOOKUP_TABLE:
-        strcpy(IoctlName, "DELETE_FROM_FUNCT_MSG_LOOKUP_TABLE");
+        IoctlName = "DELETE_FROM_FUNCT_MSG_LOOKUP_TABLE";
         break;
     case READ_PROG_VOLTAGE:
-        strcpy(IoctlName, "READ_PROG_VOLTAGE");
+        IoctlName = "READ_PROG_VOLTAGE";
         break;
         //    case TX_IOCTL_APP_SERVICE:
         //        strcpy(IoctlName,"APP_SERVICE");
         //        break;
     default:
-        std::snprintf(IoctlName, sizeof(IoctlName), "%lu(unknown)", IoctlID);
+        IoctlName = std::format("{}(unknown)", IoctlID);
         break;
     }
 
