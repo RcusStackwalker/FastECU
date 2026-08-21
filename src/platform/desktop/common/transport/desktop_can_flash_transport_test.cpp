@@ -772,6 +772,26 @@ class TestDesktopCanFlashTransport : public QObject
         QCOMPARE(secondResult.error().kind, ErrorKind::Cancelled);
         QVERIFY(fake->takeCallLog().filter("read:begin").isEmpty());
     }
+
+    void fakeBackendReportsScriptedPortListAndBattery()
+    {
+        FakeBackend *fake = nullptr;
+        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                          [&fake]() -> SerialBackend *
+                                                          {
+                                                              fake = new FakeBackend();
+                                                              return fake;
+                                                          });
+        serial->set_add_ssm_header(false); // forces backend creation
+        fake->checkSerialPortsResult = QStringList{"op2-0", "op2-1"};
+        fake->vbattResult = 11676;
+        fake->takeCallLog();
+
+        QCOMPARE(serial->check_serial_ports(), QStringList({"op2-0", "op2-1"}));
+        QVERIFY(serial->set_serial_port("op2-1"));
+        QCOMPARE(serial->read_vbatt(), 11676ul);
+        QVERIFY(fake->takeCallLog().contains("cfg:set_serial_port:op2-1"));
+    }
 };
 
 QTEST_GUILESS_MAIN(TestDesktopCanFlashTransport)
