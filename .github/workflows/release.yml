@@ -34,6 +34,9 @@ jobs:
     name: SonarCloud
     needs: release
     if: needs.release.outputs.tag != ''
+    permissions:
+      contents: read
+      pull-requests: read
     uses: ./.github/workflows/sonar.yml
     with:
       ref: ${{ needs.release.outputs.tag }}
