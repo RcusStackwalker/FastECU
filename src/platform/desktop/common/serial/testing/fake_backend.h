@@ -166,6 +166,31 @@ class FakeBackend : public SerialPortActionsDirect
     // simulate a successful open.
     QString openSerialPortResult;
 
+    // check_serial_ports() / set_serial_port() / read_vbatt() are pure virtual
+    // on SerialBackend and their real implementations probe J2534 hardware, so
+    // they are stubbed here for the same reason open_serial_port() above is.
+    QStringList checkSerialPortsResult;
+    unsigned long vbattResult = 0;
+
+    QStringList check_serial_ports() override
+    {
+        log("check_serial_ports");
+        return checkSerialPortsResult;
+    }
+
+    bool set_serial_port(QString value) override
+    {
+        log("cfg:set_serial_port:" + value);
+        SerialPortActionsDirect::set_serial_port(value);
+        return true;
+    }
+
+    unsigned long read_vbatt() override
+    {
+        log("read_vbatt");
+        return vbattResult;
+    }
+
     ~FakeBackend() override
     {
         if (destroyed)

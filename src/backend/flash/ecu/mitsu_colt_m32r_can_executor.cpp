@@ -199,6 +199,41 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
     return {};
 }
 
+// One ReadMemoryByAddress round trip: sends the request for `chunk_len`
+// bytes at `addr` and returns the reply's leading `chunk_len` payload
+// bytes, or a typed error. Shared by read_flash_range (which accumulates
+// every chunk into one buffer) and top_region_matches (which only needs to
+// inspect each chunk before deciding whether to ask for the next).
+Result<bytes::Bytes> read_one_chunk(Ctx& ctx, std::uint32_t addr, bytes::Byte chunk_len)
+{
+    using namespace MitsuColtCan;
+
+    // Lines 191-194.
+    Result<bytes::Bytes> received =
+        ctx.uds.request(buildReadMemoryByAddress(addr, chunk_len), kRoutineExchangePolicy, ctx.cancellation);
+    if (!received.has_value())
+    {
+        return std::unexpected(report_exchange_failure(ctx, received.error(),
+                                                       std::format("Wrong response from ECU at 0x{:x}: ", addr),
+                                                       std::format("the flash read at 0x{:x}", addr)));
+    }
+    // Line 196: the reply must carry the whole chunk it was asked for. A
+    // short one is refused rather than padded -- silently accepting it
+    // would leave a hole in the image the verify pass then blames on the
+    // flash write.
+    const bytes::ByteView payload = uds::payload(*received);
+    if (payload.size() < chunk_len)
+    {
+        error(ctx, std::format("Wrong response from ECU at 0x{:x}: expected {} payload "
+                               "bytes, got {}",
+                               addr, static_cast<unsigned>(chunk_len), payload.size()));
+        return fail(ErrorKind::BadResponse, "read chunk rejected");
+    }
+
+    // Lines 202-206: received.mid(5, chunkLen) on the enveloped frame.
+    return bytes::Bytes(payload.begin(), payload.begin() + chunk_len);
+}
+
 // Legacy readFlashRange, flash_ecu_mitsu_m32r_can_operation.cpp:170-211.
 // Progress is reported as (bytes done, bytes total) rather than the legacy
 // integer percentage; the dialog converts. This preserves the emission
@@ -225,31 +260,13 @@ Result<bytes::Bytes> read_flash_range(Ctx& ctx, std::uint32_t start_addr, std::u
         const auto chunk_len =
             static_cast<bytes::Byte>(remaining < kFlashReadBlockSize ? remaining : kFlashReadBlockSize);
 
-        // Lines 191-194.
-        Result<bytes::Bytes> received =
-            ctx.uds.request(buildReadMemoryByAddress(addr, chunk_len), kRoutineExchangePolicy, ctx.cancellation);
-        if (!received.has_value())
+        Result<bytes::Bytes> chunk = read_one_chunk(ctx, addr, chunk_len);
+        if (!chunk.has_value())
         {
-            return std::unexpected(report_exchange_failure(ctx, received.error(),
-                                                           std::format("Wrong response from ECU at 0x{:x}: ", addr),
-                                                           std::format("the flash read at 0x{:x}", addr)));
-        }
-        // Line 196: the reply must carry the whole chunk it was asked for. A
-        // short one is refused rather than padded -- silently accepting it
-        // would leave a hole in the image the verify pass then blames on the
-        // flash write.
-        const bytes::ByteView payload = uds::payload(*received);
-        if (payload.size() < chunk_len)
-        {
-            error(ctx, std::format("Wrong response from ECU at 0x{:x}: expected {} payload "
-                                   "bytes, got {}",
-                                   addr, static_cast<unsigned>(chunk_len), payload.size()));
-            return fail(ErrorKind::BadResponse, "read chunk rejected");
+            return std::unexpected(chunk.error());
         }
 
-        // Lines 202-206: received.mid(5, chunkLen) on the enveloped frame.
-        const bytes::ByteView chunk = payload.subspan(0, chunk_len);
-        data.insert(data.end(), chunk.begin(), chunk.end());
+        data.insert(data.end(), chunk->begin(), chunk->end());
         addr += chunk_len;
 
         if (progress != nullptr)
@@ -259,6 +276,46 @@ Result<bytes::Bytes> read_flash_range(Ctx& ctx, std::uint32_t start_addr, std::u
     }
 
     return data;
+}
+
+// Compares the ECU's top 128KB against `wanted` chunk by chunk, stopping at
+// the first mismatch instead of reading the full region first and comparing
+// after: 128KB at kFlashReadBlockSize chunks is ~680 round trips, and a
+// real edit is usually confined to part of the region, so this saves most
+// of that whenever a bootstrap actually turns out to be needed.
+Result<bool> top_region_matches(Ctx& ctx, bytes::ByteView wanted)
+{
+    using namespace MitsuColtCan;
+
+    const std::uint32_t end_addr = kTopRegionStart + kTopRegionLength;
+
+    for (std::uint32_t addr = kTopRegionStart; addr < end_addr;)
+    {
+        if (ctx.cancellation.cancelled())
+        {
+            return fail(ErrorKind::Cancelled, "read cancelled");
+        }
+
+        const std::uint32_t remaining = end_addr - addr;
+        const auto chunk_len =
+            static_cast<bytes::Byte>(remaining < kFlashReadBlockSize ? remaining : kFlashReadBlockSize);
+
+        Result<bytes::Bytes> chunk = read_one_chunk(ctx, addr, chunk_len);
+        if (!chunk.has_value())
+        {
+            return std::unexpected(chunk.error());
+        }
+
+        const std::uint32_t offset = addr - kTopRegionStart;
+        if (!std::ranges::equal(*chunk, wanted.subspan(offset, chunk_len)))
+        {
+            return false;
+        }
+
+        addr += chunk_len;
+    }
+
+    return true;
 }
 
 // Legacy upload_and_commit, flash_ecu_mitsu_m32r_can_operation.cpp:231-297.
@@ -323,6 +380,13 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data, Ph
             std::format("the RoutineControl CRC check for 0x{:x}", start)));
     }
 
+    // A matching SID echo only means the ECU answered -- it does not mean the
+    // CRC matched. RoutineControl 225's reply carries a status byte after the
+    // routine-id echo (colt_commented.S ~0x5aa0-0x5ad4): cobd_data[2] is 0
+    // only when can_flasher_current_block_calculated_crc equals the
+    // reference CRC, and nonzero otherwise. UdsClient never looks past the
+    // SID, so without this check a reported mismatch would be logged and
+    // treated as a successful commit.
     const bytes::ByteView crc_reply = uds::payload(*received);
     if (crc_reply.size() < 2)
     {
@@ -376,6 +440,12 @@ Status unlock_and_erase(Ctx& ctx, std::string_view stage)
                                                        std::format("the erase trigger{}", stage)));
     }
 
+    // A matching SID echo only means the ECU answered -- it does not mean the
+    // erase happened. RoutineControl 224's reply carries a status byte after
+    // the routine-id echo (colt_commented.S ~0x59c8-0x5a38): the bootloader
+    // reports flasher_try_erase_range_call() failing via a positive reply
+    // with a nonzero status instead of an NRC, so a naive SID-only check (as
+    // UdsClient itself does) would log and treat that as a successful erase.
     const bytes::ByteView erase_reply = uds::payload(*received);
     if (erase_reply.size() < 2)
     {
@@ -426,18 +496,19 @@ Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan, bytes::ByteVie
     // Line 303.
     info(ctx, std::format("Checking top 128KB (0x{:x}-0x{:x})...", kTopRegionStart, kTopRegionEnd));
 
-    // Lines 305-309.
-    Result<bytes::Bytes> current_top = read_flash_range(ctx, kTopRegionStart, kTopRegionLength);
-    if (!current_top.has_value())
-    {
-        return std::unexpected(current_top.error());
-    }
-
-    // Lines 311-316. The legacy `romdata.mid(kTopRegionStart, kTopRegionLength)`
-    // clamps a short slice; write_mem's length guard rules that out before it
-    // calls here, so this subspan is always the full kTopRegionLength bytes.
+    // Lines 305-316, compared chunk by chunk (top_region_matches) rather
+    // than read in full and compared afterward -- a mismatch confined to
+    // part of the region then costs far less than the full 128KB sweep. The
+    // legacy `romdata.mid(kTopRegionStart, kTopRegionLength)` clamps a short
+    // slice; write_mem's length guard rules that out before it calls here,
+    // so this subspan is always the full kTopRegionLength bytes.
     const bytes::ByteView wanted_top = rom.subspan(kTopRegionStart, kTopRegionLength);
-    if (std::ranges::equal(*current_top, wanted_top))
+    Result<bool> matches = top_region_matches(ctx, wanted_top);
+    if (!matches.has_value())
+    {
+        return std::unexpected(matches.error());
+    }
+    if (*matches)
     {
         info(ctx, "Top 128KB already matches, no bootstrap needed");
         phase.complete();

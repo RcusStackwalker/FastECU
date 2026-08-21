@@ -223,6 +223,19 @@ void scriptFlashRead(ScriptedCanFlashTransport& transport, std::uint32_t start, 
     }
 }
 
+// Scripts a single ReadMemoryByAddress chunk at `addr`, replying with
+// `chunk_len` bytes of `fill`. Used where the caller wants exactly one
+// chunk on the wire instead of scriptFlashRead's full-range sweep -- e.g.
+// to prove top_region_matches() stops issuing reads at the first mismatch.
+void scriptFlashReadChunk(ScriptedCanFlashTransport& transport, std::uint32_t addr, bytes::Byte chunk_len,
+                          bytes::Byte fill)
+{
+    transport.expectWrite(request(MitsuColtCan::buildReadMemoryByAddress(addr, chunk_len)));
+    bytes::Bytes reply = response({0x63});
+    reply.insert(reply.end(), chunk_len, fill);
+    transport.queueRead(reply);
+}
+
 void scriptFlashReadData(ScriptedCanFlashTransport& transport, std::uint32_t start, bytes::ByteView data)
 {
     for (std::uint32_t offset = 0; offset < data.size(); offset += MitsuColtCan::kFlashReadBlockSize)
@@ -313,6 +326,8 @@ void scriptCrcCommit(ScriptedCanFlashTransport& transport, std::uint32_t start, 
     transport.queueRead(response({0x76}));
 
     transport.expectWrite(request(MitsuColtCan::buildRoutineCheckCrc(start)));
+    // [echo][status=0], the routine-id echo plus the CRC-match status byte
+    // (colt_commented.S ~0x5aa0-0x5ad4); the executor now checks the latter.
     transport.queueRead(response({0x71, 0xe1, 0x00}));
 }
 
@@ -332,6 +347,9 @@ void scriptUnlockAndErase(ScriptedCanFlashTransport& transport)
     transport.expectWrite(request(MitsuColtCan::buildRequestReflashUnlock()));
     transport.queueRead(response({0x7b}));
     transport.expectWrite(request(MitsuColtCan::buildRoutineErase()));
+    // [echo][status=0], the routine-id echo plus the erase-succeeded status
+    // byte (colt_commented.S ~0x59c8-0x5a38); the executor now checks the
+    // latter -- this is the exact wire shape a real ECU sends.
     transport.queueRead(response({0x71, 0xe0, 0x00}));
 }
 
@@ -848,8 +866,10 @@ TEST(MitsuColtM32rCanExecutor, WriteRunsTheBootstrapWhenTheTopRegionDiffers)
     auto plan = writePlan(rom);
 
     scriptBootloadHandshake(transport);
-    // ECU reports 0xFF: mismatch, so the bootstrap runs.
-    scriptFlashRead(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kTopRegionLength, 0xFF);
+    // ECU reports 0xFF from the very first chunk: mismatch, so the
+    // bootstrap runs. top_region_matches() stops at that first chunk rather
+    // than reading the full 128KB before comparing.
+    scriptFlashReadChunk(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kFlashReadBlockSize, 0xFF);
     scriptUploadAndCommit(transport, MitsuColtCan::kEraseRoutineRamAddr, MitsuColtCan::kEraseRedirectRoutine);
     scriptUploadAndCommit(transport, MitsuColtCan::kWriteRoutineRamAddr, MitsuColtCan::kWriteRedirectRoutine);
     scriptUnlockAndErase(transport);
@@ -878,6 +898,48 @@ TEST(MitsuColtM32rCanExecutor, WriteRunsTheBootstrapWhenTheTopRegionDiffers)
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Top 128KB verified")));
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Userspace flash written")));
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Userspace flash verified")));
+}
+
+TEST(MitsuColtM32rCanExecutor, WriteStopsReadingTheTopRegionAtTheFirstMismatchedChunk)
+{
+    // Unlike WriteRunsTheBootstrapWhenTheTopRegionDiffers (whose ECU
+    // mismatches from byte 0), this proves top_region_matches() keeps
+    // comparing chunk by chunk -- several chunks in a row can match before
+    // the divergence is found, and reading still stops there rather than
+    // continuing to the end of the 128KB region.
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+
+    const bytes::Bytes rom = writeRom();
+    auto plan = writePlan(rom);
+
+    scriptBootloadHandshake(transport);
+    // First 3 chunks match the ROM's 0xEE top-region fill; the 4th diverges.
+    scriptFlashRead(transport, MitsuColtCan::kTopRegionStart, 3 * MitsuColtCan::kFlashReadBlockSize, 0xEE);
+    scriptFlashReadChunk(transport, MitsuColtCan::kTopRegionStart + 3 * MitsuColtCan::kFlashReadBlockSize,
+                         MitsuColtCan::kFlashReadBlockSize, 0xFF);
+    // A read past the 4th chunk here would fail the transport's own
+    // unexpected-write assertion -- that is what proves the early exit.
+    scriptUploadAndCommit(transport, MitsuColtCan::kEraseRoutineRamAddr, MitsuColtCan::kEraseRedirectRoutine);
+    scriptUploadAndCommit(transport, MitsuColtCan::kWriteRoutineRamAddr, MitsuColtCan::kWriteRedirectRoutine);
+    scriptUnlockAndErase(transport);
+    scriptUploadAndCommit(transport, MitsuColtCan::kUserspaceStart, topRegionOf(rom));
+    scriptFlashRead(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kTopRegionLength, 0xEE);
+    scriptUploadAndCommit(transport, MitsuColtCan::kEraseRoutineRamAddr, MitsuColtCan::kErasePageRoutine);
+    scriptUploadAndCommit(transport, MitsuColtCan::kWriteRoutineRamAddr, MitsuColtCan::kWritePageRoutine);
+    scriptUnlockAndErase(transport);
+    scriptUploadAndCommit(transport, MitsuColtCan::kUserspaceStart, userspaceOf(rom));
+    scriptFlashReadData(transport, MitsuColtCan::kUserspaceStart, userspaceOf(rom));
+
+    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_THAT(events.logs,
+                Contains(Pair(LogLevel::Info, "Top 128KB mismatch, bootstrapping via redirect routines...")));
 }
 
 TEST(MitsuColtM32rCanExecutor, WriteFailsWhenTheUserspaceVerifyMismatches)
@@ -920,7 +982,11 @@ TEST(MitsuColtM32rCanExecutor, WriteFailsWhenTheTopRegionVerifyMismatches)
     auto plan = writePlan(rom);
 
     scriptBootloadHandshake(transport);
-    scriptFlashRead(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kTopRegionLength, 0xFF);
+    // ECU reports 0xFF from the very first chunk: mismatch. See
+    // WriteRunsTheBootstrapWhenTheTopRegionDiffers for why only one chunk is
+    // scripted for this initial check (the second scriptFlashRead below, after
+    // the write, is the full post-write verify read and is unaffected).
+    scriptFlashReadChunk(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kFlashReadBlockSize, 0xFF);
     scriptUploadAndCommit(transport, MitsuColtCan::kEraseRoutineRamAddr, MitsuColtCan::kEraseRedirectRoutine);
     scriptUploadAndCommit(transport, MitsuColtCan::kWriteRoutineRamAddr, MitsuColtCan::kWriteRedirectRoutine);
     scriptUnlockAndErase(transport);
@@ -1042,6 +1108,12 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheEraseTriggerReplyHasTheWrongRout
 
 TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheEraseTriggerReportsANonZeroStatus)
 {
+    // A RoutineControl 224 reply with a matching SID echo is not the same as
+    // a successful erase: the bootloader reports
+    // flasher_try_erase_range_call() failing via a positive reply carrying a
+    // nonzero status byte instead of an NRC (colt_commented.S ~0x59c8-0x5a38,
+    // Colt CZT Z37A ROM 47110032) -- the exact wire trace that motivated this
+    // test.
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
@@ -1056,9 +1128,47 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheEraseTriggerReportsANonZeroStatu
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    // Nothing beyond the erase trigger was scripted -- a RequestDownload
+    // here would fail the transport's own unexpected-write assertion.
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "Erase trigger reported failure (status 0x01)")));
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Userspace flash erased"))));
+}
+
+TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheCarrierEraseTriggerReportsANonZeroStatus)
+{
+    // Same check, exercised through the top-128KB bootstrap's copy of
+    // unlock_and_erase() -- the `stage` suffix must appear in the log too.
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::flash::CancellationSource cancellation;
+    MitsuColtM32rCanExecutor executor;
+
+    const bytes::Bytes rom = writeRom();
+    auto plan = writePlan(rom);
+
+    scriptBootloadHandshake(transport);
+    // ECU reports 0xFF from the very first chunk: mismatch. top_region_matches()
+    // stops there instead of reading the full 128KB before comparing.
+    scriptFlashReadChunk(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kFlashReadBlockSize, 0xFF);
+    scriptUploadAndCommit(transport, MitsuColtCan::kEraseRoutineRamAddr, MitsuColtCan::kEraseRedirectRoutine);
+    scriptUploadAndCommit(transport, MitsuColtCan::kWriteRoutineRamAddr, MitsuColtCan::kWriteRedirectRoutine);
+    transport.expectWrite(request(MitsuColtCan::buildRequestReflashUnlock()));
+    transport.queueRead(response({0x7b}));
+    transport.expectWrite(request(MitsuColtCan::buildRoutineErase()));
+    transport.queueRead(response({0x71, 0xe0, 0x01}));
+
+    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_THAT(events.logs,
+                Contains(Pair(LogLevel::Error, "Erase trigger (top 128KB bootstrap) reported failure (status 0x01)")));
+    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Carrier window erased"))));
+    // The main write never starts.
+    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Erase page uploaded"))));
 }
 
 TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheCrcCheckReplyIsTooShort)
@@ -1106,6 +1216,12 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheCrcCheckReplyHasTheWrongRoutineE
 
 TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheCrcCheckReportsANonZeroStatus)
 {
+    // upload_and_commit's RoutineControl 225 (CRC check) reply carries the
+    // same echo-plus-status shape as the erase trigger (colt_commented.S
+    // ~0x5aa0-0x5ad4): cobd_data[2] is 0 only when
+    // can_flasher_current_block_calculated_crc matches the reference. A
+    // positive SID echo with a nonzero status means the ECU itself reports a
+    // CRC mismatch, which UdsClient alone cannot see.
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
@@ -1190,7 +1306,9 @@ TEST(MitsuColtM32rCanExecutor, WriteRefusesTheBootstrapWhenItsConfirmationIsAbse
     auto plan = writePlanGranting({fastecu::flash::ConfirmationSpec::Id::EraseTrigger});
 
     scriptBootloadHandshake(transport);
-    scriptFlashRead(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kTopRegionLength, 0xFF);
+    // ECU reports 0xFF from the very first chunk: mismatch. top_region_matches()
+    // stops there instead of reading the full 128KB before comparing.
+    scriptFlashReadChunk(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kFlashReadBlockSize, 0xFF);
 
     const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
 
@@ -1594,7 +1712,9 @@ TEST(MitsuColtM32rCanExecutor, BootstrapAbortsWhenTheChecksumRequestDownloadIsRe
     auto plan = writePlan(rom);
 
     scriptBootloadHandshake(transport);
-    scriptFlashRead(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kTopRegionLength, 0xFF);
+    // ECU reports 0xFF from the very first chunk: mismatch. top_region_matches()
+    // stops there instead of reading the full 128KB before comparing.
+    scriptFlashReadChunk(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kFlashReadBlockSize, 0xFF);
     // The erase redirect routine uploads, then the ECU refuses to open the
     // checksum window -- so the routine is in RAM but unverified, and the
     // bootstrap must not go on to erase the carrier window with it.
@@ -1626,7 +1746,9 @@ TEST(MitsuColtM32rCanExecutor, BootstrapAbortsWhenTheChecksumTransferDataIsRejec
     auto plan = writePlan(rom);
 
     scriptBootloadHandshake(transport);
-    scriptFlashRead(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kTopRegionLength, 0xFF);
+    // ECU reports 0xFF from the very first chunk: mismatch. top_region_matches()
+    // stops there instead of reading the full 128KB before comparing.
+    scriptFlashReadChunk(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kFlashReadBlockSize, 0xFF);
     scriptUploadAndCommit(transport, MitsuColtCan::kEraseRoutineRamAddr, MitsuColtCan::kEraseRedirectRoutine);
     scriptUploadFrames(transport, MitsuColtCan::kWriteRoutineRamAddr, MitsuColtCan::kWriteRedirectRoutine);
     transport.expectWrite(
@@ -1663,7 +1785,9 @@ TEST(MitsuColtM32rCanExecutor, BootstrapReportsItsOwnReflashUnlockRejection)
     auto plan = writePlan(rom);
 
     scriptBootloadHandshake(transport);
-    scriptFlashRead(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kTopRegionLength, 0xFF);
+    // ECU reports 0xFF from the very first chunk: mismatch. top_region_matches()
+    // stops there instead of reading the full 128KB before comparing.
+    scriptFlashReadChunk(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kFlashReadBlockSize, 0xFF);
     scriptUploadAndCommit(transport, MitsuColtCan::kEraseRoutineRamAddr, MitsuColtCan::kEraseRedirectRoutine);
     scriptUploadAndCommit(transport, MitsuColtCan::kWriteRoutineRamAddr, MitsuColtCan::kWriteRedirectRoutine);
     transport.expectWrite(request(MitsuColtCan::buildRequestReflashUnlock()));
