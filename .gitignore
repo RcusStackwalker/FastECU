@@ -92,3 +92,4 @@ __pycache__/
 
 # Editor swap files
 *.sw[a-p]
+.superpowers/
