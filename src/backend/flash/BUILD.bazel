@@ -69,7 +69,6 @@ cc_library(
     name = "flash_executor",
     srcs = ["flash_executor.cpp"],
     hdrs = [
-        "flash_cancellation.h",
         "flash_executor.h",
     ],
     deps = [
@@ -89,12 +88,6 @@ fastecu_portable_gtest(
         ":flash_validation",
         "//src/backend/flash/testing:scripted_flash_transports",
     ],
-)
-
-fastecu_portable_gtest(
-    name = "flash_cancellation_test",
-    srcs = ["flash_cancellation_test.cpp"],
-    deps = [":flash_executor"],
 )
 
 cc_library(

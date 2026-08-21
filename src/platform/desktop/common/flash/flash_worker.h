@@ -7,11 +7,11 @@
 #include <optional>
 
 #include "src/algorithms/protocol/bytes.h"
-#include "src/backend/flash/flash_cancellation.h"
 #include "src/backend/flash/flash_executor.h"
 #include "src/backend/flash/flash_plan.h"
 #include "src/backend/ports/clock.h"
 #include "src/backend/ports/error.h"
+#include "src/backend/ports/manual_cancellation_token.h"
 
 namespace fastecu::flash
 {
@@ -55,7 +55,7 @@ class FlashWorker final : public QThread
     FlashWorker(const FlashWorker&) = delete;
     FlashWorker& operator=(const FlashWorker&) = delete;
 
-    // Trips the cancellation source AND asks the transport to interrupt any
+    // Cancels the cancellation token AND asks the transport to interrupt any
     // in-flight blocking call. Both halves are required: cancellation alone
     // only stops the executor at its next checkpoint (which may be behind a
     // still-blocked transport call), and request_unblock() alone doesn't
@@ -78,7 +78,7 @@ class FlashWorker final : public QThread
     std::unique_ptr<IFlashExecutor> executor_;
     std::unique_ptr<IFlashTransport> transport_;
     std::unique_ptr<IClock> clock_;
-    CancellationSource cancellation_;
+    ManualCancellationToken cancellation_;
 };
 
 } // namespace fastecu::flash

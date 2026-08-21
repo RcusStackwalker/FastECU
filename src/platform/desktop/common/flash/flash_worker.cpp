@@ -7,7 +7,7 @@ namespace fastecu::flash
 namespace
 {
 
-// Bounded, not absent: requestStop() (tripping cancellation_ and calling
+// Bounded, not absent: requestStop() (cancelling cancellation_ and calling
 // transport_->request_unblock()) is what actually makes run() return
 // promptly, so this is a defensive backstop rather than the mechanism the
 // teardown contract relies on. If it ever fires, that indicates a real
@@ -34,7 +34,7 @@ FlashWorker::~FlashWorker()
 
 void FlashWorker::requestStop()
 {
-    cancellation_.trip();
+    cancellation_.cancel();
     transport_->request_unblock();
 }
 
@@ -62,8 +62,7 @@ void FlashWorker::run()
         &events, &QtEventSink::noticed, this, [this](QString message)
         { emit logEvent(static_cast<int>(LogLevel::Info), std::move(message)); }, Qt::DirectConnection);
 
-    Result<FlashExecutionResult> result =
-        executor_->execute(plan_, *transport_, *clock_, cancellation_.token(), events);
+    Result<FlashExecutionResult> result = executor_->execute(plan_, *transport_, *clock_, cancellation_, events);
 
     FlashWorkerResult worker_result;
     if (result.has_value())
