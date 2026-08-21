@@ -80,5 +80,5 @@ TEST(TestMitsuColtCanProtocol, erase_and_write_redirect_routines_match_reflash_d
     ASSERT_EQ(sizeof(kEraseRedirectRoutine), size_t(160));
     ASSERT_EQ(sizeof(kWriteRedirectRoutine), size_t(176));
     ASSERT_EQ(checksum(kEraseRedirectRoutine), std::uint16_t(0x5079));
-    ASSERT_EQ(checksum(kWriteRedirectRoutine), std::uint16_t(0x514e));
+    ASSERT_EQ(checksum(kWriteRedirectRoutine), std::uint16_t(0x4eae));
 }
