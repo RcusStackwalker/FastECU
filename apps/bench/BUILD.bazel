@@ -11,12 +11,14 @@ cc_library(
     srcs = [
         "bench_args.cpp",
         "bench_commands.cpp",
+        "bench_driver.cpp",
         "bench_format.cpp",
         "bench_types.cpp",
     ],
     hdrs = [
         "bench_args.h",
         "bench_commands.h",
+        "bench_driver.h",
         "bench_format.h",
         "bench_session_interface.h",
         "bench_types.h",
@@ -47,6 +49,17 @@ fastecu_portable_gtest(
     srcs = ["bench_commands_test.cpp"],
     deps = [
         ":bench_core",
+        "//apps/bench/testing:fake_bench_files",
+        "//apps/bench/testing:fake_bench_session",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "bench_driver_test",
+    srcs = ["bench_driver_test.cpp"],
+    deps = [
+        ":bench_core",
+        "//apps/bench/testing:fake_bench_environment",
         "//apps/bench/testing:fake_bench_files",
         "//apps/bench/testing:fake_bench_session",
     ],
