@@ -1135,7 +1135,7 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheEraseTriggerIsRejected)
 
 TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheCarrierEraseTriggerReportsANonZeroStatus)
 {
-    // Same RoutineControl status check as the MitsuColtM32rCanExecutorRoutineStatusTest
+    // Same fatal_query wiring as the MitsuColtM32rCanExecutorRoutineStatusTest
     // cases below, exercised through the top-128KB bootstrap's copy of
     // unlock_and_erase() -- the `stage` suffix must appear in the log too.
     ScriptedCanFlashTransport transport;
@@ -1165,7 +1165,8 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheCarrierEraseTriggerReportsANonZe
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs,
-                Contains(Pair(LogLevel::Error, "erase trigger (top 128KB bootstrap) reported failure (status 0x01)")));
+                Contains(Pair(LogLevel::Error, "Erase trigger (top 128KB bootstrap) rejected: unexpected erase "
+                                               "trigger (top 128KB bootstrap) response")));
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Carrier window erased"))));
     // The main write never starts.
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Erase page uploaded"))));
@@ -1173,15 +1174,17 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheCarrierEraseTriggerReportsANonZe
 
 // The erase trigger (RoutineControl 224) and the CRC check (RoutineControl
 // 225) both reply [routine-id echo][status] past the SID UdsClient already
-// validated, and both fail write_mem the same way on a bad one: too few
-// payload bytes, an echo that names the wrong routine, or a positive status
-// byte reporting a routine failure the ECU could not express as an NRC
-// (colt_commented.S ~0x59c8-0x5a38 for the erase trigger, ~0x5aa0-0x5ad4 for
-// the CRC check -- the latter is where cobd_data[2] carries whether
-// can_flasher_current_block_calculated_crc matched the reference). These six
-// cases are that one check_routine_status() shape exercised through both
-// call sites; WriteStopsWhenTheCarrierEraseTriggerReportsANonZeroStatus above
-// covers the same check through unlock_and_erase's other caller.
+// validated: a matching SID echo alone does not mean the routine itself
+// succeeded, so both exchanges go through fatal_query with expected_prefix
+// = {routine, 0x00} (colt_commented.S ~0x59c8-0x5a38 for the erase trigger,
+// ~0x5aa0-0x5ad4 for the CRC check -- the latter is where cobd_data[2]
+// carries whether can_flasher_current_block_calculated_crc matched the
+// reference). fatal_query's own mismatch handling -- too-short payload,
+// wrong prefix content -- is already exercised generically by
+// FatalQueryTest in uds_client_exchange_common_test.cpp, so these two cases
+// only need to confirm each call site is wired to the right expected_prefix;
+// WriteStopsWhenTheCarrierEraseTriggerReportsANonZeroStatus above covers the
+// same wiring through unlock_and_erase's other caller.
 struct RoutineStatusCase
 {
     std::string name;
@@ -1219,37 +1222,17 @@ TEST_P(MitsuColtM32rCanExecutorRoutineStatusTest, StopsTheWrite)
 
 INSTANTIATE_TEST_SUITE_P(
     MitsuColtM32rCanExecutor, MitsuColtM32rCanExecutorRoutineStatusTest,
-    ::testing::Values(RoutineStatusCase{"EraseTriggerReplyIsTooShort",
-                                        scriptWriteThroughEraseTrigger,
-                                        {0x71, 0xe0},
-                                        "erase trigger reply carried no status byte",
-                                        "Userspace flash erased"},
-                      RoutineStatusCase{"EraseTriggerReplyHasTheWrongRoutineEcho",
-                                        scriptWriteThroughEraseTrigger,
-                                        {0x71, 0xe1, 0x00},
-                                        "erase trigger reply echoed routine 0xe1 instead of 0xe0",
-                                        "Userspace flash erased"},
-                      RoutineStatusCase{"EraseTriggerReportsANonZeroStatus",
+    ::testing::Values(RoutineStatusCase{"EraseTriggerReportsANonZeroStatus",
                                         scriptWriteThroughEraseTrigger,
                                         {0x71, 0xe0, 0x01},
-                                        "erase trigger reported failure (status 0x01)",
+                                        "Erase trigger rejected: unexpected erase trigger response",
                                         "Userspace flash erased"},
-                      RoutineStatusCase{"CrcCheckReplyIsTooShort",
-                                        scriptWriteThroughEraseRoutineCrcCheck,
-                                        {0x71, 0xe1},
-                                        std::format("CRC check for 0x{:x} reply carried no status byte",
-                                                    MitsuColtCan::kEraseRoutineRamAddr),
-                                        "Erase page uploaded"},
-                      RoutineStatusCase{"CrcCheckReplyHasTheWrongRoutineEcho",
-                                        scriptWriteThroughEraseRoutineCrcCheck,
-                                        {0x71, 0xe0, 0x00},
-                                        std::format("CRC check for 0x{:x} reply echoed routine 0xe0 instead of 0xe1",
-                                                    MitsuColtCan::kEraseRoutineRamAddr),
-                                        "Erase page uploaded"},
                       RoutineStatusCase{"CrcCheckReportsANonZeroStatus",
                                         scriptWriteThroughEraseRoutineCrcCheck,
                                         {0x71, 0xe1, 0x01},
-                                        std::format("CRC check for 0x{:x} reported a mismatch (status 0x01)",
+                                        std::format("RoutineControl CRC check for 0x{:x} rejected: unexpected CRC "
+                                                    "check for 0x{:x} response",
+                                                    MitsuColtCan::kEraseRoutineRamAddr,
                                                     MitsuColtCan::kEraseRoutineRamAddr),
                                         "Erase page uploaded"}),
     [](const ::testing::TestParamInfo<RoutineStatusCase>& info) { return info.param.name; });
