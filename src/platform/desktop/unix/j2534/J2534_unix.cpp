@@ -736,7 +736,9 @@ long J2534::PassThruReadVersion(char *pApiVersion, char *pDllVersion, char *pFir
     long result = STATUS_NOERROR;
 
     strncpy(pApiVersion, API_VERSION, strlen(API_VERSION));
+    pApiVersion[strlen(API_VERSION)] = '\0';
     strncpy(pDllVersion, DLL_VERSION, strlen(DLL_VERSION));
+    pDllVersion[strlen(DLL_VERSION)] = '\0';
     // strncpy(pFirmwareVersion, fw_version, strlen(fw_version));
 
     output = "\r\n\r\nati\r\n";
@@ -794,151 +796,151 @@ void J2534::dump_sconfig_param(SCONFIG s)
     switch (s.Parameter)
     {
     case DATA_RATE:
-        strcpy(paramName, "DATA_RATE");
+        std::snprintf(paramName, sizeof(paramName), "%s", "DATA_RATE");
         break;
     case LOOPBACK:
-        strcpy(paramName, "LOOPBACK");
+        std::snprintf(paramName, sizeof(paramName), "%s", "LOOPBACK");
         break;
     case NODE_ADDRESS:
-        strcpy(paramName, "NODE_ADDRESS");
+        std::snprintf(paramName, sizeof(paramName), "%s", "NODE_ADDRESS");
         break;
     case NETWORK_LINE:
-        strcpy(paramName, "NETWORK_LINE");
+        std::snprintf(paramName, sizeof(paramName), "%s", "NETWORK_LINE");
         break;
     case P1_MIN:
-        strcpy(paramName, "P1_MIN");
+        std::snprintf(paramName, sizeof(paramName), "%s", "P1_MIN");
         break;
     case P1_MAX:
-        strcpy(paramName, "P1_MAX");
+        std::snprintf(paramName, sizeof(paramName), "%s", "P1_MAX");
         break;
     case P2_MIN:
-        strcpy(paramName, "P2_MIN");
+        std::snprintf(paramName, sizeof(paramName), "%s", "P2_MIN");
         break;
     case P2_MAX:
-        strcpy(paramName, "P2_MAX");
+        std::snprintf(paramName, sizeof(paramName), "%s", "P2_MAX");
         break;
     case P3_MIN:
-        strcpy(paramName, "P3_MIN");
+        std::snprintf(paramName, sizeof(paramName), "%s", "P3_MIN");
         break;
     case P3_MAX:
-        strcpy(paramName, "P3_MAX");
+        std::snprintf(paramName, sizeof(paramName), "%s", "P3_MAX");
         break;
     case P4_MIN:
-        strcpy(paramName, "P4_MIN");
+        std::snprintf(paramName, sizeof(paramName), "%s", "P4_MIN");
         break;
     case P4_MAX:
-        strcpy(paramName, "P4_MAX");
+        std::snprintf(paramName, sizeof(paramName), "%s", "P4_MAX");
         break;
     case W1:
-        strcpy(paramName, "W1");
+        std::snprintf(paramName, sizeof(paramName), "%s", "W1");
         break;
     case W2:
-        strcpy(paramName, "W2");
+        std::snprintf(paramName, sizeof(paramName), "%s", "W2");
         break;
     case W3:
-        strcpy(paramName, "W3");
+        std::snprintf(paramName, sizeof(paramName), "%s", "W3");
         break;
     case W4:
-        strcpy(paramName, "W4");
+        std::snprintf(paramName, sizeof(paramName), "%s", "W4");
         break;
     case W5:
-        strcpy(paramName, "W5");
+        std::snprintf(paramName, sizeof(paramName), "%s", "W5");
         break;
     case TIDLE:
-        strcpy(paramName, "TIDLE");
+        std::snprintf(paramName, sizeof(paramName), "%s", "TIDLE");
         break;
     case TINIL:
-        strcpy(paramName, "TINIL");
+        std::snprintf(paramName, sizeof(paramName), "%s", "TINIL");
         break;
     case TWUP:
-        strcpy(paramName, "TWUP");
+        std::snprintf(paramName, sizeof(paramName), "%s", "TWUP");
         break;
     case PARITY:
-        strcpy(paramName, "PARITY");
+        std::snprintf(paramName, sizeof(paramName), "%s", "PARITY");
         break;
     case BIT_SAMPLE_POINT:
-        strcpy(paramName, "BIT_SAMPLE_POINT");
+        std::snprintf(paramName, sizeof(paramName), "%s", "BIT_SAMPLE_POINT");
         break;
     case SYNC_JUMP_WIDTH:
-        strcpy(paramName, "SYNC_JUMP_WIDTH");
+        std::snprintf(paramName, sizeof(paramName), "%s", "SYNC_JUMP_WIDTH");
         break;
     case W0:
-        strcpy(paramName, "W0");
+        std::snprintf(paramName, sizeof(paramName), "%s", "W0");
         break;
     case T1_MAX:
-        strcpy(paramName, "T1_MAX");
+        std::snprintf(paramName, sizeof(paramName), "%s", "T1_MAX");
         break;
     case T2_MAX:
-        strcpy(paramName, "T2_MAX");
+        std::snprintf(paramName, sizeof(paramName), "%s", "T2_MAX");
         break;
     case T4_MAX:
-        strcpy(paramName, "T4_MAX");
+        std::snprintf(paramName, sizeof(paramName), "%s", "T4_MAX");
         break;
     case T5_MAX:
-        strcpy(paramName, "T5_MAX");
+        std::snprintf(paramName, sizeof(paramName), "%s", "T5_MAX");
         break;
     case ISO15765_BS:
-        strcpy(paramName, "ISO15765_BS");
+        std::snprintf(paramName, sizeof(paramName), "%s", "ISO15765_BS");
         break;
     case ISO15765_STMIN:
-        strcpy(paramName, "ISO15765_STMIN");
+        std::snprintf(paramName, sizeof(paramName), "%s", "ISO15765_STMIN");
         break;
     case DATA_BITS:
-        strcpy(paramName, "DATA_BITS");
+        std::snprintf(paramName, sizeof(paramName), "%s", "DATA_BITS");
         break;
     case FIVE_BAUD_MOD:
-        strcpy(paramName, "FIVE_BAUD_MOD");
+        std::snprintf(paramName, sizeof(paramName), "%s", "FIVE_BAUD_MOD");
         break;
     case BS_TX:
-        strcpy(paramName, "BS_TX");
+        std::snprintf(paramName, sizeof(paramName), "%s", "BS_TX");
         break;
     case STMIN_TX:
-        strcpy(paramName, "STMIN_TX");
+        std::snprintf(paramName, sizeof(paramName), "%s", "STMIN_TX");
         break;
     case T3_MAX:
-        strcpy(paramName, "T3_MAX");
+        std::snprintf(paramName, sizeof(paramName), "%s", "T3_MAX");
         break;
     case ISO15765_WFT_MAX:
-        strcpy(paramName, "ISO15765_WFT_MAX");
+        std::snprintf(paramName, sizeof(paramName), "%s", "ISO15765_WFT_MAX");
         break;
     case CAN_MIXED_FORMAT:
-        strcpy(paramName, "CAN_MIXED_FORMAT");
+        std::snprintf(paramName, sizeof(paramName), "%s", "CAN_MIXED_FORMAT");
         break;
     case J1962_PINS:
-        strcpy(paramName, "J1962_PINS");
+        std::snprintf(paramName, sizeof(paramName), "%s", "J1962_PINS");
         break;
     case SW_CAN_HS_DATA_RATE:
-        strcpy(paramName, "W_CAN_HS_DATA_RATE");
+        std::snprintf(paramName, sizeof(paramName), "%s", "W_CAN_HS_DATA_RATE");
         break;
     case SW_CAN_SPEEDCHANGE_ENABLE:
-        strcpy(paramName, "SW_CAN_SPEEDCHANGE_ENABLE");
+        std::snprintf(paramName, sizeof(paramName), "%s", "SW_CAN_SPEEDCHANGE_ENABLE");
         break;
     case SW_CAN_RES_SWITCH:
-        strcpy(paramName, "SW_CAN_RES_SWITCH");
+        std::snprintf(paramName, sizeof(paramName), "%s", "SW_CAN_RES_SWITCH");
         break;
     case ACTIVE_CHANNELS:
-        strcpy(paramName, "ACTIVE_CHANNELS");
+        std::snprintf(paramName, sizeof(paramName), "%s", "ACTIVE_CHANNELS");
         break;
     case SAMPLE_RATE:
-        strcpy(paramName, "SAMPLE_RATE");
+        std::snprintf(paramName, sizeof(paramName), "%s", "SAMPLE_RATE");
         break;
     case SAMPLES_PER_READING:
-        strcpy(paramName, "SAMPLES_PER_READING");
+        std::snprintf(paramName, sizeof(paramName), "%s", "SAMPLES_PER_READING");
         break;
     case READINGS_PER_MSG:
-        strcpy(paramName, "READINGS_PER_MSG");
+        std::snprintf(paramName, sizeof(paramName), "%s", "READINGS_PER_MSG");
         break;
     case AVERAGING_METHOD:
-        strcpy(paramName, "AVERAGING_METHOD");
+        std::snprintf(paramName, sizeof(paramName), "%s", "AVERAGING_METHOD");
         break;
     case SAMPLE_RESOLUTION:
-        strcpy(paramName, "SAMPLE_RESOLUTION");
+        std::snprintf(paramName, sizeof(paramName), "%s", "SAMPLE_RESOLUTION");
         break;
     case INPUT_RANGE_LOW:
-        strcpy(paramName, "INPUT_RANGE_LOW");
+        std::snprintf(paramName, sizeof(paramName), "%s", "INPUT_RANGE_LOW");
         break;
     case INPUT_RANGE_HIGH:
-        strcpy(paramName, "INPUT_RANGE_HIGH");
+        std::snprintf(paramName, sizeof(paramName), "%s", "INPUT_RANGE_HIGH");
         break;
     default:
         std::snprintf(paramName, sizeof(paramName), "%lu(unknown)", s.Parameter);
@@ -968,45 +970,45 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
     switch (IoctlID)
     {
     case GET_CONFIG:
-        strcpy(IoctlName, "GET_CONFIG");
+        std::snprintf(IoctlName, sizeof(IoctlName), "%s", "GET_CONFIG");
         break;
     case SET_CONFIG:
-        strcpy(IoctlName, "SET_CONFIG");
+        std::snprintf(IoctlName, sizeof(IoctlName), "%s", "SET_CONFIG");
         break;
     case READ_VBATT:
-        strcpy(IoctlName, "READ_VBATT");
+        std::snprintf(IoctlName, sizeof(IoctlName), "%s", "READ_VBATT");
         break;
     case FIVE_BAUD_INIT:
-        strcpy(IoctlName, "FIVE_BAUD_INIT");
+        std::snprintf(IoctlName, sizeof(IoctlName), "%s", "FIVE_BAUD_INIT");
         input_as_sa = 1;
         output_as_sa = 1;
         break;
     case FAST_INIT:
-        strcpy(IoctlName, "FAST_INIT");
+        std::snprintf(IoctlName, sizeof(IoctlName), "%s", "FAST_INIT");
         break;
     case CLEAR_TX_BUFFER:
-        strcpy(IoctlName, "CLEAR_TX_BUFFER");
+        std::snprintf(IoctlName, sizeof(IoctlName), "%s", "CLEAR_TX_BUFFER");
         break;
     case CLEAR_RX_BUFFER:
-        strcpy(IoctlName, "CLEAR_RX_BUFFER");
+        std::snprintf(IoctlName, sizeof(IoctlName), "%s", "CLEAR_RX_BUFFER");
         break;
     case CLEAR_PERIODIC_MSGS:
-        strcpy(IoctlName, "CLEAR_PERIODIC_MSGS");
+        std::snprintf(IoctlName, sizeof(IoctlName), "%s", "CLEAR_PERIODIC_MSGS");
         break;
     case CLEAR_MSG_FILTERS:
-        strcpy(IoctlName, "CLEAR_MSG_FILTERS");
+        std::snprintf(IoctlName, sizeof(IoctlName), "%s", "CLEAR_MSG_FILTERS");
         break;
     case CLEAR_FUNCT_MSG_LOOKUP_TABLE:
-        strcpy(IoctlName, "CLEAR_FUNCT_MSG_LOOKUP_TABLE");
+        std::snprintf(IoctlName, sizeof(IoctlName), "%s", "CLEAR_FUNCT_MSG_LOOKUP_TABLE");
         break;
     case ADD_TO_FUNCT_MSG_LOOKUP_TABLE:
-        strcpy(IoctlName, "ADD_TO_FUNCT_MSG_LOOKUP_TABLE");
+        std::snprintf(IoctlName, sizeof(IoctlName), "%s", "ADD_TO_FUNCT_MSG_LOOKUP_TABLE");
         break;
     case DELETE_FROM_FUNCT_MSG_LOOKUP_TABLE:
-        strcpy(IoctlName, "DELETE_FROM_FUNCT_MSG_LOOKUP_TABLE");
+        std::snprintf(IoctlName, sizeof(IoctlName), "%s", "DELETE_FROM_FUNCT_MSG_LOOKUP_TABLE");
         break;
     case READ_PROG_VOLTAGE:
-        strcpy(IoctlName, "READ_PROG_VOLTAGE");
+        std::snprintf(IoctlName, sizeof(IoctlName), "%s", "READ_PROG_VOLTAGE");
         break;
         //    case TX_IOCTL_APP_SERVICE:
         //        strcpy(IoctlName,"APP_SERVICE");

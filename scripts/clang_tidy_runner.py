@@ -58,6 +58,10 @@ def _entry_source_path(entry: dict[str, object], root: Path) -> Path:
     Callers must already have validated that `directory` and `file` are
     present strings (load_project_entries does this before an entry survives
     into its returned list).
+
+    Raises WorkflowError if the resolved path escapes `root`: the compile
+    database is Bazel-generated, but its `directory`/`file` fields are still
+    external data and must not be trusted to stay within the workspace.
     """
     directory = Path(str(entry["directory"]))
     if not directory.is_absolute():
@@ -65,7 +69,14 @@ def _entry_source_path(entry: dict[str, object], root: Path) -> Path:
     source = Path(str(entry["file"]))
     if not source.is_absolute():
         source = directory / source
-    return source.resolve()
+    resolved = source.resolve()
+    try:
+        resolved.relative_to(root.resolve())
+    except ValueError as error:
+        raise WorkflowError(
+            f"compilation database entry resolves outside the workspace: {resolved}"
+        ) from error
+    return resolved
 
 
 def load_project_entries(workspace: Path, database: Path) -> list[dict[str, object]]:
@@ -88,10 +99,9 @@ def load_project_entries(workspace: Path, database: Path) -> list[dict[str, obje
         if not isinstance(directory_value, str) or not isinstance(file_value, str):
             raise WorkflowError("compilation database is malformed: entry lacks directory or file")
 
-        source = _entry_source_path(entry, root)
         try:
-            source.relative_to(root)
-        except ValueError:
+            source = _entry_source_path(entry, root)
+        except WorkflowError:
             continue
         if source.suffix.lower() not in SOURCE_SUFFIXES:
             continue

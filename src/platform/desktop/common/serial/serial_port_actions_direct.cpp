@@ -1380,10 +1380,12 @@ int SerialPortActionsDirect::init_j2534_connection()
     }
 
     // Get J2534 adapter and driver version numbers
-    char strApiVersion[256];
-    char strDllVersion[256];
-    char strFirmwareVersion[256];
-    char strSerial[256];
+    // Zero-initialized so strlen() below stays bounded even if the J2534
+    // driver call fails to null-terminate its output.
+    char strApiVersion[256] = {};
+    char strDllVersion[256] = {};
+    char strFirmwareVersion[256] = {};
+    char strSerial[256] = {};
 
     if (j2534->PassThruReadVersion(strApiVersion, strDllVersion, strFirmwareVersion, devID))
     {
