@@ -14,10 +14,18 @@ class FakeBenchFiles : public IBenchFiles
   public:
     std::map<std::string, bytes::Bytes> contents;
     std::map<std::string, bytes::Bytes> saved;
+    std::map<std::string, int> load_calls;
+    bool fail_on_repeated_load = false;
 
     Result<bytes::Bytes> load(std::string_view path) override
     {
-        const auto found = contents.find(std::string(path));
+        const std::string key(path);
+        const int call = ++load_calls[key];
+        if (fail_on_repeated_load && call > 1)
+        {
+            return fail(ErrorKind::InvalidConfig, "file was loaded more than once");
+        }
+        const auto found = contents.find(key);
         if (found == contents.end())
         {
             return fail(ErrorKind::InvalidConfig, "no such file");

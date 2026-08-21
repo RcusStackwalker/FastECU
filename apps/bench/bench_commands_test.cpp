@@ -577,6 +577,17 @@ TEST(BenchCommands, RunStepRefusesADestructiveStepThatLostItsAcknowledgement)
     EXPECT_TRUE(harness.session.requests.empty());
 }
 
+TEST(BenchCommands, RunStepRejectsAMalformedProgrammaticStepBeforeIndexingArguments)
+{
+    Harness harness;
+
+    const auto outcome = harness.run(step(CommandId::Read));
+
+    ASSERT_FALSE(outcome.ok);
+    EXPECT_EQ(outcome.error_kind.value(), ErrorKind::InvalidConfig);
+    EXPECT_TRUE(harness.session.requests.empty());
+}
+
 TEST(BenchCommands, SendRawForwardsTheExactSafePduAndHonoursItsTimeout)
 {
     Harness harness;

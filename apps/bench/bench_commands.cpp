@@ -293,8 +293,147 @@ std::string decode_crc_reply(bytes::ByteView payload)
     return payload[1] == 0 ? "status=0x00 (CRC matched)" : std::format("status=0x{:02x} (CRC mismatch)", payload[1]);
 }
 
-Status executeStep(BenchContext& context, const StepSpec& step, CommandOutcome& outcome)
+Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
 {
+    PreparedStep prepared{.spec = step};
+    const CommandSpec *spec = nullptr;
+    for (const CommandSpec& candidate : command_table())
+    {
+        if (candidate.id == step.id)
+        {
+            spec = &candidate;
+            break;
+        }
+    }
+    if (spec == nullptr)
+    {
+        return fail(ErrorKind::Internal, "step has no command spec");
+    }
+    if (step.args.size() < spec->min_args || (spec->max_args != kUnbounded && step.args.size() > spec->max_args))
+    {
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("{} takes {}..{} arguments, got {}", spec->name, spec->min_args,
+                                spec->max_args == kUnbounded ? std::string("*") : std::to_string(spec->max_args),
+                                step.args.size()));
+    }
+    if (spec->destructive && !step.destructive_ack)
+    {
+        return fail(ErrorKind::InvalidConfig, std::format("{} needs --destructive", spec->name));
+    }
+
+    switch (step.id)
+    {
+    case CommandId::Read:
+    case CommandId::Dump:
+    {
+        const Result<std::uint32_t> address = parse_u32(step.args[0]);
+        if (!address.has_value())
+        {
+            return std::unexpected(address.error());
+        }
+        const Result<std::uint32_t> length = parse_u32(step.args[1]);
+        if (!length.has_value())
+        {
+            return std::unexpected(length.error());
+        }
+        const Status valid = validateWireRange(*address, *length, "read");
+        if (!valid.has_value())
+        {
+            return std::unexpected(valid.error());
+        }
+        return prepared;
+    }
+    case CommandId::CrcCheck:
+    {
+        const Result<std::uint32_t> address = parse_u32(step.args[0]);
+        if (!address.has_value())
+        {
+            return std::unexpected(address.error());
+        }
+        if (*address > kMaxWireU24)
+        {
+            return fail(ErrorKind::InvalidConfig,
+                        std::format("CRC address 0x{:x} does not fit the 24-bit address space", *address));
+        }
+        return prepared;
+    }
+    case CommandId::Send:
+    case CommandId::SendRaw:
+    {
+        const Result<bytes::Bytes> pdu = parse_hex_bytes(step.args);
+        if (!pdu.has_value())
+        {
+            return std::unexpected(pdu.error());
+        }
+        if (isKnownDestructivePdu(*pdu))
+        {
+            return fail(ErrorKind::InvalidConfig,
+                        std::format("{} cannot bypass a named destructive command", spec->name));
+        }
+        return prepared;
+    }
+    case CommandId::Download:
+    {
+        const Result<std::uint32_t> address = parse_u32(step.args[0]);
+        if (!address.has_value())
+        {
+            return std::unexpected(address.error());
+        }
+        Result<bytes::Bytes> data = files.load(step.args[1]);
+        if (!data.has_value())
+        {
+            return std::unexpected(data.error());
+        }
+        const Status valid = validateWireRange(*address, data->size(), "download");
+        if (!valid.has_value())
+        {
+            return std::unexpected(valid.error());
+        }
+        prepared.upload_payload = std::move(*data);
+        return prepared;
+    }
+    case CommandId::UploadRoutine:
+    {
+        const Result<RoutineSlot> slot = routine_slot(step.args[0]);
+        if (!slot.has_value())
+        {
+            return std::unexpected(slot.error());
+        }
+        bytes::Bytes payload(slot->bytes.begin(), slot->bytes.end());
+        if (step.args.size() > 1)
+        {
+            if (step.args.size() != 3 || step.args[1] != "--from")
+            {
+                return fail(ErrorKind::InvalidConfig,
+                            std::format("{}'s extra arguments must be --from <path>", spec->name));
+            }
+            Result<bytes::Bytes> loaded = files.load(step.args[2]);
+            if (!loaded.has_value())
+            {
+                return std::unexpected(loaded.error());
+            }
+            payload = std::move(*loaded);
+        }
+        const Status valid = validateWireRange(slot->ram_address, payload.size(), "download");
+        if (!valid.has_value())
+        {
+            return std::unexpected(valid.error());
+        }
+        prepared.upload_payload = std::move(payload);
+        return prepared;
+    }
+    case CommandId::Ports:
+    case CommandId::Connect:
+    case CommandId::Unlock:
+    case CommandId::Erase:
+        return prepared;
+    }
+    return fail(ErrorKind::Internal, "unhandled command during validation");
+}
+
+Status executeStep(BenchContext& context, const PreparedStep& prepared, CommandOutcome& outcome)
+{
+    const StepSpec& step = prepared.spec;
     const CommandSpec *spec = nullptr;
     for (const CommandSpec& candidate : command_table())
     {
@@ -452,17 +591,16 @@ Status executeStep(BenchContext& context, const StepSpec& step, CommandOutcome& 
         {
             return std::unexpected(addr.error());
         }
-        const Result<bytes::Bytes> data = context.files.load(step.args[1]);
-        if (!data.has_value())
+        if (!prepared.upload_payload.has_value())
         {
-            return std::unexpected(data.error());
+            return fail(ErrorKind::Internal, "prepared download has no payload");
         }
-        const Status uploaded = upload(context, outcome, *addr, *data);
+        const Status uploaded = upload(context, outcome, *addr, *prepared.upload_payload);
         if (!uploaded.has_value())
         {
             return std::unexpected(uploaded.error());
         }
-        outcome.note = std::format("uploaded {} bytes to 0x{:06x}", data->size(), *addr);
+        outcome.note = std::format("uploaded {} bytes to 0x{:06x}", prepared.upload_payload->size(), *addr);
         break;
     }
     case CommandId::UploadRoutine:
@@ -472,35 +610,17 @@ Status executeStep(BenchContext& context, const StepSpec& step, CommandOutcome& 
         {
             return std::unexpected(slot.error());
         }
-        // Default to the baked array; --from <file> substitutes the file's
-        // bytes for provenance-testing a rebuilt routine, while the RAM slot
-        // (address) always follows the routine name, not the source of bytes.
-        // A malformed shape (flag typo, or the path given without the flag)
-        // is rejected rather than silently falling back to the baked array --
-        // this path exists specifically to prove which bytes went out.
-        bytes::ByteView payload = slot->bytes;
-        bytes::Bytes fileBytes;
-        if (step.args.size() > 1)
+        if (!prepared.upload_payload.has_value())
         {
-            if (step.args.size() != 3 || step.args[1] != "--from")
-            {
-                return fail(ErrorKind::InvalidConfig,
-                            std::format("{}'s extra arguments must be --from <path>", spec->name));
-            }
-            const Result<bytes::Bytes> loaded = context.files.load(step.args[2]);
-            if (!loaded.has_value())
-            {
-                return std::unexpected(loaded.error());
-            }
-            fileBytes = *loaded;
-            payload = fileBytes;
+            return fail(ErrorKind::Internal, "prepared upload-routine has no payload");
         }
-        const Status uploaded = upload(context, outcome, slot->ram_address, payload);
+        const Status uploaded = upload(context, outcome, slot->ram_address, *prepared.upload_payload);
         if (!uploaded.has_value())
         {
             return std::unexpected(uploaded.error());
         }
-        outcome.note = std::format("uploaded {} routine bytes to 0x{:06x}", payload.size(), slot->ram_address);
+        outcome.note =
+            std::format("uploaded {} routine bytes to 0x{:06x}", prepared.upload_payload->size(), slot->ram_address);
         break;
     }
     }
@@ -508,12 +628,12 @@ Status executeStep(BenchContext& context, const StepSpec& step, CommandOutcome& 
     return {};
 }
 
-CommandOutcome run_step(BenchContext& context, const StepSpec& step)
+CommandOutcome run_step(BenchContext& context, const PreparedStep& prepared)
 {
     CommandOutcome outcome;
-    outcome.step = renderStep(step);
+    outcome.step = renderStep(prepared.spec);
 
-    const Status result = executeStep(context, step, outcome);
+    const Status result = executeStep(context, prepared, outcome);
     if (!result.has_value())
     {
         outcome.ok = false;
@@ -521,6 +641,26 @@ CommandOutcome run_step(BenchContext& context, const StepSpec& step)
         outcome.error_detail = result.error().detail;
     }
 
+    const Result<double> battery = context.session.vbatt();
+    if (battery.has_value())
+    {
+        outcome.vbatt = *battery;
+    }
+    return outcome;
+}
+
+CommandOutcome run_step(BenchContext& context, const StepSpec& step)
+{
+    const Result<PreparedStep> prepared = prepare_step(context.files, step);
+    if (prepared.has_value())
+    {
+        return run_step(context, *prepared);
+    }
+
+    CommandOutcome outcome{.step = renderStep(step),
+                           .ok = false,
+                           .error_kind = prepared.error().kind,
+                           .error_detail = prepared.error().detail};
     const Result<double> battery = context.session.vbatt();
     if (battery.has_value())
     {

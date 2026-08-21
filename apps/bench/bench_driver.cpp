@@ -69,11 +69,11 @@ void diagnose(const CommandOutcome& outcome, std::ostream& diagnostics)
 }
 
 int runSteps(IBenchSession& session, IBenchFiles& files, const GlobalOptions& options,
-             const std::vector<StepSpec>& steps, std::ostream& output, std::ostream& diagnostics)
+             const std::vector<PreparedStep>& steps, std::ostream& output, std::ostream& diagnostics)
 {
     BenchContext context{.session = session, .files = files, .options = options};
     int code = 0;
-    for (const StepSpec& step : steps)
+    for (const PreparedStep& step : steps)
     {
         const CommandOutcome outcome = run_step(context, step);
         emit(options, outcome, output);
@@ -128,20 +128,41 @@ int runPorts(IBenchEnvironment& environment, const GlobalOptions& options, std::
     return 0;
 }
 
-int runBatch(IBenchEnvironment& environment, IBenchFiles& files, const GlobalOptions& options,
-             const std::vector<StepSpec>& steps, std::ostream& output, std::ostream& diagnostics)
+int runPreparedBatch(IBenchEnvironment& environment, IBenchFiles& files, const GlobalOptions& options,
+                     const std::vector<PreparedStep>& steps, std::ostream& output, std::ostream& diagnostics)
 {
-    const bool connect_implicitly = !options.no_connect && !steps.empty() && steps.front().id != CommandId::Connect;
+    const bool connect_implicitly =
+        !options.no_connect && !steps.empty() && steps.front().spec.id != CommandId::Connect;
     Result<std::reference_wrapper<IBenchSession>> session = environment.session(options, connect_implicitly);
     if (!session.has_value())
     {
-        const std::string label = steps.empty() ? "setup" : renderStep(steps.front());
+        const std::string label = steps.empty() ? "setup" : renderStep(steps.front().spec);
         const CommandOutcome outcome = failedOutcome(label, session.error(), environment.last_setup_traffic());
         emit(options, outcome, output);
         diagnose(outcome, diagnostics);
         return exit_code_for(session.error().kind);
     }
     return runSteps(session->get(), files, options, steps, output, diagnostics);
+}
+
+int runBatch(IBenchEnvironment& environment, IBenchFiles& files, const GlobalOptions& options,
+             const std::vector<StepSpec>& steps, std::ostream& output, std::ostream& diagnostics)
+{
+    std::vector<PreparedStep> prepared_steps;
+    prepared_steps.reserve(steps.size());
+    for (const StepSpec& step : steps)
+    {
+        Result<PreparedStep> prepared = prepare_step(files, step);
+        if (!prepared.has_value())
+        {
+            const CommandOutcome outcome = failedOutcome(renderStep(step), prepared.error());
+            emit(options, outcome, output);
+            diagnose(outcome, diagnostics);
+            return exit_code_for(prepared.error().kind);
+        }
+        prepared_steps.push_back(std::move(*prepared));
+    }
+    return runPreparedBatch(environment, files, options, prepared_steps, output, diagnostics);
 }
 
 bool isScriptLineGlobalOption(std::string_view token)
@@ -153,6 +174,7 @@ bool isScriptLineGlobalOption(std::string_view token)
 int runScript(IBenchEnvironment& environment, IBenchFiles& files, const GlobalOptions& options, std::istream& input,
               std::ostream& output, std::ostream& diagnostics)
 {
+    std::vector<std::vector<PreparedStep>> prepared_lines;
     std::string line;
     int first_code = 0;
     std::size_t line_number = 0;
@@ -206,22 +228,69 @@ int runScript(IBenchEnvironment& environment, IBenchFiles& files, const GlobalOp
             continue;
         }
 
+        std::vector<PreparedStep> prepared_steps;
+        prepared_steps.reserve(parsed->steps.size());
+        bool line_valid = true;
+        for (const StepSpec& step : parsed->steps)
+        {
+            Result<PreparedStep> prepared = prepare_step(files, step);
+            if (prepared.has_value())
+            {
+                prepared_steps.push_back(std::move(*prepared));
+                continue;
+            }
+            const CommandOutcome outcome =
+                failedOutcome(std::format("script line {}: {}", line_number, renderStep(step)), prepared.error());
+            emit(options, outcome, output);
+            diagnose(outcome, diagnostics);
+            if (first_code == 0)
+            {
+                first_code = exit_code_for(prepared.error().kind);
+            }
+            line_valid = false;
+            break;
+        }
+        if (!line_valid)
+        {
+            if (!options.keep_going)
+            {
+                return first_code;
+            }
+            continue;
+        }
+
+        prepared_lines.push_back(std::move(prepared_steps));
+    }
+
+    // A script is a single destructive plan even though each line is executed
+    // as a batch. If any line is malformed, do not execute earlier valid lines
+    // before discovering it.
+    if (first_code != 0)
+    {
+        return first_code;
+    }
+
+    for (const std::vector<PreparedStep>& prepared_steps : prepared_lines)
+    {
         int code = 0;
-        if (parsed->steps.size() == 1 && parsed->steps.front().id == CommandId::Ports)
+        if (prepared_steps.size() == 1 && prepared_steps.front().spec.id == CommandId::Ports)
         {
             code = runPorts(environment, options, output, diagnostics);
         }
         else
         {
-            code = runBatch(environment, files, options, parsed->steps, output, diagnostics);
+            code = runPreparedBatch(environment, files, options, prepared_steps, output, diagnostics);
         }
-        if (code != 0 && first_code == 0)
+        if (code != 0)
         {
-            first_code = code;
-        }
-        if (code != 0 && !options.keep_going)
-        {
-            return first_code;
+            if (first_code == 0)
+            {
+                first_code = code;
+            }
+            if (!options.keep_going)
+            {
+                return first_code;
+            }
         }
     }
     return first_code;

@@ -9,6 +9,7 @@
 #include "apps/bench/testing/fake_bench_environment.h"
 #include "apps/bench/testing/fake_bench_files.h"
 #include "apps/bench/testing/fake_bench_session.h"
+#include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
 
 namespace fastecu::bench
 {
@@ -121,6 +122,75 @@ TEST(BenchDriver, ARegularStepRequestsTheOneImplicitConnection)
     ASSERT_EQ(harness.environment.implicit_connect_requests.size(), 1u);
     EXPECT_TRUE(harness.environment.implicit_connect_requests.front());
     EXPECT_EQ(harness.session.connect_calls, 0);
+}
+
+TEST(BenchDriver, InvalidFirstStepIsRejectedBeforeRequestingASession)
+{
+    Harness harness;
+
+    const int code = harness.run({"read", "0x1000000", "1"});
+
+    EXPECT_EQ(code, exit_code_for(ErrorKind::InvalidConfig));
+    EXPECT_EQ(harness.environment.session_calls, 0);
+    EXPECT_TRUE(harness.session.requests.empty());
+    EXPECT_NE(harness.output.str().find("read 0x1000000 1"), std::string::npos);
+}
+
+TEST(BenchDriver, InvalidLaterStepIsRejectedBeforeAnyEarlierDestructiveStep)
+{
+    Harness harness;
+
+    const int code = harness.run({"unlock", "--destructive", ":", "read", "nonsense", "1"});
+
+    EXPECT_EQ(code, exit_code_for(ErrorKind::InvalidConfig));
+    EXPECT_EQ(harness.environment.session_calls, 0);
+    EXPECT_TRUE(harness.session.requests.empty());
+    EXPECT_NE(harness.output.str().find("read nonsense 1"), std::string::npos);
+    EXPECT_NE(harness.diagnostics.str().find("not a number"), std::string::npos);
+}
+
+TEST(BenchDriver, MissingLaterPayloadIsRejectedBeforeAnyEarlierDestructiveStep)
+{
+    Harness harness;
+
+    const int code =
+        harness.run({"unlock", "--destructive", ":", "download", "0x8000", "missing.bin", "--destructive"});
+
+    EXPECT_EQ(code, exit_code_for(ErrorKind::InvalidConfig));
+    EXPECT_EQ(harness.environment.session_calls, 0);
+    EXPECT_TRUE(harness.session.requests.empty());
+    EXPECT_NE(harness.output.str().find("download 0x8000 missing.bin"), std::string::npos);
+    EXPECT_NE(harness.diagnostics.str().find("no such file"), std::string::npos);
+}
+
+TEST(BenchDriver, PreparedPayloadIsNotReloadedAfterAnEarlierDestructiveStep)
+{
+    Harness harness;
+    harness.files.contents["payload.bin"] = {0xAA};
+    harness.files.fail_on_repeated_load = true;
+    harness.session.replies = {bytes::Bytes{0x7B, 0x00}, bytes::Bytes{0x74}, bytes::Bytes{0x76},
+                               bytes::Bytes{0x74},       bytes::Bytes{0x76}, bytes::Bytes{0x71, 0xE1, 0x00}};
+
+    const int code =
+        harness.run({"unlock", "--destructive", ":", "download", "0x8000", "payload.bin", "--destructive"});
+
+    EXPECT_EQ(code, 0);
+    EXPECT_EQ(harness.files.load_calls.at("payload.bin"), 1);
+    ASSERT_EQ(harness.session.requests.size(), 6u);
+    EXPECT_EQ(harness.session.requests.front(), MitsuColtCan::buildRequestReflashUnlock());
+    EXPECT_EQ(harness.session.requests[2], (bytes::Bytes{0x36, 0xAA}));
+}
+
+TEST(BenchDriver, InvalidLaterScriptLinePreventsEarlierDestructiveLine)
+{
+    Harness harness;
+
+    const int code = harness.run({"--script", "-"}, "unlock --destructive\nread nonsense 1\n");
+
+    EXPECT_EQ(code, exit_code_for(ErrorKind::InvalidConfig));
+    EXPECT_EQ(harness.environment.session_calls, 0);
+    EXPECT_TRUE(harness.session.requests.empty());
+    EXPECT_NE(harness.output.str().find("script line 2: read nonsense 1"), std::string::npos);
 }
 
 TEST(BenchDriver, ScriptLineGlobalOptionsAreRejectedInsteadOfDiscarded)
