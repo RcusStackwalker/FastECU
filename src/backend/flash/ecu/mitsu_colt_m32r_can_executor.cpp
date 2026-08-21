@@ -64,14 +64,21 @@ void error(Ctx& ctx, std::string_view message)
 // echo is all it needs (RequestDownload, TransferData, the reflash unlock
 // request, each ReadMemoryByAddress chunk): unlike fatal_query below there is
 // no expected_prefix to check, just report_exchange_failure's
-// rejection-vs-cancellation wrapping on failure. Built the same way as
-// fatal_query -- a fresh UdsExchangeContext per call, since this family has
-// no single fixed policy or rejection prefix either.
+// rejection-vs-cancellation wrapping on failure. `operation` alone drives
+// both halves of that wrapping -- "{operation} rejected: " on an ECU
+// rejection, "during {operation}" on a cancellation -- rather than a
+// separately-authored rejection_prefix repeating what operation already
+// says; at these six call sites the two strings differed only in legacy
+// wording (e.g. "Wrong response from ECU at 0x...: " vs "the flash read at
+// 0x..."), not in the underlying request being described, so the generic
+// form replaces that legacy-exact prefix. Built the same way as fatal_query
+// -- a fresh UdsExchangeContext per call, since this family has no single
+// fixed policy either.
 Result<bytes::Bytes> fatal_request(Ctx& ctx, bytes::ByteView pdu, const uds::ExchangePolicy& policy,
-                                   std::string_view rejection_prefix, std::string_view operation)
+                                   std::string_view operation)
 {
     return ::fastecu::flash::fatal_request(UdsExchangeContext{ctx.uds, policy, ctx.cancellation, ctx.events}, pdu,
-                                           rejection_prefix, operation);
+                                           std::format("{} rejected: ", operation), operation);
 }
 
 // The fatal_request + expected-response-prefix check every exchange in
@@ -209,10 +216,11 @@ Result<bytes::Bytes> read_one_chunk(Ctx& ctx, std::uint32_t addr, bytes::Byte ch
 {
     using namespace MitsuColtCan;
 
-    // Lines 191-194.
-    Result<bytes::Bytes> received = fatal_request(
-        ctx, buildReadMemoryByAddress(addr, chunk_len), kRoutineExchangePolicy,
-        std::format("Wrong response from ECU at 0x{:x}: ", addr), std::format("the flash read at 0x{:x}", addr));
+    // Lines 191-194. Legacy logged "Wrong response from ECU at 0x...: "; see
+    // fatal_request's own comment for why that prefix is gone.
+    Result<bytes::Bytes> received =
+        fatal_request(ctx, buildReadMemoryByAddress(addr, chunk_len), kRoutineExchangePolicy,
+                      std::format("the flash read at 0x{:x}", addr));
     if (!received.has_value())
     {
         return std::unexpected(received.error());
@@ -325,9 +333,9 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data, Ph
     using namespace MitsuColtCan;
 
     // Lines 238-246.
-    Result<bytes::Bytes> received = fatal_request(
-        ctx, buildRequestDownload(start, static_cast<std::uint32_t>(data.size())), kRoutineExchangePolicy,
-        std::format("RequestDownload to 0x{:x} rejected: ", start), std::format("RequestDownload to 0x{:x}", start));
+    Result<bytes::Bytes> received =
+        fatal_request(ctx, buildRequestDownload(start, static_cast<std::uint32_t>(data.size())), kRoutineExchangePolicy,
+                      std::format("RequestDownload to 0x{:x}", start));
     if (!received.has_value())
     {
         return std::unexpected(received.error());
@@ -337,9 +345,7 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data, Ph
     std::uint32_t payload_done = 0;
     for (const bytes::Bytes& chunk : buildTransferDataFrames(data))
     {
-        received =
-            fatal_request(ctx, chunk, kRoutineExchangePolicy, std::format("TransferData to 0x{:x} rejected: ", start),
-                          std::format("TransferData to 0x{:x}", start));
+        received = fatal_request(ctx, chunk, kRoutineExchangePolicy, std::format("TransferData to 0x{:x}", start));
         if (!received.has_value())
         {
             return std::unexpected(received.error());
@@ -351,9 +357,10 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data, Ph
         }
     }
 
-    // Lines 262-270.
+    // Lines 262-270. Legacy logged "RequestDownload for checksum rejected: ";
+    // see fatal_request's own comment for why that prefix is gone.
     received = fatal_request(ctx, buildRequestDownload(kCrcTransferAddress, kCrcTransferSize), kRoutineExchangePolicy,
-                             "RequestDownload for checksum rejected: ", "RequestDownload for the checksum");
+                             "RequestDownload for the checksum");
     if (!received.has_value())
     {
         return std::unexpected(received.error());
@@ -363,7 +370,7 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data, Ph
     // TransferData frame (kCrcTransferSize is 2, well under kTransferChunkSize).
     const std::uint16_t crc = checksum(data);
     received = fatal_request(ctx, buildTransferDataFrames(bytes::composeBe(crc)).front(), kRoutineExchangePolicy,
-                             "TransferData for checksum rejected: ", "TransferData for the checksum");
+                             "TransferData for the checksum");
     if (!received.has_value())
     {
         return std::unexpected(received.error());
@@ -398,14 +405,14 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data, Ph
 // only difference between the two copies is which stage of the write they
 // belong to, which the legacy code carried in the log-message text, so that
 // is a parameter here rather than two transcriptions. `stage` is empty for
-// the main write and " (top 128KB bootstrap)" for the bootstrap copy, giving
-// back the two legacy prefixes exactly.
+// the main write and " (top 128KB bootstrap)" for the bootstrap copy; the
+// legacy prefixes were "Reflash unlock{stage} rejected: " -- see
+// fatal_request's own comment for why that exact prefix is gone.
 Status unlock_and_erase(Ctx& ctx, std::string_view stage)
 {
     using namespace MitsuColtCan;
 
     Result<bytes::Bytes> received = fatal_request(ctx, buildRequestReflashUnlock(), kSlowExchangePolicy,
-                                                  std::format("Reflash unlock{} rejected: ", stage),
                                                   std::format("the reflash unlock request{}", stage));
     if (!received.has_value())
     {
