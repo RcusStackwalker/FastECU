@@ -3,6 +3,7 @@ load("//bazel:gtest_targets.bzl", "fastecu_gtest", "fastecu_portable_gtest")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS")
 
 package(default_visibility = [
+    "//apps/bench:__pkg__",
     "//src/algorithms:__subpackages__",
     "//src/backend:__subpackages__",
     "//src/platform:__subpackages__",

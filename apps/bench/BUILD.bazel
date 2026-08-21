@@ -1,0 +1,38 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+
+package(default_visibility = [
+    "//:__pkg__",
+    "//apps/bench/testing:__pkg__",
+])
+
+cc_library(
+    name = "bench_core",
+    srcs = [
+        "bench_args.cpp",
+        "bench_format.cpp",
+        "bench_types.cpp",
+    ],
+    hdrs = [
+        "bench_args.h",
+        "bench_format.h",
+        "bench_types.h",
+    ],
+    deps = [
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "bench_format_test",
+    srcs = ["bench_format_test.cpp"],
+    deps = [":bench_core"],
+)
+
+fastecu_portable_gtest(
+    name = "bench_args_test",
+    srcs = ["bench_args_test.cpp"],
+    deps = [":bench_core"],
+)
