@@ -8,6 +8,7 @@
 #include <QSerialPortInfo>
 #include <QTime>
 
+#include <cstddef>
 #include <cstdint>
 
 #include "J2534_tactrix_unix.h"
@@ -31,6 +32,11 @@ class J2534 : public QObject
 
     const char *DLL_VERSION = "3.0.0";
     const char *API_VERSION = "04.04";
+
+    // PassThruReadVersion's pApiVersion/pDllVersion/pFirmwareVersion out-parameters
+    // must each point at a buffer of at least this many bytes; the implementation
+    // clamps to it rather than trusting source-side lengths.
+    static constexpr std::size_t kVersionBufferSize = 256;
 
     bool serial_port_protocol_iso14230 = false;
     bool J2534_init_ok = false;

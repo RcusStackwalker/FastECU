@@ -2,6 +2,7 @@
 
 #include <QThread>
 
+#include <algorithm>
 #include <array>
 #include <cstdio>
 
@@ -736,10 +737,12 @@ long J2534::PassThruReadVersion(char *pApiVersion, char *pDllVersion, char *pFir
     const char *fw_version = "Main code version: 1.17.4877";
     long result = STATUS_NOERROR;
 
-    strncpy(pApiVersion, API_VERSION, strlen(API_VERSION));
-    pApiVersion[strlen(API_VERSION)] = '\0';
-    strncpy(pDllVersion, DLL_VERSION, strlen(DLL_VERSION));
-    pDllVersion[strlen(DLL_VERSION)] = '\0';
+    const std::size_t apiLen = std::min(strlen(API_VERSION), kVersionBufferSize - 1);
+    strncpy(pApiVersion, API_VERSION, apiLen);
+    pApiVersion[apiLen] = '\0';
+    const std::size_t dllLen = std::min(strlen(DLL_VERSION), kVersionBufferSize - 1);
+    strncpy(pDllVersion, DLL_VERSION, dllLen);
+    pDllVersion[dllLen] = '\0';
     // strncpy(pFirmwareVersion, fw_version, strlen(fw_version));
 
     output = "\r\n\r\nati\r\n";
@@ -755,8 +758,9 @@ long J2534::PassThruReadVersion(char *pApiVersion, char *pDllVersion, char *pFir
     // dangle (the temporary QByteArray is destroyed at the semicolon), leaving
     // pFirmwareVersion empty/garbage and making the caller's strlen()-1 unsafe.
     const QByteArray fw_ver_bytes = fw_ver.at(0).toUtf8();
-    strncpy(pFirmwareVersion, fw_ver_bytes.constData(), fw_ver_bytes.size());
-    pFirmwareVersion[fw_ver_bytes.size()] = '\0';
+    const std::size_t fwLen = std::min<std::size_t>(fw_ver_bytes.size(), kVersionBufferSize - 1);
+    strncpy(pFirmwareVersion, fw_ver_bytes.constData(), fwLen);
+    pFirmwareVersion[fwLen] = '\0';
 
     return result;
 }

@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <memory>
 
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
@@ -47,6 +48,10 @@ class J2534
 
     bool serial_port_protocol_iso14230 = false;
     bool J2534_init_ok = false;
+
+    // Matches J2534_unix.h's contract: PassThruReadVersion's out-parameters
+    // must each point at a buffer of at least this many bytes.
+    static constexpr std::size_t kVersionBufferSize = 256;
 
     bool is_serial_port_open();
     bool init()

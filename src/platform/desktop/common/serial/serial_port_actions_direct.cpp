@@ -1383,10 +1383,10 @@ int SerialPortActionsDirect::init_j2534_connection()
     // Get J2534 adapter and driver version numbers
     // Zero-initialized so strlen() below stays bounded even if the J2534
     // driver call fails to null-terminate its output.
-    std::array<char, 256> strApiVersion{};
-    std::array<char, 256> strDllVersion{};
-    std::array<char, 256> strFirmwareVersion{};
-    std::array<char, 256> strSerial{};
+    std::array<char, J2534::kVersionBufferSize> strApiVersion{};
+    std::array<char, J2534::kVersionBufferSize> strDllVersion{};
+    std::array<char, J2534::kVersionBufferSize> strFirmwareVersion{};
+    std::array<char, J2534::kVersionBufferSize> strSerial{};
 
     if (j2534->PassThruReadVersion(strApiVersion.data(), strDllVersion.data(), strFirmwareVersion.data(), devID))
     {
