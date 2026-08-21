@@ -202,7 +202,7 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
 // One ReadMemoryByAddress round trip: sends the request for `chunk_len`
 // bytes at `addr` and returns the reply's leading `chunk_len` payload
 // bytes, or a typed error. Shared by read_flash_range (which accumulates
-// every chunk into one buffer) and top_region_matches (which only needs to
+// every chunk into one buffer) and flash_range_matches (which only needs to
 // inspect each chunk before deciding whether to ask for the next).
 Result<bytes::Bytes> read_one_chunk(Ctx& ctx, std::uint32_t addr, bytes::Byte chunk_len)
 {
@@ -278,18 +278,19 @@ Result<bytes::Bytes> read_flash_range(Ctx& ctx, std::uint32_t start_addr, std::u
     return data;
 }
 
-// Compares the ECU's top 128KB against `wanted` chunk by chunk, stopping at
-// the first mismatch instead of reading the full region first and comparing
-// after: 128KB at kFlashReadBlockSize chunks is ~680 round trips, and a
-// real edit is usually confined to part of the region, so this saves most
-// of that whenever a bootstrap actually turns out to be needed.
-Result<bool> top_region_matches(Ctx& ctx, bytes::ByteView wanted)
+// Compares `wanted.size()` bytes of ECU flash from `start_addr` against
+// `wanted` chunk by chunk, stopping at the first mismatch instead of reading
+// the whole range first and comparing after: the 128KB top region at
+// kFlashReadBlockSize chunks is ~680 round trips, and a real edit is usually
+// confined to part of the range, so this saves most of that whenever a
+// bootstrap actually turns out to be needed.
+Result<bool> flash_range_matches(Ctx& ctx, std::uint32_t start_addr, bytes::ByteView wanted)
 {
     using namespace MitsuColtCan;
 
-    const std::uint32_t end_addr = kTopRegionStart + kTopRegionLength;
-
-    for (std::uint32_t addr = kTopRegionStart; addr < end_addr;)
+    const std::uint32_t length = static_cast<std::uint32_t>(wanted.size());
+    const std::uint32_t end_addr = start_addr + length;
+    for (std::uint32_t addr = start_addr; addr < end_addr;)
     {
         if (ctx.cancellation.cancelled())
         {
@@ -306,7 +307,7 @@ Result<bool> top_region_matches(Ctx& ctx, bytes::ByteView wanted)
             return std::unexpected(chunk.error());
         }
 
-        const std::uint32_t offset = addr - kTopRegionStart;
+        const std::uint32_t offset = addr - start_addr;
         if (!std::ranges::equal(*chunk, wanted.subspan(offset, chunk_len)))
         {
             return false;
@@ -496,14 +497,14 @@ Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan, bytes::ByteVie
     // Line 303.
     info(ctx, std::format("Checking top 128KB (0x{:x}-0x{:x})...", kTopRegionStart, kTopRegionEnd));
 
-    // Lines 305-316, compared chunk by chunk (top_region_matches) rather
+    // Lines 305-316, compared chunk by chunk (flash_range_matches) rather
     // than read in full and compared afterward -- a mismatch confined to
     // part of the region then costs far less than the full 128KB sweep. The
     // legacy `romdata.mid(kTopRegionStart, kTopRegionLength)` clamps a short
     // slice; write_mem's length guard rules that out before it calls here,
     // so this subspan is always the full kTopRegionLength bytes.
     const bytes::ByteView wanted_top = rom.subspan(kTopRegionStart, kTopRegionLength);
-    Result<bool> matches = top_region_matches(ctx, wanted_top);
+    Result<bool> matches = flash_range_matches(ctx, kTopRegionStart, wanted_top);
     if (!matches.has_value())
     {
         return std::unexpected(matches.error());
@@ -523,6 +524,23 @@ Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan, bytes::ByteVie
     {
         info(ctx, "Top 128KB bootstrap canceled by user");
         return fail(ErrorKind::Cancelled, "top region bootstrap was not confirmed");
+    }
+
+    // The bootloader's post-write CRC check reads the logical RequestDownload
+    // range without applying the RAM helper's physical +0x058000 redirect.
+    // Therefore the current carrier must already contain the wanted top
+    // payload before either helper is installed or any flash is erased.
+    info(ctx, std::format("Checking redirect carrier window (0x{:x}-0x{:x})...", kUserspaceStart,
+                          kUserspaceStart + kTopRegionLength - 1));
+    Result<bool> carrier_matches = flash_range_matches(ctx, kUserspaceStart, wanted_top);
+    if (!carrier_matches.has_value())
+    {
+        return std::unexpected(carrier_matches.error());
+    }
+    if (!*carrier_matches)
+    {
+        error(ctx, "Carrier window 0x8000-0x27fff does not match desired top payload; refusing redirect bootstrap");
+        return fail(ErrorKind::InvalidConfig, "redirect carrier window does not match desired top payload");
     }
 
     // Lines 335-340.
