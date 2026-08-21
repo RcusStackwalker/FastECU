@@ -6,6 +6,7 @@
 
 #include <QThread>
 
+#include <array>
 #include <iterator>
 
 #include "src/algorithms/protocol/qt_bytes.h"
@@ -1321,22 +1322,22 @@ bool SerialPortActionsDirect::get_serial_num(char *serial)
     struct
     {
         unsigned int length;
-        unsigned char data[256];
+        std::array<unsigned char, 256> data;
     } outbuf{};
 
     inbuf.length = 2;
     inbuf.svcid = 5;     // info
     inbuf.infosvcid = 1; // serial
 
-    outbuf.length = sizeof(outbuf.data) - 1; // reserve one byte for the null terminator
-                                             /*
-                                                 if (j2534->PassThruIoctl(devID,TX_IOCTL_APP_SERVICE,&inbuf,&outbuf))
-                                                 {
-                                                     serial[0] = 0;
-                                                     return false;
-                                                 }
-                                             */
-    memcpy(serial, outbuf.data, outbuf.length);
+    outbuf.length = outbuf.data.size() - 1; // reserve one byte for the null terminator
+                                            /*
+                                                if (j2534->PassThruIoctl(devID,TX_IOCTL_APP_SERVICE,&inbuf,&outbuf))
+                                                {
+                                                    serial[0] = 0;
+                                                    return false;
+                                                }
+                                            */
+    memcpy(serial, outbuf.data.data(), outbuf.length);
     serial[outbuf.length] = 0;
     return true;
 }
@@ -1382,43 +1383,43 @@ int SerialPortActionsDirect::init_j2534_connection()
     // Get J2534 adapter and driver version numbers
     // Zero-initialized so strlen() below stays bounded even if the J2534
     // driver call fails to null-terminate its output.
-    char strApiVersion[256] = {};
-    char strDllVersion[256] = {};
-    char strFirmwareVersion[256] = {};
-    char strSerial[256] = {};
+    std::array<char, 256> strApiVersion{};
+    std::array<char, 256> strDllVersion{};
+    std::array<char, 256> strFirmwareVersion{};
+    std::array<char, 256> strSerial{};
 
-    if (j2534->PassThruReadVersion(strApiVersion, strDllVersion, strFirmwareVersion, devID))
+    if (j2534->PassThruReadVersion(strApiVersion.data(), strDllVersion.data(), strFirmwareVersion.data(), devID))
     {
         reportJ2534Error();
         return STATUS_ERROR;
     }
 
-    if (!get_serial_num(strSerial))
+    if (!get_serial_num(strSerial.data()))
     {
         reportJ2534Error();
         return STATUS_ERROR;
     }
 
-    if (strlen(strApiVersion) > 0)
+    if (strlen(strApiVersion.data()) > 0)
     {
-        strApiVersion[strlen(strApiVersion) - 1] = '\0';
+        strApiVersion[strlen(strApiVersion.data()) - 1] = '\0';
     }
-    if (strlen(strDllVersion) > 0)
+    if (strlen(strDllVersion.data()) > 0)
     {
-        strDllVersion[strlen(strDllVersion) - 1] = '\0';
+        strDllVersion[strlen(strDllVersion.data()) - 1] = '\0';
     }
-    if (strlen(strFirmwareVersion) > 0)
+    if (strlen(strFirmwareVersion.data()) > 0)
     {
-        strFirmwareVersion[strlen(strFirmwareVersion) - 1] = '\0';
+        strFirmwareVersion[strlen(strFirmwareVersion.data()) - 1] = '\0';
     }
-    if (strlen(strSerial) > 0)
+    if (strlen(strSerial.data()) > 0)
     {
-        strSerial[strlen(strSerial) - 1] = '\0';
+        strSerial[strlen(strSerial.data()) - 1] = '\0';
     }
-    emit LOG_D("J2534 API Version: " + QString(strApiVersion), true, true);
-    emit LOG_D("J2534 DLL Version: " + QString(strDllVersion), true, true);
-    emit LOG_D("Device Firmware Version: " + QString(strFirmwareVersion), true, true);
-    emit LOG_D("Device Serial Number: " + parse_message_to_hex(strSerial), true, true);
+    emit LOG_D("J2534 API Version: " + QString(strApiVersion.data()), true, true);
+    emit LOG_D("J2534 DLL Version: " + QString(strDllVersion.data()), true, true);
+    emit LOG_D("Device Firmware Version: " + QString(strFirmwareVersion.data()), true, true);
+    emit LOG_D("Device Serial Number: " + parse_message_to_hex(strSerial.data()), true, true);
 
     // Create J2534 to device connections
     if (is_iso15765_connection)
