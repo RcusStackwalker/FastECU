@@ -319,6 +319,40 @@ Result<bool> flash_range_matches(Ctx& ctx, std::uint32_t start_addr, bytes::Byte
     return true;
 }
 
+// The RoutineControl positive-reply check shared by upload_and_commit's CRC
+// check and unlock_and_erase's erase trigger: uds::payload leaves
+// [routine-id echo][status], and a matching SID echo only means the ECU
+// answered -- not that the routine itself succeeded (see each call site for
+// what a nonzero status means for that routine). `log_subject` names the
+// exchange for the three log lines, phrased to read as a sentence opener
+// ("Erase trigger{stage}", "CRC check for 0x{:x}"); `detail_subject` is the
+// same name as it reads inside the returned Status's detail sentence (legacy
+// lowercases "erase trigger" there but leaves "CRC check" as-is, so the two
+// are kept as separate parameters rather than one re-cased string).
+// `status_verb` covers the one line whose wording differs per routine
+// ("reported failure" vs "reported a mismatch").
+Status check_routine_status(Ctx& ctx, const bytes::Bytes& received, bytes::Byte routine, std::string_view log_subject,
+                            std::string_view detail_subject, std::string_view status_verb)
+{
+    const bytes::ByteView reply = uds::payload(received);
+    if (reply.size() < 2)
+    {
+        error(ctx, std::format("{} reply carried no status byte", log_subject));
+        return fail(ErrorKind::BadResponse, std::format("{} reply too short", detail_subject));
+    }
+    if (reply[0] != routine)
+    {
+        error(ctx, std::format("{} reply echoed routine 0x{:02x} instead of 0x{:02x}", log_subject, reply[0], routine));
+        return fail(ErrorKind::BadResponse, std::format("{} echoed the wrong routine", detail_subject));
+    }
+    if (reply[1] != 0)
+    {
+        error(ctx, std::format("{} {} (status 0x{:02x})", log_subject, status_verb, reply[1]));
+        return fail(ErrorKind::BadResponse, std::format("{} reported a non-zero status", detail_subject));
+    }
+    return {};
+}
+
 // Legacy upload_and_commit, flash_ecu_mitsu_m32r_can_operation.cpp:231-297.
 Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data, PhaseReporter *progress = nullptr)
 {
@@ -388,22 +422,12 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data, Ph
     // reference CRC, and nonzero otherwise. UdsClient never looks past the
     // SID, so without this check a reported mismatch would be logged and
     // treated as a successful commit.
-    const bytes::ByteView crc_reply = uds::payload(*received);
-    if (crc_reply.size() < 2)
+    const std::string crc_subject = std::format("CRC check for 0x{:x}", start);
+    Status crc_status =
+        check_routine_status(ctx, *received, kRoutineCheckCrc, crc_subject, crc_subject, "reported a mismatch");
+    if (!crc_status.has_value())
     {
-        error(ctx, std::format("CRC check for 0x{:x} reply carried no status byte", start));
-        return fail(ErrorKind::BadResponse, std::format("CRC check for 0x{:x} reply too short", start));
-    }
-    if (crc_reply[0] != kRoutineCheckCrc)
-    {
-        error(ctx, std::format("CRC check for 0x{:x} reply echoed routine 0x{:02x} instead of 0x{:02x}", start,
-                               crc_reply[0], kRoutineCheckCrc));
-        return fail(ErrorKind::BadResponse, std::format("CRC check for 0x{:x} echoed the wrong routine", start));
-    }
-    if (crc_reply[1] != 0)
-    {
-        error(ctx, std::format("CRC check for 0x{:x} reported a mismatch (status 0x{:02x})", start, crc_reply[1]));
-        return fail(ErrorKind::BadResponse, std::format("CRC check for 0x{:x} reported a non-zero status", start));
+        return crc_status;
     }
 
     if (progress != nullptr)
@@ -447,22 +471,11 @@ Status unlock_and_erase(Ctx& ctx, std::string_view stage)
     // reports flasher_try_erase_range_call() failing via a positive reply
     // with a nonzero status instead of an NRC, so a naive SID-only check (as
     // UdsClient itself does) would log and treat that as a successful erase.
-    const bytes::ByteView erase_reply = uds::payload(*received);
-    if (erase_reply.size() < 2)
+    Status erase_status = check_routine_status(ctx, *received, kRoutineErase, std::format("Erase trigger{}", stage),
+                                               std::format("erase trigger{}", stage), "reported failure");
+    if (!erase_status.has_value())
     {
-        error(ctx, std::format("Erase trigger{} reply carried no status byte", stage));
-        return fail(ErrorKind::BadResponse, std::format("erase trigger{} reply too short", stage));
-    }
-    if (erase_reply[0] != kRoutineErase)
-    {
-        error(ctx, std::format("Erase trigger{} reply echoed routine 0x{:02x} instead of 0x{:02x}", stage,
-                               erase_reply[0], kRoutineErase));
-        return fail(ErrorKind::BadResponse, std::format("erase trigger{} echoed the wrong routine", stage));
-    }
-    if (erase_reply[1] != 0)
-    {
-        error(ctx, std::format("Erase trigger{} reported failure (status 0x{:02x})", stage, erase_reply[1]));
-        return fail(ErrorKind::BadResponse, std::format("erase trigger{} reported a non-zero status", stage));
+        return erase_status;
     }
 
     if (ctx.cancellation.cancelled())
