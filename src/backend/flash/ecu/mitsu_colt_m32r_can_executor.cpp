@@ -323,6 +323,24 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data, Ph
             std::format("the RoutineControl CRC check for 0x{:x}", start)));
     }
 
+    const bytes::ByteView crc_reply = uds::payload(*received);
+    if (crc_reply.size() < 2)
+    {
+        error(ctx, std::format("CRC check for 0x{:x} reply carried no status byte", start));
+        return fail(ErrorKind::BadResponse, std::format("CRC check for 0x{:x} reply too short", start));
+    }
+    if (crc_reply[0] != kRoutineCheckCrc)
+    {
+        error(ctx, std::format("CRC check for 0x{:x} reply echoed routine 0x{:02x} instead of 0x{:02x}", start,
+                               crc_reply[0], kRoutineCheckCrc));
+        return fail(ErrorKind::BadResponse, std::format("CRC check for 0x{:x} echoed the wrong routine", start));
+    }
+    if (crc_reply[1] != 0)
+    {
+        error(ctx, std::format("CRC check for 0x{:x} reported a mismatch (status 0x{:02x})", start, crc_reply[1]));
+        return fail(ErrorKind::BadResponse, std::format("CRC check for 0x{:x} reported a non-zero status", start));
+    }
+
     if (progress != nullptr)
     {
         progress->complete();
@@ -357,6 +375,25 @@ Status unlock_and_erase(Ctx& ctx, std::string_view stage)
                                                        std::format("Erase trigger{} rejected: ", stage),
                                                        std::format("the erase trigger{}", stage)));
     }
+
+    const bytes::ByteView erase_reply = uds::payload(*received);
+    if (erase_reply.size() < 2)
+    {
+        error(ctx, std::format("Erase trigger{} reply carried no status byte", stage));
+        return fail(ErrorKind::BadResponse, std::format("erase trigger{} reply too short", stage));
+    }
+    if (erase_reply[0] != kRoutineErase)
+    {
+        error(ctx, std::format("Erase trigger{} reply echoed routine 0x{:02x} instead of 0x{:02x}", stage,
+                               erase_reply[0], kRoutineErase));
+        return fail(ErrorKind::BadResponse, std::format("erase trigger{} echoed the wrong routine", stage));
+    }
+    if (erase_reply[1] != 0)
+    {
+        error(ctx, std::format("Erase trigger{} reported failure (status 0x{:02x})", stage, erase_reply[1]));
+        return fail(ErrorKind::BadResponse, std::format("erase trigger{} reported a non-zero status", stage));
+    }
+
     if (ctx.cancellation.cancelled())
     {
         return fail(ErrorKind::Cancelled, "cancelled after erase");
