@@ -52,26 +52,26 @@ each — not a paraphrase of whether it "looked right."
 
 ## 3. Destructive qualification
 
-**Blocker — do not run these two commands under any circumstances yet:**
+**Redirect routines are bench-qualified with a carrier-verification caveat.**
 
-- [ ] **`upload-routine erase-redirect` — DO NOT RUN.**
-- [ ] **`upload-routine write-redirect` — DO NOT RUN.**
+- [x] `erase-redirect`: 160-byte upload and top-128-KiB erase verified on a
+      spare 47110032 ECU on 2026-08-21.
+- [x] `write-redirect`: 176-byte, checksum-`0x4eae` routine verified by writing
+      and reading back all of `0x60000..0x7ffff`; the 128-KiB source and ECU
+      dump both had SHA-256
+      `09d69fe0357997a97a843d1d8e16926d23d5941223a92fd6172d698119711380`.
 
-  `//src/algorithms/protocol/colt:test_mitsu_colt_can_protocol` currently
-  **fails** on this branch:
-  `erase_and_write_redirect_routines_match_reflash_dir_checksums` expects
-  `sizeof(kEraseRedirectRoutine) == 192` and
-  `sizeof(kWriteRedirectRoutine) == 188` with checksums `0x5079` / `0x514e`,
-  matching `mmc-patches/m32r/47110032/reflash/` build output. But
-  `mitsu_colt_can_protocol.h:46-47,74-75` currently declares both redirect
-  arrays at `kEraseRoutineSize = 160` / `kWriteRoutineSize = 176`. Either the
-  baked-in arrays are truncated or the test's expectation is stale — nobody
-  has established which. `upload-routine` only loads and CRC-checks RAM; it
-  does not execute the uploaded routine. A later erase trigger or write flow
-  can execute those bytes, so do not use either redirect routine in such a
-  flow until that test passes and the size/checksum discrepancy is resolved.
-  `erase-page` and `write-page` are unaffected — both are sized 160/176
-  consistently with their own passing assertions.
+  The bootloader verifies each programmed page against the original logical
+  RequestDownload address after the RAM helper returns. The redirect helper
+  maps logical `0x8000` to physical `0x60000`, but the verifier still reads
+  `0x8000`. Therefore an ordinary redirect download returns NRC `0x71` when
+  carrier and target payloads differ, even when the physical write succeeds.
+  Qualification used the same 128-KiB payload at carrier `0x8000..0x27fff`
+  before invoking `write-redirect`; all 512 redirected page transfers were
+  then accepted. The carrier was erased and restored from the real userspace
+  image afterward. Do not interpret NRC `0x71` as proof that this helper failed,
+  and do not use redirect download with arbitrary carrier contents if a positive
+  TransferData acknowledgement is required.
 
 **Before the first `unlock`, and not merely nominally:** `unlock` sends the
 exact `0x3B` payload that `mitsu_colt_can_protocol.h` annotates as "KNOWN
@@ -126,6 +126,12 @@ session — they are documented behavior, not bugs to route around mid-run.
       exchange count and elapsed time; they do not print every intermediate
       transfer frame. Use an adapter-level trace if every intermediate frame
       is required.
+- [ ] RoutineControl `0x31/0xE1` status `0x01` for a flash-address check is not
+      exclusively a byte-sum mismatch. After the sums match, this bootloader
+      also runs its code-integrity check and returns the same status when that
+      check fails. The bench test image produced status `0x01` despite complete,
+      byte-identical userspace and top-bank readback; use a full dump comparison
+      when qualifying deliberately patched images.
 - [ ] With `--script -`, global options (`--port`, `--json`, `--verbose`,
       `--timeout`, `--keep-going`, `--no-connect`, `--script`) belong on the
       outer invocation. They are rejected on individual script lines rather
