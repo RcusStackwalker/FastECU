@@ -1,6 +1,7 @@
 #pragma once
 #include "src/algorithms/protocol/bytes.h"
 
+#include <array>
 #include <cstdint>
 #include <vector>
 
@@ -42,11 +43,14 @@ constexpr std::uint32_t kTopRegionLength = kTopRegionEnd - kTopRegionStart;
 constexpr std::uint32_t kEraseRoutineRamAddr = 0x805568;
 constexpr std::uint32_t kWriteRoutineRamAddr = 0x8054AC;
 
+constexpr std::size_t kEraseRoutineSize = 160;
+constexpr std::size_t kWriteRoutineSize = 176;
+
 // RAM-resident erase/write helper routines, carried over verbatim (not
 // recompiled) from externals/livemonitor/colt_flasher.xml. Valid only for
 // ROM 47110032 (Colt CZT, Z37A).
-extern const bytes::Byte kErasePageRoutine[160];
-extern const bytes::Byte kWritePageRoutine[176];
+extern const std::array<bytes::Byte, kEraseRoutineSize> kErasePageRoutine;
+extern const std::array<bytes::Byte, kWriteRoutineSize> kWritePageRoutine;
 
 // RAM-resident redirect erase/write helpers. Structural siblings of
 // kErasePageRoutine/kWritePageRoutine above (same RAM slots, same command
@@ -67,8 +71,8 @@ extern const bytes::Byte kWritePageRoutine[176];
 // erase-trigger's hardcoded sweep would otherwise walk past the physical
 // 512KB flash boundary. Built from
 // mmc-patches/m32r/47110032/reflash/{erase,write}_redirect32170.S.
-extern const bytes::Byte kEraseRedirectRoutine[192];
-extern const bytes::Byte kWriteRedirectRoutine[188];
+extern const std::array<bytes::Byte, kEraseRoutineSize> kEraseRedirectRoutine;
+extern const std::array<bytes::Byte, kWriteRoutineSize> kWriteRedirectRoutine;
 
 // sk = (pk * 135 + 1542) mod 65536. Mitsubishi-specific; ported from
 // ObdSessionInitCommandSequence::messageCallbackCustomAction in
