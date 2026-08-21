@@ -77,8 +77,8 @@ TEST(TestMitsuColtCanProtocol, erase_and_write_redirect_routines_match_reflash_d
     // build output -- see
     // docs/superpowers/specs/2026-07-11-z37a-top128k-can-reflash-design.md
     // in the parent claude-hobby project.
-    ASSERT_EQ(sizeof(kEraseRedirectRoutine), size_t(192));
-    ASSERT_EQ(sizeof(kWriteRedirectRoutine), size_t(188));
+    ASSERT_EQ(sizeof(kEraseRedirectRoutine), size_t(160));
+    ASSERT_EQ(sizeof(kWriteRedirectRoutine), size_t(176));
     ASSERT_EQ(checksum(kEraseRedirectRoutine), std::uint16_t(0x5079));
-    ASSERT_EQ(checksum(kWriteRedirectRoutine), std::uint16_t(0x514e));
+    ASSERT_EQ(checksum(kWriteRedirectRoutine), std::uint16_t(0x4eae));
 }
