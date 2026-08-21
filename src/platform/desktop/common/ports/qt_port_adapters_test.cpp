@@ -1,4 +1,4 @@
-#include "src/platform/desktop/common/ports/qt_cancellation_token.h"
+#include "src/backend/ports/manual_cancellation_token.h"
 #include "src/platform/desktop/common/ports/qt_clock.h"
 #include "src/platform/desktop/common/ports/qt_event_sink.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
@@ -15,6 +15,7 @@
 
 using fastecu::ErrorKind;
 using fastecu::LogLevel;
+using fastecu::ManualCancellationToken;
 using fastecu::Result;
 using fastecu::Status;
 
@@ -49,7 +50,7 @@ TEST(QtClockTest, NowMsIsMonotonicNonDecreasing)
 {
     QtClock clock;
     std::uint64_t first = clock.now_ms();
-    QtCancellationToken token;
+    ManualCancellationToken token;
     Status s = clock.sleep(1, token);
     ASSERT_TRUE(s.has_value());
     std::uint64_t second = clock.now_ms();
@@ -59,7 +60,7 @@ TEST(QtClockTest, NowMsIsMonotonicNonDecreasing)
 TEST(QtClockTest, SleepZeroSucceeds)
 {
     QtClock clock;
-    QtCancellationToken token;
+    ManualCancellationToken token;
     Status s = clock.sleep(0, token);
     EXPECT_TRUE(s.has_value());
 }
@@ -67,35 +68,11 @@ TEST(QtClockTest, SleepZeroSucceeds)
 TEST(QtClockTest, SleepReturnsCancelledWhenTokenAlreadyCancelled)
 {
     QtClock clock;
-    QtCancellationToken token;
+    ManualCancellationToken token;
     token.cancel();
     Status s = clock.sleep(50, token);
     ASSERT_FALSE(s.has_value());
     EXPECT_EQ(s.error().kind, ErrorKind::Cancelled);
-}
-
-// ---- QtCancellationToken ----------------------------------------------
-
-TEST(QtCancellationTokenTest, FreshTokenIsNotCancelled)
-{
-    QtCancellationToken token;
-    EXPECT_FALSE(token.cancelled());
-}
-
-TEST(QtCancellationTokenTest, CancelSetsFlag)
-{
-    QtCancellationToken token;
-    token.cancel();
-    EXPECT_TRUE(token.cancelled());
-}
-
-TEST(QtCancellationTokenTest, ResetClearsFlag)
-{
-    QtCancellationToken token;
-    token.cancel();
-    ASSERT_TRUE(token.cancelled());
-    token.reset();
-    EXPECT_FALSE(token.cancelled());
 }
 
 // ---- QtFileRepository --------------------------------------------------
