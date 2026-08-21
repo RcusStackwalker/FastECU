@@ -41,6 +41,17 @@ std::size_t newlineCount(std::string_view text)
     return static_cast<std::size_t>(std::ranges::count(text, '\n'));
 }
 
+std::vector<Result<bytes::Bytes>> successfulUploadReplies()
+{
+    return {bytes::Bytes{0x74}, bytes::Bytes{0x76}, bytes::Bytes{0x74}, bytes::Bytes{0x76},
+            bytes::Bytes{0x71, 0xE1, 0x00}};
+}
+
+bool sentErase(const FakeBenchSession& session)
+{
+    return std::ranges::find(session.requests, MitsuColtCan::buildRoutineErase()) != session.requests.end();
+}
+
 TEST(BenchDriver, JsonPortsIsOneObjectAndNeverRequestsASession)
 {
     Harness harness;
@@ -223,6 +234,257 @@ TEST(BenchDriver, JsonConnectFailureIsAnOutcomeWithTraffic)
     EXPECT_EQ(newlineCount(harness.output.str()), 1u);
     EXPECT_NE(harness.output.str().find("\"last_rx\":\"6707\""), std::string::npos);
     EXPECT_NE(harness.diagnostics.str().find("bad key echo"), std::string::npos);
+}
+
+TEST(BenchDriver, StandaloneEraseIsRejectedBeforeRequestingASession)
+{
+    Harness harness;
+
+    const int code = harness.run({"erase", "--destructive"});
+
+    EXPECT_EQ(code, exit_code_for(ErrorKind::InvalidConfig));
+    EXPECT_EQ(harness.environment.session_calls, 0);
+    EXPECT_FALSE(sentErase(harness.session));
+    EXPECT_NE(harness.diagnostics.str().find("erase helper"), std::string::npos);
+    EXPECT_NE(harness.diagnostics.str().find("unlock"), std::string::npos);
+}
+
+TEST(BenchDriver, EraseRequiresANamedEraseHelperRatherThanAnyRoutineUpload)
+{
+    Harness harness;
+
+    const int code = harness.run({"upload-routine", "write-page", "--destructive", ":", "unlock", "--destructive", ":",
+                                  "erase", "--destructive"});
+
+    EXPECT_EQ(code, exit_code_for(ErrorKind::InvalidConfig));
+    EXPECT_EQ(harness.environment.session_calls, 0);
+    EXPECT_TRUE(harness.session.requests.empty());
+}
+
+TEST(BenchDriver, UnlockBeforeEraseHelperDoesNotQualifyForErase)
+{
+    Harness harness;
+
+    const int code = harness.run({"unlock", "--destructive", ":", "upload-routine", "erase-page", "--destructive", ":",
+                                  "erase", "--destructive"});
+
+    EXPECT_EQ(code, exit_code_for(ErrorKind::InvalidConfig));
+    EXPECT_EQ(harness.environment.session_calls, 0);
+    EXPECT_TRUE(harness.session.requests.empty());
+}
+
+TEST(BenchDriver, ScriptUnlockBeforeEraseHelperDoesNotQualifyForErase)
+{
+    Harness harness;
+
+    const int code = harness.run({"--script", "-"}, "unlock --destructive\n"
+                                                    "upload-routine erase-page --destructive\n"
+                                                    "erase --destructive\n");
+
+    EXPECT_EQ(code, exit_code_for(ErrorKind::InvalidConfig));
+    EXPECT_EQ(harness.environment.session_calls, 0);
+    EXPECT_TRUE(harness.session.requests.empty());
+}
+
+TEST(BenchDriver, EraseHelperFromOverrideDoesNotQualifyForErase)
+{
+    Harness harness;
+    harness.files.contents["custom.bin"] = {0xAA};
+
+    const int code = harness.run({"upload-routine", "erase-redirect", "--from", "custom.bin", "--destructive", ":",
+                                  "unlock", "--destructive", ":", "erase", "--destructive"});
+
+    EXPECT_EQ(code, exit_code_for(ErrorKind::InvalidConfig));
+    EXPECT_EQ(harness.environment.session_calls, 0);
+    EXPECT_TRUE(harness.session.requests.empty());
+}
+
+TEST(BenchDriver, DownloadBetweenEraseHelperAndUnlockInvalidatesThePlan)
+{
+    for (const std::vector<std::string_view>& args :
+         {std::vector<std::string_view>{"upload-routine", "erase-page", "--destructive", ":", "download", "0x805568",
+                                        "payload.bin", "--destructive", ":", "unlock", "--destructive", ":", "erase",
+                                        "--destructive"},
+          std::vector<std::string_view>{"--keep-going", "upload-routine", "erase-page", "--destructive", ":",
+                                        "download", "0x900000", "payload.bin", "--destructive", ":", "unlock",
+                                        "--destructive", ":", "erase", "--destructive"}})
+    {
+        Harness harness;
+        harness.files.contents["payload.bin"] = {0xAA};
+
+        const int code = harness.run(args);
+
+        EXPECT_EQ(code, exit_code_for(ErrorKind::InvalidConfig));
+        EXPECT_EQ(harness.environment.session_calls, 0);
+        EXPECT_TRUE(harness.session.requests.empty());
+    }
+}
+
+TEST(BenchDriver, ScriptDownloadBetweenEraseHelperAndUnlockInvalidatesThePlan)
+{
+    Harness harness;
+    harness.files.contents["payload.bin"] = {0xAA};
+
+    const int code = harness.run({"--keep-going", "--script", "-"}, "upload-routine erase-page --destructive\n"
+                                                                    "download 0x805568 payload.bin --destructive\n"
+                                                                    "unlock --destructive\n"
+                                                                    "erase --destructive\n");
+
+    EXPECT_EQ(code, exit_code_for(ErrorKind::InvalidConfig));
+    EXPECT_EQ(harness.environment.session_calls, 0);
+    EXPECT_TRUE(harness.session.requests.empty());
+}
+
+TEST(BenchDriver, DestructiveRawSendBetweenEraseHelperAndUnlockInvalidatesThePlan)
+{
+    Harness harness;
+
+    const int code = harness.run({"upload-routine", "erase-page", "--destructive", ":", "send-raw", "22",
+                                  "--destructive", ":", "unlock", "--destructive", ":", "erase", "--destructive"});
+
+    EXPECT_EQ(code, exit_code_for(ErrorKind::InvalidConfig));
+    EXPECT_EQ(harness.environment.session_calls, 0);
+    EXPECT_TRUE(harness.session.requests.empty());
+}
+
+TEST(BenchDriver, NamedEraseHelperAndUnlockPermitEraseInTheSameSession)
+{
+    Harness harness;
+    harness.session.replies = successfulUploadReplies();
+    harness.session.replies.push_back(bytes::Bytes{0x7B, 0x00});
+    harness.session.replies.push_back(bytes::Bytes{0x71, 0xE0, 0x00});
+
+    const int code = harness.run({"upload-routine", "erase-page", "--destructive", ":", "unlock", "--destructive", ":",
+                                  "erase", "--destructive"});
+
+    EXPECT_EQ(code, 0);
+    EXPECT_EQ(harness.environment.session_calls, 1);
+    EXPECT_TRUE(sentErase(harness.session));
+}
+
+TEST(BenchDriver, FailedEraseHelperUploadPreventsEraseUnderKeepGoing)
+{
+    Harness harness;
+    harness.session.replies = {fail(ErrorKind::BadResponse, "helper upload failed"), bytes::Bytes{0x7B, 0x00}};
+
+    const int code = harness.run({"--keep-going", "upload-routine", "erase-redirect", "--destructive", ":", "unlock",
+                                  "--destructive", ":", "erase", "--destructive"});
+
+    EXPECT_EQ(code, exit_code_for(ErrorKind::BadResponse));
+    EXPECT_EQ(harness.environment.session_calls, 1);
+    EXPECT_FALSE(sentErase(harness.session));
+    EXPECT_NE(harness.diagnostics.str().find("successful erase helper"), std::string::npos);
+}
+
+TEST(BenchDriver, FailedUnlockPreventsEraseUnderKeepGoing)
+{
+    Harness harness;
+    harness.session.replies = successfulUploadReplies();
+    harness.session.replies.push_back(fail(ErrorKind::BadResponse, "unlock failed"));
+
+    const int code = harness.run({"--keep-going", "upload-routine", "erase-page", "--destructive", ":", "unlock",
+                                  "--destructive", ":", "erase", "--destructive"});
+
+    EXPECT_EQ(code, exit_code_for(ErrorKind::BadResponse));
+    EXPECT_EQ(harness.environment.session_calls, 1);
+    EXPECT_FALSE(sentErase(harness.session));
+    EXPECT_NE(harness.diagnostics.str().find("successful unlock"), std::string::npos);
+}
+
+TEST(BenchDriver, FailedReadInvalidatesEraseEligibilityUnderKeepGoing)
+{
+    Harness harness;
+    harness.session.replies = successfulUploadReplies();
+    harness.session.replies.push_back(fail(ErrorKind::BadResponse, "read failed"));
+    harness.session.replies.push_back(bytes::Bytes{0x7B, 0x00});
+
+    const int code = harness.run({"--keep-going", "upload-routine", "erase-page", "--destructive", ":", "read", "0x200",
+                                  "1", ":", "unlock", "--destructive", ":", "erase", "--destructive"});
+
+    EXPECT_EQ(code, exit_code_for(ErrorKind::BadResponse));
+    EXPECT_EQ(harness.environment.session_calls, 1);
+    EXPECT_FALSE(sentErase(harness.session));
+    EXPECT_NE(harness.diagnostics.str().find("no intervening destructive or failed step"), std::string::npos);
+}
+
+TEST(BenchDriver, ReadOnlyStepsPreserveTheExactEraseSequence)
+{
+    Harness harness;
+    harness.session.replies = successfulUploadReplies();
+    harness.session.replies.push_back(bytes::Bytes{0x63, 0xAA});
+    harness.session.replies.push_back(bytes::Bytes{0x7B, 0x00});
+    harness.session.replies.push_back(bytes::Bytes{0x63, 0xBB});
+    harness.session.replies.push_back(bytes::Bytes{0x71, 0xE0, 0x00});
+
+    const int code = harness.run({"upload-routine", "erase-redirect", "--destructive", ":", "read", "0x200", "1", ":",
+                                  "unlock", "--destructive", ":", "read", "0x201", "1", ":", "erase", "--destructive"});
+
+    EXPECT_EQ(code, 0);
+    EXPECT_EQ(harness.environment.session_calls, 1);
+    EXPECT_TRUE(sentErase(harness.session));
+}
+
+TEST(BenchDriver, ScriptLinesShareOneSessionAndErasePrerequisiteState)
+{
+    Harness harness;
+    harness.session.replies = successfulUploadReplies();
+    harness.session.replies.push_back(bytes::Bytes{0x7B, 0x00});
+    harness.session.replies.push_back(bytes::Bytes{0x71, 0xE0, 0x00});
+
+    const int code = harness.run({"--script", "-"}, "upload-routine erase-redirect --destructive\n"
+                                                    "unlock --destructive\n"
+                                                    "erase --destructive\n");
+
+    EXPECT_EQ(code, 0);
+    EXPECT_EQ(harness.environment.session_calls, 1);
+    ASSERT_EQ(harness.environment.implicit_connect_requests.size(), 1u);
+    EXPECT_TRUE(harness.environment.implicit_connect_requests.front());
+    EXPECT_TRUE(sentErase(harness.session));
+}
+
+TEST(BenchDriver, ErasePrerequisitesDoNotCarryAcrossCliInvocations)
+{
+    Harness harness;
+    harness.session.replies = successfulUploadReplies();
+    harness.session.replies.push_back(bytes::Bytes{0x7B, 0x00});
+
+    ASSERT_EQ(harness.run({"upload-routine", "erase-page", "--destructive", ":", "unlock", "--destructive"}), 0);
+    const int code = harness.run({"erase", "--destructive"});
+
+    EXPECT_EQ(code, exit_code_for(ErrorKind::InvalidConfig));
+    EXPECT_EQ(harness.environment.session_calls, 1);
+    EXPECT_FALSE(sentErase(harness.session));
+}
+
+TEST(BenchDriver, ExplicitConnectMustBeTheFirstSessionStepAndAppearOnlyOnce)
+{
+    for (const std::vector<std::string_view>& args :
+         {std::vector<std::string_view>{"read", "0x200", "1", ":", "connect"},
+          std::vector<std::string_view>{"connect", ":", "connect"}})
+    {
+        Harness harness;
+
+        const int code = harness.run(args);
+
+        EXPECT_EQ(code, exit_code_for(ErrorKind::InvalidConfig));
+        EXPECT_EQ(harness.environment.session_calls, 0);
+        EXPECT_EQ(harness.session.connect_calls, 0);
+        EXPECT_TRUE(harness.session.requests.empty());
+    }
+}
+
+TEST(BenchDriver, ExplicitConnectCanLeadAChainedSessionWithoutAnImplicitHandshake)
+{
+    Harness harness;
+    harness.session.replies = {bytes::Bytes{0x63, 0xAA}};
+
+    const int code = harness.run({"connect", ":", "read", "0x200", "1"});
+
+    EXPECT_EQ(code, 0);
+    EXPECT_EQ(harness.environment.session_calls, 1);
+    ASSERT_EQ(harness.environment.implicit_connect_requests.size(), 1u);
+    EXPECT_FALSE(harness.environment.implicit_connect_requests.front());
+    EXPECT_EQ(harness.session.connect_calls, 1);
 }
 
 } // namespace

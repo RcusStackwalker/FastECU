@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <format>
 #include <iterator>
+#include <optional>
 #include <sstream>
 
 #include "apps/bench/bench_commands.h"
@@ -68,14 +69,113 @@ void diagnose(const CommandOutcome& outcome, std::ostream& diagnostics)
     }
 }
 
+bool isEraseHelperUpload(const PreparedStep& step)
+{
+    return step.spec.id == CommandId::UploadRoutine && step.spec.args.size() == 1 &&
+           (step.spec.args.front() == "erase-page" || step.spec.args.front() == "erase-redirect");
+}
+
+bool isDestructiveStep(const PreparedStep& step)
+{
+    return std::ranges::any_of(command_table(), [&step](const CommandSpec& spec)
+                               { return spec.id == step.spec.id && spec.destructive; });
+}
+
+enum class EraseSequenceState
+{
+    NeedsHelper,
+    NeedsUnlock,
+    Ready,
+};
+
+constexpr std::string_view kEraseSequenceRequirement =
+    "erase requires a successful erase helper upload (built-in upload-routine erase-page or erase-redirect without "
+    "--from) followed by a successful unlock, with no intervening destructive or failed step in this session";
+
+EraseSequenceState advanceEraseSequence(EraseSequenceState state, const PreparedStep& step, bool successful)
+{
+    if (!successful)
+    {
+        return EraseSequenceState::NeedsHelper;
+    }
+    if (isEraseHelperUpload(step))
+    {
+        return EraseSequenceState::NeedsUnlock;
+    }
+    if (step.spec.id == CommandId::Unlock)
+    {
+        return state == EraseSequenceState::NeedsUnlock ? EraseSequenceState::Ready : EraseSequenceState::NeedsHelper;
+    }
+    if (step.spec.id == CommandId::Erase || isDestructiveStep(step))
+    {
+        return EraseSequenceState::NeedsHelper;
+    }
+    return state;
+}
+
+struct PlanValidationFailure
+{
+    const PreparedStep *step;
+    Error error;
+};
+
+std::optional<PlanValidationFailure> validateSessionPlan(const std::vector<const PreparedStep *>& steps)
+{
+    bool saw_session_step = false;
+    EraseSequenceState erase_sequence = EraseSequenceState::NeedsHelper;
+    for (const PreparedStep *const step : steps)
+    {
+        if (step->spec.id == CommandId::Ports)
+        {
+            continue;
+        }
+        if (step->spec.id == CommandId::Connect && saw_session_step)
+        {
+            return PlanValidationFailure{
+                step, Error{ErrorKind::InvalidConfig,
+                            "connect must be the first non-ports session step and may appear only once"}};
+        }
+        saw_session_step = true;
+
+        if (step->spec.id == CommandId::Erase && erase_sequence != EraseSequenceState::Ready)
+        {
+            return PlanValidationFailure{step, Error{ErrorKind::InvalidConfig, std::string(kEraseSequenceRequirement)}};
+        }
+        erase_sequence = advanceEraseSequence(erase_sequence, *step, true);
+    }
+    return std::nullopt;
+}
+
+struct SessionState
+{
+    EraseSequenceState erase_sequence = EraseSequenceState::NeedsHelper;
+};
+
 int runSteps(IBenchSession& session, IBenchFiles& files, const GlobalOptions& options,
-             const std::vector<PreparedStep>& steps, std::ostream& output, std::ostream& diagnostics)
+             const std::vector<PreparedStep>& steps, SessionState& state, std::ostream& output,
+             std::ostream& diagnostics)
 {
     BenchContext context{.session = session, .files = files, .options = options};
     int code = 0;
     for (const PreparedStep& step : steps)
     {
-        const CommandOutcome outcome = run_step(context, step);
+        CommandOutcome outcome;
+        if (step.spec.id == CommandId::Erase && state.erase_sequence != EraseSequenceState::Ready)
+        {
+            outcome = failedOutcome(renderStep(step.spec),
+                                    Error{ErrorKind::InvalidConfig, std::string(kEraseSequenceRequirement)});
+            if (const Result<double> battery = session.vbatt(); battery.has_value())
+            {
+                outcome.vbatt = *battery;
+            }
+        }
+        else
+        {
+            outcome = run_step(context, step);
+        }
+
+        state.erase_sequence = advanceEraseSequence(state.erase_sequence, step, outcome.ok);
+
         emit(options, outcome, output);
         diagnose(outcome, diagnostics);
         if (outcome.ok)
@@ -142,7 +242,8 @@ int runPreparedBatch(IBenchEnvironment& environment, IBenchFiles& files, const G
         diagnose(outcome, diagnostics);
         return exit_code_for(session.error().kind);
     }
-    return runSteps(session->get(), files, options, steps, output, diagnostics);
+    SessionState state;
+    return runSteps(session->get(), files, options, steps, state, output, diagnostics);
 }
 
 int runBatch(IBenchEnvironment& environment, IBenchFiles& files, const GlobalOptions& options,
@@ -161,6 +262,19 @@ int runBatch(IBenchEnvironment& environment, IBenchFiles& files, const GlobalOpt
             return exit_code_for(prepared.error().kind);
         }
         prepared_steps.push_back(std::move(*prepared));
+    }
+    std::vector<const PreparedStep *> plan;
+    plan.reserve(prepared_steps.size());
+    for (const PreparedStep& step : prepared_steps)
+    {
+        plan.push_back(&step);
+    }
+    if (const std::optional<PlanValidationFailure> failure = validateSessionPlan(plan); failure.has_value())
+    {
+        const CommandOutcome outcome = failedOutcome(renderStep(failure->step->spec), failure->error);
+        emit(options, outcome, output);
+        diagnose(outcome, diagnostics);
+        return exit_code_for(failure->error.kind);
     }
     return runPreparedBatch(environment, files, options, prepared_steps, output, diagnostics);
 }
@@ -270,6 +384,24 @@ int runScript(IBenchEnvironment& environment, IBenchFiles& files, const GlobalOp
         return first_code;
     }
 
+    std::vector<const PreparedStep *> plan;
+    for (const std::vector<PreparedStep>& line_steps : prepared_lines)
+    {
+        for (const PreparedStep& step : line_steps)
+        {
+            plan.push_back(&step);
+        }
+    }
+    if (const std::optional<PlanValidationFailure> failure = validateSessionPlan(plan); failure.has_value())
+    {
+        const CommandOutcome outcome = failedOutcome(renderStep(failure->step->spec), failure->error);
+        emit(options, outcome, output);
+        diagnose(outcome, diagnostics);
+        return exit_code_for(failure->error.kind);
+    }
+
+    std::optional<std::reference_wrapper<IBenchSession>> session;
+    SessionState state;
     for (const std::vector<PreparedStep>& prepared_steps : prepared_lines)
     {
         int code = 0;
@@ -279,7 +411,28 @@ int runScript(IBenchEnvironment& environment, IBenchFiles& files, const GlobalOp
         }
         else
         {
-            code = runPreparedBatch(environment, files, options, prepared_steps, output, diagnostics);
+            if (!session.has_value())
+            {
+                const bool connect_implicitly = !options.no_connect && !prepared_steps.empty() &&
+                                                prepared_steps.front().spec.id != CommandId::Connect;
+                Result<std::reference_wrapper<IBenchSession>> opened = environment.session(options, connect_implicitly);
+                if (!opened.has_value())
+                {
+                    const std::string label =
+                        prepared_steps.empty() ? "setup" : renderStep(prepared_steps.front().spec);
+                    const CommandOutcome outcome =
+                        failedOutcome(label, opened.error(), environment.last_setup_traffic());
+                    emit(options, outcome, output);
+                    diagnose(outcome, diagnostics);
+                    if (first_code == 0)
+                    {
+                        first_code = exit_code_for(opened.error().kind);
+                    }
+                    return first_code;
+                }
+                session = *opened;
+            }
+            code = runSteps(session->get(), files, options, prepared_steps, state, output, diagnostics);
         }
         if (code != 0)
         {
