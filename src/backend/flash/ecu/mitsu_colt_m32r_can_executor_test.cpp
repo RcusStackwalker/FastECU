@@ -79,12 +79,17 @@ bytes::Bytes request(bytes::ByteView payload)
 
 // Responses carry the 4-byte 0x7E8 reply id; the legacy code indexes
 // received.at(4) for the service byte throughout.
-bytes::Bytes response(std::initializer_list<bytes::Byte> tail)
+bytes::Bytes response(bytes::ByteView tail)
 {
     bytes::Bytes out;
     bytes::appendU32Be(out, 0x7e8);
     out.insert(out.end(), tail.begin(), tail.end());
     return out;
+}
+
+bytes::Bytes response(std::initializer_list<bytes::Byte> tail)
+{
+    return response(bytes::ByteView{tail.begin(), tail.end()});
 }
 
 fastecu::flash::FlashPlan readPlan(std::string_view protocol = kProtocol384)
@@ -1128,81 +1133,10 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheEraseTriggerIsRejected)
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Userspace flash erased"))));
 }
 
-TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheEraseTriggerReplyIsTooShort)
-{
-    ScriptedCanFlashTransport transport;
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
-    MitsuColtM32rCanExecutor executor;
-    auto plan = writePlan(writeRom());
-
-    scriptWriteThroughEraseTrigger(transport);
-    transport.queueRead(response({0x71, 0xe0}));
-
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
-    EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "Erase trigger reply carried no status byte")));
-    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Userspace flash erased"))));
-}
-
-TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheEraseTriggerReplyHasTheWrongRoutineEcho)
-{
-    ScriptedCanFlashTransport transport;
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
-    MitsuColtM32rCanExecutor executor;
-    auto plan = writePlan(writeRom());
-
-    scriptWriteThroughEraseTrigger(transport);
-    transport.queueRead(response({0x71, 0xe1, 0x00}));
-
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
-    EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_THAT(events.logs,
-                Contains(Pair(LogLevel::Error, "Erase trigger reply echoed routine 0xe1 instead of 0xe0")));
-    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Userspace flash erased"))));
-}
-
-TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheEraseTriggerReportsANonZeroStatus)
-{
-    // A RoutineControl 224 reply with a matching SID echo is not the same as
-    // a successful erase: the bootloader reports
-    // flasher_try_erase_range_call() failing via a positive reply carrying a
-    // nonzero status byte instead of an NRC (colt_commented.S ~0x59c8-0x5a38,
-    // Colt CZT Z37A ROM 47110032) -- the exact wire trace that motivated this
-    // test.
-    ScriptedCanFlashTransport transport;
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
-    MitsuColtM32rCanExecutor executor;
-    auto plan = writePlan(writeRom());
-
-    scriptWriteThroughEraseTrigger(transport);
-    transport.queueRead(response({0x71, 0xe0, 0x01}));
-
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
-    // Nothing beyond the erase trigger was scripted -- a RequestDownload
-    // here would fail the transport's own unexpected-write assertion.
-    EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "Erase trigger reported failure (status 0x01)")));
-    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Userspace flash erased"))));
-}
-
 TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheCarrierEraseTriggerReportsANonZeroStatus)
 {
-    // Same check, exercised through the top-128KB bootstrap's copy of
+    // Same fatal_query wiring as the MitsuColtM32rCanExecutorRoutineStatusTest
+    // cases below, exercised through the top-128KB bootstrap's copy of
     // unlock_and_erase() -- the `stage` suffix must appear in the log too.
     ScriptedCanFlashTransport transport;
     FakeClock clock;
@@ -1231,14 +1165,42 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheCarrierEraseTriggerReportsANonZe
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs,
-                Contains(Pair(LogLevel::Error, "Erase trigger (top 128KB bootstrap) reported failure (status 0x01)")));
+                Contains(Pair(LogLevel::Error, "Erase trigger (top 128KB bootstrap) rejected: unexpected erase "
+                                               "trigger (top 128KB bootstrap) response")));
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Carrier window erased"))));
     // The main write never starts.
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Erase page uploaded"))));
 }
 
-TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheCrcCheckReplyIsTooShort)
+// The erase trigger (RoutineControl 224) and the CRC check (RoutineControl
+// 225) both reply [routine-id echo][status] past the SID UdsClient already
+// validated: a matching SID echo alone does not mean the routine itself
+// succeeded, so both exchanges go through fatal_query with expected_prefix
+// = {routine, 0x00} (colt_commented.S ~0x59c8-0x5a38 for the erase trigger,
+// ~0x5aa0-0x5ad4 for the CRC check -- the latter is where cobd_data[2]
+// carries whether can_flasher_current_block_calculated_crc matched the
+// reference). fatal_query's own mismatch handling -- too-short payload,
+// wrong prefix content -- is already exercised generically by
+// FatalQueryTest in uds_client_exchange_common_test.cpp, so these two cases
+// only need to confirm each call site is wired to the right expected_prefix;
+// WriteStopsWhenTheCarrierEraseTriggerReportsANonZeroStatus above covers the
+// same wiring through unlock_and_erase's other caller.
+struct RoutineStatusCase
 {
+    std::string name;
+    void (*script)(ScriptedCanFlashTransport&);
+    bytes::Bytes reply;
+    std::string expected_log;
+    std::string_view not_yet_logged;
+};
+
+class MitsuColtM32rCanExecutorRoutineStatusTest : public ::testing::TestWithParam<RoutineStatusCase>
+{
+};
+
+TEST_P(MitsuColtM32rCanExecutorRoutineStatusTest, StopsTheWrite)
+{
+    const RoutineStatusCase& test_case = GetParam();
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
@@ -1246,68 +1208,34 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheCrcCheckReplyIsTooShort)
     MitsuColtM32rCanExecutor executor;
     auto plan = writePlan(writeRom());
 
-    scriptWriteThroughEraseRoutineCrcCheck(transport);
-    transport.queueRead(response({0x71, 0xe1}));
+    test_case.script(transport);
+    transport.queueRead(response(test_case.reply));
 
     const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "CRC check for 0x805568 reply carried no status byte")));
-    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Erase page uploaded"))));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, test_case.expected_log)));
+    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, test_case.not_yet_logged))));
 }
 
-TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheCrcCheckReplyHasTheWrongRoutineEcho)
-{
-    ScriptedCanFlashTransport transport;
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
-    MitsuColtM32rCanExecutor executor;
-    auto plan = writePlan(writeRom());
-
-    scriptWriteThroughEraseRoutineCrcCheck(transport);
-    transport.queueRead(response({0x71, 0xe0, 0x00}));
-
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
-    EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_THAT(events.logs,
-                Contains(Pair(LogLevel::Error, "CRC check for 0x805568 reply echoed routine 0xe0 instead of 0xe1")));
-    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Erase page uploaded"))));
-}
-
-TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheCrcCheckReportsANonZeroStatus)
-{
-    // upload_and_commit's RoutineControl 225 (CRC check) reply carries the
-    // same echo-plus-status shape as the erase trigger (colt_commented.S
-    // ~0x5aa0-0x5ad4): cobd_data[2] is 0 only when
-    // can_flasher_current_block_calculated_crc matches the reference. A
-    // positive SID echo with a nonzero status means the ECU itself reports a
-    // CRC mismatch, which UdsClient alone cannot see.
-    ScriptedCanFlashTransport transport;
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
-    MitsuColtM32rCanExecutor executor;
-    auto plan = writePlan(writeRom());
-
-    scriptWriteThroughEraseRoutineCrcCheck(transport);
-    transport.queueRead(response({0x71, 0xe1, 0x01}));
-
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
-    EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_THAT(events.logs,
-                Contains(Pair(LogLevel::Error, std::format("CRC check for 0x{:x} reported a mismatch (status 0x01)",
-                                                           MitsuColtCan::kEraseRoutineRamAddr))));
-    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Erase page uploaded"))));
-}
+INSTANTIATE_TEST_SUITE_P(
+    MitsuColtM32rCanExecutor, MitsuColtM32rCanExecutorRoutineStatusTest,
+    ::testing::Values(RoutineStatusCase{"EraseTriggerReportsANonZeroStatus",
+                                        scriptWriteThroughEraseTrigger,
+                                        {0x71, 0xe0, 0x01},
+                                        "Erase trigger rejected: unexpected erase trigger response",
+                                        "Userspace flash erased"},
+                      RoutineStatusCase{"CrcCheckReportsANonZeroStatus",
+                                        scriptWriteThroughEraseRoutineCrcCheck,
+                                        {0x71, 0xe1, 0x01},
+                                        std::format("RoutineControl CRC check for 0x{:x} rejected: unexpected CRC "
+                                                    "check for 0x{:x} response",
+                                                    MitsuColtCan::kEraseRoutineRamAddr,
+                                                    MitsuColtCan::kEraseRoutineRamAddr),
+                                        "Erase page uploaded"}),
+    [](const ::testing::TestParamInfo<RoutineStatusCase>& info) { return info.param.name; });
 
 TEST(MitsuColtM32rCanExecutor, RefusesATestWritePlanRatherThanWritingForReal)
 {

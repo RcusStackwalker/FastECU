@@ -372,38 +372,20 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data, Ph
             ctx, received.error(), "TransferData for checksum rejected: ", "TransferData for the checksum"));
     }
 
-    // Lines 286-294: the CRC check gets the extra-long timeout.
-    received = ctx.uds.request(buildRoutineCheckCrc(start), kSlowExchangePolicy, ctx.cancellation);
+    // Lines 286-294: the CRC check gets the extra-long timeout. A matching
+    // SID echo alone would not mean the CRC matched: RoutineControl 225's
+    // reply carries a status byte after the routine-id echo (colt_commented.S
+    // ~0x5aa0-0x5ad4), 0 only when can_flasher_current_block_calculated_crc
+    // equals the reference CRC. fatal_query's expected_prefix pins both
+    // bytes at once, so a reported mismatch is rejected the same generic way
+    // as a malformed reply -- see the vendor challenge key rejection above
+    // for the identical pattern and its "not the legacy text" rationale.
+    received = fatal_query(ctx, buildRoutineCheckCrc(start), bytes::Bytes{kRoutineCheckCrc, 0x00}, kSlowExchangePolicy,
+                           std::format("RoutineControl CRC check for 0x{:x} rejected: ", start),
+                           std::format("CRC check for 0x{:x}", start));
     if (!received.has_value())
     {
-        return std::unexpected(report_exchange_failure(
-            ctx, received.error(), std::format("RoutineControl CRC check for 0x{:x} rejected: ", start),
-            std::format("the RoutineControl CRC check for 0x{:x}", start)));
-    }
-
-    // A matching SID echo only means the ECU answered -- it does not mean the
-    // CRC matched. RoutineControl 225's reply carries a status byte after the
-    // routine-id echo (colt_commented.S ~0x5aa0-0x5ad4): cobd_data[2] is 0
-    // only when can_flasher_current_block_calculated_crc equals the
-    // reference CRC, and nonzero otherwise. UdsClient never looks past the
-    // SID, so without this check a reported mismatch would be logged and
-    // treated as a successful commit.
-    const bytes::ByteView crc_reply = uds::payload(*received);
-    if (crc_reply.size() < 2)
-    {
-        error(ctx, std::format("CRC check for 0x{:x} reply carried no status byte", start));
-        return fail(ErrorKind::BadResponse, std::format("CRC check for 0x{:x} reply too short", start));
-    }
-    if (crc_reply[0] != kRoutineCheckCrc)
-    {
-        error(ctx, std::format("CRC check for 0x{:x} reply echoed routine 0x{:02x} instead of 0x{:02x}", start,
-                               crc_reply[0], kRoutineCheckCrc));
-        return fail(ErrorKind::BadResponse, std::format("CRC check for 0x{:x} echoed the wrong routine", start));
-    }
-    if (crc_reply[1] != 0)
-    {
-        error(ctx, std::format("CRC check for 0x{:x} reported a mismatch (status 0x{:02x})", start, crc_reply[1]));
-        return fail(ErrorKind::BadResponse, std::format("CRC check for 0x{:x} reported a non-zero status", start));
+        return std::unexpected(received.error());
     }
 
     if (progress != nullptr)
@@ -433,36 +415,19 @@ Status unlock_and_erase(Ctx& ctx, std::string_view stage)
                                                        std::format("the reflash unlock request{}", stage)));
     }
 
-    received = ctx.uds.request(buildRoutineErase(), kSlowExchangePolicy, ctx.cancellation);
+    // A matching SID echo alone would not mean the erase happened:
+    // RoutineControl 224's reply carries a status byte after the routine-id
+    // echo (colt_commented.S ~0x59c8-0x5a38), and the bootloader reports
+    // flasher_try_erase_range_call() failing via a positive reply with a
+    // nonzero status instead of an NRC. fatal_query's expected_prefix pins
+    // both bytes at once, so that failure is rejected the same generic way
+    // as a malformed reply -- see the vendor challenge key rejection in
+    // connect_bootloader for the identical pattern.
+    received = fatal_query(ctx, buildRoutineErase(), bytes::Bytes{kRoutineErase, 0x00}, kSlowExchangePolicy,
+                           std::format("Erase trigger{} rejected: ", stage), std::format("erase trigger{}", stage));
     if (!received.has_value())
     {
-        return std::unexpected(report_exchange_failure(ctx, received.error(),
-                                                       std::format("Erase trigger{} rejected: ", stage),
-                                                       std::format("the erase trigger{}", stage)));
-    }
-
-    // A matching SID echo only means the ECU answered -- it does not mean the
-    // erase happened. RoutineControl 224's reply carries a status byte after
-    // the routine-id echo (colt_commented.S ~0x59c8-0x5a38): the bootloader
-    // reports flasher_try_erase_range_call() failing via a positive reply
-    // with a nonzero status instead of an NRC, so a naive SID-only check (as
-    // UdsClient itself does) would log and treat that as a successful erase.
-    const bytes::ByteView erase_reply = uds::payload(*received);
-    if (erase_reply.size() < 2)
-    {
-        error(ctx, std::format("Erase trigger{} reply carried no status byte", stage));
-        return fail(ErrorKind::BadResponse, std::format("erase trigger{} reply too short", stage));
-    }
-    if (erase_reply[0] != kRoutineErase)
-    {
-        error(ctx, std::format("Erase trigger{} reply echoed routine 0x{:02x} instead of 0x{:02x}", stage,
-                               erase_reply[0], kRoutineErase));
-        return fail(ErrorKind::BadResponse, std::format("erase trigger{} echoed the wrong routine", stage));
-    }
-    if (erase_reply[1] != 0)
-    {
-        error(ctx, std::format("Erase trigger{} reported failure (status 0x{:02x})", stage, erase_reply[1]));
-        return fail(ErrorKind::BadResponse, std::format("erase trigger{} reported a non-zero status", stage));
+        return std::unexpected(received.error());
     }
 
     if (ctx.cancellation.cancelled())
