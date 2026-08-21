@@ -10,18 +10,23 @@ cc_library(
     name = "bench_core",
     srcs = [
         "bench_args.cpp",
+        "bench_commands.cpp",
         "bench_format.cpp",
         "bench_types.cpp",
     ],
     hdrs = [
         "bench_args.h",
+        "bench_commands.h",
         "bench_format.h",
+        "bench_session_interface.h",
         "bench_types.h",
     ],
     deps = [
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
+        "//src/algorithms/protocol/uds",
         "//src/backend/ports",
+        "//src/backend/protocol/uds:uds_client",
     ],
 )
 
@@ -35,4 +40,14 @@ fastecu_portable_gtest(
     name = "bench_args_test",
     srcs = ["bench_args_test.cpp"],
     deps = [":bench_core"],
+)
+
+fastecu_portable_gtest(
+    name = "bench_commands_test",
+    srcs = ["bench_commands_test.cpp"],
+    deps = [
+        ":bench_core",
+        "//apps/bench/testing:fake_bench_files",
+        "//apps/bench/testing:fake_bench_session",
+    ],
 )
