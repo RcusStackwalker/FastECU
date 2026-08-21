@@ -4,7 +4,7 @@
 
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_plan.h"
 #include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_plan.h"
-#include "src/backend/flash/flash_cancellation.h"
+#include "src/backend/ports/manual_cancellation_token.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 #include "src/backend/ports/testing/fake_clock.h"
@@ -54,10 +54,10 @@ TEST(SubaruMitsuM32rKlineExecutor, RejectsFamilyMismatchBeforeIo)
     SubaruMitsuM32rKlineExecutor executor;
     ScriptedKlineFlashTransport transport;
     FakeClock clock;
-    CancellationSource cancellation;
+    ManualCancellationToken cancellation;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation.token(), events);
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
@@ -73,11 +73,11 @@ TEST(SubaruMitsuM32rKlineExecutor, CancellationBeforeSetupPerformsNoIo)
     SubaruMitsuM32rKlineExecutor executor;
     ScriptedKlineFlashTransport transport;
     FakeClock clock;
-    CancellationSource cancellation;
-    cancellation.trip();
+    ManualCancellationToken cancellation;
+    cancellation.cancel();
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation.token(), events);
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
@@ -107,10 +107,10 @@ TEST(SubaruMitsuM32rKlineExecutor, MapsMissingMalformedAndTransportFailureRespon
         }
         SubaruMitsuM32rKlineExecutor executor;
         FakeClock clock;
-        CancellationSource cancellation;
+        ManualCancellationToken cancellation;
         RecordingEventSink events;
 
-        auto result = executor.execute(*plan, transport, clock, cancellation.token(), events);
+        auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().kind, expected);
@@ -135,10 +135,10 @@ TEST(SubaruMitsuM32rKlineExecutor, ReadsAllUserspaceChunksAndSynthesizesBootPref
         transport.queueRead(response);
     }
     FakeClock clock;
-    CancellationSource cancellation;
+    ManualCancellationToken cancellation;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation.token(), events);
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     ASSERT_TRUE(result->read_bytes.has_value());
@@ -190,10 +190,10 @@ TEST(SubaruMitsuM32rKlineExecutor, WritesEveryEncryptedChunkAndToleratesTransfer
     transport.queueRead(bytes::Bytes{0, 0, 0, 0, 0x71, 0x01, 0x02});
     SubaruMitsuM32rKlineExecutor executor;
     FakeClock clock;
-    CancellationSource cancellation;
+    ManualCancellationToken cancellation;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation.token(), events);
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());

@@ -4,7 +4,7 @@
 
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_kline_plan.h"
-#include "src/backend/flash/flash_cancellation.h"
+#include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
@@ -17,7 +17,7 @@ using namespace fastecu::flash;
 class TripOnReadTransport final : public ScriptedKlineFlashTransport
 {
   public:
-    explicit TripOnReadTransport(CancellationSource& source) : source_(source)
+    explicit TripOnReadTransport(ManualCancellationToken& source) : source_(source)
     {
     }
     Result<OptionalBytes> read(int timeout, const ICancellationToken& cancellation) override
@@ -25,13 +25,13 @@ class TripOnReadTransport final : public ScriptedKlineFlashTransport
         auto result = ScriptedKlineFlashTransport::read(timeout, cancellation);
         if (++reads_ == 3)
         {
-            source_.trip();
+            source_.cancel();
         }
         return result;
     }
 
   private:
-    CancellationSource& source_;
+    ManualCancellationToken& source_;
     int reads_ = 0;
 };
 
@@ -132,10 +132,10 @@ TEST(SubaruHitachiM32rKlineExecutor, ReadsAt38400ProbeAndReturnsLogicalFullRom)
     scriptReadChunks(transport);
     SubaruHitachiM32rKlineExecutor executor;
     FakeClock clock;
-    CancellationSource cancellation;
+    ManualCancellationToken cancellation;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation.token(), events);
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     ASSERT_TRUE(result->read_bytes.has_value());
@@ -158,10 +158,10 @@ TEST(SubaruHitachiM32rKlineExecutor, RecoveryWakeIsBoundedToOneThousandAttempts)
     }
     SubaruHitachiM32rKlineExecutor executor;
     FakeClock clock;
-    CancellationSource cancellation;
+    ManualCancellationToken cancellation;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation.token(), events);
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
@@ -185,9 +185,9 @@ TEST(SubaruHitachiM32rKlineExecutor, ReadFallsBackThrough4800Initialization)
     scriptReadChunks(transport);
     SubaruHitachiM32rKlineExecutor executor;
     FakeClock clock;
-    CancellationSource cancellation;
+    ManualCancellationToken cancellation;
     RecordingEventSink events;
-    auto result = executor.execute(*plan, transport, clock, cancellation.token(), events);
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_EQ(transport.baud_calls_, (std::vector<int>{38400, 4800, 38400}));
     EXPECT_TRUE(transport.scriptConsumed());
@@ -209,9 +209,9 @@ TEST(SubaruHitachiM32rKlineExecutor, NormalWriteUsesActiveObkAndToleratesLegacyA
     scriptWriteBody(transport, image);
     SubaruHitachiM32rKlineExecutor executor;
     FakeClock clock;
-    CancellationSource cancellation;
+    ManualCancellationToken cancellation;
     RecordingEventSink events;
-    auto result = executor.execute(*plan, transport, clock, cancellation.token(), events);
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.baud_calls_, (std::vector<int>{15625, 15625}));
@@ -227,9 +227,9 @@ TEST(SubaruHitachiM32rKlineExecutor, NormalFallbackRequiresSecuritySubfunctionTw
     scriptNormalAuthenticatedFallback(transport);
     SubaruHitachiM32rKlineExecutor executor;
     FakeClock clock;
-    CancellationSource cancellation;
+    ManualCancellationToken cancellation;
     RecordingEventSink events;
-    auto result = executor.execute(*plan, transport, clock, cancellation.token(), events);
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
@@ -262,9 +262,9 @@ TEST(SubaruHitachiM32rKlineExecutor, EraseAcknowledgementAccumulatesBoundedFragm
     transport.queueRead(bytes::Bytes{1});
     SubaruHitachiM32rKlineExecutor executor;
     FakeClock clock;
-    CancellationSource cancellation;
+    ManualCancellationToken cancellation;
     RecordingEventSink events;
-    auto result = executor.execute(*plan, transport, clock, cancellation.token(), events);
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
 }
@@ -284,9 +284,9 @@ TEST(SubaruHitachiM32rKlineExecutor, RecoveryWriteWakesAndUsesAuthenticatedSessi
     scriptWriteBody(transport, image);
     SubaruHitachiM32rKlineExecutor executor;
     FakeClock clock;
-    CancellationSource cancellation;
+    ManualCancellationToken cancellation;
     RecordingEventSink events;
-    auto result = executor.execute(*plan, transport, clock, cancellation.token(), events);
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.baud_calls_, (std::vector<int>{4800, 15625}));
@@ -300,10 +300,10 @@ TEST(SubaruHitachiM32rKlineExecutor, CancellationBeforeSetupPerformsNoIo)
     ScriptedKlineFlashTransport transport;
     SubaruHitachiM32rKlineExecutor executor;
     FakeClock clock;
-    CancellationSource cancellation;
-    cancellation.trip();
+    ManualCancellationToken cancellation;
+    cancellation.cancel();
     RecordingEventSink events;
-    auto result = executor.execute(*plan, transport, clock, cancellation.token(), events);
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
     EXPECT_FALSE(transport.last_config_.has_value());
@@ -315,7 +315,7 @@ TEST(SubaruHitachiM32rKlineExecutor, CancellationAfterEraseIsNotReportedAsSucces
     auto plan = build_subaru_hitachi_m32r_kline_plan(FlashOperation::Write, "sub_ecu_hitachi_m32r_kline",
                                                      "M32R_512KB_1block", image);
     ASSERT_TRUE(plan.has_value());
-    CancellationSource cancellation;
+    ManualCancellationToken cancellation;
     TripOnReadTransport transport(cancellation);
     transport.expectWrite(frame({0x34, 0, 0, 0, 0x04, 0x08, 0, 0}));
     transport.queueRead(bytes::Bytes{0, 0, 0, 0, 0x74, 0x84});
@@ -326,7 +326,7 @@ TEST(SubaruHitachiM32rKlineExecutor, CancellationAfterEraseIsNotReportedAsSucces
     SubaruHitachiM32rKlineExecutor executor;
     FakeClock clock;
     RecordingEventSink events;
-    auto result = executor.execute(*plan, transport, clock, cancellation.token(), events);
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
     EXPECT_EQ(transport.close_call_count_, 1);
