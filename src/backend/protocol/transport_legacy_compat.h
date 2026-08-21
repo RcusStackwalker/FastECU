@@ -1,5 +1,6 @@
 #pragma once
 
+#include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/protocol/ican_transport.h"
 #include "src/backend/protocol/ikline_transport.h"
 #include "src/backend/protocol/issm_transport.h"
@@ -14,18 +15,9 @@ namespace fastecu::transport_legacy_compat
 {
 namespace detail
 {
-class NeverCancelled final : public ICancellationToken
-{
-  public:
-    bool cancelled() const override
-    {
-        return false;
-    }
-};
-
 inline const ICancellationToken& never_cancelled()
 {
-    static const NeverCancelled token;
+    static const ManualCancellationToken token; // never cancelled -- flag is never flipped
     return token;
 }
 } // namespace detail
