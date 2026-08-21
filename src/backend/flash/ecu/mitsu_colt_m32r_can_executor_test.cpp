@@ -1165,7 +1165,7 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheCarrierEraseTriggerReportsANonZe
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs,
-                Contains(Pair(LogLevel::Error, "Erase trigger (top 128KB bootstrap) reported failure (status 0x01)")));
+                Contains(Pair(LogLevel::Error, "erase trigger (top 128KB bootstrap) reported failure (status 0x01)")));
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Carrier window erased"))));
     // The main write never starts.
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Erase page uploaded"))));
@@ -1222,17 +1222,17 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(RoutineStatusCase{"EraseTriggerReplyIsTooShort",
                                         scriptWriteThroughEraseTrigger,
                                         {0x71, 0xe0},
-                                        "Erase trigger reply carried no status byte",
+                                        "erase trigger reply carried no status byte",
                                         "Userspace flash erased"},
                       RoutineStatusCase{"EraseTriggerReplyHasTheWrongRoutineEcho",
                                         scriptWriteThroughEraseTrigger,
                                         {0x71, 0xe1, 0x00},
-                                        "Erase trigger reply echoed routine 0xe1 instead of 0xe0",
+                                        "erase trigger reply echoed routine 0xe1 instead of 0xe0",
                                         "Userspace flash erased"},
                       RoutineStatusCase{"EraseTriggerReportsANonZeroStatus",
                                         scriptWriteThroughEraseTrigger,
                                         {0x71, 0xe0, 0x01},
-                                        "Erase trigger reported failure (status 0x01)",
+                                        "erase trigger reported failure (status 0x01)",
                                         "Userspace flash erased"},
                       RoutineStatusCase{"CrcCheckReplyIsTooShort",
                                         scriptWriteThroughEraseRoutineCrcCheck,
