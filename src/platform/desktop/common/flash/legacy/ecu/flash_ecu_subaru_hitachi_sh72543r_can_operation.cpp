@@ -17,7 +17,7 @@ FlashEcuSubaruHitachiSH72543rCanOperation::FlashEcuSubaruHitachiSH72543rCanOpera
 
 bool FlashEcuSubaruHitachiSH72543rCanOperation::execute()
 {
-    int result = STATUS_ERROR;
+    int result_arg = STATUS_ERROR;
     emit progressChanged(0);
 
     mcu_type_string = ecuCalDef->McuType;
@@ -58,23 +58,23 @@ bool FlashEcuSubaruHitachiSH72543rCanOperation::execute()
     serial->open_serial_port();
 
     emit LOG_I("Connecting to Subaru ECU Hitachi CAN bootloader, please wait...", true, true);
-    result = connect_bootloader();
+    result_arg = connect_bootloader();
 
-    if (result == STATUS_SUCCESS)
+    if (result_arg == STATUS_SUCCESS)
     {
         if (cmd_type == "read")
         {
             emit LOG_I("Reading ROM from ECU Subaru using CAN", true, true);
-            result = read_mem(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
+            result_arg = read_mem(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
         }
         else if (cmd_type == "test_write" || cmd_type == "write")
         {
             emit LOG_I("Writing ROM to ECU Subaru using CAN", true, true);
-            result = write_mem(test_write);
+            result_arg = write_mem(test_write);
         }
     }
 
-    return result == STATUS_SUCCESS;
+    return result_arg == STATUS_SUCCESS;
 }
 
 /*
@@ -142,15 +142,15 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::connect_bootloader()
             response.remove(0, 8);
             response.remove(5, response.length() - 5);
 
-            QString ecuid;
+            QString ecuid_local;
             for (int i = 0; i < 5; i++)
             {
-                ecuid.append(QString("%1").arg((uint8_t)response.at(i), 2, 16, QLatin1Char('0')).toUpper());
+                ecuid_local.append(QString("%1").arg((uint8_t)response.at(i), 2, 16, QLatin1Char('0')).toUpper());
             }
-            emit LOG_I("ECU ID: " + ecuid, true, true);
+            emit LOG_I("ECU ID: " + ecuid_local, true, true);
             if (cmd_type == "read")
             {
-                ecuCalDef->RomId = ecuid + "_";
+                ecuCalDef->RomId = ecuid_local + "_";
             }
         }
         else
@@ -587,7 +587,7 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::read_mem(uint32_t start_addr, uin
  * @return success
  */
 
-int FlashEcuSubaruHitachiSH72543rCanOperation::write_mem(bool test_write)
+int FlashEcuSubaruHitachiSH72543rCanOperation::write_mem(bool test_write_arg)
 {
     QByteArray filedata;
     QString file_name_str;
@@ -650,7 +650,7 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::write_mem(bool test_write)
             if (block_modified[blockno])
             {
                 if (reflash_block(&data_array[flashdevices[mcu_type_index].fblocks->start],
-                                  &flashdevices[mcu_type_index], blockno, test_write))
+                                  &flashdevices[mcu_type_index], blockno, test_write_arg))
                 {
                     emit LOG_I("Block " + QString::number(blockno) + " reflash failed.", true, true);
                     return STATUS_ERROR;
@@ -677,7 +677,7 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::write_mem(bool test_write)
  * @return success
  */
 int FlashEcuSubaruHitachiSH72543rCanOperation::reflash_block(const uint8_t *newdata, const struct flashdev_t *fdt,
-                                                             unsigned blockno, bool test_write)
+                                                             unsigned blockno, bool test_write_arg)
 {
     uint32_t start_address;
     uint32_t pl_len;
@@ -744,10 +744,10 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::reflash_block(const uint8_t *newd
         // received = serial->read_serial_data(200, serial_read_short_timeout);
         //
 
-        QString start_address = QString("%1").arg(start, 8, 16, QLatin1Char('0'));
+        QString start_address_local = QString("%1").arg(start, 8, 16, QLatin1Char('0'));
         QString block_len = QString("%1").arg(blocksize, 8, 16, QLatin1Char('0')).toUpper();
         msg = QString("Kernel write addr: 0x%1 length: 0x%2, %3 B/s %4 s remain")
-                  .arg(start_address)
+                  .arg(start_address_local)
                   .arg(block_len)
                   .arg(curspeed, 6, 10, QLatin1Char(' '))
                   .arg(tleft, 6, 10, QLatin1Char(' '))

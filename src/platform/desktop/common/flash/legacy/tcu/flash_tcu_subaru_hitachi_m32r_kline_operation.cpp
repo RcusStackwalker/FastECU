@@ -16,7 +16,7 @@ FlashTcuSubaruHitachiM32rKlineOperation::FlashTcuSubaruHitachiM32rKlineOperation
 
 bool FlashTcuSubaruHitachiM32rKlineOperation::execute()
 {
-    int result = STATUS_ERROR;
+    int result_arg = STATUS_ERROR;
 
     mcu_type_string = ecuCalDef->McuType;
     mcu_type_index = FlashUtils::findFlashDeviceIndex(mcu_type_string);
@@ -60,18 +60,19 @@ bool FlashTcuSubaruHitachiM32rKlineOperation::execute()
     target_id = 0x18;
 
     emit LOG_I("Connecting to Subaru TCU Hitachi CAN bootloader, please wait...", true, true);
-    result = connect_bootloader();
+    result_arg = connect_bootloader();
 
-    if (result == STATUS_SUCCESS)
+    if (result_arg == STATUS_SUCCESS)
     {
         if (cmd_type == "read")
         {
             emit externalLoggerMessage("Reading ROM, please wait...");
             emit LOG_I("Reading ROM from TCU using K-Line", true, true);
-            result = read_a0_rom(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
-            // result = read_a0_ram_subaru_tcu_hitachi_kline(0x80000, 0x100000);
-            // result = read_b8_subaru_tcu_hitachi_kline(flashdevices[mcu_type_index].fblocks[0].start,
-            // flashdevices[mcu_type_index].romsize); result =
+            result_arg =
+                read_a0_rom(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
+            // result_arg = read_a0_ram_subaru_tcu_hitachi_kline(0x80000, 0x100000);
+            // result_arg = read_b8_subaru_tcu_hitachi_kline(flashdevices[mcu_type_index].fblocks[0].start,
+            // flashdevices[mcu_type_index].romsize); result_arg =
             // read_b0_subaru_tcu_hitachi_kline(flashdevices[mcu_type_index].fblocks[0].start,
             // flashdevices[mcu_type_index].romsize);
         }
@@ -79,11 +80,11 @@ bool FlashTcuSubaruHitachiM32rKlineOperation::execute()
         {
             emit externalLoggerMessage("Writing ROM, please wait...");
             emit LOG_I("Not yet implemented: Writing ROM to TCU Subaru Hitachi using CAN", true, true);
-            // result = write_mem_subaru_denso_can_02_32bit(test_write);
+            // result_arg = write_mem_subaru_denso_can_02_32bit(test_write);
         }
     }
 
-    return result == STATUS_SUCCESS;
+    return result_arg == STATUS_SUCCESS;
 }
 
 /*

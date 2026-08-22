@@ -19,7 +19,7 @@ FlashEcuSubaruDensoSH72543CanDieselOperation::FlashEcuSubaruDensoSH72543CanDiese
 
 bool FlashEcuSubaruDensoSH72543CanDieselOperation::execute()
 {
-    int result = STATUS_ERROR;
+    int result_arg = STATUS_ERROR;
     emit progressChanged(0);
 
     mcu_type_string = ecuCalDef->McuType;
@@ -62,26 +62,26 @@ bool FlashEcuSubaruDensoSH72543CanDieselOperation::execute()
     serial->open_serial_port();
 
     emit LOG_I("Connecting to ECU Denso SH72543 Diesel CAN bootloader, please wait...", true, true);
-    result = connect_bootloader();
+    result_arg = connect_bootloader();
 
-    if (result == STATUS_SUCCESS)
+    if (result_arg == STATUS_SUCCESS)
     {
         if (cmd_type == "read")
         {
             emit externalLoggerMessage("Reading ROM, please wait...");
             emit LOG_I("Reading ROM from ECU, Denso SH72543 Diesel using CAN", true, true);
-            result =
+            result_arg =
                 read_memory(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].fblocks[0].len);
         }
         else if (cmd_type == "test_write" || cmd_type == "write")
         {
             emit externalLoggerMessage("Writing ROM, please wait...");
             emit LOG_I("Writing ROM to ECU, Denso SH72543 Diesel using CAN", true, true);
-            result = write_memory(test_write);
+            result_arg = write_memory(test_write);
         }
     }
 
-    return result == STATUS_SUCCESS;
+    return result_arg == STATUS_SUCCESS;
 }
 
 /*
@@ -145,14 +145,14 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::connect_bootloader()
     {
         if ((uint8_t)received.at(4) == 0x62 && (uint8_t)received.at(5) == 0xF1 && (uint8_t)received.at(6) == 0x82)
         {
-            QByteArray response = received;
-            response.remove(0, 7);
+            QByteArray response_local = received;
+            response_local.remove(0, 7);
             // response.remove(5, response.length()-5);
 
             QString ecuid;
             for (int i = 0; i < 5; i++)
             {
-                ecuid.append(QString("%1").arg((uint8_t)response.at(i), 2, 16, QLatin1Char('0')).toUpper());
+                ecuid.append(QString("%1").arg((uint8_t)response_local.at(i), 2, 16, QLatin1Char('0')).toUpper());
             }
             emit LOG_I("ECU ID: " + ecuid, true, true);
             if (cmd_type == "read")
@@ -188,10 +188,10 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::connect_bootloader()
     {
         if ((uint8_t)received.at(4) == 0x49 && (uint8_t)received.at(5) == 0x02)
         {
-            QByteArray response = received;
-            response.remove(0, 7);
+            QByteArray response_local = received;
+            response_local.remove(0, 7);
 
-            emit LOG_I("VIN: " + response, true, true);
+            emit LOG_I("VIN: " + response_local, true, true);
         }
         else
         {
@@ -221,13 +221,13 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::connect_bootloader()
     {
         if ((uint8_t)received.at(4) == 0x49 && (uint8_t)received.at(5) == 0x04)
         {
-            QByteArray response = received;
-            response.remove(0, 7);
+            QByteArray response_local = received;
+            response_local.remove(0, 7);
 
-            emit LOG_I("CAL ID: " + response, true, true);
+            emit LOG_I("CAL ID: " + response_local, true, true);
             if (cmd_type == "read")
             {
-                ecuCalDef->RomId.insert(0, QString(response) + "_");
+                ecuCalDef->RomId.insert(0, QString(response_local) + "_");
             }
         }
         else
@@ -258,13 +258,13 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::connect_bootloader()
     {
         if ((uint8_t)received.at(4) == 0x49 && (uint8_t)received.at(5) == 0x06)
         {
-            QByteArray response = received;
-            response.remove(0, 7);
+            QByteArray response_local = received;
+            response_local.remove(0, 7);
             QString msg;
             msg.clear();
-            for (int i = 0; i < response.length(); i++)
+            for (int i = 0; i < response_local.length(); i++)
             {
-                msg.append(QString("%1").arg((uint8_t)response.at(i), 2, 16, QLatin1Char('0')).toUpper());
+                msg.append(QString("%1").arg((uint8_t)response_local.at(i), 2, 16, QLatin1Char('0')).toUpper());
             }
 
             emit LOG_I("CVN: " + msg, true, true);
@@ -1067,7 +1067,7 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::read_memory(uint32_t start_add
  * @return success
  */
 
-int FlashEcuSubaruDensoSH72543CanDieselOperation::write_memory(bool test_write)
+int FlashEcuSubaruDensoSH72543CanDieselOperation::write_memory(bool test_write_arg)
 {
     QByteArray filedata;
 
@@ -1127,7 +1127,7 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::write_memory(bool test_write)
             if (block_modified[blockno])
             {
                 if (reflash_block(&data_array[flashdevices[mcu_type_index].fblocks->start],
-                                  &flashdevices[mcu_type_index], blockno, test_write))
+                                  &flashdevices[mcu_type_index], blockno, test_write_arg))
                 {
                     emit LOG_I("Block " + QString::number(blockno) + " reflash failed.", true, true);
                     return STATUS_ERROR;
@@ -1154,7 +1154,7 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::write_memory(bool test_write)
  * @return success
  */
 int FlashEcuSubaruDensoSH72543CanDieselOperation::reflash_block(const uint8_t *newdata, const struct flashdev_t *fdt,
-                                                                unsigned blockno, bool test_write)
+                                                                unsigned blockno, bool test_write_arg)
 {
 
     int errval;

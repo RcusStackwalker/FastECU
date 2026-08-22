@@ -1045,14 +1045,14 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
                 return STATUS_NOERROR;
             }*/
 
-        SCONFIG *cfgitem;
+        SCONFIG *cfgitem_local;
         par_cnt = scl->NumOfParams;
         for (i = 0; i < par_cnt; ++i)
         {
-            cfgitem = &scl->ConfigPtr[i];
+            cfgitem_local = &scl->ConfigPtr[i];
             output.clear();
-            QString str = "ats" + QString::number(ChannelID) + " " + QString::number(cfgitem->Parameter) + " " +
-                          QString::number(cfgitem->Value) + "\r\n";
+            QString str = "ats" + QString::number(ChannelID) + " " + QString::number(cfgitem_local->Parameter) + " " +
+                          QString::number(cfgitem_local->Value) + "\r\n";
             output.append(str.toUtf8());
             write_serial_data(output);
             emit LOG_D("Sent: " + parseMessageToHex(output), true, true);
@@ -1064,7 +1064,7 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
     {
         PASSTHRU_MSG rxmsg;
         unsigned long numRxMsg;
-        QByteArray received;
+        QByteArray received_local;
         rxmsg.DataSize = 0;
         numRxMsg = 1;
 
@@ -1088,13 +1088,13 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
         {
             return result;
         }
-        received.clear();
-        for (unsigned long i = 0; i < rxmsg.DataSize; i++)
+        received_local.clear();
+        for (unsigned long i_local = 0; i_local < rxmsg.DataSize; i_local++)
         {
-            received.append(rxmsg.Data[i]);
+            received_local.append(rxmsg.Data[i_local]);
         }
-        emit LOG_D("Response: " + parseMessageToHex(received), true, true);
-        QString response = QString(received).split(" ").at(QString(received).split(" ").length() - 1);
+        emit LOG_D("Response: " + parseMessageToHex(received_local), true, true);
+        QString response = QString(received_local).split(" ").at(QString(received_local).split(" ").length() - 1);
         response = response.split("\r\n").at(0);
         // emit LOG_D("Pin 16 voltage: " + response + " mV", true, true);
         *vBatt = response.toULong();
@@ -1104,7 +1104,7 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
     {
         PASSTHRU_MSG rxmsg;
         unsigned long numRxMsg;
-        QByteArray received;
+        QByteArray received_local;
         rxmsg.DataSize = 0;
         numRxMsg = 1;
         SBYTE_ARRAY *msg = (SBYTE_ARRAY *)pInput;
@@ -1121,14 +1121,14 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
         {
             return result;
         }
-        received.clear();
-        for (unsigned long i = 0; i < rxmsg.DataSize; i++)
+        received_local.clear();
+        for (unsigned long i_local = 0; i_local < rxmsg.DataSize; i_local++)
         {
-            response->BytePtr[i] = rxmsg.Data[i];
-            received.append(rxmsg.Data[i]);
+            response->BytePtr[i_local] = rxmsg.Data[i_local];
+            received_local.append(rxmsg.Data[i_local]);
         }
         response->NumOfBytes = rxmsg.DataSize;
-        emit LOG_D("Response: " + parseMessageToHex(received), true, true);
+        emit LOG_D("Response: " + parseMessageToHex(received_local), true, true);
     }
 
     if (IoctlID == FAST_INIT)

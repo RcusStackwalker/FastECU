@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <functional>
 
-void MainWindow::change_log_values(int tab_index, const QString& protocol)
+void MainWindow::change_log_values(int tab_index, const QString& protocol_arg)
 {
     QDialog *change_log_values_dialog = new QDialog;
     QVBoxLayout *main_layout = new QVBoxLayout();
@@ -48,7 +48,7 @@ void MainWindow::change_log_values(int tab_index, const QString& protocol)
     logValues->log_values_names_sorted.clear();
     for (int i = 0; i < logValues->log_value_id.count(); i++)
     {
-        if (logValues->log_value_protocol.at(i) == protocol && logValues->log_value_enabled.at(i) == "1")
+        if (logValues->log_value_protocol.at(i) == protocol_arg && logValues->log_value_enabled.at(i) == "1")
         {
             logValues->log_values_names_sorted.append(logValues->log_value_name.at(i));
         }
@@ -75,7 +75,7 @@ void MainWindow::change_log_values(int tab_index, const QString& protocol)
 
         for (int j = 0; j < logValues->log_value_id.length(); j++)
         {
-            if (logValues->log_value_protocol.at(j) == protocol)
+            if (logValues->log_value_protocol.at(j) == protocol_arg)
             {
                 if (logValues->dashboard_log_value_id.at(i) == logValues->log_value_id.at(j))
                 {
@@ -117,7 +117,7 @@ void MainWindow::change_log_values(int tab_index, const QString& protocol)
 
         for (int j = 0; j < logValues->log_value_id.length(); j++)
         {
-            if (logValues->log_value_protocol.at(j) == protocol)
+            if (logValues->log_value_protocol.at(j) == protocol_arg)
             {
                 if (logValues->lower_panel_log_value_id.at(i) == logValues->log_value_id.at(j))
                 {
@@ -167,7 +167,7 @@ void MainWindow::change_log_values(int tab_index, const QString& protocol)
 
         for (int j = 0; j < logValues->log_switch_id.length(); j++)
         {
-            if (logValues->log_switch_protocol.at(j) == protocol)
+            if (logValues->log_switch_protocol.at(j) == protocol_arg)
             {
                 if (logValues->lower_panel_switch_id.at(i) == logValues->log_switch_id.at(j))
                 {

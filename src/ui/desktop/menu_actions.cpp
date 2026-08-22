@@ -1436,9 +1436,9 @@ void MainWindow::show_subaru_biu_window()
 
 void MainWindow::show_terminal_window()
 {
-    QStringList serial_port;
-    serial_port.append(serial_ports.at(serial_port_list->currentIndex()));
-    serial->set_serial_port_list(serial_port);
+    QStringList serial_port_arg;
+    serial_port_arg.append(serial_ports.at(serial_port_list->currentIndex()));
+    serial->set_serial_port_list(serial_port_arg);
     DataTerminal hexCommander(serial, this);
     QObject::connect(&hexCommander, &DataTerminal::LOG_E, syslogger, &SystemLogger::log_messages);
     QObject::connect(&hexCommander, &DataTerminal::LOG_W, syslogger, &SystemLogger::log_messages);

@@ -23,7 +23,7 @@ class EcuOperations : public QWidget
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
   public:
-    explicit EcuOperations(QWidget *ui, SerialPortActions *serial, QString mcu_type_string, int mcu_type_index);
+    explicit EcuOperations(QWidget *ui, SerialPortActions *serial_arg, QString mcu_type_string, int mcu_type_index_arg);
     ~EcuOperations();
 
     bool kill_process = false;

@@ -5,14 +5,14 @@
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 #include "src/algorithms/protocol/qt_bytes.h"
 
-BiuOperationsSubaru::BiuOperationsSubaru(SerialPortActions *serial, QWidget *parent)
+BiuOperationsSubaru::BiuOperationsSubaru(SerialPortActions *serial_arg, QWidget *parent)
     : QDialog(parent), ui{std::make_unique<Ui::BiuOperationsSubaruWindow>()}
 {
     ui->setupUi(this);
 
     ui->progressbar->hide();
 
-    this->serial = serial;
+    this->serial = serial_arg;
 
     biuOpsSubaruSwitchesIo = nullptr;
     biuOpsSubaruSwitchesLighting = nullptr;

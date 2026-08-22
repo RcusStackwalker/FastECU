@@ -323,10 +323,10 @@ int SerialPortActionsDirect::set_lec_lines(int lec1_state, int lec2_state)
     return STATUS_SUCCESS;
 }
 
-int SerialPortActionsDirect::pulse_lec_1_line(int timeout)
+int SerialPortActionsDirect::pulse_lec_1_line(int timeout_arg)
 {
     line_end_check_1_toggled(requestToSendEnabled);
-    accurate_delay(timeout);
+    accurate_delay(timeout_arg);
     line_end_check_1_toggled(requestToSendDisabled);
     // delay(timeout);
 
@@ -335,10 +335,10 @@ int SerialPortActionsDirect::pulse_lec_1_line(int timeout)
     return STATUS_SUCCESS;
 }
 
-int SerialPortActionsDirect::pulse_lec_2_line(int timeout)
+int SerialPortActionsDirect::pulse_lec_2_line(int timeout_arg)
 {
     line_end_check_2_toggled(dataTerminalEnabled);
-    accurate_delay(timeout);
+    accurate_delay(timeout_arg);
     line_end_check_2_toggled(dataTerminalDisabled);
     // delay(timeout);
 
@@ -752,7 +752,7 @@ QByteArray SerialPortActionsDirect::set_error()
     return received;
 }
 
-QByteArray SerialPortActionsDirect::read_serial_obd_data(uint16_t timeout)
+QByteArray SerialPortActionsDirect::read_serial_obd_data(uint16_t timeout_arg)
 {
     QByteArray received;
 
@@ -760,12 +760,12 @@ QByteArray SerialPortActionsDirect::read_serial_obd_data(uint16_t timeout)
     {
         if (use_openport2_adapter)
         {
-            received = read_j2534_data(timeout);
+            received = read_j2534_data(timeout_arg);
             return received;
         }
 
         // emit LOG_D("Check bytes available", true, true);
-        QTime dieTime = QTime::currentTime().addMSecs(timeout);
+        QTime dieTime = QTime::currentTime().addMSecs(timeout_arg);
         while (!serial->bytesAvailable() && QTime::currentTime() < dieTime)
         {
             serial->waitForReadyRead(1);
@@ -797,7 +797,7 @@ QByteArray SerialPortActionsDirect::read_serial_obd_data(uint16_t timeout)
     return received;
 }
 
-QByteArray SerialPortActionsDirect::read_serial_data(uint16_t timeout)
+QByteArray SerialPortActionsDirect::read_serial_data(uint16_t timeout_arg)
 {
     QByteArray received;
     QByteArray req_bytes;
@@ -807,13 +807,13 @@ QByteArray SerialPortActionsDirect::read_serial_data(uint16_t timeout)
     {
         if (use_openport2_adapter)
         {
-            received = read_j2534_data(timeout);
+            received = read_j2534_data(timeout_arg);
             return received;
         }
 
         // emit LOG_D("Check if bytes available", true, true);
         received.clear();
-        QTime dieTime = QTime::currentTime().addMSecs(timeout);
+        QTime dieTime = QTime::currentTime().addMSecs(timeout_arg);
         while (!serial->bytesAvailable() && QTime::currentTime() < dieTime)
         {
             serial->waitForReadyRead(1);
@@ -1129,7 +1129,7 @@ int SerialPortActionsDirect::write_j2534_data(QByteArray output)
     return STATUS_SUCCESS;
 }
 
-int SerialPortActionsDirect::send_periodic_j2534_data(QByteArray output, int timeout)
+int SerialPortActionsDirect::send_periodic_j2534_data(QByteArray output, int timeout_arg)
 {
     PASSTHRU_MSG txmsg;
     long txMsgLen;
@@ -1154,7 +1154,7 @@ int SerialPortActionsDirect::send_periodic_j2534_data(QByteArray output, int tim
         {
             txmsg.Data[i] = (uint8_t)output.at(i);
         }
-        j2534->PassThruStartPeriodicMsg(chanID, &txmsg, &msgID, timeout);
+        j2534->PassThruStartPeriodicMsg(chanID, &txmsg, &msgID, timeout_arg);
         output.remove(0, txMsgLen);
         txMsgLen = output.length();
         if (txMsgLen > PASSTHRU_MSG_DATA_SIZE)
@@ -1191,7 +1191,7 @@ bool SerialPortActionsDirect::get_is_tx_done()
 #endif
 }
 
-QByteArray SerialPortActionsDirect::read_j2534_data(unsigned long timeout)
+QByteArray SerialPortActionsDirect::read_j2534_data(unsigned long timeout_arg)
 {
     PASSTHRU_MSG rxmsg;
     unsigned long numRxMsg;
@@ -1204,7 +1204,7 @@ QByteArray SerialPortActionsDirect::read_j2534_data(unsigned long timeout)
     rxmsg.DataSize = 0;
     numRxMsg = 1;
 
-    if (j2534->PassThruReadMsgs(chanID, &rxmsg, &numRxMsg, timeout))
+    if (j2534->PassThruReadMsgs(chanID, &rxmsg, &numRxMsg, timeout_arg))
     {
         goto exit;
     }
@@ -1226,11 +1226,11 @@ QByteArray SerialPortActionsDirect::read_j2534_data(unsigned long timeout)
             {
                 rxmsg.DataSize = 0;
                 rxmsg.Data[0] = 0x00;
-                j2534->PassThruReadMsgs(chanID, &rxmsg, &numRxMsg, timeout);
+                j2534->PassThruReadMsgs(chanID, &rxmsg, &numRxMsg, timeout_arg);
             }
             if (rxmsg.RxStatus & START_OF_MESSAGE)
             {
-                j2534->PassThruReadMsgs(chanID, &rxmsg, &numRxMsg, timeout);
+                j2534->PassThruReadMsgs(chanID, &rxmsg, &numRxMsg, timeout_arg);
             }
             if (rxmsg.RxStatus & RX_MSG_END_IND)
             {
@@ -1309,7 +1309,7 @@ void SerialPortActionsDirect::dump_msg(PASSTHRU_MSG *msg)
     // emit LOG_D("Timestamp: " + msg->Timestamp << "msg length: " + msg->DataSize << "msg: " + datamsg;
 }
 
-bool SerialPortActionsDirect::get_serial_num(char *serial)
+bool SerialPortActionsDirect::get_serial_num(char *serial_arg)
 {
     struct
     {
@@ -1337,8 +1337,8 @@ bool SerialPortActionsDirect::get_serial_num(char *serial)
                                                     return false;
                                                 }
                                             */
-    memcpy(serial, outbuf.data.data(), outbuf.length);
-    serial[outbuf.length] = 0;
+    memcpy(serial_arg, outbuf.data.data(), outbuf.length);
+    serial_arg[outbuf.length] = 0;
     return true;
 }
 
@@ -1840,9 +1840,9 @@ void SerialPortActionsDirect::handle_error(QSerialPort::SerialPortError error)
     }
 }
 
-void SerialPortActionsDirect::accurate_delay(double timeout)
+void SerialPortActionsDirect::accurate_delay(double timeout_arg)
 {
-    double seconds = timeout / 1000.0;
+    double seconds = timeout_arg / 1000.0;
     auto spinStart = std::chrono::high_resolution_clock::now();
     while ((std::chrono::high_resolution_clock::now() - spinStart).count() / 1e9 < seconds)
     {
@@ -1850,14 +1850,14 @@ void SerialPortActionsDirect::accurate_delay(double timeout)
     }
 }
 
-void SerialPortActionsDirect::fast_delay(int timeout)
+void SerialPortActionsDirect::fast_delay(int timeout_arg)
 {
-    QThread::msleep(timeout);
+    QThread::msleep(timeout_arg);
 }
 
-void SerialPortActionsDirect::delay(int timeout)
+void SerialPortActionsDirect::delay(int timeout_arg)
 {
-    QThread::msleep(timeout);
+    QThread::msleep(timeout_arg);
 }
 
 QString SerialPortActionsDirect::parse_message_to_hex(const QByteArray& received)

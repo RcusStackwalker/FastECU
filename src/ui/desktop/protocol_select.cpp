@@ -141,8 +141,8 @@ void ProtocolSelect::protocol_treewidget_item_selected()
     QTreeWidgetItem *item = ui->treeWidget->selectedItems().at(0);
     if (item)
     {
-        QTreeWidgetItem *item = ui->treeWidget->selectedItems().at(0);
-        QString selected_text = item->text(0);
+        QTreeWidgetItem *item_local = ui->treeWidget->selectedItems().at(0);
+        QString selected_text = item_local->text(0);
 
         // ui->select_button->setEnabled(true);
     }

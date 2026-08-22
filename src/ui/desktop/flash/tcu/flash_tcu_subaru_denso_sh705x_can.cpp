@@ -6,22 +6,22 @@
 
 FlashTcuSubaruDensoSH705xCan::FlashTcuSubaruDensoSH705xCan(SerialPortActions *serial,
                                                            FileActions::EcuCalDefStructure *ecuCalDef,
-                                                           const QString& cmd_type, QWidget *parent)
-    : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type), ui{std::make_unique<Ui::EcuOperationsWindow>()}
+                                                           const QString& cmd_type_arg, QWidget *parent)
+    : QDialog(parent), ecuCalDef(ecuCalDef), cmd_type(cmd_type_arg), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
     // TCU 0xFFFF3000 0x2000
 
     ui->setupUi(this);
 
-    if (cmd_type == "test_write")
+    if (cmd_type_arg == "test_write")
     {
         this->setWindowTitle("Test write ROM " + ecuCalDef->FileName + " to TCU");
     }
-    else if (cmd_type == "write")
+    else if (cmd_type_arg == "write")
     {
         this->setWindowTitle("Write ROM " + ecuCalDef->FileName + " to TCU");
     }
-    else if (cmd_type == "read")
+    else if (cmd_type_arg == "read")
     {
         this->setWindowTitle("Read ROM from TCU");
     }

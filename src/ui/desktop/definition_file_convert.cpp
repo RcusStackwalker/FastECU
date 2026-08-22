@@ -589,15 +589,15 @@ int DefinitionFileConvert::convert_mappack_csv_file()
             if (titles.at(i) == "AxisX.DataHeader" && line_data.at(i).toInt() > 0)
             {
                 stream.writeStartElement("table");
-                for (int i = 0; i < titles.count(); i++)
+                for (int i_local = 0; i_local < titles.count(); i_local++)
                 {
-                    if (titles.at(i) == "AxisX.Name")
+                    if (titles.at(i_local) == "AxisX.Name")
                     {
                         stream.writeAttribute("type", "X Axis");
                     }
-                    if (titles.at(i) == "AxisX.DataAddr")
+                    if (titles.at(i_local) == "AxisX.DataAddr")
                     {
-                        QString storageaddress = line_data.at(i);
+                        QString storageaddress = line_data.at(i_local);
                         stream.writeAttribute("storageaddress", "0x" + storageaddress.remove("$"));
                     }
                 }
@@ -610,15 +610,15 @@ int DefinitionFileConvert::convert_mappack_csv_file()
             if (titles.at(i) == "AxisY.DataHeader" && line_data.at(i).toInt() > 0)
             {
                 stream.writeStartElement("table");
-                for (int i = 0; i < titles.count(); i++)
+                for (int i_local = 0; i_local < titles.count(); i_local++)
                 {
-                    if (titles.at(i) == "AxisY.Name")
+                    if (titles.at(i_local) == "AxisY.Name")
                     {
                         stream.writeAttribute("type", "Y Axis");
                     }
-                    if (titles.at(i) == "AxisY.DataAddr")
+                    if (titles.at(i_local) == "AxisY.DataAddr")
                     {
-                        QString storageaddress = line_data.at(i);
+                        QString storageaddress = line_data.at(i_local);
                         stream.writeAttribute("storageaddress", "0x" + storageaddress.remove("$"));
                     }
                 }

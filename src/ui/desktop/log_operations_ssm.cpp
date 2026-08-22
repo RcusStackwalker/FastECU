@@ -318,7 +318,7 @@ void MainWindow::ssm_can_init()
     }
 }
 
-void MainWindow::parse_log_value_list(QByteArray received, const QString& protocol)
+void MainWindow::parse_log_value_list(QByteArray received, const QString& protocol_arg)
 {
     uint16_t enabled_log_value_count = 0;
     uint16_t enabled_log_switch_count = 0;
@@ -332,7 +332,7 @@ void MainWindow::parse_log_value_list(QByteArray received, const QString& protoc
     // emit LOG_D("Parsing log values list", true, true), true, true);
     for (int i = 0; i < log_value_count; i++)
     {
-        if (logValues->log_value_protocol.at(i) == protocol)
+        if (logValues->log_value_protocol.at(i) == protocol_arg)
         {
             uint16_t ecu_byte_index = logValues->log_value_ecu_byte_index.at(i).toUInt();
             if (ecu_byte_index < received.length() && logValues->log_value_ecu_byte_index.at(i) != "No byte index")
@@ -369,7 +369,7 @@ void MainWindow::parse_log_value_list(QByteArray received, const QString& protoc
     // emit LOG_D("Parsing log switches list", true, true);
     for (int i = 0; i < log_switch_count; i++)
     {
-        if (logValues->log_switch_protocol.at(i) == protocol)
+        if (logValues->log_switch_protocol.at(i) == protocol_arg)
         {
             // 'switch_byte_index' is byte index in SSM init response
             uint16_t switch_byte_index = logValues->log_switch_ecu_byte_index.at(i).toUInt();
@@ -396,7 +396,7 @@ void MainWindow::parse_log_value_list(QByteArray received, const QString& protoc
     fileActions->read_logger_conf(logValues, ecuid, false);
     // emit LOG_D("Log switches list ready", true, true);
 
-    update_logboxes(protocol);
+    update_logboxes(protocol_arg);
 }
 
 QByteArray MainWindow::add_ssm_header(QByteArray output, bool dec_0x100)

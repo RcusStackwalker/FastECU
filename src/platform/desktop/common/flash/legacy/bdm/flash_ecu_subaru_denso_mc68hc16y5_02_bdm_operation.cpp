@@ -17,7 +17,7 @@ FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::FlashEcuSubaruDensoMC68HC16Y5_02_
 
 bool FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::execute()
 {
-    int result = STATUS_ERROR;
+    int result_arg = STATUS_ERROR;
 
     bool ok = false;
 
@@ -61,19 +61,19 @@ bool FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::execute()
     {
         emit externalLoggerMessage("Reading ROM, please wait...");
         emit LOG_I("Reading ROM from Subaru Denso MC68HC16 with BDM", true, true);
-        result = read_mem(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
-        // result = read_mem(0x0, 0x1000);
+        result_arg = read_mem(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
+        // result_arg = read_mem(0x0, 0x1000);
     }
     if (cmd_type == "write")
     {
         emit externalLoggerMessage("Writing ROM, please wait...");
         emit LOG_I("Writing ROM to Subaru Denso MC68HC16 with BDM", true, true);
-        result = write_mem();
-        // if (result == STATUS_SUCCESS)
+        result_arg = write_mem();
+        // if (result_arg == STATUS_SUCCESS)
         //     int read_result = read_mem(0x0, 0x100);
     }
 
-    return result == STATUS_SUCCESS;
+    return result_arg == STATUS_SUCCESS;
 }
 
 /*******************************************************
