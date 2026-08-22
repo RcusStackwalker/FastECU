@@ -73,9 +73,6 @@ qt_cc_library(
         ],
         "//conditions:default": [],
     }),
-    # Empty: every *.h here is either in hdrs above or is
-    # hexcommander.h, the dead header (see the srcs comment above).
-    normal_hdrs = [],
     deps = QT_DEPS + [
         "//resources/desktop:font_resource",
         "//resources/desktop:icons_resource",
