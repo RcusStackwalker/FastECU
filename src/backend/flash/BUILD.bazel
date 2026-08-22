@@ -20,6 +20,7 @@ cc_library(
     deps = [
         "//src/algorithms/protocol",
         "//src/backend/flash/ecu:mitsu_colt_m32r_can_types",
+        "//src/backend/flash/ecu:subaru_denso_1n83m_1_5m_can_types",
         "//src/backend/flash/ecu:subaru_denso_mc68hc16y5_02_types",
         "//src/backend/flash/ecu:subaru_denso_sh7055_02_types",
         "//src/backend/flash/ecu:subaru_hitachi_m32r_can_types",

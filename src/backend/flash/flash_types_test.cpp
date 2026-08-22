@@ -103,5 +103,21 @@ TEST(FlashTypes, Wave2FamilyPlansConstructAndHoldValues)
     EXPECT_TRUE(family_requires_kernel_v<SubaruDensoSh7055_02Plan>);
 }
 
+TEST(FlashTypes, Wave4DensoIso15765FamilyPlansAreKernelFree)
+{
+    SubaruDenso1n83m_1_5mCanPlan denso{
+        .request_id = 0x7e0,
+        .response_id = 0x7e8,
+        .bitrate = 500000,
+        .extended_id = false,
+        .lead_pad_len = 0x10000,
+        .tail_pad_len = 0x100,
+    };
+    FamilyPlan denso_variant = denso;
+    EXPECT_EQ(std::get<SubaruDenso1n83m_1_5mCanPlan>(denso_variant).lead_pad_len, 0x10000u);
+
+    EXPECT_FALSE(family_requires_kernel_v<SubaruDenso1n83m_1_5mCanPlan>);
+}
+
 } // namespace
 } // namespace fastecu::flash
