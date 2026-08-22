@@ -20,14 +20,33 @@ exports_files(
 
 cc_library(
     name = "checksum",
-    srcs = glob(
-        ["*.cpp"],
-        exclude = ["*_test.cpp"],
-    ),
-    hdrs = glob(
-        ["*.h"],
-        exclude = ["*_test.h"],
-    ),
+    srcs = [
+        "checksum_ecu_subaru_denso_sh705x_diesel.cpp",
+        "checksum_ecu_subaru_denso_sh7xxx.cpp",
+        "checksum_ecu_subaru_hitachi_m32r_can.cpp",
+        "checksum_ecu_subaru_hitachi_m32r_kline.cpp",
+        "checksum_ecu_subaru_hitachi_sh7058.cpp",
+        "checksum_ecu_subaru_hitachi_sh72543r.cpp",
+        "checksum_primitives.cpp",
+        "checksum_tcu_mitsu_mh8104_can.cpp",
+        "checksum_tcu_subaru_denso_sh7055.cpp",
+        "checksum_tcu_subaru_hitachi_m32r_can.cpp",
+        "denso_checksum_table.cpp",
+    ],
+    hdrs = [
+        "checksum_ecu_subaru_denso_sh705x_diesel.h",
+        "checksum_ecu_subaru_denso_sh7xxx.h",
+        "checksum_ecu_subaru_hitachi_m32r_can.h",
+        "checksum_ecu_subaru_hitachi_m32r_kline.h",
+        "checksum_ecu_subaru_hitachi_sh7058.h",
+        "checksum_ecu_subaru_hitachi_sh72543r.h",
+        "checksum_primitives.h",
+        "checksum_result.h",
+        "checksum_tcu_mitsu_mh8104_can.h",
+        "checksum_tcu_subaru_denso_sh7055.h",
+        "checksum_tcu_subaru_hitachi_m32r_can.h",
+        "denso_checksum_table.h",
+    ],
     deps = ["//src/algorithms/protocol"],
 )
 

@@ -7,6 +7,10 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
+# Deliberately still a glob: check-openpty-includes.py globs this package
+# for *_test.cpp at runtime looking for openpty() users to lint, so this
+# filegroup must keep tracking whatever test files actually exist here --
+# an explicit list could silently omit a newly added test from the check.
 filegroup(
     name = "test_cpp_sources",
     testonly = True,
@@ -33,13 +37,6 @@ qt_replica_library(
     deps = QT_DEPS,
 )
 
-MOC_HDRS = [
-    "remote_serial_backend.h",
-    "serial_port_actions.h",
-    "serial_port_actions_direct.h",
-    "websocketiodevice.h",
-]
-
 # TRANSITIONAL. Carries serial_port_actions.h to its backend and UI
 # callers, all of which are layering violations that step 5 (backend)
 # and step 6 (ui) remove. Task 8 replaces the public visibility below
@@ -47,25 +44,28 @@ MOC_HDRS = [
 # scripts/check-serial-compat-allowlist.py. Do not add new callers.
 qt_cc_library(
     name = "serial_qt_compat",
-    srcs = glob(
-        ["*.cpp"],
-        exclude = [
-            "*_main.cpp",
-            "*_test.cpp",
-        ],
-    ),
-    hdrs = MOC_HDRS,
+    srcs = [
+        "remote_serial_backend.cpp",
+        "serial_backend_host.cpp",
+        "serial_port_actions.cpp",
+        "serial_port_actions_direct.cpp",
+        "websocketiodevice.cpp",
+    ],
+    hdrs = [
+        "remote_serial_backend.h",
+        "serial_port_actions.h",
+        "serial_port_actions_direct.h",
+        "websocketiodevice.h",
+    ],
     copts = COMMON_COPTS,
-    # *.hpp because qtrohelper.hpp (included by remote_serial_backend.cpp
-    # in this package, and by remote_utility.h in the sibling package) is
-    # not matched by *.h alone.
-    normal_hdrs = glob(
-        [
-            "*.h",
-            "*.hpp",
-        ],
-        exclude = MOC_HDRS,
-    ),
+    # qtrohelper.hpp is included by remote_serial_backend.cpp in this
+    # package, and by remote_utility.h in the sibling package.
+    normal_hdrs = [
+        "j2534_driver_selection.h",
+        "qtrohelper.hpp",
+        "serial_backend.h",
+        "serial_backend_host.h",
+    ],
     visibility = [
         # Legitimate platform-internal edge, NOT part of the debt frozen
         # below: remote_utility.h #includes websocketiodevice.h and

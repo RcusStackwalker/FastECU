@@ -247,51 +247,6 @@ Actions:
 - Promote that job to a required, blocking result once the ratchet is
   deterministic across Linux, macOS, and Windows compilation commands.
 
-### P2: Replace BUILD-file globs with generated source lists
-
-56 `glob()` call sites span 28 of the 58 `BUILD.bazel` files. A glob decides
-target membership by filename pattern at load time, so adding or renaming a
-source silently changes what a target contains — the opposite of the explicit
-ownership the package graph was built for. Three failure modes are live:
-
-- **Test sweep.** Twelve library packages use `srcs = glob(["*.cpp"])` with no
-  `*_test.cpp` exclusion — the nine under `src/ui/desktop`, both `j2534`
-  packages, and `remote_utility`. None contains a test source today, so nothing
-  is broken; the first co-located test added to any of them links into the
-  production library instead of a test target. Packages that already have tests
-  guard against this, but inconsistently — `*_test.cpp`, `test_*.h`, and named
-  constants such as `_FLASH_TRANSPORT_SRCS` all appear.
-- **MOC partition.** Qt targets pair an explicit `MOC_HDRS` list with
-  `normal_hdrs = glob(["*.h"], exclude = MOC_HDRS)`. A new `Q_OBJECT` header
-  lands in the globbed half by default, is never moc'd, and fails at link or
-  runtime rather than at analysis.
-- **Dead code.** `src/ui/desktop` must name `hexcommander.cpp`/`.h` in an
-  `exclude` to keep never-built code out of the build; the file's own header
-  declares `Q_OBJECT` but is absent from `MOC_HDRS`, so a bare glob would link
-  it for the first time and fail.
-
-Adopting Gazelle with a C/C++ extension (`gazelle_cc`) would generate source
-lists and `deps` from `#include` analysis, making membership explicit and
-reviewable in the diff. Gazelle is not currently a `MODULE.bazel` dependency.
-
-Actions:
-
-- Spike Gazelle on one leaf package before committing to it. The graph is built
-  on project macros — `qt_cc_library` (with its `normal_hdrs` split),
-  `fastecu_gtest`, `fastecu_portable_gtest`, `qt_ui_basename_libraries`,
-  `qt_replica_library` — so adoption needs `# gazelle:map_kind` mappings and,
-  for the moc partition, either a custom resolver or a convention that keeps
-  `Q_OBJECT` headers derivable. Treat "no workable mapping for the Qt macros"
-  as an acceptable outcome that ends this item.
-- Until then, add `exclude = ["*_test.cpp"]` to the twelve unguarded `*.cpp`
-  globs and settle on one exclusion spelling.
-- Keep hand-maintained policy out of anything a generator rewrites: visibility
-  allowlists, `target_compatible_with`, the portable/Qt-free `deps` split, and
-  the comments explaining them. These are reviewed decisions, not derivable
-  facts; mark them `# keep` if Gazelle lands.
-- Prefer explicit source lists in new packages regardless of the Gazelle
-  outcome.
-
 ### P2: Naming and source/data organization
 
 Some names and data placement still reflect earlier architecture:

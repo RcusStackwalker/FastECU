@@ -6,16 +6,18 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
-MOC_HDRS = [
-    "chunks.h",
-    "commands.h",
-    "qhexedit.h",
-]
-
 qt_cc_library(
     name = "qhexedit",
-    srcs = glob(["*.cpp"]),
-    hdrs = MOC_HDRS,
+    srcs = [
+        "chunks.cpp",
+        "commands.cpp",
+        "qhexedit.cpp",
+    ],
+    hdrs = [
+        "chunks.h",
+        "commands.h",
+        "qhexedit.h",
+    ],
     copts = COMMON_COPTS,
     deps = QT_DEPS,
 )

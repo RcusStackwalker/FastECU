@@ -17,16 +17,18 @@ qt_ui_basename_libraries(
     deps = ["@rules_qt//:qt_widgets"],
 )
 
-MOC_HDRS = [
-    "hexedit.h",
-    "optionsdialog.h",
-    "searchdialog.h",
-]
-
 qt_cc_library(
     name = "hexedit",
-    srcs = glob(["*.cpp"]),
-    hdrs = MOC_HDRS,
+    srcs = [
+        "hexedit.cpp",
+        "optionsdialog.cpp",
+        "searchdialog.cpp",
+    ],
+    hdrs = [
+        "hexedit.h",
+        "optionsdialog.h",
+        "searchdialog.h",
+    ],
     copts = COMMON_COPTS,
     deps = QT_DEPS + [
         # hexedit.cpp includes src/backend/definitions/file_actions.h

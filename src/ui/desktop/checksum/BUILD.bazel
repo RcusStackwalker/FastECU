@@ -4,8 +4,7 @@ load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
 package(default_visibility = ["//src/ui:__subpackages__"])
 
 # Qt-linked (QMessageBox/QString) but no QObject/Q_OBJECT, so the header goes
-# through normal_hdrs rather than hdrs. Explicit srcs -- this package must not
-# adopt src/ui/desktop's glob(["*.cpp"]), which has no *_test.cpp exclusion.
+# through normal_hdrs rather than hdrs.
 qt_cc_library(
     name = "checksum_correction_command",
     srcs = ["checksum_correction_command.cpp"],

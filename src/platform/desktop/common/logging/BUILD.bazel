@@ -16,7 +16,6 @@ qt_cc_library(
     srcs = ["systemlogger.cpp"],
     hdrs = ["systemlogger.h"],
     copts = COMMON_COPTS,
-    normal_hdrs = [],
     deps = QT_DEPS,
 )
 

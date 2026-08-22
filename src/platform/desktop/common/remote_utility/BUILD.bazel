@@ -17,19 +17,11 @@ qt_replica_library(
     deps = QT_DEPS,
 )
 
-MOC_HDRS = ["remote_utility.h"]
-
 qt_cc_library(
     name = "remote_utility",
-    srcs = glob(["*.cpp"]),
-    hdrs = MOC_HDRS,
+    srcs = ["remote_utility.cpp"],
+    hdrs = ["remote_utility.h"],
     copts = COMMON_COPTS,
-    # allow_empty: this package's only header is the MOC_HDRS entry above.
-    normal_hdrs = glob(
-        ["*.h"],
-        allow_empty = True,
-        exclude = MOC_HDRS,
-    ),
     deps = QT_DEPS + [
         ":remote_utility_replicas",
         # remote_utility.h #includes websocketiodevice.h and qtrohelper.hpp,
