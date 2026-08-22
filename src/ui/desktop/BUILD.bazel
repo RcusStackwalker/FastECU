@@ -25,28 +25,11 @@ qt_ui_basename_libraries(
     deps = ["@rules_qt//:qt_widgets"],
 )
 
-MOC_HDRS = [
-    "calibration_maps.h",
-    "calibration_treewidget.h",
-    "dataterminal.h",
-    "definition_file_convert.h",
-    "dtc_operations.h",
-    "ecu_operations.h",
-    "get_key_operations_subaru.h",
-    "logbox.h",
-    "logvalues.h",
-    "mainwindow.h",
-    "protocol_select.h",
-    "settings.h",
-    "vehicle_select.h",
-    "verticallabel.h",
-]
-
 qt_cc_library(
     name = "desktop",
     # hexcommander.cpp is deliberately omitted: dead code, never in
     # APP_COMMON_SRCS or the legacy FastECU.pro, and its header (also omitted
-    # below) declares Q_OBJECT but isn't in MOC_HDRS -- adding it here would
+    # below) declares Q_OBJECT but isn't in hdrs below -- adding it here would
     # bring it into the build for the first time and fail to link.
     srcs = [
         "calibration_maps.cpp",
@@ -66,7 +49,22 @@ qt_cc_library(
         "vehicle_select.cpp",
         "verticallabel.cpp",
     ],
-    hdrs = MOC_HDRS,
+    hdrs = [
+        "calibration_maps.h",
+        "calibration_treewidget.h",
+        "dataterminal.h",
+        "definition_file_convert.h",
+        "dtc_operations.h",
+        "ecu_operations.h",
+        "get_key_operations_subaru.h",
+        "logbox.h",
+        "logvalues.h",
+        "mainwindow.h",
+        "protocol_select.h",
+        "settings.h",
+        "vehicle_select.h",
+        "verticallabel.h",
+    ],
     copts = COMMON_COPTS,
     linkopts = select({
         "@platforms//os:windows": [
@@ -75,7 +73,7 @@ qt_cc_library(
         ],
         "//conditions:default": [],
     }),
-    # Empty: every *.h here is either in MOC_HDRS above or is
+    # Empty: every *.h here is either in hdrs above or is
     # hexcommander.h, the dead header (see the srcs comment above).
     normal_hdrs = [],
     deps = QT_DEPS + [

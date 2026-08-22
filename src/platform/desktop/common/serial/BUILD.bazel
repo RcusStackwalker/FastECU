@@ -37,13 +37,6 @@ qt_replica_library(
     deps = QT_DEPS,
 )
 
-MOC_HDRS = [
-    "remote_serial_backend.h",
-    "serial_port_actions.h",
-    "serial_port_actions_direct.h",
-    "websocketiodevice.h",
-]
-
 # TRANSITIONAL. Carries serial_port_actions.h to its backend and UI
 # callers, all of which are layering violations that step 5 (backend)
 # and step 6 (ui) remove. Task 8 replaces the public visibility below
@@ -58,7 +51,12 @@ qt_cc_library(
         "serial_port_actions_direct.cpp",
         "websocketiodevice.cpp",
     ],
-    hdrs = MOC_HDRS,
+    hdrs = [
+        "remote_serial_backend.h",
+        "serial_port_actions.h",
+        "serial_port_actions_direct.h",
+        "websocketiodevice.h",
+    ],
     copts = COMMON_COPTS,
     # qtrohelper.hpp is included by remote_serial_backend.cpp in this
     # package, and by remote_utility.h in the sibling package.

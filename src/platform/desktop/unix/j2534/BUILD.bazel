@@ -6,12 +6,10 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
-MOC_HDRS = ["J2534_unix.h"]
-
 qt_cc_library(
     name = "j2534",
     srcs = ["J2534_unix.cpp"],
-    hdrs = MOC_HDRS,
+    hdrs = ["J2534_unix.h"],
     copts = COMMON_COPTS,
     normal_hdrs = ["J2534_tactrix_unix.h"],
     target_compatible_with = select({

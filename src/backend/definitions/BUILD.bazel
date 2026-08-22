@@ -8,29 +8,6 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
-MODEL_HDRS = [
-    "kernelcomms.h",
-    "kernelmemorymodels.h",
-]
-
-# ConfigValuesStructure, extracted out of FileActions (see config_values.h's
-# comment). Kept out of `definitions`'s own normal_hdrs glob and given its
-# own qt_cc_library, mirroring the MODEL_HDRS/`models` split above -- for the
-# identical reason (avoiding a Bazel dependency cycle), this time with
-# //src/backend/config:legacy_config_adapter rather than //src/backend/flash.
-CONFIG_VALUES_HDRS = ["config_values.h"]
-
-ECU_CAL_DEF_HDRS = ["ecu_cal_def.h"]
-
-# LogValuesStructure, extracted out of FileActions (see log_values.h's
-# comment). Kept out of `definitions`'s own normal_hdrs glob and given its
-# own qt_cc_library, mirroring the CONFIG_VALUES_HDRS/ECU_CAL_DEF_HDRS splits
-# above -- for the identical reason (avoiding a Bazel dependency cycle), this
-# time with //src/backend/logging:legacy_logger_adapter.
-LOG_VALUES_HDRS = ["log_values.h"]
-
-MOC_HDRS = ["file_actions.h"]
-
 # root //:windows_preprocessor_guards reads this header directly as `data`;
 # that reference is plumbing, not a layer dependency, so export it to the
 # root package specifically rather than widen the package's general
@@ -45,17 +22,25 @@ exports_files(
 # definitions <-> flash cycle via flash_utils.h.
 cc_library(
     name = "models",
-    hdrs = MODEL_HDRS,
+    hdrs = [
+        "kernelcomms.h",
+        "kernelmemorymodels.h",
+    ],
 )
 
 # Qt-typed (QString/QStringList/QDir members) but no QObject/Q_OBJECT, so
 # (like legacy_config_adapter) it goes through normal_hdrs rather than hdrs.
+# ConfigValuesStructure, extracted out of FileActions (see config_values.h's
+# comment). Kept out of `definitions`'s own normal_hdrs and given its own
+# qt_cc_library, mirroring the `models` split above -- for the identical
+# reason (avoiding a Bazel dependency cycle), this time with
+# //src/backend/config:legacy_config_adapter rather than //src/backend/flash.
 qt_cc_library(
     name = "config_values",
     srcs = [],
     hdrs = [],
     copts = COMMON_COPTS,
-    normal_hdrs = CONFIG_VALUES_HDRS,
+    normal_hdrs = ["config_values.h"],
     deps = QT_DEPS,
 )
 
@@ -107,16 +92,21 @@ qt_cc_library(
     srcs = [],
     hdrs = [],
     copts = COMMON_COPTS,
-    normal_hdrs = ECU_CAL_DEF_HDRS,
+    normal_hdrs = ["ecu_cal_def.h"],
     deps = QT_DEPS,
 )
 
+# LogValuesStructure, extracted out of FileActions (see log_values.h's
+# comment). Kept out of `definitions`'s own normal_hdrs and given its own
+# qt_cc_library, mirroring the config_values/ecu_cal_def splits above -- for
+# the identical reason (avoiding a Bazel dependency cycle), this time with
+# //src/backend/logging:legacy_logger_adapter.
 qt_cc_library(
     name = "log_values",
     srcs = [],
     hdrs = [],
     copts = COMMON_COPTS,
-    normal_hdrs = LOG_VALUES_HDRS,
+    normal_hdrs = ["log_values.h"],
     deps = QT_DEPS + ["//src/backend/logging:logger_definition_model"],
 )
 
@@ -140,9 +130,9 @@ qt_cc_library(
         "file_actions_ecuflash.cpp",
         "file_actions_romraider.cpp",
     ],
-    hdrs = MOC_HDRS,
+    hdrs = ["file_actions.h"],
     copts = COMMON_COPTS,
-    # The only *.h in this package not covered by MOC_HDRS or one of the
+    # The only *.h in this package not covered by hdrs above or one of the
     # other per-target header lists above; also its own qt_cc_library
     # target's normal_hdrs (see legacy_definition_columns above) -- both
     # targets provide the header identically, matching prior glob behavior.

@@ -17,14 +17,12 @@ qt_replica_library(
     deps = QT_DEPS,
 )
 
-MOC_HDRS = ["remote_utility.h"]
-
 qt_cc_library(
     name = "remote_utility",
     srcs = ["remote_utility.cpp"],
-    hdrs = MOC_HDRS,
+    hdrs = ["remote_utility.h"],
     copts = COMMON_COPTS,
-    # Empty: this package's only header is the MOC_HDRS entry above.
+    # Empty: this package's only header is the hdrs entry above.
     normal_hdrs = [],
     deps = QT_DEPS + [
         ":remote_utility_replicas",

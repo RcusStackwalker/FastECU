@@ -6,33 +6,6 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
-# FlashOperationWorker (the shared QThread base) and the bdm/bootmode/ecu/
-# jtag/tcu legacy Qt operation classes, relocated together from
-# //src/backend/flash (step 5c, Task 15) -- backend owns no thread, and
-# FlashOperationWorker was the last QThread-derived class left there.
-# Every *_operation.h in the five family subdirectories declares Q_OBJECT.
-MOC_HDRS = [
-    "flash_operation_worker.h",
-    "bdm/flash_ecu_subaru_denso_mc68hc16y5_02_bdm_operation.h",
-    "bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.h",
-    "ecu/flash_ecu_subaru_denso_1n83m_1_5m_can_operation.h",
-    "ecu/flash_ecu_subaru_denso_1n83m_4m_can_operation.h",
-    "ecu/flash_ecu_subaru_denso_sh7058_can_diesel_operation.h",
-    "ecu/flash_ecu_subaru_denso_sh7058_can_operation.h",
-    "ecu/flash_ecu_subaru_denso_sh705x_densocan_operation.h",
-    "ecu/flash_ecu_subaru_denso_sh705x_kline_operation.h",
-    "ecu/flash_ecu_subaru_denso_sh72531_can_operation.h",
-    "ecu/flash_ecu_subaru_denso_sh72543_can_diesel_operation.h",
-    "ecu/flash_ecu_subaru_hitachi_sh7058_can_operation.h",
-    "ecu/flash_ecu_subaru_hitachi_sh72543r_can_operation.h",
-    "ecu/flash_ecu_subaru_unisia_jecs_m32r_operation.h",
-    "ecu/flash_ecu_subaru_unisia_jecs_operation.h",
-    "jtag/flash_ecu_subaru_hitachi_m32r_jtag_operation.h",
-    "tcu/flash_tcu_subaru_denso_sh705x_can_operation.h",
-    "tcu/flash_tcu_subaru_hitachi_m32r_can_operation.h",
-    "tcu/flash_tcu_subaru_hitachi_m32r_kline_operation.h",
-]
-
 qt_cc_library(
     name = "legacy_flash_operations",
     srcs = [
@@ -57,10 +30,35 @@ qt_cc_library(
         "tcu/flash_tcu_subaru_hitachi_m32r_can_operation.cpp",
         "tcu/flash_tcu_subaru_hitachi_m32r_kline_operation.cpp",
     ],
-    hdrs = MOC_HDRS,
+    # FlashOperationWorker (the shared QThread base) and the bdm/bootmode/ecu/
+    # jtag/tcu legacy Qt operation classes, relocated together from
+    # //src/backend/flash (step 5c, Task 15) -- backend owns no thread, and
+    # FlashOperationWorker was the last QThread-derived class left there.
+    # Every *_operation.h in the five family subdirectories declares Q_OBJECT.
+    hdrs = [
+        "bdm/flash_ecu_subaru_denso_mc68hc16y5_02_bdm_operation.h",
+        "bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.h",
+        "ecu/flash_ecu_subaru_denso_1n83m_1_5m_can_operation.h",
+        "ecu/flash_ecu_subaru_denso_1n83m_4m_can_operation.h",
+        "ecu/flash_ecu_subaru_denso_sh7058_can_diesel_operation.h",
+        "ecu/flash_ecu_subaru_denso_sh7058_can_operation.h",
+        "ecu/flash_ecu_subaru_denso_sh705x_densocan_operation.h",
+        "ecu/flash_ecu_subaru_denso_sh705x_kline_operation.h",
+        "ecu/flash_ecu_subaru_denso_sh72531_can_operation.h",
+        "ecu/flash_ecu_subaru_denso_sh72543_can_diesel_operation.h",
+        "ecu/flash_ecu_subaru_hitachi_sh7058_can_operation.h",
+        "ecu/flash_ecu_subaru_hitachi_sh72543r_can_operation.h",
+        "ecu/flash_ecu_subaru_unisia_jecs_m32r_operation.h",
+        "ecu/flash_ecu_subaru_unisia_jecs_operation.h",
+        "flash_operation_worker.h",
+        "jtag/flash_ecu_subaru_hitachi_m32r_jtag_operation.h",
+        "tcu/flash_tcu_subaru_denso_sh705x_can_operation.h",
+        "tcu/flash_tcu_subaru_hitachi_m32r_can_operation.h",
+        "tcu/flash_tcu_subaru_hitachi_m32r_kline_operation.h",
+    ],
     copts = COMMON_COPTS,
     # Every *.h in the six directories (root + five families) is in
-    # MOC_HDRS above except this one -- matches prior glob behavior.
+    # hdrs above except this one -- matches prior glob behavior.
     normal_hdrs = ["legacy_flash_utils.h"],
     deps = QT_DEPS + [
         "//src/algorithms/checksum",
