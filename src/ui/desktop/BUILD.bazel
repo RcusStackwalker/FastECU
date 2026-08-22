@@ -75,11 +75,9 @@ qt_cc_library(
         ],
         "//conditions:default": [],
     }),
-    normal_hdrs = glob(
-        ["*.h"],
-        allow_empty = True,
-        exclude = MOC_HDRS + ["hexcommander.h"],
-    ),
+    # Empty: every *.h here is either in MOC_HDRS above or is
+    # hexcommander.h, the dead header (see the srcs comment above).
+    normal_hdrs = [],
     deps = QT_DEPS + [
         "//resources/desktop:font_resource",
         "//resources/desktop:icons_resource",

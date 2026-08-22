@@ -33,16 +33,18 @@ _FLASH_TRANSPORT_HDRS = [
 
 qt_cc_library(
     name = "transport",
-    srcs = glob(
-        ["*.cpp"],
-        exclude = _FLASH_TRANSPORT_SRCS + ["*_test.cpp"],
-    ),
+    srcs = [
+        "fastecu_can_transport.cpp",
+        "fastecu_kline_transport.cpp",
+        "fastecu_ssm_transport.cpp",
+    ],
     hdrs = [],
     copts = COMMON_COPTS,
-    normal_hdrs = glob(
-        ["*.h"],
-        exclude = _FLASH_TRANSPORT_HDRS,
-    ),
+    normal_hdrs = [
+        "fastecu_can_transport.h",
+        "fastecu_kline_transport.h",
+        "fastecu_ssm_transport.h",
+    ],
     deps = QT_DEPS + [
         "//src/algorithms/protocol",
         "//src/algorithms/protocol:qt_compat",

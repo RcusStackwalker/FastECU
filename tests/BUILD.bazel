@@ -5,6 +5,9 @@ load("//bazel:x86_windows_transition.bzl", "x86_windows_binary")
 
 package(default_visibility = ["//visibility:public"])
 
+# Deliberately still a glob: check-openpty-includes.py globs this package
+# for *.cpp at runtime looking for openpty() users to lint, so this
+# filegroup must keep tracking whatever test files actually exist here.
 filegroup(
     name = "cpp_sources",
     srcs = glob(["*.cpp"]),

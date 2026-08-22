@@ -247,56 +247,6 @@ Actions:
 - Promote that job to a required, blocking result once the ratchet is
   deterministic across Linux, macOS, and Windows compilation commands.
 
-### P2: Replace BUILD-file globs with generated source lists
-
-Observed on 2026-08-22: 30 `glob()` call sites span 18 of the 65 `BUILD.bazel`
-files. A glob decides target membership by filename pattern at load time, so
-adding or renaming a source silently changes what a target contains — the
-opposite of the explicit ownership the package graph was built for. Two
-failure modes are live:
-
-- **MOC partition.** Qt targets pair an explicit `MOC_HDRS` list with
-  `normal_hdrs = glob(["*.h"], exclude = MOC_HDRS)`. A new `Q_OBJECT` header
-  lands in the globbed half by default, is never moc'd, and fails at link or
-  runtime rather than at analysis. This affects every package with a
-  `hdrs`/`normal_hdrs` glob, including `src/ui/desktop`'s top-level package,
-  `biu`, `flash/{bdm,bootmode,jtag,tcu}`, both `j2534` packages, and
-  `remote_utility` — all of which use an explicit `srcs` list for `.cpp`
-  already, so only the `.h` half remains globbed.
-- **Dead code.** `src/ui/desktop` must name `hexcommander.h` in its
-  `normal_hdrs` exclude to keep it out of the build — the file declares
-  `Q_OBJECT` but is absent from `MOC_HDRS`, so a bare glob would link it for
-  the first time and fail. The same class of risk applies to any other dead
-  header in a package with a `normal_hdrs` glob.
-
-Unrelated to these: `resources/desktop` and `resources/shared` glob
-static asset directories (`fonts/*`, `icons/*`, `images/*`, `config/*`,
-`kernels/*`) — a different, lower-risk category never in scope for this item.
-
-Adopting Gazelle with a C/C++ extension (`gazelle_cc`) would generate source
-lists and `deps` from `#include` analysis, making membership explicit and
-reviewable in the diff. Gazelle is not currently a `MODULE.bazel` dependency.
-
-Actions:
-
-- Spike Gazelle on one leaf package before committing to it. The graph is built
-  on project macros — `qt_cc_library` (with its `normal_hdrs` split),
-  `fastecu_gtest`, `fastecu_portable_gtest`, `qt_ui_basename_libraries`,
-  `qt_replica_library` — so adoption needs `# gazelle:map_kind` mappings and,
-  for the moc partition, either a custom resolver or a convention that keeps
-  `Q_OBJECT` headers derivable. Treat "no workable mapping for the Qt macros"
-  as an acceptable outcome that ends this item.
-- Until then, apply the same explicit-list treatment already used for `srcs`
-  to the remaining `hdrs`/`normal_hdrs` globs, package by package — start with
-  packages that already carry a `MOC_HDRS` list, since that makes the
-  `normal_hdrs` half a mechanical enumeration.
-- Keep hand-maintained policy out of anything a generator rewrites: visibility
-  allowlists, `target_compatible_with`, the portable/Qt-free `deps` split, and
-  the comments explaining them. These are reviewed decisions, not derivable
-  facts; mark them `# keep` if Gazelle lands.
-- Prefer explicit source lists in new packages regardless of the Gazelle
-  outcome.
-
 ### P2: Naming and source/data organization
 
 Some names and data placement still reflect earlier architecture:

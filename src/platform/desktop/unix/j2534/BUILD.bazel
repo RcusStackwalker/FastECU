@@ -13,10 +13,7 @@ qt_cc_library(
     srcs = ["J2534_unix.cpp"],
     hdrs = MOC_HDRS,
     copts = COMMON_COPTS,
-    normal_hdrs = glob(
-        ["*.h"],
-        exclude = MOC_HDRS,
-    ),
+    normal_hdrs = ["J2534_tactrix_unix.h"],
     target_compatible_with = select({
         "@platforms//os:windows": ["@platforms//:incompatible"],
         "//conditions:default": [],

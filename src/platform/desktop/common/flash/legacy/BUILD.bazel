@@ -11,41 +11,57 @@ package(default_visibility = [
 # //src/backend/flash (step 5c, Task 15) -- backend owns no thread, and
 # FlashOperationWorker was the last QThread-derived class left there.
 # Every *_operation.h in the five family subdirectories declares Q_OBJECT.
-MOC_HDRS = ["flash_operation_worker.h"] + glob([
-    "bdm/*_operation.h",
-    "bootmode/*_operation.h",
-    "ecu/*_operation.h",
-    "jtag/*_operation.h",
-    "tcu/*_operation.h",
-])
+MOC_HDRS = [
+    "flash_operation_worker.h",
+    "bdm/flash_ecu_subaru_denso_mc68hc16y5_02_bdm_operation.h",
+    "bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.h",
+    "ecu/flash_ecu_subaru_denso_1n83m_1_5m_can_operation.h",
+    "ecu/flash_ecu_subaru_denso_1n83m_4m_can_operation.h",
+    "ecu/flash_ecu_subaru_denso_sh7058_can_diesel_operation.h",
+    "ecu/flash_ecu_subaru_denso_sh7058_can_operation.h",
+    "ecu/flash_ecu_subaru_denso_sh705x_densocan_operation.h",
+    "ecu/flash_ecu_subaru_denso_sh705x_kline_operation.h",
+    "ecu/flash_ecu_subaru_denso_sh72531_can_operation.h",
+    "ecu/flash_ecu_subaru_denso_sh72543_can_diesel_operation.h",
+    "ecu/flash_ecu_subaru_hitachi_sh7058_can_operation.h",
+    "ecu/flash_ecu_subaru_hitachi_sh72543r_can_operation.h",
+    "ecu/flash_ecu_subaru_unisia_jecs_m32r_operation.h",
+    "ecu/flash_ecu_subaru_unisia_jecs_operation.h",
+    "jtag/flash_ecu_subaru_hitachi_m32r_jtag_operation.h",
+    "tcu/flash_tcu_subaru_denso_sh705x_can_operation.h",
+    "tcu/flash_tcu_subaru_hitachi_m32r_can_operation.h",
+    "tcu/flash_tcu_subaru_hitachi_m32r_kline_operation.h",
+]
 
 qt_cc_library(
     name = "legacy_flash_operations",
-    srcs = glob(
-        [
-            "*.cpp",
-            "bdm/*.cpp",
-            "bootmode/*.cpp",
-            "ecu/*.cpp",
-            "jtag/*.cpp",
-            "tcu/*.cpp",
-        ],
-        exclude = ["*_test.cpp"],
-    ),
+    srcs = [
+        "bdm/flash_ecu_subaru_denso_mc68hc16y5_02_bdm_operation.cpp",
+        "bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.cpp",
+        "ecu/flash_ecu_subaru_denso_1n83m_1_5m_can_operation.cpp",
+        "ecu/flash_ecu_subaru_denso_1n83m_4m_can_operation.cpp",
+        "ecu/flash_ecu_subaru_denso_sh7058_can_diesel_operation.cpp",
+        "ecu/flash_ecu_subaru_denso_sh7058_can_operation.cpp",
+        "ecu/flash_ecu_subaru_denso_sh705x_densocan_operation.cpp",
+        "ecu/flash_ecu_subaru_denso_sh705x_kline_operation.cpp",
+        "ecu/flash_ecu_subaru_denso_sh72531_can_operation.cpp",
+        "ecu/flash_ecu_subaru_denso_sh72543_can_diesel_operation.cpp",
+        "ecu/flash_ecu_subaru_hitachi_sh7058_can_operation.cpp",
+        "ecu/flash_ecu_subaru_hitachi_sh72543r_can_operation.cpp",
+        "ecu/flash_ecu_subaru_unisia_jecs_m32r_operation.cpp",
+        "ecu/flash_ecu_subaru_unisia_jecs_operation.cpp",
+        "flash_operation_worker.cpp",
+        "jtag/flash_ecu_subaru_hitachi_m32r_jtag_operation.cpp",
+        "legacy_flash_utils.cpp",
+        "tcu/flash_tcu_subaru_denso_sh705x_can_operation.cpp",
+        "tcu/flash_tcu_subaru_hitachi_m32r_can_operation.cpp",
+        "tcu/flash_tcu_subaru_hitachi_m32r_kline_operation.cpp",
+    ],
     hdrs = MOC_HDRS,
     copts = COMMON_COPTS,
-    normal_hdrs = glob(
-        [
-            "*.h",
-            "bdm/*.h",
-            "bootmode/*.h",
-            "ecu/*.h",
-            "jtag/*.h",
-            "tcu/*.h",
-        ],
-        allow_empty = True,
-        exclude = MOC_HDRS,
-    ),
+    # Every *.h in the six directories (root + five families) is in
+    # MOC_HDRS above except this one -- matches prior glob behavior.
+    normal_hdrs = ["legacy_flash_utils.h"],
     deps = QT_DEPS + [
         "//src/algorithms/checksum",
         "//src/algorithms/diagnostics",
@@ -82,7 +98,12 @@ fastecu_qttest(
 
 # root //:legacy_flash_drain reads these as `data`: a glob in the root
 # BUILD.bazel cannot cross into this package's own boundary, so the ratchet
-# needs its inputs exported from here instead.
+# needs its inputs exported from here instead. Deliberately still a glob,
+# unlike srcs/normal_hdrs above: check-legacy-flash-drain.py rglobs this
+# package at runtime looking for files NOT in its REMAINING allowlist, so
+# the filegroup must keep tracking whatever .cpp files actually exist here
+# -- an explicit list could silently omit a newly (mis)added file from the
+# check it exists to catch.
 filegroup(
     name = "family_operation_sources",
     srcs = glob([

@@ -31,7 +31,14 @@ qt_cc_library(
         "biu_ops_subaru_input2.cpp",
         "biu_ops_subaru_switches.cpp",
     ],
-    hdrs = glob(["*.h"]),
+    hdrs = [
+        "biu_operations_subaru.h",
+        "biu_ops_subaru_data.h",
+        "biu_ops_subaru_dtcs.h",
+        "biu_ops_subaru_input1.h",
+        "biu_ops_subaru_input2.h",
+        "biu_ops_subaru_switches.h",
+    ],
     copts = COMMON_COPTS,
     deps = QT_DEPS + [
         "//src/algorithms/protocol",

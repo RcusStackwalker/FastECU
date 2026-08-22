@@ -9,7 +9,7 @@ package(default_visibility = [
 qt_cc_library(
     name = "bootmode",
     srcs = ["flash_ecu_subaru_unisia_jecs_m32r_bootmode.cpp"],
-    hdrs = glob(["*.h"]),
+    hdrs = ["flash_ecu_subaru_unisia_jecs_m32r_bootmode.h"],
     copts = COMMON_COPTS,
     deps = QT_DEPS + [
         # Full :definitions (not :models) because file_actions.h -- part of

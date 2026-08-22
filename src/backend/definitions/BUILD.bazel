@@ -142,10 +142,11 @@ qt_cc_library(
     ],
     hdrs = MOC_HDRS,
     copts = COMMON_COPTS,
-    normal_hdrs = glob(
-        ["*.h"],
-        exclude = MOC_HDRS + MODEL_HDRS + CONFIG_VALUES_HDRS + ECU_CAL_DEF_HDRS + LOG_VALUES_HDRS,
-    ),
+    # The only *.h in this package not covered by MOC_HDRS or one of the
+    # other per-target header lists above; also its own qt_cc_library
+    # target's normal_hdrs (see legacy_definition_columns above) -- both
+    # targets provide the header identically, matching prior glob behavior.
+    normal_hdrs = ["legacy_definition_columns.h"],
     deps = QT_DEPS + [
         ":config_values",
         ":ecu_cal_def",
