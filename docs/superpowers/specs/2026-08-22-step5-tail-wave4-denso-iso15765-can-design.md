@@ -39,6 +39,11 @@ the proprietary `0xB6` (write block) and `0xB7` (read block) in place of
 standard TransferData `0x36`, plus `0xAA`/`0xEA` for ECU ID on three of the
 four.
 
+`connect_bootloader` selects between two programming paths at runtime on byte 7
+of the `0x22 0x10 0x1D` reply — `0xFF` selects bench, anything else selects
+in-car. Both are ported; see
+[Both programming branches are ported](#both-programming-branches-are-ported).
+
 All four are kernel-free (`family_requires_kernel_v<...>` = `false`): each
 jumps to the ECU's resident on-board kernel via `0x10 0x62` rather than
 uploading an image, the same shape as waves 0–3. `ecuCalDef->Kernel` is read
@@ -148,6 +153,49 @@ all four of its families reject `test_write` before I/O — and here additionall
 closes a live-write hazard rather than merely declining an unsupported mode.
 The matrix `notes` column records it for each family, per the umbrella's rule
 that deliberate divergences are named, never silent.
+
+## Both programming branches are ported
+
+`connect_bootloader` runs a `0x22 0x10 0x1D` ReadDataByIdentifier query and
+branches on byte 7 of the reply:
+
+- **`== 0xFF` — bench.** `0x10 0x43` session, seed/key on `0x27 0x61`/`0x27
+  0x62`, jump to kernel via `0x10 0x62`, then a bounded wait for `0x50 0x62`.
+  Every exchange is on the primary `0x7E0`/`0x7E8` pair.
+- **`!= 0xFF` — in-car.** A longer sequence that additionally addresses CAN ids
+  `0x7A2`, `0x7DF`, `0x7E1`, and `0x7B0` before converging on the same
+  `0x10 0x62` kernel jump and wait loop.
+
+Both are ported. This differs from wave 3's on-car scope decision for
+`FlashEcuSubaruHitachiM32rCan`, and the reason is that the two situations are
+not alike: wave 3's on-car mode "is not exposed by any current `protocols.cfg`
+entry", making it a paper boundary, whereas wave 4's branch is selected at
+runtime from the ECU's own reply. For the 2014–2021 Forester, XV, Legacy, and
+Outback targets these families serve, programming with the ECU still in the
+vehicle is a normal use rather than an edge case, so rejecting it would remove
+a working path from real users instead of declining an unreachable one.
+
+**No new port surface is required.** `CanFlashUdsChannel` is a byte trampoline
+that prepends a request id and validates a reply id over an
+already-configured transport; `Iso15765Config` is applied once per session.
+Addressing a second id pair is therefore an additional channel instance over
+the same `ICanFlashTransport`, which is exactly what legacy does — one
+`configureIso15765Can(serial, "500000", 0x7E0, 0x7E8)` in `execute()`, then raw
+writes whose envelope carries a different id.
+
+Two fidelity constraints govern the in-car transcription:
+
+- **Fire-and-forget exchanges stay raw.** Most in-car exchanges write a request
+  and read a reply that is never inspected. These cannot go through
+  `UdsClient`, which enforces the SID+0x40 convention and decodes NRCs, so they
+  go through the channel — or the transport — directly, in the manner
+  `subaru_hitachi_m32r_can_executor.cpp` already uses for its OBK and
+  session-scope probes.
+- **Legacy does not check the reply id.** It reads whichever frame arrives
+  next, regardless of arbitration id. A per-id `CanFlashUdsChannel` would
+  impose a reply-id check legacy does not have, so the unchecked reads are
+  taken from the transport directly rather than through a channel bound to the
+  id just written.
 
 ## Structural changes with byte-identical wire output
 
@@ -267,6 +315,11 @@ Two family-specific obligations, named because they are easy to get backwards:
 - **`test_write` rejection must be asserted before any transport call**, not
   merely as a returned error, since the legacy path would otherwise perform a
   real write.
+- **Both programming branches need scripted coverage per family.** One test
+  scripts the `0x22 0x10 0x1D` reply with byte 7 `== 0xFF` and asserts the
+  bench sequence; another scripts it `!= 0xFF` and asserts the in-car sequence,
+  including the writes addressed to `0x7A2`, `0x7DF`, `0x7E1`, and `0x7B0`.
+  A branch with no test is a branch transcribed blind.
 
 Gates per PR, unchanged from prior waves:
 
@@ -288,6 +341,8 @@ tests. The `notes` column records, per family:
 
 - the `test_write` `Unsupported` rejection and the live-write hazard it closes
   (all four);
+- that both the bench and in-car programming branches are ported, including the
+  additional CAN ids the in-car path addresses (all four);
 - `1n83m_4m`'s seven tolerated response checks and its duplicate post-jump
   read;
 - `sh72543d`'s cfg `<kernel>` / `<kernel_addr>` declaration that the family
@@ -301,6 +356,7 @@ tests. The `notes` column records, per family:
 | Third-largest wave by volume (6,178 lines, behind waves 6 and 5) hand-transcribed with no bench access | Per-exchange legacy line citations; byte-exact `expectWrite` scripts; `experimental` never upgraded by unit tests |
 | `1n83m_4m`'s tolerance is asserted backwards, silently converting a tolerant family into a strict one | Positive tolerance assertions required per the testing section; its three strict siblings carry the mirror assertion on the same exchanges |
 | Over-factoring a cluster that is 92–94% line-identical but has zero four-way-identical protocol functions | Port-then-factor ordering; the data-vs-control-flow guardrail above; expected near-empty factoring PR stated in advance |
+| The in-car branch is transcribed with no bench and no in-vehicle test rig, and most of its exchanges ignore their replies, so a wrong byte there is invisible until someone flashes a car | Per-exchange legacy line citations and byte-exact `expectWrite` scripts cover it exactly as they cover the bench path; both branches are separately scripted per family; `experimental` is never upgraded by unit tests |
 | `test_write` rejection turns out to be reachable from some path and regresses a user workflow | All four cfg entries declare `test_write=no`; plan tests assert rejection before I/O, and the dialog rewrite is in the same PR |
 
 ## Amendments to the [step-5 tail design](2026-08-08-step5-tail-flash-drain-design.md)
