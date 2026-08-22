@@ -26,8 +26,8 @@
 
 ```bash
 bazel build -k --config=release //:fastecu //tests/...
-bazel test  -k --config=release //tests/... //:bazel_openssl_wiring \
-            //:serial_compat_allowlist //:portable_closure //:legacy_flash_drain
+bazel test  -k --config=release //tests/... //:serial_compat_allowlist \
+            //:portable_closure //:legacy_flash_drain //:openpty_includes
 prek run --all-files
 ```
 
