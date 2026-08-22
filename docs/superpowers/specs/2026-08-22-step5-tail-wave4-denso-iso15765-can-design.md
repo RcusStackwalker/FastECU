@@ -148,7 +148,8 @@ cfg entries declare `test_write=no`, so the UI does not currently offer it, but
 the code path is live if reached.
 
 Plan construction rejects `test_write` with `Unsupported` before any I/O. This
-is the wave's one deliberate behavior change. It follows wave 3's precedent —
+is the first of the wave's two deliberate behavior changes, the second being
+`sh72543d`'s write image base below. It follows wave 3's precedent —
 all four of its families reject `test_write` before I/O — and here additionally
 closes a live-write hazard rather than merely declining an unsupported mode.
 The matrix `notes` column records it for each family, per the umbrella's rule
@@ -197,6 +198,40 @@ Two fidelity constraints govern the in-car transcription:
   taken from the transport directly rather than through a channel bound to the
   id just written.
 
+## Deliberate divergence: `sh72543d`'s write image base
+
+The four families index the write image as follows:
+
+| Family | Legacy indexing | Image base | Read image base |
+|---|---|---|---|
+| `1n83m_1_5m` | `newdata[i + blockaddr - fblocks[0].start]` | `0x08F9C000` | `0x08F9C000` |
+| `1n83m_4m` | `newdata[i + blockaddr - fblocks[0].start]` | `0x08F9C000` | `0x08F9C000` |
+| `sh72531` | `newdata[i + blockaddr]` | `0x0` | `0x0` |
+| `sh72543d` | `newdata[i + blockctr * blocksize]` | `0x8000` | `0x0` |
+
+`sh72531`'s form is equivalent to its siblings' because its `fblocks[0].start`
+is `0`. `sh72543d`'s form is *also* arithmetically equivalent —
+`i + blockaddr - fblocks[0].start` reduces to `i + blockctr * blocksize` when
+`fblocks[0].start == blockaddr == 0x8000` — so the formula is not the problem.
+The problem is the flash table: `fblocks_SH72543d`'s `0x0`–`0x8000` entry is
+commented out, making the family's write base `0x8000`, while `read_memory`
+still prepends `0x8000` of `0xFF` to reach address `0`.
+
+The desktop hands `reflash_block` the user's whole ROM
+(`portableImageForOperation` passes the loaded image unchanged), so a full
+2 MB file for this family is written `0x8000` low across every block. This
+family's write has therefore never placed bytes correctly — the same category
+of finding as wave 3's MH8111 erase that always failed.
+
+**The port indexes `sh72543d`'s write image from address `0`**, matching its
+own read output and the user-visible contract its three siblings already have:
+byte 0 is address 0, and a full `0x200000` image writes correctly. This is the
+wave's second deliberate behavior change, and the higher-stakes one — it alters
+which bytes reach the ECU, on a family with no bench access. It is recorded in
+the matrix `notes` column, and the family's `hardware_status` stays
+`experimental` with this divergence named as the first thing a bench operator
+should verify.
+
 ## Structural changes with byte-identical wire output
 
 These are not behavior divergences. They are recorded so a reviewer comparing
@@ -231,10 +266,12 @@ appends, not past-end inserts. Resulting images:
 | `sh72531` | `0x137F00` | `0x8000` | `0x100` | `0x140000` | `0x140000` |
 | `sh72543d` | `0x1F7F00` | `0x8000` | `0x100` | `0x200000` | `0x200000` |
 
-Every image is offset-correct and round-trip consistent with `reflash_block`,
-which indexes the write file as `newdata[i + blockaddr - fblocks[0].start]`,
-i.e. a start-aligned full image. No divergence is needed on the read path, and
-no Qt `insert`-past-end fill semantics are relied on.
+Every image is offset-correct: byte 0 is address 0 in all four. No divergence
+is needed on the read path, and no Qt `insert`-past-end fill semantics are
+relied on.
+
+Round-trip consistency with `reflash_block` holds for three of the four, but
+not for `sh72543d` — see the write-base divergence below.
 
 `N83M_1_5MB` is the one inconsistency: its `romsize` field (`0x174000`) does not
 equal its own `fblocks` sum (`0x184000`), so this family's image is `0x10000`
@@ -345,6 +382,9 @@ tests. The `notes` column records, per family:
   additional CAN ids the in-car path addresses (all four);
 - `1n83m_4m`'s seven tolerated response checks and its duplicate post-jump
   read;
+- `sh72543d`'s write-base divergence — legacy wrote a full ROM `0x8000` low,
+  this port indexes from address `0` — flagged as the first item for a bench
+  operator to verify;
 - `sh72543d`'s cfg `<kernel>` / `<kernel_addr>` declaration that the family
   does not use;
 - `N83M_1_5MB`'s `romsize` inconsistency with its own `fblocks` sum.
@@ -356,6 +396,7 @@ tests. The `notes` column records, per family:
 | Third-largest wave by volume (6,178 lines, behind waves 6 and 5) hand-transcribed with no bench access | Per-exchange legacy line citations; byte-exact `expectWrite` scripts; `experimental` never upgraded by unit tests |
 | `1n83m_4m`'s tolerance is asserted backwards, silently converting a tolerant family into a strict one | Positive tolerance assertions required per the testing section; its three strict siblings carry the mirror assertion on the same exchanges |
 | Over-factoring a cluster that is 92–94% line-identical but has zero four-way-identical protocol functions | Port-then-factor ordering; the data-vs-control-flow guardrail above; expected near-empty factoring PR stated in advance |
+| `sh72543d`'s write-base fix changes which bytes reach the ECU, and it cannot be verified without hardware | The change makes the family agree with its own read output and its three siblings, rather than inventing a third convention; plan tests pin the image base explicitly; the matrix names it as the first bench-verification item and `hardware_status` stays `experimental` |
 | The in-car branch is transcribed with no bench and no in-vehicle test rig, and most of its exchanges ignore their replies, so a wrong byte there is invisible until someone flashes a car | Per-exchange legacy line citations and byte-exact `expectWrite` scripts cover it exactly as they cover the bench path; both branches are separately scripted per family; `experimental` is never upgraded by unit tests |
 | `test_write` rejection turns out to be reachable from some path and regresses a user workflow | All four cfg entries declare `test_write=no`; plan tests assert rejection before I/O, and the dialog rewrite is in the same PR |
 
