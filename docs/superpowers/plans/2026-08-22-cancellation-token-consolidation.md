@@ -743,4 +743,14 @@ grep -rn "public ICancellationToken\|public fastecu::.*ICancellationToken" --inc
 
 Expected: exactly 3 matches — `SigintCancellationToken` (`apps/bench`), `FakeCancellationToken` (`src/backend/ports/testing`), `ManualCancellationToken` (`src/backend/ports`).
 
+**Correction, added after the final whole-branch review:** this grep's
+`--include="*.h"` filter only checks headers, so it cannot see subclasses
+declared inside `.cpp` files. An unfiltered repo-wide grep finds 6 additional
+pre-existing `ICancellationToken` subclasses hand-rolled inside two ECU
+executor test `.cpp` files (`subaru_denso_mc68hc16y5_02_executor_test.cpp`,
+`subaru_denso_sh7055_02_executor_test.cpp`) — out of this plan's scope, not
+touched by any task above, tracked as a follow-up. The real post-plan
+repo-wide count is 9, not 3. Do not rely on the filtered grep above as a
+completeness check for a future similar audit.
+
 No commit for this task — it's pure verification. If any step fails, return to the task whose deliverable it covers and fix forward with a new commit; do not amend a prior task's commit.

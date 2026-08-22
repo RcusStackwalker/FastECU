@@ -52,6 +52,25 @@ other three are correctly scoped as-is and are **out of scope**:
   new canonical class removes a third redundant "always reports the flag
   value" implementation for free.
 
+**Note, added after the final whole-branch review:** the review found six
+additional `ICancellationToken` subclasses this document's "five subclasses"
+count missed, because that count only searched header files. All six are
+pre-existing, test-local hand-rolled doubles inside two ECU executor test
+files — `subaru_denso_mc68hc16y5_02_executor_test.cpp` (`NeverCancelled`,
+`ToggleCancellation`, `AlreadyCancelled`) and
+`subaru_denso_sh7055_02_executor_test.cpp` (`NeverCancelled`,
+`ToggleCancellation`, `FlipAfter`) — none touched by this plan. Two duplicate
+the exact `NeverCancelled` class this plan's Task 5 folded away in
+`transport_legacy_compat.h`; `ToggleCancellation` is verbatim-duplicated
+across both files and is a non-atomic clone of `ManualCancellationToken`;
+`FlipAfter`/`AlreadyCancelled` duplicate `FakeCancellationToken` behavior.
+Consolidating these onto `FakeCancellationToken` is legitimate follow-up
+cleanup in the same spirit as this plan, but was outside the scope explicitly
+approved for this plan — tracked as a follow-up, not fixed here. The real
+post-this-plan `ICancellationToken` subclass count in the repository is 9,
+not 3; the counts above describe only the header-declared,
+production-relevant set this plan actually targeted.
+
 ## New canonical class: `ManualCancellationToken`
 
 `src/backend/ports/manual_cancellation_token.h`, header-only, in

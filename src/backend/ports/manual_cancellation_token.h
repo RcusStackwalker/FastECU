@@ -22,6 +22,10 @@ class ManualCancellationToken final : public ICancellationToken
     }
 
   private:
+    // relaxed suffices: the flag publishes no other data (a pure signal, not
+    // a guard for anything else the caller wrote), and FlashWorker's
+    // teardown always pairs cancel() with transport_->request_unblock(),
+    // which carries its own synchronization.
     std::atomic<bool> flag_{false};
 };
 
