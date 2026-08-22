@@ -15,7 +15,7 @@ FlashEcuSubaruHitachiM32rJtagOperation::FlashEcuSubaruHitachiM32rJtagOperation(
 
 bool FlashEcuSubaruHitachiM32rJtagOperation::execute()
 {
-    int result = STATUS_ERROR;
+    int result_arg = STATUS_ERROR;
 
     mcu_type_string = ecuCalDef->McuType;
     mcu_type_index = FlashUtils::findFlashDeviceIndex(mcu_type_string);
@@ -68,17 +68,17 @@ bool FlashEcuSubaruHitachiM32rJtagOperation::execute()
     {
         emit externalLoggerMessage("Reading ROM, please wait...");
         emit LOG_I("Reading ROM from ECU using K-Line", true, true);
-        result = read_mem(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
+        result_arg = read_mem(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
     }
     else
     {
         emit externalLoggerMessage("Writing ROM, please wait...");
         emit LOG_I("Writing ROM to ECU Subaru Hitachi using K-Line", true, true);
-        // result = write_mem_subaru_denso_can_02_32bit(test_write);
-        result = write_mem(test_write);
+        // result_arg = write_mem_subaru_denso_can_02_32bit(test_write);
+        result_arg = write_mem(test_write);
     }
 
-    return result == STATUS_SUCCESS;
+    return result_arg == STATUS_SUCCESS;
 }
 
 int FlashEcuSubaruHitachiM32rJtagOperation::init_jtag()
@@ -100,7 +100,7 @@ int FlashEcuSubaruHitachiM32rJtagOperation::read_mem(uint32_t start_addr, uint32
     return STATUS_SUCCESS;
 }
 
-int FlashEcuSubaruHitachiM32rJtagOperation::write_mem(bool test_write)
+int FlashEcuSubaruHitachiM32rJtagOperation::write_mem(bool test_write_arg)
 {
 
     return STATUS_SUCCESS;

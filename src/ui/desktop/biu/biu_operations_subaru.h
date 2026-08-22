@@ -39,7 +39,7 @@ class BiuOperationsSubaru : public QDialog
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
   public:
-    explicit BiuOperationsSubaru(SerialPortActions *serial, QWidget *parent = nullptr);
+    explicit BiuOperationsSubaru(SerialPortActions *serial_arg, QWidget *parent = nullptr);
     ~BiuOperationsSubaru();
 
   private:

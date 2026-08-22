@@ -5,13 +5,14 @@
 #include "src/algorithms/protocol/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
-EcuOperations::EcuOperations(QWidget *ui, SerialPortActions *serial, QString mcu_type_string, int mcu_type_index)
+EcuOperations::EcuOperations(QWidget *ui, SerialPortActions *serial_arg, QString mcu_type_string,
+                             int mcu_type_index_arg)
 {
     this->setParent(ui);
     this->setAttribute(Qt::WA_QuitOnClose, true);
     this->mcu_type_string = std::move(mcu_type_string);
-    this->mcu_type_index = mcu_type_index;
-    this->serial = serial;
+    this->mcu_type_index = mcu_type_index_arg;
+    this->serial = serial_arg;
     this->flash_window = ui;
 
     set_progressbar_value(0);
@@ -1647,7 +1648,7 @@ int EcuOperations::npk_raw_flashblock_32bit_can(const uint8_t *src, uint32_t sta
  *  Reflash ROM 16bit K-Line ECUs
  ******************************************************/
 int EcuOperations::reflash_block_16bit_kline(const uint8_t *newdata, const struct flashdev_t *fdt, unsigned blockno,
-                                             bool test_write)
+                                             bool test_write_arg)
 {
     int errval;
 
@@ -1699,7 +1700,7 @@ int EcuOperations::reflash_block_16bit_kline(const uint8_t *newdata, const struc
 
     // 2- Unprotect maybe //
     output.clear();
-    if (!test_write)
+    if (!test_write_arg)
     {
         output.append(SID_FLASH);
         output.append(SIDFL_UNPROTECT);
@@ -1784,7 +1785,7 @@ int EcuOperations::reflash_block_16bit_kline(const uint8_t *newdata, const struc
  *  Reflash ROM 32bit K-Line ECUs
  ******************************************************/
 int EcuOperations::reflash_block_32bit_kline(const uint8_t *newdata, const struct flashdev_t *fdt, unsigned blockno,
-                                             bool test_write)
+                                             bool test_write_arg)
 {
     int errval;
 
@@ -1836,7 +1837,7 @@ int EcuOperations::reflash_block_32bit_kline(const uint8_t *newdata, const struc
 
     // 2- Unprotect maybe //
     output.clear();
-    if (!test_write)
+    if (!test_write_arg)
     {
         output.append(SID_FLASH);
         output.append(SIDFL_UNPROTECT);
@@ -1921,7 +1922,7 @@ int EcuOperations::reflash_block_32bit_kline(const uint8_t *newdata, const struc
  *  Reflash ROM 32bit CAN ECUs
  ******************************************************/
 int EcuOperations::reflash_block_32bit_can(const uint8_t *newdata, const struct flashdev_t *fdt, unsigned blockno,
-                                           bool test_write)
+                                           bool test_write_arg)
 {
     int errval;
 
@@ -1953,7 +1954,7 @@ int EcuOperations::reflash_block_32bit_can(const uint8_t *newdata, const struct 
     output.append((uint8_t)0xFE);
     output.append((uint8_t)SUB_DENSOCAN_START_COMM);
     output.append((uint8_t)(SID_CAN_FLASH + 0x01));
-    if (test_write)
+    if (test_write_arg)
     {
         output.append((uint8_t)SID_CAN_FL_PROTECT);
     }

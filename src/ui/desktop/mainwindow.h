@@ -310,7 +310,7 @@ class MainWindow : public QMainWindow
     void ssm_init();
     void ssm_kline_init();
     void ssm_can_init();
-    void parse_log_value_list(QByteArray received, const QString& protocol);
+    void parse_log_value_list(QByteArray received, const QString& protocol_arg);
     QByteArray add_ssm_header(QByteArray output, bool dec_0x100);
     uint8_t calculate_checksum(const QByteArray& output, bool dec_0x100);
     void log_to_file();
@@ -322,7 +322,7 @@ class MainWindow : public QMainWindow
     void setupLoggingEngine();
 
     // logvalues.c
-    void change_log_values(int tabIndex, const QString& protocol);
+    void change_log_values(int tabIndex, const QString& protocol_arg);
 
     // mainwindow.c
     // Connect signals for any flash class and execute ::run() method
@@ -414,8 +414,8 @@ class MainWindow : public QMainWindow
     void change_gauge_values();
     void change_digital_values();
     void change_switch_values();
-    void update_logboxes(const QString& protocol);
-    void update_logbox_values(const QString& protocol);
+    void update_logboxes(const QString& protocol_arg);
+    void update_logbox_values(const QString& protocol_arg);
     void add_new_ecu_definition_file();
     void remove_ecu_definition_file();
     void add_new_logger_definition_file();

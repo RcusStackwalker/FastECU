@@ -44,7 +44,7 @@ class DataTerminal : public QDialog
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
   public:
-    explicit DataTerminal(SerialPortActions *serial, QWidget *parent = nullptr);
+    explicit DataTerminal(SerialPortActions *serial_arg, QWidget *parent = nullptr);
     ~DataTerminal();
 
   private:

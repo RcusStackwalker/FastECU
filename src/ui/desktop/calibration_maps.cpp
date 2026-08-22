@@ -195,7 +195,7 @@ CalibrationMaps::~CalibrationMaps()
 {
 }
 
-void CalibrationMaps::setMapTableWidgetSize(int maxWidth, int maxHeight, int xSize)
+void CalibrationMaps::setMapTableWidgetSize(int maxWidth, int maxHeight, int xSize_arg)
 {
     int w = 0;
     int h = 0;
@@ -419,7 +419,7 @@ void CalibrationMaps::setMapTableWidgetItems(FileActions::EcuCalDefStructure *ec
     {
         // qDebug() << "Map:" << ecuCalDef->NameList.at(mapIndex) << "type 'Y Axis 2D'";
         QStringList yScaleCellText = ecuCalDef->YScaleData.at(mapIndex).split(",");
-        int maxWidth = 0;
+        int maxWidth_local = 0;
         for (int i = 0; i < ySize; i++)
         {
             QTableWidgetItem *cellItem = new QTableWidgetItem;
@@ -437,12 +437,12 @@ void CalibrationMaps::setMapTableWidgetItems(FileActions::EcuCalDefStructure *ec
 
             QFontMetrics fm(cellFont);
             int width = fm.horizontalAdvance(yScaleCellDataText) + 20;
-            if (width > maxWidth)
+            if (width > maxWidth_local)
             {
-                maxWidth = width;
+                maxWidth_local = width;
             }
         }
-        ui->mapDataTableWidget->horizontalHeader()->resizeSection(0, maxWidth);
+        ui->mapDataTableWidget->horizontalHeader()->resizeSection(0, maxWidth_local);
     }
 
     if (ecuCalDef->TypeList.at(mapIndex) == "1D")

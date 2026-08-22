@@ -20,10 +20,10 @@ FlashEcuSubaruDensoSH705xDensoCanOperation::FlashEcuSubaruDensoSH705xDensoCanOpe
 
 bool FlashEcuSubaruDensoSH705xDensoCanOperation::execute()
 {
-    int result = STATUS_ERROR;
+    int result_arg = STATUS_ERROR;
     emit progressChanged(0);
 
-    // result = init_flash_denso_can_02();
+    // result_arg = init_flash_denso_can_02();
 
     bool ok = false;
 
@@ -71,31 +71,31 @@ bool FlashEcuSubaruDensoSH705xDensoCanOperation::execute()
     serial->open_serial_port();
 
     emit LOG_I("Connecting to Subaru 02+ 32-bit Denso CAN bootloader, please wait...", true, true);
-    result = connect_bootloader();
+    result_arg = connect_bootloader();
 
-    if (result == STATUS_SUCCESS && !kernel_alive)
+    if (result_arg == STATUS_SUCCESS && !kernel_alive)
     {
         emit externalLoggerMessage("Preparing, please wait...");
         emit LOG_I("Initializing Subaru 02+ 32-bit DensoCAN kernel upload, please wait...", true, true);
-        result = upload_kernel(kernel, ecuCalDef->KernelStartAddr.toUInt(&ok, 16));
+        result_arg = upload_kernel(kernel, ecuCalDef->KernelStartAddr.toUInt(&ok, 16));
     }
-    if (result == STATUS_SUCCESS)
+    if (result_arg == STATUS_SUCCESS)
     {
         if (cmd_type == "read")
         {
             emit externalLoggerMessage("Reading ROM, please wait...");
             emit LOG_I("Reading ROM from Subaru 02+ 32-bit Denso using DensoCAN", true, true);
-            result = read_mem(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
+            result_arg = read_mem(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
         }
         else if (cmd_type == "test_write" || cmd_type == "write")
         {
             emit externalLoggerMessage("Writing ROM, please wait...");
             emit LOG_I("Writing ROM to Subaru 02+ 32-bit Denso using DensoCAN", true, true);
-            result = write_mem(test_write);
+            result_arg = write_mem(test_write);
         }
     }
 
-    return result == STATUS_SUCCESS;
+    return result_arg == STATUS_SUCCESS;
 }
 
 /*
@@ -224,9 +224,9 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::connect_bootloader()
  *
  * @return success
  */
-int FlashEcuSubaruDensoSH705xDensoCanOperation::upload_kernel(const QString& kernel, uint32_t kernel_start_addr)
+int FlashEcuSubaruDensoSH705xDensoCanOperation::upload_kernel(const QString& kernel_arg, uint32_t kernel_start_addr)
 {
-    QFile file(kernel);
+    QFile file(kernel_arg);
 
     QByteArray output;
     // QByteArray payload;
@@ -659,7 +659,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::read_mem(uint32_t start_addr, ui
  *
  * @return success
  */
-int FlashEcuSubaruDensoSH705xDensoCanOperation::write_mem(bool test_write)
+int FlashEcuSubaruDensoSH705xDensoCanOperation::write_mem(bool test_write_arg)
 {
     QByteArray filedata;
 
@@ -719,7 +719,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::write_mem(bool test_write)
             if (block_modified[blockno])
             {
                 if (reflash_block(&data_array[flashdevices[mcu_type_index].fblocks->start],
-                                  &flashdevices[mcu_type_index], blockno, test_write))
+                                  &flashdevices[mcu_type_index], blockno, test_write_arg))
                 {
                     emit LOG_I("Block " + QString::number(blockno) + " reflash failed.", true, true);
                     return STATUS_ERROR;
@@ -753,7 +753,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::write_mem(bool test_write)
             }
         }
         emit LOG_I(" (total: " + QString::number(bcnt) + ")", false, true);
-        if (!test_write)
+        if (!test_write_arg)
         {
             if (bcnt)
             {
@@ -1059,7 +1059,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::init_flash_write()
  * @return success
  */
 int FlashEcuSubaruDensoSH705xDensoCanOperation::reflash_block(const uint8_t *newdata, const struct flashdev_t *fdt,
-                                                              unsigned blockno, bool test_write)
+                                                              unsigned blockno, bool test_write_arg)
 {
     uint32_t block_start;
     uint32_t block_len;

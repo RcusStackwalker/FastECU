@@ -127,21 +127,21 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     QByteArray five_baud_init(QByteArray output) override;
     int fast_init(QByteArray output) override;
     int set_lec_lines(int lec1, int lec2) override;
-    int pulse_lec_1_line(int timeout) override;
-    int pulse_lec_2_line(int timeout) override;
+    int pulse_lec_1_line(int timeout_arg) override;
+    int pulse_lec_2_line(int timeout_arg) override;
 
     void reset_connection() override;
 
     QByteArray set_error();
-    QByteArray read_serial_obd_data(std::uint16_t timeout) override;
-    QByteArray read_serial_data(std::uint16_t timeout) override;
+    QByteArray read_serial_obd_data(std::uint16_t timeout_arg) override;
+    QByteArray read_serial_data(std::uint16_t timeout_arg) override;
     QByteArray write_serial_data(QByteArray output) override;
     QByteArray write_serial_data_echo_check(QByteArray output) override;
 
     int clear_rx_buffer() override;
     int clear_tx_buffer() override;
 
-    int send_periodic_j2534_data(QByteArray output, int timeout) override;
+    int send_periodic_j2534_data(QByteArray output, int timeout_arg) override;
     int stop_periodic_j2534_data() override;
 
     QStringList check_serial_ports() override;
@@ -332,9 +332,9 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     {
         return serial_port_parity;
     }
-    bool set_serial_port_parity(std::uint8_t parity) override
+    bool set_serial_port_parity(std::uint8_t parity_arg) override
     {
-        serial_port_parity = parity;
+        serial_port_parity = parity_arg;
         return true;
     }
 
@@ -638,7 +638,7 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     bool ssm_init_ok = false;
 
     void close_j2534_serial_port();
-    bool get_serial_num(char *serial);
+    bool get_serial_num(char *serial_arg);
     void dump_msg(PASSTHRU_MSG *msg);
     void reportJ2534Error();
 
@@ -667,7 +667,7 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     QByteArray append_iso9141_header(QByteArray output);
     QByteArray append_iso14230_header(QByteArray output);
     int write_j2534_data(QByteArray output);
-    QByteArray read_j2534_data(unsigned long timeout);
+    QByteArray read_j2534_data(unsigned long timeout_arg);
     QString parse_message_to_hex(const QByteArray& received);
 
     /*public slots:
@@ -683,7 +683,7 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
 
     void close_serial_port();
     void handle_error(QSerialPort::SerialPortError error);
-    void accurate_delay(double timeout);
-    void fast_delay(int timeout);
-    void delay(int timeout);
+    void accurate_delay(double timeout_arg);
+    void fast_delay(int timeout_arg);
+    void delay(int timeout_arg);
 };
