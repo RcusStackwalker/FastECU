@@ -19,6 +19,7 @@ cc_library(
         "event_sink.h",
         "file_repository.h",
         "file_system.h",
+        "manual_cancellation_token.h",
         "resource_bundle.h",
         "result.h",
         "settings.h",
@@ -35,5 +36,11 @@ exports_files(
 fastecu_portable_gtest(
     name = "result_test",
     srcs = ["result_test.cpp"],
+    deps = [":ports"],
+)
+
+fastecu_portable_gtest(
+    name = "manual_cancellation_token_test",
+    srcs = ["manual_cancellation_token_test.cpp"],
     deps = [":ports"],
 )

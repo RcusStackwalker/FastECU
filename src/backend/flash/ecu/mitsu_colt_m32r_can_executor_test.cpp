@@ -33,7 +33,7 @@
 #include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
 #include "src/algorithms/protocol/colt/mitsu_colt_can_vendor_ext_protocol.h"
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_plan.h"
-#include "src/backend/flash/flash_cancellation.h"
+#include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/testing/fake_clock.h"
@@ -407,7 +407,7 @@ TEST(MitsuColtM32rCanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyIo)
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
 
     // Hand-built rather than produced by a builder: the point is a plan this
@@ -431,7 +431,7 @@ TEST(MitsuColtM32rCanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyIo)
     auto foreign = fastecu::flash::validate_and_build(std::move(fields));
     ASSERT_TRUE(foreign.has_value()) << foreign.error().detail;
 
-    const auto result = executor.execute(*foreign, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(*foreign, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
@@ -465,11 +465,11 @@ TEST(MitsuColtM32rCanExecutor, RejectsInconsistentHandBuiltPlansBeforeAnyIo)
         ScriptedCanFlashTransport transport;
         FakeClock clock;
         RecordingEventSink events;
-        fastecu::flash::CancellationSource cancellation;
+        fastecu::ManualCancellationToken cancellation;
         MitsuColtM32rCanExecutor executor;
         const auto plan = handBuiltWritePlan(test.target, test.mcu, test.vendor, test.region, test.image_size);
 
-        const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+        const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value()) << test.name;
         EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig) << test.name;
@@ -488,13 +488,13 @@ TEST(MitsuColtM32rCanExecutor, ReadReturnsEachProtocolCapacityFromAddressZero)
         ScriptedCanFlashTransport transport;
         FakeClock clock;
         RecordingEventSink events;
-        fastecu::flash::CancellationSource cancellation;
+        fastecu::ManualCancellationToken cancellation;
         MitsuColtM32rCanExecutor executor;
         const auto plan = readPlan(protocol);
         scriptBootloadHandshake(transport);
         scriptAddressMarkedRead(transport, size);
 
-        const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+        const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
         ASSERT_TRUE(result.has_value()) << protocol << ": " << result.error().detail;
         ASSERT_TRUE(result->read_bytes.has_value());
@@ -510,14 +510,14 @@ TEST(MitsuColtM32rCanExecutor, ReadReportsAnEmptyReplyAsTimeout)
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
     auto plan = readPlan();
 
     transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(MitsuColtCan::kSessionBootload)));
     transport.queue_no_frame();
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
@@ -528,14 +528,14 @@ TEST(MitsuColtM32rCanExecutor, ReadPropagatesADisconnectedTransport)
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
     auto plan = readPlan();
 
     transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(MitsuColtCan::kSessionBootload)));
     transport.queue_error(ErrorKind::Disconnected, "adapter gone");
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
@@ -546,29 +546,29 @@ TEST(MitsuColtM32rCanExecutor, ReadStopsWhenCancelled)
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
     auto plan = readPlan();
 
     transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(MitsuColtCan::kSessionBootload)));
     transport.queueRead(response({0x50, 0x85}));
-    cancellation.trip();
+    cancellation.cancel();
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
     EXPECT_EQ(transport.writesConsumed(), 0u);
 }
 
-// Trips a cancellation source as soon as the first chunk's progress is
+// Cancels the token as soon as the first chunk's progress is
 // reported, so what stops the read is the loop's own top-of-chunk
 // cancellation check (legacy readFlashRange line 183) rather than a token
 // that was already cancelled before execute() was called.
 class CancelAfterFirstChunkSink final : public RecordingEventSink
 {
   public:
-    explicit CancelAfterFirstChunkSink(fastecu::flash::CancellationSource& source) : source_(source)
+    explicit CancelAfterFirstChunkSink(fastecu::ManualCancellationToken& source) : source_(source)
     {
     }
     void phase_progress(const fastecu::PhaseProgressEvent& event) override
@@ -576,19 +576,19 @@ class CancelAfterFirstChunkSink final : public RecordingEventSink
         RecordingEventSink::phase_progress(event);
         if (event.phase_name == "Read ROM" && event.done > 0)
         {
-            source_.trip();
+            source_.cancel();
         }
     }
 
   private:
-    fastecu::flash::CancellationSource& source_;
+    fastecu::ManualCancellationToken& source_;
 };
 
 TEST(MitsuColtM32rCanExecutor, ReadStopsAtTheNextChunkWhenCancelledMidRead)
 {
     ScriptedCanFlashTransport transport;
     FakeClock clock;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     CancelAfterFirstChunkSink events{cancellation};
     MitsuColtM32rCanExecutor executor;
     auto plan = readPlan();
@@ -604,7 +604,7 @@ TEST(MitsuColtM32rCanExecutor, ReadStopsAtTheNextChunkWhenCancelledMidRead)
     reply.insert(reply.end(), MitsuColtCan::kFlashReadBlockSize, 0x5A);
     transport.queueRead(reply);
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
@@ -626,7 +626,7 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengeRunsInBasicSessionBeforeBootloadSe
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
     auto plan = readPlan(kVendorProtocol384);
 
@@ -643,7 +643,7 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengeRunsInBasicSessionBeforeBootloadSe
     transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(MitsuColtCan::kSessionBootload)));
     transport.queue_no_frame(); // stop here: ordering is what this pins
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
@@ -658,7 +658,7 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengeRejectionStopsBeforeTheSession)
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
     auto plan = readPlan(kVendorProtocol384);
 
@@ -668,7 +668,7 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengeRejectionStopsBeforeTheSession)
     transport.expectWrite(request(MitsuColtCanVendorExt::buildChallengeSeedRequest()));
     transport.queueRead(response({0x7f, 0x23, 0x33}));
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
@@ -684,7 +684,7 @@ TEST(MitsuColtM32rCanExecutor, ReadEmitsMonotonicProgress)
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
     auto plan = readPlan();
 
@@ -692,7 +692,7 @@ TEST(MitsuColtM32rCanExecutor, ReadEmitsMonotonicProgress)
 
     scriptFullRead(transport, plan, 0x00);
 
-    ASSERT_TRUE(executor.execute(plan, transport, clock, cancellation.token(), events).has_value());
+    ASSERT_TRUE(executor.execute(plan, transport, clock, cancellation, events).has_value());
 
     ASSERT_FALSE(events.phase_progress_calls.empty());
     EXPECT_THAT(events.phase_progress_calls, Each(testing::Field(&fastecu::RecordedPhaseProgress::phase_count, 2)));
@@ -723,7 +723,7 @@ TEST(MitsuColtM32rCanExecutor, WriteDrivesTheBootloadSessionThenFactorySecurityA
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
     auto plan = writePlan(writeRom());
 
@@ -750,7 +750,7 @@ TEST(MitsuColtM32rCanExecutor, WriteDrivesTheBootloadSessionThenFactorySecurityA
         MitsuColtCan::kTopRegionStart, static_cast<bytes::Byte>(MitsuColtCan::kFlashReadBlockSize))));
     transport.queue_no_frame();
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
@@ -771,7 +771,7 @@ TEST(MitsuColtM32rCanExecutor, WriteBoundsTheDefaultProtocolTo384KiB)
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
 
     const bytes::Bytes rom = writeRom384();
@@ -784,7 +784,7 @@ TEST(MitsuColtM32rCanExecutor, WriteBoundsTheDefaultProtocolTo384KiB)
     scriptUploadAndCommit(transport, MitsuColtCan::kUserspaceStart, userspaceOf(rom), kUserspaceChecksumBytes);
     scriptFlashReadData(transport, MitsuColtCan::kUserspaceStart, userspaceOf(rom));
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
@@ -811,7 +811,7 @@ TEST(MitsuColtM32rCanExecutor, WriteSkipsBootstrapWhenTheTopRegionAlreadyMatches
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
 
     // Top region in the ROM image is all 0xEE, and the ECU reports 0xEE too.
@@ -829,7 +829,7 @@ TEST(MitsuColtM32rCanExecutor, WriteSkipsBootstrapWhenTheTopRegionAlreadyMatches
     scriptUploadAndCommit(transport, MitsuColtCan::kUserspaceStart, userspaceOf(rom), kUserspaceChecksumBytes);
     scriptFlashReadData(transport, MitsuColtCan::kUserspaceStart, userspaceOf(rom));
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
@@ -865,7 +865,7 @@ TEST(MitsuColtM32rCanExecutor, WriteRunsTheBootstrapWhenTheTopRegionDiffers)
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
 
     const bytes::Bytes rom = writeRom();
@@ -892,7 +892,7 @@ TEST(MitsuColtM32rCanExecutor, WriteRunsTheBootstrapWhenTheTopRegionDiffers)
     scriptUploadAndCommit(transport, MitsuColtCan::kUserspaceStart, userspaceOf(rom));
     scriptFlashReadData(transport, MitsuColtCan::kUserspaceStart, userspaceOf(rom));
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
@@ -912,7 +912,7 @@ TEST(MitsuColtM32rCanExecutor, WriteRefusesRedirectBootstrapWhenTheCarrierDoesNo
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
 
     const bytes::Bytes rom = writeRom();
@@ -924,7 +924,7 @@ TEST(MitsuColtM32rCanExecutor, WriteRefusesRedirectBootstrapWhenTheCarrierDoesNo
     scriptFlashReadChunk(transport, MitsuColtCan::kUserspaceStart + 3 * MitsuColtCan::kFlashReadBlockSize,
                          MitsuColtCan::kFlashReadBlockSize, 0xFF);
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
@@ -943,7 +943,7 @@ TEST(MitsuColtM32rCanExecutor, WritePropagatesACarrierReadFailureBeforeRedirectH
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
 
     const bytes::Bytes rom = writeRom();
@@ -955,7 +955,7 @@ TEST(MitsuColtM32rCanExecutor, WritePropagatesACarrierReadFailureBeforeRedirectH
         MitsuColtCan::kUserspaceStart, static_cast<bytes::Byte>(MitsuColtCan::kFlashReadBlockSize))));
     transport.queue_error(ErrorKind::Disconnected, "carrier read disconnected");
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), (fastecu::Error{ErrorKind::Disconnected, "carrier read disconnected"}));
@@ -977,7 +977,7 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsReadingTheTopRegionAtTheFirstMismatched
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
 
     const bytes::Bytes rom = writeRom();
@@ -1004,7 +1004,7 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsReadingTheTopRegionAtTheFirstMismatched
     scriptUploadAndCommit(transport, MitsuColtCan::kUserspaceStart, userspaceOf(rom));
     scriptFlashReadData(transport, MitsuColtCan::kUserspaceStart, userspaceOf(rom));
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
@@ -1017,7 +1017,7 @@ TEST(MitsuColtM32rCanExecutor, WriteFailsWhenTheUserspaceVerifyMismatches)
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
 
     const bytes::Bytes rom = writeRom();
@@ -1032,7 +1032,7 @@ TEST(MitsuColtM32rCanExecutor, WriteFailsWhenTheUserspaceVerifyMismatches)
     scriptFlashRead(transport, MitsuColtCan::kUserspaceStart,
                     MitsuColtCan::kUserspaceEnd - MitsuColtCan::kUserspaceStart, 0xFF);
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
@@ -1045,7 +1045,7 @@ TEST(MitsuColtM32rCanExecutor, WriteFailsWhenTheTopRegionVerifyMismatches)
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
 
     const bytes::Bytes rom = writeRom();
@@ -1065,7 +1065,7 @@ TEST(MitsuColtM32rCanExecutor, WriteFailsWhenTheTopRegionVerifyMismatches)
     // Verify read-back still reports 0xFF: the write did not take.
     scriptFlashRead(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kTopRegionLength, 0xFF);
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
@@ -1080,7 +1080,7 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheReflashUnlockIsRejected)
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
 
     const bytes::Bytes rom = writeRom();
@@ -1093,7 +1093,7 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheReflashUnlockIsRejected)
     transport.expectWrite(request(MitsuColtCan::buildRequestReflashUnlock()));
     transport.queueRead(response({0x7f, 0x3b, 0x33}));
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
@@ -1108,7 +1108,7 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheEraseTriggerIsRejected)
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
 
     const bytes::Bytes rom = writeRom();
@@ -1123,7 +1123,7 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheEraseTriggerIsRejected)
     transport.expectWrite(request(MitsuColtCan::buildRoutineErase()));
     transport.queueRead(response({0x7f, 0x31, 0x22}));
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
@@ -1142,7 +1142,7 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheCarrierEraseTriggerReportsANonZe
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
 
     const bytes::Bytes rom = writeRom();
@@ -1160,7 +1160,7 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheCarrierEraseTriggerReportsANonZe
     transport.expectWrite(request(MitsuColtCan::buildRoutineErase()));
     transport.queueRead(response({0x71, 0xe0, 0x01}));
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
@@ -1205,14 +1205,14 @@ TEST_P(MitsuColtM32rCanExecutorRoutineStatusTest, StopsTheWrite)
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
     auto plan = writePlan(writeRom());
 
     test_case.script(transport);
     transport.queueRead(response(test_case.reply));
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
@@ -1243,7 +1243,7 @@ TEST(MitsuColtM32rCanExecutor, RefusesATestWritePlanRatherThanWritingForReal)
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
 
     // build_mitsu_colt_m32r_can_plan refuses TestWrite, but validate_and_build
@@ -1254,7 +1254,7 @@ TEST(MitsuColtM32rCanExecutor, RefusesATestWritePlanRatherThanWritingForReal)
 
     scriptBootloadHandshake(transport);
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Unsupported);
@@ -1267,7 +1267,7 @@ TEST(MitsuColtM32rCanExecutor, WriteRefusesAnImageThatDoesNotMatchThePlanBeforeA
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
 
     // build_mitsu_colt_m32r_can_plan rejects this image, but validate_and_build
@@ -1277,7 +1277,7 @@ TEST(MitsuColtM32rCanExecutor, WriteRefusesAnImageThatDoesNotMatchThePlanBeforeA
         {fastecu::flash::ConfirmationSpec::Id::EraseTrigger, fastecu::flash::ConfirmationSpec::Id::TopRegionBootstrap},
         bytes::Bytes(MitsuColtCan::kTopRegionEnd - 1, 0x00));
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
@@ -1292,7 +1292,7 @@ TEST(MitsuColtM32rCanExecutor, WriteRefusesTheBootstrapWhenItsConfirmationIsAbse
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
 
     // Everything but the bootstrap gate is granted, and the top region does
@@ -1305,7 +1305,7 @@ TEST(MitsuColtM32rCanExecutor, WriteRefusesTheBootstrapWhenItsConfirmationIsAbse
     // stops there instead of reading the full 128KB before comparing.
     scriptFlashReadChunk(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kFlashReadBlockSize, 0xFF);
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
@@ -1321,7 +1321,7 @@ TEST(MitsuColtM32rCanExecutor, HandshakeRejectsAReplyTooShortToHoldAServiceByte)
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
     auto plan = readPlan();
 
@@ -1333,7 +1333,7 @@ TEST(MitsuColtM32rCanExecutor, HandshakeRejectsAReplyTooShortToHoldAServiceByte)
     transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(MitsuColtCan::kSessionBootload)));
     transport.queueRead(bytes::Bytes{0x07, 0xe8});
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
@@ -1348,7 +1348,7 @@ TEST(MitsuColtM32rCanExecutor, ReadRejectsAChunkAnsweredWithTheWrongService)
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
     auto plan = readPlan();
 
@@ -1361,7 +1361,7 @@ TEST(MitsuColtM32rCanExecutor, ReadRejectsAChunkAnsweredWithTheWrongService)
         MitsuColtCan::buildReadMemoryByAddress(start, static_cast<bytes::Byte>(MitsuColtCan::kFlashReadBlockSize))));
     transport.queueRead(response({0x7f, 0x23, 0x22}));
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
@@ -1373,13 +1373,13 @@ TEST(MitsuColtM32rCanExecutor, ReadRejectsAChunkAnsweredWithTheWrongService)
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "ROM read complete"))));
 }
 
-// Trips the cancellation source when a chosen log line is emitted, so the
+// Cancels the token when a chosen log line is emitted, so the
 // stop lands between two exchanges of the write path rather than at
 // readFlashRange()'s own top-of-chunk checkpoint.
 class CancelOnLogSink final : public RecordingEventSink
 {
   public:
-    CancelOnLogSink(fastecu::flash::CancellationSource& source, std::string trigger)
+    CancelOnLogSink(fastecu::ManualCancellationToken& source, std::string trigger)
         : source_(source), trigger_(std::move(trigger))
     {
     }
@@ -1388,12 +1388,12 @@ class CancelOnLogSink final : public RecordingEventSink
         RecordingEventSink::log(level, message);
         if (message == trigger_)
         {
-            source_.trip();
+            source_.cancel();
         }
     }
 
   private:
-    fastecu::flash::CancellationSource& source_;
+    fastecu::ManualCancellationToken& source_;
     std::string trigger_;
 };
 
@@ -1401,7 +1401,7 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsAtTheNextExchangeWhenCancelledMidWrite)
 {
     ScriptedCanFlashTransport transport;
     FakeClock clock;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     // Cancelled the instant the erase-page upload reports success: the run
     // must stop before the write-page upload's first request reaches the bus.
     // The write path has no loop of its own to poll a token, so what has to
@@ -1417,7 +1417,7 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsAtTheNextExchangeWhenCancelledMidWrite)
     scriptFlashRead(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kTopRegionLength, 0xEE);
     scriptUploadAndCommit(transport, MitsuColtCan::kEraseRoutineRamAddr, MitsuColtCan::kErasePageRoutine);
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
@@ -1433,13 +1433,13 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsAtTheNextExchangeWhenCancelledMidWrite)
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Error, HasSubstr("rejected: cancelled")))));
 }
 
-// Trips the cancellation source from inside write() when one chosen request
+// Cancels the token from inside write() when one chosen request
 // goes out, so the stop lands after the ECU has been asked to act and before
 // its reply is read.
 class CancelOnRequestTransport final : public ScriptedCanFlashTransport
 {
   public:
-    CancelOnRequestTransport(fastecu::flash::CancellationSource& source, bytes::Bytes trigger)
+    CancelOnRequestTransport(fastecu::ManualCancellationToken& source, bytes::Bytes trigger)
         : source_(source), trigger_(std::move(trigger))
     {
     }
@@ -1448,13 +1448,13 @@ class CancelOnRequestTransport final : public ScriptedCanFlashTransport
         fastecu::Status result = ScriptedCanFlashTransport::write(data, cancellation);
         if (std::ranges::equal(data, trigger_))
         {
-            source_.trip();
+            source_.cancel();
         }
         return result;
     }
 
   private:
-    fastecu::flash::CancellationSource& source_;
+    fastecu::ManualCancellationToken& source_;
     bytes::Bytes trigger_;
 };
 
@@ -1466,7 +1466,7 @@ TEST(MitsuColtM32rCanExecutor, ACancelledEraseTriggerIsNotReportedAsAnEcuRejecti
     // decide whether to recover the unit, so the log must not tell them the
     // ECU refused the request -- nor leave a dangling "rejected: " carrying no
     // reason at all, which is what an empty cancellation detail produced.
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     CancelOnRequestTransport transport{cancellation, request(MitsuColtCan::buildRoutineErase())};
     FakeClock clock;
     RecordingEventSink events;
@@ -1484,7 +1484,7 @@ TEST(MitsuColtM32rCanExecutor, ACancelledEraseTriggerIsNotReportedAsAnEcuRejecti
     // scripted because none is ever read.
     transport.expectWrite(request(MitsuColtCan::buildRoutineErase()));
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
@@ -1512,7 +1512,7 @@ TEST(MitsuColtM32rCanExecutor, AFailedTransportWriteIsReportedWithoutWaitingForA
     WriteFailingTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
     auto plan = readPlan();
 
@@ -1521,7 +1521,7 @@ TEST(MitsuColtM32rCanExecutor, AFailedTransportWriteIsReportedWithoutWaitingForA
     // the transport's own error is what must come back instead.
     transport.queueRead(response({0x50, 0x85}));
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
@@ -1530,29 +1530,29 @@ TEST(MitsuColtM32rCanExecutor, AFailedTransportWriteIsReportedWithoutWaitingForA
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Diagnostic session ok"))));
 }
 
-// Trips the cancellation source from inside write(), so the request does
+// Cancels the token from inside write(), so the request does
 // reach the bus and the cancellation is first observable at the delay that
 // follows it.
 class CancelOnWriteTransport final : public ScriptedCanFlashTransport
 {
   public:
-    explicit CancelOnWriteTransport(fastecu::flash::CancellationSource& source) : source_(source)
+    explicit CancelOnWriteTransport(fastecu::ManualCancellationToken& source) : source_(source)
     {
     }
     fastecu::Status write(bytes::ByteView data, const fastecu::ICancellationToken& cancellation) override
     {
         fastecu::Status result = ScriptedCanFlashTransport::write(data, cancellation);
-        source_.trip();
+        source_.cancel();
         return result;
     }
 
   private:
-    fastecu::flash::CancellationSource& source_;
+    fastecu::ManualCancellationToken& source_;
 };
 
 TEST(MitsuColtM32rCanExecutor, ACancellationThatArrivesAfterTheRequestStopsBeforeTheReply)
 {
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     CancelOnWriteTransport transport{cancellation};
     FakeClock clock;
     RecordingEventSink events;
@@ -1562,12 +1562,12 @@ TEST(MitsuColtM32rCanExecutor, ACancellationThatArrivesAfterTheRequestStopsBefor
     transport.expectWrite(request(MitsuColtCan::buildDiagnosticSession(MitsuColtCan::kSessionBootload)));
     transport.queueRead(response({0x50, 0x85}));
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
     // No pre-read delay separates the write from the read on this path (see
-    // kRoutineExchangePolicy/kSlowExchangePolicy), so a cancellation tripped
+    // kRoutineExchangePolicy/kSlowExchangePolicy), so a cancel() call
     // right after the write is caught by the read call itself rather than by
     // an inter-exchange sleep -- hence the transport's own detail string.
     EXPECT_EQ(result.error().detail, "scripted CAN read cancelled");
@@ -1579,7 +1579,7 @@ TEST(MitsuColtM32rCanExecutor, WriteAbortsWhenTheEraseRoutineRequestDownloadIsRe
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
 
     const bytes::Bytes rom = writeRom();
@@ -1594,7 +1594,7 @@ TEST(MitsuColtM32rCanExecutor, WriteAbortsWhenTheEraseRoutineRequestDownloadIsRe
         MitsuColtCan::kEraseRoutineRamAddr, static_cast<std::uint32_t>(std::size(MitsuColtCan::kErasePageRoutine)))));
     transport.queueRead(response({0x7f, 0x34, 0x33}));
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
@@ -1611,7 +1611,7 @@ TEST(MitsuColtM32rCanExecutor, WriteAbortsWhenTheWriteRoutineTransferDataIsRejec
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
 
     const bytes::Bytes rom = writeRom();
@@ -1628,7 +1628,7 @@ TEST(MitsuColtM32rCanExecutor, WriteAbortsWhenTheWriteRoutineTransferDataIsRejec
     transport.expectWrite(request(MitsuColtCan::buildTransferDataFrames(MitsuColtCan::kWritePageRoutine).front()));
     transport.queueRead(response({0x7f, 0x36, 0x31}));
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
@@ -1645,7 +1645,7 @@ TEST(MitsuColtM32rCanExecutor, WriteFailsWhenTheUserspaceCrcCheckIsRejected)
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
 
     const bytes::Bytes rom = writeRom();
@@ -1669,7 +1669,7 @@ TEST(MitsuColtM32rCanExecutor, WriteFailsWhenTheUserspaceCrcCheckIsRejected)
     transport.expectWrite(request(MitsuColtCan::buildRoutineCheckCrc(MitsuColtCan::kUserspaceStart)));
     transport.queueRead(response({0x7f, 0x31, 0x22}));
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
@@ -1699,7 +1699,7 @@ TEST(MitsuColtM32rCanExecutor, BootstrapAbortsWhenTheChecksumRequestDownloadIsRe
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
 
     const bytes::Bytes rom = writeRom();
@@ -1718,7 +1718,7 @@ TEST(MitsuColtM32rCanExecutor, BootstrapAbortsWhenTheChecksumRequestDownloadIsRe
         request(MitsuColtCan::buildRequestDownload(MitsuColtCan::kCrcTransferAddress, MitsuColtCan::kCrcTransferSize)));
     transport.queueRead(response({0x7f, 0x34, 0x22}));
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
@@ -1733,7 +1733,7 @@ TEST(MitsuColtM32rCanExecutor, BootstrapAbortsWhenTheChecksumTransferDataIsRejec
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
 
     const bytes::Bytes rom = writeRom();
@@ -1756,7 +1756,7 @@ TEST(MitsuColtM32rCanExecutor, BootstrapAbortsWhenTheChecksumTransferDataIsRejec
     }
     transport.queueRead(response({0x7f, 0x36, 0x22}));
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
@@ -1772,7 +1772,7 @@ TEST(MitsuColtM32rCanExecutor, BootstrapReportsItsOwnReflashUnlockRejection)
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
 
     const bytes::Bytes rom = writeRom();
@@ -1788,7 +1788,7 @@ TEST(MitsuColtM32rCanExecutor, BootstrapReportsItsOwnReflashUnlockRejection)
     transport.expectWrite(request(MitsuColtCan::buildRequestReflashUnlock()));
     transport.queueRead(response({0x7f, 0x3b, 0x22}));
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
@@ -1809,7 +1809,7 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengeKeyRejectionStopsBeforeTheSession)
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
     auto plan = readPlan(kVendorProtocol384);
 
@@ -1826,7 +1826,7 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengeKeyRejectionStopsBeforeTheSession)
     transport.expectWrite(request(MitsuColtCanVendorExt::buildChallengeKey(key)));
     transport.queueRead(response({0x63, 0x27, 0x42}));
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
@@ -1856,11 +1856,11 @@ TEST(MitsuColtM32rCanExecutor, RefusesATransportThatIsNotACanTransport)
     NotACanTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
     auto plan = readPlan();
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     // A checked downcast, not a static_cast: the wrong adapter is a typed
@@ -1875,13 +1875,13 @@ TEST(MitsuColtM32rCanExecutor, PropagatesAConfigureFailureBeforeAnyRequest)
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
     auto plan = readPlan();
 
     transport.configure_result_ = fastecu::fail(ErrorKind::InvalidConfig, "bad bitrate");
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
@@ -1896,13 +1896,13 @@ TEST(MitsuColtM32rCanExecutor, PropagatesAnOpenFailureBeforeAnyRequest)
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
     auto plan = readPlan();
 
     transport.open_result_ = fastecu::fail(ErrorKind::Disconnected, "no adapter");
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
@@ -1918,7 +1918,7 @@ TEST(MitsuColtM32rCanExecutor, WriteRefusesTheEraseTriggerWhenItsConfirmationIsA
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
 
     auto plan = writePlanGranting({fastecu::flash::ConfirmationSpec::Id::TopRegionBootstrap});
@@ -1928,7 +1928,7 @@ TEST(MitsuColtM32rCanExecutor, WriteRefusesTheEraseTriggerWhenItsConfirmationIsA
     scriptUploadAndCommit(transport, MitsuColtCan::kEraseRoutineRamAddr, MitsuColtCan::kErasePageRoutine);
     scriptUploadAndCommit(transport, MitsuColtCan::kWriteRoutineRamAddr, MitsuColtCan::kWritePageRoutine);
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
@@ -1953,7 +1953,7 @@ TEST(MitsuColtM32rCanExecutor, AbsorbsResponsePendingWithoutResending)
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
     auto plan = readPlan(kVendorProtocol384);
 
@@ -1964,7 +1964,7 @@ TEST(MitsuColtM32rCanExecutor, AbsorbsResponsePendingWithoutResending)
     transport.expectWrite(request(MitsuColtCanVendorExt::buildChallengeSeedRequest()));
     transport.queue_no_frame(); // stop here: pending absorption is what this pins
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
@@ -1979,7 +1979,7 @@ TEST(MitsuColtM32rCanExecutor, FailsWhenTheEcuPendsPastTheRepeatLimit)
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
     auto plan = readPlan(kVendorProtocol384);
 
@@ -1990,7 +1990,7 @@ TEST(MitsuColtM32rCanExecutor, FailsWhenTheEcuPendsPastTheRepeatLimit)
         transport.queueRead(response({0x7f, 0x10, 0x78}));
     }
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
@@ -2005,7 +2005,7 @@ TEST(MitsuColtM32rCanExecutor, RejectsAResponseToADifferentService)
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
     auto plan = readPlan(kVendorProtocol384);
 
@@ -2013,7 +2013,7 @@ TEST(MitsuColtM32rCanExecutor, RejectsAResponseToADifferentService)
     // A SecurityAccess reply (0x67) to a DiagnosticSession request (0x10).
     transport.queueRead(response({0x67, 0x05}));
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
@@ -2027,7 +2027,7 @@ TEST(MitsuColtM32rCanExecutor, RejectsAFrameFromTheWrongReplyId)
     ScriptedCanFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
-    fastecu::flash::CancellationSource cancellation;
+    fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
     auto plan = readPlan(kVendorProtocol384);
 
@@ -2038,7 +2038,7 @@ TEST(MitsuColtM32rCanExecutor, RejectsAFrameFromTheWrongReplyId)
     wrong_id.insert(wrong_id.end(), {0x50, 0x81});
     transport.queueRead(wrong_id);
 
-    const auto result = executor.execute(plan, transport, clock, cancellation.token(), events);
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);

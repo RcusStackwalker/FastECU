@@ -26,7 +26,6 @@ qt_cc_library(
     normal_hdrs =
         [
             "qt_atomic_file_writer.h",
-            "qt_cancellation_token.h",
             "qt_clock.h",
             "qt_file_repository.h",
             "qt_file_system.h",

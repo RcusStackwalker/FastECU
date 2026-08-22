@@ -7,7 +7,7 @@
 #include "src/backend/logging/logging_session.h"
 #include "src/backend/logging/logging_use_case.h"
 #include "src/backend/ports/event_sink.h"
-#include "src/platform/desktop/common/ports/qt_cancellation_token.h"
+#include "src/backend/ports/manual_cancellation_token.h"
 
 class LoggingWorker final : public QThread
 {
@@ -31,7 +31,7 @@ class LoggingWorker final : public QThread
     fastecu::logging::LoggingUseCase use_case_;
     const fastecu::logging::LoggingSession session_;
     fastecu::logging::LoggingProtocol *protocol_;
-    QtCancellationToken cancellation_;
+    fastecu::ManualCancellationToken cancellation_;
     fastecu::IEventSink& diagnostics_;
     fastecu::Status result_;
 };
