@@ -82,6 +82,9 @@ PORTABLE_ROOTS = {
         "subaru_tcu_cvt_mitsu_mh8104_can_types",
         "subaru_tcu_cvt_mitsu_mh8104_can_plan",
         "subaru_tcu_cvt_mitsu_mh8104_can_executor",
+        "subaru_denso_1n83m_1_5m_can_types",
+        "subaru_denso_1n83m_1_5m_can_plan",
+        "subaru_denso_1n83m_1_5m_can_executor",
     },
     ROOT / "src/backend/config": {
         "config_paths",

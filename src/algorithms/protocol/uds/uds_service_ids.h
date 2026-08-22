@@ -19,6 +19,7 @@ namespace uds
 // Service identifiers actually observed on these buses.
 constexpr bytes::Byte kSidDiagnosticSessionControl = 0x10; // ISO 14229-1
 constexpr bytes::Byte kSidSecurityAccess = 0x27;           // ISO 14229-1
+constexpr bytes::Byte kSidReadDataByIdentifier = 0x22;     // ISO 14229-1
 constexpr bytes::Byte kSidRoutineControl = 0x31;           // ISO 14229-1
 constexpr bytes::Byte kSidRequestDownload = 0x34;          // ISO 14229-1
 constexpr bytes::Byte kSidRequestUpload = 0x35;            // ISO 14229-1

@@ -72,7 +72,6 @@
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_hitachi_sh72543r_can.h"
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh72531_can.h"
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_1n83m_4m_can.h"
-#include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_1n83m_1_5m_can.h"
 
 #include "src/ui/desktop/flash/tcu/flash_tcu_subaru_hitachi_m32r_kline.h"
 #include "src/ui/desktop/flash/tcu/flash_tcu_subaru_hitachi_m32r_can.h"
