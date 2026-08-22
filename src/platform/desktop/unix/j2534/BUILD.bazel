@@ -10,7 +10,7 @@ MOC_HDRS = ["J2534_unix.h"]
 
 qt_cc_library(
     name = "j2534",
-    srcs = glob(["*.cpp"]),
+    srcs = ["J2534_unix.cpp"],
     hdrs = MOC_HDRS,
     copts = COMMON_COPTS,
     normal_hdrs = glob(

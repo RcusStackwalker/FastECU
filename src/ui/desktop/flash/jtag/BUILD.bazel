@@ -8,7 +8,7 @@ package(default_visibility = [
 
 qt_cc_library(
     name = "jtag",
-    srcs = glob(["*.cpp"]),
+    srcs = ["flash_ecu_subaru_hitachi_m32r_jtag.cpp"],
     hdrs = glob(["*.h"]),
     copts = COMMON_COPTS,
     deps = QT_DEPS + [

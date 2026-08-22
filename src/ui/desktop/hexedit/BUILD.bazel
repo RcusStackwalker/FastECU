@@ -25,7 +25,11 @@ MOC_HDRS = [
 
 qt_cc_library(
     name = "hexedit",
-    srcs = glob(["*.cpp"]),
+    srcs = [
+        "hexedit.cpp",
+        "optionsdialog.cpp",
+        "searchdialog.cpp",
+    ],
     hdrs = MOC_HDRS,
     copts = COMMON_COPTS,
     deps = QT_DEPS + [

@@ -8,7 +8,7 @@ package(default_visibility = [
 
 qt_cc_library(
     name = "bdm",
-    srcs = glob(["*.cpp"]),
+    srcs = ["flash_ecu_subaru_denso_mc68hc16y5_02_bdm.cpp"],
     hdrs = glob(["*.h"]),
     copts = COMMON_COPTS,
     deps = QT_DEPS + [

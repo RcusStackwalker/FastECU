@@ -44,14 +44,28 @@ MOC_HDRS = [
 
 qt_cc_library(
     name = "desktop",
-    # hexcommander.cpp excluded: dead code, never in APP_COMMON_SRCS or the
-    # legacy FastECU.pro, and its header (also excluded below) declares
-    # Q_OBJECT but isn't in MOC_HDRS -- pulling it in via a bare glob would
-    # silently add it to the build for the first time and fail to link.
-    srcs = glob(
-        ["*.cpp"],
-        exclude = ["hexcommander.cpp"],
-    ),
+    # hexcommander.cpp is deliberately omitted: dead code, never in
+    # APP_COMMON_SRCS or the legacy FastECU.pro, and its header (also omitted
+    # below) declares Q_OBJECT but isn't in MOC_HDRS -- adding it here would
+    # bring it into the build for the first time and fail to link.
+    srcs = [
+        "calibration_maps.cpp",
+        "calibration_treewidget.cpp",
+        "dataterminal.cpp",
+        "definition_file_convert.cpp",
+        "dtc_operations.cpp",
+        "ecu_operations.cpp",
+        "get_key_operations_subaru.cpp",
+        "log_operations_ssm.cpp",
+        "logbox.cpp",
+        "logvalues.cpp",
+        "mainwindow.cpp",
+        "menu_actions.cpp",
+        "protocol_select.cpp",
+        "settings.cpp",
+        "vehicle_select.cpp",
+        "verticallabel.cpp",
+    ],
     hdrs = MOC_HDRS,
     copts = COMMON_COPTS,
     linkopts = select({

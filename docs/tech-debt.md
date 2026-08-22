@@ -254,13 +254,15 @@ target membership by filename pattern at load time, so adding or renaming a
 source silently changes what a target contains — the opposite of the explicit
 ownership the package graph was built for. Three failure modes are live:
 
-- **Test sweep.** Twelve library packages use `srcs = glob(["*.cpp"])` with no
-  `*_test.cpp` exclusion — the nine under `src/ui/desktop`, both `j2534`
-  packages, and `remote_utility`. None contains a test source today, so nothing
-  is broken; the first co-located test added to any of them links into the
-  production library instead of a test target. Packages that already have tests
-  guard against this, but inconsistently — `*_test.cpp`, `test_*.h`, and named
-  constants such as `_FLASH_TRANSPORT_SRCS` all appear.
+- **Test sweep.** Eleven library packages use `srcs = glob(["*.cpp"])` with no
+  `*_test.cpp` exclusion — eight under `src/ui/desktop` (the top-level package,
+  `biu`, `flash/bdm`, `flash/bootmode`, `flash/jtag`, `flash/tcu`, `hexedit`,
+  `hexedit/qhexedit`), both `j2534` packages, and `remote_utility`. None
+  contains a test source today, so nothing is broken; the first co-located test
+  added to any of them links into the production library instead of a test
+  target. Packages that already have tests guard against this, but
+  inconsistently — `*_test.cpp`, `test_*.h`, and named constants such as
+  `_FLASH_TRANSPORT_SRCS` all appear.
 - **MOC partition.** Qt targets pair an explicit `MOC_HDRS` list with
   `normal_hdrs = glob(["*.h"], exclude = MOC_HDRS)`. A new `Q_OBJECT` header
   lands in the globbed half by default, is never moc'd, and fails at link or
@@ -283,8 +285,10 @@ Actions:
   for the moc partition, either a custom resolver or a convention that keeps
   `Q_OBJECT` headers derivable. Treat "no workable mapping for the Qt macros"
   as an acceptable outcome that ends this item.
-- Until then, add `exclude = ["*_test.cpp"]` to the twelve unguarded `*.cpp`
-  globs and settle on one exclusion spelling.
+- Until then, replace the eleven unguarded `*.cpp` globs with explicit `srcs`
+  file lists — the end state Gazelle would generate anyway, and the pattern
+  `//src/ui/desktop/checksum` already follows — rather than papering over the
+  test-sweep failure mode with an `exclude` pattern.
 - Keep hand-maintained policy out of anything a generator rewrites: visibility
   allowlists, `target_compatible_with`, the portable/Qt-free `deps` split, and
   the comments explaining them. These are reviewed decisions, not derivable
