@@ -39,7 +39,7 @@ Learned by reading the legacy sources; these hold for every family unless a task
 
 **Envelope.** Every request is `00 00 07 <id_low>` + PDU. Primary pair is request `0x7E0` / reply `0x7E8`, configured once via `configureIso15765Can(serial, "500000", 0x7E0, 0x7E8)`. The in-car branch additionally addresses `0x7A2`, `0x7DF`, `0x7E1`, `0x7B0` by varying the envelope's 4th byte over the same configured transport.
 
-**`connect_bootloader` structure** (`1n83m_1_5m` lines 90–806, the reference):
+**`connect_bootloader` structure** (`1n83m_1_5m` lines 89-805, the reference):
 
 | Phase | Request PDU | Expected reply | On mismatch | On empty |
 |---|---|---|---|---|
@@ -100,11 +100,11 @@ Deleted per family: `src/platform/desktop/common/flash/legacy/ecu/flash_ecu_<f>_
 
 Read `src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_1n83m_1_5m_can_operation.cpp` end to end (1,536 lines), in particular:
 - `execute()` lines 19–83
-- `connect_bootloader()` lines 90–806, noting the branch at line 341 and that the in-car arm (341–656) and bench arm (657–803) both end in a kernel jump plus a bounded re-read loop with **different** subfunctions (`10 62`/`50 62`, `try_count < 10`) vs (`10 42`/`50 42`, `try_count < 50`)
-- `read_memory()` lines 813–1075, noting lines 826–828 overwrite both arguments with `0x08FAC000` / `0x00173F00`, which equal `fblocks_N83M_1_5MB[1]` exactly
-- `write_memory()` lines 1083–1161 and `reflash_block()` lines 1168–1360
-- `erase_memory()` lines 1365–1467
-- crypto lines 1475–1530
+- `connect_bootloader()` lines 89-805, noting the branch at line 341 and that the in-car arm (341–656) and bench arm (657–803) both end in a kernel jump plus a bounded re-read loop with **different** subfunctions (`10 62`/`50 62`, `try_count < 10`) vs (`10 42`/`50 42`, `try_count < 50`)
+- `read_memory()` lines 813-1074, noting lines 826–828 overwrite both arguments with `0x08FAC000` / `0x00173F00`, which equal `fblocks_N83M_1_5MB[1]` exactly
+- `write_memory()` lines 1082-1160 and `reflash_block()` lines 1167-1359
+- `erase_memory()` lines 1364-1466
+- crypto lines 1474-1529
 
 Confirm against `src/backend/definitions/kernelmemorymodels.h` that `fblocks_N83M_1_5MB[1] == {0x08FAC000, 0x00173F00}` and `numblocks == 3`.
 
@@ -364,9 +364,9 @@ Functions to write, each with its legacy line citation:
 - `Status connect_bootloader(Ctx&, ICanFlashTransport& can)` — preliminary phase, then dispatch on the branch byte to `connect_in_car` or `connect_bench`.
 - `Status connect_bench(Ctx&)` — lines 657–803.
 - `Status connect_in_car(Ctx&, ICanFlashTransport& can)` — lines 341–656. The fire-and-forget writes go through per-id `CanFlashUdsChannel` instances constructed over the same `can` for the id being written; **their replies are read from `can` directly**, not through a channel, because legacy never validates the reply id. Do not add checks legacy lacks.
-- `Result<bytes::Bytes> read_memory(Ctx&, const MemoryRegion&, PhaseReporter&)` — lines 813–1075, including the lead/tail `0xFF` padding that makes the returned image `0x184000` bytes.
-- `Status erase_memory(Ctx&)` — lines 1365–1467, setup PDU then `31 01 02 01 FF FF FF FF` then the `try_count < 20` re-read loop.
-- `Status reflash_block(Ctx&, bytes::ByteView image, PhaseReporter&)` — lines 1168–1360; encrypt the whole image once, `B6` sweep at 256-byte chunks indexed `image[addr - kImageStart]`, close-block retry, checksum verify.
+- `Result<bytes::Bytes> read_memory(Ctx&, const MemoryRegion&, PhaseReporter&)` — lines 813-1074, including the lead/tail `0xFF` padding that makes the returned image `0x184000` bytes.
+- `Status erase_memory(Ctx&)` — lines 1364-1466, setup PDU then `31 01 02 01 FF FF FF FF` then the `try_count < 20` re-read loop.
+- `Status reflash_block(Ctx&, bytes::ByteView image, PhaseReporter&)` — lines 1167-1359; encrypt the whole image once, `B6` sweep at 256-byte chunks indexed `image[addr - kImageStart]`, close-block retry, checksum verify.
 - `Status write_memory(Ctx&, bytes::ByteView, PhaseSequence&)` — lines 1083–1161, `block_modified == {0,1,0}` so block 1 only.
 
 `execute()` mirrors the wave-3 reference: `check_family_transport_match`, `validate_subaru_denso_1n83m_1_5m_can_plan`, early cancellation check, `open_can_iso15765_transport`, `PhaseSequence`, connect, then read or write. Repeat the `TestWrite` → `Unsupported` guard inside `execute()` so a hand-built plan cannot turn a dry run into a real write.
@@ -453,7 +453,7 @@ namespace fastecu::flash
 {
 
 // Legacy: flash_ecu_subaru_denso_sh72531_can_operation.{h,cpp}. Region fields
-// carry what legacy hardcoded in read_memory (lines 829-831) and the 0x34/0x35
+// carry what legacy hardcoded in read_memory (lines 828-830) and the 0x34/0x35
 // setup PDUs: fblocks_SH72531[1] exactly.
 struct SubaruDensoSh72531CanPlan
 {
@@ -506,7 +506,7 @@ This family diverges from Tasks 1 and 3 in four specific ways. Everything else i
 
 - [ ] **Step 1: Read `flash_ecu_subaru_denso_sh72543_can_diesel_operation.cpp` in full (1,556 lines).** Note the four divergences:
   1. **ECU ID uses `22 F1 82` → `62 F1 82`**, not `AA` → `EA`; the reply trim is `remove(0, 7)` keeping everything, not `remove(0, 8)` truncated to 5.
-  2. **The `0x34`/`0x35` setup PDUs are computed** from `start_addr`/`length` rather than hardcoded, and its `read_memory` overwrite at lines 813–814 is **commented out**, so `execute()`'s arguments (`fblocks[0].start`, `fblocks[0].len`) reach it.
+  2. **The `0x34`/`0x35` setup PDUs are computed** from `start_addr`/`length` rather than hardcoded, and its `read_memory` overwrite at lines 812-813 is **commented out**, so `execute()`'s arguments (`fblocks[0].start`, `fblocks[0].len`) reach it.
   3. **`erase_memory(const flashdev_t *fdt, unsigned blockno)`** takes the block, called as `erase_memory(&flashdevices[mcu_type_index], 0)`.
   4. **`block_modified[16] = {1}`** — block 0, not block 1. `fblocks_SH72543d` has `numblocks == 1` with `fblocks[0] == {0x8000, 0x1F7F00}`; its `0x0` entry is commented out in `kernelmemorymodels.h`.
   5. **`reflash_block` indexes `newdata[i + blockctr * blocksize]`** — an image base of `0x8000`, whereas `read_memory` prepends `0x8000` of `0xFF` and hands back an image based at `0x0`. **This port indexes from address `0` instead**, per the spec's write-base divergence. See Step 8a.
@@ -596,7 +596,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, WriteTakesBytesFromTheAbsoluteAddress)
 
 **Interfaces:** Produces `SubaruDenso1n83m_4mCanPlan`, `build_subaru_denso_1n83m_4m_can_plan`, `validate_subaru_denso_1n83m_4m_can_plan`, `SubaruDenso1n83m_4mCanExecutor`.
 
-- [ ] **Step 1: Read `flash_ecu_subaru_denso_1n83m_4m_can_operation.cpp` in full (1,552 lines).** This family's defining property is **seven commented-out `return STATUS_ERROR` statements** — at lines 306, 336, 370 (in `connect_bootloader`) and 877, 884, 918, 925 (in `read_memory`'s two setup checks). At each of those seven points the family **logs and proceeds** where Tasks 1 and 3 abort. It also issues a **duplicate `read_serial_data` after the jump-to-kernel** (an extra read its siblings do not perform) and uses bare `200`/`500` literals where the siblings use named constants. Preserve all of it.
+- [ ] **Step 1: Read `flash_ecu_subaru_denso_1n83m_4m_can_operation.cpp` in full (1,552 lines).** This family's defining property is **seven commented-out `return STATUS_ERROR` statements** — at lines 305, 335, 369 (in `connect_bootloader`) and 876, 883, 917, 924 (in `read_memory`'s two setup checks). At each of those seven points the family **logs and proceeds** where Tasks 1 and 3 abort. It also issues a **duplicate `read_serial_data` after the jump-to-kernel** (an extra read its siblings do not perform) and uses bare `200`/`500` literals where the siblings use named constants. Preserve all of it.
 
 - [ ] **Step 2: Write the types header** — `lead_pad_len = 0x10000`, `tail_pad_len = 0x100`.
 
@@ -619,7 +619,7 @@ TEST(SubaruDenso1n83m_4mCanExecutor, ProceedsPastMalformedConnectResponses)
     // sequence -- the executor is expected to log and continue.
     scriptPreliminariesWithNegativeIdReplies(transport);
     scriptBenchConnectTail(transport);
-    scriptReadSetupWithNegativeReplies(transport);   // legacy lines 877/884/918/925
+    scriptReadSetupWithNegativeReplies(transport);   // legacy lines 876/883/917/924
     scriptFlashDump(transport, 0x08FAC000, 0x3D3F00, 0x100, 0x5A);
     scriptStopCommand(transport);
 
@@ -696,6 +696,6 @@ Expected: PASS with 14 entries remaining.
 ## Notes for the executor of this plan
 
 - **The legacy `.cpp` is the only source of truth for correct bytes, and it is deleted in the same PR as the port.** Transcribe from it, cite it, and do not infer a byte from a sibling family.
-- **Where this plan gives a line range rather than the literal bytes, read the range.** The ranges were verified against `577ce33`; if the file has moved under you, re-locate by function name rather than trusting the number.
+- **Where this plan gives a line range rather than the literal bytes, read the range.** The ranges were verified against master `20892df`, this branch's base; if the file has moved under you, re-locate by function name rather than trusting the number.
 - **`try_count` bounds differ per branch and per family** (50 for bench jump, 10 for in-car jump, 20 for erase, 6 for close-block). Copy them; do not unify them.
 - **`RecordingEventSink` captures log lines.** Where a legacy log string has a portable counterpart, assert it character-for-character — that is how the wave keeps operator-visible behavior stable.
