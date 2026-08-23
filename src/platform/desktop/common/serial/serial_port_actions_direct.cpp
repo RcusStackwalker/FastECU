@@ -524,9 +524,8 @@ QString SerialPortActionsDirect::open_serial_port()
     // QString serial_port_text = serial_port_list.at(1);
 #if defined Q_OS_UNIX
     serial_port = serial_port_prefix_linux + serial_port_list.at(0);
-    const QStringList serial_port_parts = serial_port.split(" - ");
-    QString is_j2534 = (serial_port_parts.size() > 1) ? serial_port_parts.at(1) : QString();
-    serial_port = serial_port_parts.at(0);
+    const bool is_j2534 = isJ2534CapableEntry(serial_port);
+    serial_port = serial_port.split(" - ").at(0);
 #endif
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
     serial_port = serial_port_prefix_win + serial_port_list.at(0);
@@ -534,7 +533,7 @@ QString SerialPortActionsDirect::open_serial_port()
     emit LOG_D("Interface: " + serial_port, true, true);
 
 #if defined Q_OS_UNIX
-    if (!serial_port.isEmpty() && is_j2534.contains("OpenPort 2.0", Qt::CaseInsensitive))
+    if (!serial_port.isEmpty() && is_j2534)
 #else
     if (!serial_port.isEmpty())
 #endif

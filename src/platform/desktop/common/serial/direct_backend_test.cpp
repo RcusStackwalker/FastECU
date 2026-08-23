@@ -21,6 +21,7 @@ class TestDirectBackend : public QObject
     void j2534Selection_usesInstalledDllPathAfterVendorProbe();
     void j2534DriverViews_wow6432NodeVendorIsDiscoverable();
     void j2534DriverViews_laterViewOverwritesOnCollision();
+    void j2534CapableEntry_matchesOnlyTheAdapterDescription();
 };
 
 void TestDirectBackend::getSet_roundtrip_throughInterface()
@@ -97,6 +98,31 @@ void TestDirectBackend::j2534DriverViews_laterViewOverwritesOnCollision()
 
     QCOMPARE(merged.size(), 1);
     QCOMPARE(merged.value("Shared Vendor"), QString("C:\\native\\path.dll"));
+}
+
+// The predicate open_serial_port() branches on, and that
+// open_desktop_can_flash_transport() selects with. Pinned here so the two
+// cannot drift apart (issue #243).
+void TestDirectBackend::j2534CapableEntry_matchesOnlyTheAdapterDescription()
+{
+    QVERIFY(isJ2534CapableEntry(u"cu.usbmodemTApU_RJO1 - OpenPort 2.0"));
+    QVERIFY(isJ2534CapableEntry(u"cu.usbmodem0 - openport 2.0")); // description match is case-insensitive
+#if defined Q_OS_UNIX
+    // macOS enumerates these ahead of the adapter; driving ISO-15765 over one
+    // yields a timeout per exchange, never a response.
+    QVERIFY(!isJ2534CapableEntry(u"cu.Bluetooth-Incoming-Port - "));
+    QVERIFY(!isJ2534CapableEntry(u"cu.debug-console - "));
+    QVERIFY(!isJ2534CapableEntry(u"ttyUSB0 - USB Serial"));
+    QVERIFY(!isJ2534CapableEntry(u"ttyUSB0")); // no separator at all
+    QVERIFY(!isJ2534CapableEntry(u""));
+#else
+    // Windows entries come from getAllJ2534DriversNames(), carry no
+    // description, and open_serial_port() drives every one of them through
+    // J2534 -- rejecting them here would regress Windows.
+    QVERIFY(isJ2534CapableEntry(u"Tactrix Inc. - OpenPort 2.0 J2534 DLL"));
+    QVERIFY(isJ2534CapableEntry(u"Acme J2534 DLL"));
+    QVERIFY(!isJ2534CapableEntry(u""));
+#endif
 }
 
 int main(int argc, char **argv)
