@@ -257,5 +257,26 @@ TEST(BenchArgs, RejectsMalformedHexByteTokens)
     EXPECT_FALSE(parse_hex_bytes(notHex).has_value());
 }
 
+TEST(BenchArgs, VendorExtDefaultsToOff)
+{
+    const std::vector<std::string_view> args{"read", "0x200", "1"};
+    const Result<ParsedCommandLine> parsed = parse_command_line(args);
+
+    ASSERT_TRUE(parsed.has_value());
+    EXPECT_FALSE(parsed->options.vendor_ext);
+}
+
+TEST(BenchArgs, VendorExtFlagIsRecognisedAnywhereOnTheCommandLine)
+{
+    const std::vector<std::string_view> args{"read", "0x200", "1", "--vendor-ext"};
+    const Result<ParsedCommandLine> parsed = parse_command_line(args);
+
+    ASSERT_TRUE(parsed.has_value());
+    EXPECT_TRUE(parsed->options.vendor_ext);
+    // The flag is global, not a step argument: it must not reach the step.
+    ASSERT_EQ(parsed->steps.size(), 1u);
+    EXPECT_EQ(parsed->steps.front().args.size(), 2u);
+}
+
 } // namespace
 } // namespace fastecu::bench
