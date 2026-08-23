@@ -283,7 +283,8 @@ int runBatch(IBenchEnvironment& environment, IBenchFiles& files, const GlobalOpt
 bool isScriptLineGlobalOption(std::string_view token)
 {
     return token == "--port" || token == "--json" || token == "--verbose" || token == "--timeout" ||
-           token == "--keep-going" || token == "--no-connect" || token == "--script";
+           token == "--keep-going" || token == "--no-connect" || token == "--vendor-ext" || token == "--stats" ||
+           token == "--script";
 }
 
 int runScript(IBenchEnvironment& environment, IBenchFiles& files, const GlobalOptions& options, std::istream& input,
