@@ -110,6 +110,51 @@ overhead. Larger chunks amortise only that fixed part, so raising
 `kFlashReadBlockSize` from 192 toward infinity would gain at most ~6%. 192 is
 already close to optimal.
 
+## The write direction is not throttled — the asymmetry matters
+
+Everything above concerns ECU→tester. For UDS TransferData the roles swap: the
+host sends the multi-frame message, and its spacing is set by the STMIN byte in
+the **ECU's** FlowControl frame. That is a different parameter and had to be
+measured separately.
+
+Captured by sending one ISO-TP FirstFrame and stopping — ISO-TP sits beneath the
+application layer, so the ECU's transport answers FlowControl before the
+application layer has seen the service id. No ConsecutiveFrame was sent, so no
+request completed and no write traffic was involved. Taken in **raw CAN mode**,
+where the adapter performs no ISO-TP, so this frame is the ECU's own:
+
+```
+0x7E8   30 00 00
+        |  |  +-- STMIN = 0x00, send as fast as the sender likes
+        |  +----- BS    = 0x00, unlimited: no further FlowControl handshaking
+        +-------- FlowStatus 0x0, ContinueToSend
+```
+
+**The ECU imposes no pacing on traffic sent to it.** So the two directions are
+governed by completely different limits:
+
+| Direction | Limit | Effective spacing |
+| --- | --- | --- |
+| ECU → tester (reads) | ECU's own 5 ms floor | 5000 µs/frame |
+| tester → ECU (writes) | none from the ECU; host + adapter + wire | ~270 µs/frame wire time |
+
+The practical consequence is the reverse of the read case. Reads are ECU-bound
+and we are already at 94.5% of the ceiling, so host-side work buys ~6%. **Writes
+are host-bound**, with no ECU floor to hide behind — which makes the buffered
+serial I/O change worth *more* in the write direction than the read direction it
+was measured on.
+
+Frame time only, for a 512 KiB flash at `kTransferChunkSize` = 256 (37 frames per
+chunk, 2048 chunks) with STMIN=0: **~20 s**. That excludes per-block ECU
+programming time, erase, and per-exchange overhead, so it is a floor, not a
+prediction.
+
+**Not measured:** actual write throughput. Doing so requires real TransferData,
+which is a destructive write gated by
+[the flash qualification matrix](flash-qualification-matrix.md) and the bench
+checklists. The 2.38× headline in this document is a **read** measurement; no
+write measurement exists.
+
 ## What this means for PR #176
 
 [PR #176](https://github.com/RcusStackwalker/FastECU/pull/176) attributed the
