@@ -12,6 +12,7 @@
 #include <cstdint>
 
 #include "J2534_tactrix_unix.h"
+#include "src/platform/desktop/unix/j2534/serial_byte_buffer.h"
 
 // Note: J2534 derives from QObject (not QWidget) — it has no widget behaviour,
 // only Q_OBJECT signals. QObject also lets it be constructed in a headless
@@ -107,6 +108,8 @@ class J2534 : public QObject
 
     bool msg_ack = false;
     bool is_tx_done = false;
+
+    SerialByteBuffer rx_buffer_;
 
     enum rx_msg_type
     {
