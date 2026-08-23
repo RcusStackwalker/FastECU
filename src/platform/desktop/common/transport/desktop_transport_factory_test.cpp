@@ -43,17 +43,17 @@ class TestDesktopTransportFactory : public QObject
     void listsEveryDetectedPort()
     {
         FakeBackend *fake = nullptr;
-        const auto ports = list_desktop_serial_ports(configWith(&fake, {"op2-0", "op2-1"}, ""));
+        const auto ports = list_desktop_serial_ports(configWith(&fake, {kOpenPort0, kOpenPort1}, ""));
 
         QVERIFY(ports.has_value());
         QCOMPARE(ports->size(), 2u);
-        QCOMPARE(QString::fromStdString((*ports)[1]), QString("op2-1"));
+        QCOMPARE(QString::fromStdString((*ports)[1]), kOpenPort1);
     }
 
     void refusesToOpenWhenNoDeviceIsDetected()
     {
         FakeBackend *fake = nullptr;
-        const auto transport = open_desktop_can_flash_transport(configWith(&fake, {}, "op2-0"), kColtCan);
+        const auto transport = open_desktop_can_flash_transport(configWith(&fake, {}, kOpenPort0), kColtCan);
 
         QVERIFY(!transport.has_value());
         QCOMPARE(transport.error().kind, ErrorKind::Disconnected);
@@ -62,29 +62,68 @@ class TestDesktopTransportFactory : public QObject
     void refusesToOpenWhenTheNamedDeviceIsAbsent()
     {
         FakeBackend *fake = nullptr;
-        auto config = configWith(&fake, {"op2-0"}, "op2-0");
-        config.port_name = "op2-7";
+        auto config = configWith(&fake, {kOpenPort0}, kOpenPort0);
+        config.port_name = "op2-7 - OpenPort 2.0";
         const auto transport = open_desktop_can_flash_transport(config, kColtCan);
 
         QVERIFY(!transport.has_value());
         QCOMPARE(transport.error().kind, ErrorKind::InvalidConfig);
     }
 
-    void selectsTheFirstDeviceWhenNoNameIsGiven()
+    void selectsTheFirstJ2534DeviceWhenNoNameIsGiven()
     {
         FakeBackend *fake = nullptr;
         const auto transport =
-            open_desktop_can_flash_transport(configWith(&fake, {"op2-0", "op2-1"}, "op2-0"), kColtCan);
+            open_desktop_can_flash_transport(configWith(&fake, {kOpenPort0, kOpenPort1}, kOpenPort0), kColtCan);
 
         QVERIFY(transport.has_value());
-        QCOMPARE(fake->get_serial_port_list(), QStringList({"op2-0"}));
+        QCOMPARE(fake->get_serial_port_list(), QStringList({kOpenPort0}));
+    }
+
+    // Regression: QSerialPortInfo sorts "cu.Bluetooth-Incoming-Port - " ahead
+    // of the adapter on macOS, so the implicit default used to land on a port
+    // that SerialPortActionsDirect::open_serial_port() never drives through
+    // J2534 -- it silently falls back to a dumb serial port and every
+    // ISO-15765 exchange then times out with no response PDU.
+    void skipsNonJ2534PortsWhenNoNameIsGiven()
+    {
+        FakeBackend *fake = nullptr;
+        const auto transport = open_desktop_can_flash_transport(
+            configWith(&fake, {kBluetoothPort, kOpenPort0}, kOpenPort0), kColtCan);
+
+        QVERIFY(transport.has_value());
+        QCOMPARE(fake->get_serial_port_list(), QStringList({kOpenPort0}));
+    }
+
+    void refusesToOpenWhenNoDetectedPortIsAJ2534Adapter()
+    {
+        FakeBackend *fake = nullptr;
+        const auto transport =
+            open_desktop_can_flash_transport(configWith(&fake, {kBluetoothPort}, kBluetoothPort), kColtCan);
+
+        QVERIFY(!transport.has_value());
+        QCOMPARE(transport.error().kind, ErrorKind::Disconnected);
+    }
+
+    // Naming the dead port explicitly must fail loudly for the same reason:
+    // ISO-15765 cannot run over a plain serial port, so accepting it only
+    // buys a five-second timeout per exchange.
+    void refusesToOpenWhenTheNamedDeviceIsNotAJ2534Adapter()
+    {
+        FakeBackend *fake = nullptr;
+        auto config = configWith(&fake, {kBluetoothPort, kOpenPort0}, kBluetoothPort);
+        config.port_name = kBluetoothPort.toStdString();
+        const auto transport = open_desktop_can_flash_transport(config, kColtCan);
+
+        QVERIFY(!transport.has_value());
+        QCOMPARE(transport.error().kind, ErrorKind::InvalidConfig);
     }
 
     void reportsDisconnectedWhenTheOpenFails()
     {
         FakeBackend *fake = nullptr;
         // Empty openSerialPortResult is FakeBackend's failure sentinel.
-        const auto transport = open_desktop_can_flash_transport(configWith(&fake, {"op2-0"}, ""), kColtCan);
+        const auto transport = open_desktop_can_flash_transport(configWith(&fake, {kOpenPort0}, ""), kColtCan);
 
         QVERIFY(!transport.has_value());
         QCOMPARE(transport.error().kind, ErrorKind::Disconnected);
