@@ -30,6 +30,7 @@ that `docs/bench-cli-checklist.md` requires.**
 | `can_tx_probe.py` | Is the ECU electrically present? Transmits one frame and looks for the ACK plus a reply. A CAN frame needs another node to acknowledge it, so this distinguishes "ECU not answering" from "ECU not on the bus". |
 | `isotp_timing.py` | Where does the per-frame dead time come from? Hand-rolls ISO-TP over raw CAN so the host chooses STMIN, then reports adapter microsecond timestamps per frame. Takes STMIN as an argument. |
 | `ts_control.py` | **Control for `isotp_timing.py`.** Do the adapter's timestamps measure wire arrival, or a dequeue tick? Transmits back-to-back frames with no ECU involved and reads its own loopback timestamps. Without this, evenly-spaced timestamps prove nothing. |
+| `fc_probe.py` | What spacing does the ECU demand of **us** — the write direction? Sends one ISO-TP FirstFrame and stops, reading BS/STMIN off the FlowControl the ECU's transport layer must send before the application layer sees the service id. No ConsecutiveFrame follows, so no request completes and no write traffic occurs. |
 
 ## Findings these produced
 
@@ -45,6 +46,9 @@ Recorded in full in [bench measurements](../../docs/j2534-throughput-bench-notes
 3. **That floor is not an instrument artifact.** `ts_control.py` shows the
    adapter's own loopback frames 471 µs apart, so its timestamp path resolves
    far finer than 5 ms.
+4. **The write direction is not throttled at all.** `fc_probe.py` shows the ECU
+   answering `30 00 00` — ContinueToSend, BS=0, STMIN=0. Reads are ECU-bound;
+   writes are host-bound.
 
 ## Reproducing
 
@@ -54,6 +58,7 @@ python3 tools/investigation/can_tx_probe.py      # does the ECU answer at all?
 python3 tools/investigation/ts_control.py 12     # validate the instrument FIRST
 python3 tools/investigation/isotp_timing.py 00   # then measure frame pacing
 python3 tools/investigation/isotp_timing.py 14   # and confirm STMIN is honoured
+python3 tools/investigation/fc_probe.py          # what the ECU demands of us
 ```
 
 Run `ts_control.py` before believing any `isotp_timing.py` result. The original
