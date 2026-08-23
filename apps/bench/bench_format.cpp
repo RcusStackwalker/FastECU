@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <format>
+#include <optional>
 
 namespace fastecu::bench
 {
@@ -67,9 +68,27 @@ std::string jsonEscaped(std::string_view text)
     return out;
 }
 
+std::optional<double> bytesPerSecond(const CommandOutcome& outcome)
+{
+    if (outcome.data.empty() || outcome.elapsed_ms == 0)
+    {
+        return std::nullopt;
+    }
+    return static_cast<double>(outcome.data.size()) * 1000.0 / static_cast<double>(outcome.elapsed_ms);
+}
+
+std::optional<double> msPerExchange(const CommandOutcome& outcome)
+{
+    if (outcome.exchange_count == 0)
+    {
+        return std::nullopt;
+    }
+    return static_cast<double>(outcome.elapsed_ms) / static_cast<double>(outcome.exchange_count);
+}
+
 } // namespace
 
-std::string format_text(const CommandOutcome& outcome)
+std::string format_text(const CommandOutcome& outcome, bool stats)
 {
     std::string out = std::format("{}\n", outcome.step);
     out += std::format("  {} {} ({} ms)\n", outcome.exchange_count,
@@ -93,6 +112,23 @@ std::string format_text(const CommandOutcome& outcome)
     {
         out += std::format("  battery {:.3f} V\n", *outcome.vbatt);
     }
+    if (stats)
+    {
+        const std::optional<double> rate = bytesPerSecond(outcome);
+        const std::optional<double> per_exchange = msPerExchange(outcome);
+        if (rate.has_value() && per_exchange.has_value())
+        {
+            out += std::format("  {:.1f} bytes/s, {:.1f} ms/exchange\n", *rate, *per_exchange);
+        }
+        else if (rate.has_value())
+        {
+            out += std::format("  {:.1f} bytes/s\n", *rate);
+        }
+        else if (per_exchange.has_value())
+        {
+            out += std::format("  {:.1f} ms/exchange\n", *per_exchange);
+        }
+    }
     out += outcome.ok ? std::format("  ok ({} ms)\n", outcome.elapsed_ms)
                       : std::format("  FAIL ({}) {}\n",
                                     outcome.error_kind.has_value() ? to_string(*outcome.error_kind) : "Internal",
@@ -100,7 +136,7 @@ std::string format_text(const CommandOutcome& outcome)
     return out;
 }
 
-std::string format_json(const CommandOutcome& outcome)
+std::string format_json(const CommandOutcome& outcome, bool stats)
 {
     std::string out = std::format(
         R"({{"step":"{}","exchanges":{},"tx":"{}","rx":"{}","last_tx":"{}","last_rx":"{}","data":"{}","ms":{},"ok":{})",
@@ -119,6 +155,17 @@ std::string format_json(const CommandOutcome& outcome)
     {
         out += std::format(R"(,"error_kind":"{}","error_detail":"{}")", to_string(*outcome.error_kind),
                            jsonEscaped(outcome.error_detail));
+    }
+    if (stats)
+    {
+        if (const std::optional<double> rate = bytesPerSecond(outcome); rate.has_value())
+        {
+            out += std::format(R"(,"bytes_per_s":{:.1f})", *rate);
+        }
+        if (const std::optional<double> per_exchange = msPerExchange(outcome); per_exchange.has_value())
+        {
+            out += std::format(R"(,"ms_per_exchange":{:.1f})", *per_exchange);
+        }
     }
     out += "}";
     return out;

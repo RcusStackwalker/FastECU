@@ -278,5 +278,14 @@ TEST(BenchArgs, VendorExtFlagIsRecognisedAnywhereOnTheCommandLine)
     EXPECT_EQ(parsed->steps.front().args.size(), 2u);
 }
 
+TEST(BenchArgs, StatsFlagIsRecognised)
+{
+    const std::vector<std::string_view> args{"--stats", "read", "0x200", "1"};
+    const Result<ParsedCommandLine> parsed = parse_command_line(args);
+
+    ASSERT_TRUE(parsed.has_value());
+    EXPECT_TRUE(parsed->options.stats);
+}
+
 } // namespace
 } // namespace fastecu::bench

@@ -31,6 +31,8 @@ struct GlobalOptions
     // a bare 0x10 0x85; stock ROMs must not be sent it.
     bool vendor_ext = false;
     bool script_stdin = false;
+    // Prints derived throughput figures alongside each outcome.
+    bool stats = false;
 };
 
 struct ParsedCommandLine

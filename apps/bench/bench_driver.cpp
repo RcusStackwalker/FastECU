@@ -53,7 +53,8 @@ CommandOutcome failedOutcome(std::string step, const Error& error, const Traffic
 
 void emit(const GlobalOptions& options, const CommandOutcome& outcome, std::ostream& output)
 {
-    const std::string rendered = options.json ? format_json(outcome) : format_text(outcome);
+    const std::string rendered =
+        options.json ? format_json(outcome, options.stats) : format_text(outcome, options.stats);
     output << rendered;
     if (rendered.empty() || rendered.back() != '\n')
     {
