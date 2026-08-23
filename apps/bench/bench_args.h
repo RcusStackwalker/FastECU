@@ -26,7 +26,13 @@ struct GlobalOptions
     int timeout_ms = 500;
     bool keep_going = false;
     bool no_connect = false;
+    // Runs the third-party vendor diagnostic challenge before the bootload
+    // session. Required by ROMs carrying that extension, which do not answer
+    // a bare 0x10 0x85; stock ROMs must not be sent it.
+    bool vendor_ext = false;
     bool script_stdin = false;
+    // Prints derived throughput figures alongside each outcome.
+    bool stats = false;
 };
 
 struct ParsedCommandLine

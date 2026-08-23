@@ -20,7 +20,8 @@ class BenchSession final : public IBenchSession
 {
   public:
     BenchSession(std::unique_ptr<flash::ICanFlashTransport> transport, std::uint32_t request_id,
-                 std::uint32_t response_id, IClock& clock, IEventSink& events, const ICancellationToken& cancellation);
+                 std::uint32_t response_id, IClock& clock, IEventSink& events, const ICancellationToken& cancellation,
+                 bool vendor_challenge = false);
 
     Status connect() override;
     Result<bytes::Bytes> exchange(bytes::ByteView pdu, const uds::ExchangePolicy& policy) override;
@@ -52,6 +53,7 @@ class BenchSession final : public IBenchSession
     uds::UdsClient client_;
     const ICancellationToken& cancellation_;
     TrafficEvidence last_traffic_;
+    bool vendor_challenge_;
 };
 
 } // namespace fastecu::bench

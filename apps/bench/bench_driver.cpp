@@ -53,7 +53,8 @@ CommandOutcome failedOutcome(std::string step, const Error& error, const Traffic
 
 void emit(const GlobalOptions& options, const CommandOutcome& outcome, std::ostream& output)
 {
-    const std::string rendered = options.json ? format_json(outcome) : format_text(outcome);
+    const std::string rendered =
+        options.json ? format_json(outcome, options.stats) : format_text(outcome, options.stats);
     output << rendered;
     if (rendered.empty() || rendered.back() != '\n')
     {
@@ -282,7 +283,8 @@ int runBatch(IBenchEnvironment& environment, IBenchFiles& files, const GlobalOpt
 bool isScriptLineGlobalOption(std::string_view token)
 {
     return token == "--port" || token == "--json" || token == "--verbose" || token == "--timeout" ||
-           token == "--keep-going" || token == "--no-connect" || token == "--script";
+           token == "--keep-going" || token == "--no-connect" || token == "--vendor-ext" || token == "--stats" ||
+           token == "--script";
 }
 
 int runScript(IBenchEnvironment& environment, IBenchFiles& files, const GlobalOptions& options, std::istream& input,

@@ -65,6 +65,7 @@ cc_library(
     deps = [
         ":bench_core",
         "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
+        "//src/algorithms/protocol/colt:mitsu_colt_can_vendor_ext_protocol",
         "//src/backend/flash:can_flash_uds_channel",
         "//src/backend/protocol/uds:uds_client",
     ],
@@ -75,6 +76,7 @@ fastecu_portable_gtest(
     srcs = ["bench_session_test.cpp"],
     deps = [
         ":bench_session_runtime",
+        "//src/algorithms/protocol/colt:mitsu_colt_can_vendor_ext_protocol",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",

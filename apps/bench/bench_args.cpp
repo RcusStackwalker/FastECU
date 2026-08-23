@@ -184,6 +184,16 @@ Result<ParsedCommandLine> parse_command_line(std::span<const std::string_view> a
             parsed.options.no_connect = true;
             continue;
         }
+        if (arg == "--vendor-ext")
+        {
+            parsed.options.vendor_ext = true;
+            continue;
+        }
+        if (arg == "--stats")
+        {
+            parsed.options.stats = true;
+            continue;
+        }
         if (arg == "--script")
         {
             std::string_view value;

@@ -3,10 +3,43 @@
 #include <QThread>
 
 #include <algorithm>
+#include <chrono>
 #include <format>
 #include <string>
 
 J2534::J2534()
+    : rx_buffer_(
+          [this]
+          {
+              if (!is_serial_port_open())
+              {
+                  return QByteArray{};
+              }
+              const qint64 available = serial->bytesAvailable();
+              return available > 0 ? serial->read(available) : QByteArray{};
+          },
+          [this](int ms)
+          {
+              if (is_serial_port_open())
+              {
+                  serial->waitForReadyRead(ms);
+              }
+              else
+              {
+                  // No port to wait on: still yield for `ms` so a closed-port
+                  // read costs the same wall-clock as before (SerialByteBuffer's
+                  // take() loop calls this every iteration until its own
+                  // deadline), instead of busy-spinning at 100% CPU for the
+                  // whole timeout with no actual wait happening.
+                  delay(ms);
+              }
+          },
+          []
+          {
+              return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                                                    std::chrono::steady_clock::now().time_since_epoch())
+                                                    .count());
+          })
 {
 }
 
@@ -34,6 +67,7 @@ QString J2534::open_serial_port(const QString& serial_port)
                 serial->clearError();
                 serial->clear();
                 serial->flush();
+                rx_buffer_.clear();
                 opened_serial_port = serial_port;
                 // connect(serial, SIGNAL(readyRead()), this, SLOT(ReadSerialDataSlot()), Qt::DirectConnection);
                 qRegisterMetaType<QSerialPort::SerialPortError>();
@@ -65,6 +99,7 @@ void J2534::close_serial_port()
     if (is_serial_port_open())
     {
         serial->close();
+        rx_buffer_.clear();
         delay(100);
     }
     opened_serial_port = "";
@@ -80,49 +115,28 @@ bool J2534::is_serial_port_open()
 
 QByteArray J2534::read_serial_data(uint32_t datalen, uint16_t timeout)
 {
-    QByteArray ReceivedData;
-    QByteArray PayloadData;
-
-    ReceivedData.clear();
-
-    if (is_serial_port_open())
-    {
-        QTime dieTime = QTime::currentTime().addMSecs(timeout);
-        while ((uint32_t)ReceivedData.length() < datalen && (QTime::currentTime() < dieTime))
-        {
-            if (serial->bytesAvailable())
-            {
-                dieTime = QTime::currentTime().addMSecs(timeout);
-                ReceivedData.append(serial->read(1));
-            }
-            serial->waitForReadyRead(1);
-        }
-        // emit LOG_D("Read J2534 msg:" << parseMessageToHex(ReceivedData);
-    }
-
-    return ReceivedData;
+    return rx_buffer_.take(datalen, timeout);
 }
 
 int J2534::write_serial_data(const QByteArray& output)
 {
-    QByteArray received;
-    QByteArray msg;
-    long result = STATUS_NOERROR;
-
-    if (is_serial_port_open())
+    if (!is_serial_port_open())
     {
-        // emit LOG_D("Send J2534 msg:" << parseMessageToHex(output);
-        for (int i = 0; i < output.length(); i++)
-        {
-            msg.clear();
-            msg.append(output.at(i));
-            serial->write(msg, 1);
-        }
-
-        return result;
+        return 1;
     }
-
-    return 1;
+    // One write, then an explicit flush. The previous per-byte loop left the
+    // data sitting in Qt's write buffer until some later waitForReadyRead
+    // happened to pump the event loop, so transmission was both fragmented
+    // and timed by an unrelated call.
+    if (serial->write(output) != output.size())
+    {
+        return 1;
+    }
+    if (!serial->waitForBytesWritten(serial_read_short_timeout))
+    {
+        return 1;
+    }
+    return STATUS_NOERROR;
 }
 
 QByteArray J2534::write_serial_iso14230_data(QByteArray output)

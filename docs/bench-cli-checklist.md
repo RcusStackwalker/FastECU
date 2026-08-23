@@ -158,10 +158,11 @@ session — they are documented behavior, not bugs to route around mid-run.
       byte-identical userspace and top-bank readback; use a full dump comparison
       when qualifying deliberately patched images.
 - [ ] With `--script -`, global options (`--port`, `--json`, `--verbose`,
-      `--timeout`, `--keep-going`, `--no-connect`, `--script`) belong on the
-      outer invocation. They are rejected on individual script lines rather
-      than silently discarded. Step-local `--destructive` and
-      `upload-routine --from <file>` remain valid on script lines.
+      `--timeout`, `--keep-going`, `--no-connect`, `--vendor-ext`,
+      `--stats`, `--script`) belong on the outer invocation. They are
+      rejected on individual script lines rather than silently discarded.
+      Step-local `--destructive` and `upload-routine --from <file>` remain
+      valid on script lines.
 
 ## 5. Sign-off
 

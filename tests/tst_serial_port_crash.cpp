@@ -23,13 +23,15 @@
 
 #include <QtTest>
 #include <QByteArray>
+#include <QElapsedTimer>
 
 #if defined(__linux__)
 #include <pty.h> // openpty
 #else
 #include <util.h> // openpty
 #endif
-#include <unistd.h> // read/write/close
+#include <sys/resource.h> // getrusage
+#include <unistd.h>       // read/write/close
 
 #include "src/platform/desktop/unix/j2534/J2534_unix.h"
 #include "src/platform/desktop/common/serial/serial_port_actions_direct.h"
@@ -85,6 +87,7 @@ class SerialPortCrashTest : public QObject
   private slots:
     void isSerialPortOpen_withNullSerial_doesNotCrash();
     void readSerialData_withNullSerial_doesNotCrash();
+    void readSerialData_withNullSerial_doesNotBusySpin();
     void passThruReadMsgs_withNullSerial_doesNotCrash();
     void readVbatt_throughNullJ2534Serial_doesNotCrash();
     void reentrantReadDuringTeardown_viaEventLoop_doesNotCrash();
@@ -124,6 +127,51 @@ void SerialPortCrashTest::readSerialData_withNullSerial_doesNotCrash()
     // read_serial_data() opens with `if (serial->isOpen())` — the guard itself
     // dereferences the null serial.
     QCOMPARE(j2534.read_serial_data(3, 50), QByteArray());
+}
+
+void SerialPortCrashTest::readSerialData_withNullSerial_doesNotBusySpin()
+{
+    // Regression for a busy-spin the SerialByteBuffer wiring introduced: with
+    // `serial` null (torn down), the read path's wait callable used to be a
+    // no-op, so SerialByteBuffer::take's poll/wait loop spun at 100% CPU for
+    // the whole timeout instead of yielding -- a real hazard on a
+    // hardware-facing app's disconnect path.
+    //
+    // The call still blocks for roughly the requested timeout either way
+    // (that silence-timeout semantic is unchanged and out of scope here);
+    // what must differ is how much of that wall-clock time is *consumed* CPU.
+    // A busy spin burns CPU close to the full elapsed time; a real sleep
+    // burns close to none. Comparing CPU time actually used against wall-clock
+    // elapsed is a structural check, not a timing race, so it should not be
+    // flaky under CI load.
+    TestableJ2534 j2534;
+    j2534.detachSerialPort();
+
+    rusage before{};
+    getrusage(RUSAGE_SELF, &before);
+    QElapsedTimer wall;
+    wall.start();
+
+    QCOMPARE(j2534.read_serial_data(3, 50), QByteArray());
+
+    const qint64 elapsedMs = wall.elapsed();
+    rusage after{};
+    getrusage(RUSAGE_SELF, &after);
+
+    const auto to_ms = [](const timeval& tv) { return static_cast<qint64>(tv.tv_sec) * 1000 + tv.tv_usec / 1000; };
+    const qint64 cpuMsBefore = to_ms(before.ru_utime) + to_ms(before.ru_stime);
+    const qint64 cpuMsAfter = to_ms(after.ru_utime) + to_ms(after.ru_stime);
+    const qint64 cpuMs = cpuMsAfter - cpuMsBefore;
+
+    // Generous, non-flaky cutoff: a genuine busy spin burns CPU roughly equal
+    // to elapsed wall-clock; a properly-yielding sleep burns a small fraction
+    // of it. Half the elapsed time (plus a small floor for scheduler noise on
+    // a loaded CI box) safely separates the two without being timing-sensitive.
+    QVERIFY2(
+        cpuMs < elapsedMs / 2 + 5,
+        qPrintable(QString("closed-port read burned %1 ms of CPU across %2 ms wall-clock -- looks like a busy spin")
+                       .arg(cpuMs)
+                       .arg(elapsedMs)));
 }
 
 void SerialPortCrashTest::passThruReadMsgs_withNullSerial_doesNotCrash()

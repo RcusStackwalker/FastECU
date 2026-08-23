@@ -173,5 +173,63 @@ TEST(BenchTypes, FindCommandResolvesByNameAndRejectsUnknown)
     EXPECT_EQ(find_command("definitely-not-a-command"), nullptr);
 }
 
+TEST(BenchFormat, StatsAreOmittedUnlessRequested)
+{
+    const CommandOutcome outcome{
+        .step = "read 0x200 4", .exchange_count = 2, .data = bytes::Bytes{1, 2, 3, 4}, .elapsed_ms = 100, .ok = true};
+
+    EXPECT_EQ(format_text(outcome).find("bytes/s"), std::string::npos);
+    EXPECT_EQ(format_json(outcome).find("bytes_per_s"), std::string::npos);
+}
+
+TEST(BenchFormatStats, JsonCarriesBothDerivedFigures)
+{
+    const CommandOutcome outcome{
+        .step = "read 0x200 4", .exchange_count = 2, .data = bytes::Bytes{1, 2, 3, 4}, .elapsed_ms = 100, .ok = true};
+
+    const std::string json = format_json(outcome, true);
+
+    // 4 bytes / 0.100 s = 40 bytes/s; 100 ms / 2 exchanges = 50 ms.
+    EXPECT_NE(json.find(R"("bytes_per_s":40.0)"), std::string::npos);
+    EXPECT_NE(json.find(R"("ms_per_exchange":50.0)"), std::string::npos);
+}
+
+TEST(BenchFormatStats, BytesPerSecondIsOmittedWithoutData)
+{
+    const CommandOutcome outcome{.step = "erase", .exchange_count = 1, .elapsed_ms = 100, .ok = true};
+
+    const std::string json = format_json(outcome, true);
+
+    EXPECT_EQ(json.find("bytes_per_s"), std::string::npos);
+    EXPECT_NE(json.find(R"("ms_per_exchange":100.0)"), std::string::npos);
+}
+
+TEST(BenchFormatStats, BytesPerSecondIsOmittedWhenNoTimeElapsed)
+{
+    const CommandOutcome outcome{
+        .step = "read 0x200 4", .exchange_count = 1, .data = bytes::Bytes{1, 2, 3, 4}, .elapsed_ms = 0, .ok = true};
+
+    const std::string json = format_json(outcome, true);
+
+    EXPECT_EQ(json.find("bytes_per_s"), std::string::npos);
+}
+
+TEST(BenchFormatStats, MsPerExchangeIsOmittedWithoutExchanges)
+{
+    const CommandOutcome outcome{.step = "ports", .exchange_count = 0, .elapsed_ms = 5, .ok = true};
+
+    const std::string json = format_json(outcome, true);
+
+    EXPECT_EQ(json.find("ms_per_exchange"), std::string::npos);
+}
+
+TEST(BenchFormatStats, TextModePrintsAnIndentedStatsLine)
+{
+    const CommandOutcome outcome{
+        .step = "read 0x200 4", .exchange_count = 2, .data = bytes::Bytes{1, 2, 3, 4}, .elapsed_ms = 100, .ok = true};
+
+    EXPECT_NE(format_text(outcome, true).find("  40.0 bytes/s, 50.0 ms/exchange\n"), std::string::npos);
+}
+
 } // namespace
 } // namespace fastecu::bench

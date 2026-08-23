@@ -217,6 +217,19 @@ TEST(BenchDriver, ScriptLineGlobalOptionsAreRejectedInsteadOfDiscarded)
     EXPECT_NE(harness.diagnostics.str().find("script-line global option"), std::string::npos);
 }
 
+TEST(BenchDriver, ScriptLineVendorExtIsRejectedInsteadOfDiscarded)
+{
+    Harness harness;
+
+    const int code = harness.run({"--json", "--script", "-"}, "read 0x200 1 --vendor-ext\n");
+
+    EXPECT_EQ(code, exit_code_for(ErrorKind::InvalidConfig));
+    EXPECT_EQ(harness.environment.session_calls, 0);
+    EXPECT_EQ(newlineCount(harness.output.str()), 1u);
+    EXPECT_NE(harness.output.str().find("script-line global option"), std::string::npos);
+    EXPECT_NE(harness.diagnostics.str().find("script-line global option"), std::string::npos);
+}
+
 TEST(BenchDriver, JsonConnectFailureIsAnOutcomeWithTraffic)
 {
     Harness harness;
