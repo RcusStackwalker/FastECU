@@ -14,12 +14,15 @@ machine.
 
 ## Safety
 
-All five are read-only with respect to ECU state. `can_tx_probe.py` and
+All six are read-only with respect to ECU state. `can_tx_probe.py` and
 `isotp_timing.py` transmit, but only UDS `0x10` (StartDiagnosticSession) and
 `0x23` (ReadMemoryByAddress), which is what `fastecu-bench read` already sends.
-None of them writes ECU memory, erases, or unlocks. **Do not extend them to send
-SID `0x3B`, `0x34`, `0x36`, or RoutineControl `0x31/0xE0` without the gating
-that `docs/bench-cli-checklist.md` requires.**
+`fc_probe.py` transmits a single ISO-TP FirstFrame and deliberately never
+follows it with a ConsecutiveFrame, so no request ever completes — the ECU's
+N_Cr timer expires and discards the partial message. None of them writes ECU
+memory, erases, or unlocks. **Do not extend them to send SID `0x3B`, `0x34`,
+`0x36`, or RoutineControl `0x31/0xE0` without the gating that
+`docs/bench-cli-checklist.md` requires.**
 
 ## The probes
 
