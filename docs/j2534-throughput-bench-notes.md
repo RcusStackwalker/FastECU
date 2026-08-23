@@ -52,6 +52,45 @@ asked for 0. **5 ms per consecutive frame is an ECU-side floor.** CAN wire time
 for one 8-byte frame at 500 kbit/s is ~270 µs, so 94% of each frame slot is the
 ECU's own pacing.
 
+### Ruling out the adapter as the source of the 5 ms
+
+Those gaps come from OpenPort timestamps, which only support the conclusion if
+the adapter stamps a frame at wire arrival. If it stamped at dequeue and drained
+its RX queue on a periodic tick, evenly-spaced timestamps would be an artifact
+of the tick and would say nothing about the ECU — and a 5 ms tick fits both rows
+of the table above, since 20 ms is a multiple of 5 ms.
+
+Control experiment, ECU removed from the question entirely: the adapter
+transmits 12 frames back-to-back on an unused id (`0x123`) and we read the
+timestamps of its own TX loopback records. Nothing paces these but the bus.
+
+```
+mean gap 471 us  (min 464, max 480, n=11)
+```
+
+Sub-millisecond and tightly clustered, against a 5 ms hypothesis that would have
+produced either 5 ms spacing or batched identical timestamps. The adapter's
+timestamp path resolves events far finer than 5 ms, so the 5.00 ms gaps from the
+ECU are real bus-level pacing. (The 471 µs sits above the ~270 µs theoretical
+wire time because each frame required its own `att` command over USB; that makes
+471 µs an upper bound on the adapter's reporting granularity, not a floor.)
+
+Two further observations point the same way and do not depend on the control:
+
+- In the first raw-CAN exchange, the ECU's reply was timestamped **5822 µs**
+  after our transmitted frame's loopback. A 5 ms-quantised report path could not
+  produce 5822 µs.
+- In the STMIN=0 run the FirstFrame→first-ConsecutiveFrame gap was 25 ms,
+  tracking when the host sent its FlowControl frame rather than any fixed
+  cadence — the ECU was reacting to flow control in real time.
+
+This does not rule out the adapter's **ISO15765** engine having its own pacing,
+but that engine is not in the path here: these measurements ran on raw CAN
+(protocol 5) with host-side ISO-TP. Independently, `fastecu-bench` measured
+144 ms/exchange *through* the adapter's ISO15765 engine for the same 192-byte
+read, against ~155 ms measured on raw CAN — the two paths agree, so neither is
+adding pacing the other lacks.
+
 That gives a hard ceiling of 7 payload bytes per 5 ms:
 
 ```
