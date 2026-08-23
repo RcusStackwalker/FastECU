@@ -149,11 +149,63 @@ chunk, 2048 chunks) with STMIN=0: **~20 s**. That excludes per-block ECU
 programming time, erase, and per-exchange overhead, so it is a floor, not a
 prediction.
 
-**Not measured:** actual write throughput. Doing so requires real TransferData,
-which is a destructive write gated by
-[the flash qualification matrix](flash-qualification-matrix.md) and the bench
-checklists. The 2.38× headline in this document is a **read** measurement; no
-write measurement exists.
+### Measured: writes really are ~7.7x faster than reads
+
+Confirmed by a destructive erase-and-rewrite of userspace `0x8000..0x5FFFF` with
+its own original contents, on the spare bench ECU. The prediction above held
+quantitatively, not merely directionally.
+
+| Direction | Service | Chunk | ms/exchange | Throughput |
+| --- | --- | --- | --- | --- |
+| Read | `0x23` ReadMemoryByAddress | 192 B | 144.9 | 1 324 B/s |
+| Write | `0x36` TransferData | 256 B | 25.0 | **10 230 B/s** |
+
+360 448 bytes written in **35.2 s** over 1412 exchanges. Reading the same region
+back took **272 s**.
+
+Per write exchange: 37 frames x ~270 µs of wire time is ~10 ms, leaving ~15 ms
+of ECU flash-programming time per 256-byte block. Writes are now split roughly
+evenly between wire and ECU; the host is no longer dominant in either term.
+
+Full sequence, all steps successful:
+
+| Step | Exchanges | Time | Result |
+| --- | --- | --- | --- |
+| `upload-routine write-page` | 5 | 55 ms | 176 bytes to `0x8054ac` |
+| `upload-routine erase-page` | 5 | 55 ms | 160 bytes to `0x805568` |
+| `unlock` | 1 | 260 ms | no lockup |
+| `erase` | 1 | 165 ms | `status=0x00` |
+| `download 0x8000` | 1412 | 35 233 ms | 10 230 B/s |
+
+**Round-trip verification.** Both flash regions read back byte-identical to
+their pre-test contents, and both match the SHA-256 values already recorded in
+[the bench CLI checklist](bench-cli-checklist.md) from the earlier qualification
+session:
+
+```
+userspace    0x8000..0x5FFFF   0e572f84796cc55c40f23ffd7506957c5f9a7ed75dc5f0e9e4a5662464c141c0
+top region   0x60000..0x7FFFF  09d69fe0357997a97a843d1d8e16926d23d5941223a92fd6172d698119711380
+```
+
+**The CRC check reported a false negative, again.** `download` returned
+`status=0x01 (CRC mismatch)` on a write that was byte-perfect. The checklist
+already documents that this bootloader runs a code-integrity check after the
+byte sums match and returns the same status when *that* fails, so `0x01` cannot
+distinguish a bad write from an image the ECU dislikes. This run is a second
+independent instance. Treat a full dump comparison as the only authority.
+
+**The CLI's erase guard is stricter than the desktop executor's own sequence.**
+The first attempt was rejected at parse time — correctly, before connecting and
+before anything was erased — because `upload-routine write-page` between
+`erase-page` and `unlock` counts as an intervening destructive step. But
+`MitsuColtM32rCanExecutor` does exactly `erase-page` -> `write-page` -> `unlock`
+-> `erase`. The CLI cannot express the sequence its desktop counterpart uses;
+the two uploads had to be reordered. Tracked in the "slow Colt CAN read" issue.
+
+**Still not measured:** a pre-change write baseline. Because writes are
+host-bound, the buffered serial I/O should help them more than the reads it was
+measured on, but quantifying that needs a second destructive cycle at commit
+`4616356d`. The 2.38x headline in this document remains a **read** measurement.
 
 ## What this means for PR #176
 
