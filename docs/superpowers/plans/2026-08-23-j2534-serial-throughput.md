@@ -258,6 +258,27 @@ TEST(BenchSession, VendorChallengeRejectsAKeyReplyThatOnlyEchoesTheSelector)
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
 }
 
+TEST(BenchSession, VendorChallengeRejectsAKeyReplyThatOnlyEchoesAcceptance)
+{
+    Harness harness{true};
+    harness.expectBasicSession();
+    harness.expectVendorSeed();
+    // The mirror of the test above: acceptance byte present, selector byte
+    // wrong. The executor prefix-matches BOTH bytes, so both directions are
+    // rejections -- guarding only one lets a foreign reply grant the
+    // transition.
+    const std::uint32_t key =
+        MitsuColtCanVendorExt::challengeInverseTransform(MitsuColtCanVendorExt::bytesToSeed(kVendorSeed));
+    harness.transport->expectWrite(request(MitsuColtCanVendorExt::buildChallengeKey(key)));
+    harness.transport->queueRead(
+        response(bytes::Bytes{0x63, 0x00, MitsuColtCanVendorExt::kVendorChallengeAccepted}));
+
+    const Status result = harness.session->connect();
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+}
+
 TEST(BenchSession, VendorChallengeRejectsAShortSeedReply)
 {
     Harness harness{true};
@@ -363,12 +384,16 @@ Then, in `connect()`, insert this block immediately after the `request` lambda i
         {
             return fail(ErrorKind::BadResponse, "vendor challenge key reply too short");
         }
-        // Echoing the selector is not acceptance: only kVendorChallengeAccepted
-        // grants the transition, so this stays a content check of its own.
-        if (vendor_key_payload[1] != MitsuColtCanVendorExt::kVendorChallengeAccepted)
+        // Both bytes must match, mirroring the executor's two-byte
+        // expected_prefix{kVendorChallengeSelector, kVendorChallengeAccepted}.
+        // Echoing the selector is not acceptance, and acceptance without the
+        // selector is not this exchange's reply -- guard both directions.
+        if (vendor_key_payload[0] != MitsuColtCanVendorExt::kVendorChallengeSelector ||
+            vendor_key_payload[1] != MitsuColtCanVendorExt::kVendorChallengeAccepted)
         {
             return fail(ErrorKind::BadResponse,
-                        std::format("vendor challenge key rejected: reply 0x{:02x}", vendor_key_payload[1]));
+                        std::format("vendor challenge key rejected: reply 0x{:02x} 0x{:02x}", vendor_key_payload[0],
+                                    vendor_key_payload[1]));
         }
     }
 ```
