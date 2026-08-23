@@ -11,11 +11,18 @@ SerialByteBuffer::SerialByteBuffer(PollFn poll, WaitFn wait, NowFn now)
 QByteArray SerialByteBuffer::take(std::uint32_t n, std::uint16_t timeout_ms)
 {
     std::uint64_t deadline = now_() + timeout_ms;
-    while (buffer_.size() < static_cast<qsizetype>(n))
+    while (buffer_.size() - offset_ < static_cast<qsizetype>(n))
     {
         const QByteArray chunk = poll_();
         if (!chunk.isEmpty())
         {
+            // Compact the already-consumed prefix away now, on refill,
+            // rather than shifting the whole tail on every take().
+            if (offset_ > 0)
+            {
+                buffer_.remove(0, offset_);
+                offset_ = 0;
+            }
             buffer_.append(chunk);
             // Silence timeout: any arrival buys another full window.
             deadline = now_() + timeout_ms;
@@ -30,18 +37,26 @@ QByteArray SerialByteBuffer::take(std::uint32_t n, std::uint16_t timeout_ms)
         wait_(1);
     }
 
-    const auto wanted = std::min<qsizetype>(static_cast<qsizetype>(n), buffer_.size());
-    QByteArray out = buffer_.left(wanted);
-    buffer_.remove(0, wanted);
+    const auto wanted = std::min<qsizetype>(static_cast<qsizetype>(n), buffer_.size() - offset_);
+    QByteArray out = buffer_.mid(offset_, wanted);
+    offset_ += wanted;
+    if (offset_ == buffer_.size())
+    {
+        // Fully drained: reset so the next refill starts from an empty
+        // buffer instead of compacting a now-pointless prefix.
+        buffer_.clear();
+        offset_ = 0;
+    }
     return out;
 }
 
 void SerialByteBuffer::clear()
 {
     buffer_.clear();
+    offset_ = 0;
 }
 
 std::size_t SerialByteBuffer::buffered() const
 {
-    return static_cast<std::size_t>(buffer_.size());
+    return static_cast<std::size_t>(buffer_.size() - offset_);
 }

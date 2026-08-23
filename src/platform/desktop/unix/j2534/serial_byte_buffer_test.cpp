@@ -25,10 +25,12 @@ class FakeSource
 
     std::uint64_t now_ = 0;
     std::vector<int> waits;
+    int polls = 0;
 
   private:
     QByteArray poll()
     {
+        ++polls;
         if (chunks_.empty())
         {
             return {};
@@ -65,8 +67,10 @@ TEST(SerialByteBuffer, RetainsBytesReadPastTheRequestedCount)
 
     EXPECT_EQ(buffer.take(2, 100), QByteArray("ab"));
     EXPECT_EQ(buffer.buffered(), 4u);
+    const int polls_before_second_take = source.polls;
     // The retained bytes are served without touching the source again.
     EXPECT_EQ(buffer.take(4, 100), QByteArray("cdef"));
+    EXPECT_EQ(source.polls, polls_before_second_take);
 }
 
 TEST(SerialByteBuffer, ServesFromTheBufferWithoutWaitingWhenItAlreadyHasEnough)
@@ -115,8 +119,9 @@ TEST(SerialByteBuffer, ReturnsEmptyWhenNothingEverArrives)
 TEST(SerialByteBuffer, TheDeadlineRefreshesOnEveryArrival)
 {
     FakeSource source;
-    // Nine silent 1 ms waits, then a byte, repeated. With a 5 ms silence
-    // timeout and no refresh this would give up long before the last byte.
+    // Four silent 1 ms waits, then a byte, repeated three times. With a 5 ms
+    // silence timeout and no refresh this would give up long before the last
+    // byte.
     for (int i = 0; i < 3; ++i)
     {
         for (int silent = 0; silent < 4; ++silent)
@@ -128,6 +133,24 @@ TEST(SerialByteBuffer, TheDeadlineRefreshesOnEveryArrival)
     SerialByteBuffer buffer = source.make();
 
     EXPECT_EQ(buffer.take(3, 5), QByteArray("xxx"));
+}
+
+TEST(SerialByteBuffer, WaitsOneMillisecondAtATimeWhenSilent)
+{
+    FakeSource source;
+    SerialByteBuffer buffer = source.make();
+
+    // Nothing ever arrives, so every iteration silently waits until the
+    // 3 ms timeout expires. A wait_(0) busy-spin would also pass every other
+    // test in this file while burning a core in production, so pin the
+    // argument value explicitly.
+    buffer.take(1, 3);
+
+    ASSERT_FALSE(source.waits.empty());
+    for (int ms : source.waits)
+    {
+        EXPECT_EQ(ms, 1);
+    }
 }
 
 TEST(SerialByteBuffer, ZeroLengthRequestReturnsImmediately)

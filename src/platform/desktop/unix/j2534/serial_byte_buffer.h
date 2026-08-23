@@ -58,5 +58,11 @@ class SerialByteBuffer
     PollFn poll_;
     WaitFn wait_;
     NowFn now_;
+    // buffer_[offset_..) is the retained-but-unconsumed data. A read offset
+    // (rather than erasing consumed bytes on every take) keeps the common
+    // case -- one bulk refill followed by many take(1) calls scanning for a
+    // terminator -- O(1) per call instead of O(size) per call. The prefix is
+    // compacted away only when new data is appended.
     QByteArray buffer_;
+    qsizetype offset_ = 0;
 };
