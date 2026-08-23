@@ -79,7 +79,7 @@ class DesktopBenchEnvironment final : public IBenchEnvironment
         }
 
         session_.emplace(std::move(*transport), kCanConfig.request_id, kCanConfig.response_id, clock_, events_,
-                         cancellation_);
+                         cancellation_, options.vendor_ext);
         if (connect_implicitly)
         {
             const Status connected = session_->connect();
