@@ -24,6 +24,15 @@ J2534::J2534()
               {
                   serial->waitForReadyRead(ms);
               }
+              else
+              {
+                  // No port to wait on: still yield for `ms` so a closed-port
+                  // read costs the same wall-clock as before (SerialByteBuffer's
+                  // take() loop calls this every iteration until its own
+                  // deadline), instead of busy-spinning at 100% CPU for the
+                  // whole timeout with no actual wait happening.
+                  delay(ms);
+              }
           },
           []
           {
@@ -123,7 +132,10 @@ int J2534::write_serial_data(const QByteArray& output)
     {
         return 1;
     }
-    serial->waitForBytesWritten(serial_read_short_timeout);
+    if (!serial->waitForBytesWritten(serial_read_short_timeout))
+    {
+        return 1;
+    }
     return STATUS_NOERROR;
 }
 
