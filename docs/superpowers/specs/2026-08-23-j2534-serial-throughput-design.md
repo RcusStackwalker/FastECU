@@ -1,6 +1,8 @@
 # J2534 serial throughput on Unix — design
 
-Status: approved, not yet implemented
+Status: phases 0–2 implemented and measured; phases 3–4 superseded by the
+measurements. See [bench measurements](../../j2534-throughput-bench-notes.md)
+and the Outcome section at the end of this document.
 Applies to: macOS and Linux only (`src/platform/desktop/unix/j2534/`). Windows
 reaches the adapter through the vendor DLL and is untouched by every phase here.
 
@@ -224,3 +226,37 @@ ECU, and at what supply voltage.
    and result both recorded.
 4. `SET_CONFIG` returns a failure status when the adapter rejects a parameter,
    demonstrated by a test.
+
+## Outcome
+
+Phases 0–2 landed and were measured on a spare Colt ECU. Phases 3–4 were
+overtaken by what the measurements showed; the full data is in
+[bench measurements](../../j2534-throughput-bench-notes.md).
+
+**Delivered.** Buffered serial I/O took a 192-byte flash read from 343.0 ms to
+144.0 ms per exchange — 555 to 1323 bytes/s, a measured **2.38×**, taken against
+the actual pre-change commit rather than projected.
+
+**The stated target was unreachable, and the diagnosis in this document was
+wrong about why.** This spec assumed the host was ~25× slower than the bus and
+that removing that gap would approach CAN wire time. The first half was right.
+The second was not: the ECU paces its own consecutive frames at a 5 ms floor. It
+honours a requested STMIN of 20 ms exactly and clamps a requested 0 to 5 ms, so
+its ceiling is 7 payload bytes per 5 ms = 1400 bytes/s. The measured 1323 bytes/s
+is 94.5% of that. "Within ~2× of CAN wire time" was never achievable on this ECU
+by any host-side change. Success criterion 3 is therefore retired, and the
+honest replacement is: **within ~6% of the ECU's own ceiling.**
+
+**Phase 3 splits.** Making `SET_CONFIG` failures observable is still worth doing
+and is more valuable than this document realised — the same swallowed-reply
+pattern also hid a port-selection bug that made every exchange time out against
+`cu.Bluetooth-Incoming-Port`. Re-landing PR #176's STMIN/BS tuning is **not**
+worth doing: the ECU clamps STMIN regardless, so the change is a measured no-op.
+Both are tracked in the "slow Colt CAN read" issue rather than here.
+
+**A methodological note worth keeping.** The 5 ms figure was first asserted from
+adapter timestamps without establishing what those timestamps measure — a
+dequeue-time report tick would have produced identical evidence. A control
+experiment with the ECU removed (adapter transmitting to itself, loopback
+timestamps 471 µs apart) was needed to make the claim stand. Instrument
+validation belongs before the conclusion, not after it.
