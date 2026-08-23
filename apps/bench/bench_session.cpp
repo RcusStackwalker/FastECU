@@ -159,12 +159,14 @@ Status BenchSession::connect()
         {
             return fail(ErrorKind::BadResponse, "vendor challenge key reply too short");
         }
-        // Echoing the selector is not acceptance: only kVendorChallengeAccepted
-        // grants the transition, so this stays a content check of its own.
-        if (vendor_key_payload[1] != MitsuColtCanVendorExt::kVendorChallengeAccepted)
+        // Mirrors connect_bootloader's fatal_query prefix check: the reply must
+        // carry both the echoed selector and kVendorChallengeAccepted, not just
+        // one or the other.
+        if (vendor_key_payload[0] != MitsuColtCanVendorExt::kVendorChallengeSelector ||
+            vendor_key_payload[1] != MitsuColtCanVendorExt::kVendorChallengeAccepted)
         {
-            return fail(ErrorKind::BadResponse,
-                        std::format("vendor challenge key rejected: reply 0x{:02x}", vendor_key_payload[1]));
+            return fail(ErrorKind::BadResponse, std::format("vendor challenge key rejected: reply 0x{:02x} 0x{:02x}",
+                                                            vendor_key_payload[0], vendor_key_payload[1]));
         }
     }
 

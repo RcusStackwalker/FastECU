@@ -194,6 +194,24 @@ TEST(BenchSession, VendorChallengeRejectsAKeyReplyThatOnlyEchoesTheSelector)
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
 }
 
+TEST(BenchSession, VendorChallengeRejectsAKeyReplyThatOnlyEchoesAcceptance)
+{
+    Harness harness{true};
+    harness.expectBasicSession();
+    harness.expectVendorSeed();
+    const std::uint32_t key =
+        MitsuColtCanVendorExt::challengeInverseTransform(MitsuColtCanVendorExt::bytesToSeed(kVendorSeed));
+    harness.transport->expectWrite(request(MitsuColtCanVendorExt::buildChallengeKey(key)));
+    // 0x00 in place of kVendorChallengeSelector: kVendorChallengeAccepted is
+    // present, but byte 0 does not echo the selector back.
+    harness.transport->queueRead(response(bytes::Bytes{0x63, 0x00, MitsuColtCanVendorExt::kVendorChallengeAccepted}));
+
+    const Status result = harness.session->connect();
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+}
+
 TEST(BenchSession, VendorChallengeRejectsAShortSeedReply)
 {
     Harness harness{true};
