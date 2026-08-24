@@ -6,10 +6,11 @@
 namespace fastecu::flash
 {
 
-class SubaruDensoMc68hc16y5_02Executor final : public IFlashExecutor
+class SubaruDensoMc68hc16y5_02Executor final : public IKlineFlashExecutor
 {
   public:
-    Result<FlashExecutionResult> execute(const FlashPlan& plan, IFlashTransport& transport, IClock& clock,
+    Result<KlineConfig> transport_setup(const FlashPlan& plan) const override;
+    Result<FlashExecutionResult> execute(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& clock,
                                          const ICancellationToken& cancellation, IEventSink& events) override;
 
   private:
