@@ -173,18 +173,17 @@ TEST(BoundFlashAttemptTest, CancelledBeforeConfigureDoesNotConfigure)
     EXPECT_FALSE(h.transport->last_config_.has_value());
 }
 
-TEST(BoundFlashAttemptTest, CancelledAfterConfigureDoesNotOpen)
+TEST(BoundFlashAttemptTest, CancellationIsNotUniversallyPolledBetweenConfigureAndOpen)
 {
     Harness h;
     h.cancellation.cancel_on_check(2);
 
     auto result = h.run();
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    ASSERT_TRUE(result.has_value());
     EXPECT_TRUE(h.transport->last_config_.has_value());
-    EXPECT_EQ(h.executor->execute_calls, 0);
-    EXPECT_EQ(h.transport->close_call_count_, 0);
+    EXPECT_EQ(h.executor->execute_calls, 1);
+    EXPECT_EQ(h.transport->close_call_count_, 1);
 }
 
 TEST(BoundFlashAttemptTest, ExecuteErrorIsReturnedAndTransportStillClosesOnce)

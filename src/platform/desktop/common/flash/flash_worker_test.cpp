@@ -44,6 +44,15 @@ namespace
 class FakeBoundAttempt final : public fastecu::flash::BoundFlashAttempt
 {
   public:
+    explicit FakeBoundAttempt(fastecu::flash::FlashPlan plan) : plan_(std::move(plan))
+    {
+    }
+
+    const fastecu::flash::FlashPlan& plan() const noexcept override
+    {
+        return plan_;
+    }
+
     fastecu::Result<fastecu::flash::FlashExecutionResult> run(fastecu::IClock&, const fastecu::ICancellationToken&,
                                                               fastecu::IEventSink& events) override
     {
@@ -60,6 +69,9 @@ class FakeBoundAttempt final : public fastecu::flash::BoundFlashAttempt
 
     int run_calls = 0;
     int unblock_calls = 0;
+
+  private:
+    fastecu::flash::FlashPlan plan_;
 };
 
 // Every field here matches an SH7055 K-Line (or CAN, for the mismatch test)
@@ -182,7 +194,7 @@ class TestFlashWorker : public QObject
         auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(validInput(FlashFamily::DensoSh705xEepromKline));
         QVERIFY(plan.has_value());
 
-        auto attempt = std::make_unique<FakeBoundAttempt>();
+        auto attempt = std::make_unique<FakeBoundAttempt>(std::move(*plan));
         FlashWorker worker(FlashAttempt{std::move(attempt), std::make_unique<FakeClock>()});
         QSignalSpy legacySpy(&worker, &FlashWorker::progressChanged);
         QSignalSpy phaseSpy(&worker, &FlashWorker::phaseProgressChanged);

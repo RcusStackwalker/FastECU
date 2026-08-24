@@ -53,6 +53,23 @@ class ToggleCancellation final : public ICancellationToken
     bool cancelled_ = false;
 };
 
+class FlipAfter final : public ICancellationToken
+{
+  public:
+    explicit FlipAfter(int allowed_checks) : allowed_checks_(allowed_checks)
+    {
+    }
+
+    bool cancelled() const override
+    {
+        return checks_++ >= allowed_checks_;
+    }
+
+  private:
+    int allowed_checks_;
+    mutable int checks_ = 0;
+};
+
 class OpenScriptedKlineFlashTransport final : public ScriptedKlineFlashTransport
 {
   public:
@@ -435,6 +452,27 @@ TEST(SubaruDensoMc68hc16y5_02Executor, TransportSetupReturnsPlanWireConfiguratio
     EXPECT_FALSE(setup->iso14230);
     EXPECT_EQ(setup->tester_id, 0);
     EXPECT_EQ(setup->target_id, 0);
+}
+
+TEST(SubaruDensoMc68hc16y5_02Executor, BoundAttemptPreservesConfigureToOpenCancellationCheckpoint)
+{
+    auto plan = stock_plan();
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    auto transport = std::make_unique<ScriptedKlineFlashTransport>();
+    auto *observed_transport = transport.get();
+    auto attempt = bind_flash_attempt(std::move(*plan), std::make_unique<SubaruDensoMc68hc16y5_02Executor>(),
+                                      std::move(transport));
+    FakeClock clock;
+    FlipAfter cancellation(1);
+    RecordingEventSink events;
+
+    auto result = attempt->run(clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_TRUE(observed_transport->last_config_.has_value());
+    EXPECT_EQ(observed_transport->close_call_count_, 0);
+    EXPECT_TRUE(observed_transport->control_line_trace_.empty());
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, MalformedFamilyPlanFailsBeforeAnyIo)

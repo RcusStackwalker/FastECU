@@ -69,6 +69,13 @@ class IKlineFlashExecutor
     // caller touches hardware.
     virtual Result<KlineConfig> transport_setup(const FlashPlan& plan) const = 0;
 
+    // Family-specific cancellation checkpoint after configure() and before
+    // open(). Most executors historically had no checkpoint in that interval.
+    virtual Status before_transport_open(const ICancellationToken&) const
+    {
+        return {};
+    }
+
     virtual Result<FlashExecutionResult> execute(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& clock,
                                                  const ICancellationToken& cancellation, IEventSink& events) = 0;
 };
@@ -83,6 +90,11 @@ class ICanFlashExecutor
     virtual ~ICanFlashExecutor() = default;
 
     virtual Result<Iso15765Config> transport_setup(const FlashPlan& plan) const = 0;
+
+    virtual Status before_transport_open(const ICancellationToken&) const
+    {
+        return {};
+    }
 
     virtual Result<FlashExecutionResult> execute(const FlashPlan& plan, ICanFlashTransport& transport, IClock& clock,
                                                  const ICancellationToken& cancellation, IEventSink& events) = 0;
@@ -153,6 +165,7 @@ class BoundFlashAttempt
 {
   public:
     virtual ~BoundFlashAttempt() = default;
+    virtual const FlashPlan& plan() const noexcept = 0;
     virtual Result<FlashExecutionResult> run(IClock& clock, const ICancellationToken& cancellation,
                                              IEventSink& events) = 0;
     virtual void request_unblock() noexcept = 0;
@@ -164,6 +177,11 @@ template <class Executor, class Transport> class BoundAttempt final : public Bou
     BoundAttempt(FlashPlan plan, std::unique_ptr<Executor> executor, std::unique_ptr<Transport> transport)
         : plan_(std::move(plan)), executor_(std::move(executor)), transport_(std::move(transport))
     {
+    }
+
+    const FlashPlan& plan() const noexcept override
+    {
+        return plan_;
     }
 
     Result<FlashExecutionResult> run(IClock& clock, const ICancellationToken& cancellation, IEventSink& events) override
@@ -183,9 +201,9 @@ template <class Executor, class Transport> class BoundAttempt final : public Bou
         {
             return std::unexpected(configured.error());
         }
-        if (cancellation.cancelled())
+        if (const Status checkpoint = executor_->before_transport_open(cancellation); !checkpoint.has_value())
         {
-            return fail(ErrorKind::Cancelled, "cancelled after configure");
+            return std::unexpected(checkpoint.error());
         }
         if (const Status opened = transport_->open(); !opened.has_value())
         {

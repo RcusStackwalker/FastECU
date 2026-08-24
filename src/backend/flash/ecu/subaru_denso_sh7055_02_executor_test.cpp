@@ -453,6 +453,27 @@ TEST(SubaruDensoSh7055_02Executor, TransportSetupReturnsPlansWireParameters)
     EXPECT_EQ(setup->target_id, 0x10);
 }
 
+TEST(SubaruDensoSh7055_02Executor, BoundAttemptPreservesBothConfigureToOpenCancellationCheckpoints)
+{
+    auto plan = read_plan();
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    auto transport = std::make_unique<ScriptedKlineFlashTransport>();
+    auto *observed_transport = transport.get();
+    auto attempt =
+        bind_flash_attempt(std::move(*plan), std::make_unique<SubaruDensoSh7055_02Executor>(), std::move(transport));
+    FakeClock clock;
+    FlipAfter cancellation(2);
+    RecordingEventSink events;
+
+    auto result = attempt->run(clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_TRUE(observed_transport->last_config_.has_value());
+    EXPECT_EQ(observed_transport->close_call_count_, 0);
+    EXPECT_TRUE(observed_transport->control_line_trace_.empty());
+}
+
 TEST(SubaruDensoSh7055_02Executor, KernelAlreadyAliveSkipsWrxInitEcuIdAndUpload)
 {
     auto plan = write_plan();

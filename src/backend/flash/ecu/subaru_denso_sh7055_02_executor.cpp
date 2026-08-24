@@ -892,6 +892,16 @@ Result<KlineConfig> SubaruDensoSh7055_02Executor::transport_setup(const FlashPla
         .baud = 62500, .iso14230 = false, .tester_id = family_plan.tester_id, .target_id = family_plan.target_id};
 }
 
+Status SubaruDensoSh7055_02Executor::before_transport_open(const ICancellationToken& cancellation) const
+{
+    if (Status cancelled = check_cancelled(cancellation, "cancelled after transport configuration");
+        !cancelled.has_value())
+    {
+        return cancelled;
+    }
+    return check_cancelled(cancellation, "cancelled before opening transport");
+}
+
 Result<FlashExecutionResult> SubaruDensoSh7055_02Executor::execute(const FlashPlan& plan, IKlineFlashTransport& kline,
                                                                    IClock& clock,
                                                                    const ICancellationToken& cancellation,

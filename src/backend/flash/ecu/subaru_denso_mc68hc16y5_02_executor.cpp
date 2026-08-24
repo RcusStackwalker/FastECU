@@ -811,6 +811,11 @@ Result<KlineConfig> SubaruDensoMc68hc16y5_02Executor::transport_setup(const Flas
     return KlineConfig{.baud = family_plan.connect_baud, .iso14230 = false, .tester_id = 0, .target_id = 0};
 }
 
+Status SubaruDensoMc68hc16y5_02Executor::before_transport_open(const ICancellationToken& cancellation) const
+{
+    return check_cancelled(cancellation, "cancelled after transport configuration");
+}
+
 Result<FlashExecutionResult> SubaruDensoMc68hc16y5_02Executor::execute(const FlashPlan& plan,
                                                                        IKlineFlashTransport& kline, IClock& clock,
                                                                        const ICancellationToken& cancellation,
