@@ -239,5 +239,16 @@ TEST(BoundFlashAttemptTest, RequestUnblockReachesTheTransport)
     EXPECT_EQ(read.error().kind, ErrorKind::Cancelled);
 }
 
+TEST(ScriptedKlineFlashTransportTest, StartOpenReportsOpenWithoutAnOpenCall)
+{
+    ScriptedKlineFlashTransport transport;
+    EXPECT_FALSE(transport.isOpen());
+
+    transport.start_open();
+
+    EXPECT_TRUE(transport.isOpen());
+    EXPECT_EQ(transport.close_call_count_, 0);
+}
+
 } // namespace
 } // namespace fastecu::flash

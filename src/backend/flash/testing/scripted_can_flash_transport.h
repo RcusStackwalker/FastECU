@@ -37,6 +37,13 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
         std::lock_guard lock(mutex_);
         blocking_read_pending_ = true;
     }
+    // For tests that drive an executor directly. Executors no longer open
+    // their transport (ADR 0015), so the fake must start in the state a
+    // BoundAttempt would have left it in.
+    void start_open()
+    {
+        open_ = true;
+    }
     bool scriptConsumed() const
     {
         return wIdx_ == expected_.size() && reads_.empty() && !blocking_read_pending_;
