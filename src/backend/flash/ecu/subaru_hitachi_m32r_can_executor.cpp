@@ -482,12 +482,7 @@ Result<Iso15765Config> SubaruHitachiM32rCanExecutor::transport_setup(const Flash
         return std::unexpected(valid.error());
     }
     const auto& family = std::get<SubaruHitachiM32rCanPlan>(plan.family_plan());
-    return Iso15765Config{
-        .bitrate = family.bitrate,
-        .request_id = family.request_id,
-        .response_id = family.response_id,
-        .extended_id = family.extended_id,
-    };
+    return iso15765_config_from(family);
 }
 
 Result<FlashExecutionResult> SubaruHitachiM32rCanExecutor::execute(const FlashPlan& plan, ICanFlashTransport& transport,

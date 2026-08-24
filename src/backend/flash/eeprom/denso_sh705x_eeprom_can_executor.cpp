@@ -346,12 +346,7 @@ Result<Iso15765Config> DensoSh705xEepromCanExecutor::transport_setup(const Flash
     }
 
     const auto& can_plan = std::get<DensoSh705xEepromCanPlan>(plan.family_plan());
-    return Iso15765Config{
-        .bitrate = can_plan.bitrate,
-        .request_id = can_plan.request_id,
-        .response_id = can_plan.response_id,
-        .extended_id = can_plan.extended_id,
-    };
+    return iso15765_config_from(can_plan);
 }
 
 Result<FlashExecutionResult> DensoSh705xEepromCanExecutor::execute(const FlashPlan& plan, ICanFlashTransport& transport,
