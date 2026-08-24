@@ -1,0 +1,10 @@
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_QUICK_DEPS", "qt_cc_binary")
+
+package(default_visibility = ["//:__pkg__"])
+
+qt_cc_binary(
+    name = "fastecu-desktop-quick",
+    srcs = ["main.cpp"],
+    copts = COMMON_COPTS,
+    deps = QT_QUICK_DEPS + ["//src/ui/desktop-quick:application"],
+)

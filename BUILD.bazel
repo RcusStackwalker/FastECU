@@ -8,6 +8,11 @@ alias(
 )
 
 alias(
+    name = "fastecu-desktop-quick",
+    actual = "//apps/desktop-quick:fastecu-desktop-quick",
+)
+
+alias(
     name = "fastecu-bench",
     actual = "//apps/bench:fastecu-bench",
 )

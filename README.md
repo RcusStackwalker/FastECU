@@ -48,6 +48,14 @@ Build the application:
 bazel build --config=release //:fastecu
 ```
 
+The in-progress OmniHaste QtQuick application is a separate target. Its current
+foundation build contains only the application shell:
+
+```sh
+bazel build --config=release //:fastecu-desktop-quick
+QT_QPA_PLATFORM=offscreen bazel run --config=release //:fastecu-desktop-quick -- --smoke-test
+```
+
 Run the tests:
 
 ```sh
