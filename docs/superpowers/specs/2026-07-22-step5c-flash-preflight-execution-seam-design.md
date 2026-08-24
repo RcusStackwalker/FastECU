@@ -528,6 +528,12 @@ original error wins and close failure is logged. If close is the only failure,
 it is returned. An already-cancelled call performs no setup or I/O. Cancellation
 after open still closes exactly once.
 
+This close rule was scoped to the EEPROM mode attempt. It was later promoted to
+the universal flash executor contract — see
+[the flash transport lifecycle contract design](2026-08-23-flash-transport-lifecycle-contract-design.md)
+and ADR 0015; the guarantee now lives in `BoundAttempt::run()` and holds for
+every family.
+
 ---
 
 ## Platform worker, UI orchestration, and teardown

@@ -408,8 +408,8 @@ bytes::ByteView topRegionOf(const bytes::Bytes& rom)
 
 TEST(MitsuColtM32rCanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyIo)
 {
-    // A plan built for another family must be rejected by
-    // check_family_transport_match before configure()/open() or any write --
+    // A plan built for another family must be rejected by check_family before
+    // configure()/open() or any write --
     // the scripted transport is left completely untouched, which is the
     // assertion that matters here.
     ScriptedCanFlashTransport transport;
@@ -855,7 +855,7 @@ TEST(MitsuColtM32rCanExecutor, WriteSkipsBootstrapWhenTheTopRegionAlreadyMatches
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
-    // Legacy-faithful port lifetime: this executor never closes the bus.
+    // Lifecycle is owned by BoundAttempt::run(), not this executor body.
     EXPECT_EQ(transport.close_call_count_, 0);
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Top 128KB already matches, no bootstrap needed")));
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Erase page uploaded")));

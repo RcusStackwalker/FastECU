@@ -50,14 +50,6 @@ struct Iso15765Config
 class IKlineFlashTransport;
 class ICanFlashTransport;
 
-class IFlashExecutor
-{
-  public:
-    virtual ~IFlashExecutor() = default;
-    virtual Result<FlashExecutionResult> execute(const FlashPlan& plan, IFlashTransport& transport, IClock& clock,
-                                                 const ICancellationToken& cancellation, IEventSink& events) = 0;
-};
-
 // The caller owns transport lifetime. An executor never calls configure(),
 // open(), or close() on the transport it is given: it receives a transport
 // already configured per transport_setup() and open, uses it, and returns.
@@ -96,18 +88,10 @@ class ICanFlashExecutor
                                                  const ICancellationToken& cancellation, IEventSink& events) = 0;
 };
 
-// Family half of check_family_transport_match. The transport half is
-// unreachable for a constructed FlashPlan: validate_and_build already enforces
-// family <-> transport-kind <-> variant consistency
-// (flash_validation.cpp:24-60, checked at L133). Once this succeeds,
+// A constructed FlashPlan already has a transport kind and variant consistent
+// with its family (validated in flash_validation.cpp). Once this succeeds,
 // std::get<PlanT>(plan.family_plan()) cannot throw.
 Status check_family(const FlashPlan& plan, FlashFamily expected_family);
-
-// Every concrete executor calls this first and returns its result verbatim
-// on failure -- zero I/O happens before a family/transport mismatch is
-// caught.
-Status check_family_transport_match(const FlashPlan& plan, FlashFamily expected_family,
-                                    TransportKind expected_transport);
 
 // Adds only configure/open/close/request_unblock to the already Result-based,
 // cancellation-aware mutdma::IKlineTransport merged in step 5b (PR #78,
@@ -248,23 +232,5 @@ std::unique_ptr<BoundFlashAttempt> bind_flash_attempt(FlashPlan plan, std::uniqu
     return std::make_unique<BoundAttempt<Executor, Transport>>(std::move(plan), std::move(executor),
                                                                std::move(transport));
 }
-
-// TEMPORARY migration scaffolding (ADR 0015). Wraps an unmigrated
-// IFlashExecutor, which still configures/opens/closes for itself, so families
-// can move to the split interfaces one at a time with a green build in
-// between. Deleted together with IFlashExecutor in the final migration commit;
-// it must not outlive the migration PR.
-std::unique_ptr<BoundFlashAttempt> bind_legacy_flash_attempt(FlashPlan plan, std::unique_ptr<IFlashExecutor> executor,
-                                                             std::unique_ptr<IFlashTransport> transport);
-
-// Checked downcast of `transport` to ICanFlashTransport, then configure()
-// and open() with `config`. Every CAN family executor needs exactly this
-// prologue before its first exchange; factored because six independent
-// files (five M32R UDS executors plus DensoSh705xEepromCanExecutor) carried
-// a byte-for-byte identical copy. Callers keep owning close()/lifecycle --
-// some never close (the UDS executors, matching their legacy source), one
-// closes on every exit path (the eeprom executor's ScopedClose) -- so this
-// deliberately stops at open() rather than returning an RAII guard.
-Result<ICanFlashTransport *> open_can_iso15765_transport(IFlashTransport& transport, const Iso15765Config& config);
 
 } // namespace fastecu::flash

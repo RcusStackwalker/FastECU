@@ -304,8 +304,8 @@ TEST(SubaruHitachiM32rCanExecutor, TransportSetupReturnsThePlansWireParameters)
 
 TEST(SubaruHitachiM32rCanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyIo)
 {
-    // A plan built for another family must be rejected by
-    // check_family_transport_match before configure()/open() or any write --
+    // A plan built for another family must be rejected by check_family before
+    // configure()/open() or any write --
     // the scripted transport is left completely untouched.
     ScriptedCanFlashTransport transport;
     FakeClock clock;
