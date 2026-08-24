@@ -303,6 +303,13 @@ LegacyConfigAdapter::read_protocols_file(fastecu::definitions::ConfigValuesStruc
     if (protocols.has_value() && car_models.has_value())
     {
         copy_car_models_into_legacy(*protocols, *car_models, values);
+
+        bool selection_is_integer = false;
+        const int selected = values->flash_protocol_selected_id.toInt(&selection_is_integer);
+        if (!selection_is_integer || selected < 0 || selected >= values->flash_protocol_id.size())
+        {
+            values->flash_protocol_selected_id = "0";
+        }
     }
 
     // Legacy's final step (file_actions.cpp:1385-1389): validate the
