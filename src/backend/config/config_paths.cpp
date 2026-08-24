@@ -1,5 +1,7 @@
 #include "src/backend/config/config_paths.h"
 
+#include <format>
+
 namespace fastecu::config
 {
 
@@ -8,7 +10,7 @@ ConfigPaths resolve_config_paths(std::string_view app_root_path, std::string_vie
     ConfigPaths paths;
     paths.base_config_directory = app_root_path;
 
-    const std::string base = std::string(app_root_path) + "/" + std::string(version);
+    const std::string base = std::format("{}/{}", app_root_path, version);
 
     paths.version_config_directory = base + "/";
     paths.calibration_files_directory = base + "/calibrations/";
