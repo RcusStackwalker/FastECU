@@ -115,6 +115,12 @@ jobs:
         run: |
           bazel test -k --config=release //...
 
+      - name: Smoke test desktop-quick shell
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          bazel run --config=release //:fastecu-desktop-quick -- --smoke-test
+
       - name: Package macOS from Bazel (verify only)
         if: runner.os == 'macOS'
         run: scripts/package-macos.sh bazel-pkg-macos.zip ${{ github.sha }}
@@ -125,6 +131,18 @@ jobs:
         with:
           name: fastecu-bazelpkg-${{ github.event.pull_request.number || github.sha }}-macos
           path: bazel-pkg-macos.zip
+          retention-days: 14
+
+      - name: Package desktop-quick macOS from Bazel (verify only)
+        if: runner.os == 'macOS'
+        run: scripts/package-desktop-quick-macos.sh bazel-pkg-desktop-quick-macos.zip ${{ github.sha }}
+
+      - name: Upload desktop-quick macOS package (verify only)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: omnihaste-desktop-quick-${{ github.event.pull_request.number || github.sha }}-macos
+          path: bazel-pkg-desktop-quick-macos.zip
           retention-days: 14
 
       - name: Package Windows from Bazel (verify only)
@@ -138,6 +156,19 @@ jobs:
         with:
           name: fastecu-bazelpkg-${{ github.event.pull_request.number || github.sha }}-windows
           path: bazel-pkg-windows.zip
+          retention-days: 14
+
+      - name: Package desktop-quick Windows from Bazel (verify only)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: scripts/package-desktop-quick-windows.ps1 -OutZip bazel-pkg-desktop-quick-windows.zip
+
+      - name: Upload desktop-quick Windows package (verify only)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: omnihaste-desktop-quick-${{ github.event.pull_request.number || github.sha }}-windows
+          path: bazel-pkg-desktop-quick-windows.zip
           retention-days: 14
 
       - name: clang-tidy report
