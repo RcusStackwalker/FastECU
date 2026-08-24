@@ -23,6 +23,10 @@ class DesktopQuickApplicationTest : public QObject
         QVERIFY(root->findChild<QObject *>(QStringLiteral("navigationRail")) != nullptr);
         QVERIFY(root->findChild<QObject *>(QStringLiteral("dashboardNavigation")) != nullptr);
         QVERIFY(root->findChild<QObject *>(QStringLiteral("workspace")) != nullptr);
+        QObject *workspaceMessage = root->findChild<QObject *>(QStringLiteral("workspaceMessage"));
+        QVERIFY(workspaceMessage != nullptr);
+        QCOMPARE(workspaceMessage->property("text").toString(),
+                 QStringLiteral("Dashboard support is coming in the next development phase."));
     }
 };
 } // namespace

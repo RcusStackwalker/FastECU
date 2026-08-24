@@ -57,7 +57,8 @@ ApplicationWindow {
                     Layout.alignment: Qt.AlignHCenter
                 }
                 Label {
-                    text: qsTr("Open an OmniHaste dashboard to begin.")
+                    objectName: "workspaceMessage"
+                    text: qsTr("Dashboard support is coming in the next development phase.")
                     color: "#94a3b8"
                     font.pixelSize: 15
                     Layout.alignment: Qt.AlignHCenter
