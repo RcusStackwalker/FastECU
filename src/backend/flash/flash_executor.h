@@ -28,6 +28,25 @@ class IFlashTransport
     virtual void request_unblock() noexcept = 0;
 };
 
+struct KlineConfig
+{
+    int baud;
+    bool iso14230;
+    std::uint8_t tester_id;
+    std::uint8_t target_id;
+};
+
+struct Iso15765Config
+{
+    int bitrate;
+    std::uint32_t request_id;
+    std::uint32_t response_id;
+    bool extended_id;
+};
+
+class IKlineFlashTransport;
+class ICanFlashTransport;
+
 class IFlashExecutor
 {
   public:
@@ -36,19 +55,56 @@ class IFlashExecutor
                                                  const ICancellationToken& cancellation, IEventSink& events) = 0;
 };
 
+// The caller owns transport lifetime. An executor never calls configure(),
+// open(), or close() on the transport it is given: it receives a transport
+// already configured per transport_setup() and open, uses it, and returns.
+// Mid-session operations that belong to a protocol sequence -- setBaud(),
+// set_add_iso14230_header(), the LEC line calls -- are not lifecycle and stay
+// in the executor. See docs/adr/0015-caller-owns-flash-transport-lifetime.md.
+class IKlineFlashExecutor
+{
+  public:
+    using TransportType = IKlineFlashTransport;
+    using ConfigType = KlineConfig;
+
+    virtual ~IKlineFlashExecutor() = default;
+
+    // Pure: validates `plan` and returns the configuration this executor
+    // requires. Performs no I/O, so an invalid plan is rejected before the
+    // caller touches hardware.
+    virtual Result<KlineConfig> transport_setup(const FlashPlan& plan) const = 0;
+
+    virtual Result<FlashExecutionResult> execute(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& clock,
+                                                 const ICancellationToken& cancellation, IEventSink& events) = 0;
+};
+
+// CAN sibling of IKlineFlashExecutor; the same contract applies.
+class ICanFlashExecutor
+{
+  public:
+    using TransportType = ICanFlashTransport;
+    using ConfigType = Iso15765Config;
+
+    virtual ~ICanFlashExecutor() = default;
+
+    virtual Result<Iso15765Config> transport_setup(const FlashPlan& plan) const = 0;
+
+    virtual Result<FlashExecutionResult> execute(const FlashPlan& plan, ICanFlashTransport& transport, IClock& clock,
+                                                 const ICancellationToken& cancellation, IEventSink& events) = 0;
+};
+
+// Family half of check_family_transport_match. The transport half is
+// unreachable for a constructed FlashPlan: validate_and_build already enforces
+// family <-> transport-kind <-> variant consistency
+// (flash_validation.cpp:24-60, checked at L133). Once this succeeds,
+// std::get<PlanT>(plan.family_plan()) cannot throw.
+Status check_family(const FlashPlan& plan, FlashFamily expected_family);
+
 // Every concrete executor calls this first and returns its result verbatim
 // on failure -- zero I/O happens before a family/transport mismatch is
 // caught.
 Status check_family_transport_match(const FlashPlan& plan, FlashFamily expected_family,
                                     TransportKind expected_transport);
-
-struct KlineConfig
-{
-    int baud;
-    bool iso14230;
-    std::uint8_t tester_id;
-    std::uint8_t target_id;
-};
 
 // Adds only configure/open/close/request_unblock to the already Result-based,
 // cancellation-aware mutdma::IKlineTransport merged in step 5b (PR #78,
@@ -86,14 +142,6 @@ class IKlineFlashTransport : public IFlashTransport, public mutdma::IKlineTransp
     // it on (line 477). See DensoSh705xEepromKlineExecutor::execute() for the
     // portable equivalent.
     virtual Status set_add_iso14230_header(bool add_header) = 0;
-};
-
-struct Iso15765Config
-{
-    int bitrate;
-    std::uint32_t request_id;
-    std::uint32_t response_id;
-    bool extended_id;
 };
 
 // Distinct from cdbg::ICanTransport (raw CAN frames, used by CDBG logging):

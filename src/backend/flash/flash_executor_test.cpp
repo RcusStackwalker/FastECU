@@ -72,6 +72,25 @@ TEST(CheckFamilyTransportMatchTest, WrongTransportFailsWithInvalidConfig)
     EXPECT_EQ(status.error().kind, ErrorKind::InvalidConfig);
 }
 
+TEST(CheckFamilyTest, MatchingFamilyPasses)
+{
+    auto plan = validate_and_build(kline_read_fields());
+    ASSERT_TRUE(plan.has_value());
+
+    EXPECT_TRUE(check_family(*plan, FlashFamily::DensoSh705xEepromKline).has_value());
+}
+
+TEST(CheckFamilyTest, WrongFamilyFailsWithInvalidConfig)
+{
+    auto plan = validate_and_build(kline_read_fields());
+    ASSERT_TRUE(plan.has_value());
+
+    auto status = check_family(*plan, FlashFamily::MitsuColtM32rCan);
+
+    ASSERT_FALSE(status.has_value());
+    EXPECT_EQ(status.error().kind, ErrorKind::InvalidConfig);
+}
+
 constexpr Iso15765Config kConfig{
     .bitrate = 500000,
     .request_id = 0x7e1,
