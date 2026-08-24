@@ -1,6 +1,9 @@
 #pragma once
+#include <concepts>
 #include <cstdint>
+#include <memory>
 #include <optional>
+#include <utility>
 
 #include "src/algorithms/protocol/bytes.h"
 #include "src/backend/flash/flash_plan.h"
@@ -157,6 +160,94 @@ class ICanFlashTransport : public IFlashTransport
     virtual Status write(bytes::ByteView, const ICancellationToken&) = 0;
     virtual Result<std::optional<bytes::Bytes>> read(int timeout_ms, const ICancellationToken&) = 0;
 };
+
+// An executor already bound to a transport it is known to accept. FlashWorker
+// holds this instead of the two halves, so no caller can pair an executor with
+// the wrong transport: bind_flash_attempt is the only way to construct one and
+// its requires-clause rejects a mismatch at compile time.
+class BoundFlashAttempt
+{
+  public:
+    virtual ~BoundFlashAttempt() = default;
+    virtual Result<FlashExecutionResult> run(IClock& clock, const ICancellationToken& cancellation,
+                                             IEventSink& events) = 0;
+    virtual void request_unblock() noexcept = 0;
+};
+
+template <class Executor, class Transport> class BoundAttempt final : public BoundFlashAttempt
+{
+  public:
+    BoundAttempt(FlashPlan plan, std::unique_ptr<Executor> executor, std::unique_ptr<Transport> transport)
+        : plan_(std::move(plan)), executor_(std::move(executor)), transport_(std::move(transport))
+    {
+    }
+
+    Result<FlashExecutionResult> run(IClock& clock, const ICancellationToken& cancellation, IEventSink& events) override
+    {
+        // Pure: validates the plan and derives config, touching no hardware, so
+        // a bad plan is rejected before the adapter is configured or opened.
+        Result<typename Executor::ConfigType> setup = executor_->transport_setup(plan_);
+        if (!setup.has_value())
+        {
+            return std::unexpected(setup.error());
+        }
+        if (cancellation.cancelled())
+        {
+            return fail(ErrorKind::Cancelled, "cancelled before configure");
+        }
+        if (const Status configured = transport_->configure(*setup); !configured.has_value())
+        {
+            return std::unexpected(configured.error());
+        }
+        if (cancellation.cancelled())
+        {
+            return fail(ErrorKind::Cancelled, "cancelled after configure");
+        }
+        if (const Status opened = transport_->open(); !opened.has_value())
+        {
+            return std::unexpected(opened.error());
+        }
+
+        Result<FlashExecutionResult> outcome = executor_->execute(plan_, *transport_, clock, cancellation, events);
+
+        // Exactly once on every exit path past open(). Main error wins over a
+        // close error; a close-only error is returned. This was step 5c's
+        // EEPROM-family rule; here it is the universal one.
+        const Status closed = transport_->close();
+        if (!outcome.has_value())
+        {
+            if (!closed.has_value())
+            {
+                events.log(LogLevel::Warning, "close failed after execution error");
+            }
+            return outcome;
+        }
+        if (!closed.has_value())
+        {
+            return std::unexpected(closed.error());
+        }
+        return outcome;
+    }
+
+    void request_unblock() noexcept override
+    {
+        transport_->request_unblock();
+    }
+
+  private:
+    FlashPlan plan_;
+    std::unique_ptr<Executor> executor_;
+    std::unique_ptr<Transport> transport_;
+};
+
+template <class Executor, class Transport>
+    requires std::derived_from<Transport, typename Executor::TransportType>
+std::unique_ptr<BoundFlashAttempt> bind_flash_attempt(FlashPlan plan, std::unique_ptr<Executor> executor,
+                                                      std::unique_ptr<Transport> transport)
+{
+    return std::make_unique<BoundAttempt<Executor, Transport>>(std::move(plan), std::move(executor),
+                                                               std::move(transport));
+}
 
 // Checked downcast of `transport` to ICanFlashTransport, then configure()
 // and open() with `config`. Every CAN family executor needs exactly this
