@@ -178,21 +178,25 @@ do not affect the dashboard's operational behavior.
 
 ### Codec and lifecycle
 
-`DashboardDocumentService` parses, validates, migrates, and serializes the
-model. Reads use `IFileRepository`; saves use `IAtomicFileWriter` so a failed or
-interrupted save cannot replace a valid file with a partial document.
+`DashboardDocumentService` parses, validates, and serializes the model. Reads
+use `IFileRepository`; saves use `IAtomicFileWriter` so a failed or interrupted
+save cannot replace a valid file with a partial document.
 
-Unsupported newer schema versions are rejected without modification. Supported
-older versions migrate in memory and become dirty only after a successful
-load. Invalid fields produce `ErrorKind::InvalidConfig` with a stable field path
-and actionable detail. Unknown or malformed input is never silently rewritten.
+The first release recognizes only format version 1. Any other schema version is
+rejected without modification; no synthetic older format or migration is
+implemented. The codec retains an explicit version-dispatch point where a
+future decoder and migration can be added when a real older format exists.
+Invalid fields produce `ErrorKind::InvalidConfig` with a stable field path and
+actionable detail. Unknown or malformed input is never silently rewritten.
 
-A new document can import an existing RomRaider-format CDBG logger XML once.
-Channel definitions and all of their conversions are copied into the `.ohd`;
-the user chooses the active conversion when adding a card. The original XML is
-no longer required after save, making the document self-contained. In the first
-release, "available channel" means a valid channel in this embedded catalog;
-the CDBG protocol has no runtime capability discovery for arbitrary ECU memory
+A new document can import the existing legacy FastECU CDBG catalog once. The
+catalog uses FastECU's logger-shaped XML envelope, but CDBG itself is unrelated
+to RomRaider and the `.ohd` model contains no RomRaider concepts. Channel
+definitions and all of their conversions are copied into the `.ohd`; the user
+chooses the active conversion when adding a card. The original XML is no longer
+required after save, making the document self-contained. In the first release,
+"available channel" means a valid channel in this embedded catalog; the CDBG
+protocol has no runtime capability discovery for arbitrary ECU memory
 addresses.
 
 ## Shared logging and connection components
@@ -351,9 +355,10 @@ write operations.
 - Valid format-version-1 parsing and deterministic serialization.
 - Parse/serialize/parse semantic round trips.
 - Rejection of malformed XML and unsupported newer versions.
-- In-memory migration fixtures for every retained older schema after migrations
-  exist.
-- Import of CDBG logger XML, including conversions and duplicate IDs.
+- Version-dispatch coverage proving every non-v1 schema is rejected without
+  modification.
+- All-or-nothing import of the legacy FastECU CDBG catalog, including
+  conversions and duplicate-ID rejection.
 - Session building from only referenced card channels.
 - Atomic-save success and failure using in-memory port implementations.
 - Inclusion of the new portable targets in `//:portable_closure`.
@@ -399,8 +404,8 @@ remain the stable tests.
 
 1. **QtQuick build spike:** prove the minimal cross-platform application,
    resources, runtime modules, and packaging inputs.
-2. **Portable `.ohd` foundation:** add model, codec, validation, import,
-   migration framework, and portable-closure coverage.
+2. **Portable `.ohd` foundation:** add model, codec, validation, legacy CDBG
+   catalog import, version dispatch, and portable-closure coverage.
 3. **Shared logging runtime:** introduce the generic session/protocol API and
    migrate the Widgets caller through its compatibility adapter.
 4. **Connection integration:** add adapter resolution, configurable CDBG/CAN
