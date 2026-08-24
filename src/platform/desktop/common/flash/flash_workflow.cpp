@@ -608,51 +608,6 @@ using SubaruTcuCvtMitsuMh8111CanWorkflow =
 using SubaruTcuCvtMitsuMh8104CanWorkflow =
     SimpleCanFlashWorkflow<SubaruTcuCvtMitsuMh8104CanExecutor, &build_subaru_tcu_cvt_mitsu_mh8104_can_plan>;
 
-// The EEPROM K-Line sibling is still an IFlashExecutor until Task 15, so this
-// workflow remains on the legacy bridge. This adapter supplies the migrated
-// CAN sibling's former lifecycle around its now-lifecycle-free protocol I/O.
-class LegacyDensoSh705xEepromCanExecutorAdapter final : public IFlashExecutor
-{
-  public:
-    Result<FlashExecutionResult> execute(const FlashPlan& plan, IFlashTransport& transport, IClock& clock,
-                                         const ICancellationToken& cancellation, IEventSink& events) override
-    {
-        if (cancellation.cancelled())
-        {
-            return fail(ErrorKind::Cancelled, "cancelled before setup");
-        }
-        const Result<Iso15765Config> setup = executor_.transport_setup(plan);
-        if (!setup.has_value())
-        {
-            return std::unexpected(setup.error());
-        }
-        Result<ICanFlashTransport *> can_transport = open_can_iso15765_transport(transport, *setup);
-        if (!can_transport.has_value())
-        {
-            return std::unexpected(can_transport.error());
-        }
-
-        Result<FlashExecutionResult> outcome = executor_.execute(plan, **can_transport, clock, cancellation, events);
-        const Status closed = (*can_transport)->close();
-        if (!outcome.has_value())
-        {
-            if (!closed.has_value())
-            {
-                events.log(LogLevel::Warning, "close failed after execution error");
-            }
-            return outcome;
-        }
-        if (!closed.has_value())
-        {
-            return std::unexpected(closed.error());
-        }
-        return outcome;
-    }
-
-  private:
-    DensoSh705xEepromCanExecutor executor_;
-};
-
 class EepromWorkflow final : public FlashWorkflow
 {
   public:
@@ -693,20 +648,14 @@ class EepromWorkflow final : public FlashWorkflow
         {
             return FlashFailureStep{plan.error()};
         }
-        const TransportKind transport = plan->transport();
-        std::unique_ptr<IFlashExecutor> executor;
-        std::unique_ptr<IFlashTransport> adapter;
-        if (transport == TransportKind::Kline)
+        if (plan->transport() == TransportKind::Kline)
         {
-            executor = std::make_unique<DensoSh705xEepromKlineExecutor>();
-            adapter = std::make_unique<DesktopKlineFlashTransport>(request_.serial);
+            return FlashAttempt{bind_flash_attempt(std::move(*plan), std::make_unique<DensoSh705xEepromKlineExecutor>(),
+                                                   std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
+                                std::make_unique<QtClock>()};
         }
-        else
-        {
-            executor = std::make_unique<LegacyDensoSh705xEepromCanExecutorAdapter>();
-            adapter = std::make_unique<DesktopCanFlashTransport>(request_.serial);
-        }
-        return FlashAttempt{bind_legacy_flash_attempt(std::move(*plan), std::move(executor), std::move(adapter)),
+        return FlashAttempt{bind_flash_attempt(std::move(*plan), std::make_unique<DensoSh705xEepromCanExecutor>(),
+                                               std::make_unique<DesktopCanFlashTransport>(request_.serial)),
                             std::make_unique<QtClock>()};
     }
 

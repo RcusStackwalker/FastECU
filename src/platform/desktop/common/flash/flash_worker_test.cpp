@@ -122,8 +122,8 @@ class TestFlashWorker : public QObject
         rawTransport->queueBlockingRead();
 
         FlashWorker worker(FlashAttempt{
-            fastecu::flash::bind_legacy_flash_attempt(
-                std::move(*plan), std::make_unique<DensoSh705xEepromKlineExecutor>(), std::move(transport)),
+            fastecu::flash::bind_flash_attempt(std::move(*plan), std::make_unique<DensoSh705xEepromKlineExecutor>(),
+                                               std::move(transport)),
             std::make_unique<FakeClock>()});
         QSignalSpy finishedSpy(&worker, &FlashWorker::finished);
 
@@ -149,8 +149,8 @@ class TestFlashWorker : public QObject
 
     void oneAndOnlyOneTerminalResultIsEmitted()
     {
-        // A CAN-shaped plan handed to the K-Line executor: check_family_
-        // transport_match() rejects it before any I/O (zero writes/reads
+        // A CAN-shaped plan handed to the K-Line executor: transport_setup()
+        // rejects it before any I/O (zero writes/reads
         // scripted below, on purpose -- reaching the transport at all here
         // would itself be a bug).
         auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(validInput(FlashFamily::DensoSh705xEepromCan));
@@ -158,8 +158,8 @@ class TestFlashWorker : public QObject
 
         auto transport = std::make_unique<ScriptedKlineFlashTransport>();
         FlashWorker worker(FlashAttempt{
-            fastecu::flash::bind_legacy_flash_attempt(
-                std::move(*plan), std::make_unique<DensoSh705xEepromKlineExecutor>(), std::move(transport)),
+            fastecu::flash::bind_flash_attempt(std::move(*plan), std::make_unique<DensoSh705xEepromKlineExecutor>(),
+                                               std::move(transport)),
             std::make_unique<FakeClock>()});
         QSignalSpy finishedSpy(&worker, &FlashWorker::finished);
 
