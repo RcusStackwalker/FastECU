@@ -49,7 +49,6 @@ using fastecu::RecordingEventSink;
 using fastecu::flash::build_mitsu_colt_m32r_can_plan;
 using fastecu::flash::FlashOperation;
 using fastecu::flash::MitsuColtM32rCanExecutor;
-using fastecu::flash::ScriptedCanFlashTransport;
 using testing::Contains;
 using testing::Each;
 using testing::HasSubstr;
@@ -62,6 +61,15 @@ constexpr std::string_view kVendorProtocol384 = "mitsu_ecu_m32r_can_vendor_ext";
 constexpr std::string_view kProtocol512 = "mitsu_ecu_m32r_can_512kb";
 constexpr std::string_view kMcu384 = "M32R_384KB_1block";
 constexpr std::string_view kMcu512 = "M32R_512KB_1block";
+
+class ScriptedCanFlashTransport : public fastecu::flash::ScriptedCanFlashTransport
+{
+  public:
+    ScriptedCanFlashTransport()
+    {
+        start_open();
+    }
+};
 
 std::string_view mcuFor(std::string_view protocol)
 {
@@ -439,6 +447,20 @@ TEST(MitsuColtM32rCanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyIo)
     EXPECT_THAT(events.logs, IsEmpty());
     EXPECT_EQ(transport.writesConsumed(), 0u);
     EXPECT_FALSE(transport.last_config_.has_value());
+}
+
+TEST(MitsuColtM32rCanExecutor, TransportSetupReturnsThePlansWireParameters)
+{
+    MitsuColtM32rCanExecutor executor;
+    const auto plan = readPlan();
+
+    const auto setup = executor.transport_setup(plan);
+
+    ASSERT_TRUE(setup.has_value());
+    EXPECT_EQ(setup->bitrate, 500000);
+    EXPECT_EQ(setup->request_id, 0x7e0u);
+    EXPECT_EQ(setup->response_id, 0x7e8u);
+    EXPECT_FALSE(setup->extended_id);
 }
 
 TEST(MitsuColtM32rCanExecutor, RejectsInconsistentHandBuiltPlansBeforeAnyIo)
@@ -1839,78 +1861,6 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengeKeyRejectionStopsBeforeTheSession)
                 Contains(Pair(LogLevel::Error, "Vendor challenge key rejected: unexpected vendor challenge "
                                                "key response")));
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Vendor challenge accepted"))));
-}
-
-// An IFlashTransport that is not an ICanFlashTransport -- what a K-Line
-// adapter would look like to this executor.
-class NotACanTransport final : public fastecu::flash::IFlashTransport
-{
-  public:
-    void request_unblock() noexcept override
-    {
-    }
-};
-
-TEST(MitsuColtM32rCanExecutor, RefusesATransportThatIsNotACanTransport)
-{
-    NotACanTransport transport;
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    MitsuColtM32rCanExecutor executor;
-    auto plan = readPlan();
-
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    // A checked downcast, not a static_cast: the wrong adapter is a typed
-    // refusal rather than undefined behaviour on the first configure().
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_THAT(result.error().detail, HasSubstr("does not implement ICanFlashTransport"));
-    EXPECT_THAT(events.logs, IsEmpty());
-}
-
-TEST(MitsuColtM32rCanExecutor, PropagatesAConfigureFailureBeforeAnyRequest)
-{
-    ScriptedCanFlashTransport transport;
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    MitsuColtM32rCanExecutor executor;
-    auto plan = readPlan();
-
-    transport.configure_result_ = fastecu::fail(ErrorKind::InvalidConfig, "bad bitrate");
-
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_EQ(result.error().detail, "bad bitrate");
-    // A bus that could not be configured never gets a request.
-    EXPECT_EQ(transport.writesConsumed(), 0u);
-    EXPECT_THAT(events.logs, IsEmpty());
-}
-
-TEST(MitsuColtM32rCanExecutor, PropagatesAnOpenFailureBeforeAnyRequest)
-{
-    ScriptedCanFlashTransport transport;
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    MitsuColtM32rCanExecutor executor;
-    auto plan = readPlan();
-
-    transport.open_result_ = fastecu::fail(ErrorKind::Disconnected, "no adapter");
-
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
-    EXPECT_EQ(result.error().detail, "no adapter");
-    // Configuration happens first and is not rolled back, but nothing is sent.
-    EXPECT_TRUE(transport.last_config_.has_value());
-    EXPECT_EQ(transport.writesConsumed(), 0u);
-    EXPECT_THAT(events.logs, IsEmpty());
 }
 
 TEST(MitsuColtM32rCanExecutor, WriteRefusesTheEraseTriggerWhenItsConfirmationIsAbsent)
