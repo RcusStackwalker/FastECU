@@ -554,9 +554,8 @@ class SimpleCanFlashWorkflow final : public FlashWorkflow
         {
             attempted_ = true;
             FlashPlan plan = std::move(*plan_);
-            return FlashAttempt{bind_legacy_flash_attempt(
-                                    std::move(plan), std::unique_ptr<IFlashExecutor>(std::make_unique<ExecutorT>()),
-                                    std::make_unique<DesktopCanFlashTransport>(request_.serial)),
+            return FlashAttempt{bind_legacy_flash_attempt(std::move(plan), std::make_unique<ExecutorT>(),
+                                                          std::make_unique<DesktopCanFlashTransport>(request_.serial)),
                                 std::make_unique<QtClock>()};
         }
         return completed(outcome_, std::move(accepted_));
