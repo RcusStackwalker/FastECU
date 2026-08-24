@@ -20,6 +20,19 @@ QT_DEPS = [
     "@rules_qt//:qt_xml",
 ]
 
+QT_QUICK_DEPS = [
+    "@rules_qt//:qt_core",
+    "@rules_qt//:qt_gui",
+    "@rules_qt//:qt_qml",
+    "@rules_qt//:qt_quick",
+    "@rules_qt//:qt_quick_controls2",
+    "@rules_qt//:qt_quick_controls2_basic",
+    "@rules_qt//:qt_quick_layouts",
+]
+
+# Qt 6.8 QtQml headers include the header-only QtQmlIntegration module.
+_QT_QUICK_HEADER_DEPS = ["@rules_qt//:qt_hdrs"]
+
 COMMON_COPTS = [
     "-DQT_FORCE_ASSERTS",
     "-DQT_DEPRECATED_WARNINGS",
@@ -57,6 +70,35 @@ def fastecu_qttest(
         tags = tags,
         target_compatible_with = target_compatible_with,
         deps = QT_DEPS + [":" + moc_target] + deps,
+    )
+
+def fastecu_quicktest(
+        name,
+        src,
+        deps = [],
+        data = [],
+        env = {},
+        tags = [],
+        target_compatible_with = [],
+        copts = [],
+        size = "small"):
+    """QtQuick/QtTest target with moc generation and no Widgets dependency."""
+    moc_target = name + "_moc"
+    qt_cpp_moc_headers(
+        name = moc_target,
+        srcs = [src],
+        deps = QT_QUICK_DEPS + _QT_QUICK_HEADER_DEPS + ["@rules_qt//:qt_test"],
+    )
+    _qt_cc_test(
+        name = name,
+        srcs = [src],
+        copts = COMMON_COPTS + copts,
+        data = data,
+        env = env,
+        size = size,
+        tags = tags,
+        target_compatible_with = target_compatible_with,
+        deps = QT_QUICK_DEPS + _QT_QUICK_HEADER_DEPS + ["@rules_qt//:qt_test", ":" + moc_target] + deps,
     )
 
 def platform_srcs(unix = [], windows = []):

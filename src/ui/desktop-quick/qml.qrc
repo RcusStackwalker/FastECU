@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/omnihaste">
+        <file alias="qml/Main.qml">qml/Main.qml</file>
+        <file alias="qml/shell/ApplicationShell.qml">qml/shell/ApplicationShell.qml</file>
+    </qresource>
+</RCC>
