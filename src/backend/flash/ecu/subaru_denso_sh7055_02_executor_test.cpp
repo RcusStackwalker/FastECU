@@ -438,6 +438,21 @@ bool has_log(const RecordingEventSink& events, std::string_view message)
     return std::ranges::any_of(events.logs, [message](const auto& entry) { return entry.second == message; });
 }
 
+TEST(SubaruDensoSh7055_02Executor, TransportSetupReturnsPlansWireParameters)
+{
+    auto plan = read_plan();
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    SubaruDensoSh7055_02Executor executor;
+
+    const auto setup = executor.transport_setup(*plan);
+
+    ASSERT_TRUE(setup.has_value()) << setup.error().detail;
+    EXPECT_EQ(setup->baud, 62500);
+    EXPECT_FALSE(setup->iso14230);
+    EXPECT_EQ(setup->tester_id, 0xF0);
+    EXPECT_EQ(setup->target_id, 0x10);
+}
+
 TEST(SubaruDensoSh7055_02Executor, KernelAlreadyAliveSkipsWrxInitEcuIdAndUpload)
 {
     auto plan = write_plan();
@@ -457,16 +472,12 @@ TEST(SubaruDensoSh7055_02Executor, KernelAlreadyAliveSkipsWrxInitEcuIdAndUpload)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_EQ(result->operation, FlashOperation::Write);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.close_call_count_, 1);
-    ASSERT_TRUE(transport.last_config_.has_value());
-    EXPECT_EQ(transport.last_config_->baud, 62500);
-    EXPECT_EQ(transport.last_config_->tester_id, 0xF0);
-    EXPECT_EQ(transport.last_config_->target_id, 0x10);
 }
 
 TEST(SubaruDensoSh7055_02Executor, KernelAliveReadReturnsNoRomId)
@@ -488,6 +499,7 @@ TEST(SubaruDensoSh7055_02Executor, KernelAliveReadReturnsNoRomId)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -511,6 +523,7 @@ TEST(SubaruDensoSh7055_02Executor, RejectsMissingConfirmationAndMalformedFamilyB
         NeverCancelled cancellation;
         RecordingEventSink events;
         SubaruDensoSh7055_02Executor executor;
+        transport.start_open();
 
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
@@ -520,7 +533,6 @@ TEST(SubaruDensoSh7055_02Executor, RejectsMissingConfirmationAndMalformedFamilyB
         EXPECT_EQ(transport.writesConsumed(), 0u);
         EXPECT_TRUE(transport.read_timeouts_.empty());
         EXPECT_TRUE(transport.control_line_trace_.empty());
-        EXPECT_EQ(transport.close_call_count_, 0);
     }
 }
 
@@ -545,6 +557,7 @@ TEST(SubaruDensoSh7055_02Executor, ReadSurfacesEcuIdInResult)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -567,7 +580,6 @@ TEST(SubaruDensoSh7055_02Executor, ReadSurfacesEcuIdInResult)
     }
     EXPECT_EQ(clock.sleep_calls, expected_sleeps);
     EXPECT_EQ(transport.read_timeouts_, expected_timeouts);
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(SubaruDensoSh7055_02Executor, OpenPort2UploadDelayCancellationStopsBeforeResponseRead)
@@ -584,6 +596,7 @@ TEST(SubaruDensoSh7055_02Executor, OpenPort2UploadDelayCancellationStopsBeforeRe
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -591,7 +604,6 @@ TEST(SubaruDensoSh7055_02Executor, OpenPort2UploadDelayCancellationStopsBeforeRe
     EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 5000), 1);
     EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 200), 0);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(SubaruDensoSh7055_02Executor, ReadReturnsAssembledPageBytes)
@@ -618,13 +630,13 @@ TEST(SubaruDensoSh7055_02Executor, ReadReturnsAssembledPageBytes)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(*result->read_bytes, expected);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(SubaruDensoSh7055_02Executor, ReadRejectsMalformedPageResponse)
@@ -644,12 +656,12 @@ TEST(SubaruDensoSh7055_02Executor, ReadRejectsMalformedPageResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(SubaruDensoSh7055_02Executor, ReadRejectsTruncatedPageResponse)
@@ -670,12 +682,12 @@ TEST(SubaruDensoSh7055_02Executor, ReadRejectsTruncatedPageResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(SubaruDensoSh7055_02Executor, ReadCancelsBetweenPages)
@@ -692,13 +704,13 @@ TEST(SubaruDensoSh7055_02Executor, ReadCancelsBetweenPages)
     CancelAfterFirstPageClock clock(cancellation);
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.writesConsumed(), 6u); // probe + SID BF + WRX + upload + kernel ID + first read
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(SubaruDensoSh7055_02Executor, NoFrameWrxReplyRetriesUntilExactResponse)
@@ -725,6 +737,7 @@ TEST(SubaruDensoSh7055_02Executor, NoFrameWrxReplyRetriesUntilExactResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -746,6 +759,7 @@ TEST(SubaruDensoSh7055_02Executor, WritePathSkipsEcuIdRead)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -753,7 +767,6 @@ TEST(SubaruDensoSh7055_02Executor, WritePathSkipsEcuIdRead)
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_FALSE(has_log(events, "ECU ID: 4142434445"));
     EXPECT_EQ(transport.baud_calls_, (std::vector<int>{9600, 62500}));
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(SubaruDensoSh7055_02Executor, WriteSkipsWhenNoBlockDiffers)
@@ -772,6 +785,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteSkipsWhenNoBlockDiffers)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -780,7 +794,6 @@ TEST(SubaruDensoSh7055_02Executor, WriteSkipsWhenNoBlockDiffers)
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.writesConsumed(), 4u + device->numblocks);
     EXPECT_EQ(transport.programming_voltage_line_write_index_, 4u + device->numblocks);
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(SubaruDensoSh7055_02Executor, WriteReflashesOnlyDifferingBlocks)
@@ -810,6 +823,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteReflashesOnlyDifferingBlocks)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -821,7 +835,6 @@ TEST(SubaruDensoSh7055_02Executor, WriteReflashesOnlyDifferingBlocks)
     EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 500), 1);
     EXPECT_TRUE(has_log(events, "Max message length: 0x00000206"));
     EXPECT_TRUE(has_log(events, "Flash block size: 0x00001000"));
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(SubaruDensoSh7055_02Executor, TestWriteSendsValidateNotCommit)
@@ -846,13 +859,13 @@ TEST(SubaruDensoSh7055_02Executor, TestWriteSendsValidateNotCommit)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_EQ(result->operation, FlashOperation::TestWrite);
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 500), 0);
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedEraseResponse)
@@ -876,13 +889,13 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedEraseResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 500), 1);
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(SubaruDensoSh7055_02Executor, WriteCancelsMidBlockTransfer)
@@ -906,13 +919,13 @@ TEST(SubaruDensoSh7055_02Executor, WriteCancelsMidBlockTransfer)
     FakeClock clock;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.flash_buffer_write_attempts_, 0u);
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(SubaruDensoSh7055_02Executor, WriteRejectsCrcResponseMarkedFailed)
@@ -932,6 +945,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsCrcResponseMarkedFailed)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -939,7 +953,6 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsCrcResponseMarkedFailed)
     EXPECT_EQ(result.error().detail, "ECU marked CRC response failed");
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50), 0);
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(SubaruDensoSh7055_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt)
@@ -975,6 +988,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -1011,6 +1025,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -1038,6 +1053,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsTruncatedBlockCrcAfterBoundedRead
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -1062,6 +1078,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsNegativeBlockCrcResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -1087,6 +1104,7 @@ TEST(SubaruDensoSh7055_02Executor, WritePropagatesBlockCrcDrainError)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -1113,6 +1131,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsTruncatedFlashInitResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -1139,6 +1158,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedProgVoltResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -1163,6 +1183,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedFlashBufferResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -1192,6 +1213,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedCommitResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -1221,6 +1243,7 @@ TEST(SubaruDensoSh7055_02Executor, TestWriteFailsOnRejectedValidateResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -1248,6 +1271,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteLogsRemainingMismatchAfterVerification)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -1274,13 +1298,13 @@ TEST(SubaruDensoSh7055_02Executor, WrxInitLoopExhaustsAfter20Attempts)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.writesConsumed(), 22u); // probe + SID BF + 20 WRX requests
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(SubaruDensoSh7055_02Executor, CancellationDuringWrxInitLoopStopsBeforeSecondAttempt)
@@ -1294,18 +1318,18 @@ TEST(SubaruDensoSh7055_02Executor, CancellationDuringWrxInitLoopStopsBeforeSecon
     transport.queueRead(bytes::Bytes{0x00, 0x00, 0x00});
 
     FakeClock clock;
-    // This threshold permits the setup I/O and first malformed WRX response,
+    // This threshold permits the first malformed WRX response,
     // then flips at the loop guard before attempt two.
-    FlipAfter cancellation(48);
+    FlipAfter cancellation(43);
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.writesConsumed(), 3u); // probe + SID BF + one WRX request
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 } // namespace
