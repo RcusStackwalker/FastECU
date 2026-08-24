@@ -257,18 +257,6 @@ std::unique_ptr<BoundFlashAttempt> bind_flash_attempt(FlashPlan plan, std::uniqu
 std::unique_ptr<BoundFlashAttempt> bind_legacy_flash_attempt(FlashPlan plan, std::unique_ptr<IFlashExecutor> executor,
                                                              std::unique_ptr<IFlashTransport> transport);
 
-// During the staged migration a shared workflow can still name the legacy
-// binder while one of its executor instantiations has become transport-typed.
-// Preserve that workflow seam until its whole group moves; the typed attempt
-// nevertheless owns configure/open/close through bind_flash_attempt().
-template <class Executor, class Transport>
-    requires std::derived_from<Executor, IKlineFlashExecutor> || std::derived_from<Executor, ICanFlashExecutor>
-std::unique_ptr<BoundFlashAttempt> bind_legacy_flash_attempt(FlashPlan plan, std::unique_ptr<Executor> executor,
-                                                             std::unique_ptr<Transport> transport)
-{
-    return bind_flash_attempt(std::move(plan), std::move(executor), std::move(transport));
-}
-
 // Checked downcast of `transport` to ICanFlashTransport, then configure()
 // and open() with `config`. Every CAN family executor needs exactly this
 // prologue before its first exchange; factored because six independent

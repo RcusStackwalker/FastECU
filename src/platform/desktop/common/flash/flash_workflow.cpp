@@ -514,6 +514,34 @@ class ColtWorkflow final : public FlashWorkflow
     std::optional<Error> failure_;
 };
 
+// Retains the legacy workflow binding while the shared CAN workflow group is
+// migrated one executor at a time. The adapter owns the old configure/open
+// prologue; the typed executor itself remains lifecycle-free.
+template <typename ExecutorT>
+    requires std::derived_from<ExecutorT, ICanFlashExecutor>
+class LegacyCanFlashExecutorAdapter final : public IFlashExecutor
+{
+  public:
+    Result<FlashExecutionResult> execute(const FlashPlan& plan, IFlashTransport& transport, IClock& clock,
+                                         const ICancellationToken& cancellation, IEventSink& events) override
+    {
+        const Result<Iso15765Config> setup = executor_.transport_setup(plan);
+        if (!setup.has_value())
+        {
+            return std::unexpected(setup.error());
+        }
+        Result<ICanFlashTransport *> can_transport = open_can_iso15765_transport(transport, *setup);
+        if (!can_transport.has_value())
+        {
+            return std::unexpected(can_transport.error());
+        }
+        return executor_.execute(plan, **can_transport, clock, cancellation, events);
+    }
+
+  private:
+    ExecutorT executor_;
+};
+
 // Shared shape for every kernel-free, no-confirmation, single-attempt CAN
 // family in this file (step 5 tail wave 3): build the plan in the
 // constructor, prompt once, run the single executor attempt, report the
@@ -554,9 +582,22 @@ class SimpleCanFlashWorkflow final : public FlashWorkflow
         {
             attempted_ = true;
             FlashPlan plan = std::move(*plan_);
-            return FlashAttempt{bind_legacy_flash_attempt(std::move(plan), std::make_unique<ExecutorT>(),
-                                                          std::make_unique<DesktopCanFlashTransport>(request_.serial)),
-                                std::make_unique<QtClock>()};
+            if constexpr (std::derived_from<ExecutorT, ICanFlashExecutor>)
+            {
+                return FlashAttempt{
+                    bind_legacy_flash_attempt(
+                        std::move(plan),
+                        std::unique_ptr<IFlashExecutor>(std::make_unique<LegacyCanFlashExecutorAdapter<ExecutorT>>()),
+                        std::make_unique<DesktopCanFlashTransport>(request_.serial)),
+                    std::make_unique<QtClock>()};
+            }
+            else
+            {
+                return FlashAttempt{bind_legacy_flash_attempt(
+                                        std::move(plan), std::unique_ptr<IFlashExecutor>(std::make_unique<ExecutorT>()),
+                                        std::make_unique<DesktopCanFlashTransport>(request_.serial)),
+                                    std::make_unique<QtClock>()};
+            }
         }
         return completed(outcome_, std::move(accepted_));
     }
