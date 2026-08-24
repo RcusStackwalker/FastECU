@@ -18,10 +18,8 @@ constexpr unsigned long kTeardownWaitMs = 5000;
 
 } // namespace
 
-FlashWorker::FlashWorker(FlashPlan plan, std::unique_ptr<IFlashExecutor> executor,
-                         std::unique_ptr<IFlashTransport> transport, std::unique_ptr<IClock> clock, QObject *parent)
-    : QThread(parent), plan_(std::move(plan)), executor_(std::move(executor)), transport_(std::move(transport)),
-      clock_(std::move(clock))
+FlashWorker::FlashWorker(FlashAttempt attempt, QObject *parent)
+    : QThread(parent), attempt_(std::move(attempt.attempt)), clock_(std::move(attempt.clock))
 {
     qRegisterMetaType<FlashWorkerResult>();
 }
@@ -35,7 +33,7 @@ FlashWorker::~FlashWorker()
 void FlashWorker::requestStop()
 {
     cancellation_.cancel();
-    transport_->request_unblock();
+    attempt_->request_unblock();
 }
 
 void FlashWorker::run()
@@ -62,7 +60,7 @@ void FlashWorker::run()
         &events, &QtEventSink::noticed, this, [this](QString message)
         { emit logEvent(static_cast<int>(LogLevel::Info), std::move(message)); }, Qt::DirectConnection);
 
-    Result<FlashExecutionResult> result = executor_->execute(plan_, *transport_, *clock_, cancellation_, events);
+    Result<FlashExecutionResult> result = attempt_->run(*clock_, cancellation_, events);
 
     FlashWorkerResult worker_result;
     if (result.has_value())

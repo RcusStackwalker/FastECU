@@ -249,6 +249,14 @@ std::unique_ptr<BoundFlashAttempt> bind_flash_attempt(FlashPlan plan, std::uniqu
                                                                std::move(transport));
 }
 
+// TEMPORARY migration scaffolding (ADR 0015). Wraps an unmigrated
+// IFlashExecutor, which still configures/opens/closes for itself, so families
+// can move to the split interfaces one at a time with a green build in
+// between. Deleted together with IFlashExecutor in the final migration commit;
+// it must not outlive the migration PR.
+std::unique_ptr<BoundFlashAttempt> bind_legacy_flash_attempt(FlashPlan plan, std::unique_ptr<IFlashExecutor> executor,
+                                                             std::unique_ptr<IFlashTransport> transport);
+
 // Checked downcast of `transport` to ICanFlashTransport, then configure()
 // and open() with `config`. Every CAN family executor needs exactly this
 // prologue before its first exchange; factored because six independent
