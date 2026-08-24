@@ -133,6 +133,59 @@ std::optional<bytes::Bytes> normalizeMc68Image(std::optional<bytes::Bytes> image
     return packed;
 }
 
+// The Mitsubishi sibling remains an IFlashExecutor until Task 12, so this
+// shared workflow remains on the legacy bridge. This adapter supplies the
+// migrated Hitachi executor's former lifecycle around its protocol I/O.
+class LegacySubaruHitachiM32rKlineExecutorAdapter final : public IFlashExecutor
+{
+  public:
+    Result<FlashExecutionResult> execute(const FlashPlan& plan, IFlashTransport& transport, IClock& clock,
+                                         const ICancellationToken& cancellation, IEventSink& events) override
+    {
+        if (cancellation.cancelled())
+        {
+            return fail(ErrorKind::Cancelled, "cancelled before setup");
+        }
+        const Result<KlineConfig> setup = executor_.transport_setup(plan);
+        if (!setup.has_value())
+        {
+            return std::unexpected(setup.error());
+        }
+        auto *kline_transport = dynamic_cast<IKlineFlashTransport *>(&transport);
+        if (kline_transport == nullptr)
+        {
+            return fail(ErrorKind::InvalidConfig, "transport does not implement IKlineFlashTransport");
+        }
+        if (const Status configured = kline_transport->configure(*setup); !configured.has_value())
+        {
+            return std::unexpected(configured.error());
+        }
+        if (const Status opened = kline_transport->open(); !opened.has_value())
+        {
+            return std::unexpected(opened.error());
+        }
+
+        Result<FlashExecutionResult> outcome = executor_.execute(plan, *kline_transport, clock, cancellation, events);
+        const Status closed = kline_transport->close();
+        if (!outcome.has_value())
+        {
+            if (!closed.has_value())
+            {
+                events.log(LogLevel::Warning, "close failed after execution error");
+            }
+            return outcome;
+        }
+        if (!closed.has_value())
+        {
+            return std::unexpected(closed.error());
+        }
+        return outcome;
+    }
+
+  private:
+    SubaruHitachiM32rKlineExecutor executor_;
+};
+
 class SubaruM32rKlineWorkflow final : public FlashWorkflow
 {
   public:
@@ -166,8 +219,9 @@ class SubaruM32rKlineWorkflow final : public FlashWorkflow
         {
             attempted_ = true;
             std::unique_ptr<IFlashExecutor> executor =
-                hitachi_ ? std::unique_ptr<IFlashExecutor>(std::make_unique<SubaruHitachiM32rKlineExecutor>())
-                         : std::unique_ptr<IFlashExecutor>(std::make_unique<SubaruMitsuM32rKlineExecutor>());
+                hitachi_
+                    ? std::unique_ptr<IFlashExecutor>(std::make_unique<LegacySubaruHitachiM32rKlineExecutorAdapter>())
+                    : std::unique_ptr<IFlashExecutor>(std::make_unique<SubaruMitsuM32rKlineExecutor>());
             return FlashAttempt{
                 bind_legacy_flash_attempt(std::move(*plan_), std::move(executor),
                                           std::make_unique<DesktopKlineFlashTransport>(request_.serial)),

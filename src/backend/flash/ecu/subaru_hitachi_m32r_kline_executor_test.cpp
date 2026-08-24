@@ -121,6 +121,22 @@ void scriptWriteBody(ScriptedKlineFlashTransport& transport, bytes::ByteView ima
     transport.queueRead(bytes::Bytes{0x01});
 }
 
+TEST(SubaruHitachiM32rKlineExecutor, TransportSetupReturnsPlansWireParameters)
+{
+    auto plan = build_subaru_hitachi_m32r_kline_plan(FlashOperation::Read, "sub_ecu_hitachi_m32r_kline",
+                                                     "M32R_512KB_1block", std::nullopt);
+    ASSERT_TRUE(plan.has_value());
+    SubaruHitachiM32rKlineExecutor executor;
+
+    auto setup = executor.transport_setup(*plan);
+
+    ASSERT_TRUE(setup.has_value()) << setup.error().detail;
+    EXPECT_EQ(setup->baud, 4800);
+    EXPECT_FALSE(setup->iso14230);
+    EXPECT_EQ(setup->tester_id, 0xf0);
+    EXPECT_EQ(setup->target_id, 0x10);
+}
+
 TEST(SubaruHitachiM32rKlineExecutor, ReadsAt38400ProbeAndReturnsLogicalFullRom)
 {
     auto plan = build_subaru_hitachi_m32r_kline_plan(FlashOperation::Read, "sub_ecu_hitachi_m32r_kline_recovery",
@@ -130,6 +146,7 @@ TEST(SubaruHitachiM32rKlineExecutor, ReadsAt38400ProbeAndReturnsLogicalFullRom)
     transport.expectWrite(frame({0xbf}));
     transport.queueRead(idResponse());
     scriptReadChunks(transport);
+    transport.start_open();
     SubaruHitachiM32rKlineExecutor executor;
     FakeClock clock;
     ManualCancellationToken cancellation;
@@ -156,6 +173,7 @@ TEST(SubaruHitachiM32rKlineExecutor, RecoveryWakeIsBoundedToOneThousandAttempts)
         transport.expectWrite(frame({0x81}));
         transport.queue_no_frame();
     }
+    transport.start_open();
     SubaruHitachiM32rKlineExecutor executor;
     FakeClock clock;
     ManualCancellationToken cancellation;
@@ -183,6 +201,7 @@ TEST(SubaruHitachiM32rKlineExecutor, ReadFallsBackThrough4800Initialization)
     transport.expectWrite(frame({0xbf}));
     transport.queueRead(idResponse());
     scriptReadChunks(transport);
+    transport.start_open();
     SubaruHitachiM32rKlineExecutor executor;
     FakeClock clock;
     ManualCancellationToken cancellation;
@@ -207,6 +226,7 @@ TEST(SubaruHitachiM32rKlineExecutor, NormalWriteUsesActiveObkAndToleratesLegacyA
     transport.expectWrite(frame({0x34, 0, 0, 0, 0x04, 0x08, 0, 0}));
     transport.queueRead(bytes::Bytes{0, 0, 0, 0, 0x74, 0x84});
     scriptWriteBody(transport, image);
+    transport.start_open();
     SubaruHitachiM32rKlineExecutor executor;
     FakeClock clock;
     ManualCancellationToken cancellation;
@@ -225,6 +245,7 @@ TEST(SubaruHitachiM32rKlineExecutor, NormalFallbackRequiresSecuritySubfunctionTw
     ASSERT_TRUE(plan.has_value());
     ScriptedKlineFlashTransport transport;
     scriptNormalAuthenticatedFallback(transport);
+    transport.start_open();
     SubaruHitachiM32rKlineExecutor executor;
     FakeClock clock;
     ManualCancellationToken cancellation;
@@ -260,6 +281,7 @@ TEST(SubaruHitachiM32rKlineExecutor, EraseAcknowledgementAccumulatesBoundedFragm
     }
     transport.expectWrite(frame({0x31, 0x01, 0x02}));
     transport.queueRead(bytes::Bytes{1});
+    transport.start_open();
     SubaruHitachiM32rKlineExecutor executor;
     FakeClock clock;
     ManualCancellationToken cancellation;
@@ -282,6 +304,7 @@ TEST(SubaruHitachiM32rKlineExecutor, RecoveryWriteWakesAndUsesAuthenticatedSessi
     transport.queueRead(bytes::Bytes{0, 0, 0, 0, 0xc1});
     scriptAuthenticatedTail(transport);
     scriptWriteBody(transport, image);
+    transport.start_open();
     SubaruHitachiM32rKlineExecutor executor;
     FakeClock clock;
     ManualCancellationToken cancellation;
@@ -298,6 +321,7 @@ TEST(SubaruHitachiM32rKlineExecutor, CancellationBeforeSetupPerformsNoIo)
                                                      "M32R_512KB_1block", std::nullopt);
     ASSERT_TRUE(plan.has_value());
     ScriptedKlineFlashTransport transport;
+    transport.start_open();
     SubaruHitachiM32rKlineExecutor executor;
     FakeClock clock;
     ManualCancellationToken cancellation;
@@ -323,12 +347,12 @@ TEST(SubaruHitachiM32rKlineExecutor, CancellationAfterEraseIsNotReportedAsSucces
     transport.queueRead(bytes::Bytes{0, 0, 0, 0, 0x74});
     transport.expectWrite(frame({0x31, 0x02, 0x0f, 0xff, 0xff, 0xff}));
     transport.queueRead(bytes::Bytes{0, 0, 0, 0, 0x71, 0x02});
+    transport.start_open();
     SubaruHitachiM32rKlineExecutor executor;
     FakeClock clock;
     RecordingEventSink events;
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 } // namespace
