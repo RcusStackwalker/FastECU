@@ -23,12 +23,11 @@ TEST(LegacyConfigAdapterTest, SetBaseDirsPopulatesConfigValuesStructureAndReturn
     LegacyConfigAdapter adapter(fs, bundle, repo);
     FileActions::ConfigValuesStructure values;
 
-    fastecu::config::AppRootInfo root{"/base", true};
-    auto *returned = adapter.set_base_dirs(&values, root);
+    auto *returned = adapter.set_base_dirs(&values, "/base");
 
     EXPECT_EQ(returned, &values);
-    EXPECT_EQ(values.calibration_files_directory.toStdString(), "/base/calibrations/");
-    EXPECT_EQ(values.config_file.toStdString(), "/base/config/fastecu.cfg");
+    EXPECT_EQ(values.calibration_files_directory.toStdString(), "/base/0.1.0-beta.5/calibrations/");
+    EXPECT_EQ(values.config_file.toStdString(), "/base/0.1.0-beta.5/config/fastecu.cfg");
 }
 
 TEST(LegacyConfigAdapterTest, ReadConfigFilePopulatesConfigValuesStructureFields)

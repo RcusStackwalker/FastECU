@@ -592,9 +592,9 @@ QStringList FileActions::collect_ecuflash_definition_body_lines(const QStringLis
 }
 
 FileActions::ConfigValuesStructure *FileActions::set_base_dirs(ConfigValuesStructure *configValues,
-                                                               const fastecu::config::AppRootInfo& root_info)
+                                                               std::string_view app_root_path)
 {
-    return configAdapter_.set_base_dirs(configValues, root_info);
+    return configAdapter_.set_base_dirs(configValues, app_root_path);
 }
 
 FileActions::ConfigValuesStructure *FileActions::check_config_dirs(ConfigValuesStructure *configValues)

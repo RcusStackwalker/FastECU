@@ -239,9 +239,9 @@ LegacyConfigAdapter::LegacyConfigAdapter(IFileSystem& file_system, IResourceBund
 }
 
 fastecu::definitions::ConfigValuesStructure *
-LegacyConfigAdapter::set_base_dirs(fastecu::definitions::ConfigValuesStructure *values, const AppRootInfo& root_info)
+LegacyConfigAdapter::set_base_dirs(fastecu::definitions::ConfigValuesStructure *values, std::string_view app_root_path)
 {
-    ConfigPaths paths = resolve_config_paths(root_info, values->software_version.toStdString());
+    ConfigPaths paths = resolve_config_paths(app_root_path, values->software_version.toStdString());
     copy_paths_into_legacy(paths, values);
     return values;
 }

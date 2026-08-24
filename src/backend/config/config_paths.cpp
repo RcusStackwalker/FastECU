@@ -1,17 +1,18 @@
 #include "src/backend/config/config_paths.h"
 
+#include <format>
+
 namespace fastecu::config
 {
 
-ConfigPaths resolve_config_paths(const AppRootInfo& root, std::string_view version)
+ConfigPaths resolve_config_paths(std::string_view app_root_path, std::string_view version)
 {
     ConfigPaths paths;
-    paths.base_config_directory = root.app_root_path;
+    paths.base_config_directory = app_root_path;
 
-    const std::string base =
-        root.is_dev_environment ? root.app_root_path : root.app_root_path + "/" + std::string(version);
+    const std::string base = std::format("{}/{}", app_root_path, version);
 
-    paths.version_config_directory = root.is_dev_environment ? root.app_root_path : base + "/";
+    paths.version_config_directory = base + "/";
     paths.calibration_files_directory = base + "/calibrations/";
     paths.config_files_directory = base + "/config/";
     paths.definition_files_directory = base + "/definitions/";
