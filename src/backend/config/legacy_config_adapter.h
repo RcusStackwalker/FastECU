@@ -29,7 +29,7 @@ class LegacyConfigAdapter
     LegacyConfigAdapter(IFileSystem& file_system, IResourceBundle& resource_bundle, IFileRepository& file_repository);
 
     fastecu::definitions::ConfigValuesStructure *set_base_dirs(fastecu::definitions::ConfigValuesStructure *values,
-                                                               const AppRootInfo& root_info);
+                                                               std::string_view app_root_path);
     fastecu::definitions::ConfigValuesStructure *check_config_dirs(fastecu::definitions::ConfigValuesStructure *values);
     fastecu::definitions::ConfigValuesStructure *read_config_file(fastecu::definitions::ConfigValuesStructure *values);
     fastecu::definitions::ConfigValuesStructure *save_config_file(fastecu::definitions::ConfigValuesStructure *values);
