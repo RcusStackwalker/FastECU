@@ -79,6 +79,32 @@ Status validate_rom_size(const definition::RomDefinition& rom_definition, std::s
 //   rom = apply_flash_method_padding(std::move(rom), method);
 std::vector<std::uint8_t> apply_flash_method_padding(std::vector<std::uint8_t> rom_data, std::string_view flash_method);
 
+// ---------------------------------------------------------------------------
+// Legacy map-value text contract (issue #135)
+//
+// Map consumers treat decoded values as STRINGS, not merely as numbers: the
+// calibration tree, the map editor and the ROM writer all split and compare the
+// text produced below. These four rules are therefore a compatibility boundary,
+// not incidental formatting. Changing any of them changes what users see and
+// what round-trips back into a ROM.
+//
+//   1. Numeric text follows QString::number(value, 'g', precision): trailing
+//      zeros stripped, Qt's exponent thresholds, and -0 normalized to 0. The
+//      portable implementation is format_like_qt_g in calibration_service.cpp,
+//      which delegates to C's "%.*g". Qt's 'g' and C's %g agree across the
+//      range these ROMs produce; that agreement is PINNED by
+//      FormattingMatchesCapturedQtGroundTruth, which compares against captured
+//      real Qt output rather than assuming compatibility. If %g is ever found
+//      to diverge on a supported target, replace it with a portable formatter
+//      matching this contract -- do not relax the contract to match %g.
+//   2. Every value is followed by a comma, including the last: "v1,v2,...,vN,".
+//   3. An absent or uncomputed axis is the single-space string " ", never "".
+//   4. A map with no scaling takes the blank-expression path and emits
+//      zero-valued cells; the raw value is NOT treated as identity-scaled.
+//
+// Rules 2-4 are restated at the specific declarations they govern below.
+// ---------------------------------------------------------------------------
+
 // One run of consecutive elements: a map's cells, or one axis's points. Built
 // from either a CalibrationMap or an AxisDefinition -- the three call sites
 // (map cells, X axis, Y axis) differ only in which fields they read.
