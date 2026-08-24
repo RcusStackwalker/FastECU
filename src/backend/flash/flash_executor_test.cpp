@@ -9,6 +9,42 @@ namespace fastecu::flash
 namespace
 {
 
+TEST(TransportConfigProjectionTest, CopiesIso15765WireFields)
+{
+    constexpr SubaruHitachiM32rCanPlan plan{
+        .request_id = 0x7e0,
+        .response_id = 0x7e8,
+        .bitrate = 500000,
+        .extended_id = false,
+    };
+
+    constexpr Iso15765Config config = iso15765_config_from(plan);
+
+    EXPECT_EQ(config.bitrate, 500000);
+    EXPECT_EQ(config.request_id, 0x7e0u);
+    EXPECT_EQ(config.response_id, 0x7e8u);
+    EXPECT_FALSE(config.extended_id);
+}
+
+TEST(TransportConfigProjectionTest, CopiesNonIso14230KlineWireFields)
+{
+    constexpr SubaruMitsuM32rKlinePlan plan{
+        .tester_id = 0xf0,
+        .target_id = 0x10,
+        .initial_baud = 4800,
+        .flash_baud = 62500,
+        .chunk_size = 0x80,
+        .unread_prefix_fill = 0x00,
+    };
+
+    constexpr KlineConfig config = non_iso14230_kline_config_from(plan);
+
+    EXPECT_EQ(config.baud, 4800);
+    EXPECT_FALSE(config.iso14230);
+    EXPECT_EQ(config.tester_id, 0xf0);
+    EXPECT_EQ(config.target_id, 0x10);
+}
+
 FlashPlanFields kline_read_fields()
 {
     return FlashPlanFields{

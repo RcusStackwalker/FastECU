@@ -339,7 +339,7 @@ Result<KlineConfig> SubaruMitsuM32rKlineExecutor::transport_setup(const FlashPla
         return std::unexpected(valid.error());
     }
     const auto& p = std::get<SubaruMitsuM32rKlinePlan>(plan.family_plan());
-    return KlineConfig{p.initial_baud, false, p.tester_id, p.target_id};
+    return non_iso14230_kline_config_from(p);
 }
 
 Result<FlashExecutionResult> SubaruMitsuM32rKlineExecutor::execute(const FlashPlan& plan,

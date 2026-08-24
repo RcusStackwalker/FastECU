@@ -293,12 +293,7 @@ Result<KlineConfig> DensoSh705xEepromKlineExecutor::transport_setup(const FlashP
         return std::unexpected(match.error());
     }
     const auto& kline_plan = std::get<DensoSh705xEepromKlinePlan>(plan.family_plan());
-    return KlineConfig{
-        .baud = kline_plan.initial_baud,
-        .iso14230 = false,
-        .tester_id = kline_plan.tester_id,
-        .target_id = kline_plan.target_id,
-    };
+    return non_iso14230_kline_config_from(kline_plan);
 }
 
 Result<FlashExecutionResult>

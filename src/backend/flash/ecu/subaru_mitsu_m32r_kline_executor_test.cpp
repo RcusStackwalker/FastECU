@@ -52,12 +52,11 @@ TEST(SubaruMitsuM32rKlineExecutor, RejectsFamilyMismatchBeforeIo)
         build_mitsu_colt_m32r_can_plan(FlashOperation::Read, "mitsu_ecu_m32r_can", "M32R_384KB_1block", std::nullopt);
     ASSERT_TRUE(plan.has_value());
     SubaruMitsuM32rKlineExecutor executor;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
     FakeClock clock;
     ManualCancellationToken cancellation;
     RecordingEventSink events;
 
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -87,13 +86,12 @@ TEST(SubaruMitsuM32rKlineExecutor, CancellationBeforeSetupPerformsNoIo)
                                                    "M32R_512KB_4blocks", std::nullopt);
     ASSERT_TRUE(plan.has_value());
     SubaruMitsuM32rKlineExecutor executor;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
     FakeClock clock;
     ManualCancellationToken cancellation;
     cancellation.cancel();
     RecordingEventSink events;
 
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -108,7 +106,7 @@ TEST(SubaruMitsuM32rKlineExecutor, MapsMissingMalformedAndTransportFailureRespon
         auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::Read, "sub_ecu_mitsu_m32r_kline",
                                                        "M32R_512KB_4blocks", std::nullopt);
         ASSERT_TRUE(plan.has_value());
-        ScriptedKlineFlashTransport transport;
+        ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
         transport.expectWrite(frame({0xbf}));
         if (expected == ErrorKind::Timeout)
         {
@@ -127,7 +125,6 @@ TEST(SubaruMitsuM32rKlineExecutor, MapsMissingMalformedAndTransportFailureRespon
         ManualCancellationToken cancellation;
         RecordingEventSink events;
 
-        transport.start_open();
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
@@ -141,7 +138,7 @@ TEST(SubaruMitsuM32rKlineExecutor, ReadsAllUserspaceChunksAndSynthesizesBootPref
                                                    "M32R_512KB_4blocks", std::nullopt);
     ASSERT_TRUE(plan.has_value());
     SubaruMitsuM32rKlineExecutor executor;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
     scriptHandshake(transport);
     for (std::uint32_t address = 0x8000; address < 0x80000; address += 0x80)
     {
@@ -155,7 +152,6 @@ TEST(SubaruMitsuM32rKlineExecutor, ReadsAllUserspaceChunksAndSynthesizesBootPref
     ManualCancellationToken cancellation;
     RecordingEventSink events;
 
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -180,7 +176,7 @@ TEST(SubaruMitsuM32rKlineExecutor, WritesEveryEncryptedChunkAndToleratesTransfer
     auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::Write, "sub_ecu_mitsu_m32r_kline",
                                                    "M32R_512KB_4blocks", image);
     ASSERT_TRUE(plan.has_value());
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
     scriptHandshake(transport);
     transport.expectWrite(frame({0x34, 0, 0, 0, 0x04, 0x07, 0x80, 0}));
     transport.queueRead(bytes::Bytes{0, 0, 0, 0, 0x74});
@@ -208,7 +204,6 @@ TEST(SubaruMitsuM32rKlineExecutor, WritesEveryEncryptedChunkAndToleratesTransfer
     ManualCancellationToken cancellation;
     RecordingEventSink events;
 
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;

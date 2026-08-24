@@ -75,7 +75,8 @@ class FlipAfter final : public ICancellationToken
 class CancelAfterEraseTransport final : public ScriptedKlineFlashTransport
 {
   public:
-    explicit CancelAfterEraseTransport(ToggleCancellation& cancellation) : cancellation_(cancellation)
+    explicit CancelAfterEraseTransport(ToggleCancellation& cancellation)
+        : ScriptedKlineFlashTransport(fastecu::flash::ScriptedTransportInitialState::Open), cancellation_(cancellation)
     {
     }
 
@@ -480,7 +481,7 @@ TEST(SubaruDensoSh7055_02Executor, KernelAlreadyAliveSkipsWrxInitEcuIdAndUpload)
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     const flashdev_t *device = find_flash_device("SH7055");
     ASSERT_NE(device, nullptr);
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:69-70.
     transport.queue_no_frame();
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:108-126 and
@@ -493,7 +494,6 @@ TEST(SubaruDensoSh7055_02Executor, KernelAlreadyAliveSkipsWrxInitEcuIdAndUpload)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -507,7 +507,7 @@ TEST(SubaruDensoSh7055_02Executor, KernelAliveReadReturnsNoRomId)
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     const flashdev_t *device = find_flash_device("SH7055");
     ASSERT_NE(device, nullptr);
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     transport.queue_no_frame();
     transport.expectWrite(framed(0x01));
     transport.queueRead(framed(0x41, bytes::Bytes{'K'}));
@@ -520,7 +520,6 @@ TEST(SubaruDensoSh7055_02Executor, KernelAliveReadReturnsNoRomId)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -539,12 +538,11 @@ TEST(SubaruDensoSh7055_02Executor, RejectsMissingConfirmationAndMalformedFamilyB
          })
     {
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-        ScriptedKlineFlashTransport transport;
+        ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
         FakeClock clock;
         NeverCancelled cancellation;
         RecordingEventSink events;
         SubaruDensoSh7055_02Executor executor;
-        transport.start_open();
 
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
@@ -561,7 +559,7 @@ TEST(SubaruDensoSh7055_02Executor, ReadSurfacesEcuIdInResult)
 {
     auto plan = read_plan();
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     transport.post_kernel_upload_delay_required_ = true;
     script_wrx_preamble(transport, true);
     script_first_wrx_attempt_connects(transport);
@@ -578,7 +576,6 @@ TEST(SubaruDensoSh7055_02Executor, ReadSurfacesEcuIdInResult)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -607,7 +604,7 @@ TEST(SubaruDensoSh7055_02Executor, OpenPort2UploadDelayCancellationStopsBeforeRe
 {
     auto plan = read_plan();
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     transport.post_kernel_upload_delay_required_ = true;
     script_wrx_preamble(transport, true);
     script_first_wrx_attempt_connects(transport);
@@ -617,7 +614,6 @@ TEST(SubaruDensoSh7055_02Executor, OpenPort2UploadDelayCancellationStopsBeforeRe
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -631,7 +627,7 @@ TEST(SubaruDensoSh7055_02Executor, ReadReturnsAssembledPageBytes)
 {
     auto plan = read_plan();
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_wrx_preamble(transport, true);
     script_first_wrx_attempt_connects(transport);
     script_upload(transport);
@@ -651,7 +647,6 @@ TEST(SubaruDensoSh7055_02Executor, ReadReturnsAssembledPageBytes)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -664,7 +659,7 @@ TEST(SubaruDensoSh7055_02Executor, ReadRejectsMalformedPageResponse)
 {
     auto plan = read_plan();
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_wrx_preamble(transport, true);
     script_first_wrx_attempt_connects(transport);
     script_upload(transport);
@@ -677,7 +672,6 @@ TEST(SubaruDensoSh7055_02Executor, ReadRejectsMalformedPageResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -689,7 +683,7 @@ TEST(SubaruDensoSh7055_02Executor, ReadRejectsTruncatedPageResponse)
 {
     auto plan = read_plan();
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_wrx_preamble(transport, true);
     script_first_wrx_attempt_connects(transport);
     script_upload(transport);
@@ -703,7 +697,6 @@ TEST(SubaruDensoSh7055_02Executor, ReadRejectsTruncatedPageResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -715,7 +708,7 @@ TEST(SubaruDensoSh7055_02Executor, ReadCancelsBetweenPages)
 {
     auto plan = read_plan();
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_wrx_preamble(transport, true);
     script_first_wrx_attempt_connects(transport);
     script_upload(transport);
@@ -725,7 +718,6 @@ TEST(SubaruDensoSh7055_02Executor, ReadCancelsBetweenPages)
     CancelAfterFirstPageClock clock(cancellation);
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -738,7 +730,7 @@ TEST(SubaruDensoSh7055_02Executor, NoFrameWrxReplyRetriesUntilExactResponse)
 {
     auto plan = read_plan();
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_wrx_preamble(transport, true);
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:201-224
     // and 1276-1292: an empty response is not the exact three-byte success.
@@ -758,7 +750,6 @@ TEST(SubaruDensoSh7055_02Executor, NoFrameWrxReplyRetriesUntilExactResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -772,7 +763,7 @@ TEST(SubaruDensoSh7055_02Executor, WritePathSkipsEcuIdRead)
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     const flashdev_t *device = find_flash_device("SH7055");
     ASSERT_NE(device, nullptr);
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     script_crc_compare(transport, *device, *plan->image(), std::nullopt);
 
@@ -780,7 +771,6 @@ TEST(SubaruDensoSh7055_02Executor, WritePathSkipsEcuIdRead)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -798,7 +788,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteSkipsWhenNoBlockDiffers)
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
 
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     script_crc_compare(transport, *device, image, std::nullopt);
 
@@ -806,7 +796,6 @@ TEST(SubaruDensoSh7055_02Executor, WriteSkipsWhenNoBlockDiffers)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -832,7 +821,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteReflashesOnlyDifferingBlocks)
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
 
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     script_crc_compare(transport, *device, image, kDifferingBlock);
     script_flash_init(transport, false);
@@ -844,7 +833,6 @@ TEST(SubaruDensoSh7055_02Executor, WriteReflashesOnlyDifferingBlocks)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -868,7 +856,7 @@ TEST(SubaruDensoSh7055_02Executor, TestWriteSendsValidateNotCommit)
     auto plan = write_plan(FlashOperation::TestWrite, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
 
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     script_crc_compare(transport, *device, image, kDifferingBlock);
     script_flash_init(transport, true);
@@ -880,7 +868,6 @@ TEST(SubaruDensoSh7055_02Executor, TestWriteSendsValidateNotCommit)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -898,7 +885,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedEraseResponse)
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
 
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     script_crc_compare(transport, *device, image, kDifferingBlock);
     script_flash_init(transport, false);
@@ -910,7 +897,6 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedEraseResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -940,7 +926,6 @@ TEST(SubaruDensoSh7055_02Executor, WriteCancelsMidBlockTransfer)
     FakeClock clock;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -957,7 +942,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsCrcResponseMarkedFailed)
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
 
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     transport.expectWrite(framed(0x02, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00}));
     transport.queueRead(framed(0x42, bytes::Bytes{0x7F}));
@@ -966,7 +951,6 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsCrcResponseMarkedFailed)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -984,7 +968,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt)
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
 
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
     {
@@ -1009,7 +993,6 @@ TEST(SubaruDensoSh7055_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -1026,7 +1009,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead)
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
 
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
     {
@@ -1046,7 +1029,6 @@ TEST(SubaruDensoSh7055_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -1061,7 +1043,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsTruncatedBlockCrcAfterBoundedRead
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     transport.expectWrite(framed(0x02, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00}));
     transport.queueRead(bytes::Bytes{0xBE, 0xEF, 0x00, 0x06, 0x42, 0x05, 0x00, 0x00, 0x00, 0x00});
@@ -1074,7 +1056,6 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsTruncatedBlockCrcAfterBoundedRead
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -1090,7 +1071,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsNegativeBlockCrcResponse)
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     transport.expectWrite(framed(0x02, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00}));
     transport.queueRead(framed(0x7F, bytes::Bytes{0x00, 0x00, 0x00, 0x00}));
@@ -1099,7 +1080,6 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsNegativeBlockCrcResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -1114,7 +1094,7 @@ TEST(SubaruDensoSh7055_02Executor, WritePropagatesBlockCrcDrainError)
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     transport.expectWrite(framed(0x02, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00}));
     const std::uint32_t crc = fastecu::checksum::crc32(bytes::ByteView(image).first(device->fblocks[0].len));
@@ -1125,7 +1105,6 @@ TEST(SubaruDensoSh7055_02Executor, WritePropagatesBlockCrcDrainError)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -1142,7 +1121,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsTruncatedFlashInitResponse)
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     script_crc_compare(transport, *device, image, kBlock);
     transport.expectWrite(framed(0x05));
@@ -1152,7 +1131,6 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsTruncatedFlashInitResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -1168,7 +1146,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedProgVoltResponse)
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     script_crc_compare(transport, *device, image, kBlock);
     script_flash_init(transport, false);
@@ -1179,7 +1157,6 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedProgVoltResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -1195,7 +1172,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedFlashBufferResponse)
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_prefix(transport, *device, image, kBlock, false);
     transport.expectWrite(write_chunk_request(*device, image, kBlock, 0));
     transport.queueRead(bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x62});
@@ -1204,7 +1181,6 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedFlashBufferResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -1220,7 +1196,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedCommitResponse)
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_prefix(transport, *device, image, kBlock, false);
     for (std::uint32_t offset = 0; offset < 0x1000; offset += 0x200)
     {
@@ -1234,7 +1210,6 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedCommitResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -1250,7 +1225,7 @@ TEST(SubaruDensoSh7055_02Executor, TestWriteFailsOnRejectedValidateResponse)
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = write_plan(FlashOperation::TestWrite, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_prefix(transport, *device, image, kBlock, true);
     for (std::uint32_t offset = 0; offset < 0x1000; offset += 0x200)
     {
@@ -1264,7 +1239,6 @@ TEST(SubaruDensoSh7055_02Executor, TestWriteFailsOnRejectedValidateResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -1280,7 +1254,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteLogsRemainingMismatchAfterVerification)
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     script_crc_compare(transport, *device, image, kBlock);
     script_flash_init(transport, false);
@@ -1292,7 +1266,6 @@ TEST(SubaruDensoSh7055_02Executor, WriteLogsRemainingMismatchAfterVerification)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -1304,7 +1277,7 @@ TEST(SubaruDensoSh7055_02Executor, WrxInitLoopExhaustsAfter20Attempts)
 {
     auto plan = read_plan();
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_wrx_preamble(transport, true);
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:201-228.
     for (int attempt = 0; attempt < 20; ++attempt)
@@ -1319,7 +1292,6 @@ TEST(SubaruDensoSh7055_02Executor, WrxInitLoopExhaustsAfter20Attempts)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -1332,7 +1304,7 @@ TEST(SubaruDensoSh7055_02Executor, CancellationDuringWrxInitLoopStopsBeforeSecon
 {
     auto plan = read_plan();
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_wrx_preamble(transport, true);
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:201-224.
     transport.expectWrite(bytes::Bytes{0x4D, 0xFF, 0xB4});
@@ -1344,7 +1316,6 @@ TEST(SubaruDensoSh7055_02Executor, CancellationDuringWrxInitLoopStopsBeforeSecon
     FlipAfter cancellation(43);
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
-    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());

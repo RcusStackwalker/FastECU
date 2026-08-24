@@ -73,18 +73,16 @@ class FlipAfter final : public ICancellationToken
 class OpenScriptedKlineFlashTransport final : public ScriptedKlineFlashTransport
 {
   public:
-    OpenScriptedKlineFlashTransport()
+    OpenScriptedKlineFlashTransport() : ScriptedKlineFlashTransport(ScriptedTransportInitialState::Open)
     {
-        start_open();
     }
 };
 
 class ShortWriteTransport final : public ScriptedKlineFlashTransport
 {
   public:
-    ShortWriteTransport()
+    ShortWriteTransport() : ScriptedKlineFlashTransport(ScriptedTransportInitialState::Open)
     {
-        start_open();
     }
 
     Result<std::size_t> write(bytes::ByteView data) override
@@ -96,9 +94,9 @@ class ShortWriteTransport final : public ScriptedKlineFlashTransport
 class DrainCancellingTransport final : public ScriptedKlineFlashTransport
 {
   public:
-    explicit DrainCancellingTransport(ToggleCancellation& cancellation) : cancellation_(cancellation)
+    explicit DrainCancellingTransport(ToggleCancellation& cancellation)
+        : ScriptedKlineFlashTransport(ScriptedTransportInitialState::Open), cancellation_(cancellation)
     {
-        start_open();
     }
 
     Result<OptionalBytes> read(int timeout_ms, const ICancellationToken& cancellation) override
@@ -125,9 +123,9 @@ class DrainCancellingTransport final : public ScriptedKlineFlashTransport
 class CancelAfterEraseTransport final : public ScriptedKlineFlashTransport
 {
   public:
-    explicit CancelAfterEraseTransport(ToggleCancellation& cancellation) : cancellation_(cancellation)
+    explicit CancelAfterEraseTransport(ToggleCancellation& cancellation)
+        : ScriptedKlineFlashTransport(ScriptedTransportInitialState::Open), cancellation_(cancellation)
     {
-        start_open();
     }
 
     Result<std::size_t> write(bytes::ByteView data) override

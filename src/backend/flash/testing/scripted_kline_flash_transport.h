@@ -1,5 +1,6 @@
 #pragma once
 #include "src/backend/flash/flash_executor.h"
+#include "src/backend/flash/testing/scripted_flash_transport_state.h"
 
 #include <condition_variable>
 #include <deque>
@@ -19,6 +20,13 @@ namespace fastecu::flash
 class ScriptedKlineFlashTransport : public IKlineFlashTransport
 {
   public:
+    ScriptedKlineFlashTransport() = default;
+
+    explicit ScriptedKlineFlashTransport(ScriptedTransportInitialState initial_state)
+        : open_(initial_state == ScriptedTransportInitialState::Open)
+    {
+    }
+
     enum class ControlLineAction
     {
         DisableLecLines,
@@ -53,13 +61,6 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     {
         std::lock_guard lock(mutex_);
         blocking_read_pending_ = true;
-    }
-    // For tests that drive an executor directly. Executors no longer open
-    // their transport (ADR 0015), so the fake must start in the state a
-    // BoundAttempt would have left it in.
-    void start_open()
-    {
-        open_ = true;
     }
     bool scriptConsumed() const
     {

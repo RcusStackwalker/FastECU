@@ -670,12 +670,7 @@ Result<Iso15765Config> MitsuColtM32rCanExecutor::transport_setup(const FlashPlan
     const auto& family = std::get<MitsuColtM32rCanPlan>(plan.family_plan());
     // Legacy line 32-33: configureIso15765Can(serial, "500000", 0x7E0, 0x7E8).
     // Transport lifetime is owned by the caller; see ADR 0015.
-    return Iso15765Config{
-        .bitrate = family.bitrate,
-        .request_id = family.request_id,
-        .response_id = family.response_id,
-        .extended_id = family.extended_id,
-    };
+    return iso15765_config_from(family);
 }
 
 Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(const FlashPlan& plan, ICanFlashTransport& transport,

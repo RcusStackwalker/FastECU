@@ -47,6 +47,41 @@ struct Iso15765Config
     bool extended_id;
 };
 
+template <class Plan>
+concept Iso15765ConfigSource = requires(const Plan& plan) {
+    { plan.bitrate } -> std::convertible_to<int>;
+    { plan.request_id } -> std::convertible_to<std::uint32_t>;
+    { plan.response_id } -> std::convertible_to<std::uint32_t>;
+    { plan.extended_id } -> std::convertible_to<bool>;
+};
+
+template <Iso15765ConfigSource Plan> constexpr Iso15765Config iso15765_config_from(const Plan& plan) noexcept
+{
+    return Iso15765Config{
+        .bitrate = plan.bitrate,
+        .request_id = plan.request_id,
+        .response_id = plan.response_id,
+        .extended_id = plan.extended_id,
+    };
+}
+
+template <class Plan>
+concept KlineConfigSource = requires(const Plan& plan) {
+    { plan.initial_baud } -> std::convertible_to<int>;
+    { plan.tester_id } -> std::convertible_to<std::uint8_t>;
+    { plan.target_id } -> std::convertible_to<std::uint8_t>;
+};
+
+template <KlineConfigSource Plan> constexpr KlineConfig non_iso14230_kline_config_from(const Plan& plan) noexcept
+{
+    return KlineConfig{
+        .baud = plan.initial_baud,
+        .iso14230 = false,
+        .tester_id = plan.tester_id,
+        .target_id = plan.target_id,
+    };
+}
+
 class IKlineFlashTransport;
 class ICanFlashTransport;
 

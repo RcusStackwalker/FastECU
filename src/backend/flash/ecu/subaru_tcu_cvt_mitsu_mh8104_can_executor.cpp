@@ -660,12 +660,7 @@ Result<Iso15765Config> SubaruTcuCvtMitsuMh8104CanExecutor::transport_setup(const
         return std::unexpected(valid.error());
     }
     const auto& family = std::get<SubaruTcuCvtMitsuMh8104CanPlan>(plan.family_plan());
-    return Iso15765Config{
-        .bitrate = family.bitrate,
-        .request_id = family.request_id,
-        .response_id = family.response_id,
-        .extended_id = family.extended_id,
-    };
+    return iso15765_config_from(family);
 }
 
 Result<FlashExecutionResult> SubaruTcuCvtMitsuMh8104CanExecutor::execute(const FlashPlan& plan,

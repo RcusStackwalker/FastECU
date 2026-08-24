@@ -66,8 +66,8 @@ class ScriptedCanFlashTransport : public fastecu::flash::ScriptedCanFlashTranspo
 {
   public:
     ScriptedCanFlashTransport()
+        : fastecu::flash::ScriptedCanFlashTransport(fastecu::flash::ScriptedTransportInitialState::Open)
     {
-        start_open();
     }
 };
 
