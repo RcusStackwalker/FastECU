@@ -525,6 +525,10 @@ class LegacyCanFlashExecutorAdapter final : public IFlashExecutor
     Result<FlashExecutionResult> execute(const FlashPlan& plan, IFlashTransport& transport, IClock& clock,
                                          const ICancellationToken& cancellation, IEventSink& events) override
     {
+        if (cancellation.cancelled())
+        {
+            return fail(ErrorKind::Cancelled, "cancelled before setup");
+        }
         const Result<Iso15765Config> setup = executor_.transport_setup(plan);
         if (!setup.has_value())
         {
