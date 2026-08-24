@@ -1,5 +1,6 @@
 #pragma once
 #include "src/backend/flash/flash_executor.h"
+#include "src/backend/flash/testing/scripted_flash_transport_state.h"
 
 #include <condition_variable>
 #include <deque>
@@ -16,6 +17,18 @@ namespace fastecu::flash
 class ScriptedCanFlashTransport : public ICanFlashTransport
 {
   public:
+    ScriptedCanFlashTransport() = default;
+
+    explicit ScriptedCanFlashTransport(ScriptedTransportInitialState initial_state)
+        : open_(initial_state == ScriptedTransportInitialState::Open)
+    {
+    }
+
+    bool is_open() const noexcept
+    {
+        return open_;
+    }
+
     void expectWrite(bytes::ByteView b)
     {
         expected_.emplace_back(b.begin(), b.end());

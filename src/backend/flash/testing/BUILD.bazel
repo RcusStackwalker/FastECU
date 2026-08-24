@@ -1,4 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
 package(default_visibility = [
     "//apps/bench:__pkg__",
@@ -10,7 +11,14 @@ cc_library(
     testonly = True,
     hdrs = [
         "scripted_can_flash_transport.h",
+        "scripted_flash_transport_state.h",
         "scripted_kline_flash_transport.h",
     ],
     deps = ["//src/backend/flash:flash_executor"],
+)
+
+fastecu_portable_gtest(
+    name = "scripted_flash_transports_test",
+    srcs = ["scripted_flash_transports_test.cpp"],
+    deps = [":scripted_flash_transports"],
 )

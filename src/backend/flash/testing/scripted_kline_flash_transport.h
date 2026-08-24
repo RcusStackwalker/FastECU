@@ -1,5 +1,6 @@
 #pragma once
 #include "src/backend/flash/flash_executor.h"
+#include "src/backend/flash/testing/scripted_flash_transport_state.h"
 
 #include <condition_variable>
 #include <deque>
@@ -19,6 +20,13 @@ namespace fastecu::flash
 class ScriptedKlineFlashTransport : public IKlineFlashTransport
 {
   public:
+    ScriptedKlineFlashTransport() = default;
+
+    explicit ScriptedKlineFlashTransport(ScriptedTransportInitialState initial_state)
+        : open_(initial_state == ScriptedTransportInitialState::Open)
+    {
+    }
+
     enum class ControlLineAction
     {
         DisableLecLines,
