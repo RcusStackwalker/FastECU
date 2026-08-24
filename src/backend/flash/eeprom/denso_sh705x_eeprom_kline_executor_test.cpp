@@ -355,8 +355,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, WrongFamilyPlanIsRejectedWithNoTranspor
     ASSERT_TRUE(plan.has_value());
 
     DensoSh705xEepromKlineExecutor executor;
-    ScriptedKlineFlashTransport transport;
-    transport.start_open();
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
@@ -373,8 +372,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, FullBootloaderStockSecurityMode2Matches
     auto plan = valid_kline_plan(EepromReadMode::Mode2);
     ASSERT_TRUE(plan.has_value());
 
-    ScriptedKlineFlashTransport transport;
-    transport.start_open();
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     const bytes::Bytes seed{0x11, 0x22, 0x33, 0x44};
     enqueueFullBootloaderAndKernelUpload(transport, seed, kernelFixtureBytes(), kKernelStartAddr);
     transport.expectWrite(sidDumpRequestForSh7055(2));
@@ -399,8 +397,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, KernelAlreadyRunningSkipsBootloaderMatc
     auto plan = valid_kline_plan(EepromReadMode::Mode2);
     ASSERT_TRUE(plan.has_value());
 
-    ScriptedKlineFlashTransport transport;
-    transport.start_open();
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     transport.expectWrite(requestKernelIdRequest());
     transport.queueRead(kernelAliveResponse());
     transport.expectWrite(sidDumpRequestForSh7055(2));
@@ -438,8 +435,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, NonAlignedKernelIsPaddedBeforeEncryptio
     auto plan = makeKlinePlan(EepromReadMode::Mode2, kernel15, kKernelStartAddr);
     ASSERT_TRUE(plan.has_value());
 
-    ScriptedKlineFlashTransport transport;
-    transport.start_open();
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     const bytes::Bytes seed{0x11, 0x22, 0x33, 0x44};
     enqueueFullBootloaderAndKernelUpload(transport, seed, kernel15, kKernelStartAddr);
     transport.expectWrite(sidDumpRequestForSh7055(2));
@@ -463,8 +459,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, NoResponseAtHandshakeReturnsTimeout)
     auto plan = valid_kline_plan(EepromReadMode::Mode2);
     ASSERT_TRUE(plan.has_value());
 
-    ScriptedKlineFlashTransport transport;
-    transport.start_open();
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     transport.expectWrite(requestKernelIdRequest());
     transport.queue_no_frame(); // kernel not (yet) alive
     transport.expectWrite(sidBfSsmInitRequest());
@@ -486,8 +481,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, MalformedSid81ResponseReturnsBadRespons
     auto plan = valid_kline_plan(EepromReadMode::Mode2);
     ASSERT_TRUE(plan.has_value());
 
-    ScriptedKlineFlashTransport transport;
-    transport.start_open();
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     transport.expectWrite(requestKernelIdRequest());
     transport.queue_no_frame();
     transport.expectWrite(sidBfSsmInitRequest());
@@ -511,8 +505,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, CancellationDuringKernelUploadReturnsCa
     auto plan = valid_kline_plan(EepromReadMode::Mode2);
     ASSERT_TRUE(plan.has_value());
 
-    ScriptedKlineFlashTransport transport;
-    transport.start_open();
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     const bytes::Bytes seed{0x11, 0x22, 0x33, 0x44};
     enqueueFullBootloaderAndKernelUpload(transport, seed, kernelFixtureBytes(), kKernelStartAddr);
     transport.expectWrite(sidDumpRequestForSh7055(2));
@@ -560,8 +553,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeIsOffForBootloaderOnForReadTh
     auto plan = valid_kline_plan(EepromReadMode::Mode2);
     ASSERT_TRUE(plan.has_value());
 
-    ScriptedKlineFlashTransport transport;
-    transport.start_open();
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     const bytes::Bytes seed{0x11, 0x22, 0x33, 0x44};
     enqueueFullBootloaderAndKernelUpload(transport, seed, kernelFixtureBytes(), kKernelStartAddr);
     transport.expectWrite(sidDumpRequestForSh7055(2));
@@ -593,8 +585,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeSequenceHoldsWhenKernelAlread
     auto plan = valid_kline_plan(EepromReadMode::Mode2);
     ASSERT_TRUE(plan.has_value());
 
-    ScriptedKlineFlashTransport transport;
-    transport.start_open();
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     transport.expectWrite(requestKernelIdRequest());
     transport.queueRead(kernelAliveResponse());
     transport.expectWrite(sidDumpRequestForSh7055(2));
@@ -621,8 +612,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeResetToOffEvenWhenReadMemFail
     auto plan = valid_kline_plan(EepromReadMode::Mode2);
     ASSERT_TRUE(plan.has_value());
 
-    ScriptedKlineFlashTransport transport;
-    transport.start_open();
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     transport.expectWrite(requestKernelIdRequest());
     transport.queueRead(kernelAliveResponse());
     transport.expectWrite(sidDumpRequestForSh7055(2));

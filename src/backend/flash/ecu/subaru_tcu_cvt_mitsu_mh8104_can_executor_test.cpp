@@ -307,7 +307,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, TransportSetupReturnsThePlansWireParame
 
 TEST(SubaruTcuCvtMitsuMh8104CanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyIo)
 {
-    ScriptedCanFlashTransport transport;
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     FakeClock clock;
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
@@ -332,7 +332,6 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyI
     auto foreign = fastecu::flash::validate_and_build(std::move(fields));
     ASSERT_TRUE(foreign.has_value()) << foreign.error().detail;
 
-    transport.start_open();
     const auto result = executor.execute(*foreign, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -344,7 +343,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyI
 
 TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ConnectSkipsTheRestWhenKernelAlreadyRunning)
 {
-    ScriptedCanFlashTransport transport;
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     FakeClock clock;
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
@@ -357,7 +356,6 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ConnectSkipsTheRestWhenKernelAlreadyRun
     scriptFlashDump(transport, kWindowStart, kWindowLength, 0x100, 0x5A);
     scriptStopCommand(transport);
 
-    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -371,7 +369,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ConnectSucceedsEvenWhenEveryDiagnosticR
     // alive-probe miss gets a deliberately wrong/negative-shaped reply
     // (never a transport error), and execute() still proceeds all the way
     // through connect_bootloader into the read phase.
-    ScriptedCanFlashTransport transport;
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     FakeClock clock;
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
@@ -416,7 +414,6 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ConnectSucceedsEvenWhenEveryDiagnosticR
     scriptFlashDump(transport, kWindowStart, kWindowLength, 0x100, 0x5A);
     scriptStopCommand(transport);
 
-    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -430,7 +427,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ConnectPropagatesATimeoutBetweenExchang
     // A genuine transport-level timeout (empty scripted frame) at the
     // seed-key exchange DOES stop the executor -- distinguishing "ECU said
     // no" (tolerated) from "nothing came back at all" (still fatal).
-    ScriptedCanFlashTransport transport;
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     FakeClock clock;
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
@@ -452,7 +449,6 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ConnectPropagatesATimeoutBetweenExchang
     transport.expectWrite(request(keyRequest));
     transport.queue_no_frame();
 
-    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -462,7 +458,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ConnectPropagatesATimeoutBetweenExchang
 
 TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ReadReturnsTheWindowPaddedWithFF)
 {
-    ScriptedCanFlashTransport transport;
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     FakeClock clock;
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
@@ -474,7 +470,6 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ReadReturnsTheWindowPaddedWithFF)
     scriptFlashDump(transport, kWindowStart, kWindowLength, 0x100, 0x5A);
     scriptStopCommand(transport);
 
-    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -489,7 +484,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ReadReturnsTheWindowPaddedWithFF)
 
 TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ReadStopsWhenCancelled)
 {
-    ScriptedCanFlashTransport transport;
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     FakeClock clock;
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
@@ -497,7 +492,6 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ReadStopsWhenCancelled)
     auto plan = readPlan();
     cancellation.cancel();
 
-    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -534,7 +528,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ReadStopsAtTheNextChunkWhenCancelledMid
     // progress event, and the loop must stop before requesting a second
     // chunk -- there is no second chunk scripted, so any further write
     // would fail against the exhausted script instead.
-    ScriptedCanFlashTransport transport;
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     FakeClock clock;
     fastecu::ManualCancellationToken cancellation;
     CancelAfterFirstChunkSink events{cancellation};
@@ -545,7 +539,6 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ReadStopsAtTheNextChunkWhenCancelledMid
     scriptDumpSetup(transport);
     scriptFlashDump(transport, kWindowStart, 0x100, 0x100, 0x5A);
 
-    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -559,7 +552,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ReadPropagatesADisconnectedTransport)
     // ErrorKind::Disconnected, not be swallowed or misclassified as a
     // malformed/timeout response -- distinguishing a hard transport fault
     // from a merely-wrong ECU reply, which this family tolerates.
-    ScriptedCanFlashTransport transport;
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     FakeClock clock;
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
@@ -571,7 +564,6 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ReadPropagatesADisconnectedTransport)
     transport.expectWrite(request(bytes::composeBe(bytes::Byte(0xB7), bytes::u24(kWindowStart))));
     transport.queue_error(ErrorKind::Disconnected, "adapter gone");
 
-    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -581,7 +573,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ReadPropagatesADisconnectedTransport)
 
 TEST(SubaruTcuCvtMitsuMh8104CanExecutor, WriteFlashesTheBlockToleratingEveryContentMismatch)
 {
-    ScriptedCanFlashTransport transport;
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     RecordingClock clock;
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
@@ -627,7 +619,6 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, WriteFlashesTheBlockToleratingEveryCont
     transport.expectWrite(request({0x31, 0x01, 0x02, 0x02, 0x01}));
     transport.queueRead(response({0x7F, 0x31, 0x22}));
 
-    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -649,7 +640,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, WriteStopsOnATimeoutBetweenChunks)
     // write chunk send/receive itself, a hard Disconnected during the
     // per-chunk read, proving a genuine transport failure (not just an
     // absent reply) still stops the write.
-    ScriptedCanFlashTransport transport;
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     RecordingClock clock;
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
@@ -671,7 +662,6 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, WriteStopsOnATimeoutBetweenChunks)
     transport.expectWrite(request(firstChunkReq));
     transport.queue_error(ErrorKind::Disconnected, "adapter gone mid-write");
 
-    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -681,7 +671,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, WriteStopsOnATimeoutBetweenChunks)
 
 TEST(SubaruTcuCvtMitsuMh8104CanExecutor, WriteRefusesAnImageThatDoesNotMatchThePlanBeforeAnyIo)
 {
-    ScriptedCanFlashTransport transport;
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     FakeClock clock;
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
@@ -689,7 +679,6 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, WriteRefusesAnImageThatDoesNotMatchTheP
 
     auto plan = handBuiltPlan(FlashOperation::Write, kImageSize - 1);
 
-    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -705,14 +694,13 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, RefusesATestWritePlanRatherThanWritingF
     // rejects TestWrite outright (Step 5's plan code), so this pins the
     // executor's own repeated guard using a hand-built plan that bypasses
     // the builder -- there is no connect handshake to script here.
-    ScriptedCanFlashTransport transport;
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     FakeClock clock;
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
     SubaruTcuCvtMitsuMh8104CanExecutor executor;
     auto plan = handBuiltPlan(FlashOperation::TestWrite, kImageSize);
 
-    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());

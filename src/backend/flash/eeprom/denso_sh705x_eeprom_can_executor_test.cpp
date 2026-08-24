@@ -560,8 +560,7 @@ TEST(DensoSh705xEepromCanExecutorTest, WrongFamilyPlanIsRejectedWithNoTransportC
     ASSERT_TRUE(plan.has_value());
 
     DensoSh705xEepromCanExecutor executor;
-    ScriptedCanFlashTransport transport;
-    transport.start_open();
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
@@ -578,8 +577,7 @@ TEST(DensoSh705xEepromCanExecutorTest, KernelAlreadyRunningSkipsBootloaderMatche
     auto plan = valid_can_plan(EepromReadMode::Mode2);
     ASSERT_TRUE(plan.has_value());
 
-    ScriptedCanFlashTransport transport;
-    transport.start_open();
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     transport.expectWrite(requestKernelIdRequest());
     transport.queueRead(kernelAliveResponse());
     enqueueReadMem(transport, 2);
@@ -603,8 +601,7 @@ TEST(DensoSh705xEepromCanExecutorTest, FullBootloaderStockSecurityMode2MatchesLe
     auto plan = valid_can_plan(EepromReadMode::Mode2);
     ASSERT_TRUE(plan.has_value());
 
-    ScriptedCanFlashTransport transport;
-    transport.start_open();
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     const bytes::Bytes seed{0x11, 0x22, 0x33, 0x44};
     enqueueConnectBootloaderFullInit(transport, seed);
     enqueueUploadKernel(transport, kernelFixtureBytes(), kKernelStartAddr);
@@ -645,8 +642,7 @@ TEST(DensoSh705xEepromCanExecutorTest, AllFourSecurityVariantsProduceDistinctSee
         auto plan = makeCanPlan(security, EepromReadMode::Mode2, kernelFixtureBytes(), kKernelStartAddr);
         ASSERT_TRUE(plan.has_value());
 
-        ScriptedCanFlashTransport transport;
-        transport.start_open();
+        ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
         transport.expectWrite(requestKernelIdRequest());
         transport.queue_no_frame();
         transport.expectWrite(initConnectionRequest());
@@ -719,8 +715,7 @@ TEST(DensoSh705xEepromCanExecutorTest, NoResponseAtSeedRequestReturnsTimeout)
     auto plan = valid_can_plan(EepromReadMode::Mode2);
     ASSERT_TRUE(plan.has_value());
 
-    ScriptedCanFlashTransport transport;
-    transport.start_open();
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     transport.expectWrite(requestKernelIdRequest());
     transport.queue_no_frame();
     transport.expectWrite(initConnectionRequest());
@@ -756,8 +751,7 @@ TEST(DensoSh705xEepromCanExecutorTest, MalformedSeedResponseReturnsBadResponse)
     auto plan = valid_can_plan(EepromReadMode::Mode2);
     ASSERT_TRUE(plan.has_value());
 
-    ScriptedCanFlashTransport transport;
-    transport.start_open();
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     transport.expectWrite(requestKernelIdRequest());
     transport.queue_no_frame();
     transport.expectWrite(initConnectionRequest());
@@ -796,8 +790,7 @@ TEST(DensoSh705xEepromCanExecutorTest, CancellationDuringKernelUploadReturnsCanc
     auto plan = valid_can_plan(EepromReadMode::Mode2);
     ASSERT_TRUE(plan.has_value());
 
-    ScriptedCanFlashTransport transport;
-    transport.start_open();
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     const bytes::Bytes seed{0x11, 0x22, 0x33, 0x44};
     enqueueConnectBootloaderFullInit(transport, seed);
     enqueueUploadKernel(transport, kernelFixtureBytes(), kKernelStartAddr);
