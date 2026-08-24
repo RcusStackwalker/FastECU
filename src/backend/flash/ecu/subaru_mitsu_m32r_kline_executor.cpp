@@ -328,17 +328,30 @@ Result<FlashExecutionResult> execute_open_transport(const FlashPlan& plan, IKlin
 }
 } // namespace
 
-Result<FlashExecutionResult> SubaruMitsuM32rKlineExecutor::execute(const FlashPlan& plan, IFlashTransport& transport,
-                                                                   IClock& clock,
-                                                                   const ICancellationToken& cancellation,
-                                                                   IEventSink& events)
+Result<KlineConfig> SubaruMitsuM32rKlineExecutor::transport_setup(const FlashPlan& plan) const
 {
-    if (auto match = check_family_transport_match(plan, FlashFamily::SubaruMitsuM32rKline, TransportKind::Kline);
-        !match.has_value())
+    if (const Status match = check_family(plan, FlashFamily::SubaruMitsuM32rKline); !match.has_value())
     {
         return std::unexpected(match.error());
     }
-    if (auto valid = validate_subaru_mitsu_m32r_kline_plan(plan); !valid.has_value())
+    if (const Status valid = validate_subaru_mitsu_m32r_kline_plan(plan); !valid.has_value())
+    {
+        return std::unexpected(valid.error());
+    }
+    const auto& p = std::get<SubaruMitsuM32rKlinePlan>(plan.family_plan());
+    return KlineConfig{p.initial_baud, false, p.tester_id, p.target_id};
+}
+
+Result<FlashExecutionResult> SubaruMitsuM32rKlineExecutor::execute(const FlashPlan& plan,
+                                                                   IKlineFlashTransport& transport, IClock& clock,
+                                                                   const ICancellationToken& cancellation,
+                                                                   IEventSink& events)
+{
+    if (const Status match = check_family(plan, FlashFamily::SubaruMitsuM32rKline); !match.has_value())
+    {
+        return std::unexpected(match.error());
+    }
+    if (const Status valid = validate_subaru_mitsu_m32r_kline_plan(plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
@@ -346,30 +359,7 @@ Result<FlashExecutionResult> SubaruMitsuM32rKlineExecutor::execute(const FlashPl
     {
         return fail(ErrorKind::Cancelled, "cancelled before setup");
     }
-    auto *kline = dynamic_cast<IKlineFlashTransport *>(&transport);
-    if (!kline)
-    {
-        return fail(ErrorKind::InvalidConfig, "transport does not implement IKlineFlashTransport");
-    }
     const auto& p = std::get<SubaruMitsuM32rKlinePlan>(plan.family_plan());
-    if (auto configured = kline->configure({p.initial_baud, false, p.tester_id, p.target_id}); !configured.has_value())
-    {
-        return std::unexpected(configured.error());
-    }
-    if (auto opened = kline->open(); !opened.has_value())
-    {
-        return std::unexpected(opened.error());
-    }
-    Result<FlashExecutionResult> outcome = execute_open_transport(plan, *kline, clock, cancellation, events, p);
-    Status closed = kline->close();
-    if (!outcome.has_value())
-    {
-        return std::unexpected(outcome.error());
-    }
-    if (!closed.has_value())
-    {
-        return std::unexpected(closed.error());
-    }
-    return outcome;
+    return execute_open_transport(plan, transport, clock, cancellation, events, p);
 }
 } // namespace fastecu::flash

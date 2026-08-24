@@ -57,12 +57,28 @@ TEST(SubaruMitsuM32rKlineExecutor, RejectsFamilyMismatchBeforeIo)
     ManualCancellationToken cancellation;
     RecordingEventSink events;
 
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
     EXPECT_FALSE(transport.last_config_.has_value());
-    EXPECT_EQ(transport.close_call_count_, 0);
+}
+
+TEST(SubaruMitsuM32rKlineExecutor, TransportSetupReturnsPlansWireParameters)
+{
+    auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::Read, "sub_ecu_mitsu_m32r_kline",
+                                                   "M32R_512KB_4blocks", std::nullopt);
+    ASSERT_TRUE(plan.has_value());
+    SubaruMitsuM32rKlineExecutor executor;
+
+    auto setup = executor.transport_setup(*plan);
+
+    ASSERT_TRUE(setup.has_value()) << setup.error().detail;
+    EXPECT_EQ(setup->baud, 4800);
+    EXPECT_FALSE(setup->iso14230);
+    EXPECT_EQ(setup->tester_id, 0xf0);
+    EXPECT_EQ(setup->target_id, 0x10);
 }
 
 TEST(SubaruMitsuM32rKlineExecutor, CancellationBeforeSetupPerformsNoIo)
@@ -77,6 +93,7 @@ TEST(SubaruMitsuM32rKlineExecutor, CancellationBeforeSetupPerformsNoIo)
     cancellation.cancel();
     RecordingEventSink events;
 
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -110,11 +127,11 @@ TEST(SubaruMitsuM32rKlineExecutor, MapsMissingMalformedAndTransportFailureRespon
         ManualCancellationToken cancellation;
         RecordingEventSink events;
 
+        transport.start_open();
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().kind, expected);
-        EXPECT_EQ(transport.close_call_count_, 1);
     }
 }
 
@@ -138,6 +155,7 @@ TEST(SubaruMitsuM32rKlineExecutor, ReadsAllUserspaceChunksAndSynthesizesBootPref
     ManualCancellationToken cancellation;
     RecordingEventSink events;
 
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -149,9 +167,6 @@ TEST(SubaruMitsuM32rKlineExecutor, ReadsAllUserspaceChunksAndSynthesizesBootPref
                             [](bytes::Byte value) { return value == 0x5a; }));
     EXPECT_EQ(result->rom_id, std::string("123456789A_"));
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.close_call_count_, 1);
-    ASSERT_TRUE(transport.last_config_.has_value());
-    EXPECT_EQ(transport.last_config_->baud, 4800);
 }
 
 TEST(SubaruMitsuM32rKlineExecutor, WritesEveryEncryptedChunkAndToleratesTransferAcks)
@@ -193,11 +208,11 @@ TEST(SubaruMitsuM32rKlineExecutor, WritesEveryEncryptedChunkAndToleratesTransfer
     ManualCancellationToken cancellation;
     RecordingEventSink events;
 
+    transport.start_open();
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.baud_calls_, std::vector<int>{15625});
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 } // namespace
