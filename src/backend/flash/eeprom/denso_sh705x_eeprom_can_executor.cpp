@@ -338,14 +338,28 @@ Result<std::optional<bytes::Bytes>> request_kernel_id(ICanFlashTransport& transp
 
 } // namespace
 
-Result<FlashExecutionResult> DensoSh705xEepromCanExecutor::execute(const FlashPlan& plan, IFlashTransport& transport,
+Result<Iso15765Config> DensoSh705xEepromCanExecutor::transport_setup(const FlashPlan& plan) const
+{
+    if (Status match = check_family(plan, FlashFamily::DensoSh705xEepromCan); !match.has_value())
+    {
+        return std::unexpected(match.error());
+    }
+
+    const auto& can_plan = std::get<DensoSh705xEepromCanPlan>(plan.family_plan());
+    return Iso15765Config{
+        .bitrate = can_plan.bitrate,
+        .request_id = can_plan.request_id,
+        .response_id = can_plan.response_id,
+        .extended_id = can_plan.extended_id,
+    };
+}
+
+Result<FlashExecutionResult> DensoSh705xEepromCanExecutor::execute(const FlashPlan& plan, ICanFlashTransport& transport,
                                                                    IClock& clock,
                                                                    const ICancellationToken& cancellation,
                                                                    IEventSink& events)
 {
-    if (Status match =
-            check_family_transport_match(plan, FlashFamily::DensoSh705xEepromCan, TransportKind::CanIso15765);
-        !match.has_value())
+    if (Status match = check_family(plan, FlashFamily::DensoSh705xEepromCan); !match.has_value())
     {
         return std::unexpected(match.error());
     }
@@ -355,43 +369,11 @@ Result<FlashExecutionResult> DensoSh705xEepromCanExecutor::execute(const FlashPl
     }
 
     const auto& can_plan = std::get<DensoSh705xEepromCanPlan>(plan.family_plan());
-    Result<ICanFlashTransport *> can_transport_ptr =
-        open_can_iso15765_transport(transport, Iso15765Config{
-                                                   .bitrate = can_plan.bitrate,
-                                                   .request_id = can_plan.request_id,
-                                                   .response_id = can_plan.response_id,
-                                                   .extended_id = can_plan.extended_id,
-                                               });
-    if (!can_transport_ptr.has_value())
-    {
-        return std::unexpected(can_transport_ptr.error());
-    }
-    ICanFlashTransport& can_transport = **can_transport_ptr;
-
-    // Ensures exactly-once close on every exit path below.
-    struct ScopedClose
-    {
-        ICanFlashTransport& t;
-        bool done = false;
-        ~ScopedClose()
-        {
-            if (!done)
-            {
-                t.close();
-            }
-        }
-    } scoped_close{can_transport};
-
+    ICanFlashTransport& can_transport = transport;
     bool kernel_alive = false;
     if (Status connected = connect_bootloader(can_transport, clock, cancellation, events, can_plan, kernel_alive);
         !connected.has_value())
     {
-        Status close_status = can_transport.close();
-        scoped_close.done = true;
-        if (!close_status.has_value())
-        {
-            events.log(LogLevel::Warning, "close failed after connect_bootloader error");
-        }
         return std::unexpected(connected.error());
     }
 
@@ -400,18 +382,12 @@ Result<FlashExecutionResult> DensoSh705xEepromCanExecutor::execute(const FlashPl
         // Safe to dereference: this executor only ever runs against
         // DensoSh705xEepromCan plans, and validate_and_build rejects any plan
         // for that family whose kernel is absent (flash_validation.cpp:
-        // "family requires a kernel image"). check_family_transport_match
-        // above confirms the family/transport tag; it does not itself
+        // "family requires a kernel image"). check_family above confirms
+        // the family; it does not itself
         // guarantee a kernel -- validate_and_build is what does.
         if (Status uploaded = upload_kernel(can_transport, clock, cancellation, events, can_plan, *plan.kernel());
             !uploaded.has_value())
         {
-            Status close_status = can_transport.close();
-            scoped_close.done = true;
-            if (!close_status.has_value())
-            {
-                events.log(LogLevel::Warning, "close failed after upload_kernel error");
-            }
             return std::unexpected(uploaded.error());
         }
     }
@@ -419,19 +395,10 @@ Result<FlashExecutionResult> DensoSh705xEepromCanExecutor::execute(const FlashPl
     Result<bytes::Bytes> read_result = read_mem(can_transport, clock, cancellation, events, plan.transfer_region(),
                                                 can_plan.mode, can_plan.request_id);
 
-    Status close_status = can_transport.close();
-    scoped_close.done = true;
-
     if (!read_result.has_value())
     {
         return std::unexpected(read_result.error());
     }
-    if (!close_status.has_value())
-    {
-        // Main error wins over close error; close-only error is returned.
-        return std::unexpected(close_status.error());
-    }
-
     return FlashExecutionResult{
         .operation = plan.operation(),
         .read_bytes = std::move(*read_result),

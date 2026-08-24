@@ -65,9 +65,7 @@ struct FlashPromptStep
 
 struct FlashAttempt
 {
-    FlashPlan plan;
-    std::unique_ptr<IFlashExecutor> executor;
-    std::unique_ptr<IFlashTransport> transport;
+    std::unique_ptr<BoundFlashAttempt> attempt;
     std::unique_ptr<IClock> clock;
 };
 

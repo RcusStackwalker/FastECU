@@ -657,13 +657,32 @@ Status write_mem(Ctx& ctx, const FlashPlan& plan, bytes::ByteView rom, PhaseSequ
 
 } // namespace
 
-Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(const FlashPlan& plan, IFlashTransport& transport,
+Result<Iso15765Config> MitsuColtM32rCanExecutor::transport_setup(const FlashPlan& plan) const
+{
+    if (const Status match = check_family(plan, FlashFamily::MitsuColtM32rCan); !match.has_value())
+    {
+        return std::unexpected(match.error());
+    }
+    if (const Status valid = validate_mitsu_colt_m32r_can_plan(plan); !valid.has_value())
+    {
+        return std::unexpected(valid.error());
+    }
+    const auto& family = std::get<MitsuColtM32rCanPlan>(plan.family_plan());
+    // Legacy line 32-33: configureIso15765Can(serial, "500000", 0x7E0, 0x7E8).
+    // Transport lifetime is owned by the caller; see ADR 0015.
+    return Iso15765Config{
+        .bitrate = family.bitrate,
+        .request_id = family.request_id,
+        .response_id = family.response_id,
+        .extended_id = family.extended_id,
+    };
+}
+
+Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(const FlashPlan& plan, ICanFlashTransport& transport,
                                                                IClock& clock, const ICancellationToken& cancellation,
                                                                IEventSink& events)
 {
-    if (const Status matched =
-            check_family_transport_match(plan, FlashFamily::MitsuColtM32rCan, TransportKind::CanIso15765);
-        !matched.has_value())
+    if (const Status matched = check_family(plan, FlashFamily::MitsuColtM32rCan); !matched.has_value())
     {
         return std::unexpected(matched.error());
     }
@@ -677,21 +696,6 @@ Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(const FlashPlan& 
     }
 
     const auto& family = std::get<MitsuColtM32rCanPlan>(plan.family_plan());
-    // Legacy line 32-33: configureIso15765Can(serial, "500000", 0x7E0, 0x7E8)
-    // then open_serial_port(). Legacy never closes the port, and neither does
-    // this executor -- the desktop adapter owns the port lifetime.
-    Result<ICanFlashTransport *> can_transport =
-        open_can_iso15765_transport(transport, Iso15765Config{
-                                                   .bitrate = family.bitrate,
-                                                   .request_id = family.request_id,
-                                                   .response_id = family.response_id,
-                                                   .extended_id = family.extended_id,
-                                               });
-    if (!can_transport.has_value())
-    {
-        return std::unexpected(can_transport.error());
-    }
-    ICanFlashTransport *can = *can_transport;
 
     const std::uint32_t rom_end = plan.transfer_region().start + plan.transfer_region().length;
     const bool read = plan.operation() == FlashOperation::Read;
@@ -700,7 +704,7 @@ Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(const FlashPlan& 
 
     // The channel owns the 4-byte CAN id envelope and the client owns the
     // exchange; both are stack-scoped here so they outlive every phase below.
-    CanFlashUdsChannel channel(*can, family.request_id, family.response_id);
+    CanFlashUdsChannel channel(transport, family.request_id, family.response_id);
     uds::UdsClient uds_client(channel, clock, events);
     Ctx ctx{cancellation, events, uds_client};
 

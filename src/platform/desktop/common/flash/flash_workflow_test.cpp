@@ -269,7 +269,7 @@ void FlashWorkflowTest::mc68ResolvesKernelThroughCatalogBeforePromptAndAttempt()
 
     step = workflow->next();
     QVERIFY(std::holds_alternative<FlashAttempt>(step));
-    const auto& plan = std::get<FlashAttempt>(step).plan;
+    const auto& plan = std::get<FlashAttempt>(step).attempt->plan();
     QVERIFY(plan.kernel().has_value());
     QCOMPARE(plan.kernel()->load_address, 0x20000u);
     QCOMPARE(plan.kernel()->bytes, bytes::Bytes({0x11, 0x22, 0x33}));
@@ -315,7 +315,7 @@ void FlashWorkflowTest::sh7055IteratesConfirmationsAndPropagatesAttemptResult()
 
     step = workflow->next();
     QVERIFY(std::holds_alternative<FlashAttempt>(step));
-    const auto& plan = std::get<FlashAttempt>(step).plan;
+    const auto& plan = std::get<FlashAttempt>(step).attempt->plan();
     QVERIFY(plan.kernel().has_value());
     QCOMPARE(plan.kernel()->load_address, 0xFFFF6004u);
     QCOMPARE(plan.kernel()->bytes, bytes::Bytes({0xaa, 0xbb, 0xcc, 0xdd}));
@@ -350,7 +350,7 @@ void FlashWorkflowTest::sh7055EcutekResolvesWithoutCarModelReference()
     workflow->submit(FlashPromptResponse::Accept);
     step = workflow->next();
     QVERIFY(std::holds_alternative<FlashAttempt>(step));
-    const auto& plan = std::get<FlashAttempt>(step).plan;
+    const auto& plan = std::get<FlashAttempt>(step).attempt->plan();
     QCOMPARE(plan.target_id(), std::string_view("sub_ecu_denso_sh7055_02_ecutek"));
     QVERIFY(plan.kernel().has_value());
     QCOMPARE(plan.kernel()->load_address, 0xFFFF6004u);
@@ -382,7 +382,7 @@ void FlashWorkflowTest::mc68TestWriteWithPortableImageReachesAttempt()
     workflow->submit(FlashPromptResponse::Accept);
     auto step = workflow->next();
     QVERIFY(std::holds_alternative<FlashAttempt>(step));
-    QCOMPARE(std::get<FlashAttempt>(step).plan.image(), packed_image);
+    QCOMPARE(std::get<FlashAttempt>(step).attempt->plan().image(), packed_image);
 }
 
 void FlashWorkflowTest::mc68PhysicalImageIsPackedAtWorkflowBoundary()
@@ -411,7 +411,7 @@ void FlashWorkflowTest::mc68PhysicalImageIsPackedAtWorkflowBoundary()
     workflow->submit(FlashPromptResponse::Accept);
     step = workflow->next();
     QVERIFY(std::holds_alternative<FlashAttempt>(step));
-    const auto& packed = std::get<FlashAttempt>(step).plan.image();
+    const auto& packed = std::get<FlashAttempt>(step).attempt->plan().image();
     QVERIFY(packed.has_value());
     QCOMPARE(packed->size(), std::size_t{0x28000});
     QVERIFY(std::all_of(packed->begin(), packed->begin() + 0x20000, [](bytes::Byte value) { return value == 0x11; }));
@@ -442,7 +442,7 @@ void FlashWorkflowTest::mc68CalibrationPaddingRoundTripsToPackedWriteImage()
     workflow->submit(FlashPromptResponse::Accept);
     auto step = workflow->next();
     QVERIFY(std::holds_alternative<FlashAttempt>(step));
-    QCOMPARE(std::get<FlashAttempt>(step).plan.image(), packed_image);
+    QCOMPARE(std::get<FlashAttempt>(step).attempt->plan().image(), packed_image);
 }
 
 void FlashWorkflowTest::sh7055TestWriteWithPortableImageReachesPromptsAndAttempt()
@@ -481,7 +481,7 @@ void FlashWorkflowTest::mc68TpuReadResolvesCatalogAndReachesAttempt()
     workflow->submit(FlashPromptResponse::Accept);
     auto step = workflow->next();
     QVERIFY(std::holds_alternative<FlashAttempt>(step));
-    const auto& kernel = std::get<FlashAttempt>(step).plan.kernel();
+    const auto& kernel = std::get<FlashAttempt>(step).attempt->plan().kernel();
     QVERIFY(kernel.has_value());
     QCOMPARE(kernel->load_address, 0x20000u);
     QCOMPARE(kernel->bytes, bytes::Bytes({0x44, 0x55, 0x66}));

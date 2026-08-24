@@ -27,7 +27,6 @@
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
-#include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 
 using ::testing::ElementsAre;
 
@@ -530,6 +529,21 @@ static_assert(kRequestId == 0x7e0, "kernel-id/handshake frame literals above ass
 
 } // namespace
 
+TEST(DensoSh705xEepromCanExecutorTest, TransportSetupReturnsThePlansWireParameters)
+{
+    auto plan = valid_can_plan();
+    ASSERT_TRUE(plan.has_value());
+
+    DensoSh705xEepromCanExecutor executor;
+    const auto setup = executor.transport_setup(*plan);
+
+    ASSERT_TRUE(setup.has_value()) << setup.error().detail;
+    EXPECT_EQ(setup->bitrate, 500000);
+    EXPECT_EQ(setup->request_id, 0x7e0u);
+    EXPECT_EQ(setup->response_id, 0x7e8u);
+    EXPECT_FALSE(setup->extended_id);
+}
+
 TEST(DensoSh705xEepromCanExecutorTest, WrongFamilyPlanIsRejectedWithNoTransportCalls)
 {
     auto plan = build_denso_sh705x_eeprom_plan(DensoSh705xEepromInput{
@@ -547,6 +561,7 @@ TEST(DensoSh705xEepromCanExecutorTest, WrongFamilyPlanIsRejectedWithNoTransportC
 
     DensoSh705xEepromCanExecutor executor;
     ScriptedCanFlashTransport transport;
+    transport.start_open();
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
@@ -556,7 +571,6 @@ TEST(DensoSh705xEepromCanExecutorTest, WrongFamilyPlanIsRejectedWithNoTransportC
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
     EXPECT_TRUE(transport.scriptConsumed()); // nothing was ever queued or consumed
-    EXPECT_EQ(transport.close_call_count_, 0);
 }
 
 TEST(DensoSh705xEepromCanExecutorTest, KernelAlreadyRunningSkipsBootloaderMatchesLegacyTrace)
@@ -565,6 +579,7 @@ TEST(DensoSh705xEepromCanExecutorTest, KernelAlreadyRunningSkipsBootloaderMatche
     ASSERT_TRUE(plan.has_value());
 
     ScriptedCanFlashTransport transport;
+    transport.start_open();
     transport.expectWrite(requestKernelIdRequest());
     transport.queueRead(kernelAliveResponse());
     enqueueReadMem(transport, 2);
@@ -581,7 +596,6 @@ TEST(DensoSh705xEepromCanExecutorTest, KernelAlreadyRunningSkipsBootloaderMatche
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(*result->read_bytes, expectedDecodedEeprom256Bytes());
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(DensoSh705xEepromCanExecutorTest, FullBootloaderStockSecurityMode2MatchesLegacyTrace)
@@ -590,6 +604,7 @@ TEST(DensoSh705xEepromCanExecutorTest, FullBootloaderStockSecurityMode2MatchesLe
     ASSERT_TRUE(plan.has_value());
 
     ScriptedCanFlashTransport transport;
+    transport.start_open();
     const bytes::Bytes seed{0x11, 0x22, 0x33, 0x44};
     enqueueConnectBootloaderFullInit(transport, seed);
     enqueueUploadKernel(transport, kernelFixtureBytes(), kKernelStartAddr);
@@ -607,7 +622,6 @@ TEST(DensoSh705xEepromCanExecutorTest, FullBootloaderStockSecurityMode2MatchesLe
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(*result->read_bytes, expectedDecodedEeprom256Bytes());
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 // Pins that connect_bootloader()'s security-variant dispatch really does
@@ -632,6 +646,7 @@ TEST(DensoSh705xEepromCanExecutorTest, AllFourSecurityVariantsProduceDistinctSee
         ASSERT_TRUE(plan.has_value());
 
         ScriptedCanFlashTransport transport;
+        transport.start_open();
         transport.expectWrite(requestKernelIdRequest());
         transport.queue_no_frame();
         transport.expectWrite(initConnectionRequest());
@@ -705,6 +720,7 @@ TEST(DensoSh705xEepromCanExecutorTest, NoResponseAtSeedRequestReturnsTimeout)
     ASSERT_TRUE(plan.has_value());
 
     ScriptedCanFlashTransport transport;
+    transport.start_open();
     transport.expectWrite(requestKernelIdRequest());
     transport.queue_no_frame();
     transport.expectWrite(initConnectionRequest());
@@ -733,28 +749,6 @@ TEST(DensoSh705xEepromCanExecutorTest, NoResponseAtSeedRequestReturnsTimeout)
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
-    EXPECT_EQ(transport.close_call_count_, 1);
-}
-
-TEST(DensoSh705xEepromCanExecutorTest, TransportReportsClosedReturnsDisconnected)
-{
-    auto plan = valid_can_plan(EepromReadMode::Mode2);
-    ASSERT_TRUE(plan.has_value());
-
-    ScriptedCanFlashTransport transport;
-    transport.open_result_ = fail(ErrorKind::Disconnected, "port not open");
-
-    DensoSh705xEepromCanExecutor executor;
-    FakeClock clock;
-    FakeCancellationToken cancellation;
-    RecordingEventSink events;
-
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
-    EXPECT_TRUE(transport.scriptConsumed());   // zero writes attempted
-    EXPECT_EQ(transport.close_call_count_, 0); // open() itself failed -- ScopedClose never engages
 }
 
 TEST(DensoSh705xEepromCanExecutorTest, MalformedSeedResponseReturnsBadResponse)
@@ -763,6 +757,7 @@ TEST(DensoSh705xEepromCanExecutorTest, MalformedSeedResponseReturnsBadResponse)
     ASSERT_TRUE(plan.has_value());
 
     ScriptedCanFlashTransport transport;
+    transport.start_open();
     transport.expectWrite(requestKernelIdRequest());
     transport.queue_no_frame();
     transport.expectWrite(initConnectionRequest());
@@ -794,7 +789,6 @@ TEST(DensoSh705xEepromCanExecutorTest, MalformedSeedResponseReturnsBadResponse)
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(DensoSh705xEepromCanExecutorTest, CancellationDuringKernelUploadReturnsCancelled)
@@ -803,6 +797,7 @@ TEST(DensoSh705xEepromCanExecutorTest, CancellationDuringKernelUploadReturnsCanc
     ASSERT_TRUE(plan.has_value());
 
     ScriptedCanFlashTransport transport;
+    transport.start_open();
     const bytes::Bytes seed{0x11, 0x22, 0x33, 0x44};
     enqueueConnectBootloaderFullInit(transport, seed);
     enqueueUploadKernel(transport, kernelFixtureBytes(), kKernelStartAddr);
@@ -825,86 +820,7 @@ TEST(DensoSh705xEepromCanExecutorTest, CancellationDuringKernelUploadReturnsCanc
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-    EXPECT_EQ(transport.close_call_count_, 1);
     EXPECT_EQ(transport.writesConsumed(), 11u);
-}
-
-TEST(DensoSh705xEepromCanExecutorTest, CloseFailureAfterSuccessfulReadIsReturned)
-{
-    auto plan = valid_can_plan(EepromReadMode::Mode2);
-    ASSERT_TRUE(plan.has_value());
-
-    ScriptedCanFlashTransport transport;
-    transport.expectWrite(requestKernelIdRequest());
-    transport.queueRead(kernelAliveResponse());
-    enqueueReadMem(transport, 2);
-    transport.close_result_ = fail(ErrorKind::Internal, "close failed");
-
-    DensoSh705xEepromCanExecutor executor;
-    FakeClock clock;
-    FakeCancellationToken cancellation;
-    RecordingEventSink events;
-
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
-    EXPECT_EQ(transport.close_call_count_, 1);
-}
-
-TEST(DensoSh705xEepromCanExecutorTest, OriginalErrorWinsOverCloseFailure)
-{
-    auto plan = valid_can_plan(EepromReadMode::Mode2);
-    ASSERT_TRUE(plan.has_value());
-
-    ScriptedCanFlashTransport transport;
-    transport.expectWrite(requestKernelIdRequest());
-    transport.queue_no_frame();
-    transport.expectWrite(initConnectionRequest());
-    transport.queueRead(initConnResponse());
-    transport.expectWrite(ecuIdRequest());
-    transport.queueRead(ecuIdResponse());
-    transport.expectWrite(vinRequest());
-    transport.queueRead(vinResponse());
-    transport.expectWrite(calIdRequest());
-    transport.queueRead(calIdResponse());
-    transport.expectWrite(cvnRequest());
-    transport.queueRead(cvnResponse());
-    transport.expectWrite(sessionMode03Request());
-    transport.queueRead(session03Response());
-    transport.expectWrite(sessionMode43Request());
-    transport.queueRead(session43Response());
-    transport.expectWrite(seedRequestFrame());
-    transport.queue_no_frame(); // Timeout at seed request
-    transport.close_result_ = fail(ErrorKind::Internal, "close also failed");
-
-    DensoSh705xEepromCanExecutor executor;
-    FakeClock clock;
-    FakeCancellationToken cancellation;
-    RecordingEventSink events;
-
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Timeout); // original error wins
-    EXPECT_EQ(transport.close_call_count_, 1);
-}
-
-TEST(DensoSh705xEepromCanExecutorTest, WrongConcreteTransportTypeReturnsInvalidConfigWithNoIo)
-{
-    auto plan = valid_can_plan(EepromReadMode::Mode2);
-    ASSERT_TRUE(plan.has_value());
-
-    DensoSh705xEepromCanExecutor executor;
-    ScriptedKlineFlashTransport transport; // satisfies IFlashTransport, not ICanFlashTransport
-    FakeClock clock;
-    FakeCancellationToken cancellation;
-    RecordingEventSink events;
-
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
 }
 
 } // namespace fastecu::flash

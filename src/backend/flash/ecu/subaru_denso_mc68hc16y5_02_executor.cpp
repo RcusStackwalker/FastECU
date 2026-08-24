@@ -797,13 +797,9 @@ Status SubaruDensoMc68hc16y5_02Executor::write_mem(IKlineFlashTransport& transpo
     return {};
 }
 
-Result<FlashExecutionResult> SubaruDensoMc68hc16y5_02Executor::execute(const FlashPlan& plan,
-                                                                       IFlashTransport& transport, IClock& clock,
-                                                                       const ICancellationToken& cancellation,
-                                                                       IEventSink& events)
+Result<KlineConfig> SubaruDensoMc68hc16y5_02Executor::transport_setup(const FlashPlan& plan) const
 {
-    if (Status match = check_family_transport_match(plan, FlashFamily::SubaruDensoMc68hc16y5_02, TransportKind::Kline);
-        !match.has_value())
+    if (Status match = check_family(plan, FlashFamily::SubaruDensoMc68hc16y5_02); !match.has_value())
     {
         return std::unexpected(match.error());
     }
@@ -811,121 +807,87 @@ Result<FlashExecutionResult> SubaruDensoMc68hc16y5_02Executor::execute(const Fla
     {
         return std::unexpected(valid.error());
     }
-    if (Status cancelled = check_cancelled(cancellation, "cancelled before transport configuration");
+    const auto& family_plan = std::get<SubaruDensoMc68hc16y5_02Plan>(plan.family_plan());
+    return KlineConfig{.baud = family_plan.connect_baud, .iso14230 = false, .tester_id = 0, .target_id = 0};
+}
+
+Status SubaruDensoMc68hc16y5_02Executor::before_transport_open(const ICancellationToken& cancellation) const
+{
+    return check_cancelled(cancellation, "cancelled after transport configuration");
+}
+
+Result<FlashExecutionResult> SubaruDensoMc68hc16y5_02Executor::execute(const FlashPlan& plan,
+                                                                       IKlineFlashTransport& kline, IClock& clock,
+                                                                       const ICancellationToken& cancellation,
+                                                                       IEventSink& events)
+{
+    if (Status match = check_family(plan, FlashFamily::SubaruDensoMc68hc16y5_02); !match.has_value())
+    {
+        return std::unexpected(match.error());
+    }
+    if (Status valid = validate_subaru_denso_mc68hc16y5_02_plan(plan); !valid.has_value())
+    {
+        return std::unexpected(valid.error());
+    }
+    const auto& family_plan = std::get<SubaruDensoMc68hc16y5_02Plan>(plan.family_plan());
+    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:67-70.
+    if (Status cancelled = check_cancelled(cancellation, "cancelled before disabling LEC lines");
         !cancelled.has_value())
     {
         return std::unexpected(cancelled.error());
     }
-    auto *kline_ptr = dynamic_cast<IKlineFlashTransport *>(&transport);
-    if (kline_ptr == nullptr)
+    if (Status disabled = kline.disable_lec_lines(); !disabled.has_value())
     {
-        return fail(ErrorKind::InvalidConfig, "transport does not implement IKlineFlashTransport");
+        return std::unexpected(disabled.error());
     }
-    const auto *family_plan_ptr = std::get_if<SubaruDensoMc68hc16y5_02Plan>(&plan.family_plan());
-    if (family_plan_ptr == nullptr)
-    {
-        return fail(ErrorKind::InvalidConfig, "MC68HC16Y5_02 wire parameters are missing");
-    }
-    const SubaruDensoMc68hc16y5_02Plan& family_plan = *family_plan_ptr;
-    IKlineFlashTransport& kline = *kline_ptr;
-
-    if (Status configured = kline.configure(
-            KlineConfig{.baud = family_plan.connect_baud, .iso14230 = false, .tester_id = 0, .target_id = 0});
-        !configured.has_value())
-    {
-        return std::unexpected(configured.error());
-    }
-    if (Status cancelled = check_cancelled(cancellation, "cancelled after transport configuration");
-        !cancelled.has_value())
+    if (Status cancelled = check_cancelled(cancellation, "cancelled after disabling LEC lines"); !cancelled.has_value())
     {
         return std::unexpected(cancelled.error());
     }
-    if (Status opened = kline.open(); !opened.has_value())
+    if (Status drained = drain_initial_response(kline, cancellation); !drained.has_value())
     {
-        return std::unexpected(opened.error());
+        return std::unexpected(drained.error());
     }
-    Result<FlashExecutionResult> phase_result = [&]() -> Result<FlashExecutionResult>
+
+    bool kernel_alive = false;
+    if (Status connected = connect_bootloader(kline, clock, cancellation, events, family_plan, kernel_alive);
+        !connected.has_value())
     {
-        if (Status cancelled = check_cancelled(cancellation, "cancelled after opening transport");
-            !cancelled.has_value())
-        {
-            return std::unexpected(cancelled.error());
-        }
-        // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:67-70.
-        if (Status cancelled = check_cancelled(cancellation, "cancelled before disabling LEC lines");
-            !cancelled.has_value())
-        {
-            return std::unexpected(cancelled.error());
-        }
-        if (Status disabled = kline.disable_lec_lines(); !disabled.has_value())
-        {
-            return std::unexpected(disabled.error());
-        }
-        if (Status cancelled = check_cancelled(cancellation, "cancelled after disabling LEC lines");
-            !cancelled.has_value())
-        {
-            return std::unexpected(cancelled.error());
-        }
-        if (Status drained = drain_initial_response(kline, cancellation); !drained.has_value())
-        {
-            return std::unexpected(drained.error());
-        }
-
-        bool kernel_alive = false;
-        if (Status connected = connect_bootloader(kline, clock, cancellation, events, family_plan, kernel_alive);
-            !connected.has_value())
-        {
-            return std::unexpected(connected.error());
-        }
-        if (!kernel_alive)
-        {
-            if (!plan.kernel().has_value())
-            {
-                return fail(ErrorKind::InvalidConfig, "MC68HC16Y5_02 requires a kernel image");
-            }
-            if (Status uploaded = upload_kernel(kline, clock, cancellation, events, family_plan, *plan.kernel());
-                !uploaded.has_value())
-            {
-                return std::unexpected(uploaded.error());
-            }
-        }
-        if (plan.operation() == FlashOperation::Read)
-        {
-            Result<bytes::Bytes> read = read_mem(kline, clock, cancellation, events, plan.mcu_name());
-            if (!read.has_value())
-            {
-                return std::unexpected(read.error());
-            }
-            return FlashExecutionResult{.operation = plan.operation(), .read_bytes = std::move(*read)};
-        }
-
-        if (!plan.image().has_value())
-        {
-            return fail(ErrorKind::InvalidConfig, "MC68HC16Y5_02 write requires a ROM image");
-        }
-        Status written = write_mem(kline, clock, cancellation, events, *plan.image(), plan.mcu_name(),
-                                   plan.operation() == FlashOperation::TestWrite);
-        if (!written.has_value())
-        {
-            return std::unexpected(written.error());
-        }
-        return FlashExecutionResult{.operation = plan.operation(), .read_bytes = std::nullopt};
-    }();
-
-    Status close_status = kline.close();
-    if (phase_result.has_value())
-    {
-        if (!close_status.has_value())
-        {
-            return std::unexpected(close_status.error());
-        }
-        return std::move(*phase_result);
+        return std::unexpected(connected.error());
     }
-    if (!close_status.has_value())
+    if (!kernel_alive)
     {
-        events.log(LogLevel::Warning, "close failed after MC68HC16Y5_02 phase error");
+        if (!plan.kernel().has_value())
+        {
+            return fail(ErrorKind::InvalidConfig, "MC68HC16Y5_02 requires a kernel image");
+        }
+        if (Status uploaded = upload_kernel(kline, clock, cancellation, events, family_plan, *plan.kernel());
+            !uploaded.has_value())
+        {
+            return std::unexpected(uploaded.error());
+        }
     }
-    return std::unexpected(phase_result.error());
+    if (plan.operation() == FlashOperation::Read)
+    {
+        Result<bytes::Bytes> read = read_mem(kline, clock, cancellation, events, plan.mcu_name());
+        if (!read.has_value())
+        {
+            return std::unexpected(read.error());
+        }
+        return FlashExecutionResult{.operation = plan.operation(), .read_bytes = std::move(*read)};
+    }
+
+    if (!plan.image().has_value())
+    {
+        return fail(ErrorKind::InvalidConfig, "MC68HC16Y5_02 write requires a ROM image");
+    }
+    Status written = write_mem(kline, clock, cancellation, events, *plan.image(), plan.mcu_name(),
+                               plan.operation() == FlashOperation::TestWrite);
+    if (!written.has_value())
+    {
+        return std::unexpected(written.error());
+    }
+    return FlashExecutionResult{.operation = plan.operation(), .read_bytes = std::nullopt};
 }
 
 } // namespace fastecu::flash

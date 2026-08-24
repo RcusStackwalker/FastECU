@@ -288,10 +288,24 @@ bytes::Bytes writeRom()
     return rom;
 }
 
+TEST(SubaruHitachiM32rCanExecutor, TransportSetupReturnsThePlansWireParameters)
+{
+    SubaruHitachiM32rCanExecutor executor;
+    auto plan = readPlan();
+
+    const auto setup = executor.transport_setup(plan);
+
+    ASSERT_TRUE(setup.has_value()) << setup.error().detail;
+    EXPECT_EQ(setup->bitrate, 500000);
+    EXPECT_EQ(setup->request_id, 0x7e0u);
+    EXPECT_EQ(setup->response_id, 0x7e8u);
+    EXPECT_FALSE(setup->extended_id);
+}
+
 TEST(SubaruHitachiM32rCanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyIo)
 {
-    // A plan built for another family must be rejected by
-    // check_family_transport_match before configure()/open() or any write --
+    // A plan built for another family must be rejected by check_family before
+    // configure()/open() or any write --
     // the scripted transport is left completely untouched.
     ScriptedCanFlashTransport transport;
     FakeClock clock;
@@ -318,6 +332,7 @@ TEST(SubaruHitachiM32rCanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyIo)
     auto foreign = fastecu::flash::validate_and_build(std::move(fields));
     ASSERT_TRUE(foreign.has_value()) << foreign.error().detail;
 
+    transport.start_open();
     const auto result = executor.execute(*foreign, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -342,6 +357,7 @@ TEST(SubaruHitachiM32rCanExecutor, ConnectAndReadReturnsTheFullRomFromAddressZer
     scriptFlashDump(transport, 0, 0x80000, 0x100, 0x5A);
     scriptStopCommand(transport);
 
+    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -371,6 +387,7 @@ TEST(SubaruHitachiM32rCanExecutor, ReadReportsAnEmptyReplyAsTimeout)
     transport.expectWrite(request({0xA8, 0x00, 0x00, 0x00, 0xD7}));
     transport.queue_no_frame();
 
+    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -401,6 +418,7 @@ TEST(SubaruHitachiM32rCanExecutor, ReadPropagatesADisconnectedTransport)
     transport.expectWrite(request(keyRequest));
     transport.queue_error(ErrorKind::Disconnected, "adapter gone");
 
+    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -426,6 +444,7 @@ TEST(SubaruHitachiM32rCanExecutor, ConnectRejectsOnCarProgrammingAsUnsupported)
     transport.expectWrite(request({0xA8, 0x00, 0x00, 0x00, 0xD7}));
     transport.queueRead(response({0x00, 0x00, 0x00}));
 
+    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -443,6 +462,7 @@ TEST(SubaruHitachiM32rCanExecutor, ReadStopsWhenCancelledBeforeAnyExchange)
     auto plan = readPlan();
     cancellation.cancel();
 
+    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -487,6 +507,7 @@ TEST(SubaruHitachiM32rCanExecutor, ReadStopsAtTheNextChunkWhenCancelledMidRead)
     // is being served, so the loop must stop at the top of the next chunk.
     scriptFlashDump(transport, 0, 0x100, 0x100, 0x00);
 
+    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -526,6 +547,7 @@ TEST(SubaruHitachiM32rCanExecutor, WriteErasesAndWritesTheFullRomInOneReflashBlo
     scriptCloseAttempt(transport, {0x77});
     scriptChecksumVerify(transport);
 
+    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -549,6 +571,7 @@ TEST(SubaruHitachiM32rCanExecutor, WriteRefusesAnImageThatDoesNotMatchThePlanBef
     // handshake.
     auto plan = handBuiltPlan(FlashOperation::Write, 0x7ffff);
 
+    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -586,6 +609,7 @@ TEST(SubaruHitachiM32rCanExecutor, WriteToleratesUpToFiveFailedCloseAttemptsBefo
     scriptCloseAttempt(transport, {0x77});
     scriptChecksumVerify(transport);
 
+    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -616,6 +640,7 @@ TEST(SubaruHitachiM32rCanExecutor, WriteStopsWhenTheEraseIsRejected)
     transport.expectWrite(request(firstChunkRequest));
     transport.queueRead(response({0x7F, 0xB6, 0x22}));
 
+    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -636,6 +661,7 @@ TEST(SubaruHitachiM32rCanExecutor, RefusesATestWritePlanRatherThanWritingForReal
     SubaruHitachiM32rCanExecutor executor;
     auto plan = handBuiltPlan(FlashOperation::TestWrite, 0x80000);
 
+    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());

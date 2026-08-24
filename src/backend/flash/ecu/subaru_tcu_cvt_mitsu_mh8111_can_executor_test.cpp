@@ -295,6 +295,20 @@ bytes::Bytes writeRom()
     return rom;
 }
 
+TEST(SubaruTcuCvtMitsuMh8111CanExecutor, TransportSetupReturnsThePlansWireParameters)
+{
+    SubaruTcuCvtMitsuMh8111CanExecutor executor;
+    const auto plan = readPlan();
+
+    const auto setup = executor.transport_setup(plan);
+
+    ASSERT_TRUE(setup.has_value()) << setup.error().detail;
+    EXPECT_EQ(setup->bitrate, 500000);
+    EXPECT_EQ(setup->request_id, 0x7e1u);
+    EXPECT_EQ(setup->response_id, 0x7e9u);
+    EXPECT_FALSE(setup->extended_id);
+}
+
 TEST(SubaruTcuCvtMitsuMh8111CanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyIo)
 {
     ScriptedCanFlashTransport transport;
@@ -322,6 +336,7 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyI
     auto foreign = fastecu::flash::validate_and_build(std::move(fields));
     ASSERT_TRUE(foreign.has_value()) << foreign.error().detail;
 
+    transport.start_open();
     const auto result = executor.execute(*foreign, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -329,7 +344,6 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyI
     EXPECT_THAT(result.error().detail, HasSubstr("does not match this executor"));
     EXPECT_THAT(events.logs, IsEmpty());
     EXPECT_EQ(transport.writesConsumed(), 0u);
-    EXPECT_FALSE(transport.last_config_.has_value());
 }
 
 TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ConnectFullSequenceEveryTime)
@@ -350,6 +364,7 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ConnectFullSequenceEveryTime)
     scriptFlashDump(transport, kReadStart, kReadLength, 0x100, 0x5A);
     scriptStopCommand(transport);
 
+    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -370,6 +385,7 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ReadReturnsTheLowerWindowPaddedWithFF)
     scriptFlashDump(transport, kReadStart, kReadLength, 0x100, 0x5A);
     scriptStopCommand(transport);
 
+    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -401,6 +417,7 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ReadReportsAnEmptyReplyAsTimeout)
     transport.expectWrite(request({0x27, 0x01}));
     transport.queue_no_frame();
 
+    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -418,6 +435,7 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ReadStopsWhenCancelled)
     auto plan = readPlan();
     cancellation.cancel();
 
+    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -465,6 +483,7 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ReadStopsAtTheNextChunkWhenCancelledMid
     scriptDumpSetup(transport);
     scriptFlashDump(transport, kReadStart, 0x100, 0x100, 0x5A);
 
+    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -499,6 +518,7 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ReadPropagatesADisconnectedTransport)
     transport.expectWrite(request(bytes::composeBe(bytes::Byte(0xB7), bytes::u24(kReadStart))));
     transport.queue_error(ErrorKind::Disconnected, "adapter gone");
 
+    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
@@ -520,6 +540,7 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, WriteErasesThenFlashesTheUpperBlockAtAd
     scriptEraseMemory(transport);
     scriptWriteBlock(transport, bytes::ByteView(rom).subspan(kWriteStart, kWriteLength));
 
+    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
@@ -539,17 +560,16 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, WriteRefusesAnImageThatDoesNotMatchTheP
 
     // build_subaru_tcu_cvt_mitsu_mh8111_can_plan rejects this image, but
     // validate_and_build does not. The executor must still reject it before
-    // it configures or opens the transport, let alone reaches the TCU
-    // handshake.
+    // it reaches the TCU handshake.
     auto plan = handBuiltPlan(FlashOperation::Write, kImageSize - 1);
 
+    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
     EXPECT_THAT(result.error().detail, HasSubstr("0x180000"));
     EXPECT_EQ(transport.writesConsumed(), 0u);
-    EXPECT_FALSE(transport.last_config_.has_value());
     EXPECT_THAT(events.logs, IsEmpty());
 }
 
@@ -566,12 +586,12 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, RefusesATestWritePlanRatherThanWritingF
     SubaruTcuCvtMitsuMh8111CanExecutor executor;
     auto plan = handBuiltPlan(FlashOperation::TestWrite, kImageSize);
 
+    transport.start_open();
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Unsupported);
     EXPECT_EQ(transport.writesConsumed(), 0u);
-    EXPECT_FALSE(transport.last_config_.has_value());
 }
 
 } // namespace

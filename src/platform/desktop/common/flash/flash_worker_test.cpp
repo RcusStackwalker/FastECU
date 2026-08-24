@@ -8,6 +8,7 @@
 // against them, defeating the point of proving the *transport* unblock (not
 // a timing coincidence) is what makes teardown prompt.
 #include "src/platform/desktop/common/flash/flash_worker.h"
+#include "src/platform/desktop/common/flash/flash_workflow.h"
 
 #include <QCoreApplication>
 #include <QElapsedTimer>
@@ -28,6 +29,7 @@ using fastecu::flash::DensoSecurityVariant;
 using fastecu::flash::DensoSh705xEepromInput;
 using fastecu::flash::DensoSh705xEepromKlineExecutor;
 using fastecu::flash::EepromReadMode;
+using fastecu::flash::FlashAttempt;
 using fastecu::flash::FlashFamily;
 using fastecu::flash::FlashOperation;
 using fastecu::flash::FlashWorker;
@@ -39,18 +41,37 @@ using fastecu::flash::ScriptedKlineFlashTransport;
 namespace
 {
 
-class PhaseProgressExecutor final : public fastecu::flash::IFlashExecutor
+class FakeBoundAttempt final : public fastecu::flash::BoundFlashAttempt
 {
   public:
-    fastecu::Result<fastecu::flash::FlashExecutionResult> execute(const fastecu::flash::FlashPlan&,
-                                                                  fastecu::flash::IFlashTransport&, fastecu::IClock&,
-                                                                  const fastecu::ICancellationToken&,
-                                                                  fastecu::IEventSink& events) override
+    explicit FakeBoundAttempt(fastecu::flash::FlashPlan plan) : plan_(std::move(plan))
     {
+    }
+
+    const fastecu::flash::FlashPlan& plan() const noexcept override
+    {
+        return plan_;
+    }
+
+    fastecu::Result<fastecu::flash::FlashExecutionResult> run(fastecu::IClock&, const fastecu::ICancellationToken&,
+                                                              fastecu::IEventSink& events) override
+    {
+        ++run_calls;
         events.phase_progress(
             {.phase_name = "Connect to ECU", .phase_index = 1, .phase_count = 2, .done = 1, .total = 1});
         return fastecu::flash::FlashExecutionResult{};
     }
+
+    void request_unblock() noexcept override
+    {
+        ++unblock_calls;
+    }
+
+    int run_calls = 0;
+    int unblock_calls = 0;
+
+  private:
+    fastecu::flash::FlashPlan plan_;
 };
 
 // Every field here matches an SH7055 K-Line (or CAN, for the mismatch test)
@@ -112,8 +133,10 @@ class TestFlashWorker : public QObject
         rawTransport->expectWrite(requestKernelIdRequest());
         rawTransport->queueBlockingRead();
 
-        FlashWorker worker(*plan, std::make_unique<DensoSh705xEepromKlineExecutor>(), std::move(transport),
-                           std::make_unique<FakeClock>());
+        FlashWorker worker(FlashAttempt{
+            fastecu::flash::bind_flash_attempt(std::move(*plan), std::make_unique<DensoSh705xEepromKlineExecutor>(),
+                                               std::move(transport)),
+            std::make_unique<FakeClock>()});
         QSignalSpy finishedSpy(&worker, &FlashWorker::finished);
 
         worker.start();
@@ -138,16 +161,18 @@ class TestFlashWorker : public QObject
 
     void oneAndOnlyOneTerminalResultIsEmitted()
     {
-        // A CAN-shaped plan handed to the K-Line executor: check_family_
-        // transport_match() rejects it before any I/O (zero writes/reads
+        // A CAN-shaped plan handed to the K-Line executor: transport_setup()
+        // rejects it before any I/O (zero writes/reads
         // scripted below, on purpose -- reaching the transport at all here
         // would itself be a bug).
         auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(validInput(FlashFamily::DensoSh705xEepromCan));
         QVERIFY(plan.has_value());
 
         auto transport = std::make_unique<ScriptedKlineFlashTransport>();
-        FlashWorker worker(*plan, std::make_unique<DensoSh705xEepromKlineExecutor>(), std::move(transport),
-                           std::make_unique<FakeClock>());
+        FlashWorker worker(FlashAttempt{
+            fastecu::flash::bind_flash_attempt(std::move(*plan), std::make_unique<DensoSh705xEepromKlineExecutor>(),
+                                               std::move(transport)),
+            std::make_unique<FakeClock>()});
         QSignalSpy finishedSpy(&worker, &FlashWorker::finished);
 
         worker.start();
@@ -169,9 +194,8 @@ class TestFlashWorker : public QObject
         auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(validInput(FlashFamily::DensoSh705xEepromKline));
         QVERIFY(plan.has_value());
 
-        auto transport = std::make_unique<ScriptedKlineFlashTransport>();
-        FlashWorker worker(*plan, std::make_unique<PhaseProgressExecutor>(), std::move(transport),
-                           std::make_unique<FakeClock>());
+        auto attempt = std::make_unique<FakeBoundAttempt>(std::move(*plan));
+        FlashWorker worker(FlashAttempt{std::move(attempt), std::make_unique<FakeClock>()});
         QSignalSpy legacySpy(&worker, &FlashWorker::progressChanged);
         QSignalSpy phaseSpy(&worker, &FlashWorker::phaseProgressChanged);
 
