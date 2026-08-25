@@ -52,6 +52,26 @@ fastecu_gtest(
     deps = [":legacy_logging_compat"],
 )
 
+fastecu_qttest(
+    name = "test_legacy_logging_coordinator",
+    src = "legacy_logging_coordinator_test.cpp",
+    deps = [":legacy_logging_coordinator"],
+)
+
+qt_cc_library(
+    name = "legacy_logging_coordinator",
+    srcs = ["legacy_logging_coordinator.cpp"],
+    hdrs = ["legacy_logging_coordinator.h"],
+    copts = COMMON_COPTS,
+    deps = QT_DEPS + [
+        ":legacy_logging_compat",
+        ":logging_adapters",
+        ":logging_runtime",
+        "//src/backend/definitions",
+        "//src/backend/ports",
+    ],
+)
+
 qt_cc_library(
     name = "legacy_logging_compat",
     srcs = [
