@@ -17,24 +17,24 @@ namespace
 // It is its own inverse (a permutation built purely of 2-cycles).
 std::uint32_t permuteBits(std::uint32_t x)
 {
-    return ((x & 0x15555555u) << 3) | ((x & 0xaaaaaaa8u) >> 3) | ((x & 0x40000000u) >> 29) | ((x & 0x00000002u) << 29);
+    return ((x & 0x15555555U) << 3) | ((x & 0xaaaaaaa8U) >> 3) | ((x & 0x40000000U) >> 29) | ((x & 0x00000002U) << 29);
 }
 
 // Nibble swap within each byte. Also its own inverse: applying it twice is
 // a no-op.
 std::uint32_t swapNibbles(std::uint32_t x)
 {
-    return ((x & 0x0f0f0f0fu) << 4) | ((x & 0xf0f0f0f0u) >> 4);
+    return ((x & 0x0f0f0f0fU) << 4) | ((x & 0xf0f0f0f0U) >> 4);
 }
 
 // Round constants read from ROM flash at 0x5fddc..0x5fddc+15 (big-endian
 // u32 each) — literally the first 16 bytes of the "EcuTek ROM Patch" ASCII
 // string embedded elsewhere in the same ROM, reinterpreted as words.
 constexpr std::uint32_t kRoundConstants[4] = {
-    0x45637554u, // "EcuT"
-    0x656b2052u, // "ek R"
-    0x4f4d2050u, // "OM P"
-    0x61746368u, // "atch"
+    0x45637554U, // "EcuT"
+    0x656b2052U, // "ek R"
+    0x4f4d2050U, // "OM P"
+    0x61746368U, // "atch"
 };
 
 } // namespace

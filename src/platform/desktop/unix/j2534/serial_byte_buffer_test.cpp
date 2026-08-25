@@ -56,7 +56,7 @@ TEST(SerialByteBuffer, ServesAnExactFitFromASingleRefill)
     SerialByteBuffer buffer = source.make();
 
     EXPECT_EQ(buffer.take(3, 100), QByteArray("abc"));
-    EXPECT_EQ(buffer.buffered(), 0u);
+    EXPECT_EQ(buffer.buffered(), 0U);
 }
 
 TEST(SerialByteBuffer, RetainsBytesReadPastTheRequestedCount)
@@ -66,7 +66,7 @@ TEST(SerialByteBuffer, RetainsBytesReadPastTheRequestedCount)
     SerialByteBuffer buffer = source.make();
 
     EXPECT_EQ(buffer.take(2, 100), QByteArray("ab"));
-    EXPECT_EQ(buffer.buffered(), 4u);
+    EXPECT_EQ(buffer.buffered(), 4U);
     const int polls_before_second_take = source.polls;
     // The retained bytes are served without touching the source again.
     EXPECT_EQ(buffer.take(4, 100), QByteArray("cdef"));
@@ -169,10 +169,10 @@ TEST(SerialByteBuffer, ClearDiscardsRetainedBytes)
     SerialByteBuffer buffer = source.make();
 
     buffer.take(1, 100);
-    ASSERT_EQ(buffer.buffered(), 5u);
+    ASSERT_EQ(buffer.buffered(), 5U);
     buffer.clear();
 
-    EXPECT_EQ(buffer.buffered(), 0u);
+    EXPECT_EQ(buffer.buffered(), 0U);
     EXPECT_EQ(buffer.take(1, 1), QByteArray());
 }
 

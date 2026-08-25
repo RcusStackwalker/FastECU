@@ -4,9 +4,11 @@
 // portable components (Tasks 2/6), not stand-ins invented for this suite.
 // The FakeClock is what makes the "blocked read" scenario deterministic: a
 // real desktop clock's cancellable-but-still-real sleeps between
-// connect_bootloader()'s protocol steps would let QTest::qWait(20) race
-// against them, defeating the point of proving the *transport* unblock (not
-// a timing coincidence) is what makes teardown prompt.
+// connect_bootloader()'s protocol steps would race the test's own progress
+// checks, defeating the point of proving the *transport* unblock (not a
+// timing coincidence) is what makes teardown prompt. For the same reason the
+// suite waits on condition variables and thread joins throughout, and never
+// on QSignalSpy::wait() -- see the note in the first test.
 #include "src/platform/desktop/common/flash/flash_worker.h"
 #include "src/platform/desktop/common/flash/flash_workflow.h"
 
@@ -15,6 +17,7 @@
 #include <QSignalSpy>
 #include <QTest>
 
+#include <chrono>
 #include <memory>
 
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
@@ -140,12 +143,22 @@ class TestFlashWorker : public QObject
         QSignalSpy finishedSpy(&worker, &FlashWorker::finished);
 
         worker.start();
-        QTest::qWait(20); // let the worker thread reach the blocking read
+        // Wait on the transport's own condition variable, not a fixed sleep:
+        // requestStop() must land while read() is genuinely blocked for this
+        // test to prove anything about unblocking.
+        QVERIFY(rawTransport->waitUntilBlockingReadEntered(std::chrono::milliseconds(2000)));
         worker.requestStop();
 
         QElapsedTimer timer;
         timer.start();
-        QVERIFY(finishedSpy.wait(2000));
+        // wait() joins the worker thread, and finished is emitted as the last
+        // act of run(), so the join is what makes the spy's contents final.
+        // QSignalSpy::wait() must NOT be used here: the spy is connected with
+        // Qt::DirectConnection and so records the emission on the worker
+        // thread, which routinely wins the race to emit before wait() snapshots
+        // its baseline count -- wait() is edge-triggered and reports only
+        // emissions arriving strictly after that snapshot, so it would return
+        // false after burning its full timeout.
         QVERIFY(worker.wait(2000));
         // The proof this test exists for: unblock is a condition-variable
         // wakeup inside the fake, not a wall-clock wait, so teardown
@@ -176,11 +189,13 @@ class TestFlashWorker : public QObject
         QSignalSpy finishedSpy(&worker, &FlashWorker::finished);
 
         worker.start();
-        QVERIFY(finishedSpy.wait(2000));
+        // Joining is both necessary and sufficient: run() emits finished last,
+        // so once the thread is joined the spy cannot gain further entries from
+        // it. See the note in the test above for why QSignalSpy::wait() is the
+        // wrong tool for "has this worker finished yet".
         QVERIFY(worker.wait(2000));
-        // Give any (bug-induced) second emission a chance to arrive before
-        // asserting there is exactly one -- finishedSpy.wait() only proves
-        // "at least one arrived by now", not "never more than one".
+        // Give any (bug-induced) second emission from another path a chance to
+        // arrive before asserting there is exactly one.
         QTest::qWait(50);
 
         QCOMPARE(finishedSpy.count(), 1);

@@ -73,8 +73,8 @@ Status validate_mitsu_colt_m32r_can_plan(const FlashPlan& plan)
     }
 
     const bool read = plan.operation() == FlashOperation::Read;
-    if (const MemoryRegion expected{read ? 0u : MitsuColtCan::kUserspaceStart,
-                                    (*variant)->capacity - (read ? 0u : MitsuColtCan::kUserspaceStart)};
+    if (const MemoryRegion expected{read ? 0U : MitsuColtCan::kUserspaceStart,
+                                    (*variant)->capacity - (read ? 0U : MitsuColtCan::kUserspaceStart)};
         plan.transfer_region().start != expected.start || plan.transfer_region().length != expected.length)
     {
         return fail(ErrorKind::InvalidConfig,

@@ -941,7 +941,7 @@ int FlashEcuSubaruDensoSH72531CanOperation::read_memory(uint32_t start_addr, uin
         float pleft = 0;
         unsigned long chrono;
 
-        pleft = (float)(addr - start_addr) / (float)length * 100.0f;
+        pleft = (float)(addr - start_addr) / (float)length * 100.0F;
         emit progressChanged(pleft);
 
         output[6] = (uint8_t)((addr >> 16) & 0xFF);
@@ -985,7 +985,7 @@ int FlashEcuSubaruDensoSH72531CanOperation::read_memory(uint32_t start_addr, uin
 
         if (cplen > 0 && chrono > 0)
         {
-            curspeed = cplen * (1000.0f / chrono);
+            curspeed = cplen * (1000.0F / chrono);
         }
 
         if (!curspeed)

@@ -12,7 +12,7 @@ import sys
 import tempfile
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePath
 
 import yaml
 
@@ -52,31 +52,79 @@ def workspace_root(environ: Mapping[str, str]) -> Path:
     return root
 
 
-def _entry_source_path(entry: dict[str, object], root: Path) -> Path:
-    """Resolve a compile-database entry's absolute source path.
+@dataclass(frozen=True)
+class _WorkspaceTree:
+    """The workspace's own files and directories, keyed by relative path.
+
+    Built by walking the workspace root without following symlinks, so trees
+    that only look like they live in the workspace -- `bazel-out` and the
+    other convenience symlinks into Bazel's output base -- are absent, as is
+    anything outside the root.
+    """
+
+    root: Path
+    files: Mapping[PurePath, Path]
+    directories: frozenset[PurePath]
+
+
+def _workspace_tree(root: Path) -> _WorkspaceTree:
+    files: dict[PurePath, Path] = {}
+    directories: set[PurePath] = set()
+    for parent, names, filenames in os.walk(root, followlinks=False):
+        names[:] = [name for name in names if name != ".git"]
+        directory = Path(parent)
+        relative = PurePath(directory.relative_to(root))
+        directories.add(relative)
+        for name in filenames:
+            files[relative / name] = directory / name
+    return _WorkspaceTree(root=root, files=files, directories=frozenset(directories))
+
+
+def _entry_relative_path(entry: dict[str, object], tree: _WorkspaceTree) -> PurePath | None:
+    """Reduce a compile-database entry to a path relative to the workspace root.
 
     Callers must already have validated that `directory` and `file` are
     present strings (load_project_entries does this before an entry survives
     into its returned list).
 
-    Raises WorkflowError if the resolved path escapes `root`: the compile
-    database is Bazel-generated, but its `directory`/`file` fields are still
-    external data and must not be trusted to stay within the workspace.
+    The compilation database is Bazel-generated, but its `directory`/`file`
+    fields are still external data, so they are reduced with string operations
+    only -- joined, normalized with os.path.normpath, then matched against the
+    trusted root. No filesystem call ever sees them, which is what keeps a
+    malformed or hostile database from using this runner to probe paths
+    outside the workspace.
+
+    Returns None when the entry does not name a location in the workspace's
+    own file tree -- outside the root, or under one of the Bazel output
+    symlinks -- which callers skip rather than analyze.
     """
-    directory = Path(str(entry["directory"]))
-    if not directory.is_absolute():
-        directory = root / directory
-    source = Path(str(entry["file"]))
-    if not source.is_absolute():
-        source = directory / source
-    resolved = source.resolve()
+    file = str(entry["file"])
+    combined = file if os.path.isabs(file) else os.path.join(str(entry["directory"]), file)
+    if not os.path.isabs(combined):
+        combined = os.path.join(str(tree.root), combined)
     try:
-        resolved.relative_to(root.resolve())
-    except ValueError as error:
+        relative = PurePath(os.path.normpath(combined)).relative_to(tree.root)
+    except ValueError:
+        return None
+    if relative.parent not in tree.directories:
+        return None
+    return relative
+
+
+def _entry_source_path(entry: dict[str, object], tree: _WorkspaceTree) -> Path:
+    """The workspace file an already-accepted entry names.
+
+    The returned path comes from the workspace walk, not from the entry, so
+    nothing derived from the untrusted `directory`/`file` fields reaches the
+    filesystem or a caller.
+    """
+    relative = _entry_relative_path(entry, tree)
+    source = tree.files.get(relative) if relative is not None else None
+    if source is None:
         raise WorkflowError(
-            f"compilation database entry resolves outside the workspace: {resolved}"
-        ) from error
-    return resolved
+            f"compilation database entry does not name a workspace file: {entry['file']}"
+        )
+    return source
 
 
 def load_project_entries(workspace: Path, database: Path) -> list[dict[str, object]]:
@@ -89,7 +137,7 @@ def load_project_entries(workspace: Path, database: Path) -> list[dict[str, obje
     if not isinstance(value, list):
         raise WorkflowError("compilation database is malformed: expected a JSON list")
 
-    root = workspace.resolve()
+    tree = _workspace_tree(workspace.resolve())
     entries: list[dict[str, object]] = []
     for entry in value:
         if not isinstance(entry, dict):
@@ -99,14 +147,13 @@ def load_project_entries(workspace: Path, database: Path) -> list[dict[str, obje
         if not isinstance(directory_value, str) or not isinstance(file_value, str):
             raise WorkflowError("compilation database is malformed: entry lacks directory or file")
 
-        try:
-            source = _entry_source_path(entry, root)
-        except WorkflowError:
+        relative = _entry_relative_path(entry, tree)
+        if relative is None:
             continue
-        if source.suffix.lower() not in SOURCE_SUFFIXES:
+        if relative.suffix.lower() not in SOURCE_SUFFIXES:
             continue
-        if not source.is_file():
-            raise WorkflowError(f"missing workspace translation unit: {source}")
+        if relative not in tree.files:
+            raise WorkflowError(f"missing workspace translation unit: {tree.root / relative}")
         entries.append(entry)
 
     if not entries:
@@ -127,10 +174,11 @@ def filter_changed_entries(
     convention. A header with no co-located source in `entries` produces a
     note instead of a match; this design does not trace transitive includers.
     """
+    tree = _workspace_tree(root)
     by_path: dict[Path, dict[str, object]] = {}
     by_directory: dict[Path, list[tuple[str, dict[str, object]]]] = {}
     for entry in entries:
-        source = _entry_source_path(entry, root)
+        source = _entry_source_path(entry, tree)
         by_path[source] = entry
         by_directory.setdefault(source.parent, []).append((source.stem, entry))
 
@@ -153,7 +201,7 @@ def filter_changed_entries(
             ]
             if found:
                 for entry in found:
-                    matched[_entry_source_path(entry, root)] = entry
+                    matched[_entry_source_path(entry, tree)] = entry
             else:
                 notes.append(
                     f"clang-tidy: {resolved} changed with no co-located source in the "

@@ -34,11 +34,11 @@ TEST(SubaruHitachiM32rCanPlan, ReadPlanCoversTheFullRomFromZero)
 {
     const auto plan = build_subaru_hitachi_m32r_can_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    EXPECT_EQ(plan->transfer_region().start, 0u);
-    EXPECT_EQ(plan->transfer_region().length, 0x80000u);
+    EXPECT_EQ(plan->transfer_region().start, 0U);
+    EXPECT_EQ(plan->transfer_region().length, 0x80000U);
     const auto& family = std::get<SubaruHitachiM32rCanPlan>(plan->family_plan());
-    EXPECT_EQ(family.request_id, 0x7e0u);
-    EXPECT_EQ(family.response_id, 0x7e8u);
+    EXPECT_EQ(family.request_id, 0x7e0U);
+    EXPECT_EQ(family.response_id, 0x7e8U);
     EXPECT_EQ(family.bitrate, 500000);
     EXPECT_FALSE(family.extended_id);
     EXPECT_TRUE(plan->confirmations().empty());
@@ -50,11 +50,11 @@ TEST(SubaruHitachiM32rCanPlan, WritePlanCoversTheFullRomAndErasesItAll)
     const auto plan =
         build_subaru_hitachi_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu, bytes::Bytes(0x80000, 0x00));
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    EXPECT_EQ(plan->transfer_region().start, 0u);
-    EXPECT_EQ(plan->transfer_region().length, 0x80000u);
-    ASSERT_EQ(plan->erase_regions().size(), 1u);
-    EXPECT_EQ(plan->erase_regions()[0].start, 0u);
-    EXPECT_EQ(plan->erase_regions()[0].length, 0x80000u);
+    EXPECT_EQ(plan->transfer_region().start, 0U);
+    EXPECT_EQ(plan->transfer_region().length, 0x80000U);
+    ASSERT_EQ(plan->erase_regions().size(), 1U);
+    EXPECT_EQ(plan->erase_regions()[0].start, 0U);
+    EXPECT_EQ(plan->erase_regions()[0].length, 0x80000U);
 }
 
 TEST(SubaruHitachiM32rCanPlan, RejectsAWriteWhoseImageSizeIsWrong)

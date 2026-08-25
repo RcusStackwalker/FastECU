@@ -35,11 +35,11 @@ TEST(SubaruTcuCvtHitachiM32rCanPlan, ReadPlanCoversTheClampedWindow)
 {
     const auto plan = build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    EXPECT_EQ(plan->transfer_region().start, 0x8000u);
-    EXPECT_EQ(plan->transfer_region().length, 0x78000u);
+    EXPECT_EQ(plan->transfer_region().start, 0x8000U);
+    EXPECT_EQ(plan->transfer_region().length, 0x78000U);
     const auto& family = std::get<SubaruTcuCvtHitachiM32rCanPlan>(plan->family_plan());
-    EXPECT_EQ(family.request_id, 0x7e1u);
-    EXPECT_EQ(family.response_id, 0x7e9u);
+    EXPECT_EQ(family.request_id, 0x7e1U);
+    EXPECT_EQ(family.response_id, 0x7e9U);
     EXPECT_EQ(family.bitrate, 500000);
     EXPECT_FALSE(family.extended_id);
     EXPECT_TRUE(plan->confirmations().empty());
@@ -51,11 +51,11 @@ TEST(SubaruTcuCvtHitachiM32rCanPlan, WritePlanCoversTheClampedWindowAndErasesIt)
     const auto plan =
         build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu, bytes::Bytes(0x80000, 0x00));
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    EXPECT_EQ(plan->transfer_region().start, 0x8000u);
-    EXPECT_EQ(plan->transfer_region().length, 0x78000u);
-    ASSERT_EQ(plan->erase_regions().size(), 1u);
-    EXPECT_EQ(plan->erase_regions()[0].start, 0x8000u);
-    EXPECT_EQ(plan->erase_regions()[0].length, 0x78000u);
+    EXPECT_EQ(plan->transfer_region().start, 0x8000U);
+    EXPECT_EQ(plan->transfer_region().length, 0x78000U);
+    ASSERT_EQ(plan->erase_regions().size(), 1U);
+    EXPECT_EQ(plan->erase_regions()[0].start, 0x8000U);
+    EXPECT_EQ(plan->erase_regions()[0].length, 0x78000U);
 }
 
 TEST(SubaruTcuCvtHitachiM32rCanPlan, RejectsAWriteWhoseImageSizeIsWrong)
@@ -93,7 +93,7 @@ TEST(SubaruTcuCvtHitachiM32rCanPlan, ReadRegionIsTheFloorClampedWindowNotTheLite
     const auto plan = build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::Read, "sub_tcu_cvt_hitachi_m32r_can",
                                                                  "M32R_512KB", std::nullopt);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    EXPECT_EQ(plan->transfer_region().start, 0x8000u);
-    EXPECT_EQ(plan->transfer_region().length, 0x78000u);
+    EXPECT_EQ(plan->transfer_region().start, 0x8000U);
+    EXPECT_EQ(plan->transfer_region().length, 0x78000U);
 }
 } // namespace

@@ -126,7 +126,7 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::read_mem(uint32_t start_addr,
         float pleft = 0;
         unsigned long chrono;
 
-        pleft = (float)(addr - start_addr) / (float)(length + 0x8000) * 100.0f;
+        pleft = (float)(addr - start_addr) / (float)(length + 0x8000) * 100.0F;
         emit progressChanged(pleft);
 
         if (addr >= flashdevices[mcu_type_index].rblocks->start &&
@@ -181,7 +181,7 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::read_mem(uint32_t start_addr,
 
         if (cplen > 0 && chrono > 0)
         {
-            curspeed = cplen * (1000.0f / chrono);
+            curspeed = cplen * (1000.0F / chrono);
         }
 
         if (!curspeed)
@@ -450,7 +450,7 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::flash_block(const uint8_t *ne
         {
             chrono += 1;
         }
-        curspeed = blocksize * (1000.0f / chrono); // avg B/s
+        curspeed = blocksize * (1000.0F / chrono); // avg B/s
         if (!curspeed)
         {
             curspeed += 1;
@@ -463,7 +463,7 @@ int FlashEcuSubaruDensoMC68HC16Y5_02_BDMOperation::flash_block(const uint8_t *ne
         }
         tleft++;
 
-        float pleft = (float)byteindex / (float)len * 100.0f;
+        float pleft = (float)byteindex / (float)len * 100.0F;
         emit progressChanged(pleft);
     }
     emit LOG_I("Block write complete.", true, true);

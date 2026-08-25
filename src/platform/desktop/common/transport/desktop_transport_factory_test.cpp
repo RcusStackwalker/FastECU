@@ -53,7 +53,7 @@ class TestDesktopTransportFactory : public QObject
         const auto ports = list_desktop_serial_ports(configWith(&fake, {kOpenPort0, kOpenPort1}, ""));
 
         QVERIFY(ports.has_value());
-        QCOMPARE(ports->size(), 2u);
+        QCOMPARE(ports->size(), 2U);
         QCOMPARE(QString::fromStdString((*ports)[1]), kOpenPort1);
     }
 

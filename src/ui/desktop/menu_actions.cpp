@@ -407,7 +407,7 @@ void MainWindow::inc_dec_value(const QString& action)
 
                         if (map_data_value.float_value == 0)
                         {
-                            map_data_value.float_value = 0.0f;
+                            map_data_value.float_value = 0.0F;
                         }
 
                         map_data_value.dword_value = new_rom_data_value.toInt();
@@ -1162,14 +1162,14 @@ void MainWindow::toggle_realtime()
         {
             if (connect_to_ecu())
             {
+                restoreLoggingUiState();
                 QMessageBox::information(this, tr("ECU connection"), "Unable to connect to ECU");
-                logger->setChecked(false);
                 return;
             }
         }
         logging_state = true;
 
-        LogSessionConfig config;
+        fastecu::desktop::logging::LogSessionConfig config;
         fastecu::logging::LoggingProtocolId protocol_id;
         fastecu::logging::LoggingPolicy logging_policy{};
         if (configValues->flash_protocol_selected_log_protocol == "MUT_DMA")
@@ -1209,20 +1209,17 @@ void MainWindow::toggle_realtime()
         {
             emit LOG_E("Logging session failed to start: " + QString::fromStdString(snapshot.error().detail), true,
                        true);
+            restoreLoggingUiState();
             QMessageBox::information(this, tr("Logging"), "Unable to start logging");
-            logging_state = false;
-            logger->setChecked(false);
             return;
         }
 
         activeLoggingSnapshot.emplace(*snapshot);
-        const LoggingStartResult start_result = loggingEngine->start(config, std::move(*snapshot));
-        if (!start_result && !start_result.failure_reported)
+        const auto started = loggingEngine->start(config, std::move(*snapshot));
+        if (!started)
         {
+            restoreLoggingUiState();
             QMessageBox::information(this, tr("Logging"), "Unable to start logging");
-            activeLoggingSnapshot.reset();
-            logging_state = false;
-            logger->setChecked(false);
             return;
         }
     }
@@ -1235,10 +1232,7 @@ void MainWindow::toggle_realtime()
             datalog_file.close();
         }
 
-        logging_state = false;
-        log_params_request_started = false;
         loggingEngine->stop();
-        activeLoggingSnapshot.reset();
 
         // disconnect_from_ecu();
     }

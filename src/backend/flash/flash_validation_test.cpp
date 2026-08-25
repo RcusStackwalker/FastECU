@@ -127,7 +127,7 @@ TEST(FlashValidationTest, ValidReadFieldsProduceAPlan)
 {
     auto plan = validate_and_build(valid_read_fields());
     ASSERT_TRUE(plan.has_value());
-    EXPECT_EQ(plan->total_transfer_bytes(), 0x1000u);
+    EXPECT_EQ(plan->total_transfer_bytes(), 0x1000U);
 }
 
 TEST(FlashValidationTest, EmptyTargetIdIsRejected)

@@ -71,7 +71,7 @@ TEST(TestDriver, poll_decodes_stream_frame)
     fastecu::FakeCancellationToken cancellation;
     const auto result = d.pollOnce(50, cancellation);
     ASSERT_TRUE(result);
-    ASSERT_EQ(result->size(), 1u);
+    ASSERT_EQ(result->size(), 1U);
     ASSERT_EQ(result->at(0), std::uint32_t(0x1234));
 }
 

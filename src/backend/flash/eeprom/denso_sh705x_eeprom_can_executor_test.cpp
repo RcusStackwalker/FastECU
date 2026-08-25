@@ -269,7 +269,7 @@ KernelUploadPlan computeKernelUploadPlan(bytes::ByteView kernelBytes)
         chkSum += (static_cast<std::uint32_t>(plEncr[i]) << 24) | (static_cast<std::uint32_t>(plEncr[i + 1]) << 16) |
                   (static_cast<std::uint32_t>(plEncr[i + 2]) << 8) | static_cast<std::uint32_t>(plEncr[i + 3]);
     }
-    chkSum = 0x5aa5a55au - chkSum;
+    chkSum = 0x5aa5a55aU - chkSum;
 
     bytes::appendU32Be(plEncr, chkSum);
 
@@ -539,8 +539,8 @@ TEST(DensoSh705xEepromCanExecutorTest, TransportSetupReturnsThePlansWireParamete
 
     ASSERT_TRUE(setup.has_value()) << setup.error().detail;
     EXPECT_EQ(setup->bitrate, 500000);
-    EXPECT_EQ(setup->request_id, 0x7e0u);
-    EXPECT_EQ(setup->response_id, 0x7e8u);
+    EXPECT_EQ(setup->request_id, 0x7e0U);
+    EXPECT_EQ(setup->response_id, 0x7e8U);
     EXPECT_FALSE(setup->extended_id);
 }
 
@@ -694,7 +694,7 @@ TEST(DensoSh705xEepromCanExecutorTest, AllFourSecurityVariantsProduceDistinctSee
 
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
-        EXPECT_EQ(transport.writesConsumed(), 10u); // kernel-id probe + 9 handshake writes
+        EXPECT_EQ(transport.writesConsumed(), 10U); // kernel-id probe + 9 handshake writes
         EXPECT_TRUE(transport.scriptConsumed());
 
         seedKeyFrames.push_back(seedKeySendRequest(expectedKey));
@@ -813,7 +813,7 @@ TEST(DensoSh705xEepromCanExecutorTest, CancellationDuringKernelUploadReturnsCanc
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-    EXPECT_EQ(transport.writesConsumed(), 11u);
+    EXPECT_EQ(transport.writesConsumed(), 11U);
 }
 
 } // namespace fastecu::flash

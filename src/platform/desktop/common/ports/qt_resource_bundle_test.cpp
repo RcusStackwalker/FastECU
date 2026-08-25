@@ -29,7 +29,7 @@ TEST(QtResourceBundleTest, ReadReturnsNonEmptyBytesForAKnownFile)
     auto bytes = bundle.read("config", "fastecu.cfg");
 
     ASSERT_TRUE(bytes.has_value());
-    EXPECT_GT(bytes->size(), 0u);
+    EXPECT_GT(bytes->size(), 0U);
 }
 
 TEST(QtResourceBundleTest, UnknownBundleIdIsInvalidConfig)

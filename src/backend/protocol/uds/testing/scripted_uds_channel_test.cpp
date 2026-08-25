@@ -20,7 +20,7 @@ TEST(ScriptedUdsChannelTest, AcceptsAnExpectedSend)
     channel.expectSend(pdu);
 
     EXPECT_TRUE(channel.send(pdu, cancellation).has_value());
-    EXPECT_EQ(channel.sendsConsumed(), 1u);
+    EXPECT_EQ(channel.sendsConsumed(), 1U);
 }
 
 TEST(ScriptedUdsChannelTest, RejectsAnUnexpectedSend)

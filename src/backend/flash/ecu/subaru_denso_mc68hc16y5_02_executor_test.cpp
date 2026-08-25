@@ -87,7 +87,7 @@ class ShortWriteTransport final : public ScriptedKlineFlashTransport
 
     Result<std::size_t> write(bytes::ByteView data) override
     {
-        return data.empty() ? 0u : data.size() - 1;
+        return data.empty() ? 0U : data.size() - 1;
     }
 };
 
@@ -264,7 +264,7 @@ void script_crc_compare(ScriptedKlineFlashTransport& transport, const flashdev_t
         std::uint32_t ecu_crc = fastecu::checksum::crc32(image.data() + image_offset, block.len);
         if (differing_block == block_no)
         {
-            ecu_crc ^= 0x00000001u;
+            ecu_crc ^= 0x00000001U;
         }
         transport.queueRead(framed(0x42, composeBe(ecu_crc)));
         transport.queue_no_frame();
@@ -434,7 +434,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WrongFamilyPlanFails)
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, TransportSetupReturnsPlanWireConfigurationIncludingZeroIds)
@@ -560,7 +560,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectsViaWrx02InitAndUploadsPaddedKerne
     EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 200), 12);
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:111-119,
     // 289-293, and 1139-1162: 200 + 200 + 50 + 1500 + 200 ms.
-    EXPECT_EQ(clock.now_, 2150u);
+    EXPECT_EQ(clock.now_, 2150U);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, PresentEmptyUploadFrameIsNotNoFrameSuccess)
@@ -620,7 +620,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectFallsBackToKernelAlivePoll)
     EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 200), 11);
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:111-119,
     // 149-155, and 1139-1162: 200 + 200 + 50 + 100 + 200 ms.
-    EXPECT_EQ(clock.now_, 750u);
+    EXPECT_EQ(clock.now_, 750U);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, NoFrameBootInitFallsBackToKernelAlivePoll)
@@ -726,7 +726,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, CancellationBeforeConnectStopsImmediately
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, ShortKlineWriteFailsBeforeRead)
@@ -761,7 +761,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, InitialDrainTransportErrorStopsBeforeBoot
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
-    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, CancellationAtInitialDrainStopsBeforeBootloaderWrite)
@@ -814,11 +814,11 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadReturnsAssembledPageBytes)
     EXPECT_EQ(result->operation, FlashOperation::Read);
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(*result->read_bytes, expected);
-    ASSERT_EQ(result->read_bytes->size(), 0x28000u);
+    ASSERT_EQ(result->read_bytes->size(), 0x28000U);
     // Packed output joins the final byte before the physical RAM hole to the
     // first byte read at wire address 0x28000; the 0x8000-byte hole is absent.
-    EXPECT_EQ(result->read_bytes->at(0x1FFFF), 0x7Fu);
-    EXPECT_EQ(result->read_bytes->at(0x20000), 0x80u);
+    EXPECT_EQ(result->read_bytes->at(0x1FFFF), 0x7FU);
+    EXPECT_EQ(result->read_bytes->at(0x20000), 0x80U);
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -927,7 +927,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadCancelsBetweenPages)
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.writesConsumed(), 4u);
+    EXPECT_EQ(transport.writesConsumed(), 4U);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, WriteSkipsWhenNoBlockDiffers)
@@ -952,8 +952,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteSkipsWhenNoBlockDiffers)
     EXPECT_EQ(result->operation, FlashOperation::Write);
     EXPECT_FALSE(result->read_bytes.has_value());
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.writesConsumed(), 3u + device->numblocks);
-    EXPECT_EQ(transport.programming_voltage_line_write_index_, 3u + device->numblocks);
+    EXPECT_EQ(transport.writesConsumed(), 3U + device->numblocks);
+    EXPECT_EQ(transport.programming_voltage_line_write_index_, 3U + device->numblocks);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, WriteReflashesOnlyDifferingBlocks)
@@ -966,7 +966,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteReflashesOnlyDifferingBlocks)
     const std::size_t image_offset = packed_block_offset(*device, kDifferingBlock);
     for (std::size_t offset = 0; offset < device->fblocks[kDifferingBlock].len; ++offset)
     {
-        image[image_offset + offset] = static_cast<bytes::Byte>((offset * 17u + 3u) & 0xFF);
+        image[image_offset + offset] = static_cast<bytes::Byte>((offset * 17U + 3U) & 0xFF);
     }
     auto plan = stock_write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
@@ -990,7 +990,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteReflashesOnlyDifferingBlocks)
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.control_line_trace_.back(),
               ScriptedKlineFlashTransport::ControlLineAction::EnableProgrammingVoltageLine);
-    EXPECT_EQ(clock.now_, 4050u);
+    EXPECT_EQ(clock.now_, 4050U);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, TestWriteSendsValidateNotCommit)
@@ -1082,7 +1082,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteCancelsMidBlockTransfer)
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.flash_buffer_write_attempts_, 0u);
+    EXPECT_EQ(transport.flash_buffer_write_attempts_, 0U);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt)
@@ -1127,7 +1127,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50), 1);
-    EXPECT_EQ(clock.now_, 2250u);
+    EXPECT_EQ(clock.now_, 2250U);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead)
@@ -1168,7 +1168,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50), 1);
-    EXPECT_EQ(clock.now_, 2250u);
+    EXPECT_EQ(clock.now_, 2250U);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, WriteRejectsTruncatedBlockCrcAfterBoundedReads)

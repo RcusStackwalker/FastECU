@@ -79,7 +79,7 @@ TEST(HexParseQtCompat, DivergesAboveUint32ByDesign)
 
     const auto parsed = fastecu::definition::parse_hex_value("0x1FFFFFFFF");
     ASSERT_TRUE(parsed.has_value());
-    EXPECT_EQ(*parsed, 0x1FFFFFFFFull);
+    EXPECT_EQ(*parsed, 0x1FFFFFFFFULL);
 }
 
 } // namespace

@@ -140,7 +140,7 @@ TEST(DefinitionCatalogTest, FindsEntryByFormatAndDefinitionId)
     auto found = catalog->find(DefinitionFormat::EcuFlash, "ECUFLASH");
     ASSERT_TRUE(found);
     EXPECT_EQ(found->get().source, "ecuflash.xml");
-    EXPECT_EQ(catalog->entries().size(), 2u);
+    EXPECT_EQ(catalog->entries().size(), 2U);
 }
 
 TEST(DefinitionCatalogTest, KeepsFirstOfIdenticalDuplicatesFromDifferentSources)
@@ -152,7 +152,7 @@ TEST(DefinitionCatalogTest, KeepsFirstOfIdenticalDuplicatesFromDifferentSources)
     auto catalog = DefinitionCatalog::create({first, second});
 
     ASSERT_TRUE(catalog);
-    ASSERT_EQ(catalog->entries().size(), 1u);
+    ASSERT_EQ(catalog->entries().size(), 1U);
     EXPECT_EQ(catalog->entries().front().source, "first.xml");
 }
 

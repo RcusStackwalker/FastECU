@@ -314,7 +314,7 @@ void script_crc_compare(ScriptedKlineFlashTransport& transport, const flashdev_t
         std::uint32_t ecu_crc = fastecu::checksum::crc32(bytes::ByteView(image).subspan(block.start, block.len));
         if (differing_block == block_no)
         {
-            ecu_crc ^= 0x00000001u;
+            ecu_crc ^= 0x00000001U;
         }
         transport.queueRead(crc_response(ecu_crc));
         transport.queue_no_frame();
@@ -549,7 +549,7 @@ TEST(SubaruDensoSh7055_02Executor, RejectsMissingConfirmationAndMalformedFamilyB
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
         EXPECT_FALSE(transport.last_config_.has_value());
-        EXPECT_EQ(transport.writesConsumed(), 0u);
+        EXPECT_EQ(transport.writesConsumed(), 0U);
         EXPECT_TRUE(transport.read_timeouts_.empty());
         EXPECT_TRUE(transport.control_line_trace_.empty());
     }
@@ -723,7 +723,7 @@ TEST(SubaruDensoSh7055_02Executor, ReadCancelsBetweenPages)
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.writesConsumed(), 6u); // probe + SID BF + WRX + upload + kernel ID + first read
+    EXPECT_EQ(transport.writesConsumed(), 6U); // probe + SID BF + WRX + upload + kernel ID + first read
 }
 
 TEST(SubaruDensoSh7055_02Executor, NoFrameWrxReplyRetriesUntilExactResponse)
@@ -754,7 +754,7 @@ TEST(SubaruDensoSh7055_02Executor, NoFrameWrxReplyRetriesUntilExactResponse)
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.writesConsumed(), 518u); // probe + SID BF + two WRX + upload + kernel ID + 512 reads
+    EXPECT_EQ(transport.writesConsumed(), 518U); // probe + SID BF + two WRX + upload + kernel ID + 512 reads
 }
 
 TEST(SubaruDensoSh7055_02Executor, WritePathSkipsEcuIdRead)
@@ -802,8 +802,8 @@ TEST(SubaruDensoSh7055_02Executor, WriteSkipsWhenNoBlockDiffers)
     EXPECT_EQ(result->operation, FlashOperation::Write);
     EXPECT_FALSE(result->read_bytes.has_value());
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.writesConsumed(), 4u + device->numblocks);
-    EXPECT_EQ(transport.programming_voltage_line_write_index_, 4u + device->numblocks);
+    EXPECT_EQ(transport.writesConsumed(), 4U + device->numblocks);
+    EXPECT_EQ(transport.programming_voltage_line_write_index_, 4U + device->numblocks);
 }
 
 TEST(SubaruDensoSh7055_02Executor, WriteReflashesOnlyDifferingBlocks)
@@ -816,7 +816,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteReflashesOnlyDifferingBlocks)
     const auto& block = device->fblocks[kDifferingBlock];
     for (std::size_t offset = 0; offset < block.len; ++offset)
     {
-        image[block.start + offset] = static_cast<bytes::Byte>((offset * 17u + 3u) & 0xFF);
+        image[block.start + offset] = static_cast<bytes::Byte>((offset * 17U + 3U) & 0xFF);
     }
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
@@ -931,7 +931,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteCancelsMidBlockTransfer)
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.flash_buffer_write_attempts_, 0u);
+    EXPECT_EQ(transport.flash_buffer_write_attempts_, 0U);
 }
 
 TEST(SubaruDensoSh7055_02Executor, WriteRejectsCrcResponseMarkedFailed)
@@ -1297,7 +1297,7 @@ TEST(SubaruDensoSh7055_02Executor, WrxInitLoopExhaustsAfter20Attempts)
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.writesConsumed(), 22u); // probe + SID BF + 20 WRX requests
+    EXPECT_EQ(transport.writesConsumed(), 22U); // probe + SID BF + 20 WRX requests
 }
 
 TEST(SubaruDensoSh7055_02Executor, CancellationDuringWrxInitLoopStopsBeforeSecondAttempt)
@@ -1321,7 +1321,7 @@ TEST(SubaruDensoSh7055_02Executor, CancellationDuringWrxInitLoopStopsBeforeSecon
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.writesConsumed(), 3u); // probe + SID BF + one WRX request
+    EXPECT_EQ(transport.writesConsumed(), 3U); // probe + SID BF + one WRX request
 }
 
 } // namespace

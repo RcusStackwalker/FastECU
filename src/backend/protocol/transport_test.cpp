@@ -47,7 +47,7 @@ TEST(TransportContract, CanReadReturnsFrameWithIdAndPayload)
     auto result = t.read(20, token);
     ASSERT_TRUE(result);
     ASSERT_TRUE(result->has_value());
-    EXPECT_EQ(result->value().id, 0x7E8u);
+    EXPECT_EQ(result->value().id, 0x7E8U);
     EXPECT_EQ(result->value().payload, test_bytes::bytesFromHex("0102"));
 }
 
@@ -60,7 +60,7 @@ TEST(TestTransport, scripted_write_then_read)
     ASSERT_TRUE(t.setBaud(125000));
     const auto written = t.write(test_bytes::bytesFromHex("A0"));
     ASSERT_TRUE(written);
-    ASSERT_EQ(*written, 1u);
+    ASSERT_EQ(*written, 1U);
     const auto read = t.read(50, token);
     ASSERT_TRUE(read);
     ASSERT_TRUE(read->has_value());

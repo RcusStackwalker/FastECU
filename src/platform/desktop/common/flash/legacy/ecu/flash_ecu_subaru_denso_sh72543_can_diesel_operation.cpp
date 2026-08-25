@@ -933,7 +933,7 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::read_memory(uint32_t start_add
 
         // uint32_t curblock = (addr / pagesize);
 
-        pleft = (float)(addr - start_addr) / (float)length * 100.0f;
+        pleft = (float)(addr - start_addr) / (float)length * 100.0F;
         emit progressChanged(pleft);
 
         // length = 256;
@@ -978,7 +978,7 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::read_memory(uint32_t start_add
 
         if (cplen > 0 && chrono > 0)
         {
-            curspeed = cplen * (1000.0f / chrono);
+            curspeed = cplen * (1000.0F / chrono);
         }
 
         if (!curspeed)
@@ -1250,7 +1250,7 @@ int FlashEcuSubaruDensoSH72543CanDieselOperation::reflash_block(const uint8_t *n
         {
             chrono += 1;
         }
-        curspeed = blocksize * (1000.0f / chrono); // avg B/s
+        curspeed = blocksize * (1000.0F / chrono); // avg B/s
         if (!curspeed)
         {
             curspeed += 1;

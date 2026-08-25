@@ -3,6 +3,9 @@
 #include <exception>
 #include <utility>
 
+namespace fastecu::desktop::logging
+{
+
 LoggingEngine::LoggingEngine(QObject *parent) : QObject(parent)
 {
     qRegisterMetaType<QVector<fastecu::logging::LogSample>>();
@@ -15,7 +18,8 @@ LoggingEngine::LoggingEngine(QObject *parent) : QObject(parent)
 
 LoggingEngine::~LoggingEngine()
 {
-    stop();
+    destroying_ = true;
+    joinAndReleaseActiveRun();
 }
 
 void LoggingEngine::registerProtocol(const QString& protocol_id, const LoggingProtocolFactory& factory)
@@ -28,19 +32,22 @@ bool LoggingEngine::isRunning() const
     return active_worker_ != nullptr;
 }
 
-LoggingStartResult LoggingEngine::start(const LogSessionConfig& config,
-                                        fastecu::desktop::logging::DesktopLoggingSnapshot snapshot)
+fastecu::Status LoggingEngine::start(const LogSessionConfig& config, DesktopLoggingSnapshot snapshot)
 {
     if (isRunning())
     {
-        return {};
+        const fastecu::Error error{fastecu::ErrorKind::InvalidConfig, "a logging run is already active"};
+        reportStartError(error);
+        return std::unexpected(error);
     }
 
     const auto registration = registrations_.constFind(config.protocolId);
     if (registration == registrations_.constEnd())
     {
-        emit LOG_E("No logging protocol registered for '" + config.protocolId + "'", true, true);
-        return {};
+        const fastecu::Error error{fastecu::ErrorKind::InvalidConfig,
+                                   "no logging protocol registered for '" + config.protocolId.toStdString() + "'"};
+        reportStartError(error);
+        return std::unexpected(error);
     }
 
     active_snapshot_.emplace(std::move(snapshot));
@@ -59,27 +66,57 @@ LoggingStartResult LoggingEngine::start(const LogSessionConfig& config,
     }
     if (!protocol_result)
     {
-        const fastecu::Error& error = protocol_result.error();
+        const fastecu::Error error = protocol_result.error();
         active_snapshot_.reset();
-        reportSessionError(error, false);
-        return {.failure_reported = true};
+        reportStartError(error);
+        return std::unexpected(error);
     }
     active_protocol_ = std::move(*protocol_result);
     if (!active_protocol_)
     {
-        emit LOG_E("Protocol factory for '" + config.protocolId + "' returned null", true, true);
+        const fastecu::Error error{fastecu::ErrorKind::Internal,
+                                   "protocol factory for '" + config.protocolId.toStdString() + "' returned null"};
         active_snapshot_.reset();
-        return {};
+        reportStartError(error);
+        return std::unexpected(error);
     }
 
     last_status_.reset();
     worker_reached_running_ = false;
+    explicit_stop_pending_ = false;
+    completion_published_ = false;
+    active_run_generation_ = ++next_run_generation_;
     active_worker_ = new LoggingWorker(active_snapshot_->session, active_protocol_.get(), diagnostics_, this);
-    connect(active_worker_, &LoggingWorker::samplesReady, this, &LoggingEngine::valuesUpdated);
-    connect(active_worker_, &LoggingWorker::stateChanged, this, &LoggingEngine::handleWorkerStateChanged);
-    connect(active_worker_, &LoggingWorker::sessionFinished, this, &LoggingEngine::handleWorkerSessionFinished);
+    const std::uint64_t run_generation = active_run_generation_;
+    connect(active_worker_, &LoggingWorker::samplesReady, this,
+            [this, run_generation](QVector<fastecu::logging::LogSample> samples)
+            {
+                if (run_generation != active_run_generation_)
+                {
+                    return;
+                }
+                emit valuesUpdated(std::move(samples));
+            });
+    connect(active_worker_, &LoggingWorker::stateChanged, this,
+            [this, run_generation](fastecu::logging::LoggingState state)
+            {
+                if (run_generation != active_run_generation_)
+                {
+                    return;
+                }
+                handleWorkerStateChanged(state);
+            });
+    connect(active_worker_, &LoggingWorker::sessionFinished, this,
+            [this, run_generation](fastecu::Status result)
+            {
+                if (run_generation != active_run_generation_)
+                {
+                    return;
+                }
+                handleWorkerSessionFinished(std::move(result));
+            });
     active_worker_->start();
-    return {.started = true};
+    return {};
 }
 
 void LoggingEngine::stop()
@@ -89,15 +126,9 @@ void LoggingEngine::stop()
         return;
     }
 
-    active_worker_->disconnect(this);
-    active_worker_->requestStop();
-    active_worker_->wait();
-    delete active_worker_;
-    active_worker_ = nullptr;
-    active_protocol_.reset();
-    active_snapshot_.reset();
-    last_status_.reset();
-    worker_reached_running_ = false;
+    explicit_stop_pending_ = true;
+    finishActiveRun(SessionEndReason::StoppedByUser, {}, true);
+    explicit_stop_pending_ = false;
 }
 
 void LoggingEngine::handleWorkerStateChanged(fastecu::logging::LoggingState state)
@@ -122,42 +153,94 @@ void LoggingEngine::handleWorkerStateChanged(fastecu::logging::LoggingState stat
 
 void LoggingEngine::handleWorkerSessionFinished(fastecu::Status result)
 {
-    std::optional<fastecu::Error> error;
-    if (!result)
+    if (!active_worker_ || completion_published_ || destroying_)
     {
-        error = result.error();
+        return;
     }
+
     const bool reached_running = worker_reached_running_;
-    clearActiveSession();
+    SessionEndReason reason = SessionEndReason::RuntimeFailed;
+    QString detail;
 
-    if (!error || error->kind == fastecu::ErrorKind::Cancelled)
+    if (result)
     {
-        return;
-    }
-
-    reportSessionError(*error, reached_running);
-}
-
-void LoggingEngine::reportSessionError(const fastecu::Error& error, bool reached_running)
-{
-    const QString message = QString::fromStdString(error.detail);
-    if (error.kind == fastecu::ErrorKind::Disconnected)
-    {
-        emit LOG_E("Adapter disconnected: " + message, true, true);
-        emit sessionEnded(SessionEndReason::AdapterDisconnected, message);
-        return;
-    }
-
-    if (reached_running)
-    {
-        emit LOG_E("Logging session failed: " + message, true, true);
-        emit sessionEnded(SessionEndReason::RuntimeFailed, message);
+        detail = "logging run ended without an error";
     }
     else
     {
-        emit LOG_E("Logging session failed to start: " + message, true, true);
-        emit sessionEnded(SessionEndReason::HandshakeFailed, message);
+        const fastecu::Error error = result.error();
+        detail = QString::fromStdString(error.detail);
+        if (error.kind == fastecu::ErrorKind::Cancelled)
+        {
+            reason = explicit_stop_pending_ ? SessionEndReason::StoppedByUser : SessionEndReason::RuntimeFailed;
+        }
+        else if (error.kind == fastecu::ErrorKind::Disconnected)
+        {
+            reason = SessionEndReason::AdapterDisconnected;
+        }
+        else
+        {
+            reason = reached_running ? SessionEndReason::RuntimeFailed : SessionEndReason::HandshakeFailed;
+        }
     }
+
+    finishActiveRun(reason, std::move(detail), true);
+}
+
+void LoggingEngine::finishActiveRun(SessionEndReason reason, QString detail, bool publish)
+{
+    joinAndReleaseActiveRun();
+    if (publish && !destroying_)
+    {
+        publishCompletionOnce(reason, std::move(detail));
+    }
+}
+
+void LoggingEngine::joinAndReleaseActiveRun()
+{
+    if (active_worker_)
+    {
+        active_worker_->disconnect(this);
+        active_worker_->requestStop();
+        active_worker_->wait();
+        delete active_worker_;
+        active_worker_ = nullptr;
+    }
+    active_run_generation_ = 0;
+    active_protocol_.reset();
+    active_snapshot_.reset();
+    last_status_.reset();
+    worker_reached_running_ = false;
+}
+
+void LoggingEngine::publishCompletionOnce(SessionEndReason reason, QString detail)
+{
+    if (completion_published_ || destroying_)
+    {
+        return;
+    }
+
+    completion_published_ = true;
+    switch (reason)
+    {
+    case SessionEndReason::StoppedByUser:
+        break;
+    case SessionEndReason::HandshakeFailed:
+        emit LOG_E("Logging session failed to start: " + detail, true, true);
+        break;
+    case SessionEndReason::AdapterDisconnected:
+        emit LOG_E("Adapter disconnected: " + detail, true, true);
+        break;
+    case SessionEndReason::RuntimeFailed:
+        emit LOG_E("Logging session failed: " + detail, true, true);
+        break;
+    }
+    emit sessionEnded(reason, std::move(detail));
+}
+
+void LoggingEngine::reportStartError(const fastecu::Error& error)
+{
+    emit LOG_E("Logging session failed to start: " + QString::fromStdString(error.detail), true, true);
 }
 
 void LoggingEngine::handleDiagnostic(int level, QString message)
@@ -179,16 +262,4 @@ void LoggingEngine::handleDiagnostic(int level, QString message)
     }
 }
 
-void LoggingEngine::clearActiveSession()
-{
-    if (active_worker_)
-    {
-        active_worker_->wait();
-        active_worker_->deleteLater();
-        active_worker_ = nullptr;
-    }
-    active_protocol_.reset();
-    active_snapshot_.reset();
-    last_status_.reset();
-    worker_reached_running_ = false;
-}
+} // namespace fastecu::desktop::logging

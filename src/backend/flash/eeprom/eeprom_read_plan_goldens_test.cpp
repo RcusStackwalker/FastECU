@@ -82,7 +82,7 @@ TEST(EepromReadPlanGolden, Sh7058CanMode2)
     EXPECT_EQ(plan->target_id(), "sub_ecu_eeprom_denso_sh7058_can");
     EXPECT_EQ(plan->mcu_name(), "SH7058");
     ASSERT_TRUE(plan->kernel().has_value());
-    EXPECT_EQ(plan->kernel()->load_address, 0xFFFF3000u);
+    EXPECT_EQ(plan->kernel()->load_address, 0xFFFF3000U);
     EXPECT_THAT(plan->kernel()->bytes, ElementsAre(0x01, 0x02, 0x03));
     // Each catalog loader reads the shared config before the kernel read.
     EXPECT_EQ(repository.read_handles,
@@ -97,13 +97,13 @@ TEST(EepromReadPlanGolden, Sh7058CanMode2)
     ASSERT_NE(can_plan, nullptr);
     EXPECT_EQ(can_plan->mode, EepromReadMode::Mode2);
     EXPECT_EQ(can_plan->security, DensoSecurityVariant::Stock);
-    EXPECT_EQ(can_plan->request_id, 0x7e0u);
-    EXPECT_EQ(can_plan->response_id, 0x7e8u);
+    EXPECT_EQ(can_plan->request_id, 0x7e0U);
+    EXPECT_EQ(can_plan->response_id, 0x7e8U);
     EXPECT_EQ(can_plan->bitrate, 500000);
     EXPECT_FALSE(can_plan->extended_id);
 
     // confirmations_for_mode(Mode2): two entries, no CycleIgnition.
-    ASSERT_EQ(plan->confirmations().size(), 2u);
+    ASSERT_EQ(plan->confirmations().size(), 2U);
     EXPECT_EQ(plan->confirmations()[0].id, ConfirmationSpec::Id::BeginEepromRead);
     EXPECT_EQ(plan->confirmations()[1].id, ConfirmationSpec::Id::InspectEepromBytes);
 }
@@ -128,7 +128,7 @@ TEST(EepromReadPlanGolden, Sh7055KlineMode4)
     EXPECT_EQ(plan->target_id(), "sub_ecu_eeprom_denso_sh7055_kline");
     EXPECT_EQ(plan->mcu_name(), "SH7055");
     ASSERT_TRUE(plan->kernel().has_value());
-    EXPECT_EQ(plan->kernel()->load_address, 0xFFFF6004u);
+    EXPECT_EQ(plan->kernel()->load_address, 0xFFFF6004U);
     EXPECT_THAT(plan->kernel()->bytes, ElementsAre(0xaa, 0xbb));
     EXPECT_EQ(repository.read_handles,
               (std::vector<std::string>{"protocols.cfg", "protocols.cfg", "kernels/ssmk_kline_sh7055.bin"}));
@@ -149,7 +149,7 @@ TEST(EepromReadPlanGolden, Sh7055KlineMode4)
 
     // confirmations_for_mode(Mode4): three entries, CycleIgnition inserted
     // between the begin/inspect pair (the non-Mode2 branch).
-    ASSERT_EQ(plan->confirmations().size(), 3u);
+    ASSERT_EQ(plan->confirmations().size(), 3U);
     EXPECT_EQ(plan->confirmations()[0].id, ConfirmationSpec::Id::BeginEepromRead);
     EXPECT_EQ(plan->confirmations()[1].id, ConfirmationSpec::Id::CycleIgnition);
     EXPECT_EQ(plan->confirmations()[2].id, ConfirmationSpec::Id::InspectEepromBytes);

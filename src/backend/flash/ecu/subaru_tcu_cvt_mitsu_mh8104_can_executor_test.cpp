@@ -300,8 +300,8 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, TransportSetupReturnsThePlansWireParame
 
     ASSERT_TRUE(setup.has_value()) << setup.error().detail;
     EXPECT_EQ(setup->bitrate, 500000);
-    EXPECT_EQ(setup->request_id, 0x7e1u);
-    EXPECT_EQ(setup->response_id, 0x7e9u);
+    EXPECT_EQ(setup->request_id, 0x7e1U);
+    EXPECT_EQ(setup->response_id, 0x7e9U);
     EXPECT_FALSE(setup->extended_id);
 }
 
@@ -338,7 +338,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyI
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
     EXPECT_THAT(result.error().detail, HasSubstr("does not match this executor"));
     EXPECT_THAT(events.logs, IsEmpty());
-    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
 TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ConnectSkipsTheRestWhenKernelAlreadyRunning)
@@ -496,7 +496,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ReadStopsWhenCancelled)
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
 // Cancels the token as soon as the first dump chunk's progress is
@@ -684,7 +684,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, WriteRefusesAnImageThatDoesNotMatchTheP
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
     EXPECT_THAT(result.error().detail, HasSubstr("0x80000"));
-    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.writesConsumed(), 0U);
     EXPECT_THAT(events.logs, IsEmpty());
 }
 
@@ -705,7 +705,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, RefusesATestWritePlanRatherThanWritingF
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Unsupported);
-    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
 } // namespace
