@@ -12,7 +12,7 @@ namespace fastecu::desktop::logging
 
 QString format_logging_value(double value, int precision);
 
-fastecu::Status apply_log_sample(const DesktopLoggingSnapshot& snapshot, const fastecu::logging::LogSample& sample,
+fastecu::Status apply_log_sample(const LegacyLoggingMapping& mapping, const fastecu::logging::LogSample& sample,
                                  FileActions::LogValuesStructure& log_values);
 
 } // namespace fastecu::desktop::logging

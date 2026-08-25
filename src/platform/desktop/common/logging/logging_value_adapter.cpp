@@ -8,35 +8,37 @@ QString format_logging_value(double value, int precision)
     return QString::number(value, 'f', precision);
 }
 
-fastecu::Status apply_log_sample(const DesktopLoggingSnapshot& snapshot, const fastecu::logging::LogSample& sample,
+fastecu::Status apply_log_sample(const LegacyLoggingMapping& mapping, const fastecu::logging::LogSample& sample,
                                  FileActions::LogValuesStructure& log_values)
 {
-    const auto legacy_index = snapshot.index_by_id.find(sample.channel_id);
-    if (legacy_index == snapshot.index_by_id.end())
+    const auto legacy_index = mapping.index_by_id.find(sample.channel_id);
+    if (legacy_index == mapping.index_by_id.end())
     {
-        return fastecu::fail(fastecu::ErrorKind::Internal, "logging sample id is not in the desktop snapshot");
-    }
-
-    const auto *channel = snapshot.session.find_channel(sample.channel_id);
-    if (channel == nullptr)
-    {
-        return fastecu::fail(fastecu::ErrorKind::Internal, "logging snapshot map and session disagree");
+        return fastecu::fail(fastecu::ErrorKind::Internal, "logging sample id is not in the legacy mapping");
     }
 
     const int row = legacy_index->second;
     if (row < 0 || row >= log_values.log_value.size() || row >= log_values.log_value_id.size() ||
+        row >= log_values.log_value_conversions.size() ||
         log_values.log_value_id.at(row).toStdString() != sample.channel_id)
     {
-        return fastecu::fail(fastecu::ErrorKind::Internal,
-                             "legacy logging values no longer match the desktop snapshot");
+        return fastecu::fail(fastecu::ErrorKind::Internal, "legacy logging values no longer match the legacy mapping");
     }
 
-    if (!snapshot.enabled_ids.contains(sample.channel_id))
+    if (!mapping.enabled_ids.contains(sample.channel_id))
     {
         return {};
     }
 
-    log_values.log_value.replace(row, format_logging_value(sample.numeric_value, channel->decimal_precision));
+    const auto& conversions = log_values.log_value_conversions.at(row);
+    if (conversions.isEmpty())
+    {
+        return fastecu::fail(fastecu::ErrorKind::Internal, "legacy logging conversion is missing");
+    }
+    const QString format = QString::fromStdString(conversions.at(0).format);
+    const QStringList format_fields = format.split('.');
+    const int precision = format_fields.size() > 1 ? format_fields.at(1).count('0') : 0;
+    log_values.log_value.replace(row, format_logging_value(sample.numeric_value, precision));
     return {};
 }
 
