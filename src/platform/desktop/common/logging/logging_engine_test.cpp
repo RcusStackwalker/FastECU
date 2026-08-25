@@ -1,9 +1,17 @@
 #include <QtTest>
 #include <QSignalSpy>
 
+#include <chrono>
+#include <condition_variable>
+#include <mutex>
+#include <string_view>
+
 #include "src/backend/logging/testing/scripted_logging_protocol.h"
 #include "src/platform/desktop/common/logging/cdbg_serial_setup.h"
 #include "src/platform/desktop/common/logging/logging_engine.h"
+
+namespace fastecu::desktop::logging
+{
 
 namespace
 {
@@ -29,18 +37,150 @@ DesktopLoggingSnapshot snapshot()
     return DesktopLoggingSnapshot{.session = std::move(*session), .index_by_id = {{"rpm", 0}}, .enabled_ids = {"rpm"}};
 }
 
+class BlockingFailureProtocol final : public fastecu::logging::LoggingProtocol
+{
+  public:
+    fastecu::Status start(const fastecu::ICancellationToken&) override
+    {
+        return {};
+    }
+
+    fastecu::Result<fastecu::logging::PollData> poll(int, const fastecu::ICancellationToken& cancellation) override
+    {
+        std::unique_lock lock(mutex_);
+        poll_entered_ = true;
+        poll_entered_cv_.notify_all();
+        while (!released_ && !cancellation.cancelled())
+        {
+            release_cv_.wait_for(lock, std::chrono::milliseconds(1));
+        }
+        if (cancellation.cancelled())
+        {
+            return fastecu::fail(fastecu::ErrorKind::Cancelled, "active run cancelled");
+        }
+        return fastecu::fail(fastecu::ErrorKind::Internal, "active run failed");
+    }
+
+    fastecu::Status stop() override
+    {
+        return {};
+    }
+
+    bool waitUntilPollEntered(std::chrono::milliseconds timeout)
+    {
+        std::unique_lock lock(mutex_);
+        return poll_entered_cv_.wait_for(lock, timeout, [this] { return poll_entered_; });
+    }
+
+    void releaseFailure()
+    {
+        {
+            std::lock_guard lock(mutex_);
+            released_ = true;
+        }
+        release_cv_.notify_all();
+    }
+
+  private:
+    std::mutex mutex_;
+    std::condition_variable poll_entered_cv_;
+    std::condition_variable release_cv_;
+    bool poll_entered_ = false;
+    bool released_ = false;
+};
+
+void expect_start_error(fastecu::Status result, fastecu::ErrorKind kind, std::string_view detail)
+{
+    QVERIFY(!result);
+    QCOMPARE(result.error().kind, kind);
+    QCOMPARE(result.error().detail, std::string(detail));
+}
+
 } // namespace
 
 class TestLoggingEngine : public QObject
 {
     Q_OBJECT
   private slots:
-    void unregistered_protocol_fails_immediately()
+    void start_rejections_data()
     {
+        QTest::addColumn<int>("source");
+        QTest::addColumn<int>("kind");
+        QTest::addColumn<QString>("detail");
+
+        QTest::newRow("active run") << 0 << static_cast<int>(fastecu::ErrorKind::InvalidConfig)
+                                    << QString("a logging run is already active");
+        QTest::newRow("unknown ID") << 1 << static_cast<int>(fastecu::ErrorKind::InvalidConfig)
+                                    << QString("no logging protocol registered for 'NOPE'");
+        QTest::newRow("null factory value") << 2 << static_cast<int>(fastecu::ErrorKind::Internal)
+                                            << QString("protocol factory for 'TEST' returned null");
+        QTest::newRow("returned error") << 3 << static_cast<int>(fastecu::ErrorKind::Disconnected)
+                                        << QString("open failed");
+        QTest::newRow("std exception") << 4 << static_cast<int>(fastecu::ErrorKind::Internal)
+                                       << QString("driver setup exploded");
+        QTest::newRow("unknown exception") << 5 << static_cast<int>(fastecu::ErrorKind::Internal)
+                                           << QString("protocol factory threw an unknown exception");
+    }
+
+    void start_rejections()
+    {
+        QFETCH(int, source);
+        QFETCH(int, kind);
+        QFETCH(QString, detail);
+
         LoggingEngine engine;
-        const auto result = engine.start(LogSessionConfig{.protocolId = "NOPE"}, snapshot());
-        QVERIFY(!result);
-        QVERIFY(!result.failure_reported);
+        QSignalSpy ended_spy(&engine, &LoggingEngine::sessionEnded);
+        QSignalSpy error_spy(&engine, &LoggingEngine::LOG_E);
+
+        BlockingFailureProtocol *active_protocol = nullptr;
+        if (source == 0)
+        {
+            active_protocol = new BlockingFailureProtocol();
+            engine.registerProtocol("TEST", [active_protocol](const DesktopLoggingSnapshot&)
+                                    { return std::unique_ptr<LoggingProtocol>(active_protocol); });
+            QVERIFY(engine.start(LogSessionConfig{.protocolId = "TEST"}, snapshot()));
+            QVERIFY(active_protocol->waitUntilPollEntered(std::chrono::milliseconds(500)));
+        }
+        else if (source == 2)
+        {
+            engine.registerProtocol("TEST",
+                                    [](const DesktopLoggingSnapshot&) { return std::unique_ptr<LoggingProtocol>(); });
+        }
+        else if (source == 3)
+        {
+            engine.registerProtocol(
+                "TEST", [](const DesktopLoggingSnapshot&) -> fastecu::Result<std::unique_ptr<LoggingProtocol>>
+                { return fastecu::fail(fastecu::ErrorKind::Disconnected, "open failed"); });
+        }
+        else if (source == 4)
+        {
+            engine.registerProtocol("TEST", [](const DesktopLoggingSnapshot&) -> std::unique_ptr<LoggingProtocol>
+                                    { throw std::runtime_error("driver setup exploded"); });
+        }
+        else if (source == 5)
+        {
+            engine.registerProtocol("TEST", [](const DesktopLoggingSnapshot&) -> std::unique_ptr<LoggingProtocol>
+                                    { throw 42; });
+        }
+
+        const auto result = engine.start(LogSessionConfig{.protocolId = source == 1 ? "NOPE" : "TEST"}, snapshot());
+        expect_start_error(result, static_cast<fastecu::ErrorKind>(kind), detail.toStdString());
+        QCOMPARE(ended_spy.size(), 0);
+        QCOMPARE(error_spy.size(), 1);
+
+        if (source != 0)
+        {
+            QVERIFY(!engine.isRunning());
+            return;
+        }
+
+        QVERIFY(engine.isRunning());
+        active_protocol->releaseFailure();
+        QVERIFY(ended_spy.wait(2000));
+        QCOMPARE(ended_spy.size(), 1);
+        QCOMPARE(ended_spy.at(0).at(0).value<SessionEndReason>(), SessionEndReason::RuntimeFailed);
+        QCOMPARE(ended_spy.at(0).at(1).toString(), QString("active run failed"));
+        QCOMPARE(error_spy.size(), 2);
         QVERIFY(!engine.isRunning());
     }
 
@@ -72,56 +212,6 @@ class TestLoggingEngine : public QObject
         QCOMPARE(error_spy.size(), 0);
     }
 
-    void second_start_while_worker_active_is_rejected_without_disrupting_running_session()
-    {
-        LoggingEngine engine;
-        auto *protocol = new ScriptedLoggingProtocol();
-        protocol->queueStartResult({});
-        protocol->blockPollUntilCancelled();
-        engine.registerProtocol("TEST", [protocol](const DesktopLoggingSnapshot&)
-                                { return std::unique_ptr<LoggingProtocol>(protocol); });
-
-        QVERIFY(engine.start(LogSessionConfig{.protocolId = "TEST"}, snapshot()));
-        QVERIFY(protocol->waitUntilPollEntered(std::chrono::milliseconds(500)));
-        QVERIFY(engine.isRunning());
-
-        const auto second = engine.start(LogSessionConfig{.protocolId = "TEST"}, snapshot());
-        QVERIFY(!second);
-        QVERIFY(!second.failure_reported);
-        QVERIFY(engine.isRunning());
-        QCOMPARE(protocol->startCallCount(), 1);
-
-        engine.stop();
-        QVERIFY(!engine.isRunning());
-    }
-
-    void null_factory_result_fails_without_starting()
-    {
-        LoggingEngine engine;
-        engine.registerProtocol("TEST",
-                                [](const DesktopLoggingSnapshot&) { return std::unique_ptr<LoggingProtocol>(); });
-        QVERIFY(!engine.start(LogSessionConfig{.protocolId = "TEST"}, snapshot()));
-        QVERIFY(!engine.isRunning());
-    }
-
-    void factory_error_preserves_structured_kind_and_detail()
-    {
-        LoggingEngine engine;
-        engine.registerProtocol("TEST",
-                                [](const DesktopLoggingSnapshot&) -> fastecu::Result<std::unique_ptr<LoggingProtocol>>
-                                { return fastecu::fail(fastecu::ErrorKind::Disconnected, "open failed"); });
-        QSignalSpy ended_spy(&engine, &LoggingEngine::sessionEnded);
-
-        const auto result = engine.start(LogSessionConfig{.protocolId = "TEST"}, snapshot());
-        QVERIFY(!result);
-        QVERIFY(result.failure_reported);
-
-        QCOMPARE(ended_spy.size(), 1);
-        QCOMPARE(ended_spy.at(0).at(0).value<SessionEndReason>(), SessionEndReason::AdapterDisconnected);
-        QCOMPARE(ended_spy.at(0).at(1).toString(), QString("open failed"));
-        QVERIFY(!engine.isRunning());
-    }
-
     void every_cdbg_serial_setup_failure_is_structured_and_stops_before_later_steps()
     {
         using fastecu::desktop::logging::CdbgSerialSetupActions;
@@ -145,40 +235,6 @@ class TestLoggingEngine : public QObject
             QCOMPARE(status.error().kind, fastecu::ErrorKind::InvalidConfig);
             QCOMPARE(calls, failure + 1);
         }
-    }
-
-    void factory_exception_is_contained_at_platform_boundary()
-    {
-        LoggingEngine engine;
-        engine.registerProtocol("TEST", [](const DesktopLoggingSnapshot&) -> std::unique_ptr<LoggingProtocol>
-                                { throw std::runtime_error("driver setup exploded"); });
-        QSignalSpy ended_spy(&engine, &LoggingEngine::sessionEnded);
-
-        QVERIFY(!engine.start(LogSessionConfig{.protocolId = "TEST"}, snapshot()));
-
-        QCOMPARE(ended_spy.size(), 1);
-        QCOMPARE(ended_spy.at(0).at(0).value<SessionEndReason>(), SessionEndReason::HandshakeFailed);
-        QCOMPARE(ended_spy.at(0).at(1).toString(), QString("driver setup exploded"));
-    }
-
-    void factory_non_std_exception_is_contained_at_platform_boundary()
-    {
-        LoggingEngine engine;
-        engine.registerProtocol("TEST",
-                                [](const DesktopLoggingSnapshot&) -> std::unique_ptr<LoggingProtocol> { throw 42; });
-        QSignalSpy ended_spy(&engine, &LoggingEngine::sessionEnded);
-        QSignalSpy error_spy(&engine, &LoggingEngine::LOG_E);
-
-        const auto result = engine.start(LogSessionConfig{.protocolId = "TEST"}, snapshot());
-        QVERIFY(!result);
-        QVERIFY(result.failure_reported);
-
-        QCOMPARE(ended_spy.size(), 1);
-        QCOMPARE(ended_spy.at(0).at(0).value<SessionEndReason>(), SessionEndReason::HandshakeFailed);
-        QCOMPARE(ended_spy.at(0).at(1).toString(), QString("protocol factory threw an unknown exception"));
-        QCOMPARE(error_spy.at(0).at(0).toString(), QString("Logging session failed to start: protocol factory threw an "
-                                                           "unknown exception"));
-        QVERIFY(!engine.isRunning());
     }
 
     void start_error_preserves_handshake_failure_ui_path()
@@ -342,5 +398,7 @@ class TestLoggingEngine : public QObject
     }
 };
 
-QTEST_GUILESS_MAIN(TestLoggingEngine)
+} // namespace fastecu::desktop::logging
+
+QTEST_GUILESS_MAIN(fastecu::desktop::logging::TestLoggingEngine)
 #include "logging_engine_test.moc"

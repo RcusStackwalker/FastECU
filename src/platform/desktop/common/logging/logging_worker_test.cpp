@@ -5,6 +5,9 @@
 #include "src/backend/logging/testing/scripted_logging_protocol.h"
 #include "src/platform/desktop/common/logging/logging_worker.h"
 
+namespace fastecu::desktop::logging
+{
+
 namespace
 {
 
@@ -119,5 +122,7 @@ class TestLoggingWorker : public QObject
     }
 };
 
-QTEST_GUILESS_MAIN(TestLoggingWorker)
+} // namespace fastecu::desktop::logging
+
+QTEST_GUILESS_MAIN(fastecu::desktop::logging::TestLoggingWorker)
 #include "logging_worker_test.moc"
