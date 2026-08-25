@@ -32,6 +32,20 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "legacy_cdbg_catalog_importer",
+    srcs = ["legacy_cdbg_catalog_importer.cpp"],
+    hdrs = ["legacy_cdbg_catalog_importer.h"],
+    deps = [
+        ":dashboard_document",
+        ":dashboard_validation",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/colt:mitsu_colt_can_cdbg_protocol",
+        "//src/backend/ports",
+        "@pugixml",
+    ],
+)
+
 fastecu_portable_gtest(
     name = "dashboard_validation_test",
     srcs = [
@@ -48,4 +62,12 @@ fastecu_portable_gtest(
         "test_fixtures.h",
     ],
     deps = [":dashboard_codec"],
+)
+
+fastecu_portable_gtest(
+    name = "legacy_cdbg_catalog_importer_test",
+    srcs = ["legacy_cdbg_catalog_importer_test.cpp"],
+    data = ["//resources/shared:config/logger_cdbg_example.xml"],
+    env = {"CDBG_CATALOG_PATH": "$(location //resources/shared:config/logger_cdbg_example.xml)"},
+    deps = [":legacy_cdbg_catalog_importer"],
 )
