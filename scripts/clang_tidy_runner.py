@@ -62,6 +62,11 @@ def _entry_source_path(entry: dict[str, object], root: Path) -> Path:
     Raises WorkflowError if the resolved path escapes `root`: the compile
     database is Bazel-generated, but its `directory`/`file` fields are still
     external data and must not be trusted to stay within the workspace.
+
+    The returned path is rebuilt from the trusted, canonicalized `root` plus
+    the validated relative suffix rather than handed back as the originally
+    constructed path, so nothing derived directly from the untrusted
+    `directory`/`file` fields ever reaches a caller.
     """
     directory = Path(str(entry["directory"]))
     if not directory.is_absolute():
@@ -69,14 +74,15 @@ def _entry_source_path(entry: dict[str, object], root: Path) -> Path:
     source = Path(str(entry["file"]))
     if not source.is_absolute():
         source = directory / source
+    canonical_root = root.resolve()
     resolved = source.resolve()
     try:
-        resolved.relative_to(root.resolve())
+        relative = resolved.relative_to(canonical_root)
     except ValueError as error:
         raise WorkflowError(
             f"compilation database entry resolves outside the workspace: {resolved}"
         ) from error
-    return resolved
+    return canonical_root / relative
 
 
 def load_project_entries(workspace: Path, database: Path) -> list[dict[str, object]]:

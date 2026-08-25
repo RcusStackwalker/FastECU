@@ -167,14 +167,17 @@ class SubaruM32rKlineWorkflow final : public FlashWorkflow
             attempted_ = true;
             if (hitachi_)
             {
-                return FlashAttempt{bind_flash_attempt(std::move(*plan_),
-                                                       std::make_unique<SubaruHitachiM32rKlineExecutor>(),
-                                                       std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
-                                    std::make_unique<QtClock>()};
+                return FlashWorkflowStep{
+                    std::in_place_type<FlashAttempt>,
+                    bind_flash_attempt(std::move(*plan_), std::make_unique<SubaruHitachiM32rKlineExecutor>(),
+                                       std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
+                    std::make_unique<QtClock>()};
             }
-            return FlashAttempt{bind_flash_attempt(std::move(*plan_), std::make_unique<SubaruMitsuM32rKlineExecutor>(),
-                                                   std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
-                                std::make_unique<QtClock>()};
+            return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
+                                     bind_flash_attempt(std::move(*plan_),
+                                                        std::make_unique<SubaruMitsuM32rKlineExecutor>(),
+                                                        std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
+                                     std::make_unique<QtClock>()};
         }
         return completed(outcome_, std::move(bytes_), std::move(rom_id_));
     }
@@ -278,10 +281,11 @@ class SubaruDensoMc68hc16y5_02Workflow final : public FlashWorkflow
         if (!attempted_)
         {
             attempted_ = true;
-            return FlashAttempt{bind_flash_attempt(std::move(**plan_),
-                                                   std::make_unique<SubaruDensoMc68hc16y5_02Executor>(),
-                                                   std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
-                                std::make_unique<QtClock>()};
+            return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
+                                     bind_flash_attempt(std::move(**plan_),
+                                                        std::make_unique<SubaruDensoMc68hc16y5_02Executor>(),
+                                                        std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
+                                     std::make_unique<QtClock>()};
         }
         return completed(outcome_, std::move(bytes_), std::move(rom_id_));
     }
@@ -376,9 +380,11 @@ class SubaruDensoSh7055_02Workflow final : public FlashWorkflow
         if (!attempted_)
         {
             attempted_ = true;
-            return FlashAttempt{bind_flash_attempt(std::move(**plan_), std::make_unique<SubaruDensoSh7055_02Executor>(),
-                                                   std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
-                                std::make_unique<QtClock>()};
+            return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
+                                     bind_flash_attempt(std::move(**plan_),
+                                                        std::make_unique<SubaruDensoSh7055_02Executor>(),
+                                                        std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
+                                     std::make_unique<QtClock>()};
         }
         return completed(outcome_, std::move(bytes_), std::move(rom_id_));
     }
@@ -465,9 +471,10 @@ class ColtWorkflow final : public FlashWorkflow
         {
             attempted_ = true;
             FlashPlan plan = std::move(*plan_);
-            return FlashAttempt{bind_flash_attempt(std::move(plan), std::make_unique<MitsuColtM32rCanExecutor>(),
-                                                   std::make_unique<DesktopCanFlashTransport>(request_.serial)),
-                                std::make_unique<QtClock>()};
+            return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
+                                     bind_flash_attempt(std::move(plan), std::make_unique<MitsuColtM32rCanExecutor>(),
+                                                        std::make_unique<DesktopCanFlashTransport>(request_.serial)),
+                                     std::make_unique<QtClock>()};
         }
         return completed(outcome_, std::move(accepted_));
     }
@@ -553,9 +560,10 @@ class SimpleCanFlashWorkflow final : public FlashWorkflow
         {
             attempted_ = true;
             FlashPlan plan = std::move(*plan_);
-            return FlashAttempt{bind_flash_attempt(std::move(plan), std::make_unique<ExecutorT>(),
-                                                   std::make_unique<DesktopCanFlashTransport>(request_.serial)),
-                                std::make_unique<QtClock>()};
+            return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
+                                     bind_flash_attempt(std::move(plan), std::make_unique<ExecutorT>(),
+                                                        std::make_unique<DesktopCanFlashTransport>(request_.serial)),
+                                     std::make_unique<QtClock>()};
         }
         return completed(outcome_, std::move(accepted_));
     }
@@ -650,13 +658,16 @@ class EepromWorkflow final : public FlashWorkflow
         }
         if (plan->transport() == TransportKind::Kline)
         {
-            return FlashAttempt{bind_flash_attempt(std::move(*plan), std::make_unique<DensoSh705xEepromKlineExecutor>(),
-                                                   std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
-                                std::make_unique<QtClock>()};
+            return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
+                                     bind_flash_attempt(std::move(*plan),
+                                                        std::make_unique<DensoSh705xEepromKlineExecutor>(),
+                                                        std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
+                                     std::make_unique<QtClock>()};
         }
-        return FlashAttempt{bind_flash_attempt(std::move(*plan), std::make_unique<DensoSh705xEepromCanExecutor>(),
-                                               std::make_unique<DesktopCanFlashTransport>(request_.serial)),
-                            std::make_unique<QtClock>()};
+        return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
+                                 bind_flash_attempt(std::move(*plan), std::make_unique<DensoSh705xEepromCanExecutor>(),
+                                                    std::make_unique<DesktopCanFlashTransport>(request_.serial)),
+                                 std::make_unique<QtClock>()};
     }
 
     void submit(FlashPromptResponse response) override

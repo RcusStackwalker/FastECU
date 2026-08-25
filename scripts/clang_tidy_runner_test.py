@@ -160,6 +160,31 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 self.root / "compile_commands.json",
             )
 
+    def test_entry_source_path_rejects_escape_outside_workspace(self) -> None:
+        outside = Path(self.temp_dir.name) / "outside.cpp"
+        outside.write_text("int outside_source;\n")
+        entry = {"directory": str(self.root), "file": str(outside)}
+
+        with self.assertRaisesRegex(
+            runner.WorkflowError,
+            rf"resolves outside the workspace.*{re.escape(str(outside.resolve()))}",
+        ):
+            runner._entry_source_path(entry, self.root)
+
+    def test_database_silently_excludes_entries_outside_workspace(self) -> None:
+        source = self.root / _MAIN_CPP
+        source.write_text("int main() { return 0; }\n")
+        outside = Path(self.temp_dir.name) / "outside.cpp"
+        outside.write_text("int outside_source;\n")
+        self.write_database([source, outside])
+
+        entries = runner.load_project_entries(
+            self.root,
+            self.root / "compile_commands.json",
+        )
+
+        self.assertEqual([str(source)], [entry["file"] for entry in entries])
+
     def test_database_rejects_malformed_json(self) -> None:
         (self.root / "compile_commands.json").write_text("{")
         with self.assertRaisesRegex(runner.WorkflowError, "malformed"):
