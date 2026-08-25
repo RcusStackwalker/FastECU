@@ -59,7 +59,7 @@ std::int32_t sign_extend(std::uint32_t raw, std::uint32_t width)
     {
         return static_cast<std::int32_t>(raw);
     }
-    const std::uint32_t sign_bit = 1u << (width * 8 - 1);
+    const std::uint32_t sign_bit = 1U << (width * 8 - 1);
     if ((raw & sign_bit) == 0)
     {
         return static_cast<std::int32_t>(raw);

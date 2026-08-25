@@ -48,7 +48,7 @@ TEST(DensoSh705xEepromCommonTest, ValidKlineMode2ProducesReadPlanWithTwoConfirma
     ASSERT_TRUE(plan.has_value());
     EXPECT_EQ(plan->operation(), FlashOperation::Read);
     EXPECT_EQ(plan->transport(), TransportKind::Kline);
-    ASSERT_EQ(plan->confirmations().size(), 2u);
+    ASSERT_EQ(plan->confirmations().size(), 2U);
     EXPECT_EQ(plan->confirmations()[0].id, ConfirmationSpec::Id::BeginEepromRead);
     EXPECT_EQ(plan->confirmations()[1].id, ConfirmationSpec::Id::InspectEepromBytes);
 
@@ -66,7 +66,7 @@ TEST(DensoSh705xEepromCommonTest, Mode3And4AddCycleIgnitionConfirmation)
         auto plan = build_denso_sh705x_eeprom_plan(valid_kline_input(mode));
 
         ASSERT_TRUE(plan.has_value());
-        ASSERT_EQ(plan->confirmations().size(), 3u);
+        ASSERT_EQ(plan->confirmations().size(), 3U);
         EXPECT_EQ(plan->confirmations()[0].id, ConfirmationSpec::Id::BeginEepromRead);
         EXPECT_EQ(plan->confirmations()[1].id, ConfirmationSpec::Id::CycleIgnition);
         EXPECT_EQ(plan->confirmations()[2].id, ConfirmationSpec::Id::InspectEepromBytes);
@@ -197,8 +197,8 @@ TEST(DensoSh705xEepromCommonTest, ResolveSh705xEepromRegionReturnsKnownMcuBounds
 
     auto sh7058 = resolve_sh705x_eeprom_region("SH7058");
     ASSERT_TRUE(sh7058.has_value());
-    EXPECT_EQ(sh7058->start, 0x00000000u);
-    EXPECT_EQ(sh7058->length, 0x00000100u);
+    EXPECT_EQ(sh7058->start, 0x00000000U);
+    EXPECT_EQ(sh7058->length, 0x00000100U);
 }
 
 TEST(DensoSh705xEepromCommonTest, ResolveSh705xEepromRegionRejectsUnknownMcu)

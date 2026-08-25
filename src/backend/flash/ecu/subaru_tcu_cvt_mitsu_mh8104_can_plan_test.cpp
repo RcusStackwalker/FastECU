@@ -42,16 +42,16 @@ TEST(SubaruTcuCvtMitsuMh8104CanPlan, ReadAndWriteShareTheSameWindow)
     const auto readPlan = build_subaru_tcu_cvt_mitsu_mh8104_can_plan(
         FlashOperation::Read, "sub_tcu_cvt_mitsu_mh8104_can", "MH8104", std::nullopt);
     ASSERT_TRUE(readPlan.has_value()) << readPlan.error().detail;
-    EXPECT_EQ(readPlan->transfer_region().start, 0x8000u);
-    EXPECT_EQ(readPlan->transfer_region().length, 0x78000u);
+    EXPECT_EQ(readPlan->transfer_region().start, 0x8000U);
+    EXPECT_EQ(readPlan->transfer_region().length, 0x78000U);
 
     const auto writePlan = build_subaru_tcu_cvt_mitsu_mh8104_can_plan(
         FlashOperation::Write, "sub_tcu_cvt_mitsu_mh8104_can", "MH8104", bytes::Bytes(0x80000, 0x00));
     ASSERT_TRUE(writePlan.has_value()) << writePlan.error().detail;
-    EXPECT_EQ(writePlan->transfer_region().start, 0x8000u);
-    EXPECT_EQ(writePlan->transfer_region().length, 0x78000u);
+    EXPECT_EQ(writePlan->transfer_region().start, 0x8000U);
+    EXPECT_EQ(writePlan->transfer_region().length, 0x78000U);
     ASSERT_TRUE(writePlan->image().has_value());
-    EXPECT_EQ(writePlan->image()->size(), 0x80000u);
+    EXPECT_EQ(writePlan->image()->size(), 0x80000U);
 
     // Explicit coincidence assertion: unlike MH8111, the two windows are
     // identical, not merely adjacent.
@@ -59,8 +59,8 @@ TEST(SubaruTcuCvtMitsuMh8104CanPlan, ReadAndWriteShareTheSameWindow)
     EXPECT_EQ(readPlan->transfer_region().length, writePlan->transfer_region().length);
 
     const auto& family = std::get<SubaruTcuCvtMitsuMh8104CanPlan>(readPlan->family_plan());
-    EXPECT_EQ(family.request_id, 0x7e1u);
-    EXPECT_EQ(family.response_id, 0x7e9u);
+    EXPECT_EQ(family.request_id, 0x7e1U);
+    EXPECT_EQ(family.response_id, 0x7e9U);
     EXPECT_EQ(family.bitrate, 500000);
     EXPECT_FALSE(family.extended_id);
     EXPECT_TRUE(readPlan->confirmations().empty());
@@ -72,9 +72,9 @@ TEST(SubaruTcuCvtMitsuMh8104CanPlan, WritePlanErasesTheSharedWindow)
     const auto plan =
         build_subaru_tcu_cvt_mitsu_mh8104_can_plan(FlashOperation::Write, kProtocol, kMcu, bytes::Bytes(0x80000, 0x00));
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ASSERT_EQ(plan->erase_regions().size(), 1u);
-    EXPECT_EQ(plan->erase_regions()[0].start, 0x8000u);
-    EXPECT_EQ(plan->erase_regions()[0].length, 0x78000u);
+    ASSERT_EQ(plan->erase_regions().size(), 1U);
+    EXPECT_EQ(plan->erase_regions()[0].start, 0x8000U);
+    EXPECT_EQ(plan->erase_regions()[0].length, 0x78000U);
 }
 
 TEST(SubaruTcuCvtMitsuMh8104CanPlan, RejectsAWriteWhoseImageSizeIsWrong)

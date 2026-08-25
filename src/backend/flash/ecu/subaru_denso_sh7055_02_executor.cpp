@@ -745,7 +745,7 @@ Status SubaruDensoSh7055_02Executor::write_mem(IKlineFlashTransport& transport, 
             }
             const std::uint32_t image_crc = fastecu::checksum::crc32(image.subspan(block.start, block.length));
             modified[block_no] = *ecu_crc != image_crc;
-            modified_count += modified[block_no] ? 1u : 0u;
+            modified_count += modified[block_no] ? 1U : 0U;
         }
         return modified_count;
     };

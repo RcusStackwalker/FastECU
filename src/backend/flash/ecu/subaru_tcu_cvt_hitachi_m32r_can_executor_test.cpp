@@ -317,8 +317,8 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, TransportSetupReturnsThePlansWireParame
 
     ASSERT_TRUE(setup.has_value()) << setup.error().detail;
     EXPECT_EQ(setup->bitrate, 500000);
-    EXPECT_EQ(setup->request_id, 0x7e1u);
-    EXPECT_EQ(setup->response_id, 0x7e9u);
+    EXPECT_EQ(setup->request_id, 0x7e1U);
+    EXPECT_EQ(setup->response_id, 0x7e9U);
     EXPECT_FALSE(setup->extended_id);
 }
 
@@ -355,7 +355,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyI
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
     EXPECT_THAT(result.error().detail, HasSubstr("does not match this executor"));
     EXPECT_THAT(events.logs, IsEmpty());
-    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
 TEST(SubaruTcuCvtHitachiM32rCanExecutor, ConnectSkipsTheRestWhenKernelAlreadyRunning)
@@ -423,7 +423,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ReadReturnsTheFloorClampedWindowPaddedW
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     ASSERT_TRUE(result->read_bytes.has_value());
-    ASSERT_EQ(result->read_bytes->size(), 0x80000u);
+    ASSERT_EQ(result->read_bytes->size(), 0x80000U);
     EXPECT_TRUE(std::all_of(result->read_bytes->begin(), result->read_bytes->begin() + 0x8000,
                             [](bytes::Byte b) { return b == 0x00; }));
     EXPECT_TRUE(std::all_of(result->read_bytes->begin() + 0x8000, result->read_bytes->end(),
@@ -470,7 +470,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ReadStopsWhenCancelled)
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
 // Cancels the token as soon as the first dump chunk's progress is
@@ -620,7 +620,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, WriteRefusesAnImageThatDoesNotMatchTheP
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
     EXPECT_THAT(result.error().detail, HasSubstr("0x80000"));
-    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.writesConsumed(), 0U);
     EXPECT_THAT(events.logs, IsEmpty());
 }
 
@@ -641,7 +641,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, RefusesATestWritePlanRatherThanWritingF
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Unsupported);
-    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
 } // namespace

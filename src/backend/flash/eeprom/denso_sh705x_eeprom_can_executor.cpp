@@ -661,7 +661,7 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(ICanFlashTransport& transport
         chk_sum += (static_cast<std::uint32_t>(buf[i]) << 24) | (static_cast<std::uint32_t>(buf[i + 1]) << 16) |
                    (static_cast<std::uint32_t>(buf[i + 2]) << 8) | static_cast<std::uint32_t>(buf[i + 3]);
     }
-    chk_sum = 0x5aa5a55au - chk_sum;
+    chk_sum = 0x5aa5a55aU - chk_sum;
     bytes::appendU32Be(buf, chk_sum);
     const bytes::Bytes encrypted = encrypt_can_kernel_payload(buf, static_cast<std::uint32_t>(buf.size()));
 

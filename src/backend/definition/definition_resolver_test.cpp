@@ -946,7 +946,7 @@ TEST(DefinitionResolverTest, RejectsZeroStartPositionOnMap)
     auto root = doc("ROOT");
     auto fuel = map("fuel", "Fuel");
     fuel.x_size = 2;
-    fuel.start_position = 0u;
+    fuel.start_position = 0U;
     root.maps.push_back(fuel);
     const auto original = root;
     DefinitionSet definitions{};
@@ -969,7 +969,7 @@ TEST(DefinitionResolverTest, RejectsZeroStartPositionOnAxis)
         .type = "X Axis",
         .name = "Load",
         .size = 2,
-        .start_position = 0u,
+        .start_position = 0U,
     };
     root.maps.push_back(fuel);
     const auto original = root;
@@ -989,7 +989,7 @@ TEST(DefinitionResolverTest, AcceptsStartPositionOfOne)
     auto root = doc("ROOT");
     auto fuel = map("fuel", "Fuel");
     fuel.x_size = 2;
-    fuel.start_position = 1u;
+    fuel.start_position = 1U;
     root.maps.push_back(fuel);
     DefinitionSet definitions{};
 

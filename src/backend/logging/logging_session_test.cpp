@@ -53,7 +53,7 @@ TEST(LoggingSessionTest, StableIdsSurviveSourceRowReordering)
     ASSERT_TRUE(result);
     EXPECT_EQ(result->channels()[0].id, "rpm");
     EXPECT_EQ(result->channels()[1].id, "coolant");
-    EXPECT_EQ(result->find_channel("coolant")->address, 0x20u);
+    EXPECT_EQ(result->find_channel("coolant")->address, 0x20U);
 }
 
 TEST(LoggingSessionTest, RejectsInvalidPolicy)

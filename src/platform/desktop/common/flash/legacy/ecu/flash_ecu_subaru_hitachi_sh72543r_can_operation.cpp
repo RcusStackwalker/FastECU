@@ -476,7 +476,7 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::read_mem(uint32_t start_addr, uin
 
         // uint32_t curblock = (addr / pagesize);
 
-        pleft = (float)(addr - start_addr) / (float)length * 100.0f;
+        pleft = (float)(addr - start_addr) / (float)length * 100.0F;
         emit progressChanged(pleft);
 
         // length = 7FFF0;
@@ -514,7 +514,7 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::read_mem(uint32_t start_addr, uin
 
         if (cplen > 0 && chrono > 0)
         {
-            curspeed = cplen * (1000.0f / chrono);
+            curspeed = cplen * (1000.0F / chrono);
         }
 
         if (!curspeed)
@@ -764,7 +764,7 @@ int FlashEcuSubaruHitachiSH72543rCanOperation::reflash_block(const uint8_t *newd
         {
             chrono += 1;
         }
-        curspeed = blocksize * (1000.0f / chrono); // avg B/s
+        curspeed = blocksize * (1000.0F / chrono); // avg B/s
         if (!curspeed)
         {
             curspeed += 1;

@@ -135,8 +135,8 @@ TEST(LoggingUseCaseTest, ConvertsAndEmitsOrderedSamplesThenCancels)
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Cancelled);
-    ASSERT_EQ(sink.sample_batches.size(), 1u);
-    ASSERT_EQ(sink.sample_batches[0].size(), 1u);
+    ASSERT_EQ(sink.sample_batches.size(), 1U);
+    ASSERT_EQ(sink.sample_batches[0].size(), 1U);
     EXPECT_EQ(sink.sample_batches[0][0].channel_id, "rpm");
     EXPECT_DOUBLE_EQ(sink.sample_batches[0][0].numeric_value, 4000.0);
     EXPECT_EQ(sink.states, (std::vector{LoggingState::Running}));
@@ -198,7 +198,7 @@ TEST(LoggingUseCaseTest, RetriesBadResponse)
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Cancelled);
-    ASSERT_EQ(sink.sample_batches.size(), 1u);
+    ASSERT_EQ(sink.sample_batches.size(), 1U);
     EXPECT_EQ(sink.sample_batches[0][0].raw_value, "8");
     EXPECT_EQ(protocol.stops, 1);
 }
@@ -295,6 +295,6 @@ TEST(LoggingUseCaseTest, PrimaryErrorWinsOverStopFailure)
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
     EXPECT_EQ(protocol.stops, 1);
-    ASSERT_EQ(diagnostics.logs.size(), 1u);
+    ASSERT_EQ(diagnostics.logs.size(), 1U);
     EXPECT_EQ(diagnostics.logs[0].first, fastecu::LogLevel::Error);
 }

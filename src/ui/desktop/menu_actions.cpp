@@ -407,7 +407,7 @@ void MainWindow::inc_dec_value(const QString& action)
 
                         if (map_data_value.float_value == 0)
                         {
-                            map_data_value.float_value = 0.0f;
+                            map_data_value.float_value = 0.0F;
                         }
 
                         map_data_value.dword_value = new_rom_data_value.toInt();

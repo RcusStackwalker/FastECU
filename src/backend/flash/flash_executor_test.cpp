@@ -21,8 +21,8 @@ TEST(TransportConfigProjectionTest, CopiesIso15765WireFields)
     constexpr Iso15765Config config = iso15765_config_from(plan);
 
     EXPECT_EQ(config.bitrate, 500000);
-    EXPECT_EQ(config.request_id, 0x7e0u);
-    EXPECT_EQ(config.response_id, 0x7e8u);
+    EXPECT_EQ(config.request_id, 0x7e0U);
+    EXPECT_EQ(config.response_id, 0x7e8U);
     EXPECT_FALSE(config.extended_id);
 }
 

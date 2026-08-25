@@ -537,7 +537,7 @@ int FlashEcuSubaruDensoSH705xKlineOperation::read_mem(uint32_t start_addr, uint3
         float pleft = 0;
         unsigned long chrono;
 
-        pleft = (float)(addr - start_addr) / (float)length * 100.0f;
+        pleft = (float)(addr - start_addr) / (float)length * 100.0F;
         emit progressChanged(pleft);
 
         output.clear();
@@ -589,7 +589,7 @@ int FlashEcuSubaruDensoSH705xKlineOperation::read_mem(uint32_t start_addr, uint3
 
         if (cplen > 0 && chrono > 0)
         {
-            curspeed = cplen * (1000.0f / chrono);
+            curspeed = cplen * (1000.0F / chrono);
         }
 
         if (!curspeed)
@@ -1271,7 +1271,7 @@ int FlashEcuSubaruDensoSH705xKlineOperation::flash_block(const uint8_t *src, uin
         {
             chrono += 1;
         }
-        curspeed = blocksize * (1000.0f / chrono); // avg B/s
+        curspeed = blocksize * (1000.0F / chrono); // avg B/s
         if (!curspeed)
         {
             curspeed += 1;
@@ -1284,7 +1284,7 @@ int FlashEcuSubaruDensoSH705xKlineOperation::flash_block(const uint8_t *src, uin
         }
         tleft++;
 
-        float pleft = (float)byteindex / (float)flashbytescount * 100.0f;
+        float pleft = (float)byteindex / (float)flashbytescount * 100.0F;
         emit progressChanged(pleft);
 
         if ((flashblockstart + flashblocksize) == start)

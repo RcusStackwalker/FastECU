@@ -157,7 +157,7 @@ int EcuOperations::read_mem_16bit_kline(FileActions::EcuCalDefStructure *ecuCalD
         float pleft = 0;
         unsigned long chrono;
 
-        pleft = (float)(addr - start_addr) / (float)(length + 0x8000) * 100.0f;
+        pleft = (float)(addr - start_addr) / (float)(length + 0x8000) * 100.0F;
         set_progressbar_value(pleft);
 
         if (addr >= flashdevices[mcu_type_index].rblocks->start &&
@@ -213,7 +213,7 @@ int EcuOperations::read_mem_16bit_kline(FileActions::EcuCalDefStructure *ecuCalD
 
         if (cplen > 0 && chrono > 0)
         {
-            curspeed = cplen * (1000.0f / chrono);
+            curspeed = cplen * (1000.0F / chrono);
         }
 
         if (!curspeed)
@@ -302,7 +302,7 @@ int EcuOperations::read_mem_32bit_kline(FileActions::EcuCalDefStructure *ecuCalD
         uint32_t curblock = (addr / 32);
 
         uint32_t pagesize = numblocks * 32;
-        pleft = (float)(addr - start_addr) / (float)length * 100.0f;
+        pleft = (float)(addr - start_addr) / (float)length * 100.0F;
         set_progressbar_value(pleft);
 
         bytes::writeU16Be(output, 2, static_cast<std::uint16_t>(numblocks));
@@ -340,7 +340,7 @@ int EcuOperations::read_mem_32bit_kline(FileActions::EcuCalDefStructure *ecuCalD
 
         if (cplen > 0 && chrono > 0)
         {
-            curspeed = cplen * (1000.0f / chrono);
+            curspeed = cplen * (1000.0F / chrono);
         }
 
         if (!curspeed)
@@ -444,7 +444,7 @@ int EcuOperations::read_mem_32bit_can(FileActions::EcuCalDefStructure *ecuCalDef
 
         numblocks = 1;
 
-        pleft = (float)(addr - start_addr) / (float)length * 100.0f;
+        pleft = (float)(addr - start_addr) / (float)length * 100.0F;
         set_progressbar_value(pleft);
 
         // length = 256;
@@ -491,7 +491,7 @@ int EcuOperations::read_mem_32bit_can(FileActions::EcuCalDefStructure *ecuCalDef
 
         if (cplen > 0 && chrono > 0)
         {
-            curspeed = cplen * (1000.0f / chrono);
+            curspeed = cplen * (1000.0F / chrono);
         }
 
         if (!curspeed)
@@ -1361,7 +1361,7 @@ int EcuOperations::npk_raw_flashblock_16bit_kline(const uint8_t *src, uint32_t s
         {
             chrono += 1;
         }
-        curspeed = blocksize * (1000.0f / chrono); // avg B/s
+        curspeed = blocksize * (1000.0F / chrono); // avg B/s
         if (!curspeed)
         {
             curspeed += 1;
@@ -1374,7 +1374,7 @@ int EcuOperations::npk_raw_flashblock_16bit_kline(const uint8_t *src, uint32_t s
         }
         tleft++;
 
-        float pleft = (float)(byteindex - start) / (float)flashbytescount * 100.0f;
+        float pleft = (float)(byteindex - start) / (float)flashbytescount * 100.0F;
         set_progressbar_value(pleft);
 
         QString start_address = QString("%1").arg(start, 8, 16, QLatin1Char('0')).toUpper();
@@ -1483,7 +1483,7 @@ int EcuOperations::npk_raw_flashblock_32bit_kline(const uint8_t *src, uint32_t s
         {
             chrono += 1;
         }
-        curspeed = blocksize * (1000.0f / chrono); // avg B/s
+        curspeed = blocksize * (1000.0F / chrono); // avg B/s
         if (!curspeed)
         {
             curspeed += 1;
@@ -1496,7 +1496,7 @@ int EcuOperations::npk_raw_flashblock_32bit_kline(const uint8_t *src, uint32_t s
         }
         tleft++;
 
-        float pleft = (float)(byteindex - start) / (float)flashbytescount * 100.0f;
+        float pleft = (float)(byteindex - start) / (float)flashbytescount * 100.0F;
         set_progressbar_value(pleft);
 
         QString start_address = QString("%1").arg(start, 8, 16, QLatin1Char('0')).toUpper();
@@ -1615,7 +1615,7 @@ int EcuOperations::npk_raw_flashblock_32bit_can(const uint8_t *src, uint32_t sta
         {
             chrono += 1;
         }
-        curspeed = blocksize * (1000.0f / chrono); // avg B/s
+        curspeed = blocksize * (1000.0F / chrono); // avg B/s
         if (!curspeed)
         {
             curspeed += 1;
@@ -1628,7 +1628,7 @@ int EcuOperations::npk_raw_flashblock_32bit_can(const uint8_t *src, uint32_t sta
         }
         tleft++;
 
-        float pleft = (float)(byteindex - start) / (float)flashbytescount * 100.0f;
+        float pleft = (float)(byteindex - start) / (float)flashbytescount * 100.0F;
         set_progressbar_value(pleft);
 
         QString start_address = QString("%1").arg(start, 8, 16, QLatin1Char('0'));
@@ -2085,7 +2085,7 @@ int EcuOperations::read_mem_uj20_30_40_70_kline(FileActions::EcuCalDefStructure 
         float pleft = 0;
         unsigned long chrono;
 
-        pleft = (float)(addr - start_addr) / (float)(length) * 100.0f;
+        pleft = (float)(addr - start_addr) / (float)(length) * 100.0F;
         set_progressbar_value(pleft);
 
         bytes::writeU24Be(output, 6, addr);
@@ -2117,7 +2117,7 @@ int EcuOperations::read_mem_uj20_30_40_70_kline(FileActions::EcuCalDefStructure 
 
         if (cplen > 0 && chrono > 0)
         {
-            curspeed = cplen * (1000.0f / chrono);
+            curspeed = cplen * (1000.0F / chrono);
         }
 
         if (!curspeed)

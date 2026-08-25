@@ -1383,7 +1383,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::read_mem(uint32_t start_addr, uint32_
 
         // uint32_t curblock = (addr / pagesize);
 
-        pleft = (float)(addr - start_addr) / (float)length * 100.0f;
+        pleft = (float)(addr - start_addr) / (float)length * 100.0F;
         emit progressChanged(pleft);
 
         output[9] = (uint8_t)0x00 & 0xFF;
@@ -1430,7 +1430,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::read_mem(uint32_t start_addr, uint32_
 
         if (cplen > 0 && chrono > 0)
         {
-            curspeed = cplen * (1000.0f / chrono);
+            curspeed = cplen * (1000.0F / chrono);
         }
 
         if (!curspeed)
@@ -2122,7 +2122,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::flash_block(const uint8_t *src, uint3
         {
             chrono += 1;
         }
-        curspeed = blocksize * (1000.0f / chrono); // avg B/s
+        curspeed = blocksize * (1000.0F / chrono); // avg B/s
         if (!curspeed)
         {
             curspeed += 1;
@@ -2135,7 +2135,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::flash_block(const uint8_t *src, uint3
         }
         tleft++;
 
-        float pleft = (float)byteindex / (float)flashbytescount * 100.0f;
+        float pleft = (float)byteindex / (float)flashbytescount * 100.0F;
         emit progressChanged(pleft);
 
         if ((flashblockstart + flashblocksize) == start)

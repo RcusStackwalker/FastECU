@@ -128,7 +128,7 @@ inline std::uint32_t readUBe(ByteView bytes, std::size_t offset, std::uint32_t w
     switch (width)
     {
     case 1:
-        return offset < bytes.size() ? std::uint32_t(bytes[offset]) : 0u;
+        return offset < bytes.size() ? std::uint32_t(bytes[offset]) : 0U;
     case 2:
         return readU16Be(bytes, offset);
     case 3:
@@ -136,7 +136,7 @@ inline std::uint32_t readUBe(ByteView bytes, std::size_t offset, std::uint32_t w
     case 4:
         return readU32Be(bytes, offset);
     default:
-        return 0u;
+        return 0U;
     }
 }
 
@@ -146,7 +146,7 @@ inline std::uint32_t readULe(ByteView bytes, std::size_t offset, std::uint32_t w
     switch (width)
     {
     case 1:
-        return offset < bytes.size() ? std::uint32_t(bytes[offset]) : 0u;
+        return offset < bytes.size() ? std::uint32_t(bytes[offset]) : 0U;
     case 2:
         return readU16Le(bytes, offset);
     case 3:
@@ -154,7 +154,7 @@ inline std::uint32_t readULe(ByteView bytes, std::size_t offset, std::uint32_t w
     case 4:
         return readU32Le(bytes, offset);
     default:
-        return 0u;
+        return 0U;
     }
 }
 
@@ -247,7 +247,7 @@ inline Byte sum8Range(ByteView bytes, std::size_t from, std::size_t len)
         return 0;
     }
     const auto slice = bytes.subspan(from, std::min(len, bytes.size() - from));
-    const auto sum = std::accumulate(slice.begin(), slice.end(), 0u);
+    const auto sum = std::accumulate(slice.begin(), slice.end(), 0U);
     return static_cast<Byte>(sum & 0xFF);
 }
 

@@ -53,7 +53,7 @@ TEST(ReportExchangeFailureTest, LogsCancellationAsAnOperatorLineNotARejection)
     const Error returned = report_exchange_failure(events, failure, "Wrong response from ECU: ", "the erase trigger");
 
     EXPECT_EQ(returned, failure);
-    ASSERT_EQ(events.logs.size(), 1u);
+    ASSERT_EQ(events.logs.size(), 1U);
     EXPECT_EQ(events.logs[0].first, LogLevel::Warning);
     EXPECT_THAT(events.logs[0].second, HasSubstr("Cancelled by operator during the erase trigger"));
 }
@@ -83,7 +83,7 @@ TEST(FatalRequestTest, LogsAndReturnsTheErrorOnFailure)
 
     ASSERT_FALSE(reply.has_value());
     EXPECT_EQ(reply.error().kind, ErrorKind::BadResponse);
-    ASSERT_EQ(f.events.logs.size(), 1u);
+    ASSERT_EQ(f.events.logs.size(), 1U);
     EXPECT_EQ(f.events.logs[0].first, LogLevel::Error);
     EXPECT_THAT(f.events.logs[0].second, HasSubstr("Wrong response from ECU: "));
 }
@@ -107,7 +107,7 @@ TEST(NonFatalQueryTest, LogsAndDoesNotThrowOnAnExchangeFailure)
 
     non_fatal_query(f.ctx(), bytes::Bytes{0xAA}, std::nullopt, "Wrong response from ECU: ", "ECU ID");
 
-    ASSERT_EQ(f.events.logs.size(), 1u);
+    ASSERT_EQ(f.events.logs.size(), 1U);
     EXPECT_EQ(f.events.logs[0].first, LogLevel::Error);
     EXPECT_THAT(f.events.logs[0].second, HasSubstr("Wrong response from ECU: "));
 }
@@ -163,7 +163,7 @@ TEST(FatalQueryTest, LogsAndReturnsTheSendErrorOnExchangeFailure)
 
     ASSERT_FALSE(reply.has_value());
     EXPECT_EQ(reply.error().kind, ErrorKind::BadResponse);
-    ASSERT_EQ(f.events.logs.size(), 1u);
+    ASSERT_EQ(f.events.logs.size(), 1U);
     EXPECT_THAT(f.events.logs[0].second, HasSubstr("Wrong response from ECU: "));
 }
 

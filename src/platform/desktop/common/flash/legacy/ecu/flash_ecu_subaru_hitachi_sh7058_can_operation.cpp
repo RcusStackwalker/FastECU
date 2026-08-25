@@ -844,7 +844,7 @@ int FlashEcuSubaruHitachiSH7058CanOperation::read_mem_subaru_ecu_hitachi_can(uin
 
         // uint32_t curblock = (addr / pagesize);
 
-        pleft = (float)(addr - start_addr) / (float)length * 100.0f;
+        pleft = (float)(addr - start_addr) / (float)length * 100.0F;
         emit progressChanged(pleft);
 
         // length = 7FFF0;
@@ -884,7 +884,7 @@ int FlashEcuSubaruHitachiSH7058CanOperation::read_mem_subaru_ecu_hitachi_can(uin
 
         if (cplen > 0 && chrono > 0)
         {
-            curspeed = cplen * (1000.0f / chrono);
+            curspeed = cplen * (1000.0F / chrono);
         }
 
         if (!curspeed)

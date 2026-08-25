@@ -13,10 +13,10 @@ TEST(FakeClock, OptionalAutoAdvancePreservesSsmTimingModel)
     clock.set_sleep_advance_ms(10);
     fastecu::FakeCancellationToken active;
 
-    EXPECT_EQ(clock.now_ms(), 0u);
-    EXPECT_EQ(clock.now_ms(), 10u);
+    EXPECT_EQ(clock.now_ms(), 0U);
+    EXPECT_EQ(clock.now_ms(), 10U);
     ASSERT_TRUE(clock.sleep(999, active));
-    EXPECT_EQ(clock.now_ms(), 30u);
+    EXPECT_EQ(clock.now_ms(), 30U);
 }
 
 TEST(FakeClock, MakeAutoAdvancingClockConfiguresBothTimingModels)
@@ -24,10 +24,10 @@ TEST(FakeClock, MakeAutoAdvancingClockConfiguresBothTimingModels)
     auto clock = fastecu::make_auto_advancing_clock(10);
     fastecu::FakeCancellationToken active;
 
-    EXPECT_EQ(clock.now_ms(), 0u);
-    EXPECT_EQ(clock.now_ms(), 10u);
+    EXPECT_EQ(clock.now_ms(), 0U);
+    EXPECT_EQ(clock.now_ms(), 10U);
     ASSERT_TRUE(clock.sleep(999, active));
-    EXPECT_EQ(clock.now_ms(), 30u);
+    EXPECT_EQ(clock.now_ms(), 30U);
 }
 
 TEST(Clock, SleepAdvancesAndSucceeds)
@@ -36,7 +36,7 @@ TEST(Clock, SleepAdvancesAndSucceeds)
     fastecu::FakeCancellationToken t;
     Status s = c.sleep(10, t);
     EXPECT_TRUE(s.has_value());
-    EXPECT_EQ(c.now_ms(), 10u);
+    EXPECT_EQ(c.now_ms(), 10U);
 }
 
 TEST(Clock, SleepReturnsCancelledWhenTokenSet)
@@ -47,5 +47,5 @@ TEST(Clock, SleepReturnsCancelledWhenTokenSet)
     Status s = c.sleep(10, t);
     ASSERT_FALSE(s.has_value());
     EXPECT_EQ(s.error().kind, ErrorKind::Cancelled);
-    EXPECT_EQ(c.now_ms(), 0u);
+    EXPECT_EQ(c.now_ms(), 0U);
 }

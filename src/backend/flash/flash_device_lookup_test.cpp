@@ -60,7 +60,7 @@ TEST(FindFlashDevice, ExposesRomsizeForSizeValidation)
 {
     const auto *device = find_flash_device("M32R_512KB");
     ASSERT_NE(device, nullptr);
-    EXPECT_EQ(device->romsize, 512u * 1024u);
+    EXPECT_EQ(device->romsize, 512U * 1024U);
 }
 
 TEST(FindFlashDevice, IndexAndPointerAgree)
@@ -128,7 +128,7 @@ TEST(FlashDeviceTable, MatchesExpectedSummariesAndNamedAnomalies)
         EXPECT_EQ(finalBlock.start + finalBlock.len, summary.finalBlockEnd);
         for (unsigned blockIndex = 0; blockIndex < actual.numblocks; ++blockIndex)
         {
-            EXPECT_GT(actual.fblocks[blockIndex].len, 0u);
+            EXPECT_GT(actual.fblocks[blockIndex].len, 0U);
             if (blockIndex > 0)
             {
                 EXPECT_LE(actual.fblocks[blockIndex - 1].start, actual.fblocks[blockIndex].start);
@@ -139,7 +139,7 @@ TEST(FlashDeviceTable, MatchesExpectedSummariesAndNamedAnomalies)
     const flashdev_t& sentinel = flashdevices[kCount];
     EXPECT_EQ(sentinel.name, nullptr);
     EXPECT_EQ(sentinel.romsize, std::uint32_t(0));
-    EXPECT_EQ(sentinel.numblocks, 0u);
+    EXPECT_EQ(sentinel.numblocks, 0U);
     EXPECT_EQ(sentinel.fblocks, nullptr);
     EXPECT_EQ(sentinel.rblocks, nullptr);
     EXPECT_EQ(sentinel.kblocks, nullptr);

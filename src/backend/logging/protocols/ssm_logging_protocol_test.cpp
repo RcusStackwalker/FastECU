@@ -132,7 +132,7 @@ TEST(SsmLoggingProtocolTest, PreservesDecimalByteConcatenation)
 
     ASSERT_TRUE(result);
     ASSERT_TRUE(result->responded);
-    ASSERT_EQ(result->samples.size(), 1u);
+    ASSERT_EQ(result->samples.size(), 1U);
     EXPECT_EQ(result->samples[0].channel_id, "rpm");
     EXPECT_EQ(result->samples[0].raw_value, "1616");
     EXPECT_TRUE(script->scriptConsumed());
@@ -154,7 +154,7 @@ TEST(SsmLoggingProtocolTest, PollPreservesChannelRequestOrder)
 
     ASSERT_TRUE(result);
     ASSERT_TRUE(result->responded);
-    ASSERT_EQ(result->samples.size(), 2u);
+    ASSERT_EQ(result->samples.size(), 2U);
     EXPECT_EQ(result->samples[0].channel_id, "first");
     EXPECT_EQ(result->samples[0].raw_value, "42");
     EXPECT_EQ(result->samples[1].channel_id, "second");
@@ -176,7 +176,7 @@ TEST(SsmLoggingProtocolTest, PollHonorsSnapshottedHistoricalResponseOffsets)
 
     ASSERT_TRUE(result);
     ASSERT_TRUE(result->responded);
-    ASSERT_EQ(result->samples.size(), 2u);
+    ASSERT_EQ(result->samples.size(), 2U);
     EXPECT_EQ(result->samples[0].raw_value, "42");
     EXPECT_EQ(result->samples[1].raw_value, "99");
 }
@@ -406,7 +406,7 @@ TEST(SsmLoggingProtocolTest, PollSkipsChannelWhenResponseOffsetBeyondPayload)
 
     ASSERT_TRUE(result);
     ASSERT_TRUE(result->responded);
-    ASSERT_EQ(result->samples.size(), 1u);
+    ASSERT_EQ(result->samples.size(), 1U);
     EXPECT_EQ(result->samples[0].channel_id, "first");
     EXPECT_EQ(result->samples[0].raw_value, "42");
 }
@@ -427,7 +427,7 @@ TEST(SsmLoggingProtocolTest, PollTruncatesRawValueWhenLengthExtendsBeyondPayload
 
     ASSERT_TRUE(result);
     ASSERT_TRUE(result->responded);
-    ASSERT_EQ(result->samples.size(), 1u);
+    ASSERT_EQ(result->samples.size(), 1U);
     EXPECT_EQ(result->samples[0].channel_id, "rpm");
     EXPECT_EQ(result->samples[0].raw_value, "78");
 }

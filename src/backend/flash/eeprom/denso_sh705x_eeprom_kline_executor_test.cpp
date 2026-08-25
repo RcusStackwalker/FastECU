@@ -534,7 +534,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, CancellationDuringKernelUploadReturnsCa
     // (probe + bf/81/83/27req/27key/10) plus upload_kernel's kernel-upload
     // request (sid_34) happened -- 8 total -- but the kernel-data chunk
     // (sid_36) was never written.
-    EXPECT_EQ(transport.writesConsumed(), 8u);
+    EXPECT_EQ(transport.writesConsumed(), 8U);
 }
 
 // Transport-seam regression test for the ISO14230 auto-header bug found in

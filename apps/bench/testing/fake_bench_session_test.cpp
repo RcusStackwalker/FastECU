@@ -15,7 +15,7 @@ TEST(FakeBenchSession, RecordsRequestsAndDequeuesRepliesInOrder)
     const bytes::Bytes first{0x23, 0x00, 0x02, 0x00, 0x01};
     EXPECT_EQ(session.exchange(first, uds::ExchangePolicy{}).value(), (bytes::Bytes{0x63, 0x00}));
     EXPECT_EQ(session.exchange_raw(bytes::Bytes{0x31, 0xE0}, 500).value(), (bytes::Bytes{0x71, 0xE0, 0x00}));
-    ASSERT_EQ(session.requests.size(), 2u);
+    ASSERT_EQ(session.requests.size(), 2U);
     EXPECT_EQ(session.requests[0], first);
 }
 
