@@ -99,6 +99,51 @@ class BlockingFailureProtocol final : public fastecu::logging::LoggingProtocol
     std::atomic<int> *stop_calls_;
 };
 
+class SampleThenBlockProtocol final : public fastecu::logging::LoggingProtocol
+{
+  public:
+    fastecu::Status start(const fastecu::ICancellationToken&) override
+    {
+        return {};
+    }
+
+    fastecu::Result<fastecu::logging::PollData> poll(int, const fastecu::ICancellationToken& cancellation) override
+    {
+        std::unique_lock lock(mutex_);
+        if (!sample_returned_)
+        {
+            sample_returned_ = true;
+            return PollData{.responded = true, .samples = {ProtocolSample{.channel_id = "rpm", .raw_value = "42"}}};
+        }
+
+        blocking_poll_entered_ = true;
+        blocking_poll_entered_cv_.notify_all();
+        while (!cancellation.cancelled())
+        {
+            cancellation_cv_.wait_for(lock, std::chrono::milliseconds(1));
+        }
+        return fastecu::fail(fastecu::ErrorKind::Cancelled, "first run cancelled");
+    }
+
+    fastecu::Status stop() override
+    {
+        return {};
+    }
+
+    bool waitUntilBlockingPollEntered(std::chrono::milliseconds timeout)
+    {
+        std::unique_lock lock(mutex_);
+        return blocking_poll_entered_cv_.wait_for(lock, timeout, [this] { return blocking_poll_entered_; });
+    }
+
+  private:
+    std::mutex mutex_;
+    std::condition_variable blocking_poll_entered_cv_;
+    std::condition_variable cancellation_cv_;
+    bool sample_returned_ = false;
+    bool blocking_poll_entered_ = false;
+};
+
 void expect_start_error(fastecu::Status result, fastecu::ErrorKind kind, std::string_view detail)
 {
     QVERIFY(!result);
@@ -269,6 +314,51 @@ class TestLoggingEngine : public QObject
         QVERIFY(second_protocol->waitUntilPollEntered(std::chrono::milliseconds(500)));
         QVERIFY(engine.isRunning());
         engine.stop();
+    }
+
+    void explicit_stop_restart_ignores_stale_worker_events_and_preserves_handshake_classification()
+    {
+        LoggingEngine engine;
+        auto *first_protocol = new SampleThenBlockProtocol();
+        auto *second_protocol = new ScriptedLoggingProtocol();
+        second_protocol->queueStartResult(fastecu::fail(fastecu::ErrorKind::BadResponse, "second handshake failed"));
+        int factory_calls = 0;
+        engine.registerProtocol("TEST",
+                                [first_protocol, second_protocol, &factory_calls](const DesktopLoggingSnapshot&)
+                                {
+                                    ++factory_calls;
+                                    if (factory_calls == 1)
+                                    {
+                                        return std::unique_ptr<LoggingProtocol>(first_protocol);
+                                    }
+                                    return std::unique_ptr<LoggingProtocol>(second_protocol);
+                                });
+        QSignalSpy ended_spy(&engine, &LoggingEngine::sessionEnded);
+        QSignalSpy status_spy(&engine, &LoggingEngine::statusChanged);
+        QSignalSpy value_spy(&engine, &LoggingEngine::valuesUpdated);
+        bool restart_succeeded = false;
+        connect(&engine, &LoggingEngine::sessionEnded, &engine,
+                [&](SessionEndReason reason, const QString&)
+                {
+                    if (reason == SessionEndReason::StoppedByUser)
+                    {
+                        restart_succeeded =
+                            engine.start(LogSessionConfig{.protocolId = "TEST"}, snapshot()).has_value();
+                    }
+                });
+
+        QVERIFY(engine.start(LogSessionConfig{.protocolId = "TEST"}, snapshot()));
+        QVERIFY(first_protocol->waitUntilBlockingPollEntered(std::chrono::milliseconds(500)));
+        engine.stop();
+        QVERIFY(restart_succeeded);
+
+        QTRY_COMPARE_WITH_TIMEOUT(ended_spy.size(), 2, 2000);
+        QCOMPARE(ended_spy.at(0).at(0).value<SessionEndReason>(), SessionEndReason::StoppedByUser);
+        QCOMPARE(ended_spy.at(1).at(0).value<SessionEndReason>(), SessionEndReason::HandshakeFailed);
+        QCOMPARE(ended_spy.at(1).at(1).toString(), QString("second handshake failed"));
+        QCOMPARE(status_spy.size(), 0);
+        QCOMPARE(value_spy.size(), 0);
+        QVERIFY(!engine.isRunning());
     }
 
     void natural_terminal_result_is_published_once_after_reprocessing_queued_delivery()

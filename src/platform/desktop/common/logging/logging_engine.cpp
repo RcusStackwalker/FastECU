@@ -87,9 +87,25 @@ fastecu::Status LoggingEngine::start(const LogSessionConfig& config, DesktopLogg
     completion_published_ = false;
     active_run_generation_ = ++next_run_generation_;
     active_worker_ = new LoggingWorker(active_snapshot_->session, active_protocol_.get(), diagnostics_, this);
-    connect(active_worker_, &LoggingWorker::samplesReady, this, &LoggingEngine::valuesUpdated);
-    connect(active_worker_, &LoggingWorker::stateChanged, this, &LoggingEngine::handleWorkerStateChanged);
     const std::uint64_t run_generation = active_run_generation_;
+    connect(active_worker_, &LoggingWorker::samplesReady, this,
+            [this, run_generation](QVector<fastecu::logging::LogSample> samples)
+            {
+                if (run_generation != active_run_generation_)
+                {
+                    return;
+                }
+                emit valuesUpdated(std::move(samples));
+            });
+    connect(active_worker_, &LoggingWorker::stateChanged, this,
+            [this, run_generation](fastecu::logging::LoggingState state)
+            {
+                if (run_generation != active_run_generation_)
+                {
+                    return;
+                }
+                handleWorkerStateChanged(state);
+            });
     connect(active_worker_, &LoggingWorker::sessionFinished, this,
             [this, run_generation](fastecu::Status result)
             {
