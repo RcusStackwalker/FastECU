@@ -445,7 +445,7 @@ TEST(MitsuColtM32rCanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyIo)
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
     EXPECT_THAT(result.error().detail, HasSubstr("does not match this executor"));
     EXPECT_THAT(events.logs, IsEmpty());
-    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.writesConsumed(), 0U);
     EXPECT_FALSE(transport.last_config_.has_value());
 }
 
@@ -458,8 +458,8 @@ TEST(MitsuColtM32rCanExecutor, TransportSetupReturnsThePlansWireParameters)
 
     ASSERT_TRUE(setup.has_value());
     EXPECT_EQ(setup->bitrate, 500000);
-    EXPECT_EQ(setup->request_id, 0x7e0u);
-    EXPECT_EQ(setup->response_id, 0x7e8u);
+    EXPECT_EQ(setup->request_id, 0x7e0U);
+    EXPECT_EQ(setup->response_id, 0x7e8U);
     EXPECT_FALSE(setup->extended_id);
 }
 
@@ -496,7 +496,7 @@ TEST(MitsuColtM32rCanExecutor, RejectsInconsistentHandBuiltPlansBeforeAnyIo)
         ASSERT_FALSE(result.has_value()) << test.name;
         EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig) << test.name;
         EXPECT_FALSE(transport.last_config_.has_value()) << test.name;
-        EXPECT_EQ(transport.writesConsumed(), 0u) << test.name;
+        EXPECT_EQ(transport.writesConsumed(), 0U) << test.name;
     }
 }
 
@@ -580,7 +580,7 @@ TEST(MitsuColtM32rCanExecutor, ReadStopsWhenCancelled)
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
 // Cancels the token as soon as the first chunk's progress is
@@ -1304,7 +1304,7 @@ TEST(MitsuColtM32rCanExecutor, WriteRefusesAnImageThatDoesNotMatchThePlanBeforeA
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
     EXPECT_THAT(result.error().detail, HasSubstr("0x80000"));
-    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.writesConsumed(), 0U);
     EXPECT_FALSE(transport.last_config_.has_value());
     EXPECT_THAT(events.logs, IsEmpty());
 }
@@ -1918,7 +1918,7 @@ TEST(MitsuColtM32rCanExecutor, AbsorbsResponsePendingWithoutResending)
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
-    EXPECT_EQ(transport.writesConsumed(), 2u);
+    EXPECT_EQ(transport.writesConsumed(), 2U);
     EXPECT_TRUE(transport.scriptConsumed());
     // The session was accepted on the second read, not abandoned on the first.
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Basic diagnostic session ok")));
@@ -1946,7 +1946,7 @@ TEST(MitsuColtM32rCanExecutor, FailsWhenTheEcuPendsPastTheRepeatLimit)
     EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
     EXPECT_THAT(result.error().detail, HasSubstr("responsePending"));
     // An ECU that pends forever is waited out, never re-sent to.
-    EXPECT_EQ(transport.writesConsumed(), 1u);
+    EXPECT_EQ(transport.writesConsumed(), 1U);
     EXPECT_TRUE(transport.scriptConsumed());
 }
 

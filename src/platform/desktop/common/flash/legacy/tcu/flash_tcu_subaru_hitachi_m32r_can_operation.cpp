@@ -486,7 +486,7 @@ int FlashTcuSubaruHitachiM32rCanOperation::read_mem(uint32_t start_addr, uint32_
         float pleft = 0;
         unsigned long chrono;
 
-        pleft = (float)(addr - start_addr) / (float)length * 100.0f;
+        pleft = (float)(addr - start_addr) / (float)length * 100.0F;
         emit progressChanged(pleft);
 
         output[5] = (uint8_t)((addr >> 16) & 0xFF);
@@ -529,7 +529,7 @@ int FlashTcuSubaruHitachiM32rCanOperation::read_mem(uint32_t start_addr, uint32_
 
         if (cplen > 0 && chrono > 0)
         {
-            curspeed = cplen * (1000.0f / chrono);
+            curspeed = cplen * (1000.0F / chrono);
         }
 
         if (!curspeed)

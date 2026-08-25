@@ -96,7 +96,7 @@ TEST(LoadCarModelCatalog, ParsesEveryFieldOfEachEntry)
     auto catalog = load_car_model_catalog(paths, repo);
 
     ASSERT_TRUE(catalog.has_value());
-    ASSERT_EQ(catalog->size(), 3u);
+    ASSERT_EQ(catalog->size(), 3U);
 
     const auto& first = (*catalog)[0];
     EXPECT_EQ(first.make, "Subaru");
@@ -203,7 +203,7 @@ TEST(ResolveCarModels, JoinsEachCarModelWithItsMatchingProtocol)
 
     std::vector<ResolvedCarModel> resolved = resolve_car_models(protocols, car_models);
 
-    ASSERT_EQ(resolved.size(), 1u);
+    ASSERT_EQ(resolved.size(), 1U);
     EXPECT_EQ(resolved[0].make, "Mitsubishi");
     EXPECT_EQ(resolved[0].model, "Colt");
     EXPECT_EQ(resolved[0].protocol_name, "sub_ecu_denso_can");
@@ -222,7 +222,7 @@ TEST(ResolveCarModels, UnmatchedProtocolNameYieldsNullopt)
 
     std::vector<ResolvedCarModel> resolved = resolve_car_models(protocols, car_models);
 
-    ASSERT_EQ(resolved.size(), 1u);
+    ASSERT_EQ(resolved.size(), 1U);
     EXPECT_FALSE(resolved[0].protocol.has_value());
 }
 
@@ -249,7 +249,7 @@ TEST(ResolveCarModels, DuplicateProtocolNamesResolveToTheFirstMatch)
 
     std::vector<ResolvedCarModel> resolved = resolve_car_models(protocols, car_models);
 
-    ASSERT_EQ(resolved.size(), 1u);
+    ASSERT_EQ(resolved.size(), 1U);
     ASSERT_TRUE(resolved[0].protocol.has_value());
     EXPECT_EQ(resolved[0].protocol->mcu, "FIRST");
 }
@@ -268,7 +268,7 @@ TEST(FindCarModelByProtocolName, ReturnsTheLastMatchingIndex)
     std::optional<std::size_t> index = find_car_model_by_protocol_name(resolved, "a");
 
     ASSERT_TRUE(index.has_value());
-    EXPECT_EQ(*index, 2u);
+    EXPECT_EQ(*index, 2U);
 }
 
 TEST(FindCarModelByProtocolName, ReturnsNulloptWhenNoRowMatches)

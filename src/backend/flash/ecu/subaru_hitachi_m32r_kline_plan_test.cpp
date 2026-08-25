@@ -26,8 +26,8 @@ TEST(SubaruHitachiM32rKlinePlan, MapsExactProtocolsToCompletePortableContract)
             ASSERT_TRUE(plan.has_value()) << plan.error().detail;
             EXPECT_EQ(plan->family(), FlashFamily::SubaruHitachiM32rKline);
             EXPECT_EQ(plan->transport(), TransportKind::Kline);
-            EXPECT_EQ(plan->transfer_region().start, 0u);
-            EXPECT_EQ(plan->transfer_region().length, 0x80000u);
+            EXPECT_EQ(plan->transfer_region().start, 0U);
+            EXPECT_EQ(plan->transfer_region().length, 0x80000U);
             EXPECT_FALSE(plan->kernel().has_value());
             const auto& family = std::get<SubaruHitachiM32rKlinePlan>(plan->family_plan());
             EXPECT_EQ(family.session_mode, mode);
@@ -36,13 +36,13 @@ TEST(SubaruHitachiM32rKlinePlan, MapsExactProtocolsToCompletePortableContract)
             EXPECT_EQ(family.initial_baud, 4800);
             EXPECT_EQ(family.write_baud, 15625);
             EXPECT_EQ(family.read_baud, 38400);
-            EXPECT_EQ(family.chunk_size, 128u);
-            EXPECT_EQ(family.read_address_bias, 0x100000u);
+            EXPECT_EQ(family.chunk_size, 128U);
+            EXPECT_EQ(family.read_address_bias, 0x100000U);
             if (operation == FlashOperation::Write)
             {
-                ASSERT_EQ(plan->erase_regions().size(), 1u);
-                EXPECT_EQ(plan->erase_regions()[0].start, 0u);
-                EXPECT_EQ(plan->erase_regions()[0].length, 0x80000u);
+                ASSERT_EQ(plan->erase_regions().size(), 1U);
+                EXPECT_EQ(plan->erase_regions()[0].start, 0U);
+                EXPECT_EQ(plan->erase_regions()[0].length, 0x80000U);
             }
             else
             {

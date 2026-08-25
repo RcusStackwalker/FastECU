@@ -7,7 +7,7 @@ namespace mutdma
 {
 std::vector<MutDmaFrame> buildWriteFrames(std::uint16_t addr, bytes::ByteView bytes)
 {
-    if (std::uint32_t(addr) + std::uint32_t(bytes.size()) > 0x10000u)
+    if (std::uint32_t(addr) + std::uint32_t(bytes.size()) > 0x10000U)
     {
         return {};
     }

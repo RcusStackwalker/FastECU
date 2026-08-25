@@ -71,7 +71,7 @@ TEST(QtFileSystemTest, ListDirectoryReturnsEntriesWithModifiedTime)
     auto entries = fs.list_directory(tmp.path().toStdString());
 
     ASSERT_TRUE(entries.has_value());
-    EXPECT_EQ(entries->size(), 2u);
+    EXPECT_EQ(entries->size(), 2U);
     bool found_dir = false, found_file = false;
     for (auto& e : *entries)
     {

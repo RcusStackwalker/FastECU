@@ -112,7 +112,7 @@ Result<std::uint32_t> parse_u32(std::string_view text)
     {
         return fail(ErrorKind::InvalidConfig, std::format("not a number: {}", text));
     }
-    if (value > 0xFFFFFFFFull)
+    if (value > 0xFFFFFFFFULL)
     {
         return fail(ErrorKind::InvalidConfig, std::format("does not fit in 32 bits: {}", text));
     }

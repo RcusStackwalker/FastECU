@@ -156,7 +156,7 @@ TEST(SubaruMitsuM32rKlineExecutor, ReadsAllUserspaceChunksAndSynthesizesBootPref
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     ASSERT_TRUE(result->read_bytes.has_value());
-    EXPECT_EQ(result->read_bytes->size(), 0x80000u);
+    EXPECT_EQ(result->read_bytes->size(), 0x80000U);
     EXPECT_TRUE(std::all_of(result->read_bytes->begin(), result->read_bytes->begin() + 0x8000,
                             [](bytes::Byte value) { return value == 0xff; }));
     EXPECT_TRUE(std::all_of(result->read_bytes->begin() + 0x8000, result->read_bytes->end(),

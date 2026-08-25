@@ -218,7 +218,7 @@ int FlashEcuSubaruUnisiaJecsM32rBootModeOperation::read_mem(uint32_t start_addr,
         float pleft = 0;
         unsigned long chrono;
 
-        pleft = (float)(addr - start_addr) / (float)(length) * 100.0f;
+        pleft = (float)(addr - start_addr) / (float)(length) * 100.0F;
         emit progressChanged(pleft);
 
         output[6] = (uint8_t)(addr >> 16) & 0xFF;
@@ -252,7 +252,7 @@ int FlashEcuSubaruUnisiaJecsM32rBootModeOperation::read_mem(uint32_t start_addr,
 
         if (cplen > 0 && chrono > 0)
         {
-            curspeed = cplen * (1000.0f / chrono);
+            curspeed = cplen * (1000.0F / chrono);
         }
 
         if (!curspeed)
@@ -330,7 +330,7 @@ int FlashEcuSubaruUnisiaJecsM32rBootModeOperation::upload_kernel(const QString& 
             output.append(kerneldata.at(i + j));
         }
         serial->write_serial_data_echo_check(output);
-        pleft = (float)i / (float)filesize * 100.0f;
+        pleft = (float)i / (float)filesize * 100.0F;
         emit progressChanged(pleft);
     }
     emit progressChanged(100);
@@ -559,7 +559,7 @@ int FlashEcuSubaruUnisiaJecsM32rBootModeOperation::write_mem()
         {
             chrono += 1;
         }
-        curspeed = blocksize * (1000.0f / chrono); // avg B/s
+        curspeed = blocksize * (1000.0F / chrono); // avg B/s
         if (!curspeed)
         {
             curspeed += 1;

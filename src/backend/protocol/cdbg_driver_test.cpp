@@ -24,7 +24,7 @@ TEST(TestCdbgDriver, handshake_and_single_frame_streaming)
 
     std::vector<std::vector<CdbgChannel>> frames;
     ASSERT_TRUE(batchChannelsIntoFrames(ch, frames));
-    ASSERT_EQ(frames.size(), 1u);
+    ASSERT_EQ(frames.size(), 1U);
     for (const CdbgFrame& cmd : buildFrameInitFrames(0, 0, frames.at(0)))
     {
         t.expectWrite(kRequestCanId, cmd);
@@ -44,7 +44,7 @@ TEST(TestCdbgDriver, handshake_and_single_frame_streaming)
     t.queueRead(kReplyCanId, test_bytes::bytesFromHex("002A123400000000"));
     const auto result = d.pollOnce(50, cancellation);
     ASSERT_TRUE(result);
-    ASSERT_EQ(result->size(), 2u);
+    ASSERT_EQ(result->size(), 2U);
     ASSERT_EQ(result->at(0), std::uint32_t(42));
     ASSERT_EQ(result->at(1), std::uint32_t(0x1234));
 }
@@ -145,7 +145,7 @@ TEST(TestCdbgDriver, poll_merges_values_across_two_frames)
 
     std::vector<std::vector<CdbgChannel>> frames;
     ASSERT_TRUE(batchChannelsIntoFrames(ch, frames));
-    ASSERT_EQ(frames.size(), 2u);
+    ASSERT_EQ(frames.size(), 2U);
     for (std::size_t f = 0; f < frames.size(); ++f)
     {
         for (const CdbgFrame& cmd : buildFrameInitFrames(0, bytes::Byte(f), frames.at(f)))
@@ -165,7 +165,7 @@ TEST(TestCdbgDriver, poll_merges_values_across_two_frames)
     t.queueRead(kReplyCanId, test_bytes::bytesFromHex("00AABBCCDD000000"));
     const auto r1 = d.pollOnce(50, cancellation);
     ASSERT_TRUE(r1);
-    ASSERT_EQ(r1->size(), 3u);
+    ASSERT_EQ(r1->size(), 3U);
     ASSERT_EQ(r1->at(0), std::uint32_t(0xAABBCCDD));
     ASSERT_EQ(r1->at(1), std::uint32_t(0));
     ASSERT_EQ(r1->at(2), std::uint32_t(0));
@@ -174,7 +174,7 @@ TEST(TestCdbgDriver, poll_merges_values_across_two_frames)
     t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0111223344556600"));
     const auto r2 = d.pollOnce(50, cancellation);
     ASSERT_TRUE(r2);
-    ASSERT_EQ(r2->size(), 3u);
+    ASSERT_EQ(r2->size(), 3U);
     ASSERT_EQ(r2->at(0), std::uint32_t(0xAABBCCDD)); // retained from frame 0
     ASSERT_EQ(r2->at(1), std::uint32_t(0x11223344));
     ASSERT_EQ(r2->at(2), std::uint32_t(0x5566));

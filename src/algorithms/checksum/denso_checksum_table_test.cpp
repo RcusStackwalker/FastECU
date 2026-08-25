@@ -15,8 +15,8 @@ TEST(DensoChecksumTable, CorrectsCompleteTableAtomically)
 
     const internal::DensoTableSpec spec{.table_offset = 8, .table_length = 24};
     EXPECT_EQ(internal::correctDensoTable(rom, spec), internal::DensoTableOutcome::Corrected);
-    EXPECT_EQ(bytes::readU32Be(rom, 16), 0x5AA5A55Au);
-    EXPECT_EQ(bytes::readU32Be(rom, 28), 0x5AA5A559u);
+    EXPECT_EQ(bytes::readU32Be(rom, 16), 0x5AA5A55AU);
+    EXPECT_EQ(bytes::readU32Be(rom, 28), 0x5AA5A559U);
 }
 
 TEST(DensoChecksumTable, RejectsInvalidRecordLengthWithoutMutation)
@@ -56,7 +56,7 @@ TEST(DensoChecksumTable, AppliesNegativeOffsetAndWordOverride)
     };
 
     EXPECT_EQ(internal::correctDensoTable(rom, spec), internal::DensoTableOutcome::Corrected);
-    EXPECT_EQ(bytes::readU32Be(rom, 28), 0x5AA5A55Bu);
+    EXPECT_EQ(bytes::readU32Be(rom, 28), 0x5AA5A55BU);
 }
 
 TEST(DensoChecksumTable, ZeroAddressRecordResetsAddressOffset)
@@ -74,7 +74,7 @@ TEST(DensoChecksumTable, ZeroAddressRecordResetsAddressOffset)
     };
 
     EXPECT_EQ(internal::correctDensoTable(rom, spec), internal::DensoTableOutcome::Corrected);
-    EXPECT_EQ(bytes::readU32Be(rom, 32), 0x5AA5A55Au);
+    EXPECT_EQ(bytes::readU32Be(rom, 32), 0x5AA5A55AU);
 }
 
 TEST(DensoChecksumTable, DescendingRangeKeepsLegacyEmptySumBehavior)
@@ -85,7 +85,7 @@ TEST(DensoChecksumTable, DescendingRangeKeepsLegacyEmptySumBehavior)
     const internal::DensoTableSpec spec{.table_offset = 20, .table_length = 12};
 
     EXPECT_EQ(internal::correctDensoTable(rom, spec), internal::DensoTableOutcome::Corrected);
-    EXPECT_EQ(bytes::readU32Be(rom, 28), 0x5AA5A55Au);
+    EXPECT_EQ(bytes::readU32Be(rom, 28), 0x5AA5A55AU);
 }
 
 TEST(DensoChecksumTable, UnalignedRangeKeepsLegacyWordTraversalBehavior)
@@ -98,7 +98,7 @@ TEST(DensoChecksumTable, UnalignedRangeKeepsLegacyWordTraversalBehavior)
     const internal::DensoTableSpec spec{.table_offset = 24, .table_length = 12};
 
     EXPECT_EQ(internal::correctDensoTable(rom, spec), internal::DensoTableOutcome::Corrected);
-    EXPECT_EQ(bytes::readU32Be(rom, 32), 0x5AA5A557u);
+    EXPECT_EQ(bytes::readU32Be(rom, 32), 0x5AA5A557U);
 }
 
 TEST(DensoChecksumTable, DetectDisabledFalseTreatsMarkerAsOrdinaryRecord)

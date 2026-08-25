@@ -18,7 +18,7 @@ namespace
 
 bool region_overflows(const MemoryRegion& region)
 {
-    return static_cast<std::uint64_t>(region.start) + region.length > static_cast<std::uint64_t>(0xffffffffu);
+    return static_cast<std::uint64_t>(region.start) + region.length > static_cast<std::uint64_t>(0xffffffffU);
 }
 
 bool family_matches_transport_variant(const FlashPlanFields& fields)
@@ -125,7 +125,7 @@ Result<FlashPlan> validate_and_build(FlashPlanFields fields)
         }
         const std::uint64_t kernel_end =
             static_cast<std::uint64_t>(fields.kernel->load_address) + fields.kernel->bytes.size();
-        if (kernel_end > static_cast<std::uint64_t>(0xffffffffu))
+        if (kernel_end > static_cast<std::uint64_t>(0xffffffffU))
         {
             return fail(ErrorKind::InvalidConfig, "kernel upload range overflows a 32-bit address space");
         }

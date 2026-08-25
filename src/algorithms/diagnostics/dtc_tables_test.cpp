@@ -8,11 +8,11 @@
 
 TEST(DiagnosticTables, EntryCountsMatchTheLegacyQHashTables)
 {
-    EXPECT_EQ(nrc_codes().size(), 59u);
-    EXPECT_EQ(dtc_p_codes().size(), 1733u);
-    EXPECT_EQ(dtc_b_codes().size(), 1147u);
-    EXPECT_EQ(dtc_c_codes().size(), 487u);
-    EXPECT_EQ(dtc_u_codes().size(), 299u);
+    EXPECT_EQ(nrc_codes().size(), 59U);
+    EXPECT_EQ(dtc_p_codes().size(), 1733U);
+    EXPECT_EQ(dtc_b_codes().size(), 1147U);
+    EXPECT_EQ(dtc_c_codes().size(), 487U);
+    EXPECT_EQ(dtc_u_codes().size(), 299U);
 }
 
 TEST(DiagnosticTables, SampledNrcEntriesSurvivedTranscription)

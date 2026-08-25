@@ -101,12 +101,12 @@ TEST(BenchSession, ConnectSendsTheExactThreeHandshakePdusOnceAndRecordsEvidence)
     ASSERT_TRUE(result.has_value());
     EXPECT_TRUE(harness.transport->scriptConsumed());
     const TrafficEvidence& traffic = harness.session->last_traffic();
-    EXPECT_EQ(traffic.exchange_count, 3u);
+    EXPECT_EQ(traffic.exchange_count, 3U);
     EXPECT_EQ(traffic.tx, MitsuColtCan::buildDiagnosticSession(MitsuColtCan::kSessionBootload));
     EXPECT_EQ(traffic.rx, (bytes::Bytes{0x50, MitsuColtCan::kSessionBootload}));
     EXPECT_EQ(traffic.last_tx, MitsuColtCan::buildSecurityAccessKey(MitsuColtCan::seedKey(kSeed)));
     EXPECT_EQ(traffic.last_rx, (bytes::Bytes{0x67, 0x06}));
-    EXPECT_GT(traffic.elapsed_ms, 0u);
+    EXPECT_GT(traffic.elapsed_ms, 0U);
 }
 
 TEST(BenchSession, ConnectRejectsAWrongPositiveSessionEcho)
@@ -157,7 +157,7 @@ TEST(BenchSession, VendorChallengeIsSkippedWhenNotRequested)
 
     ASSERT_TRUE(result.has_value());
     EXPECT_TRUE(harness.transport->scriptConsumed());
-    EXPECT_EQ(harness.session->last_traffic().exchange_count, 3u);
+    EXPECT_EQ(harness.session->last_traffic().exchange_count, 3U);
 }
 
 TEST(BenchSession, VendorChallengePrecedesTheBootloadSessionInOrder)
@@ -176,7 +176,7 @@ TEST(BenchSession, VendorChallengePrecedesTheBootloadSessionInOrder)
     // ScriptedCanFlashTransport rejects any write that does not match the next
     // expectation in order, so a green script IS the ordering assertion.
     EXPECT_TRUE(harness.transport->scriptConsumed());
-    EXPECT_EQ(harness.session->last_traffic().exchange_count, 6u);
+    EXPECT_EQ(harness.session->last_traffic().exchange_count, 6U);
 }
 
 TEST(BenchSession, VendorChallengeRejectsAKeyReplyThatOnlyEchoesTheSelector)

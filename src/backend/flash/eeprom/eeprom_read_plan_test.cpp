@@ -137,7 +137,7 @@ TEST(BuildEepromReadPlanTest, KlineProtocolProducesAKlinePlan)
     EXPECT_EQ(plan->mcu_name(), "SH7055");
     EXPECT_EQ(plan->target_id(), "sub_ecu_eeprom_denso_sh7055_kline");
     ASSERT_TRUE(plan->kernel().has_value());
-    EXPECT_EQ(plan->kernel()->load_address, 0xFFFF6004u);
+    EXPECT_EQ(plan->kernel()->load_address, 0xFFFF6004U);
     EXPECT_THAT(plan->kernel()->bytes, ElementsAre(0xaa, 0xbb));
 }
 
@@ -153,7 +153,7 @@ TEST(BuildEepromReadPlanTest, CanProtocolProducesACanPlan)
     EXPECT_EQ(plan->transport(), TransportKind::CanIso15765);
     EXPECT_EQ(plan->mcu_name(), "SH7058");
     ASSERT_TRUE(plan->kernel().has_value());
-    EXPECT_EQ(plan->kernel()->load_address, 0xFFFF3000u);
+    EXPECT_EQ(plan->kernel()->load_address, 0xFFFF3000U);
 }
 
 // The kernel handle is directory + filename with NO separator inserted:
@@ -168,7 +168,7 @@ TEST(BuildEepromReadPlanTest, KernelHandleIsDirectoryPlusFilenameWithNoAddedSepa
 
     ASSERT_TRUE(plan.has_value());
     // protocols.cfg is read by each catalog loader, then the kernel.
-    ASSERT_EQ(repository.read_handles.size(), 3u);
+    ASSERT_EQ(repository.read_handles.size(), 3U);
     EXPECT_EQ(repository.read_handles.back(), "kernels/ssmk_can_tp_sh7058.bin");
 }
 

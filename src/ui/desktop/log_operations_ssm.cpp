@@ -492,7 +492,7 @@ void MainWindow::log_to_file()
         else
         {
 
-            datalog_file_outstream << QString::number(log_file_timer->elapsed() / 1000.0f) << ",";
+            datalog_file_outstream << QString::number(log_file_timer->elapsed() / 1000.0F) << ",";
             for (int j = 0; j < logValues->dashboard_log_value_id.count(); j++)
             {
                 datalog_file_outstream << logValues->log_value.at(logValues->log_value_id.indexOf(

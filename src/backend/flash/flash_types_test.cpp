@@ -35,7 +35,7 @@ TEST(FlashTypesTest, FamilyPlanHoldsCanVariant)
     };
 
     ASSERT_TRUE(std::holds_alternative<DensoSh705xEepromCanPlan>(plan));
-    EXPECT_EQ(std::get<DensoSh705xEepromCanPlan>(plan).response_id, 0x7e8u);
+    EXPECT_EQ(std::get<DensoSh705xEepromCanPlan>(plan).response_id, 0x7e8U);
 }
 
 TEST(FlashTypesTest, FamilyPlanHoldsMitsuColtM32rCanVariant)
@@ -52,8 +52,8 @@ TEST(FlashTypesTest, FamilyPlanHoldsMitsuColtM32rCanVariant)
     ASSERT_TRUE(std::holds_alternative<MitsuColtM32rCanPlan>(plan));
     const auto *colt_plan = std::get_if<MitsuColtM32rCanPlan>(&plan);
     ASSERT_NE(colt_plan, nullptr);
-    EXPECT_EQ(colt_plan->request_id, 0x7e0u);
-    EXPECT_EQ(colt_plan->response_id, 0x7e8u);
+    EXPECT_EQ(colt_plan->request_id, 0x7e0U);
+    EXPECT_EQ(colt_plan->response_id, 0x7e8U);
     EXPECT_EQ(colt_plan->bitrate, 500000);
     EXPECT_FALSE(colt_plan->extended_id);
     EXPECT_TRUE(colt_plan->use_vendor_challenge);

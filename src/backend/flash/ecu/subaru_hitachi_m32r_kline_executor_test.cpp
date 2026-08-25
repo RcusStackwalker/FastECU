@@ -156,7 +156,7 @@ TEST(SubaruHitachiM32rKlineExecutor, ReadsAt38400ProbeAndReturnsLogicalFullRom)
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     ASSERT_TRUE(result->read_bytes.has_value());
-    EXPECT_EQ(result->read_bytes->size(), 0x80000u);
+    EXPECT_EQ(result->read_bytes->size(), 0x80000U);
     EXPECT_EQ(result->rom_id, std::string("123456789A_"));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.baud_calls_, std::vector<int>{38400});
@@ -182,7 +182,7 @@ TEST(SubaruHitachiM32rKlineExecutor, RecoveryWakeIsBoundedToOneThousandAttempts)
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
-    EXPECT_EQ(transport.writesConsumed(), 1000u);
+    EXPECT_EQ(transport.writesConsumed(), 1000U);
 }
 
 TEST(SubaruHitachiM32rKlineExecutor, ReadFallsBackThrough4800Initialization)

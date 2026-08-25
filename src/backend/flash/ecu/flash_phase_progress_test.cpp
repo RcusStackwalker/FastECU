@@ -97,7 +97,7 @@ TEST(PhaseSequenceTest, StartNumbersPhasesInCallOrder)
     [[maybe_unused]] PhaseReporter second = phases.start("Erase", 1);
     [[maybe_unused]] PhaseReporter third = phases.start("Write", 5);
 
-    ASSERT_EQ(events.phase_progress_calls.size(), 3u);
+    ASSERT_EQ(events.phase_progress_calls.size(), 3U);
     EXPECT_EQ(events.phase_progress_calls[0].phase_index, 1);
     EXPECT_EQ(events.phase_progress_calls[1].phase_index, 2);
     EXPECT_EQ(events.phase_progress_calls[2].phase_index, 3);

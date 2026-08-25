@@ -297,8 +297,8 @@ TEST(SubaruHitachiM32rCanExecutor, TransportSetupReturnsThePlansWireParameters)
 
     ASSERT_TRUE(setup.has_value()) << setup.error().detail;
     EXPECT_EQ(setup->bitrate, 500000);
-    EXPECT_EQ(setup->request_id, 0x7e0u);
-    EXPECT_EQ(setup->response_id, 0x7e8u);
+    EXPECT_EQ(setup->request_id, 0x7e0U);
+    EXPECT_EQ(setup->response_id, 0x7e8U);
     EXPECT_FALSE(setup->extended_id);
 }
 
@@ -338,7 +338,7 @@ TEST(SubaruHitachiM32rCanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyIo)
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
     EXPECT_THAT(result.error().detail, HasSubstr("does not match this executor"));
     EXPECT_THAT(events.logs, IsEmpty());
-    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.writesConsumed(), 0U);
     EXPECT_FALSE(transport.last_config_.has_value());
 }
 
@@ -360,7 +360,7 @@ TEST(SubaruHitachiM32rCanExecutor, ConnectAndReadReturnsTheFullRomFromAddressZer
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     ASSERT_TRUE(result->read_bytes.has_value());
-    EXPECT_EQ(result->read_bytes->size(), 0x80000u);
+    EXPECT_EQ(result->read_bytes->size(), 0x80000U);
     EXPECT_TRUE(std::ranges::all_of(*result->read_bytes, [](bytes::Byte b) { return b == 0x5A; }));
     EXPECT_TRUE(transport.scriptConsumed());
 }
@@ -461,7 +461,7 @@ TEST(SubaruHitachiM32rCanExecutor, ReadStopsWhenCancelledBeforeAnyExchange)
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
 // Cancels the token as soon as the first dump chunk's progress is
@@ -568,7 +568,7 @@ TEST(SubaruHitachiM32rCanExecutor, WriteRefusesAnImageThatDoesNotMatchThePlanBef
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
     EXPECT_THAT(result.error().detail, HasSubstr("0x80000"));
-    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.writesConsumed(), 0U);
     EXPECT_FALSE(transport.last_config_.has_value());
     EXPECT_THAT(events.logs, IsEmpty());
 }
@@ -654,7 +654,7 @@ TEST(SubaruHitachiM32rCanExecutor, RefusesATestWritePlanRatherThanWritingForReal
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Unsupported);
-    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.writesConsumed(), 0U);
     EXPECT_FALSE(transport.last_config_.has_value());
 }
 

@@ -22,15 +22,15 @@ TEST(SubaruMitsuM32rKlinePlan, SnapshotsExactWireAndMemoryContract)
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         EXPECT_EQ(plan->family(), FlashFamily::SubaruMitsuM32rKline);
         EXPECT_EQ(plan->transport(), TransportKind::Kline);
-        EXPECT_EQ(plan->transfer_region().start, 0x8000u);
-        EXPECT_EQ(plan->transfer_region().length, 0x78000u);
+        EXPECT_EQ(plan->transfer_region().start, 0x8000U);
+        EXPECT_EQ(plan->transfer_region().length, 0x78000U);
         EXPECT_FALSE(plan->kernel().has_value());
         const auto& family = std::get<SubaruMitsuM32rKlinePlan>(plan->family_plan());
         EXPECT_EQ(family.tester_id, 0xf0);
         EXPECT_EQ(family.target_id, 0x10);
         EXPECT_EQ(family.initial_baud, 4800);
         EXPECT_EQ(family.flash_baud, 15625);
-        EXPECT_EQ(family.chunk_size, 128u);
+        EXPECT_EQ(family.chunk_size, 128U);
         EXPECT_EQ(family.unread_prefix_fill, 0xff);
     }
 }
