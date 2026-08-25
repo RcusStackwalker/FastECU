@@ -1169,53 +1169,36 @@ void MainWindow::toggle_realtime()
         }
         logging_state = true;
 
-        fastecu::desktop::logging::LogSessionConfig config;
-        fastecu::logging::LoggingProtocolId protocol_id;
-        fastecu::logging::LoggingPolicy logging_policy{};
+        fastecu::desktop::logging::LegacyLoggingStartRequest request;
         if (configValues->flash_protocol_selected_log_protocol == "MUT_DMA")
         {
-            config.protocolId = "MUT_DMA";
-            activeLogValueProtocolFilter = "MUT_DMA";
-            protocol_id = fastecu::logging::LoggingProtocolId::MutDma;
-            logging_policy = {.poll_timeout_ms = 50,
+            request.protocol = fastecu::logging::LoggingProtocolId::MutDma;
+            request.protocol_filter = "MUT_DMA";
+            request.policy = {.poll_timeout_ms = 50,
                               .car_silence_miss_threshold = 20,
                               .reconnect_attempt_threshold = 100,
                               .reconnect_retry_period = 20};
         }
         else if (configValues->flash_protocol_selected_log_protocol == "CDBG")
         {
-            config.protocolId = "CDBG";
-            activeLogValueProtocolFilter = "CDBG";
-            protocol_id = fastecu::logging::LoggingProtocolId::Cdbg;
-            logging_policy = {.poll_timeout_ms = 50,
+            request.protocol = fastecu::logging::LoggingProtocolId::Cdbg;
+            request.protocol_filter = "CDBG";
+            request.policy = {.poll_timeout_ms = 50,
                               .car_silence_miss_threshold = 20,
                               .reconnect_attempt_threshold = 100,
                               .reconnect_retry_period = 20};
         }
         else
         {
-            config.protocolId = "SSM";
-            activeLogValueProtocolFilter = protocol;
-            protocol_id = fastecu::logging::LoggingProtocolId::Ssm;
-            logging_policy = {.poll_timeout_ms = 300,
+            request.protocol = fastecu::logging::LoggingProtocolId::Ssm;
+            request.protocol_filter = protocol;
+            request.policy = {.poll_timeout_ms = 300,
                               .car_silence_miss_threshold = 10,
                               .reconnect_attempt_threshold = 30,
                               .reconnect_retry_period = 10};
         }
 
-        auto snapshot = fastecu::desktop::logging::make_desktop_logging_snapshot(
-            *logValues, protocol_id, activeLogValueProtocolFilter, logging_policy);
-        if (!snapshot)
-        {
-            emit LOG_E("Logging session failed to start: " + QString::fromStdString(snapshot.error().detail), true,
-                       true);
-            restoreLoggingUiState();
-            QMessageBox::information(this, tr("Logging"), "Unable to start logging");
-            return;
-        }
-
-        activeLoggingSnapshot.emplace(*snapshot);
-        const auto started = loggingEngine->start(config, std::move(*snapshot));
+        const auto started = loggingCoordinator->start(request);
         if (!started)
         {
             restoreLoggingUiState();
@@ -1232,7 +1215,7 @@ void MainWindow::toggle_realtime()
             datalog_file.close();
         }
 
-        loggingEngine->stop();
+        loggingCoordinator->stop();
 
         // disconnect_from_ecu();
     }
