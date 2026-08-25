@@ -31,6 +31,13 @@ DesktopLoggingSnapshot snapshot()
 
 } // namespace
 
+// QSignalSpy::wait() is safe in this suite -- unlike in logging_worker_test.cpp
+// -- because LoggingEngine does not emit on the worker thread. It receives
+// LoggingWorker's signals over a queued connection (worker and engine live on
+// different threads), so sessionEnded/valuesUpdated are re-emitted on this
+// thread from inside the very event loop wait() is running. The emission
+// therefore cannot precede wait()'s baseline snapshot the way it can when a
+// spy is attached straight to a QThread subclass's own signal.
 class TestLoggingEngine : public QObject
 {
     Q_OBJECT

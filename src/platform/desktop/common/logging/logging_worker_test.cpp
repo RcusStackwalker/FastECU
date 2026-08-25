@@ -2,6 +2,8 @@
 #include <QElapsedTimer>
 #include <QSignalSpy>
 
+#include <chrono>
+
 #include "src/backend/logging/testing/scripted_logging_protocol.h"
 #include "src/platform/desktop/common/logging/logging_worker.h"
 
@@ -63,9 +65,15 @@ class TestLoggingWorker : public QObject
         QSignalSpy finished_spy(&worker, &LoggingWorker::sessionFinished);
 
         worker.start();
-        QVERIFY(samples_spy.wait(2000));
+        // Cue off the protocol fake's own condition variable, then join. A
+        // QSignalSpy connects with Qt::DirectConnection, so the worker thread
+        // records samplesReady itself; QSignalSpy::wait() is edge-triggered
+        // and reports only emissions arriving after it snapshots its baseline
+        // count, so an emission that lands first makes it burn its whole
+        // timeout and return false. Joining is what makes the spies final.
+        QVERIFY(protocol.waitUntilQueuedPollResultsConsumed(std::chrono::milliseconds(2000)));
         worker.requestStop();
-        QVERIFY(worker.wait(500));
+        QVERIFY(worker.wait(2000));
 
         QVERIFY(state_spy.size() >= 3);
         QCOMPARE(state_spy.at(0).at(0).value<LoggingState>(), LoggingState::Running);
@@ -91,8 +99,10 @@ class TestLoggingWorker : public QObject
         QSignalSpy finished_spy(&worker, &LoggingWorker::sessionFinished);
 
         worker.start();
-        QVERIFY(finished_spy.wait(2000));
-        QVERIFY(worker.wait(500));
+        // Joining is sufficient: run() emits sessionFinished last, so once the
+        // thread is joined the spy is final. See the note above for why
+        // QSignalSpy::wait() is the wrong tool here.
+        QVERIFY(worker.wait(2000));
 
         const auto result = finished_spy.at(0).at(0).value<fastecu::Status>();
         QVERIFY(!result.has_value());
