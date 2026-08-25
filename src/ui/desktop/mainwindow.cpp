@@ -500,8 +500,6 @@ MainWindow::~MainWindow()
 {
     if (logging_state)
     {
-        logging_state = false;
-        log_params_request_started = false;
         loggingEngine->stop();
     }
 }
@@ -2519,14 +2517,16 @@ void MainWindow::update_vbatt()
 
 void MainWindow::setupLoggingEngine()
 {
-    loggingEngine = new LoggingEngine(this);
+    loggingEngine = new fastecu::desktop::logging::LoggingEngine(this);
 
-    connect(loggingEngine, &LoggingEngine::valuesUpdated, this, &MainWindow::handleLoggingValuesUpdated);
-    connect(loggingEngine, &LoggingEngine::sessionEnded, this, &MainWindow::handleLoggingSessionEnded);
-    connect(loggingEngine, &LoggingEngine::LOG_E, syslogger, &SystemLogger::log_messages);
-    connect(loggingEngine, &LoggingEngine::LOG_W, syslogger, &SystemLogger::log_messages);
-    connect(loggingEngine, &LoggingEngine::LOG_I, syslogger, &SystemLogger::log_messages);
-    connect(loggingEngine, &LoggingEngine::LOG_D, syslogger, &SystemLogger::log_messages);
+    connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::valuesUpdated, this,
+            &MainWindow::handleLoggingValuesUpdated);
+    connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::sessionEnded, this,
+            &MainWindow::handleLoggingSessionEnded);
+    connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::LOG_E, syslogger, &SystemLogger::log_messages);
+    connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::LOG_W, syslogger, &SystemLogger::log_messages);
+    connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::LOG_I, syslogger, &SystemLogger::log_messages);
+    connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::LOG_D, syslogger, &SystemLogger::log_messages);
 
     loggingEngine->registerProtocol("MUT_DMA",
                                     [this](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
@@ -2597,10 +2597,11 @@ void MainWindow::handleLoggingValuesUpdated(const QVector<fastecu::logging::LogS
     log_to_file();
 }
 
-void MainWindow::handleLoggingSessionEnded(SessionEndReason reason, const QString& message)
+void MainWindow::restoreLoggingUiState()
 {
     activeLoggingSnapshot.reset();
     logging_state = false;
+    log_params_request_started = false;
     QList<QMenu *> menus = ui->menubar->findChildren<QMenu *>();
     foreach (QMenu *menu, menus)
     {
@@ -2612,16 +2613,26 @@ void MainWindow::handleLoggingSessionEnded(SessionEndReason reason, const QStrin
             }
         }
     }
+}
 
-    if (reason == SessionEndReason::AdapterDisconnected)
+void MainWindow::handleLoggingSessionEnded(fastecu::desktop::logging::SessionEndReason reason, const QString& message)
+{
+    restoreLoggingUiState();
+
+    if (reason == fastecu::desktop::logging::SessionEndReason::StoppedByUser)
+    {
+        return;
+    }
+
+    if (reason == fastecu::desktop::logging::SessionEndReason::AdapterDisconnected)
     {
         QMessageBox::warning(this, tr("Logging"), "Logging adapter disconnected: " + message);
     }
-    else if (reason == SessionEndReason::HandshakeFailed)
+    else if (reason == fastecu::desktop::logging::SessionEndReason::HandshakeFailed)
     {
         QMessageBox::warning(this, tr("Logging"), "Unable to start logging: " + message);
     }
-    else if (reason == SessionEndReason::RuntimeFailed)
+    else if (reason == fastecu::desktop::logging::SessionEndReason::RuntimeFailed)
     {
         QMessageBox::warning(this, tr("Logging"), "Logging stopped: " + message);
     }
