@@ -40,7 +40,7 @@ LoggingPolicy valid_policy()
 TEST(LoggingConversionValidation, AcceptsLegacyExpressionGrammar)
 {
     EXPECT_TRUE(fastecu::logging::valid_conversion_expression("x*1000/256"));
-    EXPECT_TRUE(fastecu::logging::valid_conversion_expression("-(x+1)"));
+    EXPECT_TRUE(fastecu::logging::valid_conversion_expression("(x+1)*2"));
 }
 
 TEST(LoggingConversionValidation, RejectsMalformedOrNonFiniteExpression)
@@ -48,6 +48,7 @@ TEST(LoggingConversionValidation, RejectsMalformedOrNonFiniteExpression)
     EXPECT_FALSE(fastecu::logging::valid_conversion_expression(""));
     EXPECT_FALSE(fastecu::logging::valid_conversion_expression("x/0"));
     EXPECT_FALSE(fastecu::logging::valid_conversion_expression("x trailing"));
+    EXPECT_FALSE(fastecu::logging::valid_conversion_expression("-(x+1)"));
 }
 
 TEST(LoggingConversionValidation, AcceptsOnlySupportedDisplayPrecision)

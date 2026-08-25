@@ -121,12 +121,16 @@ class ExpressionValidator
     {
         if (consume('-'))
         {
-            ParsedValue factor = parse_factor();
-            if (factor.valid && !factor.depends_on_x)
+            if (consume('x'))
             {
-                factor.value = -factor.value;
+                return {.valid = true, .depends_on_x = true};
             }
-            return factor;
+            ParsedValue number = parse_number();
+            if (number.valid)
+            {
+                number.value = -number.value;
+            }
+            return number;
         }
         if (consume('x'))
         {
