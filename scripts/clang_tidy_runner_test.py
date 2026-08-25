@@ -28,7 +28,7 @@ _UNIX_TOOLS = runner.Tools(
 class ClangTidyRunnerTest(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.root = Path(self.temp_dir.name) / "workspace"
+        self.root = Path(self.temp_dir.name).resolve() / "workspace"
         self.root.mkdir()
         (self.root / ".clang-tidy").write_text("Checks: '-*'\n")
 
@@ -167,9 +167,9 @@ class ClangTidyRunnerTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             runner.WorkflowError,
-            rf"resolves outside the workspace.*{re.escape(str(outside.resolve()))}",
+            rf"does not name a workspace file.*{re.escape(str(outside))}",
         ):
-            runner._entry_source_path(entry, self.root)
+            runner._entry_source_path(entry, runner._workspace_tree(self.root))
 
     def test_database_silently_excludes_entries_outside_workspace(self) -> None:
         source = self.root / _MAIN_CPP
