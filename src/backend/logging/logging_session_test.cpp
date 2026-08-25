@@ -37,6 +37,26 @@ LoggingPolicy valid_policy()
 
 } // namespace
 
+TEST(LoggingConversionValidation, AcceptsLegacyExpressionGrammar)
+{
+    EXPECT_TRUE(fastecu::logging::valid_conversion_expression("x*1000/256"));
+    EXPECT_TRUE(fastecu::logging::valid_conversion_expression("-(x+1)"));
+}
+
+TEST(LoggingConversionValidation, RejectsMalformedOrNonFiniteExpression)
+{
+    EXPECT_FALSE(fastecu::logging::valid_conversion_expression(""));
+    EXPECT_FALSE(fastecu::logging::valid_conversion_expression("x/0"));
+    EXPECT_FALSE(fastecu::logging::valid_conversion_expression("x trailing"));
+}
+
+TEST(LoggingConversionValidation, AcceptsOnlySupportedDisplayPrecision)
+{
+    EXPECT_TRUE(fastecu::logging::valid_display_precision(0));
+    EXPECT_TRUE(fastecu::logging::valid_display_precision(15));
+    EXPECT_FALSE(fastecu::logging::valid_display_precision(16));
+}
+
 TEST(LoggingSessionTest, RejectsDuplicateStableIds)
 {
     auto channels = valid_channels();

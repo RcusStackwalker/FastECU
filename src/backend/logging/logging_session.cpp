@@ -121,16 +121,12 @@ class ExpressionValidator
     {
         if (consume('-'))
         {
-            if (consume('x'))
+            ParsedValue factor = parse_factor();
+            if (factor.valid && !factor.depends_on_x)
             {
-                return {.valid = true, .depends_on_x = true};
+                factor.value = -factor.value;
             }
-            ParsedValue number = parse_number();
-            if (number.valid)
-            {
-                number.value = -number.value;
-            }
-            return number;
+            return factor;
         }
         if (consume('x'))
         {
@@ -244,7 +240,7 @@ class ExpressionValidator
 
 bool valid_expression(const LoggingChannel& channel)
 {
-    if (channel.from_byte_expression.empty() || !ExpressionValidator(channel.from_byte_expression).valid())
+    if (!valid_conversion_expression(channel.from_byte_expression))
     {
         return false;
     }
@@ -318,6 +314,16 @@ bool valid_wire_shape(LoggingProtocolId protocol, const std::vector<LoggingChann
 
 } // namespace
 
+bool valid_conversion_expression(std::string_view expression)
+{
+    return ExpressionValidator(expression).valid();
+}
+
+bool valid_display_precision(std::uint8_t precision)
+{
+    return precision <= 15;
+}
+
 LoggingSession::LoggingSession(LoggingProtocolId protocol, std::vector<LoggingChannel> channels, LoggingPolicy policy)
     : protocol_(protocol), channels_(std::move(channels)), policy_(policy)
 {
@@ -368,7 +374,7 @@ fastecu::Result<LoggingSession> make_logging_session(LoggingProtocolId protocol,
     {
         if (channel.id.empty() || !ids.insert(channel.id).second || channel.length == 0 || channel.length > 255 ||
             !valid_address(protocol, channel.address) || !valid_raw_assembly(channel.raw_assembly) ||
-            channel.decimal_precision > 15 || !valid_expression(channel))
+            !valid_display_precision(channel.decimal_precision) || !valid_expression(channel))
         {
             return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "invalid logging channel");
         }
