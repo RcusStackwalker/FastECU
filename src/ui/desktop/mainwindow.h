@@ -252,7 +252,7 @@ class MainWindow : public QMainWindow
     // QTimer *ssm_init_poll_timer;
     uint16_t ssm_init_poll_timer_timeout = 250;
 
-    LoggingEngine *loggingEngine = nullptr;
+    fastecu::desktop::logging::LoggingEngine *loggingEngine = nullptr;
     std::optional<fastecu::desktop::logging::DesktopLoggingSnapshot> activeLoggingSnapshot;
     QtClock m_loggingClock;
     QString activeLogValueProtocolFilter;
@@ -320,6 +320,7 @@ class MainWindow : public QMainWindow
     QByteArray mut_read_memory(quint16 addr, int len);
 
     void setupLoggingEngine();
+    void restoreLoggingUiState();
 
     // logvalues.c
     void change_log_values(int tabIndex, const QString& protocol_arg);
@@ -393,7 +394,7 @@ class MainWindow : public QMainWindow
     // log_operations.c
     bool ecu_init();
     void handleLoggingValuesUpdated(const QVector<fastecu::logging::LogSample>& samples);
-    void handleLoggingSessionEnded(SessionEndReason reason, const QString& message);
+    void handleLoggingSessionEnded(fastecu::desktop::logging::SessionEndReason reason, const QString& message);
 
     // menu_actions.c
     void menu_action_triggered(const QString& action);
