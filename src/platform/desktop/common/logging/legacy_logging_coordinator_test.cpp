@@ -1,4 +1,6 @@
 #include <QtTest>
+#include <QCoreApplication>
+#include <QEvent>
 #include <QSignalSpy>
 
 #include <memory>
@@ -142,6 +144,8 @@ class LegacyLoggingCoordinatorTest : public QObject
     void unknown_sample_id_reports_error_without_stopping_later_batches();
     void terminal_forwarding_clears_mapping_before_observers_run();
     void stop_and_all_terminal_reasons_clear_the_retained_mapping();
+    void stop_without_an_owned_run_does_not_stop_the_engine();
+    void stale_queued_samples_from_a_stopped_run_do_not_apply_after_restart();
     void diagnostics_preserve_engine_severity();
 };
 
@@ -389,6 +393,47 @@ void LegacyLoggingCoordinatorTest::stop_and_all_terminal_reasons_clear_the_retai
     coordinator->stop();
     QCOMPARE(stop_calls, 1);
     QVERIFY(!coordinator->hasRetainedMapping());
+}
+
+void LegacyLoggingCoordinatorTest::stop_without_an_owned_run_does_not_stop_the_engine()
+{
+    LoggingEngine engine;
+    auto values = values_for();
+    int stop_calls = 0;
+    auto dependencies = successful_dependencies();
+    dependencies.stop_engine = [&stop_calls]() { ++stop_calls; };
+    auto coordinator = LegacyLoggingCoordinatorTestAccess::make(engine, values, std::move(dependencies));
+
+    coordinator->stop();
+
+    QCOMPARE(stop_calls, 0);
+    QVERIFY(!coordinator->hasRetainedMapping());
+    QVERIFY(coordinator->activeProtocolFilter().isEmpty());
+}
+
+void LegacyLoggingCoordinatorTest::stale_queued_samples_from_a_stopped_run_do_not_apply_after_restart()
+{
+    LoggingEngine engine;
+    auto values = values_for();
+    int stop_calls = 0;
+    auto dependencies = successful_dependencies();
+    dependencies.stop_engine = [&stop_calls]() { ++stop_calls; };
+    auto coordinator = LegacyLoggingCoordinatorTestAccess::make(engine, values, std::move(dependencies));
+    QSignalSpy applied_spy(coordinator.get(), &LegacyLoggingCoordinator::valuesApplied);
+
+    QVERIFY(coordinator->start(request_for(LoggingProtocolId::Ssm, QStringLiteral("SSM"))).has_value());
+    emit engine.valuesUpdated({LogSample{.channel_id = "rpm", .numeric_value = 10.0}});
+    coordinator->stop();
+    QVERIFY(coordinator->start(request_for(LoggingProtocolId::Ssm, QStringLiteral("SSM"))).has_value());
+
+    QCoreApplication::sendPostedEvents(coordinator.get(), QEvent::MetaCall);
+    QCOMPARE(stop_calls, 1);
+    QCOMPARE(applied_spy.count(), 0);
+    QCOMPARE(values.log_value.at(1), QStringLiteral("unchanged-rpm"));
+
+    emit engine.valuesUpdated({LogSample{.channel_id = "rpm", .numeric_value = 42.0}});
+    QTRY_COMPARE(applied_spy.count(), 1);
+    QCOMPARE(values.log_value.at(1), QStringLiteral("42.00"));
 }
 
 void LegacyLoggingCoordinatorTest::diagnostics_preserve_engine_severity()

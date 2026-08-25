@@ -3,6 +3,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <cstdint>
 
 #include <QObject>
 #include <QString>
@@ -66,7 +67,7 @@ class LegacyLoggingCoordinator final : public QObject
     LegacyLoggingCoordinator(LoggingEngine& engine, FileActions::LogValuesStructure& values,
                              ConstructionDependencies dependencies, TestingTag, QObject *parent = nullptr);
 
-    void handleSamples(QVector<fastecu::logging::LogSample> samples);
+    void handleSamples(std::uint64_t generation, QVector<fastecu::logging::LogSample> samples);
     void handleSessionEnded(SessionEndReason reason, QString detail);
     void clearActiveMapping();
 
@@ -75,6 +76,9 @@ class LegacyLoggingCoordinator final : public QObject
     ConstructionDependencies dependencies_;
     std::optional<LegacyLoggingMapping> active_mapping_;
     QString active_protocol_filter_;
+    QMetaObject::Connection sample_connection_;
+    std::uint64_t active_run_generation_ = 0;
+    std::uint64_t next_run_generation_ = 0;
 
     friend class LegacyLoggingCoordinatorTestAccess;
 };

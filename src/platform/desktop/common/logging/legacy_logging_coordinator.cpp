@@ -27,8 +27,6 @@ LegacyLoggingCoordinator::LegacyLoggingCoordinator(LoggingEngine& engine, FileAc
                                                    ConstructionDependencies dependencies, TestingTag, QObject *parent)
     : QObject(parent), engine_(engine), values_(values), dependencies_(std::move(dependencies))
 {
-    connect(&engine_, &LoggingEngine::valuesUpdated, this, &LegacyLoggingCoordinator::handleSamples,
-            Qt::QueuedConnection);
     connect(&engine_, &LoggingEngine::sessionEnded, this, &LegacyLoggingCoordinator::handleSessionEnded);
     connect(&engine_, &LoggingEngine::LOG_E, this, [this](const QString& message, bool, bool)
             { emit diagnostic(static_cast<int>(fastecu::LogLevel::Error), message); });
@@ -55,6 +53,7 @@ fastecu::Status LegacyLoggingCoordinator::start(const LegacyLoggingStartRequest&
 
     active_mapping_.emplace(std::move(prepared->mapping));
     active_protocol_filter_ = request.protocol_filter;
+    active_run_generation_ = ++next_run_generation_;
     const LegacyProtocolRequest protocol_request{
         .protocol = request.protocol,
         .channels = prepared->session.channels(),
@@ -88,6 +87,12 @@ fastecu::Status LegacyLoggingCoordinator::start(const LegacyLoggingStartRequest&
         return fastecu::fail(fastecu::ErrorKind::Internal, "legacy protocol factory returned null");
     }
 
+    const std::uint64_t run_generation = active_run_generation_;
+    sample_connection_ = connect(
+        &engine_, &LoggingEngine::valuesUpdated, this,
+        [this, run_generation](QVector<fastecu::logging::LogSample> samples)
+        { handleSamples(run_generation, std::move(samples)); }, Qt::QueuedConnection);
+
     fastecu::Status started = fastecu::fail(fastecu::ErrorKind::Internal, "logging engine did not return");
     try
     {
@@ -115,6 +120,10 @@ fastecu::Status LegacyLoggingCoordinator::start(const LegacyLoggingStartRequest&
 
 void LegacyLoggingCoordinator::stop()
 {
+    if (!active_mapping_)
+    {
+        return;
+    }
     clearActiveMapping();
     dependencies_.stop_engine();
 }
@@ -129,9 +138,9 @@ QString LegacyLoggingCoordinator::activeProtocolFilter() const
     return active_protocol_filter_;
 }
 
-void LegacyLoggingCoordinator::handleSamples(QVector<fastecu::logging::LogSample> samples)
+void LegacyLoggingCoordinator::handleSamples(std::uint64_t generation, QVector<fastecu::logging::LogSample> samples)
 {
-    if (!active_mapping_)
+    if (!active_mapping_ || active_run_generation_ != generation)
     {
         return;
     }
@@ -155,6 +164,9 @@ void LegacyLoggingCoordinator::handleSessionEnded(SessionEndReason reason, QStri
 
 void LegacyLoggingCoordinator::clearActiveMapping()
 {
+    disconnect(sample_connection_);
+    sample_connection_ = {};
+    active_run_generation_ = 0;
     active_mapping_.reset();
     active_protocol_filter_.clear();
 }
