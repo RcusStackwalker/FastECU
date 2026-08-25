@@ -3,6 +3,7 @@
 
 #include <functional>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -14,6 +15,11 @@
 
 namespace desktop_logging = fastecu::desktop::logging;
 namespace portable_logging = fastecu::logging;
+
+static_assert(!std::is_copy_constructible_v<desktop_logging::PreparedLegacyLoggingSession>);
+static_assert(!std::is_copy_assignable_v<desktop_logging::PreparedLegacyLoggingSession>);
+static_assert(std::is_move_constructible_v<desktop_logging::PreparedLegacyLoggingSession>);
+static_assert(std::is_move_assignable_v<desktop_logging::PreparedLegacyLoggingSession>);
 
 namespace
 {

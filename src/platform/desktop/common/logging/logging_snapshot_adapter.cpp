@@ -153,10 +153,7 @@ make_prepared_legacy_logging_session(const FileActions::LogValuesStructure& log_
     {
         return std::unexpected(session.error());
     }
-    return PreparedLegacyLoggingSession{
-        .session = std::move(*session),
-        .mapping = std::move(mapping),
-    };
+    return PreparedLegacyLoggingSession(std::move(*session), std::move(mapping));
 }
 
 } // namespace fastecu::desktop::logging

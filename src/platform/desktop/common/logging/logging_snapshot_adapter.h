@@ -2,6 +2,7 @@
 
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include <QString>
@@ -26,6 +27,16 @@ struct LegacyLoggingMapping
 // owners split them for the logging engine and GUI coordinator respectively.
 struct PreparedLegacyLoggingSession
 {
+    PreparedLegacyLoggingSession(fastecu::logging::LoggingSession&& session, LegacyLoggingMapping&& mapping)
+        : session(std::move(session)), mapping(std::move(mapping))
+    {
+    }
+
+    PreparedLegacyLoggingSession(const PreparedLegacyLoggingSession&) = delete;
+    auto operator=(const PreparedLegacyLoggingSession&) -> PreparedLegacyLoggingSession& = delete;
+    PreparedLegacyLoggingSession(PreparedLegacyLoggingSession&&) = default;
+    auto operator=(PreparedLegacyLoggingSession&&) -> PreparedLegacyLoggingSession& = default;
+
     fastecu::logging::LoggingSession session;
     LegacyLoggingMapping mapping;
 };
