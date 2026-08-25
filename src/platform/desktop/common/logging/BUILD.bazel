@@ -32,7 +32,6 @@ fastecu_qttest(
     name = "test_logging_engine",
     src = "logging_engine_test.cpp",
     deps = [
-        ":logging_adapters",
         ":logging_runtime",
         "//src/backend/logging/testing:scripted_logging_protocol",
     ],
@@ -50,7 +49,6 @@ fastecu_qttest(
 qt_cc_library(
     name = "logging_runtime",
     srcs = [
-        "cdbg_serial_setup.cpp",
         "logging_engine.cpp",
         "logging_worker.cpp",
     ],
@@ -59,11 +57,7 @@ qt_cc_library(
         "logging_worker.h",
     ],
     copts = COMMON_COPTS,
-    normal_hdrs = [
-        "cdbg_serial_setup.h",
-    ],
     deps = QT_DEPS + [
-        ":logging_adapters",
         "//src/backend/logging:logging_use_case",
         "//src/backend/ports",
         "//src/platform/desktop/common/ports",

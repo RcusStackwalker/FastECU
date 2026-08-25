@@ -1,18 +1,16 @@
 #pragma once
 
-#include <QMap>
 #include <QMetaType>
 #include <QObject>
 #include <QString>
 #include <QVector>
 
-#include <functional>
 #include <cstdint>
 #include <memory>
 #include <optional>
 
 #include "src/backend/logging/logging_protocol.h"
-#include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
+#include "src/backend/logging/logging_session.h"
 #include "src/platform/desktop/common/logging/logging_worker.h"
 #include "src/platform/desktop/common/ports/qt_event_sink.h"
 
@@ -33,13 +31,11 @@ enum class SessionEndReason
     RuntimeFailed,
 };
 
-struct LogSessionConfig
+struct LoggingRun
 {
-    QString protocolId;
+    fastecu::logging::LoggingSession session;
+    std::unique_ptr<fastecu::logging::LoggingProtocol> protocol;
 };
-
-using LoggingProtocolFactory =
-    std::function<fastecu::Result<std::unique_ptr<fastecu::logging::LoggingProtocol>>(const DesktopLoggingSnapshot&)>;
 
 class LoggingEngine final : public QObject
 {
@@ -48,8 +44,7 @@ class LoggingEngine final : public QObject
     explicit LoggingEngine(QObject *parent = nullptr);
     ~LoggingEngine() override;
 
-    void registerProtocol(const QString& protocol_id, const LoggingProtocolFactory& factory);
-    fastecu::Status start(const LogSessionConfig& config, DesktopLoggingSnapshot snapshot);
+    fastecu::Status start(LoggingRun run);
     void stop();
     bool isRunning() const;
 
@@ -73,8 +68,7 @@ class LoggingEngine final : public QObject
     void publishCompletionOnce(SessionEndReason reason, QString detail);
     void reportStartError(const fastecu::Error& error);
 
-    QMap<QString, LoggingProtocolFactory> registrations_;
-    std::optional<DesktopLoggingSnapshot> active_snapshot_;
+    std::optional<fastecu::logging::LoggingSession> active_session_;
     std::unique_ptr<fastecu::logging::LoggingProtocol> active_protocol_;
     LoggingWorker *active_worker_ = nullptr;
     QtEventSink diagnostics_;

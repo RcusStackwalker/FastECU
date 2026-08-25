@@ -1,6 +1,5 @@
 #include "src/platform/desktop/common/logging/logging_engine.h"
 
-#include <exception>
 #include <utility>
 
 namespace fastecu::desktop::logging
@@ -22,17 +21,12 @@ LoggingEngine::~LoggingEngine()
     joinAndReleaseActiveRun();
 }
 
-void LoggingEngine::registerProtocol(const QString& protocol_id, const LoggingProtocolFactory& factory)
-{
-    registrations_.insert(protocol_id, factory);
-}
-
 bool LoggingEngine::isRunning() const
 {
     return active_worker_ != nullptr;
 }
 
-fastecu::Status LoggingEngine::start(const LogSessionConfig& config, DesktopLoggingSnapshot snapshot)
+fastecu::Status LoggingEngine::start(LoggingRun run)
 {
     if (isRunning())
     {
@@ -41,52 +35,22 @@ fastecu::Status LoggingEngine::start(const LogSessionConfig& config, DesktopLogg
         return std::unexpected(error);
     }
 
-    const auto registration = registrations_.constFind(config.protocolId);
-    if (registration == registrations_.constEnd())
+    if (!run.protocol)
     {
-        const fastecu::Error error{fastecu::ErrorKind::InvalidConfig,
-                                   "no logging protocol registered for '" + config.protocolId.toStdString() + "'"};
+        const fastecu::Error error{fastecu::ErrorKind::InvalidConfig, "logging protocol is null"};
         reportStartError(error);
         return std::unexpected(error);
     }
 
-    active_snapshot_.emplace(std::move(snapshot));
-    fastecu::Result<std::unique_ptr<fastecu::logging::LoggingProtocol>> protocol_result;
-    try
-    {
-        protocol_result = (*registration)(*active_snapshot_);
-    }
-    catch (const std::exception& error)
-    {
-        protocol_result = fastecu::fail(fastecu::ErrorKind::Internal, error.what());
-    }
-    catch (...)
-    {
-        protocol_result = fastecu::fail(fastecu::ErrorKind::Internal, "protocol factory threw an unknown exception");
-    }
-    if (!protocol_result)
-    {
-        const fastecu::Error error = protocol_result.error();
-        active_snapshot_.reset();
-        reportStartError(error);
-        return std::unexpected(error);
-    }
-    active_protocol_ = std::move(*protocol_result);
-    if (!active_protocol_)
-    {
-        const fastecu::Error error{fastecu::ErrorKind::Internal,
-                                   "protocol factory for '" + config.protocolId.toStdString() + "' returned null"};
-        active_snapshot_.reset();
-        reportStartError(error);
-        return std::unexpected(error);
-    }
+    active_session_.emplace(std::move(run.session));
+    active_protocol_ = std::move(run.protocol);
 
     last_status_.reset();
     worker_reached_running_ = false;
     explicit_stop_pending_ = false;
     completion_published_ = false;
     active_run_generation_ = ++next_run_generation_;
-    active_worker_ = new LoggingWorker(active_snapshot_->session, active_protocol_.get(), diagnostics_, this);
+    active_worker_ = new LoggingWorker(*active_session_, active_protocol_.get(), diagnostics_, this);
     const std::uint64_t run_generation = active_run_generation_;
     connect(active_worker_, &LoggingWorker::samplesReady, this,
             [this, run_generation](QVector<fastecu::logging::LogSample> samples)
@@ -208,7 +172,7 @@ void LoggingEngine::joinAndReleaseActiveRun()
     }
     active_run_generation_ = 0;
     active_protocol_.reset();
-    active_snapshot_.reset();
+    active_session_.reset();
     last_status_.reset();
     worker_reached_running_ = false;
 }
