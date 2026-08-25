@@ -4,6 +4,18 @@
 #include <QWidget>
 #include "src/platform/desktop/common/flash/legacy/flash_operation_worker.h"
 
+// Waiting convention for this suite: every "has the operation finished yet"
+// check is a QTRY_* poll, never QSignalSpy::wait().
+//
+// QSignalSpy connects with Qt::DirectConnection, so FlashOperationWorker --
+// a QThread subclass -- appends to the spy on its *own* thread the moment it
+// emits. QSignalSpy::wait() is edge-triggered: it snapshots the spy's count on
+// entry and reports only emissions arriving strictly after that snapshot, so an
+// emission that got there first makes it burn its whole timeout and return
+// false. QTRY_* re-checks the condition instead, which is level-triggered and
+// therefore immune to that race, and it keeps pumping this thread's event loop
+// -- which execute()'s confirm() needs in order to unblock the
+// BlockingQueuedConnection it makes back onto this thread.
 class ScriptedOperation : public FlashOperationWorker
 {
     Q_OBJECT
@@ -50,7 +62,7 @@ class TestFlashOperationWorker : public QObject
         QSignalSpy finishedSpy(&op, &FlashOperationWorker::operationFinished);
 
         op.start();
-        QVERIFY(finishedSpy.wait(2000));
+        QTRY_VERIFY_WITH_TIMEOUT(!finishedSpy.empty(), 2000);
         QCOMPARE(finishedSpy.size(), 1);
         QCOMPARE(finishedSpy.at(0).at(0).toBool(), true);
         QVERIFY(op.wait(2000));
@@ -66,7 +78,7 @@ class TestFlashOperationWorker : public QObject
         op.start();
         QTest::qWait(20);
         op.requestStop();
-        QVERIFY(finishedSpy.wait(2000));
+        QTRY_VERIFY_WITH_TIMEOUT(!finishedSpy.empty(), 2000);
         QCOMPARE(finishedSpy.at(0).at(0).toBool(), false);
         QVERIFY(op.wait(2000));
     }
@@ -84,7 +96,7 @@ class TestFlashOperationWorker : public QObject
         QSignalSpy finishedSpy(&op, &FlashOperationWorker::operationFinished);
 
         op.start();
-        QVERIFY(finishedSpy.wait(2000));
+        QTRY_VERIFY_WITH_TIMEOUT(!finishedSpy.empty(), 2000);
         QVERIFY(op.wait(2000));
 
         QCOMPARE(op.confirmResultSeen, int(QMessageBox::Yes));
@@ -104,7 +116,7 @@ class TestFlashOperationWorker : public QObject
         QSignalSpy finishedSpy(&op, &FlashOperationWorker::operationFinished);
 
         op.start();
-        QVERIFY(finishedSpy.wait(2000));
+        QTRY_VERIFY_WITH_TIMEOUT(!finishedSpy.empty(), 2000);
         QVERIFY(op.wait(2000));
 
         QTRY_COMPARE(logSpy.size(), 1);
