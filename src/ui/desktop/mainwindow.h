@@ -184,7 +184,7 @@ class MainWindow : public QMainWindow
     QtAtomicFileWriter m_definitionFileWriter;
     fastecu::ui::ChecksumCorrectionCommand m_checksumCorrectionCommand;
     FileActions *fileActions;
-    FileActions::LogValuesStructure *logValues;
+    FileActions::LogValuesStructure *logValues = nullptr;
     FileActions::ConfigValuesStructure *configValues;
     FileActions::EcuCalDefStructure *ecuCalDef[100]{};
     // FileActions::EcuCalDefStructure *ecuCalDefTemp;

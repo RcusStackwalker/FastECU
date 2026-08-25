@@ -1158,6 +1158,12 @@ void MainWindow::toggle_realtime()
     if (logging_state)
     {
         qDebug() << "Start datalog";
+        if (!loggingCoordinator)
+        {
+            restoreLoggingUiState();
+            QMessageBox::information(this, tr("Logging"), "Unable to start logging");
+            return;
+        }
         if (!ecu_init_complete)
         {
             if (connect_to_ecu())
@@ -1215,7 +1221,10 @@ void MainWindow::toggle_realtime()
             datalog_file.close();
         }
 
-        loggingCoordinator->stop();
+        if (loggingCoordinator)
+        {
+            loggingCoordinator->stop();
+        }
 
         // disconnect_from_ecu();
     }

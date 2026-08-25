@@ -414,8 +414,6 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
     tcu_radio_button = new QRadioButton("TCU");
     ui->toolBar->addWidget(tcu_radio_button);
 
-    setupLoggingCoordinator();
-
     ui->toolBar->addSeparator();
 
     QLabel *serial_port_select = new QLabel("Port:");
@@ -452,6 +450,7 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
     if (logValues != nullptr)
     {
         update_logboxes(configValues->flash_protocol_selected_log_protocol);
+        setupLoggingCoordinator();
     }
 
     serial_port = serial_port_prefix + configValues->serial_port;
@@ -499,6 +498,11 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
 
 MainWindow::~MainWindow()
 {
+    if (datalog_file_open)
+    {
+        datalog_file_open = false;
+        datalog_file.close();
+    }
     if (loggingCoordinator)
     {
         loggingCoordinator->stop();
