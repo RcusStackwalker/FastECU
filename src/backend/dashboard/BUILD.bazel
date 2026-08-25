@@ -19,6 +19,19 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "dashboard_codec",
+    srcs = ["dashboard_codec.cpp"],
+    hdrs = ["dashboard_codec.h"],
+    deps = [
+        ":dashboard_document",
+        ":dashboard_validation",
+        "//src/algorithms/protocol",
+        "//src/backend/ports",
+        "@pugixml",
+    ],
+)
+
 fastecu_portable_gtest(
     name = "dashboard_validation_test",
     srcs = [
@@ -26,4 +39,13 @@ fastecu_portable_gtest(
         "test_fixtures.h",
     ],
     deps = [":dashboard_validation"],
+)
+
+fastecu_portable_gtest(
+    name = "dashboard_codec_test",
+    srcs = [
+        "dashboard_codec_test.cpp",
+        "test_fixtures.h",
+    ],
+    deps = [":dashboard_codec"],
 )
