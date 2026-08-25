@@ -230,6 +230,24 @@ TEST(DashboardCodec, DecodingRejectsAForbiddenXmlCharacterReferenceAtTheDocument
     expect_decode_error(invalid_character, ErrorKind::InvalidConfig, "document");
 }
 
+TEST(DashboardCodec, DecodingIgnoresLiteralCharacterReferenceTextInSurroundingComments)
+{
+    std::string xml = replace_once(std::string(kCanonicalXml), "?>\n", "?>\n<!-- &#0; -->\n");
+    xml.append("<!-- &#0; -->\n");
+    const auto decoded = decode_dashboard_document(byte_view(xml));
+    ASSERT_TRUE(decoded) << decoded.error().detail;
+    EXPECT_EQ(*decoded, test::valid_document());
+}
+
+TEST(DashboardCodec, DecodingIgnoresLiteralCharacterReferenceTextInSurroundingProcessingInstructions)
+{
+    std::string xml = replace_once(std::string(kCanonicalXml), "?>\n", "?>\n<?probe &#0;?>\n");
+    xml.append("<?probe &#0;?>\n");
+    const auto decoded = decode_dashboard_document(byte_view(xml));
+    ASSERT_TRUE(decoded) << decoded.error().detail;
+    EXPECT_EQ(*decoded, test::valid_document());
+}
+
 TEST(DashboardCodec, RequiresEverySingletonSectionExactlyOnce)
 {
     const std::array cases{

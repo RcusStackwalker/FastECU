@@ -95,17 +95,17 @@ Status validate_xml_text(std::string_view value, std::string path)
     return {};
 }
 
-Status reject_illegal_numeric_character_references(std::string_view source)
+Status reject_illegal_numeric_character_references_in_text(std::string_view text)
 {
     std::size_t offset = 0;
-    while ((offset = source.find("&#", offset)) != std::string_view::npos)
+    while ((offset = text.find("&#", offset)) != std::string_view::npos)
     {
-        const std::size_t end = source.find(';', offset + 2);
+        const std::size_t end = text.find(';', offset + 2);
         if (end == std::string_view::npos)
         {
             return invalid("document", "invalid numeric XML character reference");
         }
-        std::string_view digits = source.substr(offset + 2, end - offset - 2);
+        std::string_view digits = text.substr(offset + 2, end - offset - 2);
         int base = 10;
         if (digits.starts_with('x'))
         {
@@ -123,6 +123,45 @@ Status reject_illegal_numeric_character_references(std::string_view source)
         offset = end + 1;
     }
     return {};
+}
+
+Status reject_illegal_numeric_character_references(pugi::xml_node node)
+{
+    if (node.type() == pugi::node_pcdata)
+    {
+        return reject_illegal_numeric_character_references_in_text(node.value());
+    }
+    if (node.type() != pugi::node_document && node.type() != pugi::node_element)
+    {
+        return {};
+    }
+    for (const pugi::xml_attribute attribute : node.attributes())
+    {
+        if (Status status = reject_illegal_numeric_character_references_in_text(attribute.value()); !status)
+        {
+            return status;
+        }
+    }
+    for (const pugi::xml_node child : node.children())
+    {
+        if (Status status = reject_illegal_numeric_character_references(child); !status)
+        {
+            return status;
+        }
+    }
+    return {};
+}
+
+Status reject_illegal_numeric_character_references(bytes::ByteView xml)
+{
+    pugi::xml_document lexical_tree;
+    constexpr unsigned int lexical_flags = pugi::parse_default & ~pugi::parse_escapes;
+    const auto parsed = lexical_tree.load_buffer(xml.data(), xml.size(), lexical_flags, pugi::encoding_utf8);
+    if (!parsed)
+    {
+        return invalid("document", std::format("{} at offset {}", parsed.description(), parsed.offset));
+    }
+    return reject_illegal_numeric_character_references(lexical_tree);
 }
 
 Status validate_document_strings(const DashboardDocument& document)
@@ -857,7 +896,7 @@ Result<DashboardDocument> decode_dashboard_document(bytes::ByteView xml)
     {
         return std::unexpected(status.error());
     }
-    if (Status status = reject_illegal_numeric_character_references(source); !status)
+    if (Status status = reject_illegal_numeric_character_references(xml); !status)
     {
         return std::unexpected(status.error());
     }
