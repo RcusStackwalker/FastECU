@@ -72,6 +72,25 @@ void expect_decode_error(std::string_view xml, ErrorKind kind, std::string_view 
     EXPECT_TRUE(result.error().detail.starts_with(path)) << result.error().detail;
 }
 
+void expect_encode_string_error(const DashboardDocument& document, std::string_view path)
+{
+    const auto result = encode_dashboard_document(document);
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_EQ(result.error().detail, std::string(path) + ": must contain only valid UTF-8 XML 1.0 characters");
+}
+
+DashboardDocument document_with_all_optional_strings()
+{
+    auto document = test::valid_document();
+    document.connection.preferred_adapter = PreferredAdapter{AdapterKind::J2534, "OpenECU", "Portable CAN"};
+    document.cards = {
+        DashboardCard{"rpm", "CDBG_ENGINE_RPM", "conversion-1", CardDisplayType::Numeric, "Engine RPM", 0, std::nullopt,
+                      std::nullopt},
+    };
+    return document;
+}
+
 struct XmlCase
 {
     std::string xml;
@@ -102,6 +121,11 @@ TEST(DashboardCodec, RejectsMalformedMissingAndWrongRoots)
     expect_decode_error("<dashboard format-version=\"1\"/>", ErrorKind::InvalidConfig, "document.root");
 }
 
+TEST(DashboardCodec, RejectsASecondTopLevelElement)
+{
+    expect_decode_error(std::string(kCanonicalXml) + "<second-root/>", ErrorKind::InvalidConfig, "document.root");
+}
+
 TEST(DashboardCodec, DispatchesOnlyAfterParsingAnAuthoritativeNumericVersion)
 {
     expect_decode_error("<omnihaste-dashboard/>", ErrorKind::InvalidConfig, "metadata.format-version");
@@ -121,6 +145,89 @@ TEST(DashboardCodec, EncodingValidatesBeforeWriting)
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
     EXPECT_TRUE(result.error().detail.starts_with("metadata.format-version")) << result.error().detail;
+}
+
+TEST(DashboardCodec, EncodingRejectsEmbeddedNulAtTheExactFieldPath)
+{
+    auto document = test::valid_document();
+    document.metadata.name = std::string("Colt\0Dashboard", 14);
+    expect_encode_string_error(document, "metadata.name");
+}
+
+TEST(DashboardCodec, EncodingRejectsInvalidUtf8AtEverySerializedStringFieldPath)
+{
+    struct StringCase
+    {
+        void (*mutate)(DashboardDocument&, const std::string&);
+        std::string_view path;
+    };
+    const std::array cases{
+        StringCase{[](DashboardDocument& document, const std::string& invalid) { document.metadata.name = invalid; },
+                   "metadata.name"},
+        StringCase{[](DashboardDocument& document, const std::string& invalid)
+                   { document.metadata.description = invalid; }, "metadata.description"},
+        StringCase{[](DashboardDocument& document, const std::string& invalid)
+                   { document.connection.preferred_adapter->vendor = invalid; }, "connection.preferred-adapter.vendor"},
+        StringCase{[](DashboardDocument& document, const std::string& invalid)
+                   { document.connection.preferred_adapter->display_name = invalid; },
+                   "connection.preferred-adapter.display-name"},
+        StringCase{[](DashboardDocument& document, const std::string& invalid)
+                   {
+                       document.channels.front().id = invalid;
+                       document.cards.front().channel_id = invalid;
+                   },
+                   "channels[0].id"},
+        StringCase{[](DashboardDocument& document, const std::string& invalid)
+                   { document.channels.front().name = invalid; }, "channels[CDBG_ENGINE_RPM].name"},
+        StringCase{[](DashboardDocument& document, const std::string& invalid)
+                   { document.channels.front().description = invalid; }, "channels[CDBG_ENGINE_RPM].description"},
+        StringCase{[](DashboardDocument& document, const std::string& invalid)
+                   {
+                       document.channels.front().conversions.front().id = invalid;
+                       document.cards.front().conversion_id = invalid;
+                   },
+                   "channels[CDBG_ENGINE_RPM].conversions[0].id"},
+        StringCase{[](DashboardDocument& document, const std::string& invalid)
+                   { document.channels.front().conversions.front().expression = invalid; },
+                   "channels[CDBG_ENGINE_RPM].conversions[conversion-1].expression"},
+        StringCase{[](DashboardDocument& document, const std::string& invalid)
+                   { document.channels.front().conversions.front().unit = invalid; },
+                   "channels[CDBG_ENGINE_RPM].conversions[conversion-1].unit"},
+        StringCase{[](DashboardDocument& document, const std::string& invalid) { document.cards.front().id = invalid; },
+                   "cards[0].id"},
+        StringCase{[](DashboardDocument& document, const std::string& invalid)
+                   { document.cards.front().channel_id = invalid; }, "cards[rpm].channel-id"},
+        StringCase{[](DashboardDocument& document, const std::string& invalid)
+                   { document.cards.front().conversion_id = invalid; }, "cards[rpm].conversion-id"},
+        StringCase{[](DashboardDocument& document, const std::string& invalid)
+                   { document.cards.front().title = invalid; }, "cards[rpm].title"},
+    };
+    const std::string invalid_utf8 = "broken" + std::string("\xc3\x28", 2);
+    for (const auto& test_case : cases)
+    {
+        auto document = document_with_all_optional_strings();
+        test_case.mutate(document, invalid_utf8);
+        expect_encode_string_error(document, test_case.path);
+    }
+}
+
+TEST(DashboardCodec, DecodingRejectsEmbeddedNulAndInvalidUtf8BeforeParsing)
+{
+    std::string nul_terminated = std::string(kCanonicalXml);
+    nul_terminated.push_back('\0');
+    nul_terminated.append("<ignored-root/>");
+    expect_decode_error(nul_terminated, ErrorKind::InvalidConfig, "document");
+
+    const std::string invalid_utf8 = replace_once(std::string(kCanonicalXml), "name=\"Colt Dashboard\"",
+                                                  "name=\"Colt " + std::string("\xc3\x28", 2) + " Dashboard\"");
+    expect_decode_error(invalid_utf8, ErrorKind::InvalidConfig, "document");
+}
+
+TEST(DashboardCodec, DecodingRejectsAForbiddenXmlCharacterReferenceAtTheDocumentPath)
+{
+    const std::string invalid_character =
+        replace_once(std::string(kCanonicalXml), "name=\"Colt Dashboard\"", "name=\"Colt&#0;Dashboard\"");
+    expect_decode_error(invalid_character, ErrorKind::InvalidConfig, "document");
 }
 
 TEST(DashboardCodec, RequiresEverySingletonSectionExactlyOnce)
