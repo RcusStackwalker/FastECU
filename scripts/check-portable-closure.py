@@ -108,6 +108,7 @@ PORTABLE_ROOTS = {
     ROOT / "src/backend/dashboard": {
         "dashboard_document",
         "dashboard_validation",
+        "dashboard_xml_validation",
         "dashboard_codec",
         "legacy_cdbg_catalog_importer",
         "dashboard_document_service",

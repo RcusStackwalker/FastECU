@@ -178,7 +178,7 @@ Status validate_dashboard_document(const DashboardDocument& document)
             {
                 return invalid(conversion_path + ".id", "must be unique within its channel");
             }
-            if (!logging::valid_conversion_expression(conversion.expression))
+            if (!logging::valid_conversion_expression(conversion.expression, conversion.precision))
             {
                 return invalid(conversion_path + ".expression", "is not a valid conversion expression");
             }

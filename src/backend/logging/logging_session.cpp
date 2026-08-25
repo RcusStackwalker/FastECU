@@ -242,21 +242,6 @@ class ExpressionValidator
     std::size_t position_ = 0;
 };
 
-bool valid_expression(const LoggingChannel& channel)
-{
-    if (!valid_conversion_expression(channel.from_byte_expression))
-    {
-        return false;
-    }
-    const auto is_finite = [&channel](const std::string_view& probe)
-    {
-        return std::isfinite(
-            expression_evaluate(channel.from_byte_expression, probe, static_cast<int>(channel.decimal_precision)));
-    };
-    constexpr std::array<std::string_view, 3> probes{"1", "16", "1616"};
-    return std::ranges::any_of(probes, is_finite);
-}
-
 bool valid_address(LoggingProtocolId protocol, std::uint32_t address)
 {
     switch (protocol)
@@ -318,9 +303,16 @@ bool valid_wire_shape(LoggingProtocolId protocol, const std::vector<LoggingChann
 
 } // namespace
 
-bool valid_conversion_expression(std::string_view expression)
+bool valid_conversion_expression(std::string_view expression, std::uint8_t precision)
 {
-    return ExpressionValidator(expression).valid();
+    if (!ExpressionValidator(expression).valid())
+    {
+        return false;
+    }
+    const auto is_finite = [expression, precision](std::string_view probe)
+    { return std::isfinite(expression_evaluate(expression, probe, static_cast<int>(precision))); };
+    constexpr std::array<std::string_view, 3> probes{"1", "16", "1616"};
+    return std::ranges::any_of(probes, is_finite);
 }
 
 bool valid_display_precision(std::uint8_t precision)
@@ -378,7 +370,8 @@ fastecu::Result<LoggingSession> make_logging_session(LoggingProtocolId protocol,
     {
         if (channel.id.empty() || !ids.insert(channel.id).second || channel.length == 0 || channel.length > 255 ||
             !valid_address(protocol, channel.address) || !valid_raw_assembly(channel.raw_assembly) ||
-            !valid_display_precision(channel.decimal_precision) || !valid_expression(channel))
+            !valid_display_precision(channel.decimal_precision) ||
+            !valid_conversion_expression(channel.from_byte_expression, channel.decimal_precision))
         {
             return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "invalid logging channel");
         }

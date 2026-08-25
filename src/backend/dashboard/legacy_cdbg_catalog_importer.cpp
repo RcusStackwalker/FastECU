@@ -18,6 +18,7 @@
 
 #include "src/algorithms/protocol/colt/mitsu_colt_can_cdbg_protocol.h"
 #include "src/backend/dashboard/dashboard_validation.h"
+#include "src/backend/dashboard/dashboard_xml_validation.h"
 
 namespace fastecu::dashboard
 {
@@ -250,14 +251,20 @@ Result<DashboardChannel> import_parameter(pugi::xml_node parameter, std::size_t 
     {
         return std::unexpected(status.error());
     }
+    std::string address_text;
     for (const pugi::xml_node child : address_node->children())
     {
+        if (child.type() == pugi::node_pcdata || child.type() == pugi::node_cdata)
+        {
+            address_text.append(child.value());
+            continue;
+        }
         if (child.type() == pugi::node_element)
         {
             return invalid(path + ".address", std::format("unknown element <{}>", child.name()));
         }
     }
-    auto address = parse_hex_address(address_node->text().get(), path + ".address");
+    auto address = parse_hex_address(address_text, path + ".address");
     if (!address)
     {
         return std::unexpected(address.error());
@@ -306,6 +313,10 @@ Result<DashboardChannel> import_parameter(pugi::xml_node parameter, std::size_t 
 
 Result<DashboardDocument> import_legacy_cdbg_catalog(bytes::ByteView xml, const LegacyCdbgImportDefaults& defaults)
 {
+    if (Status status = validate_xml_input(xml, "legacy-cdbg"); !status)
+    {
+        return std::unexpected(status.error());
+    }
     pugi::xml_document tree;
     const pugi::xml_parse_result parsed =
         tree.load_buffer(xml.data(), xml.size(), pugi::parse_default, pugi::encoding_utf8);
@@ -411,6 +422,10 @@ Result<DashboardDocument> import_legacy_cdbg_catalog(bytes::ByteView xml, const 
         .channels = std::move(channels),
         .cards = {},
     };
+    if (Status status = validate_dashboard_document_xml_strings(candidate); !status)
+    {
+        return std::unexpected(status.error());
+    }
     if (Status status = validate_dashboard_document(candidate); !status)
     {
         return std::unexpected(status.error());

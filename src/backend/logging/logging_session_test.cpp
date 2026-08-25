@@ -39,16 +39,17 @@ LoggingPolicy valid_policy()
 
 TEST(LoggingConversionValidation, AcceptsLegacyExpressionGrammar)
 {
-    EXPECT_TRUE(fastecu::logging::valid_conversion_expression("x*1000/256"));
-    EXPECT_TRUE(fastecu::logging::valid_conversion_expression("(x+1)*2"));
+    EXPECT_TRUE(fastecu::logging::valid_conversion_expression("x*1000/256", 0));
+    EXPECT_TRUE(fastecu::logging::valid_conversion_expression("(x+1)*2", 2));
 }
 
 TEST(LoggingConversionValidation, RejectsMalformedOrNonFiniteExpression)
 {
-    EXPECT_FALSE(fastecu::logging::valid_conversion_expression(""));
-    EXPECT_FALSE(fastecu::logging::valid_conversion_expression("x/0"));
-    EXPECT_FALSE(fastecu::logging::valid_conversion_expression("x trailing"));
-    EXPECT_FALSE(fastecu::logging::valid_conversion_expression("-(x+1)"));
+    EXPECT_FALSE(fastecu::logging::valid_conversion_expression("", 0));
+    EXPECT_FALSE(fastecu::logging::valid_conversion_expression("x/0", 0));
+    EXPECT_FALSE(fastecu::logging::valid_conversion_expression("x trailing", 0));
+    EXPECT_FALSE(fastecu::logging::valid_conversion_expression("-(x+1)", 0));
+    EXPECT_FALSE(fastecu::logging::valid_conversion_expression("1/(x-x)", 0));
 }
 
 TEST(LoggingConversionValidation, AcceptsOnlySupportedDisplayPrecision)
@@ -160,6 +161,11 @@ TEST(LoggingSessionTest, RejectsExpressionsWithoutFiniteEvaluation)
     auto indeterminate = make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy());
     ASSERT_FALSE(indeterminate);
     EXPECT_EQ(indeterminate.error().kind, fastecu::ErrorKind::InvalidConfig);
+
+    c.from_byte_expression = "1/(x-x)";
+    auto probe_dependent_division_by_zero = make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy());
+    ASSERT_FALSE(probe_dependent_division_by_zero);
+    EXPECT_EQ(probe_dependent_division_by_zero.error().kind, fastecu::ErrorKind::InvalidConfig);
 }
 
 TEST(LoggingSessionTest, RequiresAtLeastOneCdbgChannel)

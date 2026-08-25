@@ -231,6 +231,20 @@ TEST(DashboardValidation, RejectsUnsupportedChannelLengths)
     }
 }
 
+TEST(DashboardValidation, AcceptsOneByteChannels)
+{
+    auto document = test::valid_document();
+    document.channels.front().length = 1;
+    EXPECT_TRUE(validate_dashboard_document(document));
+}
+
+TEST(DashboardValidation, AcceptsFourByteChannels)
+{
+    auto document = test::valid_document();
+    document.channels.front().length = 4;
+    EXPECT_TRUE(validate_dashboard_document(document));
+}
+
 TEST(DashboardValidation, RejectsUnsupportedRawAssembly)
 {
     auto document = test::valid_document();
@@ -264,6 +278,10 @@ TEST(DashboardValidation, RejectsInvalidConversionSemantics)
 {
     auto document = test::valid_document();
     document.channels.front().conversions.front().expression = "x*/2";
+    expect_invalid(document, "channels[CDBG_ENGINE_RPM].conversions[conversion-1].expression");
+
+    document = test::valid_document();
+    document.channels.front().conversions.front().expression = "1/(x-x)";
     expect_invalid(document, "channels[CDBG_ENGINE_RPM].conversions[conversion-1].expression");
 
     document = test::valid_document();

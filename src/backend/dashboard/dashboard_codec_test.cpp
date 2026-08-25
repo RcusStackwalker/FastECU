@@ -131,10 +131,18 @@ TEST(DashboardCodec, DispatchesOnlyAfterParsingAnAuthoritativeNumericVersion)
     expect_decode_error("<omnihaste-dashboard/>", ErrorKind::InvalidConfig, "metadata.format-version");
     expect_decode_error("<omnihaste-dashboard format-version=\"one\"/>", ErrorKind::InvalidConfig,
                         "metadata.format-version");
+    expect_decode_error("<omnihaste-dashboard format-version=\"+2\"/>", ErrorKind::InvalidConfig,
+                        "metadata.format-version");
+    expect_decode_error("<omnihaste-dashboard format-version=\"-2\"/>", ErrorKind::InvalidConfig,
+                        "metadata.format-version");
+    expect_decode_error("<omnihaste-dashboard format-version=\"2x\"/>", ErrorKind::InvalidConfig,
+                        "metadata.format-version");
     expect_decode_error("<omnihaste-dashboard format-version=\"2\"/>", ErrorKind::Unsupported,
                         "metadata.format-version");
-    expect_decode_error("<omnihaste-dashboard format-version=\"4294967296\"/>", ErrorKind::InvalidConfig,
+    expect_decode_error("<omnihaste-dashboard format-version=\"4294967296\"/>", ErrorKind::Unsupported,
                         "metadata.format-version");
+    expect_decode_error("<omnihaste-dashboard format-version=\"999999999999999999999999999999999999\"/>",
+                        ErrorKind::Unsupported, "metadata.format-version");
 }
 
 TEST(DashboardCodec, EncodingValidatesBeforeWriting)

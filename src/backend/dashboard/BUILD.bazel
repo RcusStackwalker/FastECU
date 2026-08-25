@@ -25,12 +25,25 @@ cc_library(
 )
 
 cc_library(
+    name = "dashboard_xml_validation",
+    srcs = ["dashboard_xml_validation.cpp"],
+    hdrs = ["dashboard_xml_validation.h"],
+    deps = [
+        ":dashboard_document",
+        "//src/algorithms/protocol",
+        "//src/backend/ports",
+        "@pugixml",
+    ],
+)
+
+cc_library(
     name = "dashboard_codec",
     srcs = ["dashboard_codec.cpp"],
     hdrs = ["dashboard_codec.h"],
     deps = [
         ":dashboard_document",
         ":dashboard_validation",
+        ":dashboard_xml_validation",
         "//src/algorithms/protocol",
         "//src/backend/ports",
         "@pugixml",
@@ -44,6 +57,7 @@ cc_library(
     deps = [
         ":dashboard_document",
         ":dashboard_validation",
+        ":dashboard_xml_validation",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/colt:mitsu_colt_can_cdbg_protocol",
         "//src/backend/ports",

@@ -17,6 +17,7 @@
 #include <pugixml.hpp>
 
 #include "src/backend/dashboard/dashboard_validation.h"
+#include "src/backend/dashboard/dashboard_xml_validation.h"
 
 namespace fastecu::dashboard
 {
@@ -27,209 +28,6 @@ using AllowedNames = std::initializer_list<std::string_view>;
 std::unexpected<Error> invalid(std::string path, std::string explanation)
 {
     return fail(ErrorKind::InvalidConfig, std::move(path) + ": " + std::move(explanation));
-}
-
-bool is_xml_character(std::uint32_t code_point)
-{
-    return code_point == 0x9 || code_point == 0xa || code_point == 0xd ||
-           (code_point >= 0x20 && code_point <= 0xd7ff) || (code_point >= 0xe000 && code_point <= 0xfffd) ||
-           (code_point >= 0x10000 && code_point <= 0x10ffff);
-}
-
-Status validate_xml_text(std::string_view value, std::string path)
-{
-    constexpr std::string_view explanation = "must contain only valid UTF-8 XML 1.0 characters";
-    std::size_t offset = 0;
-    while (offset < value.size())
-    {
-        const auto lead = static_cast<std::uint8_t>(value[offset]);
-        std::uint32_t code_point = 0;
-        std::uint32_t minimum = 0;
-        std::size_t continuation_count = 0;
-        if (lead <= 0x7f)
-        {
-            code_point = lead;
-        }
-        else if ((lead & 0xe0) == 0xc0)
-        {
-            code_point = lead & 0x1f;
-            minimum = 0x80;
-            continuation_count = 1;
-        }
-        else if ((lead & 0xf0) == 0xe0)
-        {
-            code_point = lead & 0x0f;
-            minimum = 0x800;
-            continuation_count = 2;
-        }
-        else if ((lead & 0xf8) == 0xf0)
-        {
-            code_point = lead & 0x07;
-            minimum = 0x10000;
-            continuation_count = 3;
-        }
-        else
-        {
-            return invalid(std::move(path), std::string(explanation));
-        }
-
-        if (continuation_count > value.size() - offset - 1)
-        {
-            return invalid(std::move(path), std::string(explanation));
-        }
-        for (std::size_t index = 1; index <= continuation_count; ++index)
-        {
-            const auto continuation = static_cast<std::uint8_t>(value[offset + index]);
-            if ((continuation & 0xc0) != 0x80)
-            {
-                return invalid(std::move(path), std::string(explanation));
-            }
-            code_point = (code_point << 6) | (continuation & 0x3f);
-        }
-        if ((continuation_count != 0 && code_point < minimum) || !is_xml_character(code_point))
-        {
-            return invalid(std::move(path), std::string(explanation));
-        }
-        offset += continuation_count + 1;
-    }
-    return {};
-}
-
-Status reject_illegal_numeric_character_references_in_text(std::string_view text)
-{
-    std::size_t offset = 0;
-    while ((offset = text.find("&#", offset)) != std::string_view::npos)
-    {
-        const std::size_t end = text.find(';', offset + 2);
-        if (end == std::string_view::npos)
-        {
-            return invalid("document", "invalid numeric XML character reference");
-        }
-        std::string_view digits = text.substr(offset + 2, end - offset - 2);
-        int base = 10;
-        if (digits.starts_with('x'))
-        {
-            digits.remove_prefix(1);
-            base = 16;
-        }
-        std::uint32_t code_point = 0;
-        const auto [parsed_end, error] =
-            std::from_chars(digits.data(), digits.data() + digits.size(), code_point, base);
-        if (digits.empty() || error != std::errc{} || parsed_end != digits.data() + digits.size() ||
-            !is_xml_character(code_point))
-        {
-            return invalid("document", "invalid numeric XML character reference");
-        }
-        offset = end + 1;
-    }
-    return {};
-}
-
-Status reject_illegal_numeric_character_references(pugi::xml_node node)
-{
-    if (node.type() == pugi::node_pcdata)
-    {
-        return reject_illegal_numeric_character_references_in_text(node.value());
-    }
-    if (node.type() != pugi::node_document && node.type() != pugi::node_element)
-    {
-        return {};
-    }
-    for (const pugi::xml_attribute attribute : node.attributes())
-    {
-        if (Status status = reject_illegal_numeric_character_references_in_text(attribute.value()); !status)
-        {
-            return status;
-        }
-    }
-    for (const pugi::xml_node child : node.children())
-    {
-        if (Status status = reject_illegal_numeric_character_references(child); !status)
-        {
-            return status;
-        }
-    }
-    return {};
-}
-
-Status reject_illegal_numeric_character_references(bytes::ByteView xml)
-{
-    pugi::xml_document lexical_tree;
-    constexpr unsigned int lexical_flags = pugi::parse_default & ~pugi::parse_escapes;
-    const auto parsed = lexical_tree.load_buffer(xml.data(), xml.size(), lexical_flags, pugi::encoding_utf8);
-    if (!parsed)
-    {
-        return invalid("document", std::format("{} at offset {}", parsed.description(), parsed.offset));
-    }
-    return reject_illegal_numeric_character_references(lexical_tree);
-}
-
-Status validate_document_strings(const DashboardDocument& document)
-{
-    if (Status status = validate_xml_text(document.metadata.name, "metadata.name"); !status)
-        return status;
-    if (document.metadata.description)
-    {
-        if (Status status = validate_xml_text(*document.metadata.description, "metadata.description"); !status)
-            return status;
-    }
-    if (document.connection.preferred_adapter)
-    {
-        if (Status status =
-                validate_xml_text(document.connection.preferred_adapter->vendor, "connection.preferred-adapter.vendor");
-            !status)
-            return status;
-        if (Status status = validate_xml_text(document.connection.preferred_adapter->display_name,
-                                              "connection.preferred-adapter.display-name");
-            !status)
-            return status;
-    }
-
-    for (std::size_t channel_index = 0; channel_index < document.channels.size(); ++channel_index)
-    {
-        const DashboardChannel& channel = document.channels[channel_index];
-        const std::string indexed_path = "channels[" + std::to_string(channel_index) + "]";
-        if (Status status = validate_xml_text(channel.id, indexed_path + ".id"); !status)
-            return status;
-        const std::string channel_path = "channels[" + channel.id + "]";
-        if (Status status = validate_xml_text(channel.name, channel_path + ".name"); !status)
-            return status;
-        if (Status status = validate_xml_text(channel.description, channel_path + ".description"); !status)
-            return status;
-
-        for (std::size_t conversion_index = 0; conversion_index < channel.conversions.size(); ++conversion_index)
-        {
-            const DashboardConversion& conversion = channel.conversions[conversion_index];
-            const std::string indexed_conversion_path =
-                channel_path + ".conversions[" + std::to_string(conversion_index) + "]";
-            if (Status status = validate_xml_text(conversion.id, indexed_conversion_path + ".id"); !status)
-                return status;
-            const std::string conversion_path = channel_path + ".conversions[" + conversion.id + "]";
-            if (Status status = validate_xml_text(conversion.expression, conversion_path + ".expression"); !status)
-                return status;
-            if (Status status = validate_xml_text(conversion.unit, conversion_path + ".unit"); !status)
-                return status;
-        }
-    }
-
-    for (std::size_t card_index = 0; card_index < document.cards.size(); ++card_index)
-    {
-        const DashboardCard& card = document.cards[card_index];
-        const std::string indexed_path = "cards[" + std::to_string(card_index) + "]";
-        if (Status status = validate_xml_text(card.id, indexed_path + ".id"); !status)
-            return status;
-        const std::string card_path = "cards[" + card.id + "]";
-        if (Status status = validate_xml_text(card.channel_id, card_path + ".channel-id"); !status)
-            return status;
-        if (Status status = validate_xml_text(card.conversion_id, card_path + ".conversion-id"); !status)
-            return status;
-        if (card.title)
-        {
-            if (Status status = validate_xml_text(*card.title, card_path + ".title"); !status)
-                return status;
-        }
-    }
-    return {};
 }
 
 bool contains(AllowedNames allowed, std::string_view name)
@@ -351,6 +149,30 @@ Result<Integer> parse_required_unsigned(pugi::xml_node node, const char *name, s
 Result<std::uint32_t> parse_required_u32(pugi::xml_node node, const char *name, std::string path, int base = 10)
 {
     return parse_required_unsigned<std::uint32_t>(node, name, std::move(path), base);
+}
+
+Result<std::string> parse_format_version(pugi::xml_node root)
+{
+    constexpr std::string_view path = "metadata.format-version";
+    auto text = parse_required_string(root, "format-version", std::string(path));
+    if (!text)
+    {
+        return std::unexpected(text.error());
+    }
+    if (text->empty() || !std::ranges::all_of(*text, [](char digit) { return digit >= '0' && digit <= '9'; }))
+    {
+        return invalid(std::string(path), "expected an unsigned decimal integer");
+    }
+    return text;
+}
+
+bool is_format_version_one(std::string_view digits)
+{
+    while (digits.size() > 1 && digits.front() == '0')
+    {
+        digits.remove_prefix(1);
+    }
+    return digits == "1";
 }
 
 Result<double> parse_required_double(pugi::xml_node node, const char *name, std::string path)
@@ -774,7 +596,7 @@ Result<DashboardDocument> decode_v1(pugi::xml_node root)
         .channels = std::move(channels),
         .cards = std::move(cards),
     };
-    if (Status status = validate_document_strings(candidate); !status)
+    if (Status status = validate_dashboard_document_xml_strings(candidate); !status)
     {
         return std::unexpected(status.error());
     }
@@ -890,13 +712,7 @@ void remove_empty_element_spaces(std::string& text)
 
 Result<DashboardDocument> decode_dashboard_document(bytes::ByteView xml)
 {
-    const std::string_view source =
-        xml.empty() ? std::string_view{} : std::string_view(reinterpret_cast<const char *>(xml.data()), xml.size());
-    if (Status status = validate_xml_text(source, "document"); !status)
-    {
-        return std::unexpected(status.error());
-    }
-    if (Status status = reject_illegal_numeric_character_references(xml); !status)
+    if (Status status = validate_xml_input(xml, "document"); !status)
     {
         return std::unexpected(status.error());
     }
@@ -924,21 +740,21 @@ Result<DashboardDocument> decode_dashboard_document(bytes::ByteView xml)
     {
         return fail(ErrorKind::InvalidConfig, "document.root: expected <omnihaste-dashboard>");
     }
-    const auto version = parse_required_u32(root, "format-version", "metadata.format-version", 10);
+    const auto version = parse_format_version(root);
     if (!version)
     {
         return std::unexpected(version.error());
     }
-    if (*version != 1)
+    if (!is_format_version_one(*version))
     {
-        return fail(ErrorKind::Unsupported, std::format("metadata.format-version: unsupported version {}", *version));
+        return fail(ErrorKind::Unsupported, "metadata.format-version: unsupported version " + *version);
     }
     return decode_v1(root);
 }
 
 Result<std::vector<std::uint8_t>> encode_dashboard_document(const DashboardDocument& document)
 {
-    if (Status status = validate_document_strings(document); !status)
+    if (Status status = validate_dashboard_document_xml_strings(document); !status)
     {
         return std::unexpected(status.error());
     }

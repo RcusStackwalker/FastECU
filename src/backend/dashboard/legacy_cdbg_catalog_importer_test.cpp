@@ -188,6 +188,64 @@ TEST(LegacyCdbgCatalogImporter, UsesOnlyTheCharacterizedLegacyOptionalDefaults)
     EXPECT_EQ(result->channels[0].conversions[0], (DashboardConversion{"conversion-1", "x", "#", 2, 0, 1, 0.1}));
 }
 
+TEST(LegacyCdbgCatalogImporter, RejectsLexicallyInvalidCompleteInputBeforeImporting)
+{
+    std::string trailing_nul = std::string(kValidCatalog);
+    trailing_nul.push_back('\0');
+    trailing_nul.append("<ignored-root/>");
+
+    const std::string malformed_utf8 = "<logger><protocols><protocol id=\"SSM\" note=\"" + std::string("\xc3\x28", 2) +
+                                       "\"/><protocol id=\"CDBG\"><parameters>"
+                                       "<parameter id=\"P\" name=\"Name\"><address>0x1</address><conversions>"
+                                       "<conversion gauge_min=\"0\" gauge_max=\"1\" gauge_step=\"1\"/>"
+                                       "</conversions></parameter></parameters></protocol></protocols></logger>";
+
+    const std::string illegal_reference = "<logger><protocols><protocol id=\"SSM\" note=\"&#0;\"/>"
+                                          "<protocol id=\"CDBG\"><parameters><parameter id=\"P\" name=\"Name\">"
+                                          "<address>0x1</address><conversions>"
+                                          "<conversion gauge_min=\"0\" gauge_max=\"1\" gauge_step=\"1\"/>"
+                                          "</conversions></parameter></parameters></protocol></protocols></logger>";
+
+    for (const std::string& xml : {trailing_nul, malformed_utf8, illegal_reference})
+    {
+        expect_import_error(xml, "legacy-cdbg");
+    }
+}
+
+TEST(LegacyCdbgCatalogImporter, RejectsInvalidNonemptyCallerDefaultStrings)
+{
+    const std::vector<std::string> invalid_names{
+        std::string("Imported\0Colt", 13),
+        "Imported " + std::string("\xc3\x28", 2),
+        "Imported " + std::string(1, '\x01'),
+    };
+    for (const std::string& invalid_name : invalid_names)
+    {
+        auto defaults = valid_defaults();
+        defaults.document_name = invalid_name;
+        expect_import_error(kValidCatalog, "metadata.name", defaults);
+    }
+}
+
+TEST(LegacyCdbgCatalogImporter, RejectsTrailingLogicalAddressContent)
+{
+    const std::string xml = replace_once(std::string(kValidCatalog), "<address>0x1234</address>",
+                                         "<address>0x1234<![CDATA[junk]]></address>");
+    expect_import_error(xml, "channels[P1].address");
+}
+
+TEST(LegacyCdbgCatalogImporter, IgnoresCommentsAndProcessingInstructionsDuringLexicalPreflight)
+{
+    std::string xml = "<!-- &#0; --><?probe &#0;?>" + std::string(kValidCatalog);
+    xml.append("<?probe &#0;?><!-- &#0; -->");
+    xml = replace_once(std::move(xml), "<address>0x1234</address>",
+                       "<address>0x12<!-- &#0; --><?probe &#0;?>34</address>");
+    const auto result = import_legacy_cdbg_catalog(byte_view(xml), valid_defaults());
+    ASSERT_TRUE(result) << result.error().detail;
+    ASSERT_EQ(result->channels.size(), 1U);
+    EXPECT_EQ(result->channels.front().address, 0x1234U);
+}
+
 TEST(LegacyCdbgCatalogImporter, RejectsMalformedRootsAndAnAmbiguousCdbgSelectionAtomically)
 {
     const std::vector<std::pair<std::string, std::string_view>> cases = {
@@ -243,6 +301,8 @@ TEST(LegacyCdbgCatalogImporter, RejectsInvalidConversionSemanticsAndGaugeFieldsA
 {
     const std::vector<std::pair<std::string, std::string_view>> cases = {
         {replace_once(std::string(kValidCatalog), "expr=\"x*2\"", "expr=\"x trailing\""),
+         "channels[P1].conversions[conversion-1].expression"},
+        {replace_once(std::string(kValidCatalog), "expr=\"x*2\"", "expr=\"1/(x-x)\""),
          "channels[P1].conversions[conversion-1].expression"},
         {replace_once(std::string(kValidCatalog), "format=\"0\"", "format=\"0.\""),
          "channels[P1].conversions[conversion-1].format"},
