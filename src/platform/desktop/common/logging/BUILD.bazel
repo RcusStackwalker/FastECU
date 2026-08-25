@@ -46,6 +46,37 @@ fastecu_qttest(
     ],
 )
 
+fastecu_gtest(
+    name = "test_legacy_logging_protocol_factory",
+    srcs = ["legacy_logging_protocol_factory_test.cpp"],
+    deps = [":legacy_logging_compat"],
+)
+
+qt_cc_library(
+    name = "legacy_logging_compat",
+    srcs = [
+        "cdbg_serial_setup.cpp",
+        "legacy_logging_protocol_factory.cpp",
+    ],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = [
+        "cdbg_serial_setup.h",
+        "legacy_logging_protocol_factory.h",
+    ],
+    deps = QT_DEPS + [
+        ":logging_adapters",
+        ":logging_runtime",
+        "//src/algorithms/protocol/colt:mitsu_colt_can_cdbg_protocol",
+        "//src/backend/logging/protocols",
+        "//src/backend/ports",
+        "//src/backend/protocol",
+        "//src/platform/desktop/common/ports",
+        "//src/platform/desktop/common/serial:serial_platform_api",
+        "//src/platform/desktop/common/transport",
+    ],
+)
+
 qt_cc_library(
     name = "logging_runtime",
     srcs = [
