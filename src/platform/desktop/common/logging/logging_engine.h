@@ -7,6 +7,7 @@
 #include <QVector>
 
 #include <functional>
+#include <cstdint>
 #include <memory>
 #include <optional>
 
@@ -67,9 +68,10 @@ class LoggingEngine final : public QObject
     void handleDiagnostic(int level, QString message);
 
   private:
-    void clearActiveSession();
+    void finishActiveRun(SessionEndReason reason, QString detail, bool publish);
+    void joinAndReleaseActiveRun();
+    void publishCompletionOnce(SessionEndReason reason, QString detail);
     void reportStartError(const fastecu::Error& error);
-    void reportSessionError(const fastecu::Error& error, bool reached_running);
 
     QMap<QString, LoggingProtocolFactory> registrations_;
     std::optional<DesktopLoggingSnapshot> active_snapshot_;
@@ -77,7 +79,12 @@ class LoggingEngine final : public QObject
     LoggingWorker *active_worker_ = nullptr;
     QtEventSink diagnostics_;
     std::optional<LoggingStatus> last_status_;
+    std::uint64_t active_run_generation_ = 0;
+    std::uint64_t next_run_generation_ = 0;
     bool worker_reached_running_ = false;
+    bool explicit_stop_pending_ = false;
+    bool destroying_ = false;
+    bool completion_published_ = false;
 };
 
 } // namespace fastecu::desktop::logging
