@@ -1,0 +1,29 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "dashboard_document",
+    hdrs = ["dashboard_document.h"],
+)
+
+cc_library(
+    name = "dashboard_validation",
+    srcs = ["dashboard_validation.cpp"],
+    hdrs = ["dashboard_validation.h"],
+    deps = [
+        ":dashboard_document",
+        "//src/backend/logging:logging_session",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "dashboard_validation_test",
+    srcs = [
+        "dashboard_validation_test.cpp",
+        "test_fixtures.h",
+    ],
+    deps = [":dashboard_validation"],
+)
