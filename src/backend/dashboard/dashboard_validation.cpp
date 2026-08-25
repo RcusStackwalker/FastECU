@@ -143,6 +143,14 @@ Status validate_dashboard_document(const DashboardDocument& document)
         {
             return invalid(channel_path + ".id", "must be unique");
         }
+        if (channel.name.empty())
+        {
+            return invalid(channel_path + ".name", "must not be empty");
+        }
+        if (channel.description.empty())
+        {
+            return invalid(channel_path + ".description", "must not be empty");
+        }
         if (channel.length != 1 && channel.length != 2 && channel.length != 4)
         {
             return invalid(channel_path + ".length", "must be 1, 2, or 4 bytes");
@@ -173,6 +181,10 @@ Status validate_dashboard_document(const DashboardDocument& document)
             if (!logging::valid_conversion_expression(conversion.expression))
             {
                 return invalid(conversion_path + ".expression", "is not a valid conversion expression");
+            }
+            if (conversion.unit.empty())
+            {
+                return invalid(conversion_path + ".unit", "must not be empty");
             }
             if (!logging::valid_display_precision(conversion.precision))
             {

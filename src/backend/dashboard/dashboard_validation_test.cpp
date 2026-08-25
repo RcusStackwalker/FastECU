@@ -207,6 +207,20 @@ TEST(DashboardValidation, RejectsEmptyAndDuplicateChannelIds)
     expect_invalid(document, "channels[CDBG_ENGINE_RPM].id");
 }
 
+TEST(DashboardValidation, RejectsEmptyRequiredChannelName)
+{
+    auto document = test::valid_document();
+    document.channels.front().name.clear();
+    expect_invalid(document, "channels[CDBG_ENGINE_RPM].name");
+}
+
+TEST(DashboardValidation, RejectsEmptyRequiredChannelDescription)
+{
+    auto document = test::valid_document();
+    document.channels.front().description.clear();
+    expect_invalid(document, "channels[CDBG_ENGINE_RPM].description");
+}
+
 TEST(DashboardValidation, RejectsUnsupportedChannelLengths)
 {
     for (const std::uint8_t length : {0, 3, 8})
@@ -237,6 +251,13 @@ TEST(DashboardValidation, RejectsMissingAndDuplicateConversions)
     document = test::valid_document();
     document.channels.front().conversions.push_back(document.channels.front().conversions.front());
     expect_invalid(document, "channels[CDBG_ENGINE_RPM].conversions[conversion-1].id");
+}
+
+TEST(DashboardValidation, RejectsEmptyRequiredConversionUnit)
+{
+    auto document = test::valid_document();
+    document.channels.front().conversions.front().unit.clear();
+    expect_invalid(document, "channels[CDBG_ENGINE_RPM].conversions[conversion-1].unit");
 }
 
 TEST(DashboardValidation, RejectsInvalidConversionSemantics)
