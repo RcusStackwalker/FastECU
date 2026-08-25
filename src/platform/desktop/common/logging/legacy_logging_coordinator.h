@@ -69,6 +69,7 @@ class LegacyLoggingCoordinator final : public QObject
 
     void handleSamples(std::uint64_t generation, QVector<fastecu::logging::LogSample> samples);
     void handleSessionEnded(SessionEndReason reason, QString detail);
+    void reportStartError(const fastecu::Error& error);
     void clearActiveMapping();
 
     LoggingEngine& engine_;

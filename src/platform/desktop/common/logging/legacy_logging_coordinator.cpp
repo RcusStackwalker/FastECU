@@ -42,13 +42,17 @@ fastecu::Status LegacyLoggingCoordinator::start(const LegacyLoggingStartRequest&
 {
     if (active_mapping_)
     {
-        return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "a legacy logging run is already active");
+        const fastecu::Error error{fastecu::ErrorKind::InvalidConfig, "a legacy logging run is already active"};
+        reportStartError(error);
+        return std::unexpected(error);
     }
 
     auto prepared = dependencies_.prepare_session(values_, request.protocol, request.protocol_filter, request.policy);
     if (!prepared.has_value())
     {
-        return std::unexpected(prepared.error());
+        const fastecu::Error error = prepared.error();
+        reportStartError(error);
+        return std::unexpected(error);
     }
 
     active_mapping_.emplace(std::move(prepared->mapping));
@@ -68,30 +72,36 @@ fastecu::Status LegacyLoggingCoordinator::start(const LegacyLoggingStartRequest&
     catch (const std::exception& error)
     {
         clearActiveMapping();
-        return fastecu::fail(fastecu::ErrorKind::Internal, error.what());
+        const fastecu::Error failure{fastecu::ErrorKind::Internal, error.what()};
+        reportStartError(failure);
+        return std::unexpected(failure);
     }
     catch (...)
     {
         clearActiveMapping();
-        return fastecu::fail(fastecu::ErrorKind::Internal, "legacy protocol factory threw an unknown exception");
+        const fastecu::Error error{fastecu::ErrorKind::Internal, "legacy protocol factory threw an unknown exception"};
+        reportStartError(error);
+        return std::unexpected(error);
     }
     if (!protocol.has_value())
     {
         const fastecu::Error error = protocol.error();
         clearActiveMapping();
+        reportStartError(error);
         return std::unexpected(error);
     }
     if (!*protocol)
     {
         clearActiveMapping();
-        return fastecu::fail(fastecu::ErrorKind::Internal, "legacy protocol factory returned null");
+        const fastecu::Error error{fastecu::ErrorKind::Internal, "legacy protocol factory returned null"};
+        reportStartError(error);
+        return std::unexpected(error);
     }
 
     const std::uint64_t run_generation = active_run_generation_;
-    sample_connection_ = connect(
-        &engine_, &LoggingEngine::valuesUpdated, this,
-        [this, run_generation](QVector<fastecu::logging::LogSample> samples)
-        { handleSamples(run_generation, std::move(samples)); }, Qt::QueuedConnection);
+    sample_connection_ = connect(&engine_, &LoggingEngine::valuesUpdated, this,
+                                 [this, run_generation](QVector<fastecu::logging::LogSample> samples)
+                                 { handleSamples(run_generation, std::move(samples)); });
 
     fastecu::Status started = fastecu::fail(fastecu::ErrorKind::Internal, "logging engine did not return");
     try
@@ -102,12 +112,16 @@ fastecu::Status LegacyLoggingCoordinator::start(const LegacyLoggingStartRequest&
     catch (const std::exception& error)
     {
         clearActiveMapping();
-        return fastecu::fail(fastecu::ErrorKind::Internal, error.what());
+        const fastecu::Error failure{fastecu::ErrorKind::Internal, error.what()};
+        reportStartError(failure);
+        return std::unexpected(failure);
     }
     catch (...)
     {
         clearActiveMapping();
-        return fastecu::fail(fastecu::ErrorKind::Internal, "logging engine threw an unknown exception");
+        const fastecu::Error error{fastecu::ErrorKind::Internal, "logging engine threw an unknown exception"};
+        reportStartError(error);
+        return std::unexpected(error);
     }
     if (!started.has_value())
     {
@@ -160,6 +174,12 @@ void LegacyLoggingCoordinator::handleSessionEnded(SessionEndReason reason, QStri
 {
     clearActiveMapping();
     emit sessionEnded(reason, std::move(detail));
+}
+
+void LegacyLoggingCoordinator::reportStartError(const fastecu::Error& error)
+{
+    emit diagnostic(static_cast<int>(fastecu::LogLevel::Error),
+                    QStringLiteral("Logging session failed to start: ") + QString::fromStdString(error.detail));
 }
 
 void LegacyLoggingCoordinator::clearActiveMapping()

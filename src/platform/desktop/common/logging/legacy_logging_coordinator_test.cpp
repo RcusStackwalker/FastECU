@@ -5,6 +5,7 @@
 
 #include <memory>
 #include <stdexcept>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -99,6 +100,17 @@ std::unique_ptr<LoggingProtocol> protocol()
     return std::make_unique<StubProtocol>();
 }
 
+void expect_single_start_diagnostic(const fastecu::Status& status, const QSignalSpy& diagnostic_spy,
+                                    const QSignalSpy& ended_spy)
+{
+    QVERIFY(!status.has_value());
+    QCOMPARE(diagnostic_spy.count(), 1);
+    QCOMPARE(diagnostic_spy.at(0).at(0).toInt(), static_cast<int>(fastecu::LogLevel::Error));
+    QCOMPARE(diagnostic_spy.at(0).at(1).toString(),
+             QStringLiteral("Logging session failed to start: ") + QString::fromStdString(status.error().detail));
+    QCOMPARE(ended_spy.count(), 0);
+}
+
 } // namespace
 
 class LegacyLoggingCoordinatorTestAccess
@@ -140,7 +152,9 @@ class LegacyLoggingCoordinatorTest : public QObject
     void factory_failures_do_not_start_engine_or_retain_mapping();
     void engine_rejection_destroys_protocol_and_clears_mapping();
     void second_start_is_rejected_without_replacing_the_retained_mapping();
+    void engine_invocation_exceptions_report_one_diagnostic_without_terminal();
     void successful_samples_apply_stable_ids_after_reorder_and_emit_one_cue();
+    void valid_samples_are_applied_before_immediately_following_terminal_delivery();
     void unknown_sample_id_reports_error_without_stopping_later_batches();
     void terminal_forwarding_clears_mapping_before_observers_run();
     void stop_and_all_terminal_reasons_clear_the_retained_mapping();
@@ -218,10 +232,12 @@ void LegacyLoggingCoordinatorTest::snapshot_validation_failure_does_not_create_p
         return fastecu::Status{};
     };
     auto coordinator = LegacyLoggingCoordinatorTestAccess::make(engine, values, std::move(dependencies));
+    QSignalSpy diagnostic_spy(coordinator.get(), &LegacyLoggingCoordinator::diagnostic);
+    QSignalSpy ended_spy(coordinator.get(), &LegacyLoggingCoordinator::sessionEnded);
 
     const auto status = coordinator->start(request_for(LoggingProtocolId::Ssm, QStringLiteral("SSM")));
 
-    QVERIFY(!status.has_value());
+    expect_single_start_diagnostic(status, diagnostic_spy, ended_spy);
     QCOMPARE(create_calls, 0);
     QCOMPARE(start_calls, 0);
     QVERIFY(!coordinator->hasRetainedMapping());
@@ -242,8 +258,12 @@ void LegacyLoggingCoordinatorTest::factory_failures_do_not_start_engine_or_retai
             return fastecu::Status{};
         };
         auto coordinator = LegacyLoggingCoordinatorTestAccess::make(engine, values, std::move(dependencies));
+        QSignalSpy diagnostic_spy(coordinator.get(), &LegacyLoggingCoordinator::diagnostic);
+        QSignalSpy ended_spy(coordinator.get(), &LegacyLoggingCoordinator::sessionEnded);
 
-        QVERIFY(!coordinator->start(request_for(LoggingProtocolId::Ssm, QStringLiteral("SSM"))).has_value());
+        const auto status = coordinator->start(request_for(LoggingProtocolId::Ssm, QStringLiteral("SSM")));
+
+        expect_single_start_diagnostic(status, diagnostic_spy, ended_spy);
         QCOMPARE(start_calls, 0);
         QVERIFY(!coordinator->hasRetainedMapping());
     };
@@ -268,12 +288,19 @@ void LegacyLoggingCoordinatorTest::engine_rejection_destroys_protocol_and_clears
         return fastecu::Result<std::unique_ptr<LoggingProtocol>>(
             std::make_unique<DestructionCountingProtocol>(destructions));
     };
-    dependencies.start_engine = [&rejected](LoggingRun) { return fastecu::Status(std::unexpected(rejected)); };
+    dependencies.start_engine = [&engine, &rejected](LoggingRun)
+    {
+        emit engine.LOG_E(QStringLiteral("Logging session failed to start: ") + QString::fromStdString(rejected.detail),
+                          true, true);
+        return fastecu::Status(std::unexpected(rejected));
+    };
     auto coordinator = LegacyLoggingCoordinatorTestAccess::make(engine, values, std::move(dependencies));
+    QSignalSpy diagnostic_spy(coordinator.get(), &LegacyLoggingCoordinator::diagnostic);
+    QSignalSpy ended_spy(coordinator.get(), &LegacyLoggingCoordinator::sessionEnded);
 
     const auto status = coordinator->start(request_for(LoggingProtocolId::Ssm, QStringLiteral("SSM")));
 
-    QVERIFY(!status.has_value());
+    expect_single_start_diagnostic(status, diagnostic_spy, ended_spy);
     QCOMPARE(QString::fromStdString(status.error().detail), QString::fromStdString(rejected.detail));
     QCOMPARE(destructions, 1);
     QVERIFY(!coordinator->hasRetainedMapping());
@@ -297,15 +324,39 @@ void LegacyLoggingCoordinatorTest::second_start_is_rejected_without_replacing_th
         return fastecu::Status{};
     };
     auto coordinator = LegacyLoggingCoordinatorTestAccess::make(engine, values, std::move(dependencies));
+    QSignalSpy diagnostic_spy(coordinator.get(), &LegacyLoggingCoordinator::diagnostic);
+    QSignalSpy ended_spy(coordinator.get(), &LegacyLoggingCoordinator::sessionEnded);
 
     QVERIFY(coordinator->start(request_for(LoggingProtocolId::Ssm, QStringLiteral("SSM"))).has_value());
     const auto status = coordinator->start(request_for(LoggingProtocolId::Ssm, QStringLiteral("OTHER")));
 
-    QVERIFY(!status.has_value());
+    expect_single_start_diagnostic(status, diagnostic_spy, ended_spy);
     QCOMPARE(create_calls, 1);
     QCOMPARE(start_calls, 1);
     QVERIFY(coordinator->hasRetainedMapping());
     QCOMPARE(coordinator->activeProtocolFilter(), QStringLiteral("SSM"));
+}
+
+void LegacyLoggingCoordinatorTest::engine_invocation_exceptions_report_one_diagnostic_without_terminal()
+{
+    const auto exercise = [](auto start_engine)
+    {
+        LoggingEngine engine;
+        auto values = values_for();
+        auto dependencies = successful_dependencies();
+        dependencies.start_engine = std::move(start_engine);
+        auto coordinator = LegacyLoggingCoordinatorTestAccess::make(engine, values, std::move(dependencies));
+        QSignalSpy diagnostic_spy(coordinator.get(), &LegacyLoggingCoordinator::diagnostic);
+        QSignalSpy ended_spy(coordinator.get(), &LegacyLoggingCoordinator::sessionEnded);
+
+        const auto status = coordinator->start(request_for(LoggingProtocolId::Ssm, QStringLiteral("SSM")));
+
+        expect_single_start_diagnostic(status, diagnostic_spy, ended_spy);
+        QVERIFY(!coordinator->hasRetainedMapping());
+    };
+
+    exercise([](LoggingRun) -> fastecu::Status { throw std::runtime_error("engine threw"); });
+    exercise([](LoggingRun) -> fastecu::Status { throw 7; });
 }
 
 void LegacyLoggingCoordinatorTest::successful_samples_apply_stable_ids_after_reorder_and_emit_one_cue()
@@ -324,6 +375,27 @@ void LegacyLoggingCoordinatorTest::successful_samples_apply_stable_ids_after_reo
     QTRY_COMPARE(applied_spy.count(), 1);
     QCOMPARE(values.log_value.at(1), QStringLiteral("1234.50"));
     QCOMPARE(values.log_value.at(0), QStringLiteral("88.00"));
+}
+
+void LegacyLoggingCoordinatorTest::valid_samples_are_applied_before_immediately_following_terminal_delivery()
+{
+    LoggingEngine engine;
+    auto values = values_for();
+    auto coordinator = LegacyLoggingCoordinatorTestAccess::make(engine, values, successful_dependencies());
+    QStringList observed_events;
+    connect(coordinator.get(), &LegacyLoggingCoordinator::valuesApplied, this,
+            [&observed_events]() { observed_events.append(QStringLiteral("valuesApplied")); });
+    connect(coordinator.get(), &LegacyLoggingCoordinator::sessionEnded, this,
+            [&observed_events](SessionEndReason, const QString&)
+            { observed_events.append(QStringLiteral("sessionEnded")); });
+
+    QVERIFY(coordinator->start(request_for(LoggingProtocolId::Ssm, QStringLiteral("SSM"))).has_value());
+    emit engine.valuesUpdated({LogSample{.channel_id = "rpm", .numeric_value = 3210.0}});
+    emit engine.sessionEnded(SessionEndReason::RuntimeFailed, QStringLiteral("poll failed"));
+
+    QCoreApplication::sendPostedEvents(coordinator.get(), QEvent::MetaCall);
+    QCOMPARE(observed_events, QStringList({QStringLiteral("valuesApplied"), QStringLiteral("sessionEnded")}));
+    QCOMPARE(values.log_value.at(1), QStringLiteral("3210.00"));
 }
 
 void LegacyLoggingCoordinatorTest::unknown_sample_id_reports_error_without_stopping_later_batches()
@@ -422,7 +494,9 @@ void LegacyLoggingCoordinatorTest::stale_queued_samples_from_a_stopped_run_do_no
     QSignalSpy applied_spy(coordinator.get(), &LegacyLoggingCoordinator::valuesApplied);
 
     QVERIFY(coordinator->start(request_for(LoggingProtocolId::Ssm, QStringLiteral("SSM"))).has_value());
-    emit engine.valuesUpdated({LogSample{.channel_id = "rpm", .numeric_value = 10.0}});
+    std::thread stale_worker_delivery(
+        [&engine]() { emit engine.valuesUpdated({LogSample{.channel_id = "rpm", .numeric_value = 10.0}}); });
+    stale_worker_delivery.join();
     coordinator->stop();
     QVERIFY(coordinator->start(request_for(LoggingProtocolId::Ssm, QStringLiteral("SSM"))).has_value());
 
