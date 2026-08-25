@@ -3,6 +3,11 @@ load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
 package(default_visibility = ["//visibility:public"])
 
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//:__pkg__"],
+)
+
 cc_library(
     name = "dashboard_document",
     hdrs = ["dashboard_document.h"],

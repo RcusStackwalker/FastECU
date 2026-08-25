@@ -105,6 +105,13 @@ PORTABLE_ROOTS = {
         "text_format",
     },
     ROOT / "src/backend/calibration": {"calibration_service"},
+    ROOT / "src/backend/dashboard": {
+        "dashboard_document",
+        "dashboard_validation",
+        "dashboard_codec",
+        "legacy_cdbg_catalog_importer",
+        "dashboard_document_service",
+    },
 }
 
 FORBIDDEN = (
