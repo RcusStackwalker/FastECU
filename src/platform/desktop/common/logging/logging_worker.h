@@ -6,6 +6,7 @@
 
 #include "src/backend/logging/logging_session.h"
 #include "src/backend/logging/logging_use_case.h"
+#include "src/backend/ports/clock.h"
 #include "src/backend/ports/event_sink.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 
@@ -17,7 +18,7 @@ class LoggingWorker final : public QThread
     Q_OBJECT
   public:
     LoggingWorker(fastecu::logging::LoggingSession session, fastecu::logging::LoggingProtocol *protocol,
-                  fastecu::IEventSink& diagnostics, QObject *parent = nullptr);
+                  fastecu::IClock& clock, fastecu::IEventSink& diagnostics, QObject *parent = nullptr);
     ~LoggingWorker() override;
 
     void requestStop();

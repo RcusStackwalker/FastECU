@@ -26,8 +26,9 @@ using fastecu::logging::PollData;
 constexpr LoggingPolicy kPolicy{
     .poll_timeout_ms = 50,
     .car_silence_miss_threshold = 20,
-    .reconnect_attempt_threshold = 100,
-    .reconnect_retry_period = 20,
+    .reconnect_initial_delay_ms = 4000,
+    .reconnect_period_ms = 1000,
+    .max_reconnect_attempts = std::nullopt,
 };
 
 class StubProtocol : public LoggingProtocol

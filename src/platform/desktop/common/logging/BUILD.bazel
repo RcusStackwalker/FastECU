@@ -43,6 +43,7 @@ fastecu_qttest(
     deps = [
         ":logging_runtime",
         "//src/backend/logging/testing:scripted_logging_protocol",
+        "//src/backend/ports/testing:fake_clock",
     ],
 )
 

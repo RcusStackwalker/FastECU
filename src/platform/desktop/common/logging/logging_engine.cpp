@@ -50,7 +50,7 @@ fastecu::Status LoggingEngine::start(LoggingRun run)
     explicit_stop_pending_ = false;
     completion_published_ = false;
     active_run_generation_ = ++next_run_generation_;
-    active_worker_ = new LoggingWorker(*active_session_, active_protocol_.get(), diagnostics_, this);
+    active_worker_ = new LoggingWorker(*active_session_, active_protocol_.get(), clock_, diagnostics_, this);
     const std::uint64_t run_generation = active_run_generation_;
     connect(active_worker_, &LoggingWorker::samplesReady, this,
             [this, run_generation](QVector<fastecu::logging::LogSample> samples)

@@ -1,5 +1,6 @@
 #include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -11,6 +12,13 @@ namespace fastecu::desktop::logging
 {
 namespace
 {
+
+int saturated_duration_ms(int poll_timeout_ms, std::int64_t misses)
+{
+    const std::int64_t duration = static_cast<std::int64_t>(poll_timeout_ms) * misses;
+    return static_cast<int>(
+        std::clamp(duration, std::int64_t{0}, static_cast<std::int64_t>(std::numeric_limits<int>::max())));
+}
 
 fastecu::Result<QString> effective_protocol_filter(fastecu::logging::LoggingProtocolId protocol,
                                                    const QString& protocol_filter)
@@ -79,6 +87,20 @@ channel_from_legacy_row(const FileActions::LogValuesStructure& log_values, int r
 }
 
 } // namespace
+
+fastecu::logging::LoggingPolicy make_legacy_logging_policy(int poll_timeout_ms, int silence_misses,
+                                                           int first_reconnect_miss, int repeat_misses)
+{
+    const std::int64_t misses_before_first_reconnect =
+        std::max(std::int64_t{0}, static_cast<std::int64_t>(first_reconnect_miss) - silence_misses);
+    return {
+        .poll_timeout_ms = poll_timeout_ms,
+        .car_silence_miss_threshold = silence_misses,
+        .reconnect_initial_delay_ms = saturated_duration_ms(poll_timeout_ms, misses_before_first_reconnect),
+        .reconnect_period_ms = saturated_duration_ms(poll_timeout_ms, repeat_misses),
+        .max_reconnect_attempts = std::nullopt,
+    };
+}
 
 fastecu::Result<PreparedLegacyLoggingSession>
 make_prepared_legacy_logging_session(const FileActions::LogValuesStructure& log_values,

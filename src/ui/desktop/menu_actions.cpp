@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "src/algorithms/menu/qt_menu_command.h"
+#include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
 #include "ui_mainwindow.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
@@ -1180,28 +1181,19 @@ void MainWindow::toggle_realtime()
         {
             request.protocol = fastecu::logging::LoggingProtocolId::MutDma;
             request.protocol_filter = "MUT_DMA";
-            request.policy = {.poll_timeout_ms = 50,
-                              .car_silence_miss_threshold = 20,
-                              .reconnect_attempt_threshold = 100,
-                              .reconnect_retry_period = 20};
+            request.policy = fastecu::desktop::logging::make_legacy_logging_policy(50, 20, 100, 20);
         }
         else if (configValues->flash_protocol_selected_log_protocol == "CDBG")
         {
             request.protocol = fastecu::logging::LoggingProtocolId::Cdbg;
             request.protocol_filter = "CDBG";
-            request.policy = {.poll_timeout_ms = 50,
-                              .car_silence_miss_threshold = 20,
-                              .reconnect_attempt_threshold = 100,
-                              .reconnect_retry_period = 20};
+            request.policy = fastecu::desktop::logging::make_legacy_logging_policy(50, 20, 100, 20);
         }
         else
         {
             request.protocol = fastecu::logging::LoggingProtocolId::Ssm;
             request.protocol_filter = protocol;
-            request.policy = {.poll_timeout_ms = 300,
-                              .car_silence_miss_threshold = 10,
-                              .reconnect_attempt_threshold = 30,
-                              .reconnect_retry_period = 10};
+            request.policy = fastecu::desktop::logging::make_legacy_logging_policy(300, 10, 30, 10);
         }
 
         const auto started = loggingCoordinator->start(request);

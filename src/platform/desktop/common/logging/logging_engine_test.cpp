@@ -34,8 +34,9 @@ LoggingSession session()
                                                        .decimal_precision = 0}},
                                        LoggingPolicy{.poll_timeout_ms = 5,
                                                      .car_silence_miss_threshold = 2,
-                                                     .reconnect_attempt_threshold = 1000,
-                                                     .reconnect_retry_period = 0});
+                                                     .reconnect_initial_delay_ms = 1000000,
+                                                     .reconnect_period_ms = 1000,
+                                                     .max_reconnect_attempts = std::nullopt});
     Q_ASSERT(result.has_value());
     return std::move(*result);
 }

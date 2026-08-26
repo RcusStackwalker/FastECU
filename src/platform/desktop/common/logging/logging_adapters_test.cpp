@@ -1,6 +1,7 @@
 #include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
 #include "src/platform/desktop/common/logging/logging_value_adapter.h"
 
+#include <climits>
 #include <functional>
 #include <string>
 #include <type_traits>
@@ -29,8 +30,9 @@ portable_logging::LoggingPolicy valid_policy()
     return {
         .poll_timeout_ms = 100,
         .car_silence_miss_threshold = 3,
-        .reconnect_attempt_threshold = 5,
-        .reconnect_retry_period = 10,
+        .reconnect_initial_delay_ms = 200,
+        .reconnect_period_ms = 100,
+        .max_reconnect_attempts = std::nullopt,
     };
 }
 
@@ -71,6 +73,28 @@ FileActions::LogValuesStructure reordered_log_values()
 }
 
 } // namespace
+
+TEST(LegacyLoggingPolicyTest, PreservesCanAndSsmReconnectSchedules)
+{
+    const auto can = desktop_logging::make_legacy_logging_policy(50, 20, 100, 20);
+    EXPECT_EQ(can.reconnect_initial_delay_ms, 4000);
+    EXPECT_EQ(can.reconnect_period_ms, 1000);
+    EXPECT_EQ(can.max_reconnect_attempts, std::nullopt);
+
+    const auto ssm = desktop_logging::make_legacy_logging_policy(300, 10, 30, 10);
+    EXPECT_EQ(ssm.reconnect_initial_delay_ms, 6000);
+    EXPECT_EQ(ssm.reconnect_period_ms, 3000);
+    EXPECT_EQ(ssm.max_reconnect_attempts, std::nullopt);
+}
+
+TEST(LegacyLoggingPolicyTest, SaturatesReconnectDurationsAtIntMax)
+{
+    const auto policy = desktop_logging::make_legacy_logging_policy(INT_MAX, 0, INT_MAX, INT_MAX);
+
+    EXPECT_EQ(policy.reconnect_initial_delay_ms, INT_MAX);
+    EXPECT_EQ(policy.reconnect_period_ms, INT_MAX);
+    EXPECT_EQ(policy.max_reconnect_attempts, std::nullopt);
+}
 
 TEST(PreparedLegacyLoggingSessionTest, StableIdUpdatesOriginalRowAfterReorder)
 {

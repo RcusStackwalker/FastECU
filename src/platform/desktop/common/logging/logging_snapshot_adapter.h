@@ -41,6 +41,9 @@ struct PreparedLegacyLoggingSession
     LegacyLoggingMapping mapping;
 };
 
+fastecu::logging::LoggingPolicy make_legacy_logging_policy(int poll_timeout_ms, int silence_misses,
+                                                           int first_reconnect_miss, int repeat_misses);
+
 fastecu::Result<PreparedLegacyLoggingSession>
 make_prepared_legacy_logging_session(const FileActions::LogValuesStructure& log_values,
                                      fastecu::logging::LoggingProtocolId protocol, const QString& protocol_filter,

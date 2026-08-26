@@ -12,6 +12,7 @@
 #include "src/backend/logging/logging_protocol.h"
 #include "src/backend/logging/logging_session.h"
 #include "src/platform/desktop/common/logging/logging_worker.h"
+#include "src/platform/desktop/common/ports/qt_clock.h"
 #include "src/platform/desktop/common/ports/qt_event_sink.h"
 
 namespace fastecu::desktop::logging
@@ -70,6 +71,7 @@ class LoggingEngine final : public QObject
 
     std::optional<fastecu::logging::LoggingSession> active_session_;
     std::unique_ptr<fastecu::logging::LoggingProtocol> active_protocol_;
+    QtClock clock_;
     LoggingWorker *active_worker_ = nullptr;
     QtEventSink diagnostics_;
     std::optional<LoggingStatus> last_status_;
