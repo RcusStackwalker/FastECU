@@ -929,7 +929,53 @@ TEST(MitsuColtM32rCanExecutor, WriteRunsTheBootstrapWhenTheTopRegionDiffers)
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Userspace flash verified")));
 }
 
-TEST(MitsuColtM32rCanExecutor, WriteRefusesRedirectBootstrapWhenTheCarrierDoesNotMatchTheDesiredTopPayload)
+TEST(MitsuColtM32rCanExecutor, WritePreWritesTheCarrierWhenItDoesNotMatchTheDesiredTopPayload)
+{
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::ManualCancellationToken cancellation;
+    MitsuColtM32rCanExecutor executor;
+
+    const bytes::Bytes rom = writeRom();
+    auto plan = writePlan(rom);
+
+    scriptBootloadHandshake(transport);
+    // Top region is blank: bootstrap needed.
+    scriptFlashReadChunk(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kFlashReadBlockSize, 0xFF);
+    // Carrier holds stock code, not the payload: mismatch at the first chunk.
+    scriptFlashReadChunk(transport, MitsuColtCan::kUserspaceStart, MitsuColtCan::kFlashReadBlockSize, 0x00);
+    // Pre-write the payload into the carrier through the ordinary path.
+    scriptUploadAndCommit(transport, MitsuColtCan::kEraseRoutineRamAddr, MitsuColtCan::kErasePageRoutine);
+    scriptUploadAndCommit(transport, MitsuColtCan::kWriteRoutineRamAddr, MitsuColtCan::kWritePageRoutine);
+    scriptUnlockAndErase(transport);
+    scriptUploadAndCommit(transport, MitsuColtCan::kUserspaceStart, topRegionOf(rom));
+    scriptFlashReadData(transport, MitsuColtCan::kUserspaceStart, topRegionOf(rom));
+    // Now the redirect bootstrap, exactly as before.
+    scriptUploadAndCommit(transport, MitsuColtCan::kEraseRoutineRamAddr, MitsuColtCan::kEraseRedirectRoutine);
+    scriptUploadAndCommit(transport, MitsuColtCan::kWriteRoutineRamAddr, MitsuColtCan::kWriteRedirectRoutine);
+    scriptUnlockAndErase(transport);
+    scriptUploadAndCommit(transport, MitsuColtCan::kUserspaceStart, topRegionOf(rom));
+    scriptFlashRead(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kTopRegionLength, 0xEE);
+    // Then the ordinary write of the real image.
+    scriptUploadAndCommit(transport, MitsuColtCan::kEraseRoutineRamAddr, MitsuColtCan::kErasePageRoutine);
+    scriptUploadAndCommit(transport, MitsuColtCan::kWriteRoutineRamAddr, MitsuColtCan::kWritePageRoutine);
+    scriptUnlockAndErase(transport);
+    scriptUploadAndCommit(transport, MitsuColtCan::kUserspaceStart, userspaceOf(rom));
+    scriptFlashReadData(transport, MitsuColtCan::kUserspaceStart, userspaceOf(rom));
+
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
+
+    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_THAT(events.logs,
+                Contains(Pair(LogLevel::Info, "Carrier window does not hold the top payload; pre-writing it...")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Carrier pre-written and verified")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Top 128KB written via redirect")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Top 128KB verified")));
+}
+
+TEST(MitsuColtM32rCanExecutor, WriteFailsWhenTheCarrierPreWriteDoesNotVerify)
 {
     ScriptedCanFlashTransport transport;
     FakeClock clock;
@@ -942,22 +988,27 @@ TEST(MitsuColtM32rCanExecutor, WriteRefusesRedirectBootstrapWhenTheCarrierDoesNo
 
     scriptBootloadHandshake(transport);
     scriptFlashReadChunk(transport, MitsuColtCan::kTopRegionStart, MitsuColtCan::kFlashReadBlockSize, 0xFF);
-    scriptFlashRead(transport, MitsuColtCan::kUserspaceStart, 3 * MitsuColtCan::kFlashReadBlockSize, 0xEE);
-    scriptFlashReadChunk(transport, MitsuColtCan::kUserspaceStart + 3 * MitsuColtCan::kFlashReadBlockSize,
-                         MitsuColtCan::kFlashReadBlockSize, 0xFF);
+    scriptFlashReadChunk(transport, MitsuColtCan::kUserspaceStart, MitsuColtCan::kFlashReadBlockSize, 0x00);
+    scriptUploadAndCommit(transport, MitsuColtCan::kEraseRoutineRamAddr, MitsuColtCan::kErasePageRoutine);
+    scriptUploadAndCommit(transport, MitsuColtCan::kWriteRoutineRamAddr, MitsuColtCan::kWritePageRoutine);
+    scriptUnlockAndErase(transport);
+    scriptUploadAndCommit(transport, MitsuColtCan::kUserspaceStart, topRegionOf(rom));
+    // Read-back still wrong: the pre-write did not take.
+    scriptFlashReadChunk(transport, MitsuColtCan::kUserspaceStart, MitsuColtCan::kFlashReadBlockSize, 0x00);
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_THAT(result.error().detail, HasSubstr("carrier window does not match desired top payload"));
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_THAT(result.error().detail, HasSubstr("carrier pre-write verify mismatch"));
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_THAT(events.logs,
-                Contains(Pair(LogLevel::Error, "Carrier window 0x8000-0x27fff does not match desired top payload; "
-                                               "refusing redirect bootstrap")));
+    EXPECT_THAT(
+        events.logs,
+        Contains(Pair(LogLevel::Error, "Carrier still does not match after pre-write; refusing redirect bootstrap")));
+    // The redirect helpers must never be installed after a failed pre-write:
+    // that is the state where an erase would sweep an unprepared carrier.
     EXPECT_THAT(events.logs,
                 Not(Contains(Pair(LogLevel::Info, "Uploading erase redirect routine to RAM 0x805568..."))));
-    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Carrier window erased"))));
 }
 
 TEST(MitsuColtM32rCanExecutor, WritePropagatesACarrierReadFailureBeforeRedirectHelpers)
