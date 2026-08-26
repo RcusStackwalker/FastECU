@@ -252,5 +252,8 @@ TEST(LoadProtocolCatalog, ParsesTheRealShippedProtocolsFileWithoutError)
         EXPECT_EQ(colt->write, "yes");
         EXPECT_EQ(colt->test_write, "no");
         EXPECT_EQ(colt->flash_transport, "iso15765");
+        // Routed to ChecksumEcuMitsuM32rCan; without "yes" the dispatch in
+        // src/backend/checksum refuses to run any module for these protocols.
+        EXPECT_EQ(colt->checksum, "yes");
     }
 }
