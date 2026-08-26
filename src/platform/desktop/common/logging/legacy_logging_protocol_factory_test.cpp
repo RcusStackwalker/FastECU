@@ -1,6 +1,8 @@
 #include "src/platform/desktop/common/logging/legacy_logging_protocol_factory.h"
 
 #include <cstddef>
+#include <cstdint>
+#include <format>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -24,7 +26,7 @@ class LegacyLoggingProtocolFactoryTestAccess
 
     static LegacyLoggingProtocolFactory make(
         ProtocolBuilder mut_dma_builder, ProtocolBuilder cdbg_builder, SsmProtocolBuilder ssm_builder,
-        CdbgSerialSetupActions cdbg_serial_setup = successfulCdbgSetup(),
+        RawCanSetupActions raw_can_setup = successfulRawCanSetup(),
         std::function<bool()> open_cdbg_port = []() { return true; },
         std::function<bool()> cdbg_port_is_open = []() { return true; },
         std::function<bool()> target_is_ecu = []() { return true; },
@@ -35,7 +37,7 @@ class LegacyLoggingProtocolFactoryTestAccess
                 .mut_dma_builder = std::move(mut_dma_builder),
                 .cdbg_builder = std::move(cdbg_builder),
                 .ssm_builder = std::move(ssm_builder),
-                .cdbg_serial_setup = std::move(cdbg_serial_setup),
+                .raw_can_setup = std::move(raw_can_setup),
                 .open_cdbg_port = std::move(open_cdbg_port),
                 .cdbg_port_is_open = std::move(cdbg_port_is_open),
                 .target_is_ecu = std::move(target_is_ecu),
@@ -44,16 +46,16 @@ class LegacyLoggingProtocolFactoryTestAccess
             LegacyLoggingProtocolFactory::TestingTag{});
     }
 
-    static CdbgSerialSetupActions successfulCdbgSetup()
+    static RawCanSetupActions successfulRawCanSetup()
     {
         return {
-            .disable_iso14230 = []() { return true; },
-            .disable_iso14230_header = []() { return true; },
-            .enable_raw_can = []() { return true; },
-            .disable_iso15765 = []() { return true; },
-            .select_11_bit_ids = []() { return true; },
-            .select_500k_baud = []() { return true; },
-            .select_reply_id = []() { return true; },
+            .set_iso14230 = [](bool) { return true; },
+            .set_iso14230_header = [](bool) { return true; },
+            .set_raw_can = [](bool) { return true; },
+            .set_iso15765 = [](bool) { return true; },
+            .set_identifier_width = [](dashboard::CanIdentifierWidth) { return true; },
+            .set_bitrate = [](std::uint32_t) { return true; },
+            .set_reply_id = [](std::uint32_t) { return true; },
         };
     }
 };
@@ -158,7 +160,7 @@ LegacyLoggingProtocolFactory recording_factory(BuilderRecording& recording)
             recording.use_openport2_adapter = use_openport2_adapter;
             return make_protocol();
         },
-        LegacyLoggingProtocolFactoryTestAccess::successfulCdbgSetup(), []() { return true; }, []() { return true; },
+        LegacyLoggingProtocolFactoryTestAccess::successfulRawCanSetup(), []() { return true; }, []() { return true; },
         [&recording]()
         {
             ++recording.target_is_ecu_calls;
@@ -290,30 +292,34 @@ TEST(LegacyLoggingProtocolFactoryTest, NormalizesUnknownBuilderException)
               (fastecu::Error{fastecu::ErrorKind::Internal, "legacy protocol builder threw an unknown exception"}));
 }
 
-CdbgSerialSetupActions recording_cdbg_setup(std::vector<int>& events, std::optional<int> failing_action = std::nullopt)
+RawCanSetupActions recording_raw_can_setup(std::vector<int>& events, std::vector<std::string> *values = nullptr,
+                                           std::optional<int> failing_action = std::nullopt)
 {
-    const auto action = [&events, failing_action](int index)
+    const auto action = [&events, values, failing_action](int index, std::string value)
     {
-        return [&events, failing_action, index]()
+        events.push_back(index);
+        if (values != nullptr)
         {
-            events.push_back(index);
-            return failing_action != index;
-        };
+            values->push_back(std::move(value));
+        }
+        return failing_action != index;
     };
     return {
-        .disable_iso14230 = action(0),
-        .disable_iso14230_header = action(1),
-        .enable_raw_can = action(2),
-        .disable_iso15765 = action(3),
-        .select_11_bit_ids = action(4),
-        .select_500k_baud = action(5),
-        .select_reply_id = action(6),
+        .set_iso14230 = [action](bool enabled) { return action(0, std::format("iso14230:{}", enabled)); },
+        .set_iso14230_header = [action](bool enabled) { return action(1, std::format("iso14230-header:{}", enabled)); },
+        .set_raw_can = [action](bool enabled) { return action(2, std::format("raw-can:{}", enabled)); },
+        .set_iso15765 = [action](bool enabled) { return action(3, std::format("iso15765:{}", enabled)); },
+        .set_identifier_width = [action](dashboard::CanIdentifierWidth width)
+        { return action(4, std::format("identifier-width:{}", static_cast<unsigned>(width))); },
+        .set_bitrate = [action](std::uint32_t bitrate) { return action(5, std::format("bitrate:{}", bitrate)); },
+        .set_reply_id = [action](std::uint32_t id) { return action(6, std::format("reply-id:{:#x}", id)); },
     };
 }
 
 TEST(LegacyLoggingProtocolFactoryTest, CdbgConfiguresThenOpensChecksAndBuildsInOrder)
 {
     std::vector<int> events;
+    std::vector<std::string> setup_values;
     auto factory = LegacyLoggingProtocolFactoryTestAccess::make(
         successful_builder(),
         [&events](const std::vector<fastecu::logging::LoggingChannel>&)
@@ -321,7 +327,7 @@ TEST(LegacyLoggingProtocolFactoryTest, CdbgConfiguresThenOpensChecksAndBuildsInO
             events.push_back(9);
             return make_protocol();
         },
-        successful_ssm_builder(), recording_cdbg_setup(events),
+        successful_ssm_builder(), recording_raw_can_setup(events, &setup_values),
         [&events]()
         {
             events.push_back(7);
@@ -337,6 +343,8 @@ TEST(LegacyLoggingProtocolFactoryTest, CdbgConfiguresThenOpensChecksAndBuildsInO
 
     ASSERT_TRUE(result.has_value());
     EXPECT_THAT(events, ElementsAre(0, 1, 2, 3, 4, 5, 6, 7, 8, 9));
+    EXPECT_THAT(setup_values, ElementsAre("iso14230:false", "iso14230-header:false", "raw-can:true", "iso15765:false",
+                                          "identifier-width:11", "bitrate:500000", "reply-id:0x631"));
 }
 
 TEST(LegacyLoggingProtocolFactoryTest, CdbgSetupFailureStopsAllLaterActions)
@@ -352,7 +360,7 @@ TEST(LegacyLoggingProtocolFactoryTest, CdbgSetupFailureStopsAllLaterActions)
                 events.push_back(9);
                 return make_protocol();
             },
-            successful_ssm_builder(), recording_cdbg_setup(events, failing_action),
+            successful_ssm_builder(), recording_raw_can_setup(events, nullptr, failing_action),
             [&events]()
             {
                 events.push_back(7);
@@ -387,7 +395,7 @@ TEST(LegacyLoggingProtocolFactoryTest, CdbgOpenFailureDoesNotCheckOrBuildProtoco
             events.push_back(9);
             return make_protocol();
         },
-        successful_ssm_builder(), recording_cdbg_setup(events),
+        successful_ssm_builder(), recording_raw_can_setup(events),
         [&events]()
         {
             events.push_back(7);
@@ -417,7 +425,7 @@ TEST(LegacyLoggingProtocolFactoryTest, CdbgClosedPortDoesNotBuildProtocol)
             events.push_back(9);
             return make_protocol();
         },
-        successful_ssm_builder(), recording_cdbg_setup(events),
+        successful_ssm_builder(), recording_raw_can_setup(events),
         [&events]()
         {
             events.push_back(7);

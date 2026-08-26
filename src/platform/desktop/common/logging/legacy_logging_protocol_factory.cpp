@@ -4,6 +4,8 @@
 #include <memory>
 #include <utility>
 
+#include <QString>
+
 #include "src/algorithms/protocol/colt/mitsu_colt_can_cdbg_protocol.h"
 #include "src/backend/logging/protocols/portable_cdbg_logging_protocol.h"
 #include "src/backend/logging/protocols/portable_mut_dma_logging_protocol.h"
@@ -51,16 +53,17 @@ LegacyLoggingProtocolFactory::LegacyLoggingProtocolFactory(SerialPortActions& se
                   std::make_unique<fastecu::logging::SsmLoggingProtocol>(
                       clock, std::move(transport), channels, response_offsets, is_ecu, use_openport2_adapter));
           },
-          .cdbg_serial_setup =
+          .raw_can_setup =
               {
-                  .disable_iso14230 = [&serial]() { return serial.set_is_iso14230_connection(false); },
-                  .disable_iso14230_header = [&serial]() { return serial.set_add_iso14230_header(false); },
-                  .enable_raw_can = [&serial]() { return serial.set_is_can_connection(true); },
-                  .disable_iso15765 = [&serial]() { return serial.set_is_iso15765_connection(false); },
-                  .select_11_bit_ids = [&serial]() { return serial.set_is_29_bit_id(false); },
-                  .select_500k_baud = [&serial]() { return serial.set_can_speed("500000"); },
-                  .select_reply_id = [&serial]()
-                  { return serial.set_can_destination_address(MitsuColtCanCdbg::kReplyCanId); },
+                  .set_iso14230 = [&serial](bool enabled) { return serial.set_is_iso14230_connection(enabled); },
+                  .set_iso14230_header = [&serial](bool enabled) { return serial.set_add_iso14230_header(enabled); },
+                  .set_raw_can = [&serial](bool enabled) { return serial.set_is_can_connection(enabled); },
+                  .set_iso15765 = [&serial](bool enabled) { return serial.set_is_iso15765_connection(enabled); },
+                  .set_identifier_width = [&serial](dashboard::CanIdentifierWidth width)
+                  { return serial.set_is_29_bit_id(width == dashboard::CanIdentifierWidth::Extended); },
+                  .set_bitrate = [&serial](std::uint32_t bitrate)
+                  { return serial.set_can_speed(QString::number(bitrate)); },
+                  .set_reply_id = [&serial](std::uint32_t id) { return serial.set_can_destination_address(id); },
               },
           .open_cdbg_port = [&serial]() { return !serial.open_serial_port().isEmpty(); },
           .cdbg_port_is_open = [&serial]() { return serial.is_serial_port_open(); },
@@ -99,7 +102,13 @@ LegacyLoggingProtocolFactory::create(const LegacyProtocolRequest& request) const
             return normalized(dependencies_.mut_dma_builder(request.channels));
         case fastecu::logging::LoggingProtocolId::Cdbg:
         {
-            if (const auto configured = configure_cdbg_serial(dependencies_.cdbg_serial_setup); !configured.has_value())
+            const RawCanSetupProfile profile{
+                .bitrate = 500000,
+                .identifier_width = dashboard::CanIdentifierWidth::Standard,
+                .reply_id = MitsuColtCanCdbg::kReplyCanId,
+            };
+            if (const auto configured = configure_raw_can(profile, dependencies_.raw_can_setup);
+                !configured.has_value())
             {
                 return std::unexpected(configured.error());
             }

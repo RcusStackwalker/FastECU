@@ -44,7 +44,7 @@ class LegacyLoggingProtocolFactory
         ProtocolBuilder mut_dma_builder;
         ProtocolBuilder cdbg_builder;
         SsmProtocolBuilder ssm_builder;
-        CdbgSerialSetupActions cdbg_serial_setup;
+        RawCanSetupActions raw_can_setup;
         std::function<bool()> open_cdbg_port;
         std::function<bool()> cdbg_port_is_open;
         std::function<bool()> target_is_ecu;

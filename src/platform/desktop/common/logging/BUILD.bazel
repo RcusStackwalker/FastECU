@@ -53,6 +53,15 @@ fastecu_gtest(
     deps = [":legacy_logging_compat"],
 )
 
+fastecu_gtest(
+    name = "test_cdbg_serial_setup",
+    srcs = ["cdbg_serial_setup_test.cpp"],
+    deps = [
+        ":legacy_logging_compat",
+        "//src/algorithms/protocol/colt:mitsu_colt_can_cdbg_protocol",
+    ],
+)
+
 fastecu_qttest(
     name = "test_legacy_logging_coordinator",
     src = "legacy_logging_coordinator_test.cpp",
@@ -89,6 +98,7 @@ qt_cc_library(
         ":logging_adapters",
         ":logging_runtime",
         "//src/algorithms/protocol/colt:mitsu_colt_can_cdbg_protocol",
+        "//src/backend/dashboard:dashboard_document",
         "//src/backend/logging/protocols",
         "//src/backend/ports",
         "//src/backend/protocol",
