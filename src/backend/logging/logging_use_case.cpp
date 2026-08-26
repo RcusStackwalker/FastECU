@@ -38,10 +38,20 @@ class StopGuard
     fastecu::IEventSink& diagnostics_;
 };
 
-std::uint64_t saturated_add(std::uint64_t base, std::uint64_t delta)
+struct MonotonicDeadline
+{
+    std::uint64_t at_ms;
+    bool reachable;
+};
+
+MonotonicDeadline saturated_deadline(std::uint64_t base, std::uint64_t delta)
 {
     const auto max = std::numeric_limits<std::uint64_t>::max();
-    return delta > max - base ? max : base + delta;
+    if (delta > max - base)
+    {
+        return {.at_ms = max, .reachable = false};
+    }
+    return {.at_ms = base + delta, .reachable = true};
 }
 
 } // namespace
@@ -65,7 +75,7 @@ fastecu::Status LoggingUseCase::run(const LoggingSession& session, LoggingProtoc
     LoggingState last_state = LoggingState::Running;
     int consecutive_misses = 0;
     std::uint32_t reconnect_attempts = 0;
-    std::optional<std::uint64_t> reconnect_deadline_ms;
+    std::optional<MonotonicDeadline> reconnect_deadline;
     std::string last_retry_failure_detail;
 
     while (!cancellation.cancelled())
@@ -82,6 +92,11 @@ fastecu::Status LoggingUseCase::run(const LoggingSession& session, LoggingProtoc
 
         if (poll_result->responded)
         {
+            if (poll_result->samples.empty())
+            {
+                continue;
+            }
+
             std::vector<LogSample> converted;
             converted.reserve(poll_result->samples.size());
             for (const ProtocolSample& raw : poll_result->samples)
@@ -96,7 +111,7 @@ fastecu::Status LoggingUseCase::run(const LoggingSession& session, LoggingProtoc
 
             consecutive_misses = 0;
             reconnect_attempts = 0;
-            reconnect_deadline_ms.reset();
+            reconnect_deadline.reset();
             last_retry_failure_detail.clear();
             if (last_state != LoggingState::Running)
             {
@@ -112,11 +127,11 @@ fastecu::Status LoggingUseCase::run(const LoggingSession& session, LoggingProtoc
         {
             last_state = LoggingState::CarNotResponding;
             events.state_changed(LoggingState::CarNotResponding);
-            reconnect_deadline_ms =
-                saturated_add(clock_.now_ms(), static_cast<std::uint64_t>(session.policy().reconnect_initial_delay_ms));
+            reconnect_deadline = saturated_deadline(
+                clock_.now_ms(), static_cast<std::uint64_t>(session.policy().reconnect_initial_delay_ms));
         }
 
-        if (!reconnect_deadline_ms || clock_.now_ms() < *reconnect_deadline_ms)
+        if (!reconnect_deadline || !reconnect_deadline->reachable || clock_.now_ms() < reconnect_deadline->at_ms)
         {
             continue;
         }
@@ -132,8 +147,8 @@ fastecu::Status LoggingUseCase::run(const LoggingSession& session, LoggingProtoc
 
         const fastecu::Status reconnected = protocol.start(cancellation);
         ++reconnect_attempts;
-        reconnect_deadline_ms =
-            saturated_add(clock_.now_ms(), static_cast<std::uint64_t>(session.policy().reconnect_period_ms));
+        reconnect_deadline =
+            saturated_deadline(clock_.now_ms(), static_cast<std::uint64_t>(session.policy().reconnect_period_ms));
         if (!reconnected)
         {
             if (reconnected.error().kind != fastecu::ErrorKind::BadResponse)

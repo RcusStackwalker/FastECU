@@ -304,6 +304,43 @@ TEST(LoggingUseCaseTest, ValidSampleResetsAttemptsAndReturnsToRunning)
                                         LoggingState::CarNotResponding}));
 }
 
+TEST(LoggingUseCaseTest, EmptyRespondedPollDoesNotResetReconnectState)
+{
+    auto session = session_with_policy({
+        .poll_timeout_ms = 10,
+        .car_silence_miss_threshold = 1,
+        .reconnect_initial_delay_ms = 0,
+        .reconnect_period_ms = 10,
+        .max_reconnect_attempts = 1,
+    });
+    FakeClock clock;
+    ScriptedProtocol protocol(clock);
+    protocol.start_results = {
+        fastecu::Status{},
+        fastecu::fail(fastecu::ErrorKind::BadResponse, "retained retry failure"),
+    };
+    protocol.polls = {
+        PollData{.responded = false},
+        PollData{.responded = true, .samples = {}},
+        PollData{.responded = false},
+    };
+    RecordingLoggingSink sink;
+    RecordingEventSink diagnostics;
+    FakeCancellationToken token;
+    token.set_predicate([&protocol] { return protocol.polls_completed >= 3; });
+
+    auto result = LoggingUseCase(clock).run(session, protocol, token, sink, diagnostics);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::BadResponse);
+    EXPECT_EQ(result.error().detail, "logging reconnect attempts exhausted");
+    EXPECT_EQ(protocol.starts, 2);
+    EXPECT_EQ(sink.states, (std::vector{LoggingState::Running, LoggingState::CarNotResponding}));
+    EXPECT_TRUE(sink.sample_batches.empty());
+    ASSERT_EQ(diagnostics.logs.size(), 1U);
+    EXPECT_EQ(diagnostics.logs.back().second, "retained retry failure");
+}
+
 TEST(LoggingUseCaseTest, ExhaustsThreeAttemptsAndLogsMostRecentRetryFailure)
 {
     auto session = session_with_policy({
@@ -391,7 +428,7 @@ TEST(LoggingUseCaseTest, TerminalRestartErrorReturnsImmediately)
     EXPECT_EQ(protocol.polls_completed, 1);
 }
 
-TEST(LoggingUseCaseTest, SaturatesReconnectDeadlineAtMaximumClockValue)
+TEST(LoggingUseCaseTest, OverflowedPositiveReconnectDeadlineNeverBecomesDueAtMaximumClockValue)
 {
     auto session = session_with_policy({
         .poll_timeout_ms = 1,
@@ -405,12 +442,14 @@ TEST(LoggingUseCaseTest, SaturatesReconnectDeadlineAtMaximumClockValue)
     ScriptedProtocol protocol(clock);
     RecordingLoggingSink sink;
 
-    auto result = run_until_cancelled(clock, session, protocol, sink, 5);
+    auto result = run_until_cancelled(clock, session, protocol, sink, 7);
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Cancelled);
-    EXPECT_EQ(protocol.start_call_times_ms, (std::vector<std::uint64_t>{std::numeric_limits<std::uint64_t>::max() - 5,
-                                                                        std::numeric_limits<std::uint64_t>::max()}));
+    EXPECT_EQ(clock.now_, std::numeric_limits<std::uint64_t>::max());
+    EXPECT_EQ(protocol.polls_completed, 7);
+    EXPECT_EQ(protocol.start_call_times_ms,
+              (std::vector<std::uint64_t>{std::numeric_limits<std::uint64_t>::max() - 5}));
 }
 
 class TerminalPollErrorTest : public ::testing::TestWithParam<fastecu::ErrorKind>
