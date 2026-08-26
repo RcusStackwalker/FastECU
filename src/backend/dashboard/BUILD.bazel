@@ -77,6 +77,19 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "dashboard_session_builder",
+    srcs = ["dashboard_session_builder.cpp"],
+    hdrs = ["dashboard_session_builder.h"],
+    deps = [
+        ":dashboard_document",
+        ":dashboard_validation",
+        "//src/backend/logging:logging_session",
+        "//src/backend/ports",
+        "//src/backend/protocol:cdbg_protocol_config",
+    ],
+)
+
 fastecu_portable_gtest(
     name = "dashboard_validation_test",
     srcs = [
@@ -114,4 +127,13 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:in_memory_atomic_file_writer",
         "//src/backend/ports/testing:in_memory_file_repository",
     ],
+)
+
+fastecu_portable_gtest(
+    name = "dashboard_session_builder_test",
+    srcs = [
+        "dashboard_session_builder_test.cpp",
+        "test_fixtures.h",
+    ],
+    deps = [":dashboard_session_builder"],
 )
