@@ -1,0 +1,28 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+
+package(default_visibility = [
+    "//apps/desktop:__pkg__",
+    "//src/platform:__subpackages__",
+    "//tests:__pkg__",
+])
+
+cc_library(
+    name = "local_adapter_matching",
+    srcs = ["local_adapter_matching.cpp"],
+    hdrs = [
+        "local_adapter.h",
+        "local_adapter_matching.h",
+    ],
+    deps = [
+        "//src/backend/dashboard:dashboard_document",
+        "//src/backend/ports",
+        "//src/backend/protocol",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "test_local_adapter_matching",
+    srcs = ["local_adapter_matching_test.cpp"],
+    deps = [":local_adapter_matching"],
+)
