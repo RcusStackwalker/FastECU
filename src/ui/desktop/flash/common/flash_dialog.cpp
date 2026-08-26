@@ -163,9 +163,13 @@ FlashPromptResponse FlashDialog::presentPrompt(const FlashPromptStep& prompt)
         const QString text =
             tr("The top 128KB (%1-%2) may not match the ROM being written. If it does not, it needs a one-time "
                "bootstrap pass through custom erase/write redirect helpers, outside the range the vendor bootloader "
-               "normally allows. This sends the same high-risk erase trigger sequence used for the main write, once "
-               "then and once more for the main write that follows. Only continue on a bench/spare ECU with a recovery "
-               "path available.\n\nContinue?")
+               "normally allows. On a first-time flash the carrier window is written twice, once to pre-write the "
+               "top payload through the ordinary write path and once more through the redirect helpers. While it is "
+               "being pre-written, the carrier briefly holds map data instead of code, so an interruption at that "
+               "point leaves a non-running ECU that is still reachable by the bootloader. This sends the same "
+               "high-risk erase trigger sequence used for the main write, once for the carrier pre-write, once for "
+               "the redirect bootstrap, and once more for the main write that follows, three erase cycles in total. "
+               "Only continue on a bench/spare ECU with a recovery path available.\n\nContinue?")
                 .arg(arg("top_region_start_hex"), arg("rom_end_hex"));
         return QMessageBox::warning(this, tr("Top 128KB bootstrap"), text, QMessageBox::Yes | QMessageBox::Cancel,
                                     QMessageBox::Cancel) == QMessageBox::Yes
