@@ -1,6 +1,12 @@
 #include "src/backend/checksum/dispatch.h"
 #include <gtest/gtest.h>
 
+#include <array>
+#include <cstddef>
+#include <string>
+#include <string_view>
+#include <tuple>
+
 using fastecu::checksum::apply_checksum_correction;
 using fastecu::checksum::ChecksumSelection;
 using Status = fastecu::checksum::ChecksumCorrectionOutcome::Status;
@@ -333,4 +339,66 @@ TEST(ApplyChecksumCorrection, TcuDensoSh7058CanRoutesToSh7xxx)
     ASSERT_EQ(outcome.status, Status::FamilyRan);
     ASSERT_TRUE(outcome.family_result.has_value());
     EXPECT_EQ(outcome.family_result->status, ChecksumResult::Status::Corrected);
+}
+
+namespace
+{
+// M32R_384KB_1block romsize, shaped enough that the Colt module recognises
+// the layout: 0xC2 selects the 384 KiB sweep and flash5013e_u8 is set the way
+// stock 47110032 ships it.
+bytes::Bytes coltRom(std::size_t size = 0x60000)
+{
+    bytes::Bytes rom(size, 0x00);
+    rom[0x3FFCB] = 0xC2;
+    rom[0x5013E] = 0x01;
+    return rom;
+}
+
+ChecksumSelection coltSelection(std::string flash_method, std::string mcu_type = "M32R_384KB_1block")
+{
+    ChecksumSelection s;
+    s.make = "Mitsubishi";
+    s.checksum_flag = "yes";
+    s.flash_method = std::move(flash_method);
+    s.mcu_type = std::move(mcu_type);
+    s.rom_id = "47110032";
+    return s;
+}
+} // namespace
+
+TEST(ApplyChecksumCorrection, AllFourColtCanProtocolsRouteToTheMitsuM32rCanFamily)
+{
+    for (const auto [flash_method, mcu_type, size] :
+         std::to_array<std::tuple<std::string_view, std::string_view, std::size_t>>({
+             {"mitsu_ecu_m32r_can", "M32R_384KB_1block", 0x60000},
+             {"mitsu_ecu_m32r_can_vendor_ext", "M32R_384KB_1block", 0x60000},
+             {"mitsu_ecu_m32r_can_512kb", "M32R_512KB_1block", 0x80000},
+             {"mitsu_ecu_m32r_can_vendor_ext_512kb", "M32R_512KB_1block", 0x80000},
+         }))
+    {
+        const auto outcome =
+            apply_checksum_correction(coltRom(size), coltSelection(std::string(flash_method), std::string(mcu_type)));
+
+        ASSERT_EQ(outcome.status, Status::FamilyRan) << flash_method;
+        ASSERT_TRUE(outcome.family_result.has_value()) << flash_method;
+        EXPECT_EQ(outcome.family_result->message, "Mitsubishi M32R CAN ECU Checksum") << flash_method;
+    }
+}
+
+TEST(ApplyChecksumCorrection, ColtFlashMethodUnderSubaruMakeFindsNoModule)
+{
+    ChecksumSelection selection = coltSelection("mitsu_ecu_m32r_can");
+    selection.make = "Subaru";
+
+    const auto outcome = apply_checksum_correction(coltRom(), selection);
+
+    EXPECT_EQ(outcome.status, Status::NoModuleForProtocol);
+}
+
+TEST(ApplyChecksumCorrection, MitsubishiMakeDoesNotOpenTheKlineMutDmaProtocol)
+{
+    // Adding a Mitsubishi route must not make every mitsu_* protocol eligible.
+    const auto outcome = apply_checksum_correction(coltRom(), coltSelection("mitsu_ecu_m32r_kline_mut_dma"));
+
+    EXPECT_EQ(outcome.status, Status::NoModuleForProtocol);
 }

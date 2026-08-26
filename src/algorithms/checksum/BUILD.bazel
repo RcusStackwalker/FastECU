@@ -21,6 +21,7 @@ exports_files(
 cc_library(
     name = "checksum",
     srcs = [
+        "checksum_ecu_mitsu_m32r_can.cpp",
         "checksum_ecu_subaru_denso_sh705x_diesel.cpp",
         "checksum_ecu_subaru_denso_sh7xxx.cpp",
         "checksum_ecu_subaru_hitachi_m32r_can.cpp",
@@ -34,6 +35,7 @@ cc_library(
         "denso_checksum_table.cpp",
     ],
     hdrs = [
+        "checksum_ecu_mitsu_m32r_can.h",
         "checksum_ecu_subaru_denso_sh705x_diesel.h",
         "checksum_ecu_subaru_denso_sh7xxx.h",
         "checksum_ecu_subaru_hitachi_m32r_can.h",
@@ -53,6 +55,12 @@ cc_library(
 fastecu_portable_gtest(
     name = "checksum_test",
     srcs = ["checksum_test.cpp"],
+    deps = [":checksum"],
+)
+
+fastecu_portable_gtest(
+    name = "checksum_ecu_mitsu_m32r_can_test",
+    srcs = ["checksum_ecu_mitsu_m32r_can_test.cpp"],
     deps = [":checksum"],
 )
 
