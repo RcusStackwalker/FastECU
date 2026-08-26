@@ -28,10 +28,11 @@ std::vector<LoggingChannel> valid_channels()
 LoggingPolicy valid_policy()
 {
     return LoggingPolicy{
-        .poll_timeout_ms = 100,
-        .car_silence_miss_threshold = 3,
-        .reconnect_attempt_threshold = 2,
-        .reconnect_retry_period = 0,
+        .poll_timeout_ms = 10,
+        .car_silence_miss_threshold = 2,
+        .reconnect_initial_delay_ms = 20,
+        .reconnect_period_ms = 10,
+        .max_reconnect_attempts = 3,
     };
 }
 
@@ -78,13 +79,57 @@ TEST(LoggingSessionTest, StableIdsSurviveSourceRowReordering)
     EXPECT_EQ(result->find_channel("coolant")->address, 0x20U);
 }
 
-TEST(LoggingSessionTest, RejectsInvalidPolicy)
+TEST(LoggingSessionTest, RejectsNonpositivePollTimeout)
 {
     auto policy = valid_policy();
     policy.poll_timeout_ms = 0;
     auto result = make_logging_session(LoggingProtocolId::Ssm, valid_channels(), policy);
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::InvalidConfig);
+
+    policy.poll_timeout_ms = -1;
+    EXPECT_FALSE(make_logging_session(LoggingProtocolId::Ssm, valid_channels(), policy));
+}
+
+TEST(LoggingSessionTest, RejectsNonpositiveSilenceThreshold)
+{
+    auto policy = valid_policy();
+    policy.car_silence_miss_threshold = 0;
+    EXPECT_FALSE(make_logging_session(LoggingProtocolId::Ssm, valid_channels(), policy));
+
+    policy.car_silence_miss_threshold = -1;
+    EXPECT_FALSE(make_logging_session(LoggingProtocolId::Ssm, valid_channels(), policy));
+}
+
+TEST(LoggingSessionTest, RejectsNegativeInitialReconnectDelay)
+{
+    auto policy = valid_policy();
+    policy.reconnect_initial_delay_ms = -1;
+    EXPECT_FALSE(make_logging_session(LoggingProtocolId::Ssm, valid_channels(), policy));
+}
+
+TEST(LoggingSessionTest, RejectsNonpositiveReconnectPeriod)
+{
+    auto policy = valid_policy();
+    policy.reconnect_period_ms = 0;
+    EXPECT_FALSE(make_logging_session(LoggingProtocolId::Ssm, valid_channels(), policy));
+
+    policy.reconnect_period_ms = -1;
+    EXPECT_FALSE(make_logging_session(LoggingProtocolId::Ssm, valid_channels(), policy));
+}
+
+TEST(LoggingSessionTest, RejectsPresentZeroReconnectAttemptLimit)
+{
+    auto policy = valid_policy();
+    policy.max_reconnect_attempts = 0;
+    EXPECT_FALSE(make_logging_session(LoggingProtocolId::Ssm, valid_channels(), policy));
+}
+
+TEST(LoggingSessionTest, AcceptsUnlimitedReconnectAttempts)
+{
+    auto policy = valid_policy();
+    policy.max_reconnect_attempts = std::nullopt;
+    EXPECT_TRUE(make_logging_session(LoggingProtocolId::Ssm, valid_channels(), policy));
 }
 
 TEST(LoggingSessionTest, RejectsInvalidChannelShape)

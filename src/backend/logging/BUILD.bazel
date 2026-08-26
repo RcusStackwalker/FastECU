@@ -163,6 +163,7 @@ fastecu_portable_gtest(
     deps = [
         ":logging_use_case",
         "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
     ],
 )

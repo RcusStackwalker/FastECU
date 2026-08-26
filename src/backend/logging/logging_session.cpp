@@ -356,7 +356,8 @@ fastecu::Result<LoggingSession> make_logging_session(LoggingProtocolId protocol,
                                                      LoggingPolicy policy)
 {
     if (!valid_protocol(protocol) || policy.poll_timeout_ms <= 0 || policy.car_silence_miss_threshold <= 0 ||
-        policy.reconnect_attempt_threshold <= 0 || policy.reconnect_retry_period < 0)
+        policy.reconnect_initial_delay_ms < 0 || policy.reconnect_period_ms <= 0 ||
+        (policy.max_reconnect_attempts && *policy.max_reconnect_attempts == 0))
     {
         return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "invalid logging policy");
     }
