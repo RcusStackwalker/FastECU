@@ -121,6 +121,33 @@ TEST(DashboardValidation, RejectsZeroOperationalConnectionValues)
     }
 }
 
+TEST(DashboardValidation, EnforcesWireEncodableSamplingIntervals)
+{
+    struct IntervalCase
+    {
+        std::uint32_t value;
+        bool valid;
+    };
+    constexpr std::array cases{
+        IntervalCase{0, false},    IntervalCase{1, true},      IntervalCase{65535, true},  IntervalCase{65536, false},
+        IntervalCase{65540, true}, IntervalCase{65541, false}, IntervalCase{655350, true}, IntervalCase{655360, false},
+    };
+
+    for (const auto& test_case : cases)
+    {
+        auto document = test::valid_document();
+        document.connection.sampling_interval_ms = test_case.value;
+        const auto result = validate_dashboard_document(document);
+
+        EXPECT_EQ(result.has_value(), test_case.valid) << test_case.value;
+        if (!test_case.valid && !result.has_value())
+        {
+            EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+            EXPECT_TRUE(result.error().detail.starts_with("connection.sampling-interval-ms")) << result.error().detail;
+        }
+    }
+}
+
 TEST(DashboardValidation, AcceptsInclusiveCanIdentifierMaxima)
 {
     auto standard = test::valid_document();

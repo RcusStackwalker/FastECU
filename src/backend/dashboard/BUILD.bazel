@@ -21,6 +21,7 @@ cc_library(
         ":dashboard_document",
         "//src/backend/logging:logging_session",
         "//src/backend/ports",
+        "//src/backend/protocol:cdbg_protocol_config",
     ],
 )
 

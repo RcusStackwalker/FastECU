@@ -37,6 +37,22 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "cdbg_protocol_config",
+    srcs = ["cdbg_protocol_config.cpp"],
+    hdrs = ["cdbg_protocol_config.h"],
+    deps = [
+        "//src/algorithms/protocol/colt:mitsu_colt_can_cdbg_protocol",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "cdbg_protocol_config_test",
+    srcs = ["cdbg_protocol_config_test.cpp"],
+    deps = [":cdbg_protocol_config"],
+)
+
 fastecu_portable_gtest(
     name = "test_init",
     srcs = ["init_test.cpp"],

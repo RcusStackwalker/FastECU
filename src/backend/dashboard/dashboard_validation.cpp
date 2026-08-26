@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "src/backend/logging/logging_session.h"
+#include "src/backend/protocol/cdbg_protocol_config.h"
 
 namespace fastecu::dashboard
 {
@@ -90,9 +91,9 @@ Status validate_dashboard_document(const DashboardDocument& document)
     {
         return invalid("connection.reply-id", "must differ from the request identifier");
     }
-    if (document.connection.sampling_interval_ms == 0)
+    if (!cdbg::valid_cdbg_sampling_interval(document.connection.sampling_interval_ms))
     {
-        return invalid("connection.sampling-interval-ms", "must be positive");
+        return invalid("connection.sampling-interval-ms", "is not encodable by the CDBG wire format");
     }
     if (document.connection.retry.poll_timeout_ms == 0)
     {
