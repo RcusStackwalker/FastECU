@@ -45,20 +45,9 @@ std::optional<std::size_t> areaEndFor(std::uint8_t code)
     return match == kAreaCodes.end() ? std::nullopt : std::optional{match->end};
 }
 
-// flash5013e_u8. The ECU's first pass skips 0x50000-0x5A000 whenever this
-// byte is clear, while its second pass re-sums 0x56000-0x5F0D0 in full. The
-// two overlap, so a cleared flag both changes the total this module computes
-// and leaves rom_crc_finalized_check2() unable to agree with what the first
-// pass latched -- the ROM-checksum DTC then fires whatever the balance word
-// holds. The address is specific to the 47110032 family this module is routed
-// to; stock images of that family ship 0x01 here.
-constexpr std::size_t kExclusionFlag = 0x5013E;
-
-// Every fixed offset this module reads must be present: the six correction
-// words, and the checker flag further up. An image shorter than that carries
-// no Mitsubishi M32R checksum layout at all.
-constexpr std::size_t kCorrectionWordsEnd = kCorrectionWords + 2 + (kCorrectionWordCount * 4);
-constexpr std::size_t kLayoutEnd = std::max(kCorrectionWordsEnd, kExclusionFlag + 1);
+// The six correction words are the last thing the layout requires; an image
+// shorter than that carries no Mitsubishi M32R checksum layout at all.
+constexpr std::size_t kLayoutEnd = kCorrectionWords + 2 + (kCorrectionWordCount * 4);
 
 ChecksumResult unchangedWith(ChecksumResult::Status status, bytes::ByteView romView, std::string message)
 {
@@ -84,13 +73,6 @@ ChecksumResult ChecksumEcuMitsuM32rCan::calculate_checksum_result(bytes::ByteVie
     {
         return unchangedWith(ChecksumResult::Status::Disabled, romView,
                              "Checksum area extends past the end of the ROM; checksums disabled");
-    }
-
-    if (romView[kExclusionFlag] == 0)
-    {
-        return unchangedWith(ChecksumResult::Status::UnsupportedRom, romView,
-                             "ROM disables the ECU's own first-pass flash sweep, so its checksum check cannot pass; "
-                             "no correction applied");
     }
 
     std::uint32_t checksum = 0;

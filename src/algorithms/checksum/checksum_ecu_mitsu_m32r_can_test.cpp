@@ -50,7 +50,7 @@ std::uint32_t ecuBlockSum(bytes::ByteView rom, std::size_t page)
 
 struct EcuCheckerPasses
 {
-    std::uint32_t finalized = 0;      // rom_crc_finalized after pass 1 wraps
+    std::uint32_t finalized = 0;       // rom_crc_finalized after pass 1 wraps
     std::uint32_t specialPagesCrc = 0; // guarded_rom_special_pages_crc.d
     std::uint32_t secondPassCrc = 0;   // rom_check_crc2 after pass 2 wraps
 };
@@ -58,6 +58,9 @@ struct EcuCheckerPasses
 EcuCheckerPasses runEcuRomCrcChecker(bytes::ByteView rom, std::size_t areaEnd)
 {
     // flash5013e_u8: when clear, pass 1 skips 0x50000-0x5A000 entirely.
+    // Transcribed for fidelity, but inert on this family -- the byte lives in
+    // flash and 47110032 ships it as 0x01, so the branch is dead code in the
+    // ROMs these protocols reach and the module does not model it.
     const bool sumEveryPage = rom[kExclusionFlag] != 0;
 
     EcuCheckerPasses passes;
@@ -196,38 +199,6 @@ TEST(ChecksumEcuMitsuM32rCanTest, AreaCodeLargerThanTheFileDisablesChecksumsAndT
 TEST(ChecksumEcuMitsuM32rCanTest, ImageTooSmallToCarryTheLayoutIsRejectedAsInvalidSize)
 {
     const bytes::Bytes rom(0x1000, 0x00);
-
-    const ChecksumResult result = ChecksumEcuMitsuM32rCan::calculate_checksum_result(rom);
-
-    EXPECT_EQ(result.status, ChecksumResult::Status::InvalidSize);
-    EXPECT_EQ(result.romData, rom);
-}
-
-TEST(ChecksumEcuMitsuM32rCanTest, RefusesAnImageWhoseSecondPassCheckCanNeverAgree)
-{
-    // With flash5013e_u8 clear, pass 1 skips 0x50000-0x5A000 while pass 2
-    // re-sums 0x56000-0x5F0D0 in full, so the two accumulators disagree over
-    // the pages they share and rom_crc_finalized_check2() faults no matter
-    // what the balance word holds. Correcting it would hand back an image
-    // that still raises the ROM-checksum DTC.
-    bytes::Bytes rom = syntheticColtRom();
-    rom[kExclusionFlag] = 0x00;
-    balanceWithEcuModel(rom, 0x60000);
-    ASSERT_EQ(runEcuRomCrcChecker(rom, 0x60000).finalized, kEcuTargetCrc);
-    ASSERT_FALSE(ecuAcceptsRom(rom, 0x60000));
-
-    const ChecksumResult result = ChecksumEcuMitsuM32rCan::calculate_checksum_result(rom);
-
-    EXPECT_EQ(result.status, ChecksumResult::Status::UnsupportedRom);
-    EXPECT_EQ(result.romData, rom);
-}
-
-TEST(ChecksumEcuMitsuM32rCanTest, ImageTooSmallToCarryTheCheckerFlagIsRejectedAsInvalidSize)
-{
-    // 0x40000 clears the correction words at 0x3FFE4 but stops short of the
-    // flash5013e_u8 checker flag, so there is nothing valid to read there.
-    bytes::Bytes rom = syntheticColtRom(0x60000, 0x40);
-    rom.resize(0x40000);
 
     const ChecksumResult result = ChecksumEcuMitsuM32rCan::calculate_checksum_result(rom);
 

@@ -154,7 +154,7 @@ the parent workspace, but it is not part of this repository.
     - `checksum_ecu_mitsu_m32r_can_test` models the ECU's own checker
       (`flash_crc_check_block` @ `0x4B1BC`, `flash_crc_check_block_2` @
       `0x4B310`, `rom_crc_finalize` @ `0x4B0AC`) and asserts corrected images
-      satisfy it, including the second-pass agreement check;
+      satisfy it, across both of its passes;
     - against the parent research corpus, both stock `47110032` dumps verify
       untouched, `colt_injected.bin` and 100 randomised corruption trials all
       correct to an ECU-accepted image, and every correction is confined to
