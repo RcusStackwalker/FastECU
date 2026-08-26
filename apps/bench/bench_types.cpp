@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <memory>
 
 namespace fastecu::bench
 {
@@ -32,7 +33,7 @@ std::span<const CommandSpec> command_table()
 const CommandSpec *find_command(std::string_view name)
 {
     const auto found = std::ranges::find(kCommands, name, &CommandSpec::name);
-    return found == kCommands.end() ? nullptr : &*found;
+    return found == kCommands.end() ? nullptr : std::to_address(found);
 }
 
 } // namespace fastecu::bench
