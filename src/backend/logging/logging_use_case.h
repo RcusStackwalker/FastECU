@@ -11,6 +11,11 @@
 namespace fastecu::logging
 {
 
+namespace detail
+{
+bool record_silent_miss(int& consecutive_misses, int threshold);
+}
+
 class LoggingUseCase
 {
   public:

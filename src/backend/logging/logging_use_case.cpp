@@ -56,6 +56,16 @@ MonotonicDeadline saturated_deadline(std::uint64_t base, std::uint64_t delta)
 
 } // namespace
 
+bool detail::record_silent_miss(int& consecutive_misses, int threshold)
+{
+    if (consecutive_misses >= threshold)
+    {
+        return false;
+    }
+    ++consecutive_misses;
+    return consecutive_misses == threshold;
+}
+
 fastecu::Status LoggingUseCase::run(const LoggingSession& session, LoggingProtocol& protocol,
                                     const fastecu::ICancellationToken& cancellation, ILoggingEventSink& events,
                                     fastecu::IEventSink& diagnostics) const
@@ -122,8 +132,7 @@ fastecu::Status LoggingUseCase::run(const LoggingSession& session, LoggingProtoc
             continue;
         }
 
-        ++consecutive_misses;
-        if (consecutive_misses == session.policy().car_silence_miss_threshold)
+        if (detail::record_silent_miss(consecutive_misses, session.policy().car_silence_miss_threshold))
         {
             last_state = LoggingState::CarNotResponding;
             events.state_changed(LoggingState::CarNotResponding);

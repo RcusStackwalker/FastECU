@@ -13,9 +13,9 @@ cdbg::CdbgProtocolConfig coltConfig()
     return *cdbg::make_colt_cdbg_protocol_config();
 }
 
-cdbg::CdbgProtocolConfig configurableConfig()
+cdbg::CdbgProtocolConfig configurableConfig(std::uint32_t sampling_interval_ms = 25)
 {
-    return *cdbg::make_cdbg_protocol_config(0x620, 0x621, 3, 25);
+    return *cdbg::make_cdbg_protocol_config(0x620, 0x621, 3, sampling_interval_ms);
 }
 } // namespace
 
@@ -219,7 +219,7 @@ TEST(TestCdbgDriver, handshake_propagates_cancellation_from_bounded_read)
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Cancelled);
 }
 
-TEST(TestCdbgDriver, drivesHandshakeAndStreamingWithConfiguredCanIdsAndSettings)
+TEST(TestCdbgDriver, drivesHandshakeAndStreamingWithConfiguredCanIdsAndScaledInterval)
 {
     cdbg::ScriptedCanTransport t;
     const std::vector<CdbgChannel> channels = {{0x804FBF, 1}};
@@ -240,10 +240,10 @@ TEST(TestCdbgDriver, drivesHandshakeAndStreamingWithConfiguredCanIdsAndSettings)
         t.expectWrite(0x620, command);
         t.queueRead(0x621, test_bytes::bytesFromHex("0000000000000000"));
     }
-    t.expectWrite(0x620, buildLogStartFrame(3, 1, 25));
+    t.expectWrite(0x620, buildLogStartFrame(3, 1, 65540));
     t.queueRead(0x621, test_bytes::bytesFromHex("0000000000000000"));
 
-    CdbgLogDriver driver(t, configurableConfig());
+    CdbgLogDriver driver(t, configurableConfig(65540));
     fastecu::FakeCancellationToken cancellation;
     ASSERT_TRUE(driver.startFreeFormLog(channels, cancellation));
     EXPECT_TRUE(t.scriptConsumed());

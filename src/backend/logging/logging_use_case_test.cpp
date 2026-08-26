@@ -179,6 +179,40 @@ TEST(LoggingUseCaseTest, PreCancellationDoesNotStartProtocol)
     EXPECT_EQ(protocol.stops, 0);
 }
 
+TEST(SilentMissTrackerTest, SaturatesAtTheThreshold)
+{
+    int consecutive_misses = 0;
+
+    EXPECT_FALSE(detail::record_silent_miss(consecutive_misses, 2));
+    EXPECT_TRUE(detail::record_silent_miss(consecutive_misses, 2));
+    for (int post_threshold_poll = 0; post_threshold_poll < 100; ++post_threshold_poll)
+    {
+        EXPECT_FALSE(detail::record_silent_miss(consecutive_misses, 2));
+    }
+    EXPECT_EQ(consecutive_misses, 2);
+}
+
+TEST(LoggingUseCaseTest, RemainsInRecoveryAcrossRepeatedSilentPollsAndSuccessfulRestarts)
+{
+    auto session = session_with_policy({
+        .poll_timeout_ms = 1,
+        .car_silence_miss_threshold = 2,
+        .reconnect_initial_delay_ms = 0,
+        .reconnect_period_ms = 1,
+        .max_reconnect_attempts = std::nullopt,
+    });
+    FakeClock clock;
+    ScriptedProtocol protocol(clock);
+    RecordingLoggingSink sink;
+
+    auto result = run_until_cancelled(clock, session, protocol, sink, 10);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Cancelled);
+    EXPECT_EQ(sink.states, (std::vector{LoggingState::Running, LoggingState::CarNotResponding}));
+    EXPECT_EQ(protocol.start_call_poll_numbers, (std::vector{0, 2, 3, 4, 5, 6, 7, 8, 9, 10}));
+}
+
 TEST(LoggingUseCaseTest, EmitsSilenceAtMissThresholdAndWaitsForInitialDeadline)
 {
     auto session = session_with_policy({

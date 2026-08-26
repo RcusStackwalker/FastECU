@@ -185,6 +185,20 @@ TEST(DashboardSessionBuilderTest, RejectsACardWhoseConversionReferenceIsMissing)
     expect_invalid(document, "cards[rpm].conversion-id: does not reference a conversion on the channel");
 }
 
+TEST(DashboardSessionBuilderTest, RejectsMalformedSelectedConversionExpressionWithValidationPath)
+{
+    auto document = selected_document();
+    document.channels[0].conversions[0].expression = "x/(";
+
+    const auto result = prepare_dashboard_session(document);
+
+    EXPECT_FALSE(result.has_value());
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_EQ(result.error().detail,
+              "channels[CDBG_ENGINE_RPM].conversions[conversion-1].expression: is not a valid conversion expression");
+}
+
 TEST(DashboardSessionBuilderTest, RejectsDuplicateCardIdentifiers)
 {
     auto document = selected_document();
