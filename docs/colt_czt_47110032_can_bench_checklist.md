@@ -188,10 +188,13 @@ the parent workspace, but it is not part of this repository.
     covers the other branch: a truly first-time flash, where the carrier does
     not yet hold it and `ensure_top_region_written()` pre-writes it through
     the ordinary stock-helper path before installing the redirect helpers.
-    That pre-write is destructive to whatever currently occupies the carrier
-    window and briefly leaves it holding map data instead of code, so an
-    interruption there is as capable of bricking the unit as an interruption
-    during the redirect bootstrap itself. Qualify it deliberately, in order:
+    That pre-write's erase trigger sweeps the entire hardcoded
+    `0x08000`-`0x60000` userspace, not just the carrier window, so from that
+    moment the whole userspace is blank until the pre-write's own write
+    completes; the carrier itself then briefly holds map data instead of
+    code. An interruption at that point leaves a non-running ECU that is
+    still reachable by the bootloader, same as an interruption during the
+    redirect bootstrap itself. Qualify it deliberately, in order:
 
     - Confirm `boot-talk` recovery is available and has been tested
       successfully before the first attempt. This step exercises the
@@ -208,14 +211,24 @@ the parent workspace, but it is not part of this repository.
       hold the top payload; pre-writing it...`, `Carrier pre-written and
       verified`, `Top 128KB written via redirect`, `Top 128KB verified`, and
       `Userspace flash verified`.
+    - The pre-write's re-verify is a full 128KB `flash_range_matches` sweep
+      (roughly 683 `ReadMemoryByAddress` round trips) with no progress
+      reporting threaded through it, so the UI sits at 1/4 of the "Ensure top
+      region" phase for its whole duration without moving. Expect this: a
+      stalled-looking progress indicator during these read sweeps is normal
+      here, not a hang, and is not a reason to interrupt the operation.
+      Record the observed wall-clock duration on this first run so later
+      runs have a baseline to compare against.
     - Power-cycle and confirm the ECU starts and runs. This is the first live
       exercise of the top-region integrity guard: a boot into the bootloader
       instead of userspace means the magic word did not land, and the
       recovery procedure confirmed above is now live, not theoretical.
     - Re-flash the same image and confirm the log now shows `Top 128KB
       already matches, no bootstrap needed` and only **one** erase cycle (the
-      main userspace write) — both the carrier and top-region comparisons
-      short-circuit on the second pass.
+      main userspace write). On this pass the top-region comparison matches
+      and returns before the carrier window is examined at all — expect no
+      `Checking redirect carrier window...` log line and no carrier read on
+      the wire.
     - Read back `0x60000`-`0x80000` and compare it against the built image
       byte-for-byte, independent of the Step 11 SHA-256 comparison.
 

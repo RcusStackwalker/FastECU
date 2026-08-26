@@ -961,7 +961,7 @@ TEST(MitsuColtM32rCanExecutor, WritePreWritesTheCarrierWhenItDoesNotMatchTheDesi
     scriptUploadAndCommit(transport, MitsuColtCan::kEraseRoutineRamAddr, MitsuColtCan::kErasePageRoutine);
     scriptUploadAndCommit(transport, MitsuColtCan::kWriteRoutineRamAddr, MitsuColtCan::kWritePageRoutine);
     scriptUnlockAndErase(transport);
-    scriptUploadAndCommit(transport, MitsuColtCan::kUserspaceStart, userspaceOf(rom));
+    scriptUploadAndCommit(transport, MitsuColtCan::kUserspaceStart, userspaceOf(rom), kUserspaceChecksumBytes);
     scriptFlashReadData(transport, MitsuColtCan::kUserspaceStart, userspaceOf(rom));
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);

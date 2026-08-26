@@ -167,9 +167,9 @@ FlashPromptResponse FlashDialog::presentPrompt(const FlashPromptStep& prompt)
                "top payload through the ordinary write path and once more through the redirect helpers. While it is "
                "being pre-written, the carrier briefly holds map data instead of code, so an interruption at that "
                "point leaves a non-running ECU that is still reachable by the bootloader. This sends the same "
-               "high-risk erase trigger sequence used for the main write, once for the carrier pre-write, once for "
-               "the redirect bootstrap, and once more for the main write that follows, three erase cycles in total. "
-               "Only continue on a bench/spare ECU with a recovery path available.\n\nContinue?")
+               "high-risk erase trigger sequence three times: once for the carrier pre-write, once for the "
+               "redirect bootstrap, and once for the main write. Only continue on a bench/spare ECU with a "
+               "recovery path available.\n\nContinue?")
                 .arg(arg("top_region_start_hex"), arg("rom_end_hex"));
         return QMessageBox::warning(this, tr("Top 128KB bootstrap"), text, QMessageBox::Yes | QMessageBox::Cancel,
                                     QMessageBox::Cancel) == QMessageBox::Yes
