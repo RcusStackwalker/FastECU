@@ -452,6 +452,30 @@ TEST(LoggingUseCaseTest, OverflowedPositiveReconnectDeadlineNeverBecomesDueAtMax
               (std::vector<std::uint64_t>{std::numeric_limits<std::uint64_t>::max() - 5}));
 }
 
+TEST(LoggingUseCaseTest, SuccessfulRestartAtMaximumMakesOverflowedRepeatDeadlineUnreachable)
+{
+    auto session = session_with_policy({
+        .poll_timeout_ms = 1,
+        .car_silence_miss_threshold = 1,
+        .reconnect_initial_delay_ms = 2,
+        .reconnect_period_ms = 10,
+        .max_reconnect_attempts = std::nullopt,
+    });
+    FakeClock clock;
+    clock.now_ = std::numeric_limits<std::uint64_t>::max() - 3;
+    ScriptedProtocol protocol(clock);
+    RecordingLoggingSink sink;
+
+    auto result = run_until_cancelled(clock, session, protocol, sink, 5);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Cancelled);
+    EXPECT_EQ(clock.now_, std::numeric_limits<std::uint64_t>::max());
+    EXPECT_EQ(protocol.polls_completed, 5);
+    EXPECT_EQ(protocol.start_call_times_ms, (std::vector<std::uint64_t>{std::numeric_limits<std::uint64_t>::max() - 3,
+                                                                        std::numeric_limits<std::uint64_t>::max()}));
+}
+
 class TerminalPollErrorTest : public ::testing::TestWithParam<fastecu::ErrorKind>
 {
 };
