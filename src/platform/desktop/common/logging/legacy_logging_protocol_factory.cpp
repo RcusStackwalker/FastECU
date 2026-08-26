@@ -8,6 +8,7 @@
 #include "src/backend/logging/protocols/portable_cdbg_logging_protocol.h"
 #include "src/backend/logging/protocols/portable_mut_dma_logging_protocol.h"
 #include "src/backend/logging/protocols/portable_ssm_logging_protocol.h"
+#include "src/backend/protocol/cdbg_protocol_config.h"
 #include "src/backend/protocol/imut_dma_init.h"
 #include "src/platform/desktop/common/ports/qt_clock.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
@@ -32,8 +33,14 @@ LegacyLoggingProtocolFactory::LegacyLoggingProtocolFactory(SerialPortActions& se
           .cdbg_builder = [&serial](const std::vector<fastecu::logging::LoggingChannel>& channels) -> ProtocolResult
           {
               auto transport = std::make_unique<cdbg::FastEcuCanTransport>(&serial);
+              auto config = cdbg::make_colt_cdbg_protocol_config();
+              if (!config)
+              {
+                  return std::unexpected(config.error());
+              }
               return std::unique_ptr<fastecu::logging::LoggingProtocol>(
-                  std::make_unique<fastecu::logging::CdbgLoggingProtocol>(std::move(transport), channels));
+                  std::make_unique<fastecu::logging::CdbgLoggingProtocol>(std::move(transport), channels,
+                                                                          std::move(*config)));
           },
           .ssm_builder = [&serial, &clock](const std::vector<fastecu::logging::LoggingChannel>& channels,
                                            const std::vector<std::size_t>& response_offsets, bool is_ecu,

@@ -9,11 +9,11 @@ namespace MitsuColtCanCdbg
 
 namespace
 {
-fastecu::Result<bytes::Bytes> sendAndReceive(cdbg::ICanTransport& transport, bytes::ByteView command,
-                                             const fastecu::ICancellationToken& cancellation,
+fastecu::Result<bytes::Bytes> sendAndReceive(cdbg::ICanTransport& transport, const cdbg::CdbgProtocolConfig& config,
+                                             bytes::ByteView command, const fastecu::ICancellationToken& cancellation,
                                              std::string_view failureDetail)
 {
-    auto written = transport.write(kRequestCanId, command);
+    auto written = transport.write(config.request_id(), command);
     if (!written)
     {
         return std::unexpected(written.error());
@@ -27,7 +27,7 @@ fastecu::Result<bytes::Bytes> sendAndReceive(cdbg::ICanTransport& transport, byt
     {
         return std::unexpected(reply.error());
     }
-    if (!reply->has_value() || reply->value().id != kReplyCanId || reply->value().payload.empty())
+    if (!reply->has_value() || reply->value().id != config.reply_id() || reply->value().payload.empty())
     {
         return fastecu::fail(fastecu::ErrorKind::BadResponse, std::string(failureDetail));
     }
@@ -35,8 +35,12 @@ fastecu::Result<bytes::Bytes> sendAndReceive(cdbg::ICanTransport& transport, byt
 }
 } // namespace
 
-fastecu::Status CdbgLogDriver::startFreeFormLog(const std::vector<CdbgChannel>& channels, bytes::Byte instance,
-                                                std::uint32_t intervalMs,
+CdbgLogDriver::CdbgLogDriver(cdbg::ICanTransport& transport, cdbg::CdbgProtocolConfig config)
+    : transport_(transport), config_(std::move(config))
+{
+}
+
+fastecu::Status CdbgLogDriver::startFreeFormLog(const std::vector<CdbgChannel>& channels,
                                                 const fastecu::ICancellationToken& cancellation)
 {
     streaming_ = false;
@@ -56,19 +60,21 @@ fastecu::Status CdbgLogDriver::startFreeFormLog(const std::vector<CdbgChannel>& 
         }
     }
 
-    auto reply = sendAndReceive(t_, buildInitFrame(), cancellation, "CDBG session init failed");
+    auto reply = sendAndReceive(transport_, config_, buildInitFrame(), cancellation, "CDBG session init failed");
     if (!reply)
     {
         return std::unexpected(reply.error());
     }
 
-    reply = sendAndReceive(t_, buildSecuritySeedRequestFrame(), cancellation, "CDBG security seed request failed");
+    reply = sendAndReceive(transport_, config_, buildSecuritySeedRequestFrame(), cancellation,
+                           "CDBG security seed request failed");
     if (!reply)
     {
         return std::unexpected(reply.error());
     }
     std::uint32_t key = seedToKey(extractSeed(*reply));
-    reply = sendAndReceive(t_, buildSecurityKeyFrame(key), cancellation, "CDBG security key request failed");
+    reply = sendAndReceive(transport_, config_, buildSecurityKeyFrame(key), cancellation,
+                           "CDBG security key request failed");
     if (!reply)
     {
         return std::unexpected(reply.error());
@@ -83,7 +89,8 @@ fastecu::Status CdbgLogDriver::startFreeFormLog(const std::vector<CdbgChannel>& 
         return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "too many CDBG log parameters selected");
     }
 
-    reply = sendAndReceive(t_, buildLogResetFrame(instance), cancellation, "CDBG log reset failed");
+    reply = sendAndReceive(transport_, config_, buildLogResetFrame(config_.stream_instance()), cancellation,
+                           "CDBG log reset failed");
     if (!reply)
     {
         return std::unexpected(reply.error());
@@ -91,10 +98,11 @@ fastecu::Status CdbgLogDriver::startFreeFormLog(const std::vector<CdbgChannel>& 
 
     for (std::size_t f = 0; f < frames_.size(); ++f)
     {
-        const std::vector<CdbgFrame> cmds = buildFrameInitFrames(instance, static_cast<bytes::Byte>(f), frames_.at(f));
+        const std::vector<CdbgFrame> cmds =
+            buildFrameInitFrames(config_.stream_instance(), static_cast<bytes::Byte>(f), frames_.at(f));
         for (const CdbgFrame& cmd : cmds)
         {
-            reply = sendAndReceive(t_, cmd, cancellation, "CDBG log frame setup failed");
+            reply = sendAndReceive(transport_, config_, cmd, cancellation, "CDBG log frame setup failed");
             if (!reply)
             {
                 return std::unexpected(reply.error());
@@ -102,7 +110,9 @@ fastecu::Status CdbgLogDriver::startFreeFormLog(const std::vector<CdbgChannel>& 
         }
     }
 
-    reply = sendAndReceive(t_, buildLogStartFrame(instance, static_cast<bytes::Byte>(frames_.size()), intervalMs),
+    reply = sendAndReceive(transport_, config_,
+                           buildLogStartFrame(config_.stream_instance(), static_cast<bytes::Byte>(frames_.size()),
+                                              config_.sampling_interval_ms()),
                            cancellation, "CDBG log start failed");
     if (!reply)
     {
@@ -128,13 +138,13 @@ fastecu::Result<CdbgLogDriver::PollResult> CdbgLogDriver::pollOnce(int timeoutMs
         return PollResult{};
     }
 
-    auto read = t_.read(timeoutMs, cancellation);
+    auto read = transport_.read(timeoutMs, cancellation);
     if (!read)
     {
         return std::unexpected(read.error());
     }
     bool decoded_response = false;
-    if (read->has_value() && read->value().id == kReplyCanId && !read->value().payload.empty())
+    if (read->has_value() && read->value().id == config_.reply_id() && !read->value().payload.empty())
     {
         const bytes::Bytes& frame = read->value().payload;
         bytes::Byte frameIdx = frame.front();

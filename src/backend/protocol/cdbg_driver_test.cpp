@@ -1,9 +1,23 @@
 #include <gtest/gtest.h>
+#include "src/backend/protocol/cdbg_protocol_config.h"
 #include "src/backend/protocol/mitsu_colt_can_cdbg_driver.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/algorithms/protocol/testing/byte_test_utils.h"
 #include "src/backend/protocol/testing/scripted_can_transport.h"
 using namespace MitsuColtCanCdbg;
+
+namespace
+{
+cdbg::CdbgProtocolConfig coltConfig()
+{
+    return *cdbg::make_colt_cdbg_protocol_config();
+}
+
+cdbg::CdbgProtocolConfig configurableConfig()
+{
+    return *cdbg::make_cdbg_protocol_config(0x620, 0x621, 3, 25);
+}
+} // namespace
 
 TEST(TestCdbgDriver, handshake_and_single_frame_streaming)
 {
@@ -34,9 +48,9 @@ TEST(TestCdbgDriver, handshake_and_single_frame_streaming)
     t.expectWrite(kRequestCanId, buildLogStartFrame(0, 1, 10));
     t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
 
-    CdbgLogDriver d(t);
+    CdbgLogDriver d(t, coltConfig());
     fastecu::FakeCancellationToken cancellation;
-    ASSERT_TRUE(d.startFreeFormLog(ch, 0, 10, cancellation));
+    ASSERT_TRUE(d.startFreeFormLog(ch, cancellation));
     ASSERT_TRUE(d.isStreaming());
     ASSERT_TRUE(t.scriptConsumed());
     ASSERT_TRUE(t.ok());
@@ -73,9 +87,9 @@ TEST(TestCdbgDriver, accepts_live_security_reply_shape)
     t.expectWrite(kRequestCanId, buildLogStartFrame(0, 1, 10));
     t.queueRead(kReplyCanId, test_bytes::bytesFromHex("FF00000000000000"));
 
-    CdbgLogDriver d(t);
+    CdbgLogDriver d(t, coltConfig());
     fastecu::FakeCancellationToken cancellation;
-    ASSERT_TRUE(d.startFreeFormLog(ch, 0, 10, cancellation));
+    ASSERT_TRUE(d.startFreeFormLog(ch, cancellation));
     ASSERT_TRUE(d.isStreaming());
     ASSERT_TRUE(t.scriptConsumed());
     ASSERT_TRUE(t.ok());
@@ -84,10 +98,10 @@ TEST(TestCdbgDriver, accepts_live_security_reply_shape)
 TEST(TestCdbgDriver, fails_before_handshake_when_no_channels_selected)
 {
     cdbg::ScriptedCanTransport t;
-    CdbgLogDriver d(t);
+    CdbgLogDriver d(t, coltConfig());
     fastecu::FakeCancellationToken cancellation;
 
-    const auto result = d.startFreeFormLog({}, 0, 10, cancellation);
+    const auto result = d.startFreeFormLog({}, cancellation);
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::InvalidConfig);
     EXPECT_EQ(result.error().detail, "no CDBG log parameters selected");
@@ -107,9 +121,9 @@ TEST(TestCdbgDriver, handshake_fails_when_security_not_granted)
     t.expectWrite(kRequestCanId, buildSecurityKeyFrame(seedToKey(0)));
     t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000")); // byte3 == 0 -> denied
 
-    CdbgLogDriver d(t);
+    CdbgLogDriver d(t, coltConfig());
     fastecu::FakeCancellationToken cancellation;
-    const auto result = d.startFreeFormLog(ch, 0, 10, cancellation);
+    const auto result = d.startFreeFormLog(ch, cancellation);
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::BadResponse);
     ASSERT_TRUE(!d.isStreaming());
@@ -121,9 +135,9 @@ TEST(TestCdbgDriver, handshake_fails_when_init_gets_no_reply)
     std::vector<CdbgChannel> ch = {{0x804FBF, 1}};
     t.expectWrite(kRequestCanId, buildInitFrame());
     t.queue_no_frame();
-    CdbgLogDriver d(t);
+    CdbgLogDriver d(t, coltConfig());
     fastecu::FakeCancellationToken cancellation;
-    const auto result = d.startFreeFormLog(ch, 0, 10, cancellation);
+    const auto result = d.startFreeFormLog(ch, cancellation);
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::BadResponse);
     ASSERT_TRUE(!d.isStreaming());
@@ -157,9 +171,9 @@ TEST(TestCdbgDriver, poll_merges_values_across_two_frames)
     t.expectWrite(kRequestCanId, buildLogStartFrame(0, 2, 10));
     t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
 
-    CdbgLogDriver d(t);
+    CdbgLogDriver d(t, coltConfig());
     fastecu::FakeCancellationToken cancellation;
-    ASSERT_TRUE(d.startFreeFormLog(ch, 0, 10, cancellation));
+    ASSERT_TRUE(d.startFreeFormLog(ch, cancellation));
 
     // Frame 0 arrives first: channel 0 (4-byte) = 0xAABBCCDD.
     t.queueRead(kReplyCanId, test_bytes::bytesFromHex("00AABBCCDD000000"));
@@ -183,7 +197,7 @@ TEST(TestCdbgDriver, poll_merges_values_across_two_frames)
 TEST(TestCdbgDriver, poll_returns_empty_when_not_streaming)
 {
     cdbg::ScriptedCanTransport t;
-    CdbgLogDriver d(t);
+    CdbgLogDriver d(t, coltConfig());
     fastecu::FakeCancellationToken cancellation;
     const auto result = d.pollOnce(50, cancellation);
     ASSERT_TRUE(result);
@@ -196,11 +210,86 @@ TEST(TestCdbgDriver, handshake_propagates_cancellation_from_bounded_read)
     std::vector<CdbgChannel> ch = {{0x804FBF, 1}};
     t.expectWrite(kRequestCanId, buildInitFrame());
     t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
-    CdbgLogDriver d(t);
+    CdbgLogDriver d(t, coltConfig());
     fastecu::FakeCancellationToken cancellation(true);
 
-    const auto result = d.startFreeFormLog(ch, 0, 10, cancellation);
+    const auto result = d.startFreeFormLog(ch, cancellation);
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Cancelled);
+}
+
+TEST(TestCdbgDriver, drivesHandshakeAndStreamingWithConfiguredCanIdsAndSettings)
+{
+    cdbg::ScriptedCanTransport t;
+    const std::vector<CdbgChannel> channels = {{0x804FBF, 1}};
+
+    t.expectWrite(0x620, buildInitFrame());
+    t.queueRead(0x621, test_bytes::bytesFromHex("0000000000000000"));
+    t.expectWrite(0x620, buildSecuritySeedRequestFrame());
+    t.queueRead(0x621, test_bytes::bytesFromHex("0000000012345678"));
+    t.expectWrite(0x620, buildSecurityKeyFrame(0x8C536B33));
+    t.queueRead(0x621, test_bytes::bytesFromHex("0000000100000000"));
+    t.expectWrite(0x620, buildLogResetFrame(3));
+    t.queueRead(0x621, test_bytes::bytesFromHex("0000000000000000"));
+
+    std::vector<std::vector<CdbgChannel>> frames;
+    ASSERT_TRUE(batchChannelsIntoFrames(channels, frames));
+    for (const CdbgFrame& command : buildFrameInitFrames(3, 0, frames.at(0)))
+    {
+        t.expectWrite(0x620, command);
+        t.queueRead(0x621, test_bytes::bytesFromHex("0000000000000000"));
+    }
+    t.expectWrite(0x620, buildLogStartFrame(3, 1, 25));
+    t.queueRead(0x621, test_bytes::bytesFromHex("0000000000000000"));
+
+    CdbgLogDriver driver(t, configurableConfig());
+    fastecu::FakeCancellationToken cancellation;
+    ASSERT_TRUE(driver.startFreeFormLog(channels, cancellation));
+    EXPECT_TRUE(t.scriptConsumed());
+    EXPECT_TRUE(t.ok());
+
+    t.queueRead(0x621, test_bytes::bytesFromHex("002A000000000000"));
+    const auto result = driver.pollOnce(50, cancellation);
+
+    ASSERT_TRUE(result);
+    EXPECT_TRUE(result->responded);
+    ASSERT_EQ(result->size(), 1U);
+    EXPECT_EQ(result->at(0), 42U);
+}
+
+TEST(TestCdbgDriver, ignoresStreamFramesOnOldColtReplyIdWhenConfiguredReplyIdDiffers)
+{
+    cdbg::ScriptedCanTransport t;
+    const std::vector<CdbgChannel> channels = {{0x804FBF, 1}};
+
+    t.expectWrite(0x620, buildInitFrame());
+    t.queueRead(0x621, test_bytes::bytesFromHex("0000000000000000"));
+    t.expectWrite(0x620, buildSecuritySeedRequestFrame());
+    t.queueRead(0x621, test_bytes::bytesFromHex("0000000012345678"));
+    t.expectWrite(0x620, buildSecurityKeyFrame(0x8C536B33));
+    t.queueRead(0x621, test_bytes::bytesFromHex("0000000100000000"));
+    t.expectWrite(0x620, buildLogResetFrame(3));
+    t.queueRead(0x621, test_bytes::bytesFromHex("0000000000000000"));
+
+    std::vector<std::vector<CdbgChannel>> frames;
+    ASSERT_TRUE(batchChannelsIntoFrames(channels, frames));
+    for (const CdbgFrame& command : buildFrameInitFrames(3, 0, frames.at(0)))
+    {
+        t.expectWrite(0x620, command);
+        t.queueRead(0x621, test_bytes::bytesFromHex("0000000000000000"));
+    }
+    t.expectWrite(0x620, buildLogStartFrame(3, 1, 25));
+    t.queueRead(0x621, test_bytes::bytesFromHex("0000000000000000"));
+
+    CdbgLogDriver driver(t, configurableConfig());
+    fastecu::FakeCancellationToken cancellation;
+    ASSERT_TRUE(driver.startFreeFormLog(channels, cancellation));
+    t.queueRead(0x631, test_bytes::bytesFromHex("002A000000000000"));
+
+    const auto result = driver.pollOnce(50, cancellation);
+
+    ASSERT_TRUE(result);
+    EXPECT_FALSE(result->responded);
+    EXPECT_TRUE(result->empty());
 }

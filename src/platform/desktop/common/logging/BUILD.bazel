@@ -91,6 +91,7 @@ qt_cc_library(
         "//src/backend/logging/protocols",
         "//src/backend/ports",
         "//src/backend/protocol",
+        "//src/backend/protocol:cdbg_protocol_config",
         "//src/platform/desktop/common/ports",
         "//src/platform/desktop/common/serial:serial_platform_api",
         "//src/platform/desktop/common/transport",
