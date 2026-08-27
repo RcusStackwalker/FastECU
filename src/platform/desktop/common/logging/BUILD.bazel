@@ -3,6 +3,7 @@ load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_
 
 package(default_visibility = [
     "//apps/desktop:__pkg__",
+    "//apps/desktop-quick:__pkg__",
     "//src/platform:__subpackages__",
     "//src/ui/desktop-quick:__pkg__",
     "//tests:__pkg__",

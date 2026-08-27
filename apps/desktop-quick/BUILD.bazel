@@ -6,5 +6,12 @@ qt_cc_binary(
     name = "fastecu-desktop-quick",
     srcs = ["main.cpp"],
     copts = COMMON_COPTS,
-    deps = QT_QUICK_DEPS + ["//src/ui/desktop-quick:application"],
+    deps = QT_QUICK_DEPS + [
+        "//src/platform/desktop/common/connection:desktop_connection_service",
+        "//src/platform/desktop/common/connection:j2534_adapter_provider",
+        "//src/platform/desktop/common/connection:socketcan_adapter_provider",
+        "//src/platform/desktop/common/logging:logging_runtime",
+        "//src/ui/desktop-quick:application",
+        "//src/ui/desktop-quick:dashboard_connection_controller",
+    ],
 )

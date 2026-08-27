@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "../dashboard"
 
 ApplicationWindow {
     id: root
@@ -47,8 +48,10 @@ ApplicationWindow {
             Layout.fillWidth: true
             Layout.fillHeight: true
             ColumnLayout {
-                anchors.centerIn: parent
+                anchors.fill: parent
+                anchors.margins: 28
                 spacing: 10
+                Item { Layout.fillHeight: true }
                 Label {
                     text: qsTr("Dashboard")
                     color: "#f8fafc"
@@ -62,6 +65,10 @@ ApplicationWindow {
                     color: "#94a3b8"
                     font.pixelSize: 15
                     Layout.alignment: Qt.AlignHCenter
+                }
+                Item { Layout.fillHeight: true }
+                ConnectionPanel {
+                    Layout.fillWidth: true
                 }
             }
         }

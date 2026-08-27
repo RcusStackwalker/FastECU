@@ -13,6 +13,7 @@ qt_resource_via_qrc(
     name = "qml_resources",
     files = [
         "qml/Main.qml",
+        "qml/dashboard/ConnectionPanel.qml",
         "qml/shell/ApplicationShell.qml",
     ],
     qrc_file = "qml.qrc",
@@ -26,6 +27,7 @@ qt_cc_library(
     copts = COMMON_COPTS,
     normal_hdrs = ["desktop_quick_application.h"],
     deps = QT_QUICK_DEPS + [
+        ":dashboard_connection_controller",
         ":qml_resources",
         "@rules_qt//:qt_hdrs",
     ],
@@ -52,7 +54,10 @@ fastecu_quicktest(
         "QT_QPA_PLATFORM": "offscreen",
         "QT_QUICK_CONTROLS_STYLE": "Basic",
     },
-    deps = [":application"],
+    deps = [
+        ":application",
+        ":dashboard_connection_controller",
+    ],
 )
 
 fastecu_quicktest(

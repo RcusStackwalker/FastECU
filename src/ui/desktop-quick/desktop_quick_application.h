@@ -5,6 +5,8 @@ class QQmlApplicationEngine;
 namespace fastecu::desktop_quick
 {
 
-bool load_root(QQmlApplicationEngine& engine);
+class DashboardConnectionController;
+
+bool load_root(QQmlApplicationEngine& engine, DashboardConnectionController& dashboard_connection);
 
 } // namespace fastecu::desktop_quick
