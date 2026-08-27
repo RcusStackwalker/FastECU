@@ -12,6 +12,11 @@ namespace
 
 dashboard::DashboardDocument usable_document()
 {
+    return {.cards = {dashboard::DashboardCard{}}};
+}
+
+dashboard::DashboardDocument empty_document()
+{
     return {};
 }
 
@@ -131,6 +136,10 @@ class FakeLoggingEngine final : public ILoggingEngine
     void stop() override
     {
         ++stop_calls;
+        if (publish_stop_completion)
+        {
+            emit sessionEnded(desktop::logging::SessionEndReason::StoppedByUser, {});
+        }
     }
     bool isRunning() const override
     {
@@ -150,6 +159,7 @@ class FakeLoggingEngine final : public ILoggingEngine
     int start_calls = 0;
     int stop_calls = 0;
     bool running = false;
+    bool publish_stop_completion = false;
 };
 
 class DashboardConnectionControllerTest : public QObject
@@ -187,15 +197,23 @@ class DashboardConnectionControllerTest : public QObject
         QCOMPARE(controller.state(), ConnectionState::Disconnected);
         QVERIFY(!controller.canConnect());
 
-        controller.setDocument(usable_document());
+        QSignalSpy state_changes(&controller, &DashboardConnectionController::stateChanged);
+        controller.setDocument(empty_document());
 
-        QVERIFY(controller.canConnect());
+        QVERIFY(!controller.canConnect());
+        controller.connectDashboard();
         QCOMPARE(preparation.prepare_calls, 0);
         QCOMPARE(engine.start_calls, 0);
 
-        controller.setDocument(std::nullopt);
+        controller.setDocument(usable_document());
+
+        QVERIFY(controller.canConnect());
+        QCOMPARE(state_changes.count(), 1);
+
+        controller.setDocument(empty_document());
 
         QVERIFY(!controller.canConnect());
+        QCOMPARE(state_changes.count(), 2);
         QCOMPARE(preparation.prepare_calls, 0);
         QCOMPARE(engine.start_calls, 0);
     }
@@ -381,6 +399,61 @@ class DashboardConnectionControllerTest : public QObject
 
         QCOMPARE(engine.stop_calls, 1);
         QCOMPARE(emitted_states, states_at_destruction);
+    }
+
+    void disconnectDuringConnectingInvalidatesThePendingPreparation()
+    {
+        FakePreparationService preparation;
+        FakeLoggingEngine engine;
+        DashboardConnectionController controller(preparation, engine);
+        controller.setDocument(usable_document());
+        preparation.next_preparation = prepared_connection();
+        connect(&controller, &DashboardConnectionController::stateChanged,
+                [&]
+                {
+                    if (controller.state() == ConnectionState::Connecting)
+                    {
+                        controller.disconnectDashboard();
+                    }
+                });
+
+        controller.connectDashboard();
+
+        QCOMPARE(controller.state(), ConnectionState::Disconnecting);
+        QCOMPARE(preparation.prepare_calls, 0);
+        QCOMPARE(engine.start_calls, 0);
+    }
+
+    void reconnectFromStopCompletionPreservesTheNewRunForDestruction()
+    {
+        FakePreparationService preparation;
+        FakeLoggingEngine engine;
+        bool reconnected = false;
+        {
+            DashboardConnectionController controller(preparation, engine);
+            connect_prepared(controller, preparation);
+            engine.publishStatus(desktop::logging::LoggingStatus::Running);
+            engine.publish_stop_completion = true;
+            connect(&controller, &DashboardConnectionController::stateChanged,
+                    [&]
+                    {
+                        if (controller.state() == ConnectionState::Disconnected && !reconnected)
+                        {
+                            reconnected = true;
+                            preparation.next_preparation = prepared_connection();
+                            controller.connectDashboard();
+                        }
+                    });
+
+            controller.disconnectDashboard();
+
+            QVERIFY(reconnected);
+            QCOMPARE(controller.state(), ConnectionState::Connecting);
+            QCOMPARE(engine.start_calls, 2);
+            QCOMPARE(engine.stop_calls, 1);
+        }
+
+        QCOMPARE(engine.stop_calls, 2);
     }
 };
 

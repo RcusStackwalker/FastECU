@@ -131,8 +131,9 @@ class DashboardConnectionController final : public QObject
     void presentationChanged();
 
   private:
-    void prepare(std::optional<connection::AdapterSelection> selection);
-    void handlePreparation(connection::ConnectionPreparationOutcome outcome);
+    bool hasUsableDocument() const;
+    void prepare(std::optional<connection::AdapterSelection> selection, std::uint64_t operation_generation);
+    void handlePreparation(connection::ConnectionPreparationOutcome outcome, std::uint64_t operation_generation);
     void handleStatus(desktop::logging::LoggingStatus status);
     void handleCompletion(desktop::logging::SessionEndReason reason, const QString& detail);
     void setState(ConnectionState state);
@@ -149,7 +150,11 @@ class DashboardConnectionController final : public QObject
     QString status_text_ = QStringLiteral("Disconnected");
     QString technical_detail_;
     QString selected_adapter_label_;
+    std::uint64_t operation_generation_ = 0;
+    std::uint64_t next_run_generation_ = 0;
+    std::uint64_t active_run_generation_ = 0;
     bool engine_started_ = false;
+    bool stop_completion_pending_ = false;
     bool destroying_ = false;
 };
 

@@ -146,7 +146,12 @@ DashboardConnectionController::DashboardConnectionController(connection::Desktop
 DashboardConnectionController::~DashboardConnectionController()
 {
     destroying_ = true;
-    if (engine_started_)
+    const bool should_stop = engine_started_;
+    ++operation_generation_;
+    active_run_generation_ = 0;
+    engine_started_ = false;
+    stop_completion_pending_ = false;
+    if (should_stop)
     {
         engine_.stop();
     }
@@ -178,7 +183,7 @@ qulonglong DashboardConnectionController::discoveryGeneration() const
 }
 bool DashboardConnectionController::canConnect() const
 {
-    return document_.has_value() && (state_ == ConnectionState::Disconnected || state_ == ConnectionState::Failed);
+    return hasUsableDocument() && (state_ == ConnectionState::Disconnected || state_ == ConnectionState::Failed);
 }
 bool DashboardConnectionController::canDisconnect() const
 {
@@ -192,9 +197,9 @@ bool DashboardConnectionController::needsAdapterSelection() const
 
 void DashboardConnectionController::setDocument(std::optional<dashboard::DashboardDocument> document)
 {
-    const bool had_document = document_.has_value();
+    const bool was_connectable = canConnect();
     document_ = std::move(document);
-    if (had_document != document_.has_value())
+    if (was_connectable != canConnect())
     {
         emit stateChanged();
     }
@@ -206,21 +211,33 @@ void DashboardConnectionController::connectDashboard()
     {
         return;
     }
-    setState(ConnectionState::Connecting);
+    const std::uint64_t operation_generation = ++operation_generation_;
     setPresentation(QStringLiteral("Connecting"));
-    prepare(std::nullopt);
-}
-
-void DashboardConnectionController::connectWithAdapter(const QString& candidate_id)
-{
-    if (!document_ || state_ != ConnectionState::AdapterSelectionRequired || !candidates_.contains(candidate_id))
+    if (operation_generation != operation_generation_)
     {
         return;
     }
     setState(ConnectionState::Connecting);
+    prepare(std::nullopt, operation_generation);
+}
+
+void DashboardConnectionController::connectWithAdapter(const QString& candidate_id)
+{
+    if (!hasUsableDocument() || state_ != ConnectionState::AdapterSelectionRequired ||
+        !candidates_.contains(candidate_id))
+    {
+        return;
+    }
+    const std::uint64_t operation_generation = ++operation_generation_;
     setPresentation(QStringLiteral("Connecting"));
+    if (operation_generation != operation_generation_)
+    {
+        return;
+    }
+    setState(ConnectionState::Connecting);
     prepare(
-        connection::AdapterSelection{.generation = discoveryGeneration(), .candidate_id = candidate_id.toStdString()});
+        connection::AdapterSelection{.generation = discoveryGeneration(), .candidate_id = candidate_id.toStdString()},
+        operation_generation);
 }
 
 void DashboardConnectionController::refreshAdapters()
@@ -246,40 +263,84 @@ void DashboardConnectionController::disconnectDashboard()
     {
         return;
     }
-    setState(ConnectionState::Disconnecting);
-    setPresentation(QStringLiteral("Disconnecting"));
-    engine_.stop();
+    const bool should_stop = engine_started_ || active_run_generation_ != 0;
+    const std::uint64_t operation_generation = ++operation_generation_;
+    active_run_generation_ = 0;
     engine_started_ = false;
-}
-
-void DashboardConnectionController::prepare(std::optional<connection::AdapterSelection> selection)
-{
-    if (!document_)
+    stop_completion_pending_ = should_stop;
+    setPresentation(QStringLiteral("Disconnecting"));
+    if (operation_generation != operation_generation_)
     {
         return;
     }
-    handlePreparation(preparation_.prepare_run(*document_, std::move(selection)));
+    setState(ConnectionState::Disconnecting);
+    if (operation_generation == operation_generation_ && should_stop && stop_completion_pending_ &&
+        state_ == ConnectionState::Disconnecting)
+    {
+        engine_.stop();
+    }
 }
 
-void DashboardConnectionController::handlePreparation(connection::ConnectionPreparationOutcome outcome)
+bool DashboardConnectionController::hasUsableDocument() const
 {
+    return document_.has_value() && !document_->cards.empty();
+}
+
+void DashboardConnectionController::prepare(std::optional<connection::AdapterSelection> selection,
+                                            std::uint64_t operation_generation)
+{
+    if (!hasUsableDocument() || operation_generation != operation_generation_ || state_ != ConnectionState::Connecting)
+    {
+        return;
+    }
+    auto outcome = preparation_.prepare_run(*document_, std::move(selection));
+    if (operation_generation != operation_generation_ || state_ != ConnectionState::Connecting)
+    {
+        return;
+    }
+    handlePreparation(std::move(outcome), operation_generation);
+}
+
+void DashboardConnectionController::handlePreparation(connection::ConnectionPreparationOutcome outcome,
+                                                      std::uint64_t operation_generation)
+{
+    if (operation_generation != operation_generation_ || state_ != ConnectionState::Connecting)
+    {
+        return;
+    }
     std::visit(
-        [this](auto&& result)
+        [this, operation_generation](auto&& result)
         {
             using ResultType = std::decay_t<decltype(result)>;
             if constexpr (std::is_same_v<ResultType, connection::AdapterSelectionRequired>)
             {
                 candidates_.replace(std::move(result.snapshot));
-                setState(ConnectionState::AdapterSelectionRequired);
                 setPresentation(QStringLiteral("Select an adapter"));
+                if (operation_generation != operation_generation_ || state_ != ConnectionState::Connecting)
+                {
+                    return;
+                }
+                setState(ConnectionState::AdapterSelectionRequired);
             }
             else if constexpr (std::is_same_v<ResultType, connection::PreparedConnection>)
             {
                 setPresentation(QStringLiteral("Connecting"), {}, QString::fromStdString(result.selected.label));
+                if (operation_generation != operation_generation_ || state_ != ConnectionState::Connecting)
+                {
+                    return;
+                }
+                const std::uint64_t run_generation = ++next_run_generation_;
+                active_run_generation_ = run_generation;
                 engine_started_ = true;
                 Status started = engine_.start(std::move(result.run));
+                if (operation_generation != operation_generation_ || active_run_generation_ != run_generation ||
+                    !engine_started_)
+                {
+                    return;
+                }
                 if (!started)
                 {
+                    active_run_generation_ = 0;
                     engine_started_ = false;
                     fail(QStringLiteral("Unable to start logging"), QString::fromStdString(started.error().detail));
                     return;
@@ -295,36 +356,57 @@ void DashboardConnectionController::handlePreparation(connection::ConnectionPrep
 
 void DashboardConnectionController::handleStatus(desktop::logging::LoggingStatus status)
 {
-    if (destroying_ || (state_ != ConnectionState::Connecting && state_ != ConnectionState::Running &&
-                        state_ != ConnectionState::CarNotResponding))
+    if (destroying_ || !engine_started_ || active_run_generation_ == 0 ||
+        (state_ != ConnectionState::Connecting && state_ != ConnectionState::Running &&
+         state_ != ConnectionState::CarNotResponding))
     {
         return;
     }
+    const std::uint64_t operation_generation = operation_generation_;
     switch (status)
     {
     case desktop::logging::LoggingStatus::Running:
-        setState(ConnectionState::Running);
         setPresentation(QStringLiteral("Connected"), {}, selected_adapter_label_);
+        if (operation_generation != operation_generation_ || !engine_started_ || active_run_generation_ == 0 ||
+            (state_ != ConnectionState::Connecting && state_ != ConnectionState::Running &&
+             state_ != ConnectionState::CarNotResponding))
+        {
+            return;
+        }
+        setState(ConnectionState::Running);
         return;
     case desktop::logging::LoggingStatus::CarNotResponding:
-        setState(ConnectionState::CarNotResponding);
         setPresentation(QStringLiteral("Car not responding"), {}, selected_adapter_label_);
+        if (operation_generation != operation_generation_ || !engine_started_ || active_run_generation_ == 0 ||
+            (state_ != ConnectionState::Connecting && state_ != ConnectionState::Running &&
+             state_ != ConnectionState::CarNotResponding))
+        {
+            return;
+        }
+        setState(ConnectionState::CarNotResponding);
         return;
     }
 }
 
 void DashboardConnectionController::handleCompletion(desktop::logging::SessionEndReason reason, const QString& detail)
 {
-    if (destroying_ || (!engine_started_ && state_ != ConnectionState::Disconnecting))
+    if (destroying_ || (active_run_generation_ == 0 && !stop_completion_pending_))
     {
         return;
     }
+    const std::uint64_t operation_generation = ++operation_generation_;
+    active_run_generation_ = 0;
     engine_started_ = false;
+    stop_completion_pending_ = false;
     switch (reason)
     {
     case desktop::logging::SessionEndReason::StoppedByUser:
-        setState(ConnectionState::Disconnected);
         setPresentation(QStringLiteral("Disconnected"), detail);
+        if (operation_generation != operation_generation_)
+        {
+            return;
+        }
+        setState(ConnectionState::Disconnected);
         return;
     case desktop::logging::SessionEndReason::HandshakeFailed:
         fail(QStringLiteral("Unable to start CDBG logging"), detail);
@@ -362,8 +444,13 @@ void DashboardConnectionController::setPresentation(QString status, QString deta
 
 void DashboardConnectionController::fail(QString status, QString detail)
 {
-    setState(ConnectionState::Failed);
+    const std::uint64_t operation_generation = operation_generation_;
     setPresentation(std::move(status), std::move(detail), selected_adapter_label_);
+    if (operation_generation != operation_generation_)
+    {
+        return;
+    }
+    setState(ConnectionState::Failed);
 }
 
 } // namespace fastecu::desktop_quick
