@@ -31,6 +31,19 @@ qt_cc_library(
     ],
 )
 
+qt_cc_library(
+    name = "dashboard_connection_controller",
+    srcs = ["dashboard/dashboard_connection_controller.cpp"],
+    hdrs = ["dashboard/dashboard_connection_controller.h"],
+    copts = COMMON_COPTS,
+    deps = QT_QUICK_DEPS + [
+        "//src/backend/dashboard:dashboard_document",
+        "//src/backend/ports",
+        "//src/platform/desktop/common/connection:desktop_connection_service",
+        "//src/platform/desktop/common/logging:logging_runtime",
+    ],
+)
+
 fastecu_quicktest(
     name = "test_application",
     src = "desktop_quick_application_test.cpp",
@@ -40,4 +53,12 @@ fastecu_quicktest(
         "QT_QUICK_CONTROLS_STYLE": "Basic",
     },
     deps = [":application"],
+)
+
+fastecu_quicktest(
+    name = "test_dashboard_connection_controller",
+    src = "dashboard/dashboard_connection_controller_test.cpp",
+    deps = [
+        ":dashboard_connection_controller",
+    ],
 )
