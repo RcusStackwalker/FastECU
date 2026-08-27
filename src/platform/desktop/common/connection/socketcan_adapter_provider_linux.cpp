@@ -475,16 +475,6 @@ SocketCanAdapterProvider::open(std::string_view candidate_id, const dashboard::C
             return fail(ErrorKind::Disconnected, "SocketCAN interface is down");
         }
 
-        const auto bitrate = dependencies_.bitrate(selected->second.index);
-        if (!bitrate.has_value())
-        {
-            return std::unexpected(bitrate.error());
-        }
-        if (*bitrate != profile.bitrate)
-        {
-            return fail(ErrorKind::Unsupported, "SocketCAN interface bitrate does not match the dashboard profile");
-        }
-
         const auto filter = receive_filter(profile);
         if (!filter.has_value())
         {
@@ -503,6 +493,21 @@ SocketCanAdapterProvider::open(std::string_view candidate_id, const dashboard::C
         {
             return std::unexpected(resolved_index.error());
         }
+        if (*resolved_index != selected->second.index)
+        {
+            return fail(ErrorKind::InvalidConfig, "SocketCAN candidate changed since discovery");
+        }
+
+        const auto bitrate = dependencies_.bitrate(*resolved_index);
+        if (!bitrate.has_value())
+        {
+            return std::unexpected(bitrate.error());
+        }
+        if (*bitrate != profile.bitrate)
+        {
+            return fail(ErrorKind::Unsupported, "SocketCAN interface bitrate does not match the dashboard profile");
+        }
+
         if (const Status filtered = dependencies_.set_filter(fd, filter->first, filter->second); !filtered.has_value())
         {
             return std::unexpected(filtered.error());

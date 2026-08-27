@@ -63,6 +63,8 @@ class SocketCanProviderHarness
     std::optional<FilterCall> filter_call;
     std::optional<std::pair<int, unsigned int>> bind_call;
     int socket_calls{0};
+    int bitrate_calls{0};
+    std::optional<unsigned int> bitrate_index;
     int close_calls{0};
     int closed_fd{-1};
 };
@@ -90,7 +92,13 @@ std::unique_ptr<SocketCanAdapterProvider> SocketCanAdapterProviderTestAccess::ma
             }
             return found->second;
         },
-        .bitrate = [&harness](unsigned int) { return harness.bitrate; },
+        .bitrate =
+            [&harness](unsigned int index)
+        {
+            ++harness.bitrate_calls;
+            harness.bitrate_index = index;
+            return harness.bitrate;
+        },
         .socket =
             [&harness](int domain, int type, int protocol)
         {
@@ -195,6 +203,25 @@ TEST(SocketCanAdapterProvider, OpenRejectsCandidateNotIssuedByDiscovery)
     EXPECT_EQ(harness.socket_calls, 0);
 }
 
+TEST(SocketCanAdapterProvider, OpenRejectsInterfaceWhoseIndexChangedSinceDiscovery)
+{
+    SocketCanProviderHarness harness;
+    auto provider = SocketCanAdapterProviderTestAccess::make(harness);
+    const std::string candidate_id = discover_can0(*provider);
+    harness.resolved_index = 8U;
+
+    const auto result = provider->open(candidate_id, profile());
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_EQ(harness.index_call, (std::pair{41, std::string("can0")}));
+    EXPECT_EQ(harness.bitrate_calls, 0);
+    EXPECT_FALSE(harness.filter_call.has_value());
+    EXPECT_FALSE(harness.bind_call.has_value());
+    EXPECT_EQ(harness.close_calls, 1);
+    EXPECT_EQ(harness.closed_fd, 41);
+}
+
 TEST(SocketCanAdapterProvider, OpenCreatesNonblockingRawSocketFiltersAndBindsSelectedInterface)
 {
     SocketCanProviderHarness harness;
@@ -254,7 +281,7 @@ TEST(SocketCanAdapterProvider, DownInterfaceIsDisconnectedBeforeOpeningASocket)
     EXPECT_EQ(harness.socket_calls, 0);
 }
 
-TEST(SocketCanAdapterProvider, BitrateMismatchIsUnsupportedWithoutOpeningOrReconfiguring)
+TEST(SocketCanAdapterProvider, BitrateMismatchIsUnsupportedWithoutFilteringBindingOrReconfiguring)
 {
     SocketCanProviderHarness harness;
     harness.bitrate = 250000U;
@@ -265,7 +292,11 @@ TEST(SocketCanAdapterProvider, BitrateMismatchIsUnsupportedWithoutOpeningOrRecon
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Unsupported);
-    EXPECT_EQ(harness.socket_calls, 0);
+    EXPECT_EQ(harness.socket_calls, 1);
+    EXPECT_EQ(harness.bitrate_index, 7U);
+    EXPECT_FALSE(harness.filter_call.has_value());
+    EXPECT_FALSE(harness.bind_call.has_value());
+    EXPECT_EQ(harness.close_calls, 1);
 }
 
 } // namespace
