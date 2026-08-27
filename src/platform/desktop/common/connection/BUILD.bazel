@@ -8,6 +8,58 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
+LINUX_ONLY = select({
+    "@platforms//os:linux": [],
+    "//conditions:default": ["@platforms//:incompatible"],
+})
+
+NON_LINUX_ONLY = select({
+    "@platforms//os:linux": ["@platforms//:incompatible"],
+    "//conditions:default": [],
+})
+
+cc_library(
+    name = "socketcan_actions",
+    hdrs = ["socketcan_actions.h"],
+)
+
+cc_library(
+    name = "socketcan_transport",
+    srcs = ["socketcan_transport.cpp"],
+    hdrs = ["socketcan_transport.h"],
+    target_compatible_with = LINUX_ONLY,
+    deps = [
+        ":socketcan_actions",
+        "//src/backend/dashboard:dashboard_document",
+        "//src/backend/ports",
+        "//src/backend/protocol",
+    ],
+)
+
+cc_library(
+    name = "socketcan_adapter_provider",
+    srcs = select({
+        "@platforms//os:linux": ["socketcan_adapter_provider_linux.cpp"],
+        "//conditions:default": ["socketcan_adapter_provider.cpp"],
+    }),
+    hdrs = ["socketcan_adapter_provider.h"],
+    deps = [
+        ":local_adapter_matching",
+        ":socketcan_actions",
+    ] + select({
+        "@platforms//os:linux": [":socketcan_transport"],
+        "//conditions:default": [],
+    }),
+)
+
+cc_library(
+    name = "connection_platform",
+    deps = [
+        ":j2534_adapter_provider",
+        ":socketcan_adapter_provider",
+    ],
+)
+
 cc_library(
     name = "local_adapter_matching",
     srcs = ["local_adapter_matching.cpp"],
@@ -40,6 +92,30 @@ fastecu_portable_gtest(
     name = "test_local_adapter_matching",
     srcs = ["local_adapter_matching_test.cpp"],
     deps = [":local_adapter_matching"],
+)
+
+fastecu_portable_gtest(
+    name = "test_socketcan_transport",
+    srcs = ["socketcan_transport_test.cpp"],
+    target_compatible_with = LINUX_ONLY,
+    deps = [
+        ":socketcan_transport",
+        "//src/backend/ports/testing:fake_cancellation_token",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "test_socketcan_adapter_provider",
+    srcs = ["socketcan_adapter_provider_test.cpp"],
+    target_compatible_with = LINUX_ONLY,
+    deps = [":socketcan_adapter_provider"],
+)
+
+fastecu_portable_gtest(
+    name = "test_socketcan_adapter_provider_stub",
+    srcs = ["socketcan_adapter_provider_stub_test.cpp"],
+    target_compatible_with = NON_LINUX_ONLY,
+    deps = [":socketcan_adapter_provider"],
 )
 
 fastecu_qttest(
