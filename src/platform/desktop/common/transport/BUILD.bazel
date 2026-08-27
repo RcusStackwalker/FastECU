@@ -63,6 +63,15 @@ fastecu_qttest(
     ],
 )
 
+fastecu_qttest(
+    name = "test_fastecu_can_transport",
+    src = "fastecu_can_transport_test.cpp",
+    deps = [
+        ":transport",
+        "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+    ],
+)
+
 # Desktop K-Line/CAN flash transport adapters (step 5c, Task 12): a
 # separate target from `transport` above because these implement
 # fastecu::flash::{IKlineFlashTransport, ICanFlashTransport} (Task 5) for

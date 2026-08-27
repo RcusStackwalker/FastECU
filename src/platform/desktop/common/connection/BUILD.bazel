@@ -1,5 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = [
     "//apps/desktop:__pkg__",
@@ -21,8 +22,31 @@ cc_library(
     ],
 )
 
+qt_cc_library(
+    name = "j2534_adapter_provider",
+    srcs = ["j2534_adapter_provider.cpp"],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["j2534_adapter_provider.h"],
+    deps = QT_DEPS + [
+        ":local_adapter_matching",
+        "//src/platform/desktop/common/logging:legacy_logging_compat",
+        "//src/platform/desktop/common/serial:serial_platform_api",
+        "//src/platform/desktop/common/transport",
+    ],
+)
+
 fastecu_portable_gtest(
     name = "test_local_adapter_matching",
     srcs = ["local_adapter_matching_test.cpp"],
     deps = [":local_adapter_matching"],
+)
+
+fastecu_qttest(
+    name = "test_j2534_adapter_provider",
+    src = "j2534_adapter_provider_test.cpp",
+    deps = [
+        ":j2534_adapter_provider",
+        "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+    ],
 )
