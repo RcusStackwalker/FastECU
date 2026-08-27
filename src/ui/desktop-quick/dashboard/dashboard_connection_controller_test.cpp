@@ -455,6 +455,32 @@ class DashboardConnectionControllerTest : public QObject
 
         QCOMPARE(engine.stop_calls, 2);
     }
+
+    void presentationReentryDuringDisconnectStopsTheOwnedRunOnce()
+    {
+        FakePreparationService preparation;
+        FakeLoggingEngine engine;
+        DashboardConnectionController controller(preparation, engine);
+        connect_prepared(controller, preparation);
+        engine.publishStatus(desktop::logging::LoggingStatus::Running);
+        engine.publish_stop_completion = true;
+        bool nested_disconnect = false;
+        connect(&controller, &DashboardConnectionController::presentationChanged,
+                [&]
+                {
+                    if (!nested_disconnect && controller.statusText() == QStringLiteral("Disconnecting"))
+                    {
+                        nested_disconnect = true;
+                        controller.disconnectDashboard();
+                    }
+                });
+
+        controller.disconnectDashboard();
+
+        QVERIFY(nested_disconnect);
+        QCOMPARE(engine.stop_calls, 1);
+        QCOMPARE(controller.state(), ConnectionState::Disconnected);
+    }
 };
 
 } // namespace

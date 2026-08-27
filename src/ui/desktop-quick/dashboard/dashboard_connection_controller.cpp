@@ -268,12 +268,12 @@ void DashboardConnectionController::disconnectDashboard()
     active_run_generation_ = 0;
     engine_started_ = false;
     stop_completion_pending_ = should_stop;
-    setPresentation(QStringLiteral("Disconnecting"));
+    setState(ConnectionState::Disconnecting);
     if (operation_generation != operation_generation_)
     {
         return;
     }
-    setState(ConnectionState::Disconnecting);
+    setPresentation(QStringLiteral("Disconnecting"));
     if (operation_generation == operation_generation_ && should_stop && stop_completion_pending_ &&
         state_ == ConnectionState::Disconnecting)
     {
