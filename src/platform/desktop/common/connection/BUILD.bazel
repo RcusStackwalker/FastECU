@@ -1,5 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+load("//bazel:gtest_targets.bzl", "fastecu_gtest", "fastecu_portable_gtest")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = [
@@ -60,6 +60,20 @@ cc_library(
     ],
 )
 
+qt_cc_library(
+    name = "desktop_connection_service",
+    srcs = ["desktop_connection_service.cpp"],
+    hdrs = ["desktop_connection_service.h"],
+    copts = COMMON_COPTS,
+    deps = QT_DEPS + [
+        ":local_adapter_matching",
+        "//src/backend/dashboard:dashboard_session_builder",
+        "//src/backend/logging/protocols",
+        "//src/backend/ports",
+        "//src/platform/desktop/common/logging:logging_runtime",
+    ],
+)
+
 cc_library(
     name = "local_adapter_matching",
     srcs = ["local_adapter_matching.cpp"],
@@ -92,6 +106,15 @@ fastecu_portable_gtest(
     name = "test_local_adapter_matching",
     srcs = ["local_adapter_matching_test.cpp"],
     deps = [":local_adapter_matching"],
+)
+
+fastecu_gtest(
+    name = "test_desktop_connection_service",
+    srcs = [
+        "desktop_connection_service_test.cpp",
+        "//src/backend/dashboard:test_fixtures.h",
+    ],
+    deps = [":desktop_connection_service"],
 )
 
 fastecu_portable_gtest(
