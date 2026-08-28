@@ -323,7 +323,7 @@ TEST(DesktopConnectionService, ExplicitCurrentGenerationSelectionOverridesPrefer
 
     const auto& prepared = require_alternative<PreparedConnection>(outcome);
     EXPECT_EQ(prepared.selected, explicit_choice);
-    EXPECT_EQ(provider.discover_calls, 1);
+    EXPECT_EQ(provider.discover_calls, 2);
     EXPECT_EQ(provider.opened_candidate_ids, std::vector<std::string>{"explicit"});
 }
 
@@ -375,6 +375,60 @@ TEST(DesktopConnectionService, ProviderDiscoveryFailureRemainsDiagnosticWithOthe
     EXPECT_EQ(required.snapshot.candidates.front().candidate_id, "s0");
     ASSERT_EQ(required.snapshot.diagnostics.size(), 1U);
     EXPECT_EQ(required.snapshot.diagnostics.front(), *failed.discovery_error);
+}
+
+TEST(DesktopConnectionService, AllProviderDiscoveryFailuresReturnAnAggregatedError)
+{
+    FakeProvider j2534(AdapterKind::J2534);
+    FakeProvider socketcan(AdapterKind::SocketCan);
+    j2534.discovery_error = Error{ErrorKind::Disconnected, "registry unavailable"};
+    socketcan.discovery_error = Error{ErrorKind::Internal, "interface enumeration denied"};
+    DesktopConnectionService service({&j2534, &socketcan});
+
+    const auto refreshed = service.refresh();
+
+    ASSERT_FALSE(refreshed.has_value());
+    EXPECT_EQ(refreshed.error().kind, ErrorKind::Internal);
+    EXPECT_NE(refreshed.error().detail.find("J2534"), std::string::npos);
+    EXPECT_NE(refreshed.error().detail.find("registry unavailable"), std::string::npos);
+    EXPECT_NE(refreshed.error().detail.find("SocketCAN"), std::string::npos);
+    EXPECT_NE(refreshed.error().detail.find("interface enumeration denied"), std::string::npos);
+}
+
+TEST(DesktopConnectionService, CurrentJ2534SelectionThatVanishesIsRefreshedAsStale)
+{
+    FakeProvider provider(AdapterKind::J2534);
+    provider.candidates = {descriptor("j0", AdapterKind::J2534, "Vendor", "Adapter")};
+    DesktopConnectionService service({&provider});
+    const auto first = service.prepare_run(usable_document(), std::nullopt);
+    const auto generation = require_alternative<AdapterSelectionRequired>(first).snapshot.generation;
+    provider.candidates.clear();
+
+    const auto outcome = service.prepare_run(usable_document(), AdapterSelection{generation, "j0"});
+
+    const auto& required = require_alternative<AdapterSelectionRequired>(outcome);
+    EXPECT_EQ(required.reason, AdapterSelectionRequired::Reason::StaleSelection);
+    EXPECT_TRUE(required.snapshot.candidates.empty());
+    EXPECT_GT(required.snapshot.generation, generation);
+    EXPECT_EQ(provider.open_calls, 0);
+}
+
+TEST(DesktopConnectionService, CurrentSocketCanSelectionWhoseIdentityChangesIsRefreshedAsStale)
+{
+    FakeProvider provider(AdapterKind::SocketCan);
+    provider.candidates = {descriptor("socketcan:7:can0", AdapterKind::SocketCan, "Linux", "can0")};
+    DesktopConnectionService service({&provider});
+    const auto first = service.prepare_run(usable_document(), std::nullopt);
+    const auto generation = require_alternative<AdapterSelectionRequired>(first).snapshot.generation;
+    provider.candidates = {descriptor("socketcan:8:can0", AdapterKind::SocketCan, "Linux", "can0")};
+
+    const auto outcome = service.prepare_run(usable_document(), AdapterSelection{generation, "socketcan:7:can0"});
+
+    const auto& required = require_alternative<AdapterSelectionRequired>(outcome);
+    EXPECT_EQ(required.reason, AdapterSelectionRequired::Reason::StaleSelection);
+    ASSERT_EQ(required.snapshot.candidates.size(), 1U);
+    EXPECT_EQ(required.snapshot.candidates.front().candidate_id, "socketcan:8:can0");
+    EXPECT_EQ(provider.open_calls, 0);
 }
 
 TEST(DesktopConnectionService, DuplicateCandidateIdsFailAsInternal)

@@ -190,6 +190,18 @@ TEST(SocketCanAdapterProvider, DiscoveryIncludesOnlyCanHardwareWithStablePresent
     EXPECT_EQ((*result)[1].display_name, "vcan0");
 }
 
+TEST(SocketCanAdapterProvider, CandidateIdentityChangesWhenAnInterfaceIndexIsReused)
+{
+    SocketCanProviderHarness harness;
+    auto provider = SocketCanAdapterProviderTestAccess::make(harness);
+    const std::string original = discover_can0(*provider);
+    harness.interfaces.back().index = 8;
+
+    const std::string replacement = discover_can0(*provider);
+
+    EXPECT_NE(original, replacement);
+}
+
 TEST(SocketCanAdapterProvider, OpenRejectsCandidateNotIssuedByDiscovery)
 {
     SocketCanProviderHarness harness;

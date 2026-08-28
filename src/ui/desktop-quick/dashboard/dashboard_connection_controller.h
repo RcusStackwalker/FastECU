@@ -103,6 +103,7 @@ class DashboardConnectionController final : public QObject
     Q_PROPERTY(bool canConnect READ canConnect NOTIFY stateChanged)
     Q_PROPERTY(bool canDisconnect READ canDisconnect NOTIFY stateChanged)
     Q_PROPERTY(bool needsAdapterSelection READ needsAdapterSelection NOTIFY stateChanged)
+    Q_PROPERTY(bool isTransitioning READ isTransitioning NOTIFY stateChanged)
 
     DashboardConnectionController(IConnectionPreparationService& preparation, ILoggingEngine& engine,
                                   QObject *parent = nullptr);
@@ -119,6 +120,7 @@ class DashboardConnectionController final : public QObject
     bool canConnect() const;
     bool canDisconnect() const;
     bool needsAdapterSelection() const;
+    bool isTransitioning() const;
 
     Q_INVOKABLE void connectDashboard();
     Q_INVOKABLE void connectWithAdapter(const QString& candidate_id);

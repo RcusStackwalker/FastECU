@@ -55,6 +55,39 @@ AdapterSelectionRequired::Reason selection_reason(const std::optional<dashboard:
                             : AdapterSelectionRequired::Reason::AmbiguousMatch;
 }
 
+std::string_view provider_name(dashboard::AdapterKind kind)
+{
+    switch (kind)
+    {
+    case dashboard::AdapterKind::J2534:
+        return "J2534";
+    case dashboard::AdapterKind::SocketCan:
+        return "SocketCAN";
+    }
+    return "Unknown";
+}
+
+struct ProviderDiscoveryFailure
+{
+    std::string provider;
+    Error error;
+};
+
+Error aggregate_discovery_failures(const std::vector<ProviderDiscoveryFailure>& failures)
+{
+    ErrorKind kind = failures.front().error.kind;
+    std::string detail = "all adapter providers failed discovery";
+    for (const ProviderDiscoveryFailure& failure : failures)
+    {
+        if (failure.error.kind != kind)
+        {
+            kind = ErrorKind::Internal;
+        }
+        detail += "; " + failure.provider + ": " + failure.error.detail;
+    }
+    return {kind, std::move(detail)};
+}
+
 } // namespace
 
 DesktopConnectionService::DesktopConnectionService(std::vector<ILocalAdapterProvider *> providers)
@@ -76,6 +109,8 @@ Result<AdapterDiscoverySnapshot> DesktopConnectionService::refresh()
     AdapterDiscoverySnapshot snapshot{.generation = generation_, .candidates = {}, .diagnostics = {}};
     std::unordered_map<std::string, ILocalAdapterProvider *> candidate_providers;
     bool duplicate_candidate_id = false;
+    std::size_t successful_providers = 0;
+    std::vector<ProviderDiscoveryFailure> provider_failures;
 
     try
     {
@@ -83,9 +118,13 @@ Result<AdapterDiscoverySnapshot> DesktopConnectionService::refresh()
         {
             if (provider == nullptr)
             {
-                snapshot.diagnostics.push_back(internal_error("adapter discovery: null provider"));
+                Error error = internal_error("adapter discovery: null provider");
+                snapshot.diagnostics.push_back(error);
+                provider_failures.push_back({"Unknown", std::move(error)});
                 continue;
             }
+
+            const std::string provider_label(provider_name(provider->kind()));
 
             Result<std::vector<LocalAdapterDescriptor>> discovered = [&]()
             {
@@ -108,8 +147,10 @@ Result<AdapterDiscoverySnapshot> DesktopConnectionService::refresh()
             if (!discovered)
             {
                 snapshot.diagnostics.push_back(discovered.error());
+                provider_failures.push_back({provider_label, discovered.error()});
                 continue;
             }
+            ++successful_providers;
 
             for (auto& candidate : *discovered)
             {
@@ -126,6 +167,13 @@ Result<AdapterDiscoverySnapshot> DesktopConnectionService::refresh()
             current_snapshot_.reset();
             candidate_providers_.clear();
             return std::unexpected(internal_error("adapter discovery returned duplicate candidate IDs"));
+        }
+
+        if (successful_providers == 0 && !provider_failures.empty())
+        {
+            current_snapshot_.reset();
+            candidate_providers_.clear();
+            return std::unexpected(aggregate_discovery_failures(provider_failures));
         }
 
         std::sort(snapshot.candidates.begin(), snapshot.candidates.end(),
@@ -178,7 +226,27 @@ ConnectionPreparationOutcome DesktopConnectionService::prepare_run(const dashboa
                                  { return candidate.candidate_id == selection->candidate_id; });
                 if (provider != candidate_providers_.end() && descriptor != current_snapshot_->candidates.end())
                 {
-                    return open_run(std::move(*prepared_session), document.connection, *descriptor, *provider->second);
+                    const LocalAdapterDescriptor selected_descriptor = *descriptor;
+                    ILocalAdapterProvider *selected_provider = provider->second;
+                    auto refreshed = refresh();
+                    if (!refreshed)
+                    {
+                        return refreshed.error();
+                    }
+                    const auto current_provider = candidate_providers_.find(selection->candidate_id);
+                    const auto current_descriptor =
+                        std::find_if(refreshed->candidates.begin(), refreshed->candidates.end(),
+                                     [&](const LocalAdapterDescriptor& candidate)
+                                     { return candidate.candidate_id == selection->candidate_id; });
+                    if (current_provider == candidate_providers_.end() ||
+                        current_descriptor == refreshed->candidates.end() ||
+                        current_provider->second != selected_provider || *current_descriptor != selected_descriptor)
+                    {
+                        return AdapterSelectionRequired{.snapshot = std::move(*refreshed),
+                                                        .reason = AdapterSelectionRequired::Reason::StaleSelection};
+                    }
+                    return open_run(std::move(*prepared_session), document.connection, *current_descriptor,
+                                    *current_provider->second);
                 }
             }
 

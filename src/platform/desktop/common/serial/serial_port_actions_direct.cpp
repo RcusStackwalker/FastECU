@@ -28,6 +28,29 @@ struct J2534IoScope
         --depth;
     }
 };
+
+J2534RawCanOpenFailure raw_can_failure_for(long status)
+{
+    switch (status)
+    {
+    case ERR_DEVICE_NOT_CONNECTED:
+    case ERR_INVALID_DEVICE_ID:
+    case ERR_INVALID_CHANNEL_ID:
+        return J2534RawCanOpenFailure::AdapterUnavailable;
+    case ERR_NOT_SUPPORTED:
+    case ERR_INVALID_PROTOCOL_ID:
+    case ERR_INVALID_IOCTL_VALUE:
+    case ERR_INVALID_FLAGS:
+    case ERR_INVALID_MSG:
+    case ERR_INVALID_TIME_INTERVAL:
+    case ERR_MSG_PROTOCOL_ID:
+    case ERR_NO_FLOW_CONTROL:
+    case ERR_INVALID_BAUDRATE:
+        return J2534RawCanOpenFailure::UnsupportedConfiguration;
+    default:
+        return J2534RawCanOpenFailure::Internal;
+    }
+}
 } // namespace
 
 SerialPortActionsDirect::SerialPortActionsDirect(QObject *parent) : QObject(parent), serial(new QSerialPort(this))
@@ -520,6 +543,36 @@ QMap<QString, QString> SerialPortActionsDirect::getAllJ2534DriversNames()
 
 QString SerialPortActionsDirect::open_serial_port()
 {
+    return open_serial_port_impl(true);
+}
+
+J2534RawCanOpenResult SerialPortActionsDirect::open_j2534_raw_can_checked()
+{
+    const QString opened = open_serial_port_impl(false);
+    if (opened.isEmpty() || !use_openport2_adapter)
+    {
+        if (!opened.isEmpty())
+        {
+            reset_connection();
+        }
+        return {
+            .opened_port = {},
+            .failure = J2534RawCanOpenFailure::AdapterUnavailable,
+            .stage = J2534RawCanOpenStage::DeviceOpen,
+            .api_status = STATUS_ERROR,
+        };
+    }
+
+    J2534RawCanOpenResult result = establish_j2534_raw_can_channel_checked();
+    if (result.failure == J2534RawCanOpenFailure::None)
+    {
+        result.opened_port = opened;
+    }
+    return result;
+}
+
+QString SerialPortActionsDirect::open_serial_port_impl(bool establish_j2534_channel)
+{
     emit LOG_D("Serial port = " + serial_port_list.join(", "), true, true);
     // QString serial_port_text = serial_port_list.at(1);
 #if defined Q_OS_UNIX
@@ -573,7 +626,7 @@ QString SerialPortActionsDirect::open_serial_port()
         long result;
 
         emit LOG_D("Testing j2534 interface, please wait...", true, true);
-        result = init_j2534_connection();
+        result = init_j2534_connection(establish_j2534_channel);
 
         if (result == STATUS_SUCCESS)
         {
@@ -589,6 +642,12 @@ QString SerialPortActionsDirect::open_serial_port()
             use_openport2_adapter = false;
             reset_connection();
         }
+    }
+    if (!establish_j2534_channel && !use_openport2_adapter)
+    {
+        // The checked dashboard boundary is J2534-only. A failed J2534 open
+        // must not fall through to the legacy generic-serial probe.
+        return {};
     }
     if (!use_openport2_adapter && openedSerialPort != serial_port)
     {
@@ -1341,7 +1400,7 @@ bool SerialPortActionsDirect::get_serial_num(char *serial_arg)
     return true;
 }
 
-int SerialPortActionsDirect::init_j2534_connection()
+int SerialPortActionsDirect::init_j2534_connection(bool establish_channel)
 {
 // If Linux, open serial port
 #if defined Q_OS_UNIX
@@ -1420,7 +1479,14 @@ int SerialPortActionsDirect::init_j2534_connection()
     emit LOG_D("Device Firmware Version: " + QString(strFirmwareVersion.data()), true, true);
     emit LOG_D("Device Serial Number: " + parse_message_to_hex(strSerial.data()), true, true);
 
-    // Create J2534 to device connections
+    if (!establish_channel)
+    {
+        return STATUS_SUCCESS;
+    }
+
+    // Create J2534 to device connections. The legacy path intentionally
+    // retains its historical best-effort behavior; the dashboard uses the
+    // checked boundary below.
     if (is_iso15765_connection)
     {
         set_j2534_can();
@@ -1444,6 +1510,57 @@ int SerialPortActionsDirect::init_j2534_connection()
     }
 
     return STATUS_SUCCESS;
+}
+
+long SerialPortActionsDirect::connect_j2534_raw_can_channel()
+{
+    return set_j2534_can();
+}
+
+long SerialPortActionsDirect::configure_j2534_raw_can_timings()
+{
+    return set_j2534_can_timings();
+}
+
+long SerialPortActionsDirect::configure_j2534_raw_can_filter()
+{
+    return set_j2534_can_filters(true);
+}
+
+J2534RawCanOpenResult SerialPortActionsDirect::establish_j2534_raw_can_channel_checked()
+{
+    const auto failed = [this](J2534RawCanOpenStage stage, long status)
+    {
+        reset_connection();
+        return J2534RawCanOpenResult{
+            .opened_port = {},
+            .failure = raw_can_failure_for(status),
+            .stage = stage,
+            .api_status = status,
+        };
+    };
+
+    const long connected = connect_j2534_raw_can_channel();
+    if (connected != STATUS_NOERROR)
+    {
+        return failed(J2534RawCanOpenStage::ChannelConnect, connected);
+    }
+    const long timed = configure_j2534_raw_can_timings();
+    if (timed != STATUS_NOERROR)
+    {
+        return failed(J2534RawCanOpenStage::TimingConfiguration, timed);
+    }
+    const long filtered = configure_j2534_raw_can_filter();
+    if (filtered != STATUS_NOERROR)
+    {
+        return failed(J2534RawCanOpenStage::FilterConfiguration, filtered);
+    }
+    return {
+        .opened_port = openedSerialPort,
+        .failure = J2534RawCanOpenFailure::None,
+        .stage = J2534RawCanOpenStage::None,
+        .api_status = STATUS_NOERROR,
+    };
 }
 
 int SerialPortActionsDirect::set_j2534_can()
@@ -1481,10 +1598,11 @@ int SerialPortActionsDirect::set_j2534_can()
     }
     baudrate = can_speed.toUInt();
     // use ISO9141_NO_CHECKSUM to disable checksumming on both tx and rx messages
-    if (j2534->PassThruConnect(devID, protocol, flags, baudrate, &chanID))
+    const long result = j2534->PassThruConnect(devID, protocol, flags, baudrate, &chanID);
+    if (result != STATUS_NOERROR)
     {
         reportJ2534Error();
-        return STATUS_ERROR;
+        return static_cast<int>(result);
     }
     else
     {
@@ -1523,10 +1641,11 @@ int SerialPortActionsDirect::set_j2534_can_timings()
     SCONFIG scp[] = {{LOOPBACK, 0}};
     scl.NumOfParams = std::size(scp);
     scl.ConfigPtr = scp;
-    if (j2534->PassThruIoctl(chanID, SET_CONFIG, &scl, nullptr))
+    const long result = j2534->PassThruIoctl(chanID, SET_CONFIG, &scl, nullptr);
+    if (result != STATUS_NOERROR)
     {
         reportJ2534Error();
-        return STATUS_ERROR;
+        return static_cast<int>(result);
     }
     else
     {
@@ -1536,14 +1655,19 @@ int SerialPortActionsDirect::set_j2534_can_timings()
     return STATUS_SUCCESS;
 }
 
-int SerialPortActionsDirect::set_j2534_can_filters()
+int SerialPortActionsDirect::set_j2534_can_filters(bool check_clear_failure)
 {
     // now setup the filter(s)
     PASSTHRU_MSG txmsg;
     PASSTHRU_MSG msgMask, msgPattern, msgFlow;
     unsigned long msgId;
 
-    j2534->PassThruIoctl(chanID, CLEAR_MSG_FILTERS, nullptr, nullptr);
+    const long clear_result = j2534->PassThruIoctl(chanID, CLEAR_MSG_FILTERS, nullptr, nullptr);
+    if (check_clear_failure && clear_result != STATUS_NOERROR)
+    {
+        reportJ2534Error();
+        return static_cast<int>(clear_result);
+    }
 
     if (is_can_connection)
     {
@@ -1561,10 +1685,11 @@ int SerialPortActionsDirect::set_j2534_can_filters()
 
         bytes::writeU32Be(msgPattern.Data, 0, can_destination_address);
 
-        if (j2534->PassThruStartMsgFilter(chanID, PASS_FILTER, &msgMask, &msgPattern, nullptr, &msgId))
+        const long result = j2534->PassThruStartMsgFilter(chanID, PASS_FILTER, &msgMask, &msgPattern, nullptr, &msgId);
+        if (result != STATUS_NOERROR)
         {
             reportJ2534Error();
-            return STATUS_ERROR;
+            return static_cast<int>(result);
         }
     }
     else if (is_iso15765_connection)
@@ -1584,10 +1709,12 @@ int SerialPortActionsDirect::set_j2534_can_filters()
         bytes::writeU32Be(msgPattern.Data, 0, iso15765_destination_address);
         bytes::writeU32Be(msgFlow.Data, 0, iso15765_source_address);
 
-        if (j2534->PassThruStartMsgFilter(chanID, FLOW_CONTROL_FILTER, &msgMask, &msgPattern, &msgFlow, &msgId))
+        const long result =
+            j2534->PassThruStartMsgFilter(chanID, FLOW_CONTROL_FILTER, &msgMask, &msgPattern, &msgFlow, &msgId);
+        if (result != STATUS_NOERROR)
         {
             reportJ2534Error();
-            return STATUS_ERROR;
+            return static_cast<int>(result);
         }
     }
     else

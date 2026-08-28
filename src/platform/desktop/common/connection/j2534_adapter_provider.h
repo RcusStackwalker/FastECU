@@ -2,6 +2,7 @@
 
 #include "src/platform/desktop/common/connection/local_adapter.h"
 #include "src/platform/desktop/common/logging/cdbg_serial_setup.h"
+#include "src/platform/desktop/common/serial/serial_backend.h"
 
 #include <QString>
 #include <QStringList>
@@ -16,6 +17,15 @@ class SerialPortActions;
 
 namespace fastecu::desktop::connection
 {
+
+namespace detail
+{
+enum class J2534DiscoverySource
+{
+    UnixSerialPorts,
+    WindowsRegistryAndSerialPorts,
+};
+} // namespace detail
 
 class J2534AdapterProviderTestAccess;
 
@@ -32,11 +42,11 @@ class J2534AdapterProvider final : public ILocalAdapterProvider
   private:
     struct Dependencies
     {
+        detail::J2534DiscoverySource discovery_source;
         std::function<QStringList(SerialPortActions&)> list;
         std::function<std::unique_ptr<SerialPortActions>()> construct;
         std::function<Status(SerialPortActions&, const logging::RawCanSetupProfile&)> configure;
-        std::function<QString(SerialPortActions&)> open;
-        std::function<bool(SerialPortActions&)> is_open;
+        std::function<J2534RawCanOpenResult(SerialPortActions&)> open;
     };
 
     struct TestingTag

@@ -218,6 +218,7 @@ class DesktopQuickApplicationTest : public QObject
 
         QCOMPARE(application.preparation.prepare_calls, 1);
         QCOMPARE(application.controller.state(), ConnectionState::AdapterSelectionRequired);
+        QCOMPARE(application.find("connectionPanel")->property("transitioning").toBool(), false);
         QCOMPARE(application.find("connectionStatus")->property("text").toString(),
                  QStringLiteral("Select an adapter"));
         QCOMPARE(application.find("adapterPicker")->property("visible").toBool(), true);
@@ -258,6 +259,7 @@ class DesktopQuickApplicationTest : public QObject
         application.preparation.next_preparation = prepared_connection();
         QVERIFY(click(application.find("connectButton")));
         QCOMPARE(application.logging.start_calls, 1);
+        QCOMPARE(application.find("connectionPanel")->property("transitioning").toBool(), true);
         QCOMPARE(application.find("connectButton")->property("enabled").toBool(), false);
         QCOMPARE(application.find("refreshAdaptersButton")->property("enabled").toBool(), false);
         application.logging.publishRunning();

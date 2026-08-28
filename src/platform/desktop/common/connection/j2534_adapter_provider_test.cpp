@@ -62,13 +62,17 @@ class ProviderHarness
 {
   public:
     QStringList listed_entries;
+    detail::J2534DiscoverySource discovery_source = detail::J2534DiscoverySource::UnixSerialPorts;
     fastecu::Status configure_result{};
-    QString open_result = "opened";
-    bool open_state = true;
+    J2534RawCanOpenResult open_result{
+        .opened_port = "opened",
+        .failure = J2534RawCanOpenFailure::None,
+        .stage = J2534RawCanOpenStage::None,
+        .api_status = 0,
+    };
     bool list_throws = false;
     bool configure_throws = false;
     bool open_throws = false;
-    bool open_state_throws = false;
     std::optional<logging::RawCanSetupProfile> configured_profile;
     QStringList selected_entries;
     std::atomic<int> destructions{0};
@@ -76,6 +80,7 @@ class ProviderHarness
     std::unique_ptr<J2534AdapterProvider> provider()
     {
         J2534AdapterProviderTestAccess::Dependencies dependencies{
+            .discovery_source = discovery_source,
             .list = [this](SerialPortActions&) -> QStringList
             {
                 if (list_throws)
@@ -103,22 +108,13 @@ class ProviderHarness
                 }
                 return configure_result;
             },
-            .open = [this](SerialPortActions&) -> QString
+            .open = [this](SerialPortActions&) -> J2534RawCanOpenResult
             {
                 if (open_throws)
                 {
                     throw std::runtime_error("open failed");
                 }
                 return open_result;
-            },
-            .is_open =
-                [this](SerialPortActions&)
-            {
-                if (open_state_throws)
-                {
-                    throw std::runtime_error("open-state failed");
-                }
-                return open_state;
             },
         };
         return J2534AdapterProviderTestAccess::make(std::move(dependencies));
@@ -138,7 +134,7 @@ class TestJ2534AdapterProvider : public QObject
     Q_OBJECT
 
   private slots:
-    void discoveryIncludesOnlyJ2534AndOpenPortEntriesWithStablePresentation()
+    void unixDiscoveryIncludesOnlyOpenPortEntriesWithStablePresentation()
     {
         ProviderHarness harness;
         harness.listed_entries = {
@@ -150,7 +146,7 @@ class TestJ2534AdapterProvider : public QObject
         const auto discovered = provider->discover();
 
         QVERIFY(discovered.has_value());
-        QCOMPARE(discovered->size(), 2U);
+        QCOMPARE(discovered->size(), 1U);
         const auto& openport = (*discovered)[0];
         QCOMPARE(openport.kind, dashboard::AdapterKind::J2534);
         QCOMPARE(openport.vendor, std::string("Tactrix"));
@@ -159,19 +155,36 @@ class TestJ2534AdapterProvider : public QObject
         QVERIFY(openport.candidate_id.starts_with("j2534:"));
         QVERIFY(openport.candidate_id.find("usbmodem") == std::string::npos);
 
-        const auto& generic = (*discovered)[1];
-        QCOMPARE(generic.vendor, std::string("Acme"));
-        QCOMPARE(generic.display_name, std::string("J2534"));
-        QCOMPARE(generic.label, std::string("Acme J2534"));
-        QVERIFY(generic.candidate_id.starts_with("j2534:"));
-        QVERIFY(generic.candidate_id.find("Acme") == std::string::npos);
         QCOMPARE(harness.destructions.load(), 1);
 
         const auto rediscovered = provider->discover();
         QVERIFY(rediscovered.has_value());
-        QCOMPARE(rediscovered->size(), 2U);
+        QCOMPARE(rediscovered->size(), 1U);
         QCOMPARE(rediscovered->front().candidate_id, openport.candidate_id);
         QCOMPARE(harness.destructions.load(), 2);
+    }
+
+    void windowsDiscoveryIncludesUnmarkedRegistryNamesButExcludesSerialAndRemoteEntries()
+    {
+        ProviderHarness harness;
+        harness.discovery_source = detail::J2534DiscoverySource::WindowsRegistryAndSerialPorts;
+        harness.listed_entries = {
+            "Shared Vendor",
+            "Acme J2534 DLL",
+            "COM3 - USB Serial",
+            "ttyUSB0 - USB Serial",
+            "wss://remote.example/Remote J2534",
+            "",
+        };
+        auto provider = harness.provider();
+
+        const auto discovered = provider->discover();
+
+        QVERIFY(discovered.has_value());
+        QCOMPARE(discovered->size(), 2U);
+        QCOMPARE((*discovered)[0].vendor, std::string("Shared Vendor"));
+        QCOMPARE((*discovered)[0].display_name, std::string("J2534"));
+        QCOMPARE((*discovered)[1].vendor, std::string("Acme"));
     }
 
     void opensOnlyAnIssuedCandidateAndAppliesTheDocumentProfile()
@@ -219,7 +232,12 @@ class TestJ2534AdapterProvider : public QObject
     {
         ProviderHarness harness;
         harness.listed_entries = {"cu.usbmodem0 - OpenPort 2.0"};
-        harness.open_result.clear();
+        harness.open_result = {
+            .opened_port = {},
+            .failure = J2534RawCanOpenFailure::AdapterUnavailable,
+            .stage = J2534RawCanOpenStage::DeviceOpen,
+            .api_status = 8,
+        };
         auto provider = harness.provider();
         const auto discovered = provider->discover();
         QVERIFY(discovered.has_value());
@@ -231,11 +249,62 @@ class TestJ2534AdapterProvider : public QObject
         QCOMPARE(harness.destructions.load(), after_discovery + 1);
     }
 
-    void falseOpenStateReturnsDisconnectedAndDestroysTheCreatedActions()
+    void unsupportedConnectFailureIsTypedAndDestroysTheCreatedActions()
     {
         ProviderHarness harness;
         harness.listed_entries = {"cu.usbmodem0 - OpenPort 2.0"};
-        harness.open_state = false;
+        harness.open_result = {
+            .opened_port = {},
+            .failure = J2534RawCanOpenFailure::UnsupportedConfiguration,
+            .stage = J2534RawCanOpenStage::ChannelConnect,
+            .api_status = 0x19,
+        };
+        auto provider = harness.provider();
+        const auto discovered = provider->discover();
+        QVERIFY(discovered.has_value());
+        const int after_discovery = harness.destructions.load();
+
+        const auto result = provider->open(discovered->front().candidate_id, profile());
+
+        QVERIFY(!result.has_value());
+        QCOMPARE(result.error().kind, fastecu::ErrorKind::Unsupported);
+        QVERIFY(QString::fromStdString(result.error().detail).contains("connect"));
+        QCOMPARE(harness.destructions.load(), after_discovery + 1);
+    }
+
+    void timingFailureIsInternalAndDestroysTheCreatedActions()
+    {
+        ProviderHarness harness;
+        harness.listed_entries = {"cu.usbmodem0 - OpenPort 2.0"};
+        harness.open_result = {
+            .opened_port = {},
+            .failure = J2534RawCanOpenFailure::Internal,
+            .stage = J2534RawCanOpenStage::TimingConfiguration,
+            .api_status = 7,
+        };
+        auto provider = harness.provider();
+        const auto discovered = provider->discover();
+        QVERIFY(discovered.has_value());
+        const int after_discovery = harness.destructions.load();
+
+        const auto result = provider->open(discovered->front().candidate_id, profile());
+
+        QVERIFY(!result.has_value());
+        QCOMPARE(result.error().kind, fastecu::ErrorKind::Internal);
+        QVERIFY(QString::fromStdString(result.error().detail).contains("timing"));
+        QCOMPARE(harness.destructions.load(), after_discovery + 1);
+    }
+
+    void filterFailureIsDisconnectedAndDestroysTheCreatedActions()
+    {
+        ProviderHarness harness;
+        harness.listed_entries = {"cu.usbmodem0 - OpenPort 2.0"};
+        harness.open_result = {
+            .opened_port = {},
+            .failure = J2534RawCanOpenFailure::AdapterUnavailable,
+            .stage = J2534RawCanOpenStage::FilterConfiguration,
+            .api_status = 8,
+        };
         auto provider = harness.provider();
         const auto discovered = provider->discover();
         QVERIFY(discovered.has_value());
@@ -244,6 +313,7 @@ class TestJ2534AdapterProvider : public QObject
         const auto result = provider->open(discovered->front().candidate_id, profile());
 
         expect_disconnected(result);
+        QVERIFY(QString::fromStdString(result.error().detail).contains("filter"));
         QCOMPARE(harness.destructions.load(), after_discovery + 1);
     }
 
@@ -287,7 +357,7 @@ class TestJ2534AdapterProvider : public QObject
         QCOMPARE(open_harness.destructions.load(), after_discovery + 1);
     }
 
-    void thrownConfigurationAndOpenStateActionsReleaseTheCreatedActions()
+    void thrownConfigurationActionReleasesTheCreatedActions()
     {
         ProviderHarness configure_harness;
         configure_harness.listed_entries = {"cu.usbmodem0 - OpenPort 2.0"};
@@ -300,18 +370,6 @@ class TestJ2534AdapterProvider : public QObject
         QVERIFY(!configure_result.has_value());
         QCOMPARE(configure_result.error().kind, fastecu::ErrorKind::Internal);
         QCOMPARE(configure_harness.destructions.load(), after_configure_discovery + 1);
-
-        ProviderHarness state_harness;
-        state_harness.listed_entries = {"cu.usbmodem0 - OpenPort 2.0"};
-        state_harness.open_state_throws = true;
-        auto state_provider = state_harness.provider();
-        const auto state_candidates = state_provider->discover();
-        QVERIFY(state_candidates.has_value());
-        const int after_state_discovery = state_harness.destructions.load();
-        const auto state_result = state_provider->open(state_candidates->front().candidate_id, profile());
-        QVERIFY(!state_result.has_value());
-        QCOMPARE(state_result.error().kind, fastecu::ErrorKind::Internal);
-        QCOMPARE(state_harness.destructions.load(), after_state_discovery + 1);
     }
 };
 

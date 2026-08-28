@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cerrno>
 #include <cstring>
 #include <string>
@@ -76,6 +77,7 @@ SocketCanActions production_socketcan_actions()
         .recv = [](int fd, void *buffer, std::size_t size, int flags)
         { return static_cast<std::ptrdiff_t>(::recv(fd, buffer, size, flags)); },
         .close = [](int fd) { return ::close(fd); },
+        .now = [] { return std::chrono::steady_clock::now(); },
     };
 }
 
@@ -121,7 +123,11 @@ Result<std::size_t> SocketCanTransport::write(std::uint32_t can_id, bytes::ByteV
     frame.can_dlc = static_cast<decltype(frame.can_dlc)>(payload.size());
     std::copy(payload.begin(), payload.end(), frame.data);
 
-    const std::ptrdiff_t sent = actions_.send(fd_, &frame, sizeof(frame), 0);
+    std::ptrdiff_t sent;
+    do
+    {
+        sent = actions_.send(fd_, &frame, sizeof(frame), 0);
+    } while (sent < 0 && errno == EINTR);
     if (sent < 0)
     {
         return std::unexpected(syscall_error("SocketCAN send", errno));
@@ -148,7 +154,9 @@ Result<std::optional<cdbg::CanFrame>> SocketCanTransport::read(int timeout_ms, c
         return fail(ErrorKind::Internal, "SocketCAN read actions are unavailable");
     }
 
-    int remaining_ms = std::max(timeout_ms, 0);
+    const auto now = [this] { return actions_.now ? actions_.now() : std::chrono::steady_clock::now(); };
+    const auto deadline = now() + std::chrono::milliseconds(std::max(timeout_ms, 0));
+    bool attempted_poll = false;
     while (true)
     {
         if (cancellation.cancelled())
@@ -156,8 +164,18 @@ Result<std::optional<cdbg::CanFrame>> SocketCanTransport::read(int timeout_ms, c
             return fail(ErrorKind::Cancelled, "SocketCAN read cancelled");
         }
 
+        const auto current_time = now();
+        if (attempted_poll && current_time >= deadline)
+        {
+            return std::optional<cdbg::CanFrame>{};
+        }
+        const int remaining_ms =
+            current_time >= deadline
+                ? 0
+                : static_cast<int>(std::chrono::ceil<std::chrono::milliseconds>(deadline - current_time).count());
         const int slice_ms = std::min(remaining_ms, kCancellationPollSliceMs);
         short revents = 0;
+        attempted_poll = true;
         const int polled = actions_.poll(fd_, POLLIN, slice_ms, revents);
         if (polled < 0)
         {
@@ -169,11 +187,10 @@ Result<std::optional<cdbg::CanFrame>> SocketCanTransport::read(int timeout_ms, c
         }
         if (polled == 0)
         {
-            if (remaining_ms <= slice_ms)
+            if (remaining_ms <= slice_ms || now() >= deadline)
             {
                 return std::optional<cdbg::CanFrame>{};
             }
-            remaining_ms -= slice_ms;
             continue;
         }
         if ((revents & (POLLERR | POLLHUP | POLLNVAL)) != 0)
@@ -186,7 +203,23 @@ Result<std::optional<cdbg::CanFrame>> SocketCanTransport::read(int timeout_ms, c
         }
 
         can_frame frame{};
-        const std::ptrdiff_t received = actions_.recv(fd_, &frame, sizeof(frame), 0);
+        std::ptrdiff_t received;
+        while (true)
+        {
+            received = actions_.recv(fd_, &frame, sizeof(frame), 0);
+            if (received >= 0 || errno != EINTR)
+            {
+                break;
+            }
+            if (cancellation.cancelled())
+            {
+                return fail(ErrorKind::Cancelled, "SocketCAN read cancelled");
+            }
+            if (now() >= deadline)
+            {
+                return std::optional<cdbg::CanFrame>{};
+            }
+        }
         if (received < 0)
         {
             return std::unexpected(syscall_error("SocketCAN receive", errno));

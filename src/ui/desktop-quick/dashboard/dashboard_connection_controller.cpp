@@ -194,6 +194,10 @@ bool DashboardConnectionController::needsAdapterSelection() const
 {
     return state_ == ConnectionState::AdapterSelectionRequired;
 }
+bool DashboardConnectionController::isTransitioning() const
+{
+    return state_ == ConnectionState::Connecting || state_ == ConnectionState::Disconnecting;
+}
 
 void DashboardConnectionController::setDocument(std::optional<dashboard::DashboardDocument> document)
 {
@@ -268,6 +272,16 @@ void DashboardConnectionController::disconnectDashboard()
     active_run_generation_ = 0;
     engine_started_ = false;
     stop_completion_pending_ = should_stop;
+    if (!should_stop)
+    {
+        setPresentation(QStringLiteral("Disconnected"));
+        if (operation_generation != operation_generation_)
+        {
+            return;
+        }
+        setState(ConnectionState::Disconnected);
+        return;
+    }
     setState(ConnectionState::Disconnecting);
     if (operation_generation != operation_generation_)
     {

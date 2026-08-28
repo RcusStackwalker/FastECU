@@ -8,6 +8,45 @@
 #include "src/platform/desktop/common/serial/j2534_driver_selection.h"
 #include "src/platform/desktop/common/serial/serial_port_actions_direct.h"
 
+class CheckedJ2534DirectHarness final : public SerialPortActionsDirect
+{
+  public:
+    J2534RawCanOpenResult establish()
+    {
+        return establish_j2534_raw_can_channel_checked();
+    }
+
+    void reset_connection() override
+    {
+        ++cleanup_calls;
+    }
+
+    long connect_result = STATUS_NOERROR;
+    long timing_result = STATUS_NOERROR;
+    long filter_result = STATUS_NOERROR;
+    int connect_calls = 0;
+    int timing_calls = 0;
+    int filter_calls = 0;
+    int cleanup_calls = 0;
+
+  protected:
+    long connect_j2534_raw_can_channel() override
+    {
+        ++connect_calls;
+        return connect_result;
+    }
+    long configure_j2534_raw_can_timings() override
+    {
+        ++timing_calls;
+        return timing_result;
+    }
+    long configure_j2534_raw_can_filter() override
+    {
+        ++filter_calls;
+        return filter_result;
+    }
+};
+
 // Exercises the SerialBackend contract against the direct implementation
 // purely through the base-class pointer: get/set roundtrips hit the same
 // storage the backend's own I/O logic reads, and closed-port I/O calls
@@ -22,6 +61,8 @@ class TestDirectBackend : public QObject
     void j2534DriverViews_wow6432NodeVendorIsDiscoverable();
     void j2534DriverViews_laterViewOverwritesOnCollision();
     void j2534CapableEntry_matchesOnlyTheAdapterDescription();
+    void checkedJ2534RawCanOpen_propagatesConnectTimingAndFilterFailures_data();
+    void checkedJ2534RawCanOpen_propagatesConnectTimingAndFilterFailures();
 };
 
 void TestDirectBackend::getSet_roundtrip_throughInterface()
@@ -123,6 +164,58 @@ void TestDirectBackend::j2534CapableEntry_matchesOnlyTheAdapterDescription()
     QVERIFY(isJ2534CapableEntry(u"Acme J2534 DLL"));
     QVERIFY(!isJ2534CapableEntry(u""));
 #endif
+}
+
+void TestDirectBackend::checkedJ2534RawCanOpen_propagatesConnectTimingAndFilterFailures_data()
+{
+    QTest::addColumn<long>("connect_result");
+    QTest::addColumn<long>("timing_result");
+    QTest::addColumn<long>("filter_result");
+    QTest::addColumn<J2534RawCanOpenFailure>("failure");
+    QTest::addColumn<J2534RawCanOpenStage>("stage");
+    QTest::addColumn<int>("connect_calls");
+    QTest::addColumn<int>("timing_calls");
+    QTest::addColumn<int>("filter_calls");
+
+    QTest::newRow("unsupported connect") << static_cast<long>(ERR_INVALID_BAUDRATE) << static_cast<long>(STATUS_NOERROR)
+                                         << static_cast<long>(STATUS_NOERROR)
+                                         << J2534RawCanOpenFailure::UnsupportedConfiguration
+                                         << J2534RawCanOpenStage::ChannelConnect << 1 << 0 << 0;
+    QTest::newRow("internal timing") << static_cast<long>(STATUS_NOERROR) << static_cast<long>(ERR_FAILED)
+                                     << static_cast<long>(STATUS_NOERROR) << J2534RawCanOpenFailure::Internal
+                                     << J2534RawCanOpenStage::TimingConfiguration << 1 << 1 << 0;
+    QTest::newRow("disconnected filter") << static_cast<long>(STATUS_NOERROR) << static_cast<long>(STATUS_NOERROR)
+                                         << static_cast<long>(ERR_DEVICE_NOT_CONNECTED)
+                                         << J2534RawCanOpenFailure::AdapterUnavailable
+                                         << J2534RawCanOpenStage::FilterConfiguration << 1 << 1 << 1;
+}
+
+void TestDirectBackend::checkedJ2534RawCanOpen_propagatesConnectTimingAndFilterFailures()
+{
+    QFETCH(long, connect_result);
+    QFETCH(long, timing_result);
+    QFETCH(long, filter_result);
+    QFETCH(J2534RawCanOpenFailure, failure);
+    QFETCH(J2534RawCanOpenStage, stage);
+    QFETCH(int, connect_calls);
+    QFETCH(int, timing_calls);
+    QFETCH(int, filter_calls);
+    CheckedJ2534DirectHarness harness;
+    harness.connect_result = connect_result;
+    harness.timing_result = timing_result;
+    harness.filter_result = filter_result;
+
+    const auto result = harness.establish();
+
+    QCOMPARE(result.failure, failure);
+    QCOMPARE(result.stage, stage);
+    QCOMPARE(result.api_status, stage == J2534RawCanOpenStage::ChannelConnect        ? connect_result
+                                : stage == J2534RawCanOpenStage::TimingConfiguration ? timing_result
+                                                                                     : filter_result);
+    QCOMPARE(harness.connect_calls, connect_calls);
+    QCOMPARE(harness.timing_calls, timing_calls);
+    QCOMPARE(harness.filter_calls, filter_calls);
+    QCOMPARE(harness.cleanup_calls, 1);
 }
 
 int main(int argc, char **argv)

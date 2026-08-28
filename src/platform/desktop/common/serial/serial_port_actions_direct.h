@@ -146,6 +146,7 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
 
     QStringList check_serial_ports() override;
     QString open_serial_port() override;
+    J2534RawCanOpenResult open_j2534_raw_can_checked() override;
 
     unsigned long read_vbatt() override;
     int set_j2534_ioctl(unsigned long parameter, int value);
@@ -590,7 +591,7 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
 
     int set_j2534_can();
     int unset_j2534_can();
-    int set_j2534_can_filters();
+    int set_j2534_can_filters(bool check_clear_failure = false);
     //    int set_j2534_stmin_tx();
     int set_j2534_can_timings();
     int set_j2534_iso9141();
@@ -617,7 +618,11 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
   protected:
     // protected so tests can drive the J2534 lifetime (reset_connection
     // use-after-free reproduction) and the connect sequence over a mock serial.
-    int init_j2534_connection();
+    int init_j2534_connection(bool establish_channel = true);
+    J2534RawCanOpenResult establish_j2534_raw_can_channel_checked();
+    virtual long connect_j2534_raw_can_channel();
+    virtual long configure_j2534_raw_can_timings();
+    virtual long configure_j2534_raw_can_filter();
     J2534 *j2534;
 
   private:
@@ -627,6 +632,8 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     // the Qt event loop). close_j2534_serial_port() must not free j2534 while a
     // read holds it on the stack, or the in-flight read uses freed memory.
     int j2534_io_depth_ = 0;
+
+    QString open_serial_port_impl(bool establish_j2534_channel);
 
     unsigned int baudrate = 4800;
     unsigned long devID = 0;

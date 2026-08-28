@@ -218,6 +218,22 @@ class DashboardConnectionControllerTest : public QObject
         QCOMPARE(engine.start_calls, 0);
     }
 
+    void transitionStateIsOwnedByTheController()
+    {
+        FakePreparationService preparation;
+        FakeLoggingEngine engine;
+        DashboardConnectionController controller(preparation, engine);
+        QVERIFY(!controller.isTransitioning());
+        controller.setDocument(usable_document());
+        preparation.next_preparation = prepared_connection();
+
+        controller.connectDashboard();
+
+        QVERIFY(controller.isTransitioning());
+        engine.publishStatus(desktop::logging::LoggingStatus::Running);
+        QVERIFY(!controller.isTransitioning());
+    }
+
     void explicitConnectPublishesConnectingBeforeSelectionIsRequired()
     {
         FakePreparationService preparation;
@@ -419,9 +435,11 @@ class DashboardConnectionControllerTest : public QObject
 
         controller.connectDashboard();
 
-        QCOMPARE(controller.state(), ConnectionState::Disconnecting);
+        QCOMPARE(controller.state(), ConnectionState::Disconnected);
         QCOMPARE(preparation.prepare_calls, 0);
         QCOMPARE(engine.start_calls, 0);
+        QCOMPARE(engine.stop_calls, 0);
+        QVERIFY(controller.canConnect());
     }
 
     void reconnectFromStopCompletionPreservesTheNewRunForDestruction()

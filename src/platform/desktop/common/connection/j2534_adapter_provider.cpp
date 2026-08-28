@@ -63,7 +63,7 @@ bool is_remote_entry(QStringView entry)
     return entry.contains(QStringView(u"://"), Qt::CaseInsensitive);
 }
 
-bool is_local_j2534_entry(const QString& entry)
+bool is_local_j2534_entry(const QString& entry, detail::J2534DiscoverySource source)
 {
     const QStringView view(entry);
     const bool names_openport = view.contains(QStringView(u"OpenPort 2.0"), Qt::CaseInsensitive);
@@ -73,16 +73,55 @@ bool is_local_j2534_entry(const QString& entry)
     {
         return false;
     }
-    if (starts_with_port_name(view) && !names_openport)
+    if (source == detail::J2534DiscoverySource::WindowsRegistryAndSerialPorts)
     {
-        return false;
+        // Windows discovery combines registry group names and ordinary serial
+        // ports. Every non-port registry group is a local installed J2534
+        // driver even when its vendor chose no marker in the group name.
+        return !starts_with_port_name(view) || (names_openport && isJ2534CapableEntry(view));
     }
 
-    // isJ2534CapableEntry() is the direct backend's authoritative OpenPort
-    // branch predicate. Windows check_serial_ports() also returns ordinary
-    // serial entries, so a non-OpenPort candidate must explicitly identify
-    // itself as J2534 rather than relying on Windows' broad backend predicate.
-    return names_j2534 || (names_openport && isJ2534CapableEntry(view));
+    // Unix/macOS has no installed-driver registry. Only entries the direct
+    // backend can actually drive through its OpenPort J2534 branch qualify.
+    (void)names_j2534;
+    return names_openport && isJ2534CapableEntry(view);
+}
+
+std::string_view open_stage_name(J2534RawCanOpenStage stage)
+{
+    switch (stage)
+    {
+    case J2534RawCanOpenStage::DeviceOpen:
+        return "device open";
+    case J2534RawCanOpenStage::ChannelConnect:
+        return "channel connect";
+    case J2534RawCanOpenStage::TimingConfiguration:
+        return "timing configuration";
+    case J2534RawCanOpenStage::FilterConfiguration:
+        return "filter configuration";
+    case J2534RawCanOpenStage::None:
+        return "open";
+    }
+    return "open";
+}
+
+Error open_error(const J2534RawCanOpenResult& result)
+{
+    ErrorKind kind = ErrorKind::Internal;
+    switch (result.failure)
+    {
+    case J2534RawCanOpenFailure::UnsupportedConfiguration:
+        kind = ErrorKind::Unsupported;
+        break;
+    case J2534RawCanOpenFailure::AdapterUnavailable:
+        kind = ErrorKind::Disconnected;
+        break;
+    case J2534RawCanOpenFailure::Internal:
+    case J2534RawCanOpenFailure::None:
+        kind = ErrorKind::Internal;
+        break;
+    }
+    return {kind, std::format("J2534 raw-CAN {} failed (status {})", open_stage_name(result.stage), result.api_status)};
 }
 
 QString remove_suffix(QString text, QStringView suffix)
@@ -162,12 +201,16 @@ logging::RawCanSetupActions raw_can_actions(SerialPortActions& serial)
 J2534AdapterProvider::J2534AdapterProvider()
     : J2534AdapterProvider(
           Dependencies{
+#if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
+              .discovery_source = detail::J2534DiscoverySource::WindowsRegistryAndSerialPorts,
+#else
+              .discovery_source = detail::J2534DiscoverySource::UnixSerialPorts,
+#endif
               .list = [](SerialPortActions& serial) { return serial.check_serial_ports(); },
               .construct = [] { return std::make_unique<SerialPortActions>(QString{}); },
               .configure = [](SerialPortActions& serial, const logging::RawCanSetupProfile& profile)
               { return logging::configure_raw_can(profile, raw_can_actions(serial)); },
-              .open = [](SerialPortActions& serial) { return serial.open_serial_port(); },
-              .is_open = [](SerialPortActions& serial) { return serial.is_serial_port_open(); },
+              .open = [](SerialPortActions& serial) { return serial.open_j2534_raw_can_checked(); },
           },
           TestingTag{})
 {
@@ -201,7 +244,7 @@ Result<std::vector<LocalAdapterDescriptor>> J2534AdapterProvider::discover()
         std::unordered_map<std::string, QString> issued_entries;
         for (const QString& entry : dependencies_.list(*serial))
         {
-            if (!is_local_j2534_entry(entry))
+            if (!is_local_j2534_entry(entry, dependencies_.discovery_source))
             {
                 continue;
             }
@@ -243,7 +286,7 @@ Result<std::unique_ptr<OpenedCanAdapter>> J2534AdapterProvider::open(std::string
 
     try
     {
-        if (!dependencies_.construct || !dependencies_.configure || !dependencies_.open || !dependencies_.is_open)
+        if (!dependencies_.construct || !dependencies_.configure || !dependencies_.open)
         {
             return fail(ErrorKind::Internal, "J2534 open actions are unavailable");
         }
@@ -266,7 +309,12 @@ Result<std::unique_ptr<OpenedCanAdapter>> J2534AdapterProvider::open(std::string
         {
             return std::unexpected(configured.error());
         }
-        if (dependencies_.open(*serial).isEmpty() || !dependencies_.is_open(*serial))
+        const J2534RawCanOpenResult opened_result = dependencies_.open(*serial);
+        if (opened_result.failure != J2534RawCanOpenFailure::None)
+        {
+            return std::unexpected(open_error(opened_result));
+        }
+        if (opened_result.opened_port.isEmpty())
         {
             return fail(ErrorKind::Disconnected, "unable to open local J2534 adapter");
         }

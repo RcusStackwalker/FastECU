@@ -7,10 +7,8 @@ Frame {
     objectName: "connectionPanel"
     padding: 16
 
-    readonly property bool connecting: dashboardConnection.state === 1
-    readonly property bool disconnecting: dashboardConnection.state === 5
-    readonly property bool transitioning: connecting || disconnecting
-    readonly property bool connected: dashboardConnection.canDisconnect && !connecting
+    readonly property bool transitioning: dashboardConnection.isTransitioning
+    readonly property bool connected: dashboardConnection.canDisconnect && !transitioning
 
     background: Rectangle {
         color: "#111827"

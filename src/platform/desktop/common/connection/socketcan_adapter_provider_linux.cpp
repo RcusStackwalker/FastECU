@@ -421,7 +421,8 @@ Result<std::vector<LocalAdapterDescriptor>> SocketCanAdapterProvider::discover()
                 continue;
             }
 
-            const std::string candidate_id = std::string(kCandidatePrefix) + interface.name;
+            const std::string candidate_id =
+                std::string(kCandidatePrefix) + std::to_string(interface.index) + ":" + interface.name;
             if (!issued.emplace(candidate_id, interface).second)
             {
                 continue;
