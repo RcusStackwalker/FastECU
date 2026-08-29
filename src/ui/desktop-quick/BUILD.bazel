@@ -16,6 +16,8 @@ qt_resource_via_qrc(
     files = [
         "qml/Main.qml",
         "qml/dashboard/ConnectionPanel.qml",
+        "qml/dashboard/DashboardView.qml",
+        "qml/dashboard/NumericCard.qml",
         "qml/shell/ApplicationShell.qml",
         "resources/colt-dashboard.ohd",
     ],
@@ -114,6 +116,8 @@ fastecu_quicktest(
     deps = [
         ":application",
         ":dashboard_connection_controller",
+        ":dashboard_controller",
+        "//src/backend/ports/testing:fake_clock",
     ],
 )
 

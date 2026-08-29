@@ -2,6 +2,8 @@
     <qresource prefix="/omnihaste">
         <file alias="qml/Main.qml">qml/Main.qml</file>
         <file alias="qml/dashboard/ConnectionPanel.qml">qml/dashboard/ConnectionPanel.qml</file>
+        <file alias="qml/dashboard/DashboardView.qml">qml/dashboard/DashboardView.qml</file>
+        <file alias="qml/dashboard/NumericCard.qml">qml/dashboard/NumericCard.qml</file>
         <file alias="qml/shell/ApplicationShell.qml">qml/shell/ApplicationShell.qml</file>
         <file alias="dashboards/colt-dashboard.ohd">resources/colt-dashboard.ohd</file>
     </qresource>

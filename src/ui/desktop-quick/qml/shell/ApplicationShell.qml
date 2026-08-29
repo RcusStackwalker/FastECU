@@ -50,23 +50,12 @@ ApplicationWindow {
             ColumnLayout {
                 anchors.fill: parent
                 anchors.margins: 28
-                spacing: 10
-                Item { Layout.fillHeight: true }
-                Label {
-                    text: qsTr("Dashboard")
-                    color: "#f8fafc"
-                    font.pixelSize: 28
-                    font.bold: true
-                    Layout.alignment: Qt.AlignHCenter
+                spacing: 16
+                DashboardView {
+                    presentation: dashboardPresentation
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
                 }
-                Label {
-                    objectName: "workspaceMessage"
-                    text: qsTr("Dashboard support is coming in the next development phase.")
-                    color: "#94a3b8"
-                    font.pixelSize: 15
-                    Layout.alignment: Qt.AlignHCenter
-                }
-                Item { Layout.fillHeight: true }
                 ConnectionPanel {
                     Layout.fillWidth: true
                 }

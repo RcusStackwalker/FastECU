@@ -1,6 +1,8 @@
 #include "src/ui/desktop-quick/desktop_quick_application.h"
 
 #include <QQmlApplicationEngine>
+#include <QQmlContext>
+#include <QQuickItem>
 #include <QQuickStyle>
 #include <QString>
 #include <QtTest>
@@ -10,6 +12,8 @@
 #include <utility>
 
 #include "src/ui/desktop-quick/dashboard/dashboard_connection_controller.h"
+#include "src/ui/desktop-quick/dashboard/dashboard_controller.h"
+#include "src/backend/ports/testing/fake_clock.h"
 
 namespace fastecu::desktop_quick
 {
@@ -19,6 +23,36 @@ namespace
 dashboard::DashboardDocument usable_document()
 {
     return {.cards = {dashboard::DashboardCard{}}};
+}
+
+dashboard::DashboardDocument two_card_document()
+{
+    return {
+        .metadata = {.format_version = 1, .name = "Engine dashboard"},
+        .channels =
+            {
+                {.id = "CDBG_ENGINE_RPM",
+                 .name = "Engine RPM",
+                 .conversions = {{.id = "rpm", .unit = "rpm", .precision = 0}}},
+                {.id = "CDBG_COOLANT_TEMP",
+                 .name = "Coolant Temperature",
+                 .conversions = {{.id = "temperature", .unit = "°C", .precision = 1}}},
+            },
+        .cards =
+            {
+                {.id = "rpm",
+                 .channel_id = "CDBG_ENGINE_RPM",
+                 .conversion_id = "rpm",
+                 .title = "Tachometer",
+                 .order = 0},
+                {.id = "coolant", .channel_id = "CDBG_COOLANT_TEMP", .conversion_id = "temperature", .order = 1},
+            },
+    };
+}
+
+logging::LogSample sample(const char *channel_id, double numeric_value)
+{
+    return {.channel_id = channel_id, .numeric_value = numeric_value};
 }
 
 connection::AdapterDiscoverySnapshot snapshot(std::uint64_t generation,
@@ -145,8 +179,10 @@ class FakeLoggingEngine final : public ILoggingEngine
 class LoadedApplication
 {
   public:
-    LoadedApplication() : controller(preparation, logging)
+    LoadedApplication()
+        : controller(preparation, logging), presentation(two_card_document(), logging, controller, clock)
     {
+        engine.rootContext()->setContextProperty(QStringLiteral("dashboardPresentation"), &presentation);
         loaded = load_root(engine, controller);
     }
 
@@ -164,6 +200,8 @@ class LoadedApplication
     FakePreparationService preparation;
     FakeLoggingEngine logging;
     DashboardConnectionController controller;
+    FakeClock clock;
+    DashboardController presentation;
     QQmlApplicationEngine engine;
     bool loaded = false;
 };
@@ -171,6 +209,20 @@ class LoadedApplication
 bool click(QObject *button)
 {
     return button != nullptr && QMetaObject::invokeMethod(button, "click");
+}
+
+QList<QObject *> visual_children_named(QQuickItem *item, const QString& object_name)
+{
+    QList<QObject *> result;
+    for (QQuickItem *child : item->childItems())
+    {
+        if (child->objectName() == object_name)
+        {
+            result.append(child);
+        }
+        result.append(visual_children_named(child, object_name));
+    }
+    return result;
 }
 
 class DesktopQuickApplicationTest : public QObject
@@ -203,6 +255,66 @@ class DesktopQuickApplicationTest : public QObject
         QCOMPARE(application.find("adapterPicker")->property("visible").toBool(), false);
         QVERIFY(application.find("refreshAdaptersButton") != nullptr);
         QVERIFY(application.find("connectionErrorDetail") != nullptr);
+    }
+
+    void dashboardRendersCardsInModelOrderAndRetainsReadingsAcrossStates()
+    {
+        LoadedApplication application;
+        QVERIFY(application.loaded);
+        QObject *dashboard_title = application.find("dashboardTitle");
+        QVERIFY(dashboard_title != nullptr);
+        QCOMPARE(dashboard_title->property("text").toString(), QStringLiteral("Engine dashboard"));
+
+        QObject *dashboard_view = application.find("dashboardView");
+        QVERIFY(dashboard_view != nullptr);
+        auto *dashboard_item = qobject_cast<QQuickItem *>(dashboard_view);
+        QVERIFY(dashboard_item != nullptr);
+        const QList<QObject *> cards = visual_children_named(dashboard_item, QStringLiteral("numericCard"));
+        QCOMPARE(cards.size(), 2);
+        const QList<QObject *> titles = visual_children_named(dashboard_item, QStringLiteral("cardTitle"));
+        QCOMPARE(titles.size(), 2);
+        QCOMPARE(titles.at(0)->property("text").toString(), QStringLiteral("Tachometer"));
+        QCOMPARE(titles.at(1)->property("text").toString(), QStringLiteral("Coolant Temperature"));
+
+        const QList<QObject *> values = visual_children_named(dashboard_item, QStringLiteral("cardValue"));
+        const QList<QObject *> states = visual_children_named(dashboard_item, QStringLiteral("cardState"));
+        QCOMPARE(values.size(), 2);
+        QCOMPARE(states.size(), 2);
+        QCOMPARE(values.at(0)->property("text").toString(), QString::fromUtf8("—"));
+        QCOMPARE(values.at(1)->property("text").toString(), QString::fromUtf8("—"));
+        QCOMPARE(states.at(0)->property("text").toString(), QStringLiteral("Waiting"));
+
+        auto *cards_model = static_cast<DashboardCardModel *>(application.presentation.cards());
+        cards_model->applySamples({sample("CDBG_ENGINE_RPM", 3125.4)}, 1000, true);
+        QTRY_COMPARE(values.at(0)->property("text").toString(), QStringLiteral("3125"));
+        QTRY_COMPARE(states.at(0)->property("text").toString(), QStringLiteral("Live"));
+
+        cards_model->markReceivedRowsStale();
+        QTRY_COMPARE(states.at(0)->property("text").toString(), QStringLiteral("Stale"));
+        QCOMPARE(values.at(0)->property("text").toString(), QStringLiteral("3125"));
+    }
+
+    void dashboardGridUsesResponsiveColumnsWithoutReorderingCards()
+    {
+        LoadedApplication application;
+        QVERIFY(application.loaded);
+        QObject *root = application.root();
+        QObject *grid = application.find("dashboardGrid");
+        QVERIFY(grid != nullptr);
+        root->setProperty("minimumWidth", 0);
+        root->setProperty("width", 800);
+        QTRY_VERIFY(grid->property("columns").toInt() >= 2);
+        root->setProperty("width", 480);
+        QTRY_COMPARE(grid->property("columns").toInt(), 1);
+
+        QObject *dashboard_view = application.find("dashboardView");
+        QVERIFY(dashboard_view != nullptr);
+        auto *dashboard_item = qobject_cast<QQuickItem *>(dashboard_view);
+        QVERIFY(dashboard_item != nullptr);
+        const QList<QObject *> titles = visual_children_named(dashboard_item, QStringLiteral("cardTitle"));
+        QCOMPARE(titles.size(), 2);
+        QCOMPARE(titles.at(0)->property("text").toString(), QStringLiteral("Tachometer"));
+        QCOMPARE(titles.at(1)->property("text").toString(), QStringLiteral("Coolant Temperature"));
     }
 
     void connectButtonRequestsAdapterSelection()
