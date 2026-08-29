@@ -1,3 +1,4 @@
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 load(
     "//bazel:qt_targets.bzl",
     "COMMON_COPTS",
@@ -15,6 +16,7 @@ qt_resource_via_qrc(
         "qml/Main.qml",
         "qml/dashboard/ConnectionPanel.qml",
         "qml/shell/ApplicationShell.qml",
+        "resources/colt-dashboard.ohd",
     ],
     qrc_file = "qml.qrc",
     deps = ["@rules_qt//:qt_core"],
@@ -46,6 +48,17 @@ qt_cc_library(
     ],
 )
 
+qt_cc_library(
+    name = "bundled_dashboard_loader",
+    srcs = ["dashboard/bundled_dashboard_loader.cpp"],
+    hdrs = ["dashboard/bundled_dashboard_loader.h"],
+    copts = COMMON_COPTS,
+    deps = [
+        "//src/backend/dashboard:dashboard_document_service",
+        "//src/backend/dashboard:dashboard_session_builder",
+    ],
+)
+
 fastecu_quicktest(
     name = "test_application",
     src = "desktop_quick_application_test.cpp",
@@ -65,5 +78,19 @@ fastecu_quicktest(
     src = "dashboard/dashboard_connection_controller_test.cpp",
     deps = [
         ":dashboard_connection_controller",
+    ],
+)
+
+fastecu_gtest(
+    name = "test_bundled_dashboard_loader",
+    srcs = ["dashboard/bundled_dashboard_loader_test.cpp"],
+    deps = [
+        ":bundled_dashboard_loader",
+        ":qml_resources",
+        "//src/backend/dashboard:dashboard_document_service",
+        "//src/backend/dashboard:dashboard_session_builder",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/ports/testing:in_memory_file_repository",
+        "//src/platform/desktop/common/ports",
     ],
 )
