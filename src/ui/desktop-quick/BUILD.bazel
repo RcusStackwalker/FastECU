@@ -62,6 +62,20 @@ qt_cc_library(
 )
 
 qt_cc_library(
+    name = "dashboard_controller",
+    srcs = ["dashboard/dashboard_controller.cpp"],
+    hdrs = ["dashboard/dashboard_controller.h"],
+    copts = COMMON_COPTS,
+    deps = [
+        ":dashboard_card_model",
+        ":dashboard_connection_controller",
+        "//src/backend/dashboard:dashboard_document",
+        "//src/backend/ports",
+        "@rules_qt//:qt_core",
+    ],
+)
+
+qt_cc_library(
     name = "bundled_dashboard_loader",
     srcs = ["dashboard/bundled_dashboard_loader.cpp"],
     hdrs = ["dashboard/bundled_dashboard_loader.h"],
@@ -76,6 +90,17 @@ fastecu_qttest(
     name = "test_dashboard_card_model",
     src = "dashboard/dashboard_card_model_test.cpp",
     deps = [":dashboard_card_model"],
+)
+
+fastecu_qttest(
+    name = "test_dashboard_controller",
+    src = "dashboard/dashboard_controller_test.cpp",
+    deps = [
+        ":dashboard_controller",
+        "//src/backend/logging:logging_session",
+        "//src/backend/logging:logging_use_case",
+        "//src/backend/ports/testing:fake_clock",
+    ],
 )
 
 fastecu_quicktest(
