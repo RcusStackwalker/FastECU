@@ -3,6 +3,7 @@
 #include <QAbstractListModel>
 #include <QObject>
 #include <QString>
+#include <QVector>
 
 #include <cstdint>
 #include <memory>
@@ -46,9 +47,17 @@ class ILoggingEngine : public QObject
     virtual bool isRunning() const = 0;
 
   signals:
+    void valuesUpdated(QVector<fastecu::logging::LogSample> samples);
     void statusChanged(desktop::logging::LoggingStatus status);
     void sessionEnded(desktop::logging::SessionEndReason reason, QString detail);
 };
+
+namespace detail
+{
+
+std::unique_ptr<ILoggingEngine> make_logging_engine_bridge(desktop::logging::LoggingEngine& engine);
+
+} // namespace detail
 
 class AdapterCandidateModel final : public QAbstractListModel
 {

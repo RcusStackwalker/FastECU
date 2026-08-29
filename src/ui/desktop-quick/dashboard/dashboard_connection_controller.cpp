@@ -43,11 +43,17 @@ class DesktopConnectionPreparationService final : public IConnectionPreparationS
     connection::DesktopConnectionService& service_;
 };
 
+} // namespace
+
+namespace detail
+{
+
 class DesktopLoggingEngineBridge final : public ILoggingEngine
 {
   public:
     explicit DesktopLoggingEngineBridge(desktop::logging::LoggingEngine& engine) : engine_(engine)
     {
+        connect(&engine_, &desktop::logging::LoggingEngine::valuesUpdated, this, &ILoggingEngine::valuesUpdated);
         connect(&engine_, &desktop::logging::LoggingEngine::statusChanged, this, &ILoggingEngine::statusChanged);
         connect(&engine_, &desktop::logging::LoggingEngine::sessionEnded, this, &ILoggingEngine::sessionEnded);
     }
@@ -69,7 +75,12 @@ class DesktopLoggingEngineBridge final : public ILoggingEngine
     desktop::logging::LoggingEngine& engine_;
 };
 
-} // namespace
+std::unique_ptr<ILoggingEngine> make_logging_engine_bridge(desktop::logging::LoggingEngine& engine)
+{
+    return std::make_unique<DesktopLoggingEngineBridge>(engine);
+}
+
+} // namespace detail
 
 AdapterCandidateModel::AdapterCandidateModel(QObject *parent) : QAbstractListModel(parent)
 {
@@ -135,7 +146,7 @@ DashboardConnectionController::DashboardConnectionController(IConnectionPreparat
 DashboardConnectionController::DashboardConnectionController(connection::DesktopConnectionService& preparation,
                                                              desktop::logging::LoggingEngine& engine, QObject *parent)
     : QObject(parent), owned_preparation_(std::make_unique<DesktopConnectionPreparationService>(preparation)),
-      owned_engine_(std::make_unique<DesktopLoggingEngineBridge>(engine)), preparation_(*owned_preparation_),
+      owned_engine_(detail::make_logging_engine_bridge(engine)), preparation_(*owned_preparation_),
       engine_(*owned_engine_), candidates_(this)
 {
     qRegisterMetaType<ConnectionState>();

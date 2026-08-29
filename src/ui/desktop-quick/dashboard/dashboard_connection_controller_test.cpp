@@ -10,6 +10,11 @@ namespace fastecu::desktop_quick
 namespace
 {
 
+fastecu::logging::LogSample sample(const char *channel_id, double numeric_value)
+{
+    return {.channel_id = channel_id, .numeric_value = numeric_value};
+}
+
 dashboard::DashboardDocument usable_document()
 {
     return {.cards = {dashboard::DashboardCard{}}};
@@ -188,6 +193,21 @@ class DashboardConnectionControllerTest : public QObject
     }
 
   private slots:
+    void loggingEngineBridgeRelaysValuesUpdatedSamples()
+    {
+        desktop::logging::LoggingEngine engine;
+        auto bridge = detail::make_logging_engine_bridge(engine);
+        QSignalSpy spy(bridge.get(), &ILoggingEngine::valuesUpdated);
+
+        emit engine.valuesUpdated({sample("CDBG_ENGINE_RPM", 3125.0)});
+
+        QCOMPARE(spy.count(), 1);
+        const auto samples = spy.at(0).at(0).value<QVector<fastecu::logging::LogSample>>();
+        QCOMPARE(samples.size(), 1);
+        QCOMPARE(QString::fromStdString(samples.at(0).channel_id), QStringLiteral("CDBG_ENGINE_RPM"));
+        QCOMPARE(samples.at(0).numeric_value, 3125.0);
+    }
+
     void documentOnlyEnablesExplicitConnect()
     {
         FakePreparationService preparation;
