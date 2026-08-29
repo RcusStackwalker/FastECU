@@ -174,6 +174,39 @@ class DashboardCardModelTest final : public QObject
         QCOMPARE(role(model, 0, DashboardCardModel::LastUpdateAgeTextRole), QStringLiteral("Last update 12s ago"));
         QCOMPARE(changes.count(), 0);
     }
+
+    void coalescesAdjacentRowsForBatchStaleAndAgeNotifications()
+    {
+        DashboardCardModel model(two_card_document());
+        QSignalSpy changes(&model, &QAbstractItemModel::dataChanged);
+
+        model.applySamples({sample("CDBG_ENGINE_RPM", 3125.4), sample("CDBG_COOLANT_TEMP", 88.25)}, 1000, true);
+
+        QCOMPARE(changes.count(), 1);
+        auto update = changes.takeFirst();
+        QCOMPARE(update.at(0).value<QModelIndex>().row(), 0);
+        QCOMPARE(update.at(1).value<QModelIndex>().row(), 1);
+        QCOMPARE(update.at(2).value<QVector<int>>(),
+                 QVector<int>({DashboardCardModel::FormattedValueRole, DashboardCardModel::NumericValueRole,
+                               DashboardCardModel::ReadingStateRole, DashboardCardModel::HasReadingRole,
+                               DashboardCardModel::LastUpdateAgeTextRole}));
+
+        model.markReceivedRowsStale();
+
+        QCOMPARE(changes.count(), 1);
+        update = changes.takeFirst();
+        QCOMPARE(update.at(0).value<QModelIndex>().row(), 0);
+        QCOMPARE(update.at(1).value<QModelIndex>().row(), 1);
+        QCOMPARE(update.at(2).value<QVector<int>>(), QVector<int>({DashboardCardModel::ReadingStateRole}));
+
+        model.updateAges(13000);
+
+        QCOMPARE(changes.count(), 1);
+        update = changes.takeFirst();
+        QCOMPARE(update.at(0).value<QModelIndex>().row(), 0);
+        QCOMPARE(update.at(1).value<QModelIndex>().row(), 1);
+        QCOMPARE(update.at(2).value<QVector<int>>(), QVector<int>({DashboardCardModel::LastUpdateAgeTextRole}));
+    }
 };
 
 } // namespace

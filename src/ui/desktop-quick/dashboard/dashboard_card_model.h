@@ -71,7 +71,7 @@ class DashboardCardModel final : public QAbstractListModel
         bool has_reading = false;
     };
 
-    void notifyRowChanged(int row, QVector<int> roles);
+    void notifyChangedRows(const QVector<QVector<int>>& roles_by_row);
     QString ageText(const Row& row) const;
 
     QVector<Row> rows_;

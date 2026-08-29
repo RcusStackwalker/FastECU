@@ -117,7 +117,7 @@ QHash<int, QByteArray> DashboardCardModel::roleNames() const
 
 void DashboardCardModel::applySamples(const QVector<logging::LogSample>& samples, std::uint64_t now_ms, bool running)
 {
-    QHash<int, QVector<int>> changed_roles;
+    QVector<QVector<int>> changed_roles(rows_.size());
     for (const logging::LogSample& sample : samples)
     {
         const auto it = rows_by_channel_.find(sample.channel_id);
@@ -156,14 +156,12 @@ void DashboardCardModel::applySamples(const QVector<logging::LogSample>& samples
         }
     }
 
-    for (auto it = changed_roles.cbegin(); it != changed_roles.cend(); ++it)
-    {
-        notifyRowChanged(it.key(), it.value());
-    }
+    notifyChangedRows(changed_roles);
 }
 
 void DashboardCardModel::markReceivedRowsStale()
 {
+    QVector<QVector<int>> changed_roles(rows_.size());
     for (int row_index = 0; row_index < rowCount(); ++row_index)
     {
         Row& row = rows_[row_index];
@@ -172,12 +170,14 @@ void DashboardCardModel::markReceivedRowsStale()
             continue;
         }
         row.reading_state = ReadingState::Stale;
-        notifyRowChanged(row_index, {ReadingStateRole});
+        changed_roles[row_index] = {ReadingStateRole};
     }
+    notifyChangedRows(changed_roles);
 }
 
 void DashboardCardModel::updateAges(std::uint64_t now_ms)
 {
+    QVector<QVector<int>> changed_roles(rows_.size());
     for (int row_index = 0; row_index < rowCount(); ++row_index)
     {
         Row& row = rows_[row_index];
@@ -191,8 +191,9 @@ void DashboardCardModel::updateAges(std::uint64_t now_ms)
             continue;
         }
         row.age_seconds = age_seconds;
-        notifyRowChanged(row_index, {LastUpdateAgeTextRole});
+        changed_roles[row_index] = {LastUpdateAgeTextRole};
     }
+    notifyChangedRows(changed_roles);
 }
 
 bool DashboardCardModel::hasReceivedRows() const
@@ -205,20 +206,31 @@ bool DashboardCardModel::containsChannel(std::string_view channel_id) const
     return rows_by_channel_.contains(std::string(channel_id));
 }
 
-void DashboardCardModel::notifyRowChanged(int row, QVector<int> roles)
+void DashboardCardModel::notifyChangedRows(const QVector<QVector<int>>& roles_by_row)
 {
-    QVector<int> distinct_roles;
-    distinct_roles.reserve(roles.size());
-    for (const int role : roles)
+    for (int first_row = 0; first_row < roles_by_row.size();)
     {
-        if (!distinct_roles.contains(role))
+        if (roles_by_row[first_row].isEmpty())
         {
-            distinct_roles.append(role);
+            ++first_row;
+            continue;
         }
-    }
-    if (!distinct_roles.isEmpty())
-    {
-        emit dataChanged(index(row, 0), index(row, 0), distinct_roles);
+
+        int last_row = first_row;
+        QVector<int> distinct_roles;
+        while (last_row < roles_by_row.size() && !roles_by_row[last_row].isEmpty())
+        {
+            for (const int role : roles_by_row[last_row])
+            {
+                if (!distinct_roles.contains(role))
+                {
+                    distinct_roles.append(role);
+                }
+            }
+            ++last_row;
+        }
+        emit dataChanged(index(first_row, 0), index(last_row - 1, 0), distinct_roles);
+        first_row = last_row;
     }
 }
 
