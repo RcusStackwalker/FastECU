@@ -180,10 +180,11 @@ class LoadedApplication
 {
   public:
     LoadedApplication()
-        : controller(preparation, logging), presentation(two_card_document(), logging, controller, clock)
+        : controller(preparation, logging), document(two_card_document()),
+          presentation(document, logging, controller, clock)
     {
-        engine.rootContext()->setContextProperty(QStringLiteral("dashboardPresentation"), &presentation);
-        loaded = load_root(engine, controller);
+        controller.setDocument(document);
+        loaded = load_root(engine, controller, presentation);
     }
 
     QObject *root() const
@@ -201,7 +202,38 @@ class LoadedApplication
     FakeLoggingEngine logging;
     DashboardConnectionController controller;
     FakeClock clock;
+    dashboard::DashboardDocument document;
     DashboardController presentation;
+    QQmlApplicationEngine engine;
+    bool loaded = false;
+};
+
+class LoadErrorApplication
+{
+  public:
+    LoadErrorApplication() : controller(preparation, logging)
+    {
+        presentation =
+            DashboardController::fromLoadError(QStringLiteral("resource is malformed"), logging, controller, clock);
+        loaded = load_root(engine, controller, *presentation);
+    }
+
+    QObject *root() const
+    {
+        return engine.rootObjects().isEmpty() ? nullptr : engine.rootObjects().front();
+    }
+
+    QObject *find(const char *name) const
+    {
+        QObject *application_root = root();
+        return application_root == nullptr ? nullptr : application_root->findChild<QObject *>(QString::fromUtf8(name));
+    }
+
+    FakePreparationService preparation;
+    FakeLoggingEngine logging;
+    DashboardConnectionController controller;
+    FakeClock clock;
+    std::unique_ptr<DashboardController> presentation;
     QQmlApplicationEngine engine;
     bool loaded = false;
 };
@@ -238,6 +270,15 @@ class DesktopQuickApplicationTest : public QObject
     {
         LoadedApplication application;
         QVERIFY(application.loaded);
+        QCOMPARE(
+            application.engine.rootContext()->contextProperty(QStringLiteral("dashboardConnection")).value<QObject *>(),
+            &application.controller);
+        QCOMPARE(application.engine.rootContext()
+                     ->contextProperty(QStringLiteral("dashboardPresentation"))
+                     .value<QObject *>(),
+                 &application.presentation);
+        QCOMPARE(application.controller.canConnect(), true);
+        QCOMPARE(application.presentation.cards()->rowCount(), 2);
         QObject *root = application.root();
         QVERIFY(root != nullptr);
         QCOMPARE(root->objectName(), QStringLiteral("desktopQuickRoot"));
@@ -248,13 +289,37 @@ class DesktopQuickApplicationTest : public QObject
         QVERIFY(application.find("connectionPanel") != nullptr);
         QObject *connect_button = application.find("connectButton");
         QVERIFY(connect_button != nullptr);
-        QCOMPARE(connect_button->property("enabled").toBool(), false);
+        QCOMPARE(connect_button->property("enabled").toBool(), true);
         QCOMPARE(connect_button->property("text").toString(), QStringLiteral("Connect"));
         QCOMPARE(application.find("connectionStatus")->property("text").toString(), QStringLiteral("Disconnected"));
         QVERIFY(application.find("selectedAdapterLabel") != nullptr);
         QCOMPARE(application.find("adapterPicker")->property("visible").toBool(), false);
         QVERIFY(application.find("refreshAdaptersButton") != nullptr);
         QVERIFY(application.find("connectionErrorDetail") != nullptr);
+    }
+
+    void dashboardLoadFailureKeepsShellVisibleWithoutCardsOrConnection()
+    {
+        LoadErrorApplication application;
+        QVERIFY(application.loaded);
+        QObject *root = application.root();
+        QVERIFY(root != nullptr);
+        QCOMPARE(root->objectName(), QStringLiteral("desktopQuickRoot"));
+
+        QObject *dashboard_view = application.find("dashboardView");
+        QVERIFY(dashboard_view != nullptr);
+        auto *dashboard_item = qobject_cast<QQuickItem *>(dashboard_view);
+        QVERIFY(dashboard_item != nullptr);
+        QCOMPARE(visual_children_named(dashboard_item, QStringLiteral("numericCard")).size(), 0);
+
+        QObject *dashboard_load_error = application.find("loadErrorText");
+        QVERIFY(dashboard_load_error != nullptr);
+        QCOMPARE(dashboard_load_error->property("visible").toBool(), true);
+        QCOMPARE(dashboard_load_error->property("text").toString(), QStringLiteral("resource is malformed"));
+
+        QObject *connect_button = application.find("connectButton");
+        QVERIFY(connect_button != nullptr);
+        QCOMPARE(connect_button->property("enabled").toBool(), false);
     }
 
     void dashboardRendersCardsInModelOrderAndRetainsReadingsAcrossStates()

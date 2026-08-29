@@ -7,11 +7,15 @@ qt_cc_binary(
     srcs = ["main.cpp"],
     copts = COMMON_COPTS,
     deps = QT_QUICK_DEPS + [
+        "//src/backend/dashboard:dashboard_document_service",
         "//src/platform/desktop/common/connection:desktop_connection_service",
         "//src/platform/desktop/common/connection:j2534_adapter_provider",
         "//src/platform/desktop/common/connection:socketcan_adapter_provider",
         "//src/platform/desktop/common/logging:logging_runtime",
+        "//src/platform/desktop/common/ports",
         "//src/ui/desktop-quick:application",
+        "//src/ui/desktop-quick:bundled_dashboard_loader",
         "//src/ui/desktop-quick:dashboard_connection_controller",
+        "//src/ui/desktop-quick:dashboard_controller",
     ],
 )
