@@ -59,6 +59,7 @@ QString DashboardController::loadErrorText() const
 
 void DashboardController::queueSamples(QVector<logging::LogSample> samples)
 {
+    const std::uint64_t received_at_ms = clock_.now_ms();
     for (logging::LogSample& sample : samples)
     {
         if (!cards_->containsChannel(sample.channel_id))
@@ -75,7 +76,8 @@ void DashboardController::queueSamples(QVector<logging::LogSample> samples)
         }
 
         std::string channel_id = sample.channel_id;
-        pending_samples_.insert_or_assign(std::move(channel_id), std::move(sample));
+        pending_samples_.insert_or_assign(
+            std::move(channel_id), ReceivedLogSample{.sample = std::move(sample), .received_at_ms = received_at_ms});
     }
 
     if (!pending_samples_.empty() && !flush_timer_->isActive())
@@ -114,16 +116,16 @@ void DashboardController::flushPendingSamples()
         return;
     }
 
-    QVector<logging::LogSample> samples;
+    QVector<ReceivedLogSample> samples;
     samples.reserve(static_cast<qsizetype>(pending_samples_.size()));
-    for (auto& [channel_id, sample] : pending_samples_)
+    for (auto& [channel_id, received] : pending_samples_)
     {
         static_cast<void>(channel_id);
-        samples.push_back(std::move(sample));
+        samples.push_back(std::move(received));
     }
     pending_samples_.clear();
 
-    cards_->applySamples(samples, clock_.now_ms(), connection_.state() == ConnectionState::Running);
+    cards_->applySamples(samples, connection_.state() == ConnectionState::Running);
     reconcileAgeTimer();
 }
 

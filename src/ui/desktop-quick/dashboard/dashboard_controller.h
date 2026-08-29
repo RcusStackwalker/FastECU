@@ -59,7 +59,7 @@ class DashboardController final : public QObject
     IClock& clock_;
     QTimer *flush_timer_;
     QTimer *age_timer_;
-    std::unordered_map<std::string, logging::LogSample> pending_samples_;
+    std::unordered_map<std::string, ReceivedLogSample> pending_samples_;
     QString dashboard_title_;
     QString load_error_text_;
     bool has_load_error_ = false;

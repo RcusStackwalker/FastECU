@@ -117,9 +117,21 @@ QHash<int, QByteArray> DashboardCardModel::roleNames() const
 
 void DashboardCardModel::applySamples(const QVector<logging::LogSample>& samples, std::uint64_t now_ms, bool running)
 {
-    QVector<QVector<int>> changed_roles(rows_.size());
+    QVector<ReceivedLogSample> received_samples;
+    received_samples.reserve(samples.size());
     for (const logging::LogSample& sample : samples)
     {
+        received_samples.push_back({.sample = sample, .received_at_ms = now_ms});
+    }
+    applySamples(received_samples, running);
+}
+
+void DashboardCardModel::applySamples(const QVector<ReceivedLogSample>& samples, bool running)
+{
+    QVector<QVector<int>> changed_roles(rows_.size());
+    for (const ReceivedLogSample& received : samples)
+    {
+        const logging::LogSample& sample = received.sample;
         const auto it = rows_by_channel_.find(sample.channel_id);
         if (it == rows_by_channel_.end() || !std::isfinite(sample.numeric_value))
         {
@@ -133,7 +145,7 @@ void DashboardCardModel::applySamples(const QVector<logging::LogSample>& samples
         const ReadingState old_state = row.reading_state;
         const QString old_age_text = ageText(row);
         row.numeric_value = sample.numeric_value;
-        row.last_update_ms = now_ms;
+        row.last_update_ms = received.received_at_ms;
         row.age_seconds = 0;
         row.has_reading = true;
         row.reading_state = running ? ReadingState::Live : ReadingState::Stale;

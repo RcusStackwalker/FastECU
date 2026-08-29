@@ -16,6 +16,12 @@
 namespace fastecu::desktop_quick
 {
 
+struct ReceivedLogSample
+{
+    logging::LogSample sample;
+    std::uint64_t received_at_ms;
+};
+
 class DashboardCardModel final : public QAbstractListModel
 {
     Q_OBJECT
@@ -51,6 +57,7 @@ class DashboardCardModel final : public QAbstractListModel
     QHash<int, QByteArray> roleNames() const override;
 
     void applySamples(const QVector<logging::LogSample>& samples, std::uint64_t now_ms, bool running);
+    void applySamples(const QVector<ReceivedLogSample>& samples, bool running);
     void markReceivedRowsStale();
     void updateAges(std::uint64_t now_ms);
     bool hasReceivedRows() const;

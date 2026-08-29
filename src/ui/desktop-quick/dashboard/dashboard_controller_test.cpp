@@ -383,6 +383,30 @@ class DashboardControllerTest final : public QObject
         QCOMPARE(notification_count(changed, DashboardCardModel::LastUpdateAgeTextRole), 1);
     }
 
+    void pendingChannelsKeepTheirIndividualGuiReceiptTimesInOneCompactFlush()
+    {
+        Harness harness;
+        DashboardController dashboard(dashboard_document(), harness.engine, harness.connection, harness.clock);
+        harness.connectRunning();
+        QSignalSpy changed(dashboard.cards(), &QAbstractItemModel::dataChanged);
+
+        harness.clock.now_ = 1000;
+        harness.engine.publishValues({sample("CDBG_ENGINE_RPM", 2000.0)});
+        harness.clock.now_ = 2500;
+        harness.engine.publishValues({sample("CDBG_COOLANT_TEMP", 85.0)});
+        harness.clock.now_ = 5000;
+        flush_pending(dashboard);
+
+        QCOMPARE(changed.count(), 1);
+        changed.clear();
+        harness.clock.now_ = 7000;
+        update_ages(dashboard);
+
+        QCOMPARE(role(dashboard, 0, DashboardCardModel::LastUpdateAgeTextRole), QStringLiteral("Last update 6s ago"));
+        QCOMPARE(role(dashboard, 1, DashboardCardModel::LastUpdateAgeTextRole), QStringLiteral("Last update 4s ago"));
+        QCOMPARE(notification_count(changed, DashboardCardModel::LastUpdateAgeTextRole), 1);
+    }
+
     void unknownAndNonFiniteSamplesEmitDiagnosticsWithoutChangingCardsOrStartingTimers()
     {
         Harness harness;
