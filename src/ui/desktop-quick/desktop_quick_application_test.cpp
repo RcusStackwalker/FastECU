@@ -367,6 +367,11 @@ class DesktopQuickApplicationTest : public QObject
         QCOMPARE(visual_children_named(dashboard_item, QStringLiteral("dashboardTitle")).size(), 0);
         const QList<QObject *> cards = visual_children_named(dashboard_item, QStringLiteral("numericCard"));
         QCOMPARE(cards.size(), 2);
+        for (QObject *card : cards)
+        {
+            QVERIFY(card->property("usesDashboardCardFrame").isValid());
+            QCOMPARE(card->property("usesDashboardCardFrame").toBool(), true);
+        }
         QVERIFY(cards.at(0)->property("waitingReadingState").isValid());
         QVERIFY(cards.at(0)->property("liveReadingState").isValid());
         QVERIFY(cards.at(0)->property("staleReadingState").isValid());

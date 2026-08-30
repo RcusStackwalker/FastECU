@@ -16,6 +16,7 @@ qt_resource_via_qrc(
     files = [
         "qml/Main.qml",
         "qml/dashboard/ConnectionPanel.qml",
+        "qml/dashboard/DashboardCardFrame.qml",
         "qml/dashboard/DashboardView.qml",
         "qml/dashboard/NumericCard.qml",
         "qml/shell/ApplicationShell.qml",
