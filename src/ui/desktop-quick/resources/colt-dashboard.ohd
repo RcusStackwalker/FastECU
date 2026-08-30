@@ -20,8 +20,8 @@
     </channels>
     <cards>
         <card id="engine-rpm" channel-id="CDBG_ENGINE_RPM" conversion-id="default" display-type="numeric" title="Engine RPM" order="0"/>
-        <card id="ecu-load" channel-id="CDBG_ECU_LOAD" conversion-id="default" display-type="numeric" title="ECU Load" order="1"/>
-        <card id="knock-sum" channel-id="CDBG_KNOCK_SUM" conversion-id="default" display-type="numeric" title="Knock Sum" order="2"/>
+        <card id="ecu-load" channel-id="CDBG_ECU_LOAD" conversion-id="default" display-type="horizontal-gauge" title="ECU Load" order="1" gauge-min="0" gauge-max="100" gauge-step="10"/>
+        <card id="knock-sum" channel-id="CDBG_KNOCK_SUM" conversion-id="default" display-type="sparkline" title="Knock Sum" order="2" sparkline-history-seconds="30"/>
         <card id="coil-dwell-optimal-rpm-x-power" channel-id="CDBG_COIL_DWELL_OPTIMAL_RPM_X_POWER" conversion-id="default" display-type="numeric" title="Coil Dwell Optimal RPM x Power" order="3"/>
     </cards>
 </omnihaste-dashboard>
