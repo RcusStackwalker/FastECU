@@ -477,6 +477,10 @@ Status connect_bootloader(Ctx& ctx, ICanFlashTransport& can)
     // Line 341 reads raw frame byte 7, i.e. payload byte 3 once the envelope
     // is stripped. Legacy reads it without a length check and would run past
     // the end of a short reply; this refuses instead of reading out of bounds.
+    // This is a second, non-redundant guard: tolerant_probe above only
+    // enforces a floor of 2 bytes (frame[0]/frame[1]), which does not cover
+    // a 3-byte reply, so a length check for the byte-3 access needed here
+    // still has to happen at this call site.
     if (selector->size() < 4)
     {
         error(ctx, "Wrong response from ECU: programming-branch selector reply is too short");
