@@ -67,6 +67,9 @@ bool family_matches_transport_variant(const FlashPlanFields& fields)
     case FlashFamily::SubaruDensoSh72543CanDiesel:
         return fields.transport == TransportKind::CanIso15765 &&
                std::holds_alternative<SubaruDensoSh72543CanDieselPlan>(fields.family_plan);
+    case FlashFamily::SubaruDenso1n83m_4mCan:
+        return fields.transport == TransportKind::CanIso15765 &&
+               std::holds_alternative<SubaruDenso1n83m_4mCanPlan>(fields.family_plan);
     }
     return false;
 }

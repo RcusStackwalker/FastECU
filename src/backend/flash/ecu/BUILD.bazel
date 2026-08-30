@@ -80,6 +80,11 @@ cc_library(
 )
 
 cc_library(
+    name = "subaru_denso_1n83m_4m_can_types",
+    hdrs = ["subaru_denso_1n83m_4m_can_types.h"],
+)
+
+cc_library(
     name = "subaru_hitachi_m32r_kline_plan",
     srcs = ["subaru_hitachi_m32r_kline_plan.cpp"],
     hdrs = ["subaru_hitachi_m32r_kline_plan.h"],
@@ -468,6 +473,25 @@ fastecu_portable_gtest(
     name = "subaru_denso_sh72543_can_diesel_plan_test",
     srcs = ["subaru_denso_sh72543_can_diesel_plan_test.cpp"],
     deps = [":subaru_denso_sh72543_can_diesel_plan"],
+)
+
+cc_library(
+    name = "subaru_denso_1n83m_4m_can_plan",
+    srcs = ["subaru_denso_1n83m_4m_can_plan.cpp"],
+    hdrs = ["subaru_denso_1n83m_4m_can_plan.h"],
+    deps = [
+        "//src/backend/definitions:models",
+        "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_denso_1n83m_4m_can_plan_test",
+    srcs = ["subaru_denso_1n83m_4m_can_plan_test.cpp"],
+    deps = [":subaru_denso_1n83m_4m_can_plan"],
 )
 
 cc_library(
