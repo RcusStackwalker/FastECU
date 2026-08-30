@@ -25,6 +25,24 @@ std::string first_card_id(const dashboard::DashboardDocument& document)
     return document.cards.front().id;
 }
 
+std::string to_string(const QString& text)
+{
+    const QByteArray utf8 = text.toUtf8();
+    return {utf8.constData(), static_cast<std::size_t>(utf8.size())};
+}
+
+dashboard::LegacyCdbgImportDefaults import_defaults(const QString& path)
+{
+    return dashboard::LegacyCdbgImportDefaults{
+        .document_name = to_string(QFileInfo(path).completeBaseName()),
+        .bitrate = 500000,
+        .identifier_width = dashboard::CanIdentifierWidth::Standard,
+        .stream_instance = 0,
+        .sampling_interval_ms = 50,
+        .retry = dashboard::RetryPolicy{100, 3, 3, 250},
+    };
+}
+
 } // namespace
 
 DashboardDocumentController::DashboardDocumentController(dashboard::DashboardDocumentService& documents,
@@ -256,6 +274,106 @@ void DashboardDocumentController::setConnectionState(ConnectionState state)
     emit stateChanged();
 }
 
+void DashboardDocumentController::requestImport()
+{
+    requestAction(PendingDocumentAction::Import, QStringLiteral("Import dashboard"));
+}
+
+void DashboardDocumentController::requestOpen()
+{
+    requestAction(PendingDocumentAction::Open, QStringLiteral("Open dashboard"));
+}
+
+void DashboardDocumentController::requestExit()
+{
+    requestAction(PendingDocumentAction::Exit, QStringLiteral("Exit"));
+}
+
+void DashboardDocumentController::resolveUnsaved(UnsavedDecision decision)
+{
+    if (pending_action_ == PendingDocumentAction::None)
+    {
+        return;
+    }
+
+    switch (decision)
+    {
+    case UnsavedDecision::Cancel:
+        pending_action_ = PendingDocumentAction::None;
+        return;
+    case UnsavedDecision::Discard:
+        continuePendingAction();
+        return;
+    case UnsavedDecision::Save:
+        if (state_.path.empty())
+        {
+            emit savePathRequested();
+            return;
+        }
+        if (save().has_value())
+        {
+            continuePendingAction();
+        }
+        return;
+    }
+}
+
+void DashboardDocumentController::cancelPathRequest()
+{
+    pending_action_ = PendingDocumentAction::None;
+}
+
+void DashboardDocumentController::completeImportPath(const QString& path)
+{
+    if (pending_action_ != PendingDocumentAction::Import)
+    {
+        return;
+    }
+    if (path.isEmpty())
+    {
+        cancelPathRequest();
+        return;
+    }
+
+    const std::string handle = to_string(path);
+    pending_action_ = PendingDocumentAction::None;
+    importDocument(handle, import_defaults(path));
+}
+
+void DashboardDocumentController::completeOpenPath(const QString& path)
+{
+    if (pending_action_ != PendingDocumentAction::Open)
+    {
+        return;
+    }
+    if (path.isEmpty())
+    {
+        cancelPathRequest();
+        return;
+    }
+
+    pending_action_ = PendingDocumentAction::None;
+    openDocument(to_string(path));
+}
+
+void DashboardDocumentController::completeSavePath(const QString& path)
+{
+    if (pending_action_ == PendingDocumentAction::None)
+    {
+        return;
+    }
+    if (path.isEmpty())
+    {
+        cancelPathRequest();
+        return;
+    }
+
+    if (saveAs(to_string(path)).has_value())
+    {
+        continuePendingAction();
+    }
+}
+
 Status DashboardDocumentController::requireEditingEnabled(const QString& operation)
 {
     if (editingEnabled())
@@ -281,6 +399,50 @@ void DashboardDocumentController::commitReplacement(Snapshot snapshot)
     state_ = std::move(snapshot);
     emit documentCommitted();
     emit stateChanged();
+}
+
+void DashboardDocumentController::requestAction(PendingDocumentAction action, const QString& operation)
+{
+    if (pending_action_ != PendingDocumentAction::None)
+    {
+        static_cast<void>(
+            reportError(operation, Error{ErrorKind::InvalidConfig, "a document action is already pending"}));
+        return;
+    }
+    if (action != PendingDocumentAction::Exit)
+    {
+        if (Status editable = requireEditingEnabled(operation); !editable.has_value())
+        {
+            return;
+        }
+    }
+
+    pending_action_ = action;
+    if (state_.dirty)
+    {
+        emit unsavedDecisionRequested();
+        return;
+    }
+    continuePendingAction();
+}
+
+void DashboardDocumentController::continuePendingAction()
+{
+    switch (pending_action_)
+    {
+    case PendingDocumentAction::None:
+        return;
+    case PendingDocumentAction::Import:
+        emit importPathRequested();
+        return;
+    case PendingDocumentAction::Open:
+        emit openPathRequested();
+        return;
+    case PendingDocumentAction::Exit:
+        pending_action_ = PendingDocumentAction::None;
+        emit exitApproved();
+        return;
+    }
 }
 
 } // namespace fastecu::desktop_quick

@@ -137,6 +137,44 @@ struct Harness
     DashboardDocumentController controller{documents, settings};
 };
 
+enum class RequestedAction
+{
+    Import,
+    Open,
+    Exit,
+};
+
+void request_action(DashboardDocumentController& controller, RequestedAction action)
+{
+    switch (action)
+    {
+    case RequestedAction::Import:
+        controller.requestImport();
+        return;
+    case RequestedAction::Open:
+        controller.requestOpen();
+        return;
+    case RequestedAction::Exit:
+        controller.requestExit();
+        return;
+    }
+}
+
+int continuation_count(RequestedAction action, const QSignalSpy& import_requested, const QSignalSpy& open_requested,
+                       const QSignalSpy& exit_approved)
+{
+    switch (action)
+    {
+    case RequestedAction::Import:
+        return import_requested.count();
+    case RequestedAction::Open:
+        return open_requested.count();
+    case RequestedAction::Exit:
+        return exit_approved.count();
+    }
+    return 0;
+}
+
 } // namespace
 
 class DashboardDocumentControllerTest : public QObject
@@ -149,6 +187,26 @@ class DashboardDocumentControllerTest : public QObject
         const auto encoded = dashboard::encode_dashboard_document(document);
         QVERIFY2(encoded.has_value(), encoded.error().detail.c_str());
         harness_->repository.files[std::string(handle)] = *encoded;
+    }
+
+    void install_clean_document()
+    {
+        install_document("original.ohd", openable_document("Original"));
+        QVERIFY(harness_->controller.openDocument("original.ohd").has_value());
+    }
+
+    void install_dirty_titled_document()
+    {
+        install_clean_document();
+        auto changed = *harness_->controller.document();
+        changed.metadata.name = "Changed";
+        QVERIFY(harness_->controller.commitCandidate(std::move(changed), "rpm").has_value());
+    }
+
+    void install_dirty_untitled_document()
+    {
+        harness_->repository.files["logger.xml"] = bytes_of(kLegacyCatalog);
+        QVERIFY(harness_->controller.importDocument("logger.xml", import_defaults()).has_value());
     }
 
     std::unique_ptr<Harness> harness_;
@@ -380,6 +438,353 @@ class DashboardDocumentControllerTest : public QObject
         QVERIFY(!harness_->controller.hasDocument());
         QCOMPARE(harness_->settings.get(DashboardDocumentController::recentPathKey),
                  std::optional<std::string>{"missing.ohd"});
+    }
+
+    void cleanRequestsContinueImmediately_data()
+    {
+        QTest::addColumn<int>("requested_action");
+        QTest::newRow("import") << static_cast<int>(RequestedAction::Import);
+        QTest::newRow("open") << static_cast<int>(RequestedAction::Open);
+        QTest::newRow("exit") << static_cast<int>(RequestedAction::Exit);
+    }
+
+    void cleanRequestsContinueImmediately()
+    {
+        QFETCH(int, requested_action);
+        const auto action = static_cast<RequestedAction>(requested_action);
+        install_clean_document();
+        const ControllerState before = state_of(harness_->controller);
+        QSignalSpy unsaved(&harness_->controller, &DashboardDocumentController::unsavedDecisionRequested);
+        QSignalSpy import_requested(&harness_->controller, &DashboardDocumentController::importPathRequested);
+        QSignalSpy open_requested(&harness_->controller, &DashboardDocumentController::openPathRequested);
+        QSignalSpy exit_approved(&harness_->controller, &DashboardDocumentController::exitApproved);
+
+        request_action(harness_->controller, action);
+
+        QCOMPARE(unsaved.count(), 0);
+        QCOMPARE(continuation_count(action, import_requested, open_requested, exit_approved), 1);
+        QCOMPARE(import_requested.count() + open_requested.count() + exit_approved.count(), 1);
+        QCOMPARE(state_of(harness_->controller), before);
+    }
+
+    void dirtyDecisionTable_data()
+    {
+        QTest::addColumn<int>("requested_action");
+        QTest::addColumn<int>("decision");
+        for (const auto [action_name, action] :
+             {std::pair{"import", RequestedAction::Import}, std::pair{"open", RequestedAction::Open},
+              std::pair{"exit", RequestedAction::Exit}})
+        {
+            QTest::newRow(qPrintable(QStringLiteral("%1-cancel").arg(action_name)))
+                << static_cast<int>(action) << static_cast<int>(UnsavedDecision::Cancel);
+            QTest::newRow(qPrintable(QStringLiteral("%1-discard").arg(action_name)))
+                << static_cast<int>(action) << static_cast<int>(UnsavedDecision::Discard);
+            QTest::newRow(qPrintable(QStringLiteral("%1-save").arg(action_name)))
+                << static_cast<int>(action) << static_cast<int>(UnsavedDecision::Save);
+        }
+    }
+
+    void dirtyDecisionTable()
+    {
+        QFETCH(int, requested_action);
+        QFETCH(int, decision);
+        const auto action = static_cast<RequestedAction>(requested_action);
+        const auto unsaved_decision = static_cast<UnsavedDecision>(decision);
+        install_dirty_untitled_document();
+        const ControllerState before = state_of(harness_->controller);
+        QSignalSpy unsaved(&harness_->controller, &DashboardDocumentController::unsavedDecisionRequested);
+        QSignalSpy import_requested(&harness_->controller, &DashboardDocumentController::importPathRequested);
+        QSignalSpy open_requested(&harness_->controller, &DashboardDocumentController::openPathRequested);
+        QSignalSpy save_requested(&harness_->controller, &DashboardDocumentController::savePathRequested);
+        QSignalSpy exit_approved(&harness_->controller, &DashboardDocumentController::exitApproved);
+
+        request_action(harness_->controller, action);
+
+        QCOMPARE(unsaved.count(), 1);
+        QCOMPARE(import_requested.count() + open_requested.count() + save_requested.count() + exit_approved.count(), 0);
+        QCOMPARE(state_of(harness_->controller), before);
+
+        harness_->controller.resolveUnsaved(unsaved_decision);
+
+        QCOMPARE(state_of(harness_->controller), before);
+        if (unsaved_decision == UnsavedDecision::Discard)
+        {
+            QCOMPARE(continuation_count(action, import_requested, open_requested, exit_approved), 1);
+            QCOMPARE(save_requested.count(), 0);
+        }
+        else if (unsaved_decision == UnsavedDecision::Save)
+        {
+            QCOMPARE(save_requested.count(), 1);
+            QCOMPARE(import_requested.count() + open_requested.count() + exit_approved.count(), 0);
+        }
+        else
+        {
+            QCOMPARE(import_requested.count() + open_requested.count() + save_requested.count() + exit_approved.count(),
+                     0);
+            harness_->controller.requestExit();
+            QCOMPARE(unsaved.count(), 2);
+        }
+    }
+
+    void saveAsCompletionContinuesTheOriginalAction_data()
+    {
+        QTest::addColumn<int>("requested_action");
+        QTest::newRow("import") << static_cast<int>(RequestedAction::Import);
+        QTest::newRow("open") << static_cast<int>(RequestedAction::Open);
+        QTest::newRow("exit") << static_cast<int>(RequestedAction::Exit);
+    }
+
+    void saveAsCompletionContinuesTheOriginalAction()
+    {
+        QFETCH(int, requested_action);
+        const auto action = static_cast<RequestedAction>(requested_action);
+        install_dirty_untitled_document();
+        QSignalSpy import_requested(&harness_->controller, &DashboardDocumentController::importPathRequested);
+        QSignalSpy open_requested(&harness_->controller, &DashboardDocumentController::openPathRequested);
+        QSignalSpy save_requested(&harness_->controller, &DashboardDocumentController::savePathRequested);
+        QSignalSpy exit_approved(&harness_->controller, &DashboardDocumentController::exitApproved);
+
+        request_action(harness_->controller, action);
+        harness_->controller.resolveUnsaved(UnsavedDecision::Save);
+        QCOMPARE(save_requested.count(), 1);
+
+        harness_->controller.completeSavePath(QStringLiteral("saved.ohd"));
+
+        QCOMPARE(harness_->writer.replace_calls.size(), std::size_t{1});
+        QCOMPARE(harness_->writer.replace_calls.front().handle, std::string{"saved.ohd"});
+        QCOMPARE(harness_->controller.currentPath(), QStringLiteral("saved.ohd"));
+        QVERIFY(!harness_->controller.isDirty());
+        QCOMPARE(continuation_count(action, import_requested, open_requested, exit_approved), 1);
+    }
+
+    void titledSavePersistsBeforeContinuing_data()
+    {
+        QTest::addColumn<int>("requested_action");
+        QTest::newRow("import") << static_cast<int>(RequestedAction::Import);
+        QTest::newRow("open") << static_cast<int>(RequestedAction::Open);
+        QTest::newRow("exit") << static_cast<int>(RequestedAction::Exit);
+    }
+
+    void titledSavePersistsBeforeContinuing()
+    {
+        QFETCH(int, requested_action);
+        const auto action = static_cast<RequestedAction>(requested_action);
+        install_dirty_titled_document();
+        QSignalSpy import_requested(&harness_->controller, &DashboardDocumentController::importPathRequested);
+        QSignalSpy open_requested(&harness_->controller, &DashboardDocumentController::openPathRequested);
+        QSignalSpy save_requested(&harness_->controller, &DashboardDocumentController::savePathRequested);
+        QSignalSpy exit_approved(&harness_->controller, &DashboardDocumentController::exitApproved);
+
+        request_action(harness_->controller, action);
+        harness_->controller.resolveUnsaved(UnsavedDecision::Save);
+
+        QCOMPARE(save_requested.count(), 0);
+        QCOMPARE(harness_->writer.replace_calls.size(), std::size_t{1});
+        QCOMPARE(harness_->writer.replace_calls.front().handle, std::string{"original.ohd"});
+        QVERIFY(!harness_->controller.isDirty());
+        QCOMPARE(continuation_count(action, import_requested, open_requested, exit_approved), 1);
+    }
+
+    void failedSaveRetainsTheOriginalActionForEveryResolution_data()
+    {
+        QTest::addColumn<int>("retry_decision");
+        QTest::newRow("save") << static_cast<int>(UnsavedDecision::Save);
+        QTest::newRow("discard") << static_cast<int>(UnsavedDecision::Discard);
+        QTest::newRow("cancel") << static_cast<int>(UnsavedDecision::Cancel);
+    }
+
+    void failedSaveRetainsTheOriginalActionForEveryResolution()
+    {
+        QFETCH(int, retry_decision);
+        const auto decision = static_cast<UnsavedDecision>(retry_decision);
+        install_dirty_titled_document();
+        const ControllerState dirty_state = state_of(harness_->controller);
+        harness_->writer.replace_error = Error{ErrorKind::Internal, "disk full"};
+        QSignalSpy open_requested(&harness_->controller, &DashboardDocumentController::openPathRequested);
+
+        harness_->controller.requestOpen();
+        harness_->controller.resolveUnsaved(UnsavedDecision::Save);
+
+        QCOMPARE(harness_->writer.replace_calls.size(), std::size_t{1});
+        QCOMPARE(open_requested.count(), 0);
+        QCOMPARE(state_of(harness_->controller), dirty_state);
+
+        harness_->writer.replace_error.reset();
+        harness_->controller.resolveUnsaved(decision);
+
+        if (decision == UnsavedDecision::Save)
+        {
+            QCOMPARE(harness_->writer.replace_calls.size(), std::size_t{2});
+            QVERIFY(!harness_->controller.isDirty());
+            QCOMPARE(open_requested.count(), 1);
+        }
+        else if (decision == UnsavedDecision::Discard)
+        {
+            QCOMPARE(state_of(harness_->controller), dirty_state);
+            QCOMPARE(open_requested.count(), 1);
+        }
+        else
+        {
+            QCOMPARE(state_of(harness_->controller), dirty_state);
+            QCOMPARE(open_requested.count(), 0);
+            QSignalSpy exit_approved(&harness_->controller, &DashboardDocumentController::exitApproved);
+            harness_->controller.requestExit();
+            harness_->controller.resolveUnsaved(UnsavedDecision::Discard);
+            QCOMPARE(exit_approved.count(), 1);
+        }
+    }
+
+    void failedSaveAsRetainsTheOriginalAction()
+    {
+        install_dirty_untitled_document();
+        const ControllerState dirty_state = state_of(harness_->controller);
+        harness_->writer.replace_error = Error{ErrorKind::Internal, "permission denied"};
+        QSignalSpy exit_approved(&harness_->controller, &DashboardDocumentController::exitApproved);
+
+        harness_->controller.requestExit();
+        harness_->controller.resolveUnsaved(UnsavedDecision::Save);
+        harness_->controller.completeSavePath(QStringLiteral("not-adopted.ohd"));
+
+        QCOMPARE(exit_approved.count(), 0);
+        QCOMPARE(state_of(harness_->controller), dirty_state);
+        harness_->controller.resolveUnsaved(UnsavedDecision::Discard);
+        QCOMPARE(exit_approved.count(), 1);
+    }
+
+    void aSecondTransitionCannotReplaceThePendingAction_data()
+    {
+        QTest::addColumn<int>("first_action");
+        QTest::addColumn<int>("second_action");
+        const std::vector<std::pair<const char *, RequestedAction>> actions = {
+            {"import", RequestedAction::Import}, {"open", RequestedAction::Open}, {"exit", RequestedAction::Exit}};
+        for (const auto& [first_name, first] : actions)
+        {
+            for (const auto& [second_name, second] : actions)
+            {
+                QTest::newRow(qPrintable(QStringLiteral("%1-then-%2").arg(first_name, second_name)))
+                    << static_cast<int>(first) << static_cast<int>(second);
+            }
+        }
+    }
+
+    void aSecondTransitionCannotReplaceThePendingAction()
+    {
+        QFETCH(int, first_action);
+        QFETCH(int, second_action);
+        const auto first = static_cast<RequestedAction>(first_action);
+        const auto second = static_cast<RequestedAction>(second_action);
+        install_dirty_untitled_document();
+        QSignalSpy unsaved(&harness_->controller, &DashboardDocumentController::unsavedDecisionRequested);
+        QSignalSpy errors(&harness_->controller, &DashboardDocumentController::errorOccurred);
+        QSignalSpy import_requested(&harness_->controller, &DashboardDocumentController::importPathRequested);
+        QSignalSpy open_requested(&harness_->controller, &DashboardDocumentController::openPathRequested);
+        QSignalSpy exit_approved(&harness_->controller, &DashboardDocumentController::exitApproved);
+
+        request_action(harness_->controller, first);
+        request_action(harness_->controller, second);
+
+        QCOMPARE(unsaved.count(), 1);
+        QCOMPARE(errors.count(), 1);
+        QCOMPARE(errors.at(0).at(1).toString(), QStringLiteral("a document action is already pending"));
+
+        harness_->controller.resolveUnsaved(UnsavedDecision::Discard);
+        QCOMPARE(continuation_count(first, import_requested, open_requested, exit_approved), 1);
+        if (second != first)
+        {
+            QCOMPARE(continuation_count(second, import_requested, open_requested, exit_approved), 0);
+        }
+    }
+
+    void cancellingAnyPathRequestPreservesStateAndClearsThePendingAction_data()
+    {
+        QTest::addColumn<int>("path_kind");
+        QTest::newRow("import") << 0;
+        QTest::newRow("open") << 1;
+        QTest::newRow("save-as") << 2;
+    }
+
+    void cancellingAnyPathRequestPreservesStateAndClearsThePendingAction()
+    {
+        QFETCH(int, path_kind);
+        if (path_kind == 2)
+        {
+            install_dirty_untitled_document();
+            harness_->controller.requestOpen();
+            harness_->controller.resolveUnsaved(UnsavedDecision::Save);
+        }
+        else
+        {
+            install_clean_document();
+            request_action(harness_->controller, path_kind == 0 ? RequestedAction::Import : RequestedAction::Open);
+        }
+        const ControllerState before = state_of(harness_->controller);
+
+        harness_->controller.cancelPathRequest();
+
+        QCOMPARE(state_of(harness_->controller), before);
+        QSignalSpy errors(&harness_->controller, &DashboardDocumentController::errorOccurred);
+        harness_->controller.requestExit();
+        QCOMPARE(errors.count(), 0);
+    }
+
+    void completedImportUsesTheEstablishedProfileAndFilenameStem()
+    {
+        const QString path = QStringLiteral("catalogs/Imported.Catalog.xml");
+        harness_->repository.files[path.toStdString()] = bytes_of(kLegacyCatalog);
+
+        harness_->controller.requestImport();
+        harness_->controller.completeImportPath(path);
+
+        QVERIFY(harness_->controller.hasDocument());
+        QCOMPARE(harness_->controller.document()->metadata.name, std::string{"Imported.Catalog"});
+        const dashboard::CdbgConnectionProfile& profile = harness_->controller.document()->connection;
+        QCOMPARE(profile.bitrate, std::uint32_t{500000});
+        QCOMPARE(profile.identifier_width, dashboard::CanIdentifierWidth::Standard);
+        QCOMPARE(profile.stream_instance, std::uint8_t{0});
+        QCOMPARE(profile.sampling_interval_ms, std::uint32_t{50});
+        QCOMPARE(profile.retry, (dashboard::RetryPolicy{100, 3, 3, 250}));
+        QCOMPARE(harness_->controller.currentPath(), QString{});
+        QVERIFY(harness_->controller.isDirty());
+    }
+
+    void completedOpenUsesTheTransactionalLifecycleAndClearsItsPendingAction()
+    {
+        const dashboard::DashboardDocument expected = openable_document("Selected");
+        install_document("selected.ohd", expected);
+        QSignalSpy errors(&harness_->controller, &DashboardDocumentController::errorOccurred);
+
+        harness_->controller.requestOpen();
+        harness_->controller.completeOpenPath(QStringLiteral("selected.ohd"));
+
+        QCOMPARE(harness_->controller.document(), std::optional<dashboard::DashboardDocument>{expected});
+        QCOMPARE(harness_->controller.currentPath(), QStringLiteral("selected.ohd"));
+        QVERIFY(!harness_->controller.isDirty());
+        harness_->controller.requestExit();
+        QCOMPARE(errors.count(), 0);
+    }
+
+    void connectedRequestsPreserveTheLifecycleContract()
+    {
+        install_dirty_untitled_document();
+        harness_->controller.setConnectionState(ConnectionState::Running);
+        const ControllerState connected = state_of(harness_->controller);
+        QSignalSpy import_requested(&harness_->controller, &DashboardDocumentController::importPathRequested);
+        QSignalSpy open_requested(&harness_->controller, &DashboardDocumentController::openPathRequested);
+        QSignalSpy unsaved(&harness_->controller, &DashboardDocumentController::unsavedDecisionRequested);
+        QSignalSpy errors(&harness_->controller, &DashboardDocumentController::errorOccurred);
+
+        harness_->controller.requestImport();
+        harness_->controller.requestOpen();
+
+        QCOMPARE(import_requested.count() + open_requested.count(), 0);
+        QCOMPARE(unsaved.count(), 0);
+        QCOMPARE(errors.count(), 2);
+        QCOMPARE(errors.at(0).at(1).toString(), QStringLiteral("disconnect before editing the dashboard"));
+        QCOMPARE(errors.at(1).at(1).toString(), QStringLiteral("disconnect before editing the dashboard"));
+        QCOMPARE(state_of(harness_->controller), connected);
+
+        harness_->controller.requestExit();
+        QCOMPARE(unsaved.count(), 1);
     }
 };
 

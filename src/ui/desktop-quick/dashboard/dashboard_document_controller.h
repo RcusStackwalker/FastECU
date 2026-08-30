@@ -24,6 +24,22 @@ class DashboardDocumentController final : public QObject
     Q_PROPERTY(bool editingEnabled READ editingEnabled NOTIFY stateChanged)
 
   public:
+    enum class PendingDocumentAction
+    {
+        None,
+        Import,
+        Open,
+        Exit,
+    };
+
+    enum class UnsavedDecision
+    {
+        Save,
+        Discard,
+        Cancel,
+    };
+    Q_ENUM(UnsavedDecision)
+
     static constexpr std::string_view recentPathKey = "desktop-quick/recent-dashboard";
 
     DashboardDocumentController(dashboard::DashboardDocumentService& documents, ISettings& settings,
@@ -44,10 +60,24 @@ class DashboardDocumentController final : public QObject
     Status commitCandidate(dashboard::DashboardDocument candidate, std::string selected_card_id);
     void setConnectionState(ConnectionState state);
 
+    Q_INVOKABLE void requestImport();
+    Q_INVOKABLE void requestOpen();
+    Q_INVOKABLE void requestExit();
+    Q_INVOKABLE void resolveUnsaved(UnsavedDecision decision);
+    Q_INVOKABLE void cancelPathRequest();
+    Q_INVOKABLE void completeImportPath(const QString& path);
+    Q_INVOKABLE void completeOpenPath(const QString& path);
+    Q_INVOKABLE void completeSavePath(const QString& path);
+
   signals:
     void documentCommitted();
     void stateChanged();
     void errorOccurred(QString operation, QString detail);
+    void importPathRequested();
+    void openPathRequested();
+    void savePathRequested();
+    void unsavedDecisionRequested();
+    void exitApproved();
 
   private:
     struct Snapshot
@@ -63,11 +93,17 @@ class DashboardDocumentController final : public QObject
     Status reportError(const QString& operation, Error error);
     static Status cancelledPath();
     void commitReplacement(Snapshot snapshot);
+    void requestAction(PendingDocumentAction action, const QString& operation);
+    void continuePendingAction();
 
     dashboard::DashboardDocumentService& documents_;
     ISettings& settings_;
     Snapshot state_;
     ConnectionState connection_state_ = ConnectionState::Disconnected;
+    PendingDocumentAction pending_action_ = PendingDocumentAction::None;
 };
+
+using PendingDocumentAction = DashboardDocumentController::PendingDocumentAction;
+using UnsavedDecision = DashboardDocumentController::UnsavedDecision;
 
 } // namespace fastecu::desktop_quick
