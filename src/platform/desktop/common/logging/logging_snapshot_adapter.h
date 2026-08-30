@@ -2,6 +2,7 @@
 
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include <QString>
@@ -13,19 +14,39 @@
 namespace fastecu::desktop::logging
 {
 
-// GUI-thread snapshot of the legacy parallel lists.  The session and map are
-// passed to the worker as value data; they must not retain LogValuesStructure.
-struct DesktopLoggingSnapshot
+// GUI-thread-owned state needed to apply portable samples to legacy parallel
+// lists. It deliberately owns no portable logging session.
+struct LegacyLoggingMapping
 {
-    fastecu::logging::LoggingSession session;
     std::vector<std::size_t> response_offsets;
     std::unordered_map<std::string, int> index_by_id;
     std::unordered_set<std::string> enabled_ids;
 };
 
-fastecu::Result<DesktopLoggingSnapshot> make_desktop_logging_snapshot(const FileActions::LogValuesStructure& log_values,
-                                                                      fastecu::logging::LoggingProtocolId protocol,
-                                                                      const QString& protocol_filter,
-                                                                      fastecu::logging::LoggingPolicy policy);
+// Bundles the one portable session with legacy-only mapping state until their
+// owners split them for the logging engine and GUI coordinator respectively.
+struct PreparedLegacyLoggingSession
+{
+    PreparedLegacyLoggingSession(fastecu::logging::LoggingSession&& session, LegacyLoggingMapping&& mapping)
+        : session(std::move(session)), mapping(std::move(mapping))
+    {
+    }
+
+    PreparedLegacyLoggingSession(const PreparedLegacyLoggingSession&) = delete;
+    auto operator=(const PreparedLegacyLoggingSession&) -> PreparedLegacyLoggingSession& = delete;
+    PreparedLegacyLoggingSession(PreparedLegacyLoggingSession&&) = default;
+    auto operator=(PreparedLegacyLoggingSession&&) -> PreparedLegacyLoggingSession& = default;
+
+    fastecu::logging::LoggingSession session;
+    LegacyLoggingMapping mapping;
+};
+
+fastecu::logging::LoggingPolicy make_legacy_logging_policy(int poll_timeout_ms, int silence_misses,
+                                                           int first_reconnect_miss, int repeat_misses);
+
+fastecu::Result<PreparedLegacyLoggingSession>
+make_prepared_legacy_logging_session(const FileActions::LogValuesStructure& log_values,
+                                     fastecu::logging::LoggingProtocolId protocol, const QString& protocol_filter,
+                                     fastecu::logging::LoggingPolicy policy);
 
 } // namespace fastecu::desktop::logging

@@ -17,7 +17,8 @@ struct CanFrame
 };
 
 // Raw-CAN transport (not ISO-TP): every write/read is one CAN frame,
-// addressed by an explicit 11-bit arbitration ID.
+// addressed by an explicit arbitration ID. The caller configures whether IDs
+// use 11-bit or 29-bit mode.
 class ICanTransport
 {
   public:

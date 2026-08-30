@@ -1,11 +1,40 @@
 #pragma once
 
 #include <QByteArray>
+#include <QMetaType>
 #include <QString>
 #include <QStringList>
 #include <cstdint>
 
 class QObject;
+
+enum class J2534RawCanOpenFailure
+{
+    None,
+    UnsupportedConfiguration,
+    AdapterUnavailable,
+    Internal,
+};
+
+enum class J2534RawCanOpenStage
+{
+    None,
+    DeviceOpen,
+    ChannelConnect,
+    TimingConfiguration,
+    FilterConfiguration,
+};
+
+struct J2534RawCanOpenResult
+{
+    QString opened_port;
+    J2534RawCanOpenFailure failure = J2534RawCanOpenFailure::None;
+    J2534RawCanOpenStage stage = J2534RawCanOpenStage::None;
+    long api_status = 0;
+};
+
+Q_DECLARE_METATYPE(J2534RawCanOpenFailure)
+Q_DECLARE_METATYPE(J2534RawCanOpenStage)
 
 // Internal seam between the SerialPortActions facade and the two adapter
 // backends (SerialPortActionsDirect, RemoteSerialBackend). Consumers never
@@ -142,6 +171,18 @@ class SerialBackend
     virtual int stop_periodic_j2534_data() = 0;
     virtual QStringList check_serial_ports() = 0;
     virtual QString open_serial_port() = 0;
+    // The dashboard path requires an atomic raw-CAN setup result. Backends
+    // that do not represent a local J2534 device deliberately reject it;
+    // legacy callers continue to use open_serial_port().
+    virtual J2534RawCanOpenResult open_j2534_raw_can_checked()
+    {
+        return {
+            .opened_port = {},
+            .failure = J2534RawCanOpenFailure::UnsupportedConfiguration,
+            .stage = J2534RawCanOpenStage::DeviceOpen,
+            .api_status = 0,
+        };
+    }
     virtual unsigned long read_vbatt() = 0;
 
     // Remote-only: block until the QtRO source is replicated. No-op for the

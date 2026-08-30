@@ -27,6 +27,11 @@ exports_files(
     ],
 )
 
+exports_files(
+    ["config/logger_cdbg_example.xml"],
+    visibility = ["//src/backend/dashboard:__pkg__"],
+)
+
 fastecu_portable_gtest(
     name = "test_protocols_cfg_eeprom_capabilities",
     size = "small",

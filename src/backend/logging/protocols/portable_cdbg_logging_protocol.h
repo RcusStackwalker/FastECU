@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "src/backend/logging/logging_protocol.h"
+#include "src/backend/protocol/cdbg_protocol_config.h"
 #include "src/backend/protocol/ican_transport.h"
 #include "src/backend/protocol/mitsu_colt_can_cdbg_driver.h"
 
@@ -13,7 +14,8 @@ namespace fastecu::logging
 class CdbgLoggingProtocol final : public LoggingProtocol
 {
   public:
-    CdbgLoggingProtocol(std::unique_ptr<cdbg::ICanTransport> transport, std::vector<LoggingChannel> channels);
+    CdbgLoggingProtocol(std::unique_ptr<cdbg::ICanTransport> transport, std::vector<LoggingChannel> channels,
+                        cdbg::CdbgProtocolConfig config);
 
     fastecu::Status start(const fastecu::ICancellationToken& cancellation) override;
     fastecu::Result<PollData> poll(int timeout_ms, const fastecu::ICancellationToken& cancellation) override;

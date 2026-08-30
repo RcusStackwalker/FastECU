@@ -28,14 +28,37 @@ std::vector<LoggingChannel> valid_channels()
 LoggingPolicy valid_policy()
 {
     return LoggingPolicy{
-        .poll_timeout_ms = 100,
-        .car_silence_miss_threshold = 3,
-        .reconnect_attempt_threshold = 2,
-        .reconnect_retry_period = 0,
+        .poll_timeout_ms = 10,
+        .car_silence_miss_threshold = 2,
+        .reconnect_initial_delay_ms = 20,
+        .reconnect_period_ms = 10,
+        .max_reconnect_attempts = 3,
     };
 }
 
 } // namespace
+
+TEST(LoggingConversionValidation, AcceptsLegacyExpressionGrammar)
+{
+    EXPECT_TRUE(fastecu::logging::valid_conversion_expression("x*1000/256", 0));
+    EXPECT_TRUE(fastecu::logging::valid_conversion_expression("(x+1)*2", 2));
+}
+
+TEST(LoggingConversionValidation, RejectsMalformedOrNonFiniteExpression)
+{
+    EXPECT_FALSE(fastecu::logging::valid_conversion_expression("", 0));
+    EXPECT_FALSE(fastecu::logging::valid_conversion_expression("x/0", 0));
+    EXPECT_FALSE(fastecu::logging::valid_conversion_expression("x trailing", 0));
+    EXPECT_FALSE(fastecu::logging::valid_conversion_expression("-(x+1)", 0));
+    EXPECT_FALSE(fastecu::logging::valid_conversion_expression("1/(x-x)", 0));
+}
+
+TEST(LoggingConversionValidation, AcceptsOnlySupportedDisplayPrecision)
+{
+    EXPECT_TRUE(fastecu::logging::valid_display_precision(0));
+    EXPECT_TRUE(fastecu::logging::valid_display_precision(15));
+    EXPECT_FALSE(fastecu::logging::valid_display_precision(16));
+}
 
 TEST(LoggingSessionTest, RejectsDuplicateStableIds)
 {
@@ -56,13 +79,57 @@ TEST(LoggingSessionTest, StableIdsSurviveSourceRowReordering)
     EXPECT_EQ(result->find_channel("coolant")->address, 0x20U);
 }
 
-TEST(LoggingSessionTest, RejectsInvalidPolicy)
+TEST(LoggingSessionTest, RejectsNonpositivePollTimeout)
 {
     auto policy = valid_policy();
     policy.poll_timeout_ms = 0;
     auto result = make_logging_session(LoggingProtocolId::Ssm, valid_channels(), policy);
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::InvalidConfig);
+
+    policy.poll_timeout_ms = -1;
+    EXPECT_FALSE(make_logging_session(LoggingProtocolId::Ssm, valid_channels(), policy));
+}
+
+TEST(LoggingSessionTest, RejectsNonpositiveSilenceThreshold)
+{
+    auto policy = valid_policy();
+    policy.car_silence_miss_threshold = 0;
+    EXPECT_FALSE(make_logging_session(LoggingProtocolId::Ssm, valid_channels(), policy));
+
+    policy.car_silence_miss_threshold = -1;
+    EXPECT_FALSE(make_logging_session(LoggingProtocolId::Ssm, valid_channels(), policy));
+}
+
+TEST(LoggingSessionTest, RejectsNegativeInitialReconnectDelay)
+{
+    auto policy = valid_policy();
+    policy.reconnect_initial_delay_ms = -1;
+    EXPECT_FALSE(make_logging_session(LoggingProtocolId::Ssm, valid_channels(), policy));
+}
+
+TEST(LoggingSessionTest, RejectsNonpositiveReconnectPeriod)
+{
+    auto policy = valid_policy();
+    policy.reconnect_period_ms = 0;
+    EXPECT_FALSE(make_logging_session(LoggingProtocolId::Ssm, valid_channels(), policy));
+
+    policy.reconnect_period_ms = -1;
+    EXPECT_FALSE(make_logging_session(LoggingProtocolId::Ssm, valid_channels(), policy));
+}
+
+TEST(LoggingSessionTest, RejectsPresentZeroReconnectAttemptLimit)
+{
+    auto policy = valid_policy();
+    policy.max_reconnect_attempts = 0;
+    EXPECT_FALSE(make_logging_session(LoggingProtocolId::Ssm, valid_channels(), policy));
+}
+
+TEST(LoggingSessionTest, AcceptsUnlimitedReconnectAttempts)
+{
+    auto policy = valid_policy();
+    policy.max_reconnect_attempts = std::nullopt;
+    EXPECT_TRUE(make_logging_session(LoggingProtocolId::Ssm, valid_channels(), policy));
 }
 
 TEST(LoggingSessionTest, RejectsInvalidChannelShape)
@@ -139,6 +206,11 @@ TEST(LoggingSessionTest, RejectsExpressionsWithoutFiniteEvaluation)
     auto indeterminate = make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy());
     ASSERT_FALSE(indeterminate);
     EXPECT_EQ(indeterminate.error().kind, fastecu::ErrorKind::InvalidConfig);
+
+    c.from_byte_expression = "1/(x-x)";
+    auto probe_dependent_division_by_zero = make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy());
+    ASSERT_FALSE(probe_dependent_division_by_zero);
+    EXPECT_EQ(probe_dependent_division_by_zero.error().kind, fastecu::ErrorKind::InvalidConfig);
 }
 
 TEST(LoggingSessionTest, RequiresAtLeastOneCdbgChannel)

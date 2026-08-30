@@ -3,12 +3,13 @@
 #include <QSplashScreen>
 #include <cstddef>
 #include <iterator>
+#include <optional>
 #include <utility>
 #include "src/algorithms/protocol/qt_bytes.h"
 #include "src/backend/checksum/checksum_selection.h"
 #include "src/backend/config/legacy_config_paths.h"
 #include "src/backend/flash/flash_device_lookup.h"
-#include "src/platform/desktop/common/logging/cdbg_serial_setup.h"
+#include "src/backend/ports/event_sink.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 const QColor MainWindow::RED_LIGHT_OFF = QColor(96, 32, 32);
@@ -85,8 +86,6 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
     QObject::connect(syslog_thread, &QThread::finished, syslog_thread, &QThread::deleteLater);
     QObject::connect(syslog_thread, &QThread::started, syslogger, &SystemLogger::run);
     syslog_thread->start();
-
-    setupLoggingEngine();
 
 #if defined Q_OS_UNIX
     emit LOG_D("Running on Linux Desktop ", true, false);
@@ -451,6 +450,7 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
     if (logValues != nullptr)
     {
         update_logboxes(configValues->flash_protocol_selected_log_protocol);
+        setupLoggingCoordinator();
     }
 
     serial_port = serial_port_prefix + configValues->serial_port;
@@ -498,9 +498,14 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
 
 MainWindow::~MainWindow()
 {
-    if (logging_state)
+    if (datalog_file_open)
     {
-        loggingEngine->stop();
+        datalog_file_open = false;
+        datalog_file.close();
+    }
+    if (loggingCoordinator)
+    {
+        loggingCoordinator->stop();
     }
 }
 
@@ -2515,91 +2520,45 @@ void MainWindow::update_vbatt()
     }
 }
 
-void MainWindow::setupLoggingEngine()
+void MainWindow::setupLoggingCoordinator()
 {
-    loggingEngine = new fastecu::desktop::logging::LoggingEngine(this);
+    loggingEngine = std::make_unique<fastecu::desktop::logging::LoggingEngine>();
+    loggingProtocolFactory = std::make_unique<fastecu::desktop::logging::LegacyLoggingProtocolFactory>(
+        *serial, m_loggingClock, [this] { return ecu_radio_button->isChecked(); });
+    loggingCoordinator = std::make_unique<fastecu::desktop::logging::LegacyLoggingCoordinator>(
+        *loggingEngine, *loggingProtocolFactory, *logValues);
 
-    connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::valuesUpdated, this,
-            &MainWindow::handleLoggingValuesUpdated);
-    connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::sessionEnded, this,
-            &MainWindow::handleLoggingSessionEnded);
-    connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::LOG_E, syslogger, &SystemLogger::log_messages);
-    connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::LOG_W, syslogger, &SystemLogger::log_messages);
-    connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::LOG_I, syslogger, &SystemLogger::log_messages);
-    connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::LOG_D, syslogger, &SystemLogger::log_messages);
-
-    loggingEngine->registerProtocol("MUT_DMA",
-                                    [this](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
-                                    {
-                                        auto transport = std::make_unique<mutdma::FastEcuKlineTransport>(serial);
-                                        auto init = std::make_unique<mutdma::AlreadyInMode>(125000);
-                                        return std::make_unique<fastecu::logging::MutDmaLoggingProtocol>(
-                                            std::move(transport), std::move(init), snapshot.session.channels());
-                                    });
-
-    loggingEngine->registerProtocol(
-        "CDBG",
-        [this](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
-            -> fastecu::Result<std::unique_ptr<fastecu::logging::LoggingProtocol>>
-        {
-            const auto configured = fastecu::desktop::logging::configure_cdbg_serial({
-                .disable_iso14230 = [this]() { return serial->set_is_iso14230_connection(false); },
-                .disable_iso14230_header = [this]() { return serial->set_add_iso14230_header(false); },
-                .enable_raw_can = [this]() { return serial->set_is_can_connection(true); },
-                .disable_iso15765 = [this]() { return serial->set_is_iso15765_connection(false); },
-                .select_11_bit_ids = [this]() { return serial->set_is_29_bit_id(false); },
-                .select_500k_baud = [this]() { return serial->set_can_speed("500000"); },
-                .select_reply_id = [this]()
-                { return serial->set_can_destination_address(MitsuColtCanCdbg::kReplyCanId); },
+    connect(loggingCoordinator.get(), &fastecu::desktop::logging::LegacyLoggingCoordinator::valuesApplied, this,
+            [this]
+            {
+                update_logbox_values(loggingCoordinator->activeProtocolFilter());
+                log_to_file();
             });
-            if (!configured)
+    connect(loggingCoordinator.get(), &fastecu::desktop::logging::LegacyLoggingCoordinator::sessionEnded, this,
+            &MainWindow::handleLoggingSessionEnded);
+    connect(loggingCoordinator.get(), &fastecu::desktop::logging::LegacyLoggingCoordinator::diagnostic, this,
+            [this](int level, const QString& message)
             {
-                return std::unexpected(configured.error());
-            }
-            const QString opened_port = serial->open_serial_port();
-            if (opened_port.isEmpty() || !serial->is_serial_port_open())
-            {
-                return fastecu::fail(fastecu::ErrorKind::Disconnected, "unable to open CAN adapter for CDBG logging");
-            }
-            auto transport = std::make_unique<cdbg::FastEcuCanTransport>(serial);
-            return std::unique_ptr<fastecu::logging::LoggingProtocol>(
-                std::make_unique<fastecu::logging::CdbgLoggingProtocol>(std::move(transport),
-                                                                        snapshot.session.channels()));
-        });
-
-    loggingEngine->registerProtocol("SSM",
-                                    [this](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
-                                    {
-                                        auto transport = std::make_unique<FastEcuSsmTransport>(serial);
-                                        bool targetIsEcu = ecu_radio_button->isChecked();
-                                        bool useOpenport2Adapter = serial->get_use_openport2_adapter();
-                                        return std::make_unique<fastecu::logging::SsmLoggingProtocol>(
-                                            m_loggingClock, std::move(transport), snapshot.session.channels(),
-                                            snapshot.response_offsets, targetIsEcu, useOpenport2Adapter);
-                                    });
-}
-
-void MainWindow::handleLoggingValuesUpdated(const QVector<fastecu::logging::LogSample>& samples)
-{
-    if (!activeLoggingSnapshot)
-    {
-        return;
-    }
-    for (const auto& sample : samples)
-    {
-        const auto applied = fastecu::desktop::logging::apply_log_sample(*activeLoggingSnapshot, sample, *logValues);
-        if (!applied)
-        {
-            emit LOG_E(QString::fromStdString(applied.error().detail), true, true);
-        }
-    }
-    update_logbox_values(activeLogValueProtocolFilter);
-    log_to_file();
+                switch (static_cast<fastecu::LogLevel>(level))
+                {
+                case fastecu::LogLevel::Error:
+                    emit LOG_E(message, true, true);
+                    break;
+                case fastecu::LogLevel::Warning:
+                    emit LOG_W(message, true, true);
+                    break;
+                case fastecu::LogLevel::Info:
+                    emit LOG_I(message, true, true);
+                    break;
+                case fastecu::LogLevel::Debug:
+                    emit LOG_D(message, true, true);
+                    break;
+                }
+            });
 }
 
 void MainWindow::restoreLoggingUiState()
 {
-    activeLoggingSnapshot.reset();
     logging_state = false;
     log_params_request_started = false;
     QList<QMenu *> menus = ui->menubar->findChildren<QMenu *>();

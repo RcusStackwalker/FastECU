@@ -1,0 +1,153 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_gtest", "fastecu_portable_gtest")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
+
+package(default_visibility = [
+    "//apps/desktop:__pkg__",
+    "//apps/desktop-quick:__pkg__",
+    "//src/platform:__subpackages__",
+    "//src/ui/desktop-quick:__pkg__",
+    "//tests:__pkg__",
+])
+
+LINUX_ONLY = select({
+    "@platforms//os:linux": [],
+    "//conditions:default": ["@platforms//:incompatible"],
+})
+
+NON_LINUX_ONLY = select({
+    "@platforms//os:linux": ["@platforms//:incompatible"],
+    "//conditions:default": [],
+})
+
+cc_library(
+    name = "socketcan_actions",
+    hdrs = ["socketcan_actions.h"],
+)
+
+cc_library(
+    name = "socketcan_transport",
+    srcs = ["socketcan_transport.cpp"],
+    hdrs = ["socketcan_transport.h"],
+    target_compatible_with = LINUX_ONLY,
+    deps = [
+        ":socketcan_actions",
+        "//src/backend/dashboard:dashboard_document",
+        "//src/backend/ports",
+        "//src/backend/protocol",
+    ],
+)
+
+cc_library(
+    name = "socketcan_adapter_provider",
+    srcs = select({
+        "@platforms//os:linux": ["socketcan_adapter_provider_linux.cpp"],
+        "//conditions:default": ["socketcan_adapter_provider.cpp"],
+    }),
+    hdrs = ["socketcan_adapter_provider.h"],
+    deps = [
+        ":local_adapter_matching",
+        ":socketcan_actions",
+    ] + select({
+        "@platforms//os:linux": [":socketcan_transport"],
+        "//conditions:default": [],
+    }),
+)
+
+cc_library(
+    name = "connection_platform",
+    deps = [
+        ":j2534_adapter_provider",
+        ":socketcan_adapter_provider",
+    ],
+)
+
+qt_cc_library(
+    name = "desktop_connection_service",
+    srcs = ["desktop_connection_service.cpp"],
+    hdrs = ["desktop_connection_service.h"],
+    copts = COMMON_COPTS,
+    deps = QT_DEPS + [
+        ":local_adapter_matching",
+        "//src/backend/dashboard:dashboard_session_builder",
+        "//src/backend/logging/protocols",
+        "//src/backend/ports",
+        "//src/platform/desktop/common/logging:logging_runtime",
+    ],
+)
+
+cc_library(
+    name = "local_adapter_matching",
+    srcs = ["local_adapter_matching.cpp"],
+    hdrs = [
+        "local_adapter.h",
+        "local_adapter_matching.h",
+    ],
+    deps = [
+        "//src/backend/dashboard:dashboard_document",
+        "//src/backend/ports",
+        "//src/backend/protocol",
+    ],
+)
+
+qt_cc_library(
+    name = "j2534_adapter_provider",
+    srcs = ["j2534_adapter_provider.cpp"],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["j2534_adapter_provider.h"],
+    deps = QT_DEPS + [
+        ":local_adapter_matching",
+        "//src/platform/desktop/common/logging:legacy_logging_compat",
+        "//src/platform/desktop/common/serial:serial_platform_api",
+        "//src/platform/desktop/common/transport",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "test_local_adapter_matching",
+    srcs = ["local_adapter_matching_test.cpp"],
+    deps = [":local_adapter_matching"],
+)
+
+fastecu_gtest(
+    name = "test_desktop_connection_service",
+    srcs = [
+        "desktop_connection_service_test.cpp",
+        "//src/backend/dashboard:test_fixtures.h",
+    ],
+    deps = [":desktop_connection_service"],
+)
+
+fastecu_portable_gtest(
+    name = "test_socketcan_transport",
+    srcs = ["socketcan_transport_test.cpp"],
+    target_compatible_with = LINUX_ONLY,
+    deps = [
+        ":socketcan_transport",
+        "//src/backend/ports/testing:fake_cancellation_token",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "test_socketcan_adapter_provider",
+    srcs = ["socketcan_adapter_provider_test.cpp"],
+    target_compatible_with = LINUX_ONLY,
+    deps = [":socketcan_adapter_provider"],
+)
+
+fastecu_portable_gtest(
+    name = "test_socketcan_adapter_provider_stub",
+    srcs = ["socketcan_adapter_provider_stub_test.cpp"],
+    target_compatible_with = NON_LINUX_ONLY,
+    deps = [":socketcan_adapter_provider"],
+)
+
+fastecu_qttest(
+    name = "test_j2534_adapter_provider",
+    src = "j2534_adapter_provider_test.cpp",
+    deps = [
+        ":j2534_adapter_provider",
+        "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+    ],
+)

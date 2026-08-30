@@ -61,5 +61,6 @@ cc_library(
         "//src/algorithms/protocol/ssm",
         "//src/backend/logging:logging_use_case",
         "//src/backend/protocol",
+        "//src/backend/protocol:cdbg_protocol_config",
     ],
 )

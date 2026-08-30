@@ -1,0 +1,148 @@
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load(
+    "//bazel:qt_targets.bzl",
+    "COMMON_COPTS",
+    "QT_QUICK_DEPS",
+    "fastecu_qttest",
+    "fastecu_quicktest",
+    "qt_cc_library",
+    "qt_resource_via_qrc",
+)
+
+package(default_visibility = ["//apps/desktop-quick:__pkg__"])
+
+qt_resource_via_qrc(
+    name = "qml_resources",
+    files = [
+        "qml/Main.qml",
+        "qml/dashboard/ConnectionPanel.qml",
+        "qml/dashboard/DashboardCardFrame.qml",
+        "qml/dashboard/DashboardView.qml",
+        "qml/dashboard/HorizontalGaugeCard.qml",
+        "qml/dashboard/NumericCard.qml",
+        "qml/dashboard/SparklineCard.qml",
+        "qml/shell/ApplicationShell.qml",
+        "resources/colt-dashboard.ohd",
+    ],
+    qrc_file = "qml.qrc",
+    deps = ["@rules_qt//:qt_core"],
+)
+
+qt_cc_library(
+    name = "application",
+    srcs = ["desktop_quick_application.cpp"],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["desktop_quick_application.h"],
+    deps = QT_QUICK_DEPS + [
+        ":dashboard_connection_controller",
+        ":dashboard_controller",
+        ":qml_resources",
+        "@rules_qt//:qt_hdrs",
+    ],
+)
+
+qt_cc_library(
+    name = "dashboard_connection_controller",
+    srcs = ["dashboard/dashboard_connection_controller.cpp"],
+    hdrs = ["dashboard/dashboard_connection_controller.h"],
+    copts = COMMON_COPTS,
+    deps = QT_QUICK_DEPS + [
+        "//src/backend/dashboard:dashboard_document",
+        "//src/backend/ports",
+        "//src/platform/desktop/common/connection:desktop_connection_service",
+        "//src/platform/desktop/common/logging:logging_runtime",
+    ],
+)
+
+qt_cc_library(
+    name = "dashboard_card_model",
+    srcs = ["dashboard/dashboard_card_model.cpp"],
+    hdrs = ["dashboard/dashboard_card_model.h"],
+    copts = COMMON_COPTS,
+    deps = [
+        "//src/backend/dashboard:dashboard_document",
+        "//src/backend/logging:logging_types",
+        "@rules_qt//:qt_core",
+    ],
+)
+
+qt_cc_library(
+    name = "dashboard_controller",
+    srcs = ["dashboard/dashboard_controller.cpp"],
+    hdrs = ["dashboard/dashboard_controller.h"],
+    copts = COMMON_COPTS,
+    deps = [
+        ":dashboard_card_model",
+        ":dashboard_connection_controller",
+        "//src/backend/dashboard:dashboard_document",
+        "//src/backend/ports",
+        "@rules_qt//:qt_core",
+    ],
+)
+
+qt_cc_library(
+    name = "bundled_dashboard_loader",
+    srcs = ["dashboard/bundled_dashboard_loader.cpp"],
+    hdrs = ["dashboard/bundled_dashboard_loader.h"],
+    copts = COMMON_COPTS,
+    deps = [
+        "//src/backend/dashboard:dashboard_document_service",
+        "//src/backend/dashboard:dashboard_session_builder",
+    ],
+)
+
+fastecu_qttest(
+    name = "test_dashboard_card_model",
+    src = "dashboard/dashboard_card_model_test.cpp",
+    deps = [":dashboard_card_model"],
+)
+
+fastecu_qttest(
+    name = "test_dashboard_controller",
+    src = "dashboard/dashboard_controller_test.cpp",
+    deps = [
+        ":dashboard_controller",
+        "//src/backend/logging:logging_session",
+        "//src/backend/logging:logging_use_case",
+        "//src/backend/ports/testing:fake_clock",
+    ],
+)
+
+fastecu_quicktest(
+    name = "test_application",
+    src = "desktop_quick_application_test.cpp",
+    copts = ["-DQT_GUI_LIB"],
+    env = {
+        "QT_QPA_PLATFORM": "offscreen",
+        "QT_QUICK_CONTROLS_STYLE": "Basic",
+    },
+    deps = [
+        ":application",
+        ":dashboard_connection_controller",
+        ":dashboard_controller",
+        "//src/backend/ports/testing:fake_clock",
+    ],
+)
+
+fastecu_quicktest(
+    name = "test_dashboard_connection_controller",
+    src = "dashboard/dashboard_connection_controller_test.cpp",
+    deps = [
+        ":dashboard_connection_controller",
+    ],
+)
+
+fastecu_gtest(
+    name = "test_bundled_dashboard_loader",
+    srcs = ["dashboard/bundled_dashboard_loader_test.cpp"],
+    deps = [
+        ":bundled_dashboard_loader",
+        ":qml_resources",
+        "//src/backend/dashboard:dashboard_document_service",
+        "//src/backend/dashboard:dashboard_session_builder",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/ports/testing:in_memory_file_repository",
+        "//src/platform/desktop/common/ports",
+    ],
+)

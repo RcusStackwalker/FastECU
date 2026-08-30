@@ -637,6 +637,11 @@ QString SerialPortActions::open_serial_port()
     return runOnBackend([this] { return m_backend->open_serial_port(); });
 }
 
+J2534RawCanOpenResult SerialPortActions::open_j2534_raw_can_checked()
+{
+    return runOnBackend([this] { return m_backend->open_j2534_raw_can_checked(); });
+}
+
 unsigned long SerialPortActions::read_vbatt()
 {
     CallGuard guard(m_activeCalls);

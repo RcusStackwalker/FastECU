@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string_view>
 #include <vector>
 
@@ -8,6 +9,9 @@
 
 namespace fastecu::logging
 {
+
+bool valid_conversion_expression(std::string_view expression, std::uint8_t precision);
+bool valid_display_precision(std::uint8_t precision);
 
 class LoggingSession
 {

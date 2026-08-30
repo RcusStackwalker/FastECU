@@ -33,9 +33,9 @@ fastecu::Status checkCancellation(const fastecu::ICancellationToken& cancellatio
 } // namespace
 
 CdbgLoggingProtocol::CdbgLoggingProtocol(std::unique_ptr<cdbg::ICanTransport> transport,
-                                         std::vector<LoggingChannel> channels)
+                                         std::vector<LoggingChannel> channels, cdbg::CdbgProtocolConfig config)
     : transport_(std::move(transport)), channels_(std::move(channels)), wire_channels_(makeWireChannels(channels_)),
-      driver_(*transport_)
+      driver_(*transport_, std::move(config))
 {
 }
 
@@ -49,7 +49,7 @@ fastecu::Status CdbgLoggingProtocol::start(const fastecu::ICancellationToken& ca
     {
         return fastecu::fail(fastecu::ErrorKind::Disconnected, "adapter disconnected");
     }
-    return driver_.startFreeFormLog(wire_channels_, 0, 10, cancellation);
+    return driver_.startFreeFormLog(wire_channels_, cancellation);
 }
 
 fastecu::Result<PollData> CdbgLoggingProtocol::poll(int timeout_ms, const fastecu::ICancellationToken& cancellation)

@@ -1,5 +1,6 @@
 #include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -11,6 +12,13 @@ namespace fastecu::desktop::logging
 {
 namespace
 {
+
+int saturated_duration_ms(int poll_timeout_ms, std::int64_t misses)
+{
+    const std::int64_t duration = static_cast<std::int64_t>(poll_timeout_ms) * misses;
+    return static_cast<int>(
+        std::clamp(duration, std::int64_t{0}, static_cast<std::int64_t>(std::numeric_limits<int>::max())));
+}
 
 fastecu::Result<QString> effective_protocol_filter(fastecu::logging::LoggingProtocolId protocol,
                                                    const QString& protocol_filter)
@@ -80,10 +88,24 @@ channel_from_legacy_row(const FileActions::LogValuesStructure& log_values, int r
 
 } // namespace
 
-fastecu::Result<DesktopLoggingSnapshot> make_desktop_logging_snapshot(const FileActions::LogValuesStructure& log_values,
-                                                                      fastecu::logging::LoggingProtocolId protocol,
-                                                                      const QString& protocol_filter,
-                                                                      fastecu::logging::LoggingPolicy policy)
+fastecu::logging::LoggingPolicy make_legacy_logging_policy(int poll_timeout_ms, int silence_misses,
+                                                           int first_reconnect_miss, int repeat_misses)
+{
+    const std::int64_t misses_before_first_reconnect =
+        std::max(std::int64_t{0}, static_cast<std::int64_t>(first_reconnect_miss) - silence_misses);
+    return {
+        .poll_timeout_ms = poll_timeout_ms,
+        .car_silence_miss_threshold = silence_misses,
+        .reconnect_initial_delay_ms = saturated_duration_ms(poll_timeout_ms, misses_before_first_reconnect),
+        .reconnect_period_ms = saturated_duration_ms(poll_timeout_ms, repeat_misses),
+        .max_reconnect_attempts = std::nullopt,
+    };
+}
+
+fastecu::Result<PreparedLegacyLoggingSession>
+make_prepared_legacy_logging_session(const FileActions::LogValuesStructure& log_values,
+                                     fastecu::logging::LoggingProtocolId protocol, const QString& protocol_filter,
+                                     fastecu::logging::LoggingPolicy policy)
 {
     if (!FileActions::validate_logger_values(log_values))
     {
@@ -97,13 +119,11 @@ fastecu::Result<DesktopLoggingSnapshot> make_desktop_logging_snapshot(const File
     }
 
     std::vector<fastecu::logging::LoggingChannel> channels;
-    std::vector<std::size_t> response_offsets;
-    std::unordered_map<std::string, int> selected_indices_by_id;
-    std::unordered_set<std::string> enabled_ids;
+    LegacyLoggingMapping mapping;
     channels.reserve(static_cast<std::size_t>(log_values.lower_panel_log_value_id.size()));
-    response_offsets.reserve(static_cast<std::size_t>(log_values.lower_panel_log_value_id.size()));
-    selected_indices_by_id.reserve(static_cast<std::size_t>(log_values.lower_panel_log_value_id.size()));
-    enabled_ids.reserve(static_cast<std::size_t>(log_values.lower_panel_log_value_id.size()));
+    mapping.response_offsets.reserve(static_cast<std::size_t>(log_values.lower_panel_log_value_id.size()));
+    mapping.index_by_id.reserve(static_cast<std::size_t>(log_values.lower_panel_log_value_id.size()));
+    mapping.enabled_ids.reserve(static_cast<std::size_t>(log_values.lower_panel_log_value_id.size()));
 
     for (qsizetype lower_panel_index = 0; lower_panel_index < log_values.lower_panel_log_value_id.size();
          ++lower_panel_index)
@@ -134,18 +154,18 @@ fastecu::Result<DesktopLoggingSnapshot> make_desktop_logging_snapshot(const File
         {
             return std::unexpected(channel.error());
         }
-        if (!selected_indices_by_id.emplace(channel->id, selected_row).second)
+        if (!mapping.index_by_id.emplace(channel->id, selected_row).second)
         {
             return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "duplicate lower-panel logging value id");
         }
         if (protocol != fastecu::logging::LoggingProtocolId::Ssm ||
             log_values.log_value_enabled.at(selected_row) == "1")
         {
-            enabled_ids.insert(channel->id);
+            mapping.enabled_ids.insert(channel->id);
         }
         if (protocol == fastecu::logging::LoggingProtocolId::Ssm)
         {
-            response_offsets.push_back(static_cast<std::size_t>(lower_panel_index));
+            mapping.response_offsets.push_back(static_cast<std::size_t>(lower_panel_index));
         }
         channels.push_back(std::move(*channel));
     }
@@ -155,12 +175,7 @@ fastecu::Result<DesktopLoggingSnapshot> make_desktop_logging_snapshot(const File
     {
         return std::unexpected(session.error());
     }
-    return DesktopLoggingSnapshot{
-        .session = std::move(*session),
-        .response_offsets = std::move(response_offsets),
-        .index_by_id = std::move(selected_indices_by_id),
-        .enabled_ids = std::move(enabled_ids),
-    };
+    return PreparedLegacyLoggingSession(std::move(*session), std::move(mapping));
 }
 
 } // namespace fastecu::desktop::logging

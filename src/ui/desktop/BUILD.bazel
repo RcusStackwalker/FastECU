@@ -86,13 +86,11 @@ qt_cc_library(
         "//src/backend/config:legacy_config_paths",
         "//src/backend/definitions",
         "//src/backend/flash:flash_device_lookup",
-        "//src/backend/logging/protocols",
-        # mainwindow.h includes imut_dma_init.h, mitsu_colt_can_cdbg_driver.h
-        # and mut_dma_driver.h directly.
+        "//src/backend/ports",
         "//src/backend/protocol",
         "//src/platform/desktop/common/logging",
-        "//src/platform/desktop/common/logging:logging_adapters",
-        "//src/platform/desktop/common/logging:logging_runtime",
+        "//src/platform/desktop/common/logging:legacy_logging_compat",
+        "//src/platform/desktop/common/logging:legacy_logging_coordinator",
         "//src/platform/desktop/common/ports",
         "//src/platform/desktop/common/remote_utility",
         "//src/platform/desktop/common/serial:serial_qt_compat",

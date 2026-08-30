@@ -30,10 +30,11 @@ LoggingChannel channel(std::string id, std::uint32_t address)
 LoggingPolicy valid_policy()
 {
     return LoggingPolicy{
-        .poll_timeout_ms = 100,
-        .car_silence_miss_threshold = 3,
-        .reconnect_attempt_threshold = 2,
-        .reconnect_retry_period = 0,
+        .poll_timeout_ms = 10,
+        .car_silence_miss_threshold = 2,
+        .reconnect_initial_delay_ms = 20,
+        .reconnect_period_ms = 10,
+        .max_reconnect_attempts = 3,
     };
 }
 

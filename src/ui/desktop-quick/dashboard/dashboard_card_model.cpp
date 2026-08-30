@@ -1,0 +1,367 @@
+#include "src/ui/desktop-quick/dashboard/dashboard_card_model.h"
+
+#include <algorithm>
+#include <cmath>
+#include <utility>
+#include <vector>
+
+namespace fastecu::desktop_quick
+{
+namespace
+{
+
+struct ResolvedCard
+{
+    const dashboard::DashboardCard *card;
+    const dashboard::DashboardChannel *channel;
+    const dashboard::DashboardConversion *conversion;
+};
+
+} // namespace
+
+DashboardCardModel::DashboardCardModel(const dashboard::DashboardDocument& document, QObject *parent)
+    : QAbstractListModel(parent)
+{
+    std::unordered_map<std::string_view, const dashboard::DashboardChannel *> channels;
+    std::unordered_map<std::string, const dashboard::DashboardConversion *> conversions;
+    for (const dashboard::DashboardChannel& channel : document.channels)
+    {
+        channels.emplace(channel.id, &channel);
+        for (const dashboard::DashboardConversion& conversion : channel.conversions)
+        {
+            conversions.emplace(channel.id + "\x1f" + conversion.id, &conversion);
+        }
+    }
+
+    std::vector<ResolvedCard> cards;
+    cards.reserve(document.cards.size());
+    for (const dashboard::DashboardCard& card : document.cards)
+    {
+        const dashboard::DashboardChannel& channel = *channels.at(card.channel_id);
+        const dashboard::DashboardConversion& conversion =
+            *conversions.at(card.channel_id + "\x1f" + card.conversion_id);
+        cards.push_back({.card = &card, .channel = &channel, .conversion = &conversion});
+    }
+    std::stable_sort(cards.begin(), cards.end(), [](const ResolvedCard& left, const ResolvedCard& right)
+                     { return left.card->order < right.card->order; });
+
+    rows_.reserve(static_cast<qsizetype>(cards.size()));
+    for (const ResolvedCard& resolved : cards)
+    {
+        const dashboard::DashboardCard& card = *resolved.card;
+        const dashboard::DashboardChannel& channel = *resolved.channel;
+        const dashboard::DashboardConversion& conversion = *resolved.conversion;
+        const auto bounds = card.gauge_bounds.value_or(
+            dashboard::GaugeBoundsOverride{conversion.gauge_min, conversion.gauge_max, conversion.gauge_step});
+        rows_.push_back({.card_id = QString::fromStdString(card.id),
+                         .channel_id = QString::fromStdString(card.channel_id),
+                         .title = QString::fromStdString(card.title.value_or(channel.name)),
+                         .unit = QString::fromStdString(conversion.unit),
+                         .precision = conversion.precision,
+                         .display_type = displayTypeFor(card.display_type),
+                         .minimum_value = bounds.minimum,
+                         .maximum_value = bounds.maximum,
+                         .step_value = bounds.step,
+                         .sparkline_history_seconds = card.sparkline_history_seconds.value_or(0),
+                         .gap_threshold_ms = std::max<std::uint64_t>(
+                             100, static_cast<std::uint64_t>(document.connection.sampling_interval_ms) * 3)});
+        rows_by_channel_.emplace(card.channel_id, static_cast<int>(rows_.size() - 1));
+    }
+}
+
+int DashboardCardModel::rowCount(const QModelIndex& parent) const
+{
+    return parent.isValid() ? 0 : rows_.size();
+}
+
+QVariant DashboardCardModel::data(const QModelIndex& index, int role) const
+{
+    if (!index.isValid() || index.row() < 0 || index.row() >= rowCount())
+    {
+        return {};
+    }
+    const Row& row = rows_.at(index.row());
+    switch (role)
+    {
+    case CardIdRole:
+        return row.card_id;
+    case ChannelIdRole:
+        return row.channel_id;
+    case TitleRole:
+        return row.title;
+    case FormattedValueRole:
+        return row.has_reading ? QString::number(row.numeric_value, 'f', row.precision) : QStringLiteral("—");
+    case NumericValueRole:
+        return row.has_reading ? QVariant{row.numeric_value} : QVariant{};
+    case UnitRole:
+        return row.unit;
+    case PrecisionRole:
+        return row.precision;
+    case ReadingStateRole:
+        return QVariant::fromValue(row.reading_state);
+    case HasReadingRole:
+        return row.has_reading;
+    case LastUpdateAgeTextRole:
+        return ageText(row);
+    case DisplayTypeRole:
+        return QVariant::fromValue(row.display_type);
+    case MinimumValueRole:
+        return row.minimum_value;
+    case MaximumValueRole:
+        return row.maximum_value;
+    case StepValueRole:
+        return row.step_value;
+    case SparklineHistorySecondsRole:
+        return row.sparkline_history_seconds;
+    case SparklinePointsRole:
+    {
+        QVariantList points;
+        if (row.sparkline_points.isEmpty())
+        {
+            return points;
+        }
+        points.reserve(row.sparkline_points.size());
+        const std::uint64_t newest = row.sparkline_points.constLast().timestamp_ms;
+        for (const SparklinePoint& point : row.sparkline_points)
+        {
+            points.append(QVariantMap{
+                {QStringLiteral("elapsedMs"),
+                 static_cast<qlonglong>(point.timestamp_ms) - static_cast<qlonglong>(newest)},
+                {QStringLiteral("value"), point.value},
+                {QStringLiteral("startsSegment"), point.starts_segment},
+            });
+        }
+        return points;
+    }
+    default:
+        return {};
+    }
+}
+
+QHash<int, QByteArray> DashboardCardModel::roleNames() const
+{
+    return {
+        {CardIdRole, "cardId"},
+        {ChannelIdRole, "channelId"},
+        {TitleRole, "title"},
+        {FormattedValueRole, "formattedValue"},
+        {NumericValueRole, "numericValue"},
+        {UnitRole, "unit"},
+        {PrecisionRole, "precision"},
+        {ReadingStateRole, "readingState"},
+        {HasReadingRole, "hasReading"},
+        {LastUpdateAgeTextRole, "lastUpdateAgeText"},
+        {DisplayTypeRole, "displayType"},
+        {MinimumValueRole, "minimumValue"},
+        {MaximumValueRole, "maximumValue"},
+        {StepValueRole, "stepValue"},
+        {SparklineHistorySecondsRole, "sparklineHistorySeconds"},
+        {SparklinePointsRole, "sparklinePoints"},
+    };
+}
+
+DashboardCardModel::CardDisplayType DashboardCardModel::displayTypeFor(dashboard::CardDisplayType display_type)
+{
+    switch (display_type)
+    {
+    case dashboard::CardDisplayType::Numeric:
+        return CardDisplayType::Numeric;
+    case dashboard::CardDisplayType::Sparkline:
+        return CardDisplayType::Sparkline;
+    case dashboard::CardDisplayType::HorizontalGauge:
+        return CardDisplayType::HorizontalGauge;
+    }
+    std::unreachable();
+}
+
+void DashboardCardModel::applySamples(const QVector<logging::LogSample>& samples, std::uint64_t now_ms, bool running)
+{
+    QVector<ReceivedLogSample> received_samples;
+    received_samples.reserve(samples.size());
+    for (const logging::LogSample& sample : samples)
+    {
+        received_samples.push_back({.sample = sample, .received_at_ms = now_ms});
+    }
+    applySamples(received_samples, running);
+}
+
+void DashboardCardModel::applySamples(const QVector<ReceivedLogSample>& samples, bool running)
+{
+    QVector<QVector<int>> changed_roles(rows_.size());
+    for (const ReceivedLogSample& received : samples)
+    {
+        const logging::LogSample& sample = received.sample;
+        const auto it = rows_by_channel_.find(sample.channel_id);
+        if (it == rows_by_channel_.end() || !std::isfinite(sample.numeric_value))
+        {
+            continue;
+        }
+
+        Row& row = rows_[it->second];
+        QVector<int>& roles = changed_roles[it->second];
+        const bool has_reading = row.has_reading;
+        const double old_value = row.numeric_value;
+        const ReadingState old_state = row.reading_state;
+        const QString old_age_text = ageText(row);
+        row.numeric_value = sample.numeric_value;
+        row.last_update_ms = received.received_at_ms;
+        row.age_seconds = 0;
+        row.has_reading = true;
+        row.reading_state = running ? ReadingState::Live : ReadingState::Stale;
+        bool sparkline_changed = false;
+        if (row.display_type == CardDisplayType::Sparkline && row.sparkline_history_seconds > 0)
+        {
+            if (row.sparkline_points.isEmpty())
+            {
+                row.sparkline_points.append(
+                    {.timestamp_ms = received.received_at_ms, .value = sample.numeric_value, .starts_segment = true});
+                sparkline_changed = true;
+            }
+            else if (received.received_at_ms == row.sparkline_points.constLast().timestamp_ms)
+            {
+                if (row.sparkline_points.constLast().value != sample.numeric_value)
+                {
+                    row.sparkline_points.last().value = sample.numeric_value;
+                    sparkline_changed = true;
+                }
+            }
+            else if (received.received_at_ms > row.sparkline_points.constLast().timestamp_ms)
+            {
+                const bool starts_segment =
+                    received.received_at_ms - row.sparkline_points.constLast().timestamp_ms > row.gap_threshold_ms;
+                row.sparkline_points.append({.timestamp_ms = received.received_at_ms,
+                                             .value = sample.numeric_value,
+                                             .starts_segment = starts_segment});
+                const std::uint64_t duration_ms = static_cast<std::uint64_t>(row.sparkline_history_seconds) * 1000;
+                while (!row.sparkline_points.isEmpty() &&
+                       row.sparkline_points.constFirst().timestamp_ms + duration_ms < received.received_at_ms)
+                {
+                    row.sparkline_points.removeFirst();
+                }
+                row.sparkline_points.first().starts_segment = true;
+                sparkline_changed = true;
+            }
+        }
+        if (!has_reading || old_value != row.numeric_value)
+        {
+            roles.append(FormattedValueRole);
+            roles.append(NumericValueRole);
+        }
+        if (old_state != row.reading_state)
+        {
+            roles.append(ReadingStateRole);
+        }
+        if (!has_reading)
+        {
+            roles.append(HasReadingRole);
+        }
+        if (old_age_text != ageText(row))
+        {
+            roles.append(LastUpdateAgeTextRole);
+        }
+        if (sparkline_changed)
+        {
+            roles.append(SparklinePointsRole);
+        }
+    }
+
+    notifyChangedRows(changed_roles);
+}
+
+void DashboardCardModel::clearSparklineHistories()
+{
+    QVector<QVector<int>> changed_roles(rows_.size());
+    for (int row_index = 0; row_index < rowCount(); ++row_index)
+    {
+        Row& row = rows_[row_index];
+        if (row.sparkline_points.isEmpty())
+        {
+            continue;
+        }
+        row.sparkline_points.clear();
+        changed_roles[row_index] = {SparklinePointsRole};
+    }
+    notifyChangedRows(changed_roles);
+}
+
+void DashboardCardModel::markReceivedRowsStale()
+{
+    QVector<QVector<int>> changed_roles(rows_.size());
+    for (int row_index = 0; row_index < rowCount(); ++row_index)
+    {
+        Row& row = rows_[row_index];
+        if (!row.has_reading || row.reading_state == ReadingState::Stale)
+        {
+            continue;
+        }
+        row.reading_state = ReadingState::Stale;
+        changed_roles[row_index] = {ReadingStateRole};
+    }
+    notifyChangedRows(changed_roles);
+}
+
+void DashboardCardModel::updateAges(std::uint64_t now_ms)
+{
+    QVector<QVector<int>> changed_roles(rows_.size());
+    for (int row_index = 0; row_index < rowCount(); ++row_index)
+    {
+        Row& row = rows_[row_index];
+        if (!row.has_reading || now_ms < row.last_update_ms)
+        {
+            continue;
+        }
+        const std::uint64_t age_seconds = (now_ms - row.last_update_ms) / 1000;
+        if (age_seconds <= row.age_seconds)
+        {
+            continue;
+        }
+        row.age_seconds = age_seconds;
+        changed_roles[row_index] = {LastUpdateAgeTextRole};
+    }
+    notifyChangedRows(changed_roles);
+}
+
+bool DashboardCardModel::hasReceivedRows() const
+{
+    return std::any_of(rows_.cbegin(), rows_.cend(), [](const Row& row) { return row.has_reading; });
+}
+
+bool DashboardCardModel::containsChannel(std::string_view channel_id) const
+{
+    return rows_by_channel_.contains(std::string(channel_id));
+}
+
+void DashboardCardModel::notifyChangedRows(const QVector<QVector<int>>& roles_by_row)
+{
+    for (int first_row = 0; first_row < roles_by_row.size();)
+    {
+        if (roles_by_row[first_row].isEmpty())
+        {
+            ++first_row;
+            continue;
+        }
+
+        int last_row = first_row;
+        QVector<int> distinct_roles;
+        while (last_row < roles_by_row.size() && !roles_by_row[last_row].isEmpty())
+        {
+            for (const int role : roles_by_row[last_row])
+            {
+                if (!distinct_roles.contains(role))
+                {
+                    distinct_roles.append(role);
+                }
+            }
+            ++last_row;
+        }
+        emit dataChanged(index(first_row, 0), index(last_row - 1, 0), distinct_roles);
+        first_row = last_row;
+    }
+}
+
+QString DashboardCardModel::ageText(const Row& row) const
+{
+    return row.has_reading ? QStringLiteral("Last update %1s ago").arg(row.age_seconds) : QString{};
+}
+
+} // namespace fastecu::desktop_quick

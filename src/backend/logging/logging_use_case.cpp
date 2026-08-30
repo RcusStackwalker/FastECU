@@ -1,5 +1,9 @@
 #include "src/backend/logging/logging_use_case.h"
 
+#include <cstdint>
+#include <limits>
+#include <optional>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -34,13 +38,33 @@ class StopGuard
     fastecu::IEventSink& diagnostics_;
 };
 
-bool reconnect_due(const LoggingPolicy& policy, int consecutive_misses)
+struct MonotonicDeadline
 {
-    return policy.reconnect_retry_period > 0 && consecutive_misses >= policy.reconnect_attempt_threshold &&
-           (consecutive_misses - policy.reconnect_attempt_threshold) % policy.reconnect_retry_period == 0;
+    std::uint64_t at_ms;
+    bool reachable;
+};
+
+MonotonicDeadline saturated_deadline(std::uint64_t base, std::uint64_t delta)
+{
+    const auto max = std::numeric_limits<std::uint64_t>::max();
+    if (delta > max - base)
+    {
+        return {.at_ms = max, .reachable = false};
+    }
+    return {.at_ms = base + delta, .reachable = true};
 }
 
 } // namespace
+
+bool detail::record_silent_miss(int& consecutive_misses, int threshold)
+{
+    if (consecutive_misses >= threshold)
+    {
+        return false;
+    }
+    ++consecutive_misses;
+    return consecutive_misses == threshold;
+}
 
 fastecu::Status LoggingUseCase::run(const LoggingSession& session, LoggingProtocol& protocol,
                                     const fastecu::ICancellationToken& cancellation, ILoggingEventSink& events,
@@ -60,6 +84,9 @@ fastecu::Status LoggingUseCase::run(const LoggingSession& session, LoggingProtoc
     events.state_changed(LoggingState::Running);
     LoggingState last_state = LoggingState::Running;
     int consecutive_misses = 0;
+    std::uint32_t reconnect_attempts = 0;
+    std::optional<MonotonicDeadline> reconnect_deadline;
+    std::string last_retry_failure_detail;
 
     while (!cancellation.cancelled())
     {
@@ -75,11 +102,9 @@ fastecu::Status LoggingUseCase::run(const LoggingSession& session, LoggingProtoc
 
         if (poll_result->responded)
         {
-            consecutive_misses = 0;
-            if (last_state != LoggingState::Running)
+            if (poll_result->samples.empty())
             {
-                last_state = LoggingState::Running;
-                events.state_changed(LoggingState::Running);
+                continue;
             }
 
             std::vector<LogSample> converted;
@@ -93,35 +118,55 @@ fastecu::Status LoggingUseCase::run(const LoggingSession& session, LoggingProtoc
                 }
                 converted.push_back(std::move(*sample));
             }
+
+            consecutive_misses = 0;
+            reconnect_attempts = 0;
+            reconnect_deadline.reset();
+            last_retry_failure_detail.clear();
+            if (last_state != LoggingState::Running)
+            {
+                last_state = LoggingState::Running;
+                events.state_changed(LoggingState::Running);
+            }
             events.samples(converted);
             continue;
         }
 
-        ++consecutive_misses;
-        if (consecutive_misses == session.policy().car_silence_miss_threshold)
+        if (detail::record_silent_miss(consecutive_misses, session.policy().car_silence_miss_threshold))
         {
             last_state = LoggingState::CarNotResponding;
             events.state_changed(LoggingState::CarNotResponding);
+            reconnect_deadline = saturated_deadline(
+                clock_.now_ms(), static_cast<std::uint64_t>(session.policy().reconnect_initial_delay_ms));
         }
 
-        if (!reconnect_due(session.policy(), consecutive_misses))
+        if (!reconnect_deadline || !reconnect_deadline->reachable || clock_.now_ms() < reconnect_deadline->at_ms)
         {
             continue;
         }
 
+        if (session.policy().max_reconnect_attempts && reconnect_attempts >= *session.policy().max_reconnect_attempts)
+        {
+            if (!last_retry_failure_detail.empty())
+            {
+                diagnostics.log(fastecu::LogLevel::Error, last_retry_failure_detail);
+            }
+            return fastecu::fail(fastecu::ErrorKind::BadResponse, "logging reconnect attempts exhausted");
+        }
+
         const fastecu::Status reconnected = protocol.start(cancellation);
+        ++reconnect_attempts;
+        reconnect_deadline =
+            saturated_deadline(clock_.now_ms(), static_cast<std::uint64_t>(session.policy().reconnect_period_ms));
         if (!reconnected)
         {
             if (reconnected.error().kind != fastecu::ErrorKind::BadResponse)
             {
                 return std::unexpected(reconnected.error());
             }
+            last_retry_failure_detail = reconnected.error().detail;
             continue;
         }
-
-        consecutive_misses = 0;
-        last_state = LoggingState::Running;
-        events.state_changed(LoggingState::Running);
     }
 
     return fastecu::fail(fastecu::ErrorKind::Cancelled, "logging cancelled");

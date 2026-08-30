@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<omnihaste-dashboard format-version="1">
+    <metadata name="Colt CDBG Dashboard" description="Mitsubishi Colt CDBG dashboard"/>
+    <connection protocol="cdbg" transport="raw-can" bitrate="500000" identifier-width="11" request-id="0x630" reply-id="0x631" stream-instance="0" sampling-interval-ms="50">
+        <retry poll-timeout-ms="100" silence-threshold="3" reconnect-attempts="3" reconnect-period-ms="250"/>
+    </connection>
+    <channels>
+        <channel id="CDBG_ENGINE_RPM" name="Engine RPM" description="engine_rpm uint16, 1000 rpm / 256" address="0x804cfc" length="2" raw-assembly="unsigned-integer-decimal">
+            <conversion id="default" expression="x*1000/256" unit="rpm" precision="0" gauge-min="0" gauge-max="8000" gauge-step="500"/>
+        </channel>
+        <channel id="CDBG_ECU_LOAD" name="ECU Load" description="ecu_load uint16, 10 percent / 32" address="0x804d2a" length="2" raw-assembly="unsigned-integer-decimal">
+            <conversion id="default" expression="x*10/32" unit="%" precision="1" gauge-min="0" gauge-max="300" gauge-step="10"/>
+        </channel>
+        <channel id="CDBG_KNOCK_SUM" name="Knock Sum" description="knock_sum raw uint16" address="0x804fbe" length="2" raw-assembly="unsigned-integer-decimal">
+            <conversion id="default" expression="x" unit="raw" precision="0" gauge-min="0" gauge-max="65535" gauge-step="1"/>
+        </channel>
+        <channel id="CDBG_COIL_DWELL_OPTIMAL_RPM_X_POWER" name="Coil Dwell Optimal RPM x Power" description="coil_dwell_optimal_rpm_x_power raw uint16" address="0x804f9c" length="2" raw-assembly="unsigned-integer-decimal">
+            <conversion id="default" expression="x" unit="raw" precision="0" gauge-min="0" gauge-max="65535" gauge-step="1024"/>
+        </channel>
+    </channels>
+    <cards>
+        <card id="engine-rpm" channel-id="CDBG_ENGINE_RPM" conversion-id="default" display-type="numeric" title="Engine RPM" order="0"/>
+        <card id="ecu-load" channel-id="CDBG_ECU_LOAD" conversion-id="default" display-type="horizontal-gauge" title="ECU Load" order="1" gauge-min="0" gauge-max="100" gauge-step="10"/>
+        <card id="knock-sum" channel-id="CDBG_KNOCK_SUM" conversion-id="default" display-type="sparkline" title="Knock Sum" order="2" sparkline-history-seconds="30"/>
+        <card id="coil-dwell-optimal-rpm-x-power" channel-id="CDBG_COIL_DWELL_OPTIMAL_RPM_X_POWER" conversion-id="default" display-type="numeric" title="Coil Dwell Optimal RPM x Power" order="3"/>
+    </cards>
+</omnihaste-dashboard>

@@ -5,6 +5,7 @@
 #include <chrono>
 
 #include "src/backend/logging/testing/scripted_logging_protocol.h"
+#include "src/backend/ports/testing/fake_clock.h"
 #include "src/platform/desktop/common/logging/logging_worker.h"
 
 namespace fastecu::desktop::logging
@@ -31,8 +32,9 @@ class NullDiagnostics final : public fastecu::IEventSink
 
 LoggingSession session(LoggingPolicy policy = {.poll_timeout_ms = 5,
                                                .car_silence_miss_threshold = 2,
-                                               .reconnect_attempt_threshold = 1000,
-                                               .reconnect_retry_period = 0})
+                                               .reconnect_initial_delay_ms = 1000000,
+                                               .reconnect_period_ms = 1000,
+                                               .max_reconnect_attempts = std::nullopt})
 {
     auto result = make_logging_session(LoggingProtocolId::Ssm,
                                        {LoggingChannel{.id = "rpm",
@@ -61,8 +63,9 @@ class TestLoggingWorker : public QObject
         protocol.queuePollResult(PollData{.responded = false});
         protocol.queuePollResult(
             PollData{.responded = true, .samples = {ProtocolSample{.channel_id = "rpm", .raw_value = "1234"}}});
+        fastecu::FakeClock clock;
         NullDiagnostics diagnostics;
-        LoggingWorker worker(session(), &protocol, diagnostics);
+        LoggingWorker worker(session(), &protocol, clock, diagnostics);
         QSignalSpy state_spy(&worker, &LoggingWorker::stateChanged);
         QSignalSpy samples_spy(&worker, &LoggingWorker::samplesReady);
         QSignalSpy finished_spy(&worker, &LoggingWorker::sessionFinished);
@@ -97,8 +100,9 @@ class TestLoggingWorker : public QObject
     {
         ScriptedLoggingProtocol protocol;
         protocol.queueStartResult(fastecu::fail(fastecu::ErrorKind::BadResponse, "handshake rejected"));
+        fastecu::FakeClock clock;
         NullDiagnostics diagnostics;
-        LoggingWorker worker(session(), &protocol, diagnostics);
+        LoggingWorker worker(session(), &protocol, clock, diagnostics);
         QSignalSpy finished_spy(&worker, &LoggingWorker::sessionFinished);
 
         worker.start();
@@ -118,11 +122,12 @@ class TestLoggingWorker : public QObject
         ScriptedLoggingProtocol protocol;
         protocol.queueStartResult({});
         protocol.blockPollUntilCancelled();
+        fastecu::FakeClock clock;
         NullDiagnostics diagnostics;
         QElapsedTimer elapsed;
         elapsed.start();
         {
-            LoggingWorker worker(session(), &protocol, diagnostics);
+            LoggingWorker worker(session(), &protocol, clock, diagnostics);
             worker.start();
             QVERIFY(protocol.waitUntilPollEntered(std::chrono::milliseconds(500)));
         }

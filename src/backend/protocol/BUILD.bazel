@@ -30,11 +30,28 @@ cc_library(
         "transport_legacy_compat.h",
     ],
     deps = [
+        ":cdbg_protocol_config",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/colt:mitsu_colt_can_cdbg_protocol",
         "//src/algorithms/protocol/mut_dma",
         "//src/backend/ports",
     ],
+)
+
+cc_library(
+    name = "cdbg_protocol_config",
+    srcs = ["cdbg_protocol_config.cpp"],
+    hdrs = ["cdbg_protocol_config.h"],
+    deps = [
+        "//src/algorithms/protocol/colt:mitsu_colt_can_cdbg_protocol",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "cdbg_protocol_config_test",
+    srcs = ["cdbg_protocol_config_test.cpp"],
+    deps = [":cdbg_protocol_config"],
 )
 
 fastecu_portable_gtest(
@@ -73,6 +90,7 @@ fastecu_portable_gtest(
     name = "test_cdbg_driver",
     srcs = ["cdbg_driver_test.cpp"],
     deps = [
+        ":cdbg_protocol_config",
         ":protocol",
         "//src/algorithms/protocol/testing:byte_test_utils",
         "//src/backend/ports/testing:fake_cancellation_token",

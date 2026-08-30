@@ -45,7 +45,11 @@ PORTABLE_ROOTS = {
         "logger_definition_service",
     },
     ROOT / "src/backend/logging/protocols": {"protocols"},
-    ROOT / "src/backend/protocol": {"protocol"},
+    ROOT / "src/backend/protocol": {
+        "protocol",
+        "cdbg_protocol_config",
+        "cdbg_protocol_config_test",
+    },
     ROOT / "src/backend/protocol/uds": {"uds_client"},
     ROOT / "src/backend/flash": {
         "flash_types",
@@ -105,6 +109,16 @@ PORTABLE_ROOTS = {
         "text_format",
     },
     ROOT / "src/backend/calibration": {"calibration_service"},
+    ROOT / "src/backend/dashboard": {
+        "dashboard_document",
+        "dashboard_validation",
+        "dashboard_xml_validation",
+        "dashboard_codec",
+        "legacy_cdbg_catalog_importer",
+        "dashboard_document_service",
+        "dashboard_session_builder",
+        "dashboard_session_builder_test",
+    },
 }
 
 FORBIDDEN = (
@@ -176,7 +190,7 @@ def read_genquery_output():
 
 
 def portable_targets(text):
-    """Yield (name, body) for every cc_library whose name lacks a qt_compat suffix.
+    """Yield portable library and test targets whose names lack a qt_compat suffix.
 
     The `(?<!\\w)` lookbehind keeps this from matching inside `qt_cc_library(`
     -- "cc_library(" is a substring of "qt_cc_library(", so without it this
@@ -184,7 +198,10 @@ def portable_targets(text):
     with the new flash/eeprom portable targets as portable cc_library rules.
     """
     for m in re.finditer(
-        r'(?<!\w)cc_library\(\s*name = "(?P<name>[^"]+)",(?P<body>.*?)\n\)', text, re.S
+        r'(?<!\w)(?:cc_library|fastecu_portable_gtest)\(\s*name = "(?P<name>[^"]+)",'
+        r"(?P<body>.*?)\n\)",
+        text,
+        re.S,
     ):
         if m.group("name").endswith("qt_compat"):
             continue

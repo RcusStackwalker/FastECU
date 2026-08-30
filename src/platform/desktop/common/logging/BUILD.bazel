@@ -3,7 +3,9 @@ load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_
 
 package(default_visibility = [
     "//apps/desktop:__pkg__",
+    "//apps/desktop-quick:__pkg__",
     "//src/platform:__subpackages__",
+    "//src/ui/desktop-quick:__pkg__",
     "//tests:__pkg__",
     # GRANDFATHERED (Task 5 human decision): //src/ui/desktop includes
     # systemlogger.h directly (mainwindow.h:95). This is a real ui ->
@@ -32,7 +34,6 @@ fastecu_qttest(
     name = "test_logging_engine",
     src = "logging_engine_test.cpp",
     deps = [
-        ":logging_adapters",
         ":logging_runtime",
         "//src/backend/logging/testing:scripted_logging_protocol",
     ],
@@ -44,13 +45,75 @@ fastecu_qttest(
     deps = [
         ":logging_runtime",
         "//src/backend/logging/testing:scripted_logging_protocol",
+        "//src/backend/ports/testing:fake_clock",
+    ],
+)
+
+fastecu_gtest(
+    name = "test_legacy_logging_protocol_factory",
+    srcs = ["legacy_logging_protocol_factory_test.cpp"],
+    deps = [":legacy_logging_compat"],
+)
+
+fastecu_gtest(
+    name = "test_cdbg_serial_setup",
+    srcs = ["cdbg_serial_setup_test.cpp"],
+    deps = [
+        ":legacy_logging_compat",
+        "//src/algorithms/protocol/colt:mitsu_colt_can_cdbg_protocol",
+    ],
+)
+
+fastecu_qttest(
+    name = "test_legacy_logging_coordinator",
+    src = "legacy_logging_coordinator_test.cpp",
+    deps = [":legacy_logging_coordinator"],
+)
+
+qt_cc_library(
+    name = "legacy_logging_coordinator",
+    srcs = ["legacy_logging_coordinator.cpp"],
+    hdrs = ["legacy_logging_coordinator.h"],
+    copts = COMMON_COPTS,
+    deps = QT_DEPS + [
+        ":legacy_logging_compat",
+        ":logging_adapters",
+        ":logging_runtime",
+        "//src/backend/definitions",
+        "//src/backend/ports",
+    ],
+)
+
+qt_cc_library(
+    name = "legacy_logging_compat",
+    srcs = [
+        "cdbg_serial_setup.cpp",
+        "legacy_logging_protocol_factory.cpp",
+    ],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = [
+        "cdbg_serial_setup.h",
+        "legacy_logging_protocol_factory.h",
+    ],
+    deps = QT_DEPS + [
+        ":logging_adapters",
+        ":logging_runtime",
+        "//src/algorithms/protocol/colt:mitsu_colt_can_cdbg_protocol",
+        "//src/backend/dashboard:dashboard_document",
+        "//src/backend/logging/protocols",
+        "//src/backend/ports",
+        "//src/backend/protocol",
+        "//src/backend/protocol:cdbg_protocol_config",
+        "//src/platform/desktop/common/ports",
+        "//src/platform/desktop/common/serial:serial_platform_api",
+        "//src/platform/desktop/common/transport",
     ],
 )
 
 qt_cc_library(
     name = "logging_runtime",
     srcs = [
-        "cdbg_serial_setup.cpp",
         "logging_engine.cpp",
         "logging_worker.cpp",
     ],
@@ -59,11 +122,7 @@ qt_cc_library(
         "logging_worker.h",
     ],
     copts = COMMON_COPTS,
-    normal_hdrs = [
-        "cdbg_serial_setup.h",
-    ],
     deps = QT_DEPS + [
-        ":logging_adapters",
         "//src/backend/logging:logging_use_case",
         "//src/backend/ports",
         "//src/platform/desktop/common/ports",

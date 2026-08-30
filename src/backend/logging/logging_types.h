@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 
 namespace fastecu::logging
@@ -35,8 +36,9 @@ struct LoggingPolicy
 {
     int poll_timeout_ms;
     int car_silence_miss_threshold;
-    int reconnect_attempt_threshold;
-    int reconnect_retry_period;
+    int reconnect_initial_delay_ms;
+    int reconnect_period_ms;
+    std::optional<std::uint32_t> max_reconnect_attempts;
 };
 
 struct ProtocolSample

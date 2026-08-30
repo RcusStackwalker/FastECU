@@ -3,9 +3,21 @@
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <exception>
+#include <utility>
 
 namespace cdbg
 {
+
+FastEcuCanTransport::FastEcuCanTransport(SerialPortActions *serial) : serial_(serial)
+{
+}
+
+FastEcuCanTransport::FastEcuCanTransport(std::unique_ptr<SerialPortActions> serial)
+    : owned_serial_(std::move(serial)), serial_(owned_serial_.get())
+{
+}
+
+FastEcuCanTransport::~FastEcuCanTransport() = default;
 
 fastecu::Result<std::size_t> FastEcuCanTransport::write(std::uint32_t canId, bytes::ByteView payload)
 {

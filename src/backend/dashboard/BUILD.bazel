@@ -1,0 +1,139 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//:__pkg__"],
+)
+
+cc_library(
+    name = "dashboard_document",
+    hdrs = ["dashboard_document.h"],
+)
+
+cc_library(
+    name = "dashboard_validation",
+    srcs = ["dashboard_validation.cpp"],
+    hdrs = ["dashboard_validation.h"],
+    deps = [
+        ":dashboard_document",
+        "//src/backend/logging:logging_session",
+        "//src/backend/ports",
+        "//src/backend/protocol:cdbg_protocol_config",
+    ],
+)
+
+cc_library(
+    name = "dashboard_xml_validation",
+    srcs = ["dashboard_xml_validation.cpp"],
+    hdrs = ["dashboard_xml_validation.h"],
+    deps = [
+        ":dashboard_document",
+        "//src/algorithms/protocol",
+        "//src/backend/ports",
+        "@pugixml",
+    ],
+)
+
+cc_library(
+    name = "dashboard_codec",
+    srcs = ["dashboard_codec.cpp"],
+    hdrs = ["dashboard_codec.h"],
+    deps = [
+        ":dashboard_document",
+        ":dashboard_validation",
+        ":dashboard_xml_validation",
+        "//src/algorithms/protocol",
+        "//src/backend/ports",
+        "@pugixml",
+    ],
+)
+
+cc_library(
+    name = "legacy_cdbg_catalog_importer",
+    srcs = ["legacy_cdbg_catalog_importer.cpp"],
+    hdrs = ["legacy_cdbg_catalog_importer.h"],
+    deps = [
+        ":dashboard_document",
+        ":dashboard_validation",
+        ":dashboard_xml_validation",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/colt:mitsu_colt_can_cdbg_protocol",
+        "//src/backend/ports",
+        "@pugixml",
+    ],
+)
+
+cc_library(
+    name = "dashboard_document_service",
+    srcs = ["dashboard_document_service.cpp"],
+    hdrs = ["dashboard_document_service.h"],
+    deps = [
+        ":dashboard_codec",
+        ":legacy_cdbg_catalog_importer",
+        "//src/backend/ports",
+    ],
+)
+
+cc_library(
+    name = "dashboard_session_builder",
+    srcs = ["dashboard_session_builder.cpp"],
+    hdrs = ["dashboard_session_builder.h"],
+    deps = [
+        ":dashboard_document",
+        ":dashboard_validation",
+        "//src/backend/logging:logging_session",
+        "//src/backend/ports",
+        "//src/backend/protocol:cdbg_protocol_config",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "dashboard_validation_test",
+    srcs = [
+        "dashboard_validation_test.cpp",
+        "test_fixtures.h",
+    ],
+    deps = [":dashboard_validation"],
+)
+
+fastecu_portable_gtest(
+    name = "dashboard_codec_test",
+    srcs = [
+        "dashboard_codec_test.cpp",
+        "test_fixtures.h",
+    ],
+    deps = [":dashboard_codec"],
+)
+
+fastecu_portable_gtest(
+    name = "legacy_cdbg_catalog_importer_test",
+    srcs = ["legacy_cdbg_catalog_importer_test.cpp"],
+    data = ["//resources/shared:config/logger_cdbg_example.xml"],
+    env = {"CDBG_CATALOG_PATH": "$(location //resources/shared:config/logger_cdbg_example.xml)"},
+    deps = [":legacy_cdbg_catalog_importer"],
+)
+
+fastecu_portable_gtest(
+    name = "dashboard_document_service_test",
+    srcs = [
+        "dashboard_document_service_test.cpp",
+        "test_fixtures.h",
+    ],
+    deps = [
+        ":dashboard_document_service",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/ports/testing:in_memory_file_repository",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "dashboard_session_builder_test",
+    srcs = [
+        "dashboard_session_builder_test.cpp",
+        "test_fixtures.h",
+    ],
+    deps = [":dashboard_session_builder"],
+)

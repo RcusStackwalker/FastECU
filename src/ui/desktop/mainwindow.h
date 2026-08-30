@@ -1,7 +1,6 @@
 #pragma once
 
 #include <memory>
-#include <optional>
 
 // Exit application with this code to restart it instead of quitting:
 // qApp->exit(RESTART_CODE)
@@ -85,24 +84,15 @@
 
 #include "src/platform/desktop/common/remote_utility/remote_utility.h"
 
-// Mitsubishi MUT/DMA protocol core (namespace mutdma)
-#include "src/backend/protocol/mut_dma_driver.h"
-#include "src/platform/desktop/common/transport/fastecu_kline_transport.h"
 #include "src/backend/protocol/imut_dma_init.h"
-#include "src/backend/protocol/mitsu_colt_can_cdbg_driver.h"
-#include "src/platform/desktop/common/transport/fastecu_can_transport.h"
-#include "src/backend/logging/protocols/portable_ssm_logging_protocol.h"
-#include "src/backend/logging/protocols/portable_mut_dma_logging_protocol.h"
-#include "src/backend/logging/protocols/portable_cdbg_logging_protocol.h"
-#include "src/platform/desktop/common/logging/logging_engine.h"
-#include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
-#include "src/platform/desktop/common/logging/logging_value_adapter.h"
+#include "src/backend/protocol/mut_dma_driver.h"
+#include "src/platform/desktop/common/logging/legacy_logging_coordinator.h"
 #include "src/platform/desktop/common/ports/qt_clock.h"
 #include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
 #include "src/platform/desktop/common/ports/qt_resource_bundle.h"
-#include "src/platform/desktop/common/transport/fastecu_ssm_transport.h"
+#include "src/platform/desktop/common/transport/fastecu_kline_transport.h"
 
 // Forward declaration
 class SerialPortActions;
@@ -194,7 +184,7 @@ class MainWindow : public QMainWindow
     QtAtomicFileWriter m_definitionFileWriter;
     fastecu::ui::ChecksumCorrectionCommand m_checksumCorrectionCommand;
     FileActions *fileActions;
-    FileActions::LogValuesStructure *logValues;
+    FileActions::LogValuesStructure *logValues = nullptr;
     FileActions::ConfigValuesStructure *configValues;
     FileActions::EcuCalDefStructure *ecuCalDef[100]{};
     // FileActions::EcuCalDefStructure *ecuCalDefTemp;
@@ -252,10 +242,10 @@ class MainWindow : public QMainWindow
     // QTimer *ssm_init_poll_timer;
     uint16_t ssm_init_poll_timer_timeout = 250;
 
-    fastecu::desktop::logging::LoggingEngine *loggingEngine = nullptr;
-    std::optional<fastecu::desktop::logging::DesktopLoggingSnapshot> activeLoggingSnapshot;
+    std::unique_ptr<fastecu::desktop::logging::LoggingEngine> loggingEngine;
+    std::unique_ptr<fastecu::desktop::logging::LegacyLoggingProtocolFactory> loggingProtocolFactory;
+    std::unique_ptr<fastecu::desktop::logging::LegacyLoggingCoordinator> loggingCoordinator;
     QtClock m_loggingClock;
-    QString activeLogValueProtocolFilter;
 
     LogBox *logBoxes;
 
@@ -319,7 +309,7 @@ class MainWindow : public QMainWindow
     bool mut_write_memory(quint16 addr, const QByteArray& bytes);
     QByteArray mut_read_memory(quint16 addr, int len);
 
-    void setupLoggingEngine();
+    void setupLoggingCoordinator();
     void restoreLoggingUiState();
 
     // logvalues.c
@@ -393,7 +383,6 @@ class MainWindow : public QMainWindow
 
     // log_operations.c
     bool ecu_init();
-    void handleLoggingValuesUpdated(const QVector<fastecu::logging::LogSample>& samples);
     void handleLoggingSessionEnded(fastecu::desktop::logging::SessionEndReason reason, const QString& message);
 
     // menu_actions.c

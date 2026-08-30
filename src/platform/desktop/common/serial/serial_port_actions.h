@@ -179,6 +179,7 @@ class SerialPortActions : public QObject
 
     QStringList check_serial_ports(void);
     QString open_serial_port(void);
+    J2534RawCanOpenResult open_j2534_raw_can_checked(void);
 
     QString parse_message_to_hex(const QByteArray& received);
 
