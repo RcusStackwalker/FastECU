@@ -204,12 +204,17 @@ Status DashboardDocumentController::saveAs(std::string_view handle)
 
 Status DashboardDocumentController::restoreRecentDocument()
 {
+    const QString operation = QStringLiteral("Restore recent dashboard");
+    if (Status editable = requireEditingEnabled(operation); !editable.has_value())
+    {
+        return editable;
+    }
     const std::optional<std::string> recent = settings_.get(recentPathKey);
     if (!recent.has_value())
     {
         return {};
     }
-    return openDocument(*recent, QStringLiteral("Restore recent dashboard"));
+    return openDocument(*recent, operation);
 }
 
 Status DashboardDocumentController::commitCandidate(dashboard::DashboardDocument candidate,

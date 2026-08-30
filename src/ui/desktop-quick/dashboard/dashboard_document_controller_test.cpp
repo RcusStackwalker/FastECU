@@ -345,12 +345,14 @@ class DashboardDocumentControllerTest : public QObject
         const ControllerState connected = state_of(harness_->controller);
         QVERIFY(before.editing_enabled);
         QVERIFY(!connected.editing_enabled);
+        harness_->settings.kv.erase(std::string(DashboardDocumentController::recentPathKey));
 
         const std::vector<Status> statuses = {
             harness_->controller.importDocument("logger.xml", import_defaults()),
             harness_->controller.openDocument("dashboard.ohd"),
             harness_->controller.save(),
             harness_->controller.saveAs("other.ohd"),
+            harness_->controller.restoreRecentDocument(),
             harness_->controller.commitCandidate(openable_document("Changed"), "rpm"),
         };
 
