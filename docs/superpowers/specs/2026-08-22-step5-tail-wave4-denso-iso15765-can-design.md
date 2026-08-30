@@ -176,7 +176,7 @@ Everything else that reads as common was inspected and **not** factored:
 | Session/SID/routine/format constants, in-car CAN ids | mostly | **Keep per-file.** `1n83m_4m` needs two extra reply ids, `sh72543d` needs a DID pair its siblings do not. Each file's constant block documents that family's own legacy line numbers; sharing it would strand those citations. |
 | `Ctx`, `info`/`error`, `kRejectionPrefix`, `exchange_context`, `fatal_request`, `fatal_query`, `non_fatal_query` | yes | **Keep per-file.** The shared logic is already extracted into `uds_client_exchange_common.h`; what remains is a per-file currying adapter. The identical shape spans nine executors in this package, not four — this cluster is not the right place to re-cut it. |
 | `setup_pdu` | yes | **Keep per-file.** Three lines wrapping `composeBe`; `sh72543d` computes its region where the others hardcode. Below the threshold where a shared target pays. |
-| `tolerant_probe` | no | **Guardrail: tolerance difference.** `1n83m_4m`'s copy documents three commented-out `return STATUS_ERROR`s; `sh72543d`'s reads with a different timeout. |
+| `tolerant_probe` | yes, as a shape | **Keep per-file.** Implements legacy's abort-on-absent/continue-past-a-wrong-reply probe pattern, common to all four families at their connect-side identity checks — not a divergence; the genuine tolerance difference is `tolerant_setup`'s four `read_memory` checks, below. `1n83m_4m` names it because the same shape repeats three times in its own `connect_bootloader`; `sh72543d`'s equivalent reads with a different timeout. Below the threshold where a shared cluster-wide target pays. |
 | `tolerant_setup` (`1n83m_4m` only) | no | **Guardrail: tolerance difference.** Exists in one family precisely because four returns are commented out there and live in the others. |
 | `jump_to_kernel` | no | **Guardrail: control-flow difference.** Three different signatures across the four (`discard_first_reply`, `duplicate_pre_loop_read`, `loop_timeout_ms`) encoding genuinely different read counts and timings. |
 | `security_access`, `fire_and_forget`, `connect_in_car`, `connect_bench`, `connect_bootloader` | no | **Guardrail.** Per-family timeouts, a different fire-and-forget PDU in `sh72531`, per-exchange timeouts in `sh72543d`, differing log strings. |
@@ -292,8 +292,8 @@ The four families index the write image as follows:
 
 | Family | Legacy indexing | `newdata` argument (`write_memory`'s call site) | Composed image base | Read image base |
 |---|---|---|---|---|
-| `1n83m_1_5m` | `newdata[i + blockaddr - fblocks[0].start]` | `&data_array[0]` (line 1142) | `0x08F9C000` | `0x08F9C000` |
-| `1n83m_4m` | `newdata[i + blockaddr - fblocks[0].start]` | `&data_array[0]` (line 1155) | `0x08F9C000` | `0x08F9C000` |
+| `1n83m_1_5m` | `newdata[i + blockaddr - fblocks[0].start]` | `&data_array[0]` (line 1141) | `0x08F9C000` | `0x08F9C000` |
+| `1n83m_4m` | `newdata[i + blockaddr - fblocks[0].start]` | `&data_array[0]` (line 1154) | `0x08F9C000` | `0x08F9C000` |
 | `sh72531` | `newdata[i + blockaddr]` | `&data_array[0]` | `0x0` | `0x0` |
 | `sh72543d` | `newdata[i + blockctr * blocksize]` | `&data_array[fblocks[0].start]` (line 1129) | `0x0` | `0x0` |
 
