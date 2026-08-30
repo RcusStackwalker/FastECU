@@ -38,7 +38,6 @@ REMAINING = {
     "ecu/flash_ecu_subaru_denso_sh7058_can_operation.cpp",
     "ecu/flash_ecu_subaru_denso_sh705x_densocan_operation.cpp",
     "ecu/flash_ecu_subaru_denso_sh705x_kline_operation.cpp",
-    "ecu/flash_ecu_subaru_denso_sh72531_can_operation.cpp",
     "ecu/flash_ecu_subaru_denso_sh72543_can_diesel_operation.cpp",
     "ecu/flash_ecu_subaru_hitachi_sh7058_can_operation.cpp",
     "ecu/flash_ecu_subaru_hitachi_sh72543r_can_operation.cpp",

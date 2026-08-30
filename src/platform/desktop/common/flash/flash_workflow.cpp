@@ -14,6 +14,8 @@
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_plan.h"
 #include "src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor.h"
 #include "src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_sh72531_can_executor.h"
+#include "src/backend/flash/ecu/subaru_denso_sh72531_can_plan.h"
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_executor.h"
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_plan.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7055_02_executor.h"
@@ -606,6 +608,8 @@ using SubaruTcuCvtMitsuMh8104CanWorkflow =
     SimpleCanFlashWorkflow<SubaruTcuCvtMitsuMh8104CanExecutor, &build_subaru_tcu_cvt_mitsu_mh8104_can_plan>;
 using SubaruDenso1n83m_1_5mCanWorkflow =
     SimpleCanFlashWorkflow<SubaruDenso1n83m_1_5mCanExecutor, &build_subaru_denso_1n83m_1_5m_can_plan>;
+using SubaruDensoSh72531CanWorkflow =
+    SimpleCanFlashWorkflow<SubaruDensoSh72531CanExecutor, &build_subaru_denso_sh72531_can_plan>;
 
 class EepromWorkflow final : public FlashWorkflow
 {
@@ -769,6 +773,7 @@ struct Route
         SubaruTcuCvtMitsuMh8111Can,
         SubaruTcuCvtMitsuMh8104Can,
         SubaruDenso1n83m_1_5mCan,
+        SubaruDensoSh72531Can,
         Unrouted,
     };
 
@@ -799,6 +804,7 @@ constexpr auto kRoutes = std::to_array<Route>({
     {"sub_tcu_cvt_mitsu_mh8111_can", SubaruTcuCvtMitsuMh8111Can},
     {"sub_tcu_cvt_mitsu_mh8104_can", SubaruTcuCvtMitsuMh8104Can},
     {"sub_ecu_denso_1n83m_1_5m_can", SubaruDenso1n83m_1_5mCan},
+    {"sub_ecu_denso_sh72531_can", SubaruDensoSh72531Can},
 });
 
 } // namespace
@@ -845,6 +851,8 @@ std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::tryCreate(FlashWorkflowRequ
         return std::make_unique<SubaruTcuCvtMitsuMh8104CanWorkflow>(std::move(request));
     case SubaruDenso1n83m_1_5mCan:
         return std::make_unique<SubaruDenso1n83m_1_5mCanWorkflow>(std::move(request));
+    case SubaruDensoSh72531Can:
+        return std::make_unique<SubaruDensoSh72531CanWorkflow>(std::move(request));
     case Unrouted:
         return nullptr;
     }
