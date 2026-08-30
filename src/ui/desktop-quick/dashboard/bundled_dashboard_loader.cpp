@@ -10,7 +10,7 @@ namespace fastecu::desktop_quick
 Result<dashboard::DashboardDocument> load_bundled_colt_dashboard(dashboard::DashboardDocumentService& service)
 {
     auto document = service.load(kBundledColtDashboardHandle);
-    if (!document)
+    if (!document.has_value())
     {
         return std::unexpected(document.error());
     }
@@ -24,7 +24,7 @@ Result<dashboard::DashboardDocument> load_bundled_colt_dashboard(dashboard::Dash
         }
     }
 
-    if (auto session = dashboard::prepare_dashboard_session(*document); !session)
+    if (auto session = dashboard::prepare_dashboard_session(*document); !session.has_value())
     {
         return std::unexpected(session.error());
     }

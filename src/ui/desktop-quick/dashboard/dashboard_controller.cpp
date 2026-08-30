@@ -28,10 +28,9 @@ DashboardController::DashboardController(dashboard::DashboardDocument document, 
 
 std::unique_ptr<DashboardController> DashboardController::fromLoadError(QString error_text, ILoggingEngine& engine,
                                                                         DashboardConnectionController& connection,
-                                                                        IClock& clock, QObject *parent)
+                                                                        IClock& clock)
 {
-    auto controller =
-        std::make_unique<DashboardController>(dashboard::DashboardDocument{}, engine, connection, clock, parent);
+    auto controller = std::make_unique<DashboardController>(dashboard::DashboardDocument{}, engine, connection, clock);
     controller->has_load_error_ = true;
     controller->load_error_text_ = std::move(error_text);
     return controller;

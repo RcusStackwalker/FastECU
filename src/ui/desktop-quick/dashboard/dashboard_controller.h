@@ -32,8 +32,7 @@ class DashboardController final : public QObject
                         DashboardConnectionController& connection, IClock& clock, QObject *parent = nullptr);
 
     static std::unique_ptr<DashboardController> fromLoadError(QString error_text, ILoggingEngine& engine,
-                                                              DashboardConnectionController& connection, IClock& clock,
-                                                              QObject *parent = nullptr);
+                                                              DashboardConnectionController& connection, IClock& clock);
 
     QAbstractItemModel *cards() const;
     QString dashboardTitle() const;

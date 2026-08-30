@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 
     std::unique_ptr<fastecu::desktop_quick::DashboardController> dashboard_presentation;
     auto loaded_document = fastecu::desktop_quick::load_bundled_colt_dashboard(document_service);
-    if (loaded_document)
+    if (loaded_document.has_value())
     {
         fastecu::dashboard::DashboardDocument document = std::move(*loaded_document);
         dashboard_connection.setDocument(document);

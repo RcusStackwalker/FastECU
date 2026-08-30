@@ -5,6 +5,7 @@
 
 #include <limits>
 #include <memory>
+#include <type_traits>
 #include <utility>
 
 #include "src/backend/ports/testing/fake_clock.h"
@@ -14,6 +15,10 @@ namespace fastecu::desktop_quick
 {
 namespace
 {
+
+using LoadErrorFactory = std::unique_ptr<DashboardController> (*)(QString, ILoggingEngine&,
+                                                                  DashboardConnectionController&, IClock&);
+static_assert(std::is_same_v<decltype(&DashboardController::fromLoadError), LoadErrorFactory>);
 
 logging::LogSample sample(const char *channel_id, double numeric_value)
 {

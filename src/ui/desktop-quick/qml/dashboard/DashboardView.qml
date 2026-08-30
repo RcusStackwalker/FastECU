@@ -18,15 +18,6 @@ ScrollView {
         spacing: 16
 
         Label {
-            objectName: "dashboardTitle"
-            text: dashboardView.presentation.dashboardTitle
-            color: "#f8fafc"
-            font.pixelSize: 28
-            font.bold: true
-            Layout.fillWidth: true
-        }
-
-        Label {
             objectName: "loadErrorText"
             visible: dashboardView.presentation.hasLoadError
             text: dashboardView.presentation.loadErrorText

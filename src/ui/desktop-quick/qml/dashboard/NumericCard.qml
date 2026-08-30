@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import OmniHaste.Dashboard 1.0
 
 Frame {
     id: card
@@ -13,18 +14,29 @@ Frame {
     required property int cardReadingState
     required property string cardLastUpdateAgeText
 
-    readonly property string stateText: cardReadingState === 1 ? qsTr("Live")
-                                                           : cardReadingState === 2 ? qsTr("Stale")
-                                                                            : qsTr("Waiting")
-    readonly property color valueColor: cardReadingState === 1 ? "#f8fafc"
-                                                               : cardReadingState === 2 ? "#fbbf24"
-                                                                                : "#94a3b8"
+    readonly property int waitingReadingState: DashboardCardModel.Waiting
+    readonly property int liveReadingState: DashboardCardModel.Live
+    readonly property int staleReadingState: DashboardCardModel.Stale
+    readonly property string stateText: {
+        if (cardReadingState === liveReadingState)
+            return qsTr("Live")
+        if (cardReadingState === staleReadingState)
+            return qsTr("Stale")
+        return qsTr("Waiting")
+    }
+    readonly property color valueColor: {
+        if (cardReadingState === liveReadingState)
+            return "#f8fafc"
+        if (cardReadingState === staleReadingState)
+            return "#fbbf24"
+        return "#94a3b8"
+    }
 
     Accessible.name: [cardTitleText, cardValueText, cardUnitText, stateText].join(" ")
 
     background: Rectangle {
-        color: card.cardReadingState === 2 ? "#3b2d12" : "#111827"
-        border.color: card.cardReadingState === 2 ? "#d97706" : "#334155"
+        color: card.cardReadingState === card.staleReadingState ? "#3b2d12" : "#111827"
+        border.color: card.cardReadingState === card.staleReadingState ? "#d97706" : "#334155"
         border.width: 1
         radius: 8
     }
@@ -75,7 +87,7 @@ Frame {
         Label {
             objectName: "cardAge"
             text: card.cardLastUpdateAgeText
-            visible: card.cardReadingState === 2 && text.length > 0
+            visible: card.cardReadingState === card.staleReadingState && text.length > 0
             color: "#fbbf24"
             font.pixelSize: 12
             horizontalAlignment: Text.AlignRight

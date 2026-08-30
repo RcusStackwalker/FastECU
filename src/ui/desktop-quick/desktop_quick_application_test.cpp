@@ -1,5 +1,6 @@
 #include "src/ui/desktop-quick/desktop_quick_application.h"
 
+#include <QAccessible>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickItem>
@@ -7,6 +8,7 @@
 #include <QString>
 #include <QtTest>
 
+#include <limits>
 #include <memory>
 #include <optional>
 #include <utility>
@@ -172,6 +174,11 @@ class FakeLoggingEngine final : public ILoggingEngine
         emit statusChanged(desktop::logging::LoggingStatus::Running);
     }
 
+    void publishSamples(QVector<logging::LogSample> samples)
+    {
+        emit valuesUpdated(std::move(samples));
+    }
+
     int start_calls = 0;
     int stop_calls = 0;
 };
@@ -314,6 +321,7 @@ class DesktopQuickApplicationTest : public QObject
 
         QObject *dashboard_load_error = application.find("loadErrorText");
         QVERIFY(dashboard_load_error != nullptr);
+        QCOMPARE(visual_children_named(dashboard_item, QStringLiteral("loadErrorText")).size(), 1);
         QCOMPARE(dashboard_load_error->property("visible").toBool(), true);
         QCOMPARE(dashboard_load_error->property("text").toString(), QStringLiteral("resource is malformed"));
 
@@ -322,41 +330,84 @@ class DesktopQuickApplicationTest : public QObject
         QCOMPARE(connect_button->property("enabled").toBool(), false);
     }
 
+    void rejectedSamplesReachApplicationDiagnosticLog()
+    {
+        LoadedApplication application;
+        QVERIFY(application.loaded);
+        QTest::ignoreMessage(QtWarningMsg, "Ignored sample for unknown dashboard channel 'unknown'");
+        QTest::ignoreMessage(QtWarningMsg, "Ignored non-finite sample for dashboard channel 'CDBG_ENGINE_RPM'");
+
+        application.logging.publishSamples(
+            {sample("unknown", 42.0), sample("CDBG_ENGINE_RPM", std::numeric_limits<double>::infinity())});
+    }
+
     void dashboardRendersCardsInModelOrderAndRetainsReadingsAcrossStates()
     {
         LoadedApplication application;
         QVERIFY(application.loaded);
+        QObject *dashboard_header = application.find("dashboardHeader");
+        QVERIFY(dashboard_header != nullptr);
+        auto *dashboard_header_item = qobject_cast<QQuickItem *>(dashboard_header);
+        QVERIFY(dashboard_header_item != nullptr);
         QObject *dashboard_title = application.find("dashboardTitle");
         QVERIFY(dashboard_title != nullptr);
         QCOMPARE(dashboard_title->property("text").toString(), QStringLiteral("Engine dashboard"));
+        QCOMPARE(visual_children_named(dashboard_header_item, QStringLiteral("dashboardTitle")).size(), 1);
+        QObject *dashboard_status = application.find("dashboardHeaderStatus");
+        QVERIFY(dashboard_status != nullptr);
+        QCOMPARE(dashboard_status->property("text").toString(), QStringLiteral("Disconnected"));
+        QAccessibleInterface *status_accessible = QAccessible::queryAccessibleInterface(dashboard_status);
+        QVERIFY(status_accessible != nullptr);
+        QCOMPARE(status_accessible->text(QAccessible::Name), QStringLiteral("Connection status: Disconnected"));
 
         QObject *dashboard_view = application.find("dashboardView");
         QVERIFY(dashboard_view != nullptr);
         auto *dashboard_item = qobject_cast<QQuickItem *>(dashboard_view);
         QVERIFY(dashboard_item != nullptr);
+        QCOMPARE(visual_children_named(dashboard_item, QStringLiteral("dashboardTitle")).size(), 0);
         const QList<QObject *> cards = visual_children_named(dashboard_item, QStringLiteral("numericCard"));
         QCOMPARE(cards.size(), 2);
+        QVERIFY(cards.at(0)->property("waitingReadingState").isValid());
+        QVERIFY(cards.at(0)->property("liveReadingState").isValid());
+        QVERIFY(cards.at(0)->property("staleReadingState").isValid());
+        QCOMPARE(cards.at(0)->property("waitingReadingState").toInt(), static_cast<int>(ReadingState::Waiting));
+        QCOMPARE(cards.at(0)->property("liveReadingState").toInt(), static_cast<int>(ReadingState::Live));
+        QCOMPARE(cards.at(0)->property("staleReadingState").toInt(), static_cast<int>(ReadingState::Stale));
         const QList<QObject *> titles = visual_children_named(dashboard_item, QStringLiteral("cardTitle"));
         QCOMPARE(titles.size(), 2);
         QCOMPARE(titles.at(0)->property("text").toString(), QStringLiteral("Tachometer"));
         QCOMPARE(titles.at(1)->property("text").toString(), QStringLiteral("Coolant Temperature"));
 
         const QList<QObject *> values = visual_children_named(dashboard_item, QStringLiteral("cardValue"));
+        const QList<QObject *> units = visual_children_named(dashboard_item, QStringLiteral("cardUnit"));
         const QList<QObject *> states = visual_children_named(dashboard_item, QStringLiteral("cardState"));
+        const QList<QObject *> ages = visual_children_named(dashboard_item, QStringLiteral("cardAge"));
         QCOMPARE(values.size(), 2);
+        QCOMPARE(units.size(), 2);
         QCOMPARE(states.size(), 2);
+        QCOMPARE(ages.size(), 2);
         QCOMPARE(values.at(0)->property("text").toString(), QString::fromUtf8("—"));
         QCOMPARE(values.at(1)->property("text").toString(), QString::fromUtf8("—"));
+        QCOMPARE(units.at(0)->property("text").toString(), QStringLiteral("rpm"));
         QCOMPARE(states.at(0)->property("text").toString(), QStringLiteral("Waiting"));
+        QCOMPARE(ages.at(0)->property("visible").toBool(), false);
+        QAccessibleInterface *card_accessible = QAccessible::queryAccessibleInterface(cards.at(0));
+        QVERIFY(card_accessible != nullptr);
+        QCOMPARE(card_accessible->text(QAccessible::Name), QString::fromUtf8("Tachometer — rpm Waiting"));
 
         auto *cards_model = static_cast<DashboardCardModel *>(application.presentation.cards());
         cards_model->applySamples({sample("CDBG_ENGINE_RPM", 3125.4)}, 1000, true);
         QTRY_COMPARE(values.at(0)->property("text").toString(), QStringLiteral("3125"));
         QTRY_COMPARE(states.at(0)->property("text").toString(), QStringLiteral("Live"));
+        QCOMPARE(card_accessible->text(QAccessible::Name), QStringLiteral("Tachometer 3125 rpm Live"));
 
         cards_model->markReceivedRowsStale();
+        cards_model->updateAges(13000);
         QTRY_COMPARE(states.at(0)->property("text").toString(), QStringLiteral("Stale"));
         QCOMPARE(values.at(0)->property("text").toString(), QStringLiteral("3125"));
+        QCOMPARE(ages.at(0)->property("visible").toBool(), true);
+        QCOMPARE(ages.at(0)->property("text").toString(), QStringLiteral("Last update 12s ago"));
+        QCOMPARE(card_accessible->text(QAccessible::Name), QStringLiteral("Tachometer 3125 rpm Stale"));
     }
 
     void dashboardGridUsesResponsiveColumnsWithoutReorderingCards()
@@ -442,6 +493,9 @@ class DesktopQuickApplicationTest : public QObject
         application.logging.publishRunning();
 
         QCOMPARE(application.controller.state(), ConnectionState::Running);
+        QObject *dashboard_status = application.find("dashboardHeaderStatus");
+        QVERIFY(dashboard_status != nullptr);
+        QCOMPARE(dashboard_status->property("text").toString(), QStringLiteral("Connected"));
         QCOMPARE(application.find("connectButton")->property("text").toString(), QStringLiteral("Disconnect"));
         QCOMPARE(application.find("selectedAdapterLabel")->property("text").toString(),
                  QStringLiteral("Adapter: Linux CAN (can0)"));

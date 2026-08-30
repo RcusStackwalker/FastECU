@@ -51,6 +51,31 @@ ApplicationWindow {
                 anchors.fill: parent
                 anchors.margins: 28
                 spacing: 16
+
+                RowLayout {
+                    objectName: "dashboardHeader"
+                    Layout.fillWidth: true
+                    spacing: 16
+
+                    Label {
+                        objectName: "dashboardTitle"
+                        text: dashboardPresentation.dashboardTitle
+                        color: "#f8fafc"
+                        font.pixelSize: 28
+                        font.bold: true
+                        Layout.fillWidth: true
+                        elide: Text.ElideRight
+                    }
+
+                    Label {
+                        objectName: "dashboardHeaderStatus"
+                        text: dashboardConnection.statusText
+                        color: "#cbd5e1"
+                        font.pixelSize: 15
+                        Accessible.name: qsTr("Connection status: %1").arg(text)
+                    }
+                }
+
                 DashboardView {
                     presentation: dashboardPresentation
                     Layout.fillWidth: true
