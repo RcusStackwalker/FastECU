@@ -479,4 +479,201 @@ TEST(SubaruDensoSh72543CanDieselExecutor, TestWriteIsRejectedBeforeAnyTransportC
     EXPECT_THAT(events.logs, IsEmpty());
 }
 
+TEST(SubaruDensoSh72543CanDieselExecutor, BenchSessionMismatchIsToleratedAndContinues)
+{
+    // Unique to this family: the bench arm's `10 43` check carries a
+    // commented-out `return STATUS_ERROR` (line 672), so a wrong `50 43`
+    // answer is logged and stepped over where all three sibling families
+    // abort. The connect must therefore reach the seed request, which is the
+    // next write scripted below.
+    ScriptedCanFlashTransport transport;
+    scriptPreliminaries(transport, 0xFF);
+    transport.expectWrite(request({0x10, 0x43}));
+    transport.queueRead(response({0x50, 0x01})); // wrong subfunction, tolerated
+    transport.expectWrite(request({0x27, 0x61}));
+    transport.queue_error(ErrorKind::Timeout, "stop after the tolerated mismatch");
+
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::ManualCancellationToken cancellation;
+    SubaruDensoSh72543CanDieselExecutor executor;
+
+    auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
+    EXPECT_TRUE(transport.scriptConsumed());
+    // The mismatch was logged, not swallowed silently...
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "Wrong response from ECU: 50 01 ")));
+    // ...and the sequence carried on past it into the seed request.
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Starting seed request")));
+}
+
+TEST(SubaruDensoSh72543CanDieselExecutor, ReadTimeoutPropagates)
+{
+    ScriptedCanFlashTransport transport;
+    scriptBenchConnect(transport);
+    transport.expectWrite(request({0x34, 0x04, 0x44, 0x00, 0x00, 0x80, 0x00, 0x00, 0x1F, 0x7F, 0x00}));
+    transport.queue_error(ErrorKind::Timeout, "no reply");
+
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::ManualCancellationToken cancellation;
+    SubaruDensoSh72543CanDieselExecutor executor;
+
+    auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
+    EXPECT_TRUE(transport.scriptConsumed());
+    // The bench arm's own 50 ms wait (line 653) is the only sleep the whole
+    // connect performs: the kernel jump is acknowledged on the loop's first
+    // look, so its 100 ms retry sleep (line 784) is never reached.
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Kernel jump acknowledged")));
+    EXPECT_EQ(clock.now_, 50u);
+}
+
+TEST(SubaruDensoSh72543CanDieselExecutor, ReadDisconnectPropagates)
+{
+    ScriptedCanFlashTransport transport;
+    scriptBenchConnect(transport);
+    scriptReadSetup(transport);
+    transport.expectWrite(request(bytes::composeBe(bytes::Byte(0xB7), kBlockStart)));
+    transport.queue_error(ErrorKind::Disconnected, "adapter gone");
+
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::ManualCancellationToken cancellation;
+    SubaruDensoSh72543CanDieselExecutor executor;
+
+    auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
+    EXPECT_TRUE(transport.scriptConsumed());
+}
+
+TEST(SubaruDensoSh72543CanDieselExecutor, NegativeResponseDuringConnectFails)
+{
+    // The seed request (legacy lines 684-710) is one of the exchanges this
+    // family does abort on: a negative response must fail rather than be
+    // logged and stepped over, unlike the `10 43` session above it.
+    ScriptedCanFlashTransport transport;
+    scriptPreliminaries(transport, 0xFF);
+    transport.expectWrite(request({0x10, 0x43}));
+    transport.queueRead(response({0x50, 0x43}));
+    transport.expectWrite(request({0x27, 0x61}));
+    transport.queueRead(response({0x7F, 0x27, 0x35}));
+
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::ManualCancellationToken cancellation;
+    SubaruDensoSh72543CanDieselExecutor executor;
+
+    auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(transport.scriptConsumed());
+}
+
+// Cancels the token as soon as the first dump page's progress is reported,
+// mirroring subaru_hitachi_m32r_can_executor_test.cpp's own sink.
+class CancelAfterFirstPageSink final : public RecordingEventSink
+{
+  public:
+    explicit CancelAfterFirstPageSink(fastecu::ManualCancellationToken& source) : source_(source)
+    {
+    }
+    void phase_progress(const fastecu::PhaseProgressEvent& event) override
+    {
+        RecordingEventSink::phase_progress(event);
+        if (event.phase_name == "Read ROM" && event.done > 0)
+        {
+            source_.cancel();
+        }
+    }
+
+  private:
+    fastecu::ManualCancellationToken& source_;
+};
+
+TEST(SubaruDensoSh72543CanDieselExecutor, CancellationMidReadReturnsCancelled)
+{
+    ScriptedCanFlashTransport transport;
+    scriptBenchConnect(transport);
+    scriptReadSetup(transport);
+    // Exactly one page is scripted; the executor is cancelled while it is
+    // being served, so the sweep must stop at the top of the next page.
+    scriptFlashDump(transport, kBlockStart, kPageSize, kPageSize, 0x00);
+
+    FakeClock clock;
+    fastecu::ManualCancellationToken cancellation;
+    CancelAfterFirstPageSink events{cancellation};
+    SubaruDensoSh72543CanDieselExecutor executor;
+
+    auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_TRUE(transport.scriptConsumed());
+}
+
+TEST(SubaruDensoSh72543CanDieselExecutor, EmptyBranchSelectorReplyFails)
+{
+    // Legacy lines 333-338: an absent `22 10 1D` reply is one of only two
+    // points in the preliminary phase that return STATUS_ERROR.
+    ScriptedCanFlashTransport transport;
+    transport.expectWrite(request({0x10, 0x5F}));
+    transport.queueRead(response({0x50, 0x01}));
+    transport.expectWrite(request({0x22, 0xF1, 0x82}));
+    transport.queueRead(response({0x62, 0xF1, 0x82, 'I', 'D'}));
+    transport.expectWrite(request({0x09, 0x02}));
+    transport.queueRead(response({0x49, 0x02, 'V', 'I', 'N'}));
+    transport.expectWrite(request({0x09, 0x04}));
+    transport.queueRead(response({0x49, 0x04, 'C', 'A', 'L'}));
+    transport.expectWrite(request({0x09, 0x06}));
+    transport.queueRead(response({0x49, 0x06, 0xAA, 0xBB}));
+    transport.expectWrite(request({0x10, 0x5F}));
+    transport.queueRead(response({0x50, 0x01}));
+    transport.expectWrite(request({0x22, 0x10, 0x1D}));
+    transport.queue_no_frame();
+
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::ManualCancellationToken cancellation;
+    SubaruDensoSh72543CanDieselExecutor executor;
+
+    auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
+    EXPECT_TRUE(transport.scriptConsumed());
+}
+
+TEST(SubaruDensoSh72543CanDieselExecutor, EraseRetryExhaustionFails)
+{
+    // Legacy erase_memory's re-read loop (lines 1456-1483): twenty reads, no
+    // re-send, then "Flash area erase failed".
+    ScriptedCanFlashTransport transport;
+    const bytes::Bytes rom = writeRom();
+    scriptBenchConnect(transport);
+    scriptEraseMemory(transport);
+    for (int attempt = 0; attempt < 20; ++attempt)
+    {
+        transport.queueRead(response({0x71, 0x01, 0x03}));
+    }
+
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::ManualCancellationToken cancellation;
+    SubaruDensoSh72543CanDieselExecutor executor;
+
+    auto result = executor.execute(writePlan(rom), transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(transport.scriptConsumed());
+}
+
 } // namespace
