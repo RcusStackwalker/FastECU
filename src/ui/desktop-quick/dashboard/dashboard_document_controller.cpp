@@ -1,10 +1,12 @@
 #include "src/ui/desktop-quick/dashboard/dashboard_document_controller.h"
 
+#include <algorithm>
 #include <utility>
 
 #include <QFileInfo>
 
 #include "src/backend/dashboard/dashboard_session_builder.h"
+#include "src/backend/dashboard/dashboard_validation.h"
 
 namespace fastecu::desktop_quick
 {
@@ -72,6 +74,11 @@ QString DashboardDocumentController::displayName() const
         return {};
     }
     return to_qstring(state_.document->metadata.name);
+}
+
+QString DashboardDocumentController::selectedCardId() const
+{
+    return to_qstring(state_.selected_card_id);
 }
 
 bool DashboardDocumentController::isDirty() const
@@ -247,12 +254,34 @@ Status DashboardDocumentController::commitCandidate(dashboard::DashboardDocument
     {
         return reportError(operation, Error{ErrorKind::InvalidConfig, "no dashboard document to edit"});
     }
-    if (auto prepared = dashboard::prepare_dashboard_session(candidate); !prepared.has_value())
+    const Status validated = candidate.cards.empty()
+                                 ? dashboard::validate_dashboard_document(candidate)
+                                 : dashboard::prepare_dashboard_session(candidate).transform([](const auto&) {});
+    if (!validated.has_value())
     {
-        return reportError(operation, prepared.error());
+        return reportError(operation, validated.error());
     }
-    if (candidate == *state_.document)
+    const bool selection_valid =
+        selected_card_id.empty()
+            ? candidate.cards.empty()
+            : std::ranges::any_of(candidate.cards, [&selected_card_id](const dashboard::DashboardCard& card)
+                                  { return card.id == selected_card_id; });
+    if (!selection_valid)
     {
+        return reportError(operation, Error{ErrorKind::InvalidConfig, "selected card ID does not reference a card"});
+    }
+
+    const bool document_changed = candidate != *state_.document;
+    const bool selection_changed = selected_card_id != state_.selected_card_id;
+    if (!document_changed && !selection_changed)
+    {
+        return {};
+    }
+
+    if (!document_changed)
+    {
+        state_.selected_card_id = std::move(selected_card_id);
+        emit stateChanged();
         return {};
     }
 

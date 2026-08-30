@@ -20,6 +20,7 @@ class DashboardDocumentController final : public QObject
     Q_PROPERTY(bool hasDocument READ hasDocument NOTIFY stateChanged)
     Q_PROPERTY(QString currentPath READ currentPath NOTIFY stateChanged)
     Q_PROPERTY(QString displayName READ displayName NOTIFY stateChanged)
+    Q_PROPERTY(QString selectedCardId READ selectedCardId NOTIFY stateChanged)
     Q_PROPERTY(bool dirty READ isDirty NOTIFY stateChanged)
     Q_PROPERTY(bool editingEnabled READ editingEnabled NOTIFY stateChanged)
 
@@ -48,6 +49,7 @@ class DashboardDocumentController final : public QObject
     bool hasDocument() const;
     QString currentPath() const;
     QString displayName() const;
+    QString selectedCardId() const;
     bool isDirty() const;
     bool editingEnabled() const;
     const std::optional<dashboard::DashboardDocument>& document() const;

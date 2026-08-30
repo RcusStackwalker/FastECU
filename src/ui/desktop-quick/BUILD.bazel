@@ -90,7 +90,21 @@ qt_cc_library(
         ":dashboard_connection_controller",
         "//src/backend/dashboard:dashboard_document_service",
         "//src/backend/dashboard:dashboard_session_builder",
+        "//src/backend/dashboard:dashboard_validation",
         "//src/backend/ports",
+        "@rules_qt//:qt_core",
+    ],
+)
+
+qt_cc_library(
+    name = "dashboard_editor_model",
+    srcs = ["dashboard/dashboard_editor_model.cpp"],
+    hdrs = ["dashboard/dashboard_editor_model.h"],
+    copts = COMMON_COPTS,
+    deps = [
+        ":dashboard_card_model",
+        ":dashboard_document_controller",
+        "//src/backend/dashboard:dashboard_document",
         "@rules_qt//:qt_core",
     ],
 )
@@ -128,6 +142,18 @@ fastecu_qttest(
     src = "dashboard/dashboard_document_controller_test.cpp",
     deps = [
         ":dashboard_document_controller",
+        "//src/backend/dashboard:dashboard_codec",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/ports/testing:in_memory_file_repository",
+        "//src/backend/ports/testing:in_memory_settings",
+    ],
+)
+
+fastecu_qttest(
+    name = "test_dashboard_editor_model",
+    src = "dashboard/dashboard_editor_model_test.cpp",
+    deps = [
+        ":dashboard_editor_model",
         "//src/backend/dashboard:dashboard_codec",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",
         "//src/backend/ports/testing:in_memory_file_repository",
