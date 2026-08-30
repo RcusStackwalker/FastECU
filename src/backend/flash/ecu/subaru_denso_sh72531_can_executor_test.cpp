@@ -540,6 +540,31 @@ class CancelAfterFirstPageSink final : public RecordingEventSink
     fastecu::ManualCancellationToken& source_;
 };
 
+TEST(SubaruDensoSh72531CanExecutor, NegativeResponseAtDumpSetupFails)
+{
+    // The mirror image of subaru_denso_1n83m_4m_can_executor_test's
+    // ProceedsPast... cases. That family has the `return STATUS_ERROR` at
+    // read_memory's 0x34/0x35 setup checks commented out and steps over a bad
+    // reply; this one keeps it live, so the very same exchange must abort
+    // here. The pair of tests is what stops the difference being normalized
+    // away in either direction.
+    ScriptedCanFlashTransport transport;
+    scriptBenchConnect(transport);
+    transport.expectWrite(request({0x34, 0x04, 0x44, 0x00, 0x00, 0x80, 0x00, 0x00, 0x13, 0x7F, 0x00}));
+    transport.queueRead(response({0x7F, 0x34, 0x31}));
+
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::ManualCancellationToken cancellation;
+    SubaruDensoSh72531CanExecutor executor;
+
+    auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(transport.scriptConsumed());
+}
+
 TEST(SubaruDensoSh72531CanExecutor, CancellationMidReadReturnsCancelled)
 {
     ScriptedCanFlashTransport transport;
