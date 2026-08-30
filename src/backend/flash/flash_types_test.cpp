@@ -117,6 +117,19 @@ TEST(FlashTypes, Wave4DensoIso15765FamilyPlansAreKernelFree)
     EXPECT_EQ(std::get<SubaruDenso1n83m_1_5mCanPlan>(denso_variant).lead_pad_len, 0x10000u);
 
     EXPECT_FALSE(family_requires_kernel_v<SubaruDenso1n83m_1_5mCanPlan>);
+
+    SubaruDensoSh72531CanPlan sh72531{
+        .request_id = 0x7e0,
+        .response_id = 0x7e8,
+        .bitrate = 500000,
+        .extended_id = false,
+        .lead_pad_len = 0x8000,
+        .tail_pad_len = 0x100,
+    };
+    FamilyPlan sh72531_variant = sh72531;
+    EXPECT_EQ(std::get<SubaruDensoSh72531CanPlan>(sh72531_variant).lead_pad_len, 0x8000u);
+
+    EXPECT_FALSE(family_requires_kernel_v<SubaruDensoSh72531CanPlan>);
 }
 
 } // namespace
