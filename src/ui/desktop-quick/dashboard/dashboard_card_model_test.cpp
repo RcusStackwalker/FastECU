@@ -22,19 +22,39 @@ dashboard::DashboardDocument two_card_document()
             {
                 {.id = "CDBG_COOLANT_TEMP",
                  .name = "Coolant Temperature",
-                 .conversions = {{.id = "temperature", .unit = "°C", .precision = 1}}},
+                 .conversions = {{.id = "temperature",
+                                  .unit = "°C",
+                                  .precision = 1,
+                                  .gauge_min = -40.0,
+                                  .gauge_max = 260.0,
+                                  .gauge_step = 10.0}}},
                 {.id = "CDBG_ENGINE_RPM",
                  .name = "Engine RPM",
                  .conversions = {{.id = "rpm", .unit = "rpm", .precision = 0}}},
+                {.id = "CDBG_MANIFOLD_PRESSURE",
+                 .name = "Manifold Pressure",
+                 .conversions = {{.id = "pressure", .unit = "kPa", .precision = 0}}},
             },
         .cards =
             {
-                {.id = "coolant", .channel_id = "CDBG_COOLANT_TEMP", .conversion_id = "temperature", .order = 20},
+                {.id = "coolant",
+                 .channel_id = "CDBG_COOLANT_TEMP",
+                 .conversion_id = "temperature",
+                 .display_type = dashboard::CardDisplayType::Sparkline,
+                 .order = 20,
+                 .sparkline_history_seconds = 30},
                 {.id = "rpm",
                  .channel_id = "CDBG_ENGINE_RPM",
                  .conversion_id = "rpm",
+                 .display_type = dashboard::CardDisplayType::Numeric,
                  .title = "Tachometer",
                  .order = 10},
+                {.id = "manifold-pressure",
+                 .channel_id = "CDBG_MANIFOLD_PRESSURE",
+                 .conversion_id = "pressure",
+                 .display_type = dashboard::CardDisplayType::HorizontalGauge,
+                 .order = 30,
+                 .gauge_bounds = dashboard::GaugeBoundsOverride{0.0, 9000.0, 250.0}},
             },
     };
 }
@@ -60,7 +80,7 @@ class DashboardCardModelTest final : public QObject
         QSignalSpy reset_spy(&model, &QAbstractItemModel::modelReset);
         QSignalSpy inserted_spy(&model, &QAbstractItemModel::rowsInserted);
 
-        QCOMPARE(model.rowCount(), 2);
+        QCOMPARE(model.rowCount(), 3);
         QCOMPARE(role(model, 0, DashboardCardModel::CardIdRole), QStringLiteral("rpm"));
         QCOMPARE(role(model, 0, DashboardCardModel::ChannelIdRole), QStringLiteral("CDBG_ENGINE_RPM"));
         QCOMPARE(role(model, 0, DashboardCardModel::TitleRole), QStringLiteral("Tachometer"));
@@ -73,13 +93,29 @@ class DashboardCardModelTest final : public QObject
         QCOMPARE(role(model, 1, DashboardCardModel::TitleRole), QStringLiteral("Coolant Temperature"));
         QCOMPARE(role(model, 1, DashboardCardModel::UnitRole), QString::fromUtf8("°C"));
         QCOMPARE(role(model, 1, DashboardCardModel::PrecisionRole), 1);
+        QCOMPARE(role(model, 0, DashboardCardModel::DisplayTypeRole).value<CardDisplayType>(),
+                 CardDisplayType::Numeric);
+        QCOMPARE(role(model, 1, DashboardCardModel::DisplayTypeRole).value<CardDisplayType>(),
+                 CardDisplayType::Sparkline);
+        QCOMPARE(role(model, 2, DashboardCardModel::DisplayTypeRole).value<CardDisplayType>(),
+                 CardDisplayType::HorizontalGauge);
+        QCOMPARE(role(model, 1, DashboardCardModel::MinimumValueRole), -40.0);
+        QCOMPARE(role(model, 1, DashboardCardModel::MaximumValueRole), 260.0);
+        QCOMPARE(role(model, 1, DashboardCardModel::StepValueRole), 10.0);
+        QCOMPARE(role(model, 1, DashboardCardModel::SparklineHistorySecondsRole), 30);
+        QCOMPARE(role(model, 2, DashboardCardModel::MinimumValueRole), 0.0);
+        QCOMPARE(role(model, 2, DashboardCardModel::MaximumValueRole), 9000.0);
+        QCOMPARE(role(model, 2, DashboardCardModel::StepValueRole), 250.0);
+        QCOMPARE(role(model, 0, DashboardCardModel::SparklineHistorySecondsRole), 0);
+        QCOMPARE(role(model, 2, DashboardCardModel::SparklineHistorySecondsRole), 0);
         QCOMPARE(model.roleNames().value(DashboardCardModel::FormattedValueRole), QByteArrayLiteral("formattedValue"));
+        QCOMPARE(model.roleNames().value(DashboardCardModel::DisplayTypeRole), QByteArrayLiteral("displayType"));
         QVERIFY(model.containsChannel("CDBG_ENGINE_RPM"));
         QVERIFY(!model.containsChannel("unknown"));
 
         model.applySamples({sample("unknown", 1.0)}, 100, true);
 
-        QCOMPARE(model.rowCount(), 2);
+        QCOMPARE(model.rowCount(), 3);
         QCOMPARE(reset_spy.count(), 0);
         QCOMPARE(inserted_spy.count(), 0);
     }

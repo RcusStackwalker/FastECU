@@ -51,11 +51,18 @@ DashboardCardModel::DashboardCardModel(const dashboard::DashboardDocument& docum
         const dashboard::DashboardCard& card = *resolved.card;
         const dashboard::DashboardChannel& channel = *resolved.channel;
         const dashboard::DashboardConversion& conversion = *resolved.conversion;
+        const auto bounds = card.gauge_bounds.value_or(
+            dashboard::GaugeBoundsOverride{conversion.gauge_min, conversion.gauge_max, conversion.gauge_step});
         rows_.push_back({.card_id = QString::fromStdString(card.id),
                          .channel_id = QString::fromStdString(card.channel_id),
                          .title = QString::fromStdString(card.title.value_or(channel.name)),
                          .unit = QString::fromStdString(conversion.unit),
-                         .precision = conversion.precision});
+                         .precision = conversion.precision,
+                         .display_type = displayTypeFor(card.display_type),
+                         .minimum_value = bounds.minimum,
+                         .maximum_value = bounds.maximum,
+                         .step_value = bounds.step,
+                         .sparkline_history_seconds = card.sparkline_history_seconds.value_or(0)});
         rows_by_channel_.emplace(card.channel_id, static_cast<int>(rows_.size() - 1));
     }
 }
@@ -94,6 +101,16 @@ QVariant DashboardCardModel::data(const QModelIndex& index, int role) const
         return row.has_reading;
     case LastUpdateAgeTextRole:
         return ageText(row);
+    case DisplayTypeRole:
+        return QVariant::fromValue(row.display_type);
+    case MinimumValueRole:
+        return row.minimum_value;
+    case MaximumValueRole:
+        return row.maximum_value;
+    case StepValueRole:
+        return row.step_value;
+    case SparklineHistorySecondsRole:
+        return row.sparkline_history_seconds;
     default:
         return {};
     }
@@ -112,7 +129,26 @@ QHash<int, QByteArray> DashboardCardModel::roleNames() const
         {ReadingStateRole, "readingState"},
         {HasReadingRole, "hasReading"},
         {LastUpdateAgeTextRole, "lastUpdateAgeText"},
+        {DisplayTypeRole, "displayType"},
+        {MinimumValueRole, "minimumValue"},
+        {MaximumValueRole, "maximumValue"},
+        {StepValueRole, "stepValue"},
+        {SparklineHistorySecondsRole, "sparklineHistorySeconds"},
     };
+}
+
+DashboardCardModel::CardDisplayType DashboardCardModel::displayTypeFor(dashboard::CardDisplayType display_type)
+{
+    switch (display_type)
+    {
+    case dashboard::CardDisplayType::Numeric:
+        return CardDisplayType::Numeric;
+    case dashboard::CardDisplayType::Sparkline:
+        return CardDisplayType::Sparkline;
+    case dashboard::CardDisplayType::HorizontalGauge:
+        return CardDisplayType::HorizontalGauge;
+    }
+    std::unreachable();
 }
 
 void DashboardCardModel::applySamples(const QVector<logging::LogSample>& samples, std::uint64_t now_ms, bool running)

@@ -35,6 +35,14 @@ class DashboardCardModel final : public QAbstractListModel
     };
     Q_ENUM(ReadingState)
 
+    enum class CardDisplayType
+    {
+        Numeric,
+        Sparkline,
+        HorizontalGauge,
+    };
+    Q_ENUM(CardDisplayType)
+
     enum Role
     {
         CardIdRole = Qt::UserRole + 1,
@@ -47,6 +55,11 @@ class DashboardCardModel final : public QAbstractListModel
         ReadingStateRole,
         HasReadingRole,
         LastUpdateAgeTextRole,
+        DisplayTypeRole,
+        MinimumValueRole,
+        MaximumValueRole,
+        StepValueRole,
+        SparklineHistorySecondsRole,
     };
     Q_ENUM(Role)
 
@@ -71,6 +84,11 @@ class DashboardCardModel final : public QAbstractListModel
         QString title;
         QString unit;
         int precision = 0;
+        CardDisplayType display_type = CardDisplayType::Numeric;
+        double minimum_value = 0.0;
+        double maximum_value = 1.0;
+        double step_value = 1.0;
+        int sparkline_history_seconds = 0;
         double numeric_value = 0.0;
         std::uint64_t last_update_ms = 0;
         std::uint64_t age_seconds = 0;
@@ -78,6 +96,7 @@ class DashboardCardModel final : public QAbstractListModel
         bool has_reading = false;
     };
 
+    static CardDisplayType displayTypeFor(dashboard::CardDisplayType display_type);
     void notifyChangedRows(const QVector<QVector<int>>& roles_by_row);
     QString ageText(const Row& row) const;
 
@@ -86,7 +105,9 @@ class DashboardCardModel final : public QAbstractListModel
 };
 
 using ReadingState = DashboardCardModel::ReadingState;
+using CardDisplayType = DashboardCardModel::CardDisplayType;
 
 } // namespace fastecu::desktop_quick
 
 Q_DECLARE_METATYPE(fastecu::desktop_quick::ReadingState)
+Q_DECLARE_METATYPE(fastecu::desktop_quick::CardDisplayType)
