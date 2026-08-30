@@ -91,6 +91,9 @@ PORTABLE_ROOTS = {
         "subaru_denso_sh72543_can_diesel_types",
         "subaru_denso_sh72543_can_diesel_plan",
         "subaru_denso_sh72543_can_diesel_executor",
+        "subaru_denso_1n83m_4m_can_types",
+        "subaru_denso_1n83m_4m_can_plan",
+        "subaru_denso_1n83m_4m_can_executor",
     },
     ROOT / "src/backend/config": {
         "config_paths",

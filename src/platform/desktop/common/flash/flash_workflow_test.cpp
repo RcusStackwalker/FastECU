@@ -129,7 +129,8 @@ void FlashWorkflowTest::recognizesEveryPortableFamilyPrefixAndLeavesLegacyAlone(
                               "sub_tcu_cvt_mitsu_mh8104_can",
                               "sub_ecu_denso_1n83m_1_5m_can",
                               "sub_ecu_denso_sh72531_can",
-                              "sub_ecu_denso_sh72543_can_diesel"};
+                              "sub_ecu_denso_sh72543_can_diesel",
+                              "sub_ecu_denso_1n83m_4m_can"};
     for (const char *protocol : portable)
     {
         QVERIFY2(FlashWorkflowFactory::tryCreate(request(protocol)) != nullptr, protocol);

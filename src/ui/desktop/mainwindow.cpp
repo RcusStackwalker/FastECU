@@ -1230,11 +1230,6 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
             FlashEcuSubaruDensoSH705xKline flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
             connect_signals_and_run_module(&flash_module);
         }
-        else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_denso_1n83m_4m_can"))
-        {
-            FlashEcuSubaruDenso1N83M_4MCan flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
-            connect_signals_and_run_module(&flash_module);
-        }
         /*
          * Denso TCU
          */
