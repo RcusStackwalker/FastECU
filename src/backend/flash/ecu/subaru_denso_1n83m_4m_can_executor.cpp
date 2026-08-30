@@ -41,14 +41,17 @@ using bytes::composeBe;
 // receive_timeout = 500 (header lines 43-49); the numbers, not the spellings,
 // are the wire behaviour, and they are kept apart rather than flattened into
 // one policy.
-constexpr int kShortTimeoutMs = 200;      // serial_read_short_timeout, and the bare 200 literals
-constexpr int kReceiveTimeoutMs = 500;    // receive_timeout, and the bare 500 literals
-constexpr int kLongTimeoutMs = 2000;      // serial_read_timeout, and read_memory's bare 2000 at line 967
-constexpr int kExtraLongTimeoutMs = 3000; // serial_read_extra_long_timeout, used only at line 1343
+constexpr int kShortTimeoutMs = 200;   // serial_read_short_timeout, and the bare 200 literals
+constexpr int kReceiveTimeoutMs = 500; // receive_timeout, and the bare 500 literals
+constexpr int kLongTimeoutMs = 2000;   // serial_read_timeout, and read_memory's bare 2000 at line 967
 constexpr uds::ExchangePolicy kShortPolicy{.read_timeout_ms = kShortTimeoutMs};
 constexpr uds::ExchangePolicy kReceivePolicy{.read_timeout_ms = kReceiveTimeoutMs};
 constexpr uds::ExchangePolicy kLongPolicy{.read_timeout_ms = kLongTimeoutMs};
-constexpr uds::ExchangePolicy kExtraLongPolicy{.read_timeout_ms = kExtraLongTimeoutMs};
+// serial_read_extra_long_timeout (3000 ms) is deliberately absent from this
+// list. It applies to exactly one read -- the post-responsePending re-read at
+// line 1341 -- and ExchangePolicy::pending_timeout_ms already defaults to
+// 3000 for precisely that read, so no policy here has to carry it. Putting it
+// in read_timeout_ms would wrongly stretch the *first* read too.
 
 // Session ids in ISO 14229-1's 0x40-0x5F vehicle-manufacturer-specific band;
 // legacy uses its own values here rather than the standard subfunctions.
@@ -779,14 +782,20 @@ Status reflash_block(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block,
     // (0x7F 0x31 0x78) before the real result; UdsClient absorbs that NRC by
     // re-reading internally, so this is a single request() call. Legacy
     // additionally *required* the pending answer to arrive first and failed
-    // without it; UdsClient accepts an immediate positive answer too. The
-    // second read uses serial_read_extra_long_timeout (line 1343), three
-    // times the sibling families' timeout here.
+    // without it; UdsClient accepts an immediate positive answer too.
+    //
+    // Both of legacy's reads here are reproduced at their own timeouts, and
+    // they differ: the first uses the bare 500 literal (line 1322, i.e.
+    // receive_timeout), which is kReceivePolicy's read_timeout_ms, and only
+    // the re-read after the pending NRC uses serial_read_extra_long_timeout
+    // = 3000 ms (line 1341), which is kReceivePolicy's inherited
+    // pending_timeout_ms default. The sibling families read 500/3000 here
+    // too; this family's own extra-long spelling changes no number.
     info(ctx, "Verifying checksum");
     if (Result<bytes::Bytes> checksum = fatal_query(
             ctx,
             bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, kRoutineIdHigh, kRoutineChecksum, 0x01},
-            bytes::Bytes{uds::kRoutineControlStart, kRoutineIdHigh}, kExtraLongPolicy, "checksum verify");
+            bytes::Bytes{uds::kRoutineControlStart, kRoutineIdHigh}, kReceivePolicy, "checksum verify");
         !checksum.has_value())
     {
         return std::unexpected(checksum.error());
