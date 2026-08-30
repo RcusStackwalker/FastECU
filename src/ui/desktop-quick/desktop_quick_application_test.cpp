@@ -521,6 +521,46 @@ class DesktopQuickApplicationTest : public QObject
         QCOMPARE(sparkline_accessible->text(QAccessible::Name), QString::fromUtf8("Coolant Temperature 30.0 °C Stale"));
     }
 
+    void visualizationGuidesAndOverflowGeometryRespectBounds()
+    {
+        LoadedApplication application;
+        QVERIFY(application.loaded);
+        QObject *dashboard_view = application.find("dashboardView");
+        QVERIFY(dashboard_view != nullptr);
+        auto *dashboard_item = qobject_cast<QQuickItem *>(dashboard_view);
+        QVERIFY(dashboard_item != nullptr);
+
+        QObject *sparkline = visual_children_named(dashboard_item, QStringLiteral("sparklineCard")).front();
+        QObject *gauge = visual_children_named(dashboard_item, QStringLiteral("horizontalGaugeCard")).front();
+        QCOMPARE(gauge->property("tickGuideStrideMultiplier").toInt(), 2);
+        QCOMPARE(gauge->property("tickGuideStepValue").toDouble(), 10.0);
+        QCOMPARE(sparkline->property("referenceGuideStrideMultiplier").toInt(), 3);
+        QCOMPARE(sparkline->property("referenceGuideStepValue").toDouble(), 30.0);
+
+        auto *cards_model = static_cast<DashboardCardModel *>(application.presentation.cards());
+        cards_model->applySamples({sample("CDBG_MANIFOLD_PRESSURE", 125.0)}, 1000, true);
+        QTRY_COMPARE(gauge->property("overflowTriangleTipOffset").toDouble(), 7.0);
+        cards_model->applySamples({sample("CDBG_MANIFOLD_PRESSURE", -5.0)}, 1100, true);
+        QTRY_COMPARE(gauge->property("overflowTriangleTipOffset").toDouble(), -7.0);
+
+        const double extreme = std::numeric_limits<double>::max();
+        gauge->setProperty("minimumValue", -extreme);
+        gauge->setProperty("maximumValue", extreme);
+        gauge->setProperty("numericValue", 0.0);
+        QCOMPARE(gauge->property("hasFiniteRange").toBool(), false);
+        QCOMPARE(gauge->property("range").toDouble(), 0.0);
+        QCOMPARE(gauge->property("normalizedValue").toDouble(), 0.0);
+        QCOMPARE(gauge->property("overflowDirection").toInt(), 0);
+        QCOMPARE(gauge->property("tickCount").toInt(), 0);
+        QCOMPARE(gauge->property("tickGuideStepValue").toDouble(), 0.0);
+
+        sparkline->setProperty("minimumValue", -extreme);
+        sparkline->setProperty("maximumValue", extreme);
+        QCOMPARE(sparkline->property("hasFiniteRange").toBool(), false);
+        QCOMPARE(sparkline->property("range").toDouble(), 0.0);
+        QCOMPARE(sparkline->property("referenceGuideStepValue").toDouble(), 0.0);
+    }
+
     void dashboardGridUsesResponsiveColumnsWithoutReorderingCards()
     {
         LoadedApplication application;
