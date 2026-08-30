@@ -1,5 +1,6 @@
 #include "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor.h"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <format>
