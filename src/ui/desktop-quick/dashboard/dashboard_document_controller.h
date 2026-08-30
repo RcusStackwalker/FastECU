@@ -72,7 +72,7 @@ class DashboardDocumentController final : public QObject
   signals:
     void documentCommitted();
     void stateChanged();
-    void errorOccurred(QString operation, QString detail);
+    void errorOccurred(QString operation, QString detail, ErrorKind kind);
     void importPathRequested();
     void openPathRequested();
     void savePathRequested();
@@ -107,3 +107,5 @@ using PendingDocumentAction = DashboardDocumentController::PendingDocumentAction
 using UnsavedDecision = DashboardDocumentController::UnsavedDecision;
 
 } // namespace fastecu::desktop_quick
+
+Q_DECLARE_METATYPE(fastecu::ErrorKind)

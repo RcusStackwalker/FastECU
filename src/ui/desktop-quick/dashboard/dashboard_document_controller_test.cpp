@@ -685,7 +685,9 @@ class DashboardDocumentControllerTest : public QObject
 
         QCOMPARE(unsaved.count(), 1);
         QCOMPARE(errors.count(), 1);
+        QCOMPARE(errors.at(0).size(), 3);
         QCOMPARE(errors.at(0).at(1).toString(), QStringLiteral("a document action is already pending"));
+        QCOMPARE(errors.at(0).at(2).value<ErrorKind>(), ErrorKind::InvalidConfig);
 
         harness_->controller.resolveUnsaved(UnsavedDecision::Discard);
         QCOMPARE(continuation_count(first, import_requested, open_requested, exit_approved), 1);
@@ -780,7 +782,9 @@ class DashboardDocumentControllerTest : public QObject
         QCOMPARE(unsaved.count(), 0);
         QCOMPARE(errors.count(), 2);
         QCOMPARE(errors.at(0).at(1).toString(), QStringLiteral("disconnect before editing the dashboard"));
+        QCOMPARE(errors.at(0).at(2).value<ErrorKind>(), ErrorKind::InvalidConfig);
         QCOMPARE(errors.at(1).at(1).toString(), QStringLiteral("disconnect before editing the dashboard"));
+        QCOMPARE(errors.at(1).at(2).value<ErrorKind>(), ErrorKind::InvalidConfig);
         QCOMPARE(state_of(harness_->controller), connected);
 
         harness_->controller.requestExit();

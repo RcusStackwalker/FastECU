@@ -385,7 +385,7 @@ Status DashboardDocumentController::requireEditingEnabled(const QString& operati
 
 Status DashboardDocumentController::reportError(const QString& operation, Error error)
 {
-    emit errorOccurred(operation, to_qstring(error.detail));
+    emit errorOccurred(operation, to_qstring(error.detail), error.kind);
     return std::unexpected(std::move(error));
 }
 
