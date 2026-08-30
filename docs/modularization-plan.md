@@ -60,6 +60,7 @@ for the eight-wave sequencing:
 - Wave 2 `FlashEcuSubaruDensoMC68HC16Y5_02`, `FlashEcuSubaruDensoSH7055_02` —
   merged. Takes the drain from 24 remaining families to 22.
 - Wave 3 `FlashEcuSubaruHitachiM32rCan`, `FlashTcuCvtSubaruHitachiM32rCan`, `FlashTcuCvtSubaruMitsuMH8111Can`, `FlashTcuCvtSubaruMitsuMH8104Can` — merged. Takes the drain from 22 remaining families to 18.
+- Wave 4 `FlashEcuSubaruDenso1N83M_1_5MCan`, `FlashEcuSubaruDenso1N83M_4MCan`, `FlashEcuSubaruDensoSH72531Can`, `FlashEcuSubaruDensoSH72543CanDiesel` — merged. Takes the drain from 18 remaining families to 14.
 
 ## Verified Current Baseline
 

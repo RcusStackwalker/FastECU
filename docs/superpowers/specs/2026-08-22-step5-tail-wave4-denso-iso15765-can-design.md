@@ -112,7 +112,7 @@ The divergence axes, in full:
 | ID reply trim | `remove(0,8)`, keep 5 | same | same | `remove(0,7)`, keep all |
 | `0x34` addressing | hardcoded bytes | hardcoded bytes | hardcoded bytes | computed from region |
 | Timeouts | named constants | bare literals `200`/`500` | named constants | `serial_read_timeout` where siblings use `serial_read_short_timeout` |
-| Response tolerance | strict | 7 commented-out returns | strict | 1 commented-out return |
+| Response tolerance | strict | 4 commented-out returns (`read_memory`; 3 more in `connect_bootloader` match every sibling's own no-return behavior) | strict | 1 commented-out return |
 | Leading pad | `0x10000` | `0x10000` | `0x8000` | `0x8000` |
 | `block_modified` | `{0, 1, 0}` | `{0, 1, 0}` | `{0, 1, 0}` | `{1}` |
 | `erase_memory` signature | no-arg | no-arg | no-arg | `(fdt, blockno)` |
@@ -132,7 +132,7 @@ not read as a failed wave.
 
 **Guardrail.** Factor only across a *data* difference — region, pad size, block
 mask, key table. Never factor across a *control-flow or tolerance* difference.
-Parameterizing `1n83m_4m`'s seven tolerated checks or `sh72543d`'s erase
+Parameterizing `1n83m_4m`'s four tolerated checks or `sh72543d`'s erase
 signature into a shared executor would produce exactly the configurable state
 machine the [umbrella](2026-07-22-step5-backend-portable-design.md) and the
 [protocol generalization notes](../../protocol-generalization-opportunities.md)
@@ -234,12 +234,14 @@ cfg entries declare `test_write=no`, so the UI does not currently offer it, but
 the code path is live if reached.
 
 Plan construction rejects `test_write` with `Unsupported` before any I/O. This
-is the first of the wave's two deliberate behavior changes, the second being
-`sh72543d`'s write image base below. It follows wave 3's precedent —
-all four of its families reject `test_write` before I/O — and here additionally
-closes a live-write hazard rather than merely declining an unsupported mode.
-The matrix `notes` column records it for each family, per the umbrella's rule
-that deliberate divergences are named, never silent.
+is the wave's one deliberate behavior change — an earlier draft of this design
+named a second, `sh72543d`'s write image base, but further verification found
+that one was not a divergence at all; see
+[below](#write-base-equivalence-no-sh72543d-divergence). It follows wave 3's
+precedent — all four of its families reject `test_write` before I/O — and here
+additionally closes a live-write hazard rather than merely declining an
+unsupported mode. The matrix `notes` column records it for each family, per
+the umbrella's rule that deliberate divergences are named, never silent.
 
 ## Both programming branches are ported
 
@@ -284,39 +286,50 @@ Two fidelity constraints govern the in-car transcription:
   taken from the transport directly rather than through a channel bound to the
   id just written.
 
-## Deliberate divergence: `sh72543d`'s write image base
+## Write-base equivalence: no `sh72543d` divergence
 
 The four families index the write image as follows:
 
-| Family | Legacy indexing | Image base | Read image base |
-|---|---|---|---|
-| `1n83m_1_5m` | `newdata[i + blockaddr - fblocks[0].start]` | `0x08F9C000` | `0x08F9C000` |
-| `1n83m_4m` | `newdata[i + blockaddr - fblocks[0].start]` | `0x08F9C000` | `0x08F9C000` |
-| `sh72531` | `newdata[i + blockaddr]` | `0x0` | `0x0` |
-| `sh72543d` | `newdata[i + blockctr * blocksize]` | `0x8000` | `0x0` |
+| Family | Legacy indexing | `newdata` argument (`write_memory`'s call site) | Composed image base | Read image base |
+|---|---|---|---|---|
+| `1n83m_1_5m` | `newdata[i + blockaddr - fblocks[0].start]` | `&data_array[0]` (line 1142) | `0x08F9C000` | `0x08F9C000` |
+| `1n83m_4m` | `newdata[i + blockaddr - fblocks[0].start]` | `&data_array[0]` (line 1155) | `0x08F9C000` | `0x08F9C000` |
+| `sh72531` | `newdata[i + blockaddr]` | `&data_array[0]` | `0x0` | `0x0` |
+| `sh72543d` | `newdata[i + blockctr * blocksize]` | `&data_array[fblocks[0].start]` (line 1129) | `0x0` | `0x0` |
 
-`sh72531`'s form is equivalent to its siblings' because its `fblocks[0].start`
-is `0`. `sh72543d`'s form is *also* arithmetically equivalent —
-`i + blockaddr - fblocks[0].start` reduces to `i + blockctr * blocksize` when
-`fblocks[0].start == blockaddr == 0x8000` — so the formula is not the problem.
-The problem is the flash table: `fblocks_SH72543d`'s `0x0`–`0x8000` entry is
-commented out, making the family's write base `0x8000`, while `read_memory`
-still prepends `0x8000` of `0xFF` to reach address `0`.
+The indexing formula alone is not the composed address `reflash_block` writes
+to — `newdata` is a pointer `write_memory` computes at the call site, and the
+formula is relative to wherever that pointer points. `sh72531`'s form is
+equivalent to its siblings' because its `fblocks[0].start` is `0`, so the
+distinction between an offset and an unoffset buffer does not show up there.
+`sh72543d`'s form is *also* equivalent, once composed with the buffer it is
+actually handed: `write_memory` calls
+`reflash_block(&data_array[flashdevices[...].fblocks->start], ...)` (legacy
+line 1129) — the buffer is already pre-offset by `fblocks[0].start` = `0x8000`
+— and `reflash_block` then indexes `newdata[i + blockctr * blocksize]` (legacy
+line 1217), which is block-relative to that pre-offset buffer. Composed:
+`data_array[fblocks[0].start + i + blockctr * blocksize]` =
+`data_array[blockaddr + i]` — the absolute flash address, image based at `0`,
+matching `read_memory`'s own image base and the three sibling families.
 
-The desktop hands `reflash_block` the user's whole ROM
-(`portableImageForOperation` passes the loaded image unchanged), so a full
-2 MB file for this family is written `0x8000` low across every block. This
-family's write has therefore never placed bytes correctly — the same category
-of finding as wave 3's MH8111 erase that always failed.
+**There is no write-base divergence.** An earlier draft of this section
+derived that same composition correctly in the paragraph above and then
+asserted the opposite conclusion — that legacy wrote a full ROM `0x8000` low
+and that the port needed a deliberate `0x8000` correction to fix it. That
+conclusion does not follow from the arithmetic; it was an error, caught during
+implementation and verified twice against the legacy source.
+`subaru_denso_sh72543_can_diesel_executor.cpp`'s `reflash_block` carries the
+same derivation inline, with an explicit note not to reintroduce a `0x8000`
+shift on the strength of the old text. Legacy was already correct here, and
+the port is byte-identical to it — nothing about which bytes reach the ECU
+changed.
 
-**The port indexes `sh72543d`'s write image from address `0`**, matching its
-own read output and the user-visible contract its three siblings already have:
-byte 0 is address 0, and a full `0x200000` image writes correctly. This is the
-wave's second deliberate behavior change, and the higher-stakes one — it alters
-which bytes reach the ECU, on a family with no bench access. It is recorded in
-the matrix `notes` column, and the family's `hardware_status` stays
-`experimental` with this divergence named as the first thing a bench operator
-should verify.
+The same check was run for `1n83m_4m`: `write_memory` hands `reflash_block`
+the unoffset `&data_array[0]`, so its block-relative-minus-start formula
+composes to `data_array[absolute address − 0x08F9C000]` — also byte-identical
+to legacy. Neither family carries a deliberate behavior change on this axis,
+and there is nothing here for a bench operator to verify beyond the wave's
+ordinary fidelity discipline.
 
 ## Structural changes with byte-identical wire output
 
@@ -356,8 +369,9 @@ Every image is offset-correct: byte 0 is address 0 in all four. No divergence
 is needed on the read path, and no Qt `insert`-past-end fill semantics are
 relied on.
 
-Round-trip consistency with `reflash_block` holds for three of the four, but
-not for `sh72543d` — see the write-base divergence below.
+Round-trip consistency with `reflash_block` holds for all four — see
+[write-base equivalence](#write-base-equivalence-no-sh72543d-divergence)
+above.
 
 `N83M_1_5MB` is the one inconsistency: its `romsize` field (`0x174000`) does not
 equal its own `fblocks` sum (`0x184000`), so this family's image is `0x10000`
@@ -367,12 +381,17 @@ recorded as a flash-table observation and left untouched.
 
 ## Legacy quirks preserved, not fixed
 
-- **`1n83m_4m`'s seven commented-out `return STATUS_ERROR` statements** — three
-  in `connect_bootloader`, four in `read_memory`'s two RequestDownload checks.
-  This family logs malformed and negative responses and proceeds where its
-  three siblings abort. Preserved exactly, matching wave 3's MH8104 tolerance
-  precedent. `sh72543d` carries one such check; `1n83m_1_5m` and `sh72531`
-  carry none.
+- **`1n83m_4m`'s four commented-out `return STATUS_ERROR` statements in
+  `read_memory`'s two RequestDownload/RequestUpload checks** (legacy lines
+  876, 883, 917, 924). This family logs malformed and negative responses and
+  proceeds where its three siblings abort at all four. Preserved exactly,
+  matching wave 3's MH8104 tolerance precedent. `sh72543d` carries one such
+  check; `1n83m_1_5m` and `sh72531` carry none. (Legacy also commented out
+  three more `return STATUS_ERROR` statements in `connect_bootloader`, lines
+  305/335/369, but those are not a divergence: every sibling already proceeds
+  rather than aborts at the equivalent check, so the commented-out lines are
+  this family's own record that the strictness there was never present, not
+  evidence it was removed.)
 - **`1n83m_4m`'s duplicate read after jump-to-kernel** — a second
   `read_serial_data` its siblings do not issue. Preserved.
 - **Per-family timeout constants**, including `1n83m_4m`'s bare `200`/`500`
@@ -404,7 +423,7 @@ the shape before the tolerant outlier lands against it:
    pad size.
 3. `sub_ecu_denso_sh72543_can_diesel` — computed addressing, `0x22 F1 82`
    identity exchange, `(fdt, blockno)` erase signature.
-4. `sub_ecu_denso_1n83m_4m_can` — the seven-tolerance outlier, last.
+4. `sub_ecu_denso_1n83m_4m_can` — the tolerant outlier, last.
 
 Then one cluster-factoring PR per the decision above.
 
@@ -431,10 +450,14 @@ wave.
 
 Two family-specific obligations, named because they are easy to get backwards:
 
-- **`1n83m_4m`'s tolerance must be asserted positively.** Its tests feed a
-  malformed or negative response to each of the seven tolerated checks and
-  assert the executor *proceeds*. The three strict siblings need the
-  mirror-image assertion on the same exchanges.
+- **`1n83m_4m`'s tolerance must be asserted positively at its four genuine
+  divergence points.** Its tests feed a malformed or negative response to each
+  of the four `read_memory` checks and assert the executor *proceeds*; the
+  three strict siblings abort at the same four exchanges and need the
+  mirror-image assertion there. The three `connect_bootloader` checks are also
+  commented out and also worth a positive proceeds-assertion, but they are not
+  a divergence — every sibling already proceeds at the equivalent exchange —
+  so no mirror-image abort assertion is owed on those.
 - **`test_write` rejection must be asserted before any transport call**, not
   merely as a returned error, since the legacy path would otherwise perform a
   real write.
@@ -466,11 +489,14 @@ tests. The `notes` column records, per family:
   (all four);
 - that both the bench and in-car programming branches are ported, including the
   additional CAN ids the in-car path addresses (all four);
-- `1n83m_4m`'s seven tolerated response checks and its duplicate post-jump
-  read;
-- `sh72543d`'s write-base divergence — legacy wrote a full ROM `0x8000` low,
-  this port indexes from address `0` — flagged as the first item for a bench
-  operator to verify;
+- `1n83m_4m`'s four genuine tolerated `read_memory` checks (plus three
+  commented-out `connect_bootloader` checks that match every sibling's own
+  behavior and are not a divergence) and its duplicate post-jump read;
+- `sh72543d`'s write-base equivalence — an earlier draft of this design
+  misread the composed indexing as a divergence; the matrix corrects that and
+  still directs a bench operator's first check to be reading back a written
+  ROM and confirming the bytes land where they came from, since the family
+  has no bench access;
 - `sh72543d`'s cfg `<kernel>` / `<kernel_addr>` declaration that the family
   does not use;
 - `N83M_1_5MB`'s `romsize` inconsistency with its own `fblocks` sum.
@@ -480,9 +506,9 @@ tests. The `notes` column records, per family:
 | Risk | Mitigation |
 |---|---|
 | Third-largest wave by volume (6,178 lines, behind waves 6 and 5) hand-transcribed with no bench access | Per-exchange legacy line citations; byte-exact `expectWrite` scripts; `experimental` never upgraded by unit tests |
-| `1n83m_4m`'s tolerance is asserted backwards, silently converting a tolerant family into a strict one | Positive tolerance assertions required per the testing section; its three strict siblings carry the mirror assertion on the same exchanges |
+| `1n83m_4m`'s tolerance is asserted backwards, silently converting a tolerant family into a strict one | Positive tolerance assertions required per the testing section; its three strict siblings carry the mirror assertion on the same four `read_memory` exchanges |
 | Over-factoring a cluster that is 92–94% line-identical but has zero four-way-identical protocol functions | Port-then-factor ordering; the data-vs-control-flow guardrail above; expected near-empty factoring PR stated in advance |
-| `sh72543d`'s write-base fix changes which bytes reach the ECU, and it cannot be verified without hardware | The change makes the family agree with its own read output and its three siblings, rather than inventing a third convention; plan tests pin the image base explicitly; the matrix names it as the first bench-verification item and `hardware_status` stays `experimental` |
+| An earlier draft of this design misdiagnosed `sh72543d`'s write base as a divergence needing a deliberate `0x8000` correction | Caught during implementation and re-derived correctly — see [write-base equivalence](#write-base-equivalence-no-sh72543d-divergence); the port is byte-identical to legacy, verified twice against the legacy source, and no image-base correction was applied |
 | The in-car branch is transcribed with no bench and no in-vehicle test rig, and most of its exchanges ignore their replies, so a wrong byte there is invisible until someone flashes a car | Per-exchange legacy line citations and byte-exact `expectWrite` scripts cover it exactly as they cover the bench path; both branches are separately scripted per family; `experimental` is never upgraded by unit tests |
 | `test_write` rejection turns out to be reachable from some path and regresses a user workflow | All four cfg entries declare `test_write=no`; plan tests assert rejection before I/O, and the dialog rewrite is in the same PR |
 
@@ -491,6 +517,10 @@ tests. The `notes` column records, per family:
 1. **Wave 4's substrate payoff is small, not "the largest in the tree."** The
    original estimate came from whole-file line overlap (0.81–0.94).
    Function-level measurement shows zero of six protocol functions are
-   four-way identical; only the three crypto wrappers are, and those already
-   delegate to `SsmProtocol`. The porting cost stands as sequenced; the
-   factoring payoff does not.
+   four-way identical; only the three crypto wrapper functions are, and those
+   already delegate to `SsmProtocol`. The porting cost stands as sequenced;
+   the factoring payoff does not — this is not in tension with the
+   [factoring pass's outcome](#outcome), which did land
+   `denso_iso15765_can_common.h`: what it shares is the crypto key-table
+   *data* those wrapper functions read, not a protocol function, and it is
+   the only four-way byte-identical artifact in the cluster.
