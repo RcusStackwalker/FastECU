@@ -19,8 +19,11 @@ constexpr std::string_view kMcu = "SH72543d";
 // arguments (lines 828-830) and the 0x34/0x35 setup PDUs spell out literally
 // (lines 844-854, 881-891).
 constexpr MemoryRegion kMainBlock{0x00008000, 0x001F7F00};
-constexpr std::uint32_t kImageStart = 0x00000000; // fblocks[0].start
-constexpr std::size_t kImageSize = 0x200000;      // fblocks[0] sum, and SH72543d's own romsize
+// SH72543d's own romsize. Unlike its three siblings this is not the fblocks
+// sum -- the table's 0x0-0x8000 entry is commented out -- so the image base
+// (0x0) is not fblocks[0].start here; it is expressed in the executor, at the
+// write-indexing site that is the only place it is used.
+constexpr std::size_t kImageSize = 0x200000;
 constexpr std::uint32_t kLeadPad = 0x8000;
 constexpr std::uint32_t kTailPad = 0x100;
 
