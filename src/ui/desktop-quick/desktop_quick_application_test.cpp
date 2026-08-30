@@ -27,10 +27,11 @@ dashboard::DashboardDocument usable_document()
     return {.cards = {dashboard::DashboardCard{}}};
 }
 
-dashboard::DashboardDocument two_card_document()
+dashboard::DashboardDocument mixed_card_document()
 {
     return {
         .metadata = {.format_version = 1, .name = "Engine dashboard"},
+        .connection = {.sampling_interval_ms = 50},
         .channels =
             {
                 {.id = "CDBG_ENGINE_RPM",
@@ -38,16 +39,36 @@ dashboard::DashboardDocument two_card_document()
                  .conversions = {{.id = "rpm", .unit = "rpm", .precision = 0}}},
                 {.id = "CDBG_COOLANT_TEMP",
                  .name = "Coolant Temperature",
-                 .conversions = {{.id = "temperature", .unit = "°C", .precision = 1}}},
+                 .conversions = {{.id = "temperature",
+                                  .unit = "°C",
+                                  .precision = 1,
+                                  .gauge_min = -40.0,
+                                  .gauge_max = 260.0,
+                                  .gauge_step = 10.0}}},
+                {.id = "CDBG_MANIFOLD_PRESSURE",
+                 .name = "Manifold Pressure",
+                 .conversions = {{.id = "pressure", .unit = "kPa", .precision = 0}}},
             },
         .cards =
             {
                 {.id = "rpm",
                  .channel_id = "CDBG_ENGINE_RPM",
                  .conversion_id = "rpm",
+                 .display_type = dashboard::CardDisplayType::Numeric,
                  .title = "Tachometer",
                  .order = 0},
-                {.id = "coolant", .channel_id = "CDBG_COOLANT_TEMP", .conversion_id = "temperature", .order = 1},
+                {.id = "coolant",
+                 .channel_id = "CDBG_COOLANT_TEMP",
+                 .conversion_id = "temperature",
+                 .display_type = dashboard::CardDisplayType::Sparkline,
+                 .order = 1,
+                 .sparkline_history_seconds = 30},
+                {.id = "manifold-pressure",
+                 .channel_id = "CDBG_MANIFOLD_PRESSURE",
+                 .conversion_id = "pressure",
+                 .display_type = dashboard::CardDisplayType::HorizontalGauge,
+                 .order = 2,
+                 .gauge_bounds = dashboard::GaugeBoundsOverride{0.0, 100.0, 5.0}},
             },
     };
 }
@@ -187,7 +208,7 @@ class LoadedApplication
 {
   public:
     LoadedApplication()
-        : controller(preparation, logging), document(two_card_document()),
+        : controller(preparation, logging), document(mixed_card_document()),
           presentation(document, logging, controller, clock)
     {
         controller.setDocument(document);
@@ -264,6 +285,22 @@ QList<QObject *> visual_children_named(QQuickItem *item, const QString& object_n
     return result;
 }
 
+QList<QObject *> visual_dashboard_cards(QQuickItem *item)
+{
+    QList<QObject *> result;
+    for (QQuickItem *child : item->childItems())
+    {
+        if (child->objectName() == QStringLiteral("numericCard") ||
+            child->objectName() == QStringLiteral("sparklineCard") ||
+            child->objectName() == QStringLiteral("horizontalGaugeCard"))
+        {
+            result.append(child);
+        }
+        result.append(visual_dashboard_cards(child));
+    }
+    return result;
+}
+
 class DesktopQuickApplicationTest : public QObject
 {
     Q_OBJECT
@@ -285,7 +322,7 @@ class DesktopQuickApplicationTest : public QObject
                      .value<QObject *>(),
                  &application.presentation);
         QCOMPARE(application.controller.canConnect(), true);
-        QCOMPARE(application.presentation.cards()->rowCount(), 2);
+        QCOMPARE(application.presentation.cards()->rowCount(), 3);
         QObject *root = application.root();
         QVERIFY(root != nullptr);
         QCOMPARE(root->objectName(), QStringLiteral("desktopQuickRoot"));
@@ -318,6 +355,8 @@ class DesktopQuickApplicationTest : public QObject
         auto *dashboard_item = qobject_cast<QQuickItem *>(dashboard_view);
         QVERIFY(dashboard_item != nullptr);
         QCOMPARE(visual_children_named(dashboard_item, QStringLiteral("numericCard")).size(), 0);
+        QCOMPARE(visual_children_named(dashboard_item, QStringLiteral("sparklineCard")).size(), 0);
+        QCOMPARE(visual_children_named(dashboard_item, QStringLiteral("horizontalGaugeCard")).size(), 0);
 
         QObject *dashboard_load_error = application.find("loadErrorText");
         QVERIFY(dashboard_load_error != nullptr);
@@ -365,13 +404,26 @@ class DesktopQuickApplicationTest : public QObject
         auto *dashboard_item = qobject_cast<QQuickItem *>(dashboard_view);
         QVERIFY(dashboard_item != nullptr);
         QCOMPARE(visual_children_named(dashboard_item, QStringLiteral("dashboardTitle")).size(), 0);
-        const QList<QObject *> cards = visual_children_named(dashboard_item, QStringLiteral("numericCard"));
-        QCOMPARE(cards.size(), 2);
+        const QList<QObject *> cards = visual_dashboard_cards(dashboard_item);
+        QCOMPARE(cards.size(), 3);
+        QCOMPARE(cards.at(0)->objectName(), QStringLiteral("numericCard"));
+        QCOMPARE(cards.at(1)->objectName(), QStringLiteral("sparklineCard"));
+        QCOMPARE(cards.at(2)->objectName(), QStringLiteral("horizontalGaugeCard"));
         for (QObject *card : cards)
         {
             QVERIFY(card->property("usesDashboardCardFrame").isValid());
             QCOMPARE(card->property("usesDashboardCardFrame").toBool(), true);
+            auto *card_item = qobject_cast<QQuickItem *>(card);
+            QVERIFY(card_item != nullptr);
+            QCOMPARE(visual_children_named(card_item, QStringLiteral("cardTitle")).size(), 1);
+            QCOMPARE(visual_children_named(card_item, QStringLiteral("cardValue")).size(), 1);
+            QCOMPARE(visual_children_named(card_item, QStringLiteral("cardUnit")).size(), 1);
+            QCOMPARE(visual_children_named(card_item, QStringLiteral("cardState")).size(), 1);
         }
+        QCOMPARE(cards.at(0)->property("implicitHeight").toDouble(),
+                 cards.at(1)->property("implicitHeight").toDouble());
+        QCOMPARE(cards.at(1)->property("implicitHeight").toDouble(),
+                 cards.at(2)->property("implicitHeight").toDouble());
         QVERIFY(cards.at(0)->property("waitingReadingState").isValid());
         QVERIFY(cards.at(0)->property("liveReadingState").isValid());
         QVERIFY(cards.at(0)->property("staleReadingState").isValid());
@@ -379,18 +431,19 @@ class DesktopQuickApplicationTest : public QObject
         QCOMPARE(cards.at(0)->property("liveReadingState").toInt(), static_cast<int>(ReadingState::Live));
         QCOMPARE(cards.at(0)->property("staleReadingState").toInt(), static_cast<int>(ReadingState::Stale));
         const QList<QObject *> titles = visual_children_named(dashboard_item, QStringLiteral("cardTitle"));
-        QCOMPARE(titles.size(), 2);
+        QCOMPARE(titles.size(), 3);
         QCOMPARE(titles.at(0)->property("text").toString(), QStringLiteral("Tachometer"));
         QCOMPARE(titles.at(1)->property("text").toString(), QStringLiteral("Coolant Temperature"));
+        QCOMPARE(titles.at(2)->property("text").toString(), QStringLiteral("Manifold Pressure"));
 
         const QList<QObject *> values = visual_children_named(dashboard_item, QStringLiteral("cardValue"));
         const QList<QObject *> units = visual_children_named(dashboard_item, QStringLiteral("cardUnit"));
         const QList<QObject *> states = visual_children_named(dashboard_item, QStringLiteral("cardState"));
         const QList<QObject *> ages = visual_children_named(dashboard_item, QStringLiteral("cardAge"));
-        QCOMPARE(values.size(), 2);
-        QCOMPARE(units.size(), 2);
-        QCOMPARE(states.size(), 2);
-        QCOMPARE(ages.size(), 2);
+        QCOMPARE(values.size(), 3);
+        QCOMPARE(units.size(), 3);
+        QCOMPARE(states.size(), 3);
+        QCOMPARE(ages.size(), 3);
         QCOMPARE(values.at(0)->property("text").toString(), QString::fromUtf8("—"));
         QCOMPARE(values.at(1)->property("text").toString(), QString::fromUtf8("—"));
         QCOMPARE(units.at(0)->property("text").toString(), QStringLiteral("rpm"));
@@ -415,6 +468,59 @@ class DesktopQuickApplicationTest : public QObject
         QCOMPARE(card_accessible->text(QAccessible::Name), QStringLiteral("Tachometer 3125 rpm Stale"));
     }
 
+    void visualizationCardsExposeBoundedGeometryAndRetainStaleReadings()
+    {
+        LoadedApplication application;
+        QVERIFY(application.loaded);
+        QObject *dashboard_view = application.find("dashboardView");
+        QVERIFY(dashboard_view != nullptr);
+        auto *dashboard_item = qobject_cast<QQuickItem *>(dashboard_view);
+        QVERIFY(dashboard_item != nullptr);
+
+        const QList<QObject *> sparkline_cards = visual_children_named(dashboard_item, QStringLiteral("sparklineCard"));
+        const QList<QObject *> gauge_cards =
+            visual_children_named(dashboard_item, QStringLiteral("horizontalGaugeCard"));
+        QCOMPARE(sparkline_cards.size(), 1);
+        QCOMPARE(gauge_cards.size(), 1);
+        QObject *sparkline = sparkline_cards.front();
+        QObject *gauge = gauge_cards.front();
+        QCOMPARE(visual_children_named(dashboard_item, QStringLiteral("sparklineCanvas")).size(), 1);
+        QCOMPARE(visual_children_named(dashboard_item, QStringLiteral("gaugeCanvas")).size(), 1);
+        QCOMPARE(gauge->property("tickCount").toInt(), 12);
+
+        auto *cards_model = static_cast<DashboardCardModel *>(application.presentation.cards());
+        cards_model->applySamples({sample("CDBG_MANIFOLD_PRESSURE", 50.0)}, 1000, true);
+        QTRY_COMPARE(gauge->property("normalizedValue").toDouble(), 0.5);
+        QTRY_COMPARE(gauge->property("overflowDirection").toInt(), 0);
+
+        cards_model->applySamples({sample("CDBG_MANIFOLD_PRESSURE", 125.0)}, 1100, true);
+        QTRY_COMPARE(gauge->property("normalizedValue").toDouble(), 1.0);
+        QTRY_COMPARE(gauge->property("overflowDirection").toInt(), 1);
+
+        cards_model->applySamples({sample("CDBG_MANIFOLD_PRESSURE", -5.0)}, 1200, true);
+        QTRY_COMPARE(gauge->property("normalizedValue").toDouble(), 0.0);
+        QTRY_COMPARE(gauge->property("overflowDirection").toInt(), -1);
+
+        cards_model->applySamples({{.sample = sample("CDBG_COOLANT_TEMP", 20.0), .received_at_ms = 1000},
+                                   {.sample = sample("CDBG_COOLANT_TEMP", 25.0), .received_at_ms = 1100},
+                                   {.sample = sample("CDBG_COOLANT_TEMP", 30.0), .received_at_ms = 1251}},
+                                  true);
+        QTRY_COMPARE(sparkline->property("segmentCount").toInt(), 2);
+
+        auto *sparkline_item = qobject_cast<QQuickItem *>(sparkline);
+        QVERIFY(sparkline_item != nullptr);
+        const QList<QObject *> sparkline_values = visual_children_named(sparkline_item, QStringLiteral("cardValue"));
+        QCOMPARE(sparkline_values.size(), 1);
+        QTRY_COMPARE(sparkline_values.front()->property("text").toString(), QStringLiteral("30.0"));
+        QAccessibleInterface *sparkline_accessible = QAccessible::queryAccessibleInterface(sparkline);
+        QVERIFY(sparkline_accessible != nullptr);
+
+        cards_model->markReceivedRowsStale();
+        QTRY_COMPARE(sparkline->property("cardReadingState").toInt(), static_cast<int>(ReadingState::Stale));
+        QCOMPARE(sparkline_values.front()->property("text").toString(), QStringLiteral("30.0"));
+        QCOMPARE(sparkline_accessible->text(QAccessible::Name), QString::fromUtf8("Coolant Temperature 30.0 °C Stale"));
+    }
+
     void dashboardGridUsesResponsiveColumnsWithoutReorderingCards()
     {
         LoadedApplication application;
@@ -433,9 +539,10 @@ class DesktopQuickApplicationTest : public QObject
         auto *dashboard_item = qobject_cast<QQuickItem *>(dashboard_view);
         QVERIFY(dashboard_item != nullptr);
         const QList<QObject *> titles = visual_children_named(dashboard_item, QStringLiteral("cardTitle"));
-        QCOMPARE(titles.size(), 2);
+        QCOMPARE(titles.size(), 3);
         QCOMPARE(titles.at(0)->property("text").toString(), QStringLiteral("Tachometer"));
         QCOMPARE(titles.at(1)->property("text").toString(), QStringLiteral("Coolant Temperature"));
+        QCOMPARE(titles.at(2)->property("text").toString(), QStringLiteral("Manifold Pressure"));
     }
 
     void connectButtonRequestsAdapterSelection()

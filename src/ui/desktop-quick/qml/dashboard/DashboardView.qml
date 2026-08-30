@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import OmniHaste.Dashboard 1.0
 
 ScrollView {
     id: dashboardView
@@ -49,26 +50,80 @@ ScrollView {
                     required property string unit
                     required property int readingState
                     required property string lastUpdateAgeText
+                    required property int displayType
+                    required property real minimumValue
+                    required property real maximumValue
+                    required property real stepValue
+                    required property int sparklineHistorySeconds
+                    required property var sparklinePoints
+                    required property bool hasReading
+                    required property real numericValue
 
                     Layout.fillWidth: true
                     Layout.preferredWidth: (dashboardGrid.width
                                             - (dashboardGrid.columns - 1) * dashboardGrid.columnSpacing)
                                            / dashboardGrid.columns
 
-                    implicitWidth: numericCard.implicitWidth
-                    implicitHeight: numericCard.implicitHeight
+                    implicitWidth: loader.item ? loader.item.implicitWidth : 240
+                    implicitHeight: loader.item ? loader.item.implicitHeight : 170
 
-                    NumericCard {
-                        id: numericCard
+                    Loader {
+                        id: loader
                         anchors.fill: parent
-                        cardTitleText: cardDelegate.title
-                        cardValueText: cardDelegate.formattedValue
-                        cardUnitText: cardDelegate.unit
-                        cardReadingState: cardDelegate.readingState
-                        cardLastUpdateAgeText: cardDelegate.lastUpdateAgeText
+                        sourceComponent: cardDelegate.displayType === DashboardCardModel.Sparkline
+                            ? sparklineComponent
+                            : cardDelegate.displayType === DashboardCardModel.HorizontalGauge
+                              ? gaugeComponent : numericComponent
+                    }
+
+                    Component {
+                        id: numericComponent
+
+                        NumericCard {
+                            cardTitleText: cardDelegate.title
+                            cardValueText: cardDelegate.formattedValue
+                            cardUnitText: cardDelegate.unit
+                            cardReadingState: cardDelegate.readingState
+                            cardLastUpdateAgeText: cardDelegate.lastUpdateAgeText
+                        }
+                    }
+
+                    Component {
+                        id: sparklineComponent
+
+                        SparklineCard {
+                            cardTitleText: cardDelegate.title
+                            cardValueText: cardDelegate.formattedValue
+                            cardUnitText: cardDelegate.unit
+                            cardReadingState: cardDelegate.readingState
+                            cardLastUpdateAgeText: cardDelegate.lastUpdateAgeText
+                            minimumValue: cardDelegate.minimumValue
+                            maximumValue: cardDelegate.maximumValue
+                            stepValue: cardDelegate.stepValue
+                            historySeconds: cardDelegate.sparklineHistorySeconds
+                            points: cardDelegate.sparklinePoints
+                        }
+                    }
+
+                    Component {
+                        id: gaugeComponent
+
+                        HorizontalGaugeCard {
+                            cardTitleText: cardDelegate.title
+                            cardValueText: cardDelegate.formattedValue
+                            cardUnitText: cardDelegate.unit
+                            cardReadingState: cardDelegate.readingState
+                            cardLastUpdateAgeText: cardDelegate.lastUpdateAgeText
+                            hasReading: cardDelegate.hasReading
+                            numericValue: cardDelegate.numericValue
+                            minimumValue: cardDelegate.minimumValue
+                            maximumValue: cardDelegate.maximumValue
+                            stepValue: cardDelegate.stepValue
+                        }
                     }
                 }
             }
         }
     }
+
 }
