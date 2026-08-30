@@ -99,6 +99,8 @@ void DashboardController::handleConnectionStateChanged()
         cards_->markReceivedRowsStale();
         break;
     case ConnectionState::Connecting:
+        cards_->clearSparklineHistories();
+        break;
     case ConnectionState::AdapterSelectionRequired:
     case ConnectionState::Running:
         break;

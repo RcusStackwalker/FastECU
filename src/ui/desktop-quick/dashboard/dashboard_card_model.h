@@ -60,6 +60,7 @@ class DashboardCardModel final : public QAbstractListModel
         MaximumValueRole,
         StepValueRole,
         SparklineHistorySecondsRole,
+        SparklinePointsRole,
     };
     Q_ENUM(Role)
 
@@ -71,12 +72,20 @@ class DashboardCardModel final : public QAbstractListModel
 
     void applySamples(const QVector<logging::LogSample>& samples, std::uint64_t now_ms, bool running);
     void applySamples(const QVector<ReceivedLogSample>& samples, bool running);
+    void clearSparklineHistories();
     void markReceivedRowsStale();
     void updateAges(std::uint64_t now_ms);
     bool hasReceivedRows() const;
     bool containsChannel(std::string_view channel_id) const;
 
   private:
+    struct SparklinePoint
+    {
+        std::uint64_t timestamp_ms;
+        double value;
+        bool starts_segment;
+    };
+
     struct Row
     {
         QString card_id;
@@ -89,6 +98,8 @@ class DashboardCardModel final : public QAbstractListModel
         double maximum_value = 1.0;
         double step_value = 1.0;
         int sparkline_history_seconds = 0;
+        QVector<SparklinePoint> sparkline_points;
+        std::uint64_t gap_threshold_ms = 100;
         double numeric_value = 0.0;
         std::uint64_t last_update_ms = 0;
         std::uint64_t age_seconds = 0;

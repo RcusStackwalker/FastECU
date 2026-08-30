@@ -29,6 +29,7 @@ dashboard::DashboardDocument dashboard_document()
 {
     return {
         .metadata = {.format_version = 1, .name = "Colt CDBG Dashboard"},
+        .connection = {.sampling_interval_ms = 50},
         .channels =
             {
                 {.id = "CDBG_ENGINE_RPM",
@@ -40,7 +41,12 @@ dashboard::DashboardDocument dashboard_document()
             },
         .cards =
             {
-                {.id = "rpm", .channel_id = "CDBG_ENGINE_RPM", .conversion_id = "rpm", .order = 0},
+                {.id = "rpm",
+                 .channel_id = "CDBG_ENGINE_RPM",
+                 .conversion_id = "rpm",
+                 .display_type = dashboard::CardDisplayType::Sparkline,
+                 .order = 0,
+                 .sparkline_history_seconds = 2},
                 {.id = "coolant", .channel_id = "CDBG_COOLANT_TEMP", .conversion_id = "temperature", .order = 1},
             },
     };
@@ -196,6 +202,11 @@ ReadingState state(const DashboardController& dashboard, int row)
 QString card_value(const DashboardController& dashboard, int row)
 {
     return role(dashboard, row, DashboardCardModel::FormattedValueRole).toString();
+}
+
+QVariantList sparkline_points(const DashboardController& dashboard, int row = 0)
+{
+    return role(dashboard, row, DashboardCardModel::SparklinePointsRole).toList();
 }
 
 int notification_count(const QSignalSpy& changed, DashboardCardModel::Role role)
@@ -451,6 +462,76 @@ class DashboardControllerTest final : public QObject
         harness.engine.publishValues({sample("CDBG_ENGINE_RPM", 2200.0)});
         QTest::qWait(40);
         QVERIFY(guard.isNull());
+    }
+
+    void enteringConnectingClearsHistoryButRetainsCurrentValue()
+    {
+        Harness harness;
+        DashboardController dashboard(dashboard_document(), harness.engine, harness.connection, harness.clock);
+        harness.connectRunning();
+        harness.clock.now_ = 1000;
+        harness.engine.publishValues({sample("CDBG_ENGINE_RPM", 1000.0)});
+        flush_pending(dashboard);
+        harness.clock.now_ = 1100;
+        harness.engine.publishValues({sample("CDBG_ENGINE_RPM", 2000.0)});
+        flush_pending(dashboard);
+        QCOMPARE(sparkline_points(dashboard).size(), 2);
+        harness.engine.publishEnded(desktop::logging::SessionEndReason::RuntimeFailed);
+
+        harness.connection.connectDashboard();
+
+        QCOMPARE(harness.connection.state(), ConnectionState::Connecting);
+        QCOMPARE(sparkline_points(dashboard).size(), 0);
+        QCOMPARE(card_value(dashboard, 0), QStringLiteral("2000"));
+    }
+
+    void nonConnectingInactiveStatesRetainHistoryAndMarkReadingStale()
+    {
+        const auto seed_history = [](Harness& harness, DashboardController& dashboard)
+        {
+            harness.connectRunning();
+            harness.clock.now_ = 1000;
+            harness.engine.publishValues({sample("CDBG_ENGINE_RPM", 1000.0)});
+            flush_pending(dashboard);
+            harness.clock.now_ = 1100;
+            harness.engine.publishValues({sample("CDBG_ENGINE_RPM", 2000.0)});
+            flush_pending(dashboard);
+            QCOMPARE(sparkline_points(dashboard).size(), 2);
+        };
+
+        {
+            Harness harness;
+            DashboardController dashboard(dashboard_document(), harness.engine, harness.connection, harness.clock);
+            seed_history(harness, dashboard);
+
+            harness.engine.publishStatus(desktop::logging::LoggingStatus::CarNotResponding);
+
+            QCOMPARE(sparkline_points(dashboard).size(), 2);
+            QCOMPARE(state(dashboard, 0), ReadingState::Stale);
+        }
+        {
+            Harness harness;
+            DashboardController dashboard(dashboard_document(), harness.engine, harness.connection, harness.clock);
+            seed_history(harness, dashboard);
+
+            harness.engine.publishEnded(desktop::logging::SessionEndReason::RuntimeFailed);
+
+            QCOMPARE(harness.connection.state(), ConnectionState::Failed);
+            QCOMPARE(sparkline_points(dashboard).size(), 2);
+            QCOMPARE(state(dashboard, 0), ReadingState::Stale);
+        }
+        {
+            Harness harness;
+            DashboardController dashboard(dashboard_document(), harness.engine, harness.connection, harness.clock);
+            seed_history(harness, dashboard);
+
+            harness.connection.disconnectDashboard();
+            harness.engine.publishEnded(desktop::logging::SessionEndReason::StoppedByUser);
+
+            QCOMPARE(harness.connection.state(), ConnectionState::Disconnected);
+            QCOMPARE(sparkline_points(dashboard).size(), 2);
+            QCOMPARE(state(dashboard, 0), ReadingState::Stale);
+        }
     }
 };
 

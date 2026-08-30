@@ -62,7 +62,9 @@ DashboardCardModel::DashboardCardModel(const dashboard::DashboardDocument& docum
                          .minimum_value = bounds.minimum,
                          .maximum_value = bounds.maximum,
                          .step_value = bounds.step,
-                         .sparkline_history_seconds = card.sparkline_history_seconds.value_or(0)});
+                         .sparkline_history_seconds = card.sparkline_history_seconds.value_or(0),
+                         .gap_threshold_ms = std::max<std::uint64_t>(
+                             100, static_cast<std::uint64_t>(document.connection.sampling_interval_ms) * 3)});
         rows_by_channel_.emplace(card.channel_id, static_cast<int>(rows_.size() - 1));
     }
 }
@@ -111,6 +113,26 @@ QVariant DashboardCardModel::data(const QModelIndex& index, int role) const
         return row.step_value;
     case SparklineHistorySecondsRole:
         return row.sparkline_history_seconds;
+    case SparklinePointsRole:
+    {
+        QVariantList points;
+        if (row.sparkline_points.isEmpty())
+        {
+            return points;
+        }
+        points.reserve(row.sparkline_points.size());
+        const std::uint64_t newest = row.sparkline_points.constLast().timestamp_ms;
+        for (const SparklinePoint& point : row.sparkline_points)
+        {
+            points.append(QVariantMap{
+                {QStringLiteral("elapsedMs"),
+                 static_cast<qlonglong>(point.timestamp_ms) - static_cast<qlonglong>(newest)},
+                {QStringLiteral("value"), point.value},
+                {QStringLiteral("startsSegment"), point.starts_segment},
+            });
+        }
+        return points;
+    }
     default:
         return {};
     }
@@ -134,6 +156,7 @@ QHash<int, QByteArray> DashboardCardModel::roleNames() const
         {MaximumValueRole, "maximumValue"},
         {StepValueRole, "stepValue"},
         {SparklineHistorySecondsRole, "sparklineHistorySeconds"},
+        {SparklinePointsRole, "sparklinePoints"},
     };
 }
 
@@ -185,6 +208,40 @@ void DashboardCardModel::applySamples(const QVector<ReceivedLogSample>& samples,
         row.age_seconds = 0;
         row.has_reading = true;
         row.reading_state = running ? ReadingState::Live : ReadingState::Stale;
+        bool sparkline_changed = false;
+        if (row.display_type == CardDisplayType::Sparkline && row.sparkline_history_seconds > 0)
+        {
+            if (row.sparkline_points.isEmpty())
+            {
+                row.sparkline_points.append(
+                    {.timestamp_ms = received.received_at_ms, .value = sample.numeric_value, .starts_segment = true});
+                sparkline_changed = true;
+            }
+            else if (received.received_at_ms == row.sparkline_points.constLast().timestamp_ms)
+            {
+                if (row.sparkline_points.constLast().value != sample.numeric_value)
+                {
+                    row.sparkline_points.last().value = sample.numeric_value;
+                    sparkline_changed = true;
+                }
+            }
+            else if (received.received_at_ms > row.sparkline_points.constLast().timestamp_ms)
+            {
+                const bool starts_segment =
+                    received.received_at_ms - row.sparkline_points.constLast().timestamp_ms > row.gap_threshold_ms;
+                row.sparkline_points.append({.timestamp_ms = received.received_at_ms,
+                                             .value = sample.numeric_value,
+                                             .starts_segment = starts_segment});
+                const std::uint64_t duration_ms = static_cast<std::uint64_t>(row.sparkline_history_seconds) * 1000;
+                while (!row.sparkline_points.isEmpty() &&
+                       row.sparkline_points.constFirst().timestamp_ms + duration_ms < received.received_at_ms)
+                {
+                    row.sparkline_points.removeFirst();
+                }
+                row.sparkline_points.first().starts_segment = true;
+                sparkline_changed = true;
+            }
+        }
         if (!has_reading || old_value != row.numeric_value)
         {
             roles.append(FormattedValueRole);
@@ -202,8 +259,28 @@ void DashboardCardModel::applySamples(const QVector<ReceivedLogSample>& samples,
         {
             roles.append(LastUpdateAgeTextRole);
         }
+        if (sparkline_changed)
+        {
+            roles.append(SparklinePointsRole);
+        }
     }
 
+    notifyChangedRows(changed_roles);
+}
+
+void DashboardCardModel::clearSparklineHistories()
+{
+    QVector<QVector<int>> changed_roles(rows_.size());
+    for (int row_index = 0; row_index < rowCount(); ++row_index)
+    {
+        Row& row = rows_[row_index];
+        if (row.sparkline_points.isEmpty())
+        {
+            continue;
+        }
+        row.sparkline_points.clear();
+        changed_roles[row_index] = {SparklinePointsRole};
+    }
     notifyChangedRows(changed_roles);
 }
 

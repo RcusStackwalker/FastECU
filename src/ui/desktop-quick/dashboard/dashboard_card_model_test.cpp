@@ -59,6 +59,14 @@ dashboard::DashboardDocument two_card_document()
     };
 }
 
+dashboard::DashboardDocument sparkline_document(int history_seconds = 2, std::uint32_t sampling_interval_ms = 50)
+{
+    dashboard::DashboardDocument document = two_card_document();
+    document.connection.sampling_interval_ms = sampling_interval_ms;
+    document.cards.at(0).sparkline_history_seconds = history_seconds;
+    return document;
+}
+
 QVariant role(const DashboardCardModel& model, int row, DashboardCardModel::Role role)
 {
     return model.data(model.index(row, 0), role);
@@ -225,7 +233,7 @@ class DashboardCardModelTest final : public QObject
         QCOMPARE(update.at(2).value<QVector<int>>(),
                  QVector<int>({DashboardCardModel::FormattedValueRole, DashboardCardModel::NumericValueRole,
                                DashboardCardModel::ReadingStateRole, DashboardCardModel::HasReadingRole,
-                               DashboardCardModel::LastUpdateAgeTextRole}));
+                               DashboardCardModel::LastUpdateAgeTextRole, DashboardCardModel::SparklinePointsRole}));
 
         model.markReceivedRowsStale();
 
@@ -242,6 +250,79 @@ class DashboardCardModelTest final : public QObject
         QCOMPARE(update.at(0).value<QModelIndex>().row(), 0);
         QCOMPARE(update.at(1).value<QModelIndex>().row(), 1);
         QCOMPARE(update.at(2).value<QVector<int>>(), QVector<int>({DashboardCardModel::LastUpdateAgeTextRole}));
+    }
+
+    void retainsOnlyBoundedSparklineHistoryAndSerializesPointsRelativeToNewest()
+    {
+        DashboardCardModel model(sparkline_document());
+
+        model.applySamples({ReceivedLogSample{sample("CDBG_COOLANT_TEMP", 10.0), 1000}}, true);
+        model.applySamples({ReceivedLogSample{sample("CDBG_COOLANT_TEMP", 20.0), 1500}}, true);
+        model.applySamples({ReceivedLogSample{sample("CDBG_COOLANT_TEMP", 30.0), 3101}}, true);
+        model.applySamples({ReceivedLogSample{sample("CDBG_ENGINE_RPM", 2000.0), 3101}}, true);
+
+        const QVariantList points = role(model, 1, DashboardCardModel::SparklinePointsRole).toList();
+        QCOMPARE(points.size(), 2);
+        QCOMPARE(points.at(0).toMap().value("elapsedMs").toLongLong(), -1601);
+        QCOMPARE(points.at(0).toMap().value("value").toDouble(), 20.0);
+        QCOMPARE(points.at(0).toMap().value("startsSegment").toBool(), true);
+        QCOMPARE(points.at(1).toMap().value("elapsedMs").toLongLong(), 0);
+        QCOMPARE(points.at(1).toMap().value("value").toDouble(), 30.0);
+        QCOMPARE(role(model, 0, DashboardCardModel::SparklinePointsRole).toList().size(), 0);
+        QCOMPARE(model.roleNames().value(DashboardCardModel::SparklinePointsRole),
+                 QByteArrayLiteral("sparklinePoints"));
+    }
+
+    void replacesSameTimestampAndNotifiesSparklineRoleOnlyForSparklineRows()
+    {
+        DashboardCardModel model(sparkline_document());
+        QSignalSpy changes(&model, &QAbstractItemModel::dataChanged);
+
+        model.applySamples({ReceivedLogSample{sample("CDBG_ENGINE_RPM", 2000.0), 1000}}, true);
+
+        QCOMPARE(changes.count(), 1);
+        QVERIFY(!changes.takeFirst().at(2).value<QVector<int>>().contains(DashboardCardModel::SparklinePointsRole));
+
+        model.applySamples({ReceivedLogSample{sample("CDBG_COOLANT_TEMP", 10.0), 1000}}, true);
+        model.applySamples({ReceivedLogSample{sample("CDBG_COOLANT_TEMP", 20.0), 1000}}, true);
+
+        QCOMPARE(changes.count(), 2);
+        for (const QList<QVariant>& notification : changes)
+        {
+            QCOMPARE(notification.at(0).value<QModelIndex>().row(), 1);
+            QVERIFY(notification.at(2).value<QVector<int>>().contains(DashboardCardModel::SparklinePointsRole));
+        }
+        const QVariantList points = role(model, 1, DashboardCardModel::SparklinePointsRole).toList();
+        QCOMPARE(points.size(), 1);
+        QCOMPARE(points.at(0).toMap().value("elapsedMs").toLongLong(), 0);
+        QCOMPARE(points.at(0).toMap().value("value").toDouble(), 20.0);
+        QCOMPARE(points.at(0).toMap().value("startsSegment").toBool(), true);
+    }
+
+    void startsSegmentsAfterStrictGapThresholdAndClearsOnlyExistingHistories()
+    {
+        DashboardCardModel model(sparkline_document());
+        model.applySamples({ReceivedLogSample{sample("CDBG_COOLANT_TEMP", 10.0), 1000}}, true);
+        model.applySamples({ReceivedLogSample{sample("CDBG_COOLANT_TEMP", 20.0), 1100}}, true);
+        model.applySamples({ReceivedLogSample{sample("CDBG_COOLANT_TEMP", 30.0), 1251}}, true);
+        const QVariantList points = role(model, 1, DashboardCardModel::SparklinePointsRole).toList();
+
+        QCOMPARE(points.size(), 3);
+        QCOMPARE(points.at(0).toMap().value("startsSegment").toBool(), true);
+        QCOMPARE(points.at(1).toMap().value("startsSegment").toBool(), false);
+        QCOMPARE(points.at(2).toMap().value("startsSegment").toBool(), true);
+        QCOMPARE(role(model, 1, DashboardCardModel::FormattedValueRole), QStringLiteral("30.0"));
+        QSignalSpy changes(&model, &QAbstractItemModel::dataChanged);
+
+        model.clearSparklineHistories();
+
+        QCOMPARE(role(model, 1, DashboardCardModel::SparklinePointsRole).toList().size(), 0);
+        QCOMPARE(role(model, 1, DashboardCardModel::FormattedValueRole), QStringLiteral("30.0"));
+        QCOMPARE(changes.count(), 1);
+        const QList<QVariant> notification = changes.takeFirst();
+        QCOMPARE(notification.at(0).value<QModelIndex>().row(), 1);
+        QCOMPARE(notification.at(1).value<QModelIndex>().row(), 1);
+        QCOMPARE(notification.at(2).value<QVector<int>>(), QVector<int>({DashboardCardModel::SparklinePointsRole}));
     }
 };
 
