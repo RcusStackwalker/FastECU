@@ -499,6 +499,7 @@ cc_library(
     srcs = ["subaru_denso_sh72531_can_executor.cpp"],
     hdrs = ["subaru_denso_sh72531_can_executor.h"],
     deps = [
+        ":denso_iso15765_can_common",
         ":flash_phase_progress",
         ":subaru_denso_sh72531_can_plan",
         ":uds_client_exchange_common",
@@ -520,6 +521,7 @@ cc_library(
     srcs = ["subaru_denso_sh72543_can_diesel_executor.cpp"],
     hdrs = ["subaru_denso_sh72543_can_diesel_executor.h"],
     deps = [
+        ":denso_iso15765_can_common",
         ":flash_phase_progress",
         ":subaru_denso_sh72543_can_diesel_plan",
         ":uds_client_exchange_common",
@@ -557,6 +559,7 @@ cc_library(
     srcs = ["subaru_denso_1n83m_4m_can_executor.cpp"],
     hdrs = ["subaru_denso_1n83m_4m_can_executor.h"],
     deps = [
+        ":denso_iso15765_can_common",
         ":flash_phase_progress",
         ":subaru_denso_1n83m_4m_can_plan",
         ":uds_client_exchange_common",
@@ -787,10 +790,26 @@ fastecu_portable_gtest(
 )
 
 cc_library(
+    name = "denso_iso15765_can_common",
+    hdrs = ["denso_iso15765_can_common.h"],
+)
+
+fastecu_portable_gtest(
+    name = "denso_iso15765_can_common_test",
+    srcs = ["denso_iso15765_can_common_test.cpp"],
+    deps = [
+        ":denso_iso15765_can_common",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+    ],
+)
+
+cc_library(
     name = "subaru_denso_1n83m_1_5m_can_executor",
     srcs = ["subaru_denso_1n83m_1_5m_can_executor.cpp"],
     hdrs = ["subaru_denso_1n83m_1_5m_can_executor.h"],
     deps = [
+        ":denso_iso15765_can_common",
         ":flash_phase_progress",
         ":subaru_denso_1n83m_1_5m_can_plan",
         ":uds_client_exchange_common",

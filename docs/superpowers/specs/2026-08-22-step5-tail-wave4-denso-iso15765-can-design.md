@@ -138,6 +138,92 @@ machine the [umbrella](2026-07-22-step5-backend-portable-design.md) and the
 [protocol generalization notes](../../protocol-generalization-opportunities.md)
 forbid.
 
+### Outcome
+
+The factoring pass ran against the four ported and tested executors. The
+measured hypothesis held: **the crypto key-table set is the only four-way
+byte-identical artifact that is pure data.** It is now
+`src/backend/flash/ecu/denso_iso15765_can_common.h` — a header-only
+`cc_library` holding four `inline constexpr` arrays (`kDensoIso15765SeedKeyTable`,
+`kDensoIso15765EncryptTable`, `kDensoIso15765DecryptTable`,
+`kDensoIso15765IndexTransformation`) and no code. All four executors include it;
+`denso_iso15765_can_common_test.cpp` pins both the table bytes and the seed-key
+and payload vectors they produce through `SsmProtocol`.
+
+The four executors' own suites keep their independently transcribed copies of
+these tables, so a wrong entry in the shared header still fails those suites
+rather than passing silently. That is what makes the four suites a real guard
+that the factoring changed no behavior, and they pass unchanged.
+
+The index transformation is included per the factoring brief even though it is
+not cluster-specific: the same 32-entry table appears verbatim in
+`subaru_hitachi_m32r_can`, `subaru_tcu_cvt_hitachi_m32r_can`,
+`subaru_tcu_cvt_mitsu_mh8104_can` and `subaru_tcu_cvt_mitsu_mh8111_can`, which
+keep their own copies. It is an `SsmProtocol`-level constant wearing a
+cluster-level name. Promoting it to `src/algorithms/protocol/ssm` and retiring
+all eight copies is a separate package-wide change, out of this wave's scope;
+the header says so at the definition. (Wave 3's
+`subaru_tcu_cvt_mitsu_can_common.h` reached the opposite conclusion for the
+same reason and left its copy per-file — the two decisions differ only in
+whether the shared header is the right temporary home, not in the underlying
+fact that the table is broader than either cluster.)
+
+Everything else that reads as common was inspected and **not** factored:
+
+| Candidate | Four-way identical? | Decision |
+|---|---|---|
+| Read timeouts `200`/`500`/`2000` and their three `ExchangePolicy` values | yes, as declarations | **Keep per-file.** The values coincide; the *sites they are applied at* do not — `sh72543d` reads with `serial_read_timeout` where its siblings read short, `1n83m_4m` spells them as bare literals. A shared policy set would invite a later "just use the shared one" at a site whose family reads differently. Data that happens to coincide, not data that is the same. |
+| Session/SID/routine/format constants, in-car CAN ids | mostly | **Keep per-file.** `1n83m_4m` needs two extra reply ids, `sh72543d` needs a DID pair its siblings do not. Each file's constant block documents that family's own legacy line numbers; sharing it would strand those citations. |
+| `Ctx`, `info`/`error`, `kRejectionPrefix`, `exchange_context`, `fatal_request`, `fatal_query`, `non_fatal_query` | yes | **Keep per-file.** The shared logic is already extracted into `uds_client_exchange_common.h`; what remains is a per-file currying adapter. The identical shape spans nine executors in this package, not four — this cluster is not the right place to re-cut it. |
+| `setup_pdu` | yes | **Keep per-file.** Three lines wrapping `composeBe`; `sh72543d` computes its region where the others hardcode. Below the threshold where a shared target pays. |
+| `tolerant_probe` | no | **Guardrail: tolerance difference.** `1n83m_4m`'s copy documents three commented-out `return STATUS_ERROR`s; `sh72543d`'s reads with a different timeout. |
+| `tolerant_setup` (`1n83m_4m` only) | no | **Guardrail: tolerance difference.** Exists in one family precisely because four returns are commented out there and live in the others. |
+| `jump_to_kernel` | no | **Guardrail: control-flow difference.** Three different signatures across the four (`discard_first_reply`, `duplicate_pre_loop_read`, `loop_timeout_ms`) encoding genuinely different read counts and timings. |
+| `security_access`, `fire_and_forget`, `connect_in_car`, `connect_bench`, `connect_bootloader` | no | **Guardrail.** Per-family timeouts, a different fire-and-forget PDU in `sh72531`, per-exchange timeouts in `sh72543d`, differing log strings. |
+| `read_memory`, `erase_memory`, `reflash_block`, `write_memory`, `execute` | no | **Guardrail.** `sh72543d`'s erase signature, `1n83m_4m`'s tolerated setup, differing image bases, block counts, pacing sleeps and checksum policies. |
+
+No shared executor, base class, policy struct or template was created, and none
+should be. Under-factoring here is safe; over-factoring is not.
+
+### Two shared-shape issues resolved in the same pass
+
+Both existed identically in all four executors, were raised by the per-task
+reviews, and were deferred to the factoring pass because a one-executor fix
+would have left the cluster inconsistent.
+
+**1. The post-connect `TestWrite` re-validation guard is unreachable — kept.**
+It cannot fire: `validate_<family>_plan` at the top of `execute()` rejects
+`TestWrite` before any I/O, and the `Read` branch has already returned, so
+`FlashOperation` has no third value left to reach the guard. It stays in all
+four anyway. It costs three lines and no runtime work, no compiler or
+clang-tidy check flags it, and it is the last thing standing between a
+non-`Write` operation and a real erase-and-write of an ECU should the entry
+validation ever be relaxed or the enum gain a fourth value — the exact hazard
+the section above says this wave closes. Deleting a hardware guard because the
+current call graph makes it redundant is the wrong trade in a flash path. Each
+site now carries a comment saying it is unreachable, that this was reviewed,
+and that it is not dead code to be swept.
+
+**2. The close-block log line's hex payload — restored.** All four legacy
+sources log `"Closed succesfully: " + toHex(received)` (`1n83m_1_5m` line 1285,
+`sh72531` 1289, `1n83m_4m` 1299, `sh72543d` 1307); all four ports dropped the
+`": <hex>"` suffix entirely. Since the wave's standing constraint is to
+preserve legacy log strings, dropping operator-visible content is the
+divergence, and restoring it is the fix. No test pins the string, so nothing
+was asserted into a new shape; the change is log-only and touches no wire byte,
+timeout or loop bound.
+
+The restored hex is the envelope-stripped PDU (`77`) where legacy's was the raw
+frame (`000007e877`). That residual gap is **accepted, not fixed**: rebuilding
+the 4-byte CAN envelope would mean the executor synthesizing framing bytes the
+portable layer deliberately does not own, and would need a new
+`CanFlashUdsChannel` accessor to do it. The three families that also log
+`"Stop request response: "` already carry exactly this envelope-stripped shape
+and shipped with it through review, so the close line now matches its own
+sibling line rather than being the odd one out. `1n83m_4m` has no stop-response
+line to match because its legacy source logs only a blank continuation there —
+that per-family difference is preserved.
+
 ## Deliberate divergence: `test_write` rejected before I/O
 
 `test_write` is threaded from `execute()` through `write_memory(bool)` into

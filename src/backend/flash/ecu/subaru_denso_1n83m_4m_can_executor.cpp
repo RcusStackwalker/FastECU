@@ -1,7 +1,6 @@
 #include "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor.h"
 
 #include <algorithm>
-#include <array>
 #include <cstdint>
 #include <format>
 #include <utility>
@@ -12,6 +11,7 @@
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
+#include "src/backend/flash/ecu/denso_iso15765_can_common.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_plan.h"
 #include "src/backend/flash/ecu/uds_client_exchange_common.h"
@@ -112,24 +112,15 @@ constexpr std::uint32_t kInCarIdFunctional = 0x7df;
 constexpr std::uint32_t kInCarIdE1 = 0x7e1;
 constexpr std::uint32_t kInCarIdB0 = 0x7b0;
 
-constexpr auto kSeedKeyTable =
-    std::to_array<std::uint16_t>({0x78B1, 0x4625, 0x201C, 0x9EA5, 0xAD6B, 0x35F4, 0xFD21, 0x5E71, 0xB046, 0x7F4A,
-                                  0x4B75, 0x93F9, 0x1895, 0x8961, 0x3ECC, 0x862B});
-constexpr auto kEncryptTable = std::to_array<std::uint16_t>({0xC85B, 0x32C0, 0xE282, 0x92A0});
-constexpr auto kDecryptTable = std::to_array<std::uint16_t>({0x92A0, 0xE282, 0x32C0, 0xC85B});
-constexpr auto kIndexTransformation =
-    std::to_array<std::uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
-                                 0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
-
 bytes::Bytes seed_key(bytes::ByteView seed)
 {
-    return SsmProtocol::calculateSeedKey(seed, kSeedKeyTable, kIndexTransformation);
+    return SsmProtocol::calculateSeedKey(seed, kDensoIso15765SeedKeyTable, kDensoIso15765IndexTransformation);
 }
 
 bytes::Bytes encrypt_rom(bytes::ByteView image)
 {
-    return SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), kEncryptTable,
-                                         kIndexTransformation);
+    return SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), kDensoIso15765EncryptTable,
+                                         kDensoIso15765IndexTransformation);
 }
 
 // Legacy decrypts the whole accumulated dump in one call (line 1072);
@@ -138,8 +129,8 @@ bytes::Bytes encrypt_rom(bytes::ByteView image)
 // without a second full-ROM buffer.
 bytes::Bytes decrypt_page(bytes::ByteView page)
 {
-    return SsmProtocol::calculatePayload(page, static_cast<std::uint32_t>(page.size()), kDecryptTable,
-                                         kIndexTransformation);
+    return SsmProtocol::calculatePayload(page, static_cast<std::uint32_t>(page.size()), kDensoIso15765DecryptTable,
+                                         kDensoIso15765IndexTransformation);
 }
 
 // Most exchanges go through UdsClient over CanFlashUdsChannel. The
@@ -773,7 +764,12 @@ Status reflash_block(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block,
                 ctx.uds.request(bytes::Bytes{uds::kSidRequestTransferExit}, kShortPolicy, ctx.cancellation);
             closed.has_value())
         {
-            info(ctx, "Closed succesfully");
+            // Legacy appends the reply's hex to this line (line 1299);
+            // the port had dropped it. Restored by the wave-4 cluster-factoring
+            // pass. The hex is the envelope-stripped PDU where legacy's was the
+            // raw frame, envelope included -- the same divergence the other
+            // three cluster members' "Stop request response" lines carry.
+            info(ctx, std::format("Closed succesfully: {}", bytes::toHex(*closed)));
             break;
         }
     }
@@ -902,6 +898,15 @@ Result<FlashExecutionResult> SubaruDenso1n83m_4mCanExecutor::execute(const Flash
     // repeated here so a plan built another way cannot turn a dry run into a
     // real erase and write. Legacy threaded test_write all the way down to
     // reflash_block and then never consulted it.
+    //
+    // It cannot fire as the code stands: the plan validation at the top of
+    // execute() rejects TestWrite before any I/O, and the Read branch has
+    // already returned, so FlashOperation has no third value left to reach
+    // here. The wave-4 cluster-factoring pass reviewed it across all four
+    // families and kept it: it costs nothing at runtime and is the last
+    // thing between a non-Write operation and a real erase-and-write of an
+    // ECU should that entry validation ever be relaxed or the enum gain a
+    // value. Do not delete it as "dead code".
     if (plan.operation() != FlashOperation::Write)
     {
         return fail(ErrorKind::Unsupported, "test_write is not supported by the Subaru Denso 1N83M 4M CAN family");
