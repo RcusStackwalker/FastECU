@@ -6,6 +6,7 @@
 #include <QVector>
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 
@@ -22,13 +23,13 @@ namespace fastecu::desktop_quick
 class DashboardController final : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(QAbstractItemModel *cards READ cards CONSTANT)
-    Q_PROPERTY(QString dashboardTitle READ dashboardTitle CONSTANT)
-    Q_PROPERTY(bool hasLoadError READ hasLoadError CONSTANT)
-    Q_PROPERTY(QString loadErrorText READ loadErrorText CONSTANT)
+    Q_PROPERTY(QAbstractItemModel *cards READ cards NOTIFY documentChanged)
+    Q_PROPERTY(QString dashboardTitle READ dashboardTitle NOTIFY documentChanged)
+    Q_PROPERTY(bool hasLoadError READ hasLoadError NOTIFY documentChanged)
+    Q_PROPERTY(QString loadErrorText READ loadErrorText NOTIFY documentChanged)
 
   public:
-    DashboardController(dashboard::DashboardDocument document, ILoggingEngine& engine,
+    DashboardController(std::optional<dashboard::DashboardDocument> document, ILoggingEngine& engine,
                         DashboardConnectionController& connection, IClock& clock, QObject *parent = nullptr);
 
     static std::unique_ptr<DashboardController> fromLoadError(QString error_text, ILoggingEngine& engine,
@@ -38,8 +39,10 @@ class DashboardController final : public QObject
     QString dashboardTitle() const;
     bool hasLoadError() const;
     QString loadErrorText() const;
+    void setDocument(std::optional<dashboard::DashboardDocument> document);
 
   signals:
+    void documentChanged();
     void diagnostic(QString message);
 
   private slots:
@@ -51,7 +54,7 @@ class DashboardController final : public QObject
   private:
     void reconcileAgeTimer();
 
-    dashboard::DashboardDocument document_;
+    std::optional<dashboard::DashboardDocument> document_;
     DashboardCardModel *cards_;
     ILoggingEngine& engine_;
     DashboardConnectionController& connection_;

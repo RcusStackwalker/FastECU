@@ -5,6 +5,7 @@
 
 #include <limits>
 #include <memory>
+#include <optional>
 #include <type_traits>
 #include <utility>
 
@@ -50,6 +51,21 @@ dashboard::DashboardDocument dashboard_document()
                 {.id = "coolant", .channel_id = "CDBG_COOLANT_TEMP", .conversion_id = "temperature", .order = 1},
             },
     };
+}
+
+dashboard::DashboardDocument first_document()
+{
+    dashboard::DashboardDocument document = dashboard_document();
+    document.metadata.name = "First";
+    return document;
+}
+
+dashboard::DashboardDocument second_document()
+{
+    dashboard::DashboardDocument document = dashboard_document();
+    document.metadata.name = "Second";
+    document.cards = {document.cards.at(1)};
+    return document;
 }
 
 class NoopProtocol final : public logging::LoggingProtocol
@@ -280,6 +296,38 @@ class DashboardControllerTest final : public QObject
         QCOMPARE(dashboard->loadErrorText(), QStringLiteral("resource is malformed"));
         QCOMPARE(dashboard->cards()->rowCount(), 0);
         QVERIFY(!timer_with_interval(*dashboard, 1000)->isActive());
+    }
+
+    void replacesTheDisplayedDocumentAndCoalescesOnlyLatestCards()
+    {
+        Harness harness;
+        DashboardController dashboard(std::nullopt, harness.engine, harness.connection, harness.clock);
+
+        QCOMPARE(dashboard.cards()->rowCount(), 0);
+        QCOMPARE(dashboard.dashboardTitle(), QStringLiteral("No dashboard open"));
+
+        dashboard.setDocument(first_document());
+        QCOMPARE(dashboard.cards()->rowCount(), 2);
+        QCOMPARE(dashboard.dashboardTitle(), QStringLiteral("First"));
+
+        harness.connectRunning();
+        harness.engine.publishValues({sample("CDBG_ENGINE_RPM", 1000.0)});
+        dashboard.setDocument(second_document());
+        flush_pending(dashboard);
+
+        QCOMPARE(dashboard.cards()->rowCount(), 1);
+        QCOMPARE(dashboard.dashboardTitle(), QStringLiteral("Second"));
+        QCOMPARE(role(dashboard, 0, DashboardCardModel::ChannelIdRole), QStringLiteral("CDBG_COOLANT_TEMP"));
+        QCOMPARE(card_value(dashboard, 0), QString::fromUtf8("—"));
+
+        QSignalSpy changed(dashboard.cards(), &QAbstractItemModel::dataChanged);
+        harness.engine.publishValues({sample("CDBG_ENGINE_RPM", 2000.0)});
+        harness.engine.publishValues({sample("CDBG_COOLANT_TEMP", 85.0)});
+        harness.engine.publishValues({sample("CDBG_COOLANT_TEMP", 87.5)});
+
+        QTRY_COMPARE_WITH_TIMEOUT(changed.count(), 1, 100);
+        QCOMPARE(card_value(dashboard, 0), QStringLiteral("87.5"));
+        QCOMPARE(notification_count(changed, DashboardCardModel::FormattedValueRole), 1);
     }
 
     void coalescesToTheNewestChannelValueInOneTimerFlush()

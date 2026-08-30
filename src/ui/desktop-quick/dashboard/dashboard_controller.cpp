@@ -8,11 +8,13 @@
 namespace fastecu::desktop_quick
 {
 
-DashboardController::DashboardController(dashboard::DashboardDocument document, ILoggingEngine& engine,
+DashboardController::DashboardController(std::optional<dashboard::DashboardDocument> document, ILoggingEngine& engine,
                                          DashboardConnectionController& connection, IClock& clock, QObject *parent)
-    : QObject(parent), document_(std::move(document)), cards_(new DashboardCardModel(document_, this)), engine_(engine),
+    : QObject(parent), document_(std::move(document)),
+      cards_(new DashboardCardModel(document_.value_or(dashboard::DashboardDocument{}), this)), engine_(engine),
       connection_(connection), clock_(clock), flush_timer_(new QTimer(this)), age_timer_(new QTimer(this)),
-      dashboard_title_(QString::fromStdString(document_.metadata.name))
+      dashboard_title_(document_ ? QString::fromStdString(document_->metadata.name)
+                                 : QStringLiteral("No dashboard open"))
 {
     flush_timer_->setInterval(33);
     flush_timer_->setSingleShot(true);
@@ -30,7 +32,8 @@ std::unique_ptr<DashboardController> DashboardController::fromLoadError(QString 
                                                                         DashboardConnectionController& connection,
                                                                         IClock& clock)
 {
-    auto controller = std::make_unique<DashboardController>(dashboard::DashboardDocument{}, engine, connection, clock);
+    auto controller = std::make_unique<DashboardController>(std::nullopt, engine, connection, clock);
+    controller->dashboard_title_.clear();
     controller->has_load_error_ = true;
     controller->load_error_text_ = std::move(error_text);
     return controller;
@@ -54,6 +57,25 @@ bool DashboardController::hasLoadError() const
 QString DashboardController::loadErrorText() const
 {
     return load_error_text_;
+}
+
+void DashboardController::setDocument(std::optional<dashboard::DashboardDocument> document)
+{
+    flush_timer_->stop();
+    age_timer_->stop();
+    pending_samples_.clear();
+
+    document_ = std::move(document);
+    DashboardCardModel *previous_cards = cards_;
+    cards_ = new DashboardCardModel(document_.value_or(dashboard::DashboardDocument{}), this);
+    previous_cards->deleteLater();
+
+    dashboard_title_ =
+        document_ ? QString::fromStdString(document_->metadata.name) : QStringLiteral("No dashboard open");
+    has_load_error_ = false;
+    load_error_text_.clear();
+    reconcileAgeTimer();
+    emit documentChanged();
 }
 
 void DashboardController::queueSamples(QVector<logging::LogSample> samples)
