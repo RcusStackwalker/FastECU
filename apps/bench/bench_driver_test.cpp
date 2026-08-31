@@ -62,7 +62,7 @@ TEST(BenchDriver, JsonPortsIsOneObjectAndNeverRequestsASession)
     EXPECT_EQ(code, 0);
     EXPECT_EQ(harness.environment.port_calls, 1);
     EXPECT_EQ(harness.environment.session_calls, 0);
-    EXPECT_EQ(newlineCount(harness.output.str()), 1u);
+    EXPECT_EQ(newlineCount(harness.output.str()), 1U);
     EXPECT_TRUE(harness.output.str().starts_with("{"));
     EXPECT_NE(harness.output.str().find("\"step\":\"ports\""), std::string::npos);
     EXPECT_NE(harness.output.str().find("op2-0"), std::string::npos);
@@ -77,7 +77,7 @@ TEST(BenchDriver, JsonPortsFailureIsAnObjectOnStdoutAndDiagnosticOnStderr)
     const int code = harness.run({"--json", "ports"});
 
     EXPECT_EQ(code, exit_code_for(ErrorKind::Disconnected));
-    EXPECT_EQ(newlineCount(harness.output.str()), 1u);
+    EXPECT_EQ(newlineCount(harness.output.str()), 1U);
     EXPECT_NE(harness.output.str().find("\"ok\":false"), std::string::npos);
     EXPECT_NE(harness.output.str().find("adapter unavailable"), std::string::npos);
     EXPECT_NE(harness.diagnostics.str().find("adapter unavailable"), std::string::npos);
@@ -101,7 +101,7 @@ TEST(BenchDriver, JsonSetupFailurePreservesHandshakeTraffic)
     EXPECT_NE(harness.output.str().find("\"tx\":\"1085\""), std::string::npos);
     EXPECT_NE(harness.output.str().find("\"rx\":\"5081\""), std::string::npos);
     EXPECT_NE(harness.output.str().find("\"ms\":7"), std::string::npos);
-    EXPECT_EQ(newlineCount(harness.output.str()), 1u);
+    EXPECT_EQ(newlineCount(harness.output.str()), 1U);
 }
 
 TEST(BenchDriver, ExplicitConnectSuppressesTheImplicitHandshakeAndRunsExactlyOnce)
@@ -117,7 +117,7 @@ TEST(BenchDriver, ExplicitConnectSuppressesTheImplicitHandshakeAndRunsExactlyOnc
     const int code = harness.run({"connect"});
 
     EXPECT_EQ(code, 0);
-    ASSERT_EQ(harness.environment.implicit_connect_requests.size(), 1u);
+    ASSERT_EQ(harness.environment.implicit_connect_requests.size(), 1U);
     EXPECT_FALSE(harness.environment.implicit_connect_requests.front());
     EXPECT_EQ(harness.session.connect_calls, 1);
 }
@@ -130,7 +130,7 @@ TEST(BenchDriver, ARegularStepRequestsTheOneImplicitConnection)
     const int code = harness.run({"read", "0x200", "1"});
 
     EXPECT_EQ(code, 0);
-    ASSERT_EQ(harness.environment.implicit_connect_requests.size(), 1u);
+    ASSERT_EQ(harness.environment.implicit_connect_requests.size(), 1U);
     EXPECT_TRUE(harness.environment.implicit_connect_requests.front());
     EXPECT_EQ(harness.session.connect_calls, 0);
 }
@@ -187,7 +187,7 @@ TEST(BenchDriver, PreparedPayloadIsNotReloadedAfterAnEarlierDestructiveStep)
 
     EXPECT_EQ(code, 0);
     EXPECT_EQ(harness.files.load_calls.at("payload.bin"), 1);
-    ASSERT_EQ(harness.session.requests.size(), 6u);
+    ASSERT_EQ(harness.session.requests.size(), 6U);
     EXPECT_EQ(harness.session.requests.front(), MitsuColtCan::buildRequestReflashUnlock());
     EXPECT_EQ(harness.session.requests[2], (bytes::Bytes{0x36, 0xAA}));
 }
@@ -212,7 +212,20 @@ TEST(BenchDriver, ScriptLineGlobalOptionsAreRejectedInsteadOfDiscarded)
 
     EXPECT_EQ(code, exit_code_for(ErrorKind::InvalidConfig));
     EXPECT_EQ(harness.environment.session_calls, 0);
-    EXPECT_EQ(newlineCount(harness.output.str()), 1u);
+    EXPECT_EQ(newlineCount(harness.output.str()), 1U);
+    EXPECT_NE(harness.output.str().find("script-line global option"), std::string::npos);
+    EXPECT_NE(harness.diagnostics.str().find("script-line global option"), std::string::npos);
+}
+
+TEST(BenchDriver, ScriptLineVendorExtIsRejectedInsteadOfDiscarded)
+{
+    Harness harness;
+
+    const int code = harness.run({"--json", "--script", "-"}, "read 0x200 1 --vendor-ext\n");
+
+    EXPECT_EQ(code, exit_code_for(ErrorKind::InvalidConfig));
+    EXPECT_EQ(harness.environment.session_calls, 0);
+    EXPECT_EQ(newlineCount(harness.output.str()), 1U);
     EXPECT_NE(harness.output.str().find("script-line global option"), std::string::npos);
     EXPECT_NE(harness.diagnostics.str().find("script-line global option"), std::string::npos);
 }
@@ -231,7 +244,7 @@ TEST(BenchDriver, JsonConnectFailureIsAnOutcomeWithTraffic)
     const int code = harness.run({"--json", "connect"});
 
     EXPECT_EQ(code, exit_code_for(ErrorKind::BadResponse));
-    EXPECT_EQ(newlineCount(harness.output.str()), 1u);
+    EXPECT_EQ(newlineCount(harness.output.str()), 1U);
     EXPECT_NE(harness.output.str().find("\"last_rx\":\"6707\""), std::string::npos);
     EXPECT_NE(harness.diagnostics.str().find("bad key echo"), std::string::npos);
 }
@@ -437,7 +450,7 @@ TEST(BenchDriver, ScriptLinesShareOneSessionAndErasePrerequisiteState)
 
     EXPECT_EQ(code, 0);
     EXPECT_EQ(harness.environment.session_calls, 1);
-    ASSERT_EQ(harness.environment.implicit_connect_requests.size(), 1u);
+    ASSERT_EQ(harness.environment.implicit_connect_requests.size(), 1U);
     EXPECT_TRUE(harness.environment.implicit_connect_requests.front());
     EXPECT_TRUE(sentErase(harness.session));
 }
@@ -482,7 +495,7 @@ TEST(BenchDriver, ExplicitConnectCanLeadAChainedSessionWithoutAnImplicitHandshak
 
     EXPECT_EQ(code, 0);
     EXPECT_EQ(harness.environment.session_calls, 1);
-    ASSERT_EQ(harness.environment.implicit_connect_requests.size(), 1u);
+    ASSERT_EQ(harness.environment.implicit_connect_requests.size(), 1U);
     EXPECT_FALSE(harness.environment.implicit_connect_requests.front());
     EXPECT_EQ(harness.session.connect_calls, 1);
 }

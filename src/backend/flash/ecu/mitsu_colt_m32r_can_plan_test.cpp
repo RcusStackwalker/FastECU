@@ -62,13 +62,13 @@ TEST(MitsuColtM32rCanPlan, ReadPlansSnapshotProtocolCapacityAndVendorChallenge)
         const auto plan = build_mitsu_colt_m32r_can_plan(FlashOperation::Read, test.id, test.mcu, std::nullopt);
 
         ASSERT_TRUE(plan.has_value()) << test.id << ": " << plan.error().detail;
-        EXPECT_EQ(plan->transfer_region().start, 0u) << test.id;
+        EXPECT_EQ(plan->transfer_region().start, 0U) << test.id;
         EXPECT_EQ(plan->transfer_region().length, test.size) << test.id;
         const auto& family = std::get<MitsuColtM32rCanPlan>(plan->family_plan());
         EXPECT_EQ(family.use_vendor_challenge, test.vendor) << test.id;
         EXPECT_EQ(family.session_id, MitsuColtCan::kSessionBootload) << test.id;
-        EXPECT_EQ(family.request_id, 0x7e0u) << test.id;
-        EXPECT_EQ(family.response_id, 0x7e8u) << test.id;
+        EXPECT_EQ(family.request_id, 0x7e0U) << test.id;
+        EXPECT_EQ(family.response_id, 0x7e8U) << test.id;
         EXPECT_EQ(family.bitrate, 500000) << test.id;
         EXPECT_FALSE(family.extended_id) << test.id;
         EXPECT_TRUE(plan->erase_regions().empty()) << test.id;
@@ -86,8 +86,8 @@ TEST(MitsuColtM32rCanPlan, WritePlansUseTheCapacitySpecificRangeAndConfirmations
         const auto plan = build_mitsu_colt_m32r_can_plan(FlashOperation::Write, test.id, test.mcu, rom(test.size));
 
         ASSERT_TRUE(plan.has_value()) << test.id << ": " << plan.error().detail;
-        EXPECT_EQ(plan->transfer_region().start, 0x8000u) << test.id;
-        EXPECT_EQ(plan->transfer_region().length, test.size - 0x8000u) << test.id;
+        EXPECT_EQ(plan->transfer_region().start, 0x8000U) << test.id;
+        EXPECT_EQ(plan->transfer_region().length, test.size - 0x8000U) << test.id;
         ASSERT_TRUE(plan->image().has_value()) << test.id;
         EXPECT_EQ(plan->image()->size(), test.size) << test.id;
         if (test.size == 0x80000)
@@ -180,7 +180,7 @@ TEST(MitsuColtM32rCanPlan, WriteConfirmationsCarryStableGeometryArguments)
                                                bytes::Bytes(0x80000));
 
     ASSERT_TRUE(plan.has_value());
-    ASSERT_EQ(plan->confirmations().size(), 2u);
+    ASSERT_EQ(plan->confirmations().size(), 2U);
     EXPECT_EQ(plan->confirmations()[0].arguments,
               (std::vector<std::pair<std::string, std::string>>{
                   {"capacity_kib", "512"}, {"writable_start_hex", "0x8000"}, {"rom_end_hex", "0x80000"}}));

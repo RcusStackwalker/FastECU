@@ -2,7 +2,6 @@
 
 #include <gtest/gtest.h>
 
-#include <array>
 #include <string_view>
 #include <vector>
 
@@ -21,7 +20,7 @@ TEST(BenchArgs, ParsesASingleStepWithItsArguments)
     const auto parsed = parse({"read", "0x200", "1"});
 
     ASSERT_TRUE(parsed.has_value());
-    ASSERT_EQ(parsed->steps.size(), 1u);
+    ASSERT_EQ(parsed->steps.size(), 1U);
     EXPECT_EQ(parsed->steps[0].id, CommandId::Read);
     EXPECT_EQ(parsed->steps[0].args, (std::vector<std::string>{"0x200", "1"}));
 }
@@ -31,7 +30,7 @@ TEST(BenchArgs, SplitsChainedStepsOnTheColonSeparator)
     const auto parsed = parse({"read", "0x200", "1", ":", "crc-check", "0x8000"});
 
     ASSERT_TRUE(parsed.has_value());
-    ASSERT_EQ(parsed->steps.size(), 2u);
+    ASSERT_EQ(parsed->steps.size(), 2U);
     EXPECT_EQ(parsed->steps[0].id, CommandId::Read);
     EXPECT_EQ(parsed->steps[1].id, CommandId::CrcCheck);
     EXPECT_EQ(parsed->steps[1].args, (std::vector<std::string>{"0x8000"}));
@@ -51,7 +50,7 @@ TEST(BenchArgs, AcceptsADestructiveStepCarryingItsFlag)
     const auto parsed = parse({"erase", "--destructive"});
 
     ASSERT_TRUE(parsed.has_value());
-    ASSERT_EQ(parsed->steps.size(), 1u);
+    ASSERT_EQ(parsed->steps.size(), 1U);
     EXPECT_TRUE(parsed->steps[0].destructive_ack);
 }
 
@@ -111,7 +110,7 @@ TEST(BenchArgs, AcceptsArbitraryDiagnosticPdusWithDestructiveAcknowledgement)
     {
         const auto parsed = parse(command_line);
         ASSERT_TRUE(parsed.has_value());
-        ASSERT_EQ(parsed->steps.size(), 1u);
+        ASSERT_EQ(parsed->steps.size(), 1U);
         EXPECT_TRUE(parsed->steps[0].destructive_ack);
     }
 }
@@ -139,7 +138,7 @@ TEST(BenchArgs, PassesUploadRoutineFromThroughAsOrdinaryArguments)
     const auto parsed = parse({"upload-routine", "erase-redirect", "--from", "custom.bin", "--destructive"});
 
     ASSERT_TRUE(parsed.has_value());
-    ASSERT_EQ(parsed->steps.size(), 1u);
+    ASSERT_EQ(parsed->steps.size(), 1U);
     EXPECT_EQ(parsed->steps[0].id, CommandId::UploadRoutine);
     EXPECT_TRUE(parsed->steps[0].destructive_ack);
     EXPECT_EQ(parsed->steps[0].args, (std::vector<std::string>{"erase-redirect", "--from", "custom.bin"}));
@@ -230,9 +229,9 @@ TEST(BenchArgs, RejectsAScriptValueOtherThanStdin)
 
 TEST(BenchArgs, ParsesU32InHexAndDecimal)
 {
-    EXPECT_EQ(parse_u32("0x8056a8").value(), 0x8056a8u);
-    EXPECT_EQ(parse_u32("0X10").value(), 0x10u);
-    EXPECT_EQ(parse_u32("192").value(), 192u);
+    EXPECT_EQ(parse_u32("0x8056a8").value(), 0x8056a8U);
+    EXPECT_EQ(parse_u32("0X10").value(), 0x10U);
+    EXPECT_EQ(parse_u32("192").value(), 192U);
     EXPECT_FALSE(parse_u32("").has_value());
     EXPECT_FALSE(parse_u32("0xzz").has_value());
     EXPECT_FALSE(parse_u32("12nonsense").has_value());
@@ -255,6 +254,36 @@ TEST(BenchArgs, RejectsMalformedHexByteTokens)
 
     EXPECT_FALSE(parse_hex_bytes(tooWide).has_value());
     EXPECT_FALSE(parse_hex_bytes(notHex).has_value());
+}
+
+TEST(BenchArgs, VendorExtDefaultsToOff)
+{
+    const std::vector<std::string_view> args{"read", "0x200", "1"};
+    const Result<ParsedCommandLine> parsed = parse_command_line(args);
+
+    ASSERT_TRUE(parsed.has_value());
+    EXPECT_FALSE(parsed->options.vendor_ext);
+}
+
+TEST(BenchArgs, VendorExtFlagIsRecognisedAnywhereOnTheCommandLine)
+{
+    const std::vector<std::string_view> args{"read", "0x200", "1", "--vendor-ext"};
+    const Result<ParsedCommandLine> parsed = parse_command_line(args);
+
+    ASSERT_TRUE(parsed.has_value());
+    EXPECT_TRUE(parsed->options.vendor_ext);
+    // The flag is global, not a step argument: it must not reach the step.
+    ASSERT_EQ(parsed->steps.size(), 1U);
+    EXPECT_EQ(parsed->steps.front().args.size(), 2U);
+}
+
+TEST(BenchArgs, StatsFlagIsRecognised)
+{
+    const std::vector<std::string_view> args{"--stats", "read", "0x200", "1"};
+    const Result<ParsedCommandLine> parsed = parse_command_line(args);
+
+    ASSERT_TRUE(parsed.has_value());
+    EXPECT_TRUE(parsed->options.stats);
 }
 
 } // namespace

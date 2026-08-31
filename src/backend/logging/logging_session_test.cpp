@@ -53,7 +53,7 @@ TEST(LoggingSessionTest, StableIdsSurviveSourceRowReordering)
     ASSERT_TRUE(result);
     EXPECT_EQ(result->channels()[0].id, "rpm");
     EXPECT_EQ(result->channels()[1].id, "coolant");
-    EXPECT_EQ(result->find_channel("coolant")->address, 0x20u);
+    EXPECT_EQ(result->find_channel("coolant")->address, 0x20U);
 }
 
 TEST(LoggingSessionTest, RejectsInvalidPolicy)
@@ -88,8 +88,8 @@ TEST(LoggingSessionTest, RejectsInvalidChannelIdentityAndAssembly)
     EXPECT_EQ(excessive_length.error().kind, fastecu::ErrorKind::InvalidConfig);
 
     c = channel("rpm", 0x10);
-    c.raw_assembly = static_cast<RawAssembly>(
-        99); // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange) -- exercising the invalid-value rejection path
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) -- exercises the invalid-value rejection path
+    c.raw_assembly = static_cast<RawAssembly>(99);
     auto invalid_assembly = make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy());
     ASSERT_FALSE(invalid_assembly);
     EXPECT_EQ(invalid_assembly.error().kind, fastecu::ErrorKind::InvalidConfig);

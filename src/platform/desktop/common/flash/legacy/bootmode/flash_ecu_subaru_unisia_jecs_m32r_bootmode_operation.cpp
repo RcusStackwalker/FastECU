@@ -19,7 +19,7 @@ FlashEcuSubaruUnisiaJecsM32rBootModeOperation::FlashEcuSubaruUnisiaJecsM32rBootM
 
 bool FlashEcuSubaruUnisiaJecsM32rBootModeOperation::execute()
 {
-    int result = STATUS_ERROR;
+    int result_arg = STATUS_ERROR;
 
     mcu_type_string = ecuCalDef->McuType;
     mcu_type_index = FlashUtils::findFlashDeviceIndex(mcu_type_string);
@@ -70,17 +70,17 @@ bool FlashEcuSubaruUnisiaJecsM32rBootModeOperation::execute()
     {
         emit externalLoggerMessage("Reading ROM, please wait...");
         emit LOG_I("Reading ROM from Subaru Unisia Jecs UJ20/30WWW using K-Line", true, true);
-        result = read_mem(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
+        result_arg = read_mem(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
     }
     else if (cmd_type == "write")
     {
         emit LOG_I("Uploading kernel to Subaru Unisia Jecs UJ20/30WWW using K-Line", true, true);
-        result = upload_kernel(kernel);
-        if (result == STATUS_SUCCESS)
+        result_arg = upload_kernel(kernel);
+        if (result_arg == STATUS_SUCCESS)
         {
             emit externalLoggerMessage("Writing ROM, please wait...");
             emit LOG_I("Writing ROM to Subaru Unisia Jecs UJ20/30WWW using K-Line", true, true);
-            result = write_mem();
+            result_arg = write_mem();
             emit LOG_I("Unset programming voltage +12v to Line End Check 1", true, true);
             serial->set_lec_lines(serial->get_requestToSendDisabled(), serial->get_dataTerminalDisabled());
         }
@@ -88,7 +88,7 @@ bool FlashEcuSubaruUnisiaJecsM32rBootModeOperation::execute()
     emit externalLoggerMessage("Finished");
     serial->set_lec_lines(serial->get_requestToSendDisabled(), serial->get_dataTerminalDisabled());
 
-    return result == STATUS_SUCCESS;
+    return result_arg == STATUS_SUCCESS;
 }
 
 /*
@@ -218,7 +218,7 @@ int FlashEcuSubaruUnisiaJecsM32rBootModeOperation::read_mem(uint32_t start_addr,
         float pleft = 0;
         unsigned long chrono;
 
-        pleft = (float)(addr - start_addr) / (float)(length) * 100.0f;
+        pleft = (float)(addr - start_addr) / (float)(length) * 100.0F;
         emit progressChanged(pleft);
 
         output[6] = (uint8_t)(addr >> 16) & 0xFF;
@@ -252,7 +252,7 @@ int FlashEcuSubaruUnisiaJecsM32rBootModeOperation::read_mem(uint32_t start_addr,
 
         if (cplen > 0 && chrono > 0)
         {
-            curspeed = cplen * (1000.0f / chrono);
+            curspeed = cplen * (1000.0F / chrono);
         }
 
         if (!curspeed)
@@ -284,9 +284,9 @@ int FlashEcuSubaruUnisiaJecsM32rBootModeOperation::read_mem(uint32_t start_addr,
     return STATUS_SUCCESS;
 }
 
-int FlashEcuSubaruUnisiaJecsM32rBootModeOperation::upload_kernel(const QString& kernel)
+int FlashEcuSubaruUnisiaJecsM32rBootModeOperation::upload_kernel(const QString& kernel_arg)
 {
-    QFile file(kernel);
+    QFile file(kernel_arg);
 
     QByteArray output;
     QByteArray received;
@@ -330,7 +330,7 @@ int FlashEcuSubaruUnisiaJecsM32rBootModeOperation::upload_kernel(const QString& 
             output.append(kerneldata.at(i + j));
         }
         serial->write_serial_data_echo_check(output);
-        pleft = (float)i / (float)filesize * 100.0f;
+        pleft = (float)i / (float)filesize * 100.0F;
         emit progressChanged(pleft);
     }
     emit progressChanged(100);
@@ -559,7 +559,7 @@ int FlashEcuSubaruUnisiaJecsM32rBootModeOperation::write_mem()
         {
             chrono += 1;
         }
-        curspeed = blocksize * (1000.0f / chrono); // avg B/s
+        curspeed = blocksize * (1000.0F / chrono); // avg B/s
         if (!curspeed)
         {
             curspeed += 1;

@@ -9,7 +9,7 @@ TEST(ResourceBundle, ListReturnsAllNames)
     bundle.bundles["config"]["menu.cfg"] = {'b'};
     auto names = bundle.list("config");
     ASSERT_TRUE(names.has_value());
-    EXPECT_EQ(names->size(), 2u);
+    EXPECT_EQ(names->size(), 2U);
 }
 
 TEST(ResourceBundle, ReadUnknownBundleIsInvalidConfig)

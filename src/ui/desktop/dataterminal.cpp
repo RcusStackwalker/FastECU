@@ -1,12 +1,12 @@
 #include "dataterminal.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
-DataTerminal::DataTerminal(SerialPortActions *serial, QWidget *parent)
+DataTerminal::DataTerminal(SerialPortActions *serial_arg, QWidget *parent)
     : QDialog(parent), ui{std::make_unique<Ui::DataTerminalWindow>()}
 {
     ui->setupUi(this);
 
-    this->serial = serial;
+    this->serial = serial_arg;
 
     // Set initial values
     ui->klineProtocol->addItem("SSM");
@@ -140,21 +140,21 @@ void DataTerminal::sendToInterface()
     else
     {
         emit LOG_D("Read message from file", true, true);
-        QFile file(msg);
-        if (!file.open(QIODevice::ReadOnly))
+        QFile file_local(msg);
+        if (!file_local.open(QIODevice::ReadOnly))
         {
-            emit LOG_E("Unable to open datastream file '" + file.fileName() + "' for reading", true, true);
+            emit LOG_E("Unable to open datastream file '" + file_local.fileName() + "' for reading", true, true);
             QMessageBox::warning(this, tr("Data terminal"),
-                                 "Unable to open datastream file '" + file.fileName() + "' for reading");
+                                 "Unable to open datastream file '" + file_local.fileName() + "' for reading");
             return;
         }
-        QTextStream in(&file);
+        QTextStream in(&file_local);
         while (!in.atEnd())
         {
             QString line = in.readLine();
             msgList.append(line);
         }
-        file.close();
+        file_local.close();
     }
 
     if (interfaceTypeName.startsWith("sendKlineMessage"))
@@ -202,7 +202,7 @@ void DataTerminal::sendToInterface()
             serial->open_serial_port();
         }
 
-        QStringList msg; // = ui->klineMsgToSend->text().split(" ");
+        QStringList msg_local; // = ui->klineMsgToSend->text().split(" ");
         QByteArray output;
         QByteArray received;
         int rspDelay = 10;
@@ -213,10 +213,10 @@ void DataTerminal::sendToInterface()
             rspDelay = 10;
             if (!msgList.at(j).startsWith("delay"))
             {
-                msg = msgList.at(j).split(" ");
-                for (int i = 0; i < msg.length(); i++)
+                msg_local = msgList.at(j).split(" ");
+                for (int i = 0; i < msg_local.length(); i++)
                 {
-                    output.append(msg.at(i).toUInt(&ok, 16));
+                    output.append(msg_local.at(i).toUInt(&ok, 16));
                 }
                 if (ui->klineProtocol->currentText() == "SSM")
                 {
@@ -287,7 +287,7 @@ void DataTerminal::sendToInterface()
             serial->open_serial_port();
         }
 
-        QStringList msg; // = ui->canMsgToSend->text().split(" ");
+        QStringList msg_local; // = ui->canMsgToSend->text().split(" ");
         QByteArray output;
         QByteArray received;
         int rspDelay = 100;
@@ -298,10 +298,10 @@ void DataTerminal::sendToInterface()
             rspDelay = 10;
             if (!msgList.at(j).startsWith("delay"))
             {
-                msg = msgList.at(j).split(" ");
+                msg_local = msgList.at(j).split(" ");
                 if (ui->canProtocol->currentText() == "CAN")
                 {
-                    if (msg.length() > 8)
+                    if (msg_local.length() > 8)
                     {
                         emit LOG_E("CAN message too long (8 message bytes)", true, true);
                         QMessageBox::warning(this, tr("CAN message"),
@@ -312,9 +312,9 @@ void DataTerminal::sendToInterface()
                 {
                     output.append(((ui->canTesterId->text().toUInt(&ok, 16) >> (i * 8)) & 0xff));
                 }
-                for (int i = 0; i < msg.length(); i++)
+                for (int i = 0; i < msg_local.length(); i++)
                 {
-                    output.append(msg.at(i).toUInt(&ok, 16));
+                    output.append(msg_local.at(i).toUInt(&ok, 16));
                 }
                 emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
             }

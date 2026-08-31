@@ -28,7 +28,7 @@ _UNIX_TOOLS = runner.Tools(
 class ClangTidyRunnerTest(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.root = Path(self.temp_dir.name) / "workspace"
+        self.root = Path(self.temp_dir.name).resolve() / "workspace"
         self.root.mkdir()
         (self.root / ".clang-tidy").write_text("Checks: '-*'\n")
 
@@ -159,6 +159,31 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 self.root,
                 self.root / "compile_commands.json",
             )
+
+    def test_entry_source_path_rejects_escape_outside_workspace(self) -> None:
+        outside = Path(self.temp_dir.name) / "outside.cpp"
+        outside.write_text("int outside_source;\n")
+        entry = {"directory": str(self.root), "file": str(outside)}
+
+        with self.assertRaisesRegex(
+            runner.WorkflowError,
+            rf"does not name a workspace file.*{re.escape(str(outside))}",
+        ):
+            runner._entry_source_path(entry, runner._workspace_tree(self.root))
+
+    def test_database_silently_excludes_entries_outside_workspace(self) -> None:
+        source = self.root / _MAIN_CPP
+        source.write_text("int main() { return 0; }\n")
+        outside = Path(self.temp_dir.name) / "outside.cpp"
+        outside.write_text("int outside_source;\n")
+        self.write_database([source, outside])
+
+        entries = runner.load_project_entries(
+            self.root,
+            self.root / "compile_commands.json",
+        )
+
+        self.assertEqual([str(source)], [entry["file"] for entry in entries])
 
     def test_database_rejects_malformed_json(self) -> None:
         (self.root / "compile_commands.json").write_text("{")

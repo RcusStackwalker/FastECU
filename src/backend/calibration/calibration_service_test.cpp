@@ -358,21 +358,21 @@ TEST(ApplyFlashMethodPadding, MatchesOnPrefixSoEcutekVariantAlsoPads)
 {
     std::vector<std::uint8_t> rom(0x2A000, 0xAA);
     rom = apply_flash_method_padding(std::move(rom), "sub_ecu_denso_mc68hc16y5_02_ecutek");
-    EXPECT_EQ(rom.size(), 0x2A000u + 0x8000u);
+    EXPECT_EQ(rom.size(), 0x2A000U + 0x8000U);
 }
 
 TEST(ApplyFlashMethodPadding, LeavesOtherFlashMethodsAlone)
 {
     std::vector<std::uint8_t> rom(0x30000, 0xAA);
     rom = apply_flash_method_padding(std::move(rom), "sub_ecu_denso_sh7058");
-    EXPECT_EQ(rom.size(), 0x30000u);
+    EXPECT_EQ(rom.size(), 0x30000U);
 }
 
 TEST(ApplyFlashMethodPadding, LeavesRomsAtOrAboveTheSizeThresholdAlone)
 {
     // 190 * 1024 == 0x2F800; the guard is "< 190 * 1024", so exactly at the
     // threshold must not pad.
-    std::vector<std::uint8_t> rom(190uz * 1024, 0xAA);
+    std::vector<std::uint8_t> rom(190UZ * 1024, 0xAA);
     rom = apply_flash_method_padding(std::move(rom), "sub_ecu_denso_mc68hc16y5_02");
     EXPECT_EQ(rom.size(), static_cast<std::size_t>(190 * 1024));
 }
@@ -382,7 +382,7 @@ TEST(ApplyFlashMethodPadding, ZeroExtendsRomShorterThanTheInsertionPoint)
     std::vector<std::uint8_t> rom(0x100, 0xAA);
     rom = apply_flash_method_padding(std::move(rom), "sub_ecu_denso_mc68hc16y5_02");
 
-    EXPECT_EQ(rom.size(), 0x20000u + 0x8000u);
+    EXPECT_EQ(rom.size(), 0x20000U + 0x8000U);
     EXPECT_EQ(rom.at(0xFF), 0xAA);
     // The synthetic gap is zero-filled: Qt's insert leaves it "uninitialized"
     // per its docs, so this is a deliberate deterministic choice.
@@ -395,7 +395,7 @@ TEST(ApplyFlashMethodPadding, LeavesEmptyFlashMethodAlone)
 {
     std::vector<std::uint8_t> rom(0x100, 0xAA);
     rom = apply_flash_method_padding(std::move(rom), "");
-    EXPECT_EQ(rom.size(), 0x100u);
+    EXPECT_EQ(rom.size(), 0x100U);
 }
 
 // A run over `count` uint8 big-endian cells at address 0 with the identity
@@ -722,7 +722,7 @@ TEST(ComputeMapCellValues, DecodesOneMapsCells)
 
     const auto result = compute_map_cell_values(rom, data, 15);
     ASSERT_TRUE(result.has_value());
-    ASSERT_EQ(result->size(), 1u);
+    ASSERT_EQ(result->size(), 1U);
     EXPECT_FALSE(result->at(0).error.has_value());
     EXPECT_EQ(result->at(0).map_data, "5,6,7,");
     // x_size 3 but no usable x_axis type, y_size 1: both axes stay " ".
@@ -740,7 +740,7 @@ TEST(ComputeMapCellValues, UsesBlankExpressionWhenMapScalingIsAbsent)
     const auto result = compute_map_cell_values(rom, data, 15);
 
     ASSERT_TRUE(result.has_value());
-    ASSERT_EQ(result->size(), 1u);
+    ASSERT_EQ(result->size(), 1U);
     ASSERT_FALSE(result->at(0).error.has_value());
     EXPECT_EQ(result->at(0).map_data, "0,0,0,");
 }
@@ -863,7 +863,7 @@ TEST(ComputeMapCellValues, DegradesPerMapWithoutFailingSiblings)
     const std::vector<std::uint8_t> data{5, 6, 7};
     const auto result = compute_map_cell_values(rom, data, 15);
     ASSERT_TRUE(result.has_value());
-    ASSERT_EQ(result->size(), 2u);
+    ASSERT_EQ(result->size(), 2U);
     EXPECT_FALSE(result->at(0).error.has_value());
     EXPECT_EQ(result->at(0).map_data, "5,6,7,");
     ASSERT_TRUE(result->at(1).error.has_value());
@@ -895,7 +895,7 @@ TEST(ComputeMapCellValues, RejectsOverflowingMapCellCount)
     const auto result = compute_map_cell_values(rom, data, 15);
 
     ASSERT_TRUE(result.has_value());
-    ASSERT_EQ(result->size(), 1u);
+    ASSERT_EQ(result->size(), 1U);
     ASSERT_TRUE(result->at(0).error.has_value());
     EXPECT_EQ(result->at(0).error->kind, ErrorKind::InvalidConfig);
 }

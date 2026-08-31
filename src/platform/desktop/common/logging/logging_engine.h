@@ -7,6 +7,7 @@
 #include <QVector>
 
 #include <functional>
+#include <cstdint>
 #include <memory>
 #include <optional>
 
@@ -14,6 +15,9 @@
 #include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
 #include "src/platform/desktop/common/logging/logging_worker.h"
 #include "src/platform/desktop/common/ports/qt_event_sink.h"
+
+namespace fastecu::desktop::logging
+{
 
 enum class LoggingStatus
 {
@@ -34,19 +38,8 @@ struct LogSessionConfig
     QString protocolId;
 };
 
-struct LoggingStartResult
-{
-    bool started = false;
-    bool failure_reported = false;
-
-    explicit operator bool() const
-    {
-        return started;
-    }
-};
-
-using LoggingProtocolFactory = std::function<fastecu::Result<std::unique_ptr<fastecu::logging::LoggingProtocol>>(
-    const fastecu::desktop::logging::DesktopLoggingSnapshot&)>;
+using LoggingProtocolFactory =
+    std::function<fastecu::Result<std::unique_ptr<fastecu::logging::LoggingProtocol>>(const DesktopLoggingSnapshot&)>;
 
 class LoggingEngine final : public QObject
 {
@@ -56,8 +49,7 @@ class LoggingEngine final : public QObject
     ~LoggingEngine() override;
 
     void registerProtocol(const QString& protocol_id, const LoggingProtocolFactory& factory);
-    LoggingStartResult start(const LogSessionConfig& config,
-                             fastecu::desktop::logging::DesktopLoggingSnapshot snapshot);
+    fastecu::Status start(const LogSessionConfig& config, DesktopLoggingSnapshot snapshot);
     void stop();
     bool isRunning() const;
 
@@ -76,17 +68,26 @@ class LoggingEngine final : public QObject
     void handleDiagnostic(int level, QString message);
 
   private:
-    void clearActiveSession();
-    void reportSessionError(const fastecu::Error& error, bool reached_running);
+    void finishActiveRun(SessionEndReason reason, QString detail, bool publish);
+    void joinAndReleaseActiveRun();
+    void publishCompletionOnce(SessionEndReason reason, QString detail);
+    void reportStartError(const fastecu::Error& error);
 
     QMap<QString, LoggingProtocolFactory> registrations_;
-    std::optional<fastecu::desktop::logging::DesktopLoggingSnapshot> active_snapshot_;
+    std::optional<DesktopLoggingSnapshot> active_snapshot_;
     std::unique_ptr<fastecu::logging::LoggingProtocol> active_protocol_;
     LoggingWorker *active_worker_ = nullptr;
     QtEventSink diagnostics_;
     std::optional<LoggingStatus> last_status_;
+    std::uint64_t active_run_generation_ = 0;
+    std::uint64_t next_run_generation_ = 0;
     bool worker_reached_running_ = false;
+    bool explicit_stop_pending_ = false;
+    bool destroying_ = false;
+    bool completion_published_ = false;
 };
 
-Q_DECLARE_METATYPE(LoggingStatus)
-Q_DECLARE_METATYPE(SessionEndReason)
+} // namespace fastecu::desktop::logging
+
+Q_DECLARE_METATYPE(fastecu::desktop::logging::LoggingStatus)
+Q_DECLARE_METATYPE(fastecu::desktop::logging::SessionEndReason)

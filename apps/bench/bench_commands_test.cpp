@@ -59,11 +59,11 @@ TEST(BenchCommands, ReadChunksLongRangesAtTheFlashReadBlockSize)
     const auto outcome = harness.run(step(CommandId::Read, {"0x8056a8", "200"}));
 
     ASSERT_TRUE(outcome.ok) << outcome.error_detail;
-    ASSERT_EQ(harness.session.requests.size(), 2u);
+    ASSERT_EQ(harness.session.requests.size(), 2U);
     // 192-byte first chunk, 8-byte remainder.
     EXPECT_EQ(harness.session.requests[0].back(), 192);
     EXPECT_EQ(harness.session.requests[1].back(), 8);
-    EXPECT_EQ(outcome.data.size(), 200u);
+    EXPECT_EQ(outcome.data.size(), 200U);
     EXPECT_NE(outcome.note.find("2 chunks"), std::string::npos);
 }
 
@@ -75,12 +75,12 @@ TEST(BenchCommands, MultiExchangeEvidenceKeepsFirstAndLastTrafficAndElapsedTime)
     const auto outcome = harness.run(step(CommandId::Read, {"0x8056a8", "200"}));
 
     ASSERT_TRUE(outcome.ok) << outcome.error_detail;
-    EXPECT_EQ(outcome.exchange_count, 2u);
+    EXPECT_EQ(outcome.exchange_count, 2U);
     EXPECT_EQ(outcome.tx, harness.session.requests.front());
     EXPECT_EQ(outcome.rx, harness.session.replies.front().value());
     EXPECT_EQ(outcome.last_tx, harness.session.requests.back());
     EXPECT_EQ(outcome.last_rx, harness.session.replies.back().value());
-    EXPECT_GT(outcome.elapsed_ms, 0u);
+    EXPECT_GT(outcome.elapsed_ms, 0U);
 }
 
 TEST(BenchCommands, ReadRejectsAShortReplyRatherThanPaddingIt)
@@ -199,8 +199,8 @@ TEST(BenchCommands, WrongPositiveReplyReturnsAFailureOutcomeWithTrafficEvidence)
     ASSERT_EQ(outcome.error_kind, ErrorKind::BadResponse);
     EXPECT_EQ(outcome.tx, (bytes::Bytes{0x31, 0xE1, 0x02}));
     EXPECT_EQ(outcome.rx, (bytes::Bytes{0x71, 0xE0, 0x00}));
-    EXPECT_EQ(outcome.exchange_count, 1u);
-    EXPECT_GT(outcome.elapsed_ms, 0u);
+    EXPECT_EQ(outcome.exchange_count, 1U);
+    EXPECT_GT(outcome.elapsed_ms, 0U);
 }
 
 TEST(BenchCommands, SessionFailureAfterIoRetainsTheObservedResponse)
@@ -214,7 +214,7 @@ TEST(BenchCommands, SessionFailureAfterIoRetainsTheObservedResponse)
     EXPECT_FALSE(outcome.ok);
     EXPECT_EQ(outcome.tx, (bytes::Bytes{0x22, 0xF1, 0x90}));
     EXPECT_EQ(outcome.rx, (bytes::Bytes{0x7F, 0x22, 0x31}));
-    EXPECT_EQ(outcome.exchange_count, 1u);
+    EXPECT_EQ(outcome.exchange_count, 1U);
 }
 
 TEST(BenchCommands, EveryStepRecordsTheBatteryVoltage)
@@ -329,7 +329,7 @@ TEST(BenchCommands, DownloadSendsRequestDownloadThenTransferDataThenTheChecksum)
     const auto outcome = harness.run(destructiveStep(CommandId::Download, {"0x8000", "blob.bin"}));
 
     ASSERT_TRUE(outcome.ok) << outcome.error_detail;
-    ASSERT_EQ(harness.session.requests.size(), 5u);
+    ASSERT_EQ(harness.session.requests.size(), 5U);
     EXPECT_EQ(harness.session.requests[0], MitsuColtCan::buildRequestDownload(0x8000, 2));
     EXPECT_EQ(harness.session.requests[1], (bytes::Bytes{0x36, 0xAA, 0xBB}));
     EXPECT_EQ(harness.session.requests[2],
@@ -348,7 +348,7 @@ TEST(BenchCommands, DownloadUsesDesktopTimingAndReservesTheSlowPolicyForFinalCrc
     const auto outcome = harness.run(destructiveStep(CommandId::Download, {"0x8000", "blob.bin"}));
 
     ASSERT_TRUE(outcome.ok) << outcome.error_detail;
-    ASSERT_EQ(harness.session.policies.size(), 5u);
+    ASSERT_EQ(harness.session.policies.size(), 5U);
     EXPECT_EQ(harness.session.policies[0].read_timeout_ms, 500);
     EXPECT_EQ(harness.session.policies[1].read_timeout_ms, 500);
     EXPECT_EQ(harness.session.policies[2].read_timeout_ms, 500);
@@ -442,13 +442,13 @@ TEST(BenchCommands, DownloadChunksAPayloadLargerThanTheTransferChunkSize)
     const auto outcome = harness.run(destructiveStep(CommandId::Download, {"0x8000", "big.bin"}));
 
     ASSERT_TRUE(outcome.ok) << outcome.error_detail;
-    ASSERT_EQ(harness.session.requests.size(), 6u);
+    ASSERT_EQ(harness.session.requests.size(), 6U);
     const std::vector<bytes::Bytes> frames = MitsuColtCan::buildTransferDataFrames(bytes::ByteView(bigFile));
-    ASSERT_EQ(frames.size(), 2u);
+    ASSERT_EQ(frames.size(), 2U);
     EXPECT_EQ(harness.session.requests[1], frames[0]);
-    EXPECT_EQ(harness.session.requests[1].size(), 257u); // SID + 256 payload bytes
+    EXPECT_EQ(harness.session.requests[1].size(), 257U); // SID + 256 payload bytes
     EXPECT_EQ(harness.session.requests[2], frames[1]);
-    EXPECT_EQ(harness.session.requests[2].size(), 2u); // SID + 1 payload byte
+    EXPECT_EQ(harness.session.requests[2].size(), 2U); // SID + 1 payload byte
 }
 
 TEST(BenchCommands, UploadRoutineSendsTheBakedArrayToItsRamSlot)

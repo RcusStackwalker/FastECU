@@ -87,8 +87,7 @@ void FlashDialog::advance()
 
 void FlashDialog::startAttempt(FlashAttempt attempt)
 {
-    worker_ = std::make_unique<FlashWorker>(std::move(attempt.plan), std::move(attempt.executor),
-                                            std::move(attempt.transport), std::move(attempt.clock));
+    worker_ = std::make_unique<FlashWorker>(std::move(attempt));
     connect(worker_.get(), &FlashWorker::logEvent, this,
             [this](int level, const QString& message)
             {

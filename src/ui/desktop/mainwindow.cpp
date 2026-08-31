@@ -63,24 +63,7 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
         new FileActions(m_configFileSystem, m_configResourceBundle, m_configFileRepository, m_definitionFileWriter);
     configValues = &fileActions->ConfigValuesStruct;
 
-    QDir currentPath(QDir::currentPath());
-    QStringList isDevPath = currentPath.absolutePath().split("build");
-    bool isDevFile = QFileInfo::exists("./build.txt");
-    const bool isDev = isDevPath.length() > 1 || isDevFile;
-    // Prod branch: the legacy set_base_dirs never reassigned
-    // base_config_directory here -- it just kept whatever
-    // ConfigValuesStructure's field initializer already set
-    // (QDir::homePath() + "/.config/FastECU/" on Unix,
-    // QDir::homePath() + "/AppData/Local/FastECU/" on Windows; see
-    // config_values.h). configValues->base_config_directory already holds
-    // that default at this point (FileActions was just constructed, before
-    // set_base_dirs runs), so pass it straight through rather than the
-    // executable-derived path -- using the latter would resolve every
-    // config/calibration/definition/kernel/datalog/syslog directory under
-    // the wrong root in an installed build.
-    fastecu::config::AppRootInfo rootInfo{
-        (isDev ? currentPath.absolutePath() : configValues->base_config_directory).toStdString(), isDev};
-    fileActions->set_base_dirs(configValues, rootInfo);
+    fileActions->set_base_dirs(configValues, configValues->base_config_directory.toStdString());
 
     software_name = configValues->software_name;
     software_title = configValues->software_title;
@@ -313,9 +296,9 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
     {
         netSplash->show();
         // Move splashscreen to the center of the screen
-        QScreen *screen = QGuiApplication::primaryScreen();
-        QRect screenGeometry = screen->geometry();
-        netSplash->move(screenGeometry.center() - netSplash->rect().center());
+        QScreen *screen_local = QGuiApplication::primaryScreen();
+        QRect screenGeometry_local = screen_local->geometry();
+        netSplash->move(screenGeometry_local.center() - netSplash->rect().center());
         QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
 
         QString wt = this->windowTitle();
@@ -517,8 +500,6 @@ MainWindow::~MainWindow()
 {
     if (logging_state)
     {
-        logging_state = false;
-        log_params_request_started = false;
         loggingEngine->stop();
     }
 }
@@ -602,16 +583,16 @@ QStringList MainWindow::create_flash_transports_list()
 
 QStringList MainWindow::create_log_transports_list()
 {
-    QStringList log_transports;
+    QStringList log_transports_local;
 
-    log_transports.append(
+    log_transports_local.append(
         configValues->flash_protocol_log_transport.at(configValues->flash_protocol_selected_id.toInt()).split(","));
 
     log_transport_list->clear();
-    for (int i = 0; i < log_transports.length(); i++)
+    for (int i = 0; i < log_transports_local.length(); i++)
     {
-        log_transport_list->addItem(log_transports.at(i));
-        if (configValues->flash_protocol_selected_flash_transport == log_transports.at(i))
+        log_transport_list->addItem(log_transports_local.at(i));
+        if (configValues->flash_protocol_selected_flash_transport == log_transports_local.at(i))
         {
             log_transport_list->setCurrentIndex(i);
             protocol = "SSM";
@@ -621,7 +602,7 @@ QStringList MainWindow::create_log_transports_list()
     // if (car_model_list->currentText() == "Subaru")
     // protocol = "SSM";
 
-    return log_transports;
+    return log_transports_local;
 }
 
 void MainWindow::select_protocol()
@@ -879,8 +860,8 @@ void MainWindow::open_serial_port()
     if (!serial_ports.empty())
     {
         // QStringList serial_port = serial_ports.at(serial_port_list->currentIndex()).split(" - ");
-        QStringList serial_port;
-        serial_port.append(serial_ports.at(serial_port_list->currentIndex()));
+        QStringList serial_port_arg;
+        serial_port_arg.append(serial_ports.at(serial_port_list->currentIndex()));
 
         // emit LOG_D("Serial ports" << serial_ports;
 
@@ -888,7 +869,7 @@ void MainWindow::open_serial_port()
         //     serial_port.append("Unknown");
 
         // emit LOG_D("Serial port" << serial_port;
-        serial->set_serial_port_list(serial_port);
+        serial->set_serial_port_list(serial_port_arg);
         QString opened_serial_port = serial->open_serial_port();
         if (opened_serial_port != "")
         {
@@ -899,7 +880,7 @@ void MainWindow::open_serial_port()
             }
             // emit LOG_D("Serial port" << opened_serial_port << "opened" << previous_serial_port;
             previous_serial_port = opened_serial_port;
-            configValues->serial_port = serial_port.at(0);
+            configValues->serial_port = serial_port_arg.at(0);
             fileActions->save_config_file(configValues);
             if (ecuid == "")
             {
@@ -1778,8 +1759,8 @@ void MainWindow::calibration_files_treewidget_item_selected(QTreeWidgetItem *ite
 
     for (int i = 0; i < ui->calibrationFilesTreeWidget->topLevelItemCount(); i++)
     {
-        QTreeWidgetItem *item = ui->calibrationFilesTreeWidget->topLevelItem(i);
-        item->setCheckState(0, Qt::Unchecked);
+        QTreeWidgetItem *item_local = ui->calibrationFilesTreeWidget->topLevelItem(i);
+        item_local->setCheckState(0, Qt::Unchecked);
     }
 
     int rom_number = ui->calibrationFilesTreeWidget->indexOfTopLevelItem(selectedItem);
@@ -2009,11 +1990,11 @@ void MainWindow::close_calibration_map(QObject *obj)
                     item->setCheckState(0, Qt::Unchecked);
                 }
 
-                for (int i = 0; i < ecuCalDef[mapRomNumber]->NameList.count(); i++)
+                for (int i_local = 0; i_local < ecuCalDef[mapRomNumber]->NameList.count(); i_local++)
                 {
-                    if (ecuCalDef[mapRomNumber]->NameList.at(i) == mapName)
+                    if (ecuCalDef[mapRomNumber]->NameList.at(i_local) == mapName)
                     {
-                        ecuCalDef[mapRomNumber]->VisibleList.replace(i, "0");
+                        ecuCalDef[mapRomNumber]->VisibleList.replace(i_local, "0");
                     }
                 }
             }
@@ -2050,12 +2031,12 @@ void MainWindow::change_switch_values()
     change_log_values(2, protocol);
 }
 
-void MainWindow::update_logboxes(const QString& protocol)
+void MainWindow::update_logboxes(const QString& protocol_arg)
 {
     int switchBoxCount = 20;
     int logBoxCount = 12;
 
-    emit LOG_D("Update logboxes with protocol: " + protocol, true, true);
+    emit LOG_D("Update logboxes with protocol: " + protocol_arg, true, true);
 
     while (!ui->switchBoxLayout->isEmpty())
     {
@@ -2073,7 +2054,7 @@ void MainWindow::update_logboxes(const QString& protocol)
         for (int j = 0; j < logValues->log_switch_id.length(); j++)
         {
             if (logValues->lower_panel_switch_id.at(i) == logValues->log_switch_id.at(j) &&
-                logValues->log_switch_protocol.at(j) == protocol)
+                logValues->log_switch_protocol.at(j) == protocol_arg)
             {
                 // emit LOG_D("Switch:" << logValues->log_switch_name.at(j);
                 QGroupBox *switchBox =
@@ -2089,7 +2070,7 @@ void MainWindow::update_logboxes(const QString& protocol)
         for (int j = 0; j < logValues->log_value_id.length(); j++)
         {
             if (logValues->lower_panel_log_value_id.at(i) == logValues->log_value_id.at(j) &&
-                logValues->log_value_protocol.at(j) == protocol)
+                logValues->log_value_protocol.at(j) == protocol_arg)
             {
                 // emit LOG_D("Log value:" << logValues->log_value_name.at(j);
                 const auto& conversions = logValues->log_value_conversions.at(j);
@@ -2104,7 +2085,7 @@ void MainWindow::update_logboxes(const QString& protocol)
     }
 }
 
-void MainWindow::update_logbox_values(const QString& protocol)
+void MainWindow::update_logbox_values(const QString& protocol_arg)
 {
     int index = 0;
     QString warningMin;
@@ -2129,7 +2110,7 @@ void MainWindow::update_logbox_values(const QString& protocol)
                 for (int j = 0; j < logValues->log_value_id.count(); j++)
                 {
                     if (logValues->log_value_id.at(j) == logValues->lower_panel_log_value_id.at(i) &&
-                        logValues->log_value_protocol.at(j) == protocol)
+                        logValues->log_value_protocol.at(j) == protocol_arg)
                     {
                         index = j;
                     }
@@ -2516,14 +2497,16 @@ void MainWindow::update_vbatt()
 
 void MainWindow::setupLoggingEngine()
 {
-    loggingEngine = new LoggingEngine(this);
+    loggingEngine = new fastecu::desktop::logging::LoggingEngine(this);
 
-    connect(loggingEngine, &LoggingEngine::valuesUpdated, this, &MainWindow::handleLoggingValuesUpdated);
-    connect(loggingEngine, &LoggingEngine::sessionEnded, this, &MainWindow::handleLoggingSessionEnded);
-    connect(loggingEngine, &LoggingEngine::LOG_E, syslogger, &SystemLogger::log_messages);
-    connect(loggingEngine, &LoggingEngine::LOG_W, syslogger, &SystemLogger::log_messages);
-    connect(loggingEngine, &LoggingEngine::LOG_I, syslogger, &SystemLogger::log_messages);
-    connect(loggingEngine, &LoggingEngine::LOG_D, syslogger, &SystemLogger::log_messages);
+    connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::valuesUpdated, this,
+            &MainWindow::handleLoggingValuesUpdated);
+    connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::sessionEnded, this,
+            &MainWindow::handleLoggingSessionEnded);
+    connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::LOG_E, syslogger, &SystemLogger::log_messages);
+    connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::LOG_W, syslogger, &SystemLogger::log_messages);
+    connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::LOG_I, syslogger, &SystemLogger::log_messages);
+    connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::LOG_D, syslogger, &SystemLogger::log_messages);
 
     loggingEngine->registerProtocol("MUT_DMA",
                                     [this](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
@@ -2594,10 +2577,11 @@ void MainWindow::handleLoggingValuesUpdated(const QVector<fastecu::logging::LogS
     log_to_file();
 }
 
-void MainWindow::handleLoggingSessionEnded(SessionEndReason reason, const QString& message)
+void MainWindow::restoreLoggingUiState()
 {
     activeLoggingSnapshot.reset();
     logging_state = false;
+    log_params_request_started = false;
     QList<QMenu *> menus = ui->menubar->findChildren<QMenu *>();
     foreach (QMenu *menu, menus)
     {
@@ -2609,16 +2593,26 @@ void MainWindow::handleLoggingSessionEnded(SessionEndReason reason, const QStrin
             }
         }
     }
+}
 
-    if (reason == SessionEndReason::AdapterDisconnected)
+void MainWindow::handleLoggingSessionEnded(fastecu::desktop::logging::SessionEndReason reason, const QString& message)
+{
+    restoreLoggingUiState();
+
+    if (reason == fastecu::desktop::logging::SessionEndReason::StoppedByUser)
+    {
+        return;
+    }
+
+    if (reason == fastecu::desktop::logging::SessionEndReason::AdapterDisconnected)
     {
         QMessageBox::warning(this, tr("Logging"), "Logging adapter disconnected: " + message);
     }
-    else if (reason == SessionEndReason::HandshakeFailed)
+    else if (reason == fastecu::desktop::logging::SessionEndReason::HandshakeFailed)
     {
         QMessageBox::warning(this, tr("Logging"), "Unable to start logging: " + message);
     }
-    else if (reason == SessionEndReason::RuntimeFailed)
+    else if (reason == fastecu::desktop::logging::SessionEndReason::RuntimeFailed)
     {
         QMessageBox::warning(this, tr("Logging"), "Logging stopped: " + message);
     }

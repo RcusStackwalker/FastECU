@@ -3,7 +3,9 @@
 // connect_bootloader(), read_memory(), write_memory(), reflash_block() and
 // erase_memory(). Every scripted exchange cites the line of
 // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh72531_can_operation.cpp
-// it was transcribed from.
+// it was transcribed from, as of 20892df -- this branch's base, and the last
+// commit before the file was deleted here. Master later reflowed one line in
+// three of the four (S1117, #240), so resolve citations against 20892df.
 #include "src/backend/flash/ecu/subaru_denso_sh72531_can_executor.h"
 
 #include <gmock/gmock.h>

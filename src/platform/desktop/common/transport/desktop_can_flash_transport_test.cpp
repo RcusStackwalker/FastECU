@@ -789,7 +789,7 @@ class TestDesktopCanFlashTransport : public QObject
 
         QCOMPARE(serial->check_serial_ports(), QStringList({"op2-0", "op2-1"}));
         QVERIFY(serial->set_serial_port("op2-1"));
-        QCOMPARE(serial->read_vbatt(), 11676ul);
+        QCOMPARE(serial->read_vbatt(), 11676UL);
         QVERIFY(fake->takeCallLog().contains("cfg:set_serial_port:op2-1"));
     }
 };

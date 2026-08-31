@@ -75,7 +75,8 @@ class FlipAfter final : public ICancellationToken
 class CancelAfterEraseTransport final : public ScriptedKlineFlashTransport
 {
   public:
-    explicit CancelAfterEraseTransport(ToggleCancellation& cancellation) : cancellation_(cancellation)
+    explicit CancelAfterEraseTransport(ToggleCancellation& cancellation)
+        : ScriptedKlineFlashTransport(fastecu::flash::ScriptedTransportInitialState::Open), cancellation_(cancellation)
     {
     }
 
@@ -313,7 +314,7 @@ void script_crc_compare(ScriptedKlineFlashTransport& transport, const flashdev_t
         std::uint32_t ecu_crc = fastecu::checksum::crc32(bytes::ByteView(image).subspan(block.start, block.len));
         if (differing_block == block_no)
         {
-            ecu_crc ^= 0x00000001u;
+            ecu_crc ^= 0x00000001U;
         }
         transport.queueRead(crc_response(ecu_crc));
         transport.queue_no_frame();
@@ -438,13 +439,49 @@ bool has_log(const RecordingEventSink& events, std::string_view message)
     return std::ranges::any_of(events.logs, [message](const auto& entry) { return entry.second == message; });
 }
 
+TEST(SubaruDensoSh7055_02Executor, TransportSetupReturnsPlansWireParameters)
+{
+    auto plan = read_plan();
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    SubaruDensoSh7055_02Executor executor;
+
+    const auto setup = executor.transport_setup(*plan);
+
+    ASSERT_TRUE(setup.has_value()) << setup.error().detail;
+    EXPECT_EQ(setup->baud, 62500);
+    EXPECT_FALSE(setup->iso14230);
+    EXPECT_EQ(setup->tester_id, 0xF0);
+    EXPECT_EQ(setup->target_id, 0x10);
+}
+
+TEST(SubaruDensoSh7055_02Executor, BoundAttemptPreservesBothConfigureToOpenCancellationCheckpoints)
+{
+    auto plan = read_plan();
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    auto transport = std::make_unique<ScriptedKlineFlashTransport>();
+    auto *observed_transport = transport.get();
+    auto attempt =
+        bind_flash_attempt(std::move(*plan), std::make_unique<SubaruDensoSh7055_02Executor>(), std::move(transport));
+    FakeClock clock;
+    FlipAfter cancellation(2);
+    RecordingEventSink events;
+
+    auto result = attempt->run(clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_TRUE(observed_transport->last_config_.has_value());
+    EXPECT_EQ(observed_transport->close_call_count_, 0);
+    EXPECT_TRUE(observed_transport->control_line_trace_.empty());
+}
+
 TEST(SubaruDensoSh7055_02Executor, KernelAlreadyAliveSkipsWrxInitEcuIdAndUpload)
 {
     auto plan = write_plan();
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     const flashdev_t *device = find_flash_device("SH7055");
     ASSERT_NE(device, nullptr);
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:69-70.
     transport.queue_no_frame();
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:108-126 and
@@ -462,11 +499,6 @@ TEST(SubaruDensoSh7055_02Executor, KernelAlreadyAliveSkipsWrxInitEcuIdAndUpload)
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_EQ(result->operation, FlashOperation::Write);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.close_call_count_, 1);
-    ASSERT_TRUE(transport.last_config_.has_value());
-    EXPECT_EQ(transport.last_config_->baud, 62500);
-    EXPECT_EQ(transport.last_config_->tester_id, 0xF0);
-    EXPECT_EQ(transport.last_config_->target_id, 0x10);
 }
 
 TEST(SubaruDensoSh7055_02Executor, KernelAliveReadReturnsNoRomId)
@@ -475,7 +507,7 @@ TEST(SubaruDensoSh7055_02Executor, KernelAliveReadReturnsNoRomId)
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     const flashdev_t *device = find_flash_device("SH7055");
     ASSERT_NE(device, nullptr);
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     transport.queue_no_frame();
     transport.expectWrite(framed(0x01));
     transport.queueRead(framed(0x41, bytes::Bytes{'K'}));
@@ -506,7 +538,7 @@ TEST(SubaruDensoSh7055_02Executor, RejectsMissingConfirmationAndMalformedFamilyB
          })
     {
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-        ScriptedKlineFlashTransport transport;
+        ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
         FakeClock clock;
         NeverCancelled cancellation;
         RecordingEventSink events;
@@ -517,10 +549,9 @@ TEST(SubaruDensoSh7055_02Executor, RejectsMissingConfirmationAndMalformedFamilyB
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
         EXPECT_FALSE(transport.last_config_.has_value());
-        EXPECT_EQ(transport.writesConsumed(), 0u);
+        EXPECT_EQ(transport.writesConsumed(), 0U);
         EXPECT_TRUE(transport.read_timeouts_.empty());
         EXPECT_TRUE(transport.control_line_trace_.empty());
-        EXPECT_EQ(transport.close_call_count_, 0);
     }
 }
 
@@ -528,7 +559,7 @@ TEST(SubaruDensoSh7055_02Executor, ReadSurfacesEcuIdInResult)
 {
     auto plan = read_plan();
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     transport.post_kernel_upload_delay_required_ = true;
     script_wrx_preamble(transport, true);
     script_first_wrx_attempt_connects(transport);
@@ -567,14 +598,13 @@ TEST(SubaruDensoSh7055_02Executor, ReadSurfacesEcuIdInResult)
     }
     EXPECT_EQ(clock.sleep_calls, expected_sleeps);
     EXPECT_EQ(transport.read_timeouts_, expected_timeouts);
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(SubaruDensoSh7055_02Executor, OpenPort2UploadDelayCancellationStopsBeforeResponseRead)
 {
     auto plan = read_plan();
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     transport.post_kernel_upload_delay_required_ = true;
     script_wrx_preamble(transport, true);
     script_first_wrx_attempt_connects(transport);
@@ -591,14 +621,13 @@ TEST(SubaruDensoSh7055_02Executor, OpenPort2UploadDelayCancellationStopsBeforeRe
     EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 5000), 1);
     EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 200), 0);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(SubaruDensoSh7055_02Executor, ReadReturnsAssembledPageBytes)
 {
     auto plan = read_plan();
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_wrx_preamble(transport, true);
     script_first_wrx_attempt_connects(transport);
     script_upload(transport);
@@ -624,14 +653,13 @@ TEST(SubaruDensoSh7055_02Executor, ReadReturnsAssembledPageBytes)
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(*result->read_bytes, expected);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(SubaruDensoSh7055_02Executor, ReadRejectsMalformedPageResponse)
 {
     auto plan = read_plan();
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_wrx_preamble(transport, true);
     script_first_wrx_attempt_connects(transport);
     script_upload(transport);
@@ -649,14 +677,13 @@ TEST(SubaruDensoSh7055_02Executor, ReadRejectsMalformedPageResponse)
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(SubaruDensoSh7055_02Executor, ReadRejectsTruncatedPageResponse)
 {
     auto plan = read_plan();
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_wrx_preamble(transport, true);
     script_first_wrx_attempt_connects(transport);
     script_upload(transport);
@@ -675,14 +702,13 @@ TEST(SubaruDensoSh7055_02Executor, ReadRejectsTruncatedPageResponse)
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(SubaruDensoSh7055_02Executor, ReadCancelsBetweenPages)
 {
     auto plan = read_plan();
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_wrx_preamble(transport, true);
     script_first_wrx_attempt_connects(transport);
     script_upload(transport);
@@ -697,15 +723,14 @@ TEST(SubaruDensoSh7055_02Executor, ReadCancelsBetweenPages)
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.writesConsumed(), 6u); // probe + SID BF + WRX + upload + kernel ID + first read
-    EXPECT_EQ(transport.close_call_count_, 1);
+    EXPECT_EQ(transport.writesConsumed(), 6U); // probe + SID BF + WRX + upload + kernel ID + first read
 }
 
 TEST(SubaruDensoSh7055_02Executor, NoFrameWrxReplyRetriesUntilExactResponse)
 {
     auto plan = read_plan();
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_wrx_preamble(transport, true);
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:201-224
     // and 1276-1292: an empty response is not the exact three-byte success.
@@ -729,7 +754,7 @@ TEST(SubaruDensoSh7055_02Executor, NoFrameWrxReplyRetriesUntilExactResponse)
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.writesConsumed(), 518u); // probe + SID BF + two WRX + upload + kernel ID + 512 reads
+    EXPECT_EQ(transport.writesConsumed(), 518U); // probe + SID BF + two WRX + upload + kernel ID + 512 reads
 }
 
 TEST(SubaruDensoSh7055_02Executor, WritePathSkipsEcuIdRead)
@@ -738,7 +763,7 @@ TEST(SubaruDensoSh7055_02Executor, WritePathSkipsEcuIdRead)
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     const flashdev_t *device = find_flash_device("SH7055");
     ASSERT_NE(device, nullptr);
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     script_crc_compare(transport, *device, *plan->image(), std::nullopt);
 
@@ -753,7 +778,6 @@ TEST(SubaruDensoSh7055_02Executor, WritePathSkipsEcuIdRead)
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_FALSE(has_log(events, "ECU ID: 4142434445"));
     EXPECT_EQ(transport.baud_calls_, (std::vector<int>{9600, 62500}));
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(SubaruDensoSh7055_02Executor, WriteSkipsWhenNoBlockDiffers)
@@ -764,7 +788,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteSkipsWhenNoBlockDiffers)
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
 
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     script_crc_compare(transport, *device, image, std::nullopt);
 
@@ -778,9 +802,8 @@ TEST(SubaruDensoSh7055_02Executor, WriteSkipsWhenNoBlockDiffers)
     EXPECT_EQ(result->operation, FlashOperation::Write);
     EXPECT_FALSE(result->read_bytes.has_value());
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.writesConsumed(), 4u + device->numblocks);
-    EXPECT_EQ(transport.programming_voltage_line_write_index_, 4u + device->numblocks);
-    EXPECT_EQ(transport.close_call_count_, 1);
+    EXPECT_EQ(transport.writesConsumed(), 4U + device->numblocks);
+    EXPECT_EQ(transport.programming_voltage_line_write_index_, 4U + device->numblocks);
 }
 
 TEST(SubaruDensoSh7055_02Executor, WriteReflashesOnlyDifferingBlocks)
@@ -793,12 +816,12 @@ TEST(SubaruDensoSh7055_02Executor, WriteReflashesOnlyDifferingBlocks)
     const auto& block = device->fblocks[kDifferingBlock];
     for (std::size_t offset = 0; offset < block.len; ++offset)
     {
-        image[block.start + offset] = static_cast<bytes::Byte>((offset * 17u + 3u) & 0xFF);
+        image[block.start + offset] = static_cast<bytes::Byte>((offset * 17U + 3U) & 0xFF);
     }
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
 
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     script_crc_compare(transport, *device, image, kDifferingBlock);
     script_flash_init(transport, false);
@@ -821,7 +844,6 @@ TEST(SubaruDensoSh7055_02Executor, WriteReflashesOnlyDifferingBlocks)
     EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 500), 1);
     EXPECT_TRUE(has_log(events, "Max message length: 0x00000206"));
     EXPECT_TRUE(has_log(events, "Flash block size: 0x00001000"));
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(SubaruDensoSh7055_02Executor, TestWriteSendsValidateNotCommit)
@@ -834,7 +856,7 @@ TEST(SubaruDensoSh7055_02Executor, TestWriteSendsValidateNotCommit)
     auto plan = write_plan(FlashOperation::TestWrite, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
 
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     script_crc_compare(transport, *device, image, kDifferingBlock);
     script_flash_init(transport, true);
@@ -852,7 +874,6 @@ TEST(SubaruDensoSh7055_02Executor, TestWriteSendsValidateNotCommit)
     EXPECT_EQ(result->operation, FlashOperation::TestWrite);
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 500), 0);
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedEraseResponse)
@@ -864,7 +885,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedEraseResponse)
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
 
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     script_crc_compare(transport, *device, image, kDifferingBlock);
     script_flash_init(transport, false);
@@ -882,7 +903,6 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedEraseResponse)
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 500), 1);
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(SubaruDensoSh7055_02Executor, WriteCancelsMidBlockTransfer)
@@ -911,8 +931,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteCancelsMidBlockTransfer)
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.flash_buffer_write_attempts_, 0u);
-    EXPECT_EQ(transport.close_call_count_, 1);
+    EXPECT_EQ(transport.flash_buffer_write_attempts_, 0U);
 }
 
 TEST(SubaruDensoSh7055_02Executor, WriteRejectsCrcResponseMarkedFailed)
@@ -923,7 +942,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsCrcResponseMarkedFailed)
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
 
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     transport.expectWrite(framed(0x02, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00}));
     transport.queueRead(framed(0x42, bytes::Bytes{0x7F}));
@@ -939,7 +958,6 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsCrcResponseMarkedFailed)
     EXPECT_EQ(result.error().detail, "ECU marked CRC response failed");
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50), 0);
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 
 TEST(SubaruDensoSh7055_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt)
@@ -950,7 +968,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt)
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
 
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
     {
@@ -991,7 +1009,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead)
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
 
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
     {
@@ -1025,7 +1043,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsTruncatedBlockCrcAfterBoundedRead
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     transport.expectWrite(framed(0x02, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00}));
     transport.queueRead(bytes::Bytes{0xBE, 0xEF, 0x00, 0x06, 0x42, 0x05, 0x00, 0x00, 0x00, 0x00});
@@ -1053,7 +1071,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsNegativeBlockCrcResponse)
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     transport.expectWrite(framed(0x02, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00}));
     transport.queueRead(framed(0x7F, bytes::Bytes{0x00, 0x00, 0x00, 0x00}));
@@ -1076,7 +1094,7 @@ TEST(SubaruDensoSh7055_02Executor, WritePropagatesBlockCrcDrainError)
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     transport.expectWrite(framed(0x02, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00}));
     const std::uint32_t crc = fastecu::checksum::crc32(bytes::ByteView(image).first(device->fblocks[0].len));
@@ -1103,7 +1121,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsTruncatedFlashInitResponse)
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     script_crc_compare(transport, *device, image, kBlock);
     transport.expectWrite(framed(0x05));
@@ -1128,7 +1146,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedProgVoltResponse)
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     script_crc_compare(transport, *device, image, kBlock);
     script_flash_init(transport, false);
@@ -1154,7 +1172,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedFlashBufferResponse)
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_prefix(transport, *device, image, kBlock, false);
     transport.expectWrite(write_chunk_request(*device, image, kBlock, 0));
     transport.queueRead(bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x62});
@@ -1178,7 +1196,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedCommitResponse)
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_prefix(transport, *device, image, kBlock, false);
     for (std::uint32_t offset = 0; offset < 0x1000; offset += 0x200)
     {
@@ -1207,7 +1225,7 @@ TEST(SubaruDensoSh7055_02Executor, TestWriteFailsOnRejectedValidateResponse)
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = write_plan(FlashOperation::TestWrite, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_prefix(transport, *device, image, kBlock, true);
     for (std::uint32_t offset = 0; offset < 0x1000; offset += 0x200)
     {
@@ -1236,7 +1254,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteLogsRemainingMismatchAfterVerification)
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
     script_crc_compare(transport, *device, image, kBlock);
     script_flash_init(transport, false);
@@ -1259,7 +1277,7 @@ TEST(SubaruDensoSh7055_02Executor, WrxInitLoopExhaustsAfter20Attempts)
 {
     auto plan = read_plan();
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_wrx_preamble(transport, true);
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:201-228.
     for (int attempt = 0; attempt < 20; ++attempt)
@@ -1279,24 +1297,23 @@ TEST(SubaruDensoSh7055_02Executor, WrxInitLoopExhaustsAfter20Attempts)
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.writesConsumed(), 22u); // probe + SID BF + 20 WRX requests
-    EXPECT_EQ(transport.close_call_count_, 1);
+    EXPECT_EQ(transport.writesConsumed(), 22U); // probe + SID BF + 20 WRX requests
 }
 
 TEST(SubaruDensoSh7055_02Executor, CancellationDuringWrxInitLoopStopsBeforeSecondAttempt)
 {
     auto plan = read_plan();
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_wrx_preamble(transport, true);
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:201-224.
     transport.expectWrite(bytes::Bytes{0x4D, 0xFF, 0xB4});
     transport.queueRead(bytes::Bytes{0x00, 0x00, 0x00});
 
     FakeClock clock;
-    // This threshold permits the setup I/O and first malformed WRX response,
+    // This threshold permits the first malformed WRX response,
     // then flips at the loop guard before attempt two.
-    FlipAfter cancellation(48);
+    FlipAfter cancellation(43);
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -1304,8 +1321,7 @@ TEST(SubaruDensoSh7055_02Executor, CancellationDuringWrxInitLoopStopsBeforeSecon
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.writesConsumed(), 3u); // probe + SID BF + one WRX request
-    EXPECT_EQ(transport.close_call_count_, 1);
+    EXPECT_EQ(transport.writesConsumed(), 3U); // probe + SID BF + one WRX request
 }
 
 } // namespace

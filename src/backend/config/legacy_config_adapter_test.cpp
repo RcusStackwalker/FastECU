@@ -23,12 +23,11 @@ TEST(LegacyConfigAdapterTest, SetBaseDirsPopulatesConfigValuesStructureAndReturn
     LegacyConfigAdapter adapter(fs, bundle, repo);
     FileActions::ConfigValuesStructure values;
 
-    fastecu::config::AppRootInfo root{"/base", true};
-    auto *returned = adapter.set_base_dirs(&values, root);
+    auto *returned = adapter.set_base_dirs(&values, "/base");
 
     EXPECT_EQ(returned, &values);
-    EXPECT_EQ(values.calibration_files_directory.toStdString(), "/base/calibrations/");
-    EXPECT_EQ(values.config_file.toStdString(), "/base/config/fastecu.cfg");
+    EXPECT_EQ(values.calibration_files_directory.toStdString(), "/base/0.1.0-beta.5/calibrations/");
+    EXPECT_EQ(values.config_file.toStdString(), "/base/0.1.0-beta.5/config/fastecu.cfg");
 }
 
 TEST(LegacyConfigAdapterTest, ReadConfigFilePopulatesConfigValuesStructureFields)
@@ -173,6 +172,28 @@ TEST(LegacyConfigAdapterTest, ReadProtocolsFileJoinsCarModelWithMatchingProtocol
     QStringList validationErrors;
     EXPECT_TRUE(FileActions::validate_flash_protocols(*returned, &validationErrors))
         << validationErrors.join(", ").toStdString();
+}
+
+TEST(LegacyConfigAdapterTest, ReadProtocolsFileResetsSelectionEqualToCatalogSize)
+{
+    InMemoryFileSystem fs;
+    InMemoryResourceBundle bundle;
+    InMemoryFileRepository repo;
+    LegacyConfigAdapter adapter(fs, bundle, repo);
+    FileActions::ConfigValuesStructure values;
+    values.protocols_file = "protocols.cfg";
+    values.flash_protocol_selected_id = "1";
+    const std::string xml = R"(<?xml version="1.0"?><config><protocols>)"
+                            R"(<protocol name="p1" />)"
+                            R"(</protocols><car_models><car_model>)"
+                            R"(<make>Mitsubishi</make><protocol>p1</protocol>)"
+                            R"(</car_model></car_models></config>)";
+    repo.files["protocols.cfg"] = std::vector<std::uint8_t>(xml.begin(), xml.end());
+
+    adapter.read_protocols_file(&values);
+
+    ASSERT_EQ(values.flash_protocol_id.size(), 1);
+    EXPECT_EQ(values.flash_protocol_selected_id, "0");
 }
 
 // A car_model whose <protocol> text doesn't match any real protocol name

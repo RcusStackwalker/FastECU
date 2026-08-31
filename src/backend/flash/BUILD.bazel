@@ -94,6 +94,19 @@ fastecu_portable_gtest(
     ],
 )
 
+fastecu_portable_gtest(
+    name = "bound_flash_attempt_test",
+    srcs = ["bound_flash_attempt_test.cpp"],
+    deps = [
+        ":flash_executor",
+        ":flash_validation",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:recording_event_sink",
+    ],
+)
+
 cc_library(
     name = "can_flash_uds_channel",
     srcs = ["can_flash_uds_channel.cpp"],

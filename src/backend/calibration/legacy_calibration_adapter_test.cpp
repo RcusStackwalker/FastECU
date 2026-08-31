@@ -309,7 +309,7 @@ class TestLegacyCalibrationAdapter : public QObject
         // Must persist into FullRomData itself, not a copy: validate_rom_size and
         // every later consumer read this buffer.
         QCOMPARE(ecu.FullRomData.size(), 0x2A000 + 0x8000);
-        QCOMPARE(static_cast<unsigned char>(ecu.FullRomData.at(0x20000)), 0xFFu);
+        QCOMPARE(static_cast<unsigned char>(ecu.FullRomData.at(0x20000)), 0xFFU);
     }
 
     void paddingLeavesOtherFlashMethodsAlone()

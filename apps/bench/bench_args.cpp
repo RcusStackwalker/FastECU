@@ -112,7 +112,7 @@ Result<std::uint32_t> parse_u32(std::string_view text)
     {
         return fail(ErrorKind::InvalidConfig, std::format("not a number: {}", text));
     }
-    if (value > 0xFFFFFFFFull)
+    if (value > 0xFFFFFFFFULL)
     {
         return fail(ErrorKind::InvalidConfig, std::format("does not fit in 32 bits: {}", text));
     }
@@ -182,6 +182,16 @@ Result<ParsedCommandLine> parse_command_line(std::span<const std::string_view> a
         if (arg == "--no-connect")
         {
             parsed.options.no_connect = true;
+            continue;
+        }
+        if (arg == "--vendor-ext")
+        {
+            parsed.options.vendor_ext = true;
+            continue;
+        }
+        if (arg == "--stats")
+        {
+            parsed.options.stats = true;
             continue;
         }
         if (arg == "--script")

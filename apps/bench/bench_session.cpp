@@ -6,6 +6,7 @@
 #include <utility>
 
 #include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
+#include "src/algorithms/protocol/colt/mitsu_colt_can_vendor_ext_protocol.h"
 #include "src/algorithms/protocol/uds/uds_response.h"
 
 namespace fastecu::bench
@@ -79,9 +80,10 @@ const bytes::Bytes& BenchSession::RecordingChannel::last_rx() const
 
 BenchSession::BenchSession(std::unique_ptr<flash::ICanFlashTransport> transport, std::uint32_t request_id,
                            std::uint32_t response_id, IClock& clock, IEventSink& events,
-                           const ICancellationToken& cancellation)
+                           const ICancellationToken& cancellation, bool vendor_challenge)
     : transport_(std::move(transport)), channel_(*transport_, request_id, response_id), recording_channel_(channel_),
-      clock_(clock), client_(recording_channel_, clock, events), cancellation_(cancellation)
+      clock_(clock), client_(recording_channel_, clock, events), cancellation_(cancellation),
+      vendor_challenge_(vendor_challenge)
 {
 }
 
@@ -111,6 +113,62 @@ Status BenchSession::connect()
         last_traffic_ = total;
         return result;
     };
+
+    if (vendor_challenge_)
+    {
+        const Result<bytes::Bytes> basic_reply =
+            request(MitsuColtCan::buildDiagnosticSession(MitsuColtCan::kSessionBasic));
+        if (!basic_reply.has_value())
+        {
+            return std::unexpected(basic_reply.error());
+        }
+        if (const Status valid = validateEcho(*basic_reply, MitsuColtCan::kSessionBasic, 1, "basic diagnostic session");
+            !valid.has_value())
+        {
+            return valid;
+        }
+
+        const Result<bytes::Bytes> vendor_seed_reply = request(MitsuColtCanVendorExt::buildChallengeSeedRequest());
+        if (!vendor_seed_reply.has_value())
+        {
+            return std::unexpected(vendor_seed_reply.error());
+        }
+        // [selector][subfunction][4-byte seed].
+        const bytes::ByteView vendor_seed_payload = uds::payload(*vendor_seed_reply);
+        if (vendor_seed_payload.size() < 6)
+        {
+            return fail(ErrorKind::BadResponse, "vendor challenge seed reply too short");
+        }
+        if (vendor_seed_payload[0] != MitsuColtCanVendorExt::kVendorChallengeSelector ||
+            vendor_seed_payload[1] != MitsuColtCanVendorExt::kVendorChallengeSeedSubfunction)
+        {
+            return fail(ErrorKind::BadResponse, std::format("vendor challenge seed reply carried 0x{:02x} 0x{:02x}",
+                                                            vendor_seed_payload[0], vendor_seed_payload[1]));
+        }
+
+        const std::uint32_t vendor_key = MitsuColtCanVendorExt::challengeInverseTransform(
+            MitsuColtCanVendorExt::bytesToSeed(vendor_seed_payload.subspan(2, 4)));
+
+        const Result<bytes::Bytes> vendor_key_reply = request(MitsuColtCanVendorExt::buildChallengeKey(vendor_key));
+        if (!vendor_key_reply.has_value())
+        {
+            return std::unexpected(vendor_key_reply.error());
+        }
+        const bytes::ByteView vendor_key_payload = uds::payload(*vendor_key_reply);
+        if (vendor_key_payload.size() < 2)
+        {
+            return fail(ErrorKind::BadResponse, "vendor challenge key reply too short");
+        }
+        // Mirrors connect_bootloader's fatal_query prefix check: the reply must
+        // carry both the echoed selector and kVendorChallengeAccepted, not just
+        // one or the other.
+        if (vendor_key_payload[0] != MitsuColtCanVendorExt::kVendorChallengeSelector ||
+            vendor_key_payload[1] != MitsuColtCanVendorExt::kVendorChallengeAccepted)
+        {
+            return fail(ErrorKind::BadResponse, std::format("vendor challenge key rejected: reply 0x{:02x} 0x{:02x}",
+                                                            vendor_key_payload[0], vendor_key_payload[1]));
+        }
+    }
 
     const Result<bytes::Bytes> session_reply =
         request(MitsuColtCan::buildDiagnosticSession(MitsuColtCan::kSessionBootload));

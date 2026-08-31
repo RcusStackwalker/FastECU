@@ -5,12 +5,6 @@
 namespace fastecu::config
 {
 
-struct AppRootInfo
-{
-    std::string app_root_path;
-    bool is_dev_environment;
-};
-
 struct ConfigPaths
 {
     std::string base_config_directory;
@@ -28,6 +22,6 @@ struct ConfigPaths
 };
 
 // Pure, no I/O. Replaces FileActions::set_base_dirs.
-ConfigPaths resolve_config_paths(const AppRootInfo& root, std::string_view version);
+ConfigPaths resolve_config_paths(std::string_view app_root_path, std::string_view version);
 
 } // namespace fastecu::config

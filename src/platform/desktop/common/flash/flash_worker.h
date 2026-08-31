@@ -12,6 +12,7 @@
 #include "src/backend/ports/clock.h"
 #include "src/backend/ports/error.h"
 #include "src/backend/ports/manual_cancellation_token.h"
+#include "src/platform/desktop/common/flash/flash_workflow.h"
 
 namespace fastecu::flash
 {
@@ -48,8 +49,7 @@ class FlashWorker final : public QThread
     Q_OBJECT
 
   public:
-    FlashWorker(FlashPlan plan, std::unique_ptr<IFlashExecutor> executor, std::unique_ptr<IFlashTransport> transport,
-                std::unique_ptr<IClock> clock, QObject *parent = nullptr);
+    FlashWorker(FlashAttempt attempt, QObject *parent = nullptr);
     ~FlashWorker() override;
 
     FlashWorker(const FlashWorker&) = delete;
@@ -74,9 +74,7 @@ class FlashWorker final : public QThread
     void run() override;
 
   private:
-    FlashPlan plan_;
-    std::unique_ptr<IFlashExecutor> executor_;
-    std::unique_ptr<IFlashTransport> transport_;
+    std::unique_ptr<BoundFlashAttempt> attempt_;
     std::unique_ptr<IClock> clock_;
     ManualCancellationToken cancellation_;
 };

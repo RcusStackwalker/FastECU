@@ -116,8 +116,7 @@ class FileActions : public QWidget
      * Check if FastECU dir exists in users home folder
      * If not, create one with appropriate files
      ***************************************************/
-    ConfigValuesStructure *set_base_dirs(ConfigValuesStructure *configValues,
-                                         const fastecu::config::AppRootInfo& root_info);
+    ConfigValuesStructure *set_base_dirs(ConfigValuesStructure *configValues, std::string_view app_root_path);
     ConfigValuesStructure *check_config_dirs(ConfigValuesStructure *configValues);
 
     /****************************

@@ -19,7 +19,7 @@ FlashEcuSubaruHitachiSH7058CanOperation::FlashEcuSubaruHitachiSH7058CanOperation
 
 bool FlashEcuSubaruHitachiSH7058CanOperation::execute()
 {
-    int result = STATUS_ERROR;
+    int result_arg = STATUS_ERROR;
     emit progressChanged(0);
 
     mcu_type_string = ecuCalDef->McuType;
@@ -74,24 +74,24 @@ bool FlashEcuSubaruHitachiSH7058CanOperation::execute()
     {
         emit externalLoggerMessage("Reading ROM, please wait...");
         emit LOG_I("Reading ROM from ECU, Hitachi SH7058 using K-Line", true, true);
-        result = read_mem_subaru_ecu_hitachi_can(flashdevices[mcu_type_index].fblocks[0].start,
-                                                 flashdevices[mcu_type_index].romsize);
+        result_arg = read_mem_subaru_ecu_hitachi_can(flashdevices[mcu_type_index].fblocks[0].start,
+                                                     flashdevices[mcu_type_index].romsize);
     }
     else
     {
         emit LOG_I("Connecting to Hitachi SH7058 CAN bootloader, please wait...", true, true);
 
-        result = connect_bootloader_subaru_ecu_hitachi_can();
+        result_arg = connect_bootloader_subaru_ecu_hitachi_can();
 
-        if (result == STATUS_SUCCESS)
+        if (result_arg == STATUS_SUCCESS)
         {
             emit externalLoggerMessage("Writing ROM, please wait...");
             emit LOG_I("Writing ROM to ECU, Hitachi SH7058 using CAN", true, true);
-            result = write_mem_subaru_ecu_hitachi_can(test_write);
+            result_arg = write_mem_subaru_ecu_hitachi_can(test_write);
         }
     }
 
-    return result == STATUS_SUCCESS;
+    return result_arg == STATUS_SUCCESS;
 }
 
 /*
@@ -844,7 +844,7 @@ int FlashEcuSubaruHitachiSH7058CanOperation::read_mem_subaru_ecu_hitachi_can(uin
 
         // uint32_t curblock = (addr / pagesize);
 
-        pleft = (float)(addr - start_addr) / (float)length * 100.0f;
+        pleft = (float)(addr - start_addr) / (float)length * 100.0F;
         emit progressChanged(pleft);
 
         // length = 7FFF0;
@@ -884,7 +884,7 @@ int FlashEcuSubaruHitachiSH7058CanOperation::read_mem_subaru_ecu_hitachi_can(uin
 
         if (cplen > 0 && chrono > 0)
         {
-            curspeed = cplen * (1000.0f / chrono);
+            curspeed = cplen * (1000.0F / chrono);
         }
 
         if (!curspeed)
@@ -935,7 +935,7 @@ int FlashEcuSubaruHitachiSH7058CanOperation::read_mem_subaru_ecu_hitachi_can(uin
  * @return success
  */
 
-int FlashEcuSubaruHitachiSH7058CanOperation::write_mem_subaru_ecu_hitachi_can(bool test_write)
+int FlashEcuSubaruHitachiSH7058CanOperation::write_mem_subaru_ecu_hitachi_can(bool test_write_arg)
 {
     QByteArray filedata;
 
@@ -993,7 +993,7 @@ int FlashEcuSubaruHitachiSH7058CanOperation::write_mem_subaru_ecu_hitachi_can(bo
             if (block_modified[blockno])
             {
                 if (reflash_block_subaru_ecu_hitachi_can(&data_array[flashdevices[mcu_type_index].fblocks->start],
-                                                         &flashdevices[mcu_type_index], blockno, test_write))
+                                                         &flashdevices[mcu_type_index], blockno, test_write_arg))
                 {
                     emit LOG_I("Block " + QString::number(blockno) + " reflash failed.", true, true);
                     return STATUS_ERROR;
@@ -1021,7 +1021,7 @@ int FlashEcuSubaruHitachiSH7058CanOperation::write_mem_subaru_ecu_hitachi_can(bo
  */
 int FlashEcuSubaruHitachiSH7058CanOperation::reflash_block_subaru_ecu_hitachi_can(const uint8_t *newdata,
                                                                                   const struct flashdev_t *fdt,
-                                                                                  unsigned blockno, bool test_write)
+                                                                                  unsigned blockno, bool test_write_arg)
 {
 
     int errval;

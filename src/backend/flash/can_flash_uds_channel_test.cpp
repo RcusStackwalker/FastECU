@@ -30,7 +30,7 @@ TEST(CanFlashUdsChannelTest, PrependsTheRequestIdOnSend)
     const fastecu::Status sent = channel.send(Bytes{0x10, 0x03}, cancellation);
 
     EXPECT_TRUE(sent.has_value());
-    EXPECT_EQ(transport.writesConsumed(), 1u);
+    EXPECT_EQ(transport.writesConsumed(), 1U);
 }
 
 TEST(CanFlashUdsChannelTest, StripsTheReplyIdOnReceive)

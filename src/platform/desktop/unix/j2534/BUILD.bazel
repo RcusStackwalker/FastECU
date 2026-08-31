@@ -1,3 +1,4 @@
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = [
@@ -16,5 +17,27 @@ qt_cc_library(
         "@platforms//os:windows": ["@platforms//:incompatible"],
         "//conditions:default": [],
     }),
+    deps = QT_DEPS + [":serial_byte_buffer"],
+)
+
+qt_cc_library(
+    name = "serial_byte_buffer",
+    srcs = ["serial_byte_buffer.cpp"],
+    hdrs = ["serial_byte_buffer.h"],
+    copts = COMMON_COPTS,
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
     deps = QT_DEPS,
+)
+
+fastecu_gtest(
+    name = "serial_byte_buffer_test",
+    srcs = ["serial_byte_buffer_test.cpp"],
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [":serial_byte_buffer"],
 )

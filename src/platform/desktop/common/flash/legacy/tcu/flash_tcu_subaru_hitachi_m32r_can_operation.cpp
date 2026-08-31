@@ -19,9 +19,9 @@ FlashTcuSubaruHitachiM32rCanOperation::FlashTcuSubaruHitachiM32rCanOperation(Ser
 
 bool FlashTcuSubaruHitachiM32rCanOperation::execute()
 {
-    int result = STATUS_ERROR;
+    int result_arg = STATUS_ERROR;
 
-    // result = init_flash_hitachi_can();
+    // result_arg = init_flash_hitachi_can();
 
     mcu_type_string = ecuCalDef->McuType;
     mcu_type_index = FlashUtils::findFlashDeviceIndex(mcu_type_string);
@@ -61,25 +61,25 @@ bool FlashTcuSubaruHitachiM32rCanOperation::execute()
     serial->open_serial_port();
 
     emit LOG_I("Connecting to Subaru TCU Hitachi CAN bootloader, please wait...", true, true);
-    result = connect_bootloader();
+    result_arg = connect_bootloader();
 
-    if (result == STATUS_SUCCESS)
+    if (result_arg == STATUS_SUCCESS)
     {
         if (cmd_type == "read")
         {
             emit externalLoggerMessage("Reading ROM, please wait...");
             // emit LOG_I("Not yet implemented: Reading ROM from TCU Subaru Hitachi using CAN", true, true);
-            result = read_mem(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
+            result_arg = read_mem(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
         }
         else if (cmd_type == "test_write" || cmd_type == "write")
         {
             emit externalLoggerMessage("Writing ROM, please wait...");
             // emit LOG_I("Not yet implemented: Writing ROM to TCU Subaru Hitachi using CAN", true, true);
-            result = write_mem(test_write);
+            result_arg = write_mem(test_write);
         }
     }
 
-    return result == STATUS_SUCCESS;
+    return result_arg == STATUS_SUCCESS;
 }
 
 /*
@@ -486,7 +486,7 @@ int FlashTcuSubaruHitachiM32rCanOperation::read_mem(uint32_t start_addr, uint32_
         float pleft = 0;
         unsigned long chrono;
 
-        pleft = (float)(addr - start_addr) / (float)length * 100.0f;
+        pleft = (float)(addr - start_addr) / (float)length * 100.0F;
         emit progressChanged(pleft);
 
         output[5] = (uint8_t)((addr >> 16) & 0xFF);
@@ -529,7 +529,7 @@ int FlashTcuSubaruHitachiM32rCanOperation::read_mem(uint32_t start_addr, uint32_
 
         if (cplen > 0 && chrono > 0)
         {
-            curspeed = cplen * (1000.0f / chrono);
+            curspeed = cplen * (1000.0F / chrono);
         }
 
         if (!curspeed)
@@ -620,7 +620,7 @@ int FlashTcuSubaruHitachiM32rCanOperation::read_mem(uint32_t start_addr, uint32_
  * @return success
  */
 
-int FlashTcuSubaruHitachiM32rCanOperation::write_mem(bool test_write)
+int FlashTcuSubaruHitachiM32rCanOperation::write_mem(bool test_write_arg)
 {
     QByteArray filedata;
 
@@ -682,7 +682,7 @@ int FlashTcuSubaruHitachiM32rCanOperation::write_mem(bool test_write)
             if (block_modified[blockno])
             {
                 if (reflash_block(&data_array[flashdevices[mcu_type_index].fblocks->start],
-                                  &flashdevices[mcu_type_index], blockno, test_write))
+                                  &flashdevices[mcu_type_index], blockno, test_write_arg))
                 {
                     emit LOG_I("Block " + QString::number(blockno) + " reflash failed.", true, true);
                     return STATUS_ERROR;
@@ -709,7 +709,7 @@ int FlashTcuSubaruHitachiM32rCanOperation::write_mem(bool test_write)
  * @return success
  */
 int FlashTcuSubaruHitachiM32rCanOperation::reflash_block(const uint8_t *newdata, const struct flashdev_t *fdt,
-                                                         unsigned blockno, bool test_write)
+                                                         unsigned blockno, bool test_write_arg)
 {
 
     int errval;

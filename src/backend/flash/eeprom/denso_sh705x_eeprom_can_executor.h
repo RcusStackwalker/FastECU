@@ -18,10 +18,11 @@ namespace fastecu::flash
 // resolution of Task 4's OPEN QUESTION (denso_sh705x_eeprom_common.cpp) --
 // see the long comment above connect_bootloader() in the .cpp for the full
 // reasoning, and task-9-report.md for the writeup.
-class DensoSh705xEepromCanExecutor final : public IFlashExecutor
+class DensoSh705xEepromCanExecutor final : public ICanFlashExecutor
 {
   public:
-    Result<FlashExecutionResult> execute(const FlashPlan& plan, IFlashTransport& transport, IClock& clock,
+    Result<Iso15765Config> transport_setup(const FlashPlan& plan) const override;
+    Result<FlashExecutionResult> execute(const FlashPlan& plan, ICanFlashTransport& transport, IClock& clock,
                                          const ICancellationToken& cancellation, IEventSink& events) override;
 
   private:

@@ -9,15 +9,15 @@ namespace
 
 TEST(ParseHexValueTest, AcceptsPrefixedAndBareHex)
 {
-    EXPECT_EQ(parse_hex_value("0xFFFF6004"), 0xFFFF6004u);
-    EXPECT_EQ(parse_hex_value("0XFFFF3000"), 0xFFFF3000u);
-    EXPECT_EQ(parse_hex_value("ffff4000"), 0xFFFF4000u);
-    EXPECT_EQ(parse_hex_value("0"), 0u);
+    EXPECT_EQ(parse_hex_value("0xFFFF6004"), 0xFFFF6004U);
+    EXPECT_EQ(parse_hex_value("0XFFFF3000"), 0xFFFF3000U);
+    EXPECT_EQ(parse_hex_value("ffff4000"), 0xFFFF4000U);
+    EXPECT_EQ(parse_hex_value("0"), 0U);
 }
 
 TEST(ParseHexValueTest, TrimsSurroundingWhitespace)
 {
-    EXPECT_EQ(parse_hex_value("  0xFFFF6004  "), 0xFFFF6004u);
+    EXPECT_EQ(parse_hex_value("  0xFFFF6004  "), 0xFFFF6004U);
 }
 
 TEST(ParseHexValueTest, TrimsVerticalTabAndFormFeed)
@@ -27,11 +27,11 @@ TEST(ParseHexValueTest, TrimsVerticalTabAndFormFeed)
     // must match that exactly -- this pins the fix for a divergence found in
     // review, where a set literal of only " \t\r\n" silently narrowed the
     // accepted whitespace set relative to the original.
-    EXPECT_EQ(parse_hex_value("\v0x10"), 0x10u);
-    EXPECT_EQ(parse_hex_value("0x10\v"), 0x10u);
-    EXPECT_EQ(parse_hex_value("\f0x10"), 0x10u);
-    EXPECT_EQ(parse_hex_value("0x10\f"), 0x10u);
-    EXPECT_EQ(parse_hex_value("\f0x10\f"), 0x10u);
+    EXPECT_EQ(parse_hex_value("\v0x10"), 0x10U);
+    EXPECT_EQ(parse_hex_value("0x10\v"), 0x10U);
+    EXPECT_EQ(parse_hex_value("\f0x10"), 0x10U);
+    EXPECT_EQ(parse_hex_value("0x10\f"), 0x10U);
+    EXPECT_EQ(parse_hex_value("\f0x10\f"), 0x10U);
 }
 
 TEST(ParseHexValueTest, RejectsMalformedInput)
@@ -45,7 +45,7 @@ TEST(ParseHexValueTest, RejectsMalformedInput)
 
 TEST(ParseHexValueTest, RoundTripsWithHexText)
 {
-    EXPECT_EQ(parse_hex_value(hex_text(0xDEADBEEFu)), 0xDEADBEEFu);
+    EXPECT_EQ(parse_hex_value(hex_text(0xDEADBEEFU)), 0xDEADBEEFU);
 }
 
 } // namespace

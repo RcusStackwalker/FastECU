@@ -10,10 +10,11 @@ namespace fastecu::flash
 // desktop orchestrator (Task 17) since a synchronous executor call never
 // blocks for a human answer -- this executor performs exactly one bootstrap
 // + read for the single EepromReadMode carried by the plan.
-class DensoSh705xEepromKlineExecutor final : public IFlashExecutor
+class DensoSh705xEepromKlineExecutor final : public IKlineFlashExecutor
 {
   public:
-    Result<FlashExecutionResult> execute(const FlashPlan& plan, IFlashTransport& transport, IClock& clock,
+    Result<KlineConfig> transport_setup(const FlashPlan& plan) const override;
+    Result<FlashExecutionResult> execute(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& clock,
                                          const ICancellationToken& cancellation, IEventSink& events) override;
 
   private:

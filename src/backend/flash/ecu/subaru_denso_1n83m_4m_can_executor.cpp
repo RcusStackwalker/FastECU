@@ -19,7 +19,9 @@
 
 // Every exchange below cites the line of
 // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_1n83m_4m_can_operation.cpp
-// it was transcribed from.
+// it was transcribed from, as of 20892df -- this branch's base, and the last
+// commit before the file was deleted here. Master later reflowed one line in
+// three of the four (S1117, #240), so resolve citations against 20892df.
 //
 // This family is the tolerant member of the wave-4 Denso ISO-15765 cluster:
 // seven of its response checks have their `return STATUS_ERROR` commented out

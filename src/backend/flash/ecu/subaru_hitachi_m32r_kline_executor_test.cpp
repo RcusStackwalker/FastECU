@@ -17,7 +17,8 @@ using namespace fastecu::flash;
 class TripOnReadTransport final : public ScriptedKlineFlashTransport
 {
   public:
-    explicit TripOnReadTransport(ManualCancellationToken& source) : source_(source)
+    explicit TripOnReadTransport(ManualCancellationToken& source)
+        : ScriptedKlineFlashTransport(ScriptedTransportInitialState::Open), source_(source)
     {
     }
     Result<OptionalBytes> read(int timeout, const ICancellationToken& cancellation) override
@@ -121,12 +122,28 @@ void scriptWriteBody(ScriptedKlineFlashTransport& transport, bytes::ByteView ima
     transport.queueRead(bytes::Bytes{0x01});
 }
 
+TEST(SubaruHitachiM32rKlineExecutor, TransportSetupReturnsPlansWireParameters)
+{
+    auto plan = build_subaru_hitachi_m32r_kline_plan(FlashOperation::Read, "sub_ecu_hitachi_m32r_kline",
+                                                     "M32R_512KB_1block", std::nullopt);
+    ASSERT_TRUE(plan.has_value());
+    SubaruHitachiM32rKlineExecutor executor;
+
+    auto setup = executor.transport_setup(*plan);
+
+    ASSERT_TRUE(setup.has_value()) << setup.error().detail;
+    EXPECT_EQ(setup->baud, 4800);
+    EXPECT_FALSE(setup->iso14230);
+    EXPECT_EQ(setup->tester_id, 0xf0);
+    EXPECT_EQ(setup->target_id, 0x10);
+}
+
 TEST(SubaruHitachiM32rKlineExecutor, ReadsAt38400ProbeAndReturnsLogicalFullRom)
 {
     auto plan = build_subaru_hitachi_m32r_kline_plan(FlashOperation::Read, "sub_ecu_hitachi_m32r_kline_recovery",
                                                      "M32R_512KB_1block", std::nullopt);
     ASSERT_TRUE(plan.has_value());
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
     transport.expectWrite(frame({0xbf}));
     transport.queueRead(idResponse());
     scriptReadChunks(transport);
@@ -139,7 +156,7 @@ TEST(SubaruHitachiM32rKlineExecutor, ReadsAt38400ProbeAndReturnsLogicalFullRom)
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     ASSERT_TRUE(result->read_bytes.has_value());
-    EXPECT_EQ(result->read_bytes->size(), 0x80000u);
+    EXPECT_EQ(result->read_bytes->size(), 0x80000U);
     EXPECT_EQ(result->rom_id, std::string("123456789A_"));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.baud_calls_, std::vector<int>{38400});
@@ -150,7 +167,7 @@ TEST(SubaruHitachiM32rKlineExecutor, RecoveryWakeIsBoundedToOneThousandAttempts)
     auto plan = build_subaru_hitachi_m32r_kline_plan(FlashOperation::Write, "sub_ecu_hitachi_m32r_kline_recovery",
                                                      "M32R_512KB_1block", bytes::Bytes(0x80000));
     ASSERT_TRUE(plan.has_value());
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
     for (int i = 0; i < 1000; ++i)
     {
         transport.expectWrite(frame({0x81}));
@@ -165,7 +182,7 @@ TEST(SubaruHitachiM32rKlineExecutor, RecoveryWakeIsBoundedToOneThousandAttempts)
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
-    EXPECT_EQ(transport.writesConsumed(), 1000u);
+    EXPECT_EQ(transport.writesConsumed(), 1000U);
 }
 
 TEST(SubaruHitachiM32rKlineExecutor, ReadFallsBackThrough4800Initialization)
@@ -173,7 +190,7 @@ TEST(SubaruHitachiM32rKlineExecutor, ReadFallsBackThrough4800Initialization)
     auto plan = build_subaru_hitachi_m32r_kline_plan(FlashOperation::Read, "sub_ecu_hitachi_m32r_kline",
                                                      "M32R_512KB_1block", std::nullopt);
     ASSERT_TRUE(plan.has_value());
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
     transport.expectWrite(frame({0xbf}));
     transport.queue_no_frame();
     transport.expectWrite(frame({0xbf}));
@@ -203,7 +220,7 @@ TEST(SubaruHitachiM32rKlineExecutor, NormalWriteUsesActiveObkAndToleratesLegacyA
     auto plan = build_subaru_hitachi_m32r_kline_plan(FlashOperation::Write, "sub_ecu_hitachi_m32r_kline",
                                                      "M32R_512KB_1block", image);
     ASSERT_TRUE(plan.has_value());
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
     transport.expectWrite(frame({0x34, 0, 0, 0, 0x04, 0x08, 0, 0}));
     transport.queueRead(bytes::Bytes{0, 0, 0, 0, 0x74, 0x84});
     scriptWriteBody(transport, image);
@@ -223,7 +240,7 @@ TEST(SubaruHitachiM32rKlineExecutor, NormalFallbackRequiresSecuritySubfunctionTw
     auto plan = build_subaru_hitachi_m32r_kline_plan(FlashOperation::Write, "sub_ecu_hitachi_m32r_kline",
                                                      "M32R_512KB_1block", image);
     ASSERT_TRUE(plan.has_value());
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
     scriptNormalAuthenticatedFallback(transport);
     SubaruHitachiM32rKlineExecutor executor;
     FakeClock clock;
@@ -241,7 +258,7 @@ TEST(SubaruHitachiM32rKlineExecutor, EraseAcknowledgementAccumulatesBoundedFragm
     auto plan = build_subaru_hitachi_m32r_kline_plan(FlashOperation::Write, "sub_ecu_hitachi_m32r_kline",
                                                      "M32R_512KB_1block", image);
     ASSERT_TRUE(plan.has_value());
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
     transport.expectWrite(frame({0x34, 0, 0, 0, 0x04, 0x08, 0, 0}));
     transport.queueRead(bytes::Bytes{0, 0, 0, 0, 0x74, 0x84});
     transport.expectWrite(frame({0x34, 0, 0, 0, 0x04, 0x08, 0, 0}));
@@ -275,7 +292,7 @@ TEST(SubaruHitachiM32rKlineExecutor, RecoveryWriteWakesAndUsesAuthenticatedSessi
     auto plan = build_subaru_hitachi_m32r_kline_plan(FlashOperation::Write, "sub_ecu_hitachi_m32r_kline_recovery",
                                                      "M32R_512KB_1block", image);
     ASSERT_TRUE(plan.has_value());
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
     transport.expectWrite(frame({0x81}));
     transport.queue_no_frame();
     transport.expectWrite(frame({0x81}));
@@ -297,7 +314,7 @@ TEST(SubaruHitachiM32rKlineExecutor, CancellationBeforeSetupPerformsNoIo)
     auto plan = build_subaru_hitachi_m32r_kline_plan(FlashOperation::Read, "sub_ecu_hitachi_m32r_kline",
                                                      "M32R_512KB_1block", std::nullopt);
     ASSERT_TRUE(plan.has_value());
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
     SubaruHitachiM32rKlineExecutor executor;
     FakeClock clock;
     ManualCancellationToken cancellation;
@@ -329,6 +346,5 @@ TEST(SubaruHitachiM32rKlineExecutor, CancellationAfterEraseIsNotReportedAsSucces
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 } // namespace

@@ -49,7 +49,6 @@ using fastecu::RecordingEventSink;
 using fastecu::flash::build_mitsu_colt_m32r_can_plan;
 using fastecu::flash::FlashOperation;
 using fastecu::flash::MitsuColtM32rCanExecutor;
-using fastecu::flash::ScriptedCanFlashTransport;
 using testing::Contains;
 using testing::Each;
 using testing::HasSubstr;
@@ -62,6 +61,15 @@ constexpr std::string_view kVendorProtocol384 = "mitsu_ecu_m32r_can_vendor_ext";
 constexpr std::string_view kProtocol512 = "mitsu_ecu_m32r_can_512kb";
 constexpr std::string_view kMcu384 = "M32R_384KB_1block";
 constexpr std::string_view kMcu512 = "M32R_512KB_1block";
+
+class ScriptedCanFlashTransport : public fastecu::flash::ScriptedCanFlashTransport
+{
+  public:
+    ScriptedCanFlashTransport()
+        : fastecu::flash::ScriptedCanFlashTransport(fastecu::flash::ScriptedTransportInitialState::Open)
+    {
+    }
+};
 
 std::string_view mcuFor(std::string_view protocol)
 {
@@ -400,8 +408,8 @@ bytes::ByteView topRegionOf(const bytes::Bytes& rom)
 
 TEST(MitsuColtM32rCanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyIo)
 {
-    // A plan built for another family must be rejected by
-    // check_family_transport_match before configure()/open() or any write --
+    // A plan built for another family must be rejected by check_family before
+    // configure()/open() or any write --
     // the scripted transport is left completely untouched, which is the
     // assertion that matters here.
     ScriptedCanFlashTransport transport;
@@ -437,8 +445,22 @@ TEST(MitsuColtM32rCanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyIo)
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
     EXPECT_THAT(result.error().detail, HasSubstr("does not match this executor"));
     EXPECT_THAT(events.logs, IsEmpty());
-    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.writesConsumed(), 0U);
     EXPECT_FALSE(transport.last_config_.has_value());
+}
+
+TEST(MitsuColtM32rCanExecutor, TransportSetupReturnsThePlansWireParameters)
+{
+    MitsuColtM32rCanExecutor executor;
+    const auto plan = readPlan();
+
+    const auto setup = executor.transport_setup(plan);
+
+    ASSERT_TRUE(setup.has_value());
+    EXPECT_EQ(setup->bitrate, 500000);
+    EXPECT_EQ(setup->request_id, 0x7e0U);
+    EXPECT_EQ(setup->response_id, 0x7e8U);
+    EXPECT_FALSE(setup->extended_id);
 }
 
 TEST(MitsuColtM32rCanExecutor, RejectsInconsistentHandBuiltPlansBeforeAnyIo)
@@ -474,7 +496,7 @@ TEST(MitsuColtM32rCanExecutor, RejectsInconsistentHandBuiltPlansBeforeAnyIo)
         ASSERT_FALSE(result.has_value()) << test.name;
         EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig) << test.name;
         EXPECT_FALSE(transport.last_config_.has_value()) << test.name;
-        EXPECT_EQ(transport.writesConsumed(), 0u) << test.name;
+        EXPECT_EQ(transport.writesConsumed(), 0U) << test.name;
     }
 }
 
@@ -558,7 +580,7 @@ TEST(MitsuColtM32rCanExecutor, ReadStopsWhenCancelled)
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
 // Cancels the token as soon as the first chunk's progress is
@@ -833,7 +855,7 @@ TEST(MitsuColtM32rCanExecutor, WriteSkipsBootstrapWhenTheTopRegionAlreadyMatches
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
-    // Legacy-faithful port lifetime: this executor never closes the bus.
+    // Lifecycle is owned by BoundAttempt::run(), not this executor body.
     EXPECT_EQ(transport.close_call_count_, 0);
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Top 128KB already matches, no bootstrap needed")));
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Erase page uploaded")));
@@ -1282,7 +1304,7 @@ TEST(MitsuColtM32rCanExecutor, WriteRefusesAnImageThatDoesNotMatchThePlanBeforeA
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
     EXPECT_THAT(result.error().detail, HasSubstr("0x80000"));
-    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.writesConsumed(), 0U);
     EXPECT_FALSE(transport.last_config_.has_value());
     EXPECT_THAT(events.logs, IsEmpty());
 }
@@ -1841,78 +1863,6 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengeKeyRejectionStopsBeforeTheSession)
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Vendor challenge accepted"))));
 }
 
-// An IFlashTransport that is not an ICanFlashTransport -- what a K-Line
-// adapter would look like to this executor.
-class NotACanTransport final : public fastecu::flash::IFlashTransport
-{
-  public:
-    void request_unblock() noexcept override
-    {
-    }
-};
-
-TEST(MitsuColtM32rCanExecutor, RefusesATransportThatIsNotACanTransport)
-{
-    NotACanTransport transport;
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    MitsuColtM32rCanExecutor executor;
-    auto plan = readPlan();
-
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    // A checked downcast, not a static_cast: the wrong adapter is a typed
-    // refusal rather than undefined behaviour on the first configure().
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_THAT(result.error().detail, HasSubstr("does not implement ICanFlashTransport"));
-    EXPECT_THAT(events.logs, IsEmpty());
-}
-
-TEST(MitsuColtM32rCanExecutor, PropagatesAConfigureFailureBeforeAnyRequest)
-{
-    ScriptedCanFlashTransport transport;
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    MitsuColtM32rCanExecutor executor;
-    auto plan = readPlan();
-
-    transport.configure_result_ = fastecu::fail(ErrorKind::InvalidConfig, "bad bitrate");
-
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
-    EXPECT_EQ(result.error().detail, "bad bitrate");
-    // A bus that could not be configured never gets a request.
-    EXPECT_EQ(transport.writesConsumed(), 0u);
-    EXPECT_THAT(events.logs, IsEmpty());
-}
-
-TEST(MitsuColtM32rCanExecutor, PropagatesAnOpenFailureBeforeAnyRequest)
-{
-    ScriptedCanFlashTransport transport;
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    MitsuColtM32rCanExecutor executor;
-    auto plan = readPlan();
-
-    transport.open_result_ = fastecu::fail(ErrorKind::Disconnected, "no adapter");
-
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
-    EXPECT_EQ(result.error().detail, "no adapter");
-    // Configuration happens first and is not rolled back, but nothing is sent.
-    EXPECT_TRUE(transport.last_config_.has_value());
-    EXPECT_EQ(transport.writesConsumed(), 0u);
-    EXPECT_THAT(events.logs, IsEmpty());
-}
-
 TEST(MitsuColtM32rCanExecutor, WriteRefusesTheEraseTriggerWhenItsConfirmationIsAbsent)
 {
     ScriptedCanFlashTransport transport;
@@ -1968,7 +1918,7 @@ TEST(MitsuColtM32rCanExecutor, AbsorbsResponsePendingWithoutResending)
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
-    EXPECT_EQ(transport.writesConsumed(), 2u);
+    EXPECT_EQ(transport.writesConsumed(), 2U);
     EXPECT_TRUE(transport.scriptConsumed());
     // The session was accepted on the second read, not abandoned on the first.
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Basic diagnostic session ok")));
@@ -1996,7 +1946,7 @@ TEST(MitsuColtM32rCanExecutor, FailsWhenTheEcuPendsPastTheRepeatLimit)
     EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
     EXPECT_THAT(result.error().detail, HasSubstr("responsePending"));
     // An ECU that pends forever is waited out, never re-sent to.
-    EXPECT_EQ(transport.writesConsumed(), 1u);
+    EXPECT_EQ(transport.writesConsumed(), 1U);
     EXPECT_TRUE(transport.scriptConsumed());
 }
 

@@ -27,6 +27,7 @@ is an ADR.
 | [0006](0006-verify-release-packaging-in-pr-ci.md) | Pull request CI verifies release packaging |
 | [0007](0007-use-bazel-as-ci-source-of-truth.md) | Bazel configuration is the CI source of truth |
 | [0008](0008-use-package-owned-mocks.md) | Mocks are owned by the package defining the interface |
+| [0015](0015-caller-owns-flash-transport-lifetime.md) | The caller owns flash transport lifetime |
 
 ## Retired numbers
 
@@ -43,4 +44,4 @@ and the numbers are not reused. Their rationale is in Git history.
 | 0013 | `bytes::composeBe` for wire frames | Bytes and wire frames |
 | 0014 | `.has_value()` over implicit `operator bool` | Error handling |
 
-The next new ADR is 0015.
+The next new ADR is 0016.

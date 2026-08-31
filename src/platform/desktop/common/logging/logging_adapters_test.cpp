@@ -138,7 +138,7 @@ TEST(DesktopLoggingSnapshotAdapterTest, PreservesLegacyProtocolSelectionRules)
     ASSERT_TRUE(mut.has_value());
     ASSERT_TRUE(cdbg.has_value());
     EXPECT_EQ(ssm->session.channels().at(0).id, "ssm-disabled");
-    ASSERT_EQ(mut->session.channels().size(), 1u);
+    ASSERT_EQ(mut->session.channels().size(), 1U);
     EXPECT_EQ(mut->session.channels().at(0).id, "mut-enabled");
     EXPECT_EQ(cdbg->session.channels().at(0).id, "cdbg-disabled");
 }
@@ -158,7 +158,7 @@ TEST(DesktopLoggingSnapshotAdapterTest, SsmRetainsDisabledOffsetsButDoesNotUpdat
         values, portable_logging::LoggingProtocolId::Ssm, QStringLiteral("CAR_SSM"), valid_policy());
 
     ASSERT_TRUE(snapshot.has_value());
-    ASSERT_EQ(snapshot->session.channels().size(), 2u);
+    ASSERT_EQ(snapshot->session.channels().size(), 2U);
     EXPECT_EQ(snapshot->session.channels().at(0).id, "ssm-disabled");
     EXPECT_EQ(snapshot->session.channels().at(1).id, "ssm-enabled");
     EXPECT_EQ(snapshot->response_offsets, (std::vector<std::size_t>{1, 2}));
@@ -222,7 +222,7 @@ TEST(DesktopLoggingSnapshotAdapterTest, AllowsSameOpaqueIdInDifferentProtocols)
         values, portable_logging::LoggingProtocolId::Ssm, QStringLiteral("SSM"), valid_policy());
 
     ASSERT_TRUE(snapshot.has_value());
-    ASSERT_EQ(snapshot->session.channels().size(), 1u);
+    ASSERT_EQ(snapshot->session.channels().size(), 1U);
     EXPECT_EQ(snapshot->index_by_id.at("rpm"), 0);
 }
 

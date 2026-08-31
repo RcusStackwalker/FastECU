@@ -43,7 +43,7 @@ int FlashOperationWorker::confirm(const QString& title, const QString& text, QMe
     return result;
 }
 
-void FlashOperationWorker::delay(int timeout)
+void FlashOperationWorker::delay(int timeout_local)
 {
-    QThread::msleep(timeout);
+    QThread::msleep(timeout_local);
 }

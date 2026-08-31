@@ -3,13 +3,47 @@
 #include <gtest/gtest.h>
 
 #include "src/backend/flash/flash_validation.h"
-#include "src/backend/flash/testing/scripted_can_flash_transport.h"
-#include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 
 namespace fastecu::flash
 {
 namespace
 {
+
+TEST(TransportConfigProjectionTest, CopiesIso15765WireFields)
+{
+    constexpr SubaruHitachiM32rCanPlan plan{
+        .request_id = 0x7e0,
+        .response_id = 0x7e8,
+        .bitrate = 500000,
+        .extended_id = false,
+    };
+
+    constexpr Iso15765Config config = iso15765_config_from(plan);
+
+    EXPECT_EQ(config.bitrate, 500000);
+    EXPECT_EQ(config.request_id, 0x7e0U);
+    EXPECT_EQ(config.response_id, 0x7e8U);
+    EXPECT_FALSE(config.extended_id);
+}
+
+TEST(TransportConfigProjectionTest, CopiesNonIso14230KlineWireFields)
+{
+    constexpr SubaruMitsuM32rKlinePlan plan{
+        .tester_id = 0xf0,
+        .target_id = 0x10,
+        .initial_baud = 4800,
+        .flash_baud = 62500,
+        .chunk_size = 0x80,
+        .unread_prefix_fill = 0x00,
+    };
+
+    constexpr KlineConfig config = non_iso14230_kline_config_from(plan);
+
+    EXPECT_EQ(config.baud, 4800);
+    EXPECT_FALSE(config.iso14230);
+    EXPECT_EQ(config.tester_id, 0xf0);
+    EXPECT_EQ(config.target_id, 0x10);
+}
 
 FlashPlanFields kline_read_fields()
 {
@@ -40,92 +74,23 @@ FlashPlanFields kline_read_fields()
     };
 }
 
-TEST(CheckFamilyTransportMatchTest, MatchingFamilyAndTransportPasses)
+TEST(CheckFamilyTest, MatchingFamilyPasses)
 {
     auto plan = validate_and_build(kline_read_fields());
     ASSERT_TRUE(plan.has_value());
 
-    auto status = check_family_transport_match(*plan, FlashFamily::DensoSh705xEepromKline, TransportKind::Kline);
-
-    EXPECT_TRUE(status.has_value());
+    EXPECT_TRUE(check_family(*plan, FlashFamily::DensoSh705xEepromKline).has_value());
 }
 
-TEST(CheckFamilyTransportMatchTest, WrongFamilyFailsWithInvalidConfig)
+TEST(CheckFamilyTest, WrongFamilyFailsWithInvalidConfig)
 {
     auto plan = validate_and_build(kline_read_fields());
     ASSERT_TRUE(plan.has_value());
 
-    auto status = check_family_transport_match(*plan, FlashFamily::DensoSh705xEepromCan, TransportKind::CanIso15765);
+    auto status = check_family(*plan, FlashFamily::MitsuColtM32rCan);
 
     ASSERT_FALSE(status.has_value());
     EXPECT_EQ(status.error().kind, ErrorKind::InvalidConfig);
-}
-
-TEST(CheckFamilyTransportMatchTest, WrongTransportFailsWithInvalidConfig)
-{
-    auto plan = validate_and_build(kline_read_fields());
-    ASSERT_TRUE(plan.has_value());
-
-    auto status = check_family_transport_match(*plan, FlashFamily::DensoSh705xEepromKline, TransportKind::CanIso15765);
-
-    ASSERT_FALSE(status.has_value());
-    EXPECT_EQ(status.error().kind, ErrorKind::InvalidConfig);
-}
-
-constexpr Iso15765Config kConfig{
-    .bitrate = 500000,
-    .request_id = 0x7e1,
-    .response_id = 0x7e9,
-    .extended_id = false,
-};
-
-TEST(OpenCanIso15765TransportTest, ReturnsTheCanTransportConfiguredAndOpen)
-{
-    ScriptedCanFlashTransport can;
-    IFlashTransport& transport = can;
-
-    Result<ICanFlashTransport *> opened = open_can_iso15765_transport(transport, kConfig);
-
-    ASSERT_TRUE(opened.has_value());
-    EXPECT_EQ(*opened, &can);
-    ASSERT_TRUE(can.last_config_.has_value());
-    EXPECT_EQ(can.last_config_->request_id, kConfig.request_id);
-    EXPECT_EQ(can.last_config_->response_id, kConfig.response_id);
-}
-
-TEST(OpenCanIso15765TransportTest, FailsWithInvalidConfigWhenTransportIsNotCan)
-{
-    ScriptedKlineFlashTransport kline;
-    IFlashTransport& transport = kline;
-
-    Result<ICanFlashTransport *> opened = open_can_iso15765_transport(transport, kConfig);
-
-    ASSERT_FALSE(opened.has_value());
-    EXPECT_EQ(opened.error().kind, ErrorKind::InvalidConfig);
-}
-
-TEST(OpenCanIso15765TransportTest, PropagatesAConfigureFailure)
-{
-    ScriptedCanFlashTransport can;
-    can.configure_result_ = fail(ErrorKind::Disconnected, "configure failed");
-    IFlashTransport& transport = can;
-
-    Result<ICanFlashTransport *> opened = open_can_iso15765_transport(transport, kConfig);
-
-    ASSERT_FALSE(opened.has_value());
-    EXPECT_EQ(opened.error().kind, ErrorKind::Disconnected);
-}
-
-TEST(OpenCanIso15765TransportTest, PropagatesAnOpenFailure)
-{
-    ScriptedCanFlashTransport can;
-    can.open_result_ = fail(ErrorKind::Disconnected, "open failed");
-    IFlashTransport& transport = can;
-
-    Result<ICanFlashTransport *> opened = open_can_iso15765_transport(transport, kConfig);
-
-    ASSERT_FALSE(opened.has_value());
-    EXPECT_EQ(opened.error().kind, ErrorKind::Disconnected);
 }
 
 } // namespace

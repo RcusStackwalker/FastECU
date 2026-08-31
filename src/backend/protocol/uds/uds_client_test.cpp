@@ -62,7 +62,7 @@ TEST(UdsClientTest, SleepsForThePreReadDelayBeforeTheFirstRead)
 
     // FakeClock::sleep advances now_ by the requested duration, so the total
     // is the only observable: one 50 ms pre-read delay and nothing else.
-    EXPECT_EQ(f.clock.now_, 50u);
+    EXPECT_EQ(f.clock.now_, 50U);
     EXPECT_THAT(f.channel.timeouts_, ElementsAre(500));
 }
 
@@ -80,7 +80,7 @@ TEST(UdsClientTest, AbsorbsOneResponsePendingAndReadsAgain)
     ASSERT_TRUE(received.has_value());
     EXPECT_THAT(*received, ElementsAre(0x71, 0xE0));
     // Absorbed by re-reading only: exactly one transmission.
-    EXPECT_EQ(f.channel.sendsConsumed(), 1u);
+    EXPECT_EQ(f.channel.sendsConsumed(), 1U);
     // The pending read uses the longer pending timeout.
     EXPECT_THAT(f.channel.timeouts_, ElementsAre(500, 3000));
 }
@@ -104,7 +104,7 @@ TEST(UdsClientTest, AbsorbsRepeatedResponsePending)
     const auto received = client.request(request, kPolicy, f.cancellation);
 
     ASSERT_TRUE(received.has_value());
-    EXPECT_EQ(f.channel.sendsConsumed(), 1u);
+    EXPECT_EQ(f.channel.sendsConsumed(), 1U);
 }
 
 TEST(UdsClientTest, GivesUpAfterMaxPendingRepeats)
@@ -123,7 +123,7 @@ TEST(UdsClientTest, GivesUpAfterMaxPendingRepeats)
     ASSERT_FALSE(received.has_value());
     EXPECT_EQ(received.error().kind, ErrorKind::Timeout);
     EXPECT_THAT(received.error().detail, HasSubstr("responsePending"));
-    EXPECT_EQ(f.channel.sendsConsumed(), 1u);
+    EXPECT_EQ(f.channel.sendsConsumed(), 1U);
 }
 
 TEST(UdsClientTest, DoesNotRetryBusyRepeatRequest)
@@ -141,7 +141,7 @@ TEST(UdsClientTest, DoesNotRetryBusyRepeatRequest)
 
     ASSERT_FALSE(received.has_value());
     EXPECT_EQ(received.error().kind, ErrorKind::BadResponse);
-    EXPECT_EQ(f.channel.sendsConsumed(), 1u);
+    EXPECT_EQ(f.channel.sendsConsumed(), 1U);
     EXPECT_TRUE(f.channel.scriptConsumed());
 }
 
@@ -230,7 +230,7 @@ TEST(UdsClientTest, RefusesToSendWhenAlreadyCancelled)
 
     ASSERT_FALSE(received.has_value());
     EXPECT_EQ(received.error().kind, ErrorKind::Cancelled);
-    EXPECT_EQ(f.channel.sendsConsumed(), 0u);
+    EXPECT_EQ(f.channel.sendsConsumed(), 0U);
 }
 
 TEST(UdsClientTest, RejectsAnEmptyRequest)
@@ -242,7 +242,7 @@ TEST(UdsClientTest, RejectsAnEmptyRequest)
 
     ASSERT_FALSE(received.has_value());
     EXPECT_EQ(received.error().kind, ErrorKind::Internal);
-    EXPECT_EQ(f.channel.sendsConsumed(), 0u);
+    EXPECT_EQ(f.channel.sendsConsumed(), 0U);
 }
 
 TEST(UdsClientTest, LogsOnceForEachAbsorbedPending)

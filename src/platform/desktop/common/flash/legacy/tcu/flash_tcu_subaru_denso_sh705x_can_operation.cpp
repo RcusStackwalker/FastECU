@@ -22,7 +22,7 @@ FlashTcuSubaruDensoSH705xCanOperation::FlashTcuSubaruDensoSH705xCanOperation(Ser
 
 bool FlashTcuSubaruDensoSH705xCanOperation::execute()
 {
-    int result = STATUS_ERROR;
+    int result_arg = STATUS_ERROR;
     bool ok = false;
 
     // result = init_flash_denso_subarucan();
@@ -62,47 +62,48 @@ bool FlashTcuSubaruDensoSH705xCanOperation::execute()
     if (tcuAction == 1)
     {
         emit LOG_I("Connecting to Subaru Denso CAN bootloader, please wait...", true, true);
-        result = connect_bootloader();
+        result_arg = connect_bootloader();
 
-        if (result == STATUS_SUCCESS && !kernel_alive)
+        if (result_arg == STATUS_SUCCESS && !kernel_alive)
         {
             emit externalLoggerMessage("Preparing, please wait...");
             emit LOG_I("Initializing Subaru Denso CAN kernel upload, please wait...", true, true);
-            result = upload_kernel(kernel, ecuCalDef->KernelStartAddr.toUInt(&ok, 16));
+            result_arg = upload_kernel(kernel, ecuCalDef->KernelStartAddr.toUInt(&ok, 16));
         }
-        if (result == STATUS_SUCCESS)
+        if (result_arg == STATUS_SUCCESS)
         {
             if (cmd_type == "read")
             {
                 emit externalLoggerMessage("Reading ROM, please wait...");
                 emit LOG_I("Reading ROM from Subaru Denso using CAN", true, true);
-                result = read_mem(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
+                result_arg =
+                    read_mem(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
             }
             else if (cmd_type == "test_write" || cmd_type == "write")
             {
                 emit externalLoggerMessage("Writing ROM, please wait...");
                 emit LOG_I("Writing ROM to Subaru Denso using CAN (beta status)", true, true);
-                result = write_mem(test_write);
+                result_arg = write_mem(test_write);
             }
         }
     }
     else if (tcuAction == 2)
     {
         emit LOG_I("Commencing TCU relearn process, please wait...", true, true);
-        result = tcu_relearn_subaru_ssm();
+        result_arg = tcu_relearn_subaru_ssm();
     }
     else if (tcuAction == 3)
     {
         emit LOG_I("Commencing to read TCU parameters, please wait...", true, true);
-        result = tcu_readparam_subaru_ssm();
+        result_arg = tcu_readparam_subaru_ssm();
     }
     else if (tcuAction == 4)
     {
         emit LOG_I("Commencing to set TCU parameters, please wait...", true, true);
-        result = tcu_setparam_subaru_ssm();
+        result_arg = tcu_setparam_subaru_ssm();
     }
 
-    return result == STATUS_SUCCESS;
+    return result_arg == STATUS_SUCCESS;
 }
 
 /*
@@ -112,18 +113,18 @@ bool FlashTcuSubaruDensoSH705xCanOperation::execute()
 int FlashTcuSubaruDensoSH705xCanOperation::promptInt(const QString& title, const QString& label, int value,
                                                      int minValue, int maxValue, int step, bool *ok)
 {
-    int result = value;
+    int result_arg = value;
     bool okResult = false;
     QWidget *dialog = m_dialog;
     QMetaObject::invokeMethod(
         dialog, [dialog, title, label, value, minValue, maxValue, step, &okResult]()
         { return QInputDialog::getInt(dialog, title, label, value, minValue, maxValue, step, &okResult); },
-        Qt::BlockingQueuedConnection, &result);
+        Qt::BlockingQueuedConnection, &result_arg);
     if (ok)
     {
         *ok = okResult;
     }
-    return result;
+    return result_arg;
 }
 
 /*
@@ -1030,11 +1031,11 @@ int FlashTcuSubaruDensoSH705xCanOperation::connect_bootloader()
         {
             QByteArray response = received;
             response.remove(0, 6);
-            QString msg;
-            msg.clear();
+            QString msg_local;
+            msg_local.clear();
             for (int i = 0; i < response.length(); i++)
             {
-                msg.append(QString("%1").arg((uint8_t)response.at(i), 2, 16, QLatin1Char('0')).toUpper());
+                msg_local.append(QString("%1").arg((uint8_t)response.at(i), 2, 16, QLatin1Char('0')).toUpper());
             }
         }
         else
@@ -1062,9 +1063,9 @@ int FlashTcuSubaruDensoSH705xCanOperation::connect_bootloader()
  *
  * @return success
  */
-int FlashTcuSubaruDensoSH705xCanOperation::upload_kernel(const QString& kernel, uint32_t kernel_start_addr)
+int FlashTcuSubaruDensoSH705xCanOperation::upload_kernel(const QString& kernel_arg, uint32_t kernel_start_addr)
 {
-    QFile file(kernel);
+    QFile file(kernel_arg);
 
     QByteArray output;
     QByteArray received;
@@ -1382,7 +1383,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::read_mem(uint32_t start_addr, uint32_
 
         // uint32_t curblock = (addr / pagesize);
 
-        pleft = (float)(addr - start_addr) / (float)length * 100.0f;
+        pleft = (float)(addr - start_addr) / (float)length * 100.0F;
         emit progressChanged(pleft);
 
         output[9] = (uint8_t)0x00 & 0xFF;
@@ -1429,7 +1430,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::read_mem(uint32_t start_addr, uint32_
 
         if (cplen > 0 && chrono > 0)
         {
-            curspeed = cplen * (1000.0f / chrono);
+            curspeed = cplen * (1000.0F / chrono);
         }
 
         if (!curspeed)
@@ -1477,7 +1478,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::read_mem(uint32_t start_addr, uint32_
  *
  * @return success
  */
-int FlashTcuSubaruDensoSH705xCanOperation::write_mem(bool test_write)
+int FlashTcuSubaruDensoSH705xCanOperation::write_mem(bool test_write_arg)
 {
     QByteArray filedata;
 
@@ -1537,7 +1538,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::write_mem(bool test_write)
             if (block_modified[blockno])
             {
                 if (reflash_block(&data_array[flashdevices[mcu_type_index].fblocks->start],
-                                  &flashdevices[mcu_type_index], blockno, test_write))
+                                  &flashdevices[mcu_type_index], blockno, test_write_arg))
                 {
                     emit LOG_I("Block " + QString::number(blockno) + " reflash failed.", true, true);
                     return STATUS_ERROR;
@@ -1571,7 +1572,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::write_mem(bool test_write)
             }
         }
         emit LOG_I(" (total: " + QString::number(bcnt) + ")", false, true);
-        if (!test_write)
+        if (!test_write_arg)
         {
             if (bcnt)
             {
@@ -1877,7 +1878,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::init_flash_write()
  * @return success
  */
 int FlashTcuSubaruDensoSH705xCanOperation::reflash_block(const uint8_t *newdata, const struct flashdev_t *fdt,
-                                                         unsigned blockno, bool test_write)
+                                                         unsigned blockno, bool test_write_arg)
 {
     uint32_t block_start;
     uint32_t block_len;
@@ -2121,7 +2122,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::flash_block(const uint8_t *src, uint3
         {
             chrono += 1;
         }
-        curspeed = blocksize * (1000.0f / chrono); // avg B/s
+        curspeed = blocksize * (1000.0F / chrono); // avg B/s
         if (!curspeed)
         {
             curspeed += 1;
@@ -2134,7 +2135,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::flash_block(const uint8_t *src, uint3
         }
         tleft++;
 
-        float pleft = (float)byteindex / (float)flashbytescount * 100.0f;
+        float pleft = (float)byteindex / (float)flashbytescount * 100.0F;
         emit progressChanged(pleft);
 
         if ((flashblockstart + flashblocksize) == start)

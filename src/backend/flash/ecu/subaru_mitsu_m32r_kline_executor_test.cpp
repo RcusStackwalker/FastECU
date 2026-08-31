@@ -52,7 +52,7 @@ TEST(SubaruMitsuM32rKlineExecutor, RejectsFamilyMismatchBeforeIo)
         build_mitsu_colt_m32r_can_plan(FlashOperation::Read, "mitsu_ecu_m32r_can", "M32R_384KB_1block", std::nullopt);
     ASSERT_TRUE(plan.has_value());
     SubaruMitsuM32rKlineExecutor executor;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
     FakeClock clock;
     ManualCancellationToken cancellation;
     RecordingEventSink events;
@@ -62,7 +62,22 @@ TEST(SubaruMitsuM32rKlineExecutor, RejectsFamilyMismatchBeforeIo)
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
     EXPECT_FALSE(transport.last_config_.has_value());
-    EXPECT_EQ(transport.close_call_count_, 0);
+}
+
+TEST(SubaruMitsuM32rKlineExecutor, TransportSetupReturnsPlansWireParameters)
+{
+    auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::Read, "sub_ecu_mitsu_m32r_kline",
+                                                   "M32R_512KB_4blocks", std::nullopt);
+    ASSERT_TRUE(plan.has_value());
+    SubaruMitsuM32rKlineExecutor executor;
+
+    auto setup = executor.transport_setup(*plan);
+
+    ASSERT_TRUE(setup.has_value()) << setup.error().detail;
+    EXPECT_EQ(setup->baud, 4800);
+    EXPECT_FALSE(setup->iso14230);
+    EXPECT_EQ(setup->tester_id, 0xf0);
+    EXPECT_EQ(setup->target_id, 0x10);
 }
 
 TEST(SubaruMitsuM32rKlineExecutor, CancellationBeforeSetupPerformsNoIo)
@@ -71,7 +86,7 @@ TEST(SubaruMitsuM32rKlineExecutor, CancellationBeforeSetupPerformsNoIo)
                                                    "M32R_512KB_4blocks", std::nullopt);
     ASSERT_TRUE(plan.has_value());
     SubaruMitsuM32rKlineExecutor executor;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
     FakeClock clock;
     ManualCancellationToken cancellation;
     cancellation.cancel();
@@ -91,7 +106,7 @@ TEST(SubaruMitsuM32rKlineExecutor, MapsMissingMalformedAndTransportFailureRespon
         auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::Read, "sub_ecu_mitsu_m32r_kline",
                                                        "M32R_512KB_4blocks", std::nullopt);
         ASSERT_TRUE(plan.has_value());
-        ScriptedKlineFlashTransport transport;
+        ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
         transport.expectWrite(frame({0xbf}));
         if (expected == ErrorKind::Timeout)
         {
@@ -114,7 +129,6 @@ TEST(SubaruMitsuM32rKlineExecutor, MapsMissingMalformedAndTransportFailureRespon
 
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().kind, expected);
-        EXPECT_EQ(transport.close_call_count_, 1);
     }
 }
 
@@ -124,7 +138,7 @@ TEST(SubaruMitsuM32rKlineExecutor, ReadsAllUserspaceChunksAndSynthesizesBootPref
                                                    "M32R_512KB_4blocks", std::nullopt);
     ASSERT_TRUE(plan.has_value());
     SubaruMitsuM32rKlineExecutor executor;
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
     scriptHandshake(transport);
     for (std::uint32_t address = 0x8000; address < 0x80000; address += 0x80)
     {
@@ -142,16 +156,13 @@ TEST(SubaruMitsuM32rKlineExecutor, ReadsAllUserspaceChunksAndSynthesizesBootPref
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     ASSERT_TRUE(result->read_bytes.has_value());
-    EXPECT_EQ(result->read_bytes->size(), 0x80000u);
+    EXPECT_EQ(result->read_bytes->size(), 0x80000U);
     EXPECT_TRUE(std::all_of(result->read_bytes->begin(), result->read_bytes->begin() + 0x8000,
                             [](bytes::Byte value) { return value == 0xff; }));
     EXPECT_TRUE(std::all_of(result->read_bytes->begin() + 0x8000, result->read_bytes->end(),
                             [](bytes::Byte value) { return value == 0x5a; }));
     EXPECT_EQ(result->rom_id, std::string("123456789A_"));
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.close_call_count_, 1);
-    ASSERT_TRUE(transport.last_config_.has_value());
-    EXPECT_EQ(transport.last_config_->baud, 4800);
 }
 
 TEST(SubaruMitsuM32rKlineExecutor, WritesEveryEncryptedChunkAndToleratesTransferAcks)
@@ -165,7 +176,7 @@ TEST(SubaruMitsuM32rKlineExecutor, WritesEveryEncryptedChunkAndToleratesTransfer
     auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::Write, "sub_ecu_mitsu_m32r_kline",
                                                    "M32R_512KB_4blocks", image);
     ASSERT_TRUE(plan.has_value());
-    ScriptedKlineFlashTransport transport;
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
     scriptHandshake(transport);
     transport.expectWrite(frame({0x34, 0, 0, 0, 0x04, 0x07, 0x80, 0}));
     transport.queueRead(bytes::Bytes{0, 0, 0, 0, 0x74});
@@ -198,6 +209,5 @@ TEST(SubaruMitsuM32rKlineExecutor, WritesEveryEncryptedChunkAndToleratesTransfer
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.baud_calls_, std::vector<int>{15625});
-    EXPECT_EQ(transport.close_call_count_, 1);
 }
 } // namespace

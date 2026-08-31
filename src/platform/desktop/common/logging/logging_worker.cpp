@@ -3,6 +3,9 @@
 #include <span>
 #include <utility>
 
+namespace fastecu::desktop::logging
+{
+
 namespace
 {
 
@@ -58,3 +61,5 @@ void LoggingWorker::run()
     result_ = use_case_.run(session_, *protocol_, cancellation_, events, diagnostics_);
     emit sessionFinished(result_);
 }
+
+} // namespace fastecu::desktop::logging

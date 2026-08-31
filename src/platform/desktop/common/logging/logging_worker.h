@@ -9,6 +9,9 @@
 #include "src/backend/ports/event_sink.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 
+namespace fastecu::desktop::logging
+{
+
 class LoggingWorker final : public QThread
 {
     Q_OBJECT
@@ -35,6 +38,8 @@ class LoggingWorker final : public QThread
     fastecu::IEventSink& diagnostics_;
     fastecu::Status result_;
 };
+
+} // namespace fastecu::desktop::logging
 
 Q_DECLARE_METATYPE(fastecu::logging::LoggingState)
 Q_DECLARE_METATYPE(fastecu::logging::LogSample)

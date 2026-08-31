@@ -1,6 +1,8 @@
 #pragma once
 #include "src/backend/flash/flash_executor.h"
+#include "src/backend/flash/testing/scripted_flash_transport_state.h"
 
+#include <chrono>
 #include <condition_variable>
 #include <deque>
 #include <mutex>
@@ -19,6 +21,13 @@ namespace fastecu::flash
 class ScriptedKlineFlashTransport : public IKlineFlashTransport
 {
   public:
+    ScriptedKlineFlashTransport() = default;
+
+    explicit ScriptedKlineFlashTransport(ScriptedTransportInitialState initial_state)
+        : open_(initial_state == ScriptedTransportInitialState::Open)
+    {
+    }
+
     enum class ControlLineAction
     {
         DisableLecLines,
@@ -53,6 +62,17 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     {
         std::lock_guard lock(mutex_);
         blocking_read_pending_ = true;
+    }
+    // Blocks until read() has actually entered the queued blocking read.
+    // Tests use this instead of a wall-clock QTest::qWait() to reach the
+    // "transport is mid-read" state before calling requestStop(), so what
+    // they prove about unblocking does not depend on the worker thread
+    // winning a race against a fixed sleep. Mirrors
+    // ScriptedLoggingProtocol::waitUntilPollEntered.
+    bool waitUntilBlockingReadEntered(std::chrono::milliseconds timeout)
+    {
+        std::unique_lock lock(mutex_);
+        return blocking_read_entered_cv_.wait_for(lock, timeout, [this] { return blocking_read_entered_; });
     }
     bool scriptConsumed() const
     {
@@ -143,6 +163,8 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
             std::unique_lock lock(mutex_);
             if (blocking_read_pending_)
             {
+                blocking_read_entered_ = true;
+                blocking_read_entered_cv_.notify_all();
                 cv_.wait(lock, [this] { return unblock_requested_; });
                 blocking_read_pending_ = false;
                 return fail(ErrorKind::Cancelled, "scripted K-Line read unblocked");
@@ -192,7 +214,9 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     bool open_ = false;
     std::mutex mutex_;
     std::condition_variable cv_;
+    std::condition_variable blocking_read_entered_cv_;
     bool blocking_read_pending_ = false;
+    bool blocking_read_entered_ = false;
     bool unblock_requested_ = false;
 };
 

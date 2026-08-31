@@ -649,14 +649,26 @@ Status write_mem(Ctx& ctx, bytes::ByteView image, PhaseSequence& phases)
 
 } // namespace
 
+Result<Iso15765Config> SubaruTcuCvtMitsuMh8104CanExecutor::transport_setup(const FlashPlan& plan) const
+{
+    if (const Status match = check_family(plan, FlashFamily::SubaruTcuCvtMitsuMh8104Can); !match.has_value())
+    {
+        return std::unexpected(match.error());
+    }
+    if (const Status valid = validate_subaru_tcu_cvt_mitsu_mh8104_can_plan(plan); !valid.has_value())
+    {
+        return std::unexpected(valid.error());
+    }
+    const auto& family = std::get<SubaruTcuCvtMitsuMh8104CanPlan>(plan.family_plan());
+    return iso15765_config_from(family);
+}
+
 Result<FlashExecutionResult> SubaruTcuCvtMitsuMh8104CanExecutor::execute(const FlashPlan& plan,
-                                                                         IFlashTransport& transport, IClock& clock,
+                                                                         ICanFlashTransport& transport, IClock& clock,
                                                                          const ICancellationToken& cancellation,
                                                                          IEventSink& events)
 {
-    if (const Status matched =
-            check_family_transport_match(plan, FlashFamily::SubaruTcuCvtMitsuMh8104Can, TransportKind::CanIso15765);
-        !matched.has_value())
+    if (const Status matched = check_family(plan, FlashFamily::SubaruTcuCvtMitsuMh8104Can); !matched.has_value())
     {
         return std::unexpected(matched.error());
     }
@@ -670,24 +682,11 @@ Result<FlashExecutionResult> SubaruTcuCvtMitsuMh8104CanExecutor::execute(const F
     }
 
     const auto& family = std::get<SubaruTcuCvtMitsuMh8104CanPlan>(plan.family_plan());
-    Result<ICanFlashTransport *> can_transport =
-        open_can_iso15765_transport(transport, Iso15765Config{
-                                                   .bitrate = family.bitrate,
-                                                   .request_id = family.request_id,
-                                                   .response_id = family.response_id,
-                                                   .extended_id = family.extended_id,
-                                               });
-    if (!can_transport.has_value())
-    {
-        return std::unexpected(can_transport.error());
-    }
-    ICanFlashTransport *can = *can_transport;
-
     const bool read = plan.operation() == FlashOperation::Read;
     PhaseSequence phases(events, read ? 2 : 3);
     PhaseReporter connect = phases.start(read ? "Connect to TCU" : "Connect", 1);
 
-    CanFlashUdsChannel channel(*can, family.request_id, family.response_id);
+    CanFlashUdsChannel channel(transport, family.request_id, family.response_id);
     Ctx ctx{cancellation, events, clock, channel};
 
     info(ctx, "Connecting to Subaru TCU Mitsubishi CAN bootloader, please wait...");

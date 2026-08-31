@@ -149,7 +149,7 @@ TEST(CdbgLoggingProtocolTest, PollReturnsStableIdAndRawDecimalString)
 
     ASSERT_TRUE(result);
     ASSERT_TRUE(result->responded);
-    ASSERT_EQ(result->samples.size(), 1u);
+    ASSERT_EQ(result->samples.size(), 1U);
     EXPECT_EQ(result->samples[0].channel_id, "cdbg.load");
     EXPECT_EQ(result->samples[0].raw_value, "42");
 }

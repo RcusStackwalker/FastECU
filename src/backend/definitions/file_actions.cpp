@@ -592,9 +592,9 @@ QStringList FileActions::collect_ecuflash_definition_body_lines(const QStringLis
 }
 
 FileActions::ConfigValuesStructure *FileActions::set_base_dirs(ConfigValuesStructure *configValues,
-                                                               const fastecu::config::AppRootInfo& root_info)
+                                                               std::string_view app_root_path)
 {
-    return configAdapter_.set_base_dirs(configValues, root_info);
+    return configAdapter_.set_base_dirs(configValues, app_root_path);
 }
 
 FileActions::ConfigValuesStructure *FileActions::check_config_dirs(ConfigValuesStructure *configValues)
@@ -1080,8 +1080,8 @@ FileActions::EcuCalDefStructure *FileActions::create_new_definition_for_rom(File
     emit LOG_D("Create header", true, true);
     for (int i = 0; i < ecuCalDef->DefHeaderNames.length(); i++)
     {
-        QLabel *label = new QLabel(ecuCalDef->DefHeaderStrings.at(index));
-        defHeaderGridLayout->addWidget(label, index, 0);
+        QLabel *label_local = new QLabel(ecuCalDef->DefHeaderStrings.at(index));
+        defHeaderGridLayout->addWidget(label_local, index, 0);
 
         if (ecuCalDef->DefHeaderNames.at(i) == "notes")
         {
@@ -1119,19 +1119,21 @@ FileActions::EcuCalDefStructure *FileActions::create_new_definition_for_rom(File
                                                     tr("Definition file (*.xml)"));
             if (filename.isEmpty())
             {
-                QDialog *definitionDialog = new QDialog(this);
-                QVBoxLayout *vBoxLayout = new QVBoxLayout(definitionDialog);
-                QLabel *label = new QLabel("No file selected!\n\nIf you still want to create file click 'Ok'\nIf you "
-                                           "want to continue to use ROM without definition, click 'Cancel'");
-                QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-                connect(buttonBox, &QDialogButtonBox::accepted, definitionDialog, &QDialog::accept);
-                connect(buttonBox, &QDialogButtonBox::rejected, definitionDialog, &QDialog::reject);
+                QDialog *definitionDialog_local = new QDialog(this);
+                QVBoxLayout *vBoxLayout_local = new QVBoxLayout(definitionDialog_local);
+                QLabel *label_local =
+                    new QLabel("No file selected!\n\nIf you still want to create file click 'Ok'\nIf you "
+                               "want to continue to use ROM without definition, click 'Cancel'");
+                QDialogButtonBox *buttonBox_local =
+                    new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+                connect(buttonBox_local, &QDialogButtonBox::accepted, definitionDialog_local, &QDialog::accept);
+                connect(buttonBox_local, &QDialogButtonBox::rejected, definitionDialog_local, &QDialog::reject);
 
-                vBoxLayout->addWidget(label);
-                vBoxLayout->addWidget(buttonBox);
+                vBoxLayout_local->addWidget(label_local);
+                vBoxLayout_local->addWidget(buttonBox_local);
 
-                int result = definitionDialog->exec();
-                if (result == QDialog::Rejected)
+                int result_local = definitionDialog_local->exec();
+                if (result_local == QDialog::Rejected)
                 {
                     isFileSelected = true;
                 }
@@ -1247,8 +1249,8 @@ FileActions::use_existing_definition_for_rom(FileActions::EcuCalDefStructure *ec
     emit LOG_D("Create header", true, true);
     for (int i = 0; i < headerData.length(); i += 2)
     {
-        QLabel *label = new QLabel(ecuCalDef->DefHeaderStrings.at(index));
-        defHeaderGridLayout->addWidget(label, index, 0);
+        QLabel *label_local = new QLabel(ecuCalDef->DefHeaderStrings.at(index));
+        defHeaderGridLayout->addWidget(label_local, index, 0);
 
         if (headerData.at(i) == "notes")
         {
@@ -1286,19 +1288,21 @@ FileActions::use_existing_definition_for_rom(FileActions::EcuCalDefStructure *ec
                                                     tr("Definition file (*.xml)"));
             if (filename.isEmpty())
             {
-                QDialog *definitionDialog = new QDialog(this);
-                QVBoxLayout *vBoxLayout = new QVBoxLayout(definitionDialog);
-                QLabel *label = new QLabel("No file selected!\n\nIf you still want to create file click 'Ok'\nIf you "
-                                           "want to continue to use ROM without definition, click 'Cancel'");
-                QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-                connect(buttonBox, &QDialogButtonBox::accepted, definitionDialog, &QDialog::accept);
-                connect(buttonBox, &QDialogButtonBox::rejected, definitionDialog, &QDialog::reject);
+                QDialog *definitionDialog_local = new QDialog(this);
+                QVBoxLayout *vBoxLayout_local = new QVBoxLayout(definitionDialog_local);
+                QLabel *label_local =
+                    new QLabel("No file selected!\n\nIf you still want to create file click 'Ok'\nIf you "
+                               "want to continue to use ROM without definition, click 'Cancel'");
+                QDialogButtonBox *buttonBox_local =
+                    new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+                connect(buttonBox_local, &QDialogButtonBox::accepted, definitionDialog_local, &QDialog::accept);
+                connect(buttonBox_local, &QDialogButtonBox::rejected, definitionDialog_local, &QDialog::reject);
 
-                vBoxLayout->addWidget(label);
-                vBoxLayout->addWidget(buttonBox);
+                vBoxLayout_local->addWidget(label_local);
+                vBoxLayout_local->addWidget(buttonBox_local);
 
-                int result = definitionDialog->exec();
-                if (result == QDialog::Rejected)
+                int result_local = definitionDialog_local->exec();
+                if (result_local == QDialog::Rejected)
                 {
                     isFileSelected = true;
                 }

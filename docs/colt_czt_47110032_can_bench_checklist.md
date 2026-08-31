@@ -19,6 +19,18 @@ steps. Have an independently verified recovery procedure and tool available
 before either write qualification. A separate `boot-talk` utility may exist in
 the parent workspace, but it is not part of this repository.
 
+0. **Put the bench ECU on a stock ROM before qualifying the factory-security
+   protocols.** `mitsu_ecu_m32r_can` and `mitsu_ecu_m32r_can_512kb` authorize
+   with factory security, which only a stock image answers; an ECU still
+   running a vendor-extension-patched ROM cannot qualify them, and a pass
+   recorded against a patched image proves nothing about the factory path.
+   Flash a known-good stock `47110032` from the parent research repo first
+   (`mmc-research/m32r/47110032_z37a_mt_2005/`), confirm it boots to
+   userspace, and qualify the two factory-security protocols against it.
+   Re-flash the vendor-extension image afterwards to qualify
+   `mitsu_ecu_m32r_can_vendor_ext` and `_vendor_ext_512kb`. Record which image
+   was resident for every result below.
+
 1. **Connect and identify each selector.** Power a bench/spare Z37A ECU and
    select each of the four Mitsubishi / Colt CZT entries in turn. Confirm the
    UI reports the selected 384 KiB or 512 KiB capacity, `connect_bootloader()`
@@ -130,12 +142,46 @@ the parent workspace, but it is not part of this repository.
    than pulling power — an interruption mid-TransferData is as capable of
    bricking the unit as one mid-unlock or mid-erase.
 
-10. **Post-write validation.** After each capacity/security combination,
+10. **ROM checksum correction (`ChecksumEcuMitsuM32rCan`).** Saving a
+    calibration now rewrites the balance word at `0x3FFC0` so the ECU's own
+    flash CRC checker accepts the image; a wrong value here boots to a stored
+    ROM-checksum DTC (P0606) instead of userspace, so qualify it before
+    trusting any modified image.
+
+    Automated evidence already in the tree, which this step exists to confirm
+    on hardware rather than repeat:
+
+    - `checksum_ecu_mitsu_m32r_can_test` models the ECU's own checker
+      (`flash_crc_check_block` @ `0x4B1BC`, `flash_crc_check_block_2` @
+      `0x4B310`, `rom_crc_finalize` @ `0x4B0AC`) and asserts corrected images
+      satisfy it, across both of its passes;
+    - against the parent research corpus, both stock `47110032` dumps verify
+      untouched, `colt_injected.bin` and 100 randomised corruption trials all
+      correct to an ECU-accepted image, and every correction is confined to
+      `0x3FFC0`-`0x3FFC3`.
+
+    On the bench, for each capacity:
+
+    - load a stock image, confirm saving reports no correction and leaves the
+      file byte-identical (SHA-256 unchanged);
+    - modify one calibration byte, save, and confirm exactly the four bytes at
+      `0x3FFC0` change besides the byte edited;
+    - write that corrected image, power-cycle, and confirm the ECU reaches
+      userspace, idles, responds to diagnostics, and stores **no** ROM
+      checksum DTC. Read stored codes explicitly rather than relying on the
+      MIL;
+    - repeat with the checksum correction deliberately skipped (edit a byte
+      and flash without saving through the correction path) and confirm the
+      ECU **does** raise the ROM checksum DTC. Without this negative result a
+      pass only shows the ECU is not checking, not that the correction is
+      right. Recover by re-flashing the corrected image.
+
+11. **Post-write validation.** After each capacity/security combination,
     power-cycle the ECU, repeat the matching full zero-based read, and
     compare its SHA-256 hash and the capacity-boundary sample bytes with the
     intended image. Record date, ECU identity, adapter identity, selected
     protocol, operator, image hash, read-back hash, and pass/fail result.
 
-11. **Only after Steps 1-10 pass repeatably for both capacities and both
+12. **Only after Steps 0-11 pass repeatably for both capacities and both
     authorization variants on a bench/spare ECU**, consider use on a real
     vehicle.

@@ -6,6 +6,7 @@
 #include <string_view>
 #include <utility>
 
+#include "src/algorithms/checksum/checksum_ecu_mitsu_m32r_can.h"
 #include "src/algorithms/checksum/checksum_ecu_subaru_denso_sh705x_diesel.h"
 #include "src/algorithms/checksum/checksum_ecu_subaru_denso_sh7xxx.h"
 #include "src/algorithms/checksum/checksum_ecu_subaru_hitachi_m32r_can.h"
@@ -64,38 +65,45 @@ enum class Route
     Sh72543r,
     HitachiM32rTcu,
     MitsuMh8104Tcu,
+    MitsuColtM32rCan,
 };
 
 struct RouteSpec
 {
     std::string_view prefix;
+    std::string_view make; // ConfigValuesStructure::flash_protocol_selected_make
     Route route;
     std::uint32_t table_offset = 0;
     std::int32_t address_offset = 0;
 };
 
-// First prefix match wins. Keep specific overlapping routes before their
-// general prefixes; notably sh7058_can_diesel must precede plain sh7058.
+// First prefix match wins, and only for the make the route belongs to, so a
+// non-Subaru make cannot reach a Subaru family and vice versa. Keep specific
+// overlapping routes before their general prefixes; notably sh7058_can_diesel
+// must precede plain sh7058.
 constexpr std::array kRoutes{
-    RouteSpec{"sub_ecu_denso_sh7055", Route::DensoSh7xxx, 0x07FB80},
-    RouteSpec{"sub_ecu_denso_sh7058_can_diesel", Route::DensoDiesel, 0x0FFB80},
-    RouteSpec{"sub_ecu_denso_sh7058s_diesel_densocan", Route::DensoDiesel, 0x0FFB80},
-    RouteSpec{"sub_ecu_denso_sh7058", Route::DensoSh7xxx, 0x0FFB80},
-    RouteSpec{"sub_ecu_denso_sh72531_can", Route::DensoSh7xxx, 0x13F500},
-    RouteSpec{"sub_ecu_denso_1n83m_4m_can", Route::DensoSh7xxx, 0x3E3E00, -0x8F9C000},
-    RouteSpec{"sub_ecu_denso_1n83m_1_5m_can", Route::DensoSh7xxx, 0x183E00, -0x8F9C000},
-    RouteSpec{"sub_ecu_denso_sh7059_can_diesel", Route::DensoDiesel, 0x17FB80},
-    RouteSpec{"sub_ecu_denso_sh7059_diesel_densocan", Route::DensoDiesel, 0x17FB80},
-    RouteSpec{"sub_ecu_denso_sh72543_can_diesel", Route::DensoDiesel, 0x1FF800},
-    RouteSpec{"sub_tcu_denso_sh7055_can", Route::DensoTcuSh7055},
-    RouteSpec{"sub_tcu_denso_sh7058_can", Route::DensoSh7xxx, 0x0FFB80},
-    RouteSpec{"sub_ecu_hitachi_m32r_kline", Route::M32rByRomId},
-    RouteSpec{"sub_ecu_hitachi_m32r_can", Route::M32rCan},
-    RouteSpec{"sub_ecu_hitachi_sh7058_can", Route::Sh7058},
-    RouteSpec{"sub_ecu_hitachi_sh72543r", Route::Sh72543r},
-    RouteSpec{"sub_tcu_hitachi_m32r_can", Route::HitachiM32rTcu},
-    RouteSpec{"sub_tcu_hitachi_m32r_kline", Route::HitachiM32rTcu},
-    RouteSpec{"sub_tcu_cvt_mitsu_mh8104_can", Route::MitsuMh8104Tcu},
+    RouteSpec{"sub_ecu_denso_sh7055", "Subaru", Route::DensoSh7xxx, 0x07FB80},
+    RouteSpec{"sub_ecu_denso_sh7058_can_diesel", "Subaru", Route::DensoDiesel, 0x0FFB80},
+    RouteSpec{"sub_ecu_denso_sh7058s_diesel_densocan", "Subaru", Route::DensoDiesel, 0x0FFB80},
+    RouteSpec{"sub_ecu_denso_sh7058", "Subaru", Route::DensoSh7xxx, 0x0FFB80},
+    RouteSpec{"sub_ecu_denso_sh72531_can", "Subaru", Route::DensoSh7xxx, 0x13F500},
+    RouteSpec{"sub_ecu_denso_1n83m_4m_can", "Subaru", Route::DensoSh7xxx, 0x3E3E00, -0x8F9C000},
+    RouteSpec{"sub_ecu_denso_1n83m_1_5m_can", "Subaru", Route::DensoSh7xxx, 0x183E00, -0x8F9C000},
+    RouteSpec{"sub_ecu_denso_sh7059_can_diesel", "Subaru", Route::DensoDiesel, 0x17FB80},
+    RouteSpec{"sub_ecu_denso_sh7059_diesel_densocan", "Subaru", Route::DensoDiesel, 0x17FB80},
+    RouteSpec{"sub_ecu_denso_sh72543_can_diesel", "Subaru", Route::DensoDiesel, 0x1FF800},
+    RouteSpec{"sub_tcu_denso_sh7055_can", "Subaru", Route::DensoTcuSh7055},
+    RouteSpec{"sub_tcu_denso_sh7058_can", "Subaru", Route::DensoSh7xxx, 0x0FFB80},
+    RouteSpec{"sub_ecu_hitachi_m32r_kline", "Subaru", Route::M32rByRomId},
+    RouteSpec{"sub_ecu_hitachi_m32r_can", "Subaru", Route::M32rCan},
+    RouteSpec{"sub_ecu_hitachi_sh7058_can", "Subaru", Route::Sh7058},
+    RouteSpec{"sub_ecu_hitachi_sh72543r", "Subaru", Route::Sh72543r},
+    RouteSpec{"sub_tcu_hitachi_m32r_can", "Subaru", Route::HitachiM32rTcu},
+    RouteSpec{"sub_tcu_hitachi_m32r_kline", "Subaru", Route::HitachiM32rTcu},
+    RouteSpec{"sub_tcu_cvt_mitsu_mh8104_can", "Subaru", Route::MitsuMh8104Tcu},
+    // Colt CZT Z37A (47110032): one prefix covers the plain and vendor_ext
+    // protocols at both 384 KiB and 512 KiB.
+    RouteSpec{"mitsu_ecu_m32r_can", "Mitsubishi", Route::MitsuColtM32rCan},
 };
 
 DispatchResult execute(const RouteSpec& spec, std::string_view rom_id, bytes::ByteView rom)
@@ -130,15 +138,18 @@ DispatchResult execute(const RouteSpec& spec, std::string_view rom_id, bytes::By
         return {true, ChecksumTcuSubaruHitachiM32rCan::calculate_checksum_result(rom)};
     case Route::MitsuMh8104Tcu:
         return {true, ChecksumTcuMitsuMH8104Can::calculate_checksum_result(rom)};
+    case Route::MitsuColtM32rCan:
+        return {true, ChecksumEcuMitsuM32rCan::calculate_checksum_result(rom)};
     }
     std::unreachable();
 }
 
-DispatchResult dispatch_family(std::string_view flash_method, std::string_view rom_id, bytes::ByteView rom)
+DispatchResult dispatch_family(std::string_view make, std::string_view flash_method, std::string_view rom_id,
+                               bytes::ByteView rom)
 {
     for (const RouteSpec& spec : kRoutes)
     {
-        if (starts_with(flash_method, spec.prefix))
+        if (spec.make == make && starts_with(flash_method, spec.prefix))
         {
             return execute(spec, rom_id, rom);
         }
@@ -154,7 +165,7 @@ ChecksumCorrectionOutcome apply_checksum_correction(bytes::ByteView rom_data, co
     {
         return {.status = ChecksumCorrectionOutcome::Status::UnknownMcuType};
     }
-    if (selection.make != "Subaru" || selection.checksum_flag != "yes")
+    if (selection.checksum_flag != "yes")
     {
         return {.status = ChecksumCorrectionOutcome::Status::NoModuleForProtocol};
     }
@@ -163,7 +174,7 @@ ChecksumCorrectionOutcome apply_checksum_correction(bytes::ByteView rom_data, co
         return {.status = ChecksumCorrectionOutcome::Status::BadRomSize};
     }
 
-    const DispatchResult dispatch = dispatch_family(selection.flash_method, selection.rom_id, rom_data);
+    const DispatchResult dispatch = dispatch_family(selection.make, selection.flash_method, selection.rom_id, rom_data);
     if (!dispatch.module_available)
     {
         return {.status = ChecksumCorrectionOutcome::Status::NoModuleForProtocol};

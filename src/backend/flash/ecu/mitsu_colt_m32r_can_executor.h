@@ -5,10 +5,12 @@ namespace fastecu::flash
 {
 
 // Portable Mitsubishi Colt M32R CAN executor.
-class MitsuColtM32rCanExecutor final : public IFlashExecutor
+class MitsuColtM32rCanExecutor final : public ICanFlashExecutor
 {
   public:
-    Result<FlashExecutionResult> execute(const FlashPlan& plan, IFlashTransport& transport, IClock& clock,
+    Result<Iso15765Config> transport_setup(const FlashPlan& plan) const override;
+
+    Result<FlashExecutionResult> execute(const FlashPlan& plan, ICanFlashTransport& transport, IClock& clock,
                                          const ICancellationToken& cancellation, IEventSink& events) override;
 };
 

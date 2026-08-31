@@ -426,17 +426,30 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock, const ICancella
 }
 } // namespace
 
-Result<FlashExecutionResult> SubaruHitachiM32rKlineExecutor::execute(const FlashPlan& plan, IFlashTransport& transport,
-                                                                     IClock& clock,
-                                                                     const ICancellationToken& cancellation,
-                                                                     IEventSink& events)
+Result<KlineConfig> SubaruHitachiM32rKlineExecutor::transport_setup(const FlashPlan& plan) const
 {
-    if (auto match = check_family_transport_match(plan, FlashFamily::SubaruHitachiM32rKline, TransportKind::Kline);
-        !match.has_value())
+    if (const Status match = check_family(plan, FlashFamily::SubaruHitachiM32rKline); !match.has_value())
     {
         return std::unexpected(match.error());
     }
-    if (auto valid = validate_subaru_hitachi_m32r_kline_plan(plan); !valid.has_value())
+    if (const Status valid = validate_subaru_hitachi_m32r_kline_plan(plan); !valid.has_value())
+    {
+        return std::unexpected(valid.error());
+    }
+    const auto& p = std::get<SubaruHitachiM32rKlinePlan>(plan.family_plan());
+    return non_iso14230_kline_config_from(p);
+}
+
+Result<FlashExecutionResult> SubaruHitachiM32rKlineExecutor::execute(const FlashPlan& plan,
+                                                                     IKlineFlashTransport& transport, IClock& clock,
+                                                                     const ICancellationToken& cancellation,
+                                                                     IEventSink& events)
+{
+    if (const Status match = check_family(plan, FlashFamily::SubaruHitachiM32rKline); !match.has_value())
+    {
+        return std::unexpected(match.error());
+    }
+    if (const Status valid = validate_subaru_hitachi_m32r_kline_plan(plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
@@ -444,33 +457,20 @@ Result<FlashExecutionResult> SubaruHitachiM32rKlineExecutor::execute(const Flash
     {
         return fail(ErrorKind::Cancelled, "cancelled before setup");
     }
-    auto *kline = dynamic_cast<IKlineFlashTransport *>(&transport);
-    if (kline == nullptr)
-    {
-        return fail(ErrorKind::InvalidConfig, "transport does not implement IKlineFlashTransport");
-    }
     const auto& p = std::get<SubaruHitachiM32rKlinePlan>(plan.family_plan());
-    if (auto configured = kline->configure({p.initial_baud, false, p.tester_id, p.target_id}); !configured.has_value())
-    {
-        return std::unexpected(configured.error());
-    }
-    if (auto opened = kline->open(); !opened.has_value())
-    {
-        return std::unexpected(opened.error());
-    }
     Result<FlashExecutionResult> outcome = fail(ErrorKind::Internal, "unreachable");
-    if (auto header = kline->set_add_iso14230_header(false); !header.has_value())
+    if (auto header = transport.set_add_iso14230_header(false); !header.has_value())
     {
         outcome = std::unexpected(header.error());
     }
     else if (plan.operation() == FlashOperation::Read)
     {
-        auto id = prepare_read(*kline, cancellation, p);
+        auto id = prepare_read(transport, cancellation, p);
         if (!id.has_value())
         {
             outcome = std::unexpected(id.error());
         }
-        else if (auto rom = read_rom(*kline, cancellation, events, p); !rom.has_value())
+        else if (auto rom = read_rom(transport, cancellation, events, p); !rom.has_value())
         {
             outcome = std::unexpected(rom.error());
         }
@@ -479,11 +479,11 @@ Result<FlashExecutionResult> SubaruHitachiM32rKlineExecutor::execute(const Flash
             outcome = FlashExecutionResult{FlashOperation::Read, std::move(*rom), std::move(*id)};
         }
     }
-    else if (auto prepared = prepare_write(*kline, cancellation, p); !prepared.has_value())
+    else if (auto prepared = prepare_write(transport, cancellation, p); !prepared.has_value())
     {
         outcome = std::unexpected(prepared.error());
     }
-    else if (auto written = write_rom(*kline, clock, cancellation, events, p, plan); !written.has_value())
+    else if (auto written = write_rom(transport, clock, cancellation, events, p, plan); !written.has_value())
     {
         outcome = std::unexpected(written.error());
     }
@@ -491,14 +491,9 @@ Result<FlashExecutionResult> SubaruHitachiM32rKlineExecutor::execute(const Flash
     {
         outcome = FlashExecutionResult{FlashOperation::Write, std::nullopt, std::nullopt};
     }
-    Status closed = kline->close();
     if (!outcome.has_value())
     {
         return std::unexpected(outcome.error());
-    }
-    if (!closed.has_value())
-    {
-        return std::unexpected(closed.error());
     }
     return outcome;
 }

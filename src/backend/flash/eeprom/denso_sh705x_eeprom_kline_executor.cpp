@@ -286,13 +286,21 @@ Status transfer_data_blocks(IKlineFlashTransport& transport, IClock& clock, cons
 
 } // namespace
 
-Result<FlashExecutionResult> DensoSh705xEepromKlineExecutor::execute(const FlashPlan& plan, IFlashTransport& transport,
-                                                                     IClock& clock,
-                                                                     const ICancellationToken& cancellation,
-                                                                     IEventSink& events)
+Result<KlineConfig> DensoSh705xEepromKlineExecutor::transport_setup(const FlashPlan& plan) const
 {
-    if (Status match = check_family_transport_match(plan, FlashFamily::DensoSh705xEepromKline, TransportKind::Kline);
-        !match.has_value())
+    if (Status match = check_family(plan, FlashFamily::DensoSh705xEepromKline); !match.has_value())
+    {
+        return std::unexpected(match.error());
+    }
+    const auto& kline_plan = std::get<DensoSh705xEepromKlinePlan>(plan.family_plan());
+    return non_iso14230_kline_config_from(kline_plan);
+}
+
+Result<FlashExecutionResult>
+DensoSh705xEepromKlineExecutor::execute(const FlashPlan& plan, IKlineFlashTransport& kline_transport, IClock& clock,
+                                        const ICancellationToken& cancellation, IEventSink& events)
+{
+    if (Status match = check_family(plan, FlashFamily::DensoSh705xEepromKline); !match.has_value())
     {
         return std::unexpected(match.error());
     }
@@ -300,47 +308,7 @@ Result<FlashExecutionResult> DensoSh705xEepromKlineExecutor::execute(const Flash
     {
         return fail(ErrorKind::Cancelled, "cancelled before setup");
     }
-
-    // Checked downcast, not static_cast: the plan's declared transport kind
-    // and the concrete object the caller actually passed are two different
-    // facts. A mismatch here must fail with InvalidConfig, not corrupt
-    // memory via an unchecked static_cast to the wrong dynamic type.
-    auto *kline_transport_ptr = dynamic_cast<IKlineFlashTransport *>(&transport);
-    if (kline_transport_ptr == nullptr)
-    {
-        return fail(ErrorKind::InvalidConfig, "transport does not implement IKlineFlashTransport");
-    }
-    IKlineFlashTransport& kline_transport = *kline_transport_ptr;
     const auto& kline_plan = std::get<DensoSh705xEepromKlinePlan>(plan.family_plan());
-
-    if (Status configured = kline_transport.configure(KlineConfig{
-            .baud = kline_plan.initial_baud,
-            .iso14230 = false,
-            .tester_id = kline_plan.tester_id,
-            .target_id = kline_plan.target_id,
-        });
-        !configured.has_value())
-    {
-        return std::unexpected(configured.error());
-    }
-    if (Status opened = kline_transport.open(); !opened.has_value())
-    {
-        return std::unexpected(opened.error());
-    }
-
-    // Ensures exactly-once close on every exit path below.
-    struct ScopedClose
-    {
-        IKlineFlashTransport& t;
-        bool done = false;
-        ~ScopedClose()
-        {
-            if (!done)
-            {
-                t.close();
-            }
-        }
-    } scoped_close{kline_transport};
 
     // Force a known-good starting state for the driver's ISO14230 auto-header
     // flag before connect_bootloader()/upload_kernel(), which self-frame
@@ -356,12 +324,6 @@ Result<FlashExecutionResult> DensoSh705xEepromKlineExecutor::execute(const Flash
     // connect/upload phase.
     if (Status header_off = kline_transport.set_add_iso14230_header(false); !header_off.has_value())
     {
-        Status close_status = kline_transport.close();
-        scoped_close.done = true;
-        if (!close_status.has_value())
-        {
-            events.log(LogLevel::Warning, "close failed after set_add_iso14230_header(false) error");
-        }
         return std::unexpected(header_off.error());
     }
 
@@ -369,12 +331,6 @@ Result<FlashExecutionResult> DensoSh705xEepromKlineExecutor::execute(const Flash
     if (Status connected = connect_bootloader(kline_transport, clock, cancellation, events, kline_plan, kernel_alive);
         !connected.has_value())
     {
-        Status close_status = kline_transport.close();
-        scoped_close.done = true;
-        if (!close_status.has_value())
-        {
-            events.log(LogLevel::Warning, "close failed after connect_bootloader error");
-        }
         return std::unexpected(connected.error());
     }
 
@@ -383,18 +339,12 @@ Result<FlashExecutionResult> DensoSh705xEepromKlineExecutor::execute(const Flash
         // Safe to dereference: this executor only ever runs against
         // DensoSh705xEepromKline plans, and validate_and_build rejects any
         // plan for that family whose kernel is absent (flash_validation.cpp:
-        // "family requires a kernel image"). check_family_transport_match
-        // above confirms the family/transport tag; it does not itself
-        // guarantee a kernel -- validate_and_build is what does.
+        // "family requires a kernel image"). check_family above confirms the
+        // family tag; it does not itself guarantee a kernel --
+        // validate_and_build is what does.
         if (Status uploaded = upload_kernel(kline_transport, clock, cancellation, events, kline_plan, *plan.kernel());
             !uploaded.has_value())
         {
-            Status close_status = kline_transport.close();
-            scoped_close.done = true;
-            if (!close_status.has_value())
-            {
-                events.log(LogLevel::Warning, "close failed after upload_kernel error");
-            }
             return std::unexpected(uploaded.error());
         }
     }
@@ -409,19 +359,13 @@ Result<FlashExecutionResult> DensoSh705xEepromKlineExecutor::execute(const Flash
     // this point, and the portable rewrite never called it at all.
     if (Status header_on = kline_transport.set_add_iso14230_header(true); !header_on.has_value())
     {
-        Status close_status = kline_transport.close();
-        scoped_close.done = true;
-        if (!close_status.has_value())
-        {
-            events.log(LogLevel::Warning, "close failed after set_add_iso14230_header(true) error");
-        }
         return std::unexpected(header_on.error());
     }
 
     Result<bytes::Bytes> read_result =
         read_mem(kline_transport, clock, cancellation, events, plan.transfer_region(), kline_plan.mode);
 
-    // Best-effort restore to the default OFF state before closing: a
+    // Best-effort restore to the default OFF state: a
     // failure here must never mask read_mem()'s own result/error (it's
     // logged, not propagated), and it keeps the shared, session-lifetime
     // serial instance (non-owning transport case) from being left dirtied
@@ -431,17 +375,9 @@ Result<FlashExecutionResult> DensoSh705xEepromKlineExecutor::execute(const Flash
         events.log(LogLevel::Warning, "failed to reset ISO14230 header mode after EEPROM read");
     }
 
-    Status close_status = kline_transport.close();
-    scoped_close.done = true;
-
     if (!read_result.has_value())
     {
         return std::unexpected(read_result.error());
-    }
-    if (!close_status.has_value())
-    {
-        // Main error wins over close error; close-only error is returned.
-        return std::unexpected(close_status.error());
     }
 
     return FlashExecutionResult{

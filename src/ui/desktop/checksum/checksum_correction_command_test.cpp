@@ -103,7 +103,7 @@ TEST(ChecksumCorrectionCommand, GateNotConsultedWhenDefinitionAlreadyLinked)
 TEST(ChecksumCorrectionCommand, DisabledDieselChecksumPreservesRomData)
 {
     TestableChecksumCommand command;
-    bytes::Bytes rom(1024uz * 1024, 0);
+    bytes::Bytes rom(1024UZ * 1024, 0);
     bytes::writeU32Be(rom, 0x0FFB88, 0x5AA5A55A);
 
     const ChecksumCorrectionResult result = command.run(rom, true, false, subaruDensoSh7058DieselSelection(), nullptr);
@@ -181,7 +181,7 @@ TEST(ChecksumCorrectionCommand, ValidMcuCorrectsRomAndReturnsChangedBytes)
     const ChecksumCorrectionResult result = command.run(bytes::ByteView(rom), true, false, selection, nullptr);
 
     ASSERT_TRUE(result.corrected_rom_data.has_value());
-    EXPECT_EQ(result.corrected_rom_data->size(), 524288u);
+    EXPECT_EQ(result.corrected_rom_data->size(), 524288U);
     EXPECT_NE(*result.corrected_rom_data, rom);
     EXPECT_EQ(command.familyResultDialogCount, 1);
 }

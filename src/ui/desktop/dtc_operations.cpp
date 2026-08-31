@@ -60,7 +60,7 @@ void DtcOperations::closeEvent(QCloseEvent *event)
 
 void DtcOperations::run()
 {
-    int result = STATUS_ERROR;
+    int result_local = STATUS_ERROR;
 
     // Set serial port
     serial->set_is_iso14230_connection(false);
@@ -84,7 +84,7 @@ void DtcOperations::run()
 int DtcOperations::select_operation()
 {
     QObject *obj = QObject::sender();
-    int result = STATUS_SUCCESS;
+    int result_local = STATUS_SUCCESS;
 
     if (ui->protocolComboBox->currentText().startsWith("SSM"))
     {
@@ -95,7 +95,7 @@ int DtcOperations::select_operation()
         serial->set_kline_tester_id(0xF1);
         serial->set_kline_target_id(0x6A);
 
-        result = five_baud_init("iso9141");
+        result_local = five_baud_init("iso9141");
     }
     else if (ui->protocolComboBox->currentText().startsWith("iso14230"))
     {
@@ -103,10 +103,10 @@ int DtcOperations::select_operation()
         serial->set_kline_tester_id(0xF1);
         serial->set_kline_target_id(0x33);
 
-        result = fast_init();
-        if (result)
+        result_local = fast_init();
+        if (result_local)
         {
-            result = five_baud_init("iso14230");
+            result_local = five_baud_init("iso14230");
         }
     }
     else if (ui->protocolComboBox->currentText().startsWith("iso15765"))
@@ -115,18 +115,18 @@ int DtcOperations::select_operation()
         destination_id = 0x7e8;
         serial->set_iso15765_source_address(source_id);
         serial->set_iso15765_destination_address(destination_id);
-        result = iso15765_init();
+        result_local = iso15765_init();
     }
 
-    if (result == STATUS_SUCCESS)
+    if (result_local == STATUS_SUCCESS)
     {
         if (obj->objectName() == "readDtcButton")
         {
-            result = read_dtc();
+            result_local = read_dtc();
         }
         else if (obj->objectName() == "clearDtcButton")
         {
-            result = clear_dtc();
+            result_local = clear_dtc();
         }
     }
 
@@ -135,9 +135,9 @@ int DtcOperations::select_operation()
     serial->set_add_iso14230_header(false);
     serial->reset_connection();
 
-    if (result)
+    if (result_local)
     {
-        return result;
+        return result_local;
     }
 
     return STATUS_SUCCESS;
@@ -148,7 +148,7 @@ int DtcOperations::five_baud_init(const QString& protocol)
     QByteArray output;
     QByteArray received;
     QByteArray response;
-    int result = STATUS_SUCCESS;
+    int result_local = STATUS_SUCCESS;
 
     five_baud_init_iso9141_ok = false;
     five_baud_init_iso14230_ok = false;
@@ -228,7 +228,7 @@ int DtcOperations::fast_init()
     QByteArray output;
     QByteArray received;
     QByteArray response;
-    int result = STATUS_SUCCESS;
+    int result_local = STATUS_SUCCESS;
 
     serial->reset_connection();
     serial->set_is_iso14230_connection(true);
@@ -242,8 +242,8 @@ int DtcOperations::fast_init()
 
     output.clear();
     output.append((uint8_t)fast_init_OBD);
-    result = serial->fast_init(output);
-    if (result)
+    result_local = serial->fast_init(output);
+    if (result_local)
     {
         return STATUS_ERROR;
     }
@@ -284,7 +284,7 @@ int DtcOperations::iso15765_init()
     QByteArray output;
     QByteArray received;
     QByteArray response;
-    int result = STATUS_SUCCESS;
+    int result_local = STATUS_SUCCESS;
 
     serial->reset_connection();
     serial->set_is_iso14230_connection(false);

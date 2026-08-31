@@ -17,7 +17,7 @@ TEST(FakeCancellationToken, SupportsFixedMutableAndCheckCountBehavior)
     EXPECT_FALSE(counted.cancelled());
     EXPECT_FALSE(counted.cancelled());
     EXPECT_TRUE(counted.cancelled());
-    EXPECT_EQ(counted.check_count(), 3u);
+    EXPECT_EQ(counted.check_count(), 3U);
 }
 
 TEST(FakeCancellationToken, PredicateCanObserveAnotherDouble)

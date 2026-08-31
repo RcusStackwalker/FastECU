@@ -18,7 +18,7 @@ FlashEcuSubaruUnisiaJecsM32rOperation::FlashEcuSubaruUnisiaJecsM32rOperation(Ser
 
 bool FlashEcuSubaruUnisiaJecsM32rOperation::execute()
 {
-    int result = STATUS_ERROR;
+    int result_arg = STATUS_ERROR;
 
     mcu_type_string = ecuCalDef->McuType;
     mcu_type_index = FlashUtils::findFlashDeviceIndex(mcu_type_string);
@@ -61,18 +61,18 @@ bool FlashEcuSubaruUnisiaJecsM32rOperation::execute()
     {
         emit externalLoggerMessage("Reading ROM, please wait...");
         emit LOG_I("Reading ROM from Subaru Unisia Jecs UJ20/30/40/70WWW using K-Line", true, true);
-        result = read_mem(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
+        result_arg = read_mem(flashdevices[mcu_type_index].fblocks[0].start, flashdevices[mcu_type_index].romsize);
     }
     else if (cmd_type == "write")
     {
         emit externalLoggerMessage("Writing ROM, please wait...");
         emit LOG_I("Writing ROM to Subaru Unisia Jecs UJ20/30/40/70WWW using K-Line", true, true);
-        result = write_mem();
+        result_arg = write_mem();
         emit LOG_D("Removing programming voltage +12v from Line End Check 1", true, true);
         serial->set_lec_lines(serial->get_requestToSendDisabled(), serial->get_dataTerminalDisabled());
     }
 
-    return result == STATUS_SUCCESS;
+    return result_arg == STATUS_SUCCESS;
 }
 
 /*
@@ -251,7 +251,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::read_mem(uint32_t start_addr, uint32_
         float pleft = 0;
         unsigned long chrono;
 
-        pleft = (float)(addr - start_addr) / (float)(length) * 100.0f;
+        pleft = (float)(addr - start_addr) / (float)(length) * 100.0F;
         emit progressChanged(pleft);
 
         output[6] = (uint8_t)(addr >> 16) & 0xFF;
@@ -291,7 +291,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::read_mem(uint32_t start_addr, uint32_
 
         if (cplen > 0 && chrono > 0)
         {
-            curspeed = cplen * (1000.0f / chrono);
+            curspeed = cplen * (1000.0F / chrono);
         }
 
         if (!curspeed)
@@ -606,7 +606,7 @@ int FlashEcuSubaruUnisiaJecsM32rOperation::write_mem()
         {
             chrono += 1;
         }
-        curspeed = blocksize * (1000.0f / chrono); // avg B/s
+        curspeed = blocksize * (1000.0F / chrono); // avg B/s
         if (!curspeed)
         {
             curspeed += 1;

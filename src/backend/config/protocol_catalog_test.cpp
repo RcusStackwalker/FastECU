@@ -87,7 +87,7 @@ TEST(LoadProtocolCatalog, ParsesEveryFieldOfFirstProtocol)
     auto catalog = load_protocol_catalog(paths, repo);
 
     ASSERT_TRUE(catalog.has_value());
-    ASSERT_EQ(catalog->size(), 2u);
+    ASSERT_EQ(catalog->size(), 2U);
     const auto& first = (*catalog)[0];
     EXPECT_EQ(first.protocol_name, "sub_ecu_denso_sh7055_densocan");
     EXPECT_EQ(first.alias, "SH7055 DensoCAN");
@@ -150,7 +150,7 @@ TEST(LoadProtocolCatalog, ChecksumPreservesRawTextIncludingNonBooleanValues)
     auto catalog = load_protocol_catalog(paths, repo);
 
     ASSERT_TRUE(catalog.has_value());
-    ASSERT_EQ(catalog->size(), 1u);
+    ASSERT_EQ(catalog->size(), 1U);
     EXPECT_EQ((*catalog)[0].checksum, "n/a");
     EXPECT_EQ((*catalog)[0].read, "n/a");
 }
@@ -204,7 +204,7 @@ TEST(LoadProtocolCatalog, DistinctProtocolNamesAreAccepted)
     auto catalog = load_protocol_catalog(test_paths(), repo);
 
     ASSERT_TRUE(catalog.has_value());
-    ASSERT_EQ(catalog->size(), 2u);
+    ASSERT_EQ(catalog->size(), 2U);
     EXPECT_EQ(catalog->at(0).mcu, "FIRST");
     EXPECT_EQ(catalog->at(1).mcu, "SECOND");
 }
@@ -252,5 +252,8 @@ TEST(LoadProtocolCatalog, ParsesTheRealShippedProtocolsFileWithoutError)
         EXPECT_EQ(colt->write, "yes");
         EXPECT_EQ(colt->test_write, "no");
         EXPECT_EQ(colt->flash_transport, "iso15765");
+        // Routed to ChecksumEcuMitsuM32rCan; without "yes" the dispatch in
+        // src/backend/checksum refuses to run any module for these protocols.
+        EXPECT_EQ(colt->checksum, "yes");
     }
 }
