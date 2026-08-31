@@ -38,6 +38,13 @@ cc_library(
     deps = ["//src/algorithms/protocol"],
 )
 
+cc_library(
+    name = "read_parameters_session",
+    srcs = ["read_parameters_session.cpp"],
+    hdrs = ["read_parameters_session.h"],
+    deps = [":service_function_session"],
+)
+
 fastecu_portable_gtest(
     name = "service_function_types_test",
     srcs = ["service_function_types_test.cpp"],
@@ -48,4 +55,15 @@ fastecu_portable_gtest(
     name = "tcu_parameter_table_test",
     srcs = ["tcu_parameter_table_test.cpp"],
     deps = [":tcu_parameter_table"],
+)
+
+fastecu_portable_gtest(
+    name = "read_parameters_session_test",
+    srcs = ["read_parameters_session_test.cpp"],
+    deps = [
+        ":read_parameters_session",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/protocol/testing:scripted_transports",
+    ],
 )

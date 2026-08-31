@@ -51,6 +51,7 @@ PORTABLE_ROOTS = {
         "service_function_types",
         "service_function_session",
         "tcu_parameter_table",
+        "read_parameters_session",
     },
     ROOT / "src/backend/flash": {
         "flash_types",
