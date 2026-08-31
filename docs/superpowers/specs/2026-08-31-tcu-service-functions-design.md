@@ -326,17 +326,25 @@ mutations would reproduce the corruption.
 
 ## Error handling
 
-Every session covers the full `ErrorKind` taxonomy:
+Every session covers six of the seven `ErrorKind` values:
 
 | Kind | Raised for |
 |---|---|
-| `InvalidConfig` | protocol is structurally unusable for this session |
 | `Timeout` | retries exhausted with no response |
 | `Disconnected` | transport not open, or dropped mid-session |
 | `BadResponse` | negative or malformed response where the legacy returns rather than tolerates |
 | `Cancelled` | cancellation token observed, or an operator gate declined |
 | `Unsupported` | protocol is neither `sub_tcu_denso_sh7055_can` nor `sub_tcu_denso_sh7058_can` |
 | `Internal` | `resume()` called while a gate is outstanding |
+
+**`InvalidConfig` has no producer here, deliberately.** It is the kind for an
+invalid configuration or definition, and these sessions have neither: the only
+configuration they carry is the protocol name, whose rejection is
+`Unsupported`, and their only other input is `TcuParameterValues`, whose
+members are `std::uint8_t` and `std::uint16_t`. Rather than manufacture a
+runtime check that cannot fail, the taxonomy is recorded as six of seven with
+this reason. A future session in this package that parses a definition would
+reintroduce it.
 
 The nine `promptInt` bounds (`:162-202`) are 0–255 for eight values and
 0–65535 for AWD torque — exactly `std::uint8_t` and `std::uint16_t`. The
