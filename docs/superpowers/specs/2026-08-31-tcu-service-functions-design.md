@@ -15,7 +15,7 @@ work, retaining `tcuAction` 1 (ROM dump / write), which wave 5 ports and
 deletes. `//:legacy_flash_drain` therefore does not move here.
 
 Hardware status for all three operations is **experimental**. This work claims
-automated equivalence plus four named defect corrections, not bench
+automated equivalence plus six named defect corrections, not bench
 qualification.
 
 ## Why these are not flash operations
@@ -183,14 +183,20 @@ struct SsmTransportConfig
 
 The desktop adapter `FastEcuSsmTransport` is reused unchanged.
 
-## Four latent defects, and how they are resolved
+## Six latent defects, and how they are resolved
 
-Reading the response-code checks and the frame construction shows that **all
-three operations are broken as written** — two can never report success, and
-the third corrupts its own wire frames after the first write. These are the
-same class of finding as wave 3's `hack_words()` discovery, and are resolved
-the same way: port the real logic, correct the defect, name the divergence in
-the matrix.
+**None of these three operations can complete successfully as written.** Two
+can never report success, the third corrupts its own wire frames after the
+first write, and two of the six defects are out-of-bounds buffer accesses. The
+group is evidently unexercised code, in the same category as wave 3's
+`hack_words()` discovery, and is resolved the same way: port what the code
+evidently meant, correct the defect, name the divergence in the matrix.
+
+That framing matters for review. A reviewer cannot check these ports against
+"what the legacy does", because what the legacy does is fail. The check is
+against what the legacy unambiguously *encodes* — addresses, values, order,
+retry counts, timeouts — all of which survive intact and are transcribed with
+line citations.
 
 ### Read parameters can never succeed
 
@@ -234,6 +240,33 @@ complete" is not recoverable from the legacy source, and guessing it would
 fabricate a wire contract the way a misread constant does. The polled bytes are
 surfaced in the relearn outcome, and the matrix carries a `VERIFY` note that
 the early-exit condition is unresolved and needs a bench.
+
+### Read-parameters can over-read its response buffer
+
+`:592-608`. The length guard is `received.length() > 10`, but the decode reads
+through `received[14]` (`:611-624`) — the nine values occupy bytes 5 through
+14. A frame of 11 to 14 bytes passes the guard and is then indexed past its
+end.
+
+**Resolution:** the portable session requires at least 15 bytes before
+decoding, and returns `BadResponse` otherwise.
+
+### The relearn status poll never gets its addresses into the frame
+
+`:740-747`. At that point `output` holds the 9-byte step-2 frame
+`00 00 07 E1 B8 00 01 FD 09`. The poll rewrites it by index — and writes
+`output[9]`, `output[10]` and `output[11]`, three bytes past the end. Qt 6's
+non-const `QByteArray::operator[]` asserts `i < size()`, so a debug build
+aborts here; a release build writes out of bounds and sends a 9-byte frame.
+
+The addresses those three bytes carry are `0x01 0xFD` — the second of the two
+status addresses the poll means to read. The frame the code evidently intends
+is `00 00 07 E1 A8 00 00 01 FC 00 01 FD`: an `0xA8` read of `0x1FC` and
+`0x1FD`.
+
+**Resolution:** the portable session composes that 12-byte frame directly. This
+is also why the poll is written as a fresh composition rather than a
+transcribed index rewrite — the index rewrite is the defect.
 
 ### Set-parameters corrupts every frame after the first
 
@@ -297,7 +330,7 @@ Every session covers the full `ErrorKind` taxonomy:
 
 | Kind | Raised for |
 |---|---|
-| `InvalidConfig` | a parameter outside its 0–255 (or 0–65535, AWD torque) range |
+| `InvalidConfig` | protocol is structurally unusable for this session |
 | `Timeout` | retries exhausted with no response |
 | `Disconnected` | transport not open, or dropped mid-session |
 | `BadResponse` | negative or malformed response where the legacy returns rather than tolerates |
@@ -305,9 +338,13 @@ Every session covers the full `ErrorKind` taxonomy:
 | `Unsupported` | protocol is neither `sub_tcu_denso_sh7055_can` nor `sub_tcu_denso_sh7058_can` |
 | `Internal` | `resume()` called while a gate is outstanding |
 
-Range validation runs in `transport_setup()`, before any I/O. The nine
-`promptInt` bounds (`:162-202`) become the parameter table's range column and
-are asserted there.
+The nine `promptInt` bounds (`:162-202`) are 0–255 for eight values and
+0–65535 for AWD torque — exactly `std::uint8_t` and `std::uint16_t`. The
+portable `TcuParameterValues` uses those types, so the bounds are enforced by
+the value model rather than by a runtime check, and the dialog's spin-box
+ranges are asserted against them in a UI test. This makes an out-of-range
+parameter unrepresentable rather than rejectable, which is why `InvalidConfig`
+above covers only the protocol.
 
 ## Desktop
 
@@ -337,7 +374,7 @@ Unchanged from every wave since 5c, and it is what substitutes for a bench:
   and line it was transcribed from.
 - Tests use byte-exact `expectWrite` scripts.
 - Deliberate divergences are named in the matrix `notes` column, never silent:
-  the four defect corrections above, plus the two structural improvements.
+  the six defect corrections above, plus the two structural improvements.
 - `hardware_status` lands `experimental`. Nothing reaches `proven` from unit
   tests.
 
@@ -395,7 +432,7 @@ still sitting beside them.
 The [flash qualification matrix](../../flash-qualification-matrix.md) gains a
 clearly separated **Service functions** section with three rows —
 `hardware_status=experimental`, `automated_evidence` naming the new test
-labels, and `notes` carrying the four corrected defects and the unresolved
+labels, and `notes` carrying the six corrected defects and the unresolved
 relearn poll-termination `VERIFY`. One ledger beats a second document, and
 CLAUDE.md already points hardware-facing readers there.
 
@@ -424,7 +461,7 @@ back **within one session** (`:147-150`, `:470`), which a second
 
 | Risk | Mitigation |
 |---|---|
-| The four defect corrections are misreadings and the legacy code was right | Each is a mutually exclusive condition pair, an unconditional `return STATUS_ERROR`, or an index mutation into a reassigned buffer — none is a judgment call; all four named in the matrix; `experimental` is never upgraded by unit tests |
+| The six defect corrections are misreadings and the legacy code was right | Each is a mutually exclusive condition pair, an unconditional `return STATUS_ERROR`, or an out-of-bounds index — none is a judgment call; all six named in the matrix; `experimental` is never upgraded by unit tests |
 | Relearn's poll-termination condition stays unknown | The 200-iteration bound is preserved, no terminal condition is invented, the polled bytes are surfaced, and the matrix flags it `VERIFY` for the bench |
 | A portable step machine is over-engineering for one family | It is the minimum that supports a mid-sequence gate without the backend blocking on UI; `logging_session` is the same shape already in the tree |
 | A new package for three operations becomes a dumping ground | Named for a capability rather than a module, with the membership rule recorded in the package README |
