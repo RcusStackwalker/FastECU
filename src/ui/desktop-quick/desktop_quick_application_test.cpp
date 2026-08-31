@@ -1,17 +1,25 @@
 #include "src/ui/desktop-quick/desktop_quick_application.h"
 
 #include <QAccessible>
+#include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickItem>
 #include <QQuickStyle>
 #include <QString>
+#include <QWindow>
 #include <QtTest>
 
+#include <cstdint>
 #include <limits>
+#include <map>
 #include <memory>
 #include <optional>
+#include <span>
+#include <string>
+#include <string_view>
 #include <utility>
+#include <vector>
 
 #include "src/backend/dashboard/dashboard_codec.h"
 #include "src/backend/dashboard/dashboard_document_service.h"
@@ -28,6 +36,68 @@ namespace fastecu::desktop_quick
 {
 namespace
 {
+
+constexpr std::string_view kLifecycleCatalog = R"(<logger><protocols><protocol id="CDBG"><parameters>
+  <parameter id="CDBG_ENGINE_RPM" name="Engine RPM" desc="Engine speed" length="2" enabled="1">
+    <address>0x100</address><conversions>
+      <conversion units="rpm" expr="x" format="0" gauge_min="0" gauge_max="8000" gauge_step="500"/>
+    </conversions>
+  </parameter>
+  <parameter id="CDBG_COOLANT_TEMP" name="Coolant Temperature" desc="Coolant" length="2" enabled="1">
+    <address>0x102</address><conversions>
+      <conversion units="C" expr="x" format="0.0" gauge_min="-40" gauge_max="260" gauge_step="10"/>
+    </conversions>
+  </parameter>
+  <parameter id="CDBG_MANIFOLD_PRESSURE" name="Manifold Pressure" desc="Pressure" length="2" enabled="1">
+    <address>0x104</address><conversions>
+      <conversion units="kPa" expr="x" format="0" gauge_min="0" gauge_max="250" gauge_step="5"/>
+    </conversions>
+  </parameter>
+</parameters></protocol></protocols></logger>)";
+
+std::vector<std::uint8_t> bytes_of(std::string_view text)
+{
+    return {text.begin(), text.end()};
+}
+
+dashboard::LegacyCdbgImportDefaults lifecycle_import_defaults()
+{
+    return dashboard::LegacyCdbgImportDefaults{
+        .document_name = "Imported lifecycle dashboard",
+        .bitrate = 500000,
+        .identifier_width = dashboard::CanIdentifierWidth::Standard,
+        .stream_instance = 0,
+        .sampling_interval_ms = 50,
+        .retry = dashboard::RetryPolicy{100, 3, 3, 250},
+    };
+}
+
+class InMemoryDashboardStore final : public IFileRepository, public IAtomicFileWriter
+{
+  public:
+    Result<std::vector<std::uint8_t>> read(std::string_view handle) override
+    {
+        const auto found = files.find(std::string(handle));
+        if (found == files.end())
+        {
+            return fail(ErrorKind::InvalidConfig, "no such handle");
+        }
+        return found->second;
+    }
+
+    Status write(std::string_view handle, std::span<const std::uint8_t> data) override
+    {
+        files[std::string(handle)] = {data.begin(), data.end()};
+        return {};
+    }
+
+    Status replace(std::string_view handle, std::span<const std::uint8_t> data) override
+    {
+        return write(handle, data);
+    }
+
+    std::map<std::string, std::vector<std::uint8_t>> files;
+};
 
 dashboard::DashboardDocument usable_document()
 {
@@ -253,7 +323,7 @@ class LoadedApplication
     LoadedApplication()
         : documents(repository, writer), document_controller(documents, settings), editor(document_controller),
           controller(preparation, logging), document(mixed_card_document()),
-          presentation(document, logging, controller, clock)
+          presentation(std::nullopt, logging, controller, clock)
     {
         auto encoded = dashboard::encode_dashboard_document(document);
         if (!encoded.has_value())
@@ -266,18 +336,7 @@ class LoadedApplication
         {
             qFatal("Failed to open application fixture: %s", opened.error().detail.c_str());
         }
-        QObject::connect(&document_controller, &DashboardDocumentController::documentCommitted, &presentation,
-                         [this]
-                         {
-                             presentation.setDocument(document_controller.document());
-                             controller.setDocument(document_controller.document());
-                         });
-        QObject::connect(&controller, &DashboardConnectionController::stateChanged, &document_controller,
-                         [this] { document_controller.setConnectionState(controller.state()); });
-        controller.setDocument(document);
-        engine.rootContext()->setContextProperty(QStringLiteral("dashboardDocuments"), &document_controller);
-        engine.rootContext()->setContextProperty(QStringLiteral("dashboardEditor"), &editor);
-        loaded = load_root(engine, controller, presentation);
+        loaded = load_root(engine, controller, presentation, document_controller, editor);
     }
 
     QObject *root() const
@@ -307,18 +366,14 @@ class LoadedApplication
     bool loaded = false;
 };
 
-class LoadErrorApplication
+class EmptyApplication
 {
   public:
-    LoadErrorApplication()
+    EmptyApplication()
         : documents(repository, writer), document_controller(documents, settings), editor(document_controller),
-          controller(preparation, logging)
+          controller(preparation, logging), presentation(std::nullopt, logging, controller, clock)
     {
-        presentation =
-            DashboardController::fromLoadError(QStringLiteral("resource is malformed"), logging, controller, clock);
-        engine.rootContext()->setContextProperty(QStringLiteral("dashboardDocuments"), &document_controller);
-        engine.rootContext()->setContextProperty(QStringLiteral("dashboardEditor"), &editor);
-        loaded = load_root(engine, controller, *presentation);
+        loaded = load_root(engine, controller, presentation, document_controller, editor);
     }
 
     QObject *root() const
@@ -342,7 +397,7 @@ class LoadErrorApplication
     FakeLoggingEngine logging;
     DashboardConnectionController controller;
     FakeClock clock;
-    std::unique_ptr<DashboardController> presentation;
+    DashboardController presentation;
     QQmlApplicationEngine engine;
     bool loaded = false;
 };
@@ -389,6 +444,7 @@ class DesktopQuickApplicationTest : public QObject
     void initTestCase()
     {
         QQuickStyle::setStyle(QStringLiteral("Basic"));
+        QGuiApplication::setQuitOnLastWindowClosed(false);
     }
 
     void disconnectedStateLoadsTheConnectionSurface()
@@ -402,6 +458,12 @@ class DesktopQuickApplicationTest : public QObject
                      ->contextProperty(QStringLiteral("dashboardPresentation"))
                      .value<QObject *>(),
                  &application.presentation);
+        QCOMPARE(
+            application.engine.rootContext()->contextProperty(QStringLiteral("dashboardDocuments")).value<QObject *>(),
+            &application.document_controller);
+        QCOMPARE(
+            application.engine.rootContext()->contextProperty(QStringLiteral("dashboardEditor")).value<QObject *>(),
+            &application.editor);
         QCOMPARE(application.controller.canConnect(), true);
         QCOMPARE(application.presentation.cards()->rowCount(), 3);
         QObject *root = application.root();
@@ -421,6 +483,99 @@ class DesktopQuickApplicationTest : public QObject
         QCOMPARE(application.find("adapterPicker")->property("visible").toBool(), false);
         QVERIFY(application.find("refreshAdaptersButton") != nullptr);
         QVERIFY(application.find("connectionErrorDetail") != nullptr);
+    }
+
+    void committedDocumentFansOutExactlyOnceToEveryApplicationProjection()
+    {
+        LoadedApplication application;
+        QVERIFY(application.loaded);
+        QSignalSpy presentation_reset(&application.presentation, &DashboardController::documentChanged);
+        QSignalSpy connection_reset(&application.controller, &DashboardConnectionController::stateChanged);
+        QSignalSpy editor_reset(&application.editor, &QAbstractItemModel::modelReset);
+        dashboard::DashboardDocument candidate = *application.document_controller.document();
+        candidate.cards.clear();
+
+        const Status committed = application.document_controller.commitCandidate(std::move(candidate), {});
+
+        QVERIFY2(committed.has_value(), committed.has_value() ? "" : committed.error().detail.c_str());
+        QCOMPARE(presentation_reset.count(), 1);
+        QCOMPARE(connection_reset.count(), 1);
+        QCOMPARE(editor_reset.count(), 1);
+        QCOMPARE(application.presentation.cards()->rowCount(), 0);
+        QCOMPARE(application.controller.canConnect(), false);
+        QCOMPARE(application.editor.rowCount(), 0);
+    }
+
+    void importEditSaveAndRestoreRoundTripsEveryCardType()
+    {
+        InMemoryDashboardStore store;
+        store.files["catalog.xml"] = bytes_of(kLifecycleCatalog);
+        InMemorySettings settings;
+        dashboard::DashboardDocumentService documents(store, store);
+        DashboardDocumentController document_controller(documents, settings);
+        DashboardEditorModel editor(document_controller);
+        FakePreparationService preparation;
+        FakeLoggingEngine logging;
+        DashboardConnectionController connection_controller(preparation, logging);
+        FakeClock clock;
+        DashboardController presentation(std::nullopt, logging, connection_controller, clock);
+        QQmlApplicationEngine engine;
+        QVERIFY(load_root(engine, connection_controller, presentation, document_controller, editor));
+
+        const Status imported = document_controller.importDocument("catalog.xml", lifecycle_import_defaults());
+        QVERIFY2(imported.has_value(), imported.has_value() ? "" : imported.error().detail.c_str());
+        editor.addCard(QStringLiteral("CDBG_ENGINE_RPM"), QStringLiteral("conversion-1"));
+        editor.addCard(QStringLiteral("CDBG_COOLANT_TEMP"), QStringLiteral("conversion-1"));
+        editor.setSelectedDisplayType(CardDisplayType::Sparkline);
+        editor.setSelectedSparklineHistorySeconds(45);
+        editor.addCard(QStringLiteral("CDBG_MANIFOLD_PRESSURE"), QStringLiteral("conversion-1"));
+        editor.setSelectedDisplayType(CardDisplayType::HorizontalGauge);
+        editor.setSelectedGaugeBounds(10.0, 200.0, 5.0);
+        editor.moveSelectedUp();
+        QCOMPARE(presentation.cards()->rowCount(), 3);
+        QCOMPARE(connection_controller.canConnect(), true);
+
+        const Status saved = document_controller.saveAs("edited.ohd");
+        QVERIFY2(saved.has_value(), saved.has_value() ? "" : saved.error().detail.c_str());
+        QCOMPARE(settings.get(DashboardDocumentController::recentPathKey), std::optional<std::string>{"edited.ohd"});
+
+        dashboard::DashboardDocumentService restored_documents(store, store);
+        DashboardDocumentController restored_controller(restored_documents, settings);
+        DashboardEditorModel restored_editor(restored_controller);
+        FakePreparationService restored_preparation;
+        FakeLoggingEngine restored_logging;
+        DashboardConnectionController restored_connection(restored_preparation, restored_logging);
+        FakeClock restored_clock;
+        DashboardController restored_presentation(std::nullopt, restored_logging, restored_connection, restored_clock);
+        const Status restored = restored_controller.restoreRecentDocument();
+        QVERIFY2(restored.has_value(), restored.has_value() ? "" : restored.error().detail.c_str());
+        QQmlApplicationEngine restored_engine;
+        QVERIFY(load_root(restored_engine, restored_connection, restored_presentation, restored_controller,
+                          restored_editor));
+
+        QVERIFY(restored_controller.document().has_value());
+        const dashboard::DashboardDocument& document = *restored_controller.document();
+        QCOMPARE(document.metadata.name, std::string{"Imported lifecycle dashboard"});
+        QCOMPARE(document.cards.size(), std::size_t{3});
+        QCOMPARE(document.cards[0].id, std::string{"CDBG_ENGINE_RPM-1"});
+        QCOMPARE(document.cards[0].order, std::uint32_t{0});
+        QCOMPARE(document.cards[0].display_type, dashboard::CardDisplayType::Numeric);
+        QVERIFY(!document.cards[0].gauge_bounds.has_value());
+        QVERIFY(!document.cards[0].sparkline_history_seconds.has_value());
+        QCOMPARE(document.cards[1].id, std::string{"CDBG_MANIFOLD_PRESSURE-1"});
+        QCOMPARE(document.cards[1].order, std::uint32_t{1});
+        QCOMPARE(document.cards[1].display_type, dashboard::CardDisplayType::HorizontalGauge);
+        const std::optional<dashboard::GaugeBoundsOverride> expected_gauge{{10.0, 200.0, 5.0}};
+        QCOMPARE(document.cards[1].gauge_bounds, expected_gauge);
+        QVERIFY(!document.cards[1].sparkline_history_seconds.has_value());
+        QCOMPARE(document.cards[2].id, std::string{"CDBG_COOLANT_TEMP-1"});
+        QCOMPARE(document.cards[2].order, std::uint32_t{2});
+        QCOMPARE(document.cards[2].display_type, dashboard::CardDisplayType::Sparkline);
+        QVERIFY(!document.cards[2].gauge_bounds.has_value());
+        QCOMPARE(document.cards[2].sparkline_history_seconds, std::optional<std::uint16_t>{45});
+        QCOMPARE(restored_editor.rowCount(), 3);
+        QCOMPARE(restored_presentation.cards()->rowCount(), 3);
+        QCOMPARE(restored_connection.canConnect(), true);
     }
 
     void editorPanelPersistsBesideThePreviewAndReflectsCommittedCommands()
@@ -613,6 +768,39 @@ class DesktopQuickApplicationTest : public QObject
         }
     }
 
+    void closeRequestWaitsForExitApprovalAndCannotReopenThePrompt()
+    {
+        LoadedApplication application;
+        QVERIFY(application.loaded);
+        application.editor.setSelectedTitle(QStringLiteral("Dirty before close"));
+        QVERIFY(application.document_controller.isDirty());
+        auto *window = qobject_cast<QWindow *>(application.root());
+        QVERIFY(window != nullptr);
+        QVERIFY(window->isVisible());
+        QSignalSpy unsaved_requested(&application.document_controller,
+                                     &DashboardDocumentController::unsavedDecisionRequested);
+        QSignalSpy exit_approved(&application.document_controller, &DashboardDocumentController::exitApproved);
+
+        static_cast<void>(window->close());
+
+        QTRY_COMPARE(unsaved_requested.count(), 1);
+        QTRY_COMPARE(application.find("unsavedChangesDialog")->property("visible").toBool(), true);
+        QVERIFY(window->isVisible());
+        QVERIFY(click(application.find("cancelUnsavedButton")));
+        QTRY_COMPARE(application.find("unsavedChangesDialog")->property("visible").toBool(), false);
+        QCOMPARE(exit_approved.count(), 0);
+        QVERIFY(window->isVisible());
+
+        static_cast<void>(window->close());
+        QTRY_COMPARE(unsaved_requested.count(), 2);
+        QTRY_COMPARE(application.find("unsavedChangesDialog")->property("visible").toBool(), true);
+        QVERIFY(click(application.find("discardUnsavedButton")));
+
+        QTRY_COMPARE(exit_approved.count(), 1);
+        QTRY_VERIFY(!window->isVisible());
+        QCOMPARE(unsaved_requested.count(), 2);
+    }
+
     void failedSaveReopensTheUnsavedDialogForEveryRecovery_data()
     {
         QTest::addColumn<QString>("recovery_button");
@@ -681,9 +869,9 @@ class DesktopQuickApplicationTest : public QObject
         QCOMPARE(banner->property("visible").toBool(), false);
     }
 
-    void dashboardLoadFailureKeepsShellVisibleWithoutCardsOrConnection()
+    void startupWithoutARecentPathKeepsTheImportOpenEmptyState()
     {
-        LoadErrorApplication application;
+        EmptyApplication application;
         QVERIFY(application.loaded);
         QObject *root = application.root();
         QVERIFY(root != nullptr);
@@ -700,12 +888,47 @@ class DesktopQuickApplicationTest : public QObject
         QObject *dashboard_load_error = application.find("loadErrorText");
         QVERIFY(dashboard_load_error != nullptr);
         QCOMPARE(visual_children_named(dashboard_item, QStringLiteral("loadErrorText")).size(), 1);
-        QCOMPARE(dashboard_load_error->property("visible").toBool(), true);
-        QCOMPARE(dashboard_load_error->property("text").toString(), QStringLiteral("resource is malformed"));
+        QCOMPARE(dashboard_load_error->property("visible").toBool(), false);
+        QCOMPARE(application.document_controller.hasDocument(), false);
+        QCOMPARE(application.editor.rowCount(), 0);
 
         QObject *connect_button = application.find("connectButton");
         QVERIFY(connect_button != nullptr);
         QCOMPARE(connect_button->property("enabled").toBool(), false);
+        QCOMPARE(application.find("importDashboardButton")->property("enabled").toBool(), true);
+        QCOMPARE(application.find("openDashboardButton")->property("enabled").toBool(), true);
+        QCOMPARE(application.find("saveDashboardButton")->property("enabled").toBool(), false);
+        QCOMPARE(application.find("saveAsDashboardButton")->property("enabled").toBool(), false);
+    }
+
+    void failedRecentRestorationDoesNotSubstituteTheBundledDashboard()
+    {
+        InMemoryFileRepository repository;
+        InMemoryAtomicFileWriter writer;
+        InMemorySettings settings;
+        settings.set(DashboardDocumentController::recentPathKey, "missing.ohd");
+        dashboard::DashboardDocumentService documents(repository, writer);
+        DashboardDocumentController document_controller(documents, settings);
+        DashboardEditorModel editor(document_controller);
+        FakePreparationService preparation;
+        FakeLoggingEngine logging;
+        DashboardConnectionController connection_controller(preparation, logging);
+        FakeClock clock;
+        DashboardController presentation(std::nullopt, logging, connection_controller, clock);
+        QSignalSpy errors(&document_controller, &DashboardDocumentController::errorOccurred);
+
+        const Status restored = document_controller.restoreRecentDocument();
+
+        QVERIFY(!restored.has_value());
+        QCOMPARE(errors.count(), 1);
+        QCOMPARE(document_controller.hasDocument(), false);
+        QCOMPARE(settings.get(DashboardDocumentController::recentPathKey), std::optional<std::string>{"missing.ohd"});
+        QQmlApplicationEngine engine;
+        QVERIFY(load_root(engine, connection_controller, presentation, document_controller, editor));
+        QCOMPARE(presentation.cards()->rowCount(), 0);
+        QCOMPARE(presentation.hasLoadError(), false);
+        QCOMPARE(connection_controller.canConnect(), false);
+        QCOMPARE(editor.rowCount(), 0);
     }
 
     void rejectedSamplesReachApplicationDiagnosticLog()
@@ -975,12 +1198,19 @@ class DesktopQuickApplicationTest : public QObject
     {
         LoadedApplication application;
         application.controller.setDocument(usable_document());
+        application.editor.selectCard(QStringLiteral("rpm"));
+        QVERIFY(application.document_controller.editingEnabled());
+        QVERIFY(application.editor.canRemove());
+        QSignalSpy availability_changed(&application.editor, &DashboardEditorModel::availabilityChanged);
         application.preparation.next_preparation = prepared_connection();
         QVERIFY(click(application.find("connectButton")));
         QCOMPARE(application.logging.start_calls, 1);
         QCOMPARE(application.find("connectionPanel")->property("transitioning").toBool(), true);
         QCOMPARE(application.find("connectButton")->property("enabled").toBool(), false);
         QCOMPARE(application.find("refreshAdaptersButton")->property("enabled").toBool(), false);
+        QCOMPARE(application.document_controller.editingEnabled(), false);
+        QCOMPARE(application.editor.canRemove(), false);
+        QVERIFY(availability_changed.count() > 0);
         application.logging.publishRunning();
 
         QCOMPARE(application.controller.state(), ConnectionState::Running);

@@ -8,8 +8,7 @@
 #include <QStringList>
 
 #include <cstdlib>
-#include <memory>
-#include <utility>
+#include <optional>
 
 #include "src/backend/dashboard/dashboard_document_service.h"
 #include "src/platform/desktop/common/connection/desktop_connection_service.h"
@@ -19,9 +18,11 @@
 #include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
 #include "src/platform/desktop/common/ports/qt_clock.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
-#include "src/ui/desktop-quick/dashboard/bundled_dashboard_loader.h"
+#include "src/platform/desktop/common/ports/qt_settings.h"
 #include "src/ui/desktop-quick/dashboard/dashboard_connection_controller.h"
 #include "src/ui/desktop-quick/dashboard/dashboard_controller.h"
+#include "src/ui/desktop-quick/dashboard/dashboard_document_controller.h"
+#include "src/ui/desktop-quick/dashboard/dashboard_editor_model.h"
 
 int main(int argc, char *argv[])
 {
@@ -39,27 +40,25 @@ int main(int argc, char *argv[])
     QtFileRepository file_repository;
     QtAtomicFileWriter file_writer;
     fastecu::dashboard::DashboardDocumentService document_service(file_repository, file_writer);
+    QtSettings settings;
+    fastecu::desktop_quick::DashboardDocumentController dashboard_documents(document_service, settings);
+    fastecu::desktop_quick::DashboardEditorModel dashboard_editor(dashboard_documents);
     QtClock clock;
+    fastecu::desktop_quick::DashboardController dashboard_presentation(std::nullopt, *dashboard_logging,
+                                                                       dashboard_connection, clock);
 
-    std::unique_ptr<fastecu::desktop_quick::DashboardController> dashboard_presentation;
-    auto loaded_document = fastecu::desktop_quick::load_bundled_colt_dashboard(document_service);
-    if (loaded_document.has_value())
-    {
-        fastecu::dashboard::DashboardDocument document = std::move(*loaded_document);
-        dashboard_connection.setDocument(document);
-        dashboard_presentation = std::make_unique<fastecu::desktop_quick::DashboardController>(
-            document, *dashboard_logging, dashboard_connection, clock);
-    }
-    else
-    {
-        dashboard_presentation = fastecu::desktop_quick::DashboardController::fromLoadError(
-            QString::fromStdString(loaded_document.error().detail), *dashboard_logging, dashboard_connection, clock);
-    }
+    const fastecu::Status restored = dashboard_documents.restoreRecentDocument();
 
     QQmlApplicationEngine engine;
-    if (!fastecu::desktop_quick::load_root(engine, dashboard_connection, *dashboard_presentation))
+    if (!fastecu::desktop_quick::load_root(engine, dashboard_connection, dashboard_presentation, dashboard_documents,
+                                           dashboard_editor))
     {
         return EXIT_FAILURE;
+    }
+    if (!restored.has_value())
+    {
+        dashboard_documents.errorOccurred(QStringLiteral("Restore recent dashboard"),
+                                          QString::fromStdString(restored.error().detail), restored.error().kind);
     }
     if (QCoreApplication::arguments().contains(QStringLiteral("--smoke-test")))
     {
