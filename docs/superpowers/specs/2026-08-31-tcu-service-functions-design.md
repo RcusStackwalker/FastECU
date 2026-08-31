@@ -15,7 +15,7 @@ work, retaining `tcuAction` 1 (ROM dump / write), which wave 5 ports and
 deletes. `//:legacy_flash_drain` therefore does not move here.
 
 Hardware status for all three operations is **experimental**. This work claims
-automated equivalence plus three named defect corrections, not bench
+automated equivalence plus four named defect corrections, not bench
 qualification.
 
 ## Why these are not flash operations
@@ -70,7 +70,7 @@ repository a second `definition` / `definitions` trap.
 | Operation | Wire | Legacy source |
 |---|---|---|
 | `ReadParameters` | ISO-15765 `0x7E1` / `0x7E9`; one `0xA8` ten-address read decoding into nine values, up to 6 attempts | `:517-632` |
-| `SetParameters` | K-Line ISO14230 at 4800 baud; twelve `0xB8 00 01 <addr> <value>` SSM writes, each expecting `0xF8` | `:135-517` |
+| `SetParameters` | K-Line ISO14230 at 4800 baud; twelve `0xB8 00 01 <addr> <value>` SSM writes, each expecting `0xF8`. Only the first is well-formed — see [the framing defect](#set-parameters-corrupts-every-frame-after-the-first) | `:135-517` |
 | `Relearn` | ISO-15765 `0x7E1` / `0x7E9`; `0xB8 00 01 FC 01`, then `0xB8 00 01 FD 09`, then a 200-iteration `0xA8` status poll | `:632-790` |
 
 All line references are to
@@ -183,12 +183,14 @@ struct SsmTransportConfig
 
 The desktop adapter `FastEcuSsmTransport` is reused unchanged.
 
-## Three latent defects, and how they are resolved
+## Four latent defects, and how they are resolved
 
-Reading the response-code checks shows that **two of the three operations
-cannot succeed as written**. These are the same class of finding as wave 3's
-`hack_words()` discovery, and are resolved the same way: port the real logic,
-correct the defect, name the divergence in the matrix.
+Reading the response-code checks and the frame construction shows that **all
+three operations are broken as written** — two can never report success, and
+the third corrupts its own wire frames after the first write. These are the
+same class of finding as wave 3's `hack_words()` discovery, and are resolved
+the same way: port the real logic, correct the defect, name the divergence in
+the matrix.
 
 ### Read parameters can never succeed
 
@@ -233,6 +235,37 @@ fabricate a wire contract the way a misread constant does. The polled bytes are
 surfaced in the relearn outcome, and the matrix carries a `VERIFY` note that
 the early-exit condition is unresolved and needs a bench.
 
+### Set-parameters corrupts every frame after the first
+
+`:210-215` builds the unframed payload `B8 00 01 6C <value>` and then
+**reassigns** `output` to `SsmProtocol::addHeader`'s result — the framed
+10-byte array `80 18 F0 05 B8 00 01 6C <value> <checksum>`.
+
+Every subsequent parameter reuses that variable by index (`:237-238`,
+`:261-262`, and so on through `:479`), writing `output[3]` and `output[4]`.
+Those indices addressed the parameter's low address byte and value **before**
+framing. Afterwards they address the SSM length byte and the `0xB8` service
+ID. Each iteration then calls `addHeader` again on the already-framed array,
+so the frames nest and grow five bytes per parameter:
+
+- write 1 — `80 18 F0 05 B8 00 01 6C v1 cs` — correct;
+- write 2 — `80 18 F0 0A 80 18 F0 6D v2 00 01 6C v1 cs cs2` — a framed frame,
+  with the length byte and service ID overwritten by parameter data.
+
+The TCU cannot answer `0xF8` to write 2, and write 2's check returns
+`STATUS_ERROR` (`:227`, not commented out). **Set-parameters therefore performs
+exactly one real write — `0x16c`, the IC 3→4 correction — and then aborts,
+leaving the TCU half-configured.** That is worse than failing outright, and it
+is the most consequential of the four defects.
+
+**Resolution:** the table-driven loop composes each parameter's payload from
+scratch and frames it exactly once, so all twelve frames are well-formed. This
+is the same correction as the other three — port what the code evidently meant
+— and it is what makes the restructure in
+[Two structural improvements](#two-structural-improvements-both-named)
+mandatory rather than cosmetic: a faithful transcription of the index
+mutations would reproduce the corruption.
+
 ## Two structural improvements, both named
 
 - **Read-parameters returns data, not log lines.** The legacy decodes nine
@@ -242,9 +275,10 @@ the early-exit condition is unresolved and needs a bench.
   owns locale formatting" rule applied outside logging.
 - **Set-parameters becomes a table.** The legacy is roughly 300 lines of
   twelve copy-pasted write-and-check blocks. A `constexpr` table of
-  `{address, width, range, label_id}` plus one loop replaces it. Three details
-  the restructure must not lose, each asserted by a test against the cited
-  legacy lines:
+  `{address, width, range, label_id}` plus one loop replaces it. The loop
+  rebuilds and frames each payload from scratch, which is what corrects the
+  framing defect above. Three details the restructure must not lose, each
+  asserted by a test against the cited legacy lines:
   - **The write order is not the prompt order.** Prompts run 1→2, 2→3, 3→4,
     4→5, … (`:162-202`); writes run `0x16c` = 3→4, `0x16d` = 2→3,
     `0x16e` = 1→2, `0x16f` = 4→5, … (`:213-286`). The table preserves the wire
@@ -303,7 +337,7 @@ Unchanged from every wave since 5c, and it is what substitutes for a bench:
   and line it was transcribed from.
 - Tests use byte-exact `expectWrite` scripts.
 - Deliberate divergences are named in the matrix `notes` column, never silent:
-  the three defect corrections above, plus the two structural improvements.
+  the four defect corrections above, plus the two structural improvements.
 - `hardware_status` lands `experimental`. Nothing reaches `proven` from unit
   tests.
 
@@ -361,7 +395,7 @@ still sitting beside them.
 The [flash qualification matrix](../../flash-qualification-matrix.md) gains a
 clearly separated **Service functions** section with three rows —
 `hardware_status=experimental`, `automated_evidence` naming the new test
-labels, and `notes` carrying the three corrected defects and the unresolved
+labels, and `notes` carrying the four corrected defects and the unresolved
 relearn poll-termination `VERIFY`. One ledger beats a second document, and
 CLAUDE.md already points hardware-facing readers there.
 
@@ -390,11 +424,12 @@ back **within one session** (`:147-150`, `:470`), which a second
 
 | Risk | Mitigation |
 |---|---|
-| The three defect corrections are misreadings and the legacy checks were right | Each is a mutually exclusive condition pair or an unconditional `return STATUS_ERROR`, not a judgment call; all three named in the matrix; `experimental` is never upgraded by unit tests |
+| The four defect corrections are misreadings and the legacy code was right | Each is a mutually exclusive condition pair, an unconditional `return STATUS_ERROR`, or an index mutation into a reassigned buffer — none is a judgment call; all four named in the matrix; `experimental` is never upgraded by unit tests |
 | Relearn's poll-termination condition stays unknown | The 200-iteration bound is preserved, no terminal condition is invented, the polled bytes are surfaced, and the matrix flags it `VERIFY` for the bench |
 | A portable step machine is over-engineering for one family | It is the minimum that supports a mid-sequence gate without the backend blocking on UI; `logging_session` is the same shape already in the tree |
 | A new package for three operations becomes a dumping ground | Named for a capability rather than a module, with the membership rule recorded in the package README |
-| Relearn and set-parameters write live TCU adaptation values with no bench | Unchanged from the legacy in wire bytes and order; `experimental` status; the matrix is the standing list of what needs a bench |
+| Relearn and set-parameters write live TCU adaptation values with no bench | Wire bytes and order are unchanged from what the legacy evidently intended; `experimental` status; the matrix is the standing list of what needs a bench |
+| Set-parameters goes from writing one corrupted-then-aborted sequence to writing all twelve frames for real | This is the point of the fix, and it is the largest behavior change in the work: the operation begins doing what its UI has always claimed. Called out in the matrix `notes`, and the first bench item for this family |
 
 ## Amendments
 
