@@ -38,7 +38,6 @@ namespace fastecu::flash
 {
 namespace
 {
-using namespace bytes::literals;
 using bytes::composeBe;
 
 // Legacy's read timeouts. This family writes most of them as bare literals

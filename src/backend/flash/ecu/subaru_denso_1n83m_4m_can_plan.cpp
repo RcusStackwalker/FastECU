@@ -20,7 +20,7 @@ constexpr std::string_view kMcu = "N83M_4MB";
 // (lines 845-860, 886-901).
 constexpr MemoryRegion kMainBlock{0x08FAC000, 0x003D3F00};
 constexpr std::uint32_t kImageStart = 0x08F9C000; // fblocks[0].start
-constexpr std::size_t kImageSize = 0x3E4000;      // fblocks[0..2] summed
+constexpr std::size_t kImageSize = 0x3E4000;      // fblocks[0..2] summed, and N83M_4MB's own romsize
 constexpr std::uint32_t kLeadPad = 0x10000;
 constexpr std::uint32_t kTailPad = 0x100;
 
@@ -40,11 +40,13 @@ Status validate_identity(std::string_view protocol, std::string_view mcu)
         return fail(InvalidConfig, std::format("Protocol {} expects MCU {}; got {}", protocol, kMcu, mcu));
     }
     // Unlike its N83M_1_5MB sibling, N83M_4MB's declared romsize (0x3E4000)
-    // does equal its own fblocks sum, so the two agree here. It is still not
-    // checked: nothing on either the read or the write path consumes romsize
-    // (read_memory discards the length argument derived from it at line 836).
+    // does equal its own fblocks sum, so -- as in SH72531 and SH72543d, whose
+    // tables are likewise self-consistent -- it is checked here. Nothing on
+    // either path consumes romsize (read_memory discards the length argument
+    // derived from it at line 836); the check guards the table, not the
+    // transfer.
     if (const flashdev_t& device = flashdevices[index];
-        device.numblocks != 3 || device.fblocks[0].start != kImageStart ||
+        device.numblocks != 3 || device.romsize != kImageSize || device.fblocks[0].start != kImageStart ||
         device.fblocks[1].start != kMainBlock.start || device.fblocks[1].len != kMainBlock.length)
     {
         return fail(InvalidConfig, "N83M_4MB three-block flash geometry is invalid");

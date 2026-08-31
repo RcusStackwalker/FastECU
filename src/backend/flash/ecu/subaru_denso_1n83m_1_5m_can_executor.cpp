@@ -23,7 +23,6 @@ namespace fastecu::flash
 {
 namespace
 {
-using namespace bytes::literals;
 using bytes::composeBe;
 
 // Legacy's three read timeouts, kept apart rather than flattened into one
