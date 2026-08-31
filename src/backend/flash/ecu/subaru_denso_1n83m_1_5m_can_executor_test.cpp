@@ -401,9 +401,10 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, WriteErasesThenFlashesBlockOne)
     EXPECT_FALSE(result->read_bytes.has_value());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.notices, testing::Contains("Writing ROM, please wait..."));
-    // Every 0xB6 chunk was matched byte-for-byte by expectWrite above; assert
-    // the indexing convention explicitly too, so a wrong image base fails
-    // here with a readable message rather than as an "unexpected write".
+    // The image base is already pinned by expectWrite: scriptReflashChunks
+    // builds every 0xB6 frame from encrypted.subspan(addr - kImageStart, 256).
+    // This adds only that calculatePayload is 4-byte-word independent, so the
+    // page-at-a-time comparison above is a valid way to express it.
     const bytes::Bytes encrypted = toWire(rom);
     EXPECT_EQ(bytes::Bytes(encrypted.begin() + 0x10000, encrypted.begin() + 0x10000 + 256),
               toWire(bytes::ByteView(rom).subspan(0x10000, 256)));

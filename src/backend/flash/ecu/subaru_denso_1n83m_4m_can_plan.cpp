@@ -40,11 +40,12 @@ Status validate_identity(std::string_view protocol, std::string_view mcu)
         return fail(InvalidConfig, std::format("Protocol {} expects MCU {}; got {}", protocol, kMcu, mcu));
     }
     // Unlike its N83M_1_5MB sibling, N83M_4MB's declared romsize (0x3E4000)
-    // does equal its own fblocks sum, so -- as in SH72531 and SH72543d, whose
-    // tables are likewise self-consistent -- it is checked here. Nothing on
-    // either path consumes romsize (read_memory discards the length argument
-    // derived from it at line 836); the check guards the table, not the
-    // transfer.
+    // does equal its own fblocks sum, so it is checked here, as SH72531 checks
+    // its own. (SH72543d also checks romsize, but against its single-block
+    // table's declared 0x200000 rather than a block sum.) N83M_1_5MB remains
+    // the one family that cannot check it. Nothing on either path consumes
+    // romsize -- read_memory discards the length argument derived from it at
+    // line 836 -- so the check guards the flash table, not the transfer.
     if (const flashdev_t& device = flashdevices[index];
         device.numblocks != 3 || device.romsize != kImageSize || device.fblocks[0].start != kImageStart ||
         device.fblocks[1].start != kMainBlock.start || device.fblocks[1].len != kMainBlock.length)
