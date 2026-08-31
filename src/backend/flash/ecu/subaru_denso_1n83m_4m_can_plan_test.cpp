@@ -20,19 +20,19 @@ TEST(SubaruDenso1n83m_4mCanPlan, ReadPlanCarriesMainFlashBlock)
 {
     auto plan = build_subaru_denso_1n83m_4m_can_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    EXPECT_EQ(plan->transfer_region().start, 0x08FAC000u);
-    EXPECT_EQ(plan->transfer_region().length, 0x003D3F00u);
+    EXPECT_EQ(plan->transfer_region().start, 0x08FAC000U);
+    EXPECT_EQ(plan->transfer_region().length, 0x003D3F00U);
     EXPECT_THAT(plan->erase_regions(), IsEmpty());
     EXPECT_FALSE(plan->kernel().has_value());
     EXPECT_TRUE(plan->confirmations().empty());
 
     const auto& family = std::get<SubaruDenso1n83m_4mCanPlan>(plan->family_plan());
-    EXPECT_EQ(family.request_id, 0x7e0u);
-    EXPECT_EQ(family.response_id, 0x7e8u);
+    EXPECT_EQ(family.request_id, 0x7e0U);
+    EXPECT_EQ(family.response_id, 0x7e8U);
     EXPECT_EQ(family.bitrate, 500000);
     EXPECT_FALSE(family.extended_id);
-    EXPECT_EQ(family.lead_pad_len, 0x10000u);
-    EXPECT_EQ(family.tail_pad_len, 0x100u);
+    EXPECT_EQ(family.lead_pad_len, 0x10000U);
+    EXPECT_EQ(family.tail_pad_len, 0x100U);
 }
 
 TEST(SubaruDenso1n83m_4mCanPlan, TestWriteIsRejectedBeforeAnyIo)
@@ -56,9 +56,9 @@ TEST(SubaruDenso1n83m_4mCanPlan, WriteRequiresFullStartAlignedImage)
     auto ok =
         build_subaru_denso_1n83m_4m_can_plan(FlashOperation::Write, kProtocol, kMcu, bytes::Bytes(0x3E4000, 0x00));
     ASSERT_TRUE(ok.has_value()) << ok.error().detail;
-    ASSERT_EQ(ok->erase_regions().size(), 1u);
-    EXPECT_EQ(ok->erase_regions()[0].start, 0x08FAC000u);
-    EXPECT_EQ(ok->erase_regions()[0].length, 0x003D3F00u);
+    ASSERT_EQ(ok->erase_regions().size(), 1U);
+    EXPECT_EQ(ok->erase_regions()[0].start, 0x08FAC000U);
+    EXPECT_EQ(ok->erase_regions()[0].length, 0x003D3F00U);
 }
 
 TEST(SubaruDenso1n83m_4mCanPlan, WriteWithNoImageIsRejected)

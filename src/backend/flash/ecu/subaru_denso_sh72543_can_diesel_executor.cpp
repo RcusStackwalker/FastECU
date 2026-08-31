@@ -389,30 +389,42 @@ Status connect_in_car(Ctx& ctx, ICanFlashTransport& can)
     // Lines 375-483: ten fire-and-forget writes across four extra CAN ids.
     // Every reply is read and discarded, so a wrong byte here is invisible
     // on the wire without the scripted test that pins it.
+    // Field order is pdu-first so the struct packs without padding; the
+    // designators keep each entry readable against the legacy lines it cites.
     const struct
     {
-        std::uint32_t id;
         bytes::Bytes pdu;
+        std::uint32_t id;
         int timeout_ms;
     } fire_and_forget_run[] = {
-        {kInCarIdA2, {uds::kSidDiagnosticSessionControl, kSessionVendorC0}, kShortTimeoutMs}, // lines 375-383
+        {.pdu = {uds::kSidDiagnosticSessionControl, kSessionVendorC0},
+         .id = kInCarIdA2,
+         .timeout_ms = kShortTimeoutMs}, // lines 375-383
         // The one exchange in this run legacy reads with serial_read_timeout
         // (line 394); the other nine use serial_read_short_timeout.
-        {0x7e0, {uds::kSidDiagnosticSessionControl, kSessionInCarOpen}, kLongTimeoutMs}, // lines 386-394
-        {kInCarIdFunctional,
-         {uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic},
-         kShortTimeoutMs}, // lines 397-405
-        {kInCarIdE1,
-         {uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic},
-         kShortTimeoutMs}, // lines 408-416
-        {kInCarIdB0,
-         {uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic},
-         kShortTimeoutMs},                                                             // lines 419-427
-        {kInCarIdB0, {kSidControlDtcSetting, 0x02}, kShortTimeoutMs},                  // lines 430-438
-        {kInCarIdFunctional, {kSidControlDtcSetting, 0x02}, kShortTimeoutMs},          // lines 441-449
-        {kInCarIdB0, {kSidControlDtcSetting, 0x02}, kShortTimeoutMs},                  // lines 452-460
-        {kInCarIdFunctional, {kSidControlDtcSetting, 0x02}, kShortTimeoutMs},          // lines 463-471
-        {kInCarIdFunctional, {kSidCommunicationControl, 0x03, 0x01}, kShortTimeoutMs}, // lines 474-483
+        {.pdu = {uds::kSidDiagnosticSessionControl, kSessionInCarOpen},
+         .id = 0x7e0,
+         .timeout_ms = kLongTimeoutMs}, // lines 386-394
+        {.pdu = {uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic},
+         .id = kInCarIdFunctional,
+         .timeout_ms = kShortTimeoutMs}, // lines 397-405
+        {.pdu = {uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic},
+         .id = kInCarIdE1,
+         .timeout_ms = kShortTimeoutMs}, // lines 408-416
+        {.pdu = {uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic},
+         .id = kInCarIdB0,
+         .timeout_ms = kShortTimeoutMs},                                                         // lines 419-427
+        {.pdu = {kSidControlDtcSetting, 0x02}, .id = kInCarIdB0, .timeout_ms = kShortTimeoutMs}, // lines 430-438
+        {.pdu = {kSidControlDtcSetting, 0x02},
+         .id = kInCarIdFunctional,
+         .timeout_ms = kShortTimeoutMs},                                                         // lines 441-449
+        {.pdu = {kSidControlDtcSetting, 0x02}, .id = kInCarIdB0, .timeout_ms = kShortTimeoutMs}, // lines 452-460
+        {.pdu = {kSidControlDtcSetting, 0x02},
+         .id = kInCarIdFunctional,
+         .timeout_ms = kShortTimeoutMs}, // lines 463-471
+        {.pdu = {kSidCommunicationControl, 0x03, 0x01},
+         .id = kInCarIdFunctional,
+         .timeout_ms = kShortTimeoutMs}, // lines 474-483
     };
     for (const auto& exchange : fire_and_forget_run)
     {
@@ -861,14 +873,26 @@ Status write_memory(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block, 
 
 } // namespace
 
+Result<Iso15765Config> SubaruDensoSh72543CanDieselExecutor::transport_setup(const FlashPlan& plan) const
+{
+    if (const Status match = check_family(plan, FlashFamily::SubaruDensoSh72543CanDiesel); !match.has_value())
+    {
+        return std::unexpected(match.error());
+    }
+    if (const Status valid = validate_subaru_denso_sh72543_can_diesel_plan(plan); !valid.has_value())
+    {
+        return std::unexpected(valid.error());
+    }
+    const auto& family = std::get<SubaruDensoSh72543CanDieselPlan>(plan.family_plan());
+    return iso15765_config_from(family);
+}
+
 Result<FlashExecutionResult> SubaruDensoSh72543CanDieselExecutor::execute(const FlashPlan& plan,
-                                                                          IFlashTransport& transport, IClock& clock,
+                                                                          ICanFlashTransport& transport, IClock& clock,
                                                                           const ICancellationToken& cancellation,
                                                                           IEventSink& events)
 {
-    if (const Status matched =
-            check_family_transport_match(plan, FlashFamily::SubaruDensoSh72543CanDiesel, TransportKind::CanIso15765);
-        !matched.has_value())
+    if (const Status matched = check_family(plan, FlashFamily::SubaruDensoSh72543CanDiesel); !matched.has_value())
     {
         return std::unexpected(matched.error());
     }
@@ -882,29 +906,17 @@ Result<FlashExecutionResult> SubaruDensoSh72543CanDieselExecutor::execute(const 
     }
 
     const auto& family = std::get<SubaruDensoSh72543CanDieselPlan>(plan.family_plan());
-    Result<ICanFlashTransport *> can_transport =
-        open_can_iso15765_transport(transport, Iso15765Config{
-                                                   .bitrate = family.bitrate,
-                                                   .request_id = family.request_id,
-                                                   .response_id = family.response_id,
-                                                   .extended_id = family.extended_id,
-                                               });
-    if (!can_transport.has_value())
-    {
-        return std::unexpected(can_transport.error());
-    }
-    ICanFlashTransport *can = *can_transport;
 
     const bool read = plan.operation() == FlashOperation::Read;
     PhaseSequence phases(events, read ? 2 : 3);
     PhaseReporter connect = phases.start("Connect", 1);
 
-    CanFlashUdsChannel channel(*can, family.request_id, family.response_id);
+    CanFlashUdsChannel channel(transport, family.request_id, family.response_id);
     uds::UdsClient uds_client(channel, clock, events);
     Ctx ctx{cancellation, events, clock, uds_client, channel};
 
     info(ctx, "Connecting to ECU Denso SH72543 Diesel CAN bootloader, please wait...");
-    if (const Status connected = connect_bootloader(ctx, *can); !connected.has_value())
+    if (const Status connected = connect_bootloader(ctx, transport); !connected.has_value())
     {
         return std::unexpected(connected.error());
     }

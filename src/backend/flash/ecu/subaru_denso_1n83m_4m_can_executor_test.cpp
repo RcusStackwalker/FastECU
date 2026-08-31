@@ -406,6 +406,21 @@ bytes::Bytes writeRom()
     return rom;
 }
 
+TEST(SubaruDenso1n83m_4mCanExecutor, TransportSetupReturnsThePlansWireParameters)
+{
+    // The caller configures the transport from this, so the plan's wire
+    // parameters have to survive the hand-off intact.
+    SubaruDenso1n83m_4mCanExecutor executor;
+
+    const auto setup = executor.transport_setup(readPlan());
+
+    ASSERT_TRUE(setup.has_value()) << setup.error().detail;
+    EXPECT_EQ(setup->bitrate, 500000);
+    EXPECT_EQ(setup->request_id, 0x7e0U);
+    EXPECT_EQ(setup->response_id, 0x7e8U);
+    EXPECT_FALSE(setup->extended_id);
+}
+
 TEST(SubaruDenso1n83m_4mCanExecutor, ProceedsPastMalformedConnectAndDumpSetupResponses)
 {
     // The tolerance this family exists to preserve. A happy-path-only suite
@@ -571,7 +586,7 @@ TEST(SubaruDenso1n83m_4mCanExecutor, TestWriteIsRejectedBeforeAnyTransportCall)
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Unsupported);
-    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.writesConsumed(), 0U);
     EXPECT_FALSE(transport.last_config_.has_value());
     EXPECT_THAT(events.logs, IsEmpty());
 }

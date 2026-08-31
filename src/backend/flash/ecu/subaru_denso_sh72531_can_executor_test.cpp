@@ -338,6 +338,21 @@ bytes::Bytes writeRom()
     return rom;
 }
 
+TEST(SubaruDensoSh72531CanExecutor, TransportSetupReturnsThePlansWireParameters)
+{
+    // The caller configures the transport from this, so the plan's wire
+    // parameters have to survive the hand-off intact.
+    SubaruDensoSh72531CanExecutor executor;
+
+    const auto setup = executor.transport_setup(readPlan());
+
+    ASSERT_TRUE(setup.has_value()) << setup.error().detail;
+    EXPECT_EQ(setup->bitrate, 500000);
+    EXPECT_EQ(setup->request_id, 0x7e0U);
+    EXPECT_EQ(setup->response_id, 0x7e8U);
+    EXPECT_FALSE(setup->extended_id);
+}
+
 TEST(SubaruDensoSh72531CanExecutor, BenchReadReturnsPaddedImage)
 {
     ScriptedCanFlashTransport transport;
@@ -450,7 +465,7 @@ TEST(SubaruDensoSh72531CanExecutor, TestWriteIsRejectedBeforeAnyTransportCall)
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Unsupported);
-    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.writesConsumed(), 0U);
     EXPECT_FALSE(transport.last_config_.has_value());
     EXPECT_THAT(events.logs, IsEmpty());
 }
@@ -486,7 +501,7 @@ TEST(SubaruDensoSh72531CanExecutor, BenchKernelJumpDiscardsFirstReply)
     // connect_bench's 500 ms wait (legacy line 660) then the jump's own 50 ms
     // between its two reads (legacy line 784).
     EXPECT_EQ(clock.sleep_calls, (std::vector<int>{500, 50}));
-    EXPECT_EQ(clock.now_, 550u);
+    EXPECT_EQ(clock.now_, 550U);
 }
 
 TEST(SubaruDensoSh72531CanExecutor, ReadTimeoutPropagates)

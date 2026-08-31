@@ -524,3 +524,21 @@ tests. The `notes` column records, per family:
    `denso_iso15765_can_common.h`: what it shares is the crypto key-table
    *data* those wrapper functions read, not a protocol function, and it is
    the only four-way byte-identical artifact in the cluster.
+
+2. **The four executors adopt [ADR 0015](../../adr/0015-caller-owns-flash-transport-lifetime.md)
+   rather than the interface this design was written against.** The wave was
+   designed and implemented against `IFlashExecutor`, with `execute()` calling
+   `open_can_iso15765_transport` itself. ADR 0015 landed on master while the
+   branch was in review, splitting that interface into `IKlineFlashExecutor` /
+   `ICanFlashExecutor` and moving configure/open/close to the caller. On
+   merging master, all four executors became `ICanFlashExecutor`s: each gained
+   a pure `transport_setup(plan)` returning the family's `Iso15765Config`, and
+   `execute()` now receives an already-configured, already-open
+   `ICanFlashTransport`.
+
+   This changes no wire behaviour — the config values are the same ones the
+   deleted `open_can_iso15765_transport` call passed, and one
+   `TransportSetupReturnsThePlansWireParameters` test per family pins them.
+   The passage above describing "one `configureIso15765Can(...)` in
+   `execute()`" remains an accurate account of *legacy*, which is what it was
+   describing; it is no longer an account of the port.

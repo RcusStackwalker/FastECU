@@ -735,14 +735,26 @@ Status write_memory(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block, 
 
 } // namespace
 
+Result<Iso15765Config> SubaruDenso1n83m_1_5mCanExecutor::transport_setup(const FlashPlan& plan) const
+{
+    if (const Status match = check_family(plan, FlashFamily::SubaruDenso1n83m_1_5mCan); !match.has_value())
+    {
+        return std::unexpected(match.error());
+    }
+    if (const Status valid = validate_subaru_denso_1n83m_1_5m_can_plan(plan); !valid.has_value())
+    {
+        return std::unexpected(valid.error());
+    }
+    const auto& family = std::get<SubaruDenso1n83m_1_5mCanPlan>(plan.family_plan());
+    return iso15765_config_from(family);
+}
+
 Result<FlashExecutionResult> SubaruDenso1n83m_1_5mCanExecutor::execute(const FlashPlan& plan,
-                                                                       IFlashTransport& transport, IClock& clock,
+                                                                       ICanFlashTransport& transport, IClock& clock,
                                                                        const ICancellationToken& cancellation,
                                                                        IEventSink& events)
 {
-    if (const Status matched =
-            check_family_transport_match(plan, FlashFamily::SubaruDenso1n83m_1_5mCan, TransportKind::CanIso15765);
-        !matched.has_value())
+    if (const Status matched = check_family(plan, FlashFamily::SubaruDenso1n83m_1_5mCan); !matched.has_value())
     {
         return std::unexpected(matched.error());
     }
@@ -756,29 +768,17 @@ Result<FlashExecutionResult> SubaruDenso1n83m_1_5mCanExecutor::execute(const Fla
     }
 
     const auto& family = std::get<SubaruDenso1n83m_1_5mCanPlan>(plan.family_plan());
-    Result<ICanFlashTransport *> can_transport =
-        open_can_iso15765_transport(transport, Iso15765Config{
-                                                   .bitrate = family.bitrate,
-                                                   .request_id = family.request_id,
-                                                   .response_id = family.response_id,
-                                                   .extended_id = family.extended_id,
-                                               });
-    if (!can_transport.has_value())
-    {
-        return std::unexpected(can_transport.error());
-    }
-    ICanFlashTransport *can = *can_transport;
 
     const bool read = plan.operation() == FlashOperation::Read;
     PhaseSequence phases(events, read ? 2 : 3);
     PhaseReporter connect = phases.start("Connect", 1);
 
-    CanFlashUdsChannel channel(*can, family.request_id, family.response_id);
+    CanFlashUdsChannel channel(transport, family.request_id, family.response_id);
     uds::UdsClient uds_client(channel, clock, events);
     Ctx ctx{cancellation, events, clock, uds_client, channel};
 
     info(ctx, "Connecting to ECU Denso 1N83M 4MB CAN bootloader, please wait...");
-    if (const Status connected = connect_bootloader(ctx, *can); !connected.has_value())
+    if (const Status connected = connect_bootloader(ctx, transport); !connected.has_value())
     {
         return std::unexpected(connected.error());
     }

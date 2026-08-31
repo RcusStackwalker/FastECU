@@ -350,6 +350,21 @@ bytes::Bytes writeRom()
     return rom;
 }
 
+TEST(SubaruDensoSh72543CanDieselExecutor, TransportSetupReturnsThePlansWireParameters)
+{
+    // The caller configures the transport from this, so the plan's wire
+    // parameters have to survive the hand-off intact.
+    SubaruDensoSh72543CanDieselExecutor executor;
+
+    const auto setup = executor.transport_setup(readPlan());
+
+    ASSERT_TRUE(setup.has_value()) << setup.error().detail;
+    EXPECT_EQ(setup->bitrate, 500000);
+    EXPECT_EQ(setup->request_id, 0x7e0U);
+    EXPECT_EQ(setup->response_id, 0x7e8U);
+    EXPECT_FALSE(setup->extended_id);
+}
+
 TEST(SubaruDensoSh72543CanDieselExecutor, BenchReadReturnsPaddedImage)
 {
     ScriptedCanFlashTransport transport;
@@ -501,7 +516,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, TestWriteIsRejectedBeforeAnyTransportC
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Unsupported);
-    EXPECT_EQ(transport.writesConsumed(), 0u);
+    EXPECT_EQ(transport.writesConsumed(), 0U);
     EXPECT_FALSE(transport.last_config_.has_value());
     EXPECT_THAT(events.logs, IsEmpty());
 }
@@ -557,7 +572,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, ReadTimeoutPropagates)
     // connect performs: the kernel jump is acknowledged on the loop's first
     // look, so its 100 ms retry sleep (line 784) is never reached.
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Kernel jump acknowledged")));
-    EXPECT_EQ(clock.now_, 50u);
+    EXPECT_EQ(clock.now_, 50U);
 }
 
 TEST(SubaruDensoSh72543CanDieselExecutor, ReadDisconnectPropagates)

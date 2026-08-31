@@ -3,10 +3,12 @@
 
 namespace fastecu::flash
 {
-class SubaruDensoSh72531CanExecutor final : public IFlashExecutor
+class SubaruDensoSh72531CanExecutor final : public ICanFlashExecutor
 {
   public:
-    Result<FlashExecutionResult> execute(const FlashPlan& plan, IFlashTransport& transport, IClock& clock,
+    Result<Iso15765Config> transport_setup(const FlashPlan& plan) const override;
+
+    Result<FlashExecutionResult> execute(const FlashPlan& plan, ICanFlashTransport& transport, IClock& clock,
                                          const ICancellationToken& cancellation, IEventSink& events) override;
 };
 } // namespace fastecu::flash
