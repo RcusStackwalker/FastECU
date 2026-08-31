@@ -23,8 +23,7 @@ namespace fastecu::flash
 // treated. Those differences are the safety-relevant part of each family:
 // collapsing them behind a parameterized common routine would make a future
 // reader believe these are the same protocol when they are not. They stay in
-// their own executors deliberately. See
-// docs/superpowers/specs/2026-08-22-step5-tail-wave4-denso-iso15765-can-design.md.
+// their own executors deliberately.
 //
 // Scope note: the 32-entry index transformation below is not specific to this
 // cluster -- the same table appears verbatim in four further executors in this

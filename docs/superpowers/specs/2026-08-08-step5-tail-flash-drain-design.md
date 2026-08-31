@@ -356,9 +356,7 @@ families" — is what the port-then-factor ordering implements.
 ## Doc fixes carried by wave 4
 
 Two corrections wave 4 made to this design, discovered during implementation
-of the Denso ISO-15765 CAN cluster — see the
-[wave-4 design](2026-08-22-step5-tail-wave4-denso-iso15765-can-design.md)'s
-own amendments section for the fuller derivation.
+of the Denso ISO-15765 CAN cluster.
 
 1. **The wave's substrate payoff is small, not "the largest in the tree."**
    [Sequence](#sequence)'s wave-4 rationale was written from whole-file
