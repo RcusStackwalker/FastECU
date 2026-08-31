@@ -17,18 +17,18 @@ class SubaruDensoSh7055_02Executor final : public IKlineFlashExecutor
   private:
     Status connect_bootloader(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                               IEventSink& events, const SubaruDensoSh7055_02Plan& family_plan, bool read_ecu_id,
-                              bool& kernel_alive, std::optional<std::string>& ecu_id);
+                              bool& kernel_alive, std::optional<std::string>& ecu_id) const;
     Status upload_kernel(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-                         IEventSink& events, const KernelImage& kernel);
+                         IEventSink& events, const KernelImage& kernel) const;
     Result<bytes::Bytes> read_mem(IKlineFlashTransport& transport, IClock& clock,
                                   const ICancellationToken& cancellation, IEventSink& events,
-                                  const MemoryRegion& region);
+                                  const MemoryRegion& region) const;
     Result<std::uint32_t> read_block_crc(IKlineFlashTransport& transport, IClock& clock,
-                                         const ICancellationToken& cancellation, const MemoryRegion& block);
+                                         const ICancellationToken& cancellation, const MemoryRegion& block) const;
     Status flash_block(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-                       IEventSink& events, bytes::ByteView image, const MemoryRegion& block, bool test_write);
+                       IEventSink& events, bytes::ByteView image, const MemoryRegion& block, bool test_write) const;
     Status write_mem(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-                     IEventSink& events, bytes::ByteView image, const std::string& mcu_name, bool test_write);
+                     IEventSink& events, bytes::ByteView image, const std::string& mcu_name, bool test_write) const;
 };
 
 } // namespace fastecu::flash

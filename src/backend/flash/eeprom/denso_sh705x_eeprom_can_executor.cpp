@@ -451,7 +451,8 @@ Result<FlashExecutionResult> DensoSh705xEepromCanExecutor::execute(const FlashPl
 // connect_bootloader(), lines 152-635.
 Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& transport, IClock& clock,
                                                         const ICancellationToken& cancellation, IEventSink& events,
-                                                        const DensoSh705xEepromCanPlan& can_plan, bool& kernel_alive)
+                                                        const DensoSh705xEepromCanPlan& can_plan,
+                                                        bool& kernel_alive) const
 {
     if (cancellation.cancelled())
     {
@@ -623,7 +624,8 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
 // upload_kernel(), lines 701-956.
 Status DensoSh705xEepromCanExecutor::upload_kernel(ICanFlashTransport& transport, IClock& clock,
                                                    const ICancellationToken& cancellation, IEventSink& events,
-                                                   const DensoSh705xEepromCanPlan& can_plan, const KernelImage& kernel)
+                                                   const DensoSh705xEepromCanPlan& can_plan,
+                                                   const KernelImage& kernel) const
 {
     if (cancellation.cancelled())
     {
@@ -787,7 +789,7 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(ICanFlashTransport& transport
 Result<bytes::Bytes> DensoSh705xEepromCanExecutor::read_mem(ICanFlashTransport& transport, IClock& clock,
                                                             const ICancellationToken& cancellation, IEventSink& events,
                                                             const MemoryRegion& region, EepromReadMode mode,
-                                                            std::uint32_t request_id)
+                                                            std::uint32_t request_id) const
 {
     const std::uint32_t start_addr = region.start;
     const std::uint32_t length = region.length;

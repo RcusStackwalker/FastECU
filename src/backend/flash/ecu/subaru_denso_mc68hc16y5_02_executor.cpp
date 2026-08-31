@@ -211,7 +211,7 @@ Status drain_initial_response(IKlineFlashTransport& transport, const ICancellati
 Status SubaruDensoMc68hc16y5_02Executor::connect_bootloader(IKlineFlashTransport& transport, IClock& clock,
                                                             const ICancellationToken& cancellation, IEventSink& events,
                                                             const SubaruDensoMc68hc16y5_02Plan& family_plan,
-                                                            bool& kernel_alive)
+                                                            bool& kernel_alive) const
 {
     if (Status cancelled = check_cancelled(cancellation, "cancelled before connect"); !cancelled.has_value())
     {
@@ -309,7 +309,7 @@ Status SubaruDensoMc68hc16y5_02Executor::connect_bootloader(IKlineFlashTransport
 Status SubaruDensoMc68hc16y5_02Executor::upload_kernel(IKlineFlashTransport& transport, IClock& clock,
                                                        const ICancellationToken& cancellation, IEventSink& events,
                                                        const SubaruDensoMc68hc16y5_02Plan& family_plan,
-                                                       const KernelImage& kernel)
+                                                       const KernelImage& kernel) const
 {
     if (Status cancelled = check_cancelled(cancellation, "cancelled before kernel upload"); !cancelled.has_value())
     {
@@ -408,7 +408,7 @@ Status SubaruDensoMc68hc16y5_02Executor::upload_kernel(IKlineFlashTransport& tra
 
 Result<bytes::Bytes> SubaruDensoMc68hc16y5_02Executor::read_mem(IKlineFlashTransport& transport, IClock& clock,
                                                                 const ICancellationToken& cancellation,
-                                                                IEventSink& events, const std::string& mcu_name)
+                                                                IEventSink& events, const std::string& mcu_name) const
 {
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:323-455.
     // Legacy lines 370-380 jump the wire address across the RAM/kernel hole
@@ -470,7 +470,7 @@ Result<bytes::Bytes> SubaruDensoMc68hc16y5_02Executor::read_mem(IKlineFlashTrans
 
 Result<std::uint32_t> SubaruDensoMc68hc16y5_02Executor::read_block_crc(IKlineFlashTransport& transport, IClock& clock,
                                                                        const ICancellationToken& cancellation,
-                                                                       const MemoryRegion& block)
+                                                                       const MemoryRegion& block) const
 {
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:626-715:
     // request the ECU's CRC over [start, start + length).
@@ -548,7 +548,8 @@ Result<std::uint32_t> SubaruDensoMc68hc16y5_02Executor::read_block_crc(IKlineFla
 
 Status SubaruDensoMc68hc16y5_02Executor::flash_block(IKlineFlashTransport& transport, IClock& clock,
                                                      const ICancellationToken& cancellation, IEventSink& events,
-                                                     bytes::ByteView image, const MemoryRegion& block, bool test_write)
+                                                     bytes::ByteView image, const MemoryRegion& block,
+                                                     bool test_write) const
 {
     if (block.start > image.size() || block.length > image.size() - block.start ||
         block.length % kWriteChunkSize != 0 || block.length % kCommitBlockSize != 0)
@@ -634,7 +635,8 @@ Status SubaruDensoMc68hc16y5_02Executor::flash_block(IKlineFlashTransport& trans
 
 Status SubaruDensoMc68hc16y5_02Executor::write_mem(IKlineFlashTransport& transport, IClock& clock,
                                                    const ICancellationToken& cancellation, IEventSink& events,
-                                                   bytes::ByteView image, const std::string& mcu_name, bool test_write)
+                                                   bytes::ByteView image, const std::string& mcu_name,
+                                                   bool test_write) const
 {
     const flashdev_t *device = find_flash_device(mcu_name);
     if (device == nullptr)

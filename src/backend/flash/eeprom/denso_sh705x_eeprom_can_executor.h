@@ -27,12 +27,12 @@ class DensoSh705xEepromCanExecutor final : public ICanFlashExecutor
 
   private:
     Status connect_bootloader(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-                              IEventSink& events, const DensoSh705xEepromCanPlan& can_plan, bool& kernel_alive);
+                              IEventSink& events, const DensoSh705xEepromCanPlan& can_plan, bool& kernel_alive) const;
     Status upload_kernel(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-                         IEventSink& events, const DensoSh705xEepromCanPlan& can_plan, const KernelImage& kernel);
+                         IEventSink& events, const DensoSh705xEepromCanPlan& can_plan, const KernelImage& kernel) const;
     Result<bytes::Bytes> read_mem(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                                   IEventSink& events, const MemoryRegion& region, EepromReadMode mode,
-                                  std::uint32_t request_id);
+                                  std::uint32_t request_id) const;
 };
 
 } // namespace fastecu::flash

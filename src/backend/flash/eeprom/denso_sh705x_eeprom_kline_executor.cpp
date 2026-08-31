@@ -390,7 +390,7 @@ DensoSh705xEepromKlineExecutor::execute(const FlashPlan& plan, IKlineFlashTransp
 Status DensoSh705xEepromKlineExecutor::connect_bootloader(IKlineFlashTransport& transport, IClock& clock,
                                                           const ICancellationToken& cancellation, IEventSink& events,
                                                           const DensoSh705xEepromKlinePlan& kline_plan,
-                                                          bool& kernel_alive)
+                                                          bool& kernel_alive) const
 {
     if (cancellation.cancelled())
     {
@@ -532,7 +532,7 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(IKlineFlashTransport& 
 Status DensoSh705xEepromKlineExecutor::upload_kernel(IKlineFlashTransport& transport, IClock& clock,
                                                      const ICancellationToken& cancellation, IEventSink& events,
                                                      const DensoSh705xEepromKlinePlan& kline_plan,
-                                                     const KernelImage& kernel)
+                                                     const KernelImage& kernel) const
 {
     if (cancellation.cancelled())
     {
@@ -690,7 +690,7 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(IKlineFlashTransport& trans
 Result<bytes::Bytes> DensoSh705xEepromKlineExecutor::read_mem(IKlineFlashTransport& transport, IClock& clock,
                                                               const ICancellationToken& cancellation,
                                                               IEventSink& events, const MemoryRegion& region,
-                                                              EepromReadMode mode)
+                                                              EepromReadMode mode) const
 {
     const std::uint32_t start_addr = region.start;
     const std::uint32_t length = region.length;
