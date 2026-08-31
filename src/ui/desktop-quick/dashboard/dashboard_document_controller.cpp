@@ -400,6 +400,10 @@ void DashboardDocumentController::resolveUnsaved(UnsavedDecision decision)
         {
             continuePendingAction();
         }
+        else
+        {
+            emit unsavedDecisionRequested();
+        }
         return;
     }
 }
@@ -464,6 +468,10 @@ void DashboardDocumentController::completeSavePath(const QString& path)
     if (saveAs(to_string(path)).has_value())
     {
         continuePendingAction();
+    }
+    else
+    {
+        emit unsavedDecisionRequested();
     }
 }
 

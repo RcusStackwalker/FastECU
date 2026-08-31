@@ -22,6 +22,8 @@ class DashboardEditorModel final : public QAbstractListModel
     Q_PROPERTY(QString selectedCardId READ selectedCardId WRITE selectCard NOTIFY selectionChanged)
     Q_PROPERTY(QVariantList channelChoices READ channelChoices NOTIFY choicesChanged)
     Q_PROPERTY(QVariantList conversionChoices READ conversionChoices NOTIFY choicesChanged)
+    Q_PROPERTY(QString addChannelId READ addChannelId NOTIFY addChoicesChanged)
+    Q_PROPERTY(QVariantList addConversionChoices READ addConversionChoices NOTIFY addChoicesChanged)
     Q_PROPERTY(QVariantList displayTypeChoices READ displayTypeChoices CONSTANT)
     Q_PROPERTY(QString selectedChannelId READ selectedChannelId NOTIFY selectionChanged)
     Q_PROPERTY(QString selectedConversionId READ selectedConversionId NOTIFY selectionChanged)
@@ -56,6 +58,8 @@ class DashboardEditorModel final : public QAbstractListModel
     QString selectedCardId() const;
     QVariantList channelChoices() const;
     QVariantList conversionChoices() const;
+    QString addChannelId() const;
+    QVariantList addConversionChoices() const;
     QVariantList displayTypeChoices() const;
     QString selectedChannelId() const;
     QString selectedConversionId() const;
@@ -71,7 +75,7 @@ class DashboardEditorModel final : public QAbstractListModel
     bool canMoveDown() const;
 
     Q_INVOKABLE void selectCard(const QString& card_id);
-    Q_INVOKABLE QVariantList conversionChoicesForChannel(const QString& channel_id) const;
+    Q_INVOKABLE void setAddChannel(const QString& channel_id);
     Q_INVOKABLE void addCard(const QString& channel_id, const QString& conversion_id);
     Q_INVOKABLE void removeSelected();
     Q_INVOKABLE void moveSelectedUp();
@@ -86,6 +90,7 @@ class DashboardEditorModel final : public QAbstractListModel
   signals:
     void selectionChanged();
     void choicesChanged();
+    void addChoicesChanged();
     void availabilityChanged();
 
   private:
@@ -93,6 +98,7 @@ class DashboardEditorModel final : public QAbstractListModel
     const dashboard::DashboardCard *selectedCard() const;
     const dashboard::DashboardChannel *channelFor(const dashboard::DashboardCard& card) const;
     const dashboard::DashboardConversion *conversionFor(const dashboard::DashboardCard& card) const;
+    QVariantList conversionChoicesForChannel(const QString& channel_id) const;
     std::vector<std::size_t> orderedCardIndexes() const;
     static void orderCards(std::vector<dashboard::DashboardCard>& cards);
     static void renumberCards(std::vector<dashboard::DashboardCard>& cards);
@@ -103,6 +109,7 @@ class DashboardEditorModel final : public QAbstractListModel
     void refreshProperties();
 
     DashboardDocumentController& controller_;
+    QString add_channel_id_;
 };
 
 } // namespace fastecu::desktop_quick

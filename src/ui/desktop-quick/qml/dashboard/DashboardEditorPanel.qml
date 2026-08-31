@@ -122,13 +122,20 @@ Frame {
                 ToolTip.visible: hovered && !enabled && !dashboardDocuments.editingEnabled
                 ToolTip.text: disabledReason
                 Layout.fillWidth: true
+                onActivated: dashboardEditor.setAddChannel(currentValue)
+
+                Binding {
+                    target: addCardChannelCombo
+                    property: "currentIndex"
+                    value: addCardChannelCombo.indexOfValue(dashboardEditor.addChannelId)
+                }
             }
 
             ComboBox {
                 id: addCardConversionCombo
                 objectName: "addCardConversionCombo"
                 property string disabledReason: panel.disabledReason
-                model: dashboardEditor.conversionChoicesForChannel(addCardChannelCombo.currentValue)
+                model: dashboardEditor.addConversionChoices
                 textRole: "unit"
                 valueRole: "id"
                 enabled: dashboardDocuments.editingEnabled && dashboardEditor.canAdd

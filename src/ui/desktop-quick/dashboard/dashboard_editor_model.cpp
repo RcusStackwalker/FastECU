@@ -61,6 +61,10 @@ DashboardEditorModel::DashboardEditorModel(DashboardDocumentController& controll
     connect(&controller_, &DashboardDocumentController::documentCommitted, this,
             &DashboardEditorModel::resetFromCommittedDocument);
     connect(&controller_, &DashboardDocumentController::stateChanged, this, &DashboardEditorModel::refreshProperties);
+    if (const dashboard::DashboardDocument *current = document(); current != nullptr && !current->channels.empty())
+    {
+        add_channel_id_ = to_qstring(current->channels.front().id);
+    }
 }
 
 int DashboardEditorModel::rowCount(const QModelIndex& parent) const
@@ -134,6 +138,16 @@ QVariantList DashboardEditorModel::conversionChoices() const
     return card == nullptr ? QVariantList{} : conversionChoicesForChannel(to_qstring(card->channel_id));
 }
 
+QString DashboardEditorModel::addChannelId() const
+{
+    return add_channel_id_;
+}
+
+QVariantList DashboardEditorModel::addConversionChoices() const
+{
+    return conversionChoicesForChannel(add_channel_id_);
+}
+
 QVariantList DashboardEditorModel::conversionChoicesForChannel(const QString& channel_id) const
 {
     QVariantList choices;
@@ -167,6 +181,16 @@ QVariantList DashboardEditorModel::displayTypeChoices() const
         QVariantMap{{QStringLiteral("value"), static_cast<int>(CardDisplayType::HorizontalGauge)},
                     {QStringLiteral("label"), QStringLiteral("Horizontal Gauge")}},
     };
+}
+
+void DashboardEditorModel::setAddChannel(const QString& channel_id)
+{
+    if (channel_id == add_channel_id_)
+    {
+        return;
+    }
+    add_channel_id_ = channel_id;
+    emit addChoicesChanged();
 }
 
 QString DashboardEditorModel::selectedChannelId() const
@@ -621,6 +645,18 @@ void DashboardEditorModel::resetFromCommittedDocument()
 {
     beginResetModel();
     endResetModel();
+    const dashboard::DashboardDocument *current = document();
+    const std::string selected = to_string(add_channel_id_);
+    const bool selection_exists =
+        current != nullptr &&
+        std::ranges::any_of(current->channels,
+                            [&selected](const dashboard::DashboardChannel& item) { return item.id == selected; });
+    if (!selection_exists)
+    {
+        add_channel_id_ =
+            current == nullptr || current->channels.empty() ? QString{} : to_qstring(current->channels.front().id);
+    }
+    emit addChoicesChanged();
 }
 
 void DashboardEditorModel::refreshProperties()

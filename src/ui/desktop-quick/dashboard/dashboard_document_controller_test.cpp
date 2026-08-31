@@ -684,13 +684,16 @@ class DashboardDocumentControllerTest : public QObject
         const ControllerState dirty_state = state_of(harness_->controller);
         harness_->writer.replace_error = Error{ErrorKind::Internal, "disk full"};
         QSignalSpy open_requested(&harness_->controller, &DashboardDocumentController::openPathRequested);
+        QSignalSpy unsaved(&harness_->controller, &DashboardDocumentController::unsavedDecisionRequested);
 
         harness_->controller.requestOpen();
+        QCOMPARE(unsaved.count(), 1);
         harness_->controller.resolveUnsaved(UnsavedDecision::Save);
 
         QCOMPARE(harness_->writer.replace_calls.size(), std::size_t{1});
         QCOMPARE(open_requested.count(), 0);
         QCOMPARE(state_of(harness_->controller), dirty_state);
+        QCOMPARE(unsaved.count(), 2);
 
         harness_->writer.replace_error.reset();
         harness_->controller.resolveUnsaved(decision);
@@ -717,21 +720,56 @@ class DashboardDocumentControllerTest : public QObject
         }
     }
 
+    void failedSaveAsRetainsTheOriginalAction_data()
+    {
+        QTest::addColumn<int>("recovery_decision");
+        QTest::newRow("retry") << static_cast<int>(UnsavedDecision::Save);
+        QTest::newRow("discard") << static_cast<int>(UnsavedDecision::Discard);
+        QTest::newRow("cancel") << static_cast<int>(UnsavedDecision::Cancel);
+    }
+
     void failedSaveAsRetainsTheOriginalAction()
     {
+        QFETCH(int, recovery_decision);
+        const auto decision = static_cast<UnsavedDecision>(recovery_decision);
         install_dirty_untitled_document();
         const ControllerState dirty_state = state_of(harness_->controller);
         harness_->writer.replace_error = Error{ErrorKind::Internal, "permission denied"};
         QSignalSpy exit_approved(&harness_->controller, &DashboardDocumentController::exitApproved);
+        QSignalSpy save_requested(&harness_->controller, &DashboardDocumentController::savePathRequested);
+        QSignalSpy unsaved(&harness_->controller, &DashboardDocumentController::unsavedDecisionRequested);
 
         harness_->controller.requestExit();
+        QCOMPARE(unsaved.count(), 1);
         harness_->controller.resolveUnsaved(UnsavedDecision::Save);
+        QCOMPARE(save_requested.count(), 1);
         harness_->controller.completeSavePath(QStringLiteral("not-adopted.ohd"));
 
         QCOMPARE(exit_approved.count(), 0);
         QCOMPARE(state_of(harness_->controller), dirty_state);
-        harness_->controller.resolveUnsaved(UnsavedDecision::Discard);
-        QCOMPARE(exit_approved.count(), 1);
+        QCOMPARE(unsaved.count(), 2);
+
+        harness_->writer.replace_error.reset();
+        harness_->controller.resolveUnsaved(decision);
+        if (decision == UnsavedDecision::Save)
+        {
+            QCOMPARE(save_requested.count(), 2);
+            harness_->controller.completeSavePath(QStringLiteral("adopted.ohd"));
+            QCOMPARE(exit_approved.count(), 1);
+            QCOMPARE(harness_->controller.currentPath(), QStringLiteral("adopted.ohd"));
+            QVERIFY(!harness_->controller.isDirty());
+        }
+        else if (decision == UnsavedDecision::Discard)
+        {
+            QCOMPARE(exit_approved.count(), 1);
+            QCOMPARE(state_of(harness_->controller), dirty_state);
+        }
+        else
+        {
+            QCOMPARE(exit_approved.count(), 0);
+            harness_->controller.requestExit();
+            QCOMPARE(unsaved.count(), 3);
+        }
     }
 
     void aSecondTransitionCannotReplaceThePendingAction_data()

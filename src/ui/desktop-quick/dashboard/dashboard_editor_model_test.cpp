@@ -166,16 +166,29 @@ class DashboardEditorModelTest : public QObject
         QVERIFY(harness.editor.canMoveDown());
     }
 
-    void projectsConversionsForAnAddChannelWithoutASelectedCard()
+    void addConversionProjectionNotifiesForSameChannelDocumentReplacement()
     {
         Harness harness;
         harness.open(document_with({}));
 
-        const QVariantList boost = harness.editor.conversionChoicesForChannel(QStringLiteral("CDBG_BOOST"));
+        QCOMPARE(harness.editor.addChannelId(), QStringLiteral("CDBG_ENGINE_RPM"));
+        QCOMPARE(choice_id(harness.editor.addConversionChoices().at(0)), QStringLiteral("rpm"));
+        harness.editor.setAddChannel(QStringLiteral("CDBG_BOOST"));
+        const QVariantList boost = harness.editor.addConversionChoices();
         QCOMPARE(boost.size(), 2);
         QCOMPARE(choice_id(boost.at(0)), QStringLiteral("bar"));
         QCOMPARE(choice_id(boost.at(1)), QStringLiteral("psi"));
-        QCOMPARE(harness.editor.conversionChoicesForChannel(QStringLiteral("missing")), QVariantList{});
+        QSignalSpy add_choices(&harness.editor, &DashboardEditorModel::addChoicesChanged);
+
+        dashboard::DashboardDocument replacement = document_with({});
+        replacement.channels.at(2).conversions = {conversion("kilopascals", "kPa", -100.0, 200.0, 25.0)};
+        harness.open(replacement);
+
+        QCOMPARE(harness.editor.addChannelId(), QStringLiteral("CDBG_BOOST"));
+        QCOMPARE(add_choices.count(), 1);
+        const QVariantList replaced = harness.editor.addConversionChoices();
+        QCOMPARE(replaced.size(), 1);
+        QCOMPARE(choice_id(replaced.at(0)), QStringLiteral("kilopascals"));
         QCOMPARE(harness.editor.selectedCardId(), QString{});
         QCOMPARE(harness.editor.conversionChoices(), QVariantList{});
     }

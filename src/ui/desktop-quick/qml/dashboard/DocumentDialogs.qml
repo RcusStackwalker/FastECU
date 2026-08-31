@@ -68,7 +68,11 @@ Item {
 
                 Button {
                     objectName: "saveUnsavedButton"
+                    property string disabledReason: qsTr("Disconnect to edit the dashboard")
                     text: qsTr("Save")
+                    enabled: dashboardDocuments.editingEnabled
+                    ToolTip.visible: hovered && !enabled
+                    ToolTip.text: disabledReason
                     onClicked: {
                         unsavedDialog.close()
                         dashboardDocuments.resolveUnsaved(DashboardDocumentController.Save)

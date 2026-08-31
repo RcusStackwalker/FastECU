@@ -508,11 +508,49 @@ class DesktopQuickApplicationTest : public QObject
         QCOMPARE(application.editor.selectedConversionId(), QStringLiteral("rpm"));
     }
 
+    void addConversionChoicesRefreshWhenTheSameChannelIsReplaced()
+    {
+        LoadedApplication application;
+        QVERIFY(application.loaded);
+        while (application.editor.rowCount() > 0)
+        {
+            application.editor.removeSelected();
+        }
+        QObject *channel = application.find("addCardChannelCombo");
+        QObject *conversion = application.find("addCardConversionCombo");
+        QTRY_COMPARE(channel->property("currentValue").toString(), QStringLiteral("CDBG_ENGINE_RPM"));
+        QTRY_COMPARE(conversion->property("currentValue").toString(), QStringLiteral("rpm"));
+
+        dashboard::DashboardDocument replacement = mixed_card_document();
+        replacement.cards.clear();
+        replacement.channels.front().conversions = {
+            {.id = "engine-speed-new",
+             .expression = "x / 2",
+             .unit = "rps",
+             .precision = 1,
+             .gauge_min = 0.0,
+             .gauge_max = 150.0,
+             .gauge_step = 10.0},
+        };
+        auto encoded = dashboard::encode_dashboard_document(replacement);
+        QVERIFY2(encoded.has_value(), encoded.error().detail.c_str());
+        application.repository.files["replacement.ohd"] = std::move(*encoded);
+
+        const Status opened = application.document_controller.openDocument("replacement.ohd");
+
+        QVERIFY2(opened.has_value(), opened.error().detail.c_str());
+        QTRY_COMPARE(channel->property("currentValue").toString(), QStringLiteral("CDBG_ENGINE_RPM"));
+        QTRY_COMPARE(conversion->property("currentValue").toString(), QStringLiteral("engine-speed-new"));
+    }
+
     void runningStateDisablesDocumentAndMutationControlsWithAnExplanation()
     {
         LoadedApplication application;
         QVERIFY(application.loaded);
+        application.editor.setSelectedTitle(QStringLiteral("Blocked while running"));
         application.document_controller.setConnectionState(ConnectionState::Running);
+        application.document_controller.requestExit();
+        QTRY_COMPARE(application.find("unsavedChangesDialog")->property("visible").toBool(), true);
 
         const QString reason = QStringLiteral("Disconnect to edit the dashboard");
         const QList<const char *> controls = {
@@ -520,7 +558,7 @@ class DesktopQuickApplicationTest : public QObject
             "addCardButton",          "removeCardButton",      "moveCardUpButton",     "moveCardDownButton",
             "cardChannelCombo",       "cardConversionCombo",   "cardDisplayTypeCombo", "addCardChannelCombo",
             "addCardConversionCombo", "cardTitleField",        "gaugeMinimumField",    "gaugeMaximumField",
-            "gaugeStepField",         "sparklineHistoryField",
+            "gaugeStepField",         "sparklineHistoryField", "saveUnsavedButton",
         };
         for (const char *object_name : controls)
         {
@@ -529,6 +567,8 @@ class DesktopQuickApplicationTest : public QObject
             QTRY_COMPARE(control->property("enabled").toBool(), false);
             QCOMPARE(control->property("disabledReason").toString(), reason);
         }
+        QCOMPARE(application.find("discardUnsavedButton")->property("enabled").toBool(), true);
+        QCOMPARE(application.find("cancelUnsavedButton")->property("enabled").toBool(), true);
     }
 
     void unsavedDialogButtonsResolveSaveDiscardAndCancelContinuations()
@@ -570,6 +610,56 @@ class DesktopQuickApplicationTest : public QObject
             QVERIFY(click(application.find("cancelUnsavedButton")));
             QCOMPARE(exit_approved.count(), 0);
             QTRY_COMPARE(application.find("unsavedChangesDialog")->property("visible").toBool(), false);
+        }
+    }
+
+    void failedSaveReopensTheUnsavedDialogForEveryRecovery_data()
+    {
+        QTest::addColumn<QString>("recovery_button");
+        QTest::newRow("retry") << QStringLiteral("saveUnsavedButton");
+        QTest::newRow("discard") << QStringLiteral("discardUnsavedButton");
+        QTest::newRow("cancel") << QStringLiteral("cancelUnsavedButton");
+    }
+
+    void failedSaveReopensTheUnsavedDialogForEveryRecovery()
+    {
+        QFETCH(QString, recovery_button);
+        LoadedApplication application;
+        QVERIFY(application.loaded);
+        application.editor.setSelectedTitle(QStringLiteral("Recover failed save"));
+        application.writer.replace_error = Error{ErrorKind::Internal, "disk full"};
+        QSignalSpy open_requested(&application.document_controller, &DashboardDocumentController::openPathRequested);
+
+        application.document_controller.requestOpen();
+        QTRY_COMPARE(application.find("unsavedChangesDialog")->property("visible").toBool(), true);
+        QVERIFY(click(application.find("saveUnsavedButton")));
+
+        QTRY_COMPARE(application.find("documentErrorBanner")->property("visible").toBool(), true);
+        QTRY_COMPARE(application.find("unsavedChangesDialog")->property("visible").toBool(), true);
+        QCOMPARE(open_requested.count(), 0);
+
+        application.writer.replace_error.reset();
+        QVERIFY(click(application.find(recovery_button.toUtf8().constData())));
+        QTRY_COMPARE(application.find("unsavedChangesDialog")->property("visible").toBool(), false);
+        if (recovery_button == QStringLiteral("saveUnsavedButton"))
+        {
+            QCOMPARE(application.writer.replace_calls.size(), std::size_t{2});
+            QCOMPARE(open_requested.count(), 1);
+            QVERIFY(!application.document_controller.isDirty());
+        }
+        else if (recovery_button == QStringLiteral("discardUnsavedButton"))
+        {
+            QCOMPARE(application.writer.replace_calls.size(), std::size_t{1});
+            QCOMPARE(open_requested.count(), 1);
+            QVERIFY(application.document_controller.isDirty());
+        }
+        else
+        {
+            QCOMPARE(application.writer.replace_calls.size(), std::size_t{1});
+            QCOMPARE(open_requested.count(), 0);
+            QVERIFY(application.document_controller.isDirty());
+            application.document_controller.requestExit();
+            QTRY_COMPARE(application.find("unsavedChangesDialog")->property("visible").toBool(), true);
         }
     }
 
