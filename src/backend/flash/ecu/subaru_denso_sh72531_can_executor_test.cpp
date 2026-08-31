@@ -15,6 +15,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
@@ -41,6 +42,23 @@ using testing::Contains;
 using testing::Each;
 using testing::IsEmpty;
 using testing::Pair;
+
+// Records every ctx.clock.sleep() argument so the executor's inter-exchange
+// settles can be asserted as a sequence. Same shape as the wave-2
+// (subaru_denso_sh7055_02_executor_test.cpp) and wave-3
+// (subaru_tcu_cvt_mitsu_mh8104_can_executor_test.cpp) recording clocks: a
+// FakeClock with one extra hook, so no fake or port changes shape.
+class RecordingClock final : public FakeClock
+{
+  public:
+    fastecu::Status sleep(int ms, const fastecu::ICancellationToken& cancellation) override
+    {
+        sleep_calls.push_back(ms);
+        return FakeClock::sleep(ms, cancellation);
+    }
+
+    std::vector<int> sleep_calls;
+};
 
 constexpr std::string_view kProtocol = "sub_ecu_denso_sh72531_can";
 constexpr std::string_view kMcu = "SH72531";
@@ -383,7 +401,7 @@ TEST(SubaruDensoSh72531CanExecutor, WriteErasesThenFlashesBlockOne)
     scriptReflashChunks(transport, rom);
     scriptCloseAndChecksum(transport);
 
-    FakeClock clock;
+    RecordingClock clock;
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
     SubaruDensoSh72531CanExecutor executor;
@@ -404,6 +422,14 @@ TEST(SubaruDensoSh72531CanExecutor, WriteErasesThenFlashesBlockOne)
     const bytes::Bytes encrypted = toWire(rom);
     EXPECT_EQ(bytes::Bytes(encrypted.begin() + 0x8000, encrypted.begin() + 0x8000 + 256),
               toWire(bytes::ByteView(rom).subspan(0x8000, 256)));
+    // Every sleep the write path performs, in order, each with the legacy
+    // delay() it reproduces: connect_bench's wait (line 660), the bench kernel
+    // jump's inter-read settle (line 784), the settle after the erase command
+    // (line 1429), and the settle before the checksum-verify write (line
+    // 1295). Asserted as a whole sequence rather than by Contains so that
+    // dropping one -- as this port did with both the 784 and the 1295 settle
+    // -- fails here instead of passing silently.
+    EXPECT_EQ(clock.sleep_calls, (std::vector<int>{500, 50, 500, 100}));
 }
 
 TEST(SubaruDensoSh72531CanExecutor, TestWriteIsRejectedBeforeAnyTransportCall)
@@ -429,20 +455,22 @@ TEST(SubaruDensoSh72531CanExecutor, TestWriteIsRejectedBeforeAnyTransportCall)
 
 TEST(SubaruDensoSh72531CanExecutor, BenchKernelJumpDiscardsFirstReply)
 {
-    // Unique to this family: after the 0x10 0x42 write the bench arm reads
-    // twice and keeps only the second reply (legacy lines 782 and 785), where
-    // the 1N83M 1.5M sibling reads once. Both scripted frames are consumed
-    // either way, so the discard is pinned by the clock instead: the
-    // acknowledgement is found on the loop's first look, meaning connect_bench
-    // 's own 500 ms wait (line 660) is the only sleep the whole connect
-    // performs. Reading once would push the ack into the second iteration and
-    // add the loop's 100 ms retry sleep (line 799).
+    // Unique to this family among the wave's 1N83M pair: after the 0x10 0x42
+    // write the bench arm reads twice and keeps only the second reply (legacy
+    // lines 782 and 785, with a delay(50) between them at line 784), where the
+    // 1N83M 1.5M sibling reads once. Its 1N83M 4M sibling does the same two
+    // reads. Both scripted frames are consumed either way, so the discard is
+    // pinned by the clock instead: the acknowledgement is found on the loop's
+    // first look, so the whole connect sleeps exactly twice -- connect_bench's
+    // own 500 ms wait (line 660) and the jump's 50 ms inter-read settle.
+    // Reading once would drop the 50, and pushing the ack into a second loop
+    // iteration would add the loop's 100 ms retry sleep (line 799).
     ScriptedCanFlashTransport transport;
     scriptBenchConnect(transport);
     transport.expectWrite(request({0x34, 0x04, 0x44, 0x00, 0x00, 0x80, 0x00, 0x00, 0x13, 0x7F, 0x00}));
     transport.queue_error(ErrorKind::Timeout, "stop after connect");
 
-    FakeClock clock;
+    RecordingClock clock;
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
     SubaruDensoSh72531CanExecutor executor;
@@ -453,7 +481,10 @@ TEST(SubaruDensoSh72531CanExecutor, BenchKernelJumpDiscardsFirstReply)
     EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Kernel jump acknowledged")));
-    EXPECT_EQ(clock.now_, 500u);
+    // connect_bench's 500 ms wait (legacy line 660) then the jump's own 50 ms
+    // between its two reads (legacy line 784).
+    EXPECT_EQ(clock.sleep_calls, (std::vector<int>{500, 50}));
+    EXPECT_EQ(clock.now_, 550u);
 }
 
 TEST(SubaruDensoSh72531CanExecutor, ReadTimeoutPropagates)

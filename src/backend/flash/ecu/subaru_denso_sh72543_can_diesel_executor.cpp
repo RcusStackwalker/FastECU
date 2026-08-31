@@ -39,6 +39,12 @@ constexpr int kLongTimeoutMs = 2000;   // serial_read_timeout
 constexpr uds::ExchangePolicy kShortPolicy{.read_timeout_ms = kShortTimeoutMs};
 constexpr uds::ExchangePolicy kReceivePolicy{.read_timeout_ms = kReceiveTimeoutMs};
 constexpr uds::ExchangePolicy kLongPolicy{.read_timeout_ms = kLongTimeoutMs};
+// Checksum verify reads twice and this family uses serial_read_timeout for
+// both: the first read at line 1328 and, after the ECU's 7F 31 78 pending
+// answer, the re-read at line 1348. UdsClient substitutes pending_timeout_ms
+// for that second read, whose 3000 ms default is not this family's number, so
+// the policy pins it to 2000 as well.
+constexpr uds::ExchangePolicy kChecksumPolicy{.read_timeout_ms = kLongTimeoutMs, .pending_timeout_ms = kLongTimeoutMs};
 
 // Session ids in ISO 14229-1's 0x40-0x5F vehicle-manufacturer-specific band;
 // legacy uses its own values here rather than the standard subfunctions.
@@ -806,7 +812,7 @@ Status reflash_block(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block,
     if (Result<bytes::Bytes> checksum = fatal_query(
             ctx,
             bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, kRoutineIdHigh, kRoutineChecksum, 0x01},
-            bytes::Bytes{uds::kRoutineControlStart, kRoutineIdHigh}, kLongPolicy, "checksum verify");
+            bytes::Bytes{uds::kRoutineControlStart, kRoutineIdHigh}, kChecksumPolicy, "checksum verify");
         !checksum.has_value())
     {
         // Legacy pairs every checksum rejection with this second line

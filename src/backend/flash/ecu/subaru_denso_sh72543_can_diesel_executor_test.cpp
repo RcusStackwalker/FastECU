@@ -15,6 +15,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
@@ -41,6 +42,23 @@ using testing::Contains;
 using testing::Each;
 using testing::IsEmpty;
 using testing::Pair;
+
+// Records every ctx.clock.sleep() argument so the executor's inter-exchange
+// settles can be asserted as a sequence. Same shape as the wave-2
+// (subaru_denso_sh7055_02_executor_test.cpp) and wave-3
+// (subaru_tcu_cvt_mitsu_mh8104_can_executor_test.cpp) recording clocks: a
+// FakeClock with one extra hook, so no fake or port changes shape.
+class RecordingClock final : public FakeClock
+{
+  public:
+    fastecu::Status sleep(int ms, const fastecu::ICancellationToken& cancellation) override
+    {
+        sleep_calls.push_back(ms);
+        return FakeClock::sleep(ms, cancellation);
+    }
+
+    std::vector<int> sleep_calls;
+};
 
 constexpr std::string_view kProtocol = "sub_ecu_denso_sh72543_can_diesel";
 constexpr std::string_view kMcu = "SH72543d";
@@ -398,7 +416,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, WriteErasesThenFlashesBlockZero)
     scriptReflashChunks(transport, rom);
     scriptCloseAndChecksum(transport);
 
-    FakeClock clock;
+    RecordingClock clock;
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
     SubaruDensoSh72543CanDieselExecutor executor;
@@ -417,6 +435,13 @@ TEST(SubaruDensoSh72543CanDieselExecutor, WriteErasesThenFlashesBlockZero)
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Flash erased! Starting flash write, do not power off!")));
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Closing out Flashing of this block")));
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Checksum verified")));
+    // Every sleep the write path performs, in order, each with the legacy
+    // delay() it reproduces: connect_bench's wait (line 653, 50 ms here where
+    // the three sibling families wait 500), the settle after the erase command
+    // (line 1452), and the settle before the checksum-verify write (line
+    // 1313). Asserted as a whole sequence rather than by Contains so that
+    // dropping one fails here instead of passing silently.
+    EXPECT_EQ(clock.sleep_calls, (std::vector<int>{50, 500, 100}));
 }
 
 TEST(SubaruDensoSh72543CanDieselExecutor, WriteTakesBytesFromTheAbsoluteAddress)

@@ -47,11 +47,17 @@ constexpr int kLongTimeoutMs = 2000;   // serial_read_timeout, and read_memory's
 constexpr uds::ExchangePolicy kShortPolicy{.read_timeout_ms = kShortTimeoutMs};
 constexpr uds::ExchangePolicy kReceivePolicy{.read_timeout_ms = kReceiveTimeoutMs};
 constexpr uds::ExchangePolicy kLongPolicy{.read_timeout_ms = kLongTimeoutMs};
-// serial_read_extra_long_timeout (3000 ms) is deliberately absent from this
-// list. It applies to exactly one read -- the post-responsePending re-read at
-// line 1341 -- and ExchangePolicy::pending_timeout_ms already defaults to
-// 3000 for precisely that read, so no policy here has to carry it. Putting it
-// in read_timeout_ms would wrongly stretch the *first* read too.
+constexpr int kExtraLongTimeoutMs = 3000; // serial_read_extra_long_timeout
+// Checksum verify reads twice and this family's two reads differ: the first
+// uses the bare 500 literal (line 1322, i.e. receive_timeout) and the re-read
+// after the ECU's 7F 31 78 pending answer uses
+// serial_read_extra_long_timeout (line 1341). UdsClient substitutes
+// pending_timeout_ms for that second read, so the pair is spelled out here
+// rather than left to the 3000 ms default -- the three sibling families read
+// 500/500, 2000/2000 and 2000/2000 at this same exchange, so the default is
+// not a shared number and each family pins its own.
+constexpr uds::ExchangePolicy kChecksumPolicy{.read_timeout_ms = kReceiveTimeoutMs,
+                                              .pending_timeout_ms = kExtraLongTimeoutMs};
 
 // Session ids in ISO 14229-1's 0x40-0x5F vehicle-manufacturer-specific band;
 // legacy uses its own values here rather than the standard subfunctions.
@@ -357,7 +363,7 @@ Status jump_to_kernel(Ctx& ctx, bytes::Byte session, int max_tries, bool duplica
     }
     if (duplicate_pre_loop_read)
     {
-        // Line 789's delay(50), then line 790's second read, whose result
+        // Line 790's delay(50), then line 791's second read, whose result
         // overwrites the first and is the only one the loop ever sees.
         if (const Status slept = ctx.clock.sleep(50, ctx.cancellation); !slept.has_value())
         {
@@ -774,6 +780,13 @@ Status reflash_block(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block,
         }
     }
 
+    // Line 1305: a settle before the checksum write, which no read timeout
+    // subsumes.
+    if (const Status slept = ctx.clock.sleep(100, ctx.cancellation); !slept.has_value())
+    {
+        return slept;
+    }
+
     // Checksum verify (lines 1307-1362). The ECU answers pending
     // (0x7F 0x31 0x78) before the real result; UdsClient absorbs that NRC by
     // re-reading internally, so this is a single request() call. Legacy
@@ -782,16 +795,16 @@ Status reflash_block(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block,
     //
     // Both of legacy's reads here are reproduced at their own timeouts, and
     // they differ: the first uses the bare 500 literal (line 1322, i.e.
-    // receive_timeout), which is kReceivePolicy's read_timeout_ms, and only
-    // the re-read after the pending NRC uses serial_read_extra_long_timeout
-    // = 3000 ms (line 1341), which is kReceivePolicy's inherited
-    // pending_timeout_ms default. The sibling families read 500/3000 here
-    // too; this family's own extra-long spelling changes no number.
+    // receive_timeout) and only the re-read after the pending NRC uses
+    // serial_read_extra_long_timeout = 3000 ms (line 1341). kChecksumPolicy
+    // carries that 500/3000 pair. It is this family's own pair, not a shared
+    // one: the 1N83M 1.5M reads 500/500 and the two SH families read
+    // 2000/2000 at the same exchange.
     info(ctx, "Verifying checksum");
     if (Result<bytes::Bytes> checksum = fatal_query(
             ctx,
             bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, kRoutineIdHigh, kRoutineChecksum, 0x01},
-            bytes::Bytes{uds::kRoutineControlStart, kRoutineIdHigh}, kReceivePolicy, "checksum verify");
+            bytes::Bytes{uds::kRoutineControlStart, kRoutineIdHigh}, kChecksumPolicy, "checksum verify");
         !checksum.has_value())
     {
         return std::unexpected(checksum.error());

@@ -15,6 +15,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
@@ -38,6 +39,23 @@ using fastecu::flash::SubaruDenso1n83m_1_5mCanExecutor;
 using fastecu::flash::SubaruDenso1n83m_1_5mCanPlan;
 using testing::Each;
 using testing::IsEmpty;
+
+// Records every ctx.clock.sleep() argument so the executor's inter-exchange
+// settles can be asserted as a sequence. Same shape as the wave-2
+// (subaru_denso_sh7055_02_executor_test.cpp) and wave-3
+// (subaru_tcu_cvt_mitsu_mh8104_can_executor_test.cpp) recording clocks: a
+// FakeClock with one extra hook, so no fake or port changes shape.
+class RecordingClock final : public FakeClock
+{
+  public:
+    fastecu::Status sleep(int ms, const fastecu::ICancellationToken& cancellation) override
+    {
+        sleep_calls.push_back(ms);
+        return FakeClock::sleep(ms, cancellation);
+    }
+
+    std::vector<int> sleep_calls;
+};
 
 constexpr std::string_view kProtocol = "sub_ecu_denso_1n83m_1_5m_can";
 constexpr std::string_view kMcu = "N83M_1_5MB";
@@ -372,7 +390,7 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, WriteErasesThenFlashesBlockOne)
     scriptReflashChunks(transport, rom);
     scriptCloseAndChecksum(transport);
 
-    FakeClock clock;
+    RecordingClock clock;
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
     SubaruDenso1n83m_1_5mCanExecutor executor;
@@ -389,6 +407,13 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, WriteErasesThenFlashesBlockOne)
     const bytes::Bytes encrypted = toWire(rom);
     EXPECT_EQ(bytes::Bytes(encrypted.begin() + 0x10000, encrypted.begin() + 0x10000 + 256),
               toWire(bytes::ByteView(rom).subspan(0x10000, 256)));
+    // Every sleep the write path performs, in order, each with the legacy
+    // delay() it reproduces: connect_bench's wait (line 660), the settle after
+    // the erase command (line 1436), and the settle before the
+    // checksum-verify write (line 1291). Asserted as a whole sequence rather
+    // than by Contains so that dropping one -- as this port did with the 1291
+    // settle -- fails here instead of passing silently.
+    EXPECT_EQ(clock.sleep_calls, (std::vector<int>{500, 500, 100}));
 }
 
 TEST(SubaruDenso1n83m_1_5mCanExecutor, TestWriteIsRejectedBeforeAnyTransportCall)

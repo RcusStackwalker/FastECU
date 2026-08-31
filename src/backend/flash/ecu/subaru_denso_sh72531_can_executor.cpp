@@ -36,6 +36,12 @@ constexpr int kLongTimeoutMs = 2000;   // serial_read_timeout
 constexpr uds::ExchangePolicy kShortPolicy{.read_timeout_ms = kShortTimeoutMs};
 constexpr uds::ExchangePolicy kReceivePolicy{.read_timeout_ms = kReceiveTimeoutMs};
 constexpr uds::ExchangePolicy kLongPolicy{.read_timeout_ms = kLongTimeoutMs};
+// Checksum verify reads twice and this family uses serial_read_timeout for
+// both: the first read at line 1310 and, after the ECU's 7F 31 78 pending
+// answer, the re-read at line 1330. UdsClient substitutes pending_timeout_ms
+// for that second read, whose 3000 ms default is not this family's number, so
+// the policy pins it to 2000 as well.
+constexpr uds::ExchangePolicy kChecksumPolicy{.read_timeout_ms = kLongTimeoutMs, .pending_timeout_ms = kLongTimeoutMs};
 
 // Session ids in ISO 14229-1's 0x40-0x5F vehicle-manufacturer-specific band;
 // legacy uses its own values here rather than the standard subfunctions.
@@ -270,12 +276,13 @@ Status security_access(Ctx& ctx)
 
 // Legacy's kernel jump plus its bounded re-read loop (bench lines 770-804,
 // try_count < 50; in-car lines 625-655, try_count < 10). The bench arm reads
-// twice before entering the loop (lines 782 and 785) and overwrites the first
-// reply with the second, so `discard_first_reply` reproduces that extra
-// read; the in-car arm reads once. The loop's `init_ready` flag is never read
-// after the loop and both arms fall straight through to
-// `return STATUS_SUCCESS` (line 807), so an unacknowledged jump is logged
-// here but is not an error -- deliberately not "fixed".
+// twice before entering the loop (lines 782 and 785, with a delay(50) between
+// them at line 784) and overwrites the first reply with the second, so
+// `discard_first_reply` reproduces that extra read and its delay; the in-car
+// arm reads once. The loop's `init_ready` flag is never read after the loop
+// and both arms fall straight through to `return STATUS_SUCCESS` (line 807),
+// so an unacknowledged jump is logged here but is not an error -- deliberately
+// not "fixed".
 Status jump_to_kernel(Ctx& ctx, bytes::Byte session, int max_tries, bool discard_first_reply)
 {
     info(ctx, "Jump to onboad kernel");
@@ -292,6 +299,15 @@ Status jump_to_kernel(Ctx& ctx, bytes::Byte session, int max_tries, bool discard
     }
     if (discard_first_reply)
     {
+        // Line 784's delay(50), then line 785's second read, whose result
+        // overwrites the first and is the only one the loop ever sees. It
+        // precedes a read, but it is kept rather than folded into the read
+        // timeout so this arm stays byte-identical to the 1N83M 4M sibling,
+        // whose legacy lines 790-791 are the same two statements.
+        if (const Status slept = ctx.clock.sleep(50, ctx.cancellation); !slept.has_value())
+        {
+            return slept;
+        }
         received = ctx.channel.receive(kShortTimeoutMs, ctx.cancellation);
         if (!received.has_value())
         {
@@ -706,6 +722,13 @@ Status reflash_block(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block,
         }
     }
 
+    // Line 1295: a settle before the checksum write, which no read timeout
+    // subsumes.
+    if (const Status slept = ctx.clock.sleep(100, ctx.cancellation); !slept.has_value())
+    {
+        return slept;
+    }
+
     // Checksum verify (lines 1297-1347). The ECU answers pending
     // (0x7F 0x31 0x78) before the real result; UdsClient absorbs that NRC by
     // re-reading internally, so this is a single request() call. Legacy
@@ -716,7 +739,7 @@ Status reflash_block(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block,
     if (Result<bytes::Bytes> checksum = fatal_query(
             ctx,
             bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, kRoutineIdHigh, kRoutineChecksum, 0x01},
-            bytes::Bytes{uds::kRoutineControlStart, kRoutineIdHigh}, kLongPolicy, "checksum verify");
+            bytes::Bytes{uds::kRoutineControlStart, kRoutineIdHigh}, kChecksumPolicy, "checksum verify");
         !checksum.has_value())
     {
         // Legacy pairs every checksum rejection with this second line
