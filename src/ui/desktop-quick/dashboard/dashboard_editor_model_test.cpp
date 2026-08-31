@@ -352,6 +352,7 @@ class DashboardEditorModelTest : public QObject
         const dashboard::DashboardDocument before = *harness.controller.document();
         QSignalSpy errors(&harness.controller, &DashboardDocumentController::errorOccurred);
 
+        // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) -- exercises invalid-value validation
         const CardDisplayType invalid = static_cast<CardDisplayType>(99);
         QVERIFY(QMetaObject::invokeMethod(&harness.editor, "setSelectedDisplayType", Qt::DirectConnection,
                                           Q_ARG(CardDisplayType, invalid)));

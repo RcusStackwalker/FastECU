@@ -164,22 +164,30 @@ Status validate_xml_input(bytes::ByteView xml, std::string path)
 Status validate_dashboard_document_xml_strings(const DashboardDocument& document)
 {
     if (Status status = validate_xml_text(document.metadata.name, "metadata.name"); !status)
+    {
         return status;
+    }
     if (document.metadata.description)
     {
         if (Status status = validate_xml_text(*document.metadata.description, "metadata.description"); !status)
+        {
             return status;
+        }
     }
     if (document.connection.preferred_adapter)
     {
         if (Status status =
                 validate_xml_text(document.connection.preferred_adapter->vendor, "connection.preferred-adapter.vendor");
             !status)
+        {
             return status;
+        }
         if (Status status = validate_xml_text(document.connection.preferred_adapter->display_name,
                                               "connection.preferred-adapter.display-name");
             !status)
+        {
             return status;
+        }
     }
 
     for (std::size_t channel_index = 0; channel_index < document.channels.size(); ++channel_index)
@@ -187,12 +195,18 @@ Status validate_dashboard_document_xml_strings(const DashboardDocument& document
         const DashboardChannel& channel = document.channels[channel_index];
         const std::string indexed_path = "channels[" + std::to_string(channel_index) + "]";
         if (Status status = validate_xml_text(channel.id, indexed_path + ".id"); !status)
+        {
             return status;
+        }
         const std::string channel_path = "channels[" + channel.id + "]";
         if (Status status = validate_xml_text(channel.name, channel_path + ".name"); !status)
+        {
             return status;
+        }
         if (Status status = validate_xml_text(channel.description, channel_path + ".description"); !status)
+        {
             return status;
+        }
 
         for (std::size_t conversion_index = 0; conversion_index < channel.conversions.size(); ++conversion_index)
         {
@@ -200,12 +214,18 @@ Status validate_dashboard_document_xml_strings(const DashboardDocument& document
             const std::string indexed_conversion_path =
                 channel_path + ".conversions[" + std::to_string(conversion_index) + "]";
             if (Status status = validate_xml_text(conversion.id, indexed_conversion_path + ".id"); !status)
+            {
                 return status;
+            }
             const std::string conversion_path = channel_path + ".conversions[" + conversion.id + "]";
             if (Status status = validate_xml_text(conversion.expression, conversion_path + ".expression"); !status)
+            {
                 return status;
+            }
             if (Status status = validate_xml_text(conversion.unit, conversion_path + ".unit"); !status)
+            {
                 return status;
+            }
         }
     }
 
@@ -214,16 +234,24 @@ Status validate_dashboard_document_xml_strings(const DashboardDocument& document
         const DashboardCard& card = document.cards[card_index];
         const std::string indexed_path = "cards[" + std::to_string(card_index) + "]";
         if (Status status = validate_xml_text(card.id, indexed_path + ".id"); !status)
+        {
             return status;
+        }
         const std::string card_path = "cards[" + card.id + "]";
         if (Status status = validate_xml_text(card.channel_id, card_path + ".channel-id"); !status)
+        {
             return status;
+        }
         if (Status status = validate_xml_text(card.conversion_id, card_path + ".conversion-id"); !status)
+        {
             return status;
+        }
         if (card.title)
         {
             if (Status status = validate_xml_text(*card.title, card_path + ".title"); !status)
+            {
                 return status;
+            }
         }
     }
     return {};

@@ -63,7 +63,7 @@ class ProviderHarness
   public:
     QStringList listed_entries;
     detail::J2534DiscoverySource discovery_source = detail::J2534DiscoverySource::UnixSerialPorts;
-    fastecu::Status configure_result{};
+    fastecu::Status configure_result;
     J2534RawCanOpenResult open_result{
         .opened_port = "opened",
         .failure = J2534RawCanOpenFailure::None,

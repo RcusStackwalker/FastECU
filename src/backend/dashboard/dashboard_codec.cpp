@@ -63,11 +63,11 @@ Status reject_unknown_children(pugi::xml_node node, AllowedNames allowed, std::s
     return {};
 }
 
-Result<pugi::xml_node> require_single_child(pugi::xml_node parent, std::string_view name, std::string_view path)
+Result<pugi::xml_node> require_single_child(pugi::xml_node parent, const char *name, std::string_view path)
 {
     pugi::xml_node found;
     std::size_t count = 0;
-    for (const pugi::xml_node child : parent.children(name.data()))
+    for (const pugi::xml_node child : parent.children(name))
     {
         found = child;
         ++count;
@@ -83,12 +83,12 @@ Result<pugi::xml_node> require_single_child(pugi::xml_node parent, std::string_v
     return found;
 }
 
-Result<std::optional<pugi::xml_node>> optional_single_child(pugi::xml_node parent, std::string_view name,
+Result<std::optional<pugi::xml_node>> optional_single_child(pugi::xml_node parent, const char *name,
                                                             std::string_view path)
 {
     pugi::xml_node found;
     std::size_t count = 0;
-    for (const pugi::xml_node child : parent.children(name.data()))
+    for (const pugi::xml_node child : parent.children(name))
     {
         found = child;
         ++count;
@@ -236,13 +236,21 @@ Result<RetryPolicy> decode_retry(pugi::xml_node node)
     auto attempts = parse_required_u32(node, "reconnect-attempts", "connection.retry.reconnect-attempts");
     auto period = parse_required_u32(node, "reconnect-period-ms", "connection.retry.reconnect-period-ms");
     if (!poll_timeout)
+    {
         return std::unexpected(poll_timeout.error());
+    }
     if (!silence)
+    {
         return std::unexpected(silence.error());
+    }
     if (!attempts)
+    {
         return std::unexpected(attempts.error());
+    }
     if (!period)
+    {
         return std::unexpected(period.error());
+    }
     return RetryPolicy{*poll_timeout, *silence, *attempts, *period};
 }
 
@@ -263,11 +271,17 @@ Result<PreferredAdapter> decode_adapter(pugi::xml_node node)
     auto vendor = parse_required_string(node, "vendor", "connection.preferred-adapter.vendor");
     auto display_name = parse_required_string(node, "display-name", "connection.preferred-adapter.display-name");
     if (!kind)
+    {
         return std::unexpected(kind.error());
+    }
     if (!vendor)
+    {
         return std::unexpected(vendor.error());
+    }
     if (!display_name)
+    {
         return std::unexpected(display_name.error());
+    }
     return PreferredAdapter{*kind, std::move(*vendor), std::move(*display_name)};
 }
 
@@ -292,19 +306,33 @@ Result<DashboardConversion> decode_conversion(pugi::xml_node node, const std::st
     auto gauge_max = parse_required_double(node, "gauge-max", path + ".gauge-max");
     auto gauge_step = parse_required_double(node, "gauge-step", path + ".gauge-step");
     if (!id)
+    {
         return std::unexpected(id.error());
+    }
     if (!expression)
+    {
         return std::unexpected(expression.error());
+    }
     if (!unit)
+    {
         return std::unexpected(unit.error());
+    }
     if (!precision)
+    {
         return std::unexpected(precision.error());
+    }
     if (!gauge_min)
+    {
         return std::unexpected(gauge_min.error());
+    }
     if (!gauge_max)
+    {
         return std::unexpected(gauge_max.error());
+    }
     if (!gauge_step)
+    {
         return std::unexpected(gauge_step.error());
+    }
     return DashboardConversion{
         std::move(*id), std::move(*expression), std::move(*unit), *precision, *gauge_min, *gauge_max, *gauge_step};
 }
@@ -332,17 +360,29 @@ Result<DashboardChannel> decode_channel(pugi::xml_node node, std::size_t index)
         parse_required_enum<RawAssembly>(node, "raw-assembly", path + ".raw-assembly",
                                          {{"unsigned-integer-decimal", RawAssembly::UnsignedIntegerDecimal}});
     if (!id)
+    {
         return std::unexpected(id.error());
+    }
     if (!name)
+    {
         return std::unexpected(name.error());
+    }
     if (!description)
+    {
         return std::unexpected(description.error());
+    }
     if (!address)
+    {
         return std::unexpected(address.error());
+    }
     if (!length)
+    {
         return std::unexpected(length.error());
+    }
     if (!raw_assembly)
+    {
         return std::unexpected(raw_assembly.error());
+    }
 
     std::vector<DashboardConversion> conversions;
     std::size_t conversion_index = 0;
@@ -388,15 +428,25 @@ Result<DashboardCard> decode_card(pugi::xml_node node, std::size_t index)
                                                               {"horizontal-gauge", CardDisplayType::HorizontalGauge}});
     auto order = parse_required_u32(node, "order", path + ".order");
     if (!id)
+    {
         return std::unexpected(id.error());
+    }
     if (!channel_id)
+    {
         return std::unexpected(channel_id.error());
+    }
     if (!conversion_id)
+    {
         return std::unexpected(conversion_id.error());
+    }
     if (!display_type)
+    {
         return std::unexpected(display_type.error());
+    }
     if (!order)
+    {
         return std::unexpected(order.error());
+    }
 
     const bool has_minimum = node.attribute("gauge-min");
     const bool has_maximum = node.attribute("gauge-max");
@@ -412,11 +462,17 @@ Result<DashboardCard> decode_card(pugi::xml_node node, std::size_t index)
         auto maximum = parse_required_double(node, "gauge-max", path + ".gauge-max");
         auto step = parse_required_double(node, "gauge-step", path + ".gauge-step");
         if (!minimum)
+        {
             return std::unexpected(minimum.error());
+        }
         if (!maximum)
+        {
             return std::unexpected(maximum.error());
+        }
         if (!step)
+        {
             return std::unexpected(step.error());
+        }
         gauge_bounds = GaugeBoundsOverride{*minimum, *maximum, *step};
     }
 
@@ -459,13 +515,21 @@ Result<DashboardDocument> decode_v1(pugi::xml_node root)
     auto channels_node = require_single_child(root, "channels", "channels");
     auto cards_node = require_single_child(root, "cards", "cards");
     if (!metadata_node)
+    {
         return std::unexpected(metadata_node.error());
+    }
     if (!connection_node)
+    {
         return std::unexpected(connection_node.error());
+    }
     if (!channels_node)
+    {
         return std::unexpected(channels_node.error());
+    }
     if (!cards_node)
+    {
         return std::unexpected(cards_node.error());
+    }
 
     if (Status status = reject_unknown_attributes(*metadata_node, {"name", "description"}, "metadata"); !status)
     {
@@ -498,9 +562,13 @@ Result<DashboardDocument> decode_v1(pugi::xml_node root)
     auto retry_node = require_single_child(*connection_node, "retry", "connection.retry");
     auto adapter_node = optional_single_child(*connection_node, "preferred-adapter", "connection.preferred-adapter");
     if (!retry_node)
+    {
         return std::unexpected(retry_node.error());
+    }
     if (!adapter_node)
+    {
         return std::unexpected(adapter_node.error());
+    }
 
     auto protocol = parse_required_enum<DashboardProtocol>(*connection_node, "protocol", "connection.protocol",
                                                            {{"cdbg", DashboardProtocol::Cdbg}});
@@ -518,23 +586,41 @@ Result<DashboardDocument> decode_v1(pugi::xml_node root)
         parse_required_u32(*connection_node, "sampling-interval-ms", "connection.sampling-interval-ms");
     auto retry = decode_retry(*retry_node);
     if (!protocol)
+    {
         return std::unexpected(protocol.error());
+    }
     if (!transport)
+    {
         return std::unexpected(transport.error());
+    }
     if (!bitrate)
+    {
         return std::unexpected(bitrate.error());
+    }
     if (!identifier_width)
+    {
         return std::unexpected(identifier_width.error());
+    }
     if (!request_id)
+    {
         return std::unexpected(request_id.error());
+    }
     if (!reply_id)
+    {
         return std::unexpected(reply_id.error());
+    }
     if (!stream_instance)
+    {
         return std::unexpected(stream_instance.error());
+    }
     if (!sampling_interval)
+    {
         return std::unexpected(sampling_interval.error());
+    }
     if (!retry)
+    {
         return std::unexpected(retry.error());
+    }
 
     std::optional<PreferredAdapter> adapter;
     if (adapter_node->has_value())

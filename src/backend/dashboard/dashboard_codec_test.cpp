@@ -518,8 +518,8 @@ TEST(DashboardCodec, ParsesStandardAndExtendedCanonicalHexIdentifiers)
     auto standard = decode_dashboard_document(byte_view(kCanonicalXml));
     ASSERT_TRUE(standard) << standard.error().detail;
     EXPECT_EQ(standard->connection.identifier_width, CanIdentifierWidth::Standard);
-    EXPECT_EQ(standard->connection.request_id, 0x630u);
-    EXPECT_EQ(standard->channels.front().address, 0x804cfcu);
+    EXPECT_EQ(standard->connection.request_id, 0x630U);
+    EXPECT_EQ(standard->channels.front().address, 0x804cfcU);
 
     auto extended_xml = replace_once(std::string(kCanonicalXml),
                                      "identifier-width=\"11\" request-id=\"0x630\" "
@@ -528,7 +528,7 @@ TEST(DashboardCodec, ParsesStandardAndExtendedCanonicalHexIdentifiers)
     auto extended = decode_dashboard_document(byte_view(extended_xml));
     ASSERT_TRUE(extended) << extended.error().detail;
     EXPECT_EQ(extended->connection.identifier_width, CanIdentifierWidth::Extended);
-    EXPECT_EQ(extended->connection.request_id, 0x1fffffffu);
+    EXPECT_EQ(extended->connection.request_id, 0x1fffffffU);
 }
 
 TEST(DashboardCodec, RejectsNonDecimalUnsignedTextOverflowSignsAndTrailingJunk)

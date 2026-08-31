@@ -80,14 +80,17 @@ TEST(DashboardValidation, RejectsUnsupportedMetadata)
 TEST(DashboardValidation, RejectsUnsupportedConnectionEnums)
 {
     auto document = test::valid_document();
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) -- exercises invalid-value validation
     document.connection.protocol = static_cast<DashboardProtocol>(99);
     expect_invalid(document, "connection.protocol");
 
     document = test::valid_document();
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) -- exercises invalid-value validation
     document.connection.transport = static_cast<DashboardTransport>(99);
     expect_invalid(document, "connection.transport");
 
     document = test::valid_document();
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) -- exercises invalid-value validation
     document.connection.identifier_width = static_cast<CanIdentifierWidth>(99);
     expect_invalid(document, "connection.identifier-width");
 }
@@ -208,6 +211,7 @@ TEST(DashboardValidation, RejectsInvalidPreferredAdapters)
 {
     auto document = test::valid_document();
     document.connection.preferred_adapter = PreferredAdapter{
+        // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) -- exercises invalid-value validation
         .kind = static_cast<AdapterKind>(99),
         .vendor = "OpenECU",
         .display_name = "Portable CAN",
@@ -275,6 +279,7 @@ TEST(DashboardValidation, AcceptsFourByteChannels)
 TEST(DashboardValidation, RejectsUnsupportedRawAssembly)
 {
     auto document = test::valid_document();
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) -- exercises invalid-value validation
     document.channels.front().raw_assembly = static_cast<RawAssembly>(99);
     expect_invalid(document, "channels[CDBG_ENGINE_RPM].raw-assembly");
 }
@@ -401,6 +406,7 @@ TEST(DashboardValidation, RejectsInvalidCardDisplayType)
 {
     auto document = test::valid_document();
     auto invalid = card("rpm-card", "CDBG_ENGINE_RPM", "conversion-1");
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) -- exercises invalid-value validation
     invalid.display_type = static_cast<CardDisplayType>(99);
     document.cards.push_back(std::move(invalid));
     expect_invalid(document, "cards[rpm-card].display-type");

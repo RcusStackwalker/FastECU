@@ -64,11 +64,11 @@ Status reject_unknown_children(pugi::xml_node node, AllowedNames allowed, std::s
     return {};
 }
 
-Result<pugi::xml_node> require_single_child(pugi::xml_node parent, std::string_view name, std::string path)
+Result<pugi::xml_node> require_single_child(pugi::xml_node parent, const char *name, std::string path)
 {
     pugi::xml_node found;
     std::size_t count = 0;
-    for (const pugi::xml_node child : parent.children(name.data()))
+    for (const pugi::xml_node child : parent.children(name))
     {
         found = child;
         ++count;

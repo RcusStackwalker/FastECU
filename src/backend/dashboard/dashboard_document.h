@@ -63,7 +63,7 @@ struct CdbgConnectionProfile
     DashboardProtocol protocol{DashboardProtocol::Cdbg};
     DashboardTransport transport{DashboardTransport::RawCan};
     std::uint32_t bitrate;
-    CanIdentifierWidth identifier_width;
+    CanIdentifierWidth identifier_width{CanIdentifierWidth::Standard};
     std::uint32_t request_id;
     std::uint32_t reply_id;
     std::uint8_t stream_instance;

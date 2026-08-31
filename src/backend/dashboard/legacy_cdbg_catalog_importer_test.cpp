@@ -368,6 +368,7 @@ TEST(LegacyCdbgCatalogImporter, RejectsCallerDefaultsThroughCompleteDocumentVali
     defaults.bitrate = 0;
     cases.emplace_back(defaults, "connection.bitrate");
     defaults = valid_defaults();
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) -- exercises invalid-value validation
     defaults.identifier_width = static_cast<CanIdentifierWidth>(12);
     cases.emplace_back(defaults, "connection.identifier-width");
     defaults = valid_defaults();

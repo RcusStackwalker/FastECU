@@ -229,6 +229,7 @@ TEST(DashboardSessionBuilderTest, RejectsOneChannelSelectedByTwoCards)
 TEST(DashboardSessionBuilderTest, RejectsUnsupportedRawAssembly)
 {
     auto document = selected_document();
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) -- exercises invalid-value validation
     document.channels[0].raw_assembly = static_cast<RawAssembly>(99);
 
     expect_invalid(document, "channels[CDBG_ENGINE_RPM].raw-assembly: must be unsigned-integer-decimal");

@@ -160,7 +160,7 @@ class FakeLoggingEngine final : public ILoggingEngine
         emit sessionEnded(reason, detail);
     }
 
-    Status start_result{};
+    Status start_result;
     int start_calls = 0;
     int stop_calls = 0;
     bool running = false;
