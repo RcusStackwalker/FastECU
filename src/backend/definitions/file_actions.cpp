@@ -1005,7 +1005,7 @@ QSignalMapper *FileActions::read_menu_file(QMenuBar *menubar, QToolBar *toolBar)
 QString FileActions::parse_hex_ecuid(uint8_t byte)
 {
     QString ecuid_byte;
-    unsigned char chars[] = "0123456789ABCDEF";
+    static constexpr std::string_view chars = "0123456789ABCDEF";
 
     ecuid_byte = (QChar)chars[(byte >> 4) & 0xF];
     ecuid_byte.append((QChar)chars[(byte >> 0) & 0xF]);

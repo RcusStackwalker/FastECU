@@ -307,27 +307,27 @@ Status connect_bootloader(Ctx& ctx)
     }
 
     info(ctx, "Trying TCU Init...");
-    Result<std::optional<bytes::Bytes>> tcu_id =
-        retry_init_step(ctx, bytes::Bytes{uds::kSidEcuIdQuery}, 6, 200, "Init Success: ", "TCU Init");
-    if (!tcu_id.has_value())
+    if (Result<std::optional<bytes::Bytes>> tcu_id =
+            retry_init_step(ctx, bytes::Bytes{uds::kSidEcuIdQuery}, 6, 200, "Init Success: ", "TCU Init");
+        !tcu_id.has_value())
     {
         return std::unexpected(tcu_id.error());
     }
 
     info(ctx, "Trying 0x09 0x04...");
-    Result<std::optional<bytes::Bytes>> cal_id =
-        retry_init_step(ctx, bytes::Bytes{uds::kSidVehicleInfoRequest, uds::kVehicleInfoPidCalId}, 6, 200,
-                        "Init Success: TCU ID = ", "0x09 0x04");
-    if (!cal_id.has_value())
+    if (Result<std::optional<bytes::Bytes>> cal_id =
+            retry_init_step(ctx, bytes::Bytes{uds::kSidVehicleInfoRequest, uds::kVehicleInfoPidCalId}, 6, 200,
+                            "Init Success: TCU ID = ", "0x09 0x04");
+        !cal_id.has_value())
     {
         return std::unexpected(cal_id.error());
     }
 
     info(ctx, "Initializing bootloader...");
-    Result<bytes::Bytes> session =
-        single_shot_logged(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionBootload}, 200, "session init",
-                           {0x50, kSessionBootload}, "Failed to initialise bootloader");
-    if (!session.has_value())
+    if (Result<bytes::Bytes> session =
+            single_shot_logged(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionBootload}, 200,
+                               "session init", {0x50, kSessionBootload}, "Failed to initialise bootloader");
+        !session.has_value())
     {
         return std::unexpected(session.error());
     }
@@ -362,19 +362,19 @@ Status connect_bootloader(Ctx& ctx)
     info(ctx, "Sending seed key...");
     bytes::Bytes key_request{uds::kSidSecurityAccess, uds::kSecurityAccessSendKey};
     key_request.insert(key_request.end(), key.begin(), key.end());
-    Result<bytes::Bytes> key_reply = single_shot_logged(
-        ctx, key_request, 200, "the seed key", {0x67, uds::kSecurityAccessSendKey}, "Bad response to seed request");
-    if (!key_reply.has_value())
+    if (Result<bytes::Bytes> key_reply = single_shot_logged(
+            ctx, key_request, 200, "the seed key", {0x67, uds::kSecurityAccessSendKey}, "Bad response to seed request");
+        !key_reply.has_value())
     {
         return std::unexpected(key_reply.error());
     }
     info(ctx, "Seed key ok");
 
     info(ctx, "Jumping to onboad kernel...");
-    Result<bytes::Bytes> jump_reply =
-        single_shot_logged(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionKernelJump}, 200,
-                           "the kernel jump", {0x50, kSessionKernelJump}, "Bad response to jumping to onboard kernel");
-    if (!jump_reply.has_value())
+    if (Result<bytes::Bytes> jump_reply = single_shot_logged(
+            ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionKernelJump}, 200, "the kernel jump",
+            {0x50, kSessionKernelJump}, "Bad response to jumping to onboard kernel");
+        !jump_reply.has_value())
     {
         return std::unexpected(jump_reply.error());
     }

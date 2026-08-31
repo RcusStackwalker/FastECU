@@ -28,8 +28,7 @@ class ExpressionValidator
     bool valid()
     {
         skip_spaces();
-        const ParsedValue value = parse_expression();
-        if (!value.valid)
+        if (const ParsedValue value = parse_expression(); !value.valid)
         {
             return false;
         }

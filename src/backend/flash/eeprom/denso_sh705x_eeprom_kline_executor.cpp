@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <utility>
+#include <array>
 
 namespace fastecu::flash
 {
@@ -111,11 +112,12 @@ bool looks_kernel_alive(bytes::ByteView received)
 // generate_seed_key(), lines 854-879 (the non-"_ecutek" / stock branch).
 bytes::Bytes generate_stock_seed_key(bytes::ByteView seed)
 {
-    static constexpr std::uint16_t kIndex[] = {0x53DA, 0x33BC, 0x72EB, 0x437D, 0x7CA3, 0x3382, 0x834F, 0x3608,
-                                               0xAFB8, 0x503D, 0xDBA3, 0x9D34, 0x3563, 0x6B70, 0x6E74, 0x88F0};
-    static constexpr std::uint8_t kTransform[] = {0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
-                                                  0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
-                                                  0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
+    static constexpr std::array<std::uint16_t, 16> kIndex{0x53DA, 0x33BC, 0x72EB, 0x437D, 0x7CA3, 0x3382,
+                                                          0x834F, 0x3608, 0xAFB8, 0x503D, 0xDBA3, 0x9D34,
+                                                          0x3563, 0x6B70, 0x6E74, 0x88F0};
+    static constexpr std::array<std::uint8_t, 32> kTransform{0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
+                                                             0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
+                                                             0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
     return SsmProtocol::calculateSeedKey(seed, kIndex, kTransform);
 }
 
@@ -123,21 +125,22 @@ bytes::Bytes generate_stock_seed_key(bytes::ByteView seed)
 // different indextransformation table (first byte 0x4 vs 0x5, etc).
 bytes::Bytes generate_ecutek_seed_key(bytes::ByteView seed)
 {
-    static constexpr std::uint16_t kIndex[] = {0x53DA, 0x33BC, 0x72EB, 0x437D, 0x7CA3, 0x3382, 0x834F, 0x3608,
-                                               0xAFB8, 0x503D, 0xDBA3, 0x9D34, 0x3563, 0x6B70, 0x6E74, 0x88F0};
-    static constexpr std::uint8_t kTransform[] = {0x4, 0x2, 0x5, 0x1, 0x8, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
-                                                  0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
-                                                  0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
+    static constexpr std::array<std::uint16_t, 16> kIndex{0x53DA, 0x33BC, 0x72EB, 0x437D, 0x7CA3, 0x3382,
+                                                          0x834F, 0x3608, 0xAFB8, 0x503D, 0xDBA3, 0x9D34,
+                                                          0x3563, 0x6B70, 0x6E74, 0x88F0};
+    static constexpr std::array<std::uint8_t, 32> kTransform{0x4, 0x2, 0x5, 0x1, 0x8, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
+                                                             0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
+                                                             0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
     return SsmProtocol::calculateSeedKey(seed, kIndex, kTransform);
 }
 
 // encrypt_payload(), lines 923-939.
 bytes::Bytes encrypt_kernel_payload(bytes::ByteView buf, std::uint32_t len)
 {
-    static constexpr std::uint16_t kIndex[] = {0x7856, 0xCE22, 0xF513, 0x6E86};
-    static constexpr std::uint8_t kTransform[] = {0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
-                                                  0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
-                                                  0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
+    static constexpr std::array<std::uint16_t, 4> kIndex{0x7856, 0xCE22, 0xF513, 0x6E86};
+    static constexpr std::array<std::uint8_t, 32> kTransform{0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
+                                                             0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
+                                                             0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
     return SsmProtocol::calculatePayload(buf, len, kIndex, kTransform);
 }
 
@@ -161,8 +164,7 @@ Result<bytes::Bytes> ssm_exchange(IKlineFlashTransport& transport, IClock&, cons
         return fail(ErrorKind::Cancelled, "cancelled before write");
     }
     const bytes::Bytes framed = frame(payload, tester_id, target_id);
-    Result<std::size_t> written = transport.write(framed);
-    if (!written.has_value())
+    if (Result<std::size_t> written = transport.write(framed); !written.has_value())
     {
         return std::unexpected(written.error());
     }
@@ -198,8 +200,7 @@ Result<bytes::Bytes> request_kernel_id(IKlineFlashTransport& transport, IClock& 
     {
         return fail(ErrorKind::Cancelled, "cancelled before write");
     }
-    Result<std::size_t> written = transport.write(request_kernel_id_frame());
-    if (!written.has_value())
+    if (Result<std::size_t> written = transport.write(request_kernel_id_frame()); !written.has_value())
     {
         return std::unexpected(written.error());
     }
@@ -390,7 +391,7 @@ DensoSh705xEepromKlineExecutor::execute(const FlashPlan& plan, IKlineFlashTransp
 Status DensoSh705xEepromKlineExecutor::connect_bootloader(IKlineFlashTransport& transport, IClock& clock,
                                                           const ICancellationToken& cancellation, IEventSink& events,
                                                           const DensoSh705xEepromKlinePlan& kline_plan,
-                                                          bool& kernel_alive)
+                                                          bool& kernel_alive) const
 {
     if (cancellation.cancelled())
     {
@@ -532,7 +533,7 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(IKlineFlashTransport& 
 Status DensoSh705xEepromKlineExecutor::upload_kernel(IKlineFlashTransport& transport, IClock& clock,
                                                      const ICancellationToken& cancellation, IEventSink& events,
                                                      const DensoSh705xEepromKlinePlan& kline_plan,
-                                                     const KernelImage& kernel)
+                                                     const KernelImage& kernel) const
 {
     if (cancellation.cancelled())
     {
@@ -690,7 +691,7 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(IKlineFlashTransport& trans
 Result<bytes::Bytes> DensoSh705xEepromKlineExecutor::read_mem(IKlineFlashTransport& transport, IClock& clock,
                                                               const ICancellationToken& cancellation,
                                                               IEventSink& events, const MemoryRegion& region,
-                                                              EepromReadMode mode)
+                                                              EepromReadMode mode) const
 {
     const std::uint32_t start_addr = region.start;
     const std::uint32_t length = region.length;
@@ -721,8 +722,7 @@ Result<bytes::Bytes> DensoSh705xEepromKlineExecutor::read_mem(IKlineFlashTranspo
         const bytes::Bytes request =
             composeBe(kSidDump, bytes::Byte(mode), std::uint16_t(numblocks), std::uint16_t(curblock));
 
-        Result<std::size_t> written = transport.write(request);
-        if (!written.has_value())
+        if (Result<std::size_t> written = transport.write(request); !written.has_value())
         {
             return std::unexpected(written.error());
         }
@@ -799,8 +799,7 @@ Result<bytes::Bytes> DensoSh705xEepromKlineExecutor::read_mem(IKlineFlashTranspo
             return std::unexpected(slept.error());
         }
 
-        const std::uint32_t extrabytes = cplen + len_done;
-        if (extrabytes > length)
+        if (const std::uint32_t extrabytes = cplen + len_done; extrabytes > length)
         {
             cplen -= (extrabytes - length);
         }

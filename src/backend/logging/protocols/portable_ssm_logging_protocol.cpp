@@ -123,8 +123,7 @@ fastecu::Result<bytes::Bytes> SsmLoggingProtocol::readFramedResponse(int timeout
         }
     }
 
-    const int remaining = timeout_ms - static_cast<int>(clock_.now_ms() - start);
-    if (remaining > 0)
+    if (const int remaining = timeout_ms - static_cast<int>(clock_.now_ms() - start); remaining > 0)
     {
         if (auto status = read_and_append(remaining); !status)
         {
@@ -147,8 +146,7 @@ fastecu::Status SsmLoggingProtocol::start(const fastecu::ICancellationToken& can
     }
 
     const bytes::Bytes output{0xA8, 0x00, 0x00, 0x00, 0x07};
-    auto write_result = transport_->write(buildSsmHeader(output));
-    if (!write_result)
+    if (auto write_result = transport_->write(buildSsmHeader(output)); !write_result)
     {
         return std::unexpected(write_result.error());
     }
@@ -176,8 +174,7 @@ fastecu::Result<PollData> SsmLoggingProtocol::poll(int timeout_ms, const fastecu
         return fastecu::fail(fastecu::ErrorKind::Disconnected, "adapter disconnected");
     }
 
-    auto write_result = transport_->write(buildSsmHeader(buildPollRequest(channels_)));
-    if (!write_result)
+    if (auto write_result = transport_->write(buildSsmHeader(buildPollRequest(channels_))); !write_result)
     {
         return std::unexpected(write_result.error());
     }

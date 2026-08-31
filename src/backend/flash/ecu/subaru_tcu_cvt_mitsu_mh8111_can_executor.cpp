@@ -178,9 +178,9 @@ Status connect_bootloader(Ctx& ctx)
     info(ctx, "Sending seed key");
     bytes::Bytes key_request{uds::kSidSecurityAccess, uds::kSecurityAccessSendKey};
     key_request.insert(key_request.end(), key.begin(), key.end());
-    Result<bytes::Bytes> key_reply =
-        fatal_query(ctx, key_request, bytes::Bytes{uds::kSecurityAccessSendKey}, "seed key");
-    if (!key_reply.has_value())
+    if (Result<bytes::Bytes> key_reply =
+            fatal_query(ctx, key_request, bytes::Bytes{uds::kSecurityAccessSendKey}, "seed key");
+        !key_reply.has_value())
     {
         return std::unexpected(key_reply.error());
     }
@@ -188,10 +188,10 @@ Status connect_bootloader(Ctx& ctx)
 
     // Jump 0x10/0x42 (lines 267-295), fatal.
     info(ctx, "Jumping to onboad kernel...");
-    Result<bytes::Bytes> jump_reply =
-        fatal_query(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionKernelJump},
-                    bytes::Bytes{kSessionKernelJump}, "kernel jump");
-    if (!jump_reply.has_value())
+    if (Result<bytes::Bytes> jump_reply =
+            fatal_query(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionKernelJump},
+                        bytes::Bytes{kSessionKernelJump}, "kernel jump");
+        !jump_reply.has_value())
     {
         return std::unexpected(jump_reply.error());
     }

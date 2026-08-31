@@ -305,8 +305,7 @@ int runScript(IBenchEnvironment& environment, IBenchFiles& files, const GlobalOp
             continue;
         }
 
-        const auto forbidden = std::ranges::find_if(tokens, isScriptLineGlobalOption);
-        if (forbidden != tokens.end())
+        if (const auto forbidden = std::ranges::find_if(tokens, isScriptLineGlobalOption); forbidden != tokens.end())
         {
             const Error error{ErrorKind::InvalidConfig,
                               std::format("script-line global option {} is not allowed; put it on the outer "

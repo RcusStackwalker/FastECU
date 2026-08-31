@@ -16,8 +16,7 @@ Status ensure_directory(IFileSystem& fs, const std::string& path, IEventSink& ev
     {
         return {};
     }
-    Status result = fs.create_directory(path);
-    if (!result.has_value())
+    if (Status result = fs.create_directory(path); !result.has_value())
     {
         events.log(LogLevel::Error, std::format("Unable to create directory: {}", path));
         return result;
@@ -73,8 +72,8 @@ Status provision_config_directories(const ConfigPaths& paths, IFileSystem& fs, I
         return r;
     }
 
-    const bool has_version_subdirectory = paths.version_config_directory != paths.base_config_directory;
-    if (has_version_subdirectory && !fs.exists(paths.version_config_directory))
+    if (const bool has_version_subdirectory = paths.version_config_directory != paths.base_config_directory;
+        has_version_subdirectory && !fs.exists(paths.version_config_directory))
     {
         // Find the newest previous-version sibling directory (if any) before
         // touching the filesystem, since discovering it needs the
@@ -82,8 +81,8 @@ Status provision_config_directories(const ConfigPaths& paths, IFileSystem& fs, I
         // what's there today.
         std::string previous_config_file;
         bool has_previous_config_file = false;
-        Result<std::vector<DirEntry>> siblings = fs.list_directory(paths.base_config_directory);
-        if (siblings.has_value() && !siblings->empty())
+        if (Result<std::vector<DirEntry>> siblings = fs.list_directory(paths.base_config_directory);
+            siblings.has_value() && !siblings->empty())
         {
             std::vector<DirEntry> dirs;
             std::copy_if(siblings->begin(), siblings->end(), std::back_inserter(dirs),
@@ -142,8 +141,7 @@ Status provision_config_directories(const ConfigPaths& paths, IFileSystem& fs, I
         return r;
     }
 
-    Result<std::vector<DirEntry>> syslogs = fs.list_directory(paths.syslog_files_directory);
-    if (syslogs.has_value())
+    if (Result<std::vector<DirEntry>> syslogs = fs.list_directory(paths.syslog_files_directory); syslogs.has_value())
     {
         std::vector<DirEntry> files;
         std::copy_if(syslogs->begin(), syslogs->end(), std::back_inserter(files),

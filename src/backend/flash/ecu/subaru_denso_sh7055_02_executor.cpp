@@ -174,7 +174,7 @@ Status change_baud(IKlineFlashTransport& transport, const ICancellationToken& ca
 Status SubaruDensoSh7055_02Executor::connect_bootloader(IKlineFlashTransport& transport, IClock& clock,
                                                         const ICancellationToken& cancellation, IEventSink& events,
                                                         const SubaruDensoSh7055_02Plan& family_plan, bool read_ecu_id,
-                                                        bool& kernel_alive, std::optional<std::string>& ecu_id)
+                                                        bool& kernel_alive, std::optional<std::string>& ecu_id) const
 {
     if (Status cancelled = check_cancelled(cancellation, "cancelled before connect"); !cancelled.has_value())
     {
@@ -339,7 +339,7 @@ Status SubaruDensoSh7055_02Executor::connect_bootloader(IKlineFlashTransport& tr
 
 Status SubaruDensoSh7055_02Executor::upload_kernel(IKlineFlashTransport& transport, IClock& clock,
                                                    const ICancellationToken& cancellation, IEventSink& events,
-                                                   const KernelImage& kernel)
+                                                   const KernelImage& kernel) const
 {
     if (Status cancelled = check_cancelled(cancellation, "cancelled before kernel upload"); !cancelled.has_value())
     {
@@ -429,7 +429,7 @@ Status SubaruDensoSh7055_02Executor::upload_kernel(IKlineFlashTransport& transpo
 
 Result<bytes::Bytes> SubaruDensoSh7055_02Executor::read_mem(IKlineFlashTransport& transport, IClock& clock,
                                                             const ICancellationToken& cancellation, IEventSink& events,
-                                                            const MemoryRegion& region)
+                                                            const MemoryRegion& region) const
 {
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:360-455:
     // request consecutive 0x400-byte pages with SUB_KERNEL_READ_AREA, remove
@@ -484,7 +484,7 @@ Result<bytes::Bytes> SubaruDensoSh7055_02Executor::read_mem(IKlineFlashTransport
 
 Result<std::uint32_t> SubaruDensoSh7055_02Executor::read_block_crc(IKlineFlashTransport& transport, IClock& clock,
                                                                    const ICancellationToken& cancellation,
-                                                                   const MemoryRegion& block)
+                                                                   const MemoryRegion& block) const
 {
     // Legacy check_romcrc(), lines 645-749: request the ECU CRC for the
     // physical [start, start + length) block.
@@ -574,8 +574,8 @@ Result<std::uint32_t> SubaruDensoSh7055_02Executor::read_block_crc(IKlineFlashTr
         }
         ++try_count;
     }
-    const std::optional<std::size_t> expected_size = declared_frame_size();
-    if (!expected_size.has_value() || *expected_size == 0 || response.size() != *expected_size || response.size() < 7 ||
+    if (const std::optional<std::size_t> expected_size = declared_frame_size();
+        !expected_size.has_value() || *expected_size == 0 || response.size() != *expected_size || response.size() < 7 ||
         !response_ok(response, kOpCrc | 0x40) ||
         response.back() != bytes::sum8(bytes::ByteView(response).first(response.size() - 1)))
     {
@@ -591,8 +591,7 @@ Result<std::uint32_t> SubaruDensoSh7055_02Executor::read_block_crc(IKlineFlashTr
     {
         return fail(ErrorKind::BadResponse, "Missing CRC response prefix");
     }
-    const bytes::Byte length_or_failure = response.front();
-    if (length_or_failure == 0x7F)
+    if (const bytes::Byte length_or_failure = response.front(); length_or_failure == 0x7F)
     {
         return fail(ErrorKind::BadResponse, "ECU marked CRC response failed");
     }
@@ -615,7 +614,8 @@ Result<std::uint32_t> SubaruDensoSh7055_02Executor::read_block_crc(IKlineFlashTr
 
 Status SubaruDensoSh7055_02Executor::flash_block(IKlineFlashTransport& transport, IClock& clock,
                                                  const ICancellationToken& cancellation, IEventSink& events,
-                                                 bytes::ByteView image, const MemoryRegion& block, bool test_write)
+                                                 bytes::ByteView image, const MemoryRegion& block,
+                                                 bool test_write) const
 {
     if (block.start > image.size() || block.length > image.size() - block.start ||
         block.length % kWriteChunkSize != 0 || block.length % kCommitBlockSize != 0)
@@ -706,7 +706,8 @@ Status SubaruDensoSh7055_02Executor::flash_block(IKlineFlashTransport& transport
 
 Status SubaruDensoSh7055_02Executor::write_mem(IKlineFlashTransport& transport, IClock& clock,
                                                const ICancellationToken& cancellation, IEventSink& events,
-                                               bytes::ByteView image, const std::string& mcu_name, bool test_write)
+                                               bytes::ByteView image, const std::string& mcu_name,
+                                               bool test_write) const
 {
     const flashdev_t *device = find_flash_device(mcu_name);
     if (device == nullptr)

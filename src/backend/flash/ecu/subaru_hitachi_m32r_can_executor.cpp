@@ -205,9 +205,9 @@ Status connect_bootloader(Ctx& ctx)
 
     // Bench branch (lines 581-753): every exchange from here on is fatal on
     // mismatch or empty reply, unlike the identity queries above.
-    Result<bytes::Bytes> session = fatal_query(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionBench},
-                                               bytes::Bytes{kSessionBench}, "bench diagnostic session");
-    if (!session.has_value())
+    if (Result<bytes::Bytes> session = fatal_query(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionBench},
+                                                   bytes::Bytes{kSessionBench}, "bench diagnostic session");
+        !session.has_value())
     {
         return std::unexpected(session.error());
     }
@@ -228,30 +228,30 @@ Status connect_bootloader(Ctx& ctx)
     info(ctx, std::format("Calculated seed key: {}", bytes::toHex(key)));
 
     info(ctx, "Sending seed key to ECU...");
-    Result<bytes::Bytes> key_reply =
-        fatal_query(ctx, composeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey, key),
-                    bytes::Bytes{uds::kSecurityAccessSendKey}, "seed key");
-    if (!key_reply.has_value())
+    if (Result<bytes::Bytes> key_reply =
+            fatal_query(ctx, composeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey, key),
+                        bytes::Bytes{uds::kSecurityAccessSendKey}, "seed key");
+        !key_reply.has_value())
     {
         return std::unexpected(key_reply.error());
     }
     info(ctx, "Seed key ok");
 
     info(ctx, "Jumping to onboard kernel...");
-    Result<bytes::Bytes> jump_reply =
-        fatal_query(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionKernelJump},
-                    bytes::Bytes{kSessionKernelJump}, "kernel jump");
-    if (!jump_reply.has_value())
+    if (Result<bytes::Bytes> jump_reply =
+            fatal_query(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionKernelJump},
+                        bytes::Bytes{kSessionKernelJump}, "kernel jump");
+        !jump_reply.has_value())
     {
         return std::unexpected(jump_reply.error());
     }
     info(ctx, "Jump to kernel ok");
 
     info(ctx, "Checking if jump successful and kernel alive...");
-    Result<bytes::Bytes> alive_reply =
-        fatal_query(ctx, bytes::Bytes{uds::kSidRequestDownload, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00},
-                    bytes::Bytes{0x20, 0x01, 0x04}, "kernel alive check");
-    if (!alive_reply.has_value())
+    if (Result<bytes::Bytes> alive_reply =
+            fatal_query(ctx, bytes::Bytes{uds::kSidRequestDownload, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00},
+                        bytes::Bytes{0x20, 0x01, 0x04}, "kernel alive check");
+        !alive_reply.has_value())
     {
         return std::unexpected(alive_reply.error());
     }
@@ -437,10 +437,10 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView image, PhaseReporter& 
     // pending (0x7F 0x31 0x78) before the real result; UdsClient absorbs
     // that NRC by re-reading internally, so this is a single request() call.
     info(ctx, "Verifying checksum...");
-    Result<bytes::Bytes> checksum =
-        fatal_query(ctx, bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, 0x02, 0x02, 0x01},
-                    bytes::Bytes{0x01, 0x02}, "checksum verify");
-    if (!checksum.has_value())
+    if (Result<bytes::Bytes> checksum =
+            fatal_query(ctx, bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, 0x02, 0x02, 0x01},
+                        bytes::Bytes{0x01, 0x02}, "checksum verify");
+        !checksum.has_value())
     {
         return std::unexpected(checksum.error());
     }

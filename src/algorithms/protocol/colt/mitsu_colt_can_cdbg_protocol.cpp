@@ -1,4 +1,5 @@
 #include "src/algorithms/protocol/colt/mitsu_colt_can_cdbg_protocol.h"
+#include <array>
 
 namespace MitsuColtCanCdbg
 {
@@ -15,7 +16,7 @@ CdbgFrame buildSecuritySeedRequestFrame()
 
 std::uint32_t seedToKey(std::uint32_t seed)
 {
-    bytes::Byte data[4] = {};
+    std::array<bytes::Byte, 4> data = {};
     bytes::writeU32Be(data, 0, seed);
 
     for (int i = 0; i < 4; ++i)
@@ -40,7 +41,7 @@ std::uint32_t seedToKey(std::uint32_t seed)
     }
 
     int parity = (data[0] & 1) + (data[1] & 1) + (data[2] & 1) + (data[3] & 1);
-    bytes::Byte n[4];
+    std::array<bytes::Byte, 4> n{};
     switch (parity)
     {
     case 0:

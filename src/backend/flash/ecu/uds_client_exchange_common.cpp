@@ -64,8 +64,8 @@ Result<bytes::Bytes> fatal_query(const UdsExchangeContext& ctx, bytes::ByteView 
         return reply;
     }
     const bytes::ByteView payload = uds::payload(*reply);
-    const std::size_t required_size = min_payload_size.value_or(expected_prefix.size());
-    if (payload.size() < required_size || !std::equal(expected_prefix.begin(), expected_prefix.end(), payload.begin()))
+    if (const std::size_t required_size = min_payload_size.value_or(expected_prefix.size());
+        payload.size() < required_size || !std::equal(expected_prefix.begin(), expected_prefix.end(), payload.begin()))
     {
         ctx.events.log(LogLevel::Error, std::format("{}unexpected {} response", rejection_prefix, subject));
         return fail(ErrorKind::BadResponse, std::format("{} rejected", subject));

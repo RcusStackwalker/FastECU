@@ -30,9 +30,9 @@ Status validate_identity(std::string_view protocol, std::string_view mcu)
     {
         return fail(Unsupported, "protocols.cfg declares no supported operation for MC68HC16Y5 revision 04");
     }
-    const std::string_view expected_mcu =
-        protocol == "sub_ecu_denso_mc68hc16y5_02_tpu" ? "MC68HC16Y5_TPU" : "MC68HC16Y5";
-    if (mcu != expected_mcu)
+    if (const std::string_view expected_mcu =
+            protocol == "sub_ecu_denso_mc68hc16y5_02_tpu" ? "MC68HC16Y5_TPU" : "MC68HC16Y5";
+        mcu != expected_mcu)
     {
         return fail(InvalidConfig, std::format("protocol {} requires MCU {}, not {}", protocol, expected_mcu, mcu));
     }
@@ -112,8 +112,8 @@ Status validate_subaru_denso_mc68hc16y5_02_plan(const FlashPlan& plan)
     {
         return valid;
     }
-    const SubaruDensoMc68hc16y5_02Plan expected = wire_params(plan.target_id());
-    if (family->connect_baud != expected.connect_baud || family->kernel_baud != expected.kernel_baud ||
+    if (const SubaruDensoMc68hc16y5_02Plan expected = wire_params(plan.target_id());
+        family->connect_baud != expected.connect_baud || family->kernel_baud != expected.kernel_baud ||
         family->encryption_xor != expected.encryption_xor || family->kernel_magic != expected.kernel_magic ||
         family->bootloader_ok != expected.bootloader_ok)
     {

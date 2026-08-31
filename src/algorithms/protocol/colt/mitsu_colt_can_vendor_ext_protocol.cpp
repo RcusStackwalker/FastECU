@@ -4,6 +4,7 @@
 
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/uds/uds_pdu.h"
+#include <array>
 
 namespace MitsuColtCanVendorExt
 {
@@ -30,7 +31,7 @@ std::uint32_t swapNibbles(std::uint32_t x)
 // Round constants read from ROM flash at 0x5fddc..0x5fddc+15 (big-endian
 // u32 each) — literally the first 16 bytes of the "EcuTek ROM Patch" ASCII
 // string embedded elsewhere in the same ROM, reinterpreted as words.
-constexpr std::uint32_t kRoundConstants[4] = {
+constexpr std::array<std::uint32_t, 4> kRoundConstants{
     0x45637554U, // "EcuT"
     0x656b2052U, // "ek R"
     0x4f4d2050U, // "OM P"

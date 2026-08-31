@@ -266,10 +266,10 @@ Status connect_bootloader(Ctx& ctx)
 
     // Session 0x10/0x03 (lines 216-242): sent on 0x7E0, fatal.
     info(ctx, "Requesting session mode");
-    Result<bytes::Bytes> session = fatal_query(
-        ctx, ctx.other_uds, bytes::Bytes{uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic},
-        bytes::Bytes{uds::kSessionExtendedDiagnostic}, "session mode request");
-    if (!session.has_value())
+    if (Result<bytes::Bytes> session = fatal_query(
+            ctx, ctx.other_uds, bytes::Bytes{uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic},
+            bytes::Bytes{uds::kSessionExtendedDiagnostic}, "session mode request");
+        !session.has_value())
     {
         return std::unexpected(session.error());
     }
@@ -295,9 +295,9 @@ Status connect_bootloader(Ctx& ctx)
     info(ctx, "Sending seed key");
     bytes::Bytes key_request{uds::kSidSecurityAccess, uds::kSecurityAccessSendKey};
     key_request.insert(key_request.end(), key.begin(), key.end());
-    Result<bytes::Bytes> key_reply =
-        fatal_query(ctx, ctx.other_uds, key_request, bytes::Bytes{uds::kSecurityAccessSendKey}, "seed key");
-    if (!key_reply.has_value())
+    if (Result<bytes::Bytes> key_reply =
+            fatal_query(ctx, ctx.other_uds, key_request, bytes::Bytes{uds::kSecurityAccessSendKey}, "seed key");
+        !key_reply.has_value())
     {
         return std::unexpected(key_reply.error());
     }
@@ -306,10 +306,10 @@ Status connect_bootloader(Ctx& ctx)
     // Jump 0x10/0x02 (lines 339-365): back to this family's own 0x7e1,
     // fatal, standard SID+0x40 -- routed through fatal_request/ctx.uds.
     info(ctx, "Jumping to onboard kernel...");
-    Result<bytes::Bytes> jump_reply =
-        fatal_query(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, uds::kSessionProgramming},
-                    bytes::Bytes{uds::kSessionProgramming}, "kernel jump");
-    if (!jump_reply.has_value())
+    if (Result<bytes::Bytes> jump_reply =
+            fatal_query(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, uds::kSessionProgramming},
+                        bytes::Bytes{uds::kSessionProgramming}, "kernel jump");
+        !jump_reply.has_value())
     {
         return std::unexpected(jump_reply.error());
     }
@@ -317,10 +317,10 @@ Status connect_bootloader(Ctx& ctx)
 
     // Alive re-check 0x31/0x02/0x02/0x01 (lines 373-401): 0x7e1, fatal.
     info(ctx, "Checking if jump successful and kernel alive...");
-    Result<bytes::Bytes> recheck =
-        fatal_query(ctx, bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStop, 0x02, 0x01},
-                    bytes::Bytes{uds::kRoutineControlStop, 0x02, 0x03}, "kernel alive re-check");
-    if (!recheck.has_value())
+    if (Result<bytes::Bytes> recheck =
+            fatal_query(ctx, bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStop, 0x02, 0x01},
+                        bytes::Bytes{uds::kRoutineControlStop, 0x02, 0x03}, "kernel alive re-check");
+        !recheck.has_value())
     {
         return std::unexpected(recheck.error());
     }
@@ -340,10 +340,10 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
     // analogous step, this one IS fatal in this family's legacy source
     // (both branches of the length check return STATUS_ERROR).
     info(ctx, "Settting dump start & length...");
-    Result<bytes::Bytes> setup =
-        fatal_query(ctx, composeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, u24(kWindow.start), u24(kWindow.length)),
-                    bytes::Bytes{0x20, 0x01, 0x04}, "dump start & length setup");
-    if (!setup.has_value())
+    if (Result<bytes::Bytes> setup = fatal_query(
+            ctx, composeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, u24(kWindow.start), u24(kWindow.length)),
+            bytes::Bytes{0x20, 0x01, 0x04}, "dump start & length setup");
+        !setup.has_value())
     {
         return std::unexpected(setup.error());
     }
@@ -505,10 +505,10 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, std::uint
 
     // "Verifying checksum..." (lines 945-978).
     info(ctx, "Verifying checksum...");
-    Result<bytes::Bytes> checksum =
-        fatal_query(ctx, bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStop, 0x02, 0x01},
-                    bytes::Bytes{uds::kRoutineControlStop, 0x02}, "checksum verify");
-    if (!checksum.has_value())
+    if (Result<bytes::Bytes> checksum =
+            fatal_query(ctx, bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStop, 0x02, 0x01},
+                        bytes::Bytes{uds::kRoutineControlStop, 0x02}, "checksum verify");
+        !checksum.has_value())
     {
         return std::unexpected(checksum.error());
     }

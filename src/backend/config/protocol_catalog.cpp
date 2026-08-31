@@ -27,8 +27,7 @@ Result<ProtocolCatalog> load_protocol_catalog(const ConfigPaths& paths, IFileRep
     }
 
     pugi::xml_document doc;
-    pugi::xml_parse_result parsed = doc.load_buffer(bytes->data(), bytes->size());
-    if (!parsed)
+    if (pugi::xml_parse_result parsed = doc.load_buffer(bytes->data(), bytes->size()); !parsed)
     {
         return fail(ErrorKind::InvalidConfig, std::format("protocols parse error: {}", parsed.description()));
     }

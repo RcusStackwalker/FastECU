@@ -10,6 +10,7 @@
 #include <string_view>
 
 #include "src/algorithms/expression/expression_evaluator.h"
+#include <array>
 
 namespace fastecu::calibration
 {
@@ -25,8 +26,8 @@ Status validate_extent(std::optional<std::uint64_t> address, std::uint32_t count
         return {};
     }
     const std::uint32_t width = element_byte_size(storage_type, scaling);
-    const std::uint64_t end = element_run_end(*address, start_position, interval, width, count);
-    if (end > rom_byte_length)
+    if (const std::uint64_t end = element_run_end(*address, start_position, interval, width, count);
+        end > rom_byte_length)
     {
         return fail(ErrorKind::InvalidConfig, std::string(context) + " address exceeds ROM size");
     }
@@ -45,9 +46,9 @@ std::string format_like_qt_g(double value, int precision)
     {
         value = 0.0; // normalizes -0.0 to +0.0, as Qt does
     }
-    char buffer[64];
-    std::snprintf(buffer, sizeof(buffer), "%.*g", precision, value);
-    return std::string(buffer);
+    std::array<char, 64> buffer{};
+    std::snprintf(buffer.data(), buffer.size(), "%.*g", precision, value);
+    return std::string(buffer.data());
 }
 
 // Sign-extends an assembled `width`-byte value to a full int32. Widths of 4 or

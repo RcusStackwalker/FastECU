@@ -128,9 +128,9 @@ Result<UnresolvedAxisDefinition> parse_axis(pugi::xml_node table, std::uint32_t 
     }
     axis.address = *address;
 
-    const char *size_attribute =
-        table.attribute("elements") ? "elements" : (table.attribute("size") ? "size" : nullptr);
-    if (size_attribute)
+    if (const char *size_attribute =
+            table.attribute("elements") ? "elements" : (table.attribute("size") ? "size" : nullptr);
+        size_attribute)
     {
         auto size = dimension_attribute(table, size_attribute, default_size, source, definition_id);
         if (!size)
@@ -140,8 +140,7 @@ Result<UnresolvedAxisDefinition> parse_axis(pugi::xml_node table, std::uint32_t 
         axis.size = *size;
     }
     axis.scaling_name = value_or_empty(table.attribute("scaling"));
-    const pugi::xml_node scaling_node = table.child("scaling");
-    if (scaling_node)
+    if (const pugi::xml_node scaling_node = table.child("scaling"); scaling_node)
     {
         auto parsed_scaling = parse_scaling(scaling_node, axis.scaling_name.empty() ? axis.name : axis.scaling_name,
                                             table, source, definition_id);
@@ -365,8 +364,7 @@ Result<UnresolvedDefinition> parse_romraider_definition(std::span<const std::uin
         {
             return std::unexpected(map.error());
         }
-        const std::string map_id = map->id.value_or(map->name);
-        if (!map_ids.insert(map_id).second)
+        if (const std::string map_id = map->id.value_or(map->name); !map_ids.insert(map_id).second)
         {
             return invalid(source, "element <table> attribute 'id' or 'name'",
                            std::format("duplicate map identity '{}'", map_id), definition_id);

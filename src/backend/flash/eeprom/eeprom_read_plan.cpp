@@ -161,8 +161,7 @@ Result<FlashPlan> build_eeprom_read_plan(const config::ConfigPaths& paths, std::
         .security = *security,
         .eeprom_region = *eeprom_region,
     };
-    Result<void> preflight = validate_denso_sh705x_eeprom_preflight(input, std::nullopt);
-    if (!preflight.has_value())
+    if (Result<void> preflight = validate_denso_sh705x_eeprom_preflight(input, std::nullopt); !preflight.has_value())
     {
         return std::unexpected(preflight.error());
     }

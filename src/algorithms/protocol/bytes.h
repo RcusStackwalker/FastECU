@@ -8,6 +8,7 @@
 #include <span>
 #include <string>
 #include <vector>
+#include <array>
 
 namespace bytes
 {
@@ -262,11 +263,11 @@ inline std::string toHex(ByteView bytes)
 {
     std::string msg;
     msg.reserve(bytes.size() * 3);
-    char hex[4] = {};
+    std::array<char, 4> hex = {};
     for (const Byte byte : bytes)
     {
-        std::snprintf(hex, sizeof(hex), "%02x ", byte);
-        msg.append(hex);
+        std::snprintf(hex.data(), hex.size(), "%02x ", byte);
+        msg.append(hex.data());
     }
     return msg;
 }

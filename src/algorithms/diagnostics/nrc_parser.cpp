@@ -9,8 +9,7 @@ std::string nrc_description(bytes::ByteView nrc, const std::unordered_map<int, s
         return "Not a valid answer";
     }
 
-    const auto it = codes.find(static_cast<int>(nrc[2]));
-    if (it != codes.end())
+    if (const auto it = codes.find(static_cast<int>(nrc[2])); it != codes.end())
     {
         return it->second;
     }

@@ -20,8 +20,7 @@ class FakeBenchFiles : public IBenchFiles
     Result<bytes::Bytes> load(std::string_view path) override
     {
         const std::string key(path);
-        const int call = ++load_calls[key];
-        if (fail_on_repeated_load && call > 1)
+        if (const int call = ++load_calls[key]; fail_on_repeated_load && call > 1)
         {
             return fail(ErrorKind::InvalidConfig, "file was loaded more than once");
         }

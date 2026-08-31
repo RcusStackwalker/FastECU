@@ -178,9 +178,9 @@ Result<std::vector<std::uint8_t>> rewrite_ecuflash_xml(std::span<const std::uint
     pugi::xml_document document;
     constexpr unsigned int parse_flags =
         pugi::parse_default | pugi::parse_comments | pugi::parse_declaration | pugi::parse_pi | pugi::parse_doctype;
-    const pugi::xml_parse_result parsed =
-        document.load_buffer(source.data(), source.size(), parse_flags, pugi::encoding_auto);
-    if (!parsed)
+    if (const pugi::xml_parse_result parsed =
+            document.load_buffer(source.data(), source.size(), parse_flags, pugi::encoding_auto);
+        !parsed)
     {
         return fail(ErrorKind::InvalidConfig,
                     std::format("EcuFlash source XML is malformed: {}", parsed.description()));

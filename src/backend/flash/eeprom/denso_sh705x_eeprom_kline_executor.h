@@ -25,12 +25,14 @@ class DensoSh705xEepromKlineExecutor final : public IKlineFlashExecutor
     // today, but reading them from the plan rather than hardcoding keeps the
     // two functions symmetric and avoids a second source of truth.
     Status connect_bootloader(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-                              IEventSink& events, const DensoSh705xEepromKlinePlan& kline_plan, bool& kernel_alive);
+                              IEventSink& events, const DensoSh705xEepromKlinePlan& kline_plan,
+                              bool& kernel_alive) const;
     Status upload_kernel(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-                         IEventSink& events, const DensoSh705xEepromKlinePlan& kline_plan, const KernelImage& kernel);
+                         IEventSink& events, const DensoSh705xEepromKlinePlan& kline_plan,
+                         const KernelImage& kernel) const;
     Result<bytes::Bytes> read_mem(IKlineFlashTransport& transport, IClock& clock,
                                   const ICancellationToken& cancellation, IEventSink& events,
-                                  const MemoryRegion& region, EepromReadMode mode);
+                                  const MemoryRegion& region, EepromReadMode mode) const;
 };
 
 } // namespace fastecu::flash
