@@ -7,6 +7,7 @@
 #include <expected>
 #include <format>
 #include <ranges>
+#include <array>
 
 namespace fastecu::definition
 {
@@ -59,12 +60,18 @@ Result<void> validate(const DefinitionIndexEntry& entry)
 
 std::optional<StorageType> storage_type_from_text(std::string_view text)
 {
-    static constexpr std::pair<std::string_view, StorageType> kStorageTypes[] = {
-        {"uint8", StorageType::Uint8},       {"int8", StorageType::Int8},     {"uint16", StorageType::Uint16},
-        {"int16", StorageType::Int16},       {"uint24", StorageType::Uint24}, {"int24", StorageType::Int24},
-        {"uint32", StorageType::Uint32},     {"int32", StorageType::Int32},   {"float", StorageType::Float},
+    static constexpr std::array<std::pair<std::string_view, StorageType>, 10> kStorageTypes{{
+        {"uint8", StorageType::Uint8},
+        {"int8", StorageType::Int8},
+        {"uint16", StorageType::Uint16},
+        {"int16", StorageType::Int16},
+        {"uint24", StorageType::Uint24},
+        {"int24", StorageType::Int24},
+        {"uint32", StorageType::Uint32},
+        {"int32", StorageType::Int32},
+        {"float", StorageType::Float},
         {"bloblist", StorageType::Bloblist},
-    };
+    }};
     for (const auto& [name, value] : kStorageTypes)
     {
         if (text == name)

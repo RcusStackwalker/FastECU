@@ -1,6 +1,7 @@
 #include "checksum_tcu_subaru_hitachi_m32r_can.h"
 #include "checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
+#include <array>
 
 ChecksumResult ChecksumTcuSubaruHitachiM32rCan::calculate_checksum_result(bytes::ByteView romView)
 {
@@ -33,7 +34,7 @@ ChecksumResult ChecksumTcuSubaruHitachiM32rCan::calculate_checksum_result(bytes:
         }
     }
 
-    uint8_t checksum_2_value_calculated_bytes[4];
+    std::array<uint8_t, 4> checksum_2_value_calculated_bytes{};
     checksum_2_value_calculated_bytes[3] = 0xff - ((checksum_2_value_calculated >> 24) & 0xff);
     checksum_2_value_calculated_bytes[2] = 0xff - ((checksum_2_value_calculated >> 16) & 0xff);
     checksum_2_value_calculated_bytes[1] = 0xff - ((checksum_2_value_calculated >> 8) & 0xff);
@@ -64,7 +65,7 @@ ChecksumResult ChecksumTcuSubaruHitachiM32rCan::calculate_checksum_result(bytes:
                 checksum_2_value_calculated += bytes::readU32Be(romData, static_cast<std::size_t>(i));
             }
         }
-        uint8_t checksum_2_value_calculated_bytes2[4];
+        std::array<uint8_t, 4> checksum_2_value_calculated_bytes2{};
         checksum_2_value_calculated_bytes2[3] = 0xff - ((checksum_2_value_calculated >> 24) & 0xff);
         checksum_2_value_calculated_bytes2[2] = 0xff - ((checksum_2_value_calculated >> 16) & 0xff);
         checksum_2_value_calculated_bytes2[1] = 0xff - ((checksum_2_value_calculated >> 8) & 0xff);

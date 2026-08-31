@@ -4,6 +4,7 @@
 
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/uds/uds_pdu.h"
+#include <array>
 
 namespace MitsuColtCan
 {
@@ -117,7 +118,7 @@ bytes::Bytes buildRequestReflashUnlock()
     // externals/livemonitor/obdsessionwidget.cpp:180-181, verbatim, and the
     // frame this builds is still that literal byte for byte. Original author's
     // comment: "caused bootloader lockup". See header doc.
-    static const bytes::Byte kData[11] = {154, 1, 1, 'R', 'c', 'u', 's', '0', '0', 0, 1};
+    static constexpr std::array<bytes::Byte, 11> kData{154, 1, 1, 'R', 'c', 'u', 's', '0', '0', 0, 1};
     return uds::buildRequest(kServiceRequestReflash, bytes::ByteView(kData));
 }
 

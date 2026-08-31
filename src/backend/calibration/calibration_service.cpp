@@ -10,6 +10,7 @@
 #include <string_view>
 
 #include "src/algorithms/expression/expression_evaluator.h"
+#include <array>
 
 namespace fastecu::calibration
 {
@@ -45,9 +46,9 @@ std::string format_like_qt_g(double value, int precision)
     {
         value = 0.0; // normalizes -0.0 to +0.0, as Qt does
     }
-    char buffer[64];
-    std::snprintf(buffer, sizeof(buffer), "%.*g", precision, value);
-    return std::string(buffer);
+    std::array<char, 64> buffer{};
+    std::snprintf(buffer.data(), buffer.size(), "%.*g", precision, value);
+    return std::string(buffer.data());
 }
 
 // Sign-extends an assembled `width`-byte value to a full int32. Widths of 4 or
