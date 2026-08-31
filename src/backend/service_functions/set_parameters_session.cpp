@@ -9,7 +9,8 @@ namespace fastecu::service_functions
 namespace
 {
 
-constexpr int kReadTimeoutMs = 500;     // receive_timeout, legacy header :59
+constexpr int kReadTimeoutMs = 500; // receive_timeout, legacy header :59
+constexpr int kAttempts = 6;
 constexpr bytes::Byte kTesterId = 0xf0; // legacy :151
 constexpr bytes::Byte kTargetId = 0x18; // legacy :152
 constexpr bytes::Byte kPositiveResponse = 0xf8;
@@ -68,32 +69,51 @@ ServiceFunctionStep SetParametersSession::resume(ISsmTransport& transport, ICloc
 
     for (const auto& write : writes)
     {
-        if (cancellation.cancelled())
+        bool acknowledged = false;
+        bool received_frame = false;
+        bytes::Bytes last_reply;
+
+        for (int attempt = 0; attempt < kAttempts; ++attempt)
         {
-            return FailedStep{Error{ErrorKind::Cancelled, "cancelled while setting TCU parameters"}};
+            if (cancellation.cancelled())
+            {
+                return FailedStep{Error{ErrorKind::Cancelled, "cancelled while setting TCU parameters"}};
+            }
+
+            const bytes::Bytes frame = frameFor(write);
+            if (const auto sent = transport.write(frame); !sent.has_value())
+            {
+                return FailedStep{sent.error()};
+            }
+
+            const auto received = transport.read(kReadTimeoutMs, cancellation);
+            if (!received.has_value())
+            {
+                return FailedStep{received.error()};
+            }
+            if (!received->has_value())
+            {
+                continue;
+            }
+
+            // legacy :219-236 -- this check is NOT commented out, unlike relearn's.
+            received_frame = true;
+            last_reply = **received;
+            if (last_reply.size() > 4 && last_reply[4] == kPositiveResponse)
+            {
+                acknowledged = true;
+                break;
+            }
         }
 
-        const bytes::Bytes frame = frameFor(write);
-        if (const auto sent = transport.write(frame); !sent.has_value())
+        if (!acknowledged)
         {
-            return FailedStep{sent.error()};
-        }
-
-        const auto received = transport.read(kReadTimeoutMs, cancellation);
-        if (!received.has_value())
-        {
-            return FailedStep{received.error()};
-        }
-        if (!received->has_value())
-        {
-            return FailedStep{Error{ErrorKind::Timeout, "no response to TCU parameter write"}};
-        }
-
-        // legacy :219-236 -- this check is NOT commented out, unlike relearn's.
-        const bytes::Bytes& reply = **received;
-        if (reply.size() <= 4 || reply[4] != kPositiveResponse)
-        {
-            return FailedStep{Error{ErrorKind::BadResponse, "TCU rejected a parameter write: " + bytes::toHex(reply)}};
+            if (!received_frame)
+            {
+                return FailedStep{Error{ErrorKind::Timeout, "no response to TCU parameter write"}};
+            }
+            return FailedStep{
+                Error{ErrorKind::BadResponse, "TCU rejected a parameter write: " + bytes::toHex(last_reply)}};
         }
 
         ++written_count;

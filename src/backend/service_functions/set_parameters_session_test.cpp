@@ -118,31 +118,75 @@ TEST(SetParametersSession, FirstFrameMatchesTheOneFrameTheLegacyGetsRight)
     EXPECT_TRUE(std::holds_alternative<CompletedStep>(step));
 }
 
-TEST(SetParametersSession, StopsAtTheFirstNonPositiveResponse)
-{
-    // legacy :227 returns STATUS_ERROR without commenting the return out.
-    Fixture fixture;
-    const auto writes = tcu_parameter_writes(sample());
-    fixture.transport.expectWrite(framed(writes[0].address, writes[0].value));
-    fixture.transport.queueRead(ack());
-    fixture.transport.expectWrite(framed(writes[1].address, writes[1].value));
-    fixture.transport.queueRead(bytes::Bytes{0x80, 0xf0, 0x18, 0x02, 0x7f, 0xb8, 0x11});
-
-    const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
-    ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
-    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::BadResponse);
-}
-
-TEST(SetParametersSession, TreatsASilentReadAsTimeout)
+TEST(SetParametersSession, RetriesASilentReadWithAFreshFrameThenCompletes)
 {
     Fixture fixture;
     const auto writes = tcu_parameter_writes(sample());
     fixture.transport.expectWrite(framed(writes[0].address, writes[0].value));
     fixture.transport.queue_no_frame();
+    fixture.transport.expectWrite(framed(writes[0].address, writes[0].value));
+    fixture.transport.queueRead(ack());
+    for (std::size_t index = 1; index < writes.size(); ++index)
+    {
+        fixture.transport.expectWrite(framed(writes[index].address, writes[index].value));
+        fixture.transport.queueRead(ack());
+    }
+
+    const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
+
+    ASSERT_TRUE(std::holds_alternative<CompletedStep>(step));
+    EXPECT_EQ(std::get<SetParametersOutcome>(std::get<CompletedStep>(step).outcome).frames_written, 12);
+    EXPECT_TRUE(fixture.transport.ok());
+    EXPECT_TRUE(fixture.transport.scriptConsumed());
+}
+
+TEST(SetParametersSession, RejectsAfterSixNonPositiveResponses)
+{
+    // legacy :227 returns STATUS_ERROR without commenting the return out.
+    Fixture fixture;
+    const auto writes = tcu_parameter_writes(sample());
+    for (int attempt = 0; attempt < 6; ++attempt)
+    {
+        fixture.transport.expectWrite(framed(writes[0].address, writes[0].value));
+        fixture.transport.queueRead(bytes::Bytes{0x80, 0xf0, 0x18, 0x02, 0x7f, 0xb8, 0x11});
+    }
+
+    const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
+    ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
+    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(fixture.transport.scriptConsumed());
+}
+
+TEST(SetParametersSession, RejectsAfterSixMalformedResponses)
+{
+    Fixture fixture;
+    const auto writes = tcu_parameter_writes(sample());
+    for (int attempt = 0; attempt < 6; ++attempt)
+    {
+        fixture.transport.expectWrite(framed(writes[0].address, writes[0].value));
+        fixture.transport.queueRead(bytes::Bytes{0x80, 0xf0, 0x18, 0x02});
+    }
+
+    const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
+    ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
+    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(fixture.transport.scriptConsumed());
+}
+
+TEST(SetParametersSession, TreatsSixSilentReadsAsTimeout)
+{
+    Fixture fixture;
+    const auto writes = tcu_parameter_writes(sample());
+    for (int attempt = 0; attempt < 6; ++attempt)
+    {
+        fixture.transport.expectWrite(framed(writes[0].address, writes[0].value));
+        fixture.transport.queue_no_frame();
+    }
 
     const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
     EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::Timeout);
+    EXPECT_TRUE(fixture.transport.scriptConsumed());
 }
 
 TEST(SetParametersSession, ReportsADroppedTransportAsDisconnected)
