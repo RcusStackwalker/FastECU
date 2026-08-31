@@ -76,14 +76,29 @@ ApplicationWindow {
                     }
                 }
 
-                DashboardView {
-                    presentation: dashboardPresentation
+                RowLayout {
+                    objectName: "dashboardWorkspaceBody"
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+
+                    DashboardView {
+                        presentation: dashboardPresentation
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                    }
+
+                    DashboardEditorPanel {
+                        Layout.fillHeight: true
+                    }
                 }
                 ConnectionPanel {
                     Layout.fillWidth: true
                 }
+            }
+
+            DocumentDialogs {
+                id: documentDialogs
+                anchors.fill: parent
             }
         }
     }

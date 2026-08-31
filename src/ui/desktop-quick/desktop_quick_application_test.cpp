@@ -13,9 +13,16 @@
 #include <optional>
 #include <utility>
 
+#include "src/backend/dashboard/dashboard_codec.h"
+#include "src/backend/dashboard/dashboard_document_service.h"
+#include "src/backend/ports/testing/fake_clock.h"
+#include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
+#include "src/backend/ports/testing/in_memory_file_repository.h"
+#include "src/backend/ports/testing/in_memory_settings.h"
 #include "src/ui/desktop-quick/dashboard/dashboard_connection_controller.h"
 #include "src/ui/desktop-quick/dashboard/dashboard_controller.h"
-#include "src/backend/ports/testing/fake_clock.h"
+#include "src/ui/desktop-quick/dashboard/dashboard_document_controller.h"
+#include "src/ui/desktop-quick/dashboard/dashboard_editor_model.h"
 
 namespace fastecu::desktop_quick
 {
@@ -31,15 +38,41 @@ dashboard::DashboardDocument mixed_card_document()
 {
     return {
         .metadata = {.format_version = 1, .name = "Engine dashboard"},
-        .connection = {.sampling_interval_ms = 50},
+        .connection =
+            {
+                .protocol = dashboard::DashboardProtocol::Cdbg,
+                .transport = dashboard::DashboardTransport::RawCan,
+                .bitrate = 500000,
+                .identifier_width = dashboard::CanIdentifierWidth::Standard,
+                .request_id = 0x630,
+                .reply_id = 0x631,
+                .stream_instance = 0,
+                .sampling_interval_ms = 50,
+                .retry = dashboard::RetryPolicy{100, 3, 3, 250},
+            },
         .channels =
             {
                 {.id = "CDBG_ENGINE_RPM",
                  .name = "Engine RPM",
-                 .conversions = {{.id = "rpm", .unit = "rpm", .precision = 0}}},
+                 .description = "Engine speed",
+                 .address = 0x100,
+                 .length = 2,
+                 .raw_assembly = dashboard::RawAssembly::UnsignedIntegerDecimal,
+                 .conversions = {{.id = "rpm",
+                                  .expression = "x",
+                                  .unit = "rpm",
+                                  .precision = 0,
+                                  .gauge_min = 0.0,
+                                  .gauge_max = 8000.0,
+                                  .gauge_step = 500.0}}},
                 {.id = "CDBG_COOLANT_TEMP",
                  .name = "Coolant Temperature",
+                 .description = "Engine coolant temperature",
+                 .address = 0x102,
+                 .length = 2,
+                 .raw_assembly = dashboard::RawAssembly::UnsignedIntegerDecimal,
                  .conversions = {{.id = "temperature",
+                                  .expression = "x",
                                   .unit = "°C",
                                   .precision = 1,
                                   .gauge_min = -40.0,
@@ -47,7 +80,17 @@ dashboard::DashboardDocument mixed_card_document()
                                   .gauge_step = 10.0}}},
                 {.id = "CDBG_MANIFOLD_PRESSURE",
                  .name = "Manifold Pressure",
-                 .conversions = {{.id = "pressure", .unit = "kPa", .precision = 0}}},
+                 .description = "Intake manifold pressure",
+                 .address = 0x104,
+                 .length = 2,
+                 .raw_assembly = dashboard::RawAssembly::UnsignedIntegerDecimal,
+                 .conversions = {{.id = "pressure",
+                                  .expression = "x",
+                                  .unit = "kPa",
+                                  .precision = 0,
+                                  .gauge_min = 0.0,
+                                  .gauge_max = 100.0,
+                                  .gauge_step = 5.0}}},
             },
         .cards =
             {
@@ -208,10 +251,32 @@ class LoadedApplication
 {
   public:
     LoadedApplication()
-        : controller(preparation, logging), document(mixed_card_document()),
+        : documents(repository, writer), document_controller(documents, settings), editor(document_controller),
+          controller(preparation, logging), document(mixed_card_document()),
           presentation(document, logging, controller, clock)
     {
+        auto encoded = dashboard::encode_dashboard_document(document);
+        if (!encoded.has_value())
+        {
+            qFatal("Failed to encode application fixture: %s", encoded.error().detail.c_str());
+        }
+        repository.files["editable.ohd"] = std::move(*encoded);
+        const Status opened = document_controller.openDocument("editable.ohd");
+        if (!opened.has_value())
+        {
+            qFatal("Failed to open application fixture: %s", opened.error().detail.c_str());
+        }
+        QObject::connect(&document_controller, &DashboardDocumentController::documentCommitted, &presentation,
+                         [this]
+                         {
+                             presentation.setDocument(document_controller.document());
+                             controller.setDocument(document_controller.document());
+                         });
+        QObject::connect(&controller, &DashboardConnectionController::stateChanged, &document_controller,
+                         [this] { document_controller.setConnectionState(controller.state()); });
         controller.setDocument(document);
+        engine.rootContext()->setContextProperty(QStringLiteral("dashboardDocuments"), &document_controller);
+        engine.rootContext()->setContextProperty(QStringLiteral("dashboardEditor"), &editor);
         loaded = load_root(engine, controller, presentation);
     }
 
@@ -226,6 +291,12 @@ class LoadedApplication
         return application_root == nullptr ? nullptr : application_root->findChild<QObject *>(QString::fromUtf8(name));
     }
 
+    InMemoryFileRepository repository;
+    InMemoryAtomicFileWriter writer;
+    InMemorySettings settings;
+    dashboard::DashboardDocumentService documents;
+    DashboardDocumentController document_controller;
+    DashboardEditorModel editor;
     FakePreparationService preparation;
     FakeLoggingEngine logging;
     DashboardConnectionController controller;
@@ -239,10 +310,14 @@ class LoadedApplication
 class LoadErrorApplication
 {
   public:
-    LoadErrorApplication() : controller(preparation, logging)
+    LoadErrorApplication()
+        : documents(repository, writer), document_controller(documents, settings), editor(document_controller),
+          controller(preparation, logging)
     {
         presentation =
             DashboardController::fromLoadError(QStringLiteral("resource is malformed"), logging, controller, clock);
+        engine.rootContext()->setContextProperty(QStringLiteral("dashboardDocuments"), &document_controller);
+        engine.rootContext()->setContextProperty(QStringLiteral("dashboardEditor"), &editor);
         loaded = load_root(engine, controller, *presentation);
     }
 
@@ -257,6 +332,12 @@ class LoadErrorApplication
         return application_root == nullptr ? nullptr : application_root->findChild<QObject *>(QString::fromUtf8(name));
     }
 
+    InMemoryFileRepository repository;
+    InMemoryAtomicFileWriter writer;
+    InMemorySettings settings;
+    dashboard::DashboardDocumentService documents;
+    DashboardDocumentController document_controller;
+    DashboardEditorModel editor;
     FakePreparationService preparation;
     FakeLoggingEngine logging;
     DashboardConnectionController controller;
@@ -340,6 +421,174 @@ class DesktopQuickApplicationTest : public QObject
         QCOMPARE(application.find("adapterPicker")->property("visible").toBool(), false);
         QVERIFY(application.find("refreshAdaptersButton") != nullptr);
         QVERIFY(application.find("connectionErrorDetail") != nullptr);
+    }
+
+    void editorPanelPersistsBesideThePreviewAndReflectsCommittedCommands()
+    {
+        LoadedApplication application;
+        QVERIFY(application.loaded);
+
+        const QList<const char *> required_objects = {
+            "dashboardEditorPanel",  "importDashboardButton",   "openDashboardButton", "saveDashboardButton",
+            "saveAsDashboardButton", "dashboardDirtyIndicator", "editorCardList",      "addCardButton",
+            "removeCardButton",      "moveCardUpButton",        "moveCardDownButton",  "cardChannelCombo",
+            "cardConversionCombo",   "cardDisplayTypeCombo",    "gaugeSettings",       "sparklineSettings",
+            "unsavedChangesDialog",  "documentErrorBanner",
+        };
+        for (const char *object_name : required_objects)
+        {
+            QVERIFY2(application.find(object_name) != nullptr, object_name);
+        }
+
+        auto *dashboard_view = qobject_cast<QQuickItem *>(application.find("dashboardView"));
+        auto *editor_panel = qobject_cast<QQuickItem *>(application.find("dashboardEditorPanel"));
+        QVERIFY(dashboard_view != nullptr);
+        QVERIFY(editor_panel != nullptr);
+        QCOMPARE(editor_panel->parentItem(), dashboard_view->parentItem());
+        QVERIFY(editor_panel->isVisible());
+
+        application.editor.selectCard(QStringLiteral("coolant"));
+        QCOMPARE(application.editor.selectedCardId(), QStringLiteral("coolant"));
+        QVERIFY(click(application.find("moveCardUpButton")));
+        QCOMPARE(application.editor.selectedCardId(), QStringLiteral("coolant"));
+        QTRY_COMPARE(
+            visual_children_named(dashboard_view, QStringLiteral("cardTitle")).at(0)->property("text").toString(),
+            QStringLiteral("Coolant Temperature"));
+        QVERIFY(click(application.find("moveCardDownButton")));
+        QCOMPARE(application.editor.selectedCardId(), QStringLiteral("coolant"));
+
+        application.editor.setSelectedTitle(QStringLiteral("Coolant Monitor"));
+        QTRY_COMPARE(
+            visual_children_named(dashboard_view, QStringLiteral("cardTitle")).at(1)->property("text").toString(),
+            QStringLiteral("Coolant Monitor"));
+        QCOMPARE(application.find("dashboardDirtyIndicator")->property("visible").toBool(), true);
+        QVERIFY(click(application.find("saveDashboardButton")));
+        QTRY_COMPARE(application.document_controller.isDirty(), false);
+        QCOMPARE(application.writer.replace_calls.back().handle, std::string{"editable.ohd"});
+    }
+
+    void editorPanelShowsOnlyTheSelectedDisplayTypeSettings()
+    {
+        LoadedApplication application;
+        QVERIFY(application.loaded);
+        application.editor.selectCard(QStringLiteral("rpm"));
+
+        application.editor.setSelectedDisplayType(CardDisplayType::HorizontalGauge);
+        QTRY_COMPARE(application.find("gaugeSettings")->property("visible").toBool(), true);
+        QCOMPARE(application.find("sparklineSettings")->property("visible").toBool(), false);
+
+        application.editor.setSelectedDisplayType(CardDisplayType::Sparkline);
+        QTRY_COMPARE(application.find("gaugeSettings")->property("visible").toBool(), false);
+        QCOMPARE(application.find("sparklineSettings")->property("visible").toBool(), true);
+
+        application.editor.setSelectedDisplayType(CardDisplayType::Numeric);
+        QTRY_COMPARE(application.find("gaugeSettings")->property("visible").toBool(), false);
+        QCOMPARE(application.find("sparklineSettings")->property("visible").toBool(), false);
+    }
+
+    void editorPanelCanAddTheFirstCardFromTypedChannelConversions()
+    {
+        LoadedApplication application;
+        QVERIFY(application.loaded);
+        while (application.editor.rowCount() > 0)
+        {
+            application.editor.removeSelected();
+        }
+
+        QObject *channel = application.find("addCardChannelCombo");
+        QObject *conversion = application.find("addCardConversionCombo");
+        QVERIFY(channel != nullptr);
+        QVERIFY(conversion != nullptr);
+        QTRY_COMPARE(channel->property("currentValue").toString(), QStringLiteral("CDBG_ENGINE_RPM"));
+        QTRY_COMPARE(conversion->property("currentValue").toString(), QStringLiteral("rpm"));
+        QVERIFY(click(application.find("addCardButton")));
+
+        QTRY_COMPARE(application.editor.rowCount(), 1);
+        QCOMPARE(application.editor.selectedChannelId(), QStringLiteral("CDBG_ENGINE_RPM"));
+        QCOMPARE(application.editor.selectedConversionId(), QStringLiteral("rpm"));
+    }
+
+    void runningStateDisablesDocumentAndMutationControlsWithAnExplanation()
+    {
+        LoadedApplication application;
+        QVERIFY(application.loaded);
+        application.document_controller.setConnectionState(ConnectionState::Running);
+
+        const QString reason = QStringLiteral("Disconnect to edit the dashboard");
+        const QList<const char *> controls = {
+            "importDashboardButton",  "openDashboardButton",   "saveDashboardButton",  "saveAsDashboardButton",
+            "addCardButton",          "removeCardButton",      "moveCardUpButton",     "moveCardDownButton",
+            "cardChannelCombo",       "cardConversionCombo",   "cardDisplayTypeCombo", "addCardChannelCombo",
+            "addCardConversionCombo", "cardTitleField",        "gaugeMinimumField",    "gaugeMaximumField",
+            "gaugeStepField",         "sparklineHistoryField",
+        };
+        for (const char *object_name : controls)
+        {
+            QObject *control = application.find(object_name);
+            QVERIFY2(control != nullptr, object_name);
+            QTRY_COMPARE(control->property("enabled").toBool(), false);
+            QCOMPARE(control->property("disabledReason").toString(), reason);
+        }
+    }
+
+    void unsavedDialogButtonsResolveSaveDiscardAndCancelContinuations()
+    {
+        {
+            LoadedApplication application;
+            QVERIFY(application.loaded);
+            application.editor.setSelectedTitle(QStringLiteral("Save before open"));
+            QSignalSpy open_requested(&application.document_controller,
+                                      &DashboardDocumentController::openPathRequested);
+
+            application.document_controller.requestOpen();
+            QTRY_COMPARE(application.find("unsavedChangesDialog")->property("visible").toBool(), true);
+            QVERIFY(click(application.find("saveUnsavedButton")));
+            QTRY_COMPARE(open_requested.count(), 1);
+        }
+
+        {
+            LoadedApplication application;
+            QVERIFY(application.loaded);
+            application.editor.setSelectedTitle(QStringLiteral("Discard before import"));
+            QSignalSpy import_requested(&application.document_controller,
+                                        &DashboardDocumentController::importPathRequested);
+
+            application.document_controller.requestImport();
+            QTRY_COMPARE(application.find("unsavedChangesDialog")->property("visible").toBool(), true);
+            QVERIFY(click(application.find("discardUnsavedButton")));
+            QTRY_COMPARE(import_requested.count(), 1);
+        }
+
+        {
+            LoadedApplication application;
+            QVERIFY(application.loaded);
+            application.editor.setSelectedTitle(QStringLiteral("Cancel exit"));
+            QSignalSpy exit_approved(&application.document_controller, &DashboardDocumentController::exitApproved);
+
+            application.document_controller.requestExit();
+            QTRY_COMPARE(application.find("unsavedChangesDialog")->property("visible").toBool(), true);
+            QVERIFY(click(application.find("cancelUnsavedButton")));
+            QCOMPARE(exit_approved.count(), 0);
+            QTRY_COMPARE(application.find("unsavedChangesDialog")->property("visible").toBool(), false);
+        }
+    }
+
+    void documentErrorsRemainNonDestructiveAndDismissible()
+    {
+        LoadedApplication application;
+        QVERIFY(application.loaded);
+        QObject *banner = application.find("documentErrorBanner");
+        QVERIFY(banner != nullptr);
+        QCOMPARE(banner->property("visible").toBool(), false);
+
+        application.editor.selectCard(QStringLiteral("manifold-pressure"));
+        application.editor.setSelectedGaugeBounds(100.0, 0.0, 0.0);
+
+        QTRY_COMPARE(banner->property("visible").toBool(), true);
+        QVERIFY(banner->property("text").toString().contains(QStringLiteral("Edit dashboard")));
+        QVERIFY(application.find("dashboardView")->property("visible").toBool());
+        QVERIFY(click(application.find("dismissDocumentErrorButton")));
+        QCOMPARE(banner->property("visible").toBool(), false);
     }
 
     void dashboardLoadFailureKeepsShellVisibleWithoutCardsOrConnection()

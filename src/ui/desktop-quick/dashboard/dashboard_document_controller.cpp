@@ -326,6 +326,55 @@ void DashboardDocumentController::requestExit()
     requestAction(PendingDocumentAction::Exit, QStringLiteral("Exit"));
 }
 
+void DashboardDocumentController::requestSave()
+{
+    const QString operation = QStringLiteral("Save dashboard");
+    if (pending_action_ != PendingDocumentAction::None)
+    {
+        static_cast<void>(
+            reportError(operation, Error{ErrorKind::InvalidConfig, "a document action is already pending"}));
+        return;
+    }
+    if (Status editable = requireEditingEnabled(operation); !editable.has_value())
+    {
+        return;
+    }
+    if (!state_.document)
+    {
+        static_cast<void>(save());
+        return;
+    }
+    if (state_.path.empty())
+    {
+        pending_action_ = PendingDocumentAction::SaveAs;
+        emit savePathRequested();
+        return;
+    }
+    static_cast<void>(save());
+}
+
+void DashboardDocumentController::requestSaveAs()
+{
+    const QString operation = QStringLiteral("Save dashboard as");
+    if (pending_action_ != PendingDocumentAction::None)
+    {
+        static_cast<void>(
+            reportError(operation, Error{ErrorKind::InvalidConfig, "a document action is already pending"}));
+        return;
+    }
+    if (Status editable = requireEditingEnabled(operation); !editable.has_value())
+    {
+        return;
+    }
+    if (!state_.document)
+    {
+        static_cast<void>(reportError(operation, Error{ErrorKind::InvalidConfig, "no dashboard document to save"}));
+        return;
+    }
+    pending_action_ = PendingDocumentAction::SaveAs;
+    emit savePathRequested();
+}
+
 void DashboardDocumentController::resolveUnsaved(UnsavedDecision decision)
 {
     if (pending_action_ == PendingDocumentAction::None)
@@ -405,6 +454,13 @@ void DashboardDocumentController::completeSavePath(const QString& path)
         return;
     }
 
+    if (pending_action_ == PendingDocumentAction::SaveAs)
+    {
+        pending_action_ = PendingDocumentAction::None;
+        static_cast<void>(saveAs(to_string(path)));
+        return;
+    }
+
     if (saveAs(to_string(path)).has_value())
     {
         continuePendingAction();
@@ -478,6 +534,8 @@ void DashboardDocumentController::continuePendingAction()
     case PendingDocumentAction::Exit:
         pending_action_ = PendingDocumentAction::None;
         emit exitApproved();
+        return;
+    case PendingDocumentAction::SaveAs:
         return;
     }
 }

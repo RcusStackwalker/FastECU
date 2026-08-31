@@ -476,6 +476,53 @@ class DashboardDocumentControllerTest : public QObject
                  std::optional<std::string>{"missing.ohd"});
     }
 
+    void standaloneSavePersistsATitledDocumentOrRequestsAPathForAnUntitledDocument()
+    {
+        install_dirty_titled_document();
+        QSignalSpy save_requested(&harness_->controller, &DashboardDocumentController::savePathRequested);
+
+        harness_->controller.requestSave();
+
+        QCOMPARE(save_requested.count(), 0);
+        QCOMPARE(harness_->writer.replace_calls.size(), std::size_t{1});
+        QCOMPARE(harness_->writer.replace_calls.front().handle, std::string{"original.ohd"});
+        QVERIFY(!harness_->controller.isDirty());
+
+        install_dirty_untitled_document();
+        harness_->controller.requestSave();
+
+        QCOMPARE(save_requested.count(), 1);
+        harness_->controller.completeSavePath(QStringLiteral("imported.ohd"));
+        QCOMPARE(harness_->controller.currentPath(), QStringLiteral("imported.ohd"));
+        QVERIFY(!harness_->controller.isDirty());
+    }
+
+    void standaloneSaveAsCancellationAndFailureClearOnlyTheirOwnPendingRequest()
+    {
+        install_dirty_titled_document();
+        QSignalSpy save_requested(&harness_->controller, &DashboardDocumentController::savePathRequested);
+        QSignalSpy errors(&harness_->controller, &DashboardDocumentController::errorOccurred);
+
+        harness_->controller.requestSaveAs();
+        QCOMPARE(save_requested.count(), 1);
+        harness_->controller.cancelPathRequest();
+        harness_->controller.requestSaveAs();
+        QCOMPARE(save_requested.count(), 2);
+
+        harness_->writer.replace_error = Error{ErrorKind::Internal, "permission denied"};
+        harness_->controller.completeSavePath(QStringLiteral("not-adopted.ohd"));
+        QCOMPARE(errors.count(), 1);
+        QCOMPARE(harness_->controller.currentPath(), QStringLiteral("original.ohd"));
+        QVERIFY(harness_->controller.isDirty());
+
+        harness_->writer.replace_error.reset();
+        harness_->controller.requestSaveAs();
+        QCOMPARE(save_requested.count(), 3);
+        harness_->controller.completeSavePath(QStringLiteral("adopted.ohd"));
+        QCOMPARE(harness_->controller.currentPath(), QStringLiteral("adopted.ohd"));
+        QVERIFY(!harness_->controller.isDirty());
+    }
+
     void cleanRequestsContinueImmediately_data()
     {
         QTest::addColumn<int>("requested_action");
@@ -808,19 +855,26 @@ class DashboardDocumentControllerTest : public QObject
         const ControllerState connected = state_of(harness_->controller);
         QSignalSpy import_requested(&harness_->controller, &DashboardDocumentController::importPathRequested);
         QSignalSpy open_requested(&harness_->controller, &DashboardDocumentController::openPathRequested);
+        QSignalSpy save_requested(&harness_->controller, &DashboardDocumentController::savePathRequested);
         QSignalSpy unsaved(&harness_->controller, &DashboardDocumentController::unsavedDecisionRequested);
         QSignalSpy errors(&harness_->controller, &DashboardDocumentController::errorOccurred);
 
         harness_->controller.requestImport();
         harness_->controller.requestOpen();
+        harness_->controller.requestSave();
+        harness_->controller.requestSaveAs();
 
-        QCOMPARE(import_requested.count() + open_requested.count(), 0);
+        QCOMPARE(import_requested.count() + open_requested.count() + save_requested.count(), 0);
         QCOMPARE(unsaved.count(), 0);
-        QCOMPARE(errors.count(), 2);
+        QCOMPARE(errors.count(), 4);
         QCOMPARE(errors.at(0).at(1).toString(), QStringLiteral("disconnect before editing the dashboard"));
         QCOMPARE(errors.at(0).at(2).value<ErrorKind>(), ErrorKind::InvalidConfig);
         QCOMPARE(errors.at(1).at(1).toString(), QStringLiteral("disconnect before editing the dashboard"));
         QCOMPARE(errors.at(1).at(2).value<ErrorKind>(), ErrorKind::InvalidConfig);
+        QCOMPARE(errors.at(2).at(1).toString(), QStringLiteral("disconnect before editing the dashboard"));
+        QCOMPARE(errors.at(2).at(2).value<ErrorKind>(), ErrorKind::InvalidConfig);
+        QCOMPARE(errors.at(3).at(1).toString(), QStringLiteral("disconnect before editing the dashboard"));
+        QCOMPARE(errors.at(3).at(2).value<ErrorKind>(), ErrorKind::InvalidConfig);
         QCOMPARE(state_of(harness_->controller), connected);
 
         harness_->controller.requestExit();

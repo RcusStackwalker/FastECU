@@ -130,19 +130,26 @@ QVariantList DashboardEditorModel::channelChoices() const
 
 QVariantList DashboardEditorModel::conversionChoices() const
 {
-    QVariantList choices;
     const dashboard::DashboardCard *card = selectedCard();
-    if (card == nullptr)
+    return card == nullptr ? QVariantList{} : conversionChoicesForChannel(to_qstring(card->channel_id));
+}
+
+QVariantList DashboardEditorModel::conversionChoicesForChannel(const QString& channel_id) const
+{
+    QVariantList choices;
+    const dashboard::DashboardDocument *current = document();
+    if (current == nullptr)
     {
         return choices;
     }
-    const dashboard::DashboardChannel *channel = channelFor(*card);
-    if (channel == nullptr)
+    const std::string requested_channel = to_string(channel_id);
+    const auto found = std::ranges::find(current->channels, requested_channel, &dashboard::DashboardChannel::id);
+    if (found == current->channels.end())
     {
         return choices;
     }
-    choices.reserve(static_cast<qsizetype>(channel->conversions.size()));
-    for (const dashboard::DashboardConversion& conversion : channel->conversions)
+    choices.reserve(static_cast<qsizetype>(found->conversions.size()));
+    for (const dashboard::DashboardConversion& conversion : found->conversions)
     {
         choices.append(QVariantMap{{QStringLiteral("id"), to_qstring(conversion.id)},
                                    {QStringLiteral("unit"), to_qstring(conversion.unit)}});

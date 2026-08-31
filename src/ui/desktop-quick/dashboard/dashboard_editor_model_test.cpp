@@ -166,6 +166,20 @@ class DashboardEditorModelTest : public QObject
         QVERIFY(harness.editor.canMoveDown());
     }
 
+    void projectsConversionsForAnAddChannelWithoutASelectedCard()
+    {
+        Harness harness;
+        harness.open(document_with({}));
+
+        const QVariantList boost = harness.editor.conversionChoicesForChannel(QStringLiteral("CDBG_BOOST"));
+        QCOMPARE(boost.size(), 2);
+        QCOMPARE(choice_id(boost.at(0)), QStringLiteral("bar"));
+        QCOMPARE(choice_id(boost.at(1)), QStringLiteral("psi"));
+        QCOMPARE(harness.editor.conversionChoicesForChannel(QStringLiteral("missing")), QVariantList{});
+        QCOMPARE(harness.editor.selectedCardId(), QString{});
+        QCOMPARE(harness.editor.conversionChoices(), QVariantList{});
+    }
+
     void addsConfiguresAndMovesACardTransactionally()
     {
         Harness harness;

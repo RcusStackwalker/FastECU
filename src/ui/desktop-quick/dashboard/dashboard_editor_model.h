@@ -71,6 +71,7 @@ class DashboardEditorModel final : public QAbstractListModel
     bool canMoveDown() const;
 
     Q_INVOKABLE void selectCard(const QString& card_id);
+    Q_INVOKABLE QVariantList conversionChoicesForChannel(const QString& channel_id) const;
     Q_INVOKABLE void addCard(const QString& channel_id, const QString& conversion_id);
     Q_INVOKABLE void removeSelected();
     Q_INVOKABLE void moveSelectedUp();

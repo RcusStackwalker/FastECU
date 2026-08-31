@@ -31,6 +31,7 @@ class DashboardDocumentController final : public QObject
         Import,
         Open,
         Exit,
+        SaveAs,
     };
 
     enum class UnsavedDecision
@@ -65,6 +66,8 @@ class DashboardDocumentController final : public QObject
     Q_INVOKABLE void requestImport();
     Q_INVOKABLE void requestOpen();
     Q_INVOKABLE void requestExit();
+    Q_INVOKABLE void requestSave();
+    Q_INVOKABLE void requestSaveAs();
     Q_INVOKABLE void resolveUnsaved(UnsavedDecision decision);
     Q_INVOKABLE void cancelPathRequest();
     Q_INVOKABLE void completeImportPath(const QString& path);

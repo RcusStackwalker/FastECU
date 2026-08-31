@@ -17,7 +17,9 @@ qt_resource_via_qrc(
         "qml/Main.qml",
         "qml/dashboard/ConnectionPanel.qml",
         "qml/dashboard/DashboardCardFrame.qml",
+        "qml/dashboard/DashboardEditorPanel.qml",
         "qml/dashboard/DashboardView.qml",
+        "qml/dashboard/DocumentDialogs.qml",
         "qml/dashboard/HorizontalGaugeCard.qml",
         "qml/dashboard/NumericCard.qml",
         "qml/dashboard/SparklineCard.qml",
@@ -37,6 +39,7 @@ qt_cc_library(
     deps = QT_QUICK_DEPS + [
         ":dashboard_connection_controller",
         ":dashboard_controller",
+        ":dashboard_document_controller",
         ":qml_resources",
         "@rules_qt//:qt_hdrs",
     ],
@@ -174,7 +177,13 @@ fastecu_quicktest(
         ":application",
         ":dashboard_connection_controller",
         ":dashboard_controller",
+        ":dashboard_document_controller",
+        ":dashboard_editor_model",
+        "//src/backend/dashboard:dashboard_codec",
         "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/ports/testing:in_memory_file_repository",
+        "//src/backend/ports/testing:in_memory_settings",
     ],
 )
 
