@@ -25,7 +25,7 @@ std::string to_string(const QString& text)
     return {utf8.constData(), static_cast<std::size_t>(utf8.size())};
 }
 
-dashboard::CardDisplayType to_domain_display_type(CardDisplayType display_type)
+std::optional<dashboard::CardDisplayType> to_domain_display_type(CardDisplayType display_type)
 {
     switch (display_type)
     {
@@ -36,7 +36,7 @@ dashboard::CardDisplayType to_domain_display_type(CardDisplayType display_type)
     case CardDisplayType::HorizontalGauge:
         return dashboard::CardDisplayType::HorizontalGauge;
     }
-    std::unreachable();
+    return std::nullopt;
 }
 
 CardDisplayType to_editor_display_type(dashboard::CardDisplayType display_type)
@@ -418,7 +418,14 @@ void DashboardEditorModel::setSelectedTitle(const QString& title)
     dashboard::DashboardDocument candidate = *current;
     if (dashboard::DashboardCard *card = selectedCard(candidate, selectedCardId()); card != nullptr)
     {
-        card->title = title.isEmpty() ? std::nullopt : std::optional<std::string>{to_string(title)};
+        const std::string next_title = to_string(title);
+        const auto channel = std::ranges::find(candidate.channels, card->channel_id, &dashboard::DashboardChannel::id);
+        const bool projected_fallback =
+            !card->title.has_value() && channel != candidate.channels.end() && next_title == channel->name;
+        if (!projected_fallback)
+        {
+            card->title = title.isEmpty() ? std::nullopt : std::optional<std::string>{next_title};
+        }
     }
     commit(std::move(candidate), selectedCardId());
 }
@@ -437,14 +444,20 @@ void DashboardEditorModel::setSelectedDisplayType(CardDisplayType display_type)
         commit(std::move(candidate), selectedCardId());
         return;
     }
-    const dashboard::CardDisplayType next = to_domain_display_type(display_type);
-    if (card->display_type == next)
+    const std::optional<dashboard::CardDisplayType> next = to_domain_display_type(display_type);
+    if (!next.has_value())
+    {
+        card->display_type = static_cast<dashboard::CardDisplayType>(-1);
+        commit(std::move(candidate), selectedCardId());
+        return;
+    }
+    if (card->display_type == *next)
     {
         commit(std::move(candidate), selectedCardId());
         return;
     }
-    card->display_type = next;
-    switch (next)
+    card->display_type = *next;
+    switch (*next)
     {
     case dashboard::CardDisplayType::Numeric:
         card->gauge_bounds.reset();

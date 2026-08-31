@@ -284,6 +284,59 @@ class DashboardEditorModelTest : public QObject
         QCOMPARE(committed.count(), 0);
     }
 
+    void projectedFallbackTitleRoundTripsAsASemanticNoOp()
+    {
+        Harness harness;
+        harness.open(document_with({card("rpm-card", "CDBG_ENGINE_RPM", "rpm", 0)}));
+        QSignalSpy committed(&harness.controller, &DashboardDocumentController::documentCommitted);
+
+        QCOMPARE(harness.editor.selectedTitle(), QStringLiteral("Engine RPM"));
+        harness.editor.setSelectedTitle(harness.editor.selectedTitle());
+
+        QVERIFY(!harness.controller.document()->cards.front().title.has_value());
+        QVERIFY(!harness.controller.isDirty());
+        QCOMPARE(committed.count(), 0);
+    }
+
+    void xmlInvalidTitleIsRejectedTransactionally()
+    {
+        Harness harness;
+        harness.open(document_with({card("rpm-card", "CDBG_ENGINE_RPM", "rpm", 0)}));
+        const dashboard::DashboardDocument before = *harness.controller.document();
+        QSignalSpy errors(&harness.controller, &DashboardDocumentController::errorOccurred);
+        QString invalid_title = QStringLiteral("Bad");
+        invalid_title.append(QChar{0x1});
+
+        harness.editor.setSelectedTitle(invalid_title);
+
+        QCOMPARE(*harness.controller.document(), before);
+        QVERIFY(!harness.controller.isDirty());
+        QCOMPARE(errors.count(), 1);
+        QCOMPARE(errors.at(0).at(0).toString(), QStringLiteral("Edit dashboard"));
+        QCOMPARE(errors.at(0).at(1).toString(),
+                 QStringLiteral("cards[rpm-card].title: must contain only valid UTF-8 XML 1.0 characters"));
+        QCOMPARE(errors.at(0).at(2).value<ErrorKind>(), ErrorKind::InvalidConfig);
+    }
+
+    void outOfRangeDisplayTypeIsRejectedTransactionally()
+    {
+        Harness harness;
+        harness.open(document_with({card("rpm-card", "CDBG_ENGINE_RPM", "rpm", 0)}));
+        const dashboard::DashboardDocument before = *harness.controller.document();
+        QSignalSpy errors(&harness.controller, &DashboardDocumentController::errorOccurred);
+
+        const CardDisplayType invalid = static_cast<CardDisplayType>(99);
+        QVERIFY(QMetaObject::invokeMethod(&harness.editor, "setSelectedDisplayType", Qt::DirectConnection,
+                                          Q_ARG(CardDisplayType, invalid)));
+
+        QCOMPARE(*harness.controller.document(), before);
+        QVERIFY(!harness.controller.isDirty());
+        QCOMPARE(errors.count(), 1);
+        QCOMPARE(errors.at(0).at(0).toString(), QStringLiteral("Edit dashboard"));
+        QCOMPARE(errors.at(0).at(1).toString(), QStringLiteral("cards[rpm-card].display-type: is not supported"));
+        QCOMPARE(errors.at(0).at(2).value<ErrorKind>(), ErrorKind::InvalidConfig);
+    }
+
     void connectedStateRejectsEveryEditorOperation()
     {
         Harness harness;

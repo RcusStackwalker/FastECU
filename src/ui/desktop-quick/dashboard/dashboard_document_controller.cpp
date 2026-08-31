@@ -7,6 +7,7 @@
 
 #include "src/backend/dashboard/dashboard_session_builder.h"
 #include "src/backend/dashboard/dashboard_validation.h"
+#include "src/backend/dashboard/dashboard_xml_validation.h"
 
 namespace fastecu::desktop_quick
 {
@@ -146,9 +147,12 @@ Status DashboardDocumentController::openDocument(std::string_view handle, QStrin
     {
         return reportError(operation, candidate.error());
     }
-    if (auto prepared = dashboard::prepare_dashboard_session(*candidate); !prepared.has_value())
+    if (!candidate->cards.empty())
     {
-        return reportError(operation, prepared.error());
+        if (auto prepared = dashboard::prepare_dashboard_session(*candidate); !prepared.has_value())
+        {
+            return reportError(operation, prepared.error());
+        }
     }
 
     const std::string path(handle);
@@ -253,6 +257,10 @@ Status DashboardDocumentController::commitCandidate(dashboard::DashboardDocument
     if (!state_.document)
     {
         return reportError(operation, Error{ErrorKind::InvalidConfig, "no dashboard document to edit"});
+    }
+    if (Status xml_strings = dashboard::validate_dashboard_document_xml_strings(candidate); !xml_strings.has_value())
+    {
+        return reportError(operation, xml_strings.error());
     }
     const Status validated = candidate.cards.empty()
                                  ? dashboard::validate_dashboard_document(candidate)

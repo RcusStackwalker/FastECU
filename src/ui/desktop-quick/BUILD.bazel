@@ -91,6 +91,7 @@ qt_cc_library(
         "//src/backend/dashboard:dashboard_document_service",
         "//src/backend/dashboard:dashboard_session_builder",
         "//src/backend/dashboard:dashboard_validation",
+        "//src/backend/dashboard:dashboard_xml_validation",
         "//src/backend/ports",
         "@rules_qt//:qt_core",
     ],

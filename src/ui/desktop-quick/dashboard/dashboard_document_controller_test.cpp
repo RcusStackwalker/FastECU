@@ -2,6 +2,7 @@
 #include <QtTest>
 
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -274,6 +275,37 @@ class DashboardDocumentControllerTest : public QObject
         QCOMPARE(committed.count(), 1);
     }
 
+    void cardlessDocumentsCanBeOpenedAndRestored()
+    {
+        install_document("source.ohd", openable_document());
+        QVERIFY(harness_->controller.openDocument("source.ohd").has_value());
+        dashboard::DashboardDocument cardless = *harness_->controller.document();
+        cardless.cards.clear();
+        QVERIFY(harness_->controller.commitCandidate(cardless, {}).has_value());
+        QVERIFY(harness_->controller.saveAs("cardless.ohd").has_value());
+        harness_->repository.files["cardless.ohd"] = harness_->writer.files.at("cardless.ohd");
+
+        const Status opened = harness_->controller.openDocument("cardless.ohd");
+
+        QVERIFY2(opened.has_value(), opened.error().detail.c_str());
+        QCOMPARE(harness_->controller.document(), std::optional<dashboard::DashboardDocument>{cardless});
+        QCOMPARE(harness_->controller.selectedCardId(), QString{});
+        QCOMPARE(harness_->controller.currentPath(), QStringLiteral("cardless.ohd"));
+        QVERIFY(!harness_->controller.isDirty());
+
+        Harness restoring;
+        restoring.repository.files["cardless.ohd"] = harness_->writer.files.at("cardless.ohd");
+        restoring.settings.set(DashboardDocumentController::recentPathKey, "cardless.ohd");
+
+        const Status restored = restoring.controller.restoreRecentDocument();
+
+        QVERIFY2(restored.has_value(), restored.error().detail.c_str());
+        QCOMPARE(restoring.controller.document(), std::optional<dashboard::DashboardDocument>{cardless});
+        QCOMPARE(restoring.controller.selectedCardId(), QString{});
+        QCOMPARE(restoring.controller.currentPath(), QStringLiteral("cardless.ohd"));
+        QVERIFY(!restoring.controller.isDirty());
+    }
+
     void failedOpenAndFailedPreparationPreserveTheCompletePriorState()
     {
         install_document("original.ohd", openable_document("Original"));
@@ -292,11 +324,15 @@ class DashboardDocumentControllerTest : public QObject
         QCOMPARE(harness_->settings.get(DashboardDocumentController::recentPathKey),
                  std::optional<std::string>{"known-good.ohd"});
 
-        install_document("unprepared.ohd", base_document());
+        dashboard::DashboardDocument unprepared = openable_document();
+        unprepared.connection.retry.poll_timeout_ms = static_cast<std::uint32_t>(std::numeric_limits<int>::max()) + 1U;
+        install_document("unprepared.ohd", unprepared);
         const Status failed_prepare = harness_->controller.openDocument("unprepared.ohd");
 
         QVERIFY(!failed_prepare.has_value());
-        QCOMPARE(failed_prepare.error(), (Error{ErrorKind::InvalidConfig, "cards: no CDBG log parameters selected"}));
+        QCOMPARE(failed_prepare.error(),
+                 (Error{ErrorKind::InvalidConfig,
+                        "connection.retry.poll-timeout-ms: exceeds the generic logging policy integer range"}));
         QCOMPARE(state_of(harness_->controller), before);
         QCOMPARE(harness_->settings.get(DashboardDocumentController::recentPathKey),
                  std::optional<std::string>{"known-good.ohd"});
