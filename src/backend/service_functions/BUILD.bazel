@@ -1,0 +1,38 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+
+package(default_visibility = [
+    "//src/backend:__subpackages__",
+    "//src/platform:__subpackages__",
+    "//tests:__pkg__",
+])
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//:__pkg__"],
+)
+
+cc_library(
+    name = "service_function_types",
+    hdrs = ["service_function_types.h"],
+    deps = [
+        "//src/algorithms/protocol",
+        "//src/backend/ports",
+    ],
+)
+
+cc_library(
+    name = "service_function_session",
+    hdrs = ["service_function_session.h"],
+    deps = [
+        ":service_function_types",
+        "//src/backend/ports",
+        "//src/backend/protocol",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "service_function_types_test",
+    srcs = ["service_function_types_test.cpp"],
+    deps = [":service_function_types"],
+)

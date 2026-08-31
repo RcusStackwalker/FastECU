@@ -47,6 +47,10 @@ PORTABLE_ROOTS = {
     ROOT / "src/backend/logging/protocols": {"protocols"},
     ROOT / "src/backend/protocol": {"protocol"},
     ROOT / "src/backend/protocol/uds": {"uds_client"},
+    ROOT / "src/backend/service_functions": {
+        "service_function_types",
+        "service_function_session",
+    },
     ROOT / "src/backend/flash": {
         "flash_types",
         "flash_plan",
