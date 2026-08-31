@@ -2,7 +2,6 @@
 
 #include <cctype>
 #include <cmath>
-#include <cstdio>
 #include <exception>
 #include <format>
 
@@ -56,18 +55,7 @@ std::string formatNumber(double value, int precision)
     {
         precision = 1;
     }
-    std::vector<char> buffer(64);
-    int written = std::snprintf(buffer.data(), buffer.size(), "%.*g", precision, value);
-    if (written < 0)
-    {
-        return "0";
-    }
-    if (static_cast<size_t>(written) >= buffer.size())
-    {
-        buffer.resize(static_cast<size_t>(written) + 1);
-        std::snprintf(buffer.data(), buffer.size(), "%.*g", precision, value);
-    }
-    return std::string{buffer.data()};
+    return std::format("{:.{}g}", value, precision);
 }
 
 } // namespace

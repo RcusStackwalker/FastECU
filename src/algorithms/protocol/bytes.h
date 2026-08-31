@@ -2,8 +2,8 @@
 
 #include <cstdint>
 #include <cstddef>
-#include <cstdio>
 #include <algorithm>
+#include <format>
 #include <numeric>
 #include <span>
 #include <string>
@@ -263,11 +263,13 @@ inline std::string toHex(ByteView bytes)
 {
     std::string msg;
     msg.reserve(bytes.size() * 3);
-    std::array<char, 4> hex = {};
+    // A Byte always renders as exactly two digits plus the separator, so the
+    // buffer is never truncated; appending up to `out` holds either way.
+    std::array<char, 3> hex = {};
     for (const Byte byte : bytes)
     {
-        std::snprintf(hex.data(), hex.size(), "%02x ", byte);
-        msg.append(hex.data());
+        const auto rendered = std::format_to_n(hex.data(), hex.size(), "{:02x} ", byte);
+        msg.append(hex.data(), rendered.out);
     }
     return msg;
 }
