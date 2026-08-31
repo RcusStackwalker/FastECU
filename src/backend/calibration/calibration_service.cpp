@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <cstdio>
 #include <cstring>
 #include <format>
 #include <limits>
@@ -10,7 +9,6 @@
 #include <string_view>
 
 #include "src/algorithms/expression/expression_evaluator.h"
-#include <array>
 
 namespace fastecu::calibration
 {
@@ -36,9 +34,9 @@ Status validate_extent(std::optional<std::uint64_t> address, std::uint32_t count
 
 constexpr char kHexDigits[] = "0123456789abcdef";
 
-// Reproduces QString::number(value, 'g', precision). Qt's 'g' and C's %g agree
-// on trailing-zero stripping and exponent thresholds across the range these
-// ROMs produce -- pinned by FormattingMatchesCapturedQtGroundTruth, which
+// Reproduces QString::number(value, 'g', precision). Qt's 'g' and std::format's
+// 'g' agree on trailing-zero stripping and exponent thresholds across the range
+// these ROMs produce -- pinned by FormattingMatchesCapturedQtGroundTruth, which
 // compares against real Qt output rather than assuming compatibility.
 std::string format_like_qt_g(double value, int precision)
 {
@@ -46,9 +44,10 @@ std::string format_like_qt_g(double value, int precision)
     {
         value = 0.0; // normalizes -0.0 to +0.0, as Qt does
     }
-    std::array<char, 64> buffer{};
-    std::snprintf(buffer.data(), buffer.size(), "%.*g", precision, value);
-    return std::string(buffer.data());
+    // std::format throws on a negative precision where "%.*g" silently fell
+    // back to the default. Precision reaches here from a uint8_t field, so the
+    // clamp is unreachable; 0 and 1 render identically either way.
+    return std::format("{:.{}g}", value, std::max(precision, 1));
 }
 
 // Sign-extends an assembled `width`-byte value to a full int32. Widths of 4 or
