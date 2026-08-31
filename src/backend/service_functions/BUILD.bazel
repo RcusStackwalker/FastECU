@@ -31,8 +31,21 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "tcu_parameter_table",
+    srcs = ["tcu_parameter_table.cpp"],
+    hdrs = ["tcu_parameter_table.h"],
+    deps = ["//src/algorithms/protocol"],
+)
+
 fastecu_portable_gtest(
     name = "service_function_types_test",
     srcs = ["service_function_types_test.cpp"],
     deps = [":service_function_types"],
+)
+
+fastecu_portable_gtest(
+    name = "tcu_parameter_table_test",
+    srcs = ["tcu_parameter_table_test.cpp"],
+    deps = [":tcu_parameter_table"],
 )
