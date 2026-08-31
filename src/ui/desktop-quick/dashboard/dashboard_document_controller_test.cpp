@@ -186,7 +186,7 @@ class DashboardDocumentControllerTest : public QObject
     void install_document(std::string_view handle, const dashboard::DashboardDocument& document)
     {
         const auto encoded = dashboard::encode_dashboard_document(document);
-        QVERIFY2(encoded.has_value(), encoded.error().detail.c_str());
+        QVERIFY2(encoded.has_value(), encoded.has_value() ? "" : encoded.error().detail.c_str());
         harness_->repository.files[std::string(handle)] = *encoded;
     }
 
@@ -265,7 +265,7 @@ class DashboardDocumentControllerTest : public QObject
 
         const Status status = harness_->controller.openDocument("dashboard.ohd");
 
-        QVERIFY2(status.has_value(), status.error().detail.c_str());
+        QVERIFY2(status.has_value(), status.has_value() ? "" : status.error().detail.c_str());
         QCOMPARE(harness_->controller.document(), std::optional<dashboard::DashboardDocument>{expected});
         QCOMPARE(harness_->controller.currentPath(), QStringLiteral("dashboard.ohd"));
         QCOMPARE(harness_->controller.displayName(), QStringLiteral("dashboard.ohd"));
@@ -287,7 +287,7 @@ class DashboardDocumentControllerTest : public QObject
 
         const Status opened = harness_->controller.openDocument("cardless.ohd");
 
-        QVERIFY2(opened.has_value(), opened.error().detail.c_str());
+        QVERIFY2(opened.has_value(), opened.has_value() ? "" : opened.error().detail.c_str());
         QCOMPARE(harness_->controller.document(), std::optional<dashboard::DashboardDocument>{cardless});
         QCOMPARE(harness_->controller.selectedCardId(), QString{});
         QCOMPARE(harness_->controller.currentPath(), QStringLiteral("cardless.ohd"));
@@ -299,7 +299,7 @@ class DashboardDocumentControllerTest : public QObject
 
         const Status restored = restoring.controller.restoreRecentDocument();
 
-        QVERIFY2(restored.has_value(), restored.error().detail.c_str());
+        QVERIFY2(restored.has_value(), restored.has_value() ? "" : restored.error().detail.c_str());
         QCOMPARE(restoring.controller.document(), std::optional<dashboard::DashboardDocument>{cardless});
         QCOMPARE(restoring.controller.selectedCardId(), QString{});
         QCOMPARE(restoring.controller.currentPath(), QStringLiteral("cardless.ohd"));

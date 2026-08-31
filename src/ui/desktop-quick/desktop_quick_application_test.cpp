@@ -526,9 +526,13 @@ class DesktopQuickApplicationTest : public QObject
         QVERIFY2(imported.has_value(), imported.has_value() ? "" : imported.error().detail.c_str());
         editor.addCard(QStringLiteral("CDBG_ENGINE_RPM"), QStringLiteral("conversion-1"));
         editor.addCard(QStringLiteral("CDBG_COOLANT_TEMP"), QStringLiteral("conversion-1"));
+        editor.setSelectedDisplayType(CardDisplayType::HorizontalGauge);
+        editor.setSelectedGaugeBounds(-20.0, 240.0, 5.0);
         editor.setSelectedDisplayType(CardDisplayType::Sparkline);
         editor.setSelectedSparklineHistorySeconds(45);
         editor.addCard(QStringLiteral("CDBG_MANIFOLD_PRESSURE"), QStringLiteral("conversion-1"));
+        editor.setSelectedDisplayType(CardDisplayType::Sparkline);
+        editor.setSelectedSparklineHistorySeconds(90);
         editor.setSelectedDisplayType(CardDisplayType::HorizontalGauge);
         editor.setSelectedGaugeBounds(10.0, 200.0, 5.0);
         editor.moveSelectedUp();
@@ -567,11 +571,12 @@ class DesktopQuickApplicationTest : public QObject
         QCOMPARE(document.cards[1].display_type, dashboard::CardDisplayType::HorizontalGauge);
         const std::optional<dashboard::GaugeBoundsOverride> expected_gauge{{10.0, 200.0, 5.0}};
         QCOMPARE(document.cards[1].gauge_bounds, expected_gauge);
-        QVERIFY(!document.cards[1].sparkline_history_seconds.has_value());
+        QCOMPARE(document.cards[1].sparkline_history_seconds, std::optional<std::uint16_t>{90});
         QCOMPARE(document.cards[2].id, std::string{"CDBG_COOLANT_TEMP-1"});
         QCOMPARE(document.cards[2].order, std::uint32_t{2});
         QCOMPARE(document.cards[2].display_type, dashboard::CardDisplayType::Sparkline);
-        QVERIFY(!document.cards[2].gauge_bounds.has_value());
+        const std::optional<dashboard::GaugeBoundsOverride> expected_inactive_gauge{{-20.0, 240.0, 5.0}};
+        QCOMPARE(document.cards[2].gauge_bounds, expected_inactive_gauge);
         QCOMPARE(document.cards[2].sparkline_history_seconds, std::optional<std::uint16_t>{45});
         QCOMPARE(restored_editor.rowCount(), 3);
         QCOMPARE(restored_presentation.cards()->rowCount(), 3);
@@ -688,12 +693,12 @@ class DesktopQuickApplicationTest : public QObject
              .gauge_step = 10.0},
         };
         auto encoded = dashboard::encode_dashboard_document(replacement);
-        QVERIFY2(encoded.has_value(), encoded.error().detail.c_str());
+        QVERIFY2(encoded.has_value(), encoded.has_value() ? "" : encoded.error().detail.c_str());
         application.repository.files["replacement.ohd"] = std::move(*encoded);
 
         const Status opened = application.document_controller.openDocument("replacement.ohd");
 
-        QVERIFY2(opened.has_value(), opened.error().detail.c_str());
+        QVERIFY2(opened.has_value(), opened.has_value() ? "" : opened.error().detail.c_str());
         QTRY_COMPARE(channel->property("currentValue").toString(), QStringLiteral("CDBG_ENGINE_RPM"));
         QTRY_COMPARE(conversion->property("currentValue").toString(), QStringLiteral("engine-speed-new"));
     }

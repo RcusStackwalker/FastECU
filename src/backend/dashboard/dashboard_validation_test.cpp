@@ -412,18 +412,54 @@ TEST(DashboardValidation, RejectsInvalidCardDisplayType)
     expect_invalid(document, "cards[rpm-card].display-type");
 }
 
-TEST(DashboardValidation, RejectsNumericCardSpecificFields)
+TEST(DashboardValidation, AcceptsValidInactiveCardConfiguration)
 {
     auto document = test::valid_document();
     auto numeric = card("rpm-card", "CDBG_ENGINE_RPM", "conversion-1");
     numeric.gauge_bounds = GaugeBoundsOverride{0.0, 8000.0, 500.0};
+    numeric.sparkline_history_seconds = 60;
+    document.cards.push_back(std::move(numeric));
+    EXPECT_TRUE(validate_dashboard_document(document));
+
+    document = test::valid_document();
+    auto sparkline = card("rpm-card", "CDBG_ENGINE_RPM", "conversion-1");
+    sparkline.display_type = CardDisplayType::Sparkline;
+    sparkline.gauge_bounds = GaugeBoundsOverride{0.0, 8000.0, 500.0};
+    sparkline.sparkline_history_seconds = 60;
+    document.cards.push_back(std::move(sparkline));
+    EXPECT_TRUE(validate_dashboard_document(document));
+
+    document = test::valid_document();
+    auto gauge = card("rpm-card", "CDBG_ENGINE_RPM", "conversion-1");
+    gauge.display_type = CardDisplayType::HorizontalGauge;
+    gauge.gauge_bounds = GaugeBoundsOverride{0.0, 8000.0, 500.0};
+    gauge.sparkline_history_seconds = 60;
+    document.cards.push_back(std::move(gauge));
+    EXPECT_TRUE(validate_dashboard_document(document));
+}
+
+TEST(DashboardValidation, RejectsInvalidInactiveCardConfiguration)
+{
+    auto document = test::valid_document();
+    auto numeric = card("rpm-card", "CDBG_ENGINE_RPM", "conversion-1");
+    numeric.gauge_bounds = GaugeBoundsOverride{8000.0, 0.0, 500.0};
     document.cards.push_back(std::move(numeric));
     expect_invalid(document, "cards[rpm-card].gauge");
 
     document = test::valid_document();
-    numeric = card("rpm-card", "CDBG_ENGINE_RPM", "conversion-1");
-    numeric.sparkline_history_seconds = 60;
-    document.cards.push_back(std::move(numeric));
+    auto sparkline = card("rpm-card", "CDBG_ENGINE_RPM", "conversion-1");
+    sparkline.display_type = CardDisplayType::Sparkline;
+    sparkline.gauge_bounds = GaugeBoundsOverride{0.0, 8000.0, 0.0};
+    sparkline.sparkline_history_seconds = 60;
+    document.cards.push_back(std::move(sparkline));
+    expect_invalid(document, "cards[rpm-card].gauge");
+
+    document = test::valid_document();
+    auto gauge = card("rpm-card", "CDBG_ENGINE_RPM", "conversion-1");
+    gauge.display_type = CardDisplayType::HorizontalGauge;
+    gauge.gauge_bounds = GaugeBoundsOverride{0.0, 8000.0, 500.0};
+    gauge.sparkline_history_seconds = 0;
+    document.cards.push_back(std::move(gauge));
     expect_invalid(document, "cards[rpm-card].sparkline-history-seconds");
 }
 
@@ -447,14 +483,6 @@ TEST(DashboardValidation, RejectsInvalidSparklineFields)
     sparkline.display_type = CardDisplayType::Sparkline;
     document.cards.push_back(std::move(sparkline));
     expect_invalid(document, "cards[rpm-card].sparkline-history-seconds");
-
-    document = test::valid_document();
-    sparkline = card("rpm-card", "CDBG_ENGINE_RPM", "conversion-1");
-    sparkline.display_type = CardDisplayType::Sparkline;
-    sparkline.gauge_bounds = GaugeBoundsOverride{0.0, 8000.0, 500.0};
-    sparkline.sparkline_history_seconds = 60;
-    document.cards.push_back(std::move(sparkline));
-    expect_invalid(document, "cards[rpm-card].gauge");
 
     for (const std::uint16_t seconds : {0, 301})
     {
@@ -509,12 +537,4 @@ TEST(DashboardValidation, RejectsInvalidHorizontalGaugeFields)
         document.cards.push_back(std::move(gauge));
         expect_invalid(document, "cards[rpm-card].gauge");
     }
-
-    document = test::valid_document();
-    gauge = card("rpm-card", "CDBG_ENGINE_RPM", "conversion-1");
-    gauge.display_type = CardDisplayType::HorizontalGauge;
-    gauge.gauge_bounds = GaugeBoundsOverride{0.0, 8000.0, 500.0};
-    gauge.sparkline_history_seconds = 60;
-    document.cards.push_back(std::move(gauge));
-    expect_invalid(document, "cards[rpm-card].sparkline-history-seconds");
 }

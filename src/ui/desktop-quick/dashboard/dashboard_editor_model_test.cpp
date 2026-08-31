@@ -115,10 +115,10 @@ struct Harness
     void open(const dashboard::DashboardDocument& document)
     {
         auto encoded = dashboard::encode_dashboard_document(document);
-        QVERIFY2(encoded.has_value(), encoded.error().detail.c_str());
+        QVERIFY2(encoded.has_value(), encoded.has_value() ? "" : encoded.error().detail.c_str());
         repository.files["editable.ohd"] = std::move(*encoded);
         const Status opened = controller.openDocument("editable.ohd");
-        QVERIFY2(opened.has_value(), opened.error().detail.c_str());
+        QVERIFY2(opened.has_value(), opened.has_value() ? "" : opened.error().detail.c_str());
     }
 };
 
@@ -269,10 +269,38 @@ class DashboardEditorModelTest : public QObject
         harness.editor.setSelectedSparklineHistorySeconds(30);
         const dashboard::DashboardDocument valid_sparkline = *harness.controller.document();
         QCOMPARE(valid_sparkline.cards.front().sparkline_history_seconds, std::optional<std::uint16_t>{30});
-        QVERIFY(!valid_sparkline.cards.front().gauge_bounds.has_value());
+        QCOMPARE(valid_sparkline.cards.front().gauge_bounds, expected_bounds);
         harness.editor.setSelectedSparklineHistorySeconds(301);
         QCOMPARE(*harness.controller.document(), valid_sparkline);
         QCOMPARE(errors.count(), 2);
+    }
+
+    void displayTypeSwitchingRestoresCustomInactiveConfiguration()
+    {
+        Harness harness;
+        harness.open(document_with({card("rpm-card", "CDBG_ENGINE_RPM", "rpm", 0)}));
+        const std::optional<dashboard::GaugeBoundsOverride> expected_bounds{{100.0, 7000.0, 250.0}};
+
+        harness.editor.setSelectedDisplayType(CardDisplayType::HorizontalGauge);
+        harness.editor.setSelectedGaugeBounds(100.0, 7000.0, 250.0);
+        harness.editor.setSelectedDisplayType(CardDisplayType::Sparkline);
+        harness.editor.setSelectedSparklineHistorySeconds(45);
+        harness.editor.setSelectedDisplayType(CardDisplayType::Numeric);
+
+        QCOMPARE(harness.controller.document()->cards.front().gauge_bounds, expected_bounds);
+        QCOMPARE(harness.controller.document()->cards.front().sparkline_history_seconds,
+                 std::optional<std::uint16_t>{45});
+
+        harness.editor.setSelectedDisplayType(CardDisplayType::HorizontalGauge);
+        QCOMPARE(harness.editor.selectedGaugeMinimum(), 100.0);
+        QCOMPARE(harness.editor.selectedGaugeMaximum(), 7000.0);
+        QCOMPARE(harness.editor.selectedGaugeStep(), 250.0);
+        QCOMPARE(harness.controller.document()->cards.front().sparkline_history_seconds,
+                 std::optional<std::uint16_t>{45});
+
+        harness.editor.setSelectedDisplayType(CardDisplayType::Sparkline);
+        QCOMPARE(harness.editor.selectedSparklineHistorySeconds(), 45);
+        QCOMPARE(harness.controller.document()->cards.front().gauge_bounds, expected_bounds);
     }
 
     void preventsDuplicateChannelsAndUsesTheFirstUnusedStableIdSuffix()

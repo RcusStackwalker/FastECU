@@ -248,22 +248,9 @@ Status validate_dashboard_document(const DashboardDocument& document)
         switch (card.display_type)
         {
         case CardDisplayType::Numeric:
-            if (card.gauge_bounds.has_value())
-            {
-                return invalid(card_path + ".gauge", "is only valid for a horizontal gauge");
-            }
-            if (card.sparkline_history_seconds.has_value())
-            {
-                return invalid(card_path + ".sparkline-history-seconds", "is only valid for a sparkline");
-            }
             break;
         case CardDisplayType::Sparkline:
-            if (card.gauge_bounds.has_value())
-            {
-                return invalid(card_path + ".gauge", "is only valid for a horizontal gauge");
-            }
-            if (!card.sparkline_history_seconds.has_value() || *card.sparkline_history_seconds < 1 ||
-                *card.sparkline_history_seconds > 300)
+            if (!card.sparkline_history_seconds.has_value())
             {
                 return invalid(card_path + ".sparkline-history-seconds", "must be from 1 through 300 seconds");
             }
@@ -273,19 +260,23 @@ Status validate_dashboard_document(const DashboardDocument& document)
             {
                 return invalid(card_path + ".gauge", "is required for a horizontal gauge");
             }
+            break;
+        default:
+            break;
+        }
+        if (card.gauge_bounds.has_value())
+        {
             if (Status gauge = validate_gauge(card.gauge_bounds->minimum, card.gauge_bounds->maximum,
                                               card.gauge_bounds->step, card_path + ".gauge");
                 !gauge)
             {
                 return gauge;
             }
-            if (card.sparkline_history_seconds.has_value())
-            {
-                return invalid(card_path + ".sparkline-history-seconds", "is only valid for a sparkline");
-            }
-            break;
-        default:
-            break;
+        }
+        if (card.sparkline_history_seconds.has_value() &&
+            (*card.sparkline_history_seconds < 1 || *card.sparkline_history_seconds > 300))
+        {
+            return invalid(card_path + ".sparkline-history-seconds", "must be from 1 through 300 seconds");
         }
     }
 

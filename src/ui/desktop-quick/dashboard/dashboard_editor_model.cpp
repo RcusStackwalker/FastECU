@@ -491,16 +491,19 @@ void DashboardEditorModel::setSelectedDisplayType(CardDisplayType display_type)
     switch (*next)
     {
     case dashboard::CardDisplayType::Numeric:
-        card->gauge_bounds.reset();
-        card->sparkline_history_seconds.reset();
         break;
     case dashboard::CardDisplayType::Sparkline:
-        card->gauge_bounds.reset();
-        card->sparkline_history_seconds = 60;
+        if (!card->sparkline_history_seconds.has_value())
+        {
+            card->sparkline_history_seconds = 60;
+        }
         break;
     case dashboard::CardDisplayType::HorizontalGauge:
     {
-        card->sparkline_history_seconds.reset();
+        if (card->gauge_bounds.has_value())
+        {
+            break;
+        }
         const dashboard::DashboardChannel *channel = nullptr;
         const auto channel_it =
             std::ranges::find(candidate.channels, card->channel_id, &dashboard::DashboardChannel::id);
