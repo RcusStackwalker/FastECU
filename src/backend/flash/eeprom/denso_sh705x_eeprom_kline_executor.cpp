@@ -161,8 +161,7 @@ Result<bytes::Bytes> ssm_exchange(IKlineFlashTransport& transport, IClock&, cons
         return fail(ErrorKind::Cancelled, "cancelled before write");
     }
     const bytes::Bytes framed = frame(payload, tester_id, target_id);
-    Result<std::size_t> written = transport.write(framed);
-    if (!written.has_value())
+    if (Result<std::size_t> written = transport.write(framed); !written.has_value())
     {
         return std::unexpected(written.error());
     }
@@ -198,8 +197,7 @@ Result<bytes::Bytes> request_kernel_id(IKlineFlashTransport& transport, IClock& 
     {
         return fail(ErrorKind::Cancelled, "cancelled before write");
     }
-    Result<std::size_t> written = transport.write(request_kernel_id_frame());
-    if (!written.has_value())
+    if (Result<std::size_t> written = transport.write(request_kernel_id_frame()); !written.has_value())
     {
         return std::unexpected(written.error());
     }
@@ -721,8 +719,7 @@ Result<bytes::Bytes> DensoSh705xEepromKlineExecutor::read_mem(IKlineFlashTranspo
         const bytes::Bytes request =
             composeBe(kSidDump, bytes::Byte(mode), std::uint16_t(numblocks), std::uint16_t(curblock));
 
-        Result<std::size_t> written = transport.write(request);
-        if (!written.has_value())
+        if (Result<std::size_t> written = transport.write(request); !written.has_value())
         {
             return std::unexpected(written.error());
         }
@@ -799,8 +796,7 @@ Result<bytes::Bytes> DensoSh705xEepromKlineExecutor::read_mem(IKlineFlashTranspo
             return std::unexpected(slept.error());
         }
 
-        const std::uint32_t extrabytes = cplen + len_done;
-        if (extrabytes > length)
+        if (const std::uint32_t extrabytes = cplen + len_done; extrabytes > length)
         {
             cplen -= (extrabytes - length);
         }

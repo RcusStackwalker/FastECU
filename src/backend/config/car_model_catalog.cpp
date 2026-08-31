@@ -27,8 +27,7 @@ Result<CarModelCatalog> load_car_model_catalog(const ConfigPaths& paths, IFileRe
     }
 
     pugi::xml_document doc;
-    pugi::xml_parse_result parsed = doc.load_buffer(bytes->data(), bytes->size());
-    if (!parsed)
+    if (pugi::xml_parse_result parsed = doc.load_buffer(bytes->data(), bytes->size()); !parsed)
     {
         return fail(ErrorKind::InvalidConfig, std::format("protocols parse error: {}", parsed.description()));
     }
@@ -80,8 +79,8 @@ std::vector<ResolvedCarModel> resolve_car_models(const ProtocolCatalog& protocol
         // First match wins. load_protocol_catalog rejects duplicate protocol
         // names outright, so at most one entry can match and the choice of
         // tie-break rule is not observable through that path.
-        const auto matched = std::ranges::find(protocols, entry.protocol_name, &ProtocolEntry::protocol_name);
-        if (matched != protocols.end())
+        if (const auto matched = std::ranges::find(protocols, entry.protocol_name, &ProtocolEntry::protocol_name);
+            matched != protocols.end())
         {
             row.protocol = *matched;
         }

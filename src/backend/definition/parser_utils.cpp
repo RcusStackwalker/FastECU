@@ -138,8 +138,7 @@ RomMetadata parse_metadata(pugi::xml_node rom_id)
 Result<pugi::xml_node> parse_root(pugi::xml_document& document, std::span<const std::uint8_t> xml,
                                   std::string_view source, std::string_view root_name)
 {
-    const pugi::xml_parse_result parsed = document.load_buffer(xml.data(), xml.size());
-    if (!parsed)
+    if (const pugi::xml_parse_result parsed = document.load_buffer(xml.data(), xml.size()); !parsed)
     {
         return invalid(source, "XML document", std::format("malformed XML: {}", parsed.description()));
     }

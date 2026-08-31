@@ -35,8 +35,7 @@ fastecu::Result<bytes::Bytes> UdsClient::request(bytes::ByteView pdu, const Exch
 
     const bytes::Byte expected_service = pdu[0];
 
-    const fastecu::Status sent = channel_.send(pdu, cancellation);
-    if (!sent.has_value())
+    if (const fastecu::Status sent = channel_.send(pdu, cancellation); !sent.has_value())
     {
         return std::unexpected(sent.error());
     }

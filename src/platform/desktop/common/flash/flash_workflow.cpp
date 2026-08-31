@@ -379,8 +379,7 @@ class SubaruDensoSh7055_02Workflow final : public FlashWorkflow
         {
             return FlashPromptStep{FlashPromptKind::Begin, {}};
         }
-        const auto confirmations = (*plan_)->confirmations();
-        if (stage_ <= confirmations.size())
+        if (const auto confirmations = (*plan_)->confirmations(); stage_ <= confirmations.size())
         {
             const ConfirmationSpec& confirmation = confirmations[stage_ - 1];
             return FlashPromptStep{FlashPromptKind::CycleIgnition, confirmation.arguments};

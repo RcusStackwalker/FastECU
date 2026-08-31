@@ -25,8 +25,8 @@ Status validate_extent(std::optional<std::uint64_t> address, std::uint32_t count
         return {};
     }
     const std::uint32_t width = element_byte_size(storage_type, scaling);
-    const std::uint64_t end = element_run_end(*address, start_position, interval, width, count);
-    if (end > rom_byte_length)
+    if (const std::uint64_t end = element_run_end(*address, start_position, interval, width, count);
+        end > rom_byte_length)
     {
         return fail(ErrorKind::InvalidConfig, std::string(context) + " address exceeds ROM size");
     }

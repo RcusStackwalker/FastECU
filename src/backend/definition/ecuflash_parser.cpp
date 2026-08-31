@@ -151,9 +151,9 @@ Result<UnresolvedAxisDefinition> parse_axis(pugi::xml_node table, std::uint32_t 
     }
     axis.address = *address;
 
-    const char *size_attribute =
-        table.attribute("elements") ? "elements" : (table.attribute("size") ? "size" : nullptr);
-    if (size_attribute)
+    if (const char *size_attribute =
+            table.attribute("elements") ? "elements" : (table.attribute("size") ? "size" : nullptr);
+        size_attribute)
     {
         auto size = dimension_attribute(table, size_attribute, default_size, source, definition_id);
         if (!size)
@@ -412,8 +412,7 @@ Result<UnresolvedDefinition> parse_ecuflash_definition(std::span<const std::uint
         {
             return std::unexpected(map.error());
         }
-        const std::string map_id = map->id.value_or(map->name);
-        if (!map_ids.insert(map_id).second)
+        if (const std::string map_id = map->id.value_or(map->name); !map_ids.insert(map_id).second)
         {
             return invalid(source, "element <table> attribute 'id' or 'name'",
                            std::format("duplicate map identity '{}'", map_id), definition.identity.xml_id);

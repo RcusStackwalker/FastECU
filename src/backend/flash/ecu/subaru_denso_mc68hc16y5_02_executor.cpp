@@ -194,8 +194,7 @@ Status drain_initial_response(IKlineFlashTransport& transport, const ICancellati
     {
         return cancelled;
     }
-    auto drained = transport.read(10, cancellation);
-    if (!drained.has_value())
+    if (auto drained = transport.read(10, cancellation); !drained.has_value())
     {
         return std::unexpected(drained.error());
     }
@@ -883,9 +882,9 @@ Result<FlashExecutionResult> SubaruDensoMc68hc16y5_02Executor::execute(const Fla
     {
         return fail(ErrorKind::InvalidConfig, "MC68HC16Y5_02 write requires a ROM image");
     }
-    Status written = write_mem(kline, clock, cancellation, events, *plan.image(), plan.mcu_name(),
-                               plan.operation() == FlashOperation::TestWrite);
-    if (!written.has_value())
+    if (Status written = write_mem(kline, clock, cancellation, events, *plan.image(), plan.mcu_name(),
+                                   plan.operation() == FlashOperation::TestWrite);
+        !written.has_value())
     {
         return std::unexpected(written.error());
     }

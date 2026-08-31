@@ -574,8 +574,8 @@ Result<std::uint32_t> SubaruDensoSh7055_02Executor::read_block_crc(IKlineFlashTr
         }
         ++try_count;
     }
-    const std::optional<std::size_t> expected_size = declared_frame_size();
-    if (!expected_size.has_value() || *expected_size == 0 || response.size() != *expected_size || response.size() < 7 ||
+    if (const std::optional<std::size_t> expected_size = declared_frame_size();
+        !expected_size.has_value() || *expected_size == 0 || response.size() != *expected_size || response.size() < 7 ||
         !response_ok(response, kOpCrc | 0x40) ||
         response.back() != bytes::sum8(bytes::ByteView(response).first(response.size() - 1)))
     {
@@ -591,8 +591,7 @@ Result<std::uint32_t> SubaruDensoSh7055_02Executor::read_block_crc(IKlineFlashTr
     {
         return fail(ErrorKind::BadResponse, "Missing CRC response prefix");
     }
-    const bytes::Byte length_or_failure = response.front();
-    if (length_or_failure == 0x7F)
+    if (const bytes::Byte length_or_failure = response.front(); length_or_failure == 0x7F)
     {
         return fail(ErrorKind::BadResponse, "ECU marked CRC response failed");
     }

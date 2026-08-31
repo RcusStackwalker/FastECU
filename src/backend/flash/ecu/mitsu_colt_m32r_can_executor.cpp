@@ -309,8 +309,8 @@ Result<bool> flash_range_matches(Ctx& ctx, std::uint32_t start_addr, bytes::Byte
             return std::unexpected(chunk.error());
         }
 
-        const std::uint32_t offset = addr - start_addr;
-        if (!std::ranges::equal(*chunk, wanted.subspan(offset, chunk_len)))
+        if (const std::uint32_t offset = addr - start_addr;
+            !std::ranges::equal(*chunk, wanted.subspan(offset, chunk_len)))
         {
             return false;
         }

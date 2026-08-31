@@ -61,8 +61,8 @@ Status validate_kernel_upload(const KernelImage& kernel)
     // entry begins at 0xffff6004. The shared model region is 0x6000 bytes
     // total, so envelope plus padded payload must fit that full region.
     constexpr std::uint32_t kCanonicalKernelAddress = 0xFFFF6004;
-    constexpr std::uint64_t kModelWireRegionLength = 0x00006000;
-    if (kernel.load_address != kCanonicalKernelAddress || wire_length > kModelWireRegionLength)
+    if (constexpr std::uint64_t kModelWireRegionLength = 0x00006000;
+        kernel.load_address != kCanonicalKernelAddress || wire_length > kModelWireRegionLength)
     {
         return fail(ErrorKind::InvalidConfig,
                     "SH7055_02 kernel address or padded envelope is outside the model kernel region");

@@ -226,8 +226,7 @@ Result<bytes::Bytes> BenchSession::exchange_raw(bytes::ByteView pdu, int timeout
                                         .last_rx = recording_channel_.last_rx(),
                                         .elapsed_ms = finished - started};
     };
-    const Status sent = recording_channel_.send(pdu, cancellation_);
-    if (!sent.has_value())
+    if (const Status sent = recording_channel_.send(pdu, cancellation_); !sent.has_value())
     {
         finish();
         return std::unexpected(sent.error());

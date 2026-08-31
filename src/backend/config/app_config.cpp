@@ -34,8 +34,7 @@ Result<AppConfig> load_app_config(const ConfigPaths& paths, IFileRepository& fil
     }
 
     pugi::xml_document doc;
-    pugi::xml_parse_result parsed = doc.load_buffer(bytes->data(), bytes->size());
-    if (!parsed)
+    if (pugi::xml_parse_result parsed = doc.load_buffer(bytes->data(), bytes->size()); !parsed)
     {
         return fail(ErrorKind::InvalidConfig, std::format("config parse error: {}", parsed.description()));
     }
@@ -212,10 +211,10 @@ Result<AppConfig> save_app_config(AppConfig config, const ConfigPaths& paths, IF
     std::ostringstream stream;
     doc.save(stream, "    ");
     const std::string serialized = stream.str();
-    Status write_result = file_repository.write(
-        paths.config_file,
-        std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t *>(serialized.data()), serialized.size()));
-    if (!write_result.has_value())
+    if (Status write_result = file_repository.write(
+            paths.config_file, std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t *>(serialized.data()),
+                                                             serialized.size()));
+        !write_result.has_value())
     {
         return std::unexpected(write_result.error());
     }

@@ -32,8 +32,8 @@ Result<std::string> LoggerDefinitionService::resolve_definition_handle(std::stri
         return std::string{};
     }
 
-    const std::string user_copy = std::format("{}{}", config_files_directory, kCdbgExampleName);
-    if (repository_.read(user_copy).has_value())
+    if (const std::string user_copy = std::format("{}{}", config_files_directory, kCdbgExampleName);
+        repository_.read(user_copy).has_value())
     {
         return user_copy;
     }

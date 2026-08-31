@@ -109,8 +109,7 @@ fastecu::Status LoggingUseCase::run(const LoggingSession& session, LoggingProtoc
             continue;
         }
 
-        const fastecu::Status reconnected = protocol.start(cancellation);
-        if (!reconnected)
+        if (const fastecu::Status reconnected = protocol.start(cancellation); !reconnected)
         {
             if (reconnected.error().kind != fastecu::ErrorKind::BadResponse)
             {

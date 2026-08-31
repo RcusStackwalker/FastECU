@@ -270,8 +270,7 @@ Result<std::optional<bytes::Bytes>> can_raw_exchange(ICanFlashTransport& transpo
     {
         return fail(ErrorKind::Cancelled, "cancelled before write");
     }
-    Status written = transport.write(request, cancellation);
-    if (!written.has_value())
+    if (Status written = transport.write(request, cancellation); !written.has_value())
     {
         return std::unexpected(written.error());
     }
@@ -486,9 +485,10 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
     // function.
 
     events.log(LogLevel::Info, "Initializing connection...");
-    Result<std::optional<bytes::Bytes>> init_resp = can_raw_exchange(
-        transport, clock, cancellation, init_connection_request(request_id), kHandshakeDelayMs, kHandshakeTimeoutMs);
-    if (!init_resp.has_value())
+    if (Result<std::optional<bytes::Bytes>> init_resp =
+            can_raw_exchange(transport, clock, cancellation, init_connection_request(request_id), kHandshakeDelayMs,
+                             kHandshakeTimeoutMs);
+        !init_resp.has_value())
     {
         return std::unexpected(init_resp.error());
     }
@@ -499,33 +499,33 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
     // propagates.
 
     events.log(LogLevel::Info, "Requesting ECU ID");
-    Result<std::optional<bytes::Bytes>> ecuid_resp = can_raw_exchange(
-        transport, clock, cancellation, ecu_id_request(request_id), kHandshakeDelayMs, kHandshakeTimeoutMs);
-    if (!ecuid_resp.has_value())
+    if (Result<std::optional<bytes::Bytes>> ecuid_resp = can_raw_exchange(
+            transport, clock, cancellation, ecu_id_request(request_id), kHandshakeDelayMs, kHandshakeTimeoutMs);
+        !ecuid_resp.has_value())
     {
         return std::unexpected(ecuid_resp.error());
     }
 
     events.log(LogLevel::Info, "Requesting VIN");
-    Result<std::optional<bytes::Bytes>> vin_resp = can_raw_exchange(
-        transport, clock, cancellation, vin_request(request_id), kHandshakeDelayMs, kHandshakeTimeoutMs);
-    if (!vin_resp.has_value())
+    if (Result<std::optional<bytes::Bytes>> vin_resp = can_raw_exchange(
+            transport, clock, cancellation, vin_request(request_id), kHandshakeDelayMs, kHandshakeTimeoutMs);
+        !vin_resp.has_value())
     {
         return std::unexpected(vin_resp.error());
     }
 
     events.log(LogLevel::Info, "Requesting CAL ID");
-    Result<std::optional<bytes::Bytes>> cal_resp = can_raw_exchange(
-        transport, clock, cancellation, cal_id_request(request_id), kHandshakeDelayMs, kHandshakeTimeoutMs);
-    if (!cal_resp.has_value())
+    if (Result<std::optional<bytes::Bytes>> cal_resp = can_raw_exchange(
+            transport, clock, cancellation, cal_id_request(request_id), kHandshakeDelayMs, kHandshakeTimeoutMs);
+        !cal_resp.has_value())
     {
         return std::unexpected(cal_resp.error());
     }
 
     events.log(LogLevel::Info, "Requesting CVN");
-    Result<std::optional<bytes::Bytes>> cvn_resp = can_raw_exchange(
-        transport, clock, cancellation, cvn_request(request_id), kHandshakeDelayMs, kHandshakeTimeoutMs);
-    if (!cvn_resp.has_value())
+    if (Result<std::optional<bytes::Bytes>> cvn_resp = can_raw_exchange(
+            transport, clock, cancellation, cvn_request(request_id), kHandshakeDelayMs, kHandshakeTimeoutMs);
+        !cvn_resp.has_value())
     {
         return std::unexpected(cvn_resp.error());
     }
@@ -704,8 +704,8 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(ICanFlashTransport& transport
                 ? encrypted_view.subspan(static_cast<std::size_t>(blockno * kUploadChunkBytes), kUploadChunkBytes)
                 : bytes::ByteView{};
 
-        Status written = transport.write(sid_b6_request(request_id, block_addr, chunk), cancellation);
-        if (!written.has_value())
+        if (Status written = transport.write(sid_b6_request(request_id, block_addr, chunk), cancellation);
+            !written.has_value())
         {
             return std::unexpected(written.error());
         }
@@ -715,8 +715,7 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(ICanFlashTransport& transport
         }
         // No delay() call between this write and its read (legacy line
         // 852-853).
-        auto block_resp = transport.read(kBlockAckTimeoutMs, cancellation);
-        if (!block_resp.has_value())
+        if (auto block_resp = transport.read(kBlockAckTimeoutMs, cancellation); !block_resp.has_value())
         {
             return std::unexpected(block_resp.error());
         }
@@ -817,9 +816,9 @@ Result<bytes::Bytes> DensoSh705xEepromCanExecutor::read_mem(ICanFlashTransport& 
 
         constexpr std::uint32_t kNumBlocks = 1; // legacy hardcodes this per outer iteration
 
-        Status written = transport.write(
-            read_eeprom_request(request_id, static_cast<std::uint8_t>(mode), addr, pagesize), cancellation);
-        if (!written.has_value())
+        if (Status written = transport.write(
+                read_eeprom_request(request_id, static_cast<std::uint8_t>(mode), addr, pagesize), cancellation);
+            !written.has_value())
         {
             return std::unexpected(written.error());
         }
@@ -903,8 +902,7 @@ Result<bytes::Bytes> DensoSh705xEepromCanExecutor::read_mem(ICanFlashTransport& 
             return std::unexpected(slept.error());
         }
 
-        const std::uint32_t extrabytes = cplen + len_done;
-        if (extrabytes > length)
+        if (const std::uint32_t extrabytes = cplen + len_done; extrabytes > length)
         {
             cplen -= (extrabytes - length);
         }

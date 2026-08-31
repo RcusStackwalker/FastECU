@@ -560,9 +560,9 @@ Result<void> validate_and_resolve_scalings(RomDefinition& definition, const Unre
             return fail(ErrorKind::InvalidConfig,
                         std::format("incomplete map identity in definition '{}'", definition.identity.xml_id));
         }
-        const bool duplicate =
-            std::ranges::any_of(maps, [&map](const CalibrationMap *candidate) { return maps_match(*candidate, map); });
-        if (duplicate)
+        if (const bool duplicate = std::ranges::any_of(maps, [&map](const CalibrationMap *candidate)
+                                                       { return maps_match(*candidate, map); });
+            duplicate)
         {
             return fail(ErrorKind::InvalidConfig, std::format("duplicate map key '{}' in resolved definition '{}'", key,
                                                               definition.identity.xml_id));

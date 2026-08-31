@@ -98,8 +98,8 @@ ChecksumCorrectionResult ChecksumCorrectionCommand::run(bytes::ByteView rom_data
         }
     }
 
-    const ChecksumCorrectionOutcome outcome = fastecu::checksum::apply_checksum_correction(rom_data, selection);
-    switch (outcome.status)
+    switch (const ChecksumCorrectionOutcome outcome = fastecu::checksum::apply_checksum_correction(rom_data, selection);
+            outcome.status)
     {
     case ChecksumCorrectionOutcome::Status::UnknownMcuType:
         // Unreachable: the find_flash_device precheck above returns first.

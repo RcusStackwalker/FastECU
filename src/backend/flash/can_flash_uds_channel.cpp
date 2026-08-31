@@ -38,8 +38,7 @@ Result<std::optional<bytes::Bytes>> CanFlashUdsChannel::receive(int timeout_ms, 
                     std::format("CAN frame of {} bytes is shorter than its 4-byte id envelope", raw.size()));
     }
 
-    const std::uint32_t id = bytes::readU32Be(raw);
-    if (id != response_id_)
+    if (const std::uint32_t id = bytes::readU32Be(raw); id != response_id_)
     {
         return fail(ErrorKind::BadResponse, std::format("expected CAN reply id 0x{:x}, got 0x{:x}", response_id_, id));
     }

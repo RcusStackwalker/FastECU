@@ -18,8 +18,8 @@ constexpr std::uint32_t kCanUploadBlockBytes = 128;
 
 Result<std::uint32_t> checked_align_up(std::size_t value, std::uint32_t alignment)
 {
-    constexpr std::uint32_t kMax = std::numeric_limits<std::uint32_t>::max();
-    if (value > kMax || value > static_cast<std::size_t>(kMax - (alignment - 1)))
+    if (constexpr std::uint32_t kMax = std::numeric_limits<std::uint32_t>::max();
+        value > kMax || value > static_cast<std::size_t>(kMax - (alignment - 1)))
     {
         return fail(ErrorKind::InvalidConfig, "kernel upload size overflows uint32_t");
     }
@@ -208,8 +208,8 @@ Result<void> validate_denso_sh705x_eeprom_preflight(const DensoSh705xEepromInput
 
 Result<FlashPlan> build_denso_sh705x_eeprom_plan(DensoSh705xEepromInput input)
 {
-    Result<void> preflight = validate_denso_sh705x_eeprom_preflight(input, input.kernel.bytes.size());
-    if (!preflight.has_value())
+    if (Result<void> preflight = validate_denso_sh705x_eeprom_preflight(input, input.kernel.bytes.size());
+        !preflight.has_value())
     {
         return std::unexpected(preflight.error());
     }

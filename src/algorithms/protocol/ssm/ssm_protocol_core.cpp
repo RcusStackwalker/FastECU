@@ -89,8 +89,7 @@ bool hasValidFrame(bytes::ByteView frame, bytes::Byte receiverId, bytes::Byte se
         return false;
     }
 
-    const std::size_t payloadLength = frame[3];
-    if (frame.size() != headerLength + payloadLength + checksumLength)
+    if (const std::size_t payloadLength = frame[3]; frame.size() != headerLength + payloadLength + checksumLength)
     {
         return false;
     }
@@ -110,8 +109,7 @@ bool hasPayloadPrefix(bytes::ByteView frame, bytes::ByteView prefix, bytes::Byte
         return false;
     }
 
-    const std::size_t payloadLength = frame[3];
-    if (prefix.size() > payloadLength)
+    if (const std::size_t payloadLength = frame[3]; prefix.size() > payloadLength)
     {
         return false;
     }

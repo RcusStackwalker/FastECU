@@ -33,8 +33,7 @@ Status validateWireRange(std::uint32_t address, std::uint64_t length, std::strin
         return fail(ErrorKind::InvalidConfig,
                     std::format("{} length {} does not fit the 24-bit wire field", subject, length));
     }
-    const std::uint64_t last = static_cast<std::uint64_t>(address) + length - 1;
-    if (last > kMaxWireU24)
+    if (const std::uint64_t last = static_cast<std::uint64_t>(address) + length - 1; last > kMaxWireU24)
     {
         return fail(ErrorKind::InvalidConfig,
                     std::format("{} range 0x{:x}..0x{:x} exceeds the 24-bit address space", subject, address, last));
@@ -244,8 +243,8 @@ Status upload(BenchContext& context, CommandOutcome& outcome, std::uint32_t addr
     {
         return std::unexpected(crcReply.error());
     }
-    const bytes::ByteView crcPayload = uds::payload(*crcReply);
-    if (crcPayload.size() < 2 || crcPayload[0] != MitsuColtCan::kRoutineCheckCrc || crcPayload[1] != 0)
+    if (const bytes::ByteView crcPayload = uds::payload(*crcReply);
+        crcPayload.size() < 2 || crcPayload[0] != MitsuColtCan::kRoutineCheckCrc || crcPayload[1] != 0)
     {
         return fail(ErrorKind::BadResponse, decode_crc_reply(crcPayload));
     }
@@ -336,8 +335,7 @@ Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
         {
             return std::unexpected(length.error());
         }
-        const Status valid = validateWireRange(*address, *length, "read");
-        if (!valid.has_value())
+        if (const Status valid = validateWireRange(*address, *length, "read"); !valid.has_value())
         {
             return std::unexpected(valid.error());
         }
@@ -384,8 +382,7 @@ Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
         {
             return std::unexpected(data.error());
         }
-        const Status valid = validateWireRange(*address, data->size(), "download");
-        if (!valid.has_value())
+        if (const Status valid = validateWireRange(*address, data->size(), "download"); !valid.has_value())
         {
             return std::unexpected(valid.error());
         }
@@ -414,8 +411,7 @@ Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
             }
             payload = std::move(*loaded);
         }
-        const Status valid = validateWireRange(slot->ram_address, payload.size(), "download");
-        if (!valid.has_value())
+        if (const Status valid = validateWireRange(slot->ram_address, payload.size(), "download"); !valid.has_value())
         {
             return std::unexpected(valid.error());
         }
@@ -458,8 +454,7 @@ Status executeStep(BenchContext& context, const PreparedStep& prepared, CommandO
     {
     case CommandId::Read:
     {
-        const Status result = readIntoOutcome(context, step, outcome);
-        if (!result.has_value())
+        if (const Status result = readIntoOutcome(context, step, outcome); !result.has_value())
         {
             return std::unexpected(result.error());
         }
@@ -467,13 +462,11 @@ Status executeStep(BenchContext& context, const PreparedStep& prepared, CommandO
     }
     case CommandId::Dump:
     {
-        const Status result = readIntoOutcome(context, step, outcome);
-        if (!result.has_value())
+        if (const Status result = readIntoOutcome(context, step, outcome); !result.has_value())
         {
             return std::unexpected(result.error());
         }
-        const Status saved = context.files.save(step.args[2], outcome.data);
-        if (!saved.has_value())
+        if (const Status saved = context.files.save(step.args[2], outcome.data); !saved.has_value())
         {
             return std::unexpected(saved.error());
         }
@@ -516,8 +509,7 @@ Status executeStep(BenchContext& context, const PreparedStep& prepared, CommandO
         {
             return fail(ErrorKind::InvalidConfig, "send cannot bypass a named destructive command");
         }
-        const Result<bytes::Bytes> reply = exchange(context, outcome, *pdu, kRoutinePolicy);
-        if (!reply.has_value())
+        if (const Result<bytes::Bytes> reply = exchange(context, outcome, *pdu, kRoutinePolicy); !reply.has_value())
         {
             return std::unexpected(reply.error());
         }
@@ -539,8 +531,8 @@ Status executeStep(BenchContext& context, const PreparedStep& prepared, CommandO
         // classify as success or failure by content. A genuine transport
         // error (nothing arrived at all) still propagates like every other
         // command's Result does.
-        const Result<bytes::Bytes> reply = exchangeRaw(context, outcome, *pdu, context.options.timeout_ms);
-        if (!reply.has_value())
+        if (const Result<bytes::Bytes> reply = exchangeRaw(context, outcome, *pdu, context.options.timeout_ms);
+            !reply.has_value())
         {
             return std::unexpected(reply.error());
         }
@@ -548,8 +540,7 @@ Status executeStep(BenchContext& context, const PreparedStep& prepared, CommandO
     }
     case CommandId::Connect:
     {
-        const Status connected = connect(context, outcome);
-        if (!connected.has_value())
+        if (const Status connected = connect(context, outcome); !connected.has_value())
         {
             return std::unexpected(connected.error());
         }
@@ -561,8 +552,7 @@ Status executeStep(BenchContext& context, const PreparedStep& prepared, CommandO
     case CommandId::Unlock:
     {
         const bytes::Bytes pdu = MitsuColtCan::buildRequestReflashUnlock();
-        const Result<bytes::Bytes> reply = exchange(context, outcome, pdu, kSlowPolicy);
-        if (!reply.has_value())
+        if (const Result<bytes::Bytes> reply = exchange(context, outcome, pdu, kSlowPolicy); !reply.has_value())
         {
             return std::unexpected(reply.error());
         }
@@ -595,8 +585,7 @@ Status executeStep(BenchContext& context, const PreparedStep& prepared, CommandO
         {
             return fail(ErrorKind::Internal, "prepared download has no payload");
         }
-        const Status uploaded = upload(context, outcome, *addr, *prepared.upload_payload);
-        if (!uploaded.has_value())
+        if (const Status uploaded = upload(context, outcome, *addr, *prepared.upload_payload); !uploaded.has_value())
         {
             return std::unexpected(uploaded.error());
         }
@@ -614,8 +603,8 @@ Status executeStep(BenchContext& context, const PreparedStep& prepared, CommandO
         {
             return fail(ErrorKind::Internal, "prepared upload-routine has no payload");
         }
-        const Status uploaded = upload(context, outcome, slot->ram_address, *prepared.upload_payload);
-        if (!uploaded.has_value())
+        if (const Status uploaded = upload(context, outcome, slot->ram_address, *prepared.upload_payload);
+            !uploaded.has_value())
         {
             return std::unexpected(uploaded.error());
         }
@@ -633,16 +622,14 @@ CommandOutcome run_step(BenchContext& context, const PreparedStep& prepared)
     CommandOutcome outcome;
     outcome.step = renderStep(prepared.spec);
 
-    const Status result = executeStep(context, prepared, outcome);
-    if (!result.has_value())
+    if (const Status result = executeStep(context, prepared, outcome); !result.has_value())
     {
         outcome.ok = false;
         outcome.error_kind = result.error().kind;
         outcome.error_detail = result.error().detail;
     }
 
-    const Result<double> battery = context.session.vbatt();
-    if (battery.has_value())
+    if (const Result<double> battery = context.session.vbatt(); battery.has_value())
     {
         outcome.vbatt = *battery;
     }
@@ -661,8 +648,7 @@ CommandOutcome run_step(BenchContext& context, const StepSpec& step)
                            .ok = false,
                            .error_kind = prepared.error().kind,
                            .error_detail = prepared.error().detail};
-    const Result<double> battery = context.session.vbatt();
-    if (battery.has_value())
+    if (const Result<double> battery = context.session.vbatt(); battery.has_value())
     {
         outcome.vbatt = *battery;
     }

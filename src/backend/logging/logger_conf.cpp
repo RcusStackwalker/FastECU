@@ -32,10 +32,11 @@ Status load(pugi::xml_document& document, bytes::ByteView conf, std::string_view
     // <?xml ...?> declaration that resources/shared/config/logger.cfg ships
     // with -- would otherwise lose it silently on the first write_selection()
     // round-trip (load, then re-serialize the whole DOM) -- add them back in.
-    const pugi::xml_parse_result parsed = document.load_buffer(
-        conf.data(), conf.size(),
-        pugi::parse_default | pugi::parse_comments | pugi::parse_pi | pugi::parse_doctype | pugi::parse_declaration);
-    if (!parsed)
+    if (const pugi::xml_parse_result parsed =
+            document.load_buffer(conf.data(), conf.size(),
+                                 pugi::parse_default | pugi::parse_comments | pugi::parse_pi | pugi::parse_doctype |
+                                     pugi::parse_declaration);
+        !parsed)
     {
         return fail(ErrorKind::InvalidConfig,
                     std::format("{}: {} at offset {}", source, parsed.description(), parsed.offset));
