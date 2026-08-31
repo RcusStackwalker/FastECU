@@ -7,6 +7,10 @@
 
 #include "src/algorithms/protocol/bytes.h"
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_types.h"
+#include "src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_types.h"
+#include "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_types.h"
+#include "src/backend/flash/ecu/subaru_denso_sh72531_can_types.h"
+#include "src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_types.h"
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_types.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7055_02_types.h"
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_can_types.h"
@@ -45,6 +49,11 @@ enum class FlashFamily
     SubaruTcuCvtHitachiM32rCan,
     SubaruTcuCvtMitsuMh8111Can,
     SubaruTcuCvtMitsuMh8104Can,
+    // Step 5 tail, wave 4.
+    SubaruDenso1n83m_1_5mCan,
+    SubaruDensoSh72531Can,
+    SubaruDensoSh72543CanDiesel,
+    SubaruDenso1n83m_4mCan,
 };
 
 enum class TransportKind
@@ -106,10 +115,12 @@ namespace fastecu::flash
 // ecu/mitsu_colt_m32r_can_types.h and eeprom/denso_sh705x_eeprom_types.h.
 // This file stays the single place that assembles the variant and classifies
 // its alternatives; it does not own any individual family's fields.
-using FamilyPlan = std::variant<DensoSh705xEepromKlinePlan, DensoSh705xEepromCanPlan, MitsuColtM32rCanPlan,
-                                SubaruMitsuM32rKlinePlan, SubaruHitachiM32rKlinePlan, SubaruDensoMc68hc16y5_02Plan,
-                                SubaruDensoSh7055_02Plan, SubaruHitachiM32rCanPlan, SubaruTcuCvtHitachiM32rCanPlan,
-                                SubaruTcuCvtMitsuMh8111CanPlan, SubaruTcuCvtMitsuMh8104CanPlan>;
+using FamilyPlan =
+    std::variant<DensoSh705xEepromKlinePlan, DensoSh705xEepromCanPlan, MitsuColtM32rCanPlan, SubaruMitsuM32rKlinePlan,
+                 SubaruHitachiM32rKlinePlan, SubaruDensoMc68hc16y5_02Plan, SubaruDensoSh7055_02Plan,
+                 SubaruHitachiM32rCanPlan, SubaruTcuCvtHitachiM32rCanPlan, SubaruTcuCvtMitsuMh8111CanPlan,
+                 SubaruTcuCvtMitsuMh8104CanPlan, SubaruDenso1n83m_1_5mCanPlan, SubaruDensoSh72531CanPlan,
+                 SubaruDensoSh72543CanDieselPlan, SubaruDenso1n83m_4mCanPlan>;
 
 // Whether validate_and_build requires FlashPlanFields::kernel to be set for
 // this family's plan type. Defaults true (fail-closed): a family that skips
@@ -146,5 +157,23 @@ template <> inline constexpr bool family_requires_kernel_v<SubaruTcuCvtMitsuMh81
 // (`// return STATUS_ERROR;`); this family tolerates any ECU response
 // content and only a transport-level failure stops it.
 template <> inline constexpr bool family_requires_kernel_v<SubaruTcuCvtMitsuMh8104CanPlan> = false;
+
+// Step 5 tail, wave 4. Jumps to the ECU's resident on-board kernel via
+// 0x10 0x42 (bench) or 0x10 0x62 (in-car), uploading no image.
+template <> inline constexpr bool family_requires_kernel_v<SubaruDenso1n83m_1_5mCanPlan> = false;
+
+// Step 5 tail, wave 4. Same resident on-board kernel jump as its 1N83M
+// sibling, via 0x10 0x42 (bench) or 0x10 0x62 (in-car); no image is uploaded.
+template <> inline constexpr bool family_requires_kernel_v<SubaruDensoSh72531CanPlan> = false;
+
+// Step 5 tail, wave 4. Jumps to the ECU's resident on-board kernel via
+// 0x10 0x42 (bench) or 0x10 0x62 (in-car), uploading no image. Diesel family,
+// single-block flash geometry.
+template <> inline constexpr bool family_requires_kernel_v<SubaruDensoSh72543CanDieselPlan> = false;
+
+// Step 5 tail, wave 4. The 4MB variant of the 1N83M family: same resident
+// on-board kernel jump via 0x10 0x42 (bench) or 0x10 0x62 (in-car), no image
+// uploaded.
+template <> inline constexpr bool family_requires_kernel_v<SubaruDenso1n83m_4mCanPlan> = false;
 
 } // namespace fastecu::flash

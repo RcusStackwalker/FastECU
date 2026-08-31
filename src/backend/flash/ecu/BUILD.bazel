@@ -65,6 +65,26 @@ cc_library(
 )
 
 cc_library(
+    name = "subaru_denso_1n83m_1_5m_can_types",
+    hdrs = ["subaru_denso_1n83m_1_5m_can_types.h"],
+)
+
+cc_library(
+    name = "subaru_denso_sh72531_can_types",
+    hdrs = ["subaru_denso_sh72531_can_types.h"],
+)
+
+cc_library(
+    name = "subaru_denso_sh72543_can_diesel_types",
+    hdrs = ["subaru_denso_sh72543_can_diesel_types.h"],
+)
+
+cc_library(
+    name = "subaru_denso_1n83m_4m_can_types",
+    hdrs = ["subaru_denso_1n83m_4m_can_types.h"],
+)
+
+cc_library(
     name = "subaru_hitachi_m32r_kline_plan",
     srcs = ["subaru_hitachi_m32r_kline_plan.cpp"],
     hdrs = ["subaru_hitachi_m32r_kline_plan.h"],
@@ -398,6 +418,196 @@ fastecu_portable_gtest(
     deps = [":subaru_tcu_cvt_mitsu_mh8111_can_plan"],
 )
 
+cc_library(
+    name = "subaru_denso_1n83m_1_5m_can_plan",
+    srcs = ["subaru_denso_1n83m_1_5m_can_plan.cpp"],
+    hdrs = ["subaru_denso_1n83m_1_5m_can_plan.h"],
+    deps = [
+        "//src/backend/definitions:models",
+        "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_denso_1n83m_1_5m_can_plan_test",
+    srcs = ["subaru_denso_1n83m_1_5m_can_plan_test.cpp"],
+    deps = [":subaru_denso_1n83m_1_5m_can_plan"],
+)
+
+cc_library(
+    name = "subaru_denso_sh72531_can_plan",
+    srcs = ["subaru_denso_sh72531_can_plan.cpp"],
+    hdrs = ["subaru_denso_sh72531_can_plan.h"],
+    deps = [
+        "//src/backend/definitions:models",
+        "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_denso_sh72531_can_plan_test",
+    srcs = ["subaru_denso_sh72531_can_plan_test.cpp"],
+    deps = [":subaru_denso_sh72531_can_plan"],
+)
+
+cc_library(
+    name = "subaru_denso_sh72543_can_diesel_plan",
+    srcs = ["subaru_denso_sh72543_can_diesel_plan.cpp"],
+    hdrs = ["subaru_denso_sh72543_can_diesel_plan.h"],
+    deps = [
+        "//src/backend/definitions:models",
+        "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_denso_sh72543_can_diesel_plan_test",
+    srcs = ["subaru_denso_sh72543_can_diesel_plan_test.cpp"],
+    deps = [":subaru_denso_sh72543_can_diesel_plan"],
+)
+
+cc_library(
+    name = "subaru_denso_1n83m_4m_can_plan",
+    srcs = ["subaru_denso_1n83m_4m_can_plan.cpp"],
+    hdrs = ["subaru_denso_1n83m_4m_can_plan.h"],
+    deps = [
+        "//src/backend/definitions:models",
+        "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_denso_1n83m_4m_can_plan_test",
+    srcs = ["subaru_denso_1n83m_4m_can_plan_test.cpp"],
+    deps = [":subaru_denso_1n83m_4m_can_plan"],
+)
+
+cc_library(
+    name = "subaru_denso_sh72531_can_executor",
+    srcs = ["subaru_denso_sh72531_can_executor.cpp"],
+    hdrs = ["subaru_denso_sh72531_can_executor.h"],
+    deps = [
+        ":denso_iso15765_can_common",
+        ":flash_phase_progress",
+        ":subaru_denso_sh72531_can_plan",
+        ":uds_client_exchange_common",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+        "//src/algorithms/protocol/uds",
+        "//src/algorithms/protocol/uds:uds_service_ids",
+        "//src/backend/flash:can_flash_uds_channel",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_types",
+        "//src/backend/ports",
+        "//src/backend/protocol/uds:uds_client",
+    ],
+)
+
+cc_library(
+    name = "subaru_denso_sh72543_can_diesel_executor",
+    srcs = ["subaru_denso_sh72543_can_diesel_executor.cpp"],
+    hdrs = ["subaru_denso_sh72543_can_diesel_executor.h"],
+    deps = [
+        ":denso_iso15765_can_common",
+        ":flash_phase_progress",
+        ":subaru_denso_sh72543_can_diesel_plan",
+        ":uds_client_exchange_common",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+        "//src/algorithms/protocol/uds",
+        "//src/algorithms/protocol/uds:uds_service_ids",
+        "//src/backend/flash:can_flash_uds_channel",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_types",
+        "//src/backend/ports",
+        "//src/backend/protocol/uds:uds_client",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_denso_sh72543_can_diesel_executor_test",
+    srcs = ["subaru_denso_sh72543_can_diesel_executor_test.cpp"],
+    deps = [
+        ":subaru_denso_sh72543_can_diesel_executor",
+        ":subaru_denso_sh72543_can_diesel_plan",
+        "//src/algorithms/protocol/ssm",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:recording_event_sink",
+    ],
+)
+
+cc_library(
+    name = "subaru_denso_1n83m_4m_can_executor",
+    srcs = ["subaru_denso_1n83m_4m_can_executor.cpp"],
+    hdrs = ["subaru_denso_1n83m_4m_can_executor.h"],
+    deps = [
+        ":denso_iso15765_can_common",
+        ":flash_phase_progress",
+        ":subaru_denso_1n83m_4m_can_plan",
+        ":uds_client_exchange_common",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+        "//src/algorithms/protocol/uds",
+        "//src/algorithms/protocol/uds:uds_service_ids",
+        "//src/backend/flash:can_flash_uds_channel",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_types",
+        "//src/backend/ports",
+        "//src/backend/protocol/uds:uds_client",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_denso_1n83m_4m_can_executor_test",
+    srcs = ["subaru_denso_1n83m_4m_can_executor_test.cpp"],
+    deps = [
+        ":subaru_denso_1n83m_4m_can_executor",
+        ":subaru_denso_1n83m_4m_can_plan",
+        "//src/algorithms/protocol/ssm",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:recording_event_sink",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_denso_sh72531_can_executor_test",
+    srcs = ["subaru_denso_sh72531_can_executor_test.cpp"],
+    deps = [
+        ":subaru_denso_sh72531_can_executor",
+        ":subaru_denso_sh72531_can_plan",
+        "//src/algorithms/protocol/ssm",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:recording_event_sink",
+    ],
+)
+
 # comparison this factoring is based on.
 cc_library(
     name = "subaru_tcu_cvt_mitsu_can_common",
@@ -569,6 +779,59 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_hitachi_m32r_can_executor",
         ":subaru_hitachi_m32r_can_plan",
+        "//src/algorithms/protocol/ssm",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:recording_event_sink",
+    ],
+)
+
+cc_library(
+    name = "denso_iso15765_can_common",
+    hdrs = ["denso_iso15765_can_common.h"],
+)
+
+fastecu_portable_gtest(
+    name = "denso_iso15765_can_common_test",
+    srcs = ["denso_iso15765_can_common_test.cpp"],
+    deps = [
+        ":denso_iso15765_can_common",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+    ],
+)
+
+cc_library(
+    name = "subaru_denso_1n83m_1_5m_can_executor",
+    srcs = ["subaru_denso_1n83m_1_5m_can_executor.cpp"],
+    hdrs = ["subaru_denso_1n83m_1_5m_can_executor.h"],
+    deps = [
+        ":denso_iso15765_can_common",
+        ":flash_phase_progress",
+        ":subaru_denso_1n83m_1_5m_can_plan",
+        ":uds_client_exchange_common",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+        "//src/algorithms/protocol/uds",
+        "//src/algorithms/protocol/uds:uds_service_ids",
+        "//src/backend/flash:can_flash_uds_channel",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_types",
+        "//src/backend/ports",
+        "//src/backend/protocol/uds:uds_client",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_denso_1n83m_1_5m_can_executor_test",
+    srcs = ["subaru_denso_1n83m_1_5m_can_executor_test.cpp"],
+    deps = [
+        ":subaru_denso_1n83m_1_5m_can_executor",
+        ":subaru_denso_1n83m_1_5m_can_plan",
         "//src/algorithms/protocol/ssm",
         "//src/backend/flash:flash_executor",
         "//src/backend/flash:flash_validation",

@@ -155,7 +155,7 @@ each cluster. A four-family cluster is 4.5-7.3k lines and does not fit one PR.
 | **1** | `FlashEcuSubaruHitachiM32rKline`, `FlashEcuSubaruMitsuM32rKline` | 2,155 | First cluster: the smallest, on K-Line, where the transport adapter is already proven by the 5c pair. Proves port-then-factor. |
 | **2** | `FlashEcuSubaruDensoMC68HC16Y5_02`, `FlashEcuSubaruDensoSH7055_02` | 2,518 | Second pair; the pattern is routine by now. |
 | **3** | `FlashEcuSubaruHitachiM32rCan`, `FlashTcuCvtSubaruHitachiM32rCan`, `FlashTcuCvtSubaruMitsuMH8111Can`, `FlashTcuCvtSubaruMitsuMH8104Can` | 4,506 | First four-family cluster; first crossing of the ECU/TCU boundary within one cluster. |
-| **4** | `FlashEcuSubaruDenso1N83M_1_5MCan`, `FlashEcuSubaruDenso1N83M_4MCan`, `FlashEcuSubaruDensoSH72531Can`, `FlashEcuSubaruDensoSH72543CanDiesel` | 5,971 | Highest clone ratio in the tree, so the largest substrate payoff. |
+| **4** | `FlashEcuSubaruDenso1N83M_1_5MCan`, `FlashEcuSubaruDenso1N83M_4MCan`, `FlashEcuSubaruDensoSH72531Can`, `FlashEcuSubaruDensoSH72543CanDiesel` | 5,971 | Highest whole-file clone ratio in the tree; function-level measurement found the substrate payoff small — see [Doc fixes carried by wave 4](#doc-fixes-carried-by-wave-4). |
 | **5** | `FlashEcuSubaruDensoSH7058Can`, `FlashEcuSubaruDensoSH7058CanDiesel`, `FlashTcuSubaruDensoSH705xCan`, `FlashEcuSubaruDensoSH705xDensoCan` | 7,305 | Largest by volume; taken once the pattern has settled. Introduces `TransportKind::CanRaw`. |
 | **6** | `FlashEcuSubaruDensoSH705xKline`, `FlashEcuSubaruHitachiSH7058Can`, `FlashEcuSubaruHitachiSH72543rCan`, `FlashEcuSubaruUnisiaJecs`, `FlashEcuSubaruUnisiaJecsM32r`, `FlashTcuSubaruHitachiM32rCan`, `FlashTcuSubaruHitachiM32rKline`, `FlashEcuSubaruHitachiM32rJtag`, `FlashEcuSubaruDensoMC68HC16Y5_02_BDM` | 8,118 | Nine singletons; no common, 5c-style ports. |
 | **7** | `FlashEcuSubaruUnisiaJecsM32rBootMode` + teardown | 655 | The only family needing new port surface. Also deletes `FlashOperationWorker`, `legacy_flash_utils`, the package, its allowlist entry, the drain ratchet, and `ssm:qt_compat`. |
@@ -352,6 +352,27 @@ still list `src/backend/flash/flash_utils.*` under "Consolidated foundations".
 document's own unlock condition — "a shared abstraction is justified only after
 byte-level tests demonstrate a stable behavioral contract across concrete
 families" — is what the port-then-factor ordering implements.
+
+## Doc fixes carried by wave 4
+
+Two corrections wave 4 made to this design, discovered during implementation
+of the Denso ISO-15765 CAN cluster.
+
+1. **The wave's substrate payoff is small, not "the largest in the tree."**
+   [Sequence](#sequence)'s wave-4 rationale was written from whole-file
+   line-overlap (0.81-0.94). Function-level measurement against the ported
+   executors found zero of the cluster's six protocol functions four-way
+   identical; only the three crypto wrapper functions matched, and those
+   already delegate to `SsmProtocol`. The cluster-factoring PR shared only the
+   crypto key-table data those wrappers use, not any protocol function. The
+   porting cost stood as sequenced; the factoring payoff did not.
+2. **Both programming branches are ported where the ECU selects between them
+   at runtime, not only the more accessible one.** Wave 3 declined
+   `FlashEcuSubaruHitachiM32rCan`'s on-car branch because no `protocols.cfg`
+   entry could reach it — a paper boundary. Wave 4's cluster selects bench vs.
+   in-car programming at runtime from byte 7 of the ECU's own
+   `0x22 0x10 0x1D` reply, so both are live paths for the 2014-2021 vehicles
+   these families serve, and both are ported.
 
 ## Follow-ups
 

@@ -103,5 +103,60 @@ TEST(FlashTypes, Wave2FamilyPlansConstructAndHoldValues)
     EXPECT_TRUE(family_requires_kernel_v<SubaruDensoSh7055_02Plan>);
 }
 
+TEST(FlashTypes, Wave4DensoIso15765FamilyPlansAreKernelFree)
+{
+    SubaruDenso1n83m_1_5mCanPlan denso{
+        .request_id = 0x7e0,
+        .response_id = 0x7e8,
+        .bitrate = 500000,
+        .extended_id = false,
+        .lead_pad_len = 0x10000,
+        .tail_pad_len = 0x100,
+    };
+    FamilyPlan denso_variant = denso;
+    EXPECT_EQ(std::get<SubaruDenso1n83m_1_5mCanPlan>(denso_variant).lead_pad_len, 0x10000U);
+
+    EXPECT_FALSE(family_requires_kernel_v<SubaruDenso1n83m_1_5mCanPlan>);
+
+    SubaruDensoSh72531CanPlan sh72531{
+        .request_id = 0x7e0,
+        .response_id = 0x7e8,
+        .bitrate = 500000,
+        .extended_id = false,
+        .lead_pad_len = 0x8000,
+        .tail_pad_len = 0x100,
+    };
+    FamilyPlan sh72531_variant = sh72531;
+    EXPECT_EQ(std::get<SubaruDensoSh72531CanPlan>(sh72531_variant).lead_pad_len, 0x8000U);
+
+    EXPECT_FALSE(family_requires_kernel_v<SubaruDensoSh72531CanPlan>);
+
+    SubaruDensoSh72543CanDieselPlan sh72543{
+        .request_id = 0x7e0,
+        .response_id = 0x7e8,
+        .bitrate = 500000,
+        .extended_id = false,
+        .lead_pad_len = 0x8000,
+        .tail_pad_len = 0x100,
+    };
+    FamilyPlan sh72543_variant = sh72543;
+    EXPECT_EQ(std::get<SubaruDensoSh72543CanDieselPlan>(sh72543_variant).lead_pad_len, 0x8000U);
+
+    EXPECT_FALSE(family_requires_kernel_v<SubaruDensoSh72543CanDieselPlan>);
+
+    SubaruDenso1n83m_4mCanPlan denso4m{
+        .request_id = 0x7e0,
+        .response_id = 0x7e8,
+        .bitrate = 500000,
+        .extended_id = false,
+        .lead_pad_len = 0x10000,
+        .tail_pad_len = 0x100,
+    };
+    FamilyPlan denso4m_variant = denso4m;
+    EXPECT_EQ(std::get<SubaruDenso1n83m_4mCanPlan>(denso4m_variant).lead_pad_len, 0x10000U);
+
+    EXPECT_FALSE(family_requires_kernel_v<SubaruDenso1n83m_4mCanPlan>);
+}
+
 } // namespace
 } // namespace fastecu::flash
