@@ -23,11 +23,17 @@
 //
 // This family is the tolerant member of the wave-4 Denso ISO-15765 cluster:
 // seven of its response checks have their `return STATUS_ERROR` commented out
-// (lines 305, 335, 369, 876, 883, 917, 924), so it logs and carries on where
-// its 1N83M 1.5M and SH72531 siblings abort. It also reads twice after the
-// bench kernel jump where they read once, and spells its read timeouts as
-// bare 200/500 literals rather than through the header's named constants.
-// All of that is transcribed as found; each tolerated point is marked below.
+// (lines 305, 335, 369, 876, 883, 917, 924). Only four of those are a
+// behavioural divergence -- the read_memory dump-setup checks at 876, 883,
+// 917 and 924, where the 1N83M 1.5M and SH72531 siblings abort. At the three
+// connect_bootloader probe sites (305, 335, 369) the siblings log and carry
+// on too; they simply have no commented-out line there, so this family
+// differs only in carrying its own record that the strictness was removed.
+// It also reads twice after the bench kernel jump where the 1N83M 1.5M reads
+// once (the SH72531 sibling reads twice as well), and spells its read
+// timeouts as bare 200/500 literals rather than through the header's named
+// constants. All of that is transcribed as found; each tolerated point is
+// marked below.
 namespace fastecu::flash
 {
 namespace
@@ -344,9 +350,11 @@ Status security_access(Ctx& ctx)
 // logged here but is not an error -- deliberately not "fixed".
 //
 // `duplicate_pre_loop_read` reproduces the bench arm's extra read: legacy
-// reads once at line 788, discards it, then reads again at line 790 and only
-// that second frame seeds the wait loop. The in-car arm reads once (line
-// 642), and neither the 1N83M 1.5M nor the SH72531 family reads twice at all.
+// reads once at line 788, discards it, waits 50 ms at line 790 and reads
+// again at line 791, and only that second frame seeds the wait loop. The
+// in-car arm reads once (line 642). Its SH72531 sibling's bench arm does the
+// same two reads and the same delay (its legacy lines 782-785); only the
+// 1N83M 1.5M reads once.
 Status jump_to_kernel(Ctx& ctx, bytes::Byte session, int max_tries, bool duplicate_pre_loop_read)
 {
     info(ctx, "Jump to onboad kernel");

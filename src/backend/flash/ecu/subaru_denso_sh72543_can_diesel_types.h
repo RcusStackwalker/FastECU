@@ -5,8 +5,11 @@ namespace fastecu::flash
 {
 
 // Legacy: flash_ecu_subaru_denso_sh72543_can_diesel_operation.{h,cpp}. Region
-// fields carry what legacy hardcoded in read_memory (lines 828-830) and the
-// 0x34/0x35 setup PDUs (lines 844-854, 881-891): fblocks_SH72543d[0] exactly.
+// fields carry fblocks_SH72543d[0] exactly -- what execute() passes to
+// read_memory (line 74) and what read_memory's 0x34/0x35 setup PDUs then
+// compute from those arguments (lines 826-842, 865-881). Unlike its three
+// siblings this family does not overwrite the arguments: that hardcode is
+// commented out at lines 813-814.
 struct SubaruDensoSh72543CanDieselPlan
 {
     std::uint32_t request_id;   // 0x7e0

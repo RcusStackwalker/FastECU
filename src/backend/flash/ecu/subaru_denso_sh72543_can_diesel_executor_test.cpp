@@ -676,6 +676,33 @@ TEST(SubaruDensoSh72543CanDieselExecutor, EmptyBranchSelectorReplyFails)
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
+TEST(SubaruDensoSh72543CanDieselExecutor, EcuIdLogKeepsOnlyLegacysFiveBytes)
+{
+    // Legacy strips the 4-byte envelope and `62 F1 82` with remove(0, 7) at
+    // line 149 and leaves the remainder intact -- its remove(5, len-5) is
+    // commented out at line 150 -- but the string it logs is built by
+    // `for (int i = 0; i < 5; i++)` (lines 153-156), so a longer reply is
+    // still logged as five bytes. Script eight and expect five.
+    ScriptedCanFlashTransport transport;
+    transport.expectWrite(request({0x10, 0x5F}));
+    transport.queueRead(response({0x50, 0x01}));
+    transport.expectWrite(request({0x22, 0xF1, 0x82}));
+    transport.queueRead(response({0x62, 0xF1, 0x82, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88}));
+    transport.expectWrite(request({0x09, 0x02}));
+    transport.queue_no_frame();
+
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::ManualCancellationToken cancellation;
+    SubaruDensoSh72543CanDieselExecutor executor;
+
+    const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "ECU ID: 11 22 33 44 55 ")));
+}
+
 TEST(SubaruDensoSh72543CanDieselExecutor, EraseRetryExhaustionFails)
 {
     // Legacy erase_memory's re-read loop (lines 1456-1483): twenty reads, no

@@ -1,6 +1,7 @@
 #include "src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_executor.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <format>
 #include <utility>
@@ -217,9 +218,14 @@ void non_fatal_did_query(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected
         return;
     }
     // Legacy trims the raw frame with remove(0, 7) -- the 4-byte envelope plus
-    // `62 F1 82` -- and keeps everything after it (line 149; its
-    // remove(5, len-5) truncation to 5 bytes is commented out at line 150).
-    info(ctx, std::format("{}: {}", label, bytes::toHex(payload.subspan(expected_did.size()))));
+    // `62 F1 82` (line 149) -- and although its remove(5, len-5) truncation is
+    // commented out at line 150, the loop that builds the logged string runs
+    // `for (int i = 0; i < 5; i++)` (lines 153-156), so exactly five bytes are
+    // logged. Take the same five. Fewer are taken only if the reply is short,
+    // where legacy would index past the end instead.
+    constexpr std::size_t kEcuIdBytes = 5;
+    const bytes::ByteView rest = payload.subspan(expected_did.size());
+    info(ctx, std::format("{}: {}", label, bytes::toHex(rest.subspan(0, std::min(kEcuIdBytes, rest.size())))));
 }
 
 // Legacy's "log a mismatch, abort only on an absent or too-short reply"
