@@ -102,6 +102,7 @@ PORTABLE_ROOTS = {
         "protocol_catalog",
         "car_model_catalog",
         "provisioning",
+        "menu_definition",
     },
     ROOT / "src/backend/checksum": {
         "checksum_selection",
