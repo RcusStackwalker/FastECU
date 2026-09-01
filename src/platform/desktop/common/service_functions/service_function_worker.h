@@ -50,8 +50,9 @@ class ServiceFunctionWorker final : public QThread
     // thread, any number of times, before or after start().
     void requestStop();
 
-    // Answers the outstanding gate. Safe from any thread.
-    void answerGate(bool accepted);
+    // Answers the matching outstanding gate. Stale IDs and duplicate answers
+    // are ignored. Safe from any thread.
+    void answerGate(int gateId, bool accepted);
 
   signals:
     void logEvent(int level, QString message);
@@ -76,6 +77,7 @@ class ServiceFunctionWorker final : public QThread
     QMutex gate_mutex_;
     QWaitCondition gate_answered_;
     std::optional<GateResponse> gate_response_;
+    int pending_gate_id_ = 0;
     bool gate_pending_ = false;
     bool stopping_ = false;
 };

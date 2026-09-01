@@ -47,10 +47,10 @@ void ServiceFunctionWorker::requestStop()
     gate_answered_.wakeAll();
 }
 
-void ServiceFunctionWorker::answerGate(bool accepted)
+void ServiceFunctionWorker::answerGate(int gateId, bool accepted)
 {
     const QMutexLocker lock(&gate_mutex_);
-    if (!gate_pending_ || gate_response_.has_value())
+    if (!gate_pending_ || gateId != pending_gate_id_ || gate_response_.has_value())
     {
         return;
     }
@@ -104,6 +104,7 @@ void ServiceFunctionWorker::run()
         {
             {
                 const QMutexLocker lock(&gate_mutex_);
+                pending_gate_id_ = static_cast<int>(gate->id);
                 gate_pending_ = true;
                 gate_response_.reset();
             }

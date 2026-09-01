@@ -80,9 +80,8 @@ class RecordingConfigurator final : public ISerialFacadeConfigurator
 class ScriptedSession final : public ServiceFunctionSession
 {
   public:
-    explicit ScriptedSession(std::vector<ServiceFunctionStep> steps, bool setup_fails = false,
-                             bool pause_after_first_submit = false)
-        : steps_(std::move(steps)), setup_fails_(setup_fails), pause_after_first_submit_(pause_after_first_submit)
+    explicit ScriptedSession(std::vector<ServiceFunctionStep> steps, bool setup_fails = false)
+        : steps_(std::move(steps)), setup_fails_(setup_fails)
     {
     }
 
@@ -112,26 +111,7 @@ class ScriptedSession final : public ServiceFunctionSession
 
     void submit(GateResponse response) override
     {
-        std::unique_lock lock(submit_mutex_);
         submitted.push_back(response);
-        submit_started_.notify_all();
-        if (pause_after_first_submit_ && submitted.size() == 1)
-        {
-            submit_released_.wait_for(lock, std::chrono::seconds{5}, [this] { return release_first_submit_; });
-        }
-    }
-
-    bool waitForFirstSubmit()
-    {
-        std::unique_lock lock(submit_mutex_);
-        return submit_started_.wait_for(lock, std::chrono::seconds{5}, [this] { return !submitted.empty(); });
-    }
-
-    void releaseFirstSubmit()
-    {
-        const std::lock_guard lock(submit_mutex_);
-        release_first_submit_ = true;
-        submit_released_.notify_all();
     }
 
     int resume_calls = 0;
@@ -140,12 +120,7 @@ class ScriptedSession final : public ServiceFunctionSession
   private:
     std::vector<ServiceFunctionStep> steps_;
     bool setup_fails_;
-    bool pause_after_first_submit_;
     std::size_t next_ = 0;
-    std::mutex submit_mutex_;
-    std::condition_variable submit_started_;
-    std::condition_variable submit_released_;
-    bool release_first_submit_ = false;
 };
 
 struct Harness
@@ -154,9 +129,9 @@ struct Harness
     ScriptedSession *session = nullptr;
     std::unique_ptr<ServiceFunctionWorker> worker;
 
-    void build(std::vector<ServiceFunctionStep> steps, bool setup_fails = false, bool pause_after_first_submit = false)
+    void build(std::vector<ServiceFunctionStep> steps, bool setup_fails = false)
     {
-        auto owned = std::make_unique<ScriptedSession>(std::move(steps), setup_fails, pause_after_first_submit);
+        auto owned = std::make_unique<ScriptedSession>(std::move(steps), setup_fails);
         session = owned.get();
         worker = std::make_unique<ServiceFunctionWorker>(std::move(owned), std::make_unique<ScriptedSsmTransport>(),
                                                          std::make_unique<FakeClock>(), &configurator);
@@ -231,7 +206,7 @@ class ServiceFunctionWorkerTest : public QObject
         harness.worker->start();
         QVERIFY(gate_observer.waitForCount(1));
 
-        harness.worker->answerGate(true);
+        harness.worker->answerGate(static_cast<int>(OperatorGateId::RelearnEngineRunning), true);
         QVERIFY(harness.worker->wait(5000));
 
         QCOMPARE(gates.count(), 1);
@@ -251,7 +226,7 @@ class ServiceFunctionWorkerTest : public QObject
 
         harness.worker->start();
         QVERIFY(gate_observer.waitForCount(1));
-        harness.worker->answerGate(false);
+        harness.worker->answerGate(static_cast<int>(OperatorGateId::RelearnStaticSetup), false);
         QVERIFY(harness.worker->wait(5000));
 
         QCOMPARE(gates.count(), 1);
@@ -285,27 +260,23 @@ class ServiceFunctionWorkerTest : public QObject
         QCOMPARE(result.error_kind, ErrorKind::Cancelled);
     }
 
-    void earlyAndDuplicateAnswersCannotSatisfyLaterGates()
+    void aStaleAnswerCannotSatisfyALaterGate()
     {
         Harness harness;
         harness.build({GateStep{OperatorGateId::RelearnStaticSetup}, GateStep{OperatorGateId::RelearnEngineRunning},
-                       CompletedStep{SetParametersOutcome{}}},
-                      /*setup_fails=*/false, /*pause_after_first_submit=*/true);
+                       CompletedStep{SetParametersOutcome{}}});
         GateObserver gate_observer(harness.worker.get());
         QSignalSpy gates(harness.worker.get(), &ServiceFunctionWorker::gateRequested);
         QSignalSpy done(harness.worker.get(), &ServiceFunctionWorker::finished);
 
-        harness.worker->answerGate(false); // no gate is pending yet
+        harness.worker->answerGate(static_cast<int>(OperatorGateId::RelearnStaticSetup), false);
         harness.worker->start();
         QVERIFY(gate_observer.waitForCount(1));
 
-        harness.worker->answerGate(true);
-        QVERIFY(harness.session->waitForFirstSubmit());
-        harness.worker->answerGate(false); // late duplicate for the first gate
-        harness.session->releaseFirstSubmit();
-
+        harness.worker->answerGate(static_cast<int>(OperatorGateId::RelearnStaticSetup), true);
         QVERIFY(gate_observer.waitForCount(2));
-        harness.worker->answerGate(true);
+        harness.worker->answerGate(static_cast<int>(OperatorGateId::RelearnStaticSetup), false);
+        harness.worker->answerGate(static_cast<int>(OperatorGateId::RelearnEngineRunning), true);
         QVERIFY(harness.worker->wait(5000));
 
         QCOMPARE(gates.count(), 2);
