@@ -76,6 +76,7 @@ class ServiceFunctionWorker final : public QThread
     QMutex gate_mutex_;
     QWaitCondition gate_answered_;
     std::optional<GateResponse> gate_response_;
+    bool gate_pending_ = false;
     bool stopping_ = false;
 };
 

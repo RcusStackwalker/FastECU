@@ -8,7 +8,10 @@
 #include <QSignalSpy>
 #include <QTest>
 
+#include <chrono>
+#include <condition_variable>
 #include <memory>
+#include <mutex>
 #include <vector>
 
 #include "src/backend/ports/testing/fake_clock.h"
@@ -32,6 +35,34 @@ using fastecu::service_functions::SsmTransportConfig;
 namespace
 {
 
+class GateObserver
+{
+  public:
+    explicit GateObserver(ServiceFunctionWorker *worker)
+    {
+        QObject::connect(
+            worker, &ServiceFunctionWorker::gateRequested, worker,
+            [this](int)
+            {
+                const std::lock_guard lock(mutex_);
+                ++count_;
+                observed_.notify_all();
+            },
+            Qt::DirectConnection);
+    }
+
+    bool waitForCount(int expected)
+    {
+        std::unique_lock lock(mutex_);
+        return observed_.wait_for(lock, std::chrono::seconds{5}, [this, expected] { return count_ >= expected; });
+    }
+
+  private:
+    std::mutex mutex_;
+    std::condition_variable observed_;
+    int count_ = 0;
+};
+
 class RecordingConfigurator final : public ISerialFacadeConfigurator
 {
   public:
@@ -49,8 +80,9 @@ class RecordingConfigurator final : public ISerialFacadeConfigurator
 class ScriptedSession final : public ServiceFunctionSession
 {
   public:
-    explicit ScriptedSession(std::vector<ServiceFunctionStep> steps, bool setup_fails = false)
-        : steps_(std::move(steps)), setup_fails_(setup_fails)
+    explicit ScriptedSession(std::vector<ServiceFunctionStep> steps, bool setup_fails = false,
+                             bool pause_after_first_submit = false)
+        : steps_(std::move(steps)), setup_fails_(setup_fails), pause_after_first_submit_(pause_after_first_submit)
     {
     }
 
@@ -80,7 +112,26 @@ class ScriptedSession final : public ServiceFunctionSession
 
     void submit(GateResponse response) override
     {
+        std::unique_lock lock(submit_mutex_);
         submitted.push_back(response);
+        submit_started_.notify_all();
+        if (pause_after_first_submit_ && submitted.size() == 1)
+        {
+            submit_released_.wait_for(lock, std::chrono::seconds{5}, [this] { return release_first_submit_; });
+        }
+    }
+
+    bool waitForFirstSubmit()
+    {
+        std::unique_lock lock(submit_mutex_);
+        return submit_started_.wait_for(lock, std::chrono::seconds{5}, [this] { return !submitted.empty(); });
+    }
+
+    void releaseFirstSubmit()
+    {
+        const std::lock_guard lock(submit_mutex_);
+        release_first_submit_ = true;
+        submit_released_.notify_all();
     }
 
     int resume_calls = 0;
@@ -89,7 +140,12 @@ class ScriptedSession final : public ServiceFunctionSession
   private:
     std::vector<ServiceFunctionStep> steps_;
     bool setup_fails_;
+    bool pause_after_first_submit_;
     std::size_t next_ = 0;
+    std::mutex submit_mutex_;
+    std::condition_variable submit_started_;
+    std::condition_variable submit_released_;
+    bool release_first_submit_ = false;
 };
 
 struct Harness
@@ -98,9 +154,9 @@ struct Harness
     ScriptedSession *session = nullptr;
     std::unique_ptr<ServiceFunctionWorker> worker;
 
-    void build(std::vector<ServiceFunctionStep> steps, bool setup_fails = false)
+    void build(std::vector<ServiceFunctionStep> steps, bool setup_fails = false, bool pause_after_first_submit = false)
     {
-        auto owned = std::make_unique<ScriptedSession>(std::move(steps), setup_fails);
+        auto owned = std::make_unique<ScriptedSession>(std::move(steps), setup_fails, pause_after_first_submit);
         session = owned.get();
         worker = std::make_unique<ServiceFunctionWorker>(std::move(owned), std::make_unique<ScriptedSsmTransport>(),
                                                          std::make_unique<FakeClock>(), &configurator);
@@ -168,18 +224,18 @@ class ServiceFunctionWorkerTest : public QObject
     {
         Harness harness;
         harness.build({GateStep{OperatorGateId::RelearnEngineRunning}, CompletedStep{SetParametersOutcome{}}});
+        GateObserver gate_observer(harness.worker.get());
         QSignalSpy gates(harness.worker.get(), &ServiceFunctionWorker::gateRequested);
         QSignalSpy done(harness.worker.get(), &ServiceFunctionWorker::finished);
 
         harness.worker->start();
-        QTRY_COMPARE(gates.count(), 1);
-        QCOMPARE(gates.at(0).at(0).toInt(), static_cast<int>(OperatorGateId::RelearnEngineRunning));
-        QCOMPARE(done.count(), 0); // still parked on the gate
-        QCOMPARE(harness.session->resume_calls, 1);
+        QVERIFY(gate_observer.waitForCount(1));
 
         harness.worker->answerGate(true);
         QVERIFY(harness.worker->wait(5000));
 
+        QCOMPARE(gates.count(), 1);
+        QCOMPARE(gates.at(0).at(0).toInt(), static_cast<int>(OperatorGateId::RelearnEngineRunning));
         QCOMPARE(harness.session->submitted, std::vector<GateResponse>{GateResponse::Accept});
         QCOMPARE(done.count(), 1);
     }
@@ -189,14 +245,17 @@ class ServiceFunctionWorkerTest : public QObject
         Harness harness;
         harness.build({GateStep{OperatorGateId::RelearnStaticSetup},
                        FailedStep{fastecu::Error{ErrorKind::Cancelled, "operator declined a relearn gate"}}});
+        GateObserver gate_observer(harness.worker.get());
         QSignalSpy gates(harness.worker.get(), &ServiceFunctionWorker::gateRequested);
         QSignalSpy done(harness.worker.get(), &ServiceFunctionWorker::finished);
 
         harness.worker->start();
-        QTRY_COMPARE(gates.count(), 1);
+        QVERIFY(gate_observer.waitForCount(1));
         harness.worker->answerGate(false);
         QVERIFY(harness.worker->wait(5000));
 
+        QCOMPARE(gates.count(), 1);
+        QCOMPARE(gates.at(0).at(0).toInt(), static_cast<int>(OperatorGateId::RelearnStaticSetup));
         QCOMPARE(harness.session->submitted, std::vector<GateResponse>{GateResponse::Decline});
         const auto result = done.at(0).at(0).value<ServiceFunctionWorkerResult>();
         QVERIFY(!result.success);
@@ -209,18 +268,53 @@ class ServiceFunctionWorkerTest : public QObject
         // gate must not hold the thread open when the dialog closes.
         Harness harness;
         harness.build({GateStep{OperatorGateId::RelearnEngineRunning}, CompletedStep{SetParametersOutcome{}}});
+        GateObserver gate_observer(harness.worker.get());
         QSignalSpy gates(harness.worker.get(), &ServiceFunctionWorker::gateRequested);
         QSignalSpy done(harness.worker.get(), &ServiceFunctionWorker::finished);
 
         harness.worker->start();
-        QTRY_COMPARE(gates.count(), 1);
+        QVERIFY(gate_observer.waitForCount(1));
         harness.worker->requestStop();
         QVERIFY(harness.worker->wait(5000));
 
+        QCOMPARE(gates.count(), 1);
+        QCOMPARE(gates.at(0).at(0).toInt(), static_cast<int>(OperatorGateId::RelearnEngineRunning));
         QCOMPARE(done.count(), 1);
         const auto result = done.at(0).at(0).value<ServiceFunctionWorkerResult>();
         QVERIFY(!result.success);
         QCOMPARE(result.error_kind, ErrorKind::Cancelled);
+    }
+
+    void earlyAndDuplicateAnswersCannotSatisfyLaterGates()
+    {
+        Harness harness;
+        harness.build({GateStep{OperatorGateId::RelearnStaticSetup}, GateStep{OperatorGateId::RelearnEngineRunning},
+                       CompletedStep{SetParametersOutcome{}}},
+                      /*setup_fails=*/false, /*pause_after_first_submit=*/true);
+        GateObserver gate_observer(harness.worker.get());
+        QSignalSpy gates(harness.worker.get(), &ServiceFunctionWorker::gateRequested);
+        QSignalSpy done(harness.worker.get(), &ServiceFunctionWorker::finished);
+
+        harness.worker->answerGate(false); // no gate is pending yet
+        harness.worker->start();
+        QVERIFY(gate_observer.waitForCount(1));
+
+        harness.worker->answerGate(true);
+        QVERIFY(harness.session->waitForFirstSubmit());
+        harness.worker->answerGate(false); // late duplicate for the first gate
+        harness.session->releaseFirstSubmit();
+
+        QVERIFY(gate_observer.waitForCount(2));
+        harness.worker->answerGate(true);
+        QVERIFY(harness.worker->wait(5000));
+
+        QCOMPARE(gates.count(), 2);
+        QCOMPARE(gates.at(0).at(0).toInt(), static_cast<int>(OperatorGateId::RelearnStaticSetup));
+        QCOMPARE(gates.at(1).at(0).toInt(), static_cast<int>(OperatorGateId::RelearnEngineRunning));
+        QCOMPARE(harness.session->submitted, std::vector<GateResponse>({GateResponse::Accept, GateResponse::Accept}));
+        QCOMPARE(done.count(), 1);
+        const auto result = done.at(0).at(0).value<ServiceFunctionWorkerResult>();
+        QVERIFY(result.success);
     }
 
     void emitsFinishedExactlyOnceOnFailure()

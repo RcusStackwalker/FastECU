@@ -50,6 +50,10 @@ void ServiceFunctionWorker::requestStop()
 void ServiceFunctionWorker::answerGate(bool accepted)
 {
     const QMutexLocker lock(&gate_mutex_);
+    if (!gate_pending_ || gate_response_.has_value())
+    {
+        return;
+    }
     gate_response_ = accepted ? GateResponse::Accept : GateResponse::Decline;
     gate_answered_.wakeAll();
 }
@@ -63,8 +67,11 @@ std::optional<GateResponse> ServiceFunctionWorker::waitForGate()
     }
     if (stopping_)
     {
+        gate_pending_ = false;
+        gate_response_.reset();
         return std::nullopt;
     }
+    gate_pending_ = false;
     return std::exchange(gate_response_, std::nullopt);
 }
 
@@ -95,6 +102,11 @@ void ServiceFunctionWorker::run()
         ServiceFunctionStep step = session_->resume(*transport_, *clock_, cancellation_, events);
         if (const auto *gate = std::get_if<GateStep>(&step); gate != nullptr)
         {
+            {
+                const QMutexLocker lock(&gate_mutex_);
+                gate_pending_ = true;
+                gate_response_.reset();
+            }
             emit gateRequested(static_cast<int>(gate->id));
             if (const std::optional<GateResponse> response = waitForGate(); response.has_value())
             {
