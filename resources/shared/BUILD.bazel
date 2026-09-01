@@ -20,7 +20,10 @@ package(default_visibility = [
 # empty glob() there fails the build outright since allow_empty defaults to
 # false).
 exports_files(
-    ["config/protocols.cfg"],
+    [
+        "config/menu.cfg",
+        "config/protocols.cfg",
+    ],
     visibility = [
         "//resources/shared:__pkg__",
         "//src/backend/config:__pkg__",

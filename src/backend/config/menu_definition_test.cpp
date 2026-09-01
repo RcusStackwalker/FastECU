@@ -1,6 +1,10 @@
 #include "src/backend/config/menu_definition.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
 
+#include <cstdlib>
+#include <fstream>
+#include <ios>
+#include <iterator>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -158,4 +162,158 @@ TEST(MenuDefinitionTest, MalformedXmlIsInvalidConfig)
     ASSERT_FALSE(definition.has_value());
     EXPECT_EQ(definition.error().kind, ErrorKind::InvalidConfig);
     EXPECT_THAT(definition.error().detail, testing::HasSubstr("menu parse error"));
+}
+
+namespace
+{
+std::vector<std::uint8_t> read_shipped_menu_cfg()
+{
+    const char *path = std::getenv("MENU_CFG_PATH");
+    EXPECT_NE(path, nullptr) << "MENU_CFG_PATH must be set by the Bazel target's env";
+    std::ifstream file(path, std::ios::binary);
+    EXPECT_TRUE(file.is_open()) << "cannot open " << (path ? path : "(null)");
+    return std::vector<std::uint8_t>(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+}
+
+MenuDefinition shipped_definition(InMemoryFileRepository& repository)
+{
+    repository.files["menu.cfg"] = read_shipped_menu_cfg();
+    auto definition = load_menu_definition(test_paths(), repository);
+    EXPECT_TRUE(definition.has_value());
+    return definition.value_or(MenuDefinition{});
+}
+
+std::vector<std::string> ids_of(const fastecu::config::Menu& menu)
+{
+    std::vector<std::string> ids;
+    for (const auto& entry : menu.entries)
+    {
+        ids.push_back(entry.is_submenu ? entry.submenu_name : entry.item.id);
+    }
+    return ids;
+}
+} // namespace
+
+TEST(ShippedMenuCfgTest, HasTheSevenTopLevelMenusInOrder)
+{
+    InMemoryFileRepository repository;
+    const MenuDefinition definition = shipped_definition(repository);
+
+    std::vector<std::string> names;
+    for (const auto& menu : definition)
+    {
+        names.push_back(menu.name);
+    }
+    EXPECT_THAT(names, testing::ElementsAre("File", "Edit", "Tune", "Ecu", "View", "Testing", "Help"));
+}
+
+TEST(ShippedMenuCfgTest, FileMenuMatchesTheShippedItemsAndOrder)
+{
+    InMemoryFileRepository repository;
+    const MenuDefinition definition = shipped_definition(repository);
+    ASSERT_FALSE(definition.empty());
+
+    EXPECT_THAT(ids_of(definition[0]),
+                testing::ElementsAre("open_calibration", "save_calibration", "save_calibration_as", "separator",
+                                     "close_calibration", "separator", "quit"));
+    EXPECT_TRUE(definition[0].entries[0].item.on_toolbar());
+    EXPECT_FALSE(definition[0].entries[2].item.on_toolbar());
+    EXPECT_EQ(definition[0].entries[6].item.shortcut, "Ctrl+Q");
+}
+
+TEST(ShippedMenuCfgTest, EcuMenuCarriesTheCheckableLoggingToggles)
+{
+    InMemoryFileRepository repository;
+    const MenuDefinition definition = shipped_definition(repository);
+    ASSERT_GE(definition.size(), 4U);
+
+    const auto& ecu = definition[3];
+    ASSERT_EQ(ecu.name, "Ecu");
+    std::vector<std::string> checkable_ids;
+    for (const auto& entry : ecu.entries)
+    {
+        if (!entry.is_submenu && entry.item.is_checkable())
+        {
+            checkable_ids.push_back(entry.item.id);
+        }
+    }
+    EXPECT_THAT(checkable_ids, testing::ElementsAre("toggle_realtime", "log_to_file"));
+}
+
+// The only comment block in the shipped file is the last thing inside
+// <menu name="View">, so pugixml (which skips comments and continues) and
+// legacy QDom (whose nextSibling().toElement() stopped at one) agree here.
+// Pinned so the divergence is a decision on record, not a surprise.
+TEST(ShippedMenuCfgTest, ViewMenuHasOnlyTheOneLiveItemBeforeItsCommentBlock)
+{
+    InMemoryFileRepository repository;
+    const MenuDefinition definition = shipped_definition(repository);
+    ASSERT_GE(definition.size(), 5U);
+
+    const auto& view = definition[4];
+    ASSERT_EQ(view.name, "View");
+    EXPECT_THAT(ids_of(view), testing::ElementsAre("setlogviews"));
+}
+
+TEST(MenuDefinitionTest, CommentsDoNotTruncateTheRemainingItems)
+{
+    InMemoryFileRepository repository;
+    give(repository, R"(<config><ecu_menu_definitions><menu name="Top">
+        <menuitem name="First" id="first" />
+        <!-- a comment that legacy QDom iteration stopped at -->
+        <menuitem name="Second" id="second" />
+    </menu></ecu_menu_definitions></config>)");
+
+    auto definition = load_menu_definition(test_paths(), repository);
+
+    ASSERT_TRUE(definition.has_value());
+    ASSERT_EQ((*definition)[0].entries.size(), 2U);
+    EXPECT_EQ((*definition)[0].entries[0].item.id, "first");
+    EXPECT_EQ((*definition)[0].entries[1].item.id, "second");
+}
+
+TEST(ShippedMenuCfgTest, PopupMenuDefinitionsSectionIsIgnored)
+{
+    InMemoryFileRepository repository;
+    const MenuDefinition definition = shipped_definition(repository);
+
+    // The shipped <popup_menu_definitions> holds a second <menu name="Edit">.
+    // Exactly one Edit menu must survive, from <ecu_menu_definitions>.
+    int edit_menus = 0;
+    for (const auto& menu : definition)
+    {
+        if (menu.name == "Edit")
+        {
+            ++edit_menus;
+        }
+    }
+    EXPECT_EQ(edit_menus, 1);
+}
+
+TEST(MenuDefinitionTest, MissingEcuMenuDefinitionsSectionYieldsEmptyNotError)
+{
+    InMemoryFileRepository repository;
+    give(repository, R"(<config name="FastECU"><popup_menu_definitions><menu name="Edit">
+        <menuitem name="Copy" id="copy" />
+    </menu></popup_menu_definitions></config>)");
+
+    auto definition = load_menu_definition(test_paths(), repository);
+
+    ASSERT_TRUE(definition.has_value());
+    EXPECT_TRUE(definition->empty());
+}
+
+TEST(MenuDefinitionTest, UnknownChildTagsAreSkipped)
+{
+    InMemoryFileRepository repository;
+    give(repository, R"(<config><ecu_menu_definitions><menu name="Top">
+        <menuitem name="Kept" id="kept" />
+        <widget name="Unknown" id="unknown" />
+    </menu></ecu_menu_definitions></config>)");
+
+    auto definition = load_menu_definition(test_paths(), repository);
+
+    ASSERT_TRUE(definition.has_value());
+    ASSERT_EQ((*definition)[0].entries.size(), 1U);
+    EXPECT_EQ((*definition)[0].entries[0].item.id, "kept");
 }
