@@ -56,6 +56,13 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "relearn_session",
+    srcs = ["relearn_session.cpp"],
+    hdrs = ["relearn_session.h"],
+    deps = [":service_function_session"],
+)
+
 fastecu_portable_gtest(
     name = "service_function_types_test",
     srcs = ["service_function_types_test.cpp"],
@@ -84,6 +91,17 @@ fastecu_portable_gtest(
     srcs = ["set_parameters_session_test.cpp"],
     deps = [
         ":set_parameters_session",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/protocol/testing:scripted_transports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "relearn_session_test",
+    srcs = ["relearn_session_test.cpp"],
+    deps = [
+        ":relearn_session",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/protocol/testing:scripted_transports",
