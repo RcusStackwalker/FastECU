@@ -10,6 +10,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <memory>
+
 using fastecu::config::Menu;
 using fastecu::config::MenuDefinition;
 using fastecu::config::MenuEntry;
@@ -21,12 +23,28 @@ namespace
 // QMenuBar/QToolBar are QWidgets, which abort at construction without a live
 // QApplication. This suite links fastecu_gtest's plain gtest_main (it
 // declares no Q_OBJECT, so fastecu_qttest's QTEST_MAIN generator doesn't
-// apply), so bring one up once via static initialization, before any TEST
-// body runs.
-int qapp_argc = 1;
-char qapp_argv0[] = "menu_builder_test";
-char *qapp_argv[] = {qapp_argv0};
-QApplication qapp(qapp_argc, qapp_argv);
+// apply), so bring one up via a ::testing::Environment, mirroring
+// QtPortEnvironment in
+// src/platform/desktop/common/ports/qt_port_adapters_test.cpp. SetUp() runs
+// after static initialization and after InitGoogleTest, and gtest tears the
+// Environment down deterministically after all tests -- both properties the
+// alternative of a file-scope static QApplication lacks.
+class MenuBuilderEnvironment final : public ::testing::Environment
+{
+  public:
+    void SetUp() override
+    {
+        static int argc = 1;
+        static char program[] = "menu_builder_test";
+        static char *argv[] = {program, nullptr};
+        app_ = std::make_unique<QApplication>(argc, argv);
+    }
+
+  private:
+    std::unique_ptr<QApplication> app_;
+};
+
+const auto *menu_builder_environment = ::testing::AddGlobalTestEnvironment(new MenuBuilderEnvironment);
 
 MenuEntry plain(const MenuItem& item)
 {
