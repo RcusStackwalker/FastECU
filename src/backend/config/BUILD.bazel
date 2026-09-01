@@ -116,6 +116,30 @@ fastecu_portable_gtest(
     ],
 )
 
+cc_library(
+    name = "menu_definition",
+    srcs = ["menu_definition.cpp"],
+    hdrs = ["menu_definition.h"],
+    deps = [
+        ":config_paths",
+        "//src/backend/ports",
+        "@pugixml",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "menu_definition_test",
+    srcs = ["menu_definition_test.cpp"],
+    data = ["//resources/shared:config/menu.cfg"],
+    env = {
+        "MENU_CFG_PATH": "$(location //resources/shared:config/menu.cfg)",
+    },
+    deps = [
+        ":menu_definition",
+        "//src/backend/ports/testing:in_memory_file_repository",
+    ],
+)
+
 # Qt-linked (FileActions::ConfigValuesStructure is Qt-typed). Explicit srcs so
 # this neither collides with nor is swept into
 # //src/backend/definitions:definitions's glob. legacy_config_adapter.h

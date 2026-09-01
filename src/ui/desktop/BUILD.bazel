@@ -84,6 +84,7 @@ qt_cc_library(
         "//src/algorithms/protocol:qt_compat",
         "//src/backend/checksum:checksum_selection",
         "//src/backend/config:legacy_config_paths",
+        "//src/backend/config:menu_definition",
         "//src/backend/definitions",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/logging/protocols",
@@ -106,5 +107,6 @@ qt_cc_library(
         "//src/ui/desktop/flash/jtag",
         "//src/ui/desktop/flash/tcu",
         "//src/ui/desktop/hexedit",
+        "//src/ui/desktop/menu:menu_builder",
     ] + [":ui_" + f.removesuffix(".ui") for f in FORMS],
 )

@@ -1,0 +1,23 @@
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
+
+package(default_visibility = ["//src/ui:__subpackages__"])
+
+# Qt-linked (QMenuBar/QToolBar/QSignalMapper) but declares no QObject of its
+# own, so the header goes through normal_hdrs rather than hdrs -- matching
+# //src/ui/desktop/checksum:checksum_correction_command.
+qt_cc_library(
+    name = "menu_builder",
+    srcs = ["menu_builder.cpp"],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["menu_builder.h"],
+    deps = QT_DEPS + ["//src/backend/config:menu_definition"],
+)
+
+fastecu_gtest(
+    name = "menu_builder_test",
+    srcs = ["menu_builder_test.cpp"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    deps = [":menu_builder"],
+)
