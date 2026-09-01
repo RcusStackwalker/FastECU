@@ -8,10 +8,6 @@
 #include <QXmlStreamReader>
 #include <QMessageBox>
 #include <QDebug>
-#include <QSignalMapper>
-#include <QMenu>
-#include <QMenuBar>
-#include <QToolBar>
 #include <QElapsedTimer>
 #include <QDateTime>
 #include <QPushButton>
@@ -195,12 +191,6 @@ class FileActions : public QWidget
      * checksum calculations and value conversions
      **********************************************/
     EcuCalDefStructure *save_subaru_rom_file(FileActions::EcuCalDefStructure *ecuCalDef, const QString& fileName);
-
-    /***************************
-     * Read software menu file
-     * for menu creation
-     **************************/
-    QSignalMapper *read_menu_file(QMenuBar *menubar, QToolBar *toolBar);
 
     /*************************************
      * Parse expression strings for used

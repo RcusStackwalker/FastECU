@@ -7,9 +7,11 @@
 #include "src/algorithms/protocol/qt_bytes.h"
 #include "src/backend/checksum/checksum_selection.h"
 #include "src/backend/config/legacy_config_paths.h"
+#include "src/backend/config/menu_definition.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/platform/desktop/common/logging/cdbg_serial_setup.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
+#include "src/ui/desktop/menu/menu_builder.h"
 
 const QColor MainWindow::RED_LIGHT_OFF = QColor(96, 32, 32);
 const QColor MainWindow::YELLOW_LIGHT_OFF = QColor(96, 96, 32);
@@ -197,7 +199,22 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
     }
 
     setSplashScreenProgress("Setting up menus...", 10);
-    QSignalMapper *mapper = fileActions->read_menu_file(ui->menubar, ui->toolBar);
+    QSignalMapper *mapper = nullptr;
+    {
+        const fastecu::config::ConfigPaths menu_paths = fastecu::config::paths_from_config_values(*configValues);
+        fastecu::Result<fastecu::config::MenuDefinition> menu_definition =
+            fastecu::config::load_menu_definition(menu_paths, m_configFileRepository);
+        if (!menu_definition.has_value())
+        {
+            // The same modal read_menu_file raised itself (file_actions.cpp:813);
+            // 6a-3 routes this through IEventSink instead.
+            QMessageBox::warning(this, tr("Ecu menu file"),
+                                 tr("Unable to open menu config file '") + configValues->menu_file +
+                                     tr("' for reading"));
+            menu_definition = fastecu::config::MenuDefinition{};
+        }
+        mapper = build_menus(*menu_definition, ui->menubar, ui->toolBar, this);
+    }
 #if QT_VERSION >= 0x060000
     connect(mapper, SIGNAL(mappedString(QString)), this, SLOT(menu_action_triggered(QString)));
 #elif QT_VERSION >= 0x050000
