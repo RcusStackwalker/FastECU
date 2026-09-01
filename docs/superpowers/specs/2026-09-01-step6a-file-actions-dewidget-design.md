@@ -76,13 +76,12 @@ criterion, not an aspiration — see [Completion criteria](#completion-criteria)
 `QWidget *parent`. The 38 `emit LOG_*` statements become `events_.log(...)`.
 
 `tr()` is a `QObject` member function, so all 25 `tr(` sites must go. Twenty of
-them are inside message-box and dialog code that moves to the UI, where `tr()`
-remains available and correct. The remainder become untranslated
-`std::string_view` passed through `IEventSink`; **user-facing string
-translation becomes a UI-side responsibility.** This is a deliberate,
-disclosed consequence: backend event text is not translated, and the UI is the
-layer that decides presentation. It matches the precedent already set by
-`IEventSink` for the flash and logging paths.
+them sit inside message-box and dialog code that moves to the UI, where `tr()`
+remains available; the rest become plain strings passed through `IEventSink`.
+Nothing is lost by this: the project installs no `QTranslator` and ships no
+FastECU translation catalogs, so no string here is translated at runtime today.
+(The `.ts`/`.qm` files under `resources/desktop/hexedit/translations/` belong to
+the vendored hex-editor widget and are untouched.)
 
 ### Move a — `read_menu_file` splits in two
 
@@ -255,10 +254,6 @@ rebase is confined to that wiring block.
   lifetime the caller's problem; `MainWindow` must hold it in a
   `std::unique_ptr` member. This is a one-line ownership change in the one file
   that constructs it, and is part of 6a-3.
-- **Untranslated backend event strings.** Disclosed above; recorded here so it
-  is not rediscovered as a defect. If translation of these specific messages
-  turns out to matter, the fix is a message-code enum resolved UI-side, which
-  this design does not preempt.
 - **6a-1 changes the XML parser** from `QDomDocument` to pugixml for
   `menu.cfg`. The golden test against the real shipped file is what makes that
   safe; any attribute-defaulting difference shows up there rather than as a
