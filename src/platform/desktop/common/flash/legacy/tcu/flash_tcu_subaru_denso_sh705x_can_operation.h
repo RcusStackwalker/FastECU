@@ -12,27 +12,15 @@ class SerialPortActions;
 
 // Worker-thread half of FlashTcuSubaruDensoSH705xCan (worker-thread migration).
 // Owns every serial-> call and the Subaru Denso 07+ 32-bit CAN TCU
-// bootloader/relearn/parameter protocol sequence; relocated verbatim from
+// bootloader/flash protocol sequence; relocated verbatim from
 // FlashTcuSubaruDensoSH705xCan's former private methods.
-//
-// tcuAction is decided by a custom multi-button QMessageBox that the
-// dialog still shows on the GUI thread before this Operation is even
-// created (it needs no serial-> access), so it comes in as a plain
-// constructor parameter rather than through confirm().
-//
-// tcu_setparam_subaru_ssm() previously drove nine sequential
-// QInputDialog::getInt() prompts directly from the dialog's own thread.
-// Since a worker thread cannot pop a QInputDialog itself, promptInt()
-// reuses the same QMetaObject::invokeMethod + Qt::BlockingQueuedConnection
-// technique as FlashOperationWorker::confirm() to run QInputDialog::getInt
-// on the GUI thread and block this thread for the answer.
 class FlashTcuSubaruDensoSH705xCanOperation : public FlashOperationWorker
 {
     Q_OBJECT
 
   public:
     FlashTcuSubaruDensoSH705xCanOperation(SerialPortActions *serial, FileActions::EcuCalDefStructure *ecuCalDef,
-                                          QString cmd_type, int tcuAction, QWidget *dialog, QObject *parent = nullptr,
+                                          QString cmd_type, QWidget *dialog, QObject *parent = nullptr,
                                           PromptFn promptOverride = {});
 
   protected:
@@ -51,12 +39,7 @@ class FlashTcuSubaruDensoSH705xCanOperation : public FlashOperationWorker
 
     int result{};
     int mcu_type_index{};
-    int tcuAction = 1;
 
-    uint8_t tester_id{};
-    uint8_t target_id{};
-
-    uint16_t receive_timeout = 500;
     uint16_t serial_read_timeout = 2000;
     uint16_t serial_read_extra_short_timeout = 50;
     uint16_t serial_read_short_timeout = 200;
@@ -74,9 +57,6 @@ class FlashTcuSubaruDensoSH705xCanOperation : public FlashOperationWorker
     QString kernel;
 
     int connect_bootloader();
-    int tcu_relearn_subaru_ssm();
-    int tcu_readparam_subaru_ssm();
-    int tcu_setparam_subaru_ssm();
     int upload_kernel(const QString& kernel, uint32_t kernel_start_addr);
     int read_mem(uint32_t start_addr, uint32_t length);
     int write_mem(bool test_write);
@@ -95,11 +75,6 @@ class FlashTcuSubaruDensoSH705xCanOperation : public FlashOperationWorker
 
     QByteArray encrypt_payload(const QByteArray& buf, uint32_t len);
     QByteArray decrypt_payload(const QByteArray& buf, uint32_t len);
-
-    // Runs QInputDialog::getInt on the GUI thread and blocks this thread
-    // for the answer; see class comment above.
-    int promptInt(const QString& title, const QString& label, int value, int minValue, int maxValue, int step,
-                  bool *ok);
 
     SerialPortActions *serial;
     FileActions::EcuCalDefStructure *ecuCalDef;

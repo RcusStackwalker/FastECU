@@ -1,8 +1,13 @@
 #include "src/ui/desktop/flash/tcu/flash_tcu_subaru_denso_sh705x_can.h"
 
+#include <optional>
 #include <utility>
 #include "src/platform/desktop/common/flash/legacy/tcu/flash_tcu_subaru_denso_sh705x_can_operation.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
+#include "src/ui/desktop/service_functions/service_function_dialog.h"
+
+using fastecu::service_functions::ServiceFunctionDialog;
+using fastecu::service_functions::ServiceFunctionKind;
 
 FlashTcuSubaruDensoSH705xCan::FlashTcuSubaruDensoSH705xCan(SerialPortActions *serial,
                                                            FileActions::EcuCalDefStructure *ecuCalDef,
@@ -34,13 +39,12 @@ void FlashTcuSubaruDensoSH705xCan::run()
     this->show();
     set_progressbar_value(0);
 
-    int tcuAction = 1;
-
     emit external_logger("Starting");
 
     // Picking which TCU action to perform needs no serial-> access, so it
     // stays on the GUI thread pre-flight; see class comment in
     // flash_tcu_subaru_denso_sh705x_can_operation.h.
+    std::optional<ServiceFunctionKind> service_function_kind;
     if (cmd_type == "read")
     {
         QMessageBox msgBox;
@@ -58,22 +62,21 @@ void FlashTcuSubaruDensoSH705xCan::run()
             emit LOG_I("Read memory with flashmethod '" + ecuCalDef->FlashMethod + "' and kernel '" +
                            ecuCalDef->Kernel + "'",
                        true, true);
-            tcuAction = 1;
         }
         else if (msgBox.clickedButton() == (QAbstractButton *)pButtonRelearn)
         {
             emit LOG_I("Attempting TCU relearn", true, true);
-            tcuAction = 2;
+            service_function_kind = ServiceFunctionKind::Relearn;
         }
         else if (msgBox.clickedButton() == (QAbstractButton *)pButtonReadParam)
         {
             emit LOG_I("Attempting to read TCU parameters", true, true);
-            tcuAction = 3;
+            service_function_kind = ServiceFunctionKind::ReadParameters;
         }
         else if (msgBox.clickedButton() == (QAbstractButton *)pButtonSetParam)
         {
             emit LOG_I("Attempting to set TCU parameters", true, true);
-            tcuAction = 4;
+            service_function_kind = ServiceFunctionKind::SetParameters;
         }
         else
         {
@@ -89,7 +92,13 @@ void FlashTcuSubaruDensoSH705xCan::run()
     {
     case QMessageBox::Ok:
     {
-        m_operation = new FlashTcuSubaruDensoSH705xCanOperation(serial, ecuCalDef, cmd_type, tcuAction, this);
+        if (service_function_kind.has_value())
+        {
+            ServiceFunctionDialog dialog{serial, ecuCalDef->FlashMethod.toStdString(), *service_function_kind, this};
+            dialog.exec();
+            return;
+        }
+        m_operation = new FlashTcuSubaruDensoSH705xCanOperation(serial, ecuCalDef, cmd_type, this);
         connect(m_operation, &FlashOperationWorker::LOG_E, this, &FlashTcuSubaruDensoSH705xCan::LOG_E);
         connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashTcuSubaruDensoSH705xCan::LOG_W);
         connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashTcuSubaruDensoSH705xCan::LOG_I);

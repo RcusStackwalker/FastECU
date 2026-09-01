@@ -34,6 +34,7 @@ class FakeBackend : public SerialPortActionsDirect
     QSemaphore *continueRead = nullptr;
     bool throwOnRead = false;
     bool throwOnIsOpen = false;
+    bool throwNonStandardOnIsOpen = false;
     std::atomic<bool> portOpen{true};
     std::function<void()> afterRead;
     bool *destroyed = nullptr;
@@ -56,7 +57,13 @@ class FakeBackend : public SerialPortActionsDirect
     int baudChangeResult = STATUS_SUCCESS;
     bool throwOnBaudChange = false;
     bool throwNonStandardOnBaudChange = false;
+    bool throwOnConfigSetter = false;
+    bool throwOnOpen = false;
+    bool throwNonStandardOnOpen = false;
     bool closePortAfterBaud = false; // set portOpen=false after a non-throwing baud-change result
+    bool throwOnReset = false;
+    bool throwNonStandardOnReset = false;
+    bool logLifecycleCalls = false;
 
     // -- config-setter result controls for the desktop K-Line/CAN flash
     // transport adapter tests (step 5c, Task 12): every setter below
@@ -78,6 +85,7 @@ class FakeBackend : public SerialPortActionsDirect
     bool isCanConnectionResult = true;
     bool isIso15765ConnectionResult = true;
     bool is29BitIdResult = true;
+    bool addIso14230HeaderResult = true;
     bool serialPortBaudrateResult = true;
     bool canSpeedResult = true;
     bool canSourceAddressResult = true;
@@ -89,60 +97,77 @@ class FakeBackend : public SerialPortActionsDirect
 
     bool set_is_iso14230_connection(bool value) override
     {
+        throwIfConfigSetterFails();
         log(QString("cfg:set_is_iso14230_connection:%1").arg(value ? "1" : "0"));
         SerialPortActionsDirect::set_is_iso14230_connection(value);
         return isIso14230ConnectionResult;
     }
     bool set_is_can_connection(bool value) override
     {
+        throwIfConfigSetterFails();
         log(QString("cfg:set_is_can_connection:%1").arg(value ? "1" : "0"));
         SerialPortActionsDirect::set_is_can_connection(value);
         return isCanConnectionResult;
     }
     bool set_is_iso15765_connection(bool value) override
     {
+        throwIfConfigSetterFails();
         log(QString("cfg:set_is_iso15765_connection:%1").arg(value ? "1" : "0"));
         SerialPortActionsDirect::set_is_iso15765_connection(value);
         return isIso15765ConnectionResult;
     }
     bool set_is_29_bit_id(bool value) override
     {
+        throwIfConfigSetterFails();
         log(QString("cfg:set_is_29_bit_id:%1").arg(value ? "1" : "0"));
         SerialPortActionsDirect::set_is_29_bit_id(value);
         return is29BitIdResult;
     }
+    bool set_add_iso14230_header(bool value) override
+    {
+        throwIfConfigSetterFails();
+        log(QString("cfg:set_add_iso14230_header:%1").arg(value ? "1" : "0"));
+        SerialPortActionsDirect::set_add_iso14230_header(value);
+        return addIso14230HeaderResult;
+    }
     bool set_serial_port_baudrate(QString value) override
     {
+        throwIfConfigSetterFails();
         log("cfg:set_serial_port_baudrate:" + value);
         SerialPortActionsDirect::set_serial_port_baudrate(value);
         return serialPortBaudrateResult;
     }
     bool set_can_speed(QString value) override
     {
+        throwIfConfigSetterFails();
         log("cfg:set_can_speed:" + value);
         SerialPortActionsDirect::set_can_speed(value);
         return canSpeedResult;
     }
     bool set_can_source_address(uint32_t value) override
     {
+        throwIfConfigSetterFails();
         log(QString("cfg:set_can_source_address:%1").arg(value));
         SerialPortActionsDirect::set_can_source_address(value);
         return canSourceAddressResult;
     }
     bool set_can_destination_address(uint32_t value) override
     {
+        throwIfConfigSetterFails();
         log(QString("cfg:set_can_destination_address:%1").arg(value));
         SerialPortActionsDirect::set_can_destination_address(value);
         return canDestinationAddressResult;
     }
     bool set_iso15765_source_address(uint32_t value) override
     {
+        throwIfConfigSetterFails();
         log(QString("cfg:set_iso15765_source_address:%1").arg(value));
         SerialPortActionsDirect::set_iso15765_source_address(value);
         return iso15765SourceAddressResult;
     }
     bool set_iso15765_destination_address(uint32_t value) override
     {
+        throwIfConfigSetterFails();
         log(QString("cfg:set_iso15765_destination_address:%1").arg(value));
         SerialPortActionsDirect::set_iso15765_destination_address(value);
         return iso15765DestinationAddressResult;
@@ -209,11 +234,35 @@ class FakeBackend : public SerialPortActionsDirect
 
     bool is_serial_port_open() override
     {
-        if (throwOnIsOpen)
+        if (logLifecycleCalls)
         {
+            log("is_serial_port_open");
+        }
+        if (throwOnIsOpen || throwNonStandardOnIsOpen)
+        {
+            if (throwNonStandardOnIsOpen)
+            {
+                throw FakeBackendNonStandardFailure{};
+            }
             throw std::runtime_error("scripted backend open-state failure");
         }
         return portOpen.load();
+    }
+
+    void reset_connection() override
+    {
+        if (logLifecycleCalls)
+        {
+            log("reset_connection");
+        }
+        if (throwOnReset || throwNonStandardOnReset)
+        {
+            if (throwNonStandardOnReset)
+            {
+                throw FakeBackendNonStandardFailure{};
+            }
+            throw std::runtime_error("scripted backend reset failure");
+        }
     }
 
     // Real open_serial_port() unconditionally indexes serial_port_list.at(0)
@@ -224,6 +273,14 @@ class FakeBackend : public SerialPortActionsDirect
     QString open_serial_port() override
     {
         log("open_serial_port");
+        if (throwOnOpen || throwNonStandardOnOpen)
+        {
+            if (throwNonStandardOnOpen)
+            {
+                throw FakeBackendNonStandardFailure{};
+            }
+            throw std::runtime_error("scripted backend open failure");
+        }
         return openSerialPortResult;
     }
 
@@ -309,6 +366,14 @@ class FakeBackend : public SerialPortActionsDirect
     }
 
   private:
+    void throwIfConfigSetterFails() const
+    {
+        if (throwOnConfigSetter)
+        {
+            throw std::runtime_error("scripted backend config-setter failure");
+        }
+    }
+
     // Shared by write_serial_data() and write_serial_data_echo_check(): both
     // production write paths (K-Line's plain write, CAN/SSM's echo-check
     // write) route through here so a single set of controls governs "write"

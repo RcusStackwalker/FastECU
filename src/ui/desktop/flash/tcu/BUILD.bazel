@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = [
     "//apps/desktop:__pkg__",
@@ -29,5 +29,15 @@ qt_cc_library(
         # Every dialog header in this package includes ui_ecu_operations.h,
         # the generated form owned by the top-level desktop package.
         "//src/ui/desktop:ui_ecu_operations",
+        "//src/ui/desktop/service_functions:service_function_dialog",
+    ],
+)
+
+fastecu_qttest(
+    name = "test_flash_tcu_subaru_denso_sh705x_can",
+    src = "flash_tcu_subaru_denso_sh705x_can_test.cpp",
+    deps = [
+        ":tcu",
+        "//src/platform/desktop/common/serial/testing:fake_serial_backend",
     ],
 )

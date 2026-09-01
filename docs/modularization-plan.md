@@ -46,6 +46,8 @@ for the `FileActions` breakdown:
   `//src/backend/checksum` carry no `QT_DEPS`, verified by
   `//:serial_compat_allowlist` and `//:portable_closure`.** See the
   [5e design](superpowers/specs/2026-08-07-step5e-backend-portability-closure-design.md).
+- TCU service-functions package — PR 1 (portable sessions) and PR 2 (desktop
+  wiring), groundwork for wave 5.
 
 Steps 6 (thin desktop shell) and 7 (Android seam) have not started. The
 per-family flash tail is under way — see the
@@ -182,7 +184,7 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
    - Sub-step status and PR numbers are tracked in the Status section above.
    - Define capability-specific ports for byte-stream/K-Line, CAN frames, SSM, file repositories, settings, monotonic clock/delay, cancellation, and event delivery.
    - Backend owns no threads. Platform code runs blocking, bounded, cancellable backend calls on Qt workers or future Kotlin coroutines.
-   - Split `FileActions` and `MainWindow` responsibilities into definition, calibration, checksum, logging, and flash use cases.
+   - Split `FileActions` and `MainWindow` responsibilities into definition, calibration, checksum, logging, flash, and service-functions use cases.
    - Convert logging to typed `start`, bounded `poll`, and `stop` sessions. Samples carry stable channel ID, numeric/raw value, and unit; UI owns locale formatting.
    - Convert flashing to preflight plus execution: build and validate a `FlashPlan`, obtain UI confirmation before irreversible I/O, and execute without backend dialogs.
    - Migrate each ECU/TCU/EEPROM/JTAG/BDM operation family independently behind scripted transports, preserving its existing wire sequence.

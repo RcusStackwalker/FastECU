@@ -1,0 +1,49 @@
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
+
+package(default_visibility = [
+    "//apps/desktop:__pkg__",
+    "//src/platform:__subpackages__",
+    "//src/ui:__subpackages__",
+    "//tests:__pkg__",
+])
+
+qt_cc_library(
+    name = "service_function_worker",
+    srcs = [
+        "serial_facade_configurator.cpp",
+        "service_function_worker.cpp",
+    ],
+    hdrs = [
+        "service_function_worker.h",
+    ],
+    copts = COMMON_COPTS,
+    normal_hdrs = [
+        "serial_facade_configurator.h",
+    ],
+    deps = QT_DEPS + [
+        "//src/backend/ports",
+        "//src/backend/protocol",
+        "//src/backend/service_functions:service_function_session",
+        "//src/platform/desktop/common/ports",
+        "//src/platform/desktop/common/serial:serial_platform_api",
+    ],
+)
+
+fastecu_qttest(
+    name = "test_serial_facade_configurator",
+    src = "serial_facade_configurator_test.cpp",
+    deps = [
+        ":service_function_worker",
+        "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+    ],
+)
+
+fastecu_qttest(
+    name = "test_service_function_worker",
+    src = "service_function_worker_test.cpp",
+    deps = [
+        ":service_function_worker",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/protocol/testing:scripted_transports",
+    ],
+)

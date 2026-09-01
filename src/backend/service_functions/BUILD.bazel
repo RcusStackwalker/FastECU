@@ -1,0 +1,111 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+
+package(default_visibility = [
+    "//src/backend:__subpackages__",
+    "//src/platform:__subpackages__",
+    # Task 7's desktop dialog consumes the portable sessions and value types.
+    "//src/ui/desktop/service_functions:__pkg__",
+    "//tests:__pkg__",
+])
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//:__pkg__"],
+)
+
+cc_library(
+    name = "service_function_types",
+    hdrs = ["service_function_types.h"],
+    deps = [
+        "//src/algorithms/protocol",
+        "//src/backend/ports",
+    ],
+)
+
+cc_library(
+    name = "service_function_session",
+    hdrs = ["service_function_session.h"],
+    deps = [
+        ":service_function_types",
+        "//src/backend/ports",
+        "//src/backend/protocol",
+    ],
+)
+
+cc_library(
+    name = "tcu_parameter_table",
+    srcs = ["tcu_parameter_table.cpp"],
+    hdrs = ["tcu_parameter_table.h"],
+    deps = ["//src/algorithms/protocol"],
+)
+
+cc_library(
+    name = "read_parameters_session",
+    srcs = ["read_parameters_session.cpp"],
+    hdrs = ["read_parameters_session.h"],
+    deps = [":service_function_session"],
+)
+
+cc_library(
+    name = "set_parameters_session",
+    srcs = ["set_parameters_session.cpp"],
+    hdrs = ["set_parameters_session.h"],
+    deps = [
+        ":service_function_session",
+        ":tcu_parameter_table",
+        "//src/algorithms/protocol/ssm",
+    ],
+)
+
+cc_library(
+    name = "relearn_session",
+    srcs = ["relearn_session.cpp"],
+    hdrs = ["relearn_session.h"],
+    deps = [":service_function_session"],
+)
+
+fastecu_portable_gtest(
+    name = "service_function_types_test",
+    srcs = ["service_function_types_test.cpp"],
+    deps = [":service_function_types"],
+)
+
+fastecu_portable_gtest(
+    name = "tcu_parameter_table_test",
+    srcs = ["tcu_parameter_table_test.cpp"],
+    deps = [":tcu_parameter_table"],
+)
+
+fastecu_portable_gtest(
+    name = "read_parameters_session_test",
+    srcs = ["read_parameters_session_test.cpp"],
+    deps = [
+        ":read_parameters_session",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/protocol/testing:scripted_transports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "set_parameters_session_test",
+    srcs = ["set_parameters_session_test.cpp"],
+    deps = [
+        ":set_parameters_session",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/protocol/testing:scripted_transports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "relearn_session_test",
+    srcs = ["relearn_session_test.cpp"],
+    deps = [
+        ":relearn_session",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/protocol/testing:scripted_transports",
+    ],
+)
