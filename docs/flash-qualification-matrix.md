@@ -66,6 +66,14 @@
      historical report justifies otherwise. Do not invent family IDs --
      use the exact protocols.cfg <name> or the exact operation class name. -->
 
+## Service functions
+
+| family_id | scope | transport | operations | portable | automated_evidence | hardware_status | hardware_evidence | notes |
+|---|---|---|---|---|---|---|---|---|
+| TcuRelearn | TCU | ISO-15765 | relearn | yes | relearn_session_test, test_service_function_worker | experimental | — | unconditional `return STATUS_ERROR` at legacy `:786` removed so completion reports success; poll accepts `0xE8` rather than the unreachable `0xF8`; poll frame composed directly because legacy `:740-747` writes three bytes past the end of a 9-byte buffer. **VERIFY: the poll's terminal condition is unresolved — the 200-iteration bound is preserved and the last status frame is surfaced; a bench must establish which status value means complete.** |
+| TcuReadParameters | TCU | ISO-15765 | read_parameters | yes | read_parameters_session_test, test_service_function_dialog | experimental | — | retry loop accepts `0xE8`, so the operation can succeed for the first time (legacy `:571-608` demanded `0xF8` then `0xE8`); response must be ≥15 bytes because the decode indexes byte 14 while legacy guarded `> 10`; results returned as data rather than log lines. |
+| TcuSetParameters | TCU | K-Line | set_parameters | yes | tcu_parameter_table_test, set_parameters_session_test, test_service_function_dialog | experimental | — | all twelve frames composed from a table and framed once each. Legacy `:215` reassigned `output` to the framed array and `:237` onward mutated the SSM length byte and service ID, so only write 1 was well-formed and the operation aborted on write 2 with one correction applied and uncommitted. **This is the largest behavior change in the work: the operation begins doing what its UI has always claimed. First bench item for this family.** |
+
 ### Enumeration notes
 
 - `family_id` is the operation class name with its platform-specific suffix
