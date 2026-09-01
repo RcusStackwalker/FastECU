@@ -13,6 +13,6 @@ collect every confirmation before execution, and run through
 `IFlashExecutor`. See `src/backend/flash`.
 
 Today the package holds one family's three operations, ported from
-`FlashTcuSubaruDensoSH705xCanOperation`'s `tcuAction` 2, 3 and 4. The design,
-including the six defects that port corrects, is in
-[the design doc](../../../docs/superpowers/specs/2026-08-31-tcu-service-functions-design.md).
+`FlashTcuSubaruDensoSH705xCanOperation`'s `tcuAction` 2, 3 and 4. Their
+hardware status and the legacy defects corrected by the port are recorded in
+the [flash qualification matrix](../../../docs/flash-qualification-matrix.md#service-functions).
