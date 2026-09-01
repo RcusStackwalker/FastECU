@@ -196,6 +196,12 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
      (the `FileActions` god object), which step 6 removes by construction.
 
 6. **Finish the thin desktop shell**
+   - **6a de-widget `FileActions` — designed 2026-09-01, not started.** See the
+     [6a design](superpowers/specs/2026-09-01-step6a-file-actions-dewidget-design.md).
+     Scoped to run in parallel with the flash drain: it freezes the
+     `FileActions::` type/static surface so no drain-owned file under
+     `src/platform/desktop/common/flash/legacy/` or `src/ui/desktop/flash/`
+     is edited.
    - Implement Qt adapters for backend ports and marshal events to the GUI thread.
    - Keep `MainWindow` and dialogs responsible only for presentation, input collection, signal wiring, and calling backend use cases.
    - Move construction and platform selection into `apps/desktop`.
