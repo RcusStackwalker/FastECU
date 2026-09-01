@@ -1,6 +1,7 @@
 # Step 6a — De-widget `FileActions` — Design
 
-**Status:** designed 2026-09-01, not started. The first slice of step 6 of the
+**Status:** designed 2026-09-01. Slice 6a-1 (menu split) is complete; 6a-2
+through 6a-5 are not started. The first slice of step 6 of the
 [modularization plan](../../modularization-plan.md), deliberately scoped to run
 **in parallel with the [per-family flash drain](2026-08-08-step5-tail-flash-drain-design.md)**
 (waves 5-7, 14 families remaining) without contending for a single file.

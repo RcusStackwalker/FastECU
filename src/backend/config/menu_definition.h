@@ -75,6 +75,16 @@ using MenuDefinition = std::vector<Menu>;
 // that do not exist today. A file with no <config> or no
 // <ecu_menu_definitions> yields an empty MenuDefinition rather than an
 // error -- legacy built no menus in that case and reported nothing.
+//
+// The section is reached via doc.child("config").child("ecu_menu_definitions"),
+// which requires the root element to be literally named "config" and takes
+// only the first such section -- unlike legacy's QDomDocument::documentElement(),
+// which was purely positional and ignored the root's tag name. A renamed
+// root or a second <ecu_menu_definitions> would therefore yield an empty
+// menu bar with no diagnostic, same as the "missing section" case above.
+// Not fixed here: ConfigPaths::menu_file resolves under a per-version
+// resource directory that always ships a <config> root, and the golden test
+// pins the shipped file, so practical exposure is nil.
 Result<MenuDefinition> load_menu_definition(const ConfigPaths& paths, IFileRepository& file_repository);
 
 } // namespace fastecu::config

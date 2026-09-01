@@ -13,22 +13,16 @@ namespace fastecu::config
 namespace
 {
 
-std::string attribute_or(pugi::xml_node node, const char *name, const char *fallback)
-{
-    pugi::xml_attribute attribute = node.attribute(name);
-    return attribute ? std::string(attribute.value()) : std::string(fallback);
-}
-
 MenuItem parse_item(pugi::xml_node node)
 {
     MenuItem item;
-    item.name = attribute_or(node, "name", "No name");
-    item.id = attribute_or(node, "id", "No id");
-    item.checkable = attribute_or(node, "checkable", "No checkable");
-    item.shortcut = attribute_or(node, "shortcut", "No shortcut");
-    item.toolbar = attribute_or(node, "toolbar", "No toolbar");
-    item.icon = attribute_or(node, "icon", "No icon");
-    item.tooltip = attribute_or(node, "tooltip", "No tooltip");
+    item.name = node.attribute("name").as_string("No name");
+    item.id = node.attribute("id").as_string("No id");
+    item.checkable = node.attribute("checkable").as_string("No checkable");
+    item.shortcut = node.attribute("shortcut").as_string("No shortcut");
+    item.toolbar = node.attribute("toolbar").as_string("No toolbar");
+    item.icon = node.attribute("icon").as_string("No icon");
+    item.tooltip = node.attribute("tooltip").as_string("No tooltip");
     return item;
 }
 
@@ -36,7 +30,7 @@ MenuEntry parse_submenu(pugi::xml_node node)
 {
     MenuEntry entry;
     entry.is_submenu = true;
-    entry.submenu_name = attribute_or(node, "name", "No name");
+    entry.submenu_name = node.attribute("name").as_string("No name");
     for (pugi::xml_node sub_item : node.children("menuitem"))
     {
         entry.submenu_items.push_back(parse_item(sub_item));
@@ -67,7 +61,7 @@ Result<MenuDefinition> load_menu_definition(const ConfigPaths& paths, IFileRepos
     for (pugi::xml_node menu : doc.child("config").child("ecu_menu_definitions").children("menu"))
     {
         Menu parsed_menu;
-        parsed_menu.name = attribute_or(menu, "name", "No name");
+        parsed_menu.name = menu.attribute("name").as_string("No name");
         // Iterate every child node, not children("menuitem"), so that a
         // submenu and the items around it keep document order. Comments and
         // text nodes report an empty name() and fall through both branches.

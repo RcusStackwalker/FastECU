@@ -1254,7 +1254,12 @@ its modal warning for now; 6a-3 routes it through IEventSink."
 
 After Task 4, these all hold:
 
-- `grep -rn "read_menu_file" src/` returns nothing.
+- `grep -rn "read_menu_file" src/` finds no remaining declaration or call
+  site — only three provenance comments pointing back at the deleted
+  function's implementation (`file_actions.cpp:813/884/935`), which is what
+  makes the preserved behavioral asymmetries auditable: `src/ui/desktop/mainwindow.cpp:209`
+  (mandated verbatim by Task 4 Step 2), `src/ui/desktop/menu/menu_builder.h:11`,
+  and `src/backend/config/menu_definition.h:69`.
 - `grep -rn "QDomDocument" src/backend/definitions/file_actions.cpp` still returns hits — other functions in this file legitimately use it, and they are out of scope for 6a-1.
 - `bazel test --config=release //...` is green.
 - `git diff --name-only origin/master` lists no path under `src/platform/desktop/common/flash/legacy/` or `src/ui/desktop/flash/`.

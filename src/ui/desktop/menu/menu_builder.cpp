@@ -42,6 +42,9 @@ QAction *make_action(const fastecu::config::MenuItem& item, const QString& toolt
 
 } // namespace
 
+namespace fastecu::ui
+{
+
 QSignalMapper *build_menus(const fastecu::config::MenuDefinition& definition, QMenuBar *menubar, QToolBar *toolBar,
                            QObject *parent)
 {
@@ -89,3 +92,5 @@ QSignalMapper *build_menus(const fastecu::config::MenuDefinition& definition, QM
 
     return mapper;
 }
+
+} // namespace fastecu::ui

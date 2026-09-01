@@ -169,7 +169,11 @@ namespace
 std::vector<std::uint8_t> read_shipped_menu_cfg()
 {
     const char *path = std::getenv("MENU_CFG_PATH");
-    EXPECT_NE(path, nullptr) << "MENU_CFG_PATH must be set by the Bazel target's env";
+    if (path == nullptr)
+    {
+        ADD_FAILURE() << "MENU_CFG_PATH must be set by the Bazel target's env";
+        return {};
+    }
     std::ifstream file(path, std::ios::binary);
     EXPECT_TRUE(file.is_open()) << "cannot open " << (path ? path : "(null)");
     return std::vector<std::uint8_t>(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());

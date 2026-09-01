@@ -196,7 +196,8 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
      (the `FileActions` god object), which step 6 removes by construction.
 
 6. **Finish the thin desktop shell**
-   - **6a de-widget `FileActions` — designed 2026-09-01, not started.** See the
+   - **6a de-widget `FileActions` — designed 2026-09-01. Slice 6a-1 (the menu
+     split) is complete; 6a-2 through 6a-5 are not started.** See the
      [6a design](superpowers/specs/2026-09-01-step6a-file-actions-dewidget-design.md).
      Scoped to run in parallel with the flash drain: it freezes the
      `FileActions::` type/static surface so no drain-owned file under

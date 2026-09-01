@@ -209,11 +209,10 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
             // The same modal read_menu_file raised itself (file_actions.cpp:813);
             // 6a-3 routes this through IEventSink instead.
             QMessageBox::warning(this, tr("Ecu menu file"),
-                                 tr("Unable to open menu config file '") + configValues->menu_file +
-                                     tr("' for reading"));
+                                 QString("Unable to load menu config file '%1'").arg(configValues->menu_file));
             menu_definition = fastecu::config::MenuDefinition{};
         }
-        mapper = build_menus(*menu_definition, ui->menubar, ui->toolBar, this);
+        mapper = fastecu::ui::build_menus(*menu_definition, ui->menubar, ui->toolBar, this);
     }
 #if QT_VERSION >= 0x060000
     connect(mapper, SIGNAL(mappedString(QString)), this, SLOT(menu_action_triggered(QString)));

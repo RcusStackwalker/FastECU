@@ -16,6 +16,7 @@ using fastecu::config::Menu;
 using fastecu::config::MenuDefinition;
 using fastecu::config::MenuEntry;
 using fastecu::config::MenuItem;
+using fastecu::ui::build_menus;
 
 namespace
 {
@@ -113,6 +114,33 @@ TEST(MenuBuilderTest, AddsOnlyToolbarTrueItemsAndOneSeparatorPerContributingMenu
     // The second menu contributes nothing, so it adds no separator.
     ASSERT_EQ(toolBar.actions().size(), 2);
     EXPECT_EQ(toolBar.actions().at(0)->objectName(), "on_bar");
+    EXPECT_TRUE(toolBar.actions().at(1)->isSeparator());
+}
+
+TEST(MenuBuilderTest, SubmenuToolbarContributionSharesTheParentMenusSeparatorFlag)
+{
+    QMenuBar menubar;
+    QToolBar toolBar;
+    QObject parent;
+
+    MenuItem inner_on_bar = named("Inner on bar", "inner_on_bar");
+    inner_on_bar.toolbar = "true";
+
+    MenuEntry submenu;
+    submenu.is_submenu = true;
+    submenu.submenu_name = "Sub";
+    submenu.submenu_items = {inner_on_bar};
+
+    // The top-level menu's ONLY toolbar contribution comes from an item
+    // inside its submenu -- no top-level item sets toolbar="true".
+    Menu menu;
+    menu.name = "Top";
+    menu.entries = {plain(named("Plain top item", "plain_top_item")), submenu};
+
+    build_menus(MenuDefinition{menu}, &menubar, &toolBar, &parent);
+
+    ASSERT_EQ(toolBar.actions().size(), 2);
+    EXPECT_EQ(toolBar.actions().at(0)->objectName(), "inner_on_bar");
     EXPECT_TRUE(toolBar.actions().at(1)->isSeparator());
 }
 
