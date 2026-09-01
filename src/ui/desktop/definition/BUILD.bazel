@@ -1,0 +1,23 @@
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
+
+package(default_visibility = ["//src/ui:__subpackages__"])
+
+# Qt-linked (QLineEdit/QTextEdit/QGridLayout) but declares no QObject of its
+# own, so the header goes through normal_hdrs rather than hdrs -- matching
+# //src/ui/desktop/menu:menu_builder.
+qt_cc_library(
+    name = "definition_header_form",
+    srcs = ["definition_header_form.cpp"],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["definition_header_form.h"],
+    deps = QT_DEPS + ["//src/backend/definition:definition_writer"],
+)
+
+fastecu_gtest(
+    name = "definition_header_form_test",
+    srcs = ["definition_header_form_test.cpp"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    deps = [":definition_header_form"],
+)
