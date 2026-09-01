@@ -4,6 +4,8 @@ load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 package(default_visibility = [
     "//src/backend:__subpackages__",
     "//src/platform:__subpackages__",
+    # Task 7's desktop dialog consumes the portable sessions and value types.
+    "//src/ui/desktop/service_functions:__pkg__",
     "//tests:__pkg__",
 ])
 

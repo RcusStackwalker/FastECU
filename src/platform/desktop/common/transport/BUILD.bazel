@@ -10,6 +10,10 @@ package(default_visibility = [
     # This is a real ui -> platform edge the modularization plan has not yet
     # removed.
     "//src/ui/desktop:__pkg__",
+    # Task 7's desktop dialog owns the existing SSM transport adapter passed
+    # into ServiceFunctionWorker; this does not grow serial_qt_compat's frozen
+    # direct-consumer allowlist.
+    "//src/ui/desktop/service_functions:__pkg__",
 ])
 
 qt_cc_library(
