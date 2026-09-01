@@ -4,6 +4,8 @@
 #include <QTableWidget>
 #include <QTest>
 
+#include <array>
+
 using fastecu::service_functions::ServiceFunctionDialog;
 using fastecu::service_functions::ServiceFunctionKind;
 using fastecu::service_functions::TcuParameterReadout;
@@ -83,7 +85,7 @@ class ServiceFunctionDialogTest : public QObject
         QCOMPARE(dialog.findChildren<QSpinBox *>().count(), 9);
     }
 
-    void readParametersRendersAllNineLabelledValues()
+    void readParametersRendersAllNineLegacyQualifiedLabelsAndValues()
     {
         ServiceFunctionDialog dialog{nullptr, "sub_tcu_denso_sh7058_can", ServiceFunctionKind::ReadParameters};
         dialog.showReadout(TcuParameterReadout{
@@ -101,11 +103,23 @@ class ServiceFunctionDialogTest : public QObject
         auto *table = dialog.findChild<QTableWidget *>("readout");
         QVERIFY(table != nullptr);
         QCOMPARE(table->rowCount(), 9);
-        QCOMPARE(table->item(0, 0)->text(), QString("Input Clutch Pressure Correction"));
+        const std::array<const char *, 9> labels{
+            "Input Clutch Pressure Correction (raw byte)",
+            "High Low Reverse Clutch Pressure Correction (raw byte)",
+            "Direct Clutch Pressure Correction (raw byte)",
+            "Front Brake Pressure Correction (raw byte)",
+            "Correction of AWD Clutch Torque (raw word)",
+            "Forward Brake Pressure Correction (raw byte)",
+            "4WD Pressure Correction (raw byte)",
+            "Line Pressure Correction (raw byte)",
+            "Temperature basis for above Pressure Corrections (raw byte)",
+        };
+        for (int row = 0; row < static_cast<int>(labels.size()); ++row)
+        {
+            QCOMPARE(table->item(row, 0)->text(), QString::fromLatin1(labels[static_cast<std::size_t>(row)]));
+        }
         QCOMPARE(table->item(0, 1)->text(), QString("17"));
-        QCOMPARE(table->item(4, 0)->text(), QString("Correction of AWD Clutch Torque"));
         QCOMPARE(table->item(4, 1)->text(), QString("48879"));
-        QCOMPARE(table->item(8, 0)->text(), QString("Temperature basis for above Pressure Corrections"));
     }
 
     void readParametersHasNoSpinBoxes()

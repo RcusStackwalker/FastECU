@@ -26,10 +26,10 @@ std::array<TcuParameterWrite, kTcuParameterWriteCount> tcu_parameter_writes(cons
         {0x0001be, values.correction_line_pressure},
         // legacy :429 -- temperature basis for the corrections above.
         {0x0001bf, values.temperature_basis},
-        // legacy :455, :479 -- the commit pair. Same address, fixed values, no
-        // prompt. Without both, every write above stays uncommitted.
-        {0x0001ec, 0x55},
-        {0x0001ec, 0xaa},
+        // legacy :453-479 -- output[2:4] becomes 00 EC 55/AA, so the commit
+        // pair targets 0x0000ec. Same address, fixed values, no prompt.
+        {0x0000ec, 0x55},
+        {0x0000ec, 0xaa},
     }};
 }
 

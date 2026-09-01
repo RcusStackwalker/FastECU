@@ -30,6 +30,10 @@ Result<bytes::Bytes> exchangeTolerantly(ISsmTransport& transport, const ICancell
     bytes::Bytes last;
     for (int attempt = 0; attempt < kWriteAttempts; ++attempt)
     {
+        if (cancellation.cancelled())
+        {
+            return fail(ErrorKind::Cancelled, "cancelled before a TCU relearn write");
+        }
         if (const auto sent = transport.write(frame); !sent.has_value())
         {
             return std::unexpected(sent.error());

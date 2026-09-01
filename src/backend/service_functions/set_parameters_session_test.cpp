@@ -1,5 +1,7 @@
 #include "src/backend/service_functions/set_parameters_session.h"
 
+#include <array>
+
 #include <gtest/gtest.h>
 
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
@@ -43,6 +45,25 @@ bytes::Bytes ack()
     return {0x80, 0xf0, 0x18, 0x02, 0xf8, 0x00, 0x00};
 }
 
+// Hand-derived full wire frames for sample(). These literals deliberately do
+// not use tcu_parameter_writes(), framed(), or SsmProtocol::addHeader(), so a
+// wrong table address or framing helper cannot make both sides agree.
+const std::array<bytes::Bytes, 12> kLiteralFrames{
+    bytes::Bytes{0x80, 0x18, 0xf0, 0x05, 0xb8, 0x00, 0x01, 0x6c, 0x33, 0xe5},
+    bytes::Bytes{0x80, 0x18, 0xf0, 0x05, 0xb8, 0x00, 0x01, 0x6d, 0x22, 0xd5},
+    bytes::Bytes{0x80, 0x18, 0xf0, 0x05, 0xb8, 0x00, 0x01, 0x6e, 0x11, 0xc5},
+    bytes::Bytes{0x80, 0x18, 0xf0, 0x05, 0xb8, 0x00, 0x01, 0x6f, 0x44, 0xf9},
+    bytes::Bytes{0x80, 0x18, 0xf0, 0x05, 0xb8, 0x00, 0x01, 0x70, 0xbe, 0x74},
+    bytes::Bytes{0x80, 0x18, 0xf0, 0x05, 0xb8, 0x00, 0x01, 0x71, 0xef, 0xa6},
+    bytes::Bytes{0x80, 0x18, 0xf0, 0x05, 0xb8, 0x00, 0x01, 0xbc, 0x55, 0x57},
+    bytes::Bytes{0x80, 0x18, 0xf0, 0x05, 0xb8, 0x00, 0x01, 0xbd, 0x66, 0x69},
+    bytes::Bytes{0x80, 0x18, 0xf0, 0x05, 0xb8, 0x00, 0x01, 0xbe, 0x77, 0x7b},
+    bytes::Bytes{0x80, 0x18, 0xf0, 0x05, 0xb8, 0x00, 0x01, 0xbf, 0x88, 0x8d},
+    // legacy :453-479 -- B8 00 00 EC 55/AA, each independently framed.
+    bytes::Bytes{0x80, 0x18, 0xf0, 0x05, 0xb8, 0x00, 0x00, 0xec, 0x55, 0x86},
+    bytes::Bytes{0x80, 0x18, 0xf0, 0x05, 0xb8, 0x00, 0x00, 0xec, 0xaa, 0xdb},
+};
+
 struct Fixture
 {
     ScriptedSsmTransport transport;
@@ -54,9 +75,9 @@ struct Fixture
 
 void scriptAllTwelve(ScriptedSsmTransport& transport)
 {
-    for (const auto& write : tcu_parameter_writes(sample()))
+    for (const bytes::Bytes& frame : kLiteralFrames)
     {
-        transport.expectWrite(framed(write.address, write.value));
+        transport.expectWrite(frame);
         transport.queueRead(ack());
     }
 }
@@ -118,38 +139,37 @@ TEST(SetParametersSession, FirstFrameMatchesTheOneFrameTheLegacyGetsRight)
     EXPECT_TRUE(std::holds_alternative<CompletedStep>(step));
 }
 
-TEST(SetParametersSession, RetriesASilentReadWithAFreshFrameThenCompletes)
+TEST(SetParametersSession, StopsAfterOneSilentReadWithoutRetrying)
 {
     Fixture fixture;
-    const auto writes = tcu_parameter_writes(sample());
-    fixture.transport.expectWrite(framed(writes[0].address, writes[0].value));
+    fixture.transport.expectWrite(kLiteralFrames[0]);
     fixture.transport.queue_no_frame();
-    fixture.transport.expectWrite(framed(writes[0].address, writes[0].value));
-    fixture.transport.queueRead(ack());
-    for (std::size_t index = 1; index < writes.size(); ++index)
-    {
-        fixture.transport.expectWrite(framed(writes[index].address, writes[index].value));
-        fixture.transport.queueRead(ack());
-    }
 
     const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
 
-    ASSERT_TRUE(std::holds_alternative<CompletedStep>(step));
-    EXPECT_EQ(std::get<SetParametersOutcome>(std::get<CompletedStep>(step).outcome).frames_written, 12);
-    EXPECT_TRUE(fixture.transport.ok());
-    EXPECT_TRUE(fixture.transport.scriptConsumed());
+    ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
+    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::Timeout);
+    EXPECT_TRUE(fixture.transport.scriptConsumed()); // exactly one live write
 }
 
-TEST(SetParametersSession, RejectsAfterSixNonPositiveResponses)
+TEST(SetParametersSession, StopsAfterOneNonPositiveResponseWithoutRetrying)
 {
     // legacy :227 returns STATUS_ERROR without commenting the return out.
     Fixture fixture;
-    const auto writes = tcu_parameter_writes(sample());
-    for (int attempt = 0; attempt < 6; ++attempt)
-    {
-        fixture.transport.expectWrite(framed(writes[0].address, writes[0].value));
-        fixture.transport.queueRead(bytes::Bytes{0x80, 0xf0, 0x18, 0x02, 0x7f, 0xb8, 0x11});
-    }
+    fixture.transport.expectWrite(kLiteralFrames[0]);
+    fixture.transport.queueRead(bytes::Bytes{0x80, 0xf0, 0x18, 0x02, 0x7f, 0xb8, 0x11});
+
+    const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
+    ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
+    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(fixture.transport.scriptConsumed()); // negative response is terminal
+}
+
+TEST(SetParametersSession, StopsAfterOneMalformedResponseWithoutRetrying)
+{
+    Fixture fixture;
+    fixture.transport.expectWrite(kLiteralFrames[0]);
+    fixture.transport.queueRead(bytes::Bytes{0x80, 0xf0, 0x18, 0x02});
 
     const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
@@ -157,36 +177,21 @@ TEST(SetParametersSession, RejectsAfterSixNonPositiveResponses)
     EXPECT_TRUE(fixture.transport.scriptConsumed());
 }
 
-TEST(SetParametersSession, RejectsAfterSixMalformedResponses)
+TEST(SetParametersSession, StopsAfterOneSilentCommitWithoutRetrying)
 {
     Fixture fixture;
-    const auto writes = tcu_parameter_writes(sample());
-    for (int attempt = 0; attempt < 6; ++attempt)
+    for (std::size_t index = 0; index < 10; ++index)
     {
-        fixture.transport.expectWrite(framed(writes[0].address, writes[0].value));
-        fixture.transport.queueRead(bytes::Bytes{0x80, 0xf0, 0x18, 0x02});
+        fixture.transport.expectWrite(kLiteralFrames[index]);
+        fixture.transport.queueRead(ack());
     }
-
-    const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
-    ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
-    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::BadResponse);
-    EXPECT_TRUE(fixture.transport.scriptConsumed());
-}
-
-TEST(SetParametersSession, TreatsSixSilentReadsAsTimeout)
-{
-    Fixture fixture;
-    const auto writes = tcu_parameter_writes(sample());
-    for (int attempt = 0; attempt < 6; ++attempt)
-    {
-        fixture.transport.expectWrite(framed(writes[0].address, writes[0].value));
-        fixture.transport.queue_no_frame();
-    }
+    fixture.transport.expectWrite(kLiteralFrames[10]);
+    fixture.transport.queue_no_frame();
 
     const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
     EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::Timeout);
-    EXPECT_TRUE(fixture.transport.scriptConsumed());
+    EXPECT_TRUE(fixture.transport.scriptConsumed()); // commit value 0x55 sent once
 }
 
 TEST(SetParametersSession, ReportsADroppedTransportAsDisconnected)

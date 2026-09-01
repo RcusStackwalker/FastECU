@@ -320,9 +320,14 @@ mutations would reproduce the corruption.
     `0x170`, low byte to `0x171` (`:309-334`) — so the table's rows are
     addresses, not parameters: ten parameter writes for nine values.
   - **A two-write commit closes the sequence**: `0x55` then `0xAA`, both to
-    address `0x1ec` (`:455-479`). It is not a parameter and has no prompt, and
-    a table keyed only on the nine prompted values would silently drop it,
-    leaving every written correction uncommitted.
+    24-bit address `0x0000ec` (`:453-479`). The legacy assignments explicitly
+    form payloads `B8 00 00 EC 55` and `B8 00 00 EC AA`; this is distinct from
+    the `0x0001xx` parameter range. It is not a parameter and has no prompt,
+    and a table keyed only on the nine prompted values would silently drop it,
+    leaving every written correction uncommitted. Every row is a single live
+    exchange: silence, a malformed response, or a negative response stops the
+    sequence immediately because the legacy has no retry loop and repeated
+    state-changing/commit writes have no established idempotency contract.
 
 ## Error handling
 
@@ -330,7 +335,7 @@ Every session covers six of the seven `ErrorKind` values:
 
 | Kind | Raised for |
 |---|---|
-| `Timeout` | retries exhausted with no response |
+| `Timeout` | no response after the operation's prescribed attempt count |
 | `Disconnected` | transport not open, or dropped mid-session |
 | `BadResponse` | negative or malformed response where the legacy returns rather than tolerates |
 | `Cancelled` | cancellation token observed, or an operator gate declined |

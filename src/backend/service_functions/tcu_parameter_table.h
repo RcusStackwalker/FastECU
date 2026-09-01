@@ -31,7 +31,9 @@ struct TcuParameterValues
 // AWD torque occupies two, and the trailing commit pair has no parameter.
 struct TcuParameterWrite
 {
-    std::uint32_t address; // 24-bit; always 0x0001xx for this family
+    // 24-bit. Parameter rows are 0x0001xx; the legacy commit payload is
+    // B8 00 00 EC 55/AA (legacy :453-479).
+    std::uint32_t address;
     bytes::Byte value;
 
     bool operator==(const TcuParameterWrite&) const = default;
@@ -43,7 +45,8 @@ inline constexpr std::size_t kTcuParameterWriteCount = 12;
 // but only its first frame is well-formed (:215 reassigns `output` to the
 // framed array; :237 onward mutate indices that then address the SSM length
 // byte and service ID, and re-frame an already-framed buffer). Composing each
-// payload from this table is the correction.
+// payload from this table is the correction. The final two rows preserve the
+// legacy's distinct 0x0000ec commit address.
 std::array<TcuParameterWrite, kTcuParameterWriteCount> tcu_parameter_writes(const TcuParameterValues& values);
 
 } // namespace fastecu::service_functions

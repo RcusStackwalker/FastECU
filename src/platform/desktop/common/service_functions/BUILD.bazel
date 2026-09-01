@@ -30,6 +30,15 @@ qt_cc_library(
 )
 
 fastecu_qttest(
+    name = "test_serial_facade_configurator",
+    src = "serial_facade_configurator_test.cpp",
+    deps = [
+        ":service_function_worker",
+        "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+    ],
+)
+
+fastecu_qttest(
     name = "test_service_function_worker",
     src = "service_function_worker_test.cpp",
     deps = [

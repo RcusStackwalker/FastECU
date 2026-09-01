@@ -490,13 +490,14 @@ TEST(TcuParameterTable, WritesTheRemainingFourCorrections)
 
 TEST(TcuParameterTable, EndsWithTheTwoWriteCommitToTheSameAddress)
 {
-    // legacy :455-479. Not a parameter and not prompted: a table keyed on the
-    // nine prompted values would drop it and leave every write uncommitted.
+    // legacy :453-479 forms B8 00 00 EC 55/AA. Not a parameter and not
+    // prompted: a table keyed on the nine prompted values would drop it and
+    // leave every write uncommitted.
     const auto writes = tcu_parameter_writes(sample());
 
-    EXPECT_EQ(writes[10].address, 0x0001ecU);
+    EXPECT_EQ(writes[10].address, 0x0000ecU);
     EXPECT_EQ(writes[10].value, 0x55);
-    EXPECT_EQ(writes[11].address, 0x0001ecU);
+    EXPECT_EQ(writes[11].address, 0x0000ecU);
     EXPECT_EQ(writes[11].value, 0xAA);
 }
 
@@ -557,7 +558,8 @@ struct TcuParameterValues
 // AWD torque occupies two, and the trailing commit pair has no parameter.
 struct TcuParameterWrite
 {
-    std::uint32_t address; // 24-bit; always 0x0001xx for this family
+    // 24-bit. Parameter rows are 0x0001xx; commit is 0x0000ec.
+    std::uint32_t address;
     bytes::Byte value;
 
     bool operator==(const TcuParameterWrite&) const = default;
@@ -608,10 +610,10 @@ std::array<TcuParameterWrite, kTcuParameterWriteCount> tcu_parameter_writes(cons
         {0x0001be, values.correction_line_pressure},
         // legacy :429 -- temperature basis for the corrections above.
         {0x0001bf, values.temperature_basis},
-        // legacy :455, :479 -- the commit pair. Same address, fixed values, no
-        // prompt. Without both, every write above stays uncommitted.
-        {0x0001ec, 0x55},
-        {0x0001ec, 0xaa},
+        // legacy :453-479 -- B8 00 00 EC 55/AA. Same address, fixed values,
+        // no prompt. Without both, every write above stays uncommitted.
+        {0x0000ec, 0x55},
+        {0x0000ec, 0xaa},
     }};
 }
 
@@ -1098,6 +1100,14 @@ git commit -m "feat(service-functions): port TCU read-parameters and fix its res
 This is the K-Line session: legacy `:141-152` switches the whole session to
 ISO14230 at 4800 baud with tester `0xF0` / target `0x18` before touching
 anything, discarding the ISO-15765 port `execute()` opened.
+
+**Safety amendment:** each table row gets exactly one exchange. The direct
+legacy flow has no retry loop and returns on its first silence/rejection;
+repeating a live parameter or commit write has no idempotency authority. Tests
+derive the complete ten-byte wire frames as literals, independently of both
+the table and `SsmProtocol::addHeader`, including commit frames
+`80 18 F0 05 B8 00 00 EC 55 86` and
+`80 18 F0 05 B8 00 00 EC AA DB`.
 
 - [ ] **Step 1: Write the failing test**
 

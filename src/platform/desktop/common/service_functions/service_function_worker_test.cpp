@@ -5,13 +5,16 @@
 #include "src/platform/desktop/common/service_functions/service_function_worker.h"
 
 #include <QCoreApplication>
+#include <QSemaphore>
 #include <QSignalSpy>
 #include <QTest>
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <thread>
 #include <vector>
 
 #include "src/backend/ports/testing/fake_clock.h"
@@ -73,6 +76,71 @@ class RecordingConfigurator final : public ISerialFacadeConfigurator
     }
 
     std::vector<SsmTransportConfig> applied;
+};
+
+struct BlockingLifetimeState
+{
+    QSemaphore entered;
+    QSemaphore release;
+    QSemaphore resume_exiting;
+    std::atomic<bool> active{false};
+    std::atomic<bool> destroyed{false};
+    std::atomic<bool> destroyed_while_active{false};
+};
+
+// Holds resume() beyond the worker's historical five-second destructor wait.
+// The destructor's active-path release keeps the RED run deterministic and
+// lets QThread exit cleanly after exposing premature owned-state destruction.
+class BlockingLifetimeSession final : public ServiceFunctionSession
+{
+  public:
+    explicit BlockingLifetimeSession(std::shared_ptr<BlockingLifetimeState> state) : state_(std::move(state))
+    {
+    }
+
+    ~BlockingLifetimeSession() override
+    {
+        if (state_->active.load())
+        {
+            state_->destroyed_while_active.store(true);
+            state_->release.release();
+            state_->resume_exiting.tryAcquire(1, 1000);
+            QThread::msleep(50); // let the worker finish before QThread teardown
+        }
+        state_->destroyed.store(true);
+    }
+
+    fastecu::Result<SsmTransportConfig> transport_setup() const override
+    {
+        return SsmTransportConfig{};
+    }
+
+    ServiceFunctionStep resume(ISsmTransport&, fastecu::IClock&, const fastecu::ICancellationToken&,
+                               fastecu::IEventSink&) override
+    {
+        const std::shared_ptr<BlockingLifetimeState> state = state_;
+        state->active.store(true);
+        struct ActiveCall
+        {
+            std::shared_ptr<BlockingLifetimeState> state;
+            ~ActiveCall()
+            {
+                state->active.store(false);
+                state->resume_exiting.release();
+            }
+        } active_call{state};
+
+        state->entered.release();
+        state->release.acquire();
+        return CompletedStep{SetParametersOutcome{}};
+    }
+
+    void submit(GateResponse) override
+    {
+    }
+
+  private:
+    std::shared_ptr<BlockingLifetimeState> state_;
 };
 
 // A session whose steps are supplied by the test, so worker behaviour is
@@ -301,6 +369,36 @@ class ServiceFunctionWorkerTest : public QObject
         const auto result = done.at(0).at(0).value<ServiceFunctionWorkerResult>();
         QCOMPARE(result.error_kind, ErrorKind::BadResponse);
         QCOMPARE(result.error_detail, QString("TCU said no"));
+    }
+
+    void destructorDoesNotDestroyOwnedStateWhileResumeIsActive()
+    {
+        auto state = std::make_shared<BlockingLifetimeState>();
+        RecordingConfigurator configurator;
+        auto worker = std::make_unique<ServiceFunctionWorker>(std::make_unique<BlockingLifetimeSession>(state),
+                                                              std::make_unique<ScriptedSsmTransport>(),
+                                                              std::make_unique<FakeClock>(), &configurator);
+        worker->start();
+        QVERIFY2(state->entered.tryAcquire(1, 1000), "blocking session did not enter resume()");
+
+        std::atomic<bool> destructor_returned{false};
+        std::thread destroyer(
+            [owned = std::move(worker), &destructor_returned]() mutable
+            {
+                owned.reset();
+                destructor_returned.store(true);
+            });
+
+        std::this_thread::sleep_for(std::chrono::milliseconds{5200});
+        const bool destroyed_before_release = state->destroyed.load();
+        const bool destructor_returned_before_release = destructor_returned.load();
+        state->release.release();
+        destroyer.join();
+
+        QVERIFY(!destroyed_before_release);
+        QVERIFY(!destructor_returned_before_release);
+        QVERIFY(state->destroyed.load());
+        QVERIFY(!state->destroyed_while_active.load());
     }
 };
 

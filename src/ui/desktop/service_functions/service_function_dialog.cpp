@@ -136,16 +136,17 @@ void ServiceFunctionDialog::showReadout(const TcuParameterReadout& readout)
         return;
     }
     const std::array rows{
-        std::pair{tr("Input Clutch Pressure Correction"), static_cast<unsigned int>(readout.input_clutch)},
-        std::pair{tr("High Low Reverse Clutch Pressure Correction"),
+        std::pair{tr("Input Clutch Pressure Correction (raw byte)"), static_cast<unsigned int>(readout.input_clutch)},
+        std::pair{tr("High Low Reverse Clutch Pressure Correction (raw byte)"),
                   static_cast<unsigned int>(readout.high_low_reverse_clutch)},
-        std::pair{tr("Direct Clutch Pressure Correction"), static_cast<unsigned int>(readout.direct_clutch)},
-        std::pair{tr("Front Brake Pressure Correction"), static_cast<unsigned int>(readout.front_brake)},
-        std::pair{tr("Correction of AWD Clutch Torque"), static_cast<unsigned int>(readout.awd_clutch_torque)},
-        std::pair{tr("Forward Brake Pressure Correction"), static_cast<unsigned int>(readout.forward_brake)},
-        std::pair{tr("4WD Pressure Correction"), static_cast<unsigned int>(readout.four_wheel_drive)},
-        std::pair{tr("Line Pressure Correction"), static_cast<unsigned int>(readout.line_pressure)},
-        std::pair{tr("Temperature basis for above Pressure Corrections"),
+        std::pair{tr("Direct Clutch Pressure Correction (raw byte)"), static_cast<unsigned int>(readout.direct_clutch)},
+        std::pair{tr("Front Brake Pressure Correction (raw byte)"), static_cast<unsigned int>(readout.front_brake)},
+        std::pair{tr("Correction of AWD Clutch Torque (raw word)"),
+                  static_cast<unsigned int>(readout.awd_clutch_torque)},
+        std::pair{tr("Forward Brake Pressure Correction (raw byte)"), static_cast<unsigned int>(readout.forward_brake)},
+        std::pair{tr("4WD Pressure Correction (raw byte)"), static_cast<unsigned int>(readout.four_wheel_drive)},
+        std::pair{tr("Line Pressure Correction (raw byte)"), static_cast<unsigned int>(readout.line_pressure)},
+        std::pair{tr("Temperature basis for above Pressure Corrections (raw byte)"),
                   static_cast<unsigned int>(readout.temperature_basis)},
     };
     int row = 0;

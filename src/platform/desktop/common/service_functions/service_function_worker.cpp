@@ -10,9 +10,6 @@ namespace fastecu::service_functions
 {
 namespace
 {
-
-constexpr unsigned long kTeardownWaitMs = 5000;
-
 ServiceFunctionWorkerResult failureResult(const Error& error)
 {
     return ServiceFunctionWorkerResult{
@@ -36,7 +33,10 @@ ServiceFunctionWorker::ServiceFunctionWorker(std::unique_ptr<ServiceFunctionSess
 ServiceFunctionWorker::~ServiceFunctionWorker()
 {
     requestStop();
-    wait(kTeardownWaitMs);
+    // Dependencies below are owned members used by run(). A timed wait that
+    // expires would destroy them underneath an active session, so teardown
+    // does not return until the worker thread has actually joined.
+    wait();
 }
 
 void ServiceFunctionWorker::requestStop()

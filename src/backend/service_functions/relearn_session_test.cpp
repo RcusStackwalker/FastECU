@@ -92,6 +92,26 @@ TEST(RelearnSession, AsksForTheEngineRunningGateOnlyAfterStepTwoIsAccepted)
     EXPECT_TRUE(fixture.transport.scriptConsumed());
 }
 
+TEST(RelearnSession, CancellationBetweenWriteStepsPreventsStepTwoFromBeingSent)
+{
+    Fixture fixture;
+    ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.step()));
+    fixture.session.submit(GateResponse::Accept);
+
+    fixture.transport.expectWrite(kStepOne);
+    fixture.transport.queueRead(writeAck());
+    // Checks 1-4 are the first gate, the resumed stage, the step-one write,
+    // and its read. Check 5 is immediately before the step-two write.
+    fixture.cancellation.cancel_on_check(5);
+
+    const auto step = fixture.step();
+
+    ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
+    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::Cancelled);
+    EXPECT_TRUE(fixture.transport.ok());
+    EXPECT_TRUE(fixture.transport.scriptConsumed()); // no step-two write
+}
+
 TEST(RelearnSession, PollsWithTheTwelveByteFrameTheLegacyCannotBuild)
 {
     Fixture fixture;

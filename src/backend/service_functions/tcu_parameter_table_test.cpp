@@ -74,13 +74,14 @@ TEST(TcuParameterTable, WritesTheRemainingFourCorrections)
 
 TEST(TcuParameterTable, EndsWithTheTwoWriteCommitToTheSameAddress)
 {
-    // legacy :455-479. Not a parameter and not prompted: a table keyed on the
-    // nine prompted values would drop it and leave every write uncommitted.
+    // legacy :453-479 forms B8 00 00 EC 55/AA. Not a parameter and not
+    // prompted: a table keyed on the nine prompted values would drop it and
+    // leave every write uncommitted.
     const auto writes = tcu_parameter_writes(sample());
 
-    EXPECT_EQ(writes[10].address, 0x0001ecU);
+    EXPECT_EQ(writes[10].address, 0x0000ecU);
     EXPECT_EQ(writes[10].value, 0x55);
-    EXPECT_EQ(writes[11].address, 0x0001ecU);
+    EXPECT_EQ(writes[11].address, 0x0000ecU);
     EXPECT_EQ(writes[11].value, 0xAA);
 }
 

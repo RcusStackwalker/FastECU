@@ -47,7 +47,9 @@ class ServiceFunctionWorker final : public QThread
     ServiceFunctionWorker& operator=(const ServiceFunctionWorker&) = delete;
 
     // Cancels the token and wakes any outstanding gate wait. Safe from any
-    // thread, any number of times, before or after start().
+    // thread, any number of times, before or after start(). Destruction calls
+    // this and then joins without a timeout so owned dependencies outlive
+    // every active resume() call.
     void requestStop();
 
     // Answers the matching outstanding gate. Stale IDs and duplicate answers
