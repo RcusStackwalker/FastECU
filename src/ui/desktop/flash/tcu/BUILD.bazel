@@ -29,5 +29,6 @@ qt_cc_library(
         # Every dialog header in this package includes ui_ecu_operations.h,
         # the generated form owned by the top-level desktop package.
         "//src/ui/desktop:ui_ecu_operations",
+        "//src/ui/desktop/service_functions:service_function_dialog",
     ],
 )

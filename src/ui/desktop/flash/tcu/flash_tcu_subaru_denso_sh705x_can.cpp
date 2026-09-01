@@ -3,6 +3,10 @@
 #include <utility>
 #include "src/platform/desktop/common/flash/legacy/tcu/flash_tcu_subaru_denso_sh705x_can_operation.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
+#include "src/ui/desktop/service_functions/service_function_dialog.h"
+
+using fastecu::service_functions::ServiceFunctionDialog;
+using fastecu::service_functions::ServiceFunctionKind;
 
 FlashTcuSubaruDensoSH705xCan::FlashTcuSubaruDensoSH705xCan(SerialPortActions *serial,
                                                            FileActions::EcuCalDefStructure *ecuCalDef,
@@ -34,8 +38,6 @@ void FlashTcuSubaruDensoSH705xCan::run()
     this->show();
     set_progressbar_value(0);
 
-    int tcuAction = 1;
-
     emit external_logger("Starting");
 
     // Picking which TCU action to perform needs no serial-> access, so it
@@ -58,22 +60,30 @@ void FlashTcuSubaruDensoSH705xCan::run()
             emit LOG_I("Read memory with flashmethod '" + ecuCalDef->FlashMethod + "' and kernel '" +
                            ecuCalDef->Kernel + "'",
                        true, true);
-            tcuAction = 1;
         }
         else if (msgBox.clickedButton() == (QAbstractButton *)pButtonRelearn)
         {
             emit LOG_I("Attempting TCU relearn", true, true);
-            tcuAction = 2;
+            ServiceFunctionDialog dialog{serial, ecuCalDef->FlashMethod.toStdString(), ServiceFunctionKind::Relearn,
+                                         this};
+            dialog.exec();
+            return;
         }
         else if (msgBox.clickedButton() == (QAbstractButton *)pButtonReadParam)
         {
             emit LOG_I("Attempting to read TCU parameters", true, true);
-            tcuAction = 3;
+            ServiceFunctionDialog dialog{serial, ecuCalDef->FlashMethod.toStdString(),
+                                         ServiceFunctionKind::ReadParameters, this};
+            dialog.exec();
+            return;
         }
         else if (msgBox.clickedButton() == (QAbstractButton *)pButtonSetParam)
         {
             emit LOG_I("Attempting to set TCU parameters", true, true);
-            tcuAction = 4;
+            ServiceFunctionDialog dialog{serial, ecuCalDef->FlashMethod.toStdString(),
+                                         ServiceFunctionKind::SetParameters, this};
+            dialog.exec();
+            return;
         }
         else
         {
@@ -89,7 +99,7 @@ void FlashTcuSubaruDensoSH705xCan::run()
     {
     case QMessageBox::Ok:
     {
-        m_operation = new FlashTcuSubaruDensoSH705xCanOperation(serial, ecuCalDef, cmd_type, tcuAction, this);
+        m_operation = new FlashTcuSubaruDensoSH705xCanOperation(serial, ecuCalDef, cmd_type, this);
         connect(m_operation, &FlashOperationWorker::LOG_E, this, &FlashTcuSubaruDensoSH705xCan::LOG_E);
         connect(m_operation, &FlashOperationWorker::LOG_W, this, &FlashTcuSubaruDensoSH705xCan::LOG_W);
         connect(m_operation, &FlashOperationWorker::LOG_I, this, &FlashTcuSubaruDensoSH705xCan::LOG_I);
