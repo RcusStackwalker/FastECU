@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include <QDialog>
 #include <QEventLoop>
 #include <QWidget>
 
