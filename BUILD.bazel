@@ -253,6 +253,16 @@ py_test(
     main = "scripts/check-windows-preprocessor-guards.py",
 )
 
+py_test(
+    name = "backend_no_widgets",
+    size = "small",
+    srcs = ["scripts/check-backend-no-widgets.py"],
+    data = [
+        "//src/backend/definitions:file_actions.h",
+    ],
+    main = "scripts/check-backend-no-widgets.py",
+)
+
 # Hedron's refresh is aquery-based and never executes compile actions, so
 # build-generated header trees (e.g. rules_qt's per-framework _virtual_includes
 # symlink farms) can be absent from disk even though the emitted compile flags
