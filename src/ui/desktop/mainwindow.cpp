@@ -111,6 +111,16 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
     QObject::connect(fileActions, &FileActions::LOG_I, syslogger, &SystemLogger::log_messages);
     QObject::connect(fileActions, &FileActions::LOG_D, syslogger, &SystemLogger::log_messages);
 
+    definitionAuthoringDialog = new fastecu::ui::DefinitionAuthoringDialog(*fileActions, m_configFileRepository, this);
+    QObject::connect(definitionAuthoringDialog, &fastecu::ui::DefinitionAuthoringDialog::LOG_E, syslogger,
+                     &SystemLogger::log_messages);
+    QObject::connect(definitionAuthoringDialog, &fastecu::ui::DefinitionAuthoringDialog::LOG_W, syslogger,
+                     &SystemLogger::log_messages);
+    QObject::connect(definitionAuthoringDialog, &fastecu::ui::DefinitionAuthoringDialog::LOG_I, syslogger,
+                     &SystemLogger::log_messages);
+    QObject::connect(definitionAuthoringDialog, &fastecu::ui::DefinitionAuthoringDialog::LOG_D, syslogger,
+                     &SystemLogger::log_messages);
+
     emit enable_log_write_to_file(true);
 
     QObject::connect(calibrationTreeWidget, &CalibrationTreeWidget::LOG_E, syslogger, &SystemLogger::log_messages);
@@ -1483,12 +1493,12 @@ void MainWindow::prompt_for_missing_definition(FileActions::EcuCalDefStructure *
         if (createNewRadioButton->isChecked())
         {
             emit LOG_D(createNewRadioButton->text(), true, true);
-            fileActions->create_new_definition_for_rom(ecuCalDef);
+            definitionAuthoringDialog->create_new_definition(ecuCalDef);
         }
         else if (useExistingRadioButton->isChecked())
         {
             emit LOG_D(useExistingRadioButton->text(), true, true);
-            fileActions->use_existing_definition_for_rom(ecuCalDef);
+            definitionAuthoringDialog->use_existing_definition(ecuCalDef);
         }
     }
     // The "continue without definition" placeholders belong to this branch

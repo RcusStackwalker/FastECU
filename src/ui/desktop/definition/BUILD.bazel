@@ -1,0 +1,54 @@
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
+
+package(default_visibility = ["//src/ui:__subpackages__"])
+
+# Qt-linked (QLineEdit/QTextEdit/QGridLayout) but declares no QObject of its
+# own, so the header goes through normal_hdrs rather than hdrs -- matching
+# //src/ui/desktop/menu:menu_builder.
+qt_cc_library(
+    name = "definition_header_form",
+    srcs = ["definition_header_form.cpp"],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["definition_header_form.h"],
+    deps = QT_DEPS + ["//src/backend/definition:definition_writer"],
+)
+
+fastecu_gtest(
+    name = "definition_header_form_test",
+    srcs = ["definition_header_form_test.cpp"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    deps = [":definition_header_form"],
+)
+
+# Declares Q_OBJECT for its four LOG_* signals, so the header goes in
+# `hdrs` (which rules_qt's qt_cc_library moc's) rather than normal_hdrs --
+# a Q_OBJECT header in normal_hdrs links but fails at runtime.
+# //src/platform/desktop/common/ports:ports is the precedent: qt_event_sink.h
+# sits in hdrs marked "# MOC header" while its non-QObject siblings do not.
+qt_cc_library(
+    name = "definition_authoring_dialog",
+    srcs = ["definition_authoring_dialog.cpp"],
+    hdrs = ["definition_authoring_dialog.h"],  # MOC header
+    copts = COMMON_COPTS,
+    normal_hdrs = [],
+    deps = QT_DEPS + [
+        ":definition_header_form",
+        "//src/backend/definition:definition_writer",
+        "//src/backend/definitions",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_gtest(
+    name = "definition_authoring_dialog_test",
+    srcs = ["definition_authoring_dialog_test.cpp"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    deps = [
+        ":definition_authoring_dialog",
+        ":definition_header_form",
+        "//src/backend/ports/testing:in_memory_file_repository",
+        "//src/platform/desktop/common/ports",
+    ],
+)

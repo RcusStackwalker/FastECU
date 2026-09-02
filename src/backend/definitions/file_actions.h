@@ -10,14 +10,8 @@
 #include <QDebug>
 #include <QElapsedTimer>
 #include <QDateTime>
-#include <QPushButton>
-#include <QVBoxLayout>
 #include <QLabel>
-#include <QRadioButton>
 #include <QComboBox>
-#include <QDialogButtonBox>
-#include <QLineEdit>
-#include <QTextEdit>
 
 #include <cstdint>
 #include <cstring>
@@ -168,9 +162,6 @@ class FileActions : public QWidget
     EcuCalDefStructure *parse_ecuid_ecuflash_def_files(FileActions::EcuCalDefStructure *ecuCalDef, bool is_ascii);
     EcuCalDefStructure *parse_ecuid_romraider_def_files(FileActions::EcuCalDefStructure *ecuCalDef, bool is_ascii);
 
-    EcuCalDefStructure *create_new_definition_for_rom(FileActions::EcuCalDefStructure *ecuCalDef);
-    EcuCalDefStructure *use_existing_definition_for_rom(FileActions::EcuCalDefStructure *ecuCalDef);
-
     /*******************************************************************
      * Placeholder RomInfo fields for a ROM the user chose to open
      * without a definition file. Only the caller that owns the
@@ -212,13 +203,17 @@ class FileActions : public QWidget
      *************************************************/
     static QString parse_dtc_message(uint16_t dtc);
 
-  private:
-    friend class TestFileActionsParsing;
-
+    // Public so src/ui/desktop/definition's authoring dialog can reach the
+    // portable submit seam; the interactive wizards that used to wrap them
+    // moved there in step 6a-2.
     fastecu::Status submit_new_definition(std::string_view destination,
                                           const fastecu::definition::DefinitionHeaderInput&);
     fastecu::Status submit_imported_definition(std::string_view source, std::string_view destination,
                                                const fastecu::definition::DefinitionHeaderInput&);
+
+  private:
+    friend class TestFileActionsParsing;
+
     void remember_submitted_ecuflash_handle(std::string_view destination);
     fastecu::Result<fastecu::definition::DefinitionCatalog>
     build_definition_catalog(fastecu::definition::DefinitionFormat format);
