@@ -184,9 +184,8 @@ QString FileActions::definition_source(DefinitionFormat format, const QString& i
 
 void FileActions::log_definition_error(const QString& operation, const fastecu::Error& error)
 {
-    events_.log(fastecu::LogLevel::Error, (operation + " [" + QString::fromUtf8(fastecu::to_string(error.kind)) +
-                                           "]: " + QString::fromStdString(error.detail))
-                                              .toStdString());
+    events_.log(fastecu::LogLevel::Error,
+                std::format("{} [{}]: {}", operation.toStdString(), fastecu::to_string(error.kind), error.detail));
 }
 
 fastecu::Status FileActions::load_configured_definition(EcuCalDefStructure& ecu_cal_def, DefinitionFormat format,
@@ -238,7 +237,8 @@ bool FileActions::log_definition_load_failure(const QString& operation, const fa
     log_definition_error(operation, error);
     if (!source.isEmpty() && !definitionFileSystem_.exists(source.toStdString()))
     {
-        events_.notice((warning_title + ": " + warning_text + source + " for reading").toStdString());
+        events_.notice(std::format("{}: {}{} for reading", warning_title.toStdString(), warning_text.toStdString(),
+                                   source.toStdString()));
         return true;
     }
     return false;
@@ -313,9 +313,10 @@ void FileActions::apply_flash_method_alias(EcuCalDefStructure& ecuCalDef)
         const QStringList aliases = ConfigValuesStruct.flash_protocol_alias.at(index).split(",");
         if (aliases.contains(flashMethod))
         {
-            events_.log(fastecu::LogLevel::Debug, ("Alias: " + flashMethod).toStdString());
-            events_.log(fastecu::LogLevel::Debug,
-                        ("Protocol: " + ConfigValuesStruct.flash_protocol_protocol_name.at(index)).toStdString());
+            events_.log(fastecu::LogLevel::Debug, std::format("Alias: {}", flashMethod.toStdString()));
+            events_.log(
+                fastecu::LogLevel::Debug,
+                std::format("Protocol: {}", ConfigValuesStruct.flash_protocol_protocol_name.at(index).toStdString()));
             ecuCalDef.RomInfo.replace(FlashMethod, ConfigValuesStruct.flash_protocol_protocol_name.at(index));
             return;
         }
@@ -586,14 +587,13 @@ FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogV
     const std::string handle = configValues->logger_file.toStdString();
     const std::string ecu_key = ecu_id.toStdString();
 
-    events_.log(fastecu::LogLevel::Debug,
-                ("Looking for ECU ID: " + ecu_id + " in logger def file: " + configValues->logger_file).toStdString());
+    events_.log(fastecu::LogLevel::Debug, std::format("Looking for ECU ID: {} in logger def file: {}",
+                                                      ecu_id.toStdString(), configValues->logger_file.toStdString()));
 
     const auto warnUnreadable = [&]
     {
-        events_.notice(
-            ("Logger file: Unable to open logger config file '" + configValues->logger_file + "' for reading")
-                .toStdString());
+        events_.notice(std::format("Logger file: Unable to open logger config file '{}' for reading",
+                                   configValues->logger_file.toStdString()));
     };
 
     fastecu::logging::LoggerDefinitionService service(definitionFileRepository_, loggerResourceBundle_,
@@ -637,7 +637,7 @@ FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogV
 
     if (stored->has_value())
     {
-        events_.log(fastecu::LogLevel::Debug, ("Found ECU ID " + ecu_id).toStdString());
+        events_.log(fastecu::LogLevel::Debug, std::format("Found ECU ID {}", ecu_id.toStdString()));
         fastecu::logging::apply_selection(**stored, *logValues);
         return logValues;
     }
@@ -700,25 +700,20 @@ FileActions::LogValuesStructure *FileActions::read_logger_definition_file()
                                           configValues->config_files_directory.toStdString());
     if (!handle)
     {
-        events_.notice(
-            ("Logger file: Unable to resolve logger definition file: " + QString::fromStdString(handle.error().detail))
-                .toStdString());
+        events_.notice(std::format("Logger file: Unable to resolve logger definition file: {}", handle.error().detail));
         return logValues;
     }
     if (configValues->romraider_logger_definition_file.isEmpty() && !handle->empty())
     {
         configValues->romraider_logger_definition_file = QString::fromStdString(*handle);
-        events_.log(
-            fastecu::LogLevel::Debug,
-            ("Using bundled CDBG logger definition: " + configValues->romraider_logger_definition_file).toStdString());
+        events_.log(fastecu::LogLevel::Debug, std::format("Using bundled CDBG logger definition: {}", *handle));
     }
 
     const auto definition = service.load_definition(*handle);
     if (!definition)
     {
-        events_.notice(("Logger file: Unable to open logger definition file '" + QString::fromStdString(*handle) +
-                        "' for reading: " + QString::fromStdString(definition.error().detail))
-                           .toStdString());
+        events_.notice(std::format("Logger file: Unable to open logger definition file '{}' for reading: {}", *handle,
+                                   definition.error().detail));
         return logValues;
     }
 
@@ -767,7 +762,7 @@ FileActions::EcuCalDefStructure *FileActions::parse_ecuid_ecuflash_def_files(Fil
         return ecuCalDef;
     }
     ecuCalDef->RomId = QString::fromStdString(match->definition_id);
-    events_.log(fastecu::LogLevel::Debug, ("EcuFlash cal id " + ecuCalDef->RomId + " found").toStdString());
+    events_.log(fastecu::LogLevel::Debug, std::format("EcuFlash cal id {} found", match->definition_id));
     return ecuCalDef;
 }
 
@@ -790,7 +785,7 @@ FileActions::parse_ecuid_romraider_def_files(FileActions::EcuCalDefStructure *ec
         return ecuCalDef;
     }
     ecuCalDef->RomId = QString::fromStdString(match->definition_id);
-    events_.log(fastecu::LogLevel::Debug, ("RomRaider cal id " + ecuCalDef->RomId + " found").toStdString());
+    events_.log(fastecu::LogLevel::Debug, std::format("RomRaider cal id {} found", match->definition_id));
     return ecuCalDef;
 }
 
@@ -927,10 +922,10 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
             // silent: the maps keep their default (empty) values, and the user
             // would otherwise see a ROM whose tables are blank for no stated
             // reason.
-            events_.log(fastecu::LogLevel::Warning,
-                        ("ROM size validation and map value decoding skipped: no resolved definition for id " +
-                         ecuCalDef->RomId)
-                            .toStdString());
+            events_.log(
+                fastecu::LogLevel::Warning,
+                std::format("ROM size validation and map value decoding skipped: no resolved definition for id {}",
+                            ecuCalDef->RomId.toStdString()));
         }
         else
         {
@@ -974,8 +969,9 @@ FileActions::EcuCalDefStructure *FileActions::save_subaru_rom_file(FileActions::
         // silent: both callers in MainWindow historically ignored the return
         // value, so this notice is the user's only signal that the ROM they
         // are about to flash was not written.
-        events_.log(fastecu::LogLevel::Error, ("Unable to open file " + filename + " for writing").toStdString());
-        events_.notice(("Ecu calibration file: Unable to open file " + filename + " for writing").toStdString());
+        events_.log(fastecu::LogLevel::Error,
+                    std::format("Unable to open file {} for writing", filename.toStdString()));
+        events_.notice(std::format("Ecu calibration file: Unable to open file {} for writing", filename.toStdString()));
     }
     return saved;
 }

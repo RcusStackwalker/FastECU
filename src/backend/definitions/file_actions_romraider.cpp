@@ -17,7 +17,8 @@ FileActions::ConfigValuesStructure *FileActions::create_romraider_def_id_list(Co
     handles.reserve(static_cast<std::size_t>(configValues->romraider_definition_files.size()));
     for (const QString& handle : configValues->romraider_definition_files)
     {
-        events_.log(fastecu::LogLevel::Debug, ("Reading RomRaider ID's from file: " + handle).toStdString());
+        events_.log(fastecu::LogLevel::Debug,
+                    std::format("Reading RomRaider ID's from file: {}", handle.toStdString()));
         handles.push_back(handle.toStdString());
     }
 
@@ -30,8 +31,8 @@ FileActions::ConfigValuesStructure *FileActions::create_romraider_def_id_list(Co
             if (!definitionFileSystem_.exists(handle.toStdString()))
             {
                 events_.notice(
-                    ("Ecu definition file: Unable to open romraider definition file " + handle + " for reading")
-                        .toStdString());
+                    std::format("Ecu definition file: Unable to open romraider definition file {} for reading",
+                                handle.toStdString()));
                 break;
             }
         }
@@ -40,11 +41,9 @@ FileActions::ConfigValuesStructure *FileActions::create_romraider_def_id_list(Co
 
     strip_legacy_address_prefixes(configValues->romraider_def_cal_id_addr);
     events_.log(fastecu::LogLevel::Debug,
-                (QString::number(configValues->romraider_definition_files.size()) + " RomRaider definition files found")
-                    .toStdString());
-    events_.log(
-        fastecu::LogLevel::Debug,
-        (QString::number(configValues->romraider_def_cal_id.size()) + " RomRaider ecu id's found").toStdString());
+                std::format("{} RomRaider definition files found", configValues->romraider_definition_files.size()));
+    events_.log(fastecu::LogLevel::Debug,
+                std::format("{} RomRaider ecu id's found", configValues->romraider_def_cal_id.size()));
     return configValues;
 }
 
@@ -89,8 +88,8 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(EcuCal
         if (!definitionFileSystem_.exists(source.toStdString()))
         {
             events_.notice(
-                ("Ecu definitions file: Unable to open OEM ecu base definitions file " + source + " for reading")
-                    .toStdString());
+                std::format("Ecu definitions file: Unable to open OEM ecu base definitions file {} for reading",
+                            source.toStdString()));
         }
         return nullptr;
     }
@@ -140,6 +139,6 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(EcuCalDefSt
         }
         return ecuCalDef;
     }
-    events_.log(fastecu::LogLevel::Debug, ("XML ID: " + cal_id + " " + cal_id).toStdString());
+    events_.log(fastecu::LogLevel::Debug, std::format("XML ID: {} {}", cal_id.toStdString(), cal_id.toStdString()));
     return ecuCalDef;
 }

@@ -26,10 +26,9 @@ FileActions::ConfigValuesStructure *FileActions::create_ecuflash_def_id_list(Con
     {
         sources.insert(source);
     }
+    events_.log(fastecu::LogLevel::Debug, std::format("{} EcuFlash definition files found", sources.size()));
     events_.log(fastecu::LogLevel::Debug,
-                (QString::number(sources.size()) + " EcuFlash definition files found").toStdString());
-    events_.log(fastecu::LogLevel::Debug,
-                (QString::number(configValues->ecuflash_def_cal_id.size()) + " EcuFlash ecu id's found").toStdString());
+                std::format("{} EcuFlash ecu id's found", configValues->ecuflash_def_cal_id.size()));
     return configValues;
 }
 
@@ -40,15 +39,16 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
     {
         return nullptr;
     }
-    events_.log(fastecu::LogLevel::Debug, ("Search ID: " + cal_id).toStdString());
+    events_.log(fastecu::LogLevel::Debug, std::format("Search ID: {}", cal_id.toStdString()));
     if (!ConfigValuesStruct.ecuflash_def_cal_id.contains(cal_id))
     {
         return ecuCalDef;
     }
 
     const QString source = definition_source(fastecu::definition::DefinitionFormat::EcuFlash, cal_id);
-    events_.log(fastecu::LogLevel::Debug, ("EcuFlash ID found: " + cal_id + " " + cal_id).toStdString());
-    events_.log(fastecu::LogLevel::Debug, ("EcuFlash def file name: " + source).toStdString());
+    events_.log(fastecu::LogLevel::Debug,
+                std::format("EcuFlash ID found: {} {}", cal_id.toStdString(), cal_id.toStdString()));
+    events_.log(fastecu::LogLevel::Debug, std::format("EcuFlash def file name: {}", source.toStdString()));
 
     const fastecu::Status replaced =
         load_configured_definition(*ecuCalDef, fastecu::definition::DefinitionFormat::EcuFlash, cal_id);
@@ -63,9 +63,9 @@ FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStr
         }
         return ecuCalDef;
     }
-    events_.log(fastecu::LogLevel::Debug, ("Found ID: " + cal_id).toStdString());
-    events_.log(
-        fastecu::LogLevel::Debug,
-        ("Definition for CAL ID " + cal_id + " succesfully read, start parsing definition scalings...").toStdString());
+    events_.log(fastecu::LogLevel::Debug, std::format("Found ID: {}", cal_id.toStdString()));
+    events_.log(fastecu::LogLevel::Debug,
+                std::format("Definition for CAL ID {} succesfully read, start parsing definition scalings...",
+                            cal_id.toStdString()));
     return ecuCalDef;
 }
