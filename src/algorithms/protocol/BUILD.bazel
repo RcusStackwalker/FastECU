@@ -1,6 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_gtest", "fastecu_portable_gtest")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS_NO_WIDGETS")
 
 package(default_visibility = [
     "//apps/bench:__pkg__",
@@ -34,7 +34,7 @@ cc_library(
     name = "qt_compat",
     hdrs = ["qt_bytes.h"],
     copts = COMMON_COPTS,
-    deps = QT_DEPS + [":protocol"],
+    deps = QT_DEPS_NO_WIDGETS + [":protocol"],
 )
 
 fastecu_portable_gtest(

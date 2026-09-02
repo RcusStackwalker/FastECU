@@ -20,6 +20,14 @@ QT_DEPS = [
     "@rules_qt//:qt_xml",
 ]
 
+# For qt_cc_library targets that are Qt-typed (QString/QStringList members,
+# no QObject/Q_OBJECT of their own) but never construct or show a widget --
+# e.g. the *_values.h data structs and the legacy_*_adapter Qt-compat
+# shims. Keeping @rules_qt//:qt_widgets off these targets' own deps line is
+# what lets //src/backend/definitions:definitions itself stay off it too,
+# once file_actions.{h,cpp} stops using QWidget (step 6a-3).
+QT_DEPS_NO_WIDGETS = [dep for dep in QT_DEPS if dep != "@rules_qt//:qt_widgets"]
+
 COMMON_COPTS = [
     "-DQT_FORCE_ASSERTS",
     "-DQT_DEPRECATED_WARNINGS",

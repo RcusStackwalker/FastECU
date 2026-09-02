@@ -1,6 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_gtest", "fastecu_portable_gtest")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS_NO_WIDGETS")
 
 package(default_visibility = [
     "//src/algorithms:__subpackages__",
@@ -33,7 +33,7 @@ cc_library(
     srcs = ["qt_expression_evaluator.cpp"],
     hdrs = ["qt_expression_evaluator.h"],
     copts = COMMON_COPTS,
-    deps = QT_DEPS + [":expression"],
+    deps = QT_DEPS_NO_WIDGETS + [":expression"],
 )
 
 fastecu_portable_gtest(
