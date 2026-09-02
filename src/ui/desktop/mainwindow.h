@@ -46,6 +46,7 @@
 #include "src/ui/desktop/get_key_operations_subaru.h"
 #include "src/backend/definitions/file_actions.h"
 #include "src/ui/desktop/checksum/checksum_correction_command.h"
+#include "src/ui/desktop/definition/definition_authoring_dialog.h"
 #include "src/ui/desktop/logbox.h"
 #include "src/ui/desktop/settings.h"
 #include "src/ui/desktop/dtc_operations.h"
@@ -190,6 +191,7 @@ class MainWindow : public QMainWindow
     QtAtomicFileWriter m_definitionFileWriter;
     fastecu::ui::ChecksumCorrectionCommand m_checksumCorrectionCommand;
     FileActions *fileActions;
+    fastecu::ui::DefinitionAuthoringDialog *definitionAuthoringDialog = nullptr;
     FileActions::LogValuesStructure *logValues;
     FileActions::ConfigValuesStructure *configValues;
     FileActions::EcuCalDefStructure *ecuCalDef[100]{};

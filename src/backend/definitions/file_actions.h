@@ -10,14 +10,8 @@
 #include <QDebug>
 #include <QElapsedTimer>
 #include <QDateTime>
-#include <QPushButton>
-#include <QVBoxLayout>
 #include <QLabel>
-#include <QRadioButton>
 #include <QComboBox>
-#include <QDialogButtonBox>
-#include <QLineEdit>
-#include <QTextEdit>
 
 #include <cstdint>
 #include <cstring>
@@ -167,9 +161,6 @@ class FileActions : public QWidget
     QString parse_hex_ecuid(uint8_t byte);
     EcuCalDefStructure *parse_ecuid_ecuflash_def_files(FileActions::EcuCalDefStructure *ecuCalDef, bool is_ascii);
     EcuCalDefStructure *parse_ecuid_romraider_def_files(FileActions::EcuCalDefStructure *ecuCalDef, bool is_ascii);
-
-    EcuCalDefStructure *create_new_definition_for_rom(FileActions::EcuCalDefStructure *ecuCalDef);
-    EcuCalDefStructure *use_existing_definition_for_rom(FileActions::EcuCalDefStructure *ecuCalDef);
 
     /*******************************************************************
      * Placeholder RomInfo fields for a ROM the user chose to open
