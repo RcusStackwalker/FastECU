@@ -13,6 +13,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "src/backend/ports/event_sink.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
@@ -62,7 +63,8 @@ TEST(DefinitionAuthoringDialogTest, ConstructsAndExposesTheFourLogSignals)
     QtResourceBundle resource_bundle;
     QtFileRepository config_repository;
     QtAtomicFileWriter writer;
-    FileActions file_actions(file_system, resource_bundle, config_repository, writer);
+    fastecu::NullEventSink events;
+    FileActions file_actions(file_system, resource_bundle, config_repository, writer, events);
 
     DefinitionAuthoringDialog dialog(file_actions, repository, &parent);
 

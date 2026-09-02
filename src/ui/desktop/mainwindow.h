@@ -47,6 +47,7 @@
 #include "src/backend/definitions/file_actions.h"
 #include "src/ui/desktop/checksum/checksum_correction_command.h"
 #include "src/ui/desktop/definition/definition_authoring_dialog.h"
+#include "src/platform/desktop/common/ports/qt_event_sink.h"
 #include "src/ui/desktop/logbox.h"
 #include "src/ui/desktop/settings.h"
 #include "src/ui/desktop/dtc_operations.h"
@@ -190,7 +191,8 @@ class MainWindow : public QMainWindow
     QtFileRepository m_configFileRepository;
     QtAtomicFileWriter m_definitionFileWriter;
     fastecu::ui::ChecksumCorrectionCommand m_checksumCorrectionCommand;
-    FileActions *fileActions;
+    QtEventSink fileActionsEvents_{this};
+    std::unique_ptr<FileActions> fileActions;
     fastecu::ui::DefinitionAuthoringDialog *definitionAuthoringDialog = nullptr;
     FileActions::LogValuesStructure *logValues;
     FileActions::ConfigValuesStructure *configValues;
