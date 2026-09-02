@@ -4,6 +4,7 @@
 
 #include <QCheckBox>
 #include <QDebug>
+#include <QDialog>
 #include <QMainWindow>
 #include <QGroupBox>
 #include <QLabel>

@@ -1,6 +1,8 @@
 #include "settings.h"
 #include "ui_settings.h"
 
+#include <QFileDialog>
+
 Settings::Settings(FileActions::ConfigValuesStructure *configValues, QWidget *parent)
     : QDialog(parent), ui{std::make_unique<Ui::Settings>()}
 {
