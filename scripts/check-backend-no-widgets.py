@@ -15,8 +15,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 BACKEND = ROOT / "src" / "backend"
-SOURCE_SUFFIXES = {".h", ".cpp"}
+SOURCE_SUFFIXES = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"}
 FORBIDDEN = re.compile(r"QMessageBox|QFileDialog|QDialog|QWidget|Q_OBJECT")
+MIN_EXPECTED_FILES = 100
 
 
 def strip_comments(line: str, in_block_comment: bool) -> tuple[str, bool]:
@@ -49,9 +50,11 @@ def strip_comments(line: str, in_block_comment: bool) -> tuple[str, bool]:
 
 def main() -> int:
     errors: list[str] = []
+    scanned = 0
     for path in sorted(BACKEND.rglob("*")):
         if not path.is_file() or path.suffix not in SOURCE_SUFFIXES:
             continue
+        scanned += 1
         in_block_comment = False
         for lineno, line in enumerate(path.read_text(errors="ignore").splitlines(), 1):
             code, in_block_comment = strip_comments(line, in_block_comment)
@@ -63,13 +66,21 @@ def main() -> int:
                     f"{match.group(0)} is not allowed under src/backend"
                 )
 
+    if scanned < MIN_EXPECTED_FILES:
+        errors.append(
+            f"backend_no_widgets scanned only {scanned} files under {BACKEND} "
+            f"(expected at least {MIN_EXPECTED_FILES}) -- the scan is probably "
+            "running against an incomplete runfiles tree rather than the real "
+            "source tree; this check cannot prove anything if it can't see the code"
+        )
+
     if errors:
         print("\n".join(errors))
         print()
         print("src/backend must never construct or show a user interface.")
         print("Move UI code to src/ui or src/platform, or route through IEventSink.")
         return 1
-    print("OK: no forbidden widget code found under src/backend.")
+    print(f"OK: no forbidden widget code found under src/backend ({scanned} files scanned).")
     return 0
 
 

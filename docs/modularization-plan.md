@@ -67,16 +67,20 @@ for the eight-wave sequencing:
 
 ## Verified Current Baseline
 
-Verified on 2026-08-06 against `master` at `9b94a9c`:
+Verified on 2026-08-06 against `master` at `9b94a9c`, except the CI-guard
+count, the `:qt_compat` shim count, and the `file_actions.cpp` size/QWidget
+status below, refreshed after 6a-4/6a-5:
 
 - Bazel 9.1.1 with Bzlmod is the only active project build graph. No qmake
   project files remain (ADR 0001, ADR 0007).
 - `bazel/fastecu_sources.bzl` is deleted. `//:fastecu` is an alias to the
   package-owned `//apps/desktop:fastecu`, and every target under `src/` and
   `apps/` is visibility-restricted to the permitted layering directions.
-- Three CI guards enforce what the compiler cannot: `//:portable_closure`
+- Four CI guards enforce what the compiler cannot: `//:portable_closure`
   (Qt/JNI rejection across the portable closure), `//:serial_compat_allowlist`
-  (frozen, shrink-only), and `//:openpty_includes` (ADR 0005).
+  (frozen, shrink-only), `//:openpty_includes` (ADR 0005), and, as of 6a-5,
+  `//:backend_no_widgets` (no `QMessageBox`/`QFileDialog`/`QDialog`/`QWidget`/
+  `Q_OBJECT` outside a comment, under all of `src/backend`).
 - The portable closure now spans `src/algorithms` plus eleven `src/backend`
   package groups: `ports`, `logging` (+ `logging/protocols`), `protocol`,
   `flash` (+ `flash/eeprom`), `config`, `checksum`, `definition`, and
@@ -87,10 +91,10 @@ Verified on 2026-08-06 against `master` at `9b94a9c`:
   `FlashUtils::configureIso15765Can(SerialPortActions*)`, a disclosed 5c gap)
   and `//src/backend/logging/protocols`. The rest are `src/ui/desktop` entries
   that step 6 drains, plus the legitimate same-layer `remote_utility` edge.
-- Two `:qt_compat` shims survive in `src/algorithms` (`protocol`, `menu`).
-  `expression`'s was drained and deleted by 6a-4; `diagnostics` (including
-  `qt_dtc_parser` / `qt_nrc_parser`) was drained and deleted by 5d-5;
-  `crypto` was removed.
+- Three `:qt_compat` shims survive in `src/algorithms` (`protocol`,
+  `protocol/ssm`, `menu`). `expression`'s was drained and deleted by 6a-4;
+  `diagnostics` (including `qt_dtc_parser` / `qt_nrc_parser`) was drained and
+  deleted by 5d-5; `crypto` was removed.
 - The legacy `src/backend/definitions/file_actions.cpp` god object is down to
   ~1k lines (986) and, as of 6a-3, no longer inherits `QWidget` or declares
   `Q_OBJECT`; it is distinct from the new portable `src/backend/definition/`.
@@ -195,10 +199,10 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
      `SerialPortActions` access from backend code. As of 5e (2026-08-07),
      `SerialPortActions` access is fully removed from backend production
      code — verified by `//:serial_compat_allowlist` and
-     `//:portable_closure`. `QMessageBox`, `QFileDialog`, widget, and
-     filesystem access remain, but only inside the transitional
-     `Legacy*Adapter` targets and `src/backend/definitions`
-     (the `FileActions` god object), which step 6 removes by construction.
+     `//:portable_closure`. As of 6a (2026-09-02), `QMessageBox`,
+     `QFileDialog`, and widget access are gone too — verified by
+     `//:backend_no_widgets` — leaving only filesystem access inside the
+     transitional `Legacy*Adapter` targets and `src/backend/definitions`.
 
 6. **Finish the thin desktop shell**
    - **6a de-widget `FileActions` — complete (2026-09-02).** See the
