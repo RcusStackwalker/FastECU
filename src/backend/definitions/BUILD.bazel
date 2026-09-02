@@ -1,5 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS_NO_WIDGETS", "fastecu_qttest", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "QT_DEPS_NO_WIDGETS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -137,7 +137,7 @@ qt_cc_library(
     # target's normal_hdrs (see legacy_definition_columns above) -- both
     # targets provide the header identically, matching prior glob behavior.
     normal_hdrs = ["legacy_definition_columns.h"],
-    deps = QT_DEPS_NO_WIDGETS + [
+    deps = QT_DEPS + [
         ":config_values",
         ":ecu_cal_def",
         ":legacy_definition_columns",

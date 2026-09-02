@@ -26,7 +26,17 @@ QT_DEPS = [
 # shims. Keeping @rules_qt//:qt_widgets off these targets' own deps line is
 # what lets //src/backend/definitions:definitions itself stay off it too,
 # once file_actions.{h,cpp} stops using QWidget (step 6a-3).
-QT_DEPS_NO_WIDGETS = [dep for dep in QT_DEPS if dep != "@rules_qt//:qt_widgets"]
+#
+# Also drops @rules_qt//:qt_charts: verified via
+# `bazel cquery 'somepath(@rules_qt//:qt_charts, @rules_qt//:qt_widgets)'`
+# that qt_charts itself depends on qt_widgets (Qt Charts links QtWidgets),
+# so leaving it in QT_DEPS_NO_WIDGETS would silently reopen the same edge
+# this constant exists to close. None of the twelve targets this constant
+# is used for reference any QtCharts symbol (QChart/QLineSeries/etc. --
+# confirmed by grep), so dropping it costs nothing. Every other QT_DEPS
+# member (core, gui, remote_objects, serial_port, test, web_sockets, xml)
+# was queried the same way and is clean.
+QT_DEPS_NO_WIDGETS = [dep for dep in QT_DEPS if dep not in ("@rules_qt//:qt_widgets", "@rules_qt//:qt_charts")]
 
 COMMON_COPTS = [
     "-DQT_FORCE_ASSERTS",
