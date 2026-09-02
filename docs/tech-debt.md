@@ -95,22 +95,25 @@ Actions:
 
 ### P1: Split `FileActions`
 
-`FileActions` is still a 2.1k-line `QWidget` implementation with a 361-line
-header. Expression and diagnostic parsing, the EcuFlash/RomRaider parsers, ROM
-open/save, and config persistence have been extracted into portable use cases
-under `src/backend/{definition,calibration,config}/`, each reached through a
+`FileActions` (`src/backend/definitions/file_actions.{h,cpp}`, 986 lines plus
+a 236-line header) no longer inherits `QWidget`, declares no `Q_OBJECT`, and
+constructs no dialog or message box — `//:backend_no_widgets` enforces this
+for all of `src/backend`. Expression and diagnostic parsing, the
+EcuFlash/RomRaider parsers, ROM open/save, and config persistence have been
+extracted into portable use cases under
+`src/backend/{definition,calibration,config}/`, each reached through a
 `Legacy*Adapter`; checksum dispatch has also been extracted, under
 `src/backend/checksum/`, but is reached directly from the desktop UI's
 `ChecksumCorrectionCommand` rather than through a `Legacy*Adapter`. What
-remains inside `FileActions` is logger definition/conf reading, menu loading,
-the nested `ConfigValuesStructure` / `LogValuesStructure` /
-`EcuCalDefStructure` models, and direct `QFileDialog`/`QMessageBox` behavior.
+remains inside `FileActions` is logger definition/conf reading, config
+persistence, the EcuFlash/RomRaider definition-lookup parsers, ROM open/save,
+and the nested `ConfigValuesStructure` / `LogValuesStructure` /
+`EcuCalDefStructure` models, still `QString`/`QStringList` typed.
 
 Actions:
 
 - Extract `LoggerDefinitionParser` as a non-widget component with explicit
   inputs and results, following the definition-parser precedent.
-- Make dialogs and message boxes caller-owned UI behavior.
 - Move nested data structures to standalone model headers so parsers, logging,
   calibration editing, and tests do not depend on `FileActions`.
 - Remove the `Legacy*Adapter` compatibility wrappers after all callers use the
