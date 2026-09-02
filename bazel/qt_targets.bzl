@@ -8,35 +8,21 @@ qt_cc_library = _qt_cc_library
 qt_cc_test = _qt_cc_test
 qt_resource_via_qrc = _qt_resource_via_qrc
 
-QT_DEPS = [
-    "@rules_qt//:qt_charts",
+# qt_charts also pulls in qt_widgets transitively, so it stays out too.
+QT_DEPS_NO_WIDGETS = [
     "@rules_qt//:qt_core",
     "@rules_qt//:qt_gui",
     "@rules_qt//:qt_remote_objects",
     "@rules_qt//:qt_serial_port",
     "@rules_qt//:qt_test",
     "@rules_qt//:qt_web_sockets",
-    "@rules_qt//:qt_widgets",
     "@rules_qt//:qt_xml",
 ]
 
-# For qt_cc_library targets that are Qt-typed (QString/QStringList members,
-# no QObject/Q_OBJECT of their own) but never construct or show a widget --
-# e.g. the *_values.h data structs and the legacy_*_adapter Qt-compat
-# shims. Keeping @rules_qt//:qt_widgets off these targets' own deps line is
-# what lets //src/backend/definitions:definitions itself stay off it too,
-# once file_actions.{h,cpp} stops using QWidget (step 6a-3).
-#
-# Also drops @rules_qt//:qt_charts: verified via
-# `bazel cquery 'somepath(@rules_qt//:qt_charts, @rules_qt//:qt_widgets)'`
-# that qt_charts itself depends on qt_widgets (Qt Charts links QtWidgets),
-# so leaving it in QT_DEPS_NO_WIDGETS would silently reopen the same edge
-# this constant exists to close. None of the twelve targets this constant
-# is used for reference any QtCharts symbol (QChart/QLineSeries/etc. --
-# confirmed by grep), so dropping it costs nothing. Every other QT_DEPS
-# member (core, gui, remote_objects, serial_port, test, web_sockets, xml)
-# was queried the same way and is clean.
-QT_DEPS_NO_WIDGETS = [dep for dep in QT_DEPS if dep not in ("@rules_qt//:qt_widgets", "@rules_qt//:qt_charts")]
+QT_DEPS = QT_DEPS_NO_WIDGETS + [
+    "@rules_qt//:qt_charts",
+    "@rules_qt//:qt_widgets",
+]
 
 COMMON_COPTS = [
     "-DQT_FORCE_ASSERTS",
