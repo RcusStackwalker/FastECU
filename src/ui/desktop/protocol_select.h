@@ -3,6 +3,7 @@
 #include <memory>
 
 #include <QWidget>
+#include <QDialog>
 #include <QStringListModel>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>

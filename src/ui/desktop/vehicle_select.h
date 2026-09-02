@@ -4,6 +4,7 @@
 
 // #include <QDesktopWidget>
 #include <QWidget>
+#include <QDialog>
 #include <QStringListModel>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>

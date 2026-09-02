@@ -4,6 +4,7 @@
 
 #include <QApplication>
 #include <QByteArray>
+#include <QDialog>
 #include <QStandardItemModel>
 #include <QCoreApplication>
 #include <QDebug>

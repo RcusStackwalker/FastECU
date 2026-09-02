@@ -48,6 +48,7 @@ fastecu_gtest(
     deps = [
         ":definition_authoring_dialog",
         ":definition_header_form",
+        "//src/backend/ports",
         "//src/backend/ports/testing:in_memory_file_repository",
         "//src/platform/desktop/common/ports",
     ],

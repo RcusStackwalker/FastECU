@@ -1,6 +1,8 @@
 #include "settings.h"
 #include "ui_settings.h"
 
+#include <QFileDialog>
+
 Settings::Settings(FileActions::ConfigValuesStructure *configValues, QWidget *parent)
     : QDialog(parent), ui{std::make_unique<Ui::Settings>()}
 {
@@ -45,8 +47,8 @@ void Settings::closeEvent(QCloseEvent *bar)
 int Settings::save_config_file()
 {
     qDebug() << "Save config file";
-    fileActions =
-        new FileActions(m_configFileSystem, m_configResourceBundle, m_configFileRepository, m_definitionFileWriter);
+    fileActions = new FileActions(m_configFileSystem, m_configResourceBundle, m_configFileRepository,
+                                  m_definitionFileWriter, m_fileActionsEvents);
     fileActions->save_config_file(configValues);
     qDebug() << "Config file saved";
 

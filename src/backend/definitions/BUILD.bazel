@@ -1,5 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS_NO_WIDGETS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -41,17 +41,16 @@ qt_cc_library(
     hdrs = [],
     copts = COMMON_COPTS,
     normal_hdrs = ["config_values.h"],
-    deps = QT_DEPS,
+    deps = QT_DEPS_NO_WIDGETS,
 )
 
 fastecu_qttest(
     name = "test_ecuflash_definition_parsing",
     src = "ecuflash_definition_parsing_test.cpp",
-    copts = ["-DQT_WIDGETS_LIB"],
-    env = {"QT_QPA_PLATFORM": "offscreen"},
     deps = [
         ":definitions",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/ports/testing:recording_event_sink",
         "//src/platform/desktop/common/ports",
     ],
 )
@@ -59,12 +58,11 @@ fastecu_qttest(
 fastecu_qttest(
     name = "test_file_actions_parsing",
     src = "file_actions_parsing_test.cpp",
-    copts = ["-DQT_WIDGETS_LIB"],
-    env = {"QT_QPA_PLATFORM": "offscreen"},
     deps = [
         ":definitions",
         "//src/backend/definition:ecuflash_parser",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/ports/testing:recording_event_sink",
         "//src/platform/desktop/common/ports",
     ],
 )
@@ -78,11 +76,10 @@ fastecu_qttest(
 fastecu_qttest(
     name = "test_rom_transformations",
     src = "rom_transformations_test.cpp",
-    copts = ["-DQT_WIDGETS_LIB"],
-    env = {"QT_QPA_PLATFORM": "offscreen"},
     deps = [
         ":definitions",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/ports/testing:recording_event_sink",
         "//src/platform/desktop/common/ports",
     ],
 )
@@ -93,7 +90,7 @@ qt_cc_library(
     hdrs = [],
     copts = COMMON_COPTS,
     normal_hdrs = ["ecu_cal_def.h"],
-    deps = QT_DEPS,
+    deps = QT_DEPS_NO_WIDGETS,
 )
 
 # LogValuesStructure, extracted out of FileActions (see log_values.h's
@@ -107,7 +104,7 @@ qt_cc_library(
     hdrs = [],
     copts = COMMON_COPTS,
     normal_hdrs = ["log_values.h"],
-    deps = QT_DEPS + ["//src/backend/logging:logger_definition_model"],
+    deps = QT_DEPS_NO_WIDGETS + ["//src/backend/logging:logger_definition_model"],
 )
 
 qt_cc_library(
@@ -120,7 +117,7 @@ qt_cc_library(
         "//src/backend/definition:__pkg__",
         "//src/backend/definitions:__pkg__",
     ],
-    deps = QT_DEPS + [":ecu_cal_def"],
+    deps = QT_DEPS_NO_WIDGETS + [":ecu_cal_def"],
 )
 
 qt_cc_library(
@@ -137,7 +134,7 @@ qt_cc_library(
     # target's normal_hdrs (see legacy_definition_columns above) -- both
     # targets provide the header identically, matching prior glob behavior.
     normal_hdrs = ["legacy_definition_columns.h"],
-    deps = QT_DEPS + [
+    deps = QT_DEPS_NO_WIDGETS + [
         ":config_values",
         ":ecu_cal_def",
         ":legacy_definition_columns",

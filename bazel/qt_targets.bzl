@@ -8,16 +8,20 @@ qt_cc_library = _qt_cc_library
 qt_cc_test = _qt_cc_test
 qt_resource_via_qrc = _qt_resource_via_qrc
 
-QT_DEPS = [
-    "@rules_qt//:qt_charts",
+# qt_charts also pulls in qt_widgets transitively, so it stays out too.
+QT_DEPS_NO_WIDGETS = [
     "@rules_qt//:qt_core",
     "@rules_qt//:qt_gui",
     "@rules_qt//:qt_remote_objects",
     "@rules_qt//:qt_serial_port",
     "@rules_qt//:qt_test",
     "@rules_qt//:qt_web_sockets",
-    "@rules_qt//:qt_widgets",
     "@rules_qt//:qt_xml",
+]
+
+QT_DEPS = QT_DEPS_NO_WIDGETS + [
+    "@rules_qt//:qt_charts",
+    "@rules_qt//:qt_widgets",
 ]
 
 COMMON_COPTS = [

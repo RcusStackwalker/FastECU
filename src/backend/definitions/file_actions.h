@@ -1,17 +1,10 @@
 #pragma once
 
-#include <QApplication>
-#include <QWidget>
-#include <QScreen>
-#include <QFileDialog>
 #include <QDomDocument>
 #include <QXmlStreamReader>
-#include <QMessageBox>
 #include <QDebug>
 #include <QElapsedTimer>
 #include <QDateTime>
-#include <QLabel>
-#include <QComboBox>
 
 #include <cstdint>
 #include <cstring>
@@ -30,6 +23,7 @@
 #include "src/backend/definition/definition_service.h"
 #include "src/backend/definition/legacy_definition_adapter.h"
 #include "src/backend/ports/atomic_file_writer.h"
+#include "src/backend/ports/event_sink.h"
 #include "src/backend/ports/file_repository.h"
 #include "src/backend/ports/file_system.h"
 #include "src/backend/ports/resource_bundle.h"
@@ -40,14 +34,12 @@
 #include <unistd.h>
 #endif // Windows
 
-class FileActions : public QWidget
+class FileActions
 {
-    Q_OBJECT
-
   public:
     FileActions(fastecu::IFileSystem& file_system, fastecu::IResourceBundle& resource_bundle,
                 fastecu::IFileRepository& file_repository, fastecu::IAtomicFileWriter& atomic_file_writer,
-                QWidget *parent = nullptr);
+                fastecu::IEventSink& events);
 
     uint8_t float_precision = 15;
     // QString ecu_protocol;
@@ -251,10 +243,5 @@ class FileActions : public QWidget
     // argument -- is already initialized: C++ initializes members in
     // declaration order regardless of initializer-list order.
     fastecu::calibration::LegacyCalibrationAdapter calibrationAdapter_;
-
-  signals:
-    void LOG_E(QString message, bool timestamp, bool linefeed);
-    void LOG_W(QString message, bool timestamp, bool linefeed);
-    void LOG_I(QString message, bool timestamp, bool linefeed);
-    void LOG_D(QString message, bool timestamp, bool linefeed);
+    fastecu::IEventSink& events_;
 };

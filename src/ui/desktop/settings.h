@@ -4,6 +4,7 @@
 
 #include <QCheckBox>
 #include <QDebug>
+#include <QDialog>
 #include <QMainWindow>
 #include <QGroupBox>
 #include <QLabel>
@@ -18,6 +19,7 @@
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
 #include "src/platform/desktop/common/ports/qt_resource_bundle.h"
+#include "src/backend/ports/event_sink.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui
@@ -48,6 +50,7 @@ class Settings : public QDialog
     QtResourceBundle m_configResourceBundle;
     QtFileRepository m_configFileRepository;
     QtAtomicFileWriter m_definitionFileWriter;
+    fastecu::NullEventSink m_fileActionsEvents;
     FileActions *fileActions{};
 
     QLineEdit *ecuflash_def_dir_lineedit{};

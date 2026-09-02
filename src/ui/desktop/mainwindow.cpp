@@ -61,8 +61,8 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
     QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
 
     setSplashScreenProgress("Reading config files...", 10);
-    fileActions =
-        new FileActions(m_configFileSystem, m_configResourceBundle, m_configFileRepository, m_definitionFileWriter);
+    fileActions = std::make_unique<FileActions>(m_configFileSystem, m_configResourceBundle, m_configFileRepository,
+                                                m_definitionFileWriter, fileActionsEvents_);
     configValues = &fileActions->ConfigValuesStruct;
 
     fileActions->set_base_dirs(configValues, configValues->base_config_directory.toStdString());
@@ -106,10 +106,27 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
     emit LOG_D("64-bit executable", true, true);
 #endif
 
-    QObject::connect(fileActions, &FileActions::LOG_E, syslogger, &SystemLogger::log_messages);
-    QObject::connect(fileActions, &FileActions::LOG_W, syslogger, &SystemLogger::log_messages);
-    QObject::connect(fileActions, &FileActions::LOG_I, syslogger, &SystemLogger::log_messages);
-    QObject::connect(fileActions, &FileActions::LOG_D, syslogger, &SystemLogger::log_messages);
+    QObject::connect(&fileActionsEvents_, &QtEventSink::logged, this,
+                     [this](int level, QString message)
+                     {
+                         switch (static_cast<fastecu::LogLevel>(level))
+                         {
+                         case fastecu::LogLevel::Error:
+                             emit LOG_E(message, true, true);
+                             break;
+                         case fastecu::LogLevel::Warning:
+                             emit LOG_W(message, true, true);
+                             break;
+                         case fastecu::LogLevel::Info:
+                             emit LOG_I(message, true, true);
+                             break;
+                         case fastecu::LogLevel::Debug:
+                             emit LOG_D(message, true, true);
+                             break;
+                         }
+                     });
+    QObject::connect(&fileActionsEvents_, &QtEventSink::noticed, this,
+                     [this](QString message) { QMessageBox::warning(this, software_title, message); });
 
     definitionAuthoringDialog = new fastecu::ui::DefinitionAuthoringDialog(*fileActions, m_configFileRepository, this);
     QObject::connect(definitionAuthoringDialog, &fastecu::ui::DefinitionAuthoringDialog::LOG_E, syslogger,

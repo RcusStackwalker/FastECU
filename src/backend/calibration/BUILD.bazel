@@ -1,6 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS_NO_WIDGETS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -49,7 +49,7 @@ qt_cc_library(
     hdrs = [],
     copts = COMMON_COPTS,
     normal_hdrs = ["legacy_calibration_adapter.h"],
-    deps = QT_DEPS + [
+    deps = QT_DEPS_NO_WIDGETS + [
         ":calibration_service",
         "//src/algorithms/protocol:qt_compat",
         "//src/backend/config:car_model_catalog",

@@ -1,9 +1,6 @@
 #include <QtTest>
-#include <QApplication>
 #include <QFile>
-#include <QSignalSpy>
 #include <QTemporaryDir>
-#include <QTimer>
 
 #include <cstdint>
 #include <map>
@@ -14,6 +11,7 @@
 
 #include "src/backend/definitions/file_actions.h"
 #include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
+#include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
 #include "src/platform/desktop/common/ports/qt_resource_bundle.h"
@@ -34,6 +32,18 @@ QString writeBinaryFile(const QTemporaryDir& dir, const QString& name, const QBy
     }
     file.close();
     return path;
+}
+
+int logCountAt(const fastecu::RecordingEventSink& sink, fastecu::LogLevel level)
+{
+    return static_cast<int>(
+        std::ranges::count_if(sink.logs, [level](const auto& entry) { return entry.first == level; }));
+}
+
+QString firstMessageAt(const fastecu::RecordingEventSink& sink, fastecu::LogLevel level)
+{
+    const auto it = std::ranges::find(sink.logs, level, [](const auto& entry) { return entry.first; });
+    return it == sink.logs.end() ? QString() : QString::fromStdString(it->second);
 }
 } // namespace
 
@@ -111,7 +121,8 @@ class TestRomTransformations : public QObject
         const QString romPath = writeBinaryFile(dir, "synthetic.bin", rom);
         QVERIFY(!romPath.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         actions.ConfigValuesStruct.primary_definition_base = "romraider";
         actions.ConfigValuesStruct.use_romraider_definitions = "enabled";
         actions.ConfigValuesStruct.use_ecuflash_definitions = "disabled";
@@ -120,23 +131,16 @@ class TestRomTransformations : public QObject
         actions.ConfigValuesStruct.romraider_def_cal_id_addr = {"0"};
         actions.ConfigValuesStruct.romraider_def_ecu_id = {"TEST_ECU"};
         actions.ConfigValuesStruct.romraider_def_filename = {definitionPath};
-        QSignalSpy errorSpy(&actions, &FileActions::LOG_E);
 
         FileActions::EcuCalDefStructure parsed;
         QCOMPARE(actions.read_romraider_ecu_def(&parsed, "CAL1"), &parsed);
-        QVERIFY2(errorSpy.isEmpty(), errorSpy.isEmpty() ? "" : qPrintable(errorSpy.at(0).at(0).toString()));
-        QTimer::singleShot(0,
-                           []()
-                           {
-                               if (QWidget *modal = QApplication::activeModalWidget())
-                               {
-                                   modal->close();
-                               }
-                           });
+        QVERIFY2(logCountAt(eventSink, fastecu::LogLevel::Error) == 0,
+                 qPrintable(firstMessageAt(eventSink, fastecu::LogLevel::Error)));
 
         FileActions::EcuCalDefStructure ecu;
         QCOMPARE(actions.open_subaru_rom_file(&ecu, romPath), &ecu);
-        QVERIFY2(errorSpy.isEmpty(), errorSpy.isEmpty() ? "" : qPrintable(errorSpy.at(0).at(0).toString()));
+        QVERIFY2(logCountAt(eventSink, fastecu::LogLevel::Error) == 0,
+                 qPrintable(firstMessageAt(eventSink, fastecu::LogLevel::Error)));
 
         QCOMPARE(ecu.NameList,
                  QStringList({"U8Scaled", "U16Big", "U24LittleCompatibility", "U32Big", "FloatCompatibility", "Grid"}));
@@ -170,6 +174,6 @@ class TestRomTransformations : public QObject
     fastecu::InMemoryAtomicFileWriter atomicFileWriter_;
 };
 
-QTEST_MAIN(TestRomTransformations)
+QTEST_APPLESS_MAIN(TestRomTransformations)
 
 #include "rom_transformations_test.moc"

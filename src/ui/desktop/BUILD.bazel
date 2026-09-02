@@ -88,6 +88,7 @@ qt_cc_library(
         "//src/backend/definitions",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/logging/protocols",
+        "//src/backend/ports",
         # mainwindow.h includes imut_dma_init.h, mitsu_colt_can_cdbg_driver.h
         # and mut_dma_driver.h directly.
         "//src/backend/protocol",
