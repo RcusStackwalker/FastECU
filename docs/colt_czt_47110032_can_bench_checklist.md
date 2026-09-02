@@ -182,6 +182,56 @@ the parent workspace, but it is not part of this repository.
     intended image. Record date, ECU identity, adapter identity, selected
     protocol, operator, image hash, read-back hash, and pass/fail result.
 
-12. **Only after Steps 0-11 pass repeatably for both capacities and both
+12. **Qualify the first-time 512 KiB carrier pre-write path.** Step 5's
+    mismatch/bootstrap branch covers an ECU whose redirect carrier window
+    (`0x08000`-`0x27FFF`) already holds the wanted top payload. This step
+    covers the other branch: a truly first-time flash, where the carrier does
+    not yet hold it and `ensure_top_region_written()` pre-writes it through
+    the ordinary stock-helper path before installing the redirect helpers.
+    That pre-write's erase trigger sweeps the entire hardcoded
+    `0x08000`-`0x60000` userspace, not just the carrier window, so from that
+    moment the whole userspace is blank until the pre-write's own write
+    completes; the carrier itself then briefly holds map data instead of
+    code. An interruption at that point leaves a non-running ECU that is
+    still reachable by the bootloader, same as an interruption during the
+    redirect bootstrap itself. Qualify it deliberately, in order:
+
+    - Confirm `boot-talk` recovery is available and has been tested
+      successfully before the first attempt. This step exercises the
+      highest-risk write path in this checklist; it is not the place to
+      discover the recovery procedure does not work.
+    - Bench or spare ECU only.
+    - Read and archive the full `0x80000` bytes before anything is written,
+      independent of the Step 3 read qualification.
+    - Perform the first-time flash against a `_512kb` protocol whose carrier
+      window genuinely does not hold the top payload (a stock image, or any
+      other image that mismatches it). Expect **three** erase cycles — the
+      carrier pre-write, the redirect bootstrap, and the main userspace write
+      — and confirm the debug log shows, in order, `Carrier window does not
+      hold the top payload; pre-writing it...`, `Carrier pre-written and
+      verified`, `Top 128KB written via redirect`, `Top 128KB verified`, and
+      `Userspace flash verified`.
+    - The pre-write's re-verify is a full 128KB `flash_range_matches` sweep
+      (roughly 683 `ReadMemoryByAddress` round trips) with no progress
+      reporting threaded through it, so the UI sits at 1/4 of the "Ensure top
+      region" phase for its whole duration without moving. Expect this: a
+      stalled-looking progress indicator during these read sweeps is normal
+      here, not a hang, and is not a reason to interrupt the operation.
+      Record the observed wall-clock duration on this first run so later
+      runs have a baseline to compare against.
+    - Power-cycle and confirm the ECU starts and runs. This is the first live
+      exercise of the top-region integrity guard: a boot into the bootloader
+      instead of userspace means the magic word did not land, and the
+      recovery procedure confirmed above is now live, not theoretical.
+    - Re-flash the same image and confirm the log now shows `Top 128KB
+      already matches, no bootstrap needed` and only **one** erase cycle (the
+      main userspace write). On this pass the top-region comparison matches
+      and returns before the carrier window is examined at all — expect no
+      `Checking redirect carrier window...` log line and no carrier read on
+      the wire.
+    - Read back `0x60000`-`0x80000` and compare it against the built image
+      byte-for-byte, independent of the Step 11 SHA-256 comparison.
+
+13. **Only after Steps 0-12 pass repeatably for both capacities and both
     authorization variants on a bench/spare ECU**, consider use on a real
     vehicle.

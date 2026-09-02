@@ -452,7 +452,7 @@ Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan, bytes::ByteVie
 {
     using namespace MitsuColtCan;
 
-    PhaseReporter phase = phases.start("Ensure top region", 3);
+    PhaseReporter phase = phases.start("Ensure top region", 4);
 
     // Line 303.
     info(ctx, std::format("Checking top 128KB (0x{:x}-0x{:x})...", kTopRegionStart, kTopRegionEnd));
@@ -499,8 +499,48 @@ Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan, bytes::ByteVie
     }
     if (!*carrier_matches)
     {
-        error(ctx, "Carrier window 0x8000-0x27fff does not match desired top payload; refusing redirect bootstrap");
-        return fail(ErrorKind::InvalidConfig, "redirect carrier window does not match desired top payload");
+        // The bootloader's read-back verify and its running block CRC both
+        // dereference the logical RequestDownload address (colt_commented.S
+        // 0x4444 and 0x4510); only the program call goes through the
+        // redirecting RAM helper. So the carrier must physically hold the
+        // payload before either redirect helper is installed. Establish that
+        // through the ordinary write path, using the stock helpers.
+        info(ctx, "Carrier window does not hold the top payload; pre-writing it...");
+
+        if (const Status uploaded = upload_and_commit(ctx, kEraseRoutineRamAddr, kErasePageRoutine);
+            !uploaded.has_value())
+        {
+            error(ctx, "Erase-page routine upload failed (carrier pre-write)");
+            return uploaded;
+        }
+        if (const Status uploaded = upload_and_commit(ctx, kWriteRoutineRamAddr, kWritePageRoutine);
+            !uploaded.has_value())
+        {
+            error(ctx, "Write-page routine upload failed (carrier pre-write)");
+            return uploaded;
+        }
+        if (const Status erased = unlock_and_erase(ctx, " (carrier pre-write)"); !erased.has_value())
+        {
+            return erased;
+        }
+        if (const Status written = upload_and_commit(ctx, kUserspaceStart, wanted_top); !written.has_value())
+        {
+            error(ctx, "Carrier pre-write failed");
+            return written;
+        }
+
+        Result<bool> rechecked = flash_range_matches(ctx, kUserspaceStart, wanted_top);
+        if (!rechecked.has_value())
+        {
+            return std::unexpected(rechecked.error());
+        }
+        if (!*rechecked)
+        {
+            error(ctx, "Carrier still does not match after pre-write; refusing redirect bootstrap");
+            return fail(ErrorKind::BadResponse, "carrier pre-write verify mismatch");
+        }
+        info(ctx, "Carrier pre-written and verified");
+        phase.update(2);
     }
 
     // Lines 335-340.
@@ -539,7 +579,7 @@ Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan, bytes::ByteVie
         return written;
     }
     info(ctx, "Top 128KB written via redirect");
-    phase.update(2);
+    phase.update(3);
 
     // Lines 377-387.
     Result<bytes::Bytes> verify_top = read_flash_range(ctx, kTopRegionStart, kTopRegionLength);
