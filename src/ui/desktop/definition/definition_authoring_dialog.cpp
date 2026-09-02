@@ -68,20 +68,17 @@ struct HeaderDialogResult
     HeaderFormEditors editors;
 };
 
-HeaderDialogResult run_header_dialog(QWidget *parent, const QStringList& labels, const QStringList& names,
+// `dialog` is supplied by the caller rather than constructed here: the
+// editors in the returned result are its children, so they die with it and
+// the caller reads them after this returns.
+HeaderDialogResult run_header_dialog(QDialog& dialog, const QStringList& labels, const QStringList& names,
                                      const QStringList& values)
 {
-    QDialog dialog(parent);
-    auto *layout = new QVBoxLayout(&dialog);
-    layout->addWidget(new QLabel("Please provide ROM Information:"));
-
-    auto *grid = new QGridLayout();
     HeaderDialogResult result;
-    result.editors = build_header_form(grid, labels, names, values);
-    layout->addLayout(grid);
+    result.editors = populate_header_dialog(dialog, labels, names, values);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-    layout->addWidget(buttons);
+    dialog.layout()->addWidget(buttons);
     QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
     QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
 
@@ -91,6 +88,29 @@ HeaderDialogResult run_header_dialog(QWidget *parent, const QStringList& labels,
 }
 
 } // namespace
+
+HeaderFormEditors populate_header_dialog(QDialog& dialog, const QStringList& labels, const QStringList& names,
+                                         const QStringList& values)
+{
+    auto *layout = new QVBoxLayout(&dialog);
+    layout->addWidget(new QLabel("Please provide ROM Information:"));
+
+    // build_header_form parents the editors to `grid`, which is unparented
+    // until addLayout reparents its widgets onto `dialog`.
+    auto *grid = new QGridLayout();
+    HeaderFormEditors editors = build_header_form(grid, labels, names, values);
+    layout->addLayout(grid);
+    return editors;
+}
+
+void record_definition(FileActions::ConfigValuesStructure& config, const HeaderFormEditors& editors,
+                       const fastecu::definition::DefinitionHeaderInput& input, const QString& filename)
+{
+    config.ecuflash_def_cal_id.append(QString::fromStdString(input.xml_id));
+    config.ecuflash_def_cal_id_addr.append(line_edit_value(editors, "internalidaddress"));
+    config.ecuflash_def_ecu_id.append(line_edit_value(editors, "ecuid"));
+    config.ecuflash_def_filename.append(filename);
+}
 
 DefinitionAuthoringDialog::DefinitionAuthoringDialog(FileActions& file_actions, fastecu::IFileRepository& repository,
                                                      QWidget *parent)
@@ -103,8 +123,12 @@ bool DefinitionAuthoringDialog::create_new_definition(FileActions::EcuCalDefStru
     FileActions::ConfigValuesStructure *configValues = &fileActions_.ConfigValuesStruct;
 
     emit LOG_D("Create header", true, true);
+    // `dialog` owns the form's editors, and form.editors is read as far down
+    // as the record_definition call, so it stays alive for the whole
+    // function rather than living inside run_header_dialog.
+    QDialog dialog(parent_);
     const HeaderDialogResult form =
-        run_header_dialog(parent_, ecuCalDef->DefHeaderStrings, ecuCalDef->DefHeaderNames, {});
+        run_header_dialog(dialog, ecuCalDef->DefHeaderStrings, ecuCalDef->DefHeaderNames, {});
     if (!form.accepted)
     {
         return true;
@@ -143,10 +167,7 @@ bool DefinitionAuthoringDialog::create_new_definition(FileActions::EcuCalDefStru
         return false;
     }
 
-    configValues->ecuflash_def_cal_id.append(QString::fromStdString(input->xml_id));
-    configValues->ecuflash_def_cal_id_addr.append(line_edit_value(form.editors, "internalidaddress"));
-    configValues->ecuflash_def_ecu_id.append(line_edit_value(form.editors, "ecuid"));
-    configValues->ecuflash_def_filename.append(filename);
+    record_definition(*configValues, form.editors, *input, filename);
     return true;
 }
 
@@ -184,7 +205,10 @@ bool DefinitionAuthoringDialog::use_existing_definition(FileActions::EcuCalDefSt
     }
 
     emit LOG_D("Create header", true, true);
-    const HeaderDialogResult form = run_header_dialog(parent_, ecuCalDef->DefHeaderStrings, names, values);
+    // As in create_new_definition: `dialog` outlives every read of
+    // form.editors below, down to the record_definition call.
+    QDialog dialog(parent_);
+    const HeaderDialogResult form = run_header_dialog(dialog, ecuCalDef->DefHeaderStrings, names, values);
     if (!form.accepted)
     {
         return true;
@@ -225,10 +249,7 @@ bool DefinitionAuthoringDialog::use_existing_definition(FileActions::EcuCalDefSt
         return false;
     }
 
-    configValues->ecuflash_def_cal_id.append(QString::fromStdString(input->xml_id));
-    configValues->ecuflash_def_cal_id_addr.append(line_edit_value(form.editors, "internalidaddress"));
-    configValues->ecuflash_def_ecu_id.append(line_edit_value(form.editors, "ecuid"));
-    configValues->ecuflash_def_filename.append(filename);
+    record_definition(*configValues, form.editors, *input, filename);
     return true;
 }
 
