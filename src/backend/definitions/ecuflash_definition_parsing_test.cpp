@@ -56,14 +56,8 @@ int logCountAt(const fastecu::RecordingEventSink& sink, fastecu::LogLevel level)
 
 QString firstMessageAt(const fastecu::RecordingEventSink& sink, fastecu::LogLevel level)
 {
-    for (const auto& entry : sink.logs)
-    {
-        if (entry.first == level)
-        {
-            return QString::fromStdString(entry.second);
-        }
-    }
-    return {};
+    const auto it = std::ranges::find(sink.logs, level, [](const auto& entry) { return entry.first; });
+    return it == sink.logs.end() ? QString() : QString::fromStdString(it->second);
 }
 } // namespace
 
