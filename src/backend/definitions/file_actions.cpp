@@ -134,12 +134,11 @@ int lineAfterClosingTag(const QStringList& lines, const QString& tagName)
 
 FileActions::FileActions(fastecu::IFileSystem& file_system, fastecu::IResourceBundle& resource_bundle,
                          fastecu::IFileRepository& file_repository, fastecu::IAtomicFileWriter& atomic_file_writer,
-                         QWidget *parent)
-    : QWidget(parent), configAdapter_(file_system, resource_bundle, file_repository),
-      definitionFileSystem_(file_system), definitionFileRepository_(file_repository),
-      loggerResourceBundle_(resource_bundle), loggerAtomicFileWriter_(atomic_file_writer),
-      definitionService_(file_system, file_repository, atomic_file_writer), definitionAdapter_(definitionService_),
-      calibrationAdapter_(file_repository)
+                         fastecu::IEventSink& events)
+    : configAdapter_(file_system, resource_bundle, file_repository), definitionFileSystem_(file_system),
+      definitionFileRepository_(file_repository), loggerResourceBundle_(resource_bundle),
+      loggerAtomicFileWriter_(atomic_file_writer), definitionService_(file_system, file_repository, atomic_file_writer),
+      definitionAdapter_(definitionService_), calibrationAdapter_(file_repository), events_(events)
 {
 }
 
@@ -185,9 +184,9 @@ QString FileActions::definition_source(DefinitionFormat format, const QString& i
 
 void FileActions::log_definition_error(const QString& operation, const fastecu::Error& error)
 {
-    emit LOG_E(operation + " [" + QString::fromUtf8(fastecu::to_string(error.kind)) +
-                   "]: " + QString::fromStdString(error.detail),
-               true, true);
+    events_.log(fastecu::LogLevel::Error, (operation + " [" + QString::fromUtf8(fastecu::to_string(error.kind)) +
+                                           "]: " + QString::fromStdString(error.detail))
+                                              .toStdString());
 }
 
 fastecu::Status FileActions::load_configured_definition(EcuCalDefStructure& ecu_cal_def, DefinitionFormat format,
@@ -239,7 +238,7 @@ bool FileActions::log_definition_load_failure(const QString& operation, const fa
     log_definition_error(operation, error);
     if (!source.isEmpty() && !definitionFileSystem_.exists(source.toStdString()))
     {
-        QMessageBox::warning(this, warning_title, warning_text + source + " for reading");
+        events_.notice((warning_title + ": " + warning_text + source + " for reading").toStdString());
         return true;
     }
     return false;
@@ -314,8 +313,9 @@ void FileActions::apply_flash_method_alias(EcuCalDefStructure& ecuCalDef)
         const QStringList aliases = ConfigValuesStruct.flash_protocol_alias.at(index).split(",");
         if (aliases.contains(flashMethod))
         {
-            emit LOG_D("Alias: " + flashMethod, true, true);
-            emit LOG_D("Protocol: " + ConfigValuesStruct.flash_protocol_protocol_name.at(index), true, true);
+            events_.log(fastecu::LogLevel::Debug, ("Alias: " + flashMethod).toStdString());
+            events_.log(fastecu::LogLevel::Debug,
+                        ("Protocol: " + ConfigValuesStruct.flash_protocol_protocol_name.at(index)).toStdString());
             ecuCalDef.RomInfo.replace(FlashMethod, ConfigValuesStruct.flash_protocol_protocol_name.at(index));
             return;
         }
@@ -586,12 +586,14 @@ FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogV
     const std::string handle = configValues->logger_file.toStdString();
     const std::string ecu_key = ecu_id.toStdString();
 
-    emit LOG_D("Looking for ECU ID: " + ecu_id + " in logger def file: " + configValues->logger_file, true, true);
+    events_.log(fastecu::LogLevel::Debug,
+                ("Looking for ECU ID: " + ecu_id + " in logger def file: " + configValues->logger_file).toStdString());
 
     const auto warnUnreadable = [&]
     {
-        QMessageBox::warning(this, tr("Logger file"),
-                             "Unable to open logger config file '" + configValues->logger_file + "' for reading");
+        events_.notice(
+            ("Logger file: Unable to open logger config file '" + configValues->logger_file + "' for reading")
+                .toStdString());
     };
 
     fastecu::logging::LoggerDefinitionService service(definitionFileRepository_, loggerResourceBundle_,
@@ -635,7 +637,7 @@ FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogV
 
     if (stored->has_value())
     {
-        emit LOG_D("Found ECU ID " + ecu_id, true, true);
+        events_.log(fastecu::LogLevel::Debug, ("Found ECU ID " + ecu_id).toStdString());
         fastecu::logging::apply_selection(**stored, *logValues);
         return logValues;
     }
@@ -644,13 +646,14 @@ FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogV
     // ever surfaced this warning from.
     if (logValues->log_value_protocol.empty())
     {
-        QMessageBox::warning(this, tr("Logger definition file"),
-                             "No logger definition file selected, returning without initializing log parameters!");
-        emit LOG_D("No logger definition file selected, returning without initializing log parameters!", true, true);
+        events_.notice("Logger definition file: No logger definition file selected, returning without initializing log "
+                       "parameters!");
+        events_.log(fastecu::LogLevel::Debug,
+                    "No logger definition file selected, returning without initializing log parameters!");
         return nullptr;
     }
 
-    emit LOG_D("ECU ID not found, initializing log parameters", true, true);
+    events_.log(fastecu::LogLevel::Debug, "ECU ID not found, initializing log parameters");
 
     // Only the three fields default_selection reads. zip truncates to the
     // shortest list, so a caller-supplied struct whose parallel arrays are
@@ -697,24 +700,25 @@ FileActions::LogValuesStructure *FileActions::read_logger_definition_file()
                                           configValues->config_files_directory.toStdString());
     if (!handle)
     {
-        QMessageBox::warning(this, tr("Logger file"),
-                             "Unable to resolve logger definition file: " +
-                                 QString::fromStdString(handle.error().detail));
+        events_.notice(
+            ("Logger file: Unable to resolve logger definition file: " + QString::fromStdString(handle.error().detail))
+                .toStdString());
         return logValues;
     }
     if (configValues->romraider_logger_definition_file.isEmpty() && !handle->empty())
     {
         configValues->romraider_logger_definition_file = QString::fromStdString(*handle);
-        emit LOG_D("Using bundled CDBG logger definition: " + configValues->romraider_logger_definition_file, true,
-                   true);
+        events_.log(
+            fastecu::LogLevel::Debug,
+            ("Using bundled CDBG logger definition: " + configValues->romraider_logger_definition_file).toStdString());
     }
 
     const auto definition = service.load_definition(*handle);
     if (!definition)
     {
-        QMessageBox::warning(this, tr("Logger file"),
-                             "Unable to open logger definition file '" + QString::fromStdString(*handle) +
-                                 "' for reading: " + QString::fromStdString(definition.error().detail));
+        events_.notice(("Logger file: Unable to open logger definition file '" + QString::fromStdString(*handle) +
+                        "' for reading: " + QString::fromStdString(definition.error().detail))
+                           .toStdString());
         return logValues;
     }
 
@@ -763,7 +767,7 @@ FileActions::EcuCalDefStructure *FileActions::parse_ecuid_ecuflash_def_files(Fil
         return ecuCalDef;
     }
     ecuCalDef->RomId = QString::fromStdString(match->definition_id);
-    emit LOG_D("EcuFlash cal id " + ecuCalDef->RomId + " found", true, true);
+    events_.log(fastecu::LogLevel::Debug, ("EcuFlash cal id " + ecuCalDef->RomId + " found").toStdString());
     return ecuCalDef;
 }
 
@@ -786,7 +790,7 @@ FileActions::parse_ecuid_romraider_def_files(FileActions::EcuCalDefStructure *ec
         return ecuCalDef;
     }
     ecuCalDef->RomId = QString::fromStdString(match->definition_id);
-    emit LOG_D("RomRaider cal id " + ecuCalDef->RomId + " found", true, true);
+    events_.log(fastecu::LogLevel::Debug, ("RomRaider cal id " + ecuCalDef->RomId + " found").toStdString());
     return ecuCalDef;
 }
 
@@ -819,7 +823,7 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
     if (!opened.has_value())
     {
         log_definition_error("Unable to open calibration file", opened.error());
-        QMessageBox::warning(this, tr("Calibration file"), "Unable to open calibration file for reading");
+        events_.notice("Calibration file: Unable to open calibration file for reading");
         return nullptr;
     }
     filename = ecuCalDef->FullFileName;
@@ -923,10 +927,10 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
             // silent: the maps keep their default (empty) values, and the user
             // would otherwise see a ROM whose tables are blank for no stated
             // reason.
-            emit LOG_W("ROM size validation and map value decoding skipped: no resolved "
-                       "definition for id " +
-                           ecuCalDef->RomId,
-                       true, true);
+            events_.log(fastecu::LogLevel::Warning,
+                        ("ROM size validation and map value decoding skipped: no resolved definition for id " +
+                         ecuCalDef->RomId)
+                            .toStdString());
         }
         else
         {
@@ -935,7 +939,7 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
             if (!sizeOk.has_value())
             {
                 log_definition_error("Error in expected ROM size", sizeOk.error());
-                QMessageBox::warning(this, tr("File size error"), "Error in expected ROM size!");
+                events_.notice("File size error: Error in expected ROM size!");
                 ecuCalDef->NameList.clear();
                 return ecuCalDef;
             }
@@ -953,8 +957,7 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
 
     if (ecuCalDef == nullptr)
     {
-        QMessageBox::warning(this, tr("Calibration file"),
-                             QString("Unable to find definition for selected calibration file with ECU ID: ") + ".");
+        events_.notice("Calibration file: Unable to find definition for selected calibration file with ECU ID: .");
         return nullptr;
     }
 
@@ -969,10 +972,10 @@ FileActions::EcuCalDefStructure *FileActions::save_subaru_rom_file(FileActions::
     {
         // A failed write is the one failure in this file that must never be
         // silent: both callers in MainWindow historically ignored the return
-        // value, so this dialog (and the log line beside it) is the user's
-        // only signal that the ROM they are about to flash was not written.
-        emit LOG_E("Unable to open file " + filename + " for writing", true, true);
-        QMessageBox::warning(this, tr("Ecu calibration file"), "Unable to open file " + filename + " for writing");
+        // value, so this notice is the user's only signal that the ROM they
+        // are about to flash was not written.
+        events_.log(fastecu::LogLevel::Error, ("Unable to open file " + filename + " for writing").toStdString());
+        events_.notice(("Ecu calibration file: Unable to open file " + filename + " for writing").toStdString());
     }
     return saved;
 }

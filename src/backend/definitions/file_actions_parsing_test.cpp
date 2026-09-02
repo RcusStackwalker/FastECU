@@ -1,10 +1,7 @@
 #include <QtTest>
-#include <QApplication>
 #include <QDir>
 #include <QFile>
-#include <QSignalSpy>
 #include <QTemporaryDir>
-#include <QTimer>
 
 #include <cstdint>
 #include <map>
@@ -15,6 +12,7 @@
 #include <vector>
 
 #include "src/backend/definition/ecuflash_parser.h"
+#include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/definitions/file_actions.h"
 #include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
 #include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
@@ -69,10 +67,16 @@ QString writeTextFile(const QTemporaryDir& dir, const QString& name, const QByte
     return writeTextFileAt(dir.filePath(name), contents);
 }
 
-bool spyContainsMessage(const QSignalSpy& spy, const QString& text)
+bool sinkContainsMessage(const fastecu::RecordingEventSink& sink, fastecu::LogLevel level, const QString& text)
 {
-    return std::ranges::any_of(spy, [&text](const QList<QVariant>& arguments)
-                               { return !arguments.isEmpty() && arguments.at(0).toString().contains(text); });
+    return std::ranges::any_of(sink.logs, [&](const auto& entry)
+                               { return entry.first == level && QString::fromStdString(entry.second).contains(text); });
+}
+
+int logCountAt(const fastecu::RecordingEventSink& sink, fastecu::LogLevel level)
+{
+    return static_cast<int>(
+        std::ranges::count_if(sink.logs, [level](const auto& entry) { return entry.first == level; }));
 }
 } // namespace
 
@@ -99,7 +103,8 @@ class TestFileActionsParsing : public QObject
 </config>)");
         QVERIFY(!path.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         FileActions::ConfigValuesStructure config;
         config.config_file = path;
 
@@ -126,7 +131,8 @@ class TestFileActionsParsing : public QObject
         const QString path = writeTextFile(dir, "malformed.cfg", "<config><software_settings>");
         QVERIFY(!path.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         FileActions::ConfigValuesStructure config;
         config.config_file = path;
 
@@ -152,7 +158,8 @@ class TestFileActionsParsing : public QObject
 </switches></protocol></protocols></logger>)");
         QVERIFY(!path.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         actions.ConfigValuesStruct.romraider_logger_definition_file = path;
 
         FileActions::LogValuesStructure *values = actions.read_logger_definition_file();
@@ -192,7 +199,8 @@ class TestFileActionsParsing : public QObject
 </parameters></protocol></protocols></logger>)");
         QVERIFY(!path.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         actions.ConfigValuesStruct.romraider_logger_definition_file = path;
 
         FileActions::LogValuesStructure *values = actions.read_logger_definition_file();
@@ -225,7 +233,8 @@ class TestFileActionsParsing : public QObject
                                                .toUtf8());
         QVERIFY(!path.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         actions.ConfigValuesStruct.romraider_logger_definition_file = path;
 
         FileActions::LogValuesStructure *values = actions.read_logger_definition_file();
@@ -255,7 +264,8 @@ class TestFileActionsParsing : public QObject
 </parameters></protocol></protocols></logger>)");
         QVERIFY(!path.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         actions.ConfigValuesStruct.romraider_logger_definition_file = path;
 
         FileActions::LogValuesStructure *values = actions.read_logger_definition_file();
@@ -278,7 +288,8 @@ class TestFileActionsParsing : public QObject
 </protocol></ecu></logger></config>)");
         QVERIFY(!path.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         actions.ConfigValuesStruct.logger_file = path;
         FileActions::LogValuesStructure values;
 
@@ -304,7 +315,8 @@ class TestFileActionsParsing : public QObject
         // goes through IAtomicFileWriter::replace rather than QFile, and the
         // assertions below read the bytes back off disk.
         QtAtomicFileWriter writer;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, writer);
+        fastecu::RecordingEventSink eventSink;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, writer, eventSink);
         actions.ConfigValuesStruct.logger_file = conf;
         FileActions::LogValuesStructure values;
         values.log_value_protocol << "SSM" << "SSM";
@@ -332,7 +344,8 @@ class TestFileActionsParsing : public QObject
 
     void logger_conf_returns_nullptr_when_the_file_is_missing()
     {
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         actions.ConfigValuesStruct.logger_file = "/nonexistent/logger.cfg";
         FileActions::LogValuesStructure values;
         values.log_value_protocol << "SSM";
@@ -340,15 +353,9 @@ class TestFileActionsParsing : public QObject
         values.log_value_enabled << "1";
         values.dashboard_log_value_id << "P1";
 
-        QTimer::singleShot(0,
-                           []()
-                           {
-                               if (QWidget *modal = QApplication::activeModalWidget())
-                               {
-                                   modal->close();
-                               }
-                           });
         QCOMPARE(actions.read_logger_conf(&values, "ECUID1", false), nullptr);
+        QVERIFY(!eventSink.notices.empty());
+        QVERIFY(QString::fromStdString(eventSink.notices.front()).contains("Unable to open logger config file"));
         QVERIFY(atomicFileWriter_.replace_calls.empty());
         // An unreadable conf file returns before the selection lists are
         // cleared, exactly as the legacy method did.
@@ -366,7 +373,8 @@ class TestFileActionsParsing : public QObject
         const QString conf = writeTextFile(dir, "logger.cfg", "<config><logger></logger></config>");
         QVERIFY(!conf.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         actions.ConfigValuesStruct.logger_file = conf;
         FileActions::LogValuesStructure values;
         // No definition loaded, but a stale selection from a previous ECU.
@@ -374,15 +382,9 @@ class TestFileActionsParsing : public QObject
         values.lower_panel_log_value_id << "STALE";
         values.lower_panel_switch_id << "STALE";
 
-        QTimer::singleShot(0,
-                           []()
-                           {
-                               if (QWidget *modal = QApplication::activeModalWidget())
-                               {
-                                   modal->close();
-                               }
-                           });
         QCOMPARE(actions.read_logger_conf(&values, "ECUID1", false), nullptr);
+        QVERIFY(!eventSink.notices.empty());
+        QVERIFY(QString::fromStdString(eventSink.notices.front()).contains("No logger definition file selected"));
         QVERIFY(atomicFileWriter_.replace_calls.empty());
 
         QFile file(conf);
@@ -405,7 +407,8 @@ class TestFileActionsParsing : public QObject
         QVERIFY(!conf.isEmpty());
 
         QtAtomicFileWriter writer;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, writer);
+        fastecu::RecordingEventSink eventSink;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, writer, eventSink);
         actions.ConfigValuesStruct.logger_file = conf;
         FileActions::LogValuesStructure values;
         values.log_value_protocol << "SSM" << "SSM";
@@ -453,8 +456,8 @@ class TestFileActionsParsing : public QObject
 </roms>)");
         QVERIFY(!definitionPath.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
-        QSignalSpy debugSpy(&actions, &FileActions::LOG_D);
+        fastecu::RecordingEventSink eventSink;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         actions.ConfigValuesStruct.romraider_definition_files = {definitionPath};
         QCOMPARE(actions.create_romraider_def_id_list(&actions.ConfigValuesStruct), &actions.ConfigValuesStruct);
 
@@ -479,9 +482,9 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(ecu.EndianList.at(0), QString("big"));
         QCOMPARE(ecu.FromByteList.at(0), QString("x*0.5"));
         QCOMPARE(ecu.FormatList.at(0), QString("0.0"));
-        QVERIFY(spyContainsMessage(debugSpy, "1 RomRaider definition files found"));
-        QVERIFY(spyContainsMessage(debugSpy, "2 RomRaider ecu id's found"));
-        QVERIFY(spyContainsMessage(debugSpy, "XML ID: CAL_TEST CAL_TEST"));
+        QVERIFY(sinkContainsMessage(eventSink, fastecu::LogLevel::Debug, "1 RomRaider definition files found"));
+        QVERIFY(sinkContainsMessage(eventSink, fastecu::LogLevel::Debug, "2 RomRaider ecu id's found"));
+        QVERIFY(sinkContainsMessage(eventSink, fastecu::LogLevel::Debug, "XML ID: CAL_TEST CAL_TEST"));
     }
 
     void romraider_definition_uses_blank_optional_rom_id_fields()
@@ -492,7 +495,8 @@ class TestFileActionsParsing : public QObject
             dir, "romraider-minimal.xml", "<roms><rom><romid><xmlid>MINIMAL_TEST</xmlid></romid></rom></roms>");
         QVERIFY(!definitionPath.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         actions.ConfigValuesStruct.romraider_definition_files = {definitionPath};
         QCOMPARE(actions.create_romraider_def_id_list(&actions.ConfigValuesStruct), &actions.ConfigValuesStruct);
 
@@ -547,7 +551,8 @@ class TestFileActionsParsing : public QObject
 </roms>)");
         QVERIFY(!definitionPath.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         actions.ConfigValuesStruct.romraider_definition_files = {definitionPath};
         QCOMPARE(actions.create_romraider_def_id_list(&actions.ConfigValuesStruct), &actions.ConfigValuesStruct);
 
@@ -578,14 +583,14 @@ class TestFileActionsParsing : public QObject
         const QString definitionPath = writeTextFile(dir, "malformed-romraider.xml", "<roms><rom>");
         QVERIFY(!definitionPath.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         auto& config = actions.ConfigValuesStruct;
         config.romraider_definition_files = {definitionPath};
         config.romraider_def_cal_id = {"sentinel-id"};
         config.romraider_def_cal_id_addr = {"sentinel-address"};
         config.romraider_def_ecu_id = {"sentinel-ecu"};
         config.romraider_def_filename = {"sentinel-source"};
-        QSignalSpy errorSpy(&actions, &FileActions::LOG_E);
 
         QCOMPARE(actions.create_romraider_def_id_list(&config), &config);
 
@@ -596,7 +601,7 @@ class TestFileActionsParsing : public QObject
         QVERIFY(config.romraider_def_cal_id_addr.isEmpty());
         QVERIFY(config.romraider_def_ecu_id.isEmpty());
         QVERIFY(config.romraider_def_filename.isEmpty());
-        QCOMPARE(errorSpy.count(), 0);
+        QCOMPARE(logCountAt(eventSink, fastecu::LogLevel::Error), 0);
     }
 
     void malformed_romraider_definition_reports_definition_not_found()
@@ -606,7 +611,8 @@ class TestFileActionsParsing : public QObject
         const QString definitionPath = writeTextFile(dir, "malformed-romraider.xml", "<roms><rom>");
         QVERIFY(!definitionPath.isEmpty());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         auto& config = actions.ConfigValuesStruct;
         config.romraider_definition_files = {definitionPath};
         config.romraider_def_cal_id = {"BROKEN"};
@@ -622,7 +628,6 @@ class TestFileActionsParsing : public QObject
         const QStringList romInfo = ecu.RomInfo;
         const QString definitionFileName = ecu.DefinitionFileName;
         const QStringList names = ecu.NameList;
-        QSignalSpy errorSpy(&actions, &FileActions::LOG_E);
 
         QCOMPARE(actions.read_romraider_ecu_def(&ecu, "BROKEN"), &ecu);
 
@@ -630,48 +635,48 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(ecu.DefinitionFileName, definitionFileName);
         QCOMPARE(ecu.NameList, names);
         QVERIFY(!ecu.use_romraider_definition);
-        QCOMPARE(errorSpy.count(), 1);
+        QCOMPARE(logCountAt(eventSink, fastecu::LogLevel::Error), 1);
         // The malformed file is skipped while building the catalog (see
         // DefinitionService::build_catalog), so "BROKEN" is simply absent from it rather than
         // failing with a parse error.
-        QVERIFY(spyContainsMessage(errorSpy, "definition ID not found"));
-        QVERIFY(spyContainsMessage(errorSpy, "BROKEN"));
+        QVERIFY(sinkContainsMessage(eventSink, fastecu::LogLevel::Error, "definition ID not found"));
+        QVERIFY(sinkContainsMessage(eventSink, fastecu::LogLevel::Error, "BROKEN"));
     }
 
     void romraider_base_missing_source_logs_context_and_preserves_state()
     {
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         FileActions::EcuCalDefStructure ecu;
         ecu.RomInfo = QStringList(ecu.RomInfoStrings.size(), "sentinel-rom-info");
         ecu.RomInfo[FileActions::XmlId] = "BASE";
         ecu.NameList = {"sentinel-map"};
         const FileActions::EcuCalDefStructure original = ecu;
-        QSignalSpy errorSpy(&actions, &FileActions::LOG_E);
 
         QCOMPARE(actions.read_romraider_ecu_base_def(&ecu), nullptr);
 
         QVERIFY(ecu == original);
-        QCOMPARE(errorSpy.count(), 1);
-        QVERIFY(spyContainsMessage(errorSpy, "RomRaider base definition"));
-        QVERIFY(spyContainsMessage(errorSpy, "source"));
+        QCOMPARE(logCountAt(eventSink, fastecu::LogLevel::Error), 1);
+        QVERIFY(sinkContainsMessage(eventSink, fastecu::LogLevel::Error, "RomRaider base definition"));
+        QVERIFY(sinkContainsMessage(eventSink, fastecu::LogLevel::Error, "source"));
     }
 
     void romraider_base_missing_definition_id_logs_context_and_preserves_state()
     {
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         FileActions::EcuCalDefStructure ecu;
         ecu.DefinitionFileName = "base.xml";
         ecu.RomInfo = QStringList(ecu.RomInfoStrings.size(), " ");
         ecu.NameList = {"sentinel-map"};
         const FileActions::EcuCalDefStructure original = ecu;
-        QSignalSpy errorSpy(&actions, &FileActions::LOG_E);
 
         QCOMPARE(actions.read_romraider_ecu_base_def(&ecu), nullptr);
 
         QVERIFY(ecu == original);
-        QCOMPARE(errorSpy.count(), 1);
-        QVERIFY(spyContainsMessage(errorSpy, "RomRaider base definition"));
-        QVERIFY(spyContainsMessage(errorSpy, "definition ID"));
+        QCOMPARE(logCountAt(eventSink, fastecu::LogLevel::Error), 1);
+        QVERIFY(sinkContainsMessage(eventSink, fastecu::LogLevel::Error, "RomRaider base definition"));
+        QVERIFY(sinkContainsMessage(eventSink, fastecu::LogLevel::Error, "definition ID"));
     }
 
     void missing_romraider_base_returns_null_and_preserves_caller_state()
@@ -679,7 +684,8 @@ class TestFileActionsParsing : public QObject
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
 
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         FileActions::EcuCalDefStructure ecu;
         ecu.RomInfo = QStringList(ecu.RomInfoStrings.size(), "sentinel-rom-info");
         ecu.DefinitionFileName = dir.filePath("missing-romraider.xml");
@@ -687,28 +693,23 @@ class TestFileActionsParsing : public QObject
         const QStringList romInfo = ecu.RomInfo;
         const QString definitionFileName = ecu.DefinitionFileName;
         const QStringList names = ecu.NameList;
-        QSignalSpy errorSpy(&actions, &FileActions::LOG_E);
-        QTimer::singleShot(0,
-                           []()
-                           {
-                               if (QWidget *modal = QApplication::activeModalWidget())
-                               {
-                                   modal->close();
-                               }
-                           });
 
         QCOMPARE(actions.read_romraider_ecu_base_def(&ecu), nullptr);
 
         QCOMPARE(ecu.RomInfo, romInfo);
         QCOMPARE(ecu.DefinitionFileName, definitionFileName);
         QCOMPARE(ecu.NameList, names);
-        QCOMPARE(errorSpy.count(), 1);
-        QVERIFY(spyContainsMessage(errorSpy, "cannot open file"));
+        QCOMPARE(logCountAt(eventSink, fastecu::LogLevel::Error), 1);
+        QVERIFY(sinkContainsMessage(eventSink, fastecu::LogLevel::Error, "cannot open file"));
+        QVERIFY(!eventSink.notices.empty());
+        QVERIFY(
+            QString::fromStdString(eventSink.notices.front()).contains("Unable to open OEM ecu base definitions file"));
     }
 
     void malformed_compatibility_catalog_columns_preserve_rom_id()
     {
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         auto& config = actions.ConfigValuesStruct;
         config.romraider_def_cal_id = {"AB10"};
         config.romraider_def_cal_id_addr = {"0", "1"};
@@ -718,13 +719,12 @@ class TestFileActionsParsing : public QObject
         FileActions::EcuCalDefStructure ecu;
         ecu.RomId = "sentinel-rom-id";
         ecu.FullRomData = QByteArray::fromHex("AB10");
-        QSignalSpy errorSpy(&actions, &FileActions::LOG_E);
 
         QCOMPARE(actions.parse_ecuid_romraider_def_files(&ecu, false), &ecu);
 
         QCOMPARE(ecu.RomId, QString("sentinel-rom-id"));
-        QCOMPARE(errorSpy.count(), 1);
-        QVERIFY(spyContainsMessage(errorSpy, "ID/source/address/ECU"));
+        QCOMPARE(logCountAt(eventSink, fastecu::LogLevel::Error), 1);
+        QVERIFY(sinkContainsMessage(eventSink, fastecu::LogLevel::Error, "ID/source/address/ECU"));
     }
 
     void directory_change_drops_discovered_sources_and_keeps_successful_submission()
@@ -750,7 +750,8 @@ class TestFileActionsParsing : public QObject
         QVERIFY(!newPath.isEmpty());
 
         QtAtomicFileWriter writer;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, writer);
+        fastecu::RecordingEventSink eventSink;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, writer, eventSink);
         auto& config = actions.ConfigValuesStruct;
         config.ecuflash_definition_files_directory = oldDirectory;
         QCOMPARE(actions.create_ecuflash_def_id_list(&config), &config);
@@ -778,7 +779,8 @@ class TestFileActionsParsing : public QObject
     void successful_submission_provenance_is_sorted_and_deduplicated()
     {
         atomicFileWriter_.reset();
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         const auto input = validHeaderInput();
 
         QVERIFY(actions.submit_new_definition("z.xml", input));
@@ -796,7 +798,8 @@ class TestFileActionsParsing : public QObject
             "atomic destination unavailable",
         };
         atomicFileWriter_.replace_error = backendError;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         auto& config = actions.ConfigValuesStruct;
         config.ecuflash_def_cal_id = {"sentinel-id"};
         config.ecuflash_def_cal_id_addr = {"sentinel-address"};
@@ -806,7 +809,6 @@ class TestFileActionsParsing : public QObject
         const QStringList addresses = config.ecuflash_def_cal_id_addr;
         const QStringList ecuIds = config.ecuflash_def_ecu_id;
         const QStringList sources = config.ecuflash_def_filename;
-        QSignalSpy errorSpy(&actions, &FileActions::LOG_E);
 
         const fastecu::Status result = actions.submit_new_definition("unavailable.xml", validHeaderInput());
 
@@ -816,10 +818,10 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(config.ecuflash_def_cal_id_addr, addresses);
         QCOMPARE(config.ecuflash_def_ecu_id, ecuIds);
         QCOMPARE(config.ecuflash_def_filename, sources);
-        QCOMPARE(errorSpy.count(), 1);
-        QVERIFY(spyContainsMessage(errorSpy, "Unable to create definition"));
-        QVERIFY(spyContainsMessage(errorSpy, "Disconnected"));
-        QVERIFY(spyContainsMessage(errorSpy, "atomic destination unavailable"));
+        QCOMPARE(logCountAt(eventSink, fastecu::LogLevel::Error), 1);
+        QVERIFY(sinkContainsMessage(eventSink, fastecu::LogLevel::Error, "Unable to create definition"));
+        QVERIFY(sinkContainsMessage(eventSink, fastecu::LogLevel::Error, "Disconnected"));
+        QVERIFY(sinkContainsMessage(eventSink, fastecu::LogLevel::Error, "atomic destination unavailable"));
         QVERIFY(actions.submittedEcuflashHandles_.empty());
     }
 
@@ -849,7 +851,8 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(romFile.write(originalBytes), qint64{originalBytes.size()});
         romFile.close();
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
 
         FileActions::EcuCalDefStructure *ecuCalDef = new FileActions::EcuCalDefStructure;
         while (ecuCalDef->RomInfo.length() < ecuCalDef->RomInfoStrings.length())
@@ -858,24 +861,7 @@ class TestFileActionsParsing : public QObject
         }
         ecuCalDef->RomInfo[FileActions::FlashMethod] = "sub_ecu_denso_mc68hc16y5_02";
 
-        // No definition resolves here, so open_subaru_rom_file shows its
-        // "no definition found" chooser, which would block forever on an
-        // offscreen QApplication. Closing it reports Rejected -- the
-        // "continue without definition" path.
-        QTimer modalCloser;
-        modalCloser.setInterval(10);
-        QObject::connect(&modalCloser, &QTimer::timeout,
-                         []()
-                         {
-                             if (QWidget *modal = QApplication::activeModalWidget())
-                             {
-                                 modal->close();
-                             }
-                         });
-        modalCloser.start();
-
         ecuCalDef = fileActions.open_subaru_rom_file(ecuCalDef, romPath);
-        modalCloser.stop();
 
         QVERIFY(ecuCalDef != nullptr);
         QCOMPARE(ecuCalDef->FullRomData.length(), originalBytes.length() + 0x8000);
@@ -892,7 +878,8 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(romFile.write(QByteArray("\xDE\xAD\xBE\xEF", 4)), qint64{4});
         romFile.close();
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
 
         FileActions::EcuCalDefStructure *ecuCalDef = new FileActions::EcuCalDefStructure;
         while (ecuCalDef->RomInfo.length() < ecuCalDef->RomInfoStrings.length())
@@ -913,30 +900,21 @@ class TestFileActionsParsing : public QObject
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         FileActions::EcuCalDefStructure *ecuCalDef = new FileActions::EcuCalDefStructure;
         while (ecuCalDef->RomInfo.length() < ecuCalDef->RomInfoStrings.length())
         {
             ecuCalDef->RomInfo.append(" ");
         }
 
-        // The read failure still reports through QMessageBox::warning (that
-        // dialog is FileActions's own, not the relocated chooser); dismiss
-        // whatever modal appears rather than hang, matching this suite's
-        // existing offscreen-QApplication convention.
-        QTimer::singleShot(0,
-                           []()
-                           {
-                               if (QWidget *modal = QApplication::activeModalWidget())
-                               {
-                                   modal->close();
-                               }
-                           });
-
         FileActions::EcuCalDefStructure *result =
             fileActions.open_subaru_rom_file(ecuCalDef, dir.filePath("missing.bin"));
 
         QVERIFY(result == nullptr);
+        QVERIFY(!eventSink.notices.empty());
+        QVERIFY(
+            QString::fromStdString(eventSink.notices.front()).contains("Unable to open calibration file for reading"));
         delete ecuCalDef;
     }
 
@@ -951,7 +929,8 @@ class TestFileActionsParsing : public QObject
         QVERIFY(dir.isValid());
         const QString romPath = dir.filePath("saved.bin");
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.FullRomData = QByteArray("\xCA\xFE\xBA\xBE", 4);
 
@@ -976,26 +955,16 @@ class TestFileActionsParsing : public QObject
         // Parent directory does not exist -> the write cannot open the file.
         const QString romPath = dir.filePath("no-such-directory/saved.bin");
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
-        QSignalSpy errorSpy(&fileActions, &FileActions::LOG_E);
-        QVERIFY(errorSpy.isValid());
+        fastecu::RecordingEventSink eventSink;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
 
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.FullRomData = QByteArray("\xCA\xFE", 2);
 
-        QTimer::singleShot(0,
-                           []()
-                           {
-                               if (QWidget *modal = QApplication::activeModalWidget())
-                               {
-                                   modal->close();
-                               }
-                           });
-
         FileActions::EcuCalDefStructure *result = fileActions.save_subaru_rom_file(&ecuCalDef, romPath);
 
         QVERIFY(result == nullptr);
-        QVERIFY(spyContainsMessage(errorSpy, "for writing"));
+        QVERIFY(sinkContainsMessage(eventSink, fastecu::LogLevel::Error, "for writing"));
         // A failed save must not rewrite the names of the file the ROM came from.
         QVERIFY(ecuCalDef.FullFileName.isEmpty());
     }
@@ -1014,7 +983,8 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(romFile.write(QByteArray("\x01\x02\x03\x04", 4)), qint64{4});
         romFile.close();
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         fileActions.ConfigValuesStruct.flash_protocol_selected_make = "Subaru";
 
         FileActions::EcuCalDefStructure *ecuCalDef = new FileActions::EcuCalDefStructure;
@@ -1056,6 +1026,6 @@ class TestFileActionsParsing : public QObject
     fastecu::InMemoryAtomicFileWriter atomicFileWriter_;
 };
 
-QTEST_MAIN(TestFileActionsParsing)
+QTEST_APPLESS_MAIN(TestFileActionsParsing)
 
 #include "file_actions_parsing_test.moc"

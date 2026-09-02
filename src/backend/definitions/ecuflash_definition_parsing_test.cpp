@@ -1,10 +1,7 @@
 #include <QtTest>
-#include <QApplication>
 #include <QDir>
 #include <QTemporaryDir>
 #include <QFile>
-#include <QSignalSpy>
-#include <QTimer>
 
 #include <cstdint>
 #include <map>
@@ -15,6 +12,7 @@
 
 #include "src/backend/definitions/file_actions.h"
 #include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
+#include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
@@ -44,10 +42,28 @@ class CountingFileRepository : public fastecu::IFileRepository
     QtFileRepository repository;
 };
 
-bool spyContainsMessage(const QSignalSpy& spy, const QString& text)
+bool sinkContainsMessage(const fastecu::RecordingEventSink& sink, fastecu::LogLevel level, const QString& text)
 {
-    return std::ranges::any_of(spy, [&text](const QList<QVariant>& arguments)
-                               { return !arguments.isEmpty() && arguments.at(0).toString().contains(text); });
+    return std::ranges::any_of(sink.logs, [&](const auto& entry)
+                               { return entry.first == level && QString::fromStdString(entry.second).contains(text); });
+}
+
+int logCountAt(const fastecu::RecordingEventSink& sink, fastecu::LogLevel level)
+{
+    return static_cast<int>(
+        std::ranges::count_if(sink.logs, [level](const auto& entry) { return entry.first == level; }));
+}
+
+QString firstMessageAt(const fastecu::RecordingEventSink& sink, fastecu::LogLevel level)
+{
+    for (const auto& entry : sink.logs)
+    {
+        if (entry.first == level)
+        {
+            return QString::fromStdString(entry.second);
+        }
+    }
+    return {};
 }
 } // namespace
 
@@ -68,15 +84,16 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "</rom>");
         QVERIFY(!defPath.isEmpty());
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
         fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
-        QSignalSpy errorSpy(&fileActions, &FileActions::LOG_E);
 
         FileActions::EcuCalDefStructure ecuCalDef;
         QCOMPARE(fileActions.read_ecuflash_ecu_def(&ecuCalDef, "TESTCAL"), &ecuCalDef);
 
-        QVERIFY2(errorSpy.isEmpty(), errorSpy.isEmpty() ? "" : qPrintable(errorSpy.at(0).at(0).toString()));
+        QVERIFY2(logCountAt(eventSink, fastecu::LogLevel::Error) == 0,
+                 qPrintable(firstMessageAt(eventSink, fastecu::LogLevel::Error)));
         QCOMPARE(ecuCalDef.NameList.size(), 1);
         QCOMPARE(ecuCalDef.SubCategoryList.at(0), QString("Primary"));
         QCOMPARE(ecuCalDef.LevelList.at(0), QString("2"));
@@ -93,7 +110,8 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "<flashmethod>denso_can</flashmethod></romid></rom>");
         QVERIFY(!defPath.isEmpty());
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         auto& config = fileActions.ConfigValuesStruct;
         config.ecuflash_def_cal_id = {"TESTCAL"};
         config.ecuflash_def_filename = {defPath};
@@ -118,7 +136,8 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "</rom>");
         QVERIFY(!defPath.isEmpty());
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
         fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
 
@@ -139,7 +158,8 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "</rom>");
         QVERIFY(!defPath.isEmpty());
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
         fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
 
@@ -160,7 +180,8 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "</rom>");
         QVERIFY(!defPath.isEmpty());
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
         fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
 
@@ -183,7 +204,8 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "</rom>");
         QVERIFY(!defPath.isEmpty());
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
         fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
 
@@ -206,7 +228,8 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "</rom>");
         QVERIFY(!defPath.isEmpty());
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id << "TESTCAL";
         fileActions.ConfigValuesStruct.ecuflash_def_filename << defPath;
 
@@ -241,8 +264,8 @@ class TestEcuflashDefinitionParsing : public QObject
                                                "</rom>");
         QVERIFY(!childPath.isEmpty());
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
-        QSignalSpy debugSpy(&fileActions, &FileActions::LOG_D);
+        fastecu::RecordingEventSink eventSink;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id = {"CHILD_TEST", "BASE_TEST"};
         fileActions.ConfigValuesStruct.ecuflash_def_filename = {childPath, basePath};
 
@@ -257,7 +280,8 @@ class TestEcuflashDefinitionParsing : public QObject
         QCOMPARE(ecuCalDef.FromByteList.at(0), QString("x*0.5"));
         QCOMPARE(ecuCalDef.ToByteList.at(0), QString("x*2"));
         QCOMPARE(ecuCalDef.FormatList.at(0), QString("0.0"));
-        QVERIFY(spyContainsMessage(debugSpy, "Definition for CAL ID CHILD_TEST succesfully read"));
+        QVERIFY(sinkContainsMessage(eventSink, fastecu::LogLevel::Debug,
+                                    "Definition for CAL ID CHILD_TEST succesfully read"));
     }
 
     void resolved_partial_scalings_remain_a_full_state_no_io_noop_when_invoked_twice()
@@ -280,7 +304,8 @@ class TestEcuflashDefinitionParsing : public QObject
 </rom>)xml");
         QVERIFY(!definitionPath.isEmpty());
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         fileActions.ConfigValuesStruct.ecuflash_def_cal_id = {"PARTIAL"};
         fileActions.ConfigValuesStruct.ecuflash_def_filename = {
             definitionPath,
@@ -311,14 +336,14 @@ class TestEcuflashDefinitionParsing : public QObject
         const QString definitionPath = writeDefFile(dir, "BROKEN", "<rom><romid>");
         QVERIFY(!definitionPath.isEmpty());
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         auto& config = fileActions.ConfigValuesStruct;
         config.ecuflash_definition_files_directory = dir.path();
         config.ecuflash_def_cal_id = {"sentinel-id"};
         config.ecuflash_def_cal_id_addr = {"sentinel-address"};
         config.ecuflash_def_ecu_id = {"sentinel-ecu"};
         config.ecuflash_def_filename = {"sentinel-source"};
-        QSignalSpy errorSpy(&fileActions, &FileActions::LOG_E);
 
         QCOMPARE(fileActions.create_ecuflash_def_id_list(&config), &config);
 
@@ -329,7 +354,7 @@ class TestEcuflashDefinitionParsing : public QObject
         QVERIFY(config.ecuflash_def_cal_id_addr.isEmpty());
         QVERIFY(config.ecuflash_def_ecu_id.isEmpty());
         QVERIFY(config.ecuflash_def_filename.isEmpty());
-        QCOMPARE(errorSpy.count(), 0);
+        QCOMPARE(logCountAt(eventSink, fastecu::LogLevel::Error), 0);
     }
 
     void removed_configured_definition_is_not_retried_on_refresh()
@@ -343,10 +368,10 @@ class TestEcuflashDefinitionParsing : public QObject
                                                               "</romid></rom>");
         QVERIFY(!definitionPath.isEmpty());
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         auto& config = fileActions.ConfigValuesStruct;
         config.ecuflash_definition_files_directory = workspace.path();
-        QSignalSpy errorSpy(&fileActions, &FileActions::LOG_E);
 
         QCOMPARE(fileActions.create_ecuflash_def_id_list(&config), &config);
         QCOMPARE(config.ecuflash_def_cal_id, QStringList({"REMOVED_XML"}));
@@ -355,7 +380,7 @@ class TestEcuflashDefinitionParsing : public QObject
 
         QCOMPARE(fileActions.create_ecuflash_def_id_list(&config), &config);
 
-        QVERIFY(errorSpy.isEmpty());
+        QVERIFY(logCountAt(eventSink, fastecu::LogLevel::Error) == 0);
         QVERIFY(config.ecuflash_def_cal_id.isEmpty());
         QVERIFY(config.ecuflash_def_cal_id_addr.isEmpty());
         QVERIFY(config.ecuflash_def_ecu_id.isEmpty());
@@ -370,7 +395,8 @@ class TestEcuflashDefinitionParsing : public QObject
         const QString definitionPath = writeDefFile(dir, "BROKEN", "<rom><romid>");
         QVERIFY(!definitionPath.isEmpty());
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         auto& config = fileActions.ConfigValuesStruct;
         config.ecuflash_def_cal_id = {"BROKEN"};
         config.ecuflash_def_cal_id_addr = {"0"};
@@ -385,7 +411,6 @@ class TestEcuflashDefinitionParsing : public QObject
         const QStringList romInfo = ecuCalDef.RomInfo;
         const QString definitionFileName = ecuCalDef.DefinitionFileName;
         const QStringList names = ecuCalDef.NameList;
-        QSignalSpy errorSpy(&fileActions, &FileActions::LOG_E);
 
         QCOMPARE(fileActions.read_ecuflash_ecu_def(&ecuCalDef, "BROKEN"), &ecuCalDef);
 
@@ -393,12 +418,12 @@ class TestEcuflashDefinitionParsing : public QObject
         QCOMPARE(ecuCalDef.DefinitionFileName, definitionFileName);
         QCOMPARE(ecuCalDef.NameList, names);
         QVERIFY(!ecuCalDef.use_ecuflash_definition);
-        QCOMPARE(errorSpy.count(), 1);
+        QCOMPARE(logCountAt(eventSink, fastecu::LogLevel::Error), 1);
         // The malformed file is skipped while building the catalog (see
         // DefinitionService::build_catalog), so "BROKEN" is simply absent from it rather than
         // failing with a parse error.
-        QVERIFY(spyContainsMessage(errorSpy, "definition ID not found"));
-        QVERIFY(spyContainsMessage(errorSpy, "BROKEN"));
+        QVERIFY(sinkContainsMessage(eventSink, fastecu::LogLevel::Error, "definition ID not found"));
+        QVERIFY(sinkContainsMessage(eventSink, fastecu::LogLevel::Error, "BROKEN"));
     }
 
     void missing_ecuflash_definition_reports_definition_not_found()
@@ -406,7 +431,8 @@ class TestEcuflashDefinitionParsing : public QObject
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         auto& config = fileActions.ConfigValuesStruct;
         config.ecuflash_def_cal_id = {"MISSING"};
         config.ecuflash_def_cal_id_addr = {"0"};
@@ -420,30 +446,23 @@ class TestEcuflashDefinitionParsing : public QObject
         const QStringList romInfo = ecuCalDef.RomInfo;
         const QString definitionFileName = ecuCalDef.DefinitionFileName;
         const QStringList names = ecuCalDef.NameList;
-        QSignalSpy errorSpy(&fileActions, &FileActions::LOG_E);
-        QTimer::singleShot(0,
-                           []()
-                           {
-                               if (QWidget *modal = QApplication::activeModalWidget())
-                               {
-                                   modal->close();
-                               }
-                           });
 
         // Unlike read_romraider_ecu_base_def's single required base file, this rebuilds the
         // catalog from every currently known EcuFlash file (see build_definition_catalog), so
         // the unreadable entry is skipped rather than failing the whole lookup -- "MISSING" is
         // then simply absent from the resulting (empty) catalog. The configured source file
         // still doesn't exist on disk though, so this still takes the "missing file" branch
-        // (a warning dialog, nullptr) rather than the "found but broken" branch.
+        // (a notice, nullptr) rather than the "found but broken" branch.
         QCOMPARE(fileActions.read_ecuflash_ecu_def(&ecuCalDef, "MISSING"), nullptr);
 
         QCOMPARE(ecuCalDef.RomInfo, romInfo);
         QCOMPARE(ecuCalDef.DefinitionFileName, definitionFileName);
         QCOMPARE(ecuCalDef.NameList, names);
-        QCOMPARE(errorSpy.count(), 1);
-        QVERIFY(spyContainsMessage(errorSpy, "definition ID not found"));
-        QVERIFY(spyContainsMessage(errorSpy, "MISSING"));
+        QCOMPARE(logCountAt(eventSink, fastecu::LogLevel::Error), 1);
+        QVERIFY(sinkContainsMessage(eventSink, fastecu::LogLevel::Error, "definition ID not found"));
+        QVERIFY(sinkContainsMessage(eventSink, fastecu::LogLevel::Error, "MISSING"));
+        QVERIFY(!eventSink.notices.empty());
+        QVERIFY(QString::fromStdString(eventSink.notices.front()).contains("Unable to open ECU definition file"));
     }
 
     void ecuflash_rom_match_failure_preserves_rom_id_and_logs_error()
@@ -456,7 +475,8 @@ class TestEcuflashDefinitionParsing : public QObject
                                                     "<internalidstring>TESTCAL</internalidstring></romid></rom>");
         QVERIFY(!definitionPath.isEmpty());
 
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_);
+        fastecu::RecordingEventSink eventSink;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
         fileActions.ConfigValuesStruct.ecuflash_definition_files_directory = dir.path();
         QCOMPARE(fileActions.create_ecuflash_def_id_list(&fileActions.ConfigValuesStruct),
                  &fileActions.ConfigValuesStruct);
@@ -464,13 +484,12 @@ class TestEcuflashDefinitionParsing : public QObject
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.RomId = "sentinel-rom-id";
         ecuCalDef.FullRomData = QByteArray("NO_MATCH");
-        QSignalSpy errorSpy(&fileActions, &FileActions::LOG_E);
 
         QCOMPARE(fileActions.parse_ecuid_ecuflash_def_files(&ecuCalDef, true), &ecuCalDef);
 
         QCOMPARE(ecuCalDef.RomId, QString("sentinel-rom-id"));
-        QCOMPARE(errorSpy.count(), 1);
-        QVERIFY(spyContainsMessage(errorSpy, "no matching ROM definition"));
+        QCOMPARE(logCountAt(eventSink, fastecu::LogLevel::Error), 1);
+        QVERIFY(sinkContainsMessage(eventSink, fastecu::LogLevel::Error, "no matching ROM definition"));
     }
 
   private:
@@ -506,5 +525,5 @@ class TestEcuflashDefinitionParsing : public QObject
     fastecu::InMemoryAtomicFileWriter atomicFileWriter_;
 };
 
-QTEST_MAIN(TestEcuflashDefinitionParsing)
+QTEST_APPLESS_MAIN(TestEcuflashDefinitionParsing)
 #include "ecuflash_definition_parsing_test.moc"
