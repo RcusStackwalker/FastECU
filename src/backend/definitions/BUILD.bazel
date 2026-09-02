@@ -143,7 +143,6 @@ qt_cc_library(
         "//resources/shared:config_resource",
         "//resources/shared:kernels_resource",
         "//src/algorithms/diagnostics",
-        "//src/algorithms/expression:qt_compat",
         "//src/algorithms/protocol:qt_compat",
         "//src/backend/calibration:calibration_service",
         "//src/backend/calibration:legacy_calibration_adapter",

@@ -175,17 +175,6 @@ class FileActions
      **********************************************/
     EcuCalDefStructure *save_subaru_rom_file(FileActions::EcuCalDefStructure *ecuCalDef, const QString& fileName);
 
-    /*************************************
-     * Parse expression strings for used
-     * in ROM map data conversion
-     ************************************/
-    QStringList parse_stringlist_from_expression_string(const QString& expression, const QString& x);
-
-    /**************************************************
-     * Calculate ROM map data with parsed expressions
-     *************************************************/
-    double calculate_value_from_expression(const QStringList& expression);
-
     /**************************************************
      * Parse negative response code message
      *************************************************/

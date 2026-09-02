@@ -8,7 +8,6 @@
 #include <vector>
 
 #include "src/algorithms/diagnostics/dtc_parser.h"
-#include "src/algorithms/expression/qt_expression_evaluator.h"
 #include "src/algorithms/protocol/qt_bytes.h"
 #include "src/backend/calibration/calibration_service.h"
 #include "src/algorithms/diagnostics/nrc_parser.h"
@@ -974,16 +973,6 @@ FileActions::EcuCalDefStructure *FileActions::save_subaru_rom_file(FileActions::
         events_.notice(std::format("Ecu calibration file: Unable to open file {} for writing", filename.toStdString()));
     }
     return saved;
-}
-
-QStringList FileActions::parse_stringlist_from_expression_string(const QString& expression, const QString& x)
-{
-    return ExpressionEvaluator::parse(expression, x);
-}
-
-double FileActions::calculate_value_from_expression(const QStringList& expression)
-{
-    return ExpressionEvaluator::evaluate(expression, float_precision);
 }
 
 QString FileActions::parse_nrc_message(const QByteArray& nrc)
