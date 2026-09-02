@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "src/algorithms/expression/expression_evaluator.h"
 #include "src/algorithms/menu/qt_menu_command.h"
 #include "ui_mainwindow.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
@@ -299,9 +300,9 @@ void MainWindow::inc_dec_value(const QString& action)
                             if (map_min_value != " " && map_item_value < map_min_value.toFloat())
                             {
                                 map_item_value = map_min_value.toFloat();
-                                new_rom_data_value = QString::number(fileActions->calculate_value_from_expression(
-                                    fileActions->parse_stringlist_from_expression_string(
-                                        map_value_to_byte, QString::number(map_item_value))));
+                                new_rom_data_value = QString::number(expression_evaluate(
+                                    map_value_to_byte.toStdString(), QString::number(map_item_value).toStdString(),
+                                    fileActions->float_precision));
                                 map_data_value.dword_value = new_rom_data_value.toUInt();
                                 if (map_value_storagetype == "float")
                                 {
@@ -316,9 +317,9 @@ void MainWindow::inc_dec_value(const QString& action)
                             if (map_max_value != " " && map_item_value > map_max_value.toFloat())
                             {
                                 map_item_value = map_max_value.toFloat();
-                                new_rom_data_value = QString::number(fileActions->calculate_value_from_expression(
-                                    fileActions->parse_stringlist_from_expression_string(
-                                        map_value_to_byte, QString::number(map_item_value))));
+                                new_rom_data_value = QString::number(expression_evaluate(
+                                    map_value_to_byte.toStdString(), QString::number(map_item_value).toStdString(),
+                                    fileActions->float_precision));
                                 map_data_value.dword_value = new_rom_data_value.toUInt();
                                 if (map_value_storagetype == "float")
                                 {
@@ -331,9 +332,9 @@ void MainWindow::inc_dec_value(const QString& action)
                                 break;
                             }
 
-                            new_rom_data_value = QString::number(fileActions->calculate_value_from_expression(
-                                fileActions->parse_stringlist_from_expression_string(map_value_to_byte,
-                                                                                     QString::number(map_item_value))));
+                            new_rom_data_value = QString::number(expression_evaluate(
+                                map_value_to_byte.toStdString(), QString::number(map_item_value).toStdString(),
+                                fileActions->float_precision));
                             map_data_value.dword_value = new_rom_data_value.toUInt();
                             if (map_value_storagetype == "float")
                             {
@@ -399,9 +400,9 @@ void MainWindow::inc_dec_value(const QString& action)
                             }
                         } while (rom_data_value == new_rom_data_value);
 
-                        map_item_value = fileActions->calculate_value_from_expression(
-                            fileActions->parse_stringlist_from_expression_string(map_value_from_byte,
-                                                                                 new_rom_data_value));
+                        map_item_value =
+                            expression_evaluate(map_value_from_byte.toStdString(), new_rom_data_value.toStdString(),
+                                                fileActions->float_precision);
 
                         map_data_cell_text.replace(j * mapXSize + i, QString::number(map_item_value));
 
@@ -599,9 +600,9 @@ void MainWindow::set_value()
                                 map_item_value = map_max_value.toFloat();
                             }
 
-                            rom_data_value = QString::number(fileActions->calculate_value_from_expression(
-                                fileActions->parse_stringlist_from_expression_string(map_value_to_byte,
-                                                                                     QString::number(map_item_value))));
+                            rom_data_value = QString::number(expression_evaluate(
+                                map_value_to_byte.toStdString(), QString::number(map_item_value).toStdString(),
+                                fileActions->float_precision));
                             map_data_value.dword_value = rom_data_value.toUInt();
                             if (map_value_storagetype == "float")
                             {
@@ -611,9 +612,9 @@ void MainWindow::set_value()
                             {
                                 rom_data_value = QString::number(qRound(rom_data_value.toFloat()));
                             }
-                            map_item_value = fileActions->calculate_value_from_expression(
-                                fileActions->parse_stringlist_from_expression_string(map_value_from_byte,
-                                                                                     rom_data_value));
+                            map_item_value =
+                                expression_evaluate(map_value_from_byte.toStdString(), rom_data_value.toStdString(),
+                                                    fileActions->float_precision);
                             qDebug() << "map_item_value" << map_item_value;
                             map_data_cell_text.replace(j * map_x_size + i, QString::number(map_item_value));
                             qDebug() << j * map_x_size + i << QString::number(map_item_value);
@@ -842,9 +843,9 @@ void MainWindow::interpolate_value(const QString& action)
                     for (int i = 0; i < interpolateColCount; i++)
                     {
                         uint16_t map_value_index = (j + firstRow) * map_x_size + firstCol + i;
-                        QString rom_data_value = QString::number(fileActions->calculate_value_from_expression(
-                            fileActions->parse_stringlist_from_expression_string(map_value_to_byte,
-                                                                                 QString::number(cellValue[i][j]))));
+                        QString rom_data_value = QString::number(expression_evaluate(
+                            map_value_to_byte.toStdString(), QString::number(cellValue[i][j]).toStdString(),
+                            fileActions->float_precision));
                         map_data_value.dword_value = rom_data_value.toUInt();
                         if (map_value_storagetype == "float")
                         {
@@ -854,8 +855,9 @@ void MainWindow::interpolate_value(const QString& action)
                         {
                             rom_data_value = QString::number(qRound(rom_data_value.toFloat()));
                         }
-                        float map_item_value = fileActions->calculate_value_from_expression(
-                            fileActions->parse_stringlist_from_expression_string(map_value_from_byte, rom_data_value));
+                        float map_item_value =
+                            expression_evaluate(map_value_from_byte.toStdString(), rom_data_value.toStdString(),
+                                                fileActions->float_precision);
 
                         map_data_cell_text.replace((firstRow + j) * map_x_size + firstCol + i,
                                                    QString::number(map_item_value));
@@ -980,10 +982,10 @@ void MainWindow::paste_value()
                             {
                                 uint16_t map_value_index = (j + firstRow) * map_x_size + firstCol + i;
                                 mapDataCellText.replace((j + firstRow) * map_x_size + (i + firstCol), columns[i]);
-                                QString rom_data_value = QString::number(fileActions->calculate_value_from_expression(
-                                    fileActions->parse_stringlist_from_expression_string(
-                                        map_value_to_byte,
-                                        mapDataCellText.at((j + firstRow) * map_x_size + (i + firstCol)))));
+                                QString rom_data_value = QString::number(expression_evaluate(
+                                    map_value_to_byte.toStdString(),
+                                    mapDataCellText.at((j + firstRow) * map_x_size + (i + firstCol)).toStdString(),
+                                    fileActions->float_precision));
                                 map_data_value.dword_value = rom_data_value.toUInt();
                                 if (map_value_storagetype == "float")
                                 {

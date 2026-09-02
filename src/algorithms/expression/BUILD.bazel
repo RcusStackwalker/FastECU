@@ -1,6 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:gtest_targets.bzl", "fastecu_gtest", "fastecu_portable_gtest")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS_NO_WIDGETS")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
 package(default_visibility = [
     "//src/algorithms:__subpackages__",
@@ -25,25 +24,8 @@ cc_library(
     hdrs = ["expression_evaluator.h"],
 )
 
-# TRANSITIONAL Qt shim: reinstates the pre-conversion ExpressionEvaluator
-# QString/QStringList static-method API for src/backend/definitions
-# (FileActions is not yet converted), delegating to :expression.
-cc_library(
-    name = "qt_compat",
-    srcs = ["qt_expression_evaluator.cpp"],
-    hdrs = ["qt_expression_evaluator.h"],
-    copts = COMMON_COPTS,
-    deps = QT_DEPS_NO_WIDGETS + [":expression"],
-)
-
 fastecu_portable_gtest(
     name = "expression_evaluator_test",
     srcs = ["expression_evaluator_test.cpp"],
     deps = [":expression"],
-)
-
-fastecu_gtest(
-    name = "test_expression_evaluator",
-    srcs = ["expression_evaluator_qt_compat_test.cpp"],
-    deps = [":qt_compat"],
 )
