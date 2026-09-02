@@ -49,8 +49,9 @@ for the `FileActions` breakdown:
 - TCU service-functions package — PR 1 (portable sessions) and PR 2 (desktop
   wiring), groundwork for wave 5.
 
-Steps 6 (thin desktop shell) and 7 (Android seam) have not started. The
-per-family flash tail is under way — see the
+Step 6 (thin desktop shell) is under way: 6a (de-widget `FileActions`) is
+complete — see below. The rest of step 6, and step 7 (Android seam), have
+not started. The per-family flash tail is under way — see the
 [tail design](superpowers/specs/2026-08-08-step5-tail-flash-drain-design.md)
 for the eight-wave sequencing:
 
@@ -86,11 +87,13 @@ Verified on 2026-08-06 against `master` at `9b94a9c`:
   `FlashUtils::configureIso15765Can(SerialPortActions*)`, a disclosed 5c gap)
   and `//src/backend/logging/protocols`. The rest are `src/ui/desktop` entries
   that step 6 drains, plus the legitimate same-layer `remote_utility` edge.
-- Three `:qt_compat` shims survive in `src/algorithms` (`protocol`,
-  `menu`, `expression`). The `diagnostics` shim, including `qt_dtc_parser` /
-  `qt_nrc_parser`, was drained and deleted by 5d-5; `crypto` was removed.
+- Two `:qt_compat` shims survive in `src/algorithms` (`protocol`, `menu`).
+  `expression`'s was drained and deleted by 6a-4; `diagnostics` (including
+  `qt_dtc_parser` / `qt_nrc_parser`) was drained and deleted by 5d-5;
+  `crypto` was removed.
 - The legacy `src/backend/definitions/file_actions.cpp` god object is down to
-  ~2.1k lines and is distinct from the new portable `src/backend/definition/`.
+  ~1k lines (986) and, as of 6a-3, no longer inherits `QWidget` or declares
+  `Q_OBJECT`; it is distinct from the new portable `src/backend/definition/`.
   Three named legacy adapters bridge it to portable use cases:
   `LegacyConfigAdapter`, `LegacyCalibrationAdapter`, and the flash-side
   snapshot path replaced by 5d-6's `eeprom_read_plan`.
@@ -198,13 +201,22 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
      (the `FileActions` god object), which step 6 removes by construction.
 
 6. **Finish the thin desktop shell**
-   - **6a de-widget `FileActions` — designed 2026-09-01. Slice 6a-1 (the menu
-     split) is complete; 6a-2 through 6a-5 are not started.** See the
+   - **6a de-widget `FileActions` — complete (2026-09-02).** See the
      [6a design](superpowers/specs/2026-09-01-step6a-file-actions-dewidget-design.md).
-     Scoped to run in parallel with the flash drain: it freezes the
-     `FileActions::` type/static surface so no drain-owned file under
-     `src/platform/desktop/common/flash/legacy/` or `src/ui/desktop/flash/`
-     is edited.
+     Five PRs (6a-1 menu split, 6a-2 definition-authoring dialog, 6a-3
+     `IEventSink`/`QWidget` removal, 6a-4 expression-shim drain, 6a-5 the
+     `//:backend_no_widgets` guard) ran in parallel with the flash drain
+     without editing a file under
+     `src/platform/desktop/common/flash/legacy/` or
+     `src/ui/desktop/flash/`. `FileActions` no longer inherits `QWidget` or
+     declares `Q_OBJECT`, and `//:backend_no_widgets` now enforces for all of
+     `src/backend` that no file references `QMessageBox`, `QFileDialog`,
+     `QDialog`, `QWidget`, or `Q_OBJECT` outside a comment (a `*_test.cpp`
+     file's own QtTest fixture class is the one carve-out). Removing Qt
+     *types* — `ConfigValuesStructure`/`LogValuesStructure`/
+     `EcuCalDefStructure` staying `QString`/`QStringList`-typed — was this
+     slice's explicit non-goal; see the "Replace parallel-list data models"
+     entry in the [tech-debt roadmap](tech-debt.md).
    - Implement Qt adapters for backend ports and marshal events to the GUI thread.
    - Keep `MainWindow` and dialogs responsible only for presentation, input collection, signal wiring, and calling backend use cases.
    - Move construction and platform selection into `apps/desktop`.
