@@ -7,7 +7,6 @@
 #include "ui_mainwindow.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
-#include <bit>
 #include <utility>
 
 namespace
@@ -367,25 +366,8 @@ void MainWindow::inc_dec_value(const QString& action)
 
             map_data_cell_text.replace(j * mapXSize + i, QString::number(map_item_value));
 
-            // For float storage, write_rom_data_value's raw parameter is the
-            // encoded value's IEEE-754 BIT PATTERN, not a number to convert
-            // (see write_raw_element's doc comment) -- QString::toInt() on a
-            // float-typed decimal string is wrong either way: it fails
-            // outright on a genuinely fractional string ("1.5" -> 0) and,
-            // even when it happens to succeed on a whole-number string ("2"
-            // -> 2), that integer is then misused as a bit pattern instead
-            // of a value, decoding to a tiny denormal rather than 2.0f.
-            // bit_cast the float value's bits instead.
-            std::int64_t raw;
-            if (map_value_storagetype == "float")
-            {
-                raw = static_cast<std::int64_t>(std::bit_cast<std::uint32_t>(new_rom_data_value.toFloat()));
-            }
-            else
-            {
-                raw = static_cast<std::int64_t>(new_rom_data_value.toInt());
-            }
-            write_rom_data_value(*ecuCalDef[id->rom_number], spec, map_value_index, raw);
+            write_rom_data_value(*ecuCalDef[id->rom_number], spec, map_value_index,
+                                 fastecu::ui::raw_element_value_from_text(spec, new_rom_data_value));
         }
     }
 
@@ -544,18 +526,8 @@ void MainWindow::set_value()
             map_data_cell_text.replace(j * map_x_size + i, QString::number(map_item_value));
             qDebug() << j * map_x_size + i << QString::number(map_item_value);
 
-            // See inc_dec_value's write_rom_data_value call above for why
-            // float storage needs bit_cast rather than toInt().
-            std::int64_t raw;
-            if (map_value_storagetype == "float")
-            {
-                raw = static_cast<std::int64_t>(std::bit_cast<std::uint32_t>(rom_data_value.toFloat()));
-            }
-            else
-            {
-                raw = static_cast<std::int64_t>(rom_data_value.toInt());
-            }
-            write_rom_data_value(*ecuCalDef[id->rom_number], spec, map_value_index, raw);
+            write_rom_data_value(*ecuCalDef[id->rom_number], spec, map_value_index,
+                                 fastecu::ui::raw_element_value_from_text(spec, rom_data_value));
         }
     }
 
@@ -742,18 +714,8 @@ void MainWindow::interpolate_value(const QString& action)
 
                 map_data_cell_text.replace((firstRow + j) * map_x_size + firstCol + i, QString::number(map_item_value));
 
-                // See inc_dec_value's write_rom_data_value call above for
-                // why float storage needs bit_cast rather than toInt().
-                std::int64_t raw;
-                if (map_value_storagetype == "float")
-                {
-                    raw = static_cast<std::int64_t>(std::bit_cast<std::uint32_t>(rom_data_value.toFloat()));
-                }
-                else
-                {
-                    raw = static_cast<std::int64_t>(rom_data_value.toInt());
-                }
-                write_rom_data_value(*ecuCalDef[id->rom_number], spec, map_value_index, raw);
+                write_rom_data_value(*ecuCalDef[id->rom_number], spec, map_value_index,
+                                     fastecu::ui::raw_element_value_from_text(spec, rom_data_value));
             }
         }
     }
@@ -880,20 +842,8 @@ void MainWindow::paste_value()
                                     rom_data_value = QString::number(qRound(rom_data_value.toFloat()));
                                 }
 
-                                // See inc_dec_value's write_rom_data_value
-                                // call for why float storage needs bit_cast
-                                // rather than toInt().
-                                std::int64_t raw;
-                                if (map_value_storagetype == "float")
-                                {
-                                    raw = static_cast<std::int64_t>(
-                                        std::bit_cast<std::uint32_t>(rom_data_value.toFloat()));
-                                }
-                                else
-                                {
-                                    raw = static_cast<std::int64_t>(rom_data_value.toInt());
-                                }
-                                write_rom_data_value(*ecuCalDef[rom_number], spec, map_value_index, raw);
+                                write_rom_data_value(*ecuCalDef[rom_number], spec, map_value_index,
+                                                     fastecu::ui::raw_element_value_from_text(spec, rom_data_value));
                             }
                         }
                     }
