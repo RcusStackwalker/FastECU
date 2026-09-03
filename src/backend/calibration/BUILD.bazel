@@ -15,10 +15,19 @@ exports_files(
 )
 
 cc_library(
+    name = "scaling_internal",
+    srcs = ["scaling_internal.cpp"],
+    hdrs = ["scaling_internal.h"],
+    visibility = ["//src/backend/calibration:__pkg__"],
+    deps = ["//src/algorithms/protocol"],
+)
+
+cc_library(
     name = "calibration_service",
     srcs = ["calibration_service.cpp"],
     hdrs = ["calibration_service.h"],
     deps = [
+        ":scaling_internal",
         "//src/algorithms/expression",
         "//src/algorithms/protocol",
         "//src/backend/definition:definition_model",
