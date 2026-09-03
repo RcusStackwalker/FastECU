@@ -244,30 +244,4 @@ int map_value_decimal_count(std::string_view value_format)
     return static_cast<int>(std::count(segment.begin(), segment.end(), '0'));
 }
 
-double map_cell_color_scale(double value, double min_value, double max_value)
-{
-    // Ported from get_map_cell_colors (menu_actions.cpp). min_value ==
-    // max_value divides by zero, producing a non-finite hue -- preserved
-    // verbatim; see PinnedDefect_EqualColorBoundsProduceNonFiniteHue.
-    //
-    // Legacy computed this as
-    // kScaleStart - (1.0 - (value - min_value) / (max_value - min_value)) * kScaleStart,
-    // a double negation that algebraically collapses to the single product
-    // below: kScaleStart - kScaleStart*(1 - r) == kScaleStart - kScaleStart +
-    // kScaleStart*r == kScaleStart*r for every finite r, and for a
-    // non-finite r (min_value == max_value) both forms still reduce to
-    // kScaleStart * r component-wise (NaN/Inf propagate identically through
-    // either arithmetic path), so this preserves the pinned NaN/Inf behavior
-    // exactly.
-    constexpr double kScaleStart = 210.0 / 360.0;
-    double color_value = kScaleStart * (value - min_value) / (max_value - min_value);
-
-    if (color_value < 0.0)
-    {
-        color_value = 0.0;
-    }
-
-    return color_value;
-}
-
 } // namespace fastecu::calibration

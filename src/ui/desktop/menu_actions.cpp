@@ -1464,7 +1464,21 @@ int MainWindow::get_map_cell_colors(FileActions::EcuCalDefStructure *ecuCalDef, 
     mapMinValue = ecuCalDef->MapCellColorMin.at(mapIndex).toFloat();
     mapMaxValue = ecuCalDef->MapCellColorMax.at(mapIndex).toFloat();
 
-    const double color_value = fastecu::calibration::map_cell_color_scale(mapDataValue, mapMinValue, mapMaxValue);
+    // Maps mapMinValue -> hue 0, mapMaxValue -> hue 210/360, clamping
+    // below-range values to 0. mapMinValue == mapMaxValue would divide by
+    // zero, producing a non-finite hue that's undefined (effectively
+    // invalid) as a QColor::setHsvF argument -- guarded to 0.0 instead, a
+    // well-defined choice consistent with the below-range clamp just below.
+    constexpr double kScaleStart = 210.0 / 360.0;
+    double color_value = 0.0;
+    if (mapMaxValue != mapMinValue)
+    {
+        color_value = kScaleStart * (mapDataValue - mapMinValue) / (mapMaxValue - mapMinValue);
+        if (color_value < 0.0)
+        {
+            color_value = 0.0;
+        }
+    }
 
     QColor color;
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
