@@ -1308,9 +1308,10 @@ void MainWindow::set_maptablewidget_items()
                     }
                     else
                     {
-                        xScaleCellDataText = QString::number(
-                            xScaleCellText.at(i).toFloat(), 'f',
-                            get_mapvalue_decimal_count(ecuCalDef[mapRomNumber]->XScaleFormatList.at(mapNumber)));
+                        xScaleCellDataText =
+                            QString::number(xScaleCellText.at(i).toFloat(), 'f',
+                                            fastecu::calibration::map_value_decimal_count(
+                                                ecuCalDef[mapRomNumber]->XScaleFormatList.at(mapNumber).toStdString()));
                     }
 
                     if (i < xScaleCellText.count())
@@ -1333,7 +1334,8 @@ void MainWindow::set_maptablewidget_items()
                     {
                         cellItem->setText(QString::number(
                             yScaleCellText.at(i).toFloat(), 'f',
-                            get_mapvalue_decimal_count(ecuCalDef[mapRomNumber]->YScaleFormatList.at(mapNumber))));
+                            fastecu::calibration::map_value_decimal_count(
+                                ecuCalDef[mapRomNumber]->YScaleFormatList.at(mapNumber).toStdString())));
                     }
                 }
             }
@@ -1380,22 +1382,11 @@ void MainWindow::set_maptablewidget_items()
                 {
                     cellItem->setText(
                         QString::number(mapDataCellText.at(i).toFloat(), 'f',
-                                        get_mapvalue_decimal_count(ecuCalDef[mapRomNumber]->FormatList.at(mapNumber))));
+                                        fastecu::calibration::map_value_decimal_count(
+                                            ecuCalDef[mapRomNumber]->FormatList.at(mapNumber).toStdString())));
                 }
             }
         }
-    }
-}
-
-int MainWindow::get_mapvalue_decimal_count(const QString& valueFormat)
-{
-    if (valueFormat.contains("."))
-    {
-        return valueFormat.split(".").at(1).count(QLatin1Char('0'));
-    }
-    else
-    {
-        return 0; // valueFormat.count(QLatin1Char('0'));
     }
 }
 
@@ -1404,14 +1395,13 @@ int MainWindow::get_map_cell_colors(FileActions::EcuCalDefStructure *ecuCalDef, 
     int mapCellColors;
     float mapMinValue = 0;
     float mapMaxValue = 0;
-    float scale_start = (210.0 / 360.0);
 
     mapMinValue = ecuCalDef->MapCellColorMin.at(mapIndex).toFloat();
     mapMaxValue = ecuCalDef->MapCellColorMax.at(mapIndex).toFloat();
 
+    const double color_value = fastecu::calibration::map_cell_color_scale(mapDataValue, mapMinValue, mapMaxValue);
+
     QColor color;
-    float color_scale = (1 - (mapDataValue - mapMinValue) / (mapMaxValue - mapMinValue)) * scale_start;
-    float color_value = scale_start - color_scale;
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     double r = 0;
     double g = 0;
@@ -1422,17 +1412,9 @@ int MainWindow::get_map_cell_colors(FileActions::EcuCalDefStructure *ecuCalDef, 
     float b = 0;
 #endif
 
-    if (color_value < 0)
-    {
-        color_value = 0;
-    }
-
     color.setHsvF(color_value, 0.85, 0.85);
     color.getRgbF(&r, &g, &b);
     mapCellColors = ((int)(r * 255) << 16) + ((int)(g * 255) << 8) + b * 255;
-
-    // qDebug() << "Map min:" << mapMinValue << "Map max:" << mapMaxValue << "color scale:" << color_scale << "scale
-    // start:" << scale_start;
 
     return mapCellColors;
 }

@@ -1,5 +1,6 @@
 #include "src/backend/calibration/map_edit.h"
 
+#include <algorithm>
 #include <array>
 #include <bit>
 #include <cmath>
@@ -219,6 +220,42 @@ Result<std::vector<std::uint8_t>> encode_scaled_value(const MapElementSpec& spec
     }
 
     return write_raw_element(spec, raw, legacy_byte_order);
+}
+
+int map_value_decimal_count(std::string_view value_format)
+{
+    // Ported from get_mapvalue_decimal_count (menu_actions.cpp). Legacy's
+    // QString::split(".").at(1) is the segment between the FIRST and SECOND
+    // '.', not everything after the first '.' -- reproduced here by
+    // searching for a second '.' and bounding the counted segment at it.
+    const std::size_t first_dot = value_format.find('.');
+    if (first_dot == std::string_view::npos)
+    {
+        return 0;
+    }
+
+    const std::size_t second_dot = value_format.find('.', first_dot + 1);
+    const std::string_view segment = value_format.substr(
+        first_dot + 1, second_dot == std::string_view::npos ? std::string_view::npos : second_dot - (first_dot + 1));
+
+    return static_cast<int>(std::count(segment.begin(), segment.end(), '0'));
+}
+
+double map_cell_color_scale(double value, double min_value, double max_value)
+{
+    // Ported from get_map_cell_colors (menu_actions.cpp). min_value ==
+    // max_value divides by zero, producing a non-finite hue -- preserved
+    // verbatim; see PinnedDefect_EqualColorBoundsProduceNonFiniteHue.
+    constexpr double kScaleStart = 210.0 / 360.0;
+    const double color_scale = (1.0 - (value - min_value) / (max_value - min_value)) * kScaleStart;
+    double color_value = kScaleStart - color_scale;
+
+    if (color_value < 0.0)
+    {
+        color_value = 0.0;
+    }
+
+    return color_value;
 }
 
 } // namespace fastecu::calibration

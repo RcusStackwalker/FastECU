@@ -181,4 +181,32 @@ Result<std::vector<std::uint8_t>> write_raw_element(const MapElementSpec& spec, 
 Result<std::vector<std::uint8_t>> encode_scaled_value(const MapElementSpec& spec, double display_value,
                                                       int float_precision, bool legacy_byte_order);
 
+// Display helpers: pure formatting computations pulled out of
+// get_mapvalue_decimal_count and get_map_cell_colors (menu_actions.cpp).
+// Neither touches ROM data; both feed how a value is rendered in the map
+// grid widget.
+
+// How many decimal places to render a cell's value with, reproducing
+// get_mapvalue_decimal_count. `value_format` is a RomRaider-style format
+// string (e.g. "0.00"); legacy counts the `'0'` characters in the segment
+// between the FIRST and SECOND '.' -- QString::split(".").at(1), not
+// everything after the first '.' -- so a format string with more than one
+// '.' only has its first fractional segment counted. No '.' at all returns
+// 0.
+int map_value_decimal_count(std::string_view value_format);
+
+// The HSV hue for a map cell's background color, reproducing the
+// color_scale/color_value arithmetic in get_map_cell_colors. Maps
+// `min_value` to 0 and `max_value` to the top of the range (210/360),
+// clamping negative results (values below `min_value`) to 0. The
+// QColor::setHsvF/getRgbF conversion to a packed RGB int stays in
+// menu_actions.cpp, since that's presentation, not logic.
+//
+// PinnedDefect_EqualColorBoundsProduceNonFiniteHue (map_edit_test.cpp): when
+// `min_value == max_value`, the division by zero in this formula produces a
+// non-finite hue -- preserved verbatim from legacy. Display-only (no ROM
+// write involved), so it does not join the write-path defects the spec
+// tracks for the 6b-4 fix wave.
+double map_cell_color_scale(double value, double min_value, double max_value);
+
 } // namespace fastecu::calibration

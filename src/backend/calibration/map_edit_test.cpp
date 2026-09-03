@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <cmath>
 #include <cstdint>
 #include <string_view>
 #include <vector>
@@ -668,6 +669,41 @@ TEST(ResolveEditTarget, EmptySelectionProducesAZeroCountElementRange)
     EXPECT_EQ(target.range.last_row, -1);
     EXPECT_EQ(target.range.first_col, 0);
     EXPECT_EQ(target.range.last_col, -1);
+}
+
+TEST(MapValueDecimalCount, CountsZerosAfterTheDecimalPoint)
+{
+    EXPECT_EQ(map_value_decimal_count("0.00"), 2);
+    EXPECT_EQ(map_value_decimal_count("0.000"), 3);
+    EXPECT_EQ(map_value_decimal_count("0"), 0);
+    EXPECT_EQ(map_value_decimal_count(""), 0);
+}
+
+TEST(MapCellColorScale, MapsTheMinimumToTheTopOfTheHueRange)
+{
+    // scale_start is 210/360; the legacy formula sends min -> 0 and max ->
+    // scale_start.
+    EXPECT_DOUBLE_EQ(map_cell_color_scale(0.0, 0.0, 100.0), 0.0);
+    EXPECT_DOUBLE_EQ(map_cell_color_scale(100.0, 0.0, 100.0), 210.0 / 360.0);
+}
+
+TEST(MapCellColorScale, ClampsBelowTheMinimumToZero)
+{
+    EXPECT_DOUBLE_EQ(map_cell_color_scale(-50.0, 0.0, 100.0), 0.0);
+}
+
+// Display-only defect: MapCellColorMin == MapCellColorMax (a definition
+// coloring a map with a flat range) divides by zero in the legacy formula.
+// value == min_value == max_value makes both the numerator and denominator
+// zero, so every step operates on 0.0/0.0 (NaN) rather than a signed
+// infinity -- unambiguously non-finite regardless of the sign of
+// scale_start. This is presentation-only (no ROM write involved) and does
+// not join the write-path defects the spec tracks for the 6b-4 fix wave.
+TEST(MapCellColorScale, PinnedDefect_EqualColorBoundsProduceNonFiniteHue)
+{
+    const double result = map_cell_color_scale(50.0, 50.0, 50.0);
+
+    EXPECT_TRUE(std::isnan(result));
 }
 
 } // namespace
