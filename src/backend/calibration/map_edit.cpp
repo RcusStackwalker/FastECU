@@ -122,33 +122,46 @@ Result<std::int64_t> read_raw_element(bytes::ByteView rom_data, const MapElement
     return 0;
 }
 
-Result<std::vector<std::uint8_t>> encode_scaled_value(const MapElementSpec& spec, double display_value,
-                                                      int float_precision, bool legacy_byte_order)
+Result<std::vector<std::uint8_t>> write_raw_element(const MapElementSpec& spec, std::int64_t raw,
+                                                    bool legacy_byte_order)
 {
     const std::uint32_t width = definition::storage_byte_size(spec.storage_type);
     const bool is_float = spec.storage_type == definition::StorageType::Float;
 
-    const double encoded =
-        expression_evaluate(spec.to_byte, format_like_qt_g(display_value, float_precision), float_precision);
-
-    std::uint32_t raw = 0;
-    if (is_float)
-    {
-        raw = std::bit_cast<std::uint32_t>(static_cast<float>(encoded));
-    }
-    else
-    {
-        raw = static_cast<std::uint32_t>(std::llround(encoded));
-    }
+    // `raw`'s low 32 bits are packed bit-for-bit -- for float storage this is
+    // already the encoded float's bit pattern, not a number to convert; see
+    // this function's doc comment.
+    const std::uint32_t packed = static_cast<std::uint32_t>(raw);
 
     std::vector<std::uint8_t> out(width, 0x00);
     const bool little_endian = !is_float && ((spec.endian == "little") != legacy_byte_order);
     for (std::uint32_t k = 0; k < width; ++k)
     {
         const std::uint32_t shift = little_endian ? (8U * k) : (8U * (width - 1U - k));
-        out[k] = static_cast<std::uint8_t>((raw >> shift) & 0xFFU);
+        out[k] = static_cast<std::uint8_t>((packed >> shift) & 0xFFU);
     }
     return out;
+}
+
+Result<std::vector<std::uint8_t>> encode_scaled_value(const MapElementSpec& spec, double display_value,
+                                                      int float_precision, bool legacy_byte_order)
+{
+    const bool is_float = spec.storage_type == definition::StorageType::Float;
+
+    const double encoded =
+        expression_evaluate(spec.to_byte, format_like_qt_g(display_value, float_precision), float_precision);
+
+    std::int64_t raw = 0;
+    if (is_float)
+    {
+        raw = static_cast<std::int64_t>(std::bit_cast<std::uint32_t>(static_cast<float>(encoded)));
+    }
+    else
+    {
+        raw = static_cast<std::int64_t>(static_cast<std::uint32_t>(std::llround(encoded)));
+    }
+
+    return write_raw_element(spec, raw, legacy_byte_order);
 }
 
 } // namespace fastecu::calibration

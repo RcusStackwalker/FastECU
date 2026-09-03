@@ -63,12 +63,49 @@ std::uint64_t element_byte_address(const MapElementSpec& spec, std::uint32_t ind
 // rom_data's end; legacy indexed QByteArray::at() unchecked here.
 Result<std::int64_t> read_raw_element(bytes::ByteView rom_data, const MapElementSpec& spec, std::uint32_t index);
 
-// Encodes `display_value` into `spec`'s on-ROM byte representation, reproducing
-// the encode half shared verbatim by the three edit call sites in
-// menu_actions.cpp (set_rom_data_value's callers). Runs `display_value`
-// through spec.to_byte via expression_evaluate, using the same
-// format_like_qt_g formatter decode_scaled_values uses, so the two cannot
-// drift on how a double becomes the string an expression sees.
+// The byte-packing half of encode_scaled_value: writes an ALREADY-ENCODED
+// raw value, with no expression evaluation and no rounding. This is the
+// faithful portable equivalent of legacy set_rom_data_value, whose callers
+// hand it a raw value smuggled through a float bit pattern (see
+// menu_actions.cpp's `map_data_value.dword_value = new_rom_data_value.toInt();`
+// followed by passing `map_data_value.float_value` through the float
+// parameter, which round-trips the same bits unchanged) -- set_rom_data_value
+// itself performs no expression evaluation or rounding, only byte packing.
+//
+// For `StorageType::Float`, `raw`'s low 32 bits ARE the float's bit pattern
+// (not a numeric value to convert): legacy's `map_data_value.float_value`
+// argument already carries the encoded bits, and set_rom_data_value packs
+// `.byte_value[]` -- an alias over the same union storage -- directly,
+// without ever re-interpreting them as a floating-point number. Packed here
+// the same way: bit-for-bit, via the low 32 bits of `raw`.
+//
+// `legacy_byte_order` carries the same two measured, DIFFERENT non-float
+// multi-byte write orders as encode_scaled_value (see its comment for the
+// measurements); floats are unaffected by the flag in either mode, always
+// written big-endian-in-ROM.
+Result<std::vector<std::uint8_t>> write_raw_element(const MapElementSpec& spec, std::int64_t raw,
+                                                    bool legacy_byte_order);
+
+// Encodes `display_value` into `spec`'s on-ROM byte representation. Runs
+// `display_value` through spec.to_byte via expression_evaluate, using the
+// same format_like_qt_g formatter decode_scaled_values uses, so the two
+// cannot drift on how a double becomes the string an expression sees, then
+// rounds (llround for non-float, bit_cast for float) and delegates the
+// actual byte packing to write_raw_element -- the two functions cannot drift
+// on byte order because there is only one packing loop.
+//
+// This is the "display value in, on-ROM bytes out" half of a calibration
+// edit -- the primitive the edit operations in Tasks 8-11 need. It is NOT a
+// faithful port of legacy set_rom_data_value: that function is a raw byte
+// writer with no expression evaluation of its own (see write_raw_element).
+// menu_actions.cpp's edit loops must therefore call write_raw_element with
+// the raw value they already compute via their own to_byte/round arithmetic,
+// not this function -- routing set_rom_data_value's callers through
+// encode_scaled_value would re-run to_byte (and round with a different
+// primitive: llround/double here vs. legacy's qRound/float), which is only
+// a no-op when to_byte/from_byte are exact inverses and format_like_qt_g is
+// lossless at the configured precision. Neither is guaranteed for real
+// definitions.
 //
 // `legacy_byte_order` selects between two measured, DIFFERENT non-float
 // multi-byte write orders -- mirroring how element_byte_address carries both
