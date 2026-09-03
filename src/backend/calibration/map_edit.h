@@ -97,6 +97,14 @@ struct MapElementSpec
     std::string_view max_value{" "};
     double coarse_increment{0.0};
     double fine_increment{0.0};
+    // The map's own geometry (from XSizeList/YSizeList), NOT the resolved
+    // edit-run width. In particular this does NOT carry the Y-axis override
+    // to 1 that EditTarget::x_size (above) does -- indexing a Y-axis edit's
+    // cells with this field instead of the resolved EditTarget::x_size
+    // silently writes to the wrong ROM offset. Nothing in this file
+    // currently reads these fields for indexing; any future caller doing
+    // per-cell indexing math from a MapElementSpec must use the resolved
+    // width, not this one.
     std::uint32_t x_size{1};
     std::uint32_t y_size{1};
     // The wrx02 relocation inputs. Carried as data rather than read from a

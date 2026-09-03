@@ -7,6 +7,8 @@
 #include "ui_mainwindow.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
+#include <utility>
+
 namespace
 {
 
@@ -212,6 +214,14 @@ void MainWindow::inc_dec_value(const QString& action)
     const int mapXSize = static_cast<int>(edit->x_size());
     QString map_value_to_byte = QString::fromStdString(std::string(spec.to_byte));
     QString map_value_from_byte = QString::fromStdString(std::string(spec.from_byte));
+    // storage_type_text collapses any unrecognized/unset storage type to ""
+    // (definition_model.cpp), which would make an exotic type compare
+    // differently against the startsWith("uint")/startsWith("int") checks
+    // below than legacy's raw string did -- but this is unreachable here:
+    // storage_type_text is the sole producer of XScaleStorageTypeList/
+    // YScaleStorageTypeList/StorageTypeList (legacy_definition_adapter.cpp),
+    // so spec.storage_type can only ever be a value that function already
+    // knows how to spell out.
     QString map_value_storagetype = QString::fromStdString(fastecu::definition::storage_type_text(spec.storage_type));
     QString map_min_value = QString::fromStdString(std::string(spec.min_value));
     QString map_max_value = QString::fromStdString(std::string(spec.max_value));
@@ -369,9 +379,22 @@ void MainWindow::inc_dec_value(const QString& action)
     case fastecu::calibration::EditTargetKind::XAxis:
         ecuCalDef[id->rom_number]->XScaleData.replace(id->map_number, map_data_cell_text.join(","));
         break;
-    default:
+    case fastecu::calibration::EditTargetKind::MapBody:
         ecuCalDef[id->rom_number]->MapData.replace(id->map_number, map_data_cell_text.join(","));
         break;
+    case fastecu::calibration::EditTargetKind::Rejected:
+        // A programming error at this point -- resolve_active_map_edit
+        // already returns nullopt for a Rejected target, and every caller of
+        // this switch returns early on that before reaching here (see the
+        // `if (!edit) { return; }` above). std::unreachable() cannot
+        // silently continue: reaching it is undefined behavior by contract,
+        // not a soft default -- matching the reasoning in
+        // map_edit_adapter.cpp's collect_map_element_fields, which hits the
+        // same genuinely-unreachable case. Written as an explicit case
+        // rather than `default:` so the compiler's -Wswitch catches any
+        // future EditTargetKind enumerator added without updating this
+        // switch.
+        std::unreachable();
     }
 
     set_maptablewidget_items();
@@ -415,6 +438,14 @@ void MainWindow::set_value()
     const int map_x_size = static_cast<int>(edit->x_size());
     QString map_value_to_byte = QString::fromStdString(std::string(spec.to_byte));
     QString map_value_from_byte = QString::fromStdString(std::string(spec.from_byte));
+    // storage_type_text collapses any unrecognized/unset storage type to ""
+    // (definition_model.cpp), which would make an exotic type compare
+    // differently against the startsWith("uint")/startsWith("int") checks
+    // below than legacy's raw string did -- but this is unreachable here:
+    // storage_type_text is the sole producer of XScaleStorageTypeList/
+    // YScaleStorageTypeList/StorageTypeList (legacy_definition_adapter.cpp),
+    // so spec.storage_type can only ever be a value that function already
+    // knows how to spell out.
     QString map_value_storagetype = QString::fromStdString(fastecu::definition::storage_type_text(spec.storage_type));
     QString map_min_value = QString::fromStdString(std::string(spec.min_value));
     QString map_max_value = QString::fromStdString(std::string(spec.max_value));
@@ -508,9 +539,22 @@ void MainWindow::set_value()
     case fastecu::calibration::EditTargetKind::XAxis:
         ecuCalDef[id->rom_number]->XScaleData.replace(id->map_number, map_data_cell_text.join(","));
         break;
-    default:
+    case fastecu::calibration::EditTargetKind::MapBody:
         ecuCalDef[id->rom_number]->MapData.replace(id->map_number, map_data_cell_text.join(","));
         break;
+    case fastecu::calibration::EditTargetKind::Rejected:
+        // A programming error at this point -- resolve_active_map_edit
+        // already returns nullopt for a Rejected target, and every caller of
+        // this switch returns early on that before reaching here (see the
+        // `if (!edit) { return; }` above). std::unreachable() cannot
+        // silently continue: reaching it is undefined behavior by contract,
+        // not a soft default -- matching the reasoning in
+        // map_edit_adapter.cpp's collect_map_element_fields, which hits the
+        // same genuinely-unreachable case. Written as an explicit case
+        // rather than `default:` so the compiler's -Wswitch catches any
+        // future EditTargetKind enumerator added without updating this
+        // switch.
+        std::unreachable();
     }
 
     set_maptablewidget_items();
@@ -541,6 +585,14 @@ void MainWindow::interpolate_value(const QString& action)
     const int map_x_size = static_cast<int>(edit->x_size());
     QString map_value_to_byte = QString::fromStdString(std::string(spec.to_byte));
     QString map_value_from_byte = QString::fromStdString(std::string(spec.from_byte));
+    // storage_type_text collapses any unrecognized/unset storage type to ""
+    // (definition_model.cpp), which would make an exotic type compare
+    // differently against the startsWith("uint")/startsWith("int") checks
+    // below than legacy's raw string did -- but this is unreachable here:
+    // storage_type_text is the sole producer of XScaleStorageTypeList/
+    // YScaleStorageTypeList/StorageTypeList (legacy_definition_adapter.cpp),
+    // so spec.storage_type can only ever be a value that function already
+    // knows how to spell out.
     QString map_value_storagetype = QString::fromStdString(fastecu::definition::storage_type_text(spec.storage_type));
 
     QStringList map_data_cell_text;
@@ -676,9 +728,22 @@ void MainWindow::interpolate_value(const QString& action)
     case fastecu::calibration::EditTargetKind::XAxis:
         ecuCalDef[id->rom_number]->XScaleData.replace(id->map_number, map_data_cell_text.join(","));
         break;
-    default:
+    case fastecu::calibration::EditTargetKind::MapBody:
         ecuCalDef[id->rom_number]->MapData.replace(id->map_number, map_data_cell_text.join(","));
         break;
+    case fastecu::calibration::EditTargetKind::Rejected:
+        // A programming error at this point -- resolve_active_map_edit
+        // already returns nullopt for a Rejected target, and every caller of
+        // this switch returns early on that before reaching here (see the
+        // `if (!edit) { return; }` above). std::unreachable() cannot
+        // silently continue: reaching it is undefined behavior by contract,
+        // not a soft default -- matching the reasoning in
+        // map_edit_adapter.cpp's collect_map_element_fields, which hits the
+        // same genuinely-unreachable case. Written as an explicit case
+        // rather than `default:` so the compiler's -Wswitch catches any
+        // future EditTargetKind enumerator added without updating this
+        // switch.
+        std::unreachable();
     }
 
     set_maptablewidget_items();

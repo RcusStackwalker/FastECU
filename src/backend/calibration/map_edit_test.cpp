@@ -601,6 +601,18 @@ TEST(ResolveEditTarget, StaticScaleTypesRejectAnAxisEdit)
     }
 }
 
+TEST(ResolveEditTarget, StaticScaleTypesRejectAnXAxisEdit)
+{
+    // first_row == 0 with x_size > 1, and first_col != 0 so the Y-axis
+    // branch's first_col == 0 check does not fire first -- this exercises
+    // the X-axis branch's own is_static_scale rejection, which
+    // StaticScaleTypesRejectAnAxisEdit above never reaches (its selection has
+    // first_col == 0, so both loop iterations take the Y-axis branch).
+    const auto target = resolve_edit_target({.first_row = 0, .first_col = 1, .last_row = 0, .last_col = 1},
+                                            {.x_size = 4, .y_size = 4}, "Static X Axis");
+    EXPECT_EQ(target.kind, EditTargetKind::Rejected);
+}
+
 TEST(ResolveEditTarget, SingleColumnMapShiftsRowsBackIntoRange)
 {
     // x_size == 1 and a non-static scale type: legacy adds 1 to both rows.
