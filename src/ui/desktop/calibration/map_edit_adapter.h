@@ -113,6 +113,28 @@ std::optional<MapWindowId> parse_map_window_id(QMdiSubWindow *window);
 class ResolvedEdit
 {
   public:
+    // cell_text_ is a cache of string_views into owned_cell_text_, built once
+    // in the constructor. Moving is safe (moving a std::vector<std::string>
+    // keeps every element's address stable, so cell_text_'s views stay
+    // valid), but an implicit copy would deep-copy owned_cell_text_ into new
+    // storage while shallow-copying cell_text_ verbatim -- leaving the
+    // copy's views dangling into the ORIGINAL object's strings. Copy is
+    // deleted rather than left implicit so that hazard is a compile error,
+    // not a landmine for the next caller; mirrors MapElementFields::spec()
+    // const&& = delete's defensive instinct above.
+    //
+    // The move operations must be declared explicitly, not left to the
+    // compiler: a user-declared copy constructor (even one marked = delete)
+    // suppresses the implicitly-declared move constructor entirely (it is
+    // not implicitly deleted -- it is simply not declared), so without this
+    // the class would end up with neither copy nor move and `return
+    // ResolvedEdit(...)` / `auto edit = resolve_active_map_edit(...)` would
+    // fail to compile.
+    ResolvedEdit(const ResolvedEdit&) = delete;
+    ResolvedEdit& operator=(const ResolvedEdit&) = delete;
+    ResolvedEdit(ResolvedEdit&&) = default;
+    ResolvedEdit& operator=(ResolvedEdit&&) = default;
+
     calibration::MapElementSpec spec() const&
     {
         return fields_.spec();
