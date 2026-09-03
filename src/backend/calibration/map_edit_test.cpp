@@ -565,5 +565,110 @@ TEST(WriteRawElement, LegacyByteOrderFlagSelectsWriteOrder)
     EXPECT_EQ(*float_correct, *float_legacy);
 }
 
+TEST(ResolveEditTarget, LeftColumnSelectionOnAMultiRowMapTargetsTheYAxis)
+{
+    // Widget column 0 is the Y-axis header column.
+    const auto target = resolve_edit_target({.first_row = 1, .first_col = 0, .last_row = 2, .last_col = 0},
+                                            {.x_size = 4, .y_size = 4}, "Y Axis");
+
+    EXPECT_EQ(target.kind, EditTargetKind::YAxis);
+    // Legacy subtracts 1 from every bound, then adds 1 back to both columns.
+    EXPECT_EQ(target.range.first_col, 0);
+    EXPECT_EQ(target.range.last_col, 0);
+    EXPECT_EQ(target.range.first_row, 0);
+    // The Y axis is one element wide regardless of the map's x_size.
+    EXPECT_EQ(target.x_size, 1U);
+}
+
+TEST(ResolveEditTarget, TopRowSelectionOnAMultiColumnMapTargetsTheXAxis)
+{
+    const auto target = resolve_edit_target({.first_row = 0, .first_col = 1, .last_row = 0, .last_col = 3},
+                                            {.x_size = 4, .y_size = 4}, "X Axis");
+
+    EXPECT_EQ(target.kind, EditTargetKind::XAxis);
+    EXPECT_EQ(target.range.first_row, 0);
+    EXPECT_EQ(target.x_size, 4U);
+}
+
+TEST(ResolveEditTarget, StaticScaleTypesRejectAnAxisEdit)
+{
+    for (const std::string_view type : {"Static X Axis", "Static Y Axis"})
+    {
+        const auto target = resolve_edit_target({.first_row = 1, .first_col = 0, .last_row = 2, .last_col = 0},
+                                                {.x_size = 4, .y_size = 4}, type);
+        EXPECT_EQ(target.kind, EditTargetKind::Rejected) << type;
+    }
+}
+
+TEST(ResolveEditTarget, SingleColumnMapShiftsRowsBackIntoRange)
+{
+    // x_size == 1 and a non-static scale type: legacy adds 1 to both rows.
+    const auto target = resolve_edit_target({.first_row = 1, .first_col = 1, .last_row = 2, .last_col = 1},
+                                            {.x_size = 1, .y_size = 8}, "Y Axis");
+
+    EXPECT_EQ(target.kind, EditTargetKind::MapBody);
+    EXPECT_EQ(target.range.first_row, 1);
+    EXPECT_EQ(target.range.last_row, 2);
+}
+
+TEST(ResolveEditTarget, SingleRowMapShiftsColumnsBackIntoRange)
+{
+    // y_size == 1 and a non-static scale type: legacy adds 1 to both columns,
+    // symmetric to SingleColumnMapShiftsRowsBackIntoRange above.
+    const auto target = resolve_edit_target({.first_row = 1, .first_col = 1, .last_row = 1, .last_col = 2},
+                                            {.x_size = 8, .y_size = 1}, "X Axis");
+
+    EXPECT_EQ(target.kind, EditTargetKind::MapBody);
+    EXPECT_EQ(target.range.first_col, 1);
+    EXPECT_EQ(target.range.last_col, 2);
+}
+
+TEST(ResolveEditTarget, BodySelectionOnAMapThatIsNeitherOneByNNorNByOne)
+{
+    // Neither axis condition is met (selection doesn't touch row/column 0)
+    // and neither dimension is 1, so no branch fires: a plain `-1` shift.
+    const auto target = resolve_edit_target({.first_row = 2, .first_col = 2, .last_row = 3, .last_col = 3},
+                                            {.x_size = 4, .y_size = 4}, "X Axis");
+
+    EXPECT_EQ(target.kind, EditTargetKind::MapBody);
+    EXPECT_EQ(target.range.first_row, 1);
+    EXPECT_EQ(target.range.first_col, 1);
+    EXPECT_EQ(target.range.last_row, 2);
+    EXPECT_EQ(target.range.last_col, 2);
+    EXPECT_EQ(target.x_size, 4U);
+}
+
+TEST(ResolveEditTarget, WidgetRowZeroOnASingleColumnMapFallsThroughToTheBodyBranch)
+{
+    // The X-axis branch requires x_size > 1; with x_size == 1, a selection
+    // at widget row 0 falls through to the body branch instead, which itself
+    // shifts rows back because x_size == 1 (no row-0 header to reserve).
+    const auto target = resolve_edit_target({.first_row = 0, .first_col = 1, .last_row = 0, .last_col = 1},
+                                            {.x_size = 1, .y_size = 4}, "Y Axis");
+
+    EXPECT_EQ(target.kind, EditTargetKind::MapBody);
+    EXPECT_EQ(target.range.first_row, 0);
+    EXPECT_EQ(target.range.last_row, 0);
+}
+
+// "Empty" here means a selection whose element-coordinate range spans zero
+// elements after adjustment (last < first in both dimensions). A live
+// QTableWidgetSelectionRange can't actually produce this -- its
+// rightColumn()/bottomRow() are never less than leftColumn()/topRow() -- but
+// resolve_edit_target has no such invariant to lean on, so this pins the
+// degenerate-input behavior: it still resolves mechanically from the
+// boundary fields, with no special-casing for a zero-count range.
+TEST(ResolveEditTarget, EmptySelectionProducesAZeroCountElementRange)
+{
+    const auto target = resolve_edit_target({.first_row = 1, .first_col = 1, .last_row = 0, .last_col = 0},
+                                            {.x_size = 4, .y_size = 4}, "X Axis");
+
+    EXPECT_EQ(target.kind, EditTargetKind::MapBody);
+    EXPECT_EQ(target.range.first_row, 0);
+    EXPECT_EQ(target.range.last_row, -1);
+    EXPECT_EQ(target.range.first_col, 0);
+    EXPECT_EQ(target.range.last_col, -1);
+}
+
 } // namespace
 } // namespace fastecu::calibration

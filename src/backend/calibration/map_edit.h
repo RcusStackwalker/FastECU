@@ -25,6 +25,61 @@ enum class EditTargetKind
     Rejected,
 };
 
+// A selection rectangle in the map grid widget's own coordinates: row 0 and
+// column 0 are the axis header row/column, data cells start at (1, 1). This
+// is what resolve_edit_target consumes -- QTableWidgetSelectionRange's
+// leftColumn()/topRow()/rightColumn()/bottomRow(), carried as plain data so
+// the rule is testable without a QTableWidget.
+struct SelectionRange
+{
+    int first_row{0};
+    int first_col{0};
+    int last_row{0};
+    int last_col{0};
+};
+
+// A map's element-grid extent, as read from XSizeList/YSizeList.
+struct MapDimensions
+{
+    std::uint32_t x_size{0};
+    std::uint32_t y_size{0};
+};
+
+// The result of resolving a widget selection to the element run it targets:
+// which run (`kind`), the selection translated into element coordinates
+// (`range`), and the element width of that run (`x_size` -- 1 for YAxis,
+// unchanged for XAxis/MapBody, since legacy overrides mapXSize to 1 only on
+// the Y-axis branch).
+struct EditTarget
+{
+    EditTargetKind kind{EditTargetKind::MapBody};
+    SelectionRange range;
+    std::uint32_t x_size{0};
+};
+
+// Decides which of a map's three element runs (body / X axis / Y axis) a
+// widget-coordinate selection targets, reproducing the three-way branch
+// duplicated verbatim across inc_dec_value, set_value, and interpolate_value
+// in menu_actions.cpp -- inc_dec_value is the canonical copy transcribed
+// here, being the only one that reads every field this rule governs.
+//
+// `selection` arrives in widget coordinates (see SelectionRange); the
+// returned `range` is in element coordinates, with legacy's `-1` applied to
+// every bound first, then each branch's own `++` adjustments folded in:
+//   - leftColumn() == 0 with a multi-row map targets the Y axis: both column
+//     bounds shift back by the same `-1`/`+1` pair, and x_size collapses to
+//     1 (the Y axis is one element wide regardless of the map's own
+//     x_size).
+//   - otherwise, topRow() == 0 with a multi-column map targets the X axis:
+//     both row bounds get the same shift-back.
+//   - otherwise it's the map body: a 1-column map (x_size == 1) still shifts
+//     its row bounds back (there is no row-0 header to reserve), and a
+//     1-row map (y_size == 1) shifts its column bounds back, symmetrically.
+// A "Static X Axis"/"Static Y Axis" scale type on the X-axis or Y-axis
+// branch rejects the edit outright (legacy's early `return` from the
+// enclosing UI handler), since static axes aren't editable.
+EditTarget resolve_edit_target(const SelectionRange& selection, MapDimensions dims, std::string_view x_scale_type);
+
 // One run of editable elements: a map's cells, or one axis's points. The
 // non-owning counterpart of calibration_service.h's ElementRun, for the write
 // side. string_view fields borrow from the EcuCalDefStructure lists the UI
