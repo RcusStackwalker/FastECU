@@ -21,7 +21,11 @@ std::uint64_t element_byte_address(const MapElementSpec& spec, std::uint32_t ind
 
     // Legacy applies two DIFFERENT wrx02 relocation predicates on the read and
     // write paths. Preserved verbatim and kept visibly side by side; the spec's
-    // defect (a) covers the divergence and 6b-4 reconciles them.
+    // defect (a) covers the divergence, deferred pending corpus evidence about
+    // which predicate real wrx02 ROMs actually need -- deliberately NOT
+    // reconciled by the 6b-4 fix wave (unlike the byte-order defects it does
+    // fix), since picking the wrong one here could target a different but
+    // still-plausible ROM address on a real device.
     if (spec.flash_method != "wrx02")
     {
         return address;

@@ -276,7 +276,10 @@ TEST(ElementByteAddress, Wrx02ReadAndWritePredicatesAgreeWhenNeitherRelocates)
 // the write predicate (180 KiB < 190 KiB and 0x28000 > 0x27FFF) but not the
 // read predicate (180 KiB == 0x2D000 > 0x28000, so rom_file_size is NOT less
 // than byte_address) -- the two paths disagree on whether to relocate the
-// same element. Ported verbatim; spec's defect (a). Task 6b-4 reconciles them.
+// same element. Ported verbatim; spec's defect (a), deliberately left
+// unreconciled pending corpus evidence about which predicate real wrx02
+// ROMs actually need -- the 6b-4 fix wave fixes the byte-order defects but
+// intentionally does not touch this one.
 TEST(ElementByteAddress, PinnedDefect_Wrx02FixupDiffersBetweenReadAndWrite)
 {
     MapElementSpec spec = spec_for(definition::StorageType::Uint8, "big", /*address=*/0x28000);
