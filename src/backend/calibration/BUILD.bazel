@@ -15,10 +15,19 @@ exports_files(
 )
 
 cc_library(
+    name = "scaling_internal",
+    srcs = ["scaling_internal.cpp"],
+    hdrs = ["scaling_internal.h"],
+    visibility = ["//src/backend/calibration:__pkg__"],
+    deps = ["//src/algorithms/protocol"],
+)
+
+cc_library(
     name = "calibration_service",
     srcs = ["calibration_service.cpp"],
     hdrs = ["calibration_service.h"],
     deps = [
+        ":scaling_internal",
         "//src/algorithms/expression",
         "//src/algorithms/protocol",
         "//src/backend/definition:definition_model",
@@ -33,6 +42,25 @@ fastecu_portable_gtest(
         ":calibration_service",
         "//src/backend/ports/testing:in_memory_file_repository",
     ],
+)
+
+cc_library(
+    name = "map_edit",
+    srcs = ["map_edit.cpp"],
+    hdrs = ["map_edit.h"],
+    deps = [
+        ":scaling_internal",
+        "//src/algorithms/expression",
+        "//src/algorithms/protocol",
+        "//src/backend/definition:definition_model",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "map_edit_test",
+    srcs = ["map_edit_test.cpp"],
+    deps = [":map_edit"],
 )
 
 # Qt-linked (EcuCalDefStructure/ConfigValuesStructure are Qt-typed). Explicit

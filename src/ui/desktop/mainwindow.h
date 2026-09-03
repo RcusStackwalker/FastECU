@@ -353,14 +353,8 @@ class MainWindow : public QMainWindow
     void toggle_realtime();
     void toggle_log_to_file();
     void set_maptablewidget_items();
-    QString get_rom_data_value(uint8_t map_rom_number, uint32_t map_data_address, uint16_t map_value_index,
-                               const QString& map_value_storagetype, const QString& map_value_endian);
-    void set_rom_data_value(uint8_t map_rom_number, uint32_t map_data_address, uint16_t map_value_index,
-                            const QString& map_value_storagetype, const QString& map_value_endian, float map_value);
     int get_mapvalue_decimal_count(const QString& valueFormat);
     int get_map_cell_colors(FileActions::EcuCalDefStructure *ecuCalDef, float mapDataValue, int mapIndex);
-    bool check_rom_data_value(const QString& storagetype, const QString& rom_data_value,
-                              const QString& new_rom_data_value);
     void show_preferences_window();
 
     void toggle_haltech_ic7_display();

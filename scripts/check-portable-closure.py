@@ -126,7 +126,7 @@ PORTABLE_ROOTS = {
         "definition_writer",
         "text_format",
     },
-    ROOT / "src/backend/calibration": {"calibration_service"},
+    ROOT / "src/backend/calibration": {"calibration_service", "map_edit"},
 }
 
 FORBIDDEN = (
