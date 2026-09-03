@@ -320,7 +320,7 @@ TEST(EncodeScaledValue, RoundTripsThroughReadRawElementForEveryWidth)
         spec.to_byte = "x";
         spec.from_byte = "x";
 
-        const auto encoded = encode_scaled_value(spec, double(c.raw), 15);
+        const auto encoded = encode_scaled_value(spec, double(c.raw), 15, /*legacy_byte_order=*/false);
         ASSERT_TRUE(encoded.has_value()) << to_string(encoded.error().kind);
 
         std::vector<std::uint8_t> rom(0x40, 0x00);
@@ -383,7 +383,7 @@ TEST(EncodeScaledValue, PinnedDefect_SignedMultiByteDoesNotRoundTripBecauseTheRe
         spec.to_byte = "x";
         spec.from_byte = "x";
 
-        const auto encoded = encode_scaled_value(spec, double(c.raw), 15);
+        const auto encoded = encode_scaled_value(spec, double(c.raw), 15, /*legacy_byte_order=*/false);
         ASSERT_TRUE(encoded.has_value()) << to_string(encoded.error().kind);
 
         std::vector<std::uint8_t> rom(0x40, 0x00);
@@ -425,7 +425,7 @@ TEST(EncodeScaledValue, PinnedDefect_WriteOrderDivergesFromLegacyBecauseLegacyIs
     spec.endian = "big";
     spec.to_byte = "x";
 
-    const auto encoded = encode_scaled_value(spec, 0x1234, 15);
+    const auto encoded = encode_scaled_value(spec, 0x1234, 15, /*legacy_byte_order=*/false);
     ASSERT_TRUE(encoded.has_value());
 
     const auto host_bytes = std::bit_cast<std::array<std::uint8_t, 4>>(std::uint32_t{0x1234});
@@ -441,6 +441,41 @@ TEST(EncodeScaledValue, PinnedDefect_WriteOrderDivergesFromLegacyBecauseLegacyIs
     const std::vector<std::uint8_t> expected_legacy{0x34, 0x12};
     EXPECT_EQ(*encoded, expected_encoded);
     EXPECT_EQ(legacy, expected_legacy);
+}
+
+// legacy_byte_order selects between the two measured write orders directly:
+// false reproduces the correct, label-matching order; true reproduces
+// legacy set_rom_data_value's order, which is inverted relative to its own
+// endian label (raw 0x1234 labeled "big" writes [0x34, 0x12] -- the same
+// measurement as PinnedDefect_WriteOrderDivergesFromLegacyBecauseLegacyIsAlsoByteSwapped
+// above, now asserted directly through the flag rather than reconstructed by
+// hand). Float storage is unaffected by the flag in either mode: floats are
+// always written big-endian-in-ROM.
+TEST(EncodeScaledValue, LegacyByteOrderFlagSelectsWriteOrder)
+{
+    MapElementSpec spec;
+    spec.storage_type = definition::StorageType::Uint16;
+    spec.endian = "big";
+    spec.to_byte = "x";
+
+    const auto correct_order = encode_scaled_value(spec, 0x1234, 15, /*legacy_byte_order=*/false);
+    ASSERT_TRUE(correct_order.has_value());
+    EXPECT_EQ(*correct_order, (std::vector<std::uint8_t>{0x12, 0x34}));
+
+    const auto legacy_order = encode_scaled_value(spec, 0x1234, 15, /*legacy_byte_order=*/true);
+    ASSERT_TRUE(legacy_order.has_value());
+    EXPECT_EQ(*legacy_order, (std::vector<std::uint8_t>{0x34, 0x12}));
+
+    MapElementSpec float_spec;
+    float_spec.storage_type = definition::StorageType::Float;
+    float_spec.endian = "big";
+    float_spec.to_byte = "x";
+
+    const auto float_correct = encode_scaled_value(float_spec, 1.5, 15, /*legacy_byte_order=*/false);
+    ASSERT_TRUE(float_correct.has_value());
+    const auto float_legacy = encode_scaled_value(float_spec, 1.5, 15, /*legacy_byte_order=*/true);
+    ASSERT_TRUE(float_legacy.has_value());
+    EXPECT_EQ(*float_correct, *float_legacy);
 }
 
 } // namespace

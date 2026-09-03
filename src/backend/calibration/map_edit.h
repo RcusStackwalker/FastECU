@@ -70,12 +70,23 @@ Result<std::int64_t> read_raw_element(bytes::ByteView rom_data, const MapElement
 // format_like_qt_g formatter decode_scaled_values uses, so the two cannot
 // drift on how a double becomes the string an expression sees.
 //
-// Writes the byte order spec.endian's label claims -- this is the inverse of
-// read_raw_element's *correct* half (the unsigned/float paths), not of its
-// signed-multi-byte defect; see PinnedDefect_SignedMultiByteDoesNotRoundTrip*
-// in map_edit_test.cpp for the resulting divergence on signed 16/32-bit
-// storage.
+// `legacy_byte_order` selects between two measured, DIFFERENT non-float
+// multi-byte write orders -- mirroring how element_byte_address carries both
+// wrx02 predicates behind `for_write` until the fix wave reconciles them:
+//   - false: writes the byte order spec.endian's label claims (matching
+//     decode_scaled_values, the correct decoder). This is the inverse of
+//     read_raw_element's *correct* half (the unsigned/float paths), not of
+//     its signed-multi-byte defect; see
+//     PinnedDefect_SignedMultiByteDoesNotRoundTrip* in map_edit_test.cpp for
+//     the resulting divergence on signed 16/32-bit storage.
+//   - true: reproduces legacy set_rom_data_value's write order, which is
+//     INVERTED relative to its own endian label (raw 0x1234 labeled "big"
+//     writes [0x34, 0x12]) -- see
+//     PinnedDefect_WriteOrderDivergesFromLegacyBecauseLegacyIsAlsoByteSwapped.
+// Float storage is unaffected by this flag in either mode: floats are always
+// written big-endian-in-ROM, matching decode_scaled_values and
+// read_raw_element's float handling.
 Result<std::vector<std::uint8_t>> encode_scaled_value(const MapElementSpec& spec, double display_value,
-                                                      int float_precision);
+                                                      int float_precision, bool legacy_byte_order);
 
 } // namespace fastecu::calibration

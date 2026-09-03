@@ -123,7 +123,7 @@ Result<std::int64_t> read_raw_element(bytes::ByteView rom_data, const MapElement
 }
 
 Result<std::vector<std::uint8_t>> encode_scaled_value(const MapElementSpec& spec, double display_value,
-                                                      int float_precision)
+                                                      int float_precision, bool legacy_byte_order)
 {
     const std::uint32_t width = definition::storage_byte_size(spec.storage_type);
     const bool is_float = spec.storage_type == definition::StorageType::Float;
@@ -142,7 +142,7 @@ Result<std::vector<std::uint8_t>> encode_scaled_value(const MapElementSpec& spec
     }
 
     std::vector<std::uint8_t> out(width, 0x00);
-    const bool little_endian = !is_float && spec.endian == "little";
+    const bool little_endian = !is_float && ((spec.endian == "little") != legacy_byte_order);
     for (std::uint32_t k = 0; k < width; ++k)
     {
         const std::uint32_t shift = little_endian ? (8U * k) : (8U * (width - 1U - k));
