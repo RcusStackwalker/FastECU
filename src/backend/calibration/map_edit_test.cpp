@@ -220,8 +220,8 @@ TEST(ReadRawElement, ReadsFloatAsBigEndianInRomRegardlessOfEndianField)
     const auto value = read_raw_element(rom, spec_for(definition::StorageType::Float, "little"), 0);
 
     ASSERT_TRUE(value.has_value());
-    EXPECT_EQ(static_cast<std::uint32_t>(*value), 0x3FC00000u);
-    EXPECT_EQ(std::bit_cast<float>(static_cast<std::uint32_t>(*value)), 1.5f);
+    EXPECT_EQ(static_cast<std::uint32_t>(*value), 0x3FC00000U);
+    EXPECT_EQ(std::bit_cast<float>(static_cast<std::uint32_t>(*value)), 1.5F);
 }
 
 TEST(ReadRawElement, ReadsAnUnsigned24BitValueCorrectly)
@@ -263,7 +263,7 @@ TEST(ElementByteAddress, Wrx02ReadAndWritePredicatesAgreeWhenNeitherRelocates)
     spec.rom_file_size = 0x40000; // 256 KiB: >= address, and >= the 190 KiB write threshold.
 
     EXPECT_EQ(element_byte_address(spec, 0, /*for_write=*/false), element_byte_address(spec, 0, /*for_write=*/true));
-    EXPECT_EQ(element_byte_address(spec, 0, /*for_write=*/false), 0x100u);
+    EXPECT_EQ(element_byte_address(spec, 0, /*for_write=*/false), 0x100U);
 }
 
 // get_rom_data_value (read) relocates when `rom_file_size < byte_address`.
@@ -277,7 +277,7 @@ TEST(ElementByteAddress, PinnedDefect_Wrx02FixupDiffersBetweenReadAndWrite)
 {
     MapElementSpec spec = spec_for(definition::StorageType::Uint8, "big", /*address=*/0x28000);
     spec.flash_method = "wrx02";
-    spec.rom_file_size = 180 * 1024;
+    spec.rom_file_size = std::uint64_t{180} * 1024;
 
     EXPECT_NE(element_byte_address(spec, 0, /*for_write=*/false), element_byte_address(spec, 0, /*for_write=*/true));
 }
