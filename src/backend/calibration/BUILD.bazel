@@ -44,6 +44,25 @@ fastecu_portable_gtest(
     ],
 )
 
+cc_library(
+    name = "map_edit",
+    srcs = ["map_edit.cpp"],
+    hdrs = ["map_edit.h"],
+    deps = [
+        ":scaling_internal",
+        "//src/algorithms/expression",
+        "//src/algorithms/protocol",
+        "//src/backend/definition:definition_model",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "map_edit_test",
+    srcs = ["map_edit_test.cpp"],
+    deps = [":map_edit"],
+)
+
 # Qt-linked (EcuCalDefStructure/ConfigValuesStructure are Qt-typed). Explicit
 # srcs so this neither collides with nor is swept into
 # //src/backend/definitions:definitions's glob.
